@@ -900,8 +900,20 @@ authority (§6 B, provision-time cover) and (ii) any Decision-D display query th
 > not AU21). The one genuinely-separate large piece the H2 re-derivation surfaced: the founder's full
 > **meta-orchestration of harness sessions** (resumable per-thread harness sessions + delta) does NOT exist in the
 > codebase today and is a SEPARATE follow-up WP — NOT required for AU21's boundary AC (which closes with
-> bake + delete-reads + B‴). Until the increments land, AC #2/#9 are unmet in code; every other AC in this table
-> is met.
+> bake + delete-reads + B‴).
+>
+> **CLOSED (2026-08-02, Increment 13).** All increments landed. `DEFERRED_FOLLOWUP` is genuinely empty — its
+> last pair, `dispatch::conversation`, needed no founder ALLOWLIST ruling at all: it is the same
+> detection-quirk false-positive class already fixed once for `tool-handlers::conversation` (a seam-satisfied
+> interface, Increment 9), here at per-GROUP granularity (`SEAM_GROUPS`, `generate-dependency-graph.ts`) since
+> `DispatchPorts` has other, non-seam-satisfied sibling groups — verified against `dispatch-bindings.ts`'s real
+> composition wiring, not asserted. The guard's bare `inspect(process.cwd())` check is a hard `npm run lint`
+> failure (already wired since Increment 9; confirmed still true), returns ZERO findings, and a new fixture
+> (Scenario 6) proves it still fires on a sibling non-excluded nested group even with the exclusion in place.
+> `generate-dependency-graph.ts` re-run, `plans/AU19/*` + `docs/architecture/runtime-simplification.md`
+> re-baselined to the bake-at-emit + agent-self-recovery + format-only-orchestration model. **AC #2 and AC #9
+> are both fully met.** Decision J (connections domain review) surfaced a genuine, separate follow-up —
+> scoped as **AU26**, not built here.
 
 | # | AC | Verification |
 |---|---|---|

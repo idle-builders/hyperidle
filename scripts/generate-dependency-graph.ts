@@ -109,6 +109,27 @@ const MANUAL_OVERRIDES: Record<string, string | readonly string[]> = {
  */
 const SEAM_INTERFACES: ReadonlySet<string> = new Set(["tool-handlers:ToolHandlersCoreApiAccessor"]);
 
+/**
+ * AU21 §9 Increment 13: the per-GROUP analogue of `SEAM_INTERFACES` — for a
+ * nested-composition-group interface (`resolveNestedGroupEdges` below) where
+ * only SOME groups are seam-satisfied, not the whole interface (unlike
+ * `ToolHandlersCoreApiAccessor`, every one of whose groups routes through the
+ * seam). `DispatchPorts.conversation` is the concrete case: verified in
+ * `dispatch-bindings.ts` (composition root) that `insertMessage` — its only
+ * live method — is satisfied EXCLUSIVELY via `seamPortForActor(...)
+ * .conversation.insertMessage(...)`, the same `CoreApiPort` seam call a real
+ * UI client would make ("agent-as-user", architecture.md §6 Decision A/C),
+ * never same-process DI. `DispatchPorts`'s sibling groups (`modelGateway`,
+ * `runOrchestration`, `toolHandlers`, `workspaceFactory`) are NOT
+ * seam-satisfied — they are ordinary/same-layer imports — so the whole
+ * interface cannot use `SEAM_INTERFACES`; only this one group is excluded,
+ * keyed `${svcName}:${interfaceName}:${groupName}` so any FUTURE group added
+ * to this (or another) nested-group interface is still caught by
+ * `resolveNestedGroupEdges` unless independently verified and added here.
+ * Keep this list source-verified, same bar as `SEAM_INTERFACES`.
+ */
+const SEAM_GROUPS: ReadonlySet<string> = new Set(["dispatch:DispatchPorts:conversation"]);
+
 export interface ServiceInfo {
 	name: string;
 	layer: "core-api" | "agent-orchestration" | "agent-execution";
@@ -554,6 +575,7 @@ function resolveNestedGroupEdges(
 		const groupName = member.name.getText(sf);
 		const provider = groupName.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
 		if (provider === svcName || !serviceNames.has(provider)) continue;
+		if (SEAM_GROUPS.has(`${svcName}:${node.name.text}:${groupName}`)) continue;
 		edges.push({
 			source: svcName,
 			target: provider,

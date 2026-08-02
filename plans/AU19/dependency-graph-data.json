@@ -99,12 +99,22 @@
       "surface": {
         "service": "conversation",
         "layer": "core-api",
-        "methods": 16,
-        "types": 8,
-        "total": 24
+        "methods": 17,
+        "types": 10,
+        "total": 27
       },
-      "exposedApiCount": 24,
+      "exposedApiCount": 26,
       "exposedApi": [
+        {
+          "name": "AssistantThreadPinReactionDeps",
+          "kind": "re-export",
+          "signature": "AssistantThreadPinReactionDeps"
+        },
+        {
+          "name": "registerAssistantThreadPinReaction",
+          "kind": "re-export",
+          "signature": "registerAssistantThreadPinReaction"
+        },
         {
           "name": "AssistantTurnResolverDeps",
           "kind": "re-export",
@@ -238,11 +248,11 @@
       "surface": {
         "service": "filesystems",
         "layer": "core-api",
-        "methods": 12,
-        "types": 9,
-        "total": 21
+        "methods": 13,
+        "types": 10,
+        "total": 23
       },
-      "exposedApiCount": 21,
+      "exposedApiCount": 23,
       "exposedApi": [
         {
           "name": "FilesystemReachabilityInput",
@@ -343,6 +353,16 @@
           "name": "FilesystemsServiceConnectionResolver",
           "kind": "re-export",
           "signature": "FilesystemsServiceConnectionResolver"
+        },
+        {
+          "name": "InjectedFilesystemForAgent",
+          "kind": "re-export",
+          "signature": "InjectedFilesystemForAgent"
+        },
+        {
+          "name": "resolveInjectedFilesystemsForAgent",
+          "kind": "re-export",
+          "signature": "resolveInjectedFilesystemsForAgent"
         },
         {
           "name": "SANDBOX_SCAFFOLDING_PATHS",
@@ -489,11 +509,11 @@
       "surface": {
         "service": "knowledge",
         "layer": "core-api",
-        "methods": 19,
-        "types": 14,
-        "total": 33
+        "methods": 20,
+        "types": 15,
+        "total": 35
       },
-      "exposedApiCount": 25,
+      "exposedApiCount": 27,
       "exposedApi": [
         {
           "name": "recomputeAttention",
@@ -614,6 +634,16 @@
           "name": "recomputeRelevance",
           "kind": "re-export",
           "signature": "recomputeRelevance"
+        },
+        {
+          "name": "SessionKnowledgeInput",
+          "kind": "re-export",
+          "signature": "SessionKnowledgeInput"
+        },
+        {
+          "name": "assembleSessionKnowledge",
+          "kind": "re-export",
+          "signature": "assembleSessionKnowledge"
         },
         {
           "name": "KnowledgeScope",
@@ -1167,11 +1197,11 @@
       "surface": {
         "service": "routine",
         "layer": "core-api",
-        "methods": 20,
+        "methods": 21,
         "types": 14,
-        "total": 34
+        "total": 35
       },
-      "exposedApiCount": 34,
+      "exposedApiCount": 35,
       "exposedApi": [
         {
           "name": "AgentDelegationDeps",
@@ -1237,6 +1267,11 @@
           "name": "isBuiltinRoutineId",
           "kind": "re-export",
           "signature": "isBuiltinRoutineId"
+        },
+        {
+          "name": "provisionTeamRoutines",
+          "kind": "re-export",
+          "signature": "provisionTeamRoutines"
         },
         {
           "name": "registerBuiltinRoutineHandlers",
@@ -1598,11 +1633,11 @@
       "surface": {
         "service": "work",
         "layer": "core-api",
-        "methods": 26,
-        "types": 28,
-        "total": 54
+        "methods": 17,
+        "types": 23,
+        "total": 40
       },
-      "exposedApiCount": 55,
+      "exposedApiCount": 47,
       "exposedApi": [
         {
           "name": "ArtifactRow",
@@ -1623,46 +1658,6 @@
           "name": "CreateArtifactInput",
           "kind": "re-export",
           "signature": "CreateArtifactInput"
-        },
-        {
-          "name": "BakedBetDecompositionRequest",
-          "kind": "re-export",
-          "signature": "BakedBetDecompositionRequest"
-        },
-        {
-          "name": "BetDecompositionDeps",
-          "kind": "re-export",
-          "signature": "BetDecompositionDeps"
-        },
-        {
-          "name": "BetDecompositionResolverDeps",
-          "kind": "re-export",
-          "signature": "BetDecompositionResolverDeps"
-        },
-        {
-          "name": "BetDecompositionSourceUnavailableError",
-          "kind": "re-export",
-          "signature": "BetDecompositionSourceUnavailableError"
-        },
-        {
-          "name": "markTerminal",
-          "kind": "re-export",
-          "signature": "markTerminal"
-        },
-        {
-          "name": "registerBetDecomposition",
-          "kind": "re-export",
-          "signature": "registerBetDecomposition"
-        },
-        {
-          "name": "resolveBetDecompositionRequest",
-          "kind": "re-export",
-          "signature": "resolveBetDecompositionRequest"
-        },
-        {
-          "name": "resolveOrphanedDecompositions",
-          "kind": "re-export",
-          "signature": "resolveOrphanedDecompositions"
         },
         {
           "name": "cascadeBetKill",
@@ -1939,10 +1934,10 @@
         "service": "dispatch",
         "layer": "agent-orchestration",
         "methods": 1,
-        "types": 4,
-        "total": 5
+        "types": 3,
+        "total": 4
       },
-      "exposedApiCount": 5,
+      "exposedApiCount": 4,
       "exposedApi": [
         {
           "name": "DispatchPorts",
@@ -1960,11 +1955,6 @@
           "signature": "DispatchOps"
         },
         {
-          "name": "DispatchQueueSnapshot",
-          "kind": "re-export",
-          "signature": "DispatchQueueSnapshot"
-        },
-        {
           "name": "createDispatchOps",
           "kind": "re-export",
           "signature": "createDispatchOps"
@@ -1979,10 +1969,10 @@
         "service": "run-orchestration",
         "layer": "agent-orchestration",
         "methods": 13,
-        "types": 17,
-        "total": 30
+        "types": 16,
+        "total": 29
       },
-      "exposedApiCount": 24,
+      "exposedApiCount": 23,
       "exposedApi": [
         {
           "name": "isAgentAtCapacity",
@@ -2080,11 +2070,6 @@
           "signature": "FilesystemForProvisioning"
         },
         {
-          "name": "FilesystemsProvisioningReader",
-          "kind": "re-export",
-          "signature": "FilesystemsProvisioningReader"
-        },
-        {
           "name": "mountFilesystemsForAgent",
           "kind": "re-export",
           "signature": "mountFilesystemsForAgent"
@@ -2119,11 +2104,11 @@
       "surface": {
         "service": "session-requests",
         "layer": "agent-orchestration",
-        "methods": 15,
-        "types": 8,
-        "total": 23
+        "methods": 16,
+        "types": 10,
+        "total": 26
       },
-      "exposedApiCount": 23,
+      "exposedApiCount": 24,
       "exposedApi": [
         {
           "name": "AgentLifecycleFact",
@@ -2184,6 +2169,11 @@
           "name": "findSessionRequest",
           "kind": "re-export",
           "signature": "findSessionRequest"
+        },
+        {
+          "name": "listPendingIntentsByKind",
+          "kind": "re-export",
+          "signature": "listPendingIntentsByKind"
         },
         {
           "name": "listSessionRequests",
@@ -2658,20 +2648,28 @@
       "target": "users",
       "portInterface": "ReviewPorts",
       "methods": [
-        "requireRunnableAgent"
+        "requireRunnableAgent",
+        "getBetById",
+        "getTeamById",
+        "assembleSessionKnowledge",
+        "readServerConfig",
+        "resolveInjectedFilesystemsForAgent"
       ],
-      "confidence": "high",
-      "resolutionNote": "All 1 method name(s) matched real exports of users."
+      "confidence": "medium",
+      "resolutionNote": "1/6 method name(s) matched real exports of users; remaining method(s) unmatched or ambiguous."
     },
     {
       "source": "routine",
       "target": "users",
       "portInterface": "RoutineSchedulerPorts",
       "methods": [
-        "requireRunnableAgent"
+        "requireRunnableAgent",
+        "getTeamById",
+        "assembleSessionKnowledge",
+        "resolveInjectedFilesystemsForAgent"
       ],
-      "confidence": "high",
-      "resolutionNote": "All 1 method name(s) matched real exports of users."
+      "confidence": "medium",
+      "resolutionNote": "1/4 method name(s) matched real exports of users; remaining method(s) unmatched or ambiguous."
     },
     {
       "source": "settings",
@@ -2710,11 +2708,10 @@
       "portInterface": "UserStoreReader",
       "methods": [
         "getUserById",
-        "listActiveAiUsersByTeams",
-        "listUsersByTeam"
+        "listActiveAiUsersByTeams"
       ],
       "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// users — ...\", line 117) — method names are generic aliases wired at the composition root, not a literal name match."
+      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// users — ...\", line 112) — method names are generic aliases wired at the composition root, not a literal name match."
     },
     {
       "source": "work",
@@ -2725,7 +2722,7 @@
         "setActiveBets"
       ],
       "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// org — ...\", line 159) — method names are generic aliases wired at the composition root, not a literal name match."
+      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// org — ...\", line 141) — method names are generic aliases wired at the composition root, not a literal name match."
     },
     {
       "source": "cost",
@@ -2779,61 +2776,6 @@
     },
     {
       "source": "dispatch",
-      "target": "work",
-      "portInterface": "DispatchPorts.work",
-      "methods": [
-        "getTaskById",
-        "listTasks"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the nested composition-group name (\"work\" -> \"work\") — a per-domain sub-port, not a flat method interface."
-    },
-    {
-      "source": "dispatch",
-      "target": "routine",
-      "portInterface": "DispatchPorts.routine",
-      "methods": [
-        "insertRoutine"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the nested composition-group name (\"routine\" -> \"routine\") — a per-domain sub-port, not a flat method interface."
-    },
-    {
-      "source": "dispatch",
-      "target": "conversation",
-      "portInterface": "DispatchPorts.conversation",
-      "methods": [
-        "getThreadById",
-        "insertMessage",
-        "listMessagesByThread",
-        "updateThread"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the nested composition-group name (\"conversation\" -> \"conversation\") — a per-domain sub-port, not a flat method interface."
-    },
-    {
-      "source": "dispatch",
-      "target": "users",
-      "portInterface": "DispatchPorts.users",
-      "methods": [
-        "getOrCreateUser",
-        "getUserById"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the nested composition-group name (\"users\" -> \"users\") — a per-domain sub-port, not a flat method interface."
-    },
-    {
-      "source": "dispatch",
-      "target": "settings",
-      "portInterface": "DispatchPorts.settings",
-      "methods": [
-        "readServerConfig"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the nested composition-group name (\"settings\" -> \"settings\") — a per-domain sub-port, not a flat method interface."
-    },
-    {
-      "source": "dispatch",
       "target": "model-gateway",
       "portInterface": "DispatchPorts.modelGateway",
       "methods": [
@@ -2872,16 +2814,6 @@
       ],
       "confidence": "high",
       "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
-    },
-    {
-      "source": "tool-handlers",
-      "target": "dispatch",
-      "portInterface": "ToolHandlersDispatchAccessor",
-      "methods": [
-        "provisionTeamRoutines"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     }
   ],
   "eventEdges": [
@@ -2897,11 +2829,6 @@
     },
     {
       "source": "policy",
-      "target": "dispatch",
-      "eventType": "task_state_changed"
-    },
-    {
-      "source": "policy",
       "target": "(core-api composition root)",
       "eventType": "task_state_changed"
     },
@@ -2912,37 +2839,12 @@
     },
     {
       "source": "work",
-      "target": "dispatch",
-      "eventType": "task_state_changed"
-    },
-    {
-      "source": "work",
-      "target": "(core-api composition root)",
-      "eventType": "task_state_changed"
-    },
-    {
-      "source": "run-orchestration",
-      "target": "policy",
-      "eventType": "task_state_changed"
-    },
-    {
-      "source": "run-orchestration",
-      "target": "dispatch",
-      "eventType": "task_state_changed"
-    },
-    {
-      "source": "run-orchestration",
       "target": "(core-api composition root)",
       "eventType": "task_state_changed"
     },
     {
       "source": "policy",
       "target": "routine",
-      "eventType": "bet_state_changed"
-    },
-    {
-      "source": "policy",
-      "target": "work",
       "eventType": "bet_state_changed"
     },
     {
@@ -3008,11 +2910,6 @@
     {
       "source": "run-orchestration",
       "target": "cost",
-      "eventType": "session_ended"
-    },
-    {
-      "source": "run-orchestration",
-      "target": "dispatch",
       "eventType": "session_ended"
     },
     {
@@ -3097,18 +2994,6 @@
     {
       "consumer": "dispatch",
       "consumerLayer": "agent-orchestration",
-      "provider": "conversation",
-      "providerLayer": "core-api",
-      "methods": [
-        "findThread",
-        "listMessages"
-      ],
-      "viaType": "DispatchPorts",
-      "file": "packages/core-api/src/services/dispatch-bindings.ts"
-    },
-    {
-      "consumer": "dispatch",
-      "consumerLayer": "agent-orchestration",
       "provider": "harness-registry",
       "providerLayer": "agent-execution",
       "methods": [
@@ -3124,52 +3009,6 @@
       "providerLayer": "core-api",
       "methods": [
         "resolveModel"
-      ],
-      "viaType": "DispatchPorts",
-      "file": "packages/core-api/src/services/dispatch-bindings.ts"
-    },
-    {
-      "consumer": "dispatch",
-      "consumerLayer": "agent-orchestration",
-      "provider": "routine",
-      "providerLayer": "core-api",
-      "methods": [
-        "insertRoutine"
-      ],
-      "viaType": "DispatchPorts",
-      "file": "packages/core-api/src/services/dispatch-bindings.ts"
-    },
-    {
-      "consumer": "dispatch",
-      "consumerLayer": "agent-orchestration",
-      "provider": "settings",
-      "providerLayer": "core-api",
-      "methods": [
-        "readServerConfig"
-      ],
-      "viaType": "DispatchPorts",
-      "file": "packages/core-api/src/services/dispatch-bindings.ts"
-    },
-    {
-      "consumer": "dispatch",
-      "consumerLayer": "agent-orchestration",
-      "provider": "users",
-      "providerLayer": "core-api",
-      "methods": [
-        "findUser",
-        "getOrCreateUser"
-      ],
-      "viaType": "DispatchPorts",
-      "file": "packages/core-api/src/services/dispatch-bindings.ts"
-    },
-    {
-      "consumer": "dispatch",
-      "consumerLayer": "agent-orchestration",
-      "provider": "work",
-      "providerLayer": "core-api",
-      "methods": [
-        "get",
-        "list"
       ],
       "viaType": "DispatchPorts",
       "file": "packages/core-api/src/services/dispatch-bindings.ts"
@@ -3214,214 +3053,6 @@
       "file": "packages/core-api/src/services/run-orchestration-composition.ts"
     },
     {
-      "consumer": "run-orchestration",
-      "consumerLayer": "agent-orchestration",
-      "provider": "knowledge",
-      "providerLayer": "core-api",
-      "methods": [
-        "list",
-        "rank"
-      ],
-      "viaType": "RunOptions",
-      "file": "packages/core-api/src/services/run-orchestration-composition.ts"
-    },
-    {
-      "consumer": "run-orchestration",
-      "consumerLayer": "agent-orchestration",
-      "provider": "knowledge",
-      "providerLayer": "core-api",
-      "methods": [
-        "list",
-        "rank"
-      ],
-      "viaType": "RunTransitionSpec",
-      "file": "packages/core-api/src/services/run-orchestration-composition.ts"
-    },
-    {
-      "consumer": "run-orchestration",
-      "consumerLayer": "agent-orchestration",
-      "provider": "knowledge",
-      "providerLayer": "core-api",
-      "methods": [
-        "list",
-        "rank"
-      ],
-      "viaType": "RuntimeDeps",
-      "file": "packages/core-api/src/services/run-orchestration-composition.ts"
-    },
-    {
-      "consumer": "run-orchestration",
-      "consumerLayer": "agent-orchestration",
-      "provider": "org",
-      "providerLayer": "core-api",
-      "methods": [
-        "getTeam"
-      ],
-      "viaType": "RunOptions",
-      "file": "packages/core-api/src/services/run-orchestration-composition.ts"
-    },
-    {
-      "consumer": "run-orchestration",
-      "consumerLayer": "agent-orchestration",
-      "provider": "org",
-      "providerLayer": "core-api",
-      "methods": [
-        "getTeam"
-      ],
-      "viaType": "RunTransitionSpec",
-      "file": "packages/core-api/src/services/run-orchestration-composition.ts"
-    },
-    {
-      "consumer": "run-orchestration",
-      "consumerLayer": "agent-orchestration",
-      "provider": "org",
-      "providerLayer": "core-api",
-      "methods": [
-        "getTeam"
-      ],
-      "viaType": "RuntimeDeps",
-      "file": "packages/core-api/src/services/run-orchestration-composition.ts"
-    },
-    {
-      "consumer": "run-orchestration",
-      "consumerLayer": "agent-orchestration",
-      "provider": "routine",
-      "providerLayer": "core-api",
-      "methods": [
-        "getRoutine"
-      ],
-      "viaType": "RunOptions",
-      "file": "packages/core-api/src/services/run-orchestration-composition.ts"
-    },
-    {
-      "consumer": "run-orchestration",
-      "consumerLayer": "agent-orchestration",
-      "provider": "routine",
-      "providerLayer": "core-api",
-      "methods": [
-        "getRoutine"
-      ],
-      "viaType": "RunTransitionSpec",
-      "file": "packages/core-api/src/services/run-orchestration-composition.ts"
-    },
-    {
-      "consumer": "run-orchestration",
-      "consumerLayer": "agent-orchestration",
-      "provider": "routine",
-      "providerLayer": "core-api",
-      "methods": [
-        "getRoutine"
-      ],
-      "viaType": "RuntimeDeps",
-      "file": "packages/core-api/src/services/run-orchestration-composition.ts"
-    },
-    {
-      "consumer": "run-orchestration",
-      "consumerLayer": "agent-orchestration",
-      "provider": "settings",
-      "providerLayer": "core-api",
-      "methods": [
-        "readServerConfig"
-      ],
-      "viaType": "RunOptions",
-      "file": "packages/core-api/src/services/run-orchestration-composition.ts"
-    },
-    {
-      "consumer": "run-orchestration",
-      "consumerLayer": "agent-orchestration",
-      "provider": "settings",
-      "providerLayer": "core-api",
-      "methods": [
-        "readServerConfig"
-      ],
-      "viaType": "RunTransitionSpec",
-      "file": "packages/core-api/src/services/run-orchestration-composition.ts"
-    },
-    {
-      "consumer": "run-orchestration",
-      "consumerLayer": "agent-orchestration",
-      "provider": "users",
-      "providerLayer": "core-api",
-      "methods": [
-        "findUser",
-        "requireRunnableAgent"
-      ],
-      "viaType": "RunOptions",
-      "file": "packages/core-api/src/services/run-orchestration-composition.ts"
-    },
-    {
-      "consumer": "run-orchestration",
-      "consumerLayer": "agent-orchestration",
-      "provider": "users",
-      "providerLayer": "core-api",
-      "methods": [
-        "findUser",
-        "requireRunnableAgent"
-      ],
-      "viaType": "RunTransitionSpec",
-      "file": "packages/core-api/src/services/run-orchestration-composition.ts"
-    },
-    {
-      "consumer": "run-orchestration",
-      "consumerLayer": "agent-orchestration",
-      "provider": "users",
-      "providerLayer": "core-api",
-      "methods": [
-        "findUser"
-      ],
-      "viaType": "RuntimeDeps",
-      "file": "packages/core-api/src/services/run-orchestration-composition.ts"
-    },
-    {
-      "consumer": "run-orchestration",
-      "consumerLayer": "agent-orchestration",
-      "provider": "work",
-      "providerLayer": "core-api",
-      "methods": [
-        "get",
-        "transitionTask",
-        "update"
-      ],
-      "viaType": "RunOptions",
-      "file": "packages/core-api/src/services/run-orchestration-composition.ts"
-    },
-    {
-      "consumer": "run-orchestration",
-      "consumerLayer": "agent-orchestration",
-      "provider": "work",
-      "providerLayer": "core-api",
-      "methods": [
-        "get",
-        "transitionTask",
-        "update"
-      ],
-      "viaType": "RunTransitionSpec",
-      "file": "packages/core-api/src/services/run-orchestration-composition.ts"
-    },
-    {
-      "consumer": "run-orchestration",
-      "consumerLayer": "agent-orchestration",
-      "provider": "work",
-      "providerLayer": "core-api",
-      "methods": [
-        "get"
-      ],
-      "viaType": "RuntimeDeps",
-      "file": "packages/core-api/src/services/run-orchestration-composition.ts"
-    },
-    {
-      "consumer": "session-requests",
-      "consumerLayer": "agent-orchestration",
-      "provider": "work",
-      "providerLayer": "core-api",
-      "methods": [
-        "taskDispatchAttemptStore",
-        "transition"
-      ],
-      "viaType": "DurableAgentQueueDeps",
-      "file": "packages/core-api/src/services/durable-agent-queue.ts"
-    },
-    {
       "consumer": "tool-handlers",
       "consumerLayer": "agent-orchestration",
       "provider": "work",
@@ -3435,17 +3066,17 @@
   ],
   "summary": {
     "totalServices": 22,
-    "totalPortEdges": 43,
-    "highConfidence": 43,
-    "mediumConfidence": 0,
+    "totalPortEdges": 37,
+    "highConfidence": 35,
+    "mediumConfidence": 2,
     "unresolved": 0,
-    "totalEventEdges": 31,
-    "totalHiddenCompositionEdges": 33,
-    "hiddenAgentOrchToCoreApi": 29,
+    "totalEventEdges": 24,
+    "totalHiddenCompositionEdges": 10,
+    "hiddenAgentOrchToCoreApi": 6,
     "surface": {
-      "methods": 262,
-      "types": 203,
-      "total": 465
+      "methods": 258,
+      "types": 202,
+      "total": 460
     }
   }
 }

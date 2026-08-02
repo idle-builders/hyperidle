@@ -627,10 +627,10 @@
     // GENERATED:SERVICE_DATA:START
     services: [
       {"id":"connections","label":"connections","layer":"core-api","sql":true,"desc":"12 methods / 1 types. Owns serverCredentials, serviceConnections.","calls":[]},
-      {"id":"conversation","label":"conversation","layer":"core-api","sql":true,"desc":"16 methods / 8 types. Owns threads, messages.","calls":[]},
-      {"id":"filesystems","label":"filesystems","layer":"core-api","sql":true,"desc":"12 methods / 9 types. Owns filesystems, filesystemInjections, filesystemCaptures.","calls":["git-export","connections"]},
+      {"id":"conversation","label":"conversation","layer":"core-api","sql":true,"desc":"17 methods / 10 types. Owns threads, messages.","calls":[]},
+      {"id":"filesystems","label":"filesystems","layer":"core-api","sql":true,"desc":"13 methods / 10 types. Owns filesystems, filesystemInjections, filesystemCaptures.","calls":["git-export","connections"]},
       {"id":"git-export","label":"git-export","layer":"core-api","sql":false,"desc":"21 methods / 16 types. Owns no tables.","calls":["settings","knowledge"]},
-      {"id":"knowledge","label":"knowledge","layer":"core-api","sql":true,"desc":"19 methods / 14 types. Owns knowledgeItems, knowledgeEditLog, knowledgeAccessLog, knowledgeConflicts, knowledgeAppProjection.","calls":[]},
+      {"id":"knowledge","label":"knowledge","layer":"core-api","sql":true,"desc":"20 methods / 15 types. Owns knowledgeItems, knowledgeEditLog, knowledgeAccessLog, knowledgeConflicts, knowledgeAppProjection.","calls":[]},
       {"id":"model-gateway","label":"model-gateway","layer":"core-api","sql":false,"desc":"2 methods / 2 types. Owns no tables.","calls":["connections"]},
       {"id":"notifications","label":"notifications","layer":"core-api","sql":true,"desc":"17 methods / 11 types. Owns notificationQueue.","calls":["settings","users","org","work","connections","connections"]},
       {"id":"observability","label":"observability","layer":"core-api","sql":false,"desc":"7 methods / 13 types. Owns no tables.","calls":[]},
@@ -638,15 +638,15 @@
       {"id":"policy","label":"policy","layer":"core-api","sql":false,"desc":"3 methods / 6 types. Owns no tables.","calls":["work","conversation","users","org","notifications","session-requests"]},
       {"id":"realtime","label":"realtime","layer":"core-api","sql":false,"desc":"2 methods / 3 types. Owns no tables.","calls":["conversation","users","org","work"]},
       {"id":"review","label":"review","layer":"core-api","sql":true,"desc":"10 methods / 9 types. Owns proposedCalls, operationOutcomes, tailoredGrants.","calls":["users"]},
-      {"id":"routine","label":"routine","layer":"core-api","sql":true,"desc":"20 methods / 14 types. Owns routines, routineRuns.","calls":["users"]},
+      {"id":"routine","label":"routine","layer":"core-api","sql":true,"desc":"21 methods / 14 types. Owns routines, routineRuns.","calls":["users"]},
       {"id":"settings","label":"settings","layer":"core-api","sql":true,"desc":"8 methods / 8 types. Owns serverConfig, plugins, pluginConfigurationDefaults, configurationOverrides.","calls":["routine","users","connections"]},
       {"id":"users","label":"users","layer":"core-api","sql":true,"desc":"19 methods / 5 types. Owns users, loginSessions, inviteCodes, hintProgress.","calls":[]},
-      {"id":"work","label":"work","layer":"core-api","sql":true,"desc":"26 methods / 28 types. Owns bets, tasks, items, artifacts, taskPlanningSignals.","calls":["users","org"]},
+      {"id":"work","label":"work","layer":"core-api","sql":true,"desc":"17 methods / 23 types. Owns bets, tasks, items, artifacts, taskPlanningSignals.","calls":["users","org"]},
       {"id":"cost","label":"cost","layer":"agent-orchestration","sql":false,"desc":"1 methods / 6 types. Owns no tables.","calls":["users","org","work","settings"]},
-      {"id":"dispatch","label":"dispatch","layer":"agent-orchestration","sql":false,"desc":"1 methods / 4 types. Owns no tables.","calls":["work","routine","conversation","users","settings","model-gateway","run-orchestration","tool-handlers"]},
-      {"id":"run-orchestration","label":"run-orchestration","layer":"agent-orchestration","sql":false,"desc":"13 methods / 17 types. Owns no tables.","calls":[]},
-      {"id":"session-requests","label":"session-requests","layer":"agent-orchestration","sql":true,"desc":"15 methods / 8 types. Owns triggerResolutionHistory, agentWorkIntents, agentSessionRequests, explicitSessionStarts, agentLifecycleInbox.","calls":[]},
-      {"id":"tool-handlers","label":"tool-handlers","layer":"agent-orchestration","sql":false,"desc":"2 methods / 1 types. Owns no tables.","calls":["work","dispatch"]},
+      {"id":"dispatch","label":"dispatch","layer":"agent-orchestration","sql":false,"desc":"1 methods / 3 types. Owns no tables.","calls":["model-gateway","run-orchestration","tool-handlers"]},
+      {"id":"run-orchestration","label":"run-orchestration","layer":"agent-orchestration","sql":false,"desc":"13 methods / 16 types. Owns no tables.","calls":[]},
+      {"id":"session-requests","label":"session-requests","layer":"agent-orchestration","sql":true,"desc":"16 methods / 10 types. Owns triggerResolutionHistory, agentWorkIntents, agentSessionRequests, explicitSessionStarts, agentLifecycleInbox.","calls":[]},
+      {"id":"tool-handlers","label":"tool-handlers","layer":"agent-orchestration","sql":false,"desc":"2 methods / 1 types. Owns no tables.","calls":["work"]},
       {"id":"harness-registry","label":"harness-registry","layer":"agent-execution","sql":false,"desc":"22 methods / 13 types. Owns no tables.","calls":[]},
     ],
     // GENERATED:SERVICE_DATA:END
@@ -802,12 +802,12 @@
   // GENERATED:TREES:START
   const TREES = {
     asis: {
-      core: `<span class="dir">connections/</span>  12m / 1t\n<span class="dir">conversation/</span>  16m / 8t\n<span class="dir">filesystems/</span>  12m / 9t\n<span class="dir">git-export/</span>  21m / 16t\n<span class="dir">knowledge/</span>  19m / 14t\n<span class="dir">model-gateway/</span>  2m / 2t\n<span class="dir">notifications/</span>  17m / 11t\n<span class="dir">observability/</span>  7m / 13t\n<span class="dir">org/</span>  14m / 7t\n<span class="dir">policy/</span>  3m / 6t\n<span class="dir">realtime/</span>  2m / 3t\n<span class="dir">review/</span>  10m / 9t\n<span class="dir">routine/</span>  20m / 14t\n<span class="dir">settings/</span>  8m / 8t\n<span class="dir">users/</span>  19m / 5t\n<span class="dir">work/</span>  26m / 28t`,
-      agent: `<span class="dir">cost/</span>  1m / 6t\n<span class="dir">dispatch/</span>  1m / 4t\n<span class="dir">run-orchestration/</span>  13m / 17t\n<span class="dir">session-requests/</span>  15m / 8t\n<span class="dir">tool-handlers/</span>  2m / 1t\n<span class="dir">harness-registry/</span>  22m / 13t`,
+      core: `<span class="dir">connections/</span>  12m / 1t\n<span class="dir">conversation/</span>  17m / 10t\n<span class="dir">filesystems/</span>  13m / 10t\n<span class="dir">git-export/</span>  21m / 16t\n<span class="dir">knowledge/</span>  20m / 15t\n<span class="dir">model-gateway/</span>  2m / 2t\n<span class="dir">notifications/</span>  17m / 11t\n<span class="dir">observability/</span>  7m / 13t\n<span class="dir">org/</span>  14m / 7t\n<span class="dir">policy/</span>  3m / 6t\n<span class="dir">realtime/</span>  2m / 3t\n<span class="dir">review/</span>  10m / 9t\n<span class="dir">routine/</span>  21m / 14t\n<span class="dir">settings/</span>  8m / 8t\n<span class="dir">users/</span>  19m / 5t\n<span class="dir">work/</span>  17m / 23t`,
+      agent: `<span class="dir">cost/</span>  1m / 6t\n<span class="dir">dispatch/</span>  1m / 3t\n<span class="dir">run-orchestration/</span>  13m / 16t\n<span class="dir">session-requests/</span>  16m / 10t\n<span class="dir">tool-handlers/</span>  2m / 1t\n<span class="dir">harness-registry/</span>  22m / 13t`,
     },
     should: {
-      core: `<span class="dir">connections/</span>  12m / 1t\n<span class="dir">conversation/</span>  16m / 8t\n<span class="dir">filesystems/</span>  12m / 9t\n<span class="dir">git-export/</span>  21m / 16t\n<span class="dir">knowledge/</span>  19m / 14t\n<span class="dir">model-gateway/</span>  2m / 2t\n<span class="dir">notifications/</span>  17m / 11t\n<span class="dir">observability/</span>  7m / 13t\n<span class="dir">org/</span>  14m / 7t\n<span class="dir">policy/</span>  3m / 6t\n<span class="dir">realtime/</span>  2m / 3t\n<span class="dir">review/</span>  10m / 9t\n<span class="dir">routine/</span>  20m / 14t\n<span class="dir">settings/</span>  8m / 8t\n<span class="dir">users/</span>  19m / 5t\n<span class="dir">work/</span>  26m / 28t`,
-      agent: `<span class="dir">cost/</span>  1m / 6t\n<span class="dir">dispatch/</span>  1m / 4t\n<span class="dir">run-orchestration/</span>  13m / 17t\n<span class="dir">session-requests/</span>  15m / 8t\n<span class="dir">tool-handlers/</span>  2m / 1t\n<span class="dir">harness-registry/</span>  22m / 13t`,
+      core: `<span class="dir">connections/</span>  12m / 1t\n<span class="dir">conversation/</span>  17m / 10t\n<span class="dir">filesystems/</span>  13m / 10t\n<span class="dir">git-export/</span>  21m / 16t\n<span class="dir">knowledge/</span>  20m / 15t\n<span class="dir">model-gateway/</span>  2m / 2t\n<span class="dir">notifications/</span>  17m / 11t\n<span class="dir">observability/</span>  7m / 13t\n<span class="dir">org/</span>  14m / 7t\n<span class="dir">policy/</span>  3m / 6t\n<span class="dir">realtime/</span>  2m / 3t\n<span class="dir">review/</span>  10m / 9t\n<span class="dir">routine/</span>  21m / 14t\n<span class="dir">settings/</span>  8m / 8t\n<span class="dir">users/</span>  19m / 5t\n<span class="dir">work/</span>  17m / 23t`,
+      agent: `<span class="dir">cost/</span>  1m / 6t\n<span class="dir">dispatch/</span>  1m / 3t\n<span class="dir">run-orchestration/</span>  13m / 16t\n<span class="dir">session-requests/</span>  16m / 10t\n<span class="dir">tool-handlers/</span>  2m / 1t\n<span class="dir">harness-registry/</span>  22m / 13t`,
     },
   };
   // GENERATED:TREES:END

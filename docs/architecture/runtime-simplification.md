@@ -38,12 +38,21 @@ into four:
   and *when* an agent run happens, and prepares/consumes everything a run needs *before/after*
   handing off to execution; never touches an LLM CLI, harness adapter, or MCP server directly.
   Always colocated with `core-api` in the same process today (every Application that composes one
-  composes both). **Flagged 2026-07-17, AU21 redirect (see `.pipeline/work/AU21/requirements.md`):**
-  the "so its Service calls stay in-process" conclusion is reopened — the founder's direction is that
-  this boundary needs a location-transparent seam (modeled on the `HarnessPort` seam already proven
-  for `agent-orchestration → agent-execution`), not an assumption that colocation makes ad hoc DI
-  safe. This sentence is stale until AU21's `/architecture` phase resolves the seam's actual shape;
-  do not treat it as still-settled ground truth in the meantime.
+  composes both). **Resolved by AU21 (`.pipeline/work/AU21/architecture.md`): bake-at-emit +
+  agent-self-recovery + format-only orchestration.** `core-api` resolves and BAKES everything a run
+  needs onto the emitted request at emit time (the target agent, its full config, the assembled
+  session context/knowledge, the transcript where relevant) — `agent-orchestration` never reads core
+  domain state back to build a session, not through a location-transparent seam, not through
+  colocated DI, not at all. It claims the baked request, formats it into harness input, and dispatches
+  — a pure transformation, zero core-api reads or writes. If the agent needs live detail beyond what
+  was baked, it recovers it itself, live, via its OWN `CoreApiPort` MCP tools during the run — exactly
+  the same seam a human UI client uses, "agent-as-user" (Decision A/C). Failures report back via
+  explicit domain events (`AgentRunAdmissionFailedEvent`, session lifecycle events) that core-api
+  subscribes to and reacts to; `agent-orchestration` is a blind, purely request-driven executor — it
+  holds no mechanism, live or pushed, to learn about a core-side state change it did not itself
+  request (Decision H/§12: the emit→deactivate→drain race needs no re-check and no push, because if
+  an agent is deactivated core simply never sends it a new request). Mechanically enforced by
+  `scripts/composition-edge-anti-regrowth-guard.ts`, wired into `npm run lint` as a hard failure.
 - `agent-execution` — harness adapters, MCP, tool execution. **The only Layer permitted to invoke an
   LLM CLI, harness adapter, or MCP server — and the only Layer with zero Service/table access of any
   kind, including `knowledge`.** (Founder correction, 2026-07-13: the original draft gave

@@ -174,22 +174,26 @@
  *    specifically; the same risk generalizes to run-orchestration's larger
  *    context-assembly cluster.
  *
- * **Net, honest result (post AU21 §9 Increment 12, third pass):**
+ * **Net, honest result (post AU21 §9 Increment 13 — FINAL):**
  * `inspect(process.cwd())` returns ZERO findings on this tree (verify: `npx
- * tsx scripts/composition-edge-anti-regrowth-guard.ts`), and the bare check IS
- * wired into `npm run lint` — but `ALLOWLIST` now holds ONLY founder-signed
- * rows, and `DEFERRED_FOLLOWUP` honestly carries exactly 1 real open pair
- * (down from 9 at the end of the THIRD forensic-triage pass, then 4 after
- * Increment 12 Waves A-D/E's genuine `run-orchestration::knowledge/org/work/
- * routine/settings` closures and the second pass's `run-orchestration::users`
- * reopening, now 1 after this pass's founder-final deletion of the
- * `run-orchestration::users` live-check attempt entirely, plus the
- * `dispatch::users`/`dispatch::settings` dead-port cleanup — see
- * `DEFERRED_FOLLOWUP`'s own doc comment for the full accounting). **This is
- * not the same claim as "AC #2 is met" — it is not, and AU21 should not be
- * presented as fully closing it without a founder decision on the one
- * remaining pair (`dispatch::conversation`, narrowed to the single sanctioned
- * `insertMessage` seam write).**
+ * tsx scripts/composition-edge-anti-regrowth-guard.ts`), the bare check IS
+ * wired into `npm run lint` as a hard failure, `ALLOWLIST` holds ONLY the 4
+ * founder-signed `cost::*` rows, and **`DEFERRED_FOLLOWUP` is now genuinely
+ * EMPTY** — the one remaining pair carried since the THIRD forensic-triage
+ * pass, `dispatch::conversation` (narrowed to the single sanctioned
+ * `insertMessage` seam write), needed no founder ALLOWLIST ruling at all: it
+ * is the exact same detection-quirk false-positive class as the
+ * already-fixed `tool-handlers::conversation` (Increment 9) — a
+ * seam-satisfied nested composition GROUP (not a whole interface, since
+ * `DispatchPorts`'s sibling groups are ordinary/same-layer, not seam calls),
+ * now excluded by `generate-dependency-graph.ts`'s `SEAM_GROUPS` (the
+ * per-group analogue of `SEAM_INTERFACES`), verified against
+ * `dispatch-bindings.ts`'s real composition wiring, not asserted. **AC #2
+ * ("orchestration reads zero core-api domain state") and AC #9 (the guard
+ * mechanically enforces it) are both met — `agent-orchestration` holds ZERO
+ * raw or hidden-bundle read edges into `core-api` domain state, only the
+ * founder-signed `cost` cap-gate exemption and this now-mechanically-verified
+ * seam write.**
  */
 import {
 	existsSync,
@@ -386,7 +390,7 @@ export const ALLOWLIST: ReadonlySet<string> = new Set([
  * scoped for it. See `.pipeline/AU.md` and `edge-disposition.md`'s own
  * "Increment 9 forensic-triage accounting — THIRD pass" section.
  */
-export const DEFERRED_FOLLOWUP: ReadonlySet<string> = new Set(["dispatch::conversation"]);
+export const DEFERRED_FOLLOWUP: ReadonlySet<string> = new Set([]);
 
 /**
  * AU21 §9 Increment 9: individually-verified pure/stateless methods that
@@ -753,6 +757,69 @@ function buildStatelessProviderFixture(root: string): void {
 	// real Service (`model-gateway`). This is the fixture's whole point.
 }
 
+/**
+ * Scenario 6 — AU21 §9 Increment 13: the real, production `dispatch::conversation`
+ * nested group (`insertMessage`, verified in `dispatch-bindings.ts` to route
+ * exclusively through the `CoreApiPort` seam, never raw DI — see
+ * `DEFERRED_FOLLOWUP`'s own doc comment history) must NOT fire, now that
+ * `generate-dependency-graph.ts`'s `SEAM_GROUPS` excludes it at the
+ * per-group level (narrower than the whole-interface `SEAM_INTERFACES`
+ * mechanism, since `DispatchPorts` has other, non-seam groups). Reuses the
+ * REAL production key (`dispatch:DispatchPorts:conversation`), same idiom as
+ * Scenario 3's real `ALLOWLIST` reuse — not a fixture-only stand-in. A
+ * sibling, non-excluded group on the SAME interface targeting a different
+ * core-api provider must still fire — proving the exclusion is genuinely
+ * per-group, not a backdoor that blinds the whole interface to future
+ * regrowth.
+ */
+function buildSeamGroupFixture(root: string): void {
+	writeFixture(
+		root,
+		"packages/agent-orchestration/dispatch/package.json",
+		JSON.stringify({ name: "@hyperidle/dispatch", dependencies: { "@hyperidle/db": "*" } }),
+	);
+	writeFixture(root, "packages/agent-orchestration/dispatch/src/index.ts", "export const dispatch = 1;\n");
+	writeFixture(
+		root,
+		"packages/agent-orchestration/dispatch/src/ports.ts",
+		[
+			"export interface DispatchPorts {",
+			"  readonly conversation: {",
+			"    insertMessage(): Promise<void>;",
+			"  };",
+			"  readonly otherCore6: {",
+			"    readOtherThing6(): Promise<string>;",
+			"  };",
+			"}",
+			"",
+		].join("\n"),
+	);
+	writeFixture(
+		root,
+		"packages/core-api/conversation/package.json",
+		JSON.stringify({ name: "@hyperidle/conversation", dependencies: { "@hyperidle/db": "*" } }),
+	);
+	writeFixture(
+		root,
+		"packages/core-api/conversation/src/index.ts",
+		"export function insertMessage(): Promise<void> {\n  return Promise.resolve();\n}\n",
+	);
+	writeFixture(
+		root,
+		"packages/core-api/other-core6/package.json",
+		JSON.stringify({ name: "@hyperidle/other-core6", dependencies: { "@hyperidle/db": "*" } }),
+	);
+	writeFixture(
+		root,
+		"packages/core-api/other-core6/src/index.ts",
+		'export function readOtherThing6(): Promise<string> {\n  return Promise.resolve("x");\n}\n',
+	);
+	writeTableOwnershipFixture(root, {
+		messages6: "packages/core-api/conversation",
+		other_things6: "packages/core-api/other-core6",
+	});
+}
+
 function fixtureCheck(): void {
 	// Scenario 1 — new raw ports.ts core-read must fire.
 	const rawPortRoot = mkdtempSync(join(tmpdir(), "au21-anti-regrowth-raw-port-"));
@@ -842,6 +909,31 @@ function fixtureCheck(): void {
 		}
 	} finally {
 		rmSync(statelessProviderRoot, { recursive: true, force: true });
+	}
+
+	// Scenario 6 — the real, production `dispatch::conversation` seam-satisfied
+	// nested group must not fire, but a sibling non-excluded group on the same
+	// interface must still fire (the exclusion is per-group, not per-interface).
+	const seamGroupRoot = mkdtempSync(join(tmpdir(), "au21-anti-regrowth-seam-group-"));
+	try {
+		buildSeamGroupFixture(seamGroupRoot);
+		const findings = inspect(seamGroupRoot);
+		const excluded = findings.filter((f) => f.consumer === "dispatch" && f.provider === "conversation");
+		if (excluded.length > 0) {
+			throw new Error(
+				`composition-edge-anti-regrowth-guard: the seam-satisfied dispatch::conversation group must not fire, got ${JSON.stringify(excluded)}`,
+			);
+		}
+		const sibling = findings.find(
+			(f) => f.consumer === "dispatch" && f.provider === "other-core6" && f.edgeKind === "raw-port" && f.detail.includes("readOtherThing6"),
+		);
+		if (!sibling) {
+			throw new Error(
+				`composition-edge-anti-regrowth-guard: expected the sibling non-seam-excluded group to still fire, got ${JSON.stringify(findings)}`,
+			);
+		}
+	} finally {
+		rmSync(seamGroupRoot, { recursive: true, force: true });
 	}
 
 	process.stdout.write("composition-edge-anti-regrowth-guard fixtures: PASS\n");
