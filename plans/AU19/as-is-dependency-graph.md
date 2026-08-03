@@ -30,7 +30,7 @@ flowchart TD
     tool_handlers["tool-handlers<br/>2m / 1t"]
   end
   subgraph agent_execution["agent-execution"]
-    harness_registry["harness-registry<br/>22m / 13t"]
+    harness_registry["harness-registry<br/>21m / 13t"]
   end
   filesystems -->|"FilesystemsGitRunner"| git_export
   filesystems -->|"FilesystemsServiceConnectionResolver"| connections
@@ -91,8 +91,8 @@ flowchart TD
 |---|---|---:|---:|---:|---|
 | work | core-api | 16 | 22 | 38 | bets, tasks, items, artifacts, taskPlanningSignals |
 | git-export | core-api | 21 | 16 | 37 | — |
-| harness-registry | agent-execution | 22 | 13 | 35 | — |
 | knowledge | core-api | 20 | 15 | 35 | knowledgeItems, knowledgeEditLog, knowledgeAccessLog, knowledgeConflicts, knowledgeAppProjection |
+| harness-registry | agent-execution | 21 | 13 | 34 | — |
 | routine | core-api | 19 | 14 | 33 | routines, routineRuns |
 | run-orchestration | agent-orchestration | 13 | 16 | 29 | — |
 | conversation | core-api | 17 | 10 | 27 | threads, messages |
@@ -109,7 +109,7 @@ flowchart TD
 | realtime | core-api | 2 | 3 | 5 | — |
 | dispatch | agent-orchestration | 1 | 3 | 4 | — |
 | tool-handlers | agent-orchestration | 2 | 1 | 3 | — |
-| **TOTAL (20)** |  | **246** | **195** | **441** |  |
+| **TOTAL (20)** |  | **245** | **195** | **440** |  |
 
 ## Extraction summary
 

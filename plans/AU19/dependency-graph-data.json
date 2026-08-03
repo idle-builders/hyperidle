@@ -2149,9 +2149,9 @@
       "surface": {
         "service": "harness-registry",
         "layer": "agent-execution",
-        "methods": 22,
+        "methods": 21,
         "types": 13,
-        "total": 35
+        "total": 34
       },
       "exposedApiCount": 21,
       "exposedApi": [
@@ -2786,9 +2786,9 @@
     "totalHiddenCompositionEdges": 4,
     "hiddenAgentOrchToCoreApi": 0,
     "surface": {
-      "methods": 246,
+      "methods": 245,
       "types": 195,
-      "total": 441
+      "total": 440
     }
   }
 }
