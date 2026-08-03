@@ -52,7 +52,6 @@ import {
 	update as updateKnowledgeItem,
 	VersionConflictError,
 } from "@hyperidle/knowledge";
-import { resolveModel } from "@hyperidle/model-gateway";
 import {
 	enqueue,
 	installNotifications,
@@ -73,7 +72,13 @@ import {
 	readServerConfig,
 	updateServerConfig,
 } from "@hyperidle/settings";
-import { createLogger, EventBus, type ModelTier, type ResolvedModel } from "@hyperidle/shared";
+import {
+	createLogger,
+	EventBus,
+	type ModelTier,
+	type ResolvedModel,
+	resolveModel,
+} from "@hyperidle/shared";
 import {
 	findUser,
 	listUsers,

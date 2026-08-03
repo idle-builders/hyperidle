@@ -54,7 +54,10 @@ const MANUAL_OVERRIDES: Record<string, string | readonly string[]> = {
 	"filesystems:FilesystemsServiceConnectionResolver": "connections",
 	"git-export:GitExportServerConfigPort": "settings",
 	"observability:ObservabilityServerConfigPort": "settings",
-	"model-gateway:ModelGatewayCredentialResolver": "connections",
+	// @lore AU21 Increment 14b: the `model-gateway:ModelGatewayCredentialResolver`
+	// override is REMOVED — `@hyperidle/model-gateway` is dissolved into
+	// `@hyperidle/shared` (Decision L2); there is no such Service left to
+	// resolve an override for.
 	"notifications:NotificationsServerConfigPort": "settings",
 	"notifications:NotificationsUserReader": "users",
 	"notifications:NotificationsTeamReader": "org",

@@ -29,7 +29,6 @@
 		"@hyperidle/git-export": "*",
 		"@hyperidle/harness-registry": "*",
 		"@hyperidle/knowledge": "*",
-		"@hyperidle/model-gateway": "*",
 		"@hyperidle/notifications": "*",
 		"@hyperidle/observability": "*",
 		"@hyperidle/org": "*",

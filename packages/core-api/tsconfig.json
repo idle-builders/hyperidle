@@ -17,7 +17,6 @@
 		{ "path": "git-export" },
 		{ "path": "../agent-execution/harness-registry" },
 		{ "path": "knowledge" },
-		{ "path": "model-gateway" },
 		{ "path": "notifications" },
 		{ "path": "observability" },
 		{ "path": "org" },

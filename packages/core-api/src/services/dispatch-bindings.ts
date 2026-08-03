@@ -56,8 +56,7 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import type { DispatchPorts } from "@hyperidle/dispatch";
 import { createDispatchOps } from "@hyperidle/dispatch";
 import { createSandboxAdapter } from "@hyperidle/harness-registry";
-import { resolveModel } from "@hyperidle/model-gateway";
-import type { ToolContext } from "@hyperidle/shared";
+import { resolveModel, type ToolContext } from "@hyperidle/shared";
 import { buildAssistantDraftRegistry } from "@hyperidle/tool-handlers";
 import {
 	buildCoreApiPort,

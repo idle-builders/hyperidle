@@ -399,10 +399,15 @@ export {
 	segmentMentions,
 } from "./mention.js";
 // ── X4: Model Gateway ──
+// @lore AU21 Increment 14b (Decision L2): `resolveModel`/`UnsupportedAgentProviderError`/
+// `ModelRequest` moved here from the dissolved `@hyperidle/model-gateway`
+// core-api package — a pure, stateless fn now lives beside the types it
+// already shared this module with.
 export type {
 	ModelCatalogEntry,
 	ModelGatewayConfig,
 	ModelProvider,
+	ModelRequest,
 	ModelTierConfig,
 	ResolvedModel,
 } from "./model-gateway.js";
@@ -415,6 +420,8 @@ export {
 	isCatalogModel,
 	MODEL_CATALOG,
 	MODEL_PROVIDERS,
+	resolveModel,
+	UnsupportedAgentProviderError,
 } from "./model-gateway.js";
 // SSRF utilities use node:dns/net/util and cannot be imported in the browser.
 // Server code imports them via "@hyperidle/shared/net" subpath export instead.

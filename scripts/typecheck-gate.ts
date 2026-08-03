@@ -474,7 +474,6 @@ function buildLeafDeclarations(root: string): void {
     "core-api/filesystems",
     "core-api/git-export",
     "core-api/observability",
-    "core-api/model-gateway",
     "core-api/realtime",
     // @lore AU20 C1: core-api/retention dissolved — sweeps distributed to owning services
     // (users/knowledge/notifications) + propagation_log reaper co-located at composition root.
