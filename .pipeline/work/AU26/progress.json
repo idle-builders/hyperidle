@@ -1,7 +1,7 @@
 {
   "workPackage": "AU26",
   "status": "in_progress",
-  "currentStep": "architecture",
+  "currentStep": "architecture-critique",
   "startedAt": "2026-08-04",
   "designSkipped": {
     "reason": "no-ui-surface \u2014 backend/infra only; plan.md Pre-build gates says design not required; AC #6 requires zero frontend behavior changes",
@@ -48,6 +48,25 @@
     "requirements": ".pipeline/work/AU26/requirements.md",
     "refineCritique": ".pipeline/work/AU26/refine-critique.md",
     "refineCritiqueRound2": ".pipeline/work/AU26/refine-critique-round2.md",
-    "planAmended": true
+    "planAmended": true,
+    "architecture": ".pipeline/work/AU26/architecture.md",
+    "feasibility": ".pipeline/work/AU26/feasibility.md",
+    "serviceVerdicts": [
+      ".pipeline/work/AU26/service-verdicts/group1.md",
+      ".pipeline/work/AU26/service-verdicts/group2.md",
+      ".pipeline/work/AU26/service-verdicts/group3.md",
+      ".pipeline/work/AU26/service-verdicts/git-export-rechallenge.md"
+    ],
+    "probes": ".pipeline/work/AU26/probes/"
+  },
+  "planAmendedByArchitecture": {
+    "what": "git-export exporter DELETION recorded as in-scope (founder call on the record, via the re-challenge); AC6 extended from 'relocate' to 'relocate or delete'.",
+    "at": "2026-08-04"
+  },
+  "sizing": {
+    "prs": 13,
+    "waves": 7,
+    "estimate": "3.5-5 weeks",
+    "note": "NOT one PR \u2014 see architecture.md \u00a712"
   }
 }
