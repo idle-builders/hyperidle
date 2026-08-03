@@ -41,8 +41,6 @@ const FIXTURE_REVIEW = {
 	reviewerName: "You",
 	blocking: true,
 	producedAgo: "9 min ago",
-	costMoney: "$4.20",
-	costTokens: "310k tok",
 	tools: ["github", "linear", "vercel", "quickbooks", "stripe", "mailchimp", "figma", "zendesk"],
 	outcome:
 		"Root cause: an unhandled PromoExpiredError was swallowed by a catch-all, so expired codes silently 'succeeded'. Checkout now returns a typed 422 and shows an inline 'expired' message; tests pass. The prod deploy is staged and waiting on your approval.",

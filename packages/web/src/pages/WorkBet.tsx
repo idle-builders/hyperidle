@@ -336,8 +336,8 @@ function ConsequencePreviewDialog({
 				</>
 			}
 		>
-			{/* AF12: cost-honest cascade copy. The SAVED line drops "immediately" (cost
-			    does not stop the instant Kill is clicked) and the NOTE qualifier states
+			{/* AF12: honest cascade copy. The SAVED line drops "immediately" (capacity
+			    is not freed the instant Kill is clicked) and the NOTE qualifier states
 			    that running agents finish their current step before halting. */}
 			<div className="text-xs text-[var(--text-tertiary)] space-y-1 mb-3">
 				<p>
@@ -354,7 +354,7 @@ function ConsequencePreviewDialog({
 				</p>
 				<p>
 					<span className="font-semibold text-[var(--text-primary)]">NOTE:</span> Running agents
-					finish their current step, so cost may tick up briefly before they halt.
+					finish their current step before they halt.
 				</p>
 			</div>
 
