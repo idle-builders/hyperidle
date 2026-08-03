@@ -94,6 +94,7 @@ import { createApp, disposeApp } from "./app.js";
 import { registerWsRoute } from "./routes/ws.js";
 import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
 import { registerAssistantTurnCoherenceTrigger } from "./services/assistant-turn-coherence-trigger.js";
+import { resolveOrCreateCallingThread } from "./services/calling-thread-bindings.js";
 import {
 	createInProcessCoreApiTransport,
 	registerCoreApiTransport,
@@ -534,6 +535,9 @@ export function registerCoreDomainServices(ctx: {
 				// AU21 §9 Increment 12 follow-up (F2 gap closure): also bake
 				// injectedFilesystems.
 				resolveInjectedFilesystemsForAgent,
+				// AU27 Increment 1 (Decision 0): also bake callingThreadId for the
+				// liveness-net re-provision.
+				resolveOrCreateCallingThread,
 			}),
 			"review subscriptions",
 			"unsubscribe",

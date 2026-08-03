@@ -191,6 +191,19 @@ function parseBakedInjectedConnections(
 	return (payload as { injectedConnections?: BakedConnectionsForProvisioning }).injectedConnections;
 }
 
+/**
+ * AU27 Increment 1 (Decision 1) — the session's calling thread id, carried on
+ * `request.payloadJson` the same way Increment 11's `transcript`/`modelId`
+ * ride it (`session-requests/src/service.ts`'s `createFromBakedRequestInternal`).
+ * Absent for `routine_run`/`knowledge_action`, which have no calling thread.
+ */
+function parseBakedCallingThreadId(request: AgentSessionRequest): string | undefined {
+	if (!request.payloadJson) return undefined;
+	const payload = JSON.parse(request.payloadJson) as unknown;
+	if (!payload || typeof payload !== "object" || !("callingThreadId" in payload)) return undefined;
+	return (payload as { callingThreadId?: string }).callingThreadId;
+}
+
 async function ensureClaimedRequest(
 	db: HyperIdleDb,
 	request: AgentSessionRequest,
@@ -397,6 +410,7 @@ async function consumeAgentSessionRequest(
 	const harnessDisabled = parseBakedHarnessDisabled(claimedRequest);
 	const injectedFilesystems = parseBakedInjectedFilesystems(claimedRequest);
 	const injectedConnections = parseBakedInjectedConnections(claimedRequest);
+	const callingThreadId = parseBakedCallingThreadId(claimedRequest);
 	const provisionParams: RunContextBundle = {
 		taskId: claimedRequest.taskId,
 		agentId: claimedRequest.agentId,
@@ -415,6 +429,7 @@ async function consumeAgentSessionRequest(
 		...(harnessDisabled ? { harnessDisabled } : {}),
 		...(injectedFilesystems ? { injectedFilesystems } : {}),
 		...(injectedConnections ? { injectedConnections } : {}),
+		...(callingThreadId ? { callingThreadId } : {}),
 		requestContext: {
 			requestId: claimedRequest.id,
 			sourceKind: claimedRequest.sourceKind as AgentSessionSourceKind,

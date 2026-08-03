@@ -110,6 +110,15 @@ export interface RunContextBundle {
 	readonly agentConfig?: BakedAgentRunnableConfig;
 	readonly harnessDisabled?: readonly string[];
 	/**
+	 * AU27 Increment 1 (Decision 1) — the session's calling thread id, baked at
+	 * emit time by every per-kind resolver that has one (`assistant_turn` from
+	 * the triggering message's thread; `task_run`/`session_start`/`proposed_call`
+	 * from Decision 0's resolve-or-create). Absent for `routine_run`/
+	 * `knowledge_action`. Forwarded verbatim onto `ProvisionSessionParams` and
+	 * then `ToolContext.threadId` — ZERO orchestration -> core read (AU21 AC #2).
+	 */
+	readonly callingThreadId?: string;
+	/**
 	 * AU21 §9 Increment 12 follow-up (F2 gap closure) — the target agent's
 	 * baked injected-filesystems list, sourced from the drained
 	 * `AgentSessionRequest.payloadJson` (zero db read). Absent/empty means "no

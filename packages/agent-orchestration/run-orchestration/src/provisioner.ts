@@ -252,6 +252,12 @@ interface SessionLifecycleToolContext {
 	readonly sandboxPath: string;
 	readonly ingestion: { dispose(): void };
 	readonly onAbortSession?: (sessionId: string) => void;
+	/**
+	 * AU27 Increment 1 (Decision 1) — the session's calling thread, forwarded
+	 * straight from `params.callingThreadId` (baked at emit — zero
+	 * orchestration -> core read). Absent for `routine_run`/`knowledge_action`.
+	 */
+	readonly threadId?: string;
 }
 
 /** `RegistrySessionWorkflow` (`tool-registry.ts`) — extends `@hyperidle/shared`'s `SessionWorkflow` with server-side capture anchors. This Service's own public `ProvisionSessionParams.sessionWorkflow` field type. */
@@ -691,6 +697,16 @@ interface ProvisionSessionParams {
 	 */
 	readonly injectedConnections?: HeldConnectionsForProvisioning;
 	/**
+	 * AU27 Increment 1 (Decision 1) — the session's calling thread id, baked at
+	 * EMIT time by every per-kind resolver that has one (`assistant_turn` from
+	 * the triggering message's thread; `task_run`/`session_start`/
+	 * `reengagement` from Decision 0's resolve-or-create). Absent for
+	 * `routine_run`/`knowledge_action`. Forwarded verbatim onto
+	 * `SessionLifecycleToolContext.threadId` in Phase 8 — the `reply` tool
+	 * (Increment 2) reads it from there. ZERO orchestration -> core read.
+	 */
+	readonly callingThreadId?: string;
+	/**
 	 * AL7 Task 6: When set, the registry invoke router participates in the
 	 * trust-first review workflow for this session.
 	 */
@@ -1127,6 +1143,7 @@ async function runSession(
 		taskId: params.taskId ?? "",
 		teamId,
 		...(params.requestContext ? { requestContext: params.requestContext } : {}),
+		...(params.callingThreadId ? { threadId: params.callingThreadId } : {}),
 		sandboxPath,
 		ingestion,
 		// AL7 Task 6: inject abort callback so the workflow router can end session 1

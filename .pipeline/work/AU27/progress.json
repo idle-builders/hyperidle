@@ -1,0 +1,19 @@
+{
+  "id": "AU27",
+  "status": "in_progress",
+  "currentStep": "build-phase-A",
+  "startedAt": "2026-08-04",
+  "worktree": ".worktrees/pipeline-AU27",
+  "branch": "pipeline/AU27",
+  "phases": {
+    "refine": "skipped — plan.md pre-build gate: goal + source trace settled via AU21 Decision K",
+    "design": "skipped — backend WP, no UI surface",
+    "architecture": "in_progress"
+  },
+  "approvals": {
+    "requirements": "auto — repo CLAUDE.md ABSOLUTE RULES: fully autonomous run, no human in loop",
+    "concept": null,
+    "final": null
+  },
+  "critiqueRounds": 2
+}

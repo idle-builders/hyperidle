@@ -42,6 +42,15 @@ export interface ToolContext<TDb = unknown> {
 	readonly sessionId: string;
 	readonly taskId: string;
 	readonly teamId?: string;
+	/**
+	 * AU27 Increment 1 (Decision 1) — the thread this session was started FOR,
+	 * its calling thread. Baked at emit time (never read on the run path — AU21
+	 * AC #2). Absent for `routine_run`/`knowledge_action`, which have no
+	 * calling thread. The `taskId: ""`-for-absent idiom is deliberately not
+	 * copied here, because `""` is not a valid thread id and the `reply` tool
+	 * must be able to tell "no calling thread" apart from a real one.
+	 */
+	readonly threadId?: string;
 	readonly requestContext?: {
 		readonly requestId: string;
 		readonly sourceKind: AgentSessionSourceKind;

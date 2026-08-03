@@ -114,6 +114,13 @@ export interface BakedAssistantTurnRequest {
 	};
 	/** Every message in the thread, `createdAt` ascending, including the triggering message. */
 	readonly transcript: ReadonlyArray<BakedTranscriptRow>;
+	/**
+	 * AU27 Increment 1 (Decision 1) — the assistant's calling thread, always
+	 * present (an `assistant_turn` always has a triggering thread message).
+	 * Baked from the SAME `message` this resolver already loaded — no extra
+	 * read.
+	 */
+	readonly callingThreadId: string;
 	/** Per-agent model override (`users.modelId`), or `null` when unset — see the `@lore` above. */
 	readonly modelId: string | null;
 	/** Per-agent model provider override (`users.modelProvider`), or `null` when unset. */
@@ -197,6 +204,7 @@ export async function resolveAssistantTurnRequest(
 			assistantAgentId: targetAgentId,
 		},
 		transcript,
+		callingThreadId: message.threadId,
 		modelId: agent.modelId ?? null,
 		modelProvider: agent.modelProvider ?? null,
 		agentConfig: bakeAgentRunnableConfig(agent),

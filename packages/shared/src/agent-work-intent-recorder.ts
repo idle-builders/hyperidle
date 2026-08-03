@@ -98,6 +98,15 @@ export interface BakedWorkIntentRequest {
 	 */
 	readonly harnessDisabled?: readonly string[];
 	/**
+	 * AU27 Increment 1 (Decision 1) — the session's calling thread id, baked at
+	 * emit time by the `assistant_turn`/`task_run`/`session_start`/
+	 * `reengagement` resolvers (never `routine_run`/`knowledge_action`, which
+	 * have no calling thread). Carried through onto the created
+	 * `AgentSessionRequest.payloadJson` alongside `agentConfig` so `reply`
+	 * (Increment 2) has somewhere to post with zero orchestration -> core read.
+	 */
+	readonly callingThreadId?: string;
+	/**
 	 * AU21 §9 Increment 12 follow-up (F2 gap closure) — the target agent's
 	 * injected-filesystems list, baked at emit time by EVERY per-kind resolver
 	 * (all six kinds — mirrors `agentConfig`/`harnessDisabled`'s uniform Wave E

@@ -30,6 +30,7 @@ import {
 	buildAgentOrchestrationPort,
 	getRegisteredAgentOrchestrationTransport,
 } from "../services/agent-orchestration-port-composition.js";
+import { resolveOrCreateCallingThread } from "../services/calling-thread-bindings.js";
 import { transitionRun } from "../services/run-orchestration-composition.js";
 
 // @lore O2: harnessUrl, tokensInput, tokensOutput fields removed from session
@@ -417,6 +418,8 @@ export function createSessionRoutes(
 								resolveInjectedFilesystemsForAgent,
 								resolveInjectedConnectionsForAgent: (execDb, agentId) =>
 									resolveInjectedConnectionsForAgent(execDb, agentId, findUser),
+								// AU27 Increment 1 (Decision 0): also bake callingThreadId.
+								resolveOrCreateCallingThread,
 							},
 						);
 						intent = await agentWorkIntentRecorder.record(tx as HyperIdleDb, {

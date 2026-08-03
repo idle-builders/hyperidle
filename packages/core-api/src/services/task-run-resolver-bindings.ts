@@ -19,6 +19,7 @@ import { getTeam } from "@hyperidle/org";
 import { readServerConfig } from "@hyperidle/settings";
 import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import type { TaskRunResolverDeps } from "@hyperidle/work";
+import { resolveOrCreateCallingThread } from "./calling-thread-bindings.js";
 
 export const taskRunResolverDeps: TaskRunResolverDeps = {
 	requireRunnableAgent,
@@ -34,4 +35,8 @@ export const taskRunResolverDeps: TaskRunResolverDeps = {
 	// `@hyperidle/users` directly).
 	resolveInjectedConnectionsForAgent: (db, agentId) =>
 		resolveInjectedConnectionsForAgent(db, agentId, findUser),
+	// AU27 Increment 1 (Decision 0): also bake callingThreadId — every real
+	// task_run emit site (`task-state-machine.ts`, `bet-decomposition.ts`,
+	// `handoff-protocol.ts`) reaches this ONE shared binding.
+	resolveOrCreateCallingThread,
 };

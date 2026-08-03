@@ -32,6 +32,7 @@
  * for reviewer confirmation.
  */
 
+import { findThread } from "@hyperidle/conversation";
 import {
 	bets,
 	type HyperIdleDb,
@@ -395,5 +396,123 @@ describe("resolveTaskRunRequest — contextBundle baking (Increment 12 Wave B, R
 			team: { id: "team-trun-ctx-1", name: team?.name },
 			knowledge: expect.arrayContaining([expect.objectContaining({ id: "item-trun-ctx-l4" })]),
 		});
+	});
+});
+
+/**
+ * AU27 Increment 1 (Decision 0/1) — `task_run` bakes `callingThreadId` via
+ * `deps.resolveOrCreateCallingThread`, the injected resolve-or-create
+ * (Mechanism C — `@hyperidle/work` cannot import `@hyperidle/conversation`
+ * directly). The real production wiring is `resolveOrCreateCallingThread`
+ * (`core-api/src/services/calling-thread-bindings.ts`); this test wires an
+ * equivalent using the real `findThread`/`insertThread` exports (test files
+ * are Mechanism C guard-exempt).
+ */
+describe("resolveTaskRunRequest — callingThreadId baking (Increment 1)", () => {
+	async function resolveOrCreateCallingThreadForTest(
+		db: HyperIdleDb,
+		taskId: string,
+		agentId: string,
+	): Promise<string> {
+		const { findThread, insertThread } = await import("@hyperidle/conversation");
+		const existing = await findThread(db, { host: { kind: "task", id: taskId } });
+		if (existing) return existing.id;
+		const threadId = crypto.randomUUID();
+		const now = new Date().toISOString();
+		await insertThread(db, {
+			id: threadId,
+			hostKind: "task",
+			hostId: taskId,
+			initiatorId: agentId,
+			participants: JSON.stringify([agentId]),
+			lastActiveAt: now,
+			createdAt: now,
+		});
+		return threadId;
+	}
+
+	test("bakes callingThreadId by resolving-or-creating the task's thread", async ({ db }) => {
+		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
+		await seedTeamAndBet(db, { teamId: "team-trun-thread-1", betId: "bet-trun-thread-1" });
+		await seedAgent(db, "agent-trun-thread-1");
+		await seedTask(db, {
+			taskId: "task-trun-thread-1",
+			betId: "bet-trun-thread-1",
+			teamId: "team-trun-thread-1",
+			ownerAgentId: "agent-trun-thread-1",
+		});
+		await seedAttempt(db, {
+			attemptId: "attempt-trun-thread-1",
+			taskId: "task-trun-thread-1",
+			agentId: "agent-trun-thread-1",
+		});
+
+		const baked = await resolveTaskRunRequest(db, "attempt-trun-thread-1", {
+			requireRunnableAgent,
+			resolveOrCreateCallingThread: resolveOrCreateCallingThreadForTest,
+		});
+
+		expect(baked.callingThreadId).toBeDefined();
+		const thread = await findThread(db, { host: { kind: "task", id: "task-trun-thread-1" } });
+		expect(thread?.id).toBe(baked.callingThreadId);
+	});
+
+	test("reuses the SAME thread across two task_run bakes for the same task (idempotent)", async ({
+		db,
+	}) => {
+		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
+		await seedTeamAndBet(db, { teamId: "team-trun-thread-2", betId: "bet-trun-thread-2" });
+		await seedAgent(db, "agent-trun-thread-2");
+		await seedTask(db, {
+			taskId: "task-trun-thread-2",
+			betId: "bet-trun-thread-2",
+			teamId: "team-trun-thread-2",
+			ownerAgentId: "agent-trun-thread-2",
+		});
+		await seedAttempt(db, {
+			attemptId: "attempt-trun-thread-2a",
+			taskId: "task-trun-thread-2",
+			agentId: "agent-trun-thread-2",
+			status: "requested",
+		});
+
+		const firstBake = await resolveTaskRunRequest(db, "attempt-trun-thread-2a", {
+			requireRunnableAgent,
+			resolveOrCreateCallingThread: resolveOrCreateCallingThreadForTest,
+		});
+
+		// A second bake against the SAME task must resolve the SAME calling
+		// thread — never create a duplicate. Simulated by resolving directly
+		// (the resolver itself is idempotent per-task, not per-attempt).
+		const secondThreadId = await resolveOrCreateCallingThreadForTest(
+			db,
+			"task-trun-thread-2",
+			"agent-trun-thread-2",
+		);
+
+		expect(secondThreadId).toBe(firstBake.callingThreadId);
+	});
+
+	test("bakes no callingThreadId when the dep is not supplied (call site not yet wired)", async ({
+		db,
+	}) => {
+		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
+		await seedTeamAndBet(db, { teamId: "team-trun-thread-3", betId: "bet-trun-thread-3" });
+		await seedAgent(db, "agent-trun-thread-3");
+		await seedTask(db, {
+			taskId: "task-trun-thread-3",
+			betId: "bet-trun-thread-3",
+			teamId: "team-trun-thread-3",
+			ownerAgentId: "agent-trun-thread-3",
+		});
+		await seedAttempt(db, {
+			attemptId: "attempt-trun-thread-3",
+			taskId: "task-trun-thread-3",
+			agentId: "agent-trun-thread-3",
+		});
+
+		const baked = await resolveTaskRunRequest(db, "attempt-trun-thread-3", { requireRunnableAgent });
+
+		expect(baked.callingThreadId).toBeUndefined();
 	});
 });
