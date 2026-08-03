@@ -12,23 +12,21 @@ flowchart TD
     filesystems["filesystems<br/>13m / 10t"]
     git_export["git-export<br/>21m / 16t"]
     knowledge["knowledge<br/>20m / 15t"]
-    model_gateway["model-gateway<br/>2m / 2t"]
-    notifications["notifications<br/>17m / 11t"]
+    notifications["notifications<br/>16m / 11t"]
     observability["observability<br/>7m / 13t"]
-    org["org<br/>14m / 7t"]
+    org["org<br/>13m / 7t"]
     policy["policy<br/>3m / 6t"]
     realtime["realtime<br/>2m / 3t"]
     review["review<br/>10m / 9t"]
-    routine["routine<br/>21m / 14t"]
+    routine["routine<br/>19m / 14t"]
     settings["settings<br/>8m / 8t"]
-    users["users<br/>19m / 5t"]
-    work["work<br/>17m / 23t"]
+    users["users<br/>16m / 5t"]
+    work["work<br/>16m / 22t"]
   end
   subgraph agent_orchestration["agent-orchestration"]
-    cost["cost<br/>1m / 6t"]
     dispatch["dispatch<br/>1m / 3t"]
     run_orchestration["run-orchestration<br/>13m / 16t"]
-    session_requests["session-requests<br/>16m / 10t"]
+    session_requests["session-requests<br/>14m / 10t"]
     tool_handlers["tool-handlers<br/>2m / 1t"]
   end
   subgraph agent_execution["agent-execution"]
@@ -38,7 +36,6 @@ flowchart TD
   filesystems -->|"FilesystemsServiceConnectionResolver"| connections
   git_export -->|"GitExportServerConfigPort"| settings
   git_export -->|"GitExportKnowledgeReader"| knowledge
-  model_gateway -->|"ModelGatewayCredentialResolver"| connections
   notifications -->|"NotificationsServerConfigPort"| settings
   notifications -->|"NotificationsUserReader"| users
   notifications -->|"NotificationsTeamReader"| org
@@ -63,34 +60,25 @@ flowchart TD
   settings -->|"SettingsCredentialCipher"| connections
   work -->|"UserStoreReader"| users
   work -->|"TeamCapacityReader"| org
-  cost -->|"CostDeps.users"| users
-  cost -->|"CostDeps.org"| org
-  cost -->|"CostDeps.work"| work
-  cost -->|"CostDeps.settings"| settings
-  dispatch -->|"DispatchPorts.modelGateway"| model_gateway
   dispatch -->|"DispatchPorts.runOrchestration"| run_orchestration
   dispatch -->|"DispatchPorts.toolHandlers"| tool_handlers
-  tool_handlers -->|"ToolHandlersWorkAccessor"| work
-  policy -. "session_handoff_completed" .-> cost
   policy -. "session_handoff_completed" .-> run_orchestration
   policy -. "task_state_changed" .-> _core_api_composition_root_
   work -. "task_state_changed" .-> policy
   work -. "task_state_changed" .-> _core_api_composition_root_
   policy -. "bet_state_changed" .-> routine
+  policy -. "bet_state_changed" .-> _core_api_composition_root_
   work -. "bet_state_changed" .-> policy
   work -. "bet_state_changed" .-> routine
+  work -. "bet_state_changed" .-> _core_api_composition_root_
   routine -. "routine_fired" .-> notifications
   work -. "item_created" .-> notifications
   work -. "item_created" .-> policy
   work -. "notification" .-> notifications
-  cost -. "cost_cap_breached" .-> notifications
-  cost -. "cost_cap_warning" .-> notifications
   run_orchestration -. "session_started" .-> _core_api_composition_root_
   run_orchestration -. "tool_call_recorded" .-> _core_api_composition_root_
   run_orchestration -. "session_ended" .-> policy
   run_orchestration -. "session_ended" .-> review
-  run_orchestration -. "session_ended" .-> cost
-  run_orchestration -. "session_ended" .-> session_requests
   run_orchestration -. "session_ended" .-> _core_api_composition_root_
   run_orchestration -. "agent_run_admission_failed" .-> _core_api_composition_root_
   session_requests -. "agent_run_admission_failed" .-> _core_api_composition_root_
@@ -101,33 +89,31 @@ flowchart TD
 
 | Service | Layer | Methods | Types | Total | Owned tables |
 |---|---|---:|---:|---:|---|
-| work | core-api | 17 | 23 | 40 | bets, tasks, items, artifacts, taskPlanningSignals |
+| work | core-api | 16 | 22 | 38 | bets, tasks, items, artifacts, taskPlanningSignals |
 | git-export | core-api | 21 | 16 | 37 | — |
 | harness-registry | agent-execution | 22 | 13 | 35 | — |
 | knowledge | core-api | 20 | 15 | 35 | knowledgeItems, knowledgeEditLog, knowledgeAccessLog, knowledgeConflicts, knowledgeAppProjection |
-| routine | core-api | 21 | 14 | 35 | routines, routineRuns |
+| routine | core-api | 19 | 14 | 33 | routines, routineRuns |
 | run-orchestration | agent-orchestration | 13 | 16 | 29 | — |
-| notifications | core-api | 17 | 11 | 28 | notificationQueue |
 | conversation | core-api | 17 | 10 | 27 | threads, messages |
-| session-requests | agent-orchestration | 16 | 10 | 26 | triggerResolutionHistory, agentWorkIntents, agentSessionRequests, explicitSessionStarts, agentLifecycleInbox |
-| users | core-api | 19 | 5 | 24 | users, loginSessions, inviteCodes, hintProgress |
+| notifications | core-api | 16 | 11 | 27 | notificationQueue |
+| session-requests | agent-orchestration | 14 | 10 | 24 | triggerResolutionHistory, agentWorkIntents, agentSessionRequests, explicitSessionStarts, agentLifecycleInbox |
 | filesystems | core-api | 13 | 10 | 23 | filesystems, filesystemInjections, filesystemCaptures |
-| org | core-api | 14 | 7 | 21 | teamMembers, orgEdges, teams |
+| users | core-api | 16 | 5 | 21 | users, loginSessions, inviteCodes, hintProgress |
 | observability | core-api | 7 | 13 | 20 | — |
+| org | core-api | 13 | 7 | 20 | teamMembers, orgEdges, teams |
 | review | core-api | 10 | 9 | 19 | proposedCalls, operationOutcomes, tailoredGrants |
 | connections | core-api | 13 | 3 | 16 | serverCredentials, serviceConnections |
 | settings | core-api | 8 | 8 | 16 | serverConfig, plugins, pluginConfigurationDefaults, configurationOverrides |
 | policy | core-api | 3 | 6 | 9 | — |
-| cost | agent-orchestration | 1 | 6 | 7 | — |
 | realtime | core-api | 2 | 3 | 5 | — |
 | dispatch | agent-orchestration | 1 | 3 | 4 | — |
-| model-gateway | core-api | 2 | 2 | 4 | — |
 | tool-handlers | agent-orchestration | 2 | 1 | 3 | — |
-| **TOTAL (22)** |  | **259** | **204** | **463** |  |
+| **TOTAL (20)** |  | **246** | **195** | **441** |  |
 
 ## Extraction summary
 
-- Port-derived edges: 37 (35 high confidence, 2 medium, 0 unresolved)
-- EventBus edges: 24
-- Hidden composition-bundle edges: 10 (6 agent-orchestration -> core-api)
-- Services: 22
+- Port-derived edges: 30 (28 high confidence, 2 medium, 0 unresolved)
+- EventBus edges: 21
+- Hidden composition-bundle edges: 4 (0 agent-orchestration -> core-api)
+- Services: 20

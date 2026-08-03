@@ -17,22 +17,26 @@
  *    that let the 22 hidden edges (`session-requests`/`cost`/`run-orchestration`/
  *    `agent-selection`) go undetected pre-AU21 (edge-disposition.md).
  *
- * Target end-state (post AU21 Increment 14, Decision L): agent-orchestration
- * reads ZERO core-api domain state, with NO carve-out of any kind — the
+ * Target end-state (AU21 Increment 14e, Decision L — REACHED): agent-orchestration
+ * reads ZERO core-api domain state, with NO carve-out of any kind. The
  * `cost` cap-gate consumer this file's history below once treated as "the one
  * founder-signed permanent exemption" is HARD-DELETED (Increment 14a; that
  * label was wrong the whole time — the founder confirmed it never signed off
- * a permanent exception). `ALLOWLIST` is genuinely empty. `inspect()`
- * therefore treats every `agent-orchestration -> core-api` edge (raw-port or
- * composition-bundle) as a violation, full stop.
+ * a permanent exception). `ALLOWLIST` and the table-ownership-driven
+ * `isStatelessProvider` exemption are DELETED OUTRIGHT (Increment 14e), not
+ * merely emptied — there is no exemption apparatus left in this file to
+ * re-populate. `inspect()` therefore treats every `agent-orchestration ->
+ * core-api` edge (raw-port or composition-bundle) as a violation, full stop,
+ * modulo only `DEFERRED_FOLLOWUP` (an honestly-open, not-yet-closed gap set,
+ * currently empty — never a permanent carve-out; see its own doc comment).
  *
  * STATUS (AU21 Increment 0, implementation phase — GREEN): `inspect()` below
  * is the real detection, folding `generate-dependency-graph.ts`'s exported
  * `discoverServices`/`buildExposedApis`/`resolvePortEdges` (raw-port
  * resolution) and `detectHiddenCompositionEdges` (composition-bundle
  * resolution, itself folded in from the now-retired `scan-hidden-composition-
- * edges.ts`) into one finding set, filtered to `agent-orchestration ->
- * core-api` edges not in `ALLOWLIST`.
+ * edges.ts`) into one finding set, filtered only against `DEFERRED_FOLLOWUP`
+ * (currently empty).
  *
  * @lore AU21 Increment 0 (builder pass): this guard was initially wired into
  * `npm run lint` as a `--fixtures` self-test only (proves the detection
@@ -197,10 +201,24 @@
  * returned zero findings because it EXEMPTED the surviving edge, not because
  * it was gone. The founder overturned the exemption apparatus outright
  * ("as long as there is any exception I don't think AU21 is done") and
- * ordered `cost` HARD-DELETED, no replacement. `ALLOWLIST` is now genuinely
- * empty (see its own doc comment) — `agent-orchestration` holds ZERO raw or
- * hidden-bundle read edges into `core-api` domain state, of any kind, no
- * carve-out.**
+ * ordered `cost` HARD-DELETED, no replacement. `ALLOWLIST` was left genuinely
+ * empty at that point (see its own doc comment, since deleted) —
+ * `agent-orchestration` held ZERO raw or hidden-bundle read edges into
+ * `core-api` domain state, of any kind, no carve-out.
+ *
+ * **SUPERSEDED again (2026-08-03, Decision L, Increment 14e):** an empty
+ * `ALLOWLIST`/`isStatelessProvider` was still an EXEMPTION MECHANISM sitting
+ * in the file, re-populatable by a future builder with no founder gate on the
+ * act itself beyond a doc-comment convention. Increment 14e deletes the
+ * mechanism outright — `ALLOWLIST`, `STATELESS_METHODS` (already gone by
+ * Increment 14c), and `isStatelessProvider`/`isDomainStateEdge` are removed
+ * from this file's source, not just left empty. `inspect()` now has exactly
+ * one filter left, `DEFERRED_FOLLOWUP` (an honestly-open gap set, not a
+ * carve-out — see its own doc comment), and no notion of a provider-shape or
+ * table-ownership-driven exemption exists anywhere in this file anymore. A
+ * fixture (Scenario 5, `buildStatelessProviderFixture`) proves a
+ * zero-owned-table, `model-gateway`-shaped edge now FIRES — the exact class
+ * the deleted mechanism used to exempt.**
  *
  * @lore Decision K1 (2026-08-02, post-CI-green founder review) — a GENERAL
  * BLIND SPOT this guard has, surfaced by a real miss, not a hypothetical:
@@ -241,14 +259,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import {
-	buildExposedApis,
-	detectHiddenCompositionEdges,
-	discoverServices,
-	loadOwnedTables,
-	resolvePortEdges,
-	type ServiceInfo,
-} from "./generate-dependency-graph";
+import { buildExposedApis, detectHiddenCompositionEdges, discoverServices, resolvePortEdges } from "./generate-dependency-graph";
 
 export type EdgeKind = "raw-port" | "composition-bundle";
 
@@ -258,28 +269,6 @@ export interface CompositionEdgeFinding {
 	readonly edgeKind: EdgeKind;
 	readonly detail: string;
 }
-
-/**
- * Permanent, bounded exemptions. Keyed `${consumer}::${provider}`.
- * A builder MUST NOT add an entry here unilaterally, however well-reasoned —
- * see this file's own review history (AU21 §9 Increment 9, third pass): a
- * prior pass added two "builder-ruled bounded exceptions"
- * (`session-requests::work`, `dispatch::routine`) at this same rigor bar and
- * was correctly rejected on review — permanent architectural carve-outs are a
- * founder decision, not a builder one, no matter how well-sourced the
- * reasoning. `dispatch::routine` is since genuinely CLOSED (relocated
- * core-side, not allowlisted — see `@hyperidle/dispatch`'s and
- * `@hyperidle/routine`'s own `@lore`); `session-requests::work` moved to
- * `DEFERRED_FOLLOWUP` below (honestly open, not resolved).
- *
- * @lore AU21 Increment 14a (Decision L1, founder 2026-08-03): the 4
- * `cost::*` rows this set used to hold (`cost::users`/`cost::org`/
- * `cost::settings`/`cost::work` — the cap-gate consumer, mislabeled
- * "founder-signed" everywhere it was cited; the founder confirmed it never
- * was) are DELETED along with the rest of the `cost` feature — no
- * replacement exemption of any kind. `ALLOWLIST` is genuinely empty.
- */
-export const ALLOWLIST: ReadonlySet<string> = new Set([]);
 
 /**
  * AU21 §9 Increment 9 (forensic-triage wave, THIRD pass) — TEMPORARY, NOT
@@ -428,53 +417,30 @@ export const ALLOWLIST: ReadonlySet<string> = new Set([]);
 export const DEFERRED_FOLLOWUP: ReadonlySet<string> = new Set([]);
 
 /**
- * AU21 §9 Increment 9: a provider Service that owns ZERO tables cannot be a
- * source of "core-api domain state" (the guard's own target end-state,
- * top-of-file) — by definition it holds no persisted state of its own.
- * Computed dynamically from `service.ownedTables`
- * (`generate-dependency-graph.ts`'s `loadOwnedTables`, itself parsed from
- * `table-ownership-guard.ts`'s `TABLE_OWNER`), never hardcoded, so this stays
- * correct if a currently-stateless Service starts owning a table. Currently
- * exempts exactly `model-gateway` (its own barrel doc,
- * `model-gateway/src/index.ts`: "owns ZERO tables — its config... is owned by
- * `settings` and passed in by the caller... this Service never reads it
- * itself"; confirmed absent from `TABLE_OWNER`).
- */
-function isStatelessProvider(services: readonly ServiceInfo[], provider: string): boolean {
-	const svc = services.find((s) => s.name === provider);
-	return svc !== undefined && svc.ownedTables.length === 0;
-}
-
-function isDomainStateEdge(services: readonly ServiceInfo[], provider: string): boolean {
-	if (isStatelessProvider(services, provider)) return false;
-	return true;
-}
-
-/**
  * Detect every `agent-orchestration -> core-api` composition edge (raw-port +
- * composition-bundle) in the given repo root, filtered to non-allowlisted,
- * genuinely-domain-state-reading (i.e. violating) edges only.
+ * composition-bundle) in the given repo root — a violation, full stop, unless
+ * it lands in `DEFERRED_FOLLOWUP` (an honestly-open, not-yet-closed gap, never
+ * a permanent carve-out).
  *
  * Delegates both resolution mechanisms to `generate-dependency-graph.ts`:
  * `resolvePortEdges` (§ MANUAL_OVERRIDES + header-comment + reverse-export-
  * index + nested-composition-group + seam-interface resolution) for raw
  * `ports.ts` reads, and `detectHiddenCompositionEdges` (type-import +
  * composition-root usage-collection, folded in from the now-retired
- * `scan-hidden-composition-edges.ts`) for hidden bundle reads. Both are
- * cross-checked against `ALLOWLIST`, then `isDomainStateEdge` (stateless
- * providers/methods carry zero core-api domain state — the guard's actual
- * concern per its own target end-state — and are not findings at all, not an
- * allowlisted violation).
+ * `scan-hidden-composition-edges.ts`) for hidden bundle reads.
+ *
+ * @lore AU21 Increment 14e (Decision L, founder 2026-08-03): this used to also
+ * cross-check `ALLOWLIST` (a permanent, founder-signed exemption set) and
+ * `isDomainStateEdge`/`isStatelessProvider` (a table-ownership-driven
+ * "stateless provider" exemption, e.g. `model-gateway`). Both are DELETED
+ * outright, not emptied — there is no longer any code path that can exempt an
+ * edge by provider shape or table-ownership. `DEFERRED_FOLLOWUP` is the only
+ * remaining filter, and it is not a carve-out: it names honestly-open,
+ * NOT-founder-signed, NOT-permanent gaps pending their own closure pass (see
+ * its own doc comment) — currently genuinely EMPTY.
  */
 export function inspect(root: string): CompositionEdgeFinding[] {
 	const services = discoverServices(root);
-	// Populates `service.ownedTables` (empty by construction from
-	// `discoverServices` alone) — `isStatelessProvider` needs the real
-	// owned-table census to tell a genuinely-stateless provider (owns zero
-	// tables) from one `table-ownership-guard.ts` just doesn't happen to
-	// mention in this repo (e.g. a fixture root in a test, which legitimately
-	// has none registered — see `isStatelessProvider`'s own doc comment).
-	loadOwnedTables(root, services);
 	const layerByName = new Map(services.map((s) => [s.name, s.layer]));
 	const reverseIndex = buildExposedApis(services);
 
@@ -485,9 +451,7 @@ export function inspect(root: string): CompositionEdgeFinding[] {
 		if (edge.confidence === "unresolved") continue; // target not a real Service — can't attribute
 		if (layerByName.get(edge.source) !== "agent-orchestration") continue;
 		if (layerByName.get(edge.target) !== "core-api") continue;
-		if (ALLOWLIST.has(`${edge.source}::${edge.target}`)) continue;
 		if (DEFERRED_FOLLOWUP.has(`${edge.source}::${edge.target}`)) continue;
-		if (!isDomainStateEdge(services, edge.target)) continue;
 		findings.push({
 			consumer: edge.source,
 			provider: edge.target,
@@ -499,9 +463,7 @@ export function inspect(root: string): CompositionEdgeFinding[] {
 	// Mechanism 2 — hidden composition-bundle reads (folded scan-hidden-composition-edges.ts).
 	for (const edge of detectHiddenCompositionEdges(root, services)) {
 		if (edge.consumerLayer !== "agent-orchestration" || edge.providerLayer !== "core-api") continue;
-		if (ALLOWLIST.has(`${edge.consumer}::${edge.provider}`)) continue;
 		if (DEFERRED_FOLLOWUP.has(`${edge.consumer}::${edge.provider}`)) continue;
-		if (!isDomainStateEdge(services, edge.provider)) continue;
 		findings.push({
 			consumer: edge.consumer,
 			provider: edge.provider,
@@ -519,21 +481,6 @@ function writeFixture(root: string, rel: string, source: string): void {
 	const abs = join(root, rel);
 	mkdirSync(dirname(abs), { recursive: true });
 	writeFileSync(abs, source);
-}
-
-/**
- * Writes a minimal `scripts/table-ownership-guard.ts` fixture so
- * `loadOwnedTables` (which `inspect()` now calls to drive `isStatelessProvider`)
- * sees the fixture's provider Service(s) as genuinely stateful — without this,
- * every fixture provider has an empty `ownedTables` (no real
- * `table-ownership-guard.ts` exists in an isolated tmp root) and would be
- * wrongly treated as a zero-table, exempt-from-domain-state-findings provider.
- */
-function writeTableOwnershipFixture(root: string, owners: Readonly<Record<string, string>>): void {
-	const rows = Object.entries(owners)
-		.map(([table, pkgPath]) => `\t${table}: "${pkgPath}",`)
-		.join("\n");
-	writeFixture(root, "scripts/table-ownership-guard.ts", `const TABLE_OWNER: Record<string, string> = {\n${rows}\n};\n`);
 }
 
 /**
@@ -570,7 +517,6 @@ function buildRawPortFixture(root: string): void {
 		"packages/core-api/demo-core/src/index.ts",
 		'export function readCoreThing(): Promise<string> {\n  return Promise.resolve("x");\n}\n',
 	);
-	writeTableOwnershipFixture(root, { demo_things: "packages/core-api/demo-core" });
 }
 
 /**
@@ -617,7 +563,6 @@ function buildHiddenBundleFixture(root: string): void {
 			"",
 		].join("\n"),
 	);
-	writeTableOwnershipFixture(root, { demo_things2: "packages/core-api/demo-core2" });
 }
 
 /**
@@ -700,18 +645,6 @@ function buildDeletedCostExemptionFixture(root: string): void {
 			"",
 		].join("\n"),
 	);
-	// @lore AU21 Increment 14a: `isDomainStateEdge` filters out a provider that
-	// owns zero real tables (a genuinely-stateless provider) — without
-	// registering fake ownership here, `users`/`org`/`settings`/`work` in this
-	// isolated fixture root would show zero owned tables and the guard would
-	// (wrongly) treat the reads as stateless and report zero findings, the
-	// exact false-negative this scenario exists to prevent.
-	writeTableOwnershipFixture(root, {
-		demo_users: "packages/core-api/users",
-		demo_org: "packages/core-api/org",
-		demo_settings: "packages/core-api/settings",
-		demo_work: "packages/core-api/work",
-	});
 }
 
 /**
@@ -751,17 +684,20 @@ function buildNestedGroupPortFixture(root: string): void {
 		"packages/core-api/demo-core3/src/index.ts",
 		'export function readCoreThing3(): Promise<string> {\n  return Promise.resolve("z");\n}\n',
 	);
-	writeTableOwnershipFixture(root, { demo_things3: "packages/core-api/demo-core3" });
 }
 
 /**
- * Scenario 5 — AU21 §9 Increment 9: `isStatelessProvider` must exempt a
- * genuinely zero-owned-table provider WITHOUT it being founder-signed on
- * `ALLOWLIST` — distinct from Scenario 3's allowlist mechanism (`demo-core4`
- * here is on neither `ALLOWLIST` nor any method-exemption set (`STATELESS_METHODS`
- * was removed entirely by AU21 §6 Decision L3 — its one member, `work:routeItem`,
- * is deleted, not exempted); only its owned-table census, deliberately left
- * EMPTY, drives the exemption).
+ * Scenario 5 — AU21 Increment 14e (Decision L, founder 2026-08-03: "as long
+ * as there is any exception I don't think AU21 is done"). This fixture
+ * reproduces the exact shape the now-DELETED `isStatelessProvider` mechanism
+ * used to exempt: a genuinely zero-owned-table provider — the real
+ * `model-gateway` class before Increment 14b dissolved that package into
+ * `@hyperidle/shared`. With `isStatelessProvider` deleted outright (not
+ * merely bypassed), the guard has no notion of "stateless, therefore exempt"
+ * left at all — a raw-port read into ANY core-api provider fires, table-owning
+ * or not. This is the regression test proving the exemption MECHANISM is
+ * gone, not just that its one real consumer (`model-gateway`) was deleted
+ * separately in 14b.
  */
 function buildStatelessProviderFixture(root: string): void {
 	writeFixture(
@@ -791,9 +727,6 @@ function buildStatelessProviderFixture(root: string): void {
 		"packages/core-api/demo-core4/src/index.ts",
 		'export function readCoreThing4(): Promise<string> {\n  return Promise.resolve("w");\n}\n',
 	);
-	// NOTE: deliberately NO `writeTableOwnershipFixture` call — `demo-core4`
-	// has an empty `ownedTables` census, exactly like a genuinely stateless
-	// real Service (`model-gateway`). This is the fixture's whole point.
 }
 
 /**
@@ -805,7 +738,7 @@ function buildStatelessProviderFixture(root: string): void {
  * per-group level (narrower than the whole-interface `SEAM_INTERFACES`
  * mechanism, since `DispatchPorts` has other, non-seam groups). Reuses the
  * REAL production key (`dispatch:DispatchPorts:conversation`), same idiom as
- * Scenario 3's real `ALLOWLIST` reuse — not a fixture-only stand-in. A
+ * Scenario 3's real `cost`-shaped fixture — not a fixture-only stand-in. A
  * sibling, non-excluded group on the SAME interface targeting a different
  * core-api provider must still fire — proving the exclusion is genuinely
  * per-group, not a backdoor that blinds the whole interface to future
@@ -853,10 +786,6 @@ function buildSeamGroupFixture(root: string): void {
 		"packages/core-api/other-core6/src/index.ts",
 		'export function readOtherThing6(): Promise<string> {\n  return Promise.resolve("x");\n}\n',
 	);
-	writeTableOwnershipFixture(root, {
-		messages6: "packages/core-api/conversation",
-		other_things6: "packages/core-api/other-core6",
-	});
 }
 
 function fixtureCheck(): void {
@@ -933,17 +862,18 @@ function fixtureCheck(): void {
 		rmSync(nestedGroupRoot, { recursive: true, force: true });
 	}
 
-	// Scenario 5 — a genuinely zero-owned-table provider (NOT founder-signed,
-	// no method-exemption set exists anymore) must not fire, purely from its empty owned-
-	// table census.
+	// Scenario 5 — AU21 Increment 14e: a zero-owned-table provider (the exact
+	// model-gateway-shaped edge `isStatelessProvider` used to exempt) MUST fire
+	// now that the exemption mechanism is deleted outright — no carve-out for
+	// "stateless" providers exists anymore, only a real Service boundary check.
 	const statelessProviderRoot = mkdtempSync(join(tmpdir(), "au21-anti-regrowth-stateless-provider-"));
 	try {
 		buildStatelessProviderFixture(statelessProviderRoot);
 		const findings = inspect(statelessProviderRoot);
 		const violations = findings.filter((f) => f.provider === "demo-core4");
-		if (violations.length > 0) {
+		if (violations.length === 0) {
 			throw new Error(
-				`composition-edge-anti-regrowth-guard: a zero-owned-table provider must not fire, got ${JSON.stringify(violations)}`,
+				"composition-edge-anti-regrowth-guard: a zero-owned-table provider must fire now that isStatelessProvider is deleted (AU21 Increment 14e), got zero findings",
 			);
 		}
 	} finally {

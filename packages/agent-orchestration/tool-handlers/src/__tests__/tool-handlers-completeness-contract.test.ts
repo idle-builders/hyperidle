@@ -110,11 +110,7 @@ describe("buildToolDefinitions — role filtering", () => {
 		"update_routine",
 	] as const;
 
-	const MULTI_ROLE = [
-		"score_attention",
-		"promote_knowledge",
-		"create_conflict_review",
-	] as const;
+	const MULTI_ROLE = ["score_attention", "promote_knowledge", "create_conflict_review"] as const;
 
 	it("returns all 21 tools when no opts provided", () => {
 		const tools = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS);

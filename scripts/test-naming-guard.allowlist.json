@@ -30,7 +30,6 @@
 	"packages/core-api/observability/src/__tests__/console-adapter.test.ts",
 	"packages/core-api/observability/src/__tests__/performance.bench.test.ts",
 	"packages/core-api/observability/src/__tests__/trace-correlation.integration.test.ts",
-	"packages/core-api/realtime/src/__tests__/R6-events-and-broadcaster.test.ts",
 	"packages/core-api/src/__tests__/AC1-bet-outcome.integration.test.ts",
 	"packages/core-api/src/__tests__/AC1-session-effectiveness.integration.test.ts",
 	"packages/core-api/src/__tests__/AC1-task-outcome.integration.test.ts",

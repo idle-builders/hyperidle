@@ -211,6 +211,36 @@ part of AU21's own scope — they are AU27 and AU26 respectively, both registere
   for AU21's own AC; this is the founder's stated "almost the hardest task" and the eventual
   efficiency answer to re-baking the full transcript every turn.
 
+## Update: AU21 Increment 14 (a-e) — the exception itself, and the exemption apparatus, are now GONE
+
+The framing below this heading (the original "Executive Summary" through the Gap Register's item 9)
+was written when AU21's own guard still held one live, founder-acknowledged exception — `cost`'s
+4-row `ALLOWLIST` entry — and treated that as the accepted end state ("the one place AU21's 'bake
+everything' principle correctly does not apply"). The founder overturned that framing outright,
+2026-08-03: *"as long as there is any exception I don't think AU21 is done."* Five sub-increments
+(Decision L) closed it for real, not by relabeling:
+
+- **14a** — `@hyperidle/cost` HARD-DELETED (package, cap gate, events, DB columns, every UI surface).
+  No replacement mechanism; the founder confirmed the real spend ceiling lives at the upstream LLM
+  provider, not in HyperIdle.
+- **14b** — `model-gateway` dissolved into `@hyperidle/shared`; the package is gone.
+- **14c** — `routeItem`/`route_item`/`item-router.ts` deleted outright (vestigial, zero consumers).
+- **14d** — the generic realtime forwarder retired; changed data pushed per-domain.
+- **14e** (this pass) — `ALLOWLIST`, `STATELESS_METHODS`, and `isStatelessProvider` **deleted from
+  `composition-edge-anti-regrowth-guard.ts` itself**, not merely emptied. There is no exemption
+  mechanism left in the file to re-populate — `inspect()` treats every `agent-orchestration ->
+  core-api` edge as a violation, filtered only by `DEFERRED_FOLLOWUP` (an honestly-open gap set,
+  currently empty, never a permanent carve-out). A fixture (`buildStatelessProviderFixture`) proves a
+  zero-owned-table, `model-gateway`-shaped edge now FIRES — the exact class the deleted mechanism
+  used to exempt.
+
+Re-running `scripts/generate-dependency-graph.ts` against the post-14a-14e tree confirms it directly:
+20 Services (not 22 — `cost` and `model-gateway` are gone), 0 hidden `agent-orchestration ->
+core-api` composition edges (was 6), 0 `cost::*`/`model-gateway`-shaped raw-port edges. The boundary
+is now genuinely zero-exception — every claim below this point that still describes a `cost`
+exception or an `ALLOWLIST` row as the accepted end state is superseded by this update; the
+historical narrative is kept for the record, not as current truth.
+
 ## Executive Summary
 
 AU19's structural target — four real Layer packages, ~20-25 Service packages nested under three of
@@ -222,14 +252,16 @@ shipped the concrete behavioral mechanism the target frame's `agent-orchestratio
 only gestured at: `agent-orchestration` reads **zero** `core-api` domain state, for its own
 decisions, by any mechanism — not raw DI, not a governed seam, nothing — because core-api bakes
 everything a run needs onto the request at emit time and orchestration only formats + dispatches;
-the *only* sanctioned crossings are (a) the agent's own live `CoreApiPort`/MCP action during its run
+the *only* sanctioned crossing is the agent's own live `CoreApiPort`/MCP action during its run
 ("agent-as-user," the exact same shape as filesystems'/connections' own baked provisioning, and the
-assistant-turn's own reply write) and (b) one founder-signed, deliberately-live exception (the `cost`
-cap-gate consumer, 4 `ALLOWLIST` rows — a real budget check that would be meaningless if baked
-stale). This is now mechanically enforced, not merely documented: `composition-edge-anti-regrowth-
-guard.ts` is wired into `npm run lint` as a hard failure, `DEFERRED_FOLLOWUP` is genuinely empty, and
-`ALLOWLIST` holds exactly those 4 rows — all independently verified against real source for this
-document, not taken from prior claims.
+assistant-turn's own reply write). **Superseded by Increment 14 (see the Update section above): the
+one live exception this paragraph originally described (`cost`, 4 `ALLOWLIST` rows) is HARD-DELETED,
+and the `ALLOWLIST`/`isStatelessProvider` exemption mechanism itself is deleted from
+`composition-edge-anti-regrowth-guard.ts`'s source, not merely emptied.** This is mechanically
+enforced, not merely documented: `composition-edge-anti-regrowth-guard.ts` is wired into `npm run
+lint` as a hard failure, `DEFERRED_FOLLOWUP` is genuinely empty, and there is no `ALLOWLIST` left in
+the file to hold rows at all — verified against real source for this document, not taken from prior
+claims.
 
 What's genuinely still open, honestly stated (this document's predecessor was explicit that AU7 got
 "sent back through the pipeline after review found the cleanup requirement gap"; AU21's own arc
@@ -355,8 +387,8 @@ relocates the `connections` table and its record moves in-layer.
 | Layer/execution boundary guard exists, green | `scripts/execution-boundary-guard.ts`, `package.json` `lint` script |
 | Composition boundary guard exists, green, verified against a real Service's own `package.json` | `scripts/composition-boundary-guard.ts`; `packages/core-api/policy/package.json`'s `dependencies` list only `@hyperidle/db`/`@hyperidle/shared`/`drizzle-orm` |
 | Anti-regrowth guard exists, wired hard-fail | `scripts/composition-edge-anti-regrowth-guard.ts`, `package.json` `lint` script (both `--fixtures` and bare live-tree invocations) |
-| `DEFERRED_FOLLOWUP` is genuinely empty | `scripts/composition-edge-anti-regrowth-guard.ts:421` — `export const DEFERRED_FOLLOWUP: ReadonlySet<string> = new Set([]);` |
-| `ALLOWLIST` holds only the 4 founder-signed `cost::*` rows | `scripts/composition-edge-anti-regrowth-guard.ts:270-273` |
+| `DEFERRED_FOLLOWUP` is genuinely empty | `scripts/composition-edge-anti-regrowth-guard.ts` — `export const DEFERRED_FOLLOWUP: ReadonlySet<string> = new Set([]);` |
+| `ALLOWLIST`/`isStatelessProvider` are DELETED from the guard's source (AU21 Increment 14e) — no exemption mechanism exists to hold rows at all | `scripts/composition-edge-anti-regrowth-guard.ts` (no `ALLOWLIST`/`isStatelessProvider`/`isDomainStateEdge` declarations remain); `npx tsx scripts/composition-edge-anti-regrowth-guard.ts` returns zero findings on the live tree |
 | `SEAM_GROUPS` exists (Increment 13's per-group seam exclusion) | `scripts/generate-dependency-graph.ts:131` — `Set(["dispatch:DispatchPorts:conversation"])` |
 | `CoreApiPort.connections`/`CoreApiConnectionsPort` are deleted | `packages/api-contract/src/core-api-port.ts` — only a historical `@lore` comment names the type; no live declaration |
 | `SessionLifecycleAgentRunnabilityReader` is deleted, zero replacement | `packages/agent-orchestration/run-orchestration/src/provisioner.ts` — only a `@lore` comment references the deleted symbol |
@@ -367,7 +399,7 @@ relocates the `connections` table and its record moves in-layer.
 | `RegistryFilesystemMounter` still core-api-owned (AU26 not built) | `packages/core-api/filesystems/src/mounter-registry.ts`, composed in `packages/core-api/src/server-factory.ts:1027` |
 | `users`' agent-execution columns unchallenged (AU26 not built) | `packages/db/src/schema.ts` — `kind`, `harnessType`, `modelId`, `modelProvider`, `maxConcurrentSessions` all on the `users` table |
 | Assistant-turn `conversational` mode still exists (AU27 not built) | `packages/agent-orchestration/dispatch/src/service.ts` — `runTurnInternal`'s `conversational` params bag + `conversationalReply` result shape |
-| Surface totals | `plans/AU19/dependency-graph-data.json` — 259 methods / 204 types / 463 total, 37 port edges (35 high/2 medium/0 unresolved confidence), 24 EventBus edges, 10 hidden composition-bundle edges (6 `agent-orchestration → core-api`, all accounted for: 4 `cost::*` ALLOWLIST + `dispatch::model-gateway` (zero-owned-table exemption) + `tool-handlers::work:routeItem` (stateless-method exemption) — zero unaccounted findings |
+| Surface totals (superseded, see the Increment 14a-14e update above) | `plans/AU19/dependency-graph-data.json`, regenerated post-14a-14e — 20 Services (was 22, `cost`/`model-gateway` deleted), 246 methods / 195 types / 441 total, 30 port edges (28 high/2 medium/0 unresolved confidence), 21 EventBus edges, 4 hidden composition-bundle edges, **0 `agent-orchestration → core-api`** (was 6, all now closed: `cost` HARD-DELETED, `dispatch::model-gateway` gone with the package, `tool-handlers::work:routeItem` deleted with `routeItem`) — zero findings from `composition-edge-anti-regrowth-guard.ts`'s bare check |
 
 ## Gap Register
 
@@ -400,11 +432,13 @@ relocates the `connections` table and its record moves in-layer.
 8. **AU25 is not yet scoped in detail** beyond its own one-paragraph problem statement (resumable
    harness sessions + delta computation) — genuinely new machinery, verified absent today, no
    architecture pass has begun.
-9. **One legitimate residual live-read exception remains inside `agent-orchestration → core-api`,
-   by founder design, not oversight**: the `cost` cap-gate consumer (`CostDeps.users`/`.org`/`.work`/
-   `.settings`, `ALLOWLIST`'s 4 rows) reads live because a baked cost total would be meaningless for
-   budget enforcement — this is the one place AU21's "bake everything" principle correctly does not
-   apply, tracked explicitly rather than silently allowed.
+9. ~~One legitimate residual live-read exception remains inside `agent-orchestration → core-api`, by
+   founder design, not oversight: the `cost` cap-gate consumer.~~ **CLOSED (AU21 Increment 14, Decision
+   L, founder 2026-08-03).** The founder overturned this framing outright ("as long as there is any
+   exception I don't think AU21 is done"): `cost` is HARD-DELETED (14a, no replacement mechanism —
+   the real spend ceiling lives at the upstream LLM provider), and the `ALLOWLIST`/`isStatelessProvider`
+   exemption apparatus that held this row is deleted from `composition-edge-anti-regrowth-guard.ts`'s
+   source outright (14e), not merely emptied. No residual exception of any kind remains.
 
 ## AU19 Completion Check
 

@@ -668,41 +668,6 @@
       ]
     },
     {
-      "name": "model-gateway",
-      "layer": "core-api",
-      "ownedTables": [],
-      "surface": {
-        "service": "model-gateway",
-        "layer": "core-api",
-        "methods": 2,
-        "types": 2,
-        "total": 4
-      },
-      "exposedApiCount": 4,
-      "exposedApi": [
-        {
-          "name": "ModelRequest",
-          "kind": "re-export",
-          "signature": "ModelRequest"
-        },
-        {
-          "name": "resolveModel",
-          "kind": "re-export",
-          "signature": "resolveModel"
-        },
-        {
-          "name": "UnsupportedAgentProviderError",
-          "kind": "re-export",
-          "signature": "UnsupportedAgentProviderError"
-        },
-        {
-          "name": "ModelGatewayCredentialResolver",
-          "kind": "re-export",
-          "signature": "ModelGatewayCredentialResolver"
-        }
-      ]
-    },
-    {
       "name": "notifications",
       "layer": "core-api",
       "ownedTables": [
@@ -711,9 +676,9 @@
       "surface": {
         "service": "notifications",
         "layer": "core-api",
-        "methods": 17,
+        "methods": 16,
         "types": 11,
-        "total": 28
+        "total": 27
       },
       "exposedApiCount": 23,
       "exposedApi": [
@@ -905,11 +870,11 @@
       "surface": {
         "service": "org",
         "layer": "core-api",
-        "methods": 14,
+        "methods": 13,
         "types": 7,
-        "total": 21
+        "total": 20
       },
-      "exposedApiCount": 20,
+      "exposedApiCount": 19,
       "exposedApi": [
         {
           "name": "UpsertOrgEdgeInput",
@@ -970,11 +935,6 @@
           "name": "CreateTeamInput",
           "kind": "re-export",
           "signature": "CreateTeamInput"
-        },
-        {
-          "name": "applyTeamCost",
-          "kind": "re-export",
-          "signature": "applyTeamCost"
         },
         {
           "name": "createTeam",
@@ -1107,9 +1067,9 @@
           "signature": "createDbSubscribeAuthorizer"
         },
         {
-          "name": "WsBroadcaster",
+          "name": "WsConnectionHub",
           "kind": "re-export",
-          "signature": "WsBroadcaster"
+          "signature": "WsConnectionHub"
         }
       ]
     },
@@ -1212,11 +1172,11 @@
       "surface": {
         "service": "routine",
         "layer": "core-api",
-        "methods": 21,
+        "methods": 19,
         "types": 14,
-        "total": 35
+        "total": 33
       },
-      "exposedApiCount": 35,
+      "exposedApiCount": 33,
       "exposedApi": [
         {
           "name": "AgentDelegationDeps",
@@ -1339,11 +1299,6 @@
           "signature": "getRoutineRun"
         },
         {
-          "name": "incrementRoutineCost",
-          "kind": "re-export",
-          "signature": "incrementRoutineCost"
-        },
-        {
           "name": "insertRoutine",
           "kind": "re-export",
           "signature": "insertRoutine"
@@ -1372,11 +1327,6 @@
           "name": "resolveRoutineRunRequest",
           "kind": "re-export",
           "signature": "resolveRoutineRunRequest"
-        },
-        {
-          "name": "sumRunCost",
-          "kind": "re-export",
-          "signature": "sumRunCost"
         },
         {
           "name": "updateRoutine",
@@ -1507,11 +1457,11 @@
       "surface": {
         "service": "users",
         "layer": "core-api",
-        "methods": 19,
+        "methods": 16,
         "types": 5,
-        "total": 24
+        "total": 21
       },
-      "exposedApiCount": 24,
+      "exposedApiCount": 21,
       "exposedApi": [
         {
           "name": "ReapExpiredCredentialsArgs",
@@ -1604,11 +1554,6 @@
           "signature": "getOrCreateUser"
         },
         {
-          "name": "incrementUserCost",
-          "kind": "re-export",
-          "signature": "incrementUserCost"
-        },
-        {
           "name": "insertUser",
           "kind": "re-export",
           "signature": "insertUser"
@@ -1617,16 +1562,6 @@
           "name": "listUsers",
           "kind": "re-export",
           "signature": "listUsers"
-        },
-        {
-          "name": "resetAllUserCost",
-          "kind": "re-export",
-          "signature": "resetAllUserCost"
-        },
-        {
-          "name": "sumAllUserCost",
-          "kind": "re-export",
-          "signature": "sumAllUserCost"
         },
         {
           "name": "updateUser",
@@ -1648,11 +1583,11 @@
       "surface": {
         "service": "work",
         "layer": "core-api",
-        "methods": 17,
-        "types": 23,
-        "total": 40
+        "methods": 16,
+        "types": 22,
+        "total": 38
       },
-      "exposedApiCount": 47,
+      "exposedApiCount": 45,
       "exposedApi": [
         {
           "name": "ArtifactRow",
@@ -1698,11 +1633,6 @@
           "name": "checkAndUnblockDependents",
           "kind": "re-export",
           "signature": "checkAndUnblockDependents"
-        },
-        {
-          "name": "routeItem",
-          "kind": "re-export",
-          "signature": "routeItem"
         },
         {
           "name": "WorkDeps",
@@ -1810,11 +1740,6 @@
           "signature": "BetUpdatePatch"
         },
         {
-          "name": "IncrementOp",
-          "kind": "re-export",
-          "signature": "IncrementOp"
-        },
-        {
           "name": "Item",
           "kind": "re-export",
           "signature": "Item"
@@ -1888,56 +1813,6 @@
           "name": "update",
           "kind": "re-export",
           "signature": "update"
-        }
-      ]
-    },
-    {
-      "name": "cost",
-      "layer": "agent-orchestration",
-      "ownedTables": [],
-      "surface": {
-        "service": "cost",
-        "layer": "agent-orchestration",
-        "methods": 1,
-        "types": 6,
-        "total": 7
-      },
-      "exposedApiCount": 7,
-      "exposedApi": [
-        {
-          "name": "CostOps",
-          "kind": "re-export",
-          "signature": "CostOps"
-        },
-        {
-          "name": "createCostOps",
-          "kind": "re-export",
-          "signature": "createCostOps"
-        },
-        {
-          "name": "CostCheckParams",
-          "kind": "re-export",
-          "signature": "CostCheckParams"
-        },
-        {
-          "name": "CostDeps",
-          "kind": "re-export",
-          "signature": "CostDeps"
-        },
-        {
-          "name": "CostRecordParams",
-          "kind": "re-export",
-          "signature": "CostRecordParams"
-        },
-        {
-          "name": "CostScope",
-          "kind": "re-export",
-          "signature": "CostScope"
-        },
-        {
-          "name": "CostVerdict",
-          "kind": "re-export",
-          "signature": "CostVerdict"
         }
       ]
     },
@@ -2119,11 +1994,11 @@
       "surface": {
         "service": "session-requests",
         "layer": "agent-orchestration",
-        "methods": 16,
+        "methods": 14,
         "types": 10,
-        "total": 26
+        "total": 24
       },
-      "exposedApiCount": 24,
+      "exposedApiCount": 22,
       "exposedApi": [
         {
           "name": "AgentLifecycleFact",
@@ -2229,16 +2104,6 @@
           "name": "WorkIntentInput",
           "kind": "re-export",
           "signature": "WorkIntentInput"
-        },
-        {
-          "name": "getSessionCostBySessionId",
-          "kind": "re-export",
-          "signature": "getSessionCostBySessionId"
-        },
-        {
-          "name": "registerSessionCostRecorder",
-          "kind": "re-export",
-          "signature": "registerSessionCostRecorder"
         },
         {
           "name": "sessionRunRegistry",
@@ -2451,16 +2316,6 @@
       ],
       "confidence": "high",
       "resolutionNote": "Resolved from the codebase's own section-header comment (\"// knowledge — ...\", line 65) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "model-gateway",
-      "target": "connections",
-      "portInterface": "ModelGatewayCredentialResolver",
-      "methods": [
-        "resolve"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "notifications",
@@ -2728,7 +2583,7 @@
         "listActiveAiUsersByTeams"
       ],
       "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// users — ...\", line 112) — method names are generic aliases wired at the composition root, not a literal name match."
+      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// users — ...\", line 115) — method names are generic aliases wired at the composition root, not a literal name match."
     },
     {
       "source": "work",
@@ -2739,68 +2594,7 @@
         "setActiveBets"
       ],
       "confidence": "high",
-      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// org — ...\", line 141) — method names are generic aliases wired at the composition root, not a literal name match."
-    },
-    {
-      "source": "cost",
-      "target": "users",
-      "portInterface": "CostDeps.users",
-      "methods": [
-        "getUserById",
-        "incrementUserCost",
-        "resetAllUserCost",
-        "sumAllUserCost",
-        "updateUser"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the nested composition-group name (\"users\" -> \"users\") — a per-domain sub-port, not a flat method interface."
-    },
-    {
-      "source": "cost",
-      "target": "org",
-      "portInterface": "CostDeps.org",
-      "methods": [
-        "getTeamMembersById",
-        "incrementTeamMembersCost",
-        "resetAllTeamMembersCost",
-        "resetTeamMembersCost"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the nested composition-group name (\"org\" -> \"org\") — a per-domain sub-port, not a flat method interface."
-    },
-    {
-      "source": "cost",
-      "target": "work",
-      "portInterface": "CostDeps.work",
-      "methods": [
-        "createItem",
-        "getTaskById",
-        "incrementBetCost"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the nested composition-group name (\"work\" -> \"work\") — a per-domain sub-port, not a flat method interface."
-    },
-    {
-      "source": "cost",
-      "target": "settings",
-      "portInterface": "CostDeps.settings",
-      "methods": [
-        "readServerConfig",
-        "updateServerConfig"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the nested composition-group name (\"settings\" -> \"settings\") — a per-domain sub-port, not a flat method interface."
-    },
-    {
-      "source": "dispatch",
-      "target": "model-gateway",
-      "portInterface": "DispatchPorts.modelGateway",
-      "methods": [
-        "resolveAgentModel",
-        "resolveModelTier"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Resolved from the nested composition-group name (\"modelGateway\" -> \"model-gateway\") — a per-domain sub-port, not a flat method interface."
+      "resolutionNote": "Resolved from the codebase's own section-header comment (\"// org — ...\", line 144) — method names are generic aliases wired at the composition root, not a literal name match."
     },
     {
       "source": "dispatch",
@@ -2821,24 +2615,9 @@
       ],
       "confidence": "high",
       "resolutionNote": "Resolved from the nested composition-group name (\"toolHandlers\" -> \"tool-handlers\") — a per-domain sub-port, not a flat method interface."
-    },
-    {
-      "source": "tool-handlers",
-      "target": "work",
-      "portInterface": "ToolHandlersWorkAccessor",
-      "methods": [
-        "routeItem"
-      ],
-      "confidence": "high",
-      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     }
   ],
   "eventEdges": [
-    {
-      "source": "policy",
-      "target": "cost",
-      "eventType": "session_handoff_completed"
-    },
     {
       "source": "policy",
       "target": "run-orchestration",
@@ -2865,6 +2644,11 @@
       "eventType": "bet_state_changed"
     },
     {
+      "source": "policy",
+      "target": "(core-api composition root)",
+      "eventType": "bet_state_changed"
+    },
+    {
       "source": "work",
       "target": "policy",
       "eventType": "bet_state_changed"
@@ -2872,6 +2656,11 @@
     {
       "source": "work",
       "target": "routine",
+      "eventType": "bet_state_changed"
+    },
+    {
+      "source": "work",
+      "target": "(core-api composition root)",
       "eventType": "bet_state_changed"
     },
     {
@@ -2895,16 +2684,6 @@
       "eventType": "notification"
     },
     {
-      "source": "cost",
-      "target": "notifications",
-      "eventType": "cost_cap_breached"
-    },
-    {
-      "source": "cost",
-      "target": "notifications",
-      "eventType": "cost_cap_warning"
-    },
-    {
       "source": "run-orchestration",
       "target": "(core-api composition root)",
       "eventType": "session_started"
@@ -2922,16 +2701,6 @@
     {
       "source": "run-orchestration",
       "target": "review",
-      "eventType": "session_ended"
-    },
-    {
-      "source": "run-orchestration",
-      "target": "cost",
-      "eventType": "session_ended"
-    },
-    {
-      "source": "run-orchestration",
-      "target": "session-requests",
       "eventType": "session_ended"
     },
     {
@@ -2957,75 +2726,12 @@
   ],
   "hiddenCompositionEdges": [
     {
-      "consumer": "cost",
-      "consumerLayer": "agent-orchestration",
-      "provider": "org",
-      "providerLayer": "core-api",
-      "methods": [
-        "applyTeamCost",
-        "getTeamMembers"
-      ],
-      "viaType": "CostDeps",
-      "file": "packages/core-api/src/services/cost-bindings.ts"
-    },
-    {
-      "consumer": "cost",
-      "consumerLayer": "agent-orchestration",
-      "provider": "settings",
-      "providerLayer": "core-api",
-      "methods": [
-        "readServerConfig",
-        "updateServerConfig"
-      ],
-      "viaType": "CostDeps",
-      "file": "packages/core-api/src/services/cost-bindings.ts"
-    },
-    {
-      "consumer": "cost",
-      "consumerLayer": "agent-orchestration",
-      "provider": "users",
-      "providerLayer": "core-api",
-      "methods": [
-        "findUser",
-        "incrementUserCost",
-        "resetAllUserCost",
-        "sumAllUserCost",
-        "updateUser"
-      ],
-      "viaType": "CostDeps",
-      "file": "packages/core-api/src/services/cost-bindings.ts"
-    },
-    {
-      "consumer": "cost",
-      "consumerLayer": "agent-orchestration",
-      "provider": "work",
-      "providerLayer": "core-api",
-      "methods": [
-        "create",
-        "get",
-        "update"
-      ],
-      "viaType": "CostDeps",
-      "file": "packages/core-api/src/services/cost-bindings.ts"
-    },
-    {
       "consumer": "dispatch",
       "consumerLayer": "agent-orchestration",
       "provider": "harness-registry",
       "providerLayer": "agent-execution",
       "methods": [
         "createSandboxAdapter"
-      ],
-      "viaType": "DispatchPorts",
-      "file": "packages/core-api/src/services/dispatch-bindings.ts"
-    },
-    {
-      "consumer": "dispatch",
-      "consumerLayer": "agent-orchestration",
-      "provider": "model-gateway",
-      "providerLayer": "core-api",
-      "methods": [
-        "resolveModel"
       ],
       "viaType": "DispatchPorts",
       "file": "packages/core-api/src/services/dispatch-bindings.ts"
@@ -3068,32 +2774,21 @@
       ],
       "viaType": "RuntimeDeps",
       "file": "packages/core-api/src/services/run-orchestration-composition.ts"
-    },
-    {
-      "consumer": "tool-handlers",
-      "consumerLayer": "agent-orchestration",
-      "provider": "work",
-      "providerLayer": "core-api",
-      "methods": [
-        "routeItem"
-      ],
-      "viaType": "ToolHandlersPorts",
-      "file": "packages/core-api/src/services/tool-handlers-bindings.ts"
     }
   ],
   "summary": {
-    "totalServices": 22,
-    "totalPortEdges": 37,
-    "highConfidence": 35,
+    "totalServices": 20,
+    "totalPortEdges": 30,
+    "highConfidence": 28,
     "mediumConfidence": 2,
     "unresolved": 0,
-    "totalEventEdges": 24,
-    "totalHiddenCompositionEdges": 10,
-    "hiddenAgentOrchToCoreApi": 6,
+    "totalEventEdges": 21,
+    "totalHiddenCompositionEdges": 4,
+    "hiddenAgentOrchToCoreApi": 0,
     "surface": {
-      "methods": 259,
-      "types": 204,
-      "total": 463
+      "methods": 246,
+      "types": 195,
+      "total": 441
     }
   }
 }
