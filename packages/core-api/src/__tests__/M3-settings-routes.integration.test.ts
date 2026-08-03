@@ -86,9 +86,10 @@ describe("M3 — GET /api/settings (B1)", () => {
 				autonomyLevel: string;
 				paused: boolean;
 			}>;
+			// @lore AU21 Increment 14a: "costAlerts" removed from this shape —
+			// the settings contract field is HARD-DELETED, no replacement.
 			notifications: {
 				reviewAlerts: boolean;
-				costAlerts: boolean;
 				blockerAlerts: boolean;
 			};
 		};

@@ -40,7 +40,6 @@ function makeAdapter(): HarnessAdapter {
 		async stopSession(_handle: SessionHandle): Promise<SessionResult> {
 			return {
 				outcome: "completed",
-				cost: { minor: 0, currency: "USD" },
 				tokenUsage: { byTier: {} },
 			};
 		},

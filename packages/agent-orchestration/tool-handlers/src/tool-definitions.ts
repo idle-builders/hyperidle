@@ -20,7 +20,7 @@ import * as crypto from "node:crypto";
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { type HyperIdleDb, sessions } from "@hyperidle/db";
+import { type HyperIdleDb, resolveAgentScaffoldSpecs, sessions } from "@hyperidle/db";
 import {
 	ARTIFACT_KINDS,
 	ARTIFACT_VIEW_SHAPES,
@@ -29,7 +29,6 @@ import {
 	artifactPreviewSchema,
 	type CronFields,
 	err,
-	type ItemCreatedEvent,
 	KERNEL_KNOWLEDGE_STATUSES,
 	type KernelKnowledgeStatus,
 	KNOWLEDGE_LAYERS,
@@ -69,7 +68,7 @@ const readInboxInputSchema = z.object({
 type ReadInboxInput = z.infer<typeof readInboxInputSchema>;
 
 function makeReadInboxTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
+	ports: ToolHandlersPorts,
 ): ToolDefinition<ReadInboxInput, TDb> & { readonly reversibility: "reversible" } {
 	return {
 		name: "read_inbox",
@@ -80,20 +79,14 @@ function makeReadInboxTool<TDb>(
 			const parsed = readInboxInputSchema.safeParse(args);
 			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
 			const limit = parsed.data.limit ?? 50;
-			const rows = await ports.conversation.listInboxBySenderExclusion(
-				ctx.db,
-				ctx.agentId,
-				limit * 4,
-			);
+			// AU21 §9 Increment 2: routes through the CoreApiPort seam — reuses the
+			// SAME `GET /threads/inbox` route this migration adds. The route only
+			// excludes the sender; the tool still filters to threads the calling
+			// agent actually participates in (participants is already a parsed
+			// array — no `JSON.parse` needed, unlike the deleted raw DI path).
+			const rows = await ports.coreApi.listInboxBySenderExclusion(limit * 4, ctx.agentId);
 			const filtered = rows
-				.filter((row) => {
-					try {
-						const parts = JSON.parse(row.participants) as string[];
-						return parts.includes(ctx.agentId);
-					} catch {
-						return false;
-					}
-				})
+				.filter((row) => row.participants.includes(ctx.agentId))
 				.slice(0, limit)
 				.map((row) => row.message);
 			return ok({ messages: filtered });
@@ -113,9 +106,7 @@ const sendMessageInputSchema = z.object({
 
 type SendMessageInput = z.infer<typeof sendMessageInputSchema>;
 
-function makeSendMessageTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
-): ToolDefinition<SendMessageInput, TDb> {
+function makeSendMessageTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<SendMessageInput, TDb> {
 	return {
 		name: "send_message",
 		description:
@@ -125,27 +116,26 @@ function makeSendMessageTool<TDb>(
 			const parsed = sendMessageInputSchema.safeParse(args);
 			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
 			const { to, subject, body } = parsed.data;
-			const recipient = await ports.users.getUserById(ctx.db, to);
+			const recipient = await ports.coreApi.getUserById(to, ctx.agentId);
 			if (!recipient) return err("NOT_FOUND", `Recipient agent not found: ${to}`);
-			const now = new Date().toISOString();
-			const threadId = await ports.conversation.findOrCreateDirectThread(
-				ctx.db,
-				ctx.agentId,
-				to,
-				now,
-			);
-			const messageId = crypto.randomUUID();
+			// AU21 §9 Increment 2: routes through the CoreApiPort seam — the SAME
+			// `POST /threads/direct` + `POST /threads/:id/messages` routes a human
+			// caller's client would use — instead of the raw `ports.conversation`
+			// DI calls (deleted). The message route generates the message's id
+			// server-side; `created.id` replaces the client-generated
+			// `crypto.randomUUID()` the raw DI path used.
+			const { id: threadId } = await ports.coreApi.findOrCreateDirectThread(to, ctx.agentId);
 			const text = subject ? `${subject}\n\n${body}` : body;
-			await ports.conversation.insertMessage(ctx.db, {
-				id: messageId,
-				senderId: ctx.agentId,
-				threadId,
-				type: "plain",
-				payload: JSON.stringify({ text }),
-				clientKey: messageId,
-				createdAt: now,
-			});
-			return ok({ messageId, threadId });
+			const created = await ports.coreApi.insertMessage(
+				{
+					threadId,
+					type: "plain",
+					payload: { text },
+					clientKey: crypto.randomUUID(),
+				},
+				ctx.agentId,
+			);
+			return ok({ messageId: created.id, threadId });
 		},
 	};
 }
@@ -163,7 +153,7 @@ const queryPracticeInputSchema = z.object({
 type QueryPracticeInput = z.infer<typeof queryPracticeInputSchema>;
 
 function makeQueryPracticeTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
+	ports: ToolHandlersPorts,
 ): ToolDefinition<QueryPracticeInput, TDb> {
 	return {
 		name: "query_practice",
@@ -174,7 +164,7 @@ function makeQueryPracticeTool<TDb>(
 			const parsed = queryPracticeInputSchema.safeParse(args);
 			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
 			const { query, layer = "L3", limit = 20 } = parsed.data;
-			const allMatches = await ports.knowledge.search(ctx.db, query, { limit: limit * 5 });
+			const allMatches = await ports.coreApi.search(query, { limit: limit * 5 }, ctx.agentId);
 			const items = allMatches.filter((item) => item.layer === layer).slice(0, limit);
 			return ok({ items });
 		},
@@ -220,9 +210,7 @@ const FACILITATOR_ROLES: ReadonlySet<string> = new Set([
 
 const NON_FACILITATOR_MAX_LAYER: ReadonlySet<KnowledgeLayer> = new Set(["L0", "L1", "L2"]);
 
-function makeWriteMemoryTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
-): ToolDefinition<WriteMemoryInput, TDb> {
+function makeWriteMemoryTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<WriteMemoryInput, TDb> {
 	return {
 		name: "write_memory",
 		description:
@@ -240,7 +228,7 @@ function makeWriteMemoryTool<TDb>(
 			}
 
 			if (!NON_FACILITATOR_MAX_LAYER.has(layer)) {
-				const agent = await ports.users.getUserById(ctx.db, ctx.agentId);
+				const agent = await ports.coreApi.getUserById(ctx.agentId, ctx.agentId);
 				const role = agent?.role ?? "";
 				if (!FACILITATOR_ROLES.has(role)) {
 					return err("FORBIDDEN", `insufficient role for ${layer}`);
@@ -249,7 +237,9 @@ function makeWriteMemoryTool<TDb>(
 
 			const teamId =
 				ctx.teamId ??
-				(await ports.work.getTaskById(ctx.db, ctx.taskId).then((row) => row?.teamId ?? null));
+				(await ports.coreApi
+					.getTaskById(ctx.taskId, ctx.agentId)
+					.then((row) => row?.teamId ?? null));
 			const defaultScopeKind: ScopeKind = teamId ? "product" : "factory";
 			const scopeKind = requestedScopeKind ?? defaultScopeKind;
 			const scopeId =
@@ -257,18 +247,21 @@ function makeWriteMemoryTool<TDb>(
 					? (requestedScopeId ?? ctx.agentId)
 					: (requestedScopeId ?? (scopeKind === defaultScopeKind ? teamId : null));
 
-			const created = await ports.knowledge.create(ctx.db, {
-				layer,
-				kind,
-				title,
-				body,
-				topic: topic ?? null,
-				format: format ?? "markdown",
-				status: status ?? "draft",
-				scopeKind,
-				scopeId,
-				updatedBy: `agent:${ctx.agentId}`,
-			});
+			const created = await ports.coreApi.create(
+				{
+					layer,
+					kind,
+					title,
+					body,
+					topic: topic ?? null,
+					format: format ?? "markdown",
+					status: status ?? "draft",
+					scopeKind,
+					scopeId,
+					updatedBy: `agent:${ctx.agentId}`,
+				},
+				ctx.agentId,
+			);
 
 			return ok({ knowledgeItemId: created.id, version: created.version });
 		},
@@ -295,9 +288,7 @@ const handoffToInputSchema = z.object({
 
 type HandoffToInput = z.infer<typeof handoffToInputSchema>;
 
-function makeHandoffToTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
-): ToolDefinition<HandoffToInput, TDb> {
+function makeHandoffToTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<HandoffToInput, TDb> {
 	return {
 		name: "handoff_to",
 		description:
@@ -313,37 +304,33 @@ function makeHandoffToTool<TDb>(
 			}
 
 			if (input.toAgent) {
-				const target = await ports.users.getUserById(ctx.db, input.toAgent);
+				const target = await ports.coreApi.getUserById(input.toAgent, ctx.agentId);
 				if (!target) return err("NOT_FOUND", `Target agent not found: ${input.toAgent}`);
 			}
 
-			const metadata = {
-				context_id: input.contextId,
-				status: input.status,
-				reason: input.reason,
-				artifacts: input.artifacts ?? [],
-				remaining_work: input.remainingWork ?? [],
-				...(input.error !== undefined ? { error: input.error } : {}),
-			};
-
-			const sessionContext = {
-				sessionId: ctx.sessionId,
-				agentId: ctx.agentId,
-				taskId: ctx.taskId,
-				sandboxPath: ctx.sandboxPath,
-				ingestion: ctx.ingestion,
-				traceId: randomUUID(),
-			};
-
-			const params = {
-				sessionContext,
-				metadata,
-				...(input.toAgent ? { toAgent: input.toAgent } : {}),
-				...(input.toRole ? { toRole: input.toRole } : {}),
-				...(input.toHuman ? { toHuman: input.toHuman } : {}),
-			};
-
-			const result = await ports.policy.handoff(ctx.db, ctx.eventBus, params);
+			// AU21 §9 Increment 2 (org/routine/handoff wave): routes through the
+			// CoreApiPort seam — the SAME `POST /tasks/:id/handoff` route a human
+			// caller's client would use — instead of the raw `ports.policy.handoff`
+			// DI call (deleted). The route resolves its own `SessionContext`
+			// server-side from the DB session row keyed by `sessionId`, so this
+			// handler no longer needs to build one locally (no `sandboxPath`/
+			// `ingestion`/`traceId` to thread through the wire).
+			const result = await ports.coreApi.handoffTask(
+				ctx.taskId,
+				{
+					sessionId: ctx.sessionId,
+					...(input.toAgent ? { toAgent: input.toAgent } : {}),
+					...(input.toRole ? { toRole: input.toRole } : {}),
+					...(input.toHuman ? { toHuman: input.toHuman } : {}),
+					reason: input.reason,
+					artifacts: input.artifacts ?? [],
+					remainingWork: input.remainingWork ?? [],
+					contextId: input.contextId,
+					status: input.status,
+					...(input.error !== undefined ? { error: input.error } : {}),
+				},
+				ctx.agentId,
+			);
 
 			return ok({
 				status: result.status,
@@ -360,6 +347,9 @@ function makeHandoffToTool<TDb>(
 
 const RISK_TIERS_ITEM = ["low", "medium", "high"] as const;
 
+// @lore AU21 Increment 14a: "cost_cap_breach" is deleted from ITEM_KINDS —
+// the cost-cap breach review-item creation that produced it is gone along
+// with the rest of the cost feature, no replacement.
 const ITEM_KINDS = [
 	"review",
 	"skill_change",
@@ -367,7 +357,6 @@ const ITEM_KINDS = [
 	"work",
 	"chat",
 	"escalation",
-	"cost_cap_breach",
 	"autonomy_change",
 	"ordering",
 	"post-bet-retro",
@@ -388,7 +377,6 @@ const createItemInputSchema = z.object({
 	proposedAction: z.string().optional(),
 	options: z.string().optional(),
 	reasoning: z.string().optional(),
-	costEstimate: z.number().int().optional(),
 });
 
 type CreateItemInput = z.infer<typeof createItemInputSchema>;
@@ -401,9 +389,7 @@ function mergeParticipants(existing: readonly string[], humanIds: readonly strin
 	return [...new Set([...existing, ...humanIds])].sort();
 }
 
-function makeCreateItemTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
-): ToolDefinition<CreateItemInput, TDb> {
+function makeCreateItemTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<CreateItemInput, TDb> {
 	return {
 		name: "create_item",
 		description:
@@ -413,79 +399,81 @@ function makeCreateItemTool<TDb>(
 			const parsed = createItemInputSchema.safeParse(args);
 			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
 			const input = parsed.data;
-			const now = new Date().toISOString();
 
 			let threadId = input.threadId;
 			if (threadId) {
-				const existing = await ports.conversation.getThreadById(ctx.db, threadId);
+				const existing = await ports.coreApi.getThreadById(threadId, ctx.agentId);
 				if (!existing) return err("NOT_FOUND", `Thread not found: ${threadId}`);
 			} else {
-				threadId = randomUUID();
-				await ports.conversation.insertThread(ctx.db, {
-					id: threadId,
-					hostKind: "task",
-					hostId: ctx.taskId,
-					initiatorId: ctx.agentId,
-					participants: JSON.stringify([ctx.agentId]),
-					lastActiveAt: now,
-					createdAt: now,
-				});
+				// AU21 §9 Increment 2: routes through the CoreApiPort seam — the SAME
+				// new `POST /threads/scaffold` route a human caller's client would use
+				// — instead of the raw `ports.conversation.insertThread` DI call
+				// (deleted). The route generates the thread's id server-side;
+				// `created.id` replaces the client-generated `randomUUID()`.
+				const created = await ports.coreApi.insertThread(
+					{ hostKind: "task", hostId: ctx.taskId, participants: [ctx.agentId] },
+					ctx.agentId,
+				);
+				threadId = created.id;
 			}
 
 			if (isReviewItem(input)) {
-				const agentRow = await ports.users.getUserById(ctx.db, ctx.agentId);
-				const humanIds = await ports.org.resolveReviewRecipientsForItem(ctx.db, {
-					userId: ctx.agentId,
-					agentRole: agentRow?.role ?? undefined,
-					teamId: ctx.teamId,
-				});
+				const agentRow = await ports.coreApi.getUserById(ctx.agentId, ctx.agentId);
+				const humanIds = await ports.coreApi.resolveReviewRecipientsForItem(
+					{
+						userId: ctx.agentId,
+						agentRole: agentRow?.role ?? undefined,
+						teamId: ctx.teamId,
+					},
+					ctx.agentId,
+				);
 				if (humanIds.length > 0) {
-					const threadRow = await ports.conversation.getThreadById(ctx.db, threadId);
-					const currentParticipants: string[] = threadRow
-						? (JSON.parse(threadRow.participants) as string[])
+					const threadRow = await ports.coreApi.getThreadById(threadId, ctx.agentId);
+					const currentParticipants: readonly string[] = threadRow
+						? threadRow.participants
 						: [ctx.agentId];
 					const merged = mergeParticipants(currentParticipants, humanIds);
-					await ports.conversation.updateThread(ctx.db, threadId, {
-						participants: JSON.stringify(merged),
-					});
+					await ports.coreApi.updateThread(threadId, { participants: merged }, ctx.agentId);
 				}
 			}
 
-			const itemId = randomUUID();
-			await ports.work.createItem(ctx.db, {
-				id: itemId,
-				sourceAgentId: ctx.agentId,
-				layer: input.layer ?? null,
-				verb: input.verb ?? null,
-				kind: input.kind ?? null,
-				title: input.title,
-				body: input.body ?? null,
-				proposedAction: input.proposedAction ?? null,
-				options: input.options ?? null,
-				riskTier: input.riskTier ?? null,
-				blocking: input.blocking ?? false,
-				reasoning: input.reasoning ?? null,
-				threadId,
-				createdAt: now,
-			});
+			// AU21 §9 Increment 2: routes through the CoreApiPort seam — the
+			// SAME `POST /conversations/items` route a human caller uses — instead
+			// of the raw `ports.work.createItem` DI call (deleted). The route
+			// generates the item's id server-side; `created.id` replaces the
+			// client-generated `randomUUID()` the raw DI path used.
+			const created = await ports.coreApi.createItem(
+				{
+					sourceAgentId: ctx.agentId,
+					layer: input.layer ?? null,
+					verb: input.verb ?? null,
+					kind: input.kind ?? null,
+					title: input.title,
+					body: input.body ?? null,
+					proposedAction: input.proposedAction ?? null,
+					options: input.options ?? null,
+					riskTier: input.riskTier ?? null,
+					blocking: input.blocking ?? false,
+					reasoning: input.reasoning ?? null,
+					threadId,
+				},
+				ctx.agentId,
+			);
+			const itemId = created.id;
 
-			const view = ports.work.routeItem({
-				riskTier: input.riskTier ?? null,
-				kind: input.kind ?? null,
-				verb: input.verb ?? null,
-			});
+			// AU21 §9 Increment 2: the local `item_created` emission that used to
+			// live here is DELETED — `POST /conversations/items` (the route
+			// `ports.coreApi.createItem` above just called) already emits
+			// `item_created` on the same `eventBus` (`routes/conversations.ts`).
+			// Emitting it again here would double-fire the event for every
+			// `create_item` tool call.
 
-			const event = {
-				type: "item_created" as const,
-				streamId: randomUUID(),
-				itemId,
-				conversationId: threadId,
-				kind: input.kind ?? "unknown",
-				timestamp: Date.now(),
-			};
-			ctx.eventBus.emit(event as ItemCreatedEvent);
-
-			return ok({ itemId, view, threadId });
+			// @lore AU21 §6 Decision L3: the `view` field (`ports.work.routeItem`'s
+			// output) is DELETED from this result, not merely unset — traced to be
+			// consumed by nothing (no persisted column, no display reader, no
+			// downstream tool). `routeItem`/`route_item`/`item-router.ts` are
+			// deleted outright.
+			return ok({ itemId, threadId });
 		},
 	};
 }
@@ -551,9 +539,7 @@ const createTaskInputSchema = z.object({
 
 type CreateTaskInput = z.infer<typeof createTaskInputSchema>;
 
-function makeCreateTaskTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
-): ToolDefinition<CreateTaskInput, TDb> {
+function makeCreateTaskTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<CreateTaskInput, TDb> {
 	return {
 		name: "create_task",
 		description:
@@ -564,37 +550,38 @@ function makeCreateTaskTool<TDb>(
 			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
 			const input = parsed.data;
 
+			// @lore AU21 §9 Increment 10a (Decision I): the `sourceKind ===
+			// "decomposition"` fallback branch this used to have (resolving the
+			// parent bet from a bet-decomposition PM turn's session context) is
+			// REMOVED — the built-in bet_decomposition mechanism no longer exists,
+			// so no session's `requestContext.sourceKind` can ever be
+			// `"decomposition"` (the value is gone from `AgentSessionSourceKind`
+			// itself, not merely unreachable).
 			let parent: { betId: string; teamId: string };
 			if (ctx.taskId) {
-				const parentTask = await ports.work.getTaskById(ctx.db, ctx.taskId);
+				const parentTask = await ports.coreApi.getTaskById(ctx.taskId, ctx.agentId);
 				if (!parentTask) return err("NOT_FOUND", `Parent task not found: ${ctx.taskId}`);
 				parent = { betId: parentTask.betId, teamId: parentTask.teamId };
-			} else if (ctx.requestContext?.sourceKind === "decomposition") {
-				const { betId, teamId } = ctx.requestContext.sourceCorrelation as {
-					readonly betId: string;
-					readonly teamId: string;
-				};
-				const bet = await ports.work.getBetById(ctx.db, betId);
-				if (!bet) return err("NOT_FOUND", `Bet not found: ${betId}`);
-				parent = { betId, teamId };
 			} else {
 				return err("NOT_FOUND", "Parent task not found");
 			}
 
-			const taskId = randomUUID();
-			const now = new Date().toISOString();
-			await ports.work.createTask(ctx.db, {
-				id: taskId,
-				betId: parent.betId,
-				teamId: parent.teamId,
-				ownerAgentId: ctx.agentId,
-				title: input.title,
-				description: input.description ?? null,
-				doneCondition: input.doneCondition ?? null,
-				state: "proposed",
-				createdAt: now,
-				updatedAt: now,
-			});
+			// AU21 §9 Increment 2: routes through the CoreApiPort seam — the SAME
+			// `POST /tasks` route a human caller uses — instead of the raw
+			// `ports.work.createTask` DI call (deleted). The route generates the
+			// task's id server-side; `created.id` replaces the client-generated
+			// `randomUUID()` the raw DI path used.
+			const created = await ports.coreApi.createTask(
+				{
+					betId: parent.betId,
+					title: input.title,
+					description: input.description ?? null,
+					doneCondition: input.doneCondition ?? null,
+					ownerAgentId: ctx.agentId,
+				},
+				ctx.agentId,
+			);
+			const taskId = created.id;
 
 			const event = {
 				type: "task_state_changed" as const,
@@ -629,7 +616,7 @@ const submitReviewInputSchema = z.object({
 type SubmitReviewInput = z.infer<typeof submitReviewInputSchema>;
 
 function makeSubmitReviewTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
+	ports: ToolHandlersPorts,
 ): ToolDefinition<SubmitReviewInput, TDb> {
 	return {
 		name: "submit_review",
@@ -641,127 +628,59 @@ function makeSubmitReviewTool<TDb>(
 			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
 			const input = parsed.data;
 
-			const parentTask = await ports.work.getTaskById(ctx.db, ctx.taskId);
+			const parentTask = await ports.coreApi.getTaskById(ctx.taskId, ctx.agentId);
 			if (!parentTask) return err("NOT_FOUND", `Parent task not found: ${ctx.taskId}`);
 			const betId = parentTask.betId;
 
 			const now = new Date().toISOString();
-			const existingThread = await ports.conversation.getFirstThreadByHost(ctx.db, "bet", betId);
+			// AU21 §9 Increment 2: routes through the CoreApiPort seam — the SAME
+			// routes a human caller's client would use — instead of the raw
+			// `ports.conversation` DI calls (deleted).
+			const existingThread = await ports.coreApi.getFirstThreadByHost("bet", betId, ctx.agentId);
 
 			let threadId: string;
 			if (existingThread) {
 				threadId = existingThread.id;
-				const parts = JSON.parse(existingThread.participants) as string[];
-				if (!parts.includes(ctx.agentId)) {
-					parts.push(ctx.agentId);
-					await ports.conversation.updateThread(ctx.db, threadId, {
-						participants: JSON.stringify(parts),
-						lastActiveAt: now,
-					});
+				if (!existingThread.participants.includes(ctx.agentId)) {
+					await ports.coreApi.updateThread(
+						threadId,
+						{ participants: [...existingThread.participants, ctx.agentId], lastActiveAt: now },
+						ctx.agentId,
+					);
 				}
 			} else {
-				threadId = randomUUID();
-				await ports.conversation.insertThread(ctx.db, {
-					id: threadId,
-					hostKind: "bet",
-					hostId: betId,
-					initiatorId: ctx.agentId,
-					participants: JSON.stringify([ctx.agentId]),
-					lastActiveAt: now,
-					createdAt: now,
-				});
+				const created = await ports.coreApi.insertThread(
+					{ hostKind: "bet", hostId: betId, participants: [ctx.agentId] },
+					ctx.agentId,
+				);
+				threadId = created.id;
 			}
 
-			const messageId = randomUUID();
-
+			// The route generates the message's id server-side; `created.id`
+			// replaces the client-generated `randomUUID()` the raw DI path used.
+			let created: { readonly id: string };
 			if (input.artifactRef) {
 				const payload: ReviewPayload = {
 					title: input.title,
 					reasoning: input.reasoning,
 					artifactRef: input.artifactRef,
 				};
-				await ports.conversation.insertMessage(ctx.db, {
-					id: messageId,
-					senderId: ctx.agentId,
-					threadId,
-					type: "review",
-					payload: JSON.stringify(payload),
-					clientKey: messageId,
-					createdAt: now,
-				});
+				created = await ports.coreApi.insertMessage(
+					{ threadId, type: "review", payload: { ...payload }, clientKey: crypto.randomUUID() },
+					ctx.agentId,
+				);
 			} else {
 				const text = `Review requested: ${input.title}\n\n${input.reasoning.join("\n")}`;
-				await ports.conversation.insertMessage(ctx.db, {
-					id: messageId,
-					senderId: ctx.agentId,
-					threadId,
-					type: "plain",
-					payload: JSON.stringify({ text }),
-					clientKey: messageId,
-					createdAt: now,
-				});
+				created = await ports.coreApi.insertMessage(
+					{ threadId, type: "plain", payload: { text }, clientKey: crypto.randomUUID() },
+					ctx.agentId,
+				);
 			}
+			const messageId = created.id;
 
-			await ports.conversation.updateThread(ctx.db, threadId, { lastActiveAt: now });
+			await ports.coreApi.updateThread(threadId, { lastActiveAt: now }, ctx.agentId);
 
 			return ok({ messageId, threadId, betId });
-		},
-	};
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// route_item
-// ─────────────────────────────────────────────────────────────────────────────
-
-const RISK_TIERS_ROUTE = ["low", "medium", "high"] as const;
-
-const routeItemInputSchema = z.object({
-	itemId: z.string().min(1),
-	riskTier: z.enum(RISK_TIERS_ROUTE).optional(),
-	kind: z.string().optional(),
-	verb: z.string().optional(),
-});
-
-type RouteItemInput = z.infer<typeof routeItemInputSchema>;
-
-function makeRouteItemTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
-): ToolDefinition<RouteItemInput, TDb> {
-	return {
-		name: "route_item",
-		description:
-			"Route an existing item to its correct view (conversations | work | knowledge) based on risk tier and kind. Accepts optional overrides for riskTier, kind, or verb; returns the resolved view.",
-		inputSchema: routeItemInputSchema,
-		roles: ["assistant", "facilitator", "product_manager"],
-		handler: async (args, ctx) => {
-			const row = await ports.work.getItemById(ctx.db, args.itemId);
-			if (!row) return err("NOT_FOUND", `Item not found: ${args.itemId}`);
-
-			const effectiveRiskTier = args.riskTier ?? row.riskTier ?? null;
-			const effectiveKind = args.kind ?? row.kind ?? null;
-			const effectiveVerb = args.verb ?? row.verb ?? null;
-
-			const view = ports.work.routeItem({
-				riskTier: effectiveRiskTier,
-				kind: effectiveKind,
-				verb: effectiveVerb,
-			});
-
-			const updates: Partial<{ riskTier: string; kind: string; verb: string }> = {};
-			if (args.riskTier !== undefined) updates.riskTier = args.riskTier;
-			if (args.kind !== undefined) updates.kind = args.kind;
-			if (args.verb !== undefined) updates.verb = args.verb;
-			if (Object.keys(updates).length > 0) {
-				await ports.work.updateItemById(ctx.db, args.itemId, updates);
-			}
-
-			return ok({
-				itemId: args.itemId,
-				view,
-				riskTier: effectiveRiskTier,
-				kind: effectiveKind,
-				verb: effectiveVerb,
-			});
 		},
 	};
 }
@@ -798,7 +717,7 @@ const scoreAttentionInputSchema = z
 type ScoreAttentionInput = z.infer<typeof scoreAttentionInputSchema>;
 
 function makeScoreAttentionTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
+	ports: ToolHandlersPorts,
 ): ToolDefinition<ScoreAttentionInput, TDb> {
 	return {
 		name: "score_attention",
@@ -817,13 +736,9 @@ function makeScoreAttentionTool<TDb>(
 						"recompute mode is only supported for target='knowledge_item'",
 					);
 				}
-				const existing = await ports.knowledge.findKnowledgeItemVersionById(ctx.db, id);
+				const existing = await ports.coreApi.findKnowledgeItemVersionById(id, ctx.agentId);
 				if (!existing) return err("NOT_FOUND", `Knowledge item not found: ${id}`);
-				const result = await ports.knowledge.recomputeAttentionScoreForItem(
-					ctx.db,
-					ctx.eventBus,
-					id,
-				);
+				const result = await ports.coreApi.recomputeAttentionScoreForItem(id, ctx.agentId);
 				return ok({ target, id, score: result.current, mode });
 			}
 
@@ -833,13 +748,17 @@ function makeScoreAttentionTool<TDb>(
 			const score = args.score;
 
 			if (target === "knowledge_item") {
-				const row = await ports.knowledge.findKnowledgeItemVersionById(ctx.db, id);
+				const row = await ports.coreApi.findKnowledgeItemVersionById(id, ctx.agentId);
 				if (!row) return err("NOT_FOUND", `Knowledge item not found: ${id}`);
-				await ports.knowledge.upsertKnowledgeAppProjectionAttentionScore(ctx.db, id, String(score));
+				await ports.coreApi.upsertKnowledgeAppProjectionAttentionScore(
+					id,
+					String(score),
+					ctx.agentId,
+				);
 				return ok({ target, id, score, mode });
 			}
 
-			const row = await ports.work.getItemById(ctx.db, id);
+			const row = await ports.coreApi.getItemById(id, ctx.agentId);
 			if (!row) return err("NOT_FOUND", `Item not found: ${id}`);
 			// @lore O2: items.attentionScore removed — no-op on items score writes.
 			return ok({ target, id, score, mode });
@@ -880,7 +799,7 @@ const promoteKnowledgeInputSchema = z.object({
 type PromoteKnowledgeInput = z.infer<typeof promoteKnowledgeInputSchema>;
 
 function makePromoteKnowledgeTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
+	ports: ToolHandlersPorts,
 ): ToolDefinition<PromoteKnowledgeInput, TDb> {
 	return {
 		name: "promote_knowledge",
@@ -891,7 +810,7 @@ function makePromoteKnowledgeTool<TDb>(
 		handler: async (args, ctx) => {
 			const { knowledgeItemId, toStatus, reason } = args;
 
-			const row = await ports.knowledge.findKnowledgeItemStatusById(ctx.db, knowledgeItemId);
+			const row = await ports.coreApi.findKnowledgeItemStatusById(knowledgeItemId, ctx.agentId);
 			if (!row) return err("NOT_FOUND", `Knowledge item not found: ${knowledgeItemId}`);
 
 			if (!isAnyKnowledgeStatus(row.status)) {
@@ -905,13 +824,16 @@ function makePromoteKnowledgeTool<TDb>(
 			}
 
 			const editor = `agent:${ctx.agentId}`;
-			const result = await ports.knowledge.promoteKnowledgeItem(ctx.db, {
-				knowledgeItemId,
-				fromStatus,
-				toStatus,
-				reason,
-				editor,
-			});
+			const result = await ports.coreApi.promoteKnowledgeItem(
+				{
+					knowledgeItemId,
+					fromStatus,
+					toStatus,
+					reason,
+					editor,
+				},
+				ctx.agentId,
+			);
 
 			if (!result.ok) return err(result.code, result.message);
 
@@ -934,7 +856,7 @@ const createConflictReviewInputSchema = z.object({
 type CreateConflictReviewInput = z.infer<typeof createConflictReviewInputSchema>;
 
 function makeCreateConflictReviewTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
+	ports: ToolHandlersPorts,
 ): ToolDefinition<CreateConflictReviewInput, TDb> {
 	return {
 		name: "create_conflict_review",
@@ -943,7 +865,10 @@ function makeCreateConflictReviewTool<TDb>(
 		inputSchema: createConflictReviewInputSchema,
 		roles: ["assistant", "facilitator", "product_manager"],
 		handler: async (args, ctx) => {
-			const item = await ports.knowledge.findKnowledgeItemVersionById(ctx.db, args.knowledgeItemId);
+			const item = await ports.coreApi.findKnowledgeItemVersionById(
+				args.knowledgeItemId,
+				ctx.agentId,
+			);
 			if (!item) return err("NOT_FOUND", `Knowledge item not found: ${args.knowledgeItemId}`);
 
 			if (args.versionBase > item.version) {
@@ -954,10 +879,10 @@ function makeCreateConflictReviewTool<TDb>(
 			}
 
 			const proposedBy = `agent:${ctx.agentId}`;
-			const existing = await ports.knowledge.findOpenConflictByItemAndProposer(
-				ctx.db,
+			const existing = await ports.coreApi.findOpenConflictByItemAndProposer(
 				args.knowledgeItemId,
 				proposedBy,
+				ctx.agentId,
 			);
 			if (existing) {
 				return err(
@@ -968,16 +893,19 @@ function makeCreateConflictReviewTool<TDb>(
 
 			const conflictId = randomUUID();
 			const now = new Date().toISOString();
-			await ports.knowledge.createKnowledgeConflict(ctx.db, {
-				id: conflictId,
-				itemId: args.knowledgeItemId,
-				versionBase: args.versionBase,
-				versionCurrent: item.version,
-				proposedBody: args.proposedBody,
-				proposedMeta: args.proposedMeta ?? null,
-				proposedBy,
-				createdAt: now,
-			});
+			await ports.coreApi.createKnowledgeConflict(
+				{
+					id: conflictId,
+					itemId: args.knowledgeItemId,
+					versionBase: args.versionBase,
+					versionCurrent: item.version,
+					proposedBody: args.proposedBody,
+					proposedMeta: args.proposedMeta ?? null,
+					proposedBy,
+					createdAt: now,
+				},
+				ctx.agentId,
+			);
 
 			return ok({ conflictId, itemId: args.knowledgeItemId, status: "open" as const });
 		},
@@ -996,9 +924,7 @@ const createTeamInputSchema = z.object({
 
 type CreateTeamInput = z.infer<typeof createTeamInputSchema>;
 
-function makeCreateTeamTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
-): ToolDefinition<CreateTeamInput, TDb> {
+function makeCreateTeamTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<CreateTeamInput, TDb> {
 	return {
 		name: "create_team",
 		description:
@@ -1015,39 +941,44 @@ function makeCreateTeamTool<TDb>(
 			const teamMembersId = `team-${randomUUID()}`;
 
 			// @lore AU20 Am7: atomic createTeam (teams + teamMembers companion in one call).
-			await ports.org.createTeam(ctx.db, {
-				id: teamId,
-				name: input.name,
-				phase: "build",
-				functions: JSON.stringify(input.functions),
-				factoryDbPath: input.repoPath ?? null,
-				createdAt: now,
-				teamMembersId,
-				capacity: 5,
-				activeBets: 0,
-				formedAt: now,
-			});
+			await ports.coreApi.createTeam(
+				{
+					id: teamId,
+					name: input.name,
+					phase: "build",
+					functions: JSON.stringify(input.functions),
+					factoryDbPath: input.repoPath ?? null,
+					createdAt: now,
+					teamMembersId,
+					capacity: 5,
+					activeBets: 0,
+					formedAt: now,
+				},
+				ctx.agentId,
+			);
 
-			const specs = await ports.agentSelection.resolveScaffoldSpecs({
-				db: ctx.db,
+			// AU21 §6 Decision F1: `resolveAgentScaffoldSpecs` returns concrete
+			// `AgentScaffoldSpec[]` fields; `persistScaffoldedAgents` (Mechanism C
+			// seam) declares its `specs` param as opaque `Record<string, unknown>[]`
+			// — the `.map((s) => ({ ...s }))` widens each spec to a fresh object
+			// literal, same idiom the retired `agent-selection` binding used.
+			const specs = resolveAgentScaffoldSpecs({
 				trigger: "team_scaffold",
-				teamId,
-				teamMembersId,
 				teamName: input.name,
 				functions: input.functions,
 				role: null,
 				name: null,
 				ownerUserId: null,
 				ownerUserName: null,
-			});
+			}).map((spec) => ({ ...spec }));
 
-			const { agentIds, leadAgentId } = await ports.org.persistScaffoldedAgents(
-				ctx.db,
+			const { agentIds, leadAgentId } = await ports.coreApi.persistScaffoldedAgents(
 				teamMembersId,
 				specs,
+				ctx.agentId,
 			);
 
-			const createdAgents = await ports.users.listUsersByTeam(ctx.db, teamMembersId);
+			const createdAgents = await ports.coreApi.listUsersByTeam(teamMembersId, ctx.agentId);
 			const roster = createdAgents.map((a) => ({
 				role: a.role ?? "",
 				name: a.name,
@@ -1057,7 +988,7 @@ function makeCreateTeamTool<TDb>(
 			const lead = leadAgentId ?? agentIds[0] ?? null;
 			if (lead !== null) {
 				// @lore AU20 Am7: updateTeam(teamId, {leadAgentId}) replaces setTeamMembersLeadAgent.
-				await ports.org.updateTeam(ctx.db, teamId, { leadAgentId: lead });
+				await ports.coreApi.updateTeam(teamId, { leadAgentId: lead }, ctx.agentId);
 			}
 
 			{
@@ -1067,11 +998,14 @@ function makeCreateTeamTool<TDb>(
 						ownerByRole[role] = agentId;
 					}
 				}
-				await ports.dispatch.provisionTeamRoutines(ctx.db, {
-					teamId,
-					ownerByRole,
-					leadAgentId: lead ?? agentIds[0] ?? "",
-				});
+				await ports.coreApi.provisionTeamRoutines(
+					{
+						teamId,
+						ownerByRole,
+						leadAgentId: lead ?? agentIds[0] ?? "",
+					},
+					ctx.agentId,
+				);
 			}
 
 			ctx.eventBus.emit({
@@ -1102,7 +1036,7 @@ const addAgentInputSchema = z.object({
 
 type AddAgentInput = z.infer<typeof addAgentInputSchema>;
 
-function makeAddAgentTool<TDb>(ports: ToolHandlersPorts<TDb>): ToolDefinition<AddAgentInput, TDb> {
+function makeAddAgentTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<AddAgentInput, TDb> {
 	return {
 		name: "add_agent",
 		description:
@@ -1114,35 +1048,34 @@ function makeAddAgentTool<TDb>(ports: ToolHandlersPorts<TDb>): ToolDefinition<Ad
 			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
 			const input = parsed.data;
 
-			const team = await ports.org.getTeamById(ctx.db, input.teamId);
+			const team = await ports.coreApi.getTeamById(input.teamId, ctx.agentId);
 			if (!team) return err("NOT_FOUND", `Team not found: ${input.teamId}`);
 
-			const memberGroup = await ports.org.getTeamMembersByTeamId(ctx.db, input.teamId);
+			const memberGroup = await ports.coreApi.getTeamMembersByTeamId(input.teamId, ctx.agentId);
 			if (!memberGroup)
 				return err("NOT_FOUND", `Team membership group not found for team ${input.teamId}`);
 
-			const specs = await ports.agentSelection.resolveScaffoldSpecs({
-				db: ctx.db,
+			// AU21 §6 Decision F1: see the `create_team` tool's own note above on
+			// why the `.map((s) => ({ ...s }))` widening is needed here.
+			const specs = resolveAgentScaffoldSpecs({
 				trigger: "agent_added",
-				teamId: input.teamId,
-				teamMembersId: memberGroup.id,
 				teamName: team.name,
 				functions: null,
 				role: input.role,
 				name: input.name,
 				ownerUserId: null,
 				ownerUserName: null,
-			});
+			}).map((spec) => ({ ...spec }));
 
 			const finalSpecs =
 				input.systemPrompt !== undefined
 					? specs.map((s) => ({ ...s, systemPrompt: input.systemPrompt ?? null }))
 					: specs;
 
-			const { agentIds } = await ports.org.persistScaffoldedAgents(
-				ctx.db,
+			const { agentIds } = await ports.coreApi.persistScaffoldedAgents(
 				memberGroup.id,
 				finalSpecs,
+				ctx.agentId,
 			);
 			const agentId = agentIds[0];
 			if (!agentId) {
@@ -1177,9 +1110,7 @@ const createBetInputSchema = z.object({
 
 type CreateBetInput = z.infer<typeof createBetInputSchema>;
 
-function makeCreateBetTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
-): AssistantToolShape<CreateBetInput, TDb> {
+function makeCreateBetTool<TDb>(ports: ToolHandlersPorts): AssistantToolShape<CreateBetInput, TDb> {
 	return {
 		name: "create_bet",
 		description:
@@ -1190,22 +1121,27 @@ function makeCreateBetTool<TDb>(
 			if (!parsed.success) return { status: "error", message: parsed.error.message };
 			const input = parsed.data;
 
-			const team = await ports.org.getTeamById(ctx.db, input.teamId);
+			const team = await ports.coreApi.getTeamById(input.teamId, ctx.agentId);
 			if (!team) return { status: "error", message: `Team not found: ${input.teamId}` };
 
-			const betId = randomUUID();
-			const now = new Date().toISOString();
-			await ports.work.createBet(ctx.db, {
-				id: betId,
-				teamId: input.teamId,
-				description: input.description,
-				doneCondition: input.doneCondition ?? null,
-				hypothesis: input.hypothesis ?? null,
-				status: "draft",
-				createdAt: now,
-			});
+			// AU21 §9 Increment 1: routes through the CoreApiPort write seam — the
+			// SAME `POST /bets` route + middleware a human caller uses — instead of
+			// the raw `ports.work.createBet` DI call (deleted). `ctx.agentId`
+			// carries the calling agent's own identity as the route actor (§12).
+			const created = await ports.coreApi.createBet(
+				{
+					teamId: input.teamId,
+					description: input.description,
+					doneCondition: input.doneCondition ?? null,
+					hypothesis: input.hypothesis ?? null,
+				},
+				ctx.agentId,
+			);
 
-			return { status: "ok", value: { betId, status: "draft" as const, teamId: input.teamId } };
+			return {
+				status: "ok",
+				value: { betId: created.id, status: "draft" as const, teamId: created.teamId },
+			};
 		},
 	};
 }
@@ -1223,9 +1159,7 @@ const editBetInputSchema = z.object({
 
 type EditBetInput = z.infer<typeof editBetInputSchema>;
 
-function makeEditBetTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
-): AssistantToolShape<EditBetInput, TDb> {
+function makeEditBetTool<TDb>(ports: ToolHandlersPorts): AssistantToolShape<EditBetInput, TDb> {
 	return {
 		name: "edit_bet",
 		description:
@@ -1236,7 +1170,7 @@ function makeEditBetTool<TDb>(
 			if (!parsed.success) return { status: "error", message: parsed.error.message };
 			const input = parsed.data;
 
-			const existing = await ports.work.getBetById(ctx.db, input.betId);
+			const existing = await ports.coreApi.getBetById(input.betId, ctx.agentId);
 			if (!existing) return { status: "error", message: `Bet not found: ${input.betId}` };
 			if (existing.status !== "draft")
 				return { status: "error", message: "Can only edit a draft bet." };
@@ -1254,7 +1188,7 @@ function makeEditBetTool<TDb>(
 				return { status: "error", message: "No fields to update." };
 			}
 
-			await ports.work.updateBetById(ctx.db, input.betId, updates);
+			await ports.coreApi.updateBetById(input.betId, updates, ctx.agentId);
 			return { status: "ok", value: { betId: input.betId } };
 		},
 	};
@@ -1273,13 +1207,12 @@ const createRoutineInputSchema = z.object({
 	ownerAgentId: z.string().min(1),
 	triggerType: z.literal("calendar"),
 	triggerConfig: z.string().min(1),
-	costCapPerRunMinor: z.number().int().min(0).optional(),
 });
 
 type CreateRoutineInput = z.infer<typeof createRoutineInputSchema>;
 
 function makeCreateRoutineTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
+	ports: ToolHandlersPorts,
 ): ToolDefinition<CreateRoutineInput, TDb> {
 	return {
 		name: "create_routine",
@@ -1292,10 +1225,10 @@ function makeCreateRoutineTool<TDb>(
 			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
 			const input = parsed.data;
 
-			const team = await ports.org.getTeamById(ctx.db, input.teamId);
+			const team = await ports.coreApi.getTeamById(input.teamId, ctx.agentId);
 			if (!team) return err("NOT_FOUND", `Team not found: ${input.teamId}`);
 
-			const agent = await ports.users.getUserById(ctx.db, input.ownerAgentId);
+			const agent = await ports.coreApi.getUserById(input.ownerAgentId, ctx.agentId);
 			if (!agent) return err("NOT_FOUND", `Agent not found: ${input.ownerAgentId}`);
 
 			let triggerConfigParsed: { cron?: string };
@@ -1320,20 +1253,22 @@ function makeCreateRoutineTool<TDb>(
 			const now = new Date().toISOString();
 			const nextRunAt = nextCronMatch(parsedCron, new Date()).toISOString();
 
-			await ports.routine.insertRoutine(ctx.db, {
-				id: routineId,
-				name: input.name,
-				description: input.description ?? null,
-				teamId: input.teamId,
-				ownerAgentId: input.ownerAgentId,
-				triggerType: input.triggerType,
-				triggerConfig: input.triggerConfig,
-				state: "active",
-				active: true,
-				costCapPerRunMinor: input.costCapPerRunMinor ?? null,
-				nextRunAt,
-				createdAt: now,
-			});
+			await ports.coreApi.insertRoutine(
+				{
+					id: routineId,
+					name: input.name,
+					description: input.description ?? null,
+					teamId: input.teamId,
+					ownerAgentId: input.ownerAgentId,
+					triggerType: input.triggerType,
+					triggerConfig: input.triggerConfig,
+					state: "active",
+					active: true,
+					nextRunAt,
+					createdAt: now,
+				},
+				ctx.agentId,
+			);
 
 			return ok({ routineId, name: input.name, nextRunAt });
 		},
@@ -1351,20 +1286,18 @@ const updateRoutineInputSchema = z.object({
 		description: z.string().max(2000).optional(),
 		state: z.enum(["active", "paused"]).optional(),
 		triggerConfig: z.string().optional(),
-		costCapPerRunMinor: z.number().int().min(0).nullable().optional(),
-		costCapMonthlyMinor: z.number().int().min(0).nullable().optional(),
 	}),
 });
 
 type UpdateRoutineInput = z.infer<typeof updateRoutineInputSchema>;
 
 function makeUpdateRoutineTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
+	ports: ToolHandlersPorts,
 ): ToolDefinition<UpdateRoutineInput, TDb> {
 	return {
 		name: "update_routine",
 		description:
-			"Update an existing routine's configuration — name, description, schedule, state, or cost caps.",
+			"Update an existing routine's configuration — name, description, schedule, or state.",
 		inputSchema: updateRoutineInputSchema,
 		roles: ["assistant"],
 		handler: async (args, ctx) => {
@@ -1372,7 +1305,7 @@ function makeUpdateRoutineTool<TDb>(
 			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
 			const input = parsed.data;
 
-			const existing = await ports.routine.getRoutineById(ctx.db, input.routineId);
+			const existing = await ports.coreApi.getRoutineById(input.routineId, ctx.agentId);
 			if (!existing || existing.deletedAt) {
 				return err("NOT_FOUND", `Routine not found: ${input.routineId}`);
 			}
@@ -1386,14 +1319,12 @@ function makeUpdateRoutineTool<TDb>(
 				updates.state = u.state;
 				updates.active = u.state === "active";
 			}
-			if ("costCapPerRunMinor" in u) updates.costCapPerRunMinor = u.costCapPerRunMinor ?? null;
-			if ("costCapMonthlyMinor" in u) updates.costCapMonthlyMinor = u.costCapMonthlyMinor ?? null;
 
 			if (Object.keys(updates).length > 0) {
-				await ports.routine.updateRoutineById(ctx.db, input.routineId, updates);
+				await ports.coreApi.updateRoutineById(input.routineId, updates, ctx.agentId);
 			}
 
-			const updated = await ports.routine.getRoutineById(ctx.db, input.routineId);
+			const updated = await ports.coreApi.getRoutineById(input.routineId, ctx.agentId);
 			return ok({
 				routineId: input.routineId,
 				name: updated?.name ?? existing.name,
@@ -1459,7 +1390,7 @@ const logTaskInputSchema = z.object({
 
 type LogTaskInput = z.infer<typeof logTaskInputSchema>;
 
-function makeLogTaskTool<TDb>(ports: ToolHandlersPorts<TDb>): ToolDefinition<LogTaskInput, TDb> {
+function makeLogTaskTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<LogTaskInput, TDb> {
 	return {
 		name: "log_task",
 		description:
@@ -1477,7 +1408,7 @@ function makeLogTaskTool<TDb>(ports: ToolHandlersPorts<TDb>): ToolDefinition<Log
 
 			// Atomic append — single UPDATE with SQL CASE, no pre-read, no lost-update race.
 			// `undefined` means the task row was not found (WHERE matched no rows).
-			const result = await ports.work.appendTaskNote(ctx.db, ctx.taskId, entry);
+			const result = await ports.coreApi.appendTaskNote(ctx.taskId, entry, ctx.agentId);
 			if (!result) {
 				return err("NOT_FOUND", `Task not found: ${ctx.taskId}`);
 			}
@@ -1518,7 +1449,7 @@ const createArtifactInputSchema = z.object({
 type CreateArtifactInput = z.infer<typeof createArtifactInputSchema>;
 
 function makeCreateArtifactTool<TDb>(
-	ports: ToolHandlersPorts<TDb>,
+	ports: ToolHandlersPorts,
 ): ToolDefinition<CreateArtifactInput, TDb> {
 	return {
 		name: "create_artifact",
@@ -1548,22 +1479,29 @@ function makeCreateArtifactTool<TDb>(
 				);
 			}
 
-			const taskRow = await ports.work.getTaskById(ctx.db, ctx.taskId);
+			const taskRow = await ports.coreApi.getTaskById(ctx.taskId, ctx.agentId);
 			if (!taskRow) {
 				return err("NOT_FOUND", `Task not found: ${ctx.taskId}`);
 			}
 
-			const artifactId = randomUUID();
-			const now = new Date().toISOString();
-
-			await ports.work.createArtifact(ctx.db, {
-				id: artifactId,
-				producingTaskId: ctx.taskId,
-				kind: input.kind,
-				label: input.label ?? null,
-				previewJson: input.preview !== null ? JSON.stringify(input.preview) : null,
-				createdAt: now,
-			});
+			// AU21 §9 Increment 2: routes through the CoreApiPort seam — the SAME
+			// `POST /artifacts` route a human caller uses — instead of the raw
+			// `ports.work.createArtifact` DI call (deleted). The route generates
+			// the artifact's id server-side; `created.id` replaces the
+			// client-generated `randomUUID()` the raw DI path used. `preview` is
+			// re-spread into a fresh object literal — Mechanism C's opaque
+			// `Record<string, unknown>` seam shape (same idiom as
+			// `tool-handlers-bindings.ts`'s `searchKnowledgeForTool`).
+			const created = await ports.coreApi.createArtifact(
+				{
+					producingTaskId: ctx.taskId,
+					kind: input.kind,
+					label: input.label ?? null,
+					preview: input.preview !== null ? { ...input.preview } : null,
+				},
+				ctx.agentId,
+			);
+			const artifactId = created.id;
 
 			const event: ArtifactCreatedEvent = {
 				type: "artifact_created",
@@ -1598,12 +1536,14 @@ function makeCreateArtifactTool<TDb>(
  * rather than generic; each individual private maker stays generic (for
  * testability), with `TDb` inferred as `HyperIdleDb` here.
  *
- * @lore Four facilitator-only tools (`route_item`, `score_attention`,
- * `promote_knowledge`, `create_conflict_review`) narrow to facilitator roles —
- * passing them to builders would break G1 AC6's authorization intent.
+ * @lore Three facilitator-only tools (`score_attention`, `promote_knowledge`,
+ * `create_conflict_review`) narrow to facilitator roles — passing them to
+ * builders would break G1 AC6's authorization intent. (`route_item` was a
+ * fourth member of this set; deleted outright as vestigial — AU21 §6
+ * Decision L3 — not merely re-narrowed.)
  */
 export function buildToolDefinitions(
-	ports: ToolHandlersPorts<HyperIdleDb>,
+	ports: ToolHandlersPorts,
 	opts?: { readonly role?: UserRole },
 ): readonly RegisteredTool<HyperIdleDb>[] {
 	const all: readonly RegisteredTool<HyperIdleDb>[] = [
@@ -1618,7 +1558,6 @@ export function buildToolDefinitions(
 		toRegistered(makeCreateTaskTool(ports)),
 		toRegistered(makeSubmitReviewTool(ports)),
 		toRegistered(makeCreateArtifactTool(ports)),
-		toRegistered(makeRouteItemTool(ports)),
 		toRegistered(makeScoreAttentionTool(ports)),
 		toRegistered(makePromoteKnowledgeTool(ports)),
 		toRegistered(makeCreateConflictReviewTool(ports)),
@@ -1640,24 +1579,32 @@ export function buildToolDefinitions(
 // buildAssistantDraftRegistry — private helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function resolveDraftTeamId<TDb>(
-	db: TDb,
+/**
+ * AU21 §9 Increment 2: both the user lookup AND the `getTeamMembersById`
+ * second hop route through the `coreApi` seam (org/routine/handoff wave) —
+ * `userId`'s own team lookup is an agent-as-user read, same door
+ * `write_memory`/`send_message` reach through. `actorId` is the calling
+ * ASSISTANT agent's identity (§12), not the human `userId` being looked up
+ * — the assistant is the one acting. No `db` parameter needed anymore — every
+ * read crosses the seam.
+ */
+async function resolveDraftTeamId(
 	userId: string,
-	ports: ToolHandlersPorts<TDb>,
+	actorId: string,
+	ports: ToolHandlersPorts,
 ): Promise<string | undefined> {
-	const userRow = await ports.users.getUserById(db, userId);
+	const userRow = await ports.coreApi.getUserById(userId, actorId);
 	if (!userRow?.teamId) return undefined;
 	// @lore AK4: `userRow.teamId` is actually `team_members.id` (U1 schema
 	// lore) — resolve the second hop to `teams.id` via `getTeamMembersById`.
-	const memberRow = await ports.org.getTeamMembersById(db, userRow.teamId);
+	const memberRow = await ports.coreApi.getTeamMembersById(userRow.teamId, actorId);
 	return memberRow?.teamId;
 }
 
-async function resolveCurrentDraftBetId<TDb>(
-	db: TDb,
+async function resolveCurrentDraftBetId(
 	transcriptRows: ReadonlyArray<{ senderId: string; payload: string }>,
 	astAgentId: string,
-	ports: ToolHandlersPorts<TDb>,
+	ports: ToolHandlersPorts,
 ): Promise<string | undefined> {
 	const reversed = [...transcriptRows].reverse();
 	for (const row of reversed) {
@@ -1679,7 +1626,7 @@ async function resolveCurrentDraftBetId<TDb>(
 				}
 				const betId = outputParsed.betId;
 				if (!betId) continue;
-				const bet = await ports.work.getBetById(db, betId);
+				const bet = await ports.coreApi.getBetById(betId, astAgentId);
 				if (bet?.status === "draft") return betId;
 			}
 		}
@@ -1709,11 +1656,10 @@ export async function buildAssistantDraftRegistry<TDb>(
 		readonly transcriptRows: ReadonlyArray<{ readonly senderId: string; readonly payload: string }>;
 		readonly assistantAgentId: string;
 	},
-	ports: ToolHandlersPorts<TDb>,
+	ports: ToolHandlersPorts,
 ): Promise<ToolRegistry<TDb>> {
-	const resolvedTeamId = await resolveDraftTeamId(ctx.db, params.userId, ports);
+	const resolvedTeamId = await resolveDraftTeamId(params.userId, params.assistantAgentId, ports);
 	const currentDraftBetId = await resolveCurrentDraftBetId(
-		ctx.db,
 		params.transcriptRows,
 		params.assistantAgentId,
 		ports,

@@ -62,7 +62,7 @@ async function listPending(db: HyperIdleDb): Promise<NotificationQueueRow[]> {
 
 /**
  * dispatcher.ts's `enqueueNotification` flood-cap eviction — the oldest
- * pending digest row is evicted first so blocking/cost_breach rows always
+ * pending digest row is evicted first so blocking rows always
  * have room. Caller takes `[0]` (matches the original `.limit(1)` query).
  */
 async function listPendingDigest(db: HyperIdleDb): Promise<NotificationQueueRow[]> {
@@ -258,7 +258,7 @@ interface EnqueueOptions {
  * inserting a duplicate.
  *
  * Enforces NOTIFICATION_QUEUE_CAP (10 000) before inserting: evicts the
- * oldest digest row first so blocking/cost_breach rows always have room.
+ * oldest digest row first so blocking rows always have room.
  * Incoming digest rows are silently dropped (id returned, row not inserted)
  * when the queue is at capacity. If no digest row can be evicted, drops the
  * oldest pending row of any severity to hold the ceiling. This matches the
@@ -281,7 +281,7 @@ export async function enqueue(
 		if (existing !== undefined) return existing.id;
 	}
 	// Defense-in-depth queue cap. Digest rows are silently dropped when the
-	// queue is full so blocking + cost_breach rows always have room. If no
+	// queue is full so blocking rows always have room. If no
 	// digest row can be evicted, drop the oldest pending row of any severity
 	// rather than exceed the cap.
 	while ((await queueCountByStatus(db, "pending")) >= NOTIFICATION_QUEUE_CAP) {

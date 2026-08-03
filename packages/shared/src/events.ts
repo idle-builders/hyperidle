@@ -1,15 +1,42 @@
 import type { AgentSessionSourceCorrelation, AgentSessionSourceKind } from "./session-request.js";
 import type { HostKind, MessageType } from "./thread.js";
-import type { BetStatus, TaskState } from "./types.js";
+import type { BetStatus, ModelTier, TaskState } from "./types.js";
 
-export type AgentWorkIntentKind =
-	| "assistant_turn"
-	| "session_start"
+/**
+ * The canonical runtime-checkable list `AgentWorkIntentKind` is built from —
+ * kept in lockstep with `agent_work_intents_kind_ck`
+ * (`packages/db/src/schema.ts`) and consumed by
+ * `AgentWorkIntentRecorderInput` (`agent-work-intent-recorder.ts`, AU21 §6
+ * Decision G) so a kind-set drift test (`packages/db`) can derive its
+ * accept-list mechanically from this single source instead of a second
+ * hardcoded copy.
+ */
+export const AGENT_WORK_INTENT_KINDS = [
+	"assistant_turn",
+	"session_start",
+	"knowledge_action",
+	"routine_run",
+	"task_run",
+	"reengagement",
+] as const;
+
+export type AgentWorkIntentKind = (typeof AGENT_WORK_INTENT_KINDS)[number];
+
+/**
+ * The RAW `agent_work_intents.source_kind` vocabulary (the identity an intent
+ * was recorded under, pre-resolution) — distinct from `AgentSessionSourceKind`
+ * (the RESOLVED "session-source" vocabulary a chosen agent's request ends up
+ * carrying, e.g. `"routine"`/`"knowledge"`). `AgentRunAdmissionFailedEvent`
+ * fires from the drain against the STORED intent row, before (or instead of)
+ * resolution succeeds, so it carries this pre-resolution vocabulary verbatim.
+ */
+export type AgentWorkIntentSourceKind =
+	| "thread_message"
+	| "explicit_session_start"
 	| "knowledge_action"
 	| "routine_run"
-	| "bet_decomposition"
-	| "task_run"
-	| "reengagement";
+	| "task_dispatch_attempt"
+	| "proposed_call";
 
 export interface AgentWorkIntentEvent {
 	readonly type: "agent_work_intent_recorded";
@@ -19,6 +46,34 @@ export interface AgentWorkIntentEvent {
 	readonly sourceKind: AgentSessionSourceKind | "explicit_session_start";
 	readonly sourceId: string;
 	readonly idempotencyKey: string;
+	readonly timestamp: number;
+}
+
+export type AgentRunAdmissionFailureCode =
+	| "INVALID_WORK_SOURCE" // baked payload's source no longer exists / no longer eligible (domain-state staleness)
+	| "MAX_ATTEMPTS_EXCEEDED" // orchestration's own claim/dedup attempt budget (agentWorkIntents.attempts) exhausted
+	| "TARGET_AGENT_NOT_RUNNABLE" // resolved agent deactivated/non-existent between emit and provisioning (§12)
+	| "PROVISIONING_FAILED"; // hard infra failure building/deploying the session (harness/sandbox), not a domain problem
+
+/**
+ * AU21 §6 Decision B4 / §10 — the NEW pre-handoff failure report-back
+ * channel: `failOrRelease` (session-requests) emits this on every failed
+ * claim/dispatch attempt (before any session exists). `terminal===true`
+ * means orchestration's own claim/attempt budget is spent (or the error is
+ * unrecoverable by retry) — core-api MUST finalize its own state and decide
+ * retry(re-emit a fresh intent)/abandon. `terminal===false` is informational
+ * only (orchestration is still retrying internally); no core-api state
+ * mutation.
+ */
+export interface AgentRunAdmissionFailedEvent {
+	readonly type: "agent_run_admission_failed";
+	readonly streamId: string;
+	readonly intentId: string;
+	readonly kind: AgentWorkIntentKind;
+	readonly sourceKind: AgentWorkIntentSourceKind;
+	readonly sourceId: string;
+	readonly failureCode: AgentRunAdmissionFailureCode;
+	readonly terminal: boolean;
 	readonly timestamp: number;
 }
 
@@ -96,22 +151,43 @@ export interface SessionEndedEvent {
 	timestamp: number;
 	/** Final disposition of the session. */
 	outcome: SessionOutcome;
+	/**
+	 * AU21 §9 Increment 4 (Decision B″ item 3) — additive, routine-sourced
+	 * sessions only. Carries the routine-run finalize outcome, independent of
+	 * the session's own `outcome`. Consumed by the core-api subscriber
+	 * `routine-run-session-end-reactions.ts`, the literal replacement for
+	 * `run-orchestration`'s deleted direct `routineRuns` write
+	 * (`updateRoutineRunOnSessionEnd`). `"timeout"` is the stale-session-reaper
+	 * outcome (`runtime-reapers.ts`'s `reapStaleRoutineSessions`) — the SAME
+	 * event channel, a second producer.
+	 *
+	 * @lore AU21 Increment 14a: `"budget_exhausted"` (the per-run cost-cap
+	 * outcome) is deleted along with the cap gate — no replacement.
+	 */
+	routineRunOutcome?: "success" | "error" | "timeout";
+	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave D — additive. Carries
+	 * `run-orchestration/provisioner.ts`'s per-model-tier accumulated token
+	 * counts (`accumulatedTokens`, populated from `token_usage` stream events
+	 * across the session's lifetime) so a core-api `session_ended` subscriber
+	 * (`work-session-end-reactions.ts`) can merge them into the owning bet's
+	 * `bets.tokensActualJson` — the literal replacement for the deleted direct
+	 * `ports.work.updateBetById` write (`accumulateSessionTokensOnBet`,
+	 * `provisioner.ts`). Absent/empty when the session accumulated no tokens
+	 * (e.g. it failed before any `token_usage` events arrived).
+	 */
+	tokensByTier?: Partial<Record<ModelTier, { prompt: number; completion: number }>>;
 }
 
 /**
- * @lore AU19 Increment 3g: §10.3 against-grain inversion for `policy ⚠ cost`
- * (`handoff-protocol.ts`'s `releaseSessionDedup` call). Handoff deliberately
- * does NOT emit `session_ended` (a handoff is not a cost-attribution outcome
- * — see `handoff-protocol.ts`'s own comment on why), so `cost`'s
- * `registerCostCapDedupReleaser` had no event to subscribe to for this path
- * and `policy` called `releaseSessionDedup` directly via an interim
- * `PolicyCostDedupReleaser` DI port instead (Increment 2a). Atomicity check
- * (§10.3 amendment): the call is POST-COMMIT and touches only an in-memory
- * `Map` — no DB write, no shared transaction an emit-after-commit split could
- * endanger — the "common case" pure-inversion shape, same as
- * `sandbox_writeback_changes_detected` (Increment 3f). Emitted by
- * `handoff-protocol.ts`'s `buildHandoff`, post-commit, in the exact spot the
- * direct `deps.cost.release(...)` call used to sit.
+ * @lore AU19 Increment 3g: `handoff-protocol.ts`'s `buildHandoff` emits this
+ * post-commit. Handoff deliberately does NOT emit `session_ended` (a handoff
+ * is not a session-end outcome). Historical note: this event originally
+ * existed to let the (now AU21-Increment-14a-deleted) cost package release
+ * its per-session dedup state on the handoff path since it doesn't see
+ * `session_ended`; that consumer is gone, but `start-runtime.ts` and
+ * `session-lifecycle`'s `registerHandoffTerminationRequester` still subscribe
+ * for termination-request bookkeeping (see below), so the event stays.
  *
  * @lore AU19 Increment 3i fix round: `requestedBy` carries the outgoing
  * agent's id (`sessionContext.agentId`) so `session-lifecycle`'s
@@ -155,28 +231,6 @@ export interface SessionNotReturnedEvent {
 	readonly timestamp: number;
 }
 
-export interface CostCapWarningEvent {
-	type: "cost_cap_warning";
-	streamId: string;
-	level: "warning" | "critical";
-	capLevel: "agent" | "team" | "factory";
-	entityId: string;
-	spend: number;
-	cap: number;
-	timestamp: number;
-}
-
-export interface CostCapBreachedEvent {
-	type: "cost_cap_breached";
-	streamId: string;
-	level: "hard" | "soft";
-	capLevel: "agent" | "team" | "factory";
-	entityId: string;
-	spend: number;
-	cap: number;
-	timestamp: number;
-}
-
 export interface NotificationEvent {
 	type: "notification";
 	streamId: string;
@@ -201,18 +255,16 @@ export interface NotificationEvent {
 
 /**
  * @lore O1: action stays as `string` because the codebase emits 11+ distinct
- * action values across 4 files, including a dynamic `practice_meeting_turn_N`
- * pattern in practice-meeting.ts that makes a closed union impossible.
+ * action values across several files, and (historically, before AU21
+ * Increment 5 deleted the practice-meeting workflow) included a dynamic
+ * `practice_meeting_turn_N` pattern that made a closed union impossible.
  *
  * Actual values emitted today:
  *   knowledge.ts routes:      "created", "updated", "merged", "split", "archived", "flagged"
  *   attention-service.ts:     "attention_recomputed"
  *   promotion-pipeline.ts:    "contradiction_flagged", "auto_promoted", "marked_stale"
- *   practice-meeting.ts:      `practice_meeting_turn_${turnNumber}` (dynamic, unbounded)
  *
- * Tightening requires either (a) making the dynamic pattern use a fixed action
- * with turnNumber as a separate field, or (b) a branded string with a
- * `practice_meeting_turn_` prefix type. Both are behavior changes, out of O1 scope.
+ * Tightening to a closed union remains a behavior change, out of O1 scope.
  * Filed as follow-up.
  */
 export interface KnowledgeUpdatedEvent {
@@ -490,25 +542,6 @@ export interface UserCreatedEvent {
 }
 
 /**
- * AK8: Emitted by the Kernel when a committed bet enters decomposition.
- * Observable "work to decompose" occasion (AC1). Post-CAS, post-eligible-check —
- * only the CAS winner emits, so a duplicate `bet_state_changed(active)` produces
- * exactly one emit. Sibling of WorkSelectionRequestedEvent — same audit-only
- * semantics; the decomposition DECISION arrives via the synchronous `decomposeBet`
- * port call. streamId = teamId for per-team stream routing.
- *
- * @lore AK8 @lore O1: interface + union + emit site (bet-decomposition.ts).
- * The event is audit/observability-only — no subscriber mutates state off it.
- */
-export interface WorkDecomposeRequestedEvent {
-	type: "work_decompose_requested";
-	streamId: string; // = teamId
-	teamId: string;
-	betId: string; // the work keyed to this decomposition
-	at: string; // ISO 8601
-}
-
-/**
  * AL7 trust-first: Emitted after an approved call executes (ok or failed) in session 2.
  * Renamed from operation_executed → proposed_call_executed.
  *
@@ -553,13 +586,14 @@ export interface ProposedCallGrantedEvent {
  */
 export type KernelEvent =
 	| AgentWorkIntentEvent
+	| AgentRunAdmissionFailedEvent
 	| AgentRunLifecycleChangedEvent
 	| TaskStateChangedEvent
 	| BetStateChangedEvent
 	| BetRevisedEvent
 	| SessionStartedEvent
 	| SessionEndedEvent
-	// AU19 Increment 3g: policy ⚠ cost EventBus inversion
+	// AU19 Increment 3g: handoff EventBus inversion
 	| SessionHandoffCompletedEvent
 	// AL6: return-gate escape surface
 	| SessionNotReturnedEvent
@@ -583,8 +617,6 @@ export type KernelEvent =
 	| UserCreatedEvent
 	// AK7: selection occasion event
 	| WorkSelectionRequestedEvent
-	// AK8: decomposition occasion event
-	| WorkDecomposeRequestedEvent
 	// AL7 trust-first: proposed call executed (renamed from operation_executed)
 	| ProposedCallExecutedEvent
 	// AL7 trust-first: proposed call granted → triggers session-2 re-engagement
@@ -592,8 +624,6 @@ export type KernelEvent =
 
 /** Strategy events: automation reactions and strategy-layer observations. */
 export type StrategyEvent =
-	| CostCapWarningEvent
-	| CostCapBreachedEvent
 	| NotificationEvent
 	| PropagationAppliedEvent
 	| PropagationFailedEvent

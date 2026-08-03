@@ -6,10 +6,6 @@
  *   - updateBetById / updateTaskById / updateItemById: plain by-id field-set.
  *   - transitionBetStatus / transitionTaskState: guarded CAS predicate +
  *     `.returning()`; returns `{ applied }`, never throws itself.
- *   - updateBetDecompositionStatusIfRunning: in-update guard predicate, no
- *     `.returning()`, silent no-op when the guard misses.
- *   - resolveOrphanedBetDecompositions: bulk sweep
- *     (decompositionStatus='running' -> blocked/failed), returns affected count.
  *
  * Read-side coverage (reopened 2026-07-12, plan addendum §A3/§A5), written
  * BEFORE the read functions exist on `../work-service.ts`:
@@ -165,97 +161,6 @@ describe("work-service", () => {
 			const [row] = await db.select().from(bets).where(eq(bets.id, "bet-1")).limit(1);
 			// Unchanged — the guard predicate missed, so status stays "active" (not re-written).
 			expect(row?.status).toBe("active");
-		});
-	});
-
-	describe("updateBetDecompositionStatusIfRunning", () => {
-		test("updates when decompositionStatus is currently running", async ({ db }) => {
-			await seedTeamAndAgent(db);
-			await work.create(db, "bet", {
-				id: "bet-1",
-				teamId: "team-1",
-				description: "d",
-				status: "active",
-				decompositionStatus: "running",
-				createdAt: new Date().toISOString(),
-			});
-
-			await work.transition(db, "bet", {
-				id: "bet-1",
-				guard: { field: "decompositionStatus", equals: "running" },
-				patch: { decompositionStatus: "done", decompositionBlockerReason: null },
-			});
-
-			const [row] = await db.select().from(bets).where(eq(bets.id, "bet-1")).limit(1);
-			expect(row?.decompositionStatus).toBe("done");
-		});
-
-		test("silently no-ops when decompositionStatus is not running", async ({ db }) => {
-			await seedTeamAndAgent(db);
-			await work.create(db, "bet", {
-				id: "bet-1",
-				teamId: "team-1",
-				description: "d",
-				status: "active",
-				decompositionStatus: "blocked",
-				createdAt: new Date().toISOString(),
-			});
-
-			await work.transition(db, "bet", {
-				id: "bet-1",
-				guard: { field: "decompositionStatus", equals: "running" },
-				patch: { decompositionStatus: "done", decompositionBlockerReason: null },
-			});
-
-			const [row] = await db.select().from(bets).where(eq(bets.id, "bet-1")).limit(1);
-			expect(row?.decompositionStatus).toBe("blocked");
-		});
-	});
-
-	describe("resolveOrphanedBetDecompositions", () => {
-		test("bulk-flips every running bet to blocked/failed and returns the affected count", async ({
-			db,
-		}) => {
-			await seedTeamAndAgent(db);
-			await work.create(db, "bet", {
-				id: "bet-1",
-				teamId: "team-1",
-				description: "d1",
-				status: "active",
-				decompositionStatus: "running",
-				createdAt: new Date().toISOString(),
-			});
-			await work.create(db, "bet", {
-				id: "bet-2",
-				teamId: "team-1",
-				description: "d2",
-				status: "active",
-				decompositionStatus: "running",
-				createdAt: new Date().toISOString(),
-			});
-			await work.create(db, "bet", {
-				id: "bet-3",
-				teamId: "team-1",
-				description: "d3",
-				status: "active",
-				decompositionStatus: "done",
-				createdAt: new Date().toISOString(),
-			});
-
-			const result = await work.transition(db, "bet", {
-				guard: { field: "decompositionStatus", equals: "running" },
-				patch: { decompositionStatus: "blocked", decompositionBlockerReason: "failed" },
-			});
-
-			expect(result.affected).toBe(2);
-			const [b1] = await db.select().from(bets).where(eq(bets.id, "bet-1")).limit(1);
-			const [b2] = await db.select().from(bets).where(eq(bets.id, "bet-2")).limit(1);
-			const [b3] = await db.select().from(bets).where(eq(bets.id, "bet-3")).limit(1);
-			expect(b1?.decompositionStatus).toBe("blocked");
-			expect(b1?.decompositionBlockerReason).toBe("failed");
-			expect(b2?.decompositionStatus).toBe("blocked");
-			// Untouched — was not "running".
-			expect(b3?.decompositionStatus).toBe("done");
 		});
 	});
 

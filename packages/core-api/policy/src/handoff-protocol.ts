@@ -19,6 +19,7 @@ type HandoffDeps = {
 	users: Required<Pick<PolicyDeps["users"], "getUserById" | "findActiveTeammateByRole">>;
 	org: NonNullable<PolicyDeps["org"]>;
 	sessionRequests: NonNullable<PolicyDeps["sessionRequests"]>;
+	taskRunResolver: NonNullable<PolicyDeps["taskRunResolver"]>;
 };
 
 export interface HandoffMetadata {
@@ -102,8 +103,8 @@ export function buildHandoff(
 		//   1. task_state_changed (toHuman only, via the inlined transition)
 		//   2. item_created       (escalation or review-item paths)
 		// `session_ended` is NOT emitted here — handoff does not record a
-		// session's cost-delta outcome, so subscribers like
-		// `session-review-creator` must not fire on handoff.
+		// session-end outcome, so subscribers like `session-review-creator`
+		// must not fire on handoff.
 		let taskStateChangedEvent: TaskStateChangedEvent | null = null;
 		let itemCreatedEvent: Extract<DomainEvent, { type: "item_created" }> | null = null;
 
@@ -116,8 +117,7 @@ export function buildHandoff(
 			});
 			if (!claim.applied) throw new Error(`Task handoff conflict: ${task.id}`);
 
-			// 1. End current session (state + endedAt). Cost is preserved —
-			// downstream cost-cap + digest routines depend on it.
+			// 1. End current session (state + endedAt).
 			await tx
 				.update(sessions)
 				.set({ state: "done", endedAt: now })
@@ -326,12 +326,18 @@ export function buildHandoff(
 					createdAt: now,
 					updatedAt: now,
 				});
+				// AU21 §6 Decision B: resolve + validate the task_run run AT EMIT
+				// TIME (via the injected `work` resolver, since `policy` cannot
+				// import `@hyperidle/work` directly — Mechanism C) and bake the
+				// full request onto the intent.
+				const bakedRequest = await deps.taskRunResolver.resolve(tx, attemptId);
 				await deps.sessionRequests.record(tx, {
 					kind: "task_run",
 					sourceKind: "task_dispatch_attempt",
 					sourceId: attemptId,
 					requestedBy: txResult.targetAgentId,
 					idempotencyKey: `task-dispatch:${attemptId}`,
+					bakedRequest,
 				});
 			}
 

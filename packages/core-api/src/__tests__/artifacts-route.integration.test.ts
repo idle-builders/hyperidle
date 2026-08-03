@@ -193,32 +193,19 @@ describe("L3 GET /api/artifacts (axis discriminated union)", () => {
 		expect(typeof body.items[0]?.threadCount).toBe("number");
 	});
 
-	test("response items carry cost-from-session shape (WireMoney + TokenUsage after L17)", async ({
-		db,
-		app,
-	}) => {
-		// @lore O2: cost columns stripped from kernel artifacts table.
-		// cost.money and cost.tokens are null when no session cost data exists.
+	// @lore AU21 Increment 14a: response items never carry a `cost` field at
+	// all (not `cost: null`) — HARD-DELETED along with the rest of the
+	// cost-cap feature, no replacement.
+	test("response items do not carry a cost field", async ({ db, app }) => {
 		const s = await seed(db);
 		await insertArtifact(db, "art_c", s.taskId);
 		const res = await app.request(`/api/artifacts?axis=task&taskId=${s.taskId}`, {
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(200);
-		const body = (await res.json()) as {
-			items: Array<{
-				cost: {
-					money: { minor: number; currency: string } | null;
-					tokens: { byTier: Record<string, unknown> } | null;
-				} | null;
-			}>;
-		};
-		// O2: cost shape is present but money/tokens are null (kernel table has no cost data)
+		const body = (await res.json()) as { items: Array<Record<string, unknown>> };
 		expect(body.items[0]).toBeDefined();
-		// cost may be null or an object with null fields — either is valid post-O2
-		if (body.items[0]?.cost != null) {
-			expect(body.items[0].cost.money).toBeNull();
-		}
+		expect(body.items[0]).not.toHaveProperty("cost");
 	});
 
 	test("pagination cap enforced — limit > 200 returns 400 LIMIT_TOO_HIGH", async ({ app }) => {
@@ -322,7 +309,6 @@ describe("L3 POST /api/artifacts (writer endpoint, mutability rules)", () => {
 				producingTaskId: s.taskId,
 				kind: "code_diff",
 				preview: { kind: "deck", slideCount: 1, firstSlideTitle: "x" },
-				cost: null,
 			}),
 		});
 		expect(res.status).toBe(400);
@@ -338,7 +324,6 @@ describe("L3 POST /api/artifacts (writer endpoint, mutability rules)", () => {
 				producingTaskId: s.taskId,
 				kind: "decision",
 				preview: { kind: "decision", claim: huge, rationale: "r" },
-				cost: null,
 			}),
 		});
 		expect(res.status).toBe(413);
@@ -352,7 +337,6 @@ describe("L3 POST /api/artifacts (writer endpoint, mutability rules)", () => {
 				producingTaskId: "missing",
 				kind: "decision",
 				preview: { kind: "decision", claim: "c", rationale: "r" },
-				cost: null,
 			}),
 		});
 		expect(res.status).toBe(400);
@@ -367,7 +351,6 @@ describe("L3 POST /api/artifacts (writer endpoint, mutability rules)", () => {
 				producingTaskId: s.taskId,
 				kind: "unknown_kind",
 				preview: null,
-				cost: null,
 			}),
 		});
 		expect(res.status).toBe(400);

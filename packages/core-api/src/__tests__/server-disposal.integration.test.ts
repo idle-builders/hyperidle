@@ -25,14 +25,6 @@ const shutdown = vi.hoisted(() => {
 	return { state, phase, phaseSync };
 });
 
-vi.mock("@hyperidle/work", async (importOriginal) => {
-	const actual = await importOriginal<typeof import("@hyperidle/work")>();
-	return {
-		...actual,
-		registerBetDecomposition: () => () => shutdown.phaseSync("bet-decomposition"),
-	};
-});
-
 vi.mock("../services/run-orchestration-composition.js", async (importOriginal) => {
 	const actual =
 		await importOriginal<typeof import("../services/run-orchestration-composition.js")>();
@@ -106,14 +98,7 @@ type AsyncServerHandle = Omit<ServerHandle, "dispose"> & {
 	dispose(): Promise<void>;
 };
 
-const expectedPhases = [
-	"bet-decomposition",
-	"run-runtime",
-	"app-domain",
-	"websocket",
-	"http",
-	"owned-db",
-] as const;
+const expectedPhases = ["run-runtime", "app-domain", "websocket", "http", "owned-db"] as const;
 
 async function bootOwnedServer(db: HyperIdleDb): Promise<AsyncServerHandle> {
 	shutdown.state.nextOwnedDb = db;
@@ -167,7 +152,6 @@ describe("ordered asynchronous server disposal", () => {
 		db,
 	}) => {
 		const server = await bootOwnedServer(db);
-		shutdown.state.failures.add("bet-decomposition");
 		shutdown.state.failures.add("app-domain");
 		shutdown.state.failures.add("http");
 
@@ -178,7 +162,6 @@ describe("ordered asynchronous server disposal", () => {
 		expect(shutdown.state.events).toEqual(expectedPhases);
 		expect(error).toBeInstanceOf(AggregateError);
 		expect((error as AggregateError).errors).toEqual([
-			{ phase: "bet-decomposition", cause: expect.any(Error) },
 			{ phase: "app-domain", cause: expect.any(Error) },
 			{ phase: "http", cause: expect.any(Error) },
 		]);

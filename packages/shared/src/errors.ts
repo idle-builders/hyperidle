@@ -29,17 +29,6 @@ export class CapacityExceededError extends Error {
 	}
 }
 
-export class CostCapExceededError extends Error {
-	constructor(
-		public readonly entityId: string,
-		public readonly spend: number,
-		public readonly cap: number,
-	) {
-		super(`Cost cap exceeded for '${entityId}': ${spend}/${cap}`);
-		this.name = "CostCapExceededError";
-	}
-}
-
 export class ConcurrencyLimitError extends Error {
 	constructor(
 		public readonly agentId: string,
@@ -54,6 +43,25 @@ export class MissingCredentialError extends Error {
 	constructor(public readonly credential: string) {
 		super(`Missing credential: '${credential}'`);
 		this.name = "MissingCredentialError";
+	}
+}
+
+/**
+ * @lore AU21 §12 — the emit→deactivate→drain race, RESOLVED (founder,
+ * 2026-07-27): if the agent resolved at emit is deactivated by the time
+ * orchestration goes to provision the session, that is a provisioning
+ * failure like any other — reported via the pre-handoff
+ * `agent_run_admission_failed` channel with `failureCode:
+ * "TARGET_AGENT_NOT_RUNNABLE"`, no bespoke race-handling. Thrown by
+ * `provisioner.ts`'s `admitSession` Phase 1 (the real point where a
+ * deactivated agent currently sails through unchecked — traced, not
+ * guessed — `getUserById` loads the row but never re-validated `status`
+ * before this fix).
+ */
+export class TargetAgentNotRunnableError extends Error {
+	constructor(public readonly agentId: string) {
+		super(`Agent '${agentId}' is not a runnable AI agent (deactivated after admission was baked)`);
+		this.name = "TargetAgentNotRunnableError";
 	}
 }
 

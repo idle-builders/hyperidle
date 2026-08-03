@@ -49,13 +49,6 @@ function serialize(ev: ObservabilityEvent): Record<string, unknown> {
 			out.toolName = ev.toolName;
 			out.argsSummary = ev.argsSummary;
 			break;
-		case "cost_incurred":
-			out.level = ev.level;
-			out.capLevel = ev.capLevel;
-			out.entityId = ev.entityId;
-			out.spend = ev.spend;
-			out.cap = ev.cap;
-			break;
 		case "task_state_changed":
 			out.taskId = ev.taskId;
 			out.fromState = ev.fromState;

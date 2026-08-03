@@ -68,6 +68,16 @@ scripts/honest-harness-guard.js
 scripts/honest-harness-guard.js.map
 scripts/honest-harness-guard.d.ts
 scripts/honest-harness-guard.d.ts.map
+# detector fix (2026-08-03): generate-dependency-graph.ts / composition-edge-
+# anti-regrowth-guard.ts — same tsx-run, no-compile-step class as the guards above.
+scripts/generate-dependency-graph.js
+scripts/generate-dependency-graph.js.map
+scripts/generate-dependency-graph.d.ts
+scripts/generate-dependency-graph.d.ts.map
+scripts/composition-edge-anti-regrowth-guard.js
+scripts/composition-edge-anti-regrowth-guard.js.map
+scripts/composition-edge-anti-regrowth-guard.d.ts
+scripts/composition-edge-anti-regrowth-guard.d.ts.map
 scripts/lib/honest-harness-predicate.js
 scripts/lib/honest-harness-predicate.js.map
 scripts/lib/honest-harness-predicate.d.ts

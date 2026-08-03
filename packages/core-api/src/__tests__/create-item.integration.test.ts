@@ -5,8 +5,33 @@ import type { EventBus, ItemCreatedEvent, ToolContext } from "@hyperidle/shared"
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
+import {
+	createInProcessCoreApiTransport,
+	registerCoreApiTransport,
+} from "../services/core-api-port-composition.js";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
-import { test } from "../test-fixtures.js";
+import { test as baseTest } from "../test-fixtures.js";
+
+/**
+ * @lore AU21 §9 Increment 2: this file's tool handler(s) now reach
+ * `ports.coreApi.*` (the seam) — this file-scoped `auto:true` fixture
+ * registers a real in-process `CoreApiPort` transport off THIS test's own
+ * `app` for every test in this file, without forcing `app`'s full
+ * subscriber wiring onto every OTHER test file that imports the bare
+ * `test` from `test-fixtures.ts` (that fixture's `app` stays lazy — a
+ * global auto-fixture there double-fired `app.ts`'s task-`done`
+ * dep-watcher against tests that manually drive the same transition,
+ * an AU21 Increment 2 GREEN-phase finding).
+ */
+const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
+	coreApiSeamRegistration: [
+		async ({ app }, use) => {
+			registerCoreApiTransport(createInProcessCoreApiTransport(app));
+			await use(undefined);
+		},
+		{ auto: true },
+	],
+});
 
 const createItemTool = buildToolDefinitions(toolHandlersPorts).find(
 	(t) => t.name === "create_item",
@@ -67,10 +92,8 @@ describe("create_item tool", () => {
 			if (!result.success) return;
 			const data = result.data as {
 				itemId: string;
-				view: string;
 				threadId: string;
 			};
-			expect(data.view).toBe("conversations");
 
 			const [row] = await db.select().from(items).where(eq(items.id, data.itemId));
 			expect(row?.kind).toBe("review");
@@ -129,6 +152,26 @@ describe("create_item tool", () => {
 			if (!result.success) return;
 			const data = result.data as { threadId: string };
 			expect(data.threadId).toBe("existing-thread");
+		});
+	});
+
+	describe("AU21 §6 Decision L3: result shape has no view field (routeItem deleted)", () => {
+		test("result is exactly {itemId, threadId} — no view field", async ({ db, eventBus }) => {
+			await seed(db);
+			const result = await createItemTool.handler(
+				{
+					title: "Please review this design",
+					kind: "review",
+					riskTier: "high",
+					body: "Design doc draft.",
+				},
+				makeContext(db, eventBus),
+			);
+			expect(result.success).toBe(true);
+			if (!result.success) return;
+			const data = result.data as Record<string, unknown>;
+			expect(Object.hasOwn(data, "view")).toBe(false);
+			expect(Object.keys(data).sort()).toEqual(["itemId", "threadId"]);
 		});
 	});
 

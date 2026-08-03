@@ -5,9 +5,9 @@
  * These live in @hyperidle/shared so both server (response construction)
  * and web (hook/component consumption) share the same contract.
  *
- * @lore AB1: Per-session cost is null — sessions table lacks cost columns.
- * The field is present in the type for forward-compatibility; the server
- * always returns null. This is honest over fabricated.
+ * @lore AU21 Increment 14a: `AgentSessionSummary.cost` (always-null
+ * placeholder, sessions table never had cost columns) is HARD-DELETED along
+ * with the rest of the cost-cap feature — no replacement.
  *
  * @lore AB1: Operational status is derived on the frontend, not stored:
  *   active  = activeSession !== null
@@ -38,12 +38,6 @@ export interface AgentSessionSummary {
 	readonly outcome: string | null;
 	readonly startedAt: string;
 	readonly endedAt: string | null;
-	/**
-	 * Per-session cost — always null because the sessions table lacks cost
-	 * columns. Present for forward-compatibility.
-	 * @lore AB1: Honest over fabricated.
-	 */
-	readonly cost: null;
 }
 
 /** Aggregate performance statistics across all sessions for this agent. */

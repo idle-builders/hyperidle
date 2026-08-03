@@ -7,7 +7,6 @@
  */
 
 export const FACILITATOR_TOOLS = [
-	"route_item",
 	"score_attention",
 	"promote_knowledge",
 	"create_conflict_review",

@@ -1,29 +1,37 @@
 /**
  * `tool-handlers` Service (agent-orchestration) — outbound composition-
  * boundary (Mechanism C) DI ports, per architecture §10.2's census (the
- * merged `tools` census row, §7.5's C1 split). Real outbound edges (`work`,
- * `users`, `conversation`, `knowledge`, `org`, `agent-selection`, `routine`,
- * `dispatch`) are ordinary downward-or-same-layer DI, wired by the
- * composition root (`packages/server/src/services/tool-handlers-bindings.ts`)
- * to each target's real exported functions. `policy` is also ordinary
- * same-layer DI.
+ * merged `tools` census row, §7.5's C1 split). The one remaining real
+ * outbound edge (`routine`, renamed from `dispatch` in AU21 §9 Increment 9 —
+ * `dispatch` no longer offers `provisionTeamRoutines` at all) is ordinary
+ * composition-root DI, wired by the composition root
+ * (`packages/core-api/src/services/tool-handlers-bindings.ts`) directly to
+ * `@hyperidle/routine`'s real exported function. `coreApi` (AU21 §9 Increment 1, `work`; Increment
+ * 2, `users`+`conversation`, then `org`+`routine`+`handoffTask`, then
+ * `knowledge`) is DIFFERENT in kind — it crosses the `CoreApiPort` write seam
+ * (a real route call), not same-process DI; see `ToolHandlersCoreApiAccessor`'s
+ * own doc comment below. There is no longer a standalone `conversation`/`org`/
+ * `routine`/`policy`/`knowledge` port — every former
+ * `ToolHandlersConversationAccessor`/`ToolHandlersOrgAccessor`/
+ * `ToolHandlersRoutineAccessor`/`ToolHandlersPolicyAccessor.handoff`/
+ * `ToolHandlersKnowledgeAccessor` capability moved onto `coreApi` (Increment
+ * 2's conversation wave, then org/routine/handoff wave, then knowledge wave).
  *
  * Several call shapes COLLAPSE (not a 1:1 port-per-function mirror) because
  * Mechanism C forbids `tool-handlers` from importing the Services a tool
- * used to wire together itself — same shape `dispatch`'s own
- * `DispatchReviewAccessor.createPracticeMeeting` /
- * `DispatchKnowledgeAccessor.recomputeAttentionForCandidates` collapses
+ * used to wire together itself — same shape `dispatch`'s own (historical)
+ * `DispatchKnowledgeAccessor.recomputeAttentionForCandidates` collapse
  * already established:
  *  - `score-attention.ts`'s recompute mode used to build a
  *    `buildCreateReviewItemForKnowledge({conversation,work})` store and pass
  *    it into `buildAttentionService({db,eventBus,work,review})
  *    .recomputeOne(id)` — collapsed into ONE
- *    `ToolHandlersKnowledgeAccessor.recomputeAttentionScoreForItem` method.
+ *    `ToolHandlersCoreApiAccessor.recomputeAttentionScoreForItem` method.
  *  - `create-item.ts`'s `resolveReviewRecipients(db, ctx, orgUsers)` —
- *    collapsed into ONE `ToolHandlersOrgAccessor.resolveReviewRecipientsForItem`.
+ *    collapsed into ONE `ToolHandlersCoreApiAccessor.resolveReviewRecipientsForItem`.
  *  - `add-agent.ts`/`create-team.ts`'s `persistScaffoldedAgents(db, orgUsers,
  *    teamMembersId, specs)` — collapsed into ONE
- *    `ToolHandlersOrgAccessor.persistScaffoldedAgents` (the composition root
+ *    `ToolHandlersCoreApiAccessor.persistScaffoldedAgents` (the composition root
  *    still wires the same `{getUserById, insertUser}` `orgUsers` object
  *    internally, just one level up).
  *
@@ -37,151 +45,30 @@
  *
  * @lore AU20 Stage 2: All 16 sub-interface type exports removed — they are
  * now structurally internal under `ToolHandlersPorts`. External code that
- * holds a `ToolHandlersPorts<TDb>` accesses each sub-port structurally
+ * holds a `ToolHandlersPorts` accesses each sub-port structurally
  * without needing to import the named interface. `parseCron`/`nextCronMatch`
  * removed from `ToolHandlersDispatchAccessor` — relocated to
  * `@hyperidle/shared` so tool implementations import them directly (2 of 3
  * dispatch back-edges deleted; only `provisionTeamRoutines` remains).
+ *
+ * @lore AU21 §6 Decision F1: the `agentSelection` port
+ * (`resolveScaffoldSpecs`) is REMOVED — traced to be pure (never reads its
+ * own injected deps, never reads `db`/`teamId`/`teamMembersId`), it folded
+ * into `@hyperidle/db`'s `resolveAgentScaffoldSpecs`, a leaf function this
+ * Service now imports directly (Mechanism C: `@hyperidle/db` is a leaf every
+ * Service may import).
  */
 
-import type { UserRole } from "@hyperidle/shared";
-
-interface ToolHandlersWorkAccessor<TDb> {
-	getTaskById(
-		db: TDb,
-		id: string,
-	): Promise<
-		{ readonly betId: string; readonly teamId: string; readonly notes: string | null } | undefined
-	>;
-	getBetById(db: TDb, id: string): Promise<{ readonly status: string } | undefined>;
-	createBet(
-		db: TDb,
-		input: {
-			readonly id: string;
-			readonly teamId: string;
-			readonly description: string;
-			readonly doneCondition: string | null;
-			readonly hypothesis: string | null;
-			readonly status: "draft";
-			readonly createdAt: string;
-		},
-	): Promise<void>;
-	updateBetById(
-		db: TDb,
-		id: string,
-		updates: Partial<{
-			description: string;
-			doneCondition: string | null;
-			hypothesis: string | null;
-		}>,
-	): Promise<void>;
-	createTask(
-		db: TDb,
-		input: {
-			readonly id: string;
-			readonly betId: string;
-			readonly teamId: string;
-			readonly ownerAgentId: string;
-			readonly title: string;
-			readonly description: string | null;
-			readonly doneCondition: string | null;
-			readonly state: "proposed";
-			readonly createdAt: string;
-			readonly updatedAt: string;
-		},
-	): Promise<void>;
-	updateTaskById(
-		db: TDb,
-		id: string,
-		updates: Partial<{ notes: string; updatedAt: string }>,
-	): Promise<void>;
-	/**
-	 * Atomic note append — single UPDATE with SQL CASE, no pre-read.
-	 * Returns `{ id }` when the task was found and updated, `undefined` when
-	 * the task does not exist (task-not-found signal for the `log_task` handler).
-	 */
-	appendTaskNote(
-		db: TDb,
-		taskId: string,
-		entry: string,
-	): Promise<{ readonly id: string } | undefined>;
-	getItemById(
-		db: TDb,
-		id: string,
-	): Promise<
-		| {
-				readonly riskTier: string | null;
-				readonly kind: string | null;
-				readonly verb: string | null;
-		  }
-		| undefined
-	>;
-	updateItemById(
-		db: TDb,
-		id: string,
-		updates: Partial<{ riskTier: string; kind: string; verb: string }>,
-	): Promise<void>;
-	createItem(db: TDb, input: Record<string, unknown>): Promise<void>;
-	routeItem(input: {
-		readonly riskTier: string | null;
-		readonly kind: string | null;
-		readonly verb: string | null;
-	}): "conversations" | "work" | "knowledge";
-	findItemByReasoningMarker(db: TDb, marker: string): Promise<{ readonly id: string } | undefined>;
-	createArtifact(
-		db: TDb,
-		input: {
-			readonly id: string;
-			readonly producingTaskId: string;
-			readonly kind: string;
-			readonly label: string | null;
-			readonly previewJson: string | null;
-			readonly createdAt: string;
-		},
-	): Promise<void>;
-}
-
-interface ToolHandlersUsersAccessor<TDb> {
-	getUserById(
-		db: TDb,
-		id: string,
-	): Promise<
-		| {
-				readonly id: string;
-				readonly role: string | null;
-				readonly teamId: string | null;
-				readonly name: string;
-		  }
-		| undefined
-	>;
-	listUsersByTeam(
-		db: TDb,
-		teamMembersId: string,
-	): Promise<
-		ReadonlyArray<{ readonly id: string; readonly name: string; readonly role: string | null }>
-	>;
-}
-
-interface ToolHandlersConversationAccessor<TDb> {
-	getThreadById(
-		db: TDb,
-		id: string,
-	): Promise<{ readonly id: string; readonly participants: string } | undefined>;
-	insertThread(db: TDb, input: Record<string, unknown>): Promise<void>;
-	updateThread(db: TDb, id: string, updates: Record<string, unknown>): Promise<void>;
-	insertMessage(db: TDb, input: Record<string, unknown>): Promise<void>;
-	listInboxBySenderExclusion(
-		db: TDb,
-		agentId: string,
-		limit: number,
-	): Promise<ReadonlyArray<{ readonly participants: string; readonly message: unknown }>>;
-	findOrCreateDirectThread(db: TDb, agentA: string, agentB: string, now: string): Promise<string>;
-	getFirstThreadByHost(
-		db: TDb,
-		hostKind: string,
-		hostId: string,
-	): Promise<{ readonly id: string; readonly participants: string } | undefined>;
-}
+/**
+ * @lore AU21 §6 Decision L3: `ToolHandlersWorkAccessor`/`routeItem` — the
+ * last standalone same-process `work` DI capability — is DELETED, not
+ * relocated. Traced to be vestigial: its `view` output was consumed by
+ * nothing (no persisted column, no display reader, no downstream tool),
+ * and core-api itself already abandoned inline routing at item creation
+ * (`@lore O2` in `routes/conversations.ts`). Every `work` read/write now
+ * crosses the `CoreApiPort` seam (`ToolHandlersCoreApiAccessor` below) —
+ * there is no longer a standalone `work` accessor at all.
+ */
 
 /**
  * Structural mirror of `org`'s own `CreateTeamInput` (`team-lookup.ts`) —
@@ -201,94 +88,6 @@ interface ToolHandlersCreateTeamInput {
 	readonly capacity?: number;
 	readonly activeBets?: number;
 	readonly formedAt?: string;
-}
-
-interface ToolHandlersOrgAccessor<TDb> {
-	getTeamById(
-		db: TDb,
-		teamId: string,
-	): Promise<{ readonly id: string; readonly name: string } | undefined>;
-	getTeamMembersByTeamId(db: TDb, teamId: string): Promise<{ readonly id: string } | undefined>;
-	/** `team_members.id` -> the full row (incl. `teamId`, i.e. `teams.id`) — the AK4 two-hop resolution's second hop. */
-	getTeamMembersById(
-		db: TDb,
-		teamMembersId: string,
-	): Promise<{ readonly teamId: string } | undefined>;
-	/**
-	 * Atomically creates a `teams` row + its `teamMembers` companion (1:1 invariant).
-	 * @lore AU20 Am7: replaces the old `createTeam + createTeamMembersGroup` two-call pattern.
-	 */
-	createTeam(db: TDb, input: ToolHandlersCreateTeamInput): Promise<void>;
-	/**
-	 * Update team-owned columns (phase on `teams`, activeBets/leadAgentId on `teamMembers`).
-	 * @lore AU20 Am7: replaces `setTeamMembersLeadAgent` (and `updateTeamPhase`/`setTeamMembersActiveBets`).
-	 */
-	updateTeam(
-		db: TDb,
-		teamId: string,
-		patch: { phase?: string; activeBets?: number; leadAgentId?: string },
-	): Promise<void>;
-	/** Collapses `resolveReviewRecipients(db, ctx, {getUserById})` — see this file's top `@lore`. */
-	resolveReviewRecipientsForItem(
-		db: TDb,
-		ctx: {
-			readonly userId: string;
-			readonly agentRole: string | undefined;
-			readonly teamId: string | undefined;
-		},
-	): Promise<readonly string[]>;
-	/** Collapses `persistScaffoldedAgents(db, {getUserById,insertUser}, teamMembersId, specs)` — see this file's top `@lore`. */
-	persistScaffoldedAgents(
-		db: TDb,
-		teamMembersId: string | null,
-		specs: readonly Record<string, unknown>[],
-	): Promise<{ readonly agentIds: readonly string[]; readonly leadAgentId: string | null }>;
-}
-
-interface ToolHandlersAgentSelectionAccessor<TDb> {
-	resolveScaffoldSpecs(input: {
-		readonly db: TDb;
-		/** Narrowed to `agent-selection`'s own `ScaffoldRequest.trigger` literal union (structural mirror, not a type import — same reasoning as `role` below). */
-		readonly trigger: "team_scaffold" | "agent_added" | "user_assistant";
-		readonly teamId: string;
-		readonly teamMembersId: string | null;
-		readonly teamName: string;
-		readonly functions: readonly string[] | null;
-		/** Agent-selection requires the exact shared role union, not an arbitrary string. */
-		readonly role: UserRole | null;
-		readonly name: string | null;
-		readonly ownerUserId: string | null;
-		readonly ownerUserName: string | null;
-	}): Promise<readonly Record<string, unknown>[]>;
-}
-
-interface ToolHandlersRoutineAccessor<TDb> {
-	insertRoutine(db: TDb, input: Record<string, unknown>): Promise<void>;
-	getRoutineById(
-		db: TDb,
-		id: string,
-	): Promise<
-		{ readonly name: string; readonly state: string; readonly deletedAt: string | null } | undefined
-	>;
-	updateRoutineById(db: TDb, id: string, updates: Record<string, unknown>): Promise<void>;
-}
-
-/**
- * @lore AU20 Stage 2: `parseCron` and `nextCronMatch` removed — they are
- * pure utilities relocated to `@hyperidle/shared`. Only `provisionTeamRoutines`
- * remains as a genuine service-layer back-edge (it provisions DB rows and
- * spawns work — cannot be a pure utility).
- */
-interface ToolHandlersDispatchAccessor<TDb> {
-	/** Opaque pass-through — this Service's own bound `provisionTeamRoutines`. Never inspected here. */
-	provisionTeamRoutines(
-		db: TDb,
-		opts: {
-			readonly teamId: string;
-			readonly ownerByRole: Partial<Record<string, string>>;
-			readonly leadAgentId: string;
-		},
-	): Promise<unknown>;
 }
 
 /**
@@ -327,41 +126,300 @@ interface ToolHandlersCreateKnowledgeConflictInput {
 	readonly createdAt: string;
 }
 
-interface ToolHandlersKnowledgeAccessor<TDb> {
+/**
+ * `CoreApiPort` write-seam accessor (AU21 §9 Increment 1). Unlike every
+ * other accessor in this file, this one takes NO `TDb` — the write crosses
+ * via the seam's transport (a real `POST /bets` route call through the
+ * SAME door core-ui uses, architecture.md §6 Decision A/C), not a
+ * same-process DB handle. `actorId` carries the calling agent's own
+ * identity as the route actor (§12) — the composition root threads it onto
+ * the request, never a hardcoded/founder constant.
+ */
+interface ToolHandlersCoreApiAccessor {
+	createBet(
+		input: {
+			readonly teamId: string;
+			readonly description: string;
+			readonly doneCondition: string | null;
+			readonly hypothesis: string | null;
+		},
+		actorId: string,
+	): Promise<{ readonly id: string; readonly teamId: string; readonly status: string }>;
+	/** Structural mirror of `@hyperidle/api-contract`'s `TaskView` (Mechanism C: no import). */
+	getTaskById(
+		id: string,
+		actorId: string,
+	): Promise<
+		{ readonly betId: string; readonly teamId: string; readonly notes: string | null } | undefined
+	>;
+	getBetById(id: string, actorId: string): Promise<{ readonly status: string } | undefined>;
+	updateBetById(
+		id: string,
+		updates: Partial<{
+			description: string;
+			doneCondition: string | null;
+			hypothesis: string | null;
+		}>,
+		actorId: string,
+	): Promise<void>;
+	createTask(
+		input: {
+			readonly betId: string;
+			readonly title: string;
+			readonly description: string | null;
+			readonly doneCondition: string | null;
+			readonly ownerAgentId: string | null;
+		},
+		actorId: string,
+	): Promise<{ readonly id: string; readonly betId: string; readonly teamId: string }>;
 	/**
-	 * Returned items are opaque (`Record<string, unknown>`) plus the one field
-	 * `query-practice.ts`'s handler filters on (`layer`, optional/nullable —
-	 * matches `knowledge`'s own `KnowledgeItemWithProjection.layer` exactly,
-	 * a structural mirror not a type import). The handler forwards the whole
-	 * item back to its caller (`ok({ items })`) — narrowing the return shape
-	 * to `{layer}` only, as an earlier draft of this port did, would silently
-	 * drop every other field (`id`/`title`/`body`/...) real callers need.
+	 * Atomic note append via the seam. Resolves `undefined` when the task does
+	 * not exist (task-not-found signal for the `log_task` handler) — never throws.
+	 */
+	appendTaskNote(
+		taskId: string,
+		entry: string,
+		actorId: string,
+	): Promise<{ readonly id: string } | undefined>;
+	getItemById(
+		id: string,
+		actorId: string,
+	): Promise<
+		| {
+				readonly riskTier: string | null;
+				readonly kind: string | null;
+				readonly verb: string | null;
+		  }
+		| undefined
+	>;
+	updateItemById(
+		id: string,
+		updates: Partial<{ riskTier: string; kind: string; verb: string }>,
+		actorId: string,
+	): Promise<void>;
+	createItem(input: Record<string, unknown>, actorId: string): Promise<{ readonly id: string }>;
+	findItemByReasoningMarker(
+		marker: string,
+		actorId: string,
+	): Promise<{ readonly id: string } | undefined>;
+	createArtifact(
+		input: {
+			readonly producingTaskId: string;
+			readonly kind: string;
+			readonly label: string | null;
+			readonly preview: Record<string, unknown> | null;
+		},
+		actorId: string,
+	): Promise<{ readonly id: string; readonly producingTaskId: string; readonly kind: string }>;
+	getUserById(
+		id: string,
+		actorId: string,
+	): Promise<
+		| {
+				readonly id: string;
+				readonly role: string | null;
+				readonly teamId: string | null;
+				readonly name: string;
+		  }
+		| undefined
+	>;
+	listUsersByTeam(
+		teamMembersId: string,
+		actorId: string,
+	): Promise<
+		ReadonlyArray<{ readonly id: string; readonly name: string; readonly role: string | null }>
+	>;
+	/**
+	 * @lore AU21 §9 Increment 2 (conversation wave): every
+	 * `ToolHandlersConversationAccessor` capability moved onto this seam
+	 * (`edge-disposition.md`'s `conversation.{findThread, insertThread,
+	 * insertMessage, updateThread, findOrCreateDirectThread, listInbox}` row) —
+	 * the agent acting on core "just like the user would", same as `work`'s
+	 * Increment 2 migration. Structural mirror of
+	 * `@hyperidle/api-contract`'s `ConversationThreadView` (Mechanism C: no import).
+	 */
+	getThreadById(
+		id: string,
+		actorId: string,
+	): Promise<{ readonly id: string; readonly participants: readonly string[] } | undefined>;
+	insertThread(
+		input: {
+			readonly hostKind: string;
+			readonly hostId: string;
+			readonly participants: readonly string[];
+			readonly pinned?: boolean;
+		},
+		actorId: string,
+	): Promise<{ readonly id: string }>;
+	updateThread(
+		id: string,
+		updates: Partial<{
+			participants: readonly string[];
+			lastActiveAt: string;
+			pinned: boolean;
+		}>,
+		actorId: string,
+	): Promise<void>;
+	insertMessage(
+		input: {
+			readonly threadId: string;
+			readonly type: "plain" | "review" | "questionnaire" | "verdict";
+			readonly payload: Record<string, unknown>;
+			readonly clientKey: string;
+		},
+		actorId: string,
+	): Promise<{ readonly id: string }>;
+	listInboxBySenderExclusion(
+		limit: number,
+		actorId: string,
+	): Promise<
+		ReadonlyArray<{
+			readonly participants: readonly string[];
+			readonly message: {
+				readonly id: string;
+				readonly senderId: string;
+				readonly threadId: string;
+				readonly type: string;
+				readonly payload: Record<string, unknown>;
+			};
+		}>
+	>;
+	findOrCreateDirectThread(recipientId: string, actorId: string): Promise<{ readonly id: string }>;
+	getFirstThreadByHost(
+		hostKind: string,
+		hostId: string,
+		actorId: string,
+	): Promise<{ readonly id: string; readonly participants: readonly string[] } | undefined>;
+	/**
+	 * @lore AU21 §9 Increment 2 (org/routine/handoff wave): every former
+	 * `ToolHandlersOrgAccessor`/`ToolHandlersRoutineAccessor`/
+	 * `ToolHandlersPolicyAccessor.handoff` capability moved onto this seam
+	 * (`edge-disposition.md`'s `org.{getTeam, getTeamMembers, createTeam,
+	 * updateTeam}`, `routine.{getRoutine, insertRoutine, updateRoutine}`, and
+	 * `policy.handoff` rows) — the agent acting on core "just like the user
+	 * would", same as `work`/`users`/`conversation`'s earlier migrations.
+	 */
+	getTeamById(
+		teamId: string,
+		actorId: string,
+	): Promise<{ readonly id: string; readonly name: string } | undefined>;
+	getTeamMembersByTeamId(
+		teamId: string,
+		actorId: string,
+	): Promise<{ readonly id: string } | undefined>;
+	/** `team_members.id` -> the full row (incl. `teamId`, i.e. `teams.id`) — the AK4 two-hop resolution's second hop. */
+	getTeamMembersById(
+		teamMembersId: string,
+		actorId: string,
+	): Promise<{ readonly teamId: string } | undefined>;
+	/** Atomically creates a `teams` row + its `teamMembers` companion (1:1 invariant). */
+	createTeam(input: ToolHandlersCreateTeamInput, actorId: string): Promise<void>;
+	/** Update team-owned columns (phase on `teams`, activeBets/leadAgentId on `teamMembers`). */
+	updateTeam(
+		teamId: string,
+		patch: { phase?: string; activeBets?: number; leadAgentId?: string },
+		actorId: string,
+	): Promise<void>;
+	/** Collapses `resolveReviewRecipients(db, ctx, {getUserById})` — see this file's top `@lore`. */
+	resolveReviewRecipientsForItem(
+		ctx: {
+			readonly userId: string;
+			readonly agentRole: string | undefined;
+			readonly teamId: string | undefined;
+		},
+		actorId: string,
+	): Promise<readonly string[]>;
+	/** Collapses `persistScaffoldedAgents(db, {getUserById,insertUser}, teamMembersId, specs)` — see this file's top `@lore`. */
+	persistScaffoldedAgents(
+		teamMembersId: string | null,
+		specs: readonly Record<string, unknown>[],
+		actorId: string,
+	): Promise<{ readonly agentIds: readonly string[]; readonly leadAgentId: string | null }>;
+	/**
+	 * @lore AU21 §9 Increment 9 (forensic-triage wave, second pass): moved here
+	 * from a standalone `ToolHandlersRoutineAccessor`/`ToolHandlersDispatchAccessor`
+	 * opaque same-process pass-through (this file's top `@lore`) — `create_team`'s
+	 * last non-seam step now routes through `CoreApiPort` like every other step
+	 * in that flow (Decision C), backed by `POST /org/team-routines`.
+	 */
+	provisionTeamRoutines(
+		input: {
+			readonly teamId: string;
+			readonly ownerByRole: Partial<Record<string, string>>;
+			readonly leadAgentId: string;
+		},
+		actorId: string,
+	): Promise<void>;
+	insertRoutine(input: Record<string, unknown>, actorId: string): Promise<void>;
+	getRoutineById(
+		id: string,
+		actorId: string,
+	): Promise<
+		{ readonly name: string; readonly state: string; readonly deletedAt: string | null } | undefined
+	>;
+	updateRoutineById(id: string, updates: Record<string, unknown>, actorId: string): Promise<void>;
+	/** Bound `@hyperidle/policy`'s `handoff`, reached via `POST /tasks/:id/handoff`. */
+	handoffTask(
+		taskId: string,
+		input: {
+			readonly sessionId: string;
+			readonly toAgent?: string;
+			readonly toRole?: string;
+			readonly toHuman?: boolean;
+			readonly reason: string;
+			readonly artifacts?: readonly string[];
+			readonly remainingWork?: readonly string[];
+			readonly contextId?: string;
+			readonly status?: "completed" | "failed" | "blocked" | "in_progress";
+			readonly error?: string;
+		},
+		actorId: string,
+	): Promise<{
+		readonly status: "success" | "escalated";
+		readonly targetAgentId?: string;
+		readonly escalationItemId?: string;
+	}>;
+	/**
+	 * @lore AU21 §9 Increment 2 (knowledge wave): every former
+	 * `ToolHandlersKnowledgeAccessor` capability moved onto this seam
+	 * (`edge-disposition.md`'s `knowledge.{get, create, transition,
+	 * findOpenConflict, recordConflict}` row) — the agent acting on core
+	 * "just like the user would", same as every other Increment 2 migration.
+	 *
+	 * Returned search items are opaque (`Record<string, unknown>`) plus the
+	 * one field `query_practice`'s handler filters on (`layer`, optional/
+	 * nullable — a structural mirror, not a type import). The handler
+	 * forwards the whole item back to its caller (`ok({ items })`) —
+	 * narrowing the return shape to `{layer}` only would silently drop every
+	 * other field (`id`/`title`/`body`/...) real callers need.
 	 */
 	search(
-		db: TDb,
 		query: string,
 		opts: { readonly limit: number },
+		actorId: string,
 	): Promise<ReadonlyArray<Record<string, unknown> & { readonly layer?: string | null }>>;
 	create(
-		db: TDb,
 		input: ToolHandlersCreateKnowledgeItemInput,
+		actorId: string,
 	): Promise<{ readonly id: string; readonly version: number }>;
 	findKnowledgeItemVersionById(
-		db: TDb,
 		id: string,
+		actorId: string,
 	): Promise<{ readonly id: string; readonly version: number } | undefined>;
 	findKnowledgeItemStatusById(
-		db: TDb,
 		id: string,
+		actorId: string,
 	): Promise<{ readonly status: string } | undefined>;
 	findOpenConflictByItemAndProposer(
-		db: TDb,
 		itemId: string,
 		proposedBy: string,
+		actorId: string,
 	): Promise<{ readonly id: string } | undefined>;
-	createKnowledgeConflict(db: TDb, input: ToolHandlersCreateKnowledgeConflictInput): Promise<void>;
+	createKnowledgeConflict(
+		input: ToolHandlersCreateKnowledgeConflictInput,
+		actorId: string,
+	): Promise<void>;
 	promoteKnowledgeItem(
-		db: TDb,
 		input: {
 			readonly knowledgeItemId: string;
 			readonly fromStatus: string;
@@ -369,6 +427,7 @@ interface ToolHandlersKnowledgeAccessor<TDb> {
 			readonly reason: string | undefined;
 			readonly editor: string;
 		},
+		actorId: string,
 	): Promise<
 		| { readonly ok: true; readonly fromStatus: string }
 		| {
@@ -378,76 +437,27 @@ interface ToolHandlersKnowledgeAccessor<TDb> {
 		  }
 	>;
 	upsertKnowledgeAppProjectionAttentionScore(
-		db: TDb,
 		knowledgeItemId: string,
 		attentionScore: string,
+		actorId: string,
 	): Promise<void>;
 	/**
 	 * Collapses `buildCreateReviewItemForKnowledge({conversation,work})` +
 	 * `buildAttentionService({db,eventBus,work,review}).recomputeOne(id)` —
 	 * see this file's top `@lore` (same shape `dispatch`'s own
-	 * `recomputeAttentionForCandidates` collapse already established).
+	 * `recomputeAttentionForCandidates` collapse already established). The
+	 * seam never threads a same-process `EventBus` handle over the HTTP
+	 * boundary — dropped from this signature vs. the pre-migration raw
+	 * `ToolHandlersKnowledgeAccessor.recomputeAttentionScoreForItem(db,
+	 * eventBus, knowledgeItemId)`.
 	 */
 	recomputeAttentionScoreForItem(
-		db: TDb,
-		eventBus: unknown,
 		knowledgeItemId: string,
+		actorId: string,
 	): Promise<{ readonly current: number }>;
 }
 
-/** Structural mirror of `@hyperidle/policy`'s `HandoffMetadata`/`HandoffParams`/`HandoffResult` (Mechanism C). */
-interface ToolHandlersHandoffMetadata {
-	// biome-ignore lint/style/useNamingConvention: agent handoff protocol wire format uses snake_case
-	context_id: string;
-	status: "completed" | "failed" | "blocked" | "in_progress";
-	reason: string;
-	artifacts: string[];
-	// biome-ignore lint/style/useNamingConvention: agent handoff protocol wire format uses snake_case
-	remaining_work: string[];
-	error?: string;
-}
-
-interface ToolHandlersSessionContext {
-	sessionId: string;
-	agentId: string;
-	taskId: string;
-	sandboxPath: string;
-	ingestion: { dispose(): void };
-	traceId: string;
-}
-
-interface ToolHandlersHandoffParams {
-	sessionContext: ToolHandlersSessionContext;
-	toAgent?: string;
-	toRole?: string;
-	toHuman?: boolean;
-	metadata: ToolHandlersHandoffMetadata;
-}
-
-interface ToolHandlersHandoffResult {
-	status: "success" | "escalated";
-	targetAgentId?: string;
-	escalationItemId?: string;
-}
-
-interface ToolHandlersPolicyAccessor<TDb> {
-	/** Bound `@hyperidle/policy`'s `handoff` — wired at the composition root, same idiom `dispatch-bindings.ts` already established. */
-	handoff(
-		db: TDb,
-		eventBus: unknown,
-		params: ToolHandlersHandoffParams,
-	): Promise<ToolHandlersHandoffResult>;
-}
-
 /** Every real outbound port this Service's source files need. */
-export interface ToolHandlersPorts<TDb> {
-	readonly work: ToolHandlersWorkAccessor<TDb>;
-	readonly users: ToolHandlersUsersAccessor<TDb>;
-	readonly conversation: ToolHandlersConversationAccessor<TDb>;
-	readonly org: ToolHandlersOrgAccessor<TDb>;
-	readonly agentSelection: ToolHandlersAgentSelectionAccessor<TDb>;
-	readonly routine: ToolHandlersRoutineAccessor<TDb>;
-	readonly dispatch: ToolHandlersDispatchAccessor<TDb>;
-	readonly knowledge: ToolHandlersKnowledgeAccessor<TDb>;
-	readonly policy: ToolHandlersPolicyAccessor<TDb>;
+export interface ToolHandlersPorts {
+	readonly coreApi: ToolHandlersCoreApiAccessor;
 }

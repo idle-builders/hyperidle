@@ -52,8 +52,6 @@ const BET_FIXTURE = {
 	product: "Acme",
 	team: "Alpha Core",
 	status: "draft",
-	costAppetite: { minor: 25000, currency: "USD" },
-	costActual: null,
 	tokensActual: null,
 	progress: { done: 0, total: 1 },
 	description: "A bet about daily digest.",

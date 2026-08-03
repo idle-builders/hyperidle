@@ -78,6 +78,28 @@ const artifactRefSchema = z.object({
 	kind: z.enum(ARTIFACT_VIEW_SHAPES),
 });
 
+/**
+ * AH3: Assistant notice schema — mirrors AssistantNotice in @hyperidle/shared.
+ *
+ * @lore AH3 H2: This schema MUST be present on the READ path (plainPayloadSchemaWithToolCalls).
+ * Zod strips unknown keys by default; without this field the `notice` written by
+ * persistTurnFailure is silently dropped on DB read-back, making the overlay's
+ * noticeMessages filter find nothing. Same class of bug as AD8b's toolCalls addition.
+ *
+ * @lore AU21 §9 Increment 2: also declared on the WRITE side (`plainPayloadSchema`
+ * below) now that `dispatch`'s own assistant-turn `insertMessage` writes route
+ * through this SAME `POST /threads/:id/messages` door (the seam, reusing the
+ * human-facing route rather than a raw DI insert). Structural acceptance alone
+ * would reopen the exact spoof vector this field's WRITE-side omission used to
+ * close — `threads.ts`'s `sanitizeNoticeForSender` strips a non-assistant
+ * sender's `notice` before persistence, so only a genuine `ast-*` actor (thread
+ * a real authenticated identity, never client-supplied) can make it land.
+ */
+export const assistantNoticeSchema = z.object({
+	kind: z.enum(["missing_key", "missing_harness", "provider_error"]),
+	code: z.string().optional(),
+});
+
 const plainPayloadSchema = z.object({
 	text: z.string().max(16_384),
 	refs: z.array(inlineRefSchema).optional(),
@@ -85,6 +107,13 @@ const plainPayloadSchema = z.object({
 	blockId: z.string().max(128).optional(),
 	/** AL4: Optional human-readable sub-block label (line/paragraph/region) — opaque to the server. */
 	spotLabel: z.string().max(128).optional(),
+	/**
+	 * @lore AU21 §9 Increment 2: accepted structurally on the WRITE side now
+	 * (see `assistantNoticeSchema`'s own `@lore` above) — sanitized at the
+	 * persistence boundary (`threads.ts`'s `sanitizeNoticeForSender`), not the
+	 * schema layer.
+	 */
+	notice: assistantNoticeSchema.optional(),
 });
 
 /**
@@ -100,19 +129,6 @@ const toolCallSummarySchema = z.object({
 });
 
 /**
- * AH3: Assistant notice schema — mirrors AssistantNotice in @hyperidle/shared.
- *
- * @lore AH3 H2: This schema MUST be present on the READ path (plainPayloadSchemaWithToolCalls).
- * Zod strips unknown keys by default; without this field the `notice` written by
- * persistTurnFailure is silently dropped on DB read-back, making the overlay's
- * noticeMessages filter find nothing. Same class of bug as AD8b's toolCalls addition.
- */
-const assistantNoticeSchema = z.object({
-	kind: z.enum(["missing_key", "missing_harness", "provider_error"]),
-	code: z.string().optional(),
-});
-
-/**
  * AD8b: Plain payload with optional tool-call metadata attached by the assistant.
  * Extends plainPayloadSchema with an optional `toolCalls` array.
  * AH3: Also extends with optional `notice` so assistant notice messages survive DB read-back.
@@ -120,9 +136,12 @@ const assistantNoticeSchema = z.object({
  * @lore AD8b: Low/medium-risk assistant tool results are embedded as toolCalls
  * on the plain message payload. High-risk tools post a review message instead
  * and never appear as toolCalls on a plain message.
- * @lore AH3 H2: `notice` is server-authored only; clients never send it. Adding it to
- * the READ schema (this schema) is the required fix — the WRITE schema (plainPayloadSchema /
- * messageInputSchema) intentionally omits it to reject client-supplied notices.
+ * @lore AH3 H2: `notice` is server-authored only; clients never send it directly.
+ * The WRITE schema (`plainPayloadSchema`) now also declares it structurally
+ * (AU21 §9 Increment 2, see that field's own `@lore`) — this READ schema's
+ * redundant `.extend({notice: ...})` is a harmless no-op kept for clarity.
+ * A non-assistant sender's `notice` is stripped before persistence
+ * (`threads.ts`'s `sanitizeNoticeForSender`), not at this schema layer.
  */
 export const plainPayloadSchemaWithToolCalls = plainPayloadSchema.extend({
 	toolCalls: z.array(toolCallSummarySchema).optional(),
@@ -215,6 +234,43 @@ export const createThreadBodySchema = z.object({
 	participants: z.array(z.string().min(1)).min(1),
 	pinned: z.boolean().optional(),
 	initialMessage: messageInputSchema,
+});
+
+/**
+ * AU21 §9 Increment 2: `POST /threads/scaffold`'s validated request body — a
+ * bare thread with no initial message (see `CoreApiConversationPort.insertThread`'s
+ * doc comment in `@hyperidle/api-contract`).
+ */
+export const insertThreadBodySchema = z.object({
+	hostKind: z.enum(HOST_KINDS),
+	hostId: z.string().min(1),
+	participants: z.array(z.string().min(1)).min(1),
+	pinned: z.boolean().optional(),
+});
+
+/**
+ * AU21 §9 Increment 2: `PATCH /threads/:id`'s validated request body — the
+ * narrow field set real call sites set today, not a general thread-patch
+ * surface.
+ */
+export const updateThreadBodySchema = z.object({
+	participants: z.array(z.string().min(1)).optional(),
+	lastActiveAt: z.string().optional(),
+	pinned: z.boolean().optional(),
+});
+
+/** AU21 §9 Increment 2: `POST /threads/direct`'s validated request body. */
+export const directThreadBodySchema = z.object({
+	recipientId: z.string().min(1),
+});
+
+/** AU21 §9 Increment 2: `GET /threads/inbox`'s validated query params. */
+export const inboxQuerySchema = z.object({
+	limit: z
+		.string()
+		.optional()
+		.transform((v) => (v ? Number(v) : 50))
+		.pipe(z.number().int().min(1).max(200)),
 });
 
 export const listThreadsQuerySchema = z.object({

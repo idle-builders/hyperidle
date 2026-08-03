@@ -67,7 +67,6 @@ describe("AE6 AC-3: artifact kind normalization and label support", () => {
 				producingTaskId: "task-ae6",
 				kind: "text",
 				preview: { kind: "text", body: "Hello world" },
-				cost: null,
 			}),
 		});
 		expect(res.status).toBe(201);
@@ -85,7 +84,6 @@ describe("AE6 AC-3: artifact kind normalization and label support", () => {
 				producingTaskId: "task-ae6",
 				kind: "code",
 				preview: { kind: "code", path: "src/index.ts", lang: "typescript", text: "const x = 1;" },
-				cost: null,
 			}),
 		});
 		expect(res.status).toBe(201);
@@ -102,7 +100,6 @@ describe("AE6 AC-3: artifact kind normalization and label support", () => {
 				producingTaskId: "task-ae6",
 				kind: "html",
 				preview: { kind: "html", html: "<div>hi</div>", title: "Test" },
-				cost: null,
 			}),
 		});
 		expect(res.status).toBe(201);
@@ -119,7 +116,6 @@ describe("AE6 AC-3: artifact kind normalization and label support", () => {
 				producingTaskId: "task-ae6",
 				kind: "url",
 				preview: { kind: "url", url: "https://example.com" },
-				cost: null,
 			}),
 		});
 		expect(res.status).toBe(201);
@@ -136,7 +132,6 @@ describe("AE6 AC-3: artifact kind normalization and label support", () => {
 				producingTaskId: "task-ae6",
 				kind: "image",
 				preview: { kind: "image", url: "https://example.com/img.png", width: 800, height: 600 },
-				cost: null,
 			}),
 		});
 		expect(res.status).toBe(201);
@@ -153,7 +148,6 @@ describe("AE6 AC-3: artifact kind normalization and label support", () => {
 				producingTaskId: "task-ae6",
 				kind: "data",
 				preview: { kind: "data", headlines: [{ label: "Count", value: "42" }] },
-				cost: null,
 			}),
 		});
 		expect(res.status).toBe(201);
@@ -175,7 +169,6 @@ describe("AE6 AC-3: artifact kind normalization and label support", () => {
 				kind: "text",
 				label: "contract",
 				preview: { kind: "text", body: "Service agreement text" },
-				cost: null,
 			}),
 		});
 		expect(res.status).toBe(201);
@@ -199,7 +192,6 @@ describe("AE6 AC-3: artifact kind normalization and label support", () => {
 				producingTaskId: "task-ae6",
 				kind: "code",
 				preview: null,
-				cost: null,
 			}),
 		});
 		expect(res.status).toBe(201);
@@ -328,7 +320,6 @@ describe("AE6 AC-3: artifact kind normalization and label support", () => {
 				producingTaskId: "task-ae6",
 				kind: "code_diff",
 				preview: null,
-				cost: null,
 			}),
 		});
 		expect(res.status).toBe(400);
@@ -346,7 +337,6 @@ describe("AE6 AC-3: artifact kind normalization and label support", () => {
 				producingTaskId: "task-ae6",
 				kind: "contract",
 				preview: null,
-				cost: null,
 			}),
 		});
 		expect(res.status).toBe(400);

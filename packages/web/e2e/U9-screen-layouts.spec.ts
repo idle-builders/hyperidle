@@ -48,7 +48,6 @@ const BETS_FIXTURE = {
 			description: "A draft bet for alpha team",
 			status: "draft",
 			atRisk: false,
-			costAppetite: null,
 		},
 	],
 	active: [
@@ -59,7 +58,6 @@ const BETS_FIXTURE = {
 			description: "An active bet for beta team",
 			status: "active",
 			atRisk: false,
-			costAppetite: null,
 		},
 	],
 	completed: [],

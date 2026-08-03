@@ -16,6 +16,7 @@
 		"packages/agent-execution/harness-registry/src/__tests__/require-harness.ts",
 		"packages/core-api/src/test-fixtures.ts",
 		"packages/web/e2e/fixtures.ts",
+		"packages/web/e2e/known-pre-existing-failures.ts",
 		"packages/web/src/pages/**/__fixtures__/**",
 		"packages/web/src/preview/**",
 		"packages/agent-execution/harness-registry/src/re-engage.ts",

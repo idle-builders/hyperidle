@@ -39,6 +39,8 @@ import { enqueueWorkIntent, sessionRunRegistry } from "@hyperidle/session-reques
 import type { EventBus } from "@hyperidle/shared";
 import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
+import { resolveTaskRunRequest } from "@hyperidle/work";
+import { taskRunResolverDeps } from "./task-run-resolver-bindings.js";
 
 const handoffDeps = {
 	work: {
@@ -80,9 +82,19 @@ const handoffDeps = {
 				readonly sourceId: string;
 				readonly requestedBy?: string;
 				readonly idempotencyKey: string;
+				readonly bakedRequest?: import("@hyperidle/shared").BakedWorkIntentRequest;
 			},
 		) => enqueueWorkIntent(exec, input as Parameters<typeof enqueueWorkIntent>[1]),
 		abort: sessionRunRegistry.abort,
+	},
+	// AU21 §6 Decision B / Increment 3: `task_run`'s emit-time resolver,
+	// pre-bound with the real `requireRunnableAgent` — `policy` cannot import
+	// `@hyperidle/work` directly (Mechanism C), so this composition root
+	// (which already imports `@hyperidle/work` for `handoffDeps.work`) wires
+	// the concrete resolver in.
+	taskRunResolver: {
+		resolve: (exec: WriteExecutor, attemptId: string) =>
+			resolveTaskRunRequest(exec as HyperIdleDb, attemptId, taskRunResolverDeps),
 	},
 };
 

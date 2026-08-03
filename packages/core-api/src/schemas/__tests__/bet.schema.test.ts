@@ -21,9 +21,7 @@ describe("B1. betDetailResponseSchema", () => {
 		team: "Team Alpha",
 		// @lore U1: status is "draft" (formerly "shaped")
 		status: "draft",
-		costAppetite: { minor: 10000, currency: "USD" },
 		tokenAppetite: null,
-		costActual: null,
 		tokensActual: null,
 		progress: { done: 0, total: 3 },
 		// @lore U1: `description` (formerly `pitch`)
@@ -34,7 +32,6 @@ describe("B1. betDetailResponseSchema", () => {
 				title: "Implement endpoint",
 				owner: "Agent Alpha",
 				state: "open",
-				costActual: null,
 				latestSessionOutcome: null,
 				latestSessionHarnessUrl: null,
 				latestSessionModelTier: null,
@@ -51,14 +48,6 @@ describe("B1. betDetailResponseSchema", () => {
 
 	it("accepts a valid bet detail payload", () => {
 		const result = betDetailResponseSchema.safeParse(validBetDetail);
-		expect(result.success).toBe(true);
-	});
-
-	it("accepts null costAppetite (uncapped bet)", () => {
-		const result = betDetailResponseSchema.safeParse({
-			...validBetDetail,
-			costAppetite: null,
-		});
 		expect(result.success).toBe(true);
 	});
 
@@ -87,7 +76,6 @@ describe("B1. betDetailResponseSchema", () => {
 					title: "Task",
 					owner: "Agent",
 					state: "not-a-real-state",
-					costActual: null,
 				},
 			],
 		});
@@ -141,10 +129,6 @@ describe("B2. betListResponseSchema", () => {
 					completedAt: null,
 					// @lore U1: atRisk is notNull().default(0) — use 0 not null
 					atRisk: 0,
-					costAppetiteMinor: null,
-					costAppetiteCurrency: null,
-					costActualMinor: null,
-					costActualCurrency: null,
 					tokensActualJson: null,
 					// AC1: outcome fields — nullable, default null
 					outcomeVerdict: null,
@@ -182,7 +166,6 @@ describe("B3. betTaskRowSchema", () => {
 			title: "Implement API",
 			owner: "Agent Alpha",
 			state: "open",
-			costActual: null,
 			latestSessionOutcome: null,
 			latestSessionHarnessUrl: null,
 			latestSessionModelTier: null,

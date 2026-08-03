@@ -6,12 +6,17 @@
  * builtin key (OPENROUTER_API_KEY — the ONLY key the builtin harness uses), drives
  * one harmless turn through BuiltinHarnessAdapter, collects streamEvents, and asserts:
  *   - real normalized token_usage (inputTokens/outputTokens > 0)
- *   - real cost_update (totalCost/deltaCost)
  *   - completion event with non-empty text ≠ the prompt (REQUIRED real-output discriminator)
  *
  * @lore AM2: The REQUIRED real-output discriminator is `completion.text` non-empty AND ≠ prompt.
  * A stub echoing input fails this. A canned usage block with empty/echoed text fails this.
  * That forces a real round-trip to https://openrouter.ai/api.
+ *
+ * @lore AU21 (harness-telemetry narrowing): this file used to also assert a
+ * real `cost_update` event. Founder ruling narrowed harness telemetry to
+ * token usage only — "very few harness can actually report cost" (the
+ * builtin adapter's cost was never a harness self-report, only an ESTIMATE
+ * from a hardcoded rate table). No cost_update event is emitted anymore.
  *
  * @lore AR1: gated by requireHarness("builtin") — OPENROUTER_API_KEY presence is the
  * ONLY builtin gate. There is NO ANTHROPIC_API_KEY / OPENAI_API_KEY path in this system;
@@ -56,7 +61,6 @@ function isAuthError(err: unknown): boolean {
 
 function assertGatewayEvents(events: HarnessEvent[]): void {
 	const tokenUsageEvents = events.filter((e) => e.type === "token_usage");
-	const costUpdateEvents = events.filter((e) => e.type === "cost_update");
 	const completionEvents = events.filter((e) => e.type === "completion");
 	const errorEvents = events.filter((e) => e.type === "error");
 
@@ -72,14 +76,9 @@ function assertGatewayEvents(events: HarnessEvent[]): void {
 		}
 	}
 
-	// cost_update: must emit totalCost/deltaCost
-	expect(costUpdateEvents.length).toBeGreaterThan(0);
-	for (const e of costUpdateEvents) {
-		if (e.type === "cost_update") {
-			expect(typeof e.totalCost).toBe("number");
-			expect(typeof e.deltaCost).toBe("number");
-		}
-	}
+	// AU21 (harness-telemetry narrowing): no cost_update event is ever emitted —
+	// $-cost estimation is removed, token usage is the only signal reported.
+	expect(events.some((e) => (e.type as string) === "cost_update")).toBe(false);
 
 	// completion: REQUIRED real-output discriminator
 	// completion.text must be non-empty AND ≠ the prompt string
@@ -154,8 +153,8 @@ async function tryModelCall(
 
 		assertGatewayEvents(events);
 
-		// SessionResult cost and tokenUsage
-		expect(sessionResult.cost.minor).toBeGreaterThanOrEqual(0);
+		// SessionResult tokenUsage — no cost field exists on SessionResult anymore.
+		expect(sessionResult).not.toHaveProperty("cost");
 		expect(sessionResult.tokenUsage.byTier).toBeDefined();
 
 		return { success: true };

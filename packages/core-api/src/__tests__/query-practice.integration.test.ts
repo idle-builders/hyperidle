@@ -5,8 +5,28 @@ import { create as createKnowledgeItem } from "@hyperidle/knowledge";
 import { EventBus, type ToolContext } from "@hyperidle/shared";
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { describe, expect } from "vitest";
+import {
+	createInProcessCoreApiTransport,
+	registerCoreApiTransport,
+} from "../services/core-api-port-composition.js";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
-import { test } from "../test-fixtures.js";
+import { test as baseTest } from "../test-fixtures.js";
+
+/**
+ * @lore AU21 §9 Increment 2 (knowledge wave): `query_practice` now reaches
+ * `ports.coreApi.search` (the seam) — this file-scoped `auto:true` fixture
+ * registers a real in-process `CoreApiPort` transport off THIS test's own
+ * `app`, same idiom as `write-memory.integration.test.ts`.
+ */
+const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
+	coreApiSeamRegistration: [
+		async ({ app }, use) => {
+			registerCoreApiTransport(createInProcessCoreApiTransport(app));
+			await use(undefined);
+		},
+		{ auto: true },
+	],
+});
 
 const queryPracticeTool = buildToolDefinitions(toolHandlersPorts).find(
 	(t) => t.name === "query_practice",

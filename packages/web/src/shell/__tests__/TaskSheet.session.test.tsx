@@ -2,7 +2,7 @@
  * L19 — TaskSheet session metadata tests (red phase).
  *
  * AC coverage:
- *  - KanbanTask with session metadata → session section rendered with outcome chip, cost, tokens, jump-out link
+ *  - KanbanTask with session metadata → session section rendered with outcome chip, tokens, jump-out link
  *  - KanbanTask without session metadata → session section not rendered
  *  - KanbanTask with malformed harness URL → jump-out link not rendered but outcome chip is
  */
@@ -37,7 +37,6 @@ const BASE_TASK: KanbanTask = {
 	title: "Build the pipeline",
 	owner: "Dev Agent",
 	state: "in_progress",
-	cost: "$5.00",
 };
 
 function makeProps(taskOverrides: Partial<KanbanTask> = {}): Parameters<typeof TaskSheet>[0] {
@@ -52,12 +51,11 @@ function makeProps(taskOverrides: Partial<KanbanTask> = {}): Parameters<typeof T
 }
 
 describe("TaskSheet — session metadata (L19)", () => {
-	it("KanbanTask with session metadata → session section rendered with outcome chip, cost, tokens, jump-out link", () => {
+	it("KanbanTask with session metadata → session section rendered with outcome chip, tokens, jump-out link", () => {
 		render(
 			<TaskSheet
 				{...makeProps({
 					latestSessionOutcome: "completed",
-					latestSessionCost: 420, // $4.20
 					latestSessionTokensInput: 1500,
 					latestSessionTokensOutput: 2500,
 					latestSessionHarnessUrl: "https://harness.example.com/session/xyz",
@@ -72,9 +70,6 @@ describe("TaskSheet — session metadata (L19)", () => {
 
 		// Outcome chip: "completed" maps to "done" → renders "DONE" (in session metadata section)
 		expect(sessionSection?.querySelector("[data-status='done']")).not.toBeNull();
-
-		// Cost: $4.20 rendered as "$4.20"
-		expect(sessionSection?.textContent).toContain("$4.20");
 
 		// Tokens: 1.5k in / 2.5k out
 		expect(sessionSection?.textContent).toContain("1.5k in");
@@ -93,7 +88,6 @@ describe("TaskSheet — session metadata (L19)", () => {
 			<TaskSheet
 				{...makeProps({
 					latestSessionOutcome: undefined,
-					latestSessionCost: undefined,
 					latestSessionTokensInput: undefined,
 					latestSessionTokensOutput: undefined,
 					latestSessionHarnessUrl: undefined,
@@ -116,7 +110,6 @@ describe("TaskSheet — session metadata (L19)", () => {
 			<TaskSheet
 				{...makeProps({
 					latestSessionOutcome: "stopped",
-					latestSessionCost: null,
 					latestSessionTokensInput: null,
 					latestSessionTokensOutput: null,
 					latestSessionHarnessUrl: "ftp://not-valid.com/session",

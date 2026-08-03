@@ -8,7 +8,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { dispatchOps } from "@hyperidle/core-api/routines";
+import { fireRoutine } from "@hyperidle/core-api/routines";
 import { items, routines, userSkills } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
@@ -27,7 +27,6 @@ function makeSyntheticResult(startMs: number, fired: boolean): TriggerResult {
 	return {
 		sessionId: randomUUID(),
 		outcome: fired ? "completed" : "crashed",
-		totalCostCents: 0,
 		taskId: randomUUID(),
 		durationMs: Date.now() - startMs,
 	};
@@ -83,7 +82,7 @@ const skaL1ReviewRequired: EvalScenario = {
 			.where(eq(routines.id, l1RoutineId))
 			.limit(1);
 		if (!routine) return makeSyntheticResult(startMs, false);
-		const result = await dispatchOps.fireRoutine(ctx.db, eventBus, routine);
+		const result = await fireRoutine(ctx.db, eventBus, routine);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
@@ -195,7 +194,7 @@ const skaL4Silent: EvalScenario = {
 			.where(eq(routines.id, l4RoutineId))
 			.limit(1);
 		if (!routine) return makeSyntheticResult(startMs, false);
-		const result = await dispatchOps.fireRoutine(ctx.db, eventBus, routine);
+		const result = await fireRoutine(ctx.db, eventBus, routine);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
@@ -290,7 +289,6 @@ const skaSuccessTracking: EvalScenario = {
 		return Promise.resolve({
 			sessionId: randomUUID(),
 			outcome: "completed",
-			totalCostCents: 0,
 			taskId: ctx.seedResult.taskId,
 			durationMs: 1,
 		});

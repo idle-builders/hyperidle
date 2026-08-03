@@ -15,8 +15,10 @@
  *   error   = recent session crashed (frontend: lastSessionCrashed)
  *   idle    = otherwise
  *
- * @lore AB1: Per-session cost is always null — sessions table lacks cost
- * columns. Honest over fabricated.
+ * @lore AB1: sessions table never had cost columns — no per-session cost
+ * field was ever fabricated here. (AU21 Increment 14a: `AgentSessionSummary`
+ * carried no `cost` field to begin with here; the cost-cap/accounting
+ * feature elsewhere in the codebase is HARD-DELETED, no replacement.)
  */
 
 import { sessions } from "@hyperidle/db";
@@ -283,7 +285,6 @@ export async function handleAgentProfile(
 			outcome: s.outcome,
 			startedAt: s.startedAt,
 			endedAt: s.endedAt,
-			cost: null,
 		})) satisfies AgentSessionSummary[];
 	}
 

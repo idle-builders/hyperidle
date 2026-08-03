@@ -1,3 +1,4 @@
+import { SessionActivityBuffer } from "@hyperidle/agent-execution";
 import {
 	type CredentialResolver,
 	decryptCredentialValue,
@@ -22,7 +23,6 @@ import {
 	startObservability,
 } from "@hyperidle/observability";
 import { getTeamMembers } from "@hyperidle/org";
-import { SessionActivityBuffer } from "@hyperidle/run-orchestration";
 // @lore AU20 Ag1b: standalone assistant registration removed — its trigger
 // is now started through dispatchOps.start (called from registerAgentLayerServices).
 import { enqueueWorkIntent, findSessionRequest } from "@hyperidle/session-requests";
@@ -39,6 +39,7 @@ import { createBodyLimit } from "./middleware/body-limit.js";
 import { corsMiddleware } from "./middleware/cors.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { createRateLimiter } from "./middleware/rate-limit.js";
+import { createAgentOrchestrationSessionsRoutes } from "./routes/agent-orchestration-sessions-routes.js";
 import { createAgentRoutes } from "./routes/agents.js";
 import { createArtifactRoutes } from "./routes/artifacts.js";
 import { createAuthRoutes } from "./routes/auth.js";
@@ -47,7 +48,6 @@ import { createBetRoutes } from "./routes/bets.js";
 import { createConnectionRoutes } from "./routes/connections.js";
 import { createConversationRoutes } from "./routes/conversations.js";
 import { createCredentialRoutes } from "./routes/credentials.js";
-import { createDispatchQueueRoutes } from "./routes/dispatch-queue-routes.js";
 import { createFilesystemRoutes } from "./routes/filesystems.js";
 import { createGitExportRoutes } from "./routes/git-export-routes.js";
 import { createHarnessRoutes } from "./routes/harnesses.js";
@@ -72,12 +72,27 @@ import { registerTestRoutes } from "./routes/test-routes.js";
 import { createThreadRoutes } from "./routes/threads.js";
 import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
 import { createWorkersRoutes } from "./routes/workers.js";
+import {
+	createInProcessAgentOrchestrationTransport,
+	registerAgentOrchestrationTransport,
+} from "./services/agent-orchestration-port-composition.js";
+import { taskRunResolverDeps } from "./services/task-run-resolver-bindings.js";
 
 const agentWorkIntentRecorder = { record: enqueueWorkIntent };
 const agentWorkIntentReader: import("@hyperidle/shared").AgentWorkIntentReader<HyperIdleDb> = {
 	findByKindAndSource: (db, kind, sourceId) =>
 		findSessionRequest(db, { by: "intentSource", kind, sourceId }),
 };
+
+/**
+ * The minimal shape a route needs to push data onto the WS connection hub —
+ * satisfied by `WsConnectionHub.broadcast(topic, data)` (`@hyperidle/realtime`)
+ * without this module depending on that package's full class (same narrow-
+ * interface pattern as `session-activity-gateway.ts`'s `SessionActivityBroadcastTarget`).
+ */
+export interface WsPushTarget {
+	broadcast(topic: string, data: string): void;
+}
 
 interface AppOptions {
 	db?: HyperIdleDb;
@@ -120,6 +135,17 @@ interface AppOptions {
 	 * test harness — no divergent "minimal app" path.
 	 */
 	registerWebSocket?: (apiRouter: Hono, tokenStore: UpgradeTokenStore) => void;
+	/**
+	 * AU21 §6 Decision L4 / §9 Increment 14d: the WS connection hub's
+	 * broadcast-only surface. When provided, route factories that push
+	 * changed data directly (`createThreadRoutes`'s per-thread +
+	 * conversations-list pushes) call `wsHub.broadcast(topic, data)` at the
+	 * same write that has the full record in hand — no generic event→topic
+	 * forwarder, no follow-up client read. Optional so integration tests that
+	 * don't need WS pushes can omit it (routes still emit their EventBus
+	 * events unchanged either way).
+	 */
+	wsHub?: WsPushTarget;
 	/**
 	 * Optional worker WebSocket registration hook. When provided,
 	 * `createApp` invokes it with the `/api` sub-router at the same point as
@@ -477,6 +503,7 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 				options.db,
 				eventBus,
 				options.agentWorkIntentRecorder ?? agentWorkIntentRecorder,
+				options.wsHub,
 			),
 		);
 		api.route("/users", createUserRoutes(options.db, eventBus, options.adapterPool));
@@ -484,8 +511,19 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		api.route("/routines", createRoutineRoutes(options.db, eventBus));
 		api.route("/recipients", createRecipientRoutes(options.db, eventBus));
 
-		// Q1 §6.1: session activity buffer — subscribe to tool_call_recorded events
-		// and expose recent activity via GET /api/sessions/:id/activity.
+		// Q1 §6.1 / AU21 §6 Decision E, §9 Increment 7: session activity buffer —
+		// subscribes to tool_call_recorded/session_started/session_ended events
+		// and serves recent activity. Relocated to `@hyperidle/agent-execution`
+		// (its real architectural home — tokens/tool-calls originate in
+		// execution, not orchestration); core-api still owns *instantiating* it
+		// (Application composition root, same as any other Layer-owned
+		// stateful Service) and exposes it two ways: (a) the REST route below
+		// (`GET /api/sessions/:id/activity`) now reads it THROUGH
+		// `AgentOrchestrationPort.sessions.getRecentActivity` rather than a
+		// directly-injected reference — see `sessions-routes.ts` — and (b) the
+		// new agent-orchestration-owned gateway route
+		// (`createAgentOrchestrationSessionsRoutes`'s `getRecentActivity` param)
+		// that door's own backing route calls directly, in-process.
 		// @lore Q1: The buffer is created once per app instance, started immediately,
 		// and disposed with the app. Tests that emit events against the same eventBus
 		// instance will see the buffer populated correctly.
@@ -500,13 +538,27 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 			createSessionRoutes(
 				options.db,
 				eventBus,
-				activityBuffer,
 				Boolean(options.adapterPool),
 				options.agentWorkIntentRecorder ?? agentWorkIntentRecorder,
 				options.agentWorkIntentReader ?? agentWorkIntentReader,
 			),
 		);
 		api.route("/status", createStatusRoutes(options.db));
+		// AU21 §9 Increment 6 (Decision D): the real backing route for
+		// `AgentOrchestrationPort`'s read-only session-cost/history methods —
+		// see `agent-orchestration-sessions-routes.ts`'s header for why the HTTP
+		// hosting lives here even though the data/query logic is
+		// agent-orchestration's own (`@hyperidle/session-requests`).
+		// §9 Increment 7 (Decision E): `getRecentActivity` reads the SAME
+		// relocated `activityBuffer` instance directly — an in-process call,
+		// not a cross-transport read, mirroring how the cost/history routes
+		// above call `@hyperidle/session-requests`'s query functions directly.
+		api.route(
+			"/agent-orchestration",
+			createAgentOrchestrationSessionsRoutes(options.db, (sessionId) =>
+				activityBuffer.getActivity(sessionId),
+			),
+		);
 
 		// S2: worker admin visibility — GET /api/workers lists registered adapters.
 		// Requires X-API-Key matching HYPERIDLE_API_KEY (admin-level auth inside route).
@@ -523,8 +575,6 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		// AN1: per-user service connections (token | mcp | inherited projected)
 		api.route("/connections", createConnectionRoutes(options.db, options.adapterPool));
 		api.route("/hint-progress", createHintRoutes(options.db));
-		// AD2: Dispatch queue observer — GET /api/dispatch-queue
-		api.route("/dispatch-queue", createDispatchQueueRoutes());
 		api.route("/search", createSearchRoutes(options.db, eventBus));
 		// Tests may override via notificationAdapterFactory for route-level adapter injection.
 		// @lore AU20 Ag6b: adapterFactory option replaced with adapterOverride (no config arg).
@@ -578,6 +628,7 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 			if (event.toState === "done") {
 				void checkAndUnblockDependents(db, eventBus, event.taskId, {
 					workIntents: { record: enqueueWorkIntent },
+					taskRunResolver: taskRunResolverDeps,
 				}).catch((err) => {
 					appLogger.error("[dep-watcher] unblock failed for task", {
 						taskId: event.taskId,
@@ -621,6 +672,23 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		}
 		return c.text("404 Not Found", 404);
 	});
+
+	// AU21 §9 Increment 6 (Decision D): register the in-process
+	// `AgentOrchestrationPort` transport here in `createApp` itself — NOT in
+	// `server-factory.ts` the way `CoreApiPort`'s write-seam transport is
+	// (`core-api-port-composition.ts`'s own `@lore`). That deferral exists
+	// because registering a WRITE seam's transport for every test app also
+	// activates production event-subscriber side effects tests don't expect
+	// (the double-fire hazard). This door is read-only (§12) — carries no
+	// event subscriptions and mutates nothing — so there is no equivalent
+	// hazard, and registering it unconditionally (no `options?.db` branch —
+	// keeps this function's already-over-budget cognitive complexity from
+	// growing further) means every `createApp` caller, including a db-less
+	// app, gets a working `getRegisteredAgentOrchestrationTransport()`. A
+	// db-less app never mounted `/agent-orchestration/sessions/*`, so the
+	// transport just 404s through this app's own top-level not-found handler
+	// if anything ever called it — never reached in practice.
+	registerAgentOrchestrationTransport(createInProcessAgentOrchestrationTransport(app));
 
 	return app;
 }

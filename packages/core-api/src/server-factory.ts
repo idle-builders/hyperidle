@@ -17,6 +17,7 @@ import {
 	insertMessage,
 	insertThread,
 	listMessages,
+	registerAssistantThreadPinReaction,
 	updateMessage,
 	updateThread,
 } from "@hyperidle/conversation";
@@ -29,8 +30,11 @@ import {
 	propagationLog,
 	resolveProfile,
 } from "@hyperidle/db";
-import type { DispatchConfig, DispatchOps } from "@hyperidle/dispatch";
-import { RegistryFilesystemMounter } from "@hyperidle/filesystems";
+import type { DispatchOps } from "@hyperidle/dispatch";
+import {
+	RegistryFilesystemMounter,
+	resolveInjectedFilesystemsForAgent,
+} from "@hyperidle/filesystems";
 import { createGitRunner, registerGitExportHandler } from "@hyperidle/git-export";
 import {
 	type AdapterPool,
@@ -39,6 +43,7 @@ import {
 } from "@hyperidle/harness-registry";
 import { createMcpToolBridge } from "@hyperidle/harness-registry/mcp";
 import {
+	assembleSessionKnowledge,
 	create as createKnowledgeItem,
 	get as getKnowledgeItem,
 	list as listKnowledgeItems,
@@ -47,7 +52,6 @@ import {
 	update as updateKnowledgeItem,
 	VersionConflictError,
 } from "@hyperidle/knowledge";
-import { resolveModel } from "@hyperidle/model-gateway";
 import {
 	enqueue,
 	installNotifications,
@@ -55,10 +59,10 @@ import {
 	type NotificationsDeps,
 	reap,
 } from "@hyperidle/notifications";
-import { getTeamMembers, resolveReviewRecipients, updateTeam } from "@hyperidle/org";
+import { getTeam, getTeamMembers, resolveReviewRecipients } from "@hyperidle/org";
 import type { PolicyDeps } from "@hyperidle/policy";
 import { registerPolicy } from "@hyperidle/policy";
-import { createDbSubscribeAuthorizer, WsBroadcaster } from "@hyperidle/realtime";
+import { createDbSubscribeAuthorizer, WsConnectionHub } from "@hyperidle/realtime";
 import { registerReviewSubscriptions } from "@hyperidle/review";
 import { listRoutines } from "@hyperidle/routine";
 import type { RuntimeDeps } from "@hyperidle/run-orchestration";
@@ -68,33 +72,73 @@ import {
 	readServerConfig,
 	updateServerConfig,
 } from "@hyperidle/settings";
-import { createLogger, EventBus, type ModelTier, type ResolvedModel } from "@hyperidle/shared";
-import { findUser, listUsers, reapExpiredCredentials } from "@hyperidle/users";
-import * as work from "@hyperidle/work";
 import {
-	getTaskRiskTierByTaskId,
-	registerBetDecomposition,
-	resolveOrphanedDecompositions,
-	type WorkDeps,
-} from "@hyperidle/work";
+	createLogger,
+	EventBus,
+	type ModelTier,
+	type ResolvedModel,
+	resolveModel,
+} from "@hyperidle/shared";
+import {
+	findUser,
+	listUsers,
+	reapExpiredCredentials,
+	requireRunnableAgent,
+} from "@hyperidle/users";
+import * as work from "@hyperidle/work";
+import { getTaskRiskTierByTaskId } from "@hyperidle/work";
 import { and, inArray, lt } from "drizzle-orm";
 import { WebSocketServer } from "ws";
 import { attachRelevanceListener } from "../knowledge/src/relevance-listener.js";
 import { createApp, disposeApp } from "./app.js";
 import { registerWsRoute } from "./routes/ws.js";
-import { agentSelectionService } from "./services/agent-selection-bindings.js";
-// @lore AD8c: cost sentinel extracted from routine row to application code.
-// @lore AU20 Am3: `costOps._testHooks.installDedupReleaser` removed — folded into
-// `costOps.startSentinel` (now a single call covers both the dedup releaser
-// subscription and the sentinel interval). Disposer count 15→14.
-import { costOps } from "./services/cost-bindings.js";
+import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
+import { registerAssistantTurnCoherenceTrigger } from "./services/assistant-turn-coherence-trigger.js";
+import {
+	createInProcessCoreApiTransport,
+	registerCoreApiTransport,
+} from "./services/core-api-port-composition.js";
+// @lore AU21 Increment 14a: cost sentinel + `costOps`/`cost-bindings.ts` are
+// HARD-DELETED along with the rest of the cost feature — no replacement.
 import { dispatchOps } from "./services/dispatch-bindings.js";
+import { registerRoutineRunSessionEndReactions } from "./services/routine-run-session-end-reactions.js";
+import {
+	registerBuiltinRoutineReactions,
+	startRoutineScheduler,
+} from "./services/routine-scheduler-bindings.js";
+import { registerSessionActivityGateway } from "./services/session-activity-gateway.js";
+import { registerWorkSessionEndReactions } from "./services/work-session-end-reactions.js";
+import { registerWorkSessionStartedReactions } from "./services/work-session-started-reactions.js";
+import { registerWorkStatePushGateway } from "./services/work-state-push-gateway.js";
 
 type AssistantTurnDeps = Parameters<DispatchOps["runAssistantTurn"]>[0];
-type TaskDispatcherDeps = NonNullable<DispatchConfig["task"]> & {
+/**
+ * @lore AU21 §9 Increment 9 (forensic-triage wave, second pass): used to be
+ * derived from `DispatchConfig["task"]` (`NonNullable<...> & {db, eventBus}`)
+ * — `dispatch`'s task-queue trigger (and `DispatchConfig["task"]` with it) is
+ * deleted, genuinely dead code (see `@hyperidle/dispatch`'s own `@lore`).
+ * This shape now stands on its own: it is NOT a dispatch config anymore, just
+ * the bundle of provisioning-related values `registerCoreDomainServices`/
+ * `registerAgentLayerServices` thread through — kept as a named type only so
+ * `Boolean(ctx.dispatcherDeps)` still has a stable "is provisioning
+ * configured" presence signal (`canProvision`'s default, below).
+ */
+interface TaskDispatcherDeps {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
-};
+	// @lore structural typing (same idiom `@hyperidle/dispatch`'s own now-deleted
+	// `TaskDispatcherDeps` used, `unknown` rather than `any` — strict): the real
+	// call site (below) passes a concrete `AdapterPool`/`SandboxAdapter`; test
+	// call sites pass inert fakes to exercise disposer bookkeeping only, never
+	// this shape's actual runtime behavior.
+	readonly adapterPool: unknown;
+	readonly workspace: unknown;
+	readonly sandboxBasePath: string;
+	readonly resolveModel?: (modelTier: string) => Promise<ResolvedModel | undefined>;
+	readonly mcpBridgeRegistry?: unknown;
+	readonly mcpBaseUrl?: string;
+	readonly mounter?: unknown;
+}
 
 import { enqueueWorkIntent, startLifecycleProjectionDrain } from "@hyperidle/session-requests";
 import { queueDeps } from "./services/durable-agent-queue.js";
@@ -129,6 +173,12 @@ const DEFAULT_REAPER_STALE_AFTER_MS = 60 * 60 * 1000;
 const RETENTION_REAPER_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
 export const TERMINAL_LOG_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const CONSUMED_INVITE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30-day audit window
+/**
+ * @lore AU21 §9 Increment 10 (Decision H1): matches
+ * `session-requests`'s own former `defaultRetentionBatchSize` for the same
+ * terminal-row GC job, now relocated here.
+ */
+const TASK_DISPATCH_ATTEMPT_REAP_BATCH_SIZE = 500;
 
 /**
  * Reaps terminal propagation_log rows older than `termCutoff`.
@@ -152,6 +202,27 @@ export async function reapPropagationLog(db: HyperIdleDb, termCutoff: string): P
 				inArray(propagationLog.status, ["applied", "skipped"]),
 			),
 		);
+}
+
+/**
+ * @lore AU21 §9 Increment 10 (Decision H1): reaps terminal
+ * `task_dispatch_attempts` rows older than `termCutoff`, relocated OUT of
+ * `session-requests`'s `reapExpired` single atomic transaction (a harmless
+ * atomicity split — pure terminal-row GC, no cross-table invariant depends on
+ * it sharing that transaction) and INTO this composition root's generic
+ * retention reaper, alongside `reapPropagationLog`/`reapAccessLog`/
+ * `reapExpiredCredentials` above. Calls `taskDispatchAttemptStore.reapTerminal`
+ * directly — `work` owns this table, so a direct same-layer call (not a
+ * cross-layer write) is sanctioned, same precedent as `reapPropagationLog`'s
+ * own doc comment. Exported for the same reason: directly testable without
+ * waiting on the real 6h `setInterval`.
+ */
+export async function reapTerminalTaskDispatchAttempts(
+	db: HyperIdleDb,
+	termCutoff: string,
+	batchSize: number,
+): Promise<number> {
+	return work.taskDispatchAttemptStore.reapTerminal(db, termCutoff, batchSize);
 }
 
 /**
@@ -312,7 +383,6 @@ export function registerCoreDomainServices(ctx: {
 	 */
 	readonly readAlertPreferences?: () => Promise<{
 		blockerAlerts: boolean;
-		costAlerts: boolean;
 		reviewAlerts: boolean;
 		quietHoursEnabled: boolean;
 		quietHoursStart: string;
@@ -346,6 +416,83 @@ export function registerCoreDomainServices(ctx: {
 
 	disposers.push(
 		identifyBootstrapOwner(
+			registerAgentRunAdmissionReactions(db, eventBus),
+			"agent-run-admission reactions",
+			"unsubscribe",
+			["agent_run_admission_failed subscription"],
+		),
+	);
+
+	disposers.push(
+		identifyBootstrapOwner(
+			registerRoutineRunSessionEndReactions(db, eventBus),
+			"routine-run session-end reactions",
+			"unsubscribe",
+			["session_ended subscription", "agent_run_lifecycle_changed subscription"],
+		),
+	);
+
+	// AU21 §9 Increment 10 (Decision H1)/Increment 12 (Decision H3) Wave D:
+	// task's post-session writebacks — finalizes `taskDispatchAttempts` off
+	// `agent_run_lifecycle_changed` and merges accumulated per-tier tokens
+	// onto the owning bet off `session_ended`, replacing
+	// `run-orchestration/provisioner.ts`'s deleted direct
+	// `ports.work.updateBetById` write.
+	disposers.push(
+		identifyBootstrapOwner(
+			registerWorkSessionEndReactions(db, eventBus),
+			"work session-end reactions",
+			"unsubscribe",
+			["agent_run_lifecycle_changed subscription", "session_ended subscription"],
+		),
+	);
+
+	// AU21 §9 Increment 12 (Decision H3) Wave D: a task's `in_progress`
+	// transition at session launch — replaces `run-orchestration/
+	// provisioner.ts`'s deleted direct `ports.work.transitionTask` write.
+	disposers.push(
+		identifyBootstrapOwner(
+			registerWorkSessionStartedReactions(db, eventBus),
+			"work session-started reactions",
+			"unsubscribe",
+			["session_started subscription"],
+		),
+	);
+
+	// AU21 §9 Increment 11 (Decision H2/F4): "pin the assistant thread after
+	// its first AI reply", moved ENTIRELY core-side from `dispatch`'s deleted
+	// `registerAssistantTriggerInternal` — a `@hyperidle/conversation`-owned
+	// reaction to its OWN `thread_message_appended` event.
+	disposers.push(
+		identifyBootstrapOwner(
+			registerAssistantThreadPinReaction(db, eventBus, {
+				findUserById: (execDb: HyperIdleDb, id: string) => findUser(execDb, { id }),
+			}),
+			"assistant thread pin reaction",
+			"unsubscribe",
+			["thread_message_appended subscription"],
+		),
+	);
+
+	// AU21 §9 Increment 11 (Decision H2 "Coherence — reconciled via Decision
+	// B‴"): the new supersede-trigger wiring — a thread reply landing while a
+	// same-thread `assistant_turn` intent is still pending re-bakes it with
+	// the now-current transcript, reusing the Increment 3 supersede machinery.
+	disposers.push(
+		identifyBootstrapOwner(
+			registerAssistantTurnCoherenceTrigger(db, eventBus),
+			"assistant-turn B‴ coherence trigger",
+			"unsubscribe",
+			["thread_message_appended subscription"],
+		),
+	);
+
+	// @lore AU21 Increment 14a: the session-cost recorder (agent-orchestration's
+	// OWN `session_ended` reaction, Increment 6's per-session cost door) is
+	// deleted along with the rest of the cost feature — no replacement.
+
+	disposers.push(
+		identifyBootstrapOwner(
 			attachRelevanceListener(db, eventBus),
 			"relevance listener",
 			"unsubscribes",
@@ -374,6 +521,19 @@ export function registerCoreDomainServices(ctx: {
 				},
 				org: { resolveReviewRecipients },
 				intentRecorder: { record: enqueueWorkIntent },
+				requireRunnableAgent,
+				// AU21 §9 Increment 12 (Decision H3): the liveness-net reengagement
+				// re-provision (`applyLivenessRetry`) also bakes a contextBundle now.
+				// `getTaskById` is already forwarded from `ports.work.getTaskById`
+				// inside `session-review-creator.ts`'s liveness handler — only
+				// `getBetById`/`getTeamById`/`assembleSessionKnowledge` are new.
+				getBetById: (exec: WriteExecutor, id: string) => work.get(exec, "bet", id),
+				getTeamById: (db: HyperIdleDb, id: string) => getTeam(db, { id }),
+				assembleSessionKnowledge,
+				readServerConfig,
+				// AU21 §9 Increment 12 follow-up (F2 gap closure): also bake
+				// injectedFilesystems.
+				resolveInjectedFilesystemsForAgent,
 			}),
 			"review subscriptions",
 			"unsubscribe",
@@ -439,6 +599,9 @@ export function registerCoreDomainServices(ctx: {
 		// propagation_log — UNOWNED_SHARED_TABLES; delegate to the exported
 		// reapPropagationLog so the predicate is covered by integration tests.
 		await reapPropagationLog(db, termCutoff);
+		// task_dispatch_attempts (owned by `work`) — AU21 §9 Increment 10
+		// (Decision H1): relocated out of session-requests's reapExpired.
+		await reapTerminalTaskDispatchAttempts(db, termCutoff, TASK_DISPATCH_ATTEMPT_REAP_BATCH_SIZE);
 	};
 	const retentionHandle = setInterval(() => {
 		void runRetentionSweep().catch((err) => {
@@ -458,9 +621,10 @@ export function registerCoreDomainServices(ctx: {
 }
 
 /**
- * AU11: registers AGENT-owned services — builtin routine handlers, cost-cap
- * dedup release, cost sentinel, the task dispatcher, and the sandbox/
- * routine-session reapers. Split from the former `bootstrapAppRuntime`
+ * AU11: registers AGENT-owned services — builtin routine handlers, the task
+ * dispatcher, and the sandbox/routine-session reapers (AU21 Increment 14a:
+ * the cost-cap dedup release + cost sentinel this used to also register are
+ * deleted, no replacement). Split from the former `bootstrapAppRuntime`
  * shell alongside `registerCoreDomainServices` (see that function's
  * doc-comment for the behavior-preservation invariant).
  *
@@ -486,20 +650,18 @@ export function registerAgentLayerServices(ctx: {
 	const disposers: Array<() => void> = [];
 	const reaperStaleAfterMs = ctx.reaperStaleAfterMs ?? DEFAULT_REAPER_STALE_AFTER_MS;
 
-	// AF6 §1 + AU20 Ag1b: `dispatchOps.start` boots the full dispatch lifecycle —
-	// builtin handlers, assistant dispatcher, optional task dispatcher, optional scheduler.
+	// AF6 §1 + AU20 Ag1b: `dispatchOps.start` boots the assistant + task dispatch
+	// lifecycle. AU21 §9 Increment 4: the routine scheduler (builtin-routine
+	// event reaction + the cron/due-eval tick loop) is a SEPARATE core-api-side
+	// lifecycle now (`routine-scheduler-bindings.ts`) — dispatch no longer knows
+	// about routines at all.
 	const pollIntervalMs = ctx.routinePollIntervalMs ?? DEFAULT_ROUTINE_POLL_INTERVAL_MS;
-	const dispatchPromise = dispatchOps.start({
-		db,
-		eventBus,
-		task: ctx.dispatcherDeps,
-		scheduler: {
-			pollIntervalMs,
-			canProvision: ctx.canProvision ?? Boolean(ctx.dispatcherDeps),
-			...(ctx.dispatcherDeps ? { runtimeDeps: ctx.dispatcherDeps } : {}),
-			reaperCadenceMs: ctx.reaperCadenceMs,
-		},
-	});
+	// AU21 §9 Increment 9 (forensic-triage wave, second pass): `dispatchOps.start`
+	// no longer takes a `task` config at all — the task-queue trigger it used to
+	// wire was genuinely dead code (see `@hyperidle/dispatch`'s own `@lore`).
+	// `ctx.dispatcherDeps` is still read below (`canProvision`'s default) as a
+	// pure "is a runtime configured" presence signal.
+	const dispatchPromise = dispatchOps.start({ db, eventBus });
 	dispatchPromise.catch((err) => {
 		serviceBootstrapLog.error("dispatch start failed", { err });
 	});
@@ -509,23 +671,41 @@ export function registerAgentLayerServices(ctx: {
 				void dispatchPromise.then((d) => d()).catch(() => {});
 			},
 			"dispatch lifecycle",
-			"builtin/assistant/task/scheduler stop",
-			["builtin", "assistant", "task", "scheduler"],
+			"assistant stop",
+			["assistant"],
 		),
 	);
 
-	// @lore AD8c: cost sentinel registered as a 15-minute scheduled job.
-	// @lore AU20 Am3: `costOps.startSentinel` now also installs the dedup-releaser
-	// EventBus subscription (folded from `costOps._testHooks.installDedupReleaser`).
-	// One disposer instead of two; count drops from 15 to 14.
 	disposers.push(
 		identifyBootstrapOwner(
-			costOps.startSentinel(db, eventBus),
-			"cost sentinel",
-			"sentinel plus dedup subscription stop",
-			["sentinel", "dedup subscription"],
+			registerBuiltinRoutineReactions(db, eventBus),
+			"builtin routine reactions",
+			"bet_state_changed subscription stop",
+			["builtin routine reactions"],
 		),
 	);
+
+	const schedulerPromise = startRoutineScheduler(db, eventBus, {
+		pollIntervalMs,
+		canProvision: ctx.canProvision ?? Boolean(ctx.dispatcherDeps),
+		reaperCadenceMs: ctx.reaperCadenceMs,
+	});
+	schedulerPromise.catch((err) => {
+		serviceBootstrapLog.error("routine scheduler start failed", { err });
+	});
+	disposers.push(
+		identifyBootstrapOwner(
+			() => {
+				void schedulerPromise.then((s) => s.stop()).catch(() => {});
+			},
+			"routine scheduler",
+			"cron/due-eval tick stop",
+			["routine scheduler"],
+		),
+	);
+
+	// @lore AU21 Increment 14a: the cost sentinel (15-minute scheduled job) is
+	// deleted along with the rest of the cost feature — no replacement.
 
 	// AF7 §6: TTL workspace reaper (task trigger is now inside dispatchOps.start).
 	void reaperStaleAfterMs;
@@ -829,59 +1009,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		db,
 	});
 
-	// AK3 §1: Boot-time orphan sweep — resolve any bet stuck on 'running' from a
-	// previous crash. Must run BEFORE the subscriber starts so a re-commit cannot
-	// race with the sweep (subscriber isn't listening yet at this point).
-	// @lore AK3: 'running' at boot = orphaned in-process turn (no restart resume).
-	await resolveOrphanedDecompositions(db);
-
-	// AK3 §2: Register the kernel-side bet decomposition subscriber.
-	// Deps: all already available from the dispatcherDeps wiring above.
-	//
-	// @lore AU20 Ag5a: `WorkDeps` bundles the five inbound DI ports — wired
-	// ONCE here at the composition root. Spread into `registerBetDecomposition`
-	// (and any future function that needs the full set); sub-shapes are
-	// extracted where a function only needs a subset (e.g. `transitionTask`
-	// takes `TaskStateMachineDeps` with only `workIntents`).
-	const workDeps: WorkDeps = {
-		// @lore AU20 Ab4: adapts new AgentSelectionService methods to work's
-		// AgentSelectionDefaults structural-mirror port (unchanged in work/ports.ts).
-		agentSelection: {
-			listCandidates: (db, teamId) => agentSelectionService.listCandidates({ db, teamId }),
-			selectAgent: (occDeps, occasion) =>
-				agentSelectionService.selectAgent({
-					surface: occasion.surface,
-					db: occDeps.db,
-					eventBus: occDeps.eventBus,
-					teamId: occasion.teamId,
-					workKey: occasion.workKey,
-					roleHint: occasion.roleHint,
-					spreadIndex: occasion.spreadIndex,
-				}),
-		},
-		users: {
-			getUserById: (db, id) => findUser(db, { id }),
-			listActiveAiUsersByTeams: (db, teamIds) =>
-				listUsers(db, { teamIds, kind: "ai", status: "active" }),
-		},
-		costCap: { checkCostCap: costOps.check },
-		workIntents: { record: enqueueWorkIntent },
-		// AU19 Increment 1c: `org` is a REAL migrated package — wired to its real
-		// exported functions (W2 closure).
-		teamCapacity: {
-			getByTeamId: (db, teamId) => getTeamMembers(db, { teamId }),
-			setActiveBets: (db, teamId, activeBets) => updateTeam(db, teamId, { activeBets }),
-		},
-	};
-	const disposeBetDecomp = registerBetDecomposition({
-		db,
-		eventBus,
-		adapterPool,
-		sandboxBasePath,
-		resolveModel: makeResolveModel(db, credentialResolver),
-		...workDeps,
-	});
-
 	// AU19 Increment 3f: register the capture-writeback subscriber — the
 	// §10.3 line 517 EventBus inversion for `filesystems ⚠ capture-writeback`.
 	// `@hyperidle/filesystems`' `file-watcher.ts` emits
@@ -968,9 +1095,36 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	};
 
 	let wsDispose: (() => void) | null = null;
+	let sessionActivityGatewayDispose: (() => void) | null = null;
+
+	// AU21 §6 Decision L4 / §9 Increment 14d: the hub is built ONCE, here,
+	// and shared between (a) the WS route + session-activity gateway wired
+	// below in `registerWebSocket` and (b) every core-api route/service that
+	// pushes domain data directly (`createThreadRoutes`'s per-thread +
+	// conversations-list pushes via `wsHub`, `work-state-push-gateway.ts`'s
+	// task/bet forwarder) — one topic space, one transport instance.
+	// `createDbSubscribeAuthorizer` is `@hyperidle/realtime`'s Mechanism C DI
+	// boundary — this deps bundle wires its four real outbound edges
+	// (`conversation`/`users`/`org`/`work`) to the real already-imported
+	// functions above.
+	const wsHub = new WsConnectionHub(
+		createDbSubscribeAuthorizer(db, {
+			conversation: { getThreadById: (db, id) => findThread(db, { id }) },
+			users: { getUserById: (db, id) => findUser(db, { id }) },
+			org: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
+			work: { getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id) },
+		}),
+	);
+	// The "work" topic forwarder: task_state_changed/bet_state_changed
+	// already carry the changed data (`toState`), so a thin EventBus-driven
+	// forwarder suffices — same shape as `session-activity-gateway.ts`'s (c)
+	// concern, registered once here rather than per-request.
+	const workStatePushGatewayDispose = registerWorkStatePushGateway(eventBus, wsHub);
+
 	const app = await createApp({
 		db,
 		eventBus,
+		wsHub,
 		assistantTurnDeps,
 		serviceBootstrap: (ctx) => {
 			// AF6/AU1: production boots the routine scheduler at the default
@@ -980,7 +1134,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 				const cfg = await readServerConfig(db);
 				return {
 					blockerAlerts: cfg.notifications.blockerAlerts,
-					costAlerts: cfg.notifications.costAlerts,
 					reviewAlerts: cfg.notifications.reviewAlerts,
 					quietHoursEnabled: cfg.notifications.quietHoursEnabled,
 					quietHoursStart: cfg.notifications.quietHoursStart,
@@ -1002,7 +1155,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			};
 			// AU11: two owners register independently — core domain services
 			// (knowledge/notifications/policy/routine-scheduler) then agent-owned
-			// services (builtin-routine handlers/cost-cap/dispatcher/reapers).
+			// services (builtin-routine handlers/dispatcher/reapers).
 			return [
 				...registerCoreDomainServices({ ...ctx, readAlertPreferences, dispatcherDeps }),
 				...registerAgentLayerServices({ ...ctx, dispatcherDeps }),
@@ -1018,23 +1171,15 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		mounter,
 		registerWebSocket: (apiRouter, tokenStore) => {
 			// L1 step9 (Adv-C1): production WS subscribe must enforce participant
-			// authz on `thread:<id>` topics. The authorizer reads the threads
-			// table on each subscribe call.
-			// @lore AU19 Increment 2f: `createDbSubscribeAuthorizer` is
-			// `@hyperidle/realtime`'s Mechanism C DI boundary — this deps bundle
-			// wires its four real outbound edges (`conversation`/`users`/`org`/
-			// `work`) to the real already-imported functions above.
-			const broadcaster = new WsBroadcaster(
-				eventBus,
-				createDbSubscribeAuthorizer(db, {
-					conversation: { getThreadById: (db, id) => findThread(db, { id }) },
-					users: { getUserById: (db, id) => findUser(db, { id }) },
-					org: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
-					work: { getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id) },
-				}),
-			);
-			broadcaster.start();
-			wsDispose = registerWsRoute(apiRouter, eventBus, tokenStore, upgradeWebSocket, broadcaster);
+			// authz on `thread:<id>` topics — already baked into `wsHub` above.
+			// AU21 §6 Decision E / §9 Increment 7: the (c) session/harness-
+			// streaming forward relocated OUT of the connection hub's own route
+			// table into this dedicated gateway — agent-orchestration's
+			// gateway/router role over the events that also feed the
+			// relocated `SessionActivityBuffer` (`@hyperidle/agent-execution`).
+			// Drives the SAME hub's `broadcast()` from the outside.
+			sessionActivityGatewayDispose = registerSessionActivityGateway(eventBus, wsHub);
+			wsDispose = registerWsRoute(apiRouter, tokenStore, upgradeWebSocket, wsHub);
 		},
 		/**
 		 * @lore S2-F01: Worker WS route registered BEFORE auth middleware so remote
@@ -1055,6 +1200,14 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			apiRouter.route("/", mcpRouter);
 		},
 	});
+
+	// AU21 §9 Increment 1: register the boot-time in-process CoreApiPort
+	// transport — `tool-handlers-bindings.ts`'s `coreApi` accessor (currently
+	// only `create_bet`) reads it via `getRegisteredCoreApiTransport()` on
+	// every call. Colocated boot uses `app.fetch` directly; a split/remote
+	// topology would register `createNetworkCoreApiTransport(baseUrl)`
+	// instead — same call site, per architecture.md §6 Decision A.
+	registerCoreApiTransport(createInProcessCoreApiTransport(app));
 
 	// Serve built frontend when HYPERIDLE_STATIC_DIR is set.
 	// The SPA falls back to index.html for client-side routing.
@@ -1095,13 +1248,16 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 				}
 			};
 
-			await runPhase("bet-decomposition", disposeBetDecomp);
 			await runPhase("run-runtime", () => runRuntime.dispose());
 			await runPhase("app-domain", () => disposeApp(app));
 			await runPhase("websocket", () => {
 				const disposeWebSocket = wsDispose;
 				wsDispose = null;
 				disposeWebSocket?.();
+				const disposeSessionActivityGateway = sessionActivityGatewayDispose;
+				sessionActivityGatewayDispose = null;
+				disposeSessionActivityGateway?.();
+				workStatePushGatewayDispose();
 			});
 			await runPhase(
 				"http",

@@ -11,7 +11,6 @@ const STUB_SETTINGS = {
 	users: [],
 	notifications: {
 		reviewAlerts: true,
-		costAlerts: true,
 		blockerAlerts: true,
 		quietHoursStart: "22:00",
 		quietHoursEnd: "08:00",

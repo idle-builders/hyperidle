@@ -50,11 +50,7 @@ const TEAM_WITH_BETS: TeamDetail = {
 	},
 	roster: [],
 	burn: {
-		costActual: null,
-		costCap: null,
 		capacity: 3,
-		betCostActual: null,
-		routineCostThisMonth: null,
 		activeBets: 1,
 	},
 	activeBets: [
@@ -62,7 +58,6 @@ const TEAM_WITH_BETS: TeamDetail = {
 			id: "bet-1",
 			descriptionTitle: "Ship the MVP",
 			status: "active",
-			costAppetite: null,
 			progressDone: 2,
 			progressTotal: 5,
 		},

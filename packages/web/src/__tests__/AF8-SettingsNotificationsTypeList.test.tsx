@@ -56,10 +56,8 @@ describe("AF8 AC8 — Settings type-list renders registry entries", () => {
 		expect(screen.getByRole("switch", { name: /blocker alerts/i })).toBeInTheDocument();
 	});
 
-	it("renders cost_alert toggle", async () => {
-		render(<SettingsNotifications />);
-		expect(screen.getByRole("switch", { name: /cost alerts/i })).toBeInTheDocument();
-	});
+	// @lore AU21 Increment 14a: "renders cost_alert toggle" is HARD-DELETED —
+	// the cost_alert notification type no longer exists, no replacement.
 });
 
 describe("AF8 AC11 — Old hardcoded toggles removed from Settings", () => {

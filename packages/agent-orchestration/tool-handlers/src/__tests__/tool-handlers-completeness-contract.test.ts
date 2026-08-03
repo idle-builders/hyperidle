@@ -21,8 +21,10 @@
  *      NO_DRAFT) surface when preconditions are absent.
  *
  *   C. log_task handler — appendTaskNote port usage
- *      The handler calls ports.work.appendTaskNote atomically (no pre-read)
- *      and returns NOT_FOUND when the port signals the task is missing.
+ *      The handler calls ports.coreApi.appendTaskNote (AU21 §9 Increment 2:
+ *      crosses the CoreApiPort seam, not raw ports.work DI) atomically
+ *      (no pre-read) and returns NOT_FOUND when the port signals the task
+ *      is missing.
  *
  * @lore AU20 Stage 1/3: Stage 1 imported `createLogTaskTool` directly from
  * `../log-task.js`. Stage 3 collapsed `log-task.ts` into `tool-definitions.ts`
@@ -79,7 +81,9 @@ function makeFakeCtx(agentId = "agent-1"): ToolContext<HyperIdleDb> {
  *   create_bet, edit_bet, create_team, add_agent, create_routine, update_routine
  *
  * roles: ["assistant", "facilitator", "product_manager"] (4 tools):
- *   route_item, score_attention, promote_knowledge, create_conflict_review
+ *   score_attention, promote_knowledge, create_conflict_review
+ *   (`route_item` was a 4th member of this set — AU21 §6 Decision L3 deleted
+ *   it outright as vestigial, not merely re-narrowed)
  */
 describe("buildToolDefinitions — role filtering", () => {
 	const UNRESTRICTED = [
@@ -106,21 +110,16 @@ describe("buildToolDefinitions — role filtering", () => {
 		"update_routine",
 	] as const;
 
-	const MULTI_ROLE = [
-		"route_item",
-		"score_attention",
-		"promote_knowledge",
-		"create_conflict_review",
-	] as const;
+	const MULTI_ROLE = ["score_attention", "promote_knowledge", "create_conflict_review"] as const;
 
-	it("returns all 22 tools when no opts provided", () => {
+	it("returns all 21 tools when no opts provided", () => {
 		const tools = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS);
-		expect(tools).toHaveLength(22);
+		expect(tools).toHaveLength(21);
 	});
 
-	it("returns all 22 tools when opts.role is undefined", () => {
+	it("returns all 21 tools when opts.role is undefined", () => {
 		const tools = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS, { role: undefined });
-		expect(tools).toHaveLength(22);
+		expect(tools).toHaveLength(21);
 	});
 
 	it("returns same tool set for undefined and no-opts (identity guarantee)", () => {
@@ -133,10 +132,10 @@ describe("buildToolDefinitions — role filtering", () => {
 		expect(noOpts).toEqual(withUndefined);
 	});
 
-	describe("role: 'assistant' (all 22 tools)", () => {
-		it("returns 22 tools — assistant sees the full catalog", () => {
+	describe("role: 'assistant' (all 21 tools)", () => {
+		it("returns 21 tools — assistant sees the full catalog", () => {
 			const tools = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS, { role: "assistant" });
-			expect(tools).toHaveLength(22);
+			expect(tools).toHaveLength(21);
 		});
 
 		it("includes all unrestricted tools", () => {
@@ -155,7 +154,7 @@ describe("buildToolDefinitions — role filtering", () => {
 			}
 		});
 
-		it("includes multi-role tools (route_item, score_attention, promote_knowledge, create_conflict_review)", () => {
+		it("includes multi-role tools (score_attention, promote_knowledge, create_conflict_review)", () => {
 			const tools = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS, { role: "assistant" });
 			const names = new Set(tools.map((t) => t.name));
 			for (const name of MULTI_ROLE) {
@@ -164,10 +163,10 @@ describe("buildToolDefinitions — role filtering", () => {
 		});
 	});
 
-	describe("role: 'facilitator' (16 tools — unrestricted + multi-role, not assistant-only)", () => {
-		it("returns 16 tools for facilitator", () => {
+	describe("role: 'facilitator' (15 tools — unrestricted + multi-role, not assistant-only)", () => {
+		it("returns 15 tools for facilitator", () => {
 			const tools = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS, { role: "facilitator" });
-			expect(tools).toHaveLength(16);
+			expect(tools).toHaveLength(15);
 		});
 
 		it("includes unrestricted tools", () => {
@@ -178,7 +177,7 @@ describe("buildToolDefinitions — role filtering", () => {
 			}
 		});
 
-		it("includes multi-role tools (route_item, score_attention, promote_knowledge, create_conflict_review)", () => {
+		it("includes multi-role tools (score_attention, promote_knowledge, create_conflict_review)", () => {
 			const tools = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS, { role: "facilitator" });
 			const names = new Set(tools.map((t) => t.name));
 			for (const name of MULTI_ROLE) {
@@ -197,10 +196,10 @@ describe("buildToolDefinitions — role filtering", () => {
 		});
 	});
 
-	describe("role: 'product_manager' (16 tools — unrestricted + multi-role, not assistant-only)", () => {
-		it("returns 16 tools for product_manager", () => {
+	describe("role: 'product_manager' (15 tools — unrestricted + multi-role, not assistant-only)", () => {
+		it("returns 15 tools for product_manager", () => {
 			const tools = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS, { role: "product_manager" });
-			expect(tools).toHaveLength(16);
+			expect(tools).toHaveLength(15);
 		});
 
 		it("excludes assistant-only tools", () => {
@@ -293,45 +292,48 @@ describe("buildAssistantDraftRegistry — constraint injection", () => {
 
 	/** Builds a controlled ports bundle. `createBetCalls` / `updateBetCalls` accumulate for assertion. */
 	function buildFakePorts(): {
-		ports: ToolHandlersPorts<HyperIdleDb>;
+		ports: ToolHandlersPorts;
 		createBetCalls: Array<Record<string, unknown>>;
 		updateBetCalls: Array<{ betId: string; updates: Record<string, unknown> }>;
 	} {
 		const createBetCalls: Array<Record<string, unknown>> = [];
 		const updateBetCalls: Array<{ betId: string; updates: Record<string, unknown> }> = [];
 
-		const ports: ToolHandlersPorts<HyperIdleDb> = {
+		const ports: ToolHandlersPorts = {
 			...STUB_TOOL_HANDLERS_PORTS,
-			users: {
-				...STUB_TOOL_HANDLERS_PORTS.users,
-				getUserById: async (_db, id) => {
+			coreApi: {
+				...STUB_TOOL_HANDLERS_PORTS.coreApi,
+				// AU21 §9 Increment 1: create_bet now routes through `ports.coreApi`,
+				// not `ports.work.createBet` (deleted) — fake the seam call here.
+				createBet: async (input, actorId) => {
+					createBetCalls.push({ ...(input as Record<string, unknown>), actorId });
+					return { id: "fake-seam-bet-id", teamId: input.teamId, status: "draft" };
+				},
+				// AU21 §9 Increment 2: `resolveDraftTeamId`/`edit_bet` now route
+				// through `ports.coreApi`, not raw `ports.work`/`ports.users` DI
+				// (both deleted) — fake the seam calls here.
+				getUserById: async (id) => {
 					if (id === "user-with-team") return { ...FAKE_USER_WITH_TEAM };
 					if (id === "user-no-team") return { ...FAKE_USER_NO_TEAM };
 					return undefined;
 				},
-			},
-			org: {
-				...STUB_TOOL_HANDLERS_PORTS.org,
-				getTeamMembersById: async (_db, teamMembersId) => {
-					if (teamMembersId === "team-members-1") return { teamId: "real-team-id" };
-					return undefined;
-				},
-				getTeamById: async (_db, teamId) => {
-					if (teamId === "real-team-id") return { id: "real-team-id", name: "Test Team" };
-					return undefined;
-				},
-			},
-			work: {
-				...STUB_TOOL_HANDLERS_PORTS.work,
-				createBet: async (_db, input) => {
-					createBetCalls.push(input as Record<string, unknown>);
-				},
-				getBetById: async (_db, betId) => {
+				getBetById: async (betId) => {
 					if (betId === "draft-bet-1") return { status: "draft" };
 					return undefined;
 				},
-				updateBetById: async (_db, betId, updates) => {
+				updateBetById: async (betId, updates) => {
 					updateBetCalls.push({ betId, updates: updates as Record<string, unknown> });
+				},
+				// AU21 §9 Increment 2 (org/routine/handoff wave): `resolveDraftTeamId`'s
+				// AK4 second hop now routes through `ports.coreApi`, not raw
+				// `ports.org` DI (deleted) — fake the seam calls here.
+				getTeamMembersById: async (teamMembersId) => {
+					if (teamMembersId === "team-members-1") return { teamId: "real-team-id" };
+					return undefined;
+				},
+				getTeamById: async (teamId) => {
+					if (teamId === "real-team-id") return { id: "real-team-id", name: "Test Team" };
+					return undefined;
 				},
 			},
 		};
@@ -583,7 +585,7 @@ describe("log_task handler — appendTaskNote port usage", () => {
 	/** Return value the fake appendTaskNote uses. Changed per-test. */
 	let appendReturnValue: { readonly id: string } | undefined;
 
-	let fakePorts: ToolHandlersPorts<HyperIdleDb>;
+	let fakePorts: ToolHandlersPorts;
 
 	beforeEach(() => {
 		appendTaskNoteCalls = [];
@@ -591,9 +593,12 @@ describe("log_task handler — appendTaskNote port usage", () => {
 
 		fakePorts = {
 			...STUB_TOOL_HANDLERS_PORTS,
-			work: {
-				...STUB_TOOL_HANDLERS_PORTS.work,
-				appendTaskNote: async (_db, taskId, entry) => {
+			// AU21 §9 Increment 2: `log_task` now routes through `ports.coreApi`,
+			// not raw `ports.work.appendTaskNote` DI (deleted) — fake the seam
+			// call here.
+			coreApi: {
+				...STUB_TOOL_HANDLERS_PORTS.coreApi,
+				appendTaskNote: async (taskId, entry) => {
 					appendTaskNoteCalls.push({ taskId, entry });
 					return appendReturnValue;
 				},

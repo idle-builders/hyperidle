@@ -38,7 +38,6 @@ const EVENT_LABELS: Record<string, string> = {
 	"task.accepted": "Task accepted",
 	"assistant.message": "Assistant message",
 	"routine.fire": "Routine fired",
-	"work.decompose_requested": "Bet decomposition",
 	"knowledge.action": "Knowledge action",
 	"proposed_call.granted": "Proposed call granted",
 	"fallback.no_match": "No matching trigger",

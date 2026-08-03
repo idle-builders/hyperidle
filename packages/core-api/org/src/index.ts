@@ -12,8 +12,10 @@
  *
  * @lore AU20 Am7: collapsed 36 → 20 exports. Per-call-site accessors replaced
  * by parameterized interfaces (getTeam/listTeams, getTeamMembers/listTeamMembers,
- * updateTeam, createTeam+deleteTeam atomic 1:1 ops, applyTeamCost, listOrgEdges
+ * updateTeam, createTeam+deleteTeam atomic 1:1 ops, listOrgEdges
  * with filter). `resolveTeamAgentHarness` folded into `persistScaffoldedAgents`.
+ * @lore AU21 Increment 14a: `applyTeamCost` deleted along with the rest of
+ * the cost feature — no replacement.
  * `PrimaryHarnessConfig` re-export dropped (callers import from @hyperidle/shared).
  * `CreateTeamMembersGroupInput` dropped (merged into `CreateTeamInput`).
  * `deleteOrgEdgeById` renamed to `deleteOrgEdge`. `getOrgEdgeById` folded into
@@ -42,7 +44,6 @@ export { persistScaffoldedAgents } from "./scaffold-agents.js";
 // -- team lookup (L13 — 1:1 Team=TeamMembers invariant, AU20 Am7 collapse) --
 export type { ActiveTeamMembersWithTeamName, CreateTeamInput } from "./team-lookup.js";
 export {
-	applyTeamCost,
 	createTeam,
 	deleteTeam,
 	getTeam,

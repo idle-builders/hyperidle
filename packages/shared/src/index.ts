@@ -1,10 +1,30 @@
 // ── AV3: Scope bucket label helper (SSOT — used by server + web) ──
 
+// ── AU21 §6 Decision B4/§12: shared pre-handoff failure emission ──
+export {
+	isAgentWorkIntentKind,
+	isAgentWorkIntentSourceKind,
+	reportAdmissionFailure,
+} from "./agent-run-admission.js";
 // ── AU19 §11 (AC-9): cross-Layer AgentWorkIntentRecorder/Reader seam ──
 export type {
 	AgentWorkIntentReader,
 	AgentWorkIntentRecorder,
 	AgentWorkIntentRecorderInput,
+	BakedAgentRunnableConfig,
+	BakedConnectionForProvisioning,
+	BakedConnectionsForProvisioning,
+	BakedContextBundle,
+	BakedContextKnowledgeItem,
+	BakedFilesystemForProvisioning,
+	BakedWorkIntentRequest,
+	SessionKnowledgeItemLike,
+} from "./agent-work-intent-recorder.js";
+// ── AU21 §9 Increment 12 (Decision H3), Wave B: shared contextBundle knowledge-item mapper ──
+// ── AU21 §9 Increment 12 (Decision H3), Wave E: shared agent-runnable-config whitelist mapper ──
+export {
+	bakeAgentRunnableConfig,
+	toBakedContextKnowledgeItems,
 } from "./agent-work-intent-recorder.js";
 export { scopeKindToLabel } from "./scope-labels.js";
 
@@ -65,12 +85,6 @@ export { artifactPreviewSchema, fallbackPreviewSchema } from "./artifact-preview
 // ── S1: Per-user auth types ──
 export type { InviteRole } from "./auth.js";
 export { INVITE_CODE_TTL_MS, INVITE_ROLES, LOGIN_SESSION_TTL_MS } from "./auth.js";
-export type {
-	DecompositionBlockerReason,
-	DecompositionStatus,
-	DecompositionTaskInput,
-} from "./bet-decomposition.js";
-export { DECOMPOSITION_TURN_TIMEOUT_MS } from "./bet-decomposition.js";
 // ── Block primitive (L2) ──
 export type {
 	Block,
@@ -150,25 +164,26 @@ export {
 	CapacityExceededError,
 	CassetteMissError,
 	ConcurrencyLimitError,
-	CostCapExceededError,
 	HttpError,
 	InvalidTransitionError,
 	MissingCredentialError,
 	NoEligibleHarnessError,
 	ProviderTimeoutError,
+	TargetAgentNotRunnableError,
 	VersionConflictError,
 } from "./errors.js";
 export { EventBus } from "./event-bus.js";
 export type {
 	AgentAddedEvent,
+	AgentRunAdmissionFailedEvent,
+	AgentRunAdmissionFailureCode,
 	AgentRunLifecycleChangedEvent,
 	AgentWorkIntentEvent,
 	AgentWorkIntentKind,
+	AgentWorkIntentSourceKind,
 	ArtifactCreatedEvent,
 	BetRevisedEvent,
 	BetStateChangedEvent,
-	CostCapBreachedEvent,
-	CostCapWarningEvent,
 	DependencyMetEvent,
 	DomainEvent,
 	EventBusAdapter,
@@ -207,9 +222,10 @@ export type {
 	UserCreatedEvent,
 	WildcardHandler,
 	WildcardType,
-	WorkDecomposeRequestedEvent,
 	WorkSelectionRequestedEvent,
 } from "./events.js";
+// AU21 §6 Decision G: canonical runtime kind list `AgentWorkIntentKind` is built from.
+export { AGENT_WORK_INTENT_KINDS } from "./events.js";
 // ── AK6: Factory-roster injection seam ──
 export type {
 	FactoryFacilitatorSpec,
@@ -238,8 +254,6 @@ export {
 	SUBSTRATE_STATES,
 	WRITEBACK_MODES,
 } from "./filesystem.js";
-export type { ArtifactCostInput } from "./format/artifact-cost.js";
-export { formatArtifactCost } from "./format/artifact-cost.js";
 export { deriveTitle, deriveTitleFromPitch } from "./format/bet.js";
 export { formatMoney, formatTokenCount } from "./format/money.js";
 export type { TimestampInput } from "./format/time.js";
@@ -260,7 +274,6 @@ export type {
 	CapturedToolCall,
 	CompletionEvent,
 	ConversationMessage,
-	CostUpdateEvent,
 	ErrorEvent,
 	HarnessAccessMode,
 	HarnessAdapter,
@@ -385,10 +398,15 @@ export {
 	segmentMentions,
 } from "./mention.js";
 // ── X4: Model Gateway ──
+// @lore AU21 Increment 14b (Decision L2): `resolveModel`/`UnsupportedAgentProviderError`/
+// `ModelRequest` moved here from the dissolved `@hyperidle/model-gateway`
+// core-api package — a pure, stateless fn now lives beside the types it
+// already shared this module with.
 export type {
 	ModelCatalogEntry,
 	ModelGatewayConfig,
 	ModelProvider,
+	ModelRequest,
 	ModelTierConfig,
 	ResolvedModel,
 } from "./model-gateway.js";
@@ -401,6 +419,8 @@ export {
 	isCatalogModel,
 	MODEL_CATALOG,
 	MODEL_PROVIDERS,
+	resolveModel,
+	UnsupportedAgentProviderError,
 } from "./model-gateway.js";
 // SSRF utilities use node:dns/net/util and cannot be imported in the browser.
 // Server code imports them via "@hyperidle/shared/net" subpath export instead.
@@ -467,7 +487,6 @@ export {
 } from "./redact.js";
 // ── Routine primitive (AA1 + AA2 + AA3) ──
 export type {
-	RoutineBudget,
 	RoutineCardSummary,
 	RoutineCreatePayload,
 	RoutineDetail,
@@ -482,7 +501,6 @@ export type {
 	ActivityEntry,
 	AnswerDeltaData,
 	AnswerSettledData,
-	CostTickData,
 	HumanMessageData,
 	ReasoningData,
 	ToolCallData,
@@ -502,7 +520,6 @@ export {
 	agentSessionRequestInputSchema,
 	assistantSessionRequestInputSchema,
 	buildSessionLifecycleCorrelation,
-	decompositionSessionRequestInputSchema,
 	knowledgeSessionRequestInputSchema,
 	proposedCallSessionRequestInputSchema,
 	routineSessionRequestInputSchema,
@@ -620,7 +637,6 @@ export {
 } from "./trigger.js";
 export type {
 	Artifact,
-	ArtifactCostFromSession,
 	ArtifactFilterAxis,
 	ArtifactKind,
 	ArtifactPage,

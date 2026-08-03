@@ -44,7 +44,6 @@ const sessionProvisioner: NonNullable<RuntimePorts["sessionProvisioner"]> = {
 	runSession: vi.fn(async () => ({
 		sessionId: "unused",
 		outcome: "completed" as const,
-		totalCostCents: 0,
 		taskId: null,
 		forceReturnCount: 0,
 	})),

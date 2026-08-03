@@ -4,7 +4,7 @@
  * Tests for ALL acceptance criteria in workpackage R8:
  * AC1: Event subscriptions are documented — which events generate notifications, which are silent
  * AC2: Routine task state changes are silent (no notifications)
- * AC3: Blockers and cost caps generate visible notifications (with preference overrides)
+ * AC3: Blockers generate visible notifications (with preference overrides)
  * AC4: Review alerts surfaced via preference overrides
  * AC5: Quiet hours default OFF; quietHoursEnabled=false ignores start/end
  *
@@ -31,12 +31,7 @@ import {
 	updateConfig,
 } from "@hyperidle/notifications";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
-import type {
-	CostCapBreachedEvent,
-	CostCapWarningEvent,
-	ItemCreatedEvent,
-	TaskStateChangedEvent,
-} from "@hyperidle/shared";
+import type { ItemCreatedEvent, TaskStateChangedEvent } from "@hyperidle/shared";
 import { afterEach, describe, expect, test, vi } from "../../test-fixtures.js";
 import { notificationsDeps } from "../notifications-test-deps.js";
 
@@ -143,7 +138,7 @@ function emitTaskStateChanged(
  * read server_config directly.
  *
  * @lore R8 F-01: Tests that verify preference-driven behaviour (blockerAlerts,
- * costAlerts, reviewAlerts, quietHoursEnabled) must inject readAlertPreferences
+ * reviewAlerts, quietHoursEnabled) must inject readAlertPreferences
  * so the dispatcher reads from server_config rather than falling back to
  * all-alerts-ON defaults.
  *
@@ -163,7 +158,6 @@ function registerWithPrefs(
 			const cfg = await readServerConfig(db);
 			return {
 				blockerAlerts: cfg.notifications.blockerAlerts,
-				costAlerts: cfg.notifications.costAlerts,
 				reviewAlerts: cfg.notifications.reviewAlerts,
 				quietHoursEnabled: cfg.notifications.quietHoursEnabled,
 				quietHoursStart: cfg.notifications.quietHoursStart,
@@ -221,59 +215,10 @@ describe("R8 AC1 — Event subscription mapping (behavioral)", () => {
 		expect(adapter!.calls[0]!.notification.severity).toBe("blocking");
 	});
 
-	test("cost_cap_breached (hard) → dispatcher handler fires (subscribed)", async ({
-		db,
-		eventBus,
-	}) => {
-		const adapter = createFakeAdapter();
-		await enableNotifications(db);
-		unsubscribe = installNotifications(db, eventBus, notificationsDeps, {
-			adapterFactory: () => adapter,
-		});
-
-		const event: CostCapBreachedEvent = {
-			type: "cost_cap_breached",
-			streamId: "stream-ac1",
-			level: "hard",
-			capLevel: "factory",
-			entityId: "factory",
-			spend: 200,
-			cap: 100,
-			timestamp: Date.now(),
-		};
-		eventBus.emit(event);
-
-		// Handler is subscribed — cost_breach severity pushed
-		await vi.waitFor(() => expect(adapter.calls).toHaveLength(1));
-		expect(adapter!.calls[0]!.notification.severity).toBe("cost_breach");
-	});
-
-	test("cost_cap_warning (critical) → dispatcher handler fires (subscribed)", async ({
-		db,
-		eventBus,
-	}) => {
-		const adapter = createFakeAdapter();
-		await enableNotifications(db);
-		unsubscribe = installNotifications(db, eventBus, notificationsDeps, {
-			adapterFactory: () => adapter,
-		});
-
-		const event: CostCapWarningEvent = {
-			type: "cost_cap_warning",
-			streamId: "stream-ac1",
-			level: "critical",
-			capLevel: "factory",
-			entityId: "factory",
-			spend: 90,
-			cap: 100,
-			timestamp: Date.now(),
-		};
-		eventBus.emit(event);
-
-		// Critical warning → push (cost_breach severity)
-		await vi.waitFor(() => expect(adapter.calls).toHaveLength(1));
-		expect(adapter!.calls[0]!.notification.severity).toBe("cost_breach");
-	});
+	// @lore AU21 Increment 14a: "cost_cap_breached (hard)" and
+	// "cost_cap_warning (critical)" dispatcher-subscription tests are
+	// HARD-DELETED — `cost_cap_breached`/`cost_cap_warning` events no longer
+	// exist, no replacement.
 
 	test("task_state_changed → dispatcher does NOT fire (not subscribed — intentionally silent)", async ({
 		db,
@@ -299,39 +244,8 @@ describe("R8 AC1 — Event subscription mapping (behavioral)", () => {
 		expect(rows).toHaveLength(0);
 	});
 
-	test("cost_cap_warning (warning level) → enqueued as digest (subscribed, digest path)", async ({
-		db,
-		eventBus,
-	}) => {
-		const adapter = createFakeAdapter();
-		// cost_cap_warning with level=warning produces a digest row, not a push.
-		// This verifies the subscription exists but the classification is digest.
-		await enableNotifications(db);
-		unsubscribe = installNotifications(db, eventBus, notificationsDeps, {
-			adapterFactory: () => adapter,
-		});
-
-		const event: CostCapWarningEvent = {
-			type: "cost_cap_warning",
-			streamId: "stream-ac1",
-			level: "warning",
-			capLevel: "team",
-			entityId: "team-1",
-			spend: 80,
-			cap: 100,
-			timestamp: Date.now(),
-		};
-		eventBus.emit(event);
-
-		// Handler is subscribed — digest row appears, no push
-		await vi.waitFor(async () => {
-			const rows = await listNotifications(db, { kind: "all" });
-			expect(rows).toHaveLength(1);
-		});
-		const rows = await listNotifications(db, { kind: "all" });
-		expect(rows[0]!.severity).toBe("digest");
-		expect(adapter.calls).toHaveLength(0);
-	});
+	// @lore AU21 Increment 14a: "cost_cap_warning (warning level) → enqueued
+	// as digest" is HARD-DELETED along with `cost_cap_warning`, no replacement.
 });
 
 // ---------------------------------------------------------------------------
@@ -413,7 +327,7 @@ describe("R8 AC2 — Routine task state changes are silent", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC3: Blockers and cost caps generate notifications (with preference overrides)
+// AC3: Blockers generate notifications (with preference overrides)
 // ---------------------------------------------------------------------------
 
 describe("R8 AC3 — Blocker alerts respect blockerAlerts preference", () => {
@@ -477,119 +391,10 @@ describe("R8 AC3 — Blocker alerts respect blockerAlerts preference", () => {
 	});
 });
 
-describe("R8 AC3 — Cost alerts respect costAlerts preference", () => {
-	let unsubscribe: (() => void) | undefined;
-
-	afterEach(() => {
-		unsubscribe?.();
-	});
-
-	test("costAlerts=false drops cost_cap_warning (critical)", async ({ db, eventBus }) => {
-		const adapter = createFakeAdapter();
-		await enableNotifications(db);
-		await updateServerConfig(db, { notifications: { costAlerts: false } });
-
-		unsubscribe = registerWithPrefs(db, eventBus, adapter);
-
-		const event: CostCapWarningEvent = {
-			type: "cost_cap_warning",
-			streamId: "stream-r8",
-			level: "critical",
-			capLevel: "factory",
-			entityId: "factory",
-			spend: 90,
-			cap: 100,
-			timestamp: Date.now(),
-		};
-		eventBus.emit(event);
-
-		await new Promise((resolve) => setTimeout(resolve, 50));
-
-		// With costAlerts=false, even a critical warning should be dropped
-		expect(adapter.calls).toHaveLength(0);
-		const rows = await listNotifications(db, { kind: "all" });
-		expect(rows).toHaveLength(0);
-	});
-
-	test("costAlerts=false drops cost_cap_breached (soft)", async ({ db, eventBus }) => {
-		const adapter = createFakeAdapter();
-		await enableNotifications(db);
-		await updateServerConfig(db, { notifications: { costAlerts: false } });
-
-		unsubscribe = registerWithPrefs(db, eventBus, adapter);
-
-		const event: CostCapBreachedEvent = {
-			type: "cost_cap_breached",
-			streamId: "stream-r8",
-			level: "soft",
-			capLevel: "team",
-			entityId: "team-1",
-			spend: 110,
-			cap: 100,
-			timestamp: Date.now(),
-		};
-		eventBus.emit(event);
-
-		await new Promise((resolve) => setTimeout(resolve, 50));
-
-		// soft breach = digest severity; dropped when costAlerts=false
-		expect(adapter.calls).toHaveLength(0);
-		const rows = await listNotifications(db, { kind: "all" });
-		expect(rows).toHaveLength(0);
-	});
-
-	test("costAlerts=false STILL pushes cost_cap_breached (hard) — safety override", async ({
-		db,
-		eventBus,
-	}) => {
-		const adapter = createFakeAdapter();
-		// Hard cost cap breach is a safety-critical event — it MUST page even
-		// when the user has disabled cost alerts. The operator cannot opt out
-		// of a hard cap breach notification.
-		await enableNotifications(db);
-		await updateServerConfig(db, { notifications: { costAlerts: false } });
-
-		unsubscribe = registerWithPrefs(db, eventBus, adapter);
-
-		const event: CostCapBreachedEvent = {
-			type: "cost_cap_breached",
-			streamId: "stream-r8",
-			level: "hard",
-			capLevel: "factory",
-			entityId: "factory",
-			spend: 200,
-			cap: 100,
-			timestamp: Date.now(),
-		};
-		eventBus.emit(event);
-
-		await vi.waitFor(() => expect(adapter.calls).toHaveLength(1));
-		expect(adapter!.calls[0]!.notification.severity).toBe("cost_breach");
-	});
-
-	test("costAlerts=true (default) pushes cost_cap_warning (critical)", async ({ db, eventBus }) => {
-		const adapter = createFakeAdapter();
-		await enableNotifications(db);
-		// Default: costAlerts=true
-
-		unsubscribe = registerWithPrefs(db, eventBus, adapter);
-
-		const event: CostCapWarningEvent = {
-			type: "cost_cap_warning",
-			streamId: "stream-r8",
-			level: "critical",
-			capLevel: "factory",
-			entityId: "factory",
-			spend: 90,
-			cap: 100,
-			timestamp: Date.now(),
-		};
-		eventBus.emit(event);
-
-		await vi.waitFor(() => expect(adapter.calls).toHaveLength(1));
-		expect(adapter!.calls[0]!.notification.severity).toBe("cost_breach");
-	});
-});
+// @lore AU21 Increment 14a: "R8 AC3 — Cost alerts respect costAlerts
+// preference" describe block is HARD-DELETED — `costAlerts`,
+// `cost_cap_warning`/`cost_cap_breached`, and the `cost_breach` notification
+// severity no longer exist, no replacement.
 
 // ---------------------------------------------------------------------------
 // AC4: Review alerts with preference overrides
@@ -953,7 +758,6 @@ describe("R8 Preferences wiring — server_config drives dispatcher", () => {
 
 		const cfg = await readServerConfig(db);
 		expect(cfg.notifications.reviewAlerts).toBe(true);
-		expect(cfg.notifications.costAlerts).toBe(true);
 		expect(cfg.notifications.blockerAlerts).toBe(true);
 		expect(cfg.notifications.quietHoursEnabled).toBe(false);
 	});

@@ -18,7 +18,6 @@ const FIXTURE = {
 	kind: "decision" as string,
 	label: null,
 	preview: null,
-	cost: { money: { minor: 42, currency: "USD" as const }, tokens: null },
 	threadCount: 0,
 	createdAt: "2026-04-28T00:00:00.000Z",
 };
@@ -38,13 +37,12 @@ describe("ArtifactEmbed", () => {
 		container.remove();
 	});
 
-	it("renders the identity strip (kind + task title + cost + timestamp)", () => {
+	it("renders the identity strip (kind + task title + timestamp)", () => {
 		act(() => {
 			root.render(createElement(ArtifactEmbed, { data: FIXTURE, onOpen: () => undefined }));
 		});
 		expect(container.textContent).toContain("DECISION");
 		expect(container.textContent).toContain("Implement auth flow");
-		expect(container.textContent).toContain("$0.42");
 	});
 
 	// Protected: NO chrome on the embed root

@@ -1,11 +1,9 @@
 /**
  * @lore AU19 Increment 3b: `@hyperidle/session-requests`'s
  * Composition root for the durable agent queue.
- * Durable queue transitions need injected
- * `routine`/`work`/`agent-selection`/`conversation`/`users`/`org`/`review`/
- * `trigger-resolution` ports (Mechanism C — `session-requests` never imports
- * another Service). `@hyperidle/session-requests` is the current owner of lifecycle projection.
- * This module builds
+ * Durable queue transitions need the `work` port (Mechanism C —
+ * `session-requests` never imports another Service). `@hyperidle/session-
+ * requests` is the current owner of lifecycle projection. This module builds
  * each bound singleton ONCE, at the composition root, so every real call
  * site (`agent-layer-boot.ts`, `session-lifecycle.ts`, `agent-session-runtime.ts`,
  * `routes/threads.ts`, `routes/sessions-routes.ts`, `routes/tasks.ts`,
@@ -15,11 +13,17 @@
  * factory-curry idiom as `policy-bindings.ts`'s `handoff`/`computeApprovalRate`
  * (Increment 2a).
  *
- * @lore AU19 Increment 3e: `agentSelection` — the LAST interim forward-
- * reference this module carried — is resolved: `@hyperidle/session-requests`'s
- * `SessionRequestsAgentSelector` now wires to the shared composition-root
- * `AgentSelectionService` singleton. Same resolution shape as
- * `lifecycle-projection`'s own Increment 3d closure above.
+ * @lore AU21 §6 Decision F1: the `agentSelection` field this module used to
+ * wire (`agentSelectionService.isAtCapacity`/`.selectAgent`) is REMOVED — it
+ * was vestigial, a leftover from Increment 4's drain-time-selection deletion
+ * with zero real call sites left in `@hyperidle/session-requests`'s own
+ * `service.ts` (confirmed by grep before removal). The retired
+ * `agent-selection` Service's real capabilities folded elsewhere:
+ * `work`'s `bet_task`/`bet_decomposer` selection into `@hyperidle/work`'s own
+ * `agent-assignment.ts`; `routine_delegate` into `@hyperidle/routine`'s
+ * `agent-delegation.ts`; capacity into `@hyperidle/run-orchestration`'s
+ * `concurrency.ts` — none of which this durable-queue composition root ever
+ * needed injected.
  *
  * The AC-9 (§11) cross-Layer `agentWorkIntentRecorder`/`agentWorkIntentReader`
  * singletons at the bottom are the concrete `@hyperidle/shared`-typed ports
@@ -32,26 +36,51 @@
  *
  * @lore AU20: this composition root supplies dependencies to the unified
  * durable-queue operations; compatibility transition wrappers were deleted.
+ *
+ * @lore AU21 §9 Increment 9 (forensic-triage wave, second pass): `conversation`/
+ * `review`/`knowledge` groups and `routine`, plus `users.getUserById`/
+ * `listUsersByTeam` and `work.getTaskById`/`getBetById`, REMOVED — confirmed
+ * dead (zero real call sites in `@hyperidle/session-requests`'s own
+ * `service.ts`; grepped before removal, same verification bar as the AU21 §6
+ * Decision F1 `agentSelection` removal above). Each family's real domain read
+ * was already deleted by an earlier increment's resolve-at-emit migration
+ * (architecture.md §9 Increment 3) — this was leftover, unreachable
+ * composition wiring nobody cleaned up alongside it, caught by the
+ * anti-regrowth guard's forensic pass.
+ *
+ * **Second pass (same wave):** `config`/`teams`/`users` REMOVED in their
+ * entirety, and `getTeamMembers`/`listConfiguration`/`findUser` imports with
+ * them — their one consumer, `createTriggeredInternal` (the `"triggered"`
+ * `CreateSessionRequestInput` kind's drain-time trigger-rule + target-agent
+ * resolution), is deleted from `@hyperidle/session-requests` itself: git
+ * archaeology (`7b64e8d1^`'s `dispatch/service.ts`, AU20's `d6dcfa2c`) plus a
+ * full production call-site grep confirmed ZERO real callers ever existed,
+ * in AU21 or before — the only caller anywhere was
+ * `trigger-resolution.integration.test.ts` (deleted alongside this), and
+ * test-only-reachable code is dead code.
+ *
+ * @lore AU21 §9 Increment 10 (Decision H1): the `work` field
+ * (`reapTerminalTaskDispatchAttempts`) and `lifecycleProjection.work`'s
+ * `updateTaskDispatchAttemptIfActive` — flagged by the THIRD forensic-triage
+ * pass below as a genuinely open, unmigrated gap, NOT a bounded permanent
+ * exception — are now CLOSED: `task`'s post-session writeback moved to
+ * core-api's `work-session-end-reactions.ts` (an `agent_run_lifecycle_changed`
+ * event subscriber, the same migration `routine` went through in Increment 4),
+ * and `reapTerminalTaskDispatchAttempts` relocated to
+ * `server-factory.ts`'s generic retention reaper. This composition root no
+ * longer wires either — `@hyperidle/session-requests` now holds ZERO `→ work`
+ * edge of any kind.
+ *
+ * @lore AU21 §9 Increment 9 (forensic-triage wave, THIRD pass): this surface
+ * was NOT a bounded permanent exception — a prior pass mislabeled it that way
+ * in the anti-regrowth guard's `ALLOWLIST`, rejected on review as a builder-
+ * ruled carve-out with no founder sign-off. It was tracked as a genuinely
+ * open, unmigrated gap in `DEFERRED_FOLLOWUP` (`session-requests::work`) —
+ * closed by Increment 10 above.
  */
 
-import { findMessage } from "@hyperidle/conversation";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
-import { get as getKnowledgeItem } from "@hyperidle/knowledge";
-import { getTeamMembers } from "@hyperidle/org";
-import { findProposedCall } from "@hyperidle/review";
-import * as routineService from "@hyperidle/routine";
 import { type DurableAgentQueueDeps, transitionSessionRequest } from "@hyperidle/session-requests";
-import { listConfiguration } from "@hyperidle/settings";
-import { findUser, listUsers } from "@hyperidle/users";
-import * as work from "@hyperidle/work";
-import { agentSelectionService } from "./agent-selection-bindings.js";
-
-// ---------------------------------------------------------------------------
-// agent-selection — resolved to `@hyperidle/agent-selection`'s real exports
-// (Increment 3e; was the last remaining INTERIM forward-reference since
-// Increment 3b, see this file's top `@lore`). Bound once, at the composition
-// root, to `agent-selection`'s own `users`/`org` ports (Mechanism C).
-// ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
 // DurableAgentQueueDeps — single composition-root deps bundle (AU20 Ag3a).
@@ -66,67 +95,7 @@ import { agentSelectionService } from "./agent-selection-bindings.js";
 // ---------------------------------------------------------------------------
 
 const ports = {
-	config: { listConfiguration },
-	routine: {
-		getRoutineRunById: routineService.getRoutineRun,
-		getRoutineById: routineService.getRoutine,
-		updateRoutineRunIfRunning: (exec: WriteExecutor, id: string, patch: object) =>
-			routineService.updateRoutineRun(exec, id, patch, { onlyIfRunning: true }),
-	},
-	work: {
-		getTaskById: (exec: import("@hyperidle/db").WriteExecutor, id: string) =>
-			work.get(exec, "task", id),
-		getBetById: (exec: import("@hyperidle/db").WriteExecutor, id: string) =>
-			work.get(exec, "bet", id),
-		getTaskDispatchAttemptById: work.taskDispatchAttemptStore.get,
-		reapTerminalTaskDispatchAttempts: work.taskDispatchAttemptStore.reapTerminal,
-	},
-	agentSelection: {
-		isAtCapacity: agentSelectionService.isAtCapacity,
-		selectAgent: agentSelectionService.selectAgent,
-	},
-	conversation: { getMessageById: (db: HyperIdleDb, id: string) => findMessage(db, { id }) },
-	users: {
-		getUserById: (db: HyperIdleDb, id: string) => findUser(db, { id }),
-		getUserByIdScopedToTeam: (db: HyperIdleDb, userId: string, teamId?: string) =>
-			findUser(db, teamId ? { id: userId, teamIds: [teamId] } : { id: userId }),
-		listUsersByTeam: (db: HyperIdleDb, teamId: string) => listUsers(db, { teamIds: [teamId] }),
-	},
-	teams: {
-		getTeamMembersByTeamId: (db: HyperIdleDb, teamId: string) => getTeamMembers(db, { teamId }),
-	},
-	review: {
-		findGrantedProposedCall: async (db: HyperIdleDb, proposedCallId: string) => {
-			const view = await findProposedCall(db, {
-				by: { id: proposedCallId },
-				include: { grant: true },
-			});
-			if (!view?.grant) return undefined;
-			return { call: view.call, grant: view.grant };
-		},
-	},
-	knowledge: {
-		findById: (db: import("@hyperidle/db").HyperIdleDb, id: string) => getKnowledgeItem(db, id),
-	},
 	lifecycleProjection: {
-		routine: {
-			updateRoutineRunIfRunning: (exec: WriteExecutor, id: string, patch: object) =>
-				routineService.updateRoutineRun(exec, id, patch, { onlyIfRunning: true }),
-		},
-		work: {
-			updateTaskDispatchAttemptIfActive: work.taskDispatchAttemptStore.updateIfActive,
-			updateBetDecompositionStatusIfRunning: async (
-				exec: WriteExecutor,
-				id: string,
-				patch: object,
-			) => {
-				await work.transition(exec, "bet", {
-					id,
-					guard: { field: "decompositionStatus", equals: "running" },
-					patch,
-				});
-			},
-		},
 		explicitSessionStarts: {
 			projectTerminalState: async (
 				exec: WriteExecutor,

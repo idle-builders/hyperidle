@@ -34,6 +34,18 @@
  * `listInbox` with `ThreadFilter`, `MessageFilter`, `InboxFilter`.
  */
 
+// -- assistant-thread pin reaction (AU21 §9 Increment 11, Decision H2/F4) --
+export type { AssistantThreadPinReactionDeps } from "./assistant-thread-pin-reaction.js";
+export { registerAssistantThreadPinReaction } from "./assistant-thread-pin-reaction.js";
+// -- assistant-turn resolver (AU21 §6 Decision B — emit-time resolve+bake) --
+export type {
+	AssistantTurnResolverDeps,
+	BakedAssistantTurnRequest,
+} from "./assistant-turn-resolver.js";
+export {
+	AssistantTurnSourceUnavailableError,
+	resolveAssistantTurnRequest,
+} from "./assistant-turn-resolver.js";
 // Filter types
 // Shared row types
 export type {

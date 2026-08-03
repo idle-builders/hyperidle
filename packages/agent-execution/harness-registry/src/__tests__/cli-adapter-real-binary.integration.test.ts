@@ -14,9 +14,16 @@
  * What is proven here but was unproven before:
  *   1. preMapClaudeEvent correctly translates the REAL binary's stream-json output
  *      into canonical HarnessEvent types (no error pollution from system/result lines).
- *   2. Real cost_update events are captured from the REAL result line's total_cost_usd.
+ *   2. Real token_usage is captured from the REAL result line's usage block.
  *   3. The full adapter flow (startSession → streamEvents → stopSession) works end-to-end
  *      with each installed binary.
+ *
+ * @lore AU21 (harness-telemetry narrowing): this file used to also assert a
+ * real `cost_update` event captured from the real result line's
+ * `total_cost_usd`. Founder ruling narrowed harness telemetry to token usage
+ * only — "very few harness can actually report cost" (confirmed here: codex
+ * never emitted `total_cost_usd` in this lane's runs). No cost_update event
+ * is emitted by the adapter anymore, on any harness.
  *
  * Per project rule: "e2e/expensive/live-LLM tests run locally only; never a GitHub
  * Actions job." Runs via `npm run test:integration` (serial harness project).
@@ -37,8 +44,9 @@
  * @lore cli-adapter-real-binary macOS-keychain: claude authenticates via the macOS
  * Keychain (claude.ai OAuth). The adapter forwards HOME + USER + LOGNAME from the
  * envAllowlist, which is sufficient for the Security framework to resolve the keychain
- * user. Proven in CLAUDE_CLI_CONFIG lore comment: "adding USER+LOGNAME → real turn
- * completes (total_cost_usd>0)".
+ * user. Historically proven via a real completed turn (the CLAUDE_CLI_CONFIG lore
+ * comment records this using the era's total_cost_usd>0 signal — cost is no longer
+ * captured; token_usage>0 is the current equivalent proof).
  */
 
 import { execFile, execFileSync } from "node:child_process";
@@ -162,15 +170,16 @@ function provisionCodexHome(sandboxPath: string): boolean {
 // Key assertions:
 //   1. completion event containing "ADAPTER_OK" — proves preMapClaudeEvent translated
 //      the real binary's stream-json output correctly.
-//   2. cost_update with totalCost > 0 — proves total_cost_usd captured from the real
-//      result line.
+//   2. token_usage with real (>0) input/output tokens — proves usage captured from the
+//      real result line.
 //   3. No UnknownHarnessEvent errors — proves preMapClaudeEvent handled ALL stream-json
 //      line types (system, assistant, result, user) without falling through to error.
-//   4. result.outcome === "completed" + cost.minor > 0 — proves buildResult + stopSession.
+//   4. result.outcome === "completed" + no cost field on SessionResult — proves
+//      buildResult + stopSession, and confirms the $-cost narrowing.
 //
 // @lore cli-adapter-real-binary sandbox-files: The sandbox must contain:
 //   - .mcp.json: CLAUDE_CLI_CONFIG passes `--mcp-config .mcp.json`. A dead MCP URL is
-//     fine — claude marks the server pending and continues. We're testing parse+cost.
+//     fine — claude marks the server pending and continues. We're testing parse+usage.
 //   - .claude/settings.json: CLAUDE_CLI_CONFIG passes `--settings .claude/settings.json`.
 //     The file must exist (even as {}) — if absent, claude errors on the --settings flag.
 //     An empty object means no Stop hook → no re-prompt loop (correct for this test).
@@ -184,7 +193,7 @@ function provisionCodexHome(sandboxPath: string): boolean {
 
 describe("claude-code CLI adapter (real binary, production CliHarnessAdapter path)", () => {
 	requireHarness("claude");
-	test("drives CliHarnessAdapter(CLAUDE_CLI_CONFIG) against real claude → parsed completion + real cost + no error pollution", async ({
+	test("drives CliHarnessAdapter(CLAUDE_CLI_CONFIG) against real claude → parsed completion + real token usage + no error pollution", async ({
 		skip,
 	}) => {
 		const authed = await claudeAuthed();
@@ -253,19 +262,26 @@ describe("claude-code CLI adapter (real binary, production CliHarnessAdapter pat
 			}
 			expect(hasCompletion).toBe(true);
 
-			// ── Assertion 2: real cost_update with totalCost > 0 ─────────────────
-			// Proves total_cost_usd captured from the real result line.
-			// The real `claude` binary emits a terminal {"type":"result","total_cost_usd":X}
-			// line; parseStdoutLine captures it → streamEvents emits one cost_update.
-			const costEvent = events.find((e) => e.type === "cost_update");
+			// ── Assertion 2: real token_usage with real (>0) input/output tokens ──
+			// Proves usage captured from the real result line's usage block.
+			// The real `claude` binary emits a terminal {"type":"result","usage":{...}}
+			// line; parseStdoutLine captures it → streamEvents emits one token_usage.
+			// @lore AU21 (harness-telemetry narrowing): this used to assert a real
+			// cost_update from total_cost_usd — removed, no cost_update is emitted anymore.
+			expect(events.some((e) => (e.type as string) === "cost_update")).toBe(false);
+			const tokenEvent = events.find((e) => e.type === "token_usage");
 			expect(
-				costEvent,
-				"Expected a cost_update event from the real result line's total_cost_usd",
+				tokenEvent,
+				"Expected a token_usage event from the real result line's usage block",
 			).toBeDefined();
-			if (costEvent !== undefined && costEvent.type === "cost_update") {
+			if (tokenEvent !== undefined && tokenEvent.type === "token_usage") {
 				expect(
-					costEvent.totalCost,
-					"cost_update.totalCost must be > 0 (real LLM turn consumed tokens)",
+					tokenEvent.inputTokens,
+					"token_usage.inputTokens must be > 0 (real LLM turn consumed tokens)",
+				).toBeGreaterThan(0);
+				expect(
+					tokenEvent.outputTokens,
+					"token_usage.outputTokens must be > 0 (real LLM turn consumed tokens)",
 				).toBeGreaterThan(0);
 			}
 
@@ -290,12 +306,9 @@ describe("claude-code CLI adapter (real binary, production CliHarnessAdapter pat
 			}
 			expect(hasUnknownError).toBe(false);
 
-			// ── Assertion 4: result.outcome + cost.minor ──────────────────────────
+			// ── Assertion 4: result.outcome + no cost field on SessionResult ──────
 			expect(result.outcome).toBe("completed");
-			expect(
-				result.cost.minor,
-				"result.cost.minor must be > 0 (real session cost captured from terminal result line)",
-			).toBeGreaterThan(0);
+			expect(result).not.toHaveProperty("cost");
 		} finally {
 			await rmSandboxWithRetry(sandboxPath);
 		}
@@ -307,8 +320,10 @@ describe("claude-code CLI adapter (real binary, production CliHarnessAdapter pat
 // Codex requires a git repo + CODEX_HOME setup (auth.json + config.toml, no SQLite).
 // The adapter detects .codex-home/ and sets CODEX_HOME automatically.
 //
-// Cost assertion: only assert cost>0 if codex emits total_cost_usd (it may not).
-// If not present, assert cost.minor >= 0 and log that codex didn't report cost.
+// @lore AU21 (harness-telemetry narrowing): codex never emits total_cost_usd —
+// this lane's runs are the direct empirical confirmation of the founder's stated
+// rationale ("very few harness can actually report cost"). No cost assertion here
+// anymore; token_usage is asserted instead (codex reports usage on turn.completed).
 //
 // @lore cli-adapter-real-binary codex: Codex uses CLI_TOOL_CONFIGS.codex which has
 // args: ["exec", "{{prompt}}", "--json"]. The adapter injects CODEX_HOME if .codex-home/
@@ -426,19 +441,11 @@ async function runCodexAdapterTest({ skip }: { skip: () => void }): Promise<void
 		// Assert: result.outcome "completed".
 		expect(result.outcome).toBe("completed");
 
-		// Assert: cost — only require >= 0 (codex may not emit total_cost_usd).
-		// If codex DID emit cost, it must be > 0 (real LLM turn consumed tokens).
-		const costEvent = events.find((e) => e.type === "cost_update");
-		if (costEvent !== undefined && costEvent.type === "cost_update") {
-			expect(
-				costEvent.totalCost,
-				"cost_update.totalCost must be > 0 when codex reports cost",
-			).toBeGreaterThan(0);
-		}
-		// When codex does not emit total_cost_usd, no cost_update event is present.
-		// result.cost.minor will be 0 in that case — assert >= 0 (both cases handled below).
-		// result.cost.minor >= 0 regardless (codex may not report cost).
-		expect(result.cost.minor).toBeGreaterThanOrEqual(0);
+		// Assert: no cost_update event, ever — codex never emits total_cost_usd, and
+		// even where a harness does (claude/opencode), the adapter no longer surfaces
+		// it (@lore AU21 harness-telemetry narrowing). No cost field on SessionResult.
+		expect(events.some((e) => (e.type as string) === "cost_update")).toBe(false);
+		expect(result).not.toHaveProperty("cost");
 
 		// Assert: token_usage event — proves preMapCodexEvent's turn.completed branch (Fix B).
 		// codex emits turn.completed with usage.input_tokens/output_tokens when a turn ends.

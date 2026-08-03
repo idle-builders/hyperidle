@@ -38,7 +38,6 @@ export {
 export type {
 	CapturedToolCall,
 	CompletionEvent,
-	CostUpdateEvent,
 	ErrorEvent,
 	HarnessEvent,
 	HarnessEventType,

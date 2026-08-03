@@ -17,7 +17,7 @@ export interface CanvasSourceHeaderProps {
 	readonly record: string;
 	/** Deep link back to the original record. Unsafe schemes are rendered as disabled text. */
 	readonly href?: string;
-	/** Optional trailing slot (cost, standing, a count). */
+	/** Optional trailing slot (standing, a count). */
 	readonly trailing?: ReactNode;
 }
 

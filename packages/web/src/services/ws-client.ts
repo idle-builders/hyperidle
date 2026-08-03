@@ -190,24 +190,28 @@ class WsClient {
 	 * Determine whether an incoming WS message belongs to a subscribed topic.
 	 * Topics have the form `<kind>:<id>` (e.g. `session:sess-1`, `thread:thr-1`)
 	 * or are global names (`conversations`, `work`).
-	 * We match by inspecting the message's event type and id fields.
+	 *
+	 * @lore AU21 §6 Decision L4 / §9 Increment 14d: `conversations`/`work`/
+	 * `thread:<id>` now carry a PUSH envelope with the actual changed data
+	 * (`{ type: "update", topic, kind, data }`, see `ws-connection-hub.ts` +
+	 * `routes/threads.ts` + `work-state-push-gateway.ts`) — matched directly
+	 * on the envelope's own `topic` field, same matching shape as the prior
+	 * `{ type: "invalidate", … }` ping this supersedes (founder: "there is no
+	 * refetch … core submits the changed version"). `session:<id>` is
+	 * untouched — Decision E's (c) concern is a real content stream
+	 * (`useSessionActivity.ts` consumes `toolName`/`argsSummary`/… payload
+	 * fields), still forwarded as the full event and matched by `sessionId`
+	 * as before.
 	 */
 	private messageMatchesTopic(msg: Record<string, unknown>, topic: string): boolean {
-		// Global topics: any event from the server goes to matching subscribers
-		if (topic === "conversations" || topic === "work") {
-			// Server only broadcasts to subscribed topics — all messages received
-			// on this socket are for our subscribed topics. Match all for global topics.
-			return true;
+		// Push envelope: match directly on its own `topic` field.
+		if (msg.type === "update") {
+			return msg.topic === topic;
 		}
 		// Per-session topic `session:<id>`: match messages with matching sessionId
 		if (topic.startsWith("session:")) {
 			const sessionId = topic.slice("session:".length);
 			return msg.sessionId === sessionId;
-		}
-		// Per-thread topic `thread:<id>`: match messages with matching threadId
-		if (topic.startsWith("thread:")) {
-			const threadId = topic.slice("thread:".length);
-			return msg.threadId === threadId;
 		}
 		return false;
 	}

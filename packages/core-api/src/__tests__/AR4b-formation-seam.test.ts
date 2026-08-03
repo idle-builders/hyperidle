@@ -28,6 +28,7 @@ import {
 	type AgentSessionRequest,
 	type HyperIdleDb,
 	messages,
+	resolveAgentScaffoldSpecs,
 	threads,
 	users,
 } from "@hyperidle/db";
@@ -35,9 +36,31 @@ import { AdapterPool, createHarnessAdapter } from "@hyperidle/harness-registry";
 import { createSessionRequest } from "@hyperidle/session-requests";
 import { EventBus } from "@hyperidle/shared";
 import { beforeEach, describe, expect, vi } from "vitest";
-import { agentSelectionService } from "../services/agent-selection-bindings.js";
+import {
+	createInProcessCoreApiTransport,
+	registerCoreApiTransport,
+} from "../services/core-api-port-composition.js";
 import { dispatchOps } from "../services/dispatch-bindings.js";
-import { test } from "../test-fixtures.js";
+import { test as baseTest } from "../test-fixtures.js";
+
+/**
+ * @lore AU21 §9 Increment 2: `runTurn` → `buildAssistantDraftRegistry` →
+ * `resolveDraftTeamId` now reaches `ports.coreApi.getUserById` (the seam) —
+ * this file-scoped `auto:true` fixture registers a real in-process
+ * `CoreApiPort` transport off THIS test's own `app`, without forcing
+ * `app`'s full subscriber wiring onto every OTHER file that imports the
+ * bare `test` from `test-fixtures.ts` (see the same pattern in the
+ * `create-*`/`log-task`/`write-memory`/etc. integration tests).
+ */
+const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
+	coreApiSeamRegistration: [
+		async ({ app }, use) => {
+			registerCoreApiTransport(createInProcessCoreApiTransport(app));
+			await use(undefined);
+		},
+		{ auto: true },
+	],
+});
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -70,6 +93,20 @@ const capturedConversational: CapturedConversational[] = [];
  * formation seam consulted the app resolver at turn time. The mock never runs
  * a real harness — this is a unit test of the call-site wiring, not the turn itself.
  */
+/**
+ * @lore AU21 §6 Decision F1: `resolveScaffoldSpecs` dissolved from the
+ * `agent-selection` Service port into `@hyperidle/db`'s pure
+ * `resolveAgentScaffoldSpecs` — a leaf import `dispatch`'s `service.ts` now
+ * calls directly (no DI port to spy on). This unit test mocks the leaf
+ * export itself (`importOriginal` keeps every other `@hyperidle/db` export —
+ * tables, `HyperIdleDb`, etc. — real) to keep injecting a controllable
+ * persona, same intent as the retired `vi.spyOn(agentSelectionService, ...)`.
+ */
+vi.mock("@hyperidle/db", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("@hyperidle/db")>();
+	return { ...actual, resolveAgentScaffoldSpecs: vi.fn() };
+});
+
 vi.mock("../services/run-orchestration-composition.js", async (importOriginal) => {
 	const original =
 		await importOriginal<typeof import("../services/run-orchestration-composition.js")>();
@@ -92,7 +129,6 @@ vi.mock("../services/run-orchestration-composition.js", async (importOriginal) =
 				mode: "completed" as const,
 				sessionId: "stub-session-ar4b",
 				outcome: "completed",
-				totalCostCents: 0,
 				taskId: null,
 				forceReturnCount: 0,
 				conversationalReply: "AR4b formation seam stub reply",
@@ -107,10 +143,20 @@ function setFormationPersona(persona: string | null): void {
 
 // ─── Credential resolver ──────────────────────────────────────────────────────
 
+/**
+ * @lore AU21 §9 Increment 11 (Decision H2): "the assistant turn is NOT
+ * special" — model resolution is now TIER-based only (`resolveModelTier`),
+ * matching every other intent kind; dispatch no longer reads the assistant
+ * agent's own `modelId`/`modelProvider` row fields (that read, part of the
+ * now-deleted `getOrCreateUser`, is gone). This test is about the FORMATION
+ * seam (persona/draft-tools), not model-provider selection — `seedFixtures`'s
+ * `modelProvider: "openrouter"` is incidental legacy setup, so the resolver
+ * grants whichever credential the (now provider-agnostic) tier resolution
+ * asks for instead of gating on `openrouter_api_key` specifically.
+ */
 const credentialResolver: CredentialResolver = {
-	async resolve(name: string): Promise<string | null> {
-		if (name === "openrouter_api_key") return "sk-or-test-ar4b-seam";
-		return null;
+	async resolve(): Promise<string | null> {
+		return "sk-test-ar4b-seam";
 	},
 };
 
@@ -224,12 +270,12 @@ describe("AR4b: formation seam — app resolver decides persona + tools at turn 
 		formationState.calls.length = 0;
 		setFormationPersona(null);
 		vi.clearAllMocks();
-		// @lore AU20 Ag1b: mock resolveScaffoldSpecs on the agentSelectionService singleton
-		// so the dispatch port returns a controllable persona without hitting the DB.
-		vi.spyOn(agentSelectionService, "resolveScaffoldSpecs").mockImplementation(async (request) => {
-			formationState.calls.push({
-				userId: (request as { ownerUserId?: string }).ownerUserId ?? "",
-			});
+		// @lore AU20 Ag1b / AU21 §6 Decision F1: mock the leaf
+		// `resolveAgentScaffoldSpecs` export so `dispatch`'s direct call
+		// returns a controllable persona without hitting the real fixed
+		// `user_assistant` system prompt.
+		vi.mocked(resolveAgentScaffoldSpecs).mockImplementation((request) => {
+			formationState.calls.push({ userId: request.ownerUserId ?? "" });
 			return [
 				{
 					role: "assistant" as const,

@@ -2,23 +2,16 @@
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import {
-	type AgentSessionRequest,
-	type Bet,
-	type HyperIdleDb,
-	type Routine,
-	sessions,
-	type Task,
-	type User,
-} from "@hyperidle/db";
+import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle/db";
 import {
 	type AgentSessionSourceCorrelation,
 	type AgentSessionSourceKind,
 	AL6_MAX_FORCE_RETURNS,
+	type BakedAgentRunnableConfig,
+	type BakedContextBundle,
 	type CapturedToolCall,
 	ConcurrencyLimitError,
 	type ConversationMessage,
-	CostCapExceededError,
 	type EventBus,
 	type Filesystem,
 	type FilesystemMounter,
@@ -37,11 +30,20 @@ import {
 	type SessionOutcome,
 	type SessionResult,
 	type SessionWorkflow,
-	scaleForCurrency,
-	type TaskState,
+	TargetAgentNotRunnableError,
 	type UserRole,
 } from "@hyperidle/shared";
 import { and, eq, isNull, ne, or, sql } from "drizzle-orm";
+import {
+	applyProvisioningPlan,
+	buildProvisioningPlan,
+	type HeldConnectionsForProvisioning,
+} from "./connection-provisioning.js";
+import { routineSessionContextDataFromBundle, sessionContextDataFromBundle } from "./context.js";
+import {
+	type FilesystemForProvisioning,
+	mountFilesystemsForAgent,
+} from "./filesystem-provisioning.js";
 import { transitionRun } from "./transition-run.js";
 
 type TransitionSpec = Parameters<typeof transitionRun>[1];
@@ -54,113 +56,44 @@ interface IngestionHandle {
 // ---- ports ----
 
 // ---------------------------------------------------------------------------
-// Local structural mirror of `@hyperidle/work`'s `task-audit.ts` audit-trail
-// union — `revertTaskToAccepted` JSON.parse/stringify's `tasks.auditTrail`.
-// Mechanism C forbids importing `@hyperidle/work`'s own type, even type-only
-// (same idiom `policy`'s `handoff-protocol.ts` already established for the
-// identical shape — see that file's own local mirror).
+// AU21 §9 Increment 12 (Decision H3), Wave E: `SessionLifecycleRoutineAccessor`
+// (`getRoutineById`)/`SessionLifecycleSettingsReader` (`readServerConfig`) are
+// DELETED entirely — `run-orchestration` holds ZERO `-> routine`/
+// `-> settings` edge, read or write. `admitSession`'s Phase 3 `harnessDisabled`
+// read and the admission-time routine per-run cap read are replaced by baked
+// data every per-kind resolver now supplies on the drained request:
+//   - Phase 3: `params.harnessDisabled` (global server config, baked
+//     alongside `agentConfig` by the same four `contextBundle` resolvers —
+//     `assistant_turn`/`session_start` bake it too, at their one real emit
+//     site each, so no kind silently loses the admin's disabled-harness-types
+//     enforcement).
+//   - AU21 Increment 14a: the admission-time routine per-run cost cap this
+//     bullet used to describe (`params.contextBundle.routine
+//     .costCapPerRunMinor`) is DELETED along with the rest of the cost-cap
+//     gate — no replacement.
+//
+// @lore AU21 §9 Increment 12 (Decision H3), Wave E — THIRD, founder-FINAL
+// pass on the emit→deactivate→drain race (architecture.md §12's
+// "RE-CORRECTED (founder, 2026-08-01)" note). History: pass one kept this
+// section's now-deleted `SessionLifecycleAgentRunnabilityReader` — a narrow
+// live `kind`/`status` re-check — reasoning a baked snapshot alone could
+// never catch a real deactivation race. The founder rejected pass one
+// outright: "the orchestration is a blind executer." Pass two replaced the
+// live read with a push-based event+subscriber mechanism instead — ALSO
+// rejected: "why does that even play a role for orchestration to know? if an
+// agent is deactivated then core will not send a request... if it doesn't
+// get a request to do something it doesn't do something." Orchestration
+// never initiates anything on its own — every unit of work originates from a
+// request core already sent — so there is NO mechanism needed here at all,
+// live or pushed. The resolution is a pure DELETION, no replacement of any
+// kind: `run-orchestration` holds ZERO `-> users` edge. Phase 1's baked
+// `kind`/`status` check (below, in `admitSession`) is DEFENSE-IN-DEPTH ONLY —
+// a consistency assertion against a resolver bug that baked an
+// already-invalid snapshot — never a live authority gate; every other Phase
+// 1 field (`role`/`systemPrompt`/`modelTierPreference`/`harnessType`/
+// `modelProvider`/`maxConcurrentSessions`/`teamId`) also comes from this same
+// baked `agentConfig` snapshot, unchanged.
 // ---------------------------------------------------------------------------
-
-interface SessionLifecycleStateTransitionAuditEntry {
-	readonly from: TaskState;
-	readonly to: TaskState;
-	readonly timestamp: string;
-	readonly reason?: string;
-}
-
-interface SessionLifecycleHandoffAuditEntry {
-	readonly type: "handoff";
-	readonly fromAgent: string;
-	readonly toAgent?: string;
-	readonly toHuman?: boolean;
-	readonly reason: string;
-	readonly timestamp: string;
-}
-
-type SessionLifecycleTaskAuditEntry =
-	| SessionLifecycleStateTransitionAuditEntry
-	| SessionLifecycleHandoffAuditEntry;
-
-// ---------------------------------------------------------------------------
-// routine — SessionLifecycleRoutineAccessor (ordinary downward edge, real target)
-// ---------------------------------------------------------------------------
-
-interface SessionLifecycleRoutineAccessor {
-	getRoutineById(db: HyperIdleDb, id: string): Promise<Routine | undefined>;
-	findRunningRoutineRun(
-		db: HyperIdleDb,
-		routineId: string,
-	): Promise<{ readonly id: string } | undefined>;
-	updateRoutineRunById(
-		db: HyperIdleDb,
-		id: string,
-		patch: {
-			readonly outcome: "success" | "error" | "budget_exhausted" | "timeout";
-			readonly sessionId?: string;
-			readonly endedAt?: string;
-			readonly costMinor?: number | null;
-			readonly costCurrency?: string | null;
-			readonly summary?: string;
-			readonly errorMessage?: string;
-		},
-	): Promise<void>;
-	updateRoutineById(
-		db: HyperIdleDb,
-		id: string,
-		patch: { readonly lastRunAt?: string; readonly lastRunSummary?: string },
-	): Promise<void>;
-	/** Closes the coalesce-ownership gap (`@hyperidle/routine`'s `incrementRoutineCost`). */
-	incrementRoutineCost(
-		db: HyperIdleDb,
-		id: string,
-		deltaMinor: number,
-		currency: string,
-	): Promise<void>;
-}
-
-// ---------------------------------------------------------------------------
-// work — SessionLifecycleWorkAccessor (ordinary downward edge, real target)
-// ---------------------------------------------------------------------------
-
-interface SessionLifecycleWorkAccessor {
-	getTaskById(db: HyperIdleDb, id: string): Promise<Task | undefined>;
-	updateTaskById(
-		db: HyperIdleDb,
-		id: string,
-		patch: { readonly state?: TaskState; readonly auditTrail?: string },
-	): Promise<void>;
-	getBetById(db: HyperIdleDb, id: string): Promise<Bet | undefined>;
-	updateBetById(
-		db: HyperIdleDb,
-		id: string,
-		patch: { readonly tokensActualJson?: string },
-	): Promise<void>;
-	/** `@hyperidle/work`'s `transitionTask` state machine — the composition root pre-binds its own AC-9 `workIntents.record` dep to `session-requests`' `enqueueWorkIntent`, same idiom `cost-bindings.ts`/`session-requests-bindings.ts` use for other bound singletons. */
-	transitionTask(
-		db: HyperIdleDb,
-		eventBus: EventBus,
-		taskId: string,
-		toState: TaskState,
-		dispatchOccasion?: "accepted" | "retry",
-	): Promise<void>;
-}
-
-// ---------------------------------------------------------------------------
-// users — SessionLifecycleUserReader (ordinary downward edge, real target)
-// ---------------------------------------------------------------------------
-
-interface SessionLifecycleUserReader {
-	getUserById(db: HyperIdleDb, id: string): Promise<User | undefined>;
-	getFirstUserByKind(db: HyperIdleDb, kind: string): Promise<User | undefined>;
-}
-
-// ---------------------------------------------------------------------------
-// settings — SessionLifecycleSettingsReader (ordinary downward edge, real target)
-// ---------------------------------------------------------------------------
-
-interface SessionLifecycleSettingsReader {
-	readServerConfig(db: HyperIdleDb): Promise<{ readonly harnessDisabled: readonly string[] }>;
-}
 
 // ---------------------------------------------------------------------------
 // observability — SessionLifecycleObservability (ordinary downward edge, real target)
@@ -171,93 +104,34 @@ interface SessionLifecycleObservability {
 }
 
 // ---------------------------------------------------------------------------
-// filesystems — SessionLifecycleFilesystemsReader (NEW census edge — AO2 mount
-// resolution; `mountFilesystemsForAgent`'s raw `@hyperidle/filesystems` calls
-// were never a countable relative-import edge at original census time)
+// filesystems (AU21 §9 Increment 12 follow-up, F2 gap closure): the former
+// `SessionLifecycleFilesystemsReader` seam port is DELETED entirely —
+// `run-orchestration` holds ZERO `-> filesystems` read edge. The agent's
+// injected filesystem list is now baked at EMIT time onto
+// `ProvisionSessionParams.injectedFilesystems` by every per-kind resolver
+// (`@hyperidle/filesystems`'s `resolveInjectedFilesystemsForAgent`), the SAME
+// principle Wave E already applied to `agentConfig`/`harnessDisabled`. See
+// `filesystem-provisioning.ts`'s own top-of-file `@lore` for the full trace.
 // ---------------------------------------------------------------------------
-
-interface SessionLifecycleFilesystemRow {
-	readonly id: string;
-	readonly teamId: string;
-	readonly source: string;
-	readonly kind: string;
-	readonly connectionId: string | null;
-	readonly resourceRef: string;
-	readonly writeback: string;
-	readonly state: string;
-	readonly createdAt: string;
-}
-
-interface SessionLifecycleFilesystemsReader {
-	listFilesystemIdsByAgent(db: HyperIdleDb, agentId: string): Promise<readonly string[]>;
-	listFilesystemsByIds(
-		db: HyperIdleDb,
-		ids: readonly string[],
-	): Promise<readonly SessionLifecycleFilesystemRow[]>;
-}
 
 interface SessionLifecycleServiceConnectionResolver {
 	resolve(userId: string, connectionId: string): Promise<string | null>;
 }
 
-interface SessionLifecycleResolvedMcpServer {
-	readonly name: string;
-	readonly url: string;
-	readonly bearerToken?: string;
-}
+// ---------------------------------------------------------------------------
+// connections (AU21 §9 Increment 12 follow-up part 2, F2 gap closure): the
+// former `SessionLifecycleConnectionsProvisioner` seam-shaped port is DELETED
+// entirely — `run-orchestration` holds ZERO `-> connections` read edge. The
+// owning human's held-connection list is now baked at EMIT time onto
+// `ProvisionSessionParams.injectedConnections` by every per-kind resolver
+// (`@hyperidle/connections`'s `resolveInjectedConnectionsForAgent`), the SAME
+// principle the filesystems follow-up already applied. `buildProvisioningPlan`/
+// `applyProvisioningPlan` are called directly (plain same-package import from
+// `./connection-provisioning.js`) — no port indirection needed once there is
+// no seam call left to abstract. See `connection-provisioning.ts`'s own
+// top-of-file `@lore` for the full trace.
+// ---------------------------------------------------------------------------
 
-interface SessionLifecycleProvisioningPlan {
-	readonly mcpServers: readonly SessionLifecycleResolvedMcpServer[];
-	readonly envInjections: Readonly<Record<string, string>>;
-}
-
-interface SessionLifecycleConnectionsProvisioner {
-	buildProvisioningPlan(deps: {
-		readonly db: HyperIdleDb;
-		readonly resolver: SessionLifecycleServiceConnectionResolver;
-	}): Promise<SessionLifecycleProvisioningPlan>;
-	applyProvisioningPlan(args: {
-		readonly plan: SessionLifecycleProvisioningPlan;
-		readonly sandboxPath: string;
-		readonly cliMcpDialect?: "codex-toml" | "opencode-json" | "cursor-json";
-		readonly claudeNative: boolean;
-	}): Promise<{ readonly mcpTokenEnv: Record<string, string> }>;
-}
-
-interface SessionLifecycleCostCapResult {
-	allowed: boolean;
-	level?: "agent" | "team" | "factory";
-	currentSpend?: number;
-	cap?: number;
-}
-
-interface SessionLifecycleCostAccessor {
-	checkCostCap(
-		db: HyperIdleDb,
-		eventBus: EventBus,
-		params: {
-			readonly agentId: string;
-			readonly teamId?: string;
-			readonly factoryCap?: number;
-			readonly factorySpend?: number;
-		},
-	): Promise<SessionLifecycleCostCapResult>;
-	recordCostAndCheck(
-		db: HyperIdleDb,
-		eventBus: EventBus,
-		params: {
-			readonly sessionId: string;
-			readonly costMinor?: number;
-			readonly currency?: string;
-			readonly agentId: string;
-			readonly teamId?: string;
-			readonly taskId?: string;
-			readonly factoryCap?: number;
-			readonly factorySpend?: number;
-			readonly reviewThreadId?: string;
-		},
-	): Promise<void>;
-}
 interface SessionLifecycleHarnessAdapter {
 	startSession(config: SessionConfig): Promise<SessionHandle>;
 	streamEvents(handle: SessionHandle): AsyncIterable<HarnessEvent>;
@@ -336,7 +210,7 @@ interface SessionLifecycleHarnessRuntime {
 	createReturnGate(): SessionLifecycleReturnGate;
 	evaluateReturn(
 		gate: SessionLifecycleReturnGate,
-		endReason: "completed" | "crashed" | "stopped" | "budget_exhausted",
+		endReason: "completed" | "crashed" | "stopped",
 	): "returned" | "not_returned";
 	provisionReturnHook(opts: {
 		readonly sandboxPath: string;
@@ -454,7 +328,6 @@ interface SessionLifecycleToolSummary {
 
 interface SessionLifecycleContextAssembly {
 	assembleAgentContext(input: {
-		readonly db: HyperIdleDb;
 		readonly sandboxPath: string;
 		readonly sessionId: string;
 		readonly taskId: string | null;
@@ -465,6 +338,7 @@ interface SessionLifecycleContextAssembly {
 		readonly sourceKind: AgentSessionSourceKind | null;
 		readonly sourceId: string | null;
 		readonly sourceCorrelation: AgentSessionSourceCorrelation | null;
+		readonly contextBundle?: BakedContextBundle;
 	}): Promise<SessionLifecycleContextAssemblyOutcome>;
 	beginAgentWriteback(input: {
 		readonly sandboxPath: string;
@@ -472,28 +346,6 @@ interface SessionLifecycleContextAssembly {
 		readonly manifestPath: string;
 		readonly eventBus: EventBus;
 	}): { dispose(): void };
-	buildSessionContextData(
-		db: HyperIdleDb,
-		config: {
-			sessionId: string;
-			taskId: string;
-			agentId: string;
-			agentRole: UserRole;
-			productId: string;
-		},
-		/** I0c: optional pre-fetched agent — skips the getUserById call when supplied. */
-		preloadedAgent?: { id: string; name: string; role: string },
-	): Promise<SessionLifecycleSessionContextData>;
-	buildRoutineSessionContextData(
-		db: HyperIdleDb,
-		config: {
-			sessionId: string;
-			routineId: string;
-			agentId: string;
-			agentRole: UserRole;
-			teamId: string;
-		},
-	): Promise<SessionLifecycleRoutineSessionContextData>;
 	assemblePrompt(input: {
 		readonly systemPromptText: string;
 		readonly context: SessionLifecycleSessionContextData;
@@ -572,159 +424,38 @@ interface SessionLifecyclePorts {
 		): void;
 		deregisterSessionRun(sessionId: string): void;
 	};
-	readonly routine: SessionLifecycleRoutineAccessor;
-	readonly work: SessionLifecycleWorkAccessor;
-	readonly users: SessionLifecycleUserReader;
-	readonly settings: SessionLifecycleSettingsReader;
 	readonly observability: SessionLifecycleObservability;
-	readonly filesystems: SessionLifecycleFilesystemsReader;
-	readonly connections: SessionLifecycleConnectionsProvisioner;
-	readonly cost: SessionLifecycleCostAccessor;
 	readonly harnessRuntime: SessionLifecycleHarnessRuntime;
 	readonly toolProvider: SessionLifecycleToolProvider;
 	readonly contextAssembly: SessionLifecycleContextAssembly;
 }
 
 /**
- * Revert a task that we transitioned to `in_progress` back to `accepted` when
- * provisioning fails AFTER the state transition but BEFORE the session row is
- * committed. We bypass `transitionTask` because the state machine does not
- * include a valid `in_progress -> accepted` transition — this is intentionally
- * a repair path, not a normal workflow transition. We still append an audit
- * entry (carrying the failure reason) and emit a `task_state_changed` event so
- * the revert is observable downstream.
- *
- * @lore I1 H2: the revert entry lands in `tasks.auditTrail`, not `tasks.notes`.
- * `notes` is the agent-authored prose lane; writing audit JSON there corrupts
- * it. We re-use the local `SessionLifecycleStateTransitionAuditEntry` mirror
- * shape so readers can discriminate against `HandoffAuditEntry`
- * via the `type: "handoff"` tag — a Service never imports another Service's
- * own audit-trail type, even type-only (Mechanism C).
+ * @lore AU21 §9 Increment 10a (Decision I): the `"decomposition"` sourceKind
+ * branch this function used to special-case (a bet-decomposition PM turn's
+ * "Turn this bet into concrete proposed tasks" prompt) is REMOVED — the
+ * built-in bet_decomposition mechanism no longer exists, so no session can
+ * ever be sourced from `"decomposition"` (the sourceKind is gone from
+ * `AGENT_SESSION_SOURCE_KINDS`/`AgentSessionSourceKind` itself, not merely
+ * unreachable). Every task-free session now goes through the generic
+ * `sourceSection` below.
  */
-async function revertTaskToAccepted(
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	taskId: string,
-	reason: string,
-	ports: SessionLifecyclePorts,
-): Promise<void> {
-	const task = await ports.work.getTaskById(db, taskId);
-	if (!task) return;
-	const fromState = task.state as TaskState;
-	const toState: TaskState = "accepted";
-
-	const existingAudit: SessionLifecycleTaskAuditEntry[] = task.auditTrail
-		? (JSON.parse(task.auditTrail) as SessionLifecycleTaskAuditEntry[])
-		: [];
-	const entry: SessionLifecycleStateTransitionAuditEntry = {
-		from: fromState,
-		to: toState,
-		timestamp: new Date().toISOString(),
-		reason,
-	};
-
-	await ports.work.updateTaskById(db, taskId, {
-		state: toState,
-		auditTrail: JSON.stringify([...existingAudit, entry]),
-	});
-
-	eventBus.emit({
-		type: "task_state_changed",
-		streamId: taskId,
-		taskId,
-		fromState,
-		toState,
-		timestamp: Date.now(),
-	});
-}
-
 async function assembleTaskFreePrompt(
-	db: HyperIdleDb,
+	_db: HyperIdleDb,
 	params: ProvisionSessionParams,
 	systemPromptText: string,
 	toolSummaries: readonly SessionLifecycleToolSummary[],
-	ports: SessionLifecyclePorts,
+	_ports: SessionLifecyclePorts,
 ): Promise<string> {
-	const sourceKind = params.requestContext?.sourceKind ?? "unknown";
 	const toolSection =
 		toolSummaries.length > 0
 			? `\n\n## Tools\n${toolSummaries.map((tool) => `- ${tool.name}: ${tool.description}`).join("\n")}`
 			: "";
-	if (sourceKind === "decomposition") {
-		const betId =
-			params.requestContext?.sourceCorrelation &&
-			"betId" in params.requestContext.sourceCorrelation &&
-			typeof params.requestContext.sourceCorrelation.betId === "string"
-				? params.requestContext.sourceCorrelation.betId
-				: params.requestContext?.sourceId;
-		const bet = betId ? await ports.work.getBetById(db, betId) : undefined;
-		return [
-			systemPromptText,
-			"## Bet decomposition",
-			"Turn this bet into concrete proposed tasks. Use the available task-creation tool when task creation is needed; do not invent another execution path.",
-			`Bet ID: ${betId ?? "unknown"}`,
-			`Goal: ${bet?.description ?? ""}`,
-			`Done condition: ${bet?.doneCondition ?? ""}`,
-			toolSection,
-		]
-			.filter(Boolean)
-			.join("\n\n");
-	}
 
 	const sourceSection = params.requestContext
 		? `## Session request\nSource kind: ${params.requestContext.sourceKind}\nSource ID: ${params.requestContext.sourceId}\nCorrelation: ${JSON.stringify(params.requestContext.sourceCorrelation)}`
 		: "## Session request\nTask-free session request";
 	return [systemPromptText, sourceSection, toolSection].filter(Boolean).join("\n\n");
-}
-
-/**
- * Merge the session's accumulated token counts into bets.tokensActualJson.
- *
- * Uses a read-modify-write pattern (not atomic at the DB level) which is
- * acceptable for single-founder usage. Tokens are informational — budget
- * gating uses costActualMinor which IS atomic.
- *
- * @lore R5 D4: Token accumulation happens at session teardown (not per-event)
- * because tokens arrive as token_usage events (separate from cost_update) and
- * batching them at session end is far cheaper than a per-event read-modify-write.
- * Cost accumulation is per-event (recordCostAndCheck); token accumulation is
- * per-session. Do NOT re-increment costActualMinor here — that is done by
- * recordCostAndCheck per-event (D3). This function ONLY writes tokensActualJson.
- */
-async function accumulateSessionTokensOnBet(
-	db: HyperIdleDb,
-	taskId: string,
-	accumulatedTokens: Partial<Record<string, { prompt: number; completion: number }>>,
-	ports: SessionLifecyclePorts,
-): Promise<void> {
-	if (Object.keys(accumulatedTokens).length === 0) return;
-
-	const task = await ports.work.getTaskById(db, taskId);
-	if (!task?.betId) return;
-
-	const bet = await ports.work.getBetById(db, task.betId);
-
-	const existing: Record<string, { prompt: number; completion: number }> = bet?.tokensActualJson
-		? ((
-				JSON.parse(bet.tokensActualJson) as {
-					byTier: Record<string, { prompt: number; completion: number }>;
-				}
-			).byTier ?? {})
-		: {};
-
-	const merged: Record<string, { prompt: number; completion: number }> = { ...existing };
-	for (const [tier, counts] of Object.entries(accumulatedTokens)) {
-		if (!counts) continue;
-		const ex = merged[tier] ?? { prompt: 0, completion: 0 };
-		merged[tier] = {
-			prompt: ex.prompt + counts.prompt,
-			completion: ex.completion + counts.completion,
-		};
-	}
-
-	await ports.work.updateBetById(db, task.betId, {
-		tokensActualJson: JSON.stringify({ byTier: merged }),
-	});
 }
 
 /**
@@ -765,73 +496,11 @@ const PROVISIONER_EMITTED_FILES = [".mcp.json"] as const;
  */
 
 // ── AO2 — Phase 4.5 mount + teardown capture-back helpers ────────────────────
-
-/**
- * AO2 Hook A: Resolve the agent's injected filesystems and mount each into sandboxPath.
- *
- * Called in admitSession Phase 4.5 (AFTER sandbox spawn, BEFORE context assembly).
- * Returns the list of successfully-mounted Filesystem records — stored on AdmittedSession
- * so the teardown helper (Hook B) can capture them without a second DB query.
- *
- * Mount failures are best-effort: a failed mount logs a warning and is EXCLUDED from
- * the returned list. The session continues without that filesystem (degrade-to-today).
- *
- * @lore AO2 §9: Mount BEFORE context assembly so .git/info/exclude is written before
- * assembly drops scaffolding into the directory. A filesystem-less session → empty list,
- * no mounts, no capture rows — purely non-breaking for existing sessions.
- */
-async function mountFilesystemsForAgent(
-	db: HyperIdleDb,
-	agentId: string,
-	sandboxPath: string,
-	mounter: FilesystemMounter,
-	ports: SessionLifecyclePorts,
-): Promise<Filesystem[]> {
-	// Resolve injected filesystems: sessions.agentId → filesystem_injections → filesystems.
-	const fsIds = await ports.filesystems.listFilesystemIdsByAgent(db, agentId);
-
-	if (fsIds.length === 0) return [];
-
-	const rows = await ports.filesystems.listFilesystemsByIds(db, fsIds);
-
-	if (rows.length === 0) return [];
-
-	// Parse DB rows into Filesystem domain objects.
-	const fsList: Filesystem[] = rows.map((row) => ({
-		id: row.id,
-		teamId: row.teamId,
-		source: row.source as Filesystem["source"],
-		kind: row.kind as Filesystem["kind"],
-		connectionId: row.connectionId ?? null,
-		resourceRef: JSON.parse(row.resourceRef) as Filesystem["resourceRef"],
-		writeback: row.writeback as Filesystem["writeback"],
-		state: row.state as Filesystem["state"],
-		createdAt: row.createdAt,
-	}));
-
-	// Mount each filesystem; collect the ones that succeed.
-	const mounted: Filesystem[] = [];
-	for (const filesystem of fsList) {
-		try {
-			const result = await mounter.mount({ filesystem, sandboxPath, auth: null });
-			if (result.success) {
-				mounted.push(filesystem);
-			} else {
-				// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
-				console.warn(
-					`[session-provisioning] AO2 mount failed for filesystem ${filesystem.id}: ${result.error ?? "unknown"}`,
-				);
-			}
-		} catch (err) {
-			// biome-ignore lint/suspicious/noConsole: observability adapter not yet stood up
-			console.warn(
-				`[session-provisioning] AO2 mount threw for filesystem ${filesystem.id}: ${err instanceof Error ? err.message : String(err)}`,
-			);
-		}
-	}
-
-	return mounted;
-}
+//
+// @lore AU21 §9 Increment 8 (Decision F2): the mount operation itself
+// (`mountFilesystemsForAgent`) relocated wholesale into this package's own
+// `filesystem-provisioning.ts` (imported above) — only the seam-facing
+// `SessionLifecycleFilesystemsReader` port type stays declared in this file.
 
 /**
  * AO2 Hook B: Capture-back mounted filesystems before endSession/crashSession.
@@ -946,10 +615,81 @@ interface ProvisionSessionParams {
 	};
 	/**
 	 * AA2: When set, this session is a routine session. The provisioning orchestrator
-	 * will use routine context (buildRoutineSessionContextData + composeRoutinePrompt)
+	 * will use routine context (routineSessionContextDataFromBundle + assembleRoutinePrompt)
 	 * instead of task/bet context, and will populate sessions.routineId.
 	 */
 	readonly routineId?: string;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3) — the baked entity+knowledge bundle
+	 * this session's sandbox context (Phase 6) and prompt persona (Phase 8.5)
+	 * are built from — `kind:"task"` for `task_run`/`reengagement`,
+	 * `kind:"routine"` for `routine_run`. Sourced from the emit-time resolver
+	 * via the drained `AgentSessionRequest.payloadJson` (zero db read here).
+	 * Absent for `knowledge_action`/`session_start`/conversational turns.
+	 */
+	readonly contextBundle?: BakedContextBundle;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave E — the target agent's
+	 * runnable-CONFIG snapshot, baked at EMIT time by every per-kind resolver
+	 * (all six intent kinds) from the SAME `agent: User` row
+	 * `requireRunnableAgent` already loaded + validated there (no new read —
+	 * the exact H2/Increment 11 precedent `assistant-turn-resolver.ts`'s
+	 * `modelId`/`modelProvider` bake already established). `role`/
+	 * `systemPrompt`/`modelTierPreference`/`harnessType`/`modelProvider`/
+	 * `maxConcurrentSessions`/`teamId` all come from THIS baked snapshot —
+	 * staleness there is a UX/efficiency concern only.
+	 *
+	 * **`kind`/`status` are DEFENSE-IN-DEPTH ONLY, never a live authority gate**
+	 * (founder-final, third pass — see this file's top-of-file Wave E `@lore`
+	 * for the full trace): a resolver's `requireRunnableAgent` call guarantees
+	 * this snapshot's `kind`/`status` are ALWAYS runnable at emit time, so
+	 * re-checking them here can only catch a resolver bug, never a real
+	 * emit→deactivate→drain race — and no live/pushed mechanism replaces it,
+	 * by founder ruling (orchestration never initiates work on its own, so
+	 * there is nothing for it to independently re-verify). A mismatch here
+	 * signals a resolver bug, not a race, and is still a hard provisioning
+	 * failure either way — same throw (`TargetAgentNotRunnableError`), same
+	 * `agent_run_admission_failed` pre-handoff reporting channel
+	 * (`runtime.ts`'s `reportPreAdmissionProvisioningFailure`). See
+	 * `admitSession`'s Phase 1 for the check. Required for every durable
+	 * (request-mediated) session; absent only on the `one-shot` mode
+	 * (eval/direct-test seam — see `@hyperidle/eval`'s `provision-harness.ts`,
+	 * which sources its own snapshot the same way, one level up the call
+	 * stack), where its absence is a hard provisioning failure, not a silent
+	 * allow.
+	 */
+	readonly agentConfig?: BakedAgentRunnableConfig;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave E — the server's
+	 * disabled-harness-types list, baked at emit time (global `settings`
+	 * config, not per-agent) so Phase 3's adapter-selection filter no longer
+	 * needs a live `ports.settings.readServerConfig` read. Absent defaults to
+	 * "nothing disabled" (matches the settings row's own empty-array default)
+	 * — unlike `agentConfig`, this is not a security gate, so a missing bake
+	 * degrades gracefully rather than hard-failing.
+	 */
+	readonly harnessDisabled?: readonly string[];
+	/**
+	 * AU21 §9 Increment 12 follow-up (F2 gap closure) — the target agent's
+	 * injected-filesystems list, baked at EMIT time by every per-kind resolver
+	 * via `@hyperidle/filesystems`'s `resolveInjectedFilesystemsForAgent`
+	 * (reusing the SAME `requireRunnableAgent`-resolved agentId each resolver
+	 * already has in hand). Phase 4.5 mounts directly from this list — ZERO
+	 * live `-> filesystems` read at provisioning time. Absent/empty means "no
+	 * injected filesystems", matching the seam-based lookup's own empty-list
+	 * behavior unchanged.
+	 */
+	readonly injectedFilesystems?: readonly FilesystemForProvisioning[];
+	/**
+	 * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure): the owning
+	 * human's held-connection list, baked at EMIT time by every per-kind
+	 * resolver via `@hyperidle/connections`'s
+	 * `resolveInjectedConnectionsForAgent`. Phase 8b-connections builds the
+	 * provisioning plan directly from this list — ZERO live `-> connections`
+	 * read at provisioning time. Absent means "no held connections", matching
+	 * the former seam call's own empty-list behavior unchanged.
+	 */
+	readonly injectedConnections?: HeldConnectionsForProvisioning;
 	/**
 	 * AL7 Task 6: When set, the registry invoke router participates in the
 	 * trust-first review workflow for this session.
@@ -988,9 +728,7 @@ interface ProvisionSessionParams {
 
 interface ProvisionSessionResult {
 	readonly sessionId: string;
-	/** AA3: widened to include "budget_exhausted" for per-run cap enforcement. */
-	readonly outcome: SessionOutcome | "budget_exhausted";
-	readonly totalCostCents: number;
+	readonly outcome: SessionOutcome;
 	readonly taskId: string | null;
 	/**
 	 * AL6: Return-gate verdict for this session run. Present on all task-session
@@ -1034,29 +772,25 @@ interface AdmittedSession {
 	readonly selectedAdapter: SessionLifecycleSelectedEntry;
 	readonly harness: SessionLifecycleHarnessAdapter;
 	readonly adapterId: string;
-	readonly routinePerRunCap: number | null;
 	/**
 	 * AO2: Filesystems that were successfully mounted in Phase 4.5 for this session.
 	 */
 	readonly mountedFilesystems: Filesystem[];
-	/**
-	 * I0c: Agent identity preloaded by admitSession Phase 1 (getUserById).
-	 * Passed to buildSessionContextData to skip the duplicate getUserById call
-	 * that context assembly would otherwise make moments later.
-	 */
-	readonly preloadedAgent: { readonly id: string; readonly name: string; readonly role: string };
 }
 
 /**
  * AF7 §2 — Admit a session synchronously (phases 1-7).
  *
- * Runs the HTTP-observable prefix: load agent, cost pre-flight (P2), adapter
+ * Runs the HTTP-observable prefix: load agent, adapter
  * select + concurrency check (P3), **resolvedModel presence guard (WARNING-2,
  * pre-P5)**, task transition, workspace spawn (P4), session row insert (P5),
  * context assembly (P6), start watcher (P7), emit `session_started`. ALL admission
- * failures (CostCapExceeded 422 / ConcurrencyLimit 429 / MissingCredential 500)
+ * failures (ConcurrencyLimit 429 / MissingCredential 500)
  * throw BEFORE the P5 row insert — the detach boundary — so they map to HTTP
  * status on the POST path and never leave a doomed row.
+ * @lore AU21 Increment 14a: the cost-cap pre-flight (was Phase 2, `CostCapExceeded`
+ * 422) is deleted — no replacement gate. Phase numbering below keeps its
+ * historical P3/P4/... labels rather than renumbering.
  */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: admission coordinates multi-phase pre-flight with error handling
 async function admitSession(
@@ -1072,19 +806,40 @@ async function admitSession(
 ): Promise<AdmittedSession> {
 	const { db, eventBus, adapterPool, workspace } = deps;
 
-	// ── Phase 1: load agent
-	const agent = await ports.users.getUserById(db, params.agentId);
-	if (!agent) {
-		throw new Error(`Agent not found: ${params.agentId}`);
+	// ── Phase 1: consume the baked agent-CONFIG snapshot. NO live re-check of
+	// any kind (founder-final, third pass — see this file's top-of-file Wave E
+	// `@lore` for the full trace of why the live re-check/event/subscriber
+	// mechanisms explored in earlier passes are all deliberately absent here).
+	const agentConfig = params.agentConfig;
+	// @lore AU21 §12 (RE-CORRECTED, founder, 2026-08-01): the
+	// emit→deactivate→drain race needs NO mechanism — orchestration never
+	// initiates work on its own; every unit of work originates from a request
+	// core already sent, so there is nothing for it to independently
+	// re-verify. `agentConfig` absent entirely is treated the same as a
+	// deactivated agent — every real durable path bakes it (Wave E, all six
+	// intent kinds); a missing bake is a hard provisioning failure, never a
+	// silent allow. Reported back via the same pre-handoff
+	// `agent_run_admission_failed` channel — see `runtime.ts`'s
+	// `runClaimedRequest` catch, `failureCode: "TARGET_AGENT_NOT_RUNNABLE"`.
+	if (!agentConfig) {
+		throw new TargetAgentNotRunnableError(params.agentId);
 	}
-	const agentRole = agent.role;
-	const teamId = agent.teamId ?? undefined;
+	// Defense-in-depth ONLY, never a live authority gate: the baked
+	// `kind`/`status` should always be runnable (every resolver validates via
+	// `requireRunnableAgent` before baking) — a mismatch here signals a
+	// resolver bug, not a race, and is still a hard provisioning failure
+	// either way. There is no further live read after this.
+	if (agentConfig.kind !== "ai" || !["active", "idle"].includes(agentConfig.status)) {
+		throw new TargetAgentNotRunnableError(params.agentId);
+	}
+	const agentRole = agentConfig.role;
+	const teamId = agentConfig.teamId ?? undefined;
 
-	// X3: Read system prompt inline from DB column. No file read required.
-	const systemPromptText = agent.systemPrompt ?? "";
+	// X3: system prompt from the baked snapshot. No file read required.
+	const systemPromptText = agentConfig.systemPrompt ?? "";
 
 	// X3: Model tier priority: explicit param > agent preference > default "workhorse".
-	const rawPreference = agent.modelTierPreference;
+	const rawPreference = agentConfig.modelTierPreference;
 	const agentPreference =
 		rawPreference !== null &&
 		rawPreference !== undefined &&
@@ -1093,39 +848,25 @@ async function admitSession(
 			: null;
 	const modelTier: ModelTier = params.modelTier ?? agentPreference ?? "workhorse";
 
-	// ── Phase 2: cost cap pre-flight. Throws before any DB writes.
-	const capResult = await ports.cost.checkCostCap(db, eventBus, {
-		agentId: params.agentId,
-		teamId,
-		factoryCap: params.factoryCap,
-		factorySpend: params.factorySpend,
-	});
-	if (!capResult.allowed) {
-		throw new CostCapExceededError(
-			capResult.level === "factory"
-				? "factory"
-				: capResult.level === "team"
-					? (teamId ?? "team")
-					: params.agentId,
-			capResult.currentSpend ?? 0,
-			capResult.cap ?? 0,
-		);
-	}
-
 	// ── Phase 3: adapter selection + concurrency check + task transition.
-	const { harnessDisabled } = await ports.settings.readServerConfig(db);
+	// Wave E: `harnessDisabled` comes from the baked request (no live
+	// `ports.settings.readServerConfig` read) — absent defaults to "nothing
+	// disabled", matching the settings row's own empty-array default.
+	const harnessDisabled = params.harnessDisabled ?? [];
 	const selectRequirements = {
-		harnessType: agent.harnessType ?? undefined,
-		...(agent.modelProvider ? { modelProviders: [agent.modelProvider] as readonly string[] } : {}),
+		harnessType: agentConfig.harnessType ?? undefined,
+		...(agentConfig.modelProvider
+			? { modelProviders: [agentConfig.modelProvider] as readonly string[] }
+			: {}),
 		disabledTypes: harnessDisabled as readonly string[],
 	};
 	const selectedAdapter = adapterPool.select(selectRequirements);
 	if (!selectedAdapter) {
-		if (agent.harnessType) {
-			throw new NoEligibleHarnessError(agent.harnessType);
+		if (agentConfig.harnessType) {
+			throw new NoEligibleHarnessError(agentConfig.harnessType);
 		}
 		throw new Error(
-			`No available adapter in pool — all adapters are at capacity${agent.harnessType ? ` (harnessType: ${agent.harnessType})` : ""}`,
+			`No available adapter in pool — all adapters are at capacity${agentConfig.harnessType ? ` (harnessType: ${agentConfig.harnessType})` : ""}`,
 		);
 	}
 	const harness = selectedAdapter.adapter;
@@ -1146,9 +887,9 @@ async function admitSession(
 		.from(sessions)
 		.where(activeCountWhere)
 		.limit(1);
-	if ((activeCount?.count ?? 0) >= agent.maxConcurrentSessions) {
+	if ((activeCount?.count ?? 0) >= agentConfig.maxConcurrentSessions) {
 		adapterPool.release(adapterId);
-		throw new ConcurrencyLimitError(params.agentId, agent.maxConcurrentSessions);
+		throw new ConcurrencyLimitError(params.agentId, agentConfig.maxConcurrentSessions);
 	}
 
 	// AF7 §2 (WARNING-2): resolvedModel presence guard — synchronous, pre-P5.
@@ -1163,123 +904,118 @@ async function admitSession(
 		);
 	}
 
-	// AD2: Only transition if not already in_progress (handoff re-dispatch path).
-	if (params.taskId) {
-		const taskForTransition = await ports.work.getTaskById(db, params.taskId);
-		if (taskForTransition && taskForTransition.state !== "in_progress") {
-			await ports.work.transitionTask(db, eventBus, params.taskId, "in_progress");
-		}
-	}
+	// AU21 §9 Increment 12 (Decision H3), Wave D: the AD2 "only transition if
+	// not already in_progress" guard moved core-side — a task's `in_progress`
+	// transition now fires as a `session_started` reaction
+	// (`core-api/src/services/work-session-started-reactions.ts`), AFTER
+	// phases 4-7 below commit the session row, instead of here before them.
 
 	// ── Phases 4-7 (wrapped): spawn workspace → insert session row →
-	// context assembly → start watcher. If any step throws before the session row
-	// is committed AND before the harness starts, revert the task back to
-	// `accepted` so a transient failure does not permanently strand it.
+	// context assembly → start watcher. If any step throws here, the session
+	// row/harness never fully launched — see the AU21 Wave D note above
+	// `SessionLifecycleWorkAccessor`'s deletion for why no task-state revert
+	// is needed: the task's `in_progress` transition itself only fires
+	// reactively on `session_started`, emitted AFTER this block succeeds, so
+	// a failure in this window never transitioned the task away from
+	// `accepted`/`blocked` in the first place.
 	let sessionId: string;
-	let sandboxHandle: SessionLifecycleSandboxHandle;
 	let sandboxPath: string;
-	let ingestion: IngestionHandle;
 	let mountedFilesystems: Filesystem[] = [];
-	try {
-		// ── Phase 4: spawn sandbox via adapter.
-		sandboxHandle = await workspace.spawn(params.sandboxBasePath);
-		sandboxPath = sandboxHandle.path;
+	// ── Phase 4: spawn sandbox via adapter.
+	const sandboxHandle: SessionLifecycleSandboxHandle = await workspace.spawn(
+		params.sandboxBasePath,
+	);
+	sandboxPath = sandboxHandle.path;
 
-		// ── Phase 5: insert session row.
-		const [reservedSession] = params.requestContext
-			? await db
-					.select()
-					.from(sessions)
-					.where(eq(sessions.requestId, params.requestContext.requestId))
-					.limit(1)
-			: [undefined];
-		sessionId = reservedSession?.id ?? randomUUID();
-		const startedAt = new Date().toISOString();
-		const sessionValues = {
-			id: sessionId,
-			taskId: params.taskId,
-			...(params.requestContext
-				? {
-						requestId: params.requestContext.requestId,
-						sourceKind: params.requestContext.sourceKind,
-						sourceId: params.requestContext.sourceId,
-						sourceCorrelationJson: JSON.stringify(params.requestContext.sourceCorrelation),
-					}
-				: {}),
-			agentId: params.agentId,
-			modelTier,
-			startedAt,
-			state: "active",
-			sandboxSnapshot: sandboxPath,
-			// AA2: populate routineId when this is a routine session.
-			...(params.routineId ? { routineId: params.routineId } : {}),
-		};
-		if (reservedSession) {
-			await db
-				.update(sessions)
-				.set({ ...sessionValues, id: undefined })
-				.where(eq(sessions.id, reservedSession.id));
-		} else {
-			await db.insert(sessions).values(sessionValues);
-		}
+	// ── Phase 5: insert session row.
+	const [reservedSession] = params.requestContext
+		? await db
+				.select()
+				.from(sessions)
+				.where(eq(sessions.requestId, params.requestContext.requestId))
+				.limit(1)
+		: [undefined];
+	sessionId = reservedSession?.id ?? randomUUID();
+	const startedAt = new Date().toISOString();
+	const sessionValues = {
+		id: sessionId,
+		taskId: params.taskId,
+		...(params.requestContext
+			? {
+					requestId: params.requestContext.requestId,
+					sourceKind: params.requestContext.sourceKind,
+					sourceId: params.requestContext.sourceId,
+					sourceCorrelationJson: JSON.stringify(params.requestContext.sourceCorrelation),
+				}
+			: {}),
+		agentId: params.agentId,
+		modelTier,
+		startedAt,
+		state: "active",
+		sandboxSnapshot: sandboxPath,
+		// AA2: populate routineId when this is a routine session.
+		...(params.routineId ? { routineId: params.routineId } : {}),
+	};
+	if (reservedSession) {
+		await db
+			.update(sessions)
+			.set({ ...sessionValues, id: undefined })
+			.where(eq(sessions.id, reservedSession.id));
+	} else {
+		await db.insert(sessions).values(sessionValues);
+	}
 
-		// ── Phase 4.5: mount injected filesystems (AO2).
-		if (deps.mounter) {
-			mountedFilesystems = await mountFilesystemsForAgent(
-				db,
-				params.agentId,
-				sandboxPath,
-				deps.mounter,
-				ports,
-			);
-		}
+	// ── Phase 4.5: mount injected filesystems (AO2). AU21 §9 Increment 12
+	// follow-up (F2 gap closure): mounts from the BAKED `params.injectedFilesystems`
+	// list — ZERO live seam read at provisioning time (see this file's own
+	// top-of-file `filesystems` `@lore`).
+	if (deps.mounter) {
+		mountedFilesystems = await mountFilesystemsForAgent({
+			injectedFilesystems: params.injectedFilesystems ?? [],
+			sandboxPath,
+			mounter: deps.mounter,
+		});
+	}
 
-		// ── Phase 6: assemble context into the sandbox through the agent layer.
-		if (params.taskId) {
-			await ports.contextAssembly.assembleAgentContext({
-				db,
-				sandboxPath,
-				sessionId,
-				taskId: params.taskId,
-				agentId: params.agentId,
-				agentRole,
-				teamId: params.productId,
-				isRoutine: !!params.routineId,
-				sourceKind: params.requestContext?.sourceKind ?? null,
-				sourceId: params.requestContext?.sourceId ?? null,
-				sourceCorrelation: params.requestContext?.sourceCorrelation ?? null,
-			});
-		} else if (params.requestContext) {
-			await ports.contextAssembly.assembleAgentContext({
-				db,
-				sandboxPath,
-				sessionId,
-				taskId: null,
-				agentId: params.agentId,
-				agentRole,
-				teamId: params.productId,
-				isRoutine: !!params.routineId,
-				sourceKind: params.requestContext.sourceKind,
-				sourceId: params.requestContext.sourceId,
-				sourceCorrelation: params.requestContext.sourceCorrelation,
-			});
-		}
-
-		// ── Phase 7: begin writeback ingestion.
-		const manifestPath = path.join(sandboxPath, ".fabric/manifest.json");
-		ingestion = ports.contextAssembly.beginAgentWriteback({
+	// ── Phase 6: assemble context into the sandbox through the agent layer.
+	if (params.taskId) {
+		await ports.contextAssembly.assembleAgentContext({
 			sandboxPath,
 			sessionId,
-			manifestPath,
-			eventBus,
+			taskId: params.taskId,
+			agentId: params.agentId,
+			agentRole,
+			teamId: params.productId,
+			isRoutine: !!params.routineId,
+			sourceKind: params.requestContext?.sourceKind ?? null,
+			sourceId: params.requestContext?.sourceId ?? null,
+			sourceCorrelation: params.requestContext?.sourceCorrelation ?? null,
+			contextBundle: params.contextBundle,
 		});
-	} catch (err) {
-		const reason = `provisioning failed: ${err instanceof Error ? err.message : String(err)}`;
-		if (params.taskId) {
-			await revertTaskToAccepted(db, eventBus, params.taskId, reason, ports);
-		}
-		throw err;
+	} else if (params.requestContext) {
+		await ports.contextAssembly.assembleAgentContext({
+			sandboxPath,
+			sessionId,
+			taskId: null,
+			agentId: params.agentId,
+			agentRole,
+			teamId: params.productId,
+			isRoutine: !!params.routineId,
+			sourceKind: params.requestContext.sourceKind,
+			sourceId: params.requestContext.sourceId,
+			sourceCorrelation: params.requestContext.sourceCorrelation,
+			contextBundle: params.contextBundle,
+		});
 	}
+
+	// ── Phase 7: begin writeback ingestion.
+	const manifestPath = path.join(sandboxPath, ".fabric/manifest.json");
+	const ingestion: IngestionHandle = ports.contextAssembly.beginAgentWriteback({
+		sandboxPath,
+		sessionId,
+		manifestPath,
+		eventBus,
+	});
 
 	// Emit session_started now that the workspace is ready.
 	eventBus.emit({
@@ -1313,13 +1049,6 @@ async function admitSession(
 		...(params.routineId ? { routineId: params.routineId } : {}),
 	};
 
-	// AA3: Read per-run cost cap once at admission time for routine sessions.
-	let routinePerRunCap: number | null = null;
-	if (params.routineId) {
-		const routineRow = await ports.routine.getRoutineById(db, params.routineId);
-		routinePerRunCap = routineRow?.costCapPerRunMinor ?? null;
-	}
-
 	return {
 		sessionId,
 		sessionContext,
@@ -1333,12 +1062,7 @@ async function admitSession(
 		selectedAdapter,
 		harness,
 		adapterId,
-		routinePerRunCap,
 		mountedFilesystems,
-		// I0c: capture the identity fields already fetched in Phase 1 so
-		// runSession can forward them to buildSessionContextData, skipping the
-		// duplicate getUserById call inside context assembly.
-		preloadedAgent: { id: agent.id, name: agent.name, role: agent.role },
 	};
 }
 
@@ -1386,7 +1110,6 @@ async function runSession(
 		selectedAdapter,
 		harness,
 		adapterId,
-		routinePerRunCap,
 		mountedFilesystems,
 	} = admitted;
 
@@ -1479,22 +1202,45 @@ async function runSession(
 						.join("\n")
 				: "";
 		assembledPrompt = composedPrompt + transcriptSection;
-	} else if (params.routineId) {
-		// Routine session: read routine + agent + team context (no task/bet).
-		const routineContextData = await ports.contextAssembly.buildRoutineSessionContextData(db, {
-			sessionId,
-			routineId: params.routineId,
-			agentId: params.agentId,
-			agentRole,
-			teamId: params.productId,
-		});
+	} else if (params.routineId && params.contextBundle?.kind === "routine") {
+		// AU21 §9 Increment 12 (Decision H3): routine session — derive
+		// routine+agent+team context from the baked `kind:"routine"` bundle,
+		// ZERO db read (the routine/org reads this used to make via
+		// `buildRoutineSessionContextData` are gone).
+		const routineContextData = routineSessionContextDataFromBundle(params.contextBundle);
 		({ assembledPrompt } = await ports.contextAssembly.assembleRoutinePrompt({
 			systemPromptText: effectiveSystemPromptText,
 			context: routineContextData,
 			tools: toolSummaries,
 			sandboxPath,
 		}));
-	} else if (params.requestContext) {
+	} else if (
+		params.taskId &&
+		!params.routineId &&
+		!params.requestContext &&
+		params.contextBundle?.kind === "task"
+	) {
+		// AU21 §9 Increment 12 (Decision H3): normal (non-durable, no
+		// requestContext) task session — derive task+bet+agent+team context
+		// from the baked `kind:"task"` bundle, ZERO db read (the task/bet/
+		// users/org reads this used to make via `buildSessionContextData` are
+		// gone).
+		const sessionContextData = sessionContextDataFromBundle(params.contextBundle);
+		({ assembledPrompt } = await ports.contextAssembly.assemblePrompt({
+			systemPromptText: effectiveSystemPromptText,
+			context: sessionContextData,
+			tools: toolSummaries,
+			sandboxPath,
+		}));
+	} else {
+		// AU21 §9 Increment 12 (Decision H3): every durable session (the
+		// primary production path — `requestContext` is always set by
+		// `consumeAgentSessionRequest`) already took this generic, db-free
+		// branch pre-migration regardless of source kind (unchanged here) —
+		// this is also the graceful fallback for a routine/task session whose
+		// emit-time resolver hasn't been wired with the optional contextBundle
+		// deps yet (`getTeamById`/`assembleSessionKnowledge`), so a wiring gap
+		// degrades to a plain prompt instead of crashing the session.
 		assembledPrompt = await assembleTaskFreePrompt(
 			db,
 			params,
@@ -1502,30 +1248,6 @@ async function runSession(
 			toolSummaries,
 			ports,
 		);
-	} else {
-		// Normal task session: read task + bet + agent + team context.
-		if (!params.taskId) {
-			throw new Error("Task session provisioning requires taskId");
-		}
-		// I0c: pass the agent preloaded in admitSession Phase 1, skipping the
-		// duplicate getUserById that buildSessionContextData would otherwise issue.
-		const sessionContextData = await ports.contextAssembly.buildSessionContextData(
-			db,
-			{
-				sessionId,
-				taskId: params.taskId,
-				agentId: params.agentId,
-				agentRole,
-				productId: params.productId,
-			},
-			admitted.preloadedAgent,
-		);
-		({ assembledPrompt } = await ports.contextAssembly.assemblePrompt({
-			systemPromptText: effectiveSystemPromptText,
-			context: sessionContextData,
-			tools: toolSummaries,
-			sandboxPath,
-		}));
 	}
 
 	ports.contextAssembly.writeSandboxAgentsMd(sandboxPath, assembledPrompt);
@@ -1605,13 +1327,16 @@ async function runSession(
 	}
 
 	// ── Phase 8b-connections: AN2 Connection provisioning (parallel to inbound bridge).
+	// AU21 §9 Increment 12 follow-up part 2 (F2 gap closure): builds the plan
+	// directly from the BAKED `params.injectedConnections` — no seam reader,
+	// no `ports.connections` indirection (the port is deleted entirely).
 	if (serviceConnectionResolver) {
 		try {
-			const plan = await ports.connections.buildProvisioningPlan({
-				db,
+			const plan = await buildProvisioningPlan({
+				heldConnections: params.injectedConnections,
 				resolver: serviceConnectionResolver,
 			});
-			const { mcpTokenEnv: connEnv } = await ports.connections.applyProvisioningPlan({
+			const { mcpTokenEnv: connEnv } = await applyProvisioningPlan({
 				plan,
 				sandboxPath,
 				cliMcpDialect: adapterCapabilities.cliMcpDialect,
@@ -1659,10 +1384,7 @@ async function runSession(
 		exempt,
 	});
 
-	let totalCostCents = 0;
 	let crashed = false;
-	/** AA3: set to true when per-run cost cap is hit; breaks the event loop gracefully. */
-	let budgetExhausted = false;
 	/** L17: accumulated tokens by tier for the session's tokensJson column. */
 	const accumulatedTokens: Partial<Record<ModelTier, { prompt: number; completion: number }>> = {};
 
@@ -1743,28 +1465,7 @@ async function runSession(
 					if (aborted) {
 						break;
 					}
-					if (event.type === "cost_update") {
-						const delta = Math.max(0, event.deltaCost);
-						const currency = event.currency ?? "USD";
-						const scale = 10 ** scaleForCurrency(currency);
-						const deltaMinor = Math.round(delta * scale);
-						totalCostCents += deltaMinor;
-						if (routinePerRunCap != null && totalCostCents >= routinePerRunCap) {
-							budgetExhausted = true;
-							break;
-						}
-						await ports.cost.recordCostAndCheck(db, eventBus, {
-							sessionId,
-							costMinor: deltaMinor,
-							currency,
-							agentId: params.agentId,
-							teamId,
-							...(params.taskId ? { taskId: params.taskId } : {}),
-							factoryCap: params.factoryCap,
-							factorySpend: params.factorySpend,
-							reviewThreadId: params.reviewThreadId,
-						});
-					} else if (event.type === "token_usage") {
+					if (event.type === "token_usage") {
 						const tier: ModelTier = event.tier ?? modelTier;
 						const existing = accumulatedTokens[tier];
 						accumulatedTokens[tier] = {
@@ -1858,64 +1559,14 @@ async function runSession(
 				target: "session",
 				context: sessionContext,
 				disposition: "crash",
-				costInCents: totalCostCents,
-				baselineCost: 0,
+				...(params.taskId ? { tokensByTier: accumulatedTokens } : {}),
 			},
 		);
-		if (params.taskId) {
-			await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens, ports);
-		}
 		const returnVerdict = ports.harnessRuntime.evaluateReturn(returnGate, "crashed");
 		ports.harnessRuntime.enforcementRegistry.unregister(sessionId);
 		return {
 			sessionId,
 			outcome: "crashed",
-			totalCostCents,
-			taskId: params.taskId,
-			returnVerdict,
-			forceReturnCount: computeForceReturnCount(),
-			...(metrics ? { metrics } : {}),
-		};
-	}
-
-	// AA3: Per-run cap hit — end the session gracefully and record budget_exhausted outcome.
-	if (budgetExhausted) {
-		if (sessionContext.requestContext) {
-			await transitionRun(
-				{ db, eventBus, ports },
-				{
-					target: "request",
-					intent: "request-termination",
-					requestId: sessionContext.requestContext.requestId,
-					reason: "cost_cap",
-				},
-			);
-		}
-		// ── Hook B: capture-back before budget_exhausted teardown (AO2 §9).
-		if (deps.mounter && mountedFilesystems.length > 0) {
-			await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);
-		}
-		await transitionRun(
-			{ db, eventBus, ports },
-			{
-				target: "session",
-				context: sessionContext,
-				disposition: "end",
-				costInCents: totalCostCents,
-				baselineCost: 0,
-				routineOutcome: "budget_exhausted",
-			},
-		);
-		if (params.taskId) {
-			await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens, ports);
-		}
-		await workspace.destroy(sandboxHandle);
-		const returnVerdict = ports.harnessRuntime.evaluateReturn(returnGate, "budget_exhausted");
-		ports.harnessRuntime.enforcementRegistry.unregister(sessionId);
-		return {
-			sessionId,
-			outcome: "budget_exhausted",
-			totalCostCents,
 			taskId: params.taskId,
 			returnVerdict,
 			forceReturnCount: computeForceReturnCount(),
@@ -1956,21 +1607,16 @@ async function runSession(
 				target: "session",
 				context: sessionContext,
 				disposition: "end",
-				costInCents: totalCostCents,
-				baselineCost: 0,
 				terminalOutcome: "not_returned",
+				...(params.taskId ? { tokensByTier: accumulatedTokens } : {}),
 			},
 		);
-		if (params.taskId) {
-			await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens, ports);
-		}
 		await workspace.destroy(sandboxHandle);
 		const notReturnedForceCount = computeForceReturnCount();
 		ports.harnessRuntime.enforcementRegistry.unregister(sessionId);
 		return {
 			sessionId,
 			outcome: "not_returned",
-			totalCostCents,
 			taskId: params.taskId,
 			returnVerdict,
 			forceReturnCount: notReturnedForceCount,
@@ -1988,13 +1634,9 @@ async function runSession(
 			target: "session",
 			context: sessionContext,
 			disposition: "end",
-			costInCents: totalCostCents,
-			baselineCost: 0,
+			...(params.taskId ? { tokensByTier: accumulatedTokens } : {}),
 		},
 	);
-	if (params.taskId) {
-		await accumulateSessionTokensOnBet(db, params.taskId, accumulatedTokens, ports);
-	}
 	await workspace.destroy(sandboxHandle);
 	ports.harnessRuntime.enforcementRegistry.unregister(sessionId);
 
@@ -2005,7 +1647,6 @@ async function runSession(
 	return {
 		sessionId,
 		outcome: "completed",
-		totalCostCents,
 		taskId: params.taskId,
 		returnVerdict,
 		forceReturnCount: computeForceReturnCount(),
@@ -2047,8 +1688,6 @@ async function startSessionProvision(
 						target: "session",
 						context: admitted.sessionContext,
 						disposition: "crash",
-						costInCents: 0,
-						baselineCost: 0,
 					},
 				);
 			} catch (teardownErr) {
@@ -2113,9 +1752,15 @@ interface Provisioner {
 		deps: ProvisionSessionDeps,
 		params: ProvisionSessionParams,
 	): ReturnType<typeof startSessionProvision>;
+	/**
+	 * AU21 §9 Increment 12 follow-up (F2 gap closure): takes the agent's
+	 * already-BAKED `injectedFilesystems` list directly (no `agentId`
+	 * parameter, no live seam read) — `mountFilesystemsForAgent` no longer
+	 * reads back through a `filesystems` port at all. See
+	 * `filesystem-provisioning.ts`'s own top-of-file `@lore`.
+	 */
 	mount(
-		db: HyperIdleDb,
-		agentId: string,
+		injectedFilesystems: readonly FilesystemForProvisioning[],
 		sandboxPath: string,
 		mounter: FilesystemMounter,
 	): Promise<Filesystem[]>;
@@ -2130,8 +1775,8 @@ export function createProvisioner(ports: SessionLifecyclePorts): Provisioner {
 			runSession(deps, params, admitted, ports, onHarnessStarted),
 		provision: (deps, params) => provisionSession(deps, params, ports),
 		start: (deps, params) => startSessionProvision(deps, params, ports),
-		mount: (db, agentId, sandboxPath, mounter) =>
-			mountFilesystemsForAgent(db, agentId, sandboxPath, mounter, ports),
+		mount: (injectedFilesystems, sandboxPath, mounter) =>
+			mountFilesystemsForAgent({ injectedFilesystems, sandboxPath, mounter }),
 		capture: (...args) => captureMountedFilesystems(...args),
 	};
 }

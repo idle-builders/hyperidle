@@ -67,16 +67,16 @@ export function createStatusRoutes(db: HyperIdleDb): Hono {
 			agentStates[agent.status] = (agentStates[agent.status] ?? 0) + 1;
 		}
 
-		const totalCost = allAgents.reduce((sum, a) => sum + (a.costActual ?? 0), 0);
-
 		// @lore AU18: `factory_start_time` had no writer anywhere in prod — the
 		// read always fell back to SERVER_START_TIME already. Use it directly.
 		const uptime = SERVER_START_TIME;
 
+		// @lore AU21 Increment 14a: `totalCost` (sum of `users.costActual`) is
+		// HARD-DELETED along with the rest of the cost-cap/accounting feature —
+		// the column is dropped, no replacement.
 		return c.json({
 			activeSessions: activeSessions.length,
 			agentStates,
-			totalCost,
 			uptime,
 		});
 	});

@@ -1,61 +1,30 @@
 import type {
 	AgentSessionRequest,
 	AgentWorkIntent,
-	Bet,
 	ExplicitSessionStart,
 	HyperIdleDb,
-	KnowledgeItem,
-	Message,
-	ProposedCall,
-	Routine,
-	RoutineRun,
-	TailoredGrant,
-	Task,
-	TaskDispatchAttempt,
-	TeamMember,
-	User,
 	WriteExecutor,
 } from "@hyperidle/db";
 import type {
 	AgentSessionSourceKind,
-	ConfigurationKind,
 	EventBus,
 	HarnessPort,
 	HarnessRunOutput,
-	ResolvedConfigurationItem,
 	RunContextBundle,
 } from "@hyperidle/shared";
 
 interface DurableQueueDeps {
 	readonly db: HyperIdleDb;
+	/**
+	 * @lore AU21 §9 Increment 10 (Decision H1): mirrors
+	 * `DurableAgentQueueDeps.lifecycleProjection` from
+	 * `@hyperidle/session-requests` post-shrink — `work`
+	 * (`updateTaskDispatchAttemptIfActive`) REMOVED ENTIRELY, `task`'s
+	 * post-session writeback moved to a core-api event subscriber
+	 * (`work-session-end-reactions.ts`). `explicitSessionStarts` is the only
+	 * surviving projection target.
+	 */
 	readonly lifecycleProjection: {
-		readonly routine: {
-			updateRoutineRunIfRunning(
-				exec: WriteExecutor,
-				id: string,
-				patch: {
-					outcome: "success" | "error";
-					endedAt: string;
-					sessionId: string | null;
-					errorMessage: string | null;
-				},
-			): Promise<void>;
-		};
-		readonly work: {
-			updateTaskDispatchAttemptIfActive(
-				exec: WriteExecutor,
-				requestId: string,
-				patch: { status: "completed" | "failed" | "cancelled"; sessionId: string | null },
-			): Promise<void>;
-			updateBetDecompositionStatusIfRunning(
-				exec: WriteExecutor,
-				id: string,
-				patch: {
-					decompositionStatus: "done" | "blocked";
-					decompositionBlockerReason: string | null;
-				},
-			): Promise<void>;
-		};
 		readonly explicitSessionStarts: {
 			projectTerminalState(
 				exec: WriteExecutor,
@@ -68,75 +37,26 @@ interface DurableQueueDeps {
 			): Promise<void>;
 		};
 	};
-	readonly config: {
-		listConfiguration(
-			db: HyperIdleDb,
-			filter: { kind?: ConfigurationKind; key?: string },
-		): Promise<ResolvedConfigurationItem[]>;
-	};
-	readonly teams: {
-		getTeamMembersByTeamId(exec: WriteExecutor, teamId: string): Promise<TeamMember | undefined>;
-	};
-	readonly users: {
-		getUserById(exec: WriteExecutor, id: string): Promise<User | undefined>;
-		getUserByIdScopedToTeam(
-			db: HyperIdleDb,
-			id: string,
-			teamMembersId?: string,
-		): Promise<User | undefined>;
-		listUsersByTeam(exec: WriteExecutor, teamMembersId: string): Promise<User[]>;
-	};
-	readonly work: {
-		getTaskById(exec: WriteExecutor, id: string): Promise<Task | undefined>;
-		getBetById(exec: WriteExecutor, id: string): Promise<Bet | undefined>;
-		getTaskDispatchAttemptById(
-			exec: WriteExecutor,
-			id: string,
-		): Promise<TaskDispatchAttempt | undefined>;
-		reapTerminalTaskDispatchAttempts(
-			exec: WriteExecutor,
-			cutoff: string,
-			batchSize: number,
-		): Promise<number>;
-	};
-	readonly routine: {
-		getRoutineRunById(exec: WriteExecutor, id: string): Promise<RoutineRun | undefined>;
-		getRoutineById(exec: WriteExecutor, id: string): Promise<Routine | undefined>;
-		updateRoutineRunIfRunning(
-			exec: WriteExecutor,
-			id: string,
-			patch: { outcome: "error"; endedAt: string; errorMessage: string | null },
-		): Promise<void>;
-	};
-	readonly conversation: {
-		getMessageById(exec: WriteExecutor, id: string): Promise<Message | undefined>;
-	};
-	readonly review: {
-		findGrantedProposedCall(
-			exec: WriteExecutor,
-			id: string,
-		): Promise<{ call: ProposedCall; grant: TailoredGrant } | undefined>;
-	};
-	readonly knowledge: { findById(exec: WriteExecutor, id: string): Promise<KnowledgeItem | null> };
-	readonly agentSelection: {
-		isAtCapacity(exec: WriteExecutor, agentId: string): Promise<boolean>;
-		selectAgent(input: {
-			db: WriteExecutor;
-			surface: "routine_delegate";
-			teamId: string | null;
-			workKey: string;
-			excludeAgentId: string;
-			skillId: string;
-		}): Promise<{ agentId: string | null }>;
-	};
+	/**
+	 * @lore AU21 §6 Decision B4: mirrors `DurableAgentQueueDeps.eventBus` from
+	 * `@hyperidle/session-requests` (Mechanism C — this Service declares its
+	 * own structural copy rather than importing that type directly). Optional
+	 * for the same back-compat reason: existing `durableQueue` overrides that
+	 * never wired one keep compiling.
+	 */
+	readonly eventBus?: EventBus;
+	/**
+	 * @lore AU21 §9 Increment 9: `conversation`/`review`/`routine`/`knowledge`
+	 * groups REMOVED in their entirety, mirroring `DurableAgentQueueDeps`'s own
+	 * shrink — confirmed zero real call sites anywhere in
+	 * `@hyperidle/session-requests` (each family's real resolve-at-emit
+	 * migration, architecture.md §9 Increment 3, already deleted the call
+	 * sites; this structural-mirror wiring was simply never cleaned up
+	 * alongside it).
+	 */
 }
 
-type RunOrchestrationTerminationReason =
-	| "user_done"
-	| "user_crashed"
-	| "handoff"
-	| "cost_cap"
-	| "shutdown";
+type RunOrchestrationTerminationReason = "user_done" | "user_crashed" | "handoff" | "shutdown";
 
 interface RunOrchestrationSessionContext {
 	readonly taskId: string | null;
@@ -168,8 +88,6 @@ interface RunOrchestrationSessionLifecycleRuntime {
 		db: HyperIdleDb,
 		eventBus: EventBus,
 		context: RunOrchestrationSessionContext,
-		costInCents: number,
-		baselineCost?: number,
 	): Promise<void>;
 }
 
@@ -205,7 +123,8 @@ export interface RuntimePorts {
 			exec: HyperIdleDb,
 			query: { by: "intentSource"; requestId: string },
 		): Promise<
-			Pick<AgentWorkIntent, "id" | "idempotencyKey" | "sourceId" | "sourceKind"> | undefined
+			| Pick<AgentWorkIntent, "id" | "kind" | "idempotencyKey" | "sourceId" | "sourceKind">
+			| undefined
 		>;
 		findSessionRequest(
 			exec: HyperIdleDb,
@@ -270,7 +189,7 @@ export interface RuntimePorts {
 		reapExpired(
 			deps: DurableQueueDeps,
 			options?: { now?: Date; retentionDays?: number; batchSize?: number },
-		): Promise<{ inbox: number; intents: number; explicitStarts: number; taskAttempts: number }>;
+		): Promise<{ inbox: number; intents: number; explicitStarts: number }>;
 	};
 	readonly sessionLifecycle: RunOrchestrationSessionLifecycleRuntime;
 	/** Test-only execution seam; production runSession binds the internal provisioner. */
@@ -373,9 +292,4 @@ export interface RuntimeHandle {
 	): () => void;
 	dispose(): Promise<void>;
 }
-export type AgentTerminationReason =
-	| "user_done"
-	| "user_crashed"
-	| "handoff"
-	| "cost_cap"
-	| "shutdown";
+export type AgentTerminationReason = "user_done" | "user_crashed" | "handoff" | "shutdown";

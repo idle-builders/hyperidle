@@ -82,18 +82,13 @@ function makeTeamFixture() {
 			},
 		],
 		burn: {
-			costActual: null,
-			costCap: null,
 			capacity: 5,
-			betCostActual: null,
-			routineCostThisMonth: null,
 			activeBets: 1,
 		},
 		activeBets: [
 			{
 				id: "bet-ag6",
 				descriptionTitle: "AG6 primitive",
-				costAppetite: null,
 				status: "active",
 				progressDone: 1,
 				progressTotal: 2,
@@ -110,7 +105,6 @@ function makeTeamFixture() {
 				lastRunAt: "2026-06-12T09:00:00.000Z",
 				lastRunOutcome: "success",
 				nextRunAt: "2026-06-13T09:00:00.000Z",
-				costActual: null,
 			},
 		],
 	};

@@ -1,18 +1,32 @@
 /**
  * AE3 — create_bet tool integration tests.
  *
- * RED phase: these tests will fail until create-bet.ts is implemented.
+ * @lore AU21 §9 Increment 1: create_bet now routes through the CoreApiPort
+ * write seam (a real `POST /bets` route call, not the raw `ports.work.createBet`
+ * DI call — deleted). Every test that actually invokes the handler now needs
+ * the `app` fixture + a registered in-process transport + a stubbed
+ * HYPERIDLE_API_KEY (same convention `bets.integration.test.ts` already
+ * uses for every real route call). The two error-path tests below (missing
+ * team / empty description) never reach the seam — they fail earlier, at
+ * schema validation or the raw `ports.org.getTeamById` lookup — so they stay
+ * exactly as they were.
  */
 
 import { bets, teamMembers, teams } from "@hyperidle/db";
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
+import {
+	createInProcessCoreApiTransport,
+	registerCoreApiTransport,
+} from "../services/core-api-port-composition.js";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
-import { test } from "../test-fixtures.js";
+import { test, vi } from "../test-fixtures.js";
 import { makeContext, NOW } from "./_helpers.js";
 
 const createBetTool = buildToolDefinitions(toolHandlersPorts).find((t) => t.name === "create_bet")!;
+
+const TEST_API_KEY = "create-bet-test-key";
 
 async function seedTeam(db: Parameters<typeof makeContext>[0]): Promise<{ teamId: string }> {
 	const teamId = `team-${Date.now()}`;
@@ -29,7 +43,9 @@ async function seedTeam(db: Parameters<typeof makeContext>[0]): Promise<{ teamId
 }
 
 describe("create_bet tool", () => {
-	test("inserts a bets row with status=draft and the given teamId", async ({ db }) => {
+	test("inserts a bets row with status=draft and the given teamId", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		registerCoreApiTransport(createInProcessCoreApiTransport(app));
 		const { teamId } = await seedTeam(db);
 
 		const result = await createBetTool.handler(
@@ -50,7 +66,9 @@ describe("create_bet tool", () => {
 		expect(betRows[0]!.description).toBe("Launch the landing page");
 	});
 
-	test("stores optional doneCondition and hypothesis", async ({ db }) => {
+	test("stores optional doneCondition and hypothesis", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		registerCoreApiTransport(createInProcessCoreApiTransport(app));
 		const { teamId } = await seedTeam(db);
 
 		const result = await createBetTool.handler(
@@ -71,7 +89,9 @@ describe("create_bet tool", () => {
 		expect(bet!.hypothesis).toBe("This will unlock self-serve signups");
 	});
 
-	test("returns ok({ betId, status: 'draft', teamId })", async ({ db }) => {
+	test("returns ok({ betId, status: 'draft', teamId })", async ({ db, app }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		registerCoreApiTransport(createInProcessCoreApiTransport(app));
 		const { teamId } = await seedTeam(db);
 
 		const result = await createBetTool.handler(

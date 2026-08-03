@@ -13,11 +13,14 @@
  * parameter, no per-backend branch (AM3 AC3/AC4 uniformity proof).
  *
  * @lore AM3: ActivityEntry is intentionally richer than the Q1 shape to
- * support the session adapter. The Q1 shape (tool_call/reasoning/cost_tick)
- * is preserved as a subset; new entry types (answer_delta, answer_settled,
+ * support the session adapter. The Q1 shape (tool_call/reasoning) is
+ * preserved as a subset; new entry types (answer_delta, answer_settled,
  * human_message) are added to cover the full adapter contract. The server
- * buffer only emits tool_call/reasoning/cost_tick; the web hook maps WS
- * events to these types. The adapter handles all members exhaustively.
+ * buffer only emits tool_call/reasoning; the web hook maps WS events to
+ * these types. The adapter handles all members exhaustively.
+ *
+ * @lore AU21 Increment 14a: `cost_tick`/`CostTickData` is HARD-DELETED along
+ * with the rest of the cost-cap feature — no replacement.
  */
 
 // ── Data payload shapes ──────────────────────────────────────────────
@@ -60,12 +63,6 @@ export type ReasoningData = {
 	excerpt?: string;
 };
 
-export type CostTickData = {
-	deltaMinor: number;
-	totalMinor: number;
-	currency: string;
-};
-
 export type AnswerDeltaData = {
 	/** New tokens appended to the current agent prose turn. */
 	text: string;
@@ -92,7 +89,6 @@ export type HumanMessageData = {
 export type ActivityEntry =
 	| { type: "tool_call"; timestamp: number; data: ToolCallData }
 	| { type: "reasoning"; timestamp: number; data: ReasoningData }
-	| { type: "cost_tick"; timestamp: number; data: CostTickData }
 	| { type: "answer_delta"; timestamp: number; data: AnswerDeltaData }
 	| { type: "answer_settled"; timestamp: number; data: AnswerSettledData }
 	| { type: "human_message"; timestamp: number; data: HumanMessageData };

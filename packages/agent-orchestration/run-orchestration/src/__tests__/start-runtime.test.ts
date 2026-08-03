@@ -45,7 +45,6 @@ function deps(): RuntimeDeps {
 				inbox: 0,
 				intents: 0,
 				explicitStarts: 0,
-				taskAttempts: 0,
 			})),
 			drainIntents: vi.fn(async () => undefined),
 		},

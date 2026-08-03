@@ -246,8 +246,6 @@ test.describe("L9 — single Conversations detail surface", () => {
 					product: "Alpha",
 					team: "Alpha Core",
 					status: "in_progress",
-					costAppetite: { minor: 50000, currency: "USD" },
-					costActual: null,
 					tokensActual: null,
 					progress: { done: 0, total: 1 },
 					description: "# Test\nL9 bet for e2e.",

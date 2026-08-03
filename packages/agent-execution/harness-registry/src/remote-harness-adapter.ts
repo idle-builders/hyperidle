@@ -264,7 +264,6 @@ export class RemoteHarnessAdapter implements HarnessAdapter {
 			session.pushEvent({ type: "error", message: parsed.message, code: "WorkerError" });
 			session.resolve({
 				outcome: "crashed",
-				cost: { minor: 0, currency: "USD" },
 				tokenUsage: { byTier: {} },
 			});
 		}

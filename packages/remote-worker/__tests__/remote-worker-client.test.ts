@@ -142,7 +142,6 @@ interface MockAdapterOptions {
 
 const DEFAULT_STOP_RESULT: SessionResult = {
 	outcome: "completed",
-	cost: { minor: 0, currency: "USD" },
 	tokenUsage: { byTier: {} },
 };
 

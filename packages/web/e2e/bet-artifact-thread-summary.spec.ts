@@ -22,8 +22,6 @@ function makeBetResponse() {
 		product: "Alpha",
 		team: "Alpha Core",
 		status: "in_progress",
-		costAppetite: { minor: 100000, currency: "USD" },
-		costActual: null,
 		tokensActual: null,
 		progress: { done: 1, total: 3 },
 		description: "# Problem\n\nThis bet has artifact threads.",

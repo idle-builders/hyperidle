@@ -22,29 +22,38 @@
  * visible to the caller — this is a pragmatic boundary compromise per the Q2 lore.
  */
 
-import type { HyperIdleDb } from "@hyperidle/db";
-import { getFilesystem } from "@hyperidle/filesystems";
+import { resolveInjectedConnectionsForAgent } from "@hyperidle/connections";
+import { insertThread } from "@hyperidle/conversation";
+import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
+import { getFilesystem, resolveInjectedFilesystemsForAgent } from "@hyperidle/filesystems";
 import {
 	remove as archiveKnowledgeItem,
 	countAccesses,
 	count as countKnowledgeItems,
 	create as createKnowledgeItem,
+	findOpenConflict as findOpenKnowledgeConflict,
 	get as getKnowledgeItem,
 	ItemDeletedError,
 	transition as knowledgeTransition,
 	list as listKnowledgeItems,
+	recomputeAttention,
 	recordAccess as recordKnowledgeAccess,
+	recordConflict as recordKnowledgeConflict,
+	resolveKnowledgeActionRequest,
 	search as searchKnowledge,
 	update as updateKnowledgeItem,
 	VersionConflictError,
 } from "@hyperidle/knowledge";
 import { getTeam, getTeamMembers, listTeamMembers } from "@hyperidle/org";
+import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
+import { readServerConfig } from "@hyperidle/settings";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import {
 	type AgentWorkIntentEvent,
 	API_ERROR_CODES,
 	type EventBus,
+	KNOWLEDGE_LAYERS,
 	type KnowledgeAccessedEvent,
 	type KnowledgeArchivedEvent,
 	type KnowledgeCreatedEvent,
@@ -55,13 +64,33 @@ import {
 	scopeKindToLabel,
 	scopeToLayer,
 } from "@hyperidle/shared";
-import { findUser } from "@hyperidle/users";
+import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
+
+/**
+ * @lore AU21 §9 Increment 2 (knowledge wave): the 8 `KNOWLEDGE_KINDS` values
+ * are `write_memory`'s own vocabulary (`tool-handlers/src/tool-definitions.ts`)
+ * redefined locally here (never imported cross-Service — `@hyperidle/knowledge`'s
+ * own `KnowledgeKind` type is intentionally NOT re-exported from its barrel).
+ * A `z.enum(...)`-validated value's literal-union type is structurally
+ * identical to the private `KnowledgeKind` type without needing to import it —
+ * both are simply the same set of string literals.
+ */
+const KNOWLEDGE_ITEM_KINDS = [
+	"pattern",
+	"anti_pattern",
+	"brief",
+	"principle",
+	"decision",
+	"failure",
+	"reflection",
+	"focus",
+] as const;
 
 // O2: status simplified to draft | active | archived
 // Y4: needs_human added for triage escalation
@@ -198,7 +227,11 @@ function requiresScopeId(kind: string): boolean {
 }
 
 const createKnowledgeSchema = z.object({
-	topic: z.string().optional(),
+	// AU21 §9 Increment 2 (knowledge wave): widened to accept an explicit
+	// `null` alongside `undefined` — `write_memory`'s seam call always passes
+	// `topic: topic ?? null` (never bare `undefined`), unlike the pre-existing
+	// UI caller which simply omits the field when unset.
+	topic: z.string().nullable().optional(),
 	title: z.string(),
 	body: z.string(),
 	format: z.string(),
@@ -206,7 +239,18 @@ const createKnowledgeSchema = z.object({
 	status: z.enum(KNOWLEDGE_STATUSES).optional(),
 	// Q2: scope fields
 	scopeKind: z.enum(SCOPE_KINDS),
-	scopeId: z.string().optional(),
+	// AU21 §9 Increment 2 (knowledge wave): widened to accept an explicit `null`
+	// alongside `undefined` — `write_memory`'s seam call passes `scopeId: null`
+	// for scopes it resolves to no external id (e.g. "factory"), unlike the
+	// pre-existing UI caller which simply omits the field.
+	scopeId: z.string().nullable().optional(),
+	// AU21 §9 Increment 2 (knowledge wave): `kind` + an explicit `layer` override
+	// — see this file's top `@lore` and CreateKnowledgeItemRequest's own doc
+	// comment (api-contract). Both optional so the pre-existing UI caller
+	// (never sets either) keeps its exact prior behavior (kind stays null,
+	// layer stays derived from scopeToLayer(scopeKind)).
+	kind: z.enum(KNOWLEDGE_ITEM_KINDS).optional(),
+	layer: z.enum(KNOWLEDGE_LAYERS).optional(),
 });
 
 const updateKnowledgeSchema = z.object({
@@ -241,6 +285,69 @@ const flagSchema = z.object({
 	reason: z.string(),
 	agentId: z.string().optional(),
 });
+
+/**
+ * AU21 §9 Increment 2 (knowledge wave) — schemas for the four new narrow
+ * routes backing `ToolHandlersKnowledgeAccessor`'s conflict/promote/attention
+ * methods (no existing UI route wraps any of these transition targets today).
+ */
+const createConflictSchema = z.object({
+	id: z.string().min(1),
+	versionBase: z.number().int().nonnegative(),
+	versionCurrent: z.number().int().nonnegative(),
+	proposedBody: z.string().min(1),
+	proposedMeta: z.string().nullable().optional(),
+	proposedBy: z.string().min(1),
+	createdAt: z.string().min(1),
+});
+
+const promoteSchema = z.object({
+	fromStatus: z.string().min(1),
+	toStatus: z.string().min(1),
+	reason: z.string().optional(),
+	editor: z.string().min(1),
+});
+
+const attentionScoreSchema = z.object({
+	attentionScore: z.string().min(1),
+});
+
+/**
+ * Collapses `buildCreateReviewItemForKnowledge({conversation,work})` +
+ * `buildAttentionService({db,eventBus,work,review}).recomputeOne(id)` — the
+ * exact same composition `dispatch-bindings.ts`'s own
+ * `recomputeAttentionForCandidates` and (pre-migration)
+ * `tool-handlers-bindings.ts`'s own `recomputeAttentionScoreForItem` already
+ * perform, now wired inside core-api behind a real HTTP door instead of a
+ * raw same-process DI call reaching across a Service boundary.
+ */
+async function recomputeAttentionScoreForKnowledgeItem(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	knowledgeItemId: string,
+): Promise<{ readonly current: number }> {
+	const createReviewItemForKnowledge = createReviewItem({
+		conversation: { insertThread },
+		work: { createItem: (exec, values) => work.create(exec, "item", values) },
+	});
+	const result = await recomputeAttention(
+		{
+			db,
+			eventBus,
+			work: {
+				findItemByReasoningMarker: async (exec: WriteExecutor, marker: string) => {
+					const rows = await work.list(exec, "item", { marker });
+					return rows[0] ? { id: rows[0].id } : undefined;
+				},
+			},
+			review: { createReviewItemForKnowledge, attentionReviewReasoningMarker },
+		},
+		{ itemId: knowledgeItemId },
+	);
+	if (Array.isArray(result) || !("current" in result))
+		throw new Error("unexpected attention result");
+	return result;
+}
 
 /**
  * Q2: Schema for PATCH /:id/scope — change scope_kind and scope_id with version tracking.
@@ -279,10 +386,23 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		}
 		const query = parsed.data;
 
+		// AU21 §9 Increment 2 (knowledge wave): optional `limit` query param —
+		// `query_practice`'s seam call needs `limit*5` (client-side layer filter
+		// downstream). Absent/invalid `limit` falls back to search()'s own default.
+		const rawLimit = c.req.query("limit");
+		const parsedLimit = rawLimit !== undefined ? Number.parseInt(rawLimit, 10) : undefined;
+		const limit =
+			parsedLimit !== undefined && Number.isFinite(parsedLimit) && parsedLimit > 0
+				? parsedLimit
+				: undefined;
+
 		// @lore AU20 K1-reads: searchByText() deleted; search(mode:'text') performs
 		// ILIKE on title/body/topic (same result set, case-insensitive improvement).
 		// See knowledge-repository.ts search() docblock.
-		const results = await searchKnowledge(db, query, { mode: "text" });
+		const results = await searchKnowledge(db, query, {
+			mode: "text",
+			...(limit !== undefined ? { limit } : {}),
+		});
 
 		return c.json({ results });
 	});
@@ -463,9 +583,13 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			// context assembly / promotion / practice-meeting / attention like tool-created
 			// items already do. See plans/AU14/architecture.md §5, §9.
 			const created = await createKnowledgeItem(db, {
-				layer: scopeToLayer(body.scopeKind),
+				// AU21 §9 Increment 2 (knowledge wave): honor an explicit `layer`
+				// override when the caller supplies one (write_memory's real call
+				// always does); otherwise preserve the pre-existing derivation.
+				layer: body.layer ?? scopeToLayer(body.scopeKind),
 				scopeKind: body.scopeKind,
 				scopeId: resolvedScopeId,
+				kind: body.kind ?? null,
 				topic: body.topic ?? null,
 				title: body.title,
 				body: body.body,
@@ -802,14 +926,54 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 					reason: body.reason,
 					editId,
 				});
-				if (body.agentId)
+				if (body.agentId) {
+					// AU21 §6 Decision B: resolve + validate the knowledge_action run
+					// AT EMIT TIME (this Service's own domain state, plus the shared
+					// ast-<userId> runnability invariant) and bake the full request
+					// onto the intent — the drain dispatches it directly, with zero
+					// domain reads.
+					//
+					// @lore AU21 knowledge_action wave: the resolved target is the
+					// item's own `updatedBy` (whoever last touched it), NOT the
+					// flagging `agentId` — it can be a non-agent id (e.g. a human
+					// editor). Under the pre-migration drain-time model this never
+					// blocked the flag itself (resolution ran later, async, and a
+					// failure there was silent — only the eventual
+					// `agent_run_admission_failed` reaction fired). Resolving earlier
+					// must not newly gate the flag write on that outcome, so a
+					// resolution failure here is caught: the flag still commits, the
+					// intent is still recorded (unbaked, exactly the pre-migration
+					// shape), and it fails at drain immediately (zero domain reads,
+					// `default` case) — routing to the same knowledge_action
+					// admission-failure reaction (a review-flagged item) the
+					// pre-migration path already produced for this case.
+					let bakedRequest: Awaited<ReturnType<typeof resolveKnowledgeActionRequest>> | undefined;
+					try {
+						bakedRequest = await resolveKnowledgeActionRequest(
+							tx as HyperIdleDb,
+							`knowledge:${id}`,
+							{
+								requireRunnableAgent,
+								readServerConfig,
+								resolveInjectedFilesystemsForAgent,
+								// AU21 §9 Increment 12 follow-up part 2 (F2 gap closure —
+								// connections): also bake injectedConnections.
+								resolveInjectedConnectionsForAgent: (execDb, agentId) =>
+									resolveInjectedConnectionsForAgent(execDb, agentId, findUser),
+							},
+						);
+					} catch {
+						bakedRequest = undefined;
+					}
 					intent = await enqueueWorkIntent(tx as HyperIdleDb, {
 						kind: "knowledge_action",
 						sourceKind: "knowledge_action",
 						sourceId: `knowledge:${id}`,
 						requestedBy: body.agentId,
 						idempotencyKey: `knowledge:${id}:review:${editId}`,
+						bakedRequest,
 					});
+				}
 			});
 
 			const updated = await getKnowledgeItem(db, id);
@@ -840,6 +1004,97 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			return c.json(updated);
 		},
 	);
+
+	// AU21 §9 Increment 2 (knowledge wave): the four routes below back
+	// `ToolHandlersKnowledgeAccessor`'s conflict/promote/attention methods —
+	// no existing UI route wraps any of these, so each is new and narrow.
+
+	// GET /:id/conflicts?proposedBy= — find an open conflict on :id filed by proposedBy.
+	router.get("/:id/conflicts", requireBoundary({ kind: "public-data" }), async (c) => {
+		const id = c.req.param("id");
+		const proposedBy = c.req.query("proposedBy");
+		if (!proposedBy) {
+			const response: ApiErrorResponse = {
+				error: "Query parameter 'proposedBy' is required",
+				code: API_ERROR_CODES.VALIDATION_ERROR,
+			};
+			return c.json(response, 400);
+		}
+		const conflict = await findOpenKnowledgeConflict(db, id, proposedBy);
+		return c.json({ conflict });
+	});
+
+	// POST /:id/conflicts — record an open knowledge_conflicts row on :id.
+	router.post(
+		"/:id/conflicts",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(createConflictSchema),
+		async (c) => {
+			const itemId = c.req.param("id");
+			const body = c.req.valid("json" as never) as z.infer<typeof createConflictSchema>;
+
+			await recordKnowledgeConflict(db, {
+				id: body.id,
+				itemId,
+				versionBase: body.versionBase,
+				versionCurrent: body.versionCurrent,
+				proposedBody: body.proposedBody,
+				proposedMeta: body.proposedMeta ?? null,
+				proposedBy: body.proposedBy,
+				createdAt: body.createdAt,
+			});
+
+			return c.json({ id: body.id, itemId, status: "open" as const }, 201);
+		},
+	);
+
+	// POST /:id/promote — wraps transition({target:"promote",...}); no route wrapped this before.
+	router.post(
+		"/:id/promote",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(promoteSchema),
+		async (c) => {
+			const id = c.req.param("id");
+			const body = c.req.valid("json" as never) as z.infer<typeof promoteSchema>;
+
+			const result = await knowledgeTransition(db, id, {
+				target: "promote",
+				fromStatus: body.fromStatus,
+				toStatus: body.toStatus,
+				reason: body.reason,
+				editor: body.editor,
+			});
+
+			// The domain result (ok:true|false) is forwarded as-is at HTTP 200 —
+			// a domain-level "blocked" outcome is not a transport/validation failure.
+			return c.json(result);
+		},
+	);
+
+	// PATCH /:id/attention-score — wraps transition({target:"recomputeAttention",...}).
+	router.patch(
+		"/:id/attention-score",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(attentionScoreSchema),
+		async (c) => {
+			const id = c.req.param("id");
+			const body = c.req.valid("json" as never) as z.infer<typeof attentionScoreSchema>;
+
+			await knowledgeTransition(db, id, {
+				target: "recomputeAttention",
+				attentionScore: Number(body.attentionScore),
+			});
+
+			return c.json({ ok: true });
+		},
+	);
+
+	// POST /:id/recompute-attention — the collapsed score_attention(mode:"recompute") helper.
+	router.post("/:id/recompute-attention", requireBoundary({ kind: "public-data" }), async (c) => {
+		const id = c.req.param("id");
+		const result = await recomputeAttentionScoreForKnowledgeItem(db, eventBus, id);
+		return c.json(result);
+	});
 
 	return router;
 }

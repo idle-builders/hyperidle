@@ -36,18 +36,13 @@ const MOCK_DETAIL = {
 		},
 	],
 	burn: {
-		costActual: null,
-		costCap: null,
 		capacity: 5,
 		activeBets: 2,
-		betCostActual: null,
-		routineCostThisMonth: null,
 	},
 	activeBets: [
 		{
 			id: "b1",
 			descriptionTitle: "Auth migration",
-			costAppetite: null,
 			status: "active" as const,
 			progressDone: 1,
 			progressTotal: 2,
@@ -55,7 +50,6 @@ const MOCK_DETAIL = {
 		{
 			id: "b2",
 			descriptionTitle: "Onboarding revamp",
-			costAppetite: null,
 			status: "active" as const,
 			progressDone: 0,
 			progressTotal: 5,
@@ -82,16 +76,6 @@ export const EmptyBets = (): React.JSX.Element =>
 
 export const EmptyRoster = (): React.JSX.Element =>
 	wrap(<WorkTeam overrideData={{ ...MOCK_DETAIL, roster: [] }} />);
-
-export const NoCap = (): React.JSX.Element =>
-	wrap(
-		<WorkTeam
-			overrideData={{
-				...MOCK_DETAIL,
-				burn: { ...MOCK_DETAIL.burn, costCap: null },
-			}}
-		/>,
-	);
 
 export const Loading = (): React.JSX.Element => wrap(<WorkTeam overrideLoading />);
 

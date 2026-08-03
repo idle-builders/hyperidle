@@ -315,7 +315,6 @@ describe("WorkerConnectionManager — post-registration message routing", () => 
 				sessionId,
 				result: {
 					outcome: "completed",
-					cost: { minor: 0, currency: "USD" },
 					tokenUsage: { byTier: {} },
 				},
 			}),

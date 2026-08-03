@@ -1,6 +1,6 @@
 /**
  * AA1 — WorkRoutine detail page: shows a single routine's config and run history.
- * AA2 — Adds delete button with inline confirmation, cost cap, created, last run summary.
+ * AA2 — Adds delete button with inline confirmation, created, last run summary.
  * AV4 — Delegates body to shared RoutineDetailPane (de-greyed, editable prompt).
  *
  * Layout:

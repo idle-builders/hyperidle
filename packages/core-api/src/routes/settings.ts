@@ -38,7 +38,6 @@ import type { HyperIdleEnv } from "../middleware/auth.js";
  */
 const notificationPatchSchema = z.object({
 	reviewAlerts: z.boolean().optional(),
-	costAlerts: z.boolean().optional(),
 	blockerAlerts: z.boolean().optional(),
 	quietHoursEnabled: z.boolean().optional(),
 	quietHoursStart: z
@@ -111,7 +110,6 @@ async function buildSettingsResponse(db: HyperIdleDb): Promise<{
 	users: Array<{ id: string; name: string; autonomyLevel: string; paused: boolean }>;
 	notifications: {
 		reviewAlerts: boolean;
-		costAlerts: boolean;
 		blockerAlerts: boolean;
 		quietHoursEnabled: boolean;
 		quietHoursStart: string;
@@ -149,7 +147,6 @@ async function buildSettingsResponse(db: HyperIdleDb): Promise<{
 		})),
 		notifications: {
 			reviewAlerts: serverCfg.notifications.reviewAlerts,
-			costAlerts: serverCfg.notifications.costAlerts,
 			blockerAlerts: serverCfg.notifications.blockerAlerts,
 			quietHoursEnabled: serverCfg.notifications.quietHoursEnabled,
 			quietHoursStart: serverCfg.notifications.quietHoursStart,

@@ -14,18 +14,22 @@
  */
 
 import type { RoutineCardSummary } from "./routine.js";
-import type { WireMoney } from "./types/money.js";
 import type { BetStatus } from "./types.js";
 
 /**
  * Status of a product team — derived server-side from active bet states
- * and cost cap utilisation. Matches the StatusChip "Status" type used in
+ * and capacity utilisation. Matches the StatusChip "Status" type used in
  * the design system (healthy | behind | blocked).
  *
  * @lore L13: "Status" from @hyperidle/design-system cannot be imported in
  * packages/shared (shared must not depend on design-system). We redeclare the
  * relevant subset here to keep the wire contract in shared without a circular
  * dep. Both must stay in sync if the StatusChip type ever widens.
+ *
+ * @lore AU21 Increment 14a: this status used to also flip to "behind" on
+ * cost-cap overrun (`costActualMinor >= costCapMinor`) — the cost-cap
+ * feature is HARD-DELETED (founder, no replacement); status now derives
+ * from capacity overrun and blocked tasks only.
  */
 export type TeamStatus = "healthy" | "behind" | "blocked";
 
@@ -59,16 +63,15 @@ export interface RosterMember {
 	healthDetail?: string | null;
 }
 
+/**
+ * @lore AU21 Increment 14a: `costActual`/`costCap`/`betCostActual`/
+ * `routineCostThisMonth` (all WireMoney|null, L17) are HARD-DELETED along
+ * with the rest of the cost-cap/accounting feature — no replacement. `burn`
+ * now carries only capacity utilisation.
+ */
 export interface TeamBurn {
-	// L17: changed from number to WireMoney|null to support structured money.
-	costActual: WireMoney | null;
-	costCap: WireMoney | null;
 	capacity: number; // team_members.capacity (max parallel bets)
 	activeBets: number; // team_members.active_bets cached counter
-	/** AA3: Sum of active bets' costActualMinor. Null when no active bets have cost data. */
-	betCostActual: WireMoney | null;
-	/** AA3: Sum of routine run costs for the current calendar month. Null when no routines or no runs this month. */
-	routineCostThisMonth: WireMoney | null;
 }
 
 export interface BetCardSummary {
@@ -76,8 +79,6 @@ export interface BetCardSummary {
 	// @lore U1: `descriptionTitle` was formerly `pitchTitle`. Derives a display
 	// title from bets.description (formerly bets.pitch).
 	descriptionTitle: string;
-	// L17: replaced appetite: string with structured WireMoney.
-	costAppetite: WireMoney | null;
 	status: BetStatus; // "active" in new lifecycle
 	progressDone: number; // count(tasks where state='done')
 	progressTotal: number; // count(tasks)

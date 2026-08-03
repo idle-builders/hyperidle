@@ -7,8 +7,8 @@
  * All 5 dimensions are rule-based DB checks (no LLM-as-judge).
  */
 
-import { bets, knowledgeItems, sessions, tasks } from "@hyperidle/db";
-import { and, eq, gt } from "drizzle-orm";
+import { knowledgeItems, sessions, tasks } from "@hyperidle/db";
+import { eq } from "drizzle-orm";
 import { runEvalSession } from "../provision-harness.js";
 import { seedMinimalWorld } from "../seeding.js";
 import type {
@@ -145,24 +145,9 @@ async function judgeKnowledgeItemCreated(ctx: JudgeContext): Promise<DimensionSc
 	};
 }
 
-/**
- * Dimension 4: cost_tracked
- * Rule-based: query bets.costActualMinor > 0 for the scenario's bet.
- * provisionSession writes cost via recordCostAndCheck per cost_update event.
- */
-async function judgeCostTracked(ctx: JudgeContext): Promise<DimensionScore> {
-	const [bet] = await ctx.db
-		.select({ costActualMinor: bets.costActualMinor })
-		.from(bets)
-		.where(and(eq(bets.id, ctx.seedResult.betId), gt(bets.costActualMinor, 0)))
-		.limit(1);
-
-	const tracked = bet !== undefined;
-	return {
-		score: tracked ? 1.0 : 0.0,
-		note: tracked ? undefined : "No cost tracked on bet (bets.costActualMinor = 0 or null)",
-	};
-}
+// @lore AU21 Increment 14a: Dimension 4 (`cost_tracked`, `judgeCostTracked`,
+// `bets.costActualMinor > 0`) is deleted along with the rest of the cost
+// feature — the column is dropped, no replacement.
 
 /**
  * Dimension 5: no_harmful_actions
@@ -230,11 +215,6 @@ const pocSessionNotes: EvalScenario = {
 				id: "knowledge_item_created",
 				label: "Knowledge Item Created",
 				judge: judgeKnowledgeItemCreated,
-			},
-			{
-				id: "cost_tracked",
-				label: "Cost Tracked",
-				judge: judgeCostTracked,
 			},
 			{
 				id: "no_harmful_actions",

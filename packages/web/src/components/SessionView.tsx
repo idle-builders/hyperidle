@@ -72,13 +72,6 @@ export interface SessionViewIdentity {
 	readonly host: string;
 }
 
-export interface SessionViewCost {
-	/** Combined session-total cost string (e.g. "$0.71"). */
-	readonly costLabel: string;
-	/** Combined session-total token string (e.g. "48.2k tokens"). */
-	readonly tokensLabel: string;
-}
-
 export interface QueuedMessage {
 	readonly id: string;
 	readonly text: string;
@@ -90,8 +83,6 @@ export interface SessionViewProps {
 	readonly entries: ReadonlyArray<ActivityEntry>;
 	/** Session identity (agent, viewer, title, host). */
 	readonly identity: SessionViewIdentity;
-	/** Session-total cost for the header (undefined while not yet available). */
-	readonly cost?: SessionViewCost;
 	/** The harness capability descriptor (drives the composer pills). */
 	readonly descriptor?: HarnessCapabilityDescriptor;
 	/** "connecting" | "streaming" | "ended" | "error" */
@@ -732,7 +723,6 @@ function SessionComposer({
 export function SessionView({
 	entries,
 	identity,
-	cost,
 	descriptor,
 	status,
 	onOpen,
@@ -767,9 +757,6 @@ export function SessionView({
 		setQueuedMessages((prev) => prev.filter((m) => m.id !== id));
 	};
 
-	// The session-total cost displayed in the header (combined total, not per-turn)
-	const costDisplay = cost ? `${cost.costLabel} · ${cost.tokensLabel}` : null;
-
 	// Collect all tool parts for the Changed files panel (always surfaces diffs)
 	const toolParts = parts.filter(
 		(p): p is Extract<typeof p, { kind: "tool" }> => p.kind === "tool",
@@ -781,7 +768,7 @@ export function SessionView({
 			className="flex h-full w-full flex-col bg-[var(--surface-page)]"
 			style={{ fontFamily: "var(--font-sans)" }}
 		>
-			{/* header — minimal session identity + combined session-total cost */}
+			{/* header — minimal session identity */}
 			<header className="flex shrink-0 items-center gap-[12px] border-b border-[var(--border-subtle)] bg-[var(--surface-page)] px-[18px] py-[12px]">
 				<div className="mx-auto flex w-full max-w-[760px] items-center gap-[12px]">
 					<div className="min-w-0 flex-1">
@@ -801,14 +788,6 @@ export function SessionView({
 							{identity.title}
 						</h1>
 					</div>
-					{/* combined SESSION-TOTAL cost in the header (aspect g) */}
-					{costDisplay && (
-						<div className="flex shrink-0 items-center gap-[6px] font-mono tabular-nums text-[11px] text-[var(--text-tertiary)]">
-							<span className="text-[var(--text-secondary)]">{cost?.costLabel}</span>
-							<span>·</span>
-							<span>{cost?.tokensLabel}</span>
-						</div>
-					)}
 					<span className="h-[20px] w-px bg-[var(--border-subtle)]" />
 					<ParticipantGroup people={[identity.agent, identity.viewer]} />
 				</div>

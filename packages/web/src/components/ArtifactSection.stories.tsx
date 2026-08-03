@@ -35,10 +35,6 @@ const CODE_DIFF_ARTIFACT: Artifact = {
 		lang: "typescript",
 		text: "// auth service implementation",
 	},
-	cost: {
-		money: { minor: 4, currency: "USD" as const },
-		tokens: { byTier: { fast: { prompt: 800, completion: 400 } } },
-	},
 	threadCount: 2,
 	createdAt: "2026-05-01T10:00:00.000Z",
 };
@@ -55,10 +51,6 @@ const DECK_ARTIFACT: Artifact = {
 		body: "Executive summary slide content",
 		format: "markdown" as const,
 	},
-	cost: {
-		money: { minor: 12, currency: "USD" as const },
-		tokens: { byTier: { fast: { prompt: 5000, completion: 3000 } } },
-	},
 	threadCount: 0,
 };
 
@@ -73,10 +65,6 @@ const CONTRACT_ARTIFACT: Artifact = {
 		kind: "text" as const,
 		body: "Service Agreement between Acme Corp and HyperIdle",
 		format: "plain" as const,
-	},
-	cost: {
-		money: { minor: 8, currency: "USD" as const },
-		tokens: { byTier: { fast: { prompt: 2500, completion: 1500 } } },
 	},
 	threadCount: 1,
 };

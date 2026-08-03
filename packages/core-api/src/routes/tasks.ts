@@ -13,19 +13,28 @@ import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { enumValues } from "../schemas/common.schema.js";
 import { handoff } from "../services/policy-bindings.js";
+import { taskRunResolverDeps } from "../services/task-run-resolver-bindings.js";
 
 type SessionContext = Extract<RunTransitionSpec, { target: "session" }>["context"];
 
 /**
  * Zod schemas for request validation.
  */
+/**
+ * @lore AU21 §9 Increment 2: `description`/`doneCondition`/`ownerAgentId`
+ * accept an explicit `null`, not just absence — `CoreApiPort.work.createTask`
+ * (`core-api-port-composition.ts`) forwards `create_task`'s tool input
+ * verbatim, which fills unset optional fields with a real `null` (matching
+ * this route's own `body.description ?? null` normalization below), and
+ * `JSON.stringify` serializes an object's `null` properties (unlike
+ * `undefined`, which it drops) — the wire body genuinely carries `null`.
+ */
 const createTaskSchema = z.object({
 	betId: z.string(),
 	title: z.string().min(1),
-	description: z.string().optional(),
-	doneCondition: z.string().optional(),
-	ownerAgentId: z.string().optional(),
-	costCap: z.number().int().optional(),
+	description: z.string().nullish(),
+	doneCondition: z.string().nullish(),
+	ownerAgentId: z.string().nullish(),
 });
 
 const updateTaskSchema = z.object({
@@ -37,12 +46,32 @@ const updateTaskSchema = z.object({
 	outcomeVerdict: z.enum(enumValues(TASK_OUTCOME_VERDICTS)).optional(),
 });
 
+/**
+ * AU21 §9 Increment 2 — the `CoreApiPort.work.appendTaskNote` seam method's
+ * backing route. Mirrors `work-service.ts`'s atomic SQL-CASE note append
+ * (`update(exec,"task",id,{notes:{appendNote:entry}})`) — the same "goes via
+ * MCP API back to core, just like the user would" door `log_task` used to
+ * reach directly via raw DI.
+ */
+const appendTaskNoteSchema = z.object({
+	entry: z.string().min(1),
+});
+
 // I2 V1: enum-validate at the boundary so an unknown state surfaces as
 // 400 from Zod, not 409 from the state machine.
 const transitionTaskSchema = z.object({
 	state: z.enum(TASK_STATES),
 });
 
+/**
+ * @lore AU21 §9 Increment 2: `contextId`/`status`/`error` are optional
+ * caller-supplied overrides — the `CoreApiPort.work.handoffTask` seam
+ * method's real caller (`handoff_to`'s tool handler) needs the FULL
+ * `HandoffMetadata` fidelity (`@hyperidle/policy`'s wire shape), which this
+ * route previously hardcoded (`context_id: session.id`, `status: "completed"`,
+ * `error` dropped entirely). Omitting all three preserves the exact original
+ * behavior for any caller that doesn't supply them.
+ */
 const handoffSchema = z.object({
 	sessionId: z.string(),
 	toAgent: z.string().optional(),
@@ -51,6 +80,9 @@ const handoffSchema = z.object({
 	reason: z.string().min(1),
 	artifacts: z.array(z.string()).optional(),
 	remainingWork: z.array(z.string()).optional(),
+	contextId: z.string().optional(),
+	status: z.enum(["completed", "failed", "blocked", "in_progress"]).optional(),
+	error: z.string().optional(),
 });
 
 /**
@@ -85,7 +117,6 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 				doneCondition: body.doneCondition ?? null,
 				ownerAgentId: body.ownerAgentId ?? null,
 				state: "proposed",
-				costCap: body.costCap ?? null,
 				createdAt: now,
 				updatedAt: now,
 			});
@@ -110,12 +141,47 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 		return c.json(result);
 	});
 
+	// GET /tasks/:id — bare task detail (AU21 §9 Increment 2: `CoreApiPort.work.getTaskById`'s
+	// backing route — no bare detail route existed before this; only the
+	// enriched `GET /bets/:id` (tasks nested under a bet) served task rows).
+	router.get("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
+		const taskId = c.req.param("id");
+		const task = await work.get(db, "task", taskId);
+		if (!task) {
+			return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+		}
+		return c.json(task);
+	});
+
+	// PATCH /tasks/:id/notes — atomic note append (AU21 §9 Increment 2:
+	// `CoreApiPort.work.appendTaskNote`'s backing route). Returns 404 (not a
+	// thrown error) when the task does not exist — the seam maps that to an
+	// `undefined` resolve, matching `work-service.ts`'s no-pre-read contract.
+	router.patch(
+		"/:id/notes",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(appendTaskNoteSchema),
+		async (c) => {
+			const taskId = c.req.param("id");
+			const body = c.req.valid("json" as never) as z.infer<typeof appendTaskNoteSchema>;
+
+			const result = await work.update(db, "task", taskId, { notes: { appendNote: body.entry } });
+			if (!result) {
+				return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+			}
+			return c.json(result);
+		},
+	);
+
 	// GET /tasks/:id/sessions — read-only list of a task's sessions (AF12 AC4).
 	// Returns the exact `{ sessions: TaskSession[] }` shape the `useTaskSessions`
 	// hook expects. `status` is the session `state` (drives the live dot); a
 	// cascade-stopped session reports 'stopped' (non-blank label downstream).
-	// @lore O2: session cost/harness columns were stripped from the kernel table,
-	// so `cost`/`harnessUrl`/`tokens` are null here. AF7 owns dispatch — no writes.
+	// @lore AU21 Increment 14a: this endpoint used to also serve `cost` via
+	// `AgentOrchestrationPort.sessions.getSessionCostBySessionId` — deleted
+	// along with the rest of the cost feature. The view no longer returns a
+	// `cost` field at all (not `cost: null`), no replacement.
+	// `harnessUrl`/`tokens` remain genuinely unserved (no source anywhere).
 	router.get("/:id/sessions", requireBoundary({ kind: "public-data" }), async (c) => {
 		const taskId = c.req.param("id");
 		const task = await work.get(db, "task", taskId);
@@ -131,7 +197,6 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 			id: s.id,
 			title: `Session ${i + 1}`,
 			agent: s.agentId,
-			cost: null,
 			tokens: null,
 			// @lore AF12: state-based contract — the frontend keys the live dot off
 			// status === 'active'. Use `state` (not `outcome`) so a cascade-stopped
@@ -207,6 +272,7 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 
 			await transitionTask(db, eventBus, taskId, body.state, {
 				workIntents: { record: enqueueWorkIntent },
+				taskRunResolver: taskRunResolverDeps,
 			});
 
 			const updated = await work.get(db, "task", taskId);
@@ -266,11 +332,12 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 				toRole: body.toRole,
 				toHuman: body.toHuman,
 				metadata: {
-					context_id: session.id,
-					status: "completed",
+					context_id: body.contextId ?? session.id,
+					status: body.status ?? "completed",
 					reason: body.reason,
 					artifacts: body.artifacts ?? [],
 					remaining_work: body.remainingWork ?? [],
+					...(body.error !== undefined ? { error: body.error } : {}),
 				},
 			});
 

@@ -326,13 +326,14 @@ const TABLE_OWNER: Record<string, string> = {
  * (`plugin-configuration.ts`'s legacy-backfill reads it for per-agent
  * skill/autonomy seeds). No `⛁`/table column anywhere in architecture §4
  * names `userSkills` for any Service, and it is accessed today from
- * `settings`, the now-real `@hyperidle/agent-selection` package (Increment
- * 3e — `agent-selection.ts`'s `findDelegateVerbatim`), and two remaining
- * still-monolithic `packages/server` files destined for future Services
- * (`routes/users.ts`, `services/policy-engine.ts`) — the same "no single
- * owner, genuinely cross-cutting" shape as `sessions`/`propagationLog`/
- * `taskDispatchAttempts`, not a candidate for a false single-owner
- * `TABLE_OWNER` claim.
+ * `settings`, `@hyperidle/routine`'s `agent-delegation.ts` +
+ * `routine-scheduler-bindings.ts` (AU21 §6 Decision F1 — the retired
+ * `agent-selection` package's `findDelegateVerbatim` read relocated here),
+ * and two remaining still-monolithic `packages/server` files destined for
+ * future Services (`routes/users.ts`, `services/policy-engine.ts`) — the same
+ * "no single owner, genuinely cross-cutting" shape as
+ * `sessions`/`propagationLog`/`taskDispatchAttempts`, not a candidate for a
+ * false single-owner `TABLE_OWNER` claim.
  *
  * @lore AU19 Increment 3 (context-assembly finalize) — REVERTED by the
  * 2026-07-15 founder ruling (`teams` table ownership) and this Increment's

@@ -20,10 +20,16 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { sessionRunRegistry, startLifecycleProjectionDrain } from "@hyperidle/session-requests";
+import {
+	drainLifecycleProjections,
+	sessionRunRegistry,
+	startLifecycleProjectionDrain,
+} from "@hyperidle/session-requests";
+import type { SessionEndedEvent } from "@hyperidle/shared";
 import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, vi } from "vitest";
 import { queueDeps } from "../services/durable-agent-queue.js";
+import { registerRoutineRunSessionEndReactions } from "../services/routine-run-session-end-reactions.js";
 import { describe, expect, test } from "../test-fixtures.js";
 import { startTestRuntime } from "./run-orchestration-test-runtime.js";
 
@@ -133,7 +139,14 @@ describe("durable lifecycle projection", () => {
 	}) => {
 		const now = new Date().toISOString();
 
-		// routine family — real projection
+		// @lore AU21 correction (post-Increment-5 verification): `routine` is now
+		// one of the no-op families here too — Wave C's core-api-side
+		// `routine-run-session-end-reactions.ts` (`finalizeRoutineRun`, reacting
+		// to `session_ended`/`agent_run_lifecycle_changed`) is the SOLE mechanism
+		// that finalizes a `routineRuns` row. The lifecycle-inbox drain's
+		// `routine` projector is `observeOnly` — it acknowledges the fact but
+		// performs no `routineRuns` write. See the dedicated test below for the
+		// end-to-end proof that Wave C's mechanism alone still finalizes the run.
 		await db
 			.insert(teams)
 			.values({ id: "au9-lc-team", name: "AU9", phase: "build", createdAt: now });
@@ -254,11 +267,15 @@ describe("durable lifecycle projection", () => {
 			"au9-lc-proposed-call-request",
 		]);
 
+		// AU21 correction: the drain's `routine` projector is `observeOnly` now —
+		// the run stays "running" after the drain alone. It is Wave C's
+		// event-driven `finalizeRoutineRun` reaction (proven end-to-end below),
+		// NOT this lifecycle-inbox drain, that finalizes `routineRuns`.
 		const [routineRun] = await db
 			.select()
 			.from(routineRuns)
 			.where(eq(routineRuns.id, "au9-lc-routine-run"));
-		expect(routineRun).toMatchObject({ outcome: "success" });
+		expect(routineRun).toMatchObject({ outcome: "running" });
 
 		const [start] = await db
 			.select()
@@ -281,6 +298,124 @@ describe("durable lifecycle projection", () => {
 		]) {
 			expect(inbox.find((row) => row.requestId === requestId)?.projectedAt).toBeTruthy();
 		}
+	});
+
+	/**
+	 * AU21 correction (post-Increment-5 verification) — RED. Proves the THIRD
+	 * write path the gap report identified is gone for real: the lifecycle-
+	 * inbox drain's `routine` projector no longer performs a direct
+	 * `routineRuns` write (it is `observeOnly`, same as `assistant`/
+	 * `knowledge`/`proposed_call`), and the run's terminal finalization comes
+	 * SOLELY from Wave C's `registerRoutineRunSessionEndReactions` reacting to
+	 * `session_ended` — the drain plays no part in it at all.
+	 *
+	 * Today (RED): `lifecycleProjectors.routine` is still `projectRoutine`,
+	 * which calls `deps.routine.updateRoutineRunIfRunning` directly through
+	 * the real composition-root binding (`durable-agent-queue.ts`), so the
+	 * drain alone finalizes the run to "success" BEFORE the event is ever
+	 * emitted — the first assertion below (`outcome` still "running" right
+	 * after the drain) fails against that current behavior.
+	 */
+	test("a routine session's terminal finalization happens via Wave C's event reaction alone — the lifecycle-inbox drain performs no direct routineRuns write", async ({
+		db,
+		eventBus,
+	}) => {
+		const now = new Date().toISOString();
+		await db
+			.insert(teams)
+			.values({ id: "au21-corr-team", name: "AU21", phase: "build", createdAt: now });
+		await db.insert(teamMembers).values({
+			id: "au21-corr-member",
+			teamId: "au21-corr-team",
+			capacity: 3,
+			activeBets: 0,
+			formedAt: now,
+		});
+		await db.insert(users).values({
+			id: "au21-corr-owner",
+			kind: "ai",
+			name: "Owner",
+			role: "builder",
+			status: "active",
+			teamId: "au21-corr-member",
+			createdAt: now,
+		});
+		await db.insert(routines).values({
+			id: "au21-corr-routine",
+			teamId: "au21-corr-team",
+			ownerAgentId: "au21-corr-owner",
+			name: "AU21 routine",
+			triggerType: "manual",
+			active: true,
+			state: "active",
+			createdAt: now,
+		});
+		await db.insert(routineRuns).values({
+			id: "au21-corr-run",
+			routineId: "au21-corr-routine",
+			outcome: "running",
+			startedAt: now,
+		});
+		await db.insert(sessions).values({
+			id: "au21-corr-session",
+			agentId: "au21-corr-owner",
+			modelTier: "fast",
+			startedAt: now,
+			state: "done",
+		});
+		await seedTerminalRequest(
+			db,
+			"au21-corr-request",
+			"routine",
+			"au21-corr-run",
+			"au21-corr-session",
+		);
+
+		// Step 1: drain the lifecycle inbox through the REAL, production
+		// composition root (`queueDeps(db)` — no fakes). The routine fact must
+		// be acknowledged (the inbox row still gets claimed/projected/ack'd —
+		// that mechanism itself is untouched), but the run must NOT be
+		// finalized by this path — the drain's `routine` projector is
+		// `observeOnly`, so nothing writes to `routineRuns` here.
+		const projectedCount = await drainLifecycleProjections(queueDeps(db));
+		expect(projectedCount).toBe(1);
+		const [afterDrain] = await db
+			.select()
+			.from(routineRuns)
+			.where(eq(routineRuns.id, "au21-corr-run"));
+		expect(afterDrain).toMatchObject({ outcome: "running", sessionId: null, endedAt: null });
+		const [inboxRow] = await db
+			.select({ projectedAt: agentLifecycleInbox.projectedAt })
+			.from(agentLifecycleInbox)
+			.where(eq(agentLifecycleInbox.requestId, "au21-corr-request"));
+		expect(inboxRow?.projectedAt).toBeTruthy();
+
+		// Step 2: Wave C's reaction is the ONLY thing that finalizes the run —
+		// register it now and emit the `session_ended` fact it reacts to.
+		registerRoutineRunSessionEndReactions(db, eventBus);
+		const event: SessionEndedEvent = {
+			type: "session_ended",
+			streamId: "au21-corr-session",
+			sessionId: "au21-corr-session",
+			agentId: "au21-corr-owner",
+			taskId: null,
+			sourceKind: "routine",
+			sourceId: "au21-corr-run",
+			timestamp: Date.now(),
+			outcome: "completed",
+			routineRunOutcome: "success",
+		};
+		eventBus.emit(event);
+
+		await vi.waitFor(async () => {
+			const [finalized] = await db
+				.select()
+				.from(routineRuns)
+				.where(eq(routineRuns.id, "au21-corr-run"));
+			expect(finalized?.outcome).toBe("success");
+			expect(finalized?.sessionId).toBe("au21-corr-session");
+			expect(finalized?.endedAt).toBeTruthy();
+		});
 	});
 });
 
@@ -436,7 +571,7 @@ describe("crash-after-202 recovery resolves a durably-stored termination cause",
 	async function seedRunningWithReason(
 		db: import("@hyperidle/db").HyperIdleDb,
 		id: string,
-		reason: "shutdown" | "cost_cap" | "handoff" | "user_crashed",
+		reason: "shutdown" | "handoff" | "user_crashed",
 	): Promise<void> {
 		const now = new Date().toISOString();
 		await db.insert(users).values({
@@ -487,19 +622,10 @@ describe("crash-after-202 recovery resolves a durably-stored termination cause",
 		}
 	});
 
-	test("cost_cap recovers to failed/BUDGET_EXHAUSTED", async ({ db, eventBus }) => {
-		await seedRunningWithReason(db, "au9-recover-costcap", "cost_cap");
-		const runtime = await startTestRuntime(db, eventBus, { db, eventBus }, {} as never);
-		try {
-			const [request] = await db
-				.select()
-				.from(agentSessionRequests)
-				.where(eq(agentSessionRequests.id, "au9-recover-costcap-request"));
-			expect(request).toMatchObject({ status: "failed", errorCode: "BUDGET_EXHAUSTED" });
-		} finally {
-			await runtime.dispose();
-		}
-	});
+	// @lore AU21 Increment 14a: "cost_cap recovers to failed/BUDGET_EXHAUSTED"
+	// is HARD-DELETED — `cost_cap` is no longer a valid termination reason
+	// (the cap gate that produced it is gone) and `BUDGET_EXHAUSTED` no longer
+	// exists as a disposition, no replacement.
 
 	test("handoff recovers to completed — never cancelled", async ({ db, eventBus }) => {
 		await seedRunningWithReason(db, "au9-recover-handoff", "handoff");

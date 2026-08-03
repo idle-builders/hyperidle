@@ -118,19 +118,6 @@ function sourceInput(
 					teamId: "team-au6",
 				},
 			};
-		case "decomposition":
-			return {
-				...base,
-				sourceKind,
-				taskId: null,
-				sourceId: "bet-au6",
-				promptMode: "decomposition",
-				sourceCorrelation: {
-					betId: "bet-au6",
-					teamId: "team-au6",
-					decomposerAgentId: "agent-au6",
-				},
-			};
 		case "proposed_call":
 			return {
 				...base,
@@ -170,7 +157,6 @@ describe("agent run boundary", () => {
 			return {
 				sessionId: "session-au6-boundary",
 				outcome: "completed",
-				totalCostCents: 0,
 				taskId: "task-au6",
 				forceReturnCount: 0,
 			};
@@ -237,7 +223,6 @@ describe("agent run boundary", () => {
 		vi.mocked(ports.sessionProvisioner!.runSession).mockImplementation(async () => ({
 			sessionId: "session-au6-boundary",
 			outcome: "completed",
-			totalCostCents: 0,
 			taskId: "task-au6",
 			forceReturnCount: 0,
 		}));
@@ -246,7 +231,6 @@ describe("agent run boundary", () => {
 			"assistant",
 			"routine",
 			"knowledge",
-			"decomposition",
 			"proposed_call",
 		] as const) {
 			const request = await createRequestForTest(db, sourceInput(sourceKind, "boundary"));
@@ -260,11 +244,12 @@ describe("agent run boundary", () => {
 				.where(eq(agentSessionRequests.id, request.id));
 			expect(row).toMatchObject({ sourceKind, status: "completed" });
 		}
-		expect(lifecycle).toHaveLength(6);
+		expect(lifecycle).toHaveLength(5);
 		expect(lifecycle.map(({ sourceKind, state }) => ({ sourceKind, state }))).toEqual(
-			["task", "assistant", "routine", "knowledge", "decomposition", "proposed_call"].map(
-				(sourceKind) => ({ sourceKind, state: "completed" }),
-			),
+			["task", "assistant", "routine", "knowledge", "proposed_call"].map((sourceKind) => ({
+				sourceKind,
+				state: "completed",
+			})),
 		);
 		expect(lifecycle.filter(({ sourceKind }) => sourceKind === "assistant")).toEqual([
 			expect.objectContaining({ sourceId: "assistant-boundary", state: "completed" }),

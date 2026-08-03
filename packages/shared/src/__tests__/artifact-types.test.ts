@@ -3,11 +3,10 @@
 //
 // Replaces the L3 test suite (13-kind closed enum) with the AE6 6-kind open system.
 
-import { describe, expect, expectTypeOf, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
 	ARTIFACT_KINDS,
 	type Artifact,
-	type ArtifactCostFromSession,
 	type ArtifactFilterAxis,
 	type ArtifactKind,
 	type ArtifactPage,
@@ -76,10 +75,6 @@ describe("Artifact canonical wire shape (AE6)", () => {
 				kind: "text",
 				body: "This is the contract body.",
 			},
-			cost: {
-				money: { minor: 42, currency: "USD" },
-				tokens: { byTier: {} },
-			},
 			threadCount: 0,
 			createdAt: "2026-06-08T00:00:00.000Z",
 		};
@@ -95,7 +90,6 @@ describe("Artifact canonical wire shape (AE6)", () => {
 			kind: "code",
 			label: null,
 			preview: null,
-			cost: { money: null, tokens: null },
 			threadCount: 0,
 			createdAt: "2026-06-08T00:00:00.000Z",
 		};
@@ -110,7 +104,6 @@ describe("Artifact canonical wire shape (AE6)", () => {
 			kind: "blog_post", // unregistered kind — still accepted by open type
 			label: null,
 			preview: null,
-			cost: { money: null, tokens: null },
 			threadCount: 0,
 			createdAt: "2026-06-08T00:00:00.000Z",
 		};
@@ -130,20 +123,6 @@ describe("Artifact canonical wire shape (AE6)", () => {
 			{ axis: "portfolio" },
 		];
 		expect(axes).toHaveLength(4);
-	});
-});
-
-describe("ArtifactCostFromSession forward-compat shape", () => {
-	it("carries WireMoney and TokenUsage (L17 structured cost types)", () => {
-		const cost: ArtifactCostFromSession = { money: null, tokens: null };
-		expect(cost.money).toBeNull();
-		expect(cost.tokens).toBeNull();
-		expectTypeOf<ArtifactCostFromSession["money"]>().toEqualTypeOf<
-			import("../types/money.js").WireMoney | null
-		>();
-		expectTypeOf<ArtifactCostFromSession["tokens"]>().toEqualTypeOf<
-			import("../types/money.js").TokenUsage | null
-		>();
 	});
 });
 

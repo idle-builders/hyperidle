@@ -7,12 +7,7 @@
 
 import { sessions } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import {
-	judgeCostTracked,
-	judgeLlmQuality,
-	judgeSessionCompleted,
-	judgeSessionNotesWritten,
-} from "../judges.js";
+import { judgeLlmQuality, judgeSessionCompleted, judgeSessionNotesWritten } from "../judges.js";
 import { runEvalSession } from "../provision-harness.js";
 import { seedMinimalWorld } from "../seeding.js";
 import type {
@@ -77,7 +72,6 @@ Your session notes must be substantive — not generic boilerplate.`,
 		dimensions: [
 			judgeSessionCompleted(),
 			judgeSessionNotesWritten(),
-			judgeCostTracked(),
 			judgeLlmQuality({
 				id: "notes_quality",
 				label: "Session Notes Quality",

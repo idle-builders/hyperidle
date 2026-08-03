@@ -7,7 +7,6 @@
 import { knowledgeAppProjection, knowledgeItems, sessions } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import {
-	judgeCostTracked,
 	judgeKnowledgeKindCorrect,
 	judgeLlmQuality,
 	judgeSessionCompleted,
@@ -81,7 +80,6 @@ Choose the most appropriate kind for an incident post-mortem.`,
 		dimensions: [
 			judgeSessionCompleted(),
 			judgeWriteMemoryCalled(),
-			judgeCostTracked(),
 			{
 				id: "kind_correctness",
 				label: "Kind Correct (failure or decision)",

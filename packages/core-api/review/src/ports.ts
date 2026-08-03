@@ -19,42 +19,48 @@
  * supply it via `ports.intentRecorder`.
  */
 import type {
+	Bet,
 	HyperIdleDb,
 	NewItem,
 	NewThread,
 	Task,
+	Team,
 	Thread,
 	User,
 	WriteExecutor,
 } from "@hyperidle/db";
+import type {
+	AgentWorkIntentRecorderInput,
+	BakedConnectionsForProvisioning,
+	BakedFilesystemForProvisioning,
+	SessionKnowledgeItemLike,
+	AgentWorkIntentRecorder as SharedAgentWorkIntentRecorder,
+} from "@hyperidle/shared";
 
 // ---------------------------------------------------------------------------
 // ReviewAgentWorkIntentInput — exported (the recorder's contract)
 // ---------------------------------------------------------------------------
 
-export interface ReviewAgentWorkIntentInput {
-	readonly kind: "reengagement";
-	readonly sourceKind: "proposed_call";
-	readonly sourceId: string;
-	readonly requestedBy?: string;
-	readonly idempotencyKey: string;
-}
+/**
+ * AU21 §6 Decision G (recorder unification) — `review` used to re-declare its
+ * own single-kind local mirror (`ReviewAgentWorkIntentInput`, narrowed to
+ * `reengagement`/`proposed_call` only) instead of importing
+ * `@hyperidle/shared`'s canonical seven-kind `AgentWorkIntentRecorderInput`
+ * union — a redundant re-declaration now deleted. `review` only ever
+ * constructs the `reengagement` member of the shared union (narrowed here via
+ * `Extract`), but the CONTRACT callers depend on is the one shared type, so
+ * `tsc` enforces conformance mechanically instead of by convention.
+ */
+export type ReviewAgentWorkIntentInput = Extract<
+	AgentWorkIntentRecorderInput,
+	{ kind: "reengagement" }
+>;
 
 // ---------------------------------------------------------------------------
 // Internal helper types — NOT exported from barrel (bundled inside ReviewPorts)
 // ---------------------------------------------------------------------------
 
-interface ReviewAgentWorkIntentRecord {
-	readonly id: string;
-	readonly idempotencyKey: string;
-}
-
-interface ReviewAgentWorkIntentRecorder {
-	record(
-		tx: WriteExecutor,
-		input: ReviewAgentWorkIntentInput,
-	): Promise<ReviewAgentWorkIntentRecord>;
-}
+type ReviewAgentWorkIntentRecorder = SharedAgentWorkIntentRecorder<WriteExecutor>;
 
 /** Narrow patch shape `review` writes onto a task. */
 interface ReviewTaskPatch {
@@ -104,4 +110,67 @@ export interface ReviewPorts {
 		): Promise<string[]>;
 	};
 	readonly intentRecorder: ReviewAgentWorkIntentRecorder;
+	/**
+	 * AU21 §6 Decision B — the shared ast-`<userId>` runnability invariant
+	 * (`@hyperidle/users`' `requireRunnableAgent`), injected because `review`
+	 * cannot statically import `@hyperidle/users` (Mechanism C). Used by
+	 * `proposed-call-workflow.ts`'s `resolveReengagementRequest` (via
+	 * `registerReviewSubscriptions`'s liveness-net wiring) to validate the
+	 * grant's resolved agent at emit time, never trusting the flagging actor.
+	 * Widened `Promise<unknown>` → `Promise<User>` in Increment 12 Wave B (H2
+	 * precedent) — the real wired implementation (`@hyperidle/users`'
+	 * `requireRunnableAgent`, `server-factory.ts:516`) already returns
+	 * `Promise<User>`; this is a type-only widening, no behavior change.
+	 */
+	readonly requireRunnableAgent: (db: HyperIdleDb, agentId: string) => Promise<User>;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/work`'s own
+	 * `bets` table + `@hyperidle/org`'s `getTeam`, injected (Mechanism C —
+	 * `review` cannot import `work`/`org` directly). Forwarded into
+	 * `resolveReengagementRequest`'s deps (via `applyLivenessRetry`/
+	 * `handleUnconsumedGrantOnSessionEnd`/`reengageOnAdmissionFailure`) so the
+	 * liveness-net re-provision bakes the same `contextBundle` the primary
+	 * `transitionProposedCall({to:"granted"})` emit site does.
+	 */
+	readonly getBetById?: (db: HyperIdleDb, id: string) => Promise<Bet | undefined>;
+	readonly getTeamById?: (db: HyperIdleDb, id: string) => Promise<Team | undefined>;
+	/** AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/knowledge`'s `assembleSessionKnowledge`, injected for the same Mechanism C reason. */
+	readonly assembleSessionKnowledge?: (
+		db: HyperIdleDb,
+		input: {
+			readonly teamId: string;
+			readonly agentRole: string;
+			readonly taskDescription: string;
+		},
+	) => Promise<readonly SessionKnowledgeItemLike[]>;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave E — optional: `@hyperidle/settings`'s
+	 * `readServerConfig`, injected (Mechanism C) for the `harnessDisabled` bake
+	 * `resolveReengagementRequest` forwards onto every `reengagement` request.
+	 */
+	readonly readServerConfig?: (
+		db: HyperIdleDb,
+	) => Promise<{ readonly harnessDisabled: readonly string[] }>;
+	/**
+	 * AU21 §9 Increment 12 follow-up (F2 gap closure) — optional:
+	 * `@hyperidle/filesystems`'s `resolveInjectedFilesystemsForAgent`, injected
+	 * (Mechanism C — `review` cannot import `filesystems` directly) for the
+	 * `injectedFilesystems` bake `resolveReengagementRequest` forwards onto
+	 * every `reengagement` request.
+	 */
+	readonly resolveInjectedFilesystemsForAgent?: (
+		db: HyperIdleDb,
+		agentId: string,
+	) => Promise<readonly BakedFilesystemForProvisioning[]>;
+	/**
+	 * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) —
+	 * optional: `@hyperidle/connections`'s `resolveInjectedConnectionsForAgent`,
+	 * injected (Mechanism C — `review` cannot import `connections` directly)
+	 * for the `injectedConnections` bake `resolveReengagementRequest` forwards
+	 * onto every `reengagement` request.
+	 */
+	readonly resolveInjectedConnectionsForAgent?: (
+		db: HyperIdleDb,
+		agentId: string,
+	) => Promise<BakedConnectionsForProvisioning>;
 }

@@ -105,8 +105,7 @@ export const REVIEW_COMPOSITION_SUBJECT: ComposedReviewSubject = {
 	reviewerName: "You",
 	blocking: true,
 	producedAgo: "9 min ago",
-	costMoney: "$4.20",
-	costTokens: "310k tok",
+	tokens: "310k tok",
 	tools: uniqueTools(AL2_REVIEW_SUBJECT.artifacts),
 	outcome:
 		"Root cause: an unhandled PromoExpiredError was swallowed by a catch-all, so expired codes silently 'succeeded'. Checkout now returns a typed 422 and shows an inline 'expired' message; tests pass. The prod deploy is staged and waiting on your approval.",

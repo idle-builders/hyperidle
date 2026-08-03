@@ -20,7 +20,6 @@ function adapter(label: string): HarnessAdapter {
 		async stopSession(): Promise<SessionResult> {
 			return {
 				outcome: "completed",
-				cost: { minor: 0, currency: "USD" },
 				tokenUsage: { byTier: {} },
 			};
 		},
@@ -124,7 +123,6 @@ describe("execution platform completeness contract", () => {
 				sessionId: dispatched.sessionId,
 				result: {
 					outcome: "completed",
-					cost: { minor: 0, currency: "USD" },
 					tokenUsage: { byTier: {} },
 				},
 			}),

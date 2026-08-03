@@ -65,11 +65,7 @@ const TEAM: TeamDetail = {
 	},
 	roster: [AGENT],
 	burn: {
-		costActual: null,
-		costCap: null,
 		capacity: 5,
-		betCostActual: null,
-		routineCostThisMonth: null,
 		activeBets: 0,
 	},
 	activeBets: [],
@@ -84,7 +80,6 @@ const TEAM: TeamDetail = {
 			lastRunAt: "2026-01-01T08:00:00.000Z",
 			lastRunOutcome: "success",
 			nextRunAt: "2026-01-02T08:00:00.000Z",
-			costActual: null,
 		},
 	],
 };

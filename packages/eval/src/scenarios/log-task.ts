@@ -7,7 +7,6 @@
 import { tasks } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import {
-	judgeCostTracked,
 	judgeLlmQuality,
 	judgeMultipleLogEntries,
 	judgeNotesLogged,
@@ -91,7 +90,6 @@ Your logs should be specific and actionable, not generic.`,
 		dimensions: [
 			judgeSessionCompleted(),
 			judgeNotesLogged(),
-			judgeCostTracked(),
 			judgeLlmQuality({
 				id: "notes_quality",
 				label: "Task Log Notes Quality",

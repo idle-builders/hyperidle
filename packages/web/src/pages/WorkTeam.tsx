@@ -41,12 +41,7 @@ import {
 } from "@hyperidle/design-system";
 // @lore U1: `ProductDetail` → `TeamDetail`, `BetCardSummary.pitchTitle` → `descriptionTitle`.
 import type { BetCardSummary, TeamDetail } from "@hyperidle/shared";
-import {
-	BET_STATUS_LABEL,
-	findRoleCatalogEntry,
-	formatMoney,
-	relativeShort,
-} from "@hyperidle/shared";
+import { BET_STATUS_LABEL, findRoleCatalogEntry, relativeShort } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
 import { Link as RRLink, useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -272,12 +267,6 @@ function WorkTeamLoaded({
 			? (roster.find((m) => m.agentId === team.leadAgentId)?.name ?? team.leadAgentId)
 			: null;
 
-	// L17: burn.costActual and burn.costCap are now WireMoney|null.
-	const capPercent =
-		burn.costCap !== null && burn.costCap.minor > 0
-			? Math.min(1, (burn.costActual?.minor ?? 0) / burn.costCap.minor)
-			: 0;
-
 	// @lore AV4: teamBody is the team list JSX extracted into a variable so it can be:
 	// 1. Rendered full-width when no selection (no-selection path — identical DOM to before).
 	// 2. Passed as `origin` to SplitView when ?routine or ?agent is set.
@@ -286,26 +275,19 @@ function WorkTeamLoaded({
 		<div className="flex-1 overflow-y-auto" data-testid="work-team-page">
 			<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
 				{/* R4 — Team summary stat strip (AG1: replaces KeyValue burn list) */}
+				{/*
+				 * @lore AU21 Increment 14a: the Burn/Cap stat tiles + cap-utilization
+				 * progress bar are HARD-DELETED along with the rest of the cost-cap
+				 * feature — no replacement. Capacity/Status tiles are untouched.
+				 */}
 				<section aria-label="Team summary" data-testid="team-burn-vs-cap">
 					{/*
-					 * @lore AG1: 4 stat tiles (Burn/Cap/Capacity/Status) replace the KeyValue
+					 * @lore AG1: stat tiles (Capacity/Status) replace the KeyValue
 					 * burn list. flex-wrap (not grid-cols-N) avoids AQ-108. Status tile is
 					 * mandatory — empty roster → "—"/"No agents", never "Healthy". See
 					 * plans/AG1/design/approved.md §2 + §4a.
 					 */}
 					<div className="flex gap-[12px] flex-wrap">
-						{/* Burn tile */}
-						<StatTile
-							label="Burn"
-							value={formatMoney(burn.costActual)}
-							sub={`bets ${formatMoney(burn.betCostActual)} · routines ${formatMoney(burn.routineCostThisMonth)}/mo`}
-						/>
-						{/* Cap tile */}
-						<StatTile
-							label="Cap"
-							value={burn.costCap !== null ? formatMoney(burn.costCap) : "—"}
-							sub={burn.costCap !== null ? `${Math.round(capPercent * 100)}% used` : "no cap"}
-						/>
 						{/* Capacity tile */}
 						<StatTile
 							label="Capacity"
@@ -329,24 +311,6 @@ function WorkTeamLoaded({
 								/>
 							);
 						})()}
-					</div>
-					<div className="mt-[12px]">
-						{burn.costCap !== null && (
-							<progress
-								className="progress progress-primary w-full"
-								value={capPercent}
-								max={1}
-								aria-label={`${Math.round(capPercent * 100)}% of cap used`}
-							/>
-						)}
-						{burn.costCap === null && (
-							<progress
-								className="progress w-full"
-								value={0}
-								max={1}
-								aria-label="Cost cap not set"
-							/>
-						)}
 					</div>
 				</section>
 
@@ -447,7 +411,6 @@ function WorkTeamLoaded({
 											? ("info" as const)
 											: ("neutral" as const);
 							const lastRunLabel = routine.lastRunAt ? relativeShort(routine.lastRunAt) : "Never";
-							const costLabel = routine.costActual ? formatMoney(routine.costActual) : "—";
 							return (
 								<Row
 									key={routine.id}
@@ -469,7 +432,6 @@ function WorkTeamLoaded({
 										},
 										{ content: routine.scheduleLabel, width: 80, align: "start" },
 										{ content: lastRunLabel, width: 60, numeric: true },
-										{ content: costLabel, width: 54, numeric: true },
 									]}
 									onClick={() => {
 										// @lore AV4: routine row click opens split pane via ?routine param
@@ -822,10 +784,7 @@ function BetRow({ bet, onNavigate }: { bet: BetCardSummary; onNavigate: () => vo
 		<Row
 			title={bet.descriptionTitle}
 			onClick={onNavigate}
-			cells={[
-				{ content: formatMoney(bet.costAppetite), numeric: true },
-				{ content: progressText, numeric: true },
-			]}
+			cells={[{ content: progressText, numeric: true }]}
 			actions={
 				/* C1: label so team surface reads "ACTIVE" not "HEALTHY" */
 				<StatusChip status={betStatusToStatus(bet.status)} label={BET_STATUS_LABEL[bet.status]} />

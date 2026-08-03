@@ -1,7 +1,16 @@
 [
   {
-    "path": "packages/core-api/connections/src/connection-provisioning.ts",
-    "line": 114,
+    "path": "packages/core-api/connections/src/resolve-injected-connections-for-agent.ts",
+    "line": 58,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "packages/core-api/connections/src/resolve-injected-connections-for-agent.ts",
+    "line": 67,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",
@@ -28,7 +37,7 @@
   },
   {
     "path": "packages/core-api/src/middleware/auth.ts",
-    "line": 167,
+    "line": 168,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",
@@ -37,25 +46,7 @@
   },
   {
     "path": "packages/core-api/src/middleware/auth.ts",
-    "line": 199,
-    "symbol": "u-founder",
-    "kind": "literal-id",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "straight-swap"
-  },
-  {
-    "path": "packages/core-api/src/middleware/auth.ts",
-    "line": 226,
-    "symbol": "u-founder",
-    "kind": "literal-id",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "straight-swap"
-  },
-  {
-    "path": "packages/core-api/src/middleware/auth.ts",
-    "line": 230,
+    "line": 188,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",

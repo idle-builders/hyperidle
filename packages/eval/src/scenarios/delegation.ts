@@ -5,8 +5,10 @@
  * moved from dispatch fire-time to drain-time
  * `resolveAuthoritativeInput` (Agent Layer, `agent-work-intent-worker.ts`).
  * `dispatchOps.fireRoutine` does not evaluate WIP/delegation — it
- * always fires (records a run + intent) once the coalescing/cost-cap guards
- * clear, regardless of owner WIP. The actual delegate/owner selection is
+ * always fires (records a run + intent) once the coalescing guard clears
+ * (AU21 Increment 14a: the cost-cap guard this comment used to also cite is
+ * HARD-DELETED, no replacement), regardless of owner WIP. The actual
+ * delegate/owner selection is
  * proven by the real service-integration suite
  * (`agent-work-intent-worker.routine-selection.integration.test.ts`), not
  * this eval — `@hyperidle/core-api/routines` exposes only the cohesive
@@ -27,7 +29,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { dispatchOps } from "@hyperidle/core-api/routines";
+import { fireRoutine } from "@hyperidle/core-api/routines";
 import { agentWorkIntents, routineRuns, routines } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
@@ -49,15 +51,10 @@ import type {
 	TriggerResult,
 } from "../types.js";
 
-/** Structural runtime dependencies retained by the evaluation fixture;
- * session provisioning happens later, at drain + hand-off. */
-const RUNTIME_DEPS = { adapterPool: {}, workspace: {}, sandboxBasePath: "/tmp/eval-delegation" };
-
 function makeSyntheticResult(startMs: number, fired: boolean): TriggerResult {
 	return {
 		sessionId: randomUUID(),
 		outcome: fired ? "completed" : "crashed",
-		totalCostCents: 0,
 		taskId: randomUUID(),
 		durationMs: Date.now() - startMs,
 	};
@@ -164,9 +161,7 @@ const delSuccessfulDelegation: EvalScenario = {
 			.where(eq(routines.id, delSuccessRoutineId))
 			.limit(1);
 		if (!routine) return makeSyntheticResult(startMs, false);
-		const result = await dispatchOps.fireRoutine(ctx.db, eventBus, routine, {
-			runtimeDeps: RUNTIME_DEPS,
-		});
+		const result = await fireRoutine(ctx.db, eventBus, routine);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
@@ -280,9 +275,7 @@ const delNoDelegateAvailable: EvalScenario = {
 			.where(eq(routines.id, delNoDelegateRoutineId))
 			.limit(1);
 		if (!routine) return makeSyntheticResult(startMs, false);
-		const result = await dispatchOps.fireRoutine(ctx.db, eventBus, routine, {
-			runtimeDeps: RUNTIME_DEPS,
-		});
+		const result = await fireRoutine(ctx.db, eventBus, routine);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
@@ -376,9 +369,7 @@ const delDelegationNotAllowed: EvalScenario = {
 			.where(eq(routines.id, delNotAllowedRoutineId))
 			.limit(1);
 		if (!routine) return makeSyntheticResult(startMs, false);
-		const result = await dispatchOps.fireRoutine(ctx.db, eventBus, routine, {
-			runtimeDeps: RUNTIME_DEPS,
-		});
+		const result = await fireRoutine(ctx.db, eventBus, routine);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {

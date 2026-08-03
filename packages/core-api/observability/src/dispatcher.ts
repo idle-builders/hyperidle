@@ -26,8 +26,6 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	type BetStateChangedEvent,
-	type CostCapBreachedEvent,
-	type CostCapWarningEvent,
 	createLogger,
 	type DomainEvent,
 	type EventBus,
@@ -311,7 +309,7 @@ export function registerObservabilityDispatcher(
 	 * provided `fallback`. An empty `sessionId` is never a valid trace —
 	 * we refuse to collapse every "unknown" event onto a single empty
 	 * trace (adversary review H3 WARN: empty-sessionId). Callers should
-	 * pass a unique fallback string (e.g. `"unknown"` or `"cost:<id>"`).
+	 * pass a unique fallback string (e.g. `"unknown"` or `"entity:<id>"`).
 	 */
 	function traceFor(sessionId: string, fallback: string): string {
 		if (sessionId.length === 0) return fallback;
@@ -400,44 +398,6 @@ export function registerObservabilityDispatcher(
 				});
 				return true;
 			}
-			case "cost_cap_warning": {
-				const ev = event as CostCapWarningEvent;
-				const sessionId = typeof ev.streamId === "string" ? ev.streamId : null;
-				const traceId = sessionId
-					? traceFor(sessionId, `cost:${ev.entityId}`)
-					: `cost:${ev.entityId}`;
-				deps.dispatcher.enqueue({
-					kind: "cost_incurred",
-					traceId,
-					sessionId: sessionId && sessionId.length > 0 ? sessionId : null,
-					ts: nowIso(ev.timestamp),
-					level: ev.level,
-					capLevel: ev.capLevel,
-					entityId: ev.entityId,
-					spend: ev.spend,
-					cap: ev.cap,
-				});
-				return true;
-			}
-			case "cost_cap_breached": {
-				const ev = event as CostCapBreachedEvent;
-				const sessionId = typeof ev.streamId === "string" ? ev.streamId : null;
-				const traceId = sessionId
-					? traceFor(sessionId, `cost:${ev.entityId}`)
-					: `cost:${ev.entityId}`;
-				deps.dispatcher.enqueue({
-					kind: "cost_incurred",
-					traceId,
-					sessionId: sessionId && sessionId.length > 0 ? sessionId : null,
-					ts: nowIso(ev.timestamp),
-					level: ev.level,
-					capLevel: ev.capLevel,
-					entityId: ev.entityId,
-					spend: ev.spend,
-					cap: ev.cap,
-				});
-				return true;
-			}
 			case "knowledge_updated": {
 				const ev = event as KnowledgeUpdatedEvent;
 				deps.dispatcher.enqueue({
@@ -487,23 +447,28 @@ export function registerObservabilityDispatcher(
 			case "user_created":
 			// AK7: selection occasion event — audit-only in AK7, not an observability event.
 			case "work_selection_requested":
-			// AK8: decomposition occasion event — audit-only, not an observability event.
-			case "work_decompose_requested":
 			// AL7 trust-first: proposed call executed/granted — audit-only, not an observability event.
 			case "proposed_call_executed":
 			case "proposed_call_granted":
 			// AU9 durable handoff/lifecycle facts are consumed by domain projections.
 			case "agent_work_intent_recorded":
 			case "agent_run_lifecycle_changed":
+			// AU21 §6 Decision B4: the pre-handoff failure report-back channel —
+			// consumed by `registerAgentRunAdmissionReactions`, not an
+			// observability event.
+			case "agent_run_admission_failed":
 			// AL6: return-gate escape surface — surfaced via bus, not an observability metric.
 			case "session_not_returned":
 			// AU19 Increment 3f: filesystems ⚠ capture-writeback EventBus inversion —
 			// internal plumbing between two Services, not an observability event.
 			case "sandbox_writeback_changes_detected":
-			// AU19 Increment 3g: policy ⚠ cost EventBus inversion — internal
-			// cost-dedup-cleanup plumbing between two Services, not an
-			// observability event (the real observable outcome is the handoff's
-			// own task_state_changed/item_created, already translated above).
+			// AU19 Increment 3i: policy ⚠ session-lifecycle EventBus inversion —
+			// internal session-termination-request plumbing between two Services
+			// (AU21 Increment 14a: the cost-dedup-cleanup consumer this event
+			// originally carried at AU19 Increment 3g is gone, deleted with the
+			// rest of the cost feature), not an observability event (the real
+			// observable outcome is the handoff's own
+			// task_state_changed/item_created, already translated above).
 			case "session_handoff_completed":
 				return false;
 			default: {

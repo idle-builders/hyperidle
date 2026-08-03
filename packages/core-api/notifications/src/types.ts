@@ -8,7 +8,7 @@ export type NotificationChannel = "console" | "ntfy" | "smtp";
 // ---------------------------------------------------------------------------
 
 /** Severity drives push priority + digest/queue routing. */
-type NotificationSeverity = "blocking" | "cost_breach" | "digest";
+type NotificationSeverity = "blocking" | "digest";
 
 /** Adapter-specific send target. */
 interface Recipient {

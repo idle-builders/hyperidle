@@ -31,11 +31,6 @@ const MOCK_ACTIVITY = [
 		timestamp: NOW - 2000,
 		data: { toolName: "write_file", argsSummary: 'path="src/feature.ts"' },
 	},
-	{
-		type: "cost_tick" as const,
-		timestamp: NOW - 1000,
-		data: { deltaMinor: 120, totalMinor: 350, currency: "USD" },
-	},
 ];
 
 function makeFetchMock(sessionState: "active" | "done", activity = MOCK_ACTIVITY): void {

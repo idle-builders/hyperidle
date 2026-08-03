@@ -35,18 +35,11 @@ export { dismissHint, listDismissedHints } from "./hint-progress.js";
 export { claimInvite, createInvite } from "./invite-code.js";
 // -- login session (S1 — bearer-token auth) --
 export { createLoginSession, revokeLoginSession, validateBearerToken } from "./login-session.js";
+// -- runnable-agent invariant (AU21 §6 Decision B — the shared ast-<userId> check) --
+export { AgentNotRunnableError, requireRunnableAgent } from "./runnable-agent.js";
 // -- upgrade token store (I2 — WS-handshake one-shot tokens, no table) --
 export type { UpgradeTokenStore } from "./upgrade-token-store.js";
 export { createUpgradeTokenStore } from "./upgrade-token-store.js";
 // -- user store (AU12 / AU20 Am11 — single owner of `users` row read/write) --
 export type { UserFilter } from "./user-store.js";
-export {
-	findUser,
-	getOrCreateUser,
-	incrementUserCost,
-	insertUser,
-	listUsers,
-	resetAllUserCost,
-	sumAllUserCost,
-	updateUser,
-} from "./user-store.js";
+export { findUser, getOrCreateUser, insertUser, listUsers, updateUser } from "./user-store.js";

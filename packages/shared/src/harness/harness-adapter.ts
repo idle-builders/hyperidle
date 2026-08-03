@@ -2,7 +2,7 @@
 
 import type { ResolvedModel } from "../model-gateway.js";
 import type { Reversibility } from "../proposed-call.js";
-import type { TokenUsage, WireMoney } from "../types/money.js";
+import type { TokenUsage } from "../types/money.js";
 import type { ModelTier } from "../types.js";
 import type {
 	HarnessAccessMode,
@@ -166,21 +166,28 @@ export interface SessionMetrics {
 	readonly reasoningOutputTokens?: number;
 	readonly durationMs?: number;
 	readonly apiDurationMs?: number;
-	readonly nativeCostUsd?: number;
 }
 
 /**
- * L17: SessionResult now returns structured cost (WireMoney) and token usage
- * (TokenUsage with per-tier breakdown) instead of raw numbers.
+ * L17: SessionResult returns structured token usage (TokenUsage with
+ * per-tier breakdown) instead of a raw number.
  *
- * @lore L17: totalCost: number and totalTokens: number are removed — callers
- * must use cost.minor and totalTokens(tokenUsage) respectively. This prevents
- * the unit ambiguity (was totalCost in dollars? cents? micros?) that existed
- * in the pre-L17 interface.
+ * @lore L17: totalTokens: number is removed — callers must use
+ * totalTokens(tokenUsage). This prevents the unit ambiguity that existed in
+ * the pre-L17 interface.
+ *
+ * @lore AU21 (harness-telemetry narrowing): `cost: WireMoney` (and
+ * `SessionMetrics.nativeCostUsd`) is REMOVED — founder ruling: "the session
+ * itself can claim... token usage from the harness... just the token usage
+ * and not the cost since very few harness can actually report cost."
+ * Investigation confirmed the asymmetry: codex reports no cost at all;
+ * claude/opencode report a native $ figure; the builtin adapter only
+ * ESTIMATED cost from a hardcoded per-model rate table (never a harness
+ * self-report). Token usage is the one signal every harness genuinely
+ * reports. No replacement $ field — this is a narrowing, not a rename.
  */
 export interface SessionResult {
 	readonly outcome: "completed" | "crashed" | "stopped";
-	readonly cost: WireMoney;
 	readonly tokenUsage: TokenUsage;
 	readonly metrics?: SessionMetrics;
 }

@@ -42,6 +42,12 @@
  * fields).
  */
 
+import type {
+	BakedAgentRunnableConfig,
+	BakedConnectionsForProvisioning,
+	BakedContextBundle,
+	BakedFilesystemForProvisioning,
+} from "./agent-work-intent-recorder.js";
 import type { EventBus } from "./event-bus.js";
 import type { SessionOutcome } from "./events.js";
 import type { SessionMetrics } from "./harness/harness-adapter.js";
@@ -84,6 +90,39 @@ export interface RunContextBundle {
 	readonly sessionWorkflow?: unknown;
 	/** Opaque pass-through — `session-lifecycle`-owned conversational-turn bundle (incl. a `tool-handlers`-destined `ToolRegistry`). Never inspected here. */
 	readonly conversational?: unknown;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3) — the baked entity+knowledge bundle a
+	 * `task_run`/`routine_run`/`reengagement` session's sandbox context (Phase
+	 * 6) and prompt persona (Phase 8.5) are built from, sourced from the
+	 * drained `AgentSessionRequest.payloadJson` (zero db read). Absent for
+	 * `knowledge_action`/`session_start`/conversational turns.
+	 */
+	readonly contextBundle?: BakedContextBundle;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave E — the target agent's baked
+	 * runnable-config snapshot (see `BakedAgentRunnableConfig`'s own doc
+	 * comment) and the server's baked disabled-harness-types list, both
+	 * sourced from the drained `AgentSessionRequest.payloadJson` — zero db
+	 * read. Present for every durable session (all six intent kinds bake
+	 * `agentConfig`); absent only on the `one-shot` mode (eval/test seam),
+	 * whose caller supplies it directly.
+	 */
+	readonly agentConfig?: BakedAgentRunnableConfig;
+	readonly harnessDisabled?: readonly string[];
+	/**
+	 * AU21 §9 Increment 12 follow-up (F2 gap closure) — the target agent's
+	 * baked injected-filesystems list, sourced from the drained
+	 * `AgentSessionRequest.payloadJson` (zero db read). Absent/empty means "no
+	 * injected filesystems". Feeds `admitSession`'s Phase 4.5 mount step.
+	 */
+	readonly injectedFilesystems?: readonly BakedFilesystemForProvisioning[];
+	/**
+	 * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) —
+	 * the owning human's baked held-connection list, sourced from the drained
+	 * `AgentSessionRequest.payloadJson` (zero db read). Absent means "no held
+	 * connections". Feeds Phase 8b-connections' `buildProvisioningPlan` call.
+	 */
+	readonly injectedConnections?: BakedConnectionsForProvisioning;
 }
 
 /** Narrow mirror of `@hyperidle/session-lifecycle`'s `AdmittedSession` — only the field `run-orchestration` reads directly; the rest flows through opaquely. */
@@ -92,11 +131,16 @@ export interface AdmittedRun {
 	readonly sessionContext: { readonly taskId: string | null };
 }
 
-/** Full mirror of `@hyperidle/session-lifecycle`'s `ProvisionSessionResult` — every field is already `@hyperidle/shared`-typed, so this is a complete (non-opaque) structural equivalent. */
+/**
+ * Full mirror of `@hyperidle/session-lifecycle`'s `ProvisionSessionResult` — every field is already `@hyperidle/shared`-typed, so this is a complete (non-opaque) structural equivalent.
+ *
+ * @lore AU21 (harness-telemetry narrowing): `totalCostCents` REMOVED — the
+ * harness-adapter $-cost estimate machinery is narrowed to token usage only
+ * (see `SessionMetrics`/`SessionResult` in `harness-adapter.ts`).
+ */
 export interface HarnessRunOutput {
 	readonly sessionId: string;
-	readonly outcome: SessionOutcome | "budget_exhausted";
-	readonly totalCostCents: number;
+	readonly outcome: SessionOutcome;
 	readonly taskId: string | null;
 	readonly returnVerdict?: "returned" | "not_returned";
 	readonly forceReturnCount: number;

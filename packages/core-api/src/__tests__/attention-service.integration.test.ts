@@ -13,8 +13,29 @@ import type { ItemCreatedEvent, KnowledgeUpdatedEvent } from "@hyperidle/shared"
 import * as work from "@hyperidle/work";
 import { eq, like } from "drizzle-orm";
 import { describe, expect } from "vitest";
+import {
+	createInProcessCoreApiTransport,
+	registerCoreApiTransport,
+} from "../services/core-api-port-composition.js";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
-import { test } from "../test-fixtures.js";
+import { test as baseTest } from "../test-fixtures.js";
+
+/**
+ * @lore AU21 §9 Increment 2 (knowledge wave): the one direct
+ * `toolHandlersPorts.coreApi.upsertKnowledgeAppProjectionAttentionScore` call
+ * below now reaches `ports.coreApi.*` (the seam) — this file-scoped
+ * `auto:true` fixture registers a real in-process `CoreApiPort` transport off
+ * THIS test's own `app`, same idiom as `write-memory.integration.test.ts`.
+ */
+const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
+	coreApiSeamRegistration: [
+		async ({ app }, use) => {
+			registerCoreApiTransport(createInProcessCoreApiTransport(app));
+			await use(undefined);
+		},
+		{ auto: true },
+	],
+});
 
 const NOW = "2026-04-18T00:00:00.000Z";
 const NOW_MS = new Date(NOW).getTime();
@@ -152,15 +173,15 @@ describe("attention-service", () => {
 			.from(knowledgeEditLog)
 			.where(eq(knowledgeEditLog.itemId, "ki-override"));
 
-		await toolHandlersPorts.knowledge.upsertKnowledgeAppProjectionAttentionScore(
-			db,
+		await toolHandlersPorts.coreApi.upsertKnowledgeAppProjectionAttentionScore(
 			"ki-override",
 			"0.42",
+			"agent-attention-override",
 		);
-		await toolHandlersPorts.knowledge.upsertKnowledgeAppProjectionAttentionScore(
-			db,
+		await toolHandlersPorts.coreApi.upsertKnowledgeAppProjectionAttentionScore(
 			"ki-override",
 			"0.73",
+			"agent-attention-override",
 		);
 
 		const [after] = await db

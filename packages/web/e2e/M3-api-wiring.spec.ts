@@ -21,7 +21,6 @@ const SETTINGS_API_RESPONSE = {
 	users: [{ id: "agent-m3", name: "M3 Builder", autonomyLevel: "supervised", paused: false }],
 	notifications: {
 		reviewAlerts: true,
-		costAlerts: false,
 		blockerAlerts: true,
 		quietHoursEnabled: false,
 		quietHoursStart: "23:00",

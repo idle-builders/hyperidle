@@ -1,12 +1,31 @@
 /**
- * AU15 R1/AC-1/AC-2b — drain-time routine agent-selection.
+ * AU15 R1/AC-1/AC-2b — routine agent-selection (owner-WIP evaluation +
+ * delegate resolution).
  *
- * Routine agent-selection (owner-WIP evaluation + delegate resolution) moved
- * from fire-time `checkAndFireRoutine` (Core) to drain-time
- * `resolveAuthoritativeInput`'s `routine_run` branch (Agent Layer). This
- * suite drives the real `drainIntents` worker against a recorded
- * `routine_run` intent and asserts the handed-off `AgentSessionRequest`'s
- * target agent — never the fire-time selection (which no longer exists).
+ * @lore AU21 §9 Increment 4, Wave B rewiring: this suite originally drove
+ * `drainIntents` against a MANUALLY-enqueued, unbaked `routine_run` intent —
+ * `resolveIntentInputInternal`'s "routine_run" branch (drain-time) evaluated
+ * owner-WIP + delegate selection at DRAIN time. That branch is now DELETED
+ * (architecture.md §6 Decision B / §9 Increment 4): the SAME selection logic
+ * (owner-not-at-capacity / at-capacity+delegate / at-capacity+no-delegate /
+ * delegation-not-allowed) now runs at EMIT time, inside `fireGenericRoutine`'s
+ * own transaction (`resolveRoutineRunRequest`, `@hyperidle/routine`), and is
+ * baked onto the intent before the drain ever sees it. The four selection
+ * scenarios below are unchanged in INTENT — only the mechanism producing the
+ * target agent moves from "drain resolves" to "fire bakes, drain hands off
+ * the baked value" — so each now fires the routine through the REAL
+ * production composition (`fireGenericRoutine`, `../routine-scheduler-bindings.js`)
+ * instead of hand-inserting an unbaked intent, with the WIP-seeding moved
+ * BEFORE the fire call (capacity is now evaluated at fire/emit time, not
+ * drain time). The dedicated `resolveRoutineRunRequest` validation-matrix
+ * test (`packages/core-api/routine/src/__tests__/routine-run-resolver.integration.test.ts`)
+ * covers this same matrix directly at the resolver level; this file's value
+ * is now proving the END-TO-END fire→bake→drain→hand-off path, not the
+ * resolver logic in isolation.
+ *
+ * The idempotency/dedup test at the bottom is UNCHANGED and remains the one
+ * formally protected by architecture.md §14 — it never drains, so it is
+ * unaffected by the resolve-at-emit move.
  */
 import {
 	agentSessionRequests,
@@ -24,6 +43,7 @@ import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../../test-fixtures.js";
 import { queueDeps } from "../durable-agent-queue.js";
+import { fireRoutine } from "../routine-scheduler-bindings.js";
 
 const NOW = "2026-07-12T00:00:00.000Z";
 
@@ -89,26 +109,20 @@ async function seedRoutineWorld(
 	return { routineId: "au15-routine", ownerAgentId, delegateAgentId };
 }
 
-async function recordRunningIntent(
+/**
+ * Fires the routine through the REAL production composition (owner-WIP +
+ * delegate selection now happens HERE, at emit time — not at drain time).
+ */
+async function fireRoutineAndGetRunId(
 	db: HyperIdleDb,
+	eventBus: import("@hyperidle/shared").EventBus,
 	routineId: string,
-	ownerAgentId: string,
 ): Promise<string> {
-	const runId = `${routineId}-run`;
-	await routineService.insertRoutineRun(db, {
-		id: runId,
-		routineId,
-		startedAt: NOW,
-		outcome: "running",
-	});
-	await enqueueWorkIntent(db, {
-		kind: "routine_run",
-		sourceKind: "routine_run",
-		sourceId: runId,
-		requestedBy: ownerAgentId,
-		idempotencyKey: `routine:${runId}`,
-	});
-	return runId;
+	const [routine] = await db.select().from(routines).where(eq(routines.id, routineId));
+	if (!routine) throw new Error(`routine ${routineId} not seeded`);
+	const result = await fireRoutine(db, eventBus, routine);
+	if (!(result.fired && result.runId)) throw new Error(`routine ${routineId} did not fire`);
+	return result.runId;
 }
 
 async function putAgentAtWip(db: HyperIdleDb, agentId: string, sessionId: string): Promise<void> {
@@ -121,10 +135,10 @@ async function putAgentAtWip(db: HyperIdleDb, agentId: string, sessionId: string
 	});
 }
 
-describe("drain-time routine agent-selection (resolveAuthoritativeInput routine_run)", () => {
-	test("owner not at WIP: drain hands off to the owner", async ({ db }) => {
+describe("routine agent-selection — resolved at emit, handed off (baked) at drain", () => {
+	test("owner not at WIP: fire bakes + drain hands off to the owner", async ({ db, eventBus }) => {
 		const { routineId, ownerAgentId } = await seedRoutineWorld(db);
-		const runId = await recordRunningIntent(db, routineId, ownerAgentId);
+		const runId = await fireRoutineAndGetRunId(db, eventBus, routineId);
 
 		await drainIntents(queueDeps(db));
 
@@ -141,10 +155,13 @@ describe("drain-time routine agent-selection (resolveAuthoritativeInput routine_
 		expect(request?.agentId).toBe(ownerAgentId);
 	});
 
-	test("owner at WIP + delegate available: drain hands off to the delegate", async ({ db }) => {
+	test("owner at WIP + delegate available: fire bakes + drain hands off to the delegate", async ({
+		db,
+		eventBus,
+	}) => {
 		const { routineId, ownerAgentId, delegateAgentId } = await seedRoutineWorld(db);
 		await putAgentAtWip(db, ownerAgentId, "au15-owner-session");
-		const runId = await recordRunningIntent(db, routineId, ownerAgentId);
+		const runId = await fireRoutineAndGetRunId(db, eventBus, routineId);
 
 		await drainIntents(queueDeps(db));
 
@@ -155,14 +172,15 @@ describe("drain-time routine agent-selection (resolveAuthoritativeInput routine_
 		expect(request?.agentId).toBe(delegateAgentId);
 	});
 
-	test("owner at WIP + no delegate available: drain defers to the owner (not skipped)", async ({
+	test("owner at WIP + no delegate available: fire defers to the owner (not skipped)", async ({
 		db,
+		eventBus,
 	}) => {
 		const { routineId, ownerAgentId, delegateAgentId } = await seedRoutineWorld(db);
 		await putAgentAtWip(db, ownerAgentId, "au15-owner-session");
-		// Delegate is also at WIP — findDelegateVerbatim skips it, returns null.
+		// Delegate is also at WIP — selectRoutineDelegate skips it, returns null.
 		await putAgentAtWip(db, delegateAgentId, "au15-delegate-session");
-		const runId = await recordRunningIntent(db, routineId, ownerAgentId);
+		const runId = await fireRoutineAndGetRunId(db, eventBus, routineId);
 
 		await drainIntents(queueDeps(db));
 
@@ -182,10 +200,11 @@ describe("drain-time routine agent-selection (resolveAuthoritativeInput routine_
 
 	test("delegation not allowed: owner at WIP still hands off to the owner (no delegate lookup)", async ({
 		db,
+		eventBus,
 	}) => {
 		const { routineId, ownerAgentId } = await seedRoutineWorld(db, { delegationAllowed: false });
 		await putAgentAtWip(db, ownerAgentId, "au15-owner-session");
-		const runId = await recordRunningIntent(db, routineId, ownerAgentId);
+		const runId = await fireRoutineAndGetRunId(db, eventBus, routineId);
 
 		await drainIntents(queueDeps(db));
 

@@ -26,7 +26,6 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { CassetteMissError } from "@hyperidle/shared";
 import type { CallLlmOptions } from "./llm-client.js";
-import { estimateLlmCost } from "./llm-cost-estimate.js";
 import type {
 	LlmContentBlock,
 	LlmMessage,
@@ -292,22 +291,26 @@ function loadCassetteEntries(): CassetteEntry[] {
 const recordedEntries = new Map<string, CassetteEntry>();
 
 /**
- * Cost accumulator for the record run.
+ * Token-usage accumulator for the record run.
  *
- * @lore AH6 CRITICAL-2: recordLlm accumulates cost from response.usage using
- * estimateCostUsd() (same rate source as builtin-harness-adapter.ts trackUsage).
+ * @lore AU21 (harness-telemetry narrowing): This used to also accumulate an
+ * ESTIMATED $-cost (via a hardcoded per-model rate table in the now-deleted
+ * llm-cost-estimate.ts) and fail-close on a dollar cap. Founder ruling: keep
+ * only token usage — "very few harness can actually report cost". The
+ * fail-closed CI-safety guard now gates on accumulated TOKENS instead of an
+ * estimated dollar figure (same intent — bound real spend during a local
+ * paid-API smoke run — using the one signal every harness genuinely reports).
  * On flush, writes ah6-cost.json to AH6_COST_REPORT_PATH so ah6-assert-budget.ts
- * can read it. Fail-closed: aborts the process if the cap is exceeded mid-run.
+ * can read it — filename/env var kept for back-compat; payload no longer
+ * carries a $ figure.
  */
-interface RecordRunCost {
-	totalCostUsd: number;
+interface RecordRunUsage {
 	totalInputTokens: number;
 	totalOutputTokens: number;
 	model: string;
 }
 
-const recordRunCost: RecordRunCost = {
-	totalCostUsd: 0,
+const recordRunUsage: RecordRunUsage = {
 	totalInputTokens: 0,
 	totalOutputTokens: 0,
 	model: "",
@@ -361,27 +364,28 @@ function flushRecordToDisk(): void {
 	}
 
 	// CRITICAL-2: Write ah6-cost.json so ah6-assert-budget.ts can read it.
-	// Path comes from AH6_COST_REPORT_PATH env (set by playwright.ah6.config.ts
-	// when LLM_CASSETTE_MODE=record). Silently skip if env is absent (non-AH6 use).
+	// Path/filename kept as "cost" for back-compat (AH6_COST_REPORT_PATH is wired
+	// through playwright.ah6.config.ts + the smoke orchestrator) but the payload
+	// no longer carries a $ figure — @lore AU21 (harness-telemetry narrowing):
+	// gate on token usage, the one signal every harness genuinely reports.
 	const costReportPath = process.env.AH6_COST_REPORT_PATH;
-	if (costReportPath && recordRunCost.totalCostUsd > 0) {
+	const totalTokens = recordRunUsage.totalInputTokens + recordRunUsage.totalOutputTokens;
+	if (costReportPath && totalTokens > 0) {
 		try {
-			const totalCostCents = Math.round(recordRunCost.totalCostUsd * 100 * 100) / 100;
-			const costReport = {
-				totalCostCents,
-				totalTokens: recordRunCost.totalInputTokens + recordRunCost.totalOutputTokens,
-				model: recordRunCost.model,
+			const usageReport = {
+				totalTokens,
+				model: recordRunUsage.model,
 				timestamp: new Date().toISOString(),
 			};
 			const costDir = path.dirname(costReportPath);
 			fs.mkdirSync(costDir, { recursive: true });
-			fs.writeFileSync(costReportPath, JSON.stringify(costReport, null, 2), "utf-8");
+			fs.writeFileSync(costReportPath, JSON.stringify(usageReport, null, 2), "utf-8");
 			process.stdout.write(
-				`[AH6] Cost report written: ${costReportPath} (${totalCostCents} cents, model=${recordRunCost.model})\n`,
+				`[AH6] Usage report written: ${costReportPath} (${totalTokens} tokens, model=${recordRunUsage.model})\n`,
 			);
 		} catch (err) {
 			process.stderr.write(
-				`[AH6] Failed to write cost report ${costReportPath}: ${err instanceof Error ? err.message : String(err)}\n`,
+				`[AH6] Failed to write usage report ${costReportPath}: ${err instanceof Error ? err.message : String(err)}\n`,
 			);
 		}
 	}
@@ -410,9 +414,12 @@ function scheduleRecordFlush(): void {
  * Appends/overwrites the cassette entry keyed by the request hash.
  * Flushed to LLM_CASSETTE_DIR/LLM_CASSETTE_SCENARIO.json on process exit.
  *
- * CRITICAL-2: Also accumulates cost from response.usage (single rate source via
- * estimateCostUsd in llm-cost-estimate.ts). Fails closed if cumulative cost
- * exceeds AH6_MAX_COST_CENTS. Writes ah6-cost.json on flush via AH6_COST_REPORT_PATH.
+ * CRITICAL-2: Also accumulates token usage from response.usage. Fails closed if
+ * cumulative tokens exceed AH6_MAX_TOKENS (@lore AU21 harness-telemetry
+ * narrowing: was a $-cost estimate/cap; founder ruling narrowed this to token
+ * usage only — "very few harness can actually report cost"). Writes
+ * ah6-cost.json on flush via AH6_COST_REPORT_PATH (filename kept for
+ * back-compat; payload no longer carries a $ figure).
  *
  * @lore AH6 CRITICAL-2: S-1 security note — apiKey is redacted in the stored
  * request (set to "__redacted__"). Only model.model + model.provider are stored.
@@ -443,32 +450,27 @@ async function recordLlm(
 	const entry: CassetteEntry = { key, request: safeRequest, response };
 	recordedEntries.set(key, entry);
 
-	// CRITICAL-2: Accumulate cost using the shared rate estimator (same source as
-	// builtin-harness-adapter.ts trackUsage). Strip routing suffix before lookup.
+	// CRITICAL-2: Accumulate token usage. Strip routing suffix for a clean model label.
 	const modelId = stripRoutingSuffix(options.model.model);
-	const deltaCostUsd = estimateLlmCost(
-		response.usage.inputTokens,
-		response.usage.outputTokens,
-		modelId,
-	);
-	recordRunCost.totalCostUsd += deltaCostUsd;
-	recordRunCost.totalInputTokens += response.usage.inputTokens;
-	recordRunCost.totalOutputTokens += response.usage.outputTokens;
-	if (!recordRunCost.model) {
-		recordRunCost.model = modelId;
+	recordRunUsage.totalInputTokens += response.usage.inputTokens;
+	recordRunUsage.totalOutputTokens += response.usage.outputTokens;
+	if (!recordRunUsage.model) {
+		recordRunUsage.model = modelId;
 	}
 
-	// Fail-closed on cap: abort the process if cumulative cost exceeds the cap.
+	// Fail-closed on cap: abort the process if cumulative tokens exceed the cap.
 	// This prevents a runaway turn from overrunning the budget before the post-lane
-	// assert step runs.
-	const maxCostCents = Number(process.env.AH6_MAX_COST_CENTS ?? "10");
-	const currentCostCents = Math.round(recordRunCost.totalCostUsd * 100 * 100) / 100;
-	if (currentCostCents > maxCostCents) {
+	// assert step runs. @lore AU21 harness-telemetry narrowing: was a $-cost cap;
+	// AH6_MAX_TOKENS already existed as an established sibling threshold (surfaced
+	// in scripts/ah6-smoke-local.ts) — reusing it here, not inventing a new one.
+	const maxTokens = Number(process.env.AH6_MAX_TOKENS ?? "20000");
+	const currentTokens = recordRunUsage.totalInputTokens + recordRunUsage.totalOutputTokens;
+	if (currentTokens > maxTokens) {
 		// Write cassette eagerly before aborting so partial progress is captured
 		flushRecordToDisk();
 		process.stderr.write(
-			`[AH6] ABORT: Budget cap exceeded mid-run: ${currentCostCents} cents > cap ${maxCostCents} cents. ` +
-				`Increase AH6_MAX_COST_CENTS or optimize the smoke prompt.\n`,
+			`[AH6] ABORT: Budget cap exceeded mid-run: ${currentTokens} tokens > cap ${maxTokens} tokens. ` +
+				`Increase AH6_MAX_TOKENS or optimize the smoke prompt.\n`,
 		);
 		process.exit(1);
 	}
@@ -487,32 +489,31 @@ async function recordLlm(
 // ---------------------------------------------------------------------------
 
 /**
- * @testonly Reset the in-memory cost accumulator between tests.
+ * @testonly Reset the in-memory usage accumulator between tests.
  * Not used in production — only imported by llm-cassette.test.ts.
  */
-function resetCostAccumulator(): void {
-	recordRunCost.totalCostUsd = 0;
-	recordRunCost.totalInputTokens = 0;
-	recordRunCost.totalOutputTokens = 0;
-	recordRunCost.model = "";
+function resetUsageAccumulator(): void {
+	recordRunUsage.totalInputTokens = 0;
+	recordRunUsage.totalOutputTokens = 0;
+	recordRunUsage.model = "";
 	recordedEntries.clear();
 	recordFlushScheduled = false;
 }
 
 /**
- * @testonly Read the current in-memory cost accumulator.
+ * @testonly Read the current in-memory usage accumulator.
  * Not used in production — only imported by llm-cassette.test.ts.
  */
-function readCostAccumulator(): Readonly<RecordRunCost> {
-	return { ...recordRunCost };
+function readUsageAccumulator(): Readonly<RecordRunUsage> {
+	return { ...recordRunUsage };
 }
 
 export type { CassetteEntry };
 export {
 	buildCassetteKey,
 	loadCassetteEntries,
-	readCostAccumulator,
+	readUsageAccumulator,
 	recordLlm,
 	replayLlm,
-	resetCostAccumulator,
+	resetUsageAccumulator,
 };

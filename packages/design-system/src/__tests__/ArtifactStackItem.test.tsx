@@ -16,7 +16,6 @@ const FIXTURE = {
 	kind: "code_diff" as string,
 	label: null,
 	preview: null,
-	cost: { money: { minor: 42, currency: "USD" as const }, tokens: null },
 	threadCount: 0,
 	createdAt: "2026-04-28T00:00:00.000Z",
 };
@@ -36,7 +35,7 @@ describe("ArtifactStackItem", () => {
 		container.remove();
 	});
 
-	it("renders kind, task title, cost and timestamp on a single row", () => {
+	it("renders kind, task title, and timestamp on a single row", () => {
 		act(() => {
 			root.render(
 				createElement(ArtifactStackItem, {
@@ -47,7 +46,6 @@ describe("ArtifactStackItem", () => {
 		});
 		expect(container.textContent).toContain("CODE DIFF");
 		expect(container.textContent).toContain("Implement auth flow");
-		expect(container.textContent).toContain("$0.42");
 	});
 
 	it("does NOT render an internal preview surface (rows have no preview)", () => {
@@ -83,7 +81,7 @@ describe("ArtifactStackItem", () => {
 			);
 		});
 		// pluralization rule applies
-		expect(container.textContent).toMatch(/1 thread\b/);
+		expect(container.textContent).toContain("1 thread");
 	});
 
 	it("hides the thread pill when threadCount = 0", () => {

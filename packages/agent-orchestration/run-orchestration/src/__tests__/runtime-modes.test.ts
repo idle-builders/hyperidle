@@ -16,22 +16,12 @@ describe("runSession modes", () => {
 		const ports = buildTestPorts();
 		const claim = vi.spyOn(ports.sessionRequests, "claimSessionRequest");
 		const contextPorts: import("../contracts.js").RuntimeDeps["composition"]["context"] = {
-			knowledge: {
-				list: vi.fn(async () => []),
-				rankAndBudget: vi.fn(async (_db, rows) => rows),
-				countTokens: vi.fn(() => 0),
-			},
-			work: { getTaskById: vi.fn(), getBetById: vi.fn() },
-			users: { getUserById: vi.fn() },
-			routine: { getRoutineById: vi.fn() },
 			filesystems: { startWatcher: vi.fn(() => ({ stop: vi.fn() })) },
-			org: { getTeamById: vi.fn() },
 		};
 		const assembleInput: Extract<
 			import("../contracts.js").RunOptions,
 			{ mode: "assemble" }
 		>["input"] = {
-			db: {} as HyperIdleDb,
 			sandboxPath: "/tmp/au20-assemble-mode",
 			sessionId: "assemble-1",
 			taskId: null,
@@ -69,7 +59,6 @@ describe("runSession modes", () => {
 		vi.mocked(ports.sessionProvisioner!.runSession).mockResolvedValue({
 			sessionId: "one-shot-1",
 			outcome: "completed",
-			totalCostCents: 4,
 			taskId: null,
 			forceReturnCount: 1,
 		});

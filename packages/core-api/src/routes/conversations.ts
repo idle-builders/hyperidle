@@ -24,20 +24,41 @@ import { validateBody } from "../middleware/validate.js";
 // O2 also removes attentionScore and costEstimate from the create schema and
 // the insert, since those columns were stripped from the items kernel table.
 
+/**
+ * @lore AU21 §9 Increment 2: every optional field accepts an explicit
+ * `null`, not just absence — `CoreApiPort.work.createItem`
+ * (`core-api-port-composition.ts`) forwards `create_item`'s tool input
+ * verbatim, which fills unset optional fields with a real `null` (matching
+ * this route's own `body.<field> ?? null` normalization below), and
+ * `JSON.stringify` serializes an object's `null` properties (unlike
+ * `undefined`, which it drops) — the wire body genuinely carries `null`.
+ */
 const createItemSchema = z.object({
-	sourceAgentId: z.string().optional(),
-	layer: z.string().optional(),
-	verb: z.string().optional(),
-	kind: z.string().optional(),
+	sourceAgentId: z.string().nullish(),
+	layer: z.string().nullish(),
+	verb: z.string().nullish(),
+	kind: z.string().nullish(),
 	title: z.string().min(1),
-	body: z.string().optional(),
-	attachments: z.string().optional(),
-	proposedAction: z.string().optional(),
-	options: z.string().optional(),
-	riskTier: z.enum(["low", "medium", "high"]).optional(),
+	body: z.string().nullish(),
+	attachments: z.string().nullish(),
+	proposedAction: z.string().nullish(),
+	options: z.string().nullish(),
+	riskTier: z.enum(["low", "medium", "high"]).nullish(),
 	blocking: z.boolean().optional(),
-	reasoning: z.string().optional(),
+	reasoning: z.string().nullish(),
 	threadId: z.string(),
+});
+
+/**
+ * AU21 §9 Increment 2 — `CoreApiPort.work.updateItemById`'s backing
+ * request body. Narrower than `createItemSchema`: only the three fields
+ * `score_attention` mutates on an existing item (`route_item` was a second
+ * mutator here — AU21 §6 Decision L3 deleted it outright as vestigial).
+ */
+const updateItemSchema = z.object({
+	riskTier: z.enum(["low", "medium", "high"]).optional(),
+	kind: z.string().optional(),
+	verb: z.string().optional(),
 });
 
 /**
@@ -77,6 +98,72 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 			pagination: { page, limit, total },
 		});
 	});
+
+	// AU21 §9 Increment 2 — `CoreApiPort.work.findItemByReasoningMarker`'s backing
+	// route. Registered BEFORE `GET /:threadId` (a single-segment param route)
+	// so the literal `/items` segment can never be shadowed by it.
+	// GET /items?reasoningMarker=... — search items by a `reasoning` LIKE marker.
+	router.get("/items", requireBoundary({ kind: "public-data" }), async (c) => {
+		const reasoningMarker = c.req.query("reasoningMarker");
+		if (!reasoningMarker) {
+			const response: ApiErrorResponse = {
+				error: "reasoningMarker query param is required",
+				code: API_ERROR_CODES.VALIDATION_ERROR,
+			};
+			return c.json(response, 400);
+		}
+		const found = await work.list(db, "item", { marker: reasoningMarker });
+		return c.json({ items: found });
+	});
+
+	// AU21 §9 Increment 2 — `CoreApiPort.work.getItemById`'s backing route.
+	// GET /items/:id — bare item detail (no bare detail route existed before this).
+	router.get("/items/:id", requireBoundary({ kind: "public-data" }), async (c) => {
+		const id = c.req.param("id");
+		const item = await work.get(db, "item", id);
+		if (!item) {
+			const response: ApiErrorResponse = {
+				error: "Item not found",
+				code: API_ERROR_CODES.NOT_FOUND,
+			};
+			return c.json(response, 404);
+		}
+		return c.json(item);
+	});
+
+	// AU21 §9 Increment 2 — `CoreApiPort.work.updateItemById`'s backing route.
+	// PATCH /items/:id — patch riskTier/kind/verb (used by score_attention;
+	// `route_item` was a second caller here — AU21 §6 Decision L3 deleted it
+	// outright as vestigial).
+	router.patch(
+		"/items/:id",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(updateItemSchema),
+		async (c) => {
+			const id = c.req.param("id");
+			const body = c.req.valid("json" as never) as z.infer<typeof updateItemSchema>;
+
+			const existing = await work.get(db, "item", id);
+			if (!existing) {
+				const response: ApiErrorResponse = {
+					error: "Item not found",
+					code: API_ERROR_CODES.NOT_FOUND,
+				};
+				return c.json(response, 404);
+			}
+
+			const updates: Partial<{ riskTier: string; kind: string; verb: string }> = {};
+			if (body.riskTier !== undefined) updates.riskTier = body.riskTier;
+			if (body.kind !== undefined) updates.kind = body.kind;
+			if (body.verb !== undefined) updates.verb = body.verb;
+			if (Object.keys(updates).length > 0) {
+				await work.update(db, "item", id, updates);
+			}
+
+			const updated = await work.get(db, "item", id);
+			return c.json(updated);
+		},
+	);
 
 	// Row 9: GET /api/conversations/:threadId — D (enforced: authorizeRead below)
 	// GET /:threadId — thread with items and responses

@@ -41,7 +41,6 @@ describe("Bet Endpoints (E3)", () => {
 				body: JSON.stringify({
 					teamId: "prod-1",
 					description: "Build feature X",
-					costAppetite: { minor: 10000, currency: "USD" },
 					...overrides,
 				}),
 			});
@@ -101,7 +100,6 @@ describe("Bet Endpoints (E3)", () => {
 			body: JSON.stringify({
 				teamId: "prod-1",
 				description: "Build feature X",
-				costAppetite: { minor: 10000, currency: "USD" },
 			}),
 		});
 		const bet = (await createRes.json()) as Record<string, unknown>;
@@ -158,7 +156,6 @@ describe("Bet Endpoints (E3)", () => {
 			body: JSON.stringify({
 				teamId: "prod-1",
 				description: "New bet pitch",
-				costAppetite: { minor: 20000, currency: "USD" },
 				hypothesis: "Users will engage more",
 			}),
 		});
@@ -222,7 +219,6 @@ describe("Bet Endpoints (E3)", () => {
 			body: JSON.stringify({
 				teamId: "prod-1",
 				description: "Build feature X",
-				costAppetite: { minor: 10000, currency: "USD" },
 			}),
 		});
 		const bet = (await createRes.json()) as Record<string, unknown>;
@@ -277,7 +273,6 @@ describe("Bet Endpoints (E3)", () => {
 			body: JSON.stringify({
 				teamId: "prod-1",
 				description: "Build feature X",
-				costAppetite: { minor: 10000, currency: "USD" },
 			}),
 		});
 		const bet = (await createRes.json()) as Record<string, unknown>;
@@ -318,7 +313,6 @@ describe("Bet Endpoints (E3)", () => {
 			body: JSON.stringify({
 				teamId: "prod-1",
 				description: "Build feature X",
-				costAppetite: { minor: 10000, currency: "USD" },
 			}),
 		});
 		const bet = (await createRes.json()) as Record<string, unknown>;
@@ -360,7 +354,6 @@ describe("Bet Endpoints (E3)", () => {
 			body: JSON.stringify({
 				teamId: "prod-1",
 				description: "Build feature X",
-				costAppetite: { minor: 10000, currency: "USD" },
 			}),
 		});
 		const bet = (await createRes.json()) as Record<string, unknown>;
@@ -397,7 +390,6 @@ describe("Bet Endpoints (E3)", () => {
 				body: JSON.stringify({
 					teamId: "prod-1",
 					description: desc,
-					costAppetite: { minor: 10000, currency: "USD" },
 				}),
 			});
 			return (await res.json()) as Record<string, unknown>;
@@ -443,7 +435,6 @@ describe("Bet Endpoints (E3)", () => {
 			body: JSON.stringify({
 				teamId: "prod-1",
 				description: "Build feature X",
-				costAppetite: { minor: 10000, currency: "USD" },
 			}),
 		});
 		const bet = (await createRes.json()) as Record<string, unknown>;
@@ -488,7 +479,6 @@ describe("Bet Endpoints (E3)", () => {
 			body: JSON.stringify({
 				teamId: "prod-1",
 				description: "Build feature X",
-				costAppetite: { minor: 10000, currency: "USD" },
 			}),
 		});
 		const bet = (await createRes.json()) as Record<string, unknown>;
@@ -525,7 +515,6 @@ describe("Bet Endpoints (E3)", () => {
 			body: JSON.stringify({
 				teamId: "prod-1",
 				description: "Build feature X",
-				costAppetite: { minor: 10000, currency: "USD" },
 			}),
 		});
 		const bet = (await createRes.json()) as Record<string, unknown>;
@@ -565,7 +554,6 @@ describe("Bet Endpoints (E3)", () => {
 			body: JSON.stringify({
 				teamId: "prod-1",
 				description: "Build feature X",
-				costAppetite: { minor: 10000, currency: "USD" },
 			}),
 		});
 		const bet = (await createRes.json()) as Record<string, unknown>;
@@ -603,7 +591,6 @@ describe("Bet Endpoints (E3)", () => {
 			body: JSON.stringify({
 				teamId: "prod-1",
 				description: "Build feature X",
-				costAppetite: { minor: 10000, currency: "USD" },
 			}),
 		});
 		const bet = (await createRes.json()) as Record<string, unknown>;
@@ -644,7 +631,6 @@ describe("Bet Endpoints (E3)", () => {
 				body: JSON.stringify({
 					teamId: "prod-1",
 					description: "Build feature X",
-					costAppetite: { minor: 10000, currency: "USD" },
 					...overrides,
 				}),
 			});
@@ -717,7 +703,6 @@ describe("Bet Endpoints (E3)", () => {
 				body: JSON.stringify({
 					teamId: "prod-1",
 					description: desc,
-					costAppetite: { minor: 10000, currency: "USD" },
 				}),
 			});
 			return (await res.json()) as Record<string, unknown>;

@@ -4,7 +4,8 @@
  * These tests prove the acceptance criteria for R6:
  *   AC2 — Artifacts created by agent sessions appear in WorkBet ArtifactSection
  *   AC3 — Artifacts appear in WorkPortfolio artifact gallery
- *   AC4 — Artifact metadata (kind, cost, timestamp) renders correctly
+ *   AC4 — Artifact metadata (kind, timestamp) renders correctly
+ *     (AU21 Increment 14a: cost metadata HARD-DELETED from this AC, no replacement)
  *   AC5 — create_artifact tool is available to all agent roles
  *   AC6 — artifact_created event is emitted on creation
  *   AC8 — Input validation rejects invalid kind, mismatched preview, missing fields
@@ -19,7 +20,6 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
-import type { WriteExecutor } from "@hyperidle/db";
 import {
 	artifacts,
 	bets,
@@ -41,15 +41,39 @@ import { STUB_TOOL_HANDLERS_PORTS } from "./stub-ports.js";
 
 const NOW = "2026-05-30T00:00:00.000Z";
 
-// Only `ports.work.{getTaskById,createArtifact}` are exercised by this tool —
-// wire those to the real `@hyperidle/work` functions against the real test db,
-// everything else stays the unused stub.
-const ports: ToolHandlersPorts<HyperIdleDb> = {
+/**
+ * Module-level mutable db handle the `coreApi` fakes below close over —
+ * assigned fresh per test in `beforeEach`. The `ports`/`createArtifactTool`
+ * consts are built once at module load (before any `db` exists), so the
+ * fakes must read the CURRENT db at call time via this binding, not a
+ * snapshot captured at definition time.
+ */
+let sharedDb: HyperIdleDb;
+
+// Only `ports.coreApi.{getTaskById,createArtifact}` are exercised by this
+// tool (AU21 §9 Increment 2: both now cross the `CoreApiPort` seam, not raw
+// `ports.work` DI) — wire those to the real `@hyperidle/work` functions
+// against the real test db (this is a unit-level test of the tool's own
+// logic, not a §11 seam contract test — those live in core-api's
+// `__tests__/core-api-port-increment2-work-users.integration.test.ts`),
+// everything else stays the unused stub. `actorId` is ignored by these fakes.
+const ports: ToolHandlersPorts = {
 	...STUB_TOOL_HANDLERS_PORTS,
-	work: {
-		...STUB_TOOL_HANDLERS_PORTS.work,
-		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
-		createArtifact: (exec: WriteExecutor, input) => work.create(exec, "artifact", input),
+	coreApi: {
+		...STUB_TOOL_HANDLERS_PORTS.coreApi,
+		getTaskById: (id: string) => work.get(sharedDb, "task", id),
+		createArtifact: async (input) => {
+			const id = crypto.randomUUID();
+			await work.create(sharedDb, "artifact", {
+				id,
+				producingTaskId: input.producingTaskId,
+				kind: input.kind,
+				label: input.label ?? null,
+				previewJson: input.preview ? JSON.stringify(input.preview) : null,
+				createdAt: new Date().toISOString(),
+			});
+			return { id, producingTaskId: input.producingTaskId, kind: input.kind };
+		},
 	},
 };
 // @lore AU20 Stage 3: createCreateArtifactTool is now private inside
@@ -110,6 +134,7 @@ describe("create_artifact tool", () => {
 	beforeEach(async () => {
 		handle = await createTestDb();
 		db = handle.db;
+		sharedDb = db;
 		eventBus = new EventBus();
 		await seed(db);
 	});

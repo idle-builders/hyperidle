@@ -65,7 +65,6 @@ export class MockHarnessAdapter implements HarnessAdapter {
 		session.running = false;
 		return {
 			outcome: "completed",
-			cost: { minor: 300, currency: "USD" }, // $3.00 in cents
 			tokenUsage: {
 				byTier: {
 					workhorse: { prompt: 100, completion: 50 },

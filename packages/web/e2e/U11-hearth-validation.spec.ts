@@ -65,7 +65,6 @@ const BETS_FIXTURE = {
 			description: "Implement the Hearth warm-earth design language across all surfaces.",
 			status: "draft",
 			atRisk: false,
-			costAppetite: null,
 		},
 	],
 	active: [
@@ -76,7 +75,6 @@ const BETS_FIXTURE = {
 			description: "Migrate auth to JWT with refresh tokens.",
 			status: "active",
 			atRisk: false,
-			costAppetite: { minor: 200000, currency: "USD" },
 		},
 	],
 	completed: [
@@ -87,7 +85,6 @@ const BETS_FIXTURE = {
 			description: "First-run setup journey.",
 			status: "completed",
 			atRisk: false,
-			costAppetite: null,
 		},
 	],
 	killed: [],
@@ -161,8 +158,6 @@ const BET_DETAIL_FIXTURE = {
 	description: "**Migrate auth** to JWT with refresh tokens.",
 	status: "active",
 	atRisk: false,
-	costAppetite: { minor: 200000, currency: "USD" },
-	costActual: null,
 	tokensActual: null,
 	progress: { done: 1, total: 3 },
 	tasks: [
@@ -201,8 +196,6 @@ const TEAM_DETAIL_FIXTURE = {
 		{ agentId: "agent-member", name: "Alice Agent", role: "member", isLead: false },
 	],
 	burn: {
-		costActual: { minor: 420000, currency: "USD" },
-		costCap: { minor: 1000000, currency: "USD" },
 		capacity: 5,
 		activeBets: 2,
 	},
@@ -210,7 +203,6 @@ const TEAM_DETAIL_FIXTURE = {
 		{
 			id: "bet-u11-draft",
 			pitchTitle: "Hearth Design System",
-			costAppetite: null,
 			status: "draft",
 			progressDone: 0,
 			progressTotal: 0,
@@ -542,7 +534,6 @@ test("U11 screenshot: settings overlay open", async ({ page }) => {
 					users: [],
 					notifications: {
 						reviewAlerts: true,
-						costAlerts: true,
 						blockerAlerts: true,
 						quietHoursEnabled: false,
 						quietHoursStart: "22:00",

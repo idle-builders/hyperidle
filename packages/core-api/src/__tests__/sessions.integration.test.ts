@@ -1,10 +1,8 @@
 import { bets, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import type { DomainEvent } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { createApp, disposeApp } from "../app.js";
 import { registerAgentLayerServices, registerCoreDomainServices } from "../server-factory.js";
-import { costOps } from "../services/cost-bindings.js";
 import { expect, test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-sessions";
@@ -36,7 +34,6 @@ describe("Session Endpoints (E6)", () => {
 	// AC10: POST /api/sessions — create session
 	describe("AC10: POST /api/sessions — create session", () => {
 		test("creates a session and emits event", async ({ db, eventBus }) => {
-			costOps._testHooks.clearDedup();
 			const app = await createApp({ db, eventBus, serviceBootstrap: testServiceBootstrap });
 			try {
 				// Seed required data
@@ -224,7 +221,6 @@ describe("Session Endpoints (E6)", () => {
 		}
 
 		test("ends a session with state=done", async ({ db, eventBus }) => {
-			costOps._testHooks.clearDedup();
 			const app = await createApp({ db, eventBus, serviceBootstrap: testServiceBootstrap });
 			try {
 				await seedData(db);
@@ -265,7 +261,6 @@ describe("Session Endpoints (E6)", () => {
 		});
 
 		test("crashes a session with state=crashed", async ({ db, eventBus }) => {
-			costOps._testHooks.clearDedup();
 			const app = await createApp({ db, eventBus, serviceBootstrap: testServiceBootstrap });
 			try {
 				await seedData(db);
@@ -311,96 +306,11 @@ describe("Session Endpoints (E6)", () => {
 			}
 		});
 
-		// I3 review C1 / arch H-1: PATCH /sessions/:id { state: "done" }
-		// must trigger costOps._testHooks.releaseDedup so the cost-cap dedup-map entry
-		// is reclaimed. Wired centrally via `costOps._testHooks.installDedupReleaser`
-		// in `app.ts` — the EventBus subscription fires on every
-		// `session_ended` regardless of which path emitted it.
-		test("PATCH state=done releases the cost-cap dedup entry", async ({ db, eventBus }) => {
-			costOps._testHooks.clearDedup();
-			const app = await createApp({ db, eventBus, serviceBootstrap: testServiceBootstrap });
-			try {
-				await seedData(db);
-
-				const createRes = await app.request("/api/sessions", {
-					method: "POST",
-					headers: authHeaders(),
-					body: JSON.stringify({
-						agentId: "agent-1",
-						taskId: "task-1",
-						modelTier: "workhorse",
-					}),
-				});
-				const createBody = (await createRes.json()) as Record<string, unknown>;
-				const sessionId = createBody.id as string;
-
-				// Force a dedup-map entry to exist for this session by recording
-				// a cost above the agent cap. This pins the entry the PATCH
-				// must later reclaim.
-				await db.update(users).set({ costCap: 100 }).where(eq(users.id, "agent-1"));
-				await costOps.record(db, eventBus, {
-					sessionId,
-					costMinor: 200,
-					agentId: "agent-1",
-					teamId: "team-1",
-				});
-				expect(costOps._testHooks.getDedupSize()).toBeGreaterThan(0);
-
-				const res = await app.request(`/api/sessions/${sessionId}`, {
-					method: "PATCH",
-					headers: authHeaders(),
-					body: JSON.stringify({ state: "done" }),
-				});
-				expect(res.status).toBe(200);
-
-				expect(costOps._testHooks.getDedupSize()).toBe(0);
-			} finally {
-				disposeApp(app);
-			}
-		});
-
-		test("PATCH state=crashed releases the cost-cap dedup entry", async ({ db, eventBus }) => {
-			costOps._testHooks.clearDedup();
-			const app = await createApp({ db, eventBus, serviceBootstrap: testServiceBootstrap });
-			try {
-				await seedData(db);
-
-				const createRes = await app.request("/api/sessions", {
-					method: "POST",
-					headers: authHeaders(),
-					body: JSON.stringify({
-						agentId: "agent-1",
-						taskId: "task-1",
-						modelTier: "workhorse",
-					}),
-				});
-				const createBody = (await createRes.json()) as Record<string, unknown>;
-				const sessionId = createBody.id as string;
-
-				await db.update(users).set({ costCap: 100 }).where(eq(users.id, "agent-1"));
-				await costOps.record(db, eventBus, {
-					sessionId,
-					costMinor: 200,
-					agentId: "agent-1",
-					teamId: "team-1",
-				});
-				expect(costOps._testHooks.getDedupSize()).toBeGreaterThan(0);
-
-				const res = await app.request(`/api/sessions/${sessionId}`, {
-					method: "PATCH",
-					headers: authHeaders(),
-					body: JSON.stringify({ state: "crashed" }),
-				});
-				expect(res.status).toBe(200);
-
-				expect(costOps._testHooks.getDedupSize()).toBe(0);
-			} finally {
-				disposeApp(app);
-			}
-		});
+		// @lore AU21 Increment 14a: "PATCH state=done/crashed releases the
+		// cost-cap dedup entry" tests are HARD-DELETED — costOps and its dedup
+		// map no longer exist, no replacement.
 
 		test("returns 400 for invalid state", async ({ db, eventBus }) => {
-			costOps._testHooks.clearDedup();
 			const app = await createApp({ db, eventBus, serviceBootstrap: testServiceBootstrap });
 			try {
 				await seedData(db);

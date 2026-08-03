@@ -30,7 +30,6 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 			role: "builder",
 			status: "idle",
 			teamId: "team-1",
-			costActual: 100,
 			createdAt: now,
 		},
 		{
@@ -39,7 +38,6 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 			role: "growth",
 			status: "active",
 			teamId: "team-1",
-			costActual: 200,
 			createdAt: now,
 		},
 	]);
@@ -80,7 +78,6 @@ describe("Status Endpoints (E6)", () => {
 
 			const body = (await res.json()) as Record<string, unknown>;
 			expect(body.activeSessions).toBe(0);
-			expect(body.totalCost).toBe(300);
 			expect(body).toHaveProperty("agentStates");
 			expect(body).toHaveProperty("uptime");
 

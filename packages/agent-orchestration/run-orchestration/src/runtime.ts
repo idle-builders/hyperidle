@@ -5,10 +5,17 @@ import {
 	type AgentSessionSourceCorrelation,
 	type AgentSessionSourceKind,
 	agentSessionRequestInputSchema,
+	type BakedAgentRunnableConfig,
+	type BakedConnectionsForProvisioning,
+	type BakedContextBundle,
+	type BakedFilesystemForProvisioning,
 	ConcurrencyLimitError,
-	CostCapExceededError,
 	type HarnessPortDeps,
+	isAgentWorkIntentKind,
+	isAgentWorkIntentSourceKind,
 	type RunContextBundle,
+	reportAdmissionFailure,
+	TargetAgentNotRunnableError,
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { createContextAssembler } from "./context.js";
@@ -106,6 +113,84 @@ function parseTriggerPrompt(request: AgentSessionRequest): string | null {
 	return typeof prompt === "string" && prompt.length > 0 ? prompt : null;
 }
 
+/**
+ * AU21 §9 Increment 12 (Decision H3): the `task_run`/`routine_run`/
+ * `reengagement` families' baked entity+knowledge bundle, carried on
+ * `request.payloadJson` the same way Increment 11's `transcript`/`modelId`
+ * ride it (`session-requests/src/service.ts`'s `createFromBakedRequestInternal`).
+ */
+function parseBakedContextBundle(request: AgentSessionRequest): BakedContextBundle | undefined {
+	if (!request.payloadJson) return undefined;
+	const payload = JSON.parse(request.payloadJson) as unknown;
+	if (!payload || typeof payload !== "object" || !("contextBundle" in payload)) return undefined;
+	return (payload as { contextBundle?: BakedContextBundle }).contextBundle;
+}
+
+/**
+ * AU21 §9 Increment 12 (Decision H3), Wave E — every intent kind's baked
+ * agent-runnability snapshot, carried on `request.payloadJson` the same way
+ * `contextBundle`/`transcript`/`modelId` ride it
+ * (`session-requests/src/service.ts`'s `createFromBakedRequestInternal`).
+ * Feeds `admitSession`'s Phase 1 (see `provisioner.ts`'s Wave E note) — a
+ * missing bake is a hard provisioning failure there, not a silent allow.
+ */
+function parseBakedAgentConfig(request: AgentSessionRequest): BakedAgentRunnableConfig | undefined {
+	if (!request.payloadJson) return undefined;
+	const payload = JSON.parse(request.payloadJson) as unknown;
+	if (!payload || typeof payload !== "object" || !("agentConfig" in payload)) return undefined;
+	return (payload as { agentConfig?: BakedAgentRunnableConfig }).agentConfig;
+}
+
+/**
+ * AU21 §9 Increment 12 (Decision H3), Wave E — the server's baked
+ * disabled-harness-types list, carried on `request.payloadJson` alongside
+ * `agentConfig`. Feeds `admitSession`'s Phase 3 adapter-selection filter.
+ */
+function parseBakedHarnessDisabled(request: AgentSessionRequest): readonly string[] | undefined {
+	if (!request.payloadJson) return undefined;
+	const payload = JSON.parse(request.payloadJson) as unknown;
+	if (!payload || typeof payload !== "object" || !("harnessDisabled" in payload)) return undefined;
+	return (payload as { harnessDisabled?: readonly string[] }).harnessDisabled;
+}
+
+/**
+ * AU21 §9 Increment 12 follow-up (F2 gap closure) — every intent kind's baked
+ * injected-filesystems list, carried on `request.payloadJson` the same way
+ * `agentConfig`/`harnessDisabled` ride it. Feeds `admitSession`'s Phase 4.5
+ * mount step — replaces the former live `ports.filesystems.listFilesystemsByAgent`
+ * seam read (Decision F2) entirely.
+ */
+function parseBakedInjectedFilesystems(
+	request: AgentSessionRequest,
+): readonly BakedFilesystemForProvisioning[] | undefined {
+	if (!request.payloadJson) return undefined;
+	const payload = JSON.parse(request.payloadJson) as unknown;
+	if (!payload || typeof payload !== "object" || !("injectedFilesystems" in payload)) {
+		return undefined;
+	}
+	return (payload as { injectedFilesystems?: readonly BakedFilesystemForProvisioning[] })
+		.injectedFilesystems;
+}
+
+/**
+ * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) —
+ * every intent kind's baked held-connection list, carried on
+ * `request.payloadJson` the same way `agentConfig`/`injectedFilesystems`
+ * ride it. Feeds Phase 8b-connections' `buildProvisioningPlan` call —
+ * replaces the former live `CoreApiPort.connections
+ * .listHeldConnectionsForProvisioning()` seam read (Decision F2) entirely.
+ */
+function parseBakedInjectedConnections(
+	request: AgentSessionRequest,
+): BakedConnectionsForProvisioning | undefined {
+	if (!request.payloadJson) return undefined;
+	const payload = JSON.parse(request.payloadJson) as unknown;
+	if (!payload || typeof payload !== "object" || !("injectedConnections" in payload)) {
+		return undefined;
+	}
+	return (payload as { injectedConnections?: BakedConnectionsForProvisioning }).injectedConnections;
+}
+
 async function ensureClaimedRequest(
 	db: HyperIdleDb,
 	request: AgentSessionRequest,
@@ -129,6 +214,48 @@ async function ensureClaimedRequest(
 		throw new Error(`Agent session request ${request.id} was already claimed`);
 	}
 	return claimed;
+}
+
+/**
+ * AU21 §12 (traced, not guessed): a PRE-admission failure in
+ * `runClaimedRequest` is the real "provisioning failed" gap — a deactivated
+ * agent (`TargetAgentNotRunnableError`, `provisioner.ts`'s Phase 1 status
+ * check) or any other hard infra failure building the session, before it
+ * ever started running. Reported back via the SAME pre-handoff
+ * `agent_run_admission_failed` channel `failOrRelease` uses (§6 B4) — no
+ * bespoke race mechanism. Extracted to keep `runClaimedRequest`'s catch
+ * block under the complexity ceiling.
+ */
+async function reportPreAdmissionProvisioningFailure(
+	deps: RuntimeProvisionDeps,
+	ports: ExecutionPorts,
+	requestId: string,
+	err: unknown,
+): Promise<void> {
+	const correlatedIntent = await ports.sessionRequests.findSessionRequest(deps.db, {
+		by: "intentSource",
+		requestId,
+	});
+	if (
+		!(
+			correlatedIntent &&
+			isAgentWorkIntentKind(correlatedIntent.kind) &&
+			isAgentWorkIntentSourceKind(correlatedIntent.sourceKind)
+		)
+	) {
+		return;
+	}
+	reportAdmissionFailure(deps.eventBus, {
+		intentId: correlatedIntent.id,
+		kind: correlatedIntent.kind,
+		sourceKind: correlatedIntent.sourceKind,
+		sourceId: correlatedIntent.sourceId,
+		failureCode:
+			err instanceof TargetAgentNotRunnableError
+				? "TARGET_AGENT_NOT_RUNNABLE"
+				: "PROVISIONING_FAILED",
+		terminal: true,
+	});
 }
 
 async function runClaimedRequest(
@@ -189,8 +316,6 @@ async function runClaimedRequest(
 								deps.db,
 								deps.eventBus,
 								admitted.sessionContext,
-								0,
-								0,
 							);
 						}
 					} catch {
@@ -228,7 +353,7 @@ async function runClaimedRequest(
 		});
 		return { mode: "completed", ...result };
 	} catch (err) {
-		if (err instanceof ConcurrencyLimitError || err instanceof CostCapExceededError) {
+		if (err instanceof ConcurrencyLimitError) {
 			if (request.claimToken) {
 				await ports.sessionRequests.releaseClaim(deps.db, request.id, request.claimToken);
 			}
@@ -247,6 +372,13 @@ async function runClaimedRequest(
 			failureCode: err instanceof Error ? err.name : "Error",
 			errorMessage: err instanceof Error ? err.message : String(err),
 		});
+		// A POST-admission failure (a session actually started, then crashed)
+		// is NOT a provisioning failure — the `transitionAgentRunLifecycle`
+		// call above already covers that via the existing post-session
+		// channel, so only a PRE-admission failure reports here.
+		if (!admitted) {
+			await reportPreAdmissionProvisioningFailure(deps, ports, request.id, err);
+		}
 		throw err;
 	}
 }
@@ -260,6 +392,11 @@ async function consumeAgentSessionRequest(
 	const claimedRequest = await ensureClaimedRequest(deps.db, request, options, ports);
 	const sourceCorrelation = parseCorrelation(claimedRequest);
 	const triggerPromptOverride = parseTriggerPrompt(claimedRequest);
+	const contextBundle = parseBakedContextBundle(claimedRequest);
+	const agentConfig = parseBakedAgentConfig(claimedRequest);
+	const harnessDisabled = parseBakedHarnessDisabled(claimedRequest);
+	const injectedFilesystems = parseBakedInjectedFilesystems(claimedRequest);
+	const injectedConnections = parseBakedInjectedConnections(claimedRequest);
 	const provisionParams: RunContextBundle = {
 		taskId: claimedRequest.taskId,
 		agentId: claimedRequest.agentId,
@@ -273,6 +410,11 @@ async function consumeAgentSessionRequest(
 		...(claimedRequest.sourceKind === "routine" && "routineId" in sourceCorrelation
 			? { routineId: sourceCorrelation.routineId }
 			: {}),
+		...(contextBundle ? { contextBundle } : {}),
+		...(agentConfig ? { agentConfig } : {}),
+		...(harnessDisabled ? { harnessDisabled } : {}),
+		...(injectedFilesystems ? { injectedFilesystems } : {}),
+		...(injectedConnections ? { injectedConnections } : {}),
 		requestContext: {
 			requestId: claimedRequest.id,
 			sourceKind: claimedRequest.sourceKind as AgentSessionSourceKind,

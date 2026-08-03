@@ -7,10 +7,31 @@ import {
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { and, eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
+import {
+	createInProcessCoreApiTransport,
+	registerCoreApiTransport,
+} from "../services/core-api-port-composition.js";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
 import { buildToolRegistry } from "../services/tool-provider-bindings.js";
-import { test } from "../test-fixtures.js";
+import { test as baseTest } from "../test-fixtures.js";
 import { makeContext, NOW, seedBase } from "./_helpers.js";
+
+/**
+ * @lore AU21 §9 Increment 2: this file's tool handler(s) now reach
+ * `ports.coreApi.*` (the seam) — this file-scoped `auto:true` fixture
+ * registers a real in-process `CoreApiPort` transport off THIS test's own
+ * `app` for every test in this file, same idiom as
+ * `write-memory.integration.test.ts`.
+ */
+const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
+	coreApiSeamRegistration: [
+		async ({ app }, use) => {
+			registerCoreApiTransport(createInProcessCoreApiTransport(app));
+			await use(undefined);
+		},
+		{ auto: true },
+	],
+});
 
 const promoteKnowledgeTool = buildToolDefinitions(toolHandlersPorts).find(
 	(t) => t.name === "promote_knowledge",

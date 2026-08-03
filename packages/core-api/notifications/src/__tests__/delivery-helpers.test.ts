@@ -161,10 +161,6 @@ describe("priorityForSeverity", () => {
 		expect(priorityForSeverity("blocking")).toBe("urgent");
 	});
 
-	test("cost_breach severity maps to high ntfy priority", () => {
-		expect(priorityForSeverity("cost_breach")).toBe("high");
-	});
-
 	test("digest severity maps to default ntfy priority", () => {
 		expect(priorityForSeverity("digest")).toBe("default");
 	});

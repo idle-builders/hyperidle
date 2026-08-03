@@ -61,11 +61,10 @@ describe("AD3 AC-4: SettingsNotifications — AF8 registry-driven (solo filter r
 		}
 	});
 
-	it("shows all 4 toggles when humanCount = 2 (multi-user)", async () => {
+	it("shows all registry toggles when humanCount = 2 (multi-user)", async () => {
 		render(<SettingsNotifications />);
 
 		expect(screen.getByText("Review requests")).toBeInTheDocument();
-		expect(screen.getByText("Cost alerts")).toBeInTheDocument();
 		expect(screen.getByText("Blocker alerts")).toBeInTheDocument();
 	});
 

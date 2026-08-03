@@ -39,7 +39,6 @@ const MOCK_TASK: KanbanTask = {
 	owner: "Dev Agent",
 	state: "in_progress",
 	betTag: "BET-001",
-	cost: "$5.00",
 };
 
 describe("TaskSheet thread (L18)", () => {

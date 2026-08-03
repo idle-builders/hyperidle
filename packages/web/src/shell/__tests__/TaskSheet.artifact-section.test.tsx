@@ -61,7 +61,6 @@ const MOCK_TASK: KanbanTask = {
 	owner: "Dev Agent",
 	state: "in_progress",
 	betTag: "BET-L12",
-	cost: "$3.00",
 };
 
 function renderSheet(): ReturnType<typeof render> {

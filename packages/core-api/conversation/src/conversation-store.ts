@@ -11,8 +11,7 @@
  * The drizzle transaction handle is structurally compatible (same
  * `insert`/`update`/`select` methods), so a caller inside `db.transaction`
  * passes its `tx as HyperIdleDb` — the accepted transaction-composition cast
- * used repo-wide (see `agent-session-requests.ts:331`). This mirrors the
- * documented precedent at `practice-meeting.ts:448-454` and avoids depending
+ * used repo-wide (see `agent-session-requests.ts:331`) and avoids depending
  * on drizzle's internal transaction type.
  *
  * @lore AU20 Am5: redesigned from 29 bespoke functions toward 14 general ones.

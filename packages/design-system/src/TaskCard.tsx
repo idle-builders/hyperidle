@@ -2,7 +2,6 @@ import type { TaskState } from "@hyperidle/shared";
 import type { JSX, ReactNode } from "react";
 import { clickableProps } from "./clickable";
 import { dsProps } from "./ds-attrs";
-import { KeyValue } from "./KeyValue";
 import { StatusChip } from "./StatusChip";
 import { taskStateToStatus } from "./status-mapping";
 import { Tag } from "./Tag";
@@ -11,7 +10,6 @@ export interface TaskCardProps {
 	title: string;
 	owner: string;
 	state: TaskState;
-	cost?: string;
 	betTag?: string;
 	actions?: ReactNode;
 	onClick?: () => void;
@@ -21,7 +19,6 @@ export function TaskCard({
 	title,
 	owner,
 	state,
-	cost,
 	betTag,
 	actions,
 	onClick,
@@ -45,7 +42,6 @@ export function TaskCard({
 				<StatusChip status={taskStateToStatus(state)} />
 			</div>
 			<span className="text-[12px] text-[var(--text-primary)]">{owner}</span>
-			{cost && <KeyValue label="Cost" value={cost} />}
 			{actions}
 		</div>
 	);

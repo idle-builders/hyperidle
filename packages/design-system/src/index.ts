@@ -2,9 +2,9 @@
 
 // ── AI4: Re-export AgentOperationalStatus type (lives in shared, needed by ds consumers) ──
 export type { AgentOperationalStatus } from "@hyperidle/shared";
-// ── Artifact view family (closed: 4 sub-primitives + 4 layouts; L3) ──
-export type { ArtifactCostChipProps } from "./ArtifactCostChip.js";
-export { ArtifactCostChip } from "./ArtifactCostChip.js";
+// ── Artifact view family (closed: 3 sub-primitives + 4 layouts; L3) ──
+// @lore AU21 Increment 14a: ArtifactCostChip deleted along with the rest of
+// the cost feature — no replacement.
 export type { ArtifactEmbedProps } from "./ArtifactEmbed.js";
 export { ArtifactEmbed } from "./ArtifactEmbed.js";
 export type { ArtifactGalleryCardProps } from "./ArtifactGalleryCard.js";

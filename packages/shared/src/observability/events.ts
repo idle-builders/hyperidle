@@ -16,7 +16,6 @@ type ObservabilityEventKind =
 	| "session_started"
 	| "session_ended"
 	| "tool_call"
-	| "cost_incurred"
 	| "task_state_changed"
 	| "bet_state_changed"
 	| "knowledge_write";
@@ -51,18 +50,6 @@ interface ToolCallObservabilityEvent extends ObservabilityEventBase {
 	readonly argsSummary: string;
 }
 
-type CostLevel = "warning" | "critical" | "hard" | "soft";
-type CostCapLevel = "agent" | "team" | "factory";
-
-interface CostIncurredObservabilityEvent extends ObservabilityEventBase {
-	readonly kind: "cost_incurred";
-	readonly level: CostLevel;
-	readonly capLevel: CostCapLevel;
-	readonly entityId: string;
-	readonly spend: number;
-	readonly cap: number;
-}
-
 interface TaskStateChangedObservabilityEvent extends ObservabilityEventBase {
 	readonly kind: "task_state_changed";
 	readonly taskId: string;
@@ -87,7 +74,6 @@ export type ObservabilityEvent =
 	| SessionStartedObservabilityEvent
 	| SessionEndedObservabilityEvent
 	| ToolCallObservabilityEvent
-	| CostIncurredObservabilityEvent
 	| TaskStateChangedObservabilityEvent
 	| BetStateChangedObservabilityEvent
 	| KnowledgeWriteObservabilityEvent;

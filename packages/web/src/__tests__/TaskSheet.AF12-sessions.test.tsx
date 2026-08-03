@@ -40,7 +40,6 @@ const task: KanbanTask = {
 	title: "Implement login endpoint",
 	owner: "Dev Agent 1",
 	state: "in_progress",
-	cost: "$4.20",
 	betTag: "Auth",
 };
 
@@ -89,7 +88,6 @@ describe("TaskSheet AF12 — Sessions section (AC4)", () => {
 							id: "s1",
 							title: "Session 1",
 							agent: "agent-1",
-							cost: null,
 							tokens: null,
 							status: "active",
 							harnessUrl: null,
@@ -111,7 +109,6 @@ describe("TaskSheet AF12 — Sessions section (AC4)", () => {
 							id: "s2",
 							title: "Session 2",
 							agent: "agent-1",
-							cost: null,
 							tokens: null,
 							status: "stopped",
 							harnessUrl: null,

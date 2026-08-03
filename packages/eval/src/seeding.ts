@@ -112,19 +112,8 @@ export async function seedAgent(
 		systemPrompt?: string;
 		harnessType?: string;
 		modelTierPreference?: ModelTier;
-		/** W7: costCapMinor for cost-warning scenarios (maps to users.costCapMinor). */
-		costCapMinor?: number;
-		costCapCurrency?: string;
 		/** AB0: Agent category. Defaults to "team" for backward compat. */
 		agentCategory?: AgentCategory;
-		/**
-		 * AU18 §4.1: seeds `users.costActual` directly (maps to the running-total
-		 * column `getFactoryCostActual`/`sumAllUserCost` reads). Used by cost-sentinel
-		 * eval scenarios that need a specific live-summed factory cost total —
-		 * `factorySettings.cost_actual` is retired; this is the real column it
-		 * used to be derived from.
-		 */
-		costActualMinor?: number;
 	},
 ): Promise<{ agentId: string }> {
 	const agentId = opts.agentId ?? randomUUID();
@@ -138,11 +127,8 @@ export async function seedAgent(
 		status: "active",
 		teamId: opts.teamMembersId,
 		systemPrompt: opts.systemPrompt ?? null,
-		costActual: opts.costActualMinor ?? null,
 		harnessType: opts.harnessType ?? "builtin",
 		modelTierPreference: opts.modelTierPreference ?? null,
-		costCapMinor: opts.costCapMinor ?? null,
-		costCapCurrency: opts.costCapCurrency ?? null,
 		agentCategory: opts.agentCategory ?? "team",
 		createdAt: now,
 	});
@@ -150,7 +136,7 @@ export async function seedAgent(
 	return { agentId };
 }
 
-/** Create a bet with cost appetite. */
+/** Create a bet. */
 export async function seedBet(
 	db: HyperIdleDb,
 	opts: {
@@ -159,8 +145,6 @@ export async function seedBet(
 		description: string;
 		doneCondition?: string;
 		status?: BetStatus;
-		costAppetiteMinor?: number;
-		costActualMinor?: number;
 		/** W8: Deprecated appetite string that appears in composed prompt via bet.appetite field. */
 		appetite?: string;
 		hypothesis?: string;
@@ -175,9 +159,6 @@ export async function seedBet(
 		description: opts.description,
 		doneCondition: opts.doneCondition ?? null,
 		status: opts.status ?? "active",
-		costAppetiteMinor: opts.costAppetiteMinor ?? 1000,
-		costAppetiteCurrency: "USD",
-		costActualMinor: opts.costActualMinor ?? null,
 		appetite: opts.appetite ?? null,
 		hypothesis: opts.hypothesis ?? null,
 		createdAt: now,
@@ -288,13 +269,6 @@ export async function seedMinimalWorld(
 		taskDescription?: string;
 		betDescription?: string;
 		betDoneCondition?: string;
-		/**
-		 * AU18 §4.1: forwarded to `seedAgent`'s `costActualMinor` — lets a
-		 * scenario seed the agent's live cost total (the exact value
-		 * `getFactoryCostActual`/`sumAllUserCost` will return) in the same
-		 * call, instead of a separate `db.update(users)` after the fact.
-		 */
-		agentCostActualMinor?: number;
 	},
 ): Promise<
 	ScenarioSeedResult & {
@@ -317,14 +291,12 @@ export async function seedMinimalWorld(
 		agentCategory,
 		systemPrompt: opts?.agentSystemPrompt ?? buildDefaultSystemPrompt(agentRole),
 		harnessType: "builtin",
-		costActualMinor: opts?.agentCostActualMinor,
 	});
 
 	const { betId } = await seedBet(db, {
 		teamId,
 		description: opts?.betDescription ?? "Eval scenario bet",
 		doneCondition: opts?.betDoneCondition ?? "Scenario objectives completed.",
-		costAppetiteMinor: 5000,
 	});
 
 	const { taskId } = await seedTask(db, {
@@ -336,12 +308,6 @@ export async function seedMinimalWorld(
 		doneCondition: opts?.betDoneCondition ?? "Task objectives completed.",
 		state: "accepted",
 	});
-
-	// @lore AU18: previously seeded `factory_cost_cap_minor`/`factory_cost_cap_currency`
-	// into factorySettings here — confirmed dead (no prod reader ever read those
-	// keys; the real cost-cap path reads `cost_cap`/now `server_config.cost.capMinor`).
-	// Deleted, not migrated. Scenarios that need a real cap now seed
-	// `server_config.cost.capMinor` directly (see builtin-routines.ts / routine-sessions.ts).
 
 	// Seed one factory-level knowledge item so the agent has context
 	await seedKnowledge(db, {
@@ -422,7 +388,7 @@ export async function seedMessage(
 	return { messageId };
 }
 
-/** Create an item (human interface surface). Used by route_item, score_attention scenarios. */
+/** Create an item (human interface surface). Used by score_attention scenarios. */
 export async function seedItem(
 	db: HyperIdleDb,
 	opts: {
@@ -509,18 +475,18 @@ export async function seedConflict(
 }
 
 /**
- * Seed the three builtin agent stubs that `dispatchOps.provisionTeamRoutines()` references via
+ * Seed the three builtin agent stubs that `provisionTeamRoutines()` (`@hyperidle/core-api/routines`) references via
  * owner role resolution (`seed-agent-cos`, `seed-agent-pf-facilitation`, `demo-agent-pm`).
- * Must be called before `dispatchOps.provisionTeamRoutines()` in any eval scenario that exercises
+ * Must be called before `provisionTeamRoutines()` (`@hyperidle/core-api/routines`) in any eval scenario that exercises
  * the builtin routine subsystem.
  *
- * @lore X8 BUILTIN-FK: `dispatchOps.provisionTeamRoutines` resolves ownerByRole to users.id.
+ * @lore X8 BUILTIN-FK: `provisionTeamRoutines` (`@hyperidle/core-api/routines`) resolves ownerByRole to users.id.
  * The eval ephemeral PGlite DB does NOT run the production seed, so FK constraints
  * on `routines.ownerAgentId → users.id` fail unless we pre-insert these three stubs.
  * We use `onConflictDoNothing` so this is idempotent.
  *
  * @lore AF17: Updated from the old `seedBuiltinRoutines` shim (deleted) to
- * `dispatchOps.provisionTeamRoutines`. The owner agent ids remain the same stable factory stubs.
+ * `provisionTeamRoutines` (`@hyperidle/core-api/routines`). The owner agent ids remain the same stable factory stubs.
  */
 export async function seedBuiltinAgents(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();

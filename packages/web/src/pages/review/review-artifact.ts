@@ -57,7 +57,6 @@ export interface OutcomeSummaryPayload {
 	readonly reviewerName: string;
 	readonly achieved: string;
 	readonly tools: readonly string[];
-	readonly costUsd: number;
 	readonly tokens: number;
 	readonly standing: "Awaiting" | "Blocking";
 	readonly doneConditions: readonly {

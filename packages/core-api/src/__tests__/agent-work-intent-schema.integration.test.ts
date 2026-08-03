@@ -74,13 +74,13 @@ describe("agent_work_intents durable-rows checks", () => {
 		expect(row).toBeDefined();
 	});
 
-	test("rejects a kind outside the seven closed values", async ({ db }) => {
+	test("rejects a kind outside the six closed values", async ({ db }) => {
 		await expect(
 			db.insert(agentWorkIntents).values(baseIntent({ id: "bad-kind", kind: "assistant" })),
 		).rejects.toThrow();
 	});
 
-	test("rejects a source_kind outside the seven closed values", async ({ db }) => {
+	test("rejects a source_kind outside the six closed values", async ({ db }) => {
 		await expect(
 			db
 				.insert(agentWorkIntents)
@@ -119,7 +119,6 @@ describe("agent_work_intents durable-rows checks", () => {
 				["session_start", "explicit_session_start"],
 				["knowledge_action", "knowledge_action"],
 				["routine_run", "routine_run"],
-				["bet_decomposition", "bet"],
 				["task_run", "task_dispatch_attempt"],
 				["reengagement", "proposed_call"],
 			];
@@ -246,6 +245,17 @@ describe("agent_work_intents durable-rows checks", () => {
 		).rejects.toThrow();
 	});
 
+	test("accepts a superseded status with no claim/request correlation", async ({ db }) => {
+		// A re-emit for the same (kind, sourceId) identity with a fresher
+		// idempotencyKey retires the older pending/claimed intent as
+		// `superseded` rather than `failed` — it was never an error.
+		const [row] = await db
+			.insert(agentWorkIntents)
+			.values(baseIntent({ id: "good-superseded", status: "superseded" }))
+			.returning();
+		expect(row).toBeDefined();
+	});
+
 	test("rejects a duplicate (kind, source_kind, source_id, idempotency_key)", async ({ db }) => {
 		await db.insert(agentWorkIntents).values(
 			baseIntent({
@@ -343,7 +353,7 @@ describe("agent_session_requests durable-rows checks", () => {
 		expect(row).toBeDefined();
 	});
 
-	test("rejects a termination_reason outside the five closed values", async ({ db }) => {
+	test("rejects a termination_reason outside the four closed values", async ({ db }) => {
 		const values = await baseRequest(db, {
 			id: "bad-termination-reason",
 			status: "running",
@@ -353,8 +363,11 @@ describe("agent_session_requests durable-rows checks", () => {
 		await expect(db.insert(agentSessionRequests).values(values)).rejects.toThrow();
 	});
 
+	// @lore AU21 Increment 14a: "cost_cap" removed from the closed set — the
+	// cap gate that produced it is HARD-DELETED, no replacement termination
+	// reason.
 	test("accepts every closed termination_reason value", async ({ db }) => {
-		const reasons = ["user_done", "user_crashed", "handoff", "cost_cap", "shutdown"] as const;
+		const reasons = ["user_done", "user_crashed", "handoff", "shutdown"] as const;
 		for (const reason of reasons) {
 			const values = await baseRequest(db, {
 				id: `good-termination-${reason}`,

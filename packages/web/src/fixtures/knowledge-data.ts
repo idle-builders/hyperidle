@@ -238,7 +238,7 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 	},
 	{
 		id: "k12",
-		title: "Cost Cap Escalation Protocol",
+		title: "Repeated Test Failure Escalation Protocol",
 		layer: "L1",
 		kind: "pattern",
 		status: "needs_human",
@@ -246,9 +246,9 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		scope: "factory",
 		topic: "Governance",
 		attentionScore: 78,
-		whyNow: "Breached 2 caps this cycle",
+		whyNow: "3 consecutive CI failures this cycle",
 		content:
-			"On cap breach: pause agent, notify founders, queue amendment proposal for the next review cycle.",
+			"On 3 consecutive CI failures for the same bet: pause the agent, notify founders, queue an amendment proposal for the next review cycle.",
 		originAgent: "System Agent",
 		confidence: 0.7,
 		version: "v1.4",

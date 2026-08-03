@@ -113,6 +113,50 @@ function decodeThreadDetail(value: unknown): ThreadDetail {
 }
 
 // ---------------------------------------------------------------------------
+// WS push application (AU21 §6 Decision L4 / §9 Increment 14d)
+// ---------------------------------------------------------------------------
+
+type ThreadPushIdentity = {
+	name: string;
+	role?: string;
+	isAgent?: boolean;
+	operationalStatus?: string;
+};
+
+/**
+ * Apply a pushed CHANGED RECORD directly onto `ThreadDetail` state — never a
+ * refetch. Pulled out of the WS subscribe callback (a module-level pure
+ * function, not a nested closure) to keep the callback itself simple.
+ */
+function applyThreadDetailPush(
+	prev: ThreadDetail | null,
+	kind: unknown,
+	data: Record<string, unknown>,
+): ThreadDetail | null {
+	if (!prev) return prev;
+	if (kind === "thread_message_appended") {
+		const message = data.message as Message | undefined;
+		if (!message) return prev;
+		// Idempotent: a reconnect/duplicate frame must not double-append.
+		if (prev.messages.some((m) => m.id === message.id)) return prev;
+		const senderIdentity = data.senderIdentity as ThreadPushIdentity | undefined;
+		return {
+			...prev,
+			messages: [...prev.messages, message],
+			identities: senderIdentity
+				? { ...prev.identities, [message.senderId]: senderIdentity }
+				: prev.identities,
+		};
+	}
+	if (kind === "thread_resolved" || kind === "thread_reopened") {
+		const resolvedAt = data.resolvedAt;
+		if (typeof resolvedAt !== "string" && resolvedAt !== null) return prev;
+		return { ...prev, thread: { ...prev.thread, resolvedAt } };
+	}
+	return prev;
+}
+
+// ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
 
@@ -167,25 +211,28 @@ export function useThreadDetail(threadId: string): ThreadDetailState {
 	}, []);
 
 	// AF14 AC3: Subscribe to the per-thread WS channel so replies appear
-	// without a manual reload. Mirrors `useConversationsThreads.ts:213-225`.
-	// The `thread:<id>` channel is already broadcast + participant-authorized
-	// server-side (ws-broadcaster.ts:71, :258-268). We bump tick to re-fetch
-	// via the existing tick path (same approach as useConversationsThreads).
+	// without a manual reload. Mirrors `useConversationsThreads.ts`'s
+	// "conversations" subscription. The `thread:<id>` channel is already
+	// broadcast + participant-authorized server-side
+	// (`ws-connection-hub.ts`'s `createDbSubscribeAuthorizer`).
 	// @lore AF14: WS is unavailable in JSDOM — mock ws-client in tests per
 	// the global mock in test-setup.ts (`./services/ws-client.js` path).
+	// @lore AU21 §6 Decision L4 / §9 Increment 14d: the server now pushes the
+	// CHANGED RECORD (`{ type: "update", topic, kind, data }` — see
+	// `routes/threads.ts`), not an invalidate ping — the founder: "there is
+	// no refetch … core submits the changed version." This effect applies
+	// the pushed data directly (append the new `Message`, patch the thread's
+	// `resolvedAt`) instead of bumping `tick` to trigger a second fetch.
 	useEffect(() => {
 		const ws = getWsClient();
-		const unsubscribe = ws.subscribe(`thread:${threadId}`, (data) => {
-			if (typeof data !== "object" || data === null) return;
-			const msg = data as Record<string, unknown>;
-			if (
-				msg.threadId === threadId &&
-				(msg.type === "thread_message_appended" ||
-					msg.type === "thread_resolved" ||
-					msg.type === "thread_reopened")
-			) {
-				setTick((n) => n + 1);
-			}
+		const topic = `thread:${threadId}`;
+		const unsubscribe = ws.subscribe(topic, (raw) => {
+			if (typeof raw !== "object" || raw === null) return;
+			const msg = raw as Record<string, unknown>;
+			if (msg.type !== "update" || msg.topic !== topic) return;
+			const payload = msg.data;
+			if (typeof payload !== "object" || payload === null) return;
+			setData((prev) => applyThreadDetailPush(prev, msg.kind, payload as Record<string, unknown>));
 		});
 		return unsubscribe;
 	}, [threadId]);

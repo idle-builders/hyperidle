@@ -84,31 +84,6 @@ function queueDeps(
 	return {
 		db,
 		lifecycleProjection,
-		config: { listConfiguration: async () => [] },
-		teams: { getTeamMembersByTeamId: async () => undefined },
-		users: {
-			getUserById: async () => undefined,
-			getUserByIdScopedToTeam: async () => undefined,
-			listUsersByTeam: async () => [],
-		},
-		work: {
-			getTaskById: async () => undefined,
-			getBetById: async () => undefined,
-			getTaskDispatchAttemptById: async () => undefined,
-			reapTerminalTaskDispatchAttempts: async () => 0,
-		},
-		routine: {
-			getRoutineRunById: async () => undefined,
-			getRoutineById: async () => undefined,
-			updateRoutineRunIfRunning: async () => {},
-		},
-		conversation: { getMessageById: async () => undefined },
-		review: { findGrantedProposedCall: async () => undefined },
-		knowledge: { findById: async () => null },
-		agentSelection: {
-			isAtCapacity: async () => false,
-			selectAgent: async () => ({ agentId: null }),
-		},
 	};
 }
 
@@ -239,22 +214,32 @@ describe("durable request and intent lease fencing", () => {
 	});
 });
 
-function projectionDeps(failSourceId: string) {
+/**
+ * @lore AU21 §9 Increment 10a (Decision I) correction: `decomposition`'s
+ * projector — the prior fault-injection vehicle for this poison-handling
+ * exploit — is REMOVED entirely (not merely made `observeOnly` like
+ * `routine`'s prior correction above): the built-in bet_decomposition
+ * mechanism no longer exists. `explicit_session_start`'s projector
+ * (`projectTerminalState`) is the remaining real, single-call
+ * (non-transactional) projection family — same shape the retry/poison
+ * mechanism under test needs — so the fault injection moves there. Its
+ * correlation key is `fact.requestId` (not `fact.sourceId`, which
+ * `decomposition` used) — `seedLifecycleFact` returns the real requestId so
+ * callers can key the injected fault off it directly. The retry/lease/poison
+ * behavior under test belongs to the drain loop itself, not to any specific
+ * family.
+ */
+function projectionDeps(failRequestId: string) {
 	return {
-		routine: {
-			async updateRoutineRunIfRunning(_db: HyperIdleDb, id: string) {
-				if (id === failSourceId) throw new Error("poison projection");
+		explicitSessionStarts: {
+			async projectTerminalState(_db: HyperIdleDb, requestId: string) {
+				if (requestId === failRequestId) throw new Error("poison projection");
 			},
 		},
-		work: {
-			updateTaskDispatchAttemptIfActive: async () => {},
-			updateBetDecompositionStatusIfRunning: async () => {},
-		},
-		explicitSessionStarts: { projectTerminalState: async () => {} },
 	};
 }
 
-async function seedLifecycleFact(db: HyperIdleDb, suffix: string, sourceId: string) {
+async function seedLifecycleFact(db: HyperIdleDb, suffix: string) {
 	const request = await seedRequest(db, `projection-${suffix}`);
 	await db
 		.update(agentSessionRequests)
@@ -262,8 +247,8 @@ async function seedLifecycleFact(db: HyperIdleDb, suffix: string, sourceId: stri
 		.where(eq(agentSessionRequests.id, request.id));
 	await db.insert(agentLifecycleInbox).values({
 		requestId: request.id,
-		sourceKind: "routine",
-		sourceId,
+		sourceKind: "explicit_session_start",
+		sourceId: `projection-${suffix}-source`,
 		state: "completed",
 		occurredAt: `2026-07-22T10:00:0${suffix}.000Z`,
 	});
@@ -274,7 +259,7 @@ describe("lifecycle inbox retry and poison handling", () => {
 	test("reclaim observes a same-token lease extension and waits for the extended expiry", async ({
 		db,
 	}) => {
-		const requestId = await seedLifecycleFact(db, "0", "extended-run");
+		const requestId = await seedLifecycleFact(db, "0");
 		await db
 			.update(agentLifecycleInbox)
 			.set({
@@ -310,10 +295,10 @@ describe("lifecycle inbox retry and poison handling", () => {
 	test("a failed projection keeps its lease and does not block a later fact in the batch", async ({
 		db,
 	}) => {
-		const poisonId = await seedLifecycleFact(db, "1", "poison-run");
-		const validId = await seedLifecycleFact(db, "2", "valid-run");
+		const poisonId = await seedLifecycleFact(db, "1");
+		const validId = await seedLifecycleFact(db, "2");
 
-		const count = await drainLifecycleProjections(queueDeps(db, projectionDeps("poison-run")), {
+		const count = await drainLifecycleProjections(queueDeps(db, projectionDeps(poisonId)), {
 			now: new Date("2026-07-22T10:00:10.000Z"),
 			leaseMs: 1_000,
 		});
@@ -330,22 +315,20 @@ describe("lifecycle inbox retry and poison handling", () => {
 	});
 
 	test("a poison fact becomes handled only on the configured maximum attempt", async ({ db }) => {
-		const poisonId = await seedLifecycleFact(db, "3", "max-attempt-run");
+		const poisonId = await seedLifecycleFact(db, "3");
 		const options = {
 			now: new Date("2026-07-22T10:00:10.000Z"),
 			leaseMs: 1,
 			maxAttempts: 2,
 		};
 
-		await drainLifecycleProjections(
-			queueDeps(db, projectionDeps("max-attempt-run")),
-			options,
-		).catch(() => {});
+		await drainLifecycleProjections(queueDeps(db, projectionDeps(poisonId)), options).catch(
+			() => {},
+		);
 		options.now = new Date("2026-07-22T10:00:10.002Z");
-		await drainLifecycleProjections(
-			queueDeps(db, projectionDeps("max-attempt-run")),
-			options,
-		).catch(() => {});
+		await drainLifecycleProjections(queueDeps(db, projectionDeps(poisonId)), options).catch(
+			() => {},
+		);
 
 		const [row] = await db
 			.select()

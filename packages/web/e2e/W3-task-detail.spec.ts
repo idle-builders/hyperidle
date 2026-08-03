@@ -3,7 +3,7 @@
  *
  * AC-26: Route /work/bet/:betId/task/:taskId renders task detail page.
  * AC-27: Breadcrumb: Work / [Team] / [Bet] / [Task title].
- * AC-28: Metadata strip: Owner, Status, Started, Cost, Session.
+ * AC-28: Metadata strip: Owner, Status, Started, Session.
  * AC-29: Sessions section listing agent sessions.
  * AC-30: Discussion section.
  * AC-31: Artifacts section.
@@ -19,9 +19,7 @@ const BET_FIXTURE = {
 	teamId: "t1",
 	status: "active",
 	atRisk: false,
-	costAppetite: { minor: 200000, currency: "USD" },
 	tokenAppetite: null,
-	costActual: { minor: 12500, currency: "USD" },
 	tokensActual: null,
 	progress: { done: 3, total: 8 },
 	description: "# Auth Feature\nMigrate to JWT.",
@@ -31,7 +29,6 @@ const BET_FIXTURE = {
 			title: "Implement login endpoint",
 			owner: "Dev Agent 1",
 			state: "in_progress",
-			costActual: { minor: 4200, currency: "USD" },
 			startedAt: "2026-01-01T10:00:00.000Z",
 		},
 	],
@@ -43,7 +40,6 @@ const SESSIONS_FIXTURE = {
 			id: "sess-1",
 			title: "Login endpoint implementation",
 			agent: "Dev Agent 1",
-			cost: { minor: 4200, currency: "USD" },
 			tokens: 15000,
 			status: "completed",
 			harnessUrl: null,

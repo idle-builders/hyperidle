@@ -1,9 +1,8 @@
 /**
  * Barrel for @hyperidle/connections (core-api Layer, SQL-owning Service).
  *
- * ~14 exports — two symmetric store surfaces (credential + connection),
- * a secret vault whose key never leaves this service, resolver strategies,
- * and the provisioning plan seam.
+ * ~11 exports — two symmetric store surfaces (credential + connection),
+ * a secret vault whose key never leaves this service, resolver strategies.
  *
  * Typed functions only. This barrel MUST NOT re-export the raw
  * `serverCredentials`/`serviceConnections` pgTable objects — that would let a
@@ -23,17 +22,27 @@
  * credential-encryption.ts, credential-resolver.ts,
  * service-connection-projection.ts, service-connection-resolver.ts from
  * packages/server/src/services/ (behavior-preserving move).
+ *
+ * @lore AU21 §9 Increment 8 (Decision F2, historical): `applyProvisioningPlan`/
+ * `buildProvisioningPlan`/`ProvisioningPlan` relocated OUT of this barrel
+ * entirely — the session-launch-time provisioning OPERATION lives in
+ * `@hyperidle/run-orchestration` (`connection-provisioning.ts`). F2 originally
+ * had it read the held-connection RECORD through `CoreApiPort.connections.
+ * listHeldConnectionsForProvisioning()` — a live seam call at provisioning
+ * time.
+ *
+ * @lore AU21 §9 Increment 12 follow-up part 2 (F2 gap closure): that seam
+ * call is GONE — the SAME class of gap `resolveInjectedFilesystemsForAgent`
+ * already closed for filesystems. `resolveInjectedConnectionsForAgent`
+ * (below) is the new shared helper every per-kind emit-time resolver calls to
+ * BAKE the held-connection record onto the request at emit time instead. The
+ * `GET /connections/provisioning` route and `CoreApiPort.connections` are
+ * both deleted (zero remaining callers). This Service keeps ONLY the record
+ * CRUD (`listConnections`/`insertConnection`/`updateConnection`/
+ * `deleteConnection`) + the decrypt primitives + this new bake helper —
+ * never the provisioning operation itself.
  */
 
-// -- F. Provisioning (3) — build + apply plan + plan type --
-// @lore AU20 R-connections: resolveOwningHumanUserId deleted — owner resolution folded
-// into buildProvisioningPlan via injected ConnectionsUserReader. session-lifecycle
-// no longer needs a standalone owner resolver; it passes users into buildProvisioningPlan.
-export {
-	applyProvisioningPlan,
-	buildProvisioningPlan,
-	type ProvisioningPlan,
-} from "./connection-provisioning.js";
 // -- A. Cipher (2) — encrypt/decrypt; cipher owns the key (no secret param) --
 export { decryptCredentialValue, encryptCredentialValue } from "./credential-encryption.js";
 // -- B. CredentialResolver family (2) — resolver interface + DB implementation --
@@ -51,8 +60,12 @@ export {
 	readCredentials,
 	writeCredential,
 } from "./credential-store.js";
-// -- H. DI port (1) — plumbing type for composition root --
-export type { ConnectionsUserReader } from "./ports.js";
+// -- H. Emit-time bake helper (1) — AU21 Increment 12 follow-up part 2 --
+export {
+	type InjectedConnectionForAgent,
+	type InjectedConnectionsForAgent,
+	resolveInjectedConnectionsForAgent,
+} from "./resolve-injected-connections-for-agent.js";
 // -- G. In-memory projection (1) — inherited connections from harness descriptors --
 export { projectInheritedConnections } from "./service-connection-projection.js";
 // -- C. ServiceConnectionResolver (1) — sole decrypted-held-token path --

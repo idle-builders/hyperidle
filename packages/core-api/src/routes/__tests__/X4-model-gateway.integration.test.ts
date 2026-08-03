@@ -22,10 +22,10 @@
  */
 
 import type { CredentialResolver } from "@hyperidle/connections";
-import { resolveModel } from "@hyperidle/model-gateway";
 import {
 	BUILT_IN_GATEWAY_CONFIG as DEFAULT_GATEWAY_CONFIG,
 	MissingCredentialError,
+	resolveModel,
 } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";

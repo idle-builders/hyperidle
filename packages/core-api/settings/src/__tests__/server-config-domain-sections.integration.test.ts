@@ -1,8 +1,8 @@
 /**
  * AU18 §5 — server_config schema extension round-trip tests.
  *
- * Proves each new top-level section (observability, gitExport, cost,
- * internal) and the extended notifications sub-sections (delivery,
+ * Proves each new top-level section (observability, gitExport)
+ * and the extended notifications sub-sections (delivery,
  * mutedTypes, silence) read/write/merge correctly, including the deepened
  * notifications merge branch (a delivery-only patch must not clobber an
  * already-set silence section, and vice versa — plan §5's merge-hazard fix).
@@ -64,34 +64,6 @@ describe("server_config — gitExport section", () => {
 		expect(config.gitExport.repoPath).toBe("/tmp/repo");
 		// stamp from the earlier patch must survive an unrelated later patch
 		expect(config.gitExport.lastCommitAt).toBe("2026-01-01T00:00:00.000Z");
-	});
-});
-
-describe("server_config — cost section", () => {
-	test("readServerConfig returns cost.capMinor default 20000", async ({ db }) => {
-		const config = await readServerConfig(db);
-		expect(config.cost.capMinor).toBe(20000);
-	});
-
-	test("updateServerConfig can set cost.capMinor", async ({ db }) => {
-		await updateServerConfig(db, { cost: { capMinor: 5000 } });
-		const config = await readServerConfig(db);
-		expect(config.cost.capMinor).toBe(5000);
-	});
-});
-
-describe("server_config — internal section (cost sentinel dedup level)", () => {
-	test("readServerConfig returns internal.costSentinelLastLevel null by default", async ({
-		db,
-	}) => {
-		const config = await readServerConfig(db);
-		expect(config.internal.costSentinelLastLevel).toBeNull();
-	});
-
-	test("updateServerConfig can persist costSentinelLastLevel across reads", async ({ db }) => {
-		await updateServerConfig(db, { internal: { costSentinelLastLevel: "warning" } });
-		const config = await readServerConfig(db);
-		expect(config.internal.costSentinelLastLevel).toBe("warning");
 	});
 });
 

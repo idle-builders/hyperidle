@@ -19,6 +19,26 @@ import { describe } from "vitest";
 import { type DurableAgentQueueDeps, drainLifecycleProjections, reapExpired } from "../index.js";
 
 function fakeDeps(): DurableAgentQueueDeps["lifecycleProjection"] & {
+	// AU21 correction: `routine` no longer has an injected lifecycle-projection
+	// port at all (the interface field was deleted along with `projectRoutine`
+	// — Wave C's `finalizeRoutineRun` is the sole finalizer now). `routineCalls`
+	// stays only as a witness array that must remain empty forever, proving
+	// the drain has no way left to reach a routine write.
+	//
+	// AU21 §9 Increment 10a (Decision I): `decomposition`'s projector
+	// (`updateBetDecompositionStatusIfRunning`) is REMOVED ENTIRELY — the
+	// built-in bet_decomposition mechanism no longer exists.
+	//
+	// AU21 §9 Increment 10 (Decision H1): `work`
+	// (`updateTaskDispatchAttemptIfActive`) is now REMOVED ENTIRELY from
+	// `DurableAgentQueueDeps["lifecycleProjection"]` too — `task`'s
+	// post-session writeback moved to a core-api event subscriber
+	// (`work-session-end-reactions.ts`, `agent_run_lifecycle_changed`). There
+	// is no port left through which this drain could ever reach `work` for a
+	// `task`-sourced fact, so `workCalls` joins `routineCalls` as a
+	// permanent-empty witness array with no port behind it at all — the
+	// strongest form of "the drain never calls it": not merely unexercised,
+	// structurally unreachable.
 	readonly routineCalls: Array<{ id: string; patch: unknown }>;
 	readonly workCalls: Array<{ id: string; patch: unknown }>;
 	readonly explicitCalls: Array<{ requestId: string; patch: unknown }>;
@@ -30,17 +50,6 @@ function fakeDeps(): DurableAgentQueueDeps["lifecycleProjection"] & {
 		routineCalls,
 		workCalls,
 		explicitCalls,
-		routine: {
-			async updateRoutineRunIfRunning(_exec: unknown, id: string, patch: unknown) {
-				routineCalls.push({ id, patch });
-			},
-		},
-		work: {
-			async updateTaskDispatchAttemptIfActive() {},
-			async updateBetDecompositionStatusIfRunning(_exec: unknown, id: string, patch: unknown) {
-				workCalls.push({ id, patch });
-			},
-		},
 		explicitSessionStarts: {
 			async projectTerminalState(_exec: unknown, requestId: string, patch: unknown) {
 				explicitCalls.push({ requestId, patch });
@@ -56,31 +65,6 @@ function queueDeps(
 	return {
 		db,
 		lifecycleProjection,
-		config: { listConfiguration: async () => [] },
-		teams: { getTeamMembersByTeamId: async () => undefined },
-		users: {
-			getUserById: async () => undefined,
-			getUserByIdScopedToTeam: async () => undefined,
-			listUsersByTeam: async () => [],
-		},
-		work: {
-			getTaskById: async () => undefined,
-			getBetById: async () => undefined,
-			getTaskDispatchAttemptById: async () => undefined,
-			reapTerminalTaskDispatchAttempts: async () => 0,
-		},
-		routine: {
-			getRoutineRunById: async () => undefined,
-			getRoutineById: async () => undefined,
-			updateRoutineRunIfRunning: async () => {},
-		},
-		conversation: { getMessageById: async () => undefined },
-		review: { findGrantedProposedCall: async () => undefined },
-		knowledge: { findById: async () => null },
-		agentSelection: {
-			isAtCapacity: async () => false,
-			selectAgent: async () => ({ agentId: null }),
-		},
 	};
 }
 
@@ -125,18 +109,28 @@ async function seedRequest(
 }
 
 describe("drainLifecycleProjections — exhaustive DI port wiring", () => {
-	test("routine family calls the injected routine port, not a raw table write", async ({ db }) => {
+	/**
+	 * AU21 correction (post-Increment-5 verification) — RED. `routine` used
+	 * to be a "real projection" family here, calling
+	 * `deps.routine.updateRoutineRunIfRunning` directly — that was the THIRD
+	 * raw cross-layer write path the gap report found. Wave C's core-api-side
+	 * `finalizeRoutineRun` (reacting to `session_ended`/
+	 * `agent_run_lifecycle_changed`) already does this job end-to-end via the
+	 * proper event-driven mechanism, so `routine`'s projector becomes
+	 * `observeOnly` — joining `assistant`/`knowledge`/`proposed_call` below.
+	 * Today (RED): `lifecycleProjectors.routine` is still `projectRoutine`,
+	 * so `deps.routineCalls` is NOT empty and this fails.
+	 */
+	test("routine family is observeOnly — the drain never calls the injected routine port directly", async ({
+		db,
+	}) => {
 		const deps = fakeDeps();
 		await seedRequest(db, "lp-routine-req", "routine", "lp-routine-run");
 
 		const count = await drainLifecycleProjections(queueDeps(db, deps));
 
 		expect(count).toBe(1);
-		expect(deps.routineCalls).toHaveLength(1);
-		expect(deps.routineCalls[0]).toMatchObject({
-			id: "lp-routine-run",
-			patch: { outcome: "success" },
-		});
+		expect(deps.routineCalls).toHaveLength(0);
 		expect(deps.workCalls).toHaveLength(0);
 		expect(deps.explicitCalls).toHaveLength(0);
 
@@ -145,19 +139,6 @@ describe("drainLifecycleProjections — exhaustive DI port wiring", () => {
 			.from(agentLifecycleInbox)
 			.where(eq(agentLifecycleInbox.requestId, "lp-routine-req"));
 		expect(row?.projectedAt).toBeTruthy();
-	});
-
-	test("decomposition family calls the injected work port", async ({ db }) => {
-		const deps = fakeDeps();
-		await seedRequest(db, "lp-decomp-req", "decomposition", "lp-decomp-bet");
-
-		await drainLifecycleProjections(queueDeps(db, deps));
-
-		expect(deps.workCalls).toHaveLength(1);
-		expect(deps.workCalls[0]).toMatchObject({
-			id: "lp-decomp-bet",
-			patch: { decompositionStatus: "done", decompositionBlockerReason: null },
-		});
 	});
 
 	test("explicit_session_start family calls the injected session-requests port", async ({ db }) => {
@@ -173,27 +154,60 @@ describe("drainLifecycleProjections — exhaustive DI port wiring", () => {
 		});
 	});
 
-	test("task family projects the explicit-session-start port inside the same transaction", async ({
+	/**
+	 * AU21 §9 Increment 10 (Decision H1) — RED. `task`'s post-session
+	 * writeback moves to a NEW core-api event-subscriber
+	 * (`work-session-end-reactions.ts`, subscribing `agent_run_lifecycle_changed`
+	 * directly — see that module's own RED test file), the same migration
+	 * `routine` already went through in Increment 4. `lifecycleProjectors.task`
+	 * must flip to `observeOnly`, joining `assistant`/`knowledge`/
+	 * `proposed_call`/`routine` — the drain must never call
+	 * `deps.work.updateTaskDispatchAttemptIfActive` OR
+	 * `deps.explicitSessionStarts.projectTerminalState` for a `task`-sourced
+	 * fact again (the latter's correlation was a `projectTask`-bundled side
+	 * effect with no real `explicitSessionStarts` row behind it for this
+	 * sourceKind — dead glue removed alongside the writeback itself). Today
+	 * (RED): `lifecycleProjectors.task` is still `projectTask`, which calls
+	 * BOTH ports, so this fails.
+	 */
+	test("task family is observeOnly — the drain never calls any port directly (Increment 10, Decision H1)", async ({
 		db,
 	}) => {
 		const deps = fakeDeps();
-		await seedRequest(db, "lp-task-req", "task", "lp-task-attempt");
+		await seedRequest(db, "lp-task-observeonly-req", "task", "lp-task-observeonly-attempt");
 
-		await drainLifecycleProjections(queueDeps(db, deps));
+		const count = await drainLifecycleProjections(queueDeps(db, deps));
 
-		expect(deps.explicitCalls).toHaveLength(1);
-		expect(deps.explicitCalls[0]).toMatchObject({ requestId: "lp-task-req" });
+		expect(count).toBe(1);
+		expect(deps.workCalls).toHaveLength(0);
+		expect(deps.explicitCalls).toHaveLength(0);
+
+		const [row] = await db
+			.select({ projectedAt: agentLifecycleInbox.projectedAt })
+			.from(agentLifecycleInbox)
+			.where(eq(agentLifecycleInbox.requestId, "lp-task-observeonly-req"));
+		expect(row?.projectedAt).toBeTruthy();
 	});
 
 	test("all no-op families acknowledge without calling any port", async ({ db }) => {
 		const deps = fakeDeps();
-		for (const sourceKind of ["assistant", "knowledge", "proposed_call"] as const) {
+		// AU21 correction: `routine` joins the no-op families here (see the
+		// dedicated test above for the RED signal on that transition). AU21 §9
+		// Increment 10 (Decision H1) — RED: `task` joins them too (see the
+		// dedicated test above for THIS RED signal).
+		for (const sourceKind of [
+			"assistant",
+			"knowledge",
+			"proposed_call",
+			"routine",
+			"task",
+		] as const) {
 			await seedRequest(db, `lp-${sourceKind}-req`, sourceKind, `lp-${sourceKind}-source`);
 		}
 
 		const count = await drainLifecycleProjections(queueDeps(db, deps));
 
-		expect(count).toBe(3);
+		expect(count).toBe(5);
 		expect(deps.routineCalls).toHaveLength(0);
 		expect(deps.workCalls).toHaveLength(0);
 		expect(deps.explicitCalls).toHaveLength(0);

@@ -22,21 +22,34 @@
  *
  * @lore AU20 Am2: collapsed 24 exports → 15. Five predicate-specific list
  * fns → `listRoutines(filter)`, two updateRun variants → `updateRoutineRun(opts?)`,
- * cost-aggregation trio → `sumRunCost({kind})`, and get-by-id renames
- * (`getRoutine`/`getRoutineRun`). The `| SQL` widening on patch types is
- * intentionally kept — `updateRoutine` is still the general setter and the
- * widening does no harm (only `incrementRoutineCost` eliminates the need for
- * callers to build coalesce SQL, but the type flexibility is harmless).
+ * and get-by-id renames (`getRoutine`/`getRoutineRun`). The AU20-era
+ * cost-aggregation trio → `sumRunCost({kind})` collapse is now moot: AU21
+ * Increment 14a deleted `sumRunCost`/`incrementRoutineCost` entirely along
+ * with the rest of the cost feature, no replacement. The `| SQL` widening on
+ * patch types is intentionally kept — `updateRoutine` is still the general
+ * setter and the widening does no harm (harmless type flexibility, not tied
+ * to any specific caller need anymore).
  */
 import {
+	type HyperIdleDb,
 	type NewRoutine,
 	type NewRoutineRun,
 	routineRuns,
 	routines,
+	type Team,
+	type User,
 	type WriteExecutor,
 } from "@hyperidle/db";
+import type {
+	BakedAgentRunnableConfig,
+	BakedConnectionsForProvisioning,
+	BakedContextBundle,
+	BakedFilesystemForProvisioning,
+	SessionKnowledgeItemLike,
+} from "@hyperidle/shared";
+import { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "@hyperidle/shared";
 import type { SQL } from "drizzle-orm";
-import { and, asc, avg, desc, eq, gt, gte, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 
 export type Routine = typeof routines.$inferSelect;
 export type RoutineRun = typeof routineRuns.$inferSelect;
@@ -69,40 +82,6 @@ export async function updateRoutine(
 	patch: RoutinePatch,
 ): Promise<void> {
 	await exec.update(routines).set(patch).where(eq(routines.id, id));
-}
-
-/**
- * Atomically add `deltaMinor` to a routine's `costActualMinor` via
- * `coalesce(costActualMinor, 0) + delta`. Owns the coalesce SQL so the
- * `routines.costActualMinor` column ref never leaves this store. Mirrors
- * `@hyperidle/work`'s `incrementBetCost` / `@hyperidle/users`'
- * `incrementUserCost` / `@hyperidle/org`'s `incrementTeamMembersCost`.
- *
- * @lore AU19 Increment 3i: closes the coalesce-ownership gap `RoutinePatch`'s
- * own doc comment anticipated — `session-lifecycle.ts`'s
- * `updateRoutineRunOnSessionEnd` used to build this fragment itself via a raw
- * `updateRoutineById(db, routineId, { costActualMinor: sql\`...\` })` patch,
- * which required importing the `routines` table object directly (an
- * ownership violation once `session-lifecycle.ts` becomes its own Service
- * package — `routines` is this Service's `TABLE_OWNER`). Split into its own
- * call (previously part of ONE combined `updateRoutineById` patch alongside
- * `lastRunAt`/`lastRunSummary`) — the two writes were never transactional
- * with each other pre-migration either (`db`, not a shared `tx`), so this
- * does not weaken any atomicity guarantee.
- */
-export async function incrementRoutineCost(
-	exec: WriteExecutor,
-	id: string,
-	deltaMinor: number,
-	currency: string,
-): Promise<void> {
-	await exec
-		.update(routines)
-		.set({
-			costActualMinor: sql`coalesce(${routines.costActualMinor}, 0) + ${deltaMinor}`,
-			costActualCurrency: currency,
-		})
-		.where(eq(routines.id, id));
 }
 
 // ---------------------------------------------------------------------------
@@ -247,53 +226,270 @@ export async function listRoutineRuns(
 }
 
 // ---------------------------------------------------------------------------
-// cost aggregation
+// resolveRoutineRunRequest — AU21 §6 Decision B / §9 Increment 4, Wave B —
+// the routine_run emit-time resolver
 // ---------------------------------------------------------------------------
 
+/** Thrown when the routine run or its owning routine is not eligible to fire. */
+export class RoutineRunSourceUnavailableError extends Error {}
+
 /**
- * Unified run-cost aggregator. `kind: 'sum'` returns `coalesce(sum(costMinor), 0)`
- * over all runs in `routineIds` (optionally bounded by `since`); returns `0`
- * when `routineIds` is empty. `kind: 'avg'` returns `round(avg(costMinor))`
- * over runs with `costMinor > 0`; returns `null` when no cost-bearing runs
- * exist.
- *
- * @lore AU20 Am2: collapses `avgRoutineRunCost`, `sumRoutineRunCostSince`,
- * `sumRoutineRunCostForRoutinesSince` into one parameterized query. All three
- * were `aggregate(costMinor) over runs where routineId in (…) [and startedAt >= since]`;
- * `kind` picks the aggregation, `since` is now optional on both.
+ * The baked `routine_run` request shape, matching `resolveIntentInputInternal`'s
+ * (session-requests/src/service.ts) current "routine_run" return, minus the
+ * fields (`eventType`, `idempotencyKey`) trivially re-derivable from the
+ * intent row at drain time.
  */
-export async function sumRunCost(
-	exec: WriteExecutor,
-	query: { routineIds: readonly string[]; since?: string; kind: "sum" },
-): Promise<number>;
-export async function sumRunCost(
-	exec: WriteExecutor,
-	query: { routineIds: readonly string[]; since?: string; kind: "avg" },
-): Promise<number | null>;
-export async function sumRunCost(
-	exec: WriteExecutor,
-	query: { routineIds: readonly string[]; since?: string; kind: "sum" | "avg" },
-): Promise<number | null> {
-	if (query.routineIds.length === 0) return 0;
+export interface BakedRoutineRunRequest {
+	readonly defaultAgentId: string;
+	readonly sourceKind: "routine";
+	readonly sourceId: string;
+	readonly streamId: string;
+	readonly teamId: string;
+	readonly taskId: null;
+	readonly sourceCorrelation: {
+		readonly routineId: string;
+		readonly routineRunId: string;
+		readonly teamId: string;
+	};
+	/**
+	 * AU21 §9 Increment 12 (Decision H3) — the routine/agent/team content +
+	 * ranked knowledge a `routine_run` session's sandbox needs, baked at emit
+	 * time from the SAME `routine` this resolver already loaded to validate.
+	 * Present only when `deps.getTeamById`/`deps.assembleSessionKnowledge` were
+	 * supplied (see `RoutineRunResolverDeps` `@lore` below) — a genuine
+	 * capability ADD (routine sessions get zero ranked knowledge today, see
+	 * this file's Wave B test `@lore`), not a preserve-behavior migration.
+	 */
+	readonly contextBundle?: BakedContextBundle;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave E: the target agent's
+	 * runnable-config snapshot, baked from the SAME already-requireRunnableAgent-
+	 * validated `agent: User` row.
+	 */
+	readonly agentConfig: BakedAgentRunnableConfig;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave E: the server's
+	 * disabled-harness-types list, baked from the SAME `ports.settings
+	 * .readServerConfig` `routine-scheduler.ts` already reads.
+	 */
+	readonly harnessDisabled?: readonly string[];
+	/**
+	 * AU21 §9 Increment 12 follow-up (F2 gap closure) — the target agent's
+	 * injected-filesystems list. Present only when
+	 * `deps.resolveInjectedFilesystemsForAgent` was supplied.
+	 */
+	readonly injectedFilesystems?: readonly BakedFilesystemForProvisioning[];
+	/**
+	 * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) —
+	 * the owning human's held-connection list. Present only when
+	 * `deps.resolveInjectedConnectionsForAgent` was supplied.
+	 */
+	readonly injectedConnections?: BakedConnectionsForProvisioning;
+}
 
-	const whereClause = and(
-		inArray(routineRuns.routineId, Array.from(query.routineIds)),
-		query.since !== undefined ? gte(routineRuns.startedAt, query.since) : undefined,
-		query.kind === "avg" ? gt(routineRuns.costMinor, 0) : undefined,
-	);
+/**
+ * Injected deps — Mechanism C. `agentSelection` (capacity check + delegate
+ * selection) and the shared ast-`<userId>` runnability invariant
+ * (`requireRunnableAgent`, `@hyperidle/users`) are both cross-Service from
+ * this package's point of view, so this Service cannot import them directly;
+ * the real implementations are wired at the composition root
+ * (`packages/core-api/src/services/routine-scheduler-bindings.ts`), mirroring
+ * every sibling family resolver's `*ResolverDeps` shape (e.g.
+ * `task-run-resolver.ts`'s `TaskRunResolverDeps`).
+ */
+export interface RoutineRunResolverDeps {
+	readonly agentSelection: {
+		isAtCapacity(db: HyperIdleDb, agentId: string): Promise<boolean>;
+		selectAgent(input: {
+			readonly surface: "routine_delegate";
+			readonly db: HyperIdleDb;
+			readonly teamId: string | null;
+			readonly workKey: string;
+			readonly excludeAgentId: string;
+			readonly skillId: string;
+		}): Promise<{ readonly agentId: string | null }>;
+	};
+	/**
+	 * Widened `Promise<unknown>` → `Promise<User>` in Increment 12 Wave B (H2
+	 * precedent) — the contextBundle bake reuses `agent.name`/`agent.role`
+	 * from this SAME already-validated row, no second read.
+	 */
+	requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<User>;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/org`'s
+	 * `getTeam`, injected (Mechanism C — `@hyperidle/routine`'s `package.json`
+	 * depends only on `@hyperidle/db` + `@hyperidle/shared`, never
+	 * `@hyperidle/org`). Absent at a call site not yet wired to bake context
+	 * (composition-root wiring is a later wave) — the resolver falls back to
+	 * baking no `contextBundle`, matching every existing caller's current
+	 * (context-free) behavior unchanged.
+	 */
+	getTeamById?(db: HyperIdleDb, id: string): Promise<Team | undefined>;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/knowledge`'s
+	 * `assembleSessionKnowledge` (Wave A), injected for the same Mechanism C
+	 * reason as `getTeamById` above.
+	 */
+	assembleSessionKnowledge?(
+		db: HyperIdleDb,
+		input: {
+			readonly teamId: string;
+			readonly agentRole: string;
+			readonly taskDescription: string;
+		},
+	): Promise<readonly SessionKnowledgeItemLike[]>;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave E — optional:
+	 * `@hyperidle/settings`'s `readServerConfig`, injected (Mechanism C —
+	 * `@hyperidle/routine` cannot import `@hyperidle/settings` directly) for
+	 * the `harnessDisabled` bake. Same shape as `RoutineSchedulerPorts.settings
+	 * .readServerConfig` (`ports.ts`) `routine-scheduler.ts` already reads
+	 * — forwarded here by `fireGenericRoutine`, not a second wiring. Absent at
+	 * a call site not yet wired — the resolver bakes no `harnessDisabled`
+	 * (matches `admitSession`'s "absent = nothing disabled" degrade).
+	 */
+	readServerConfig?(db: HyperIdleDb): Promise<{ readonly harnessDisabled: readonly string[] }>;
+	/**
+	 * AU21 §9 Increment 12 follow-up (F2 gap closure) — optional:
+	 * `@hyperidle/filesystems`'s `resolveInjectedFilesystemsForAgent`, injected
+	 * (Mechanism C — `@hyperidle/routine` cannot import `@hyperidle/filesystems`
+	 * directly) for the `injectedFilesystems` bake. Absent at a call site not
+	 * yet wired — the resolver bakes no `injectedFilesystems`.
+	 */
+	resolveInjectedFilesystemsForAgent?(
+		db: HyperIdleDb,
+		agentId: string,
+	): Promise<readonly BakedFilesystemForProvisioning[]>;
+	/**
+	 * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) —
+	 * optional: `@hyperidle/connections`'s `resolveInjectedConnectionsForAgent`,
+	 * injected (Mechanism C — `@hyperidle/routine` cannot import
+	 * `@hyperidle/connections` directly) for the `injectedConnections` bake.
+	 * Absent at a call site not yet wired — the resolver bakes no
+	 * `injectedConnections`.
+	 */
+	resolveInjectedConnectionsForAgent?(
+		db: HyperIdleDb,
+		agentId: string,
+	): Promise<BakedConnectionsForProvisioning>;
+}
 
-	if (query.kind === "avg") {
-		const [row] = await exec
-			.select({ result: avg(routineRuns.costMinor) })
-			.from(routineRuns)
-			.where(whereClause);
-		return row?.result != null ? Math.round(Number(row.result)) : null;
+/**
+ * Resolve + validate a `routine_run` run at emit time: load the run
+ * (rejecting if missing / not `"running"`), load its routine (rejecting if
+ * soft-deleted / inactive / not in `state:"active"`), resolve the target
+ * agent (the owner, delegating to a capacity-eligible skilled agent only when
+ * the owner is at capacity AND delegation is allowed AND a skill is set AND a
+ * candidate is actually found), validate the resolved target's runnability,
+ * and bake the full request. Does exactly what
+ * `resolveIntentInputInternal`'s "routine_run" case did at drain time
+ * (`session-requests/src/service.ts`, deleted by this same wave) — now at
+ * emit time, in the same package that owns `routines`/`routine_runs`.
+ */
+export async function resolveRoutineRunRequest(
+	db: HyperIdleDb,
+	runId: string,
+	deps: RoutineRunResolverDeps,
+): Promise<BakedRoutineRunRequest> {
+	const run = await getRoutineRun(db, runId);
+	if (run?.outcome !== "running") {
+		throw new RoutineRunSourceUnavailableError("Routine run is unavailable");
+	}
+	const routine = await getRoutine(db, run.routineId);
+	if (!routine || routine.deletedAt || !routine.active || routine.state !== "active") {
+		throw new RoutineRunSourceUnavailableError("Routine is not eligible to run");
+	}
+	let selectedAgentId = routine.ownerAgentId;
+	if (await deps.agentSelection.isAtCapacity(db, routine.ownerAgentId)) {
+		if (routine.delegationAllowed && routine.skillId) {
+			const { agentId } = await deps.agentSelection.selectAgent({
+				surface: "routine_delegate",
+				db,
+				teamId: null,
+				workKey: routine.id,
+				excludeAgentId: routine.ownerAgentId,
+				skillId: routine.skillId,
+			});
+			if (agentId) selectedAgentId = agentId;
+		}
+	}
+	let agent: User;
+	try {
+		agent = await deps.requireRunnableAgent(db, selectedAgentId);
+	} catch (error) {
+		// @lore normalize to ONE recognizable class: the real `requireRunnableAgent`
+		// (`@hyperidle/users`) throws its own `AgentNotRunnableError`, which this
+		// package cannot name directly (Mechanism C — no `@hyperidle/users`
+		// import). `fireGenericRoutine` needs to distinguish "this resolution is
+		// not legitimate" (swallow, report `fired:false`) from a genuine
+		// downstream infra failure on the SAME transaction's writes (must
+		// propagate) — see `agent-work-intent-production.integration.test.ts`'s
+		// "rolls back its run when the intent write fails" pair, which requires
+		// exactly that distinction.
+		throw new RoutineRunSourceUnavailableError(
+			error instanceof Error ? error.message : "Resolved agent is not runnable",
+		);
 	}
 
-	const [row] = await exec
-		.select({ result: sql<number>`coalesce(sum(${routineRuns.costMinor}), 0)` })
-		.from(routineRuns)
-		.where(whereClause)
-		.limit(1);
-	return row?.result ?? 0;
+	// AU21 §9 Increment 12 (Decision H3): bake the contextBundle only when the
+	// caller supplied both context deps (see RoutineRunResolverDeps `@lore`) —
+	// destructured into locals so TS keeps them narrowed non-optional inside
+	// the block below, no non-null assertion needed.
+	let contextBundle: BakedContextBundle | undefined;
+	const { getTeamById, assembleSessionKnowledge } = deps;
+	if (getTeamById && assembleSessionKnowledge) {
+		const team = await getTeamById(db, routine.teamId);
+		if (team) {
+			const knowledge = await assembleSessionKnowledge(db, {
+				teamId: routine.teamId,
+				agentRole: agent.role,
+				// @lore no routine analog to a task's `description` — the
+				// routine's own description (falling back to its name) stands
+				// in for the scoring-context `taskDescription`, flagged for
+				// reviewer confirmation per this file's Wave B test `@lore`.
+				taskDescription: routine.description ?? routine.name,
+			});
+			contextBundle = {
+				kind: "routine",
+				routine: {
+					id: routine.id,
+					name: routine.name,
+					description: routine.description,
+					lastRunSummary: routine.lastRunSummary,
+				},
+				agent: { id: agent.id, name: agent.name, role: agent.role },
+				team: { id: team.id, name: team.name },
+				knowledge: toBakedContextKnowledgeItems(knowledge),
+			};
+		}
+	}
+	const {
+		readServerConfig,
+		resolveInjectedFilesystemsForAgent,
+		resolveInjectedConnectionsForAgent,
+	} = deps;
+	const harnessDisabled = readServerConfig
+		? (await readServerConfig(db)).harnessDisabled
+		: undefined;
+	const injectedFilesystems = resolveInjectedFilesystemsForAgent
+		? await resolveInjectedFilesystemsForAgent(db, selectedAgentId)
+		: undefined;
+	const injectedConnections = resolveInjectedConnectionsForAgent
+		? await resolveInjectedConnectionsForAgent(db, selectedAgentId)
+		: undefined;
+
+	return {
+		defaultAgentId: selectedAgentId,
+		sourceKind: "routine",
+		sourceId: runId,
+		streamId: `routine:${routine.id}`,
+		teamId: routine.teamId,
+		taskId: null,
+		sourceCorrelation: { routineId: routine.id, routineRunId: runId, teamId: routine.teamId },
+		...(contextBundle ? { contextBundle } : {}),
+		agentConfig: bakeAgentRunnableConfig(agent),
+		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
+		...(injectedFilesystems !== undefined ? { injectedFilesystems } : {}),
+		...(injectedConnections !== undefined ? { injectedConnections } : {}),
+	};
 }

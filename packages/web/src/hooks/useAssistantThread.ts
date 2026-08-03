@@ -67,6 +67,42 @@ function decodeAssistantThreadResponse(value: unknown): AssistantThreadData {
 	};
 }
 
+/**
+ * Apply a pushed CHANGED RECORD directly onto `AssistantThreadData` state —
+ * never a refetch (AU21 §6 Decision L4 / §9 Increment 14d). Pulled out of
+ * the WS subscribe callback (a module-level pure function, not a nested
+ * closure) to keep the callback itself simple.
+ */
+function applyAssistantThreadPush(
+	prev: AssistantThreadData | null,
+	kind: unknown,
+	data: Record<string, unknown>,
+): AssistantThreadData | null {
+	if (!prev) return prev;
+	if (kind === "thread_message_appended") {
+		const message = data.message as Message | undefined;
+		if (!message) return prev;
+		// Idempotent: a reconnect/duplicate frame must not double-append.
+		if (prev.messages.some((m) => m.id === message.id)) return prev;
+		const senderIdentity = data.senderIdentity as
+			| { name: string; role?: string; isAgent?: boolean }
+			| undefined;
+		return {
+			...prev,
+			messages: [...prev.messages, message],
+			identities: senderIdentity
+				? { ...prev.identities, [message.senderId]: senderIdentity }
+				: prev.identities,
+		};
+	}
+	if (kind === "thread_resolved" || kind === "thread_reopened") {
+		const resolvedAt = data.resolvedAt;
+		if (typeof resolvedAt !== "string" && resolvedAt !== null) return prev;
+		return { ...prev, thread: { ...prev.thread, resolvedAt } };
+	}
+	return prev;
+}
+
 export function useAssistantThread(): AssistantThreadState {
 	const [status, setStatus] = useState<AssistantThreadStatus>("loading");
 	const [data, setData] = useState<AssistantThreadData | null>(null);
@@ -121,21 +157,25 @@ export function useAssistantThread(): AssistantThreadState {
 	// without manual reload. Mirrors useThreadDetail.ts WS subscription pattern.
 	// @lore AH3: WS is unavailable in JSDOM — mocked in test-setup.ts.
 	// Thread ID is available only after the first fetch succeeds (data?.thread.id).
+	// @lore AU21 §6 Decision L4 / §9 Increment 14d: the server now pushes the
+	// CHANGED RECORD (`{ type: "update", topic, kind, data }`), not an
+	// invalidate ping — the founder: "there is no refetch … core submits the
+	// changed version." This effect applies the pushed data directly instead
+	// of bumping `tick` to trigger a second fetch.
 	useEffect(() => {
 		const threadId = data?.thread.id;
 		if (!threadId) return;
 		const ws = getWsClient();
-		const unsubscribe = ws.subscribe(`thread:${threadId}`, (payload) => {
+		const topic = `thread:${threadId}`;
+		const unsubscribe = ws.subscribe(topic, (raw) => {
+			if (typeof raw !== "object" || raw === null) return;
+			const msg = raw as Record<string, unknown>;
+			if (msg.type !== "update" || msg.topic !== topic) return;
+			const payload = msg.data;
 			if (typeof payload !== "object" || payload === null) return;
-			const msg = payload as Record<string, unknown>;
-			if (
-				msg.threadId === threadId &&
-				(msg.type === "thread_message_appended" ||
-					msg.type === "thread_resolved" ||
-					msg.type === "thread_reopened")
-			) {
-				setTick((n) => n + 1);
-			}
+			setData((prev) =>
+				applyAssistantThreadPush(prev, msg.kind, payload as Record<string, unknown>),
+			);
 		});
 		return unsubscribe;
 	}, [data?.thread.id]);

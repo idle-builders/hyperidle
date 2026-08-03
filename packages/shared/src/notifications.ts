@@ -11,13 +11,16 @@
  * auto_unblock are ambient (concept hard rule #6) — also absent.
  * The NOTIFICATION_TYPES array IS the complete registry; do not derive
  * types from string keys elsewhere.
+ *
+ * @lore AU21 Increment 14a: `cost_alert` is HARD-DELETED along with the rest
+ * of the cost-cap feature — no replacement notification type.
  */
 
 /** Two urgency levels for in-app notifications. digest is egress only. */
 export type NotificationUrgency = "immediate" | "ambient";
 
 /** Stable keys for the registered notification types. */
-export type NotificationTypeKey = "review_request" | "blocker_alert" | "cost_alert";
+export type NotificationTypeKey = "review_request" | "blocker_alert";
 
 /** A registered notification type entry. */
 export interface NotificationType {
@@ -38,7 +41,6 @@ export interface NotificationType {
  * The complete notification type registry.
  * - review_request: item verb=review, risk_tier >= medium OR blocking
  * - blocker_alert:  agent is blocked and needs intervention
- * - cost_alert:     factory spend crosses a configured cost cap
  *
  * @lore AF8: review_request defaultUrgency is "immediate" but the listener
  * may demote it to "ambient" for low-risk (risk_tier < medium, non-blocking)
@@ -58,13 +60,6 @@ export const NOTIFICATION_TYPES: readonly NotificationType[] = [
 		label: "Blocker alerts",
 		shortLabel: "BLOCKER",
 		description: "When an agent is blocked and needs you to intervene",
-		defaultUrgency: "immediate",
-	},
-	{
-		key: "cost_alert",
-		label: "Cost alerts",
-		shortLabel: "COST",
-		description: "When factory spend crosses a configured cost cap",
 		defaultUrgency: "immediate",
 	},
 ] as const;

@@ -7,9 +7,8 @@
  * AC3: TokenUsage with per-tier breakdown
  * AC4: formatMoney(null) → "--"; formatMoney({minor:1240,currency:'USD'}) → "$12.40"
  * AC5: formatTokenCount(42300) → "42.3k"; formatTokenCount(null) → "--"
- * AC9: SessionResult returns structured { cost: WireMoney, tokenUsage: TokenUsage }
- * AC10: TokenUsageEvent carries optional tier field
- * AC11: CostUpdateEvent carries optional currency field
+ * (AC9/AC10 are asserted in money-harness.test.ts. AC11/CostUpdateEvent no
+ * longer exists — @lore AU21 harness-telemetry narrowing.)
  *
  * These tests will FAIL until Task 1 implementation ships.
  */

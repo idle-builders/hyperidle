@@ -57,8 +57,6 @@ function makeProductDetailResponse() {
 			{ agentId: "agent-member", name: "Alice Agent", role: "member", isLead: false },
 		],
 		burn: {
-			costActual: { minor: 420000, currency: "USD" },
-			costCap: { minor: 1000000, currency: "USD" },
 			capacity: 5,
 			activeBets: 2,
 		},
@@ -66,7 +64,6 @@ function makeProductDetailResponse() {
 			{
 				id: "b1",
 				pitchTitle: "Auth migration",
-				costAppetite: { minor: 100000, currency: "USD" },
 				status: "committed",
 				progressDone: 1,
 				progressTotal: 2,

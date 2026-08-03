@@ -3,8 +3,9 @@
  *
  * AC-26: Route /work/bet/:betId/task/:taskId renders task detail page.
  * AC-27: Breadcrumb: Work / [Team] / [Bet] / [Task title].
- * AC-28: Metadata strip: Owner, Status, Started, Cost, Session.
- * AC-29: Sessions section (title, agent, cost, tokens, status).
+ * AC-28: Metadata strip: Owner, Status, Started, Session.
+ *   (AU21 Increment 14a: Cost HARD-DELETED from the metadata strip, no replacement.)
+ * AC-29: Sessions section (title, agent, tokens, status).
  * AC-30: Discussion section.
  * AC-31: Artifacts section.
  * AC-32: Content max-width 800px, centered.
@@ -32,7 +33,6 @@ vi.mock("../../hooks/useBet", () => ({
 							title: "Implement login endpoint",
 							owner: "Dev Agent 1",
 							state: "in_progress",
-							costActual: { minor: 420, currency: "USD" },
 							startedAt: "2026-01-01T10:00:00.000Z",
 						},
 					],
@@ -61,7 +61,6 @@ vi.mock("../../hooks/useTaskSessions", () => ({
 							id: "s1",
 							title: "Session 1",
 							agent: "Dev Agent 1",
-							cost: { minor: 420, currency: "USD" },
 							tokens: 12000,
 							status: "completed",
 							harnessUrl: null,

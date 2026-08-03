@@ -1,10 +1,12 @@
+import { resolveInjectedConnectionsForAgent } from "@hyperidle/connections";
 import { type ExplicitSessionStart, type HyperIdleDb, sessions } from "@hyperidle/db";
-import type { SessionActivityBuffer } from "@hyperidle/run-orchestration";
+import { resolveInjectedFilesystemsForAgent } from "@hyperidle/filesystems";
 import {
 	createSessionRequest,
 	findSessionRequest,
 	sessionRunRegistry,
 } from "@hyperidle/session-requests";
+import { readServerConfig } from "@hyperidle/settings";
 import {
 	type AgentWorkIntentEvent,
 	type AgentWorkIntentReader,
@@ -15,13 +17,19 @@ import {
 	type SessionOutcome,
 	type SessionStartedEvent,
 } from "@hyperidle/shared";
+import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
+import { resolveSessionStartRequest } from "@hyperidle/work";
 import { and, eq } from "drizzle-orm";
 import { type Context, Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
+import {
+	buildAgentOrchestrationPort,
+	getRegisteredAgentOrchestrationTransport,
+} from "../services/agent-orchestration-port-composition.js";
 import { transitionRun } from "../services/run-orchestration-composition.js";
 
 // @lore O2: harnessUrl, tokensInput, tokensOutput fields removed from session
@@ -61,11 +69,10 @@ async function projectExplicitStart(db: HyperIdleDb, start: ExplicitSessionStart
 	if (start.status === "failed") {
 		const code = start.failureCode ?? "INTERNAL_ERROR";
 		const status =
-			code === "COST_CAP_EXCEEDED" || code === "NO_ELIGIBLE_HARNESS"
-				? 422
-				: code === "CONCURRENCY_LIMIT"
-					? 429
-					: 500;
+			// @lore AU21 Increment 14a: "COST_CAP_EXCEEDED" removed from this
+			// mapping — the cost-cap gate that used to produce it is HARD-DELETED,
+			// no replacement admission-failure code.
+			code === "NO_ELIGIBLE_HARNESS" ? 422 : code === "CONCURRENCY_LIMIT" ? 429 : 500;
 		return {
 			status,
 			body: { error: code === "INTERNAL_ERROR" ? "Session provisioning failed" : code, code },
@@ -275,13 +282,21 @@ async function applyStateChangePatch(
 /**
  * Create Hono routes for session endpoints (E6).
  *
- * @param activityBuffer - Optional in-memory ring buffer for session activity
- *   (Q1 §3.2). When wired, GET /:id/activity returns entries from the buffer.
  * @param durableStartEnabled - AU11 AC-2: true when the composition root has
  *   an adapter pool wired. When true, POST /sessions creates and consumes an
  *   AgentSessionRequest instead of a bare DB insert (see `SessionRouteDeps`
  *   removal note above — this replaces the former `deps.adapterPool`
  *   presence check with a plain boolean, no harness type dependency).
+ *
+ * @lore AU21 §6 Decision E / §9 Increment 7: `GET /:id/activity` no longer
+ * takes an injected `SessionActivityBuffer` reference — the buffer relocated
+ * to `@hyperidle/agent-execution` (agent-orchestration/execution's real
+ * home), and this core-api route now reads it THROUGH
+ * `AgentOrchestrationPort.sessions.getRecentActivity`, the same kind of
+ * cross-Layer seam other `AgentOrchestrationPort` reads use (AU21 Increment
+ * 14a: `tasks.ts`'s per-session cost display, the seam's original sibling
+ * example, is HARD-DELETED — no replacement). Wire format is unchanged —
+ * `useSessionActivity.test.tsx` stays green.
  */
 /**
  * @lore AU19 §11 (AC-9): `agentWorkIntentRecorder`/`agentWorkIntentReader`
@@ -295,7 +310,6 @@ async function applyStateChangePatch(
 export function createSessionRoutes(
 	db: HyperIdleDb,
 	eventBus: EventBus,
-	activityBuffer: SessionActivityBuffer | undefined,
 	durableStartEnabled: boolean | undefined,
 	agentWorkIntentRecorder: AgentWorkIntentRecorder<HyperIdleDb>,
 	agentWorkIntentReader: AgentWorkIntentReader<HyperIdleDb>,
@@ -389,12 +403,29 @@ export function createSessionRoutes(
 								idempotencyKey,
 							},
 						});
+						// AU21 §6 Decision B: resolve + validate the session_start run AT
+						// EMIT TIME (this Service's own domain state, plus the shared
+						// ast-<userId> runnability invariant) and bake the full request
+						// onto the intent — the drain dispatches it directly, with zero
+						// domain reads.
+						const bakedRequest = await resolveSessionStartRequest(
+							tx as HyperIdleDb,
+							{ taskId: body.taskId, requestedAgentId: body.agentId },
+							{
+								requireRunnableAgent,
+								readServerConfig,
+								resolveInjectedFilesystemsForAgent,
+								resolveInjectedConnectionsForAgent: (execDb, agentId) =>
+									resolveInjectedConnectionsForAgent(execDb, agentId, findUser),
+							},
+						);
 						intent = await agentWorkIntentRecorder.record(tx as HyperIdleDb, {
 							kind: "session_start",
 							sourceKind: "explicit_session_start",
 							sourceId: startId,
 							requestedBy,
 							idempotencyKey: `explicit-session-start:${startId}`,
+							bakedRequest,
 						});
 					});
 				}
@@ -491,7 +522,9 @@ export function createSessionRoutes(
 	});
 
 	// GET /:id/activity — Session activity stream (Q1 §3.2)
-	// Returns session metadata + recent activity entries from the in-memory buffer.
+	// Returns session metadata + recent activity entries, read through
+	// `AgentOrchestrationPort` (AU21 §9 Increment 7, Decision E — the buffer
+	// this used to read directly relocated to `@hyperidle/agent-execution`).
 	// Capped at 50 most-recent entries to bound response size.
 	router.get("/:id/activity", requireBoundary({ kind: "public-data" }), async (c) => {
 		const sessionId = c.req.param("id");
@@ -500,7 +533,10 @@ export function createSessionRoutes(
 			return c.json({ error: "Session not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
-		const allEntries = activityBuffer ? activityBuffer.getActivity(sessionId) : [];
+		const agentOrchestrationPort = buildAgentOrchestrationPort(
+			getRegisteredAgentOrchestrationTransport(),
+		);
+		const allEntries = await agentOrchestrationPort.sessions.getRecentActivity(sessionId);
 		// Return 50 most-recent entries (tail of the insertion-ordered array)
 		const activity = allEntries.slice(-50);
 

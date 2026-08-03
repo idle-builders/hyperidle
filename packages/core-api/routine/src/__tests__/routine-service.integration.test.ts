@@ -4,8 +4,7 @@
  * Write-side coverage (plan §5.5, shipped PR #436):
  *   - insertRoutine: plain insert, plus `onConflictDoNothing` opt-in idempotency
  *     (builtin-routine-handlers.ts's per-team provisioning re-run is a no-op).
- *   - updateRoutine: plain by-id field-set, patch values may be `SQL`
- *     fragments (session-lifecycle.ts's cost-accumulation coalesce write).
+ *   - updateRoutine: plain by-id field-set.
  *   - insertRoutineRun: plain insert.
  *   - updateRoutineRun: by-id field-set; `opts.onlyIfRunning` adds a
  *     WHERE outcome='running' guard — silent no-op when predicate misses.
@@ -28,11 +27,12 @@
  *
  * @lore AU20 Am2: updated to use the collapsed public API (`getRoutine`,
  * `updateRoutine`, `updateRoutineRun`, `listRoutines(filter)`, `listRoutineRuns(filter)`,
- * `sumRunCost`, `getRoutineRun`).
+ * `getRoutineRun`). AU21 Increment 14a: `sumRunCost` deleted along with the
+ * rest of the cost feature.
  */
 import { type HyperIdleDb, routineRuns, routines, teams, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { describe } from "vitest";
 import * as routine from "../routine-service.js";
 
@@ -130,25 +130,6 @@ describe("routine-service", () => {
 			const [other] = await db.select().from(routines).where(eq(routines.id, "routine-2")).limit(1);
 			expect(updated?.lastRunAt).toBe("2026-01-01T00:00:00.000Z");
 			expect(other?.lastRunAt).toBeNull();
-		});
-
-		test("accepts an SQL fragment patch value (cost coalesce)", async ({ db }) => {
-			await seedTeamAndAgent(db);
-			await routine.insertRoutine(db, {
-				id: "routine-1",
-				name: "R1",
-				teamId: "team-1",
-				ownerAgentId: "agent-1",
-				triggerType: "heartbeat",
-				costActualMinor: 100,
-			});
-
-			await routine.updateRoutine(db, "routine-1", {
-				costActualMinor: sql`coalesce(${routines.costActualMinor}, 0) + ${50}`,
-			});
-
-			const [row] = await db.select().from(routines).where(eq(routines.id, "routine-1")).limit(1);
-			expect(row?.costActualMinor).toBe(150);
 		});
 	});
 
@@ -630,87 +611,6 @@ describe("routine-service", () => {
 				order: "desc",
 			});
 			expect(desc20.map((r) => r.id)).toEqual(["run-2", "run-1"]);
-		});
-	});
-
-	describe("sumRunCost", () => {
-		test("returns exact aggregate values", async ({ db }) => {
-			await seedTeamAndAgent(db);
-			await routine.insertRoutine(db, {
-				id: "routine-1",
-				name: "R1",
-				teamId: "team-1",
-				ownerAgentId: "agent-1",
-				triggerType: "heartbeat",
-			});
-			await routine.insertRoutine(db, {
-				id: "routine-2",
-				name: "R2",
-				teamId: "team-1",
-				ownerAgentId: "agent-1",
-				triggerType: "heartbeat",
-			});
-			await routine.insertRoutineRun(db, {
-				id: "run-1",
-				routineId: "routine-1",
-				startedAt: "2026-01-05T00:00:00.000Z",
-				outcome: "success",
-				costMinor: 100,
-			});
-			await routine.insertRoutineRun(db, {
-				id: "run-2",
-				routineId: "routine-1",
-				startedAt: "2026-01-10T00:00:00.000Z",
-				outcome: "success",
-				costMinor: 200,
-			});
-			await routine.insertRoutineRun(db, {
-				id: "run-3",
-				routineId: "routine-1",
-				startedAt: "2025-12-01T00:00:00.000Z",
-				outcome: "success",
-				costMinor: 9999,
-			});
-			await routine.insertRoutineRun(db, {
-				id: "run-4",
-				routineId: "routine-2",
-				startedAt: "2026-01-05T00:00:00.000Z",
-				outcome: "success",
-				costMinor: 50,
-			});
-
-			const since = "2026-01-01T00:00:00.000Z";
-
-			// sum(costMinor) for routine-1 since Jan 2026 → 100 + 200 = 300
-			const sum = await routine.sumRunCost(db, {
-				routineIds: ["routine-1"],
-				since,
-				kind: "sum",
-			});
-			expect(sum).toBe(300);
-
-			// avg(costMinor > 0) for routine-1 → (100 + 200 + 9999) / 3 = 3433
-			const avgVal = await routine.sumRunCost(db, {
-				routineIds: ["routine-1"],
-				kind: "avg",
-			});
-			expect(avgVal).toBe(3433);
-
-			// sum for routine-1 + routine-2 since Jan 2026 → 300 + 50 = 350
-			const total = await routine.sumRunCost(db, {
-				routineIds: ["routine-1", "routine-2"],
-				since,
-				kind: "sum",
-			});
-			expect(total).toBe(350);
-
-			// empty routineIds → 0
-			const emptyIds = await routine.sumRunCost(db, {
-				routineIds: [],
-				since,
-				kind: "sum",
-			});
-			expect(emptyIds).toBe(0);
 		});
 	});
 });

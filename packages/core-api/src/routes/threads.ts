@@ -11,13 +11,17 @@
  * (thread_id, sender_id, client_key), event emission to the bus.
  */
 
+import { resolveInjectedConnectionsForAgent } from "@hyperidle/connections";
 import {
 	findMessage,
+	findOrCreateDirectThread,
 	findThread,
 	insertMessage,
 	insertThread,
+	listInbox,
 	listMessages,
 	listThreads,
+	resolveAssistantTurnRequest,
 	resolveMessageIfUnresolved,
 	updateThread,
 } from "@hyperidle/conversation";
@@ -28,14 +32,22 @@ import {
 	type HyperIdleDb,
 	sessions,
 } from "@hyperidle/db";
-import { get as getKnowledgeItem, list as listKnowledgeItems } from "@hyperidle/knowledge";
+import { resolveInjectedFilesystemsForAgent } from "@hyperidle/filesystems";
+import {
+	assembleSessionKnowledge,
+	get as getKnowledgeItem,
+	list as listKnowledgeItems,
+} from "@hyperidle/knowledge";
+import { getTeam } from "@hyperidle/org";
 import { findProposedCall, transitionProposedCall } from "@hyperidle/review";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
+import { readServerConfig } from "@hyperidle/settings";
 import type {
 	AgentOperationalStatus,
 	AgentWorkIntentRecorder,
 	ApiErrorResponse,
 	EventBus,
+	EventType,
 	HostKind,
 	Message,
 	MessageType,
@@ -55,7 +67,7 @@ import {
 	headCollapsePredicate,
 	resolveMentions,
 } from "@hyperidle/shared";
-import { findUser, listUsers } from "@hyperidle/users";
+import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
@@ -68,14 +80,90 @@ import { createAssistantThreadRoute } from "./assistant.js";
 import { createCoachRoutes } from "./coach.js";
 import {
 	createThreadBodySchema,
+	directThreadBodySchema,
+	inboxQuerySchema,
 	type inlineRefSchema,
+	insertThreadBodySchema,
 	listThreadsQuerySchema,
 	messageInputSchema,
 	messageRowSchema,
 	threadParticipantsSchema,
+	updateThreadBodySchema,
 } from "./threads-schema.js";
 
 const SENDER_HEADER = "X-Identity";
+
+/**
+ * AU21 §6 Decision L4 / §9 Increment 14d — the minimal shape this route needs
+ * to push data onto the WS connection hub. Satisfied by
+ * `WsConnectionHub.broadcast(topic, data)` (`@hyperidle/realtime`) without
+ * this module depending on that package's full class — same narrow-interface
+ * pattern as `session-activity-gateway.ts`'s `SessionActivityBroadcastTarget`.
+ */
+interface WsPushTarget {
+	broadcast(topic: string, data: string): void;
+}
+
+/**
+ * Push the CHANGED RECORD (never an invalidate ping) onto a WS topic. The
+ * founder's re-derivation: "there is no refetch … core submits the changed
+ * version … zero ways back." `hub` is optional — tests that build routes
+ * without a WS hub simply skip the push; the underlying EventBus emission
+ * (unchanged) still fires for every other subscriber.
+ */
+function pushUpdate(
+	hub: WsPushTarget | undefined,
+	topic: string,
+	kind: EventType,
+	data: unknown,
+): void {
+	hub?.broadcast(topic, JSON.stringify({ type: "update", topic, kind, data }));
+}
+
+/**
+ * Assemble the `ThreadListRow` shape `GET /api/threads` returns, for the
+ * "conversations" topic push on `thread_created`. Reuses the SAME
+ * `rowToThread` + `resolveThreadTitles` machinery the list route uses so the
+ * pushed row and a fresh GET produce byte-identical field composition.
+ *
+ * @lore AU21 §6 Decision L4: `resolveThreadTitles` resolves a DM/assistant
+ * title RELATIVE TO `requestingUserId` (Rung 1/2 of its ladder) — correct for
+ * the creating sender, but a broadcast on the global "conversations" topic
+ * reaches every participant, not just the creator. A non-creator DM
+ * participant may see a momentarily wrong title (their own name reflected
+ * back) until their next full `GET /api/threads` reconciles it (page
+ * mount/reconnect, per the accepted "initial load reconciles via a normal
+ * fetch" seam). Flagged, not silently decided: the majority case (group/
+ * host-scoped threads, Rung 3/4 of the ladder) is viewer-independent and
+ * unaffected.
+ */
+async function buildThreadListRowForPush(
+	db: HyperIdleDb,
+	row: DbThread,
+	requestingUserId: string,
+): Promise<Record<string, unknown>> {
+	const thread = rowToThread(row);
+	const titleMap = await resolveThreadTitles(db, [row], requestingUserId);
+	return {
+		...thread,
+		hasUnresolvedReview: false,
+		title: titleMap.get(row.id) ?? "Untitled conversation",
+	};
+}
+
+/**
+ * The identities delta a `thread_message_appended` push carries alongside
+ * the new `Message` — the newly-seen sender's identity entry, so a client
+ * that has never seen this sender before can render their name/role without
+ * a follow-up fetch.
+ */
+async function buildSenderIdentityForPush(
+	db: HyperIdleDb,
+	senderId: string,
+): Promise<Record<string, unknown> | undefined> {
+	const identities = await buildThreadIdentities(db, [senderId]);
+	return identities[senderId];
+}
 
 /**
  * The inline-ref shape as carried by the message zod schema (the wire/persisted
@@ -568,6 +656,23 @@ function rowToMessage(row: DbMessage): Message {
 	}
 }
 
+/**
+ * @lore AU21 §9 Increment 2: `notice` is accepted structurally on the WRITE
+ * side now (`plainPayloadSchema`'s own `@lore`) so `dispatch`'s assistant-turn
+ * `insertMessage` writes (routed through this SAME door via the `CoreApiPort`
+ * seam) can carry their failure-notice metadata through. Strips a non-
+ * assistant sender's `notice` before persistence — closing the same
+ * client-spoofed-notice vector the field's former WRITE-side omission closed
+ * (AH3 H2) — so only a genuine `ast-*` actor (a real authenticated identity,
+ * never a client-supplied field) can make one land.
+ */
+function sanitizeNoticeForSender<T>(senderId: string, payload: T): T {
+	if (senderId.startsWith("ast-")) return payload;
+	if (typeof payload !== "object" || payload === null || !("notice" in payload)) return payload;
+	const { notice: _notice, ...rest } = payload as Record<string, unknown>;
+	return rest as T;
+}
+
 function err(
 	code: string,
 	error: string,
@@ -591,6 +696,7 @@ export function createThreadRoutes(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	agentWorkIntentRecorder: AgentWorkIntentRecorder<HyperIdleDb>,
+	wsHub?: WsPushTarget,
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
@@ -604,6 +710,141 @@ export function createThreadRoutes(
 	// id by the Hono wildcard handler. Hono matches routes in registration
 	// order — the first match wins.
 	router.route("/coach", createCoachRoutes(db, eventBus));
+
+	// --- POST /api/threads/scaffold ------------------------------------------
+	// AU21 §9 Increment 2: bare thread creation (no initial message) — the
+	// `CoreApiConversationPort.insertThread` seam door for tool-handlers'/
+	// dispatch's `insertThread` capability. No existing route creates a bare
+	// thread — `POST /api/threads` always requires an `initialMessage`.
+	// @lore mounted BEFORE /:id so "scaffold" is not swallowed as a thread id.
+	router.post("/scaffold", requireBoundary({ kind: "principal-self" }), async (c) => {
+		let body: unknown;
+		try {
+			body = await c.req.json();
+		} catch {
+			const e = err("validation_error", "Invalid JSON", 400);
+			return c.json(e.body, e.status);
+		}
+		const parsed = insertThreadBodySchema.safeParse(body);
+		if (!parsed.success) {
+			const e = err("validation_error", "Validation error", 400);
+			return c.json(e.body, e.status);
+		}
+		const input = parsed.data;
+		const initiatorId = c.get("userId");
+		const now = new Date().toISOString();
+		const threadId = crypto.randomUUID();
+		await insertThread(db, {
+			id: threadId,
+			hostKind: input.hostKind,
+			hostId: input.hostId,
+			initiatorId,
+			participants: JSON.stringify(input.participants),
+			pinned: input.pinned ?? false,
+			lastActiveAt: now,
+			createdAt: now,
+		});
+		const createdEvent: ThreadCreatedEvent = {
+			type: "thread_created",
+			streamId: threadId,
+			threadId,
+			hostKind: input.hostKind,
+			hostId: input.hostId,
+			initiatorId,
+			timestamp: Date.now(),
+		};
+		eventBus.emit(createdEvent);
+		const scaffoldedRow = await findThread(db, { id: threadId });
+		if (scaffoldedRow) {
+			pushUpdate(
+				wsHub,
+				"conversations",
+				"thread_created",
+				await buildThreadListRowForPush(db, scaffoldedRow, initiatorId),
+			);
+		}
+		return c.json({ id: threadId }, 201);
+	});
+
+	// --- POST /api/threads/direct ---------------------------------------------
+	// AU21 §9 Increment 2: DM find-or-create composite — the
+	// `CoreApiConversationPort.findOrCreateDirectThread` seam door. The sender
+	// is always the calling actor, never a body field.
+	// @lore mounted BEFORE /:id so "direct" is not swallowed as a thread id.
+	router.post("/direct", requireBoundary({ kind: "principal-self" }), async (c) => {
+		let body: unknown;
+		try {
+			body = await c.req.json();
+		} catch {
+			const e = err("validation_error", "Invalid JSON", 400);
+			return c.json(e.body, e.status);
+		}
+		const parsed = directThreadBodySchema.safeParse(body);
+		if (!parsed.success) {
+			const e = err("validation_error", "Validation error", 400);
+			return c.json(e.body, e.status);
+		}
+		const senderId = c.get("userId");
+		const now = new Date().toISOString();
+		const threadId = await findOrCreateDirectThread(db, senderId, parsed.data.recipientId, now);
+		return c.json({ id: threadId }, 200);
+	});
+
+	// --- GET /api/threads/inbox ------------------------------------------------
+	// AU21 §9 Increment 2: sender-exclusion inbox join — the
+	// `CoreApiConversationPort.listInboxBySenderExclusion` seam door. The
+	// excluded sender always derives from the calling actor, never a client-
+	// supplied query param (same IDOR shape `GET /api/threads`'s
+	// `participant_id` guard already closes).
+	// @lore mounted BEFORE /:id so "inbox" is not swallowed as a thread id.
+	router.get("/inbox", requireBoundary({ kind: "principal-self" }), async (c) => {
+		const parsed = inboxQuerySchema.safeParse({ limit: c.req.query("limit") });
+		if (!parsed.success) {
+			const e = err("validation_error", "Invalid query params", 400);
+			return c.json(e.body, e.status);
+		}
+		const excludeSenderId = c.get("userId");
+		const rows = await listInbox(db, { excludeSenderId, limit: parsed.data.limit });
+		return c.json({
+			items: rows.map((row) => ({
+				participants: threadParticipantsSchema.parse(JSON.parse(row.participants)),
+				message: rowToMessage(row.message),
+			})),
+		});
+	});
+
+	// --- PATCH /api/threads/:id -------------------------------------------------
+	// AU21 §9 Increment 2: narrow thread-patch door — the
+	// `CoreApiConversationPort.updateThread` seam door. Accepts only the
+	// fields real call sites set today (participants/lastActiveAt/pinned) —
+	// not a general thread-patch surface.
+	router.patch("/:id", requireBoundary({ kind: "principal-self" }), async (c) => {
+		const id = c.req.param("id");
+		let body: unknown;
+		try {
+			body = await c.req.json();
+		} catch {
+			const e = err("validation_error", "Invalid JSON", 400);
+			return c.json(e.body, e.status);
+		}
+		const parsed = updateThreadBodySchema.safeParse(body);
+		if (!parsed.success) {
+			const e = err("validation_error", "Validation error", 400);
+			return c.json(e.body, e.status);
+		}
+		const existing = await findThread(db, { id });
+		if (!existing) {
+			const e = err(API_ERROR_CODES.NOT_FOUND, "Thread not found", 404);
+			return c.json(e.body, e.status);
+		}
+		const input = parsed.data;
+		const patch: Partial<{ participants: string; lastActiveAt: string; pinned: boolean }> = {};
+		if (input.participants !== undefined) patch.participants = JSON.stringify(input.participants);
+		if (input.lastActiveAt !== undefined) patch.lastActiveAt = input.lastActiveAt;
+		if (input.pinned !== undefined) patch.pinned = input.pinned;
+		await updateThread(db, id, patch);
+		return c.json({ id }, 200);
+	});
 
 	// --- GET /api/threads ---------------------------------------------------
 	// Row 2: GET /api/threads — S (principal-self: AD1 guard scopes list by principal)
@@ -841,6 +1082,7 @@ export function createThreadRoutes(
 							refs: enrichedRefs as typeof input.initialMessage.payload.refs,
 						};
 					}
+					reusePayload = sanitizeNoticeForSender(senderId, reusePayload);
 				}
 
 				const reuseBlockId =
@@ -890,6 +1132,13 @@ export function createThreadRoutes(
 					const e = err("internal_error", "Reused thread missing", 500);
 					return c.json(e.body, e.status);
 				}
+				const reuseMsgRow = await findMessage(db, { id: reuseMessageId });
+				if (reuseMsgRow) {
+					pushUpdate(wsHub, `thread:${existing.id}`, "thread_message_appended", {
+						message: rowToMessage(reuseMsgRow),
+						senderIdentity: await buildSenderIdentityForPush(db, senderId),
+					});
+				}
 				return c.json({ thread: rowToThread(reusedThread) }, 200);
 			}
 		}
@@ -922,6 +1171,7 @@ export function createThreadRoutes(
 				}
 				initParticipants = [...participantSet].sort();
 			}
+			initEnrichedPayload = sanitizeNoticeForSender(senderId, initEnrichedPayload);
 		}
 
 		try {
@@ -1010,6 +1260,13 @@ export function createThreadRoutes(
 						timestamp: Date.now(),
 					};
 					eventBus.emit(appendedRaceEvent);
+					const raceMsgRow = await findMessage(db, { id: raceMsgId });
+					if (raceMsgRow) {
+						pushUpdate(wsHub, `thread:${winner.id}`, "thread_message_appended", {
+							message: rowToMessage(raceMsgRow),
+							senderIdentity: await buildSenderIdentityForPush(db, senderId),
+						});
+					}
 					const reloadedWinner = await findThread(db, { id: winner.id });
 					if (!reloadedWinner) {
 						const e = err("internal_error", "Race winner thread missing", 500);
@@ -1051,6 +1308,19 @@ export function createThreadRoutes(
 			const e = err("internal_error", "Created thread missing", 500);
 			return c.json(e.body, e.status);
 		}
+		// AU21 §6 Decision L4 / §9 Increment 14d: push the assembled
+		// ThreadListRow + the new Message — the real changed records, not an
+		// invalidate ping — at the same write that has them in hand.
+		pushUpdate(
+			wsHub,
+			"conversations",
+			"thread_created",
+			await buildThreadListRowForPush(db, threadRow, senderId),
+		);
+		pushUpdate(wsHub, `thread:${threadId}`, "thread_message_appended", {
+			message: rowToMessage(msgRow),
+			senderIdentity: await buildSenderIdentityForPush(db, senderId),
+		});
 		return c.json(
 			{
 				thread: rowToThread(threadRow),
@@ -1175,6 +1445,7 @@ export function createThreadRoutes(
 					enrichedPayload = { ...input.payload, refs: enrichedRefs as typeof input.payload.refs };
 					newParticipantIds = mentionedIds;
 				}
+				enrichedPayload = sanitizeNoticeForSender(senderId, enrichedPayload);
 			}
 
 			const wasResolved = threadRow.resolvedAt !== null;
@@ -1205,12 +1476,26 @@ export function createThreadRoutes(
 						createdAt: now,
 					});
 					if (recordsAssistantIntent) {
+						// AU21 §6 Decision B: resolve + validate the assistant run AT EMIT
+						// TIME (this Service's own domain state, plus the shared ast-<userId>
+						// runnability invariant) and bake the full request onto the intent —
+						// the drain dispatches it directly, with zero domain reads.
+						const bakedRequest = await resolveAssistantTurnRequest(tx as HyperIdleDb, messageId, {
+							requireRunnableAgent,
+							readServerConfig,
+							resolveInjectedFilesystemsForAgent,
+							// AU21 §9 Increment 12 follow-up part 2 (F2 gap closure —
+							// connections): also bake injectedConnections.
+							resolveInjectedConnectionsForAgent: (execDb, agentId) =>
+								resolveInjectedConnectionsForAgent(execDb, agentId, findUser),
+						});
 						await agentWorkIntentRecorder.record(tx as HyperIdleDb, {
 							kind: "assistant_turn",
 							sourceKind: "thread_message",
 							sourceId: messageId,
 							requestedBy: senderId,
 							idempotencyKey: `assistant:${messageId}`,
+							bakedRequest,
 						});
 					}
 
@@ -1307,6 +1592,23 @@ export function createThreadRoutes(
 				const e = err("internal_error", "Created message missing", 500);
 				return c.json(e.body, e.status);
 			}
+			// AU21 §6 Decision L4 / §9 Increment 14d: push the actual changed
+			// records — the new Message, and the changed thread-status fields on
+			// resolve/reopen — never an invalidate ping.
+			pushUpdate(wsHub, `thread:${threadId}`, "thread_message_appended", {
+				message: rowToMessage(created),
+				senderIdentity: await buildSenderIdentityForPush(db, senderId),
+			});
+			if (input.type === "verdict" && resolvesMessageRow) {
+				pushUpdate(wsHub, `thread:${threadId}`, "thread_resolved", {
+					resolvedAt: updatedThread.resolvedAt,
+				});
+			}
+			if (willReopen) {
+				pushUpdate(wsHub, `thread:${threadId}`, "thread_reopened", {
+					resolvedAt: updatedThread.resolvedAt,
+				});
+			}
 			return c.json(
 				{
 					message: rowToMessage(created),
@@ -1401,7 +1703,29 @@ export function createThreadRoutes(
 						approvedArgs: pcView.call.args,
 						identityHash: pcView.call.identityHash,
 					},
-					{ intentRecorder: { record: enqueueWorkIntent } },
+					{
+						intentRecorder: { record: enqueueWorkIntent },
+						// AU21 §6 Decision B: resolve + validate the reengagement run AT
+						// EMIT TIME (this Service's own domain state, plus the shared
+						// ast-<userId> runnability invariant) and bake the full request
+						// onto the intent — the drain dispatches it directly, with zero
+						// domain reads.
+						getTaskById: (execDb: HyperIdleDb, id: string) => work.get(execDb, "task", id),
+						requireRunnableAgent,
+						// AU21 §9 Increment 12 (Decision H3): also bake the contextBundle
+						// (task/bet/agent/team + ranked knowledge) this reengagement
+						// session's sandbox needs, so `run-orchestration` never reads it
+						// back.
+						getBetById: (execDb: HyperIdleDb, id: string) => work.get(execDb, "bet", id),
+						getTeamById: (execDb: HyperIdleDb, id: string) => getTeam(execDb, { id }),
+						assembleSessionKnowledge,
+						readServerConfig,
+						resolveInjectedFilesystemsForAgent,
+						// AU21 §9 Increment 12 follow-up part 2 (F2 gap closure —
+						// connections): also bake injectedConnections.
+						resolveInjectedConnectionsForAgent: (execDb: HyperIdleDb, agentId: string) =>
+							resolveInjectedConnectionsForAgent(execDb, agentId, findUser),
+					},
 				);
 
 				const event: ProposedCallGrantedEvent = {

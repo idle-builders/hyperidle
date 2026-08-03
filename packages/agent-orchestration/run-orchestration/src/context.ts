@@ -1,65 +1,35 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type {
-	Bet,
-	HyperIdleDb,
-	KnowledgeItem,
-	Routine,
-	Task,
-	Team,
-	User,
-	WriteExecutor,
-} from "@hyperidle/db";
 import {
 	type AgentSessionSourceCorrelation,
 	type AgentSessionSourceKind,
+	type BakedContextBundle,
+	type BakedContextKnowledgeItem,
 	communityForRole,
 	createLogger,
 	type EventBus,
 	encodeTyped,
-	type KnowledgeLayer,
 	type UserRole,
 } from "@hyperidle/shared";
 
-interface ContextAssemblyKnowledgeListFilters {
-	readonly layer: KnowledgeLayer;
-	readonly scopeId?: string;
-	readonly limit: number;
-	readonly offset: number;
-}
-
-interface ContextAssemblyScoringContext {
-	readonly taskDescription: string;
-	readonly taskTags: readonly string[];
-	readonly agentRole: string;
-	readonly productId: string;
-}
-
-interface KnowledgeReader {
-	list(
-		db: HyperIdleDb,
-		filters: ContextAssemblyKnowledgeListFilters,
-	): Promise<readonly KnowledgeItem[]>;
-	rankAndBudget(
-		db: HyperIdleDb,
-		items: readonly KnowledgeItem[],
-		scoringContext: ContextAssemblyScoringContext,
-	): Promise<readonly KnowledgeItem[]>;
-	countTokens(text: string): number;
-}
-
-interface WorkReader {
-	getTaskById(db: WriteExecutor, taskId: string): Promise<Task | undefined>;
-	getBetById(db: WriteExecutor, betId: string): Promise<Bet | undefined>;
-}
-
-interface UsersReader {
-	getUserById(db: HyperIdleDb, userId: string): Promise<User | undefined>;
-}
-
-interface RoutineReader {
-	getRoutineById(db: WriteExecutor, routineId: string): Promise<Routine | undefined>;
-}
+/**
+ * AU21 §9 Increment 12 (Decision H3), Wave C — `context.ts` is now pure
+ * format/write. Every DB-reading path (`fetchAllForLayer`/`rankAndBudget`/
+ * `buildSessionContextData`/`buildRoutineSessionContextData`/`assembleContext`)
+ * is DELETED, not seam-routed — the entity content (task/bet/agent/team or
+ * routine/agent/team) + the ranked+budgeted knowledge bundle are baked at
+ * EMIT time by each per-kind resolver (`@hyperidle/work`'s
+ * `task-run-resolver.ts`, `@hyperidle/knowledge`'s
+ * `knowledge-action-resolver.ts`, `@hyperidle/routine`'s
+ * `resolveRoutineRunRequest`, `@hyperidle/review`'s `proposed-call-workflow.ts`)
+ * calling the shared `@hyperidle/knowledge`'s `assembleSessionKnowledge`
+ * (Wave A) — the `requireRunnableAgent` precedent. `assembleAgentContext`
+ * below consumes the baked `contextBundle` carried on the session request and
+ * writes `session.toon` + `context/{product,practices,factory}/*` — ZERO db
+ * reads, zero `ContextAssemblyPorts` domain members (`knowledge`/`work`/
+ * `users`/`routine`/`org` are gone; only `filesystems` remains, for
+ * `beginAgentWriteback`'s watcher).
+ */
 
 interface ContextAssemblyFileWatcherConfig {
 	readonly sandboxPath: string;
@@ -77,25 +47,14 @@ interface FilesystemsReader {
 	startWatcher(config: ContextAssemblyFileWatcherConfig): ContextAssemblyFileWatcher;
 }
 
-interface TeamReader {
-	getTeamById(db: HyperIdleDb, teamId: string): Promise<Team | undefined>;
-}
-
+/**
+ * The deps-free surface `assembleAgentContext`/`beginAgentWriteback` need.
+ * Shrunk to `filesystems` only (Increment 12 Wave C) — every domain-reading
+ * member (`knowledge`/`work`/`users`/`routine`/`org`) is deleted; nothing in
+ * this file reads core-api domain state anymore.
+ */
 interface ContextAssemblyPorts {
-	readonly knowledge: KnowledgeReader;
-	readonly work: WorkReader;
-	readonly users: UsersReader;
-	readonly routine: RoutineReader;
 	readonly filesystems: FilesystemsReader;
-	readonly org: TeamReader;
-}
-
-interface SessionContextConfig {
-	sessionId: string;
-	taskId: string;
-	agentId: string;
-	agentRole: UserRole;
-	productId: string;
 }
 
 interface SessionContextData {
@@ -122,68 +81,19 @@ interface SessionContextData {
 	};
 }
 
-async function buildSessionContextData(
-	db: HyperIdleDb,
-	config: SessionContextConfig,
-	ports: Pick<ContextAssemblyPorts, "work" | "users" | "org">,
-	preloadedAgent?: { id: string; name: string; role: string },
-): Promise<SessionContextData> {
-	const task = await ports.work.getTaskById(db, config.taskId);
-	if (!task) {
-		throw new Error(`Task ${config.taskId} not found`);
-	}
-
-	const bet = await ports.work.getBetById(db, task.betId);
-	if (!bet) {
-		throw new Error(`Bet ${task.betId} not found`);
-	}
-
-	// @lore I0c: use preloadedAgent when supplied (session-provisioning already
-	// fetched the agent row); fall back to a fresh getUserById only when the
-	// caller does not supply one (e.g. buildSessionContext, standalone callers).
-	const agent = preloadedAgent ?? (await ports.users.getUserById(db, config.agentId));
-	if (!agent) {
-		throw new Error(`Agent ${config.agentId} not found`);
-	}
-
-	// @lore U1: productId now holds a teams.id value (the domain entity id).
-	const team = await ports.org.getTeamById(db, config.productId);
-	if (!team) {
-		throw new Error(`Team ${config.productId} not found`);
-	}
-
+/**
+ * Map a `kind:"task"` baked `contextBundle` onto the `SessionContextData`
+ * shape `assemblePrompt` needs — a pure passthrough, the two shapes match
+ * field-for-field (Increment 12 Wave B baked exactly this shape).
+ */
+function sessionContextDataFromBundle(
+	bundle: Extract<BakedContextBundle, { kind: "task" }>,
+): SessionContextData {
 	return {
-		task: {
-			id: task.id,
-			title: task.title,
-			description: task.description,
-			state: task.state,
-		},
-		bet: {
-			id: bet.id,
-			// @lore U1: `description` replaces `pitch`.
-			// @lore AF3 C12: bet.description is string | null in the DB; coerce to
-			// empty string for the context interface (which requires non-null string).
-			// @lore AF3 W2: the previous string | null assignment would flow `null`
-			// through to string interpolation, rendering the literal text "null" into
-			// the composed prompt (e.g. "**Bet:** null"). `?? ""` intentionally corrects
-			// that to an empty string — a safe content fix, not merely a strictness fix.
-			description: bet.description ?? "",
-			// @lore AF3: appetite is nullable in DB but non-null in SessionContextData;
-			// coerce null to empty string to satisfy the interface.
-			appetite: bet.appetite ?? "",
-			doneCondition: bet.doneCondition,
-		},
-		agent: {
-			id: agent.id,
-			name: agent.name,
-			role: agent.role,
-		},
-		// @lore U1: `team` replaces `product` in the session context data.
-		team: {
-			id: team.id,
-			name: team.name,
-		},
+		task: bundle.task,
+		bet: bundle.bet,
+		agent: bundle.agent,
+		team: bundle.team,
 	};
 }
 
@@ -192,24 +102,12 @@ async function buildSessionContextData(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Config for building a routine session context (AA2).
- * Unlike task sessions, routines do not require a taskId for context assembly.
- */
-interface RoutineSessionContextConfig {
-	sessionId: string;
-	routineId: string;
-	agentId: string;
-	agentRole: UserRole;
-	teamId: string;
-}
-
-/**
  * Context data for a routine session (AA2).
  * Contains routine + agent + team — no task or bet fields.
  *
  * @lore AA2/AU1: Routine sessions MUST NOT read task/bet context. They are
- * task-free sessions; buildRoutineSessionContextData reads directly from the
- * routines table.
+ * task-free sessions; their content comes exclusively from the baked
+ * `kind:"routine"` contextBundle (Increment 12 Wave C), never a task/bet read.
  */
 interface RoutineSessionContextData {
 	routine: {
@@ -229,56 +127,19 @@ interface RoutineSessionContextData {
 	};
 }
 
-/**
- * Query the DB and assemble RoutineSessionContextData for a routine session.
- * Does NOT read task or bet data — routine context is self-contained.
- */
-async function buildRoutineSessionContextData(
-	db: HyperIdleDb,
-	config: RoutineSessionContextConfig,
-	ports: Pick<ContextAssemblyPorts, "routine" | "users" | "org">,
-): Promise<RoutineSessionContextData> {
-	const routine = await ports.routine.getRoutineById(db, config.routineId);
-	if (!routine) {
-		throw new Error(`Routine ${config.routineId} not found`);
-	}
-
-	const agent = await ports.users.getUserById(db, config.agentId);
-	if (!agent) {
-		throw new Error(`Agent ${config.agentId} not found`);
-	}
-
-	const team = await ports.org.getTeamById(db, config.teamId);
-	if (!team) {
-		throw new Error(`Team ${config.teamId} not found`);
-	}
-
+/** Map a `kind:"routine"` baked `contextBundle` onto `RoutineSessionContextData` — a pure passthrough. */
+function routineSessionContextDataFromBundle(
+	bundle: Extract<BakedContextBundle, { kind: "routine" }>,
+): RoutineSessionContextData {
 	return {
-		routine: {
-			id: routine.id,
-			name: routine.name,
-			description: routine.description ?? null,
-			lastRunSummary: routine.lastRunSummary ?? null,
-		},
-		agent: {
-			id: agent.id,
-			name: agent.name,
-			role: agent.role,
-		},
-		team: {
-			id: team.id,
-			name: team.name,
-		},
+		routine: bundle.routine,
+		agent: bundle.agent,
+		team: bundle.team,
 	};
 }
 
-/** Build session.toon content from DB state. */
-async function buildSessionContext(
-	db: HyperIdleDb,
-	config: SessionContextConfig,
-	ports: Pick<ContextAssemblyPorts, "work" | "users" | "org">,
-): Promise<string> {
-	const data = await buildSessionContextData(db, config, ports);
+/** Build session.toon content from a task-or-routine session's derived context data. */
+function buildSessionContextToon(data: SessionContextData | RoutineSessionContextData): string {
 	return encodeTyped(data);
 }
 
@@ -324,6 +185,20 @@ interface PromptCompositionResult {
  * A safety rail — not a tight constraint. Typical prompts use 500-800 tokens.
  */
 const PERSONA_TOOLS_TOKEN_BUDGET = 4000;
+
+/**
+ * Approximate token count for budget-checking the persona + tools sections.
+ *
+ * @lore AU21 §9 Increment 12 (Decision H3), Wave C: relocated from
+ * `contextPorts.knowledge.countTokens` (`run-orchestration-composition.ts`) —
+ * that binding was ALWAYS this same self-contained byte-length approximation,
+ * never a real `@hyperidle/knowledge` call (verified from source), so
+ * inlining it here drops zero behavior and removes the last reason this file
+ * needed a `knowledge` port at all.
+ */
+function approxTokenCount(text: string): number {
+	return Math.ceil(Buffer.byteLength(text, "utf8") / 4);
+}
 
 /**
  * Strip YAML frontmatter from markdown content.
@@ -432,10 +307,7 @@ Your workspace is organized as follows:
 - \`.fabric/manifest.json\` -- Manifest of assembled context items (do not modify).
 `;
 
-async function assemblePrompt(
-	input: PromptCompositionInput,
-	ports: Pick<ContextAssemblyPorts, "knowledge">,
-): Promise<PromptCompositionResult> {
+function assemblePrompt(input: PromptCompositionInput): PromptCompositionResult {
 	const { systemPromptText, context, tools, sandboxPath: _sandboxPath } = input;
 
 	let personaSection = "";
@@ -448,8 +320,8 @@ async function assemblePrompt(
 	const toolsContent = buildToolsSection(tools);
 
 	// Enforce token budget on persona + tools
-	const personaTokens = ports.knowledge.countTokens(personaSection);
-	const toolsTokens = ports.knowledge.countTokens(toolsContent);
+	const personaTokens = approxTokenCount(personaSection);
+	const toolsTokens = approxTokenCount(toolsContent);
 	let personaToolsTokens = personaTokens + toolsTokens;
 
 	if (personaToolsTokens > PERSONA_TOOLS_TOKEN_BUDGET && personaSection.length > 0) {
@@ -457,7 +329,7 @@ async function assemblePrompt(
 			`Persona + tools section exceeds ${PERSONA_TOOLS_TOKEN_BUDGET} tokens (${personaToolsTokens}). Truncating persona.`,
 		);
 		personaSection = `${truncatePersona(personaSection)}\n\n(Persona truncated to fit token budget.)`;
-		personaToolsTokens = ports.knowledge.countTokens(personaSection) + toolsTokens;
+		personaToolsTokens = approxTokenCount(personaSection) + toolsTokens;
 	}
 
 	// Assemble sections
@@ -622,10 +494,7 @@ function buildRoutineTaskSection(context: RoutineSessionContextData): string {
  * a type union that would require discriminated checks in every section builder.
  * @lore AK1: Renamed from composeRoutinePrompt (harness-vocab rename).
  */
-async function assembleRoutinePrompt(
-	input: RoutinePromptCompositionInput,
-	ports: Pick<ContextAssemblyPorts, "knowledge">,
-): Promise<PromptCompositionResult> {
+function assembleRoutinePrompt(input: RoutinePromptCompositionInput): PromptCompositionResult {
 	const { systemPromptText, context, tools, sandboxPath: _sandboxPath } = input;
 
 	// Build persona section from inline text (same as assemblePrompt)
@@ -643,8 +512,8 @@ async function assembleRoutinePrompt(
 	const toolsContent = buildToolsSection(tools);
 
 	// Enforce token budget on persona + tools
-	const personaTokens = ports.knowledge.countTokens(personaSection);
-	const toolsTokens = ports.knowledge.countTokens(toolsContent);
+	const personaTokens = approxTokenCount(personaSection);
+	const toolsTokens = approxTokenCount(toolsContent);
 	let personaToolsTokens = personaTokens + toolsTokens;
 
 	if (personaToolsTokens > PERSONA_TOOLS_TOKEN_BUDGET && personaSection.length > 0) {
@@ -652,7 +521,7 @@ async function assembleRoutinePrompt(
 			`Routine persona + tools section exceeds ${PERSONA_TOOLS_TOKEN_BUDGET} tokens (${personaToolsTokens}). Truncating persona.`,
 		);
 		personaSection = `${truncatePersona(personaSection)}\n\n(Persona truncated to fit token budget.)`;
-		personaToolsTokens = ports.knowledge.countTokens(personaSection) + toolsTokens;
+		personaToolsTokens = approxTokenCount(personaSection) + toolsTokens;
 	}
 
 	// Assemble sections
@@ -674,15 +543,6 @@ async function assembleRoutinePrompt(
 	return { assembledPrompt, personaToolsTokens };
 }
 
-interface ContextAssemblyConfig {
-	sandboxPath: string;
-	sessionId: string;
-	taskId: string;
-	agentId: string;
-	agentRole: UserRole;
-	productId: string;
-}
-
 interface ManifestEntry {
 	version: number;
 	// biome-ignore lint/style/useNamingConvention: manifest JSON schema uses snake_case keys
@@ -696,12 +556,6 @@ interface Manifest {
 	// biome-ignore lint/style/useNamingConvention: manifest JSON schema uses snake_case keys
 	assembled_at: string;
 	items: Record<string, ManifestEntry>;
-}
-
-interface ContextAssemblyResult {
-	itemCount: number;
-	manifest: Manifest;
-	durationMs: number;
 }
 
 function toFilename(title: string, itemId?: string): string {
@@ -755,7 +609,7 @@ function createDirectoryStructure(sandboxPath: string): void {
 	fs.writeFileSync(path.join(sandboxPath, "work/task-notes.md"), "");
 }
 
-function writeItem(sandboxPath: string, item: KnowledgeItem, zone: string): string {
+function writeItem(sandboxPath: string, item: BakedContextKnowledgeItem, zone: string): string {
 	const filename = toFilename(item.title, item.id);
 	const relativePath = `${zone}/${filename}`;
 	const fullPath = path.join(sandboxPath, relativePath);
@@ -784,139 +638,88 @@ function setContextReadOnly(sandboxPath: string): void {
 	setReadOnlyRecursive(contextDir);
 }
 
-/** Fetch all items for a layer, handling pagination. */
-async function fetchAllForLayer(
-	db: HyperIdleDb,
-	ports: Pick<ContextAssemblyPorts, "knowledge">,
-	layer: "L0" | "L1" | "L2" | "L3" | "L4",
-	scopeId?: string,
-): Promise<KnowledgeItem[]> {
-	const batchSize = 500;
-	const allItems: KnowledgeItem[] = [];
-	let offset = 0;
+/** Sandbox zone (relative to sandboxPath) a baked knowledge item's `layer` writes into. */
+const ZONE_BY_LAYER: Record<string, string> = {
+	L4: "context/factory",
+	L2: "context/product",
+	L3: "context/practices",
+};
 
-	while (true) {
-		const batch = await ports.knowledge.list(db, {
-			layer,
-			scopeId,
-			limit: batchSize,
-			offset,
-		});
-		allItems.push(...batch);
-		if (batch.length < batchSize) break;
-		offset += batchSize;
+/**
+ * Write the baked+ranked knowledge bundle to its sandbox zones, building the
+ * manifest entries — the pure write-side counterpart to the (deleted)
+ * `fetchAllForLayer`/`rankAndBudget` DB-reading pair. Items with an
+ * unrecognized/absent `layer` are skipped (defensive — `assembleSessionKnowledge`
+ * only ever produces L4/L2/L3 items, so this should never trigger in practice).
+ */
+function writeBundleKnowledge(
+	sandboxPath: string,
+	knowledge: readonly BakedContextKnowledgeItem[],
+): Record<string, ManifestEntry> {
+	const manifestItems: Record<string, ManifestEntry> = {};
+	for (const item of knowledge) {
+		const zone = item.layer ? ZONE_BY_LAYER[item.layer] : undefined;
+		if (!zone) {
+			logger.warn("skipping baked knowledge item with unrecognized layer", {
+				itemId: item.id,
+				layer: item.layer,
+			});
+			continue;
+		}
+		const relativePath = writeItem(sandboxPath, item, zone);
+		manifestItems[item.id] = {
+			version: item.version,
+			source_path: relativePath,
+			format: item.format,
+		};
 	}
+	return manifestItems;
+}
 
-	return allItems;
+interface ContextAssemblyResult {
+	itemCount: number;
+	manifest: Manifest;
+	durationMs: number;
 }
 
 /**
- * Assemble context for an agent session sandbox.
- * @lore AK1: Renamed per harness-vocab plan (AK1). Old function was the assembly-entry-point variant.
- * Config type is now ContextAssemblyConfig.
+ * Write a full (`kind:"task"` or `kind:"routine"`) baked contextBundle into
+ * the sandbox: clean + recreate the directory structure, write the
+ * ranked+budgeted knowledge items to their zones, write `context/session.toon`,
+ * set `context/` read-only, and write the manifest. ZERO db reads — every
+ * byte comes from `bundle`.
  */
-async function assembleContext(
-	db: HyperIdleDb,
-	config: ContextAssemblyConfig,
-	ports: ContextAssemblyPorts,
-): Promise<ContextAssemblyResult> {
+function writeContextBundle(
+	sandboxPath: string,
+	sessionId: string,
+	bundle: Extract<BakedContextBundle, { kind: "task" | "routine" }>,
+): ContextAssemblyResult {
 	const start = performance.now();
 
-	// Clean and recreate sandbox directory structure
-	cleanDirectory(path.join(config.sandboxPath, "context"));
-	cleanDirectory(path.join(config.sandboxPath, "knowledge"));
-	cleanDirectory(path.join(config.sandboxPath, "work"));
-	cleanDirectory(path.join(config.sandboxPath, ".fabric"));
-	createDirectoryStructure(config.sandboxPath);
+	cleanDirectory(path.join(sandboxPath, "context"));
+	cleanDirectory(path.join(sandboxPath, "knowledge"));
+	cleanDirectory(path.join(sandboxPath, "work"));
+	cleanDirectory(path.join(sandboxPath, ".fabric"));
+	createDirectoryStructure(sandboxPath);
 
-	const manifestItems: Record<string, ManifestEntry> = {};
+	const manifestItems = writeBundleKnowledge(sandboxPath, bundle.knowledge);
 
-	// Fetch all items by layer
-	const community = communityForRole(config.agentRole);
-	const [l4Items, l2Items, l3Items] = await Promise.all([
-		fetchAllForLayer(db, ports, "L4"),
-		fetchAllForLayer(db, ports, "L2", config.productId),
-		fetchAllForLayer(db, ports, "L3", community),
-	]);
+	const sessionToon =
+		bundle.kind === "task"
+			? buildSessionContextToon(sessionContextDataFromBundle(bundle))
+			: buildSessionContextToon(routineSessionContextDataFromBundle(bundle));
+	fs.writeFileSync(path.join(sandboxPath, "context/session.toon"), sessionToon);
 
-	// @lore I6: apply rankAndBudget() before writing items to workspace.
-	// This ensures that the agent's context window is not overwhelmed by
-	// low-relevance knowledge. Items are scored against the task context
-	// and trimmed to fit the configured token budget.
-	//
-	// Build a minimal scoring context from assembly config.
-	// Task description is fetched from the DB if available.
-	const task = await ports.work.getTaskById(db, config.taskId);
-	const scoringContext = {
-		taskDescription: task?.description ?? task?.title ?? "",
-		taskTags: [],
-		agentRole: config.agentRole,
-		productId: config.productId,
-	};
+	setContextReadOnly(sandboxPath);
 
-	const allItems = [...l4Items, ...l2Items, ...l3Items];
-	const budgetedItems = await ports.knowledge.rankAndBudget(db, allItems, scoringContext);
-
-	// Build a Set of budgeted item IDs for fast lookup
-	const budgetedIds = new Set(budgetedItems.map((i) => i.id));
-
-	// Write only budgeted items to their respective zones
-	for (const item of l4Items) {
-		if (!budgetedIds.has(item.id)) continue;
-		const relativePath = writeItem(config.sandboxPath, item, "context/factory");
-		manifestItems[item.id] = {
-			version: item.version,
-			source_path: relativePath,
-			format: item.format,
-		};
-	}
-
-	for (const item of l2Items) {
-		if (!budgetedIds.has(item.id)) continue;
-		const relativePath = writeItem(config.sandboxPath, item, "context/product");
-		manifestItems[item.id] = {
-			version: item.version,
-			source_path: relativePath,
-			format: item.format,
-		};
-	}
-
-	for (const item of l3Items) {
-		if (!budgetedIds.has(item.id)) continue;
-		const relativePath = writeItem(config.sandboxPath, item, "context/practices");
-		manifestItems[item.id] = {
-			version: item.version,
-			source_path: relativePath,
-			format: item.format,
-		};
-	}
-
-	// Build session.toon -> context/session.toon
-	const sessionToon = await buildSessionContext(
-		db,
-		{
-			sessionId: config.sessionId,
-			taskId: config.taskId,
-			agentId: config.agentId,
-			agentRole: config.agentRole,
-			productId: config.productId,
-		},
-		ports,
-	);
-	fs.writeFileSync(path.join(config.sandboxPath, "context/session.toon"), sessionToon);
-
-	// Set context/ to read-only
-	setContextReadOnly(config.sandboxPath);
-
-	// Write manifest
 	const manifest: Manifest = {
-		session_id: config.sessionId,
+		session_id: sessionId,
 		assembled_at: new Date().toISOString(),
 		items: manifestItems,
 	};
 
 	fs.writeFileSync(
-		path.join(config.sandboxPath, ".fabric/manifest.json"),
+		path.join(sandboxPath, ".fabric/manifest.json"),
 		JSON.stringify(manifest, null, 2),
 	);
 
@@ -931,7 +734,6 @@ async function assembleContext(
 
 // ---- assemble-context ----
 interface AssembleAgentContextInput {
-	readonly db: HyperIdleDb;
 	readonly sandboxPath: string;
 	readonly sessionId: string;
 	readonly taskId: string | null;
@@ -942,6 +744,17 @@ interface AssembleAgentContextInput {
 	readonly sourceKind: AgentSessionSourceKind | null;
 	readonly sourceId: string | null;
 	readonly sourceCorrelation: AgentSessionSourceCorrelation | null;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3) — the baked entity+knowledge bundle a
+	 * `task_run`/`reengagement` (`kind:"task"`) or `routine_run`
+	 * (`kind:"routine"`) session's sandbox is built from. Absent for
+	 * `knowledge_action` (`kind:"knowledge"` bundles carry no established
+	 * sandbox-context shape yet — a knowledge-review turn keeps today's
+	 * task-free minimal stub) and for any session with no bundle at all
+	 * (falls back to the same minimal stub every task-free session got
+	 * pre-migration — never a DB read).
+	 */
+	readonly contextBundle?: BakedContextBundle;
 }
 
 interface AgentContextAssemblyOutcome {
@@ -954,12 +767,17 @@ interface AgentWritebackHandle {
 	dispose(): void;
 }
 
-async function assembleAgentContext(
-	input: AssembleAgentContextInput,
-	ports: ContextAssemblyPorts,
-): Promise<AgentContextAssemblyOutcome> {
+/** A baked bundle this file's sandbox-writing path knows how to consume. */
+function isWritableBundle(
+	bundle: BakedContextBundle | undefined,
+): bundle is Extract<BakedContextBundle, { kind: "task" | "routine" }> {
+	return bundle !== undefined && (bundle.kind === "task" || bundle.kind === "routine");
+}
+
+function assembleAgentContext(input: AssembleAgentContextInput): AgentContextAssemblyOutcome {
 	const manifestPath = path.join(input.sandboxPath, ".fabric/manifest.json");
-	if (!input.taskId) {
+
+	if (!isWritableBundle(input.contextBundle)) {
 		fs.mkdirSync(path.join(input.sandboxPath, ".fabric"), { recursive: true });
 		fs.mkdirSync(path.join(input.sandboxPath, "context"), { recursive: true });
 		fs.writeFileSync(
@@ -991,18 +809,8 @@ async function assembleAgentContext(
 			manifestPath,
 		};
 	}
-	const result = await assembleContext(
-		input.db,
-		{
-			sandboxPath: input.sandboxPath,
-			sessionId: input.sessionId,
-			taskId: input.taskId,
-			agentId: input.agentId,
-			agentRole: input.agentRole,
-			productId: input.teamId ?? "task-free",
-		},
-		ports,
-	);
+
+	const result = writeContextBundle(input.sandboxPath, input.sessionId, input.contextBundle);
 	return {
 		itemCount: result.itemCount,
 		durationMs: result.durationMs,
@@ -1045,7 +853,6 @@ function beginAgentWriteback(
 // ---- context ----
 /** The deps-free surface this Service's downstream callers expect. */
 interface ContextAssembler {
-	assembleContext(db: HyperIdleDb, config: ContextAssemblyConfig): Promise<ContextAssemblyResult>;
 	assembleAgentContext(input: AssembleAgentContextInput): Promise<AgentContextAssemblyOutcome>;
 	beginAgentWriteback(input: {
 		readonly sandboxPath: string;
@@ -1053,17 +860,6 @@ interface ContextAssembler {
 		readonly manifestPath: string;
 		readonly eventBus: EventBus;
 	}): AgentWritebackHandle;
-	buildSessionContextData(
-		db: HyperIdleDb,
-		config: SessionContextConfig,
-		/** I0c: optional pre-fetched agent — skips the getUserById call when supplied. */
-		preloadedAgent?: { id: string; name: string; role: string },
-	): Promise<SessionContextData>;
-	buildRoutineSessionContextData(
-		db: HyperIdleDb,
-		config: RoutineSessionContextConfig,
-	): Promise<RoutineSessionContextData>;
-	buildSessionContext(db: HyperIdleDb, config: SessionContextConfig): Promise<string>;
 	assemblePrompt(input: PromptCompositionInput): Promise<PromptCompositionResult>;
 	assembleRoutinePrompt(input: RoutinePromptCompositionInput): Promise<PromptCompositionResult>;
 	composeAssistantPrompt(systemPromptText: string): AssistantPromptResult;
@@ -1078,16 +874,10 @@ interface ContextAssembler {
 /** Bind this Service's ports-taking functions to a single `ContextAssemblyPorts` instance. */
 export function createContextAssembler(ports: ContextAssemblyPorts): ContextAssembler {
 	return {
-		assembleContext: (db, config) => assembleContext(db, config, ports),
-		assembleAgentContext: (input) => assembleAgentContext(input, ports),
+		assembleAgentContext: (input) => Promise.resolve(assembleAgentContext(input)),
 		beginAgentWriteback: (input) => beginAgentWriteback(input, ports),
-		buildSessionContextData: (db, config, preloadedAgent) =>
-			buildSessionContextData(db, config, ports, preloadedAgent),
-		buildRoutineSessionContextData: (db, config) =>
-			buildRoutineSessionContextData(db, config, ports),
-		buildSessionContext: (db, config) => buildSessionContext(db, config, ports),
-		assemblePrompt: (input) => assemblePrompt(input, ports),
-		assembleRoutinePrompt: (input) => assembleRoutinePrompt(input, ports),
+		assemblePrompt: (input) => Promise.resolve(assemblePrompt(input)),
+		assembleRoutinePrompt: (input) => Promise.resolve(assembleRoutinePrompt(input)),
 		composeAssistantPrompt,
 		writeSandboxAgentsMd,
 		stripFrontmatter,
@@ -1097,3 +887,6 @@ export function createContextAssembler(ports: ContextAssemblyPorts): ContextAsse
 		emittedContextRoots: CONTEXT_ASSEMBLY_ROOTS,
 	};
 }
+
+export type { AssembleAgentContextInput, RoutineSessionContextData, SessionContextData };
+export { routineSessionContextDataFromBundle, sessionContextDataFromBundle };

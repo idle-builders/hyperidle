@@ -3,6 +3,7 @@ import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger } from "@hyperidle/shared";
 import { findUser, validateBearerToken } from "@hyperidle/users";
 import type { Context, MiddlewareHandler } from "hono";
+import { CORE_API_ACTOR_OVERRIDE_HEADER } from "../services/actor-transport-header.js";
 import { constantTimeStringEqual } from "./timing-safe.js";
 
 /**
@@ -148,6 +149,26 @@ async function handleBearerAuth(
 }
 
 /**
+ * Resolves the route actor once an X-API-Key holder has already
+ * authenticated (local mode, or shared mode's API-key fallback).
+ *
+ * AU21 §12: an actor-override header lets the seam's own Application-layer
+ * composition root (never an external client — see
+ * `actor-transport-header.ts`'s `@lore`) carry the calling agent's own
+ * identity as the route actor. Falls back to the existing human-resolution
+ * behavior (`@lore P2`) when the header is absent.
+ */
+async function resolveApiKeyActorUserId(
+	c: Context<HyperIdleEnv>,
+	db: HyperIdleDb,
+): Promise<string> {
+	const actorOverride = c.req.header(CORE_API_ACTOR_OVERRIDE_HEADER);
+	if (actorOverride) return actorOverride;
+	const humanUser = await findUser(db, { kind: "human" });
+	return humanUser?.id ?? "u-founder";
+}
+
+/**
  * Create the auth middleware with database access for identity lookup.
  *
  * In local mode (sharedMode=false):
@@ -195,8 +216,7 @@ export function createAuthMiddleware(
 			const expectedKey = process.env.HYPERIDLE_API_KEY ?? "";
 
 			if (apiKey.length > 0 && constantTimeStringEqual(apiKey, expectedKey)) {
-				const humanUserShared = await findUser(db, { kind: "human" });
-				c.set("userId", humanUserShared?.id ?? "u-founder");
+				c.set("userId", await resolveApiKeyActorUserId(c, db));
 				c.set("authMethod", "api_key");
 				c.set("loginSessionId", undefined);
 				await next();
@@ -222,12 +242,7 @@ export function createAuthMiddleware(
 			);
 		}
 
-		// P2: Resolve authenticated user from users table (kind = 'human').
-		// @lore P2: fallback to "u-founder" for unseeded DBs and existing tests
-		// that don't seed a human user. The fallback is a safety net, not a
-		// design choice — all production paths should have a human user row.
-		const humanUser = await findUser(db, { kind: "human" });
-		c.set("userId", humanUser?.id ?? "u-founder");
+		c.set("userId", await resolveApiKeyActorUserId(c, db));
 		c.set("authMethod", "api_key");
 		c.set("loginSessionId", undefined);
 

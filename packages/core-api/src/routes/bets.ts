@@ -9,12 +9,7 @@ import {
 import { getTeam, getTeamMembers, listTeamMembers, listTeams, updateTeam } from "@hyperidle/org";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import type { ArtifactThreadSummary, EventBus } from "@hyperidle/shared";
-import {
-	BET_OUTCOME_VERDICTS,
-	CURRENCY_CODES,
-	deriveTitle,
-	InvalidTransitionError,
-} from "@hyperidle/shared";
+import { BET_OUTCOME_VERDICTS, deriveTitle, InvalidTransitionError } from "@hyperidle/shared";
 import * as work from "@hyperidle/work";
 import { cascadeBetKill, transitionBet, updateBetField } from "@hyperidle/work";
 import { Hono } from "hono";
@@ -23,6 +18,7 @@ import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { enumValues } from "../schemas/common.schema.js";
+import { taskRunResolverDeps } from "../services/task-run-resolver-bindings.js";
 
 const SUMMARY_CAP = 10;
 
@@ -37,15 +33,6 @@ const teamCapacity = {
 };
 
 /**
- * Zod schema for a WireMoney object in request bodies.
- * @lore L17: costAppetite replaces the old `appetite` duration string.
- */
-const wiremoneySchema = z.object({
-	minor: z.number().int().min(0),
-	currency: z.enum(enumValues(CURRENCY_CODES)),
-});
-
-/**
  * Zod schemas for request validation.
  *
  * @lore U1: `productId` -> `teamId`, `pitch` -> `description`.
@@ -58,12 +45,6 @@ const createBetSchema = z
 		 * @lore Q3: description must be non-empty (min 1 char). Formerly called `pitch`.
 		 */
 		description: z.string().min(1),
-		/**
-		 * @lore L17: costAppetite replaces the old `appetite` duration string
-		 * (e.g. "2 weeks"). Accepts null for uncapped bets. POST with the old
-		 * `appetite` string returns 400.
-		 */
-		costAppetite: wiremoneySchema.nullable().optional(),
 		doneCondition: z.string().optional(),
 		hypothesis: z.string().optional(),
 		/**
@@ -79,18 +60,14 @@ const createBetSchema = z
 // I2 V2: enum-validate `field` so an unknown value is rejected with 400 by
 // Zod instead of falling through to the service layer (which would throw
 // a generic Error mapped to 500).
-// @lore L17: cost_appetite is WireMoney (not a string), so updateBetSchema
-// is a discriminated union: string-valued fields (done_condition, hypothesis)
-// use a string `value`, while cost_appetite uses a WireMoney object `value`.
+// @lore AU21 Increment 14a: `updateBetCostAppetiteSchema`/the `cost_appetite`
+// PATCH field are deleted along with the rest of the cost feature (the
+// `costAppetiteMinor`/`costAppetiteCurrency` columns are dropped) — no
+// replacement. `updateBetStringFieldSchema` now covers exactly the two
+// remaining string-valued fields.
 const updateBetStringFieldSchema = z.object({
 	field: z.enum(["done_condition", "hypothesis"] as const),
 	value: z.string(),
-	reason: z.string(),
-});
-
-const updateBetCostAppetiteSchema = z.object({
-	field: z.literal("cost_appetite"),
-	value: wiremoneySchema.nullable(),
 	reason: z.string(),
 });
 
@@ -132,7 +109,6 @@ const AT_RISK_MUTABLE_IN_STATUSES = new Set(["draft", "active"]);
 
 const updateBetSchema = z.discriminatedUnion("field", [
 	updateBetStringFieldSchema,
-	updateBetCostAppetiteSchema,
 	updateBetDescriptionSchema,
 	updateBetAtRiskSchema,
 ]);
@@ -297,67 +273,6 @@ async function patchDescription(
 	return { ok: true, row: updated as Record<string, unknown> };
 }
 
-type WireMoney = { minor: number; currency: string } | null;
-
-/**
- * Handle PATCH /bets/:id for field="cost_appetite".
- *
- * @lore L17: Extracted to reduce cognitive complexity. cost_appetite is mutable
- * in active status only (not draft — cost is negotiated once the bet is committed).
- */
-async function patchCostAppetite(
-	db: HyperIdleDb,
-	betId: string,
-	value: WireMoney,
-	reason: string,
-	actor: string | undefined,
-): Promise<PatchResult> {
-	const bet = await work.get(db, "bet", betId);
-	if (!bet) {
-		return { ok: false, status: 404, body: { error: "Bet not found", code: "NOT_FOUND" } };
-	}
-	const MUTABLE_IN_STATUSES = new Set(["active"]);
-	if (!MUTABLE_IN_STATUSES.has(bet.status)) {
-		return {
-			ok: false,
-			status: 400,
-			body: {
-				error: `Field 'cost_appetite' is not mutable in status '${bet.status}'`,
-				code: "VALIDATION_ERROR",
-			},
-		};
-	}
-	const revisionLog: Array<Record<string, unknown>> = bet.revisionLog
-		? (JSON.parse(bet.revisionLog) as Array<Record<string, unknown>>)
-		: [];
-	const oldAppetite =
-		bet.costAppetiteMinor != null && bet.costAppetiteCurrency != null
-			? { minor: bet.costAppetiteMinor, currency: bet.costAppetiteCurrency }
-			: null;
-	revisionLog.push({
-		timestamp: new Date().toISOString(),
-		field: "cost_appetite",
-		old_value: oldAppetite,
-		new_value: value,
-		reason,
-		actor,
-	});
-	await work.update(db, "bet", betId, {
-		costAppetiteMinor: value?.minor ?? null,
-		costAppetiteCurrency: value?.currency ?? null,
-		revisionLog: JSON.stringify(revisionLog),
-	});
-	const updated = await work.get(db, "bet", betId);
-	if (!updated) {
-		return {
-			ok: false,
-			status: 500,
-			body: { error: "Bet not found after update", code: "INTERNAL_ERROR" },
-		};
-	}
-	return { ok: true, row: updated as Record<string, unknown> };
-}
-
 /**
  * Create Hono routes for bet endpoints.
  * Requires db and eventBus to be set in context via middleware.
@@ -412,10 +327,6 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			// @lore U1: `description` (formerly `pitch`), `teamId` (formerly `productId`).
 			const title = deriveTitle(bet.description, bet.id);
 			const team = teamMap.get(bet.teamId) ?? bet.teamId;
-			const appetite =
-				bet.costAppetiteMinor != null && bet.costAppetiteCurrency != null
-					? `${bet.costAppetiteMinor} ${bet.costAppetiteCurrency}`
-					: "—";
 
 			return {
 				id: bet.id,
@@ -423,11 +334,6 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 				team,
 				teamId: bet.teamId,
 				status: bet.status,
-				appetite,
-				costAppetite:
-					bet.costAppetiteMinor != null && bet.costAppetiteCurrency != null
-						? { minor: bet.costAppetiteMinor, currency: bet.costAppetiteCurrency }
-						: null,
 				progress: null,
 			};
 		}
@@ -480,15 +386,6 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 		const done = betTasks.filter((t) => t.state === "done").length;
 		const total = betTasks.length;
 
-		// L17: compute actual cost from sessions for this bet's tasks
-		let costActualMinor: number | null = null;
-		let costActualCurrency: string | null = null;
-
-		if (bet.costActualMinor != null) {
-			costActualMinor = bet.costActualMinor;
-			costActualCurrency = bet.costActualCurrency ?? "USD";
-		}
-
 		let tokensActual: Record<string, unknown> | null = null;
 		if (bet.tokensActualJson) {
 			try {
@@ -500,8 +397,6 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 
 		const {
 			appetite: _appetite,
-			costAppetiteMinor,
-			costAppetiteCurrency,
 			tokensActualJson: _tJson,
 			sourceKnowledgeItemId,
 			...restBet
@@ -524,23 +419,10 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			// @lore U2: `product` field removed (clean cut, no backward compat). Only `team` remains.
 			team,
 			progress: { done, total },
-			costAppetite:
-				costAppetiteMinor != null && costAppetiteCurrency != null
-					? { minor: costAppetiteMinor, currency: costAppetiteCurrency }
-					: null,
-			costActual:
-				costActualMinor != null && costActualCurrency != null
-					? { minor: costActualMinor, currency: costActualCurrency }
-					: null,
 			tokensActual,
 			// AK5: null when no provenance (hand-typed bet), enriched object when promoted.
 			sourceKnowledge,
-			tasks: betTasks.map((t) => ({
-				...t,
-				// O2: costActual/costCap mapped to WireMoney for display; strategy columns removed
-				costActual: t.costActual != null ? { minor: t.costActual, currency: "USD" as const } : null,
-				costCap: t.costCap != null ? { minor: t.costCap, currency: "USD" as const } : null,
-			})),
+			tasks: betTasks,
 		});
 	});
 
@@ -614,8 +496,6 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 				hypothesis: body.hypothesis ?? null,
 				status: "draft",
 				createdAt: now,
-				costAppetiteMinor: body.costAppetite?.minor ?? null,
-				costAppetiteCurrency: body.costAppetite?.currency ?? null,
 				revisionLog: JSON.stringify(initialLog),
 				sourceKnowledgeItemId: body.sourceKnowledgeItemId ?? null,
 			});
@@ -625,23 +505,12 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 				return c.json({ error: "Failed to create bet", code: "INTERNAL_ERROR" }, 500);
 			}
 
-			// Return structured costAppetite in the response
-			return c.json(
-				{
-					...created,
-					costAppetite:
-						created.costAppetiteMinor != null && created.costAppetiteCurrency != null
-							? { minor: created.costAppetiteMinor, currency: created.costAppetiteCurrency }
-							: null,
-				},
-				201,
-			);
+			return c.json(created, 201);
 		},
 	);
 
 	// PATCH /bets/:id — update mutable fields on active bets.
 	// M3 A5: actor comes from auth context (c.get("userId")), not a hardcoded founder constant.
-	// L17: cost_appetite replaced the old appetite string; handled directly in the route.
 	// @lore U1: `description` (formerly `pitch`) is the patchable text field.
 	router.patch(
 		"/:id",
@@ -662,15 +531,6 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			// @lore U2: at_risk PATCH — delegated to patchAtRisk() for complexity management.
 			if (body.field === "at_risk") {
 				const result = await patchAtRisk(db, betId, body.value, body.reason, c.get("userId"));
-				if (!result.ok) return c.json(result.body, result.status);
-				return c.json(result.row);
-			}
-
-			// @lore L17: cost_appetite PATCH — delegated to patchCostAppetite().
-			// WireMoney value cannot go through updateBetField (string-only columns).
-			// @lore U1: mutable in 'active' status only.
-			if (body.field === "cost_appetite") {
-				const result = await patchCostAppetite(db, betId, body.value, body.reason, c.get("userId"));
 				if (!result.ok) return c.json(result.body, result.status);
 				return c.json(result.row);
 			}
@@ -808,6 +668,7 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			// review thread). Synchronous so the UI's immediate refresh shows true state.
 			await cascadeBetKill(db, eventBus, betId, {
 				workIntents: { record: enqueueWorkIntent },
+				taskRunResolver: taskRunResolverDeps,
 			});
 			const updated = await work.get(db, "bet", betId);
 			if (!updated) {

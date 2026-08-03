@@ -15,10 +15,10 @@
 		"@electric-sql/pglite": "^0.5.4",
 		"@hyperidle/db": "*",
 		"@hyperidle/harness-registry": "*",
-		"@hyperidle/model-gateway": "*",
 		"@hyperidle/core-api": "*",
 		"@hyperidle/settings": "*",
 		"@hyperidle/shared": "*",
+		"@hyperidle/users": "*",
 		"drizzle-orm": "^0.45.2"
 	},
 	"devDependencies": {

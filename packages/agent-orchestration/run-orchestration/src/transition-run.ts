@@ -3,6 +3,7 @@ import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle
 import type {
 	AgentSessionSourceKind,
 	EventBus,
+	ModelTier,
 	SessionLifecycleCorrelation,
 } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
@@ -12,22 +13,26 @@ interface IngestionHandle {
 	dispose(): void;
 }
 type SessionLifecyclePorts = Parameters<typeof createProvisioner>[0];
-type TransitionPorts = Pick<SessionLifecyclePorts, "sessionRequests" | "routine">;
+/**
+ * AU21 §9 Increment 4 (Decision B″ item 3): `routine` dropped from this Pick.
+ * `endSession`/`crashSession` no longer write `routineRuns` directly — the
+ * finalize payload rides the existing `session_ended` emit (additive
+ * `routineRunOutcome` field, `@hyperidle/shared`'s
+ * `SessionEndedEvent`) and a NEW core-api subscriber
+ * (`routine-run-session-end-reactions.ts`) performs the write from inside
+ * core-api. `TransitionPorts` now carries only the own-state
+ * `sessionRequests` port the "request" disposition path still needs.
+ */
+type TransitionPorts = Pick<SessionLifecyclePorts, "sessionRequests">;
 
-const TERMINATION_REASONS = [
-	"user_done",
-	"user_crashed",
-	"handoff",
-	"cost_cap",
-	"shutdown",
-] as const;
+/** AU21 Increment 14a: `cost_cap` reason deleted — the cap gate no longer exists. */
+const TERMINATION_REASONS = ["user_done", "user_crashed", "handoff", "shutdown"] as const;
 type AgentTerminationReason = (typeof TERMINATION_REASONS)[number];
 
 const TERMINATION_DISPOSITIONS = {
 	user_done: { state: "cancelled", failureCode: null },
 	user_crashed: { state: "failed", failureCode: null },
 	handoff: { state: "completed", failureCode: null },
-	cost_cap: { state: "failed", failureCode: "BUDGET_EXHAUSTED" },
 	shutdown: { state: "failed", failureCode: "RUNTIME_LOST" },
 } as const;
 
@@ -161,53 +166,12 @@ interface SessionContext {
 	readonly requestContext?: SessionLifecycleCorrelation;
 	routineId?: string;
 }
-async function updateRoutineRunOnSessionEnd(
-	db: HyperIdleDb,
-	routineId: string,
-	sessionId: string,
-	outcome: "success" | "error" | "budget_exhausted",
-	endedAt: string,
-	costInCents: number,
-	ports: TransitionPorts,
-	summary?: string,
-): Promise<void> {
-	const run = await ports.routine.findRunningRoutineRun(db, routineId);
-
-	if (!run) {
-		return;
-	}
-
-	await ports.routine.updateRoutineRunById(db, run.id, {
-		outcome,
-		sessionId,
-		endedAt,
-		costMinor: costInCents > 0 ? costInCents : null,
-		costCurrency: costInCents > 0 ? "USD" : null,
-		...(summary ? { summary } : {}),
-	});
-
-	if (costInCents > 0) {
-		await ports.routine.incrementRoutineCost(db, routineId, costInCents, "USD");
-	}
-	if (summary) {
-		await ports.routine.updateRoutineById(db, routineId, {
-			lastRunAt: endedAt,
-			lastRunSummary: summary,
-		});
-	} else {
-		await ports.routine.updateRoutineById(db, routineId, { lastRunAt: endedAt });
-	}
-}
-
 async function endSession(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	context: SessionContext,
-	costInCents: number,
-	ports: TransitionPorts,
-	baselineCost?: number,
-	routineRunOutcome?: "budget_exhausted",
 	terminalOutcome: "completed" | "not_returned" = "completed",
+	tokensByTier?: Partial<Record<ModelTier, { prompt: number; completion: number }>>,
 ): Promise<void> {
 	// 1. Dispose ingestion handle (final flush).
 	// @lore AK2 §5b: was `context.watcher.stop()`. Renamed to `context.ingestion.dispose()`
@@ -215,11 +179,6 @@ async function endSession(
 	context.ingestion.dispose();
 
 	// 2. Update session row.
-	// @lore O2: cost, costMinor, costCurrency columns stripped from sessions table.
-	// costInCents parameter retained for API compatibility but no longer written to DB.
-	// Cost tracking is now a strategy concern handled at the fabric layer.
-	void baselineCost;
-	void costInCents;
 	const now = new Date().toISOString();
 	// AF7 §4.3 (Z8-094/095): CAS terminal write. SET only WHERE state='active', so
 	// a duplicate teardown — or a teardown for a session a different writer already
@@ -257,28 +216,21 @@ async function endSession(
 			// AL6 v2: use terminalOutcome (not hardcoded "completed") so not_returned
 			// turns surface correctly on the bus.
 			outcome: terminalOutcome,
+			// AU21 §9 Increment 4 (Decision B″ item 3): the routine-run finalize
+			// payload rides the SAME event — no direct `routineRuns` write here
+			// anymore. AU21 Increment 14a: the "budget_exhausted" per-run-cap
+			// outcome is deleted along with the cap gate — routineRunOutcome is
+			// always "success" here now (crashSession is the only "error" path).
+			// A core-api subscriber (`routine-run-session-end-reactions.ts`)
+			// performs the write.
+			...(context.routineId ? { routineRunOutcome: "success" as const } : {}),
+			// AU21 §9 Increment 12 (Decision H3), Wave D: the session's
+			// accumulated per-tier token counts ride this SAME event — no direct
+			// `bets.tokensActualJson` write here anymore. A core-api subscriber
+			// (`work-session-end-reactions.ts`) merges them onto the owning bet.
+			...(tokensByTier && Object.keys(tokensByTier).length > 0 ? { tokensByTier } : {}),
 		});
 	}
-
-	// 4. AA2: If this is a routine session, update the routine_run row.
-	// AA3: routineRunOutcome defaults to "success"; "budget_exhausted" is passed through
-	// from the per-run cap enforcement path to avoid write-then-overwrite (critique Warning 1).
-	// Only run routine-run finalization when WE performed the terminal transition.
-	if (updated && context.routineId) {
-		await updateRoutineRunOnSessionEnd(
-			db,
-			context.routineId,
-			context.sessionId,
-			routineRunOutcome ?? "success",
-			now,
-			costInCents,
-			ports,
-		);
-	}
-
-	// 5. (Dedup state reclaimed automatically via the EventBus subscription
-	//    installed by `startSentinel` — see `installDedupReleaser` in cost-cap.ts.
-	//    The direct call was belt-and-suspenders; removed in AU20 Am3.)
 
 	// 6. Delete workspace directory
 	// @lore I6: use async fs.promises.rm() instead of sync fs.rmSync() to avoid
@@ -298,9 +250,7 @@ async function crashSession(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	context: SessionContext,
-	costInCents: number,
-	ports: TransitionPorts,
-	baselineCost?: number,
+	tokensByTier?: Partial<Record<ModelTier, { prompt: number; completion: number }>>,
 ): Promise<void> {
 	// 1. Try to dispose ingestion handle (may be in a bad state during crash).
 	// @lore AK2 §5b: was `context.watcher.stop()`. Renamed to
@@ -314,9 +264,6 @@ async function crashSession(
 	}
 
 	// 2. Update session row.
-	// @lore O2: cost, costMinor, costCurrency columns stripped from sessions table.
-	void baselineCost;
-	void costInCents;
 	const now = new Date().toISOString();
 	// AF7 §4.3: CAS terminal write — see endSession. Crashing an already-terminal
 	// session affects zero rows and emits nothing.
@@ -340,24 +287,14 @@ async function crashSession(
 				: {}),
 			timestamp: Date.now(),
 			outcome: "crashed",
+			// AU21 §9 Increment 4 (Decision B″ item 3): crash always finalizes the
+			// routine run to "error" — carried on the same event, no direct write.
+			...(context.routineId ? { routineRunOutcome: "error" as const } : {}),
+			// AU21 §9 Increment 12 (Decision H3), Wave D: see endSession's identical
+			// comment — accumulated tokens ride this same event, no direct write.
+			...(tokensByTier && Object.keys(tokensByTier).length > 0 ? { tokensByTier } : {}),
 		});
 	}
-
-	// 4. AA2: If this is a routine session, update the routine_run row with error outcome.
-	if (updated && context.routineId) {
-		await updateRoutineRunOnSessionEnd(
-			db,
-			context.routineId,
-			context.sessionId,
-			"error",
-			now,
-			costInCents,
-			ports,
-		);
-	}
-
-	// 5. (Dedup state reclaimed automatically via the EventBus subscription —
-	//    see `installDedupReleaser` in cost-cap.ts. AU20 Am3.)
 
 	// Note: Do NOT delete workspace on crash -- knowledge is preserved in DB
 	// and workspace may be needed for debugging
@@ -392,10 +329,14 @@ export function transitionRun(
 				readonly target: "session";
 				readonly context: SessionContext;
 				readonly disposition: "end" | "crash";
-				readonly costInCents?: number;
-				readonly baselineCost?: number;
-				readonly routineOutcome?: "budget_exhausted";
 				readonly terminalOutcome?: "completed" | "not_returned";
+				/**
+				 * AU21 §9 Increment 12 (Decision H3), Wave D: the session's
+				 * accumulated per-tier token counts, carried through onto the
+				 * `session_ended` emit's additive `tokensByTier` field — see
+				 * `endSession`/`crashSession`'s own comment.
+				 */
+				readonly tokensByTier?: Partial<Record<ModelTier, { prompt: number; completion: number }>>;
 		  },
 ): Promise<unknown> {
 	if (spec.target === "request") {
@@ -407,24 +348,8 @@ export function transitionRun(
 			: transitionAgentRunLifecycle(deps.db, deps.eventBus, spec, deps.ports);
 	}
 	return spec.disposition === "end"
-		? endSession(
-				deps.db,
-				deps.eventBus,
-				spec.context,
-				spec.costInCents ?? 0,
-				deps.ports,
-				spec.baselineCost,
-				spec.routineOutcome,
-				spec.terminalOutcome,
-			)
-		: crashSession(
-				deps.db,
-				deps.eventBus,
-				spec.context,
-				spec.costInCents ?? 0,
-				deps.ports,
-				spec.baselineCost,
-			);
+		? endSession(deps.db, deps.eventBus, spec.context, spec.terminalOutcome, spec.tokensByTier)
+		: crashSession(deps.db, deps.eventBus, spec.context, spec.tokensByTier);
 }
 
 // ---------------------------------------------------------------------------

@@ -13,10 +13,6 @@ const FIXTURE: Artifact = {
 	kind: "text",
 	label: "decision",
 	preview: { kind: "text", body: "Adopt Hono JWT for stateless auth. Built in." },
-	cost: {
-		money: { minor: 42, currency: "USD" },
-		tokens: { byTier: { fast: { prompt: 8000, completion: 4400 } } },
-	},
 	threadCount: 0,
 	createdAt: new Date(Date.now() - 12 * 60_000).toISOString(),
 };

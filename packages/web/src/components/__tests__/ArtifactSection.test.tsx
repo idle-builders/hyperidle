@@ -51,10 +51,6 @@ const MOCK_ARTIFACT = {
 		lang: "typescript",
 		text: "// Foo.tsx",
 	},
-	cost: {
-		money: { minor: 4, currency: "USD" as const },
-		tokens: { byTier: { fast: { prompt: 800, completion: 400 } } },
-	},
 	threadCount: 0,
 	createdAt: "2026-05-01T10:00:00.000Z",
 };

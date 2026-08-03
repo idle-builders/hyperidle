@@ -15,7 +15,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ReasoningPart } from "../components/parts/ReasoningPart.js";
 import { ToolPart } from "../components/parts/ToolPart.js";
-import type { SessionViewCost, SessionViewIdentity } from "../components/SessionView.js";
+import type { SessionViewIdentity } from "../components/SessionView.js";
 import { SessionView } from "../components/SessionView.js";
 
 // ── Shared fixtures ────────────────────────────────────────────────────────
@@ -29,8 +29,6 @@ const IDENTITY: SessionViewIdentity = {
 	title: "Fix AI SDK bug",
 	host: "Bet · Chat reliability",
 };
-
-const COST: SessionViewCost = { costLabel: "$0.05", tokensLabel: "10k tokens" };
 
 const T = (ms: number): number => 1_750_000_000_000 + ms;
 
@@ -218,7 +216,6 @@ describe("SessionView — aggregation", () => {
 			<SessionView
 				entries={entries}
 				identity={IDENTITY}
-				cost={COST}
 				status="ended"
 				onOpen={NO_OP_OPEN}
 				onSend={vi.fn()}
@@ -241,7 +238,6 @@ describe("SessionView — aggregation", () => {
 			<SessionView
 				entries={entries}
 				identity={IDENTITY}
-				cost={COST}
 				status="ended"
 				onOpen={NO_OP_OPEN}
 				onSend={vi.fn()}
@@ -260,7 +256,6 @@ describe("SessionView — aggregation", () => {
 			<SessionView
 				entries={entries}
 				identity={IDENTITY}
-				cost={COST}
 				status="ended"
 				onOpen={NO_OP_OPEN}
 				onSend={vi.fn()}
@@ -308,7 +303,6 @@ describe("SessionView — ChangedFilesPanel", () => {
 			<SessionView
 				entries={entries}
 				identity={IDENTITY}
-				cost={COST}
 				status="ended"
 				onOpen={NO_OP_OPEN}
 				onSend={vi.fn()}
@@ -337,7 +331,6 @@ describe("SessionView — ChangedFilesPanel", () => {
 			<SessionView
 				entries={entries}
 				identity={IDENTITY}
-				cost={COST}
 				status="ended"
 				onOpen={NO_OP_OPEN}
 				onSend={vi.fn()}
@@ -401,7 +394,6 @@ describe("SessionView — composer pills", () => {
 			<SessionView
 				entries={[]}
 				identity={IDENTITY}
-				cost={undefined}
 				descriptor={descriptor}
 				status="ended"
 				onOpen={NO_OP_OPEN}
@@ -419,7 +411,6 @@ describe("SessionView — composer pills", () => {
 			<SessionView
 				entries={[]}
 				identity={IDENTITY}
-				cost={undefined}
 				descriptor={undefined}
 				status="ended"
 				onOpen={NO_OP_OPEN}
@@ -451,7 +442,6 @@ describe("SessionView — self-box alignment (isMe=true → items-end)", () => {
 			<SessionView
 				entries={entries}
 				identity={IDENTITY}
-				cost={undefined}
 				status="ended"
 				onOpen={NO_OP_OPEN}
 				onSend={vi.fn()}
@@ -478,7 +468,6 @@ describe("SessionView — self-box alignment (isMe=true → items-end)", () => {
 			<SessionView
 				entries={entries}
 				identity={IDENTITY}
-				cost={undefined}
 				status="ended"
 				onOpen={NO_OP_OPEN}
 				onSend={vi.fn()}

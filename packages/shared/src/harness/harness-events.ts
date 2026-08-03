@@ -1,6 +1,6 @@
 /** Harness-level events streamed from agent sessions (D1). */
 
-import type { CurrencyCode, ModelTier } from "../types/money.js";
+import type { ModelTier } from "../types/money.js";
 
 export interface TokenUsageEvent {
 	readonly type: "token_usage";
@@ -45,26 +45,22 @@ export interface ErrorEvent {
 	readonly code: string;
 }
 
-export interface CostUpdateEvent {
-	readonly type: "cost_update";
-	readonly totalCost: number;
-	readonly deltaCost: number;
-	/** L17: optional currency code for the cost values. */
-	readonly currency?: CurrencyCode;
-}
-
 export interface PreCompactionEvent {
 	readonly type: "pre_compaction";
 	readonly contextTokens: number;
 	readonly maxTokens: number;
 }
 
+/**
+ * AU21: `cost_update` (harness-adapter $-cost self-report) was removed —
+ * founder ruling: "very few harness can actually report cost"; keep only
+ * token usage (`token_usage`), tracked by every supported harness.
+ */
 export type HarnessEvent =
 	| TokenUsageEvent
 	| ToolCallEvent
 	| CompletionEvent
 	| ErrorEvent
-	| CostUpdateEvent
 	| PreCompactionEvent;
 
 export type HarnessEventType = HarnessEvent["type"];

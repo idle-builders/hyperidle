@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { SessionActivityPanel } from "../components/SessionActivityPanel.js";
 
 interface MockActivityEntry {
-	type: "tool_call" | "reasoning" | "cost_tick";
+	type: "tool_call" | "reasoning";
 	timestamp: number;
 	data: Record<string, unknown>;
 }
@@ -37,11 +37,6 @@ function mkActivity(): MockActivityEntry[] {
 			type: "reasoning",
 			timestamp: Date.now() + 100,
 			data: { excerpt: "Thinking about the problem..." },
-		},
-		{
-			type: "cost_tick",
-			timestamp: Date.now() + 200,
-			data: { deltaMinor: 120, totalMinor: 350, currency: "USD" },
 		},
 	];
 }

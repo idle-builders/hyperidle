@@ -28,10 +28,7 @@ export const MOCK_BETS: Record<string, BetDetail> = {
 		// (completed/killed) show BetPitch. Mutable bets (draft/active) show BodyEditor.
 		status: "completed",
 		atRisk: false,
-		// L17: costAppetite replaces appetite string; cost/token actuals added.
-		costAppetite: { minor: 20000, currency: "USD" }, // $200.00
 		tokenAppetite: null,
-		costActual: { minor: 1250, currency: "USD" }, // $12.50
 		tokensActual: null,
 		progress: { done: 3, total: 8 },
 		description: `# Problem
@@ -51,21 +48,18 @@ Migrate to JWT with refresh rotation.
 				title: "Implement login endpoint",
 				owner: "Dev Agent 1",
 				state: "done",
-				costActual: { minor: 420, currency: "USD" }, // $4.20
 			},
 			{
 				id: "t2",
 				title: "Design signup form",
 				owner: "Dev Agent 2",
 				state: "in_progress",
-				costActual: { minor: 180, currency: "USD" }, // $1.80
 			},
 			{
 				id: "t3",
 				title: "JWT refresh logic",
 				owner: "Dev Agent 1",
 				state: "review",
-				costActual: { minor: 650, currency: "USD" }, // $6.50
 			},
 		],
 	},
@@ -75,9 +69,7 @@ Migrate to JWT with refresh rotation.
 		team: "Beta Surface",
 		status: "draft",
 		atRisk: false,
-		costAppetite: { minor: 30000, currency: "USD" }, // $300.00
 		tokenAppetite: null,
-		costActual: null,
 		tokensActual: null,
 		progress: { done: 0, total: 5 },
 		description: `# Problem
@@ -97,14 +89,12 @@ Replace the grid with a three-column layout driven by user roles.
 				title: "Wireframe layouts",
 				owner: "Designer Agent",
 				state: "accepted",
-				costActual: { minor: 200, currency: "USD" }, // $2.00
 			},
 			{
 				id: "t5",
 				title: "Component inventory",
 				owner: "Dev Agent 1",
 				state: "accepted",
-				costActual: { minor: 150, currency: "USD" }, // $1.50
 			},
 		],
 	},
@@ -115,9 +105,7 @@ Replace the grid with a three-column layout driven by user roles.
 		team: "Alpha Core",
 		status: "active",
 		atRisk: false,
-		costAppetite: null,
 		tokenAppetite: null,
-		costActual: null,
 		tokensActual: null,
 		progress: { done: 2, total: 6 },
 		description: "# Problem\nPayments are handled manually.\n\n## Solution\nIntegrate Stripe.",
@@ -130,9 +118,7 @@ Replace the grid with a three-column layout driven by user roles.
 		team: "Alpha Core",
 		status: "draft",
 		atRisk: false,
-		costAppetite: null,
 		tokenAppetite: null,
-		costActual: null,
 		tokensActual: null,
 		progress: { done: 1, total: 5 },
 		description: `# Problem
@@ -171,9 +157,7 @@ export const FALLBACK_BET: BetDetail = {
 	team: "Unknown Team",
 	status: "draft",
 	atRisk: false,
-	costAppetite: null,
 	tokenAppetite: null,
-	costActual: null,
 	tokensActual: null,
 	progress: { done: 0, total: 0 },
 	description: "",

@@ -19,7 +19,7 @@ import { narrowModelEndpoints, narrowModels } from "../openrouter-catalog.js";
 import type { SmokeModelPolicy } from "../policy.js";
 import { DEFAULT_SMOKE_POLICY } from "../policy.js";
 import type { SelectionInput } from "../select-smoke-model.js";
-import { isWithinCostCap, selectSmokeModel } from "../select-smoke-model.js";
+import { selectSmokeModel } from "../select-smoke-model.js";
 
 const require = createRequire(import.meta.url);
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -583,32 +583,5 @@ describe("narrowModels + narrowModelEndpoints — fixture shape integrity", () =
 				}
 			}
 		}
-	});
-});
-
-// ---------------------------------------------------------------------------
-// AC5: isWithinCostCap — pure predicate
-// ---------------------------------------------------------------------------
-
-describe("isWithinCostCap", () => {
-	it("returns true when cost equals the cap", () => {
-		expect(isWithinCostCap(5, 5)).toBe(true);
-	});
-
-	it("returns true when cost is under the cap", () => {
-		expect(isWithinCostCap(3, 5)).toBe(true);
-	});
-
-	it("returns false when cost exceeds the cap", () => {
-		expect(isWithinCostCap(6, 5)).toBe(false);
-	});
-
-	it("returns false when cost is 0 but cap is negative (edge)", () => {
-		// cap must be non-negative; 0 <= -1 is false
-		expect(isWithinCostCap(0, -1)).toBe(false);
-	});
-
-	it("returns true for zero cost and zero cap", () => {
-		expect(isWithinCostCap(0, 0)).toBe(true);
 	});
 });

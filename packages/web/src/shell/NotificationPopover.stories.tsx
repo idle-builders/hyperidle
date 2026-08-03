@@ -61,10 +61,10 @@ const sampleRows: NotificationRow[] = [
 	},
 	{
 		id: "notif-3",
-		typeKey: "cost_alert",
+		typeKey: "blocker_alert",
 		urgency: "immediate",
-		title: "Factory spend crossed $50 cost cap",
-		sourceLink: "/conversations/thread-cost",
+		title: "Deploy pipeline is blocked on a failing smoke test",
+		sourceLink: "/conversations/thread-blocker-2",
 		createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
 		seenAt: null,
 		readAt: null,

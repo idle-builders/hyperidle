@@ -7,8 +7,10 @@
  *        rule (approved.md §1.1), ConsequencePreviewDialog passes isDirty=false ALWAYS — so Esc
  *        closes whether reason is empty or typed. See architecture.md §Sanctioned changes #1.
  * AC-9: ConsequencePreview confirm button is disabled when reason is empty.
- * AC-10: AppetiteDialog — current appetite is pre-selected; Save disabled without reason.
  * AC-11: Unblock button is present for active status.
+ *
+ * @lore AU21 Increment 14a: AC-10 (AppetiteDialog) is HARD-DELETED along with
+ * the rest of the cost-cap feature — no replacement.
  *
  * @lore U1: Updated from old statuses (in_progress, paused, behind, blocked, shipped)
  * to new statuses (active, draft, completed, killed). Resume button removed (no paused
@@ -51,9 +53,7 @@ function makeBet(status: BetDetail["status"], overrides: Partial<BetDetail> = {}
 		team: "Alpha Core",
 		status,
 		atRisk: false,
-		costAppetite: null,
 		tokenAppetite: null,
-		costActual: null,
 		tokensActual: null,
 		progress: { done: 0, total: 0 },
 		description: "# Feature\nBody",
@@ -91,14 +91,6 @@ describe("L14 — BetActionsBar (AC-7)", () => {
 		expect(killItem).not.toBeNull(); // Kill still present
 	});
 
-	it("shows Adjust appetite in overflow dropdown for active status", async () => {
-		const user = userEvent.setup();
-		renderBet(makeBet("active"));
-		await openOverflow(user);
-		const adjustItem = document.querySelector("[data-bet-action='adjust-appetite']");
-		expect(adjustItem).not.toBeNull();
-	});
-
 	it("shows Unblock in overflow dropdown for active status", async () => {
 		const user = userEvent.setup();
 		renderBet(makeBet("active"));
@@ -123,24 +115,18 @@ describe("L14 — BetActionsBar (AC-7)", () => {
 		expect(killItem).not.toBeNull();
 	});
 
-	// AF12: appetite is mutable on active bets only — a draft bet shows
-	// "Activate bet", not "Adjust appetite".
-	it("shows Activate bet (not Adjust appetite) in overflow dropdown for draft status", async () => {
+	it("shows Activate bet in overflow dropdown for draft status", async () => {
 		const user = userEvent.setup();
 		renderBet(makeBet("draft"));
 		await openOverflow(user);
 		const activateItem = document.querySelector("[data-bet-action='activate']");
 		expect(activateItem).not.toBeNull();
-		const adjustItem = document.querySelector("[data-bet-action='adjust-appetite']");
-		expect(adjustItem).toBeNull();
 	});
 
-	it("shows Adjust appetite (not Activate bet) in overflow dropdown for active status", async () => {
+	it("does NOT show Activate bet in overflow dropdown for active status", async () => {
 		const user = userEvent.setup();
 		renderBet(makeBet("active"));
 		await openOverflow(user);
-		const adjustItem = document.querySelector("[data-bet-action='adjust-appetite']");
-		expect(adjustItem).not.toBeNull();
 		const activateItem = document.querySelector("[data-bet-action='activate']");
 		expect(activateItem).toBeNull();
 	});
@@ -230,84 +216,5 @@ describe("L14 — ConsequencePreviewDialog (AC-8, AC-9)", () => {
 
 		const pauseItem = document.querySelector<HTMLElement>("[data-bet-action='pause']");
 		expect(pauseItem).toBeNull();
-	});
-});
-
-describe("L14 — AppetiteDialog (AC-10)", () => {
-	it("dialog opens when Adjust appetite is clicked", async () => {
-		const user = userEvent.setup();
-		renderBet(makeBet("active", { costAppetite: { minor: 20000, currency: "USD" } }));
-		await openOverflow(user);
-
-		const adjustItem = document.querySelector<HTMLElement>("[data-bet-action='adjust-appetite']");
-		expect(adjustItem).not.toBeNull();
-		if (adjustItem) await user.click(adjustItem);
-
-		expect(screen.getByRole("dialog")).toBeInTheDocument();
-	});
-
-	it("current appetite select renders with a default value", async () => {
-		const user = userEvent.setup();
-		renderBet(makeBet("active", { costAppetite: { minor: 20000, currency: "USD" } }));
-		await openOverflow(user);
-
-		const adjustItem = document.querySelector<HTMLElement>("[data-bet-action='adjust-appetite']");
-		if (adjustItem) await user.click(adjustItem);
-
-		const select = screen.getByRole("combobox");
-		// AF12: the appetite dialog's currency select defaults to the bet's currency (USD here).
-		expect((select as HTMLSelectElement).value).toBeTruthy();
-	});
-
-	it("Save button is disabled when reason is empty", async () => {
-		const user = userEvent.setup();
-		renderBet(makeBet("active", { costAppetite: { minor: 10000, currency: "USD" } }));
-		await openOverflow(user);
-
-		const adjustItem = document.querySelector<HTMLElement>("[data-bet-action='adjust-appetite']");
-		if (adjustItem) await user.click(adjustItem);
-
-		const dialog = screen.getByRole("dialog");
-		const saveBtn = Array.from(dialog.querySelectorAll<HTMLButtonElement>("button")).find((b) =>
-			/save/i.test(b.textContent ?? ""),
-		);
-		expect(saveBtn).toBeDefined();
-		expect(saveBtn?.disabled).toBe(true);
-	});
-
-	it("Save button becomes enabled when reason is filled", async () => {
-		const user = userEvent.setup();
-		renderBet(makeBet("active", { costAppetite: { minor: 10000, currency: "USD" } }));
-		await openOverflow(user);
-
-		const adjustItem = document.querySelector<HTMLElement>("[data-bet-action='adjust-appetite']");
-		if (adjustItem) await user.click(adjustItem);
-
-		const dialog = screen.getByRole("dialog");
-		const reasonField = dialog.querySelector("textarea");
-		expect(reasonField).not.toBeNull();
-		if (reasonField) {
-			await user.type(reasonField, "Scope changed");
-		}
-
-		const saveBtn = Array.from(dialog.querySelectorAll<HTMLButtonElement>("button")).find((b) =>
-			/save/i.test(b.textContent ?? ""),
-		);
-		expect(saveBtn?.disabled).toBe(false);
-	});
-
-	it("AppetiteDialog Cancel closes the dialog", async () => {
-		const user = userEvent.setup();
-		renderBet(makeBet("active"));
-		await openOverflow(user);
-
-		const adjustItem = document.querySelector<HTMLElement>("[data-bet-action='adjust-appetite']");
-		if (adjustItem) await user.click(adjustItem);
-		expect(screen.getByRole("dialog")).toBeInTheDocument();
-
-		const cancelBtn = screen.getByRole("button", { name: /cancel/i });
-		await user.click(cancelBtn);
-
-		expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 	});
 });

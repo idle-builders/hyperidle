@@ -36,12 +36,11 @@ const MOCK_TEAM_DETAIL = {
 		{ agentId: "agent-lead", name: "Lead Agent", role: "lead", isLead: true },
 		{ agentId: "agent-member", name: "Alice Agent", role: "member", isLead: false },
 	],
-	burn: { costActual: null, costCap: null, capacity: 5, activeBets: 2 },
+	burn: { capacity: 5, activeBets: 2 },
 	activeBets: [
 		{
 			id: "b1",
 			descriptionTitle: "Auth migration",
-			costAppetite: null,
 			status: "active",
 			progressDone: 1,
 			progressTotal: 2,

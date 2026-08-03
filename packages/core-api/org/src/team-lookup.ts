@@ -15,8 +15,10 @@
  * getTeamMembersByTeamId/loadTeamMembers/listTeamsByIds/listAllTeams/listAllTeamMembers/
  * listActiveTeamMembersWithTeamNames) → query-keyed getTeam/listTeams/getTeamMembers/
  * listTeamMembers. Mutators (updateTeamPhase/setTeamMembersActiveBets/setTeamMembersLeadAgent)
- * → patch-param updateTeam(teamId, patch). Cost verbs (incrementTeamMembersCost/
- * resetTeamMembersCost/resetAllTeamMembersCost) → applyTeamCost(target, change). Create/
+ * → patch-param updateTeam(teamId, patch). AU21 Increment 14a: the cost verbs
+ * (incrementTeamMembersCost/resetTeamMembersCost/resetAllTeamMembersCost →
+ * applyTeamCost(target, change)) are deleted along with the rest of the cost
+ * feature — no replacement. Create/
  * delete pairs (createTeam+createTeamMembersGroup, deleteTeamById+deleteTeamMembersGroupById)
  * → atomic createTeam (1:1 invariant makes both rows one operation) + deleteTeam (cascades).
  *
@@ -28,7 +30,7 @@
 
 import type { Team, TeamMember, WriteExecutor } from "@hyperidle/db";
 import { type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
-import { eq, inArray, isNull, sql } from "drizzle-orm";
+import { eq, inArray, isNull } from "drizzle-orm";
 
 class ApiError extends Error {
 	constructor(
@@ -306,46 +308,6 @@ export async function deleteTeam(db: HyperIdleDb, teamId: string): Promise<void>
 	await db.delete(teams).where(eq(teams.id, teamId));
 }
 
-// ---------------------------------------------------------------------------
-// Cost mechanics (collapse 3 → 1)
-// ---------------------------------------------------------------------------
-
-/**
- * Apply a cost change to one `teamMembers` row or all rows.
- *
- * - `target: { id }` — the `teamMembers.id` (membership-group primary key).
- * - `target: "all"` — factory-wide reset (deliberate no-WHERE update).
- * - `change: { deltaMinor }` — atomically adds `delta` via `coalesce(costActual, 0) + delta`.
- * - `change: "reset"` — sets `costActual` to 0.
- *
- * @lore AU20 Am7 / AU19 3g: cost-tracking belongs to the `cost` Service
- * in spirit; this function is the Table-ACL write seam forced by
- * `teamMembers.costActual` living on an org-owned table. When `costActual`
- * migrates to a `cost`-owned table, this function disappears.
- */
-export async function applyTeamCost(
-	db: WriteExecutor,
-	target: { id: string } | "all",
-	change: { deltaMinor: number } | "reset",
-): Promise<void> {
-	if (target === "all") {
-		if (change === "reset") {
-			// intentional: factory reset clears ALL rows (deliberate no-WHERE update).
-			await db.update(teamMembers).set({ costActual: 0 }).where(sql`true`);
-		} else {
-			await db
-				.update(teamMembers)
-				.set({ costActual: sql`coalesce(${teamMembers.costActual}, 0) + ${change.deltaMinor}` })
-				.where(sql`true`);
-		}
-	} else if (change === "reset") {
-		await db.update(teamMembers).set({ costActual: 0 }).where(eq(teamMembers.id, target.id));
-	} else {
-		await db
-			.update(teamMembers)
-			.set({
-				costActual: sql`coalesce(${teamMembers.costActual}, 0) + ${change.deltaMinor}`,
-			})
-			.where(eq(teamMembers.id, target.id));
-	}
-}
+// @lore AU21 Increment 14a: `applyTeamCost` (the `teamMembers.costActual`
+// increment/reset seam) is deleted along with the rest of the cost feature —
+// the column is dropped, no replacement.

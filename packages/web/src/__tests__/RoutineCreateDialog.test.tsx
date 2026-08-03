@@ -1,7 +1,7 @@
 /**
  * AA2 — RoutineCreateDialog component tests.
  *
- * AC-1: Dialog renders all fields (name, description, schedule, agent, cost cap).
+ * AC-1: Dialog renders all fields (name, description, schedule, agent).
  *       Create button disabled when required fields empty.
  *       Create button enabled when required fields filled.
  *       Submit calls API with correct payload.
@@ -72,12 +72,6 @@ describe("RoutineCreateDialog", () => {
 		renderDialog();
 		// Schedule picker should have preset options
 		expect(screen.getByText(/every hour/i)).toBeInTheDocument();
-	});
-
-	it("renders cost cap field", () => {
-		renderDialog();
-		// AA3: two cost cap fields exist (per-run and monthly); check per-run specifically
-		expect(screen.getByLabelText(/cost cap per run/i)).toBeInTheDocument();
 	});
 
 	it("Create button is disabled when name is empty", () => {

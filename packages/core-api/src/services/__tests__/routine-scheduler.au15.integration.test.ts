@@ -30,11 +30,13 @@ import {
 } from "@hyperidle/db";
 import * as routineService from "@hyperidle/routine";
 import { drainIntents, startLifecycleProjectionDrain } from "@hyperidle/session-requests";
-import { eq } from "drizzle-orm";
+import type { AgentRunLifecycleChangedEvent } from "@hyperidle/shared";
+import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, vi } from "vitest";
 import { fireGenericRoutine } from "../../__tests__/dispatch-test-helpers.js";
 import { describe, expect, test } from "../../test-fixtures.js";
 import { queueDeps } from "../durable-agent-queue.js";
+import { registerRoutineRunSessionEndReactions } from "../routine-run-session-end-reactions.js";
 
 const NOW = "2026-07-12T00:00:00.000Z";
 const TEST_API_KEY = "test-key-au15-routine-scheduler";
@@ -47,6 +49,35 @@ const RUNTIME_DEPS = {
 
 beforeEach(() => vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY));
 afterEach(() => vi.unstubAllEnvs());
+
+/**
+ * AU21 §9 Increment 4, Wave B — `routine_run` is now ALSO resolved at emit
+ * (`fireGenericRoutine` bakes the request in its own transaction, per
+ * architecture.md §6 Decision B), so a routine deactivated AFTER a
+ * successful fire no longer produces a pre-hand-off failure at drain — the
+ * drain trusts the already-baked, already-validated payload (zero domain
+ * reads, Decision B step 2) instead of re-reading `routines` at drain time.
+ * The genuine pre-hand-off failure class that survives for an already-baked
+ * intent is a real infra fault at the hand-off write itself (same idiom as
+ * `agent-run-admission-failed-routine-run-migration.integration.test.ts` and
+ * the sibling rewiring in `agent-run-admission-failed-emission.integration.test.ts`)
+ * — a Postgres trigger rejecting the `agent_session_requests` insert.
+ */
+async function rejectSessionRequestWrites(db: HyperIdleDb): Promise<void> {
+	await db.execute(
+		sql`drop trigger if exists au21_reject_session_request_write_au15 on agent_session_requests`,
+	);
+	await db.execute(sql`
+		create or replace function au21_reject_session_request_write_au15() returns trigger as $$
+		begin raise exception 'AU21 injected agent_session_requests write failure (AU15 AC-3d)'; end;
+		$$ language plpgsql
+	`);
+	await db.execute(sql`
+		create trigger au21_reject_session_request_write_au15
+		before insert on agent_session_requests
+		for each row execute function au21_reject_session_request_write_au15()
+	`);
+}
 
 async function seedRoutineWorld(
 	db: HyperIdleDb,
@@ -183,11 +214,22 @@ describe("terminal-failure finalization of session-less running runs", () => {
 		const [run] = await db.select().from(routineRuns).where(eq(routineRuns.routineId, routineId));
 		expect(run?.outcome).toBe("running");
 
-		// Routine deactivated between fire and drain — resolveAuthoritativeInput
-		// throws InvalidAgentWorkSourceError (pre-hand-off, no session ever exists).
-		await routineService.updateRoutine(db, routineId, { active: false });
+		// A genuine downstream infra fault at the hand-off write itself — the
+		// surviving pre-hand-off failure class for an already-baked intent (see
+		// this file's `rejectSessionRequestWrites` @lore above).
+		await rejectSessionRequestWrites(db);
 
-		await drainIntents(queueDeps(db));
+		// @lore AU21 Increment 3 Wave 0 rewiring: the run's finalization no
+		// longer happens as a direct write inside `failOrRelease` — it is now a
+		// core-api subscriber reacting to the NEW `agent_run_admission_failed`
+		// event (`registerAgentRunAdmissionReactions`, wired onto the `eventBus`
+		// fixture). `drainIntents` must be given that same eventBus so
+		// `failOrRelease` can actually emit it; the reaction itself is async
+		// fire-and-forget (same pattern as every other EventBus reaction in this
+		// codebase, e.g. `lifecycle-propagation.ts`), so the finalize assertion
+		// below polls via `vi.waitFor` — the GUARANTEE (run finalizes to
+		// outcome="error", coalescing self-heals) is unchanged.
+		await drainIntents({ ...queueDeps(db), eventBus }, { maxAttempts: 1 });
 
 		const [intent] = await db
 			.select()
@@ -195,23 +237,46 @@ describe("terminal-failure finalization of session-less running runs", () => {
 			.where(eq(agentWorkIntents.sourceId, run?.id ?? ""));
 		expect(intent?.status).toBe("failed");
 
-		const [finalizedRun] = await db
-			.select()
-			.from(routineRuns)
-			.where(eq(routineRuns.id, run?.id ?? ""));
-		expect(finalizedRun?.outcome).toBe("error");
-		expect(finalizedRun?.endedAt).toBeTruthy();
+		await vi.waitFor(async () => {
+			const [finalizedRun] = await db
+				.select()
+				.from(routineRuns)
+				.where(eq(routineRuns.id, run?.id ?? ""));
+			expect(finalizedRun?.outcome).toBe("error");
+			expect(finalizedRun?.endedAt).toBeTruthy();
+		});
 
-		// Self-healed: coalescing no longer blocks a fresh fire once reactivated.
-		await routineService.updateRoutine(db, routineId, { active: true });
-		const [reactivated] = await db.select().from(routines).where(eq(routines.id, routineId));
-		const secondFire = await fireGenericRoutine(db, eventBus, reactivated!, RUNTIME_DEPS);
+		// The trigger is schema-level (persists across the pooled PGlite
+		// instance's TRUNCATE-only reset) — drop it so it doesn't leak into a
+		// sibling test in this file that also writes `agent_session_requests`.
+		await db.execute(
+			sql`drop trigger if exists au21_reject_session_request_write_au15 on agent_session_requests`,
+		);
+
+		// Self-healed: coalescing no longer blocks a fresh fire (the failed run
+		// is no longer "running").
+		const [reloaded] = await db.select().from(routines).where(eq(routines.id, routineId));
+		const secondFire = await fireGenericRoutine(db, eventBus, reloaded!, RUNTIME_DEPS);
 		expect(secondFire.fired).toBe(true);
 		expect(secondFire.reason).not.toBe("previous run still in progress");
 	});
 
-	test("AC-3c: terminal PROVISION failure (post-hand-off) finalizes the run via projectRoutine", async ({
+	/**
+	 * AU21 correction (post-Increment-5 verification): this scenario's
+	 * finalization used to happen INSIDE the lifecycle-inbox drain, via
+	 * `projectRoutine`'s direct `updateRoutineRunIfRunning` write — the THIRD
+	 * raw cross-layer write path the gap report found. That projector is now
+	 * `observeOnly` (matching `assistant`/`knowledge`/`proposed_call`); the
+	 * drain still claims/acks the inbox fact (that mechanism is untouched) but
+	 * performs no `routineRuns` write. Wave C's
+	 * `registerRoutineRunSessionEndReactions`, reacting to
+	 * `agent_run_lifecycle_changed` (the "request disposition" path for a
+	 * routine session that never reached a live `session_ended`), is now the
+	 * SOLE mechanism finalizing this post-hand-off provision failure.
+	 */
+	test("AC-3c: terminal PROVISION failure (post-hand-off) finalizes the run via Wave C's agent_run_lifecycle_changed reaction, not the drain", async ({
 		db,
+		eventBus,
 	}) => {
 		const { routineId, ownerAgentId } = await seedRoutineWorld(db, "au15-r4b-routine");
 		const runId = "au15-r4b-run";
@@ -260,7 +325,30 @@ describe("terminal-failure finalization of session-less running runs", () => {
 			stop();
 		}
 
-		const [run] = await db.select().from(routineRuns).where(eq(routineRuns.id, runId));
-		expect(run?.outcome).toBe("error");
+		// The drain alone must NOT finalize the run — `routine`'s projector is
+		// observeOnly now.
+		const [afterDrain] = await db.select().from(routineRuns).where(eq(routineRuns.id, runId));
+		expect(afterDrain?.outcome).toBe("running");
+
+		// Wave C's reaction is the only thing left that finalizes it — register
+		// it and emit the `agent_run_lifecycle_changed` fact production emits
+		// for this exact "request disposition" failure path.
+		registerRoutineRunSessionEndReactions(db, eventBus);
+		const event: AgentRunLifecycleChangedEvent = {
+			type: "agent_run_lifecycle_changed",
+			streamId: `routine:${routineId}`,
+			requestId,
+			sourceKind: "routine",
+			sourceId: runId,
+			state: "failed",
+			timestamp: Date.now(),
+		};
+		eventBus.emit(event);
+
+		await vi.waitFor(async () => {
+			const [run] = await db.select().from(routineRuns).where(eq(routineRuns.id, runId));
+			expect(run?.outcome).toBe("error");
+			expect(run?.endedAt).toBeTruthy();
+		});
 	});
 });

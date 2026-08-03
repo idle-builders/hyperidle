@@ -51,12 +51,6 @@ describe("NotificationType.shortLabel (AI4 Decision 4)", () => {
 		expect((entry as NotificationType & { shortLabel: string }).shortLabel).toBe("BLOCKER");
 	});
 
-	it("cost_alert shortLabel is 'COST' (uppercase)", () => {
-		const entry = NOTIFICATION_TYPES.find((t) => t.key === "cost_alert");
-		expect(entry).toBeDefined();
-		expect((entry as NotificationType & { shortLabel: string }).shortLabel).toBe("COST");
-	});
-
 	it("shortLabel values are uppercase so CSS-only uppercasing preserves DOM textContent match", () => {
 		// Decision 1a casing contract: label path renders verbatim into DOM;
 		// CSS uppercase class provides visual casing.
@@ -81,12 +75,8 @@ describe("shortLabelForType (AI4 Decision 4)", () => {
 		expect(shortLabelForType("blocker_alert")).toBe("BLOCKER");
 	});
 
-	it("returns 'COST' for cost_alert", () => {
-		expect(shortLabelForType("cost_alert")).toBe("COST");
-	});
-
 	it("returns the shortLabel for all known keys", () => {
-		const keys: NotificationTypeKey[] = ["review_request", "blocker_alert", "cost_alert"];
+		const keys: NotificationTypeKey[] = ["review_request", "blocker_alert"];
 		for (const key of keys) {
 			const result = shortLabelForType(key);
 			expect(typeof result).toBe("string");

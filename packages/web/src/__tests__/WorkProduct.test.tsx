@@ -58,21 +58,15 @@ const MOCK_PRODUCT_DETAIL = {
 			agentCategory: "team",
 		},
 	],
-	// L17: costActual/costCap are now WireMoney|null; costAppetite replaces appetite.
 	burn: {
-		costActual: { minor: 4200, currency: "USD" as const },
-		costCap: { minor: 10000, currency: "USD" as const },
 		capacity: 5,
 		activeBets: 2,
-		betCostActual: null,
-		routineCostThisMonth: null,
 	},
 	activeBets: [
 		{
 			id: "b1",
 			// @lore U1: descriptionTitle (formerly pitchTitle)
 			descriptionTitle: "Auth migration",
-			costAppetite: { minor: 20000, currency: "USD" as const },
 			// @lore U1: "committed" merged into "active"
 			status: "active" as const,
 			progressDone: 1,
@@ -140,11 +134,13 @@ describe("WorkTeam", () => {
 		expect(agentRows).toHaveLength(2);
 	});
 
-	it("5. renders the burn-vs-cap with a progress element", () => {
+	// @lore AU21 Increment 14a: "renders the burn-vs-cap with a progress
+	// element" is HARD-DELETED — the cap-utilization progress bar is gone
+	// along with the rest of the cost-cap feature, no replacement.
+	it("5. renders the team-burn-vs-cap section", () => {
 		renderPage("p1", MOCK_PRODUCT_DETAIL);
 		const burnRegion = screen.getByTestId("team-burn-vs-cap");
 		expect(burnRegion).toBeInTheDocument();
-		expect(burnRegion.querySelector("progress")).not.toBeNull();
 	});
 
 	// AD9: breadcrumb navigates to /work (was /work/portfolio)

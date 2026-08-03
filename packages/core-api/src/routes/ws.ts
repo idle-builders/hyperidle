@@ -1,5 +1,6 @@
-import { WsBroadcaster, type WsClient } from "@hyperidle/realtime";
-import type { ApiErrorResponse, EventBus } from "@hyperidle/shared";
+import type { WsClient } from "@hyperidle/realtime";
+import { WsConnectionHub } from "@hyperidle/realtime";
+import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
 import type { UpgradeTokenStore } from "@hyperidle/users";
 import type { Hono } from "hono";
@@ -7,7 +8,7 @@ import type { UpgradeWebSocket, WSContext } from "hono/ws";
 
 /**
  * Adapter that wraps a Hono WSContext into the WsClient interface
- * expected by WsBroadcaster. Uses WSContext.send() which is runtime-agnostic
+ * expected by WsConnectionHub. Uses WSContext.send() which is runtime-agnostic
  * (works under both @hono/node-server and any compatible WebSocket adapter).
  *
  * @lore N1: previously this adapter held `ws.raw as WSContext` which accessed
@@ -34,35 +35,29 @@ class WsContextAdapter implements WsClient {
  * as a parameter. The route behaviour is identical; only the transport
  * adapter changes.
  *
- * @lore I6: ws.ts now delegates all event forwarding to WsBroadcaster,
- * eliminating the duplicate event subscription logic that previously
- * existed in both files. WsBroadcaster owns the topic-based routing
- * and event subscriptions; ws.ts handles only the WebSocket
- * lifecycle (auth, connect, disconnect, subscribe/unsubscribe messages).
+ * @lore I6: ws.ts delegates connection/subscription/broadcast mechanics to
+ * WsConnectionHub — a pure transport with no event-forwarding logic of its
+ * own (AU21 §6 Decision L4 / §9 Increment 14d deleted the generic forwarder
+ * that used to live there). ws.ts handles only the WebSocket lifecycle
+ * (auth, connect, disconnect, subscribe/unsubscribe messages); every domain
+ * that wants to push data calls the SAME hub's `broadcast()` directly.
  *
  * @lore I1 W2: in-process test isolation relies on the returned disposer.
  *
  * @lore L1 step9 (Adv-C1): the upgrade token now binds an identityId.
  * `consumePending` pulls the identity off the consume result so the next
- * `onOpen` can register the client with the broadcaster's authz table.
+ * `onOpen` can register the client with the hub's authz table.
  */
 function registerWsRoute(
 	apiApp: Hono,
-	eventBus: EventBus | undefined,
 	tokenStore: UpgradeTokenStore,
 	upgradeWebSocket: UpgradeWebSocket,
-	injectedBroadcaster: WsBroadcaster | null = null,
+	injectedHub: WsConnectionHub | null = null,
 ): () => void {
-	// Delegate event forwarding to WsBroadcaster when eventBus is available.
-	// L1 step9: server-factory may pass an authz-bound broadcaster; tests +
-	// non-Bun harnesses fall back to building one inline from the eventBus.
-	let owned = false;
-	let broadcaster: WsBroadcaster | null = injectedBroadcaster;
-	if (!broadcaster && eventBus) {
-		broadcaster = new WsBroadcaster(eventBus);
-		broadcaster.start();
-		owned = true;
-	}
+	// L1 step9: server-factory always passes an authz-bound hub (also used
+	// for direct domain pushes); tests may omit it and get an authz-less
+	// fallback instance built inline.
+	const broadcaster: WsConnectionHub = injectedHub ?? new WsConnectionHub();
 
 	// Map WSContext to its adapter for cleanup.
 	const adapters = new Map<WSContext, WsContextAdapter>();
@@ -152,9 +147,6 @@ function registerWsRoute(
 	);
 
 	return (): void => {
-		if (owned) {
-			broadcaster?.stop();
-		}
 		adapters.clear();
 	};
 }

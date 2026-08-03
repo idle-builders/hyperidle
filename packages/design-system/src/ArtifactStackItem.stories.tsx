@@ -18,10 +18,6 @@ const FIXTURE: Artifact = {
 		lang: "typescript",
 		text: "// jwt-middleware",
 	},
-	cost: {
-		money: { minor: 42, currency: "USD" },
-		tokens: { byTier: { fast: { prompt: 8000, completion: 4400 } } },
-	},
 	threadCount: 3,
 	createdAt: new Date(Date.now() - 12 * 60_000).toISOString(),
 };
@@ -35,7 +31,6 @@ export const Populated = (): React.JSX.Element => (
 				kind: "text",
 				label: "decision",
 				preview: { kind: "text", body: "Adopt Hono JWT. Built in, fast, zero deps." },
-				cost: { money: null, tokens: null },
 				threadCount: 0,
 			}}
 			onOpen={() => undefined}

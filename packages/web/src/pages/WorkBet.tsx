@@ -40,17 +40,14 @@ import {
 	taskOutcomeVerdictToStatus,
 	taskStateToStatus,
 } from "@hyperidle/design-system";
-import type { BetOutcomeVerdict, BetStatus, Message, WireMoney } from "@hyperidle/shared";
+import type { BetOutcomeVerdict, BetStatus, Message } from "@hyperidle/shared";
 import {
 	BET_OUTCOME_VERDICT_LABEL,
 	BET_OUTCOME_VERDICTS,
 	BET_STATUS_LABEL,
-	CURRENCY_CODES,
 	deriveBlocks,
-	formatMoney,
 	isRedactedPayload,
 	relativeLong,
-	scaleForCurrency,
 	TASK_OUTCOME_VERDICT_LABEL,
 	TASK_STATE_LABEL,
 } from "@hyperidle/shared";
@@ -76,9 +73,8 @@ import { blockExcerptFromPayload } from "../utils/block-excerpt.js";
 import { deriveInitials } from "../utils/initials.js";
 import { KnowledgeCreateDialog } from "./knowledge/KnowledgeCreateDialog";
 
-// L17: "cost" column maps to costActual (WireMoney|null); sort by minor units.
 // L19: "outcome" column added for latest session outcome sort.
-type SortColumn = "title" | "status" | "owner" | "costActual" | "outcome";
+type SortColumn = "title" | "status" | "owner" | "outcome";
 type SortDirection = "asc" | "desc";
 
 // AI4: TASK_VERDICT_LABEL, BET_VERDICT_LABEL, TASK_STATE_LABEL, taskStateBadgeClass
@@ -104,11 +100,7 @@ function sortTasks(
 	copy.sort((a, b) => {
 		let av: string | number = "";
 		let bv: string | number = "";
-		if (column === "costActual") {
-			// L17: costActual is WireMoney|null; sort by minor integer units.
-			av = a.costActual?.minor ?? 0;
-			bv = b.costActual?.minor ?? 0;
-		} else if (column === "outcome") {
+		if (column === "outcome") {
 			// L19: outcome column sorts by the outcome string value
 			av = a.latestSessionOutcome ?? "";
 			bv = b.latestSessionOutcome ?? "";
@@ -265,7 +257,7 @@ function BetPitch({
  * L14: The set of actions the founder can take on a bet from the action bar.
  * AD5 AC-5: pause, resume, activate removed — no pause state in bet status enum.
  */
-type BetActionKind = "kill" | "adjust-appetite" | "unblock" | "activate";
+type BetActionKind = "kill" | "unblock" | "activate";
 
 /**
  * ConsequencePreviewDialog — confirmation dialog for the Kill bet action.
@@ -344,8 +336,8 @@ function ConsequencePreviewDialog({
 				</>
 			}
 		>
-			{/* AF12: cost-honest cascade copy. The SAVED line drops "immediately" (cost
-			    does not stop the instant Kill is clicked) and the NOTE qualifier states
+			{/* AF12: honest cascade copy. The SAVED line drops "immediately" (capacity
+			    is not freed the instant Kill is clicked) and the NOTE qualifier states
 			    that running agents finish their current step before halting. */}
 			<div className="text-xs text-[var(--text-tertiary)] space-y-1 mb-3">
 				<p>
@@ -362,7 +354,7 @@ function ConsequencePreviewDialog({
 				</p>
 				<p>
 					<span className="font-semibold text-[var(--text-primary)]">NOTE:</span> Running agents
-					finish their current step, so cost may tick up briefly before they halt.
+					finish their current step before they halt.
 				</p>
 			</div>
 
@@ -385,156 +377,6 @@ function ConsequencePreviewDialog({
 					{error}
 				</p>
 			)}
-		</Dialog>
-	);
-}
-
-/**
- * AppetiteDialog — lets the founder adjust the bet appetite with a reason.
- *
- * @lore AI2: Migrated from native <dialog> to Dialog primitive. isDirty tracks
- * whether the form has been modified (amount or reason entered). Guards on Esc
- * when dirty. Authoring surface — truthful isDirty.
- */
-interface AppetiteDialogProps {
-	open: boolean;
-	/** AF12: the current appetite as raw WireMoney (null when never set). */
-	currentAppetite: WireMoney | null;
-	/** AF12: emits a WireMoney value (minor units + currency), not a duration string. */
-	onConfirm: (value: WireMoney, reason: string) => Promise<void>;
-	onCancel: () => void;
-}
-
-function AppetiteDialog({
-	open,
-	currentAppetite,
-	onConfirm,
-	onCancel,
-}: AppetiteDialogProps): JSX.Element | null {
-	// AF12: appetite is money. Pre-fill the amount (major units) and currency from
-	// the current WireMoney; default to USD / empty amount when unset.
-	const defaultCurrency = currentAppetite?.currency ?? "USD";
-	const defaultAmount =
-		currentAppetite != null
-			? String(currentAppetite.minor / 10 ** scaleForCurrency(currentAppetite.currency))
-			: "";
-
-	const [amount, setAmount] = useState(defaultAmount);
-	const [currency, setCurrency] = useState<string>(defaultCurrency);
-	const [reason, setReason] = useState("");
-	const [submitting, setSubmitting] = useState(false);
-	const [error, setError] = useState<string | null>(null);
-
-	// Reset form when dialog opens (preserve defaults when re-opened for a new appetite).
-	// biome-ignore lint/correctness/useExhaustiveDependencies: reset only when open changes
-	useEffect(() => {
-		if (open) {
-			setAmount(defaultAmount);
-			setCurrency(defaultCurrency);
-			setReason("");
-			setError(null);
-			setSubmitting(false);
-		}
-	}, [open]);
-
-	const parsedAmount = Number.parseFloat(amount);
-	const amountValid = Number.isFinite(parsedAmount) && parsedAmount >= 0;
-
-	// isDirty: any field modified from defaults
-	const isDirty =
-		reason.trim().length > 0 || amount !== defaultAmount || currency !== defaultCurrency;
-
-	const handleSave = async (): Promise<void> => {
-		const trimmed = reason.trim();
-		if (!(trimmed && amountValid)) return;
-		const minor = Math.round(
-			parsedAmount * 10 ** scaleForCurrency(currency as WireMoney["currency"]),
-		);
-		setSubmitting(true);
-		setError(null);
-		try {
-			await onConfirm({ minor, currency: currency as WireMoney["currency"] }, trimmed);
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Failed to update appetite.");
-			setSubmitting(false);
-		}
-	};
-
-	return (
-		<Dialog
-			open={open}
-			onClose={onCancel}
-			title="Adjust appetite"
-			isDirty={isDirty}
-			size="sm"
-			footer={
-				<>
-					<button
-						type="button"
-						className="btn btn-xs btn-ghost"
-						onClick={onCancel}
-						disabled={submitting}
-					>
-						Cancel
-					</button>
-					<button
-						type="button"
-						className="btn btn-xs btn-primary"
-						onClick={() => void handleSave()}
-						disabled={!(reason.trim() && amountValid) || submitting}
-					>
-						{submitting ? "…" : "Save"}
-					</button>
-				</>
-			}
-		>
-			<div className="flex flex-col gap-3">
-				<label className="flex flex-col gap-1">
-					<span className="text-xs text-[var(--text-tertiary)]">New appetite</span>
-					<div className="flex gap-2">
-						<Select
-							aria-label="Currency"
-							size="sm"
-							className="w-[88px]"
-							value={currency}
-							onChange={(e) => setCurrency(e.target.value)}
-							disabled={submitting}
-							options={CURRENCY_CODES.map((code) => ({ value: code, label: code }))}
-						/>
-						<input
-							type="number"
-							className="input input-bordered input-sm flex-1 text-base"
-							aria-label="Amount"
-							min={0}
-							step="0.01"
-							placeholder="0"
-							value={amount}
-							onChange={(e) => setAmount(e.target.value)}
-							disabled={submitting}
-						/>
-					</div>
-				</label>
-
-				<label className="flex flex-col gap-1">
-					<span className="text-xs text-[var(--text-tertiary)]">
-						Reason <span aria-hidden>(required)</span>
-					</span>
-					<textarea
-						className="textarea textarea-bordered text-base resize-none h-16 w-full"
-						placeholder="Why is the appetite changing?"
-						value={reason}
-						onChange={(e) => setReason(e.target.value)}
-						disabled={submitting}
-						maxLength={500}
-					/>
-				</label>
-
-				{error && (
-					<p role="alert" className="text-xs text-error">
-						{error}
-					</p>
-				)}
-			</div>
 		</Dialog>
 	);
 }
@@ -606,7 +448,6 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 	const [consequenceDialog, setConsequenceDialog] = useState<{
 		open: boolean;
 	}>({ open: false });
-	const [appetiteDialogOpen, setAppetiteDialogOpen] = useState(false);
 	// AF12: activate-bet error surface (shown under the bet title on failure).
 	const [activateError, setActivateError] = useState<string | null>(null);
 	// AG5: Bet overflow menu open state (replaces toggleAttribute("open") DOM hack — C5).
@@ -715,8 +556,6 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 		(action: BetActionKind): void => {
 			if (action === "kill") {
 				setConsequenceDialog({ open: true });
-			} else if (action === "adjust-appetite") {
-				setAppetiteDialogOpen(true);
 			} else if (action === "activate") {
 				void handleActivate();
 			} else if (action === "unblock") {
@@ -809,24 +648,6 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 				throw new Error(body.error ?? `kill failed: ${res.status}`);
 			}
 			setConsequenceDialog((prev) => ({ ...prev, open: false }));
-			fetched.refresh();
-		},
-		[bet, fetched],
-	);
-
-	const handleAppetiteConfirm = useCallback(
-		async (value: WireMoney, reason: string): Promise<void> => {
-			if (!bet) return;
-			const res = await apiFetch(`/api/bets/${encodeURIComponent(bet.id)}`, {
-				method: "PATCH",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ field: "cost_appetite", value, reason }),
-			});
-			if (!res.ok) {
-				const body = (await res.json().catch(() => ({}))) as { error?: string };
-				throw new Error(body.error ?? `Appetite update failed: ${res.status}`);
-			}
-			setAppetiteDialogOpen(false);
 			fetched.refresh();
 		},
 		[bet, fetched],
@@ -945,11 +766,6 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 							status={betStatusToStatus(bet.status)}
 							label={BET_STATUS_LABEL[bet.status]}
 						/>
-						{bet.costAppetite && (
-							<span className="inline-flex items-center px-[9px] py-[3px] text-[12px] font-[500] rounded-[var(--r-pill)] bg-[rgba(217,119,6,0.10)] text-[var(--accent-secondary)]">
-								{formatMoney(bet.costAppetite)} appetite
-							</span>
-						)}
 						{/* W3 AC-19: overflow action menu */}
 						{/* AG5: Bet overflow menu — caller-owned trigger (bet-overflow-btn untouched per C4),
 						    Menu component handles panel/items/Escape/click-outside/keyboard. */}
@@ -984,12 +800,6 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 										: []),
 									...(bet.status === "active"
 										? [
-												{
-													id: "adjust-appetite",
-													label: "Adjust appetite",
-													onSelect: () => handleAction("adjust-appetite"),
-													dataAttrs: { "data-bet-action": "adjust-appetite" },
-												} satisfies MenuItem,
 												{
 													id: "unblock",
 													label: "Unblock",
@@ -1078,14 +888,6 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 						onCancel={() => setConsequenceDialog((prev) => ({ ...prev, open: false }))}
 					/>
 
-					{/* L14: Appetite adjust dialog */}
-					<AppetiteDialog
-						open={appetiteDialogOpen}
-						currentAppetite={bet.costAppetite}
-						onConfirm={handleAppetiteConfirm}
-						onCancel={() => setAppetiteDialogOpen(false)}
-					/>
-
 					{/* Q2: Add knowledge dialog — locked to bet scope */}
 					<KnowledgeCreateDialog
 						open={addKnowledgeOpen}
@@ -1130,18 +932,6 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 									</span>
 								);
 							})()}
-						</div>
-						{/* Budget stat card */}
-						<div className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[6px] flex-1">
-							<span className="text-[12px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
-								Budget spent
-							</span>
-							<span className="text-[24px] font-[600] tracking-[-0.01em] tabular-nums text-[var(--text-primary)]">
-								{formatMoney(bet.costActual)}
-							</span>
-							<span className="text-[13px] text-[var(--text-secondary)] mt-[3px]">
-								of {formatMoney(bet.costAppetite)} appetite
-							</span>
 						</div>
 						{/* Team stat card
 						    @lore visual-parity-audit D-11: mockup shows avatar-group + "N members"
@@ -1513,9 +1303,12 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 					 * border-bottom dividers (last:border-b-0). No horizontal padding, no rounding.
 					 */}
 					{/*
-					 * AK3: Four-state tasks section.
-					 * Precedence (approved.md binding): tasks>0 first, then draft, then blocked, then decomposing.
-					 * The permanent "Tasks will appear" empty state is replaced by honest state-specific copy.
+					 * AU21 §9 Increment 10a (Decision I): two-state tasks section.
+					 * Precedence (approved.md binding): tasks>0 first, then draft, then the
+					 * honest "no tasks yet" state. Core no longer auto-decomposes a
+					 * committed bet (the built-in bet_decomposition mechanism is removed
+					 * entirely) — the prior Decomposing/Blocked auto-decompose states are
+					 * gone; a committed bet with zero tasks just says so.
 					 */}
 					<section aria-label="Tasks">
 						<SectionLabel label="Tasks" divider />
@@ -1568,65 +1361,30 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 								})}
 							</div>
 						) : bet.status === "draft" ? (
-							/* State 2: Draft — bet not yet committed. */
+							/* State 2: Draft — bet not yet committed. Core no longer
+							 * auto-decomposes on commit (AU21 Decision I removed the built-in
+							 * bet_decomposition mechanism) — copy must not promise automatic
+							 * behavior core itself no longer provides. */
 							<EmptyState
 								title="Not committed yet"
-								description="Commit this bet and your team will break it into tasks."
+								description="Commit this bet to start adding tasks."
 								dataTestId="bet-tasks-draft"
 							/>
-						) : bet.decompositionStatus === "blocked" ? (
-							/* State 3: Blocked — decomposition ended in a failure.
-							 * @lore AK3: amber alert glyph (--accent-secondary, not green --accent-primary)
-							 * signals a blocker to act on, not a crash. iconBg matches --accent-secondary-dim
-							 * per approved.md binding. The SVG color is set explicitly because EmptyState's
-							 * icon container defaults to text-[var(--accent-primary)] (green). */
+						) : (
+							/* State 3: No tasks yet — a committed/active bet with zero tasks.
+							 * Honest replacement for the removed auto-decompose
+							 * Decomposing/Blocked states (AU21 §9 Increment 10a / Decision I). */
 							<EmptyState
-								icon={
-									<svg
-										width="24"
-										height="24"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										strokeWidth="2"
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										aria-hidden="true"
-										style={{ color: "var(--accent-secondary)" }}
-									>
-										<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-										<line x1="12" y1="9" x2="12" y2="13" />
-										<line x1="12" y1="17" x2="12.01" y2="17" />
-									</svg>
-								}
-								iconBg="var(--accent-secondary-dim)"
-								title={
-									bet.decompositionBlockerReason === "no_eligible_agent"
-										? "No one can take this work"
-										: "Couldn't plan the work"
-								}
-								description={
-									bet.decompositionBlockerReason === "no_eligible_agent"
-										? "This team has no agent eligible to own tasks for this bet, so work hasn't started. Add an agent to the team to get going."
-										: "Your team couldn't break this bet into tasks. Try committing again, or refine the bet's goal and done condition."
-								}
+								title="No tasks yet"
+								description="Add a task, or attach an agent to this bet, to get work started."
 								action={
-									bet.decompositionBlockerReason === "no_eligible_agent" && bet.teamId ? (
+									bet.teamId ? (
 										<RRLink to={`/work/team/${bet.teamId}`}>
 											<Button variant="secondary">Add an agent</Button>
 										</RRLink>
 									) : undefined
 								}
-								dataTestId="bet-tasks-blocked"
-							/>
-						) : (
-							/* State 4: Decomposing — active, 0 tasks, not blocked (running or null). */
-							<EmptyState
-								icon={<LiveDot />}
-								iconBg="var(--accent-primary-dim)"
-								title="Planning the work"
-								description="Your team is breaking this bet into tasks. This usually takes a moment."
-								dataTestId="bet-tasks-decomposing"
+								dataTestId="bet-tasks-empty"
 							/>
 						)}
 					</section>

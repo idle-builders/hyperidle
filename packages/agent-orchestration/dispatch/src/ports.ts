@@ -1,21 +1,4 @@
-import type {
-	AgentSessionRequest,
-	AgentWorkIntent,
-	Bet,
-	HyperIdleDb,
-	Message,
-	NewItem,
-	NewMessage,
-	NewRoutine,
-	NewRoutineRun,
-	NewThread,
-	NewUser,
-	Routine,
-	Task,
-	Thread,
-	User,
-	WriteExecutor,
-} from "@hyperidle/db";
+import type { AgentSessionRequest, HyperIdleDb, NewMessage } from "@hyperidle/db";
 import type {
 	CapturedToolCall,
 	ConversationMessage,
@@ -27,60 +10,43 @@ import type {
 	SessionOutcome,
 } from "@hyperidle/shared";
 
-/** Composition-boundary capabilities required by dispatch. */
+/**
+ * Composition-boundary capabilities required by dispatch.
+ *
+ * @lore AU21 §9 Increment 4: `routine`/`review`/`knowledge`/`cost`/
+ * `sessionRequests` shrink or disappear — the routine scheduler + all four
+ * builtin-routine bodies relocated to `@hyperidle/routine`'s
+ * `routine-scheduler.ts` (architecture.md §6 Decision B′/B″ ruling #4).
+ *
+ * @lore AU21 §9 Increment 9 (forensic-triage wave, second pass): `routine`
+ * is gone entirely now too — `provisionTeamRoutinesInternal` (routine
+ * *definition* seeding at team-creation time, dispatch's last remaining
+ * direct `routine` table write) relocated to `@hyperidle/routine`'s
+ * `routine-scheduler.ts` (`provisionTeamRoutines`, an intra-package call
+ * there). `dispatch` has zero `agent-orchestration -> routine` edge left —
+ * see `service.ts`'s own `@lore` for the full reasoning.
+ */
 export interface DispatchPorts {
-	readonly work: {
-		listTasks(db: HyperIdleDb, opts: { readonly state: string }): Promise<readonly Task[]>;
-		getTaskById(db: HyperIdleDb, id: string): Promise<Task | undefined>;
-		getBetById(db: HyperIdleDb, id: string): Promise<Bet | undefined>;
-		createItem(exec: WriteExecutor, values: NewItem): Promise<void>;
-		findRetroItemByThreadIds(
-			db: HyperIdleDb,
-			threadIds: string[],
-			marker: string,
-		): Promise<{ readonly id: string } | undefined>;
-	};
-	readonly routine: {
-		insertRoutine(
-			exec: WriteExecutor,
-			values: NewRoutine,
-			opts?: { readonly onConflictDoNothing?: boolean },
-		): Promise<void>;
-		getRoutineById(db: HyperIdleDb, id: string): Promise<Routine | undefined>;
-		insertRoutineRun(exec: WriteExecutor, values: NewRoutineRun): Promise<void>;
-		updateRoutineById(exec: WriteExecutor, id: string, patch: Partial<NewRoutine>): Promise<void>;
-		findRunningRoutineRun(
-			db: HyperIdleDb,
-			routineId: string,
-		): Promise<{ readonly id: string } | undefined>;
-		listActiveRoutines(
-			db: HyperIdleDb,
-			opts?: { readonly triggerType?: string },
-		): Promise<readonly Routine[]>;
-		listScheduledRoutinesMissingNextRunAt(db: HyperIdleDb): Promise<readonly Routine[]>;
-		sumRoutineRunCostSince(db: HyperIdleDb, routineId: string, since: string): Promise<number>;
-	};
+	/**
+	 * @lore AU21 §9 Increment 12 (third pass, dead-port cleanup): every
+	 * `conversation` member besides `insertMessage`
+	 * (`listMessagesByThread`/`getThreadById`/`updateThread`) plus the entire
+	 * `users`/`settings` sub-ports are DELETED — confirmed genuinely dead in
+	 * `service.ts` (only referenced in stale `@lore` comments describing
+	 * PRIOR waves' already-completed migrations, no live call site).
+	 * `insertMessage` is the ONLY live `agent-orchestration -> core-api`
+	 * conversation capability — the sanctioned `CoreApiPort` seam write.
+	 */
 	readonly conversation: {
+		/**
+		 * @lore AU21 §9 Increment 2 (conversation wave): this call routes through
+		 * the `CoreApiPort` seam (`dispatch-bindings.ts`) — the assistant-turn
+		 * writes are "agent-as-user" (architecture.md §6 Decision A/C). The
+		 * seam's route actor derives from `values.senderId` (always the
+		 * assistant agent's own identity, `ast-<userId>`, never the human
+		 * sender) — no separate actor param needed here.
+		 */
 		insertMessage(exec: HyperIdleDb, values: NewMessage): Promise<void>;
-		listMessagesByThread(
-			exec: HyperIdleDb,
-			threadId: string,
-			opts?: { readonly order?: "createdAt"; readonly dir?: "asc" | "desc" },
-		): Promise<readonly Message[]>;
-		getThreadById(exec: HyperIdleDb, id: string): Promise<Thread | undefined>;
-		updateThread(exec: HyperIdleDb, id: string, patch: Partial<NewThread>): Promise<void>;
-		getThreadIdsByHost(exec: HyperIdleDb, hostKind: string, hostId: string): Promise<string[]>;
-		insertThread(exec: HyperIdleDb, values: NewThread): Promise<void>;
-	};
-	readonly users: {
-		getOrCreateUser(exec: HyperIdleDb, id: string, create: NewUser): Promise<User>;
-		getUserById(exec: HyperIdleDb, id: string): Promise<User | undefined>;
-	};
-	readonly settings: {
-		readServerConfig(db: HyperIdleDb): Promise<{
-			readonly cost: { readonly capMinor: number };
-			readonly modelGateway: ModelGatewayConfig;
-		}>;
 	};
 	readonly modelGateway: {
 		resolveAgentModel(
@@ -94,20 +60,6 @@ export interface DispatchPorts {
 			config: ModelGatewayConfig,
 			credentialResolver: { resolve(name: CredentialName): Promise<string | null> },
 		): Promise<ResolvedModel>;
-	};
-	readonly agentSelection: {
-		resolveScaffoldSpecs(request: {
-			readonly db: HyperIdleDb;
-			readonly trigger: "user_assistant";
-			readonly teamId: null;
-			readonly teamMembersId: null;
-			readonly teamName: null;
-			readonly functions: null;
-			readonly role: null;
-			readonly name: null;
-			readonly ownerUserId: string;
-			readonly ownerUserName: null;
-		}): Promise<readonly { readonly systemPrompt: string | null }[]>;
 	};
 	readonly runOrchestration: {
 		executeAgentRunRequest(
@@ -135,8 +87,7 @@ export interface DispatchPorts {
 			},
 		): Promise<{
 			readonly sessionId: string;
-			readonly outcome: SessionOutcome | "budget_exhausted";
-			readonly totalCostCents: number;
+			readonly outcome: SessionOutcome;
 			readonly taskId: string | null;
 			readonly returnVerdict?: "returned" | "not_returned";
 			readonly forceReturnCount: number;
@@ -144,74 +95,6 @@ export interface DispatchPorts {
 			readonly conversationalReply?: string;
 			readonly conversationalToolCalls?: readonly CapturedToolCall[];
 		}>;
-	};
-	readonly sessionRequests: {
-		enqueueWorkIntent(
-			exec: WriteExecutor,
-			input: {
-				readonly kind:
-					| "assistant_turn"
-					| "routine_run"
-					| "bet_decomposition"
-					| "task_run"
-					| "reengagement";
-				readonly sourceKind:
-					| "thread_message"
-					| "explicit_session_start"
-					| "knowledge_action"
-					| "routine_run"
-					| "bet"
-					| "task_dispatch_attempt"
-					| "proposed_call";
-				readonly sourceId: string;
-				readonly requestedBy?: string;
-				readonly idempotencyKey: string;
-			},
-		): Promise<AgentWorkIntent>;
-	};
-	readonly cost: { getFactoryCostActual(db: HyperIdleDb): Promise<number> };
-	readonly review: {
-		createPracticeMeeting(
-			db: HyperIdleDb,
-			input: { readonly scopeId: string; readonly title: string; readonly nowMs: number },
-		): Promise<{ readonly meetingId: string }>;
-	};
-	readonly knowledge: {
-		runAutoPromotionSweep(
-			db: HyperIdleDb,
-			eventBus: EventBus,
-		): Promise<{
-			readonly promotedIds: readonly string[];
-			readonly flaggedForReviewIds: readonly string[];
-			readonly skippedIds: readonly string[];
-			readonly scanned: number;
-		}>;
-		runStaleSweep(
-			db: HyperIdleDb,
-			eventBus: EventBus,
-			nowMs: number,
-			thresholdMs: number | undefined,
-			options: { readonly silent: boolean },
-		): Promise<{ readonly markedIds: readonly string[] }>;
-		listRecentByLayers(
-			db: HyperIdleDb,
-			layers: readonly string[],
-			updatedSince: string,
-		): Promise<
-			readonly {
-				readonly title: string;
-				readonly updatedAt: string;
-				readonly layer: string | null;
-			}[]
-		>;
-		recomputeAttentionForCandidates(
-			db: HyperIdleDb,
-			eventBus: EventBus,
-			candidateIds: readonly string[],
-		): Promise<
-			| { readonly ok: true }
-			| { readonly ok: false; readonly error: { readonly code: string; readonly message: string } }
-		>;
 	};
 	readonly toolHandlers: {
 		buildAssistantDraftRegistry(

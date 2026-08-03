@@ -400,37 +400,7 @@ describe("agent session request repository", () => {
 		const deps: DurableAgentQueueDeps = {
 			db,
 			lifecycleProjection: {
-				routine: { updateRoutineRunIfRunning: async () => {} },
-				work: {
-					updateBetDecompositionStatusIfRunning: async () => {},
-					updateTaskDispatchAttemptIfActive: async () => {},
-				},
 				explicitSessionStarts: { projectTerminalState: async () => {} },
-			},
-			review: { findGrantedProposedCall: async () => undefined },
-			routine: {
-				getRoutineRunById: async () => undefined,
-				getRoutineById: async () => undefined,
-				updateRoutineRunIfRunning: async () => {},
-			},
-			config: { listConfiguration: async () => [] },
-			teams: { getTeamMembersByTeamId: async () => undefined },
-			users: {
-				getUserById: async () => undefined,
-				getUserByIdScopedToTeam: async () => undefined,
-				listUsersByTeam: async () => [],
-			},
-			work: {
-				getTaskById: async () => undefined,
-				getBetById: async () => undefined,
-				getTaskDispatchAttemptById: async () => undefined,
-				reapTerminalTaskDispatchAttempts: async () => 0,
-			},
-			conversation: { getMessageById: async () => undefined },
-			knowledge: { findById: async () => null },
-			agentSelection: {
-				isAtCapacity: async () => false,
-				selectAgent: async () => ({ agentId: null }),
 			},
 		};
 		await Promise.all([
@@ -634,7 +604,7 @@ describe("agent session request repository", () => {
 			await transitionSessionRequest(db, {
 				to: "termination-requested",
 				requestId: request.id,
-				reason: "cost_cap",
+				reason: "shutdown",
 			}),
 		).toBe("conflict");
 		const results = await Promise.all([
@@ -659,7 +629,6 @@ describe("agent session request repository", () => {
 	test("live run registry replaces, aborts, and deregisters runtime handles", async () => {
 		const stopResult = {
 			outcome: "completed" as const,
-			cost: { minor: 0, currency: "USD" as const },
 			tokenUsage: { byTier: {} },
 		};
 		const firstStop = vi.fn(async (_handle: SessionHandle) => stopResult);

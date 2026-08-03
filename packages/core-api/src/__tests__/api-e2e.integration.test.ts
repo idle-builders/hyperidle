@@ -67,8 +67,6 @@ async function seedTaskData(db: HyperIdleDb): Promise<void> {
 		id: "bet-1",
 		teamId: "prod-1",
 		description: "Test bet",
-		costAppetiteMinor: 20000,
-		costAppetiteCurrency: "USD",
 		status: "active",
 		createdAt: new Date().toISOString(),
 	});
@@ -109,8 +107,6 @@ async function seedSessionData(db: HyperIdleDb): Promise<void> {
 		id: "bet-s",
 		teamId: "prod-1",
 		description: "Session bet",
-		costAppetiteMinor: 20000,
-		costAppetiteCurrency: "USD",
 		status: "active",
 		createdAt: new Date().toISOString(),
 	});
@@ -210,7 +206,6 @@ describe("E2E API Integration (I5)", () => {
 				body: JSON.stringify({
 					teamId: "prod-1",
 					description: "E2E integration bet",
-					costAppetite: { minor: 20000, currency: "USD" },
 				}),
 			});
 			expect(createRes.status).toBe(201);
@@ -265,7 +260,6 @@ describe("E2E API Integration (I5)", () => {
 				body: JSON.stringify({
 					teamId: "prod-1",
 					description: "Bet to commit",
-					costAppetite: { minor: 20000, currency: "USD" },
 				}),
 			});
 			expect(createRes.status).toBe(201);
@@ -720,7 +714,7 @@ describe("E2E API Integration (I5)", () => {
 			await seedBase(db);
 			const res = await app.request("/api/status", { headers: auth() });
 			expect(res.status).toBe(200);
-			const body = (await res.json()) as { activeSessions: number; totalCost: number };
+			const body = (await res.json()) as { activeSessions: number };
 			expect(body.activeSessions).toBe(0);
 		});
 

@@ -32,20 +32,9 @@ const MOCK_ROUTINE_DETAIL: RoutineDetail = {
 		lastRunAt: "2026-01-01T08:00:00.000Z",
 		lastRunOutcome: "success",
 		nextRunAt: "2026-01-02T08:00:00.000Z",
-		costActual: { minor: 500, currency: "USD" },
 		createdAt: null,
-		costCapPerRun: null,
-		costCapMonthly: null,
 		lastRunSummary: null,
 		silent: false,
-	},
-	budget: {
-		avgCostPerRun: null,
-		costThisMonth: null,
-		costCapPerRun: null,
-		costCapMonthly: null,
-		perRunUtilizationPercent: null,
-		monthlyUtilizationPercent: null,
 	},
 	runs: [
 		{
@@ -54,7 +43,6 @@ const MOCK_ROUTINE_DETAIL: RoutineDetail = {
 			endedAt: "2026-01-01T08:01:30.000Z",
 			durationSeconds: 90,
 			outcome: "success",
-			cost: { minor: 250, currency: "USD" },
 			errorMessage: null,
 		},
 		{
@@ -63,7 +51,6 @@ const MOCK_ROUTINE_DETAIL: RoutineDetail = {
 			endedAt: "2025-12-31T08:01:00.000Z",
 			durationSeconds: 60,
 			outcome: "error",
-			cost: null,
 			errorMessage: "Connection timeout",
 		},
 	],

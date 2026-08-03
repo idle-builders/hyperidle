@@ -8,7 +8,6 @@
  * 4. GET /api/teams/:id returns 500 with code 'team_missing' when the team for a product is absent.
  * 5. GET /api/teams/:id returns populated ProductDetail for a seeded product+team+roster+bets.
  * 6. GET /api/teams/:id returns activeBets: [] for a product whose bets are all shipped.
- * 7. GET /api/teams/:id with teams.cost_cap = null returns burn.costCap: null.
  */
 
 import { bets, tasks, teamMembers, teams, users } from "@hyperidle/db";
@@ -157,8 +156,6 @@ describe("GET /api/teams/:id", () => {
 			capacity: 5,
 			activeBets: 0,
 			formedAt: NOW,
-			costCap: 10000,
-			costActual: 4200,
 		});
 
 		await db.insert(users).values({
@@ -243,8 +240,6 @@ describe("GET /api/teams/:id", () => {
 			teamMembers: { id: string };
 			roster: Array<{ agentId: string; name: string; isLead: boolean }>;
 			burn: {
-				costActual: { minor: number; currency: string } | null;
-				costCap: { minor: number; currency: string } | null;
 				capacity: number;
 				activeBets: number;
 			};
@@ -278,12 +273,6 @@ describe("GET /api/teams/:id", () => {
 		expect(bet1).toBeDefined();
 		expect(bet1?.progressDone).toBe(1);
 		expect(bet1?.progressTotal).toBe(2);
-
-		// Burn — L17: costCap and costActual are WireMoney objects
-		expect(body.burn.costCap?.minor).toBe(10000);
-		expect(body.burn.costCap?.currency).toBe("USD");
-		expect(body.burn.costActual?.minor).toBe(4200);
-		expect(body.burn.costActual?.currency).toBe("USD");
 	});
 
 	test("returns activeBets: [] for a product whose bets are all shipped", async ({ db, app }) => {
@@ -313,29 +302,5 @@ describe("GET /api/teams/:id", () => {
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { activeBets: unknown[] };
 		expect(body.activeBets).toEqual([]);
-	});
-
-	test("returns burn.costCap: null when teams.cost_cap is null", async ({ db, app }) => {
-		await db
-			.insert(teams)
-			.values({ id: "p3", name: "No Cap Product", phase: "shape", createdAt: NOW });
-
-		await db.insert(teamMembers).values({
-			id: "t3",
-			teamId: "p3",
-			capacity: 2,
-			activeBets: 0,
-			formedAt: NOW,
-			// costCap not set — null
-		});
-
-		const res = await app.request("/api/teams/p3", {
-			method: "GET",
-			headers: authHeaders(),
-		});
-
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as { burn: { costCap: number | null } };
-		expect(body.burn.costCap).toBeNull();
 	});
 });

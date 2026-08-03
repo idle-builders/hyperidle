@@ -14,8 +14,12 @@ import { EventBus, type ToolContext } from "@hyperidle/shared";
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
+import {
+	createInProcessCoreApiTransport,
+	registerCoreApiTransport,
+} from "../services/core-api-port-composition.js";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
-import { test } from "../test-fixtures.js";
+import { test, vi } from "../test-fixtures.js";
 
 const createBetTool = buildToolDefinitions(toolHandlersPorts).find((t) => t.name === "create_bet")!;
 const editBetTool = buildToolDefinitions(toolHandlersPorts).find((t) => t.name === "edit_bet")!;
@@ -74,8 +78,15 @@ async function seedBet(db: HyperIdleDb): Promise<void> {
 describe("AD8b — create_bet tool", () => {
 	test("returns ok and inserts a bet row with the given description", async ({
 		db,
+		app,
 		eventBus: _eb,
 	}) => {
+		// @lore AU21 §9 Increment 1: create_bet now routes through the
+		// CoreApiPort write seam (real POST /bets), not raw DI — needs a
+		// registered in-process transport + a stubbed API key, same
+		// convention `bets.integration.test.ts` uses for every real route call.
+		vi.stubEnv("HYPERIDLE_API_KEY", "ad8b-create-bet-test-key");
+		registerCoreApiTransport(createInProcessCoreApiTransport(app));
 		await seedBase(db);
 		const ctx = makeCtx(db, "create-bet");
 

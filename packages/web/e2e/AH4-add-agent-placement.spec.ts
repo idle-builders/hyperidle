@@ -65,8 +65,6 @@ function makeTeamDetailResponse() {
 		teamMembers: { id: TEAM_MEMBERS_ID, formedAt: new Date().toISOString(), dissolvedAt: null },
 		roster: [],
 		burn: {
-			costActual: { minor: 0, currency: "USD" },
-			costCap: null,
 			capacity: 5,
 			activeBets: 0,
 		},

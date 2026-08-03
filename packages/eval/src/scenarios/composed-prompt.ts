@@ -6,12 +6,7 @@
 
 import { sessions } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import {
-	judgeCostTracked,
-	judgeLlmQuality,
-	judgeSessionCompleted,
-	judgeSessionNotesWritten,
-} from "../judges.js";
+import { judgeLlmQuality, judgeSessionCompleted, judgeSessionNotesWritten } from "../judges.js";
 import { runEvalSession } from "../provision-harness.js";
 import { seedMinimalWorld } from "../seeding.js";
 import type {
@@ -84,7 +79,6 @@ End your session notes with "Made with intention." (our standard sign-off).`,
 	rubric: {
 		dimensions: [
 			judgeSessionCompleted(),
-			judgeCostTracked(),
 			judgeSessionNotesWritten(),
 			judgeLlmQuality({
 				id: "identity_adherence",

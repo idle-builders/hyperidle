@@ -8,10 +8,10 @@
 
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import {
-	type CostCapBreachedEvent,
 	EventBus,
 	type ObservabilityEvent,
 	type SessionStartedEvent,
+	type ToolCallRecordedEvent,
 } from "@hyperidle/shared";
 import {
 	createDbTraceIdResolver,
@@ -43,7 +43,7 @@ describe("H3 AC3 — Trace correlation", () => {
 		expect(resolver.resolve("missing")).toBeNull();
 	});
 
-	test("session + cost event carry the same trace id (AC3)", async () => {
+	test("session + tool-call event carry the same trace id (AC3)", async () => {
 		const bus = new EventBus();
 		const adapter = captureAdapter();
 		const dispatcher = createObservabilityDispatcher({
@@ -64,23 +64,21 @@ describe("H3 AC3 — Trace correlation", () => {
 			taskId: "t",
 			timestamp: Date.now(),
 		} satisfies SessionStartedEvent);
-		bus.emit<"cost_cap_breached">({
-			type: "cost_cap_breached",
+		bus.emit<"tool_call_recorded">({
+			type: "tool_call_recorded",
 			streamId: "sess-X",
-			level: "hard",
-			capLevel: "agent",
-			entityId: "a",
-			spend: 100,
-			cap: 100,
+			sessionId: "sess-X",
+			toolName: "Read",
+			argsSummary: "{}",
 			timestamp: Date.now(),
-		} satisfies CostCapBreachedEvent);
+		} satisfies ToolCallRecordedEvent);
 
 		await dispatcher.flush();
 		unsub();
 		expect(adapter.events).toHaveLength(2);
-		const [session, cost] = adapter.events;
+		const [session, toolCall] = adapter.events;
 		expect(session!.traceId).toBe("trace-X");
-		expect(cost!.traceId).toBe("trace-X");
+		expect(toolCall!.traceId).toBe("trace-X");
 		await dispatcher.dispose();
 	});
 });

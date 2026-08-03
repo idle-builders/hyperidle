@@ -37,8 +37,22 @@ into four:
   lifecycle projection, **context assembly and capture/writeback against Knowledge**. Decides *that*
   and *when* an agent run happens, and prepares/consumes everything a run needs *before/after*
   handing off to execution; never touches an LLM CLI, harness adapter, or MCP server directly.
-  Always colocated with `core-api` in the same process (every Application that composes one composes
-  both), so its Service calls stay in-process.
+  Always colocated with `core-api` in the same process today (every Application that composes one
+  composes both). **Resolved by AU21 (`.pipeline/work/AU21/architecture.md`): bake-at-emit +
+  agent-self-recovery + format-only orchestration.** `core-api` resolves and BAKES everything a run
+  needs onto the emitted request at emit time (the target agent, its full config, the assembled
+  session context/knowledge, the transcript where relevant) — `agent-orchestration` never reads core
+  domain state back to build a session, not through a location-transparent seam, not through
+  colocated DI, not at all. It claims the baked request, formats it into harness input, and dispatches
+  — a pure transformation, zero core-api reads or writes. If the agent needs live detail beyond what
+  was baked, it recovers it itself, live, via its OWN `CoreApiPort` MCP tools during the run — exactly
+  the same seam a human UI client uses, "agent-as-user" (Decision A/C). Failures report back via
+  explicit domain events (`AgentRunAdmissionFailedEvent`, session lifecycle events) that core-api
+  subscribes to and reacts to; `agent-orchestration` is a blind, purely request-driven executor — it
+  holds no mechanism, live or pushed, to learn about a core-side state change it did not itself
+  request (Decision H/§12: the emit→deactivate→drain race needs no re-check and no push, because if
+  an agent is deactivated core simply never sends it a new request). Mechanically enforced by
+  `scripts/composition-edge-anti-regrowth-guard.ts`, wired into `npm run lint` as a hard failure.
 - `agent-execution` — harness adapters, MCP, tool execution. **The only Layer permitted to invoke an
   LLM CLI, harness adapter, or MCP server — and the only Layer with zero Service/table access of any
   kind, including `knowledge`.** (Founder correction, 2026-07-13: the original draft gave

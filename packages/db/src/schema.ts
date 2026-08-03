@@ -60,12 +60,6 @@ export const users = pgTable("users", {
 	skills: text("skills"),
 	status: text("status").notNull(),
 	maxConcurrentSessions: integer("max_concurrent_sessions").notNull().default(1),
-	/** @lore L17: costCap renamed to costCapMinor; costActual removed (computed from sessions). Legacy column preserved for migration rollback. */
-	costCap: integer("cost_cap"),
-	costActual: integer("cost_actual").default(0),
-	/** L17: structured money cap — minor units + currency code. */
-	costCapMinor: integer("cost_cap_minor"),
-	costCapCurrency: text("cost_cap_currency"),
 	/** P2: human-specific nullable columns. Null for AI users. */
 	email: text("email"),
 	avatarUrl: text("avatar_url"),
@@ -117,12 +111,6 @@ export const teamMembers = pgTable("team_members", {
 	leadAgentId: text("lead_agent_id"),
 	capacity: integer("capacity").notNull(),
 	activeBets: integer("active_bets").notNull().default(0),
-	/** @lore L17: legacy columns kept for rollback safety. */
-	costCap: integer("cost_cap"),
-	costActual: integer("cost_actual").default(0),
-	/** L17: structured money cap — minor units + currency code. */
-	costCapMinor: integer("cost_cap_minor"),
-	costCapCurrency: text("cost_cap_currency"),
 	formedAt: text("formed_at").notNull(),
 	dissolvedAt: text("dissolved_at"),
 });
@@ -142,10 +130,11 @@ export const bets = pgTable(
 		// @lore U1: `description` was formerly `pitch`. Renamed in migration 0021.
 		description: text("description").notNull(),
 		/**
-		 * @lore L17: appetite (duration string "1 week"/"2 weeks"/"6 weeks") is
-		 * deprecated in favour of costAppetiteMinor + costAppetiteCurrency.
-		 * The column is kept for rollback safety but no longer required at the
-		 * API boundary (nullable here, route validation rejects it as a 400).
+		 * @lore L17: appetite (duration string "1 week"/"2 weeks"/"6 weeks") was
+		 * deprecated in favour of the cost-appetite columns AU21 Increment 14a
+		 * now deletes outright (no replacement). The column is kept for rollback
+		 * safety but no longer required at the API boundary (nullable here,
+		 * route validation rejects it as a 400).
 		 */
 		appetite: text("appetite"),
 		doneCondition: text("done_condition"),
@@ -159,12 +148,6 @@ export const bets = pgTable(
 		completedAt: text("completed_at"),
 		// @lore U1: `atRisk` boolean replaces the old `behind` status sub-state.
 		atRisk: integer("at_risk").notNull().default(0),
-		/** L17: structured cost appetite — minor units + currency code. */
-		costAppetiteMinor: integer("cost_appetite_minor"),
-		costAppetiteCurrency: text("cost_appetite_currency"),
-		/** L17: accumulated actual cost from sessions — minor units + currency. */
-		costActualMinor: integer("cost_actual_minor"),
-		costActualCurrency: text("cost_actual_currency"),
 		/** L17: accumulated tokens as JSON (TokenUsage shape). */
 		tokensActualJson: text("tokens_actual_json"),
 		/** AC1: Structured outcome verdict. Closed enum: validated|refuted|partial|inconclusive. Null = not evaluated. */
@@ -175,22 +158,6 @@ export const bets = pgTable(
 		outcomeRecordedAt: text("outcome_recorded_at"),
 		/** AC1: User ID of the actor who last recorded the outcome. */
 		outcomeRecordedBy: text("outcome_recorded_by"),
-		/**
-		 * AK3: Decomposition lifecycle state.
-		 * null = never decomposed | 'running' = in-flight | 'done' = tasks created | 'blocked' = failed
-		 *
-		 * @lore AK3: CAS guard (NULL→'running') prevents concurrent re-fires of the
-		 * same decomposition. A boot-time sweep (resolveOrphanedDecompositions) flips
-		 * any 'running' bet to 'blocked/failed' on restart — in-process turns die with
-		 * the process, so 'running' at boot always means orphaned.
-		 */
-		decompositionStatus: text("decomposition_status"),
-		/**
-		 * AK3: Why a decomposition ended in 'blocked'.
-		 * null | 'no_eligible_agent' | 'empty' | 'failed'
-		 * Only meaningful when decompositionStatus = 'blocked'.
-		 */
-		decompositionBlockerReason: text("decomposition_blocker_reason"),
 		/**
 		 * AK5: provenance — the knowledge item this bet was promoted from.
 		 * null = hand-typed / assistant-drafted bet (no source). Forward, recoverable,
@@ -231,8 +198,6 @@ export const tasks = pgTable(
 		state: text("state").notNull(),
 		dependencies: text("dependencies"),
 		artifacts: text("artifacts"),
-		costCap: integer("cost_cap"),
-		costActual: integer("cost_actual").default(0),
 		threadId: text("thread_id").references(() => threads.id, { onDelete: "restrict" }),
 		notes: text("notes"),
 		auditTrail: text("audit_trail"),
@@ -368,7 +333,7 @@ export const agentSessionRequests = pgTable(
 		),
 		check(
 			"agent_session_requests_termination_reason_ck",
-			sql`${table.terminationReason} is null or ${table.terminationReason} in ('user_done', 'user_crashed', 'handoff', 'cost_cap', 'shutdown')`,
+			sql`${table.terminationReason} is null or ${table.terminationReason} in ('user_done', 'user_crashed', 'handoff', 'shutdown')`,
 		),
 	],
 );
@@ -396,6 +361,15 @@ export const agentWorkIntents = pgTable(
 		attempts: integer("attempts").notNull().default(0),
 		lastError: text("last_error"),
 		lastErrorCode: text("last_error_code"),
+		/**
+		 * @lore AU21 Increment 3 Wave 0: the emit-time-resolved request
+		 * (`resolveIntentInputInternal`'s current per-kind return shape),
+		 * populated by a migrated family's emit-side resolver. When present the
+		 * drain uses it directly (zero domain reads); when absent (the one
+		 * remaining unmigrated case, `routine_run`) the drain falls through to
+		 * its existing per-kind resolution branch.
+		 */
+		bakedRequestJson: text("baked_request_json"),
 		createdAt: text("created_at").notNull(),
 		updatedAt: text("updated_at").notNull(),
 	},
@@ -413,15 +387,19 @@ export const agentWorkIntents = pgTable(
 		index("agent_work_intents_claim_expires_idx").on(table.claimExpiresAt),
 		check(
 			"agent_work_intents_kind_ck",
-			sql`${table.kind} in ('assistant_turn','session_start','knowledge_action','routine_run','bet_decomposition','task_run','reengagement')`,
+			sql`${table.kind} in ('assistant_turn','session_start','knowledge_action','routine_run','task_run','reengagement')`,
 		),
 		check(
 			"agent_work_intents_source_kind_ck",
-			sql`${table.sourceKind} in ('thread_message','explicit_session_start','knowledge_action','routine_run','bet','task_dispatch_attempt','proposed_call')`,
+			sql`${table.sourceKind} in ('thread_message','explicit_session_start','knowledge_action','routine_run','task_dispatch_attempt','proposed_call')`,
 		),
 		check(
 			"agent_work_intents_status_ck",
-			sql`${table.status} in ('pending','claimed','handed_off','failed')`,
+			// @lore AU21 Decision B‴: `superseded` added — a re-emit for the same
+			// (kind, sourceId) identity with a fresher idempotencyKey wins; the
+			// older pending/claimed intent is retired as `superseded` (never
+			// dispatched), not `failed` (it was not an error).
+			sql`${table.status} in ('pending','claimed','handed_off','failed','superseded')`,
 		),
 		/** @lore AU9 durable-rows: kind/source compatibility is a closed pairing map (§Family atomic enqueue). */
 		check(
@@ -431,7 +409,6 @@ export const agentWorkIntents = pgTable(
 				or (${table.kind} = 'session_start' and ${table.sourceKind} = 'explicit_session_start')
 				or (${table.kind} = 'knowledge_action' and ${table.sourceKind} = 'knowledge_action')
 				or (${table.kind} = 'routine_run' and ${table.sourceKind} = 'routine_run')
-				or (${table.kind} = 'bet_decomposition' and ${table.sourceKind} = 'bet')
 				or (${table.kind} = 'task_run' and ${table.sourceKind} = 'task_dispatch_attempt')
 				or (${table.kind} = 'reengagement' and ${table.sourceKind} = 'proposed_call')
 			`,
@@ -449,6 +426,7 @@ export const agentWorkIntents = pgTable(
 				or (${table.status} = 'claimed' and ${table.claimToken} is not null and ${table.claimExpiresAt} is not null and ${table.requestId} is null)
 				or (${table.status} = 'handed_off' and ${table.requestId} is not null)
 				or (${table.status} = 'failed' and ${table.lastErrorCode} is not null)
+				or (${table.status} = 'superseded' and ${table.claimToken} is null and ${table.claimExpiresAt} is null and ${table.requestId} is null)
 			`,
 		),
 	],
@@ -561,7 +539,7 @@ export const agentLifecycleInbox = pgTable(
 		),
 		check(
 			"agent_lifecycle_inbox_source_kind_ck",
-			sql`${table.sourceKind} in ('assistant','task','knowledge','routine','decomposition','proposed_call','explicit_session_start')`,
+			sql`${table.sourceKind} in ('assistant','task','knowledge','routine','proposed_call','explicit_session_start')`,
 		),
 		check(
 			"agent_lifecycle_inbox_claim_ck",
@@ -652,18 +630,10 @@ export const routines = pgTable(
 		state: text("state").notNull().default("active"),
 		lastRunAt: text("last_run_at"),
 		nextRunAt: text("next_run_at"),
-		/** AA1: cumulative actual cost across all runs — minor units. */
-		costActualMinor: integer("cost_actual_minor"),
-		/** AA1: currency code for costActualMinor. */
-		costActualCurrency: text("cost_actual_currency"),
 		/** AA2: Soft delete timestamp. When set, routine is archived. */
 		deletedAt: text("deleted_at"),
 		/** AA2: Last successful run's summary. Single-slot overwrite per concept doc. */
 		lastRunSummary: text("last_run_summary"),
-		/** AA2: Optional per-run cost ceiling in minor units. NULL = no cap. */
-		costCapPerRunMinor: integer("cost_cap_per_run_minor"),
-		/** AA3: Optional per-month cost ceiling in minor units. NULL = no cap. Factory is single-currency so no currency column needed (matches per-run cap pattern). */
-		costCapMonthlyMinor: integer("cost_cap_monthly_minor"),
 		/** AA2: Creation timestamp. Backfilled for pre-existing routines. */
 		createdAt: text("created_at"),
 		/**
@@ -685,10 +655,31 @@ export const routines = pgTable(
  * AA1: Append-only log of routine execution runs. One row per trigger (manual or scheduled).
  *
  * @lore AA1: routine_runs is the lightweight audit log for execution history.
- * AA2 will link sessions.routine_id to these rows when the scheduler integrates
- * with the session lifecycle. Until then, routine_runs are inserted at trigger
- * time with an initial outcome. The `outcome` column will gain a "running" state
- * in AA2 and be updated on session end.
+ * AA2 linked sessions.routine_id to these rows via the scheduler; `outcome` gained
+ * a "running" state and is updated on session end.
+ *
+ * @lore AU21 Decision B″ (Increment 0 ruling, recorded 2026-07-27; COLLAPSED —
+ * Increment 4, this is now the shipped state, not a target): this table STAYS
+ * core-api-owned — `packages/core-api/routine/src/routine-service.ts` remains the
+ * only module permitted to read or write it (AU13's boundary, unchanged) — it did
+ * NOT become an orchestration-owned projection. What changed is WHO writes it.
+ * Pre-Increment-3/4, three agent-orchestration modules wrote it directly via
+ * composition-bundle DI (`dispatch`'s fire-time `insertRoutineRun`;
+ * `session-requests`'s `failOrRelease` `updateRoutineRunIfRunning`;
+ * `run-orchestration`'s `transition-run.ts`/`runtime-reapers.ts`
+ * `updateRoutineRunById`). All three are now DISSOLVED: the insert is a
+ * same-transaction core-api write inside the routine scheduler (relocated
+ * core-side, Increment 4 Wave A, `routine-scheduler.ts`); the two update paths
+ * re-homed onto core-api's own reactions to `agent_run_admission_failed`
+ * (pre-handoff, `agent-run-admission-reactions.ts`, Increment 3) and
+ * `session_ended`/`agent_run_lifecycle_changed` (post-session,
+ * `routine-run-session-end-reactions.ts`, Increment 4). End state reached: a
+ * "definition-only audit derived from events" — ZERO direct writes from
+ * `agent-orchestration` into `routineRuns` anywhere in the tree (verified via
+ * the anti-regrowth guard); every mutation now originates inside core-api
+ * itself, either synchronously in the fire transaction or as an event-
+ * subscriber reaction to orchestration's own lifecycle events. See
+ * `.pipeline/work/AU21/architecture.md` Decision B″.
  */
 export const routineRuns = pgTable(
 	"routine_runs",
@@ -699,10 +690,8 @@ export const routineRuns = pgTable(
 			.references(() => routines.id, { onDelete: "restrict" }),
 		startedAt: text("started_at").notNull(),
 		endedAt: text("ended_at"),
-		/** 'success' | 'error' */
+		/** 'success' | 'error' | 'skipped' | 'running' | 'timeout' */
 		outcome: text("outcome").notNull(),
-		costMinor: integer("cost_minor"),
-		costCurrency: text("cost_currency"),
 		errorMessage: text("error_message"),
 		/**
 		 * AA2: Link to the session that executed this run. NULL for pre-AA2 runs.
@@ -1082,13 +1071,17 @@ export const notificationQueue = pgTable(
 		/** ISO timestamp when the row entered the `sending` state. */
 		claimedAt: text("claimed_at"),
 		// AF8: in-app notification model (popover). severity/channel stay for egress.
-		/** Concept type key: "review_request" | "blocker_alert" | "cost_alert". Nullable for back-compat. */
+		/**
+		 * Concept type key: "review_request" | "blocker_alert". Nullable for
+		 * back-compat. @lore AU21 Increment 14a: "cost_alert" deleted along
+		 * with the cost-cap feature that produced it — no replacement.
+		 */
 		typeKey: text("type_key"),
 		/** "immediate" | "ambient" — from type registry default, adjusted per-instance. Nullable for back-compat. */
 		urgency: text("urgency"),
 		/**
-		 * Persisted route. Thread-keyed `/conversations/${threadId}` for review/blocker;
-		 * "/work/portfolio" for cost_alert. NEVER reconstructed at render (concept hard rule #2).
+		 * Persisted route. Thread-keyed `/conversations/${threadId}` for review/blocker.
+		 * NEVER reconstructed at render (concept hard rule #2).
 		 * Nullable for back-compat with existing egress rows.
 		 *
 		 * @lore AF8: The original dispatcher.ts:178 deepLink used `/conversations/item/<id>`

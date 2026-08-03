@@ -30,7 +30,13 @@ import {
 import { EventBus, type ToolContext } from "@hyperidle/shared";
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
+import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createApp, disposeApp } from "../app.js";
+import {
+	createInProcessCoreApiTransport,
+	registerCoreApiTransport,
+} from "../services/core-api-port-composition.js";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
 
 const createItemTool = buildToolDefinitions(toolHandlersPorts).find(
@@ -119,15 +125,25 @@ describe("AD1 — create-item: review routing wires human participants", () => {
 	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
+	let app: Hono;
 
+	// @lore AU21 §9 Increment 2: `create_item`'s review-item branch now reaches
+	// `ports.coreApi.getUserById` (the seam) — this file predates the fixture
+	// `test`'s auto-registering `coreApiSeamRegistration` (it uses raw
+	// `createTestDb()` + `it`/`describe`, not `../test-fixtures.js`), so the
+	// transport is registered by hand here, same idiom as
+	// `create-bet-coreapiport-migration.integration.test.ts`.
 	beforeEach(async () => {
 		handle = await createTestDb();
 		db = handle.db;
 		eventBus = new EventBus();
+		app = await createApp({ db, eventBus });
+		registerCoreApiTransport(createInProcessCoreApiTransport(app));
 		await seedBase(db);
 	});
 
 	afterEach(async () => {
+		disposeApp(app);
 		await handle?.close();
 	});
 
@@ -218,7 +234,7 @@ describe("AD1 — create-item: review routing wires human participants", () => {
 			const ctx = makeContext(db, eventBus);
 			const result = await createItemTool.handler(
 				{
-					title: "Escalation: cost cap breached",
+					title: "Escalation: production incident detected",
 					kind: "escalation",
 					riskTier: "high",
 				},

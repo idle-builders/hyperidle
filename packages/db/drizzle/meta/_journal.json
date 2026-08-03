@@ -358,6 +358,34 @@
 			"when": 1785614400000,
 			"tag": "0050_AU19_rename_strategy_fabric_tables",
 			"breakpoints": true
+		},
+		{
+			"idx": 51,
+			"version": "7",
+			"when": 1785618000000,
+			"tag": "0051_AU21_baked_intent_supersede",
+			"breakpoints": true
+		},
+		{
+			"idx": 52,
+			"version": "7",
+			"when": 1785621600000,
+			"tag": "0052_AU21_session_cost",
+			"breakpoints": true
+		},
+		{
+			"idx": 53,
+			"version": "7",
+			"when": 1785625200000,
+			"tag": "0053_AU21_remove_bet_decomposition",
+			"breakpoints": true
+		},
+		{
+			"idx": 54,
+			"version": "7",
+			"when": 1785628800000,
+			"tag": "0054_AU21_cost_hard_delete",
+			"breakpoints": true
 		}
 	]
 }

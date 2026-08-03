@@ -5,12 +5,10 @@
  * chassis: bordered header (breadcrumb + derived-title preview + Cancel/Create)
  * over a two-column body (BodyEditor left, commitments aside right).
  *
- * @lore AG3: appetite returns to create. @lore R2 stripped it from the cramped
- * BetCreateDialog ("Submit payload no longer includes costAppetite"); AG3 restores
- * it because the full-page aside has room and AC4 names team+appetite as create-time
- * commitments. createBetSchema already accepts optional costAppetite (WireMoney|null)
- * — no API change. Empty amount ⇒ field omitted ⇒ uncapped bet. Do not re-remove
- * citing R2.
+ * @lore AU21 Increment 14a: the "Appetite" create-time input (amount +
+ * currency, AG3) is HARD-DELETED along with the rest of the cost-cap feature
+ * — `bets.costAppetiteMinor`/`costAppetiteCurrency` columns are dropped and
+ * `createBetSchema` no longer accepts `costAppetite`, no replacement.
  *
  * @lore AG3: responsive collapse added explicitly — KnowledgeCreate has no responsive
  * switch (flat flex at all widths). Mobile single-column stack added here; does NOT
@@ -18,13 +16,8 @@
  */
 
 // hearth-internal-padding
-import { BodyEditor, Input, Select } from "@hyperidle/design-system";
-import {
-	CURRENCY_CODES,
-	deriveTitleFromPitch,
-	scaleForCurrency,
-	type WireMoney,
-} from "@hyperidle/shared";
+import { BodyEditor, Select } from "@hyperidle/design-system";
+import { deriveTitleFromPitch } from "@hyperidle/shared";
 import { type JSX, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useKnowledgeItem } from "../hooks/useKnowledgeItem.js";
@@ -55,8 +48,6 @@ export function WorkBetCreate(): JSX.Element {
 
 	const [body, setBody] = useState(knowledgeBody ?? "");
 	const [teamId, setTeamId] = useState("");
-	const [appetiteAmount, setAppetiteAmount] = useState("");
-	const [appetiteCurrency, setAppetiteCurrency] = useState("USD");
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -92,14 +83,6 @@ export function WorkBetCreate(): JSX.Element {
 		// multi-team path where provenance can silently drop (architecture-critique carry-forward #2).
 		if (fromKnowledgeId !== undefined) {
 			payload.sourceKnowledgeItemId = fromKnowledgeId;
-		}
-
-		const amt = Number.parseFloat(appetiteAmount);
-		if (Number.isFinite(amt) && amt > 0) {
-			payload.costAppetite = {
-				minor: Math.round(amt * 10 ** scaleForCurrency(appetiteCurrency as WireMoney["currency"])),
-				currency: appetiteCurrency,
-			};
 		}
 
 		const res = await apiFetch("/api/bets", {
@@ -280,53 +263,6 @@ export function WorkBetCreate(): JSX.Element {
 									/>
 								</div>
 							)}
-
-							{/* Appetite — optional. Returns to create after @lore R2 removed it from dialog. */}
-							<div className="flex flex-col gap-[6px]">
-								<label
-									htmlFor="bet-create-appetite-amount"
-									className="text-[12px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]"
-								>
-									Appetite
-								</label>
-								<div className="flex gap-[6px]">
-									<Select
-										aria-label="Appetite currency"
-										size="sm"
-										className="w-[88px]"
-										value={appetiteCurrency}
-										onChange={(e) => setAppetiteCurrency(e.target.value)}
-										disabled={submitting}
-										options={CURRENCY_CODES.map((code) => ({
-											value: code,
-											label: code,
-										}))}
-									/>
-									{/*
-									 * @lore AG3: DS Input used here (not raw DaisyUI input) per plan
-									 * architecture.md:112 and approved.md Appetite row spec.
-									 * className targets the wrapper div (flex-1 for grow in the flex row).
-									 * AQ-005 is satisfied: Input.tsx @lore states the component adds
-									 * a ≥16px responsive override at ≤768px.
-									 */}
-									<Input
-										id="bet-create-appetite-amount"
-										type="number"
-										aria-label="Appetite amount"
-										className="flex-1"
-										min={0}
-										step="0.01"
-										placeholder="0"
-										value={appetiteAmount}
-										onChange={(e) => setAppetiteAmount(e.target.value)}
-										disabled={submitting}
-									/>
-								</div>
-								{/* Helper text rendered below the row, NOT as a placeholder inside the Input */}
-								<span className="text-[12px] text-[var(--text-tertiary)]">
-									Leave blank for an uncapped bet
-								</span>
-							</div>
 						</div>
 					</aside>
 				</div>

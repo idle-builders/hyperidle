@@ -7,14 +7,15 @@
  * The drizzle transaction handle is structurally compatible (same
  * `insert`/`update`/`select` methods), so a caller inside `db.transaction`
  * passes its `tx as HyperIdleDb` — the accepted transaction-composition cast
- * used repo-wide. This mirrors the documented precedent at
- * `practice-meeting.ts:448-454` and avoids depending on drizzle's internal
- * transaction type.
+ * used repo-wide (see `conversation-store.ts`'s own top `@lore`) and avoids
+ * depending on drizzle's internal transaction type.
  *
  * @lore `updateUser`'s patch admits `SQL` per column (not just literal
- * `NewUser` values) because cost metering accumulates atomically via
- * `costActual = coalesce(costActual, 0) + delta` (see `cost-cap.ts`), which
- * must be a SQL expression to stay race-free.
+ * `NewUser` values) for any future atomic-increment-style patch that needs
+ * a SQL expression to stay race-free. (AU21 Increment 14a: the cost-metering
+ * use case this originally existed for — `costActual = coalesce(costActual,
+ * 0) + delta` — is deleted along with the rest of the cost feature; the
+ * generic `SQL`-admitting patch type is kept as reusable infrastructure.)
  *
  * @lore AU20 Am11: 14 bespoke per-intent read variants collapsed into two
  * parameterised functions (`findUser` / `listUsers`) plus one `UserFilter`
@@ -154,35 +155,7 @@ export async function getOrCreateUser(
 	return created;
 }
 
-// ===========================================================================
-// Cost metering (colocation artifact — see spec §3)
-// ===========================================================================
-
-/** Bulk reset every user's accumulated cost to zero (cost-cap reset path). */
-export async function resetAllUserCost(exec: HyperIdleDb): Promise<void> {
-	await exec.update(users).set({ costActual: 0 });
-}
-
-/**
- * Atomically add `deltaMinor` to a user's `costActual` via
- * `coalesce(costActual, 0) + delta`. Owns the coalesce SQL so the
- * `users.costActual` column ref never leaves this store.
- */
-export async function incrementUserCost(
-	exec: HyperIdleDb,
-	id: string,
-	deltaMinor: number,
-): Promise<void> {
-	await exec
-		.update(users)
-		.set({ costActual: sql`coalesce(${users.costActual}, 0) + ${deltaMinor}` })
-		.where(eq(users.id, id));
-}
-
-/** Sum of every user's `costActual` (factory-wide spend). */
-export async function sumAllUserCost(exec: HyperIdleDb): Promise<number> {
-	const [row] = await exec
-		.select({ total: sql<number>`coalesce(sum(${users.costActual}), 0)` })
-		.from(users);
-	return row?.total ?? 0;
-}
+// @lore AU21 Increment 14a: cost metering (`resetAllUserCost`/
+// `incrementUserCost`/`sumAllUserCost`, the `users.costActual` accumulator)
+// is deleted along with the rest of the cost feature — the column is
+// dropped, no replacement.

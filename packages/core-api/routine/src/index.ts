@@ -34,30 +34,62 @@
  *     → `updateRoutineRun(exec, id, patch, opts?)`
  *   - `listRoutineRunsByRoutine` + `findRunningRoutineRun`
  *     → `listRoutineRuns(filter)` (`{running:true,limit:1}[0]`)
- *   - `avgRoutineRunCost` + `sumRoutineRunCostSince`
- *     + `sumRoutineRunCostForRoutinesSince` → `sumRunCost({routineIds,since?,kind})`
+ *   - `avgRoutineRunCost` + `sumRoutineRunCostSince` + `sumRoutineRunCostForRoutinesSince`
+ *     were collapsed to `sumRunCost({routineIds,since?,kind})` at AU20 —
+ *     since deleted entirely (AU21 Increment 14a, cost feature HARD-DELETED,
+ *     no replacement)
  *   - `InsertRoutineOpts` (named export dropped — opts are inline on `insertRoutine`)
  */
 
+// -- agent-delegation (AU21 §6 Decision F1 fold — routine_delegate's own
+// skill-based delegate scan, relocated from the retired `agent-selection`
+// Service) --
+export type { AgentDelegationDeps } from "./agent-delegation.js";
+export { selectRoutineDelegate } from "./agent-delegation.js";
+export type { RoutineSchedulerPorts } from "./ports.js";
+// -- routine scheduler (AU21 §9 Increment 4: relocated from
+// `@hyperidle/dispatch`'s `service.ts` — scheduler + `routineRuns` lifecycle
+// move core-side per architecture.md §6 Decision B′/B″ ruling #4; see
+// `routine-scheduler.ts`'s own top-of-file note) --
+export type {
+	BuiltinRoutineId,
+	FireResult,
+	PostBetRetroArgs,
+	RoutineScheduler,
+	RoutineSchedulerConfig,
+	RunBuiltinResult,
+} from "./routine-scheduler.js";
+export {
+	extractBuiltinKind,
+	fireBuiltinRoutine,
+	fireGenericRoutine,
+	isBuiltinRoutineId,
+	// AU21 §9 Increment 9: relocated from `@hyperidle/dispatch` — team-creation-
+	// time builtin-routine definition seeding, now an intra-package call.
+	provisionTeamRoutines,
+	registerBuiltinRoutineHandlers,
+	startRoutineScheduler,
+} from "./routine-scheduler.js";
 // -- routine-service (AU13: routines + routineRuns CRUD + reads) --
 export type {
+	BakedRoutineRunRequest,
 	Routine,
 	RoutinePatch,
 	RoutineRun,
 	RoutineRunPatch,
+	RoutineRunResolverDeps,
 } from "./routine-service.js";
 export {
 	getRoutine,
 	getRoutineRun,
-	incrementRoutineCost,
 	insertRoutine,
 	insertRoutineRun,
 	listRoutineRuns,
 	listRoutines,
-	sumRunCost,
+	RoutineRunSourceUnavailableError,
+	resolveRoutineRunRequest,
 	updateRoutine,
 	updateRoutineRun,
 } from "./routine-service.js";
-
 // -- schedule-label (AU19 Increment 5: relocated from packages/server per §6 disposition — humanizeSchedule is routine's own display concern) --
 export { humanizeSchedule } from "./schedule-label.js";

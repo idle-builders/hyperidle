@@ -16,10 +16,6 @@ const FIXTURE: Artifact = {
 		kind: "text",
 		body: "Hi there,\n\nWelcome to the platform! We're excited to have you.\n\nBest,\nThe Team",
 	},
-	cost: {
-		money: { minor: 42, currency: "USD" },
-		tokens: { byTier: { fast: { prompt: 8000, completion: 4400 } } },
-	},
 	threadCount: 3,
 	createdAt: new Date(Date.now() - 12 * 60_000).toISOString(),
 };
@@ -33,15 +29,6 @@ export const Populated = (): React.JSX.Element => (
 export const NoPreview = (): React.JSX.Element => (
 	<div className="grid grid-cols-2 gap-4 w-[600px]">
 		<ArtifactGalleryCard data={{ ...FIXTURE, preview: null }} onOpen={() => undefined} />
-	</div>
-);
-
-export const CostPending = (): React.JSX.Element => (
-	<div className="grid grid-cols-2 gap-4 w-[600px]">
-		<ArtifactGalleryCard
-			data={{ ...FIXTURE, cost: { money: null, tokens: null } }}
-			onOpen={() => undefined}
-		/>
 	</div>
 );
 

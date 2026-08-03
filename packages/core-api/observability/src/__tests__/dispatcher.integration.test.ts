@@ -3,7 +3,7 @@
  *
  * Covers:
  *  - Trace correlation (AC3): events within a session share traceId.
- *  - Events logged (AC4): all 7 kinds reach the adapter.
+ *  - Events logged (AC4): all 6 kinds reach the adapter.
  *  - Non-blocking buffered design: enqueue never awaits; flush is async.
  *  - Drop-oldest policy when buffer cap reached.
  *  - Subscribe-once + clean unsubscribe on dispose.
@@ -11,7 +11,6 @@
 
 import {
 	type BetStateChangedEvent,
-	type CostCapBreachedEvent,
 	EventBus,
 	type KnowledgeUpdatedEvent,
 	type ObservabilityEvent,
@@ -256,16 +255,6 @@ describe("registerObservabilityDispatcher — bus subscriber", () => {
 			toState: "active",
 			timestamp: now,
 		} satisfies BetStateChangedEvent);
-		bus.emit<"cost_cap_breached">({
-			type: "cost_cap_breached",
-			streamId: "sess-1",
-			level: "hard",
-			capLevel: "agent",
-			entityId: "a",
-			spend: 110,
-			cap: 100,
-			timestamp: now,
-		} satisfies CostCapBreachedEvent);
 		bus.emit<"knowledge_updated">({
 			type: "knowledge_updated",
 			streamId: "knowledge:ki-1",
@@ -291,7 +280,6 @@ describe("registerObservabilityDispatcher — bus subscriber", () => {
 			"session_started",
 			"task_state_changed",
 			"bet_state_changed",
-			"cost_incurred",
 			"knowledge_write",
 			"session_ended",
 		]);

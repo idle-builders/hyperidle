@@ -722,7 +722,7 @@ describe("CliHarnessAdapter stopSession", () => {
 		expect(result.outcome).toBe("stopped");
 	});
 
-	it("returns zero cost and empty token usage (CLI tools don't report these)", async () => {
+	it("returns no cost field and empty token usage when nothing was reported", async () => {
 		const spawnSpy = vi.fn();
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
@@ -733,7 +733,8 @@ describe("CliHarnessAdapter stopSession", () => {
 		const stopPromise = adapter.stopSession(handle);
 		fakeChild.emitExit(0, null);
 		const result = await stopPromise;
-		expect(result.cost.minor).toBe(0);
+		// AU21 (harness-telemetry narrowing): no cost field on SessionResult anymore.
+		expect(result).not.toHaveProperty("cost");
 		expect(result.tokenUsage.byTier).toEqual({});
 	});
 });

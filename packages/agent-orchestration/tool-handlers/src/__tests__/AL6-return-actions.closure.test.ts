@@ -86,7 +86,6 @@ describe("isReturnAction — AC2: per-tool return predicate", () => {
 			"write_session_notes",
 			"create_task",
 			"score_attention",
-			"route_item",
 			"promote_knowledge",
 			"create_conflict_review",
 			"create_team",

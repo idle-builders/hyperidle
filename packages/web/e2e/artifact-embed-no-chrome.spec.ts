@@ -12,7 +12,6 @@ const FIXTURES = [
 		producingTaskTitle: "Decision: ship the diff renderer",
 		kind: "decision",
 		preview: { kind: "decision", claim: "Ship", rationale: "Risk acceptable" },
-		cost: { money: null, tokens: null },
 		threadCount: 0,
 		createdAt: "2026-04-28T11:00:00.000Z",
 	},

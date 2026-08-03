@@ -18,9 +18,8 @@
 
 import { DbCredentialResolver } from "@hyperidle/connections";
 import { serverCredentials } from "@hyperidle/db";
-import { resolveModel } from "@hyperidle/model-gateway";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
-import { MissingCredentialError } from "@hyperidle/shared";
+import { MissingCredentialError, resolveModel } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";

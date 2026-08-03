@@ -4,7 +4,7 @@
  * AC coverage:
  * AC-2: editable prompt + save → apiFetch PATCH + refetch re-issues GET.
  * AC-4: no bg-[var(--surface-container)] on sections; run-rows via data-testid="routine-run-row".
- * AC-5 (extended): schedule, cost caps, silent toggle all editable via PATCH.
+ * AC-5 (extended): schedule, silent toggle all editable via PATCH.
  *
  * These tests FAIL until RoutineDetailPane is implemented.
  */
@@ -65,10 +65,7 @@ const ROUTINE_DETAIL: RoutineDetail = {
 		lastRunAt: "2026-01-01T09:00:00.000Z",
 		lastRunOutcome: "success",
 		nextRunAt: "2026-01-02T09:00:00.000Z",
-		costActual: null,
 		createdAt: "2025-12-01T00:00:00.000Z",
-		costCapPerRun: null,
-		costCapMonthly: null,
 		lastRunSummary: "Team digest sent successfully.",
 		silent: false,
 	},
@@ -79,7 +76,6 @@ const ROUTINE_DETAIL: RoutineDetail = {
 			endedAt: "2026-01-01T09:02:00.000Z",
 			durationSeconds: 120,
 			outcome: "success",
-			cost: { minor: 500, currency: "USD" },
 			errorMessage: null,
 		},
 		{
@@ -87,19 +83,10 @@ const ROUTINE_DETAIL: RoutineDetail = {
 			startedAt: "2025-12-31T09:00:00.000Z",
 			endedAt: "2025-12-31T09:01:00.000Z",
 			durationSeconds: 60,
-			outcome: "budget_exhausted",
-			cost: null,
+			outcome: "error",
 			errorMessage: null,
 		},
 	],
-	budget: {
-		avgCostPerRun: { minor: 500, currency: "USD" },
-		costThisMonth: { minor: 500, currency: "USD" },
-		costCapPerRun: null,
-		costCapMonthly: null,
-		perRunUtilizationPercent: null,
-		monthlyUtilizationPercent: null,
-	},
 };
 
 // ---------------------------------------------------------------------------
@@ -208,7 +195,7 @@ describe("editable prompt saves via PATCH and refetches the routine", () => {
 // ---------------------------------------------------------------------------
 
 describe("de-greyed sections render without surface-container background; run rows are present", () => {
-	it("[RED] config/budget/last-run sections have no element with bg-[var(--surface-container)] class", async () => {
+	it("[RED] config/last-run sections have no element with bg-[var(--surface-container)] class", async () => {
 		const { container } = await renderPane();
 
 		await waitFor(() => {
@@ -330,132 +317,10 @@ describe("editable schedule saves triggerConfig via PATCH", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// Cost cap editing
-// ---------------------------------------------------------------------------
-
-describe("editable cost caps send minor-unit values via PATCH", () => {
-	it("typing a USD value in the per-run cap and saving sends costCapPerRunMinor as integer minor units", async () => {
-		const user = userEvent.setup();
-		await renderPane();
-
-		const perRunInput = await waitFor(() =>
-			screen.getByRole("spinbutton", { name: /cost cap per run/i }),
-		);
-		await user.clear(perRunInput);
-		await user.type(perRunInput, "5");
-
-		const saveBtn = screen.getByRole("button", { name: /save/i });
-		await user.click(saveBtn);
-
-		await waitFor(() => {
-			const patchCall = mockApiFetch.mock.calls.find(
-				(call) => (call[1] as RequestInit)?.method === "PATCH",
-			);
-			expect(patchCall).toBeDefined();
-			if (!patchCall) return;
-			const body = JSON.parse((patchCall[1] as RequestInit).body as string) as Record<
-				string,
-				unknown
-			>;
-			expect(body.costCapPerRunMinor).toBe(500);
-		});
-	});
-
-	it("clearing the per-run cap input and saving sends costCapPerRunMinor as null", async () => {
-		const user = userEvent.setup();
-		// Use a fixture with an existing per-run cap
-		const detailWithCap: RoutineDetail = {
-			...ROUTINE_DETAIL,
-			routine: {
-				...ROUTINE_DETAIL.routine,
-				costCapPerRun: { minor: 2000, currency: "USD" },
-			},
-		};
-		await renderPane("r1", detailWithCap);
-
-		const perRunInput = await waitFor(() =>
-			screen.getByRole("spinbutton", { name: /cost cap per run/i }),
-		);
-		await user.clear(perRunInput);
-
-		const saveBtn = screen.getByRole("button", { name: /save/i });
-		await user.click(saveBtn);
-
-		await waitFor(() => {
-			const patchCall = mockApiFetch.mock.calls.find(
-				(call) => (call[1] as RequestInit)?.method === "PATCH",
-			);
-			expect(patchCall).toBeDefined();
-			if (!patchCall) return;
-			const body = JSON.parse((patchCall[1] as RequestInit).body as string) as Record<
-				string,
-				unknown
-			>;
-			expect(body.costCapPerRunMinor).toBeNull();
-		});
-	});
-
-	it("typing a USD value in monthly cap and saving sends costCapMonthlyMinor as integer minor units", async () => {
-		const user = userEvent.setup();
-		await renderPane();
-
-		const monthlyInput = await waitFor(() =>
-			screen.getByRole("spinbutton", { name: /monthly cap/i }),
-		);
-		await user.clear(monthlyInput);
-		await user.type(monthlyInput, "25");
-
-		const saveBtn = screen.getByRole("button", { name: /save/i });
-		await user.click(saveBtn);
-
-		await waitFor(() => {
-			const patchCall = mockApiFetch.mock.calls.find(
-				(call) => (call[1] as RequestInit)?.method === "PATCH",
-			);
-			expect(patchCall).toBeDefined();
-			if (!patchCall) return;
-			const body = JSON.parse((patchCall[1] as RequestInit).body as string) as Record<
-				string,
-				unknown
-			>;
-			expect(body.costCapMonthlyMinor).toBe(2500);
-		});
-	});
-
-	it("clearing monthly cap and saving sends costCapMonthlyMinor as null", async () => {
-		const user = userEvent.setup();
-		const detailWithCap: RoutineDetail = {
-			...ROUTINE_DETAIL,
-			routine: {
-				...ROUTINE_DETAIL.routine,
-				costCapMonthly: { minor: 10000, currency: "USD" },
-			},
-		};
-		await renderPane("r1", detailWithCap);
-
-		const monthlyInput = await waitFor(() =>
-			screen.getByRole("spinbutton", { name: /monthly cap/i }),
-		);
-		await user.clear(monthlyInput);
-
-		const saveBtn = screen.getByRole("button", { name: /save/i });
-		await user.click(saveBtn);
-
-		await waitFor(() => {
-			const patchCall = mockApiFetch.mock.calls.find(
-				(call) => (call[1] as RequestInit)?.method === "PATCH",
-			);
-			expect(patchCall).toBeDefined();
-			if (!patchCall) return;
-			const body = JSON.parse((patchCall[1] as RequestInit).body as string) as Record<
-				string,
-				unknown
-			>;
-			expect(body.costCapMonthlyMinor).toBeNull();
-		});
-	});
-});
+// @lore AU21 Increment 14a: "editable cost caps send minor-unit values via
+// PATCH" describe block is HARD-DELETED — the cost-cap feature (per-run/
+// monthly cap inputs, costCapPerRunMinor/costCapMonthlyMinor PATCH fields) no
+// longer exists, no replacement.
 
 // ---------------------------------------------------------------------------
 // Silent toggle

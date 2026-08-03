@@ -7,6 +7,13 @@ import { and, eq, lt, sql } from "drizzle-orm";
 import type { createProvisioner } from "./provisioner.js";
 
 type SessionLifecyclePorts = Parameters<typeof createProvisioner>[0];
+/**
+ * AU21 §9 Increment 4 (Decision B″ item 3): the routine-run finalize write
+ * moved core-side. `reapStaleRoutineSessions` no longer touches
+ * `ports.routine` at all — the stale session's own `sourceId` column is
+ * already the `routineRunId` (set at session creation, AA2), so no routine
+ * lookup is needed to emit the finalize event.
+ */
 
 // ---- sandbox ----
 
@@ -17,7 +24,7 @@ const TERMINAL_STATES = new Set(["done", "crashed"]);
 const DEFAULT_TTL_HOURS = 24;
 const HOUR_MS = 60 * 60 * 1000;
 
-/** Sweep interval: every 60 minutes (best-effort, like the cost sentinel). */
+/** Sweep interval: every 60 minutes (best-effort). */
 const SANDBOX_REAPER_INTERVAL_MS = 60 * 60 * 1000;
 
 interface SandboxReaperOptions {
@@ -104,7 +111,7 @@ async function dirMtimeMs(dirPath: string): Promise<number> {
 
 /**
  * Start the workspace reaper on a 60-minute interval. Returns a disposer that
- * clears the interval. Mirrors `startCostSentinel`.
+ * clears the interval.
  *
  * @lore AF7 §6: the interval resets on every server restart — worst case is a
  * 60-minute gap before the next sweep, which is irrelevant for a TTL-of-hours
@@ -151,9 +158,9 @@ interface ReapStaleRoutineSessionsOpts {
  */
 async function reapStaleRoutineSessions(
 	db: HyperIdleDb,
-	_eventBus: EventBus,
+	eventBus: EventBus,
 	opts: ReapStaleRoutineSessionsOpts,
-	ports: SessionLifecyclePorts,
+	_ports: SessionLifecyclePorts,
 ): Promise<number> {
 	const nowMs = opts.now ?? Date.now();
 	const cutoffIso = new Date(nowMs - opts.staleAfterMs).toISOString();
@@ -161,7 +168,13 @@ async function reapStaleRoutineSessions(
 
 	// Stale = active routine session started before the cutoff.
 	const stale = await db
-		.select({ id: sessions.id, routineId: sessions.routineId })
+		.select({
+			id: sessions.id,
+			routineId: sessions.routineId,
+			agentId: sessions.agentId,
+			taskId: sessions.taskId,
+			sourceId: sessions.sourceId,
+		})
 		.from(sessions)
 		.where(
 			and(
@@ -173,20 +186,28 @@ async function reapStaleRoutineSessions(
 
 	let reaped = 0;
 	for (const session of stale) {
-		if (!session.routineId) continue;
+		// `sourceId` is already this session's `routineRunId` (AA2) — no routine
+		// lookup is needed to identify the run to finalize.
+		if (!(session.routineId && session.sourceId)) continue;
 
 		await db.update(sessions).set({ state: "crashed", endedAt }).where(eq(sessions.id, session.id));
 
-		// Finalize the still-"running" routine_run for this routine to timeout.
-		const run = await ports.routine.findRunningRoutineRun(db, session.routineId);
-
-		if (run) {
-			await ports.routine.updateRoutineRunById(db, run.id, {
-				outcome: "timeout",
-				endedAt,
-				errorMessage: "Routine session reaped: stale active session finalized to timeout",
-			});
-		}
+		// AU21 §9 Increment 4 (Decision B″ item 3): finalize via the SAME
+		// post-session `session_ended` channel `endSession`/`crashSession` use
+		// — no direct `routineRuns` write here. The new core-api subscriber
+		// (`routine-run-session-end-reactions.ts`) performs the actual write.
+		eventBus.emit({
+			type: "session_ended",
+			streamId: session.id,
+			sessionId: session.id,
+			agentId: session.agentId,
+			taskId: session.taskId,
+			sourceKind: "routine",
+			sourceId: session.sourceId,
+			timestamp: nowMs,
+			outcome: "crashed",
+			routineRunOutcome: "timeout",
+		});
 
 		reaped += 1;
 	}

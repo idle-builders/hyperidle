@@ -41,8 +41,28 @@ import type {
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
+import {
+	createInProcessCoreApiTransport,
+	registerCoreApiTransport,
+} from "../services/core-api-port-composition.js";
 import { buildToolRegistry } from "../services/tool-provider-bindings.js";
-import { test } from "../test-fixtures.js";
+import { test as baseTest } from "../test-fixtures.js";
+
+/**
+ * @lore AU21 §9 Increment 2 (conversation wave): this file invokes
+ * `read_inbox`, which now reaches `ports.coreApi.listInboxBySenderExclusion`
+ * (the seam) — same file-scoped `auto:true` fixture idiom as
+ * `create-item.integration.test.ts`.
+ */
+const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
+	coreApiSeamRegistration: [
+		async ({ app }, use) => {
+			registerCoreApiTransport(createInProcessCoreApiTransport(app));
+			await use(undefined);
+		},
+		{ auto: true },
+	],
+});
 
 const NOW = new Date().toISOString();
 
@@ -358,6 +378,34 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 			users: { getUserById: async () => undefined, listUsersByKind: async () => [] },
 			org: { resolveReviewRecipients: async () => [] },
 			intentRecorder,
+			// AU21 §6 Decision B: bake-deps stub — the liveness net's bake attempt
+			// tolerates failure (getTaskById above always returns undefined, so
+			// the bake throws and is caught), matching this suite's existing
+			// "only intentRecorder matters" precedent. Increment 12 Wave B widened
+			// `requireRunnableAgent`'s return type to `Promise<User>` (the
+			// contextBundle bake reuses `agent.name`/`agent.role`) — this fake
+			// agent row is never actually read (the resolver throws at the
+			// `getTaskById` check right after), it only needs to satisfy the type.
+			requireRunnableAgent: async () => ({
+				id: "liveness-fake-agent",
+				kind: "ai",
+				name: "Liveness Fake Agent",
+				systemPromptPath: null,
+				teamId: null,
+				role: "builder",
+				skills: null,
+				status: "active",
+				maxConcurrentSessions: 1,
+				email: null,
+				avatarUrl: null,
+				createdAt: new Date().toISOString(),
+				systemPrompt: null,
+				harnessType: null,
+				modelTierPreference: null,
+				modelId: null,
+				modelProvider: null,
+				agentCategory: null,
+			}),
 		};
 	}
 

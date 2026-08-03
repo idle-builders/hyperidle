@@ -90,12 +90,9 @@ describe("direct harness product operation", () => {
 			inputTokens: 1_000_000,
 			outputTokens: 1_000_000,
 		});
-		expect(first).toContainEqual({
-			type: "cost_update",
-			totalCost: 18,
-			deltaCost: 18,
-			currency: "USD",
-		});
+		// AU21 (harness-telemetry narrowing): no cost_update event of any kind —
+		// $-cost estimation is removed, token usage is the only signal emitted.
+		expect(first.some((event) => (event.type as string) === "cost_update")).toBe(false);
 		expect(adapter.getCapabilities()).toMatchObject({
 			returnEnforcement: "none",
 			mcpSupport: false,

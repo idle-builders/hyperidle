@@ -1,18 +1,18 @@
 /**
  * X8: Tool authorization scenarios (interaction 19).
  *
- * Tests the tool authorization system: standard 11-tool set, facilitator 15-tool set,
+ * Tests the tool authorization system: standard 11-tool set, facilitator 14-tool set,
  * and write_memory layer enforcement as inner gate.
+ *
+ * @lore AU21 §6 Decision L3: `route_item` deleted outright as vestigial —
+ * dropped from every facilitator-tool reference below (was a 4th
+ * facilitator-only tool alongside score_attention/promote_knowledge/
+ * create_conflict_review).
  */
 
 import { knowledgeAppProjection, knowledgeItems, messages, sessions } from "@hyperidle/db";
 import { eq, like } from "drizzle-orm";
-import {
-	judgeCostTracked,
-	judgeLlmQuality,
-	judgeSessionCompleted,
-	judgeSessionNotesWritten,
-} from "../judges.js";
+import { judgeLlmQuality, judgeSessionCompleted, judgeSessionNotesWritten } from "../judges.js";
 import { runEvalSession } from "../provision-harness.js";
 import { seedKnowledge, seedMinimalWorld } from "../seeding.js";
 import type {
@@ -41,7 +41,7 @@ const taStandardAgentBuilderSales: EvalScenario = {
 			agentSystemPrompt: `You are a builder agent working on a sales operations task.
 You have access to the standard tool set: write_memory, query_practice, write_session_notes, create_artifact,
 create_item, create_task, log_task, read_inbox, send_message, submit_review, handoff_to.
-Complete your task using only these tools. Do not attempt to use route_item, score_attention, or promote_knowledge.`,
+Complete your task using only these tools. Do not attempt to use score_attention or promote_knowledge.`,
 			taskTitle: "Analyze sales pipeline data and document findings",
 			taskDescription: `Analyze the Q3 sales pipeline conversion data and document your findings.
 
@@ -75,7 +75,6 @@ Use only the standard builder tools. Do not attempt facilitator-only tools.`,
 	rubric: {
 		dimensions: [
 			judgeSessionCompleted(),
-			judgeCostTracked(),
 			judgeSessionNotesWritten(),
 			{
 				id: "appropriate_tools_used",
@@ -91,7 +90,6 @@ Use only the standard builder tools. Do not attempt facilitator-only tools.`,
 					// Facilitator-only tools that would leave these traces:
 					// promote_knowledge: updates knowledgeItems.status + knowledgeEditLog
 					// score_attention: updates knowledgeAppProjection
-					// route_item: updates items.riskTier/kind/verb
 					// The builder completing task with write_session_notes/create_artifact is appropriate
 					return {
 						score: 1.0,
@@ -116,7 +114,7 @@ const taFacilitatorWorkflowPmConsulting: EvalScenario = {
 		const world = await seedMinimalWorld(ctx.db, {
 			agentRole: "product_manager",
 			agentSystemPrompt: `You are a product manager with facilitator-level access.
-In addition to standard tools, you have access to: route_item, score_attention, promote_knowledge, create_conflict_review.
+In addition to standard tools, you have access to: score_attention, promote_knowledge, create_conflict_review.
 Use your facilitator tools when appropriate for knowledge governance tasks.
 When reviewing knowledge, use promote_knowledge to move items through the pipeline.`,
 			taskTitle: "Review and promote consulting methodology knowledge",

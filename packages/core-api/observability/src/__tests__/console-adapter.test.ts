@@ -61,34 +61,13 @@ describe("ConsoleObservabilityAdapter (H3 AC1)", () => {
 		expect(calls[1]!.extra?.toolName).toBe("Read");
 	});
 
-	it("preserves cost_incurred fields", async () => {
-		const { logger, calls } = capturingLogger();
-		const adapter = createConsoleObservabilityAdapter(logger);
-		await adapter.record([
-			{
-				kind: "cost_incurred",
-				traceId: "t2",
-				sessionId: "s2",
-				ts: "2026-04-18T00:00:02.000Z",
-				level: "critical",
-				capLevel: "team",
-				entityId: "team-A",
-				spend: 950,
-				cap: 1000,
-			},
-		]);
-		expect(calls[0]!.extra?.level).toBe("critical");
-		expect(calls[0]!.extra?.capLevel).toBe("team");
-		expect(calls[0]!.extra?.spend).toBe(950);
-	});
-
 	it("flush is a no-op and resolves", async () => {
 		const { logger } = capturingLogger();
 		const adapter = createConsoleObservabilityAdapter(logger);
 		await expect(adapter.flush()).resolves.toBeUndefined();
 	});
 
-	it("serialises all seven event kinds without losing discriminant data", async () => {
+	it("serialises all six event kinds without losing discriminant data", async () => {
 		const { logger, calls } = capturingLogger();
 		const adapter = createConsoleObservabilityAdapter(logger);
 		const ts = "2026-04-18T00:00:00.000Z";
@@ -104,17 +83,6 @@ describe("ConsoleObservabilityAdapter (H3 AC1)", () => {
 				outcome: "completed",
 			},
 			{ kind: "tool_call", traceId: "t", sessionId: "s", ts, toolName: "Read", argsSummary: "{}" },
-			{
-				kind: "cost_incurred",
-				traceId: "t",
-				sessionId: "s",
-				ts,
-				level: "warning",
-				capLevel: "agent",
-				entityId: "a",
-				spend: 10,
-				cap: 100,
-			},
 			{
 				kind: "task_state_changed",
 				traceId: "task:1",
@@ -143,12 +111,11 @@ describe("ConsoleObservabilityAdapter (H3 AC1)", () => {
 			},
 		];
 		await adapter.record(events);
-		expect(calls).toHaveLength(7);
+		expect(calls).toHaveLength(6);
 		expect(calls.map((c) => c.msg)).toEqual([
 			"session_started",
 			"session_ended",
 			"tool_call",
-			"cost_incurred",
 			"task_state_changed",
 			"bet_state_changed",
 			"knowledge_write",

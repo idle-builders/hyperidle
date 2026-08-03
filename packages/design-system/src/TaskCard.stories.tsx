@@ -3,7 +3,7 @@ import { TaskCard } from "./TaskCard";
 export default {
 	title: "TaskCard",
 	tier: "2" as const,
-	uses: ["StatusChip", "Tag", "KeyValue"],
+	uses: ["StatusChip", "Tag"],
 	order: ["InProgress", "Blocked", "Done", "AllStates"],
 };
 
@@ -13,7 +13,6 @@ export const InProgress = (): React.JSX.Element => (
 			title="Implement login flow"
 			owner="Bob Smith"
 			state="in_progress"
-			cost="$1.50"
 			betTag="Mobile V2"
 		/>
 	</div>
@@ -21,19 +20,13 @@ export const InProgress = (): React.JSX.Element => (
 
 export const Blocked = (): React.JSX.Element => (
 	<div className="max-w-[320px]">
-		<TaskCard title="Fix CI pipeline" owner="Alice Chen" state="blocked" cost="$0.80" />
+		<TaskCard title="Fix CI pipeline" owner="Alice Chen" state="blocked" />
 	</div>
 );
 
 export const Done = (): React.JSX.Element => (
 	<div className="max-w-[320px]">
-		<TaskCard
-			title="Write unit tests"
-			owner="Carol Davis"
-			state="done"
-			cost="$2.00"
-			betTag="Sprint 1"
-		/>
+		<TaskCard title="Write unit tests" owner="Carol Davis" state="done" betTag="Sprint 1" />
 	</div>
 );
 

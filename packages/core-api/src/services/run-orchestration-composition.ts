@@ -1,17 +1,12 @@
 /** Core API composition root for the run-orchestration service. */
 
-import { applyProvisioningPlan, buildProvisioningPlan } from "@hyperidle/connections";
-import type { AgentSessionRequest, HyperIdleDb, WriteExecutor } from "@hyperidle/db";
-import { listFilesystems, startWatcher } from "@hyperidle/filesystems";
+import type { AgentSessionRequest, HyperIdleDb } from "@hyperidle/db";
 import {
 	AdapterPool,
 	createHarnessAdapter,
 	createReturnEnforcement,
 	provisionHarnessEnvironment,
 } from "@hyperidle/harness-registry";
-import { list as listKnowledge, rank as rankKnowledge } from "@hyperidle/knowledge";
-import { getTeam } from "@hyperidle/org";
-import * as routineService from "@hyperidle/routine";
 import {
 	type RunOptions,
 	type RunResult,
@@ -20,12 +15,12 @@ import {
 	type RuntimePorts,
 	runSession as runSessionInternal,
 	startRuntime as startRuntimeInternal,
+	startWatcher,
 	transitionRun as transitionRunInternal,
 } from "@hyperidle/run-orchestration";
 import {
 	claimSessionRequest,
 	drainIntents,
-	enqueueWorkIntent,
 	findSessionRequest,
 	listSessionRequests,
 	reapExpired,
@@ -34,32 +29,30 @@ import {
 	sessionRunRegistry,
 	transitionSessionRequest,
 } from "@hyperidle/session-requests";
-import { readServerConfig } from "@hyperidle/settings";
 import type { ToolContext, WorkerRegisterMessage } from "@hyperidle/shared";
 import { EventBus, summarizeToolArgs } from "@hyperidle/shared";
-import { findUser } from "@hyperidle/users";
-import * as work from "@hyperidle/work";
-import { transitionTask } from "@hyperidle/work";
-import { costOps } from "./cost-bindings.js";
 import { dispatchOps } from "./dispatch-bindings.js";
 import { queueDeps } from "./durable-agent-queue.js";
 import { buildToolRegistry, returnStatusTool, toolsForRole } from "./tool-provider-bindings.js";
 
+// AU21 §9 Increment 12 follow-up part 2 (F2 gap closure): this composition
+// root's own `seamPortForActor` helper (a fresh in-process `CoreApiPort` per
+// call, wrapped with the calling agent's identity — Decision F2's
+// session-launch-time `connections`/`filesystems` provisioning reads) is
+// DELETED — it had exactly two callers (the `connectionsProvisioner` and
+// `filesystemsReader` seam wirings) and both are now gone (baked at emit
+// time instead). No composition-root `CoreApiPort` construction is needed
+// in this file anymore.
+
+// AU21 §9 Increment 12 (Decision H3), Wave C: shrunk to `filesystems` only —
+// `knowledge`/`work`/`users`/`routine`/`org` are DELETED (not seam-routed).
+// `context.ts` is pure format/write now, consuming the baked `contextBundle`
+// carried on the session request; it reads zero core-api domain state.
+// `startWatcher` has zero DB coupling — it relocated wholesale into
+// `@hyperidle/run-orchestration` (Decision F2) but is still wired through
+// this same context-assembly port shape, unchanged.
 const contextPorts: RuntimeDeps["composition"]["context"] = {
-	knowledge: {
-		list: (db, filters) => listKnowledge(db, filters),
-		rankAndBudget: (db, items, scoringContext) =>
-			rankKnowledge(db, [...items], { ...scoringContext, taskTags: [...scoringContext.taskTags] }),
-		countTokens: (text) => Math.ceil(Buffer.byteLength(text, "utf8") / 4),
-	},
-	work: {
-		getTaskById: (exec, id) => work.get(exec, "task", id),
-		getBetById: (exec, id) => work.get(exec, "bet", id),
-	},
-	users: { getUserById: (db, id) => findUser(db, { id }) },
-	routine: { getRoutineById: routineService.getRoutine },
 	filesystems: { startWatcher },
-	org: { getTeamById: (db, id) => getTeam(db, { id }) },
 };
 
 type SessionLifecyclePorts = NonNullable<RuntimeDeps["composition"]["provisioner"]>;
@@ -74,73 +67,57 @@ export type ProvisionSessionDeps = Pick<RuntimeInput, "db" | "eventBus" | "onHar
 type SessionLifecycleToolContext = Parameters<typeof buildToolRegistry>[0];
 type ToolRegistryOptions = Parameters<typeof buildToolRegistry>[1];
 
-const routineAccessor: SessionLifecyclePorts["routine"] = {
-	getRoutineById: routineService.getRoutine,
-	findRunningRoutineRun: (db, routineId) =>
-		routineService
-			.listRoutineRuns(db, { routineId, running: true, limit: 1 })
-			.then((runs) => (runs[0] ? { id: runs[0].id } : undefined)),
-	updateRoutineRunById: (exec, id, patch) => routineService.updateRoutineRun(exec, id, patch),
-	updateRoutineById: routineService.updateRoutine,
-	incrementRoutineCost: routineService.incrementRoutineCost,
-};
-
-const workAccessor: SessionLifecyclePorts["work"] = {
-	getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
-	updateTaskById: (
-		exec: WriteExecutor,
-		id: string,
-		patch: { readonly state?: string; readonly auditTrail?: string },
-	) => work.update(exec, "task", id, patch),
-	getBetById: (exec: WriteExecutor, id: string) => work.get(exec, "bet", id),
-	updateBetById: (exec: WriteExecutor, id: string, patch: { readonly tokensActualJson?: string }) =>
-		work.update(exec, "bet", id, patch),
-	transitionTask(db, eventBus, taskId, toState, dispatchOccasion) {
-		return transitionTask(
-			db,
-			eventBus,
-			taskId,
-			toState,
-			{ workIntents: { record: enqueueWorkIntent } },
-			dispatchOccasion,
-		);
-	},
-};
-
-const userReader: SessionLifecyclePorts["users"] = {
-	getUserById: (db, id) => findUser(db, { id }),
-	getFirstUserByKind: (db, kind) => findUser(db, { kind }),
-};
-
-const settingsReader: SessionLifecyclePorts["settings"] = { readServerConfig };
-
+// AU21 §9 Increment 12 (Decision H3), Wave D: `workAccessor` DELETED entirely
+// (reads AND writes) — `run-orchestration/provisioner.ts` no longer carries
+// a `work` port at all. Its former call sites are core-api-side event
+// subscribers instead: `work-session-started-reactions.ts` (session_started
+// -> in_progress transition) and `work-session-end-reactions.ts` (session_ended
+// -> bet token-writeback). See `provisioner.ts`'s own Wave D note for the
+// full per-caller migration map.
+//
+// AU21 §9 Increment 12 (Decision H3), Wave E: `routineAccessor`/`settingsReader`
+// (this file's own `getRoutineById`/`readServerConfig` bindings) are DELETED
+// entirely — `SessionLifecyclePorts` no longer carries `routine`/`settings`
+// fields at all. `admitSession`'s Phase 3 `harnessDisabled` read is replaced
+// by baked data every per-kind resolver now supplies on the drained request
+// (`params.harnessDisabled` — see `provisioner.ts`'s own Wave E top-of-file
+// note; AU21 Increment 14a deleted the admission-time routine per-run cost
+// cap this bullet used to also describe, no replacement). `run-orchestration`
+// now holds ZERO `-> routine`/`-> settings` edge, read or write — closing
+// architecture.md §6 H3 and the anti-regrowth guard's `DEFERRED_FOLLOWUP`
+// entries `run-orchestration::routine`/`::settings`.
+//
+// **RE-CORRECTED (founder, 2026-08-01), third/final pass:** the earlier
+// `userReader`/`agentRunnabilityReader` reopening above is ITSELF deleted,
+// with no replacement of any kind. The founder rejected the premise that
+// prompted it outright: orchestration never initiates anything on its own —
+// every unit of work originates from a request core already sent — so there
+// is no scenario where it needs to independently discover or react to an
+// agent's deactivation, live-read or pushed-event alike. See
+// `provisioner.ts`'s top-of-file Wave E `@lore` for the full trace.
+// `run-orchestration` now holds ZERO `-> users` edge; `DEFERRED_FOLLOWUP`
+// no longer carries `run-orchestration::users` — there is nothing left to
+// defer.
 const observabilityAccessor: SessionLifecyclePorts["observability"] = { summarizeToolArgs };
 
-const filesystemsReader: SessionLifecyclePorts["filesystems"] = {
-	listFilesystemIdsByAgent: async (db, agentId) => {
-		const rows = await listFilesystems(db, { agentId });
-		return rows.map((r) => r.id);
-	},
-	listFilesystemsByIds: (db, ids) => {
-		if (ids.length === 0) return Promise.resolve([]);
-		return listFilesystems(db, { ids: [...ids] });
-	},
-};
-
-const connectionsProvisioner: SessionLifecyclePorts["connections"] = {
-	buildProvisioningPlan: ({ db, resolver }) =>
-		buildProvisioningPlan({
-			db,
-			resolver,
-			users: { getFirstUserByKind: (db2, kind) => findUser(db2, { kind }) },
-		}),
-	applyProvisioningPlan,
-};
-
-const costAccessor: SessionLifecyclePorts["cost"] = {
-	checkCostCap: costOps.check,
-	recordCostAndCheck: costOps.record,
-};
+// AU21 §9 Increment 12 follow-up (F2 gap closure): the `filesystemsReader`
+// seam wiring that used to live here (`seamPortForActor(agentId).filesystems
+// .listFilesystemsByAgent(agentId)`) is DELETED — `SessionLifecyclePorts` no
+// longer carries a `filesystems` field at all. The agent's injected
+// filesystem list is now baked at emit time by every per-kind resolver
+// (`@hyperidle/filesystems`'s `resolveInjectedFilesystemsForAgent`) onto
+// `ProvisionSessionParams.injectedFilesystems` instead.
+//
+// AU21 §9 Increment 12 follow-up part 2 (F2 gap closure): the
+// `connectionsProvisioner` seam wiring that used to live here
+// (`seamPortForActor(agentId).connections.listHeldConnectionsForProvisioning()`)
+// is DELETED — `SessionLifecyclePorts` no longer carries a `connections`
+// field at all. The owning human's held-connection list is now baked at
+// emit time by every per-kind resolver (`@hyperidle/connections`'s
+// `resolveInjectedConnectionsForAgent`) onto
+// `ProvisionSessionParams.injectedConnections` instead, and
+// `run-orchestration`'s own `provisioner.ts` calls `buildProvisioningPlan`/
+// `applyProvisioningPlan` directly — no composition-root port needed.
 
 const enforcement = createReturnEnforcement();
 const harnessRuntime: SessionLifecyclePorts["harnessRuntime"] = {
@@ -184,20 +161,16 @@ const sessionLifecyclePorts: SessionLifecyclePorts = {
 		registerSessionRun: (sessionId, control) => sessionRunRegistry.register(sessionId, control),
 		deregisterSessionRun: (sessionId) => sessionRunRegistry.deregister(sessionId),
 	},
-	routine: routineAccessor,
-	work: workAccessor,
-	users: userReader,
-	settings: settingsReader,
 	observability: observabilityAccessor,
-	filesystems: filesystemsReader,
-	connections: connectionsProvisioner,
-	cost: costAccessor,
 	harnessRuntime,
 	toolProvider,
 };
+// AU21 §9 Increment 4 (Decision B″ item 3): `transitionRunInternal`'s
+// `TransitionPorts` no longer carries a `routine` key at all — `endSession`/
+// `crashSession` finalize a routine run by emitting `session_ended`, never a
+// direct `routineRuns` write.
 const transitionPorts: Parameters<typeof transitionRunInternal>[0]["ports"] = {
 	sessionRequests: sessionLifecyclePorts.sessionRequests,
-	routine: sessionLifecyclePorts.routine,
 };
 
 const sessionLifecyclePort: SessionLifecycleRuntime = {
@@ -233,21 +206,13 @@ const sessionLifecyclePort: SessionLifecycleRuntime = {
 			},
 		);
 	},
-	async crashSession(
-		db: HyperIdleDb,
-		eventBus: EventBus,
-		context: SessionContextPort,
-		costInCents: number,
-		baselineCost?: number,
-	) {
+	async crashSession(db: HyperIdleDb, eventBus: EventBus, context: SessionContextPort) {
 		await transitionRunInternal(
 			{ db, eventBus, ports: transitionPorts },
 			{
 				target: "session",
 				context: context as TransitionContext,
 				disposition: "crash",
-				costInCents,
-				baselineCost,
 			},
 		);
 	},
@@ -343,7 +308,11 @@ export function runtimeDeps(
 		...rest,
 		...(runtime ? { runtime: runtime as RuntimeInput } : {}),
 		ports: overrides.ports ?? runOrchestrationPorts,
-		durableQueue: overrides.durableQueue ?? queueDeps(db),
+		// @lore AU21 §6 Decision B4: wire the real eventBus into the drain's own
+		// deps bundle so `failOrRelease` can actually emit
+		// `agent_run_admission_failed` in production, not just in tests that
+		// build `queueDeps(db)` + `eventBus` by hand.
+		durableQueue: overrides.durableQueue ?? { ...queueDeps(db), eventBus },
 		composition: {
 			context: contextPorts,
 			provisioner: sessionLifecyclePorts,

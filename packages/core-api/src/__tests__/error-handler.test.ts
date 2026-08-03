@@ -1,6 +1,5 @@
 import {
 	CapacityExceededError,
-	CostCapExceededError,
 	InvalidTransitionError,
 	VersionConflictError,
 } from "@hyperidle/shared";
@@ -45,14 +44,6 @@ describe("errorHandler middleware", () => {
 		expect(res.status).toBe(409);
 		const body = (await res.json()) as { code: string };
 		expect(body.code).toBe("CONFLICT");
-	});
-
-	it("maps CostCapExceededError to 403 FORBIDDEN", async () => {
-		const app = appThatThrows(new CostCapExceededError("agent-1", 100, 50));
-		const res = await app.request("/test");
-		expect(res.status).toBe(403);
-		const body = (await res.json()) as { code: string };
-		expect(body.code).toBe("FORBIDDEN");
 	});
 
 	it("maps errors with 'not found' in message to 404 NOT_FOUND", async () => {

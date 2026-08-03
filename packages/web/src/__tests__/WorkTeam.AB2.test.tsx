@@ -58,11 +58,7 @@ const BASE_TEAM: TeamDetail = {
 	},
 	roster: [],
 	burn: {
-		costActual: null,
-		costCap: null,
 		capacity: 5,
-		betCostActual: null,
-		routineCostThisMonth: null,
 		activeBets: 0,
 	},
 	activeBets: [],

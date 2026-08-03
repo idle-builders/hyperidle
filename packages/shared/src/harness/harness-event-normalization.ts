@@ -1,8 +1,6 @@
-import { CURRENCY_CODES, type CurrencyCode } from "../types/money.js";
 import { MODEL_TIERS, type ModelTier } from "../types.js";
 import type {
 	CapturedToolCall,
-	CostUpdateEvent,
 	HarnessEvent,
 	HarnessEventType,
 	TokenUsageEvent,
@@ -13,12 +11,10 @@ const EVENT_TYPES = [
 	"tool_call",
 	"completion",
 	"error",
-	"cost_update",
 	"pre_compaction",
 ] as const satisfies readonly HarnessEventType[];
 
 const MODEL_TIER_VALUES: ReadonlySet<string> = new Set(MODEL_TIERS);
-const CURRENCY_CODE_VALUES: ReadonlySet<string> = new Set(CURRENCY_CODES);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return value !== null && typeof value === "object";
@@ -30,10 +26,6 @@ function isFiniteNumber(value: unknown): value is number {
 
 function isModelTier(value: unknown): value is ModelTier {
 	return typeof value === "string" && MODEL_TIER_VALUES.has(value);
-}
-
-function isCurrencyCode(value: unknown): value is CurrencyCode {
-	return typeof value === "string" && CURRENCY_CODE_VALUES.has(value);
 }
 
 function isCapturedToolCall(value: unknown): value is CapturedToolCall {
@@ -340,20 +332,6 @@ export function normalizeHarnessEvent(input: unknown): HarnessEvent {
 				return unknownEvent(input);
 			}
 			return { type: "error", message: n.message, code: n.code };
-		}
-		case "cost_update": {
-			if (!(isFiniteNumber(n.totalCost) && isFiniteNumber(n.deltaCost))) {
-				return unknownEvent(input);
-			}
-			const event: CostUpdateEvent = {
-				type: "cost_update",
-				totalCost: n.totalCost as number,
-				deltaCost: n.deltaCost as number,
-			};
-			if (isCurrencyCode(n.currency)) {
-				return { ...event, currency: n.currency };
-			}
-			return event;
 		}
 		case "token_usage": {
 			if (!(isFiniteNumber(n.inputTokens) && isFiniteNumber(n.outputTokens))) {

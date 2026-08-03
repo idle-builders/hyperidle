@@ -56,16 +56,6 @@ describe("agent session request contract", () => {
 				sourceCorrelation: { knowledgeItemId: "ki-1", action: "review", teamId: "team-1" },
 			},
 			{
-				sourceKind: "decomposition",
-				sourceId: "bet-1",
-				streamId: "bet:bet-1:decomposition",
-				agentId: "pm-1",
-				teamId: "team-1",
-				promptMode: "decomposition",
-				idempotencyKey: "decomposition:bet-1:start",
-				sourceCorrelation: { betId: "bet-1", teamId: "team-1", decomposerAgentId: "pm-1" },
-			},
-			{
 				sourceKind: "proposed_call",
 				sourceId: "pc-1",
 				streamId: "task:task-1",

@@ -353,7 +353,6 @@ const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
 		},
 		eventFormat: "ndjson",
 		envAllowlist: ["PATH", "HOME", "LANG"],
-		costField: "total_cost_usd",
 		// AL6: Explicit channel — avoids relying on deriveCliChannel binary-string matching.
 		// @lore AL6 WARN: Prefer explicit returnEnforcementChannel over binary-name inference.
 		// deriveCliChannel("codex") → "settings-codex" is a fallback; explicit is authoritative.
@@ -451,7 +450,6 @@ const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
  *   .claude/settings.json + return-check.sh Stop hook before the subprocess starts.
  * - eventDialect: "claude-stream-json" — triggers preMapClaudeEvent pre-map in
  *   parseStdoutLine so assistant/result/system lines become canonical events.
- * - costField defaults to "total_cost_usd" (claude's actual result line field).
  * - --mcp-config .mcp.json: session-provisioning.ts writes this file in claude-native
  *   format ({mcpServers:{hyperidle:{type:"http",url}}}) for every MCP session.
  *   No dialect entry in writeCliMcpConfig needed — claude uses its own format.
@@ -508,7 +506,6 @@ const CLAUDE_CLI_CONFIG: CliAdapterConfig = {
 	returnEnforcementChannel: "settings-claude",
 	// Dialect tag — triggers preMapClaudeEvent in parseStdoutLine.
 	eventDialect: "claude-stream-json",
-	// costField defaults to "total_cost_usd" (claude's terminal result line field).
 };
 
 /**

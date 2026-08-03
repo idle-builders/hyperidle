@@ -1,6 +1,5 @@
 /**
- * AF12 — WorkBet UI: activate control (AC1), appetite money input (AC2),
- * kill-dialog copy honesty (AC3).
+ * AF12 — WorkBet UI: activate control (AC1), kill-dialog copy honesty (AC3).
  *
  * Drives the exported WorkBet page with an `overrideBet` fixture, opens the
  * relevant dialog via the overflow menu, and asserts on copy + the exact
@@ -8,10 +7,11 @@
  *
  * @lore AF12 RED:
  *  - AC1: no "Activate bet" overflow item exists yet → query fails.
- *  - AC2: the appetite dialog is a duration picker; it sends a STRING value, not
- *    WireMoney → the payload-shape assertion fails.
  *  - AC3: the kill dialog copy still says "freed immediately" and lacks the
  *    "finish their current step" qualifier → copy assertions fail.
+ *
+ * @lore AU21 Increment 14a: AC2 (appetite money input) is HARD-DELETED along
+ * with the rest of the cost-cap feature.
  */
 
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -58,9 +58,7 @@ const ACTIVE_BET: BetDetail = {
 	team: "Alpha Core",
 	status: "active",
 	atRisk: false,
-	costAppetite: { minor: 20000, currency: "USD" },
 	tokenAppetite: null,
-	costActual: null,
 	tokensActual: null,
 	progress: { done: 2, total: 6 },
 	description: "# Problem\nManual payments.",
@@ -123,58 +121,10 @@ describe("WorkBet AF12 — AC1 activate control", () => {
 	});
 });
 
-describe("WorkBet AF12 — AC2 appetite money input", () => {
-	beforeEach(() => {
-		apiFetchMock.mockReset();
-		apiFetchMock.mockImplementation(() => okJson());
-	});
-	afterEach(() => vi.clearAllMocks());
-
-	it("does NOT offer 'Adjust appetite' for a draft bet (server allows active only)", async () => {
-		const user = userEvent.setup();
-		renderBet(DRAFT_BET);
-		await openOverflow(user);
-		// draft bet shows 'Activate bet', not 'Adjust appetite'
-		expect(document.querySelector('[data-bet-action="adjust-appetite"]')).toBeNull();
-	});
-
-	it("the appetite dialog sends a WireMoney object (not a duration string)", async () => {
-		const user = userEvent.setup();
-		renderBet(ACTIVE_BET);
-		await openOverflow(user);
-
-		const adjustItem = document.querySelector('[data-bet-action="adjust-appetite"]') as HTMLElement;
-		await user.click(adjustItem);
-
-		// Money input: a numeric amount + currency select (no duration <select>).
-		const amount = await screen.findByRole("spinbutton");
-		await user.clear(amount);
-		await user.type(amount, "250");
-
-		const reason = screen.getByPlaceholderText(/why is the appetite changing/i);
-		await user.type(reason, "Scope grew");
-
-		await user.click(screen.getByRole("button", { name: /save/i }));
-
-		await waitFor(() => expect(apiFetchMock).toHaveBeenCalled());
-		const opts = apiFetchMock.mock.calls[0]?.[1] as { body: string };
-		const payload = JSON.parse(opts.body) as { field: string; value: unknown };
-		expect(payload.field).toBe("cost_appetite");
-		// The value must be a WireMoney { minor, currency }, NOT a string like "2 weeks".
-		expect(typeof payload.value).toBe("object");
-		expect(payload.value).toMatchObject({ minor: 25000, currency: "USD" });
-	});
-
-	it("the duration picker options are gone (no '2 weeks' etc.)", async () => {
-		const user = userEvent.setup();
-		renderBet(ACTIVE_BET);
-		await openOverflow(user);
-		await user.click(document.querySelector('[data-bet-action="adjust-appetite"]') as HTMLElement);
-		await screen.findByPlaceholderText(/why is the appetite changing/i);
-		expect(screen.queryByText("2 weeks")).not.toBeInTheDocument();
-		expect(screen.queryByText("6 weeks")).not.toBeInTheDocument();
-	});
-});
+// @lore AU21 Increment 14a: "WorkBet AF12 — AC2 appetite money input" describe
+// block is HARD-DELETED — the "Adjust appetite" action + AppetiteDialog no
+// longer exist (bets.costAppetite/costActual are dropped columns), no
+// replacement.
 
 describe("WorkBet AF12 — AC3 kill-dialog copy honesty", () => {
 	beforeEach(() => {

@@ -2,7 +2,7 @@
  * AA2 — RoutineCreateDialog: routine creation flow.
  *
  * Opens as a Dialog primitive. Fields: name, description, schedule picker
- * (presets + custom cron), agent select, optional cost cap per run.
+ * (presets + custom cron), agent select.
  *
  * @lore AA2: SCHEDULE_PRESETS are imported from @hyperidle/shared so the
  * same cron expressions are used across frontend and backend validation.
@@ -10,6 +10,11 @@
  * @lore AI2: Migrated from native <dialog> + showModal() to Dialog primitive.
  * isDirty = name or description non-empty. Authoring surface — guards on
  * dismissal when dirty.
+ *
+ * @lore AU21 Increment 14a: the "Cost cap per run" / "Monthly cost cap"
+ * inputs (AA3) are HARD-DELETED along with the rest of the cost-cap
+ * feature — `costCapPerRunMinor`/`costCapMonthlyMinor` are no longer
+ * accepted by POST /api/routines, no replacement.
  */
 
 import { Dialog, Select } from "@hyperidle/design-system";
@@ -41,8 +46,6 @@ export function RoutineCreateDialog({
 	// "custom" is the sentinel value for the custom cron input
 	const [scheduleValue, setScheduleValue] = useState<string>(INITIAL_CRON);
 	const [customCron, setCustomCron] = useState("");
-	const [costCapRaw, setCostCapRaw] = useState("");
-	const [costCapMonthlyRaw, setCostCapMonthlyRaw] = useState("");
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -70,8 +73,6 @@ export function RoutineCreateDialog({
 			setTeamId("");
 			setScheduleValue(INITIAL_CRON);
 			setCustomCron("");
-			setCostCapRaw("");
-			setCostCapMonthlyRaw("");
 			setError(null);
 			setSubmitting(false);
 		}
@@ -84,14 +85,6 @@ export function RoutineCreateDialog({
 		setSubmitting(true);
 		setError(null);
 
-		const costCapMinor = costCapRaw.trim()
-			? Math.round(Number.parseFloat(costCapRaw.trim()) * 100)
-			: null;
-		// AA3: monthly cost cap
-		const costCapMonthlyMinor = costCapMonthlyRaw.trim()
-			? Math.round(Number.parseFloat(costCapMonthlyRaw.trim()) * 100)
-			: null;
-
 		const payload: Record<string, unknown> = {
 			name: trimmedName,
 			description: description.trim() || undefined,
@@ -99,9 +92,6 @@ export function RoutineCreateDialog({
 			ownerAgentId: agentId,
 			triggerType: "calendar",
 			triggerConfig: JSON.stringify({ cron: resolvedCron }),
-			...(costCapMinor !== null ? { costCapPerRunMinor: costCapMinor } : {}),
-			// AA3: include monthly cap when set
-			...(costCapMonthlyMinor !== null ? { costCapMonthlyMinor } : {}),
 		};
 
 		const res = await apiFetch("/api/routines", {
@@ -251,42 +241,6 @@ export function RoutineCreateDialog({
 						/>
 					</label>
 				)}
-
-				{/* Cost cap per run */}
-				<label className="flex flex-col gap-[3px]">
-					<span className="text-xs text-[var(--text-tertiary)]">
-						Cost cap per run (USD, optional)
-					</span>
-					<input
-						type="number"
-						className="input input-bordered input-sm text-base w-full"
-						value={costCapRaw}
-						onChange={(e) => setCostCapRaw(e.target.value)}
-						placeholder="e.g. 0.50"
-						disabled={submitting}
-						min="0"
-						step="0.01"
-						aria-label="Cost cap per run"
-					/>
-				</label>
-
-				{/* AA3: Monthly cost cap */}
-				<label className="flex flex-col gap-[3px]">
-					<span className="text-xs text-[var(--text-tertiary)]">
-						Monthly cost cap (USD, optional)
-					</span>
-					<input
-						type="number"
-						className="input input-bordered input-sm text-base w-full"
-						value={costCapMonthlyRaw}
-						onChange={(e) => setCostCapMonthlyRaw(e.target.value)}
-						placeholder="e.g. 25.00"
-						disabled={submitting}
-						min="0"
-						step="0.01"
-						aria-label="Monthly cost cap"
-					/>
-				</label>
 
 				{error && (
 					<p role="alert" className="text-xs text-error">

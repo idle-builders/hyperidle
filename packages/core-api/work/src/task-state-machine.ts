@@ -10,6 +10,8 @@ import {
 import { eq } from "drizzle-orm";
 import type { AgentWorkIntentRecorder } from "./ports.js";
 import type { StateTransitionAuditEntry, TaskAuditEntry } from "./task-audit.js";
+import type { TaskRunResolverDeps } from "./task-run-resolver.js";
+import { resolveTaskRunRequest } from "./task-run-resolver.js";
 import * as work from "./work-service.js";
 
 /**
@@ -18,9 +20,17 @@ import * as work from "./work-service.js";
  * @lore AU19 Increment 1b: `workIntents` is the same §10.3 against-grain
  * `session-requests` port as `bet-decomposition.ts`'s — interim DI wiring,
  * rewired to an EventBus subscription in Increment 3.
+ *
+ * @lore AU21 §6 Decision B / Increment 3: `taskRunResolver` carries the
+ * shared ast-`<userId>` runnability helper (`requireRunnableAgent`,
+ * `@hyperidle/users`) — injected rather than statically imported, same
+ * Mechanism C shape as `assistant-turn-resolver.ts`'s
+ * `AssistantTurnResolverDeps` (a nested Service may depend only on
+ * `@hyperidle/db` + `@hyperidle/shared`, never another Service directly).
  */
 export interface TaskStateMachineDeps {
 	readonly workIntents: AgentWorkIntentRecorder;
+	readonly taskRunResolver: TaskRunResolverDeps;
 }
 
 export {
@@ -117,12 +127,24 @@ export async function transitionTask(
 					createdAt: entry.timestamp,
 					updatedAt: entry.timestamp,
 				});
+				// AU21 §6 Decision B: resolve + validate the task_run run AT EMIT
+				// TIME (this Service's own domain state, plus the shared
+				// ast-<userId> runnability invariant) and bake the full request
+				// onto the intent — the drain dispatches it directly, with zero
+				// domain reads. The dispatch attempt row was just inserted above,
+				// in the SAME transaction, so this read sees it.
+				const bakedRequest = await resolveTaskRunRequest(
+					tx as HyperIdleDb,
+					attemptId,
+					deps.taskRunResolver,
+				);
 				await deps.workIntents.record(tx, {
 					kind: "task_run",
 					sourceKind: "task_dispatch_attempt",
 					sourceId: attemptId,
 					requestedBy: task.ownerAgentId,
 					idempotencyKey: `task-dispatch:${attemptId}`,
+					bakedRequest,
 				});
 			}
 

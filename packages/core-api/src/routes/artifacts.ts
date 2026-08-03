@@ -7,7 +7,6 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	ARTIFACT_KINDS,
 	type Artifact,
-	type ArtifactCostFromSession,
 	type ArtifactPage,
 	artifactPreviewSchema,
 	type EventBus,
@@ -15,14 +14,12 @@ import {
 	isRegisteredKind,
 	OLD_KIND_MAP,
 } from "@hyperidle/shared";
-import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { createBodyLimit } from "../middleware/body-limit.js";
 import { validateBody } from "../middleware/validate.js";
-import { costOps } from "../services/cost-bindings.js";
 
 const PREVIEW_BODY_LIMIT = 64 * 1024;
 const DEFAULT_LIMIT = 50;
@@ -42,35 +39,9 @@ const createArtifactSchema = z.object({
 		.optional()
 		.nullable(),
 	preview: artifactPreviewSchema.nullable(),
-	// @lore O2: cost is accepted for wire compat; money_micros is now routed through
-	// costOps.record when agentId resolves (AF10 §5.2). The artifacts table has no
-	// cost columns — cost lands in bet/agent/team/factory accumulators, not the artifact
-	// row itself (AC4 narrowed: per-artifact chip stays NULL_COST on GET, per §5.4).
-	cost: z
-		.object({
-			money_micros: z.number().int().nonnegative().finite().nullable(),
-			tokens_input: z.number().int().nonnegative().finite().nullable(),
-			tokens_output: z.number().int().nonnegative().finite().nullable(),
-		})
-		.nullable()
-		.optional(),
-	// AF10 §5.1: optional agentId for cost attribution.
-	// When absent, falls back to tasks.ownerAgentId. When neither resolves,
-	// artifact is still created (201) but cost is not recorded (§5.3).
-	agentId: z.string().min(1).optional(),
-	// AF10 §5.4: optional sessionId for the dedup key.
-	// When absent, synthesized as "artifact:<artifactId>" after id generation.
-	sessionId: z.string().min(1).optional(),
 });
 
 const patchPreviewSchema = z.object({ preview: artifactPreviewSchema });
-
-/**
- * @lore O2: cost columns stripped from artifacts table. The Artifact wire
- * type still has a `cost` field (kept for API compat with existing consumers).
- * We return `{ money: null, tokens: null }` — cost is now a strategy concern.
- */
-const NULL_COST: ArtifactCostFromSession = { money: null, tokens: null };
 
 /**
  * @lore AE6: Read-time normalization for old artifact kinds.
@@ -140,13 +111,16 @@ function rowToArtifact(row: work.ArtifactRow, producingTaskTitle: string): Artif
 		kind,
 		label,
 		preview,
-		cost: NULL_COST,
 		threadCount: 0,
 		createdAt: row.createdAt,
 	};
 }
 
-export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono {
+// @lore AU21 Increment 14a: `eventBus` was only used to route artifact cost
+// through `costOps.record` — deleted along with the rest of the cost
+// feature. Kept as a parameter (unused, prefixed `_`) so this composition
+// root's call signature stays stable for its caller.
+export function createArtifactRoutes(db: HyperIdleDb, _eventBus?: EventBus): Hono {
 	const router = new Hono();
 
 	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
@@ -256,40 +230,6 @@ export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono
 				createdAt: now,
 			});
 
-			// AF10 §5.2: Route artifact cost through costOps.record accumulators.
-			// agentId: prefer body.agentId, fall back to tasks.ownerAgentId (both nullable).
-			// teamId: resolved via users.teamId = teamMembers.id (@lore U1: NOT tasks.teamId).
-			// sessionId: body.sessionId or synthesized as "artifact:<id>" (dedup scope, §5.4).
-			// Null-owner rule (§5.3): if no agentId resolves, create artifact but skip recording.
-			const moneyMicros = body.cost?.money_micros;
-			const resolvedAgentId = body.agentId ?? taskRow.ownerAgentId ?? null;
-
-			if (
-				resolvedAgentId !== null &&
-				moneyMicros !== null &&
-				moneyMicros !== undefined &&
-				moneyMicros > 0 &&
-				eventBus !== undefined
-			) {
-				// Resolve teamMembers.id from users.teamId (§5.2 — NOT tasks.teamId which is teams.id)
-				const agentRow = await findUser(db, { id: resolvedAgentId });
-
-				if (agentRow) {
-					const resolvedSessionId = body.sessionId ?? `artifact:${id}`;
-					// @lore AF10 AC4: costMinor = money_micros / 10000 (micros→cents conversion).
-					// This is a delta w.r.t. the accumulators (artifact cost recorded once, §1 contract).
-					// sessionId "artifact:<id>" is used exactly once — costOps._testHooks.releaseDedup is moot.
-					await costOps.record(db, eventBus, {
-						sessionId: resolvedSessionId,
-						costMinor: Math.round(moneyMicros / 10000),
-						currency: "USD",
-						agentId: resolvedAgentId,
-						teamId: agentRow.teamId ?? undefined,
-						taskId: body.producingTaskId,
-					});
-				}
-			}
-
 			const result: Artifact = {
 				id,
 				producingTaskId: body.producingTaskId,
@@ -297,7 +237,6 @@ export function createArtifactRoutes(db: HyperIdleDb, eventBus?: EventBus): Hono
 				kind: body.kind,
 				label: body.label ?? null,
 				preview: body.preview as Artifact["preview"],
-				cost: NULL_COST,
 				threadCount: 0,
 				createdAt: now,
 			};

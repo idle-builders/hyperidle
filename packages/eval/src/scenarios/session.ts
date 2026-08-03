@@ -7,7 +7,7 @@
 import * as fs from "node:fs";
 import { sessions } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import { judgeCostTracked, judgeSessionCompleted, judgeSessionNotesWritten } from "../judges.js";
+import { judgeSessionCompleted, judgeSessionNotesWritten } from "../judges.js";
 import { runEvalSession } from "../provision-harness.js";
 import { seedAgent, seedBet, seedFounder, seedTask, seedTeam } from "../seeding.js";
 import type {
@@ -26,7 +26,7 @@ import type {
 
 const sessLifecycleGrowthSales: EvalScenario = {
 	id: "sess-lifecycle-growth-sales",
-	description: "Full session lifecycle: session row valid, task state updated, bet cost tracked",
+	description: "Full session lifecycle: session row valid, task state updated",
 	feature: "session",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
@@ -47,7 +47,6 @@ Write substantive session notes covering: what you analyzed, key findings, and n
 			teamId,
 			description: "Q4 sales pipeline optimization",
 			doneCondition: "Pipeline bottlenecks identified and addressed.",
-			costAppetiteMinor: 5000,
 		});
 
 		const { taskId } = await seedTask(ctx.db, {
@@ -92,7 +91,6 @@ Use write_session_notes to document your analysis.`,
 	rubric: {
 		dimensions: [
 			judgeSessionCompleted(),
-			judgeCostTracked(),
 			judgeSessionNotesWritten(),
 			{
 				id: "session_row_valid",
@@ -151,7 +149,6 @@ const sessModelTierBuilderDevops: EvalScenario = {
 			teamId,
 			description: "Infrastructure optimization",
 			doneCondition: "Optimization complete.",
-			costAppetiteMinor: 5000,
 		});
 
 		const { taskId } = await seedTask(ctx.db, {
@@ -240,7 +237,6 @@ const sessWorkspaceCleanupBuilderFrontend: EvalScenario = {
 			teamId,
 			description: "Frontend component library",
 			doneCondition: "Component documented.",
-			costAppetiteMinor: 5000,
 		});
 
 		const { taskId } = await seedTask(ctx.db, {

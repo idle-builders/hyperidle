@@ -140,6 +140,22 @@ export function registerReviewSubscriptions(
 			taskId: event.taskId,
 			agentId: event.agentId,
 			intentRecorder: ports.intentRecorder,
+			// AU21 §6 Decision B: bake the re-provision request at emit time —
+			// see `applyLivenessRetry`'s `@lore` in `proposed-call-workflow.ts`.
+			getTaskById: ports.work.getTaskById,
+			requireRunnableAgent: ports.requireRunnableAgent,
+			// AU21 §9 Increment 12 (Decision H3): also bake the contextBundle.
+			getBetById: ports.getBetById,
+			getTeamById: ports.getTeamById,
+			assembleSessionKnowledge: ports.assembleSessionKnowledge,
+			// AU21 §9 Increment 12 (Decision H3), Wave E: also bake harnessDisabled.
+			readServerConfig: ports.readServerConfig,
+			// AU21 §9 Increment 12 follow-up (F2 gap closure): also bake
+			// injectedFilesystems.
+			resolveInjectedFilesystemsForAgent: ports.resolveInjectedFilesystemsForAgent,
+			// AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections):
+			// also bake injectedConnections.
+			resolveInjectedConnectionsForAgent: ports.resolveInjectedConnectionsForAgent,
 		});
 	};
 

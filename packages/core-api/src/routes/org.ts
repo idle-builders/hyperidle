@@ -18,23 +18,81 @@
 // `mechanism: "team"` targets the agent membership group → check `teamMembers`.
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
+	createTeam,
 	deleteOrgEdge,
+	getTeam,
 	getTeamMembers,
 	listOrgEdges,
 	listTeamMembers,
+	persistScaffoldedAgents,
+	resolveReviewRecipients,
 	upsertOrgEdge,
 } from "@hyperidle/org";
-import { ORG_EDGE_MECHANISMS } from "@hyperidle/shared";
-import { findUser, listUsers } from "@hyperidle/users";
+import { provisionTeamRoutines } from "@hyperidle/routine";
+import { API_ERROR_CODES, ORG_EDGE_MECHANISMS } from "@hyperidle/shared";
+import { findUser, insertUser, listUsers } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
+import { validateBody } from "../middleware/validate.js";
 
 const putOrgEdgeSchema = z.object({
 	fromUserId: z.string().min(1),
 	mechanism: z.enum(ORG_EDGE_MECHANISMS),
 	target: z.string().min(1),
+});
+
+/**
+ * AU21 §9 Increment 2 (org/routine/handoff wave) — the `CoreApiPort.org`
+ * seam methods' backing routes (`edge-disposition.md`'s `org.{getTeam,
+ * getTeamMembers, createTeam, updateTeam}` row plus the two collapsed
+ * `tool-handlers`-only helpers). None of these have a 1:1 existing UI route
+ * to reuse (the only existing team-detail route, `GET /teams/:teamId` in
+ * `teams-routes.ts`, builds a heavy enriched `TeamDetail` and 500s if the
+ * `teamMembers` companion is missing — wrong shape/behavior for these narrow
+ * reads) — see `core-api-port-increment2-org-routine-handoff.integration.test.ts`'s
+ * top-of-file plan comment for the full reuse-vs-new rationale per method.
+ */
+const createOrgTeamSchema = z.object({
+	id: z.string().min(1),
+	name: z.string().min(1),
+	phase: z.string().min(1),
+	functions: z.string().nullable(),
+	factoryDbPath: z.string().nullable(),
+	createdAt: z.string().min(1),
+	teamMembersId: z.string().min(1),
+	capacity: z.number().int().optional(),
+	activeBets: z.number().int().optional(),
+	formedAt: z.string().optional(),
+});
+
+const scaffoldSpecSchema = z.object({
+	role: z.string().min(1),
+	name: z.string().min(1),
+	agentCategory: z.enum(["team", "strategy", "individual"]),
+	systemPrompt: z.string().nullable(),
+	idHint: z.string().optional(),
+});
+
+const persistScaffoldedAgentsSchema = z.object({
+	teamMembersId: z.string().nullable(),
+	specs: z.array(scaffoldSpecSchema).min(1),
+});
+
+/**
+ * @lore AU21 §9 Increment 9 (forensic-triage wave, second pass): backs
+ * `CoreApiOrgPort.provisionTeamRoutines` — `create_team`'s tool handler's
+ * last remaining non-seam step (see `core-api-port.ts`'s own doc comment on
+ * `CoreApiOrgPort` for the full reasoning). No 1:1 UI route (same shape as
+ * `scaffoldedAgentsSchema` above) — `provisionTeamRoutines` is a step INSIDE
+ * `POST /teams`'s heavier UI flow (`teams-routes.ts`), not itself a route;
+ * this is a new, narrowly-scoped route built specifically for the seam.
+ */
+const provisionTeamRoutinesSchema = z.object({
+	teamId: z.string().min(1),
+	ownerByRole: z.record(z.string(), z.string().optional()),
+	leadAgentId: z.string().min(1),
 });
 
 /**
@@ -60,8 +118,10 @@ export function createOrgRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 		const teamRows = await listTeamMembers(db, { active: true, withTeamName: true });
 
 		// @lore AU20/Am11: project only {id,kind,name,role} — listUsers returns full rows
-		// but this public-data endpoint must not leak email/systemPrompt/cost/model columns.
-		// Matches the pre-collapse listUserDirectory projection exactly.
+		// but this public-data endpoint must not leak email/systemPrompt/model columns
+		// (AU21 Increment 14a: the cost columns this projection also used to guard
+		// against leaking are dropped entirely, no replacement). Matches the
+		// pre-collapse listUserDirectory projection exactly.
 		const userSummaries = allUsers.map((u) => ({
 			id: u.id,
 			kind: u.kind,
@@ -155,6 +215,123 @@ export function createOrgRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 		await deleteOrgEdge(db, id);
 		return c.body(null, 204);
 	});
+
+	// GET /teams/:teamId — narrow team view {id, name} for the CoreApiPort seam
+	// (AU21 §9 Increment 2). Distinct from `GET /teams/:teamId` (top-level
+	// `teams-routes.ts`), which builds a heavy enriched TeamDetail.
+	router.get("/teams/:teamId", requireBoundary({ kind: "public-data" }), async (c) => {
+		const teamId = c.req.param("teamId");
+		const team = await getTeam(db, { id: teamId });
+		if (!team) {
+			return c.json({ error: "Team not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+		}
+		return c.json({ id: team.id, name: team.name });
+	});
+
+	// GET /teams/:teamId/membership — the `teamMembers` row keyed by `teams.id`.
+	router.get("/teams/:teamId/membership", requireBoundary({ kind: "public-data" }), async (c) => {
+		const teamId = c.req.param("teamId");
+		const memberGroup = await getTeamMembers(db, { teamId });
+		if (!memberGroup) {
+			return c.json(
+				{ error: "Team membership group not found", code: API_ERROR_CODES.NOT_FOUND },
+				404,
+			);
+		}
+		return c.json({ id: memberGroup.id });
+	});
+
+	// GET /team-members/:teamMembersId — the AK4 two-hop resolution's second hop
+	// (`teamMembers.id` -> `teamId`, i.e. `teams.id`).
+	router.get(
+		"/team-members/:teamMembersId",
+		requireBoundary({ kind: "public-data" }),
+		async (c) => {
+			const teamMembersId = c.req.param("teamMembersId");
+			const memberGroup = await getTeamMembers(db, { id: teamMembersId });
+			if (!memberGroup) {
+				return c.json(
+					{ error: "Team membership group not found", code: API_ERROR_CODES.NOT_FOUND },
+					404,
+				);
+			}
+			return c.json({ teamId: memberGroup.teamId });
+		},
+	);
+
+	// POST /teams — the atomic `teams`+`teamMembers` insert ONLY (never the
+	// heavier `POST /teams` UI flow, which also scaffolds the default agent
+	// roster + provisions routines + writes an org edge + drafts a welcome
+	// message — reusing that here would DOUBLE the scaffold/provision work
+	// `create_team`'s tool handler already performs itself immediately after).
+	router.post(
+		"/teams",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(createOrgTeamSchema),
+		async (c) => {
+			const body = c.req.valid("json" as never) as z.infer<typeof createOrgTeamSchema>;
+			await createTeam(db, body);
+			return c.json({ id: body.id, teamMembersId: body.teamMembersId }, 201);
+		},
+	);
+
+	// GET /review-recipients — the pure org-edge routing query
+	// (`resolveReviewRecipients`). No UI action reaches this directly today.
+	router.get("/review-recipients", requireBoundary({ kind: "public-data" }), async (c) => {
+		const userId = c.req.query("userId");
+		const agentRole = c.req.query("agentRole");
+		const teamId = c.req.query("teamId");
+		if (!userId) {
+			return c.json({ error: "userId is required", code: API_ERROR_CODES.VALIDATION_ERROR }, 400);
+		}
+		const recipients = await resolveReviewRecipients(
+			db,
+			{ userId, agentRole, teamId },
+			{ listUsersByKind: (db2, kind) => listUsers(db2, { kind }) },
+		);
+		return c.json({ recipients });
+	});
+
+	// POST /scaffolded-agents — the collapsed Kernel-persist helper
+	// (`persistScaffoldedAgents`). Even `POST /teams` calls the underlying
+	// function directly in-process, never via HTTP — no UI route exists to
+	// reuse.
+	router.post(
+		"/scaffolded-agents",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(persistScaffoldedAgentsSchema),
+		async (c) => {
+			const body = c.req.valid("json" as never) as z.infer<typeof persistScaffoldedAgentsSchema>;
+			const result = await persistScaffoldedAgents(
+				db,
+				{ getUserById: (db2, id) => findUser(db2, { id }), insertUser },
+				body.teamMembersId,
+				body.specs,
+			);
+			return c.json(result, 201);
+		},
+	);
+
+	// POST /team-routines — seeds the four builtin-routine definitions for a
+	// team (`@hyperidle/routine`'s `provisionTeamRoutines`). `teams-routes.ts`'s
+	// `POST /teams` calls the underlying function directly in-process (same
+	// convention as `scaffolded-agents` above) — this route exists so
+	// `create_team`'s tool handler (already routing every other step through
+	// this seam) can reach it too, per Decision C.
+	router.post(
+		"/team-routines",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(provisionTeamRoutinesSchema),
+		async (c) => {
+			const body = c.req.valid("json" as never) as z.infer<typeof provisionTeamRoutinesSchema>;
+			await provisionTeamRoutines(db, {
+				teamId: body.teamId,
+				ownerByRole: body.ownerByRole,
+				leadAgentId: body.leadAgentId,
+			});
+			return c.json({}, 201);
+		},
+	);
 
 	return router;
 }

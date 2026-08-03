@@ -29,7 +29,6 @@ import { getWsClient } from "../services/ws-client.js";
 export type { ActivityEntry } from "@hyperidle/shared";
 export type ToolCallData = Extract<ActivityEntry, { type: "tool_call" }>["data"];
 export type ReasoningData = Extract<ActivityEntry, { type: "reasoning" }>["data"];
-export type CostTickData = Extract<ActivityEntry, { type: "cost_tick" }>["data"];
 
 export interface SessionSummary {
 	agentId: string;
@@ -58,16 +57,6 @@ function isReasoningData(data: unknown): data is ReasoningData {
 	return typeof d.excerpt === "string";
 }
 
-function isCostTickData(data: unknown): data is CostTickData {
-	if (typeof data !== "object" || data === null) return false;
-	const d = data as Record<string, unknown>;
-	return (
-		typeof d.deltaMinor === "number" &&
-		typeof d.totalMinor === "number" &&
-		typeof d.currency === "string"
-	);
-}
-
 function parseActivityEntry(value: unknown): ActivityEntry | null {
 	if (typeof value !== "object" || value === null) return null;
 	const v = value as Record<string, unknown>;
@@ -78,9 +67,6 @@ function parseActivityEntry(value: unknown): ActivityEntry | null {
 	}
 	if (v.type === "reasoning" && isReasoningData(v.data)) {
 		return { type: "reasoning", timestamp: v.timestamp, data: v.data };
-	}
-	if (v.type === "cost_tick" && isCostTickData(v.data)) {
-		return { type: "cost_tick", timestamp: v.timestamp, data: v.data };
 	}
 	return null;
 }
