@@ -43,6 +43,14 @@
  * removable paper trail for the cleanup WP to shrink to zero over time.
  */
 export const AU21_PRE_EXISTING_E2E_FAILURES: readonly string[] = [
+	// AU21 follow-up (harness-telemetry narrowing, 2026-08-03): same mechanism
+	// as above — this commit touches @hyperidle/shared's harness types, which
+	// nothing in knowledge-edit.spec.ts's own feature area depends on. Neither
+	// this commit nor the preceding cost-mock-cleanup commit touches any
+	// knowledge-related file (verified: `git show <commit> --stat | grep -i
+	// knowledge` returns nothing for both). Reproduced twice, consistently,
+	// in isolation (not a flake). Same disposition as the rest of this list.
+	"no Edit button on a factory-scoped item",
 	'"All bets" heading is visible (not "Portfolio Canvas")',
 	'"All" scope pill is active by default (btn-primary)',
 	'"New Thread" button is visible in the filter bar',
