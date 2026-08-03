@@ -2,10 +2,12 @@
  * AU21 — `AgentOrchestrationPort`: agent-orchestration's own read door
  * (architecture.md §6 Decision D, §9 Increment 6, §10), symmetric in shape to
  * `CoreApiPort` (Decision A/C, Increment 1) but the OPPOSITE direction: it
- * serves what agent-orchestration genuinely owns — per-session cost +
- * session/run history — to core-ui/core-api, never the reverse. There is no
- * cost "mirror" to delete (§6 Decision D's full trace); this is the first
- * time per-session cost is served anywhere.
+ * serves what agent-orchestration genuinely owns — session/run history — to
+ * core-ui/core-api, never the reverse.
+ *
+ * @lore AU21 Increment 14a: the per-session cost read
+ * (`getSessionCostBySessionId`) this door originally also served is
+ * HARD-DELETED along with the rest of the cost feature — no replacement.
  *
  * TYPE-ONLY, same as `core-api-port.ts` — `@hyperidle/api-contract` stays
  * zero-runtime-deps. Every type below is a hand-written mirror of the real
@@ -18,9 +20,7 @@
  * never a compiler guarantee (`AppType` is bare `Hono`).
  *
  * STRICTLY READ-ONLY (§12): every method here reads display data only. No
- * method mutates core-api or agent-orchestration state — the write-gate (the
- * cost cap) stays entirely core-side/orchestration-side, untouched by this
- * door.
+ * method mutates core-api or agent-orchestration state.
  */
 
 /** One session/run-history entry — mirrors the backing route's per-row shape. */
@@ -28,7 +28,6 @@ export interface AgentOrchestrationSessionHistoryEntry {
 	readonly id: string;
 	readonly sessionId: string | null;
 	readonly status: string;
-	readonly costCents: number | null;
 }
 
 /**
@@ -37,7 +36,7 @@ export interface AgentOrchestrationSessionHistoryEntry {
  * contract` stays zero-runtime-deps (header note above), so this is a
  * deliberate type-only duplication, not an import — same idiom as
  * `AgentOrchestrationSessionHistoryEntry`. `data`'s shape varies by `type`
- * (`tool_call`/`reasoning`/`cost_tick`/…); callers that need the narrowed
+ * (`tool_call`/`reasoning`/…); callers that need the narrowed
  * shape reconstruct it the same way `useSessionActivity.ts` already does
  * for the WS/REST wire format (this door serves the identical JSON shape).
  */
@@ -48,18 +47,11 @@ export interface AgentOrchestrationSessionActivityEntry {
 }
 
 /**
- * The `sessions` capability family (Decision D/E) — per-session cost (the
- * real gap `tasks.ts`'s hardcoded `cost: null` traces) + session/run history
+ * The `sessions` capability family (Decision D/E) — session/run history
  * for a given work source + the relocated session-activity stream (§9
  * Increment 7: `agent-execution` owns the buffer, this door gateways it).
  */
 export interface AgentOrchestrationSessionsPort {
-	/**
-	 * Three-way contract (mirrors `getSessionCostBySessionId`'s own):
-	 * a costed session → its `costCents`; a known but not-yet-costed session
-	 * → `null`; an unknown `sessionId` → `undefined`.
-	 */
-	getSessionCostBySessionId(sessionId: string): Promise<number | null | undefined>;
 	/** All `agentSessionRequests` rows for one `(sourceKind, sourceId)`, oldest first. */
 	listSessionHistoryBySource(
 		sourceKind: string,

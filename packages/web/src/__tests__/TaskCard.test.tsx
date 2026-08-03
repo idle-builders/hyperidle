@@ -25,11 +25,6 @@ describe("TaskCard", () => {
 		expect(screen.getByText("HEALTHY")).toBeInTheDocument();
 	});
 
-	it("renders cost as KeyValue when provided", () => {
-		render(<TaskCard {...defaultProps} cost="$1.50" />);
-		expect(screen.getByText("$1.50")).toBeInTheDocument();
-	});
-
 	it("renders betTag as Tag when provided", () => {
 		render(<TaskCard {...defaultProps} betTag="Mobile V2" />);
 		const tag = screen.getByText("Mobile V2");
@@ -100,14 +95,12 @@ describe("TaskCard", () => {
 		expect(screen.getByText("ERROR")).toBeInTheDocument();
 	});
 
-	it("composes at least 2 Tier 1 primitives (StatusChip + Tag + KeyValue)", () => {
-		render(<TaskCard {...defaultProps} betTag="Sprint 1" cost="$2.00" />);
+	it("composes at least 2 Tier 1 primitives (StatusChip + Tag)", () => {
+		render(<TaskCard {...defaultProps} betTag="Sprint 1" />);
 		// StatusChip
 		expect(screen.getByText("HEALTHY")).toHaveClass("inline-flex", "rounded-full");
 		// Tag for betTag
 		expect(screen.getByText("Sprint 1")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
-		// KeyValue for cost
-		expect(screen.getByText("$2.00")).toBeInTheDocument();
 	});
 
 	it("all 8 TaskState values produce distinct visual states", () => {

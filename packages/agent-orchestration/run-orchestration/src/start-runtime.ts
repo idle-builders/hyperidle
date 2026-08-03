@@ -151,7 +151,8 @@ async function drainAgentSessionRequests(deps: RuntimeDeps): Promise<number> {
 			const failure = classifyAdmissionFailure(error);
 			// @lore AU9 R1: executeAgentRunRequest (via runClaimedRequest) already
 			// terminalizes the request itself before rethrowing — for
-			// ConcurrencyLimitError/CostCapExceededError it releases the claim back
+			// ConcurrencyLimitError (AU21 Increment 14a: CostCapExceededError no
+			// longer exists — cost is hard-deleted) it releases the claim back
 			// to pending (retryable), for every other error it terminalizes to
 			// failed through the single terminal writer. Calling
 			// transitionAgentRunLifecycle again here would either double-terminalize
@@ -173,8 +174,10 @@ async function drainAgentSessionRequests(deps: RuntimeDeps): Promise<number> {
 	}
 }
 
+// @lore AU21 Increment 14a: "COST_CAP_EXCEEDED" is HARD-DELETED — the
+// cost-cap gate that used to throw CostCapExceededError no longer exists,
+// no replacement admission-failure code.
 type AgentAdmissionFailureCode =
-	| "COST_CAP_EXCEEDED"
 	| "CONCURRENCY_LIMIT"
 	| "MISSING_CREDENTIAL"
 	| "NO_ELIGIBLE_HARNESS"
@@ -187,8 +190,6 @@ function classifyAdmissionFailure(error: unknown): {
 } {
 	const name = error instanceof Error ? error.name : "Error";
 	switch (name) {
-		case "CostCapExceededError":
-			return { code: "COST_CAP_EXCEEDED", status: 422 };
 		case "ConcurrencyLimitError":
 			return { code: "CONCURRENCY_LIMIT", status: 429 };
 		case "MissingCredentialError":
@@ -201,7 +202,7 @@ function classifyAdmissionFailure(error: unknown): {
 }
 
 /**
- * @lore AU9 Shutdown/cost-cap callers: the process disposer stores `shutdown` on
+ * @lore AU9 Shutdown callers: the process disposer stores `shutdown` on
  * every still-running correlated request before it aborts them — through
  * `requestAgentTermination` then the single terminal writer, never a bare abort.
  * A recovering boot (or this same process's own recovery sweep next start) then
@@ -242,7 +243,7 @@ function disposeAll(disposers: Array<() => void>): unknown {
  * @lore AU9 Boot wiring: an awaited first sweep runs before anything else observes
  * readiness — recover running-request custody (adopt-or-RUNTIME_LOST), recover
  * durably-stored termination causes that never reached teardown (crash after
- * HTTP 202: shutdown/cost-cap/user causes), then reap eligible terminal rows.
+ * HTTP 202: shutdown/user causes), then reap eligible terminal rows.
  * Only after that sweep does the intent/request drain start, scheduled every 1s,
  * with the reaper additionally scheduled every 6h.
  */

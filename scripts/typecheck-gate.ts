@@ -487,7 +487,7 @@ function buildLeafDeclarations(root: string): void {
     // agent-delegation.ts, isAtCapacity into this list's own run-orchestration
     // (concurrency.ts), resolveScaffoldSpecs into db's agent-scaffold.ts.
     // @lore AU20 B2c: agent-orchestration/capture-writeback folded into run-orchestration.
-    "agent-orchestration/cost",
+    // @lore AU21 Increment 14a: agent-orchestration/cost HARD-DELETED (founder) — removed from this list.
     "agent-orchestration/dispatch",
     // @lore AU20 B2b: agent-orchestration/session-lifecycle folded into run-orchestration.
     // @lore AU20 B2a: agent-orchestration/context-assembly folded into run-orchestration.

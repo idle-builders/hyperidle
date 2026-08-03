@@ -8,8 +8,8 @@
  * Same package as `routine-service.ts` — the only module permitted to read
  * or write `routines`/`routine_runs` (AU13) — so the scheduler now calls that
  * storage directly (`insertRoutineRun`/`updateRoutine`/`listRoutineRuns`/
- * `sumRunCost`/`listRoutines`/`getRoutine`), an ordinary intra-package call
- * instead of a `DispatchPorts.routine.*` cross-layer edge.
+ * `listRoutines`/`getRoutine`), an ordinary intra-package call instead of a
+ * `DispatchPorts.routine.*` cross-layer edge.
  *
  * @lore AU21 Increment 4 — Mechanism C: `work`/`conversation`/`knowledge`/
  * `review`/`settings` are ALL cross-Service from this package's point of
@@ -20,9 +20,10 @@
  * `npm run lint`) hard-fails a Service package (`packages/<layer>/<service>/`)
  * that imports another Service directly, with NO allowlist; this file (and
  * its `package.json`) must depend on nothing but `@hyperidle/db` +
- * `@hyperidle/shared`. `session-requests`/`cost` (agent-orchestration-owned,
- * genuinely against-grain) are ports for the same reason, one level further
- * against the grain.
+ * `@hyperidle/shared`. `session-requests` (agent-orchestration-owned,
+ * genuinely against-grain) is a port for the same reason, one level further
+ * against the grain. @lore AU21 Increment 14a: `cost` (the factory cost-cap
+ * gate this file used to also read through) is DELETED — no replacement.
  *
  * @lore AU21 §9 Increment 9 (forensic-triage wave, second pass — closes the
  * `dispatch::routine` finding for real, not allowlisted): `provisionTeamRoutines`
@@ -70,7 +71,6 @@ import {
 	listRoutines,
 	RoutineRunSourceUnavailableError,
 	resolveRoutineRunRequest,
-	sumRunCost,
 	updateRoutine,
 } from "./routine-service.js";
 
@@ -494,7 +494,6 @@ export async function fireBuiltinRoutine(
 		startedAt: startedAt.toISOString(),
 		endedAt: endedAt.toISOString(),
 		outcome: result.fired ? "success" : "skipped",
-		costMinor: 0,
 	});
 
 	if (result.fired) {
@@ -541,23 +540,6 @@ export function registerBuiltinRoutineHandlers(
 	};
 }
 
-async function isFactoryCostCapReached(
-	db: HyperIdleDb,
-	ports: RoutineSchedulerPorts,
-): Promise<boolean> {
-	const { cost } = await ports.settings.readServerConfig(db);
-	const cap = cost.capMinor;
-	if (!Number.isFinite(cap) || cap <= 0) return false;
-	const actual = await ports.cost.getFactoryCostActual(db);
-	return actual >= cap;
-}
-
-function getRoutineMonthlySpend(db: HyperIdleDb, routineId: string): Promise<number> {
-	const now = new Date();
-	const firstOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
-	return sumRunCost(db, { routineIds: [routineId], since: firstOfMonth, kind: "sum" });
-}
-
 function safeNextRunAt(routine: Routine, now: Date): string | null {
 	try {
 		return computeNextRunAt(routine, now);
@@ -589,26 +571,6 @@ export async function fireGenericRoutine(
 	recordSkippedRun = false,
 ): Promise<FireResult> {
 	const now = new Date();
-	if (await isFactoryCostCapReached(db, ports)) {
-		const nextRunAt = safeNextRunAt(routine, now);
-		await updateRoutine(db, routine.id, { nextRunAt });
-		return { fired: false, reason: "factory cost cap reached" };
-	}
-	if (routine.costCapMonthlyMinor != null) {
-		const monthlySpend = await getRoutineMonthlySpend(db, routine.id);
-		if (monthlySpend >= routine.costCapMonthlyMinor) {
-			const runId = crypto.randomUUID();
-			await insertRoutineRun(db, {
-				id: runId,
-				routineId: routine.id,
-				startedAt: now.toISOString(),
-				outcome: "monthly_budget_exhausted",
-			});
-			const nextRunAt = safeNextRunAt(routine, now);
-			await updateRoutine(db, routine.id, { nextRunAt });
-			return { fired: false, reason: "monthly cost cap reached" };
-		}
-	}
 	const [runningRow] = await listRoutineRuns(db, {
 		routineId: routine.id,
 		running: true,
@@ -650,9 +612,8 @@ export async function fireGenericRoutine(
 				getTeamById: ports.getTeamById,
 				assembleSessionKnowledge: ports.assembleSessionKnowledge,
 				// AU21 §9 Increment 12 (Decision H3), Wave E: forward the SAME
-				// `settings.readServerConfig` this function's own cost-cap check
-				// (`isFactoryCostCapReached`) already reads — no second `settings`
-				// read — for the `harnessDisabled` bake.
+				// `settings.readServerConfig` for the `harnessDisabled` bake — no
+				// second `settings` read.
 				readServerConfig: (db) => ports.settings.readServerConfig(db),
 				// AU21 §9 Increment 12 follow-up (F2 gap closure): forward the
 				// optional injectedFilesystems bake dep (present once the

@@ -83,18 +83,13 @@ function makePopulatedTeam() {
 			},
 		],
 		burn: {
-			costActual: { minor: 420000, currency: "USD" },
-			costCap: { minor: 1000000, currency: "USD" },
 			capacity: 5,
-			betCostActual: { minor: 300000, currency: "USD" },
-			routineCostThisMonth: { minor: 120000, currency: "USD" },
 			activeBets: 2,
 		},
 		activeBets: [
 			{
 				id: "bet-1",
 				descriptionTitle: "Auth migration",
-				costAppetite: { minor: 100000, currency: "USD" },
 				status: "active",
 				progressDone: 1,
 				progressTotal: 2,
@@ -111,7 +106,6 @@ function makePopulatedTeam() {
 				lastRunAt: new Date(Date.now() - 86400000).toISOString(),
 				lastRunOutcome: "success",
 				nextRunAt: new Date(Date.now() + 86400000).toISOString(),
-				costActual: null,
 			},
 		],
 	};
@@ -133,11 +127,7 @@ function makeEmptyTeam() {
 		},
 		roster: [],
 		burn: {
-			costActual: null,
-			costCap: null,
 			capacity: 5,
-			betCostActual: null,
-			routineCostThisMonth: null,
 			activeBets: 0,
 		},
 		activeBets: [],

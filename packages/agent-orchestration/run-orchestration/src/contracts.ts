@@ -56,12 +56,7 @@ interface DurableQueueDeps {
 	 */
 }
 
-type RunOrchestrationTerminationReason =
-	| "user_done"
-	| "user_crashed"
-	| "handoff"
-	| "cost_cap"
-	| "shutdown";
+type RunOrchestrationTerminationReason = "user_done" | "user_crashed" | "handoff" | "shutdown";
 
 interface RunOrchestrationSessionContext {
 	readonly taskId: string | null;
@@ -93,8 +88,6 @@ interface RunOrchestrationSessionLifecycleRuntime {
 		db: HyperIdleDb,
 		eventBus: EventBus,
 		context: RunOrchestrationSessionContext,
-		costInCents: number,
-		baselineCost?: number,
 	): Promise<void>;
 }
 
@@ -299,9 +292,4 @@ export interface RuntimeHandle {
 	): () => void;
 	dispose(): Promise<void>;
 }
-export type AgentTerminationReason =
-	| "user_done"
-	| "user_crashed"
-	| "handoff"
-	| "cost_cap"
-	| "shutdown";
+export type AgentTerminationReason = "user_done" | "user_crashed" | "handoff" | "shutdown";

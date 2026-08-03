@@ -41,7 +41,6 @@ const BET_1 = {
 	description: "# Problem\n\nWe need better auth.\n",
 	status: "active" as const,
 	teamId: "team-r9-1",
-	costAppetite: { currency: "USD", minor: 100000 },
 	atRisk: false,
 };
 
@@ -51,7 +50,6 @@ const BET_2 = {
 	description: "# Problem\n\nDashboard needs a refresh.\n",
 	status: "draft" as const,
 	teamId: "team-r9-1",
-	costAppetite: null,
 	atRisk: false,
 };
 
@@ -62,8 +60,6 @@ const BET_DETAIL_1 = {
 	product: "HyperIdle Core",
 	team: "Alpha Core",
 	status: "active" as const,
-	costAppetite: { currency: "USD", minor: 100000 },
-	costActual: null,
 	tokensActual: null,
 	tokenAppetite: null,
 	progress: { done: 1, total: 3 },
@@ -73,7 +69,6 @@ const BET_DETAIL_1 = {
 			title: "Implement OAuth",
 			state: "ready",
 			owner: "test-founder",
-			costActual: null,
 			latestSessionOutcome: null,
 			latestSessionHarnessUrl: null,
 			latestSessionModelTier: null,
@@ -84,7 +79,6 @@ const BET_DETAIL_1 = {
 			title: "Add refresh tokens",
 			state: "done",
 			owner: "test-founder",
-			costActual: null,
 			latestSessionOutcome: null,
 			latestSessionHarnessUrl: null,
 			latestSessionModelTier: null,
@@ -831,8 +825,6 @@ test.describe("R9 — Team page", () => {
 						teamMembers: { id: BET_1.teamId, formedAt: NOW, dissolvedAt: null },
 						roster: [{ agentId: "test-founder", name: "Test Founder", role: "lead", isLead: true }],
 						burn: {
-							costActual: { minor: 42000, currency: "USD" },
-							costCap: { minor: 100000, currency: "USD" },
 							capacity: 2,
 							activeBets: 1,
 						},
@@ -840,7 +832,6 @@ test.describe("R9 — Team page", () => {
 							{
 								id: BET_1.id,
 								descriptionTitle: BET_1.title,
-								costAppetite: BET_1.costAppetite,
 								status: BET_1.status,
 								progressDone: 1,
 								progressTotal: 3,
@@ -1601,7 +1592,6 @@ test.describe("R9 — Settings overlay", () => {
 		users: [],
 		notifications: {
 			reviewAlerts: true,
-			costAlerts: true,
 			blockerAlerts: true,
 			quietHoursEnabled: false,
 			quietHoursStart: "22:00",

@@ -16,9 +16,15 @@ import type {
 	TaskOutcomeVerdict,
 	TaskState,
 	TokenUsage,
-	WireMoney,
 } from "@hyperidle/shared";
 
+/**
+ * @lore AU21 Increment 14a: `costAppetite`/`costActual` (bet-level, WireMoney|null)
+ * and `tasks[].costActual` are HARD-DELETED along with the rest of the
+ * cost-cap/accounting feature — the backing DB columns are dropped, no
+ * replacement. `tokenAppetite`/`tokensActual` are a separate, non-cost
+ * concern (token usage) and are untouched.
+ */
 export interface BetDetail {
 	id: string;
 	title: string;
@@ -28,10 +34,7 @@ export interface BetDetail {
 	status: BetStatus;
 	/** @lore U5: atRisk boolean added; signals the bet is at risk of missing its appetite. */
 	atRisk: boolean;
-	// L17: replaced appetite: string with structured WireMoney; added costActual and token fields.
-	costAppetite: WireMoney | null;
 	tokenAppetite: TokenUsage | null;
-	costActual: WireMoney | null;
 	tokensActual: TokenUsage | null;
 	/** AF16 T1: optional for API older shape (older API may omit progress). */
 	progress?: { done: number; total: number };
@@ -58,8 +61,6 @@ export interface BetDetail {
 		title: string;
 		owner: string;
 		state: TaskState;
-		// L17: replaced cost: string with structured WireMoney.
-		costActual: WireMoney | null;
 		// L19: latest session metadata (nullable — no session yet)
 		latestSessionOutcome?: SessionOutcome | null;
 		latestSessionHarnessUrl?: string | null;

@@ -25,9 +25,11 @@ import {
  * Templates are read directly from `docs/system-prompts/*.md` via the
  * shared `SYSTEM_PROMPT_TEMPLATE_FILES` map + `readSystemPromptTemplate`
  * (system-prompt-templates.ts) for the roster-driven backfill below. The
- * `cost_cap`/`cost_cycle` KV seeds are also gone: `cost_cap` moved to
- * `server_config.cost.capMinor` (schema default 20000 makes an explicit
- * seed unnecessary here); `cost_cycle` had zero readers and was dropped.
+ * `cost_cap`/`cost_cycle` KV seeds were gone by AU18 (moved to
+ * `server_config.cost.capMinor`; `cost_cycle` had zero readers and was
+ * dropped). @lore AU21 Increment 14a: `server_config.cost` itself is now
+ * HARD-DELETED along with the rest of the cost-cap/accounting feature — no
+ * replacement, no successor config field.
  *
  * Does NOT insert teams, team_members, routines, bets, tasks, or any human users.
  * These are created at onboarding or by the demo fixture.

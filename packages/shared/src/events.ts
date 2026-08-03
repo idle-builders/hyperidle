@@ -154,19 +154,17 @@ export interface SessionEndedEvent {
 	/**
 	 * AU21 §9 Increment 4 (Decision B″ item 3) — additive, routine-sourced
 	 * sessions only. Carries the routine-run finalize outcome, independent of
-	 * the session's own `outcome` (e.g. a per-run budget-exhausted override
-	 * keeps `outcome:"completed"` while `routineRunOutcome:"budget_exhausted"`).
-	 * `costInCents` is orchestration's own live-computed session cost with no
-	 * other channel to reach core-api (`@lore O2` stripped cost columns from
-	 * `sessions`). Consumed by the core-api subscriber
+	 * the session's own `outcome`. Consumed by the core-api subscriber
 	 * `routine-run-session-end-reactions.ts`, the literal replacement for
 	 * `run-orchestration`'s deleted direct `routineRuns` write
 	 * (`updateRoutineRunOnSessionEnd`). `"timeout"` is the stale-session-reaper
 	 * outcome (`runtime-reapers.ts`'s `reapStaleRoutineSessions`) — the SAME
 	 * event channel, a second producer.
+	 *
+	 * @lore AU21 Increment 14a: `"budget_exhausted"` (the per-run cost-cap
+	 * outcome) is deleted along with the cap gate — no replacement.
 	 */
-	routineRunOutcome?: "success" | "error" | "budget_exhausted" | "timeout";
-	costInCents?: number;
+	routineRunOutcome?: "success" | "error" | "timeout";
 	/**
 	 * AU21 §9 Increment 12 (Decision H3), Wave D — additive. Carries
 	 * `run-orchestration/provisioner.ts`'s per-model-tier accumulated token
@@ -182,19 +180,14 @@ export interface SessionEndedEvent {
 }
 
 /**
- * @lore AU19 Increment 3g: §10.3 against-grain inversion for `policy ⚠ cost`
- * (`handoff-protocol.ts`'s `releaseSessionDedup` call). Handoff deliberately
- * does NOT emit `session_ended` (a handoff is not a cost-attribution outcome
- * — see `handoff-protocol.ts`'s own comment on why), so `cost`'s
- * `registerCostCapDedupReleaser` had no event to subscribe to for this path
- * and `policy` called `releaseSessionDedup` directly via an interim
- * `PolicyCostDedupReleaser` DI port instead (Increment 2a). Atomicity check
- * (§10.3 amendment): the call is POST-COMMIT and touches only an in-memory
- * `Map` — no DB write, no shared transaction an emit-after-commit split could
- * endanger — the "common case" pure-inversion shape, same as
- * `sandbox_writeback_changes_detected` (Increment 3f). Emitted by
- * `handoff-protocol.ts`'s `buildHandoff`, post-commit, in the exact spot the
- * direct `deps.cost.release(...)` call used to sit.
+ * @lore AU19 Increment 3g: `handoff-protocol.ts`'s `buildHandoff` emits this
+ * post-commit. Handoff deliberately does NOT emit `session_ended` (a handoff
+ * is not a session-end outcome). Historical note: this event originally
+ * existed to let the (now AU21-Increment-14a-deleted) cost package release
+ * its per-session dedup state on the handoff path since it doesn't see
+ * `session_ended`; that consumer is gone, but `start-runtime.ts` and
+ * `session-lifecycle`'s `registerHandoffTerminationRequester` still subscribe
+ * for termination-request bookkeeping (see below), so the event stays.
  *
  * @lore AU19 Increment 3i fix round: `requestedBy` carries the outgoing
  * agent's id (`sessionContext.agentId`) so `session-lifecycle`'s
@@ -236,28 +229,6 @@ export interface SessionNotReturnedEvent {
 	readonly sourceId?: string;
 	readonly sourceCorrelation?: AgentSessionSourceCorrelation;
 	readonly timestamp: number;
-}
-
-export interface CostCapWarningEvent {
-	type: "cost_cap_warning";
-	streamId: string;
-	level: "warning" | "critical";
-	capLevel: "agent" | "team" | "factory";
-	entityId: string;
-	spend: number;
-	cap: number;
-	timestamp: number;
-}
-
-export interface CostCapBreachedEvent {
-	type: "cost_cap_breached";
-	streamId: string;
-	level: "hard" | "soft";
-	capLevel: "agent" | "team" | "factory";
-	entityId: string;
-	spend: number;
-	cap: number;
-	timestamp: number;
 }
 
 export interface NotificationEvent {
@@ -622,7 +593,7 @@ export type KernelEvent =
 	| BetRevisedEvent
 	| SessionStartedEvent
 	| SessionEndedEvent
-	// AU19 Increment 3g: policy ⚠ cost EventBus inversion
+	// AU19 Increment 3g: handoff EventBus inversion
 	| SessionHandoffCompletedEvent
 	// AL6: return-gate escape surface
 	| SessionNotReturnedEvent
@@ -653,8 +624,6 @@ export type KernelEvent =
 
 /** Strategy events: automation reactions and strategy-layer observations. */
 export type StrategyEvent =
-	| CostCapWarningEvent
-	| CostCapBreachedEvent
 	| NotificationEvent
 	| PropagationAppliedEvent
 	| PropagationFailedEvent

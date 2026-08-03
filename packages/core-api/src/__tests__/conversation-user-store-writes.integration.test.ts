@@ -16,7 +16,7 @@ import {
 	updateThread,
 } from "@hyperidle/conversation";
 import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
-import { getOrCreateUser, insertUser, resetAllUserCost, updateUser } from "@hyperidle/users";
+import { getOrCreateUser, insertUser, updateUser } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../test-fixtures.js";
 
@@ -124,16 +124,6 @@ describe("user-store row writes", () => {
 		expect(again.name).toBe("First");
 		const rows = await db.select().from(users).where(eq(users.id, "us3"));
 		expect(rows).toHaveLength(1);
-	});
-
-	test("resetAllUserCost zeroes every row", async ({ db }) => {
-		await insertUser(db, userValues("us4", { costActual: 500 }));
-		await insertUser(db, userValues("us5", { costActual: 900 }));
-		await resetAllUserCost(db);
-		const rows = await db.select().from(users);
-		for (const row of rows) {
-			expect(row.costActual).toBe(0);
-		}
 	});
 
 	test("a store write inside a tx rolls back with the caller's transaction", async ({ db }) => {

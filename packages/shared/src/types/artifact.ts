@@ -3,7 +3,6 @@
 // Source: plans/AE6/architecture.md §1.
 
 import { getKindDefinition } from "../kinds/registry.js";
-import type { TokenUsage, WireMoney } from "./money.js";
 
 // Per-kind preview types re-exported for consumers.
 export type { CodePreview } from "../kinds/code.js";
@@ -34,11 +33,6 @@ export type ArtifactPreview =
 	| HtmlPreview
 	| UrlPreview;
 
-export interface ArtifactCostFromSession {
-	readonly money: WireMoney | null;
-	readonly tokens: TokenUsage | null;
-}
-
 export interface Artifact {
 	readonly id: string;
 	readonly producingTaskId: string;
@@ -49,7 +43,6 @@ export interface Artifact {
 	readonly label: string | null;
 	/** Preview data, or null when not yet available. */
 	readonly preview: ArtifactPreview | null;
-	readonly cost: ArtifactCostFromSession;
 	readonly threadCount: number;
 	readonly createdAt: string;
 }
@@ -79,11 +72,6 @@ export interface CreateArtifactInput {
 	/** Optional business-domain tag (e.g., 'contract', 'email'). */
 	readonly label?: string | null;
 	readonly preview: ArtifactPreview | null;
-	readonly cost: {
-		readonly money_micros: number | null;
-		readonly tokens_input: number | null;
-		readonly tokens_output: number | null;
-	} | null;
 }
 
 /**

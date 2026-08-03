@@ -3,7 +3,8 @@
  *
  * Covers:
  *   T2: teamId required, revisionLog seeded on create, description .min(1)
- *   T3: GET /api/bets/canvas enriched with team name + derived title + appetite display
+ *   T3: GET /api/bets/canvas enriched with team name + derived title
+ *       (AU21 Increment 14a: appetite display HARD-DELETED, no replacement)
  *   T4: PATCH field="description" — mutable on draft/active;
  *       NOT mutable on completed/killed.
  *
@@ -295,81 +296,10 @@ describe("Bet Endpoints (Q3)", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("returns appetite as formatted display string or '—' when null", async ({ db, app }) => {
-			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-
-			await db.insert(teams).values({
-				id: "prod-1",
-				name: "Test Product",
-				phase: "build",
-				createdAt: new Date().toISOString(),
-			});
-			await db.insert(teamMembers).values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 2,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			});
-
-			await app.request("/api/bets", {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({
-					teamId: "prod-1",
-					description: "Description without appetite",
-				}),
-			});
-
-			const res = await app.request("/api/bets/canvas", { headers: authHeaders() });
-			const body = (await res.json()) as {
-				draft: Array<Record<string, unknown>>;
-			};
-
-			const bet = body.draft[0];
-			expect(bet?.appetite).toBe("—");
-			vi.unstubAllEnvs();
-		});
-
-		test("returns formatted appetite string when costAppetite is set", async ({ db, app }) => {
-			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-
-			await db.insert(teams).values({
-				id: "prod-1",
-				name: "Test Product",
-				phase: "build",
-				createdAt: new Date().toISOString(),
-			});
-			await db.insert(teamMembers).values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 2,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			});
-
-			await app.request("/api/bets", {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({
-					teamId: "prod-1",
-					description: "Description with appetite",
-					costAppetite: { minor: 10000, currency: "USD" },
-				}),
-			});
-
-			const res = await app.request("/api/bets/canvas", { headers: authHeaders() });
-			const body = (await res.json()) as {
-				draft: Array<Record<string, unknown>>;
-			};
-
-			const bet = body.draft[0];
-			// appetite should be a non-empty string (formatted money display)
-			expect(typeof bet?.appetite).toBe("string");
-			expect(bet?.appetite).not.toBe("—");
-			vi.unstubAllEnvs();
-		});
-
+		// @lore AU21 Increment 14a: "returns appetite as formatted display string
+		// or '—' when null" and "returns formatted appetite string when
+		// costAppetite is set" are HARD-DELETED — the canvas `appetite` field and
+		// `bets.costAppetiteMinor/costAppetiteCurrency` are gone, no replacement.
 		test("returns teamId in canvas bet shape", async ({ db, app }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 

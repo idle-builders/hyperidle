@@ -55,11 +55,7 @@ const BASE_TEAM_DETAIL: TeamDetail = {
 	},
 	roster: [],
 	burn: {
-		costActual: null,
-		costCap: null,
 		capacity: 5,
-		betCostActual: null,
-		routineCostThisMonth: null,
 		activeBets: 0,
 	},
 	activeBets: [],
@@ -69,15 +65,12 @@ const TEAM_WITH_ACTIVE_BET: TeamDetail = {
 	...BASE_TEAM_DETAIL,
 	burn: {
 		...BASE_TEAM_DETAIL.burn,
-		betCostActual: null,
-		routineCostThisMonth: null,
 		activeBets: 1,
 	},
 	activeBets: [
 		{
 			id: "b1",
 			descriptionTitle: "Active bet",
-			costAppetite: null,
 			status: "active",
 			progressDone: 0,
 			progressTotal: 3,

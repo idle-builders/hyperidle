@@ -10,11 +10,9 @@
  *  - description / "Prompt" (textarea)
  *  - autonomyLevel (Select)
  *  - schedule / triggerConfig (SCHEDULE_PRESETS Select + custom cron input)
- *  - costCapPerRunMinor (number input, USD → minor on save)
- *  - costCapMonthlyMinor (number input, USD → minor on save)
  *  - silent (checkbox toggle)
  *
- * De-grey: Configuration/Budget/LastRunSummary sections render on page surface via
+ * De-grey: Configuration/LastRunSummary sections render on page surface via
  * Row/KeyValue/ItemList flush — no bg-[var(--surface-container)] wrappers.
  *
  * @lore AV4: The "prompt" IS routine.description — ground truth from
@@ -25,6 +23,12 @@
  *
  * @lore AV4: RoutineInfo.silent was added to the shared type so we can initialize
  * the toggle from the fetched value. Server defaults it to false for pre-AV4 routines.
+ *
+ * @lore AU21 Increment 14a: the Budget section (editable costCapPerRunMinor/
+ * costCapMonthlyMinor, avg-cost/cost-this-month display, budget-utilization
+ * progress bars) is HARD-DELETED along with the rest of the cost-cap feature
+ * — no replacement. `budget_exhausted`/`monthly_budget_exhausted` run
+ * outcomes and the per-run `cost` column are deleted with it.
  */
 
 // hearth-internal-padding
@@ -34,7 +38,6 @@ import {
 	ErrorState,
 	ItemList,
 	KeyValue,
-	Progress,
 	Row,
 	RowDot,
 	routineStateToStatus,
@@ -43,8 +46,8 @@ import {
 	SkeletonCard,
 	StatusChip,
 } from "@hyperidle/design-system";
-import type { RoutineBudget, RoutineDetail, RoutineRunSummary } from "@hyperidle/shared";
-import { absoluteDate, absoluteDateTime, formatMoney, SCHEDULE_PRESETS } from "@hyperidle/shared";
+import type { RoutineDetail, RoutineRunSummary } from "@hyperidle/shared";
+import { absoluteDate, absoluteDateTime, SCHEDULE_PRESETS } from "@hyperidle/shared";
 import { type JSX, useCallback, useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useRoutine } from "../../hooks/useRoutine.js";
@@ -65,17 +68,12 @@ const AUTONOMY_LABELS: Record<number, string> = {
 	4: "L4 — Fully autonomous",
 };
 
-/** Map run outcome to RowDot tone.
- * @lore AV4: budget_exhausted/monthly_budget_exhausted → "warning" which resolves to
- * --status-warning === --accent-secondary === #d97706 (amber). Exact color parity with
- * the old RunRow dotColor (var(--accent-secondary)). See plan §2.3 for verification.
- */
+/** Map run outcome to RowDot tone. */
 function outcomeTone(
 	outcome: RoutineRunSummary["outcome"],
 ): "success" | "error" | "warning" | "neutral" {
 	if (outcome === "success") return "success";
 	if (outcome === "error" || outcome === "timeout") return "error";
-	if (outcome === "budget_exhausted" || outcome === "monthly_budget_exhausted") return "warning";
 	return "neutral";
 }
 
@@ -138,7 +136,7 @@ function RoutineDetailPaneLoaded({
 	onClose,
 	refetch,
 }: RoutineDetailPaneLoadedProps): JSX.Element {
-	const { routine, runs, budget } = detail;
+	const { routine, runs } = detail;
 	const navigate = useNavigate();
 	// @lore AV4: read ToastContext directly (not useToast) so the pane renders
 	// in unit tests / Storybook without a <ToastRegion> ancestor, following the
@@ -170,13 +168,6 @@ function RoutineDetailPaneLoaded({
 	// Schedule picker — "custom" is the sentinel value
 	const [scheduleValue, setScheduleValue] = useState<string>(initialScheduleValue);
 	const [customCron, setCustomCron] = useState<string>(initialCustomCron);
-	// Cost caps — stored in USD as string; converted to minor units on save
-	const [costCapPerRunRaw, setCostCapPerRunRaw] = useState<string>(
-		routine.costCapPerRun != null ? String(routine.costCapPerRun.minor / 100) : "",
-	);
-	const [costCapMonthlyRaw, setCostCapMonthlyRaw] = useState<string>(
-		routine.costCapMonthly != null ? String(routine.costCapMonthly.minor / 100) : "",
-	);
 	// Silent toggle
 	const [silent, setSilent] = useState<boolean>(routine.silent ?? false);
 	const [saving, setSaving] = useState(false);
@@ -214,14 +205,6 @@ function RoutineDetailPaneLoaded({
 			if (resolvedCron) {
 				body.triggerConfig = JSON.stringify({ cron: resolvedCron });
 			}
-			// Cost cap per run: empty string → null (remove cap), value → minor units
-			body.costCapPerRunMinor = costCapPerRunRaw.trim()
-				? Math.round(Number.parseFloat(costCapPerRunRaw.trim()) * 100)
-				: null;
-			// Monthly cost cap
-			body.costCapMonthlyMinor = costCapMonthlyRaw.trim()
-				? Math.round(Number.parseFloat(costCapMonthlyRaw.trim()) * 100)
-				: null;
 
 			const res = await apiFetch(`/api/routines/${encodeURIComponent(routineId)}`, {
 				method: "PATCH",
@@ -236,18 +219,7 @@ function RoutineDetailPaneLoaded({
 		} finally {
 			setSaving(false);
 		}
-	}, [
-		name,
-		description,
-		autonomyLevel,
-		resolvedCron,
-		costCapPerRunRaw,
-		costCapMonthlyRaw,
-		silent,
-		routineId,
-		refetch,
-		showToast,
-	]);
+	}, [name, description, autonomyLevel, resolvedCron, silent, routineId, refetch, showToast]);
 
 	async function handleTogglePause(): Promise<void> {
 		if (actionPending) return;
@@ -543,18 +515,6 @@ function RoutineDetailPaneLoaded({
 						)}
 					</section>
 
-					{/* Budget section — on page surface, no grey card */}
-					{budget != null && (
-						<BudgetSection
-							budget={budget}
-							costCapPerRunRaw={costCapPerRunRaw}
-							setCostCapPerRunRaw={setCostCapPerRunRaw}
-							costCapMonthlyRaw={costCapMonthlyRaw}
-							setCostCapMonthlyRaw={setCostCapMonthlyRaw}
-							saving={saving}
-						/>
-					)}
-
 					{/* Last run summary — on page surface, no grey card */}
 					<section aria-label="Last run summary" data-testid="routine-last-run-summary">
 						<SectionLabel label="Last Run Summary" as="h2" />
@@ -594,11 +554,6 @@ function RoutineDetailPaneLoaded({
 											numeric: true,
 											width: 60,
 										},
-										{
-											content: run.cost ? formatMoney(run.cost) : "—",
-											numeric: true,
-											width: 60,
-										},
 									]}
 								/>
 							))}
@@ -607,106 +562,5 @@ function RoutineDetailPaneLoaded({
 				</div>
 			</div>
 		</div>
-	);
-}
-
-interface BudgetSectionProps {
-	budget: RoutineBudget;
-	costCapPerRunRaw: string;
-	setCostCapPerRunRaw: (v: string) => void;
-	costCapMonthlyRaw: string;
-	setCostCapMonthlyRaw: (v: string) => void;
-	saving: boolean;
-}
-
-/** Budget section — on page surface, no grey card.
- * Cost cap inputs are editable; avg cost / cost this month remain read-only.
- */
-function BudgetSection({
-	budget,
-	costCapPerRunRaw,
-	setCostCapPerRunRaw,
-	costCapMonthlyRaw,
-	setCostCapMonthlyRaw,
-	saving,
-}: BudgetSectionProps): JSX.Element {
-	return (
-		<section aria-label="Budget" data-testid="routine-budget">
-			<SectionLabel label="Budget" as="h2" />
-			<div className="flex flex-col gap-[9px]">
-				<KeyValue
-					label="Avg cost per run"
-					value={budget.avgCostPerRun ? formatMoney(budget.avgCostPerRun) : "---"}
-				/>
-				<KeyValue label="Cost this month" value={formatMoney(budget.costThisMonth ?? null)} />
-
-				{/* Editable cost cap per run */}
-				<div className="flex flex-col gap-[6px]">
-					<label
-						className="uppercase font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]"
-						htmlFor="routine-cost-cap-per-run"
-					>
-						Cost cap per run
-					</label>
-					<input
-						id="routine-cost-cap-per-run"
-						aria-label="Cost cap per run"
-						type="number"
-						className="input input-sm input-bordered w-full"
-						value={costCapPerRunRaw}
-						onChange={(e) => setCostCapPerRunRaw(e.target.value)}
-						disabled={saving}
-						min="0"
-						step="0.01"
-						placeholder="No cap"
-					/>
-				</div>
-
-				{/* Editable monthly cap */}
-				<div className="flex flex-col gap-[6px]">
-					<label
-						className="uppercase font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]"
-						htmlFor="routine-cost-cap-monthly"
-					>
-						Monthly cap
-					</label>
-					<input
-						id="routine-cost-cap-monthly"
-						aria-label="Monthly cap"
-						type="number"
-						className="input input-sm input-bordered w-full"
-						value={costCapMonthlyRaw}
-						onChange={(e) => setCostCapMonthlyRaw(e.target.value)}
-						disabled={saving}
-						min="0"
-						step="0.01"
-						placeholder="No cap"
-					/>
-				</div>
-			</div>
-			{budget.perRunUtilizationPercent != null && (
-				<div className="mt-[9px]">
-					<Progress
-						value={budget.perRunUtilizationPercent}
-						label="Per-run budget"
-						variant={budget.perRunUtilizationPercent > 80 ? "amber" : "green"}
-					/>
-				</div>
-			)}
-			{budget.monthlyUtilizationPercent != null && (
-				<div className="mt-[9px]">
-					<Progress
-						value={budget.monthlyUtilizationPercent}
-						label="Monthly budget"
-						variant={budget.monthlyUtilizationPercent > 80 ? "amber" : "green"}
-					/>
-					{budget.monthlyUtilizationPercent >= 100 && (
-						<p className="text-[11px] text-[var(--accent-secondary)] mt-[3px]">
-							Monthly budget exhausted — runs skipped until next month
-						</p>
-					)}
-				</div>
-			)}
-		</section>
 	);
 }

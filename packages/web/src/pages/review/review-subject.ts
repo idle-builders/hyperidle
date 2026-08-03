@@ -26,7 +26,6 @@ const outcomeArtifact: ReviewArtifact<OutcomeSummaryPayload> = {
 		achieved:
 			"Closed the May books: revenue reconciled to Stripe, A/R aged, and 3 exceptions surfaced for your call.",
 		tools: ["quickbooks", "stripe"],
-		costUsd: 0.23,
 		tokens: 4100,
 		standing: "Blocking",
 		doneConditions: [

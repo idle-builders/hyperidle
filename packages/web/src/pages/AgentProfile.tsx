@@ -353,7 +353,6 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 									<tr className="text-[var(--text-tertiary)] text-left border-b border-[var(--border-subtle)]">
 										<th className="pb-[6px] font-medium">Task</th>
 										<th className="pb-[6px] font-medium">Outcome</th>
-										<th className="pb-[6px] font-medium">Cost</th>
 										<th className="pb-[6px] font-medium">When</th>
 									</tr>
 								</thead>
@@ -377,7 +376,6 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 													<span className="text-[var(--text-tertiary)]">—</span>
 												)}
 											</td>
-											<td className="py-[6px] tabular-nums text-[var(--text-tertiary)]">—</td>
 											<td className="py-[6px] text-[var(--text-tertiary)]">
 												{relativeLong(session.startedAt)}
 											</td>
@@ -401,8 +399,6 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 								label="Success rate"
 								value={`${Math.round(data.performance.successRate * 100)}%`}
 							/>
-							<KeyValue label="Avg cost" value="—" />
-							<KeyValue label="Total cost" value="—" />
 						</div>
 					</section>
 				</div>

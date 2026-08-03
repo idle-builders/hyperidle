@@ -353,7 +353,7 @@ describe("agent_session_requests durable-rows checks", () => {
 		expect(row).toBeDefined();
 	});
 
-	test("rejects a termination_reason outside the five closed values", async ({ db }) => {
+	test("rejects a termination_reason outside the four closed values", async ({ db }) => {
 		const values = await baseRequest(db, {
 			id: "bad-termination-reason",
 			status: "running",
@@ -363,8 +363,11 @@ describe("agent_session_requests durable-rows checks", () => {
 		await expect(db.insert(agentSessionRequests).values(values)).rejects.toThrow();
 	});
 
+	// @lore AU21 Increment 14a: "cost_cap" removed from the closed set — the
+	// cap gate that produced it is HARD-DELETED, no replacement termination
+	// reason.
 	test("accepts every closed termination_reason value", async ({ db }) => {
-		const reasons = ["user_done", "user_crashed", "handoff", "cost_cap", "shutdown"] as const;
+		const reasons = ["user_done", "user_crashed", "handoff", "shutdown"] as const;
 		for (const reason of reasons) {
 			const values = await baseRequest(db, {
 				id: `good-termination-${reason}`,

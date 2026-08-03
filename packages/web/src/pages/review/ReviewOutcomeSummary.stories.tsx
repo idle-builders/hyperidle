@@ -38,7 +38,6 @@ export const SupportSweep = (): JSX.Element => {
 			reviewerName: "You",
 			achieved: "Cleared 41 overnight tickets — 18 auto-resolved, 19 drafted, 4 flagged.",
 			tools: ["zendesk", "slack"],
-			costUsd: 1.92,
 			tokens: 96400,
 			standing: "Blocking",
 		},

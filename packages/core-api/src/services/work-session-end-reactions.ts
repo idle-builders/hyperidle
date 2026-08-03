@@ -112,7 +112,7 @@ function reactToSessionEndedTokens(
 	eventBus: EventBus,
 	event: SessionEndedEvent,
 ): Promise<void> | undefined {
-	if (!event.taskId || !event.tokensByTier || Object.keys(event.tokensByTier).length === 0) {
+	if (!(event.taskId && event.tokensByTier) || Object.keys(event.tokensByTier).length === 0) {
 		return undefined;
 	}
 	let seen = processedTokenSessions.get(eventBus);

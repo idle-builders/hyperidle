@@ -7,7 +7,8 @@
  * §13's `dispatch/src/service.ts` + `dispatch-bindings.ts` migration entries:
  *
  *   - `fireGenericRoutineInternal`, `fireBuiltinRoutineInternal`,
- *     `registerBuiltinRoutineHandlersInternal`, `isFactoryCostCapReached`,
+ *     `registerBuiltinRoutineHandlersInternal` (its `isFactoryCostCapReached`
+ *     gate is itself HARD-DELETED by AU21 Increment 14a, no replacement),
  *     the four core-maintenance builtin bodies (`runPostBetRetro`,
  *     `runPortfolioRetro`, `runKnowledgePromotion`, `runKnowledgeDecay`) +
  *     `runPracticeMeetingRoutine` relocated VERBATIM (same behavior, new
@@ -61,14 +62,13 @@ import type { RoutineSchedulerPorts } from "@hyperidle/routine";
 import { fireBuiltinRoutine, fireGenericRoutine, selectRoutineDelegate } from "@hyperidle/routine";
 import { isAgentAtCapacity } from "@hyperidle/run-orchestration";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
-import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
+import { readServerConfig } from "@hyperidle/settings";
 import type { BetStateChangedEvent, EventBus } from "@hyperidle/shared";
 import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { seedTeamRoutines } from "../../__tests__/dispatch-test-helpers.js";
 import { describe, expect, test } from "../../test-fixtures.js";
-import { costOps } from "../cost-bindings.js";
 import { dispatchOps } from "../dispatch-bindings.js";
 
 const NOW = "2026-07-28T00:00:00.000Z";
@@ -142,14 +142,12 @@ function makePorts(): RoutineSchedulerPorts {
 			readServerConfig: async (db) => {
 				const cfg = await readServerConfig(db);
 				return {
-					cost: { capMinor: cfg.cost.capMinor },
 					modelGateway: cfg.modelGateway,
 					harnessDisabled: cfg.harnessDisabled,
 				};
 			},
 		},
 		workIntents: { enqueueWorkIntent },
-		cost: { getFactoryCostActual: (db: HyperIdleDb) => costOps.spend(db, { level: "factory" }) },
 		agentSelection: {
 			isAtCapacity: (db, agentId) =>
 				isAgentAtCapacity(db, agentId, { getUserById: (execDb, id) => findUser(execDb, { id }) }),
@@ -234,30 +232,9 @@ describe("relocated fireGenericRoutine", () => {
 		expect(runs[0]?.outcome).toBe("running");
 	});
 
-	test("skips firing when the relocated isFactoryCostCapReached sees the cap breached", async ({
-		db,
-		eventBus,
-	}) => {
-		const { routineId } = await seedManualRoutine(db, "inc4-generic-capped");
-		await updateServerConfig(db, { cost: { capMinor: 100 } });
-		await db
-			.insert(users)
-			.values({
-				id: "inc4-generic-capped-cost-agent",
-				kind: "ai",
-				name: "Cost agent",
-				role: "builder",
-				status: "active",
-				costActual: 100,
-				createdAt: NOW,
-			})
-			.onConflictDoUpdate({ target: users.id, set: { costActual: 100 } });
-		const [routine] = await db.select().from(routines).where(eq(routines.id, routineId));
-
-		const result = await fireGenericRoutine(db, eventBus, routine!, makePorts());
-
-		expect(result).toMatchObject({ fired: false, reason: "factory cost cap reached" });
-	});
+	// @lore AU21 Increment 14a: "skips firing when the relocated
+	// isFactoryCostCapReached sees the cap breached" is HARD-DELETED —
+	// the factory cost-cap gate no longer exists, no replacement.
 });
 
 describe("relocated fireBuiltinRoutine", () => {

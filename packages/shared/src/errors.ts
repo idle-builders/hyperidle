@@ -29,17 +29,6 @@ export class CapacityExceededError extends Error {
 	}
 }
 
-export class CostCapExceededError extends Error {
-	constructor(
-		public readonly entityId: string,
-		public readonly spend: number,
-		public readonly cap: number,
-	) {
-		super(`Cost cap exceeded for '${entityId}': ${spend}/${cap}`);
-		this.name = "CostCapExceededError";
-	}
-}
-
 export class ConcurrencyLimitError extends Error {
 	constructor(
 		public readonly agentId: string,

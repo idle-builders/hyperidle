@@ -134,7 +134,7 @@ export interface AdmittedRun {
 /** Full mirror of `@hyperidle/session-lifecycle`'s `ProvisionSessionResult` — every field is already `@hyperidle/shared`-typed, so this is a complete (non-opaque) structural equivalent. */
 export interface HarnessRunOutput {
 	readonly sessionId: string;
-	readonly outcome: SessionOutcome | "budget_exhausted";
+	readonly outcome: SessionOutcome;
 	readonly totalCostCents: number;
 	readonly taskId: string | null;
 	readonly returnVerdict?: "returned" | "not_returned";

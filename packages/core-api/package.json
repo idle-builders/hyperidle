@@ -23,7 +23,6 @@
 		"@hyperidle/api-contract": "*",
 		"@hyperidle/connections": "*",
 		"@hyperidle/conversation": "*",
-		"@hyperidle/cost": "*",
 		"@hyperidle/db": "*",
 		"@hyperidle/dispatch": "*",
 		"@hyperidle/filesystems": "*",

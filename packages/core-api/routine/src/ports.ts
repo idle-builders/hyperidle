@@ -25,11 +25,15 @@ import type {
  * `@hyperidle/db`/`@hyperidle/shared` — every OTHER Service it needs
  * (`work`/`conversation`/`knowledge`/`settings`, all core-api same-layer) is
  * an injected port here, exactly like `DispatchPorts` used to carry them.
- * `workIntents`/`cost` are the two genuinely against-grain
- * (`core-api → agent-orchestration`) dependencies
- * (`@hyperidle/session-requests`/`@hyperidle/cost`). All are wired at the
- * composition root, `packages/core-api/src/services/
+ * `workIntents` is the one genuinely against-grain
+ * (`core-api → agent-orchestration`) dependency (`@hyperidle/session-requests`).
+ * Wired at the composition root, `packages/core-api/src/services/
  * routine-scheduler-bindings.ts` — never imported directly here.
+ *
+ * @lore AU21 Increment 14a: the `cost` port (`getFactoryCostActual`, the
+ * factory cost-cap gate `fireGenericRoutine` used to check) and the
+ * `settings.readServerConfig` result's `cost` field are DELETED along with
+ * the rest of the cost feature — no replacement gate.
  *
  * @lore AU21 §9 Increment 5: the `review` field (`createPracticeMeeting`, the
  * builtin practice-meeting routine's sole dependency) is deleted along with
@@ -89,7 +93,6 @@ export interface RoutineSchedulerPorts {
 	};
 	readonly settings: {
 		readServerConfig(db: HyperIdleDb): Promise<{
-			readonly cost: { readonly capMinor: number };
 			readonly modelGateway?: ModelGatewayConfig;
 			/**
 			 * AU21 §9 Increment 12 (Decision H3), Wave E — widened so
@@ -114,7 +117,6 @@ export interface RoutineSchedulerPorts {
 			},
 		): Promise<AgentWorkIntent>;
 	};
-	readonly cost: { getFactoryCostActual(db: HyperIdleDb): Promise<number> };
 	/**
 	 * AU21 §9 Increment 4, Wave B — the `routine_run` emit-time resolver's own
 	 * deps (`resolveRoutineRunRequest`'s `RoutineRunResolverDeps`), injected

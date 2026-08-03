@@ -233,7 +233,7 @@ function FrameHeader({
 					</div>
 
 					<span className="font-mono text-[12px] tabular-nums text-[var(--text-tertiary)]">
-						{s.costMoney} · {s.costTokens} · {s.producedAgo}
+						{s.tokens} · {s.producedAgo}
 					</span>
 				</div>
 

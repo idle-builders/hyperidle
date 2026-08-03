@@ -17,12 +17,14 @@
  *    that let the 22 hidden edges (`session-requests`/`cost`/`run-orchestration`/
  *    `agent-selection`) go undetected pre-AU21 (edge-disposition.md).
  *
- * Target end-state (post Increment 8): agent-orchestration reads ZERO core-api
- * domain state, except the one founder-signed permanent exemption — the
- * `cost` cap-gate consumer (`cost-bindings.ts`'s `CostDeps`, Decision D /
- * edge-disposition.md "Consumer: cost"). `inspect()` therefore treats every
- * `agent-orchestration -> core-api` edge (raw-port or composition-bundle) as a
- * violation UNLESS it exactly matches `ALLOWLIST`.
+ * Target end-state (post AU21 Increment 14, Decision L): agent-orchestration
+ * reads ZERO core-api domain state, with NO carve-out of any kind — the
+ * `cost` cap-gate consumer this file's history below once treated as "the one
+ * founder-signed permanent exemption" is HARD-DELETED (Increment 14a; that
+ * label was wrong the whole time — the founder confirmed it never signed off
+ * a permanent exception). `ALLOWLIST` is genuinely empty. `inspect()`
+ * therefore treats every `agent-orchestration -> core-api` edge (raw-port or
+ * composition-bundle) as a violation, full stop.
  *
  * STATUS (AU21 Increment 0, implementation phase — GREEN): `inspect()` below
  * is the real detection, folding `generate-dependency-graph.ts`'s exported
@@ -174,26 +176,30 @@
  *    specifically; the same risk generalizes to run-orchestration's larger
  *    context-assembly cluster.
  *
- * **Net, honest result (post AU21 §9 Increment 13 — FINAL):**
- * `inspect(process.cwd())` returns ZERO findings on this tree (verify: `npx
- * tsx scripts/composition-edge-anti-regrowth-guard.ts`), the bare check IS
- * wired into `npm run lint` as a hard failure, `ALLOWLIST` holds ONLY the 4
- * founder-signed `cost::*` rows, and **`DEFERRED_FOLLOWUP` is now genuinely
- * EMPTY** — the one remaining pair carried since the THIRD forensic-triage
- * pass, `dispatch::conversation` (narrowed to the single sanctioned
- * `insertMessage` seam write), needed no founder ALLOWLIST ruling at all: it
- * is the exact same detection-quirk false-positive class as the
- * already-fixed `tool-handlers::conversation` (Increment 9) — a
- * seam-satisfied nested composition GROUP (not a whole interface, since
- * `DispatchPorts`'s sibling groups are ordinary/same-layer, not seam calls),
- * now excluded by `generate-dependency-graph.ts`'s `SEAM_GROUPS` (the
- * per-group analogue of `SEAM_INTERFACES`), verified against
- * `dispatch-bindings.ts`'s real composition wiring, not asserted. **AC #2
- * ("orchestration reads zero core-api domain state") and AC #9 (the guard
- * mechanically enforces it) are both met — `agent-orchestration` holds ZERO
- * raw or hidden-bundle read edges into `core-api` domain state, only the
- * founder-signed `cost` cap-gate exemption and this now-mechanically-verified
- * seam write.**
+ * **Net, honest result (post AU21 §9 Increment 13):**
+ * `inspect(process.cwd())` returned ZERO findings on this tree, the bare
+ * check was wired into `npm run lint` as a hard failure, `ALLOWLIST` held
+ * ONLY the 4 `cost::*` rows (mislabeled "founder-signed" — never was), and
+ * `DEFERRED_FOLLOWUP` was genuinely EMPTY — the one remaining pair carried
+ * since the THIRD forensic-triage pass, `dispatch::conversation` (narrowed to
+ * the single sanctioned `insertMessage` seam write), needed no founder
+ * ALLOWLIST ruling at all: it is the exact same detection-quirk
+ * false-positive class as the already-fixed `tool-handlers::conversation`
+ * (Increment 9) — a seam-satisfied nested composition GROUP (not a whole
+ * interface, since `DispatchPorts`'s sibling groups are ordinary/same-layer,
+ * not seam calls), now excluded by `generate-dependency-graph.ts`'s
+ * `SEAM_GROUPS` (the per-group analogue of `SEAM_INTERFACES`), verified
+ * against `dispatch-bindings.ts`'s real composition wiring, not asserted.
+ *
+ * **SUPERSEDED (2026-08-03, Decision L, Increment 14a):** "AC #2/#9 met" above
+ * was true only relative to the `cost::*` ALLOWLIST as configured — the guard
+ * returned zero findings because it EXEMPTED the surviving edge, not because
+ * it was gone. The founder overturned the exemption apparatus outright
+ * ("as long as there is any exception I don't think AU21 is done") and
+ * ordered `cost` HARD-DELETED, no replacement. `ALLOWLIST` is now genuinely
+ * empty (see its own doc comment) — `agent-orchestration` holds ZERO raw or
+ * hidden-bundle read edges into `core-api` domain state, of any kind, no
+ * carve-out.**
  *
  * @lore Decision K1 (2026-08-02, post-CI-green founder review) — a GENERAL
  * BLIND SPOT this guard has, surfaced by a real miss, not a hypothetical:
@@ -254,9 +260,7 @@ export interface CompositionEdgeFinding {
 
 /**
  * Permanent, bounded exemptions. Keyed `${consumer}::${provider}`.
- * **FOUNDER-SIGNED ONLY** (edge-disposition.md "Consumer: `cost`" / Decision
- * D — the cap-gate consumer, ruled untouched by the founder directly). A
- * builder MUST NOT add an entry here unilaterally, however well-reasoned —
+ * A builder MUST NOT add an entry here unilaterally, however well-reasoned —
  * see this file's own review history (AU21 §9 Increment 9, third pass): a
  * prior pass added two "builder-ruled bounded exceptions"
  * (`session-requests::work`, `dispatch::routine`) at this same rigor bar and
@@ -266,13 +270,15 @@ export interface CompositionEdgeFinding {
  * core-side, not allowlisted — see `@hyperidle/dispatch`'s and
  * `@hyperidle/routine`'s own `@lore`); `session-requests::work` moved to
  * `DEFERRED_FOLLOWUP` below (honestly open, not resolved).
+ *
+ * @lore AU21 Increment 14a (Decision L1, founder 2026-08-03): the 4
+ * `cost::*` rows this set used to hold (`cost::users`/`cost::org`/
+ * `cost::settings`/`cost::work` — the cap-gate consumer, mislabeled
+ * "founder-signed" everywhere it was cited; the founder confirmed it never
+ * was) are DELETED along with the rest of the `cost` feature — no
+ * replacement exemption of any kind. `ALLOWLIST` is genuinely empty.
  */
-export const ALLOWLIST: ReadonlySet<string> = new Set([
-	"cost::users", // findUser/incrementUserCost/sumAllUserCost/updateUser/resetAllUserCost — cap accounting
-	"cost::org", // getTeamMembers/applyTeamCost — team cap accounting
-	"cost::settings", // readServerConfig/updateServerConfig — factory cap + sentinel level
-	"cost::work", // get/create/update — bet-cost accumulation + breach review-item creation
-]);
+export const ALLOWLIST: ReadonlySet<string> = new Set([]);
 
 /**
  * AU21 §9 Increment 9 (forensic-triage wave, THIRD pass) — TEMPORARY, NOT
@@ -629,12 +635,17 @@ function buildHiddenBundleFixture(root: string): void {
 }
 
 /**
- * Scenario 3 — the founder-signed cap-gate exemption, reproduced structurally
- * (a "Deps"-shaped bundle composed in `packages/core-api/src/services/*.ts`,
- * exactly the `cost`/`CostDeps` shape edge-disposition.md documents) so the
- * guard proves it does NOT fire on the one legitimately-permanent edge.
+ * Scenario 3 — AU21 Increment 14a: the `cost` cap-gate consumer is HARD
+ * DELETED (founder, 2026-08-03: "no everything delete... send of a swarm of
+ * agent and have them hard rip out everything") — `ALLOWLIST`'s 4 `cost::*`
+ * rows are removed with NO replacement exemption. This fixture reproduces
+ * the exact same structural shape the old exemption used to cover (a
+ * "Deps"-shaped bundle composed in `packages/core-api/src/services/*.ts`)
+ * to prove the regrowth guard now FIRES on it — the inverse of what this
+ * scenario asserted before the exemption existed to protect a real feature.
+ * If a future `cost`-shaped edge regrows, this is the test that catches it.
  */
-function buildAllowlistedCostFixture(root: string): void {
+function buildDeletedCostExemptionFixture(root: string): void {
 	writeFixture(
 		root,
 		"packages/agent-orchestration/cost/package.json",
@@ -703,6 +714,18 @@ function buildAllowlistedCostFixture(root: string): void {
 			"",
 		].join("\n"),
 	);
+	// @lore AU21 Increment 14a: `isDomainStateEdge` filters out a provider that
+	// owns zero real tables (a genuinely-stateless provider) — without
+	// registering fake ownership here, `users`/`org`/`settings`/`work` in this
+	// isolated fixture root would show zero owned tables and the guard would
+	// (wrongly) treat the reads as stateless and report zero findings, the
+	// exact false-negative this scenario exists to prevent.
+	writeTableOwnershipFixture(root, {
+		demo_users: "packages/core-api/users",
+		demo_org: "packages/core-api/org",
+		demo_settings: "packages/core-api/settings",
+		demo_work: "packages/core-api/work",
+	});
 }
 
 /**
@@ -883,17 +906,17 @@ function fixtureCheck(): void {
 		rmSync(hiddenBundleRoot, { recursive: true, force: true });
 	}
 
-	// Scenario 3 — the founder-signed `cost` cap-gate exemption must NOT fire,
-	// even though it is structurally identical to Scenario 2's hidden
-	// composition-bundle shape.
-	const allowlistedRoot = mkdtempSync(join(tmpdir(), "au21-anti-regrowth-allowlisted-cost-"));
+	// Scenario 3 — AU21 Increment 14a: a `cost`-shaped hidden composition-bundle
+	// edge (the exact shape the now-deleted ALLOWLIST exemption used to cover)
+	// MUST fire — there is no replacement exemption of any kind.
+	const allowlistedRoot = mkdtempSync(join(tmpdir(), "au21-anti-regrowth-deleted-cost-exemption-"));
 	try {
-		buildAllowlistedCostFixture(allowlistedRoot);
+		buildDeletedCostExemptionFixture(allowlistedRoot);
 		const findings = inspect(allowlistedRoot);
 		const violations = findings.filter((f) => f.consumer === "cost");
-		if (violations.length > 0) {
+		if (violations.length === 0) {
 			throw new Error(
-				`composition-edge-anti-regrowth-guard: the founder-signed cost cap-gate exemption must not fire, got ${JSON.stringify(violations)}`,
+				"composition-edge-anti-regrowth-guard: a cost-shaped edge must fire now that the cost cap-gate exemption is deleted (AU21 Increment 14a), got zero findings",
 			);
 		}
 	} finally {

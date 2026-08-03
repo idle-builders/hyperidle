@@ -8,7 +8,8 @@
  * Per architecture.md Decision B″ item 3 + §10: this direct write re-homes
  * onto the EXISTING `session_ended` event — `endSession`/`crashSession`
  * enrich the emit they already make with the routine finalize payload
- * (`routineRunOutcome` + `costInCents`), and a NEW core-api subscriber
+ * (`routineRunOutcome`; AU21 Increment 14a deleted the `costInCents` half —
+ * no replacement), and a NEW core-api subscriber
  * (`routine-run-session-end-reactions.integration.test.ts`, this wave)
  * performs the actual `routineRuns` write from INSIDE core-api. Once this
  * lands, `TransitionPorts` (`transition-run.ts:15`) needs no `routine` key at
@@ -117,14 +118,11 @@ async function seedRoutineSession(
 	return { routineId, runId, agentId, sessionId, teamId };
 }
 
-/** Widen to read the NOT-YET-EXISTING additive `SessionEndedEvent` fields this wave adds. */
+/** Widen to read the NOT-YET-EXISTING additive `SessionEndedEvent` field this wave adds. */
 function widen(
 	event: SessionEndedEvent,
-): SessionEndedEvent & { readonly routineRunOutcome?: string; readonly costInCents?: number } {
-	return event as SessionEndedEvent & {
-		readonly routineRunOutcome?: string;
-		readonly costInCents?: number;
-	};
+): SessionEndedEvent & { readonly routineRunOutcome?: string } {
+	return event as SessionEndedEvent & { readonly routineRunOutcome?: string };
 }
 
 describe("transitionRun session disposition — routineRuns collapse (Decision B″ item 3)", () => {
@@ -159,7 +157,6 @@ describe("transitionRun session disposition — routineRuns collapse (Decision B
 					},
 				},
 				disposition: "end",
-				costInCents: 500,
 			},
 		);
 
@@ -171,7 +168,6 @@ describe("transitionRun session disposition — routineRuns collapse (Decision B
 		});
 		const event = widen(captured[0] as SessionEndedEvent);
 		expect(event.routineRunOutcome).toBe("success");
-		expect(event.costInCents).toBe(500);
 	});
 
 	test("crashSession for a routine-sourced session emits session_ended with routineRunOutcome=error", async ({
@@ -205,7 +201,6 @@ describe("transitionRun session disposition — routineRuns collapse (Decision B
 					},
 				},
 				disposition: "crash",
-				costInCents: 0,
 			},
 		);
 
@@ -216,49 +211,6 @@ describe("transitionRun session disposition — routineRuns collapse (Decision B
 			outcome: "crashed",
 		});
 		expect(widen(captured[0] as SessionEndedEvent).routineRunOutcome).toBe("error");
-	});
-
-	test("budget-exhausted end overrides routineRunOutcome to budget_exhausted even though the session's own outcome stays completed", async ({
-		db,
-	}) => {
-		const { routineId, runId, agentId, sessionId, teamId } = await seedRoutineSession(
-			db,
-			"trc-budget",
-		);
-		const eventBus = new EventBus();
-		const captured: SessionEndedEvent[] = [];
-		eventBus.on("session_ended", (event) => captured.push(event));
-
-		await transitionRun(
-			{ db, eventBus, ports: buildPortsWithoutRoutine() },
-			{
-				target: "session",
-				context: {
-					sessionId,
-					agentId,
-					taskId: null,
-					sandboxPath: "/tmp/trc-budget",
-					ingestion: { dispose: () => {} },
-					traceId: "trace-trc-budget",
-					routineId,
-					requestContext: {
-						requestId: "trc-budget-request",
-						sourceKind: "routine",
-						sourceId: runId,
-						sourceCorrelation: { routineId, routineRunId: runId, teamId },
-					},
-				},
-				disposition: "end",
-				costInCents: 900,
-				routineOutcome: "budget_exhausted",
-			},
-		);
-
-		expect(captured).toHaveLength(1);
-		// The session-level outcome stays "completed" (AL6 v2 terminalOutcome
-		// default) — only the routine-specific finalize is overridden.
-		expect(captured[0]).toMatchObject({ outcome: "completed" });
-		expect(widen(captured[0] as SessionEndedEvent).routineRunOutcome).toBe("budget_exhausted");
 	});
 
 	test("a non-routine session's endSession never carries a routine finalize payload", async ({
@@ -307,7 +259,6 @@ describe("transitionRun session disposition — routineRuns collapse (Decision B
 					traceId: "trace-trc-nr",
 				},
 				disposition: "end",
-				costInCents: 0,
 			},
 		);
 

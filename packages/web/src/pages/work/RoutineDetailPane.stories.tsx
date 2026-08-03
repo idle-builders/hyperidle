@@ -45,21 +45,10 @@ const ROUTINE_DETAIL: RoutineDetail = {
 		lastRunAt: "2026-01-05T08:00:00.000Z",
 		lastRunOutcome: "success",
 		nextRunAt: "2026-01-06T08:00:00.000Z",
-		costActual: { minor: 750, currency: "USD" },
 		createdAt: "2025-12-01T00:00:00.000Z",
-		costCapPerRun: { minor: 5000, currency: "USD" },
-		costCapMonthly: { minor: 50000, currency: "USD" },
 		lastRunSummary:
 			"Digest sent to 4 team members. Highlighted 2 active bets, 3 completed tasks, and 1 blocker from Atlas Builder.",
 		silent: false,
-	},
-	budget: {
-		avgCostPerRun: { minor: 650, currency: "USD" },
-		costThisMonth: { minor: 4550, currency: "USD" },
-		costCapPerRun: { minor: 5000, currency: "USD" },
-		costCapMonthly: { minor: 50000, currency: "USD" },
-		perRunUtilizationPercent: 13,
-		monthlyUtilizationPercent: 9,
 	},
 	runs: [
 		{
@@ -68,7 +57,6 @@ const ROUTINE_DETAIL: RoutineDetail = {
 			endedAt: "2026-01-05T08:01:30.000Z",
 			durationSeconds: 89,
 			outcome: "success",
-			cost: { minor: 750, currency: "USD" },
 			errorMessage: null,
 		},
 		{
@@ -77,7 +65,6 @@ const ROUTINE_DETAIL: RoutineDetail = {
 			endedAt: "2026-01-04T08:02:10.000Z",
 			durationSeconds: 129,
 			outcome: "success",
-			cost: { minor: 620, currency: "USD" },
 			errorMessage: null,
 		},
 		{
@@ -85,8 +72,7 @@ const ROUTINE_DETAIL: RoutineDetail = {
 			startedAt: "2026-01-03T08:00:01.000Z",
 			endedAt: "2026-01-03T08:01:00.000Z",
 			durationSeconds: 59,
-			outcome: "budget_exhausted",
-			cost: { minor: 5000, currency: "USD" },
+			outcome: "timeout",
 			errorMessage: null,
 		},
 		{
@@ -95,7 +81,6 @@ const ROUTINE_DETAIL: RoutineDetail = {
 			endedAt: "2026-01-02T08:00:45.000Z",
 			durationSeconds: 44,
 			outcome: "error",
-			cost: null,
 			errorMessage: "Connection timeout",
 		},
 	],

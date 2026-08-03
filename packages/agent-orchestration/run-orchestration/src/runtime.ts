@@ -10,7 +10,6 @@ import {
 	type BakedContextBundle,
 	type BakedFilesystemForProvisioning,
 	ConcurrencyLimitError,
-	CostCapExceededError,
 	type HarnessPortDeps,
 	isAgentWorkIntentKind,
 	isAgentWorkIntentSourceKind,
@@ -317,8 +316,6 @@ async function runClaimedRequest(
 								deps.db,
 								deps.eventBus,
 								admitted.sessionContext,
-								0,
-								0,
 							);
 						}
 					} catch {
@@ -356,7 +353,7 @@ async function runClaimedRequest(
 		});
 		return { mode: "completed", ...result };
 	} catch (err) {
-		if (err instanceof ConcurrencyLimitError || err instanceof CostCapExceededError) {
+		if (err instanceof ConcurrencyLimitError) {
 			if (request.claimToken) {
 				await ports.sessionRequests.releaseClaim(deps.db, request.id, request.claimToken);
 			}

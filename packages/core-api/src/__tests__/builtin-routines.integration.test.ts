@@ -12,16 +12,9 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { updateServerConfig } from "@hyperidle/settings";
-import type {
-	BetStateChangedEvent,
-	CostCapBreachedEvent,
-	CostCapWarningEvent,
-	DomainEvent,
-} from "@hyperidle/shared";
+import type { BetStateChangedEvent, DomainEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { costOps } from "../services/cost-bindings.js";
-import { afterEach, beforeEach, describe, expect, test } from "../test-fixtures.js";
+import { describe, expect, test } from "../test-fixtures.js";
 import {
 	fireStoredRoutine,
 	seedTeamRoutines,
@@ -112,14 +105,6 @@ async function seedBuiltinRoutines(db: HyperIdleDb, teamId = TEST_TEAM_ID): Prom
 }
 
 describe("G4: Built-in Routines", () => {
-	beforeEach(() => {
-		costOps._testHooks.resetSentinelState();
-	});
-
-	afterEach(() => {
-		costOps._testHooks.resetSentinelState();
-	});
-
 	// ------------------------------------------------------------------
 	// AC6: all 4 builtins created by seedBuiltinRoutines with correct config
 	// @lore AD8c: cost-sentinel removed from routines table (now app-level scheduled job)
@@ -257,148 +242,9 @@ describe("G4: Built-in Routines", () => {
 		});
 	});
 
-	// ------------------------------------------------------------------
-	// AC1: Cost Sentinel — extracted to app code, NOT a routine (AD8c)
-	// Tests call costOps.runCostSentinelCheck directly (no DB routine row needed).
-	// @lore AD8c: cost-sentinel removed from routines table. Tests migrated
-	// from fireStoredRoutine("builtin:cost-sentinel") to costOps.runCostSentinelCheck.
-	// ------------------------------------------------------------------
-	describe("AC1: Cost Sentinel (app code, not a routine)", () => {
-		// @lore AU18: `cost_actual` is no longer a settable KV row — cost-sentinel
-		// now reads `costOps.spend(db)` (= sumAllUserCost, a live SUM over
-		// users.costActual). Seed exactly one costed user row so the sum resolves
-		// to `actual` (onConflictDoUpdate — safe to call more than once per test,
-		// e.g. the level-transition tests below that call this twice).
-		async function setFactoryCost(db: HyperIdleDb, cap: number, actual: number): Promise<void> {
-			await updateServerConfig(db, { cost: { capMinor: cap } });
-			await db
-				.insert(users)
-				.values({
-					id: "cost-sentinel-test-agent",
-					kind: "ai",
-					name: "Cost Sentinel Test Agent",
-					role: "builder",
-					status: "active",
-					costActual: actual,
-					createdAt: NOW_ISO,
-				})
-				.onConflictDoUpdate({ target: users.id, set: { costActual: actual } });
-		}
-
-		test("emits no events when spend is below 80% of cap", async ({ db, eventBus }) => {
-			const emitted: DomainEvent[] = [];
-			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
-			await setFactoryCost(db, 1000, 500);
-
-			const result = await costOps.runCostSentinelCheck(db, eventBus);
-
-			expect(result.fired).toBe(true);
-			const warnings = emitted.filter((e) => e.type === "cost_cap_warning");
-			const breaches = emitted.filter((e) => e.type === "cost_cap_breached");
-			expect(warnings).toHaveLength(0);
-			expect(breaches).toHaveLength(0);
-		});
-
-		test("emits cost_cap_warning when spend reaches 80% of cap", async ({ db, eventBus }) => {
-			const emitted: DomainEvent[] = [];
-			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
-			await setFactoryCost(db, 1000, 800);
-
-			await costOps.runCostSentinelCheck(db, eventBus);
-
-			const warnings = emitted.filter(
-				(e): e is CostCapWarningEvent => e.type === "cost_cap_warning",
-			);
-			expect(warnings).toHaveLength(1);
-			expect(warnings[0]!.capLevel).toBe("factory");
-			expect(warnings[0]!.spend).toBe(800);
-			expect(warnings[0]!.cap).toBe(1000);
-		});
-
-		test("emits cost_cap_breached when spend reaches 100% of cap", async ({ db, eventBus }) => {
-			const emitted: DomainEvent[] = [];
-			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
-			await setFactoryCost(db, 1000, 1000);
-
-			await costOps.runCostSentinelCheck(db, eventBus);
-
-			const breaches = emitted.filter(
-				(e): e is CostCapBreachedEvent => e.type === "cost_cap_breached",
-			);
-			expect(breaches).toHaveLength(1);
-			expect(breaches[0]!.level).toBe("hard");
-			expect(breaches[0]!.spend).toBe(1000);
-			expect(breaches[0]!.cap).toBe(1000);
-		});
-
-		// --- G4 review MAJOR-4: level-based dedupe semantics ---
-		test("does not re-emit cost_cap_warning on consecutive ticks while still in warning level", async ({
-			db,
-			eventBus,
-		}) => {
-			const emitted: DomainEvent[] = [];
-			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
-			await setFactoryCost(db, 1000, 800);
-
-			await costOps.runCostSentinelCheck(db, eventBus);
-			await costOps.runCostSentinelCheck(db, eventBus);
-			await costOps.runCostSentinelCheck(db, eventBus);
-
-			const warnings = emitted.filter((e) => e.type === "cost_cap_warning");
-			expect(warnings).toHaveLength(1);
-		});
-
-		test("does not re-emit cost_cap_breached on consecutive ticks while still in breach level", async ({
-			db,
-			eventBus,
-		}) => {
-			const emitted: DomainEvent[] = [];
-			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
-			await setFactoryCost(db, 1000, 1200);
-
-			await costOps.runCostSentinelCheck(db, eventBus);
-			await costOps.runCostSentinelCheck(db, eventBus);
-
-			const breaches = emitted.filter((e) => e.type === "cost_cap_breached");
-			expect(breaches).toHaveLength(1);
-		});
-
-		test("re-emits cost_cap_warning after level transitions warning -> ok -> warning", async ({
-			db,
-			eventBus,
-		}) => {
-			const emitted: DomainEvent[] = [];
-			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
-			await setFactoryCost(db, 1000, 800);
-			await costOps.runCostSentinelCheck(db, eventBus);
-
-			// Drop below 80% — level transitions to 'ok' (silent reset).
-			await setFactoryCost(db, 1000, 500);
-			await costOps.runCostSentinelCheck(db, eventBus);
-
-			// Climb back up — this is a new transition and must re-emit.
-			await setFactoryCost(db, 1000, 850);
-			await costOps.runCostSentinelCheck(db, eventBus);
-
-			const warnings = emitted.filter((e) => e.type === "cost_cap_warning");
-			expect(warnings).toHaveLength(2);
-		});
-
-		test("escalates from warning to breach on the transition tick", async ({ db, eventBus }) => {
-			const emitted: DomainEvent[] = [];
-			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
-			await setFactoryCost(db, 1000, 800);
-			await costOps.runCostSentinelCheck(db, eventBus);
-
-			await setFactoryCost(db, 1000, 1100);
-			await costOps.runCostSentinelCheck(db, eventBus);
-
-			const warnings = emitted.filter((e) => e.type === "cost_cap_warning");
-			const breaches = emitted.filter((e) => e.type === "cost_cap_breached");
-			expect(warnings).toHaveLength(1);
-			expect(breaches).toHaveLength(1);
-		});
-	});
+	// @lore AU21 Increment 14a: "AC1: Cost Sentinel" describe block is deleted
+	// along with the rest of the cost feature — the cost sentinel, its
+	// events, and the factory cap are all gone, no replacement.
 
 	// ------------------------------------------------------------------
 	// AC3: Post-Bet Retro — compares hypothesis vs reality for completed bet

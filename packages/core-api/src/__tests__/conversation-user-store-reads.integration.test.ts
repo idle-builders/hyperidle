@@ -8,8 +8,8 @@
  * reads (a read passed a live `tx` sees the same tx's uncommitted write),
  * projected getters returning EXACTLY their route's current column set
  * (`listAgentProfiles` INCLUDES `systemPrompt`; `getUserById` INCLUDES `email`;
- * `listTeamMembersSummary` returns exactly id/name/role/agentCategory), the
- * cost aggregate + atomic increment, and the bets.ts decomposition.
+ * `listTeamMembersSummary` returns exactly id/name/role/agentCategory), and
+ * the bets.ts decomposition.
  */
 
 import {
@@ -23,13 +23,7 @@ import {
 	searchConversations,
 } from "@hyperidle/conversation";
 import { type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
-import {
-	findUser,
-	incrementUserCost,
-	insertUser,
-	listUsers,
-	sumAllUserCost,
-} from "@hyperidle/users";
+import { findUser, insertUser, listUsers } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../test-fixtures.js";
 
@@ -179,22 +173,6 @@ describe("user-store reads", () => {
 		expect(row?.systemPrompt).toBe("be helpful");
 		// email is present in full User row (routes project only what they need)
 		expect(row?.email).toBeDefined();
-	});
-
-	test("incrementUserCost is atomic coalesce + delta; sumAllUserCost sums", async ({ db }) => {
-		await insertUser(db, userValues("c1", { costActual: null }));
-		await insertUser(db, userValues("c2", { costActual: 100 }));
-		await incrementUserCost(db, "c1", 40);
-		await incrementUserCost(db, "c2", 5);
-		expect((await findUser(db, { id: "c1" }))?.costActual).toBe(40);
-		expect((await findUser(db, { id: "c2" }))?.costActual).toBe(105);
-		expect(await sumAllUserCost(db)).toBe(145);
-	});
-
-	test("incrementUserCost preserves every concurrent increment", async ({ db }) => {
-		await insertUser(db, userValues("metered", { costActual: null }));
-		await Promise.all(Array.from({ length: 20 }, () => incrementUserCost(db, "metered", 3)));
-		expect((await findUser(db, { id: "metered" }))?.costActual).toBe(60);
 	});
 
 	test("a read passed a live tx sees the same tx's uncommitted write", async ({ db }) => {

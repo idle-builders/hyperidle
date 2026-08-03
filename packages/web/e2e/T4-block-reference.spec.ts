@@ -39,8 +39,6 @@ const BET_FIXTURE = {
 	product: "TestProduct",
 	team: "Core Team",
 	status: "active",
-	costAppetite: null,
-	costActual: null,
 	tokensActual: null,
 	progress: { done: 0, total: 1 },
 	pitch: "First paragraph of the pitch.\n\nSecond paragraph with more details.",

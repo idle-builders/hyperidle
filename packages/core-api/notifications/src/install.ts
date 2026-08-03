@@ -29,8 +29,6 @@ import * as net from "node:net";
 import { promisify } from "node:util";
 import type { HyperIdleDb, Item, NewNotificationQueueRow } from "@hyperidle/db";
 import type {
-	CostCapBreachedEvent,
-	CostCapWarningEvent,
 	EventBus,
 	ItemCreatedEvent,
 	Logger,
@@ -45,7 +43,7 @@ import type { Transporter } from "nodemailer";
 import nodemailer from "nodemailer";
 import { enqueue, listNotifications, markNotifications } from "./notification-queue.js";
 import type { NotificationsDeps } from "./ports.js";
-import { isInSilenceWindow, isSilenced, isWindowSilenced } from "./silence-policy.js";
+import { isInSilenceWindow, isSilenced } from "./silence-policy.js";
 import type { Notification, NotificationAdapter, NotificationChannel } from "./types.js";
 
 // ---------------------------------------------------------------------------
@@ -66,7 +64,7 @@ type SilenceDeps = Pick<NotificationsDeps, "serverConfig" | "users" | "teams">;
 // Private types (not exported — deleted from the public surface in AU20 Stage 2)
 // ---------------------------------------------------------------------------
 
-type NotificationSeverity = "blocking" | "cost_breach" | "digest";
+type NotificationSeverity = "blocking" | "digest";
 interface Recipient {
 	readonly channelId: string;
 	readonly label?: string;
@@ -680,8 +678,6 @@ export function priorityForSeverity(severity: NotificationSeverity): "urgent" | 
 	switch (severity) {
 		case "blocking":
 			return "urgent";
-		case "cost_breach":
-			return "high";
 		case "digest":
 			return "default";
 	}
@@ -988,7 +984,6 @@ async function enqueueNotification(
  */
 interface AlertPreferences {
 	readonly blockerAlerts: boolean;
-	readonly costAlerts: boolean;
 	readonly reviewAlerts: boolean;
 	readonly quietHoursEnabled: boolean;
 	readonly quietHoursStart: string;
@@ -997,7 +992,6 @@ interface AlertPreferences {
 
 const ALERT_PREFS_DEFAULTS: AlertPreferences = {
 	blockerAlerts: true,
-	costAlerts: true,
 	reviewAlerts: true,
 	quietHoursEnabled: false,
 	quietHoursStart: "22:00",
@@ -1036,10 +1030,8 @@ interface DispatcherState {
 function applyAlertPreferences(
 	classification: Classification,
 	prefs: AlertPreferences,
-	meta: { isHardCostBreach?: boolean; isCostEvent?: boolean; itemKind?: string },
+	meta: { itemKind?: string },
 ): boolean {
-	if (meta.isHardCostBreach) return false;
-	if (!prefs.costAlerts && meta.isCostEvent) return true;
 	if (!prefs.reviewAlerts && meta.itemKind === "review") return true;
 	if (
 		!prefs.blockerAlerts &&
@@ -1115,16 +1107,6 @@ function classifyItem(item: Pick<Item, "blocking" | "riskTier">): Classification
 	return { kind: "drop", reason: "low-risk non-blocking item" };
 }
 
-function classifyCostBreach(event: CostCapBreachedEvent): Classification {
-	if (event.level === "hard") return { kind: "push", severity: "cost_breach" };
-	return { kind: "digest", severity: "digest" };
-}
-
-function classifyCostWarning(event: CostCapWarningEvent): Classification {
-	if (event.level === "critical") return { kind: "push", severity: "cost_breach" };
-	return { kind: "digest", severity: "digest" };
-}
-
 function buildItemNotification(
 	item: Item,
 	severity: NotificationSeverity,
@@ -1136,34 +1118,6 @@ function buildItemNotification(
 		severity,
 		deepLink: `/conversations/item/${item.id}`,
 		tags: severity === "blocking" ? ["blocking"] : undefined,
-		timestamp: now.getTime(),
-	};
-}
-
-function buildCostBreachNotification(
-	event: CostCapBreachedEvent,
-	severity: NotificationSeverity,
-	now: Date,
-): Notification {
-	return {
-		title: `Cost cap ${event.level}: ${event.capLevel} ${event.entityId}`.slice(0, 140),
-		body: `Spend ${event.spend} exceeded cap ${event.cap} on ${event.capLevel} '${event.entityId}'.`,
-		severity,
-		tags: ["cost_cap", event.level],
-		timestamp: now.getTime(),
-	};
-}
-
-function buildCostWarningNotification(
-	event: CostCapWarningEvent,
-	severity: NotificationSeverity,
-	now: Date,
-): Notification {
-	return {
-		title: `Cost cap ${event.level}: ${event.capLevel} ${event.entityId}`.slice(0, 140),
-		body: `Spend ${event.spend} / ${event.cap} on ${event.capLevel} '${event.entityId}'.`,
-		severity,
-		tags: ["cost_cap", event.level],
 		timestamp: now.getTime(),
 	};
 }
@@ -1221,21 +1175,12 @@ async function flushQueue(
 	let deferred = 0;
 
 	// Read silence predicates once per tick (not per row).
-	// isSilenced covers mode + team + window; isWindowSilenced covers window only.
-	// AF8: cost_breach bypasses factory/team silence but still respects the window.
+	// isSilenced covers mode + team + window.
 	const silenced = await isSilenced(db, { sourceAgentId: null }, now, silencePolicy);
-	const inQuietHours = await isWindowSilenced(db, now, silencePolicy);
 
 	for (const row of rows) {
 		const severity = row.severity as NotificationSeverity;
-		// AF8 cost-breach split: cost_breach respects only the quiet-hours window;
-		// other severities respect full silence (mode + team + window).
-		if (severity === "cost_breach") {
-			if (inQuietHours) {
-				deferred += 1;
-				continue;
-			}
-		} else if (severity === "blocking") {
+		if (severity === "blocking") {
 			if (silenced) {
 				deferred += 1;
 				continue;
@@ -1371,7 +1316,7 @@ function registerNotificationDispatcher(
 		eventType: string,
 		subjectId: string | null,
 		sourceAgentId: string | null,
-		prefMeta: { isHardCostBreach?: boolean; isCostEvent?: boolean; itemKind?: string },
+		prefMeta: { itemKind?: string },
 	): Promise<void> {
 		if (state.disposed) return;
 		const cfg = await loadNotificationConfig(db, deps.notificationsConfig);
@@ -1384,30 +1329,12 @@ function registerNotificationDispatcher(
 
 		const now = nowFn();
 
-		// AF8: COST-BREACH SILENCE SPLIT (concept hard rule #8) — direct-send path.
 		// isSilenced covers mode + team + server-config window.
-		// AF8: cost_breach bypasses factory/team silence but still respects windows.
 		const silenced = await isSilenced(db, { sourceAgentId }, now, deps.silencePolicy);
-		const factoryWindowSilenced = await isWindowSilenced(db, now, deps.silencePolicy);
 		const inQuietHoursPrefs =
 			prefs.quietHoursEnabled && isInSilenceWindow(prefs.quietHoursStart, prefs.quietHoursEnd, now);
-		const inQuietHours = factoryWindowSilenced || inQuietHoursPrefs;
 
-		if (prefMeta.isHardCostBreach) {
-			if (inQuietHours) {
-				await enqueueNotification(db, {
-					eventType,
-					subjectId,
-					severity: classification.severity,
-					title: notification.title,
-					body: notification.body,
-					reason: "silence",
-					channel: null,
-					now,
-				});
-				return;
-			}
-		} else if (silenced || inQuietHoursPrefs) {
+		if (silenced || inQuietHoursPrefs) {
 			await enqueueNotification(db, {
 				eventType,
 				subjectId,
@@ -1474,31 +1401,6 @@ function registerNotificationDispatcher(
 		})();
 	});
 
-	const unsubCostBreach = bus.on("cost_cap_breached", (event: CostCapBreachedEvent): void => {
-		if (state.disposed) return;
-		const classification = classifyCostBreach(event);
-		const notification =
-			classification.kind === "drop"
-				? null
-				: buildCostBreachNotification(event, classification.severity, nowFn());
-		void route(classification, notification, "cost_cap_breached", event.entityId, null, {
-			isCostEvent: true,
-			isHardCostBreach: event.level === "hard",
-		});
-	});
-
-	const unsubCostWarning = bus.on("cost_cap_warning", (event: CostCapWarningEvent): void => {
-		if (state.disposed) return;
-		const classification = classifyCostWarning(event);
-		const notification =
-			classification.kind === "drop"
-				? null
-				: buildCostWarningNotification(event, classification.severity, nowFn());
-		void route(classification, notification, "cost_cap_warning", event.entityId, null, {
-			isCostEvent: true,
-		});
-	});
-
 	const unsubRoutine = bus.on("routine_fired", (event: RoutineFiredEvent): void => {
 		if (state.disposed) return;
 		if (!event.routineId.includes("daily_digest")) return;
@@ -1520,8 +1422,6 @@ function registerNotificationDispatcher(
 	return (): void => {
 		state.disposed = true;
 		unsubItemCreated();
-		unsubCostBreach();
-		unsubCostWarning();
 		unsubRoutine();
 		if (state.adapterCache?.adapter?.close) {
 			try {

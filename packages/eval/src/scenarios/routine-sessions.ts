@@ -1,21 +1,19 @@
 /**
  * X8: Routine sessions scenarios (interaction 22).
  *
- * Tests the fireRoutine() path: heartbeat, calendar, humanReview, cost cap block.
+ * Tests the fireRoutine() path: heartbeat, calendar, humanReview.
  * All scenarios call fireRoutine() directly (no runEvalSession).
  *
  * @lore X8 CRITICAL-1: triggerConfig MUST include taskId pointing to a real tasks row.
- * @lore AU18 §4.1: cost cap check reads `server_config.cost.capMinor` (cap) and
- * `getFactoryCostActual` (= SUM(users.costActual), live total) — the old
- * `factorySettings.cost_cap`/`cost_actual` KV keys are retired.
+ * @lore AU21 Increment 14a: the `rs-cost-cap-blocked` scenario (and the cost
+ * cap it exercised) is deleted along with the rest of the cost feature.
  */
 
 import { randomUUID } from "node:crypto";
 import { fireRoutine } from "@hyperidle/core-api/routines";
 import { items, routines, sessions } from "@hyperidle/db";
-import { updateServerConfig } from "@hyperidle/settings";
 import { EventBus } from "@hyperidle/shared";
-import { and, eq, isNotNull } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { seedMinimalWorld, seedRoutine } from "../seeding.js";
 import type {
 	DimensionScore,
@@ -318,93 +316,10 @@ const rsHumanReviewFlag: EvalScenario = {
 	},
 };
 
-// ---------------------------------------------------------------------------
-// rs-cost-cap-blocked
-// ---------------------------------------------------------------------------
-
-let costCapBlockedRoutineId = "";
-
-const rsCostCapBlocked: EvalScenario = {
-	id: "rs-cost-cap-blocked",
-	description: "Cost cap reached: routine not fired, no session created",
-	feature: "routine_sessions",
-	tags: [],
-	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		const world = await seedMinimalWorld(ctx.db, {
-			agentRole: "assistant",
-			taskTitle: "Cost-blocked routine task",
-			agentCostActualMinor: 1001, // over the 1000 cap → blocked
-		});
-
-		// @lore AU18 §4.1: cap now lives at server_config.cost.capMinor (not the
-		// retired factorySettings.cost_cap key); the live total is the seeded
-		// agent's users.costActual above.
-		await updateServerConfig(ctx.db, { cost: { capMinor: 1000 } });
-
-		const { routineId } = await seedRoutine(ctx.db, {
-			teamId: world.teamId,
-			ownerAgentId: world.agentId,
-			triggerType: "heartbeat",
-			triggerConfig: { intervalSeconds: 900, taskId: world.taskId },
-			skillId: "monitoring",
-			active: true,
-		});
-		costCapBlockedRoutineId = routineId;
-		return world;
-	},
-	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
-		const startMs = Date.now();
-		const eventBus = new EventBus();
-		const [routine] = await ctx.db
-			.select()
-			.from(routines)
-			.where(eq(routines.id, costCapBlockedRoutineId))
-			.limit(1);
-
-		if (!routine) return makeSyntheticResult(startMs, false);
-		const result = await fireRoutine(ctx.db, eventBus, routine);
-		return makeSyntheticResult(startMs, result.fired);
-	},
-	rubric: {
-		dimensions: [
-			{
-				id: "session_not_created",
-				label: "No Session Created When Cost Cap Reached",
-				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-					const allSessions = await ctx.db
-						.select({ id: sessions.id })
-						.from(sessions)
-						.where(isNotNull(sessions.id));
-					const noSession = allSessions.length === 0;
-					return {
-						score: noSession ? 1.0 : 0.0,
-						note: noSession
-							? "No session created (correct — cost cap blocks new sessions)"
-							: `${allSessions.length} session(s) found — cost cap should have blocked`,
-					};
-				},
-			},
-			{
-				id: "routine_not_fired",
-				label: "Routine Not Fired When Cost Cap Reached",
-				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-					const [routine] = await ctx.db
-						.select({ lastRunAt: routines.lastRunAt })
-						.from(routines)
-						.where(eq(routines.id, costCapBlockedRoutineId))
-						.limit(1);
-					const notFired = routine?.lastRunAt === null || routine?.lastRunAt === undefined;
-					return {
-						score: notFired ? 1.0 : 0.0,
-						note: notFired
-							? "Routine correctly not fired (cost cap blocked)"
-							: `Routine fired at ${routine?.lastRunAt} despite cost cap`,
-					};
-				},
-			},
-		],
-	},
-};
+// @lore AU21 Increment 14a: `rs-cost-cap-blocked` (asserted a routine is
+// correctly NOT fired when a cost cap is reached) is deleted — the cap gate
+// it exercised is gone, no replacement, and a launch that would have
+// exceeded a cap now simply proceeds (founder-accepted, not a regression).
 
 // ---------------------------------------------------------------------------
 // Export
@@ -414,5 +329,4 @@ export const routineSessionsScenarios: EvalScenario[] = [
 	rsHeartbeatFire,
 	rsCalendarFire,
 	rsHumanReviewFlag,
-	rsCostCapBlocked,
 ];

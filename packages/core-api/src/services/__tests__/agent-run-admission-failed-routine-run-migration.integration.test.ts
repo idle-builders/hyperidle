@@ -58,7 +58,6 @@ import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { eq, sql } from "drizzle-orm";
 import { describe, expect, test } from "../../test-fixtures.js";
-import { costOps } from "../cost-bindings.js";
 import { queueDeps } from "../durable-agent-queue.js";
 
 const NOW = new Date().toISOString();
@@ -143,14 +142,12 @@ function makePorts(): RoutineSchedulerPorts & {
 			readServerConfig: async (db) => {
 				const cfg = await readServerConfig(db);
 				return {
-					cost: { capMinor: cfg.cost.capMinor },
 					modelGateway: cfg.modelGateway,
 					harnessDisabled: cfg.harnessDisabled,
 				};
 			},
 		},
 		workIntents: { enqueueWorkIntent },
-		cost: { getFactoryCostActual: (db: HyperIdleDb) => costOps.spend(db, { level: "factory" }) },
 		agentSelection: {
 			isAtCapacity: (db, agentId) =>
 				isAgentAtCapacity(db, agentId, { getUserById: (execDb, id) => findUser(execDb, { id }) }),

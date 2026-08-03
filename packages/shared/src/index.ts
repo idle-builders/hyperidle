@@ -164,7 +164,6 @@ export {
 	CapacityExceededError,
 	CassetteMissError,
 	ConcurrencyLimitError,
-	CostCapExceededError,
 	HttpError,
 	InvalidTransitionError,
 	MissingCredentialError,
@@ -185,8 +184,6 @@ export type {
 	ArtifactCreatedEvent,
 	BetRevisedEvent,
 	BetStateChangedEvent,
-	CostCapBreachedEvent,
-	CostCapWarningEvent,
 	DependencyMetEvent,
 	DomainEvent,
 	EventBusAdapter,
@@ -257,8 +254,6 @@ export {
 	SUBSTRATE_STATES,
 	WRITEBACK_MODES,
 } from "./filesystem.js";
-export type { ArtifactCostInput } from "./format/artifact-cost.js";
-export { formatArtifactCost } from "./format/artifact-cost.js";
 export { deriveTitle, deriveTitleFromPitch } from "./format/bet.js";
 export { formatMoney, formatTokenCount } from "./format/money.js";
 export type { TimestampInput } from "./format/time.js";
@@ -486,7 +481,6 @@ export {
 } from "./redact.js";
 // ── Routine primitive (AA1 + AA2 + AA3) ──
 export type {
-	RoutineBudget,
 	RoutineCardSummary,
 	RoutineCreatePayload,
 	RoutineDetail,
@@ -501,7 +495,6 @@ export type {
 	ActivityEntry,
 	AnswerDeltaData,
 	AnswerSettledData,
-	CostTickData,
 	HumanMessageData,
 	ReasoningData,
 	ToolCallData,
@@ -638,7 +631,6 @@ export {
 } from "./trigger.js";
 export type {
 	Artifact,
-	ArtifactCostFromSession,
 	ArtifactFilterAxis,
 	ArtifactKind,
 	ArtifactPage,

@@ -103,7 +103,6 @@ function buildAssistantSessionRequest(opts: {
 		terminationRequestedBy: null,
 		errorCode: null,
 		errorMessage: null,
-		costCents: null,
 		createdAt: NOW,
 		updatedAt: NOW,
 	};

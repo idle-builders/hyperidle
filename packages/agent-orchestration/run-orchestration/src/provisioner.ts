@@ -12,7 +12,6 @@ import {
 	type CapturedToolCall,
 	ConcurrencyLimitError,
 	type ConversationMessage,
-	CostCapExceededError,
 	type EventBus,
 	type Filesystem,
 	type FilesystemMounter,
@@ -69,9 +68,10 @@ interface IngestionHandle {
 //     `assistant_turn`/`session_start` bake it too, at their one real emit
 //     site each, so no kind silently loses the admin's disabled-harness-types
 //     enforcement).
-//   - The admission-time routine per-run cap: `params.contextBundle.routine
-//     .costCapPerRunMinor` (baked by the routine resolver from the SAME
-//     `routine` row it already loads to validate).
+//   - AU21 Increment 14a: the admission-time routine per-run cost cap this
+//     bullet used to describe (`params.contextBundle.routine
+//     .costCapPerRunMinor`) is DELETED along with the rest of the cost-cap
+//     gate — no replacement.
 //
 // @lore AU21 §9 Increment 12 (Decision H3), Wave E — THIRD, founder-FINAL
 // pass on the emit→deactivate→drain race (architecture.md §12's
@@ -133,40 +133,6 @@ interface SessionLifecycleServiceConnectionResolver {
 // top-of-file `@lore` for the full trace.
 // ---------------------------------------------------------------------------
 
-interface SessionLifecycleCostCapResult {
-	allowed: boolean;
-	level?: "agent" | "team" | "factory";
-	currentSpend?: number;
-	cap?: number;
-}
-
-interface SessionLifecycleCostAccessor {
-	checkCostCap(
-		db: HyperIdleDb,
-		eventBus: EventBus,
-		params: {
-			readonly agentId: string;
-			readonly teamId?: string;
-			readonly factoryCap?: number;
-			readonly factorySpend?: number;
-		},
-	): Promise<SessionLifecycleCostCapResult>;
-	recordCostAndCheck(
-		db: HyperIdleDb,
-		eventBus: EventBus,
-		params: {
-			readonly sessionId: string;
-			readonly costMinor?: number;
-			readonly currency?: string;
-			readonly agentId: string;
-			readonly teamId?: string;
-			readonly taskId?: string;
-			readonly factoryCap?: number;
-			readonly factorySpend?: number;
-			readonly reviewThreadId?: string;
-		},
-	): Promise<void>;
-}
 interface SessionLifecycleHarnessAdapter {
 	startSession(config: SessionConfig): Promise<SessionHandle>;
 	streamEvents(handle: SessionHandle): AsyncIterable<HarnessEvent>;
@@ -245,7 +211,7 @@ interface SessionLifecycleHarnessRuntime {
 	createReturnGate(): SessionLifecycleReturnGate;
 	evaluateReturn(
 		gate: SessionLifecycleReturnGate,
-		endReason: "completed" | "crashed" | "stopped" | "budget_exhausted",
+		endReason: "completed" | "crashed" | "stopped",
 	): "returned" | "not_returned";
 	provisionReturnHook(opts: {
 		readonly sandboxPath: string;
@@ -460,7 +426,6 @@ interface SessionLifecyclePorts {
 		deregisterSessionRun(sessionId: string): void;
 	};
 	readonly observability: SessionLifecycleObservability;
-	readonly cost: SessionLifecycleCostAccessor;
 	readonly harnessRuntime: SessionLifecycleHarnessRuntime;
 	readonly toolProvider: SessionLifecycleToolProvider;
 	readonly contextAssembly: SessionLifecycleContextAssembly;
@@ -764,8 +729,13 @@ interface ProvisionSessionParams {
 
 interface ProvisionSessionResult {
 	readonly sessionId: string;
-	/** AA3: widened to include "budget_exhausted" for per-run cap enforcement. */
-	readonly outcome: SessionOutcome | "budget_exhausted";
+	readonly outcome: SessionOutcome;
+	/**
+	 * AU21 Increment 14a: live-computed session $-spend from the harness's
+	 * `cost_update` stream events — kept ONLY as a CI real-spend safety readout
+	 * for the `eval` harness (`AH5`/`AH6` budget-assert scripts); no product
+	 * cost-cap/accounting consumes it anymore.
+	 */
 	readonly totalCostCents: number;
 	readonly taskId: string | null;
 	/**
@@ -810,7 +780,6 @@ interface AdmittedSession {
 	readonly selectedAdapter: SessionLifecycleSelectedEntry;
 	readonly harness: SessionLifecycleHarnessAdapter;
 	readonly adapterId: string;
-	readonly routinePerRunCap: number | null;
 	/**
 	 * AO2: Filesystems that were successfully mounted in Phase 4.5 for this session.
 	 */
@@ -820,13 +789,16 @@ interface AdmittedSession {
 /**
  * AF7 §2 — Admit a session synchronously (phases 1-7).
  *
- * Runs the HTTP-observable prefix: load agent, cost pre-flight (P2), adapter
+ * Runs the HTTP-observable prefix: load agent, adapter
  * select + concurrency check (P3), **resolvedModel presence guard (WARNING-2,
  * pre-P5)**, task transition, workspace spawn (P4), session row insert (P5),
  * context assembly (P6), start watcher (P7), emit `session_started`. ALL admission
- * failures (CostCapExceeded 422 / ConcurrencyLimit 429 / MissingCredential 500)
+ * failures (ConcurrencyLimit 429 / MissingCredential 500)
  * throw BEFORE the P5 row insert — the detach boundary — so they map to HTTP
  * status on the POST path and never leave a doomed row.
+ * @lore AU21 Increment 14a: the cost-cap pre-flight (was Phase 2, `CostCapExceeded`
+ * 422) is deleted — no replacement gate. Phase numbering below keeps its
+ * historical P3/P4/... labels rather than renumbering.
  */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: admission coordinates multi-phase pre-flight with error handling
 async function admitSession(
@@ -883,25 +855,6 @@ async function admitSession(
 			? (rawPreference as ModelTier)
 			: null;
 	const modelTier: ModelTier = params.modelTier ?? agentPreference ?? "workhorse";
-
-	// ── Phase 2: cost cap pre-flight. Throws before any DB writes.
-	const capResult = await ports.cost.checkCostCap(db, eventBus, {
-		agentId: params.agentId,
-		teamId,
-		factoryCap: params.factoryCap,
-		factorySpend: params.factorySpend,
-	});
-	if (!capResult.allowed) {
-		throw new CostCapExceededError(
-			capResult.level === "factory"
-				? "factory"
-				: capResult.level === "team"
-					? (teamId ?? "team")
-					: params.agentId,
-			capResult.currentSpend ?? 0,
-			capResult.cap ?? 0,
-		);
-	}
 
 	// ── Phase 3: adapter selection + concurrency check + task transition.
 	// Wave E: `harnessDisabled` comes from the baked request (no live
@@ -1104,14 +1057,6 @@ async function admitSession(
 		...(params.routineId ? { routineId: params.routineId } : {}),
 	};
 
-	// AA3: per-run cost cap for routine sessions — Wave E: baked onto the
-	// `contextBundle` by the routine resolver from the SAME `routine` row it
-	// already loaded to validate (no live `ports.routine.getRoutineById` read).
-	const routinePerRunCap: number | null =
-		params.routineId && params.contextBundle?.kind === "routine"
-			? (params.contextBundle.routine.costCapPerRunMinor ?? null)
-			: null;
-
 	return {
 		sessionId,
 		sessionContext,
@@ -1125,7 +1070,6 @@ async function admitSession(
 		selectedAdapter,
 		harness,
 		adapterId,
-		routinePerRunCap,
 		mountedFilesystems,
 	};
 }
@@ -1174,7 +1118,6 @@ async function runSession(
 		selectedAdapter,
 		harness,
 		adapterId,
-		routinePerRunCap,
 		mountedFilesystems,
 	} = admitted;
 
@@ -1451,8 +1394,6 @@ async function runSession(
 
 	let totalCostCents = 0;
 	let crashed = false;
-	/** AA3: set to true when per-run cost cap is hit; breaks the event loop gracefully. */
-	let budgetExhausted = false;
 	/** L17: accumulated tokens by tier for the session's tokensJson column. */
 	const accumulatedTokens: Partial<Record<ModelTier, { prompt: number; completion: number }>> = {};
 
@@ -1534,26 +1475,18 @@ async function runSession(
 						break;
 					}
 					if (event.type === "cost_update") {
+						// AU21 Increment 14a: the cost-cap gate + accrual (`ports.cost.
+						// recordCostAndCheck`) are deleted — no cap, no replacement. The
+						// running total is kept only as a live-computed number surfaced
+						// on the provisioning result (`totalCostCents` below), which the
+						// `eval` harness uses purely as a CI real-$-spend safety readout
+						// (`AH5_MAX_COST_CENTS`/`AH6_MAX_COST_CENTS` budget-assert
+						// scripts), independent of the deleted product cost-cap feature.
 						const delta = Math.max(0, event.deltaCost);
 						const currency = event.currency ?? "USD";
 						const scale = 10 ** scaleForCurrency(currency);
 						const deltaMinor = Math.round(delta * scale);
 						totalCostCents += deltaMinor;
-						if (routinePerRunCap != null && totalCostCents >= routinePerRunCap) {
-							budgetExhausted = true;
-							break;
-						}
-						await ports.cost.recordCostAndCheck(db, eventBus, {
-							sessionId,
-							costMinor: deltaMinor,
-							currency,
-							agentId: params.agentId,
-							teamId,
-							...(params.taskId ? { taskId: params.taskId } : {}),
-							factoryCap: params.factoryCap,
-							factorySpend: params.factorySpend,
-							reviewThreadId: params.reviewThreadId,
-						});
 					} else if (event.type === "token_usage") {
 						const tier: ModelTier = event.tier ?? modelTier;
 						const existing = accumulatedTokens[tier];
@@ -1648,8 +1581,6 @@ async function runSession(
 				target: "session",
 				context: sessionContext,
 				disposition: "crash",
-				costInCents: totalCostCents,
-				baselineCost: 0,
 				...(params.taskId ? { tokensByTier: accumulatedTokens } : {}),
 			},
 		);
@@ -1658,49 +1589,6 @@ async function runSession(
 		return {
 			sessionId,
 			outcome: "crashed",
-			totalCostCents,
-			taskId: params.taskId,
-			returnVerdict,
-			forceReturnCount: computeForceReturnCount(),
-			...(metrics ? { metrics } : {}),
-		};
-	}
-
-	// AA3: Per-run cap hit — end the session gracefully and record budget_exhausted outcome.
-	if (budgetExhausted) {
-		if (sessionContext.requestContext) {
-			await transitionRun(
-				{ db, eventBus, ports },
-				{
-					target: "request",
-					intent: "request-termination",
-					requestId: sessionContext.requestContext.requestId,
-					reason: "cost_cap",
-				},
-			);
-		}
-		// ── Hook B: capture-back before budget_exhausted teardown (AO2 §9).
-		if (deps.mounter && mountedFilesystems.length > 0) {
-			await captureMountedFilesystems(sessionId, sandboxPath, mountedFilesystems, deps.mounter);
-		}
-		await transitionRun(
-			{ db, eventBus, ports },
-			{
-				target: "session",
-				context: sessionContext,
-				disposition: "end",
-				costInCents: totalCostCents,
-				baselineCost: 0,
-				routineOutcome: "budget_exhausted",
-				...(params.taskId ? { tokensByTier: accumulatedTokens } : {}),
-			},
-		);
-		await workspace.destroy(sandboxHandle);
-		const returnVerdict = ports.harnessRuntime.evaluateReturn(returnGate, "budget_exhausted");
-		ports.harnessRuntime.enforcementRegistry.unregister(sessionId);
-		return {
-			sessionId,
-			outcome: "budget_exhausted",
 			totalCostCents,
 			taskId: params.taskId,
 			returnVerdict,
@@ -1742,8 +1630,6 @@ async function runSession(
 				target: "session",
 				context: sessionContext,
 				disposition: "end",
-				costInCents: totalCostCents,
-				baselineCost: 0,
 				terminalOutcome: "not_returned",
 				...(params.taskId ? { tokensByTier: accumulatedTokens } : {}),
 			},
@@ -1772,8 +1658,6 @@ async function runSession(
 			target: "session",
 			context: sessionContext,
 			disposition: "end",
-			costInCents: totalCostCents,
-			baselineCost: 0,
 			...(params.taskId ? { tokensByTier: accumulatedTokens } : {}),
 		},
 	);
@@ -1829,8 +1713,6 @@ async function startSessionProvision(
 						target: "session",
 						context: admitted.sessionContext,
 						disposition: "crash",
-						costInCents: 0,
-						baselineCost: 0,
 					},
 				);
 			} catch (teardownErr) {

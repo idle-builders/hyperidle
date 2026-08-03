@@ -11,7 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type ToolCallData, useSessionActivity } from "../useSessionActivity.js";
 
 interface MockActivityEntry {
-	type: "tool_call" | "reasoning" | "cost_tick";
+	type: "tool_call" | "reasoning";
 	timestamp: number;
 	data: Record<string, unknown>;
 }

@@ -1,9 +1,8 @@
 /**
- * L14 — Bet-level human actions: cost_appetite PATCH, actor field, enrichment.
+ * L14 — Bet-level human actions: actor field, enrichment.
  *
  * @lore U1: pause/resume routes removed — U1 simplified status to draft|active|completed|killed.
  * The "paused/behind/blocked" sub-states are gone. This file tests what remains:
- *   - AC-4: PATCH /bets/:id cost_appetite WireMoney validation (L17)
  *   - AC-5: Actor field in revision log (kill writes actor)
  *   - AC-6: GET /bets/:id returns enriched title, product, team, progress fields
  *   - AC-13: POST /bets create schema rejects unknown fields
@@ -11,6 +10,11 @@
  * Pause/resume route tests (AC-1, AC-2, AC-3) are removed because those routes
  * no longer exist in U1. The acceptance criteria for those sub-states are
  * satisfied by the simplified "active" status.
+ *
+ * @lore AU21 Increment 14a: AC-4 (PATCH /bets/:id cost_appetite WireMoney
+ * validation, L17) is HARD-DELETED along with the rest of the cost feature —
+ * `bets.costAppetiteMinor/costAppetiteCurrency` are dropped columns, no
+ * replacement.
  */
 
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
@@ -151,150 +155,12 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 		});
 	});
 
-	// ─── AC-4: cost_appetite WireMoney validation (L17 replaces old appetite string) ─
-
-	describe("AC-4 — cost_appetite WireMoney guard on PATCH", () => {
-		test("accepts cost_appetite WireMoney { minor: 10000, currency: 'USD' }", async ({
-			db,
-			app,
-			eventBus,
-		}) => {
-			await seedBase(db, eventBus);
-			// @lore U1: Walk to "active" (draft → active via /commit) so cost_appetite update is allowed
-			await transitionBet(db, eventBus, teamCapacity, "bet1", "active");
-			const res = await app.request("/api/bets/bet1", {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({
-					field: "cost_appetite",
-					value: { minor: 10000, currency: "USD" },
-					reason: "Changed timeline",
-				}),
-			});
-			expect(res.status).toBe(200);
-		});
-
-		test("accepts cost_appetite WireMoney { minor: 5000, currency: 'USD' }", async ({
-			db,
-			app,
-			eventBus,
-		}) => {
-			await seedBase(db, eventBus);
-			await transitionBet(db, eventBus, teamCapacity, "bet1", "active");
-			const res = await app.request("/api/bets/bet1", {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({
-					field: "cost_appetite",
-					value: { minor: 5000, currency: "USD" },
-					reason: "Changed timeline",
-				}),
-			});
-			expect(res.status).toBe(200);
-		});
-
-		test("accepts cost_appetite null (uncapped)", async ({ db, app, eventBus }) => {
-			await seedBase(db, eventBus);
-			await transitionBet(db, eventBus, teamCapacity, "bet1", "active");
-			const res = await app.request("/api/bets/bet1", {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({
-					field: "cost_appetite",
-					value: null,
-					reason: "Going uncapped",
-				}),
-			});
-			expect(res.status).toBe(200);
-		});
-
-		test("rejects cost_appetite with invalid currency with 400", async ({ db, app, eventBus }) => {
-			await seedBase(db, eventBus);
-			await transitionBet(db, eventBus, teamCapacity, "bet1", "active");
-			const res = await app.request("/api/bets/bet1", {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({
-					field: "cost_appetite",
-					value: { minor: 100, currency: "INVALID" },
-					reason: "test",
-				}),
-			});
-			expect(res.status).toBe(400);
-		});
-
-		test("rejects cost_appetite with negative minor with 400", async ({ db, app, eventBus }) => {
-			await seedBase(db, eventBus);
-			await transitionBet(db, eventBus, teamCapacity, "bet1", "active");
-			const res = await app.request("/api/bets/bet1", {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({
-					field: "cost_appetite",
-					value: { minor: -1, currency: "USD" },
-					reason: "test",
-				}),
-			});
-			expect(res.status).toBe(400);
-		});
-
-		test("rejects unknown field 'appetite' with 400 (L17 removed old appetite string)", async ({
-			db,
-			app,
-			eventBus,
-		}) => {
-			await seedBase(db, eventBus);
-			await transitionBet(db, eventBus, teamCapacity, "bet1", "active");
-			const res = await app.request("/api/bets/bet1", {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({ field: "appetite", value: "1 week", reason: "test" }),
-			});
-			expect(res.status).toBe(400);
-		});
-	});
-
-	// ─── AC-4: cost_appetite update allowed from active state ───────────────────
-
-	describe("AC-4 — cost_appetite update from active state", () => {
-		test("allows cost_appetite update when bet is active", async ({ db, app, eventBus }) => {
-			await seedBase(db, eventBus);
-			await transitionBet(db, eventBus, teamCapacity, "bet1", "active");
-
-			const res = await app.request("/api/bets/bet1", {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({
-					field: "cost_appetite",
-					value: { minor: 30000, currency: "USD" },
-					reason: "Extended timeline",
-				}),
-			});
-			expect(res.status).toBe(200);
-		});
-
-		test("allows cost_appetite update when bet is blocked (mapped to active in U1)", async ({
-			db,
-			app,
-			eventBus,
-		}) => {
-			await seedBase(db, eventBus);
-			// @lore U1: "blocked" is no longer a separate status — it maps to "active".
-			// This test verifies the active status allows cost_appetite PATCH.
-			await transitionBet(db, eventBus, teamCapacity, "bet1", "active");
-
-			const res = await app.request("/api/bets/bet1", {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({
-					field: "cost_appetite",
-					value: { minor: 30000, currency: "USD" },
-					reason: "Blocked",
-				}),
-			});
-			expect(res.status).toBe(200);
-		});
-	});
+	// @lore AU21 Increment 14a: "AC-4 — cost_appetite WireMoney guard on PATCH"
+	// and "AC-4 — cost_appetite update from active state" (8 tests) are
+	// HARD-DELETED — `bets.costAppetiteMinor/costAppetiteCurrency` are dropped
+	// columns and `updateBetCostAppetiteSchema` no longer exists on the PATCH
+	// discriminated union (`field: "cost_appetite"` now 400s as an unknown
+	// field), no replacement.
 
 	// ─── AC-5: Actor field in revision log ───────────────────────────────────
 

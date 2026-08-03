@@ -68,7 +68,6 @@ function inertPorts(): RoutineSchedulerPorts {
 		},
 		settings: { readServerConfig: unreachable("settings.readServerConfig") },
 		workIntents: { enqueueWorkIntent: unreachable("workIntents.enqueueWorkIntent") },
-		cost: { getFactoryCostActual: unreachable("cost.getFactoryCostActual") },
 		agentSelection: {
 			isAtCapacity: unreachable("agentSelection.isAtCapacity"),
 			selectAgent: unreachable("agentSelection.selectAgent"),

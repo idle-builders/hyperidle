@@ -467,7 +467,6 @@ function diffEmbed(label: string, added: number, removed: number): Embed {
  * Mapping rules (architecture.md §b):
  *  - `tool_call`    → `tool` Part (verb/target/toolKind/status/output; file-change carries `diff` Embed)
  *  - `reasoning`    → `reasoning` Part (durationMs + text)
- *  - `cost_tick`    → SKIPPED (cost is header chrome — the combined session-total, aspect g)
  *  - `answer_delta` → `prose` Part whose text grows (append; consecutive deltas merge)
  *  - `answer_settled`→ `prose` Part (final text)
  *  - `human_message`→ `prose` Part authored by the human (self/other pattern handles alignment)
@@ -556,10 +555,6 @@ export function derivePartsFromSession(
 				});
 				break;
 			}
-
-			case "cost_tick":
-				// SKIPPED — cost is header chrome (combined session-total, aspect g). No Part.
-				break;
 
 			case "answer_delta": {
 				// Append to current streaming prose Part (or start one)

@@ -7,10 +7,12 @@
  *   AC3  — dep-watcher auto_unblock event does NOT create a notification row
  *   AC4  — quiet-hours defers blocking row; after silence cleared, delivers
  *   AC5  — stuck/expired sending lease recovered by drain tick
- *   AC6  — cost sentinel fires off a real written value (recordFactoryCost)
  *   AC9  — muting a type suppresses enqueue
  *   AC10 — popover API: GET /notifications/inbox, POST /seen, POST /:id/read
- *   AC12 — cost_breach bypasses factory silence; defers during quiet hours
+ *
+ * @lore AU21 Increment 14a: AC6 (cost sentinel / recordFactoryCost) and AC12
+ * (cost_breach silence split) are HARD-DELETED along with the rest of the
+ * cost-cap/accounting feature — no replacement.
  *
  * @lore AU20 Ag6b: migrated from internal delivery-chain imports
  * (`flushQueue`, `loadNotificationConfig`, `recoverStuckLeases`,
@@ -20,7 +22,7 @@
  * from three separate dep exports to `notificationsDeps`.
  */
 
-import { type HyperIdleDb, items as itemsTable, threads, users } from "@hyperidle/db";
+import { type HyperIdleDb, items as itemsTable, threads } from "@hyperidle/db";
 import {
 	deliver,
 	enqueue,
@@ -34,7 +36,6 @@ import {
 import { updateServerConfig } from "@hyperidle/settings";
 import type { NotificationEvent } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, vi } from "vitest";
-import { costOps } from "../../services/cost-bindings.js";
 import { expect, test } from "../../test-fixtures.js";
 import { notificationsDeps } from "../notifications-test-deps.js";
 
@@ -81,14 +82,10 @@ async function setSilenceWindow(db: HyperIdleDb, start: string, end: string): Pr
 	});
 }
 
-async function setSilenceMode(db: HyperIdleDb, mode: boolean): Promise<void> {
-	await updateServerConfig(db, { notifications: { silence: { mode } } });
-}
-
 async function insertPendingRow(
 	db: HyperIdleDb,
 	id: string,
-	severity: "blocking" | "cost_breach" | "digest",
+	severity: "blocking" | "digest",
 ): Promise<void> {
 	const now = new Date().toISOString();
 	await enqueue(db, {
@@ -346,37 +343,9 @@ describe("AF8 AC5 — stuck/expired sending lease recovery", () => {
 
 // --- AC6: cost sentinel fires off a real written value ---
 
-describe("AF8 AC6 — cost sentinel reacts to real written value", () => {
-	test("costOps.spend reads a real live-summed value; costOps.runCostSentinelCheck emits breach", async ({
-		db,
-		eventBus,
-	}) => {
-		costOps._testHooks.resetSentinelState();
-
-		// Seed a user with cost_actual
-		await db.insert(users).values({
-			id: "user-cost-1",
-			name: "Cost Agent",
-			email: "cost@test.com",
-			kind: "agent",
-			status: "active",
-			role: "member",
-			costActual: 5000, // 5000 minor units
-			createdAt: new Date().toISOString(),
-		});
-
-		// @lore AU18: cost_actual is no longer a written row — it's derived live
-		// from SUM(users.costActual) via costOps.spend.
-		const actual = await costOps.spend(db, { level: "factory" });
-		expect(actual).toBeGreaterThan(0);
-
-		// Set a cap that will be breached
-		await updateServerConfig(db, { cost: { capMinor: 100 } });
-
-		const result = await costOps.runCostSentinelCheck(db, eventBus);
-		expect(result.emitted).toContain("cost_cap_breached");
-	});
-});
+// @lore AU21 Increment 14a: "AF8 AC6 — cost sentinel reacts to real written
+// value" is deleted along with the rest of the cost feature — no
+// replacement.
 
 // --- AC9: muting a type suppresses enqueue ---
 
@@ -431,74 +400,9 @@ describe("AF8 AC9 — muting a type suppresses notification enqueue", () => {
 	});
 });
 
-// --- AC12: cost_breach silence split ---
-
-describe("AF8 AC12 — cost_breach silence split (hard rule #8)", () => {
-	beforeEach(() => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "test-key-AF8");
-	});
-	afterEach(() => {
-		vi.unstubAllEnvs();
-	});
-
-	test("(a) cost_breach bypasses factory silence (silence_mode=true)", async ({ db }) => {
-		const adapter = createFakeAdapter();
-		await enableNotifications(db);
-
-		// Set factory silence (kill switch)
-		await setSilenceMode(db, true);
-
-		// Insert a cost_breach pending row
-		await insertPendingRow(db, "cost-breach-factory-silence", "cost_breach");
-
-		// Drain at a time outside quiet hours
-		const raw = await deliver(db, { kind: "flush" }, notificationsDeps, {
-			adapterOverride: adapter,
-			now: new Date("2026-06-11T12:00:00.000Z"),
-		});
-		if (raw.kind !== "flush") throw new Error("unexpected kind");
-
-		// cost_breach should BYPASS factory silence → flushed
-		expect(raw.flushed + adapter.calls.length).toBeGreaterThan(0);
-		expect(raw.deferred).toBe(0);
-	});
-
-	test("(b) cost_breach defers during quiet hours (silence_window covers now)", async ({ db }) => {
-		const adapter = createFakeAdapter();
-		await enableNotifications(db);
-
-		// Clear factory silence
-		await setSilenceMode(db, false);
-
-		// Set quiet hours window covering 12:00 UTC (the "now" we'll pass)
-		await setSilenceWindow(db, "11:00", "13:00");
-
-		await insertPendingRow(db, "cost-breach-quiet-hours", "cost_breach");
-
-		// Drain during quiet hours (12:00 UTC)
-		const noonUTC = new Date("2026-06-11T12:00:00.000Z");
-		const raw1 = await deliver(db, { kind: "flush" }, notificationsDeps, {
-			adapterOverride: adapter,
-			now: noonUTC,
-		});
-		if (raw1.kind !== "flush") throw new Error("unexpected kind");
-
-		// cost_breach RESPECTS quiet hours → deferred
-		expect(raw1.deferred).toBeGreaterThan(0);
-		expect(raw1.flushed).toBe(0);
-
-		// After quiet hours (14:00 UTC), drain delivers
-		await setSilenceWindow(db, "22:00", "22:01");
-
-		const afternoon = new Date("2026-06-11T14:00:00.000Z");
-		const raw2 = await deliver(db, { kind: "flush" }, notificationsDeps, {
-			adapterOverride: adapter,
-			now: afternoon,
-		});
-		if (raw2.kind !== "flush") throw new Error("unexpected kind");
-		expect(raw2.deferred).toBe(0);
-	});
-});
+// @lore AU21 Increment 14a: "AF8 AC12 — cost_breach silence split" is
+// deleted along with the rest of the cost feature — the `cost_breach`
+// severity + its bypass-silence special case are gone, no replacement.
 
 // --- AC10: Popover API ---
 

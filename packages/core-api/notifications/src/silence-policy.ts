@@ -44,27 +44,6 @@ export function isInSilenceWindow(startStr: string, endStr: string, now: Date): 
 }
 
 /**
- * True when the current time falls inside the server-config silence window.
- *
- * Companion to `isSilenced` for the AF8 cost-breach split: hard cost-breach
- * events bypass factory-wide / per-team silence but still respect the quiet-
- * hours window. Callers that need ONLY the window check use this instead of
- * `isSilenced`.
- */
-export async function isWindowSilenced(
-	db: HyperIdleDb,
-	now: Date,
-	deps: Pick<SilenceDeps, "serverConfig">,
-): Promise<boolean> {
-	const { notifications } = await deps.serverConfig.read(db);
-	const { windowStart, windowEnd } = notifications.silence;
-	if (windowStart !== null && windowEnd !== null) {
-		return isInSilenceWindow(windowStart, windowEnd, now);
-	}
-	return false;
-}
-
-/**
  * True when the item should be held in the silence queue rather than pushed.
  *
  * Inputs consulted (in priority order), all read from

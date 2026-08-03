@@ -8,9 +8,10 @@ import { expect, test, vi } from "../test-fixtures.js";
  * AU11: former app-runtime `bootstrapAppRuntime` split into two owner-scoped
  * registration functions (server-factory.ts) — `registerCoreDomainServices`
  * (knowledge/notifications/policy/routine-scheduler) and
- * `registerAgentLayerServices` (builtin-routine handlers/cost-cap/
- * dispatcher/reapers). Composing them replicates the exact same disposer
- * set bootstrapAppRuntime returned; only the grouping is new.
+ * `registerAgentLayerServices` (builtin-routine handlers/dispatcher/reapers —
+ * AU21 Increment 14a: cost-cap sentinel HARD-DELETED, no replacement).
+ * Composing them replicates the exact same disposer set bootstrapAppRuntime
+ * returned; only the grouping is new.
  */
 function fullServiceBootstrap(
 	ctx: Parameters<typeof registerCoreDomainServices>[0],
@@ -107,15 +108,10 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				cleanupEffect: "unsubscribe",
 				constituents: ["thread_message_appended subscription"],
 			},
-			// @lore AU21 §9 Increment 6 (Decision D): agent-orchestration's OWN
-			// per-session-cost write reaction — a DIFFERENT mechanism/owner from
-			// the routine-run finalize reaction above (this one is
-			// `session-requests`'s own subscriber, not core-api's).
-			{
-				owner: "session-cost recorder",
-				cleanupEffect: "unsubscribe",
-				constituents: ["session_ended subscription"],
-			},
+			// @lore AU21 Increment 14a: the "session-cost recorder" owner
+			// (agent-orchestration's own per-session-cost write reaction,
+			// `session-requests`'s subscriber) is HARD-DELETED along with the
+			// rest of the cost feature — no replacement.
 			{
 				owner: "relevance listener",
 				cleanupEffect: "unsubscribes",
@@ -165,11 +161,9 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				cleanupEffect: "cron/due-eval tick stop",
 				constituents: ["routine scheduler"],
 			},
-			{
-				owner: "cost sentinel",
-				cleanupEffect: "sentinel plus dedup subscription stop",
-				constituents: ["sentinel", "dedup subscription"],
-			},
+			// @lore AU21 Increment 14a: the "cost sentinel" owner (15-minute
+			// scheduled job + its dedup subscription) is HARD-DELETED along with
+			// the rest of the cost feature — no replacement.
 		] as const;
 		const disposers = fullServiceBootstrap({
 			db,
@@ -247,10 +241,9 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				// both registrations are no-op disposers (no `off()` call, no interval).
 				{ unsubscribedEvents: [], clearedIntervals: 0 },
 				{ unsubscribedEvents: [], clearedIntervals: 0 },
-				// @lore AU21 §9 Increment 6: `registerSessionCostRecorder` is NOT
-				// pre-registered on the `eventBus` test fixture either — its own
-				// first, real registration on this eventBus instance.
-				{ unsubscribedEvents: ["session_ended"], clearedIntervals: 0 },
+				// @lore AU21 Increment 14a: `registerSessionCostRecorder`'s owned
+				// disposer (previously here, "session_ended" only) is HARD-DELETED
+				// along with the rest of the cost feature — no replacement.
 				{ unsubscribedEvents: ["knowledge_accessed"], clearedIntervals: 0 },
 				{ unsubscribedEvents: ["session_ended", "session_ended"], clearedIntervals: 0 },
 				{
@@ -263,14 +256,12 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 					clearedIntervals: 1,
 				},
 				{ unsubscribedEvents: ["knowledge_updated"], clearedIntervals: 0 },
+				// @lore AU21 Increment 14a: "cost_cap_breached"/"cost_cap_warning"
+				// removed from this owner's unsubscribe list — both events are
+				// HARD-DELETED along with the rest of the cost feature, no
+				// replacement subscription.
 				{
-					unsubscribedEvents: [
-						"notification",
-						"item_created",
-						"cost_cap_breached",
-						"cost_cap_warning",
-						"routine_fired",
-					],
+					unsubscribedEvents: ["notification", "item_created", "routine_fired"],
 					clearedIntervals: 1,
 				},
 				{ unsubscribedEvents: [], clearedIntervals: 1 },
@@ -291,10 +282,10 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				// reaction) and the scheduler interval now dispose separately.
 				{ unsubscribedEvents: ["bet_state_changed"], clearedIntervals: 0 },
 				{ unsubscribedEvents: [], clearedIntervals: 1 },
-				{
-					unsubscribedEvents: ["session_ended", "session_handoff_completed"],
-					clearedIntervals: 1,
-				},
+				// @lore AU21 Increment 14a: the "cost sentinel" owner (previously
+				// here, ["session_ended", "session_handoff_completed"] unsubscribe +
+				// 1 cleared interval) is HARD-DELETED along with the rest of the
+				// cost feature — no replacement.
 			]);
 			expect(
 				disposers.map(({ owner, cleanupEffect, constituents }) => ({

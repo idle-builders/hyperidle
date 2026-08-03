@@ -26,8 +26,6 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	type BetStateChangedEvent,
-	type CostCapBreachedEvent,
-	type CostCapWarningEvent,
 	createLogger,
 	type DomainEvent,
 	type EventBus,
@@ -311,7 +309,7 @@ export function registerObservabilityDispatcher(
 	 * provided `fallback`. An empty `sessionId` is never a valid trace —
 	 * we refuse to collapse every "unknown" event onto a single empty
 	 * trace (adversary review H3 WARN: empty-sessionId). Callers should
-	 * pass a unique fallback string (e.g. `"unknown"` or `"cost:<id>"`).
+	 * pass a unique fallback string (e.g. `"unknown"` or `"entity:<id>"`).
 	 */
 	function traceFor(sessionId: string, fallback: string): string {
 		if (sessionId.length === 0) return fallback;
@@ -400,44 +398,6 @@ export function registerObservabilityDispatcher(
 				});
 				return true;
 			}
-			case "cost_cap_warning": {
-				const ev = event as CostCapWarningEvent;
-				const sessionId = typeof ev.streamId === "string" ? ev.streamId : null;
-				const traceId = sessionId
-					? traceFor(sessionId, `cost:${ev.entityId}`)
-					: `cost:${ev.entityId}`;
-				deps.dispatcher.enqueue({
-					kind: "cost_incurred",
-					traceId,
-					sessionId: sessionId && sessionId.length > 0 ? sessionId : null,
-					ts: nowIso(ev.timestamp),
-					level: ev.level,
-					capLevel: ev.capLevel,
-					entityId: ev.entityId,
-					spend: ev.spend,
-					cap: ev.cap,
-				});
-				return true;
-			}
-			case "cost_cap_breached": {
-				const ev = event as CostCapBreachedEvent;
-				const sessionId = typeof ev.streamId === "string" ? ev.streamId : null;
-				const traceId = sessionId
-					? traceFor(sessionId, `cost:${ev.entityId}`)
-					: `cost:${ev.entityId}`;
-				deps.dispatcher.enqueue({
-					kind: "cost_incurred",
-					traceId,
-					sessionId: sessionId && sessionId.length > 0 ? sessionId : null,
-					ts: nowIso(ev.timestamp),
-					level: ev.level,
-					capLevel: ev.capLevel,
-					entityId: ev.entityId,
-					spend: ev.spend,
-					cap: ev.cap,
-				});
-				return true;
-			}
 			case "knowledge_updated": {
 				const ev = event as KnowledgeUpdatedEvent;
 				deps.dispatcher.enqueue({
@@ -502,10 +462,13 @@ export function registerObservabilityDispatcher(
 			// AU19 Increment 3f: filesystems ⚠ capture-writeback EventBus inversion —
 			// internal plumbing between two Services, not an observability event.
 			case "sandbox_writeback_changes_detected":
-			// AU19 Increment 3g: policy ⚠ cost EventBus inversion — internal
-			// cost-dedup-cleanup plumbing between two Services, not an
-			// observability event (the real observable outcome is the handoff's
-			// own task_state_changed/item_created, already translated above).
+			// AU19 Increment 3i: policy ⚠ session-lifecycle EventBus inversion —
+			// internal session-termination-request plumbing between two Services
+			// (AU21 Increment 14a: the cost-dedup-cleanup consumer this event
+			// originally carried at AU19 Increment 3g is gone, deleted with the
+			// rest of the cost feature), not an observability event (the real
+			// observable outcome is the handoff's own
+			// task_state_changed/item_created, already translated above).
 			case "session_handoff_completed":
 				return false;
 			default: {

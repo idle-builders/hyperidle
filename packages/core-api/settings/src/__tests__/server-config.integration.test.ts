@@ -31,7 +31,6 @@ describe("server config read/write", () => {
 			expect(config).toBeDefined();
 			expect(config.notifications).toBeDefined();
 			expect(config.notifications.reviewAlerts).toBe(true);
-			expect(config.notifications.costAlerts).toBe(true);
 			expect(config.notifications.blockerAlerts).toBe(true);
 			expect(config.notifications.quietHoursStart).toBe("22:00");
 			expect(config.notifications.quietHoursEnd).toBe("08:00");
@@ -42,7 +41,6 @@ describe("server config read/write", () => {
 			const config = await readServerConfig(db);
 
 			expect(typeof config.notifications.reviewAlerts).toBe("boolean");
-			expect(typeof config.notifications.costAlerts).toBe("boolean");
 			expect(typeof config.notifications.blockerAlerts).toBe("boolean");
 			expect(typeof config.notifications.quietHoursStart).toBe("string");
 			expect(typeof config.notifications.quietHoursEnd).toBe("string");
@@ -59,16 +57,15 @@ describe("server config read/write", () => {
 			const config = await readServerConfig(db);
 			expect(config.notifications.reviewAlerts).toBe(false);
 			// Other keys preserved
-			expect(config.notifications.costAlerts).toBe(true);
 			expect(config.notifications.blockerAlerts).toBe(true);
 		});
 
 		test("returns the updated config", async ({ db }) => {
 			const result = await updateServerConfig(db, {
-				notifications: { costAlerts: false },
+				notifications: { blockerAlerts: false },
 			});
 
-			expect(result.notifications.costAlerts).toBe(false);
+			expect(result.notifications.blockerAlerts).toBe(false);
 		});
 
 		test("can update quietHoursStart", async ({ db }) => {
@@ -87,13 +84,11 @@ describe("server config read/write", () => {
 
 		test("successive updates are cumulative", async ({ db }) => {
 			await updateServerConfig(db, { notifications: { reviewAlerts: false } });
-			await updateServerConfig(db, { notifications: { costAlerts: false } });
+			await updateServerConfig(db, { notifications: { blockerAlerts: false } });
 
 			const config = await readServerConfig(db);
 			expect(config.notifications.reviewAlerts).toBe(false);
-			expect(config.notifications.costAlerts).toBe(false);
-			// blockerAlerts still default
-			expect(config.notifications.blockerAlerts).toBe(true);
+			expect(config.notifications.blockerAlerts).toBe(false);
 		});
 
 		test("concurrent disjoint patches are both preserved", async ({ db }) => {
@@ -104,12 +99,12 @@ describe("server config read/write", () => {
 			const secondHandle = new Proxy(db, {});
 			await Promise.all([
 				updateServerConfig(firstHandle, { notifications: { reviewAlerts: false } }),
-				updateServerConfig(secondHandle, { cost: { capMinor: 4321 } }),
+				updateServerConfig(secondHandle, { gitExport: { branch: "release" } }),
 			]);
 
 			const config = await readServerConfig(db);
 			expect(config.notifications.reviewAlerts).toBe(false);
-			expect(config.cost.capMinor).toBe(4321);
+			expect(config.gitExport.branch).toBe("release");
 		});
 	});
 

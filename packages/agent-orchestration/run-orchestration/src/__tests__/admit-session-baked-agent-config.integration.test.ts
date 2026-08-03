@@ -5,7 +5,8 @@
  * Closes the formerly still-open `run-orchestration -> core-api` live reads
  * `provisioner.ts`'s `admitSession` used to perform
  * (`ports.settings.readServerConfig` Phase 3, `ports.routine.getRoutineById`
- * the admission-time per-run cost cap read, and — as of the third pass —
+ * the admission-time per-run cost cap read (AU21 Increment 14a: this whole
+ * cap is since deleted, no replacement), and — as of the third pass —
  * `ports.users`/`ports.agentRunnability` entirely) — see `provisioner.ts`'s
  * own Wave E top-of-file note and
  * `scripts/composition-edge-anti-regrowth-guard.ts`'s `DEFERRED_FOLLOWUP`
@@ -28,11 +29,11 @@
  * proven in `admit-session-defense-in-depth-only.integration.test.ts`.
  *
  * The two tests below are GREEN: `admitSession` consults
- * `params.harnessDisabled`/the baked `contextBundle.routine.costCapPerRunMinor`
- * for Phase 3/the admission-time cap read (no `ports.settings`/`ports.routine`
- * field exists at all), and `params.agentConfig` for every Phase 1 field,
- * including the defense-in-depth `kind`/`status` check — with zero live read
- * of any kind.
+ * `params.harnessDisabled` for Phase 3 (no `ports.settings`/`ports.routine`
+ * field exists at all — AU21 Increment 14a additionally deleted the
+ * admission-time per-run cost cap this file used to also cover), and
+ * `params.agentConfig` for every Phase 1 field, including the
+ * defense-in-depth `kind`/`status` check — with zero live read of any kind.
  */
 
 import { type HyperIdleDb, users } from "@hyperidle/db";
@@ -97,11 +98,9 @@ function buildHarnessPorts(overrides: Partial<SessionLifecyclePorts>): SessionLi
 		// AU21 §9 Increment 12 follow-up (F2 gap closure): `SessionLifecyclePorts`
 		// no longer carries a `filesystems` seam reader at all — see
 		// `admit-session-baked-filesystems.integration.test.ts` for the baked-list
-		// proof that replaces it.
-		cost: {
-			checkCostCap: vi.fn(async () => ({ allowed: true })),
-			recordCostAndCheck: neverCalled("cost.recordCostAndCheck"),
-		},
+		// proof that replaces it. AU21 Increment 14a: the `cost` port
+		// (`checkCostCap`/`recordCostAndCheck`) is deleted along with the rest
+		// of the cost feature — `SessionLifecyclePorts` no longer carries it.
 		harnessRuntime: {
 			enforcementRegistry: {
 				register: neverCalled("harnessRuntime.enforcementRegistry.register"),
@@ -253,7 +252,6 @@ describe("admitSession — baked agent-runnability config (Increment 12 Wave E)"
 					name: "Nightly sweep",
 					description: null,
 					lastRunSummary: null,
-					costCapPerRunMinor: 500,
 				},
 				agent: { id: "wave-e-agent-2", name: "Agent Two", role: "builder" },
 				team: { id: "team-1", name: "Team" },
@@ -264,6 +262,5 @@ describe("admitSession — baked agent-runnability config (Increment 12 Wave E)"
 		const admitted = await provisioner.admit(buildDeps(db as HyperIdleDb), params);
 
 		expect(admitted).toBeDefined();
-		expect(admitted.routinePerRunCap).toBe(500);
 	});
 });

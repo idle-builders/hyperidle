@@ -69,11 +69,10 @@ async function projectExplicitStart(db: HyperIdleDb, start: ExplicitSessionStart
 	if (start.status === "failed") {
 		const code = start.failureCode ?? "INTERNAL_ERROR";
 		const status =
-			code === "COST_CAP_EXCEEDED" || code === "NO_ELIGIBLE_HARNESS"
-				? 422
-				: code === "CONCURRENCY_LIMIT"
-					? 429
-					: 500;
+			// @lore AU21 Increment 14a: "COST_CAP_EXCEEDED" removed from this
+			// mapping — the cost-cap gate that used to produce it is HARD-DELETED,
+			// no replacement admission-failure code.
+			code === "NO_ELIGIBLE_HARNESS" ? 422 : code === "CONCURRENCY_LIMIT" ? 429 : 500;
 		return {
 			status,
 			body: { error: code === "INTERNAL_ERROR" ? "Session provisioning failed" : code, code },
@@ -293,9 +292,11 @@ async function applyStateChangePatch(
  * takes an injected `SessionActivityBuffer` reference — the buffer relocated
  * to `@hyperidle/agent-execution` (agent-orchestration/execution's real
  * home), and this core-api route now reads it THROUGH
- * `AgentOrchestrationPort.sessions.getRecentActivity`, the same seam
- * `tasks.ts`'s per-session cost display already uses. Wire format is
- * unchanged — `useSessionActivity.test.tsx` stays green.
+ * `AgentOrchestrationPort.sessions.getRecentActivity`, the same kind of
+ * cross-Layer seam other `AgentOrchestrationPort` reads use (AU21 Increment
+ * 14a: `tasks.ts`'s per-session cost display, the seam's original sibling
+ * example, is HARD-DELETED — no replacement). Wire format is unchanged —
+ * `useSessionActivity.test.tsx` stays green.
  */
 /**
  * @lore AU19 §11 (AC-9): `agentWorkIntentRecorder`/`agentWorkIntentReader`

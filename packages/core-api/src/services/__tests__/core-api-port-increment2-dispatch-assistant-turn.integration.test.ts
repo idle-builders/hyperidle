@@ -41,8 +41,9 @@
  *
  * Every `DispatchPorts` capability NOT reached by either scenario below
  * (`settings`, `modelGateway`,
- * `runOrchestration`, `sessionRequests`, `cost`, `review`, `knowledge`,
- * `toolHandlers`, `workspaceFactory` — verified by reading
+ * `runOrchestration`, `sessionRequests`, `review`, `knowledge`,
+ * `toolHandlers`, `workspaceFactory` — `cost` HARD-DELETED, AU21 Increment
+ * 14a — verified by reading
  * `runTurnInternal`'s control flow: the missing-credential branch calls
  * `persistTurnFailureInternal` and returns BEFORE `loadRawTranscript`/
  * `runOrchestration.executeAgentRunRequest`
@@ -196,7 +197,6 @@ function buildAssistantSessionRequest(opts: {
 		terminationRequestedBy: null,
 		errorCode: null,
 		errorMessage: null,
-		costCents: null,
 		createdAt: NOW,
 		updatedAt: NOW,
 	};

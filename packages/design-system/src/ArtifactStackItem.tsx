@@ -1,7 +1,6 @@
 import type { Artifact } from "@hyperidle/shared";
 import { artifactDisplayTitle } from "@hyperidle/shared";
 import type { JSX } from "react";
-import { ArtifactCostChip } from "./ArtifactCostChip.js";
 import { ArtifactKindBadge } from "./ArtifactKindBadge.js";
 import { ArtifactTimestamp } from "./ArtifactTimestamp.js";
 import { dsProps } from "./ds-attrs.js";
@@ -49,8 +48,6 @@ export function ArtifactStackItem({
 				{count > 0 ? (
 					<span className={PILL}>{count === 1 ? "1 thread" : `${count} threads`}</span>
 				) : null}
-				<ArtifactCostChip cost={data.cost} variant="compact" />
-				<span className="text-[var(--text-tertiary)]">·</span>
 				<ArtifactTimestamp value={data.createdAt} />
 			</span>
 		</button>

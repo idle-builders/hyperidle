@@ -18,7 +18,6 @@ const MOCK_ARTIFACT: Artifact = {
 	kind: "code",
 	label: null,
 	preview: { kind: "code", path: "auth-service.ts", lang: "typescript", text: "// auth service" },
-	cost: { money: null, tokens: null },
 	threadCount: 0,
 	createdAt: "2026-05-05T09:00:00Z",
 };

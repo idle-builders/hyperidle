@@ -12,10 +12,6 @@ import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { enumValues } from "../schemas/common.schema.js";
-import {
-	buildAgentOrchestrationPort,
-	getRegisteredAgentOrchestrationTransport,
-} from "../services/agent-orchestration-port-composition.js";
 import { handoff } from "../services/policy-bindings.js";
 import { taskRunResolverDeps } from "../services/task-run-resolver-bindings.js";
 
@@ -39,7 +35,6 @@ const createTaskSchema = z.object({
 	description: z.string().nullish(),
 	doneCondition: z.string().nullish(),
 	ownerAgentId: z.string().nullish(),
-	costCap: z.number().int().optional(),
 });
 
 const updateTaskSchema = z.object({
@@ -122,7 +117,6 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 				doneCondition: body.doneCondition ?? null,
 				ownerAgentId: body.ownerAgentId ?? null,
 				state: "proposed",
-				costCap: body.costCap ?? null,
 				createdAt: now,
 				updatedAt: now,
 			});
@@ -183,15 +177,10 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 	// Returns the exact `{ sessions: TaskSession[] }` shape the `useTaskSessions`
 	// hook expects. `status` is the session `state` (drives the live dot); a
 	// cascade-stopped session reports 'stopped' (non-blank label downstream).
-	// @lore O2/AU21 §9 Increment 6: the kernel `sessions` table still has no
-	// cost/harness columns (deliberately — there is no cost "mirror" to
-	// restore, per architecture.md §6 Decision D's full trace). `cost` is now
-	// served through `AgentOrchestrationPort` — agent-orchestration's own
-	// recorded per-session cost (`agentSessionRequests.costCents`, written at
-	// `session_ended` by `session-cost-recorder.ts`), matched by `sessionId`.
-	// A session agent-orchestration has no record of at all (`undefined`)
-	// reports `null` here, same as one it knows about but hasn't costed yet —
-	// this endpoint's wire contract only ever carried `number | null`.
+	// @lore AU21 Increment 14a: this endpoint used to also serve `cost` via
+	// `AgentOrchestrationPort.sessions.getSessionCostBySessionId` — deleted
+	// along with the rest of the cost feature. The view no longer returns a
+	// `cost` field at all (not `cost: null`), no replacement.
 	// `harnessUrl`/`tokens` remain genuinely unserved (no source anywhere).
 	router.get("/:id/sessions", requireBoundary({ kind: "public-data" }), async (c) => {
 		const taskId = c.req.param("id");
@@ -204,30 +193,21 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 			.from(sessions)
 			.where(eq(sessions.taskId, taskId))
 			.orderBy(sessions.startedAt);
-		const agentOrchestrationPort = buildAgentOrchestrationPort(
-			getRegisteredAgentOrchestrationTransport(),
-		);
-		const out = await Promise.all(
-			rows.map(async (s, i) => {
-				const costCents = await agentOrchestrationPort.sessions.getSessionCostBySessionId(s.id);
-				return {
-					id: s.id,
-					title: `Session ${i + 1}`,
-					agent: s.agentId,
-					cost: costCents ?? null,
-					tokens: null,
-					// @lore AF12: state-based contract — the frontend keys the live dot off
-					// status === 'active'. Use `state` (not `outcome`) so a cascade-stopped
-					// session renders 'stopped' via the raw-status fallback, never blank.
-					status: s.state,
-					harnessUrl: null,
-					effectivenessScore:
-						s.effectivenessScore != null && !Number.isNaN(Number.parseFloat(s.effectivenessScore))
-							? Number.parseFloat(s.effectivenessScore)
-							: null,
-				};
-			}),
-		);
+		const out = rows.map((s, i) => ({
+			id: s.id,
+			title: `Session ${i + 1}`,
+			agent: s.agentId,
+			tokens: null,
+			// @lore AF12: state-based contract — the frontend keys the live dot off
+			// status === 'active'. Use `state` (not `outcome`) so a cascade-stopped
+			// session renders 'stopped' via the raw-status fallback, never blank.
+			status: s.state,
+			harnessUrl: null,
+			effectivenessScore:
+				s.effectivenessScore != null && !Number.isNaN(Number.parseFloat(s.effectivenessScore))
+					? Number.parseFloat(s.effectivenessScore)
+					: null,
+		}));
 		return c.json({ sessions: out });
 	});
 

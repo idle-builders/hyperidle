@@ -49,10 +49,11 @@ describe("P3 AC-10 — Settings route: server_config backing", () => {
 			const res = await app.request("/api/settings", { headers: authHeaders() });
 			expect(res.status).toBe(200);
 
+			// @lore AU21 Increment 14a: "costAlerts" removed from this shape — the
+			// settings contract field is HARD-DELETED, no replacement.
 			const body = (await res.json()) as {
 				notifications: {
 					reviewAlerts: boolean;
-					costAlerts: boolean;
 					blockerAlerts: boolean;
 					quietHoursStart: string;
 					quietHoursEnd: string;
@@ -62,7 +63,6 @@ describe("P3 AC-10 — Settings route: server_config backing", () => {
 
 			expect(body.notifications).toBeDefined();
 			expect(typeof body.notifications.reviewAlerts).toBe("boolean");
-			expect(typeof body.notifications.costAlerts).toBe("boolean");
 			expect(typeof body.notifications.blockerAlerts).toBe("boolean");
 			vi.unstubAllEnvs();
 		});
@@ -88,20 +88,9 @@ describe("P3 AC-10 — Settings route: server_config backing", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("PATCH costAlerts=false persists and re-GET reflects the change", async ({ app, db }) => {
-			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			await seedFounderProfile(db);
-			await app.request("/api/settings", {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({ notifications: { costAlerts: false } }),
-			});
-
-			const getRes = await app.request("/api/settings", { headers: authHeaders() });
-			const body = (await getRes.json()) as { notifications: { costAlerts: boolean } };
-			expect(body.notifications.costAlerts).toBe(false);
-			vi.unstubAllEnvs();
-		});
+		// @lore AU21 Increment 14a: "PATCH costAlerts=false persists and re-GET
+		// reflects the change" is HARD-DELETED — the `costAlerts` settings field
+		// is HARD-DELETED, no replacement.
 
 		test("PATCH quietHoursStart persists and re-GET reflects the change", async ({ app, db }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
@@ -131,15 +120,15 @@ describe("P3 AC-10 — Settings route: server_config backing", () => {
 			await app.request("/api/settings", {
 				method: "PATCH",
 				headers: authHeaders(),
-				body: JSON.stringify({ notifications: { costAlerts: false } }),
+				body: JSON.stringify({ notifications: { quietHoursStart: "22:00" } }),
 			});
 
 			const getRes = await app.request("/api/settings", { headers: authHeaders() });
 			const body = (await getRes.json()) as {
-				notifications: { reviewAlerts: boolean; costAlerts: boolean; blockerAlerts: boolean };
+				notifications: { reviewAlerts: boolean; quietHoursStart: string; blockerAlerts: boolean };
 			};
 			expect(body.notifications.reviewAlerts).toBe(false);
-			expect(body.notifications.costAlerts).toBe(false);
+			expect(body.notifications.quietHoursStart).toBe("22:00");
 			// blockerAlerts still default true
 			expect(body.notifications.blockerAlerts).toBe(true);
 			vi.unstubAllEnvs();

@@ -4,7 +4,6 @@
 import type { Artifact } from "@hyperidle/shared";
 import { summarizePreview } from "@hyperidle/shared";
 import type { JSX, ReactNode } from "react";
-import { ArtifactCostChip } from "./ArtifactCostChip.js";
 import { ArtifactKindBadge } from "./ArtifactKindBadge.js";
 import { ArtifactTimestamp } from "./ArtifactTimestamp.js";
 import { dsProps } from "./ds-attrs.js";
@@ -51,8 +50,6 @@ export function ArtifactEmbed({ data, onOpen, viewSlot }: ArtifactEmbedProps): J
 				)}
 				<span className="text-[var(--text-tertiary)]">·</span>
 				<span>{data.producingTaskTitle}</span>
-				<span className="text-[var(--text-tertiary)]">·</span>
-				<ArtifactCostChip cost={data.cost} variant="compact" />
 				<span className="text-[var(--text-tertiary)]">·</span>
 				<ArtifactTimestamp value={data.createdAt} />
 				<button type="button" aria-label="Open artifact" className={ARROW} onClick={onOpen}>

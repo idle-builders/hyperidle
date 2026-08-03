@@ -43,7 +43,6 @@ export default defineConfig({
 			"packages/core-api/realtime",
 			"packages/agent-orchestration",
 			"packages/agent-orchestration/run-orchestration",
-			"packages/agent-orchestration/cost",
 			"packages/agent-orchestration/dispatch",
 			"packages/agent-orchestration/tool-handlers",
 			"packages/agent-execution",

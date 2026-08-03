@@ -85,7 +85,7 @@ export { InvalidTransitionError, transitionTask, VALID_TRANSITIONS } from "./tas
 // -- work-service (bets/tasks/items repository — the sole table path) --
 // AU20 Ag5b: old read exports collapsed into get()/list() general primitives.
 // AU20 Ag5c: old write exports (createBet/createTask/createItem/appendTaskNote/
-//   updateBetById/updateTaskById/updateItemById/incrementBetCost/
+//   updateBetById/updateTaskById/updateItemById/
 //   transitionBetStatus/transitionTaskState/claimBetDecomposition/
 //   resolveOrphanedBetDecompositions/updateBetDecompositionStatusIfRunning)
 //   collapsed into create()/update()/transition() general primitives.
@@ -96,7 +96,6 @@ export type {
 	Bet,
 	BetTaskWithLatestSessionOutcome,
 	BetUpdatePatch,
-	IncrementOp,
 	Item,
 	ItemUpdatePatch,
 	Task,

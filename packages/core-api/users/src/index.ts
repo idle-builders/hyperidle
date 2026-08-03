@@ -42,13 +42,4 @@ export type { UpgradeTokenStore } from "./upgrade-token-store.js";
 export { createUpgradeTokenStore } from "./upgrade-token-store.js";
 // -- user store (AU12 / AU20 Am11 — single owner of `users` row read/write) --
 export type { UserFilter } from "./user-store.js";
-export {
-	findUser,
-	getOrCreateUser,
-	incrementUserCost,
-	insertUser,
-	listUsers,
-	resetAllUserCost,
-	sumAllUserCost,
-	updateUser,
-} from "./user-store.js";
+export { findUser, getOrCreateUser, insertUser, listUsers, updateUser } from "./user-store.js";

@@ -7,8 +7,9 @@
  *      the bet's host thread.
  * AC3: User can submit a verdict (approve/reject). Verdict is persisted and
  *      readable by the agent.
- * AC4: Cost from harness adapter flows through and displays in WorkBet cost
- *      section.
+ * AC4: Token accumulation from harness adapter flows through and displays in
+ *      WorkBet's token section. (Cost accumulation — AU21 Increment 14a —
+ *      is HARD-DELETED, no replacement.)
  * AC5: Task status updates from agent reflected in WorkBet task table status
  *      chips.
  *
@@ -35,7 +36,6 @@ import {
 	createInProcessCoreApiTransport,
 	registerCoreApiTransport,
 } from "../services/core-api-port-composition.js";
-import { costOps } from "../services/cost-bindings.js";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
 import { test as baseTest } from "../test-fixtures.js";
 
@@ -153,7 +153,6 @@ describe("R5: Agent Work Loop integration", () => {
 	// AC1, AC5: create_task tool inserts task visible in GET /api/bets/:id
 	describe("AC1 & AC5: create_task tool — task visible in bet detail", () => {
 		test("created task appears in GET /api/bets/:id tasks array", async ({ db, app, eventBus }) => {
-			costOps._testHooks.clearDedup();
 			await seedBase(db);
 			const ctx = makeContext(db, eventBus);
 
@@ -339,102 +338,9 @@ describe("R5: Agent Work Loop integration", () => {
 		});
 	});
 
-	// AC4: Cost accumulation via costOps.record with taskId flows to bet
-	describe("AC4: cost accumulation on bet", () => {
-		test("costOps.record with taskId increments bets.costActualMinor", async ({
-			db,
-			eventBus,
-			app,
-		}) => {
-			await seedBase(db);
-
-			await costOps.record(db, eventBus, {
-				sessionId: "session-1",
-				costMinor: 150,
-				currency: "USD",
-				agentId: "agent-a",
-				teamId: "tm-1",
-				taskId: "task-1",
-			});
-
-			const res = await app.request("/api/bets/b1", {
-				headers: authHeaders(),
-			});
-			expect(res.status).toBe(200);
-
-			const body = (await res.json()) as {
-				costActual: { minor: number; currency: string } | null;
-			};
-
-			expect(body.costActual).not.toBeNull();
-			expect(body.costActual?.minor).toBeGreaterThanOrEqual(150);
-			expect(body.costActual?.currency).toBe("USD");
-		});
-
-		test("multiple cost events accumulate cumulatively on the bet", async ({
-			db,
-			eventBus,
-			app,
-		}) => {
-			await seedBase(db);
-
-			await costOps.record(db, eventBus, {
-				sessionId: "session-1",
-				costMinor: 100,
-				currency: "USD",
-				agentId: "agent-a",
-				teamId: "tm-1",
-				taskId: "task-1",
-			});
-
-			// Second event on same session (dedup means this won't re-fire cap events,
-			// but cost should still accumulate)
-			// @lore R5: known debt — costOps.record passes totalCostCents (running
-			// total) not delta. Bet accumulation inherits this behavior. See
-			// plans/R5/architecture.md "Pre-existing cost over-counting".
-			await costOps.record(db, eventBus, {
-				sessionId: "session-2",
-				costMinor: 75,
-				currency: "USD",
-				agentId: "agent-a",
-				teamId: "tm-1",
-				taskId: "task-1",
-			});
-
-			const res = await app.request("/api/bets/b1", {
-				headers: authHeaders(),
-			});
-			expect(res.status).toBe(200);
-
-			const body = (await res.json()) as {
-				costActual: { minor: number; currency: string } | null;
-			};
-
-			expect(body.costActual).not.toBeNull();
-			expect(body.costActual?.minor).toBeGreaterThanOrEqual(175);
-		});
-
-		test("costOps.record without taskId does NOT affect bet cost", async ({ db, eventBus }) => {
-			await seedBase(db);
-
-			// Backward compat: no taskId => bet unchanged
-			await costOps.record(db, eventBus, {
-				sessionId: "session-no-task",
-				costMinor: 500,
-				currency: "USD",
-				agentId: "agent-a",
-				teamId: "tm-1",
-				// taskId deliberately omitted
-			});
-
-			const [bet] = await db
-				.select({ costActualMinor: bets.costActualMinor })
-				.from(bets)
-				.where(eq(bets.id, "b1"));
-			// Bet cost should remain null (not incremented)
-			expect(bet?.costActualMinor).toBeNull();
-		});
-	});
+	// @lore AU21 Increment 14a: the "AC4: cost accumulation on bet" describe
+	// block (costOps.record → bets.costActualMinor) is HARD-DELETED along with
+	// the rest of the cost-cap/accounting feature — no replacement, no ledger.
 
 	// AC4: Token accumulation on bet at session teardown
 	describe("AC4: token accumulation on bet (via session teardown)", () => {

@@ -332,18 +332,6 @@ export type BakedContextBundle =
 				readonly name: string;
 				readonly description: string | null;
 				readonly lastRunSummary: string | null;
-				/**
-				 * AU21 §9 Increment 12 (Decision H3), Wave E (RED, design-only so
-				 * far): the routine's per-run cost cap (`routines.costCapPerRunMinor`),
-				 * baked at emit time from the SAME `routine` row the routine
-				 * resolver already loaded to validate — replaces `admitSession`'s
-				 * live `ports.routine.getRoutineById(...).costCapPerRunMinor` read.
-				 * Optional (not yet baked by the real resolver — that wiring lands
-				 * with the rest of this wave's implementation) so this additive
-				 * field doesn't force every existing `kind:"routine"` bundle
-				 * construction site to change in this pass.
-				 */
-				readonly costCapPerRunMinor?: number | null;
 			};
 			readonly agent: { readonly id: string; readonly name: string; readonly role: string };
 			readonly team: { readonly id: string; readonly name: string };

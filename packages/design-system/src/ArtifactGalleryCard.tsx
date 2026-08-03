@@ -1,7 +1,6 @@
 import type { Artifact } from "@hyperidle/shared";
 import { artifactDisplayTitle } from "@hyperidle/shared";
 import type { JSX } from "react";
-import { ArtifactCostChip } from "./ArtifactCostChip.js";
 import { ArtifactKindBadge } from "./ArtifactKindBadge.js";
 import { ArtifactPreviewSurface } from "./ArtifactPreviewSurface.js";
 import { ArtifactTimestamp } from "./ArtifactTimestamp.js";
@@ -54,8 +53,6 @@ export function ArtifactGalleryCard({
 			<ArtifactPreviewSurface kind={data.kind} preview={data.preview} size="gallery" />
 			<div className={FOOTER}>
 				<span className="flex items-center gap-[6px]">
-					<ArtifactCostChip cost={data.cost} variant="compact" />
-					<span className="text-[var(--text-tertiary)]">·</span>
 					<ArtifactTimestamp value={data.createdAt} />
 				</span>
 				{count > 0 ? (

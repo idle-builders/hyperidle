@@ -7,12 +7,7 @@
 
 import { messages, threads } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import {
-	judgeCostTracked,
-	judgeLlmQuality,
-	judgeSessionCompleted,
-	judgeSubmitReviewCalled,
-} from "../judges.js";
+import { judgeLlmQuality, judgeSessionCompleted, judgeSubmitReviewCalled } from "../judges.js";
 import { runEvalSession } from "../provision-harness.js";
 import { seedArtifact, seedMinimalWorld, seedThread } from "../seeding.js";
 import type {
@@ -92,7 +87,6 @@ Your reasoning should mention: what was changed and what the reviewer should che
 		dimensions: [
 			judgeSessionCompleted(),
 			judgeSubmitReviewCalled(),
-			judgeCostTracked(),
 			{
 				id: "message_type_correct",
 				label: "Review Message Type Correct (review or plain)",

@@ -146,8 +146,6 @@ export interface BetTaskWithLatestSessionOutcome {
 	readonly state: string;
 	readonly dependencies: string | null;
 	readonly artifacts: string | null;
-	readonly costCap: number | null;
-	readonly costActual: number | null;
 	readonly threadId: string | null;
 	readonly notes: string | null;
 	readonly auditTrail: string | null;
@@ -376,8 +374,6 @@ export async function list(
 				state: tasks.state,
 				dependencies: tasks.dependencies,
 				artifacts: tasks.artifacts,
-				costCap: tasks.costCap,
-				costActual: tasks.costActual,
 				threadId: tasks.threadId,
 				notes: tasks.notes,
 				auditTrail: tasks.auditTrail,
@@ -593,20 +589,18 @@ export async function list(
 // primitives.
 // ---------------------------------------------------------------------------
 
-/** Atomic accumulation operator — translates to `coalesce(col, 0) + n`. */
-export interface IncrementOp {
-	readonly increment: number;
-}
-
 /** Atomic append operator — translates to a SQL CASE concat with separator. */
 export interface AppendNoteOp {
 	readonly appendNote: string;
 }
 
-/** Bet update patch: standard BetPatch fields; costActualMinor also accepts IncrementOp. */
-type BetUpdatePatch = Omit<BetPatch, "costActualMinor"> & {
-	readonly costActualMinor?: BetPatch["costActualMinor"] | IncrementOp;
-};
+/**
+ * Bet update patch: standard BetPatch fields.
+ * @lore AU21 Increment 14a: this used to also admit `costActualMinor` as an
+ * `IncrementOp` (atomic `coalesce(col,0)+n` accumulation) — deleted along
+ * with the rest of the cost feature (the column is dropped), no replacement.
+ */
+type BetUpdatePatch = BetPatch;
 
 /** Task update patch: standard TaskPatch fields; notes also accepts AppendNoteOp. */
 type TaskUpdatePatch = Omit<TaskPatch, "notes"> & {
@@ -730,7 +724,13 @@ export function update(
 	id: string,
 	patch: { readonly notes: AppendNoteOp },
 ): Promise<{ id: string } | undefined>;
-/** Plain by-id field-set; `costActualMinor: { increment: n }` triggers atomic accumulation. */
+/**
+ * Plain by-id field-set. (@lore AU21 Increment 14a: the `costActualMinor:
+ * { increment: n }` atomic-accumulation example this used to document is
+ * HARD-DELETED along with the rest of the cost feature — no field on
+ * `BetUpdatePatch`/`TaskUpdatePatch`/`ItemUpdatePatch` uses the `{increment}`
+ * operator anymore.)
+ */
 export function update<E extends "bet" | "task" | "item">(
 	exec: WriteExecutor,
 	entity: E,
@@ -764,19 +764,6 @@ export async function update(
 		return;
 	}
 	if (entity === "bet") {
-		const cmi = patch.costActualMinor;
-		if (typeof cmi === "object" && cmi !== null && "increment" in cmi) {
-			const { increment } = cmi as IncrementOp;
-			const { costActualMinor: _cmi, ...rest } = patch;
-			await exec
-				.update(bets)
-				.set({
-					...rest,
-					costActualMinor: sql`coalesce(${bets.costActualMinor}, 0) + ${increment}`,
-				})
-				.where(eq(bets.id, id));
-			return;
-		}
 		await exec
 			.update(bets)
 			.set(patch as BetPatch)

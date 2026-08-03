@@ -51,7 +51,6 @@ describe("M3 — AppShell: no 'u-founder' in DOM (A11)", () => {
 					users: [],
 					notifications: {
 						reviewAlerts: true,
-						costAlerts: true,
 						blockerAlerts: false,
 						quietHoursStart: "22:00",
 						quietHoursEnd: "08:00",
@@ -104,13 +103,6 @@ describe("M3 — AppShell: knowledge submenu count:12 removed (F1)", () => {
 					bets: [],
 					blockers: [],
 					awaitingOrdering: [],
-					costBurnRate: {
-						todaySpend: null,
-						todayCap: null,
-						weekSpend: null,
-						weekCap: null,
-						weekTokens: null,
-					},
 					threads: [],
 					nextCursor: null,
 				}),

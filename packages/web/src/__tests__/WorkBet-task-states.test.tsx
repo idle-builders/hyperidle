@@ -37,9 +37,7 @@ function makeBetDetail(overrides: Partial<BetDetail> = {}): BetDetail {
 		teamId: "team-1",
 		status: "active",
 		atRisk: false,
-		costAppetite: null,
 		tokenAppetite: null,
-		costActual: null,
 		tokensActual: null,
 		description: "Solve the problem",
 		tasks: [],
@@ -112,7 +110,7 @@ describe("WorkBet task section — Populated state, tasks>0 beats everything", (
 	it("renders task-row items when tasks > 0", () => {
 		const bet = makeBetDetail({
 			status: "active",
-			tasks: [{ id: "t1", title: "Task A", owner: "Builder", state: "accepted", costActual: null }],
+			tasks: [{ id: "t1", title: "Task A", owner: "Builder", state: "accepted" }],
 		});
 		renderBet(bet);
 		expect(screen.getByTestId("task-row")).toBeInTheDocument();
@@ -121,7 +119,7 @@ describe("WorkBet task section — Populated state, tasks>0 beats everything", (
 	it("does NOT render empty/draft states when tasks exist", () => {
 		const bet = makeBetDetail({
 			status: "active",
-			tasks: [{ id: "t1", title: "Task A", owner: "Builder", state: "accepted", costActual: null }],
+			tasks: [{ id: "t1", title: "Task A", owner: "Builder", state: "accepted" }],
 		});
 		renderBet(bet);
 		expect(screen.queryByTestId("bet-tasks-empty")).not.toBeInTheDocument();
@@ -131,9 +129,7 @@ describe("WorkBet task section — Populated state, tasks>0 beats everything", (
 	it("shows tasks even when bet is draft (tasks>0 beats draft — approved.md precedence)", () => {
 		const bet = makeBetDetail({
 			status: "draft",
-			tasks: [
-				{ id: "t2", title: "Drafted task", owner: "Builder", state: "proposed", costActual: null },
-			],
+			tasks: [{ id: "t2", title: "Drafted task", owner: "Builder", state: "proposed" }],
 		});
 		renderBet(bet);
 		expect(screen.getByTestId("task-row")).toBeInTheDocument();

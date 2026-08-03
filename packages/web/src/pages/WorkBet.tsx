@@ -40,17 +40,14 @@ import {
 	taskOutcomeVerdictToStatus,
 	taskStateToStatus,
 } from "@hyperidle/design-system";
-import type { BetOutcomeVerdict, BetStatus, Message, WireMoney } from "@hyperidle/shared";
+import type { BetOutcomeVerdict, BetStatus, Message } from "@hyperidle/shared";
 import {
 	BET_OUTCOME_VERDICT_LABEL,
 	BET_OUTCOME_VERDICTS,
 	BET_STATUS_LABEL,
-	CURRENCY_CODES,
 	deriveBlocks,
-	formatMoney,
 	isRedactedPayload,
 	relativeLong,
-	scaleForCurrency,
 	TASK_OUTCOME_VERDICT_LABEL,
 	TASK_STATE_LABEL,
 } from "@hyperidle/shared";
@@ -76,9 +73,8 @@ import { blockExcerptFromPayload } from "../utils/block-excerpt.js";
 import { deriveInitials } from "../utils/initials.js";
 import { KnowledgeCreateDialog } from "./knowledge/KnowledgeCreateDialog";
 
-// L17: "cost" column maps to costActual (WireMoney|null); sort by minor units.
 // L19: "outcome" column added for latest session outcome sort.
-type SortColumn = "title" | "status" | "owner" | "costActual" | "outcome";
+type SortColumn = "title" | "status" | "owner" | "outcome";
 type SortDirection = "asc" | "desc";
 
 // AI4: TASK_VERDICT_LABEL, BET_VERDICT_LABEL, TASK_STATE_LABEL, taskStateBadgeClass
@@ -104,11 +100,7 @@ function sortTasks(
 	copy.sort((a, b) => {
 		let av: string | number = "";
 		let bv: string | number = "";
-		if (column === "costActual") {
-			// L17: costActual is WireMoney|null; sort by minor integer units.
-			av = a.costActual?.minor ?? 0;
-			bv = b.costActual?.minor ?? 0;
-		} else if (column === "outcome") {
+		if (column === "outcome") {
 			// L19: outcome column sorts by the outcome string value
 			av = a.latestSessionOutcome ?? "";
 			bv = b.latestSessionOutcome ?? "";
@@ -265,7 +257,7 @@ function BetPitch({
  * L14: The set of actions the founder can take on a bet from the action bar.
  * AD5 AC-5: pause, resume, activate removed — no pause state in bet status enum.
  */
-type BetActionKind = "kill" | "adjust-appetite" | "unblock" | "activate";
+type BetActionKind = "kill" | "unblock" | "activate";
 
 /**
  * ConsequencePreviewDialog — confirmation dialog for the Kill bet action.
@@ -389,156 +381,6 @@ function ConsequencePreviewDialog({
 	);
 }
 
-/**
- * AppetiteDialog — lets the founder adjust the bet appetite with a reason.
- *
- * @lore AI2: Migrated from native <dialog> to Dialog primitive. isDirty tracks
- * whether the form has been modified (amount or reason entered). Guards on Esc
- * when dirty. Authoring surface — truthful isDirty.
- */
-interface AppetiteDialogProps {
-	open: boolean;
-	/** AF12: the current appetite as raw WireMoney (null when never set). */
-	currentAppetite: WireMoney | null;
-	/** AF12: emits a WireMoney value (minor units + currency), not a duration string. */
-	onConfirm: (value: WireMoney, reason: string) => Promise<void>;
-	onCancel: () => void;
-}
-
-function AppetiteDialog({
-	open,
-	currentAppetite,
-	onConfirm,
-	onCancel,
-}: AppetiteDialogProps): JSX.Element | null {
-	// AF12: appetite is money. Pre-fill the amount (major units) and currency from
-	// the current WireMoney; default to USD / empty amount when unset.
-	const defaultCurrency = currentAppetite?.currency ?? "USD";
-	const defaultAmount =
-		currentAppetite != null
-			? String(currentAppetite.minor / 10 ** scaleForCurrency(currentAppetite.currency))
-			: "";
-
-	const [amount, setAmount] = useState(defaultAmount);
-	const [currency, setCurrency] = useState<string>(defaultCurrency);
-	const [reason, setReason] = useState("");
-	const [submitting, setSubmitting] = useState(false);
-	const [error, setError] = useState<string | null>(null);
-
-	// Reset form when dialog opens (preserve defaults when re-opened for a new appetite).
-	// biome-ignore lint/correctness/useExhaustiveDependencies: reset only when open changes
-	useEffect(() => {
-		if (open) {
-			setAmount(defaultAmount);
-			setCurrency(defaultCurrency);
-			setReason("");
-			setError(null);
-			setSubmitting(false);
-		}
-	}, [open]);
-
-	const parsedAmount = Number.parseFloat(amount);
-	const amountValid = Number.isFinite(parsedAmount) && parsedAmount >= 0;
-
-	// isDirty: any field modified from defaults
-	const isDirty =
-		reason.trim().length > 0 || amount !== defaultAmount || currency !== defaultCurrency;
-
-	const handleSave = async (): Promise<void> => {
-		const trimmed = reason.trim();
-		if (!(trimmed && amountValid)) return;
-		const minor = Math.round(
-			parsedAmount * 10 ** scaleForCurrency(currency as WireMoney["currency"]),
-		);
-		setSubmitting(true);
-		setError(null);
-		try {
-			await onConfirm({ minor, currency: currency as WireMoney["currency"] }, trimmed);
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Failed to update appetite.");
-			setSubmitting(false);
-		}
-	};
-
-	return (
-		<Dialog
-			open={open}
-			onClose={onCancel}
-			title="Adjust appetite"
-			isDirty={isDirty}
-			size="sm"
-			footer={
-				<>
-					<button
-						type="button"
-						className="btn btn-xs btn-ghost"
-						onClick={onCancel}
-						disabled={submitting}
-					>
-						Cancel
-					</button>
-					<button
-						type="button"
-						className="btn btn-xs btn-primary"
-						onClick={() => void handleSave()}
-						disabled={!(reason.trim() && amountValid) || submitting}
-					>
-						{submitting ? "…" : "Save"}
-					</button>
-				</>
-			}
-		>
-			<div className="flex flex-col gap-3">
-				<label className="flex flex-col gap-1">
-					<span className="text-xs text-[var(--text-tertiary)]">New appetite</span>
-					<div className="flex gap-2">
-						<Select
-							aria-label="Currency"
-							size="sm"
-							className="w-[88px]"
-							value={currency}
-							onChange={(e) => setCurrency(e.target.value)}
-							disabled={submitting}
-							options={CURRENCY_CODES.map((code) => ({ value: code, label: code }))}
-						/>
-						<input
-							type="number"
-							className="input input-bordered input-sm flex-1 text-base"
-							aria-label="Amount"
-							min={0}
-							step="0.01"
-							placeholder="0"
-							value={amount}
-							onChange={(e) => setAmount(e.target.value)}
-							disabled={submitting}
-						/>
-					</div>
-				</label>
-
-				<label className="flex flex-col gap-1">
-					<span className="text-xs text-[var(--text-tertiary)]">
-						Reason <span aria-hidden>(required)</span>
-					</span>
-					<textarea
-						className="textarea textarea-bordered text-base resize-none h-16 w-full"
-						placeholder="Why is the appetite changing?"
-						value={reason}
-						onChange={(e) => setReason(e.target.value)}
-						disabled={submitting}
-						maxLength={500}
-					/>
-				</label>
-
-				{error && (
-					<p role="alert" className="text-xs text-error">
-						{error}
-					</p>
-				)}
-			</div>
-		</Dialog>
-	);
-}
-
 export interface WorkBetProps {
 	/**
 	 * J8: opt-in loading state. When true the page renders a card + list
@@ -606,7 +448,6 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 	const [consequenceDialog, setConsequenceDialog] = useState<{
 		open: boolean;
 	}>({ open: false });
-	const [appetiteDialogOpen, setAppetiteDialogOpen] = useState(false);
 	// AF12: activate-bet error surface (shown under the bet title on failure).
 	const [activateError, setActivateError] = useState<string | null>(null);
 	// AG5: Bet overflow menu open state (replaces toggleAttribute("open") DOM hack — C5).
@@ -715,8 +556,6 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 		(action: BetActionKind): void => {
 			if (action === "kill") {
 				setConsequenceDialog({ open: true });
-			} else if (action === "adjust-appetite") {
-				setAppetiteDialogOpen(true);
 			} else if (action === "activate") {
 				void handleActivate();
 			} else if (action === "unblock") {
@@ -809,24 +648,6 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 				throw new Error(body.error ?? `kill failed: ${res.status}`);
 			}
 			setConsequenceDialog((prev) => ({ ...prev, open: false }));
-			fetched.refresh();
-		},
-		[bet, fetched],
-	);
-
-	const handleAppetiteConfirm = useCallback(
-		async (value: WireMoney, reason: string): Promise<void> => {
-			if (!bet) return;
-			const res = await apiFetch(`/api/bets/${encodeURIComponent(bet.id)}`, {
-				method: "PATCH",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ field: "cost_appetite", value, reason }),
-			});
-			if (!res.ok) {
-				const body = (await res.json().catch(() => ({}))) as { error?: string };
-				throw new Error(body.error ?? `Appetite update failed: ${res.status}`);
-			}
-			setAppetiteDialogOpen(false);
 			fetched.refresh();
 		},
 		[bet, fetched],
@@ -945,11 +766,6 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 							status={betStatusToStatus(bet.status)}
 							label={BET_STATUS_LABEL[bet.status]}
 						/>
-						{bet.costAppetite && (
-							<span className="inline-flex items-center px-[9px] py-[3px] text-[12px] font-[500] rounded-[var(--r-pill)] bg-[rgba(217,119,6,0.10)] text-[var(--accent-secondary)]">
-								{formatMoney(bet.costAppetite)} appetite
-							</span>
-						)}
 						{/* W3 AC-19: overflow action menu */}
 						{/* AG5: Bet overflow menu — caller-owned trigger (bet-overflow-btn untouched per C4),
 						    Menu component handles panel/items/Escape/click-outside/keyboard. */}
@@ -984,12 +800,6 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 										: []),
 									...(bet.status === "active"
 										? [
-												{
-													id: "adjust-appetite",
-													label: "Adjust appetite",
-													onSelect: () => handleAction("adjust-appetite"),
-													dataAttrs: { "data-bet-action": "adjust-appetite" },
-												} satisfies MenuItem,
 												{
 													id: "unblock",
 													label: "Unblock",
@@ -1078,14 +888,6 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 						onCancel={() => setConsequenceDialog((prev) => ({ ...prev, open: false }))}
 					/>
 
-					{/* L14: Appetite adjust dialog */}
-					<AppetiteDialog
-						open={appetiteDialogOpen}
-						currentAppetite={bet.costAppetite}
-						onConfirm={handleAppetiteConfirm}
-						onCancel={() => setAppetiteDialogOpen(false)}
-					/>
-
 					{/* Q2: Add knowledge dialog — locked to bet scope */}
 					<KnowledgeCreateDialog
 						open={addKnowledgeOpen}
@@ -1130,18 +932,6 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 									</span>
 								);
 							})()}
-						</div>
-						{/* Budget stat card */}
-						<div className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[6px] flex-1">
-							<span className="text-[12px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
-								Budget spent
-							</span>
-							<span className="text-[24px] font-[600] tracking-[-0.01em] tabular-nums text-[var(--text-primary)]">
-								{formatMoney(bet.costActual)}
-							</span>
-							<span className="text-[13px] text-[var(--text-secondary)] mt-[3px]">
-								of {formatMoney(bet.costAppetite)} appetite
-							</span>
 						</div>
 						{/* Team stat card
 						    @lore visual-parity-audit D-11: mockup shows avatar-group + "N members"

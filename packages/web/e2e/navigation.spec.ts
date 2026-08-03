@@ -17,8 +17,7 @@ const BET_ID = "bet-ag4-1";
 const TEAM_ID = "team-ag4-1";
 
 // BetDetail shape: matches packages/web/src/types/bet.ts BetDetail interface.
-// Fields WorkBet.tsx accesses: id, title, team, status, atRisk, costAppetite,
-// costActual, description, tasks.
+// Fields WorkBet.tsx accesses: id, title, team, status, atRisk, description, tasks.
 function makeBetDetailResponse() {
 	return {
 		id: BET_ID,
@@ -27,9 +26,7 @@ function makeBetDetailResponse() {
 		teamId: TEAM_ID,
 		status: "committed",
 		atRisk: false,
-		costAppetite: { minor: 100000, currency: "USD" },
 		tokenAppetite: null,
-		costActual: { minor: 50000, currency: "USD" },
 		tokensActual: null,
 		progress: { done: 1, total: 3 },
 		description: "# AG4 test bet\n\nTest description",
@@ -44,8 +41,6 @@ function makeTeamDetailResponse() {
 		teamMembers: { id: "tm1", formedAt: new Date().toISOString(), dissolvedAt: null },
 		roster: [],
 		burn: {
-			costActual: { minor: 0, currency: "USD" },
-			costCap: { minor: 1000000, currency: "USD" },
 			capacity: 3,
 			activeBets: 1,
 		},
@@ -53,7 +48,6 @@ function makeTeamDetailResponse() {
 			{
 				id: BET_ID,
 				pitchTitle: "AG4 test bet",
-				costAppetite: { minor: 100000, currency: "USD" },
 				status: "committed",
 				progressDone: 1,
 				progressTotal: 3,

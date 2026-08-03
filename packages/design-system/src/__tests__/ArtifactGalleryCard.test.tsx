@@ -17,7 +17,6 @@ const FIXTURE = {
 	kind: "drafted_email" as string,
 	label: null,
 	preview: null,
-	cost: { money: { minor: 42, currency: "USD" as const }, tokens: null },
 	threadCount: 0,
 	createdAt: "2026-04-28T00:00:00.000Z",
 };
@@ -37,7 +36,7 @@ describe("ArtifactGalleryCard", () => {
 		container.remove();
 	});
 
-	it("renders the kind badge, producing task title, cost chip and timestamp", () => {
+	it("renders the kind badge, producing task title, and timestamp", () => {
 		act(() => {
 			root.render(
 				createElement(ArtifactGalleryCard, {
@@ -48,7 +47,6 @@ describe("ArtifactGalleryCard", () => {
 		});
 		expect(container.textContent).toContain("DRAFTED EMAIL");
 		expect(container.textContent).toContain("Implement auth flow");
-		expect(container.textContent).toContain("$0.42");
 	});
 
 	it("calls onOpen when clicked", () => {
@@ -114,19 +112,6 @@ describe("ArtifactGalleryCard", () => {
 		});
 		expect(container.textContent).toContain("No preview");
 		expect(container.querySelector("img")).toBeNull();
-	});
-
-	it("renders an em-dash for cost when both money and tokens are null", () => {
-		act(() => {
-			root.render(
-				createElement(ArtifactGalleryCard, {
-					data: { ...FIXTURE, cost: { money: null, tokens: null } },
-					onOpen: () => undefined,
-				}),
-			);
-		});
-		expect(container.textContent).toContain("—");
-		expect(container.textContent).not.toContain("$0.00");
 	});
 
 	it("supports a 'loading' state without throwing", () => {

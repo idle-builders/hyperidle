@@ -5,10 +5,9 @@
  * B′/B″ ruling #4). `@hyperidle/routine` is a Service, so per Mechanism C
  * (`composition-boundary-guard`, mechanically enforced) it cannot import
  * `work`/`conversation`/`knowledge`/`review`/`settings` directly — every one
- * of those, plus the two genuinely against-grain (`core-api →
- * agent-orchestration`) dependencies (`enqueueWorkIntent` via
- * `@hyperidle/session-requests`, the factory cost-cap actual via
- * `@hyperidle/cost`'s `costOps`), is wired here — same idiom as
+ * of those, plus the one genuinely against-grain (`core-api →
+ * agent-orchestration`) dependency (`enqueueWorkIntent` via
+ * `@hyperidle/session-requests`), is wired here — same idiom as
  * `dispatch-bindings.ts`'s former `dispatchPorts` object (this module
  * inherits that object's `work`/`conversation`/`knowledge`/`review` wiring
  * verbatim, since it is exactly the composition those four builtin-routine
@@ -57,7 +56,6 @@ import type { EventBus } from "@hyperidle/shared";
 import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
-import { costOps } from "./cost-bindings.js";
 
 /**
  * AU21 §6 Decision F1 fold — the `userSkills` read `routine`'s own
@@ -140,16 +138,12 @@ export const routineSchedulerPorts: RoutineSchedulerPorts = {
 		readServerConfig: async (db) => {
 			const cfg = await readServerConfig(db);
 			return {
-				cost: { capMinor: cfg.cost.capMinor },
 				modelGateway: cfg.modelGateway,
 				harnessDisabled: cfg.harnessDisabled,
 			};
 		},
 	},
 	workIntents: { enqueueWorkIntent },
-	cost: {
-		getFactoryCostActual: (db) => costOps.spend(db, { level: "factory" }),
-	},
 	agentSelection: {
 		isAtCapacity: (db, agentId) =>
 			isAgentAtCapacity(db, agentId, { getUserById: (execDb, id) => findUser(execDb, { id }) }),

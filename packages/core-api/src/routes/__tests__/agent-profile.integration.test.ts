@@ -13,7 +13,10 @@
  * AC-9: Health signal: last session crash warning
  * AC-10: Health signal: harness available (warning when type not in pool)
  * AC-11 (AD4 rewrite): reviewTrackRecord replaces skills in profile response
- * AC-12: Returns null cost for sessions (honest — no cost data)
+ *
+ * @lore AU21 Increment 14a: AC-12 (returns null cost for sessions) is
+ * HARD-DELETED — `AgentSessionSummary.cost` no longer exists on the type at
+ * all, no replacement.
  *
  * These tests FAIL until:
  * - packages/shared/src/agent-profile.ts is created with 7 wire types
@@ -413,7 +416,6 @@ describe("AB1 AC-5: Returns recent sessions (last 10, newest first)", () => {
 		expect(session).toHaveProperty("outcome");
 		expect(session).toHaveProperty("startedAt");
 		expect(session).toHaveProperty("endedAt");
-		expect(session).toHaveProperty("cost");
 	});
 
 	test("returns at most 10 sessions even when 12 exist", async ({ db, app }) => {
@@ -1074,43 +1076,11 @@ describe("AB1 AC-11 (AD4): reviewTrackRecord — approval rate from verdict hist
 });
 
 // ---------------------------------------------------------------------------
-// AC-12: Returns null cost for sessions (honest — no cost data in sessions table)
+// @lore AU21 Increment 14a: "AB1 AC-12: Returns null cost for sessions (no
+// cost data)" is HARD-DELETED — `AgentSessionSummary.cost` (the always-null
+// placeholder this AC asserted) no longer exists on the type at all, no
+// replacement.
 // ---------------------------------------------------------------------------
-
-describe("AB1 AC-12: Returns null cost for sessions (no cost data)", () => {
-	beforeEach(() => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-	});
-
-	afterEach(() => {
-		vi.unstubAllEnvs();
-	});
-
-	test("returns null cost for each session in recentSessions", async ({ db, app }) => {
-		await seedPrereqs(db);
-		await db.insert(sessions).values({
-			id: "ab1-session-cost-check",
-			taskId: "ab1-task-1",
-			agentId: "ab1-agent-builder",
-			modelTier: "workhorse",
-			startedAt: NOW,
-			endedAt: NOW,
-			state: "completed",
-			outcome: "completed",
-		});
-
-		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
-			headers: authHeaders(),
-		});
-		const body = (await res.json()) as Record<string, unknown>;
-		const recentSessions = body.recentSessions as Array<Record<string, unknown>>;
-
-		expect(recentSessions.length).toBeGreaterThan(0);
-		for (const session of recentSessions) {
-			expect(session.cost).toBeNull();
-		}
-	});
-});
 
 // ---------------------------------------------------------------------------
 // AC: Idle duration in health signals (per F3/A3 reviewer finding)

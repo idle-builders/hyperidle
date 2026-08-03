@@ -90,11 +90,9 @@ function buildHarnessPorts(overrides: Partial<SessionLifecyclePorts>): SessionLi
 		// entirely (not merely wired as `neverCalled`) — a stronger proof than a
 		// runtime spy: there is no port left to call. The baked
 		// `params.injectedFilesystems` list this file's own tests assert on is
-		// the ONLY source `mountFilesystemsForAgent` reads from now.
-		cost: {
-			checkCostCap: vi.fn(async () => ({ allowed: true })),
-			recordCostAndCheck: neverCalled("cost.recordCostAndCheck"),
-		},
+		// the ONLY source `mountFilesystemsForAgent` reads from now. AU21
+		// Increment 14a: `SessionLifecyclePorts` no longer carries a `cost`
+		// field at all — the cap-gate port is deleted, no replacement.
 		harnessRuntime: {
 			enforcementRegistry: {
 				register: neverCalled("harnessRuntime.enforcementRegistry.register"),

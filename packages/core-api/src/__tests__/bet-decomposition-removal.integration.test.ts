@@ -113,7 +113,6 @@ describe("committing a bet no longer triggers the built-in bet_decomposition mec
 				body: JSON.stringify({
 					teamId: teamParentId,
 					description: "Build feature X",
-					costAppetite: { minor: 10000, currency: "USD" },
 				}),
 			});
 			expect(createRes.status).toBe(201);
@@ -154,7 +153,6 @@ describe("committing a bet no longer triggers the built-in bet_decomposition mec
 				body: JSON.stringify({
 					teamId: teamParentId,
 					description: "Build feature Y",
-					costAppetite: { minor: 10000, currency: "USD" },
 				}),
 			});
 			const bet = (await createRes.json()) as { id: string };

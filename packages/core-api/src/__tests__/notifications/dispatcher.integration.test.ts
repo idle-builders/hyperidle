@@ -17,7 +17,7 @@ import {
 	type NotificationAdapter,
 	updateConfig,
 } from "@hyperidle/notifications";
-import type { CostCapBreachedEvent, RoutineFiredEvent } from "@hyperidle/shared";
+import type { RoutineFiredEvent } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { createApp, disposeApp } from "../../app.js";
 import { expect, test } from "../../test-fixtures.js";
@@ -115,40 +115,9 @@ describe("H2 Dispatcher integration via createApp", () => {
 		}
 	});
 
-	test("subscribes to cost_cap_breached and pushes a cost_breach notification", async ({
-		db,
-		eventBus,
-	}) => {
-		const adapter = createFakeAdapter();
-		const app = await createApp({
-			db,
-			eventBus,
-			serviceBootstrap: ({ db: testDb, eventBus: testBus }) => [
-				installNotifications(testDb, testBus, notificationsDeps, {
-					adapterFactory: () => adapter,
-				}),
-			],
-		});
-		try {
-			await enable(db);
-			const event: CostCapBreachedEvent = {
-				type: "cost_cap_breached",
-				streamId: "s",
-				level: "hard",
-				capLevel: "agent",
-				entityId: "agent-7",
-				spend: 500,
-				cap: 100,
-				timestamp: Date.now(),
-			};
-			eventBus.emit(event);
-			await vi.waitFor(() => expect(adapter.calls).toHaveLength(1));
-
-			expect(adapter!.calls[0]!.notification.severity).toBe("cost_breach");
-		} finally {
-			disposeApp(app);
-		}
-	});
+	// @lore AU21 Increment 14a: "subscribes to cost_cap_breached and pushes a
+	// cost_breach notification" is HARD-DELETED — `cost_cap_breached` and the
+	// `cost_breach` notification severity no longer exist, no replacement.
 
 	test("routine_fired with daily_digest marker triggers runDailyDigest", async ({
 		db,

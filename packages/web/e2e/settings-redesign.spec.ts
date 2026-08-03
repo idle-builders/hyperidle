@@ -33,7 +33,6 @@ const DEFAULT_SETTINGS = {
 	users: [],
 	notifications: {
 		reviewAlerts: true,
-		costAlerts: true,
 		blockerAlerts: true,
 		quietHoursEnabled: false,
 		quietHoursStart: "22:00",
@@ -215,7 +214,6 @@ test.describe("Settings Overlay (P4)", () => {
 		await page.getByRole("button", { name: /notifications/i }).click();
 
 		await expect(page.getByText(/review alerts/i)).toBeVisible();
-		await expect(page.getByText(/cost alerts/i)).toBeVisible();
 		await expect(page.getByText(/blocker alerts/i)).toBeVisible();
 
 		// Save notifications

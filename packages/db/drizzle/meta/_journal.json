@@ -379,6 +379,13 @@
 			"when": 1785625200000,
 			"tag": "0053_AU21_remove_bet_decomposition",
 			"breakpoints": true
+		},
+		{
+			"idx": 54,
+			"version": "7",
+			"when": 1785628800000,
+			"tag": "0054_AU21_cost_hard_delete",
+			"breakpoints": true
 		}
 	]
 }

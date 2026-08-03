@@ -93,11 +93,8 @@ import {
 	createInProcessCoreApiTransport,
 	registerCoreApiTransport,
 } from "./services/core-api-port-composition.js";
-// @lore AD8c: cost sentinel extracted from routine row to application code.
-// @lore AU20 Am3: `costOps._testHooks.installDedupReleaser` removed — folded into
-// `costOps.startSentinel` (now a single call covers both the dedup releaser
-// subscription and the sentinel interval). Disposer count 15→14.
-import { costOps } from "./services/cost-bindings.js";
+// @lore AU21 Increment 14a: cost sentinel + `costOps`/`cost-bindings.ts` are
+// HARD-DELETED along with the rest of the cost feature — no replacement.
 import { dispatchOps } from "./services/dispatch-bindings.js";
 import { registerRoutineRunSessionEndReactions } from "./services/routine-run-session-end-reactions.js";
 import {
@@ -137,11 +134,7 @@ interface TaskDispatcherDeps {
 	readonly mounter?: unknown;
 }
 
-import {
-	enqueueWorkIntent,
-	registerSessionCostRecorder,
-	startLifecycleProjectionDrain,
-} from "@hyperidle/session-requests";
+import { enqueueWorkIntent, startLifecycleProjectionDrain } from "@hyperidle/session-requests";
 import { queueDeps } from "./services/durable-agent-queue.js";
 import {
 	runtimeDeps as buildRunRuntimeDeps,
@@ -384,7 +377,6 @@ export function registerCoreDomainServices(ctx: {
 	 */
 	readonly readAlertPreferences?: () => Promise<{
 		blockerAlerts: boolean;
-		costAlerts: boolean;
 		reviewAlerts: boolean;
 		quietHoursEnabled: boolean;
 		quietHoursStart: string;
@@ -489,19 +481,9 @@ export function registerCoreDomainServices(ctx: {
 		),
 	);
 
-	// AU21 §9 Increment 6 (Decision D): agent-orchestration's OWN reaction
-	// (session-requests, NOT a core-api Service) — wired here because
-	// server-factory.ts is today's single process composition root, the same
-	// reason `startLifecycleProjectionDrain` (also an orchestration-owned
-	// module) is booted from this file.
-	disposers.push(
-		identifyBootstrapOwner(
-			registerSessionCostRecorder(db, eventBus),
-			"session-cost recorder",
-			"unsubscribe",
-			["session_ended subscription"],
-		),
-	);
+	// @lore AU21 Increment 14a: the session-cost recorder (agent-orchestration's
+	// OWN `session_ended` reaction, Increment 6's per-session cost door) is
+	// deleted along with the rest of the cost feature — no replacement.
 
 	disposers.push(
 		identifyBootstrapOwner(
@@ -633,9 +615,10 @@ export function registerCoreDomainServices(ctx: {
 }
 
 /**
- * AU11: registers AGENT-owned services — builtin routine handlers, cost-cap
- * dedup release, cost sentinel, the task dispatcher, and the sandbox/
- * routine-session reapers. Split from the former `bootstrapAppRuntime`
+ * AU11: registers AGENT-owned services — builtin routine handlers, the task
+ * dispatcher, and the sandbox/routine-session reapers (AU21 Increment 14a:
+ * the cost-cap dedup release + cost sentinel this used to also register are
+ * deleted, no replacement). Split from the former `bootstrapAppRuntime`
  * shell alongside `registerCoreDomainServices` (see that function's
  * doc-comment for the behavior-preservation invariant).
  *
@@ -715,18 +698,8 @@ export function registerAgentLayerServices(ctx: {
 		),
 	);
 
-	// @lore AD8c: cost sentinel registered as a 15-minute scheduled job.
-	// @lore AU20 Am3: `costOps.startSentinel` now also installs the dedup-releaser
-	// EventBus subscription (folded from `costOps._testHooks.installDedupReleaser`).
-	// One disposer instead of two; count drops from 15 to 14.
-	disposers.push(
-		identifyBootstrapOwner(
-			costOps.startSentinel(db, eventBus),
-			"cost sentinel",
-			"sentinel plus dedup subscription stop",
-			["sentinel", "dedup subscription"],
-		),
-	);
+	// @lore AU21 Increment 14a: the cost sentinel (15-minute scheduled job) is
+	// deleted along with the rest of the cost feature — no replacement.
 
 	// AF7 §6: TTL workspace reaper (task trigger is now inside dispatchOps.start).
 	void reaperStaleAfterMs;
@@ -1129,7 +1102,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 				const cfg = await readServerConfig(db);
 				return {
 					blockerAlerts: cfg.notifications.blockerAlerts,
-					costAlerts: cfg.notifications.costAlerts,
 					reviewAlerts: cfg.notifications.reviewAlerts,
 					quietHoursEnabled: cfg.notifications.quietHoursEnabled,
 					quietHoursStart: cfg.notifications.quietHoursStart,
@@ -1151,7 +1123,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			};
 			// AU11: two owners register independently — core domain services
 			// (knowledge/notifications/policy/routine-scheduler) then agent-owned
-			// services (builtin-routine handlers/cost-cap/dispatcher/reapers).
+			// services (builtin-routine handlers/dispatcher/reapers).
 			return [
 				...registerCoreDomainServices({ ...ctx, readAlertPreferences, dispatcherDeps }),
 				...registerAgentLayerServices({ ...ctx, dispatcherDeps }),

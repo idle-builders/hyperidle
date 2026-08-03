@@ -4,9 +4,9 @@
  * AC coverage:
  * AC-1: 1280–2560px — sections visible, no clipped text, no row exceeds readable measure.
  *        Composition test: content column wrapper exists with expected classes.
- * AC-2: Related values read paired — 4 stat tiles each render label+value together.
+ * AC-2: Related values read paired — stat tiles each render label+value together.
  * AC-3: Empty team looks intentional — Status tile MUST read "—" / "No agents",
- *        NOT "Healthy". All 4 tiles always render. Every section header+empty present.
+ *        NOT "Healthy". All tiles always render. Every section header+empty present.
  * AC-4: Narrow layout + all behaviors unchanged — existing testids preserved.
  *        (Existing AA1/AB2/AB3 tests cover the rest; this file adds the new tile ACs.)
  *
@@ -14,9 +14,13 @@
  * [RED]   = new AG1 assertion — will FAIL until implementation (T2)
  * [GREEN] = asserts preserved existing behavior — expected to pass now
  *
- * @lore AG1: The 4 stat tiles (Burn, Cap, Capacity, Status) replace the KeyValue list
- * in the burn section. The Status tile is mandatory — empty roster → "—" / "No agents",
+ * @lore AG1: stat tiles (Capacity, Status) replace the KeyValue list in the
+ * burn section. The Status tile is mandatory — empty roster → "—" / "No agents",
  * never "Healthy". See plans/AG1/design/approved.md §2 + §4a.
+ *
+ * @lore AU21 Increment 14a: the Burn/Cap tiles this file originally covered
+ * are HARD-DELETED along with the rest of the cost-cap feature — no
+ * replacement. Only Capacity/Status remain.
  */
 
 import type { RosterMember, TeamDetail } from "@hyperidle/shared";
@@ -95,18 +99,13 @@ const POPULATED_TEAM: TeamDetail = {
 	},
 	roster: [AGENT_HEALTHY, AGENT_WARNING],
 	burn: {
-		costActual: { minor: 420000, currency: "USD" },
-		costCap: { minor: 1000000, currency: "USD" },
 		capacity: 5,
-		betCostActual: { minor: 300000, currency: "USD" },
-		routineCostThisMonth: { minor: 120000, currency: "USD" },
 		activeBets: 2,
 	},
 	activeBets: [
 		{
 			id: "bet-1",
 			descriptionTitle: "Auth migration",
-			costAppetite: { minor: 100000, currency: "USD" },
 			status: "active",
 			progressDone: 1,
 			progressTotal: 2,
@@ -123,7 +122,6 @@ const POPULATED_TEAM: TeamDetail = {
 			lastRunAt: "2026-01-01T08:00:00.000Z",
 			lastRunOutcome: "success",
 			nextRunAt: "2026-01-02T08:00:00.000Z",
-			costActual: null,
 		},
 	],
 };
@@ -144,11 +142,7 @@ const EMPTY_TEAM: TeamDetail = {
 	},
 	roster: [],
 	burn: {
-		costActual: null,
-		costCap: null,
 		capacity: 5,
-		betCostActual: null,
-		routineCostThisMonth: null,
 		activeBets: 0,
 	},
 	activeBets: [],
@@ -246,26 +240,10 @@ describe("AG1 AC-1 — desktop content column wrapper", () => {
 // [RED] — new tile assertions; the KeyValue list doesn't have testid="stat-tile-*"
 // ---------------------------------------------------------------------------
 
-describe("AG1 AC-2 — 4 stat tiles in burn section", () => {
-	it("[RED] renders a tile labeled 'Burn' inside team-burn-vs-cap", () => {
-		renderPage(POPULATED_TEAM);
-		const section = screen.getByTestId("team-burn-vs-cap");
-		// Tile label must be visible within the burn section
-		const label = Array.from(section.querySelectorAll("span")).find(
-			(el) => el.textContent?.trim().toUpperCase() === "BURN",
-		);
-		expect(label).toBeDefined();
-	});
-
-	it("[RED] renders a tile labeled 'Cap' inside team-burn-vs-cap", () => {
-		renderPage(POPULATED_TEAM);
-		const section = screen.getByTestId("team-burn-vs-cap");
-		const label = Array.from(section.querySelectorAll("span")).find(
-			(el) => el.textContent?.trim().toUpperCase() === "CAP",
-		);
-		expect(label).toBeDefined();
-	});
-
+// @lore AU21 Increment 14a: the "Burn"/"Cap" stat tiles are HARD-DELETED
+// along with the rest of the cost-cap feature — the burn section now renders
+// 2 stat tiles (Capacity, Status), not 4, no replacement.
+describe("AG1 AC-2 — stat tiles in burn section", () => {
 	it("[RED] renders a tile labeled 'Capacity' inside team-burn-vs-cap", () => {
 		renderPage(POPULATED_TEAM);
 		const section = screen.getByTestId("team-burn-vs-cap");
@@ -275,7 +253,7 @@ describe("AG1 AC-2 — 4 stat tiles in burn section", () => {
 		expect(label).toBeDefined();
 	});
 
-	it("[RED] renders a tile labeled 'Status' inside team-burn-vs-cap (mandatory 4th tile)", () => {
+	it("[RED] renders a tile labeled 'Status' inside team-burn-vs-cap (mandatory 2nd tile)", () => {
 		renderPage(POPULATED_TEAM);
 		const section = screen.getByTestId("team-burn-vs-cap");
 		const label = Array.from(section.querySelectorAll("span")).find(
@@ -284,11 +262,11 @@ describe("AG1 AC-2 — 4 stat tiles in burn section", () => {
 		expect(label).toBeDefined();
 	});
 
-	it("[RED] renders exactly 4 stat tiles in a flex row", () => {
+	it("[RED] renders exactly 2 stat tiles in a flex row", () => {
 		renderPage(POPULATED_TEAM);
 		// The architecture defines testid="stat-tile" on each tile div
 		const tiles = screen.getAllByTestId("stat-tile");
-		expect(tiles).toHaveLength(4);
+		expect(tiles).toHaveLength(2);
 	});
 
 	it("[RED] each stat tile renders both a label span and a value span", () => {
@@ -355,10 +333,10 @@ describe("AG1 AC-3 — empty team status tile", () => {
 		expect(statusTile?.textContent).not.toContain("Healthy");
 	});
 
-	it("[RED] all 4 tiles render even when the team is empty (no 3-tile fallback)", () => {
+	it("[RED] all 2 tiles render even when the team is empty (no 1-tile fallback)", () => {
 		renderPage(EMPTY_TEAM);
 		const tiles = screen.getAllByTestId("stat-tile");
-		expect(tiles).toHaveLength(4);
+		expect(tiles).toHaveLength(2);
 	});
 
 	it("[GREEN] team-active-bets-empty shows when activeBets is empty", () => {

@@ -4,7 +4,8 @@
  * These tests prove the acceptance criteria for R6:
  *   AC2 — Artifacts created by agent sessions appear in WorkBet ArtifactSection
  *   AC3 — Artifacts appear in WorkPortfolio artifact gallery
- *   AC4 — Artifact metadata (kind, cost, timestamp) renders correctly
+ *   AC4 — Artifact metadata (kind, timestamp) renders correctly
+ *     (AU21 Increment 14a: cost metadata HARD-DELETED from this AC, no replacement)
  *   AC5 — create_artifact tool is available to all agent roles
  *   AC6 — artifact_created event is emitted on creation
  *   AC8 — Input validation rejects invalid kind, mismatched preview, missing fields

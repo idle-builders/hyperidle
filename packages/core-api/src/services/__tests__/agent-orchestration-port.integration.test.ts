@@ -2,12 +2,22 @@
  * AU21 §9 Increment 6, Wave 2 (Decision D) — `AgentOrchestrationPort`, RED phase.
  *
  * §10: "`AgentOrchestrationPort` — agent-orchestration's own read door,
- * symmetric [to `CoreApiPort`]... per-session cost + session/run history."
+ * symmetric [to `CoreApiPort`]... session/run history + recent activity."
  * §11: "every `CoreApiPort` method has a contract test invoking it through
  * the in-process transport, asserting it reaches its real backing route and
  * gets the expected response shape" — the SAME tested obligation applies to
  * `AgentOrchestrationPort`, mirrored here exactly against
  * `core-api-port.integration.test.ts` (Increment 1's precedent).
+ *
+ * @lore AU21 Increment 14a (founder, 2026-08-03): this file's original
+ * vehicle test case was `getSessionCostBySessionId` (Increment 6's
+ * per-session cost read door). Cost is HARD-DELETED with no replacement —
+ * `getSessionCostBySessionId`, its backing `/cost` route, and every test
+ * exercising it are gone. This file now proves the SAME contract-test
+ * obligations (in-process transport, network-transport location
+ * transparency, auth/boundary enforcement) using
+ * `listSessionHistoryBySource` — the port's other real, surviving method —
+ * as the vehicle.
  *
  * CONFUSION (flagged for reviewer sign-off, not silently assumed) — WHERE
  * the backing route physically lives: `architecture.md` names
@@ -35,33 +45,24 @@
  * (`packages/core-api/src/routes/agent-orchestration-sessions-routes.ts`,
  * mounted at `/api/agent-orchestration` in `app.ts` beside the other domain
  * routes, behind the SAME auth/boundary/rate-limit stack every other core-
- * api route gets), whose handlers call the NEW `getSessionCostBySessionId`
- * / existing `listSessionRequests` query functions `@hyperidle/session-
- * requests` exports (agent-orchestration's own business logic answering the
- * query — the "door" name reflects who OWNS the data and resolves the
- * query, not literal HTTP-hosting). `AgentOrchestrationPort` still delivers
- * the identical location-transparency value Decision A/C established for
- * `CoreApiPort` (a hand-typed contract + a swappable transport + a tested
- * fidelity obligation) — today's in-process transport happens to point at
- * the SAME physical `AppType` `CoreApiPort` uses; a future split-out
- * agent-orchestration deployable would only change the transport + the
- * route's physical location, never this contract or `tasks.ts`'s call site
- * (the exact "same call site, colocated or split" property AC #1a already
- * proves for `CoreApiPort`).
- *
- * None of `AgentOrchestrationPort`, `buildAgentOrchestrationPort`,
- * `createInProcessAgentOrchestrationTransport`,
- * `createNetworkAgentOrchestrationTransport`, or the backing
- * `/api/agent-orchestration/sessions/*` routes exist yet. Every test below
- * fails at import-resolution time (the composition module doesn't exist) —
- * RED for the right reason, mirroring `core-api-port.integration.test.ts`'s
- * own RED-phase framing verbatim.
+ * api route gets), whose handlers call the existing `listSessionRequests`
+ * query function `@hyperidle/session-requests` exports (agent-orchestration's
+ * own business logic answering the query — the "door" name reflects who
+ * OWNS the data and resolves the query, not literal HTTP-hosting).
+ * `AgentOrchestrationPort` still delivers the identical location-
+ * transparency value Decision A/C established for `CoreApiPort` (a hand-
+ * typed contract + a swappable transport + a tested fidelity obligation) —
+ * today's in-process transport happens to point at the SAME physical
+ * `AppType` `CoreApiPort` uses; a future split-out agent-orchestration
+ * deployable would only change the transport + the route's physical
+ * location, never this contract or `tasks.ts`'s call site (the exact "same
+ * call site, colocated or split" property AC #1a already proves for
+ * `CoreApiPort`).
  */
 
 import { serve } from "@hono/node-server";
 import { agentSessionRequests, type HyperIdleDb, users } from "@hyperidle/db";
 import { describe, expect, test, vi } from "../../test-fixtures.js";
-// NOT YET CREATED — this import failing to resolve is this file's primary RED signal.
 import {
 	buildAgentOrchestrationPort,
 	createInProcessAgentOrchestrationTransport,
@@ -72,7 +73,6 @@ const NOW = "2026-07-29T00:00:00.000Z";
 
 interface SeamAgentOrchestrationPort {
 	readonly sessions: {
-		getSessionCostBySessionId(sessionId: string): Promise<number | null | undefined>;
 		listSessionHistoryBySource(
 			sourceKind: string,
 			sourceId: string,
@@ -81,7 +81,6 @@ interface SeamAgentOrchestrationPort {
 				readonly id: string;
 				readonly sessionId: string | null;
 				readonly status: string;
-				readonly costCents: number | null;
 			}>
 		>;
 	};
@@ -94,7 +93,6 @@ async function seedRequest(
 		readonly sourceKind: string;
 		readonly sourceId: string;
 		readonly sessionId: string | null;
-		readonly costCents: number | null;
 		readonly status?: string;
 	},
 ): Promise<void> {
@@ -118,14 +116,13 @@ async function seedRequest(
 		idempotencyKey: `${id}-key`,
 		status: opts.status ?? "running",
 		sessionId: opts.sessionId,
-		costCents: opts.costCents,
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
 }
 
 describe("AgentOrchestrationPort — §11 contract-test harness", () => {
-	test("builds an AgentOrchestrationPort over a real in-process core-api app and reaches the real per-session-cost route", async ({
+	test("builds an AgentOrchestrationPort over a real in-process core-api app and reaches the real session-history route", async ({
 		db,
 		app,
 	}) => {
@@ -134,16 +131,17 @@ describe("AgentOrchestrationPort — §11 contract-test harness", () => {
 			sourceKind: "task",
 			sourceId: "task-aop-happy",
 			sessionId: "session-aop-happy",
-			costCents: 777,
 		});
 
 		const transport = createInProcessAgentOrchestrationTransport(app);
 		const port = buildAgentOrchestrationPort(transport) as unknown as SeamAgentOrchestrationPort;
 
-		await expect(port.sessions.getSessionCostBySessionId("session-aop-happy")).resolves.toBe(777);
+		const entries = await port.sessions.listSessionHistoryBySource("task", "task-aop-happy");
+		expect(entries).toHaveLength(1);
+		expect(entries[0]?.id).toBe("aop-happy");
 	});
 
-	test("an unknown sessionId resolves undefined through the real route (404 mapped, not thrown)", async ({
+	test("an unknown source resolves an empty array through the real route (not thrown)", async ({
 		db,
 		app,
 	}) => {
@@ -152,7 +150,6 @@ describe("AgentOrchestrationPort — §11 contract-test harness", () => {
 			sourceKind: "task",
 			sourceId: "task-aop-other",
 			sessionId: "session-aop-other",
-			costCents: 1,
 		});
 
 		const port = buildAgentOrchestrationPort(
@@ -160,11 +157,11 @@ describe("AgentOrchestrationPort — §11 contract-test harness", () => {
 		) as unknown as SeamAgentOrchestrationPort;
 
 		await expect(
-			port.sessions.getSessionCostBySessionId("does-not-exist"),
-		).resolves.toBeUndefined();
+			port.sessions.listSessionHistoryBySource("task", "task-does-not-exist"),
+		).resolves.toEqual([]);
 	});
 
-	test("listSessionHistoryBySource reaches the real route and returns the source's requests", async ({
+	test("listSessionHistoryBySource reaches the real route and returns only the source's requests", async ({
 		db,
 		app,
 	}) => {
@@ -173,14 +170,12 @@ describe("AgentOrchestrationPort — §11 contract-test harness", () => {
 			sourceKind: "task",
 			sourceId: "task-aop-hist",
 			sessionId: "session-aop-hist-1",
-			costCents: 100,
 			status: "completed",
 		});
 		await seedRequest(db, "aop-hist-2", {
 			sourceKind: "task",
 			sourceId: "task-aop-hist",
 			sessionId: "session-aop-hist-2",
-			costCents: null,
 			status: "running",
 		});
 		// A different source — must NOT be included.
@@ -188,7 +183,6 @@ describe("AgentOrchestrationPort — §11 contract-test harness", () => {
 			sourceKind: "task",
 			sourceId: "task-aop-other-source",
 			sessionId: "session-aop-hist-other",
-			costCents: 999,
 		});
 
 		const port = buildAgentOrchestrationPort(
@@ -198,11 +192,9 @@ describe("AgentOrchestrationPort — §11 contract-test harness", () => {
 		const entries = await port.sessions.listSessionHistoryBySource("task", "task-aop-hist");
 		expect(entries).toHaveLength(2);
 		expect(entries.map((e) => e.id).sort()).toEqual(["aop-hist-1", "aop-hist-2"]);
-		expect(entries.find((e) => e.id === "aop-hist-1")?.costCents).toBe(100);
-		expect(entries.find((e) => e.id === "aop-hist-2")?.costCents).toBeNull();
 	});
 
-	test("AC #1a — the identical getSessionCostBySessionId call succeeds via a real network transport (location transparency)", async ({
+	test("AC #1a — the identical listSessionHistoryBySource call succeeds via a real network transport (location transparency)", async ({
 		db,
 		app,
 	}) => {
@@ -211,7 +203,6 @@ describe("AgentOrchestrationPort — §11 contract-test harness", () => {
 			sourceKind: "task",
 			sourceId: "task-aop-net",
 			sessionId: "session-aop-net",
-			costCents: 555,
 		});
 
 		let resolvePort: (port: number) => void;
@@ -228,7 +219,9 @@ describe("AgentOrchestrationPort — §11 contract-test harness", () => {
 			const transport = createNetworkAgentOrchestrationTransport(baseUrl);
 			const port = buildAgentOrchestrationPort(transport) as unknown as SeamAgentOrchestrationPort;
 
-			await expect(port.sessions.getSessionCostBySessionId("session-aop-net")).resolves.toBe(555);
+			const entries = await port.sessions.listSessionHistoryBySource("task", "task-aop-net");
+			expect(entries).toHaveLength(1);
+			expect(entries[0]?.id).toBe("aop-net");
 		} finally {
 			await new Promise<void>((resolve) => server.close(() => resolve()));
 		}
@@ -243,13 +236,14 @@ describe("AgentOrchestrationPort — §11 contract-test harness", () => {
 			sourceKind: "task",
 			sourceId: "task-aop-noauth",
 			sessionId: "session-aop-noauth",
-			costCents: 42,
 		});
 
 		// A raw fetch straight at the mounted route, bypassing any port-level
 		// header injection — the route itself must still demand HYPERIDLE_API_KEY,
 		// same invariant `core-api-port.integration.test.ts` asserts for CoreApiPort.
-		const res = await app.request("/api/agent-orchestration/sessions/session-aop-noauth/cost");
+		const res = await app.request(
+			"/api/agent-orchestration/sessions?sourceKind=task&sourceId=task-aop-noauth",
+		);
 		expect(res.status).not.toBe(200);
 	});
 });

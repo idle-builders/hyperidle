@@ -31,7 +31,6 @@ import {
 } from "@hyperidle/session-requests";
 import type { ToolContext, WorkerRegisterMessage } from "@hyperidle/shared";
 import { EventBus, summarizeToolArgs } from "@hyperidle/shared";
-import { costOps } from "./cost-bindings.js";
 import { dispatchOps } from "./dispatch-bindings.js";
 import { queueDeps } from "./durable-agent-queue.js";
 import { buildToolRegistry, returnStatusTool, toolsForRole } from "./tool-provider-bindings.js";
@@ -79,11 +78,11 @@ type ToolRegistryOptions = Parameters<typeof buildToolRegistry>[1];
 // AU21 §9 Increment 12 (Decision H3), Wave E: `routineAccessor`/`settingsReader`
 // (this file's own `getRoutineById`/`readServerConfig` bindings) are DELETED
 // entirely — `SessionLifecyclePorts` no longer carries `routine`/`settings`
-// fields at all. `admitSession`'s Phase 3 `harnessDisabled` read and the
-// admission-time routine per-run cap are replaced by baked data every
-// per-kind resolver now supplies on the drained request
-// (`params.harnessDisabled`/`params.contextBundle.routine.costCapPerRunMinor`
-// — see `provisioner.ts`'s own Wave E top-of-file note). `run-orchestration`
+// fields at all. `admitSession`'s Phase 3 `harnessDisabled` read is replaced
+// by baked data every per-kind resolver now supplies on the drained request
+// (`params.harnessDisabled` — see `provisioner.ts`'s own Wave E top-of-file
+// note; AU21 Increment 14a deleted the admission-time routine per-run cost
+// cap this bullet used to also describe, no replacement). `run-orchestration`
 // now holds ZERO `-> routine`/`-> settings` edge, read or write — closing
 // architecture.md §6 H3 and the anti-regrowth guard's `DEFERRED_FOLLOWUP`
 // entries `run-orchestration::routine`/`::settings`.
@@ -119,11 +118,6 @@ const observabilityAccessor: SessionLifecyclePorts["observability"] = { summariz
 // `ProvisionSessionParams.injectedConnections` instead, and
 // `run-orchestration`'s own `provisioner.ts` calls `buildProvisioningPlan`/
 // `applyProvisioningPlan` directly — no composition-root port needed.
-
-const costAccessor: SessionLifecyclePorts["cost"] = {
-	checkCostCap: costOps.check,
-	recordCostAndCheck: costOps.record,
-};
 
 const enforcement = createReturnEnforcement();
 const harnessRuntime: SessionLifecyclePorts["harnessRuntime"] = {
@@ -168,7 +162,6 @@ const sessionLifecyclePorts: SessionLifecyclePorts = {
 		deregisterSessionRun: (sessionId) => sessionRunRegistry.deregister(sessionId),
 	},
 	observability: observabilityAccessor,
-	cost: costAccessor,
 	harnessRuntime,
 	toolProvider,
 };
@@ -213,21 +206,13 @@ const sessionLifecyclePort: SessionLifecycleRuntime = {
 			},
 		);
 	},
-	async crashSession(
-		db: HyperIdleDb,
-		eventBus: EventBus,
-		context: SessionContextPort,
-		costInCents: number,
-		baselineCost?: number,
-	) {
+	async crashSession(db: HyperIdleDb, eventBus: EventBus, context: SessionContextPort) {
 		await transitionRunInternal(
 			{ db, eventBus, ports: transitionPorts },
 			{
 				target: "session",
 				context: context as TransitionContext,
 				disposition: "crash",
-				costInCents,
-				baselineCost,
 			},
 		);
 	},

@@ -101,10 +101,6 @@ describe("A. drizzle-zod base schemas", () => {
 				createdAt: "2025-01-01T00:00:00.000Z",
 				completedAt: null,
 				atRisk: 0,
-				costAppetiteMinor: null,
-				costAppetiteCurrency: null,
-				costActualMinor: null,
-				costActualCurrency: null,
 				tokensActualJson: null,
 				// AC1: outcome fields — nullable, default null
 				outcomeVerdict: null,
@@ -284,29 +280,6 @@ describe("A. drizzle-zod base schemas", () => {
 				shape as Record<string, { safeParse: (v: unknown) => { success: boolean } }>
 			).id?.safeParse(123);
 			expect(idBadResult?.success).toBe(false);
-		});
-
-		it("selectBetSchema costAppetiteMinor field is nullable integer", () => {
-			const shape = selectBetSchema.shape;
-			expect(shape).toBeDefined();
-			// costAppetiteMinor is integer | null
-			const field = (shape as Record<string, { safeParse: (v: unknown) => { success: boolean } }>)
-				.costAppetiteMinor;
-			if (field) {
-				expect(field.safeParse(null).success).toBe(true);
-				expect(field.safeParse(1000).success).toBe(true);
-			}
-		});
-
-		it("selectSessionSchema costMinor field is nullable integer", () => {
-			const shape = selectSessionSchema.shape;
-			expect(shape).toBeDefined();
-			const field = (shape as Record<string, { safeParse: (v: unknown) => { success: boolean } }>)
-				.costMinor;
-			if (field) {
-				expect(field.safeParse(null).success).toBe(true);
-				expect(field.safeParse(500).success).toBe(true);
-			}
 		});
 	});
 });

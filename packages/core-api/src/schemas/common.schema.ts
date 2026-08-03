@@ -2,7 +2,6 @@
  * Common wire schemas for API responses.
  *
  * These Zod schemas define shared shapes used across multiple API endpoints:
- * - wireMoneySchema: { minor, currency } for money values
  * - progressSchema: { done, total } for task progress
  * - errorResponseSchema: standard ApiErrorResponse shape
  * - paginationSchema: query parameter pagination
@@ -11,9 +10,12 @@
  * because they encode the wire format of HTTP responses, not the domain types.
  * The db package has the raw Drizzle types; these composites express the
  * API contract the frontend consumes.
+ *
+ * @lore AU21 Increment 14a: `wireMoneySchema` (the generic `{minor,currency}`
+ * money validator) is deleted — its only real callers were bet/task/routine
+ * cost display fields, all removed along with the rest of the cost feature.
  */
 
-import { CURRENCY_CODES } from "@hyperidle/shared";
 import { z } from "zod";
 
 /**
@@ -27,15 +29,6 @@ import { z } from "zod";
  */
 export const enumValues = <T extends string>(values: readonly T[]): [T, ...T[]] =>
 	values as [T, ...T[]];
-
-/**
- * WireMoney: structured money value on the wire.
- * minor = integer cents/pence (no floats), currency = ISO 4217 code.
- */
-export const wireMoneySchema = z.object({
-	minor: z.number().int().min(0),
-	currency: z.enum(enumValues(CURRENCY_CODES)),
-});
 
 /**
  * Progress: task completion counter.

@@ -102,10 +102,8 @@ function buildDefenseInDepthOnlyPorts(
 		// injected filesystems are baked onto `params.injectedFilesystems` at
 		// emit time instead (see `admit-session-baked-filesystems.integration.test.ts`
 		// for that proof). There is no port left here to wire as `neverCalled`.
-		cost: {
-			checkCostCap: vi.fn(async () => ({ allowed: true })),
-			recordCostAndCheck: neverCalled("cost.recordCostAndCheck"),
-		},
+		// AU21 Increment 14a: `SessionLifecyclePorts` no longer carries a `cost`
+		// field at all — the cap-gate port is deleted, no replacement.
 		harnessRuntime: {
 			enforcementRegistry: {
 				register: neverCalled("harnessRuntime.enforcementRegistry.register"),

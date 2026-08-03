@@ -28,7 +28,6 @@ import {
 	sessionOutcomeToStatus,
 	useDialogBehavior,
 } from "@hyperidle/design-system";
-import { formatMoney, scaleForCurrency } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { ArtifactSection } from "../components/ArtifactSection.js";
 import { type TaskSession, useTaskSessions } from "../hooks/useTaskSessions.js";
@@ -46,13 +45,9 @@ export interface KanbanTask {
 	title: string;
 	owner: string;
 	state: import("@hyperidle/shared").TaskState;
-	cost?: string;
 	betTag?: string;
 	// L19: latest session metadata (all optional — callers that don't have session data don't break)
 	latestSessionOutcome?: import("@hyperidle/shared").SessionOutcome | null;
-	latestSessionCost?: number | null;
-	/** AF10: currency code for latestSessionCost (defaults to "USD"). */
-	latestSessionCurrency?: string | null;
 	latestSessionTokensInput?: number | null;
 	latestSessionTokensOutput?: number | null;
 	latestSessionHarnessUrl?: string | null;
@@ -132,7 +127,7 @@ function getFocusableElements(container: HTMLElement): HTMLElement[] {
  * status` — so a cascade-stopped session renders the non-blank label "stopped",
  * never an empty cell (the load-bearing AC4 guarantee).
  */
-function SessionRow({ id, title, agent, status, cost }: TaskSession): JSX.Element {
+function SessionRow({ id, title, agent, status }: TaskSession): JSX.Element {
 	const isActive = status === "active";
 	const isDone = status === "done" || status === "completed";
 	return (
@@ -145,11 +140,6 @@ function SessionRow({ id, title, agent, status, cost }: TaskSession): JSX.Elemen
 				<div className="text-[14px] font-[500] text-[var(--text-primary)] truncate">{title}</div>
 				<div className="text-[12px] text-[var(--text-tertiary)] truncate mt-[2px]">{agent}</div>
 			</div>
-			{cost !== null && (
-				<span className="text-[12px] font-mono tabular-nums text-[var(--text-tertiary)]">
-					${((cost.minor ?? 0) / 10 ** scaleForCurrency(cost.currency)).toFixed(2)}
-				</span>
-			)}
 			<div className="flex items-center gap-[6px] shrink-0">
 				{isActive && <LiveDot />}
 				<span className="text-[12px] font-[500] text-[var(--text-secondary)]">
@@ -421,7 +411,6 @@ export function TaskSheet({
 					<div className="flex items-center gap-2 mt-1 text-xs text-[var(--text-tertiary)]">
 						<span>{task.owner}</span>
 						{task.betTag && <span>· {task.betTag}</span>}
-						{task.cost && <span>· {task.cost}</span>}
 					</div>
 				</div>
 
@@ -436,20 +425,6 @@ export function TaskSheet({
 						className="flex items-center gap-2 px-4 py-2 border-b border-[var(--border-subtle)] text-xs font-mono text-[var(--text-tertiary)]"
 					>
 						<StatusChip status={sessionOutcomeToStatus(task.latestSessionOutcome)} />
-						{task.latestSessionCost != null && (
-							<>
-								<span aria-hidden>|</span>
-								<span>
-									{formatMoney({
-										minor: task.latestSessionCost,
-										// @lore AF10: latestSessionCurrency threads currency through the shape.
-										// Defaults to "USD" (single-currency factory today; AF10 §2 tech-debt).
-										currency: (task.latestSessionCurrency ||
-											"USD") as import("@hyperidle/shared").CurrencyCode,
-									})}
-								</span>
-							</>
-						)}
 						{(task.latestSessionTokensInput != null || task.latestSessionTokensOutput != null) && (
 							<>
 								<span aria-hidden>|</span>

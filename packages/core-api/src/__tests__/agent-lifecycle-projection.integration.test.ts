@@ -404,7 +404,6 @@ describe("durable lifecycle projection", () => {
 			timestamp: Date.now(),
 			outcome: "completed",
 			routineRunOutcome: "success",
-			costInCents: 0,
 		};
 		eventBus.emit(event);
 
@@ -572,7 +571,7 @@ describe("crash-after-202 recovery resolves a durably-stored termination cause",
 	async function seedRunningWithReason(
 		db: import("@hyperidle/db").HyperIdleDb,
 		id: string,
-		reason: "shutdown" | "cost_cap" | "handoff" | "user_crashed",
+		reason: "shutdown" | "handoff" | "user_crashed",
 	): Promise<void> {
 		const now = new Date().toISOString();
 		await db.insert(users).values({
@@ -623,19 +622,10 @@ describe("crash-after-202 recovery resolves a durably-stored termination cause",
 		}
 	});
 
-	test("cost_cap recovers to failed/BUDGET_EXHAUSTED", async ({ db, eventBus }) => {
-		await seedRunningWithReason(db, "au9-recover-costcap", "cost_cap");
-		const runtime = await startTestRuntime(db, eventBus, { db, eventBus }, {} as never);
-		try {
-			const [request] = await db
-				.select()
-				.from(agentSessionRequests)
-				.where(eq(agentSessionRequests.id, "au9-recover-costcap-request"));
-			expect(request).toMatchObject({ status: "failed", errorCode: "BUDGET_EXHAUSTED" });
-		} finally {
-			await runtime.dispose();
-		}
-	});
+	// @lore AU21 Increment 14a: "cost_cap recovers to failed/BUDGET_EXHAUSTED"
+	// is HARD-DELETED — `cost_cap` is no longer a valid termination reason
+	// (the cap gate that produced it is gone) and `BUDGET_EXHAUSTED` no longer
+	// exists as a disposition, no replacement.
 
 	test("handoff recovers to completed — never cancelled", async ({ db, eventBus }) => {
 		await seedRunningWithReason(db, "au9-recover-handoff", "handoff");

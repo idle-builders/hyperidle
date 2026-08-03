@@ -604,7 +604,7 @@ describe("agent session request repository", () => {
 			await transitionSessionRequest(db, {
 				to: "termination-requested",
 				requestId: request.id,
-				reason: "cost_cap",
+				reason: "shutdown",
 			}),
 		).toBe("conflict");
 		const results = await Promise.all([

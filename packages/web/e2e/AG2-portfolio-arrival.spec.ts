@@ -95,7 +95,6 @@ const BETS_FIXTURE_UNEVALUATED = {
 			description: "A draft bet",
 			status: "draft",
 			atRisk: false,
-			costAppetite: null,
 			outcomeVerdict: null,
 		},
 	],
@@ -107,7 +106,6 @@ const BETS_FIXTURE_UNEVALUATED = {
 			description: "An active bet",
 			status: "active",
 			atRisk: false,
-			costAppetite: null,
 			outcomeVerdict: null,
 		},
 		{
@@ -117,7 +115,6 @@ const BETS_FIXTURE_UNEVALUATED = {
 			description: "Another active bet",
 			status: "active",
 			atRisk: false,
-			costAppetite: null,
 			outcomeVerdict: null,
 		},
 	],
@@ -139,7 +136,6 @@ const BETS_FIXTURE_EVALUATED = {
 			description: "An active bet",
 			status: "active",
 			atRisk: false,
-			costAppetite: null,
 			outcomeVerdict: null,
 		},
 	],
@@ -151,7 +147,6 @@ const BETS_FIXTURE_EVALUATED = {
 			description: "A validated bet",
 			status: "completed",
 			atRisk: false,
-			costAppetite: null,
 			outcomeVerdict: "validated",
 		},
 		{
@@ -161,7 +156,6 @@ const BETS_FIXTURE_EVALUATED = {
 			description: "A refuted bet",
 			status: "completed",
 			atRisk: false,
-			costAppetite: null,
 			outcomeVerdict: "refuted",
 		},
 	],
@@ -421,7 +415,7 @@ test.describe("AG2 — Entry from team screen (AC-6)", () => {
 		// @lore AG2: Mock team detail endpoint MUST return TeamDetail shape (not flat TeamSummary).
 		// WorkTeam guards: if (!data.team) → "Team not found". Flat { id, name } fails this guard.
 		// TeamDetail = { team: TeamSummary, roster: [], burn: TeamBurn, activeBets: [], teamMembers }
-		// TeamBurn = { costActual, costCap, capacity, activeBets, betCostActual, routineCostThisMonth }
+		// TeamBurn = { capacity, activeBets } (AU21 Increment 14a: cost fields deleted)
 		await page.route("**/api/teams/team-alpha", async (route) => {
 			// Only intercept the exact team detail endpoint (not sub-paths like /budget, /agents).
 			const url = route.request().url();
@@ -443,12 +437,8 @@ test.describe("AG2 — Entry from team screen (AC-6)", () => {
 					teamMembers: { id: "tm-1", formedAt: new Date().toISOString(), dissolvedAt: null },
 					roster: [],
 					burn: {
-						costActual: null,
-						costCap: null,
 						capacity: 1,
 						activeBets: 0,
-						betCostActual: null,
-						routineCostThisMonth: null,
 					},
 					activeBets: [],
 					routines: [],
@@ -508,7 +498,6 @@ test.describe("AG2 — Filter-excluded empty state", () => {
 					description: "A draft bet",
 					status: "draft",
 					atRisk: false,
-					costAppetite: null,
 					outcomeVerdict: null,
 				},
 			],
@@ -520,7 +509,6 @@ test.describe("AG2 — Filter-excluded empty state", () => {
 					description: "An active bet",
 					status: "active",
 					atRisk: false,
-					costAppetite: null,
 					outcomeVerdict: null,
 				},
 			],

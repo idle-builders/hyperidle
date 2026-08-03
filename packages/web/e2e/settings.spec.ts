@@ -15,7 +15,6 @@ const SETTINGS_FIXTURE = {
 	users: [],
 	notifications: {
 		reviewAlerts: true,
-		costAlerts: false,
 		blockerAlerts: true,
 		quietHoursEnabled: false,
 		quietHoursStart: "22:00",

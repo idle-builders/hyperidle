@@ -4,13 +4,11 @@ import * as routineService from "@hyperidle/routine";
 import { humanizeSchedule } from "@hyperidle/routine";
 import {
 	API_ERROR_CODES,
-	type CurrencyCode,
 	deriveInitials,
 	type EventBus,
 	nextCronMatch,
 	parseCron,
 	ROUTINE_STATES,
-	type RoutineBudget,
 	type RoutineDetail,
 	type RoutineInfo,
 	type RoutineRunOutcome,
@@ -56,9 +54,6 @@ const createRoutineSchema = z.object({
 	ownerAgentId: z.string().min(1),
 	triggerType: z.literal("calendar"),
 	triggerConfig: z.string().min(1),
-	costCapPerRunMinor: z.number().int().min(0).nullable().optional(),
-	/** AA3: Optional per-month cost ceiling in minor units. */
-	costCapMonthlyMinor: z.number().int().min(0).nullable().optional(),
 });
 
 const updateRoutineSchema = z.object({
@@ -70,10 +65,6 @@ const updateRoutineSchema = z.object({
 	state: z.enum(ROUTINE_STATE_VALUES as [string, ...string[]]).optional(),
 	name: z.string().min(1).optional(),
 	description: z.string().optional(),
-	// AA2: cost cap per run
-	costCapPerRunMinor: z.number().int().min(0).nullable().optional(),
-	// AA3: monthly cost cap
-	costCapMonthlyMinor: z.number().int().min(0).nullable().optional(),
 });
 
 /**
@@ -178,9 +169,6 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 				state: "active",
 				active: true,
 				createdAt: now,
-				costCapPerRunMinor: body.costCapPerRunMinor ?? null,
-				// AA3: monthly cost cap
-				costCapMonthlyMinor: body.costCapMonthlyMinor ?? null,
 				nextRunAt,
 			});
 
@@ -239,64 +227,6 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			order: "desc",
 		});
 
-		// AA3: Compute budget stats using aggregate queries over ALL runs (not just the 20 in allRuns).
-		// Critique Suggestion 2: use a separate AVG query, not allRuns.filter().
-		const now3 = new Date();
-		const firstOfMonth3 = new Date(
-			Date.UTC(now3.getUTCFullYear(), now3.getUTCMonth(), 1),
-		).toISOString();
-
-		// AVG cost per run (from all runs with cost > 0)
-		const avgCostMinor = await routineService.sumRunCost(db, {
-			routineIds: [routineId],
-			kind: "avg",
-		});
-
-		// SUM cost this month
-		const costThisMonthMinor = await routineService.sumRunCost(db, {
-			routineIds: [routineId],
-			since: firstOfMonth3,
-			kind: "sum",
-		});
-
-		// Last completed run cost for per-run utilization (from the 20 most recent runs)
-		const lastCompletedRun = allRuns.find(
-			(r) =>
-				r.costMinor != null &&
-				r.costMinor > 0 &&
-				(r.outcome === "success" || r.outcome === "budget_exhausted"),
-		);
-		const lastRunCostMinor = lastCompletedRun?.costMinor ?? null;
-
-		const perRunUtilizationPercent =
-			routine.costCapPerRunMinor != null && lastRunCostMinor != null
-				? Math.round((lastRunCostMinor / routine.costCapPerRunMinor) * 100)
-				: null;
-
-		const monthlyUtilizationPercent =
-			routine.costCapMonthlyMinor != null && costThisMonthMinor > 0
-				? Math.round((costThisMonthMinor / routine.costCapMonthlyMinor) * 100)
-				: null;
-
-		const budget: RoutineBudget = {
-			avgCostPerRun:
-				avgCostMinor != null ? { minor: avgCostMinor, currency: "USD" as CurrencyCode } : null,
-			costThisMonth:
-				costThisMonthMinor > 0
-					? { minor: costThisMonthMinor, currency: "USD" as CurrencyCode }
-					: null,
-			costCapPerRun:
-				routine.costCapPerRunMinor != null
-					? { minor: routine.costCapPerRunMinor, currency: "USD" as CurrencyCode }
-					: null,
-			costCapMonthly:
-				routine.costCapMonthlyMinor != null
-					? { minor: routine.costCapMonthlyMinor, currency: "USD" as CurrencyCode }
-					: null,
-			perRunUtilizationPercent,
-			monthlyUtilizationPercent,
-		};
-
 		const runSummaries: RoutineRunSummary[] = allRuns.map((run) => {
 			let durationSeconds: number | null = null;
 			if (run.startedAt && run.endedAt) {
@@ -312,10 +242,6 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 				endedAt: run.endedAt ?? null,
 				durationSeconds,
 				outcome: run.outcome as RoutineRunOutcome,
-				cost:
-					run.costMinor != null
-						? { minor: run.costMinor, currency: (run.costCurrency ?? "USD") as CurrencyCode }
-						: null,
 				errorMessage: run.errorMessage ?? null,
 				// AA2: per-run summary
 				summary: run.summary ?? null,
@@ -341,27 +267,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			lastRunAt: routine.lastRunAt ?? null,
 			lastRunOutcome: (allRuns[0]?.outcome ?? null) as RoutineRunOutcome | null,
 			nextRunAt: routine.nextRunAt ?? null,
-			costActual:
-				routine.costActualMinor != null
-					? {
-							minor: routine.costActualMinor,
-							currency: (routine.costActualCurrency ?? "USD") as CurrencyCode,
-						}
-					: null,
 			createdAt: routine.createdAt ?? null,
-			// AA2: new fields
-			costCapPerRun:
-				routine.costCapPerRunMinor != null
-					? {
-							minor: routine.costCapPerRunMinor,
-							currency: "USD" as CurrencyCode,
-						}
-					: null,
-			// AA3: monthly cost cap
-			costCapMonthly:
-				routine.costCapMonthlyMinor != null
-					? { minor: routine.costCapMonthlyMinor, currency: "USD" as CurrencyCode }
-					: null,
 			lastRunSummary: routine.lastRunSummary ?? null,
 			// AV4: silent flag — defaults false for pre-AV4 routines missing the column
 			silent: routine.silent ?? false,
@@ -370,8 +276,6 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		const detail: RoutineDetail = {
 			routine: routineInfo,
 			runs: runSummaries,
-			// AA3: budget stats
-			budget,
 		};
 
 		return c.json(detail);
@@ -418,13 +322,6 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 				// Sync active boolean with state for backward compat
 				updates.active = stateToActive(body.state);
 			}
-			// AA2: cost cap per run (null removes the cap)
-			if ("costCapPerRunMinor" in body)
-				updates.costCapPerRunMinor = body.costCapPerRunMinor ?? null;
-			// AA3: monthly cost cap (null removes the cap)
-			if ("costCapMonthlyMinor" in body)
-				updates.costCapMonthlyMinor = body.costCapMonthlyMinor ?? null;
-
 			if (Object.keys(updates).length > 0) {
 				await routineService.updateRoutine(db, routineId, updates);
 			}
@@ -497,12 +394,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 		const result = await fireRoutine(db, eventBus, routine, {
 			recordSkippedRun: true,
 		});
-		const reason =
-			result.reason === "monthly cost cap reached"
-				? "monthly_budget_exhausted"
-				: result.reason === "previous run still in progress"
-					? "coalesced"
-					: result.reason;
+		const reason = result.reason === "previous run still in progress" ? "coalesced" : result.reason;
 		return c.json(
 			{
 				routineId,

@@ -7,14 +7,13 @@
  * pattern — no caching, no retry, straightforward useFetch wrapper.
  */
 
-import type { WireMoney } from "@hyperidle/shared";
 import { type FetchState, useFetch } from "./useFetch.js";
 
+/** @lore AU21 Increment 14a: `cost` field deleted along with the rest of the cost feature. */
 export interface TaskSession {
 	id: string;
 	title: string;
 	agent: string;
-	cost: WireMoney | null;
 	tokens: number | null;
 	status: string;
 	harnessUrl: string | null;

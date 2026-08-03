@@ -8,55 +8,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import {
-	errorResponseSchema,
-	paginationSchema,
-	progressSchema,
-	wireMoneySchema,
-} from "../common.schema.js";
-
-describe("B5. wireMoneySchema", () => {
-	it("is defined with parse/safeParse", () => {
-		expect(wireMoneySchema).toBeDefined();
-		expect(typeof wireMoneySchema.parse).toBe("function");
-		expect(typeof wireMoneySchema.safeParse).toBe("function");
-	});
-
-	it("accepts valid WireMoney { minor, currency }", () => {
-		const result = wireMoneySchema.safeParse({ minor: 10000, currency: "USD" });
-		expect(result.success).toBe(true);
-	});
-
-	it("accepts GBP currency", () => {
-		const result = wireMoneySchema.safeParse({ minor: 500, currency: "GBP" });
-		expect(result.success).toBe(true);
-	});
-
-	it("rejects negative minor units", () => {
-		const result = wireMoneySchema.safeParse({ minor: -1, currency: "USD" });
-		expect(result.success).toBe(false);
-	});
-
-	it("rejects non-integer minor units", () => {
-		const result = wireMoneySchema.safeParse({ minor: 9.99, currency: "USD" });
-		expect(result.success).toBe(false);
-	});
-
-	it("rejects unknown currency codes", () => {
-		const result = wireMoneySchema.safeParse({ minor: 100, currency: "FAKE" });
-		expect(result.success).toBe(false);
-	});
-
-	it("rejects missing minor field", () => {
-		const result = wireMoneySchema.safeParse({ currency: "USD" });
-		expect(result.success).toBe(false);
-	});
-
-	it("rejects missing currency field", () => {
-		const result = wireMoneySchema.safeParse({ minor: 100 });
-		expect(result.success).toBe(false);
-	});
-});
+import { errorResponseSchema, paginationSchema, progressSchema } from "../common.schema.js";
 
 describe("B6. progressSchema", () => {
 	it("is defined", () => {

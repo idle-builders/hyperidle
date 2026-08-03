@@ -5,7 +5,7 @@
 //
 // 3-layer drill-down (the AL1 signature):
 //   L1 — one glance: agent author -> human reviewer, what was achieved (1 sentence),
-//        the tools used as a mini-logo row, cost ($ + tokens), standing.
+//        the tools used as a mini-logo row, tokens, standing.
 //   L2 — proof-of-readiness: the intent's done-conditions as +/x ("3 of 4 met", the
 //        x floated/called out) + needs-you chips drawn from the 6-category risk taxonomy.
 //   L3 — on demand: each needs-you / done-condition links DOWN to its proof canvas
@@ -68,7 +68,6 @@ export interface ReviewOutcomeSummaryProps {
 	/** tools used, in impact order. rendered as a mini-logo row.
 	 * accepts unknown tool ids (ToolLogo falls back to a neutral monogram). */
 	readonly tools: readonly (ToolId | string)[];
-	readonly costUsd: number;
 	readonly tokens: number;
 	/** Awaiting = queued for you; Blocking = the work cannot proceed without you. */
 	readonly standing: "Awaiting" | "Blocking";
@@ -100,14 +99,10 @@ function StandingPill({ standing }: { readonly standing: "Awaiting" | "Blocking"
 	);
 }
 
-function CostChip({ usd, tokens }: { readonly usd: number; readonly tokens: number }): JSX.Element {
+function TokensChip({ tokens }: { readonly tokens: number }): JSX.Element {
 	const tok = tokens >= 1000 ? `${(tokens / 1000).toFixed(1)}k` : String(tokens);
 	return (
 		<span className="inline-flex items-baseline gap-[6px] text-[13px] text-[var(--text-secondary)]">
-			<span className="font-[600] text-[var(--text-primary)] [font-variant-numeric:tabular-nums]">
-				${usd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-			</span>
-			<span className="text-[var(--text-tertiary)]">·</span>
 			<span className="[font-variant-numeric:tabular-nums]">{tok} tok</span>
 		</span>
 	);
@@ -208,7 +203,6 @@ function ReviewOutcomeSummaryView(props: ReviewOutcomeSummaryProps): JSX.Element
 		reviewerName,
 		achieved,
 		tools,
-		costUsd,
 		tokens,
 		standing,
 		doneConditions,
@@ -264,14 +258,14 @@ function ReviewOutcomeSummaryView(props: ReviewOutcomeSummaryProps): JSX.Element
 					{achieved}
 				</p>
 
-				{/* tools used (mini-logo row) + cost */}
+				{/* tools used (mini-logo row) + tokens */}
 				<div className="flex flex-wrap items-center justify-between gap-x-[18px] gap-y-[9px]">
 					<div className="flex flex-wrap items-center gap-[9px]">
 						{tools.map((t) => (
 							<ToolLogo key={t} tool={t} withLabel />
 						))}
 					</div>
-					<CostChip usd={costUsd} tokens={tokens} />
+					<TokensChip tokens={tokens} />
 				</div>
 			</header>
 
@@ -377,7 +371,6 @@ export function ReviewOutcomeSummary({ artifact }: ReviewCanvasProps): JSX.Eleme
 				reviewerName={payload.reviewerName ?? ""}
 				achieved={payload.achieved ?? artifact.title}
 				tools={payload.tools ?? []}
-				costUsd={payload.costUsd ?? 0}
 				tokens={payload.tokens ?? 0}
 				standing={payload.standing ?? "Awaiting"}
 				doneConditions={payload.doneConditions ?? []}

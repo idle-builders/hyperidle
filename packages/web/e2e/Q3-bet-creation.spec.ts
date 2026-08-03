@@ -55,8 +55,6 @@ const MOCK_BET_DETAIL = {
 	title: "Bold Feature",
 	team: "Test Team",
 	status: "shaped",
-	costAppetite: null,
-	costActual: null,
 	tokensActual: null,
 	progress: { done: 0, total: 0 },
 	description: "**Bold text** in pitch",
@@ -69,7 +67,6 @@ const MOCK_CREATE_RESPONSE = {
 	description: "My New Feature",
 	status: "shaped",
 	createdAt: new Date().toISOString(),
-	costAppetite: null,
 };
 
 test.describe("Q3 — Bet creation flow", () => {

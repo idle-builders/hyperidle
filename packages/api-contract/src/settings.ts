@@ -51,7 +51,6 @@ export type SettingsAgent = SettingsUser;
 /** Notification preferences in settings response. */
 export interface SettingsNotifications {
 	readonly reviewAlerts: boolean;
-	readonly costAlerts: boolean;
 	readonly blockerAlerts: boolean;
 	/** "HH:MM" format. */
 	readonly quietHoursStart: string;

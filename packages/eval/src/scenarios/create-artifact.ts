@@ -7,12 +7,7 @@
 
 import { artifacts } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import {
-	judgeCostTracked,
-	judgeCreateArtifactCalled,
-	judgeLlmQuality,
-	judgeSessionCompleted,
-} from "../judges.js";
+import { judgeCreateArtifactCalled, judgeLlmQuality, judgeSessionCompleted } from "../judges.js";
 import { runEvalSession } from "../provision-harness.js";
 import { seedMinimalWorld } from "../seeding.js";
 import type {
@@ -72,7 +67,6 @@ Document your changes in session notes.`,
 		dimensions: [
 			judgeSessionCompleted(),
 			judgeCreateArtifactCalled(),
-			judgeCostTracked(),
 			{
 				id: "kind_correctness",
 				// AM5 K4b: kind changed from code_diff to code

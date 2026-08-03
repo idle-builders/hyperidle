@@ -24,7 +24,7 @@ const TERMINAL_STATES = new Set(["done", "crashed"]);
 const DEFAULT_TTL_HOURS = 24;
 const HOUR_MS = 60 * 60 * 1000;
 
-/** Sweep interval: every 60 minutes (best-effort, like the cost sentinel). */
+/** Sweep interval: every 60 minutes (best-effort). */
 const SANDBOX_REAPER_INTERVAL_MS = 60 * 60 * 1000;
 
 interface SandboxReaperOptions {

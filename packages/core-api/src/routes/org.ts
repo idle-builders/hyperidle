@@ -118,8 +118,10 @@ export function createOrgRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 		const teamRows = await listTeamMembers(db, { active: true, withTeamName: true });
 
 		// @lore AU20/Am11: project only {id,kind,name,role} — listUsers returns full rows
-		// but this public-data endpoint must not leak email/systemPrompt/cost/model columns.
-		// Matches the pre-collapse listUserDirectory projection exactly.
+		// but this public-data endpoint must not leak email/systemPrompt/model columns
+		// (AU21 Increment 14a: the cost columns this projection also used to guard
+		// against leaking are dropped entirely, no replacement). Matches the
+		// pre-collapse listUserDirectory projection exactly.
 		const userSummaries = allUsers.map((u) => ({
 			id: u.id,
 			kind: u.kind,

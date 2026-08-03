@@ -16,8 +16,8 @@
  * (`AssistantTurnResolverDeps`), not a static import; the real emit site
  * (`routes/threads.ts`, core-api Layer code — not a nested Service, so it may
  * legitimately import both `@hyperidle/conversation` and `@hyperidle/users`)
- * wires the real `requireRunnableAgent` in at the call site. Same
- * ordinary-DI shape `cost-cap.ts` (`CostDeps`) already uses for its own
+ * wires the real `requireRunnableAgent` in at the call site — the same
+ * ordinary-DI shape used elsewhere in this codebase for injected
  * cross-Service reads.
  *
  * @lore naming: no export name is pinned in the architecture doc for this

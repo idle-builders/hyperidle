@@ -111,8 +111,7 @@ export interface ComposedReviewSubject extends ReviewSubject {
 	readonly reviewerName: string;
 	readonly blocking: boolean;
 	readonly producedAgo: string;
-	readonly costMoney: string;
-	readonly costTokens: string;
+	readonly tokens: string;
 	readonly tools: ReadonlyArray<string>;
 	readonly outcome: string;
 	readonly resultKpis: ReadonlyArray<ReviewKpi>;

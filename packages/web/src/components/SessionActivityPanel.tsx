@@ -2,7 +2,7 @@
  * Q1 §4.5: SessionActivityPanel component.
  *
  * Companion pane for the dial-in view. Shows session activity stream
- * (tool calls, reasoning excerpts, cost ticks) alongside the thread.
+ * (tool calls, reasoning excerpts) alongside the thread.
  *
  * States:
  * - streaming: session is active, activity entries arrive in real-time
@@ -15,12 +15,16 @@
  * @lore Q1 review issues #10–12:
  * #10: Auto-scroll pauses when the user scrolls up (threshold 40px from bottom),
  *      resumes automatically when they scroll back to the bottom.
- * #11: Filter tabs added (All | Tools | Reasoning | Cost) via DaisyUI tabs.
+ * #11: Filter tabs added (All | Tools | Reasoning) via DaisyUI tabs.
  * #12: Emoji 💭 replaced with an SVG reasoning icon.
+ *
+ * @lore AU21 Increment 14a: the "Cost" filter tab + `cost_tick` entry
+ * rendering are HARD-DELETED along with the rest of the cost-cap feature —
+ * no replacement.
  */
 
 import { EmptyState, TabBar } from "@hyperidle/design-system";
-import { clockTime, formatMoney } from "@hyperidle/shared";
+import { clockTime } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import type { ActivityEntry } from "../hooks/useSessionActivity.js";
 import { useSessionActivity } from "../hooks/useSessionActivity.js";
@@ -32,7 +36,7 @@ export interface SessionActivityPanelProps {
 	onClose: () => void;
 }
 
-type ActivityFilter = "all" | "tools" | "reasoning" | "cost";
+type ActivityFilter = "all" | "tools" | "reasoning";
 
 function ReasoningIcon(): JSX.Element {
 	return (
@@ -96,27 +100,6 @@ function ActivityEntryRow({ entry }: { entry: ActivityEntry }): JSX.Element | nu
 		);
 	}
 
-	if (entry.type === "cost_tick") {
-		const { deltaMinor, totalMinor, currency } = entry.data;
-		// CostTickData.currency is `string`; cast to CurrencyCode for formatMoney.
-		// Defaults to "USD" (the only currency in use today — AF10 §2 tech-debt).
-		const cur = (currency || "USD") as import("@hyperidle/shared").CurrencyCode;
-		return (
-			<div className="flex items-center gap-[8px] py-[4px] px-[8px] rounded-[var(--r-subtle)] hover:bg-[var(--surface-container)]">
-				<span className="text-[11px] text-[var(--text-tertiary)] tabular-nums">
-					+{formatMoney({ minor: deltaMinor, currency: cur })} / total{" "}
-					{formatMoney({ minor: totalMinor, currency: cur })}
-				</span>
-				<span
-					data-testid="activity-time"
-					className="ml-auto text-[10px] text-[var(--text-tertiary)] font-mono"
-				>
-					{time}
-				</span>
-			</div>
-		);
-	}
-
 	return null;
 }
 
@@ -124,7 +107,6 @@ function filterEntry(entry: ActivityEntry, filter: ActivityFilter): boolean {
 	if (filter === "all") return true;
 	if (filter === "tools") return entry.type === "tool_call";
 	if (filter === "reasoning") return entry.type === "reasoning";
-	if (filter === "cost") return entry.type === "cost_tick";
 	return false;
 }
 
@@ -174,7 +156,6 @@ export function SessionActivityPanel({
 		{ id: "all", label: "All" },
 		{ id: "tools", label: "Tools" },
 		{ id: "reasoning", label: "Reasoning" },
-		{ id: "cost", label: "Cost" },
 	];
 
 	return (

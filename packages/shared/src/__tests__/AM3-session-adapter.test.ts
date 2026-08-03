@@ -7,7 +7,6 @@
  *  - `derivePartsFromSession(entries, agent)` over normalized `ActivityEntry`:
  *      · tool_call → tool Part (verb/target/toolKind/status/output; file-change carries diff Embed)
  *      · reasoning → reasoning Part (durationMs + text)
- *      · cost_tick → SKIPPED (header chrome)
  *      · streaming answer → prose Part (text grows)
  *      · delivered human msg → prose Part (self/other pattern: isMe handled by author)
  *  - Tool-run aggregation: ALL completed calls fold (incl. failed); aggregate header signals failures;
@@ -79,14 +78,6 @@ function reasoningEntry(
 		},
 		...overrides,
 	} as Extract<ActivityEntry, { type: "reasoning" }>;
-}
-
-function costEntry(): Extract<ActivityEntry, { type: "cost_tick" }> {
-	return {
-		type: "cost_tick",
-		timestamp: Date.now(),
-		data: { deltaMinor: 100, totalMinor: 200, currency: "USD" },
-	};
 }
 
 function answerEntry(
@@ -420,20 +411,9 @@ describe("AM3 derivePartsFromSession — reasoning → reasoning Part", () => {
 	});
 });
 
-// ── derivePartsFromSession — cost_tick → SKIPPED ─────────────────────
-
-describe("AM3 derivePartsFromSession — cost_tick is SKIPPED (header chrome)", () => {
-	it("cost_tick entries produce no Part", () => {
-		const parts = derivePartsFromSession([costEntry()], AGENT);
-		expect(parts).toHaveLength(0);
-	});
-
-	it("cost_tick mixed with a tool entry: only the tool Part is produced", () => {
-		const parts = derivePartsFromSession([costEntry(), toolEntry()], AGENT);
-		expect(parts).toHaveLength(1);
-		expect(parts[0]?.kind).toBe("tool");
-	});
-});
+// @lore AU21 Increment 14a: "derivePartsFromSession — cost_tick is SKIPPED"
+// describe block is HARD-DELETED — `cost_tick` no longer exists as an
+// ActivityEntry variant, no replacement.
 
 // ── derivePartsFromSession — answer_delta/settled → prose Part ───────
 
@@ -856,7 +836,6 @@ describe("AM3 derivePartsFromSession — exhaustive over ActivityEntry types", (
 		const entries: ActivityEntry[] = [
 			toolEntry(),
 			reasoningEntry(),
-			costEntry(),
 			answerEntry("hi", true),
 			answerEntry("done", false),
 			humanEntry("question"),

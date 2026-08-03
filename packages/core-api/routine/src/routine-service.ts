@@ -22,11 +22,13 @@
  *
  * @lore AU20 Am2: collapsed 24 exports → 15. Five predicate-specific list
  * fns → `listRoutines(filter)`, two updateRun variants → `updateRoutineRun(opts?)`,
- * cost-aggregation trio → `sumRunCost({kind})`, and get-by-id renames
- * (`getRoutine`/`getRoutineRun`). The `| SQL` widening on patch types is
- * intentionally kept — `updateRoutine` is still the general setter and the
- * widening does no harm (only `incrementRoutineCost` eliminates the need for
- * callers to build coalesce SQL, but the type flexibility is harmless).
+ * and get-by-id renames (`getRoutine`/`getRoutineRun`). The AU20-era
+ * cost-aggregation trio → `sumRunCost({kind})` collapse is now moot: AU21
+ * Increment 14a deleted `sumRunCost`/`incrementRoutineCost` entirely along
+ * with the rest of the cost feature, no replacement. The `| SQL` widening on
+ * patch types is intentionally kept — `updateRoutine` is still the general
+ * setter and the widening does no harm (harmless type flexibility, not tied
+ * to any specific caller need anymore).
  */
 import {
 	type HyperIdleDb,
@@ -47,7 +49,7 @@ import type {
 } from "@hyperidle/shared";
 import { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "@hyperidle/shared";
 import type { SQL } from "drizzle-orm";
-import { and, asc, avg, desc, eq, gt, gte, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 
 export type Routine = typeof routines.$inferSelect;
 export type RoutineRun = typeof routineRuns.$inferSelect;
@@ -80,40 +82,6 @@ export async function updateRoutine(
 	patch: RoutinePatch,
 ): Promise<void> {
 	await exec.update(routines).set(patch).where(eq(routines.id, id));
-}
-
-/**
- * Atomically add `deltaMinor` to a routine's `costActualMinor` via
- * `coalesce(costActualMinor, 0) + delta`. Owns the coalesce SQL so the
- * `routines.costActualMinor` column ref never leaves this store. Mirrors
- * `@hyperidle/work`'s `incrementBetCost` / `@hyperidle/users`'
- * `incrementUserCost` / `@hyperidle/org`'s `incrementTeamMembersCost`.
- *
- * @lore AU19 Increment 3i: closes the coalesce-ownership gap `RoutinePatch`'s
- * own doc comment anticipated — `session-lifecycle.ts`'s
- * `updateRoutineRunOnSessionEnd` used to build this fragment itself via a raw
- * `updateRoutineById(db, routineId, { costActualMinor: sql\`...\` })` patch,
- * which required importing the `routines` table object directly (an
- * ownership violation once `session-lifecycle.ts` becomes its own Service
- * package — `routines` is this Service's `TABLE_OWNER`). Split into its own
- * call (previously part of ONE combined `updateRoutineById` patch alongside
- * `lastRunAt`/`lastRunSummary`) — the two writes were never transactional
- * with each other pre-migration either (`db`, not a shared `tx`), so this
- * does not weaken any atomicity guarantee.
- */
-export async function incrementRoutineCost(
-	exec: WriteExecutor,
-	id: string,
-	deltaMinor: number,
-	currency: string,
-): Promise<void> {
-	await exec
-		.update(routines)
-		.set({
-			costActualMinor: sql`coalesce(${routines.costActualMinor}, 0) + ${deltaMinor}`,
-			costActualCurrency: currency,
-		})
-		.where(eq(routines.id, id));
 }
 
 // ---------------------------------------------------------------------------
@@ -258,58 +226,6 @@ export async function listRoutineRuns(
 }
 
 // ---------------------------------------------------------------------------
-// cost aggregation
-// ---------------------------------------------------------------------------
-
-/**
- * Unified run-cost aggregator. `kind: 'sum'` returns `coalesce(sum(costMinor), 0)`
- * over all runs in `routineIds` (optionally bounded by `since`); returns `0`
- * when `routineIds` is empty. `kind: 'avg'` returns `round(avg(costMinor))`
- * over runs with `costMinor > 0`; returns `null` when no cost-bearing runs
- * exist.
- *
- * @lore AU20 Am2: collapses `avgRoutineRunCost`, `sumRoutineRunCostSince`,
- * `sumRoutineRunCostForRoutinesSince` into one parameterized query. All three
- * were `aggregate(costMinor) over runs where routineId in (…) [and startedAt >= since]`;
- * `kind` picks the aggregation, `since` is now optional on both.
- */
-export async function sumRunCost(
-	exec: WriteExecutor,
-	query: { routineIds: readonly string[]; since?: string; kind: "sum" },
-): Promise<number>;
-export async function sumRunCost(
-	exec: WriteExecutor,
-	query: { routineIds: readonly string[]; since?: string; kind: "avg" },
-): Promise<number | null>;
-export async function sumRunCost(
-	exec: WriteExecutor,
-	query: { routineIds: readonly string[]; since?: string; kind: "sum" | "avg" },
-): Promise<number | null> {
-	if (query.routineIds.length === 0) return 0;
-
-	const whereClause = and(
-		inArray(routineRuns.routineId, Array.from(query.routineIds)),
-		query.since !== undefined ? gte(routineRuns.startedAt, query.since) : undefined,
-		query.kind === "avg" ? gt(routineRuns.costMinor, 0) : undefined,
-	);
-
-	if (query.kind === "avg") {
-		const [row] = await exec
-			.select({ result: avg(routineRuns.costMinor) })
-			.from(routineRuns)
-			.where(whereClause);
-		return row?.result != null ? Math.round(Number(row.result)) : null;
-	}
-
-	const [row] = await exec
-		.select({ result: sql<number>`coalesce(sum(${routineRuns.costMinor}), 0)` })
-		.from(routineRuns)
-		.where(whereClause)
-		.limit(1);
-	return row?.result ?? 0;
-}
-
-// ---------------------------------------------------------------------------
 // resolveRoutineRunRequest — AU21 §6 Decision B / §9 Increment 4, Wave B —
 // the routine_run emit-time resolver
 // ---------------------------------------------------------------------------
@@ -354,7 +270,7 @@ export interface BakedRoutineRunRequest {
 	/**
 	 * AU21 §9 Increment 12 (Decision H3), Wave E: the server's
 	 * disabled-harness-types list, baked from the SAME `ports.settings
-	 * .readServerConfig` this file's cost-cap check already reads.
+	 * .readServerConfig` `routine-scheduler.ts` already reads.
 	 */
 	readonly harnessDisabled?: readonly string[];
 	/**
@@ -427,7 +343,7 @@ export interface RoutineRunResolverDeps {
 	 * `@hyperidle/settings`'s `readServerConfig`, injected (Mechanism C —
 	 * `@hyperidle/routine` cannot import `@hyperidle/settings` directly) for
 	 * the `harnessDisabled` bake. Same shape as `RoutineSchedulerPorts.settings
-	 * .readServerConfig` (`ports.ts`) this file's cost-cap check already reads
+	 * .readServerConfig` (`ports.ts`) `routine-scheduler.ts` already reads
 	 * — forwarded here by `fireGenericRoutine`, not a second wiring. Absent at
 	 * a call site not yet wired — the resolver bakes no `harnessDisabled`
 	 * (matches `admitSession`'s "absent = nothing disabled" degrade).
@@ -540,11 +456,6 @@ export async function resolveRoutineRunRequest(
 					name: routine.name,
 					description: routine.description,
 					lastRunSummary: routine.lastRunSummary,
-					// AU21 §9 Increment 12 (Decision H3), Wave E: bake the per-run
-					// cost cap from the SAME `routine` row this resolver already
-					// loaded to validate — replaces `admitSession`'s former live
-					// `ports.routine.getRoutineById(...).costCapPerRunMinor` read.
-					costCapPerRunMinor: routine.costCapPerRunMinor,
 				},
 				agent: { id: agent.id, name: agent.name, role: agent.role },
 				team: { id: team.id, name: team.name },

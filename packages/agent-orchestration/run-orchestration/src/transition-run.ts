@@ -17,7 +17,7 @@ type SessionLifecyclePorts = Parameters<typeof createProvisioner>[0];
  * AU21 §9 Increment 4 (Decision B″ item 3): `routine` dropped from this Pick.
  * `endSession`/`crashSession` no longer write `routineRuns` directly — the
  * finalize payload rides the existing `session_ended` emit (additive
- * `routineRunOutcome`/`costInCents` fields, `@hyperidle/shared`'s
+ * `routineRunOutcome` field, `@hyperidle/shared`'s
  * `SessionEndedEvent`) and a NEW core-api subscriber
  * (`routine-run-session-end-reactions.ts`) performs the write from inside
  * core-api. `TransitionPorts` now carries only the own-state
@@ -25,20 +25,14 @@ type SessionLifecyclePorts = Parameters<typeof createProvisioner>[0];
  */
 type TransitionPorts = Pick<SessionLifecyclePorts, "sessionRequests">;
 
-const TERMINATION_REASONS = [
-	"user_done",
-	"user_crashed",
-	"handoff",
-	"cost_cap",
-	"shutdown",
-] as const;
+/** AU21 Increment 14a: `cost_cap` reason deleted — the cap gate no longer exists. */
+const TERMINATION_REASONS = ["user_done", "user_crashed", "handoff", "shutdown"] as const;
 type AgentTerminationReason = (typeof TERMINATION_REASONS)[number];
 
 const TERMINATION_DISPOSITIONS = {
 	user_done: { state: "cancelled", failureCode: null },
 	user_crashed: { state: "failed", failureCode: null },
 	handoff: { state: "completed", failureCode: null },
-	cost_cap: { state: "failed", failureCode: "BUDGET_EXHAUSTED" },
 	shutdown: { state: "failed", failureCode: "RUNTIME_LOST" },
 } as const;
 
@@ -176,9 +170,6 @@ async function endSession(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	context: SessionContext,
-	costInCents: number,
-	baselineCost?: number,
-	routineRunOutcome?: "budget_exhausted",
 	terminalOutcome: "completed" | "not_returned" = "completed",
 	tokensByTier?: Partial<Record<ModelTier, { prompt: number; completion: number }>>,
 ): Promise<void> {
@@ -188,13 +179,6 @@ async function endSession(
 	context.ingestion.dispose();
 
 	// 2. Update session row.
-	// @lore O2: cost, costMinor, costCurrency columns stripped from the `sessions`
-	// table itself — costInCents is NOT written there. AU21 §9 Increment 6
-	// (Decision D): it IS now carried on the `session_ended` emit below (always,
-	// not just for routine sessions) so `session-cost-recorder.ts`
-	// (agent-orchestration's own subscriber) can persist it onto
-	// `agentSessionRequests`, the real per-session-cost home.
-	void baselineCost;
 	const now = new Date().toISOString();
 	// AF7 §4.3 (Z8-094/095): CAS terminal write. SET only WHERE state='active', so
 	// a duplicate teardown — or a teardown for a session a different writer already
@@ -232,21 +216,14 @@ async function endSession(
 			// AL6 v2: use terminalOutcome (not hardcoded "completed") so not_returned
 			// turns surface correctly on the bus.
 			outcome: terminalOutcome,
-			// AU21 §9 Increment 6 (Decision D): costInCents is hoisted OUT of the
-			// routineId-only conditional below — Decision D's per-session-cost gap
-			// (`tasks.ts`'s `cost: null`) is NOT routine-specific, so every
-			// session_ended (routine-sourced or not) carries the live-computed
-			// cost. `session-cost-recorder.ts` (agent-orchestration's own
-			// subscriber, NOT core-api) persists it onto `agentSessionRequests`.
-			costInCents,
 			// AU21 §9 Increment 4 (Decision B″ item 3): the routine-run finalize
 			// payload rides the SAME event — no direct `routineRuns` write here
-			// anymore. AA3: routineRunOutcome defaults to "success";
-			// "budget_exhausted" is passed through from the per-run cap
-			// enforcement path (independent of the session's own
-			// terminalOutcome). A NEW core-api subscriber
-			// (`routine-run-session-end-reactions.ts`) performs the write.
-			...(context.routineId ? { routineRunOutcome: routineRunOutcome ?? "success" } : {}),
+			// anymore. AU21 Increment 14a: the "budget_exhausted" per-run-cap
+			// outcome is deleted along with the cap gate — routineRunOutcome is
+			// always "success" here now (crashSession is the only "error" path).
+			// A core-api subscriber (`routine-run-session-end-reactions.ts`)
+			// performs the write.
+			...(context.routineId ? { routineRunOutcome: "success" as const } : {}),
 			// AU21 §9 Increment 12 (Decision H3), Wave D: the session's
 			// accumulated per-tier token counts ride this SAME event — no direct
 			// `bets.tokensActualJson` write here anymore. A core-api subscriber
@@ -254,10 +231,6 @@ async function endSession(
 			...(tokensByTier && Object.keys(tokensByTier).length > 0 ? { tokensByTier } : {}),
 		});
 	}
-
-	// 4. (Dedup state reclaimed automatically via the EventBus subscription
-	//    installed by `startSentinel` — see `installDedupReleaser` in cost-cap.ts.
-	//    The direct call was belt-and-suspenders; removed in AU20 Am3.)
 
 	// 6. Delete workspace directory
 	// @lore I6: use async fs.promises.rm() instead of sync fs.rmSync() to avoid
@@ -277,8 +250,6 @@ async function crashSession(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	context: SessionContext,
-	costInCents: number,
-	baselineCost?: number,
 	tokensByTier?: Partial<Record<ModelTier, { prompt: number; completion: number }>>,
 ): Promise<void> {
 	// 1. Try to dispose ingestion handle (may be in a bad state during crash).
@@ -293,10 +264,6 @@ async function crashSession(
 	}
 
 	// 2. Update session row.
-	// @lore O2: cost, costMinor, costCurrency columns stripped from the `sessions`
-	// table — see the endSession comment above; costInCents is carried on the
-	// `session_ended` emit below, not written to this row.
-	void baselineCost;
 	const now = new Date().toISOString();
 	// AF7 §4.3: CAS terminal write — see endSession. Crashing an already-terminal
 	// session affects zero rows and emits nothing.
@@ -320,9 +287,6 @@ async function crashSession(
 				: {}),
 			timestamp: Date.now(),
 			outcome: "crashed",
-			// AU21 §9 Increment 6 (Decision D): costInCents always present, see the
-			// endSession comment above for why this is no longer routine-gated.
-			costInCents,
 			// AU21 §9 Increment 4 (Decision B″ item 3): crash always finalizes the
 			// routine run to "error" — carried on the same event, no direct write.
 			...(context.routineId ? { routineRunOutcome: "error" as const } : {}),
@@ -331,9 +295,6 @@ async function crashSession(
 			...(tokensByTier && Object.keys(tokensByTier).length > 0 ? { tokensByTier } : {}),
 		});
 	}
-
-	// 4. (Dedup state reclaimed automatically via the EventBus subscription —
-	//    see `installDedupReleaser` in cost-cap.ts. AU20 Am3.)
 
 	// Note: Do NOT delete workspace on crash -- knowledge is preserved in DB
 	// and workspace may be needed for debugging
@@ -368,9 +329,6 @@ export function transitionRun(
 				readonly target: "session";
 				readonly context: SessionContext;
 				readonly disposition: "end" | "crash";
-				readonly costInCents?: number;
-				readonly baselineCost?: number;
-				readonly routineOutcome?: "budget_exhausted";
 				readonly terminalOutcome?: "completed" | "not_returned";
 				/**
 				 * AU21 §9 Increment 12 (Decision H3), Wave D: the session's
@@ -390,24 +348,8 @@ export function transitionRun(
 			: transitionAgentRunLifecycle(deps.db, deps.eventBus, spec, deps.ports);
 	}
 	return spec.disposition === "end"
-		? endSession(
-				deps.db,
-				deps.eventBus,
-				spec.context,
-				spec.costInCents ?? 0,
-				spec.baselineCost,
-				spec.routineOutcome,
-				spec.terminalOutcome,
-				spec.tokensByTier,
-			)
-		: crashSession(
-				deps.db,
-				deps.eventBus,
-				spec.context,
-				spec.costInCents ?? 0,
-				spec.baselineCost,
-				spec.tokensByTier,
-			);
+		? endSession(deps.db, deps.eventBus, spec.context, spec.terminalOutcome, spec.tokensByTier)
+		: crashSession(deps.db, deps.eventBus, spec.context, spec.tokensByTier);
 }
 
 // ---------------------------------------------------------------------------

@@ -73,12 +73,8 @@ const MOCK_TEAM: TeamDetail = {
 	teamMembers: { id: "tm-l12", formedAt: "2024-01-01T00:00:00.000Z", dissolvedAt: null },
 	roster: [],
 	burn: {
-		costActual: { minor: 100, currency: "USD" },
-		costCap: { minor: 1000, currency: "USD" },
 		activeBets: 1,
 		capacity: 3,
-		betCostActual: null,
-		routineCostThisMonth: null,
 	},
 	activeBets: [],
 };

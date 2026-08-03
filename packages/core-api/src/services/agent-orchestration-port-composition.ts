@@ -38,9 +38,6 @@ interface AgentOrchestrationHcClient {
 				readonly query: { readonly sourceKind: string; readonly sourceId: string };
 			}): Promise<Response>;
 			readonly ":sessionId": {
-				readonly cost: {
-					$get(args: { readonly param: { readonly sessionId: string } }): Promise<Response>;
-				};
 				readonly activity: {
 					$get(args: { readonly param: { readonly sessionId: string } }): Promise<Response>;
 				};
@@ -99,16 +96,6 @@ export function buildAgentOrchestrationPort(
 
 	return {
 		sessions: {
-			async getSessionCostBySessionId(sessionId: string): Promise<number | null | undefined> {
-				const res = await client["agent-orchestration"].sessions[":sessionId"].cost.$get({
-					param: { sessionId },
-				});
-				if (res.status === 404) return undefined;
-				if (!res.ok) return throwSeamError("sessions.getSessionCostBySessionId", res);
-				const body = (await res.json()) as { readonly costCents: number | null };
-				return body.costCents;
-			},
-
 			async listSessionHistoryBySource(
 				sourceKind: string,
 				sourceId: string,
@@ -184,7 +171,7 @@ export function getRegisteredAgentOrchestrationTransport(): AgentOrchestrationTr
 		throw new Error(
 			"AgentOrchestrationPort transport not registered — call " +
 				"registerAgentOrchestrationTransport(...) during application boot (or in a test, " +
-				"before a route reads per-session cost through the seam).",
+				"before a route reads session data through the seam).",
 		);
 	}
 	return registeredTransport;

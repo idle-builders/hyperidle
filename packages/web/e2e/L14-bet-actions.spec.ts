@@ -9,17 +9,18 @@
  *        passes isDirty=false ALWAYS — so Esc closes, empty or typed reason. Cancel DOES
  *        also close it. See architecture.md §Sanctioned assertion changes #1.
  * AC-9: Fill reason, click Kill bet confirm → POST /kill called; status chip updates.
- * AC-10: Adjust appetite flow → PATCH /bets/:id called with a WireMoney value.
  * AC-11: Unblock → composer textarea focused.
  * AC-12: After kill action, revisionLog last entry has actor="u-founder".
  *
  * @lore AF12: updated to the current UI contract. Bet actions live behind the
  * overflow menu (`data-testid="bet-overflow-btn"` → `data-bet-action="…"`), not
  * top-level buttons. Statuses are the post-U1 set (draft|active|completed|killed)
- * — `in_progress`/`paused`/`shipped` are dead. Appetite is a money input emitting
- * WireMoney, not a duration `<select>` string. Pause/Resume removed (no pause
+ * — `in_progress`/`paused`/`shipped` are dead. Pause/Resume removed (no pause
  * state in the bet status enum); the AC-12 actor-in-revisionLog coverage now runs
  * through the kill action.
+ *
+ * @lore AU21 Increment 14a: AC-10 ("Adjust appetite flow") is HARD-DELETED
+ * along with the rest of the cost-cap feature — no replacement.
  */
 
 import { expect, test } from "./fixtures";
@@ -35,8 +36,6 @@ function makeBetResponse(status = "active") {
 		product: "Alpha",
 		team: "t1",
 		status,
-		costAppetite: { minor: 100000, currency: "USD" },
-		costActual: null,
 		tokensActual: null,
 		progress: { done: 1, total: 3 },
 		description: "# Problem\n\nThis bet needs action bar testing.\n",
@@ -239,64 +238,10 @@ test.describe("L14 — Bet actions E2E", () => {
 		});
 	});
 
-	// ─── AC-10: Appetite dialog → PATCH (WireMoney) ────────────────────────
-
-	test.describe("AC-10 — Appetite adjust flow", () => {
-		test("changing appetite and confirming calls PATCH /bets/:id with WireMoney", async ({
-			page,
-		}) => {
-			let patchBody: Record<string, unknown> = {};
-
-			await setupCommonRoutes(page, "active");
-
-			await page.route(`**/api/bets/${BET_ID}`, (route) => {
-				if (route.request().method() === "PATCH") {
-					patchBody = JSON.parse(route.request().postData() ?? "{}") as Record<string, unknown>;
-					return route.fulfill({
-						status: 200,
-						contentType: "application/json",
-						body: JSON.stringify({
-							...makeBetResponse("active"),
-							costAppetite: { minor: 50000, currency: "USD" },
-						}),
-					});
-				}
-				if (route.request().method() === "GET") {
-					return route.fulfill({
-						status: 200,
-						contentType: "application/json",
-						body: JSON.stringify(makeBetResponse("active")),
-					});
-				}
-				return route.continue();
-			});
-
-			await page.goto(`/work/bet/${BET_ID}`);
-			await expect(page.locator('[data-testid="work-bet-page"]')).toBeVisible();
-
-			await openOverflowAction(page, "adjust-appetite");
-			await expect(page.getByRole("dialog")).toBeVisible();
-
-			// AF12: money input — numeric amount (major units), not a duration <select>.
-			const dialog = page.getByRole("dialog");
-			await dialog.getByRole("spinbutton").fill("500");
-
-			// Fill reason
-			const reasonArea = dialog.locator("textarea").first();
-			await reasonArea.fill("Scope reduced significantly");
-
-			// Click Save
-			const saveBtn = dialog.getByRole("button", { name: /save/i });
-			await expect(saveBtn).not.toBeDisabled();
-			await saveBtn.click();
-
-			// Assert PATCH was called with a WireMoney value, not a duration string.
-			await expect.poll(() => patchBody.field).toBe("cost_appetite");
-			expect(typeof patchBody.value).toBe("object");
-			expect(patchBody.value).toMatchObject({ minor: 50000, currency: "USD" });
-			expect(patchBody.reason).toBe("Scope reduced significantly");
-		});
-	});
+	// @lore AU21 Increment 14a: "AC-10 — Appetite adjust flow" describe block
+	// is HARD-DELETED — the "Adjust appetite" action + AppetiteDialog no
+	// longer exist (bets.costAppetite/costActual are dropped columns), no
+	// replacement.
 
 	// ─── AC-11: Unblock → composer textarea focused ────────────────────────
 
@@ -412,14 +357,13 @@ test.describe("L14 — Bet actions E2E", () => {
 	// ─── AC-7: Action bar renders per status (E2E smoke) ───────────────────
 
 	test.describe("AC-7 — Action bar per status (E2E smoke)", () => {
-		test("draft bet offers Activate, not Adjust appetite", async ({ page }) => {
+		test("draft bet offers Activate", async ({ page }) => {
 			await setupCommonRoutes(page, "draft");
 			await page.goto(`/work/bet/${BET_ID}`);
 			await expect(page.locator('[data-testid="work-bet-page"]')).toBeVisible();
 
 			await page.locator('[data-testid="bet-overflow-btn"]').click();
 			await expect(page.locator('[data-bet-action="activate"]')).toBeVisible();
-			await expect(page.locator('[data-bet-action="adjust-appetite"]')).toHaveCount(0);
 		});
 
 		test("completed bet shows no kill action", async ({ page }) => {

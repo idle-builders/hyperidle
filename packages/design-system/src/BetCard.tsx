@@ -57,8 +57,6 @@ export interface BetCardProps {
 	team: string;
 	status: BetStatus;
 	appetite?: string;
-	/** costAppetite: legacy prop name — alias for appetite */
-	costAppetite?: unknown;
 	atRisk?: boolean;
 	actions?: ReactNode;
 	onClick?: () => void;

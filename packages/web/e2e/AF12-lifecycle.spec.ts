@@ -1,13 +1,16 @@
 /**
- * AF12 — E2E lifecycle: activate (AC1) → adjust appetite as money (AC2) →
- * kill cascade copy (AC3) → sessions visible on the task surface (AC4).
+ * AF12 — E2E lifecycle: activate (AC1) → kill cascade copy (AC3) → sessions
+ * visible on the task surface (AC4).
  *
  * Hermetic page.route() mocks (same strategy as L14-bet-actions.spec.ts) — the
  * dev server serves only the SPA bundle.
  *
- * @lore AF12 RED: asserts the NEW lifecycle UI (Activate bet item, WireMoney
- * appetite payload, cost-honest kill copy, TaskSheet/Task sessions list). These
- * fail until the green phase ships the four surfaces.
+ * @lore AF12 RED: asserts the NEW lifecycle UI (Activate bet item,
+ * cost-honest kill copy, TaskSheet/Task sessions list). These fail until the
+ * green phase ships the surfaces.
+ *
+ * @lore AU21 Increment 14a: AC2 ("adjust appetite as money") is HARD-DELETED
+ * along with the rest of the cost-cap feature — no replacement.
  */
 
 import { expect, test } from "./fixtures";
@@ -22,8 +25,6 @@ function betResponse(id: string, status: string) {
 		product: "Alpha",
 		team: "t1",
 		status,
-		costAppetite: { minor: 100000, currency: "USD" },
-		costActual: null,
 		tokensActual: null,
 		progress: { done: 0, total: 0 },
 		description: "# Problem\n\nLifecycle bet.\n",
@@ -108,48 +109,9 @@ test.describe("AF12 — bet/task lifecycle E2E", () => {
 		await expect.poll(() => activated).toBe(true);
 	});
 
-	// ─── AC2: Adjust appetite sends WireMoney ────────────────────────────────
-	test("adjust appetite sends a WireMoney object (no 400, no duration string)", async ({
-		page,
-	}) => {
-		let patchBody: Record<string, unknown> = {};
-		await setupCommonRoutes(page, ACTIVE_BET, "active");
-
-		await page.route(`**/api/bets/${ACTIVE_BET}`, (route) => {
-			if (route.request().method() === "PATCH") {
-				patchBody = JSON.parse(route.request().postData() ?? "{}") as Record<string, unknown>;
-				return route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(betResponse(ACTIVE_BET, "active")),
-				});
-			}
-			if (route.request().method() === "GET") {
-				return route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify(betResponse(ACTIVE_BET, "active")),
-				});
-			}
-			return route.continue();
-		});
-
-		await page.goto(`/work/bet/${ACTIVE_BET}`);
-		await expect(page.locator('[data-testid="work-bet-page"]')).toBeVisible();
-
-		await page.locator('[data-testid="bet-overflow-btn"]').click();
-		await page.locator('[data-bet-action="adjust-appetite"]').click();
-
-		const dialog = page.getByRole("dialog");
-		await expect(dialog).toBeVisible();
-		await dialog.getByRole("spinbutton").fill("250");
-		await dialog.locator("textarea").first().fill("Scope grew");
-		await dialog.getByRole("button", { name: /save/i }).click();
-
-		await expect.poll(() => patchBody.field).toBe("cost_appetite");
-		expect(typeof patchBody.value).toBe("object");
-		expect(patchBody.value).toMatchObject({ minor: 25000, currency: "USD" });
-	});
+	// @lore AU21 Increment 14a: "AC2: Adjust appetite sends WireMoney" is
+	// HARD-DELETED — the "Adjust appetite" action + AppetiteDialog no longer
+	// exist (bets.costAppetite/costActual are dropped columns), no replacement.
 
 	// ─── AC3: Kill dialog copy is cost-honest ────────────────────────────────
 	test("kill dialog copy is cost-honest (no 'immediately', has 'finish their current step')", async ({

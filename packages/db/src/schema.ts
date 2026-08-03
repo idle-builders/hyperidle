@@ -60,12 +60,6 @@ export const users = pgTable("users", {
 	skills: text("skills"),
 	status: text("status").notNull(),
 	maxConcurrentSessions: integer("max_concurrent_sessions").notNull().default(1),
-	/** @lore L17: costCap renamed to costCapMinor; costActual removed (computed from sessions). Legacy column preserved for migration rollback. */
-	costCap: integer("cost_cap"),
-	costActual: integer("cost_actual").default(0),
-	/** L17: structured money cap — minor units + currency code. */
-	costCapMinor: integer("cost_cap_minor"),
-	costCapCurrency: text("cost_cap_currency"),
 	/** P2: human-specific nullable columns. Null for AI users. */
 	email: text("email"),
 	avatarUrl: text("avatar_url"),
@@ -117,12 +111,6 @@ export const teamMembers = pgTable("team_members", {
 	leadAgentId: text("lead_agent_id"),
 	capacity: integer("capacity").notNull(),
 	activeBets: integer("active_bets").notNull().default(0),
-	/** @lore L17: legacy columns kept for rollback safety. */
-	costCap: integer("cost_cap"),
-	costActual: integer("cost_actual").default(0),
-	/** L17: structured money cap — minor units + currency code. */
-	costCapMinor: integer("cost_cap_minor"),
-	costCapCurrency: text("cost_cap_currency"),
 	formedAt: text("formed_at").notNull(),
 	dissolvedAt: text("dissolved_at"),
 });
@@ -142,10 +130,11 @@ export const bets = pgTable(
 		// @lore U1: `description` was formerly `pitch`. Renamed in migration 0021.
 		description: text("description").notNull(),
 		/**
-		 * @lore L17: appetite (duration string "1 week"/"2 weeks"/"6 weeks") is
-		 * deprecated in favour of costAppetiteMinor + costAppetiteCurrency.
-		 * The column is kept for rollback safety but no longer required at the
-		 * API boundary (nullable here, route validation rejects it as a 400).
+		 * @lore L17: appetite (duration string "1 week"/"2 weeks"/"6 weeks") was
+		 * deprecated in favour of the cost-appetite columns AU21 Increment 14a
+		 * now deletes outright (no replacement). The column is kept for rollback
+		 * safety but no longer required at the API boundary (nullable here,
+		 * route validation rejects it as a 400).
 		 */
 		appetite: text("appetite"),
 		doneCondition: text("done_condition"),
@@ -159,12 +148,6 @@ export const bets = pgTable(
 		completedAt: text("completed_at"),
 		// @lore U1: `atRisk` boolean replaces the old `behind` status sub-state.
 		atRisk: integer("at_risk").notNull().default(0),
-		/** L17: structured cost appetite — minor units + currency code. */
-		costAppetiteMinor: integer("cost_appetite_minor"),
-		costAppetiteCurrency: text("cost_appetite_currency"),
-		/** L17: accumulated actual cost from sessions — minor units + currency. */
-		costActualMinor: integer("cost_actual_minor"),
-		costActualCurrency: text("cost_actual_currency"),
 		/** L17: accumulated tokens as JSON (TokenUsage shape). */
 		tokensActualJson: text("tokens_actual_json"),
 		/** AC1: Structured outcome verdict. Closed enum: validated|refuted|partial|inconclusive. Null = not evaluated. */
@@ -215,8 +198,6 @@ export const tasks = pgTable(
 		state: text("state").notNull(),
 		dependencies: text("dependencies"),
 		artifacts: text("artifacts"),
-		costCap: integer("cost_cap"),
-		costActual: integer("cost_actual").default(0),
 		threadId: text("thread_id").references(() => threads.id, { onDelete: "restrict" }),
 		notes: text("notes"),
 		auditTrail: text("audit_trail"),
@@ -322,17 +303,6 @@ export const agentSessionRequests = pgTable(
 		terminationRequestedBy: text("termination_requested_by"),
 		errorCode: text("error_code"),
 		errorMessage: text("error_message"),
-		/**
-		 * AU21 §9 Increment 6 (Decision D) — additive column, no new table.
-		 * `agent-orchestration`'s own recorded per-session cost, written once at
-		 * `session_ended` by `session-cost-recorder.ts` (this Service's own
-		 * write, matched via `sessionId`). Serves the real gap `architecture.md`
-		 * §6 Decision D traces: `tasks.ts`'s `cost: null` — there is no cost
-		 * "mirror" to delete, this is the first time per-session cost is
-		 * persisted anywhere. Write-once (only set while still `null`) — see
-		 * `session-cost-recorder.ts`'s idempotency guard.
-		 */
-		costCents: integer("cost_cents"),
 		createdAt: text("created_at").notNull(),
 		updatedAt: text("updated_at").notNull(),
 	},
@@ -363,7 +333,7 @@ export const agentSessionRequests = pgTable(
 		),
 		check(
 			"agent_session_requests_termination_reason_ck",
-			sql`${table.terminationReason} is null or ${table.terminationReason} in ('user_done', 'user_crashed', 'handoff', 'cost_cap', 'shutdown')`,
+			sql`${table.terminationReason} is null or ${table.terminationReason} in ('user_done', 'user_crashed', 'handoff', 'shutdown')`,
 		),
 	],
 );
@@ -660,18 +630,10 @@ export const routines = pgTable(
 		state: text("state").notNull().default("active"),
 		lastRunAt: text("last_run_at"),
 		nextRunAt: text("next_run_at"),
-		/** AA1: cumulative actual cost across all runs — minor units. */
-		costActualMinor: integer("cost_actual_minor"),
-		/** AA1: currency code for costActualMinor. */
-		costActualCurrency: text("cost_actual_currency"),
 		/** AA2: Soft delete timestamp. When set, routine is archived. */
 		deletedAt: text("deleted_at"),
 		/** AA2: Last successful run's summary. Single-slot overwrite per concept doc. */
 		lastRunSummary: text("last_run_summary"),
-		/** AA2: Optional per-run cost ceiling in minor units. NULL = no cap. */
-		costCapPerRunMinor: integer("cost_cap_per_run_minor"),
-		/** AA3: Optional per-month cost ceiling in minor units. NULL = no cap. Factory is single-currency so no currency column needed (matches per-run cap pattern). */
-		costCapMonthlyMinor: integer("cost_cap_monthly_minor"),
 		/** AA2: Creation timestamp. Backfilled for pre-existing routines. */
 		createdAt: text("created_at"),
 		/**
@@ -728,10 +690,8 @@ export const routineRuns = pgTable(
 			.references(() => routines.id, { onDelete: "restrict" }),
 		startedAt: text("started_at").notNull(),
 		endedAt: text("ended_at"),
-		/** 'success' | 'error' */
+		/** 'success' | 'error' | 'skipped' | 'running' | 'timeout' */
 		outcome: text("outcome").notNull(),
-		costMinor: integer("cost_minor"),
-		costCurrency: text("cost_currency"),
 		errorMessage: text("error_message"),
 		/**
 		 * AA2: Link to the session that executed this run. NULL for pre-AA2 runs.
@@ -1111,13 +1071,17 @@ export const notificationQueue = pgTable(
 		/** ISO timestamp when the row entered the `sending` state. */
 		claimedAt: text("claimed_at"),
 		// AF8: in-app notification model (popover). severity/channel stay for egress.
-		/** Concept type key: "review_request" | "blocker_alert" | "cost_alert". Nullable for back-compat. */
+		/**
+		 * Concept type key: "review_request" | "blocker_alert". Nullable for
+		 * back-compat. @lore AU21 Increment 14a: "cost_alert" deleted along
+		 * with the cost-cap feature that produced it — no replacement.
+		 */
 		typeKey: text("type_key"),
 		/** "immediate" | "ambient" — from type registry default, adjusted per-instance. Nullable for back-compat. */
 		urgency: text("urgency"),
 		/**
-		 * Persisted route. Thread-keyed `/conversations/${threadId}` for review/blocker;
-		 * "/work/portfolio" for cost_alert. NEVER reconstructed at render (concept hard rule #2).
+		 * Persisted route. Thread-keyed `/conversations/${threadId}` for review/blocker.
+		 * NEVER reconstructed at render (concept hard rule #2).
 		 * Nullable for back-compat with existing egress rows.
 		 *
 		 * @lore AF8: The original dispatcher.ts:178 deepLink used `/conversations/item/<id>`

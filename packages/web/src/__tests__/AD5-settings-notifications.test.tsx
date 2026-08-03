@@ -54,18 +54,18 @@ describe("AD5 — AC-3: SettingsNotifications persists via useNotificationMute (
 		expect(reviewToggle).not.toBeChecked();
 	});
 
-	it("initializes 'Cost alerts' toggle as ON (not muted)", async () => {
+	it("initializes 'Blocker alerts' toggle as ON (not muted)", async () => {
 		render(<SettingsNotifications />);
-		const costToggle = screen.getByRole("switch", { name: /cost alerts/i });
-		expect(costToggle).toBeChecked();
+		const blockerToggle = screen.getByRole("switch", { name: /blocker alerts/i });
+		expect(blockerToggle).toBeChecked();
 	});
 
 	it("calls setMuted when a toggle is clicked", async () => {
 		const user = userEvent.setup();
 		render(<SettingsNotifications />);
 
-		const costToggle = screen.getByRole("switch", { name: /cost alerts/i });
-		await user.click(costToggle);
+		const blockerToggle = screen.getByRole("switch", { name: /blocker alerts/i });
+		await user.click(blockerToggle);
 
 		await waitFor(() => {
 			expect(setMutedMock).toHaveBeenCalled();

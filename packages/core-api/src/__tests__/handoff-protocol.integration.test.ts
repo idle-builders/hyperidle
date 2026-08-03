@@ -15,7 +15,6 @@ import {
 import { AdapterPool, createHarnessAdapter } from "@hyperidle/harness-registry";
 import type { HandoffMetadata } from "@hyperidle/policy";
 import type { RunTransitionSpec } from "@hyperidle/run-orchestration";
-// @lore O2: sessions.cost stripped; cost tracking moved to agents.costActual.
 import { eq, inArray } from "drizzle-orm";
 import { handoff } from "../services/policy-bindings.js";
 import { runtimeDeps, startRuntime } from "../services/run-orchestration-composition.js";
@@ -608,34 +607,9 @@ describe("Handoff Protocol", () => {
 		});
 	});
 
-	describe("I1 H3: handoff does NOT zero users.costActual", () => {
-		// @lore O2: sessions.cost stripped; cost tracking moved to agents.costActual.
-		// The test now verifies that agents.costActual is preserved across a handoff.
-		test("preserves the agent's accumulated costActual on handoff", async ({ db, eventBus }) => {
-			await seedPrerequisites(db);
-			await insertAgent(db, "agent-a", "builder", "t1");
-			await insertAgent(db, "agent-b", "builder", "t1");
-			await insertTask(db, "task-h3", "in_progress", "agent-a");
-			await insertSession(db, "session-h3", "task-h3", "agent-a");
-
-			// Pre-accumulate cost on the agent.
-			await db.update(users).set({ costActual: 150 }).where(eq(users.id, "agent-a"));
-
-			const ctx = makeSessionContext("session-h3", "agent-a", "task-h3");
-			await handoff(db, eventBus, {
-				sessionContext: ctx,
-				toAgent: "agent-b",
-				metadata: makeMetadata(),
-			});
-
-			const [session] = await db.select().from(sessions).where(eq(sessions.id, "session-h3"));
-			expect(session?.state).toBe("done");
-			expect(session?.endedAt).toBeTruthy();
-			// Key assertion: agents.costActual must survive the handoff unchanged.
-			const [agent] = await db.select().from(users).where(eq(users.id, "agent-a"));
-			expect(agent?.costActual).toBe(150);
-		});
-	});
+	// @lore AU21 Increment 14a: "I1 H3: handoff does NOT zero users.costActual"
+	// is deleted along with the rest of the cost feature — the column is
+	// dropped, no replacement.
 
 	// ---------------- I1 adversary-M2 / security-M3: handoff is atomic ----------------
 	describe("I1 M2: handoff wraps all DB mutations in one transaction", () => {
@@ -697,9 +671,6 @@ describe("Handoff Protocol", () => {
 			await insertAgent(db, "agent-b", "builder", "t1");
 			await insertTask(db, "task-atomic", "in_progress", "agent-a");
 			await insertSession(db, "session-atomic", "task-atomic", "agent-a");
-			// Bump the agent costActual so we can prove it survives the rollback.
-			// @lore O2: sessions.cost stripped; rollback proof via agents.costActual.
-			await db.update(users).set({ costActual: 250 }).where(eq(users.id, "agent-a"));
 
 			// Force the `messages` INSERT inside the handoff transaction to throw.
 			// @lore PGlite: In SQLite FK enforcement was typically off, so we
@@ -758,9 +729,6 @@ describe("Handoff Protocol", () => {
 			const [session] = await db.select().from(sessions).where(eq(sessions.id, "session-atomic"));
 			expect(session?.state).toBe("active");
 			expect(session?.endedAt).toBeFalsy();
-			// @lore O2: sessions.cost stripped; prove rollback via agents.costActual.
-			const [agentRow] = await db.select().from(users).where(eq(users.id, "agent-a"));
-			expect(agentRow?.costActual).toBe(250);
 
 			// Task: ownerAgentId still agent-a (ownership update rolled back),
 			// auditTrail has no handoff entry (the tx rolled back all of its writes).

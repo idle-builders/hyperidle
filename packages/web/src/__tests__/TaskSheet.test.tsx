@@ -54,7 +54,6 @@ const sampleTask: KanbanTask = {
 	title: "Implement login endpoint",
 	owner: "Dev Agent 1",
 	state: "in_progress",
-	cost: "$4.20",
 	betTag: "Auth",
 };
 

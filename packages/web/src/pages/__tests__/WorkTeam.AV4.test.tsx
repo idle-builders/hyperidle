@@ -97,11 +97,7 @@ const TEAM_DATA: TeamDetail = {
 	},
 	roster: [ROSTER_MEMBER],
 	burn: {
-		costActual: null,
-		costCap: null,
 		capacity: 5,
-		betCostActual: null,
-		routineCostThisMonth: null,
 		activeBets: 0,
 	},
 	activeBets: [],
@@ -116,7 +112,6 @@ const TEAM_DATA: TeamDetail = {
 			lastRunAt: null,
 			lastRunOutcome: null,
 			nextRunAt: null,
-			costActual: null,
 		},
 	],
 };

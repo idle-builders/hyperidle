@@ -6,12 +6,7 @@
 
 import { tasks } from "@hyperidle/db";
 import { and, eq, ne } from "drizzle-orm";
-import {
-	judgeCostTracked,
-	judgeLlmQuality,
-	judgeSessionCompleted,
-	judgeTasksCreatedCount,
-} from "../judges.js";
+import { judgeLlmQuality, judgeSessionCompleted, judgeTasksCreatedCount } from "../judges.js";
 import { runEvalSession } from "../provision-harness.js";
 import { seedMinimalWorld } from "../seeding.js";
 import type {
@@ -73,7 +68,6 @@ Create at least 3 tasks. Good decompositions include: asset creation, copy revie
 	rubric: {
 		dimensions: [
 			judgeSessionCompleted(),
-			judgeCostTracked(),
 			judgeTasksCreatedCount(3),
 			{
 				id: "done_conditions_present",

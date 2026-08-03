@@ -27,7 +27,7 @@ import {
 	StatusChip,
 	taskStateToStatus,
 } from "@hyperidle/design-system";
-import { formatMoney, relativeLong, TASK_STATE_LABEL } from "@hyperidle/shared";
+import { relativeLong, TASK_STATE_LABEL } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
@@ -62,14 +62,12 @@ function SessionRow({
 	title,
 	agent,
 	status,
-	cost,
 	effectivenessScore,
 }: {
 	id: string;
 	title: string;
 	agent: string;
 	status: string;
-	cost: { minor?: number | null; currency?: string | null } | null;
 	/** AC1: Float 0-1 effectiveness score. Null/undefined = not evaluated. */
 	effectivenessScore?: number | null;
 }): JSX.Element {
@@ -94,14 +92,6 @@ function SessionRow({
 					aria-label={`Effectiveness: ${effectivenessScore.toFixed(2)}`}
 				>
 					{effectivenessScore.toFixed(2)}
-				</span>
-			)}
-			{cost !== null && cost.minor != null && (
-				<span className="text-[12px] font-mono tabular-nums text-[var(--text-tertiary)]">
-					{formatMoney({
-						minor: cost.minor,
-						currency: (cost.currency || "USD") as import("@hyperidle/shared").CurrencyCode,
-					})}
 				</span>
 			)}
 			<div className="flex items-center gap-[6px] shrink-0">
@@ -269,17 +259,6 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 								</span>
 							</div>
 						)}
-						{/* Cost */}
-						{task.costActual !== null && (
-							<div className="flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px] border-r border-[var(--border-subtle)]">
-								<span className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
-									Cost
-								</span>
-								<span className="text-[13px] font-[500] font-mono tabular-nums text-[var(--text-primary)]">
-									{formatMoney(task.costActual)}
-								</span>
-							</div>
-						)}
 						{/* Sessions */}
 						<div className="flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px] border-r border-[var(--border-subtle)]">
 							<span className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
@@ -327,7 +306,6 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 										title={s.title}
 										agent={s.agent}
 										status={s.status}
-										cost={s.cost}
 										effectivenessScore={s.effectivenessScore}
 									/>
 								))}

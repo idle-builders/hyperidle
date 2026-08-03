@@ -159,7 +159,6 @@ describe("SettingsNotifications (cluster 2 — settings)", () => {
 	it("has all required notification fields", () => {
 		const notifications: SettingsNotifications = {
 			reviewAlerts: true,
-			costAlerts: true,
 			blockerAlerts: true,
 			quietHoursStart: "22:00",
 			quietHoursEnd: "08:00",
@@ -170,10 +169,6 @@ describe("SettingsNotifications (cluster 2 — settings)", () => {
 
 	it("reviewAlerts is boolean", () => {
 		expectTypeOf<SettingsNotifications["reviewAlerts"]>().toEqualTypeOf<boolean>();
-	});
-
-	it("costAlerts is boolean", () => {
-		expectTypeOf<SettingsNotifications["costAlerts"]>().toEqualTypeOf<boolean>();
 	});
 
 	it("blockerAlerts is boolean", () => {
@@ -195,7 +190,6 @@ describe("SettingsNotifications (cluster 2 — settings)", () => {
 	it("accepts non-empty mutedTeams", () => {
 		const n: SettingsNotifications = {
 			reviewAlerts: false,
-			costAlerts: false,
 			blockerAlerts: false,
 			quietHoursStart: "23:00",
 			quietHoursEnd: "07:00",
@@ -225,7 +219,6 @@ describe("SettingsResponse (cluster 2 — settings)", () => {
 			],
 			notifications: {
 				reviewAlerts: true,
-				costAlerts: true,
 				blockerAlerts: true,
 				quietHoursStart: "22:00",
 				quietHoursEnd: "08:00",
@@ -274,7 +267,6 @@ describe("index.ts re-exports", () => {
 			users: [],
 			notifications: {
 				reviewAlerts: false,
-				costAlerts: false,
 				blockerAlerts: false,
 				quietHoursStart: "00:00",
 				quietHoursEnd: "00:00",

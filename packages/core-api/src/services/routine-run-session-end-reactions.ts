@@ -8,10 +8,9 @@
  *
  * Both former call sites now finalize by EMITTING an event instead of
  * writing `routineRuns` directly:
- *   - `session_ended` (`@hyperidle/shared`), additive `routineRunOutcome`/
- *     `costInCents` fields, for a routine-sourced session that reached a
- *     terminal disposition (success / crash / budget-exhausted override /
- *     stale-session-reaper timeout).
+ *   - `session_ended` (`@hyperidle/shared`), additive `routineRunOutcome`
+ *     field, for a routine-sourced session that reached a terminal
+ *     disposition (success / crash / stale-session-reaper timeout).
  *   - `agent_run_lifecycle_changed` with `state:"failed"`/`"cancelled"`, for
  *     a routine session that never reached `session_ended` at all (a
  *     pre-session-launch provisioning failure) — the "request" disposition
@@ -23,9 +22,13 @@
  * payload or `MAX_ATTEMPTS_EXCEEDED`). This subscriber only reacts to a
  * session that DID get provisioned.
  *
- * `costInCents` is orchestration's own live-computed session cost
- * (`totalCostCents` in `provisioner.ts`) with no other channel to reach
- * core-api — `@lore O2` stripped cost columns from `sessions` entirely.
+ * @lore AU21 Increment 14a: this reaction used to also finalize the run's
+ * cost (`costInCents` on `session_ended`, threaded into `routineRuns.
+ * costMinor`/`costCurrency` and `routines.costActualMinor` via
+ * `incrementRoutineCost`) — all deleted along with the rest of the cost
+ * feature (columns dropped, no replacement). Only the routine-run-outcome
+ * finalization below survives, per the founder's directive to preserve any
+ * non-cost concern riding the same event/subscriber path.
  *
  * @lore this module mirrors `agent-run-admission-reactions.ts`'s
  * per-eventBus-instance idempotency guard (`registeredBuses`) so booting the
@@ -53,12 +56,11 @@ type RoutineRunFinalizeOutcome = NonNullable<SessionEndedEvent["routineRunOutcom
 /**
  * Finalize routine run `runId` to `outcome`, mirroring
  * `updateRoutineRunOnSessionEnd`'s writes exactly: the `routineRuns` row
- * (`outcome`, `sessionId`, `endedAt`, `costMinor`/`costCurrency`), then the
- * owning routine's cumulative cost + `lastRunAt`.
+ * (`outcome`, `sessionId`, `endedAt`), then the owning routine's `lastRunAt`.
  *
  * Idempotent: only fires when the run is still `outcome:"running"` — a
  * duplicate delivery of an already-finalized run's terminal event (or an
- * event for an unknown run) is a safe no-op, never a double cost add.
+ * event for an unknown run) is a safe no-op.
  */
 async function finalizeRoutineRun(
 	db: HyperIdleDb,
@@ -67,13 +69,11 @@ async function finalizeRoutineRun(
 		readonly outcome: RoutineRunFinalizeOutcome;
 		readonly endedAt: string;
 		readonly sessionId?: string;
-		readonly costInCents?: number;
 	},
 ): Promise<void> {
 	const run = await routineService.getRoutineRun(db, input.runId);
 	if (!run || run.outcome !== "running") return;
 
-	const costInCents = input.costInCents ?? 0;
 	await routineService.updateRoutineRun(
 		db,
 		input.runId,
@@ -81,15 +81,10 @@ async function finalizeRoutineRun(
 			outcome: input.outcome,
 			endedAt: input.endedAt,
 			...(input.sessionId ? { sessionId: input.sessionId } : {}),
-			costMinor: costInCents > 0 ? costInCents : null,
-			costCurrency: costInCents > 0 ? "USD" : null,
 		},
 		{ onlyIfRunning: true },
 	);
 
-	if (costInCents > 0) {
-		await routineService.incrementRoutineCost(db, run.routineId, costInCents, "USD");
-	}
 	await routineService.updateRoutine(db, run.routineId, { lastRunAt: input.endedAt });
 }
 
@@ -101,7 +96,6 @@ function reactToSessionEnded(db: HyperIdleDb, event: SessionEndedEvent): Promise
 		outcome: event.routineRunOutcome,
 		endedAt: new Date(event.timestamp).toISOString(),
 		sessionId: event.sessionId,
-		costInCents: event.costInCents,
 	});
 }
 

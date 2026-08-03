@@ -14,7 +14,6 @@
 
 import {
 	artifacts,
-	bets,
 	items,
 	knowledgeAppProjection,
 	knowledgeEditLog,
@@ -26,7 +25,7 @@ import {
 	userSkills,
 } from "@hyperidle/db";
 import type { TaskState } from "@hyperidle/shared";
-import { and, eq, gt, isNotNull, like, ne } from "drizzle-orm";
+import { and, eq, isNotNull, like, ne } from "drizzle-orm";
 import type { DimensionScore, JudgeContext, RubricDimension } from "./types.js";
 
 // ---------------------------------------------------------------------------
@@ -57,26 +56,9 @@ export function judgeSessionCompleted(): RubricDimension {
 	};
 }
 
-/** Judge: cost was tracked on the scenario's bet (bets.costActualMinor > 0). */
-export function judgeCostTracked(): RubricDimension {
-	return {
-		id: "cost_tracked",
-		label: "Cost Tracked",
-		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-			const [bet] = await ctx.db
-				.select({ costActualMinor: bets.costActualMinor })
-				.from(bets)
-				.where(and(eq(bets.id, ctx.seedResult.betId), gt(bets.costActualMinor, 0)))
-				.limit(1);
-
-			const tracked = bet !== undefined;
-			return {
-				score: tracked ? 1.0 : 0.0,
-				note: tracked ? undefined : "No cost tracked on bet (bets.costActualMinor = 0 or null)",
-			};
-		},
-	};
-}
+// @lore AU21 Increment 14a: `judgeCostTracked` (asserted `bets.costActualMinor
+// > 0`) is deleted along with the rest of the cost feature — the column is
+// dropped, no replacement.
 
 /** Judge: no unexpected DB mutations (no extra tasks, seeded knowledge not deleted). */
 export function judgeNoHarmfulActions(): RubricDimension {
@@ -720,39 +702,8 @@ export function judgeSessionNotesReferencePrior(): RubricDimension {
 	};
 }
 
-/** Judge: session notes contain budget/cost awareness language. */
-export function judgeSessionNotesMentionCost(): RubricDimension {
-	return {
-		id: "cost_awareness",
-		label: "Session Notes Mention Cost Awareness",
-		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-			const [session] = await ctx.db
-				.select({ notes: sessions.notes })
-				.from(sessions)
-				.where(eq(sessions.id, ctx.triggerResult.sessionId))
-				.limit(1);
-
-			if (!session?.notes) {
-				return { score: 0.0, note: "Session notes are empty or null" };
-			}
-
-			const lowerNotes = session.notes.toLowerCase();
-			const hasCostLanguage =
-				lowerNotes.includes("budget") ||
-				lowerNotes.includes("cost") ||
-				lowerNotes.includes("efficient") ||
-				lowerNotes.includes("minimal") ||
-				lowerNotes.includes("concise");
-
-			return {
-				score: hasCostLanguage ? 1.0 : 0.0,
-				note: hasCostLanguage
-					? "Session notes mention cost/efficiency awareness"
-					: "Session notes do not mention cost or efficiency",
-			};
-		},
-	};
-}
+// @lore AU21 Increment 14a: `judgeSessionNotesMentionCost` (never registered
+// by any scenario) is deleted along with the rest of the cost feature.
 
 /** Judge: promote_knowledge was called by this agent (based on edit log). */
 export function judgePromoteKnowledgeCalledByAgent(): RubricDimension {

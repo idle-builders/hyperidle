@@ -1,7 +1,6 @@
 import type { Artifact } from "@hyperidle/shared";
 import { artifactDisplayTitle } from "@hyperidle/shared";
 import type { JSX, ReactNode } from "react";
-import { ArtifactCostChip } from "./ArtifactCostChip.js";
 import { ArtifactKindBadge } from "./ArtifactKindBadge.js";
 import { ArtifactPreviewSurface } from "./ArtifactPreviewSurface.js";
 import { ArtifactTimestamp } from "./ArtifactTimestamp.js";
@@ -40,8 +39,6 @@ export function ArtifactPreview({
 					)}
 					<span className="text-[var(--text-tertiary)]">·</span>
 					<span>{data.producingTaskTitle}</span>
-					<span className="text-[var(--text-tertiary)]">·</span>
-					<ArtifactCostChip cost={data.cost} variant="full" />
 					<span className="text-[var(--text-tertiary)]">·</span>
 					<ArtifactTimestamp value={data.createdAt} />
 					<span className="ml-auto text-[var(--text-tertiary)] normal-case">{data.id}</span>

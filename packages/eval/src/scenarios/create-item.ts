@@ -7,12 +7,7 @@
 
 import { items } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import {
-	judgeCostTracked,
-	judgeCreateItemCalled,
-	judgeLlmQuality,
-	judgeSessionCompleted,
-} from "../judges.js";
+import { judgeCreateItemCalled, judgeLlmQuality, judgeSessionCompleted } from "../judges.js";
 import { runEvalSession } from "../provision-harness.js";
 import { seedMinimalWorld } from "../seeding.js";
 import type {
@@ -79,7 +74,6 @@ Use create_item to escalate this compliance blocker:
 		dimensions: [
 			judgeSessionCompleted(),
 			judgeCreateItemCalled(),
-			judgeCostTracked(),
 			{
 				id: "kind_correctness",
 				label: "Item Kind Correct (escalation)",

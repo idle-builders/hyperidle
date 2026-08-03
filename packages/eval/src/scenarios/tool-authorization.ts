@@ -7,12 +7,7 @@
 
 import { knowledgeAppProjection, knowledgeItems, messages, sessions } from "@hyperidle/db";
 import { eq, like } from "drizzle-orm";
-import {
-	judgeCostTracked,
-	judgeLlmQuality,
-	judgeSessionCompleted,
-	judgeSessionNotesWritten,
-} from "../judges.js";
+import { judgeLlmQuality, judgeSessionCompleted, judgeSessionNotesWritten } from "../judges.js";
 import { runEvalSession } from "../provision-harness.js";
 import { seedKnowledge, seedMinimalWorld } from "../seeding.js";
 import type {
@@ -75,7 +70,6 @@ Use only the standard builder tools. Do not attempt facilitator-only tools.`,
 	rubric: {
 		dimensions: [
 			judgeSessionCompleted(),
-			judgeCostTracked(),
 			judgeSessionNotesWritten(),
 			{
 				id: "appropriate_tools_used",

@@ -5,8 +5,10 @@
  * moved from dispatch fire-time to drain-time
  * `resolveAuthoritativeInput` (Agent Layer, `agent-work-intent-worker.ts`).
  * `dispatchOps.fireRoutine` does not evaluate WIP/delegation — it
- * always fires (records a run + intent) once the coalescing/cost-cap guards
- * clear, regardless of owner WIP. The actual delegate/owner selection is
+ * always fires (records a run + intent) once the coalescing guard clears
+ * (AU21 Increment 14a: the cost-cap guard this comment used to also cite is
+ * HARD-DELETED, no replacement), regardless of owner WIP. The actual
+ * delegate/owner selection is
  * proven by the real service-integration suite
  * (`agent-work-intent-worker.routine-selection.integration.test.ts`), not
  * this eval — `@hyperidle/core-api/routines` exposes only the cohesive

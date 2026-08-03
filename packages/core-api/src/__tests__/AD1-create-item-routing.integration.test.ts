@@ -234,7 +234,7 @@ describe("AD1 — create-item: review routing wires human participants", () => {
 			const ctx = makeContext(db, eventBus);
 			const result = await createItemTool.handler(
 				{
-					title: "Escalation: cost cap breached",
+					title: "Escalation: production incident detected",
 					kind: "escalation",
 					riskTier: "high",
 				},

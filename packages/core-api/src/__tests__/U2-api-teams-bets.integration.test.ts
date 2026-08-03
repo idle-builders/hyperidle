@@ -301,7 +301,6 @@ describe("AC-3: Bet creation with `description` field", () => {
 			body: JSON.stringify({
 				teamId: "p1",
 				description: "# Build feature X",
-				costAppetite: { minor: 10000, currency: "USD" },
 			}),
 		});
 		expect(res.status).toBe(201);
@@ -320,7 +319,6 @@ describe("AC-3: Bet creation with `description` field", () => {
 			body: JSON.stringify({
 				teamId: "p1",
 				pitch: "# Build feature X",
-				costAppetite: { minor: 10000, currency: "USD" },
 			}),
 		});
 		// Strict schema should reject unknown field `pitch` (description is required)
@@ -338,7 +336,6 @@ describe("AC-3: Bet creation with `description` field", () => {
 			body: JSON.stringify({
 				teamId: "p1",
 				description: "# Draft bet",
-				costAppetite: { minor: 10000, currency: "USD" },
 			}),
 		});
 		expect(res.status).toBe(201);
@@ -808,7 +805,13 @@ describe("AC-6: MUTABLE_BET_FIELDS shared constant", () => {
 	test("MUTABLE_BET_FIELDS still includes existing fields", () => {
 		expect(MUTABLE_BET_FIELDS).toContain("done_condition");
 		expect(MUTABLE_BET_FIELDS).toContain("hypothesis");
-		expect(MUTABLE_BET_FIELDS).toContain("cost_appetite");
+	});
+
+	// @lore AU21 Increment 14a: "cost_appetite" removed from MUTABLE_BET_FIELDS
+	// — `bets.costAppetiteMinor/costAppetiteCurrency` are dropped columns, no
+	// replacement mutable field.
+	test("MUTABLE_BET_FIELDS no longer includes 'cost_appetite'", () => {
+		expect(MUTABLE_BET_FIELDS).not.toContain("cost_appetite");
 	});
 });
 

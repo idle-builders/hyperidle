@@ -121,7 +121,7 @@ async function fireRoutineAndGetRunId(
 	const [routine] = await db.select().from(routines).where(eq(routines.id, routineId));
 	if (!routine) throw new Error(`routine ${routineId} not seeded`);
 	const result = await fireRoutine(db, eventBus, routine);
-	if (!result.fired || !result.runId) throw new Error(`routine ${routineId} did not fire`);
+	if (!(result.fired && result.runId)) throw new Error(`routine ${routineId} did not fire`);
 	return result.runId;
 }
 

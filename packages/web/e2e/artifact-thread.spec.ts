@@ -24,7 +24,6 @@ function makeArtifactResponse() {
 			file: "auth-service.ts",
 			hunks: [],
 		},
-		cost: { money: null, tokens: null },
 		threadCount: 0,
 		createdAt: NOW,
 	};

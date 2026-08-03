@@ -3,7 +3,7 @@
  *
  * Tests for:
  * - AC-1: Routines visible in team Work page alongside bets
- * - AC-2: Each routine shows name, schedule, agent, last run outcome/time, next run, cumulative cost
+ * - AC-2: Each routine shows name, schedule, agent, last run outcome/time, next run
  * - AC-3: States beyond boolean: active, paused, error minimum
  * - AC-4: Every routine belongs to a team (NOT NULL), only team members manage
  * - AC-5: Clicking routine shows run history + config
@@ -107,8 +107,6 @@ describe("AA1: Routine Visibility API", () => {
 			expect(r).toHaveProperty("lastRunOutcome");
 			// AC-2: next run
 			expect(r).toHaveProperty("nextRunAt");
-			// AC-2: cumulative cost
-			expect(r).toHaveProperty("costActual");
 			// AC-3: state
 			expect(r).toHaveProperty("state", "active");
 			vi.unstubAllEnvs();
@@ -417,8 +415,6 @@ describe("AA1: Routine Visibility API", () => {
 				startedAt,
 				endedAt,
 				outcome: "success",
-				costMinor: 100,
-				costCurrency: "USD",
 			});
 
 			const res = await app.request("/api/routines/routine-with-runs", {
@@ -436,7 +432,6 @@ describe("AA1: Routine Visibility API", () => {
 			expect(run).toHaveProperty("endedAt");
 			expect(run).toHaveProperty("outcome", "success");
 			expect(run).toHaveProperty("durationSeconds");
-			expect(run).toHaveProperty("cost");
 			vi.unstubAllEnvs();
 		});
 

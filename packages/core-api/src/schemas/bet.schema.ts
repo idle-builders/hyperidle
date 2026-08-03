@@ -15,7 +15,7 @@
 import { selectBetSchema } from "@hyperidle/db/zod-schemas";
 import { BET_STATUSES, TASK_STATES } from "@hyperidle/shared";
 import { z } from "zod";
-import { enumValues, progressSchema, wireMoneySchema } from "./common.schema.js";
+import { enumValues, progressSchema } from "./common.schema.js";
 
 /**
  * Extended task states for the bet detail view.
@@ -40,7 +40,6 @@ export const betTaskRowSchema = z.object({
 	title: z.string(),
 	owner: z.string(),
 	state: z.enum(enumValues(TASK_STATES_EXTENDED)),
-	costActual: wireMoneySchema.nullable(),
 	latestSessionOutcome: z.string().nullable(),
 	latestSessionHarnessUrl: z.string().nullable(),
 	latestSessionModelTier: z.string().nullable(),
@@ -73,9 +72,7 @@ export const betDetailResponseSchema = z.object({
 	title: z.string(),
 	team: z.string(),
 	status: z.enum(enumValues(BET_STATUSES)),
-	costAppetite: wireMoneySchema.nullable(),
 	tokenAppetite: z.number().nullable().optional(),
-	costActual: wireMoneySchema.nullable(),
 	tokensActual: tokenUsageSchema.nullable(),
 	progress: betProgressSchema,
 	// @lore U1: `description` (formerly `pitch`)

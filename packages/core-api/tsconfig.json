@@ -12,7 +12,6 @@
 		{ "path": "../api-contract" },
 		{ "path": "connections" },
 		{ "path": "conversation" },
-		{ "path": "../agent-orchestration/cost" },
 		{ "path": "../agent-orchestration/dispatch" },
 		{ "path": "filesystems" },
 		{ "path": "git-export" },

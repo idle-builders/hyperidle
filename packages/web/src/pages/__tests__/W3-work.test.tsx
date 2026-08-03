@@ -166,7 +166,7 @@ describe("W3 AC-19 — Bet detail overflow action menu", () => {
 		expect(pauseInlineBtn).toBeNull();
 	});
 
-	it("overflow dropdown shows Adjust appetite/Kill after clicking '...' (Pause removed in AD5)", async () => {
+	it("overflow dropdown shows Kill after clicking '...' (Pause removed in AD5)", async () => {
 		const user = userEvent.setup();
 		const activeBet: BetDetail = { ...MOCK_BETS.b1!, status: "active" as const };
 		render(
@@ -179,7 +179,7 @@ describe("W3 AC-19 — Bet detail overflow action menu", () => {
 		const overflowBtn = screen.getByRole("button", { name: /more actions|overflow|\.\.\.|⋯/i });
 		await user.click(overflowBtn);
 		expect(screen.queryByText(/pause/i)).toBeNull();
-		expect(screen.getAllByText(/adjust appetite/i).length).toBeGreaterThan(0);
+		expect(screen.getAllByText(/kill/i).length).toBeGreaterThan(0);
 	});
 });
 
@@ -200,10 +200,9 @@ describe("W3 AC-20 — Stat cards row in bet detail", () => {
 		expect(statsRow?.textContent).toMatch(/progress/i);
 	});
 
-	it("renders Budget spent stat card", () => {
-		renderBet();
-		expect(screen.getByText(/budget/i)).toBeInTheDocument();
-	});
+	// @lore AU21 Increment 14a: "renders Budget spent stat card" is
+	// HARD-DELETED — the Budget stat card is gone along with the rest of the
+	// cost-cap feature, no replacement.
 
 	it("renders Team stat card", () => {
 		renderBet();
@@ -261,7 +260,6 @@ describe("W3 AC-22 — Task rows in bet detail", () => {
 					title: "Implement login",
 					owner: "Dev Agent 1",
 					state: "in_progress" as const,
-					costActual: null,
 				},
 			],
 		};

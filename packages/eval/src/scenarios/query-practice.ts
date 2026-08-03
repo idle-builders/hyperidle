@@ -7,7 +7,7 @@
 
 import { sessions } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import { judgeCostTracked, judgeLlmQuality, judgeSessionCompleted } from "../judges.js";
+import { judgeLlmQuality, judgeSessionCompleted } from "../judges.js";
 import { runEvalSession } from "../provision-harness.js";
 import { seedKnowledge, seedMinimalWorld } from "../seeding.js";
 import type {
@@ -97,7 +97,6 @@ Mention specific patterns or guidelines from the knowledge base.`,
 	rubric: {
 		dimensions: [
 			judgeSessionCompleted(),
-			judgeCostTracked(),
 			judgeLlmQuality({
 				id: "knowledge_referenced",
 				label: "Knowledge Referenced in Session Notes",

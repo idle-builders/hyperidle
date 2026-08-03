@@ -162,7 +162,7 @@ export const BUILTIN_TOOL_CATALOG: readonly ToolCatalogEntry[] = [
 	{
 		name: "update_routine",
 		description:
-			"Update an existing routine's configuration — name, description, schedule, state, or cost caps.",
+			"Update an existing routine's configuration — name, description, schedule, or state.",
 		roles: ["assistant"],
 	},
 	{

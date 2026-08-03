@@ -2,7 +2,7 @@
  * AA2 — WorkRoutine detail page tests (delete, new fields, last run summary).
  *
  * AC-2: Delete button shows confirmation, confirm calls DELETE API, cancel restores.
- * AC-6: New KV fields render (costCapPerRun, createdAt, lastRunSummary section).
+ * AC-6: New KV fields render (createdAt, lastRunSummary section).
  */
 
 import type { RoutineDetail } from "@hyperidle/shared";
@@ -57,20 +57,9 @@ const MOCK_DETAIL_AA2: RoutineDetail = {
 		lastRunAt: "2026-01-01T09:00:00.000Z",
 		lastRunOutcome: "success",
 		nextRunAt: "2026-01-02T09:00:00.000Z",
-		costActual: { minor: 1000, currency: "USD" },
 		createdAt: "2026-01-01T00:00:00.000Z",
-		costCapPerRun: { minor: 5000, currency: "USD" },
-		costCapMonthly: null,
 		lastRunSummary: "Sent 10 notifications successfully.",
 		silent: false,
-	},
-	budget: {
-		avgCostPerRun: { minor: 500, currency: "USD" },
-		costThisMonth: { minor: 1000, currency: "USD" },
-		costCapPerRun: { minor: 5000, currency: "USD" },
-		costCapMonthly: null,
-		perRunUtilizationPercent: 10,
-		monthlyUtilizationPercent: null,
 	},
 	runs: [
 		{
@@ -79,7 +68,6 @@ const MOCK_DETAIL_AA2: RoutineDetail = {
 			endedAt: "2026-01-01T09:01:00.000Z",
 			durationSeconds: 60,
 			outcome: "success",
-			cost: { minor: 500, currency: "USD" },
 			errorMessage: null,
 			summary: "Sent 10 notifications successfully.",
 		},
@@ -177,10 +165,8 @@ describe("WorkRoutine — AA2 Delete & New Fields", () => {
 	// ──────────────────────────────────────────────────────────────────────
 
 	describe("AC-6: New KV fields display", () => {
-		it("renders Cost cap per run field when set", () => {
-			renderPage(MOCK_DETAIL_AA2);
-			expect(screen.getByText("Cost cap per run")).toBeInTheDocument();
-		});
+		// @lore AU21 Increment 14a: "renders Cost cap per run field when set" is
+		// HARD-DELETED — the cost-cap feature no longer exists, no replacement.
 
 		it("renders Created field when createdAt is set", () => {
 			renderPage(MOCK_DETAIL_AA2);

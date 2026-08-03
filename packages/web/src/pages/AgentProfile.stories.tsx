@@ -44,7 +44,6 @@ const BASE_PROFILE: AgentProfileResponse = {
 			outcome: "completed",
 			startedAt: "2024-06-01T10:00:00.000Z",
 			endedAt: "2024-06-01T11:30:00.000Z",
-			cost: null,
 		},
 		{
 			sessionId: "sess-2",
@@ -53,7 +52,6 @@ const BASE_PROFILE: AgentProfileResponse = {
 			outcome: "crashed",
 			startedAt: "2024-06-02T14:00:00.000Z",
 			endedAt: "2024-06-02T14:05:00.000Z",
-			cost: null,
 		},
 		{
 			sessionId: "sess-3",
@@ -62,7 +60,6 @@ const BASE_PROFILE: AgentProfileResponse = {
 			outcome: "completed",
 			startedAt: "2024-06-03T09:00:00.000Z",
 			endedAt: "2024-06-03T10:45:00.000Z",
-			cost: null,
 		},
 	],
 	performance: {

@@ -8,7 +8,6 @@ const NO_PREVIEW_FIXTURE = {
 	producingTaskTitle: "Pending render",
 	kind: "screenshot",
 	preview: null,
-	cost: { money: null, tokens: null },
 	threadCount: 0,
 	createdAt: "2026-04-28T13:00:00.000Z",
 };

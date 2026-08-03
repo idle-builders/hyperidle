@@ -67,12 +67,15 @@
  * `WorkCostCapResult`, and `WorkCheckCostCapParams` are removed from this
  * file, `BetDecompositionDeps.costCap`/`WorkDeps.costCap` are gone, and
  * `runBetDecomposition`'s pre-flight block is deleted, not rewired.
- * Decomposition now proceeds unconditionally regardless of cap status. This
- * does NOT touch the cost-cap MECHANISM itself (`checkCostCap` in
- * `@hyperidle/cost`, still real and live) — only bet-decomposition's use of
- * it as a hard-blocking gate. `checkCostCap` remains wired at its other real
- * call sites (`users`/`org` read paths via `cost-bindings.ts`,
- * `routine-scheduler.ts`'s monthly-cap check) untouched.
+ * Decomposition now proceeds unconditionally regardless of cap status. At
+ * the time of this ruling the cost-cap MECHANISM itself (`checkCostCap` in
+ * `@hyperidle/cost`) was untouched — only bet-decomposition's use of it as a
+ * hard-blocking gate was removed. @lore AU21 Increment 14a (founder,
+ * 2026-08-03): the cost-cap mechanism itself is since HARD-DELETED in full
+ * (`@hyperidle/cost`, `cost-bindings.ts`, `routine-scheduler.ts`'s monthly-cap
+ * check, every DB column) — no replacement of any kind. D2's ruling here is
+ * now moot rather than merely still-correct: there is no cost-cap gate left
+ * anywhere for decomposition (or anything else) to bypass.
  *
  * @lore AU19 (closing ruling, 2026-07-16 — this was left open through
  * Increments 3e/3g and never explicitly closed; caught by a post-ship audit

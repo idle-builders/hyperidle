@@ -87,7 +87,7 @@ export interface DispatchPorts {
 			},
 		): Promise<{
 			readonly sessionId: string;
-			readonly outcome: SessionOutcome | "budget_exhausted";
+			readonly outcome: SessionOutcome;
 			readonly totalCostCents: number;
 			readonly taskId: string | null;
 			readonly returnVerdict?: "returned" | "not_returned";

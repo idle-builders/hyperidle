@@ -4,8 +4,11 @@
  * Tests:
  *   - NOTIFICATION_TYPES registry shape: { key, label, description, defaultUrgency }
  *   - urgencyForType returns correct defaults and falls back to "ambient"
- *   - Registry covers review_request, blocker_alert, cost_alert
+ *   - Registry covers review_request, blocker_alert
  *   - NotificationTypeKey is a closed discriminated union
+ *
+ * @lore AU21 Increment 14a: `cost_alert` is HARD-DELETED along with the rest
+ * of the cost-cap feature — no replacement notification type.
  */
 
 import { describe, expect, it } from "vitest";
@@ -35,11 +38,10 @@ describe("AF8 — notification type registry (AC8)", () => {
 		}
 	});
 
-	it("registry contains review_request, blocker_alert, cost_alert", () => {
+	it("registry contains review_request, blocker_alert", () => {
 		const keys = NOTIFICATION_TYPES.map((t) => t.key);
 		expect(keys).toContain("review_request");
 		expect(keys).toContain("blocker_alert");
-		expect(keys).toContain("cost_alert");
 	});
 
 	it("review_request has defaultUrgency=immediate", () => {
@@ -54,16 +56,9 @@ describe("AF8 — notification type registry (AC8)", () => {
 		expect(entry!.defaultUrgency).toBe("immediate");
 	});
 
-	it("cost_alert has defaultUrgency=immediate", () => {
-		const entry = NOTIFICATION_TYPES.find((t) => t.key === "cost_alert");
-		expect(entry).toBeDefined();
-		expect(entry!.defaultUrgency).toBe("immediate");
-	});
-
 	it("urgencyForType returns the registry default for known keys", () => {
 		expect(urgencyForType("review_request")).toBe("immediate");
 		expect(urgencyForType("blocker_alert")).toBe("immediate");
-		expect(urgencyForType("cost_alert")).toBe("immediate");
 	});
 
 	// Type-level: NotificationUrgency is closed

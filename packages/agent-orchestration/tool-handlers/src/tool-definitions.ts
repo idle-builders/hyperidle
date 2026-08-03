@@ -347,6 +347,9 @@ function makeHandoffToTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Handof
 
 const RISK_TIERS_ITEM = ["low", "medium", "high"] as const;
 
+// @lore AU21 Increment 14a: "cost_cap_breach" is deleted from ITEM_KINDS —
+// the cost-cap breach review-item creation that produced it is gone along
+// with the rest of the cost feature, no replacement.
 const ITEM_KINDS = [
 	"review",
 	"skill_change",
@@ -354,7 +357,6 @@ const ITEM_KINDS = [
 	"work",
 	"chat",
 	"escalation",
-	"cost_cap_breach",
 	"autonomy_change",
 	"ordering",
 	"post-bet-retro",
@@ -375,7 +377,6 @@ const createItemInputSchema = z.object({
 	proposedAction: z.string().optional(),
 	options: z.string().optional(),
 	reasoning: z.string().optional(),
-	costEstimate: z.number().int().optional(),
 });
 
 type CreateItemInput = z.infer<typeof createItemInputSchema>;
@@ -1262,7 +1263,6 @@ const createRoutineInputSchema = z.object({
 	ownerAgentId: z.string().min(1),
 	triggerType: z.literal("calendar"),
 	triggerConfig: z.string().min(1),
-	costCapPerRunMinor: z.number().int().min(0).optional(),
 });
 
 type CreateRoutineInput = z.infer<typeof createRoutineInputSchema>;
@@ -1320,7 +1320,6 @@ function makeCreateRoutineTool<TDb>(
 					triggerConfig: input.triggerConfig,
 					state: "active",
 					active: true,
-					costCapPerRunMinor: input.costCapPerRunMinor ?? null,
 					nextRunAt,
 					createdAt: now,
 				},
@@ -1343,8 +1342,6 @@ const updateRoutineInputSchema = z.object({
 		description: z.string().max(2000).optional(),
 		state: z.enum(["active", "paused"]).optional(),
 		triggerConfig: z.string().optional(),
-		costCapPerRunMinor: z.number().int().min(0).nullable().optional(),
-		costCapMonthlyMinor: z.number().int().min(0).nullable().optional(),
 	}),
 });
 
@@ -1356,7 +1353,7 @@ function makeUpdateRoutineTool<TDb>(
 	return {
 		name: "update_routine",
 		description:
-			"Update an existing routine's configuration — name, description, schedule, state, or cost caps.",
+			"Update an existing routine's configuration — name, description, schedule, or state.",
 		inputSchema: updateRoutineInputSchema,
 		roles: ["assistant"],
 		handler: async (args, ctx) => {
@@ -1378,8 +1375,6 @@ function makeUpdateRoutineTool<TDb>(
 				updates.state = u.state;
 				updates.active = u.state === "active";
 			}
-			if ("costCapPerRunMinor" in u) updates.costCapPerRunMinor = u.costCapPerRunMinor ?? null;
-			if ("costCapMonthlyMinor" in u) updates.costCapMonthlyMinor = u.costCapMonthlyMinor ?? null;
 
 			if (Object.keys(updates).length > 0) {
 				await ports.coreApi.updateRoutineById(input.routineId, updates, ctx.agentId);

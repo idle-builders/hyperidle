@@ -16,7 +16,8 @@
  * ONCE, at the composition root, so every real call site (`app.ts`,
  * `server-factory.ts`, and the many `__tests__` integration tests) imports
  * the already-wired functions unchanged — same factory-curry idiom as
- * `cost-bindings.ts`/`durable-agent-queue.ts`.
+ * `durable-agent-queue.ts` (AU21 Increment 14a: the sibling `cost-bindings.ts`
+ * example this comment used to cite is HARD-DELETED, no replacement).
  *
  * `toolHandlers`/`workspaceFactory` wire to `tools/assistant-draft-registry.ts`/
  * `harness/local-sandbox-adapter.ts` — still-flat `packages/server` files

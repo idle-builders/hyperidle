@@ -40,7 +40,6 @@ const DEFAULT_SETTINGS = {
 	users: [],
 	notifications: {
 		reviewAlerts: true,
-		costAlerts: true,
 		blockerAlerts: true,
 		quietHoursEnabled: false,
 		quietHoursStart: "22:00",

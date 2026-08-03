@@ -25,7 +25,7 @@
 
 import type { ActivityEntry, HarnessCapabilityDescriptor, PartAuthor } from "@hyperidle/shared";
 import { type JSX, useState } from "react";
-import type { SessionViewCost, SessionViewIdentity } from "./SessionView.js";
+import type { SessionViewIdentity } from "./SessionView.js";
 import { SessionView } from "./SessionView.js";
 
 // ── Identities ──────────────────────────────────────────────────────
@@ -37,17 +37,12 @@ const FOUNDER: PartAuthor = {
 };
 const ATLAS: PartAuthor = { id: "a-atlas", name: "Atlas", isAgent: true, isMe: false };
 
-// ── Session identity + cost ─────────────────────────────────────────
+// ── Session identity ─────────────────────────────────────────────────
 const SESSION_IDENTITY: SessionViewIdentity = {
 	agent: ATLAS,
 	viewer: FOUNDER,
 	title: "Fix agent chat broken by AI SDK 5→6",
 	host: "Bet · Agent chat reliability",
-};
-
-const SESSION_COST: SessionViewCost = {
-	costLabel: "$0.71",
-	tokensLabel: "48.2k tokens",
 };
 
 // ── The realistic session fixture — the AI-SDK 5→6 chat-bug fix session ──
@@ -334,8 +329,8 @@ export default { title: "Session View", group: "Conversations" as const };
  * The full approved Session View — streaming state (agent is working).
  * Exercises all aspect-taxonomy items: streaming text · reasoning fold ·
  * tool families incl. mcp + sub-agent · FAILED tool (aggregate header signals
- * failure) · hard aggregation · diff chip + changed-files panel · cost in
- * header · queued message · descriptor pills · working/Stop state.
+ * failure) · hard aggregation · diff chip + changed-files panel ·
+ * queued message · descriptor pills · working/Stop state.
  */
 // biome-ignore lint/style/useNamingConvention: story exports use Snake_Case to show variant hierarchy in the viewer (established pattern across all stories)
 export function SessionView_Streaming(): JSX.Element {
@@ -348,7 +343,6 @@ export function SessionView_Streaming(): JSX.Element {
 			<SessionView
 				entries={entries}
 				identity={SESSION_IDENTITY}
-				cost={SESSION_COST}
 				descriptor={DESCRIPTOR}
 				status="streaming"
 				onOpen={(_target) => {
@@ -387,7 +381,6 @@ export function SessionView_Idle(): JSX.Element {
 			<SessionView
 				entries={SESSION_ENTRIES}
 				identity={SESSION_IDENTITY}
-				cost={SESSION_COST}
 				descriptor={DESCRIPTOR}
 				status="ended"
 				onOpen={(_target) => {
@@ -411,7 +404,6 @@ export function SessionView_NoPills(): JSX.Element {
 			<SessionView
 				entries={SESSION_ENTRIES}
 				identity={SESSION_IDENTITY}
-				cost={undefined}
 				descriptor={undefined}
 				status="ended"
 				onOpen={(_target) => {

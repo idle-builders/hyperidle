@@ -4,7 +4,10 @@
  * AC coverage:
  * AC1: Full-page surface with BodyEditor, no Dialog role, data-testid="bet-create-page"
  * AC2: (entry-point redirect covered in WorkPortfolio.AG3.test.tsx)
- * AC4: Commitments aside renders team + appetite; Create gated on body+team; appetite optional
+ * AC4: Commitments aside renders team; Create gated on body+team.
+ *
+ * @lore AU21 Increment 14a: the "Appetite" create-time input is HARD-DELETED
+ * along with the rest of the cost-cap feature — no replacement.
  * AC6: Cancel-when-dirty confirm; no POST on abandon; POST only on Create
  * AC7: POST payload shape; navigate to /work/bet/:id on 201
  *
@@ -154,15 +157,6 @@ describe("AC4 — commitments aside", () => {
 		expect(screen.getByTestId("bet-create-commitments")).toBeInTheDocument();
 	});
 
-	it("renders appetite input group in the aside", () => {
-		renderPage();
-		// Appetite returns to create (was removed in R2 from dialog — see @lore in WorkBetCreate.tsx)
-		const aside = screen.getByTestId("bet-create-commitments");
-		expect(aside).toBeInTheDocument();
-		// appetite amount input should be inside the aside
-		expect(screen.getByLabelText(/appetite amount/i)).toBeInTheDocument();
-	});
-
 	it("single team: Create enabled when body non-empty (team auto-resolved)", async () => {
 		await setupUseTeams(SINGLE_TEAM);
 		renderPage();
@@ -197,7 +191,7 @@ describe("AC4 — commitments aside", () => {
 		expect(createBtn).toBeDisabled();
 	});
 
-	it("appetite is optional — POST fires without costAppetite when amount is empty", async () => {
+	it("POST payload never includes costAppetite (cost-cap feature deleted, AU21 Increment 14a)", async () => {
 		const { apiFetch } = await import("../services/api-fetch.js");
 		const fetchSpy = vi.mocked(apiFetch);
 		fetchSpy.mockResolvedValueOnce(
@@ -215,7 +209,6 @@ describe("AC4 — commitments aside", () => {
 		await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
 		const [, options] = fetchSpy.mock.calls[0] as [string, RequestInit];
 		const body = JSON.parse(options.body as string) as Record<string, unknown>;
-		// costAppetite must NOT be in payload when appetite is empty
 		expect(body).not.toHaveProperty("costAppetite");
 		expect(body).toHaveProperty("teamId", "team-1");
 		expect(body).toHaveProperty("description");

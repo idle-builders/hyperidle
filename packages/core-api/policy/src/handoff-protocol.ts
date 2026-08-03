@@ -103,8 +103,8 @@ export function buildHandoff(
 		//   1. task_state_changed (toHuman only, via the inlined transition)
 		//   2. item_created       (escalation or review-item paths)
 		// `session_ended` is NOT emitted here — handoff does not record a
-		// session's cost-delta outcome, so subscribers like
-		// `session-review-creator` must not fire on handoff.
+		// session-end outcome, so subscribers like `session-review-creator`
+		// must not fire on handoff.
 		let taskStateChangedEvent: TaskStateChangedEvent | null = null;
 		let itemCreatedEvent: Extract<DomainEvent, { type: "item_created" }> | null = null;
 
@@ -117,8 +117,7 @@ export function buildHandoff(
 			});
 			if (!claim.applied) throw new Error(`Task handoff conflict: ${task.id}`);
 
-			// 1. End current session (state + endedAt). Cost is preserved —
-			// downstream cost-cap + digest routines depend on it.
+			// 1. End current session (state + endedAt).
 			await tx
 				.update(sessions)
 				.set({ state: "done", endedAt: now })

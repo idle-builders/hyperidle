@@ -141,8 +141,10 @@ describe("O1 event split", () => {
 				"knowledge_updated",
 				"knowledge_archived",
 				"knowledge_accessed",
-				"cost_cap_warning",
-				"cost_cap_breached",
+				// @lore AU21 Increment 14a: "cost_cap_warning"/"cost_cap_breached"
+				// removed from this expected-types set — both events are
+				// HARD-DELETED along with the rest of the cost feature, no
+				// replacement.
 				"notification",
 				"propagation_applied",
 				"propagation_failed",

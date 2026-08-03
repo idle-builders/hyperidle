@@ -23,6 +23,11 @@
  * fidelity obligation, same as `CoreApiPort`); only the transport's physical
  * destination would change if agent-orchestration were ever split out.
  *
+ * @lore AU21 Increment 14a: this file used to also back
+ * `getSessionCostBySessionId` (a per-session cost read door, Increment 6's
+ * cost surface) — deleted along with the rest of the cost feature, no
+ * replacement.
+ *
  * STRICTLY READ-ONLY (§12): only GET handlers are registered at either path.
  * No POST/PATCH/PUT/DELETE handler exists — Hono's own `api.notFound`
  * answers any of those with 404 (proven by
@@ -31,7 +36,7 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import { getSessionCostBySessionId, listSessionRequests } from "@hyperidle/session-requests";
+import { listSessionRequests } from "@hyperidle/session-requests";
 import {
 	type ActivityEntry,
 	AGENT_SESSION_SOURCE_KINDS,
@@ -61,19 +66,6 @@ export function createAgentOrchestrationSessionsRoutes(
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
-	// GET /agent-orchestration/sessions/:sessionId/cost — backs
-	// `AgentOrchestrationPort.sessions.getSessionCostBySessionId`. 404 for an
-	// unknown sessionId (mirrors the seam's `undefined` resolve); a known-but-
-	// uncosted session still resolves 200 with `costCents: null`.
-	router.get("/sessions/:sessionId/cost", requireBoundary({ kind: "public-data" }), async (c) => {
-		const sessionId = c.req.param("sessionId");
-		const costCents = await getSessionCostBySessionId(db, sessionId);
-		if (costCents === undefined) {
-			return c.json({ error: "Session not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
-		}
-		return c.json({ sessionId, costCents });
-	});
-
 	// GET /agent-orchestration/sessions?sourceKind=&sourceId= — backs
 	// `AgentOrchestrationPort.sessions.listSessionHistoryBySource`.
 	router.get("/sessions", requireBoundary({ kind: "public-data" }), async (c) => {
@@ -97,7 +89,6 @@ export function createAgentOrchestrationSessionsRoutes(
 				id: row.id,
 				sessionId: row.sessionId,
 				status: row.status,
-				costCents: row.costCents,
 			})),
 		});
 	});

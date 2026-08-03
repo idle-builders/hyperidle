@@ -12,8 +12,9 @@
  *
  * @lore AF8: email-digests was a UI-only toggle with no server field. It is
  * removed because digest is an egress delivery mode, not a notification type.
- * The registry only contains notification sources (review_request, blocker_alert,
- * cost_alert). Digest delivery is controlled via the Notifications config panel.
+ * The registry only contains notification sources (review_request,
+ * blocker_alert). Digest delivery is controlled via the Notifications config
+ * panel. @lore AU21 Increment 14a: `cost_alert` HARD-DELETED, no replacement.
  *
  * @lore AF15 coordination: useNotificationMute currently reads/writes
  * factory-level settings. AF15 will swap in per-user persistence without

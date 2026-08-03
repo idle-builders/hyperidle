@@ -30,11 +30,7 @@ const BASE_TEAM: TeamDetail = {
 	},
 	roster: [],
 	burn: {
-		costActual: null,
-		costCap: null,
 		capacity: 5,
-		betCostActual: null,
-		routineCostThisMonth: null,
 		activeBets: 0,
 	},
 	activeBets: [],
@@ -54,7 +50,6 @@ const TEAM_WITH_ROUTINES: TeamDetail = {
 			lastRunAt: "2026-01-01T08:00:00.000Z",
 			lastRunOutcome: "success",
 			nextRunAt: "2026-01-02T08:00:00.000Z",
-			costActual: null,
 		},
 		{
 			id: "routine-2",
@@ -66,7 +61,6 @@ const TEAM_WITH_ROUTINES: TeamDetail = {
 			lastRunAt: null,
 			lastRunOutcome: null,
 			nextRunAt: null,
-			costActual: null,
 		},
 	],
 };
@@ -84,7 +78,6 @@ const TEAM_WITH_ERROR_ROUTINE: TeamDetail = {
 			lastRunAt: "2026-01-01T08:00:00.000Z",
 			lastRunOutcome: "error",
 			nextRunAt: null,
-			costActual: null,
 		},
 	],
 };

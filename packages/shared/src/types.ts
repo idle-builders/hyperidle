@@ -48,10 +48,12 @@ export const TASK_STATE_LABEL: Record<TaskState, string> = {
  * bad `field` value is rejected by Zod (400) instead of falling through to
  * the service layer (which would throw a generic 500).
  */
+// @lore AU21 Increment 14a: "cost_appetite" removed — `bets.costAppetiteMinor/
+// costAppetiteCurrency` are dropped columns and the PATCH schema no longer
+// accepts this field, no replacement.
 export const MUTABLE_BET_FIELDS = [
 	"done_condition",
 	"hypothesis",
-	"cost_appetite",
 	"description",
 	"at_risk",
 ] as const;

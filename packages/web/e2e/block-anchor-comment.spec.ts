@@ -21,8 +21,6 @@ function makeBetResponse() {
 		product: "Alpha",
 		team: "Alpha Core",
 		status: "in_progress",
-		costAppetite: { minor: 100000, currency: "USD" },
-		costActual: null,
 		tokensActual: null,
 		progress: { done: 0, total: 1 },
 		description:

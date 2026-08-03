@@ -69,14 +69,6 @@ const GitExportSchema = z.object({
 	lastPushAt: z.string().nullable().default(null),
 });
 
-const CostSchema = z.object({
-	capMinor: z.number().default(20_000),
-});
-
-const InternalSchema = z.object({
-	costSentinelLastLevel: z.enum(["ok", "warning", "breach"]).nullable().default(null),
-});
-
 /**
  * @lore P3: The notifications sub-schema is defined separately so we can
  * call NotificationsSchema.parse({}) to build DEFAULTS. In Zod v4, calling
@@ -88,7 +80,6 @@ const InternalSchema = z.object({
  */
 const NotificationsSchema = z.object({
 	reviewAlerts: z.boolean().default(true),
-	costAlerts: z.boolean().default(true),
 	blockerAlerts: z.boolean().default(true),
 	quietHoursEnabled: z.boolean().default(false),
 	quietHoursStart: z
@@ -139,10 +130,6 @@ const ServerConfigSchema = z.object({
 	observability: ObservabilitySchema.optional(),
 	/** AU18: git-export config (migrated from factorySettings). */
 	gitExport: GitExportSchema.optional(),
-	/** AU18: cost-cap config (migrated from factorySettings). */
-	cost: CostSchema.optional(),
-	/** AU18: internal computed/dedup state (cost-sentinel's own — migrated from factorySettings). */
-	internal: InternalSchema.optional(),
 });
 
 type RawServerConfig = z.infer<typeof ServerConfigSchema>;
@@ -160,16 +147,11 @@ export type ServerConfig = {
 	observability: z.infer<typeof ObservabilitySchema>;
 	/** AU18: fully-typed git-export config (always present, defaults applied). */
 	gitExport: z.infer<typeof GitExportSchema>;
-	/** AU18: fully-typed cost-cap config (always present, defaults applied). */
-	cost: z.infer<typeof CostSchema>;
-	/** AU18: fully-typed internal computed state (always present, defaults applied). */
-	internal: z.infer<typeof InternalSchema>;
 };
 
 /** Deep partial type for use in updateServerConfig patches. */
 type DeepPartialNotifications = {
 	reviewAlerts?: boolean;
-	costAlerts?: boolean;
 	blockerAlerts?: boolean;
 	quietHoursEnabled?: boolean;
 	quietHoursStart?: string;
@@ -213,8 +195,6 @@ export type ServerConfigPatch = {
 	/** AU18: shallow partial — every field is independently patchable. */
 	observability?: Partial<z.infer<typeof ObservabilitySchema>>;
 	gitExport?: Partial<z.infer<typeof GitExportSchema>>;
-	cost?: Partial<z.infer<typeof CostSchema>>;
-	internal?: Partial<z.infer<typeof InternalSchema>>;
 };
 
 /**
@@ -249,8 +229,6 @@ const DEFAULTS: ServerConfig = {
 	harnessDisabled: [],
 	observability: ObservabilitySchema.parse({}),
 	gitExport: GitExportSchema.parse({}),
-	cost: CostSchema.parse({}),
-	internal: InternalSchema.parse({}),
 };
 
 /**
@@ -268,8 +246,6 @@ function applyDefaults(raw: RawServerConfig): ServerConfig {
 		harnessDisabled: Array.isArray(raw.harnessDisabled) ? raw.harnessDisabled : [],
 		observability: ObservabilitySchema.parse(raw.observability ?? {}),
 		gitExport: GitExportSchema.parse(raw.gitExport ?? {}),
-		cost: CostSchema.parse(raw.cost ?? {}),
-		internal: InternalSchema.parse(raw.internal ?? {}),
 	};
 }
 
@@ -393,9 +369,6 @@ async function patchServerConfig(
 			patch.gitExport !== undefined
 				? { ...current.gitExport, ...patch.gitExport }
 				: current.gitExport,
-		cost: patch.cost !== undefined ? { ...current.cost, ...patch.cost } : current.cost,
-		internal:
-			patch.internal !== undefined ? { ...current.internal, ...patch.internal } : current.internal,
 	};
 
 	// AH1 §2: no apiKey in tiers — no encryption step needed here. Keys go to server_credentials.

@@ -36,10 +36,7 @@ function makeTask(state: string) {
 		title: "L20 Lifecycle Task",
 		ownerAgentId: AGENT_ID,
 		state,
-		costActual: null,
-		costCap: null,
 		latestSessionOutcome: state === "review" ? "completed" : null,
-		latestSessionCost: null,
 		latestSessionTokensInput: null,
 		latestSessionTokensOutput: null,
 		latestSessionHarnessUrl: null,
@@ -53,8 +50,6 @@ function makeBetResponse(betStatus: string, taskState: string) {
 		product: "L20 Product",
 		team: "Alpha Core",
 		status: betStatus,
-		costAppetite: { minor: 50000, currency: "USD" },
-		costActual: null,
 		tokensActual: null,
 		progress: {
 			done: taskState === "done" ? 1 : 0,
@@ -80,8 +75,6 @@ function makeProductResponse(betStatus: string) {
 		team: { id: "team-l20", formedAt: "2026-01-01T00:00:00Z", dissolvedAt: null },
 		roster: [],
 		burn: {
-			costActual: null,
-			costCap: null,
 			capacity: 5,
 			activeBets: betStatus === "review" || betStatus === "in_progress" ? 1 : 0,
 		},
@@ -92,7 +85,6 @@ function makeProductResponse(betStatus: string) {
 				status: betStatus,
 				progressDone: 1,
 				progressTotal: 1,
-				costAppetite: null,
 			},
 		],
 	};

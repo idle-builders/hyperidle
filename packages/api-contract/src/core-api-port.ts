@@ -27,17 +27,19 @@ export interface CreateBetRequest {
 	readonly description: string;
 	readonly doneCondition?: string;
 	readonly hypothesis?: string;
-	readonly costAppetite?: { readonly minor: number; readonly currency: string } | null;
 	readonly sourceKnowledgeItemId?: string;
 }
 
 /**
  * Mirrors `POST /bets`'s 201 response body — the created bet row
- * (`work.get(db,"bet",id)`) plus the structured `costAppetite` override
- * (`routes/bets.ts:623-638`). Not an exhaustive column-for-column mirror of
+ * (`work.get(db,"bet",id)`). Not an exhaustive column-for-column mirror of
  * the `bets` table (per this file's top `@lore`, only the fields a
  * `CoreApiPort` consumer relies on are declared) — the real response may
  * carry additional raw columns this type does not name.
+ *
+ * @lore AU21 Increment 14a: the structured `costAppetite` field this
+ * response used to also carry is deleted along with the rest of the cost
+ * feature (the column is dropped), no replacement.
  */
 export interface CreateBetResponse {
 	readonly id: string;
@@ -48,7 +50,6 @@ export interface CreateBetResponse {
 	readonly status: string;
 	readonly createdAt: string;
 	readonly revisionLog: string | null;
-	readonly costAppetite: { readonly minor: number; readonly currency: string } | null;
 	readonly sourceKnowledgeItemId: string | null;
 }
 
@@ -451,8 +452,6 @@ export interface InsertRoutineRequest {
 	readonly ownerAgentId: string;
 	readonly triggerType: string;
 	readonly triggerConfig: string;
-	readonly costCapPerRunMinor?: number | null;
-	readonly costCapMonthlyMinor?: number | null;
 }
 
 /**
@@ -478,8 +477,6 @@ export interface UpdateRoutineRequest {
 	/** `update_routine`'s tool handler always sets this alongside `state` (backward-compat sync). */
 	readonly active?: boolean;
 	readonly triggerConfig?: string;
-	readonly costCapPerRunMinor?: number | null;
-	readonly costCapMonthlyMinor?: number | null;
 }
 
 /**

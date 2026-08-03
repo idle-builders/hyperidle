@@ -64,8 +64,8 @@
  *    routine, so a found result never carries `deletedAt`.
  *  - `routine.updateRoutineById` → REUSE existing `PATCH /routines/:id`
  *    (`updateRoutineSchema` already accepts every field `update_routine`
- *    sets: name, description, state, triggerConfig, costCapPerRunMinor,
- *    costCapMonthlyMinor).
+ *    sets: name, description, state, triggerConfig — AU21 Increment 14a:
+ *    `costCapPerRunMinor`/`costCapMonthlyMinor` HARD-DELETED, no replacement).
  *  - `policy.handoff`          → REUSE existing `POST /tasks/:id/handoff`
  *    (`tasks.ts:270` — the literal route `@hyperidle/policy`'s
  *    `buildHandoff` is already wired to; becomes `CoreApiWorkPort.handoffTask`
@@ -431,7 +431,6 @@ describe("CoreApiPort.routine — Increment 2 org/routine/handoff wave (RED)", (
 			triggerConfig: JSON.stringify({ cron: "0 9 * * *" }),
 			state: "active",
 			active: true,
-			costCapPerRunMinor: null,
 			nextRunAt: NOW,
 			createdAt: NOW,
 		});

@@ -48,7 +48,6 @@ const MOCK_AGENT_PROFILE = {
 			outcome: "completed",
 			startedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
 			endedAt: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
-			cost: null,
 		},
 		{
 			sessionId: "e2e-session-2",
@@ -57,7 +56,6 @@ const MOCK_AGENT_PROFILE = {
 			outcome: "crashed",
 			startedAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
 			endedAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-			cost: null,
 		},
 	],
 	performance: {

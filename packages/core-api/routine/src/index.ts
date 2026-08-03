@@ -34,8 +34,10 @@
  *     → `updateRoutineRun(exec, id, patch, opts?)`
  *   - `listRoutineRunsByRoutine` + `findRunningRoutineRun`
  *     → `listRoutineRuns(filter)` (`{running:true,limit:1}[0]`)
- *   - `avgRoutineRunCost` + `sumRoutineRunCostSince`
- *     + `sumRoutineRunCostForRoutinesSince` → `sumRunCost({routineIds,since?,kind})`
+ *   - `avgRoutineRunCost` + `sumRoutineRunCostSince` + `sumRoutineRunCostForRoutinesSince`
+ *     were collapsed to `sumRunCost({routineIds,since?,kind})` at AU20 —
+ *     since deleted entirely (AU21 Increment 14a, cost feature HARD-DELETED,
+ *     no replacement)
  *   - `InsertRoutineOpts` (named export dropped — opts are inline on `insertRoutine`)
  */
 
@@ -80,14 +82,12 @@ export type {
 export {
 	getRoutine,
 	getRoutineRun,
-	incrementRoutineCost,
 	insertRoutine,
 	insertRoutineRun,
 	listRoutineRuns,
 	listRoutines,
 	RoutineRunSourceUnavailableError,
 	resolveRoutineRunRequest,
-	sumRunCost,
 	updateRoutine,
 	updateRoutineRun,
 } from "./routine-service.js";

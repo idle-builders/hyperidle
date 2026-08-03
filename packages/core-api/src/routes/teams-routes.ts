@@ -38,14 +38,12 @@ import type {
 	BetCardSummary,
 	CreateTeamRequest,
 	CreateTeamResponse,
-	CurrencyCode,
 	EventBus,
 	RosterMember,
 	RoutineCardSummary,
 	RoutineRunOutcome,
 	TeamDetail,
 	TeamListItem,
-	WireMoney,
 } from "@hyperidle/shared";
 import {
 	AGENT_ROLE_CATALOG,
@@ -79,37 +77,24 @@ const orgUsers = {
  * Derive team status from team_members and active bet states.
  *
  * - "blocked" if any active bet has any task in state = 'blocked'
- * - "behind" if active_bets > capacity OR cost_actual >= cost_cap (when cap is set)
+ * - "behind" if active_bets > capacity
  * - "healthy" otherwise
  *
- * L17: compares minor-unit values (costCapMinor prefers over legacy costCap).
+ * @lore AU21 Increment 14a: this used to also flip to "behind" on
+ * `cost_actual >= cost_cap` — the cost-cap feature is HARD-DELETED (founder,
+ * no replacement); status now derives from capacity + blocked tasks only.
  */
 function deriveTeamStatus(
 	memberGroup: {
 		activeBets: number;
 		capacity: number;
-		costActualMinor: number | null;
-		costCapMinor: number | null;
 	},
 	hasBlockedTask: boolean,
 ): "healthy" | "behind" | "blocked" {
 	if (hasBlockedTask) return "blocked";
-	const costActual = memberGroup.costActualMinor ?? 0;
 	const overCapacity = memberGroup.activeBets > memberGroup.capacity;
-	const overBudget = memberGroup.costCapMinor !== null && costActual >= memberGroup.costCapMinor;
-	if (overCapacity || overBudget) return "behind";
+	if (overCapacity) return "behind";
 	return "healthy";
-}
-
-/**
- * Build a WireMoney from minor units + currency, or null if minor is null/undefined.
- */
-function toWireMoney(
-	minor: number | null | undefined,
-	currency: string | null | undefined,
-): WireMoney | null {
-	if (minor == null) return null;
-	return { minor, currency: (currency ?? "USD") as CurrencyCode };
 }
 
 /**
@@ -227,9 +212,6 @@ export function createTeamRoutes(
 							{
 								activeBets: memberGroup.activeBets,
 								capacity: memberGroup.capacity,
-								// L17: prefer costCapMinor over legacy costCap
-								costActualMinor: null, // list route doesn't compute actual spend
-								costCapMinor: memberGroup.costCapMinor ?? memberGroup.costCap ?? null,
 							},
 							false,
 						)
@@ -837,8 +819,6 @@ export function createTeamRoutes(
 						id: bet.id,
 						// @lore U1: `descriptionTitle` was formerly `pitchTitle`.
 						descriptionTitle: deriveTitle(bet.description, bet.id),
-						// L17: costAppetite as WireMoney (replaces appetite duration string)
-						costAppetite: toWireMoney(bet.costAppetiteMinor, bet.costAppetiteCurrency),
 						status: bet.status as "active",
 						progressDone,
 						progressTotal,
@@ -854,29 +834,8 @@ export function createTeamRoutes(
 				return bRow.createdAt.localeCompare(aRow.createdAt);
 			});
 
-			// AA3: Sum of active bets' costActualMinor for bet cost breakdown
-			const betCostActualMinor = activeBetRows.reduce(
-				(sum, bet) => sum + (bet.costActualMinor ?? 0),
-				0,
-			);
-
 			// AA1: Load routines for this team (AA2: exclude soft-deleted)
 			const routineRows = await routineService.listRoutines(db, { teamId });
-
-			// AA3: Sum of routine runs this calendar month for routine cost breakdown
-			// Guard: skip the query when there are no routines (empty IN clause is a SQL error in some dialects)
-			let routineCostThisMonthMinor = 0;
-			if (routineRows.length > 0) {
-				const now3 = new Date();
-				const firstOfMonth3 = new Date(
-					Date.UTC(now3.getUTCFullYear(), now3.getUTCMonth(), 1),
-				).toISOString();
-				routineCostThisMonthMinor = await routineService.sumRunCost(db, {
-					routineIds: routineRows.map((r) => r.id),
-					since: firstOfMonth3,
-					kind: "sum",
-				});
-			}
 
 			// Build agent name map for routine owners
 			const ownerIds = [
@@ -907,7 +866,6 @@ export function createTeamRoutes(
 						lastRunAt: r.lastRunAt ?? null,
 						lastRunOutcome: (latestRun?.outcome ?? null) as RoutineRunOutcome | null,
 						nextRunAt: r.nextRunAt ?? null,
-						costActual: toWireMoney(r.costActualMinor, r.costActualCurrency),
 					};
 				}),
 			);
@@ -916,26 +874,13 @@ export function createTeamRoutes(
 			teamRoutines.sort((a, b) => a.name.localeCompare(b.name));
 
 			// 6. Derive team status
-			// L17: prefer costCapMinor over legacy costCap
-			const teamCostCapMinor = memberGroup.costCapMinor ?? memberGroup.costCap ?? null;
-			// @lore AF10 U1: team actual spend lives on teamMembers.costActual (the L17/O2
-			// minor-unit accumulator incremented by costOps.record cost-cap.ts:255).
-			// Do NOT confuse with the orphaned costActualMinor-style naming on other tables.
-			// tasks.teamId and bets.teamId reference teams.id (domain entity), NOT teamMembers.id.
-			// A future multi-currency change must thread factoryCurrency instead of assuming USD.
-			const teamCostActualMinor = memberGroup.costActual ?? null;
 			const teamStatus = deriveTeamStatus(
 				{
 					activeBets: memberGroup.activeBets,
 					capacity: memberGroup.capacity,
-					costActualMinor: teamCostActualMinor,
-					costCapMinor: teamCostCapMinor,
 				},
 				hasBlockedTask,
 			);
-
-			// L17: currency for the team defaults to costCapCurrency or "USD"
-			const teamCurrency = memberGroup.costCapCurrency ?? "USD";
 
 			const detail: TeamDetail = {
 				team: {
@@ -952,23 +897,8 @@ export function createTeamRoutes(
 				},
 				roster,
 				burn: {
-					// L17: return WireMoney|null instead of raw numbers
-					costActual:
-						teamCostActualMinor != null
-							? { minor: teamCostActualMinor, currency: teamCurrency as CurrencyCode }
-							: null,
-					costCap: toWireMoney(teamCostCapMinor, teamCurrency),
 					capacity: memberGroup.capacity,
 					activeBets: memberGroup.activeBets,
-					// AA3: bet vs routine cost breakdown
-					betCostActual:
-						betCostActualMinor > 0
-							? { minor: betCostActualMinor, currency: teamCurrency as CurrencyCode }
-							: null,
-					routineCostThisMonth:
-						routineCostThisMonthMinor > 0
-							? { minor: routineCostThisMonthMinor, currency: teamCurrency as CurrencyCode }
-							: null,
 				},
 				activeBets,
 				routines: teamRoutines,

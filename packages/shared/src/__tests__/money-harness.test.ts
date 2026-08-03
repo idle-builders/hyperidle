@@ -4,7 +4,12 @@
  * AC9:  SessionResult returns structured { cost: WireMoney, tokenUsage: TokenUsage }
  * AC10: TokenUsageEvent carries optional tier field
  * AC11: CostUpdateEvent carries optional currency field
- * AC19: ArtifactCostFromSession uses WireMoney + TokenUsage (not strings)
+ *
+ * @lore AU21 Increment 14a: AC19 (ArtifactCostFromSession) is deleted along
+ * with the rest of the artifact-cost display feature. AC9/AC11's harness-
+ * level $-estimate (`SessionResult.cost`/`CostUpdateEvent`) is kept — it is
+ * a CI real-spend safety readout for the `eval` harness, structurally
+ * distinct from the deleted product cost-cap feature.
  *
  * These tests will FAIL until Task 1 implementation ships.
  */
@@ -13,7 +18,6 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 import type { SessionResult } from "../harness/harness-adapter.js";
 import type { CostUpdateEvent, TokenUsageEvent } from "../harness/harness-events.js";
 import { MockHarnessAdapter } from "../harness/mock-harness-adapter.js";
-import type { ArtifactCostFromSession } from "../types/artifact.js";
 import type { TokenUsage, WireMoney } from "../types/money.js";
 
 // ── AC9: SessionResult structured shape ───────────────────────────────────────
@@ -161,51 +165,5 @@ describe("CostUpdateEvent (AC11)", () => {
 	it("CostUpdateEvent.currency type is CurrencyCode | undefined", () => {
 		type CurrencyType = CostUpdateEvent["currency"];
 		expectTypeOf<CurrencyType>().toEqualTypeOf<"USD" | "EUR" | "GBP" | "JPY" | undefined>();
-	});
-});
-
-// ── AC19: ArtifactCostFromSession uses WireMoney + TokenUsage ─────────────────
-
-describe("ArtifactCostFromSession (AC19)", () => {
-	it("ArtifactCostFromSession.money type is WireMoney | null (not string | null)", () => {
-		// After L17, money must be WireMoney | null, not string | null
-		expectTypeOf<ArtifactCostFromSession["money"]>().toEqualTypeOf<WireMoney | null>();
-	});
-
-	it("ArtifactCostFromSession.tokens type is TokenUsage | null (not string | null)", () => {
-		expectTypeOf<ArtifactCostFromSession["tokens"]>().toEqualTypeOf<TokenUsage | null>();
-	});
-
-	it("accepts structured WireMoney money field", () => {
-		const cost: ArtifactCostFromSession = {
-			money: { minor: 420, currency: "USD" },
-			tokens: null,
-		};
-		expect(cost.money).not.toBeNull();
-		if (cost.money !== null) {
-			expect(cost.money.minor).toBe(420);
-			expect(cost.money.currency).toBe("USD");
-		}
-	});
-
-	it("accepts structured TokenUsage tokens field", () => {
-		const cost: ArtifactCostFromSession = {
-			money: null,
-			tokens: {
-				byTier: {
-					workhorse: { prompt: 100, completion: 50 },
-				},
-			},
-		};
-		expect(cost.tokens).not.toBeNull();
-		if (cost.tokens !== null) {
-			expect(cost.tokens.byTier.workhorse?.prompt).toBe(100);
-		}
-	});
-
-	it("accepts null for both fields", () => {
-		const cost: ArtifactCostFromSession = { money: null, tokens: null };
-		expect(cost.money).toBeNull();
-		expect(cost.tokens).toBeNull();
 	});
 });

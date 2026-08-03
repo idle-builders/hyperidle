@@ -2,7 +2,6 @@ import type { ApiErrorResponse } from "@hyperidle/shared";
 import {
 	API_ERROR_CODES,
 	CapacityExceededError,
-	CostCapExceededError,
 	createLogger,
 	InvalidTransitionError,
 	VersionConflictError,
@@ -33,14 +32,6 @@ export const errorHandler: ErrorHandler = (err, c) => {
 			code: API_ERROR_CODES.CONFLICT,
 		};
 		return c.json(response, 409);
-	}
-
-	if (err instanceof CostCapExceededError) {
-		const response: ApiErrorResponse = {
-			error: err.message,
-			code: API_ERROR_CODES.FORBIDDEN,
-		};
-		return c.json(response, 403);
 	}
 
 	// Check for "not found" errors from services

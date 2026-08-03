@@ -67,7 +67,7 @@ const questionnaireMsg: Message = {
 const longReasoning = [
 	"Schema migration adds two columns; backfill verified.",
 	"All 142 contract tests pass; integration suite green.",
-	"Cost cap reduced 8%; budget headroom OK.",
+	"P95 latency down 8%; no regressions observed.",
 ];
 
 const shortReasoning = ["Pick before deploy."];

@@ -6,7 +6,8 @@
  *          (GET /api/artifacts?axis=bet&betId=X returns the artifact)
  *   AC3 — Artifacts appear in WorkPortfolio artifact gallery
  *          (GET /api/artifacts?axis=portfolio returns the artifact)
- *   AC4 — Artifact metadata (kind, cost, timestamp) renders correctly in response
+ *   AC4 — Artifact metadata (kind, timestamp) renders correctly in response
+ *     (AU21 Increment 14a: cost metadata HARD-DELETED from this AC, no replacement)
  *
  * Architecture plan §5 (Task 5): seed domain, build ToolContext, invoke handler,
  * query API, assert artifact appears.
@@ -184,7 +185,11 @@ describe("R6: create_artifact integration — end-to-end flow", () => {
 	});
 
 	// -------------------------------------------------------------------- AC4: full shape via GET /:id
-	test("AC4: GET /api/artifacts/:id returns correct kind, producingTaskTitle, cost, threadCount", async ({
+	// @lore AU21 Increment 14a: the `cost: { money: null, tokens: null }`
+	// always-null shape this AC used to also assert is HARD-DELETED — the
+	// `Artifact` wire type carries no `cost` field at all anymore, no
+	// replacement.
+	test("AC4: GET /api/artifacts/:id returns correct kind, producingTaskTitle, threadCount", async ({
 		db,
 		app,
 		eventBus,
@@ -220,7 +225,6 @@ describe("R6: create_artifact integration — end-to-end flow", () => {
 			producingTaskId: string;
 			producingTaskTitle: string;
 			preview: { kind: string; body: string; format?: string } | null;
-			cost: { money: null; tokens: null } | null;
 			threadCount: number;
 			createdAt: string;
 		};
@@ -235,13 +239,6 @@ describe("R6: create_artifact integration — end-to-end flow", () => {
 		expect(body.preview).not.toBeNull();
 		expect(body.preview?.kind).toBe("text");
 		expect(body.preview?.body).toBe("7 passed, 0 failed in e2e");
-
-		// @lore O2: cost columns stripped from kernel table; cost always null shape.
-		expect(body.cost).toBeDefined();
-		if (body.cost) {
-			expect(body.cost.money).toBeNull();
-			expect(body.cost.tokens).toBeNull();
-		}
 
 		// threadCount is 0 (forward-compat shape).
 		expect(body.threadCount).toBe(0);
