@@ -2515,6 +2515,16 @@
     },
     {
       "source": "review",
+      "target": "session-requests",
+      "portInterface": "ReviewAgentWorkIntentRecorder",
+      "methods": [
+        "record"
+      ],
+      "confidence": "high",
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
+    },
+    {
+      "source": "review",
       "target": "users",
       "portInterface": "ReviewPorts",
       "methods": [
@@ -2573,6 +2583,16 @@
       ],
       "confidence": "high",
       "resolutionNote": "All 2 method name(s) matched real exports of connections."
+    },
+    {
+      "source": "work",
+      "target": "session-requests",
+      "portInterface": "AgentWorkIntentRecorder",
+      "methods": [
+        "record"
+      ],
+      "confidence": "high",
+      "resolutionNote": "Manually verified at the composition root; see MANUAL_OVERRIDES in this script."
     },
     {
       "source": "work",
@@ -2778,8 +2798,8 @@
   ],
   "summary": {
     "totalServices": 20,
-    "totalPortEdges": 30,
-    "highConfidence": 28,
+    "totalPortEdges": 32,
+    "highConfidence": 30,
     "mediumConfidence": 2,
     "unresolved": 0,
     "totalEventEdges": 21,

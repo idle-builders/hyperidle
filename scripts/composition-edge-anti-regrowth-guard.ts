@@ -439,7 +439,10 @@ export const DEFERRED_FOLLOWUP: ReadonlySet<string> = new Set([]);
  * NOT-founder-signed, NOT-permanent gaps pending their own closure pass (see
  * its own doc comment) — currently genuinely EMPTY.
  */
-export function inspect(root: string): CompositionEdgeFinding[] {
+export function inspect(
+	root: string,
+	options?: { verifyExemptionsReachable?: boolean },
+): CompositionEdgeFinding[] {
 	const services = discoverServices(root);
 	const layerByName = new Map(services.map((s) => [s.name, s.layer]));
 	const reverseIndex = buildExposedApis(services);
@@ -447,7 +450,7 @@ export function inspect(root: string): CompositionEdgeFinding[] {
 	const findings: CompositionEdgeFinding[] = [];
 
 	// Mechanism 1 — raw `ports.ts` reads (generate-dependency-graph.ts's own resolution).
-	for (const edge of resolvePortEdges(services, reverseIndex)) {
+	for (const edge of resolvePortEdges(root, services, reverseIndex, options)) {
 		if (edge.confidence === "unresolved") continue; // target not a real Service — can't attribute
 		if (layerByName.get(edge.source) !== "agent-orchestration") continue;
 		if (layerByName.get(edge.target) !== "core-api") continue;
@@ -793,7 +796,7 @@ function fixtureCheck(): void {
 	const rawPortRoot = mkdtempSync(join(tmpdir(), "au21-anti-regrowth-raw-port-"));
 	try {
 		buildRawPortFixture(rawPortRoot);
-		const findings = inspect(rawPortRoot);
+		const findings = inspect(rawPortRoot, { verifyExemptionsReachable: false });
 		const hit = findings.find(
 			(f) => f.consumer === "demo-orch" && f.provider === "demo-core" && f.edgeKind === "raw-port",
 		);
@@ -810,7 +813,7 @@ function fixtureCheck(): void {
 	const hiddenBundleRoot = mkdtempSync(join(tmpdir(), "au21-anti-regrowth-hidden-bundle-"));
 	try {
 		buildHiddenBundleFixture(hiddenBundleRoot);
-		const findings = inspect(hiddenBundleRoot);
+		const findings = inspect(hiddenBundleRoot, { verifyExemptionsReachable: false });
 		const hit = findings.find(
 			(f) => f.consumer === "demo-orch2" && f.provider === "demo-core2" && f.edgeKind === "composition-bundle",
 		);
@@ -829,7 +832,7 @@ function fixtureCheck(): void {
 	const allowlistedRoot = mkdtempSync(join(tmpdir(), "au21-anti-regrowth-deleted-cost-exemption-"));
 	try {
 		buildDeletedCostExemptionFixture(allowlistedRoot);
-		const findings = inspect(allowlistedRoot);
+		const findings = inspect(allowlistedRoot, { verifyExemptionsReachable: false });
 		const violations = findings.filter((f) => f.consumer === "cost");
 		if (violations.length === 0) {
 			throw new Error(
@@ -845,7 +848,7 @@ function fixtureCheck(): void {
 	const nestedGroupRoot = mkdtempSync(join(tmpdir(), "au21-anti-regrowth-nested-group-"));
 	try {
 		buildNestedGroupPortFixture(nestedGroupRoot);
-		const findings = inspect(nestedGroupRoot);
+		const findings = inspect(nestedGroupRoot, { verifyExemptionsReachable: false });
 		const hit = findings.find(
 			(f) =>
 				f.consumer === "demo-orch3" &&
@@ -869,7 +872,7 @@ function fixtureCheck(): void {
 	const statelessProviderRoot = mkdtempSync(join(tmpdir(), "au21-anti-regrowth-stateless-provider-"));
 	try {
 		buildStatelessProviderFixture(statelessProviderRoot);
-		const findings = inspect(statelessProviderRoot);
+		const findings = inspect(statelessProviderRoot, { verifyExemptionsReachable: false });
 		const violations = findings.filter((f) => f.provider === "demo-core4");
 		if (violations.length === 0) {
 			throw new Error(
@@ -886,7 +889,7 @@ function fixtureCheck(): void {
 	const seamGroupRoot = mkdtempSync(join(tmpdir(), "au21-anti-regrowth-seam-group-"));
 	try {
 		buildSeamGroupFixture(seamGroupRoot);
-		const findings = inspect(seamGroupRoot);
+		const findings = inspect(seamGroupRoot, { verifyExemptionsReachable: false });
 		const excluded = findings.filter((f) => f.consumer === "dispatch" && f.provider === "conversation");
 		if (excluded.length > 0) {
 			throw new Error(

@@ -53,11 +53,13 @@ flowchart TD
   realtime -->|"RealtimeUserDirectory"| users
   realtime -->|"RealtimeOrgTeamReader"| org
   realtime -->|"RealtimeTaskReader"| work
+  review -->|"ReviewAgentWorkIntentRecorder"| session_requests
   review -->|"ReviewPorts"| users
   routine -->|"RoutineSchedulerPorts"| users
   settings -->|"RoutineReader"| routine
   settings -->|"SettingsUserDirectory"| users
   settings -->|"SettingsCredentialCipher"| connections
+  work -->|"AgentWorkIntentRecorder"| session_requests
   work -->|"UserStoreReader"| users
   work -->|"TeamCapacityReader"| org
   dispatch -->|"DispatchPorts.runOrchestration"| run_orchestration
@@ -113,7 +115,7 @@ flowchart TD
 
 ## Extraction summary
 
-- Port-derived edges: 30 (28 high confidence, 2 medium, 0 unresolved)
+- Port-derived edges: 32 (30 high confidence, 2 medium, 0 unresolved)
 - EventBus edges: 21
 - Hidden composition-bundle edges: 4 (0 agent-orchestration -> core-api)
 - Services: 20

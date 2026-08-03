@@ -53,7 +53,12 @@ const MANUAL_OVERRIDES: Record<string, string | readonly string[]> = {
 	"filesystems:FilesystemsGitRunner": "git-export",
 	"filesystems:FilesystemsServiceConnectionResolver": "connections",
 	"git-export:GitExportServerConfigPort": "settings",
-	"observability:ObservabilityServerConfigPort": "settings",
+	// @lore detector fix (2026-08-03): `observability:ObservabilityServerConfigPort`
+	// override REMOVED — found dead by the new unused-override sanity check.
+	// `packages/core-api/observability/src` has no `ports.ts` file at all
+	// anymore; the dependency this override targeted was refactored away at
+	// some earlier, undated point and nobody noticed, because nothing checked
+	// whether a registered override was ever actually reachable.
 	// @lore AU21 Increment 14b: the `model-gateway:ModelGatewayCredentialResolver`
 	// override is REMOVED — `@hyperidle/model-gateway` is dissolved into
 	// `@hyperidle/shared` (Decision L2); there is no such Service left to
@@ -64,6 +69,16 @@ const MANUAL_OVERRIDES: Record<string, string | readonly string[]> = {
 	"notifications:NotificationsWorkReader": "work",
 	"notifications:NotificationsCredentialStore": "connections",
 	"org:OrgUserDirectory": "users",
+	// @lore detector fix (2026-08-03): `work`'s dependency on `session-requests`
+	// is a TYPE ALIAS (`type AgentWorkIntentRecorder =
+	// SharedAgentWorkIntentRecorder<WriteExecutor>`, work/src/ports.ts), not a
+	// locally-declared interface — resolvePortEdges now visits type aliases too
+	// (see `resolveLeafPackageMembers`), but the alias's only real method
+	// (`record`) is never a BARE top-level export of any Service (it's always a
+	// method on an injected object), so the reverse-index name-vote fallback
+	// would leave this "(unresolved)" without an explicit override, exactly
+	// like `review:ReviewAgentWorkIntentRecorder` below already needed.
+	"work:AgentWorkIntentRecorder": "session-requests",
 	"review:ReviewAgentWorkIntentRecorder": "session-requests",
 	"settings:SettingsUserDirectory": "users",
 	// @lore AU21 §9 Increment 9: `dispatch:DispatchPorts`'s former 12-target
@@ -82,8 +97,14 @@ const MANUAL_OVERRIDES: Record<string, string | readonly string[]> = {
 	// that happened to textually contain "=>" (an arrow-typed field nested
 	// deep inside those two groups' object types), a false signal for the
 	// flat-interface method scan below.
-	"tool-handlers:ToolHandlersWorkAccessor": "work",
-	"tool-handlers:ToolHandlersDispatchAccessor": "dispatch",
+	// @lore detector fix (2026-08-03): `tool-handlers:ToolHandlersWorkAccessor`
+	// and `tool-handlers:ToolHandlersDispatchAccessor` overrides REMOVED — found
+	// dead by the new unused-override sanity check. `tool-handlers/src/ports.ts`
+	// no longer declares either interface; every real port collapsed onto the
+	// single `ToolHandlersPorts.coreApi` nested group (a `SEAM_INTERFACES`
+	// entry), the same consolidation this file's own Increment 9 comment below
+	// already documented for `DispatchPorts`'s sibling override — these two
+	// were the same class of drift, just never actually caught until now.
 	// @lore AU21 §9 Increment 9: `ToolHandlersUsersAccessor`/
 	// `ToolHandlersConversationAccessor`/`ToolHandlersOrgAccessor`/
 	// `ToolHandlersRoutineAccessor`/`ToolHandlersPolicyAccessor`/
@@ -132,6 +153,24 @@ const SEAM_INTERFACES: ReadonlySet<string> = new Set(["tool-handlers:ToolHandler
  * Keep this list source-verified, same bar as `SEAM_INTERFACES`.
  */
 const SEAM_GROUPS: ReadonlySet<string> = new Set(["dispatch:DispatchPorts:conversation"]);
+
+/**
+ * Detector fix (2026-08-03): a Service's declared dependency is sometimes a
+ * TYPE ALIAS referencing a generic interface from a leaf package (e.g.
+ * `type AgentWorkIntentRecorder = SharedAgentWorkIntentRecorder<WriteExecutor>`,
+ * importing `AgentWorkIntentRecorder` from `@hyperidle/shared`), not a locally
+ * declared interface — `resolvePortEdges` used to visit ONLY
+ * `ts.isInterfaceDeclaration` nodes, so these were invisible outright (not
+ * even attempted), which silently orphaned the `review:ReviewAgentWorkIntentRecorder`
+ * override above (registered, but unreachable) and left `work`'s identical
+ * edge undetected with no override at all. This is deliberately NOT a general
+ * cross-package type resolver — only leaf packages every Layer already
+ * depends on qualify, and only their single-level `export {...} from "./x.js"`
+ * barrel re-export shape is followed (the one real pattern in use today, see
+ * `resolveLeafPackageMembers`). Extend this map only when a new real case is
+ * found, verified by reading the source, same bar as `MANUAL_OVERRIDES`.
+ */
+const RESOLVABLE_LEAF_PACKAGES: ReadonlyMap<string, string> = new Map([["@hyperidle/shared", "packages/shared"]]);
 
 export interface ServiceInfo {
 	name: string;
@@ -569,6 +608,7 @@ function resolveNestedGroupEdges(
 	node: ts.InterfaceDeclaration,
 	sf: ts.SourceFile,
 	serviceNames: ReadonlySet<string>,
+	usedSeamGroups: Set<string>,
 ): Edge[] {
 	const edges: Edge[] = [];
 	for (const member of node.members) {
@@ -578,7 +618,11 @@ function resolveNestedGroupEdges(
 		const groupName = member.name.getText(sf);
 		const provider = groupName.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
 		if (provider === svcName || !serviceNames.has(provider)) continue;
-		if (SEAM_GROUPS.has(`${svcName}:${node.name.text}:${groupName}`)) continue;
+		const seamGroupKey = `${svcName}:${node.name.text}:${groupName}`;
+		if (SEAM_GROUPS.has(seamGroupKey)) {
+			usedSeamGroups.add(seamGroupKey);
+			continue;
+		}
 		edges.push({
 			source: svcName,
 			target: provider,
@@ -591,9 +635,123 @@ function resolveNestedGroupEdges(
 	return edges;
 }
 
-export function resolvePortEdges(services: ServiceInfo[], reverseIndex: ReadonlyMap<string, string[]>): Edge[] {
+/** Shared by the interface branch and the type-alias branch below — a flat `{...}`-shaped member list. */
+function extractMethodsFromTypeMembers(members: ts.NodeArray<ts.TypeElement>, sf: ts.SourceFile): PortMethod[] {
+	const methods: PortMethod[] = [];
+	for (const member of members) {
+		if (ts.isMethodSignature(member) && member.name) {
+			methods.push({ name: member.name.getText(sf), signature: signatureText(member, sf) });
+		} else if (
+			ts.isPropertySignature(member) &&
+			member.name &&
+			member.type &&
+			(ts.isFunctionTypeNode(member.type) || member.type.getText(sf).includes("=>"))
+		) {
+			methods.push({ name: member.name.getText(sf), signature: signatureText(member, sf) });
+		}
+	}
+	return methods;
+}
+
+/**
+ * Resolve `exportName`'s real method list by following a leaf package's own
+ * barrel (`<pkgRoot>/src/index.ts`) one level — `export {...} from "./x.js"` —
+ * to the file that actually declares it, then reading that interface's (or
+ * type-literal alias's) members. Cached per package root so repeated lookups
+ * (e.g. `AgentWorkIntentRecorder` resolved once per consuming Service) don't
+ * re-parse the barrel every time. Returns `undefined` if the barrel doesn't
+ * re-export the name, or the target declaration isn't a flat member list
+ * (e.g. it's itself a further type reference — not handled, no real case
+ * needs it today).
+ */
+const leafBarrelCache = new Map<string, ReadonlyMap<string, string>>();
+function resolveLeafPackageMembers(root: string, pkgRoot: string, exportName: string): PortMethod[] | undefined {
+	let barrelMap = leafBarrelCache.get(pkgRoot);
+	if (!barrelMap) {
+		const built = new Map<string, string>();
+		const indexPath = join(root, pkgRoot, "src/index.ts");
+		if (existsSync(indexPath)) {
+			const sf = parseFile(indexPath);
+			for (const stmt of sf.statements) {
+				if (!ts.isExportDeclaration(stmt)) continue;
+				if (!stmt.moduleSpecifier || !ts.isStringLiteral(stmt.moduleSpecifier)) continue;
+				if (!stmt.exportClause || !ts.isNamedExports(stmt.exportClause)) continue;
+				for (const el of stmt.exportClause.elements) {
+					built.set(el.name.text, stmt.moduleSpecifier.text);
+				}
+			}
+		}
+		barrelMap = built;
+		leafBarrelCache.set(pkgRoot, barrelMap);
+	}
+	const relFile = barrelMap.get(exportName);
+	if (!relFile) return undefined;
+	const targetPath = join(root, pkgRoot, "src", relFile.replace(/\.js$/, ".ts").replace(/^\.\//, ""));
+	if (!existsSync(targetPath)) return undefined;
+	const targetSf = parseFile(targetPath);
+	for (const stmt of targetSf.statements) {
+		if (ts.isInterfaceDeclaration(stmt) && stmt.name.text === exportName) {
+			return extractMethodsFromTypeMembers(stmt.members, targetSf);
+		}
+		if (ts.isTypeAliasDeclaration(stmt) && stmt.name.text === exportName && ts.isTypeLiteralNode(stmt.type)) {
+			return extractMethodsFromTypeMembers(stmt.type.members, targetSf);
+		}
+	}
+	return undefined;
+}
+
+/**
+ * A type alias may be a Deps-shaped port two ways: (a) a local `{...}`
+ * type-literal (`type Foo = { record(...): ...; }` — same shape as an
+ * interface, extract directly), or (b) a reference to a generic type
+ * imported from a leaf package (`type Foo = SharedFoo<Bar>` — resolve via
+ * `resolveLeafPackageMembers`, following the alias's own import statement
+ * back to the real exported name and its origin package).
+ */
+function methodsFromTypeAlias(
+	node: ts.TypeAliasDeclaration,
+	sf: ts.SourceFile,
+	root: string,
+): PortMethod[] {
+	if (ts.isTypeLiteralNode(node.type)) {
+		return extractMethodsFromTypeMembers(node.type.members, sf);
+	}
+	if (ts.isTypeReferenceNode(node.type) && ts.isIdentifier(node.type.typeName)) {
+		const localName = node.type.typeName.text;
+		for (const stmt of sf.statements) {
+			if (!ts.isImportDeclaration(stmt) || !ts.isStringLiteral(stmt.moduleSpecifier)) continue;
+			const pkgRoot = RESOLVABLE_LEAF_PACKAGES.get(stmt.moduleSpecifier.text);
+			if (!pkgRoot) continue;
+			const nb = stmt.importClause?.namedBindings;
+			if (!nb || !ts.isNamedImports(nb)) continue;
+			for (const el of nb.elements) {
+				if (el.name.text !== localName) continue;
+				const realName = (el.propertyName ?? el.name).text;
+				const resolved = resolveLeafPackageMembers(root, pkgRoot, realName);
+				if (resolved) return resolved;
+			}
+		}
+	}
+	return [];
+}
+
+export function resolvePortEdges(
+	root: string,
+	services: ServiceInfo[],
+	reverseIndex: ReadonlyMap<string, string[]>,
+	options?: { verifyExemptionsReachable?: boolean },
+): Edge[] {
 	const edges: Edge[] = [];
 	const serviceNames = new Set(services.map((s) => s.name));
+
+	// Sanity-check state (in-code check, per the review-override lesson: a
+	// config entry that's registered but never consulted is exactly the bug
+	// that let `review:ReviewAgentWorkIntentRecorder` silently do nothing).
+	// Populated as each entry is actually reached below; verified unused-free
+	// at the end of this function.
+	const usedOverrideKeys = new Set<string>();
+	const usedSeamInterfaces = new Set<string>();
+	const usedSeamGroups = new Set<string>();
 
 	for (const svc of services) {
 		const portsPath = join(svc.dir, "src/ports.ts");
@@ -612,6 +770,91 @@ export function resolvePortEdges(services: ServiceInfo[], reverseIndex: Readonly
 			if (m && serviceNames.has(m[1])) headers.push({ line: i, target: m[1] });
 		});
 
+		// Shared resolution cascade (MANUAL_OVERRIDES -> header comment ->
+		// name-vote -> unresolved) — used by both the interface branch and the
+		// type-alias branch below, so a Deps-shaped dependency resolves
+		// identically regardless of which TS construct declares it.
+		const resolveAndPushEdge = (methods: PortMethod[], portName: string, startLine: number) => {
+			if (methods.length === 0) return;
+			const overrideKey = `${svc.name}:${portName}`;
+			if (MANUAL_OVERRIDES[overrideKey]) {
+				usedOverrideKeys.add(overrideKey);
+				const targets = MANUAL_OVERRIDES[overrideKey];
+				for (const target of typeof targets === "string" ? [targets] : targets) {
+					edges.push({
+						source: svc.name,
+						target,
+						portInterface: portName,
+						methods: methods.map((m) => m.name),
+						confidence: "high",
+						resolutionNote: "Manually verified at the composition root; see MANUAL_OVERRIDES in this script.",
+					});
+				}
+				return;
+			}
+
+			// Signal 1 (highest priority): nearest preceding section-header
+			// comment within 12 lines, i.e. the codebase's own explicit
+			// "// target — ..." statement for this section.
+			const nearestHeader = headers.filter((h) => h.line < startLine).sort((a, b) => b.line - a.line)[0];
+
+			// Signal 2 (fallback): majority vote across reverse-index hits from
+			// real Service exports, excluding the declaring Service itself.
+			const votes = new Map<string, number>();
+			for (const m of methods) {
+				for (const candidate of reverseIndex.get(m.name) ?? []) {
+					if (candidate === svc.name) continue;
+					votes.set(candidate, (votes.get(candidate) ?? 0) + 1);
+				}
+			}
+			const sorted = [...votes.entries()].sort((a, b) => b[1] - a[1]);
+			const nameMatch = sorted[0];
+
+			if (nearestHeader && nameMatch && nameMatch[0] === nearestHeader.target) {
+				edges.push({
+					source: svc.name,
+					target: nearestHeader.target,
+					portInterface: portName,
+					methods: methods.map((m) => m.name),
+					confidence: "high",
+					resolutionNote: `Header comment (line ${nearestHeader.line + 1}) AND ${nameMatch[1]}/${methods.length} real-export name match(es) agree on ${nearestHeader.target}.`,
+				});
+			} else if (nearestHeader) {
+				edges.push({
+					source: svc.name,
+					target: nearestHeader.target,
+					portInterface: portName,
+					methods: methods.map((m) => m.name),
+					confidence: "high",
+					resolutionNote: `Resolved from the codebase's own section-header comment ("// ${nearestHeader.target} — ...", line ${nearestHeader.line + 1}) — method names are generic aliases wired at the composition root, not a literal name match.`,
+				});
+			} else if (nameMatch) {
+				const [target, voteCount] = nameMatch;
+				const total = methods.length;
+				edges.push({
+					source: svc.name,
+					target,
+					portInterface: portName,
+					methods: methods.map((m) => m.name),
+					confidence: voteCount === total ? "high" : "medium",
+					resolutionNote:
+						voteCount === total
+							? `All ${total} method name(s) matched real exports of ${target}.`
+							: `${voteCount}/${total} method name(s) matched real exports of ${target}; remaining method(s) unmatched or ambiguous.`,
+				});
+			} else {
+				edges.push({
+					source: svc.name,
+					target: "(unresolved)",
+					portInterface: portName,
+					methods: methods.map((m) => m.name),
+					confidence: "unresolved",
+					resolutionNote:
+						"No section-header comment and no method name matched any Service's real exports — likely a pure-type structural mirror, not a functional edge. Needs manual check.",
+				});
+			}
+		};
+
 		const visit = (node: ts.Node) => {
 			if (ts.isInterfaceDeclaration(node)) {
 				const declKey = `${svc.name}:${node.name.text}`;
@@ -622,6 +865,7 @@ export function resolvePortEdges(services: ServiceInfo[], reverseIndex: Readonly
 				// regardless of how strongly its method names name-match a real
 				// Service's exports (see `SEAM_INTERFACES`'s own doc comment).
 				if (SEAM_INTERFACES.has(declKey)) {
+					usedSeamInterfaces.add(declKey);
 					ts.forEachChild(node, visit);
 					return;
 				}
@@ -630,110 +874,67 @@ export function resolvePortEdges(services: ServiceInfo[], reverseIndex: Readonly
 				// top-level member its own `{...}` group) resolve per-group, not as
 				// one flat interface (see `resolveNestedGroupEdges`'s doc comment).
 				if (isNestedGroupInterface(node)) {
-					edges.push(...resolveNestedGroupEdges(svc.name, node, sf, serviceNames));
+					edges.push(...resolveNestedGroupEdges(svc.name, node, sf, serviceNames, usedSeamGroups));
 					ts.forEachChild(node, visit);
 					return;
 				}
 
-				const methods: PortMethod[] = [];
-				for (const member of node.members) {
-					if (ts.isMethodSignature(member) && member.name) {
-						methods.push({ name: member.name.getText(sf), signature: signatureText(member, sf) });
-					} else if (
-						ts.isPropertySignature(member) &&
-						member.name &&
-						member.type &&
-						(ts.isFunctionTypeNode(member.type) || member.type.getText(sf).includes("=>"))
-					) {
-						methods.push({ name: member.name.getText(sf), signature: signatureText(member, sf) });
-					}
-				}
-				if (methods.length > 0) {
-					const overrideKey = `${svc.name}:${node.name.text}`;
-					if (MANUAL_OVERRIDES[overrideKey]) {
-						const targets = MANUAL_OVERRIDES[overrideKey];
-						for (const target of typeof targets === "string" ? [targets] : targets) {
-							edges.push({
-								source: svc.name,
-								target,
-								portInterface: node.name.text,
-								methods: methods.map((m) => m.name),
-								confidence: "high",
-								resolutionNote: "Manually verified at the composition root; see MANUAL_OVERRIDES in this script.",
-							});
-						}
-						ts.forEachChild(node, visit);
-						return;
-					}
-
-					const interfaceStartLine = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line;
-
-					// Signal 1 (highest priority): nearest preceding section-header
-					// comment within 12 lines, i.e. the codebase's own explicit
-					// "// target — ..." statement for this section.
-					const nearestHeader = headers.filter((h) => h.line < interfaceStartLine).sort((a, b) => b.line - a.line)[0];
-
-					// Signal 2 (fallback): majority vote across reverse-index hits from
-					// real Service exports, excluding the declaring Service itself.
-					const votes = new Map<string, number>();
-					for (const m of methods) {
-						for (const candidate of reverseIndex.get(m.name) ?? []) {
-							if (candidate === svc.name) continue;
-							votes.set(candidate, (votes.get(candidate) ?? 0) + 1);
-						}
-					}
-					const sorted = [...votes.entries()].sort((a, b) => b[1] - a[1]);
-					const nameMatch = sorted[0];
-
-					if (nearestHeader && nameMatch && nameMatch[0] === nearestHeader.target) {
-						edges.push({
-							source: svc.name,
-							target: nearestHeader.target,
-							portInterface: node.name.text,
-							methods: methods.map((m) => m.name),
-							confidence: "high",
-							resolutionNote: `Header comment (line ${nearestHeader.line + 1}) AND ${nameMatch[1]}/${methods.length} real-export name match(es) agree on ${nearestHeader.target}.`,
-						});
-					} else if (nearestHeader) {
-						edges.push({
-							source: svc.name,
-							target: nearestHeader.target,
-							portInterface: node.name.text,
-							methods: methods.map((m) => m.name),
-							confidence: "high",
-							resolutionNote: `Resolved from the codebase's own section-header comment ("// ${nearestHeader.target} — ...", line ${nearestHeader.line + 1}) — method names are generic aliases wired at the composition root, not a literal name match.`,
-						});
-					} else if (nameMatch) {
-						const [target, voteCount] = nameMatch;
-						const total = methods.length;
-						edges.push({
-							source: svc.name,
-							target,
-							portInterface: node.name.text,
-							methods: methods.map((m) => m.name),
-							confidence: voteCount === total ? "high" : "medium",
-							resolutionNote:
-								voteCount === total
-									? `All ${total} method name(s) matched real exports of ${target}.`
-									: `${voteCount}/${total} method name(s) matched real exports of ${target}; remaining method(s) unmatched or ambiguous.`,
-						});
-					} else {
-						edges.push({
-							source: svc.name,
-							target: "(unresolved)",
-							portInterface: node.name.text,
-							methods: methods.map((m) => m.name),
-							confidence: "unresolved",
-							resolutionNote:
-								"No section-header comment and no method name matched any Service's real exports — likely a pure-type structural mirror, not a functional edge. Needs manual check.",
-						});
-					}
-				}
+				const methods = extractMethodsFromTypeMembers(node.members, sf);
+				const startLine = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line;
+				resolveAndPushEdge(methods, node.name.text, startLine);
+			} else if (ts.isTypeAliasDeclaration(node)) {
+				// Detector fix (2026-08-03): a Deps-shaped dependency declared as a
+				// type alias (`type Foo = {...}` or `type Foo = SharedFoo<Bar>`) —
+				// see `methodsFromTypeAlias`'s doc comment for the two shapes handled.
+				const methods = methodsFromTypeAlias(node, sf, root);
+				const startLine = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line;
+				resolveAndPushEdge(methods, node.name.text, startLine);
 			}
 			ts.forEachChild(node, visit);
 		};
 		visit(sf);
 	}
+
+	// In-code sanity check: every hand-maintained exemption/override table
+	// must be REACHABLE, not just registered. `review:ReviewAgentWorkIntentRecorder`
+	// sat in MANUAL_OVERRIDES for an unknown period, doing nothing, because the
+	// type alias it targets was never visited at all — a silently dead config
+	// entry is worse than no entry, since it reads as "handled" to a future
+	// reader. Fail loud, the same bar `MANUAL_OVERRIDES`/`SEAM_INTERFACES`/
+	// `SEAM_GROUPS` themselves demand of every edge they exempt.
+	//
+	// Skippable via `options.verifyExemptionsReachable === false` — every entry
+	// in these tables names a REAL service in the real repo tree, so a caller
+	// scanning a synthetic/fixture tree (composition-edge-anti-regrowth-guard.ts's
+	// `--fixtures` self-test) would otherwise see EVERY real-world entry as
+	// "unreachable" by construction, which is a fixture-scope mismatch, not a
+	// real dead-config finding.
+	const verifyExemptionsReachable = options?.verifyExemptionsReachable !== false;
+	const unusedOverrides = verifyExemptionsReachable
+		? Object.keys(MANUAL_OVERRIDES).filter((key) => !usedOverrideKeys.has(key))
+		: [];
+	if (unusedOverrides.length > 0) {
+		throw new Error(
+			`MANUAL_OVERRIDES has unreachable entries (never matched a visited declaration): ${unusedOverrides.join(", ")}. Either the target interface/type alias was renamed/removed, or this override was never reachable — verify against the real source and fix or remove it.`,
+		);
+	}
+	const unusedSeamInterfaces = verifyExemptionsReachable
+		? [...SEAM_INTERFACES].filter((key) => !usedSeamInterfaces.has(key))
+		: [];
+	if (unusedSeamInterfaces.length > 0) {
+		throw new Error(
+			`SEAM_INTERFACES has unreachable entries: ${unusedSeamInterfaces.join(", ")}. Verify the interface still exists under this name and fix or remove it.`,
+		);
+	}
+	const unusedSeamGroups = verifyExemptionsReachable
+		? [...SEAM_GROUPS].filter((key) => !usedSeamGroups.has(key))
+		: [];
+	if (unusedSeamGroups.length > 0) {
+		throw new Error(
+			`SEAM_GROUPS has unreachable entries: ${unusedSeamGroups.join(", ")}. Verify the nested composition-group still exists under this name and fix or remove it.`,
+		);
+	}
+
 	return edges;
 }
 
@@ -1087,7 +1288,7 @@ function main(): void {
 	const reverseIndex = buildExposedApis(services);
 	console.log(`Extracted exposed APIs. Reverse index has ${reverseIndex.size} named exports.`);
 
-	const edges = resolvePortEdges(services, reverseIndex);
+	const edges = resolvePortEdges(ROOT, services, reverseIndex);
 	console.log(`Resolved ${edges.length} port-derived edges.`);
 
 	const hiddenEdges = detectHiddenCompositionEdges(ROOT, services);
