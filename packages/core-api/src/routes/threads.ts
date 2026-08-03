@@ -47,6 +47,7 @@ import type {
 	AgentWorkIntentRecorder,
 	ApiErrorResponse,
 	EventBus,
+	EventType,
 	HostKind,
 	Message,
 	MessageType,
@@ -91,6 +92,78 @@ import {
 } from "./threads-schema.js";
 
 const SENDER_HEADER = "X-Identity";
+
+/**
+ * AU21 §6 Decision L4 / §9 Increment 14d — the minimal shape this route needs
+ * to push data onto the WS connection hub. Satisfied by
+ * `WsConnectionHub.broadcast(topic, data)` (`@hyperidle/realtime`) without
+ * this module depending on that package's full class — same narrow-interface
+ * pattern as `session-activity-gateway.ts`'s `SessionActivityBroadcastTarget`.
+ */
+interface WsPushTarget {
+	broadcast(topic: string, data: string): void;
+}
+
+/**
+ * Push the CHANGED RECORD (never an invalidate ping) onto a WS topic. The
+ * founder's re-derivation: "there is no refetch … core submits the changed
+ * version … zero ways back." `hub` is optional — tests that build routes
+ * without a WS hub simply skip the push; the underlying EventBus emission
+ * (unchanged) still fires for every other subscriber.
+ */
+function pushUpdate(
+	hub: WsPushTarget | undefined,
+	topic: string,
+	kind: EventType,
+	data: unknown,
+): void {
+	hub?.broadcast(topic, JSON.stringify({ type: "update", topic, kind, data }));
+}
+
+/**
+ * Assemble the `ThreadListRow` shape `GET /api/threads` returns, for the
+ * "conversations" topic push on `thread_created`. Reuses the SAME
+ * `rowToThread` + `resolveThreadTitles` machinery the list route uses so the
+ * pushed row and a fresh GET produce byte-identical field composition.
+ *
+ * @lore AU21 §6 Decision L4: `resolveThreadTitles` resolves a DM/assistant
+ * title RELATIVE TO `requestingUserId` (Rung 1/2 of its ladder) — correct for
+ * the creating sender, but a broadcast on the global "conversations" topic
+ * reaches every participant, not just the creator. A non-creator DM
+ * participant may see a momentarily wrong title (their own name reflected
+ * back) until their next full `GET /api/threads` reconciles it (page
+ * mount/reconnect, per the accepted "initial load reconciles via a normal
+ * fetch" seam). Flagged, not silently decided: the majority case (group/
+ * host-scoped threads, Rung 3/4 of the ladder) is viewer-independent and
+ * unaffected.
+ */
+async function buildThreadListRowForPush(
+	db: HyperIdleDb,
+	row: DbThread,
+	requestingUserId: string,
+): Promise<Record<string, unknown>> {
+	const thread = rowToThread(row);
+	const titleMap = await resolveThreadTitles(db, [row], requestingUserId);
+	return {
+		...thread,
+		hasUnresolvedReview: false,
+		title: titleMap.get(row.id) ?? "Untitled conversation",
+	};
+}
+
+/**
+ * The identities delta a `thread_message_appended` push carries alongside
+ * the new `Message` — the newly-seen sender's identity entry, so a client
+ * that has never seen this sender before can render their name/role without
+ * a follow-up fetch.
+ */
+async function buildSenderIdentityForPush(
+	db: HyperIdleDb,
+	senderId: string,
+): Promise<Record<string, unknown> | undefined> {
+	const identities = await buildThreadIdentities(db, [senderId]);
+	return identities[senderId];
+}
 
 /**
  * The inline-ref shape as carried by the message zod schema (the wire/persisted
@@ -623,6 +696,7 @@ export function createThreadRoutes(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	agentWorkIntentRecorder: AgentWorkIntentRecorder<HyperIdleDb>,
+	wsHub?: WsPushTarget,
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
@@ -680,6 +754,15 @@ export function createThreadRoutes(
 			timestamp: Date.now(),
 		};
 		eventBus.emit(createdEvent);
+		const scaffoldedRow = await findThread(db, { id: threadId });
+		if (scaffoldedRow) {
+			pushUpdate(
+				wsHub,
+				"conversations",
+				"thread_created",
+				await buildThreadListRowForPush(db, scaffoldedRow, initiatorId),
+			);
+		}
 		return c.json({ id: threadId }, 201);
 	});
 
@@ -1049,6 +1132,13 @@ export function createThreadRoutes(
 					const e = err("internal_error", "Reused thread missing", 500);
 					return c.json(e.body, e.status);
 				}
+				const reuseMsgRow = await findMessage(db, { id: reuseMessageId });
+				if (reuseMsgRow) {
+					pushUpdate(wsHub, `thread:${existing.id}`, "thread_message_appended", {
+						message: rowToMessage(reuseMsgRow),
+						senderIdentity: await buildSenderIdentityForPush(db, senderId),
+					});
+				}
 				return c.json({ thread: rowToThread(reusedThread) }, 200);
 			}
 		}
@@ -1170,6 +1260,13 @@ export function createThreadRoutes(
 						timestamp: Date.now(),
 					};
 					eventBus.emit(appendedRaceEvent);
+					const raceMsgRow = await findMessage(db, { id: raceMsgId });
+					if (raceMsgRow) {
+						pushUpdate(wsHub, `thread:${winner.id}`, "thread_message_appended", {
+							message: rowToMessage(raceMsgRow),
+							senderIdentity: await buildSenderIdentityForPush(db, senderId),
+						});
+					}
 					const reloadedWinner = await findThread(db, { id: winner.id });
 					if (!reloadedWinner) {
 						const e = err("internal_error", "Race winner thread missing", 500);
@@ -1211,6 +1308,19 @@ export function createThreadRoutes(
 			const e = err("internal_error", "Created thread missing", 500);
 			return c.json(e.body, e.status);
 		}
+		// AU21 §6 Decision L4 / §9 Increment 14d: push the assembled
+		// ThreadListRow + the new Message — the real changed records, not an
+		// invalidate ping — at the same write that has them in hand.
+		pushUpdate(
+			wsHub,
+			"conversations",
+			"thread_created",
+			await buildThreadListRowForPush(db, threadRow, senderId),
+		);
+		pushUpdate(wsHub, `thread:${threadId}`, "thread_message_appended", {
+			message: rowToMessage(msgRow),
+			senderIdentity: await buildSenderIdentityForPush(db, senderId),
+		});
 		return c.json(
 			{
 				thread: rowToThread(threadRow),
@@ -1481,6 +1591,23 @@ export function createThreadRoutes(
 			if (!(updatedThread && created)) {
 				const e = err("internal_error", "Created message missing", 500);
 				return c.json(e.body, e.status);
+			}
+			// AU21 §6 Decision L4 / §9 Increment 14d: push the actual changed
+			// records — the new Message, and the changed thread-status fields on
+			// resolve/reopen — never an invalidate ping.
+			pushUpdate(wsHub, `thread:${threadId}`, "thread_message_appended", {
+				message: rowToMessage(created),
+				senderIdentity: await buildSenderIdentityForPush(db, senderId),
+			});
+			if (input.type === "verdict" && resolvesMessageRow) {
+				pushUpdate(wsHub, `thread:${threadId}`, "thread_resolved", {
+					resolvedAt: updatedThread.resolvedAt,
+				});
+			}
+			if (willReopen) {
+				pushUpdate(wsHub, `thread:${threadId}`, "thread_reopened", {
+					resolvedAt: updatedThread.resolvedAt,
+				});
 			}
 			return c.json(
 				{

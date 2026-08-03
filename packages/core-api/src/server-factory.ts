@@ -62,7 +62,7 @@ import {
 import { getTeam, getTeamMembers, resolveReviewRecipients } from "@hyperidle/org";
 import type { PolicyDeps } from "@hyperidle/policy";
 import { registerPolicy } from "@hyperidle/policy";
-import { createDbSubscribeAuthorizer, WsBroadcaster } from "@hyperidle/realtime";
+import { createDbSubscribeAuthorizer, WsConnectionHub } from "@hyperidle/realtime";
 import { registerReviewSubscriptions } from "@hyperidle/review";
 import { listRoutines } from "@hyperidle/routine";
 import type { RuntimeDeps } from "@hyperidle/run-orchestration";
@@ -109,6 +109,7 @@ import {
 import { registerSessionActivityGateway } from "./services/session-activity-gateway.js";
 import { registerWorkSessionEndReactions } from "./services/work-session-end-reactions.js";
 import { registerWorkSessionStartedReactions } from "./services/work-session-started-reactions.js";
+import { registerWorkStatePushGateway } from "./services/work-state-push-gateway.js";
 
 type AssistantTurnDeps = Parameters<DispatchOps["runAssistantTurn"]>[0];
 /**
@@ -1095,9 +1096,35 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 
 	let wsDispose: (() => void) | null = null;
 	let sessionActivityGatewayDispose: (() => void) | null = null;
+
+	// AU21 §6 Decision L4 / §9 Increment 14d: the hub is built ONCE, here,
+	// and shared between (a) the WS route + session-activity gateway wired
+	// below in `registerWebSocket` and (b) every core-api route/service that
+	// pushes domain data directly (`createThreadRoutes`'s per-thread +
+	// conversations-list pushes via `wsHub`, `work-state-push-gateway.ts`'s
+	// task/bet forwarder) — one topic space, one transport instance.
+	// `createDbSubscribeAuthorizer` is `@hyperidle/realtime`'s Mechanism C DI
+	// boundary — this deps bundle wires its four real outbound edges
+	// (`conversation`/`users`/`org`/`work`) to the real already-imported
+	// functions above.
+	const wsHub = new WsConnectionHub(
+		createDbSubscribeAuthorizer(db, {
+			conversation: { getThreadById: (db, id) => findThread(db, { id }) },
+			users: { getUserById: (db, id) => findUser(db, { id }) },
+			org: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
+			work: { getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id) },
+		}),
+	);
+	// The "work" topic forwarder: task_state_changed/bet_state_changed
+	// already carry the changed data (`toState`), so a thin EventBus-driven
+	// forwarder suffices — same shape as `session-activity-gateway.ts`'s (c)
+	// concern, registered once here rather than per-request.
+	const workStatePushGatewayDispose = registerWorkStatePushGateway(eventBus, wsHub);
+
 	const app = await createApp({
 		db,
 		eventBus,
+		wsHub,
 		assistantTurnDeps,
 		serviceBootstrap: (ctx) => {
 			// AF6/AU1: production boots the routine scheduler at the default
@@ -1144,30 +1171,15 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		mounter,
 		registerWebSocket: (apiRouter, tokenStore) => {
 			// L1 step9 (Adv-C1): production WS subscribe must enforce participant
-			// authz on `thread:<id>` topics. The authorizer reads the threads
-			// table on each subscribe call.
-			// @lore AU19 Increment 2f: `createDbSubscribeAuthorizer` is
-			// `@hyperidle/realtime`'s Mechanism C DI boundary — this deps bundle
-			// wires its four real outbound edges (`conversation`/`users`/`org`/
-			// `work`) to the real already-imported functions above.
-			const broadcaster = new WsBroadcaster(
-				eventBus,
-				createDbSubscribeAuthorizer(db, {
-					conversation: { getThreadById: (db, id) => findThread(db, { id }) },
-					users: { getUserById: (db, id) => findUser(db, { id }) },
-					org: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
-					work: { getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id) },
-				}),
-			);
-			broadcaster.start();
+			// authz on `thread:<id>` topics — already baked into `wsHub` above.
 			// AU21 §6 Decision E / §9 Increment 7: the (c) session/harness-
-			// streaming forward relocated OUT of `WsBroadcaster`'s own route
+			// streaming forward relocated OUT of the connection hub's own route
 			// table into this dedicated gateway — agent-orchestration's
 			// gateway/router role over the events that also feed the
 			// relocated `SessionActivityBuffer` (`@hyperidle/agent-execution`).
-			// Drives the SAME broadcaster's `broadcast()` from the outside.
-			sessionActivityGatewayDispose = registerSessionActivityGateway(eventBus, broadcaster);
-			wsDispose = registerWsRoute(apiRouter, eventBus, tokenStore, upgradeWebSocket, broadcaster);
+			// Drives the SAME hub's `broadcast()` from the outside.
+			sessionActivityGatewayDispose = registerSessionActivityGateway(eventBus, wsHub);
+			wsDispose = registerWsRoute(apiRouter, tokenStore, upgradeWebSocket, wsHub);
 		},
 		/**
 		 * @lore S2-F01: Worker WS route registered BEFORE auth middleware so remote
@@ -1245,6 +1257,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 				const disposeSessionActivityGateway = sessionActivityGatewayDispose;
 				sessionActivityGatewayDispose = null;
 				disposeSessionActivityGateway?.();
+				workStatePushGatewayDispose();
 			});
 			await runPhase(
 				"http",

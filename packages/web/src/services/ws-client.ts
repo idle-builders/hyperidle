@@ -191,19 +191,21 @@ class WsClient {
 	 * Topics have the form `<kind>:<id>` (e.g. `session:sess-1`, `thread:thr-1`)
 	 * or are global names (`conversations`, `work`).
 	 *
-	 * @lore AU21 Decision E / Increment 7: `conversations`/`work`/`thread:<id>`
-	 * now carry a minimal invalidation envelope
-	 * (`{ type: "invalidate", topic, kind, id? }`, see `ws-broadcaster.ts`) —
-	 * matched directly on the envelope's own `topic` field rather than
-	 * inferring membership (match-all for global, `threadId`-field lookup for
-	 * thread). `session:<id>` is untouched this wave — Decision E's (c)
-	 * concern is a real content stream (`useSessionActivity.ts` consumes
-	 * `toolName`/`argsSummary`/… payload fields), still forwarded as the full
-	 * event and matched by `sessionId` as before.
+	 * @lore AU21 §6 Decision L4 / §9 Increment 14d: `conversations`/`work`/
+	 * `thread:<id>` now carry a PUSH envelope with the actual changed data
+	 * (`{ type: "update", topic, kind, data }`, see `ws-connection-hub.ts` +
+	 * `routes/threads.ts` + `work-state-push-gateway.ts`) — matched directly
+	 * on the envelope's own `topic` field, same matching shape as the prior
+	 * `{ type: "invalidate", … }` ping this supersedes (founder: "there is no
+	 * refetch … core submits the changed version"). `session:<id>` is
+	 * untouched — Decision E's (c) concern is a real content stream
+	 * (`useSessionActivity.ts` consumes `toolName`/`argsSummary`/… payload
+	 * fields), still forwarded as the full event and matched by `sessionId`
+	 * as before.
 	 */
 	private messageMatchesTopic(msg: Record<string, unknown>, topic: string): boolean {
-		// Minimal invalidation envelope: match directly on its own `topic` field.
-		if (msg.type === "invalidate") {
+		// Push envelope: match directly on its own `topic` field.
+		if (msg.type === "update") {
 			return msg.topic === topic;
 		}
 		// Per-session topic `session:<id>`: match messages with matching sessionId

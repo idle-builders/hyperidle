@@ -1,22 +1,12 @@
 /**
- * AU21 Increment 7, Wave A (Decision E) — RED phase.
+ * AU21 §6 Decision L4 / §9 Increment 14d.
  *
  * `useAssistantThread` subscribes to `thread:<threadId>` (once the thread id
- * is known from the first fetch) and bumps `tick` (triggering a re-fetch) on
- * `thread_message_appended`/`thread_resolved`/`thread_reopened`. The server
- * now forwards a minimal invalidation envelope on this topic
- * (`{ type: "invalidate", topic, kind, id }`) instead of the full domain
- * event (`{ type, threadId, ... }`) — see `ws-broadcaster.thread-topic.test.ts`.
- * The hook must filter on `msg.kind`/`msg.id` instead of `msg.type`/
- * `msg.threadId` to keep triggering the same re-fetch it does today.
- *
- * No prior dedicated WS-behavior test file existed for this hook (verified —
- * only `AssistantOverlay` component tests exist, which mock the hook
- * entirely). This file exercises the real hook via `renderHook`, mirroring
- * `AF14-useThreadDetail-ws.test.tsx`'s mocking approach.
- *
- * Red until `useAssistantThread` filters on `msg.kind`/`msg.id` instead of
- * `msg.type`/`msg.threadId`.
+ * is known from the first fetch) and applies the pushed CHANGED RECORD
+ * directly (`{ type: "update", topic, kind, data }` — see
+ * `routes/threads.ts`), not an invalidate ping — the founder: "there is no
+ * refetch … core submits the changed version." This file asserts the
+ * hook's state updates from the pushed payload with ZERO follow-up fetch.
  */
 
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -73,7 +63,23 @@ function makeAssistantThreadResponse() {
 	};
 }
 
-describe("useAssistantThread reacts to the minimal invalidation envelope", () => {
+function pushedMessage(overrides: Partial<Record<string, unknown>> = {}) {
+	return {
+		id: "msg-2",
+		threadId: "thread-ast-1",
+		senderId: "ast-u-founder",
+		clientKey: "k2",
+		type: "plain",
+		payload: { text: "Hello, how can I help?" },
+		deletedAt: null,
+		redactedAt: null,
+		resolvedAt: null,
+		createdAt: "2026-04-30T12:05:00.000Z",
+		...overrides,
+	};
+}
+
+describe("useAssistantThread applies pushed data with zero follow-up fetch", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		unsubscribeMock.mockReset();
@@ -97,7 +103,7 @@ describe("useAssistantThread reacts to the minimal invalidation envelope", () =>
 		expect(subscribeMock).toHaveBeenCalledWith("thread:thread-ast-1", expect.any(Function));
 	});
 
-	it("re-fetches on { type: 'invalidate', topic, kind: 'thread_message_appended', id }", async () => {
+	it("appends the pushed Message on thread_message_appended, with ZERO follow-up fetch", async () => {
 		let capturedHandler: ((data: unknown) => void) | null = null;
 		subscribeMock.mockImplementation((_topic: string, handler: (data: unknown) => void) => {
 			capturedHandler = handler;
@@ -111,19 +117,24 @@ describe("useAssistantThread reacts to the minimal invalidation envelope", () =>
 
 		await act(async () => {
 			capturedHandler?.({
-				type: "invalidate",
+				type: "update",
 				topic: "thread:thread-ast-1",
 				kind: "thread_message_appended",
-				id: "thread-ast-1",
+				data: { message: pushedMessage(), senderIdentity: { name: "Assistant", isAgent: true } },
 			});
 		});
 
 		await waitFor(() => {
-			expect(apiFetchMock.mock.calls.length).toBeGreaterThan(callCountBefore);
+			expect(result.current.data?.messages.some((m) => m.id === "msg-2")).toBe(true);
 		});
+		expect(result.current.data?.identities["ast-u-founder"]).toEqual({
+			name: "Assistant",
+			isAgent: true,
+		});
+		expect(apiFetchMock.mock.calls.length).toBe(callCountBefore);
 	});
 
-	it("does NOT re-fetch for an invalidation envelope of a DIFFERENT thread id", async () => {
+	it("does NOT apply a push for a DIFFERENT thread's topic", async () => {
 		let capturedHandler: ((data: unknown) => void) | null = null;
 		subscribeMock.mockImplementation((_topic: string, handler: (data: unknown) => void) => {
 			capturedHandler = handler;
@@ -133,18 +144,18 @@ describe("useAssistantThread reacts to the minimal invalidation envelope", () =>
 		const { result } = renderHook(() => useAssistantThread());
 		await waitFor(() => expect(result.current.status).toBe("ready"));
 
-		const callCountBefore = apiFetchMock.mock.calls.length;
+		const messageCountBefore = result.current.data?.messages.length;
 
 		await act(async () => {
 			capturedHandler?.({
-				type: "invalidate",
+				type: "update",
 				topic: "thread:thread-DIFFERENT",
 				kind: "thread_message_appended",
-				id: "thread-DIFFERENT",
+				data: { message: pushedMessage({ threadId: "thread-DIFFERENT" }) },
 			});
 		});
 
 		await new Promise((r) => setTimeout(r, 20));
-		expect(apiFetchMock.mock.calls.length).toBe(callCountBefore);
+		expect(result.current.data?.messages.length).toBe(messageCountBefore);
 	});
 });

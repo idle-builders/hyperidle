@@ -1,22 +1,18 @@
 /**
- * AU21 Increment 7, Wave A (Decision E) — RED phase.
+ * AU21 §6 Decision L4 / §9 Increment 14d.
  *
- * `useConversationsThreads` subscribes to the "conversations" topic and bumps
- * `tick` (triggering a re-fetch) when it sees a `thread_created` event. The
- * server now forwards a minimal invalidation envelope for this topic
- * (`{ type: "invalidate", topic: "conversations", kind: "thread_created" }`)
- * instead of the full domain event (`{ type: "thread_created", ... }`) — see
- * `ws-broadcaster.thread-topic.test.ts`. The hook must filter on `msg.kind`
- * instead of `msg.type` to keep triggering the same re-fetch it does today.
+ * `useConversationsThreads` subscribes to the "conversations" topic and
+ * applies the pushed `ThreadListRow` directly on `thread_created` — the
+ * server now pushes the changed record (`{ type: "update", topic:
+ * "conversations", kind: "thread_created", data }`), not an invalidate ping
+ * (founder: "there is no refetch … core submits the changed version"). The
+ * hook must apply `data` to its own state with ZERO follow-up fetch.
  *
  * Mirrors the mocking approach in `AF14-useThreadDetail-ws.test.tsx`: the
  * global no-op `ws-client` mock (test-setup.ts) is overridden with a
  * captureable spy so we can fire a simulated WS message at the subscribed
  * handler directly. WS transport itself stays untested here (covered by
- * `ws-client.invalidation.test.ts`).
- *
- * Red until `useConversationsThreads` checks `msg.type === "invalidate" &&
- * msg.kind === "thread_created"` instead of `msg.type === "thread_created"`.
+ * `ws-client.push.test.ts`).
  */
 
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -51,13 +47,31 @@ function makeThreadsResponse() {
 				lastActiveAt: "2026-04-30T12:00:00.000Z",
 				createdAt: "2026-04-30T12:00:00.000Z",
 				hasUnresolvedReview: false,
+				title: "Existing thread",
 			},
 		],
 		nextCursor: null,
 	};
 }
 
-describe("useConversationsThreads reacts to the minimal invalidation envelope", () => {
+function pushedRow(overrides: Partial<Record<string, unknown>> = {}) {
+	return {
+		id: "t-new",
+		hostKind: "task",
+		hostId: "host-2",
+		initiatorId: "u-founder",
+		participants: ["u-founder", "agent-2"],
+		pinned: false,
+		resolvedAt: null,
+		lastActiveAt: "2026-04-30T13:00:00.000Z",
+		createdAt: "2026-04-30T13:00:00.000Z",
+		hasUnresolvedReview: false,
+		title: "New thread",
+		...overrides,
+	};
+}
+
+describe("useConversationsThreads applies the pushed ThreadListRow with zero follow-up fetch", () => {
 	beforeEach(() => {
 		vi.restoreAllMocks();
 		subscribeMock.mockClear();
@@ -73,7 +87,7 @@ describe("useConversationsThreads reacts to the minimal invalidation envelope", 
 		vi.restoreAllMocks();
 	});
 
-	it("re-fetches when the server sends { type: 'invalidate', topic: 'conversations', kind: 'thread_created' }", async () => {
+	it("inserts the pushed row into state with ZERO follow-up fetch", async () => {
 		let capturedHandler: ((data: unknown) => void) | null = null;
 		subscribeMock.mockImplementation((_topic: string, handler: (data: unknown) => void) => {
 			capturedHandler = handler;
@@ -82,20 +96,28 @@ describe("useConversationsThreads reacts to the minimal invalidation envelope", 
 
 		const { result } = renderHook(() => useConversationsThreads("u-founder"));
 		await waitFor(() => expect(result.current.status).toBe("ready"));
+		expect(result.current.threads).toHaveLength(1);
 
 		const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>;
 		const callCountBefore = fetchMock.mock.calls.length;
 
 		await act(async () => {
-			capturedHandler?.({ type: "invalidate", topic: "conversations", kind: "thread_created" });
+			capturedHandler?.({
+				type: "update",
+				topic: "conversations",
+				kind: "thread_created",
+				data: pushedRow(),
+			});
 		});
 
 		await waitFor(() => {
-			expect(fetchMock.mock.calls.length).toBeGreaterThan(callCountBefore);
+			expect(result.current.threads.some((t) => t.id === "t-new")).toBe(true);
 		});
+		// No follow-up network read — the pushed row was applied directly.
+		expect(fetchMock.mock.calls.length).toBe(callCountBefore);
 	});
 
-	it("does NOT re-fetch for an invalidation envelope of a different kind", async () => {
+	it("orders the pushed row by lastActiveAt (newest first)", async () => {
 		let capturedHandler: ((data: unknown) => void) | null = null;
 		subscribeMock.mockImplementation((_topic: string, handler: (data: unknown) => void) => {
 			capturedHandler = handler;
@@ -105,14 +127,90 @@ describe("useConversationsThreads reacts to the minimal invalidation envelope", 
 		const { result } = renderHook(() => useConversationsThreads("u-founder"));
 		await waitFor(() => expect(result.current.status).toBe("ready"));
 
-		const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>;
-		const callCountBefore = fetchMock.mock.calls.length;
+		await act(async () => {
+			capturedHandler?.({
+				type: "update",
+				topic: "conversations",
+				kind: "thread_created",
+				data: pushedRow(),
+			});
+		});
+
+		await waitFor(() => {
+			expect(result.current.threads[0]?.id).toBe("t-new");
+		});
+	});
+
+	it("drops a pushed row whose participants do not include this participant", async () => {
+		let capturedHandler: ((data: unknown) => void) | null = null;
+		subscribeMock.mockImplementation((_topic: string, handler: (data: unknown) => void) => {
+			capturedHandler = handler;
+			return unsubscribeMock;
+		});
+
+		const { result } = renderHook(() => useConversationsThreads("u-founder"));
+		await waitFor(() => expect(result.current.status).toBe("ready"));
 
 		await act(async () => {
-			capturedHandler?.({ type: "invalidate", topic: "conversations", kind: "task_state_changed" });
+			capturedHandler?.({
+				type: "update",
+				topic: "conversations",
+				kind: "thread_created",
+				data: pushedRow({ participants: ["agent-2", "agent-3"] }),
+			});
 		});
 
 		await new Promise((r) => setTimeout(r, 20));
-		expect(fetchMock.mock.calls.length).toBe(callCountBefore);
+		expect(result.current.threads.some((t) => t.id === "t-new")).toBe(false);
+	});
+
+	it("ignores a push envelope of a different kind", async () => {
+		let capturedHandler: ((data: unknown) => void) | null = null;
+		subscribeMock.mockImplementation((_topic: string, handler: (data: unknown) => void) => {
+			capturedHandler = handler;
+			return unsubscribeMock;
+		});
+
+		const { result } = renderHook(() => useConversationsThreads("u-founder"));
+		await waitFor(() => expect(result.current.status).toBe("ready"));
+
+		await act(async () => {
+			capturedHandler?.({
+				type: "update",
+				topic: "conversations",
+				kind: "task_state_changed",
+				data: { taskId: "task-1", toState: "accepted" },
+			});
+		});
+
+		await new Promise((r) => setTimeout(r, 20));
+		expect(result.current.threads).toHaveLength(1);
+	});
+
+	it("is idempotent — a duplicate push of an already-present row does not double-insert", async () => {
+		let capturedHandler: ((data: unknown) => void) | null = null;
+		subscribeMock.mockImplementation((_topic: string, handler: (data: unknown) => void) => {
+			capturedHandler = handler;
+			return unsubscribeMock;
+		});
+
+		const { result } = renderHook(() => useConversationsThreads("u-founder"));
+		await waitFor(() => expect(result.current.status).toBe("ready"));
+
+		const push = () =>
+			act(async () => {
+				capturedHandler?.({
+					type: "update",
+					topic: "conversations",
+					kind: "thread_created",
+					data: pushedRow(),
+				});
+			});
+		await push();
+		await push();
+
+		await waitFor(() => {
+			expect(result.current.threads.filter((t) => t.id === "t-new")).toHaveLength(1);
+		});
 	});
 });

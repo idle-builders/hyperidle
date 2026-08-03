@@ -1,23 +1,17 @@
 /**
- * AU21 Increment 7, Wave A (Decision E) — RED phase.
+ * AU21 §6 Decision L4 / §9 Increment 14d.
  *
- * `ws-client.ts`'s `messageMatchesTopic` currently matches "conversations"/
- * "work" messages unconditionally (any message received on the socket goes to
- * every global-topic subscriber) and "thread:<id>" messages by inspecting the
- * full domain event's `threadId` field. Once the server collapses these
- * routes onto a minimal invalidation envelope (`{ type: "invalidate", topic,
- * kind, id? }` — see `ws-broadcaster.invalidation-signal.test.ts` +
- * `ws-broadcaster.thread-topic.test.ts`), the client must match by the
- * envelope's own `topic` field instead — a message for "thread:thr-2" must
- * never reach a "thread:thr-1" subscriber's handler.
+ * `ws-client.ts`'s `messageMatchesTopic` matches a PUSH envelope
+ * (`{ type: "update", topic, kind, data }` — see `ws-connection-hub.ts` +
+ * `routes/threads.ts` + `work-state-push-gateway.ts`) by its own `topic`
+ * field — a message for "thread:thr-2" must never reach a "thread:thr-1"
+ * subscriber's handler. This supersedes the old `{ type: "invalidate", … }`
+ * ping (founder: "there is no refetch … core submits the changed version").
  *
  * WS transport is unavailable in JSDOM (@lore Q1) — this test stubs
  * `global.WebSocket` with a minimal fake that lets us drive `onopen`/
  * `onmessage` directly, which is the standard "stub the browser API, not the
  * unit under test" pattern (WsClient itself is real, un-mocked).
- *
- * Red until `messageMatchesTopic` is updated to match on the invalidation
- * envelope's `topic` field for conversations/work/thread topics.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -30,12 +24,12 @@ vi.mock("../api-fetch.js", () => ({
 	apiFetch: apiFetchMock,
 }));
 
-// @lore AU21 Increment 7: test-setup.ts globally mocks "./services/ws-client.js"
-// as a no-op for every web unit test (WS is unavailable in JSDOM — see its
-// top comment). THIS file is the one place that must exercise the REAL
-// WsClient implementation, so we explicitly unmock it here, then stub the
-// browser WebSocket global instead (the standard "stub the platform API, not
-// the unit under test" pattern).
+// @lore AU21: test-setup.ts globally mocks "./services/ws-client.js" as a
+// no-op for every web unit test (WS is unavailable in JSDOM — see its top
+// comment). THIS file is the one place that must exercise the REAL WsClient
+// implementation, so we explicitly unmock it here, then stub the browser
+// WebSocket global instead (the standard "stub the platform API, not the
+// unit under test" pattern).
 vi.unmock("../ws-client.js");
 
 class MockWebSocket {
@@ -68,7 +62,7 @@ async function connectAndOpen(): Promise<MockWebSocket> {
 	return socket;
 }
 
-describe("ws-client — invalidation envelope topic matching", () => {
+describe("ws-client — push envelope topic matching", () => {
 	beforeEach(() => {
 		vi.resetModules();
 		MockWebSocket.instances = [];
@@ -84,7 +78,7 @@ describe("ws-client — invalidation envelope topic matching", () => {
 		vi.unstubAllGlobals();
 	});
 
-	it("dispatches an invalidate envelope only to subscribers of its own `topic` field (conversations)", async () => {
+	it("dispatches a push envelope only to subscribers of its own `topic` field (conversations)", async () => {
 		const { getWsClient } = await import("../ws-client.js");
 		const convHandler = vi.fn();
 		const workHandler = vi.fn();
@@ -95,14 +89,19 @@ describe("ws-client — invalidation envelope topic matching", () => {
 		const socket = await connectAndOpen();
 
 		socket.onmessage?.({
-			data: JSON.stringify({ type: "invalidate", topic: "conversations", kind: "thread_created" }),
+			data: JSON.stringify({
+				type: "update",
+				topic: "conversations",
+				kind: "thread_created",
+				data: { id: "t1" },
+			}),
 		});
 
 		expect(convHandler).toHaveBeenCalledTimes(1);
 		expect(workHandler).not.toHaveBeenCalled();
 	});
 
-	it("dispatches an invalidate envelope only to the matching thread:<id> subscriber, never a sibling thread", async () => {
+	it("dispatches a push envelope only to the matching thread:<id> subscriber, never a sibling thread", async () => {
 		const { getWsClient } = await import("../ws-client.js");
 		const client = getWsClient();
 		const thread1Handler = vi.fn();
@@ -114,10 +113,10 @@ describe("ws-client — invalidation envelope topic matching", () => {
 
 		socket.onmessage?.({
 			data: JSON.stringify({
-				type: "invalidate",
+				type: "update",
 				topic: "thread:thr-1",
 				kind: "thread_message_appended",
-				id: "thr-1",
+				data: { message: { id: "m-1" } },
 			}),
 		});
 
@@ -125,7 +124,7 @@ describe("ws-client — invalidation envelope topic matching", () => {
 		expect(thread2Handler).not.toHaveBeenCalled();
 	});
 
-	it("passes the parsed invalidate envelope object to the handler", async () => {
+	it("passes the parsed push envelope, including its `data` payload, to the handler", async () => {
 		const { getWsClient } = await import("../ws-client.js");
 		const client = getWsClient();
 		const handler = vi.fn();
@@ -134,13 +133,19 @@ describe("ws-client — invalidation envelope topic matching", () => {
 		const socket = await connectAndOpen();
 
 		socket.onmessage?.({
-			data: JSON.stringify({ type: "invalidate", topic: "conversations", kind: "item_created" }),
+			data: JSON.stringify({
+				type: "update",
+				topic: "conversations",
+				kind: "thread_created",
+				data: { id: "t1", title: "Hello" },
+			}),
 		});
 
 		expect(handler).toHaveBeenCalledWith({
-			type: "invalidate",
+			type: "update",
 			topic: "conversations",
-			kind: "item_created",
+			kind: "thread_created",
+			data: { id: "t1", title: "Hello" },
 		});
 	});
 });

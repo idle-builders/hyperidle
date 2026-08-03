@@ -4,7 +4,8 @@
  * architecture.md §6 Decision E / §9 Increment 7: session/harness streaming
  * is "owned/served by `agent-execution`... with `agent-orchestration` as the
  * gateway/router when executions are distributed." Today's
- * `RAW_BROADCAST_ROUTES` table (`packages/core-api/realtime/src/ws-broadcaster.ts`)
+ * `RAW_BROADCAST_ROUTES` table (`packages/core-api/realtime/src/ws-connection-hub.ts`,
+ * pre-AU21-Decision-L4 shape — deleted entirely by Increment 14d, not just relocated)
  * forwards `session_started`/`session_ended`/`tool_call_recorded` straight
  * off the EventBus onto the `session:<id>` WS topic — that is the (c)
  * session-forwarding concern this wave relocates OUT of `realtime` (a

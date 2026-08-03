@@ -84,6 +84,16 @@ const agentWorkIntentReader: import("@hyperidle/shared").AgentWorkIntentReader<H
 		findSessionRequest(db, { by: "intentSource", kind, sourceId }),
 };
 
+/**
+ * The minimal shape a route needs to push data onto the WS connection hub —
+ * satisfied by `WsConnectionHub.broadcast(topic, data)` (`@hyperidle/realtime`)
+ * without this module depending on that package's full class (same narrow-
+ * interface pattern as `session-activity-gateway.ts`'s `SessionActivityBroadcastTarget`).
+ */
+export interface WsPushTarget {
+	broadcast(topic: string, data: string): void;
+}
+
 interface AppOptions {
 	db?: HyperIdleDb;
 	eventBus?: EventBus;
@@ -125,6 +135,17 @@ interface AppOptions {
 	 * test harness — no divergent "minimal app" path.
 	 */
 	registerWebSocket?: (apiRouter: Hono, tokenStore: UpgradeTokenStore) => void;
+	/**
+	 * AU21 §6 Decision L4 / §9 Increment 14d: the WS connection hub's
+	 * broadcast-only surface. When provided, route factories that push
+	 * changed data directly (`createThreadRoutes`'s per-thread +
+	 * conversations-list pushes) call `wsHub.broadcast(topic, data)` at the
+	 * same write that has the full record in hand — no generic event→topic
+	 * forwarder, no follow-up client read. Optional so integration tests that
+	 * don't need WS pushes can omit it (routes still emit their EventBus
+	 * events unchanged either way).
+	 */
+	wsHub?: WsPushTarget;
 	/**
 	 * Optional worker WebSocket registration hook. When provided,
 	 * `createApp` invokes it with the `/api` sub-router at the same point as
@@ -482,6 +503,7 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 				options.db,
 				eventBus,
 				options.agentWorkIntentRecorder ?? agentWorkIntentRecorder,
+				options.wsHub,
 			),
 		);
 		api.route("/users", createUserRoutes(options.db, eventBus, options.adapterPool));

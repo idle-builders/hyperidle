@@ -204,27 +204,40 @@ export function useConversationsThreads(
 
 	// Q1 review issue #6 / Task 16: subscribe to `thread_created` WS events so
 	// the thread list auto-refreshes when a new thread is created.
-	// @lore Q1: We bump the tick counter to trigger a re-fetch rather than
-	// appending the event directly. This is simpler and guarantees the list
-	// uses the same data transformation path (rowToItem) as the initial fetch.
-	// A brief flash of the old list during the re-fetch is acceptable.
-	// @lore AU21 Decision E / Increment 7: the server now forwards a minimal
-	// invalidation envelope on "conversations" (`{ type: "invalidate", topic,
-	// kind }`) instead of the full domain event — filter on `msg.kind`
-	// instead of `msg.type`.
+	// @lore AU21 §6 Decision L4 / §9 Increment 14d: the server now pushes the
+	// assembled `ThreadListRow` (`{ type: "update", topic: "conversations",
+	// kind: "thread_created", data }`), not an invalidate ping — the founder:
+	// "there is no refetch … core submits the changed version." The client
+	// applies its OWN participant-filter/sort/limit locally: filter to rows
+	// this participant is in, insert, re-sort by `lastActiveAt` desc, cap at
+	// 50, dedupe by id (idempotent against a reconnect/duplicate frame). A
+	// non-creator DM participant may see a momentarily stale server-resolved
+	// `title` (viewer-relative field, see `buildThreadListRowForPush`'s
+	// `@lore`) until the next full `GET /api/threads` — the accepted
+	// "initial load reconciles via a normal fetch" seam; this hook's own
+	// mount-time fetch above is exactly that reconciliation point.
 	useEffect(() => {
 		const wsClient = getWsClient();
-		const unsubscribe = wsClient.subscribe("conversations", (data) => {
-			if (typeof data !== "object" || data === null) return;
-			const msg = data as Record<string, unknown>;
-			if (msg.type === "invalidate" && msg.kind === "thread_created") {
-				setTick((n) => n + 1);
+		const unsubscribe = wsClient.subscribe("conversations", (raw) => {
+			if (typeof raw !== "object" || raw === null) return;
+			const msg = raw as Record<string, unknown>;
+			if (msg.type !== "update" || msg.topic !== "conversations" || msg.kind !== "thread_created") {
+				return;
 			}
+			if (!participantId) return;
+			const row = msg.data;
+			if (!(isThreadListRow(row) && row.participants.includes(participantId))) return;
+			setThreads((prev) => {
+				if (prev.some((t) => t.id === row.id)) return prev; // idempotent
+				const next = [...prev, rowToItem(row)];
+				next.sort((a, b) => b.lastActiveAt.localeCompare(a.lastActiveAt));
+				return next.slice(0, 50);
+			});
 		});
 		return () => {
 			unsubscribe();
 		};
-	}, []);
+	}, [participantId]);
 
 	return { status, threads, error, retry };
 }

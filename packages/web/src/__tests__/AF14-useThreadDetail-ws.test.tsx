@@ -1,11 +1,12 @@
 /**
- * AF14 — AC3: Reply in open thread appears without manual reload.
+ * AF14 AC3 — Reply in open thread appears without manual reload.
  *
- * The WS subscription effect subscribes to `thread:<threadId>` and bumps
- * tick on `thread_message_appended` events, triggering a re-fetch.
- *
- * These tests are RED until `useThreadDetail` gains the WS subscription
- * effect (mirroring `useConversationsThreads.ts:213-225`).
+ * AU21 §6 Decision L4 / §9 Increment 14d: the WS subscription effect
+ * subscribes to `thread:<threadId>` and applies the pushed CHANGED RECORD
+ * directly (`{ type: "update", topic, kind, data }` — see
+ * `routes/threads.ts`), not an invalidate ping. The founder: "there is no
+ * refetch … core submits the changed version." This file asserts the
+ * hook's state updates from the pushed payload with ZERO follow-up fetch.
  *
  * WS is unavailable in JSDOM — mock `ws-client` via the global test-setup
  * path and override per test.
@@ -14,16 +15,6 @@
  * Per-test capture uses vi.hoisted + vi.mock with the SAME path the global
  * setup uses (`./services/ws-client.js` relative to src/). This overrides
  * the global no-op with a spy for assertion in this file.
- *
- * @lore AU21 Increment 7 (Decision E): the server now forwards a MINIMAL
- * invalidation envelope on `thread:<id>` (`{ type: "invalidate", topic,
- * kind, id }`) instead of the full domain event (`{ type:
- * "thread_message_appended", threadId, messageId }`) — see
- * `ws-broadcaster.thread-topic.test.ts`. The fired payloads below were
- * updated to the new envelope shape; the *behavior* under test (re-fetch on
- * a same-thread update, no re-fetch on a different thread's) is unchanged.
- * Red until `useThreadDetail` filters on `msg.kind`/`msg.id` instead of
- * `msg.type`/`msg.threadId`.
  */
 
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -87,7 +78,23 @@ function makeThreadDetailResponse() {
 	};
 }
 
-describe("AF14 AC3 — useThreadDetail WS subscription", () => {
+function pushedMessage(overrides: Partial<Record<string, unknown>> = {}) {
+	return {
+		id: "msg-2",
+		threadId: "thread-abc",
+		senderId: "agent-1",
+		clientKey: "k2",
+		type: "plain",
+		payload: { text: "Reply" },
+		deletedAt: null,
+		redactedAt: null,
+		resolvedAt: null,
+		createdAt: "2026-06-11T10:05:00.000Z",
+		...overrides,
+	};
+}
+
+describe("AF14 AC3 — useThreadDetail applies pushed data with zero follow-up fetch", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		unsubscribeMock.mockReset();
@@ -127,7 +134,7 @@ describe("AF14 AC3 — useThreadDetail WS subscription", () => {
 		expect(unsubscribeMock).toHaveBeenCalled();
 	});
 
-	it("re-fetches when thread_message_appended event fires for the open thread", async () => {
+	it("appends the pushed Message on thread_message_appended, with ZERO follow-up fetch", async () => {
 		let capturedHandler: ((data: unknown) => void) | null = null;
 
 		subscribeMock.mockImplementation((_channel: string, handler: (data: unknown) => void) => {
@@ -143,54 +150,56 @@ describe("AF14 AC3 — useThreadDetail WS subscription", () => {
 
 		const callCountBefore = apiFetchMock.mock.calls.length;
 
-		// Fire the WS event for the open thread (minimal invalidation envelope)
 		await act(async () => {
 			capturedHandler?.({
-				type: "invalidate",
+				type: "update",
 				topic: "thread:thread-abc",
 				kind: "thread_message_appended",
-				id: "thread-abc",
+				data: { message: pushedMessage(), senderIdentity: { name: "Agent One", isAgent: true } },
 			});
 		});
 
-		// Should have triggered a re-fetch
 		await waitFor(() => {
-			expect(apiFetchMock.mock.calls.length).toBeGreaterThan(callCountBefore);
+			expect(result.current.data?.messages.some((m) => m.id === "msg-2")).toBe(true);
 		});
-	});
-
-	it("does NOT re-fetch for thread_message_appended of a DIFFERENT thread", async () => {
-		let capturedHandler: ((data: unknown) => void) | null = null;
-
-		subscribeMock.mockImplementation((_channel: string, handler: (data: unknown) => void) => {
-			capturedHandler = handler;
-			return unsubscribeMock;
+		expect(result.current.data?.identities["agent-1"]).toEqual({
+			name: "Agent One",
+			isAgent: true,
 		});
-
-		const { result } = renderHook(() => useThreadDetail("thread-abc"));
-
-		await waitFor(() => {
-			expect(result.current.status).toBe("ready");
-		});
-
-		const callCountBefore = apiFetchMock.mock.calls.length;
-
-		// Fire event for a DIFFERENT thread (minimal invalidation envelope)
-		await act(async () => {
-			capturedHandler?.({
-				type: "invalidate",
-				topic: "thread:thread-DIFFERENT",
-				kind: "thread_message_appended",
-				id: "thread-DIFFERENT",
-			});
-		});
-
-		// Should NOT re-fetch (different thread)
-		await new Promise((r) => setTimeout(r, 20));
+		// No follow-up network read — the pushed message was applied directly.
 		expect(apiFetchMock.mock.calls.length).toBe(callCountBefore);
 	});
 
-	it("re-fetches on thread_resolved event", async () => {
+	it("does NOT apply a push for a DIFFERENT thread's topic", async () => {
+		let capturedHandler: ((data: unknown) => void) | null = null;
+
+		subscribeMock.mockImplementation((_channel: string, handler: (data: unknown) => void) => {
+			capturedHandler = handler;
+			return unsubscribeMock;
+		});
+
+		const { result } = renderHook(() => useThreadDetail("thread-abc"));
+
+		await waitFor(() => {
+			expect(result.current.status).toBe("ready");
+		});
+
+		const messageCountBefore = result.current.data?.messages.length;
+
+		await act(async () => {
+			capturedHandler?.({
+				type: "update",
+				topic: "thread:thread-DIFFERENT",
+				kind: "thread_message_appended",
+				data: { message: pushedMessage({ threadId: "thread-DIFFERENT" }) },
+			});
+		});
+
+		await new Promise((r) => setTimeout(r, 20));
+		expect(result.current.data?.messages.length).toBe(messageCountBefore);
+	});
+
+	it("patches thread.resolvedAt on thread_resolved, with ZERO follow-up fetch", async () => {
 		let capturedHandler: ((data: unknown) => void) | null = null;
 
 		subscribeMock.mockImplementation((_channel: string, handler: (data: unknown) => void) => {
@@ -208,15 +217,47 @@ describe("AF14 AC3 — useThreadDetail WS subscription", () => {
 
 		await act(async () => {
 			capturedHandler?.({
-				type: "invalidate",
+				type: "update",
 				topic: "thread:thread-abc",
 				kind: "thread_resolved",
-				id: "thread-abc",
+				data: { resolvedAt: "2026-06-11T10:10:00.000Z" },
 			});
 		});
 
 		await waitFor(() => {
-			expect(apiFetchMock.mock.calls.length).toBeGreaterThan(callCountBefore);
+			expect(result.current.data?.thread.resolvedAt).toBe("2026-06-11T10:10:00.000Z");
+		});
+		expect(apiFetchMock.mock.calls.length).toBe(callCountBefore);
+	});
+
+	it("is idempotent — a duplicate push of an already-present message does not double-append", async () => {
+		let capturedHandler: ((data: unknown) => void) | null = null;
+
+		subscribeMock.mockImplementation((_channel: string, handler: (data: unknown) => void) => {
+			capturedHandler = handler;
+			return unsubscribeMock;
+		});
+
+		const { result } = renderHook(() => useThreadDetail("thread-abc"));
+
+		await waitFor(() => {
+			expect(result.current.status).toBe("ready");
+		});
+
+		const push = () =>
+			act(async () => {
+				capturedHandler?.({
+					type: "update",
+					topic: "thread:thread-abc",
+					kind: "thread_message_appended",
+					data: { message: pushedMessage() },
+				});
+			});
+		await push();
+		await push();
+
+		await waitFor(() => {
+			expect(result.current.data?.messages.filter((m) => m.id === "msg-2")).toHaveLength(1);
 		});
 	});
 });
