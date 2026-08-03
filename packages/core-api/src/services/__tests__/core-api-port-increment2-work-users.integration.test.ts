@@ -4,13 +4,11 @@
  * Extends the §11 contract-test harness (`core-api-port.integration.test.ts`,
  * Increment 1) to the remaining `tool-handlers` `work`/`users` capabilities
  * named in `edge-disposition.md`'s `tool-handlers` table
- * (`work.{get, list, create, update, routeItem}` / `users.{findUser,
- * listUsers}`, both `§4 seam`). `routeItem` is a pure local computation
- * (`ports.ts`'s `ToolHandlersWorkAccessor.routeItem` takes no `TDb` — verified
- * by reading `tool-handlers/src/ports.ts:115-119` and its real implementation
- * in `@hyperidle/work`'s `routeItem`, a string-in/string-out switch with zero
- * DB access) — it stays ordinary same-process logic, NOT a seam method, and
- * has no contract test here.
+ * (`work.{get, list, create, update}` / `users.{findUser, listUsers}`, both
+ * `§4 seam`). `work.routeItem` (a pure local computation, no `TDb`) is no
+ * longer part of this picture at all — AU21 §6 Decision L3 deleted it
+ * outright as vestigial (its output was consumed by nothing), rather than
+ * leaving it as ordinary same-process logic; no contract test needed here.
  *
  * Every method below does not exist yet on `CoreApiPort`/`buildCoreApiPort`
  * (Increment 1 seeded ONLY `work.createBet`) — each test fails at RUNTIME

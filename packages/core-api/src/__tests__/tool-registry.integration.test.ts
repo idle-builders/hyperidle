@@ -55,8 +55,8 @@ describe("buildToolRegistry", () => {
 				// R5 agent work loop tools
 				"create_task",
 				"submit_review",
-				// G1 facilitator tools
-				"route_item",
+				// G1 facilitator tools (`route_item` deleted outright as vestigial —
+				// AU21 §6 Decision L3, not merely re-narrowed)
 				"score_attention",
 				"promote_knowledge",
 				"create_conflict_review",
@@ -78,7 +78,8 @@ describe("buildToolRegistry", () => {
 		// + 5 AE3 management tools: create_team, add_agent, create_bet, create_routine, update_routine = 20
 		// + 1 AK4 draft tool: edit_bet = 21
 		// + 1 AL7: commit_file = 22
-		expect(registry.definitions).toHaveLength(22);
+		// - 1 AU21 §6 Decision L3: route_item deleted = 21
+		expect(registry.definitions).toHaveLength(21);
 	});
 
 	test("each definition has a non-empty description and a Zod input schema", ({ db, eventBus }) => {

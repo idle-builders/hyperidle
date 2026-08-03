@@ -1,11 +1,11 @@
 /**
  * `@hyperidle/tool-handlers`'s `ToolHandlersPorts` (Mechanism C), wired here
- * at the `packages/server` composition point. `work.routeItem` is the ONE
- * remaining same-process DI capability (a pure, stateless string switch, no
- * DB access — see `ports.ts`'s `ToolHandlersWorkAccessor` doc comment).
- * `users`/`conversation`/`org`/`routine`/`policy.handoff`/`knowledge` all
- * cross the `CoreApiPort` seam instead (see `coreApi`'s own inline `@lore`
- * below).
+ * at the `packages/server` composition point. There is no longer a
+ * standalone same-process `work` DI capability — AU21 §6 Decision L3
+ * deleted `routeItem` (the last one) outright as vestigial, not relocated.
+ * `work`/`users`/`conversation`/`org`/`routine`/`policy.handoff`/`knowledge`
+ * all cross the `CoreApiPort` seam instead (see `coreApi`'s own inline
+ * `@lore` below).
  *
  * @lore AU19 Increment 4: this module builds each bound singleton ONCE, at
  * the composition root, so every real call site (`session-lifecycle-bindings.ts`
@@ -30,7 +30,6 @@ import type {
 } from "@hyperidle/api-contract";
 import type { ToolHandlersPorts } from "@hyperidle/tool-handlers";
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
-import { routeItem } from "@hyperidle/work";
 import {
 	buildCoreApiPort,
 	getRegisteredCoreApiTransport,
@@ -99,10 +98,9 @@ function createBetThroughCoreApiPort(
 }
 
 const toolHandlersPorts: ToolHandlersPorts = {
-	// AU21 §9 Increment 2: `routeItem` is the ONLY `work` capability left as
-	// ordinary same-process DI — every read/write moved onto the `coreApi`
-	// seam below (see `ports.ts`'s `ToolHandlersWorkAccessor` doc comment).
-	work: { routeItem },
+	// AU21 §6 Decision L3: `work.routeItem` (the last standalone same-process
+	// `work` DI capability) is DELETED outright as vestigial — every `work`
+	// read/write now crosses the `coreApi` seam below.
 	coreApi: {
 		createBet: createBetThroughCoreApiPort,
 		getTaskById: (id, actorId) => seamPortForActor(actorId).work.getTaskById(id),

@@ -106,12 +106,6 @@ export const BUILTIN_TOOL_CATALOG: readonly ToolCatalogEntry[] = [
 			"Record an artifact produced by the current agent session. The artifact is linked to the current task via context — the producingTaskId is never taken from input.\n\nKind determines the review experience:\n- 'text': markdown/prose (contracts, emails, decisions, analyses)\n- 'code': source code diffs\n- 'image': visual assets (screenshots, designs, diagrams)\n- 'data': structured metrics and tables\n- 'html': rich rendered content (dashboards, charts, visualizations)\n- 'url': references to external resources (deployed services, PRs)\n\nOptional label provides business context (e.g., label='contract' on a text artifact).",
 	},
 	{
-		name: "route_item",
-		description:
-			"Route an existing item to its correct view (conversations | work | knowledge) based on risk tier and kind. Accepts optional overrides for riskTier, kind, or verb; returns the resolved view.",
-		roles: ["assistant", "facilitator", "product_manager"],
-	},
-	{
 		name: "score_attention",
 		description:
 			"Set an attention score on an item or knowledge_item. Two modes: 'override' (default; uses the provided score directly — G1 behavior) and 'recompute' (runs the G2 attention engine; ignores the provided score; knowledge_item only).",

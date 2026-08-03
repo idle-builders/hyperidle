@@ -388,7 +388,7 @@ export async function seedMessage(
 	return { messageId };
 }
 
-/** Create an item (human interface surface). Used by route_item, score_attention scenarios. */
+/** Create an item (human interface surface). Used by score_attention scenarios. */
 export async function seedItem(
 	db: HyperIdleDb,
 	opts: {

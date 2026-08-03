@@ -88,9 +88,10 @@
  *    tables (its own barrel doc: "never reads [config] itself"; confirmed
  *    absent from `TABLE_OWNER`) — `isStatelessProvider` (this file) excludes
  *    any provider with zero owned tables. (c) `tool-handlers -> work` (the
- *    `routeItem` edge) — a pure `{riskTier,kind,verb} -> view` string switch,
- *    zero `db` parameter, verified against `@hyperidle/work`'s real
- *    implementation — `STATELESS_METHODS` (this file) excludes it by name.
+ *    `routeItem` edge) — AU21 §6 Decision L3 deleted `routeItem`/`route_item`/
+ *    `item-router.ts` outright as vestigial (its output was consumed by
+ *    nothing); the exemption this edge needed (`STATELESS_METHODS`) is GONE
+ *    from this file too — there is no longer any such edge to exempt.
  *    (d) `dispatch`'s 8 raw-port findings were also individually WRONG in a
  *    second way — `DispatchPorts`'s nested-composition-group shape (`readonly
  *    work: {...}`, one group per real target) was resolved via a stale
@@ -427,20 +428,6 @@ export const ALLOWLIST: ReadonlySet<string> = new Set([]);
 export const DEFERRED_FOLLOWUP: ReadonlySet<string> = new Set([]);
 
 /**
- * AU21 §9 Increment 9: individually-verified pure/stateless methods that
- * structurally cannot read core-api domain state — zero `db`/`HyperIdleDb`/
- * `WriteExecutor` parameter, deterministic — even though their owning Service
- * otherwise owns real tables (so `isStatelessProvider` below can't exempt the
- * whole Service). Keyed `${provider}:${method}`. Currently exactly one:
- * `work:routeItem` (`packages/core-api/work/src/item-router.ts` — a pure
- * `{riskTier,kind,verb} -> view` string switch; `tool-handlers/src/ports.ts`'s
- * own doc comment already states this: "zero DB access, verified against
- * `@hyperidle/work`'s real implementation"). Keep this list short and
- * source-verified, same bar as `ALLOWLIST`.
- */
-const STATELESS_METHODS: ReadonlySet<string> = new Set(["work:routeItem"]);
-
-/**
  * AU21 §9 Increment 9: a provider Service that owns ZERO tables cannot be a
  * source of "core-api domain state" (the guard's own target end-state,
  * top-of-file) — by definition it holds no persisted state of its own.
@@ -458,9 +445,8 @@ function isStatelessProvider(services: readonly ServiceInfo[], provider: string)
 	return svc !== undefined && svc.ownedTables.length === 0;
 }
 
-function isDomainStateEdge(services: readonly ServiceInfo[], provider: string, methods: readonly string[]): boolean {
+function isDomainStateEdge(services: readonly ServiceInfo[], provider: string): boolean {
 	if (isStatelessProvider(services, provider)) return false;
-	if (methods.length > 0 && methods.every((m) => STATELESS_METHODS.has(`${provider}:${m}`))) return false;
 	return true;
 }
 
@@ -501,7 +487,7 @@ export function inspect(root: string): CompositionEdgeFinding[] {
 		if (layerByName.get(edge.target) !== "core-api") continue;
 		if (ALLOWLIST.has(`${edge.source}::${edge.target}`)) continue;
 		if (DEFERRED_FOLLOWUP.has(`${edge.source}::${edge.target}`)) continue;
-		if (!isDomainStateEdge(services, edge.target, edge.methods)) continue;
+		if (!isDomainStateEdge(services, edge.target)) continue;
 		findings.push({
 			consumer: edge.source,
 			provider: edge.target,
@@ -515,7 +501,7 @@ export function inspect(root: string): CompositionEdgeFinding[] {
 		if (edge.consumerLayer !== "agent-orchestration" || edge.providerLayer !== "core-api") continue;
 		if (ALLOWLIST.has(`${edge.consumer}::${edge.provider}`)) continue;
 		if (DEFERRED_FOLLOWUP.has(`${edge.consumer}::${edge.provider}`)) continue;
-		if (!isDomainStateEdge(services, edge.provider, edge.methods)) continue;
+		if (!isDomainStateEdge(services, edge.provider)) continue;
 		findings.push({
 			consumer: edge.consumer,
 			provider: edge.provider,
@@ -772,8 +758,10 @@ function buildNestedGroupPortFixture(root: string): void {
  * Scenario 5 — AU21 §9 Increment 9: `isStatelessProvider` must exempt a
  * genuinely zero-owned-table provider WITHOUT it being founder-signed on
  * `ALLOWLIST` — distinct from Scenario 3's allowlist mechanism (`demo-core4`
- * here is on neither `ALLOWLIST` nor `STATELESS_METHODS`; only its owned-table
- * census, deliberately left EMPTY, drives the exemption).
+ * here is on neither `ALLOWLIST` nor any method-exemption set (`STATELESS_METHODS`
+ * was removed entirely by AU21 §6 Decision L3 — its one member, `work:routeItem`,
+ * is deleted, not exempted); only its owned-table census, deliberately left
+ * EMPTY, drives the exemption).
  */
 function buildStatelessProviderFixture(root: string): void {
 	writeFixture(
@@ -946,7 +934,7 @@ function fixtureCheck(): void {
 	}
 
 	// Scenario 5 — a genuinely zero-owned-table provider (NOT founder-signed,
-	// NOT on STATELESS_METHODS) must not fire, purely from its empty owned-
+	// no method-exemption set exists anymore) must not fire, purely from its empty owned-
 	// table census.
 	const statelessProviderRoot = mkdtempSync(join(tmpdir(), "au21-anti-regrowth-stateless-provider-"));
 	try {

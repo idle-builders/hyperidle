@@ -92,10 +92,8 @@ describe("create_item tool", () => {
 			if (!result.success) return;
 			const data = result.data as {
 				itemId: string;
-				view: string;
 				threadId: string;
 			};
-			expect(data.view).toBe("conversations");
 
 			const [row] = await db.select().from(items).where(eq(items.id, data.itemId));
 			expect(row?.kind).toBe("review");
@@ -154,6 +152,26 @@ describe("create_item tool", () => {
 			if (!result.success) return;
 			const data = result.data as { threadId: string };
 			expect(data.threadId).toBe("existing-thread");
+		});
+	});
+
+	describe("AU21 §6 Decision L3: result shape has no view field (routeItem deleted)", () => {
+		test("result is exactly {itemId, threadId} — no view field", async ({ db, eventBus }) => {
+			await seed(db);
+			const result = await createItemTool.handler(
+				{
+					title: "Please review this design",
+					kind: "review",
+					riskTier: "high",
+					body: "Design doc draft.",
+				},
+				makeContext(db, eventBus),
+			);
+			expect(result.success).toBe(true);
+			if (!result.success) return;
+			const data = result.data as Record<string, unknown>;
+			expect(Object.hasOwn(data, "view")).toBe(false);
+			expect(Object.keys(data).sort()).toEqual(["itemId", "threadId"]);
 		});
 	});
 

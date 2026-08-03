@@ -19,7 +19,6 @@ const EXPECTED_TOOL_NAMES = [
 	"create_task",
 	"submit_review",
 	// G1 facilitator tools
-	"route_item",
 	"score_attention",
 	"promote_knowledge",
 	"create_conflict_review",

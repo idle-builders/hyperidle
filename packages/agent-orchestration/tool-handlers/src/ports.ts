@@ -60,22 +60,15 @@
  */
 
 /**
- * @lore AU21 §9 Increment 2: every `work` read/write except `routeItem` moved
- * onto the `CoreApiPort` seam (`ToolHandlersCoreApiAccessor` below) — the
- * agent acting on core "just like the user would" (edge-disposition.md's
- * `work.{get, list, create, update}` row, both §4 seam). `routeItem` is the
- * ONE `work` capability that stays ordinary same-process logic: it takes no
- * `TDb` (a pure `{riskTier,kind,verb} -> view` string switch, zero DB access,
- * verified against `@hyperidle/work`'s real implementation) — never a seam
- * method.
+ * @lore AU21 §6 Decision L3: `ToolHandlersWorkAccessor`/`routeItem` — the
+ * last standalone same-process `work` DI capability — is DELETED, not
+ * relocated. Traced to be vestigial: its `view` output was consumed by
+ * nothing (no persisted column, no display reader, no downstream tool),
+ * and core-api itself already abandoned inline routing at item creation
+ * (`@lore O2` in `routes/conversations.ts`). Every `work` read/write now
+ * crosses the `CoreApiPort` seam (`ToolHandlersCoreApiAccessor` below) —
+ * there is no longer a standalone `work` accessor at all.
  */
-interface ToolHandlersWorkAccessor {
-	routeItem(input: {
-		readonly riskTier: string | null;
-		readonly kind: string | null;
-		readonly verb: string | null;
-	}): "conversations" | "work" | "knowledge";
-}
 
 /**
  * Structural mirror of `org`'s own `CreateTeamInput` (`team-lookup.ts`) —
@@ -466,6 +459,5 @@ interface ToolHandlersCoreApiAccessor {
 
 /** Every real outbound port this Service's source files need. */
 export interface ToolHandlersPorts {
-	readonly work: ToolHandlersWorkAccessor;
 	readonly coreApi: ToolHandlersCoreApiAccessor;
 }

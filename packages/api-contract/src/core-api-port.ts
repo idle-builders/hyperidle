@@ -205,8 +205,9 @@ export interface HandoffTaskResponse {
  * (Increment 1) with `createBet`; Increment 2 adds the remaining
  * `tool-handlers` reads/writes named in `edge-disposition.md`'s
  * `work.{get, list, create, update}` row, plus `handoffTask` (org/routine/
- * handoff wave — the backing route lives under `/tasks`). `routeItem` stays
- * a pure local computation (no DB, no cross-layer read) — never a seam method.
+ * handoff wave — the backing route lives under `/tasks`). `routeItem` (a
+ * pure local computation, no DB, no cross-layer read) was never a seam
+ * method — AU21 §6 Decision L3 later deleted it outright as vestigial.
  */
 export interface CoreApiWorkPort {
 	createBet(input: CreateBetRequest): Promise<CreateBetResponse>;

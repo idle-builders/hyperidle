@@ -82,7 +82,7 @@ Depth: [process-layer/bets-shape-commit-change-ship.md](../process-layer/bets-sh
 
 Item shape and routing rules: [human-interface-layer/items-and-routing.md](../human-interface-layer/items-and-routing.md).
 
-**F-6.1** `routeItem` routes every item to one of the three views by risk tier, kind, and verb: risk tier medium/high, reviews, skill changes, and chat go to Conversations; knowledge to Knowledge; work/bets to Work. The fallback when nothing matches is Conversations (packages/fabric/src/services/item-router.ts:26).
+**F-6.1** **Not currently implemented.** This described `routeItem` routing every item to one of the three views by risk tier, kind, and verb (risk tier medium/high, reviews, skill changes, and chat → Conversations; knowledge → Knowledge; work/bets → Work; fallback Conversations). Core-api itself already stopped calling this inline at item creation (`@lore O2`, `packages/core-api/src/routes/conversations.ts`), and AU21 §6 Decision L3 traced the remaining `tool-handlers` copy (`route_item` tool + `ports.work.routeItem` + `packages/core-api/work/src/item-router.ts`) to be vestigial — its `view` output was consumed by nothing — and deleted it outright. Real item routing (persisted, actually driving where an item surfaces) does not exist in the codebase today; re-provisioning it is a separate, unscoped product decision, not this fix.
 
 **F-6.2** Human decisions on review items use the five-verdict grammar — see [human-interface-layer/thread-primitive.md](../human-interface-layer/thread-primitive.md).
 

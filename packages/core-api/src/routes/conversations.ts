@@ -52,7 +52,8 @@ const createItemSchema = z.object({
 /**
  * AU21 §9 Increment 2 — `CoreApiPort.work.updateItemById`'s backing
  * request body. Narrower than `createItemSchema`: only the three fields
- * `route_item`/`score_attention` mutate on an existing item.
+ * `score_attention` mutates on an existing item (`route_item` was a second
+ * mutator here — AU21 §6 Decision L3 deleted it outright as vestigial).
  */
 const updateItemSchema = z.object({
 	riskTier: z.enum(["low", "medium", "high"]).optional(),
@@ -131,7 +132,9 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 	});
 
 	// AU21 §9 Increment 2 — `CoreApiPort.work.updateItemById`'s backing route.
-	// PATCH /items/:id — patch riskTier/kind/verb (used by route_item/score_attention).
+	// PATCH /items/:id — patch riskTier/kind/verb (used by score_attention;
+	// `route_item` was a second caller here — AU21 §6 Decision L3 deleted it
+	// outright as vestigial).
 	router.patch(
 		"/items/:id",
 		requireBoundary({ kind: "public-data" }),

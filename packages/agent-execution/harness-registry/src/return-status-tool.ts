@@ -129,6 +129,10 @@ const returnStatusDefinition = {
  * using the assigned definition fields (`forRegistry`, `handler`, schema).
  */
 const { name: _functionName, ...returnStatusFields } = returnStatusDefinition;
-export const returnStatusTool = Object.assign(function hyperidle_return_status() {
+
+// biome-ignore lint/style/useNamingConvention: the function's intrinsic .name IS the tool identifier — must stay snake_case to match "hyperidle_return_status".
+function hyperidle_return_status(): typeof returnStatusDefinition {
 	return returnStatusDefinition;
-}, returnStatusFields);
+}
+
+export const returnStatusTool = Object.assign(hyperidle_return_status, returnStatusFields);

@@ -53,8 +53,6 @@ export type { RevisionLogEntry } from "./bet-state-machine.js";
 export { transitionBet, updateBetField } from "./bet-state-machine.js";
 // -- dependency-watcher (AU20 Ag2: relocated from @hyperidle/filesystems) --
 export { checkAndUnblockDependents } from "./dependency-watcher.js";
-// -- item routing (pure function, no DB) --
-export { routeItem } from "./item-router.js";
 // -- ports (Mechanism C — DI-injected outbound edges) --
 // Individual port/DTO interfaces are internal to this Service — callers access
 // them via WorkDeps["fieldName"]. Only the bundle type is product surface.

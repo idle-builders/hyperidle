@@ -3,8 +3,10 @@
  * tools via `toolsForRole()`.
  *
  * Today the registry returns every tool to every caller. Builders can
- * therefore call facilitator-only tools (`promote_knowledge`, `route_item`,
+ * therefore call facilitator-only tools (`promote_knowledge`,
  * `score_attention`, `create_conflict_review`) directly through `invoke()`.
+ * (`route_item` was a 4th facilitator-only tool here — AU21 §6 Decision L3
+ * deleted it outright as vestigial, not merely re-narrowed.)
  * Defence in depth (the harness already filters tool names by role) is not
  * the same as authorization at the registry boundary.
  *
@@ -24,7 +26,6 @@ import { test } from "../test-fixtures.js";
 
 const FACILITATOR_ONLY = [
 	"promote_knowledge",
-	"route_item",
 	"score_attention",
 	"create_conflict_review",
 ] as const;
@@ -42,7 +43,7 @@ function makeContext(db: HyperIdleDb): ToolContext<HyperIdleDb> {
 }
 
 describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
-	test("B1: builder registry excludes all four facilitator tools", ({ db }) => {
+	test("B1: builder registry excludes all three facilitator tools", ({ db }) => {
 		// I2 contract: second-arg options object with `role`.
 		const registry = buildToolRegistry(makeContext(db), { role: "builder" });
 		const names = new Set(registry.definitions.map((d) => d.name));
@@ -87,7 +88,7 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 	});
 
 	// @lore AD8b: role string "chief_of_staff" renamed to "assistant".
-	test("B3: assistant registry includes all 22 tools (15 + 5 AE3 management tools + 1 AK4 draft tool + 1 AL7 stage_operation)", ({
+	test("B3: assistant registry includes all 21 tools (15 + 5 AE3 management tools + 1 AK4 draft tool + 1 AL7 stage_operation)", ({
 		db,
 	}) => {
 		const registry = buildToolRegistry(makeContext(db), { role: "assistant" });
@@ -96,7 +97,8 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		// + 5 AE3 management tools: create_team, add_agent, create_bet, create_routine, update_routine = 20
 		// + 1 AK4 draft tool: edit_bet = 21
 		// + 1 AL7: stage_operation = 22
-		expect(names).toHaveLength(22);
+		// - 1 AU21 §6 Decision L3: route_item deleted = 21
+		expect(names).toHaveLength(21);
 		for (const t of FACILITATOR_ONLY) {
 			expect(names).toContain(t);
 		}

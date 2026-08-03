@@ -461,12 +461,6 @@ function makeCreateItemTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Creat
 			);
 			const itemId = created.id;
 
-			const view = ports.work.routeItem({
-				riskTier: input.riskTier ?? null,
-				kind: input.kind ?? null,
-				verb: input.verb ?? null,
-			});
-
 			// AU21 §9 Increment 2: the local `item_created` emission that used to
 			// live here is DELETED — `POST /conversations/items` (the route
 			// `ports.coreApi.createItem` above just called) already emits
@@ -474,7 +468,12 @@ function makeCreateItemTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Creat
 			// Emitting it again here would double-fire the event for every
 			// `create_item` tool call.
 
-			return ok({ itemId, view, threadId });
+			// @lore AU21 §6 Decision L3: the `view` field (`ports.work.routeItem`'s
+			// output) is DELETED from this result, not merely unset — traced to be
+			// consumed by nothing (no persisted column, no display reader, no
+			// downstream tool). `routeItem`/`route_item`/`item-router.ts` are
+			// deleted outright.
+			return ok({ itemId, threadId });
 		},
 	};
 }
@@ -682,61 +681,6 @@ function makeSubmitReviewTool<TDb>(
 			await ports.coreApi.updateThread(threadId, { lastActiveAt: now }, ctx.agentId);
 
 			return ok({ messageId, threadId, betId });
-		},
-	};
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// route_item
-// ─────────────────────────────────────────────────────────────────────────────
-
-const RISK_TIERS_ROUTE = ["low", "medium", "high"] as const;
-
-const routeItemInputSchema = z.object({
-	itemId: z.string().min(1),
-	riskTier: z.enum(RISK_TIERS_ROUTE).optional(),
-	kind: z.string().optional(),
-	verb: z.string().optional(),
-});
-
-type RouteItemInput = z.infer<typeof routeItemInputSchema>;
-
-function makeRouteItemTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<RouteItemInput, TDb> {
-	return {
-		name: "route_item",
-		description:
-			"Route an existing item to its correct view (conversations | work | knowledge) based on risk tier and kind. Accepts optional overrides for riskTier, kind, or verb; returns the resolved view.",
-		inputSchema: routeItemInputSchema,
-		roles: ["assistant", "facilitator", "product_manager"],
-		handler: async (args, ctx) => {
-			const row = await ports.coreApi.getItemById(args.itemId, ctx.agentId);
-			if (!row) return err("NOT_FOUND", `Item not found: ${args.itemId}`);
-
-			const effectiveRiskTier = args.riskTier ?? row.riskTier ?? null;
-			const effectiveKind = args.kind ?? row.kind ?? null;
-			const effectiveVerb = args.verb ?? row.verb ?? null;
-
-			const view = ports.work.routeItem({
-				riskTier: effectiveRiskTier,
-				kind: effectiveKind,
-				verb: effectiveVerb,
-			});
-
-			const updates: Partial<{ riskTier: string; kind: string; verb: string }> = {};
-			if (args.riskTier !== undefined) updates.riskTier = args.riskTier;
-			if (args.kind !== undefined) updates.kind = args.kind;
-			if (args.verb !== undefined) updates.verb = args.verb;
-			if (Object.keys(updates).length > 0) {
-				await ports.coreApi.updateItemById(args.itemId, updates, ctx.agentId);
-			}
-
-			return ok({
-				itemId: args.itemId,
-				view,
-				riskTier: effectiveRiskTier,
-				kind: effectiveKind,
-				verb: effectiveVerb,
-			});
 		},
 	};
 }
@@ -1592,9 +1536,11 @@ function makeCreateArtifactTool<TDb>(
  * rather than generic; each individual private maker stays generic (for
  * testability), with `TDb` inferred as `HyperIdleDb` here.
  *
- * @lore Four facilitator-only tools (`route_item`, `score_attention`,
- * `promote_knowledge`, `create_conflict_review`) narrow to facilitator roles —
- * passing them to builders would break G1 AC6's authorization intent.
+ * @lore Three facilitator-only tools (`score_attention`, `promote_knowledge`,
+ * `create_conflict_review`) narrow to facilitator roles — passing them to
+ * builders would break G1 AC6's authorization intent. (`route_item` was a
+ * fourth member of this set; deleted outright as vestigial — AU21 §6
+ * Decision L3 — not merely re-narrowed.)
  */
 export function buildToolDefinitions(
 	ports: ToolHandlersPorts,
@@ -1612,7 +1558,6 @@ export function buildToolDefinitions(
 		toRegistered(makeCreateTaskTool(ports)),
 		toRegistered(makeSubmitReviewTool(ports)),
 		toRegistered(makeCreateArtifactTool(ports)),
-		toRegistered(makeRouteItemTool(ports)),
 		toRegistered(makeScoreAttentionTool(ports)),
 		toRegistered(makePromoteKnowledgeTool(ports)),
 		toRegistered(makeCreateConflictReviewTool(ports)),

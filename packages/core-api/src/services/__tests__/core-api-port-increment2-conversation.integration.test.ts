@@ -93,8 +93,10 @@
  * untouched this wave — `§1/§2 core-maintenance-moved-core-side` /
  * `§2 baked`, per `edge-disposition.md`, Increment 3/5's scope.
  *
- * `routeItem` is confirmed pure/local (no `TDb`, `ports.ts:61-67`) — not part
- * of `ToolHandlersConversationAccessor` at all, no contract test needed.
+ * `routeItem` was confirmed pure/local (no `TDb`) and never part of
+ * `ToolHandlersConversationAccessor` at all — AU21 §6 Decision L3 later
+ * deleted it outright as vestigial (its output was consumed by nothing),
+ * not relocated onto any seam.
  */
 
 import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";

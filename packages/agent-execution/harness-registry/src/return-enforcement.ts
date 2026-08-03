@@ -19,7 +19,7 @@ interface ReturnEnforcement extends EnforcementRegistry {
 	observe(gate: ReturnGate, event: HarnessEvent): void;
 	evaluate(
 		gate: ReturnGate,
-		endReason: "completed" | "crashed" | "stopped" | "budget_exhausted",
+		endReason: "completed" | "crashed" | "stopped",
 	): "returned" | "not_returned";
 }
 

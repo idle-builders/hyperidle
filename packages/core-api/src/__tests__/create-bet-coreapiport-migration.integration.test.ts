@@ -59,8 +59,11 @@ async function seedTeam(db: Parameters<typeof makeContext>[0]): Promise<{ teamId
 }
 
 describe("create_bet tool — CoreApiPort migration", () => {
-	test("the raw createBet DI port no longer exists on ToolHandlersPorts.work", () => {
-		expect(Object.hasOwn(toolHandlersPorts.work, "createBet")).toBe(false);
+	test("the raw createBet DI port no longer exists — ToolHandlersPorts has no `work` accessor at all", () => {
+		// @lore AU21 §6 Decision L3: `work.routeItem` (the last standalone
+		// same-process `work` DI capability) was deleted outright as vestigial —
+		// there is no longer a `work` field on `ToolHandlersPorts` to check.
+		expect(Object.hasOwn(toolHandlersPorts, "work")).toBe(false);
 	});
 
 	test("create_bet routes through CoreApiPort — a real bet lands via the real POST /bets route, revisionLog attributed to the calling agent", async ({
