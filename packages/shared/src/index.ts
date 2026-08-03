@@ -274,7 +274,6 @@ export type {
 	CapturedToolCall,
 	CompletionEvent,
 	ConversationMessage,
-	CostUpdateEvent,
 	ErrorEvent,
 	HarnessAccessMode,
 	HarnessAdapter,

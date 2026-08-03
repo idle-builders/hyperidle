@@ -63,7 +63,7 @@ Discovery also enumerates tools each harness already carries — names and healt
 
 Reports `ready` when any credential is present, with the matched credential name in the auth action. Reports `unauthenticated` with the full checked-key list otherwise.
 
-**Real gateway call proven:** `AM2-builtin-gateway.integration.test.ts` drives one harmless turn through `BuiltinHarnessAdapter` via the `openai-compatible` path (live OpenRouter call — no stub, no cassette) and asserts real normalized `token_usage`, `cost_update`, and `completion` events with a non-empty `completion.text` differing from the probe prompt.
+**Real gateway call proven:** `AM2-builtin-gateway.integration.test.ts` drives one harmless turn through `BuiltinHarnessAdapter` via the `openai-compatible` path (live OpenRouter call — no stub, no cassette) and asserts real normalized `token_usage` and `completion` events with a non-empty `completion.text` differing from the probe prompt. (`cost_update` was removed — harness telemetry is token usage only.)
 
 **Runtime caps:** `fileEditing`/`toolUse` resolve `true` via the `?? true` defaults in `runtimeFromCapabilities` (`harness-capability-descriptors.ts:39-40`) — the builtin adapter does not declare them itself, and it declares `mcpSupport: false`. Builtin does not use the session-probe gate.
 
@@ -85,7 +85,7 @@ Reports `ready` when any credential is present, with the matched credential name
 
 **Discovery probes** (`probeClaudeCodeCli`, `harness-discovery.ts:180-244`): `claude --version`; `claude auth status` JSON-parsed for `loggedIn: true`.
 
-**Session probe:** `probeClaudeSession` (`harness-session-probe.ts:170-215`) runs `claude -p "say OK" --output-format stream-json --verbose --no-session-persistence`. Captures the usage-bearing `result` NDJSON event carrying `usage.{input_tokens, output_tokens}` and `total_cost_usd`. Committed fixture: `fixtures/claude-stream.jsonl`.
+**Session probe:** `probeClaudeSession` (`harness-session-probe.ts:170-215`) runs `claude -p "say OK" --output-format stream-json --verbose --no-session-persistence`. Captures the usage-bearing `result` NDJSON event carrying `usage.{input_tokens, output_tokens}`. The line also carries `total_cost_usd`, but the adapter no longer captures it — harness telemetry is token usage only. Committed fixture: `fixtures/claude-stream.jsonl`.
 
 **Production adapter is the real `claude` CLI:** `CliHarnessAdapter(CLAUDE_CLI_CONFIG)` (`adapter-pool.ts:616-628`). The former SDK adapter (`ClaudeAgentSdkAdapter`) is deleted — CLI login IS the production auth path, so there is no SDK-vs-CLI credential mismatch.
 
@@ -167,11 +167,11 @@ Per-CLI config delivery is listed under each family above. The staged-operation 
 
 Two code paths converge on the `HarnessEvent` union — consumers cannot tell which path produced an event:
 
-**Path 1: `builtin`** — `BuiltinHarnessAdapter` emits `token_usage`, `cost_update`, `completion` directly in union shape. No pre-normalizer.
+**Path 1: `builtin`** — `BuiltinHarnessAdapter` emits `token_usage`, `completion` directly in union shape. No pre-normalizer. (`cost_update` was removed — harness telemetry is token usage only; see `packages/agent-execution/harness-registry/src/llm-cassette.ts` lore.)
 
 **Path 2: CLI families** — everything flows through `normalizeHarnessEvent` (`packages/shared/src/harness/harness-event-normalization.ts:286`) with per-family pre-maps:
 
-- **claude-code:** `preMapClaudeEvent` (`:79`) translates stream-json types (`assistant`/`result`/`system`) to canonical types before normalization; applied explicitly by the CLI adapter when `eventDialect === "claude-stream-json"`, not inside `normalizeHarnessEvent`. `result.usage` → `token_usage`; `result.total_cost_usd` → `cost_update` (the cost field for the claude family).
+- **claude-code:** `preMapClaudeEvent` (`:79`) translates stream-json types (`assistant`/`result`/`system`) to canonical types before normalization; applied explicitly by the CLI adapter when `eventDialect === "claude-stream-json"`, not inside `normalizeHarnessEvent`. `result.usage` → `token_usage`. `result.total_cost_usd` is present on the wire but no longer captured — no `cost_update` event exists.
 - **codex:** `turn.completed.usage.{input_tokens, output_tokens}` → `token_usage`, handled inside `normalizeHarnessEvent` (`:254`).
 - **opencode:** `preMapOpencodeEvent` (`:139`) translates raw JSONL types: `step_finish` → `completion`, `tool` → `tool_call`, plus `step_start` and `text` branches (AR2). Required for the MCP-routed loop to see opencode tool calls and turn completions.
 - Unrecognized types for any family → `UnknownHarnessEvent` (an `error` event preserving the raw type string — graceful degradation).

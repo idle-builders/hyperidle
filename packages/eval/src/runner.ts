@@ -260,7 +260,7 @@ export async function runEval(options: RunOptions): Promise<EvalReport> {
 			triggerResult = await scenario.trigger(triggerCtx);
 
 			process.stderr.write(
-				`[eval]   outcome=${triggerResult.outcome} cost=${triggerResult.totalCostCents}¢ duration=${triggerResult.durationMs}ms\n`,
+				`[eval]   outcome=${triggerResult.outcome} duration=${triggerResult.durationMs}ms\n`,
 			);
 
 			// Step 3: Score
@@ -283,7 +283,6 @@ export async function runEval(options: RunOptions): Promise<EvalReport> {
 				model: modelLabel,
 				durationMs: triggerResult.durationMs,
 				outcome: triggerResult.outcome,
-				costCents: triggerResult.totalCostCents,
 				dimensions,
 				aggregateScore,
 				tokensByTier,
@@ -299,7 +298,6 @@ export async function runEval(options: RunOptions): Promise<EvalReport> {
 				model: modelLabel,
 				durationMs: triggerResult?.durationMs ?? durationMs,
 				outcome: "crashed",
-				costCents: triggerResult?.totalCostCents ?? 0,
 				dimensions: [],
 				aggregateScore: 0,
 				tokensByTier: {},
@@ -315,8 +313,6 @@ export async function runEval(options: RunOptions): Promise<EvalReport> {
 		scenarioReports.length > 0
 			? scenarioReports.reduce((sum, r) => sum + r.aggregateScore, 0) / scenarioReports.length
 			: 0;
-
-	const totalCostCents = scenarioReports.reduce((sum, r) => sum + r.costCents, 0);
 
 	// Aggregate token counts
 	const totalTokensByTier: Record<string, { prompt: number; completion: number }> = {};
@@ -363,7 +359,6 @@ export async function runEval(options: RunOptions): Promise<EvalReport> {
 		scenarios: scenarioReports,
 		overallScore,
 		totalDurationMs,
-		totalCostCents,
 		totalTokensByTier,
 		featureBreakdown,
 	};

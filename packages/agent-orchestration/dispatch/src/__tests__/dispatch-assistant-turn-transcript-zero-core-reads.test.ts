@@ -157,7 +157,6 @@ describe("dispatch's assistant turn sources the transcript from the baked payloa
 				return {
 					sessionId: "sess-inc11-transcript",
 					outcome: "completed" as const,
-					totalCostCents: 0,
 					taskId: null,
 					forceReturnCount: 0,
 					conversationalReply: "ok",

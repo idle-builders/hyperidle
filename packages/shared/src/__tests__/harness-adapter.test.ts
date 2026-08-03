@@ -96,10 +96,9 @@ describe("HarnessAdapter interface (D1)", () => {
 			const result: SessionResult = await adapter.stopSession(handle);
 
 			expect(result.outcome).toBe("completed");
-			// L17: cost is now WireMoney, tokens is TokenUsage
-			expect(typeof result.cost.minor).toBe("number");
-			expect(result.cost.minor).toBeGreaterThanOrEqual(0);
-			expect(typeof result.cost.currency).toBe("string");
+			// L17: tokens is TokenUsage.
+			// @lore AU21 harness-telemetry narrowing: cost is REMOVED, not present at all.
+			expect(result).not.toHaveProperty("cost");
 			expect(result.tokenUsage.byTier).toBeDefined();
 		});
 
@@ -160,26 +159,18 @@ describe("HarnessAdapter interface (D1)", () => {
 	});
 
 	describe("HarnessEvent discriminated union", () => {
-		it("covers all six event types", () => {
+		it("covers all five event types (no cost_update — harness telemetry is token-usage only)", () => {
 			const events: HarnessEvent[] = [
 				{ type: "token_usage", inputTokens: 10, outputTokens: 5 },
 				{ type: "tool_call", toolName: "test", args: {} },
 				{ type: "completion", text: "done" },
 				{ type: "error", message: "fail", code: "ERR" },
-				{ type: "cost_update", totalCost: 1.0, deltaCost: 0.5 },
 				{ type: "pre_compaction", contextTokens: 90000, maxTokens: 100000 },
 			];
 
-			expect(events).toHaveLength(6);
+			expect(events).toHaveLength(5);
 			const types = events.map((e) => e.type);
-			expect(types).toEqual([
-				"token_usage",
-				"tool_call",
-				"completion",
-				"error",
-				"cost_update",
-				"pre_compaction",
-			]);
+			expect(types).toEqual(["token_usage", "tool_call", "completion", "error", "pre_compaction"]);
 		});
 	});
 });

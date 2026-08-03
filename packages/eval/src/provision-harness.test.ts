@@ -46,7 +46,6 @@ describe("eval harness provisioning", () => {
 				mode: "completed",
 				sessionId: "eval-session",
 				outcome: "completed",
-				totalCostCents: 0,
 				taskId: "task",
 				forceReturnCount: 0,
 			};

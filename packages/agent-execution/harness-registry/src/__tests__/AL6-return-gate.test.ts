@@ -161,11 +161,10 @@ describe("ReturnGate — AC5: mid-turn non-terminal tools do not block the gate"
 		expect(evaluateReturn(gate, "completed")).toBe("not_returned");
 	});
 
-	it("non-tool events (completion, token_usage, cost_update) do not affect returned flag", () => {
+	it("non-tool events (completion, token_usage) do not affect returned flag", () => {
 		const gate = createReturnGate();
 		gate.observe({ type: "completion", text: "done" });
 		gate.observe({ type: "token_usage", inputTokens: 100, outputTokens: 50 });
-		gate.observe({ type: "cost_update", totalCost: 1.0, deltaCost: 0.5 });
 
 		expect(gate.returned).toBe(false);
 		expect(evaluateReturn(gate, "completed")).toBe("not_returned");
@@ -177,7 +176,6 @@ describe("ReturnGate — AC5: mid-turn non-terminal tools do not block the gate"
 			{ type: "tool_call", toolName: "read_inbox", args: {} },
 			{ type: "completion", text: "done" },
 			{ type: "token_usage", inputTokens: 1, outputTokens: 1 },
-			{ type: "cost_update", totalCost: 0, deltaCost: 0 },
 			{ type: "error", message: "oops", code: "E001" },
 			{ type: "pre_compaction", contextTokens: 1000, maxTokens: 10000 },
 		];

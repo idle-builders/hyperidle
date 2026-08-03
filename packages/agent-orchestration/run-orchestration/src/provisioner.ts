@@ -30,7 +30,6 @@ import {
 	type SessionOutcome,
 	type SessionResult,
 	type SessionWorkflow,
-	scaleForCurrency,
 	TargetAgentNotRunnableError,
 	type UserRole,
 } from "@hyperidle/shared";
@@ -730,13 +729,6 @@ interface ProvisionSessionParams {
 interface ProvisionSessionResult {
 	readonly sessionId: string;
 	readonly outcome: SessionOutcome;
-	/**
-	 * AU21 Increment 14a: live-computed session $-spend from the harness's
-	 * `cost_update` stream events — kept ONLY as a CI real-spend safety readout
-	 * for the `eval` harness (`AH5`/`AH6` budget-assert scripts); no product
-	 * cost-cap/accounting consumes it anymore.
-	 */
-	readonly totalCostCents: number;
 	readonly taskId: string | null;
 	/**
 	 * AL6: Return-gate verdict for this session run. Present on all task-session
@@ -1392,7 +1384,6 @@ async function runSession(
 		exempt,
 	});
 
-	let totalCostCents = 0;
 	let crashed = false;
 	/** L17: accumulated tokens by tier for the session's tokensJson column. */
 	const accumulatedTokens: Partial<Record<ModelTier, { prompt: number; completion: number }>> = {};
@@ -1474,20 +1465,7 @@ async function runSession(
 					if (aborted) {
 						break;
 					}
-					if (event.type === "cost_update") {
-						// AU21 Increment 14a: the cost-cap gate + accrual (`ports.cost.
-						// recordCostAndCheck`) are deleted — no cap, no replacement. The
-						// running total is kept only as a live-computed number surfaced
-						// on the provisioning result (`totalCostCents` below), which the
-						// `eval` harness uses purely as a CI real-$-spend safety readout
-						// (`AH5_MAX_COST_CENTS`/`AH6_MAX_COST_CENTS` budget-assert
-						// scripts), independent of the deleted product cost-cap feature.
-						const delta = Math.max(0, event.deltaCost);
-						const currency = event.currency ?? "USD";
-						const scale = 10 ** scaleForCurrency(currency);
-						const deltaMinor = Math.round(delta * scale);
-						totalCostCents += deltaMinor;
-					} else if (event.type === "token_usage") {
+					if (event.type === "token_usage") {
 						const tier: ModelTier = event.tier ?? modelTier;
 						const existing = accumulatedTokens[tier];
 						accumulatedTokens[tier] = {
@@ -1589,7 +1567,6 @@ async function runSession(
 		return {
 			sessionId,
 			outcome: "crashed",
-			totalCostCents,
 			taskId: params.taskId,
 			returnVerdict,
 			forceReturnCount: computeForceReturnCount(),
@@ -1640,7 +1617,6 @@ async function runSession(
 		return {
 			sessionId,
 			outcome: "not_returned",
-			totalCostCents,
 			taskId: params.taskId,
 			returnVerdict,
 			forceReturnCount: notReturnedForceCount,
@@ -1671,7 +1647,6 @@ async function runSession(
 	return {
 		sessionId,
 		outcome: "completed",
-		totalCostCents,
 		taskId: params.taskId,
 		returnVerdict,
 		forceReturnCount: computeForceReturnCount(),

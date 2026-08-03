@@ -157,7 +157,6 @@ describe("agent run boundary", () => {
 			return {
 				sessionId: "session-au6-boundary",
 				outcome: "completed",
-				totalCostCents: 0,
 				taskId: "task-au6",
 				forceReturnCount: 0,
 			};
@@ -224,7 +223,6 @@ describe("agent run boundary", () => {
 		vi.mocked(ports.sessionProvisioner!.runSession).mockImplementation(async () => ({
 			sessionId: "session-au6-boundary",
 			outcome: "completed",
-			totalCostCents: 0,
 			taskId: "task-au6",
 			forceReturnCount: 0,
 		}));

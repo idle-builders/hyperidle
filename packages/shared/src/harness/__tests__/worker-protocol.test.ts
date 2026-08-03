@@ -56,7 +56,6 @@ describe("WorkerToServerMessage", () => {
 			sessionId: "sess-2",
 			result: {
 				outcome: "completed",
-				cost: { minor: 100, currency: "USD" },
 				tokenUsage: { byTier: { workhorse: { prompt: 10, completion: 5 } } },
 			},
 		};

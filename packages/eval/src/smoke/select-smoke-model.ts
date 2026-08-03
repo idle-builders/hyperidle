@@ -16,6 +16,12 @@
  * iterates ranked[] in order. If ranked[0] is delisted or unavailable at
  * provisioning time, the lane retries with ranked[1], etc. This is a
  * deterministic, unit-testable property of this pure function.
+ *
+ * @lore AU21 (harness-telemetry narrowing): `isWithinCostCap` (a pure $-cost
+ * cap predicate) is REMOVED — it had no real call site (only its own test
+ * imported it) and the founder ruling narrowed harness-adjacent telemetry to
+ * token usage only. The AH5/AH6 local smoke-lane real-money guard now gates
+ * on accumulated tokens (`AH6_MAX_TOKENS`) instead — see llm-cassette.ts.
  */
 
 import type { ModelEndpoints, OpenRouterModel } from "./openrouter-catalog.js";
@@ -171,18 +177,4 @@ export function preFilterModels(
 		if (Number.isNaN(price) || price > policy.maxCompletionPricePerMillion) return false;
 		return true;
 	});
-}
-
-// ---------------------------------------------------------------------------
-// Cost-cap helper (pure)
-// ---------------------------------------------------------------------------
-
-/**
- * Pure predicate: is the observed cost within the cap?
- *
- * @lore AH5: Fail closed — if totalCostCents > capCents the assertion fails.
- * Called by the probe and by the local budget-assert step.
- */
-export function isWithinCostCap(totalCostCents: number, capCents: number): boolean {
-	return totalCostCents <= capCents;
 }

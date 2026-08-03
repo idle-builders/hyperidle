@@ -63,7 +63,6 @@ export interface TriggerContext {
 export interface TriggerResult {
 	readonly sessionId: string;
 	readonly outcome: "completed" | "crashed" | "not_returned";
-	readonly totalCostCents: number;
 	readonly taskId: string;
 	/** Wall-clock duration in milliseconds. */
 	readonly durationMs: number;
@@ -167,7 +166,6 @@ export interface ScenarioReport {
 	readonly model: string;
 	readonly durationMs: number;
 	readonly outcome: "completed" | "crashed" | "not_returned";
-	readonly costCents: number;
 	readonly dimensions: readonly DimensionReport[];
 	/** Aggregate score: arithmetic mean of dimension scores. */
 	readonly aggregateScore: number;
@@ -201,11 +199,15 @@ export interface EvalReport {
 	/** Aggregate across all scenarios. */
 	readonly overallScore: number;
 	readonly totalDurationMs: number;
-	readonly totalCostCents: number;
 	/**
 	 * Aggregate token usage across all scenarios.
 	 *
 	 * @lore X7: Section 19 addendum — merged into canonical type per arch critique.
+	 * @lore AU21 (harness-telemetry narrowing): `totalCostCents` (mirrored from
+	 * `ProvisionSessionResult.totalCostCents`) is REMOVED — founder ruling kept
+	 * only token usage. This field (already queried independently from
+	 * `bets.tokensActualJson`, not from the harness's $-cost report) is
+	 * unaffected and remains the eval report's real usage signal.
 	 */
 	readonly totalTokensByTier: Record<string, { prompt: number; completion: number }>;
 	/** Per-feature score breakdown, computed from scenarios grouped by feature field. */

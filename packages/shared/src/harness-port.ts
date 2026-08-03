@@ -131,11 +131,16 @@ export interface AdmittedRun {
 	readonly sessionContext: { readonly taskId: string | null };
 }
 
-/** Full mirror of `@hyperidle/session-lifecycle`'s `ProvisionSessionResult` — every field is already `@hyperidle/shared`-typed, so this is a complete (non-opaque) structural equivalent. */
+/**
+ * Full mirror of `@hyperidle/session-lifecycle`'s `ProvisionSessionResult` — every field is already `@hyperidle/shared`-typed, so this is a complete (non-opaque) structural equivalent.
+ *
+ * @lore AU21 (harness-telemetry narrowing): `totalCostCents` REMOVED — the
+ * harness-adapter $-cost estimate machinery is narrowed to token usage only
+ * (see `SessionMetrics`/`SessionResult` in `harness-adapter.ts`).
+ */
 export interface HarnessRunOutput {
 	readonly sessionId: string;
 	readonly outcome: SessionOutcome;
-	readonly totalCostCents: number;
 	readonly taskId: string | null;
 	readonly returnVerdict?: "returned" | "not_returned";
 	readonly forceReturnCount: number;

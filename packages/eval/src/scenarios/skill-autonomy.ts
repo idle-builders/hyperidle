@@ -27,7 +27,6 @@ function makeSyntheticResult(startMs: number, fired: boolean): TriggerResult {
 	return {
 		sessionId: randomUUID(),
 		outcome: fired ? "completed" : "crashed",
-		totalCostCents: 0,
 		taskId: randomUUID(),
 		durationMs: Date.now() - startMs,
 	};
@@ -290,7 +289,6 @@ const skaSuccessTracking: EvalScenario = {
 		return Promise.resolve({
 			sessionId: randomUUID(),
 			outcome: "completed",
-			totalCostCents: 0,
 			taskId: ctx.seedResult.taskId,
 			durationMs: 1,
 		});

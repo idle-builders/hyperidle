@@ -43,13 +43,17 @@ const AH6_API_KEY = "ah6-e2e-test-key";
 // Absolute path to the cassettes directory — WARNING-3 compliance.
 const CASSETTES_DIR = path.resolve(Dirname, "e2e/cassettes");
 
-// Cost report written by recordLlm in record mode.
+// Usage report written by recordLlm in record mode.
+// @lore AU21 (harness-telemetry narrowing): this used to be a $-cost report;
+// the payload is now token usage only ("very few harness can actually report
+// cost"). Path/env var name kept as "cost" for back-compat with the wiring
+// below and the smoke orchestrator.
 // @lore AH6 CRITICAL-2: This path is passed to the test-server as AH6_COST_REPORT_PATH
-// so recordLlm knows where to write the cost report on flush.
+// so recordLlm knows where to write the report on flush.
 // @lore AH6 CRITICAL-4: Must be OUTSIDE playwright-report-ah6/ because Playwright's
-// HTML reporter clears that directory AFTER the server process exits. If the cost file
+// HTML reporter clears that directory AFTER the server process exits. If the report
 // is written to playwright-report-ah6/ by the exit handler, Playwright's reporter then
-// clears and overwrites that directory, deleting the cost file before the smoke script's
+// clears and overwrites that directory, deleting the report before the smoke script's
 // backup step runs. Writing to /tmp/ah6-cost.json survives reporter cleanup.
 const COST_REPORT_PATH = "/tmp/ah6-cost.json";
 

@@ -68,7 +68,6 @@ describe("agent session runtime consumer", () => {
 		vi.mocked(ports.sessionProvisioner!.runSession).mockImplementation(async () => ({
 			sessionId: "session-runtime-1",
 			outcome: "completed",
-			totalCostCents: 0,
 			taskId: "task-1",
 			forceReturnCount: 0,
 		}));
@@ -168,7 +167,6 @@ describe("agent session runtime consumer", () => {
 			return {
 				sessionId: "session-runtime-1",
 				outcome: "completed",
-				totalCostCents: 0,
 				taskId: "task-1",
 				forceReturnCount: 0,
 			};

@@ -29,7 +29,6 @@ import type {
 	// cross-boundary type (§7.3 W4), sourced from `@hyperidle/shared` same as
 	// every other execution-boundary type.
 	ToolRegistry,
-	WireMoney,
 } from "@hyperidle/shared";
 import { AL6_FORCE_RETURN_MESSAGE, isReturnAction, shouldForceReturn } from "@hyperidle/shared";
 // @lore X6: ModelTier is exported twice from @hyperidle/shared — once as ModelTier from types.ts
@@ -37,7 +36,6 @@ import { AL6_FORCE_RETURN_MESSAGE, isReturnAction, shouldForceReturn } from "@hy
 // ModelTier (not MoneyModelTier) for consistency with the rest of the codebase.
 import { isAboveThreshold, modelContextWindow } from "./context-window.js";
 import { callLlm } from "./llm-client.js";
-import { estimateLlmCost } from "./llm-cost-estimate.js";
 import type {
 	LlmMessage,
 	LlmTextBlock,
@@ -76,7 +74,6 @@ interface BuiltinSession {
 	registry: ToolRegistry | null;
 	totalInputTokens: number;
 	totalOutputTokens: number;
-	totalCostUsd: number;
 	tokensByTier: Partial<Record<ModelTier, TierTokenCount>>;
 	toolCallCount: number;
 	iterationCount: number;
@@ -100,9 +97,6 @@ interface BuiltinSession {
 	 */
 	forceCount: number;
 }
-
-// AH6 CRITICAL-2: estimateCostUsd moved to llm-cost-estimate.ts (single rate source).
-// Both builtin-harness-adapter.ts and llm-cassette.ts import from there.
 
 const PLANNING_PROMPT =
 	"Begin working on your assigned task. Before executing any actions, read the task context and propose a plan of subtasks.";
@@ -186,7 +180,6 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 				registry,
 				totalInputTokens: 0,
 				totalOutputTokens: 0,
-				totalCostUsd: 0,
 				tokensByTier: {},
 				toolCallCount: 0,
 				iterationCount: 0,
@@ -243,7 +236,6 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 				registry: null,
 				totalInputTokens: 0,
 				totalOutputTokens: 0,
-				totalCostUsd: 0,
 				tokensByTier: {},
 				toolCallCount: 0,
 				iterationCount: 0,
@@ -342,18 +334,12 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 
 		const outcome: "completed" | "stopped" | "crashed" = alreadyDone ? "completed" : "stopped";
 
-		const cost: WireMoney = {
-			minor: Math.round(session.totalCostUsd * 100),
-			currency: "USD",
-		};
-
 		const tokenUsage: TokenUsage = {
 			byTier: session.tokensByTier,
 		};
 
 		return {
 			outcome,
-			cost,
 			tokenUsage,
 		};
 	}
@@ -1007,11 +993,6 @@ ${formatMessagesForSummary(toSummarize)}`,
 		session.totalInputTokens += usage.inputTokens;
 		session.totalOutputTokens += usage.outputTokens;
 
-		const resolvedModel = session.config?.resolvedModel;
-		const model = resolvedModel?.model ?? "unknown";
-		const deltaCost = estimateLlmCost(usage.inputTokens, usage.outputTokens, model);
-		session.totalCostUsd += deltaCost;
-
 		// Update per-tier token counts
 		const existing = session.tokensByTier[tier];
 		session.tokensByTier[tier] = {
@@ -1025,14 +1006,6 @@ ${formatMessagesForSummary(toSummarize)}`,
 			inputTokens: usage.inputTokens,
 			outputTokens: usage.outputTokens,
 			tier,
-		});
-
-		// Emit cost_update event
-		this.emitEvent(session, {
-			type: "cost_update",
-			totalCost: session.totalCostUsd,
-			deltaCost,
-			currency: "USD",
 		});
 	}
 

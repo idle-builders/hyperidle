@@ -55,7 +55,6 @@ function makeSyntheticResult(startMs: number, fired: boolean): TriggerResult {
 	return {
 		sessionId: randomUUID(),
 		outcome: fired ? "completed" : "crashed",
-		totalCostCents: 0,
 		taskId: randomUUID(),
 		durationMs: Date.now() - startMs,
 	};

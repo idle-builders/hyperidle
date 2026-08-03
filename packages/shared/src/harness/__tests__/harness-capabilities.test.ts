@@ -4,10 +4,14 @@
  * Tests that:
  * - HarnessCapabilities now includes modelProviders field
  * - HarnessAdapter interface still has exactly 4 methods
- * - HarnessEvent union still has exactly 6 variants
+ * - HarnessEvent union still has exactly 5 variants
  * - MockHarnessAdapter returns modelProviders
  *
  * These fail (red phase) until harness-adapter.ts is updated with modelProviders.
+ *
+ * @lore AU21 (harness-telemetry narrowing): `cost_update` is REMOVED from the
+ * HarnessEvent union (6 variants → 5) — founder ruling narrowed harness
+ * telemetry to token usage only.
  */
 
 import { describe, expect, it } from "vitest";
@@ -49,7 +53,7 @@ describe("HarnessAdapter interface unchanged — exactly 4 methods (AC7)", () =>
 	});
 });
 
-describe("HarnessEvent union unchanged — exactly 6 variants (AC7)", () => {
+describe("HarnessEvent union — exactly 5 variants (AC7; cost_update narrowed out)", () => {
 	it("has token_usage variant", () => {
 		const ev = { type: "token_usage" as const, inputTokens: 1, outputTokens: 1 };
 		expect(ev.type).toBe("token_usage");
@@ -70,9 +74,13 @@ describe("HarnessEvent union unchanged — exactly 6 variants (AC7)", () => {
 		expect(ev.type).toBe("error");
 	});
 
-	it("has cost_update variant", () => {
-		const ev = { type: "cost_update" as const, totalCost: 1, deltaCost: 0.5 };
-		expect(ev.type).toBe("cost_update");
+	it("does NOT have a cost_update variant", () => {
+		type HasCostUpdate =
+			Extract<import("../harness-events.js").HarnessEvent, { type: "cost_update" }> extends never
+				? false
+				: true;
+		const hasCostUpdate: HasCostUpdate = false;
+		expect(hasCostUpdate).toBe(false);
 	});
 
 	it("has pre_compaction variant", () => {

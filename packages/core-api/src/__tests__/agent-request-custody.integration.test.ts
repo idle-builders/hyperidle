@@ -51,7 +51,6 @@ const sessionProvisioner: NonNullable<RuntimePorts["sessionProvisioner"]> = {
 		return {
 			sessionId: "unused",
 			outcome: "completed" as const,
-			totalCostCents: 0,
 			taskId: null,
 			forceReturnCount: 0,
 		};

@@ -29,10 +29,10 @@ import {
 	buildCassetteKey,
 	type CassetteEntry,
 	CassetteMissError,
-	readCostAccumulator,
+	readUsageAccumulator,
 	recordLlm,
 	replayLlm,
-	resetCostAccumulator,
+	resetUsageAccumulator,
 } from "../llm-cassette.js";
 import type { CallLlmOptions } from "../llm-client.js";
 import type { LlmMessage, LlmResponse, LlmToolDef } from "../llm-types.js";
@@ -391,17 +391,23 @@ describe("AH6: CassetteMissError", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Suite D: recordLlm cost accumulation (CRITICAL-2)
+// Suite D: recordLlm token-usage accumulation (CRITICAL-2)
+//
+// @lore AU21 (harness-telemetry narrowing): This suite used to assert on an
+// ESTIMATED $-cost accumulator (totalCostUsd via a hardcoded rate table).
+// Founder ruling narrowed harness telemetry to token usage only — "very few
+// harness can actually report cost". These tests now prove token usage is
+// tracked and that no $ figure is computed anywhere in the accumulator.
 // ---------------------------------------------------------------------------
 
-describe("AH6 cassette: recordLlm cost accumulation (CRITICAL-2)", () => {
+describe("AH6 cassette: recordLlm token-usage accumulation (CRITICAL-2)", () => {
 	let tmpDir: string;
 
 	beforeEach(() => {
-		resetCostAccumulator();
+		resetUsageAccumulator();
 		vi.stubEnv("LLM_CASSETTE_MODE", "record");
-		vi.stubEnv("AH6_MAX_COST_CENTS", "100"); // large cap so tests don't abort
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ah6-cost-test-"));
+		vi.stubEnv("AH6_MAX_TOKENS", "100000"); // large cap so tests don't abort
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ah6-usage-test-"));
 		vi.stubEnv("LLM_CASSETTE_DIR", tmpDir);
 		vi.stubEnv("LLM_CASSETTE_SCENARIO", "test");
 		vi.stubEnv("AH6_COST_REPORT_PATH", path.join(tmpDir, "ah6-cost.json"));
@@ -409,7 +415,7 @@ describe("AH6 cassette: recordLlm cost accumulation (CRITICAL-2)", () => {
 
 	afterEach(() => {
 		vi.unstubAllEnvs();
-		resetCostAccumulator();
+		resetUsageAccumulator();
 		// Clean up temp dir
 		try {
 			fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -418,7 +424,7 @@ describe("AH6 cassette: recordLlm cost accumulation (CRITICAL-2)", () => {
 		}
 	});
 
-	test("recordLlm accumulates totalCostUsd > 0 after a call with non-zero usage", async () => {
+	test("recordLlm accumulates token usage after a call with non-zero usage", async () => {
 		const options = makeOptions(MODEL_A);
 		const stubbedResponse: LlmResponse = {
 			stopReason: "end_turn",
@@ -428,13 +434,14 @@ describe("AH6 cassette: recordLlm cost accumulation (CRITICAL-2)", () => {
 
 		await recordLlm(options, async () => stubbedResponse);
 
-		const acc = readCostAccumulator();
-		expect(acc.totalCostUsd).toBeGreaterThan(0);
+		const acc = readUsageAccumulator();
 		expect(acc.totalInputTokens).toBe(100);
 		expect(acc.totalOutputTokens).toBe(50);
+		// No $ figure anywhere on the accumulator.
+		expect(acc).not.toHaveProperty("totalCostUsd");
 	});
 
-	test("recordLlm accumulates cost across multiple calls", async () => {
+	test("recordLlm accumulates token usage across multiple calls", async () => {
 		const options = makeOptions(MODEL_A);
 		const stubbedResponse: LlmResponse = {
 			stopReason: "end_turn",
@@ -445,10 +452,9 @@ describe("AH6 cassette: recordLlm cost accumulation (CRITICAL-2)", () => {
 		await recordLlm(options, async () => stubbedResponse);
 		await recordLlm(makeOptions(MODEL_B), async () => stubbedResponse);
 
-		const acc = readCostAccumulator();
+		const acc = readUsageAccumulator();
 		expect(acc.totalInputTokens).toBe(200);
 		expect(acc.totalOutputTokens).toBe(100);
-		expect(acc.totalCostUsd).toBeGreaterThan(0);
 	});
 
 	test("recordLlm captures the model id (routing suffix stripped)", async () => {
@@ -461,7 +467,7 @@ describe("AH6 cassette: recordLlm cost accumulation (CRITICAL-2)", () => {
 
 		await recordLlm(options, async () => stubbedResponse);
 
-		const acc = readCostAccumulator();
+		const acc = readUsageAccumulator();
 		// model id should have :nitro stripped
 		expect(acc.model).toBe("deepseek/deepseek-v4-flash");
 	});
@@ -491,8 +497,28 @@ describe("AH6 cassette: recordLlm cost accumulation (CRITICAL-2)", () => {
 		// The cassette is only written at process exit (flush) — confirm the original
 		// options.model.apiKey hasn't leaked into the accumulator's model field.
 		expect(options.model.apiKey).toBe("sk-or-real-key"); // fixture has a real-looking key
-		const acc = readCostAccumulator();
+		const acc = readUsageAccumulator();
 		// Accumulator model field is the stripped model id — no key material
 		expect(acc.model).not.toContain("sk-or");
+	});
+
+	test("recordLlm aborts the process when accumulated tokens exceed AH6_MAX_TOKENS", async () => {
+		vi.stubEnv("AH6_MAX_TOKENS", "10");
+		const exitSpy = vi.spyOn(process, "exit").mockImplementation(((): never => {
+			throw new Error("process.exit called");
+		}) as never);
+
+		const options = makeOptions(MODEL_A);
+		const stubbedResponse: LlmResponse = {
+			stopReason: "end_turn",
+			content: [{ type: "text", text: "2" }],
+			usage: { inputTokens: 100, outputTokens: 50 },
+		};
+
+		await expect(recordLlm(options, async () => stubbedResponse)).rejects.toThrow(
+			"process.exit called",
+		);
+		expect(exitSpy).toHaveBeenCalledWith(1);
+		exitSpy.mockRestore();
 	});
 });

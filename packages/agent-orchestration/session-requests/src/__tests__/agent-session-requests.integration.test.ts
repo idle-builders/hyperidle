@@ -629,7 +629,6 @@ describe("agent session request repository", () => {
 	test("live run registry replaces, aborts, and deregisters runtime handles", async () => {
 		const stopResult = {
 			outcome: "completed" as const,
-			cost: { minor: 0, currency: "USD" as const },
 			tokenUsage: { byTier: {} },
 		};
 		const firstStop = vi.fn(async (_handle: SessionHandle) => stopResult);

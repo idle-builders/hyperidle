@@ -263,7 +263,7 @@ flowchart TB
   Builtin["Builtin adapter"]
   CLI["CLI adapter"]
   Remote["Remote adapter"]
-  EventStream["Harness event stream\ncost_update\ntoken_usage\ntool_call\ncompletion\nerror\npre_compaction"]
+  EventStream["Harness event stream\ntoken_usage\ntool_call\ncompletion\nerror\npre_compaction"]
 
   AdapterPool --> HarnessAdapter
   HarnessAdapter --> Builtin
@@ -281,7 +281,7 @@ flowchart TB
   Builtin --> ToolRegistry
 ```
 
-Harness event types match `packages/shared/src/harness/harness-events.ts:6-57` exactly (token_usage, tool_call, completion, error, cost_update, pre_compaction). The pool does least-loaded selection with load tracking (`packages/server/src/harness/adapter-pool.ts:187-235`). Event-normalization mechanism, capability descriptor shape, discovery/session probes, and the MCP bridge are owned by the [harness capability descriptor](../agent-layer/harness-capability-descriptor.md).
+Harness event types match `packages/shared/src/harness/harness-events.ts` exactly (token_usage, tool_call, completion, error, pre_compaction). `cost_update` was removed — harness telemetry was narrowed to token usage only (founder ruling: "very few harness can actually report cost"; see `packages/agent-execution/harness-registry/src/llm-cassette.ts`). The pool does least-loaded selection with load tracking (`packages/agent-execution/harness-registry/src/adapter-pool.ts`). Event-normalization mechanism, capability descriptor shape, discovery/session probes, and the MCP bridge are owned by the [harness capability descriptor](../agent-layer/harness-capability-descriptor.md).
 
 ## L2 - Knowledge (Core) And Agent Services
 

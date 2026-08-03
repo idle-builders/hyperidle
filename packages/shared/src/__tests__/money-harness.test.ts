@@ -1,45 +1,28 @@
 /**
- * L17 RED — Harness contract change tests.
+ * L17 — Harness contract change tests.
  *
- * AC9:  SessionResult returns structured { cost: WireMoney, tokenUsage: TokenUsage }
+ * AC9:  SessionResult returns structured { tokenUsage: TokenUsage }
  * AC10: TokenUsageEvent carries optional tier field
- * AC11: CostUpdateEvent carries optional currency field
  *
- * @lore AU21 Increment 14a: AC19 (ArtifactCostFromSession) is deleted along
- * with the rest of the artifact-cost display feature. AC9/AC11's harness-
- * level $-estimate (`SessionResult.cost`/`CostUpdateEvent`) is kept — it is
- * a CI real-spend safety readout for the `eval` harness, structurally
- * distinct from the deleted product cost-cap feature.
- *
- * These tests will FAIL until Task 1 implementation ships.
+ * @lore AU21 (harness-telemetry narrowing): AC9's harness-level $-estimate
+ * (`SessionResult.cost`) and AC11 (`CostUpdateEvent`) are REMOVED — founder
+ * ruling: "the session itself can claim... token usage from the harness...
+ * just the token usage and not the cost since very few harness can actually
+ * report cost." This file used to assert `SessionResult.cost: WireMoney` and
+ * `CostUpdateEvent`'s optional currency field (AC11); those assertions are
+ * replaced with proof that no $ figure exists anywhere on the type/event
+ * surface. TokenUsageEvent (AC10) is unaffected and still asserted below.
  */
 
 import { describe, expect, expectTypeOf, it } from "vitest";
 import type { SessionResult } from "../harness/harness-adapter.js";
-import type { CostUpdateEvent, TokenUsageEvent } from "../harness/harness-events.js";
+import type { HarnessEvent, TokenUsageEvent } from "../harness/harness-events.js";
 import { MockHarnessAdapter } from "../harness/mock-harness-adapter.js";
-import type { TokenUsage, WireMoney } from "../types/money.js";
+import type { TokenUsage } from "../types/money.js";
 
 // ── AC9: SessionResult structured shape ───────────────────────────────────────
 
 describe("SessionResult (AC9)", () => {
-	it("mock adapter returns cost as WireMoney with minor and currency", async () => {
-		const adapter = new MockHarnessAdapter();
-		const handle = await adapter.startSession({
-			sessionId: "test-session",
-			sandboxPath: "/tmp/ws",
-			systemPromptPath: "/tmp/system-prompt.md",
-			assembledPrompt: "",
-			modelTier: "workhorse",
-			tools: [],
-		});
-		const result = await adapter.stopSession(handle);
-		expect(result.cost).toBeDefined();
-		expect(typeof result.cost.minor).toBe("number");
-		expect(typeof result.cost.currency).toBe("string");
-		expect(result.cost.currency).toBe("USD");
-	});
-
 	it("mock adapter returns tokenUsage with byTier breakdown", async () => {
 		const adapter = new MockHarnessAdapter();
 		const handle = await adapter.startSession({
@@ -58,13 +41,28 @@ describe("SessionResult (AC9)", () => {
 		expect(tierCount).toBeGreaterThan(0);
 	});
 
-	it("SessionResult.cost type is WireMoney (not number)", () => {
-		// Type-level: SessionResult.cost should not be assignable from a bare number
-		expectTypeOf<SessionResult["cost"]>().toEqualTypeOf<WireMoney>();
+	it("mock adapter's SessionResult has no cost field", async () => {
+		const adapter = new MockHarnessAdapter();
+		const handle = await adapter.startSession({
+			sessionId: "test-session",
+			sandboxPath: "/tmp/ws",
+			systemPromptPath: "/tmp/system-prompt.md",
+			assembledPrompt: "",
+			modelTier: "workhorse",
+			tools: [],
+		});
+		const result = await adapter.stopSession(handle);
+		expect(result).not.toHaveProperty("cost");
 	});
 
 	it("SessionResult.tokenUsage type is TokenUsage (not number)", () => {
 		expectTypeOf<SessionResult["tokenUsage"]>().toEqualTypeOf<TokenUsage>();
+	});
+
+	it("SessionResult does NOT have a cost field of any type", () => {
+		// @lore AU21 harness-telemetry narrowing: the $-cost field is REMOVED, not renamed.
+		type HasCost = "cost" extends keyof SessionResult ? true : false;
+		expectTypeOf<HasCost>().toEqualTypeOf<false>();
 	});
 
 	it("SessionResult does NOT have totalCost: number field", () => {
@@ -129,41 +127,12 @@ describe("TokenUsageEvent (AC10)", () => {
 	});
 });
 
-// ── AC11: CostUpdateEvent currency field ─────────────────────────────────────
+// ── AU21 (harness-telemetry narrowing): CostUpdateEvent no longer exists ─────
 
-describe("CostUpdateEvent (AC11)", () => {
-	it("CostUpdateEvent type has optional currency field", () => {
-		const event: CostUpdateEvent = {
-			type: "cost_update",
-			totalCost: 0.1,
-			deltaCost: 0.1,
-		};
-		// currency is optional — should be able to construct without it
-		expect(event.type).toBe("cost_update");
-	});
-
-	it("CostUpdateEvent type accepts currency field", () => {
-		const event: CostUpdateEvent = {
-			type: "cost_update",
-			totalCost: 0.1,
-			deltaCost: 0.1,
-			currency: "USD",
-		};
-		expect(event.currency).toBe("USD");
-	});
-
-	it("CostUpdateEvent accepts EUR currency", () => {
-		const event: CostUpdateEvent = {
-			type: "cost_update",
-			totalCost: 0.1,
-			deltaCost: 0.05,
-			currency: "EUR",
-		};
-		expect(event.currency).toBe("EUR");
-	});
-
-	it("CostUpdateEvent.currency type is CurrencyCode | undefined", () => {
-		type CurrencyType = CostUpdateEvent["currency"];
-		expectTypeOf<CurrencyType>().toEqualTypeOf<"USD" | "EUR" | "GBP" | "JPY" | undefined>();
+describe("HarnessEvent — no $-cost event type (token usage only)", () => {
+	it("HarnessEvent union does NOT include a cost_update variant", () => {
+		type HasCostUpdate =
+			Extract<HarnessEvent, { type: "cost_update" }> extends never ? false : true;
+		expectTypeOf<HasCostUpdate>().toEqualTypeOf<false>();
 	});
 });

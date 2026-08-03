@@ -120,15 +120,6 @@ interface CliAdapterConfig {
 	 */
 	readonly envAllowlist: readonly string[];
 	/**
-	 * @lore AF10 (Z8-049/Z8-088): The JSON field name on the CLI terminal result
-	 * line that carries the total cost in USD. Defaults to "total_cost_usd" (the
-	 * field the `claude` CLI emits on its terminal result line). Override for CLI
-	 * tools that use a different field name — this makes version drift a one-line
-	 * config change rather than a code change. Only a finite non-negative number is
-	 * accepted; anything else is treated as missing (no cost_update emitted).
-	 */
-	readonly costField?: string;
-	/**
 	 * AL6 v4-final: The return-enforcement channel for this CLI adapter.
 	 * Overrides the binary-derived default when set.
 	 * Default derivation: "codex" → "settings-codex", "opencode" → "process-reengage", else "none".
@@ -242,17 +233,6 @@ interface CliSession {
 	notifyStream: (() => void) | null;
 	resolveStop: ((result: SessionResult) => void) | null;
 	killTimer: ReturnType<typeof setTimeout> | null;
-	/**
-	 * @lore AF10 (Z8-049): Total session cost in USD captured from the terminal
-	 * result line (e.g. `{"type":"result","total_cost_usd":0.0123,...}`).
-	 * Set by parseStdoutLine when the result line is detected.
-	 * Emitted as a single terminal cost_update in streamEvents before break.
-	 * Undefined until a result line with a valid cost field is seen.
-	 */
-	totalCostUsd?: number;
-	pendingCostUsd?: number;
-	/** True once the terminal cost_update has been yielded (prevents double-emit). */
-	costEmitted: boolean;
 	metricsProcessedLineCount: number;
 	inputTokens: number;
 	outputTokens: number;
@@ -393,7 +373,6 @@ function recordTokenUsage(
 }
 
 function extractClaudeResultMetrics(obj: Record<string, unknown>): {
-	costUsd?: number;
 	durationMs?: number;
 	apiDurationMs?: number;
 	modelTurns?: number;
@@ -405,7 +384,6 @@ function extractClaudeResultMetrics(obj: Record<string, unknown>): {
 	const usage =
 		obj.usage && typeof obj.usage === "object" ? (obj.usage as Record<string, unknown>) : {};
 	return {
-		costUsd: finiteNonNegative(obj.total_cost_usd),
 		durationMs: finiteNonNegative(obj.duration_ms),
 		apiDurationMs: finiteNonNegative(obj.duration_api_ms),
 		modelTurns: finiteNonNegative(obj.num_turns),
@@ -417,7 +395,6 @@ function extractClaudeResultMetrics(obj: Record<string, unknown>): {
 }
 
 function extractOpencodeStepMetrics(obj: Record<string, unknown>): {
-	costUsd?: number;
 	inputTokens?: number;
 	outputTokens?: number;
 	cachedInputTokens?: number;
@@ -433,7 +410,6 @@ function extractOpencodeStepMetrics(obj: Record<string, unknown>): {
 			? (tokens.cache as Record<string, unknown>)
 			: {};
 	return {
-		costUsd: finiteNonNegative(part.cost),
 		inputTokens: finiteNonNegative(tokens.input),
 		outputTokens: finiteNonNegative(tokens.output),
 		cachedInputTokens: finiteNonNegative(cache.read),
@@ -595,7 +571,6 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			notifyStream: null,
 			resolveStop: null,
 			killTimer: null,
-			costEmitted: false,
 			metricsProcessedLineCount: 0,
 			inputTokens: 0,
 			outputTokens: 0,
@@ -630,8 +605,8 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		// Wire exit handler
 		child.on("exit", (code, signal) => {
 			// @lore AF10: process all remaining stdout lines before building the
-			// result so that any terminal result line (with total_cost_usd) is
-			// captured into session.totalCostUsd BEFORE buildResult reads it.
+			// result so that any terminal result line's token/turn metrics are
+			// captured into the session BEFORE buildResult reads them.
 			for (let i = 0; i < session.stdoutLines.length; i++) {
 				const bufferedLine = session.stdoutLines[i];
 				if (bufferedLine !== undefined) {
@@ -769,24 +744,6 @@ export class CliHarnessAdapter implements HarnessAdapter {
 					session.pendingReasoningOutputTokens = 0;
 				}
 
-				// @lore AF10 (Z8-049): Emit one terminal cost_update when the CLI
-				// result line carried a total_cost_usd (or configured costField).
-				// Done here (not in parseStdoutLine) so the event is yielded AFTER
-				// all stdout lines have been emitted, consistent with the SDK adapter.
-				// deltaCost is the pending native cost since the last child finished;
-				// totalCost is cumulative for the whole logical session.
-				if (session.done && session.pendingCostUsd !== undefined && !session.costEmitted) {
-					session.costEmitted = true;
-					const costEvent: HarnessEvent = {
-						type: "cost_update",
-						deltaCost: session.pendingCostUsd,
-						totalCost: session.totalCostUsd ?? session.pendingCostUsd,
-						currency: "USD",
-					};
-					yield costEvent;
-					session.pendingCostUsd = undefined;
-				}
-
 				if (session.done) {
 					// AL6 CRIT-3: process-reengage — after first (or subsequent) process exits,
 					// check if we need to re-engage the session with a forcing message.
@@ -875,7 +832,6 @@ export class CliHarnessAdapter implements HarnessAdapter {
 								session.done = false;
 								session.exitCode = null;
 								session.exitSignal = null;
-								session.costEmitted = false;
 
 								// Wire the new child's stdout/stderr into the same arrays.
 								adapter.wireStdout(session);
@@ -925,7 +881,6 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		if (!session) {
 			return {
 				outcome: "crashed",
-				cost: { minor: 0, currency: "USD" },
 				tokenUsage: { byTier: {} },
 			};
 		}
@@ -1000,21 +955,11 @@ export class CliHarnessAdapter implements HarnessAdapter {
 					(lineIndex === undefined || lineIndex >= session.metricsProcessedLineCount);
 
 				// @lore AF10 (Z8-049/Z8-088): If this is a terminal result line from
-				// the CLI, capture the total cost. The CLI reports the full session
-				// total in a single result line; we store it on the session and emit
-				// one synthetic terminal cost_update in streamEvents (after all stdout
-				// lines are drained). Only a finite non-negative number is accepted —
-				// anything else (missing, string, negative) is ignored (fallback = 0).
-				// Cost capture runs on the ORIGINAL parsed object (before any dialect
-				// pre-map) because the "result" type and "total_cost_usd" field are
-				// present on the raw claude stream-json line.
+				// the CLI, capture its turn/duration/token metrics. Metrics capture
+				// runs on the ORIGINAL parsed object (before any dialect pre-map)
+				// because the "result" type and its fields are present on the raw
+				// claude stream-json line.
 				if (obj.type === "result" && session && shouldRecordMetrics) {
-					const costField = this.config.costField ?? "total_cost_usd";
-					const rawCost = obj[costField];
-					if (typeof rawCost === "number" && Number.isFinite(rawCost) && rawCost >= 0) {
-						session.totalCostUsd = rawCost;
-						session.pendingCostUsd = rawCost;
-					}
 					const metrics = extractClaudeResultMetrics(obj);
 					session.durationMs = metrics.durationMs ?? session.durationMs;
 					session.apiDurationMs = metrics.apiDurationMs ?? session.apiDurationMs;
@@ -1033,10 +978,6 @@ export class CliHarnessAdapter implements HarnessAdapter {
 
 				if (obj.type === "step_finish" && session && shouldRecordMetrics) {
 					const metrics = extractOpencodeStepMetrics(obj);
-					if (metrics.costUsd !== undefined) {
-						session.totalCostUsd = (session.totalCostUsd ?? 0) + metrics.costUsd;
-						session.pendingCostUsd = (session.pendingCostUsd ?? 0) + metrics.costUsd;
-					}
 					session.modelTurns++;
 					recordTokenUsage(
 						session,
@@ -1114,10 +1055,6 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		} else {
 			outcome = "crashed";
 		}
-		// @lore AF10 (Z8-049): Return the captured CLI cost from the terminal
-		// result line (total_cost_usd → minor cents). 0 when the CLI reported
-		// nothing — honest absent, not a silent drop (§4 plan constraint).
-		const minor = session.totalCostUsd !== undefined ? Math.round(session.totalCostUsd * 100) : 0;
 		const tokenUsage =
 			session && (session.inputTokens > 0 || session.outputTokens > 0)
 				? {
@@ -1145,12 +1082,10 @@ export class CliHarnessAdapter implements HarnessAdapter {
 					reasoningOutputTokens: session.reasoningOutputTokens,
 					...(session.durationMs !== undefined ? { durationMs: session.durationMs } : {}),
 					...(session.apiDurationMs !== undefined ? { apiDurationMs: session.apiDurationMs } : {}),
-					...(session.totalCostUsd !== undefined ? { nativeCostUsd: session.totalCostUsd } : {}),
 				}
 			: undefined;
 		return {
 			outcome,
-			cost: { minor, currency: "USD" },
 			tokenUsage,
 			...(metrics ? { metrics } : {}),
 		};

@@ -16,7 +16,6 @@ import type { CliAdapterConfig, CliAdapterDeps } from "./cli-harness-adapter.js"
 import { CliHarnessAdapter } from "./cli-harness-adapter.js";
 import type { CallLlmOptions } from "./llm-client.js";
 import { callLlm } from "./llm-client.js";
-import { estimateLlmCost } from "./llm-cost-estimate.js";
 import { RemoteHarnessAdapter } from "./remote-harness-adapter.js";
 
 interface WsLike {
@@ -96,13 +95,6 @@ class DirectHarnessAdapter implements HarnessAdapter {
 				signal: session.controller.signal,
 			});
 			if (session.stopped) return;
-			const cost = estimateLlmCost(
-				response.usage.inputTokens,
-				response.usage.outputTokens,
-				this.options.model.model,
-			);
-			if (cost > 0)
-				yield { type: "cost_update", totalCost: cost, deltaCost: cost, currency: "USD" };
 			yield {
 				type: "token_usage",
 				inputTokens: response.usage.inputTokens,
@@ -137,7 +129,6 @@ class DirectHarnessAdapter implements HarnessAdapter {
 		}
 		return Promise.resolve({
 			outcome: session ? "stopped" : "completed",
-			cost: { minor: 0, currency: "USD" },
 			tokenUsage: { byTier: {} },
 		});
 	}

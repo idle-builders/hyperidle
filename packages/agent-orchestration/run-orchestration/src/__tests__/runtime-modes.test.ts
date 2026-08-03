@@ -59,7 +59,6 @@ describe("runSession modes", () => {
 		vi.mocked(ports.sessionProvisioner!.runSession).mockResolvedValue({
 			sessionId: "one-shot-1",
 			outcome: "completed",
-			totalCostCents: 4,
 			taskId: null,
 			forceReturnCount: 1,
 		});

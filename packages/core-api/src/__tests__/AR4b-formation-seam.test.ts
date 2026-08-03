@@ -129,7 +129,6 @@ vi.mock("../services/run-orchestration-composition.js", async (importOriginal) =
 				mode: "completed" as const,
 				sessionId: "stub-session-ar4b",
 				outcome: "completed",
-				totalCostCents: 0,
 				taskId: null,
 				forceReturnCount: 0,
 				conversationalReply: "AR4b formation seam stub reply",

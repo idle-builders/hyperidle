@@ -143,7 +143,6 @@ describe("RemoteHarnessAdapter streamEvents", () => {
 			sessionId,
 			result: {
 				outcome: "completed",
-				cost: { minor: 0, currency: "USD" },
 				tokenUsage: { byTier: {} },
 			},
 		});
@@ -184,7 +183,6 @@ describe("RemoteHarnessAdapter streamEvents", () => {
 			sessionId,
 			result: {
 				outcome: "completed",
-				cost: { minor: 0, currency: "USD" },
 				tokenUsage: { byTier: {} },
 			},
 		});
@@ -261,18 +259,19 @@ describe("RemoteHarnessAdapter stopSession", () => {
 		expect(stopMsg.sessionId).toBe(sessionId);
 
 		// Simulate worker acknowledging with a session_result
+		// @lore AU21 (harness-telemetry narrowing): no cost field on SessionResult anymore.
 		ws.receive({
 			type: "session_result",
 			sessionId,
 			result: {
 				outcome: "stopped",
-				cost: { minor: 50, currency: "USD" },
 				tokenUsage: { byTier: { workhorse: { prompt: 10, completion: 5 } } },
 			},
 		});
 
 		const result = await stopPromise;
 		expect(result.outcome).toBe("stopped");
-		expect(result.cost.minor).toBe(50);
+		expect(result).not.toHaveProperty("cost");
+		expect(result.tokenUsage.byTier.workhorse).toMatchObject({ prompt: 10, completion: 5 });
 	});
 });

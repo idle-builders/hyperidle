@@ -15,4 +15,4 @@ export {
 export type { SmokeModelPolicy } from "./policy.js";
 export { DEFAULT_SMOKE_POLICY } from "./policy.js";
 export type { SelectionInput, SelectionResult, SmokeCandidate } from "./select-smoke-model.js";
-export { isWithinCostCap, preFilterModels, selectSmokeModel } from "./select-smoke-model.js";
+export { preFilterModels, selectSmokeModel } from "./select-smoke-model.js";

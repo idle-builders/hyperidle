@@ -148,7 +148,6 @@ describe("dispatch resolves the harness model from the baked per-agent override"
 				return {
 					sessionId: "sess-inc11-model-override",
 					outcome: "completed" as const,
-					totalCostCents: 0,
 					taskId: null,
 					forceReturnCount: 0,
 					conversationalReply: "ok",
@@ -228,7 +227,6 @@ describe("dispatch resolves the harness model from the baked per-agent override"
 		const executeAgentRunRequestSpy = vi.fn(async () => ({
 			sessionId: "sess-inc11-no-override",
 			outcome: "completed" as const,
-			totalCostCents: 0,
 			taskId: null,
 			forceReturnCount: 0,
 			conversationalReply: "ok",

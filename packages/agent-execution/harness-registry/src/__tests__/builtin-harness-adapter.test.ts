@@ -341,7 +341,7 @@ describe("AC-4: Tool call execution via ToolRegistry.invoke()", () => {
 
 // ── AC-7: Event streaming ─────────────────────────────────────────────────────
 
-describe("AC-7: Event streaming (token_usage, tool_call, completion, error, cost_update)", () => {
+describe("AC-7: Event streaming (token_usage, tool_call, completion, error)", () => {
 	afterEach(() => {
 		vi.clearAllMocks();
 	});
@@ -385,23 +385,20 @@ describe("AC-7: Event streaming (token_usage, tool_call, completion, error, cost
 		expect(toolEvent.args).toEqual({ notes: "x" });
 	});
 
-	it("emits cost_update events with totalCost and deltaCost", async () => {
+	// AU21 (harness-telemetry narrowing): $-cost estimation is removed — founder
+	// ruling kept only token usage ("very few harness can actually report cost").
+	it("never emits a cost_update event", async () => {
 		callLlmMock.mockResolvedValue(makeTextResponse("Done.", 1000, 500));
 
 		const adapter = new BuiltinHarnessAdapter();
 		const registry = makeMockRegistry();
-		const sessionId = "sess-cost-event";
+		const sessionId = "sess-no-cost-event";
 		adapter.setSessionToolRegistry(sessionId, registry);
 
 		const handle = await adapter.startSession(makeSessionConfig({ sessionId }));
 		const events = await collectEvents(adapter, handle);
 
-		const costEvents = events.filter((e) => e.type === "cost_update");
-		expect(costEvents.length).toBeGreaterThanOrEqual(1);
-		const costEvent = costEvents[0] as Extract<HarnessEvent, { type: "cost_update" }>;
-		expect(typeof costEvent.totalCost).toBe("number");
-		expect(typeof costEvent.deltaCost).toBe("number");
-		expect(costEvent.deltaCost).toBeGreaterThanOrEqual(0);
+		expect(events.some((e) => (e.type as string) === "cost_update")).toBe(false);
 	});
 
 	it("emits an error event and stops when LLM call throws", async () => {
@@ -883,7 +880,8 @@ describe("stopSession", () => {
 
 		const result = await adapter.stopSession(handle);
 		expect(result.outcome).toBe("completed");
-		expect(result.cost).toBeDefined();
+		// AU21 (harness-telemetry narrowing): no cost field on SessionResult anymore.
+		expect(result).not.toHaveProperty("cost");
 		expect(result.tokenUsage).toBeDefined();
 	});
 

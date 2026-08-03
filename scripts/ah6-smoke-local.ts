@@ -8,7 +8,8 @@
  *   4. Resolve the model (or honor AH6_MODEL_OVERRIDE).
  *   5. Record cassettes — run the AH6 Playwright lane with LLM_CASSETTE_MODE=record
  *      against the live test-server. Three real turns fire real OpenRouter calls;
- *      recordLlm writes packages/web/e2e/cassettes/default.json + ah6-cost.json.
+ *      recordLlm writes packages/web/e2e/cassettes/default.json + ah6-cost.json
+ *      (token-usage report — see AU21 lore below).
  *   6. Backup ah6-cost.json to /tmp before Playwright clears its report dir.
  *   7. Budget assert — fail-closed on cap.
  *   8. Emit a summary.
@@ -22,9 +23,17 @@
  *
  * Optional env vars:
  *   AH6_MODEL_OVERRIDE  — skip live selection; use this routedId directly
- *   AH6_MAX_COST_CENTS  — budget cap in cents (default 10)
  *   AH6_MAX_TOKENS      — token cap (default 20000)
  *   RESOLVE_MODEL_FILE  — path for the selection JSON (default /tmp/ah6-model-selection.json)
+ *
+ * @lore AU21 (harness-telemetry narrowing): this lane used to also assert an
+ * ESTIMATED $-cost cap (AH6_MAX_COST_CENTS, default 10 cents). Founder ruling
+ * narrowed harness telemetry to token usage only — "very few harness can
+ * actually report cost". The real-money safety guard (this lane hits a real
+ * paid OpenRouter API) now gates on AH6_MAX_TOKENS instead, which already
+ * existed as an established sibling threshold here — not a newly-invented one.
+ * "ah6-cost.json" / AH6_COST_REPORT_PATH keep their historical names for
+ * back-compat with the wiring below; the payload no longer carries a $ figure.
  *
  * @lore AH6: This lane is LOCAL ONLY — never a GitHub Actions workflow.
  * "CI" in AH6 means the project's local verification lane, not GitHub Actions.
@@ -46,7 +55,7 @@
  * live record run. It is NOT the authoritative gate — the authoritative gate is
  * `npm run test` which already runs select-smoke-model.test.ts in packages/eval.
  *
- * @lore AH6: Cost report path — packages/web/playwright-report-ah6/ah6-cost.json.
+ * @lore AH6: Usage report path — packages/web/playwright-report-ah6/ah6-cost.json.
  * The recorder writes it; the budget-assert reads it. The backup at /tmp/ah6-cost.json
  * survives Playwright clearing the report dir.
  *
@@ -62,7 +71,6 @@ import { fileURLToPath } from "node:url";
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const RESOLVE_MODEL_FILE =
 	process.env.RESOLVE_MODEL_FILE ?? "/tmp/ah6-model-selection.json";
-const MAX_COST_CENTS = Number(process.env.AH6_MAX_COST_CENTS ?? "10");
 const MAX_TOKENS = Number(process.env.AH6_MAX_TOKENS ?? "20000");
 
 // ---------------------------------------------------------------------------
@@ -101,7 +109,7 @@ function run(
 
 process.stdout.write("[smoke:ah6] AH6 local smoke lane starting.\n");
 process.stdout.write("[smoke:ah6] This lane is LOCAL ONLY. Never runs in GitHub Actions.\n");
-process.stdout.write(`[smoke:ah6] Budget cap: ${MAX_COST_CENTS} cents / ${MAX_TOKENS} tokens\n`);
+process.stdout.write(`[smoke:ah6] Budget cap: ${MAX_TOKENS} tokens\n`);
 
 const apiKey = process.env.OPENROUTER_API_KEY;
 if (!apiKey || apiKey.trim() === "") {
@@ -177,7 +185,8 @@ try {
 // LLM_CASSETTE_MODE=record causes callLlm → recordLlm which:
 //   - Makes a real OpenRouter call per scenario turn.
 //   - Writes packages/web/e2e/cassettes/default.json (all S1/S2/S3 entries).
-//   - Accumulates totalCostUsd via trackUsage and writes ah6-cost.json.
+//   - Accumulates token usage and writes ah6-cost.json (usage report; @lore
+//     AU21 harness-telemetry narrowing — no $ figure anymore).
 // ---------------------------------------------------------------------------
 
 // S-1: OPENROUTER_API_KEY is passed via opts.env (never embedded in the command
@@ -190,24 +199,24 @@ run(
 			RESOLVE_MODEL_FILE,
 			OPENROUTER_API_KEY: apiKey,
 			LLM_CASSETTE_MODE: "record",
-			AH6_MAX_COST_CENTS: String(MAX_COST_CENTS),
+			AH6_MAX_TOKENS: String(MAX_TOKENS),
 		},
-		safeCmd: `RESOLVE_MODEL_FILE=${RESOLVE_MODEL_FILE} OPENROUTER_API_KEY=*** LLM_CASSETTE_MODE=record AH6_MAX_COST_CENTS=${MAX_COST_CENTS} npm run -w @hyperidle/web test:e2e:ah6`,
+		safeCmd: `RESOLVE_MODEL_FILE=${RESOLVE_MODEL_FILE} OPENROUTER_API_KEY=*** LLM_CASSETTE_MODE=record AH6_MAX_TOKENS=${MAX_TOKENS} npm run -w @hyperidle/web test:e2e:ah6`,
 	},
 );
 
 // ---------------------------------------------------------------------------
-// STEP 6: Verify cost report exists at /tmp/ah6-cost.json.
+// STEP 6: Verify usage report exists at /tmp/ah6-cost.json.
 //
 // @lore AH6 CRITICAL-4: The recorder writes ah6-cost.json directly to /tmp
 // (via AH6_COST_REPORT_PATH=/tmp/ah6-cost.json in playwright.ah6.config.ts).
 // Writing to /tmp survives Playwright's HTML reporter clearing playwright-report-ah6/.
-// Previously the cost file was written to playwright-report-ah6/ and then deleted by
+// Previously the report was written to playwright-report-ah6/ and then deleted by
 // the reporter's pre-write cleanup — causing the budget assert to always fail.
 // ---------------------------------------------------------------------------
 
-const costReportPath = "/tmp/ah6-cost.json";
-process.stdout.write(`[smoke:ah6] Cost report at: ${costReportPath}\n`);
+const usageReportPath = "/tmp/ah6-cost.json";
+process.stdout.write(`[smoke:ah6] Usage report at: ${usageReportPath}\n`);
 
 // ---------------------------------------------------------------------------
 // STEP 7: Budget assert (fail-closed).
@@ -215,31 +224,31 @@ process.stdout.write(`[smoke:ah6] Cost report at: ${costReportPath}\n`);
 
 run(
 	"Budget assert (fail-closed — redundant safety step)",
-	`AH6_MAX_COST_CENTS=${MAX_COST_CENTS} npx tsx packages/web/scripts/ah6-assert-budget.ts`,
+	`AH6_MAX_TOKENS=${MAX_TOKENS} npx tsx packages/web/scripts/ah6-assert-budget.ts`,
 );
 
 // ---------------------------------------------------------------------------
 // STEP 8: Summary.
 // ---------------------------------------------------------------------------
 
-let totalCostCents: number | undefined;
+let totalTokens: number | undefined;
 try {
-	const report = JSON.parse(fs.readFileSync(costReportPath, "utf-8")) as {
-		totalCostCents?: number;
+	const report = JSON.parse(fs.readFileSync(usageReportPath, "utf-8")) as {
+		totalTokens?: number;
 	};
-	totalCostCents = report.totalCostCents;
+	totalTokens = report.totalTokens;
 } catch {
-	/* cost file may be absent if an early step failed */
+	/* usage report may be absent if an early step failed */
 }
 
 const reportDir = path.join(repoRoot, "packages/web/playwright-report-ah6");
 process.stdout.write("\n[smoke:ah6] ==================== SUMMARY ====================\n");
 process.stdout.write(`[smoke:ah6] Model:         ${resolvedModelId}\n`);
 process.stdout.write(
-	`[smoke:ah6] Cost:          ${totalCostCents !== undefined ? `${totalCostCents} cents` : "unknown (check cost report)"}\n`,
+	`[smoke:ah6] Tokens:        ${totalTokens !== undefined ? `${totalTokens} tokens` : "unknown (check usage report)"}\n`,
 );
-process.stdout.write(`[smoke:ah6] Budget cap:    ${MAX_COST_CENTS} cents\n`);
+process.stdout.write(`[smoke:ah6] Budget cap:    ${MAX_TOKENS} tokens\n`);
 process.stdout.write(`[smoke:ah6] Report dir:    ${reportDir}\n`);
-process.stdout.write(`[smoke:ah6] Cost report:   ${costReportPath}\n`);
+process.stdout.write(`[smoke:ah6] Usage report:  ${usageReportPath}\n`);
 process.stdout.write("[smoke:ah6] PASS: AH6 local smoke lane completed successfully.\n");
 process.stdout.write("[smoke:ah6] =====================================================\n");
