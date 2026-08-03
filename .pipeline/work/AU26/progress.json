@@ -1,27 +1,53 @@
 {
   "workPackage": "AU26",
-  "status": "awaiting-human-review",
-  "currentStep": "human-review-requirements",
+  "status": "in_progress",
+  "currentStep": "architecture",
   "startedAt": "2026-08-04",
   "designSkipped": {
-    "reason": "no-ui-surface — backend/infra only; plan.md Pre-build gates says design not required; AC #6 requires zero frontend behavior changes",
+    "reason": "no-ui-surface \u2014 backend/infra only; plan.md Pre-build gates says design not required; AC #6 requires zero frontend behavior changes",
     "decidedBy": "orchestrator"
   },
   "approvals": {
-    "requirements": { "approved": false },
-    "concept": { "approved": false },
-    "final": { "approved": false }
+    "requirements": {
+      "approved": true,
+      "note": "Founder approved after two reframes: (1) plain-language cleanup framing replacing the test-as-centerpiece framing, (2) whole-service-first sweep replacing four cherry-picked parts. plan.md amended: out-of-scope #1 reversed, charter constraint amended, ACs 6->7.",
+      "recordedBy": "founder",
+      "recordedAt": "2026-08-04"
+    },
+    "concept": {
+      "approved": false
+    },
+    "final": {
+      "approved": false
+    }
   },
   "critiqueScores": {
     "refine": [
-      { "round": 1, "score": "72/100", "verdict": "REVISE", "critical": 2, "warning": 7 },
-      { "round": 2, "score": "85/100", "verdict": "PASS", "critical": 0, "warning": 5 }
+      {
+        "round": 1,
+        "score": "72/100",
+        "verdict": "REVISE",
+        "critical": 2,
+        "warning": 7
+      },
+      {
+        "round": 2,
+        "score": "85/100",
+        "verdict": "PASS",
+        "critical": 0,
+        "warning": 5
+      },
+      {
+        "round": "reframe",
+        "note": "requirements.md rewritten twice on founder direction after the critique loop passed; framing changes, verified findings carried forward"
+      }
     ]
   },
   "artifacts": {
     "plan": ".pipeline/work/AU26/plan.md",
     "requirements": ".pipeline/work/AU26/requirements.md",
     "refineCritique": ".pipeline/work/AU26/refine-critique.md",
-    "refineCritiqueRound2": ".pipeline/work/AU26/refine-critique-round2.md"
+    "refineCritiqueRound2": ".pipeline/work/AU26/refine-critique-round2.md",
+    "planAmended": true
   }
 }
