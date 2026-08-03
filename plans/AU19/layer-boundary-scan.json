@@ -1,0 +1,1208 @@
+{
+  "generatedAt": "2026-08-03",
+  "packages": [
+    {
+      "name": "@hyperidle/agent-execution",
+      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/agent-execution",
+      "kind": {
+        "kind": "layer",
+        "layer": "agent-execution"
+      }
+    },
+    {
+      "name": "@hyperidle/harness-registry",
+      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/agent-execution/harness-registry",
+      "kind": {
+        "kind": "layer",
+        "layer": "agent-execution"
+      }
+    },
+    {
+      "name": "@hyperidle/agent-orchestration",
+      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/agent-orchestration",
+      "kind": {
+        "kind": "layer",
+        "layer": "agent-orchestration"
+      }
+    },
+    {
+      "name": "@hyperidle/dispatch",
+      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/agent-orchestration/dispatch",
+      "kind": {
+        "kind": "layer",
+        "layer": "agent-orchestration"
+      }
+    },
+    {
+      "name": "@hyperidle/run-orchestration",
+      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/agent-orchestration/run-orchestration",
+      "kind": {
+        "kind": "layer",
+        "layer": "agent-orchestration"
+      }
+    },
+    {
+      "name": "@hyperidle/session-requests",
+      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/agent-orchestration/session-requests",
+      "kind": {
+        "kind": "layer",
+        "layer": "agent-orchestration"
+      }
+    },
+    {
+      "name": "@hyperidle/tool-handlers",
+      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/agent-orchestration/tool-handlers",
+      "kind": {
+        "kind": "layer",
+        "layer": "agent-orchestration"
+      }
+    },
+    {
+      "name": "@hyperidle/api-contract",
+      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/api-contract",
+      "kind": {
+        "kind": "foundation"
+      }
+    },
+    {
+      "name": "@hyperidle/core-api",
+      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/core-api",
+      "kind": {
+        "kind": "layer",
+        "layer": "core-api"
+      }
+    },
+    {
+      "name": "@hyperidle/connections",
+      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/core-api/connections",
+      "kind": {
+        "kind": "layer",
+        "layer": "core-api"
+      }
+    },
+    {
+      "name": "@hyperidle/conversation",
+      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/core-api/conversation",
+      "kind": {
+        "kind": "layer",
+        "layer": "core-api"
+      }
+    },
+    {
+      "name": "@hyperidle/filesystems",
+      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/core-api/filesystems",
+      "kind": {
+        "kind": "layer",
+        "layer": "core-api"
+      }
+    },
+    {
+      "name": "@hyperidle/git-export",
+      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/core-api/git-export",
+      "kind": {
+        "kind": "layer",
+        "layer": "core-api"
+      }
+    },
+    {
+      "name": "@hyperidle/knowledge",
+      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/core-api/knowledge",
+      "kind": {
+        "kind": "layer",
+        "layer": "core-api"
+      }
+    },
+    {
+      "name": "@hyperidle/notifications",
+      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/core-api/notifications",
+      "kind": {
+        "kind": "layer",
+        "layer": "core-api"
+      }
+    },
+    {
+      "name": "@hyperidle/observability",
+      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/core-api/observability",
+      "kind": {
+        "kind": "layer",
+        "layer": "core-api"
+      }
+    },
+    {
+      "name": "@hyperidle/org",
+      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/core-api/org",
+      "kind": {
+        "kind": "layer",
+        "layer": "core-api"
+      }
+    },
+    {
+      "name": "@hyperidle/policy",
+      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/core-api/policy",
+      "kind": {
+        "kind": "layer",
+        "layer": "core-api"
+      }
+    },
+    {
+      "name": "@hyperidle/realtime",
+      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/core-api/realtime",
+      "kind": {
+        "kind": "layer",
+        "layer": "core-api"
+      }
+    },
+    {
+      "name": "@hyperidle/review",
+      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/core-api/review",
+      "kind": {
+        "kind": "layer",
+        "layer": "core-api"
+      }
+    },
+    {
+      "name": "@hyperidle/routine",
+      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/core-api/routine",
+      "kind": {
+        "kind": "layer",
+        "layer": "core-api"
+      }
+    },
+    {
+      "name": "@hyperidle/settings",
+      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/core-api/settings",
+      "kind": {
+        "kind": "layer",
+        "layer": "core-api"
+      }
+    },
+    {
+      "name": "@hyperidle/users",
+      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/core-api/users",
+      "kind": {
+        "kind": "layer",
+        "layer": "core-api"
+      }
+    },
+    {
+      "name": "@hyperidle/work",
+      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/core-api/work",
+      "kind": {
+        "kind": "layer",
+        "layer": "core-api"
+      }
+    },
+    {
+      "name": "@hyperidle/db",
+      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/db",
+      "kind": {
+        "kind": "foundation"
+      }
+    },
+    {
+      "name": "@hyperidle/design-system",
+      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/design-system",
+      "kind": {
+        "kind": "foundation"
+      }
+    },
+    {
+      "name": "@hyperidle/desktop",
+      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/desktop",
+      "kind": {
+        "kind": "application"
+      }
+    },
+    {
+      "name": "eslint-plugin-authz",
+      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/eslint-plugin-authz",
+      "kind": {
+        "kind": "tooling"
+      }
+    },
+    {
+      "name": "eslint-plugin-design",
+      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/eslint-plugin-design",
+      "kind": {
+        "kind": "tooling"
+      }
+    },
+    {
+      "name": "@hyperidle/eval",
+      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/eval",
+      "kind": {
+        "kind": "tooling"
+      }
+    },
+    {
+      "name": "@hyperidle/remote-server",
+      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/remote-server",
+      "kind": {
+        "kind": "application"
+      }
+    },
+    {
+      "name": "@hyperidle/remote-worker",
+      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/remote-worker",
+      "kind": {
+        "kind": "application"
+      }
+    },
+    {
+      "name": "@hyperidle/shared",
+      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/shared",
+      "kind": {
+        "kind": "foundation"
+      }
+    },
+    {
+      "name": "@hyperidle/web",
+      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/web",
+      "kind": {
+        "kind": "layer",
+        "layer": "core-ui"
+      }
+    }
+  ],
+  "mechanism1DirectImports": [
+    {
+      "file": "packages/core-api/src/app.ts",
+      "line": 1,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/agent-execution",
+      "toLayerOrKind": "agent-execution",
+      "symbols": [
+        {
+          "name": "SessionActivityBuffer",
+          "isTypeOnly": false
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/app.ts",
+      "line": 12,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/dispatch",
+      "toLayerOrKind": "agent-orchestration",
+      "symbols": [
+        {
+          "name": "DispatchOps",
+          "isTypeOnly": true
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/app.ts",
+      "line": 13,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/harness-registry",
+      "toLayerOrKind": "agent-execution",
+      "symbols": [
+        {
+          "name": "AdapterPool",
+          "isTypeOnly": true
+        },
+        {
+          "name": "SandboxAdapter",
+          "isTypeOnly": true
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/app.ts",
+      "line": 17,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/harness-registry",
+      "toLayerOrKind": "agent-execution",
+      "symbols": [
+        {
+          "name": "McpToolBridge",
+          "isTypeOnly": true
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/app.ts",
+      "line": 28,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/session-requests",
+      "toLayerOrKind": "agent-orchestration",
+      "symbols": [
+        {
+          "name": "enqueueWorkIntent",
+          "isTypeOnly": false
+        },
+        {
+          "name": "findSessionRequest",
+          "isTypeOnly": false
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/routes/agent-orchestration-sessions-routes.ts",
+      "line": 39,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/session-requests",
+      "toLayerOrKind": "agent-orchestration",
+      "symbols": [
+        {
+          "name": "listSessionRequests",
+          "isTypeOnly": false
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/routes/bets.ts",
+      "line": 10,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/session-requests",
+      "toLayerOrKind": "agent-orchestration",
+      "symbols": [
+        {
+          "name": "enqueueWorkIntent",
+          "isTypeOnly": false
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/routes/knowledge.ts",
+      "line": 49,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/session-requests",
+      "toLayerOrKind": "agent-orchestration",
+      "symbols": [
+        {
+          "name": "enqueueWorkIntent",
+          "isTypeOnly": false
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/routes/sessions-routes.ts",
+      "line": 4,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/session-requests",
+      "toLayerOrKind": "agent-orchestration",
+      "symbols": [
+        {
+          "name": "createSessionRequest",
+          "isTypeOnly": false
+        },
+        {
+          "name": "findSessionRequest",
+          "isTypeOnly": false
+        },
+        {
+          "name": "sessionRunRegistry",
+          "isTypeOnly": false
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/routes/tasks.ts",
+      "line": 2,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/run-orchestration",
+      "toLayerOrKind": "agent-orchestration",
+      "symbols": [
+        {
+          "name": "RunTransitionSpec",
+          "isTypeOnly": true
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/routes/tasks.ts",
+      "line": 3,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/session-requests",
+      "toLayerOrKind": "agent-orchestration",
+      "symbols": [
+        {
+          "name": "enqueueWorkIntent",
+          "isTypeOnly": false
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/routes/threads.ts",
+      "line": 43,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/session-requests",
+      "toLayerOrKind": "agent-orchestration",
+      "symbols": [
+        {
+          "name": "enqueueWorkIntent",
+          "isTypeOnly": false
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/server-factory.ts",
+      "line": 33,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/dispatch",
+      "toLayerOrKind": "agent-orchestration",
+      "symbols": [
+        {
+          "name": "DispatchOps",
+          "isTypeOnly": true
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/server-factory.ts",
+      "line": 39,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/harness-registry",
+      "toLayerOrKind": "agent-execution",
+      "symbols": [
+        {
+          "name": "AdapterPool",
+          "isTypeOnly": true
+        },
+        {
+          "name": "createReturnEnforcement",
+          "isTypeOnly": false
+        },
+        {
+          "name": "SandboxAdapter",
+          "isTypeOnly": true
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/server-factory.ts",
+      "line": 44,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/harness-registry",
+      "toLayerOrKind": "agent-execution",
+      "symbols": [
+        {
+          "name": "createMcpToolBridge",
+          "isTypeOnly": false
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/server-factory.ts",
+      "line": 68,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/run-orchestration",
+      "toLayerOrKind": "agent-orchestration",
+      "symbols": [
+        {
+          "name": "RuntimeDeps",
+          "isTypeOnly": true
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/server-factory.ts",
+      "line": 143,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/session-requests",
+      "toLayerOrKind": "agent-orchestration",
+      "symbols": [
+        {
+          "name": "enqueueWorkIntent",
+          "isTypeOnly": false
+        },
+        {
+          "name": "startLifecycleProjectionDrain",
+          "isTypeOnly": false
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/services/agent-run-admission-reactions.ts",
+      "line": 43,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/session-requests",
+      "toLayerOrKind": "agent-orchestration",
+      "symbols": [
+        {
+          "name": "enqueueWorkIntent",
+          "isTypeOnly": false
+        },
+        {
+          "name": "transitionSessionRequest",
+          "isTypeOnly": false
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/services/assistant-turn-coherence-trigger.ts",
+      "line": 52,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/session-requests",
+      "toLayerOrKind": "agent-orchestration",
+      "symbols": [
+        {
+          "name": "enqueueWorkIntent",
+          "isTypeOnly": false
+        },
+        {
+          "name": "listPendingIntentsByKind",
+          "isTypeOnly": false
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/services/dispatch-bindings.ts",
+      "line": 56,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/dispatch",
+      "toLayerOrKind": "agent-orchestration",
+      "symbols": [
+        {
+          "name": "DispatchPorts",
+          "isTypeOnly": true
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/services/dispatch-bindings.ts",
+      "line": 57,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/dispatch",
+      "toLayerOrKind": "agent-orchestration",
+      "symbols": [
+        {
+          "name": "createDispatchOps",
+          "isTypeOnly": false
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/services/dispatch-bindings.ts",
+      "line": 58,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/harness-registry",
+      "toLayerOrKind": "agent-execution",
+      "symbols": [
+        {
+          "name": "createSandboxAdapter",
+          "isTypeOnly": false
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/services/dispatch-bindings.ts",
+      "line": 60,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/tool-handlers",
+      "toLayerOrKind": "agent-orchestration",
+      "symbols": [
+        {
+          "name": "buildAssistantDraftRegistry",
+          "isTypeOnly": false
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/services/durable-agent-queue.ts",
+      "line": 83,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/session-requests",
+      "toLayerOrKind": "agent-orchestration",
+      "symbols": [
+        {
+          "name": "DurableAgentQueueDeps",
+          "isTypeOnly": true
+        },
+        {
+          "name": "transitionSessionRequest",
+          "isTypeOnly": false
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/services/harness-capability-read-model.ts",
+      "line": 39,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/harness-registry",
+      "toLayerOrKind": "agent-execution",
+      "symbols": [
+        {
+          "name": "AdapterInfo",
+          "isTypeOnly": true
+        },
+        {
+          "name": "AdapterMeta",
+          "isTypeOnly": true
+        },
+        {
+          "name": "AdapterPool",
+          "isTypeOnly": true
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/services/policy-bindings.ts",
+      "line": 38,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/session-requests",
+      "toLayerOrKind": "agent-orchestration",
+      "symbols": [
+        {
+          "name": "enqueueWorkIntent",
+          "isTypeOnly": false
+        },
+        {
+          "name": "sessionRunRegistry",
+          "isTypeOnly": false
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/services/routine-scheduler-bindings.ts",
+      "line": 52,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/run-orchestration",
+      "toLayerOrKind": "agent-orchestration",
+      "symbols": [
+        {
+          "name": "isAgentAtCapacity",
+          "isTypeOnly": false
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/services/routine-scheduler-bindings.ts",
+      "line": 53,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/session-requests",
+      "toLayerOrKind": "agent-orchestration",
+      "symbols": [
+        {
+          "name": "enqueueWorkIntent",
+          "isTypeOnly": false
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/services/run-orchestration-composition.ts",
+      "line": 4,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/harness-registry",
+      "toLayerOrKind": "agent-execution",
+      "symbols": [
+        {
+          "name": "AdapterPool",
+          "isTypeOnly": false
+        },
+        {
+          "name": "createHarnessAdapter",
+          "isTypeOnly": false
+        },
+        {
+          "name": "createReturnEnforcement",
+          "isTypeOnly": false
+        },
+        {
+          "name": "provisionHarnessEnvironment",
+          "isTypeOnly": false
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/services/run-orchestration-composition.ts",
+      "line": 10,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/run-orchestration",
+      "toLayerOrKind": "agent-orchestration",
+      "symbols": [
+        {
+          "name": "RunOptions",
+          "isTypeOnly": true
+        },
+        {
+          "name": "RunResult",
+          "isTypeOnly": true
+        },
+        {
+          "name": "RunTransitionSpec",
+          "isTypeOnly": true
+        },
+        {
+          "name": "RuntimeDeps",
+          "isTypeOnly": true
+        },
+        {
+          "name": "RuntimePorts",
+          "isTypeOnly": true
+        },
+        {
+          "name": "runSession",
+          "isTypeOnly": false
+        },
+        {
+          "name": "startRuntime",
+          "isTypeOnly": false
+        },
+        {
+          "name": "startWatcher",
+          "isTypeOnly": false
+        },
+        {
+          "name": "transitionRun",
+          "isTypeOnly": false
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/services/run-orchestration-composition.ts",
+      "line": 21,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/session-requests",
+      "toLayerOrKind": "agent-orchestration",
+      "symbols": [
+        {
+          "name": "claimSessionRequest",
+          "isTypeOnly": false
+        },
+        {
+          "name": "drainIntents",
+          "isTypeOnly": false
+        },
+        {
+          "name": "findSessionRequest",
+          "isTypeOnly": false
+        },
+        {
+          "name": "listSessionRequests",
+          "isTypeOnly": false
+        },
+        {
+          "name": "reapExpired",
+          "isTypeOnly": false
+        },
+        {
+          "name": "releaseClaim",
+          "isTypeOnly": false
+        },
+        {
+          "name": "renewClaim",
+          "isTypeOnly": false
+        },
+        {
+          "name": "sessionRunRegistry",
+          "isTypeOnly": false
+        },
+        {
+          "name": "transitionSessionRequest",
+          "isTypeOnly": false
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/services/tool-handlers-bindings.ts",
+      "line": 31,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/tool-handlers",
+      "toLayerOrKind": "agent-orchestration",
+      "symbols": [
+        {
+          "name": "ToolHandlersPorts",
+          "isTypeOnly": true
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/services/tool-handlers-bindings.ts",
+      "line": 32,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/tool-handlers",
+      "toLayerOrKind": "agent-orchestration",
+      "symbols": [
+        {
+          "name": "buildToolDefinitions",
+          "isTypeOnly": false
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/services/tool-provider-bindings.ts",
+      "line": 20,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/harness-registry",
+      "toLayerOrKind": "agent-execution",
+      "symbols": [
+        {
+          "name": "buildToolRegistry",
+          "isTypeOnly": false
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/services/tool-provider-bindings.ts",
+      "line": 21,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/harness-registry",
+      "toLayerOrKind": "agent-execution",
+      "symbols": [
+        {
+          "name": "returnStatusTool",
+          "isTypeOnly": false
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/services/work-session-started-reactions.ts",
+      "line": 49,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/session-requests",
+      "toLayerOrKind": "agent-orchestration",
+      "symbols": [
+        {
+          "name": "enqueueWorkIntent",
+          "isTypeOnly": false
+        }
+      ],
+      "statementKind": "import"
+    },
+    {
+      "file": "packages/core-api/src/session.ts",
+      "line": 9,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/harness-registry",
+      "toLayerOrKind": "agent-execution",
+      "symbols": [
+        {
+          "name": "AdapterPool",
+          "isTypeOnly": false
+        },
+        {
+          "name": "createSandboxAdapter",
+          "isTypeOnly": false
+        },
+        {
+          "name": "SandboxAdapter",
+          "isTypeOnly": true
+        },
+        {
+          "name": "SandboxHandle",
+          "isTypeOnly": true
+        }
+      ],
+      "statementKind": "export"
+    },
+    {
+      "file": "packages/core-api/src/session.ts",
+      "line": 15,
+      "fromPackage": "@hyperidle/core-api",
+      "fromLayer": "core-api",
+      "toPackage": "@hyperidle/run-orchestration",
+      "toLayerOrKind": "agent-orchestration",
+      "symbols": [
+        {
+          "name": "RunOptions",
+          "isTypeOnly": true
+        },
+        {
+          "name": "RunResult",
+          "isTypeOnly": true
+        }
+      ],
+      "statementKind": "export"
+    },
+    {
+      "file": "packages/web/src/api/client.ts",
+      "line": 27,
+      "fromPackage": "@hyperidle/web",
+      "fromLayer": "core-ui",
+      "toPackage": "@hyperidle/core-api",
+      "toLayerOrKind": "core-api",
+      "symbols": [
+        {
+          "name": "AppType",
+          "isTypeOnly": true
+        }
+      ],
+      "statementKind": "import"
+    }
+  ],
+  "mechanism1ByPair": [
+    {
+      "from": "@hyperidle/core-api",
+      "to": "@hyperidle/agent-execution",
+      "count": 1,
+      "typeOnlyCount": 0,
+      "valueCount": 1
+    },
+    {
+      "from": "@hyperidle/core-api",
+      "to": "@hyperidle/dispatch",
+      "count": 4,
+      "typeOnlyCount": 3,
+      "valueCount": 1
+    },
+    {
+      "from": "@hyperidle/core-api",
+      "to": "@hyperidle/harness-registry",
+      "count": 10,
+      "typeOnlyCount": 10,
+      "valueCount": 11
+    },
+    {
+      "from": "@hyperidle/core-api",
+      "to": "@hyperidle/session-requests",
+      "count": 15,
+      "typeOnlyCount": 1,
+      "valueCount": 30
+    },
+    {
+      "from": "@hyperidle/core-api",
+      "to": "@hyperidle/run-orchestration",
+      "count": 5,
+      "typeOnlyCount": 9,
+      "valueCount": 5
+    },
+    {
+      "from": "@hyperidle/core-api",
+      "to": "@hyperidle/tool-handlers",
+      "count": 3,
+      "typeOnlyCount": 1,
+      "valueCount": 2
+    },
+    {
+      "from": "@hyperidle/web",
+      "to": "@hyperidle/core-api",
+      "count": 1,
+      "typeOnlyCount": 1,
+      "valueCount": 0
+    }
+  ],
+  "mechanism2EventBus": [
+    {
+      "source": "policy",
+      "target": "run-orchestration",
+      "eventType": "session_handoff_completed"
+    },
+    {
+      "source": "policy",
+      "target": "(core-api composition root)",
+      "eventType": "task_state_changed"
+    },
+    {
+      "source": "work",
+      "target": "policy",
+      "eventType": "task_state_changed"
+    },
+    {
+      "source": "work",
+      "target": "(core-api composition root)",
+      "eventType": "task_state_changed"
+    },
+    {
+      "source": "policy",
+      "target": "routine",
+      "eventType": "bet_state_changed"
+    },
+    {
+      "source": "policy",
+      "target": "(core-api composition root)",
+      "eventType": "bet_state_changed"
+    },
+    {
+      "source": "work",
+      "target": "policy",
+      "eventType": "bet_state_changed"
+    },
+    {
+      "source": "work",
+      "target": "routine",
+      "eventType": "bet_state_changed"
+    },
+    {
+      "source": "work",
+      "target": "(core-api composition root)",
+      "eventType": "bet_state_changed"
+    },
+    {
+      "source": "routine",
+      "target": "notifications",
+      "eventType": "routine_fired"
+    },
+    {
+      "source": "work",
+      "target": "notifications",
+      "eventType": "item_created"
+    },
+    {
+      "source": "work",
+      "target": "policy",
+      "eventType": "item_created"
+    },
+    {
+      "source": "work",
+      "target": "notifications",
+      "eventType": "notification"
+    },
+    {
+      "source": "run-orchestration",
+      "target": "(core-api composition root)",
+      "eventType": "session_started"
+    },
+    {
+      "source": "run-orchestration",
+      "target": "(core-api composition root)",
+      "eventType": "tool_call_recorded"
+    },
+    {
+      "source": "run-orchestration",
+      "target": "policy",
+      "eventType": "session_ended"
+    },
+    {
+      "source": "run-orchestration",
+      "target": "review",
+      "eventType": "session_ended"
+    },
+    {
+      "source": "run-orchestration",
+      "target": "(core-api composition root)",
+      "eventType": "session_ended"
+    },
+    {
+      "source": "run-orchestration",
+      "target": "(core-api composition root)",
+      "eventType": "agent_run_admission_failed"
+    },
+    {
+      "source": "session-requests",
+      "target": "(core-api composition root)",
+      "eventType": "agent_run_admission_failed"
+    },
+    {
+      "source": "run-orchestration",
+      "target": "(core-api composition root)",
+      "eventType": "agent_run_lifecycle_changed"
+    }
+  ],
+  "mechanism3HiddenCompositionBundle": [
+    {
+      "consumer": "dispatch",
+      "consumerLayer": "agent-orchestration",
+      "provider": "harness-registry",
+      "providerLayer": "agent-execution",
+      "methods": [
+        "createSandboxAdapter"
+      ],
+      "viaType": "DispatchPorts",
+      "file": "packages/core-api/src/services/dispatch-bindings.ts"
+    },
+    {
+      "consumer": "run-orchestration",
+      "consumerLayer": "agent-orchestration",
+      "provider": "harness-registry",
+      "providerLayer": "agent-execution",
+      "methods": [
+        "AdapterPool",
+        "createHarnessAdapter",
+        "createReturnEnforcement",
+        "provisionHarnessEnvironment"
+      ],
+      "viaType": "RunOptions",
+      "file": "packages/core-api/src/services/run-orchestration-composition.ts"
+    },
+    {
+      "consumer": "run-orchestration",
+      "consumerLayer": "agent-orchestration",
+      "provider": "harness-registry",
+      "providerLayer": "agent-execution",
+      "methods": [
+        "AdapterPool",
+        "createHarnessAdapter",
+        "createReturnEnforcement",
+        "provisionHarnessEnvironment"
+      ],
+      "viaType": "RunTransitionSpec",
+      "file": "packages/core-api/src/services/run-orchestration-composition.ts"
+    },
+    {
+      "consumer": "run-orchestration",
+      "consumerLayer": "agent-orchestration",
+      "provider": "harness-registry",
+      "providerLayer": "agent-execution",
+      "methods": [
+        "AdapterPool"
+      ],
+      "viaType": "RuntimeDeps",
+      "file": "packages/core-api/src/services/run-orchestration-composition.ts"
+    }
+  ]
+}
