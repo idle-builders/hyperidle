@@ -1189,7 +1189,7 @@ const INDIRECT_EMIT_HELPERS: ReadonlyMap<string, string> = new Map([
 	["reportAdmissionFailure", "agent_run_admission_failed"],
 ]);
 
-function detectEventEdges(root: string, services: readonly ServiceInfo[]): EventEdge[] {
+export function detectEventEdges(root: string, services: readonly ServiceInfo[]): EventEdge[] {
 	const emitRe = /\.emit\(\s*\{[^}]*?type:\s*["'`]([a-zA-Z0-9_]+)["'`]/gs;
 	const onRe = /\.on\(\s*["'`]([a-zA-Z0-9_*]+)["'`]/g;
 	const indirectEmitRe = new RegExp(`\\b(${[...INDIRECT_EMIT_HELPERS.keys()].join("|")})\\(`, "g");
