@@ -75,7 +75,6 @@ import {
 	type DbHandle,
 	type HyperIdleDb,
 	resolveProfile,
-	type WriteExecutor,
 } from "@hyperidle/db";
 import { RegistryFilesystemMounter } from "@hyperidle/filesystem-mounting";
 import { listInjectedFilesystemsForProvisioning } from "@hyperidle/filesystems";
@@ -91,7 +90,6 @@ import {
 	update as updateKnowledgeItem,
 	VersionConflictError,
 } from "@hyperidle/knowledge";
-import { getTeamMembers } from "@hyperidle/org";
 import { listRoutines } from "@hyperidle/routine";
 import type { RuntimeDeps } from "@hyperidle/run-orchestration";
 import {
@@ -108,8 +106,7 @@ import {
 } from "@hyperidle/shared";
 import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/shared/crypto";
 import { createGitRunner } from "@hyperidle/shared/git";
-import { findUser, listUsers } from "@hyperidle/users";
-import * as work from "@hyperidle/work";
+import { createUpgradeTokenStore, listUsers } from "@hyperidle/users";
 import { Hono } from "hono";
 import { WebSocketServer } from "ws";
 
@@ -543,22 +540,30 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// above) drains it like every other kind's intent — one wiring path.
 	let wsDispose: (() => void) | null = null;
 
+	// @lore AU26 J3: the one-shot WS upgrade-token store is the Application's
+	// now, because TWO sockets consume it — core-api's `/api/ws` and
+	// `agent-orchestration`'s `/api/agent-orchestration/ws`. It is pure
+	// in-memory infrastructure with no domain of its own; the Application
+	// creating it is what lets the second Layer have a socket without importing
+	// core-api. `POST /api/auth/ws-token` (core-api) still mints every token.
+	const upgradeTokenStore = createUpgradeTokenStore();
+
 	// AU21 §6 Decision L4 / §9 Increment 14d: the hub is built ONCE, here,
-	// and shared between (a) the WS route + session-activity gateway wired
-	// below in `registerWebSocket` and (b) every core-api route/service that
-	// pushes domain data directly (`createThreadRoutes`'s per-thread +
-	// conversations-list pushes via `wsHub`, `work-state-push-gateway.ts`'s
-	// task/bet forwarder) — one topic space, one transport instance.
-	// `createDbSubscribeAuthorizer` is the hub's Mechanism C DI
-	// boundary — this deps bundle wires its four real outbound edges
-	// (`conversation`/`users`/`org`/`work`) to the real already-imported
-	// functions above.
+	// and shared between (a) the WS route wired below in `registerWebSocket` and
+	// (b) every core-api route/service that pushes domain data directly
+	// (`createThreadRoutes`'s per-thread + conversations-list pushes via
+	// `wsHub`, `work-state-push-gateway.ts`'s task/bet forwarder) — one topic
+	// space, one transport instance.
+	//
+	// @lore AU26 J3: this hub now carries core-api's OWN topics only
+	// (`thread:<id>`, `conversations`, `work`). The `session:<id>` stream moved
+	// to `agent-orchestration`'s own socket and its own hub, so the session
+	// activity gateway is no longer wired to this one, and
+	// `createDbSubscribeAuthorizer`'s deps bundle shrank from four edges to
+	// one — `users`/`org`/`work` existed only to serve the session branch.
 	const wsHub = new WsConnectionHub(
 		createDbSubscribeAuthorizer(db, {
 			conversation: { getThreadById: (db, id) => findThread(db, { id }) },
-			users: { getUserById: (db, id) => findUser(db, { id }) },
-			org: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
-			work: { getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id) },
 		}),
 	);
 	// The "work" topic forwarder: task_state_changed/bet_state_changed
@@ -575,7 +580,14 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	const agentOrchestration = bootAgentOrchestration({
 		db,
 		eventBus,
-		broadcast: wsHub,
+		// AU26 J3: the Layer serves its own `session:<id>` socket at
+		// `/api/agent-orchestration/ws`. The Application supplies only the
+		// runtime's upgrade adapter and the SHARED one-shot token store — the
+		// same instance core's socket consumes, so `POST /api/auth/ws-token`
+		// mints for both. Neither is a domain dependency, and no `broadcast`
+		// sink is handed down any more: the session-activity gateway tees into
+		// the Layer's own hub now.
+		sessionStream: { upgradeWebSocket, upgradeTokens: upgradeTokenStore },
 		// AU26 E4: `/api/connections`' inherited projection reads this pool's
 		// cached descriptors. Same pool core-api already holds; the Layer only
 		// gets the read.
@@ -589,6 +601,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		db,
 		eventBus,
 		wsHub,
+		upgradeTokenStore,
 		serviceBootstrap: (ctx) => {
 			// AF6/AU1: production boots the routine scheduler at the default
 			// 30s cadence. Runtime deps are present, so generic routine fires
@@ -638,9 +651,10 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			// @lore AU26 B1a: the session-activity gateway used to be registered
 			// here too. It moved into `bootAgentOrchestration` — it is the owning
 			// Layer's own live tee of `session_started`/`session_ended`/
-			// `tool_call_recorded`. The Application still supplies the sink: the
-			// SAME `wsHub`, passed in as the one-method `{ broadcast }` port, so
-			// there is still exactly one WS listener and one topic space (§D-E).
+			// `tool_call_recorded`.
+			// @lore AU26 J3: and now so has the socket it tees onto. This one
+			// carries core-api's own topics only; `agent-orchestration` registers
+			// its `session:<id>` socket in its own `registerPreAuthRoutes`.
 			wsDispose = registerWsRoute(apiRouter, tokenStore, upgradeWebSocket, wsHub);
 		},
 	});

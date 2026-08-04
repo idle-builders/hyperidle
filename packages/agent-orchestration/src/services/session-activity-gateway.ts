@@ -29,9 +29,12 @@
 import type { EventBus } from "@hyperidle/shared";
 
 /**
- * The minimal shape this gateway needs from a broadcast sink — satisfied by
- * `WsConnectionHub.broadcast(topic, data)` (core-api's Layer transport) without this
- * module depending on that package's full class.
+ * The minimal shape this gateway needs from a broadcast sink.
+ *
+ * @lore AU26 J3: satisfied by this Layer's OWN `SessionStreamHub` now. It used
+ * to be core-api's `WsConnectionHub`, injected by the Application — the tee
+ * pointed at a socket another Layer hosted. Founder: *"core should not know
+ * about this session live stuff at all."*
  */
 export interface SessionActivityBroadcastTarget {
 	broadcast(topic: string, data: string): void;

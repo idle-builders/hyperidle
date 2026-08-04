@@ -20,4 +20,3 @@ export type {
 	AgentOrchestrationBootOptions,
 } from "./boot.js";
 export { bootAgentOrchestration } from "./boot.js";
-export type { SessionActivityBroadcastTarget } from "./services/session-activity-gateway.js";
