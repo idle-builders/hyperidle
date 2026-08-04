@@ -9,7 +9,6 @@ import type {
 	WriteExecutor,
 } from "@hyperidle/db";
 import type {
-	BakedConnectionsForProvisioning,
 	BakedFilesystemForProvisioning,
 	BakedWorkIntentRequest,
 	EventBus,
@@ -173,15 +172,4 @@ export interface RoutineSchedulerPorts {
 		db: HyperIdleDb,
 		agentId: string,
 	): Promise<readonly BakedFilesystemForProvisioning[]>;
-	/**
-	 * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) —
-	 * optional: `@hyperidle/connections`'s `resolveInjectedConnectionsForAgent`,
-	 * injected (Mechanism C — `@hyperidle/routine` cannot import
-	 * `@hyperidle/connections` directly) for the `injectedConnections` bake
-	 * `resolveRoutineRunRequest` forwards onto every `routine_run` request.
-	 */
-	resolveInjectedConnectionsForAgent?(
-		db: HyperIdleDb,
-		agentId: string,
-	): Promise<BakedConnectionsForProvisioning>;
 }

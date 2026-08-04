@@ -45,14 +45,13 @@
  * reaction cannot run more than once per message either.
  */
 
-import { resolveInjectedConnectionsForAgent } from "@hyperidle/connections";
 import { findMessage, resolveAssistantTurnRequest } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { resolveInjectedFilesystemsForAgent } from "@hyperidle/filesystems";
 import { enqueueWorkIntent, listPendingIntentsByKind } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import { createLogger, type EventBus, type ThreadMessageAppendedEvent } from "@hyperidle/shared";
-import { findUser, requireRunnableAgent } from "@hyperidle/users";
+import { requireRunnableAgent } from "@hyperidle/users";
 
 const logger = createLogger({ pkg: "core-api.assistant-turn-coherence-trigger" });
 const registeredBuses = new WeakSet<EventBus>();
@@ -80,11 +79,6 @@ async function rebakePendingSiblingsForThread(
 			// consistent with the "granted" reengagement path's forwarding.
 			readServerConfig,
 			resolveInjectedFilesystemsForAgent,
-			// AU21 §9 Increment 12 follow-up part 2 (F2 gap closure —
-			// connections): also bake injectedConnections — same forwarding
-			// discipline as the filesystems bake above.
-			resolveInjectedConnectionsForAgent: (db, agentId) =>
-				resolveInjectedConnectionsForAgent(db, agentId, findUser),
 		});
 		await enqueueWorkIntent(db, {
 			kind: "assistant_turn",

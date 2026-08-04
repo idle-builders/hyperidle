@@ -43,7 +43,6 @@ import {
 } from "@hyperidle/db";
 import type {
 	BakedAgentRunnableConfig,
-	BakedConnectionsForProvisioning,
 	BakedContextBundle,
 	BakedFilesystemForProvisioning,
 	SessionKnowledgeItemLike,
@@ -224,18 +223,6 @@ export interface ReengagementResolverDeps {
 		agentId: string,
 	): Promise<readonly BakedFilesystemForProvisioning[]>;
 	/**
-	 * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) —
-	 * optional: `@hyperidle/connections`'s `resolveInjectedConnectionsForAgent`,
-	 * injected (Mechanism C — `@hyperidle/review` cannot import
-	 * `@hyperidle/connections` directly) for the `injectedConnections` bake.
-	 * Absent at a call site not yet wired — the resolver bakes no
-	 * `injectedConnections`.
-	 */
-	resolveInjectedConnectionsForAgent?(
-		db: HyperIdleDb,
-		agentId: string,
-	): Promise<BakedConnectionsForProvisioning>;
-	/**
 	 * AU27 Increment 1 (Decision 0) — optional: resolve-or-create the task's
 	 * `hostKind:"task"` calling thread (Mechanism C — `@hyperidle/review`
 	 * cannot import `@hyperidle/conversation` directly). Absent at a call site
@@ -266,9 +253,6 @@ function optionalReengagementBakeDeps(
 		...(deps.readServerConfig ? { readServerConfig: deps.readServerConfig } : {}),
 		...(deps.resolveInjectedFilesystemsForAgent
 			? { resolveInjectedFilesystemsForAgent: deps.resolveInjectedFilesystemsForAgent }
-			: {}),
-		...(deps.resolveInjectedConnectionsForAgent
-			? { resolveInjectedConnectionsForAgent: deps.resolveInjectedConnectionsForAgent }
 			: {}),
 		...(deps.resolveOrCreateCallingThread
 			? { resolveOrCreateCallingThread: deps.resolveOrCreateCallingThread }
@@ -322,12 +306,6 @@ export interface BakedReengagementRequest {
 	 * `deps.resolveInjectedFilesystemsForAgent` was supplied.
 	 */
 	readonly injectedFilesystems?: readonly BakedFilesystemForProvisioning[];
-	/**
-	 * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) —
-	 * the owning human's held-connection list. Present only when
-	 * `deps.resolveInjectedConnectionsForAgent` was supplied.
-	 */
-	readonly injectedConnections?: BakedConnectionsForProvisioning;
 	/**
 	 * AU27 Increment 1 (Decision 1) — the task's calling thread id, baked via
 	 * Decision 0's resolve-or-create. Present only when
@@ -393,20 +371,13 @@ export async function resolveReengagementRequest(
 			};
 		}
 	}
-	const {
-		readServerConfig,
-		resolveInjectedFilesystemsForAgent,
-		resolveInjectedConnectionsForAgent,
-		resolveOrCreateCallingThread,
-	} = deps;
+	const { readServerConfig, resolveInjectedFilesystemsForAgent, resolveOrCreateCallingThread } =
+		deps;
 	const harnessDisabled = readServerConfig
 		? (await readServerConfig(db)).harnessDisabled
 		: undefined;
 	const injectedFilesystems = resolveInjectedFilesystemsForAgent
 		? await resolveInjectedFilesystemsForAgent(db, view.grant.agentScope)
-		: undefined;
-	const injectedConnections = resolveInjectedConnectionsForAgent
-		? await resolveInjectedConnectionsForAgent(db, view.grant.agentScope)
 		: undefined;
 	const callingThreadId = resolveOrCreateCallingThread
 		? await resolveOrCreateCallingThread(db, task.id, view.grant.agentScope)
@@ -428,7 +399,6 @@ export async function resolveReengagementRequest(
 		agentConfig: bakeAgentRunnableConfig(agent),
 		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
 		...(injectedFilesystems !== undefined ? { injectedFilesystems } : {}),
-		...(injectedConnections !== undefined ? { injectedConnections } : {}),
 		...(callingThreadId !== undefined ? { callingThreadId } : {}),
 	};
 }
@@ -803,7 +773,6 @@ export async function handleUnconsumedGrantOnSessionEnd(
 			assembleSessionKnowledge: opts.assembleSessionKnowledge,
 			readServerConfig: opts.readServerConfig,
 			resolveInjectedFilesystemsForAgent: opts.resolveInjectedFilesystemsForAgent,
-			resolveInjectedConnectionsForAgent: opts.resolveInjectedConnectionsForAgent,
 		});
 	}
 }
@@ -840,6 +809,5 @@ export async function reengageOnAdmissionFailure(
 		assembleSessionKnowledge: opts.assembleSessionKnowledge,
 		readServerConfig: opts.readServerConfig,
 		resolveInjectedFilesystemsForAgent: opts.resolveInjectedFilesystemsForAgent,
-		resolveInjectedConnectionsForAgent: opts.resolveInjectedConnectionsForAgent,
 	});
 }

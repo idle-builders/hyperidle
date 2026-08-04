@@ -3,20 +3,22 @@
 // `connections`/`filesystems` Services.
 //
 // AU21 §9 Increment 12 follow-up (+ part 2): both `SessionLifecyclePorts
-// ["filesystems"]` and `["connections"]` seam ports are DELETED entirely —
-// the agent's injected filesystems/held connections are baked at EMIT time
-// onto the request instead (`@hyperidle/filesystems`'s
-// `resolveInjectedFilesystemsForAgent` / `@hyperidle/connections`'s
-// `resolveInjectedConnectionsForAgent`). `buildProvisioningPlan`/
-// `applyProvisioningPlan` are called directly by this package's own
-// `provisioner.ts` — no composition-root port wiring needed.
+// ["filesystems"]` and `["connections"]` seam ports were DELETED entirely —
+// the agent's injected filesystems/held connections were baked at EMIT time
+// onto the request instead.
+//
+// AU26 E3: the connections half of that bake is now gone too. Held connections
+// are read LIVE at spawn through `HeldConnectionsReaderPort`, backed by
+// `@hyperidle/connections` — this Layer's own table, so this is not a seam.
+// A port rather than a direct import because `run-orchestration` is itself a
+// Service (Mechanism C); the Application wires the two.
 
 export { isAgentAtCapacity } from "./concurrency.js";
 export {
 	applyProvisioningPlan,
 	buildProvisioningPlan,
 	type HeldConnectionForProvisioning,
-	type HeldConnectionsForProvisioning,
+	type HeldConnectionsReaderPort,
 	type ProvisioningPlan,
 	type ServiceConnectionResolverPort,
 } from "./connection-provisioning.js";

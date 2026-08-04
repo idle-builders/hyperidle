@@ -4,7 +4,11 @@ import * as path from "node:path";
 import { type ServerType, serve, upgradeWebSocket } from "@hono/node-server";
 import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";
 import { readAgentRunConfigs } from "@hyperidle/agent-run-config";
-import { listConnections } from "@hyperidle/connections";
+import {
+	listConnections,
+	listHeldConnectionsForProvisioning,
+	ServiceConnectionResolver,
+} from "@hyperidle/connections";
 import {
 	findThread,
 	insertMessage,
@@ -1041,7 +1045,23 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		workspace: workspaceAdapter,
 		mcpBridgeRegistry,
 		mcpBaseUrl,
-		serviceConnectionResolver: credentialResolver,
+		// @lore AU26 E3: `serviceConnectionResolver` was wired to
+		// `credentialResolver` here — a `CredentialResolver`, whose
+		// `resolve(name)` takes ONE argument. The provisioner calls
+		// `resolve(userId, connectionId)`, so every held-connection lookup in
+		// production was really a `server_credentials` lookup keyed by a user
+		// id, always missing, always silently skipped: AN2 provisioning never
+		// actually provisioned anything. The `as ProvisionSessionDeps` cast
+		// below is what hid the arity mismatch from `tsc`. Fixed to the real
+		// `ServiceConnectionResolver`, which is the only plaintext path (AN1
+		// hard-rule 1).
+		serviceConnectionResolver: new ServiceConnectionResolver(db),
+		// @lore AU26 E3: the spawn-time held-connection read, live and
+		// in-layer. Replaces AU21 K1's emit-time bake, so a connection added
+		// between an intent's emit and its drain reaches the sandbox (AC1(c)).
+		heldConnections: {
+			listHeldForProvisioning: () => listHeldConnectionsForProvisioning(db),
+		},
 		mounter,
 	} as ProvisionSessionDeps;
 	const runRuntime = await startRuntime(

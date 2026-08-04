@@ -37,7 +37,7 @@ import { and, eq, isNull, ne, or, sql } from "drizzle-orm";
 import {
 	applyProvisioningPlan,
 	buildProvisioningPlan,
-	type HeldConnectionsForProvisioning,
+	type HeldConnectionsReaderPort,
 } from "./connection-provisioning.js";
 import { routineSessionContextDataFromBundle, sessionContextDataFromBundle } from "./context.js";
 import {
@@ -119,17 +119,15 @@ interface SessionLifecycleServiceConnectionResolver {
 }
 
 // ---------------------------------------------------------------------------
-// connections (AU21 §9 Increment 12 follow-up part 2, F2 gap closure): the
-// former `SessionLifecycleConnectionsProvisioner` seam-shaped port is DELETED
-// entirely — `run-orchestration` holds ZERO `-> connections` read edge. The
-// owning human's held-connection list is now baked at EMIT time onto
-// `ProvisionSessionParams.injectedConnections` by every per-kind resolver
-// (`@hyperidle/connections`'s `resolveInjectedConnectionsForAgent`), the SAME
-// principle the filesystems follow-up already applied. `buildProvisioningPlan`/
-// `applyProvisioningPlan` are called directly (plain same-package import from
-// `./connection-provisioning.js`) — no port indirection needed once there is
-// no seam call left to abstract. See `connection-provisioning.ts`'s own
-// top-of-file `@lore` for the full trace.
+// connections (AU26 E3, AU21 Decision J3): `service_connections` is
+// `agent-orchestration`'s OWN table now, so the spawn reads it LIVE — no seam,
+// and no emit-time bake to go stale. AU21 K1's `ProvisionSessionParams
+// .injectedConnections` is DELETED; `deps.heldConnections` (a
+// `HeldConnectionsReaderPort` the Application backs with
+// `@hyperidle/connections`) replaces it. A port, not a direct import, because
+// `run-orchestration` is itself a Service and may depend only on db+shared
+// (Mechanism C) — the same reason `serviceConnectionResolver` beside it is
+// injected. See `connection-provisioning.ts`'s own top-of-file `@lore`.
 // ---------------------------------------------------------------------------
 
 interface SessionLifecycleHarnessAdapter {
@@ -638,6 +636,13 @@ interface ProvisionSessionDeps {
 	 */
 	readonly serviceConnectionResolver?: SessionLifecycleServiceConnectionResolver;
 	/**
+	 * AU26 E3: the live, in-layer held-connection read one spawn performs.
+	 * Application-composed from `@hyperidle/connections`. Absent → the
+	 * provisioning plan is empty, the same graceful no-op an absent
+	 * `serviceConnectionResolver` already gives.
+	 */
+	readonly heldConnections?: HeldConnectionsReaderPort;
+	/**
 	 * AR2: optional observation hook, fired once after the agent's turn fully
 	 * drains and the sandbox is completely written, BEFORE teardown deletes it.
 	 * Observes only — it cannot pause, defer, or cancel teardown, which runs
@@ -762,16 +767,6 @@ interface ProvisionSessionParams {
 	 * behavior unchanged.
 	 */
 	readonly injectedFilesystems?: readonly FilesystemForProvisioning[];
-	/**
-	 * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure): the owning
-	 * human's held-connection list, baked at EMIT time by every per-kind
-	 * resolver via `@hyperidle/connections`'s
-	 * `resolveInjectedConnectionsForAgent`. Phase 8b-connections builds the
-	 * provisioning plan directly from this list — ZERO live `-> connections`
-	 * read at provisioning time. Absent means "no held connections", matching
-	 * the former seam call's own empty-list behavior unchanged.
-	 */
-	readonly injectedConnections?: HeldConnectionsForProvisioning;
 	/**
 	 * AU27 Increment 1 (Decision 1) — the session's calling thread id, baked at
 	 * EMIT time by every per-kind resolver that has one (`assistant_turn` from
@@ -1164,6 +1159,7 @@ async function runSession(
 		mcpBridgeRegistry,
 		mcpBaseUrl,
 		serviceConnectionResolver,
+		heldConnections,
 	} = deps;
 	const {
 		sessionId,
@@ -1387,13 +1383,12 @@ async function runSession(
 	}
 
 	// ── Phase 8b-connections: AN2 Connection provisioning (parallel to inbound bridge).
-	// AU21 §9 Increment 12 follow-up part 2 (F2 gap closure): builds the plan
-	// directly from the BAKED `params.injectedConnections` — no seam reader,
-	// no `ports.connections` indirection (the port is deleted entirely).
+	// AU26 E3: reads the held-connection record LIVE, in-layer, at spawn — no
+	// seam, and no emit-time bake to go stale (AC1(c)).
 	if (serviceConnectionResolver) {
 		try {
 			const plan = await buildProvisioningPlan({
-				heldConnections: params.injectedConnections,
+				...(heldConnections ? { connections: heldConnections } : {}),
 				resolver: serviceConnectionResolver,
 			});
 			const { mcpTokenEnv: connEnv } = await applyProvisioningPlan({

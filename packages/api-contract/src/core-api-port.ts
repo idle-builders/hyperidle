@@ -625,14 +625,17 @@ export interface CoreApiKnowledgePort {
  * UI calls it directly, not through this port) — only the seam method is
  * gone.
  *
- * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections):
+ * AU21 §9 Increment 12 follow-up part 2 (Decision K1 — connections):
  * `HeldConnectionProvisioningView`/`ListHeldConnectionsForProvisioningResponse`/
  * `CoreApiConnectionsPort` (Decision F2, AU21 §9 Increment 8) are likewise
- * DELETED — the owning human's held-connection list is now baked at emit
- * time by every per-kind resolver (`@hyperidle/connections`'s
- * `resolveInjectedConnectionsForAgent`) instead of read back through this
- * seam. The `GET /connections/provisioning` route itself is deleted too
- * (zero other consumers, unlike filesystems' still-used plain route).
+ * DELETED, along with the `GET /connections/provisioning` route that backed
+ * them (zero other consumers, unlike filesystems' still-used plain route).
+ *
+ * @lore AU26 E3: and the emit-time bake K1 replaced them with is deleted too.
+ * `service_connections` now belongs to `agent-orchestration`, so a spawn reads
+ * it live from its own Layer — no seam, no bake, nothing on this port. This
+ * comment records that there is no connections family here and no reason to
+ * grow one back.
  */
 
 /**

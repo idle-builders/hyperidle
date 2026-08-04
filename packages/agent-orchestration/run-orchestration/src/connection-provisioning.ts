@@ -10,18 +10,24 @@
  * `CoreApiPort.connections.listHeldConnectionsForProvisioning()` (a live seam
  * call at provisioning time) instead of a raw `db` handle.
  *
- * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure): that seam call is
- * GONE — the SAME class of gap `resolveInjectedFilesystemsForAgent` already
- * closed for filesystems. `buildProvisioningPlan` now takes the held
- * connections already BAKED onto the request at emit time
- * (`deps.heldConnections`, resolved by `@hyperidle/connections`'s
- * `resolveInjectedConnectionsForAgent` at every per-kind resolver) — no seam
- * reader, no live read of any kind. The decrypt step
- * (`resolver.resolve(userId, connectionId)`) stays an Application-composed
- * direct dependency, never routed through a seam (AN1 hard-rule 1: "the
- * resolver is the ONLY plaintext path... wired to sandbox injection, not to
- * routes" — this file's own historical top `@lore`, carried forward) —
- * unaffected by this move.
+ * AU21 §9 Increment 12 follow-up part 2 (Decision K1, historical): that seam
+ * call was replaced by a BAKE — the held-connection list frozen onto the
+ * request at emit time. K1 was known-throwaway when it shipped: it existed only
+ * because `service_connections` still sat in core-api, and it bought the closed
+ * boundary at the price of a stale snapshot (a connection added between emit
+ * and drain never reached the sandbox).
+ *
+ * AU26 E3 (Decision J3): the table is agent-orchestration's own now, so the
+ * bake is DELETED and the read is live and in-layer — `deps.connections`, one
+ * injected port backed by `@hyperidle/connections`'s
+ * `listHeldConnectionsForProvisioning`. Not a seam: it is this Layer reading
+ * this Layer's own table. `run-orchestration` is itself a Service, so it takes
+ * the reader as a port rather than importing that Service (Mechanism C); the
+ * Application wires the two together. The decrypt step
+ * (`resolver.resolve(userId, connectionId)`) stays a separate
+ * Application-composed dependency, never routed through a seam (AN1 hard-rule
+ * 1: "the resolver is the ONLY plaintext path... wired to sandbox injection,
+ * not to routes" — this file's own historical top `@lore`, carried forward).
  *
  * The central act of AN2: at spawn time, read the owning human's active held
  * connections, resolve each, SSRF-check each outbound URL, and write the
@@ -30,14 +36,13 @@
  *
  * @lore AN2 ownership: Single-founder is the locked deployment
  * (authorization-model.md:32). A multi-tenant model (agent→explicit-owner FK)
- * is a future change gated by the same trigger as RLS; not built now.
- * `@hyperidle/connections`'s `resolveInjectedConnectionsForAgent` (baked at
- * emit time, Increment 12 follow-up part 2) resolves the SAME single owning
- * human `resolveOwningHumanUserId` always resolved before F2's move — the
- * future per-agent-owner lookup would slot in at that bake helper, not here.
- * Hard-rule 4 (per-user isolation) holds today because there is exactly one
- * human; that bake helper's owner resolution is the durable enforcement when
- * that stops being true.
+ * is a future change gated by the same trigger as RLS; not built now. Every
+ * held row carries its own `userId` and its token is resolved against THAT
+ * owner, so hard-rule 4 (per-user isolation) is enforced per row rather than
+ * by a single resolved-owner guess. When multi-tenancy arrives, the per-agent
+ * owner has to arrive ON THE REQUEST from the emitting core-api resolver —
+ * orchestration must not go looking for it (it reads zero core-api state) —
+ * and this builder filters on that value.
  *
  * @lore AN2 claude-two-write-sites: claude's .mcp.json is written by the inline
  * Phase 8b writer (session-provisioning.ts) AND by applyProvisioningPlan
@@ -74,23 +79,34 @@ import { resolveUrlForSSRF } from "@hyperidle/shared/net";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-/** One held connection's provisioning-relevant fields — mirrors the (now-deleted) `CoreApiPort.connections.listHeldConnectionsForProvisioning` seam response element (NEVER `encryptedToken`). Structurally identical to `@hyperidle/shared`'s `BakedConnectionForProvisioning`. */
+/**
+ * One held connection's provisioning-relevant fields (NEVER `encryptedToken`).
+ * Structurally identical to `@hyperidle/connections`'s own
+ * `HeldConnectionForProvisioning` — the two are wired together by the
+ * Application, so this Service names the shape without importing that one.
+ *
+ * @lore AU26 E3: `userId` is per-ROW. Each connection's token is resolved
+ * against the owner the row itself carries, so a plan can never resolve a row
+ * under someone else's identity. K1's shape carried one shared `userId` for the
+ * whole list, resolved from core-api's `users` at emit time; orchestration does
+ * not read `users` at all.
+ */
 export interface HeldConnectionForProvisioning {
 	readonly id: string;
+	readonly userId: string;
 	readonly service: string;
 	readonly authSource: HeldAuthSource;
 	readonly serverUrl: string | null;
 }
 
 /**
- * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure): the already-baked
- * held-connection list `buildProvisioningPlan` now consumes directly — no
- * seam reader, no live read. `undefined` means "no held connections baked"
- * (matches the former seam's empty-list behavior).
+ * AU26 E3 — the live, in-layer held-connection read one spawn performs.
+ * Application-composed from `@hyperidle/connections`. Absent means "this
+ * deployment provisions no held connections" (the graceful-degradation posture
+ * `serviceConnectionResolver` already has), not "read failed".
  */
-export interface HeldConnectionsForProvisioning {
-	readonly userId: string;
-	readonly connections: readonly HeldConnectionForProvisioning[];
+export interface HeldConnectionsReaderPort {
+	listHeldForProvisioning(): Promise<readonly HeldConnectionForProvisioning[]>;
 }
 
 /** The decrypt step — stays an Application-composed direct dependency, never routed through `CoreApiPort` (AN1 hard-rule 1). */
@@ -118,8 +134,9 @@ export interface ProvisioningPlan {
 /**
  * Build the provisioning plan for one spawn.
  *
- * Reads active held connections for the seam-resolved owner, resolves each
- * token via the resolver, SSRF-checks every outbound URL (drops + logs any
+ * Reads active held connections LIVE from this Layer's own record, resolves
+ * each token against its own owner via the resolver, SSRF-checks every
+ * outbound URL (drops + logs any
  * that fail to resolve to a public IP — never throws, never blocks the
  * spawn), and returns the plan.
  *
@@ -136,17 +153,17 @@ export interface ProvisioningPlan {
  * explicit tokenKind column (AN1 concept-doc update first).
  */
 export async function buildProvisioningPlan(deps: {
-	readonly heldConnections?: HeldConnectionsForProvisioning;
+	readonly connections?: HeldConnectionsReaderPort;
 	readonly resolver: ServiceConnectionResolverPort;
 	/** Injectable DNS resolver for tests (overrides real DNS lookup). */
 	readonly _ssrfLookup?: (host: string) => Promise<Array<{ address: string; family: 4 | 6 }>>;
 }): Promise<ProvisioningPlan> {
-	const { heldConnections, resolver, _ssrfLookup } = deps;
-	if (!heldConnections) return { mcpServers: [], envInjections: {} };
-	const { userId, connections: allConnections } = heldConnections;
+	const { connections, resolver, _ssrfLookup } = deps;
+	if (!connections) return { mcpServers: [], envInjections: {} };
+	const allConnections = await connections.listHeldForProvisioning();
 
-	// Defense in depth: the former seam route already filtered to held auth sources
-	// (`token`|`mcp`) — re-assert it here so a future route regression can't
+	// Defense in depth: the reader already filters to held auth sources
+	// (`token`|`mcp`) — re-assert it here so a future reader regression can't
 	// silently widen this plan builder's input.
 	const heldOnly = allConnections.filter((c) =>
 		(HELD_AUTH_SOURCES as readonly string[]).includes(c.authSource),
@@ -162,7 +179,8 @@ export async function buildProvisioningPlan(deps: {
 
 	for (const conn of heldOnly) {
 		if (conn.authSource === "token") {
-			const token = await resolver.resolve(userId, conn.id);
+			// Per-ROW owner (AU26 E3): never a single shared identity.
+			const token = await resolver.resolve(conn.userId, conn.id);
 			if (!token) {
 				// No token (e.g. null serverSecret or decryption failure) — skip silently.
 				// This matches the resolver's graceful-degradation posture.

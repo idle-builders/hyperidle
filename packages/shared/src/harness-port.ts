@@ -44,7 +44,6 @@
 
 import type {
 	BakedAgentRunnableConfig,
-	BakedConnectionsForProvisioning,
 	BakedContextBundle,
 	BakedFilesystemForProvisioning,
 } from "./agent-work-intent-recorder.js";
@@ -129,13 +128,6 @@ export interface RunContextBundle {
 	 * injected filesystems". Feeds `admitSession`'s Phase 4.5 mount step.
 	 */
 	readonly injectedFilesystems?: readonly BakedFilesystemForProvisioning[];
-	/**
-	 * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) —
-	 * the owning human's baked held-connection list, sourced from the drained
-	 * `AgentSessionRequest.payloadJson` (zero db read). Absent means "no held
-	 * connections". Feeds Phase 8b-connections' `buildProvisioningPlan` call.
-	 */
-	readonly injectedConnections?: BakedConnectionsForProvisioning;
 }
 
 /** Narrow mirror of `@hyperidle/session-lifecycle`'s `AdmittedSession` — only the field `run-orchestration` reads directly; the rest flows through opaquely. */

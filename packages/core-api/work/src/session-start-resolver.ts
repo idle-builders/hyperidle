@@ -31,11 +31,7 @@
  */
 
 import type { HyperIdleDb, User } from "@hyperidle/db";
-import type {
-	BakedAgentRunnableConfig,
-	BakedConnectionsForProvisioning,
-	BakedFilesystemForProvisioning,
-} from "@hyperidle/shared";
+import type { BakedAgentRunnableConfig, BakedFilesystemForProvisioning } from "@hyperidle/shared";
 import { bakeAgentRunnableConfig } from "@hyperidle/shared";
 import * as work from "./work-service.js";
 
@@ -62,18 +58,6 @@ export interface SessionStartResolverDeps {
 		db: HyperIdleDb,
 		agentId: string,
 	): Promise<readonly BakedFilesystemForProvisioning[]>;
-	/**
-	 * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) —
-	 * optional: `@hyperidle/connections`'s `resolveInjectedConnectionsForAgent`,
-	 * injected (Mechanism C — `@hyperidle/work` cannot import
-	 * `@hyperidle/connections` directly) for the `injectedConnections` bake.
-	 * Absent at a call site not yet wired — the resolver bakes no
-	 * `injectedConnections`.
-	 */
-	resolveInjectedConnectionsForAgent?(
-		db: HyperIdleDb,
-		agentId: string,
-	): Promise<BakedConnectionsForProvisioning>;
 	/**
 	 * AU27 Increment 1 (Decision 0) — optional: resolve-or-create the task's
 	 * `hostKind:"task"` calling thread (Mechanism C — `@hyperidle/work` cannot
@@ -119,12 +103,6 @@ export interface BakedSessionStartRequest {
 	 */
 	readonly injectedFilesystems?: readonly BakedFilesystemForProvisioning[];
 	/**
-	 * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) —
-	 * the owning human's held-connection list. Present only when
-	 * `deps.resolveInjectedConnectionsForAgent` was supplied.
-	 */
-	readonly injectedConnections?: BakedConnectionsForProvisioning;
-	/**
 	 * AU27 Increment 1 (Decision 1) — the task's calling thread id, baked via
 	 * Decision 0's resolve-or-create. Present only when
 	 * `deps.resolveOrCreateCallingThread` was supplied.
@@ -153,9 +131,6 @@ export async function resolveSessionStartRequest(
 	const injectedFilesystems = deps.resolveInjectedFilesystemsForAgent
 		? await deps.resolveInjectedFilesystemsForAgent(db, input.requestedAgentId)
 		: undefined;
-	const injectedConnections = deps.resolveInjectedConnectionsForAgent
-		? await deps.resolveInjectedConnectionsForAgent(db, input.requestedAgentId)
-		: undefined;
 	const callingThreadId = deps.resolveOrCreateCallingThread
 		? await deps.resolveOrCreateCallingThread(db, task.id, input.requestedAgentId)
 		: undefined;
@@ -170,7 +145,6 @@ export async function resolveSessionStartRequest(
 		agentConfig: bakeAgentRunnableConfig(agent),
 		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
 		...(injectedFilesystems !== undefined ? { injectedFilesystems } : {}),
-		...(injectedConnections !== undefined ? { injectedConnections } : {}),
 		...(callingThreadId !== undefined ? { callingThreadId } : {}),
 	};
 }

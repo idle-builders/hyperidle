@@ -12,8 +12,6 @@ export type {
 	AgentWorkIntentRecorder,
 	AgentWorkIntentRecorderInput,
 	BakedAgentRunnableConfig,
-	BakedConnectionForProvisioning,
-	BakedConnectionsForProvisioning,
 	BakedContextBundle,
 	BakedContextKnowledgeItem,
 	BakedFilesystemForProvisioning,

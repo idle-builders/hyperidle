@@ -42,7 +42,6 @@ import {
 } from "@hyperidle/db";
 import type {
 	BakedAgentRunnableConfig,
-	BakedConnectionsForProvisioning,
 	BakedContextBundle,
 	BakedFilesystemForProvisioning,
 	SessionKnowledgeItemLike,
@@ -279,12 +278,6 @@ export interface BakedRoutineRunRequest {
 	 * `deps.resolveInjectedFilesystemsForAgent` was supplied.
 	 */
 	readonly injectedFilesystems?: readonly BakedFilesystemForProvisioning[];
-	/**
-	 * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) —
-	 * the owning human's held-connection list. Present only when
-	 * `deps.resolveInjectedConnectionsForAgent` was supplied.
-	 */
-	readonly injectedConnections?: BakedConnectionsForProvisioning;
 }
 
 /**
@@ -360,18 +353,6 @@ export interface RoutineRunResolverDeps {
 		db: HyperIdleDb,
 		agentId: string,
 	): Promise<readonly BakedFilesystemForProvisioning[]>;
-	/**
-	 * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) —
-	 * optional: `@hyperidle/connections`'s `resolveInjectedConnectionsForAgent`,
-	 * injected (Mechanism C — `@hyperidle/routine` cannot import
-	 * `@hyperidle/connections` directly) for the `injectedConnections` bake.
-	 * Absent at a call site not yet wired — the resolver bakes no
-	 * `injectedConnections`.
-	 */
-	resolveInjectedConnectionsForAgent?(
-		db: HyperIdleDb,
-		agentId: string,
-	): Promise<BakedConnectionsForProvisioning>;
 }
 
 /**
@@ -463,19 +444,12 @@ export async function resolveRoutineRunRequest(
 			};
 		}
 	}
-	const {
-		readServerConfig,
-		resolveInjectedFilesystemsForAgent,
-		resolveInjectedConnectionsForAgent,
-	} = deps;
+	const { readServerConfig, resolveInjectedFilesystemsForAgent } = deps;
 	const harnessDisabled = readServerConfig
 		? (await readServerConfig(db)).harnessDisabled
 		: undefined;
 	const injectedFilesystems = resolveInjectedFilesystemsForAgent
 		? await resolveInjectedFilesystemsForAgent(db, selectedAgentId)
-		: undefined;
-	const injectedConnections = resolveInjectedConnectionsForAgent
-		? await resolveInjectedConnectionsForAgent(db, selectedAgentId)
 		: undefined;
 
 	return {
@@ -490,6 +464,5 @@ export async function resolveRoutineRunRequest(
 		agentConfig: bakeAgentRunnableConfig(agent),
 		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
 		...(injectedFilesystems !== undefined ? { injectedFilesystems } : {}),
-		...(injectedConnections !== undefined ? { injectedConnections } : {}),
 	};
 }

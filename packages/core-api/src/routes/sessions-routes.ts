@@ -1,4 +1,3 @@
-import { resolveInjectedConnectionsForAgent } from "@hyperidle/connections";
 import type { ExplicitSessionStart, HyperIdleDb } from "@hyperidle/db";
 import { resolveInjectedFilesystemsForAgent } from "@hyperidle/filesystems";
 import { createBareRun } from "@hyperidle/run-orchestration";
@@ -18,7 +17,7 @@ import {
 	sendStartProjection,
 	validateBody,
 } from "@hyperidle/shared/http";
-import { findUser, requireRunnableAgent } from "@hyperidle/users";
+import { requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { resolveSessionStartRequest } from "@hyperidle/work";
 import { Hono } from "hono";
@@ -190,8 +189,6 @@ export function createSessionRoutes(
 								requireRunnableAgent,
 								readServerConfig,
 								resolveInjectedFilesystemsForAgent,
-								resolveInjectedConnectionsForAgent: (execDb, agentId) =>
-									resolveInjectedConnectionsForAgent(execDb, agentId, findUser),
 								// AU27 Increment 1 (Decision 0): also bake callingThreadId.
 								resolveOrCreateCallingThread,
 							},

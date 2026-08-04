@@ -37,7 +37,6 @@
 import type { HyperIdleDb, User } from "@hyperidle/db";
 import type {
 	BakedAgentRunnableConfig,
-	BakedConnectionsForProvisioning,
 	BakedContextBundle,
 	BakedFilesystemForProvisioning,
 } from "@hyperidle/shared";
@@ -69,18 +68,6 @@ export interface KnowledgeActionResolverDeps {
 		db: HyperIdleDb,
 		agentId: string,
 	): Promise<readonly BakedFilesystemForProvisioning[]>;
-	/**
-	 * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) —
-	 * optional: `@hyperidle/connections`'s `resolveInjectedConnectionsForAgent`,
-	 * injected (Mechanism C — `@hyperidle/knowledge` cannot import
-	 * `@hyperidle/connections` directly) for the `injectedConnections` bake.
-	 * Absent at a call site not yet wired — the resolver bakes no
-	 * `injectedConnections`.
-	 */
-	resolveInjectedConnectionsForAgent?(
-		db: HyperIdleDb,
-		agentId: string,
-	): Promise<BakedConnectionsForProvisioning>;
 	/**
 	 * AU27 — optional: resolve-or-create the knowledge item's
 	 * `hostKind:"knowledge_item"` calling thread (`@hyperidle/conversation`'s
@@ -137,12 +124,6 @@ export interface BakedKnowledgeActionRequest {
 	 */
 	readonly injectedFilesystems?: readonly BakedFilesystemForProvisioning[];
 	/**
-	 * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) —
-	 * the owning human's held-connection list. Present only when
-	 * `deps.resolveInjectedConnectionsForAgent` was supplied.
-	 */
-	readonly injectedConnections?: BakedConnectionsForProvisioning;
-	/**
 	 * AU27 — the knowledge item's calling thread id, baked via the injected
 	 * resolve-or-create. Present only when `deps.resolveOrCreateCallingThread`
 	 * was supplied.
@@ -188,9 +169,6 @@ export async function resolveKnowledgeActionRequest(
 	const injectedFilesystems = deps.resolveInjectedFilesystemsForAgent
 		? await deps.resolveInjectedFilesystemsForAgent(db, item.updatedBy)
 		: undefined;
-	const injectedConnections = deps.resolveInjectedConnectionsForAgent
-		? await deps.resolveInjectedConnectionsForAgent(db, item.updatedBy)
-		: undefined;
 	const callingThreadId = deps.resolveOrCreateCallingThread
 		? await deps.resolveOrCreateCallingThread(db, item.id, item.updatedBy)
 		: undefined;
@@ -220,7 +198,6 @@ export async function resolveKnowledgeActionRequest(
 		agentConfig: bakeAgentRunnableConfig(agent),
 		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
 		...(injectedFilesystems !== undefined ? { injectedFilesystems } : {}),
-		...(injectedConnections !== undefined ? { injectedConnections } : {}),
 		...(callingThreadId !== undefined ? { callingThreadId } : {}),
 	};
 }

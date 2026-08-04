@@ -203,16 +203,15 @@ export function createConnectionRoutes(
 		return c.json([...inheritedViews, ...storedViews]);
 	});
 
-	// AU21 §9 Increment 12 follow-up part 2 (F2 gap closure): `GET
-	// /provisioning` is DELETED — it existed ONLY to back
-	// `CoreApiPort.connections.listHeldConnectionsForProvisioning()`, a live
-	// seam call `agent-orchestration` made at session-provisioning time. The
-	// owning human's held-connection list is now baked at emit time by every
-	// per-kind resolver (`@hyperidle/connections`'s
-	// `resolveInjectedConnectionsForAgent`) instead — zero remaining callers
-	// of this route (confirmed: no frontend consumer, unlike
-	// `GET /filesystems?agentUserId=`, which the Settings UI still calls
-	// directly and therefore stays).
+	// `GET /provisioning` was DELETED by AU21 Decision K1 — it existed ONLY to
+	// back `CoreApiPort.connections.listHeldConnectionsForProvisioning()`, a
+	// live seam call `agent-orchestration` made at session-provisioning time,
+	// and it had no frontend consumer (unlike `GET /filesystems?agentUserId=`,
+	// which the Settings UI still calls directly and which therefore stays).
+	//
+	// @lore AU26 E3: the bake K1 replaced it with is gone too. The spawn reads
+	// `service_connections` live from `@hyperidle/connections`, in-layer — no
+	// route, no seam, nothing frozen onto the request.
 
 	// ── POST / ────────────────────────────────────────────────────────────────
 	/**

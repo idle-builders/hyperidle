@@ -9,15 +9,17 @@
  * listHeldConnectionsForProvisioning()` (a live seam call at provisioning
  * time) instead of a raw `db` handle.
  *
- * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure): that seam call —
- * and the `GET /connections/provisioning` route + `CoreApiPort.connections`
- * backing it — are GONE. `buildProvisioningPlan` now takes the held
- * connections already BAKED at emit time (`@hyperidle/connections`'s
- * `resolveInjectedConnectionsForAgent`), so this test builds that baked input
- * directly against the real `db` instead of round-tripping through an HTTP
- * route. Still the SAME real-DB round-trip proof (AC1, AC4, AC5, AC6, HR3,
- * C2), now exercised end-to-end through the real bake helper + real
- * encryption + the relocated function — zero HTTP/seam involvement.
+ * AU21 §9 Increment 12 follow-up part 2 (Decision K1, historical): that seam
+ * call — and the `GET /connections/provisioning` route + `CoreApiPort
+ * .connections` backing it — went away, replaced by an emit-time bake.
+ *
+ * AU26 E3: the bake is gone too. `service_connections` is
+ * `agent-orchestration`'s own table, so `buildProvisioningPlan` reads it LIVE
+ * at spawn through `@hyperidle/connections`'s
+ * `listHeldConnectionsForProvisioning`. Still the SAME real-DB round-trip
+ * proof (AC1, AC4, AC5, AC6, HR3, C2), now exercised end-to-end through the
+ * real in-layer read + real encryption + the relocated function — zero
+ * HTTP/seam involvement.
  *
  * `ServiceConnectionResolver` stays an Application-composed direct
  * dependency (never routed through any seam — AN1 hard-rule 1); this test
@@ -29,13 +31,12 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import {
-	resolveInjectedConnectionsForAgent,
+	listHeldConnectionsForProvisioning,
 	ServiceConnectionResolver,
 } from "@hyperidle/connections";
 import { serviceConnections, users } from "@hyperidle/db";
 import { applyProvisioningPlan, buildProvisioningPlan } from "@hyperidle/run-orchestration";
 import { encryptCredentialValue } from "@hyperidle/shared/crypto";
-import { findUser } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../../test-fixtures.js";
 
@@ -55,13 +56,13 @@ afterEach(() => {
 	vi.unstubAllEnvs();
 });
 
-/** Builds the real end-to-end deps: the BAKED held-connection list (via the real bake helper against the real db) + a real decrypt resolver. */
-async function buildRealDeps(db: import("@hyperidle/db").HyperIdleDb): Promise<{
-	heldConnections: Parameters<typeof buildProvisioningPlan>[0]["heldConnections"];
+/** Builds the real end-to-end deps: the LIVE in-layer held-connection read against the real db + a real decrypt resolver. */
+function buildRealDeps(db: import("@hyperidle/db").HyperIdleDb): {
+	connections: NonNullable<Parameters<typeof buildProvisioningPlan>[0]["connections"]>;
 	resolver: Parameters<typeof buildProvisioningPlan>[0]["resolver"];
-}> {
+} {
 	return {
-		heldConnections: await resolveInjectedConnectionsForAgent(db, AGENT_CALLER_ID, findUser),
+		connections: { listHeldForProvisioning: () => listHeldConnectionsForProvisioning(db) },
 		resolver: new ServiceConnectionResolver(db),
 	};
 }
@@ -135,8 +136,8 @@ describe("real end-to-end: DB row -> resolveInjectedConnectionsForAgent (baked a
 			token: "sk_test_e2e_stripe",
 		});
 
-		const { heldConnections, resolver } = await buildRealDeps(db);
-		const plan = await buildProvisioningPlan({ heldConnections, resolver });
+		const { connections, resolver } = buildRealDeps(db);
+		const plan = await buildProvisioningPlan({ connections, resolver });
 		const result = await applyProvisioningPlan({
 			plan,
 			sandboxPath,
@@ -164,9 +165,9 @@ describe("real end-to-end: DB row -> resolveInjectedConnectionsForAgent (baked a
 			serverUrl: "https://mcp.stripe.com",
 			token: "sk_idempotent_e2e",
 		});
-		const { heldConnections, resolver } = await buildRealDeps(db);
+		const { connections, resolver } = buildRealDeps(db);
 
-		const plan1 = await buildProvisioningPlan({ heldConnections, resolver });
+		const plan1 = await buildProvisioningPlan({ connections, resolver });
 		const sandboxA = fs.mkdtempSync(path.join(os.tmpdir(), "au21-inc8-e2e-ac4-a-"));
 		await applyProvisioningPlan({
 			plan: plan1,
@@ -177,7 +178,7 @@ describe("real end-to-end: DB row -> resolveInjectedConnectionsForAgent (baked a
 		const tomlA = fs.readFileSync(path.join(sandboxA, ".codex-home", "config.toml"), "utf-8");
 		fs.rmSync(sandboxA, { recursive: true, force: true });
 
-		const plan2 = await buildProvisioningPlan({ heldConnections, resolver });
+		const plan2 = await buildProvisioningPlan({ connections, resolver });
 		const sandboxB = fs.mkdtempSync(path.join(os.tmpdir(), "au21-inc8-e2e-ac4-b-"));
 		await applyProvisioningPlan({
 			plan: plan2,
@@ -210,8 +211,8 @@ describe("real end-to-end: DB row -> resolveInjectedConnectionsForAgent (baked a
 			serverUrl: "https://mcp.figma.com",
 		});
 
-		const { heldConnections, resolver } = await buildRealDeps(db);
-		const plan = await buildProvisioningPlan({ heldConnections, resolver });
+		const { connections, resolver } = buildRealDeps(db);
+		const plan = await buildProvisioningPlan({ connections, resolver });
 		await applyProvisioningPlan({
 			plan,
 			sandboxPath,
@@ -237,10 +238,10 @@ describe("real end-to-end: DB row -> resolveInjectedConnectionsForAgent (baked a
 			authSource: "mcp",
 			serverUrl: "https://mcp.stripe.com",
 		});
-		const { heldConnections, resolver } = await buildRealDeps(db);
+		const { connections, resolver } = buildRealDeps(db);
 
 		const sandbox1 = fs.mkdtempSync(path.join(os.tmpdir(), "au21-inc8-e2e-ac6-1-"));
-		const plan1 = await buildProvisioningPlan({ heldConnections, resolver });
+		const plan1 = await buildProvisioningPlan({ connections, resolver });
 		await applyProvisioningPlan({
 			plan: plan1,
 			sandboxPath: sandbox1,
@@ -255,16 +256,14 @@ describe("real end-to-end: DB row -> resolveInjectedConnectionsForAgent (baked a
 
 		await db.delete(serviceConnections).where(eq(serviceConnections.id, "sc-inc8-e2e-ac6"));
 
-		// K1: under bake-at-emit, "next spawn" means a NEW session-launch
-		// request, which is baked FRESH at ITS OWN emit time — re-resolving
-		// here (not reusing the first spawn's `heldConnections` snapshot) is
-		// what proves the disconnect is honored, exactly as re-reading the old
-		// live seam route on every provisioning call used to.
-		const { heldConnections: heldConnectionsAfterDisconnect, resolver: resolverAfterDisconnect } =
-			await buildRealDeps(db);
+		// AU26 E3: the reader is live, so the SAME deps object honors the
+		// disconnect on the next spawn — no re-bake, nothing to refresh. Kept
+		// re-built here only to mirror how a real second spawn composes.
+		const { connections: connectionsAfterDisconnect, resolver: resolverAfterDisconnect } =
+			buildRealDeps(db);
 		const sandbox2 = fs.mkdtempSync(path.join(os.tmpdir(), "au21-inc8-e2e-ac6-2-"));
 		const plan2 = await buildProvisioningPlan({
-			heldConnections: heldConnectionsAfterDisconnect,
+			connections: connectionsAfterDisconnect,
 			resolver: resolverAfterDisconnect,
 		});
 		await applyProvisioningPlan({
@@ -302,8 +301,8 @@ describe("real end-to-end: DB row -> resolveInjectedConnectionsForAgent (baked a
 			token: "sk_test_e2e_secret",
 		});
 
-		const { heldConnections, resolver } = await buildRealDeps(db);
-		const plan = await buildProvisioningPlan({ heldConnections, resolver });
+		const { connections, resolver } = buildRealDeps(db);
+		const plan = await buildProvisioningPlan({ connections, resolver });
 
 		// C2a: CLI-key envInjections populated for github.
 		expect(plan.envInjections.GH_TOKEN).toBe("ghs_e2e_github_pat");

@@ -112,12 +112,13 @@ const observabilityAccessor: SessionLifecyclePorts["observability"] = { summariz
 // `connectionsProvisioner` seam wiring that used to live here
 // (`seamPortForActor(agentId).connections.listHeldConnectionsForProvisioning()`)
 // is DELETED — `SessionLifecyclePorts` no longer carries a `connections`
-// field at all. The owning human's held-connection list is now baked at
-// emit time by every per-kind resolver (`@hyperidle/connections`'s
-// `resolveInjectedConnectionsForAgent`) onto
-// `ProvisionSessionParams.injectedConnections` instead, and
-// `run-orchestration`'s own `provisioner.ts` calls `buildProvisioningPlan`/
-// `applyProvisioningPlan` directly — no composition-root port needed.
+// field at all.
+//
+// AU26 E3: nor does the emit-time bake that briefly replaced it.
+// `service_connections` is `agent-orchestration`'s own table now, so the spawn
+// reads it live through `ProvisionSessionDeps.heldConnections`, wired at the
+// composition root beside `serviceConnectionResolver` — a downward hand-off of
+// this Layer's own Service, not a seam.
 
 const enforcement = createReturnEnforcement();
 const harnessRuntime: SessionLifecyclePorts["harnessRuntime"] = {
