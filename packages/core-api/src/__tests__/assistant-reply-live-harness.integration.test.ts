@@ -224,9 +224,7 @@ async function postAndDrainAssistantRequest(
 		.from(agentSessionRequests)
 		.where(eq(agentSessionRequests.sourceId, messageId));
 	if (!request) {
-		throw new Error(
-			`drainIntents did not produce an agent_session_requests row for ${messageId}`,
-		);
+		throw new Error(`drainIntents did not produce an agent_session_requests row for ${messageId}`);
 	}
 	return request;
 }
