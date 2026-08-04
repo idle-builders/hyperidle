@@ -26,7 +26,7 @@
  *
  * The rest of the path is 100% production: `POST /threads/:id/messages`
  * bakes the real `assistant_turn` intent (`resolveAssistantTurnRequest`),
- * `drainIntents` materializes the real `agentSessionRequests` row (the same
+ * `drainIntents` produces the real `agentSessionRequests` row (the same
  * durable-queue drain `startRuntime`'s poller calls every second — invoked
  * once here instead of on a timer), and `runSession(...)` is the exact
  * `admitSession`/`runSession` pair the poller calls — real adapter, real
@@ -225,7 +225,7 @@ async function postAndDrainAssistantRequest(
 		.where(eq(agentSessionRequests.sourceId, messageId));
 	if (!request) {
 		throw new Error(
-			`drainIntents did not materialize an agent_session_requests row for ${messageId}`,
+			`drainIntents did not produce an agent_session_requests row for ${messageId}`,
 		);
 	}
 	return request;
