@@ -1,10 +1,10 @@
 {
   "workPackage": "AU26",
   "status": "in_progress",
-  "currentStep": "build-wave-0",
+  "currentStep": "review-fixes",
   "startedAt": "2026-08-04",
   "designSkipped": {
-    "reason": "no-ui-surface \u2014 backend/infra only; plan.md Pre-build gates says design not required; AC #6 requires zero frontend behavior changes",
+    "reason": "no-ui-surface — backend/infra only; plan.md Pre-build gates says design not required; AC #6 requires zero frontend behavior changes",
     "decidedBy": "orchestrator"
   },
   "approvals": {
@@ -91,53 +91,103 @@
     "architectureCritique": ".pipeline/work/AU26/architecture-critique.md"
   },
   "planAmendedByArchitecture": {
-    "what": "(1) 2026-08-04 \u2014 git-export exporter DELETION recorded as in-scope (founder call on the record, via the re-challenge); AC6 extended from 'relocate' to 'relocate or delete'. (2) 2026-08-04 round 3 \u2014 the ACL's scope decided: it governs every non-test file in the workspace. Two consequences widen scope and are now in plan.md: packages/db's two seeders relocate above the owning Services (D2a), and packages/eval routes through them (D2b). A new AC gates the ACL-violation count on measurement (100 at HEAD -> 0).",
+    "what": "(1) 2026-08-04 — git-export exporter DELETION recorded as in-scope (founder call on the record, via the re-challenge); AC6 extended from 'relocate' to 'relocate or delete'. (2) 2026-08-04 round 3 — the ACL's scope decided: it governs every non-test file in the workspace. Two consequences widen scope and are now in plan.md: packages/db's two seeders relocate above the owning Services (D2a), and packages/eval routes through them (D2b). A new AC gates the ACL-violation count on measurement (100 at HEAD -> 0).",
     "at": "2026-08-04"
   },
   "sizing": {
-    "prs": 19,
+    "prs": 1,
     "waves": 5,
-    "note": "NOT one PR \u2014 see architecture.md \u00a712. Round 3 corrected the count (round 2 said 13 with a 16-row table) and added D0/D2a/D2b. Wave = computed dependency depth. No duration estimate \u2014 the founder does not want them."
+    "note": "ONE branch, 20+ build commits — the 19-PR plan in architecture.md §12 was not followed; the build ran the increments as commits on `pipeline/AU26` instead. Recorded so the next reader does not look for 19 PRs. Wave = computed dependency depth. No duration estimate — the founder does not want them."
   },
   "founderConfirmationPoints": {
-    "note": "Each gate has a stated default the run takes if no answer arrives (CLAUDE.md ABSOLUTE RULE 1 \u2014 a pipeline run never waits). Recorded here when taken, with the timestamp, so a late answer is a cheap correction. See architecture.md \u00a712.",
+    "note": "Each gate has a stated default the run takes if no answer arrives (CLAUDE.md ABSOLUTE RULE 1 — a pipeline run never waits). Recorded here when taken, with the timestamp, so a late answer is a cheap correction. See architecture.md §12. 2026-08-04: every gate ran its stated default — the founder answered none of the six explicitly, and the run did not wait (CLAUDE.md ABSOLUTE RULE 1). Each is a cheap correction if a late answer arrives.",
     "gates": [
       {
         "id": "C1",
         "question": "git-export exporter deletion (~4,500 lines)",
-        "default": "proceed \u2014 the verdict is already founder-directed",
-        "status": "pending"
+        "default": "proceed — the verdict is already founder-directed",
+        "status": "default-taken",
+        "takenAt": "2026-08-04"
       },
       {
         "id": "C2",
         "question": "observability dissolution",
-        "default": "proceed \u2014 zero routes have callers repo-wide",
-        "status": "pending"
+        "default": "proceed — zero routes have callers repo-wide",
+        "status": "default-taken",
+        "takenAt": "2026-08-04"
       },
       {
         "id": "C3",
         "question": "realtime dissolution + the validation-scenario-4 WS narrowing (a founder-written AC being narrowed)",
         "default": "proceed narrowed; record the narrowing as accepted-pending-review here and in .pipeline/AU.md (AC13(b))",
-        "status": "pending"
+        "status": "default-taken",
+        "takenAt": "2026-08-04"
       },
       {
         "id": "D1",
         "question": "sessions ownership",
-        "default": "proceed \u2014 no semantics change (\u00a7D-H #1)",
-        "status": "pending"
+        "default": "proceed — no semantics change (§D-H #1)",
+        "status": "default-taken",
+        "takenAt": "2026-08-04"
       },
       {
         "id": "D2a/D2b/D2",
-        "question": "zero exceptions is a standing ruling, so AU26 reads it as governing scan SCOPE \u2014 packages/db's seeders relocate and packages/eval routes through the owning Services. Confirm, or name the narrowing.",
-        "default": "proceed as written \u2014 D2a and D2b are in the plan. A standing ruling is not suspended by silence. If narrowed later, eval's findings are WAIVED IN THE RECORD, never by a package name in the guard.",
-        "status": "pending"
+        "question": "zero exceptions is a standing ruling, so AU26 reads it as governing scan SCOPE — packages/db's seeders relocate and packages/eval routes through the owning Services. Confirm, or name the narrowing.",
+        "default": "proceed as written — D2a and D2b are in the plan. A standing ruling is not suspended by silence. If narrowed later, eval's findings are WAIVED IN THE RECORD, never by a package name in the guard.",
+        "status": "default-taken",
+        "takenAt": "2026-08-04"
       },
       {
         "id": "G1",
         "question": "users/teams columns incl. the two DROP COLUMNs, forward-only migration",
         "default": "proceed forward-only; smoke-test against a real populated local DB before the PR opens",
-        "status": "pending"
+        "status": "default-taken",
+        "takenAt": "2026-08-04"
       }
     ]
+  },
+  "review": {
+    "round1": {
+      "verdict": "NOT DONE",
+      "critical": 3,
+      "warning": 12,
+      "note": 6,
+      "artifact": ".pipeline/work/AU26/review.md",
+      "at": "2026-08-04"
+    },
+    "fixesApplied": {
+      "at": "2026-08-04",
+      "critical": [
+        "C1 provisioning wiring typed + proved through createServer",
+        "C2 held-connection provisioning scoped to one owning human",
+        "C3 committed db declaration maps removed and gitignored"
+      ],
+      "warningsFixed": [
+        "W2",
+        "W3 (recorded in plan.md)",
+        "W4",
+        "W5",
+        "W6",
+        "W7",
+        "W10",
+        "W11",
+        "W12"
+      ],
+      "warningsRecordedNotFixed": [
+        "W1 (AU28's guard scope)",
+        "W8 (uncapped run reads — deliberate)",
+        "W9 (session-stream residue — founder-accepted)"
+      ],
+      "notesFixed": [
+        "N1"
+      ],
+      "notesRecordedNotFixed": [
+        "N2",
+        "N3",
+        "N4",
+        "N5",
+        "N6"
+      ]
+    }
   }
 }

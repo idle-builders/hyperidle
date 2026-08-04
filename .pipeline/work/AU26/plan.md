@@ -122,6 +122,10 @@ owning Services; relocating `packages/db`'s seeders. Those remain AU28's, handed
 
 - The Settings UI's connections, filesystems, and agents pages, and the session/harness live-activity UI, all work identically end-to-end after any relocation, with zero required frontend behavior changes (route/base-URL wiring may change, but what the user sees and when does not).
 
+  **AMENDED 2026-08-04 (build, recorded at review).** As literally written this criterion is **NOT MET**, and the record says so rather than letting it look satisfied. The founder's J4 ruling — *"its all for UI? thats why orchestration now has an api so that the ui can get the agent run state from the orchestration directly and combine this information in the ui instead of in the core api service"* — supersedes it in substance: core-api stopped composing run state onto its responses, so the composition moved into the browser. The real `packages/web` diff is therefore render logic, not fetch/config wiring (+1110/−285 across 42 files, including a net-new `hooks/useAgentRunState.ts` and changes in `AgentProfile.tsx`, `WorkTeam.tsx`, `WorkBet.tsx`, `SettingsAgents.tsx`).
+
+  What the user sees is unchanged. **When** they see it is not, and that difference is now bounded and deliberate, not accidental: the run-state hooks report `loading` / `ready` / `error`, and both screens render "unknown" rather than a confident idle/healthy/0 while a read is in flight or after it fails (review W5/W6). The request count per interaction changed too, and is back to one round-trip per screen for task titles via `GET /api/tasks?ids=` (review W4). The residue accepted here: two round-trips (core + orchestration) where there used to be one, which is the direct consequence of the founder's ruling.
+
 ## Validation scenarios
 
 - Given a user adds a new held connection after a task_run intent has already been emitted but before it has drained, when the session spawns, then the newly-added connection is provisioned into the sandbox — proving the relocation reads live, in-layer, not from a stale emit-time bake.

@@ -1,5 +1,10 @@
 # AU26 — code review (Phase 8)
 
+> **Fix pass, 2026-08-04.** Every CRITICAL and WARNING below is either fixed or
+> rejected with a reason, listed in **§Disposition** at the end of this file.
+> The findings above it are left exactly as the reviewer wrote them.
+
+
 Branch `pipeline/AU26` @ `19f76214`, base `origin/main` @ `75d85687`. 47 commits (20 build), 491 files, +18599/−14565.
 
 **Verdict: NOT DONE.** 3 CRITICAL, 12 WARNING, 7 NOTE.
@@ -153,3 +158,47 @@ Added in `b13a508e`. `CLAUDE.md` §Git: "Before committing, reject stray build a
 ## Single most important finding
 
 **C1.** This work package's own headline discovery is that a composition-root mis-wiring, hidden by an `as` cast, disabled AN2 provisioning in production for months without a single test noticing. The fix repairs the instance and leaves both the cast (`create-server.ts:496`) and the blind spot in place: neither new bake-deletion proof goes through `createServer`, and nothing asserts that `serviceConnectionResolver`, `heldConnections` or `injectedFilesystems` are the real implementations. The repo already has the pattern for this two files up (`ServerHandle.credentialResolver` + `server-factory.resolver.test.ts:87`). Until that assertion exists, the WP has replaced one stale-snapshot defect with an equally silent wiring defect, and the ACs it claims are provable only by reading `create-server.ts` by hand.
+
+---
+
+## Disposition (fix pass, 2026-08-04)
+
+Commits on `pipeline/AU26`, oldest first: `a0ef9af6`, `7add9f11`, `8abc1c2a`,
+`442875a3`, `f0f11efe`, `60519144`, `58a4e651`, `f9b32858`.
+
+### CRITICAL — all three fixed
+
+| # | Fix | Proof |
+|---|---|---|
+| C1 | The three provisioning ports are a **typed** `ProvisioningWiring` value instead of riding inside `as ProvisionSessionDeps` (which is `Pick<…,"db"\|"eventBus"\|"onHarnessStarted">` and erased them entirely), and are exposed on `ServerHandle` — the `ServerHandle.credentialResolver` precedent, applied. `create-server.ts:538` | New `packages/core-api/src/__tests__/server-factory.provisioning-wiring.integration.test.ts` boots the real `createServer` and asserts, against a real DB: the resolver is a `ServiceConnectionResolver` and decrypts on the two-argument call the provisioner makes (a `CredentialResolver` there returns null — the exact production bug), the held-connection reader reads live and owner-scoped, the injected-filesystem reader filters by agent. Deleting `heldConnections:` from the composition root is now a **compile error** (`TS2741`) and wiring it to an inert stub reds the test. Both verified by doing it. |
+| C2 | `listHeldConnectionsForProvisioning(db, ownerUserId)` filters on `userId`. The owner is resolved by the **Application** (`create-server.ts`'s `resolveProvisioningOwnerUserId`, deterministic: oldest human, id as tiebreak) and handed down, so orchestration still reads zero core state. No human → no connections (no `u-founder` sentinel; the FK makes that the same answer). The false "strictly SAFER" `@lore` is rewritten to say what actually happened. | `connections-added-after-emit.integration.test.ts` no longer encodes the leak: a plan for one human contains that human's token and **not** the other's, in either direction, asserted on the serialised plan. **Sanity-break:** restoring the unfiltered query reds both that test and the composition-root test (`expected [ 'sc-au26-c1-owner', …(1) ] to deeply equal [ 'sc-au26-c1-owner' ]`). |
+| C3 | Ten `packages/db/src/*.d.ts.map` deleted; `.gitignore` now covers `packages/*/src/**/*.d.ts.map`, `packages/*/src/**/*.js.map` and `packages/db/src/*.d.ts`, with a `@lore` naming the `tsc -p` + stale-`dist` emit. `.d.ts` stays tracked elsewhere — `vite-env.d.ts`/`window.d.ts`/`css-modules.d.ts` are real sources. | `git ls-files` clean; the emit reproduced during this pass and was ignored, not committed. |
+
+### WARNING
+
+| # | Disposition |
+|---|---|
+| W1 | **Recorded, not fixed** — `scripts/table-ownership-guard.ts`'s scan scope is AU28's work package, and this pass was told not to touch it or `UNOWNED_SHARED_TABLES`. The finding stands as written: `packages/agent-orchestration/src/` has no `package.json` and no widening, so the guard does not scan it. |
+| W2 | **Fixed** — `lifecycle-propagation.ts` now names both reachable paths (`POST /api/sessions` twice; `accepted → hold → accepted` while a request is queued), states the residue (first run to finish flips the task to `review` under the second), and says why the deletion still stands. The deletion itself is unchanged — founder-ruled. |
+| W3 | **Recorded** — `plan.md`'s AC7 carries an `AMENDED` block: not met as literally written, superseded in substance by the founder's J4 ruling, with the residue (two round-trips) named. |
+| W4 | **Fixed** — `GET /api/tasks?ids=` batches the read (`work.list`'s `ids` filter already existed; only the route could not ask for it), and `useRecipients` now issues its two independent reads in parallel instead of serially. Tests: `tasks.batch-ids.integration.test.ts`, plus a hook test that counts the calls (8 runs → 1 task request). |
+| W5 | **Fixed** — the hooks report `loading`/`ready`/`error`. The profile shows "—" and "Loading runs…" until the read settles instead of "0 sessions · 0% · No sessions recorded"; the roster shows an unknown dot and a "—" status tile instead of a full green column that re-paints. |
+| W6 | **Fixed** — a failed read no longer renders as healthy: the profile shows a `role="alert"` "Run state unavailable" banner (and suppresses the health banner it can no longer compute), the roster shows neutral dots labelled "Run state unavailable". Covered by hook tests and `AgentProfile.run-state-unavailable.test.tsx`, plus a `RunStateUnavailable` story. |
+| W7 | **Fixed** — `useAgentRunState.test.tsx` covers active-run selection, group-by-agent, task-ref/`betId` resolution, the 10-item slice, the batching, and the error fallback for both hooks. |
+| W8 | **Recorded, not fixed** — the uncapped run reads are deliberate and documented at `agent-orchestration-sessions.ts:130-133`. A cap cannot be behaviour-preserving here: `performance.totalSessions` counts every run and `idleDurationMs` reads the newest ended run of any age, so a limit changes what the screen states. Narrowing it is a product decision about what the profile should count, not a review fix. |
+| W9 | **Recorded, not fixed** — the widening is real and the contradiction with core's `thread:<id>` rule is real. It is also the residue the founder **named and accepted** on the record (`session-stream-hub.ts:22-34`), and the obvious tightening (`sourceCorrelationJson.userId === senderId` when the correlation carries one) is a change to an accepted authorization decision. That is a founder call, not a review-fix pass's. |
+| W10 | **Fixed** — `POST /api/agents`, `POST /api/teams` and the assistant stub each wrap their two writes in one `db.transaction`; `insertUser` and `createTeam` widened from `HyperIdleDb` to `WriteExecutor` to accept the handle. `agent-and-team-creation-atomicity.integration.test.ts` injects a failure at the second write only and asserts no row survives — red before the fix, green after. |
+| W11 | **Fixed** — `npm run knip:production` exits 0. The three production-dead dependencies are test-only and moved to `devDependencies` (`drizzle-orm` in `filesystem-mounting`, `@hono/node-server` and `@hyperidle/filesystem-mounting` in `core-api`). The dangling `./services/run-orchestration-runtime` export is pre-existing on `main` (the file is missing there too) and is left alone. |
+| W12 | **Fixed** — the identity now travels on the request, in a `WeakMap` keyed by the upgrade's Hono `Context` (which `upgradeWebSocket`'s factory receives), not a module-scoped slot. `session-stream-ws.test.ts` forces the interleave (middleware A → middleware B → onOpen A) and asserts each socket subscribes under its own token's identity — red before (`expected 'user-bob' to be 'user-alice'`), green after. Core-api's socket carries the same older shape; this Layer cannot import it, so that half is a separate change. |
+
+### NOTE
+
+| # | Disposition |
+|---|---|
+| N1 | **Fixed** — the `describe` names `listHeldConnectionsForProvisioning (live at spawn)`. |
+| N2 | **Recorded** — `STOP_DISPOSITIONS`' one-key map is real but harmless; collapsing it is a tidy-up with no behavioural claim attached. |
+| N3 | **Recorded** — the three e2e specs still stub `activeAgentCount`/`agentHealthWarning`. Extra keys in a mock response are inert; the specs pass. |
+| N4 | **Recorded** — `GET /runs?task_id=` returning `200 {runs:[]}` for an unknown task is a real wire-behaviour change from the deleted `404`. No consumer distinguishes the two, and restoring the distinction would mean orchestration reading core's `tasks`. |
+| N5 | **Recorded** — the anti-regrowth guard's route-import scan is one-directional. Same file-ownership situation as W1. |
+| N6 | **Recorded** — the removed `filesystem` scope kind's "no production data" claim is not verifiable from the code, as the reviewer says. |
+| N7 | **Fixed** — `progress.json` updated: `currentStep`, the six founder gates marked `default-taken` with the date, the 19-PR sizing corrected to what actually happened (one branch), and this review round plus its fix disposition recorded. |
