@@ -228,6 +228,14 @@ export interface SessionNotReturnedEvent {
 	readonly sourceKind?: AgentSessionSourceKind;
 	readonly sourceId?: string;
 	readonly sourceCorrelation?: AgentSessionSourceCorrelation;
+	/**
+	 * AU27 Increment 5 (Decision 5) — the session's calling thread id, when it
+	 * has one (`params.callingThreadId` in hand at the emit site). Absent for
+	 * a `task_run`-sourced session (`sourceCorrelation` is `{taskId, teamId}`,
+	 * no thread) — the never-silent net's `conversation` subscriber no-ops
+	 * when this is absent; there is nowhere to post a notice.
+	 */
+	readonly callingThreadId?: string;
 	readonly timestamp: number;
 }
 

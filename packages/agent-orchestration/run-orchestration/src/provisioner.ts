@@ -1677,6 +1677,10 @@ async function runSession(
 						sourceCorrelation: params.requestContext.sourceCorrelation,
 					}
 				: {}),
+			// AU27 Increment 5 (Decision 5): the never-silent net's `conversation`
+			// subscriber needs somewhere to post — forward the already-baked
+			// calling thread id (Increment 1), zero extra read.
+			...(params.callingThreadId ? { callingThreadId: params.callingThreadId } : {}),
 			timestamp: Date.now(),
 		});
 

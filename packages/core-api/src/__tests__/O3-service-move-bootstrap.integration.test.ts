@@ -108,6 +108,16 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				cleanupEffect: "unsubscribe",
 				constituents: ["thread_message_appended subscription"],
 			},
+			// @lore AU27 Increment 5 (Decision 5): the never-silent net — a
+			// `@hyperidle/conversation`-owned reaction to the EXISTING
+			// `session_not_returned` event (previously observed only by the
+			// observability dispatcher's own internal logging subscription,
+			// which is not part of this disposer list).
+			{
+				owner: "session-not-returned notice",
+				cleanupEffect: "unsubscribe",
+				constituents: ["session_not_returned subscription"],
+			},
 			// @lore AU21 Increment 14a: the "session-cost recorder" owner
 			// (agent-orchestration's own per-session-cost write reaction,
 			// `session-requests`'s subscriber) is HARD-DELETED along with the
@@ -241,6 +251,10 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				// both registrations are no-op disposers (no `off()` call, no interval).
 				{ unsubscribedEvents: [], clearedIntervals: 0 },
 				{ unsubscribedEvents: [], clearedIntervals: 0 },
+				// @lore AU27 Increment 5: `registerSessionNotReturnedNotice`'s first,
+				// real registration on this eventBus instance — its one
+				// `session_not_returned` subscription unsubscribes for real.
+				{ unsubscribedEvents: ["session_not_returned"], clearedIntervals: 0 },
 				// @lore AU21 Increment 14a: `registerSessionCostRecorder`'s owned
 				// disposer (previously here, "session_ended" only) is HARD-DELETED
 				// along with the rest of the cost feature — no replacement.

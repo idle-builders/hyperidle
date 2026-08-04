@@ -18,6 +18,7 @@ import {
 	insertThread,
 	listMessages,
 	registerAssistantThreadPinReaction,
+	registerSessionNotReturnedNotice,
 	updateMessage,
 	updateThread,
 } from "@hyperidle/conversation";
@@ -485,6 +486,20 @@ export function registerCoreDomainServices(ctx: {
 			"assistant-turn B‴ coherence trigger",
 			"unsubscribe",
 			["thread_message_appended subscription"],
+		),
+	);
+
+	// AU27 Increment 5 (Decision 5): the never-silent net — a
+	// `@hyperidle/conversation`-owned reaction to the existing
+	// `session_not_returned` event (today only observed by the observability
+	// dispatcher), posting one plain notice into the session's calling
+	// thread when the force budget is spent without a return.
+	disposers.push(
+		identifyBootstrapOwner(
+			registerSessionNotReturnedNotice(db, eventBus),
+			"session-not-returned notice",
+			"unsubscribe",
+			["session_not_returned subscription"],
 		),
 	);
 
