@@ -29,7 +29,6 @@ import {
 	type Thread as DbThread,
 	escapeLikePattern,
 	type HyperIdleDb,
-	sessions,
 } from "@hyperidle/db";
 import {
 	assembleSessionKnowledge,
@@ -41,7 +40,6 @@ import { findProposedCall, transitionProposedCall } from "@hyperidle/review";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import type {
-	AgentOperationalStatus,
 	AgentWorkIntentRecorder,
 	ApiErrorResponse,
 	EventBus,
@@ -68,7 +66,6 @@ import {
 import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
 import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import type { ZodError, z } from "zod";
 import { z as zod } from "zod";
@@ -214,11 +211,15 @@ async function readInitialSenderId(
  * Queries the users table for all supplied senderIds in one round-trip.
  * Returns an empty object when senderIds is empty.
  *
- * AE5: Extended to include isAgent and operationalStatus for AI users.
- * operationalStatus is derived from the most recent session state:
- * - "active" when state === "active"
- * - "error" when the most recent session outcome === "crashed"
- * - "idle" otherwise (including no sessions)
+ * AE5: Extended to include isAgent for AI users.
+ *
+ * @lore AU26 J1: `operationalStatus` is DELETED. It was derived from a raw
+ * `sessions` read — one query per AI participant per thread open, an N+1 — and
+ * had ZERO production readers (`Conversations.tsx:71-91`,
+ * `HostThreadSection.tsx:112-124` and `ReviewPage.tsx:74` all read
+ * `name`/`role`/`isAgent` only; `useThreadDetail.ts` merely passed it through).
+ * Agent-run state is `agent-orchestration`'s; the UI reads it from that Layer
+ * directly where it genuinely renders it.
  *
  * @lore R4: All senders — human and AI — live in the users table, distinguished
  * by the `kind` column. We do NOT hard-code agent identities here; a single
@@ -229,41 +230,18 @@ async function readInitialSenderId(
 async function buildThreadIdentities(
 	db: HyperIdleDb,
 	senderIds: string[],
-): Promise<
-	Record<
-		string,
-		{ name: string; role?: string; isAgent?: boolean; operationalStatus?: AgentOperationalStatus }
-	>
-> {
+): Promise<Record<string, { name: string; role?: string; isAgent?: boolean }>> {
 	if (senderIds.length === 0) return {};
 	const rows = await listUsers(db, { ids: senderIds });
-	const result: Record<
-		string,
-		{ name: string; role?: string; isAgent?: boolean; operationalStatus?: AgentOperationalStatus }
-	> = {};
+	const result: Record<string, { name: string; role?: string; isAgent?: boolean }> = {};
 
 	for (const row of rows) {
-		const isAgent = row.kind === "ai";
 		const entry: (typeof result)[string] = {
 			name: row.name,
 			...(row.role ? { role: row.role } : {}),
 		};
-		if (isAgent) {
+		if (row.kind === "ai") {
 			entry.isAgent = true;
-			// Derive operationalStatus from most recent session
-			const [latestSession] = await db
-				.select({ state: sessions.state, outcome: sessions.outcome })
-				.from(sessions)
-				.where(eq(sessions.agentId, row.id))
-				.orderBy(desc(sessions.startedAt))
-				.limit(1);
-			if (latestSession?.state === "active") {
-				entry.operationalStatus = "active";
-			} else if (latestSession?.outcome === "crashed") {
-				entry.operationalStatus = "error";
-			} else {
-				entry.operationalStatus = "idle";
-			}
 		}
 		result[row.id] = entry;
 	}

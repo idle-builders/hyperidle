@@ -3,7 +3,6 @@ import {
 	escapeLikePattern,
 	type HyperIdleDb,
 	resolveAgentScaffoldSpecs,
-	sessions,
 	userSkills,
 } from "@hyperidle/db";
 import { persistScaffoldedAgents } from "@hyperidle/org";
@@ -208,13 +207,19 @@ export function createUserRoutes(
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
-	// GET / — List all users with active session counts. Optional `teamMembersId`
-	// query param scopes the roster to one team (AU21 §9 Increment 2:
+	// GET / — List all users. Optional `teamMembersId` query param scopes the
+	// roster to one team (AU21 §9 Increment 2:
 	// `CoreApiPort.users.listUsersByTeam`'s backing filter — `users.teamId`
 	// actually stores `teamMembers.id`, per the AK4 two-hop lore). Optional
 	// `kind` query param scopes to `users.kind` (AU27 Increment 1b —
 	// `CoreApiPort.users.findSoleHumanUser`'s backing filter: `reply`'s
 	// no-calling-thread fallback resolves the sole human this way).
+	//
+	// @lore AU26 J1: the per-user `activeSessions` count (a raw `sessions` read)
+	// is DELETED. The only consumer of this list is
+	// `CoreApiPort.users.listUsersByTeam`, typed `UserView = {id,name,role,teamId}`;
+	// no `packages/web` file fetches it at all. Run counts are
+	// `agent-orchestration`'s and the UI reads them from that Layer directly.
 	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		const teamMembersId = c.req.query("teamMembersId");
 		const kind = c.req.query("kind");
@@ -223,14 +228,8 @@ export function createUserRoutes(
 			...(kind ? { kind } : {}),
 		};
 		const allUsers = await listUsers(db, filter);
-		const activeSessions = await db.select().from(sessions).where(eq(sessions.state, "active"));
 
-		const result = allUsers.map((user) => ({
-			...user,
-			activeSessions: activeSessions.filter((s) => s.agentId === user.id).length,
-		}));
-
-		return c.json(result);
+		return c.json(allUsers);
 	});
 
 	// GET /:id — User detail with skills

@@ -1,4 +1,4 @@
-import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../test-fixtures.js";
 
@@ -71,47 +71,21 @@ describe("Status Endpoints (E6)", () => {
 
 	// AC12: GET /api/status — factory-wide status
 	describe("AC12: GET /api/status — factory-wide status", () => {
-		test("returns status with zero active sessions", async ({ db, app }) => {
+		// @lore AU26 J1: `activeSessions` is gone from this response — it was a raw
+		// `sessions` read on a route with zero consumers repo-wide. The absence is
+		// pinned by `AU26-J1-run-read-deletions.integration.test.ts`.
+		test("returns the agent-state census and uptime", async ({ db, app }) => {
 			await seedBase(db);
 			const res = await app.request("/api/status", { headers: authHeaders() });
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.activeSessions).toBe(0);
 			expect(body).toHaveProperty("agentStates");
 			expect(body).toHaveProperty("uptime");
 
 			const agentStates = body.agentStates as Record<string, number>;
 			expect(agentStates.idle).toBe(1);
 			expect(agentStates.active).toBe(1);
-		});
-
-		test("counts active sessions correctly", async ({ db, app }) => {
-			await seedBase(db);
-			// Create active session
-			await db.insert(sessions).values({
-				id: "sess-1",
-				agentId: "agent-1",
-				taskId: "task-1",
-				modelTier: "workhorse",
-				startedAt: new Date().toISOString(),
-				state: "active",
-			});
-
-			// Create done session (should not count)
-			await db.insert(sessions).values({
-				id: "sess-2",
-				agentId: "agent-2",
-				taskId: "task-1",
-				modelTier: "fast",
-				startedAt: new Date().toISOString(),
-				state: "done",
-				endedAt: new Date().toISOString(),
-			});
-
-			const res = await app.request("/api/status", { headers: authHeaders() });
-			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.activeSessions).toBe(1);
 		});
 
 		// @lore AU18: `factory_start_time` settability is retired (no production

@@ -579,13 +579,15 @@ describe("E2E API Integration (I5)", () => {
 	// 7. Agents
 	// -------------------------------------------------------
 	describe("Agents", () => {
-		test("GET /api/users lists agents with active session counts", async ({ db, app }) => {
+		// @lore AU26 J1: the per-user `activeSessions` count is gone — it was a raw
+		// `sessions` read and the list's one consumer is typed `{id,name,role,teamId}`.
+		test("GET /api/users lists agents", async ({ db, app }) => {
 			await seedBase(db);
 			const res = await app.request("/api/users", { headers: auth() });
 			expect(res.status).toBe(200);
-			const body = (await res.json()) as Array<{ id: string; activeSessions: number }>;
+			const body = (await res.json()) as Array<{ id: string; name: string }>;
 			expect(body.length).toBeGreaterThanOrEqual(1);
-			expect(body[0]?.activeSessions).toBe(0);
+			expect(body.some((u) => u.id === "agent-1")).toBe(true);
 		});
 
 		test("GET /api/users/:id returns agent detail", async ({ db, app }) => {
@@ -710,12 +712,14 @@ describe("E2E API Integration (I5)", () => {
 	// 10. Status
 	// -------------------------------------------------------
 	describe("Status", () => {
+		// @lore AU26 J1: `activeSessions` is gone from this response.
 		test("GET /api/status returns factory-wide status", async ({ db, app }) => {
 			await seedBase(db);
 			const res = await app.request("/api/status", { headers: auth() });
 			expect(res.status).toBe(200);
-			const body = (await res.json()) as { activeSessions: number };
-			expect(body.activeSessions).toBe(0);
+			const body = (await res.json()) as { agentStates: Record<string, number>; uptime: string };
+			expect(typeof body.uptime).toBe("string");
+			expect(body.agentStates).toBeTypeOf("object");
 		});
 
 		test("GET /api/status/health returns authenticated health", async ({ db, app }) => {

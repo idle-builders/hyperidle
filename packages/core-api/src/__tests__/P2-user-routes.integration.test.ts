@@ -84,7 +84,8 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 		// 404 assertion is no longer valid. See plans/X3/architecture.md §3 for the
 		// design rationale (separate routes, separate authorization model).
 
-		test("GET /api/users returns users with activeSessions count", async ({ app, db }) => {
+		// @lore AU26 J1: the `activeSessions` count is gone from this response.
+		test("GET /api/users returns users with their identity fields", async ({ app, db }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			await db
 				.insert(teams)
@@ -109,7 +110,6 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 			const res = await app.request("/api/users", { headers: authHeaders() });
 			const body = (await res.json()) as Array<Record<string, unknown>>;
 
-			expect(body[0]).toHaveProperty("activeSessions");
 			expect(body[0]).toHaveProperty("status");
 			expect(body[0]).toHaveProperty("role");
 			vi.unstubAllEnvs();

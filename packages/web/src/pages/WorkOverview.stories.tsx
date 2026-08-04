@@ -47,8 +47,6 @@ function team(
 		progress: { done: 0, total: 0 },
 		routineCount: 0,
 		agentCount: 0,
-		activeAgentCount: 0,
-		agentHealthWarning: false,
 	};
 }
 

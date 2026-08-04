@@ -107,10 +107,12 @@ export interface TeamListItem extends TeamSummary {
 	routineCount: number;
 	/** AB2: total AI agents in the team. */
 	agentCount: number;
-	/** AB2: AI agents with an active session right now. */
-	activeAgentCount: number;
-	/** AB2: true when any agent has degraded health (>50% failures or lastSessionCrashed). */
-	agentHealthWarning: boolean;
+	/**
+	 * @lore AU26 J1: `activeAgentCount` and `agentHealthWarning` are DELETED.
+	 * Both were derived in core-api from a raw `sessions` read and had zero
+	 * production readers. Agent-run state belongs to `agent-orchestration`; a
+	 * surface that wants it reads that Layer's own API and combines client-side.
+	 */
 }
 
 export interface TeamListResponse {

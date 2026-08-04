@@ -76,8 +76,6 @@ const TEAM_BASE = {
 	progress: { done: 0, total: 0 },
 	routineCount: 0,
 	agentCount: 0,
-	activeAgentCount: 0,
-	agentHealthWarning: false,
 };
 
 const SINGLE_TEAM = [{ id: "team-1", name: "Alpha Team", ...TEAM_BASE }];

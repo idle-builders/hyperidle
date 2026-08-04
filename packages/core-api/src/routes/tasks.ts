@@ -1,5 +1,5 @@
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
-import type { RunTransitionSpec } from "@hyperidle/run-orchestration";
+import type { PolicySessionContext } from "@hyperidle/policy";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import type { EventBus } from "@hyperidle/shared";
 import { API_ERROR_CODES, TASK_OUTCOME_VERDICTS, TASK_STATES } from "@hyperidle/shared";
@@ -12,8 +12,6 @@ import z from "zod";
 import { enumValues } from "../schemas/common.schema.js";
 import { handoff } from "../services/policy-bindings.js";
 import { taskRunResolverDeps } from "../services/task-run-resolver-bindings.js";
-
-type SessionContext = Extract<RunTransitionSpec, { target: "session" }>["context"];
 
 /**
  * Zod schemas for request validation.
@@ -301,27 +299,19 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 				return c.json({ error: "Session not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 			}
 
-			// Build a minimal SessionContext for handoff.
-			// @lore I6: sandboxPath must be non-empty or endSession's fs.promises.rm()
-			// would attempt to rm(""), which is dangerous. Use a safe sentinel that
-			// points to a non-existent path so rm() fails silently (force: true).
-			const resolvedWorkspacePath =
-				session.sandboxSnapshot?.trim() || `/tmp/.hyperidle-noop-${session.id}`;
-			const sessionContext: SessionContext = {
+			// Build the minimal handoff context.
+			//
+			// @lore AU26 J1: `sandboxPath`, `ingestion` and `traceId` are DELETED.
+			// `handoff` takes `PolicySessionContext = {sessionId, agentId, taskId}`
+			// (`policy/src/ports.ts:17-21`) and reads exactly those three — the other
+			// three were constructed here and never read by anything, and with them
+			// goes the `session.sandboxSnapshot` read. The `/tmp/.hyperidle-noop-*`
+			// sentinel guarded `endSession`'s `fs.promises.rm`, a code path this route
+			// no longer reaches now that H1 moved the run-end write down.
+			const sessionContext: PolicySessionContext = {
 				sessionId: session.id,
 				agentId: session.agentId,
 				taskId,
-				sandboxPath: resolvedWorkspacePath,
-				// AK2: was `watcher: { stop() {} }` — renamed to `ingestion: { dispose() {} }`.
-				// This is a no-op handle for the handoff path which doesn't need
-				// real ingestion teardown (the handoff sets state=done, not completed).
-				ingestion: {
-					dispose: (): void => {
-						/* no-op */
-					},
-				},
-				// @lore O2: traceId stripped from sessions kernel table; use empty string until strategy layer provides it.
-				traceId: "",
 			};
 
 			const result = await handoff(db, eventBus, {

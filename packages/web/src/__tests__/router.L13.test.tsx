@@ -34,8 +34,6 @@ vi.mock("../hooks/useTeams", () => ({
 					progress: { done: 0, total: 0 },
 					routineCount: 0,
 					agentCount: 0,
-					activeAgentCount: 0,
-					agentHealthWarning: false,
 				},
 				{
 					id: "t2",
@@ -49,8 +47,6 @@ vi.mock("../hooks/useTeams", () => ({
 					progress: { done: 0, total: 0 },
 					routineCount: 0,
 					agentCount: 0,
-					activeAgentCount: 0,
-					agentHealthWarning: false,
 				},
 			],
 		},

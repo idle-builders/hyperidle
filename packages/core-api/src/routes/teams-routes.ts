@@ -229,76 +229,21 @@ export function createTeamRoutes(
 				// AA1: routine count for this team (AA2: exclude soft-deleted)
 				const routineCount = (await routineService.listRoutines(db, { teamId: team.id })).length;
 
-				// AB2: agent summary — count AI agents and compute health warning.
-				// Re-use computeHealthSignals for accurate health checks (reviewer S4).
+				// AB2: agent summary — count AI agents.
+				//
+				// @lore AU26 J1: `activeAgentCount` and `agentHealthWarning` are
+				// DELETED, and with them the batched `sessions` read and the
+				// `readAgentRunConfigs` call that existed only to feed the health
+				// computation. Both fields had ZERO production readers — the only hits
+				// were `.stories.tsx`/`__tests__` fixtures and
+				// `sortTeamsByAttention.ts:7`, a comment stating the simplified row
+				// deliberately does NOT use `agentHealthWarning`. `agentCount` is a
+				// `users` read (core's own table) and stays.
 				const teamAgentRows = memberGroup
 					? await listUsers(db, { teamIds: [memberGroup.id], kind: "ai" })
 					: [];
 
 				const agentCount = teamAgentRows.length;
-				let activeAgentCount = 0;
-				let agentHealthWarning = false;
-
-				if (agentCount > 0) {
-					const teamAgentIds = teamAgentRows.map((a) => a.id);
-					// @lore AU26 G1 (§D-L): harness type left `users`; one batched read
-					// keeps this loop at the same query count it had before.
-					const teamAgentRunConfigs = await readAgentRunConfigs(db, teamAgentIds);
-					// Batch fetch all sessions for all agents
-					const allTeamAgentSessions = await db
-						.select({
-							agentId: sessions.agentId,
-							startedAt: sessions.startedAt,
-							endedAt: sessions.endedAt,
-							state: sessions.state,
-							outcome: sessions.outcome,
-						})
-						.from(sessions)
-						.where(inArray(sessions.agentId, teamAgentIds))
-						.orderBy(desc(sessions.startedAt));
-
-					// Group by agentId
-					const sessMap = new Map<
-						string,
-						Array<{
-							startedAt: string;
-							endedAt: string | null;
-							state: string | null;
-							outcome: string | null;
-						}>
-					>();
-					for (const s of allTeamAgentSessions) {
-						if (!s.agentId) continue;
-						const bucket = sessMap.get(s.agentId) ?? [];
-						bucket.push(s);
-						sessMap.set(s.agentId, bucket);
-					}
-
-					for (const agentRow of teamAgentRows) {
-						const agentSessions = sessMap.get(agentRow.id) ?? [];
-						// Count active sessions
-						if (agentSessions.some((s) => s.state === "active")) {
-							activeAgentCount++;
-						}
-						// Compute health using the same signals as the profile page (reviewer S4)
-						if (!agentHealthWarning) {
-							const agentHarnessType = teamAgentRunConfigs.get(agentRow.id)?.harnessType ?? null;
-							const harnessAvail = resolveHarnessAvailable(agentHarnessType, adapterPool);
-							const signals = computeHealthSignals({
-								sessions: agentSessions.map((s) => ({
-									startedAt: s.startedAt,
-									endedAt: s.endedAt,
-									outcome: s.outcome,
-								})),
-								harnessType: agentHarnessType,
-								harnessAvailable: harnessAvail,
-							});
-							if (signals.degraded) {
-								agentHealthWarning = true;
-							}
-						}
-					}
-				}
 
 				return {
 					id: team.id,
@@ -312,8 +257,6 @@ export function createTeamRoutes(
 					progress: { done: progressDone, total: progressTotal },
 					routineCount,
 					agentCount,
-					activeAgentCount,
-					agentHealthWarning,
 				};
 			}),
 		);
