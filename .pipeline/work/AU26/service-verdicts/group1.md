@@ -25,7 +25,7 @@ Scan for agent-shaped parts (no trigger, recorded so pass B isn't re-derived fro
 
 Whole-service verdict is "stays" on the record's evidence below. Three parts get separate verdicts (§4 Item B).
 
-**Domain (service):** registered repo / doc-set locations a team owns, the agent↔location assignment, and the mount engine that materializes them into a sandbox.
+**Domain (service):** registered repo / doc-set locations a team owns, the agent↔location assignment, and the mount engine that mounts them into a sandbox.
 
 **One real core-side use (the record):** `packages/core-api/src/routes/knowledge.ts:565` + `:585` — `knowledge_items` can be scoped to a filesystem. `scopeKind: "filesystem"` is a first-class scope (`packages/shared/src/types.ts:181`, id-requiring at `:200`); the route **gates** creation on `requiresScopeId` (`routes/knowledge.ts:565`, 400 without a scopeId) and then writes `knowledge_items.scopeId = filesystems.id` at `:585`. A core domain's table references the record and a core operation is gated on it. That is a genuine core use, independent of any agent.
 
