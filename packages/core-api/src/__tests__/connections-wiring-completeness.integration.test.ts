@@ -40,9 +40,9 @@
  *     one flow).
  */
 
-import { encryptCredentialValue } from "@hyperidle/connections";
 import { type HyperIdleDb, serviceConnections, users } from "@hyperidle/db";
 import { test } from "@hyperidle/db/test-fixtures";
+import { encryptCredentialValue } from "@hyperidle/shared/crypto";
 import { describe, expect, vi } from "vitest";
 import { routineSchedulerPorts } from "../services/routine-scheduler-bindings.js";
 import { taskRunResolverDeps } from "../services/task-run-resolver-bindings.js";

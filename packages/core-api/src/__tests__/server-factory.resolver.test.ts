@@ -23,9 +23,10 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
-import { DbCredentialResolver, encryptCredentialValue } from "@hyperidle/connections";
+import { DbCredentialResolver } from "@hyperidle/connections";
 import { serverCredentials } from "@hyperidle/db";
 import { AdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
+import { encryptCredentialValue } from "@hyperidle/shared/crypto";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { createServer } from "../server-factory.js";

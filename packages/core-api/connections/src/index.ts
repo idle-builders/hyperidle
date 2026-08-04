@@ -43,8 +43,13 @@
  * never the provisioning operation itself.
  */
 
-// -- A. Cipher (2) — encrypt/decrypt; cipher owns the key (no secret param) --
-export { decryptCredentialValue, encryptCredentialValue } from "./credential-encryption.js";
+// -- A. (was the cipher) --
+// @lore AU26 E1 (J1): `encryptCredentialValue`/`decryptCredentialValue` are GONE
+// from this barrel. The AES-256-GCM cipher is a primitive, not a Service member:
+// it reads no table, holds no db handle, and both applications need it. It now
+// lives at `@hyperidle/shared/crypto` and every caller imports it from there —
+// deliberately NOT re-exported here, so this Service does not become a second,
+// competing source of truth for it.
 // -- B. CredentialResolver family (2) — resolver interface + DB implementation --
 // @lore AU20 R-connections: EnvCredentialResolver relocated to packages/eval (eval-only
 // fixture, AH1 §3). Production barrel exports only DbCredentialResolver.

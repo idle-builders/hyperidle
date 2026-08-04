@@ -23,10 +23,11 @@
  */
 
 import * as crypto from "node:crypto";
-import { encryptCredentialValue, ServiceConnectionResolver } from "@hyperidle/connections";
+import { ServiceConnectionResolver } from "@hyperidle/connections";
 import { serviceConnections, teamMembers, teams, users } from "@hyperidle/db";
 import { resolveFilesystemState } from "@hyperidle/filesystems";
 import type { FilesystemAuthResolver } from "@hyperidle/shared";
+import { encryptCredentialValue } from "@hyperidle/shared/crypto";
 import { createGitRunner } from "@hyperidle/shared/git";
 import { describe, expect, it } from "vitest";
 import { test } from "../test-fixtures.js";

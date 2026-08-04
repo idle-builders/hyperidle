@@ -24,8 +24,8 @@
 
 import { type HyperIdleDb, serviceConnections, users } from "@hyperidle/db";
 import { test } from "@hyperidle/db/test-fixtures";
+import { encryptCredentialValue } from "@hyperidle/shared/crypto";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { encryptCredentialValue } from "../credential-encryption.js";
 import { ServiceConnectionResolver } from "../service-connection-resolver.js";
 
 const SERVER_SECRET = "integration-test-server-secret-an1";

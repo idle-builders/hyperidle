@@ -18,8 +18,8 @@
  */
 
 import { type HyperIdleDb, serviceConnections } from "@hyperidle/db";
+import { decryptCredentialValue } from "@hyperidle/shared/crypto";
 import { and, eq } from "drizzle-orm";
-import { decryptCredentialValue } from "./credential-encryption.js";
 
 export class ServiceConnectionResolver {
 	constructor(private readonly db: HyperIdleDb) {}

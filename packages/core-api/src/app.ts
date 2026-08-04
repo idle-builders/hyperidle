@@ -1,9 +1,7 @@
 import { SessionActivityBuffer } from "@hyperidle/agent-execution";
 import {
 	type CredentialResolver,
-	decryptCredentialValue,
 	deleteCredential,
-	encryptCredentialValue,
 	readCredentials,
 	ServiceConnectionResolver,
 	writeCredential,
@@ -22,6 +20,7 @@ import { enqueueWorkIntent, findSessionRequest } from "@hyperidle/session-reques
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger, EventBus } from "@hyperidle/shared";
+import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/shared/crypto";
 import { failClosedAssertion } from "@hyperidle/shared/http";
 import { createUpgradeTokenStore, findUser, type UpgradeTokenStore } from "@hyperidle/users";
 import * as work from "@hyperidle/work";

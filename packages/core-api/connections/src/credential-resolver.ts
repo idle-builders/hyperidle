@@ -14,10 +14,10 @@
 
 import { type HyperIdleDb, serverCredentials } from "@hyperidle/db";
 import type { CredentialName, CredentialResolver } from "@hyperidle/shared";
+import { decryptCredentialValue } from "@hyperidle/shared/crypto";
 // @lore AU20 R-connections: EnvCredentialResolver relocated to packages/eval (eval-only fixture).
 // Production vault exports only DbCredentialResolver.
 import { eq } from "drizzle-orm";
-import { decryptCredentialValue } from "./credential-encryption.js";
 
 /**
  * Resolves a credential value by name.

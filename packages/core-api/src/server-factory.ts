@@ -5,9 +5,7 @@ import { type ServerType, serve, upgradeWebSocket } from "@hono/node-server";
 import {
 	type CredentialResolver,
 	DbCredentialResolver,
-	decryptCredentialValue,
 	deleteCredential,
-	encryptCredentialValue,
 	listConnections,
 	readCredentials,
 	writeCredential,
@@ -79,6 +77,7 @@ import {
 	type ResolvedModel,
 	resolveModel,
 } from "@hyperidle/shared";
+import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/shared/crypto";
 import { createGitRunner } from "@hyperidle/shared/git";
 import {
 	findUser,

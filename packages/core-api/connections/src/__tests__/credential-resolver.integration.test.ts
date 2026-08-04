@@ -14,8 +14,8 @@
  */
 
 import { test } from "@hyperidle/db/test-fixtures";
+import { encryptCredentialValue } from "@hyperidle/shared/crypto";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { encryptCredentialValue } from "../credential-encryption.js";
 import { DbCredentialResolver } from "../credential-resolver.js";
 
 const SERVER_SECRET = "test-server-secret-resolver-au20";

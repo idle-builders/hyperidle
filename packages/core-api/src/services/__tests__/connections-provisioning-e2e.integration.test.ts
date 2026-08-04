@@ -29,12 +29,12 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import {
-	encryptCredentialValue,
 	resolveInjectedConnectionsForAgent,
 	ServiceConnectionResolver,
 } from "@hyperidle/connections";
 import { serviceConnections, users } from "@hyperidle/db";
 import { applyProvisioningPlan, buildProvisioningPlan } from "@hyperidle/run-orchestration";
+import { encryptCredentialValue } from "@hyperidle/shared/crypto";
 import { findUser } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../../test-fixtures.js";

@@ -21,9 +21,7 @@
  */
 
 import {
-	decryptCredentialValue,
 	deleteConnection,
-	encryptCredentialValue,
 	insertConnection,
 	listConnections,
 	projectInheritedConnections,
@@ -32,6 +30,7 @@ import {
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ConnectionHealth, ServiceConnectionView } from "@hyperidle/shared";
 import { type HarnessCapabilityReader, harnessCapabilityDescriptors } from "@hyperidle/shared";
+import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/shared/crypto";
 import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
 import { isPrivateHostLiteral, resolveUrlForSSRF } from "@hyperidle/shared/net";
 import { Hono } from "hono";
