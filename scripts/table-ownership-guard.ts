@@ -58,11 +58,19 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, relative } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import ts from "typescript";
 
-/** The single source of truth for table ownership. One row per owned table. */
-const TABLE_OWNER: Record<string, string> = {
+/**
+ * The single source of truth for table ownership. One row per owned table.
+ *
+ * @lore AU26 D0: exported so `scripts/table-ownership-census.ts` reports against
+ * the SAME map the guard enforces, plus its own four AU26 owner rows. A census
+ * that re-declared ownership would drift from the guard the moment either moved,
+ * and the census number is AU26's goal metric — it may not be a second opinion.
+ */
+export const TABLE_OWNER: Record<string, string> = {
 	knowledgeItems: "packages/core-api/knowledge",
 	knowledgeEditLog: "packages/core-api/knowledge",
 	knowledgeAccessLog: "packages/core-api/knowledge",
@@ -382,8 +390,24 @@ export interface Finding {
 	readonly reason: string;
 }
 
+/** A Tier-2 finding, which always concerns exactly one table at one line. */
+export interface AccessFinding extends Finding {
+	readonly table: string;
+	readonly line: number;
+}
+
+/**
+ * Which tables are owned by whom, and which are exempt. The guard enforces
+ * `ENFORCED_POLICY`; `scripts/table-ownership-census.ts` reports against AU26's
+ * target policy (no exemptions, four extra owners) through the same checker.
+ */
+export interface OwnershipPolicy {
+	readonly owner: Record<string, string>;
+	readonly exempt: ReadonlySet<string>;
+}
+
 /** Extract every `export const <name> = pgTable(...)` name from the db schema. */
-function knownTables(root: string): Set<string> {
+export function knownTables(root: string): Set<string> {
 	const schema = join(root, "packages/db/src/schema.ts");
 	const names = new Set<string>();
 	if (!existsSync(schema)) return names;
@@ -396,7 +420,7 @@ function knownTables(root: string): Set<string> {
 }
 
 /** Recursively collect production `.ts`/`.tsx` files under a dir (skip tests/dist). */
-function collectSourceFiles(dir: string): string[] {
+export function collectSourceFiles(dir: string): string[] {
 	const out: string[] = [];
 	if (!existsSync(dir)) return out;
 	for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -510,16 +534,23 @@ function checkBarrel(root: string, serviceRoot: string, tables: Set<string>): Fi
 	return findings;
 }
 
+/** What the guard itself enforces: the real owner map, the real exemption set. */
+const ENFORCED_POLICY: OwnershipPolicy = {
+	owner: TABLE_OWNER,
+	exempt: UNOWNED_SHARED_TABLES,
+};
+
 /** Tier 2 — ownership ACL + completeness, over a nested prod file. */
-function checkAccess(
+export function checkAccess(
 	root: string,
 	abs: string,
 	tables: Set<string>,
-): Finding[] {
+	policy: OwnershipPolicy = ENFORCED_POLICY,
+): AccessFinding[] {
 	const rel = relative(root, abs);
 	const text = readFileSync(abs, "utf8");
 	const ast = ts.createSourceFile(abs, text, ts.ScriptTarget.Latest, true);
-	const findings: Finding[] = [];
+	const findings: AccessFinding[] = [];
 
 	// W2 checkpoint-review gap: `import * as db from "@hyperidle/db"` evades the
 	// named-import check below. Collect namespace-import local names (imports are
@@ -540,13 +571,16 @@ function checkAccess(
 		}
 	}
 
-	const consider = (name: string, kind: string): void => {
+	const consider = (name: string, kind: string, node: ts.Node): void => {
 		if (!tables.has(name)) return; // not a table object
-		if (UNOWNED_SHARED_TABLES.has(name)) return; // genuinely cross-cutting, no single owner (see comment above)
-		const owner = TABLE_OWNER[name];
+		if (policy.exempt.has(name)) return; // genuinely cross-cutting, no single owner (see comment above)
+		const line = ast.getLineAndCharacterOfPosition(node.getStart()).line + 1;
+		const owner = policy.owner[name];
 		if (owner === undefined) {
 			findings.push({
 				file: rel,
+				table: name,
+				line,
 				reason: `${kind} touches table "${name}" which has no TABLE_OWNER row — add it (completeness)`,
 			});
 			return;
@@ -554,6 +588,8 @@ function checkAccess(
 		if (!isUnder(rel, owner)) {
 			findings.push({
 				file: rel,
+				table: name,
+				line,
 				reason: `${kind} touches "${name}" owned by ${owner} — route through that Service (Table ACL)`,
 			});
 		}
@@ -568,7 +604,7 @@ function checkAccess(
 		) {
 			const arg = node.arguments[0];
 			if (arg && ts.isIdentifier(arg)) {
-				consider(arg.text, `.${node.expression.name.text}(...)`);
+				consider(arg.text, `.${node.expression.name.text}(...)`, node);
 			}
 		}
 		// Value import of a table symbol from @hyperidle/db
@@ -582,7 +618,7 @@ function checkAccess(
 			ts.isNamedImports(node.importClause.namedBindings)
 		) {
 			for (const el of node.importClause.namedBindings.elements) {
-				if (!el.isTypeOnly) consider(el.name.text, "value import");
+				if (!el.isTypeOnly) consider(el.name.text, "value import", el);
 			}
 		}
 		// Namespace-import property access: `import * as db from "@hyperidle/db"`
@@ -593,7 +629,7 @@ function checkAccess(
 			ts.isIdentifier(node.expression) &&
 			dbNamespaces.has(node.expression.text)
 		) {
-			consider(node.name.text, "namespace property access");
+			consider(node.name.text, "namespace property access", node);
 		}
 		ts.forEachChild(node, visit);
 	};
@@ -823,14 +859,21 @@ function fixtureCheck(): void {
 	process.stdout.write("table-ownership-guard fixtures: PASS\n");
 }
 
-if (process.argv.includes("--fixtures")) {
-	fixtureCheck();
-} else {
-	const findings = inspect(process.cwd());
-	for (const f of findings) process.stderr.write(`${f.file}: ${f.reason}\n`);
-	if (findings.length > 0) {
-		process.stderr.write(`table-ownership-guard: ${findings.length} finding(s)\n`);
-		process.exit(1);
+// @lore AU26 D0: the CLI block runs ONLY when this file is the entry point.
+// `scripts/table-ownership-census.ts` now imports `checkAccess`/`TABLE_OWNER` from
+// here, and an unconditional block would scan the repo — and `process.exit(1)` —
+// on mere import, killing the importer's process.
+const invokedPath = process.argv[1];
+if (invokedPath !== undefined && resolve(invokedPath) === fileURLToPath(import.meta.url)) {
+	if (process.argv.includes("--fixtures")) {
+		fixtureCheck();
+	} else {
+		const findings = inspect(process.cwd());
+		for (const f of findings) process.stderr.write(`${f.file}: ${f.reason}\n`);
+		if (findings.length > 0) {
+			process.stderr.write(`table-ownership-guard: ${findings.length} finding(s)\n`);
+			process.exit(1);
+		}
+		process.stdout.write("table-ownership-guard: PASS\n");
 	}
-	process.stdout.write("table-ownership-guard: PASS\n");
 }

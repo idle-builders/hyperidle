@@ -90,6 +90,20 @@ scripts/lib/attestation-scope.js
 scripts/lib/attestation-scope.js.map
 scripts/lib/attestation-scope.d.ts
 scripts/lib/attestation-scope.d.ts.map
+# AU26 D0: table-ownership-census.ts imports table-ownership-guard.ts, and the
+# db package's census test imports both — same tsx-run, no-compile-step class.
+scripts/table-ownership-census.js
+scripts/table-ownership-census.js.map
+scripts/table-ownership-census.d.ts
+scripts/table-ownership-census.d.ts.map
+scripts/table-ownership-guard.js
+scripts/table-ownership-guard.js.map
+scripts/table-ownership-guard.d.ts
+scripts/table-ownership-guard.d.ts.map
+scripts/lib/typecheck-verdict.js
+scripts/lib/typecheck-verdict.js.map
+scripts/lib/typecheck-verdict.d.ts
+scripts/lib/typecheck-verdict.d.ts.map
 # viewer compiled outputs (Vite resolves ./discovery.js → discovery.ts at build/dev time;
 # emitted .js/.d.ts/.map files must not be committed)
 packages/design-system/viewer/*.js

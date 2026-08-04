@@ -57,6 +57,7 @@
 		"obs:collector": "npx tsx scripts/trace-collector.ts",
 		"knip": "npx knip",
 		"knip:production": "npx knip --include files && npx knip --production --include files,dependencies,unlisted,binaries --preprocessor ./scripts/knip-production-test-files.mjs",
+		"census:tables": "npx tsx scripts/table-ownership-census.ts",
 		"mock-inventory": "npx tsx scripts/mock-inventory.ts",
 		"mock-inventory:check": "npx tsx scripts/mock-inventory.ts --check",
 		"demo-fixture-guard:check": "npx tsx scripts/demo-fixture-guard.ts --check",
