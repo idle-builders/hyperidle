@@ -22,12 +22,14 @@
  * JSON `ApiErrorResponse` 404, never Hono's `text/plain` default (AC10).
  */
 
+import { ServiceConnectionResolver } from "@hyperidle/connections";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ActivityEntry, EventBus, HarnessCapabilityReader } from "@hyperidle/shared";
 import type { HyperIdleEnv } from "@hyperidle/shared/http";
 import { Hono } from "hono";
 import { createAgentOrchestrationSessionsRoutes } from "./routes/agent-orchestration-sessions.js";
 import { createConnectionRoutes } from "./routes/connections.js";
+import { createFilesystemRoutes } from "./routes/filesystems.js";
 import { createOrchestrationSessionRoutes } from "./routes/sessions.js";
 
 export interface AgentOrchestrationAppOptions {
@@ -54,6 +56,11 @@ export function createAgentOrchestrationApp(
 	app.route("/agent-orchestration", createAgentOrchestrationSessionsRoutes(db, getRecentActivity));
 	// AU26 E4: `/api/connections` — the path is unchanged; only the host app is.
 	app.route("/connections", createConnectionRoutes(db, adapterPool));
+	// AU26 F2: `/api/filesystems` — same story. The reachability probe needs the
+	// held-connection decrypt path, and `service_connections` is this Layer's own
+	// table since E3, so the resolver is built HERE rather than handed down from
+	// core-api's app the way it used to be.
+	app.route("/filesystems", createFilesystemRoutes(db, new ServiceConnectionResolver(db)));
 
 	return app;
 }

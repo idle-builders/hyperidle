@@ -246,8 +246,18 @@ const TABLE_OWNER: Record<string, string> = {
 	// (`routes/filesystems.ts`, `routes/knowledge.ts`,
 	// `services/session-provisioning.ts`) now calls the real exported
 	// registry functions instead of querying the tables raw.
-	filesystems: "packages/core-api/filesystems",
-	filesystemInjections: "packages/core-api/filesystems",
+	// AU26 F2 (§D-I, amended by the founder's 2026-08-04 ruling): the RECORD and
+	// the injection wiring follow the mount engine into the agent-orchestration
+	// Layer, and `packages/core-api/filesystems` moves wholesale to
+	// `packages/agent-orchestration/filesystems`. §D-I originally kept
+	// `filesystems` core-owned on the strength of ONE core-side use —
+	// `routes/knowledge.ts`'s `filesystem` knowledge scope. The founder deleted
+	// that scope ("remove that knowledge filesystem scope and move the filesystem
+	// completely to the orchestration"), so zero core-side uses remain and the
+	// domain lands whole in one Layer. Only these two rows move; no other table's
+	// owner and no `UNOWNED_SHARED_TABLES` entry is touched (AC12).
+	filesystems: "packages/agent-orchestration/filesystems",
+	filesystemInjections: "packages/agent-orchestration/filesystems",
 	// AU26 F1 (§D-I): the mount engine relocated to the agent-orchestration Layer
 	// and `filesystem_captures` went with it — the engine is its only writer, its
 	// FK points at `sessions`, and `listCaptures` had zero non-test readers.

@@ -13,7 +13,9 @@
 	"dependencies": {
 		"@hyperidle/agent-execution": "*",
 		"@hyperidle/api-contract": "*",
+		"@hyperidle/connections": "*",
 		"@hyperidle/db": "*",
+		"@hyperidle/filesystems": "*",
 		"@hyperidle/run-orchestration": "*",
 		"@hyperidle/session-requests": "*",
 		"@hyperidle/shared": "*",

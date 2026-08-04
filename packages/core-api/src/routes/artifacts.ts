@@ -14,11 +14,10 @@ import {
 	isRegisteredKind,
 	OLD_KIND_MAP,
 } from "@hyperidle/shared";
-import { requireBoundary, validateBody } from "@hyperidle/shared/http";
+import { createBodyLimit, requireBoundary, validateBody } from "@hyperidle/shared/http";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";
-import { createBodyLimit } from "../middleware/body-limit.js";
 
 const PREVIEW_BODY_LIMIT = 64 * 1024;
 const DEFAULT_LIMIT = 50;

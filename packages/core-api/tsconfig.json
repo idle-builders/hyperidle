@@ -14,7 +14,7 @@
 		{ "path": "../agent-orchestration/connections" },
 		{ "path": "conversation" },
 		{ "path": "../agent-orchestration/filesystem-mounting" },
-		{ "path": "filesystems" },
+		{ "path": "../agent-orchestration/filesystems" },
 		{ "path": "../agent-execution/harness-registry" },
 		{ "path": "knowledge" },
 		{ "path": "notifications" },

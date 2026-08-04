@@ -1,4 +1,3 @@
-import { ServiceConnectionResolver } from "@hyperidle/connections";
 import {
 	type CredentialResolver,
 	deleteCredential,
@@ -26,7 +25,7 @@ import { createPublicAuthRoutes } from "./routes/auth-public.js";
 import { createBetRoutes } from "./routes/bets.js";
 import { createConversationRoutes } from "./routes/conversations.js";
 import { createCredentialRoutes } from "./routes/credentials.js";
-import { createFilesystemRoutes } from "./routes/filesystems.js";
+import { createFilesystemInjectionRoutes } from "./routes/filesystems.js";
 import { createHarnessRoutes } from "./routes/harnesses.js";
 import { authHealth } from "./routes/health.js";
 import { createHintRoutes } from "./routes/hints.js";
@@ -373,11 +372,13 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		api.route("/tasks", createTaskRoutes(options.db, eventBus));
 		api.route("/reviews", createReviewRoutes(options.db));
 		api.route("/artifacts", createArtifactRoutes(options.db, eventBus));
-		// AO1 v2: Wire the real ServiceConnectionResolver for reachability probes.
-		// serverSecret may be null (no credential key configured) — the resolver handles null
-		// gracefully (returns null for every connectionId → needs_attention for git probes).
-		const scResolver = new ServiceConnectionResolver(options.db);
-		api.route("/filesystems", createFilesystemRoutes(options.db, eventBus, scResolver));
+		// AU26 F2: only ONE `/api/filesystems` registration is still core-hosted —
+		// `POST /:id/injections`, whose team-consistency gate reads `users` +
+		// `team_members`. Every other registration (and the reachability probe's
+		// `ServiceConnectionResolver`, which core-api no longer constructs) lives
+		// on agent-orchestration's app at byte-identical paths. See
+		// `routes/filesystems.ts`'s own top-of-file `@lore`.
+		api.route("/filesystems", createFilesystemInjectionRoutes(options.db));
 		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus));
 		api.route("/team-members", createTeamMembersRoutes(options.db));
 		api.route("/settings", createSettingsRoutes(options.db, eventBus));

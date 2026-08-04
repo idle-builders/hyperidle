@@ -33,7 +33,6 @@
 		"@hyperidle/agent-orchestration": "*",
 		"@hyperidle/agent-run-config": "*",
 		"@hyperidle/api-contract": "*",
-		"@hyperidle/connections": "*",
 		"@hyperidle/conversation": "*",
 		"@hyperidle/credentials": "*",
 		"@hyperidle/db": "*",

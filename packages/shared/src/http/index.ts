@@ -18,12 +18,21 @@
  * without the middleware it declares, so the limiter follows the same reasoning
  * A1 applied to `requireBoundary`. Each caller still creates its own bucket; a
  * shared home is not a shared bucket.
+ *
+ * @lore AU26 F2: `createBodyLimit` landed here for the same reason, when
+ * `/api/filesystems` moved onto `agent-orchestration`'s app. It counts bytes and
+ * emits the canonical `PAYLOAD_TOO_LARGE` envelope — no table, no domain. Its
+ * core-api callers (`api-middleware-stack.ts`, `routes/artifacts.ts`, the slim
+ * core-hosted injection route) import it from here now; each still passes its
+ * own `maxSize`.
+ *
  * What does NOT belong here: anything that reads a table or knows a domain. The
  * auth middleware itself stays in core-api (it reads `@hyperidle/users`) and is
  * applied by the Application.
  */
 export type { BoundaryDeclaration, BoundaryKind } from "./access-boundary.js";
 export { failClosedAssertion, requireBoundary } from "./access-boundary.js";
+export { createBodyLimit } from "./body-limit.js";
 export type { HyperIdleEnv } from "./env.js";
 export type {
 	ExplicitStartProjection,
