@@ -600,6 +600,47 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 			});
 			expect(`${stdout}${stderr}`.trim().length).toBeGreaterThan(0);
 		}, 30_000);
+
+		test("AU27 Increment 8 (BLOCKER fix): the REAL /return-status route names the harness-literal 'mcp__hyperidle__reply' tool for a required-action session, not the trio", async () => {
+			// Decision 3's AC: "the forcing message names the action that
+			// session actually needs" — proven here against the REAL route
+			// (the same one the real claude Stop hook script curls), not a
+			// gate-unit-only check of buildForceReturnMessage in isolation.
+			const testSessionId = `al6v4-claude-required-${Math.random().toString(36).slice(2)}`;
+			// `startRealServer`'s first param is a pre-existing dead param — the
+			// bridge always mints its OWN token internally; the real callable
+			// token is `realServer.token`, not a locally-fabricated string.
+			const realServer = await startRealServer("unused", testSessionId);
+
+			try {
+				const gate = { returned: false };
+				realServer.enforcementReg.register(testSessionId, {
+					gate,
+					forceCount: 0,
+					exempt: false,
+					requiredReturnActions: ["reply"],
+				});
+
+				const returnStatusUrl = `${realServer.url}/api/mcp/${realServer.token}/return-status`;
+				const res = await fetch(returnStatusUrl, {
+					method: "POST",
+					headers: { Authorization: `Bearer ${realServer.token}` },
+				});
+				expect(res.status).toBe(200);
+				const body = await res.text();
+
+				// The literal, callable tool name Claude's MCP client exposes
+				// for a "hyperidle" MCP server tool — not the bare name.
+				expect(body).toContain("mcp__hyperidle__reply");
+				// Must NOT fall back to the full-trio default message (this
+				// session has a SPECIFIC required action).
+				expect(body).not.toContain("submit_review");
+				expect(body).not.toContain("handoff_to");
+				expect(body).not.toContain("send_message");
+			} finally {
+				await realServer.close();
+			}
+		}, 30_000);
 	});
 
 	// ── CODEX CLI (binary+auth gated, LIVE ENFORCEMENT) ──────────────────────
@@ -892,6 +933,42 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 			);
 			const authText = `${authOut}\n${authErr}`.toLowerCase();
 			expect(authText).toMatch(/authenticated|logged in|login|account/);
+		}, 30_000);
+
+		test("AU27 Increment 8 (BLOCKER fix): the REAL /return-status route names the harness-literal 'mcp__hyperidle__reply' tool for a required-action session, not the trio", async () => {
+			// Same route + adjudication code (site 3, mcp-route.ts) serves BOTH
+			// the settings-claude and settings-codex hook channels — proven
+			// here for codex's channel specifically.
+			const testSessionId = `al6v4-codex-required-${Math.random().toString(36).slice(2)}`;
+			// `startRealServer`'s first param is a pre-existing dead param — the
+			// bridge always mints its OWN token internally; the real callable
+			// token is `realServer.token`, not a locally-fabricated string.
+			const realServer = await startRealServer("unused", testSessionId);
+
+			try {
+				const gate = { returned: false };
+				realServer.enforcementReg.register(testSessionId, {
+					gate,
+					forceCount: 0,
+					exempt: false,
+					requiredReturnActions: ["reply"],
+				});
+
+				const returnStatusUrl = `${realServer.url}/api/mcp/${realServer.token}/return-status`;
+				const res = await fetch(returnStatusUrl, {
+					method: "POST",
+					headers: { Authorization: `Bearer ${realServer.token}` },
+				});
+				expect(res.status).toBe(200);
+				const body = await res.text();
+
+				expect(body).toContain("mcp__hyperidle__reply");
+				expect(body).not.toContain("submit_review");
+				expect(body).not.toContain("handoff_to");
+				expect(body).not.toContain("send_message");
+			} finally {
+				await realServer.close();
+			}
 		}, 30_000);
 	});
 

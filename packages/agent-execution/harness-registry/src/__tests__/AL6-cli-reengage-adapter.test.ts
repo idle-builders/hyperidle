@@ -336,6 +336,60 @@ describe("AL6 CRIT-3 — CliHarnessAdapter.streamEvents process-reengage loop", 
 		await streamDone;
 	}, 15_000);
 
+	it("AU27 Increment 8 (BLOCKER fix): with requiredReturnActions:['reply'], the re-engage message names the opencode-LITERAL 'hyperidle_reply' tool, not a bare name or the trio", async () => {
+		// Decision 3's AC: "the forcing message names the action that
+		// session actually needs" — proven here on the REAL production
+		// re-engage code path (CliHarnessAdapter.streamEvents), not a
+		// gate-unit-only check of buildForceReturnMessage in isolation.
+		// Before Increment 8, this message named the bare "reply" — a tool
+		// name opencode's own MCP client never exposes (it namespaces every
+		// tool as `hyperidle_<bare>`), so the re-spawned agent could not
+		// resolve it and failed exactly as real opencode did in production
+		// ("Model tried to call unavailable tool 'reply'").
+		const children = Array.from({ length: AL6_MAX_FORCE_RETURNS + 1 }, () => makeFakeChild());
+		const { spawnFn, spawnCalls } = makeFakeSpawnFn(children);
+
+		const adapter = new CliHarnessAdapter(makeProcessReEngageConfig(), { spawnFn });
+
+		const gate = { returned: false };
+		enforcementRegistry.register(testSessionId, {
+			gate,
+			forceCount: 0,
+			exempt: false,
+			requiredReturnActions: ["reply"],
+		});
+
+		const handle = await adapter.startSession(makeSessionConfig(testSessionId));
+
+		const streamDone = (async () => {
+			for await (const _event of adapter.streamEvents(handle)) {
+				// drain
+			}
+		})();
+
+		children[0]?.emitExit(0, null);
+		await new Promise<void>((resolve) => setImmediate(resolve));
+
+		const reEngageArgs = spawnCalls[1]?.args ?? [];
+		const reEngageMessage = reEngageArgs.join(" ");
+		// The literal, callable opencode tool name — not the bare name.
+		expect(reEngageMessage).toContain("hyperidle_reply");
+		// Must NOT name the bare, unresolvable form as a standalone word.
+		expect(reEngageArgs).not.toContain("reply");
+		// Must NOT fall back to the full-trio default message (this session
+		// has a SPECIFIC required action, not "any of the three").
+		expect(reEngageMessage).not.toContain("submit_review");
+		expect(reEngageMessage).not.toContain("handoff_to");
+		expect(reEngageMessage).not.toContain("send_message");
+
+		for (let i = 1; i < children.length; i++) {
+			children[i]?.emitExit(0, null);
+			await new Promise<void>((resolve) => setImmediate(resolve));
+		}
+
+		await streamDone;
+	}, 15_000);
+
 	it("is bounded by AL6_MAX_FORCE_RETURNS — no re-spawn after budget exhausted", async () => {
 		// After AL6_MAX_FORCE_RETURNS re-engages, the loop must stop.
 		// Total spawns = 1 initial + AL6_MAX_FORCE_RETURNS re-engages.
