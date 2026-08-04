@@ -1,19 +1,19 @@
 /**
  * AU27 Increment 1 (Decision 0) — resolve-or-create the calling thread a
- * `task_run`/`session_start`/`reengagement` session's `reply` tool (Increment
- * 2) needs somewhere real to post. Threads resolve by `(hostKind, hostId)`
- * lookup, never by an FK column (`conversation-store.ts`'s `findThread`/
- * `insertThread`, mirroring `web/src/services/host-threads.ts`'s
+ * `task_run`/`session_start`/`reengagement`/`knowledge_action` session's
+ * `reply` tool (Increment 2) needs somewhere real to post. Threads resolve by
+ * `(hostKind, hostId)` lookup, never by an FK column (`conversation-store.ts`'s
+ * `findThread`/`insertThread`, mirroring `web/src/services/host-threads.ts`'s
  * `resolveOrCreateHostThread`) — this is a core-side WRITE at bake time, so
  * `run-orchestration` still performs zero reads (AU21 AC #2 unaffected).
  * `tasks.threadId` is untouched (SCOPE LOCK: no schema change).
  *
- * @lore Mechanism C: `@hyperidle/work`/`@hyperidle/review` cannot import
- * `@hyperidle/conversation` directly — every per-kind resolver that needs a
- * calling thread takes this as an injected `resolveOrCreateCallingThread`
- * dep. This file is core-api Layer code (not a nested Service), so it may
- * legitimately import both, matching `routes/threads.ts`'s own
- * `findThread`/`insertThread` import precedent.
+ * @lore Mechanism C: `@hyperidle/work`/`@hyperidle/review`/`@hyperidle/knowledge`
+ * cannot import `@hyperidle/conversation` directly — every per-kind resolver
+ * that needs a calling thread takes this as an injected
+ * `resolveOrCreateCallingThread` dep. This file is core-api Layer code (not a
+ * nested Service), so it may legitimately import both, matching
+ * `routes/threads.ts`'s own `findThread`/`insertThread` import precedent.
  *
  * @lore AU27 W3 fix (review): `resolveOrCreateHostThread`
  * (`web/src/services/host-threads.ts:55`) — the idiom this function claims
@@ -34,19 +34,21 @@
  */
 import { findThread, insertThread } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
+import type { HostKind } from "@hyperidle/shared";
 import { findUser } from "@hyperidle/users";
 
 /**
- * Resolve the task's `hostKind:"task"` thread, or create one if absent.
- * Idempotent: a second call for the same `taskId` reuses the existing
- * thread — never creates a duplicate.
+ * Resolve the `(hostKind, hostId)` thread, or create one if absent, seeding
+ * the sole human user + `agentId` as participants. Idempotent: a second call
+ * for the same host reuses the existing thread — never creates a duplicate.
  */
-export async function resolveOrCreateCallingThread(
+async function resolveOrCreateHostCallingThread(
 	db: HyperIdleDb,
-	taskId: string,
+	hostKind: HostKind,
+	hostId: string,
 	agentId: string,
 ): Promise<string> {
-	const existing = await findThread(db, { host: { kind: "task", id: taskId } });
+	const existing = await findThread(db, { host: { kind: hostKind, id: hostId } });
 	if (existing) return existing.id;
 	const threadId = crypto.randomUUID();
 	const now = new Date().toISOString();
@@ -54,12 +56,38 @@ export async function resolveOrCreateCallingThread(
 	const participants = founder ? [founder.id, agentId] : [agentId];
 	await insertThread(db, {
 		id: threadId,
-		hostKind: "task",
-		hostId: taskId,
+		hostKind,
+		hostId,
 		initiatorId: agentId,
 		participants: JSON.stringify(participants),
 		lastActiveAt: now,
 		createdAt: now,
 	});
 	return threadId;
+}
+
+/**
+ * Resolve the task's `hostKind:"task"` thread, or create one if absent.
+ * Idempotent: a second call for the same `taskId` reuses the existing
+ * thread — never creates a duplicate.
+ */
+export function resolveOrCreateCallingThread(
+	db: HyperIdleDb,
+	taskId: string,
+	agentId: string,
+): Promise<string> {
+	return resolveOrCreateHostCallingThread(db, "task", taskId, agentId);
+}
+
+/**
+ * Resolve the knowledge item's `hostKind:"knowledge_item"` thread, or create
+ * one if absent — the `knowledge_action` sibling of
+ * `resolveOrCreateCallingThread`. Idempotent, same shape.
+ */
+export function resolveOrCreateKnowledgeCallingThread(
+	db: HyperIdleDb,
+	knowledgeItemId: string,
+	agentId: string,
+): Promise<string> {
+	return resolveOrCreateHostCallingThread(db, "knowledge_item", knowledgeItemId, agentId);
 }

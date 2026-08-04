@@ -64,7 +64,8 @@ export const BUILTIN_TOOL_CATALOG: readonly ToolCatalogEntry[] = [
 		description:
 			"Post a message into the conversation this session was started for. This is how you answer " +
 			"the person or agent who triggered you. Takes no thread argument — it always posts to your " +
-			"own calling thread.",
+			"own calling thread (or, when the session has none, to a direct thread with the team's " +
+			"human).",
 		reversibility: "reversible",
 	},
 	{

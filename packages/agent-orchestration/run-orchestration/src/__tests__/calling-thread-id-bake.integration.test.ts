@@ -92,7 +92,7 @@ describe("consumeAgentSessionRequest — callingThreadId bake (Increment 1)", ()
 		);
 	});
 
-	test("omits callingThreadId when the drained payload carries none (e.g. routine_run/knowledge_action)", async ({
+	test("omits callingThreadId when the drained payload carries none (e.g. routine_run)", async ({
 		db,
 	}) => {
 		await seedTaskFixture(db);

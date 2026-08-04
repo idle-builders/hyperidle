@@ -186,7 +186,9 @@ interface CoreApiHcClient {
 		$post(args: { readonly json: CreateArtifactRequest }): Promise<Response>;
 	};
 	readonly users: {
-		$get(args: { readonly query: { readonly teamMembersId?: string } }): Promise<Response>;
+		$get(args: {
+			readonly query: { readonly teamMembersId?: string; readonly kind?: string };
+		}): Promise<Response>;
 		readonly ":id": {
 			$get(args: { readonly param: { readonly id: string } }): Promise<Response>;
 		};
@@ -462,6 +464,13 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				const res = await client.users.$get({ query: { teamMembersId } });
 				if (!res.ok) return throwSeamError("users.listUsersByTeam", res);
 				return (await res.json()) as ReadonlyArray<UserView>;
+			},
+
+			async findSoleHumanUser(): Promise<UserView | undefined> {
+				const res = await client.users.$get({ query: { kind: "human" } });
+				if (!res.ok) return throwSeamError("users.findSoleHumanUser", res);
+				const rows = (await res.json()) as ReadonlyArray<UserView>;
+				return rows[0];
 			},
 		},
 		conversation: {

@@ -1271,8 +1271,11 @@ async function runSession(
 	}
 
 	// A session whose output belongs in a calling thread and has no task (the
-	// assistant) must call `reply`, not the trio — purely structural, no
-	// `sourceKind` check anywhere.
+	// assistant, and now knowledge_action too) must call `reply`, not the
+	// trio — purely structural, no `sourceKind` check anywhere. A task-bound
+	// session (task_run/session_start/reengagement/proposed_call) also bakes
+	// a calling thread but keeps the trio available (`reply` still lands in
+	// the same thread, but so does e.g. `handoff_to`).
 	const requiredReturnActions: readonly string[] | undefined =
 		params.callingThreadId != null && params.taskId == null ? ["reply"] : undefined;
 

@@ -127,6 +127,7 @@ const toolHandlersPorts: ToolHandlersPorts = {
 		getUserById: (id, actorId) => seamPortForActor(actorId).users.getUserById(id),
 		listUsersByTeam: (teamMembersId, actorId) =>
 			seamPortForActor(actorId).users.listUsersByTeam(teamMembersId),
+		findSoleHumanUser: (actorId) => seamPortForActor(actorId).users.findSoleHumanUser(),
 		// AU21 §9 Increment 2 (conversation wave): every former
 		// `ToolHandlersConversationAccessor` capability moved onto this seam —
 		// see `ports.ts`'s `ToolHandlersCoreApiAccessor` doc comment.

@@ -71,6 +71,7 @@ import z from "zod";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
+import { resolveOrCreateKnowledgeCallingThread } from "../services/calling-thread-bindings.js";
 
 /**
  * @lore AU21 §9 Increment 2 (knowledge wave): the 8 `KNOWLEDGE_KINDS` values
@@ -960,6 +961,10 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 								// connections): also bake injectedConnections.
 								resolveInjectedConnectionsForAgent: (execDb, agentId) =>
 									resolveInjectedConnectionsForAgent(execDb, agentId, findUser),
+								// AU27: also bake callingThreadId — the knowledge item's own
+								// hostKind:"knowledge_item" thread, so a knowledge_action
+								// session's `reply` tool has somewhere real to post.
+								resolveOrCreateCallingThread: resolveOrCreateKnowledgeCallingThread,
 							},
 						);
 					} catch {

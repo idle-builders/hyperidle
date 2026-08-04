@@ -232,6 +232,15 @@ export interface CoreApiWorkPort {
 export interface CoreApiUsersPort {
 	getUserById(id: string): Promise<UserView | undefined>;
 	listUsersByTeam(teamMembersId: string): Promise<ReadonlyArray<UserView>>;
+	/**
+	 * AU27 Increment 1b — `reply`'s no-calling-thread fallback (routine_run
+	 * and any future thread-less kind): the sole human user in the system,
+	 * the same `findUser(db, { kind: "human" })` idiom
+	 * `calling-thread-bindings.ts` already uses for a task thread's
+	 * participants. `undefined` when no human row exists (never true in a
+	 * real seeded team).
+	 */
+	findSoleHumanUser(): Promise<UserView | undefined>;
 }
 
 /**

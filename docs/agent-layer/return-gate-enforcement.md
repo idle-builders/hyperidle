@@ -15,7 +15,7 @@ Four tool names form the closed accepted-return set (`RETURN_ACTION_NAMES` in `p
 | `submit_review` | Submit work for human or agent review |
 | `handoff_to` | Delegate the task to another agent or human |
 | `send_message` | Send a result or update to a thread |
-| `reply` | Answer the person or agent who triggered this session (posts into the session's calling thread) |
+| `reply` | Answer the person or agent who triggered this session (posts into the session's calling thread, or a direct thread with the sole human user when the session has no calling thread) |
 
 The set is **closed**: membership is enumerated in a `readonly` tuple; `isReturnAction(toolName)` is an O(1) lookup and the single runtime check. Adding a member requires a deliberate edit to that tuple — there is no open fallback.
 

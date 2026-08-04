@@ -203,10 +203,11 @@ function parseBakedInjectedConnections(
 }
 
 /**
- * AU27 Increment 1 (Decision 1) — the session's calling thread id, carried on
- * `request.payloadJson` the same way Increment 11's `transcript`/`modelId`
- * ride it (`session-requests/src/service.ts`'s `createFromBakedRequestInternal`).
- * Absent for `routine_run`/`knowledge_action`, which have no calling thread.
+ * AU27 — the session's calling thread id, carried on `request.payloadJson`
+ * the same way Increment 11's `transcript`/`modelId` ride it
+ * (`session-requests/src/service.ts`'s `createFromBakedRequestInternal`).
+ * Absent only for `routine_run`, which has no thread host to resolve one
+ * from.
  */
 function parseBakedCallingThreadId(request: AgentSessionRequest): string | undefined {
 	if (!request.payloadJson) return undefined;

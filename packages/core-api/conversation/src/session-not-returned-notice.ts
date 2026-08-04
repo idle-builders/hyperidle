@@ -38,8 +38,10 @@ async function reactToSessionNotReturned(
 	db: HyperIdleDb,
 	event: SessionNotReturnedEvent,
 ): Promise<void> {
-	// No calling thread (e.g. a task_run session, sourceCorrelation is
-	// {taskId, teamId}) — there is nowhere to post; no-op, per Decision 5.
+	// No BAKED calling thread — only a routine_run session reaches this: it
+	// has no thread host to resolve one from at emit time, and (unlike
+	// `reply`'s own call-time fallback to a direct thread) this reaction has
+	// no agent-facing call to fall back from — no-op, per Decision 5.
 	if (!event.callingThreadId) return;
 
 	const now = new Date().toISOString();

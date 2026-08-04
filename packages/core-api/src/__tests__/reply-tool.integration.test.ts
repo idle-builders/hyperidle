@@ -5,8 +5,10 @@
  * seam `send_message` uses (`POST /threads/:id/messages`) — never an
  * orchestration-side special write. Proven generically (a `task_run`-style
  * session posting into its task's thread), not assistant-specific.
- * AC-7: a session with no calling thread (`routine_run`/`knowledge_action`)
- * gets a clean typed error, never a crash.
+ * AC-7 (superseded, 2026-08-04): a session with no calling thread
+ * (`routine_run`) falls back to a direct thread with the sole human user —
+ * `reply` always lands somewhere, it never returns a typed "nowhere to
+ * post" error.
  */
 import * as os from "node:os";
 import * as path from "node:path";
@@ -139,27 +141,88 @@ describe("reply tool", () => {
 		});
 	});
 
-	describe("AC-7: no calling thread — clean typed error, never a crash", () => {
-		test("returns NO_CALLING_THREAD when ctx.threadId is absent (routine_run/knowledge_action)", async ({
+	describe("AC-7 (superseded): no calling thread — falls back to a direct thread with the human", () => {
+		test("a routine_run-style session (no ctx.threadId) lands its reply in a direct thread with the sole human", async ({
 			db,
 		}) => {
+			const now = new Date().toISOString();
+			await db.insert(users).values({
+				id: "founder-reply-fallback",
+				kind: "human",
+				name: "Founder",
+				role: "founder",
+				status: "active",
+				maxConcurrentSessions: 1,
+				createdAt: now,
+			});
 			await db.insert(users).values({
 				id: "agent-reply-no-thread",
 				name: "Agent",
 				role: "builder",
 				status: "active",
 				maxConcurrentSessions: 2,
-				createdAt: new Date().toISOString(),
+				createdAt: now,
 			});
 
 			const result = await replyTool.handler(
-				{ text: "Nowhere to post this." },
+				{ text: "Routine finished; nowhere baked to post this." },
 				makeContext(db, { agentId: "agent-reply-no-thread" }),
 			);
 
-			expect(result.success).toBe(false);
-			if (result.success) return;
-			expect(result.code).toBe("NO_CALLING_THREAD");
+			expect(result.success).toBe(true);
+			if (!result.success) return;
+			const data = result.data as { messageId: string; threadId: string };
+
+			const [thread] = await db.select().from(threads).where(eq(threads.id, data.threadId));
+			expect(thread).toBeDefined();
+			const participants = JSON.parse(thread?.participants ?? "[]") as string[];
+			expect(participants).toContain("agent-reply-no-thread");
+			expect(participants).toContain("founder-reply-fallback");
+
+			const [inserted] = await db.select().from(messages).where(eq(messages.id, data.messageId));
+			expect(inserted?.senderId).toBe("agent-reply-no-thread");
+			expect(inserted?.threadId).toBe(data.threadId);
+			const payload = JSON.parse(inserted?.payload ?? "{}") as { text?: string };
+			expect(payload.text).toBe("Routine finished; nowhere baked to post this.");
+		});
+
+		test("a second reply from the same thread-less agent reuses the same direct thread", async ({
+			db,
+		}) => {
+			const now = new Date().toISOString();
+			await db.insert(users).values({
+				id: "founder-reply-fallback-2",
+				kind: "human",
+				name: "Founder",
+				role: "founder",
+				status: "active",
+				maxConcurrentSessions: 1,
+				createdAt: now,
+			});
+			await db.insert(users).values({
+				id: "agent-reply-no-thread-2",
+				name: "Agent",
+				role: "builder",
+				status: "active",
+				maxConcurrentSessions: 2,
+				createdAt: now,
+			});
+
+			const first = await replyTool.handler(
+				{ text: "First routine reply." },
+				makeContext(db, { agentId: "agent-reply-no-thread-2" }),
+			);
+			const second = await replyTool.handler(
+				{ text: "Second routine reply." },
+				makeContext(db, { agentId: "agent-reply-no-thread-2" }),
+			);
+
+			expect(first.success).toBe(true);
+			expect(second.success).toBe(true);
+			if (!(first.success && second.success)) return;
+			const firstData = first.data as { threadId: string };
+			const secondData = second.data as { threadId: string };
+			expect(secondData.threadId).toBe(firstData.threadId);
 		});
 	});
 

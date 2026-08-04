@@ -200,12 +200,18 @@ export function createUserRoutes(
 	// GET / — List all users with active session counts. Optional `teamMembersId`
 	// query param scopes the roster to one team (AU21 §9 Increment 2:
 	// `CoreApiPort.users.listUsersByTeam`'s backing filter — `users.teamId`
-	// actually stores `teamMembers.id`, per the AK4 two-hop lore).
+	// actually stores `teamMembers.id`, per the AK4 two-hop lore). Optional
+	// `kind` query param scopes to `users.kind` (AU27 Increment 1b —
+	// `CoreApiPort.users.findSoleHumanUser`'s backing filter: `reply`'s
+	// no-calling-thread fallback resolves the sole human this way).
 	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		const teamMembersId = c.req.query("teamMembersId");
-		const allUsers = teamMembersId
-			? await listUsers(db, { teamIds: [teamMembersId] })
-			: await listUsers(db);
+		const kind = c.req.query("kind");
+		const filter = {
+			...(teamMembersId ? { teamIds: [teamMembersId] } : {}),
+			...(kind ? { kind } : {}),
+		};
+		const allUsers = await listUsers(db, filter);
 		const activeSessions = await db.select().from(sessions).where(eq(sessions.state, "active"));
 
 		const result = allUsers.map((user) => ({

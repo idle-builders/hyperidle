@@ -182,7 +182,7 @@ describe("provisioner.run — ToolContext.threadId forwarded from params.calling
 		expect(captured.toolContext?.threadId).toBe("thread-provisioner-ctx-1");
 	});
 
-	test("a session with no baked callingThreadId gets no ToolContext.threadId (routine_run/knowledge_action)", async ({
+	test("a session with no baked callingThreadId gets no ToolContext.threadId (routine_run)", async ({
 		db,
 	}) => {
 		const now = new Date().toISOString();

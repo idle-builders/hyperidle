@@ -151,14 +151,22 @@ type ReplyInput = z.infer<typeof replyInputSchema>;
  * (`ports.coreApi.insertMessage`, backed by `POST /threads/:id/messages`) —
  * never an orchestration-side special write. Available to every agent kind
  * (no `roles` filter) — this is how the assistant answers, but any agent
- * kind with a calling thread (task_run/session_start/reengagement) can use
- * it too.
+ * kind with a calling thread (task_run/session_start/reengagement/
+ * knowledge_action) can use it too.
  *
  * Deliberately narrower than `send_message`: NO thread argument. `reply`
- * always posts to `ctx.threadId` (the session's own calling thread, baked at
- * emit — Increment 1) — this is what makes the tool mean "answer whoever
- * triggered you" and removes a whole class of loop (an agent replying into
- * an arbitrary thread it does not own).
+ * always posts to `ctx.threadId` when one exists (the session's own calling
+ * thread, baked at emit — Increment 1) — this is what makes the tool mean
+ * "answer whoever triggered you" and removes a whole class of loop (an agent
+ * replying into an arbitrary thread it does not own).
+ *
+ * @lore AU27 — `reply` always lands somewhere. A session with no baked
+ * calling thread (routine_run, and any future kind that emits without a
+ * thread host) falls back to a direct thread with the sole human user — the
+ * SAME `findOrCreateDirectThread` machinery `send_message` already uses,
+ * over the SAME `CoreApiPort` seam, never an orchestration-side write. Only
+ * a system with literally no human user row (never true in a real seeded
+ * team) leaves `reply` with nowhere to post.
  */
 function makeReplyTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<ReplyInput, TDb> {
 	return {
@@ -166,7 +174,8 @@ function makeReplyTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<ReplyInput
 		description:
 			"Post a message into the conversation this session was started for. This is how you answer " +
 			"the person or agent who triggered you. Takes no thread argument — it always posts to your " +
-			"own calling thread.",
+			"own calling thread (or, when the session has none, to a direct thread with the team's " +
+			"human).",
 		inputSchema: replyInputSchema,
 		// @lore AU27 C11 (Decision 1): `reversibility: "reversible"` is required,
 		// not decorative. `classifyReversibility` fails CLOSED to "irreversible"
@@ -176,23 +185,29 @@ function makeReplyTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<ReplyInput
 		handler: async (args, ctx) => {
 			const parsed = replyInputSchema.safeParse(args);
 			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
-			if (!ctx.threadId) {
-				return err(
-					"NO_CALLING_THREAD",
-					"This session has no calling thread, so there is nothing to reply to. Use " +
-						"create_item, write_memory, or create_artifact to record your result instead.",
-				);
+
+			let threadId = ctx.threadId;
+			if (!threadId) {
+				const human = await ports.coreApi.findSoleHumanUser(ctx.agentId);
+				if (!human) {
+					return err(
+						"NO_REPLY_RECIPIENT",
+						"This session has no calling thread, and no human user exists to fall back to.",
+					);
+				}
+				({ id: threadId } = await ports.coreApi.findOrCreateDirectThread(human.id, ctx.agentId));
 			}
+
 			const created = await ports.coreApi.insertMessage(
 				{
-					threadId: ctx.threadId,
+					threadId,
 					type: "plain",
 					payload: { text: parsed.data.text },
 					clientKey: crypto.randomUUID(),
 				},
 				ctx.agentId,
 			);
-			return ok({ messageId: created.id, threadId: ctx.threadId });
+			return ok({ messageId: created.id, threadId });
 		},
 	};
 }
