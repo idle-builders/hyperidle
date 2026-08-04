@@ -344,18 +344,30 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		expect(task?.state).toBe("in_progress");
 	});
 
-	test("does NOT transition task when other sessions are still active", async ({
+	/**
+	 * @lore AU26 J2: the "is another run still active on this task" guard is
+	 * DELETED — with it, core-api's last policy-side read of the `sessions` table.
+	 * The state it defended is not reachable through any normal path (a run
+	 * request is only created when a task enters `accepted`, and the lifecycle
+	 * grammar has no edge from `in_progress` back to `accepted`; a handoff closes
+	 * the old run and opens the new one in ONE transaction). A completed run now
+	 * moves its task to review on the event alone. If the contrived two-live-runs
+	 * state ever occurs, the second run's end sees a task that is no longer
+	 * `in_progress` and quietly does nothing (the branch below), and `review ->
+	 * in_progress` is a legal move anyone can make.
+	 */
+	test("transitions task to review on a completed run even with a sibling run still active", async ({
 		db,
 		eventBus,
 	}) => {
 		await seedBase(db);
-		// Arrange: two sessions, session-1 active, session-2 also active
+		// Arrange: two sessions on one task, both active
 		await seedTask(db, "task-1", "in_progress");
 		await seedSession(db, "session-1", "task-1", "active");
 		await seedSession(db, "session-2", "task-1", "active");
 		unsubscribe = registerPolicy(db, eventBus, policyDeps);
 
-		// Act: session-1 ends completed, but session-2 still active
+		// Act: session-1 ends completed while session-2 is still active
 		eventBus.emit({
 			type: "session_ended",
 			streamId: "session-1",
@@ -366,16 +378,16 @@ describe("registerLifecyclePropagation — session -> task", () => {
 			outcome: "completed",
 		});
 
-		// Assert: task still in_progress (session-2 is still running) — wait for handler to finish
+		// Assert: the sibling does not block — the task reaches review.
 		await vi.waitFor(async () => {
-			const logs = await db
-				.select()
-				.from(propagationLog)
-				.where(eq(propagationLog.status, "skipped"));
-			expect(logs.length).toBeGreaterThanOrEqual(1);
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
+			expect(task?.state).toBe("review");
 		});
-		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
-		expect(task?.state).toBe("in_progress");
+		const skipped = await db
+			.select()
+			.from(propagationLog)
+			.where(eq(propagationLog.status, "skipped"));
+		expect(skipped).toHaveLength(0);
 	});
 
 	test("does NOT transition task when task is NOT in_progress (already moved)", async ({

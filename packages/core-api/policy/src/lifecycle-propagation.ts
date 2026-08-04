@@ -1,11 +1,6 @@
 /** Reactive lifecycle propagation with durable retry logging. */
 
-import {
-	type HyperIdleDb,
-	type NewPropagationLogRow,
-	propagationLog,
-	sessions,
-} from "@hyperidle/db";
+import { type HyperIdleDb, type NewPropagationLogRow, propagationLog } from "@hyperidle/db";
 import {
 	type BetStateChangedEvent,
 	type BetStatus,
@@ -20,7 +15,7 @@ import {
 	type TaskState,
 	type TaskStateChangedEvent,
 } from "@hyperidle/shared";
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { PolicyDeps } from "./ports.js";
 
 type LifecyclePropagationDeps = Pick<
@@ -285,22 +280,20 @@ async function propagateSessionToTask(
 		return;
 	}
 
-	// Check for other active sessions on this task (exclude the current session)
-	const otherActiveSessions = await db
-		.select()
-		.from(sessions)
-		.where(
-			and(eq(sessions.taskId, taskId), eq(sessions.state, "active"), ne(sessions.id, sessionId)),
-		);
-
-	if (otherActiveSessions.length > 0) {
-		await log({
-			status: "skipped",
-			targetTransition: null,
-			failureReason: `${otherActiveSessions.length} other active session(s) still running`,
-		});
-		return;
-	}
+	// @lore AU26 J2: the "is another run still active on this task" guard is
+	// DELETED, and with it core-api's last policy-side read of `sessions` (an
+	// `agent-orchestration` table). It defended a state no normal path produces:
+	// a run request is only created when a task enters `accepted`
+	// (`work/src/task-state-machine.ts`), and the lifecycle grammar
+	// (`shared/src/task-transition.ts`) has no edge from `in_progress` back to
+	// `accepted`; a handoff closes the old run and opens the new one in ONE
+	// transaction (`handoff-protocol.ts:121`), so the abandoned run is already
+	// `done` and never reaches this code (`endRunForHandoff` takes no event bus,
+	// and the later `endSession` is conditional on the row still being `active`).
+	// If the contrived two-live-runs state ever does occur, the second run's end
+	// sees a task that is no longer `in_progress` and quietly does nothing, and
+	// `review -> in_progress` is a legal move anyone can make. No replacement
+	// event, no counter, no downward call.
 
 	// Transition task to review
 	try {
