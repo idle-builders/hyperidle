@@ -1,7 +1,6 @@
-import { requireBoundary } from "@hyperidle/shared/http";
+import { requireBoundary, validateBody } from "@hyperidle/shared/http";
 import type { Hono } from "hono";
 import z from "zod";
-import { validateBody } from "../middleware/validate.js";
 
 const testBodySchema = z.object({
 	name: z.string(),

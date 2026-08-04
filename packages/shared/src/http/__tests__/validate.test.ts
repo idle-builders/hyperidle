@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { validateBody } from "../middleware/validate.js";
+import { validateBody } from "../index.js";
 
 /** Helper: build a mini Hono app that accepts POST /test with a given schema. */
 function buildApp(schema: z.ZodTypeAny): Hono {

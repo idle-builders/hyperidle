@@ -1,10 +1,11 @@
+import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";
 import { registerAssistantThreadPinReaction } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { type DbFixtures, test as dbTest } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/shared";
 import { findUser } from "@hyperidle/users";
 import type { Hono } from "hono";
-import { createApp, disposeApp } from "./app.js";
+import { createCoreApiApp, disposeApp } from "./app.js";
 import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
 import { registerAssistantTurnCoherenceTrigger } from "./services/assistant-turn-coherence-trigger.js";
 
@@ -45,8 +46,17 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 		unregisterPin();
 		unregister();
 	},
+	// @lore AU26 B1a: the fixture is an Application — it boots BOTH Layers and
+	// mounts the second into core-api's `/api` router, exactly as
+	// `server-factory.ts` does. Without this the four `/api/sessions` routes that
+	// moved onto agent-orchestration's app would 404 for every fixture-based
+	// test. `bootAgentOrchestration`'s teardown rides `disposeApp`'s bag.
 	app: async ({ db, eventBus }, use) => {
-		const app = await createApp({ db, eventBus });
+		const app = await createCoreApiApp({
+			db,
+			eventBus,
+			agentOrchestration: bootAgentOrchestration({ db, eventBus }),
+		});
 		await use(app);
 		disposeApp(app);
 	},

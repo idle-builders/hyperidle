@@ -64,12 +64,11 @@ import {
 	scopeKindToLabel,
 	scopeToLayer,
 } from "@hyperidle/shared";
-import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
+import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/shared/http";
 import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";
-import { validateBody } from "../middleware/validate.js";
 import { resolveOrCreateKnowledgeCallingThread } from "../services/calling-thread-bindings.js";
 
 /**

@@ -1,10 +1,15 @@
 import { zValidator } from "@hono/zod-validator";
-import type { ApiErrorResponse } from "@hyperidle/shared";
-import { API_ERROR_CODES } from "@hyperidle/shared";
 import type { Context, Env, MiddlewareHandler } from "hono";
 import type { z } from "zod";
+import { API_ERROR_CODES, type ApiErrorResponse } from "../api-types.js";
 
 /**
+ * @lore AU26 B1a: moved from `packages/core-api/src/middleware/validate.ts`.
+ * A route file on EITHER app must be able to validate a body without importing
+ * the other Layer — `agent-orchestration`'s `PATCH /api/sessions/:id` is the
+ * first non-core-api caller. Pure relocation; the runtime behaviour and the
+ * 400 `ApiErrorResponse` shape are byte-identical.
+ *
  * @lore AF4 (build/verify): The AF1 typecheck gate (scripts/typecheck-gate.ts)
  * runs `tsc --noEmit -p` per package. server/web are project-`references`
  * consumers of shared+db and DO need the leaves' emitted `dist/*.d.ts` present:

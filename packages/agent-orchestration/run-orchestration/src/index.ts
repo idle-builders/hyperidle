@@ -30,6 +30,7 @@ export type {
 	RuntimeHandle,
 	RuntimePorts,
 } from "./contracts.js";
+export { type CreateBareRunInput, createBareRun } from "./create-bare-run.js";
 export type { FileWatcher, FileWatcherConfig } from "./file-watcher.js";
 export { startWatcher } from "./file-watcher.js";
 export {

@@ -1,7 +1,7 @@
 import type { MiddlewareHandler } from "hono";
 import { describe, expect, expectTypeOf, test } from "vitest";
 import { z } from "zod";
-import type { validateBody } from "./validate.js";
+import type { validateBody } from "../validate.js";
 
 /**
  * AF4 / AC2 — route-boundary payload soundness (RED phase).

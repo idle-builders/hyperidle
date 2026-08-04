@@ -1,8 +1,8 @@
 import { describe } from "vitest";
 import type { AppOptions } from "../app.js";
-import { createApp } from "../app.js";
 import { registerAgentLayerServices, registerCoreDomainServices } from "../server-factory.js";
 import { expect, test, vi } from "../test-fixtures.js";
+import { createTestApp } from "../test-utils.js";
 
 /**
  * AU11: former app-runtime `bootstrapAppRuntime` split into two owner-scoped
@@ -323,27 +323,27 @@ describe("O3 AC-6: AppOptions.serviceBootstrap type field", () => {
 });
 
 describe("O3 AC-8: kernel-only boot (no serviceBootstrap)", () => {
-	test("createApp() without any options boots without throwing", async () => {
-		await expect(createApp()).resolves.not.toThrow();
+	test("createTestApp() without any options boots without throwing", async () => {
+		await expect(createTestApp()).resolves.not.toThrow();
 	}, 120_000);
 
-	test("createApp({ serviceBootstrap: undefined }) boots without throwing", async () => {
-		await expect(createApp({ serviceBootstrap: undefined })).resolves.not.toThrow();
+	test("createTestApp({ serviceBootstrap: undefined }) boots without throwing", async () => {
+		await expect(createTestApp({ serviceBootstrap: undefined })).resolves.not.toThrow();
 	}, 120_000);
 
 	test("GET /api/health returns 200 in kernel-only mode", async () => {
-		const app = await createApp({ serviceBootstrap: undefined });
+		const app = await createTestApp({ serviceBootstrap: undefined });
 		const res = await app.request("/api/health");
 		expect(res.status).toBe(200);
 	}, 120_000);
 });
 
 describe("O3 AC-9: full boot with registerCoreDomainServices + registerAgentLayerServices", () => {
-	test("createApp({ db, eventBus, serviceBootstrap: fullServiceBootstrap }) boots without throwing", async ({
+	test("createTestApp({ db, eventBus, serviceBootstrap: fullServiceBootstrap }) boots without throwing", async ({
 		db,
 		eventBus,
 	}) => {
-		const app = await createApp({ db, eventBus, serviceBootstrap: fullServiceBootstrap });
+		const app = await createTestApp({ db, eventBus, serviceBootstrap: fullServiceBootstrap });
 
 		void app?.request("/api/health");
 	}, 120_000);
@@ -352,7 +352,7 @@ describe("O3 AC-9: full boot with registerCoreDomainServices + registerAgentLaye
 		db,
 		eventBus,
 	}) => {
-		const app = await createApp({ db, eventBus, serviceBootstrap: fullServiceBootstrap });
+		const app = await createTestApp({ db, eventBus, serviceBootstrap: fullServiceBootstrap });
 		const res = await app.request("/api/health");
 		expect(res.status).toBe(200);
 	}, 120_000);

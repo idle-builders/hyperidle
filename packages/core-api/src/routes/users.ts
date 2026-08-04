@@ -29,13 +29,13 @@ import {
 	constantTimeStringEqual,
 	type HyperIdleEnv,
 	requireBoundary,
+	validateBody,
 } from "@hyperidle/shared/http";
 import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
-import { validateBody } from "../middleware/validate.js";
 import { createAssistantSoulRoutes } from "./assistant.js";
 
 // AU19 Increment 1c: `org`'s `OrgUserDirectory` port (Mechanism C), wired to

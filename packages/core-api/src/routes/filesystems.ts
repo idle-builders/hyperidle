@@ -26,12 +26,11 @@ import type {
 } from "@hyperidle/shared";
 import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/shared";
 import { createGitRunner } from "@hyperidle/shared/git";
-import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
+import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/shared/http";
 import { findUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import { z } from "zod";
 import { createBodyLimit } from "../middleware/body-limit.js";
-import { validateBody } from "../middleware/validate.js";
 
 // ─── Validation schemas ───────────────────────────────────────────────────────
 

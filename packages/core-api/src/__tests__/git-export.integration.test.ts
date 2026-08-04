@@ -55,8 +55,9 @@ import { afterEach, beforeEach, describe, vi } from "vitest";
 type FsAdapter = NonNullable<RunGitExportDeps["fs"]>;
 type ExportPlanEntry = Awaited<ReturnType<typeof computeExportPlan>>["entries"][number];
 
-import { createApp, disposeApp } from "../app.js";
+import { disposeApp } from "../app.js";
 import { expect, test } from "../test-fixtures.js";
+import { createTestApp } from "../test-utils.js";
 
 const serverConfig = { read: readServerConfig, update: updateServerConfig };
 const knowledgeReader = {
@@ -1273,7 +1274,7 @@ describe("registerGitExportHandler", () => {
 });
 
 /**
- * End-to-end wiring proof for AC1. The production `createApp()` path MUST
+ * End-to-end wiring proof for AC1. The production `createTestApp()` path MUST
  * attach a runner such that an emitted `knowledge_updated` event triggers
  * an export — not just the FakeGitRunner-wired unit tests above. We prove
  * this by injecting `gitRunnerFactory` and observing that the event bus,
@@ -1301,7 +1302,7 @@ describe("createApp -> git-export wiring (AC1 production path)", () => {
 
 		const factoryCalls: string[] = [];
 		const runner = new FakeGitRunner(REPO);
-		const app = await createApp({
+		const app = await createTestApp({
 			db,
 			eventBus,
 			// O3: gitRunnerFactory moved out of AppOptions. Use serviceBootstrap

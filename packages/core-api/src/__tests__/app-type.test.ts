@@ -28,11 +28,11 @@ describe("E1. AppType is exported from app.ts", () => {
 		// AppType is a `typeof apiRoutes` export — the implementation
 		// must call `export type AppType = typeof apiRoutes` in app.ts.
 		const mod = await import("../app.js");
-		// app.ts currently exports: app, createApp, disposeApp, AppOptions
+		// app.ts currently exports: createCoreApiApp, disposeApp, AppOptions
 		// After implementation it must also export AppType (as a type).
 		// We verify the module loads — type exports are compile-time only.
 		expect(mod).toBeDefined();
-		expect(mod.createApp).toBeDefined();
+		expect(mod.createCoreApiApp).toBeDefined();
 		// The implementation will add: export type AppType = typeof apiRoutes
 		// We can't assert a type at runtime — the type-level test is in the
 		// TypeScript compilation (bun run check).

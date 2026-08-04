@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { type ServerType, serve, upgradeWebSocket } from "@hono/node-server";
+import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";
 import { readAgentRunConfigs } from "@hyperidle/agent-run-config";
 import {
 	type CredentialResolver,
@@ -91,7 +92,8 @@ import { getTaskRiskTierByTaskId } from "@hyperidle/work";
 import { and, inArray, lt } from "drizzle-orm";
 import { WebSocketServer } from "ws";
 import { attachRelevanceListener } from "../knowledge/src/relevance-listener.js";
-import { createApp, disposeApp } from "./app.js";
+import { disposeApp } from "./app.js";
+import { bootCoreApi } from "./boot.js";
 import { registerWsRoute } from "./routes/ws.js";
 import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
 import { registerAssistantTurnCoherenceTrigger } from "./services/assistant-turn-coherence-trigger.js";
@@ -107,7 +109,6 @@ import {
 	registerBuiltinRoutineReactions,
 	startRoutineScheduler,
 } from "./services/routine-scheduler-bindings.js";
-import { registerSessionActivityGateway } from "./services/session-activity-gateway.js";
 import { registerWorkSessionEndReactions } from "./services/work-session-end-reactions.js";
 import { registerWorkSessionStartedReactions } from "./services/work-session-started-reactions.js";
 import { registerWorkStatePushGateway } from "./services/work-state-push-gateway.js";
@@ -1099,7 +1100,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// (`routes/threads.ts`), and this same `startRuntime` poller (wired
 	// above) drains it like every other kind's intent — one wiring path.
 	let wsDispose: (() => void) | null = null;
-	let sessionActivityGatewayDispose: (() => void) | null = null;
 
 	// AU21 §6 Decision L4 / §9 Increment 14d: the hub is built ONCE, here,
 	// and shared between (a) the WS route + session-activity gateway wired
@@ -1125,7 +1125,21 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// concern, registered once here rather than per-request.
 	const workStatePushGatewayDispose = registerWorkStatePushGateway(eventBus, wsHub);
 
-	const app = await createApp({
+	// @lore S2-F01: the worker WS route is registered BEFORE the auth middleware
+	// so remote workers can authenticate via HYPERIDLE_WORKER_TOKEN on the query
+	// string without a user API key. It rides `bootAgentOrchestration`'s
+	// `registerPreAuthRoutes` now — the socket is `run-orchestration`'s, so the
+	// hook belongs to that Layer's boot rather than to core-api's `AppOptions`.
+	const agentOrchestration = bootAgentOrchestration({
+		db,
+		eventBus,
+		broadcast: wsHub,
+		registerWorkerWebSocket: (apiRouter) => {
+			runRuntime.registerWorkerWebSocket(apiRouter, upgradeWebSocket);
+		},
+	});
+
+	const { app } = await bootCoreApi({
 		db,
 		eventBus,
 		wsHub,
@@ -1175,23 +1189,19 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		registerWebSocket: (apiRouter, tokenStore) => {
 			// L1 step9 (Adv-C1): production WS subscribe must enforce participant
 			// authz on `thread:<id>` topics — already baked into `wsHub` above.
-			// AU21 §6 Decision E / §9 Increment 7: the (c) session/harness-
-			// streaming forward relocated OUT of the connection hub's own route
-			// table into this dedicated gateway — agent-orchestration's
-			// gateway/router role over the events that also feed the
-			// relocated `SessionActivityBuffer` (`@hyperidle/agent-execution`).
-			// Drives the SAME hub's `broadcast()` from the outside.
-			sessionActivityGatewayDispose = registerSessionActivityGateway(eventBus, wsHub);
+			// @lore AU26 B1a: the session-activity gateway used to be registered
+			// here too. It moved into `bootAgentOrchestration` — it is the owning
+			// Layer's own live tee of `session_started`/`session_ended`/
+			// `tool_call_recorded`. The Application still supplies the sink: the
+			// SAME `wsHub`, passed in as the one-method `{ broadcast }` port, so
+			// there is still exactly one WS listener and one topic space (§D-E).
 			wsDispose = registerWsRoute(apiRouter, tokenStore, upgradeWebSocket, wsHub);
 		},
-		/**
-		 * @lore S2-F01: Worker WS route registered BEFORE auth middleware so remote
-		 * workers can authenticate via HYPERIDLE_WORKER_TOKEN query param without
-		 * needing a user API key. Same placement pattern as the user WS route.
-		 */
-		registerWorkerWebSocket: (apiRouter) => {
-			runRuntime.registerWorkerWebSocket(apiRouter, upgradeWebSocket);
-		},
+		// AU26 B1a: the other Layer, booted and handed in. The Application decides
+		// to put agent-orchestration's routes behind this middleware stack — only
+		// an Application may. B1b inverts this: the Application will own the `/api`
+		// router and mount both apps itself.
+		agentOrchestration,
 		/**
 		 * @lore X2: MCP route registered BEFORE auth middleware — MCP clients
 		 * authenticate via the 64-char hex session token in the URL, not X-API-Key.
@@ -1257,9 +1267,10 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 				const disposeWebSocket = wsDispose;
 				wsDispose = null;
 				disposeWebSocket?.();
-				const disposeSessionActivityGateway = sessionActivityGatewayDispose;
-				sessionActivityGatewayDispose = null;
-				disposeSessionActivityGateway?.();
+				// @lore AU26 B1a: the session-activity gateway is torn down by the
+				// `app-domain` phase above — `bootAgentOrchestration`'s `dispose`
+				// rides `disposeApp`'s disposer bag, so the owning Layer's teardown
+				// travels with the app it was mounted into.
 				workStatePushGatewayDispose();
 			});
 			await runPhase(

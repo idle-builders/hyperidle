@@ -20,6 +20,7 @@ import type {
 	AgentOrchestrationPort,
 	AgentOrchestrationSessionActivityEntry,
 	AgentOrchestrationSessionHistoryEntry,
+	AgentOrchestrationSessionWireRow,
 	AgentOrchestrationTransport,
 } from "@hyperidle/api-contract";
 import type { Hono } from "hono";
@@ -38,6 +39,7 @@ interface AgentOrchestrationHcClient {
 				readonly query: { readonly sourceKind: string; readonly sourceId: string };
 			}): Promise<Response>;
 			readonly ":sessionId": {
+				$get(args: { readonly param: { readonly sessionId: string } }): Promise<Response>;
 				readonly activity: {
 					$get(args: { readonly param: { readonly sessionId: string } }): Promise<Response>;
 				};
@@ -108,6 +110,25 @@ export function buildAgentOrchestrationPort(
 					readonly entries: ReadonlyArray<AgentOrchestrationSessionHistoryEntry>;
 				};
 				return body.entries;
+			},
+
+			/**
+			 * @lore AU26 B1a (AC5(d)): returns the FULL 18-column wire row, never
+			 * the seven-field decoration narrowing — `POST /api/sessions`'s 202
+			 * branch returns whatever this yields verbatim. A 404 from the backing
+			 * route is the "no such session" answer, not a seam failure, so it
+			 * resolves `null` instead of throwing.
+			 */
+			async getById(sessionId: string): Promise<AgentOrchestrationSessionWireRow | null> {
+				const res = await client["agent-orchestration"].sessions[":sessionId"].$get({
+					param: { sessionId },
+				});
+				if (res.status === 404) return null;
+				if (!res.ok) return throwSeamError("sessions.getById", res);
+				const body = (await res.json()) as {
+					readonly session: AgentOrchestrationSessionWireRow;
+				};
+				return body.session;
 			},
 
 			async getRecentActivity(

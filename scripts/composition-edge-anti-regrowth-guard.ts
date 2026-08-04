@@ -478,6 +478,71 @@ export function inspect(
 	return findings;
 }
 
+/**
+ * AU26 B1a (AC5(a)) — the route-import half of the boundary.
+ *
+ * `inspect()` above catches an `agent-orchestration -> core-api` DATA edge. This
+ * catches the opposite-direction, opposite-kind regression the two-app split
+ * creates: `core-api` reaching back into the other Layer's HTTP surface.
+ *
+ * `core-api -> agent-orchestration` is the permitted DIRECTION (§D-A rule 3) —
+ * `app.ts` legitimately depends on `@hyperidle/session-requests`, and
+ * `server-factory.ts` legitimately imports `bootAgentOrchestration` from the
+ * Layer barrel. What is never legitimate is core-api importing a **route
+ * module**: an Application mounts `boot.app`, so a core-api file naming a file
+ * under `packages/agent-orchestration/**\/routes/**` means the mount got
+ * re-inlined and the two apps collapsed back into one. Before B1a
+ * `packages/core-api/src/app.ts:36` did exactly that
+ * (`./routes/agent-orchestration-sessions-routes.js`, when the module still
+ * lived in core-api); the AC is that no such import comes back, from either
+ * side of the package boundary.
+ */
+export interface RouteImportFinding {
+	readonly file: string;
+	readonly specifier: string;
+}
+
+const IMPORT_SPECIFIER = /\bfrom\s+["']([^"']+)["']|\bimport\s*\(\s*["']([^"']+)["']/g;
+
+function listTsFiles(dir: string, out: string[] = []): string[] {
+	if (!existsSync(dir)) return out;
+	for (const entry of readdirSync(dir, { withFileTypes: true })) {
+		if (entry.name === "node_modules" || entry.name === "dist") continue;
+		const abs = join(dir, entry.name);
+		if (entry.isDirectory()) listTsFiles(abs, out);
+		else if (entry.name.endsWith(".ts") || entry.name.endsWith(".tsx")) out.push(abs);
+	}
+	return out;
+}
+
+/**
+ * Every `packages/core-api/**` file importing a module under
+ * `packages/agent-orchestration/**\/routes/**` — by relative path or by a
+ * package subpath ending in `/routes/...`.
+ */
+export function inspectRouteImports(root: string): RouteImportFinding[] {
+	const findings: RouteImportFinding[] = [];
+	for (const file of listTsFiles(join(root, "packages", "core-api"))) {
+		const source = readFileSync(file, "utf8");
+		IMPORT_SPECIFIER.lastIndex = 0;
+		let match = IMPORT_SPECIFIER.exec(source);
+		while (match !== null) {
+			const specifier = match[1] ?? match[2] ?? "";
+			const reachesOrchestrationRoutes =
+				/(^|\/)agent-orchestration(\/.*)?\/routes\//.test(specifier) ||
+				(specifier.startsWith(".") &&
+					/(^|\/)agent-orchestration(\/.*)?\/routes\//.test(
+						join(dirname(file), specifier).replace(root, ""),
+					));
+			if (reachesOrchestrationRoutes) {
+				findings.push({ file: file.replace(`${root}/`, ""), specifier });
+			}
+			match = IMPORT_SPECIFIER.exec(source);
+		}
+	}
+	return findings;
+}
+
 // --- fixtures -----------------------------------------------------------------
 
 function writeFixture(root: string, rel: string, source: string): void {
@@ -789,6 +854,24 @@ function buildSeamGroupFixture(root: string): void {
 	);
 }
 
+
+/**
+ * Scenario 7 — AU26 B1a (AC5(a)): a core-api file importing an
+ * agent-orchestration ROUTE module must fire.
+ */
+function buildRouteImportFixture(root: string): void {
+	writeFixture(
+		root,
+		"packages/agent-orchestration/src/routes/sessions.ts",
+		"export function createOrchestrationSessionRoutes(): number {\n  return 1;\n}\n",
+	);
+	writeFixture(
+		root,
+		"packages/core-api/src/app.ts",
+		'import { createOrchestrationSessionRoutes } from "@hyperidle/agent-orchestration/src/routes/sessions.js";\nexport const app = createOrchestrationSessionRoutes;\n',
+	);
+}
+
 function fixtureCheck(): void {
 	// Scenario 1 — new raw ports.ts core-read must fire.
 	const rawPortRoot = mkdtempSync(join(tmpdir(), "au21-anti-regrowth-raw-port-"));
@@ -919,6 +1002,33 @@ function fixtureCheck(): void {
 		rmSync(seamGroupRoot, { recursive: true, force: true });
 	}
 
+	// Scenario 7 — AU26 B1a (AC5(a)): the route-import check must fire on a
+	// core-api file importing an agent-orchestration route module, and must NOT
+	// fire on the sanctioned Layer-barrel import an Application makes.
+	const routeImportRoot = mkdtempSync(join(tmpdir(), "au26-b1a-route-import-"));
+	try {
+		buildRouteImportFixture(routeImportRoot);
+		const findings = inspectRouteImports(routeImportRoot);
+		if (findings.length === 0) {
+			throw new Error(
+				"composition-edge-anti-regrowth-guard: a core-api import of an agent-orchestration route module must fire (AU26 B1a AC5(a)), got zero findings",
+			);
+		}
+		writeFixture(
+			routeImportRoot,
+			"packages/core-api/src/app.ts",
+			'import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";\nexport const boot = bootAgentOrchestration;\n',
+		);
+		const barrelOnly = inspectRouteImports(routeImportRoot);
+		if (barrelOnly.length > 0) {
+			throw new Error(
+				`composition-edge-anti-regrowth-guard: the Layer-barrel import an Application makes must NOT fire, got ${JSON.stringify(barrelOnly)}`,
+			);
+		}
+	} finally {
+		rmSync(routeImportRoot, { recursive: true, force: true });
+	}
+
 	process.stdout.write("composition-edge-anti-regrowth-guard fixtures: PASS\n");
 }
 
@@ -929,8 +1039,16 @@ if (process.argv.includes("--fixtures")) {
 	for (const f of findings) {
 		process.stderr.write(`${f.consumer} -> ${f.provider} [${f.edgeKind}]: ${f.detail}\n`);
 	}
-	if (findings.length > 0) {
-		process.stderr.write(`composition-edge-anti-regrowth-guard: ${findings.length} finding(s)\n`);
+	const routeImports = inspectRouteImports(process.cwd());
+	for (const f of routeImports) {
+		process.stderr.write(
+			`core-api -> agent-orchestration route module: ${f.file} imports ${f.specifier}\n`,
+		);
+	}
+	if (findings.length + routeImports.length > 0) {
+		process.stderr.write(
+			`composition-edge-anti-regrowth-guard: ${findings.length + routeImports.length} finding(s)\n`,
+		);
 		process.exit(1);
 	}
 	process.stdout.write("composition-edge-anti-regrowth-guard: PASS\n");

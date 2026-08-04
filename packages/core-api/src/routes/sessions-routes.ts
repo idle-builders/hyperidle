@@ -1,11 +1,8 @@
 import { resolveInjectedConnectionsForAgent } from "@hyperidle/connections";
-import { type ExplicitSessionStart, type HyperIdleDb, sessions } from "@hyperidle/db";
+import type { ExplicitSessionStart, HyperIdleDb } from "@hyperidle/db";
 import { resolveInjectedFilesystemsForAgent } from "@hyperidle/filesystems";
-import {
-	createSessionRequest,
-	findSessionRequest,
-	sessionRunRegistry,
-} from "@hyperidle/session-requests";
+import { createBareRun } from "@hyperidle/run-orchestration";
+import { createSessionRequest, findSessionRequest } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import {
 	type AgentWorkIntentEvent,
@@ -13,29 +10,24 @@ import {
 	type AgentWorkIntentRecorder,
 	API_ERROR_CODES,
 	type EventBus,
-	type SessionEndedEvent,
-	type SessionOutcome,
-	type SessionStartedEvent,
 } from "@hyperidle/shared";
 import {
 	type HyperIdleEnv,
 	projectExplicitStartOutcome,
 	requireBoundary,
 	sendStartProjection,
+	validateBody,
 } from "@hyperidle/shared/http";
 import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { resolveSessionStartRequest } from "@hyperidle/work";
-import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
-import { validateBody } from "../middleware/validate.js";
 import {
 	buildAgentOrchestrationPort,
 	getRegisteredAgentOrchestrationTransport,
 } from "../services/agent-orchestration-port-composition.js";
 import { resolveOrCreateCallingThread } from "../services/calling-thread-bindings.js";
-import { transitionRun } from "../services/run-orchestration-composition.js";
 
 // @lore O2: harnessUrl, tokensInput, tokensOutput fields removed from session
 // schemas. Those columns were stripped from the sessions kernel table as part
@@ -55,42 +47,25 @@ const IDEMPOTENCY_KEY_PATTERN = /^[\x21-\x7e]{1,200}$/;
  * shared wire projection.
  *
  * @lore AU26 A1: the projection itself moved to `@hyperidle/shared/http`
- * (`projectExplicitStartOutcome`) because `GET /api/sessions/starts/:startId` moves
+ * (`projectExplicitStartOutcome`) because `GET /api/sessions/starts/:startId` moved
  * to the orchestration app while `POST /api/sessions` stays here — both render the
  * same 202/422/429/500 contract and neither app may import the other's routes. Only
  * the row READ stays per-caller: each side reads `sessions` its own legal way.
+ *
+ * @lore AU26 B1a (§D-H #16, AC5(d)): this side's legal way is
+ * `AgentOrchestrationPort.sessions.getById` — a Layer route reading the other
+ * Layer's data goes through the read door (§D-A rule 3), never a raw
+ * `db.select().from(sessions)`. `getById` returns the FULL 18-column wire row on
+ * purpose: the 202 branch returns it verbatim, so a narrowing here would silently
+ * drop 11 fields from a shipped response.
  */
-async function projectExplicitStart(db: HyperIdleDb, start: ExplicitSessionStart) {
+async function projectExplicitStart(start: ExplicitSessionStart) {
 	if (start.status === "admitted" && start.sessionId) {
-		const [session] = await db
-			.select()
-			.from(sessions)
-			.where(eq(sessions.id, start.sessionId))
-			.limit(1);
-		return projectExplicitStartOutcome(start, session ?? null);
+		const port = buildAgentOrchestrationPort(getRegisteredAgentOrchestrationTransport());
+		return projectExplicitStartOutcome(start, await port.sessions.getById(start.sessionId));
 	}
 	return projectExplicitStartOutcome(start, null);
 }
-
-const updateSessionSchema = z.object({
-	// @lore AC1 W-1: `state` is now optional. Previously it was REQUIRED, which
-	// caused effectiveness-only PATCHes (no `state` field) to fail Zod validation
-	// before reaching the handler. Making state optional allows the endpoint to
-	// update effectiveness_score without changing session state.
-	// When `state` is present, the session_ended event is emitted as before.
-	// When `state` is absent, only the effectiveness fields are written.
-	state: z.enum(["done", "crashed"]).optional(),
-	outcome: z.string().optional(),
-	notes: z.string().optional(),
-	/**
-	 * AC1: Session effectiveness score (float 0-1).
-	 *
-	 * @lore AC1 S-1: Validated as number at the API boundary (Zod min/max).
-	 * Stored as text in the DB (existing schema convention for non-integers).
-	 * Use .toString() on write, parseFloat() + Number.isNaN() guard on read.
-	 */
-	effectivenessScore: z.number().min(0).max(1).optional(),
-});
 
 /**
  * AU11 AC-2: `SessionRouteDeps` (AdapterPool/SandboxAdapter/McpBridgeRegistry-
@@ -105,157 +80,8 @@ const updateSessionSchema = z.object({
  * behavior (true iff the composition root wired an adapter pool).
  */
 
-/** Input for a state-changing PATCH (§4 abort-or-guarded-write). */
-interface StateChangePatchInput {
-	readonly sessionId: string;
-	readonly existing: typeof sessions.$inferSelect;
-	readonly state: "done" | "crashed";
-	readonly outcome?: string;
-	readonly notes?: string;
-	readonly effectivenessScore?: number;
-	readonly actor?: string;
-	readonly now: string;
-}
-
 /**
- * AF7 §4: apply a state-changing PATCH. The runtime is the sole terminal-state
- * writer for a running session, so this:
- *   - rejects (409) a PATCH on an already-terminal session (no desync, no double
- *     session_ended);
- *   - if a live runtime entry exists, ABORTS it and lets the runtime teardown do
- *     the terminal write + single session_ended emit;
- *   - otherwise does a CAS-guarded direct write (active→terminal only) and emits
- *     session_ended IFF the CAS affected a row (§4.3 rowcount invariant).
- * Returns a `{ status, body }` so the caller emits the response.
- */
-async function applyStateChangePatch(
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	input: StateChangePatchInput,
-): Promise<{ status: 200 | 202 | 409; body: unknown }> {
-	const { sessionId, existing, state, now, actor } = input;
-
-	// Guard: reject a PATCH that would move an already-terminal session.
-	if (existing.state !== "active") {
-		return {
-			status: 409,
-			body: {
-				error: `Session is already ${existing.state}; cannot transition via PATCH`,
-				code: API_ERROR_CODES.CONFLICT,
-			},
-		};
-	}
-
-	// If a live runtime entry exists, abort it — the runtime teardown performs the
-	// DB transition + session_ended emit exactly once. We do NOT write state here.
-	//
-	// @lore AF7 §4 M3: `abort()` only awaits the harness `stopSession`; the terminal
-	// DB write happens LATER, in the detached `runSession` teardown (the runtime is
-	// the SOLE terminal writer — §4.3). The row is therefore still `state:"active"`
-	// at this point, so we MUST NOT read it back and return it as the body — that
-	// would assert a stale terminal state the caller cannot trust. Instead we return
-	// 202 Accepted (in-flight abort acknowledged) and direct the caller to poll
-	// `GET /api/sessions/:id` for terminal convergence. We do NOT block on teardown
-	// here because that would couple the route to the harness's full stream drain.
-	if (sessionRunRegistry.has(sessionId)) {
-		if (!existing.requestId) {
-			return {
-				status: 409,
-				body: { error: "Active session has no agent request", code: API_ERROR_CODES.CONFLICT },
-			};
-		}
-		const termination = await transitionRun(db, eventBus, {
-			target: "request",
-			intent: "request-termination",
-			requestId: existing.requestId,
-			reason: state === "done" ? "user_done" : "user_crashed",
-			...(actor ? { requestedBy: actor } : {}),
-		});
-		if (termination === "conflict" || termination === "terminal") {
-			return {
-				status: 409,
-				body: { error: "Session termination already settled", code: API_ERROR_CODES.CONFLICT },
-			};
-		}
-		await sessionRunRegistry.abort(sessionId);
-		return {
-			status: 202,
-			body: {
-				sessionId,
-				state: "aborting",
-				message:
-					"Abort requested; the runtime is tearing the session down. Poll GET /api/sessions/:id for the terminal state.",
-			},
-		};
-	}
-
-	// Fallback: no running loop. Before the session CAS, persist/confirm the
-	// termination cause and terminalize the correlated request (if any) through
-	// the durable single terminal writer — the request/inbox side of the AC5
-	// contract does not depend on a live runtime existing to drive it.
-	if (existing.requestId) {
-		const reason: "user_done" | "user_crashed" = state === "done" ? "user_done" : "user_crashed";
-		const termination = await transitionRun(db, eventBus, {
-			target: "request",
-			intent: "request-termination",
-			requestId: existing.requestId,
-			reason,
-			...(actor ? { requestedBy: actor } : {}),
-		});
-		if (termination === "conflict" || termination === "terminal") {
-			return {
-				status: 409,
-				body: { error: "Session termination already settled", code: API_ERROR_CODES.CONFLICT },
-			};
-		}
-		await transitionRun(db, eventBus, {
-			target: "request",
-			intent: "terminalize",
-			requestId: existing.requestId,
-			state: reason === "user_done" ? "cancelled" : "failed",
-			sessionId,
-		});
-	}
-
-	// Fallback: no running loop. CAS-guarded direct write (active → terminal only).
-	const outcome: SessionOutcome = state === "crashed" ? "crashed" : "completed";
-	// W-1: a combined PATCH may carry effectivenessScore alongside state.
-	const stateUpdates: Record<string, unknown> = {
-		state,
-		outcome: input.outcome ?? outcome,
-		notes: input.notes,
-		endedAt: now,
-	};
-	if (input.effectivenessScore !== undefined) {
-		stateUpdates.effectivenessScore = input.effectivenessScore.toString();
-		stateUpdates.effectivenessRecordedAt = now;
-		stateUpdates.effectivenessRecordedBy = actor ?? existing.agentId;
-	}
-	const transitioned = await db
-		.update(sessions)
-		.set(stateUpdates)
-		.where(and(eq(sessions.id, sessionId), eq(sessions.state, "active")))
-		.returning({ id: sessions.id });
-
-	// Emit session_ended IFF we actually transitioned a row (CAS, §4.3).
-	if (transitioned.length > 0) {
-		eventBus.emit<"session_ended">({
-			type: "session_ended",
-			streamId: sessionId,
-			sessionId,
-			agentId: existing.agentId,
-			taskId: existing.taskId,
-			timestamp: Date.now(),
-			outcome,
-		} satisfies SessionEndedEvent);
-	}
-
-	const [updated] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
-	return { status: 200, body: updated };
-}
-
-/**
- * Create Hono routes for session endpoints (E6).
+ * Create core-api's one remaining session route: `POST /api/sessions`.
  *
  * @param durableStartEnabled - AU11 AC-2: true when the composition root has
  *   an adapter pool wired. When true, POST /sessions creates and consumes an
@@ -263,15 +89,16 @@ async function applyStateChangePatch(
  *   removal note above — this replaces the former `deps.adapterPool`
  *   presence check with a plain boolean, no harness type dependency).
  *
- * @lore AU21 §6 Decision E / §9 Increment 7: `GET /:id/activity` no longer
- * takes an injected `SessionActivityBuffer` reference — the buffer relocated
- * to `@hyperidle/agent-execution` (agent-orchestration/execution's real
- * home), and this core-api route now reads it THROUGH
- * `AgentOrchestrationPort.sessions.getRecentActivity`, the same kind of
- * cross-Layer seam other `AgentOrchestrationPort` reads use (AU21 Increment
- * 14a: `tasks.ts`'s per-session cost display, the seam's original sibling
- * example, is HARD-DELETED — no replacement). Wire format is unchanged —
- * `useSessionActivity.test.tsx` stays green.
+ * @lore AU26 B1a (§D-H #16): this file used to register five routes; four moved
+ * to `packages/agent-orchestration/src/routes/sessions.ts` (`GET /`,
+ * `GET /starts/:startId`, `GET /:id/activity`, `PATCH /:id`) at their unchanged
+ * paths. `POST /` stays because §D-A rule 3 gives a two-sided route exactly one
+ * legal host, and this one is two-sided: `work.get`'s 404 gate reads `tasks`,
+ * `resolveSessionStartRequest` bakes `users` + `server_config`, and the write
+ * side is `explicit_session_starts` + `agent_work_intents` + `sessions`. The
+ * file therefore sheds its `sessions` table import entirely — the row read goes
+ * through `AgentOrchestrationPort.sessions.getById` and the legacy bare insert
+ * through `run-orchestration`'s `createBareRun`.
  */
 /**
  * @lore AU19 §11 (AC-9): `agentWorkIntentRecorder`/`agentWorkIntentReader`
@@ -290,33 +117,6 @@ export function createSessionRoutes(
 	agentWorkIntentReader: AgentWorkIntentReader<HyperIdleDb>,
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
-
-	// GET / — List sessions with optional filtering by task_id, agent_id, state.
-	// @lore I6: replaces the bounded resource descriptor with actual filtering.
-	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
-		const taskId = c.req.query("task_id");
-		const agentId = c.req.query("agent_id");
-		const state = c.req.query("state");
-		const limit = Math.min(Number.parseInt(c.req.query("limit") ?? "50", 10) || 50, 200);
-		const offset = Number.parseInt(c.req.query("offset") ?? "0", 10) || 0;
-
-		const conditions = [];
-		if (taskId) conditions.push(eq(sessions.taskId, taskId));
-		if (agentId) conditions.push(eq(sessions.agentId, agentId));
-		if (state) conditions.push(eq(sessions.state, state));
-
-		const result =
-			conditions.length > 0
-				? await db
-						.select()
-						.from(sessions)
-						.where(and(...conditions))
-						.limit(limit)
-						.offset(offset)
-				: await db.select().from(sessions).limit(limit).offset(offset);
-
-		return c.json(result);
-	});
 
 	// @lore R1/AU1: When the composition root has wired an adapter pool
 	// (durableStartEnabled), the route creates a task-backed AgentSessionRequest
@@ -413,7 +213,7 @@ export function createSessionRoutes(
 				c.header("Idempotency-Key", idempotencyKey);
 				c.header("Location", `/api/sessions/starts/${start.id}`);
 				if (start.status !== "requested") {
-					const projection = await projectExplicitStart(db, start);
+					const projection = await projectExplicitStart(start);
 					return sendStartProjection(c, projection);
 				}
 				const committedStart = start;
@@ -433,12 +233,11 @@ export function createSessionRoutes(
 								by: "explicitStart",
 								startId: committedStart.id,
 							});
-							if (fresh && fresh.status !== "requested")
-								finish(await projectExplicitStart(db, fresh));
+							if (fresh && fresh.status !== "requested") finish(await projectExplicitStart(fresh));
 						};
 						const unsubscribe = eventBus.on("*", () => void check());
 						const timer = setTimeout(
-							() => void projectExplicitStart(db, committedStart).then(finish),
+							() => void projectExplicitStart(committedStart).then(finish),
 							EXPLICIT_SESSION_ADMISSION_WAIT_MS,
 						);
 						void check();
@@ -460,135 +259,18 @@ export function createSessionRoutes(
 			}
 
 			// ── Legacy bare-insert path (no adapters) ─────────────────────────────
-			const sessionId = crypto.randomUUID();
-			const now = new Date().toISOString();
-
-			await db.insert(sessions).values({
-				id: sessionId,
+			// @lore AU26 B1a (§D-H #16): the insert AND the `session_started` emit
+			// are `run-orchestration`'s `createBareRun` now — core asking the owning
+			// Layer to create its own record is a downward command (§D-A rule 3), not
+			// a Port method. `@hyperidle/run-orchestration` was already a core-api
+			// dependency, so no package edge is added. The 201 body is unchanged: the
+			// whole persisted `sessions` row.
+			const created = await createBareRun(db, eventBus, {
 				agentId: body.agentId,
 				taskId: body.taskId,
 				modelTier: body.modelTier,
-				startedAt: now,
-				state: "active",
 			});
-
-			eventBus.emit<"session_started">({
-				type: "session_started",
-				streamId: sessionId,
-				sessionId,
-				agentId: body.agentId,
-				taskId: body.taskId,
-				timestamp: Date.now(),
-			} satisfies SessionStartedEvent);
-
-			const [created] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
 			return c.json(created, 201);
-		},
-	);
-
-	router.get("/starts/:startId", requireBoundary({ kind: "public-data" }), async (c) => {
-		const start = await findSessionRequest(db, {
-			by: "explicitStart",
-			startId: c.req.param("startId"),
-		});
-		if (!start || start.requestedBy !== c.get("userId"))
-			return c.json({ error: "Session start not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
-		c.header("Idempotency-Key", start.idempotencyKey);
-		c.header("Location", `/api/sessions/starts/${start.id}`);
-		return sendStartProjection(c, await projectExplicitStart(db, start));
-	});
-
-	// GET /:id/activity — Session activity stream (Q1 §3.2)
-	// Returns session metadata + recent activity entries, read through
-	// `AgentOrchestrationPort` (AU21 §9 Increment 7, Decision E — the buffer
-	// this used to read directly relocated to `@hyperidle/agent-execution`).
-	// Capped at 50 most-recent entries to bound response size.
-	router.get("/:id/activity", requireBoundary({ kind: "public-data" }), async (c) => {
-		const sessionId = c.req.param("id");
-		const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
-		if (!session) {
-			return c.json({ error: "Session not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
-		}
-
-		const agentOrchestrationPort = buildAgentOrchestrationPort(
-			getRegisteredAgentOrchestrationTransport(),
-		);
-		const allEntries = await agentOrchestrationPort.sessions.getRecentActivity(sessionId);
-		// Return 50 most-recent entries (tail of the insertion-ordered array)
-		const activity = allEntries.slice(-50);
-
-		return c.json({
-			session: {
-				id: session.id,
-				agentId: session.agentId,
-				taskId: session.taskId,
-				state: session.state,
-				startedAt: session.startedAt,
-				modelTier: session.modelTier,
-			},
-			activity,
-		});
-	});
-
-	// PATCH /:id — Update session state and/or effectiveness score
-	router.patch(
-		"/:id",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(updateSessionSchema),
-		async (c) => {
-			const sessionId = c.req.param("id");
-			const body = c.req.valid("json" as never) as z.infer<typeof updateSessionSchema>;
-
-			const [existing] = await db
-				.select()
-				.from(sessions)
-				.where(eq(sessions.id, sessionId))
-				.limit(1);
-			if (!existing) {
-				return c.json({ error: "Session not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
-			}
-
-			const now = new Date().toISOString();
-			const actor = c.get("userId");
-
-			// AF7 §4 (Z8-094/095): a state-changing PATCH must REQUEST termination, not
-			// assert it. The runtime is the sole terminal-state writer for a session it
-			// is actively running. Delegated to a helper to keep this handler simple.
-			if (body.state !== undefined) {
-				const result = await applyStateChangePatch(db, eventBus, {
-					sessionId,
-					existing,
-					state: body.state,
-					outcome: body.outcome,
-					notes: body.notes,
-					effectivenessScore: body.effectivenessScore,
-					actor,
-					now,
-				});
-				return c.json(result.body, result.status);
-			}
-
-			// Effectiveness-only PATCH (no state) — never ends a session.
-			const updates: Record<string, unknown> = {};
-			if (body.outcome !== undefined) updates.outcome = body.outcome;
-			if (body.notes !== undefined) updates.notes = body.notes;
-
-			// AC1: Record effectiveness score when present.
-			// @lore AC1 S-1: stored as text, validated as number[0,1] at API boundary.
-			// Use .toString() on write, parseFloat() + Number.isNaN() guard on read.
-			if (body.effectivenessScore !== undefined) {
-				updates.effectivenessScore = body.effectivenessScore.toString();
-				updates.effectivenessRecordedAt = now;
-				// Use actor from auth context; fall back to session's agentId (for agent-authored writes)
-				updates.effectivenessRecordedBy = actor ?? existing.agentId;
-			}
-
-			if (Object.keys(updates).length > 0) {
-				await db.update(sessions).set(updates).where(eq(sessions.id, sessionId));
-			}
-
-			const [updated] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
-			return c.json(updated);
 		},
 	);
 

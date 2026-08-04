@@ -14,11 +14,10 @@ import {
 	type RoutineRunOutcome,
 	type RoutineRunSummary,
 } from "@hyperidle/shared";
-import { requireBoundary } from "@hyperidle/shared/http";
+import { requireBoundary, validateBody } from "@hyperidle/shared/http";
 import { findUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
-import { validateBody } from "../middleware/validate.js";
 import { fireRoutine } from "../services/routine-scheduler-bindings.js";
 
 const ROUTINE_STATE_VALUES = ROUTINE_STATES as readonly [string, ...string[]];

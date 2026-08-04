@@ -15,10 +15,9 @@ import {
 } from "@hyperidle/notifications";
 import type { ApiErrorResponse, Logger, NotificationTypeKey } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger, NOTIFICATION_TYPES } from "@hyperidle/shared";
-import { requireBoundary } from "@hyperidle/shared/http";
+import { requireBoundary, validateBody } from "@hyperidle/shared/http";
 import { Hono } from "hono";
 import z from "zod";
-import { validateBody } from "../middleware/validate.js";
 
 const channelEnum = z.enum(["console", "ntfy", "smtp"]);
 const queueStatusEnum = z.enum(["pending", "sent", "failed", "dropped", "sending"]);

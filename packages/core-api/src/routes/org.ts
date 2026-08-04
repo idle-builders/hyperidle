@@ -31,11 +31,10 @@ import {
 } from "@hyperidle/org";
 import { provisionTeamRoutines } from "@hyperidle/routine";
 import { API_ERROR_CODES, ORG_EDGE_MECHANISMS } from "@hyperidle/shared";
-import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
+import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/shared/http";
 import { findUser, insertUser, listUsers } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
-import { validateBody } from "../middleware/validate.js";
 
 const putOrgEdgeSchema = z.object({
 	fromUserId: z.string().min(1),

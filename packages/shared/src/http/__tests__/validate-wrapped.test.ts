@@ -15,7 +15,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 // The wrapped exports that don't exist yet
-import { validateBody, validationHook } from "../../middleware/validate.js";
+import { validateBody, validationHook } from "../index.js";
 
 describe("F1. validateBody returns 400 with ApiErrorResponse format on failure", () => {
 	it("returns 400 with VALIDATION_ERROR code when body is invalid", async () => {
@@ -115,13 +115,13 @@ describe("F2. validationHook is exported", () => {
 describe("F3. validateBody import path differs from direct @hono/zod-validator", () => {
 	it("validate.ts exports validateBody (not re-exported from @hono/zod-validator directly)", async () => {
 		// This test simply checks the module exists and exports the expected symbols
-		const mod = await import("../../middleware/validate.js");
+		const mod = await import("../index.js");
 		expect(mod.validateBody).toBeDefined();
 		expect(typeof mod.validateBody).toBe("function");
 	});
 
 	it("validationHook is exported from validate.ts (not available from @hono/zod-validator directly)", async () => {
-		const mod = await import("../../middleware/validate.js");
+		const mod = await import("../index.js");
 		expect(mod.validationHook).toBeDefined();
 		expect(typeof mod.validationHook).toBe("function");
 	});

@@ -23,30 +23,16 @@ must be dissolved to free the runner. The doc claims it leaves stale
 `facilitators.md:79-92`) are a `/write-docs` reconciliation; the product question *"should knowledge live in
 git?"* is a future `knowledge` WP, explicitly not AU26's.
 
-**Amendment (2026-08-04, architecture round 3 — the ACL's scope).** Closing the zero-exceptions bar
-(`UNOWNED_SHARED_TABLES` deleted, all four remaining unowned tables assigned owners) turned out to require
-deciding **what the table-ownership ACL governs at all** — a question the WP had left implicit. Rounds 1
-and 2 answered it with scope carve-outs (first a package allowlist, then a "runtime dependency closure of
-the shipped Applications" scope) that both, on measurement, excluded exactly the inconvenient files.
-**Round 3's answer: the ACL governs every non-test file in the workspace.** Test code is the only
-ungoverned code, and only because a test of a Service cannot be required to read the state it asserts on
-through the Service it is testing. Consequences that genuinely widen this WP's scope and are therefore
-recorded here rather than buried in the architecture:
-
-- **`packages/db`'s two seeders relocate.** `factory-bootstrap.ts` (the production first-boot seeder —
-  `packages/desktop/src/main.ts:451-454` runs it on every launch) and `demo-fixture.ts` make 18 direct
-  owned-table accesses. They cannot comply where they are: every owning Service's dependency closure is
-  exactly `{@hyperidle/db, @hyperidle/shared}`, so `db → users` would be a cycle. The code moves above the
-  Services (into `packages/core-api/src/bootstrap/`), with its three CLIs.
-- **`packages/eval` routes through the owning Services.** 69 file×table pairs across 27 files and 18
-  tables. Round 2 proposed excluding it; round 3 withdrew that, because the argument used to justify the
-  exclusion (a fixture-seeding harness that stands the domain up) describes `factory-bootstrap.ts` equally
-  well, and because an eval's system under test is the LLM + tools + prompts, never the persistence
-  Services — so reading through them is not circular.
-
-Neither is a new *axis* — both are the direct, measured cost of the zero-exceptions ruling the WP already
-carries. Measured honestly at HEAD the ACL region is **100 file×table pairs across 48 files**, against the
-12 rounds 1 and 2 reported. See `architecture.md` §D-G and increments **D0/D2a/D2b** in §12.
+**Amendment (2026-08-04, founder — scope, reverting an architecture-round expansion).** Architecture rounds 2
+and 3 expanded this WP into a repo-wide table-ownership programme: a census gate driving 100 ACL violations
+to zero, a whole-workspace scan scope for `scripts/table-ownership-guard.ts`, owners assigned to four tables
+this WP does not move, routing `packages/eval` through the owning Services, and relocating `packages/db`'s
+seeders. **The founder ruled that out of AU26** — *"why are you doing db ownership checks that is the task of
+AU28? please go back to what is the task of this workpackage and only do that"* / *"you are doing AU26. focus
+only on what is the scope of au26."* AU26's own axis is unchanged: relocate the agent-shaped domains core
+never uses, give `agent-orchestration` its own API, and enforce the new owner of each table **this WP itself
+moves**. General ownership debt belongs to AU28 (`.pipeline/work/AU28/plan.md`). The findings are not lost —
+`architecture.md` §14 hands every one of them to AU28 with its `file:line` evidence.
 
 **Type.** backend.
 
@@ -84,6 +70,7 @@ carries. Measured honestly at HEAD the ACL region is **100 file×table pairs acr
 **Out of scope.**
 - **REVERSED by the 2026-08-04 amendment.** Every core-api Service package IS individually challenged now — `conversation`, `git-export`, `knowledge`, `notifications`, `observability`, `org`, `policy`, `realtime`, `review`, `routine`, `settings`, `users`, `work`, `filesystems`, `connections`, all 15, each gets a whole-service verdict. What IS out of scope is letting a verdict become an audit: a verdict is **one evidenced line** per service (the domain it owns, one named real core-side use with `file:line`, verdict), and depth is spent only where (a) that line can't be written, (b) the verdict is "moves," or (c) the verdict is "stays but contains something that moves." No inventory, no method-surface review (that is AU20's axis), no per-service doc for a service that obviously stays. Verdicts are for all 15; moves are only for what fails — and every "moves" is executed in this WP, never parked.
 - A second sweep in the reverse direction. "Is anything core-domain sitting inside `agent-orchestration`?" is answered by ONE grep over its 4 Service packages (`dispatch`, `run-orchestration`, `session-requests`, `tool-handlers`) for `@hyperidle/db` table objects in non-test source, recorded as one line. A bounded confirmation, never a per-service pass of its own.
+- **The general table-ownership programme — AU28's, not AU26's** (2026-08-04 founder ruling). Specifically out: assigning owners to tables this WP does not move (`sessions`, `propagationLog`, `taskDispatchAttempts`, `userSkills`); deleting or shrinking `UNOWNED_SHARED_TABLES`; changing what source roots `scripts/table-ownership-guard.ts` scans; a repo-wide violation census or a count that must reach zero; routing `packages/eval` through the owning Services; relocating `packages/db`'s seeders. AU26 declares owners **only** for the tables it itself relocates or creates. Findings are handed to AU28 in `architecture.md` §14 with their evidence.
 - The filesystem *record*/reachability-probe UI as a whole — only the mounting engine is challenged; the record's own domain status is a separate, narrower question this WP resolves alongside the engine, not a foregone "stays" conclusion either way.
 - Any UI redesign of the Settings connections/filesystems/agents pages — behavior only, no redesign.
 - Moving or renaming the LLM-key catalog (`server_credentials`/`@hyperidle/credentials`) itself.
@@ -100,12 +87,6 @@ carries. Measured honestly at HEAD the ACL region is **100 file×table pairs acr
 - `RegistryFilesystemMounter` (the mounting engine) relocates to agent-orchestration if the test concludes core never operationally exercises it — with the filesystem record/reachability-probe UI's own status resolved as a separate, explicit question, not assumed to follow the engine automatically.
 - `agent-orchestration` hosts its own HTTP/WS route(s) directly for at least the session/harness-streaming case (core-ui dials in without a core-api gateway hop), with a documented, evidenced verdict on `WsConnectionHub`'s own fate (stays as `workspace-api`'s own transport, or dissolves) under the same test used for everything else in this WP.
 - Every candidate whose verdict is "relocate" **or "delete"** — from **either** pass, whole-service or part-level — is actually moved into agent-orchestration (or removed) in this WP (not deferred to yet another follow-up), with the same rigor as the connections move: guard-enforced ACL, an `AgentOrchestrationPort`-style read door back to core-ui only where core-ui genuinely needs one.
-- **(new, 2026-08-04 round 3)** Neither guard contains a table carve-out, an allowlist, an exemption set, an
-  unowned-table set, **or a scope carve-out**. `scripts/table-ownership-guard.ts` scans `src/` of every
-  package under `packages/` carrying a `package.json`, holds no package-name literal in its scan logic, and
-  `inspect()` returns **zero** findings on the real tree. The count is gated by measurement, not by
-  scope: a checked-in census script reports file×table pairs under the target scope from the first
-  increment on (**100 at HEAD**) and must strictly decrease to 0.
 
 - The Settings UI's connections, filesystems, and agents pages, and the session/harness live-activity UI, all work identically end-to-end after any relocation, with zero required frontend behavior changes (route/base-URL wiring may change, but what the user sees and when does not).
 

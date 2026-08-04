@@ -6,8 +6,8 @@
  */
 
 import { afterEach, beforeEach, describe, vi } from "vitest";
-import { createApp } from "../app.js";
 import { expect, test } from "../test-fixtures.js";
+import { createTestApp } from "../test-utils.js";
 
 const TEST_API_KEY = "test-key-app-auth-conditional";
 
@@ -20,11 +20,11 @@ describe("I2 review arch H-3 — `/api/auth/ws-token` is conditional on WS regis
 		vi.unstubAllEnvs();
 	});
 
-	test("a createApp() WITHOUT registerWebSocket does not mount /api/auth/ws-token", async ({
+	test("a createTestApp() WITHOUT registerWebSocket does not mount /api/auth/ws-token", async ({
 		db,
 		eventBus,
 	}) => {
-		const app = await createApp({ db, eventBus });
+		const app = await createTestApp({ db, eventBus });
 
 		const res = await app.request("/api/auth/ws-token", {
 			method: "POST",
@@ -33,11 +33,11 @@ describe("I2 review arch H-3 — `/api/auth/ws-token` is conditional on WS regis
 		expect(res.status).toBe(404);
 	});
 
-	test("a createApp() WITH registerWebSocket DOES mount /api/auth/ws-token", async ({
+	test("a createTestApp() WITH registerWebSocket DOES mount /api/auth/ws-token", async ({
 		db,
 		eventBus,
 	}) => {
-		const app = await createApp({
+		const app = await createTestApp({
 			db,
 			eventBus,
 			// Stub: the test cares that mount-vs-no-mount toggles on the

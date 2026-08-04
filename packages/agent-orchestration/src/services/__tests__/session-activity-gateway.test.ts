@@ -27,12 +27,13 @@
  * satisfied at the level of "the same event stream that populates the
  * buffer also feeds the gateway," not literal data-plane reuse.
  *
- * `../session-activity-gateway.js` does not exist yet — this import failing
- * to resolve is this file's primary RED signal.
+ * @lore AU26 B1a: relocated from `packages/core-api/src/services/__tests__/`
+ * with the gateway itself, and reclassified from `.integration.test.ts` to a
+ * unit test — it touches no DB and no app, only the EventBus, so it never met
+ * the integration bar. Its `db` fixture was unused (`_db`) at every call site.
  */
 
 import { describe, expect, test } from "../../test-fixtures.js";
-// NOT YET CREATED — this import failing to resolve is this file's primary RED signal.
 import { registerSessionActivityGateway } from "../session-activity-gateway.js";
 
 interface RecordedBroadcast {
@@ -55,7 +56,6 @@ function createRecordingBroadcastTarget(): {
 
 describe("registerSessionActivityGateway — session/harness streaming gateway", () => {
 	test("forwards tool_call_recorded to the session:<id> topic on the broadcast target", async ({
-		db: _db,
 		eventBus,
 	}) => {
 		const target = createRecordingBroadcastTarget();
@@ -78,7 +78,6 @@ describe("registerSessionActivityGateway — session/harness streaming gateway",
 	});
 
 	test("forwards session_started and session_ended to the same session:<id> topic", async ({
-		db: _db,
 		eventBus,
 	}) => {
 		const target = createRecordingBroadcastTarget();
@@ -106,7 +105,7 @@ describe("registerSessionActivityGateway — session/harness streaming gateway",
 		expect(target.calls.every((c) => c.topic === "session:sess-gw-2")).toBe(true);
 	});
 
-	test("the returned unregister function stops forwarding", async ({ db: _db, eventBus }) => {
+	test("the returned unregister function stops forwarding", async ({ eventBus }) => {
 		const target = createRecordingBroadcastTarget();
 		const unregister = registerSessionActivityGateway(eventBus, target);
 		unregister();

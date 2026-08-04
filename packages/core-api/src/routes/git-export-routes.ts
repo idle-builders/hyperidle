@@ -10,10 +10,9 @@ import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
 import { createGitRunner, type GitRunner } from "@hyperidle/shared/git";
-import { requireBoundary } from "@hyperidle/shared/http";
+import { requireBoundary, validateBody } from "@hyperidle/shared/http";
 import { Hono } from "hono";
 import z from "zod";
-import { validateBody } from "../middleware/validate.js";
 
 const gitExportServerConfigPort = { read: readServerConfig, update: updateServerConfig };
 const gitExportKnowledgeReader = {

@@ -1,6 +1,13 @@
 /** Consolidated private remote-worker ingress. */
-import { createHash, timingSafeEqual } from "node:crypto";
+/**
+ * @lore AU26 B1a: the local `constantTimeStringEqual` this file used to declare
+ * existed only because `run-orchestration` could not import core-api's copy.
+ * A1 removed that reason — the primitive now lives in `@hyperidle/shared/http`,
+ * which both apps may import — so the second hand-rolled copy is deleted, not
+ * kept in sync.
+ */
 import type { HarnessAdapter } from "@hyperidle/shared";
+import { constantTimeStringEqual } from "@hyperidle/shared/http";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket, WSContext } from "hono/ws";
 import { z } from "zod";
@@ -30,14 +37,6 @@ interface RunOrchestrationRemoteHarnessAdapterFactory {
 		ws: unknown,
 		registration: { readonly id: string; readonly [key: string]: unknown },
 	): HarnessAdapter & RunOrchestrationRemoteWorkerAdapter;
-}
-
-// ---- timing-safe ----
-
-function constantTimeStringEqual(actual: string, expected: string): boolean {
-	const a = createHash("sha256").update(actual).digest();
-	const b = createHash("sha256").update(expected).digest();
-	return timingSafeEqual(a, b);
 }
 
 // ---- worker ingress ----

@@ -1,18 +1,23 @@
 /**
  * @hyperidle/agent-orchestration — Layer composition barrel.
  *
- * @lore AU19 Increment 0: this barrel originally carried `wiredAssemble` — a
- * minimal `context-assembly` proof-of-mechanism wiring the `knowledge` port
- * to the real `@hyperidle/knowledge` Service and the other four ports
- * (`work`/`users`/`routine`/`filesystems`) to explicit transitional stubs,
- * proving Mechanism C end-to-end for one real edge. It was never swapped
- * into the live app — `packages/server` kept its in-process context-assembly
- * for production while the proof stayed self-contained.
+ * @lore AU19 Increment 0/3: this barrel carried `wiredAssemble`, a
+ * context-assembly proof-of-mechanism, until `@hyperidle/run-orchestration`
+ * became the real owner of context assembly. It then exported nothing at all —
+ * `export {}` — "until a future Increment gives the `agent-orchestration` Layer
+ * package itself a real consumer."
  *
- * @lore AU19 Increment 3 (context-assembly finalize): `wiredAssemble`
- * RETIRED. `@hyperidle/run-orchestration` is the current owner of context assembly.
- * The live server reaches that owner through its runtime composition.
- * This barrel intentionally exports nothing until a future Increment gives
- * the `agent-orchestration` Layer package itself a real consumer.
+ * @lore AU26 B1a: that Increment is this one. The Layer now has its own Hono app
+ * and its own boot, and the Application composes both Layers side by side. The
+ * barrel exports exactly what an Application needs — never a route module: an
+ * Application mounts `boot.app`, and `core-api` may not import a module under
+ * `packages/agent-orchestration/**\/routes/**` at all (AC5(a), enforced by
+ * `scripts/composition-edge-anti-regrowth-guard.ts`).
  */
-export {};
+
+export type {
+	AgentOrchestrationBoot,
+	AgentOrchestrationBootOptions,
+} from "./boot.js";
+export { bootAgentOrchestration } from "./boot.js";
+export type { SessionActivityBroadcastTarget } from "./services/session-activity-gateway.js";

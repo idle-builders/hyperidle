@@ -1,4 +1,3 @@
-import { SessionActivityBuffer } from "@hyperidle/agent-execution";
 import {
 	type CredentialResolver,
 	deleteCredential,
@@ -15,7 +14,7 @@ import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger, EventBus } from "@hyperidle/shared";
 import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/shared/crypto";
-import { failClosedAssertion } from "@hyperidle/shared/http";
+import { failClosedAssertion, type HyperIdleEnv } from "@hyperidle/shared/http";
 import { createUpgradeTokenStore, findUser, type UpgradeTokenStore } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { checkAndUnblockDependents } from "@hyperidle/work";
@@ -26,7 +25,6 @@ import { corsMiddleware } from "./middleware/cors.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { createRateLimiter } from "./middleware/rate-limit.js";
 import { type ObservabilityDeps, startObservability } from "./observability-runtime.js";
-import { createAgentOrchestrationSessionsRoutes } from "./routes/agent-orchestration-sessions-routes.js";
 import { createAgentRoutes } from "./routes/agents.js";
 import { createArtifactRoutes } from "./routes/artifacts.js";
 import { createAuthRoutes } from "./routes/auth.js";
@@ -78,6 +76,21 @@ const agentWorkIntentReader: import("@hyperidle/shared").AgentWorkIntentReader<H
  */
 export interface WsPushTarget {
 	broadcast(topic: string, data: string): void;
+}
+
+/**
+ * A booted Layer the Application mounts inside this app's `/api` router.
+ * Structural on purpose: `core-api` declares the shape it consumes rather than
+ * importing `@hyperidle/agent-orchestration`'s `AgentOrchestrationBoot`, so
+ * nothing in this file names the other Layer at all.
+ */
+export interface MountedLayer {
+	/** Mounted AFTER the auth middleware, at the `/api` root. */
+	readonly app: Hono<HyperIdleEnv>;
+	/** Registered BEFORE the auth middleware (the worker WS upgrade). */
+	readonly registerPreAuthRoutes?: (apiRouter: Hono) => void;
+	/** Torn down by `disposeApp`. */
+	readonly dispose?: () => void;
 }
 
 interface AppOptions {
@@ -133,16 +146,21 @@ interface AppOptions {
 	 */
 	wsHub?: WsPushTarget;
 	/**
-	 * Optional worker WebSocket registration hook. When provided,
-	 * `createApp` invokes it with the `/api` sub-router at the same point as
-	 * `registerWebSocket` — BEFORE the auth middleware — so workers can
-	 * authenticate via query token without requiring a user API key.
+	 * AU26 B1a (§D-B): the OTHER Layer's booted app, handed in by the Application.
 	 *
-	 * @lore S2-F01: worker WS route must be registered before auth middleware
-	 * (same pattern as user WS route). Production createServer passes this hook
-	 * so dead-code paths are eliminated.
+	 * `core-api` never constructs it, never imports its route modules (AC5(a),
+	 * enforced by `scripts/composition-edge-anti-regrowth-guard.ts`) and knows
+	 * nothing about what it serves — it receives an opaque `Hono` plus two
+	 * callbacks, exactly like `registerWebSocket`/`registerMcpRoute`. The
+	 * Application decides to put another Layer behind this stack; only an
+	 * Application may.
+	 *
+	 * @lore AU26 B1a: this option replaces `registerWorkerWebSocket`, which was a
+	 * core-api-shaped hook for an orchestration-owned socket. B1b inverts the
+	 * relationship entirely — the Application will own the `/api` router and
+	 * mount both apps itself, at which point this option disappears.
 	 */
-	registerWorkerWebSocket?: (apiRouter: Hono) => void;
+	agentOrchestration?: MountedLayer;
 	/**
 	 * Optional MCP bridge route registration hook. When provided,
 	 * `createApp` invokes it with the `/api` sub-router BEFORE the auth
@@ -268,11 +286,18 @@ const notificationsDeps: NotificationsDeps = {
 };
 
 /**
- * Create the Hono application.
+ * Create `core-api`'s Hono application.
+ *
  * WebSocket routes are registered separately via registerWsRoute(), injected
  * through the `registerWebSocket` option so the app remains runtime-agnostic.
+ *
+ * @lore AU26 B1a: renamed from `createApp`. It is no longer *the* app — it is
+ * one of two, beside `bootAgentOrchestration().app`. It still applies the
+ * middleware stack and owns the `/api` router at this increment; B1b lifts both
+ * into the Application (`remote-server/src/create-server.ts`) and this function
+ * shrinks to core-api's own route table.
  */
-async function createApp(options?: AppOptions): Promise<Hono> {
+async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 	const app = new Hono();
 
 	// S1: shared mode — read from options (test-injectable) or env var (production).
@@ -380,11 +405,11 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		options.registerWebSocket(api, tokenStore);
 	}
 
-	// Register worker WS route BEFORE auth middleware — workers authenticate
-	// via HYPERIDLE_WORKER_TOKEN query param, not via the user API key.
-	if (options?.registerWorkerWebSocket) {
-		options.registerWorkerWebSocket(api);
-	}
+	// AU26 B1a: the mounted Layer's own pre-auth routes (the worker WS upgrade —
+	// workers authenticate via HYPERIDLE_WORKER_TOKEN on the query string, not
+	// via the user API key). Registered BEFORE the auth middleware, same
+	// placement pattern as the user WS route.
+	options?.agentOrchestration?.registerPreAuthRoutes?.(api);
 
 	// Register MCP bridge route BEFORE auth middleware — MCP clients authenticate
 	// via the session token in the URL path, not via X-API-Key.
@@ -481,24 +506,17 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		api.route("/routines", createRoutineRoutes(options.db, eventBus));
 		api.route("/recipients", createRecipientRoutes(options.db, eventBus));
 
-		// Q1 §6.1 / AU21 §6 Decision E, §9 Increment 7: session activity buffer —
-		// subscribes to tool_call_recorded/session_started/session_ended events
-		// and serves recent activity. Relocated to `@hyperidle/agent-execution`
-		// (its real architectural home — tokens/tool-calls originate in
-		// execution, not orchestration); core-api still owns *instantiating* it
-		// (Application composition root, same as any other Layer-owned
-		// stateful Service) and exposes it two ways: (a) the REST route below
-		// (`GET /api/sessions/:id/activity`) now reads it THROUGH
-		// `AgentOrchestrationPort.sessions.getRecentActivity` rather than a
-		// directly-injected reference — see `sessions-routes.ts` — and (b) the
-		// new agent-orchestration-owned gateway route
-		// (`createAgentOrchestrationSessionsRoutes`'s `getRecentActivity` param)
-		// that door's own backing route calls directly, in-process.
-		// @lore Q1: The buffer is created once per app instance, started immediately,
-		// and disposed with the app. Tests that emit events against the same eventBus
-		// instance will see the buffer populated correctly.
-		const activityBuffer = new SessionActivityBuffer(eventBus);
-		activityBuffer.start();
+		// AU26 B1a (§D-H #16): `POST /api/sessions` is all that is left of this
+		// route module. `GET /`, `GET /starts/:startId`, `GET /:id/activity` and
+		// `PATCH /:id` moved onto agent-orchestration's own app — same URLs (§D-A
+		// rule 7), different host. POST stays because its handler gates on `tasks`
+		// and bakes `users`/`server_config`: a two-sided table set, and §D-A rule 3
+		// gives a two-sided route exactly one legal host.
+		//
+		// @lore AU26 B1a: the `SessionActivityBuffer` this block used to construct
+		// and start is GONE from core-api. Both of its readers (the REST activity
+		// route and the `AgentOrchestrationPort` backing route) are on the owning
+		// side now, so `bootAgentOrchestration` owns the buffer's lifecycle.
 		api.route(
 			"/sessions",
 			// AU11 AC-2: the route only ever read the adapter-pool PRESENCE as a
@@ -514,21 +532,6 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 			),
 		);
 		api.route("/status", createStatusRoutes(options.db));
-		// AU21 §9 Increment 6 (Decision D): the real backing route for
-		// `AgentOrchestrationPort`'s read-only session-cost/history methods —
-		// see `agent-orchestration-sessions-routes.ts`'s header for why the HTTP
-		// hosting lives here even though the data/query logic is
-		// agent-orchestration's own (`@hyperidle/session-requests`).
-		// §9 Increment 7 (Decision E): `getRecentActivity` reads the SAME
-		// relocated `activityBuffer` instance directly — an in-process call,
-		// not a cross-transport read, mirroring how the cost/history routes
-		// above call `@hyperidle/session-requests`'s query functions directly.
-		api.route(
-			"/agent-orchestration",
-			createAgentOrchestrationSessionsRoutes(options.db, (sessionId) =>
-				activityBuffer.getActivity(sessionId),
-			),
-		);
 
 		// S2: worker admin visibility — GET /api/workers lists registered adapters.
 		// Requires X-API-Key matching HYPERIDLE_API_KEY (admin-level auth inside route).
@@ -600,9 +603,11 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		});
 		disposers.push(unsubDepWatcher);
 
-		disposers.push(() => {
-			activityBuffer.stop();
-		});
+		// AU26 B1a: the mounted Layer's own teardown (its activity buffer + the
+		// session-activity gateway) rides this app's disposer bag so a test that
+		// builds an app and disposes it tears both Layers down in one call.
+		const mountedDispose = options.agentOrchestration?.dispose;
+		if (mountedDispose) disposers.push(mountedDispose);
 
 		disposers.push(() => {
 			void observabilityRuntime.dispose();
@@ -610,7 +615,27 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		APP_DISPOSERS.set(app, disposers);
 	}
 
-	// 404 handler for unknown /api routes
+	// AU26 B1a (§D-B): mount the other Layer's app on the SAME `/api` router,
+	// AFTER the auth middleware and the fail-closed assertion, so every path
+	// string it serves keeps its byte-identical public URL (§D-A rule 7) and
+	// sits behind the same stack. `core-api` sees an opaque `Hono` — the
+	// Application built it, and only an Application may choose this.
+	if (options?.agentOrchestration) {
+		api.route("/", options.agentOrchestration.app);
+	}
+
+	// 404 handler for unknown /api routes.
+	//
+	// @lore AU26 B1a (AC10): this handler is UNREACHABLE and deliberately kept
+	// as-is rather than "fixed". `api` is itself a sub-app (`app.route("/api",
+	// api)` below), and Hono applies a parent's middleware, context vars and
+	// `onError` to a mounted sub-app but NOT its `notFound` — only the ROOT
+	// app's fires (verified on the installed `hono@4.12.30`,
+	// `.pipeline/work/AU26/probes/two-app-mount/`). The canonical JSON 404 for
+	// an unknown `/api/*` path therefore comes from `app.notFound` below, and
+	// that is what the mounted agent-orchestration app relies on too. A port
+	// that moves the branch onto a sub-app turns every unknown `/api/*` into
+	// Hono's `text/plain` default.
 	api.notFound((c) => {
 		const response: ApiErrorResponse = {
 			error: "Not found",
@@ -701,4 +726,4 @@ export type { AppOptions };
  */
 export type AppType = Hono;
 
-export { createApp };
+export { createCoreApiApp };

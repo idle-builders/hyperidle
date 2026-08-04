@@ -11,6 +11,7 @@ export type {
 	AgentOrchestrationSessionActivityEntry,
 	AgentOrchestrationSessionHistoryEntry,
 	AgentOrchestrationSessionsPort,
+	AgentOrchestrationSessionWireRow,
 	AgentOrchestrationTransport,
 } from "./agent-orchestration-port.js";
 export type { AuthMeResponse } from "./auth.js";

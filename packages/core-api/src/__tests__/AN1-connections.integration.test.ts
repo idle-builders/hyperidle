@@ -27,8 +27,8 @@
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import { createLoginSession } from "@hyperidle/users";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { createApp } from "../app.js";
 import { test } from "../test-fixtures.js";
+import { createTestApp } from "../test-utils.js";
 
 const TEST_API_KEY = "test-key-an1-connections";
 const CREDENTIAL_KEY = "test-credential-encryption-key-an1";
@@ -395,7 +395,7 @@ describe("AN1 — /api/connections routes", () => {
 			// Create a sharedMode app so Bearer token auth works for user B.
 			// @lore AN1 W1-fix: the default test fixture app is local-mode (single API key
 			// resolves to first human). sharedMode=true enables Bearer auth per user.
-			const sharedApp = await createApp({ db, eventBus, sharedMode: true });
+			const sharedApp = await createTestApp({ db, eventBus, sharedMode: true });
 
 			// Seed user A first — API key auth resolves to first human = USER_A.
 			await seedUserA(db);
@@ -438,7 +438,7 @@ describe("AN1 — /api/connections routes", () => {
 			db,
 			eventBus,
 		}) => {
-			const sharedApp = await createApp({ db, eventBus, sharedMode: true });
+			const sharedApp = await createTestApp({ db, eventBus, sharedMode: true });
 
 			await seedUserA(db);
 			await seedUserB(db);
@@ -482,7 +482,7 @@ describe("AN1 — /api/connections routes", () => {
 		});
 
 		test("(3) user B validate of user A's real id → 404", async ({ db, eventBus }) => {
-			const sharedApp = await createApp({ db, eventBus, sharedMode: true });
+			const sharedApp = await createTestApp({ db, eventBus, sharedMode: true });
 
 			await seedUserA(db);
 			await seedUserB(db);

@@ -29,3 +29,5 @@ export {
 	sendStartProjection,
 } from "./explicit-start-projection.js";
 export { constantTimeStringEqual } from "./timing-safe.js";
+export type { ValidatedJson } from "./validate.js";
+export { validateBody, validationHook } from "./validate.js";
