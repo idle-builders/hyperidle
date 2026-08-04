@@ -113,8 +113,22 @@ interface RealHyperIdleServer {
 
 /**
  * Start the REAL HyperIdle Hono app on a random port, mount the REAL
- * /api/mcp/:token/return-status route, register a fake bridge entry (token → sessionId)
- * and an enforcement registry entry (gate.returned=false, forceCount=0).
+ * /api/mcp/:token/return-status route, open a real MCP bridge session
+ * (token → sessionId) and an enforcement registry entry (gate.returned=false,
+ * forceCount=0).
+ *
+ * The bridge MINTS the token — a caller cannot choose it. Every consumer (hook
+ * script, adapter poll, direct fetch) must use the returned `token`.
+ *
+ * @lore AU20 x AU26: this helper used to take the token as its first argument
+ * and hand it to the bridge's since-deleted `register()`. AU20's harness-registry
+ * rewrite replaced that with `open()`, which mints a 64-char hex token of its
+ * own — so the argument silently became dead while six call sites carried on
+ * building hook URLs from their own fabricated string. AU20 also tightened the
+ * route: an unissued token used to fall through to `200`/empty ("allow stop"),
+ * and now correctly answers `401`. That pair turned the whole real-binary lane
+ * red (the release-gated lane is not run per merge, so it merged red). The
+ * argument is gone so a fabricated token cannot come back.
  *
  * After the binary runs and the hook fires, assert:
  *   enforcementReg.get(sessionId)?.forceCount >= 1
@@ -131,10 +145,7 @@ interface RealHyperIdleServer {
  * the lookup fails, forceCount stays 0, and the assertion fails. This confirms
  * the test is not vacuous.
  */
-async function startRealServer(
-	_requestedToken: string,
-	testSessionId: string,
-): Promise<RealHyperIdleServer> {
+async function startRealServer(testSessionId: string): Promise<RealHyperIdleServer> {
 	const enforcementReg = createEnforcementRegistry();
 	const bridgeRegistry = createMcpToolBridge({ enforcement: enforcementReg });
 	const bridge = await bridgeRegistry.open({
@@ -347,8 +358,6 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 			const testSessionId = `rgate-claude-fb-${Math.random().toString(36).slice(2, 10)}`;
 
 			try {
-				const bridgeToken = `test-bridge-token-${Math.random().toString(36).slice(2)}`;
-
 				// CRIT-1 FIX: Start the REAL HyperIdle server (not startBridgeServer mock).
 				// The real server mounts POST /api/mcp/:token/return-status with the REAL
 				// enforcement registry. After the hook fires, we assert forceCount >= 1
@@ -361,7 +370,9 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 				//
 				// Sanity-break: if you change bridgeToken to a wrong value in provisionReturnHook,
 				// the bridge lookup fails, forceCount stays 0, and the assertion fails. Test is not vacuous.
-				const realServer = await startRealServer(bridgeToken, testSessionId);
+				const realServer = await startRealServer(testSessionId);
+				// The bridge mints the token — a fabricated one is not an issued credential.
+				const bridgeToken = realServer.token;
 
 				try {
 					// mcpUrl points at the REAL server's /api/mcp/:token path.
@@ -445,12 +456,12 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 			const testSessionId = `rgate-claude-live-${Math.random().toString(36).slice(2, 10)}`;
 
 			try {
-				const bridgeToken = `test-bridge-token-${Math.random().toString(36).slice(2)}`;
-
 				// CRIT-1 FIX: Start the REAL HyperIdle server.
 				// The real route returns forceMessage when gate.returned=false (the default).
 				// The hook script receives the forceMessage and exits 2 (stderr carries it).
-				const realServer = await startRealServer(bridgeToken, testSessionId);
+				const realServer = await startRealServer(testSessionId);
+				// The bridge mints the token — a fabricated one is not an issued credential.
+				const bridgeToken = realServer.token;
 
 				try {
 					// mcpUrl points at the REAL route.
@@ -608,10 +619,9 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 			// (the same one the real claude Stop hook script curls), not a
 			// gate-unit-only check of buildForceReturnMessage in isolation.
 			const testSessionId = `rgate-claude-required-${Math.random().toString(36).slice(2)}`;
-			// `startRealServer`'s first param is a pre-existing dead param — the
-			// bridge always mints its OWN token internally; the real callable
-			// token is `realServer.token`, not a locally-fabricated string.
-			const realServer = await startRealServer("unused", testSessionId);
+			// The bridge mints its OWN token internally; the real callable token
+			// is `realServer.token`, never a locally-fabricated string.
+			const realServer = await startRealServer(testSessionId);
 
 			try {
 				const gate = { returned: false };
@@ -671,12 +681,12 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 			const testSessionId = `rgate-codex-live-${Math.random().toString(36).slice(2, 10)}`;
 
 			try {
-				const bridgeToken = `codex-test-token-${Math.random().toString(36).slice(2)}`;
-
 				// CRIT-1 FIX: Start the REAL HyperIdle server.
 				// The real route returns forceMessage (gate.returned=false → shouldForceReturn → message).
 				// The codex hook script receives it and outputs {"decision":"block","reason":message}.
-				const realServer = await startRealServer(bridgeToken, testSessionId);
+				const realServer = await startRealServer(testSessionId);
+				// The bridge mints the token — a fabricated one is not an issued credential.
+				const bridgeToken = realServer.token;
 
 				try {
 					// mcpUrl points at the REAL route.
@@ -840,13 +850,14 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 					},
 				});
 
-				const bridgeToken = `codex-fb-token-${Math.random().toString(36).slice(2)}`;
 				const testSessionId = `codex-fb-session-${Math.random().toString(36).slice(2)}`;
 
 				// CRIT-1 FIX: Start the REAL HyperIdle server (not startBridgeServer mock).
 				// The real server mounts /api/mcp/:token/return-status with the real enforcement
 				// registry. forceCount>=1 proves the hook fired against the REAL route.
-				const realServer = await startRealServer(bridgeToken, testSessionId);
+				const realServer = await startRealServer(testSessionId);
+				// The bridge mints the token — a fabricated one is not an issued credential.
+				const bridgeToken = realServer.token;
 
 				try {
 					// mcpUrl points at the REAL server's /api/mcp/:token path.
@@ -941,10 +952,9 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 			// the settings-claude and settings-codex hook channels — proven
 			// here for codex's channel specifically.
 			const testSessionId = `rgate-codex-required-${Math.random().toString(36).slice(2)}`;
-			// `startRealServer`'s first param is a pre-existing dead param — the
-			// bridge always mints its OWN token internally; the real callable
-			// token is `realServer.token`, not a locally-fabricated string.
-			const realServer = await startRealServer("unused", testSessionId);
+			// The bridge mints its OWN token internally; the real callable token
+			// is `realServer.token`, never a locally-fabricated string.
+			const realServer = await startRealServer(testSessionId);
 
 			try {
 				const gate = { returned: false };
@@ -1266,7 +1276,6 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 		});
 
 		test("real enforcement route returns forcing message when gate.returned=false (real server, builtin path)", async () => {
-			const bridgeToken = `builtin-route-token-${Math.random().toString(36).slice(2)}`;
 			const testSessionId = `builtin-session-${Math.random().toString(36).slice(2)}`;
 
 			// Start the real HyperIdle server (same as claude/codex/opencode lanes).
@@ -1275,7 +1284,9 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 			// @lore AR6 builtin-lane: The /return-status route requires Authorization: Bearer <token>
 			// in the header — the hook script always sends it. We include it here to simulate
 			// a real adapter poll (without it the route returns 401).
-			const realServer = await startRealServer(bridgeToken, testSessionId);
+			const realServer = await startRealServer(testSessionId);
+			// The bridge mints the token — a fabricated one is not an issued credential.
+			const bridgeToken = realServer.token;
 
 			try {
 				// POST to the real /return-status endpoint — simulating the BuiltinHarnessAdapter poll.
@@ -1313,9 +1324,10 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 		});
 
 		test("real enforcement route rejects missing bearer token before accepting bearer token", async () => {
-			const bridgeToken = `builtin-auth-token-${Math.random().toString(36).slice(2)}`;
 			const testSessionId = `builtin-auth-session-${Math.random().toString(36).slice(2)}`;
-			const realServer = await startRealServer(bridgeToken, testSessionId);
+			const realServer = await startRealServer(testSessionId);
+			// The bridge mints the token — a fabricated one is not an issued credential.
+			const bridgeToken = realServer.token;
 
 			try {
 				const returnStatusUrl = `${realServer.url}/api/mcp/${bridgeToken}/return-status`;
