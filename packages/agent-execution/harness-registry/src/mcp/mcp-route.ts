@@ -1,6 +1,7 @@
 import {
 	AL6_MAX_FORCE_RETURNS,
 	type EnforcementRegistry,
+	mcpNamespacedToolName,
 	shouldForceReturn,
 } from "@hyperidle/shared";
 import { Hono, type MiddlewareHandler } from "hono";
@@ -139,9 +140,19 @@ export function createMcpRouter(
 		const preForceCount = entry.forceCount;
 		// AU27 Increment 3 (Decision 3): narrow to the session's specific
 		// required subset when the registered entry has one.
+		// AU27 Increment 8 (BLOCKER fix): this route adjudicates BOTH the
+		// settings-claude and settings-codex hook channels — both present
+		// tools to the model namespaced `mcp__hyperidle__<bare>` — so a
+		// required-subset message names the literal tool the agent can
+		// actually call, instead of a bare name it must resolve itself.
 		const forceMessage = entry.exempt
 			? null
-			: shouldForceReturn(entry.gate, preForceCount, entry.requiredReturnActions);
+			: shouldForceReturn(
+					entry.gate,
+					preForceCount,
+					entry.requiredReturnActions,
+					mcpNamespacedToolName,
+				);
 
 		if (forceMessage !== null) {
 			// Increment AFTER reading (mirrors returnStatusTool.handler semantics).

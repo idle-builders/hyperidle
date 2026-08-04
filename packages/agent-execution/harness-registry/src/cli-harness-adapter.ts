@@ -32,6 +32,7 @@ import {
 	AL6_MAX_FORCE_RETURNS,
 	isRequiredReturnAction,
 	normalizeHarnessEvent,
+	opencodeToolName,
 	preMapClaudeEvent,
 	shouldForceReturn,
 } from "@hyperidle/shared";
@@ -789,12 +790,19 @@ export class CliHarnessAdapter implements HarnessAdapter {
 							// if other paths also incremented forceCount. The registry is authoritative.
 							// AU27 Increment 3 (Decision 3): narrow to the session's specific
 							// required subset when the registered entry has one.
+							// AU27 Increment 8 (BLOCKER fix): this branch is structurally
+							// opencode-only (`isReEngage` ⟺ `channel === "process-reengage"`,
+							// and only opencode's CLI_TOOL_CONFIGS entry sets that channel) —
+							// `opencodeToolName` names the literal `hyperidle_<bare>` tool the
+							// re-spawned opencode process actually exposes, instead of a bare
+							// name it fails to resolve ("Model tried to call unavailable tool").
 							const forceMsg = registryEntry.exempt
 								? null
 								: shouldForceReturn(
 										registryEntry.gate,
 										registryEntry.forceCount,
 										registryEntry.requiredReturnActions,
+										opencodeToolName,
 									);
 
 							if (forceMsg !== null) {

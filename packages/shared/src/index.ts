@@ -276,6 +276,8 @@ export type {
 	ErrorEvent,
 	HarnessAccessMode,
 	HarnessAdapter,
+	// AU27 Increment 8: harness adapter type identifiers
+	HarnessAdapterType,
 	HarnessAuthActionDescriptor,
 	HarnessAuthActionKind,
 	HarnessCapabilities,
@@ -292,6 +294,8 @@ export type {
 	HarnessRuntimeCapabilities,
 	// AN1: inherited tools enumeration
 	InheritedToolDescriptor,
+	// AU27 Increment 8: harness-literal tool namer function type
+	LiteralToolNamer,
 	McpConnectionInfo,
 	PreCompactionEvent,
 	// AL6: return action name type
@@ -332,8 +336,12 @@ export {
 	isInternalExtractionDrain,
 	isRequiredReturnAction,
 	isReturnAction,
+	// AU27 Increment 8: harness-literal tool naming for return-action mentions
+	literalToolNamerForAdapterType,
 	MockHarnessAdapter,
+	mcpNamespacedToolName,
 	normalizeHarnessEvent,
+	opencodeToolName,
 	// claude CLI adapter: pre-map for stream-json events
 	preMapClaudeEvent,
 	// AL6: closed accepted-return set

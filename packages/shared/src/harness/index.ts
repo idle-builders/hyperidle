@@ -45,7 +45,7 @@ export type {
 	ToolCallEvent,
 } from "./harness-events.js";
 export { MockHarnessAdapter } from "./mock-harness-adapter.js";
-export type { ReturnActionName } from "./return-actions.js";
+export type { HarnessAdapterType, LiteralToolNamer, ReturnActionName } from "./return-actions.js";
 // ── AL6: Closed accepted-return set + v2 forcing helpers ──
 export {
 	AL6_FORCE_RETURN_MESSAGE,
@@ -54,6 +54,10 @@ export {
 	isInternalExtractionDrain,
 	isRequiredReturnAction,
 	isReturnAction,
+	// AU27 Increment 8: harness-literal tool naming for return-action mentions
+	literalToolNamerForAdapterType,
+	mcpNamespacedToolName,
+	opencodeToolName,
 	RETURN_ACTION_NAMES,
 	shouldForceReturn,
 } from "./return-actions.js";

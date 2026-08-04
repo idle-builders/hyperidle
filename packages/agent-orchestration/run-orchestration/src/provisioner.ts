@@ -17,6 +17,7 @@ import {
 	type HarnessEvent,
 	isInternalExtractionDrain,
 	isReturnAction,
+	literalToolNamerForAdapterType,
 	MissingCredentialError,
 	MODEL_TIERS,
 	type ModelTier,
@@ -457,6 +458,12 @@ async function assembleTaskFreePrompt(
 	systemPromptText: string,
 	toolSummaries: readonly SessionLifecycleToolSummary[],
 	_ports: SessionLifecyclePorts,
+	/**
+	 * AU27 Increment 8 (BLOCKER fix) — the selected adapter's registration
+	 * `type` (e.g. "opencode", "claude-code"), used to name the `reply` tool
+	 * literally in the orientation line below — see `literalToolNamerForAdapterType`.
+	 */
+	adapterType: string | undefined,
 ): Promise<string> {
 	const toolSection =
 		toolSummaries.length > 0
@@ -485,9 +492,17 @@ async function assembleTaskFreePrompt(
 
 	// AU27 Increment 4 (Decision 3 orientation): a one-line reminder when this
 	// session's only satisfying return action is `reply`, not the trio.
+	//
+	// AU27 Increment 8 (BLOCKER fix): name the LITERAL tool the harness
+	// exposes (e.g. `mcp__hyperidle__reply` / `hyperidle_reply`), not the bare
+	// name — a model that must resolve a bare mention itself either burns an
+	// extra round trip doing so (Claude's internal tool search) or, on a
+	// smaller model, fails outright trying to call a tool name that does not
+	// exist ("Model tried to call unavailable tool 'reply'").
+	const replyToolName = literalToolNamerForAdapterType(adapterType)("reply");
 	const replyOrientation =
 		params.callingThreadId != null && params.taskId == null
-			? "When you are done, call `reply` to answer in this conversation."
+			? `When you are done, call \`${replyToolName}\` to answer in this conversation.`
 			: "";
 
 	return [systemPromptText, sourceSection, conversationSection, replyOrientation, toolSection]
@@ -1236,6 +1251,7 @@ async function runSession(
 			effectiveSystemPromptText,
 			toolSummaries,
 			ports,
+			selectedAdapter.meta.type,
 		);
 	}
 

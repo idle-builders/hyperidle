@@ -144,13 +144,72 @@ export const AL6_FORCE_RETURN_MESSAGE =
 	"submit_review (submit work for review), handoff_to (hand the task to another agent or a human), or " +
 	"send_message (send your result to a thread). Choose the one that fits and call it now.";
 
-/** Human-readable description of each return action, used to build a tailored forcing message. */
-const RETURN_ACTION_DESCRIPTIONS: Record<ReturnActionName, string> = {
-	submit_review: "submit_review (submit work for review)",
-	handoff_to: "handoff_to (hand the task to another agent or a human)",
-	send_message: "send_message (send your result to a thread)",
-	reply: "reply (answer the person or agent who triggered this session)",
+/** Human-readable hint for each return action, used to build a tailored forcing message. */
+const RETURN_ACTION_HINTS: Record<ReturnActionName, string> = {
+	submit_review: "submit work for review",
+	handoff_to: "hand the task to another agent or a human",
+	send_message: "send your result to a thread",
+	reply: "answer the person or agent who triggered this session",
 };
+
+/**
+ * A function from a canonical bare return-action name to the LITERAL tool
+ * name the current harness will accept — see `literalToolNamerForAdapterType`.
+ */
+export type LiteralToolNamer = (name: ReturnActionName) => string;
+
+/** Default namer: the bare name unchanged (builtin, and the pre-Increment-8 default). */
+const identityToolName: LiteralToolNamer = (name) => name;
+
+/**
+ * AU27 Increment 8 (BLOCKER fix) — `mcp__<server>__<bare>` is the MCP-client
+ * namespacing convention Claude Code, codex, and cursor-agent all present to
+ * the model for a tool registered on our "hyperidle" MCP server (mirrors the
+ * `mcp__` leg `stripMcpNamespace` already parses back to bare form for the
+ * GATE). Naming the tool this way UP FRONT — in the orientation instruction
+ * and in the forcing message — lets the model call it directly instead of
+ * resolving a bare mention via an internal tool-search step first (the extra
+ * round trip `vitest.integration.config.ts`'s `harness-timeout-ceiling` lore
+ * describes and budgets timeout for).
+ */
+export const mcpNamespacedToolName: LiteralToolNamer = (name) => `mcp__hyperidle__${name}`;
+
+/**
+ * AU27 Increment 8 (BLOCKER fix) — `hyperidle_<bare>` is opencode's own
+ * MCP-client namespacing convention (the `hyperidle_` leg `stripMcpNamespace`
+ * already parses back to bare form for the GATE). Unlike Claude/codex,
+ * opencode's tested model does not resolve a bare mention to this namespaced
+ * form — it fails outright ("Model tried to call unavailable tool 'reply'").
+ */
+export const opencodeToolName: LiteralToolNamer = (name) => `hyperidle_${name}`;
+
+/**
+ * The harness adapter "type" identifiers `AdapterPool` registration meta uses
+ * (`adapter-pool.ts`) — the vocabulary `selectedAdapter.meta.type` carries.
+ */
+export type HarnessAdapterType = "builtin" | "claude-code" | "codex" | "opencode" | "cursor-agent";
+
+/**
+ * AU27 Increment 8 (BLOCKER fix) — resolve the right `LiteralToolNamer` for a
+ * given harness adapter type, so any call site that names a return-action
+ * tool in agent-facing text can say a name the agent can actually invoke.
+ * `builtin` calls tools directly (no MCP, no namespace) and an unrecognized/
+ * absent type falls back to the bare name — the pre-Increment-8 default.
+ */
+export function literalToolNamerForAdapterType(
+	adapterType: HarnessAdapterType | string | undefined,
+): LiteralToolNamer {
+	switch (adapterType) {
+		case "opencode":
+			return opencodeToolName;
+		case "claude-code":
+		case "codex":
+		case "cursor-agent":
+			return mcpNamespacedToolName;
+		default:
+			return identityToolName;
+	}
+}
 
 /**
  * AU27 Increment 3 (Decision 3) — the forcing message, tailored to a
@@ -159,12 +218,23 @@ const RETURN_ACTION_DESCRIPTIONS: Record<ReturnActionName, string> = {
  * names). `required` absent or empty returns the byte-identical
  * `AL6_FORCE_RETURN_MESSAGE` (the pre-Increment-3 default, full-set message)
  * — no behavior change for every session that has no specific requirement.
+ *
+ * `literalToolName` (AU27 Increment 8) — optional, defaults to the bare name
+ * — lets a caller substitute the harness-literal tool name (e.g.
+ * `mcp__hyperidle__reply` / `hyperidle_reply`) for the name that appears in
+ * the message, instead of the canonical bare name.
  */
-export function buildForceReturnMessage(required?: readonly string[]): string {
+export function buildForceReturnMessage(
+	required?: readonly string[],
+	literalToolName: LiteralToolNamer = identityToolName,
+): string {
 	if (!required || required.length === 0) return AL6_FORCE_RETURN_MESSAGE;
-	const described = required.map(
-		(name) => RETURN_ACTION_DESCRIPTIONS[name as ReturnActionName] ?? name,
-	);
+	const described = required.map((name) => {
+		const key = name as ReturnActionName;
+		const label = literalToolName(key);
+		const hint = RETURN_ACTION_HINTS[key];
+		return hint ? `${label} (${hint})` : label;
+	});
 	if (described.length === 1) {
 		return `You have not yet returned your work to HyperIdle. Before this turn can end you must call ${described[0]}. Call it now.`;
 	}
@@ -208,8 +278,14 @@ export function shouldForceReturn(
 	 * (byte-identical `AL6_FORCE_RETURN_MESSAGE`, membership-only).
 	 */
 	required?: readonly string[],
+	/**
+	 * AU27 Increment 8 (BLOCKER fix) — the harness-literal namer to use when
+	 * building a required-subset message (see `buildForceReturnMessage`).
+	 * Omitted ⇒ bare names (unchanged pre-Increment-8 behavior).
+	 */
+	literalToolName?: LiteralToolNamer,
 ): string | null {
 	if (gate.returned) return null; // return was seen — allow stop
 	if (forceCount >= AL6_MAX_FORCE_RETURNS) return null; // budget spent — Tier-2 reject
-	return buildForceReturnMessage(required);
+	return buildForceReturnMessage(required, literalToolName);
 }
