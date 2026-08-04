@@ -108,6 +108,17 @@ import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/share
 import { createGitRunner } from "@hyperidle/shared/git";
 import { createUpgradeTokenStore, listUsers } from "@hyperidle/users";
 import { Hono } from "hono";
+// @lore AU26: `ws` ships NO type declarations of its own, so `@types/ws` is a
+// hard requirement wherever `ws` is imported — it lives in this package's
+// devDependencies alongside the `ws` runtime dependency. When this import moved
+// here from `core-api/src/server-factory.ts`, only `ws` came across and
+// `@types/ws` was dropped; that broke TWO things at once, because
+// `@types/ws/index.d.ts` opens with `/// <reference types="node" />` and was
+// silently the only thing pulling `@types/node` into core-api's program.
+// Never rely on a triple-slash reference inside a third-party `.d.ts` to supply
+// node types — declare `@types/node` + `"types": ["node"]` per package instead.
+// It reproduces only on a clean `npm ci` tree; stale local `dist/` +
+// `.tsbuildinfo` mask it, which is why it passed locally and failed in CI.
 import { WebSocketServer } from "ws";
 
 /**

@@ -34,5 +34,9 @@
 		"@hyperidle/users": "*",
 		"hono": "^4.12.27",
 		"ws": "^8.20.0"
+	},
+	"devDependencies": {
+		"@types/node": "^24",
+		"@types/ws": "^8.18.1"
 	}
 }
