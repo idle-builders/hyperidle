@@ -467,10 +467,7 @@ describe("AE5 — thread detail with hostTitle and extended identities (Task 5)"
 		expect(res.status).toBe(200);
 
 		const body = (await res.json()) as {
-			identities: Record<
-				string,
-				{ name: string; role?: string; isAgent?: boolean; operationalStatus?: string }
-			>;
+			identities: Record<string, { name: string; role?: string; isAgent?: boolean }>;
 		};
 
 		expect(body.identities["agent-aria"]?.isAgent).toBe(true);
@@ -540,7 +537,14 @@ describe("AE5 — thread detail with hostTitle and extended identities (Task 5)"
 	});
 
 	// @lore AF11-IDOR: Agent message seeded via DB rather than API POST.
-	test("agent operationalStatus is 'idle' when no active session", async ({ db, app }) => {
+	// @lore AU26 J1: `operationalStatus` was DELETED from thread identities — it
+	// was derived from a raw `sessions` read (one query per AI participant, an
+	// N+1) and had zero production readers. What survives is `isAgent`, which the
+	// renderers do read.
+	test("an agent sender is flagged isAgent and carries no run-derived status", async ({
+		db,
+		app,
+	}) => {
 		await seedBase(db);
 		const now = new Date().toISOString();
 
@@ -563,7 +567,7 @@ describe("AE5 — thread detail with hostTitle and extended identities (Task 5)"
 			clientKey: "ae5-status-idle-012",
 			createdAt: now,
 		});
-		// Agent message seeded directly to test operationalStatus
+		// A second, agent-authored message so the identity map covers an AI sender.
 		await db.insert(messages).values({
 			id: "msg-agent-idle-012",
 			threadId: "thr-ae5-idle-012",
@@ -579,12 +583,11 @@ describe("AE5 — thread detail with hostTitle and extended identities (Task 5)"
 			headers: authHeaders(),
 		});
 		const body = (await res.json()) as {
-			identities: Record<string, { isAgent?: boolean; operationalStatus?: string }>;
+			identities: Record<string, Record<string, unknown>>;
 		};
 
-		// With no session, status should be idle
 		const agentIdentity = body.identities["agent-aria"];
 		expect(agentIdentity?.isAgent).toBe(true);
-		expect(agentIdentity?.operationalStatus).toBe("idle");
+		expect(agentIdentity).not.toHaveProperty("operationalStatus");
 	});
 });
