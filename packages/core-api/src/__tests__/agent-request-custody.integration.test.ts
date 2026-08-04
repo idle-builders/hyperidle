@@ -25,7 +25,7 @@ import type { RuntimePorts } from "@hyperidle/run-orchestration";
 import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, vi } from "vitest";
-import { expect, test } from "../test-fixtures.js";
+import { expect, test } from "../__testing__/test-fixtures.js";
 import { startTestRuntime } from "./run-orchestration-test-runtime.js";
 
 const sessionProvisioner: NonNullable<RuntimePorts["sessionProvisioner"]> = {

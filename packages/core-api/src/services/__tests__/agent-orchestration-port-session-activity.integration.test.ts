@@ -25,7 +25,7 @@
  * module itself already exists from Increment 6).
  */
 
-import { describe, expect, test, vi } from "../../test-fixtures.js";
+import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 import {
 	buildAgentOrchestrationPort,
 	createInProcessAgentOrchestrationTransport,

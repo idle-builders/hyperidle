@@ -14,7 +14,7 @@ import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyper
 import type { TaskStateChangedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
-import { test } from "../test-fixtures.js";
+import { test } from "../__testing__/test-fixtures.js";
 
 const TEST_API_KEY = "test-key-ad5-dep";
 

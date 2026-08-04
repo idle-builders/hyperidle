@@ -3,6 +3,6 @@
  * Runs once per worker thread. All test files in the worker share the pool.
  */
 
-import { warmPool } from "@hyperidle/db";
+import { warmPool } from "@hyperidle/db/testing";
 
 await warmPool();

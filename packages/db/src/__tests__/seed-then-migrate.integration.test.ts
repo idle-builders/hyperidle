@@ -21,8 +21,8 @@
  * no per-test re-run mechanism.
  */
 import { describe, expect, it } from "vitest";
+import { createTestDb } from "../__testing__/test-utils.js";
 import * as schema from "../schema.js";
-import { createTestDb } from "../test-utils.js";
 
 describe("I3 review C3: migration idempotency on a populated PGlite DB", () => {
 	it("seeded fixture survives a second migration run (idempotent)", {

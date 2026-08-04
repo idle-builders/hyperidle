@@ -15,7 +15,7 @@
 import { type HyperIdleDb, inviteCodes, loginSessions, users } from "@hyperidle/db";
 import { claimInvite, createInvite } from "@hyperidle/users";
 import { describe, expect } from "vitest";
-import { test } from "../test-fixtures.js";
+import { test } from "../__testing__/test-fixtures.js";
 
 const NOW = new Date().toISOString();
 

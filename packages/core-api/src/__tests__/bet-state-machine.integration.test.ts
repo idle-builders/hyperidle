@@ -8,7 +8,7 @@ import {
 	type WorkDeps,
 } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
-import { describe, expect, test, vi } from "../test-fixtures.js";
+import { describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 
 // AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
 // to the real migrated `org` Service.

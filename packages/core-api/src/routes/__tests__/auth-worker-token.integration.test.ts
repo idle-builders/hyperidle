@@ -8,8 +8,8 @@
  */
 
 import { describe, expect } from "vitest";
-import { test } from "../../test-fixtures.js";
-import { createTestApp } from "../../test-utils.js";
+import { test } from "../../__testing__/test-fixtures.js";
+import { createTestApp } from "../../__testing__/test-utils.js";
 
 const TEST_API_KEY = "test-worker-token-key";
 

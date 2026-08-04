@@ -1,3 +1,13 @@
+/// <reference types="node" />
+//
+// @lore AU28: the triple-slash reference above is load-bearing. `packages/web`'s
+// ~110 test-file references to the Node `global` object were resolving only because
+// the dead Hono RPC client (`src/api/client.ts`, zero call sites) imported
+// `@hyperidle/core-api`, whose type graph pulled `@types/node` into the web program
+// as a side effect. Deleting that file under AU28 Ruling 4.1 removed the accidental
+// load and reded 111 `Cannot find name 'global'` errors. Declaring the reference here
+// makes the dependency explicit instead of inherited from a file nobody imported.
+
 import { cleanup } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
@@ -11,7 +21,7 @@ import "@testing-library/jest-dom/vitest";
  * `/api/threads`), corrupting per-test `fetchMock` call-count assertions.
  * Mocking the module here prevents any WS connection attempts in unit tests.
  */
-vi.mock("./services/ws-client.js", () => ({
+vi.mock("../services/ws-client.js", () => ({
 	getWsClient: () => ({
 		subscribe: () => () => undefined,
 	}),

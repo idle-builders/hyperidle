@@ -30,7 +30,7 @@ import { createServer } from "@hyperidle/remote-server/create-server";
 import { encryptCredentialValue } from "@hyperidle/shared/crypto";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { test } from "../test-fixtures.js";
+import { test } from "../__testing__/test-fixtures.js";
 
 const TEST_API_KEY = "test-key-ah1-resolver-invariant";
 const TEST_SERVER_SECRET = "ah1-resolver-invariant-secret-32x!!";

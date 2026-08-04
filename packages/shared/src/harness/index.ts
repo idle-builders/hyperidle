@@ -56,7 +56,10 @@ export type {
 	TokenUsageEvent,
 	ToolCallEvent,
 } from "./harness-events.js";
-export { MockHarnessAdapter } from "./mock-harness-adapter.js";
+// @lore AU28 Ruling 9: `MockHarnessAdapter` used to be re-exported here and again from
+// `shared/src/index.ts`. A mock adapter reachable from the product barrel is the same
+// class of breach as `db`'s `createTestDb`. Tests import it from
+// `./harness/__testing__/mock-harness-adapter.js` directly.
 export type { HarnessAdapterType, LiteralToolNamer, ReturnActionName } from "./return-actions.js";
 // ── Closed accepted-return set + forcing helpers ──
 export {

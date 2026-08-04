@@ -19,7 +19,7 @@ import { createInvite, createLoginSession, revokeLoginSession } from "@hyperidle
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { disposeApp } from "../app.js";
-import { test } from "../test-fixtures.js";
+import { test } from "../__testing__/test-fixtures.js";
 import { createTestApp } from "../test-utils.js";
 
 const TEST_API_KEY = "test-key-s1-e2e";

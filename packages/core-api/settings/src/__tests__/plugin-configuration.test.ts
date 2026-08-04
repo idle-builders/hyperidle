@@ -2,20 +2,19 @@ import {
 	type AgentRunConfigRow,
 	agentRunConfig,
 	configurationOverrides,
-	createTestDb,
 	type HyperIdleDb,
 	pluginConfigurationDefaults,
 	type Routine,
 	routines,
 	type ServiceConnectionRow,
 	serviceConnections,
-	type TestDbHandle,
 	teamMembers,
 	teams,
 	type User,
 	userSkills,
 	users,
 } from "@hyperidle/db";
+import { createTestDb, type TestDbHandle } from "@hyperidle/db/testing";
 import { BUILTIN_PLUGIN_ID, CONFIGURATION_KINDS, type ConfigurationKind } from "@hyperidle/shared";
 import { eq, inArray, isNull } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";

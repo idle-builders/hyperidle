@@ -21,7 +21,7 @@ import { runtimeDeps, startRuntime } from "../services/run-orchestration-composi
 
 type SessionContext = Extract<RunTransitionSpec, { target: "session" }>["context"];
 
-import { describe, expect, test, vi } from "../test-fixtures.js";
+import { describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 
 // --- Test helpers ---
 

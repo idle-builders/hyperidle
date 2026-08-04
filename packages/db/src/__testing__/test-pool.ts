@@ -6,8 +6,8 @@ import { PGlite } from "@electric-sql/pglite";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
-import type { HyperIdleDb } from "./connection.js";
-import * as schema from "./schema.js";
+import type { HyperIdleDb } from "../connection.js";
+import * as schema from "../schema.js";
 
 // ---------------------------------------------------------------------------
 // Tracing
@@ -38,7 +38,7 @@ function resolveDirname(): string {
 	return cjsDirname ?? fileURLToPath(new URL(".", import.meta.url));
 }
 
-const MIGRATIONS_FOLDER = resolve(resolveDirname(), "../drizzle");
+const MIGRATIONS_FOLDER = resolve(resolveDirname(), "../../drizzle");
 
 export interface PooledInstance {
 	readonly client: PGlite;

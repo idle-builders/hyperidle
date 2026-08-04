@@ -13,7 +13,7 @@ import { getTeamMembers, updateTeam } from "@hyperidle/org";
 import { API_ERROR_CODES, type EventBus } from "@hyperidle/shared";
 import { transitionBet, type WorkDeps } from "@hyperidle/work";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { test } from "../../test-fixtures.js";
+import { test } from "../../__testing__/test-fixtures.js";
 
 // AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
 // to the real migrated `org` Service.

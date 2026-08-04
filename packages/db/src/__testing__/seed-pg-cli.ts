@@ -1,5 +1,5 @@
-import { createPgDb } from "./connection.js";
-import { applyFactoryBootstrap } from "./factory-bootstrap.js";
+import { createPgDb } from "../connection.js";
+import { applyFactoryBootstrap } from "../factory-bootstrap.js";
 
 // @lore AF17: seed-pg-cli now calls applyFactoryBootstrap (factory rows only).
 // Demo rows are gone from the production seed path.

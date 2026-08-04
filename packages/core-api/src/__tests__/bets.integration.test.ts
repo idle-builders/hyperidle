@@ -1,6 +1,7 @@
-import { bets, createTestDb, teamMembers, teams } from "@hyperidle/db";
-import { describe, expect, test, vi } from "../test-fixtures.js";
-import { createTestApp } from "../test-utils.js";
+import { bets, teamMembers, teams } from "@hyperidle/db";
+import { createTestDb } from "@hyperidle/db/testing";
+import { describe, expect, test, vi } from "../__testing__/test-fixtures.js";
+import { createTestApp } from "../__testing__/test-utils.js";
 
 // @lore U1: teams = domain entity (formerly products); teamMembers = membership group.
 // POST /api/bets accepts teamId referencing teams.id (NOT teamMembers.id).

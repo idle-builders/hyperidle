@@ -15,8 +15,8 @@ import {
 	createFilesystemReviewVerifier,
 	type ReviewClaim,
 	type ReviewVerifier,
-} from "../../e2e/support/review-trust.js";
-import { createValidationContracts } from "../../e2e/support/validation-contract.js";
+} from "../../__e2e__/support/review-trust.js";
+import { createValidationContracts } from "../../__e2e__/support/validation-contract.js";
 
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");
 

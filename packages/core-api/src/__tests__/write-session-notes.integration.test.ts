@@ -16,8 +16,8 @@ import { EventBus, type ToolContext } from "@hyperidle/shared";
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
+import { test } from "../__testing__/test-fixtures.js";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
-import { test } from "../test-fixtures.js";
 
 const writeSessionNotesTool = buildToolDefinitions(toolHandlersPorts).find(
 	(t) => t.name === "write_session_notes",

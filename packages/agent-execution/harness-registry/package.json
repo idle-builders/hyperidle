@@ -6,7 +6,8 @@
 	"exports": {
 		".": "./src/index.ts",
 		"./mcp": "./src/mcp/index.ts",
-		"./test-utils": "./src/__tests__/require-harness.ts"
+		"./test-utils": "./src/__tests__/require-harness.ts",
+		"./testing": "./src/__testing__/llm-cassette.ts"
 	},
 	"scripts": {
 		"check": "tsc --noEmit",

@@ -3,7 +3,7 @@
  *
  * @lore AF17: This file is the ONLY place the "Acme" demo world lives.
  * It must NEVER be imported from production paths:
- *   - packages/db/src/seed-pg-cli.ts
+ *   - packages/db/src/__testing__/seed-pg-cli.ts
  *   - packages/db/src/bootstrap-pg.ts
  *   - packages/db/src/factory-bootstrap.ts
  *   - packages/db/src/migrate-pg.ts

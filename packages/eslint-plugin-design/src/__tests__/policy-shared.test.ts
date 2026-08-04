@@ -92,7 +92,9 @@ describe("mock-data-policy: single source of truth", () => {
 		expect(Array.isArray(PERMITTED_SURFACE_PATH_FRAGMENTS)).toBe(true);
 		expect(PERMITTED_SURFACE_PATH_FRAGMENTS).toContain("/__fixtures__/");
 		expect(PERMITTED_SURFACE_PATH_FRAGMENTS).toContain("/__tests__/");
-		expect(PERMITTED_SURFACE_PATH_FRAGMENTS).toContain("/e2e/");
+		// AU28: `packages/web/e2e/` moved to `packages/web/__e2e__/` under the
+		// production/development split; the fragment moved with it.
+		expect(PERMITTED_SURFACE_PATH_FRAGMENTS).toContain("/__e2e__/");
 	});
 
 	it("exports PERMITTED_SURFACE_SUFFIXES for file extension checking", () => {

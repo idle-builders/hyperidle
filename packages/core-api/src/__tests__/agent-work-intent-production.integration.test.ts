@@ -25,8 +25,8 @@ import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { checkAndUnblockDependents } from "@hyperidle/work";
 import { eq, sql } from "drizzle-orm";
+import { afterEach, beforeEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 import { queueDeps } from "../services/durable-agent-queue.js";
-import { afterEach, beforeEach, describe, expect, test, vi } from "../test-fixtures.js";
 import { fireGenericRoutine } from "./dispatch-test-helpers.js";
 
 /** AU20 Ag2: `checkAndUnblockDependents` relocated to work; `work:` sub-object removed. */

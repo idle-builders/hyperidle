@@ -30,7 +30,7 @@ import type { FilesystemAuthResolver } from "@hyperidle/shared";
 import { encryptCredentialValue } from "@hyperidle/shared/crypto";
 import { createGitRunner } from "@hyperidle/shared/git";
 import { describe, expect, it } from "vitest";
-import { test } from "../test-fixtures.js";
+import { test } from "../__testing__/test-fixtures.js";
 
 // ─── Skip guard ───────────────────────────────────────────────────────────────
 

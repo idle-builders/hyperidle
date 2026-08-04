@@ -28,7 +28,7 @@ import {
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect } from "vitest";
-import { test as fixtureTest } from "../../test-fixtures.js";
+import { test as fixtureTest } from "../../__testing__/test-fixtures.js";
 import { runSession } from "../run-orchestration-composition.js";
 
 class RecordingHarnessAdapter implements HarnessAdapter {

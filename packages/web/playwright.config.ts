@@ -10,7 +10,7 @@
  * is needed and a port collision on 3001 would hang test boot.
  */
 import { defineConfig, devices } from "@playwright/test";
-import { AU21_PRE_EXISTING_E2E_FAILURES } from "./e2e/known-pre-existing-failures.js";
+import { AU21_PRE_EXISTING_E2E_FAILURES } from "./__e2e__/known-pre-existing-failures.js";
 
 const E2E_PORT = 5179;
 
@@ -31,7 +31,7 @@ const PRE_EXISTING_FAILURES_PATTERN =
 		: undefined;
 
 export default defineConfig({
-	testDir: "./e2e",
+	testDir: "./__e2e__",
 	fullyParallel: true,
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 0,

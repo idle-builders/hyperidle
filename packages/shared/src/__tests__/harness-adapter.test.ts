@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { MockHarnessAdapter } from "../harness/__testing__/mock-harness-adapter.js";
 import type {
 	HarnessAdapter,
 	HarnessCapabilities,
@@ -7,7 +8,6 @@ import type {
 	SessionHandle,
 	SessionResult,
 } from "../harness/index.js";
-import { MockHarnessAdapter } from "../harness/index.js";
 
 const TEST_CONFIG: SessionConfig = {
 	sessionId: "test-session",

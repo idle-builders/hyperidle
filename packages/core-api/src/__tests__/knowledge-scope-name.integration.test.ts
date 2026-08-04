@@ -21,7 +21,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { afterEach, beforeEach, describe, expect, test, vi } from "../test-fixtures.js";
+import { afterEach, beforeEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 
 const TEST_API_KEY = "test-key-av3";
 

@@ -630,31 +630,52 @@ async function callOpenAi(
 	return parseOpenAiResponse(responseBody);
 }
 
-// ── AH6 B1: env-gated cassette dispatcher ─────────────────────────────────────
+// ── LLM interception seam ─────────────────────────────────────────────────────
 
 /**
- * AH6 B1: env-gated dispatcher for LLM_CASSETTE_MODE.
+ * An installed interceptor wraps every `callLlm`. It receives the direct caller so it
+ * can pass through, replay from a cassette, or record.
+ */
+export type LlmInterceptor = (
+	options: CallLlmOptions,
+	direct: (options: CallLlmOptions) => Promise<LlmResponse>,
+) => Promise<LlmResponse>;
+
+let installedInterceptor: LlmInterceptor | null = null;
+
+/**
+ * Install (or clear, with `null`) the process-wide LLM interceptor.
  *
- * Transparent to all 6 adapter call sites — they import and call callLlm as before.
- * Production (LLM_CASSETTE_MODE unset): zero overhead, routes directly to callLlmDirect.
- * Replay (LLM_CASSETTE_MODE=replay): reads cassette from LLM_CASSETTE_DIR/scenario.json,
- *   returns the recorded response — no network call, no API key needed.
- * Record (LLM_CASSETTE_MODE=record): calls callLlmDirect + persists to cassette file.
+ * @lore AU28: AH6 B1 originally put the cassette knowledge INSIDE `callLlm` — it read
+ * `LLM_CASSETTE_MODE` itself and dynamically imported `./llm-cassette.js` in the replay
+ * and record arms. That is production code importing a development module, which the
+ * production/development split forbids in that direction. Inverted: the cassette module
+ * now installs itself and the e2e lane's server entry point does the installing
+ * (`packages/web/__scripts__/ah6-test-server.ts`). Behaviour is unchanged when nothing
+ * is installed — `callLlm` routes straight to `callLlmDirect`, zero overhead.
+ */
+export function setLlmInterceptor(interceptor: LlmInterceptor | null): void {
+	installedInterceptor = interceptor;
+}
+
+/**
+ * The single LLM entry point. Transparent to all adapter call sites.
  *
- * @lore AH6 B1: Interception at the definition module (not the adapter) means
- * all 6 adapter call sites + harness-discovery.ts are covered transparently.
- * Production behavior is unchanged when LLM_CASSETTE_MODE is unset.
+ * @lore AU28: `LLM_CASSETTE_MODE` is set but no interceptor installed is a HARD ERROR,
+ * not a silent passthrough. Under the old env-gated design, a lane that set the mode was
+ * guaranteed interception; under the seam it is not, and a silent fallthrough would make
+ * a "replay" run quietly hit the network with a fake API key. Failing loudly is the whole
+ * point of moving the decision out of this module.
  */
 export async function callLlm(options: CallLlmOptions): Promise<LlmResponse> {
+	if (installedInterceptor !== null) return installedInterceptor(options, callLlmDirect);
 	const mode = process.env.LLM_CASSETTE_MODE;
-	if (mode === "replay") {
-		const { replayLlm, loadCassetteEntries } = await import("./llm-cassette.js");
-		const entries = loadCassetteEntries();
-		return replayLlm(options, entries);
-	}
-	if (mode === "record") {
-		const { recordLlm } = await import("./llm-cassette.js");
-		return recordLlm(options, callLlmDirect);
+	if (mode === "replay" || mode === "record") {
+		throw new Error(
+			`LLM_CASSETTE_MODE=${mode} is set but no LLM interceptor is installed. ` +
+				`The lane entry point must call installCassetteInterceptor() from ` +
+				`@hyperidle/harness-registry/testing before any LLM call.`,
+		);
 	}
 	return callLlmDirect(options);
 }

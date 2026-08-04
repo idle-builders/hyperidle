@@ -7,14 +7,14 @@ import {
 import type { HyperIdleDb } from "@hyperidle/db";
 import { API_ERROR_CODES, EventBus } from "@hyperidle/shared";
 import { Hono } from "hono";
-import type { AppOptions } from "./app.js";
-import { registerAppDisposers } from "./app.js";
-import { bootCoreApi } from "./boot.js";
-import { health } from "./routes/health.js";
+import type { AppOptions } from "../app.js";
+import { registerAppDisposers } from "../app.js";
+import { bootCoreApi } from "../boot.js";
+import { health } from "../routes/health.js";
 import {
 	createInProcessAgentOrchestrationTransport,
 	registerAgentOrchestrationTransport,
-} from "./services/agent-orchestration-port-composition.js";
+} from "../services/agent-orchestration-port-composition.js";
 
 const TRACE_FILE = process.env.VITEST_TRACE_FILE;
 

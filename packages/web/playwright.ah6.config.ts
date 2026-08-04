@@ -7,7 +7,7 @@
  *
  * CRITICAL: LLM calls are intercepted by the cassette replay layer
  * (LLM_CASSETTE_MODE=replay). All three scenarios (S1, S2, S3) replay committed
- * cassettes from packages/web/e2e/cassettes/{S1,S2,S3}.json. No API key required.
+ * cassettes from packages/web/__e2e__/cassettes/{S1,S2,S3}.json. No API key required.
  *
  * @lore AH6: Port layout:
  *   3098 — AH6 API test server (cassette replay, no real key)
@@ -41,7 +41,7 @@ const AH6_VITE_PORT = 5183;
 const AH6_API_KEY = "ah6-e2e-test-key";
 
 // Absolute path to the cassettes directory — WARNING-3 compliance.
-const CASSETTES_DIR = path.resolve(Dirname, "e2e/cassettes");
+const CASSETTES_DIR = path.resolve(Dirname, "__e2e__/cassettes");
 
 // Usage report written by recordLlm in record mode.
 // @lore AU21 (harness-telemetry narrowing): this used to be a $-cost report;
@@ -58,7 +58,7 @@ const CASSETTES_DIR = path.resolve(Dirname, "e2e/cassettes");
 const COST_REPORT_PATH = "/tmp/ah6-cost.json";
 
 export default defineConfig({
-	testDir: "./e2e",
+	testDir: "./__e2e__",
 	testMatch: "**/AH6-*.spec.ts",
 	fullyParallel: false, // Serial: 1 in-memory DB, deterministic cassette replay
 	forbidOnly: !!process.env.CI,

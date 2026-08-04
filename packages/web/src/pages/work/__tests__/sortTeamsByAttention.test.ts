@@ -8,7 +8,7 @@
 
 import type { TeamListItem } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
-import { sortTeamsByAttention } from "./sortTeamsByAttention.js";
+import { sortTeamsByAttention } from "../sortTeamsByAttention.js";
 
 const BASE: Omit<TeamListItem, "id" | "name" | "status"> = {
 	phase: "build",

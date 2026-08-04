@@ -20,7 +20,6 @@ import {
 	resolveOrCreateHostThread,
 } from "../../services/host-threads.js";
 import { ReviewComposition } from "./ReviewComposition.js";
-import { REVIEW_COMPOSITION_SUBJECT } from "./review-composition.fixture.js";
 import type { ComposedReviewSubject, ReviewComment } from "./review-composition.js";
 
 export type ReviewLoader = (params: {
@@ -211,7 +210,7 @@ export function ReviewPage({ loader = defaultLoader }: ReviewPageProps = {}): JS
 	);
 }
 
-// @lore AL3: keep the fixture reachable from the production module for
-// host tests and storybook; importing from the fixture file rather than
-// redeclaring avoids drift between test data and the defaultLoader fallback.
-export { REVIEW_COMPOSITION_SUBJECT };
+// @lore AU28: AL3 re-exported `REVIEW_COMPOSITION_SUBJECT` from this production module
+// so tests and stories could reach it. That made a shipping page import a fixture for no
+// runtime reason — `defaultLoader` never used it. The five consumers all import the
+// fixture directly from `./__fixtures__/review-composition.fixture.js`.

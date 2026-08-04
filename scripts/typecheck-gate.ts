@@ -442,7 +442,7 @@ function buildLeafDeclarations(root: string): void {
   // moved wholesale from the dissolved `packages/server`) added — same TS6305
   // cascade; the new `packages/desktop/src/boot-server.ts`,
   // `packages/remote-server/src/index.ts`, `packages/eval/src/{routines
-  // scenarios,provision-harness}.ts`, and `packages/web/scripts/ah{1,5,6}-
+  // scenarios,provision-harness}.ts`, and `packages/web/__scripts__/ah{1,5,6}-
   // test-server.ts`/`src/api/client.ts` now import `@hyperidle/core-api`
   // (repointed from the deleted `@hyperidle/server`). `remote-server` and
   // `remote-worker` added the same increment — `remote-server` is itself a

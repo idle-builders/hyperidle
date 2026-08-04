@@ -5,7 +5,6 @@ import { sql } from "drizzle-orm";
 import type { HyperIdleDb } from "../connection.js";
 import { seedDemoWorld } from "../demo-fixture.js";
 import { applyFactoryBootstrap } from "../factory-bootstrap.js";
-import { seed } from "../seed.js";
 import {
 	readSystemPromptTemplateForRole,
 	SYSTEM_PROMPT_TEMPLATE_FILES,
@@ -38,7 +37,8 @@ async function queryRows<T extends Record<string, unknown>>(
 describe("A2: Seed script", () => {
 	// --- AC4: Seed populates ≥1 row per major table ---
 	test("populates at least 1 row per major table", async ({ db }) => {
-		await seed(db);
+		await applyFactoryBootstrap(db);
+		await seedDemoWorld(db);
 
 		// @lore U1: `products` renamed to `teams`; old `teams` renamed to `team_members`.
 		// @lore P2: agents → users table
@@ -62,7 +62,8 @@ describe("A2: Seed script", () => {
 	});
 
 	test("seed data is well-formed (queryable without errors)", async ({ db }) => {
-		await seed(db);
+		await applyFactoryBootstrap(db);
+		await seedDemoWorld(db);
 
 		// Verify we can read back with all fields.
 		// @lore U1: `products` table renamed to `teams`.
@@ -109,9 +110,10 @@ describe("A2: Seed script", () => {
 	});
 
 	test("is idempotent (running twice does not error)", async ({ db }) => {
-		await seed(db);
+		await applyFactoryBootstrap(db);
+		await seedDemoWorld(db);
 		// Second run should not throw (uses onConflictDoNothing)
-		await expect(seed(db)).resolves.not.toThrow();
+		await expect(applyFactoryBootstrap(db).then(() => seedDemoWorld(db))).resolves.not.toThrow();
 	});
 
 	// --- G1 AC1: facilitator agent archetypes are seeded ---
@@ -121,7 +123,8 @@ describe("A2: Seed script", () => {
 	test("seeds one System Agent (assistant), ≥5 Facilitators, ≥1 Product Manager (AC1)", async ({
 		db,
 	}) => {
-		await seed(db);
+		await applyFactoryBootstrap(db);
+		await seedDemoWorld(db);
 
 		// @lore P2: agents → users table
 		// @lore AD8b: role renamed from "chief_of_staff" to "assistant"
@@ -163,7 +166,8 @@ describe("A2: Seed script", () => {
 	// facts survive: the content now lives in `agent_run_config.system_prompt`, and the
 	// on-disk file is asserted through the role→template resolver that produced it.
 	test("seeded facilitator and product_manager carry a non-empty system prompt", async ({ db }) => {
-		await seed(db);
+		await applyFactoryBootstrap(db);
+		await seedDemoWorld(db);
 
 		const rolesList = SYSTEM_PROMPT_FILE_ROLES.map((r) => `'${r}'`).join(", ");
 		const rows = await queryRows<{ id: string; role: string; system_prompt: string | null }>(
@@ -182,7 +186,8 @@ describe("A2: Seed script", () => {
 	// @lore AD8a: chief_of_staff excluded — its system prompt file was deleted.
 	// @lore AD8c: facilitator.md replaces practice-facilitator.md.
 	test("the docs file backing each seeded role's system prompt exists on disk", async ({ db }) => {
-		await seed(db);
+		await applyFactoryBootstrap(db);
+		await seedDemoWorld(db);
 
 		const root = repoRoot();
 		for (const role of SYSTEM_PROMPT_FILE_ROLES) {
@@ -202,7 +207,8 @@ describe("A2: Seed script", () => {
 	test("facilitator template resolves and practice_facilitator does not (AD8c AC2)", async ({
 		db,
 	}) => {
-		await seed(db);
+		await applyFactoryBootstrap(db);
+		await seedDemoWorld(db);
 
 		const content = readSystemPromptTemplateForRole("facilitator");
 		expect(content).toBeTruthy();
@@ -219,7 +225,8 @@ describe("A2: Seed script", () => {
 
 describe("AF17: seed() = applyFactoryBootstrap + seedDemoWorld", () => {
 	test("seed() produces factory layer (bootstrap) + demo world (Acme team)", async ({ db }) => {
-		await seed(db);
+		await applyFactoryBootstrap(db);
+		await seedDemoWorld(db);
 
 		// Factory layer: system:propagation exists
 		const propagation = await queryRows<{ id: string }>(

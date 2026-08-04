@@ -26,7 +26,7 @@
 import { serve } from "@hono/node-server";
 import { bets, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import { describe, expect, test, vi } from "../../test-fixtures.js";
+import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 import {
 	buildCoreApiPort,
 	createInProcessCoreApiTransport,

@@ -17,7 +17,7 @@ import { requireHarness } from "@hyperidle/harness-registry/test-utils";
 import { createServer } from "@hyperidle/remote-server/create-server";
 import { encryptCredentialValue } from "@hyperidle/shared/crypto";
 import { eq } from "drizzle-orm";
-import { describe, expect, test } from "../test-fixtures.js";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 
 /**
  * AU27 Increment 6 rewrite. Pre-AU27 this test bypassed model resolution

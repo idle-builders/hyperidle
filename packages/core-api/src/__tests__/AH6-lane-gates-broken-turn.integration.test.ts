@@ -37,7 +37,7 @@ import {
 import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { CORE_API_ACTOR_OVERRIDE_HEADER } from "../services/actor-transport-header.js";
-import { test } from "../test-fixtures.js";
+import { test } from "../__testing__/test-fixtures.js";
 
 // ---------------------------------------------------------------------------
 // Constants

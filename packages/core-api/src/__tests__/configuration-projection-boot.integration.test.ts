@@ -18,7 +18,7 @@ import {
 import { createServer, type ServerHandle } from "@hyperidle/remote-server/create-server";
 import { listConfiguration } from "@hyperidle/settings";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { test } from "../test-fixtures.js";
+import { test } from "../__testing__/test-fixtures.js";
 
 const NOW = "2026-07-08T12:00:00.000Z";
 const TEST_API_KEY = "au2-boot-test-key";

@@ -45,7 +45,7 @@ import {
 	reapTerminalTaskDispatchAttempts,
 	TERMINAL_LOG_TTL_MS,
 } from "../service-bootstrap.js";
-import { describe, expect, test } from "../test-fixtures.js";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 
 const now = new Date("2026-07-13T12:00:00.000Z");
 const DAY = 86_400_000;

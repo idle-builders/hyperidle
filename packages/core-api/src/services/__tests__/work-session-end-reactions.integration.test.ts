@@ -72,7 +72,7 @@ import {
 } from "@hyperidle/db";
 import type { AgentRunLifecycleChangedEvent, SessionEndedEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
-import { describe, expect, test, vi } from "../../test-fixtures.js";
+import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 // NOT YET CREATED — this import failing to resolve is this file's primary RED signal.
 import { registerWorkSessionEndReactions } from "../work-session-end-reactions.js";
 

@@ -15,7 +15,7 @@ import { type HyperIdleDb, knowledgeAppProjection, knowledgeItems, users } from 
 import { KERNEL_KNOWLEDGE_STATUSES } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { test } from "../../test-fixtures.js";
+import { test } from "../../__testing__/test-fixtures.js";
 
 const TEST_API_KEY = "test-key-y4-triage";
 

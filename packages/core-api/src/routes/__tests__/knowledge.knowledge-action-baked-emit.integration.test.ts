@@ -40,7 +40,7 @@ import {
 } from "../../services/core-api-port-composition.js";
 import { queueDeps } from "../../services/durable-agent-queue.js";
 import { toolHandlersPorts } from "../../services/tool-handlers-bindings.js";
-import { test as baseTest } from "../../test-fixtures.js";
+import { test as baseTest } from "../../__testing__/test-fixtures.js";
 
 const TEST_API_KEY = "test-key-au21-knowledge-action-emit";
 

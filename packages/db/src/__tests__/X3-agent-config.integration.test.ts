@@ -27,7 +27,8 @@
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { sql } from "drizzle-orm";
 import type { HyperIdleDb } from "../connection.js";
-import { seed } from "../seed.js";
+import { seedDemoWorld } from "../demo-fixture.js";
+import { applyFactoryBootstrap } from "../factory-bootstrap.js";
 import {
 	readSystemPromptTemplateForRole,
 	SYSTEM_PROMPT_TEMPLATE_FILES,
@@ -236,7 +237,8 @@ describe("X3 AC-2: system prompt templates readable from docs/system-prompts/ vi
 
 describe("X3 AC-3: existing agents backfilled with systemPrompt from role template", () => {
 	test("demo-agent-pm has systemPrompt matching product_manager template", async ({ db }) => {
-		await seed(db);
+		await applyFactoryBootstrap(db);
+		await seedDemoWorld(db);
 
 		const agentRows = await queryRows<{ systemPrompt: string | null }>(
 			db,
@@ -250,7 +252,8 @@ describe("X3 AC-3: existing agents backfilled with systemPrompt from role templa
 
 	// @lore AD8a: seed-agent-cos system prompt file deleted. systemPrompt is null until AD8b adds assistant.md.
 	test("seed-agent-cos has null systemPrompt (AD8a: system prompt deleted)", async ({ db }) => {
-		await seed(db);
+		await applyFactoryBootstrap(db);
+		await seedDemoWorld(db);
 
 		const agentRows = await queryRows<{ systemPrompt: string | null }>(
 			db,
@@ -264,7 +267,8 @@ describe("X3 AC-3: existing agents backfilled with systemPrompt from role templa
 	test("facilitator agents have systemPrompt matching facilitator template (AD8c)", async ({
 		db,
 	}) => {
-		await seed(db);
+		await applyFactoryBootstrap(db);
+		await seedDemoWorld(db);
 
 		const agentRows = await queryRows<{ id: string; systemPrompt: string | null }>(
 			db,
@@ -284,7 +288,8 @@ describe("X3 AC-3: existing agents backfilled with systemPrompt from role templa
 	// AB0: builder now has a template (docs/system-prompts/builder.md added)
 	// @lore AF17: renamed from seed-agent-builder (pre-purge) to demo-agent-builder.
 	test("demo-agent-builder has systemPrompt matching builder template", async ({ db }) => {
-		await seed(db);
+		await applyFactoryBootstrap(db);
+		await seedDemoWorld(db);
 
 		const agentRows = await queryRows<{ systemPrompt: string | null }>(
 			db,
@@ -303,7 +308,8 @@ describe("X3 AC-3: existing agents backfilled with systemPrompt from role templa
 	// "no row OR a row with null system_prompt" keeps the original meaning
 	// (no persona for the system role) without hard-coding either storage state.
 	test("system:propagation has no persona (system role, no template)", async ({ db }) => {
-		await seed(db);
+		await applyFactoryBootstrap(db);
+		await seedDemoWorld(db);
 
 		const rows = await queryRows<{ systemPrompt: string | null }>(
 			db,

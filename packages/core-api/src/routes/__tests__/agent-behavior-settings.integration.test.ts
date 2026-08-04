@@ -7,7 +7,7 @@ import {
 import { failClosedAssertion } from "@hyperidle/shared/http";
 import { Hono } from "hono";
 import { authMiddleware } from "../../middleware/auth.js";
-import { describe, expect, test, vi } from "../../test-fixtures.js";
+import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 
 const TEST_API_KEY = "test-key-au5-agent-behavior";
 

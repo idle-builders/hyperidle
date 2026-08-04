@@ -15,7 +15,7 @@
 import { serverConfig, threads, users } from "@hyperidle/db";
 import { AdapterPool } from "@hyperidle/harness-registry";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { test } from "../../test-fixtures.js";
+import { test } from "../../__testing__/test-fixtures.js";
 import { registerWorkerTestSocket, startWorkerTestRuntime } from "./worker-runtime-test-helper.js";
 
 async function createWorkerConnectionManager(pool: AdapterPool) {

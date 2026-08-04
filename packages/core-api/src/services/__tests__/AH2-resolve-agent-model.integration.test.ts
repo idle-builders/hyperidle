@@ -13,7 +13,7 @@
 import type { CredentialResolver } from "@hyperidle/credentials";
 import { BUILT_IN_GATEWAY_CONFIG, MissingCredentialError, resolveModel } from "@hyperidle/shared";
 import { describe, expect, vi } from "vitest";
-import { test } from "../../test-fixtures.js";
+import { test } from "../../__testing__/test-fixtures.js";
 
 function makeResolver(entries: Record<string, string | null>): CredentialResolver {
 	return {

@@ -5,7 +5,7 @@
  * GET /api/knowledge returns all items with computed signals from access log.
  */
 import { knowledgeItems } from "@hyperidle/db";
-import { afterEach, beforeEach, describe, expect, test, vi } from "../test-fixtures.js";
+import { afterEach, beforeEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 
 const TEST_API_KEY = "test-key-l22-signals";
 

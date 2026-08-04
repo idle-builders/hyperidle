@@ -8,7 +8,7 @@
 
 import { type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
 import { describe, expect, vi } from "vitest";
-import { test } from "../test-fixtures.js";
+import { test } from "../__testing__/test-fixtures.js";
 
 const TEST_API_KEY = "test-key-m3-threads";
 

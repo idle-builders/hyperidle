@@ -8,7 +8,7 @@
 
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
 import { describe, expect, vi } from "vitest";
-import { test } from "../test-fixtures.js";
+import { test } from "../__testing__/test-fixtures.js";
 
 const TEST_API_KEY = "test-key-ac1-task-outcome";
 const NOW = new Date().toISOString();

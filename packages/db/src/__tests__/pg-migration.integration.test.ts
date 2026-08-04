@@ -2,12 +2,12 @@ import { PGlite } from "@electric-sql/pglite";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { describe, expect, it } from "vitest";
-import * as pgSchema from "../schema.js";
 // @lore test-infra: createTestDb is kept throughout this file. Some tests call
 // runMigrations() to test idempotency — the pooled fixture does not expose that.
 // Other tests (brownfield simulation, boolean coercion) manage lifecycle via
 // try/finally close() and cannot use the shared pool.
-import { createTestDb } from "../test-utils.js";
+import { createTestDb } from "../__testing__/test-utils.js";
+import * as pgSchema from "../schema.js";
 
 /**
  * H4 AC3: Migrations apply cleanly on Postgres.

@@ -11,11 +11,12 @@
  *     user, returning 403 for mismatches (IDOR fix).
  */
 
-import { createTestDb, type HyperIdleDb, type TestDbHandle, threads, users } from "@hyperidle/db";
+import { type HyperIdleDb, threads, users } from "@hyperidle/db";
+import { createTestDb, type TestDbHandle } from "@hyperidle/db/testing";
 import { EventBus } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestApp } from "../test-utils.js";
+import { createTestApp } from "../__testing__/test-utils.js";
 
 const TEST_API_KEY = "test-key-ad1-idor";
 const NOW = new Date().toISOString();

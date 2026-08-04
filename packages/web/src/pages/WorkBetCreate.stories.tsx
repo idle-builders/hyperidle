@@ -9,7 +9,7 @@ import type { JSX } from "react";
 // AJ3: page-fed variant mounts via the shared isolation harness instead of a
 // local ad-hoc MemoryRouter wrapper. One story = prototype = annotation
 // surface = catalog entry. See packages/web/src/preview + plans/AJ3.
-import { MockProviders } from "../preview";
+import { MockProviders } from "../__preview__";
 import { WorkBetCreate } from "./WorkBetCreate";
 
 // Storybook scaffold — stories render through MockProviders for routing hooks

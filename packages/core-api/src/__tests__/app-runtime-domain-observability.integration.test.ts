@@ -7,7 +7,7 @@ import {
 import { deliver, enqueue, listNotifications, updateConfig } from "@hyperidle/notifications";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { test as fixtureTest } from "../test-fixtures.js";
+import { test as fixtureTest } from "../__testing__/test-fixtures.js";
 import { notificationsDeps } from "./notifications-test-deps.js";
 
 const TEST_API_KEY = "test-key-au3-domain";

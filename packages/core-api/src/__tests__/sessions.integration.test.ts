@@ -3,7 +3,7 @@ import type { DomainEvent } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { disposeApp } from "../app.js";
 import { registerAgentLayerServices, registerCoreDomainServices } from "../service-bootstrap.js";
-import { expect, test } from "../test-fixtures.js";
+import { expect, test } from "../__testing__/test-fixtures.js";
 import { createTestApp } from "../test-utils.js";
 
 const TEST_API_KEY = "test-key-sessions";

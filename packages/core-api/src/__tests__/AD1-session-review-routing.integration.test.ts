@@ -15,12 +15,10 @@ import { findThread, insertThread, updateThread } from "@hyperidle/conversation"
 import type { WriteExecutor } from "@hyperidle/db";
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	items,
 	orgEdges,
 	sessions,
-	type TestDbHandle,
 	taskPlanningSignals,
 	tasks,
 	teamMembers,
@@ -28,6 +26,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import { createTestDb, type TestDbHandle } from "@hyperidle/db/testing";
 import { resolveReviewRecipients } from "@hyperidle/org";
 import { type ReviewPorts, registerReviewSubscriptions } from "@hyperidle/review";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";

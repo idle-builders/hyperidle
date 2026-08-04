@@ -131,7 +131,7 @@ function redactSafeStringify(value: unknown): string {
  * `new URL()` when possible; falls back to a regex otherwise.
  *
  * @lore Single source of truth for DB URL scrubbing. Previously duplicated
- * in `packages/db/src/setup-cli.ts` and `packages/db/src/pg-test-runner.ts`
+ * in `packages/db/src/setup-cli.ts` and `packages/db/src/__testing__/pg-test-runner.ts`
  * (H4 review finding).
  */
 export function redactDbUrl(url: string): string {

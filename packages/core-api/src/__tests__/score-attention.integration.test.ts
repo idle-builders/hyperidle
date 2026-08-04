@@ -2,13 +2,13 @@ import { type HyperIdleDb, items, knowledgeAppProjection, knowledgeItems } from 
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
+import { test as baseTest } from "../__testing__/test-fixtures.js";
 import {
 	createInProcessCoreApiTransport,
 	registerCoreApiTransport,
 } from "../services/core-api-port-composition.js";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
 import { buildToolRegistry } from "../services/tool-provider-bindings.js";
-import { test as baseTest } from "../test-fixtures.js";
 
 /**
  * @lore AU21 §9 Increment 2: this file's tool handler(s) now reach

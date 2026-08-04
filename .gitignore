@@ -10,7 +10,7 @@ playwright-report-ah1/
 playwright-report-ah5/
 playwright-report-ah6/
 test-results/
-packages/web/e2e/screenshots/
+packages/web/__e2e__/screenshots/
 visual-reports/
 sync-reports/
 .pipeline/*
@@ -45,51 +45,17 @@ hyperidle-pg/
 eval-results*.json
 docs/product/.vitepress/cache
 .vitepress/cache
-# @lore AF17 NIT-3: guard scripts run via tsx (no compilation step). If tsc emits
-# these declaration/map files, they must not pollute the tracked tree.
-scripts/nimmly-guard.js
-scripts/nimmly-guard.js.map
-scripts/nimmly-guard.d.ts
-scripts/nimmly-guard.d.ts.map
-scripts/demo-fixture-guard.js
-scripts/demo-fixture-guard.js.map
-scripts/demo-fixture-guard.d.ts
-scripts/demo-fixture-guard.d.ts.map
-scripts/token-resolution-guard.js
-scripts/token-resolution-guard.js.map
-scripts/token-resolution-guard.d.ts
-scripts/token-resolution-guard.d.ts.map
-scripts/harness-vocab-guard.js
-scripts/harness-vocab-guard.js.map
-scripts/harness-vocab-guard.d.ts
-scripts/harness-vocab-guard.d.ts.map
-# AR1: honest-harness-guard + scripts/lib pure modules — tsx-run, no commit of emitted artifacts
-scripts/honest-harness-guard.js
-scripts/honest-harness-guard.js.map
-scripts/honest-harness-guard.d.ts
-scripts/honest-harness-guard.d.ts.map
-# detector fix (2026-08-03): generate-dependency-graph.ts / composition-edge-
-# anti-regrowth-guard.ts — same tsx-run, no-compile-step class as the guards above.
-scripts/generate-dependency-graph.js
-scripts/generate-dependency-graph.js.map
-scripts/generate-dependency-graph.d.ts
-scripts/generate-dependency-graph.d.ts.map
-scripts/composition-edge-anti-regrowth-guard.js
-scripts/composition-edge-anti-regrowth-guard.js.map
-scripts/composition-edge-anti-regrowth-guard.d.ts
-scripts/composition-edge-anti-regrowth-guard.d.ts.map
-scripts/lib/honest-harness-predicate.js
-scripts/lib/honest-harness-predicate.js.map
-scripts/lib/honest-harness-predicate.d.ts
-scripts/lib/honest-harness-predicate.d.ts.map
-scripts/lib/attestation-floor.js
-scripts/lib/attestation-floor.js.map
-scripts/lib/attestation-floor.d.ts
-scripts/lib/attestation-floor.d.ts.map
-scripts/lib/attestation-scope.js
-scripts/lib/attestation-scope.js.map
-scripts/lib/attestation-scope.d.ts
-scripts/lib/attestation-scope.d.ts.map
+# @lore AU28: `scripts/` runs via tsx and is never compiled deliberately, but tsc emits
+# declaration + map siblings there transitively (root tsconfig has `include: []`, so
+# `scripts/**` is only typechecked through the guard-logic tests in
+# `packages/db/src/__tests__/`, which are part of a `composite` project). Those artifacts
+# must never reach the tracked tree — a stale emitted `.js` next to a `.ts` also shadows
+# the source at resolution time. One rule instead of the per-file list AU28 replaced.
+scripts/**/*.js
+scripts/**/*.js.map
+scripts/**/*.d.ts
+scripts/**/*.d.ts.map
+!scripts/knip-production-test-files.mjs
 # @lore AU26 C3: same class as the guard artifacts above, one level up — a bare
 # `tsc -p packages/db` against a stale `dist/` emits declaration MAPS straight
 # into the package source tree (`packages/db/src/*.d.ts.map`); ten of them were

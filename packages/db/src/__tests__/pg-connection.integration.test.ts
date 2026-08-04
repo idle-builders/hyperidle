@@ -1,4 +1,8 @@
 import { describe, expect, it } from "vitest";
+// @lore test-infra: createTestDb is kept here because the H4 AC3/AC4 test
+// manages its own instance lifecycle via try/finally close(). These tests
+// explicitly test the createTestDb API itself and need direct handle access.
+import { createTestDb } from "../__testing__/test-utils.js";
 import {
 	createPgDb,
 	DEFAULT_PG_POOL_SIZE,
@@ -6,10 +10,6 @@ import {
 	parsePgPoolSize,
 	resolvePgPoolSize,
 } from "../connection.js";
-// @lore test-infra: createTestDb is kept here because the H4 AC3/AC4 test
-// manages its own instance lifecycle via try/finally close(). These tests
-// explicitly test the createTestDb API itself and need direct handle access.
-import { createTestDb } from "../test-utils.js";
 
 describe("H4 AC5: PostgreSQL connection pooling", () => {
 	it("parsePgPoolSize returns default when undefined", () => {

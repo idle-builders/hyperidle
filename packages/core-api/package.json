@@ -18,7 +18,7 @@
 		"./ws-connection-hub": "./src/ws-connection-hub.ts",
 		"./ws-subscribe-authorizer": "./src/ws-subscribe-authorizer.ts",
 		"./routines": "./src/routines.ts",
-		"./test-utils": "./src/test-utils.ts",
+		"./test-utils": "./src/__testing__/test-utils.ts",
 		"./schemas": "./src/schemas/index.ts",
 		"./session": "./src/session.ts",
 		"./services/run-orchestration-runtime": "./src/services/run-orchestration-runtime.ts"

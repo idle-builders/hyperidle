@@ -4,7 +4,7 @@ import type { NotificationEvent, TaskState, TaskStateChangedEvent } from "@hyper
 import { requireRunnableAgent } from "@hyperidle/users";
 import { checkAndUnblockDependents } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
-import { describe, expect, test } from "../test-fixtures.js";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 
 // @lore AU20 Ag2: `checkAndUnblockDependents` relocated to `@hyperidle/work`
 // and simplified — the `work:` sub-object is gone (function calls work

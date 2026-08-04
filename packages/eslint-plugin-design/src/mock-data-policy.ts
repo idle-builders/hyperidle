@@ -62,7 +62,7 @@ export const DEFAULT_SUFFIX_TRIGGERS: readonly string[] = ["_DATA", "_SETTINGS",
 export const PERMITTED_SURFACE_PATH_FRAGMENTS: readonly string[] = [
 	"/__fixtures__/",
 	"/__tests__/",
-	"/e2e/",
+	"/__e2e__/",
 ];
 
 export const PERMITTED_SURFACE_SUFFIXES: readonly string[] = [

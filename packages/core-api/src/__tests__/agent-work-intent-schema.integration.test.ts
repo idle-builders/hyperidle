@@ -14,7 +14,7 @@ import {
 	type HyperIdleDb,
 	users,
 } from "@hyperidle/db";
-import { describe, expect, test } from "../test-fixtures.js";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 
 async function seedAgent(db: HyperIdleDb, id: string): Promise<void> {
 	await db.insert(users).values({

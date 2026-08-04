@@ -171,12 +171,15 @@ export {
 	userSkills,
 	users,
 } from "./schema.js";
-export { seed } from "./seed.js";
 export { type RunSetupContext, type RunSetupIo, runSetup } from "./setup-cli.js";
 export {
 	readSystemPromptTemplate,
 	readSystemPromptTemplateForRole,
 	SYSTEM_PROMPT_TEMPLATE_FILES,
 } from "./system-prompt-templates.js";
-export { closeAllInstances, createTestDb, type TestDbHandle, warmPool } from "./test-utils.js";
+// @lore AU28 Ruling 9: `createTestDb` / `warmPool` / `closeAllInstances` /
+// `TestDbHandle` used to be exported from this production barrel. That is one of the
+// breaches the founder named which "no folder convention would have caught" — a
+// development symbol reachable from a production entry point. They now live behind the
+// `@hyperidle/db/testing` subpath, and the crossing rule polices who imports it.
 export type { WriteExecutor } from "./write-executor.js";

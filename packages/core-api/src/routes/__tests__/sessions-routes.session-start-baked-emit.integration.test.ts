@@ -30,8 +30,8 @@ import {
 import { drainIntents } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { test } from "../../__testing__/test-fixtures.js";
 import { queueDeps } from "../../services/durable-agent-queue.js";
-import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-au21-session-start-emit";
 

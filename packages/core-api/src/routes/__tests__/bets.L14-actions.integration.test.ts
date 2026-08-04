@@ -23,7 +23,7 @@ import type { EventBus } from "@hyperidle/shared";
 import type { RevisionLogEntry, WorkDeps } from "@hyperidle/work";
 import { transitionBet } from "@hyperidle/work";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { test } from "../../test-fixtures.js";
+import { test } from "../../__testing__/test-fixtures.js";
 
 // AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
 // to the real migrated `org` Service.

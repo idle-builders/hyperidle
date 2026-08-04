@@ -3,8 +3,8 @@ import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus, type ToolContext, toClaudeToolSpec } from "@hyperidle/shared";
 import { describe, expect } from "vitest";
+import { test } from "../__testing__/test-fixtures.js";
 import { buildToolRegistry } from "../services/tool-provider-bindings.js";
-import { test } from "../test-fixtures.js";
 
 const EXPECTED_TOOL_NAMES = [
 	"create_item",

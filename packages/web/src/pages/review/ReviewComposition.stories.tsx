@@ -1,6 +1,6 @@
 import type { JSX } from "react";
+import { REVIEW_COMPOSITION_SUBJECT } from "./__fixtures__/review-composition.fixture.js";
 import { ReviewComposition } from "./ReviewComposition.js";
-import { REVIEW_COMPOSITION_SUBJECT } from "./review-composition.fixture.js";
 
 export default { title: "Review/Composition", group: "Conversations" };
 

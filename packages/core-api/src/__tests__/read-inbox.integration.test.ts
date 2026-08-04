@@ -4,12 +4,12 @@ import { type HyperIdleDb, messages, teamMembers, teams, threads, users } from "
 import { EventBus, type ToolContext } from "@hyperidle/shared";
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { describe, expect } from "vitest";
+import { test as baseTest } from "../__testing__/test-fixtures.js";
 import {
 	createInProcessCoreApiTransport,
 	registerCoreApiTransport,
 } from "../services/core-api-port-composition.js";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
-import { test as baseTest } from "../test-fixtures.js";
 
 /**
  * @lore AU21 §9 Increment 2 (conversation wave): `read_inbox` now reaches

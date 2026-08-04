@@ -13,8 +13,8 @@ import type { RuntimePorts } from "@hyperidle/run-orchestration";
 import { drainIntents } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test } from "../__testing__/test-fixtures.js";
 import { queueDeps } from "../services/durable-agent-queue.js";
-import { afterEach, beforeEach, describe, expect, test } from "../test-fixtures.js";
 import { startTestRuntime } from "./run-orchestration-test-runtime.js";
 
 const sessionProvisioner: NonNullable<RuntimePorts["sessionProvisioner"]> = {

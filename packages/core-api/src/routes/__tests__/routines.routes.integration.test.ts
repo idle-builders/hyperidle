@@ -20,8 +20,8 @@ import {
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { test } from "../../__testing__/test-fixtures.js";
 import { fireStoredRoutine } from "../../__tests__/dispatch-test-helpers.js";
-import { test } from "../../test-fixtures.js";
 
 /** Seed a built-in routine (knowledge-decay) owned by agent-1. */
 async function seedBuiltinRoutine(db: HyperIdleDb): Promise<string> {

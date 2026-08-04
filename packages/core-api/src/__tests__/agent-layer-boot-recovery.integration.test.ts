@@ -22,7 +22,7 @@ import {
 import type { RuntimePorts } from "@hyperidle/run-orchestration";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
-import { describe, expect, test } from "../test-fixtures.js";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import { startTestRuntime } from "./run-orchestration-test-runtime.js";
 
 const admitSessionCalls: string[] = [];

@@ -41,7 +41,7 @@ import {
 import * as routineService from "@hyperidle/routine";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
-import { describe, expect, test } from "../../test-fixtures.js";
+import { describe, expect, test } from "../../__testing__/test-fixtures.js";
 import { queueDeps } from "../durable-agent-queue.js";
 import { fireRoutine } from "../routine-scheduler-bindings.js";
 

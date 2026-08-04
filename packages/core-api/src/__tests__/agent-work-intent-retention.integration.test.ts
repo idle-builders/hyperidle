@@ -1,8 +1,8 @@
 import { agentSessionRequests, agentWorkIntents, type HyperIdleDb, users } from "@hyperidle/db";
 import { reapExpired } from "@hyperidle/session-requests";
 import { eq, sql } from "drizzle-orm";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import { queueDeps } from "../services/durable-agent-queue.js";
-import { describe, expect, test } from "../test-fixtures.js";
 
 const DAY = 86_400_000;
 const now = new Date("2026-07-11T12:00:00.000Z");

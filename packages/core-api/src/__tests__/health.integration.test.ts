@@ -1,5 +1,5 @@
 import type { HealthResponse } from "@hyperidle/shared";
-import { describe, expect, test } from "../test-fixtures.js";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 
 describe("GET /health", () => {
 	test("returns status ok with a timestamp", async ({ app }) => {

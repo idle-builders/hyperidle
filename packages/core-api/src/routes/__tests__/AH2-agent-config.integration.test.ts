@@ -16,8 +16,8 @@
 import { agentRunConfig, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
 import { AdapterPool, createHarnessAdapter } from "@hyperidle/harness-registry";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { test } from "../../test-fixtures.js";
-import { createTestApp } from "../../test-utils.js";
+import { test } from "../../__testing__/test-fixtures.js";
+import { createTestApp } from "../../__testing__/test-utils.js";
 
 const TEST_API_KEY = "test-key-ah2-agents";
 const NOW = new Date().toISOString();

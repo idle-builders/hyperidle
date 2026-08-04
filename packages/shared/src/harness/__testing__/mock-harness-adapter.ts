@@ -7,8 +7,8 @@ import type {
 	SessionConfig,
 	SessionHandle,
 	SessionResult,
-} from "./harness-adapter.js";
-import type { HarnessEvent } from "./harness-events.js";
+} from "../harness-adapter.js";
+import type { HarnessEvent } from "../harness-events.js";
 
 let nextId = 1;
 

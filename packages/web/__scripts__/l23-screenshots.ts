@@ -1,6 +1,6 @@
 /**
  * L23 visual proof script — capture screenshots of KnowledgeBody states.
- * Run: npx tsx scripts/l23-screenshots.ts
+ * Run: npx tsx __scripts__/l23-screenshots.ts
  */
 
 import { mkdir } from "node:fs/promises";

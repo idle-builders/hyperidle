@@ -7,8 +7,8 @@ import { sql } from "drizzle-orm";
 import type { PgliteDatabase } from "drizzle-orm/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
-import type { HyperIdleDb } from "./connection.js";
-import * as schema from "./schema.js";
+import type { HyperIdleDb } from "../connection.js";
+import * as schema from "../schema.js";
 
 // ---------------------------------------------------------------------------
 // Tracing (opt-in via VITEST_TRACE_FILE env var)
@@ -42,7 +42,7 @@ function resolveDirname(): string {
 const DIRNAME = resolveDirname();
 
 function migrationsFolder(): string {
-	return resolve(DIRNAME, "../drizzle");
+	return resolve(DIRNAME, "../../drizzle");
 }
 
 // ---------------------------------------------------------------------------

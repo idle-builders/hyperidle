@@ -21,8 +21,8 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import type { ToolContext } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
 import { describe, expect } from "vitest";
+import { test } from "../__testing__/test-fixtures.js";
 import { buildToolRegistry } from "../services/tool-provider-bindings.js";
-import { test } from "../test-fixtures.js";
 
 const FACILITATOR_ONLY = [
 	"promote_knowledge",

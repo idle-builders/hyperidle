@@ -4,9 +4,10 @@ import { type DbFixtures, test as dbTest } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/shared";
 import { findUser } from "@hyperidle/users";
 import type { Hono } from "hono";
-import { disposeApp } from "./app.js";
-import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
-import { registerAssistantTurnCoherenceTrigger } from "./services/assistant-turn-coherence-trigger.js";
+import { disposeApp } from "../app.js";
+import { registerAgentRunAdmissionReactions } from "../services/agent-run-admission-reactions.js";
+import { registerAssistantTurnCoherenceTrigger } from "../services/assistant-turn-coherence-trigger.js";
+import { registerTestRoutes } from "./test-routes.js";
 import { createTestApp } from "./test-utils.js";
 
 export interface IntegrationFixtures extends DbFixtures {
@@ -54,7 +55,10 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 	// app would 404 for every fixture-based test. Both Layers' teardown rides
 	// `disposeApp`'s bag.
 	app: async ({ db, eventBus }, use) => {
-		const app = await createTestApp({ db, eventBus });
+		// @lore AU28: the middleware-exercising routes (/protected-test, /test-validate,
+		// /test-error) are mounted from here — the development world registering into
+		// production. `app.ts` no longer imports them.
+		const app = await createTestApp({ db, eventBus, registerExtraRoutes: registerTestRoutes });
 		await use(app);
 		disposeApp(app);
 	},

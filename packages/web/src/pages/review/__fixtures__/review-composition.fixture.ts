@@ -1,6 +1,6 @@
 import type { BlockId } from "@hyperidle/shared";
-import type { ReviewArtifact } from "./review-artifact.js";
-import type { ComposedReviewSubject } from "./review-composition.js";
+import type { ReviewArtifact } from "../review-artifact.js";
+import type { ComposedReviewSubject } from "../review-composition.js";
 import { AL2_REVIEW_SUBJECT } from "./review-subject.js";
 
 function uniqueTools(

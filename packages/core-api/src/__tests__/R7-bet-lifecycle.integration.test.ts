@@ -32,7 +32,7 @@ import * as work from "@hyperidle/work";
 import { transitionBet, type WorkDeps } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
-import { test } from "../test-fixtures.js";
+import { test } from "../__testing__/test-fixtures.js";
 
 /**
  * @lore AU19 Increment 2a: `registerLifecyclePropagation` now takes

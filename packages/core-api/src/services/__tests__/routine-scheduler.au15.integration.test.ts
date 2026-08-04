@@ -33,8 +33,8 @@ import { drainIntents, startLifecycleProjectionDrain } from "@hyperidle/session-
 import type { AgentRunLifecycleChangedEvent } from "@hyperidle/shared";
 import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, vi } from "vitest";
+import { describe, expect, test } from "../../__testing__/test-fixtures.js";
 import { fireGenericRoutine } from "../../__tests__/dispatch-test-helpers.js";
-import { describe, expect, test } from "../../test-fixtures.js";
 import { queueDeps } from "../durable-agent-queue.js";
 import { registerRoutineRunSessionEndReactions } from "../routine-run-session-end-reactions.js";
 

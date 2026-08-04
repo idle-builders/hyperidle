@@ -15,9 +15,9 @@
  */
 
 import { describe, expect, expectTypeOf, it } from "vitest";
+import { MockHarnessAdapter } from "../harness/__testing__/mock-harness-adapter.js";
 import type { SessionResult } from "../harness/harness-adapter.js";
 import type { HarnessEvent, TokenUsageEvent } from "../harness/harness-events.js";
-import { MockHarnessAdapter } from "../harness/mock-harness-adapter.js";
 import type { TokenUsage } from "../types/money.js";
 
 // ── AC9: SessionResult structured shape ───────────────────────────────────────

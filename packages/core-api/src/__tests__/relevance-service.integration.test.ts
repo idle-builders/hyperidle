@@ -13,7 +13,7 @@ import {
 } from "@hyperidle/db";
 import { recomputeRelevance } from "@hyperidle/knowledge";
 import { eq } from "drizzle-orm";
-import { describe, expect, test } from "../test-fixtures.js";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 
 const NOW_ISO = "2026-05-06T12:00:00.000Z";
 const NOW_MS = new Date(NOW_ISO).getTime();

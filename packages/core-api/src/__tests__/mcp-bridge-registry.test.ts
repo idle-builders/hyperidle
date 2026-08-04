@@ -1,8 +1,8 @@
 import { createReturnEnforcement } from "@hyperidle/harness-registry";
 import { createMcpToolBridge } from "@hyperidle/harness-registry/mcp";
 import { EventBus, type ToolContext, type ToolRegistry } from "@hyperidle/shared";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import { buildToolRegistry } from "../services/tool-provider-bindings.js";
-import { describe, expect, test } from "../test-fixtures.js";
 
 const registry: ToolRegistry = {
 	definitions: [],

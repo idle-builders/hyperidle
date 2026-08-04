@@ -478,10 +478,10 @@ export default [
 	// (it uses AppType for hc<AppType>). All other web code must go through @/api/client.
 	{
 		files: ["packages/web/src/**/*.{ts,tsx}"],
-		ignores: [
-			// client.ts legitimately imports AppType from @hyperidle/core-api/schemas
-			"packages/web/src/api/client.ts",
-		],
+		// @lore AU28 Ruling 4.1: the `packages/web/src/api/client.ts` carve-out that used
+		// to sit here is gone with the file. It was a dead Hono RPC client (zero call
+		// sites, `AppType = Hono` with zero route inference) whose only remaining effect
+		// was to require an exemption from this very rule.
 		languageOptions: {
 			parser: tsParser,
 			parserOptions: {
@@ -498,7 +498,7 @@ export default [
 							// from general web code. Only client.ts (ignored above) may import /schemas.
 							group: ["@hyperidle/core-api", "@hyperidle/core-api/**"],
 							message:
-								"api-typesafety Rule 7: The web package must not import @hyperidle/core-api internals directly. Use the typed hono/client from @/api/client. Only packages/web/src/api/client.ts may import @hyperidle/core-api/schemas.",
+								"api-typesafety Rule 7: the web package must not import @hyperidle/core-api internals directly.",
 						},
 					],
 				},
@@ -599,7 +599,7 @@ export default [
 		files: ["packages/core-api/src/**/*.ts"],
 		ignores: [
 			"packages/core-api/src/server-factory.ts", // composition root — may import a concrete Strategy
-			"packages/core-api/src/test-fixtures.ts", // test infrastructure — registers minimalStrategy as fixture default
+			"packages/core-api/src/__testing__/test-fixtures.ts", // test infrastructure — registers minimalStrategy as fixture default
 			"packages/core-api/src/**/__tests__/**",
 			"packages/core-api/src/**/*.test.ts",
 			"packages/core-api/src/**/*.spec.ts",
@@ -845,7 +845,7 @@ export default [
 		},
 	},
 
-	// AJ3: the isolation harness (packages/web/src/preview/**) is a dev/story/test
+	// AJ3: the isolation harness (packages/web/src/__preview__/**) is a dev/story/test
 	// surface. It must NEVER reach a backend — importing @hyperidle/core-api or
 	// @hyperidle/db would defeat the no-backend contract that lets a design mount
 	// in jsdom with no server, db, or real data. Static "must not
@@ -944,7 +944,7 @@ export default [
 
 	// server+db ban itself rather than relying on any earlier block.
 	{
-		files: ["packages/web/src/preview/**/*.{ts,tsx}"],
+		files: ["packages/web/src/__preview__/**/*.{ts,tsx}"],
 		languageOptions: {
 			parser: tsParser,
 			parserOptions: {
@@ -1284,6 +1284,64 @@ export default [
 						"CallExpression[callee.name='navigate'] > BinaryExpression[operator='+'] > Literal[value=/^\\/(artifacts|work\\/artifact)\\//]",
 					message:
 						"AM5 H1: do not navigate to a viewer route directly. Use createOpenHandler (open-handler.ts) — the unified open contract. Direct navigate() calls to /artifacts/ or /work/artifact/ bypass the open contract seam.",
+				},
+			],
+		},
+	},
+
+	// AU28: no governance rule may perform its own file discovery.
+	//
+	// "One census, many rules" is only real if a rule structurally CANNOT go and look for itself.
+	// Twenty inherited guards each carried their own scan scope; two of them scanned a directory
+	// deleted two tracks earlier and printed PASS over zero files for months. A rule receives the
+	// census or it has nothing. This is the one thing ESLint is genuinely good at here — a per-file
+	// import restriction — and it is the only part of the governance stack that lives in ESLint.
+	{
+		files: ["scripts/rules/**/*.ts"],
+		languageOptions: {
+			parser: tsParser,
+		},
+		rules: {
+			"no-restricted-imports": [
+				"error",
+				{
+					paths: [
+						{
+							name: "node:fs",
+							message: "AU28: a governance rule may not read the filesystem. Use the census.",
+						},
+						{
+							name: "fs",
+							message: "AU28: a governance rule may not read the filesystem. Use the census.",
+						},
+						{
+							name: "node:fs/promises",
+							message: "AU28: a governance rule may not read the filesystem.",
+						},
+						{
+							name: "node:child_process",
+							message: "AU28: a governance rule may not spawn a process.",
+						},
+						{ name: "child_process", message: "AU28: a governance rule may not spawn a process." },
+						{
+							name: "node:path",
+							message:
+								"AU28: a governance rule works on repo-relative census paths, not filesystem paths.",
+						},
+						{ name: "glob", message: "AU28: a governance rule may not glob. Use the census." },
+						{ name: "fast-glob", message: "AU28: a governance rule may not glob. Use the census." },
+						{
+							name: "tinyglobby",
+							message: "AU28: a governance rule may not glob. Use the census.",
+						},
+					],
+					patterns: [
+						{
+							group: ["**/governance-lint*"],
+							message:
+								"AU28: a rule may not reach back into the runner. Dependencies point rule -> lib only.",
+						},
+					],
 				},
 			],
 		},

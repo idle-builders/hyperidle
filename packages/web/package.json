@@ -15,10 +15,8 @@
 	},
 	"dependencies": {
 		"@hyperidle/design-system": "*",
-		"@hyperidle/core-api": "*",
 		"@hyperidle/harness-registry": "*",
 		"@hyperidle/shared": "*",
-		"hono": "^4.12.27",
 		"dompurify": "^3.4.11",
 		"focus-trap-react": "^12.0.3",
 		"react": "^19.2.7",

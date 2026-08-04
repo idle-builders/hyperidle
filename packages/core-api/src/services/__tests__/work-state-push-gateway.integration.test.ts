@@ -7,7 +7,7 @@
  * the changed version" bar for the work-state seam.
  */
 
-import { describe, expect, test } from "../../test-fixtures.js";
+import { describe, expect, test } from "../../__testing__/test-fixtures.js";
 import { registerWorkStatePushGateway } from "../work-state-push-gateway.js";
 
 interface RecordedBroadcast {

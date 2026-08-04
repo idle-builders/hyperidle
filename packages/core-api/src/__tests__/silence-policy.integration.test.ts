@@ -12,7 +12,7 @@ import { getTeamMembers } from "@hyperidle/org";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import { findUser } from "@hyperidle/users";
 import { describe, expect } from "vitest";
-import { test } from "../test-fixtures.js";
+import { test } from "../__testing__/test-fixtures.js";
 
 const silencePolicyDeps = {
 	serverConfig: { read: readServerConfig, update: updateServerConfig },

@@ -38,7 +38,14 @@ import { serviceConnections, users } from "@hyperidle/db";
 import { applyProvisioningPlan, buildProvisioningPlan } from "@hyperidle/run-orchestration";
 import { encryptCredentialValue } from "@hyperidle/shared/crypto";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, test, vi } from "../../test-fixtures.js";
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	test,
+	vi,
+} from "../../__testing__/test-fixtures.js";
 
 const SERVER_SECRET = "au21-inc8-e2e-secret-xyz";
 const NOW = "2026-07-30T00:00:00.000Z";

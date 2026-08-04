@@ -25,7 +25,7 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { CassetteMissError } from "@hyperidle/shared";
-import type { CallLlmOptions } from "./llm-client.js";
+import { type CallLlmOptions, setLlmInterceptor } from "../llm-client.js";
 import type {
 	LlmContentBlock,
 	LlmMessage,
@@ -34,7 +34,7 @@ import type {
 	LlmToolDef,
 	LlmToolResultBlock,
 	LlmToolUseBlock,
-} from "./llm-types.js";
+} from "../llm-types.js";
 
 // ---------------------------------------------------------------------------
 // CassetteEntry — the shape stored in cassette JSON files
@@ -517,3 +517,25 @@ export {
 	replayLlm,
 	resetUsageAccumulator,
 };
+
+/**
+ * Install the cassette interceptor onto `callLlm`, driven by `LLM_CASSETTE_MODE`.
+ *
+ * @lore AU28: this is the inversion of AH6 B1's env-gated dynamic import. `llm-client.ts`
+ * (production) used to reach into this module; now this module (development) reaches into
+ * `llm-client.ts` and registers itself. The lane entry point calls this once, before any
+ * LLM call. Returns an uninstall function.
+ */
+export function installCassetteInterceptor(): () => void {
+	const mode = process.env.LLM_CASSETTE_MODE;
+	if (mode !== "replay" && mode !== "record") {
+		throw new Error(
+			`installCassetteInterceptor() requires LLM_CASSETTE_MODE=replay|record; got ${String(mode)}.`,
+		);
+	}
+	setLlmInterceptor(async (options, direct) => {
+		if (mode === "replay") return replayLlm(options, loadCassetteEntries());
+		return recordLlm(options, direct);
+	});
+	return () => setLlmInterceptor(null);
+}

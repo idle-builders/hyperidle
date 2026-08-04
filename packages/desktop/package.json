@@ -5,11 +5,11 @@
 	"type": "module",
 	"main": "src/main.ts",
 	"scripts": {
-		"dev": "npx tsx scripts/check-native.ts && NODE_OPTIONS='--import tsx' electron .",
-		"build": "npx tsx scripts/bundle.ts",
+		"dev": "npx tsx __scripts__/check-native.ts && NODE_OPTIONS='--import tsx' electron .",
+		"build": "npx tsx __scripts__/bundle.ts",
 		"build:dist": "electron-builder --config electron-builder.yml",
-		"build:local": "bash scripts/build-local.sh",
-		"check:native": "npx tsx scripts/check-native.ts",
+		"build:local": "bash __scripts__/build-local.sh",
+		"check:native": "npx tsx __scripts__/check-native.ts",
 		"check": "tsc --noEmit",
 		"test": "vitest run"
 	},

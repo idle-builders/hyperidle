@@ -32,7 +32,7 @@ import {
 	createInProcessCoreApiTransport,
 	registerCoreApiTransport,
 } from "../services/core-api-port-composition.js";
-import { test as baseTest } from "../test-fixtures.js";
+import { test as baseTest } from "../__testing__/test-fixtures.js";
 
 const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
 	coreApiSeamRegistration: [

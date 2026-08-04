@@ -2,8 +2,8 @@ import type { AnchorRef } from "@hyperidle/shared";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { REVIEW_COMPOSITION_SUBJECT } from "../__fixtures__/review-composition.fixture.js";
 import { ReviewComposition } from "../ReviewComposition.js";
-import { REVIEW_COMPOSITION_SUBJECT } from "../review-composition.fixture.js";
 
 describe("ReviewComposition — anchored comments", () => {
 	function renderComposition(props?: Partial<Parameters<typeof ReviewComposition>[0]>) {

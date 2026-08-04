@@ -48,7 +48,7 @@ import {
 import { drainIntents } from "@hyperidle/session-requests";
 import type { AgentRunAdmissionFailedEvent } from "@hyperidle/shared";
 import { eq, sql } from "drizzle-orm";
-import { describe, expect, test, vi } from "../../test-fixtures.js";
+import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 
 const NOW = new Date().toISOString();
 

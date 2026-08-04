@@ -33,7 +33,7 @@ import {
 } from "@hyperidle/db";
 import { sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { test } from "../test-fixtures.js";
+import { test } from "../__testing__/test-fixtures.js";
 
 const TEST_API_KEY = "test-key-ao1";
 const NOW = "2026-06-26T00:00:00.000Z";

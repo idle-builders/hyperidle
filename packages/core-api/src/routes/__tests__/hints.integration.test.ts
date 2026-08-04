@@ -16,10 +16,11 @@
  * single-human desktop model.
  */
 
-import { createTestDb, type HyperIdleDb, users } from "@hyperidle/db";
+import { type HyperIdleDb, users } from "@hyperidle/db";
+import { createTestDb } from "@hyperidle/db/testing";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { test } from "../../test-fixtures.js";
-import { createTestApp } from "../../test-utils.js";
+import { test } from "../../__testing__/test-fixtures.js";
+import { createTestApp } from "../../__testing__/test-utils.js";
 
 const TEST_API_KEY = "test-key-hints";
 

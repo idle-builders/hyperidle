@@ -9,7 +9,7 @@
  */
 import type { NewNotificationQueueRow } from "@hyperidle/db";
 import { enqueue, listNotifications, markNotifications, reap } from "@hyperidle/notifications";
-import { describe, expect, test } from "../../test-fixtures.js";
+import { describe, expect, test } from "../../__testing__/test-fixtures.js";
 
 function row(
 	overrides: Partial<NewNotificationQueueRow> & { id: string },

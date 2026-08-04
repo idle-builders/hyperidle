@@ -17,16 +17,15 @@ import * as os from "node:os";
 import * as path from "node:path";
 import {
 	bets,
-	createTestDb,
 	type HyperIdleDb,
 	orgEdges,
-	type TestDbHandle,
 	tasks,
 	teamMembers,
 	teams,
 	threads,
 	users,
 } from "@hyperidle/db";
+import { createTestDb, type TestDbHandle } from "@hyperidle/db/testing";
 import { EventBus, type ToolContext } from "@hyperidle/shared";
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";

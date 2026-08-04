@@ -16,7 +16,7 @@ import { API_ERROR_CODES } from "@hyperidle/shared";
 import { createBodyLimit } from "@hyperidle/shared/http";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { test } from "../../test-fixtures.js";
+import { test } from "../../__testing__/test-fixtures.js";
 
 const TEST_API_KEY = "test-key-body-limit";
 

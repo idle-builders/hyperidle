@@ -13,12 +13,12 @@ import type { ItemCreatedEvent, KnowledgeUpdatedEvent } from "@hyperidle/shared"
 import * as work from "@hyperidle/work";
 import { eq, like } from "drizzle-orm";
 import { describe, expect } from "vitest";
+import { test as baseTest } from "../__testing__/test-fixtures.js";
 import {
 	createInProcessCoreApiTransport,
 	registerCoreApiTransport,
 } from "../services/core-api-port-composition.js";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
-import { test as baseTest } from "../test-fixtures.js";
 
 /**
  * @lore AU21 §9 Increment 2 (knowledge wave): the one direct

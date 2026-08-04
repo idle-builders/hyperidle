@@ -4,7 +4,7 @@ import type {
 	ReviewClaim,
 	ReviewVerifier,
 	VerifiedReviewArtifact,
-} from "../../e2e/support/review-trust.js";
+} from "../../__e2e__/support/review-trust.js";
 import {
 	type AttemptStarted,
 	canonicalizeClosedJson,
@@ -14,7 +14,7 @@ import {
 	type ReviewedLineage,
 	reconcileValidationRun,
 	type ValidationIdentity,
-} from "../../e2e/support/validation-contract.js";
+} from "../../__e2e__/support/validation-contract.js";
 
 const mocked: ValidationIdentity = {
 	id: "browser:work:opens",

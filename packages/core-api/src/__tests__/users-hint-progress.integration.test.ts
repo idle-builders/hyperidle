@@ -1,6 +1,6 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { dismissHint, insertUser, listDismissedHints } from "@hyperidle/users";
-import { describe, expect, test } from "../test-fixtures.js";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 
 const NOW = "2026-01-01T00:00:00.000Z";
 

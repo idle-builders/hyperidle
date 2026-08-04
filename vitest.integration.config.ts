@@ -64,7 +64,7 @@ export default defineConfig({
 					// because builtin-harness-adapter was pre-loaded by other files before the mock
 					// could hoist). The PGlite pool lives on globalThis so it survives reloads.
 					isolate: true,
-					setupFiles: ["packages/db/src/vitest-integration-setup.ts"],
+					setupFiles: ["packages/db/src/__testing__/vitest-integration-setup.ts"],
 				},
 			},
 			{
@@ -92,7 +92,7 @@ export default defineConfig({
 					exclude: SHARED_EXCLUDE,
 					pool: "threads",
 					isolate: true,
-					setupFiles: ["packages/db/src/vitest-integration-setup.ts"],
+					setupFiles: ["packages/db/src/__testing__/vitest-integration-setup.ts"],
 				},
 			},
 		],

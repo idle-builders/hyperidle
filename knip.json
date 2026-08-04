@@ -14,11 +14,11 @@
 		"**/__tests__/setup.ts",
 		"**/__tests__/_helpers.ts",
 		"packages/agent-execution/harness-registry/src/__tests__/require-harness.ts",
-		"packages/core-api/src/test-fixtures.ts",
-		"packages/web/e2e/fixtures.ts",
-		"packages/web/e2e/known-pre-existing-failures.ts",
+		"packages/core-api/src/__testing__/test-fixtures.ts",
+		"packages/web/__e2e__/fixtures.ts",
+		"packages/web/__e2e__/known-pre-existing-failures.ts",
 		"packages/web/src/pages/**/__fixtures__/**",
-		"packages/web/src/preview/**",
+		"packages/web/src/__preview__/**",
 		"packages/agent-execution/harness-registry/src/re-engage.ts",
 		"packages/core-api/src/__tests__/AL7-no-kernel-executor.test.ts",
 		"packages/core-api/src/__tests__/notifications-test-deps.ts",
@@ -33,7 +33,7 @@
 	},
 	"workspaces": {
 		".": {
-			"entry": ["scripts/*.ts!", "scripts/lib/**/*.ts!"],
+			"entry": ["scripts/*.ts!", "scripts/lib/**/*.ts!", "scripts/rules/**/*.ts!"],
 			"project": ["scripts/**/*.ts"],
 			"ignoreBinaries": ["vitepress"],
 			"ignoreDependencies": ["vitepress"]
@@ -43,9 +43,9 @@
 			"entry": [
 				"src/migrate-pg.ts!",
 				"src/bootstrap-pg.ts!",
-				"src/seed-pg-cli.ts!",
-				"src/pg-test-runner.ts!",
-				"scripts/strip-public-schema.ts!"
+				"src/__testing__/seed-pg-cli.ts!",
+				"src/__testing__/pg-test-runner.ts!",
+				"__scripts__/strip-public-schema.ts!"
 			],
 			"ignoreBinaries": ["drizzle-kit", "vitest"],
 			"ignoreDependencies": ["zod"]
@@ -56,13 +56,12 @@
 			"ignoreBinaries": ["which", "codex", "claude", "opencode", "cursor", "gh"]
 		},
 		"packages/design-system": {
-			"entry": ["src/**/*.stories.tsx", "scripts/*.ts!"],
+			"entry": ["src/**/*.stories.tsx", "__scripts__/*.ts!"],
 			"ignoreDependencies": ["@tiptap/pm"]
 		},
 		"packages/web": {
 			"entry": [
-				"src/api/client.ts!",
-				"scripts/*.ts!",
+				"__scripts__/*.ts!",
 				"vite.ah1.config.ts!",
 				"vite.ah5.config.ts!",
 				"vite.ah6.config.ts!"
@@ -79,7 +78,7 @@
 			"ignoreDependencies": ["@electric-sql/pglite", "drizzle-orm"]
 		},
 		"packages/desktop": {
-			"entry": ["src/preload.ts!", "scripts/bundle.ts!", "scripts/check-native.ts!"],
+			"entry": ["src/preload.ts!", "__scripts__/bundle.ts!", "__scripts__/check-native.ts!"],
 			"ignoreBinaries": ["electron", "electron-builder"],
 			"ignoreDependencies": ["@electric-sql/pglite"]
 		},
@@ -90,7 +89,7 @@
 			"ignoreDependencies": ["tsx"]
 		},
 		"scripts": {
-			"entry": ["*.ts!", "lib/**/*.ts!", "__tests__/**/*.test.ts"],
+			"entry": ["*.ts!", "lib/**/*.ts!", "rules/**/*.ts!", "__tests__/**/*.test.ts"],
 			"project": ["**/*.ts"]
 		}
 	}

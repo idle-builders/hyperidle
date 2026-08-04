@@ -62,7 +62,7 @@
 
 import { serve } from "@hono/node-server";
 import { agentSessionRequests, type HyperIdleDb, users } from "@hyperidle/db";
-import { describe, expect, test, vi } from "../../test-fixtures.js";
+import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 import {
 	buildAgentOrchestrationPort,
 	createInProcessAgentOrchestrationTransport,

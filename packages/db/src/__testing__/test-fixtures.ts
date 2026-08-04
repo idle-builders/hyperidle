@@ -1,5 +1,5 @@
 import { test as base } from "vitest";
-import type { HyperIdleDb } from "./connection.js";
+import type { HyperIdleDb } from "../connection.js";
 import { checkin, checkout } from "./test-pool.js";
 
 export interface DbFixtures {

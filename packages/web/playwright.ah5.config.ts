@@ -35,7 +35,7 @@ const AH5_API_KEY = "ah5-e2e-test-key";
 const AH5_CREDENTIAL_KEY = "ah5-e2e-cred-key-32-chars!!!!!";
 
 export default defineConfig({
-	testDir: "./e2e",
+	testDir: "./__e2e__",
 	testMatch: "**/ah5-*.spec.ts",
 	fullyParallel: false, // Serial: 1 in-memory DB + 1 real LLM call
 	forbidOnly: !!process.env.CI,

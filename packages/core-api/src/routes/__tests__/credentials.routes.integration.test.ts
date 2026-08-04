@@ -8,7 +8,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { test } from "../../test-fixtures.js";
+import { test } from "../../__testing__/test-fixtures.js";
 
 const TEST_API_KEY = "test-key-credentials";
 // Must be 32+ chars for AES-256

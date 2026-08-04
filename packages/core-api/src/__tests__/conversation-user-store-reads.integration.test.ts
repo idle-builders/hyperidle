@@ -25,7 +25,7 @@ import {
 import { type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
 import { findUser, insertUser, listUsers } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
-import { describe, expect, test } from "../test-fixtures.js";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 
 const NOW = "2026-01-01T00:00:00.000Z";
 

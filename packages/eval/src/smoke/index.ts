@@ -1,7 +1,7 @@
 /**
  * AH5: Smoke lane — public re-exports.
  *
- * Imported by packages/web/scripts/ah5-test-server.ts and ah5-resolve-model.ts.
+ * Imported by packages/web/__scripts__/ah5-test-server.ts and ah5-resolve-model.ts.
  * Workspace hoisting makes @hyperidle/eval available to scripts/ in packages/web.
  */
 

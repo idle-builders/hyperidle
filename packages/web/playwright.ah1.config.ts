@@ -38,7 +38,7 @@ const AH1_API_KEY = "ah1-e2e-test-key";
 const AH1_CREDENTIAL_KEY = "ah1-e2e-cred-key-32-chars!!!!!";
 
 export default defineConfig({
-	testDir: "./e2e",
+	testDir: "./__e2e__",
 	// Only run AH1 specs in this config.
 	testMatch: "**/ah1-*.spec.ts",
 	fullyParallel: false, // Serial: only 1 in-memory DB, no state isolation between tests.

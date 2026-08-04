@@ -44,7 +44,7 @@ import { drainIntents } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
 import { queueDeps } from "../services/durable-agent-queue.js";
-import { afterEach, beforeEach, describe, expect, test } from "../test-fixtures.js";
+import { afterEach, beforeEach, describe, expect, test } from "../__testing__/test-fixtures.js";
 import { startTestRuntime } from "./run-orchestration-test-runtime.js";
 
 const TEST_API_KEY = "test-key-au21-inc10a";

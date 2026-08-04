@@ -11,7 +11,7 @@
  */
 
 import type { JSX } from "react";
-import { MockProviders } from "../preview";
+import { MockProviders } from "../__preview__";
 import { KnowledgeDetail } from "./KnowledgeDetail";
 
 export default { title: "Page: Knowledge/Detail" };

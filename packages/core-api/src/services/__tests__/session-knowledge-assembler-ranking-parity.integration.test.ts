@@ -38,7 +38,7 @@ import {
 } from "@hyperidle/db";
 import { assembleSessionKnowledge } from "@hyperidle/knowledge";
 import { eq } from "drizzle-orm";
-import { describe, expect, test } from "../../test-fixtures.js";
+import { describe, expect, test } from "../../__testing__/test-fixtures.js";
 
 const NOW = "2026-07-31T00:00:00.000Z";
 const TEAM_ID = "team-i12-parity";

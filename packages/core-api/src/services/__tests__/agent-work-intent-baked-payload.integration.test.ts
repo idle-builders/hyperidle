@@ -24,7 +24,7 @@
 import { agentSessionRequests, agentWorkIntents, type HyperIdleDb, users } from "@hyperidle/db";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
-import { describe, expect, test } from "../../test-fixtures.js";
+import { describe, expect, test } from "../../__testing__/test-fixtures.js";
 import { queueDeps } from "../durable-agent-queue.js";
 
 async function seedAgent(db: HyperIdleDb, id: string): Promise<void> {

@@ -6,7 +6,7 @@
  */
 
 import { LAPTOP_DEV_API_KEY, validateStartupEnv } from "@hyperidle/shared";
-import { afterEach, describe, expect, test, vi } from "../test-fixtures.js";
+import { afterEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 
 describe("I2 A6 — validateStartupEnv", () => {
 	afterEach(() => {

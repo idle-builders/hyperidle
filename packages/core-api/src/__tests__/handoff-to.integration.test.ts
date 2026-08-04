@@ -29,7 +29,7 @@ import {
 	registerCoreApiTransport,
 } from "../services/core-api-port-composition.js";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
-import { test as baseTest } from "../test-fixtures.js";
+import { test as baseTest } from "../__testing__/test-fixtures.js";
 
 /**
  * @lore AU21 §9 Increment 2: this file's tool handler(s) now reach

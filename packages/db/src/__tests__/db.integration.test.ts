@@ -1,11 +1,11 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { serverConfig } from "../schema.js";
 // @lore test-infra: This file keeps createTestDb() because each test manages
 // its own instance lifecycle via try/finally close(), rather than using
 // beforeEach/afterEach. The fixture handles the pool pattern but these tests
 // intentionally test the createTestDb API itself and need explicit close().
-import { createTestDb } from "../test-utils.js";
+import { createTestDb } from "../__testing__/test-utils.js";
+import { serverConfig } from "../schema.js";
 
 // @lore AU18: this file previously exercised the generic KV `factory_settings`
 // table (retired). `server_config` is its typed singleton-row successor —

@@ -15,7 +15,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { MockHarnessAdapter } from "../mock-harness-adapter.js";
+import { MockHarnessAdapter } from "../__testing__/mock-harness-adapter.js";
 
 describe("HarnessCapabilities.modelProviders (AC2 Task2)", () => {
 	it("MockHarnessAdapter.getCapabilities() includes modelProviders", () => {

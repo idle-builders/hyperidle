@@ -18,12 +18,12 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import { create as createKnowledgeItem } from "@hyperidle/knowledge";
 import { EventBus, type ToolContext } from "@hyperidle/shared";
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
+import { test as baseTest, describe, expect } from "../__testing__/test-fixtures.js";
 import {
 	createInProcessCoreApiTransport,
 	registerCoreApiTransport,
 } from "../services/core-api-port-composition.js";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
-import { test as baseTest, describe, expect } from "../test-fixtures.js";
 
 /**
  * @lore AU21 §9 Increment 2 (knowledge wave): `query_practice` now reaches

@@ -33,7 +33,7 @@ import {
 	recordLlm,
 	replayLlm,
 	resetUsageAccumulator,
-} from "../llm-cassette.js";
+} from "../__testing__/llm-cassette.js";
 import type { CallLlmOptions } from "../llm-client.js";
 import type { LlmMessage, LlmResponse, LlmToolDef } from "../llm-types.js";
 

@@ -10,7 +10,7 @@ import type {
 	ReviewArtifact,
 	ReviewSubject,
 	VisualDiffPayload,
-} from "./review-artifact";
+} from "../review-artifact.js";
 
 const outcomeArtifact: ReviewArtifact<OutcomeSummaryPayload> = {
 	id: "artifact:outcome:1",

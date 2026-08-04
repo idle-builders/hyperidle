@@ -356,7 +356,6 @@ export {
 	// AU27 Increment 8: harness-literal tool naming for return-action mentions
 	literalToolNamerForAdapterType,
 	MAX_FORCE_RETURNS,
-	MockHarnessAdapter,
 	mcpNamespacedToolName,
 	normalizeHarnessEvent,
 	opencodeToolName,

@@ -1,11 +1,11 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { teams } from "../schema.js";
 // @lore test-infra: createTestDb is kept here specifically for the idempotency
 // test that calls handle.runMigrations() — the pooled fixture does not expose
 // runMigrations(). All other tests in this file use the fixture.
-import { createTestDb } from "../test-utils.js";
+import { createTestDb } from "../__testing__/test-utils.js";
+import { teams } from "../schema.js";
 
 // @lore Phase 2: migration.test.ts now tests PGlite migrations. SQLite migration
 // tests were removed because the schema is now PG-only. The journal timestamp

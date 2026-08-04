@@ -43,7 +43,6 @@ import { createAgentBehaviorSettingsRoutes } from "./routes/settings-agent-behav
 import { createStatusRoutes } from "./routes/status.js";
 import { createTaskRoutes } from "./routes/tasks.js";
 import { createTeamRoutes } from "./routes/teams-routes.js";
-import { registerTestRoutes } from "./routes/test-routes.js";
 import { createThreadRoutes } from "./routes/threads.js";
 import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
 import { createWorkersRoutes } from "./routes/workers.js";
@@ -106,6 +105,12 @@ interface AppOptions {
 	 * test harness — no divergent "minimal app" path.
 	 */
 	registerWebSocket?: (apiRouter: Hono, tokenStore: UpgradeTokenStore) => void;
+	/**
+	 * AU28: optional hook letting a caller mount extra routes on the `/api`
+	 * sub-router. The only caller is the development test fixture, which mounts the
+	 * middleware-exercising routes that used to be statically imported here.
+	 */
+	registerExtraRoutes?: (apiRouter: Hono) => void;
 	/**
 	 * AU21 §6 Decision L4 / §9 Increment 14d: the WS connection hub's
 	 * broadcast-only surface. When provided, route factories that push
@@ -351,10 +356,13 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 	// tokenStore — createAuthRoutes handles null db gracefully.
 	api.route("/auth", createAuthRoutes(options?.db ?? null, tokenStore, sharedMode));
 
-	// Register test routes only in non-production environments
-	if (process.env.NODE_ENV !== "production") {
-		registerTestRoutes(api);
-	}
+	// @lore AU28 Ruling 8.1: this used to be a static
+	// `import { registerTestRoutes } from "./routes/test-routes.js"` plus a
+	// `NODE_ENV !== "production"` guard — production code importing a development
+	// module and relying on an env check to stay out of the shipped path. Inverted:
+	// the development world now registers INTO production, which is the legal
+	// direction. `src/__testing__/test-fixtures.ts` passes `registerTestRoutes`.
+	options?.registerExtraRoutes?.(api);
 
 	// P3: Authenticated health check — behind auth middleware
 	api.route("/health", authHealth);

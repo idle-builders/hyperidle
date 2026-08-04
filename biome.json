@@ -220,7 +220,7 @@
 			}
 		},
 		{
-			"includes": ["**/scripts/**"],
+			"includes": ["**/scripts/**", "**/__scripts__/**"],
 			"linter": {
 				"rules": {
 					"suspicious": {

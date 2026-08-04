@@ -36,7 +36,7 @@ import {
 import { updateServerConfig } from "@hyperidle/settings";
 import type { NotificationEvent } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, vi } from "vitest";
-import { expect, test } from "../../test-fixtures.js";
+import { expect, test } from "../../__testing__/test-fixtures.js";
 import { notificationsDeps } from "../notifications-test-deps.js";
 
 // --- helpers ---

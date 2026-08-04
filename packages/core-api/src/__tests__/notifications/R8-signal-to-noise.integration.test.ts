@@ -32,7 +32,7 @@ import {
 } from "@hyperidle/notifications";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { ItemCreatedEvent, TaskStateChangedEvent } from "@hyperidle/shared";
-import { afterEach, describe, expect, test, vi } from "../../test-fixtures.js";
+import { afterEach, describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 import { notificationsDeps } from "../notifications-test-deps.js";
 
 // ---------------------------------------------------------------------------

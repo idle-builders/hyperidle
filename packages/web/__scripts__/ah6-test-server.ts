@@ -45,6 +45,7 @@ import { PGlite } from "@electric-sql/pglite";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { schema, serverCredentials, teamMembers, teams, users } from "@hyperidle/db";
 import { createLocalAdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
+import { installCassetteInterceptor } from "@hyperidle/harness-registry/testing";
 import { createServer } from "@hyperidle/remote-server/create-server";
 import { encryptCredentialValue } from "@hyperidle/shared/crypto";
 import { drizzle } from "drizzle-orm/pglite";
@@ -54,6 +55,14 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 
 const AH6_API_PORT = Number(process.env.AH6_API_PORT ?? "3098");
 const cassettMode = process.env.LLM_CASSETTE_MODE ?? "replay";
+process.env.LLM_CASSETTE_MODE = cassettMode;
+
+// @lore AU28: `callLlm` no longer knows what a cassette is. AH6 B1 had production
+// `llm-client.ts` dynamically import the cassette module behind an env check — a
+// production->development import. The seam is inverted: this lane entry point installs
+// the interceptor, and `callLlm` hard-errors if LLM_CASSETTE_MODE is set without one, so
+// a missed install fails loudly instead of quietly hitting the network.
+installCassetteInterceptor();
 
 // Set env before createServer reads it.
 process.env.HYPERIDLE_API_KEY = process.env.HYPERIDLE_API_KEY ?? "ah6-e2e-test-key";

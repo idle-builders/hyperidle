@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isSafeSourceHref } from "./source-link-guard";
+import { isSafeSourceHref } from "../source-link-guard";
 
 describe("isSafeSourceHref", () => {
 	it.each([

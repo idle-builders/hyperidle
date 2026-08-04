@@ -2,8 +2,8 @@ import type { Message, PlainPayload, ReviewPayload } from "@hyperidle/shared";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { REVIEW_COMPOSITION_SUBJECT } from "../__fixtures__/review-composition.fixture.js";
 import { ReviewPage } from "../ReviewPage.js";
-import { REVIEW_COMPOSITION_SUBJECT } from "../review-composition.fixture.js";
 
 const anchoredMessage: Message = {
 	id: "host-msg-1",

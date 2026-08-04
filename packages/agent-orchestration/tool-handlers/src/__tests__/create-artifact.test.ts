@@ -20,16 +20,8 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
-import {
-	artifacts,
-	bets,
-	createTestDb,
-	type HyperIdleDb,
-	type TestDbHandle,
-	tasks,
-	teamMembers,
-	teams,
-} from "@hyperidle/db";
+import { artifacts, bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
+import { createTestDb, type TestDbHandle } from "@hyperidle/db/testing";
 import type { ArtifactCreatedEvent, ArtifactPreview, ToolContext } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
 import * as work from "@hyperidle/work";

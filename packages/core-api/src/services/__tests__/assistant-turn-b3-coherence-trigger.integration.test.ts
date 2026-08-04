@@ -80,7 +80,7 @@ import {
 import { drainIntents } from "@hyperidle/session-requests";
 import { and, eq } from "drizzle-orm";
 import type { Hono } from "hono";
-import { describe, expect, test, vi } from "../../test-fixtures.js";
+import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 import {
 	buildCoreApiPort,
 	createInProcessCoreApiTransport,

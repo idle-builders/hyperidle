@@ -9,7 +9,7 @@
 
 import { render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { DesktopTitleBar } from "./DesktopTitleBar";
+import { DesktopTitleBar } from "../DesktopTitleBar";
 
 // @lore AV5: Use the cast-through-unknown pattern (SettingsWorker.stories.tsx precedent)
 // to install a minimal __HYPERIDLE__ stub without satisfying the full bridge interface.

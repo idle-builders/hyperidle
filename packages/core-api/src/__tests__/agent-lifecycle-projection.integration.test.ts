@@ -28,9 +28,9 @@ import {
 import type { SessionEndedEvent } from "@hyperidle/shared";
 import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, vi } from "vitest";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import { queueDeps } from "../services/durable-agent-queue.js";
 import { registerRoutineRunSessionEndReactions } from "../services/routine-run-session-end-reactions.js";
-import { describe, expect, test } from "../test-fixtures.js";
 import { startTestRuntime } from "./run-orchestration-test-runtime.js";
 
 const TEST_API_KEY = "test-key-au9-lifecycle";

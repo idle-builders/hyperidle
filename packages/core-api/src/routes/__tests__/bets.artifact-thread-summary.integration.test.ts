@@ -28,7 +28,7 @@ import {
 } from "@hyperidle/db";
 import type { ArtifactThreadSummary } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { test } from "../../test-fixtures.js";
+import { test } from "../../__testing__/test-fixtures.js";
 
 const TEST_API_KEY = "test-key-bet-summary";
 

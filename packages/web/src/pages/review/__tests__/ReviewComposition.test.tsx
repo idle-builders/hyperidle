@@ -1,10 +1,10 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { REVIEW_COMPOSITION_SUBJECT } from "../__fixtures__/review-composition.fixture.js";
 import { getReviewCanvas } from "../canvas-registry.js";
 import { ReviewComposition } from "../ReviewComposition.js";
 import type { CodeDiffPayload, ReviewArtifact, ReviewCanvasKind } from "../review-artifact.js";
-import { REVIEW_COMPOSITION_SUBJECT } from "../review-composition.fixture.js";
 
 describe("ReviewComposition", () => {
 	function renderComposition(props?: Partial<Parameters<typeof ReviewComposition>[0]>) {

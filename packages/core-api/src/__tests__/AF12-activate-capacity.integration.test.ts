@@ -17,7 +17,7 @@
 import { bets, teamMembers, teams } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, vi } from "vitest";
-import { expect, test } from "../test-fixtures.js";
+import { expect, test } from "../__testing__/test-fixtures.js";
 
 const TEST_API_KEY = "test-key-af12-capacity";
 

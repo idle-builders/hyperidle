@@ -15,8 +15,9 @@ import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { BET_STATUSES } from "@hyperidle/shared";
 import { getTableName, sql } from "drizzle-orm";
 import type { HyperIdleDb } from "../connection.js";
+import { seedDemoWorld } from "../demo-fixture.js";
+import { applyFactoryBootstrap } from "../factory-bootstrap.js";
 import * as schema from "../schema.js";
-import { seed } from "../seed.js";
 import * as zodSchemas from "../zod-schemas.js";
 
 // ---------------------------------------------------------------------------
@@ -100,7 +101,8 @@ describe("U1 AC1+AC2: Table renames — products→teams, teams→team_members",
 	});
 
 	test("AC1+AC2: seed data round-trips — `teams` table holds the demo team row", async ({ db }) => {
-		await seed(db);
+		await applyFactoryBootstrap(db);
+		await seedDemoWorld(db);
 
 		// @lore AF17: demo team id is now "demo-team-acme" (split from seed-product-1).
 		const teamResult = await db.execute(
@@ -511,11 +513,12 @@ describe("U1 AC7: TypeScript type exports updated", () => {
 
 describe("U1 AC8: Seed data uses new table/column names", () => {
 	test("seed does not reference the products table (it was renamed to teams)", async ({ db }) => {
-		await expect(seed(db)).resolves.not.toThrow();
+		await expect(applyFactoryBootstrap(db).then(() => seedDemoWorld(db))).resolves.not.toThrow();
 	});
 
 	test("after seeding, teams table has at least 1 row (formerly products)", async ({ db }) => {
-		await seed(db);
+		await applyFactoryBootstrap(db);
+		await seedDemoWorld(db);
 
 		const result = await db.execute(sql.raw(`SELECT COUNT(*) as count FROM teams`));
 		const rows = (result as { rows: Array<{ count: string }> }).rows;
@@ -523,7 +526,8 @@ describe("U1 AC8: Seed data uses new table/column names", () => {
 	});
 
 	test("after seeding, team_members table has at least 1 row (formerly teams)", async ({ db }) => {
-		await seed(db);
+		await applyFactoryBootstrap(db);
+		await seedDemoWorld(db);
 
 		const result = await db.execute(sql.raw(`SELECT COUNT(*) as count FROM team_members`));
 		const rows = (result as { rows: Array<{ count: string }> }).rows;
@@ -531,7 +535,8 @@ describe("U1 AC8: Seed data uses new table/column names", () => {
 	});
 
 	test("after seeding, bet uses 'description' column (not pitch)", async ({ db }) => {
-		await seed(db);
+		await applyFactoryBootstrap(db);
+		await seedDemoWorld(db);
 
 		// @lore AF17: daily digest bet id updated to demo-bet-daily-digest (demo-fixture split)
 		const result = await db.execute(
@@ -543,7 +548,8 @@ describe("U1 AC8: Seed data uses new table/column names", () => {
 	});
 
 	test("after seeding, bet status is 'draft' (not 'shaped')", async ({ db }) => {
-		await seed(db);
+		await applyFactoryBootstrap(db);
+		await seedDemoWorld(db);
 
 		// @lore AF17: daily digest bet id updated to demo-bet-daily-digest (demo-fixture split)
 		const result = await db.execute(
@@ -554,7 +560,8 @@ describe("U1 AC8: Seed data uses new table/column names", () => {
 	});
 
 	test("after seeding, demo bet uses team_id (not product_id)", async ({ db }) => {
-		await seed(db);
+		await applyFactoryBootstrap(db);
+		await seedDemoWorld(db);
 
 		// @lore AF17: team_id now points to 'demo-team-acme' (split from seed-product-1)
 		const result = await db.execute(
@@ -566,7 +573,8 @@ describe("U1 AC8: Seed data uses new table/column names", () => {
 	});
 
 	test("after seeding, demo task uses team_id (not product_id)", async ({ db }) => {
-		await seed(db);
+		await applyFactoryBootstrap(db);
+		await seedDemoWorld(db);
 
 		// @lore AF17: task id updated to demo-task-daily-digest; team_id points to demo-team-acme
 		const result = await db.execute(
@@ -578,8 +586,9 @@ describe("U1 AC8: Seed data uses new table/column names", () => {
 	});
 
 	test("seed is idempotent after migration (running twice does not error)", async ({ db }) => {
-		await seed(db);
-		await expect(seed(db)).resolves.not.toThrow();
+		await applyFactoryBootstrap(db);
+		await seedDemoWorld(db);
+		await expect(applyFactoryBootstrap(db).then(() => seedDemoWorld(db))).resolves.not.toThrow();
 	});
 });
 

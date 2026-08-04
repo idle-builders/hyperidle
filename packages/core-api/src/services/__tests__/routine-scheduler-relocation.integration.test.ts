@@ -61,7 +61,7 @@ import type { EventBus } from "@hyperidle/shared";
 import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
-import { describe, expect, test } from "../../test-fixtures.js";
+import { describe, expect, test } from "../../__testing__/test-fixtures.js";
 
 /**
  * @lore AU26 G1 (architecture §D-L): `isAgentAtCapacity` takes a

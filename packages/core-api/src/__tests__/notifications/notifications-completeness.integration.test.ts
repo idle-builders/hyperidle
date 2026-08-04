@@ -37,7 +37,7 @@ import {
 	updatePreferences,
 } from "@hyperidle/notifications";
 import { afterEach, beforeEach, vi } from "vitest";
-import { describe, expect, test } from "../../test-fixtures.js";
+import { describe, expect, test } from "../../__testing__/test-fixtures.js";
 import { notificationsDeps } from "../notifications-test-deps.js";
 
 // ---------------------------------------------------------------------------

@@ -49,7 +49,7 @@ import type { NotificationEvent } from "@hyperidle/shared";
 import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { and, eq } from "drizzle-orm";
-import { afterEach, describe, expect, test, vi } from "../test-fixtures.js";
+import { afterEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 
 /**
  * @lore AU19 Increment 2a: `registerPolicyEngine` now takes injected

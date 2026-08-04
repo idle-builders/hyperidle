@@ -4,7 +4,7 @@ import type { TaskState } from "@hyperidle/shared";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { checkAndUnblockDependents } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
-import { describe, expect, test } from "../test-fixtures.js";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 
 // @lore AU20 Ag2: `work:` sub-object removed (see dependency-watcher.integration.test.ts).
 const depWatcherDeps = {

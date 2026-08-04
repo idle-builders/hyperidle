@@ -3,12 +3,12 @@ import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { EventBus, ToolContext } from "@hyperidle/shared";
 import { describe, expect } from "vitest";
+import { test as baseTest } from "../__testing__/test-fixtures.js";
 import {
 	createInProcessCoreApiTransport,
 	registerCoreApiTransport,
 } from "../services/core-api-port-composition.js";
 import { buildToolRegistry } from "../services/tool-provider-bindings.js";
-import { test as baseTest } from "../test-fixtures.js";
 
 /**
  * @lore AU21 §9 Increment 2 (conversation wave): this file invokes

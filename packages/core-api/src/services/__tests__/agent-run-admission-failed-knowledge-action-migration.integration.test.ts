@@ -40,7 +40,7 @@ import { drainIntents } from "@hyperidle/session-requests";
 import type { AgentRunAdmissionFailedEvent } from "@hyperidle/shared";
 import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { test } from "../../test-fixtures.js";
+import { test } from "../../__testing__/test-fixtures.js";
 import { queueDeps } from "../durable-agent-queue.js";
 
 const TEST_API_KEY = "test-key-au21-knowledge-action-migration";

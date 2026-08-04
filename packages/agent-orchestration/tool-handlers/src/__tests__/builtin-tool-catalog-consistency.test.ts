@@ -1,4 +1,4 @@
-import { createTestDb, type TestDbHandle } from "@hyperidle/db";
+import { createTestDb, type TestDbHandle } from "@hyperidle/db/testing";
 import { seedConfigurationDefaults } from "@hyperidle/settings";
 import { BUILTIN_TOOL_CATALOG } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";

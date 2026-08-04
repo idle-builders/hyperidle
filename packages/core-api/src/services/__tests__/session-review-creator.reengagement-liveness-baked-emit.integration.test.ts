@@ -54,7 +54,7 @@ import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import type { SessionEndedEvent } from "@hyperidle/shared";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { and, eq } from "drizzle-orm";
-import { describe, expect, test, vi } from "../../test-fixtures.js";
+import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 
 const NOW = new Date().toISOString();
 

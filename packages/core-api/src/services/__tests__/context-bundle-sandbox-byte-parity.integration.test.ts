@@ -49,7 +49,7 @@ import { getTeam } from "@hyperidle/org";
 import { createContextAssembler } from "@hyperidle/run-orchestration/scaffolding";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { resolveTaskRunRequest } from "@hyperidle/work";
-import { describe, expect, test } from "../../test-fixtures.js";
+import { describe, expect, test } from "../../__testing__/test-fixtures.js";
 
 const NOW = "2026-08-01T00:00:00.000Z";
 const TEAM_ID = "team-i12c-parity";

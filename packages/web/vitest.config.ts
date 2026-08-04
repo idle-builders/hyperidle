@@ -11,7 +11,7 @@ export default defineConfig({
 				url: "http://localhost:5173",
 			},
 		},
-		setupFiles: ["./src/test-setup.ts"],
+		setupFiles: ["./src/__testing__/test-setup.ts"],
 		include: ["src/**/*.test.{ts,tsx}"],
 		exclude: ["**/*.integration.test.{ts,tsx}"],
 		// @lore: Under heavy CI load (10+ parallel worktrees on a 10-core machine),
