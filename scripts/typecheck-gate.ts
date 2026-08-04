@@ -413,12 +413,6 @@ function buildLeafDeclarations(root: string): void {
   // cascade; server-factory.ts and the new cost-bindings.ts now import
   // `@hyperidle/cost`.
   //
-  // @lore AU19 Increment 3h: `agent-orchestration/dispatch` added — same
-  // TS6305 cascade; app.ts, server-factory.ts, routines.ts,
-  // tools/create-routine.ts, tools/create-team.ts, routes/routines-routes.ts,
-  // routes/dispatch-queue-routes.ts, routes/teams-routes.ts, and the new
-  // dispatch-bindings.ts now import `@hyperidle/dispatch`.
-  //
   // @lore AU19 Increment 3i: `agent-orchestration/session-lifecycle` added —
   // same TS6305 cascade; server-factory.ts, session.ts,
   // routes/sessions-routes.ts, routes/tasks.ts, tools/handoff-to.ts,
@@ -487,7 +481,6 @@ function buildLeafDeclarations(root: string): void {
     // (concurrency.ts), resolveScaffoldSpecs into db's agent-scaffold.ts.
     // @lore AU20 B2c: agent-orchestration/capture-writeback folded into run-orchestration.
     // @lore AU21 Increment 14a: agent-orchestration/cost HARD-DELETED (founder) — removed from this list.
-    "agent-orchestration/dispatch",
     // @lore AU20 B2b: agent-orchestration/session-lifecycle folded into run-orchestration.
     // @lore AU20 B2a: agent-orchestration/context-assembly folded into run-orchestration.
     "agent-execution/harness-registry",

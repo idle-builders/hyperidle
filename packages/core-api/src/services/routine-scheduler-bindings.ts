@@ -1,30 +1,18 @@
 /**
- * @lore AU21 §9 Increment 4: composition root for the relocated routine
- * scheduler (`@hyperidle/routine`'s `routine-scheduler.ts` — moved from
- * `@hyperidle/dispatch`'s `service.ts` per architecture.md §6 Decision
- * B′/B″ ruling #4). `@hyperidle/routine` is a Service, so per Mechanism C
- * (`composition-boundary-guard`, mechanically enforced) it cannot import
- * `work`/`conversation`/`knowledge`/`review`/`settings` directly — every one
- * of those, plus the one genuinely against-grain (`core-api →
+ * @lore Composition root for the routine scheduler (`@hyperidle/routine`'s
+ * `routine-scheduler.ts`). `@hyperidle/routine` is a Service, so per
+ * Mechanism C (`composition-boundary-guard`, mechanically enforced) it
+ * cannot import `work`/`conversation`/`knowledge`/`settings` directly —
+ * every one of those, plus the one genuinely against-grain (`core-api →
  * agent-orchestration`) dependency (`enqueueWorkIntent` via
- * `@hyperidle/session-requests`), is wired here — same idiom as
- * `dispatch-bindings.ts`'s former `dispatchPorts` object (this module
- * inherits that object's `work`/`conversation`/`knowledge`/`review` wiring
- * verbatim, since it is exactly the composition those four builtin-routine
- * bodies always needed).
- *
- * `dispatchOps` (`dispatch-bindings.ts`) no longer knows about routines at
- * all after this Increment — `fireRoutine`/the builtin-routine-handler
- * registration/the `scheduler` config branch all moved here. Every former
- * `dispatchOps.fireRoutine`/`dispatchOps.start({scheduler})` call site
- * (`server-factory.ts`, `routes/routines-routes.ts`,
- * `__tests__/dispatch-test-helpers.ts`) is repointed at this module's
+ * `@hyperidle/session-requests`), is wired here. `fireRoutine`, the
+ * builtin-routine-handler registration, and the scheduler startup all live
+ * in this module; every call site (`server-factory.ts`,
+ * `routes/routines-routes.ts`) reaches them through
  * `fireRoutine`/`startRoutineScheduler`/`registerBuiltinRoutineReactions`.
  *
- * @lore AU21 §9 Increment 5 (AC #7): the `review` field is gone — it only
- * ever carried `createPracticeMeeting` for the now-deleted
- * `builtin:practice-meeting` routine. `work`/`conversation`/`knowledge`/
- * `settings` are unchanged.
+ * There is no `review` field on this module's ports — no builtin routine
+ * wired here needs `createPracticeMeeting`.
  */
 
 import { resolveInjectedConnectionsForAgent } from "@hyperidle/connections";

@@ -170,9 +170,10 @@ async function drainAgentSessionRequests(deps: RuntimeDeps): Promise<number> {
 			// silent-no-op-turned-crash class R1 exists to kill) or incorrectly
 			// terminalize a legitimately-retryable released claim. This catch's only
 			// remaining job is the family-specific explicit-session-start projection.
-			// A pre-admission throw for an `assistant_turn` request behaves
-			// exactly like every other kind's (plan.md's accepted, pre-existing
-			// re-claim-until-lease-expiry gap, §"Out of scope" (c)).
+			// A pre-admission throw for an `assistant_turn` request behaves exactly
+			// like every other kind's: the claim sits released/claimed until its
+			// lease expires and is re-claimed, not terminalized here — a known,
+			// pre-existing gap for every kind, not special-cased for the assistant.
 			if (explicitStartId) {
 				await deps.ports.sessionRequests.transitionSessionRequest(deps.db, {
 					target: "explicitStart",

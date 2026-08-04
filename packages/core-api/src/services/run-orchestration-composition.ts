@@ -226,11 +226,6 @@ const sessionLifecyclePort: SessionLifecycleRuntime = {
 // `session-lifecycle-bindings.ts`'s `harnessPort` export.
 // ---------------------------------------------------------------------------
 
-// ---------------------------------------------------------------------------
-// The assistant runs through the shared `sessionRequests`/`sessionLifecycle`
-// poller path like every other kind — no second execution entry to wire.
-// ---------------------------------------------------------------------------
-
 const runOrchestrationPorts: RuntimePorts = {
 	sessionRequests: {
 		claimSessionRequest,

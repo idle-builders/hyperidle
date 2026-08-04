@@ -1632,9 +1632,3 @@ export function buildToolDefinitions(
 	}
 	return all;
 }
-
-// `create_bet`/`edit_bet` are ordinary `["assistant"]`-role-scoped tools two
-// lines above (`wrapForRegistry`) — the assistant has them unrestricted,
-// exactly like every other agent. It cannot draft a bet without a resolvable
-// `teams.id` (its `sourceCorrelation` carries none); providing one is a
-// later WP.

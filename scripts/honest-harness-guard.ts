@@ -557,8 +557,8 @@ function ruleFor(
 	}
 
 	// AR4: BUILTIN_ONLY_INTEGRATION carve-out — skip the 4-harness coverage rule for
-	// files whose production path is genuinely builtin-only (runAssistantTurn cannot run
-	// a CLI harness: no sandbox cwd, no .mcp.json bridge). These files MUST still declare
+	// files whose production path is genuinely builtin-only (structurally cannot run a
+	// CLI harness — no sandbox cwd, no .mcp.json bridge). These files MUST still declare
 	// requireHarness("builtin") — a builtin-only file that declares NO harness is a violation.
 	// stub + skipIf rules already fired above; only the coverage rule is exempted here.
 	const isBuiltinOnly = BUILTIN_ONLY_INTEGRATION.some((suffix) => p.endsWith(suffix));

@@ -18,8 +18,6 @@ import {
 	startObservability,
 } from "@hyperidle/observability";
 import { getTeamMembers } from "@hyperidle/org";
-// @lore AU20 Ag1b: standalone assistant registration removed — its trigger
-// is now started through dispatchOps.start (called from registerAgentLayerServices).
 import { enqueueWorkIntent, findSessionRequest } from "@hyperidle/session-requests";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { ApiErrorResponse } from "@hyperidle/shared";

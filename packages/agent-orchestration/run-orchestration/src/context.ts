@@ -387,12 +387,6 @@ function writeSandboxAgentsMd(sandboxPath: string, assembledPrompt: string): voi
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AH3: every session, assistant included, goes through the generic
-// `assembleTaskFreePrompt` path (`provisioner.ts`), whose `## Conversation`
-// section renders the calling-thread transcript when one is present.
-// ─────────────────────────────────────────────────────────────────────────────
-
-// ─────────────────────────────────────────────────────────────────────────────
 // AA2: Routine prompt assembly
 // ─────────────────────────────────────────────────────────────────────────────
 
