@@ -18,6 +18,12 @@
  * from `product-` to `team-` for consistency with the domain rename.
  */
 
+import {
+	readAgentRunConfigs,
+	readTeamRunConfigDefaults,
+	writeAgentRunConfig,
+	writeTeamRunConfigDefaults,
+} from "@hyperidle/agent-run-config";
 import { findThread, insertMessage, insertThread } from "@hyperidle/conversation";
 import { type HyperIdleDb, resolveAgentScaffoldSpecs, sessions } from "@hyperidle/db";
 import { enqueue, listNotifications } from "@hyperidle/notifications";
@@ -54,7 +60,7 @@ import {
 	type HarnessCapabilityReader,
 } from "@hyperidle/shared";
 import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
-import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
+import { findUser, insertUser, listUsers } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { desc, inArray } from "drizzle-orm";
 import { Hono } from "hono";
@@ -67,9 +73,13 @@ import {
 
 // AU19 Increment 1c: `org`'s `OrgUserDirectory` port (Mechanism C), wired to
 // the real `user-store.ts` function references unchanged (no behavior change).
+// AU26 G1 (§D-L): `persistScaffoldedAgents` also stamps the run config, which
+// left `users` for `agent_run_config`. The Layer wires the writer down the same
+// Mechanism-C way it wires the user directory.
 const orgUsers = {
 	getUserById: (db: HyperIdleDb, id: string) => findUser(db, { id }),
 	insertUser,
+	writeAgentRunConfig,
 };
 
 /**
@@ -231,6 +241,9 @@ export function createTeamRoutes(
 
 				if (agentCount > 0) {
 					const teamAgentIds = teamAgentRows.map((a) => a.id);
+					// @lore AU26 G1 (§D-L): harness type left `users`; one batched read
+					// keeps this loop at the same query count it had before.
+					const teamAgentRunConfigs = await readAgentRunConfigs(db, teamAgentIds);
 					// Batch fetch all sessions for all agents
 					const allTeamAgentSessions = await db
 						.select({
@@ -269,17 +282,15 @@ export function createTeamRoutes(
 						}
 						// Compute health using the same signals as the profile page (reviewer S4)
 						if (!agentHealthWarning) {
-							const harnessAvail = resolveHarnessAvailable(
-								agentRow.harnessType ?? null,
-								adapterPool,
-							);
+							const agentHarnessType = teamAgentRunConfigs.get(agentRow.id)?.harnessType ?? null;
+							const harnessAvail = resolveHarnessAvailable(agentHarnessType, adapterPool);
 							const signals = computeHealthSignals({
 								sessions: agentSessions.map((s) => ({
 									startedAt: s.startedAt,
 									endedAt: s.endedAt,
 									outcome: s.outcome,
 								})),
-								harnessType: agentRow.harnessType ?? null,
+								harnessType: agentHarnessType,
 								harnessAvailable: harnessAvail,
 							});
 							if (signals.degraded) {
@@ -356,15 +367,21 @@ export function createTeamRoutes(
 			// AE2: store chosen functions as JSON for future reads.
 			functions: JSON.stringify(teamFunctions),
 			createdAt: now,
-			// AV1: persist primary harness as team default — every agent-creation path reads it.
-			defaultHarnessType: primaryHarness?.harnessType ?? null,
-			defaultModelId: primaryHarness?.modelId ?? null,
-			defaultModelProvider: primaryHarness?.modelProvider ?? null,
 			// teamMembers companion (1:1)
 			teamMembersId,
 			capacity: 5,
 			activeBets: 0,
 			formedAt: now,
+		});
+
+		// AV1: persist primary harness as team default — every agent-creation path reads it.
+		// @lore AU26 G1 (§D-L): the three `teams.default_*` columns moved into
+		// `team_run_config_defaults`, so the write is a second call to their owner.
+		// The route stays core-hosted and delegates the persist down (§D-A rule 3).
+		await writeTeamRunConfigDefaults(db, teamId, {
+			defaultHarnessType: primaryHarness?.harnessType ?? null,
+			defaultModelId: primaryHarness?.modelId ?? null,
+			defaultModelProvider: primaryHarness?.modelProvider ?? null,
 		});
 
 		// AU3: route through app-owned scaffolding for the default roster.
@@ -494,16 +511,20 @@ export function createTeamRoutes(
 						kind: "ai",
 						name: assistantName,
 						role: "assistant",
+						status: "active",
+						createdAt: now,
+					});
+					// @lore AU26 G1 (§D-L): the harness triple left `users`, so the
+					// stub's identity row and its run config are two writes now.
+					await writeAgentRunConfig(db, assistantId, {
 						harnessType: stubHarness?.harnessType ?? "builtin",
 						modelId: stubHarness?.modelId ?? "claude-sonnet-4-6",
 						modelProvider: stubHarness?.modelProvider ?? "anthropic",
-						status: "active",
-						createdAt: now,
 					});
 				} else if (stubHarness !== undefined) {
 					// Assistant already exists (created at user registration with no harness).
 					// Update it with the team's harness so the overlay opens ready.
-					await updateUser(db, assistantId, {
+					await writeAgentRunConfig(db, assistantId, {
 						harnessType: stubHarness.harnessType,
 						modelId: stubHarness.modelId,
 						modelProvider: stubHarness.modelProvider,
@@ -606,10 +627,20 @@ export function createTeamRoutes(
 		});
 
 		// AV1: read team default so add-agent-later inherits the persisted primary harness.
-		// @lore AU20 Am7: pass team directly to persistScaffoldedAgents — it accepts
+		// @lore AU20 Am7: pass the team defaults to persistScaffoldedAgents — it accepts
 		// TeamHarnessDefault (defaultHarnessType/modelId/modelProvider) and resolves
 		// team-default → builtin internally (resolveTeamAgentHarness folded in).
-		const { agentIds } = await persistScaffoldedAgents(db, orgUsers, memberGroup.id, specs, team);
+		// @lore AU26 G1 (§D-L): those three columns left `teams`, so the defaults come
+		// from `team_run_config_defaults` instead of off the team row. An absent row is
+		// an all-null row, so a team created before the move still resolves builtin.
+		const teamDefaults = await readTeamRunConfigDefaults(db, teamId);
+		const { agentIds } = await persistScaffoldedAgents(
+			db,
+			orgUsers,
+			memberGroup.id,
+			specs,
+			teamDefaults,
+		);
 		const agentId = agentIds[0] ?? crypto.randomUUID();
 		const now = new Date().toISOString();
 
@@ -715,6 +746,9 @@ export function createTeamRoutes(
 			// Batch all session queries with a single IN clause (reviewer W1).
 			const agentIds = agentRows.map((a) => a.id);
 			if (agentIds.length > 0) {
+				// @lore AU26 G1 (§D-L): one batched run-config read alongside the
+				// batched session read — the roster loop stays two queries.
+				const rosterRunConfigs = await readAgentRunConfigs(db, agentIds);
 				// Fetch all sessions for all agents in one query, ordered by startedAt desc
 				const allAgentSessions = await db
 					.select({
@@ -766,15 +800,16 @@ export function createTeamRoutes(
 					}
 
 					// Health signals
-					const agentRow = agentRows.find((a) => a.id === member.agentId);
-					const harnessAvail = resolveHarnessAvailable(agentRow?.harnessType ?? null, adapterPool);
+					// @lore AU26 G1 (§D-L): harness type reads from `agent_run_config`.
+					const memberHarnessType = rosterRunConfigs.get(member.agentId)?.harnessType ?? null;
+					const harnessAvail = resolveHarnessAvailable(memberHarnessType, adapterPool);
 					const healthSignals = computeHealthSignals({
 						sessions: agentSessions.map((s) => ({
 							startedAt: s.startedAt,
 							endedAt: s.endedAt,
 							outcome: s.outcome,
 						})),
-						harnessType: agentRow?.harnessType ?? null,
+						harnessType: memberHarnessType,
 						harnessAvailable: harnessAvail,
 					});
 

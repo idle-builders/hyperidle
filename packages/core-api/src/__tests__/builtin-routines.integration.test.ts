@@ -60,7 +60,6 @@ async function seedOwners(db: HyperIdleDb): Promise<void> {
 		name: "System Agent",
 		role: "assistant",
 		status: "active",
-		maxConcurrentSessions: 1,
 		createdAt: NOW_ISO,
 	});
 
@@ -70,7 +69,6 @@ async function seedOwners(db: HyperIdleDb): Promise<void> {
 		name: "Facilitation Facilitator",
 		role: "facilitator",
 		status: "active",
-		maxConcurrentSessions: 1,
 		createdAt: NOW_ISO,
 	});
 
@@ -79,7 +77,6 @@ async function seedOwners(db: HyperIdleDb): Promise<void> {
 		name: "Acme Product Manager",
 		role: "product_manager",
 		status: "active",
-		maxConcurrentSessions: 1,
 		teamId: "team-1",
 		createdAt: NOW_ISO,
 	});

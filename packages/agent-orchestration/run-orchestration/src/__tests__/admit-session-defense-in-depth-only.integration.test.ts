@@ -116,6 +116,19 @@ function buildDefenseInDepthOnlyPorts(
 			provisionReturnHook: neverCalled("harnessRuntime.provisionReturnHook"),
 			writeCliMcpConfig: neverCalled("harnessRuntime.writeCliMcpConfig"),
 		},
+		agentRunConfig: {
+			// AU26 G1: `admitSession` reads the six run-config fields live from
+			// `agent_run_config` instead of the emit-time bake. This fixture
+			// returns the all-null default; tests that care override it.
+			readAgentRunConfig: async () => ({
+				systemPrompt: null,
+				harnessType: null,
+				modelTierPreference: null,
+				modelId: null,
+				modelProvider: null,
+				maxConcurrentSessions: 1,
+			}),
+		},
 		toolProvider: {
 			buildToolRegistry: neverCalled("toolProvider.buildToolRegistry"),
 			toolsForRole: () => [],
@@ -181,7 +194,6 @@ describe("admitSession — baked-snapshot defense-in-depth ONLY, zero live read 
 			name: "Agent One",
 			role: "builder",
 			status: "active",
-			maxConcurrentSessions: 5,
 			createdAt: now,
 		});
 
@@ -200,12 +212,6 @@ describe("admitSession — baked-snapshot defense-in-depth ONLY, zero live read 
 				status: "archived",
 				role: "builder",
 				teamId: null,
-				systemPrompt: null,
-				modelTierPreference: null,
-				harnessType: null,
-				modelProvider: null,
-				modelId: null,
-				maxConcurrentSessions: 5,
 			},
 		};
 
@@ -244,7 +250,6 @@ describe("admitSession — baked-snapshot defense-in-depth ONLY, zero live read 
 			name: "Agent Two",
 			role: "builder",
 			status: "active",
-			maxConcurrentSessions: 5,
 			createdAt: now,
 		});
 		// Simulate the bounded, accepted race architecture.md §12 now names a
@@ -266,12 +271,6 @@ describe("admitSession — baked-snapshot defense-in-depth ONLY, zero live read 
 				status: "active",
 				role: "builder",
 				teamId: null,
-				systemPrompt: null,
-				modelTierPreference: null,
-				harnessType: null,
-				modelProvider: null,
-				modelId: null,
-				maxConcurrentSessions: 5,
 			},
 		};
 

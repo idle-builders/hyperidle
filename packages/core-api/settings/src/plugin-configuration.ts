@@ -64,6 +64,34 @@ export interface BackfillLegacyConfigurationDeps {
 	readonly serviceConnections: {
 		listByAuthSource(db: HyperIdleDb, authSource: string): Promise<ServiceConnectionRow[]>;
 	};
+	/**
+	 * AU26 G1 (architecture §D-L) — the run-config half of each agent's
+	 * projected configuration, now that those six fields live in
+	 * `agent_run_config` instead of on the `users` row. Injected Mechanism-C
+	 * style (`settings` is a Service and may not import
+	 * `@hyperidle/agent-run-config` directly); the Layer wires it. Returns one
+	 * entry per requested id, defaulting the never-configured to all-null /
+	 * `maxConcurrentSessions` 1 — so the projected shape is byte-identical to
+	 * what an all-null `users` row projected before.
+	 */
+	readonly agentRunConfig: {
+		readAgentRunConfigs(
+			db: HyperIdleDb,
+			agentUserIds: readonly string[],
+		): Promise<
+			Map<
+				string,
+				{
+					readonly systemPrompt: string | null;
+					readonly harnessType: string | null;
+					readonly modelTierPreference: string | null;
+					readonly modelId: string | null;
+					readonly modelProvider: string | null;
+					readonly maxConcurrentSessions: number;
+				}
+			>
+		>;
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -643,7 +671,13 @@ export async function backfillConfigurationDefaults(
 	const seeds: PluginConfigurationSeed[] = [];
 
 	const agentRows = await deps.users.listUsersByKind(db, "ai");
+	// AU26 G1: one batched run-config read for the whole roster.
+	const runConfigs = await deps.agentRunConfig.readAgentRunConfigs(
+		db,
+		agentRows.map((a) => a.id),
+	);
 	for (const agent of agentRows) {
+		const runConfig = runConfigs.get(agent.id);
 		seeds.push({
 			kind: "agent",
 			key: `agent.${agent.id}`,
@@ -653,21 +687,22 @@ export async function backfillConfigurationDefaults(
 				role: agent.role,
 				teamId: agent.teamId,
 				status: agent.status,
-				systemPrompt: agent.systemPrompt,
-				harnessType: agent.harnessType,
-				modelTierPreference: agent.modelTierPreference,
-				modelId: agent.modelId,
-				modelProvider: agent.modelProvider,
-				maxConcurrentSessions: agent.maxConcurrentSessions,
+				systemPrompt: runConfig?.systemPrompt ?? null,
+				harnessType: runConfig?.harnessType ?? null,
+				modelTierPreference: runConfig?.modelTierPreference ?? null,
+				modelId: runConfig?.modelId ?? null,
+				modelProvider: runConfig?.modelProvider ?? null,
+				maxConcurrentSessions: runConfig?.maxConcurrentSessions ?? 1,
 			},
 		});
-		if (agent.harnessType) {
+		const harnessType = runConfig?.harnessType ?? null;
+		if (harnessType) {
 			seeds.push({
 				kind: "harness_descriptor",
-				key: `harness_descriptor.${agent.harnessType}`,
+				key: `harness_descriptor.${harnessType}`,
 				value: {
-					type: agent.harnessType,
-					name: agent.harnessType === "builtin" ? "Built-in Harness" : agent.harnessType,
+					type: harnessType,
+					name: harnessType === "builtin" ? "Built-in Harness" : harnessType,
 					source: "legacy_agent_harness",
 				},
 			});

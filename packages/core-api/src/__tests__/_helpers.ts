@@ -68,7 +68,6 @@ export async function seedBase(db: HyperIdleDb): Promise<void> {
 		name: "Facilitator",
 		role: "facilitator",
 		status: "active",
-		maxConcurrentSessions: 1,
 		createdAt: NOW,
 	});
 

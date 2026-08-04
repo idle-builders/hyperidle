@@ -15,6 +15,7 @@
  * wired here needs `createPracticeMeeting`.
  */
 
+import { readAgentRunConfig } from "@hyperidle/agent-run-config";
 import { resolveInjectedConnectionsForAgent } from "@hyperidle/connections";
 import { insertThread, listThreads } from "@hyperidle/conversation";
 import { type HyperIdleDb, type Routine, userSkills, type WriteExecutor } from "@hyperidle/db";
@@ -44,6 +45,25 @@ import type { EventBus } from "@hyperidle/shared";
 import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
+
+/**
+ * AU26 G1 (architecture §D-L) — `isAgentAtCapacity`'s bound reader, composed
+ * from the two Services that now own the two halves: `users` answers "does this
+ * agent exist at all" (fail closed if not) and `agent-run-config` answers "what
+ * is its `maxConcurrentSessions`" (1 when never configured). Before the column
+ * move a single `findUser` answered both.
+ */
+const concurrencyBoundReader = {
+	async getConcurrencyBound(
+		execDb: HyperIdleDb,
+		agentId: string,
+	): Promise<{ readonly maxConcurrentSessions: number } | undefined> {
+		const user = await findUser(execDb, { id: agentId });
+		if (!user) return undefined;
+		const { maxConcurrentSessions } = await readAgentRunConfig(execDb, agentId);
+		return { maxConcurrentSessions };
+	},
+};
 
 /**
  * AU21 §6 Decision F1 fold — the `userSkills` read `routine`'s own
@@ -133,17 +153,13 @@ export const routineSchedulerPorts: RoutineSchedulerPorts = {
 	},
 	workIntents: { enqueueWorkIntent },
 	agentSelection: {
-		isAtCapacity: (db, agentId) =>
-			isAgentAtCapacity(db, agentId, { getUserById: (execDb, id) => findUser(execDb, { id }) }),
+		isAtCapacity: (db, agentId) => isAgentAtCapacity(db, agentId, concurrencyBoundReader),
 		selectAgent: (input) =>
 			selectRoutineDelegate(
 				input.db,
 				{
 					listAgentIdsBySkill,
-					isAtCapacity: (db, agentId) =>
-						isAgentAtCapacity(db, agentId, {
-							getUserById: (execDb, id) => findUser(execDb, { id }),
-						}),
+					isAtCapacity: (db, agentId) => isAgentAtCapacity(db, agentId, concurrencyBoundReader),
 				},
 				input,
 			),

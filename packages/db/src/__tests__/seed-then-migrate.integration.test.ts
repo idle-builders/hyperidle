@@ -48,7 +48,6 @@ describe("I3 review C3: migration idempotency on a populated PGlite DB", () => {
 				name: "A1",
 				role: "builder",
 				status: "active",
-				maxConcurrentSessions: 1,
 				createdAt: NOW,
 			});
 			await db.insert(schema.bets).values({

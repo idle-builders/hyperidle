@@ -53,7 +53,6 @@ describe("resolveInjectedFilesystemsForAgent bakes an agent's injected filesyste
 			name: "RIFA Agent",
 			role: "builder",
 			status: "active",
-			maxConcurrentSessions: 1,
 			createdAt: NOW,
 		});
 		await db.insert(filesystemsTable).values({
@@ -104,7 +103,6 @@ describe("resolveInjectedFilesystemsForAgent bakes an agent's injected filesyste
 			name: "RIFA Agent 2",
 			role: "builder",
 			status: "active",
-			maxConcurrentSessions: 1,
 			createdAt: NOW,
 		});
 		await db.insert(filesystemsTable).values([
@@ -173,7 +171,6 @@ describe("resolveInjectedFilesystemsForAgent bakes an agent's injected filesyste
 			name: "RIFA Agent 3",
 			role: "builder",
 			status: "active",
-			maxConcurrentSessions: 1,
 			createdAt: NOW,
 		});
 

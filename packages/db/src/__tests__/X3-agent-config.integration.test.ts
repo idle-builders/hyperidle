@@ -1,7 +1,7 @@
 /**
  * X3 — Agent Configuration: DB migration + seed tests
  *
- * AC-1: Users table gains systemPrompt, harnessType, modelTierPreference columns
+ * AC-1: the agent run config carries systemPrompt, harnessType, modelTierPreference
  * AC-2: System prompt templates readable from docs/system-prompts/ via the
  *       shared role→filename resolver
  * AC-3: Existing agents backfilled with systemPrompt from role template
@@ -13,6 +13,15 @@
  * at request time. AC-2/AC-3 below assert the same observable outcome
  * (template content resolves; agents get backfilled with it) through the new
  * storage.
+ *
+ * @lore AU26 G1 (architecture §D-L): AC-1 and AC-3 asserted these three columns
+ * on `users`. They relocated to `agent_run_config` (owned by
+ * `packages/agent-orchestration/agent-run-config`) — `users` is the identity
+ * record, run config is agent-execution configuration. Every assertion below is
+ * the SAME assertion against the new home: same nullability, same null
+ * semantics, same role-template backfill, same agents. AC-1's insert cases now
+ * also prove the FK-and-default shape of the new table (an `agent_run_config`
+ * row requires its `users` row; `max_concurrent_sessions` defaults to 1).
  */
 
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
@@ -36,8 +45,8 @@ async function queryRows<T extends Record<string, unknown>>(
 // AC-1: users table has the three new X3 columns
 // ---------------------------------------------------------------------------
 
-describe("X3 AC-1: users table gains systemPrompt, harnessType, modelTierPreference columns", () => {
-	test("system_prompt column exists on users table and is nullable", async ({ db }) => {
+describe("X3 AC-1: agent run config carries systemPrompt, harnessType, modelTierPreference", () => {
+	test("system_prompt column exists on agent_run_config and is nullable", async ({ db }) => {
 		const rows = await queryRows<{
 			columnName: string;
 			isNullable: string;
@@ -46,7 +55,7 @@ describe("X3 AC-1: users table gains systemPrompt, harnessType, modelTierPrefere
 			db,
 			`SELECT column_name AS "columnName", is_nullable AS "isNullable", data_type AS "dataType"
        FROM information_schema.columns
-       WHERE table_name = 'users' AND table_schema = 'public'
+       WHERE table_name = 'agent_run_config' AND table_schema = 'public'
        AND column_name = 'system_prompt'`,
 		);
 		expect(rows).toHaveLength(1);
@@ -55,7 +64,7 @@ describe("X3 AC-1: users table gains systemPrompt, harnessType, modelTierPrefere
 		expect(rows[0]?.dataType).toBe("text");
 	});
 
-	test("harness_type column exists on users table and is nullable", async ({ db }) => {
+	test("harness_type column exists on agent_run_config and is nullable", async ({ db }) => {
 		const rows = await queryRows<{
 			columnName: string;
 			isNullable: string;
@@ -64,7 +73,7 @@ describe("X3 AC-1: users table gains systemPrompt, harnessType, modelTierPrefere
 			db,
 			`SELECT column_name AS "columnName", is_nullable AS "isNullable", data_type AS "dataType"
        FROM information_schema.columns
-       WHERE table_name = 'users' AND table_schema = 'public'
+       WHERE table_name = 'agent_run_config' AND table_schema = 'public'
        AND column_name = 'harness_type'`,
 		);
 		expect(rows).toHaveLength(1);
@@ -73,7 +82,9 @@ describe("X3 AC-1: users table gains systemPrompt, harnessType, modelTierPrefere
 		expect(rows[0]?.dataType).toBe("text");
 	});
 
-	test("model_tier_preference column exists on users table and is nullable", async ({ db }) => {
+	test("model_tier_preference column exists on agent_run_config and is nullable", async ({
+		db,
+	}) => {
 		const rows = await queryRows<{
 			columnName: string;
 			isNullable: string;
@@ -82,7 +93,7 @@ describe("X3 AC-1: users table gains systemPrompt, harnessType, modelTierPrefere
 			db,
 			`SELECT column_name AS "columnName", is_nullable AS "isNullable", data_type AS "dataType"
        FROM information_schema.columns
-       WHERE table_name = 'users' AND table_schema = 'public'
+       WHERE table_name = 'agent_run_config' AND table_schema = 'public'
        AND column_name = 'model_tier_preference'`,
 		);
 		expect(rows).toHaveLength(1);
@@ -91,7 +102,7 @@ describe("X3 AC-1: users table gains systemPrompt, harnessType, modelTierPrefere
 		expect(rows[0]?.dataType).toBe("text");
 	});
 
-	test("can insert a user row with all three new columns null (null semantics work)", async ({
+	test("can insert a run-config row with all three columns null (null semantics work)", async ({
 		db,
 	}) => {
 		const now = new Date().toISOString();
@@ -101,32 +112,45 @@ describe("X3 AC-1: users table gains systemPrompt, harnessType, modelTierPrefere
       VALUES ('x3-test-agent-null-cols', 'ai', 'Test Agent', 'builder', 'active', '${now}')
     `),
 		);
+		await db.execute(
+			sql.raw(`INSERT INTO agent_run_config (agent_user_id) VALUES ('x3-test-agent-null-cols')`),
+		);
 
 		const rows = await queryRows<{
 			id: string;
 			systemPrompt: string | null;
 			harnessType: string | null;
 			modelTierPreference: string | null;
+			maxConcurrentSessions: number;
 		}>(
 			db,
-			`SELECT id, system_prompt AS "systemPrompt", harness_type AS "harnessType", model_tier_preference AS "modelTierPreference"
-       FROM users WHERE id = 'x3-test-agent-null-cols'`,
+			`SELECT agent_user_id AS "id", system_prompt AS "systemPrompt", harness_type AS "harnessType",
+              model_tier_preference AS "modelTierPreference",
+              max_concurrent_sessions AS "maxConcurrentSessions"
+       FROM agent_run_config WHERE agent_user_id = 'x3-test-agent-null-cols'`,
 		);
 		expect(rows).toHaveLength(1);
 		expect(rows[0]?.systemPrompt).toBeNull();
 		expect(rows[0]?.harnessType).toBeNull();
 		expect(rows[0]?.modelTierPreference).toBeNull();
+		// @lore AU26 G1: the one NOT NULL DEFAULT 1 column — its exact pre-move shape on `users`.
+		expect(Number(rows[0]?.maxConcurrentSessions)).toBe(1);
 	});
 
-	test("can insert a user row with systemPrompt, harnessType, modelTierPreference set", async ({
+	test("can insert a run-config row with systemPrompt, harnessType, modelTierPreference set", async ({
 		db,
 	}) => {
 		const now = new Date().toISOString();
 		await db.execute(
 			sql.raw(`
-      INSERT INTO users (id, kind, name, role, status, created_at, system_prompt, harness_type, model_tier_preference)
-      VALUES ('x3-test-agent-full-cols', 'ai', 'Full Bot', 'builder', 'active', '${now}',
-              'You are a builder.', 'claude-code', 'reasoning')
+      INSERT INTO users (id, kind, name, role, status, created_at)
+      VALUES ('x3-test-agent-full-cols', 'ai', 'Full Bot', 'builder', 'active', '${now}')
+    `),
+		);
+		await db.execute(
+			sql.raw(`
+      INSERT INTO agent_run_config (agent_user_id, system_prompt, harness_type, model_tier_preference)
+      VALUES ('x3-test-agent-full-cols', 'You are a builder.', 'claude-code', 'reasoning')
     `),
 		);
 
@@ -137,7 +161,7 @@ describe("X3 AC-1: users table gains systemPrompt, harnessType, modelTierPrefere
 		}>(
 			db,
 			`SELECT system_prompt AS "systemPrompt", harness_type AS "harnessType", model_tier_preference AS "modelTierPreference"
-       FROM users WHERE id = 'x3-test-agent-full-cols'`,
+       FROM agent_run_config WHERE agent_user_id = 'x3-test-agent-full-cols'`,
 		);
 		expect(rows[0]?.systemPrompt).toBe("You are a builder.");
 		expect(rows[0]?.harnessType).toBe("claude-code");
@@ -216,7 +240,7 @@ describe("X3 AC-3: existing agents backfilled with systemPrompt from role templa
 
 		const agentRows = await queryRows<{ systemPrompt: string | null }>(
 			db,
-			`SELECT system_prompt AS "systemPrompt" FROM users WHERE id = 'demo-agent-pm'`,
+			`SELECT system_prompt AS "systemPrompt" FROM agent_run_config WHERE agent_user_id = 'demo-agent-pm'`,
 		);
 		const template = readSystemPromptTemplateForRole("product_manager");
 
@@ -230,7 +254,7 @@ describe("X3 AC-3: existing agents backfilled with systemPrompt from role templa
 
 		const agentRows = await queryRows<{ systemPrompt: string | null }>(
 			db,
-			`SELECT system_prompt AS "systemPrompt" FROM users WHERE id = 'seed-agent-cos'`,
+			`SELECT system_prompt AS "systemPrompt" FROM agent_run_config WHERE agent_user_id = 'seed-agent-cos'`,
 		);
 
 		expect(agentRows[0]?.systemPrompt).toBeNull();
@@ -244,7 +268,9 @@ describe("X3 AC-3: existing agents backfilled with systemPrompt from role templa
 
 		const agentRows = await queryRows<{ id: string; systemPrompt: string | null }>(
 			db,
-			`SELECT id, system_prompt AS "systemPrompt" FROM users WHERE role = 'facilitator'`,
+			`SELECT u.id, c.system_prompt AS "systemPrompt" FROM users u
+         JOIN agent_run_config c ON c.agent_user_id = u.id
+        WHERE u.role = 'facilitator'`,
 		);
 		const template = readSystemPromptTemplateForRole("facilitator");
 
@@ -262,7 +288,7 @@ describe("X3 AC-3: existing agents backfilled with systemPrompt from role templa
 
 		const agentRows = await queryRows<{ systemPrompt: string | null }>(
 			db,
-			`SELECT system_prompt AS "systemPrompt" FROM users WHERE id = 'demo-agent-builder'`,
+			`SELECT system_prompt AS "systemPrompt" FROM agent_run_config WHERE agent_user_id = 'demo-agent-builder'`,
 		);
 		const template = readSystemPromptTemplateForRole("builder");
 
@@ -270,13 +296,19 @@ describe("X3 AC-3: existing agents backfilled with systemPrompt from role templa
 		expect(agentRows[0]?.systemPrompt).toBe(template);
 	});
 
-	test("system:propagation has null systemPrompt (system role, no template)", async ({ db }) => {
+	// @lore AU26 G1: absent row ≡ all-null row. `system:propagation` is a system
+	// infra row that never had run config written, so after the move it has no
+	// `agent_run_config` row at all — which `readAgentRunConfig` resolves to the
+	// same all-null config the pre-move null columns resolved to. Asserting
+	// "no row OR a row with null system_prompt" keeps the original meaning
+	// (no persona for the system role) without hard-coding either storage state.
+	test("system:propagation has no persona (system role, no template)", async ({ db }) => {
 		await seed(db);
 
 		const rows = await queryRows<{ systemPrompt: string | null }>(
 			db,
-			`SELECT system_prompt AS "systemPrompt" FROM users WHERE id = 'system:propagation'`,
+			`SELECT system_prompt AS "systemPrompt" FROM agent_run_config WHERE agent_user_id = 'system:propagation'`,
 		);
-		expect(rows[0]?.systemPrompt).toBeNull();
+		expect(rows[0]?.systemPrompt ?? null).toBeNull();
 	});
 });

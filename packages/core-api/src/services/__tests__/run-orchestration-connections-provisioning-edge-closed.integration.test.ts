@@ -81,7 +81,6 @@ describe("run-orchestration's connection-provisioning path makes ZERO CoreApiPor
 				name: "K1 Edge-Closed Agent",
 				role: "engineer",
 				status: "active",
-				maxConcurrentSessions: 1,
 				createdAt: NOW,
 			})
 			.onConflictDoNothing();

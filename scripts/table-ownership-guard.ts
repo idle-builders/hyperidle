@@ -200,6 +200,15 @@ export const TABLE_OWNER: Record<string, string> = {
 	agentWorkIntents: "packages/agent-orchestration/session-requests",
 	agentSessionRequests: "packages/agent-orchestration/session-requests",
 	explicitSessionStarts: "packages/agent-orchestration/session-requests",
+	// AU26 G1 (architecture §D-L): the two run-config tables the six `users` and
+	// three `teams` run-config columns relocated into. Neither was ever in
+	// `UNOWNED_SHARED_TABLES` — a clean new-owner addition, no exemption to
+	// justify. Core-api still HOSTS the write routes (`routes/agents.ts`,
+	// `routes/assistant.ts`, `routes/teams-routes.ts` gate on `users`/`teams`,
+	// core tables, so they have exactly one legal host) and calls DOWN into this
+	// Service's exported writers — it never touches either table itself.
+	agentRunConfig: "packages/agent-orchestration/agent-run-config",
+	teamRunConfigDefaults: "packages/agent-orchestration/agent-run-config",
 	// AU19 Increment 3d: `lifecycle-projection` migrated — its `⛁` "confirm"
 	// column (§4) resolves to ONE owned table, `agentLifecycleInbox`
 	// (`agent-lifecycle-projectors.ts`'s claim/project/ack drain loop, moved

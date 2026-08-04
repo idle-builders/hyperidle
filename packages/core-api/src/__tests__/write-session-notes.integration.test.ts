@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import {
+	agentRunConfig,
 	bets,
 	type HyperIdleDb,
 	sessions,
@@ -44,8 +45,12 @@ async function seed(db: HyperIdleDb): Promise<void> {
 		role: "builder",
 		teamId: "t1",
 		status: "active",
-		maxConcurrentSessions: 2,
 		createdAt: now,
+	});
+	// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+	await db.insert(agentRunConfig).values({
+		agentUserId: "agent-a",
+		maxConcurrentSessions: 2,
 	});
 
 	await db.insert(threads).values({

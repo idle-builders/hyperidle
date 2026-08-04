@@ -1,5 +1,6 @@
 /** Core API composition root for the run-orchestration service. */
 
+import { readAgentRunConfig } from "@hyperidle/agent-run-config";
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	AdapterPool,
@@ -166,6 +167,9 @@ const sessionLifecyclePorts: SessionLifecyclePorts = {
 	observability: observabilityAccessor,
 	harnessRuntime,
 	toolProvider,
+	// AU26 G1 (§D-L): the live `agent_run_config` read `admitSession` uses
+	// instead of the emit-time bake. Mechanism C — the Layer wires the Service.
+	agentRunConfig: { readAgentRunConfig },
 };
 // AU21 §9 Increment 4 (Decision B″ item 3): `transitionRunInternal`'s
 // `TransitionPorts` no longer carries a `routine` key at all — `endSession`/

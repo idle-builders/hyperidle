@@ -1,4 +1,6 @@
 import {
+	type AgentRunConfigRow,
+	agentRunConfig,
 	configurationOverrides,
 	createTestDb,
 	type HyperIdleDb,
@@ -15,7 +17,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import { BUILTIN_PLUGIN_ID, CONFIGURATION_KINDS, type ConfigurationKind } from "@hyperidle/shared";
-import { eq, isNull } from "drizzle-orm";
+import { eq, inArray, isNull } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import {
 	type BackfillLegacyConfigurationDeps,
@@ -58,6 +60,19 @@ const settingsDeps: BackfillLegacyConfigurationDeps = {
 				.select()
 				.from(serviceConnections)
 				.where(eq(serviceConnections.authSource, authSource));
+		},
+	},
+	// AU26 G1: the run-config half of the projected agent, read from its own table.
+	agentRunConfig: {
+		async readAgentRunConfigs(db: HyperIdleDb, agentUserIds: readonly string[]) {
+			const result = new Map<string, AgentRunConfigRow>();
+			if (agentUserIds.length === 0) return result;
+			const rows = await db
+				.select()
+				.from(agentRunConfig)
+				.where(inArray(agentRunConfig.agentUserId, [...agentUserIds]));
+			for (const row of rows) result.set(row.agentUserId, row);
+			return result;
 		},
 	},
 };
@@ -463,11 +478,6 @@ async function seedLegacyData(handle: TestDbHandle): Promise<void> {
 			role: "builder",
 			status: "active",
 			teamId: "members-1",
-			systemPrompt: "Build carefully.",
-			harnessType: "builtin",
-			modelTierPreference: "workhorse",
-			modelId: "claude-sonnet-4-6",
-			modelProvider: "anthropic",
 			createdAt: NOW,
 		},
 		{
@@ -479,6 +489,14 @@ async function seedLegacyData(handle: TestDbHandle): Promise<void> {
 			createdAt: NOW,
 		},
 	]);
+	await handle.db.insert(agentRunConfig).values({
+		agentUserId: "agent-1",
+		systemPrompt: "Build carefully.",
+		harnessType: "builtin",
+		modelTierPreference: "workhorse",
+		modelId: "claude-sonnet-4-6",
+		modelProvider: "anthropic",
+	});
 	await handle.db.insert(routines).values({
 		id: "routine-1",
 		name: "Daily digest",

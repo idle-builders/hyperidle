@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { type ServerType, serve, upgradeWebSocket } from "@hono/node-server";
+import { readAgentRunConfigs } from "@hyperidle/agent-run-config";
 import {
 	type CredentialResolver,
 	DbCredentialResolver,
@@ -997,6 +998,9 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		serviceConnections: {
 			listByAuthSource: (execDb, authSource) => listConnections(execDb, { authSource }),
 		},
+		// AU26 G1 (§D-L): the six run-config fields the projection carries now
+		// live in `agent_run_config`; the Layer wires their owner's batched read.
+		agentRunConfig: { readAgentRunConfigs },
 	});
 	// @lore AU19 Increment 5 (item 2): `adapterPool`/`workspaceAdapter` are now
 	// REQUIRED, Application-supplied deps (see `CreateServerDeps`'s top `@lore`)

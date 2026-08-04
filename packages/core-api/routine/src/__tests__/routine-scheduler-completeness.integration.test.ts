@@ -88,7 +88,6 @@ async function seedEventRoutine(db: HyperIdleDb, id: string, triggerConfig: stri
 		name: "Owner",
 		role: "builder",
 		status: "active",
-		maxConcurrentSessions: 1,
 		createdAt: NOW,
 	});
 	await db.insert(routines).values({

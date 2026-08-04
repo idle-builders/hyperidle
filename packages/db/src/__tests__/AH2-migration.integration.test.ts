@@ -11,53 +11,100 @@
  *
  * Human users (agent_category IS NULL) must NOT be touched.
  *
- * The test fixture gives us a fully-migrated schema (columns exist).
- * We INSERT legacy-shaped rows (null harness_type / null model_id), run the
- * 0032 backfill UPDATE statements directly, then assert the invariants hold.
- * This proves the migration SQL is correct — not just that the columns exist.
- *
  * @lore AH2: This test must FAIL if either backfill UPDATE is missing or
  * narrowly scoped. The H-2 defect was: (a) harness_type never backfilled,
  * (b) model_id backfill excluded claude-code rows. Both gaps are now covered
  * by separate test cases below.
+ *
+ * @lore AU26 G1 (architecture §D-L): 0055 relocated `harness_type`,
+ * `model_tier_preference`, `model_id` and `model_provider` off `users` into
+ * `agent_run_config`, so this test can no longer insert legacy rows into the
+ * CURRENT `users` shape — 0032's subject columns are not there any more. Two
+ * things changed, and both make the test stronger rather than weaker:
+ *
+ *   1. It reconstructs the genuine **pre-0032** `users` shape with DDL and
+ *      replays the REAL `drizzle/0032_wild_nova.sql` file, instead of a
+ *      hand-copied pair of UPDATE statements. A test that inlines its own copy
+ *      of a migration proves only that the copy is correct.
+ *   2. It allocates its own PGlite instance, because the pooled
+ *      `@hyperidle/db/test-fixtures` instances are reused between tests via
+ *      TRUNCATE — a DDL mutation would poison every later borrower. Same
+ *      reasoning as `run-config-relocation-migration.integration.test.ts` and
+ *      `seed-then-migrate.integration.test.ts`.
+ *
+ * What is asserted is unchanged: the shipped 0032 backfill leaves no AI agent
+ * unrunnable, and leaves every human user alone.
  */
 
-import { describe, expect, test } from "@hyperidle/db/test-fixtures";
+import { readdirSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { PGlite } from "@electric-sql/pglite";
 import { DEFAULT_AGENT_HARNESS, isCatalogModel } from "@hyperidle/shared";
-import { sql } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/pglite";
+import { migrate } from "drizzle-orm/pglite/migrator";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { HyperIdleDb } from "../connection.js";
+import * as schema from "../schema.js";
+
+const DIRNAME = fileURLToPath(new URL(".", import.meta.url));
+const DRIZZLE_DIR = resolve(DIRNAME, "../../drizzle");
 
 // The registered harness types for this install.
 // Matches the AdapterPool's registered adapters in production.
 const REGISTERED_HARNESSES = new Set(["builtin", "claude-code"]);
 
-// ---------------------------------------------------------------------------
-// Helper: run the 0032 backfill statements against the test DB.
-// Replays only the two UPDATE statements (not the ADD COLUMN DDL, which the
-// fixture already applied via the full migration run).
-// ---------------------------------------------------------------------------
-async function run0032Backfill(db: HyperIdleDb): Promise<void> {
-	// Step 1: backfill harness_type for AI agents that have none.
-	await db.execute(
-		sql.raw(
-			`UPDATE "users" SET "harness_type" = 'builtin' WHERE "agent_category" IS NOT NULL AND "harness_type" IS NULL`,
-		),
-	);
+/** The real 0032 migration file, located by prefix so a suffix rename cannot silently skip it. */
+function readMigration0032(): string {
+	const file = readdirSync(DRIZZLE_DIR).find((name) => name.startsWith("0032_"));
+	if (!file) throw new Error("migration 0032_* not found in packages/db/drizzle");
+	return readFileSync(resolve(DRIZZLE_DIR, file), "utf8");
+}
 
-	// Step 2: tier-aware model backfill for ALL AI agents (any harness_type).
-	await db.execute(
-		sql.raw(
-			`UPDATE "users"
-       SET
-         "model_id" = CASE
-           WHEN "model_tier_preference" = 'reasoning' THEN 'claude-opus-4-8'
-           WHEN "model_tier_preference" = 'fast'      THEN 'claude-haiku-4-5'
-           ELSE 'claude-sonnet-4-6'
-         END,
-         "model_provider" = 'anthropic'
-       WHERE "agent_category" IS NOT NULL`,
-		),
-	);
+/**
+ * Put `users` back into its pre-0032 shape: `harness_type` and
+ * `model_tier_preference` existed (0031 and earlier), `model_id` /
+ * `model_provider` did not — 0032 is the migration that adds them.
+ * `agent_category` is untouched by both 0032 and 0055 and is already present.
+ */
+const PRE_0032_SHAPE = `
+ALTER TABLE "users" ADD COLUMN "harness_type" text;
+ALTER TABLE "users" ADD COLUMN "model_tier_preference" text;
+`;
+
+let client: PGlite | undefined;
+
+async function exec(script: string): Promise<void> {
+	if (!client) throw new Error("harness not initialised");
+	for (const statement of script.split(/;\s*\n|--> statement-breakpoint/)) {
+		const trimmed = statement.trim().replace(/;$/, "");
+		if (trimmed.length === 0) continue;
+		await client.exec(trimmed);
+	}
+}
+
+async function query<T extends Record<string, unknown>>(text: string): Promise<T[]> {
+	if (!client) throw new Error("harness not initialised");
+	const result = await client.query<T>(text);
+	return [...result.rows];
+}
+
+beforeEach(async () => {
+	const instance = new PGlite();
+	const db = drizzle(instance, { schema }) as unknown as HyperIdleDb;
+	await migrate(db as never, { migrationsFolder: DRIZZLE_DIR });
+	client = instance;
+	await exec(PRE_0032_SHAPE);
+});
+
+afterEach(async () => {
+	await client?.close();
+	client = undefined;
+});
+
+/** Replay the shipped 0032 migration file verbatim. */
+function run0032Backfill(): Promise<void> {
+	return exec(readMigration0032());
 }
 
 // ---------------------------------------------------------------------------
@@ -66,28 +113,20 @@ async function run0032Backfill(db: HyperIdleDb): Promise<void> {
 
 const NOW = new Date().toISOString();
 
-/** Insert a minimal AI agent row with the given overrides. */
+/** Insert a minimal AI agent row in the pre-0032 shape. */
 async function insertLegacyAgent(
-	db: HyperIdleDb,
 	id: string,
 	{
 		harnessType,
-		modelId,
-		modelProvider,
 		modelTierPreference,
 		agentCategory,
 	}: {
 		harnessType?: string | null;
-		modelId?: string | null;
-		modelProvider?: string | null;
 		modelTierPreference?: string | null;
 		agentCategory?: string | null;
 	},
 ): Promise<void> {
 	const harness = harnessType === undefined || harnessType === null ? "NULL" : `'${harnessType}'`;
-	const mId = modelId === undefined || modelId === null ? "NULL" : `'${modelId}'`;
-	const mProv =
-		modelProvider === undefined || modelProvider === null ? "NULL" : `'${modelProvider}'`;
 	const tier =
 		modelTierPreference === undefined || modelTierPreference === null
 			? "NULL"
@@ -95,11 +134,9 @@ async function insertLegacyAgent(
 	const category =
 		agentCategory === undefined || agentCategory === null ? "NULL" : `'${agentCategory}'`;
 
-	await db.execute(
-		sql.raw(
-			`INSERT INTO "users" (id, kind, name, role, status, created_at, harness_type, model_id, model_provider, model_tier_preference, agent_category)
-       VALUES ('${id}', 'ai', '${id}', 'builder', 'active', '${NOW}', ${harness}, ${mId}, ${mProv}, ${tier}, ${category})`,
-		),
+	await exec(
+		`INSERT INTO "users" (id, kind, name, role, status, created_at, harness_type, model_tier_preference, agent_category)
+       VALUES ('${id}', 'ai', '${id}', 'builder', 'active', '${NOW}', ${harness}, ${tier}, ${category})`,
 	);
 }
 
@@ -109,20 +146,14 @@ interface AgentRow {
 	modelProvider: string | null;
 }
 
-/** Read a single user row. */
-async function readAgent(db: HyperIdleDb, id: string): Promise<AgentRow> {
-	const result = await db.execute(
-		sql.raw(`SELECT harness_type, model_id, model_provider FROM "users" WHERE id = '${id}'`),
-	);
-	const row = (
-		result as {
-			rows: Array<{
-				harness_type: string | null;
-				model_id: string | null;
-				model_provider: string | null;
-			}>;
-		}
-	).rows[0];
+/** Read a single user row's post-0032 harness/model columns. */
+async function readAgent(id: string): Promise<AgentRow> {
+	const rows = await query<{
+		harness_type: string | null;
+		model_id: string | null;
+		model_provider: string | null;
+	}>(`SELECT harness_type, model_id, model_provider FROM "users" WHERE id = '${id}'`);
+	const row = rows[0];
 	if (!row) throw new Error(`row ${id} not found`);
 	return {
 		harnessType: row.harness_type,
@@ -136,74 +167,62 @@ async function readAgent(db: HyperIdleDb, id: string): Promise<AgentRow> {
 // ---------------------------------------------------------------------------
 
 describe("AH2 migration 0032 — AC3: no AI agent ends unrunnable after backfill", () => {
-	test("null-harness AI agent gets harness_type='builtin' after backfill", async ({ db }) => {
+	it("null-harness AI agent gets harness_type='builtin' after backfill", async () => {
 		// Arrange: legacy onboarding agent — no harness, no model
-		await insertLegacyAgent(db, "legacy-null-harness", {
+		await insertLegacyAgent("legacy-null-harness", {
 			harnessType: null,
-			modelId: null,
-			modelProvider: null,
 			agentCategory: "strategy",
 		});
 
-		// Act: replay the 0032 backfill
-		await run0032Backfill(db);
+		// Act: replay the shipped 0032 migration
+		await run0032Backfill();
 
 		// Assert
-		const row = await readAgent(db, "legacy-null-harness");
+		const row = await readAgent("legacy-null-harness");
 		expect(row.harnessType).toBe("builtin");
 		expect(REGISTERED_HARNESSES.has(row.harnessType ?? "")).toBe(true);
 	});
 
-	test("null-harness AI agent gets a non-null catalog model_id after backfill", async ({ db }) => {
-		await insertLegacyAgent(db, "legacy-null-model", {
+	it("null-harness AI agent gets a non-null catalog model_id after backfill", async () => {
+		await insertLegacyAgent("legacy-null-model", {
 			harnessType: null,
-			modelId: null,
-			modelProvider: null,
 			agentCategory: "strategy",
 		});
 
-		await run0032Backfill(db);
+		await run0032Backfill();
 
-		const row = await readAgent(db, "legacy-null-model");
+		const row = await readAgent("legacy-null-model");
 		expect(row.modelId).not.toBeNull();
 		expect(isCatalogModel(row.modelId ?? "")).toBe(true);
 		expect(row.modelProvider).not.toBeNull();
 	});
 
-	test("builtin-harness AI agent (already set) keeps harness_type and gets model after backfill", async ({
-		db,
-	}) => {
-		await insertLegacyAgent(db, "legacy-builtin", {
+	it("builtin-harness AI agent (already set) keeps harness_type and gets model after backfill", async () => {
+		await insertLegacyAgent("legacy-builtin", {
 			harnessType: "builtin",
-			modelId: null,
-			modelProvider: null,
 			agentCategory: "kernel",
 		});
 
-		await run0032Backfill(db);
+		await run0032Backfill();
 
-		const row = await readAgent(db, "legacy-builtin");
+		const row = await readAgent("legacy-builtin");
 		expect(row.harnessType).toBe("builtin");
 		expect(row.modelId).not.toBeNull();
 		expect(isCatalogModel(row.modelId ?? "")).toBe(true);
 	});
 
-	test("claude-code-harness AI agent gets model_id after backfill (H-2b: previously excluded)", async ({
-		db,
-	}) => {
+	it("claude-code-harness AI agent gets model_id after backfill (H-2b: previously excluded)", async () => {
 		// This is the H-2b defect scenario: the old WHERE clause was
 		// "harness_type IS NULL OR harness_type = 'builtin'" which excluded
 		// claude-code rows, leaving them with null model_id.
-		await insertLegacyAgent(db, "legacy-claude-code", {
+		await insertLegacyAgent("legacy-claude-code", {
 			harnessType: "claude-code",
-			modelId: null,
-			modelProvider: null,
 			agentCategory: "individual",
 		});
 
-		await run0032Backfill(db);
+		await run0032Backfill();
 
-		const row = await readAgent(db, "legacy-claude-code");
+		const row = await readAgent("legacy-claude-code");
 		// harness_type must not be changed (already set)
 		expect(row.harnessType).toBe("claude-code");
 		// model_id must now be non-null and catalog-valid
@@ -212,121 +231,89 @@ describe("AH2 migration 0032 — AC3: no AI agent ends unrunnable after backfill
 		expect(row.modelProvider).not.toBeNull();
 	});
 
-	test("reasoning-tier agent gets claude-opus-4-8 after backfill", async ({ db }) => {
-		await insertLegacyAgent(db, "legacy-reasoning", {
+	it("reasoning-tier agent gets claude-opus-4-8 after backfill", async () => {
+		await insertLegacyAgent("legacy-reasoning", {
 			harnessType: null,
-			modelId: null,
-			modelProvider: null,
 			modelTierPreference: "reasoning",
 			agentCategory: "strategy",
 		});
 
-		await run0032Backfill(db);
+		await run0032Backfill();
 
-		const row = await readAgent(db, "legacy-reasoning");
+		const row = await readAgent("legacy-reasoning");
 		expect(row.modelId).toBe("claude-opus-4-8");
 	});
 
-	test("fast-tier agent gets claude-haiku-4-5 after backfill", async ({ db }) => {
-		await insertLegacyAgent(db, "legacy-fast", {
+	it("fast-tier agent gets claude-haiku-4-5 after backfill", async () => {
+		await insertLegacyAgent("legacy-fast", {
 			harnessType: null,
-			modelId: null,
-			modelProvider: null,
 			modelTierPreference: "fast",
 			agentCategory: "individual",
 		});
 
-		await run0032Backfill(db);
+		await run0032Backfill();
 
-		const row = await readAgent(db, "legacy-fast");
+		const row = await readAgent("legacy-fast");
 		expect(row.modelId).toBe("claude-haiku-4-5");
 	});
 
-	test("null-tier agent gets workhorse default (claude-sonnet-4-6) after backfill", async ({
-		db,
-	}) => {
-		await insertLegacyAgent(db, "legacy-null-tier", {
+	it("null-tier agent gets workhorse default (claude-sonnet-4-6) after backfill", async () => {
+		await insertLegacyAgent("legacy-null-tier", {
 			harnessType: null,
-			modelId: null,
-			modelProvider: null,
 			modelTierPreference: null,
 			agentCategory: "individual",
 		});
 
-		await run0032Backfill(db);
+		await run0032Backfill();
 
-		const row = await readAgent(db, "legacy-null-tier");
+		const row = await readAgent("legacy-null-tier");
 		expect(row.modelId).toBe("claude-sonnet-4-6");
 	});
 
-	test("human user (agent_category IS NULL) is untouched by backfill", async ({ db }) => {
+	it("human user (agent_category IS NULL) is untouched by backfill", async () => {
 		// Arrange: human user — no agent_category, no harness, no model
-		await db.execute(
-			sql.raw(
-				`INSERT INTO "users" (id, kind, name, role, status, created_at, harness_type, model_id, model_provider, agent_category)
-         VALUES ('human-user', 'human', 'Alice', 'founder', 'active', '${NOW}', NULL, NULL, NULL, NULL)`,
-			),
+		await exec(
+			`INSERT INTO "users" (id, kind, name, role, status, created_at, harness_type, agent_category)
+         VALUES ('human-user', 'human', 'Alice', 'founder', 'active', '${NOW}', NULL, NULL)`,
 		);
 
-		await run0032Backfill(db);
+		await run0032Backfill();
 
-		const result = await db.execute(
-			sql.raw(`SELECT harness_type, model_id, model_provider FROM "users" WHERE id = 'human-user'`),
-		);
-		const row = (
-			result as {
-				rows: Array<{
-					harness_type: string | null;
-					model_id: string | null;
-					model_provider: string | null;
-				}>;
-			}
-		).rows[0];
+		const row = await readAgent("human-user");
 
 		// Human users must NOT be touched
-		expect(row?.harness_type).toBeNull();
-		expect(row?.model_id).toBeNull();
-		expect(row?.model_provider).toBeNull();
+		expect(row.harnessType).toBeNull();
+		expect(row.modelId).toBeNull();
+		expect(row.modelProvider).toBeNull();
 	});
 
-	test("mixed legacy batch: all AI agents end with registered harness and catalog model", async ({
-		db,
-	}) => {
+	it("mixed legacy batch: all AI agents end with registered harness and catalog model", async () => {
 		// Insert a batch covering every legacy scenario
 		const scenarios = [
-			{
-				id: "batch-null-null",
-				harnessType: null as null,
-				modelId: null as null,
-				agentCategory: "strategy",
-			},
+			{ id: "batch-null-null", harnessType: null as string | null, agentCategory: "strategy" },
 			{
 				id: "batch-builtin-null",
-				harnessType: "builtin" as string,
-				modelId: null as null,
+				harnessType: "builtin" as string | null,
 				agentCategory: "kernel",
 			},
 			{
 				id: "batch-claude-code-null",
-				harnessType: "claude-code" as string,
-				modelId: null as null,
+				harnessType: "claude-code" as string | null,
 				agentCategory: "individual",
 			},
 		];
 
 		for (const s of scenarios) {
-			await insertLegacyAgent(db, s.id, {
+			await insertLegacyAgent(s.id, {
 				harnessType: s.harnessType,
-				modelId: s.modelId,
-				modelProvider: null,
 				agentCategory: s.agentCategory,
 			});
 		}
 
-		await run0032Backfill(db);
+		await run0032Backfill();
 
 		for (const s of scenarios) {
-			const row = await readAgent(db, s.id);
+			const row = await readAgent(s.id);
 			expect(row.harnessType, `${s.id}: harness_type must be non-null`).not.toBeNull();
 			expect(
 				REGISTERED_HARNESSES.has(row.harnessType ?? ""),
@@ -341,20 +328,16 @@ describe("AH2 migration 0032 — AC3: no AI agent ends unrunnable after backfill
 		}
 	});
 
-	test("DEFAULT_AGENT_HARNESS matches the harness backfilled for null-harness rows", async ({
-		db,
-	}) => {
+	it("DEFAULT_AGENT_HARNESS matches the harness backfilled for null-harness rows", async () => {
 		// Proves the migration default aligns with the shared constant
-		await insertLegacyAgent(db, "default-harness-check", {
+		await insertLegacyAgent("default-harness-check", {
 			harnessType: null,
-			modelId: null,
-			modelProvider: null,
 			agentCategory: "strategy",
 		});
 
-		await run0032Backfill(db);
+		await run0032Backfill();
 
-		const row = await readAgent(db, "default-harness-check");
+		const row = await readAgent("default-harness-check");
 		expect(row.harnessType).toBe(DEFAULT_AGENT_HARNESS);
 	});
 });

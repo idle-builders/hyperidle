@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import {
+	agentRunConfig,
 	agentSessionRequests,
 	bets,
 	messages,
@@ -76,8 +77,6 @@ async function seedWork(db: Parameters<typeof createSessionRequest>[0]): Promise
 			role: "builder",
 			status: "active",
 			teamId: "tm-au3-agent",
-			harnessType: "recording",
-			modelProvider: "test",
 			createdAt: now,
 		},
 		{
@@ -89,6 +88,12 @@ async function seedWork(db: Parameters<typeof createSessionRequest>[0]): Promise
 			createdAt: now,
 		},
 	]);
+	// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+	await db.insert(agentRunConfig).values({
+		agentUserId: "agent-au3-agent",
+		harnessType: "recording",
+		modelProvider: "test",
+	});
 	await db.insert(bets).values({
 		id: "bet-au3-agent",
 		teamId: "team-au3-agent",

@@ -6,12 +6,15 @@ import type { HyperIdleDb } from "../connection.js";
 import { seedDemoWorld } from "../demo-fixture.js";
 import { applyFactoryBootstrap } from "../factory-bootstrap.js";
 import { seed } from "../seed.js";
-import { readSystemPromptTemplateForRole } from "../system-prompt-templates.js";
+import {
+	readSystemPromptTemplateForRole,
+	SYSTEM_PROMPT_TEMPLATE_FILES,
+} from "../system-prompt-templates.js";
 
 // @lore AD8a: chief_of_staff system prompt file deleted (docs/system-prompts/chief-of-staff.md removed).
 // @lore AD8b: chief_of_staff role renamed to assistant.
 // @lore AD8c: practice_facilitator role renamed to facilitator.
-// AC2 tests only check facilitator and product_manager for system_prompt_path.
+// AC2 tests only check facilitator and product_manager.
 // @lore AD8b/AD8c: The 3-role set was ["assistant", "facilitator", "product_manager"].
 // chief_of_staff → assistant (AD8b), practice_facilitator → facilitator (AD8c).
 // Only roles that still have system prompt files after AD8a and AD8c
@@ -149,49 +152,46 @@ describe("A2: Seed script", () => {
 		expect(Number(pmRows[0]?.count)).toBeGreaterThanOrEqual(1);
 	});
 
-	// --- G1 AC2: every facilitator with a system prompt file carries a non-empty system_prompt_path ---
-	// @lore AD8a: chief_of_staff excluded — docs/system-prompts/chief-of-staff.md deleted; systemPromptPath is null.
-	// @lore AD8c: practice_facilitator renamed to facilitator; system prompt file renamed to facilitator.md.
-	test("seeded facilitator and product_manager have non-empty system_prompt_path (AC2)", async ({
-		db,
-	}) => {
+	// --- G1 AC2: every seeded facilitator / product_manager carries a working system prompt ---
+	// @lore AD8a: chief_of_staff excluded — docs/system-prompts/chief-of-staff.md deleted.
+	// @lore AD8c: practice_facilitator renamed to facilitator; file renamed to facilitator.md.
+	// @lore AU26 G1 (architecture §D-L): these two tests asserted `users.system_prompt_path`
+	// — a column DROPPED, not relocated, because it had zero production readers repo-wide
+	// (X3 replaced the path indirection with inline content years ago; only this seeder ever
+	// wrote it). What AC2 actually protects is that a seeded agent of these roles ends up
+	// with a usable system prompt, and that the docs file backing it exists on disk. Both
+	// facts survive: the content now lives in `agent_run_config.system_prompt`, and the
+	// on-disk file is asserted through the role→template resolver that produced it.
+	test("seeded facilitator and product_manager carry a non-empty system prompt", async ({ db }) => {
 		await seed(db);
 
 		const rolesList = SYSTEM_PROMPT_FILE_ROLES.map((r) => `'${r}'`).join(", ");
-		// biome-ignore lint/style/useNamingConvention: raw SQL result uses snake_case column names
-		const rows = await queryRows<{ id: string; role: string; system_prompt_path: string | null }>(
+		const rows = await queryRows<{ id: string; role: string; system_prompt: string | null }>(
 			db,
-			`SELECT id, role, system_prompt_path FROM users WHERE role IN (${rolesList})`,
+			`SELECT u.id, u.role, c.system_prompt FROM users u
+			   JOIN agent_run_config c ON c.agent_user_id = u.id
+			  WHERE u.role IN (${rolesList})`,
 		);
 		expect(rows.length).toBeGreaterThanOrEqual(2);
 		for (const row of rows) {
-			expect(row.system_prompt_path, `${row.id} system_prompt_path must be set`).toBeTruthy();
-			expect(row.system_prompt_path?.endsWith(".md")).toBe(true);
+			expect(row.system_prompt, `${row.id} system_prompt must be set`).toBeTruthy();
+			expect((row.system_prompt ?? "").length).toBeGreaterThan(50);
 		}
 	});
 
 	// @lore AD8a: chief_of_staff excluded — its system prompt file was deleted.
 	// @lore AD8c: facilitator.md replaces practice-facilitator.md.
-	test("system_prompt_path files exist on disk for facilitator and product_manager", async ({
-		db,
-	}) => {
+	test("the docs file backing each seeded role's system prompt exists on disk", async ({ db }) => {
 		await seed(db);
 
-		const rolesList = SYSTEM_PROMPT_FILE_ROLES.map((r) => `'${r}'`).join(", ");
-		// biome-ignore lint/style/useNamingConvention: raw SQL result uses snake_case column names
-		const rows = await queryRows<{ id: string; system_prompt_path: string | null }>(
-			db,
-			`SELECT id, system_prompt_path FROM users WHERE role IN (${rolesList})`,
-		);
-		expect(rows.length).toBeGreaterThanOrEqual(2);
 		const root = repoRoot();
-		for (const row of rows) {
-			expect(row.system_prompt_path).toBeTruthy();
-			const resolved = path.resolve(root, row.system_prompt_path ?? "");
-			expect(
-				fs.existsSync(resolved),
-				`${row.id} system_prompt_path must resolve to an existing file: ${resolved}`,
-			).toBe(true);
+		for (const role of SYSTEM_PROMPT_FILE_ROLES) {
+			const file = SYSTEM_PROMPT_TEMPLATE_FILES[role];
+			expect(file, `${role} must have a system prompt file mapping`).toBeTruthy();
+			const resolved = path.resolve(root, "docs", "system-prompts", file ?? "");
+			expect(fs.existsSync(resolved), `${role} system prompt file must exist: ${resolved}`).toBe(
+				true,
+			);
 		}
 	});
 

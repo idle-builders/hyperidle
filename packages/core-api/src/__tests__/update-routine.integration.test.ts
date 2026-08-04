@@ -64,7 +64,6 @@ async function seedRoutine(db: Parameters<typeof makeContext>[0]): Promise<{
 		name: "Test Agent",
 		role: "builder",
 		status: "active",
-		maxConcurrentSessions: 1,
 		teamId: teamMembersId,
 		createdAt: NOW,
 	});

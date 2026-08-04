@@ -80,7 +80,6 @@ describe("create_bet tool — CoreApiPort migration", () => {
 			name: "Seam Migration Agent",
 			role: "engineer",
 			status: "active",
-			maxConcurrentSessions: 1,
 			createdAt: NOW,
 		});
 

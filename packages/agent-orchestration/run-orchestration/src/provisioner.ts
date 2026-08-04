@@ -440,6 +440,42 @@ interface SessionLifecyclePorts {
 	readonly harnessRuntime: SessionLifecycleHarnessRuntime;
 	readonly toolProvider: SessionLifecycleToolProvider;
 	readonly contextAssembly: SessionLifecycleContextAssembly;
+	/**
+	 * AU26 G1 (architecture §D-L) — the target agent's run config, read LIVE at
+	 * drain from `agent_run_config`.
+	 *
+	 * @lore AU26 G1: `admitSession` used to take all six of these fields off
+	 * `params.agentConfig`, the emit-time bake AU21 Increment 12 introduced.
+	 * That bake existed because the columns lived on `users` — CORE state, which
+	 * orchestration may not read (the founder's "orchestration is a blind
+	 * executor" ruling). AU26 moved them into `agent_run_config`, a table
+	 * agent-orchestration OWNS, so reading them here crosses no boundary and
+	 * needs no snapshot. `params.agentConfig` still carries `kind`/`status`/
+	 * `role`/`teamId`, which are genuinely core's and stay baked.
+	 *
+	 * Wired through this ports bag rather than a direct
+	 * `@hyperidle/agent-run-config` import because Mechanism C forbids a Service
+	 * package depending on another Service (`composition-boundary-guard`).
+	 *
+	 * Returns the effective config; an agent with no row resolves the all-null
+	 * default (`maxConcurrentSessions` 1), never `undefined`.
+	 */
+	readonly agentRunConfig: SessionLifecycleAgentRunConfigReader;
+}
+
+/** Live reader of `agent_run_config` — see `SessionLifecyclePorts.agentRunConfig`. */
+export interface SessionLifecycleAgentRunConfigReader {
+	readAgentRunConfig(
+		exec: HyperIdleDb,
+		agentUserId: string,
+	): Promise<{
+		readonly systemPrompt: string | null;
+		readonly harnessType: string | null;
+		readonly modelTierPreference: string | null;
+		readonly modelId: string | null;
+		readonly modelProvider: string | null;
+		readonly maxConcurrentSessions: number;
+	}>;
 }
 
 /**
@@ -861,11 +897,17 @@ async function admitSession(
 	const agentRole = agentConfig.role;
 	const teamId = agentConfig.teamId ?? undefined;
 
-	// X3: system prompt from the baked snapshot. No file read required.
-	const systemPromptText = agentConfig.systemPrompt ?? "";
+	// AU26 G1 (§D-L): the six run-config fields are read LIVE here from
+	// `agent_run_config` — orchestration's OWN table — instead of coming off the
+	// emit-time bake. An agent with no row resolves the all-null default, which
+	// is exactly what an all-null `users` row resolved before the move.
+	const runConfig = await ports.agentRunConfig.readAgentRunConfig(db, params.agentId);
+
+	// X3: system prompt from the agent's run config. No file read required.
+	const systemPromptText = runConfig.systemPrompt ?? "";
 
 	// X3: Model tier priority: explicit param > agent preference > default "workhorse".
-	const rawPreference = agentConfig.modelTierPreference;
+	const rawPreference = runConfig.modelTierPreference;
 	const agentPreference =
 		rawPreference !== null &&
 		rawPreference !== undefined &&
@@ -880,19 +922,19 @@ async function admitSession(
 	// disabled", matching the settings row's own empty-array default.
 	const harnessDisabled = params.harnessDisabled ?? [];
 	const selectRequirements = {
-		harnessType: agentConfig.harnessType ?? undefined,
-		...(agentConfig.modelProvider
-			? { modelProviders: [agentConfig.modelProvider] as readonly string[] }
+		harnessType: runConfig.harnessType ?? undefined,
+		...(runConfig.modelProvider
+			? { modelProviders: [runConfig.modelProvider] as readonly string[] }
 			: {}),
 		disabledTypes: harnessDisabled as readonly string[],
 	};
 	const selectedAdapter = adapterPool.select(selectRequirements);
 	if (!selectedAdapter) {
-		if (agentConfig.harnessType) {
-			throw new NoEligibleHarnessError(agentConfig.harnessType);
+		if (runConfig.harnessType) {
+			throw new NoEligibleHarnessError(runConfig.harnessType);
 		}
 		throw new Error(
-			`No available adapter in pool — all adapters are at capacity${agentConfig.harnessType ? ` (harnessType: ${agentConfig.harnessType})` : ""}`,
+			`No available adapter in pool — all adapters are at capacity${runConfig.harnessType ? ` (harnessType: ${runConfig.harnessType})` : ""}`,
 		);
 	}
 	const harness = selectedAdapter.adapter;
@@ -913,9 +955,9 @@ async function admitSession(
 		.from(sessions)
 		.where(activeCountWhere)
 		.limit(1);
-	if ((activeCount?.count ?? 0) >= agentConfig.maxConcurrentSessions) {
+	if ((activeCount?.count ?? 0) >= runConfig.maxConcurrentSessions) {
 		adapterPool.release(adapterId);
-		throw new ConcurrencyLimitError(params.agentId, agentConfig.maxConcurrentSessions);
+		throw new ConcurrencyLimitError(params.agentId, runConfig.maxConcurrentSessions);
 	}
 
 	// AF7 §2 (WARNING-2): resolvedModel presence guard — synchronous, pre-P5.

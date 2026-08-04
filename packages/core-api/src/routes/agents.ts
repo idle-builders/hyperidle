@@ -21,6 +21,14 @@
  */
 
 import { randomUUID } from "node:crypto";
+import {
+	type AgentRunConfigPatch,
+	DEFAULT_AGENT_RUN_CONFIG,
+	readAgentRunConfig,
+	readAgentRunConfigs,
+	validateAgentConfig,
+	writeAgentRunConfig,
+} from "@hyperidle/agent-run-config";
 import { type HyperIdleDb, readSystemPromptTemplateForRole, sessions } from "@hyperidle/db";
 import { getTeamMembers } from "@hyperidle/org";
 import {
@@ -31,8 +39,6 @@ import {
 	DEFAULT_AGENT_MODEL_PROVIDER,
 	findRoleCatalogEntry,
 	type HarnessCapabilityReader,
-	harnessRegistrationMeta,
-	isCatalogModel,
 	MODEL_TIERS,
 } from "@hyperidle/shared";
 import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
@@ -76,103 +82,37 @@ const patchAgentSchema = z.object({
 
 type PatchAgentData = z.infer<typeof patchAgentSchema>;
 
-/** Build a partial update set from validated PATCH data. Only includes fields that were present in the request. */
-function buildPatchUpdateSet(data: PatchAgentData): Record<string, unknown> {
+/**
+ * Build the `users` (identity) half of a PATCH. Only fields present in the
+ * request are included.
+ *
+ * @lore AU26 G1 (architecture §D-L): `PATCH /api/agents/:id` used to write one
+ * update set to `users`. The six run-config fields now live in
+ * `agent_run_config`, so the patch splits in two — identity here, run config in
+ * {@link buildRunConfigPatch}. The route STAYS core-hosted (§D-A rule 3: it
+ * gates on `users`, a core table, and a two-sided route has exactly one legal
+ * host) and delegates the run-config persist DOWN into
+ * `@hyperidle/agent-run-config`. The wire shape is unchanged — the client still
+ * sends and receives one flat agent object.
+ */
+function buildIdentityUpdateSet(data: PatchAgentData): Record<string, unknown> {
 	const updateSet: Record<string, unknown> = {};
 	if (data.name !== undefined) updateSet.name = data.name;
 	if (data.role !== undefined) updateSet.role = data.role;
-	if ("systemPrompt" in data) updateSet.systemPrompt = data.systemPrompt ?? null;
-	if ("harnessType" in data) updateSet.harnessType = data.harnessType ?? null;
-	if ("modelTierPreference" in data)
-		updateSet.modelTierPreference = data.modelTierPreference ?? null;
-	if ("modelId" in data) updateSet.modelId = data.modelId ?? null;
-	if ("modelProvider" in data) updateSet.modelProvider = data.modelProvider ?? null;
-	if (data.maxConcurrentSessions !== undefined)
-		updateSet.maxConcurrentSessions = data.maxConcurrentSessions;
 	return updateSet;
 }
 
-/**
- * AH2: Validate the (harnessType, modelProvider, modelId) triple against the adapter pool.
- *
- * Validation order (per plan + reviewer NEW-1):
- *  1. UNSUPPORTED_PROVIDER — openai-compatible cannot be used for per-agent model
- *  2. UNKNOWN_HARNESS — harnessType must be registered in the pool (when non-null)
- *  3. UNKNOWN_MODEL — for anthropic providers, modelId must be in the catalog
- *  4. INCOMPATIBLE_HARNESS_MODEL — provider must be in harness's modelProviders list
- *
- * @param effectiveHarnessType — the harness to validate (POST: data.harnessType ?? default;
- *   PATCH: data.harnessType ?? existing.harnessType).
- * @param effectiveProvider — the provider to validate (POST: data.modelProvider ?? default;
- *   PATCH: data.modelProvider ?? existing.modelProvider).
- * @param modelId — the model ID to validate (only for anthropic; null = no per-agent model)
- * @param pool — the adapter pool (null = no pool, skip registry checks)
- */
-/**
- * AR4c: Exported so the assistant PATCH route can reuse the same triple validator
- * without a copy. The assistant row is an AI user with agent semantics.
- */
-export function validateAgentConfig(
-	effectiveHarnessType: string | null,
-	effectiveProvider: string | null,
-	modelId: string | null | undefined,
-	pool: HarnessCapabilityReader | null,
-): { error: string; code: string } | null {
-	// 1. UNSUPPORTED_PROVIDER — openai-compatible is not valid for per-agent model
-	if (effectiveProvider === "openai-compatible") {
-		return {
-			error:
-				"Per-agent model provider 'openai-compatible' is not supported. Only 'anthropic' and 'openrouter' models are available for per-agent selection.",
-			code: "UNSUPPORTED_PROVIDER",
-		};
-	}
-
-	// 2. UNKNOWN_HARNESS — harnessType must match a registered adapter type
-	if (effectiveHarnessType && pool) {
-		const meta = harnessRegistrationMeta(pool, effectiveHarnessType);
-		if (!meta) {
-			return {
-				error: `Harness type '${effectiveHarnessType}' is not registered. Check Settings → Agents.`,
-				code: "UNKNOWN_HARNESS",
-			};
-		}
-	}
-
-	// 3. UNKNOWN_MODEL — for anthropic, modelId must be in the catalog
-	if (modelId && effectiveProvider === "anthropic") {
-		if (!isCatalogModel(modelId)) {
-			return {
-				error: `Model '${modelId}' is not in the catalog. Use a current model ID from the catalog.`,
-				code: "UNKNOWN_MODEL",
-			};
-		}
-	}
-
-	// 4. INCOMPATIBLE_HARNESS_MODEL — provider must be in harness's registration metadata
-	// modelProviders list. An empty list means provider-agnostic (CLI/inherited-login harness
-	// that brings its own provider) — skip the check. Only reject when the harness declares
-	// a non-empty explicit provider list that excludes the requested provider.
-	//
-	// @lore POLISH-060 B1: Use registration metadata (meta.modelProviders) not
-	// adapter.getCapabilities().modelProviders. The two diverge: CLI adapters set
-	// meta.modelProviders = ["anthropic"] (so select() can route them) but
-	// getCapabilities() returns [] (CLI is provider-agnostic at runtime). Reading
-	// capabilities caused "Supported: ." (empty list) errors for valid claude-code combos.
-	if (effectiveHarnessType && effectiveProvider && pool) {
-		const meta = harnessRegistrationMeta(pool, effectiveHarnessType);
-		if (
-			meta &&
-			meta.modelProviders.length > 0 &&
-			!meta.modelProviders.includes(effectiveProvider)
-		) {
-			return {
-				error: `Harness '${effectiveHarnessType}' does not support provider '${effectiveProvider}'. Supported: ${meta.modelProviders.join(", ")}.`,
-				code: "INCOMPATIBLE_HARNESS_MODEL",
-			};
-		}
-	}
-
-	return null;
+/** Build the `agent_run_config` half of a PATCH — same "present key wins, explicit null clears" semantics. */
+function buildRunConfigPatch(data: PatchAgentData): AgentRunConfigPatch {
+	const patch: AgentRunConfigPatch = {};
+	if ("systemPrompt" in data) patch.systemPrompt = data.systemPrompt ?? null;
+	if ("harnessType" in data) patch.harnessType = data.harnessType ?? null;
+	if ("modelTierPreference" in data) patch.modelTierPreference = data.modelTierPreference ?? null;
+	if ("modelId" in data) patch.modelId = data.modelId ?? null;
+	if ("modelProvider" in data) patch.modelProvider = data.modelProvider ?? null;
+	if (data.maxConcurrentSessions !== undefined)
+		patch.maxConcurrentSessions = data.maxConcurrentSessions;
+	return patch;
 }
 
 // ---------------------------------------------------------------------------
@@ -240,20 +180,30 @@ export function createAgentRoutes(
 
 		const countMap = new Map<string, number>(activeCounts.map((r) => [r.agentId, r.count]));
 
-		const result = agentRows.map((agent) => ({
-			id: agent.id,
-			name: agent.name,
-			role: agent.role,
-			agentCategory: agent.agentCategory ?? null,
-			systemPrompt: agent.systemPrompt ?? null,
-			harnessType: agent.harnessType ?? null,
-			modelTierPreference: agent.modelTierPreference ?? null,
-			modelId: agent.modelId ?? null,
-			modelProvider: agent.modelProvider ?? null,
-			maxConcurrentSessions: agent.maxConcurrentSessions,
-			status: agent.status,
-			activeSessions: countMap.get(agent.id) ?? 0,
-		}));
+		// AU26 G1: the run-config half of each agent comes from
+		// `agent_run_config` in ONE batched read — the wire shape stays flat.
+		const runConfigs = await readAgentRunConfigs(
+			db,
+			agentRows.map((a) => a.id),
+		);
+
+		const result = agentRows.map((agent) => {
+			const runConfig = runConfigs.get(agent.id) ?? DEFAULT_AGENT_RUN_CONFIG;
+			return {
+				id: agent.id,
+				name: agent.name,
+				role: agent.role,
+				agentCategory: agent.agentCategory ?? null,
+				systemPrompt: runConfig.systemPrompt,
+				harnessType: runConfig.harnessType,
+				modelTierPreference: runConfig.modelTierPreference,
+				modelId: runConfig.modelId,
+				modelProvider: runConfig.modelProvider,
+				maxConcurrentSessions: runConfig.maxConcurrentSessions,
+				status: agent.status,
+				activeSessions: countMap.get(agent.id) ?? 0,
+			};
+		});
 
 		return c.json(result);
 	});
@@ -316,14 +266,17 @@ export function createAgentRoutes(
 			role: data.role,
 			agentCategory,
 			status: "active",
+			teamId: data.teamId ?? null,
+			createdAt: now,
+		});
+		// AU26 G1: the run config is a second write, delegated down to its owner.
+		await writeAgentRunConfig(db, id, {
 			systemPrompt: data.systemPrompt ?? null,
 			harnessType: effectiveHarnessType,
 			modelTierPreference: data.modelTierPreference ?? null,
 			modelId: effectiveModelId,
 			modelProvider: effectiveProvider,
 			maxConcurrentSessions: data.maxConcurrentSessions,
-			teamId: data.teamId ?? null,
-			createdAt: now,
 		});
 
 		return c.json(
@@ -395,12 +348,15 @@ export function createAgentRoutes(
 			}
 
 			const data = parsed.data;
+			// AU26 G1: the "?? existing" half of the effective triple now comes
+			// from `agent_run_config`, not the `users` row.
+			const existingRunConfig = await readAgentRunConfig(db, id);
 			const effectiveHarnessType =
-				"harnessType" in data ? (data.harnessType ?? null) : (existing.harnessType ?? null);
+				"harnessType" in data ? (data.harnessType ?? null) : existingRunConfig.harnessType;
 			const effectiveProvider =
-				"modelProvider" in data ? (data.modelProvider ?? null) : (existing.modelProvider ?? null);
+				"modelProvider" in data ? (data.modelProvider ?? null) : existingRunConfig.modelProvider;
 			const effectiveModelId =
-				"modelId" in data ? (data.modelId ?? null) : (existing.modelId ?? null);
+				"modelId" in data ? (data.modelId ?? null) : existingRunConfig.modelId;
 
 			const validationError = validateAgentConfig(
 				effectiveHarnessType,
@@ -412,9 +368,13 @@ export function createAgentRoutes(
 				return c.json(validationError, 422);
 			}
 
-			const updateSet = buildPatchUpdateSet(data);
+			const updateSet = buildIdentityUpdateSet(data);
 			if (Object.keys(updateSet).length > 0) {
 				await updateUser(db, id, updateSet);
+			}
+			const runConfigPatch = buildRunConfigPatch(data);
+			if (Object.keys(runConfigPatch).length > 0) {
+				await writeAgentRunConfig(db, id, runConfigPatch);
 			}
 
 			const updated = await findUser(db, { id });
@@ -426,6 +386,7 @@ export function createAgentRoutes(
 				.from(sessions)
 				.where(and(eq(sessions.agentId, id), eq(sessions.state, "active")))
 				.limit(1);
+			const updatedRunConfig = await readAgentRunConfig(db, id);
 
 			return c.json({
 				id: updated.id,
@@ -433,12 +394,12 @@ export function createAgentRoutes(
 				role: updated.role,
 				agentCategory: updated.agentCategory ?? null,
 				// @lore AK1: systemPrompt is the post-rename persona field (harness-vocab rename).
-				systemPrompt: updated.systemPrompt ?? null,
-				harnessType: updated.harnessType ?? null,
-				modelTierPreference: updated.modelTierPreference ?? null,
-				modelId: updated.modelId ?? null,
-				modelProvider: updated.modelProvider ?? null,
-				maxConcurrentSessions: updated.maxConcurrentSessions,
+				systemPrompt: updatedRunConfig.systemPrompt,
+				harnessType: updatedRunConfig.harnessType,
+				modelTierPreference: updatedRunConfig.modelTierPreference,
+				modelId: updatedRunConfig.modelId,
+				modelProvider: updatedRunConfig.modelProvider,
+				maxConcurrentSessions: updatedRunConfig.maxConcurrentSessions,
 				status: updated.status,
 				activeSessions: activeCount?.count ?? 0,
 			});
@@ -463,12 +424,13 @@ export function createAgentRoutes(
 
 		// AH2 reviewer NEW-1: derive effective pair from data fields ?? existing fields
 		// so a single-field PATCH still validates the full cross-axis pair.
+		// AU26 G1: the "?? existing" half now comes from `agent_run_config`.
+		const existingRunConfig = await readAgentRunConfig(db, id);
 		const effectiveHarnessType =
-			"harnessType" in data ? (data.harnessType ?? null) : (existing.harnessType ?? null);
+			"harnessType" in data ? (data.harnessType ?? null) : existingRunConfig.harnessType;
 		const effectiveProvider =
-			"modelProvider" in data ? (data.modelProvider ?? null) : (existing.modelProvider ?? null);
-		const effectiveModelId =
-			"modelId" in data ? (data.modelId ?? null) : (existing.modelId ?? null);
+			"modelProvider" in data ? (data.modelProvider ?? null) : existingRunConfig.modelProvider;
+		const effectiveModelId = "modelId" in data ? (data.modelId ?? null) : existingRunConfig.modelId;
 
 		// AH2: Validate the effective (harness, provider, modelId) triple
 		const validationError = validateAgentConfig(
@@ -481,13 +443,14 @@ export function createAgentRoutes(
 			return c.json(validationError, 422);
 		}
 
-		// Build update set — only include fields explicitly provided
-		const updateSet = buildPatchUpdateSet(data);
-
-		if (Object.keys(updateSet).length === 0) {
-			// Nothing to update — return current state
-		} else {
+		// Build update sets — only include fields explicitly provided
+		const updateSet = buildIdentityUpdateSet(data);
+		if (Object.keys(updateSet).length > 0) {
 			await updateUser(db, id, updateSet);
+		}
+		const runConfigPatch = buildRunConfigPatch(data);
+		if (Object.keys(runConfigPatch).length > 0) {
+			await writeAgentRunConfig(db, id, runConfigPatch);
 		}
 
 		const updated = await findUser(db, { id });
@@ -500,18 +463,19 @@ export function createAgentRoutes(
 			.from(sessions)
 			.where(and(eq(sessions.agentId, id), eq(sessions.state, "active")))
 			.limit(1);
+		const updatedRunConfig = await readAgentRunConfig(db, id);
 
 		return c.json({
 			id: updated.id,
 			name: updated.name,
 			role: updated.role,
 			agentCategory: updated.agentCategory ?? null,
-			systemPrompt: updated.systemPrompt ?? null,
-			harnessType: updated.harnessType ?? null,
-			modelTierPreference: updated.modelTierPreference ?? null,
-			modelId: updated.modelId ?? null,
-			modelProvider: updated.modelProvider ?? null,
-			maxConcurrentSessions: updated.maxConcurrentSessions,
+			systemPrompt: updatedRunConfig.systemPrompt,
+			harnessType: updatedRunConfig.harnessType,
+			modelTierPreference: updatedRunConfig.modelTierPreference,
+			modelId: updatedRunConfig.modelId,
+			modelProvider: updatedRunConfig.modelProvider,
+			maxConcurrentSessions: updatedRunConfig.maxConcurrentSessions,
 			status: updated.status,
 			activeSessions: activeCount?.count ?? 0,
 		});

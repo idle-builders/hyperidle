@@ -20,6 +20,7 @@
 	"dependencies": {
 		"@hono/node-server": "^2.0.6",
 		"@hono/zod-validator": "^0.9.0",
+		"@hyperidle/agent-run-config": "*",
 		"@hyperidle/api-contract": "*",
 		"@hyperidle/connections": "*",
 		"@hyperidle/conversation": "*",

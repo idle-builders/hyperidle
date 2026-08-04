@@ -99,7 +99,6 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 			role: "builder",
 			teamId: "tm-1",
 			status: "active",
-			maxConcurrentSessions: 2,
 			createdAt: NOW,
 		},
 		{
@@ -112,7 +111,6 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 			role: "founder",
 			teamId: "tm-1",
 			status: "active",
-			maxConcurrentSessions: 2,
 			createdAt: NOW,
 		},
 	]);

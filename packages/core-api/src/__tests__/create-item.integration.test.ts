@@ -50,7 +50,6 @@ async function seed(db: HyperIdleDb): Promise<void> {
 		role: "builder",
 		teamId: "t1",
 		status: "active",
-		maxConcurrentSessions: 2,
 		createdAt: now,
 	});
 }

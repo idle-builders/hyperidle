@@ -17,6 +17,7 @@
  */
 
 import {
+	agentRunConfig,
 	type HyperIdleDb,
 	items,
 	messages,
@@ -60,8 +61,12 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 		role: "founder",
 		status: "active",
 		email: "ad4-founder@hyperidle.test",
-		maxConcurrentSessions: 0,
 		createdAt: NOW,
+	});
+	// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+	await db.insert(agentRunConfig).values({
+		agentUserId: "ad4-profile-founder",
+		maxConcurrentSessions: 0,
 	});
 	// AI agent under test
 	await db.insert(users).values({
@@ -70,10 +75,14 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 		name: "AD4 Builder Bot",
 		role: "builder",
 		status: "active",
-		maxConcurrentSessions: 2,
 		teamId: "ad4-profile-tm",
-		harnessType: "claude-code",
 		createdAt: NOW,
+	});
+	// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+	await db.insert(agentRunConfig).values({
+		agentUserId: "ad4-profile-agent",
+		maxConcurrentSessions: 2,
+		harnessType: "claude-code",
 	});
 	// Policy engine sender (needed for verdict messages)
 	await db.insert(users).values({

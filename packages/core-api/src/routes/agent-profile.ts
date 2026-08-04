@@ -21,6 +21,7 @@
  * feature elsewhere in the codebase is HARD-DELETED, no replacement.)
  */
 
+import { readAgentRunConfig } from "@hyperidle/agent-run-config";
 import { sessions } from "@hyperidle/db";
 import { getTeam, getTeamMembers } from "@hyperidle/org";
 import type {
@@ -226,6 +227,12 @@ export async function handleAgentProfile(
 		return c.json({ error: "Agent not found", code: "NOT_FOUND" }, 404);
 	}
 
+	// @lore AU26 G1 (§D-L): the profile renders run config it does not operate on.
+	// The six fields left `users`, so the render reads them from their owner.
+	// Existence is still a `users` question — an agent with no `agent_run_config`
+	// row renders the defaults, it does not 404.
+	const runConfig = await readAgentRunConfig(db, agentId);
+
 	// 2. Resolve team name and team ID via teamMembers→teams join
 	// @lore AB1 S4: teamId is included in the response so the frontend breadcrumb
 	// can link to /work/team/:teamId for team agents instead of always /work/portfolio.
@@ -296,19 +303,19 @@ export async function handleAgentProfile(
 
 	// 7. Health signals
 	// Determine harness availability from adapter pool
-	const harnessAvailable = resolveHarnessAvailable(agent.harnessType, adapterPool);
+	const harnessAvailable = resolveHarnessAvailable(runConfig.harnessType, adapterPool);
 	const healthSignals = computeHealthSignals({
 		sessions: allSessions.map((s) => ({
 			startedAt: s.startedAt,
 			endedAt: s.endedAt,
 			outcome: s.outcome,
 		})),
-		harnessType: agent.harnessType,
+		harnessType: runConfig.harnessType,
 		harnessAvailable,
 	});
 
 	// 8. Harness capabilities
-	const rawCaps = harnessCapabilitiesForType(adapterPool, agent.harnessType ?? null);
+	const rawCaps = harnessCapabilitiesForType(adapterPool, runConfig.harnessType);
 	const harnessCapabilities = mapCapabilities(rawCaps);
 
 	// 9. Review track record (replaces skills)
@@ -337,10 +344,10 @@ export async function handleAgentProfile(
 		teamName,
 		teamId: resolvedTeamId,
 		createdAt: agent.createdAt,
-		systemPrompt: agent.systemPrompt ?? null,
-		harnessType: agent.harnessType ?? null,
-		modelTierPreference: agent.modelTierPreference ?? null,
-		maxConcurrentSessions: agent.maxConcurrentSessions,
+		systemPrompt: runConfig.systemPrompt,
+		harnessType: runConfig.harnessType,
+		modelTierPreference: runConfig.modelTierPreference,
+		maxConcurrentSessions: runConfig.maxConcurrentSessions,
 		mcpSetup: null,
 		activeSession,
 		recentSessions,

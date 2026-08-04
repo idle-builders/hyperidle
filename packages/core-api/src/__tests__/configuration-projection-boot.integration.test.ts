@@ -2,7 +2,14 @@ import type { AddressInfo } from "node:net";
 import * as os from "node:os";
 import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { serviceConnections, teamMembers, teams, userSkills, users } from "@hyperidle/db";
+import {
+	agentRunConfig,
+	serviceConnections,
+	teamMembers,
+	teams,
+	userSkills,
+	users,
+} from "@hyperidle/db";
 import {
 	AdapterPool,
 	createHarnessAdapter,
@@ -149,11 +156,6 @@ async function seedLegacyRows(db: HyperIdleDb): Promise<void> {
 			role: "builder",
 			status: "active",
 			teamId: "au2-members-1",
-			systemPrompt: "Build AU2.",
-			harnessType: "builtin",
-			modelTierPreference: "workhorse",
-			modelId: "claude-sonnet-4-6",
-			modelProvider: "anthropic",
 			createdAt: NOW,
 		},
 		{
@@ -165,6 +167,15 @@ async function seedLegacyRows(db: HyperIdleDb): Promise<void> {
 			createdAt: NOW,
 		},
 	]);
+	// AU26 G1: the run config lives in `agent_run_config` now.
+	await db.insert(agentRunConfig).values({
+		agentUserId: "au2-agent-1",
+		systemPrompt: "Build AU2.",
+		harnessType: "builtin",
+		modelTierPreference: "workhorse",
+		modelId: "claude-sonnet-4-6",
+		modelProvider: "anthropic",
+	});
 	await db.insert(userSkills).values({
 		userId: "au2-agent-1",
 		skillId: "review",

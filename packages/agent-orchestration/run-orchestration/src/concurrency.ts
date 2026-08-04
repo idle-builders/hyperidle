@@ -33,9 +33,22 @@
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import { and, eq, sql } from "drizzle-orm";
 
-/** Structural mirror of `provisioner.ts`'s own `SessionLifecycleUserReader.getUserById`. */
-export interface ConcurrencyUserReader {
-	getUserById(
+/**
+ * Resolves an agent's concurrency bound, or `undefined` when the agent does not
+ * exist at all.
+ *
+ * @lore AU26 G1 (architecture §D-L): `maxConcurrentSessions` moved off `users`
+ * into `agent_run_config`, so this reader is now composed at the wiring site
+ * from TWO reads: does the `users` row exist (existence — a core question), and
+ * what is its run config (a run-config question). Both halves matter and
+ * neither substitutes for the other: a never-configured agent has no
+ * `agent_run_config` row but is a perfectly real agent with the default bound
+ * of 1, while a nonexistent agent must still fail CLOSED. Collapsing this to a
+ * bare run-config read would silently turn "agent does not exist" into "agent
+ * has capacity 1".
+ */
+export interface ConcurrencyBoundReader {
+	getConcurrencyBound(
 		db: HyperIdleDb,
 		agentId: string,
 	): Promise<{ readonly maxConcurrentSessions: number } | undefined>;
@@ -45,9 +58,9 @@ export interface ConcurrencyUserReader {
 export async function isAgentAtCapacity(
 	db: HyperIdleDb,
 	agentId: string,
-	deps: ConcurrencyUserReader,
+	deps: ConcurrencyBoundReader,
 ): Promise<boolean> {
-	const agent = await deps.getUserById(db, agentId);
+	const agent = await deps.getConcurrencyBound(db, agentId);
 	if (!agent) return true;
 	const [row] = await db
 		.select({ count: sql<number>`count(*)` })

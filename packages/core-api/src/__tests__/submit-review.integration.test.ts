@@ -79,7 +79,6 @@ async function seed(db: HyperIdleDb): Promise<void> {
 		role: "builder",
 		teamId: "tm-1",
 		status: "active",
-		maxConcurrentSessions: 2,
 		createdAt: NOW,
 	});
 	await db.insert(tasks).values({

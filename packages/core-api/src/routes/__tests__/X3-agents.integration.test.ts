@@ -15,7 +15,7 @@
  *  - packages/db/src/seed.ts inserts system_template:* factorySettings rows
  */
 
-import { type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
+import { agentRunConfig, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 
@@ -49,8 +49,12 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 		role: "founder",
 		status: "active",
 		email: "x3-founder@hyperidle.com",
-		maxConcurrentSessions: 0,
 		createdAt: NOW,
+	});
+	// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+	await db.insert(agentRunConfig).values({
+		agentUserId: "u-founder-x3",
+		maxConcurrentSessions: 0,
 	});
 
 	// Seed a configurable AI agent
@@ -60,9 +64,13 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 		name: "X3 Builder Bot",
 		role: "builder",
 		status: "active",
-		maxConcurrentSessions: 2,
 		teamId: "x3-tm",
 		createdAt: NOW,
+	});
+	// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+	await db.insert(agentRunConfig).values({
+		agentUserId: "x3-agent-builder",
+		maxConcurrentSessions: 2,
 	});
 
 	// Seed a system-role agent (should be excluded from agent management)
@@ -72,7 +80,6 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 		name: "System Agent",
 		role: "system",
 		status: "active",
-		maxConcurrentSessions: 1,
 		createdAt: NOW,
 	});
 
@@ -83,7 +90,6 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 		name: "X3 System Agent",
 		role: "assistant",
 		status: "active",
-		maxConcurrentSessions: 1,
 		createdAt: NOW,
 	});
 

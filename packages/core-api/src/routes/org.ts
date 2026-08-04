@@ -16,6 +16,7 @@
 
 // @lore U1: `teams` renamed to `teamMembers` (membership group); `products` renamed to `teams` (domain entity).
 // `mechanism: "team"` targets the agent membership group → check `teamMembers`.
+import { writeAgentRunConfig } from "@hyperidle/agent-run-config";
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	createTeam,
@@ -303,7 +304,7 @@ export function createOrgRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 			const body = c.req.valid("json" as never) as z.infer<typeof persistScaffoldedAgentsSchema>;
 			const result = await persistScaffoldedAgents(
 				db,
-				{ getUserById: (db2, id) => findUser(db2, { id }), insertUser },
+				{ getUserById: (db2, id) => findUser(db2, { id }), insertUser, writeAgentRunConfig },
 				body.teamMembersId,
 				body.specs,
 			);

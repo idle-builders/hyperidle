@@ -1,16 +1,29 @@
 /**
  * AR4b — Formation seam: the assistant's persona is decided at turn time from
- * the app-owned `users.systemPrompt` row, NOT a hardcoded constant.
+ * the app-owned run-config row, NOT a hardcoded constant.
  *
- * The persona is `agentConfig.systemPrompt` (`provisioner.ts`), baked at EMIT
- * time by `resolveAssistantTurnRequest` from the assistant agent's own
- * `users` row, the exact column `PATCH /api/users/:userId/assistant` writes.
- * Proven at the BAKE boundary — the `agent_work_intents` row's
- * `agentConfig.systemPrompt` — since there is no second execution entry to
- * mock.
+ * The persona is the `system_prompt` column `PATCH /api/users/:userId/assistant`
+ * writes, and `admitSession` (`provisioner.ts`) reads it LIVE at drain through
+ * `ports.agentRunConfig.readAgentRunConfig`.
+ *
+ * @lore AU26 G1 (architecture §D-L) x AU27: AU27 proved this at the BAKE
+ * boundary — the `agent_work_intents` row's `agentConfig.systemPrompt` — because
+ * at the time the persona was a `users` column core baked at emit. AU26 moved
+ * the column into `agent_run_config`, which agent-orchestration OWNS, so there
+ * is nothing for core to bake and `admitSession` reads it live instead. The
+ * observable therefore moved with the data: this file still drives the exact
+ * same route-level flow (post a message -> an `assistant_turn` intent is
+ * emitted; PATCH the persona; post again) and still proves AC3 ("changing the
+ * response changes the assistant's form"), but it reads the persona back
+ * through `readAgentRunConfig` — the SAME function
+ * `run-orchestration-composition.ts` wires into `ports.agentRunConfig` for the
+ * drain — instead of off the snapshot. That is strictly fresher than the bake:
+ * an edit between emit and drain now applies to that turn. It also asserts the
+ * bake NO LONGER carries `systemPrompt`, pinning AU26's "do not re-bake it".
  */
 
-import { agentWorkIntents, type HyperIdleDb, threads, users } from "@hyperidle/db";
+import { readAgentRunConfig } from "@hyperidle/agent-run-config";
+import { agentRunConfig, agentWorkIntents, type HyperIdleDb, threads, users } from "@hyperidle/db";
 import type { BakedAgentRunnableConfig } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import type { Hono } from "hono";
@@ -54,6 +67,11 @@ async function seedFixtures(db: HyperIdleDb): Promise<void> {
 		kind: "ai",
 		agentCategory: "individual",
 		status: "active",
+		createdAt: now,
+	});
+	// AU26 G1: the run config (persona included) lives in `agent_run_config` now.
+	await db.insert(agentRunConfig).values({
+		agentUserId: ASSISTANT_ID,
 		harnessType: "builtin",
 		modelId: "deepseek/deepseek-v4-flash",
 		modelProvider: "openrouter",
@@ -73,12 +91,16 @@ async function seedFixtures(db: HyperIdleDb): Promise<void> {
 	});
 }
 
-/** Posts a message on the assistant thread and returns the baked `agentConfig` for the resulting intent. */
-async function postAndCaptureBakedAgentConfig(
+/**
+ * Posts a message on the assistant thread, proves the `assistant_turn` intent
+ * was emitted for it, and returns the persona the drain will run that turn
+ * with — read through the production `readAgentRunConfig`.
+ */
+async function postAndResolveTurnPersona(
 	app: Hono,
 	db: HyperIdleDb,
 	clientKey: string,
-): Promise<BakedAgentRunnableConfig> {
+): Promise<string | null> {
 	const res = await app.request(`/api/threads/${THREAD_ID}/messages`, {
 		method: "POST",
 		headers: {
@@ -104,32 +126,37 @@ async function postAndCaptureBakedAgentConfig(
 		);
 	expect(intent).toBeDefined();
 	const baked = JSON.parse(intent?.bakedRequestJson ?? "{}") as {
-		agentConfig?: BakedAgentRunnableConfig;
+		agentConfig?: BakedAgentRunnableConfig & { systemPrompt?: unknown };
 	};
 	expect(baked.agentConfig).toBeDefined();
-	return baked.agentConfig as BakedAgentRunnableConfig;
+	// AU26 G1: the persona is NOT core state any more, so it must not ride the bake.
+	expect(baked.agentConfig).not.toHaveProperty("systemPrompt");
+
+	// The exact read `admitSession` performs at drain through `ports.agentRunConfig`.
+	const runConfig = await readAgentRunConfig(db, ASSISTANT_ID);
+	return runConfig.systemPrompt;
 }
 
-describe("AR4b: formation seam — the assistant's persona is baked from users.systemPrompt at turn time", () => {
+describe("AR4b: formation seam — the assistant's persona is read live from agent_run_config at turn time", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", GATE_API_KEY);
 	});
 
-	test("default row persona is baked when no PATCH has ever run", async ({ db, app }) => {
+	test("default row persona drives the turn when no PATCH has ever run", async ({ db, app }) => {
 		await seedFixtures(db);
 
-		const agentConfig = await postAndCaptureBakedAgentConfig(app, db, "msg-ar4b-default");
-		expect(agentConfig.systemPrompt).toBe("Original row persona — the app default.");
+		const persona = await postAndResolveTurnPersona(app, db, "msg-ar4b-default");
+		expect(persona).toBe("Original row persona — the app default.");
 	});
 
-	test("a PATCH /api/users/:userId/assistant persona edit is baked into the NEXT turn (AC3)", async ({
+	test("a PATCH /api/users/:userId/assistant persona edit drives the NEXT turn (AC3)", async ({
 		db,
 		app,
 	}) => {
 		await seedFixtures(db);
 
-		const before = await postAndCaptureBakedAgentConfig(app, db, "msg-ar4b-before-patch");
-		expect(before.systemPrompt).toBe("Original row persona — the app default.");
+		const before = await postAndResolveTurnPersona(app, db, "msg-ar4b-before-patch");
+		expect(before).toBe("Original row persona — the app default.");
 
 		const patchRes = await app.request(`/api/users/${FOUNDER_ID}/assistant`, {
 			method: "PATCH",
@@ -142,10 +169,10 @@ describe("AR4b: formation seam — the assistant's persona is baked from users.s
 		});
 		expect(patchRes.status).toBe(200);
 
-		const after = await postAndCaptureBakedAgentConfig(app, db, "msg-ar4b-after-patch");
-		expect(after.systemPrompt).toBe(ALPHA_PERSONA);
+		const after = await postAndResolveTurnPersona(app, db, "msg-ar4b-after-patch");
+		expect(after).toBe(ALPHA_PERSONA);
 
 		// Changing the formation response changes the assistant's form.
-		expect(before.systemPrompt).not.toBe(after.systemPrompt);
+		expect(before).not.toBe(after);
 	});
 });

@@ -12,7 +12,16 @@
  * - GET /teams enriches each team with agent summary data
  */
 
-import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import {
+	agentRunConfig,
+	bets,
+	type HyperIdleDb,
+	sessions,
+	tasks,
+	teamMembers,
+	teams,
+	users,
+} from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 
@@ -47,9 +56,13 @@ async function seedTeamWithAgents(
 			name: `${teamName} Agent ${i}`,
 			role: "builder",
 			status: "active",
-			maxConcurrentSessions: 2,
 			teamId: tmId,
 			createdAt: NOW,
+		});
+		// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+		await db.insert(agentRunConfig).values({
+			agentUserId: agentId,
+			maxConcurrentSessions: 2,
 		});
 	}
 	return agentIds;
@@ -77,8 +90,12 @@ describe("AB2 AC-5: GET /teams includes agentCount", () => {
 			role: "founder",
 			status: "active",
 			email: "ab2-list@hyperidle.com",
-			maxConcurrentSessions: 0,
 			createdAt: NOW,
+		});
+		// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+		await db.insert(agentRunConfig).values({
+			agentUserId: "u-founder-ab2-list",
+			maxConcurrentSessions: 0,
 		});
 		await db
 			.insert(teams)
@@ -104,8 +121,12 @@ describe("AB2 AC-5: GET /teams includes agentCount", () => {
 			role: "founder",
 			status: "active",
 			email: "ab2-list@hyperidle.com",
-			maxConcurrentSessions: 0,
 			createdAt: NOW,
+		});
+		// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+		await db.insert(agentRunConfig).values({
+			agentUserId: "u-founder-ab2-list",
+			maxConcurrentSessions: 0,
 		});
 		await seedTeamWithAgents(db, "ab2-list-team-1", "List Team One", 3);
 
@@ -124,8 +145,12 @@ describe("AB2 AC-5: GET /teams includes agentCount", () => {
 			role: "founder",
 			status: "active",
 			email: "ab2-list@hyperidle.com",
-			maxConcurrentSessions: 0,
 			createdAt: NOW,
+		});
+		// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+		await db.insert(agentRunConfig).values({
+			agentUserId: "u-founder-ab2-list",
+			maxConcurrentSessions: 0,
 		});
 		await seedTeamWithAgents(db, "ab2-list-team-2", "List Team Two", 2);
 
@@ -147,8 +172,12 @@ describe("AB2 AC-5: GET /teams includes agentCount", () => {
 			role: "founder",
 			status: "active",
 			email: "ab2-list@hyperidle.com",
-			maxConcurrentSessions: 0,
 			createdAt: NOW,
+		});
+		// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+		await db.insert(agentRunConfig).values({
+			agentUserId: "u-founder-ab2-list",
+			maxConcurrentSessions: 0,
 		});
 		const agentIds = await seedTeamWithAgents(db, "ab2-list-team-3", "List Team Three", 2);
 
@@ -211,8 +240,12 @@ describe("AB2 AC-5: GET /teams agentHealthWarning", () => {
 			role: "founder",
 			status: "active",
 			email: "ab2-health@hyperidle.com",
-			maxConcurrentSessions: 0,
 			createdAt: NOW,
+		});
+		// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+		await db.insert(agentRunConfig).values({
+			agentUserId: "u-founder-ab2-health",
+			maxConcurrentSessions: 0,
 		});
 		const agentIds = await seedTeamWithAgents(db, "ab2-health-team-ok", "Health Team OK", 1);
 
@@ -264,8 +297,12 @@ describe("AB2 AC-5: GET /teams agentHealthWarning", () => {
 			role: "founder",
 			status: "active",
 			email: "ab2-health@hyperidle.com",
-			maxConcurrentSessions: 0,
 			createdAt: NOW,
+		});
+		// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+		await db.insert(agentRunConfig).values({
+			agentUserId: "u-founder-ab2-health",
+			maxConcurrentSessions: 0,
 		});
 		const agentIds = await seedTeamWithAgents(db, "ab2-health-team-bad", "Health Team Bad", 1);
 		const agentId = agentIds[0];
@@ -317,8 +354,12 @@ describe("AB2 AC-5: GET /teams agentHealthWarning", () => {
 			role: "founder",
 			status: "active",
 			email: "ab2-health@hyperidle.com",
-			maxConcurrentSessions: 0,
 			createdAt: NOW,
+		});
+		// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+		await db.insert(agentRunConfig).values({
+			agentUserId: "u-founder-ab2-health",
+			maxConcurrentSessions: 0,
 		});
 		await db
 			.insert(teams)
@@ -349,8 +390,12 @@ describe("AB2 AC-5: GET /teams agentHealthWarning", () => {
 			role: "founder",
 			status: "active",
 			email: "ab2-health@hyperidle.com",
-			maxConcurrentSessions: 0,
 			createdAt: NOW,
+		});
+		// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+		await db.insert(agentRunConfig).values({
+			agentUserId: "u-founder-ab2-health",
+			maxConcurrentSessions: 0,
 		});
 		await seedTeamWithAgents(db, "ab2-shape-team", "Shape Team", 2);
 

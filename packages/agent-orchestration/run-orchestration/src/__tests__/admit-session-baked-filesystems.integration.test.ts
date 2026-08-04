@@ -105,6 +105,19 @@ function buildHarnessPorts(overrides: Partial<SessionLifecyclePorts>): SessionLi
 			provisionReturnHook: neverCalled("harnessRuntime.provisionReturnHook"),
 			writeCliMcpConfig: neverCalled("harnessRuntime.writeCliMcpConfig"),
 		},
+		agentRunConfig: {
+			// AU26 G1: `admitSession` reads the six run-config fields live from
+			// `agent_run_config` instead of the emit-time bake. This fixture
+			// returns the all-null default; tests that care override it.
+			readAgentRunConfig: async () => ({
+				systemPrompt: null,
+				harnessType: null,
+				modelTierPreference: null,
+				modelId: null,
+				modelProvider: null,
+				maxConcurrentSessions: 1,
+			}),
+		},
 		toolProvider: {
 			buildToolRegistry: neverCalled("toolProvider.buildToolRegistry"),
 			toolsForRole: () => [],
@@ -160,7 +173,6 @@ describe("admitSession mounts from the baked injected-filesystems list", () => {
 			name: "Baked FS Agent",
 			role: "builder",
 			status: "active",
-			maxConcurrentSessions: 5,
 			createdAt: now,
 		});
 
@@ -198,12 +210,6 @@ describe("admitSession mounts from the baked injected-filesystems list", () => {
 				status: "active",
 				role: "builder",
 				teamId: null,
-				systemPrompt: null,
-				modelTierPreference: null,
-				harnessType: null,
-				modelProvider: null,
-				modelId: null,
-				maxConcurrentSessions: 5,
 			},
 			harnessDisabled: [],
 			// AU21 §9 Increment 12 follow-up (F2 gap closure) — the field this fix
@@ -232,7 +238,6 @@ describe("admitSession mounts from the baked injected-filesystems list", () => {
 			name: "Baked FS Agent 2",
 			role: "builder",
 			status: "active",
-			maxConcurrentSessions: 5,
 			createdAt: now,
 		});
 
@@ -254,12 +259,6 @@ describe("admitSession mounts from the baked injected-filesystems list", () => {
 				status: "active",
 				role: "builder",
 				teamId: null,
-				systemPrompt: null,
-				modelTierPreference: null,
-				harnessType: null,
-				modelProvider: null,
-				modelId: null,
-				maxConcurrentSessions: 5,
 			},
 			harnessDisabled: [],
 			injectedFilesystems: [],

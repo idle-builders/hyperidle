@@ -93,7 +93,6 @@ describe("A2: Database Schema", () => {
 				name: "Builder",
 				role: "builder",
 				status: "active",
-				maxConcurrentSessions: 3,
 				createdAt: now,
 			});
 
@@ -105,7 +104,6 @@ describe("A2: Database Schema", () => {
 				name: "Builder",
 				role: "builder",
 				status: "active",
-				maxConcurrentSessions: 3,
 			});
 		});
 
@@ -226,7 +224,6 @@ describe("A2: Database Schema", () => {
 				name: "Builder",
 				role: "builder",
 				status: "active",
-				maxConcurrentSessions: 3,
 				createdAt: now,
 			});
 			await db.insert(bets).values({
@@ -274,7 +271,6 @@ describe("A2: Database Schema", () => {
 				name: "Test Agent",
 				role: "assistant",
 				status: "active",
-				maxConcurrentSessions: 1,
 				createdAt: now,
 			});
 			await db.insert(routines).values({
@@ -306,7 +302,6 @@ describe("A2: Database Schema", () => {
 					name: "A",
 					role: "builder",
 					status: "active",
-					maxConcurrentSessions: 1,
 					createdAt: now,
 				},
 				{
@@ -315,7 +310,6 @@ describe("A2: Database Schema", () => {
 					name: "B",
 					role: "builder",
 					status: "active",
-					maxConcurrentSessions: 1,
 					createdAt: now,
 				},
 			]);
@@ -361,7 +355,6 @@ describe("A2: Database Schema", () => {
 					name: "A",
 					role: "builder",
 					status: "active",
-					maxConcurrentSessions: 1,
 					createdAt: now,
 				},
 				{
@@ -370,7 +363,6 @@ describe("A2: Database Schema", () => {
 					name: "Human",
 					role: "founder",
 					status: "active",
-					maxConcurrentSessions: 1,
 					createdAt: now,
 				},
 			]);
@@ -421,7 +413,6 @@ describe("A2: Database Schema", () => {
 				name: "A",
 				role: "builder",
 				status: "active",
-				maxConcurrentSessions: 1,
 				createdAt: now,
 			});
 			await db.insert(userSkills).values({

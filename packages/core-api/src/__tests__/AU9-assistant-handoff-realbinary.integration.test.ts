@@ -1,6 +1,6 @@
-import { encryptCredentialValue } from "@hyperidle/connections";
 import { SESSION_NOT_RETURNED_NOTICE_TEXT } from "@hyperidle/conversation";
 import {
+	agentRunConfig,
 	agentSessionRequests,
 	messages,
 	serverCredentials,
@@ -14,6 +14,7 @@ import {
 	createSandboxAdapter,
 } from "@hyperidle/harness-registry";
 import { requireHarness } from "@hyperidle/harness-registry/test-utils";
+import { encryptCredentialValue } from "@hyperidle/shared/crypto";
 import { eq } from "drizzle-orm";
 import { createServer } from "../server-factory.js";
 import { describe, expect, test } from "../test-fixtures.js";
@@ -51,15 +52,24 @@ describe("[harness:builtin] assistant durable handoff", () => {
 				name: "Assistant",
 				role: "assistant",
 				status: "active",
-				harnessType: "builtin",
-				// AR7: the locked builtin test model — resolved for real via the
-				// per-agent `resolveModel({kind:"agent"})` path now that the
-				// assistant shares the durable poller (Increment 6).
-				modelId: "deepseek/deepseek-v4-flash",
-				modelProvider: "openrouter",
 				createdAt: now,
 			},
 		]);
+		// @lore AU26 G1: the run config lives in `agent_run_config` now — an
+		// agent-orchestration-owned table the drain reads LIVE, not a `users`
+		// column core baked at emit.
+		// @lore AR7 x AU27 Increment 6: modelId/modelProvider are LOAD-BEARING
+		// here, not cosmetic. AU27 deleted the `assistantTurnDeps.resolvedModel`
+		// bypass, so the locked builtin test model is resolved for real through
+		// the per-agent `resolveModel({kind:"agent"})` +
+		// `DbCredentialResolver` path (see the seeded `openrouter_api_key`
+		// below).
+		await db.insert(agentRunConfig).values({
+			agentUserId: "ast-au9-real-human",
+			harnessType: "builtin",
+			modelId: "deepseek/deepseek-v4-flash",
+			modelProvider: "openrouter",
+		});
 		await db.insert(threads).values({
 			id: "au9-real-thread",
 			hostKind: "user",

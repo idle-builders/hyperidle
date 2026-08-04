@@ -136,14 +136,14 @@ function parseBakedContextBundle(request: AgentSessionRequest): BakedContextBund
  * missing bake is a hard provisioning failure there, not a silent allow.
  */
 /**
- * AU27 Increment 6 (Decision 4) — exported so `start-runtime.ts`'s drain can
- * read the target agent's baked `modelId`/`modelProvider` override BEFORE
- * `runSession`/`consumeAgentSessionRequest` re-parses the same payload — the
- * drain resolves the model up front (`deps.resolveModel`), the same shape it
- * already used pre-AU27, just now uniform across all six kinds instead of
- * assistant-only.
+ * @lore AU27 Increment 6 (Decision 4) exported this so `start-runtime.ts`'s
+ * drain could read the target agent's baked `modelId`/`modelProvider` override
+ * up front. AU26 G1 moved those two columns into `agent_run_config`, so the
+ * drain reads them LIVE through `ports.agentRunConfig` instead and this parse
+ * is module-internal again — the bake it reads now carries only the four
+ * genuinely-core fields (`kind`/`status`/`role`/`teamId`).
  */
-export function parseBakedAgentConfig(
+function parseBakedAgentConfig(
 	request: AgentSessionRequest,
 ): BakedAgentRunnableConfig | undefined {
 	if (!request.payloadJson) return undefined;

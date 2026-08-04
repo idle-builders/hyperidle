@@ -13,6 +13,7 @@
 
 import { randomUUID } from "node:crypto";
 import {
+	agentRunConfig,
 	artifacts,
 	bets,
 	type HyperIdleDb,
@@ -126,11 +127,18 @@ export async function seedAgent(
 		role: opts.role,
 		status: "active",
 		teamId: opts.teamMembersId,
+		agentCategory: opts.agentCategory ?? "team",
+		createdAt: now,
+	});
+	// @lore AU26 G1 (architecture §D-L): the run config moved off `users` into
+	// `agent_run_config`. `packages/eval` writes it directly for now; increment
+	// D2b routes every `packages/eval/src` table access through the owning
+	// Services, this one included.
+	await db.insert(agentRunConfig).values({
+		agentUserId: agentId,
 		systemPrompt: opts.systemPrompt ?? null,
 		harnessType: opts.harnessType ?? "builtin",
 		modelTierPreference: opts.modelTierPreference ?? null,
-		agentCategory: opts.agentCategory ?? "team",
-		createdAt: now,
 	});
 
 	return { agentId };

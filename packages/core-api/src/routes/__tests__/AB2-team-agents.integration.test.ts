@@ -13,7 +13,16 @@
  * - maybeNotifyAgentError writes to notification_queue (throttled)
  */
 
-import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import {
+	agentRunConfig,
+	bets,
+	type HyperIdleDb,
+	sessions,
+	tasks,
+	teamMembers,
+	teams,
+	users,
+} from "@hyperidle/db";
 import { listNotifications } from "@hyperidle/notifications";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { deriveHealthDetail, deriveHealthLevel } from "../../routes/agent-profile.js";
@@ -50,8 +59,12 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		role: "founder",
 		status: "active",
 		email: "ab2-founder@hyperidle.com",
-		maxConcurrentSessions: 0,
 		createdAt: NOW,
+	});
+	// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+	await db.insert(agentRunConfig).values({
+		agentUserId: "u-founder-ab2",
+		maxConcurrentSessions: 0,
 	});
 
 	// AI agent — healthy, idle (no sessions)
@@ -61,9 +74,13 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		name: "AB2 Idle Agent",
 		role: "builder",
 		status: "active",
-		maxConcurrentSessions: 2,
 		teamId: "ab2-tm",
 		createdAt: NOW,
+	});
+	// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+	await db.insert(agentRunConfig).values({
+		agentUserId: "ab2-agent-idle",
+		maxConcurrentSessions: 2,
 	});
 }
 

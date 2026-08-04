@@ -48,7 +48,6 @@ async function seedProductTeamBetTaskAgent(db: HyperIdleDb): Promise<void> {
 		name: "A",
 		role: "builder",
 		status: "active",
-		maxConcurrentSessions: 1,
 		createdAt: NOW,
 	});
 	// @lore U1: bets.productId/pitch/status simplified; teamId refs `teams`.
@@ -136,7 +135,6 @@ describe("I3: FK actions — RESTRICT on reference data", () => {
 			name: "B",
 			role: "builder",
 			status: "active",
-			maxConcurrentSessions: 1,
 			createdAt: NOW,
 		});
 		await db.insert(threads).values({
@@ -293,7 +291,6 @@ describe("I3: FK actions — CASCADE on dependent data", () => {
 				name: "A",
 				role: "builder",
 				status: "active",
-				maxConcurrentSessions: 1,
 				createdAt: NOW,
 			},
 			{
@@ -302,7 +299,6 @@ describe("I3: FK actions — CASCADE on dependent data", () => {
 				name: "Human",
 				role: "founder",
 				status: "active",
-				maxConcurrentSessions: 1,
 				createdAt: NOW,
 			},
 		]);

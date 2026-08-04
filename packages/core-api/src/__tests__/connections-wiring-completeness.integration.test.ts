@@ -71,7 +71,6 @@ async function seedOwnerAndConnection(
 		name: "K1 Wiring Agent",
 		role: "builder",
 		status: "active",
-		maxConcurrentSessions: 1,
 		createdAt: NOW,
 	});
 	await db.insert(serviceConnections).values({

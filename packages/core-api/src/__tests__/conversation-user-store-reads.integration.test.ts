@@ -155,24 +155,31 @@ describe("user-store reads", () => {
 		expect(rows.map((row) => row.id)).toEqual(["literal"]);
 	});
 
-	test("listUsers(kind:ai) returns AI users with systemPrompt INCLUDED (AC-2)", async ({ db }) => {
+	test("listUsers(kind:ai) returns the full identity row, and no run-config fields", async ({
+		db,
+	}) => {
 		// @lore AU20 Am11: listAgentProfiles deleted; routes project full User rows.
-		// Verify that listUsers({kind:'ai'}) returns the systemPrompt field (AC-2).
+		// @lore AU26 G1 (architecture §D-L): this test used to assert `systemPrompt`
+		// rides on the `users` row (AC-2). It no longer does — `systemPrompt` and the
+		// five other run-config fields moved to `agent_run_config`, so `users` is
+		// purely the identity record. The AC-2 intent (routes project the FULL row,
+		// nothing is hidden from them) is preserved by the `email` assertion; the
+		// absence assertion is what pins the relocation.
 		await insertUser(
 			db,
 			userValues("ag1", {
 				kind: "ai",
 				role: "builder",
-				systemPrompt: "be helpful",
 				email: "secret@x",
 			}),
 		);
 		const [row] = await listUsers(db, { kind: "ai" });
 		expect(row).toBeDefined();
-		// systemPrompt is legitimately exposed today → must be present (AC-2).
-		expect(row?.systemPrompt).toBe("be helpful");
 		// email is present in full User row (routes project only what they need)
-		expect(row?.email).toBeDefined();
+		expect(row?.email).toBe("secret@x");
+		expect(row && "systemPrompt" in row).toBe(false);
+		expect(row && "harnessType" in row).toBe(false);
+		expect(row && "maxConcurrentSessions" in row).toBe(false);
 	});
 
 	test("a read passed a live tx sees the same tx's uncommitted write", async ({ db }) => {

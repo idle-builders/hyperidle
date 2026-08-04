@@ -89,7 +89,6 @@ async function seedAgentCaller(db: import("@hyperidle/db").HyperIdleDb): Promise
 			name: "Inc8 E2E Agent",
 			role: "engineer",
 			status: "active",
-			maxConcurrentSessions: 1,
 			createdAt: NOW,
 		})
 		.onConflictDoNothing();

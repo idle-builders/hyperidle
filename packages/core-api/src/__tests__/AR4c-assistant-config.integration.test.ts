@@ -7,7 +7,7 @@
  * Uses service integration fixtures (real DB + real Hono app, no harness binary).
  */
 
-import { type HyperIdleDb, users } from "@hyperidle/db";
+import { agentRunConfig, type HyperIdleDb, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../test-fixtures.js";
@@ -69,9 +69,13 @@ describe("AR4c: PATCH /api/users/:userId/assistant — harness+model config", ()
 		expect(body.modelId).toBe("deepseek/deepseek-v4-flash");
 		expect(body.modelProvider).toBe("openrouter");
 
-		// Verify persisted in DB
+		// Verify persisted in DB — AU26 G1: the run config lives in `agent_run_config`.
 		const assistantId = `ast-${userId}`;
-		const [row] = await db.select().from(users).where(eq(users.id, assistantId)).limit(1);
+		const [row] = await db
+			.select()
+			.from(agentRunConfig)
+			.where(eq(agentRunConfig.agentUserId, assistantId))
+			.limit(1);
 		expect(row?.harnessType).toBe("builtin");
 		expect(row?.modelId).toBe("deepseek/deepseek-v4-flash");
 		expect(row?.modelProvider).toBe("openrouter");
@@ -100,10 +104,14 @@ describe("AR4c: PATCH /api/users/:userId/assistant — harness+model config", ()
 		const body = (await res.json()) as { code: string };
 		expect(body.code).toBe("UNSUPPORTED_PROVIDER");
 
-		// No write: assistant agent row should not have been created or modified
+		// No write: the assistant's run config must not have been created or modified
 		const assistantId = `ast-${userId}`;
-		const [row] = await db.select().from(users).where(eq(users.id, assistantId)).limit(1);
-		// Either no row or the harnessType is not "builtin" (no contamination)
+		const [row] = await db
+			.select()
+			.from(agentRunConfig)
+			.where(eq(agentRunConfig.agentUserId, assistantId))
+			.limit(1);
+		// Either no row or the provider is not the rejected one (no contamination)
 		expect(row?.modelProvider ?? null).not.toBe("openai-compatible");
 	});
 

@@ -41,6 +41,7 @@ export default defineConfig({
 			"packages/core-api/git-export",
 			"packages/core-api/realtime",
 			"packages/agent-orchestration",
+			"packages/agent-orchestration/agent-run-config",
 			"packages/agent-orchestration/run-orchestration",
 			"packages/agent-orchestration/tool-handlers",
 			"packages/agent-execution",

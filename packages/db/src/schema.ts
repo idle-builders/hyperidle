@@ -33,12 +33,25 @@ export const teams = pgTable("teams", {
 	 * design, marketing, sales, operations, support, research.
 	 */
 	functions: text("functions"),
-	/**
-	 * @lore AV1: Primary harness = PERSISTED team default consumed by every agent-creation
-	 * path. Stored on teams (agents + filesystems are team-scoped; serviceConnections is
-	 * per-user external creds, orthogonal). Null = unset → builtin/sonnet-4-6/anthropic
-	 * fallback in persistScaffoldedAgents. Migration 0042.
-	 */
+});
+
+/**
+ * AU26 G1 — the team's default run-config for newly scaffolded agents.
+ *
+ * @lore AU26 G1 (architecture §D-L): `teams.default_harness_type` /
+ * `default_model_id` / `default_model_provider` used to live on the `teams`
+ * row itself (AV1, migration 0042). They are agent-execution configuration,
+ * not team identity, and `teams` is a core domain record — so they relocate
+ * into an `agent-orchestration`-owned table. The definitions stay here (the
+ * `packages/db/src/schema.ts` rule is unchanged); the ACL owner is
+ * `packages/agent-orchestration/agent-run-config`. Null = unset →
+ * builtin/sonnet-4-6/anthropic fallback in `persistScaffoldedAgents`, exactly
+ * as before.
+ */
+export const teamRunConfigDefaults = pgTable("team_run_config_defaults", {
+	teamId: text("team_id")
+		.primaryKey()
+		.references(() => teams.id, { onDelete: "cascade" }),
 	defaultHarnessType: text("default_harness_type"),
 	defaultModelId: text("default_model_id"),
 	defaultModelProvider: text("default_model_provider"),
@@ -49,47 +62,17 @@ export const users = pgTable("users", {
 	/** "human" | "ai" — P2: kind column distinguishes human founders from AI agents. */
 	kind: text("kind").notNull().default("ai"),
 	name: text("name").notNull(),
-	/** @lore X3: Renamed from old per-agent path column in AK1 (harness-vocab rename). Deprecated — content stored inline in systemPrompt. */
-	systemPromptPath: text("system_prompt_path"),
 	// @lore U1: users.team_id still references team_members.id (agent membership group).
 	// The column name stays `team_id` to avoid a blast-radius rename of every
 	// users.teamId reference across the codebase. The FK target table was renamed
 	// from `teams` to `team_members` by migration 0021_U1_schema_migration.sql.
 	teamId: text("team_id").references(() => teamMembers.id, { onDelete: "restrict" }),
 	role: text("role").notNull(),
-	skills: text("skills"),
 	status: text("status").notNull(),
-	maxConcurrentSessions: integer("max_concurrent_sessions").notNull().default(1),
 	/** P2: human-specific nullable columns. Null for AI users. */
 	email: text("email"),
 	avatarUrl: text("avatar_url"),
 	createdAt: text("created_at").notNull(),
-	/**
-	 * X3: Inline system prompt text. Replaces systemPromptPath (per-agent path column).
-	 * null = no persona section in assembled context.
-	 * @lore X3: The path column is deprecated (not dropped yet — additive migration).
-	 * System prompt content is stored inline in the DB, eliminating file-read attack surface.
-	 * @lore AK1: Renamed from the old per-agent prompt column (harness-vocab rename rollout).
-	 */
-	systemPrompt: text("system_prompt"),
-	/** X3: Harness type preference. null = any adapter eligible. */
-	harnessType: text("harness_type"),
-	/** X3: Model tier preference. null = provisioning default ("workhorse"). */
-	modelTierPreference: text("model_tier_preference"),
-	/**
-	 * AH2: Per-agent model ID override.
-	 * null = use modelTierPreference fallback.
-	 * Must be a valid ID from MODEL_CATALOG in @hyperidle/shared.
-	 */
-	modelId: text("model_id"),
-	/**
-	 * AH2: Per-agent provider override.
-	 * null = defaults to "anthropic" (the only v1 per-agent provider).
-	 * Only meaningful when modelId is non-null.
-	 * @lore AH2: Stored separately from modelId so that future multi-provider
-	 * catalog expansion can be additive — no column rename needed.
-	 */
-	modelProvider: text("model_provider"),
 	/**
 	 * AB0: Agent category — team | strategy | individual.
 	 * Null for human users and system users.
@@ -97,6 +80,43 @@ export const users = pgTable("users", {
 	 * split which was about system layer, not agent category.
 	 */
 	agentCategory: text("agent_category"),
+});
+
+/**
+ * AU26 G1 — one agent's run configuration, keyed on its `users` row.
+ *
+ * @lore AU26 G1 (architecture §D-L): `users` used to carry agent-execution
+ * configuration (`system_prompt`, `harness_type`, `model_tier_preference`,
+ * `model_id`, `model_provider`, `max_concurrent_sessions`) on the same row as
+ * human identity. Core administers those fields but never operationally
+ * consumes them — only an agent's session does — so they relocate here, owned
+ * by `packages/agent-orchestration/agent-run-config`. `users` survives intact
+ * as the single human+agent identity record: `kind`, `status`, `agent_category`,
+ * `role`, `team_id` stay put because core genuinely uses them
+ * (`middleware/auth.ts`, `recipients.ts`, `policy-bindings.ts`).
+ *
+ * @lore AU26 G1: `system_prompt_path` and `skills` were dropped, not moved —
+ * zero production readers repo-wide (seed fixtures only) at the time of the
+ * move. Do not resurrect either as a column here.
+ *
+ * @lore AU26 G1: **absent row ≡ all-null row.** `max_concurrent_sessions` is
+ * the one NOT NULL DEFAULT 1 column (matching its pre-move shape on `users`);
+ * every other field is nullable with no default, and the effective defaults
+ * live in the resolvers, never in the columns. `readAgentRunConfig` therefore
+ * returns `DEFAULT_AGENT_RUN_CONFIG` for an agent with no row rather than
+ * `undefined` — an agent whose config was never written resolves exactly what
+ * an all-null row resolves.
+ */
+export const agentRunConfig = pgTable("agent_run_config", {
+	agentUserId: text("agent_user_id")
+		.primaryKey()
+		.references(() => users.id, { onDelete: "cascade" }),
+	systemPrompt: text("system_prompt"),
+	harnessType: text("harness_type"),
+	modelTierPreference: text("model_tier_preference"),
+	modelId: text("model_id"),
+	modelProvider: text("model_provider"),
+	maxConcurrentSessions: integer("max_concurrent_sessions").notNull().default(1),
 });
 
 // @lore U1: `teamMembers` is the agent-membership group (formerly `teams`).
@@ -1589,6 +1609,15 @@ export type NewTeam = typeof teams.$inferInsert;
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
+
+// @lore AU26 G1: the run-config row types. `AgentRunConfigRow` is the raw
+// table row (carries `agentUserId`); `@hyperidle/agent-run-config`'s
+// `AgentRunConfig` is the keyless value object callers actually consume.
+export type AgentRunConfigRow = typeof agentRunConfig.$inferSelect;
+export type NewAgentRunConfigRow = typeof agentRunConfig.$inferInsert;
+
+export type TeamRunConfigDefaultsRow = typeof teamRunConfigDefaults.$inferSelect;
+export type NewTeamRunConfigDefaultsRow = typeof teamRunConfigDefaults.$inferInsert;
 
 export type TeamMember = typeof teamMembers.$inferSelect;
 export type NewTeamMember = typeof teamMembers.$inferInsert;

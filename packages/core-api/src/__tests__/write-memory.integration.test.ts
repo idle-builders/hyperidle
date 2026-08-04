@@ -52,7 +52,6 @@ async function seedFacilitator(db: HyperIdleDb): Promise<void> {
 		name: "Agent A",
 		role: "facilitator",
 		status: "active",
-		maxConcurrentSessions: 1,
 		createdAt: NOW,
 	});
 }
@@ -63,7 +62,6 @@ async function seedBuilder(db: HyperIdleDb): Promise<void> {
 		name: "Builder Agent",
 		role: "builder",
 		status: "active",
-		maxConcurrentSessions: 1,
 		createdAt: NOW,
 	});
 }

@@ -35,7 +35,6 @@ async function seedFounderProfile(db: HyperIdleDb): Promise<void> {
 			email: "p3settings@hyperidle.dev",
 			role: "founder",
 			status: "active",
-			maxConcurrentSessions: 0,
 			createdAt: now,
 		})
 		.onConflictDoNothing();

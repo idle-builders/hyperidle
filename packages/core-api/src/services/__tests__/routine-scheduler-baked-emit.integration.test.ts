@@ -24,6 +24,8 @@
  *      an unrunnable target" test fails (a run row + an intent both persist
  *      today).
  */
+
+import { readAgentRunConfig } from "@hyperidle/agent-run-config";
 import { insertThread, listThreads } from "@hyperidle/conversation";
 import {
 	agentSessionRequests,
@@ -50,6 +52,25 @@ import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../../test-fixtures.js";
 import { queueDeps } from "../durable-agent-queue.js";
+
+/**
+ * @lore AU26 G1 (architecture §D-L): `isAgentAtCapacity` takes a
+ * `ConcurrencyBoundReader` now, not a user reader — `maxConcurrentSessions`
+ * moved off `users` into `agent_run_config`. This mirrors the production
+ * wiring in `routine-scheduler-bindings.ts` exactly: `users` answers existence
+ * (fail closed when absent) and `agent-run-config` answers the bound.
+ */
+const testConcurrencyBoundReader = {
+	async getConcurrencyBound(
+		execDb: HyperIdleDb,
+		agentId: string,
+	): Promise<{ readonly maxConcurrentSessions: number } | undefined> {
+		const user = await findUser(execDb, { id: agentId });
+		if (!user) return undefined;
+		const { maxConcurrentSessions } = await readAgentRunConfig(execDb, agentId);
+		return { maxConcurrentSessions };
+	},
+};
 
 const NOW = new Date().toISOString();
 
@@ -130,17 +151,14 @@ function makePorts(): RoutineSchedulerPorts & {
 		},
 		workIntents: { enqueueWorkIntent },
 		agentSelection: {
-			isAtCapacity: (db, agentId) =>
-				isAgentAtCapacity(db, agentId, { getUserById: (execDb, id) => findUser(execDb, { id }) }),
+			isAtCapacity: (db, agentId) => isAgentAtCapacity(db, agentId, testConcurrencyBoundReader),
 			selectAgent: (input) =>
 				selectRoutineDelegate(
 					input.db,
 					{
 						listAgentIdsBySkill,
 						isAtCapacity: (db, agentId) =>
-							isAgentAtCapacity(db, agentId, {
-								getUserById: (execDb, id) => findUser(execDb, { id }),
-							}),
+							isAgentAtCapacity(db, agentId, testConcurrencyBoundReader),
 					},
 					input,
 				),
@@ -170,7 +188,6 @@ async function seedManualRoutine(
 		role: "builder",
 		status: opts.ownerStatus ?? "active",
 		teamId: teamMembersId,
-		maxConcurrentSessions: 1,
 		createdAt: NOW,
 	});
 	await db.insert(routines).values({

@@ -89,15 +89,15 @@ export interface BakedTranscriptRow {
  * state, at emit time) lets `run-orchestration`'s generic drain build the
  * harness input from this payload with ZERO reads back into core.
  *
- * @lore AU21 §9 Increment 11 (Decision H2 follow-up, closing a Wave A
- * regression): `modelId`/`modelProvider` ride alongside `transcript` here,
- * sourced from the SAME `requireRunnableAgent` row this resolver already
- * reads to validate runnability — no extra read. Wave A deleted `dispatch`'s
- * live `getOrCreateUser`/`readServerConfig` reads and, with them, silently
- * dropped the per-agent model override (`users.modelId`/`modelProvider`,
- * configured via Settings → Agents) instead of baking it forward. That was a
- * real regression, not an acceptable trade-off — "bake everything a run
- * needs at emit" (Decision H2) means bake the override, not drop it.
+ * @lore AU26 G1 (architecture §D-L): the `modelId`/`modelProvider` fields this
+ * shape carried from AU21 Increment 11 are GONE. AU21 baked them because the
+ * per-agent override lived on `users` — core state `dispatch` was forbidden to
+ * read. AU26 moved those columns into `agent_run_config`, which
+ * agent-orchestration owns, so `dispatch` reads the override live through
+ * `ports.agentRunConfig` instead. Nothing is dropped: the same founder-
+ * configurable Settings → Agents value still applies to every assistant turn,
+ * and it is now read at execution time rather than snapshotted at emit, so an
+ * edit between emit and drain takes effect. Do not re-bake it.
  */
 export interface BakedAssistantTurnRequest {
 	readonly defaultAgentId: string;
@@ -120,10 +120,6 @@ export interface BakedAssistantTurnRequest {
 	 * read.
 	 */
 	readonly callingThreadId: string;
-	/** Per-agent model override (`users.modelId`), or `null` when unset — see the `@lore` above. */
-	readonly modelId: string | null;
-	/** Per-agent model provider override (`users.modelProvider`), or `null` when unset. */
-	readonly modelProvider: string | null;
 	/**
 	 * AU21 §9 Increment 12 (Decision H3), Wave E — the target agent's
 	 * runnable-config snapshot, baked from the SAME already-`requireRunnableAgent`
@@ -204,8 +200,6 @@ export async function resolveAssistantTurnRequest(
 		},
 		transcript,
 		callingThreadId: message.threadId,
-		modelId: agent.modelId ?? null,
-		modelProvider: agent.modelProvider ?? null,
 		agentConfig: bakeAgentRunnableConfig(agent),
 		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
 		...(injectedFilesystems !== undefined ? { injectedFilesystems } : {}),

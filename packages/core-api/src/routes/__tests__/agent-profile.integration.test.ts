@@ -26,6 +26,7 @@
  */
 
 import {
+	agentRunConfig,
 	bets,
 	type HyperIdleDb,
 	items,
@@ -77,8 +78,12 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 		role: "founder",
 		status: "active",
 		email: "ab1-founder@hyperidle.com",
-		maxConcurrentSessions: 0,
 		createdAt: NOW,
+	});
+	// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+	await db.insert(agentRunConfig).values({
+		agentUserId: "u-founder-ab1",
+		maxConcurrentSessions: 0,
 	});
 
 	// Seed a configurable AI agent (builder role)
@@ -88,12 +93,16 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 		name: "AB1 Builder Bot",
 		role: "builder",
 		status: "active",
-		maxConcurrentSessions: 2,
 		teamId: "ab1-tm",
+		createdAt: NOW,
+	});
+	// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+	await db.insert(agentRunConfig).values({
+		agentUserId: "ab1-agent-builder",
+		maxConcurrentSessions: 2,
 		harnessType: "claude-code",
 		systemPrompt: "You are a builder agent.",
 		modelTierPreference: "workhorse",
-		createdAt: NOW,
 	});
 
 	// Seed a human user (to test 404 path)
@@ -104,8 +113,12 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 		role: "founder",
 		status: "active",
 		email: "ab1-human@hyperidle.com",
-		maxConcurrentSessions: 0,
 		createdAt: NOW,
+	});
+	// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+	await db.insert(agentRunConfig).values({
+		agentUserId: "ab1-human-user",
+		maxConcurrentSessions: 0,
 	});
 
 	// Seed a bet and task for sessions
@@ -949,9 +962,8 @@ describe("AB1 AC-10: Health signal harness available check", () => {
 			name: "No Harness Agent",
 			role: "builder",
 			status: "active",
-			maxConcurrentSessions: 1,
 			createdAt: NOW,
-			// no harnessType
+			// no harnessType,
 		});
 
 		const res = await app.request("/api/agents/ab1-agent-no-harness/profile", {

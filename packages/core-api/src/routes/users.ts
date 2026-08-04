@@ -1,3 +1,4 @@
+import { writeAgentRunConfig } from "@hyperidle/agent-run-config";
 import {
 	escapeLikePattern,
 	type HyperIdleDb,
@@ -40,9 +41,13 @@ import { createAssistantSoulRoutes } from "./assistant.js";
 // AU19 Increment 1c: `org`'s `OrgUserDirectory` port (Mechanism C), wired to
 // the real `user-store.ts` function references unchanged (no behavior change).
 // AU19 Increment 1c / AU20 Am11: adapter so `findUser({id})` satisfies `getUserById`.
+// AU26 G1 (§D-L): `persistScaffoldedAgents` also stamps the run config, which
+// left `users` for `agent_run_config`. The Layer wires the writer down the same
+// Mechanism-C way it wires the user directory.
 const orgUsers = {
 	getUserById: (db: HyperIdleDb, id: string) => findUser(db, { id }),
 	insertUser,
+	writeAgentRunConfig,
 };
 
 const updateSkillSchema = z.object({

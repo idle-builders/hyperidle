@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { createContextAssembler } from "./context.js";
 import type { RuntimeDeps, RuntimeHandle, RuntimePorts } from "./contracts.js";
 import { createProvisioner } from "./provisioner.js";
-import { parseBakedAgentConfig, runSession } from "./runtime.js";
+import { runSession } from "./runtime.js";
 import { createRuntimeReapers } from "./runtime-reapers.js";
 import { createWorkerIngress } from "./worker-ingress.js";
 import { createWritebackProcessor } from "./writeback-processor.js";
@@ -119,17 +119,31 @@ async function drainAgentSessionRequests(deps: RuntimeDeps): Promise<number> {
 				tier = (start?.requestedModelTier as ModelTier | null) ?? tier;
 			}
 			// AU27 Increment 6 (Decision 4, C11): the target agent's per-agent
-			// model override rides `agentConfig.modelId`/`modelProvider`, baked
-			// uniformly for all six kinds (Wave E's own bake, extended with
-			// `modelId`). `deps.resolveModel` (server-factory's `makeResolveModel`)
-			// applies the `openai-compatible` guard — request `{kind:"agent"}` only
-			// when the provider supports it, else `{kind:"tier"}` — so this call
-			// site stays a plain pass-through, no branch here.
-			const agentConfig = parseBakedAgentConfig(request);
-			const modelOverride = agentConfig
-				? { modelId: agentConfig.modelId, modelProvider: agentConfig.modelProvider }
-				: undefined;
-			const resolvedModel = await deps.resolveModel?.(tier, modelOverride);
+			// model override applies uniformly for all six kinds, not just the
+			// assistant. `deps.resolveModel` (`makeResolveModel`) applies the
+			// `openai-compatible` guard — request `{kind:"agent"}` only when the
+			// provider supports it, else `{kind:"tier"}` — so this call site
+			// stays a plain pass-through, no branch here.
+			//
+			// @lore AU26 G1 (architecture §D-L): AU27 rode the override on the
+			// emit-time `agentConfig` bake because `modelId`/`modelProvider`
+			// were `users` columns — CORE state orchestration may not read.
+			// AU26 relocated them into `agent_run_config`, a table
+			// agent-orchestration OWNS, so the bake is gone and this is an
+			// IN-LAYER live read of the SAME source `admitSession` reads
+			// (`ports.agentRunConfig`). An all-null row is not a branch: the
+			// gateway's agent path falls through to `tierFallback` when
+			// `modelId` is null, exactly as the absent-bake case did. Net effect
+			// for a founder: an override edited between emit and drain applies
+			// to that turn instead of being one turn stale.
+			const runConfig = await deps.composition.provisioner.agentRunConfig.readAgentRunConfig(
+				deps.db,
+				request.agentId,
+			);
+			const resolvedModel = await deps.resolveModel?.(tier, {
+				modelId: runConfig.modelId,
+				modelProvider: runConfig.modelProvider,
+			});
 			const result = await runSession(deps, {
 				mode: "durable",
 				request,
