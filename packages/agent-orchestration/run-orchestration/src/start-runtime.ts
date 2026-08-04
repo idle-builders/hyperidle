@@ -1,5 +1,5 @@
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
-import { EventBus, type ModelTier } from "@hyperidle/shared";
+import { createLogger, EventBus, type ModelTier } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import { createContextAssembler } from "./context.js";
 import type { RuntimeDeps, RuntimeHandle, RuntimePorts } from "./contracts.js";
@@ -56,6 +56,8 @@ function resolveEventBus(deps: RuntimeDeps): EventBus {
 
 /** 6h cadence for the terminal-intent/explicit-start/task-attempt reaper. */
 const AGENT_LAYER_REAP_INTERVAL_MS = 6 * 60 * 60 * 1000;
+
+const drainLog = createLogger({ pkg: "server.agent-drain" });
 
 function assertStartable(deps: RuntimeDeps): asserts deps is RuntimeDeps & {
 	ports: RuntimePorts;
@@ -134,7 +136,39 @@ async function drainAgentSessionRequests(deps: RuntimeDeps): Promise<number> {
 			// too — pre-AU27 only the assistant's dispatch runner did this
 			// (`resolvedFastModel`), so every other kind's summarization already
 			// silently fell back to the workhorse model. Uniform now, for all six.
-			const resolvedFastModel = await deps.resolveModel?.("fast");
+			//
+			// @lore AU27 regression fix (post-ship investigation): this call MUST
+			// NOT be allowed to fail the whole admission. `resolvedFastModel` is a
+			// pure best-effort optimization — `builtin-harness-adapter.ts:936`
+			// already treats it as optional (`config.resolvedFastModel ??
+			// config.resolvedModel`), falling back to the primary model. But the
+			// call site here had no guard: any deployment without a credential for
+			// the DEFAULT "fast" tier provider (anthropic, per
+			// `BUILT_IN_GATEWAY_CONFIG`) — e.g. every openrouter-only setup, which
+			// is exactly what the locked builtin test model uses (AR7) — throws
+			// `MissingCredentialError` here, uncaught, for EVERY kind's admission,
+			// not just the assistant's. The outer catch then classifies it as a
+			// released/retryable claim with zero terminal write for
+			// non-`explicitStartId` kinds (assistant_turn among them) — so the
+			// request silently reclaims forever and NOTHING ever runs, with no
+			// error surfaced anywhere. Caught live by
+			// `AU9-assistant-handoff-realbinary.integration.test.ts`, the only
+			// harness test exercising the real `DbCredentialResolver` path (every
+			// other harness test bypasses `deps.resolveModel` via the
+			// `harnessTestResolvedModel` seam). Degrade the same way an absent
+			// `deps.resolveModel` already does: swallow the failure, fall back to
+			// undefined (→ the primary model), and log once so a genuinely
+			// misconfigured gateway is still observable.
+			let resolvedFastModel: Awaited<ReturnType<NonNullable<typeof deps.resolveModel>>>;
+			try {
+				resolvedFastModel = await deps.resolveModel?.("fast");
+			} catch (fastModelError) {
+				drainLog.warn("fast-tier model resolution failed; falling back to the primary model", {
+					requestId: request.id,
+					err: fastModelError instanceof Error ? fastModelError.message : String(fastModelError),
+				});
+				resolvedFastModel = undefined;
+			}
 			const result = await runSession(deps, {
 				mode: "durable",
 				request,
