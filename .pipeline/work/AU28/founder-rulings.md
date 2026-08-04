@@ -405,18 +405,46 @@ retired by AU18.
 
 ### Step 1 — the settled rule
 
-**A file is development if any of:** a path segment starts with `__`; the filename ends `.stories.tsx`;
-it belongs to a wholly-development package (`eval`, `eslint-plugin-authz`, `eslint-plugin-design` —
-a three-entry list that deletes itself at step 2 when they move into `tools/`); or it sits outside
-`packages/`. **Otherwise it is production.**
+**A file is development if any of:** its NAME declares it development (`.stories.tsx`, `.test.ts(x)`,
+`.spec.ts(x)`); a path segment starts with `__`; it belongs to a wholly-development package (`eval`,
+`eslint-plugin-authz`, `eslint-plugin-design` — a three-entry list that deletes itself at step 2 when
+they move into `tools/`); or it sits outside `packages/`. **Otherwise it is production.**
 
 **The crossing rule:** a production file may never import a development file. One direction.
 
-`__` means development, full stop — no provision for `__generated__` or anything else that does not
-exist yet (founder: *"no need to plan for something that doesn't exist yet"*).
+#### Two mechanisms, both explicit (founder ruling, 2026-08-04)
 
-`.stories.tsx` is the one suffix that survives, because a story must sit beside its component under
-the standing TSX-first decision.
+There are exactly **two** ways a file becomes development, and neither is an accident:
+
+1. **A file whose NAME declares it development is development, wherever it sits.**
+2. **A folder whose NAME declares it development makes everything inside it development.**
+
+The rule used to be one explicit mechanism and one accidental one: `.stories.tsx` got a suffix clause
+because a story is deliberately co-located with its component, while `.test.ts` had no clause at all
+and was caught only because tests *happen* to live in `__tests__/` folders. That is coincidence, not
+design, and it breaks the moment a development file legitimately sits beside production code — which
+is already decided for eval case files. So `.test.ts(x)` and `.spec.ts(x)` are now explicit suffix
+clauses of their own, each with its own floor.
+
+**Suffix clauses must precede the `__` clause. This ordering is load-bearing, not cosmetic.** Almost
+every `.test.ts` in the repo also sits under `__tests__/`. With the folder clause first it claims all
+of them, `test-suffix` matches zero files, and `pattern-live` correctly kills the build with a
+`DeadRuleError` — verified by sanity-break: dunder-first leaves `test-suffix` at 1 file and
+`spec-suffix` at 0. Suffix-first is also the more specific signal, so it is the right precedence on
+the merits, not a workaround.
+
+The reorder changes **which clause claims a file, never whether the file is development**: ~958 files
+moved out of `dunder-segment` into the suffix clauses and the totals were unchanged at 773 production
+/ 2,416 development / 3,189 tracked.
+
+`__` means development, full stop — no provision for `__generated__` or anything else that does not
+exist yet (founder: *"no need to plan for something that doesn't exist yet"*). The folder mechanism
+is not vestigial after the suffix clauses land: an unsuffixed helper inside `__tests__/` still
+classifies by it (152 files do).
+
+**`.eval.ts(x)` is deliberately absent.** Zero such files exist today, so the clause would match
+nothing and hard-fail on arrival. It gets added by the first eval that lands beside production code —
+same founder principle: *"no need to plan for something that doesn't exist yet."*
 
 **Known work:** ~22 development files currently sit in production paths and must move into `__`
 folders (chiefly `db/src`'s 9, `core-api/src`'s 5, `shared`'s mock harness,

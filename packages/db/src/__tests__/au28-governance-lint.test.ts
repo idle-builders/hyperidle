@@ -36,7 +36,11 @@ describe("AU28 classifyFile — the settled production/development rule", () => 
 	it.each([
 		["packages/db/src/__testing__/test-utils.ts", "dunder-segment"],
 		["packages/web/src/pages/__fixtures__/x.ts", "dunder-segment"],
-		["packages/core-api/src/__tests__/a.integration.test.ts", "dunder-segment"],
+		["packages/core-api/src/__tests__/a.integration.test.ts", "test-suffix"],
+		["packages/db/src/service.test.ts", "test-suffix"],
+		["packages/web/src/components/Card.test.tsx", "test-suffix"],
+		["packages/web/__e2e__/flow.spec.ts", "spec-suffix"],
+		["packages/web/src/flows/checkout.spec.ts", "spec-suffix"],
 		["packages/design-system/src/Button.stories.tsx", "stories-suffix"],
 		["packages/eval/src/cli.ts", "development-package:eval"],
 		["packages/eslint-plugin-authz/src/index.ts", "development-package:eslint-plugin-authz"],
@@ -90,14 +94,27 @@ describe("AU28 classifyFile — the settled production/development rule", () => 
 describe("AU28 clause precedence — declared, not incidental", () => {
 	it("array order of CLASSIFICATION_PATTERNS is the precedence", () => {
 		expect(CLASSIFICATION_PATTERNS.map((p) => p.clause)).toEqual([
-			"dunder-segment",
 			"stories-suffix",
+			"test-suffix",
+			"spec-suffix",
+			"dunder-segment",
 			...DEVELOPMENT_PACKAGE_DIRS.map(() => "development-package" as const),
 			"outside-packages",
 			...TEST_RUNNER_CONFIG_BASENAMES.map(() => "test-runner-config" as const),
 			"test-runner-config",
 			"default-production",
 		]);
+	});
+
+	it("puts every name-declared suffix clause ahead of the folder clause", () => {
+		// Load-bearing, not cosmetic: nearly every `.test.ts` also sits under `__tests__/`. With the
+		// folder clause first, `test-suffix` matches zero files and `pattern-live` fails the build.
+		const order = CLASSIFICATION_PATTERNS.map((p) => p.clause);
+		const dunder = order.indexOf("dunder-segment");
+		for (const suffixClause of ["stories-suffix", "test-suffix", "spec-suffix"] as const) {
+			expect(order.indexOf(suffixClause)).toBeGreaterThanOrEqual(0);
+			expect(order.indexOf(suffixClause)).toBeLessThan(dunder);
+		}
 	});
 
 	it("resolves an overlapping path to the earlier clause", () => {
@@ -109,8 +126,29 @@ describe("AU28 clause precedence — declared, not incidental", () => {
 			"development-package:eval",
 		);
 		expect(classifyFile("packages/eval/src/__tests__/Foo.stories.tsx").patternId).toBe(
+			"stories-suffix",
+		);
+	});
+
+	it("classifies a name-declared file by its name, wherever it sits", () => {
+		// Mechanism 1: the filename decides, with or without a `__` folder above it.
+		expect(classifyFile("packages/app/src/__tests__/x.test.ts").patternId).toBe("test-suffix");
+		expect(classifyFile("packages/app/src/x.test.ts").patternId).toBe("test-suffix");
+		expect(classifyFile("packages/app/__e2e__/flow.spec.ts").patternId).toBe("spec-suffix");
+		expect(classifyFile("packages/app/src/flow.spec.ts").patternId).toBe("spec-suffix");
+		expect(classifyFile("packages/app/src/components/Card.stories.tsx").patternId).toBe(
+			"stories-suffix",
+		);
+	});
+
+	it("keeps the folder mechanism live for a file whose name declares nothing", () => {
+		// Mechanism 2 is not vestigial: an unsuffixed helper inside `__tests__/` is still development,
+		// and its production sibling one directory up is untouched.
+		expect(classifyFile("packages/app/src/__tests__/_helpers.ts").patternId).toBe("dunder-segment");
+		expect(classifyFile("packages/app/src/__testing__/factory.ts").patternId).toBe(
 			"dunder-segment",
 		);
+		expect(classifyFile("packages/app/src/components/Card.tsx").kind).toBe("production");
 	});
 
 	it("ends with an unconditional default so classification cannot fall through", () => {

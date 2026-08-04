@@ -25,8 +25,10 @@ import ts from "typescript";
 export type FileKind = "production" | "development";
 
 export type ClassificationClause =
-	| "dunder-segment"
 	| "stories-suffix"
+	| "test-suffix"
+	| "spec-suffix"
+	| "dunder-segment"
 	| "development-package"
 	| "outside-packages"
 	| "test-runner-config"
@@ -86,11 +88,52 @@ const basename = (p: string): string => {
 const hasDunderSegment = (p: string): boolean => p.split("/").some((seg) => seg.startsWith("__"));
 
 /**
- * THE CLAUSE PRECEDENCE, STATED. Array order IS precedence: `classifyFile` returns the first pattern
- * that matches. The order is Ruling 9's own clause listing, read literally:
+ * MECHANISM 1 — a file whose NAME declares it development is development, wherever it sits.
  *
- *   1. a path segment starts with `__`
- *   2. the filename ends `.stories.tsx`
+ * @lore AU28 (Ruling 9, two-mechanism refinement): the original rule had one explicit name clause
+ * (`.stories.tsx`) and caught `.test.ts` only by the coincidence that tests happen to live in
+ * `__tests__/` folders. That is not a rule, it is luck, and it breaks the moment a development file
+ * legitimately sits beside production code — which is already decided for eval case files. So the
+ * classification has exactly two mechanisms and both are explicit: a name-declared FILE (this table)
+ * and a name-declared FOLDER (`__`, below). Nothing is classified by accident.
+ *
+ * `.eval.ts(x)` is deliberately ABSENT. Zero such files exist today, so the clause would match nothing
+ * and `pattern-live` would hard-fail on arrival. It gets added by the first eval that lands beside
+ * production code — a pattern that matches nothing is the defect this whole design exists to prevent.
+ */
+const NAME_DECLARED_SUFFIXES: readonly {
+	readonly clause: Extract<ClassificationClause, "stories-suffix" | "test-suffix" | "spec-suffix">;
+	readonly suffixes: readonly string[];
+	readonly description: string;
+	readonly minFiles: number;
+}[] = [
+	{
+		clause: "stories-suffix",
+		suffixes: [".stories.tsx"],
+		description: "a `.stories.tsx` file is a design artifact, pinned beside its component",
+		minFiles: 100,
+	},
+	{
+		clause: "test-suffix",
+		suffixes: [".test.ts", ".test.tsx"],
+		description: "a `.test.ts(x)` file is a test — including the `.integration.test.ts` form",
+		minFiles: 600,
+	},
+	{
+		clause: "spec-suffix",
+		suffixes: [".spec.ts", ".spec.tsx"],
+		description: "a `.spec.ts(x)` file is a Playwright end-to-end spec",
+		minFiles: 50,
+	},
+];
+
+/**
+ * THE CLAUSE PRECEDENCE, STATED. Array order IS precedence: `classifyFile` returns the first pattern
+ * that matches. Ruling 9's clause listing, with the name-declared FILE mechanism ahead of the
+ * name-declared FOLDER mechanism:
+ *
+ *   1. the filename declares it development — `.stories.tsx`, `.test.ts(x)`, `.spec.ts(x)`
+ *   2. a path segment starts with `__`
  *   3. it belongs to a wholly-development package
  *   4. it sits outside `packages/`
  *   5. it is a test-runner config
@@ -100,23 +143,33 @@ const hasDunderSegment = (p: string): boolean => p.split("/").some((seg) => seg.
  * every floor below — change with the order, and the AU28 architecture critique showed that a plan
  * which states floors without stating the order produces a guard that hard-fails on a correct
  * implementation. The floors here were measured under THIS order and are meaningless under another.
+ *
+ * @lore AU28: suffix-before-dunder specifically. Almost every `.test.ts` in the repo also sits under
+ * `__tests__/`. Put `dunder-segment` first and the folder clause claims all of them, leaving
+ * `test-suffix` matching zero files — which `pattern-live` correctly rejects as a dead rule. Suffix
+ * first is also the more specific signal, so it is the right precedence on the merits, not a
+ * workaround. The reorder moved ~958 files from `dunder-segment` into the suffix clauses; it changed
+ * WHICH clause claims a file, never WHETHER the file is development (773 production / 2,416
+ * development, unchanged).
  */
 export const CLASSIFICATION_PATTERNS: readonly ClassificationPattern[] = [
+	...NAME_DECLARED_SUFFIXES.map(
+		({ clause, suffixes, description, minFiles }): ClassificationPattern => ({
+			id: clause,
+			clause,
+			kind: "development",
+			description,
+			minFiles,
+			matches: (p) => suffixes.some((s) => p.endsWith(s)),
+		}),
+	),
 	{
 		id: "dunder-segment",
 		clause: "dunder-segment",
 		kind: "development",
 		description: "any path segment starting with `__` marks the file development",
-		minFiles: 700,
-		matches: hasDunderSegment,
-	},
-	{
-		id: "stories-suffix",
-		clause: "stories-suffix",
-		kind: "development",
-		description: "a `.stories.tsx` file is a design artifact, pinned beside its component",
 		minFiles: 100,
-		matches: (p) => p.endsWith(".stories.tsx"),
+		matches: hasDunderSegment,
 	},
 	...DEVELOPMENT_PACKAGE_DIRS.map(
 		(dir): ClassificationPattern => ({

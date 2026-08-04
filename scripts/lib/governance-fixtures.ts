@@ -51,6 +51,10 @@ export const FIXTURE_TREE: Readonly<Record<string, string>> = {
 	"packages/app/src/__testing__/helpers.ts": "export const helper = 1;\n",
 	"packages/app/src/__testing__/index.ts": "export * from './helpers.js';\n",
 	"packages/app/src/Widget.stories.tsx": "export const Story = () => null;\n",
+	// Name-declared development files sitting BESIDE production code, not inside `__tests__/`. Under a
+	// dunder-only rule these would classify production and their imports would read as crossings.
+	"packages/app/src/Widget.test.ts": 'import { helper } from "./__testing__/helpers.js";\nexport const t = helper;\n',
+	"packages/app/src/Widget.spec.ts": 'import { helper } from "./__testing__/helpers.js";\nexport const s = helper;\n',
 	"packages/app/vitest.config.ts": "export default {};\n",
 	"packages/app/playwright.config.ts": "export default {};\n",
 	"packages/app/playwright.ah1.config.ts": "export default {};\n",
@@ -143,6 +147,10 @@ const CLASSIFICATION_CASES: readonly FixtureCase[] = [
 	expectClassification("packages/app/src/__testing__/helpers.ts", "development", "dunder-segment"),
 	expectClassification("packages/app/src/__generated__/x.ts", "development", "dunder-segment"),
 	expectClassification("packages/app/src/Widget.stories.tsx", "development", "stories-suffix"),
+	expectClassification("packages/app/src/Widget.test.ts", "development", "test-suffix"),
+	expectClassification("packages/app/src/Widget.test.tsx", "development", "test-suffix"),
+	expectClassification("packages/app/src/Widget.spec.ts", "development", "spec-suffix"),
+	expectClassification("packages/app/src/Widget.spec.tsx", "development", "spec-suffix"),
 	expectClassification("packages/eval/src/smoke/index.ts", "development", "development-package:eval"),
 	expectClassification("packages/eslint-plugin-authz/src/x.ts", "development", "development-package:eslint-plugin-authz"),
 	expectClassification("packages/eslint-plugin-design/src/x.ts", "development", "development-package:eslint-plugin-design"),
@@ -159,7 +167,56 @@ const CLASSIFICATION_CASES: readonly FixtureCase[] = [
 	expectClassification("packages/app/package.json", "production", "default-production"),
 	expectClassification("packages/app/vite.config.ts", "production", "default-production"),
 	// Precedence: a path matching two clauses resolves to the earlier one, and the order is
-	// declared, not incidental. Both of these would classify differently under a different order.
+	// declared, not incidental. Each of these would classify differently under a different order.
+	//
+	// The name-declared FILE mechanism beats the name-declared FOLDER mechanism. This is the pairing
+	// the reorder exists for: almost every `.test.ts` also sits under `__tests__/`, so with the folder
+	// clause first `test-suffix` would match nothing and `pattern-live` would kill the build.
+	{
+		id: "classify:precedence:test-suffix-beats-dunder",
+		detail: "packages/app/src/__tests__/x.test.ts resolves to test-suffix, not dunder-segment",
+		run: () => {
+			const record = classifyFile("packages/app/src/__tests__/x.test.ts");
+			return record.patternId === "test-suffix" ? null : `got ${record.patternId}`;
+		},
+	},
+	{
+		id: "classify:precedence:spec-suffix-beats-dunder",
+		detail: "packages/app/__e2e__/flow.spec.ts resolves to spec-suffix, not dunder-segment",
+		run: () => {
+			const record = classifyFile("packages/app/__e2e__/flow.spec.ts");
+			return record.patternId === "spec-suffix" ? null : `got ${record.patternId}`;
+		},
+	},
+	{
+		id: "classify:precedence:stories-suffix-beats-dunder",
+		detail: "packages/app/src/__tests__/Foo.stories.tsx resolves to stories-suffix, not dunder-segment",
+		run: () => {
+			const record = classifyFile("packages/app/src/__tests__/Foo.stories.tsx");
+			return record.patternId === "stories-suffix" ? null : `got ${record.patternId}`;
+		},
+	},
+	// ...and the folder mechanism still stands on its own for a file whose name declares nothing.
+	{
+		id: "classify:precedence:unsuffixed-helper-in-dunder-folder-stays-dunder",
+		detail: "packages/app/src/__tests__/_helpers.ts resolves to dunder-segment — the folder clause is not vestigial",
+		run: () => {
+			const record = classifyFile("packages/app/src/__tests__/_helpers.ts");
+			return record.patternId === "dunder-segment" ? null : `got ${record.patternId}`;
+		},
+	},
+	// A name-declared development file beside production code needs no folder at all.
+	{
+		id: "classify:precedence:stories-beside-production-component",
+		detail: "packages/app/src/components/Card.stories.tsx resolves to stories-suffix with no dunder folder in sight",
+		run: () => {
+			const record = classifyFile("packages/app/src/components/Card.stories.tsx");
+			if (record.patternId !== "stories-suffix") return `got ${record.patternId}`;
+			// The component it sits beside stays production — the suffix classifies the file, not the folder.
+			const sibling = classifyFile("packages/app/src/components/Card.tsx");
+			return sibling.kind === "production" ? null : `sibling component classified ${sibling.kind}`;
+		},
+	},
 	{
 		id: "classify:precedence:dunder-beats-development-package",
 		detail: "packages/eval/src/__tests__/x.ts resolves to dunder-segment, not development-package:eval",
@@ -218,6 +275,17 @@ const NEGATIVE_CASES: readonly FixtureCase[] = [
 				.evaluate(census)
 				.filter((f) => f.path === "packages/app/src/__tests__/uses-dev.ts");
 			return bad.length === 0 ? null : "flagged a development->development edge";
+		},
+	},
+	{
+		id: "detect:name-declared-dev-file-beside-production-may-import-development",
+		detail: "a `.test.ts`/`.spec.ts` sitting beside production code imports development code legally",
+		run: () => {
+			const census = buildFixtureCensus();
+			const reported = noProductionImportsDevelopment
+				.evaluate(census)
+				.filter((f) => f.path === "packages/app/src/Widget.test.ts" || f.path === "packages/app/src/Widget.spec.ts");
+			return reported.length === 0 ? null : `flagged ${reported.map((f) => f.path).join(", ")}`;
 		},
 	},
 	{
