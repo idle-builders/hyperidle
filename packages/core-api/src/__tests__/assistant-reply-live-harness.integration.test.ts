@@ -45,6 +45,7 @@ import {
 } from "@hyperidle/conversation";
 import {
 	type AgentSessionRequest,
+	agentRunConfig,
 	agentSessionRequests,
 	agentWorkIntents,
 	type HyperIdleDb,
@@ -69,13 +70,13 @@ import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { createApp } from "../app.js";
 import {
 	createInProcessCoreApiTransport,
 	registerCoreApiTransport,
 } from "../services/core-api-port-composition.js";
 import { queueDeps } from "../services/durable-agent-queue.js";
 import { runSession } from "../services/run-orchestration-composition.js";
+import { createTestApp } from "../test-utils.js";
 
 const NOW = "2026-08-04T00:00:00.000Z";
 const TEST_API_KEY = "au27-inc8-live-harness-key";
@@ -101,7 +102,7 @@ interface LiveServer {
 }
 
 /**
- * A bare `createApp` (real DB + real routes + real MCP route) with NO
+ * A bare `createTestApp` (real DB + real routes + real MCP route) with NO
  * `startRuntime` poller wired — this test drains the intent and calls
  * `runSession` itself, exactly once, with a test-controlled `resolvedModel`.
  * Started as a REAL listening HTTP server (not `app.fetch` in-process) because
@@ -110,10 +111,15 @@ interface LiveServer {
 async function startLiveServer(db: HyperIdleDb): Promise<LiveServer> {
 	const eventBus = new EventBus();
 	const mcpBridgeRegistry = createMcpToolBridge({ enforcement: createReturnEnforcement() });
-	const app: Hono = await createApp({
+	// @lore AU26 B1b: the Layer no longer takes a `registerMcpRoute` option —
+	// mounting is an Application decision. `createTestApp` IS the test harness
+	// Application, and its `registerPreAuthRoutes` hook mounts the bridge at the
+	// same point production does: after both Layers' pre-auth routes, before
+	// auth (an MCP client authenticates by session token in the URL).
+	const app: Hono = await createTestApp({
 		db,
 		eventBus,
-		registerMcpRoute: (apiRouter) => {
+		registerPreAuthRoutes: (apiRouter) => {
 			apiRouter.route("/", mcpBridgeRegistry.router);
 		},
 	});
@@ -129,7 +135,7 @@ async function startLiveServer(db: HyperIdleDb): Promise<LiveServer> {
 	// Mirrors production composition (`server-factory.ts`'s registration
 	// list) — the never-silent net (Increment 5) posts a fixed notice
 	// message, authored as the SAME assistant agent, when a turn ends
-	// without returning. `createApp` alone (unlike `createServer`) does not
+	// without returning. `createTestApp` alone (unlike `createServer`) does not
 	// wire this reaction; wiring it here so the sanity-break below is
 	// against the real subscriber, not an absent one that would make the
 	// break meaningless.
@@ -167,9 +173,16 @@ async function seedFounderAndAssistant(
 		role: "assistant",
 		agentCategory: "individual",
 		status: "active",
+		createdAt: NOW,
+	});
+	// @lore AU26 G1: `harnessType` is the adapter-pool selector and is
+	// LOAD-BEARING for this test's per-harness lanes. It lives in
+	// `agent_run_config` now — an agent-orchestration-owned table the drain
+	// reads live — not on the `users` identity row.
+	await db.insert(agentRunConfig).values({
+		agentUserId: assistantId,
 		harnessType: opts.harnessType,
 		maxConcurrentSessions: 1,
-		createdAt: NOW,
 	});
 	await db.insert(threads).values({
 		id: opts.threadId,

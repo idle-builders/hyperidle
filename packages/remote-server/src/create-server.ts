@@ -117,9 +117,13 @@ import { WebSocketServer } from "ws";
  * production credential resolver. When resolution fails (missing credential),
  * the drain treats it as unrecoverable-per-request — correct.
  *
- * @lore AU27 Increment 6 (Decision 4, C11): `modelOverride` is the target
- * agent's baked `modelId`/`modelProvider` (uniform for all six kinds, not
- * assistant-only — see `agent-work-intent-recorder.ts`'s `BakedAgentRunnableConfig`).
+ * @lore AU27 Increment 6 (Decision 4, C11) x AU26 G1: `modelOverride` is the
+ * target agent's `modelId`/`modelProvider`, applied uniformly for all six kinds,
+ * not assistant-only. AU27 read it off the emit-time `agentConfig` bake because
+ * the columns lived on `users`; AU26 relocated them into `agent_run_config`, an
+ * agent-orchestration-owned table, so `start-runtime.ts`'s drain reads them LIVE
+ * through `ports.agentRunConfig` and passes them here — same value, same
+ * uniformity, one turn fresher.
  * `resolveModel({kind:"agent"})` sets `agentPath: true`, and `resolveProvider`'s
  * `openai-compatible` case THROWS `UnsupportedAgentProviderError` when
  * `agentPath` is set — `openai-compatible` is a real, user-selectable per-agent

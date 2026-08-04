@@ -141,9 +141,7 @@ function parseBakedContextBundle(request: AgentSessionRequest): BakedContextBund
  * is module-internal again — the bake it reads now carries only the four
  * genuinely-core fields (`kind`/`status`/`role`/`teamId`).
  */
-function parseBakedAgentConfig(
-	request: AgentSessionRequest,
-): BakedAgentRunnableConfig | undefined {
+function parseBakedAgentConfig(request: AgentSessionRequest): BakedAgentRunnableConfig | undefined {
 	if (!request.payloadJson) return undefined;
 	const payload = JSON.parse(request.payloadJson) as unknown;
 	if (!payload || typeof payload !== "object" || !("agentConfig" in payload)) return undefined;

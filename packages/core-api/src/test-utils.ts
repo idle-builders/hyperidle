@@ -24,6 +24,20 @@ export interface TestAppOptions extends AppOptions {
 	 * (when a `db` is present), exactly as production does.
 	 */
 	agentOrchestration?: AgentOrchestrationBoot;
+	/**
+	 * Mount extra routes on the `/api` router at the exact point production's
+	 * Application mounts the MCP bridge: after both Layers' pre-auth
+	 * registrations, BEFORE `stack.auth`.
+	 *
+	 * @lore AU26 B1b x AU27: this hook used to be `AppOptions.registerMcpRoute`,
+	 * a core-api Layer option. Mounting is an APPLICATION decision, so the Layer
+	 * shed it — `create-server.ts` routes the bridge itself. A test harness IS an
+	 * Application, so the hook belongs here instead of being dropped: an MCP
+	 * client authenticates with the 64-char hex session token in the URL, not
+	 * X-API-Key, so the route must sit in front of the auth middleware exactly as
+	 * it does in production.
+	 */
+	registerPreAuthRoutes?: (apiRouter: Hono) => void;
 }
 
 /**
@@ -66,6 +80,7 @@ export async function createTestApp(options?: TestAppOptions): Promise<Hono> {
 	api.use("*", stack.bodyLimit);
 	coreApi.registerPreAuthRoutes(api);
 	agentOrchestration?.registerPreAuthRoutes(api);
+	options?.registerPreAuthRoutes?.(api);
 	api.use("*", stack.auth);
 	api.use("*", stack.failClosed);
 	api.route("/", coreApi.app);

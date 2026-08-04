@@ -77,7 +77,6 @@ async function seedFixtures(db: HyperIdleDb): Promise<void> {
 		modelProvider: "openrouter",
 		systemPrompt: "Original row persona — the app default.",
 		maxConcurrentSessions: 1,
-		createdAt: now,
 	});
 	await db.insert(threads).values({
 		id: THREAD_ID,
