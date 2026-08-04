@@ -1,57 +1,26 @@
 /**
- * AR4b — Formation seam: the assistant's persona + tool surface are decided by
- * the app-owned formation resolver at turn time, NOT read from a hardcoded constant.
+ * AR4b — Formation seam: the assistant's persona is decided at turn time from
+ * the app-owned `users.systemPrompt` row, NOT a hardcoded constant.
  *
- * Verifies AC3: changing the resolver response changes the assistant's form.
- *
- * This is a unit test (*.test.ts) — it mocks runSession to capture the
- * conversational parameters (systemPromptOverride + draftRegistry) handed to it
- * by runAssistantTurn after the formation seam consultation.
- *
- * The key observable: runAssistantTurn calls resolveAssistantFormation()
- * BEFORE calling the runtime. The captured systemPromptOverride must reflect
- * the current resolver response, proving the formation seam is consulted at turn time.
- *
- * This test inserts a durable request fixture before invoking runAssistantTurn,
- * the split "consume the exact durable request" entrypoint.
- *
- * @lore AR4b: We observe via the runSession call-site capture rather than
- * by reading the DB or the AGENTS.md file on disk, because:
- *   1. The persona lands in the assembled prompt (not the DB row) at turn time.
- *   2. runSession receives it as params.conversational.systemPromptOverride.
- *   3. Mocking runSession lets us capture that field without
- *      running a real harness (unit test scope).
+ * The persona is `agentConfig.systemPrompt` (`provisioner.ts`), baked at EMIT
+ * time by `resolveAssistantTurnRequest` from the assistant agent's own
+ * `users` row, the exact column `PATCH /api/users/:userId/assistant` writes.
+ * Proven at the BAKE boundary — the `agent_work_intents` row's
+ * `agentConfig.systemPrompt` — since there is no second execution entry to
+ * mock.
  */
 
-import type { CredentialResolver } from "@hyperidle/connections";
-import {
-	type AgentSessionRequest,
-	type HyperIdleDb,
-	messages,
-	resolveAgentScaffoldSpecs,
-	threads,
-	users,
-} from "@hyperidle/db";
-import { AdapterPool, createHarnessAdapter } from "@hyperidle/harness-registry";
-import { createSessionRequest } from "@hyperidle/session-requests";
-import { EventBus } from "@hyperidle/shared";
+import { agentWorkIntents, type HyperIdleDb, threads, users } from "@hyperidle/db";
+import type { BakedAgentRunnableConfig } from "@hyperidle/shared";
+import { and, eq } from "drizzle-orm";
+import type { Hono } from "hono";
 import { beforeEach, describe, expect, vi } from "vitest";
 import {
 	createInProcessCoreApiTransport,
 	registerCoreApiTransport,
 } from "../services/core-api-port-composition.js";
-import { dispatchOps } from "../services/dispatch-bindings.js";
 import { test as baseTest } from "../test-fixtures.js";
 
-/**
- * @lore AU21 §9 Increment 2: `runTurn` → `buildAssistantDraftRegistry` →
- * `resolveDraftTeamId` now reaches `ports.coreApi.getUserById` (the seam) —
- * this file-scoped `auto:true` fixture registers a real in-process
- * `CoreApiPort` transport off THIS test's own `app`, without forcing
- * `app`'s full subscriber wiring onto every OTHER file that imports the
- * bare `test` from `test-fixtures.ts` (see the same pattern in the
- * `create-*`/`log-task`/`write-memory`/etc. integration tests).
- */
 const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
 	coreApiSeamRegistration: [
 		async ({ app }, use) => {
@@ -62,105 +31,11 @@ const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
 	],
 });
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
 const FOUNDER_ID = "founder-ar4b-formation";
 const ASSISTANT_ID = `ast-${FOUNDER_ID}`;
 const THREAD_ID = "thread-ar4b-formation";
-const TRIGGER_MSG_ID = "msg-trigger-ar4b-formation";
+const GATE_API_KEY = "ar4b-formation-key";
 const ALPHA_PERSONA = "AR4b-test-persona-alpha — you are the Alpha test assistant.";
-
-const formationState = vi.hoisted(() => ({
-	persona: null as string | null,
-	calls: [] as Array<{ userId: string }>,
-}));
-
-// ─── Captured provisionSession calls ─────────────────────────────────────────
-
-type CapturedConversational = {
-	systemPromptOverride?: string | null;
-	draftRegistryToolNames?: string[];
-};
-
-const capturedConversational: CapturedConversational[] = [];
-
-/**
- * Mock runSession to capture the conversational parameters.
- * The mock resolves immediately with a completed outcome + a stub reply
- * so runAssistantTurn persists a reply row (not a notice).
- *
- * @lore AR4b: We capture params.conversational.systemPromptOverride to prove the
- * formation seam consulted the app resolver at turn time. The mock never runs
- * a real harness — this is a unit test of the call-site wiring, not the turn itself.
- */
-/**
- * @lore AU21 §6 Decision F1: `resolveScaffoldSpecs` dissolved from the
- * `agent-selection` Service port into `@hyperidle/db`'s pure
- * `resolveAgentScaffoldSpecs` — a leaf import `dispatch`'s `service.ts` now
- * calls directly (no DI port to spy on). This unit test mocks the leaf
- * export itself (`importOriginal` keeps every other `@hyperidle/db` export —
- * tables, `HyperIdleDb`, etc. — real) to keep injecting a controllable
- * persona, same intent as the retired `vi.spyOn(agentSelectionService, ...)`.
- */
-vi.mock("@hyperidle/db", async (importOriginal) => {
-	const actual = await importOriginal<typeof import("@hyperidle/db")>();
-	return { ...actual, resolveAgentScaffoldSpecs: vi.fn() };
-});
-
-vi.mock("../services/run-orchestration-composition.js", async (importOriginal) => {
-	const original =
-		await importOriginal<typeof import("../services/run-orchestration-composition.js")>();
-	return {
-		...original,
-		runSession: vi.fn(async (_deps, spec) => {
-			if (spec.mode === "durable" && spec.conversational) {
-				const conversational = spec.conversational as {
-					systemPromptOverride?: string | null;
-					draftRegistry: { definitions: Array<{ name: string }> };
-				};
-				capturedConversational.push({
-					systemPromptOverride: conversational.systemPromptOverride,
-					draftRegistryToolNames: conversational.draftRegistry.definitions.map(
-						(d: { name: string }) => d.name,
-					),
-				});
-			}
-			return {
-				mode: "completed" as const,
-				sessionId: "stub-session-ar4b",
-				outcome: "completed",
-				taskId: null,
-				forceReturnCount: 0,
-				conversationalReply: "AR4b formation seam stub reply",
-			};
-		}),
-	};
-});
-
-function setFormationPersona(persona: string | null): void {
-	formationState.persona = persona;
-}
-
-// ─── Credential resolver ──────────────────────────────────────────────────────
-
-/**
- * @lore AU21 §9 Increment 11 (Decision H2): "the assistant turn is NOT
- * special" — model resolution is now TIER-based only (`resolveModelTier`),
- * matching every other intent kind; dispatch no longer reads the assistant
- * agent's own `modelId`/`modelProvider` row fields (that read, part of the
- * now-deleted `getOrCreateUser`, is gone). This test is about the FORMATION
- * seam (persona/draft-tools), not model-provider selection — `seedFixtures`'s
- * `modelProvider: "openrouter"` is incidental legacy setup, so the resolver
- * grants whichever credential the (now provider-agnostic) tier resolution
- * asks for instead of gating on `openrouter_api_key` specifically.
- */
-const credentialResolver: CredentialResolver = {
-	async resolve(): Promise<string | null> {
-		return "sk-test-ar4b-seam";
-	},
-};
-
-// ─── Fixtures ─────────────────────────────────────────────────────────────────
 
 async function seedFixtures(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
@@ -182,7 +57,7 @@ async function seedFixtures(db: HyperIdleDb): Promise<void> {
 		harnessType: "builtin",
 		modelId: "deepseek/deepseek-v4-flash",
 		modelProvider: "openrouter",
-		systemPrompt: "Original row persona — should be overridden at turn time",
+		systemPrompt: "Original row persona — the app default.",
 		maxConcurrentSessions: 1,
 		createdAt: now,
 	});
@@ -196,194 +71,81 @@ async function seedFixtures(db: HyperIdleDb): Promise<void> {
 		createdAt: now,
 		lastActiveAt: now,
 	});
-	await db.insert(messages).values({
-		id: TRIGGER_MSG_ID,
-		threadId: THREAD_ID,
-		senderId: FOUNDER_ID,
-		type: "plain",
-		payload: JSON.stringify({ text: "AR4b formation seam test" }),
-		clientKey: `ck-${TRIGGER_MSG_ID}`,
-		createdAt: now,
-	});
 }
 
-/**
- * Builds the durable request the same way the production intent drain does
- * through the coherent request API, so runAssistantTurn is always
- * consuming an already-created row — mirroring the real production sequence.
- */
-async function createAssistantRequest(
+/** Posts a message on the assistant thread and returns the baked `agentConfig` for the resulting intent. */
+async function postAndCaptureBakedAgentConfig(
+	app: Hono,
 	db: HyperIdleDb,
-	params: { userId: string; threadId: string; triggerMessageId: string },
-): Promise<AgentSessionRequest> {
-	const assistantAgentId = `ast-${params.userId}`;
-	return createSessionRequest(db, {
-		kind: "direct",
-		request: {
-			sourceKind: "assistant",
-			sourceId: params.triggerMessageId,
-			streamId: `thread:${params.threadId}`,
-			agentId: assistantAgentId,
-			promptMode: "conversation",
-			userId: params.userId,
-			idempotencyKey: `assistant:${params.triggerMessageId}`,
-			payloadJson: JSON.stringify({
-				threadId: params.threadId,
-				triggerMessageId: params.triggerMessageId,
-			}),
-			sourceCorrelation: {
-				threadId: params.threadId,
-				messageId: params.triggerMessageId,
-				userId: params.userId,
-				assistantAgentId,
-			},
+	clientKey: string,
+): Promise<BakedAgentRunnableConfig> {
+	const res = await app.request(`/api/threads/${THREAD_ID}/messages`, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			"X-API-Key": GATE_API_KEY,
+			"X-Identity": FOUNDER_ID,
 		},
-	});
-}
-
-/** Test-only replacement for the deleted direct-create `runAssistantTurn` entrypoint. */
-async function runTurn(
-	deps: Parameters<typeof dispatchOps.runAssistantTurn>[0],
-	params: { userId: string; threadId: string; triggerMessageId: string },
-): Promise<void> {
-	const request = await createAssistantRequest(deps.db, params);
-	await dispatchOps.runAssistantTurn(deps, request);
-}
-
-function makeAdapterPool(): AdapterPool {
-	const pool = new AdapterPool();
-	pool.register("builtin-ar4b", createHarnessAdapter({ kind: "builtin" }), {
-		name: "Builtin AR4b Test",
-		kind: "local",
-		type: "builtin",
-		modelProviders: ["anthropic", "openrouter", "openai-compatible"],
-		maxConcurrent: 5,
-	});
-	return pool;
-}
-
-// ─── Tests ────────────────────────────────────────────────────────────────────
-
-describe("AR4b: formation seam — app resolver decides persona + tools at turn time", () => {
-	beforeEach(() => {
-		capturedConversational.length = 0;
-		formationState.calls.length = 0;
-		setFormationPersona(null);
-		vi.clearAllMocks();
-		// @lore AU20 Ag1b / AU21 §6 Decision F1: mock the leaf
-		// `resolveAgentScaffoldSpecs` export so `dispatch`'s direct call
-		// returns a controllable persona without hitting the real fixed
-		// `user_assistant` system prompt.
-		vi.mocked(resolveAgentScaffoldSpecs).mockImplementation((request) => {
-			formationState.calls.push({ userId: request.ownerUserId ?? "" });
-			return [
-				{
-					role: "assistant" as const,
-					name: "Assistant",
-					agentCategory: "individual" as const,
-					systemPrompt: formationState.persona,
-				},
-			];
-		});
-	});
-
-	test("default app assistant formation leaves persona unset", async ({ db }) => {
-		await seedFixtures(db);
-
-		const eventBus = new EventBus();
-		await runTurn(
-			{
-				db,
-				eventBus,
-				adapterPool: makeAdapterPool(),
-				credentialResolver,
-			},
-			{ userId: FOUNDER_ID, threadId: THREAD_ID, triggerMessageId: TRIGGER_MSG_ID },
-		);
-
-		expect(capturedConversational).toHaveLength(1);
-		const captured = capturedConversational[0]!;
-		expect(captured.systemPromptOverride).toBeNull();
-		// Draft surface is "standard" → two draft tools present
-		expect(captured.draftRegistryToolNames).toEqual(
-			expect.arrayContaining(["create_bet", "edit_bet"]),
-		);
-		// @lore AU20 Ag1b: resolveScaffoldSpecs receives ownerUserId (not threadId — dissolved).
-		expect(formationState.calls).toEqual([{ userId: FOUNDER_ID }]);
-	});
-
-	test("app assistant formation persona is applied to the runtime turn", async ({ db }) => {
-		setFormationPersona(ALPHA_PERSONA);
-		await seedFixtures(db);
-
-		const eventBus = new EventBus();
-		await runTurn(
-			{
-				db,
-				eventBus,
-				adapterPool: makeAdapterPool(),
-				credentialResolver,
-			},
-			{ userId: FOUNDER_ID, threadId: THREAD_ID, triggerMessageId: TRIGGER_MSG_ID },
-		);
-
-		expect(capturedConversational).toHaveLength(1);
-		const captured = capturedConversational[0]!;
-		expect(captured.systemPromptOverride).toBe(ALPHA_PERSONA);
-	});
-
-	test("changing formation response changes the assistant's form (AC3)", async ({ db }) => {
-		await seedFixtures(db);
-		const eventBus = new EventBus();
-		const pool = makeAdapterPool();
-
-		// Turn 1: default app formation.
-		setFormationPersona(null);
-		await runTurn(
-			{ db, eventBus, adapterPool: pool, credentialResolver },
-			{ userId: FOUNDER_ID, threadId: THREAD_ID, triggerMessageId: TRIGGER_MSG_ID },
-		);
-		const minimalCapture = capturedConversational[0]!;
-
-		capturedConversational.length = 0;
-		const secondTriggerMessageId = `${TRIGGER_MSG_ID}-second`;
-		await db.insert(messages).values({
-			id: secondTriggerMessageId,
-			threadId: THREAD_ID,
-			senderId: FOUNDER_ID,
+		body: JSON.stringify({
 			type: "plain",
-			payload: JSON.stringify({ text: "AR4b formation seam test, second turn" }),
-			clientKey: `ck-${secondTriggerMessageId}`,
-			createdAt: new Date().toISOString(),
-		});
+			payload: { text: `AR4b formation seam test (${clientKey})` },
+			clientKey,
+		}),
+	});
+	expect([200, 201]).toContain(res.status);
+	const body = (await res.json()) as { message: { id: string } };
+	const messageId = body.message.id;
 
-		// Turn 2: resolver returns a persona override.
-		setFormationPersona(ALPHA_PERSONA);
-		await runTurn(
-			{ db, eventBus, adapterPool: pool, credentialResolver },
-			{ userId: FOUNDER_ID, threadId: THREAD_ID, triggerMessageId: secondTriggerMessageId },
+	const [intent] = await db
+		.select()
+		.from(agentWorkIntents)
+		.where(
+			and(eq(agentWorkIntents.kind, "assistant_turn"), eq(agentWorkIntents.sourceId, messageId)),
 		);
-		const alphaCapture = capturedConversational[0]!;
+	expect(intent).toBeDefined();
+	const baked = JSON.parse(intent?.bakedRequestJson ?? "{}") as {
+		agentConfig?: BakedAgentRunnableConfig;
+	};
+	expect(baked.agentConfig).toBeDefined();
+	return baked.agentConfig as BakedAgentRunnableConfig;
+}
 
-		expect(minimalCapture.systemPromptOverride).toBeNull();
-		expect(alphaCapture.systemPromptOverride).toBe(ALPHA_PERSONA);
-		expect(minimalCapture.systemPromptOverride).not.toBe(alphaCapture.systemPromptOverride);
+describe("AR4b: formation seam — the assistant's persona is baked from users.systemPrompt at turn time", () => {
+	beforeEach(() => {
+		vi.stubEnv("HYPERIDLE_API_KEY", GATE_API_KEY);
 	});
 
-	test("runAssistantTurn calls the formation resolver at turn time", async ({ db }) => {
-		// Set resolver response AFTER seeding but BEFORE runAssistantTurn — verifies turn-time consultation.
+	test("default row persona is baked when no PATCH has ever run", async ({ db, app }) => {
 		await seedFixtures(db);
-		setFormationPersona(ALPHA_PERSONA);
 
-		const eventBus = new EventBus();
-		await runTurn(
-			{ db, eventBus, adapterPool: makeAdapterPool(), credentialResolver },
-			{ userId: FOUNDER_ID, threadId: THREAD_ID, triggerMessageId: TRIGGER_MSG_ID },
-		);
+		const agentConfig = await postAndCaptureBakedAgentConfig(app, db, "msg-ar4b-default");
+		expect(agentConfig.systemPrompt).toBe("Original row persona — the app default.");
+	});
 
-		expect(capturedConversational).toHaveLength(1);
-		expect(capturedConversational[0]!.systemPromptOverride).toBe(ALPHA_PERSONA);
-		// @lore AU20 Ag1b: resolveScaffoldSpecs receives ownerUserId (not threadId — dissolved).
-		expect(formationState.calls).toEqual([{ userId: FOUNDER_ID }]);
+	test("a PATCH /api/users/:userId/assistant persona edit is baked into the NEXT turn (AC3)", async ({
+		db,
+		app,
+	}) => {
+		await seedFixtures(db);
+
+		const before = await postAndCaptureBakedAgentConfig(app, db, "msg-ar4b-before-patch");
+		expect(before.systemPrompt).toBe("Original row persona — the app default.");
+
+		const patchRes = await app.request(`/api/users/${FOUNDER_ID}/assistant`, {
+			method: "PATCH",
+			headers: {
+				"Content-Type": "application/json",
+				"X-API-Key": GATE_API_KEY,
+				"X-Identity": FOUNDER_ID,
+			},
+			body: JSON.stringify({ systemPrompt: ALPHA_PERSONA }),
+		});
+		expect(patchRes.status).toBe(200);
+
+		const after = await postAndCaptureBakedAgentConfig(app, db, "msg-ar4b-after-patch");
+		expect(after.systemPrompt).toBe(ALPHA_PERSONA);
+
+		// Changing the formation response changes the assistant's form.
+		expect(before.systemPrompt).not.toBe(after.systemPrompt);
 	});
 });

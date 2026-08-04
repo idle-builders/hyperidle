@@ -135,7 +135,17 @@ function parseBakedContextBundle(request: AgentSessionRequest): BakedContextBund
  * Feeds `admitSession`'s Phase 1 (see `provisioner.ts`'s Wave E note) — a
  * missing bake is a hard provisioning failure there, not a silent allow.
  */
-function parseBakedAgentConfig(request: AgentSessionRequest): BakedAgentRunnableConfig | undefined {
+/**
+ * AU27 Increment 6 (Decision 4) — exported so `start-runtime.ts`'s drain can
+ * read the target agent's baked `modelId`/`modelProvider` override BEFORE
+ * `runSession`/`consumeAgentSessionRequest` re-parses the same payload — the
+ * drain resolves the model up front (`deps.resolveModel`), the same shape it
+ * already used pre-AU27, just now uniform across all six kinds instead of
+ * assistant-only.
+ */
+export function parseBakedAgentConfig(
+	request: AgentSessionRequest,
+): BakedAgentRunnableConfig | undefined {
 	if (!request.payloadJson) return undefined;
 	const payload = JSON.parse(request.payloadJson) as unknown;
 	if (!payload || typeof payload !== "object" || !("agentConfig" in payload)) return undefined;
@@ -479,7 +489,6 @@ async function consumeAgentSessionRequest(
 		...(options.resolvedModel ? { resolvedModel: options.resolvedModel } : {}),
 		...(options.resolvedFastModel ? { resolvedFastModel: options.resolvedFastModel } : {}),
 		...(options.sessionWorkflow ? { sessionWorkflow: options.sessionWorkflow } : {}),
-		...(options.conversational ? { conversational: options.conversational } : {}),
 		...(claimedRequest.sourceKind === "routine" && "routineId" in sourceCorrelation
 			? { routineId: sourceCorrelation.routineId }
 			: {}),

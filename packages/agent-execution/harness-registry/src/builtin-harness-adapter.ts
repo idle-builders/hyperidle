@@ -12,7 +12,6 @@
  */
 
 import type {
-	CapturedToolCall,
 	ConversationMessage,
 	HarnessAdapter,
 	HarnessCapabilities,
@@ -388,12 +387,14 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 		}
 
 		try {
-			// @lore AH3 H3: Branch on config.messages to distinguish conversational
-			// assistant turns from task-planning sessions. When messages are present,
-			// run a single chat completion (the user's question → assistant's answer).
+			// @lore AH3 H3: Branch on config.messages to distinguish a chat-completion
+			// turn from a task-planning session — a GENERIC input keyed on
+			// `params.transcript`'s presence for ANY kind, not an assistant-only
+			// special case. When messages are present, run a single chat
+			// completion (the caller's message → the agent's reply).
 			// When absent, run the full task-planning loop (existing task session path).
 			// This is the fix that stops the adapter from answering PLANNING_PROMPT
-			// instead of the user's actual question.
+			// instead of the caller's actual question.
 			if (session.config.messages && session.config.messages.length > 0) {
 				await this.runChatTurn(session);
 			} else {
@@ -451,18 +452,19 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 	}
 
 	/**
-	 * Run a conversational chat turn with a bounded tool-use loop.
+	 * Run a chat-completion turn with a bounded tool-use loop.
 	 *
-	 * @lore AH3 H3: This is the assistant turn's execution path. Unlike the
+	 * @lore AH3 H3: This is the assistant turn's execution path (and, since
+	 * AU27 Increment 6, any other kind that bakes a transcript). Unlike the
 	 * task-planning loop (runPlanningTurn → execute loop → reflect), a chat turn
 	 * uses the thread transcript as seed messages and runs AT MOST MAX_TOOL_ITERATIONS
 	 * tool-use rounds before emitting a completion (never silent).
 	 *
 	 * @lore AK4: Bounded loop added (MAX_TOOL_ITERATIONS=3). If registry is
 	 * present (injected via setSessionToolRegistry), tool_use blocks are executed
-	 * via executeToolCalls. CapturedToolCall[] is accumulated and surfaced on the
-	 * CompletionEvent so runAssistantTurn can attach them to payload.toolCalls.
-	 * No planning prompt, no reflection, no sandbox — task-free.
+	 * via executeToolCalls. No planning prompt, no reflection, no sandbox — task-free.
+	 * `hadToolCalls` (a plain boolean) is the signal that decides whether
+	 * CAP_FALLBACK fires (see below).
 	 *
 	 * Never-silent: if the cap is hit without a text end_turn, the fallback copy
 	 * is emitted so the client always receives a response.
@@ -473,7 +475,7 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 		const resolvedModel = config.resolvedModel;
 		if (!resolvedModel) throw new Error("resolvedModel is required");
 
-		// @lore AK4: MAX_TOOL_ITERATIONS caps the conversational tool-use loop.
+		// @lore AK4: MAX_TOOL_ITERATIONS caps the chat-turn tool-use loop.
 		// 3 iterations: matches the accepted v1 tradeoff (one bet, one refinement,
 		// one recovery). ASSISTANT_TURN_TIMEOUT_MS still wraps the whole turn.
 		const MAX_TOOL_ITERATIONS = 3;
@@ -489,7 +491,7 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 			});
 		}
 
-		const capturedToolCalls: CapturedToolCall[] = [];
+		let hadToolCalls = false;
 		let lastText = "";
 		let toolIterations = 0;
 
@@ -525,19 +527,7 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 
 				// Execute tool calls (real handlers via registry)
 				const results = await this.executeToolCalls(session, toolUseBlocks);
-
-				// Accumulate CapturedToolCall[] for surface in CompletionEvent
-				for (let i = 0; i < toolUseBlocks.length; i++) {
-					const block = toolUseBlocks[i];
-					const result = results[i];
-					if (!(block && result)) continue;
-					capturedToolCalls.push({
-						name: block.name,
-						input: block.input,
-						output: result.content,
-						status: result.isError ? "error" : "ok",
-					});
-				}
+				hadToolCalls = true;
 
 				// Append tool results as a user message
 				session.messages.push({
@@ -570,13 +560,15 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 			// updated budget. The forcing message is injected as a user message so
 			// the model sees it as a direct instruction.
 			//
-			// @lore AL6 v2 AK4: Force-return is EXEMPT for conversational (task-free)
-			// turns where no return actions are in the tool registry. The assistant chat
-			// path (AK4) uses a 2-tool registry (create_bet + edit_bet) without submit_review,
-			// handoff_to, or send_message. Forcing an agent to call a tool it doesn't have
-			// would cause a hard tool-not-found error. The exemption is: if none of the
-			// session's toolDefs are return actions, skip the force check entirely.
-			// AU27 Increment 3 (Decision 3): the exemption + the forcing message both
+			// @lore AL6 v2 AK4: Force-return is EXEMPT for a chat turn whose tool
+			// registry contains no return action at all. Forcing an agent to call a
+			// tool it doesn't have would cause a hard tool-not-found error. The
+			// exemption is: if none of the session's toolDefs are return actions,
+			// skip the force check entirely.
+			// The assistant's registry is the ordinary role-scoped registry,
+			// which always includes `reply`, so this exemption does not fire for
+			// the assistant in practice. It stays as a structural guard for any
+			// other chat-style session. The exemption + the forcing message both
 			// narrow to the session's specific required subset when one is baked.
 			const requiredReturnActionsChat = session.config?.requiredReturnActions;
 			const hasReturnActionInRegistry = session.toolDefs.some((td) =>
@@ -607,13 +599,12 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 				continue;
 			}
 
-			const finalText = lastText || (capturedToolCalls.length > 0 ? CAP_FALLBACK : "");
+			const finalText = lastText || (hadToolCalls ? CAP_FALLBACK : "");
 			const emitText = finalText;
 
 			this.emitEvent(session, {
 				type: "completion",
 				text: emitText,
-				...(capturedToolCalls.length > 0 ? { toolCalls: capturedToolCalls } : {}),
 			});
 			break;
 		}

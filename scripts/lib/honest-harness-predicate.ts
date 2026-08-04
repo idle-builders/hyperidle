@@ -51,6 +51,10 @@ export const EXPLICIT_HARNESS_INTEGRATION: readonly string[] = [
 	// converted to real-harness (4-lane matrix) — outside harness/__tests__/ dir
 	"__tests__/minimal-strategy-session.integration.test.ts",
 	"__tests__/bet-decomposition-real-agent.integration.test.ts",
+	// AU27 Increment 8: the assistant-turn live reply proof — real 4-harness
+	// matrix, outside harness/__tests__/ dir (needs the {db,app}-shaped
+	// core-api composition, not just harness-registry).
+	"__tests__/assistant-reply-live-harness.integration.test.ts",
 ];
 
 /**

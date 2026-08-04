@@ -271,7 +271,6 @@ export type { EnforcementEntry, EnforcementRegistry } from "./harness/enforcemen
 export type {
 	AdapterInfo,
 	AdapterMeta,
-	CapturedToolCall,
 	CompletionEvent,
 	ConversationMessage,
 	ErrorEvent,

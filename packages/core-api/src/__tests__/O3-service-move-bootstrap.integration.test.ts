@@ -152,15 +152,13 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				cleanupEffect: "interval cleared",
 				constituents: ["retention interval"],
 			},
-			{
-				owner: "dispatch lifecycle",
-				cleanupEffect: "assistant stop",
-				constituents: ["assistant"],
-			},
+			// `registerAgentLayerServices` boots one lifecycle — the assistant
+			// runs through the SAME durable poller (`startRuntime`) as every
+			// other kind.
 			// @lore AU21 §9 Increment 4: the routine scheduler (builtin-routine
-			// event reaction + the cron/due-eval tick loop) relocated out of
-			// `dispatchOps` into two SEPARATE core-api-side lifecycles — dispatch
-			// no longer knows about routines at all.
+			// event reaction + the cron/due-eval tick loop) is its own
+			// core-api-side lifecycle, separate from the builtin routine
+			// reactions below.
 			{
 				owner: "builtin routine reactions",
 				cleanupEffect: "bet_state_changed subscription stop",
@@ -279,21 +277,8 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 					clearedIntervals: 1,
 				},
 				{ unsubscribedEvents: [], clearedIntervals: 1 },
-				// @lore AU21 §9 Increment 9 (forensic-triage wave, second pass):
-				// `task_state_changed`/`session_ended` are gone — the task-queue
-				// trigger they belonged to was genuinely dead code (see
-				// `@hyperidle/dispatch`'s own `@lore`), deleted, not migrated.
-				// @lore AU21 §9 Increment 11 (Wave B): `thread_message_appended`
-				// (the pin trigger, `registerAssistantTriggerInternal`) is gone too —
-				// the pin decision moved entirely core-side (see the two new owners
-				// above). `dispatch lifecycle` now subscribes to NOTHING.
-				{
-					unsubscribedEvents: [],
-					clearedIntervals: 0,
-				},
-				// @lore AU21 §9 Increment 4: split from the single "dispatch
-				// lifecycle" disposer above — `bet_state_changed` (builtin routine
-				// reaction) and the scheduler interval now dispose separately.
+				// @lore AU21 §9 Increment 4: `bet_state_changed` (builtin routine
+				// reaction) and the scheduler interval dispose separately.
 				{ unsubscribedEvents: ["bet_state_changed"], clearedIntervals: 0 },
 				{ unsubscribedEvents: [], clearedIntervals: 1 },
 				// @lore AU21 Increment 14a: the "cost sentinel" owner (previously

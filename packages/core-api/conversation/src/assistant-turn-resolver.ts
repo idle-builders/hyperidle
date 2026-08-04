@@ -75,7 +75,7 @@ export interface AssistantTurnResolverDeps {
 /** Thrown when the source message does not exist, is deleted, or is redacted. */
 export class AssistantTurnSourceUnavailableError extends Error {}
 
-/** One raw transcript row — matches `dispatch`'s `loadRawTranscript` return shape verbatim. */
+/** One raw transcript row. */
 export interface BakedTranscriptRow {
 	readonly senderId: string;
 	readonly payload: string;
@@ -85,10 +85,9 @@ export interface BakedTranscriptRow {
 /**
  * The baked `assistant_turn` request shape, matching `resolveIntentInputInternal`'s
  * current return, PLUS (AU21 §9 Increment 11, Decision H2) the thread's full
- * conversational transcript — the same content `dispatch`'s `loadRawTranscript`
- * used to read live at execution time. Baking it here (core-api's own
- * `conversation` state, at emit time) lets `dispatch` build the harness input
- * from this payload with ZERO reads back into core.
+ * conversation transcript. Baking it here (core-api's own `conversation`
+ * state, at emit time) lets `run-orchestration`'s generic drain build the
+ * harness input from this payload with ZERO reads back into core.
  *
  * @lore AU21 §9 Increment 11 (Decision H2 follow-up, closing a Wave A
  * regression): `modelId`/`modelProvider` ride alongside `transcript` here,

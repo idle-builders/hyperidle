@@ -21,14 +21,13 @@
  * not a design-system custom component. It lives in packages/web/src/shell/.
  */
 
-import { BetCard, ThreadShell, useDialogBehavior } from "@hyperidle/design-system";
+import { ThreadShell, useDialogBehavior } from "@hyperidle/design-system";
 import type {
 	AssistantNotice,
 	BlockRef,
 	InlineRef,
 	Message,
 	PlainPayload,
-	ToolCallSummary,
 } from "@hyperidle/shared";
 import { ASSISTANT_TURN_TIMEOUT_MS } from "@hyperidle/shared";
 import { type JSX, type ReactNode, type RefObject, useCallback, useEffect } from "react";
@@ -36,154 +35,8 @@ import { useNavigate } from "react-router-dom";
 import { BlockRefEmbed } from "../components/BlockRefEmbed.js";
 import type { AssistantContextRef } from "../contexts/AssistantContext";
 import { useAssistantThread } from "../hooks/useAssistantThread";
-import { useBet } from "../hooks/useBet.js";
 import { apiFetch } from "../services/api-fetch.js";
 import { createOpenHandler } from "../services/open-handler.js";
-
-/**
- * AD8b B3.1: Render a single tinted tool-call row.
- *
- * Design spec:
- *   - Background: rgba(22, 118, 79, 0.03) (forest green tint, very low opacity)
- *   - Radius: var(--r-subtle, 10px)
- *   - Padding: 9px 12px
- *   - Tool name: 11px mono uppercase, --text-tertiary color
- *   - Result summary: 13px, --text-secondary color
- */
-function ToolCallRow({ toolCall }: { toolCall: ToolCallSummary }): JSX.Element {
-	return (
-		<div
-			style={{
-				background: "rgba(22, 118, 79, 0.03)",
-				borderRadius: "var(--r-subtle, 10px)",
-				padding: "9px 12px",
-			}}
-		>
-			<div
-				style={{
-					fontFamily: "var(--font-mono)",
-					fontSize: "11px",
-					textTransform: "uppercase",
-					color: "var(--text-tertiary)",
-					letterSpacing: "var(--tracking-caps-sm, 0.06em)",
-					marginBottom: "3px",
-				}}
-			>
-				{toolCall.name}
-			</div>
-			<div
-				style={{
-					fontSize: "13px",
-					color: "var(--text-secondary)",
-					wordBreak: "break-word",
-				}}
-			>
-				{toolCall.output}
-			</div>
-		</div>
-	);
-}
-
-/**
- * AK4 Task 6: Render a draft bet card below its toolCall row.
- *
- * When `toolCall.name` is `create_bet` or `edit_bet` and `status === 'ok'`,
- * parse `betId` from `toolCall.output` JSON, fetch via `useBet`, and render:
- *   - While loading: a skeleton placeholder (`data-testid="bet-draft-card-skeleton"`)
- *   - On data: a `BetCard` with `onClick → navigate('/work/bets/:betId')`
- *     (`data-testid="bet-draft-card"`)
- *   - On error or status !== 'ok': nothing (ToolCallRow already shows the error)
- *
- * @lore AK4: betId is parsed from the already-structured `output` JSON (design-it-twice A1).
- * The model CANNOT inject a betId — it is server-forced (CRITICAL-2 auth boundary).
- * All bet cards point at the same server-bound betId regardless of which toolCall rendered it.
- */
-function BetDraftCardForToolCall({ toolCall }: { toolCall: ToolCallSummary }): JSX.Element | null {
-	const navigate = useNavigate();
-
-	// Only render for ok create_bet / edit_bet
-	const isDraftBetTool =
-		(toolCall.name === "create_bet" || toolCall.name === "edit_bet") && toolCall.status === "ok";
-
-	let betId: string | undefined;
-	if (isDraftBetTool) {
-		try {
-			const parsed = JSON.parse(toolCall.output) as { betId?: string };
-			betId = parsed.betId;
-		} catch {
-			// unparseable output — no card
-		}
-	}
-
-	// useBet is always called (hooks must not be conditional) but with undefined when not applicable
-	const { data, loading } = useBet(isDraftBetTool && betId ? betId : undefined);
-
-	if (!(isDraftBetTool && betId)) return null;
-
-	if (loading) {
-		return (
-			<div
-				data-testid="bet-draft-card-skeleton"
-				style={{
-					height: "80px",
-					borderRadius: "var(--r-subtle)",
-					background: "var(--surface-elevated)",
-					animation: "pulse 1.5s ease-in-out infinite",
-					marginTop: "6px",
-				}}
-			/>
-		);
-	}
-
-	if (!data) return null;
-
-	const capturedBetId = betId;
-	return (
-		<div data-testid="bet-draft-card" style={{ marginTop: "6px" }}>
-			<BetCard
-				title={data.title}
-				team={data.team ?? ""}
-				status={data.status}
-				description={data.description}
-				onClick={() => navigate(`/work/bets/${capturedBetId}`)}
-			/>
-		</div>
-	);
-}
-
-/**
- * AD8b B3.1: Render tool-call summary rows for a plain message.
- *
- * When a plain message has payload.toolCalls, renders tinted rows stacked
- * vertically with 6px gap per the AC-7 design spec.
- *
- * @lore AD8b: Tool-call summaries are embedded on the assistant's plain
- * response message (not a separate message type). This keeps the thread
- * timeline clean while surfacing what the assistant actually did.
- *
- * @lore AK4: For `create_bet`/`edit_bet` ok toolCalls, `BetDraftCardForToolCall`
- * renders a BetCard alongside the ToolCallRow. Error toolCalls show only the row.
- */
-function renderToolCallSummaries(message: Message): ReactNode {
-	if (message.type !== "plain") return null;
-	const payload = message.payload as PlainPayload;
-	if (!payload.toolCalls || payload.toolCalls.length === 0) return null;
-
-	return (
-		<div
-			data-testid="tool-call-summaries"
-			style={{ display: "flex", flexDirection: "column", gap: "6px", marginTop: "6px" }}
-		>
-			{payload.toolCalls.map((tc, i) => (
-				// biome-ignore lint/suspicious/noArrayIndexKey: tool calls in a message are ordered and stable
-				<div key={i}>
-					<ToolCallRow toolCall={tc} />
-					<BetDraftCardForToolCall toolCall={tc} />
-				</div>
-			))}
-		</div>
-	);
-}
 
 /**
  * T4: renderRefEmbeds for AssistantOverlay — builds BlockRefEmbed cards for block refs.
@@ -557,9 +410,10 @@ function AssistantOverlayInner({
 	// AH3: Partition messages — notice messages are REMOVED from ThreadShell and
 	// rendered as standalone notice cards below the thread. This ensures getByText
 	// doesn't find the message bubble text AND the notice card title simultaneously.
-	// @lore AH3: renderMessageExtra injects BELOW the bubble text — so if we used it,
-	// both the bubble text and card title would match /no api key/i. Instead, we
-	// filter notice messages out of the messages array and render them separately.
+	// @lore AH3: ThreadShell's `renderMessageExtra` injects BELOW the bubble
+	// text — so both the bubble text and a card title would have matched
+	// /no api key/i. Instead, we filter notice messages out of the messages
+	// array and render them separately, unrelated to that prop.
 	const noticeMessages = msgsAsc.filter(
 		(m): m is Message & { type: "plain" } =>
 			m.type === "plain" && !!(m.payload as PlainPayload).notice,
@@ -597,7 +451,6 @@ function AssistantOverlayInner({
 				onAppendMessage={handleAppendMessage}
 				hostTitle="Assistant"
 				renderRefEmbeds={(refs) => renderRefEmbedsForAssistant(refs, navigate)}
-				renderMessageExtra={renderToolCallSummaries}
 			/>
 			{/* AH3: Notice cards rendered OUTSIDE ThreadShell to avoid text collision */}
 			{noticeMessages.map((m) => {

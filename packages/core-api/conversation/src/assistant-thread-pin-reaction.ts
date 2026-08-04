@@ -1,15 +1,11 @@
 /**
  * AU21 §9 Increment 11 (Decision H2 / F4) — the "pin the assistant thread
- * after its first AI reply" decision, moved ENTIRELY core-side from
- * `dispatch`'s `registerAssistantTriggerInternal` (an `agent-orchestration ->
- * core-api` READ — `ports.conversation.getThreadById` + `ports.users.getUserById`
- * — now deleted, see `@hyperidle/dispatch`'s own `service.ts`).
+ * after its first AI reply" decision lives entirely core-side.
  *
  * This module physically IS `@hyperidle/conversation`, the Service that owns
- * `threads` — so the write (`updateThread`) is an ordinary INTRA-package call,
- * no seam needed (the seam existed only because `dispatch` was a different
- * package/Layer). The one genuinely cross-cutting need — the sender's `kind`
- * (an `@hyperidle/users` row) — is INJECTED (`AssistantThreadPinReactionDeps`),
+ * `threads` — so the write (`updateThread`) is an ordinary INTRA-package
+ * call, no seam needed. The one genuinely cross-cutting need — the sender's
+ * `kind` (an `@hyperidle/users` row) — is INJECTED (`AssistantThreadPinReactionDeps`),
  * the same Mechanism C shape `assistant-turn-resolver.ts`'s
  * `AssistantTurnResolverDeps` already uses for `requireRunnableAgent`: this
  * package never statically imports another Service. The real emit site
@@ -17,9 +13,7 @@
  * code — not a nested Service) wires the real `@hyperidle/users` `findUser`
  * in at the call site.
  *
- * Behavior-preserving move: same guard `registerAssistantTriggerInternal` used
- * (`hostKind === "user"`, sender `kind === "ai"`, not already `pinned`) — only
- * the ownership/location changed.
+ * Guard: `hostKind === "user"`, sender `kind === "ai"`, not already `pinned`.
  */
 
 import type { HyperIdleDb, User } from "@hyperidle/db";

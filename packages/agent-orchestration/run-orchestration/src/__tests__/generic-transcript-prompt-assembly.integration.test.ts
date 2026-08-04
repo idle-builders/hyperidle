@@ -99,7 +99,6 @@ function buildHarnessPorts(
 			beginAgentWriteback: () => ({ dispose: () => undefined }),
 			assemblePrompt: neverCalled("contextAssembly.assemblePrompt"),
 			assembleRoutinePrompt: neverCalled("contextAssembly.assembleRoutinePrompt"),
-			composeAssistantPrompt: neverCalled("contextAssembly.composeAssistantPrompt"),
 			writeSandboxAgentsMd: vi.fn(),
 		},
 	};
@@ -200,6 +199,7 @@ describe("generic transcript delivery (Increment 4)", () => {
 				modelTierPreference: null,
 				harnessType: null,
 				modelProvider: null,
+				modelId: null,
 				maxConcurrentSessions: 5,
 			},
 			harnessDisabled: [],

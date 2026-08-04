@@ -31,6 +31,7 @@ const HARNESS_INCLUDE = [
 	"packages/core-api/src/__tests__/AL6-real-harness-return-enforcement-realbinary.integration.test.ts",
 	"packages/core-api/src/__tests__/AL7-two-session-trust-first.integration.test.ts",
 	"packages/core-api/src/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts",
+	"packages/core-api/src/__tests__/assistant-reply-live-harness.integration.test.ts",
 	// @lore real-harness serial: *-real.integration.test.ts files in src/__tests__ and
 	// routes/__tests__ drive real CLI harnesses (codex/claude/opencode). They must run
 	// SERIALLY (harness project, fileParallelism:false) — concurrent codex sessions

@@ -126,19 +126,9 @@ describe("assembleRoutinePrompt", () => {
 	});
 });
 
-describe("composeAssistantPrompt", () => {
-	it("is pure — needs no ports — and composes an identity + conversation section", () => {
-		const result = assembler.composeAssistantPrompt("You are a helpful assistant.");
-		expect(result.composedPrompt).toContain("## Identity");
-		expect(result.composedPrompt).toContain("You are a helpful assistant.");
-		expect(result.composedPrompt).toContain("## Conversation");
-	});
-
-	it("omits Identity when systemPromptText is empty", () => {
-		const result = assembler.composeAssistantPrompt("");
-		expect(result.composedPrompt).not.toContain("## Identity");
-	});
-});
+// Every session goes through the generic `assembleTaskFreePrompt` path,
+// whose `## Conversation` section is covered by
+// `generic-transcript-prompt-assembly.integration.test.ts`.
 
 describe("writeSandboxAgentsMd", () => {
 	let sandboxPath: string;

@@ -733,33 +733,31 @@ function buildStatelessProviderFixture(root: string): void {
 }
 
 /**
- * Scenario 6 — AU21 §9 Increment 13: the real, production `dispatch::conversation`
- * nested group (`insertMessage`, verified in `dispatch-bindings.ts` to route
- * exclusively through the `CoreApiPort` seam, never raw DI — see
- * `DEFERRED_FOLLOWUP`'s own doc comment history) must NOT fire, now that
- * `generate-dependency-graph.ts`'s `SEAM_GROUPS` excludes it at the
- * per-group level (narrower than the whole-interface `SEAM_INTERFACES`
- * mechanism, since `DispatchPorts` has other, non-seam groups). Reuses the
- * REAL production key (`dispatch:DispatchPorts:conversation`), same idiom as
- * Scenario 3's real `cost`-shaped fixture — not a fixture-only stand-in. A
- * sibling, non-excluded group on the SAME interface targeting a different
- * core-api provider must still fire — proving the exclusion is genuinely
- * per-group, not a backdoor that blinds the whole interface to future
- * regrowth.
+ * Scenario 6 — `generate-dependency-graph.ts`'s `SEAM_GROUPS` is currently
+ * EMPTY (zero live entries; the "unreachable entries" check would otherwise
+ * fail a real, non-fixture scan against a nonexistent exemption). The
+ * mechanism itself (`resolveNestedGroupEdges`'s `SEAM_GROUPS.has(...)` check)
+ * stays live, only unpopulated — same precedent as Scenario 5 when
+ * `isStatelessProvider` lost its real case: a `DispatchPorts`-shaped nested
+ * group with a `conversation` sub-group, with ZERO `SEAM_GROUPS` entries
+ * exempting it, fires as an ordinary raw-port finding — proving the guard
+ * does not silently swallow a nested-group edge just because it LOOKS
+ * seam-shaped. Fictional/demo naming throughout (no longer a real-service
+ * reuse, unlike the file's Scenario 3 precedent).
  */
 function buildSeamGroupFixture(root: string): void {
 	writeFixture(
 		root,
-		"packages/agent-orchestration/dispatch/package.json",
-		JSON.stringify({ name: "@hyperidle/dispatch", dependencies: { "@hyperidle/db": "*" } }),
+		"packages/agent-orchestration/demo-orch6/package.json",
+		JSON.stringify({ name: "@hyperidle/demo-orch6", dependencies: { "@hyperidle/db": "*" } }),
 	);
-	writeFixture(root, "packages/agent-orchestration/dispatch/src/index.ts", "export const dispatch = 1;\n");
+	writeFixture(root, "packages/agent-orchestration/demo-orch6/src/index.ts", "export const demoOrch6 = 1;\n");
 	writeFixture(
 		root,
-		"packages/agent-orchestration/dispatch/src/ports.ts",
+		"packages/agent-orchestration/demo-orch6/src/ports.ts",
 		[
-			"export interface DispatchPorts {",
-			"  readonly conversation: {",
+			"export interface DemoOrch6Ports {",
+			"  readonly demoCore6a: {",
 			"    insertMessage(): Promise<void>;",
 			"  };",
 			"  readonly otherCore6: {",
@@ -771,12 +769,12 @@ function buildSeamGroupFixture(root: string): void {
 	);
 	writeFixture(
 		root,
-		"packages/core-api/conversation/package.json",
-		JSON.stringify({ name: "@hyperidle/conversation", dependencies: { "@hyperidle/db": "*" } }),
+		"packages/core-api/demo-core6a/package.json",
+		JSON.stringify({ name: "@hyperidle/demo-core6a", dependencies: { "@hyperidle/db": "*" } }),
 	);
 	writeFixture(
 		root,
-		"packages/core-api/conversation/src/index.ts",
+		"packages/core-api/demo-core6a/src/index.ts",
 		"export function insertMessage(): Promise<void> {\n  return Promise.resolve();\n}\n",
 	);
 	writeFixture(
@@ -883,25 +881,38 @@ function fixtureCheck(): void {
 		rmSync(statelessProviderRoot, { recursive: true, force: true });
 	}
 
-	// Scenario 6 — the real, production `dispatch::conversation` seam-satisfied
-	// nested group must not fire, but a sibling non-excluded group on the same
-	// interface must still fire (the exclusion is per-group, not per-interface).
+	// Scenario 6 — with `SEAM_GROUPS` EMPTY, a `DispatchPorts`-shaped nested
+	// group's `conversation` sub-group must fire as an ordinary raw-port
+	// finding — the guard must not silently swallow a nested-group edge just
+	// because it LOOKS seam-shaped. The sibling `otherCore6` sub-group must
+	// fire too, proving both groups are treated uniformly once no exemption
+	// exists.
 	const seamGroupRoot = mkdtempSync(join(tmpdir(), "au21-anti-regrowth-seam-group-"));
 	try {
 		buildSeamGroupFixture(seamGroupRoot);
 		const findings = inspect(seamGroupRoot, { verifyExemptionsReachable: false });
-		const excluded = findings.filter((f) => f.consumer === "dispatch" && f.provider === "conversation");
-		if (excluded.length > 0) {
+		const conversationGroup = findings.find(
+			(f) =>
+				f.consumer === "demo-orch6" &&
+				f.provider === "demo-core6a" &&
+				f.edgeKind === "raw-port" &&
+				f.detail.includes("insertMessage"),
+		);
+		if (!conversationGroup) {
 			throw new Error(
-				`composition-edge-anti-regrowth-guard: the seam-satisfied dispatch::conversation group must not fire, got ${JSON.stringify(excluded)}`,
+				`composition-edge-anti-regrowth-guard: expected the unexempted conversation-shaped group to fire (SEAM_GROUPS is empty), got ${JSON.stringify(findings)}`,
 			);
 		}
 		const sibling = findings.find(
-			(f) => f.consumer === "dispatch" && f.provider === "other-core6" && f.edgeKind === "raw-port" && f.detail.includes("readOtherThing6"),
+			(f) =>
+				f.consumer === "demo-orch6" &&
+				f.provider === "other-core6" &&
+				f.edgeKind === "raw-port" &&
+				f.detail.includes("readOtherThing6"),
 		);
 		if (!sibling) {
 			throw new Error(
-				`composition-edge-anti-regrowth-guard: expected the sibling non-seam-excluded group to still fire, got ${JSON.stringify(findings)}`,
+				`composition-edge-anti-regrowth-guard: expected the sibling group to fire too, got ${JSON.stringify(findings)}`,
 			);
 		}
 	} finally {

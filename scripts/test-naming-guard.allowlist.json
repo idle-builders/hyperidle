@@ -520,7 +520,6 @@
 	"packages/web/src/settings/__tests__/X3-SettingsAgents.test.tsx",
 	"packages/web/src/settings/__tests__/X4-SettingsModels.test.tsx",
 	"packages/web/src/shell/__tests__/AH3-AssistantOverlay.notice.test.tsx",
-	"packages/web/src/shell/__tests__/AK4-AssistantOverlay.bet-card.test.tsx",
 	"packages/web/src/shell/__tests__/HostThreadSection.filter.test.tsx",
 	"packages/web/src/shell/__tests__/M3-HostThreadSection.agentId.test.tsx"
 ]

@@ -14,12 +14,9 @@ import {
 } from "@hyperidle/db";
 import type { BetStateChangedEvent, DomainEvent } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
+import { registerBuiltinRoutineReactions } from "../services/routine-scheduler-bindings.js";
 import { describe, expect, test } from "../test-fixtures.js";
-import {
-	fireStoredRoutine,
-	seedTeamRoutines,
-	startDispatchEngine,
-} from "./dispatch-test-helpers.js";
+import { fireStoredRoutine, seedTeamRoutines } from "./dispatch-test-helpers.js";
 
 const NOW_ISO = "2026-04-18T10:00:00.000Z";
 const BUILTIN_ROUTINE_IDS = [
@@ -310,7 +307,7 @@ describe("G4: Built-in Routines", () => {
 			await seedBuiltinRoutines(db);
 			await seedShippedBet(db);
 
-			const unsub = await startDispatchEngine({ db, eventBus });
+			const unsub = registerBuiltinRoutineReactions(db, eventBus);
 			try {
 				const shipped: BetStateChangedEvent = {
 					type: "bet_state_changed",
@@ -365,7 +362,7 @@ describe("G4: Built-in Routines", () => {
 			await seedBuiltinRoutines(db);
 			await seedShippedBet(db);
 
-			const unsub = await startDispatchEngine({ db, eventBus });
+			const unsub = registerBuiltinRoutineReactions(db, eventBus);
 			try {
 				const shipped: BetStateChangedEvent = {
 					type: "bet_state_changed",
@@ -395,7 +392,7 @@ describe("G4: Built-in Routines", () => {
 			await seedBuiltinRoutines(db);
 			await seedShippedBet(db);
 
-			const unsub = await startDispatchEngine({ db, eventBus });
+			const unsub = registerBuiltinRoutineReactions(db, eventBus);
 			try {
 				// Emit a non-completed transition — should be ignored
 				const nonCompleted: BetStateChangedEvent = {
@@ -634,7 +631,7 @@ describe("G4: Built-in Routines", () => {
 				createdAt: NOW_ISO,
 			});
 
-			const unsub = await startDispatchEngine({ db, eventBus });
+			const unsub = registerBuiltinRoutineReactions(db, eventBus);
 			try {
 				const shipped: BetStateChangedEvent = {
 					type: "bet_state_changed",

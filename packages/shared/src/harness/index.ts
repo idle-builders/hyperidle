@@ -36,7 +36,6 @@ export {
 	preMapClaudeEvent,
 } from "./harness-event-normalization.js";
 export type {
-	CapturedToolCall,
 	CompletionEvent,
 	ErrorEvent,
 	HarnessEvent,

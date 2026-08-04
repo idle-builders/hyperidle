@@ -9,7 +9,6 @@ import {
 	AL6_MAX_FORCE_RETURNS,
 	type BakedAgentRunnableConfig,
 	type BakedContextBundle,
-	type CapturedToolCall,
 	ConcurrencyLimitError,
 	type ConversationMessage,
 	type EventBus,
@@ -371,7 +370,6 @@ interface SessionLifecycleContextAssembly {
 		readonly tools: readonly SessionLifecycleToolSummary[];
 		readonly sandboxPath: string;
 	}): Promise<{ readonly assembledPrompt: string; readonly personaToolsTokens: number }>;
-	composeAssistantPrompt(systemPromptText: string): { readonly composedPrompt: string };
 	writeSandboxAgentsMd(sandboxPath: string, assembledPrompt: string): void;
 }
 
@@ -477,9 +475,9 @@ async function assembleTaskFreePrompt(
 			? `## Session request\nSource kind: ${params.requestContext.sourceKind}\nSource ID: ${params.requestContext.sourceId}\nCorrelation: ${JSON.stringify(params.requestContext.sourceCorrelation)}`
 			: "## Session request\nTask-free session request";
 
-	// AU27 Increment 4 (Decision 2, item 2): the `## Conversation` section —
-	// re-provides, generically, what `params.conversational`'s own prompt
-	// path used to render only for the assistant.
+	// The `## Conversation` section renders the session's calling-thread
+	// transcript, when one was baked for it, so any agent kind can see the
+	// conversation it is replying within.
 	const conversationSection =
 		params.transcript && params.transcript.length > 0
 			? `## Conversation\n${params.transcript.map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`).join("\n")}`
@@ -664,7 +662,7 @@ interface ProvisionSessionParams {
 	 * are built from — `kind:"task"` for `task_run`/`reengagement`,
 	 * `kind:"routine"` for `routine_run`. Sourced from the emit-time resolver
 	 * via the drained `AgentSessionRequest.payloadJson` (zero db read here).
-	 * Absent for `knowledge_action`/`session_start`/conversational turns.
+	 * Absent for `knowledge_action`/`session_start`/`assistant_turn` turns.
 	 */
 	readonly contextBundle?: BakedContextBundle;
 	/**
@@ -740,14 +738,12 @@ interface ProvisionSessionParams {
 	 */
 	readonly callingThreadId?: string;
 	/**
-	 * AU27 Increment 4 (Decision 2) — the session's calling-thread transcript,
-	 * mapped to generic chat messages at drain time
-	 * (`runtime.ts`'s `mapTranscriptToMessages`, relocated verbatim from
-	 * `dispatch/src/service.ts`). Feeds the `## Conversation` prompt section
-	 * (Phase 8.5, every harness) and `SessionConfig.messages` (selects the
-	 * builtin adapter's chat completion over the planning loop) — the same
-	 * generic delivery `params.conversational.messages` used to provide only
-	 * to the assistant. Absent for a session with no transcript.
+	 * The session's calling-thread transcript, mapped to generic chat
+	 * messages at drain time (`runtime.ts`'s `mapTranscriptToMessages`).
+	 * Feeds the `## Conversation` prompt section (Phase 8.5, every harness)
+	 * and `SessionConfig.messages` (selects the builtin adapter's chat
+	 * completion over the planning loop). Absent for a session with no
+	 * transcript.
 	 */
 	readonly transcript?: readonly ConversationMessage[];
 	/**
@@ -755,35 +751,6 @@ interface ProvisionSessionParams {
 	 * trust-first review workflow for this session.
 	 */
 	readonly sessionWorkflow?: SessionLifecycleRegistrySessionWorkflow;
-	/**
-	 * AR4a: When set, this session is a CONVERSATIONAL-mode turn (the assistant
-	 * replying to a thread message). Context assembly switches to the conversation
-	 * branch — thread transcript is delivered via the assembled prompt / AGENTS.md
-	 * so every harness receives it.
-	 */
-	readonly conversational?: {
-		/** The thread the assistant is replying in. */
-		readonly threadId: string;
-		/** The assistant agent id (ast-${userId}). */
-		readonly assistantAgentId: string;
-		/**
-		 * Caller-supplied draft tool surface (AR4a↔AR4b seam). Opaque — this
-		 * Service never inspects anything beyond `.definitions`, forwarded whole
-		 * to `buildToolRegistry`'s `extraTools`.
-		 */
-		readonly draftRegistry: { readonly definitions: readonly { readonly name: string }[] };
-		/**
-		 * Conversation messages for the builtin adapter's `runChatTurn` path.
-		 * Load-bearing for builtin (NIT-4).
-		 */
-		readonly messages: ConversationMessage[];
-		/**
-		 * AR4b: Strategy formation answer — persona override for this turn.
-		 * null = no override; use the agent row's systemPrompt as-is.
-		 * undefined = not set by caller (pre-AR4b callers; treated as no override).
-		 */
-		readonly systemPromptOverride?: string | null;
-	};
 }
 
 interface ProvisionSessionResult {
@@ -801,16 +768,6 @@ interface ProvisionSessionResult {
 	 */
 	readonly forceReturnCount: number;
 	readonly metrics?: SessionMetrics;
-	/**
-	 * AR4a: The agent's reply text for a CONVERSATIONAL-mode turn — the last
-	 * non-empty `completion` event text from the drain. Present ONLY when
-	 * `params.conversational` was set AND the session outcome is "completed".
-	 */
-	readonly conversationalReply?: string;
-	/**
-	 * AR4a: captured tool calls from the conversational turn.
-	 */
-	readonly conversationalToolCalls?: readonly CapturedToolCall[];
 }
 
 /**
@@ -1200,26 +1157,16 @@ async function runSession(
 				}
 			: undefined,
 	};
-	// AR4a §3b seam: in conversational mode, forward the caller-supplied draft tool
-	// surface into the registry.
-	const conversationalDraftTools = params.conversational?.draftRegistry.definitions ?? [];
-	// @lore AR4a: Conversational mode uses ONLY [draftTools + return-status] — no role tools.
-	const registry: SessionLifecycleToolRegistry = params.conversational
-		? ports.toolProvider.buildToolRegistry(toolContext, {
-				role: agentRole,
-				useOnlyExtraTools: true,
-				extraTools: [
-					ports.toolProvider.returnStatusToolForRegistry(ports.harnessRuntime.enforcementRegistry),
-					...conversationalDraftTools,
-				],
-			})
-		: ports.toolProvider.buildToolRegistry(toolContext, {
-				role: agentRole,
-				extraTools: [
-					ports.toolProvider.returnStatusToolForRegistry(ports.harnessRuntime.enforcementRegistry),
-				],
-				sessionWorkflow: params.sessionWorkflow,
-			});
+	// Every session, assistant included, gets the ordinary role-scoped tool
+	// registry — the assistant's tool surface spans every `roles: undefined`
+	// tool, deliberately, per the founder's own direction.
+	const registry: SessionLifecycleToolRegistry = ports.toolProvider.buildToolRegistry(toolContext, {
+		role: agentRole,
+		extraTools: [
+			ports.toolProvider.returnStatusToolForRegistry(ports.harnessRuntime.enforcementRegistry),
+		],
+		sessionWorkflow: params.sessionWorkflow,
+	});
 
 	// ── Phase 8.5a: inject registry into builtin harness before startSession.
 	if (
@@ -1237,33 +1184,14 @@ async function runSession(
 			description: d.description,
 		}));
 
-	/** AR4a: true only in conversational mode — gates the reply-capture drain branch. */
-	const isConversational = !!params.conversational;
-	/** AR4a NIT-4: messages for the builtin chat path (load-bearing for builtin). */
-	let conversationalMessages: ConversationMessage[] | undefined;
+	/** Messages for the builtin chat path (`runChatTurn`) — set when `params.transcript` is present. */
+	let chatMessages: ConversationMessage[] | undefined;
 
 	const effectiveSystemPromptText =
 		params.requestContext?.triggerPromptOverride ?? systemPromptText;
 
 	let assembledPrompt: string;
-	if (params.conversational) {
-		// AR4a: Conversational mode — assemble thread transcript as the system prompt.
-		const effectivePersona =
-			params.conversational.systemPromptOverride !== undefined &&
-			params.conversational.systemPromptOverride !== null
-				? params.conversational.systemPromptOverride
-				: effectiveSystemPromptText;
-		const { composedPrompt } = ports.contextAssembly.composeAssistantPrompt(effectivePersona);
-		conversationalMessages = params.conversational.messages;
-		const transcriptSection =
-			conversationalMessages.length > 0
-				? "\n\n## Conversation\n" +
-					conversationalMessages
-						.map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
-						.join("\n")
-				: "";
-		assembledPrompt = composedPrompt + transcriptSection;
-	} else if (params.routineId && params.contextBundle?.kind === "routine") {
+	if (params.routineId && params.contextBundle?.kind === "routine") {
 		// AU21 §9 Increment 12 (Decision H3): routine session — derive
 		// routine+agent+team context from the baked `kind:"routine"` bundle,
 		// ZERO db read (the routine/org reads this used to make via
@@ -1312,15 +1240,13 @@ async function runSession(
 	}
 
 	// AU27 Increment 4 (Decision 2): generic transcript delivery, item 3 —
-	// `SessionConfig.messages` from `params.transcript` when this is NOT
-	// already a conversational-mode turn (which sources its own messages from
-	// `params.conversational.messages`). Selects the builtin adapter's chat
-	// completion (`runChatTurn`) over the planning loop
+	// `SessionConfig.messages` from `params.transcript`. Selects the builtin
+	// adapter's chat completion (`runChatTurn`) over the planning loop
 	// (`builtin-harness-adapter.ts:397`) on a generic input, not "is this the
-	// assistant". No real session sets `params.transcript` yet in Phase A —
-	// inert until Increment 6 bakes it for a durable assistant_turn.
-	if (!params.conversational && params.transcript) {
-		conversationalMessages = [...params.transcript];
+	// assistant" — the assistant is simply the first (and today, only) kind
+	// that bakes one, since Increment 6's switchover.
+	if (params.transcript) {
+		chatMessages = [...params.transcript];
 	}
 
 	ports.contextAssembly.writeSandboxAgentsMd(sandboxPath, assembledPrompt);
@@ -1334,11 +1260,9 @@ async function runSession(
 		fs.writeFileSync(mcpJsonPath, JSON.stringify({ mcpServers: {} }, null, 2), "utf-8");
 	}
 
-	// AU27 Increment 4 (Decision 3's structural rule): a session whose output
-	// belongs in a calling thread and has no task (the assistant, post-AU27 —
-	// no real session matches this in Phase A, since the assistant still runs
-	// the old conversational/dispatch path) must call `reply`, not the trio.
-	// No `sourceKind` check anywhere — purely structural.
+	// A session whose output belongs in a calling thread and has no task (the
+	// assistant) must call `reply`, not the trio — purely structural, no
+	// `sourceKind` check anywhere.
 	const requiredReturnActions: readonly string[] | undefined =
 		params.callingThreadId != null && params.taskId == null ? ["reply"] : undefined;
 
@@ -1454,11 +1378,11 @@ async function runSession(
 
 	// AL6 v4-final: register this session in the enforcement registry now that the
 	// real gate exists.
-	const exempt =
-		isConversational ||
-		isInternalExtractionDrain({
-			tools: ports.toolProvider.toolsForRole(agentRole).map((d) => d.name),
-		});
+	// The assistant is not exempt from return enforcement — it must call
+	// `reply` like every other required-return session.
+	const exempt = isInternalExtractionDrain({
+		tools: ports.toolProvider.toolsForRole(agentRole).map((d) => d.name),
+	});
 	ports.harnessRuntime.enforcementRegistry.register(sessionId, {
 		gate: returnGate,
 		forceCount: 0,
@@ -1495,7 +1419,7 @@ async function runSession(
 		returnHook: returnHookConfig,
 		...(params.sessionWorkflow ? { sessionWorkflow: params.sessionWorkflow } : {}),
 		...(mcpTokenEnv ? { mcpTokenEnv } : {}),
-		...(conversationalMessages ? { messages: conversationalMessages } : {}),
+		...(chatMessages ? { messages: chatMessages } : {}),
 		...(requiredReturnActions ? { requiredReturnActions } : {}),
 	};
 
@@ -1520,8 +1444,6 @@ async function runSession(
 
 	let harnessHandle: SessionHandle | null = null;
 	let metrics: SessionMetrics | undefined;
-	let conversationalReplyText = "";
-	let conversationalToolCallsCapture: readonly CapturedToolCall[] | undefined;
 
 	// W1: try/finally ensures the adapter pool slot is ALWAYS released once, even
 	// on errors.
@@ -1566,12 +1488,6 @@ async function runSession(
 						});
 						if (interceptToolCalls && selectedAdapter.meta.type !== "builtin") {
 							await registry.invoke(event.toolName, event.args);
-						}
-					} else if (event.type === "completion") {
-						if (isConversational && event.text.length > 0) {
-							conversationalReplyText = event.text;
-							conversationalToolCallsCapture =
-								event.toolCalls && event.toolCalls.length > 0 ? event.toolCalls : undefined;
 						}
 					} else if (event.type === "error") {
 						crashed = true;
@@ -1658,7 +1574,7 @@ async function runSession(
 	}
 
 	// AL6: Evaluate the return gate at normal turn completion.
-	const returnEndReason = aborted || isConversational ? "stopped" : "completed";
+	const returnEndReason = aborted ? "stopped" : "completed";
 	const returnVerdict = ports.harnessRuntime.evaluateReturn(returnGate, returnEndReason);
 
 	if (returnVerdict === "not_returned") {
@@ -1738,10 +1654,6 @@ async function runSession(
 		returnVerdict,
 		forceReturnCount: computeForceReturnCount(),
 		...(metrics ? { metrics } : {}),
-		...(isConversational ? { conversationalReply: conversationalReplyText } : {}),
-		...(isConversational && conversationalToolCallsCapture
-			? { conversationalToolCalls: conversationalToolCallsCapture }
-			: {}),
 	};
 }
 

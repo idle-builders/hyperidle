@@ -49,11 +49,12 @@ export interface McpConnectionInfo {
 }
 
 /**
- * AH3 §1.4: A single conversational turn carried from the thread transcript.
- * Used to deliver the user's message (and prior context) to the adapter so the
- * model answers the actual question, not a generic task-planning prompt.
+ * AH3 §1.4: A single message from a session's calling-thread transcript.
+ * Used to deliver the caller's message (and prior context) to the adapter so
+ * the model answers the actual question, not a generic task-planning prompt.
+ * Generic — any kind that bakes a `transcript` gets this, not assistant-only.
  *
- * @lore AH3 H3: The core fix for "user's message never reaches the model."
+ * @lore AH3 H3: The core fix for "the caller's message never reaches the model."
  * SessionConfig previously had no messages field; the builtin adapter started
  * every session with an empty message list and injected PLANNING_PROMPT. By
  * seeding messages from the thread transcript and branching on their presence,
@@ -110,14 +111,16 @@ export interface SessionConfig {
 	 */
 	readonly mcpConnectionInfo?: McpConnectionInfo;
 	/**
-	 * AH3 §1.4: Conversational message history from the thread transcript.
+	 * AH3 §1.4: Message history from a session's calling-thread transcript.
 	 * When present, the builtin adapter runs a single chat completion seeded with
-	 * these messages instead of the task-planning loop. The user's triggering
+	 * these messages instead of the task-planning loop. The caller's triggering
 	 * message is always the last entry. Absent for task sessions (planning loop).
+	 * Generic — set for any kind that bakes a `transcript` (AU27 Increment 4),
+	 * not assistant-only.
 	 *
-	 * @lore AH3 H3: This field is the mechanism that delivers "what the user
+	 * @lore AH3 H3: This field is the mechanism that delivers "what the caller
 	 * typed" to the model. Without it, the adapter starts with messages:[] and
-	 * responds to PLANNING_PROMPT, never the user's actual question.
+	 * responds to PLANNING_PROMPT, never the caller's actual question.
 	 */
 	readonly messages?: readonly ConversationMessage[];
 	/**
