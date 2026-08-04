@@ -166,6 +166,38 @@ function makeResolveModel(
 }
 
 /**
+ * AU26 review C2 — the human whose held connections a spawn provisions.
+ *
+ * AN2's deployment is single-founder (`docs/architecture/authorization-model.md:32`):
+ * one human owns the deployment's connections, and every agent it runs
+ * provisions that human's tokens. This is the Application's call to make —
+ * `agent-orchestration` reads zero core-api state, so it can never resolve an
+ * owner itself, and AU21 K1's dead helper resolved exactly this same "the
+ * single human" before it was deleted (it fell back to a hardcoded founder-id
+ * sentinel; no row means no connections either, since `service_connections.userId`
+ * references `users`, so the sentinel is dropped and `null` returned instead).
+ *
+ * Deterministic under more than one human — oldest row, id as tiebreak — so a
+ * shared-mode deployment (`HYPERIDLE_SHARED_MODE` + invite codes) provisions
+ * the founder's connections and never a later member's, rather than whichever
+ * row the planner happened to return first. Carrying a per-SESSION owner on the
+ * request is the multi-tenancy step, not this one.
+ */
+async function resolveProvisioningOwnerUserId(db: HyperIdleDb): Promise<string | null> {
+	const humans = await listUsers(db, { kind: "human" });
+	let owner: (typeof humans)[number] | undefined;
+	for (const human of humans) {
+		if (!owner) {
+			owner = human;
+			continue;
+		}
+		if (human.createdAt < owner.createdAt) owner = human;
+		else if (human.createdAt === owner.createdAt && human.id < owner.id) owner = human;
+	}
+	return owner?.id ?? null;
+}
+
+/**
  * AF7 §1 / §14.3: test-only dependency overrides for `createServer`.
  *
  * @lore AU19 Increment 5 (item 2): `adapterPool`/`workspaceAdapter` were
@@ -482,29 +514,34 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// flow through unchanged at runtime, only assigned via a variable rather
 	// than a fresh literal (TS excess-property-check applies to literals, not
 	// variable references). See `run-orchestration`'s `ports.ts` top `@lore`.
-	const runtimeDeps = {
-		db,
-		eventBus,
-		adapterPool,
-		workspace: workspaceAdapter,
-		mcpBridgeRegistry,
-		mcpBaseUrl,
-		// @lore AU26 E3: `serviceConnectionResolver` was wired to
-		// `credentialResolver` here — a `CredentialResolver`, whose
-		// `resolve(name)` takes ONE argument. The provisioner calls
-		// `resolve(userId, connectionId)`, so every held-connection lookup in
-		// production was really a `server_credentials` lookup keyed by a user
-		// id, always missing, always silently skipped: AN2 provisioning never
-		// actually provisioned anything. The `as ProvisionSessionDeps` cast
-		// below is what hid the arity mismatch from `tsc`. Fixed to the real
-		// `ServiceConnectionResolver`, which is the only plaintext path (AN1
-		// hard-rule 1).
+	// @lore AU26 E3: `serviceConnectionResolver` was wired to
+	// `credentialResolver` here — a `CredentialResolver`, whose `resolve(name)`
+	// takes ONE argument. The provisioner calls `resolve(userId, connectionId)`,
+	// so every held-connection lookup in production was really a
+	// `server_credentials` lookup keyed by a user id, always missing, always
+	// silently skipped: AN2 provisioning never actually provisioned anything. The
+	// blanket `as ProvisionSessionDeps` on the deps literal is what hid the arity
+	// mismatch from `tsc`.
+	//
+	// Fixed to the real `ServiceConnectionResolver`, the only plaintext path
+	// (AN1 hard-rule 1).
+	const provisioning = {
 		serviceConnectionResolver: new ServiceConnectionResolver(db),
 		// @lore AU26 E3: the spawn-time held-connection read, live and
 		// in-layer. Replaces AU21 K1's emit-time bake, so a connection added
 		// between an intent's emit and its drain reaches the sandbox (AC1(c)).
+		//
+		// @lore AU26 review C2: scoped to ONE owning human. The owner is resolved
+		// HERE, at the Application, and handed down — orchestration reads zero
+		// core-api state, so it must never look `users` up itself (AU21 AC#2).
+		// Resolved per call, not once at boot: the human row is created during
+		// onboarding, long after this composition runs.
 		heldConnections: {
-			listHeldForProvisioning: () => listHeldConnectionsForProvisioning(db),
+			listHeldForProvisioning: async () => {
+				const ownerUserId = await resolveProvisioningOwnerUserId(db);
+				if (!ownerUserId) return [];
+				return listHeldConnectionsForProvisioning(db, ownerUserId);
+			},
 		},
 		// @lore AU26 F2: the spawn-time injected-filesystem read, live and
 		// in-layer — the twin of `heldConnections` above. Replaces AU21 §9
@@ -514,7 +551,20 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			listInjectedForProvisioning: (agentId: string) =>
 				listInjectedFilesystemsForProvisioning(db, agentId),
 		},
+	};
+	const runtimeDeps = {
+		db,
+		eventBus,
+		adapterPool,
+		workspace: workspaceAdapter,
+		mcpBridgeRegistry,
+		mcpBaseUrl,
+		...provisioning,
 		mounter,
+		// The cast is narrowed to what it always really meant: this literal is the
+		// PARTIAL runtime slice `buildRunRuntimeDeps` deep-merges with the
+		// production provisioner/context ports. It no longer erases the shape of
+		// the provisioning ports — `provisioning` is checked before it is spread.
 	} as ProvisionSessionDeps;
 	const runRuntime = await startRuntime(
 		buildRunRuntimeDeps(db, eventBus, {

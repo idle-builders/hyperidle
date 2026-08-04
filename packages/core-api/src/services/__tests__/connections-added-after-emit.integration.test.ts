@@ -121,12 +121,23 @@ async function emitAndDrain(
 	return { payloadJson: request.payloadJson };
 }
 
-/** The spawn-time connections step, wired exactly as `provisioner.ts` wires it. */
+/**
+ * The spawn-time connections step for ONE owning human.
+ *
+ * This is a hand-built mirror of the port `create-server.ts` composes, not the
+ * composition root itself — it exists to exercise the READ against a real DB.
+ * That the production wiring is these same implementations is proved
+ * separately, through the real `createServer`, by
+ * `server-factory.provisioning-wiring.integration.test.ts`.
+ */
 async function provisionConnections(
 	db: HyperIdleDb,
+	ownerUserId: string,
 ): Promise<Awaited<ReturnType<typeof buildProvisioningPlan>>> {
 	const plan = await buildProvisioningPlan({
-		connections: { listHeldForProvisioning: () => listHeldConnectionsForProvisioning(db) },
+		connections: {
+			listHeldForProvisioning: () => listHeldConnectionsForProvisioning(db, ownerUserId),
+		},
 		resolver: new ServiceConnectionResolver(db),
 	});
 	await applyProvisioningPlan({
@@ -168,7 +179,7 @@ describe("held connections are read live at spawn, never carried on the request"
 		});
 
 		// 3. The session spawns.
-		const plan = await provisionConnections(db);
+		const plan = await provisionConnections(db, HUMAN_ID);
 
 		// 4. The late-added connection is provisioned, token and all.
 		expect(plan.mcpServers).toEqual([
@@ -205,14 +216,14 @@ describe("held connections are read live at spawn, never carried on the request"
 
 		await db.delete(serviceConnections).where(eq(serviceConnections.id, "sc-au26-e3-removed-late"));
 
-		const plan = await provisionConnections(db);
+		const plan = await provisionConnections(db, HUMAN_ID);
 
 		expect(plan.mcpServers).toEqual([]);
 		expect(plan.envInjections).toEqual({});
 		expect(fs.existsSync(path.join(sandboxPath, ".mcp.json"))).toBe(false);
 	});
 
-	test("each held connection's token is resolved against its OWN owner, never a shared one", async ({
+	test("a plan carries ONLY the owning human's held connections — another human's token never enters the sandbox", async ({
 		db,
 	}) => {
 		await seedPrincipals(db);
@@ -243,21 +254,33 @@ describe("held connections are read live at spawn, never carried on the request"
 			},
 		]);
 
-		const plan = await provisionConnections(db);
+		const ownerPlan = await provisionConnections(db, HUMAN_ID);
 
-		// Each row resolved under its own userId — a resolver keyed to one
-		// shared owner would have dropped the other user's row entirely.
-		expect(plan.envInjections).toEqual({
+		// The owner's own connection is provisioned…
+		expect(ownerPlan.envInjections).toEqual({
 			// biome-ignore lint/style/useNamingConvention: env var names are SCREAMING_SNAKE by definition
 			GH_TOKEN: "gh_owner_token",
 			// biome-ignore lint/style/useNamingConvention: env var names are SCREAMING_SNAKE by definition
 			GITHUB_TOKEN: "gh_owner_token",
+		});
+		// …and the OTHER human's is nowhere in the plan: not as a server entry,
+		// not as an env var, not as a plaintext token anywhere in the payload.
+		expect(ownerPlan.mcpServers).toEqual([]);
+		expect(JSON.stringify(ownerPlan)).not.toContain("sk_other_token");
+		expect(JSON.stringify(ownerPlan)).not.toContain("mcp.stripe.com");
+
+		// Symmetrically for the other human: their own row, resolved against
+		// THEIR id (a plan keyed to one shared owner would decrypt to null and
+		// drop this row entirely), and none of the owner's.
+		const otherPlan = await provisionConnections(db, OTHER_HUMAN_ID);
+		expect(otherPlan.mcpServers).toEqual([
+			{ name: "stripe", url: "https://mcp.stripe.com", bearerToken: "sk_other_token" },
+		]);
+		expect(otherPlan.envInjections).toEqual({
 			// biome-ignore lint/style/useNamingConvention: env var names are SCREAMING_SNAKE by definition
 			STRIPE_MCP_TOKEN: "sk_other_token",
 		});
-		expect(plan.mcpServers).toEqual([
-			{ name: "stripe", url: "https://mcp.stripe.com", bearerToken: "sk_other_token" },
-		]);
+		expect(JSON.stringify(otherPlan)).not.toContain("gh_owner_token");
 	});
 
 	test("a cross-owner resolve still returns null — per-user isolation is unchanged", async ({

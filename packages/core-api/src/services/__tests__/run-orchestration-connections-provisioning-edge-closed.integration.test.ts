@@ -110,7 +110,7 @@ describe("run-orchestration's connection-provisioning path makes ZERO CoreApiPor
 
 		const resolver = new ServiceConnectionResolver(db);
 		const plan = await buildProvisioningPlan({
-			connections: { listHeldForProvisioning: () => listHeldConnectionsForProvisioning(db) },
+			connections: { listHeldForProvisioning: () => listHeldConnectionsForProvisioning(db, USER_HUMAN_ID) },
 			resolver,
 		});
 		const result = await applyProvisioningPlan({
@@ -131,9 +131,11 @@ describe("run-orchestration's connection-provisioning path makes ZERO CoreApiPor
 	});
 
 	// @lore AU26 E3: this used to assert the `?? "u-founder"` owner fallback K1's
-	// bake helper carried over from the deleted seam route. There is no owner
-	// resolution left to fall back FROM — each row is resolved against the owner
-	// it carries — so the sibling case worth holding is the empty one: a
+	// bake helper carried over from the deleted seam route. The owner is not
+	// resolved down here any more — the Application resolves it and hands the id
+	// to the read (`create-server.ts`'s `resolveProvisioningOwnerUserId`), and no
+	// human means no connections rather than a sentinel — so the sibling case
+	// worth holding is the empty one: a
 	// deployment with no held connections must still reach zero seam calls,
 	// rather than quietly taking some other path.
 	test("the same proof holds when there is no held connection at all — still zero CoreApiPort calls", async ({
@@ -144,7 +146,7 @@ describe("run-orchestration's connection-provisioning path makes ZERO CoreApiPor
 
 		const resolver = new ServiceConnectionResolver(db);
 		const plan = await buildProvisioningPlan({
-			connections: { listHeldForProvisioning: () => listHeldConnectionsForProvisioning(db) },
+			connections: { listHeldForProvisioning: () => listHeldConnectionsForProvisioning(db, USER_HUMAN_ID) },
 			resolver,
 		});
 		await applyProvisioningPlan({

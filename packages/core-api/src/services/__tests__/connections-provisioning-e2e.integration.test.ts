@@ -62,7 +62,7 @@ function buildRealDeps(db: import("@hyperidle/db").HyperIdleDb): {
 	resolver: Parameters<typeof buildProvisioningPlan>[0]["resolver"];
 } {
 	return {
-		connections: { listHeldForProvisioning: () => listHeldConnectionsForProvisioning(db) },
+		connections: { listHeldForProvisioning: () => listHeldConnectionsForProvisioning(db, USER_HUMAN_ID) },
 		resolver: new ServiceConnectionResolver(db),
 	};
 }
@@ -122,7 +122,7 @@ async function seedConnection(
 
 // ── held token connection provisioned into sandbox config (real route + real decrypt) ──
 
-describe("real end-to-end: DB row -> resolveInjectedConnectionsForAgent (baked at emit) -> buildProvisioningPlan -> applyProvisioningPlan", () => {
+describe("real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at spawn) -> buildProvisioningPlan -> applyProvisioningPlan", () => {
 	test("claude-native: .mcp.json written with held MCP-bearer entry, token decrypted through the real resolver", async ({
 		db,
 	}) => {
