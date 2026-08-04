@@ -141,6 +141,67 @@ function makeSendMessageTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Send
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// reply (AU27 Increment 2, Decision 1)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const replyInputSchema = z.object({ text: z.string().min(1).max(65_536) });
+
+type ReplyInput = z.infer<typeof replyInputSchema>;
+
+/**
+ * AU27 Increment 2 (Decision 1) — the generic session-scoped `reply` tool.
+ * Posts a plain message into the session's calling thread through the SAME
+ * `CoreApiPort` seam `send_message` already routes through
+ * (`ports.coreApi.insertMessage`, backed by `POST /threads/:id/messages`) —
+ * never an orchestration-side special write. Available to every agent kind
+ * (no `roles` filter) — this is how the assistant answers, but any agent
+ * kind with a calling thread (task_run/session_start/reengagement) can use
+ * it too.
+ *
+ * Deliberately narrower than `send_message`: NO thread argument. `reply`
+ * always posts to `ctx.threadId` (the session's own calling thread, baked at
+ * emit — Increment 1) — this is what makes the tool mean "answer whoever
+ * triggered you" and removes a whole class of loop (an agent replying into
+ * an arbitrary thread it does not own).
+ */
+function makeReplyTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<ReplyInput, TDb> {
+	return {
+		name: "reply",
+		description:
+			"Post a message into the conversation this session was started for. This is how you answer " +
+			"the person or agent who triggered you. Takes no thread argument — it always posts to your " +
+			"own calling thread.",
+		inputSchema: replyInputSchema,
+		// @lore AU27 C11 (Decision 1): `reversibility: "reversible"` is required,
+		// not decorative. `classifyReversibility` fails CLOSED to "irreversible"
+		// when a tool declares no signal — under an AL7 `sessionWorkflow`, an
+		// undeclared `reply` would route every reply to human review.
+		reversibility: "reversible",
+		handler: async (args, ctx) => {
+			const parsed = replyInputSchema.safeParse(args);
+			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
+			if (!ctx.threadId) {
+				return err(
+					"NO_CALLING_THREAD",
+					"This session has no calling thread, so there is nothing to reply to. Use " +
+						"create_item, write_memory, or create_artifact to record your result instead.",
+				);
+			}
+			const created = await ports.coreApi.insertMessage(
+				{
+					threadId: ctx.threadId,
+					type: "plain",
+					payload: { text: parsed.data.text },
+					clientKey: crypto.randomUUID(),
+				},
+				ctx.agentId,
+			);
+			return ok({ messageId: created.id, threadId: ctx.threadId });
+		},
+	};
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // query_practice
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1549,6 +1610,7 @@ export function buildToolDefinitions(
 	const all: readonly RegisteredTool<HyperIdleDb>[] = [
 		toRegistered(makeReadInboxTool(ports)),
 		toRegistered(makeSendMessageTool(ports)),
+		toRegistered(makeReplyTool(ports)),
 		toRegistered(makeLogTaskTool(ports)),
 		toRegistered(makeQueryPracticeTool(ports)),
 		toRegistered(makeWriteMemoryTool(ports)),

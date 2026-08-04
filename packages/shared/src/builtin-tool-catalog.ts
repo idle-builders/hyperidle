@@ -60,6 +60,14 @@ export const BUILTIN_TOOL_CATALOG: readonly ToolCatalogEntry[] = [
 			"Send a direct message to another agent. Reuses an existing direct thread when one exists between the two agents, otherwise creates a new one.",
 	},
 	{
+		name: "reply",
+		description:
+			"Post a message into the conversation this session was started for. This is how you answer " +
+			"the person or agent who triggered you. Takes no thread argument — it always posts to your " +
+			"own calling thread.",
+		reversibility: "reversible",
+	},
+	{
 		name: "log_task",
 		description:
 			"Append a prose note to the current task's notes column. Useful for recording mid-session discoveries, decisions, or status updates. Does not touch the audit trail.",

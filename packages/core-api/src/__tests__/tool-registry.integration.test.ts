@@ -50,6 +50,8 @@ describe("buildToolRegistry", () => {
 				"query_practice",
 				"read_inbox",
 				"send_message",
+				// AU27 Increment 2: the generic reply tool.
+				"reply",
 				"write_memory",
 				"write_session_notes",
 				// R5 agent work loop tools
@@ -79,7 +81,8 @@ describe("buildToolRegistry", () => {
 		// + 1 AK4 draft tool: edit_bet = 21
 		// + 1 AL7: commit_file = 22
 		// - 1 AU21 §6 Decision L3: route_item deleted = 21
-		expect(registry.definitions).toHaveLength(21);
+		// + 1 AU27 Increment 2: reply = 22
+		expect(registry.definitions).toHaveLength(22);
 	});
 
 	test("each definition has a non-empty description and a Zod input schema", ({ db, eventBus }) => {
