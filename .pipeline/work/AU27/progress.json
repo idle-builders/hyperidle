@@ -1,14 +1,18 @@
 {
   "id": "AU27",
   "status": "in_progress",
-  "currentStep": "review",
+  "currentStep": "review-round-2",
   "startedAt": "2026-08-04",
   "worktree": ".worktrees/pipeline-AU27",
   "branch": "pipeline/AU27",
   "phases": {
     "refine": "skipped — plan.md pre-build gate: goal + source trace settled via AU21 Decision K",
     "design": "skipped — backend WP, no UI surface",
-    "architecture": "in_progress"
+    "architecture": "done — rev 4, 2 critique rounds",
+    "build": "done — 25 commits, all increments incl. AL6 purge",
+    "harness-proof": "done — 5/5 harnesses live-proven, sanity-break demonstrated",
+    "review": "round 1 NOT DONE (8 warnings, all fixed); round 2 in progress",
+    "retro": "done — 29 observations in retro.jsonl"
   },
   "approvals": {
     "requirements": "auto — repo CLAUDE.md ABSOLUTE RULES: fully autonomous run, no human in loop",

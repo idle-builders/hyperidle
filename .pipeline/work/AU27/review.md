@@ -462,3 +462,280 @@ the class of thing this review exists to catch, and W6's eval breakage is a live
 rather than staleness. They are cheap and local to fix.
 
 VERDICT: NOT DONE
+
+---
+
+# AU27 — Code review, ROUND 2
+
+**Reviewer:** independent evaluator (same role, fresh pass). **Head reviewed:** `ed60f7cb` (8 commits
+since round 1's `1dae6d7b`). **Base of branch:** `75d85687`; `origin/main` has since moved to
+`aaa5243f` — see N16.
+**Scope:** verify the eight round-1 findings are closed at source, scrutinise the post-review
+production regression fix, and confirm the fix pass introduced no regressions of its own. Round 1's
+established facts (deletion is real, 9/9 live ACs met, zero exemptions added, no forbidden edge) were
+re-spot-checked, not re-derived.
+
+## Verification actually run this round (not taken on trust)
+
+| Gate | Result |
+|---|---|
+| `npm run check` | **PASS** — exit 0 |
+| `npm run lint` (full chain, post-`au9-direct-handoff-guard` removal) | **PASS** — exit 0; every guard reports PASS |
+| `npm run test` (affected slice vs new `origin/main`) | **PASS** — 355 files / 3406 tests |
+| `npm run test:integration:service` | **PASS** — 317 files / 2993 tests; 1 file + 5 tests skipped (pre-existing) |
+| `npm run knip` | **PASS** — exit 0, config hints only |
+| `composition-edge-anti-regrowth-guard` (AU21 AC #2) | **PASS**, `DEFERRED_FOLLOWUP = new Set([])`, `SEAM_GROUPS = new Set([])` — **zero exemptions**, one fewer than `main` |
+| `execution-boundary-guard` live-scan mutation test (fake root) | **FIRES** — 2 findings on injected violations under `core-api/src` + `agent-orchestration` |
+| `au9-direct-handoff-guard` dead-check (restored from `1dae6d7b`, re-read) | **CONFIRMED DEAD** — sole candidate set is `files(root + "packages/server/src")`, `files()` returns `[]` for a missing root |
+| Harness-predicate selection sweep (`isHarnessIntegrationPath` over all three `SCAN_DIRS`) | **1 file selected** of 11 real harness tests — see N12 |
+| Builder's own live evidence, re-read at source (`scratchpad/au9-run1.log`, `au9-main-run.log`, `au9-run3.log`) | live RED before fix (0 messages / 120 s timeout ×3), green on `origin/main` in a scratch worktree (4.27 s), live GREEN after fix (4.40 s) with the `reply` tool call and the new WARN both visible in the log |
+
+Harness lane not re-run by me (release-gated, real LLM). Its live red→green transition is evidenced by
+the builder's captured runs above, which I read directly rather than accepting the commit message.
+
+---
+
+## 1. The regression fix (`ed60f7cb`, `start-runtime.ts:135-171`) — **CORRECT AND COMPLETE**
+
+**The regression was real, AU27-specific, and correctly diagnosed.** Increment 6 replaced
+`const resolvedFastModel = await deps.resolveModel?.("fast")` into the shared drain for *every* kind.
+`BUILT_IN_GATEWAY_CONFIG.fast` is `{provider:"anthropic"}` (`model-gateway.ts:138`), and
+`resolveProvider` throws `MissingCredentialError` when `anthropic_api_key` is absent
+(`model-gateway.ts:231-236`). The throw lands at `start-runtime.ts` *outside* `runClaimedRequest`, so
+`runtime.ts:433-459`'s terminalizer — which *does* terminalize pre-admission failures — never runs;
+`start-runtime.ts`'s own catch writes nothing unless `explicitStartId` is set. Claim released at lease
+expiry (30 s), re-claimed by the 1 s drain, forever. Confirmed by reading both catch blocks, not by
+trusting the commit message.
+
+**`undefined` genuinely falls back to the primary model at every consumer.** I traced all of them:
+- `runtime.ts:490` — conditional spread, so `undefined` omits the key entirely.
+- `provisioner.ts:660,1431` — optional field, pass-through into `SessionConfig`.
+- `harness-port.ts:78` — `readonly resolvedFastModel?: ResolvedModel` (optional in the contract).
+- `builtin-harness-adapter.ts:936` — `config.resolvedFastModel ?? config.resolvedModel`, then
+  `:937 if (!summarizeModel) return;`. `:970` is a telemetry comparison, `undefined`-safe.
+- **There is no other production reader.** `cli-harness-adapter.ts`, `remote-worker`, `remote-server`:
+  zero references (grepped). `packages/eval` supplies its own `ctx.resolvedFastModel` and never reads
+  the drain's. So the degrade path is total, not just the one line the `@lore` cites.
+
+**Swallowing is the right call here, and does not mask a real misconfiguration.** `resolvedFastModel`
+is a summarization-only optimization whose absence was already the norm for five of six kinds
+pre-AU27. `.claude/rules/typescript.md`'s "no swallowing with try-catch" is aimed at *unexpected*
+errors; this is an expected, enumerated one (`MissingCredentialError`) on a best-effort path, degraded
+to exactly the state an absent `deps.resolveModel` already produces. It is logged through the
+sanctioned observability adapter (`createLogger`, matching `context.ts:147` /
+`runtime-reapers.ts:132`), and the logged value is a credential **name**, never a value. A genuinely
+fatal misconfiguration still surfaces: the *primary* resolution at `:134` is unguarded and still
+throws.
+
+**Observability is adequate but noisy — see N13.** The commit says "log once"; it is once *per drained
+request*, not deduped. On the default gateway config (all three tiers anthropic) any openrouter-only
+deployment emits this WARN on every single agent run.
+
+**The primary `resolveModel` at `:134` is NOT safe — but it is contract-covered, and AU27 did not make
+it worse than the plan authorises.** Verified by diffing against `origin/main`: the primary call is
+pre-existing (`git diff origin/main...HEAD` shows only the added `modelOverride` argument), and
+`plan.md`'s *Out of scope* (c) names this exact defect — "`drainAgentSessionRequests` claims the
+request before `resolveModel` throws … the row sits `claimed` until its 30 s lease expires, is
+re-claimed, and loops indefinitely … **AU27 accepts newly exposing it rather than bounding it**", with
+the founder's own AC-6 strike ("no api key is not your issue. here wrong scope"). So the builder's
+reasoning holds *as a scope call*, not as a safety argument. Two things sharpen it, recorded as N14
+and N15: (a) the `modelOverride` argument cannot make it worse — `openrouter` is explicitly permitted
+on the agent path (`model-gateway.ts:244-258`) and `openai-compatible` is diverted to the tier path by
+`server-factory.ts:738`; (b) AU27 *did* move one new operation into the unguarded window —
+`parseBakedAgentConfig` (`runtime.ts:146-153`), a bare `JSON.parse`.
+
+**Regression coverage exists, but only in the release-gated lane — N12/N13.** The service-lane custody
+test cannot catch this class: `startTestRuntime` builds deps via `runtimeDeps(db, eventBus, …)`, which
+**never sets `resolveModel`** (grepped `run-orchestration-composition.ts` — zero hits), so
+`deps.resolveModel?.("fast")` is a no-op there. `AU9-assistant-handoff-realbinary` is the only test
+that drives the real `DbCredentialResolver`, and it lives in `HARNESS_INCLUDE`.
+
+---
+
+## 2. Round-1 findings — status at source
+
+| # | Finding | Status | Evidence |
+|---|---|---|---|
+| **W1** | AC-5 has no merge-lane runtime proof | **CLOSED** | `agent-request-custody.integration.test.ts:306-331` seeds a real `sourceKind:"assistant"` row and drains it through the real `startRuntime`; asserts `status === "completed"` **and** exactly one `agentLifecycleInbox` row with `state:"completed"`. I verified the claim that `completed` is CAS-only: `transition-run.ts:79-88` sets `precondition:"running"` whenever `sessionId` is present, `service.ts:1233-1245` routes it to the running-CAS terminal writer, and a CAS miss returns `null` → `transition-run.ts:107` throws `Unknown agent request`. So the assertion cannot pass without the `running`→`completed` transition. The fake is at the sanctioned `ports.sessionProvisioner` seam only — the drain, claim, custody and lifecycle writes are all real. |
+| **W2** | AU9 realbinary carries the never-silent false green | **CLOSED, with a real live sanity-break** | `AU9-…:142-158` now asserts `payload.text` defined, `.not.toBe(SESSION_NOT_RETURNED_NOTICE_TEXT)`, and `.toContain("durable handoff works")`. The round-1 concern is structurally impossible now. The builder's structural break is superseded by real evidence I read at source: `au9-run1.log` = live RED (`expected +0 to be 1`, 3× 120 s), `au9-main-run.log` = green on `origin/main` in a scratch worktree, `au9-run3.log` = live GREEN with `tool_call {"toolName":"reply","argsSummary":"{\"text\":\"durable handoff works\"}"}` in the observability stream. The assertion passes because a real model called the real `reply` tool with the required text. No further sanity-break needed. |
+| **W3** | Calling-thread participants diverge from the host-thread idiom | **CLOSED** | `calling-thread-bindings.ts:53-54` — `const founder = await findUser(db, {kind:"human"}); const participants = founder ? [founder.id, agentId] : [agentId]`. Fallback is sane and tested (`calling-thread-bindings.integration.test.ts:64-79` asserts agent-only when no human row exists) — it never fabricates a nonexistent user id. Read via the owning Service's own `findUser`, not a raw `users` select; `table-ownership-guard` PASS confirms mechanically. Residual: N17. |
+| **W4** | Comments asserting deleted mechanisms | **CLOSED** | All seven sites verified: `app.ts:21-22` deleted, `seed-fixtures.ts:26-29` deleted, `routine-scheduler-bindings.ts` doc rewritten with zero `dispatchOps` references, `typecheck-gate.ts:416-420` + the dead `"agent-orchestration/dispatch"` leaf removed, `honest-harness-guard.ts:559-561` reworded to "structurally cannot run a CLI harness", `honest-harness-predicate.ts` doc block rewritten (no more `conversational-reply-row` citation), `ah6-generate-cassette-keys.ts:79` repointed at `tool-definitions.ts`. |
+| **W5** | Tombstone comments AU27 itself added | **CLOSED** | `context.ts` banner gone (−6), `run-orchestration-composition.ts` banner gone (−5), `tool-definitions.ts` dangling trailer gone (−6), `start-runtime.ts` note restated with no `plan.md` reference. |
+| **W6** | The return set is four, three live sites still said three | **CLOSED** | `return-status-tool.ts:113` now names `reply`; `docs/agent-layer/return-gate-enforcement.md:3,11` say four with a `reply` table row (repo-wide sweep for "three return"/"submit_review, handoff_to, or send_message" finds only the deliberately-trio `FORCE_RETURN_MESSAGE` and its pinning tests); all four `force-return.ts` eval seeds now exclude `reply`; the `FORCE_RETURN_MESSAGE` `@lore` is reworded to state *why* the default names three, not that the set is three. **`return-status-tool.ts:80`'s literal-naming gap was not widened** — it is untouched, still bare tool names, still honestly scoped as the one site with no harness type on `ToolContext`. But the `:113` fix has a side effect — see W9. |
+| **W7** | `linting-and-formatting.md` documents a deleted guard | **CLOSED** | The `test-naming-guard` row is gone, the false "three" count replaced with "see the `lint` script for the exact, current chain", and five real guards documented. |
+| **W8 / N1** | Dead guard + inert floors | **CLOSED, independently re-verified** | `scripts/au9-direct-handoff-guard.ts` deleted and unwired from `package.json`'s `lint`. I restored it from `1dae6d7b` and re-read `inspect()`: its only candidate set is `files(join(root,"packages/server/src")).filter(productionFile)` and `files()` returns `[]` for a missing root — it could never fail. `BUILTIN_ONLY_INTEGRATION` is now `[]` (**strictly stronger** — zero coverage exemptions), and the three dead `EXPLICIT_HARNESS_INTEGRATION` entries are removed. **The builder's `execution-boundary-guard` reasoning holds and I proved it rather than accepting it:** `inspect()` on a synthetic root fires on both an MCP-SDK import under `packages/core-api/src` and a `spawn("claude")` under `agent-orchestration` — the dead `packages/server` entry is one of three composition roots, the other two are live. |
+| **N10** | `CLAUDE.md` stale monorepo lines | **CLOSED** | `:124` and `:130` now describe the real package set (verified against `ls packages/`). |
+
+**All eight WARNINGs and both cited NOTEs are genuinely closed at source.**
+
+## 3. Regressions from the fix pass itself — none found
+
+The complete non-comment production delta of `1dae6d7b..HEAD` is **11 lines** (extracted mechanically):
+the `try/catch` + logger in `start-runtime.ts`, the `findUser`/`participants` pair in
+`calling-thread-bindings.ts`, one string in `return-status-tool.ts`, and four eval seed strings.
+Everything else in the ~25 touched files is comments, docs, tests, or the guard deletion.
+
+- **No guard weakened, no live check deleted.** The only deleted check is provably dead (above). Every
+  surviving guard passes *and* fires on injected violations (`--fixtures` self-tests plus my own
+  live-root mutation on the one the builder argued about). `composition-edge-anti-regrowth-guard`'s
+  Scenario 6 fixture was **strengthened** — it now asserts the nested group *fires* with `SEAM_GROUPS`
+  empty, where before it asserted a real exemption did *not* fire.
+- **No production behavior changed to suit a test.** The `start-runtime.ts` fix is a production defect
+  fix that the test surfaced — proven by the `origin/main` control run, not by the test's demands.
+  Every other production line is review-driven.
+- **Production still imports zero test/tooling code** — re-grepped: no non-test file under
+  `packages/**/src` imports from `scripts/` or a `__tests__` path.
+- **Zero new escape hatches.** Grepped every added line in `packages/**` + `scripts/**` for `any`,
+  `@ts-ignore`, `@ts-expect-error`, `biome-ignore`, `eslint-disable`, non-null assertions,
+  `as unknown as`: two hits, both the English word "any" inside a comment. The fix's type
+  (`Awaited<ReturnType<NonNullable<typeof deps.resolveModel>>>`) is derived, not asserted.
+- **Corrective closure rule re-applied** against `plans/strategy-kernel-plugin-split/as-should-dependency-graph.md`
+  (self-declared SUPERSEDED; checked against it and its successors). The one new cross-package call —
+  `core-api/src/services/calling-thread-bindings.ts` → `@hyperidle/users`'s `findUser` — is Layer code
+  calling the owning Service's own accessor, not a raw table read, and `table-ownership-guard` +
+  `composition-boundary-guard` both PASS. No forbidden edge added.
+- **AU21 anti-regrowth guard green with zero exemptions**: `DEFERRED_FOLLOWUP = new Set([])`,
+  `ALLOWLIST` unreferenced by any live finding, `SEAM_GROUPS = new Set([])`.
+
+---
+
+## New findings
+
+### WARNING
+
+**W9 — `reply` satisfies the return gate even when it structurally cannot work, and the W6 fix now
+advertises that to the sessions where it fails.** `return-enforcement.ts:52-59`'s `observe` flips
+`returned = true` on the *tool name* alone, and `mcp-bridge.ts:153-155` invokes `onToolCall` after
+`registry.invoke` **regardless of whether the result is `ok` or `err`**. For a `routine_run` /
+`knowledge_action` session `params.callingThreadId` is null, so `requiredReturnActions` is `undefined`
+(`provisioner.ts:1282-1283`) and plain membership applies — a `reply` call that returns
+`err("NO_CALLING_THREAD")` (the AC-7 path, `tool-definitions.ts:174-180`) still satisfies the gate.
+Those sessions are not exempt (`provisioner.ts:1399-1401` exempts only zero-tool drains), and `reply`
+is in their registry (no `roles` filter). Round 1's W6 fix then added `reply` to
+`return-status-tool.ts:113`'s **static** description, which every agent sees — so a routine agent is
+now told that `reply` is a valid way to return, when for it `reply` is a guaranteed no-op that
+nonetheless closes the gate.
+*Culpability note:* this is a direct consequence of the fix round 1 demanded, and a static tool
+description cannot be session-aware (the same limitation the builder honestly scoped at `:80`). The
+durable fix is at the gate, not the description: complete the `requiredReturnActions` symmetry at
+`provisioner.ts:1282-1283` — when `callingThreadId == null`, require the trio (exclude `reply`) — using
+the mechanism AU27 already built, plus one unit test alongside
+`return-gate-required-actions.test.ts:19,54`.
+*Why this does not block:* no AC, contract or SCOPE-LOCK item is unmet (AC-8 speaks only to sessions
+whose output *belongs* in a calling thread; AC-7 requires only a clean typed error, which is met); no
+test or guard falsely claims this is enforced; the harm requires a model to call `reply`, read a
+correcting error that names three working alternatives, and stop anyway; and the blast radius is a
+routine/knowledge turn recorded `completed` without its intended return — no silence toward a human
+(these kinds have no calling thread by definition), no data loss, no security impact.
+
+### NOTE
+
+**N12 — The harness guard and the attestation floors currently see 1 of 11 real harness tests. Not
+AU27's doing; AU27 improved it from 0.** `isHarnessIntegrationPath`'s directory rule is
+`/\/harness\/__tests__\/[^/]*\.integration\.test\.ts$/` (`honest-harness-predicate.ts:93`), and no
+path in the tree contains `/harness/__tests__/` any more — the real dirs are
+`agent-execution/harness-registry/src/__tests__` and `core-api/src/__tests__`. I ran the predicate over
+all three `SCAN_DIRS`: it selects exactly **one** file,
+`assistant-reply-live-harness.integration.test.ts` — AU27's own. The other ten (`cli-adapter-real-binary`,
+`AM2-*` ×3, `AN1`/`AN2`, `opencode-model-probe`, `AL7-two-session-trust-first`,
+`real-harness-return-enforcement-realbinary`, `AU9-assistant-handoff-realbinary`) are invisible to
+`honest-harness-guard`'s stub/`skipIf`/coverage/model-import checks *and* to `verify-attest.ts`'s
+agentic + per-harness floors (`verify-attest.ts:165` uses the same predicate). On `origin/main` the
+predicate selected **zero** files — every one of its four `EXPLICIT_HARNESS_INTEGRATION` entries named a
+file deleted in AU7 — so AU27 strictly improved the situation and its own new file is presently the
+sole enforcer. This is a pre-existing predicate breakage from the AU19 relocation, outside AU27's
+SCOPE LOCK, and it needs its own work package: repoint the directory rule at the real layout. Flagged
+here because it is the "reads as coverage but cannot fail" species round 1 was cleaning, and because
+it makes N13 sharper.
+
+**N13 — The regression's only guard is one release-gated, real-LLM test.** Nothing in the per-merge
+lane exercises `deps.resolveModel` at all (`runtimeDeps` never supplies it), so re-introducing the
+unguarded `await deps.resolveModel?.("fast")` would go green on every PR. The cheap closure is a
+service-lane case in `agent-request-custody.integration.test.ts`: pass
+`resolveModel: (tier) => tier === "fast" ? Promise.reject(new MissingCredentialError(...)) : Promise.resolve(model)`
+through `startTestRuntime`'s existing overrides object and assert the assistant request still reaches
+`completed`. ~15 lines, deterministic, no LLM. Combined with N12, the current situation is: the one
+production defect this WP shipped is guarded by the one harness test the enforcement machinery cannot
+see.
+
+**N14 — The silent-forever-retry window on the *primary* model resolution stands, and is now reachable
+for the highest-volume kind.** Contract-covered by `plan.md` *Out of scope* (c) and the AC-6 strike, so
+not a finding against this diff — but recorded plainly as residual risk: on a deployment whose
+`serverConfig.modelGateway` still holds the `BUILT_IN_GATEWAY_CONFIG` default (all three tiers
+anthropic) with no `anthropic_api_key` and no per-agent `modelId`, **every** agent run — assistant
+included — dies at `start-runtime.ts:134` with no terminal write, no `agent_run_admission_failed`, no
+thread notice, re-claiming every ~30 s indefinitely. Pre-AU27 the assistant path at least persisted a
+failure notice (`persistTurnFailureInternal`, deleted with `dispatch`); the Increment-5 never-silent
+net does not cover this because no session ever starts. The follow-up WP that plan.md (a)/(b)/(c)
+reserves should terminalize on a pre-admission throw.
+
+**N15 — `parseBakedAgentConfig` is a bare `JSON.parse` newly moved into that unguarded window.**
+`runtime.ts:146-153` has no try/catch; AU27 calls it at `start-runtime.ts:130`, before
+`runSession`. The same parse already ran inside `runClaimedRequest` (`runtime.ts:474`) where the catch
+*does* terminalize, so AU27 converted "malformed payload ⇒ terminal failure" into "malformed payload ⇒
+silent retry loop". `payloadJson` is server-written, so this is narrow — but it belongs in the same
+follow-up as N14.
+
+**N16 — The branch base is stale.** `origin/main` has advanced to `aaa5243f` (AU28 plan);
+`git merge-base --is-ancestor origin/main HEAD` fails. The delta is small and non-conflicting — main's
+only overlap with this diff is a one-word `export` added at `generate-dependency-graph.ts:1189`, far
+from AU27's `SEAM_GROUPS` edit at `:150`. Rebase before ship; re-run verify after (the affected slice
+is computed against `origin/main`).
+
+**N17 — `findUser(db, {kind:"human"})` picks an arbitrary human.** `user-store.ts:99-102` is
+`.limit(1)` with no `ORDER BY` and no `role:"founder"` filter, so on a team with more than one human
+the emit-created task thread lists a nondeterministic one and the others' participant-probe inbox
+still misses the agent's `reply`. This mirrors `middleware/auth.ts`'s existing local-mode convention
+(the `@lore` says so), so it is consistent with the codebase — recorded, not actionable in this WP.
+
+**N18 — The fast-tier WARN fires per request, not once.** On the default gateway config any
+openrouter-only deployment logs
+`fast-tier model resolution failed; falling back to the primary model` on **every** agent run. Correct
+information, wrong cadence — it trains readers to ignore the line. A per-process one-shot, or
+resolving the fast tier lazily at the one call site that consumes it
+(`builtin-harness-adapter.ts:936`), would carry the same signal without the noise. Relatedly
+(simplification lens): the drain resolves `fast` for every kind on every request, and only the
+`builtin` adapter's summarization ever reads it — CLI-harness runs pay a credential lookup they never
+use.
+
+**N19 — Two trivial doc residues in files this round touched.** `ar1-harness-predicate.test.ts:13`'s
+header still documents `EXPLICIT_HARNESS_INTEGRATION = ["__tests__/session-provisioning.integration.test.ts"]`
+— the very entry this round deleted; and `docs/guides/developer/linting-and-formatting.md:10` still
+cites `packages/server` for the drizzle ESLint scope. Same false-ground-truth class as W4/W7, an order
+of magnitude smaller.
+
+**N20 — Carried forward, unchanged from round 1:** N2 (`no-ungated-stream-drain` does not cover
+`provisioner.ts:1482`), N3 (no wiring-completeness proof for the optional bake dep), N4, N5
+(`package-lock.json` still declares the deleted `dispatch` workspace — regenerate at rebase), N6, N7,
+N8, N9, N11. None were in scope for this round and none changed.
+
+---
+
+## Verdict rationale
+
+Every one of round 1's eight WARNINGs is closed at source, verified by reading the code rather than
+the commit messages, against a green `check` / `lint` / `test` / `test:integration:service` / `knip`
+and a green AU21 boundary guard with **zero** exemptions. Two of the closures are strictly stronger
+than asked: `BUILTIN_ONLY_INTEGRATION` was emptied rather than repointed, and the anti-regrowth
+guard's Scenario-6 fixture now proves the guard *fires* where it used to prove an exemption did not.
+The dead-guard claim (W8) and the "other roots keep it live" claim (`execution-boundary-guard`) were
+both re-tested by me directly, not accepted.
+
+The regression fix is correct, complete at every consumer, honestly documented, and — unusually for a
+review — backed by a genuine live red → green transition plus an `origin/main` control run that proves
+the failure was AU27-specific. It is a production fix that a test surfaced, not a production change
+made to satisfy a test. The fix pass's entire non-comment production footprint is eleven lines; it
+weakened no guard, deleted no live check, added no `any`/suppression/non-null assertion, and left
+production importing zero test or tooling code.
+
+One new WARNING (W9) is open. It is real and I am not softening it — a gate that a structurally-failing
+tool call can satisfy is exactly the class this review exists to catch. But it unmeets no AC, no
+contract and no SCOPE-LOCK item; it produces no false green in any test or guard; it is a second-order
+consequence of the fix round 1 itself demanded; and its blast radius is a routine/knowledge turn ending
+without its intended return, on the two lowest-stakes kinds, only if a model ignores a correcting error
+that names three working alternatives. Holding the WP for it would be pessimism, not evidence. It, N12
+(one of eleven harness tests is visible to the enforcement machinery), N13 (the regression's only guard
+is release-gated) and N14/N15 (the silent-retry window) are the residual risks the next work package
+should own.
+
+VERDICT: DONE
