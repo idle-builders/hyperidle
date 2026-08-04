@@ -246,10 +246,39 @@ export interface CreateServerDeps {
  * on indirect observable effects. This is the correct scope: the test must
  * fail if someone reverts the wiring to EnvCredentialResolver.
  */
+/**
+ * The three session-provisioning ports this composition root hands the run
+ * runtime, exposed for the same reason `credentialResolver` is (AH1 §3).
+ *
+ * @lore AU26 review C1: the WHOLE bug class this work package uncovered lives
+ * in these three fields. `serviceConnectionResolver` was wired to a
+ * `CredentialResolver` — `resolve(name)` where `resolve(userId, connectionId)`
+ * was expected — and AN2 provisioning silently provisioned nothing in
+ * production for months. Nothing failed: not `tsc` (an `as` cast on the deps
+ * literal erased the shape), not a test (every provisioning proof hand-built
+ * its own port and called the read function directly, never going through
+ * `createServer`). Two things close that: the literal below is now TYPED, not
+ * cast, so a wrong-arity resolver is a compile error; and these ports are on
+ * the handle so
+ * `core-api/src/__tests__/server-factory.provisioning-wiring.integration.test.ts`
+ * can assert the production wiring is the real implementations, functionally,
+ * against a real DB.
+ */
+export interface ProvisioningWiring {
+	readonly serviceConnectionResolver: NonNullable<
+		NonNullable<RuntimeDeps["runtime"]>["serviceConnectionResolver"]
+	>;
+	readonly heldConnections: NonNullable<NonNullable<RuntimeDeps["runtime"]>["heldConnections"]>;
+	readonly injectedFilesystems: NonNullable<
+		NonNullable<RuntimeDeps["runtime"]>["injectedFilesystems"]
+	>;
+}
+
 export interface ServerHandle {
 	readonly httpServer: ServerType;
 	readonly dispose: () => Promise<void>;
 	readonly credentialResolver: CredentialResolver;
+	readonly provisioning: ProvisioningWiring;
 }
 
 const MIME_TYPES: Record<string, string> = {
@@ -523,9 +552,12 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// blanket `as ProvisionSessionDeps` on the deps literal is what hid the arity
 	// mismatch from `tsc`.
 	//
-	// Fixed to the real `ServiceConnectionResolver`, the only plaintext path
-	// (AN1 hard-rule 1).
-	const provisioning = {
+	// @lore AU26 review C1: the three provisioning ports are TYPED now
+	// (`ProvisioningWiring`) instead of riding inside that cast, so the same
+	// mis-wiring is a compile error — and they are exposed on `ServerHandle` so
+	// `server-factory.provisioning-wiring.integration.test.ts` can assert the
+	// production wiring is the real implementations against a real DB.
+	const provisioning: ProvisioningWiring = {
 		serviceConnectionResolver: new ServiceConnectionResolver(db),
 		// @lore AU26 E3: the spawn-time held-connection read, live and
 		// in-layer. Replaces AU21 K1's emit-time bake, so a connection added
@@ -851,5 +883,5 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		return disposePromise;
 	};
 
-	return { httpServer, dispose, credentialResolver };
+	return { httpServer, dispose, credentialResolver, provisioning };
 }

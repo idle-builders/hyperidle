@@ -155,7 +155,16 @@ async function assignFilesystem(db: HyperIdleDb, id: string): Promise<void> {
 		.values({ agentUserId: AGENT_ID, filesystemId: id, createdAt: NOW });
 }
 
-/** The spawn-time filesystems step, wired exactly as `provisioner.ts` wires it. */
+/**
+ * The spawn-time filesystems step.
+ *
+ * This is a hand-built mirror of the port `create-server.ts` composes, not the
+ * composition root itself — it exists to exercise the READ, and the real
+ * `RegistryFilesystemMounter`, against a real DB and a real sandbox. That the
+ * production wiring is these same implementations is proved separately, through
+ * the real `createServer`, by
+ * `core-api/src/__tests__/server-factory.provisioning-wiring.integration.test.ts`.
+ */
 async function provisionFilesystems(
 	db: HyperIdleDb,
 ): Promise<Awaited<ReturnType<typeof mountFilesystemsForAgent>>> {
