@@ -1,23 +1,5 @@
 [
   {
-    "path": "packages/core-api/connections/src/resolve-injected-connections-for-agent.ts",
-    "line": 58,
-    "symbol": "u-founder",
-    "kind": "literal-id",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "straight-swap"
-  },
-  {
-    "path": "packages/core-api/connections/src/resolve-injected-connections-for-agent.ts",
-    "line": 67,
-    "symbol": "u-founder",
-    "kind": "literal-id",
-    "shape": "string",
-    "importerCount": 0,
-    "triageHint": "straight-swap"
-  },
-  {
     "path": "packages/core-api/policy/src/lifecycle-propagation.ts",
     "line": 470,
     "symbol": "u-founder",

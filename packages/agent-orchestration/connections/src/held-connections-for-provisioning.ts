@@ -12,9 +12,9 @@
  * window closes (AC1(c)).
  *
  * @lore AU26 E3 — WHY THIS TAKES NO `userId`, and why that is not a widening.
- * K1's helper resolved the owner as `findUser(db, { kind: "human" }) ??
- * "u-founder"` — a `users` read. `users` is core-api's domain, and
- * orchestration reads ZERO core-api state (AU21 AC#2, zero carve-outs; the
+ * K1's helper resolved the owner by asking core-api's `users` for the single
+ * human, falling back to a hardcoded founder-id sentinel when there was none.
+ * `users` is core-api's domain, and orchestration reads ZERO core-api state (AU21 AC#2, zero carve-outs; the
  * founder's own framing is that orchestration is a blind, purely
  * request-driven executor). Injecting a `findUser` port down here would be
  * that read wearing a different hat, and the anti-regrowth guard exists to
@@ -26,9 +26,9 @@
  * every held row belongs to the one human, so this returns exactly what K1's
  * helper returned. It is strictly SAFER than the old shape, not looser: the
  * old code resolved every connection under one guessed owner id and silently
- * dropped any row whose real owner differed (including whenever the human's id
- * was not literally `u-founder`); this one can never resolve a row against the
- * wrong user, because it never guesses. Per-user isolation stays where AN1 put
+ * dropped any row whose real owner differed (including any time the human's id
+ * was not the hardcoded sentinel); this one can never resolve a row against
+ * the wrong user, because it never guesses. Per-user isolation stays where AN1 put
  * it — in the resolver's `AND(id, userId)` query.
  *
  * When multi-tenancy arrives, the per-agent owner has to be carried on the
