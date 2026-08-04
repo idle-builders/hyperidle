@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { type HyperIdleDb, sessions, taskDispatchAttempts } from "@hyperidle/db";
+import { type HyperIdleDb, taskDispatchAttempts } from "@hyperidle/db";
 import {
 	canTransitionTaskState,
 	type DomainEvent,
@@ -20,6 +20,7 @@ type HandoffDeps = {
 	org: NonNullable<PolicyDeps["org"]>;
 	sessionRequests: NonNullable<PolicyDeps["sessionRequests"]>;
 	taskRunResolver: NonNullable<PolicyDeps["taskRunResolver"]>;
+	runOrchestration: NonNullable<PolicyDeps["runOrchestration"]>;
 };
 
 export interface HandoffMetadata {
@@ -104,7 +105,10 @@ export function buildHandoff(
 		//   2. item_created       (escalation or review-item paths)
 		// `session_ended` is NOT emitted here — handoff does not record a
 		// session-end outcome, so subscribers like `session-review-creator`
-		// must not fire on handoff.
+		// must not fire on handoff. AU26 H1: that suppression now lives on the
+		// side that owns the write (`run-orchestration`'s `endRunForHandoff`
+		// takes no EventBus at all), so it is structural rather than a rule
+		// this file has to keep remembering.
 		let taskStateChangedEvent: TaskStateChangedEvent | null = null;
 		let itemCreatedEvent: Extract<DomainEvent, { type: "item_created" }> | null = null;
 
@@ -117,11 +121,11 @@ export function buildHandoff(
 			});
 			if (!claim.applied) throw new Error(`Task handoff conflict: ${task.id}`);
 
-			// 1. End current session (state + endedAt).
-			await tx
-				.update(sessions)
-				.set({ state: "done", endedAt: now })
-				.where(eq(sessions.id, sessionContext.sessionId));
+			// 1. End the current run (state + endedAt) — a downward call into
+			// `agent-orchestration`, with THIS transaction's handle so the run is
+			// terminal at the same commit as the task claim above. Unconditional:
+			// it runs whether or not a matching `agentSessionRequests` row exists.
+			await deps.runOrchestration.endRunForHandoff(tx, sessionContext.sessionId, now);
 
 			// 2. Perform the handoff-type-specific mutations + capture the
 			// post-commit event shapes.

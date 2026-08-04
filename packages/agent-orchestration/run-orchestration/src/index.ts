@@ -31,6 +31,7 @@ export type {
 	RuntimePorts,
 } from "./contracts.js";
 export { type CreateBareRunInput, createBareRun } from "./create-bare-run.js";
+export { endRunForHandoff } from "./end-run-for-handoff.js";
 export type { FileWatcher, FileWatcherConfig } from "./file-watcher.js";
 export { startWatcher } from "./file-watcher.js";
 export {
