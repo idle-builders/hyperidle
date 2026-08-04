@@ -1,10 +1,10 @@
 {
   "workPackage": "AU26",
   "status": "in_progress",
-  "currentStep": "architecture-critique",
+  "currentStep": "build-wave-0",
   "startedAt": "2026-08-04",
   "designSkipped": {
-    "reason": "no-ui-surface — backend/infra only; plan.md Pre-build gates says design not required; AC #6 requires zero frontend behavior changes",
+    "reason": "no-ui-surface \u2014 backend/infra only; plan.md Pre-build gates says design not required; AC #6 requires zero frontend behavior changes",
     "decidedBy": "orchestrator"
   },
   "approvals": {
@@ -15,7 +15,20 @@
       "recordedAt": "2026-08-04"
     },
     "concept": {
-      "approved": false
+      "approved": true,
+      "basis": "founder said 'Continue the AU26 pipeline run' after the concept gate summary was posted, without answering the two confirmation points; the architecture's stated defaults therefore apply",
+      "defaultsApplied": [
+        {
+          "gate": "ACL scope (D2a/D2b/D2)",
+          "default": "proceed as written - eval + db seeders IN scope; census target 100 pairs -> 0"
+        },
+        {
+          "gate": "validation scenario 4 WS half",
+          "default": "proceed narrowed; recorded accepted-pending-review, AC13(b) satisfied by visibility"
+        }
+      ],
+      "notExplicitlyAnswered": true,
+      "recordedAt": "2026-08-04"
     },
     "final": {
       "approved": false
@@ -45,22 +58,21 @@
     "architecture": [
       {
         "round": 1,
+        "score": "6/10",
         "verdict": "REVISE",
         "critical": 5,
-        "note": "see architecture-critique.md"
+        "warning": 8
       },
       {
         "round": 2,
         "score": "7/10",
-        "verdict": "PASS, conditional",
+        "verdict": "PASS-conditional",
         "critical": 2,
-        "warning": 6,
-        "note": "waves 0-3 buildable; D2 blocked. see architecture-critique-round2.md"
+        "warning": 6
       },
       {
         "round": 3,
-        "verdict": "revised — awaiting critique",
-        "note": "both CRITICALs closed by re-deriving the ACL scope principle (whole workspace, tests the only ungoverned code) and re-running the census honestly (100 pairs / 48 files, vs the 12 claimed). W1-W6 + S1-S3 closed."
+        "note": "both CRITICALs closed; ACL scope principle re-derived; census re-run 12 -> 100 pairs"
       }
     ]
   },
@@ -72,38 +84,34 @@
     "planAmended": true,
     "architecture": ".pipeline/work/AU26/architecture.md",
     "feasibility": ".pipeline/work/AU26/feasibility.md",
-    "serviceVerdicts": [
-      ".pipeline/work/AU26/service-verdicts/group1.md",
-      ".pipeline/work/AU26/service-verdicts/group2.md",
-      ".pipeline/work/AU26/service-verdicts/group3.md",
-      ".pipeline/work/AU26/service-verdicts/git-export-rechallenge.md"
-    ],
+    "serviceVerdicts": ".pipeline/work/AU26/service-verdicts/",
     "probes": ".pipeline/work/AU26/probes/",
     "architectureCritiqueRound2": ".pipeline/work/AU26/architecture-critique-round2.md",
-    "censusProbe": ".pipeline/work/AU26/probes/census/"
+    "censusProbe": ".pipeline/work/AU26/probes/census/",
+    "architectureCritique": ".pipeline/work/AU26/architecture-critique.md"
   },
   "planAmendedByArchitecture": {
-    "what": "(1) 2026-08-04 — git-export exporter DELETION recorded as in-scope (founder call on the record, via the re-challenge); AC6 extended from 'relocate' to 'relocate or delete'. (2) 2026-08-04 round 3 — the ACL's scope decided: it governs every non-test file in the workspace. Two consequences widen scope and are now in plan.md: packages/db's two seeders relocate above the owning Services (D2a), and packages/eval routes through them (D2b). A new AC gates the ACL-violation count on measurement (100 at HEAD -> 0).",
+    "what": "(1) 2026-08-04 \u2014 git-export exporter DELETION recorded as in-scope (founder call on the record, via the re-challenge); AC6 extended from 'relocate' to 'relocate or delete'. (2) 2026-08-04 round 3 \u2014 the ACL's scope decided: it governs every non-test file in the workspace. Two consequences widen scope and are now in plan.md: packages/db's two seeders relocate above the owning Services (D2a), and packages/eval routes through them (D2b). A new AC gates the ACL-violation count on measurement (100 at HEAD -> 0).",
     "at": "2026-08-04"
   },
   "sizing": {
     "prs": 19,
     "waves": 5,
-    "note": "NOT one PR — see architecture.md §12. Round 3 corrected the count (round 2 said 13 with a 16-row table) and added D0/D2a/D2b. Wave = computed dependency depth. No duration estimate — the founder does not want them."
+    "note": "NOT one PR \u2014 see architecture.md \u00a712. Round 3 corrected the count (round 2 said 13 with a 16-row table) and added D0/D2a/D2b. Wave = computed dependency depth. No duration estimate \u2014 the founder does not want them."
   },
   "founderConfirmationPoints": {
-    "note": "Each gate has a stated default the run takes if no answer arrives (CLAUDE.md ABSOLUTE RULE 1 — a pipeline run never waits). Recorded here when taken, with the timestamp, so a late answer is a cheap correction. See architecture.md §12.",
+    "note": "Each gate has a stated default the run takes if no answer arrives (CLAUDE.md ABSOLUTE RULE 1 \u2014 a pipeline run never waits). Recorded here when taken, with the timestamp, so a late answer is a cheap correction. See architecture.md \u00a712.",
     "gates": [
       {
         "id": "C1",
         "question": "git-export exporter deletion (~4,500 lines)",
-        "default": "proceed — the verdict is already founder-directed",
+        "default": "proceed \u2014 the verdict is already founder-directed",
         "status": "pending"
       },
       {
         "id": "C2",
         "question": "observability dissolution",
-        "default": "proceed — zero routes have callers repo-wide",
+        "default": "proceed \u2014 zero routes have callers repo-wide",
         "status": "pending"
       },
       {
@@ -115,13 +123,13 @@
       {
         "id": "D1",
         "question": "sessions ownership",
-        "default": "proceed — no semantics change (§D-H #1)",
+        "default": "proceed \u2014 no semantics change (\u00a7D-H #1)",
         "status": "pending"
       },
       {
         "id": "D2a/D2b/D2",
-        "question": "zero exceptions is a standing ruling, so AU26 reads it as governing scan SCOPE — packages/db's seeders relocate and packages/eval routes through the owning Services. Confirm, or name the narrowing.",
-        "default": "proceed as written — D2a and D2b are in the plan. A standing ruling is not suspended by silence. If narrowed later, eval's findings are WAIVED IN THE RECORD, never by a package name in the guard.",
+        "question": "zero exceptions is a standing ruling, so AU26 reads it as governing scan SCOPE \u2014 packages/db's seeders relocate and packages/eval routes through the owning Services. Confirm, or name the narrowing.",
+        "default": "proceed as written \u2014 D2a and D2b are in the plan. A standing ruling is not suspended by silence. If narrowed later, eval's findings are WAIVED IN THE RECORD, never by a package name in the guard.",
         "status": "pending"
       },
       {
