@@ -23,7 +23,6 @@ import {
 	bets,
 	type HyperIdleDb,
 	items,
-	sessions,
 	tasks,
 	teamMembers,
 	teams,
@@ -603,41 +602,6 @@ describe("work-service", () => {
 
 			const empty = await work.list(db, "task", { ids: [] });
 			expect(empty).toEqual([]);
-		});
-	});
-
-	describe("listBetTasksWithLatestSessionOutcome", () => {
-		test("owns the correlated sessions subquery for latestSessionOutcome", async ({ db }) => {
-			await seedTeamAndAgent(db);
-			await work.create(db, "bet", {
-				id: "bet-1",
-				teamId: "team-1",
-				description: "d",
-				status: "active",
-				createdAt: new Date().toISOString(),
-			});
-			await work.create(db, "task", {
-				id: "task-1",
-				betId: "bet-1",
-				teamId: "team-1",
-				title: "T1",
-				state: "in_progress",
-				createdAt: new Date().toISOString(),
-				updatedAt: new Date().toISOString(),
-			});
-			await db.insert(sessions).values({
-				id: "session-1",
-				taskId: "task-1",
-				agentId: "agent-1",
-				modelTier: "workhorse",
-				startedAt: "2026-01-01T00:00:00.000Z",
-				state: "done",
-				outcome: "completed",
-			});
-
-			const rows = await work.list(db, "task", { betId: "bet-1", include: "latestSessionOutcome" });
-			expect(rows).toHaveLength(1);
-			expect(rows[0]?.latestSessionOutcome).toBe("completed");
 		});
 	});
 

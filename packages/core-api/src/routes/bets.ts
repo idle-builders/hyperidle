@@ -1,5 +1,5 @@
 import { getArtifactThreadSummaries } from "@hyperidle/conversation";
-import type { HyperIdleDb } from "@hyperidle/db";
+import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import {
 	create as createKnowledgeItem,
 	get as getKnowledgeItem,
@@ -7,18 +7,43 @@ import {
 	update as updateKnowledgeItem,
 } from "@hyperidle/knowledge";
 import { getTeam, getTeamMembers, listTeamMembers, listTeams, updateTeam } from "@hyperidle/org";
+import { requestRunStopForTasks } from "@hyperidle/run-orchestration";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import type { ArtifactThreadSummary, EventBus } from "@hyperidle/shared";
 import { BET_OUTCOME_VERDICTS, deriveTitle, InvalidTransitionError } from "@hyperidle/shared";
 import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/shared/http";
 import * as work from "@hyperidle/work";
 import { cascadeBetKill, transitionBet, updateBetField } from "@hyperidle/work";
+import { desc, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { enumValues } from "../schemas/common.schema.js";
 import { taskRunResolverDeps } from "../services/task-run-resolver-bindings.js";
 
 const SUMMARY_CAP = 10;
+
+/**
+ * The latest run outcome per task, keyed by task id — the recomposed half of
+ * AU26 H2 (§D-M.3). Mirrors the deleted correlated subquery exactly: newest run
+ * by `startedAt`, and no entry (rendered as `null`) for a task with no run.
+ */
+async function readLatestSessionOutcomes(
+	db: HyperIdleDb,
+	taskIds: readonly string[],
+): Promise<Map<string, string | null>> {
+	const byTaskId = new Map<string, string | null>();
+	if (taskIds.length === 0) return byTaskId;
+	const rows = await db
+		.select({ taskId: sessions.taskId, outcome: sessions.outcome })
+		.from(sessions)
+		.where(inArray(sessions.taskId, [...taskIds]))
+		.orderBy(desc(sessions.startedAt));
+	for (const row of rows) {
+		// Ordered newest-first, so the first row seen per task is the latest.
+		if (row.taskId !== null && !byTaskId.has(row.taskId)) byTaskId.set(row.taskId, row.outcome);
+	}
+	return byTaskId;
+}
 
 // AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
 // to the real migrated `org` Service — closes W2's `teamMembers` ownership gap.
@@ -366,14 +391,34 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
 		}
 
-		// L19: Enrich task rows with latest session metadata via a correlated
-		// sessions subquery — owned by work-service (foreign-import ceiling, plan
-		// addendum §A2/§A9).
+		// L19: enrich task rows with the outcome of each task's latest run.
+		//
+		// @lore AU26 H2 (§D-M.3): this used to be a correlated `sessions`
+		// subquery inside `work-service`'s own query surface — a Service
+		// reaching into a foreign table. Rendering a status chip is not a use,
+		// so the read is recomposed HERE, at the Layer route that renders it.
+		// The response body is unchanged, which is the whole contract: same
+		// field name, same `null` for a task with no run, same key ORDER
+		// (`latestSessionOutcome` between `updatedAt` and `outcomeVerdict`) and
+		// the same omission of `outcomeRecordedBy`, so `packages/web` has no
+		// reason to change.
 		// @lore O2: stripped strategy columns (durability, riskTier, attentionScore,
 		// crossTeam) removed from select. Session cost/token/harness columns also
 		// stripped — those are strategy concerns now in the app projection layer.
 		// @lore U1: tasks.teamId now references `teams` (formerly `products`). No more productId.
-		const betTasks = await work.list(db, "task", { betId, include: "latestSessionOutcome" });
+		const rawBetTasks = await work.list(db, "task", { betId });
+		const latestOutcomeByTaskId = await readLatestSessionOutcomes(
+			db,
+			rawBetTasks.map((t) => t.id),
+		);
+		const betTasks = rawBetTasks.map(
+			({ outcomeVerdict, outcomeRecordedAt, outcomeRecordedBy: _recordedBy, ...task }) => ({
+				...task,
+				latestSessionOutcome: latestOutcomeByTaskId.get(task.id) ?? null,
+				outcomeVerdict,
+				outcomeRecordedAt,
+			}),
+		);
 
 		// @lore U1: `description` (formerly `pitch`), `teamId` (formerly `productId`).
 		const title = deriveTitle(bet.description, bet.id);
@@ -667,6 +712,9 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			await cascadeBetKill(db, eventBus, betId, {
 				workIntents: { record: enqueueWorkIntent },
 				taskRunResolver: taskRunResolverDeps,
+				// AU26 H2 (§D-M.2): stopping a run is `agent-orchestration`'s
+				// state transition — a downward call, not a Port method.
+				runOrchestration: { requestRunStopForTasks },
 			});
 			const updated = await work.get(db, "bet", betId);
 			if (!updated) {

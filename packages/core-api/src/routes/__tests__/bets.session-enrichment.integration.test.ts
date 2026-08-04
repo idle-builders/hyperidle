@@ -294,4 +294,81 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 		// Should reflect the newer session
 		expect(task!.latestSessionOutcome).toBe("completed");
 	});
+
+	/**
+	 * AU26 H2 (§D-M.3) — the `latestSessionOutcome` correlated subquery moves
+	 * off `work-service`'s query surface and is recomposed here at the route.
+	 * The response body must stay BYTE-IDENTICAL: same key set, same key ORDER
+	 * (JSON.stringify follows insertion order), same values. `packages/web`
+	 * must have no reason to change.
+	 *
+	 * The key order below is the pre-move baseline, captured from the
+	 * correlated-subquery select list. Note `latestSessionOutcome` sits BETWEEN
+	 * `updatedAt` and `outcomeVerdict`, and that `outcomeRecordedBy` — a real
+	 * `tasks` column — is NOT in the body: the subquery's select list omitted
+	 * it, so a naive `select().from(tasks)` recompose would leak it.
+	 */
+	test("bet-detail task rows keep their exact key set and key order", async ({ db, app }) => {
+		await seedBase(db);
+
+		await db.insert(bets).values({
+			id: "bet-shape",
+			teamId: "p1",
+			description: "Shape pitch",
+			appetite: "1 week",
+			status: "active",
+			createdAt: NOW,
+		});
+		await db.insert(tasks).values({
+			id: "task-shape",
+			betId: "bet-shape",
+			teamId: "p1",
+			title: "Shape task",
+			state: "in_progress",
+			createdAt: NOW,
+			updatedAt: NOW,
+			outcomeVerdict: "met",
+			outcomeRecordedAt: NOW,
+			outcomeRecordedBy: "agent-1",
+		});
+		await db.insert(sessions).values({
+			id: "session-shape",
+			taskId: "task-shape",
+			agentId: "agent-1",
+			modelTier: "sonnet",
+			startedAt: NOW,
+			state: "done",
+			outcome: "completed",
+		});
+
+		const res = await app.request("/api/bets/bet-shape", {
+			method: "GET",
+			headers: authHeaders(),
+		});
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { tasks: Array<Record<string, unknown>> };
+
+		expect(Object.keys(body.tasks[0]!)).toEqual([
+			"id",
+			"betId",
+			"teamId",
+			"ownerAgentId",
+			"title",
+			"description",
+			"doneCondition",
+			"state",
+			"dependencies",
+			"artifacts",
+			"threadId",
+			"notes",
+			"auditTrail",
+			"createdAt",
+			"updatedAt",
+			"latestSessionOutcome",
+			"outcomeVerdict",
+			"outcomeRecordedAt",
+		]);
+		expect(body.tasks[0]!.latestSessionOutcome).toBe("completed");
+		expect(body.tasks[0]!.outcomeVerdict).toBe("met");
+	});
 });

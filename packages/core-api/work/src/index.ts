@@ -47,7 +47,7 @@ export type {
 	CreateArtifactInput,
 } from "./artifact-store.js";
 // -- bet kill cascade (AF12) --
-export { cascadeBetKill } from "./bet-kill-cascade.js";
+export { type BetKillCascadeDeps, cascadeBetKill } from "./bet-kill-cascade.js";
 // -- bet state machine --
 export type { RevisionLogEntry } from "./bet-state-machine.js";
 export { transitionBet, updateBetField } from "./bet-state-machine.js";
@@ -92,7 +92,6 @@ export { InvalidTransitionError, transitionTask, VALID_TRANSITIONS } from "./tas
 export type {
 	AppendNoteOp,
 	Bet,
-	BetTaskWithLatestSessionOutcome,
 	BetUpdatePatch,
 	Item,
 	ItemUpdatePatch,

@@ -38,6 +38,10 @@ export {
 	type FilesystemForProvisioning,
 	mountFilesystemsForAgent,
 } from "./filesystem-provisioning.js";
+export {
+	requestRunStopForTasks,
+	type StoppedRun,
+} from "./request-run-stop-for-tasks.js";
 export { runSession } from "./runtime.js";
 export { startRuntime } from "./start-runtime.js";
 export { transitionRun } from "./transition-run.js";
