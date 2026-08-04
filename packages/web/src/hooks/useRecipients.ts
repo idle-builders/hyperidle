@@ -72,7 +72,16 @@ export function useRecipients(query?: string): UseRecipientsResult {
 		(async (): Promise<void> => {
 			try {
 				const url = query ? `/api/recipients?q=${encodeURIComponent(query)}` : "/api/recipients";
-				const res = await apiFetch(url, { signal: ac.signal });
+				// @lore AU26 review W4: the two reads are INDEPENDENT — core-api's
+				// recipient list and agent-orchestration's active-run counts — so they
+				// go out together. Awaiting the counts after the list resolved made the
+				// picker two serial round-trips for no reason.
+				const [res, counts] = await Promise.all([
+					apiFetch(url, { signal: ac.signal }),
+					fetchActiveRunCounts(undefined, ac.signal).catch(
+						(): Readonly<Record<string, number>> => ({}),
+					),
+				]);
 				if (ac.signal.aborted) return;
 				if (!res.ok) {
 					setError(`HTTP ${res.status}`);
@@ -87,11 +96,6 @@ export function useRecipients(query?: string): UseRecipientsResult {
 					return;
 				}
 				const valid = (body.recipients as unknown[]).filter(isRecipientBase);
-				const counts: Readonly<Record<string, number>> = await fetchActiveRunCounts(
-					undefined,
-					ac.signal,
-				).catch(() => ({}));
-				if (ac.signal.aborted) return;
 				setRecipients(valid.map((r) => ({ ...r, hasActiveSession: (counts[r.id] ?? 0) > 0 })));
 				setStatus("ready");
 			} catch (cause) {

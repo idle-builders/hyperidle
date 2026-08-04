@@ -125,13 +125,24 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 		},
 	);
 
-	// GET /tasks — list, filterable by bet_id, state, owner
+	// GET /tasks — list, filterable by ids, bet_id, state, owner
+	//
+	// @lore AU26 review W4: `?ids=a,b,c` reads N tasks in ONE request. The J4
+	// move composes agent-run state with task titles in the browser, and without
+	// this it had to issue `GET /tasks/:id` per task — the same N+1 `@lore AB1
+	// S2` had already removed once, server-side. `work.list`'s `ids` filter
+	// existed all along; only the route had no way to ask for it. `ids` wins over
+	// the other filters, because that is what `work.list` does with it (it
+	// short-circuits to an `inArray` read).
 	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
+		const ids = c.req.query("ids");
 		const betId = c.req.query("bet_id");
 		const state = c.req.query("state");
 		const owner = c.req.query("owner");
 
 		const result = await work.list(db, "task", {
+			// `?ids=` present but empty means "no tasks", never "every task".
+			...(ids !== undefined ? { ids: ids.split(",").filter((id) => id.length > 0) } : {}),
 			...(betId ? { betId } : {}),
 			...(state ? { state } : {}),
 			...(owner ? { ownerAgentId: owner } : {}),

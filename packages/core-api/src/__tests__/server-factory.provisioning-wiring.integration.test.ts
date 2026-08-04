@@ -154,94 +154,83 @@ async function bootServer(db: HyperIdleDb): Promise<Awaited<ReturnType<typeof cr
 	});
 }
 
-describe("AU26 C1 — createServer wires the real session-provisioning ports", () => {
-	test(
-		"the wired serviceConnectionResolver decrypts a held connection for its owner (a CredentialResolver here returns null)",
-		async ({ db }) => {
-			await seed(db);
-			const handle = await bootServer(db);
-			try {
-				expect(handle.provisioning.serviceConnectionResolver).toBeInstanceOf(
-					ServiceConnectionResolver,
-				);
-				// The two-argument call the provisioner makes. This is the exact
-				// call that silently returned null in production.
-				expect(
-					await handle.provisioning.serviceConnectionResolver.resolve(
-						OWNER_ID,
-						"sc-au26-c1-owner",
-					),
-				).toBe("gh_owner_wired_token");
-				// Per-user isolation is unchanged at the resolver (AN1).
-				expect(
-					await handle.provisioning.serviceConnectionResolver.resolve(
-						OTHER_HUMAN_ID,
-						"sc-au26-c1-owner",
-					),
-				).toBeNull();
-			} finally {
-				await handle.dispose();
-			}
-		},
-		20_000,
-	);
-
-	test(
-		"the wired held-connection reader reads live and carries ONLY the owning human's connections",
-		async ({ db }) => {
-			await seed(db);
-			const handle = await bootServer(db);
-			try {
-				const rows = await handle.provisioning.heldConnections.listHeldForProvisioning();
-				expect(rows.map((row) => row.id)).toEqual(["sc-au26-c1-owner"]);
-				expect(rows[0]?.userId).toBe(OWNER_ID);
-
-				// Live, not a boot-time snapshot: a connection added after the
-				// server booted is in the very next read.
-				await db.insert(serviceConnections).values({
-					id: "sc-au26-c1-added-after-boot",
-					userId: OWNER_ID,
-					service: "linear",
-					authSource: "mcp",
-					encryptedToken: null,
-					serverUrl: "https://mcp.linear.app",
-					health: "needs-attention",
-					lastValidatedAt: null,
-					createdAt: OWNER_CREATED_AT,
-					updatedAt: OWNER_CREATED_AT,
-				});
-				const afterAdd = await handle.provisioning.heldConnections.listHeldForProvisioning();
-				expect(afterAdd.map((row) => row.id).sort()).toEqual([
-					"sc-au26-c1-added-after-boot",
+describe("createServer wires the real session-provisioning ports", () => {
+	test("the wired serviceConnectionResolver decrypts a held connection for its owner (a CredentialResolver here returns null)", async ({
+		db,
+	}) => {
+		await seed(db);
+		const handle = await bootServer(db);
+		try {
+			expect(handle.provisioning.serviceConnectionResolver).toBeInstanceOf(
+				ServiceConnectionResolver,
+			);
+			// The two-argument call the provisioner makes. This is the exact
+			// call that silently returned null in production.
+			expect(
+				await handle.provisioning.serviceConnectionResolver.resolve(OWNER_ID, "sc-au26-c1-owner"),
+			).toBe("gh_owner_wired_token");
+			// Per-user isolation is unchanged at the resolver (AN1).
+			expect(
+				await handle.provisioning.serviceConnectionResolver.resolve(
+					OTHER_HUMAN_ID,
 					"sc-au26-c1-owner",
-				]);
-				// The second human's row is in neither read.
-				expect(afterAdd.some((row) => row.userId === OTHER_HUMAN_ID)).toBe(false);
-			} finally {
-				await handle.dispose();
-			}
-		},
-		20_000,
-	);
+				),
+			).toBeNull();
+		} finally {
+			await handle.dispose();
+		}
+	}, 20_000);
 
-	test(
-		"the wired injected-filesystem reader reads filesystem_injections live",
-		async ({ db }) => {
-			await seed(db);
-			const handle = await bootServer(db);
-			try {
-				const injected =
-					await handle.provisioning.injectedFilesystems.listInjectedForProvisioning(AGENT_ID);
-				expect(injected.map((row) => row.id)).toEqual(["fs-au26-c1"]);
+	test("the wired held-connection reader reads live and carries ONLY the owning human's connections", async ({
+		db,
+	}) => {
+		await seed(db);
+		const handle = await bootServer(db);
+		try {
+			const rows = await handle.provisioning.heldConnections.listHeldForProvisioning();
+			expect(rows.map((row) => row.id)).toEqual(["sc-au26-c1-owner"]);
+			expect(rows[0]?.userId).toBe(OWNER_ID);
 
-				// A different agent has none — the reader really filters on the id.
-				expect(
-					await handle.provisioning.injectedFilesystems.listInjectedForProvisioning(OWNER_ID),
-				).toEqual([]);
-			} finally {
-				await handle.dispose();
-			}
-		},
-		20_000,
-	);
+			// Live, not a boot-time snapshot: a connection added after the
+			// server booted is in the very next read.
+			await db.insert(serviceConnections).values({
+				id: "sc-au26-c1-added-after-boot",
+				userId: OWNER_ID,
+				service: "linear",
+				authSource: "mcp",
+				encryptedToken: null,
+				serverUrl: "https://mcp.linear.app",
+				health: "needs-attention",
+				lastValidatedAt: null,
+				createdAt: OWNER_CREATED_AT,
+				updatedAt: OWNER_CREATED_AT,
+			});
+			const afterAdd = await handle.provisioning.heldConnections.listHeldForProvisioning();
+			expect(afterAdd.map((row) => row.id).sort()).toEqual([
+				"sc-au26-c1-added-after-boot",
+				"sc-au26-c1-owner",
+			]);
+			// The second human's row is in neither read.
+			expect(afterAdd.some((row) => row.userId === OTHER_HUMAN_ID)).toBe(false);
+		} finally {
+			await handle.dispose();
+		}
+	}, 20_000);
+
+	test("the wired injected-filesystem reader reads filesystem_injections live", async ({ db }) => {
+		await seed(db);
+		const handle = await bootServer(db);
+		try {
+			const injected =
+				await handle.provisioning.injectedFilesystems.listInjectedForProvisioning(AGENT_ID);
+			expect(injected.map((row) => row.id)).toEqual(["fs-au26-c1"]);
+
+			// A different agent has none — the reader really filters on the id.
+			expect(
+				await handle.provisioning.injectedFilesystems.listInjectedForProvisioning(OWNER_ID),
+			).toEqual([]);
+		} finally {
+			await handle.dispose();
+		}
+	}, 20_000);
 });

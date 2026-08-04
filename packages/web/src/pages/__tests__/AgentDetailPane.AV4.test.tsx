@@ -37,7 +37,10 @@ vi.mock("../../hooks/useAgentRunState", async () => {
 	const actual = await vi.importActual<typeof import("../../hooks/useAgentRunState.js")>(
 		"../../hooks/useAgentRunState.js",
 	);
-	return { ...actual, useRosterRunState: () => ROSTER_RUN_STATE };
+	return {
+		...actual,
+		useRosterRunState: () => ({ byAgent: ROSTER_RUN_STATE, status: "ready" as const }),
+	};
 });
 
 // ---------------------------------------------------------------------------

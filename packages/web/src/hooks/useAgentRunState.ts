@@ -37,28 +37,55 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchLatestRunOutcomes, fetchRunsByAgentIds } from "../services/agent-runs.js";
 import { apiFetch } from "../services/api-fetch.js";
 
+/**
+ * Where a screen's run state is in its fetch.
+ *
+ * @lore AU26 review W5/W6: the first cut of these hooks had neither. Seeded
+ * empty and swallowing every failure, they painted "0 sessions · 0% success ·
+ * idle" and a healthy roster BEFORE the second round-trip landed, and left
+ * exactly that on screen forever if the read failed — a crashed agent rendered
+ * as healthy, with no toast, no chip, no console. The health banner is a safety
+ * signal; failing it open silently is worse than failing it closed. Callers
+ * distinguish the three states and say which one they are in.
+ */
+export type RunStateStatus = "loading" | "ready" | "error";
+
 /** The subset of a task the run-state renders need. Both fields are core's. */
 interface TaskRef {
 	readonly title: string;
 	readonly betId: string | null;
 }
 
+/**
+ * Resolve N task titles in ONE request.
+ *
+ * @lore AU26 review W4: this was `GET /api/tasks/:id` per task — the exact N+1
+ * `@lore AB1 S2` had removed server-side ("Replaced N+1 pattern (one query per
+ * session) with a single Drizzle query that JOINs sessions with tasks"), moved
+ * into the browser by the J4 composition. `GET /api/tasks?ids=` batches it back.
+ */
 async function fetchTaskRefs(
 	taskIds: ReadonlyArray<string>,
 	signal: AbortSignal,
 ): Promise<Map<string, TaskRef>> {
 	const refs = new Map<string, TaskRef>();
-	await Promise.all(
-		[...new Set(taskIds)].map(async (taskId) => {
-			const res = await apiFetch(`/api/tasks/${encodeURIComponent(taskId)}`, { signal });
-			if (!res.ok) return;
-			const task = (await res.json()) as { title?: unknown; betId?: unknown };
-			refs.set(taskId, {
-				title: typeof task.title === "string" ? task.title : taskId,
-				betId: typeof task.betId === "string" ? task.betId : null,
-			});
-		}),
-	);
+	const unique = [...new Set(taskIds)];
+	if (unique.length === 0) return refs;
+
+	const res = await apiFetch(`/api/tasks?ids=${encodeURIComponent(unique.join(","))}`, { signal });
+	if (!res.ok) throw new Error(`HTTP ${res.status}`);
+	const rows = (await res.json()) as ReadonlyArray<{
+		id?: unknown;
+		title?: unknown;
+		betId?: unknown;
+	}>;
+	for (const row of rows) {
+		if (typeof row.id !== "string") continue;
+		refs.set(row.id, {
+			title: typeof row.title === "string" ? row.title : row.id,
+			betId: typeof row.betId === "string" ? row.betId : null,
+		});
+	}
 	return refs;
 }
 
@@ -82,14 +109,21 @@ export interface RosterMemberRef {
 	readonly harnessAvailable?: boolean;
 }
 
+/** The roster's run state plus where the fetch is (see `RunStateStatus`). */
+export interface RosterRunStateResult {
+	readonly byAgent: ReadonlyMap<string, RosterRunState>;
+	readonly status: RunStateStatus;
+}
+
 /**
  * Run state for every roster member, keyed by agent id. Members with no run
- * resolve to idle/healthy — the same defaults the route produced.
+ * resolve to idle/healthy — the same defaults the route produced. `status` says
+ * whether that map is fact yet: on `"error"` the caller must not present the
+ * defaults as health (review W6).
  */
-export function useRosterRunState(
-	members: ReadonlyArray<RosterMemberRef>,
-): ReadonlyMap<string, RosterRunState> {
+export function useRosterRunState(members: ReadonlyArray<RosterMemberRef>): RosterRunStateResult {
 	const [state, setState] = useState<ReadonlyMap<string, RosterRunState>>(new Map());
+	const [status, setStatus] = useState<RunStateStatus>(members.length === 0 ? "ready" : "loading");
 	// The caller may hand a fresh array each render; key the effect on content.
 	const idsKey = useMemo(
 		() => members.map((m) => `${m.agentId}:${m.harnessAvailable !== false}`).join(","),
@@ -100,8 +134,10 @@ export function useRosterRunState(
 	useEffect(() => {
 		if (members.length === 0) {
 			setState(new Map());
+			setStatus("ready");
 			return;
 		}
+		setStatus("loading");
 		const ac = new AbortController();
 		(async () => {
 			const runs = await fetchRunsByAgentIds(
@@ -136,17 +172,22 @@ export function useRosterRunState(
 				});
 			}
 			setState(next);
+			setStatus("ready");
 		})().catch(() => {
-			// A run-state fetch failure must never blank the roster — the members,
-			// their names and their roles are core's data and already rendered. The
-			// defaults below (idle / healthy) are exactly what an agent with no runs
-			// showed before.
-			if (!ac.signal.aborted) setState(new Map());
+			// A run-state failure must never blank the roster — the members, their
+			// names and their roles are core's data and already rendered. But it must
+			// not be mistaken for "everyone is healthy and idle" either (review W6):
+			// the map empties AND the status says so, so the roster can render an
+			// unknown-health row instead of a green dot.
+			if (!ac.signal.aborted) {
+				setState(new Map());
+				setStatus("error");
+			}
 		});
 		return () => ac.abort();
 	}, [idsKey]);
 
-	return state;
+	return { byAgent: state, status };
 }
 
 /** The defaults a member with no fetched run state renders — idle and healthy. */
@@ -163,20 +204,26 @@ export const DEFAULT_ROSTER_RUN_STATE: RosterRunState = {
 // Agent profile
 // ---------------------------------------------------------------------------
 
-/** Exactly the four blocks core-api used to serve on `AgentProfileResponse`. */
+/**
+ * Exactly the four blocks core-api used to serve on `AgentProfileResponse`,
+ * plus where the fetch is: `status` is `"ready"` only when these four are fact
+ * (review W5/W6).
+ */
 export interface AgentRunState {
 	readonly activeSession: AgentActiveSession | null;
 	readonly recentSessions: ReadonlyArray<AgentSessionSummary>;
 	readonly performance: AgentPerformanceStats;
 	readonly healthSignals: AgentHealthSignals;
+	readonly status: RunStateStatus;
 }
 
-function emptyAgentRunState(harnessAvailable: boolean): AgentRunState {
+function emptyAgentRunState(harnessAvailable: boolean, status: RunStateStatus): AgentRunState {
 	return {
 		activeSession: null,
 		recentSessions: [],
 		performance: { totalSessions: 0, successCount: 0, successRate: 0 },
 		healthSignals: computeHealthSignals({ sessions: [], harnessAvailable }),
+		status,
 	};
 }
 
@@ -185,13 +232,16 @@ function emptyAgentRunState(harnessAvailable: boolean): AgentRunState {
  * it is the one health input the browser cannot compute for itself.
  */
 export function useAgentRunState(agentId: string | null, harnessAvailable: boolean): AgentRunState {
-	const [state, setState] = useState<AgentRunState>(() => emptyAgentRunState(harnessAvailable));
+	const [state, setState] = useState<AgentRunState>(() =>
+		emptyAgentRunState(harnessAvailable, agentId === null ? "ready" : "loading"),
+	);
 
 	useEffect(() => {
 		if (agentId === null) {
-			setState(emptyAgentRunState(harnessAvailable));
+			setState(emptyAgentRunState(harnessAvailable, "ready"));
 			return;
 		}
+		setState((prev) => (prev.status === "loading" ? prev : { ...prev, status: "loading" }));
 		const ac = new AbortController();
 		(async () => {
 			const runs = await fetchRunsByAgentIds([agentId], ac.signal);
@@ -238,11 +288,15 @@ export function useAgentRunState(agentId: string | null, harnessAvailable: boole
 					successRate: runs.length > 0 ? successCount / runs.length : 0,
 				},
 				healthSignals: computeHealthSignals({ sessions: runs, harnessAvailable }),
+				status: "ready",
 			});
 		})().catch(() => {
 			// Same reasoning as the roster: identity and config are already rendered
-			// from core's response; a run-state failure degrades to "no runs".
-			if (!ac.signal.aborted) setState(emptyAgentRunState(harnessAvailable));
+			// from core's response, so the page stays up. What must NOT happen is the
+			// page claiming health it does not have (review W6) — `status: "error"` is
+			// what the profile renders its "run state unavailable" alert from, in
+			// place of the health banner it can no longer compute.
+			if (!ac.signal.aborted) setState(emptyAgentRunState(harnessAvailable, "error"));
 		});
 		return () => ac.abort();
 	}, [agentId, harnessAvailable]);

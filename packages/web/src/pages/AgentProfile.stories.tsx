@@ -62,6 +62,7 @@ const BASE_PROFILE: AgentProfileResponse = {
  * the profile response, so the stories inject it through its own prop.
  */
 const BASE_RUN_STATE: AgentRunState = {
+	status: "ready",
 	activeSession: null,
 	recentSessions: [
 		{
@@ -126,6 +127,25 @@ export const WithActiveSession = (): JSX.Element =>
 		/>,
 	);
 
+/**
+ * AU26 review W6 — the run read failed. The page must say so rather than paint
+ * a healthy, idle agent with 0 sessions: an unavailability alert, "—" for the
+ * numbers, and no health banner (there is no health to report).
+ */
+export const RunStateUnavailable = (): JSX.Element =>
+	wrap(
+		<AgentProfile
+			overrideData={BASE_PROFILE}
+			overrideRunState={{
+				...BASE_RUN_STATE,
+				status: "error",
+				activeSession: null,
+				recentSessions: [],
+				performance: { totalSessions: 0, successCount: 0, successRate: 0 },
+			}}
+		/>,
+	);
+
 /** Degraded agent — shows health warning banner with role="alert". */
 export const Degraded = (): JSX.Element =>
 	wrap(
@@ -158,6 +178,7 @@ export const NoHistory = (): JSX.Element =>
 				},
 			}}
 			overrideRunState={{
+				status: "ready",
 				activeSession: null,
 				recentSessions: [],
 				performance: { totalSessions: 0, successCount: 0, successRate: 0 },

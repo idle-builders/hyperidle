@@ -62,7 +62,9 @@ function buildRealDeps(db: import("@hyperidle/db").HyperIdleDb): {
 	resolver: Parameters<typeof buildProvisioningPlan>[0]["resolver"];
 } {
 	return {
-		connections: { listHeldForProvisioning: () => listHeldConnectionsForProvisioning(db, USER_HUMAN_ID) },
+		connections: {
+			listHeldForProvisioning: () => listHeldConnectionsForProvisioning(db, USER_HUMAN_ID),
+		},
 		resolver: new ServiceConnectionResolver(db),
 	};
 }

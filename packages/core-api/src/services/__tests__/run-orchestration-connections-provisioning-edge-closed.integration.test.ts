@@ -110,7 +110,9 @@ describe("run-orchestration's connection-provisioning path makes ZERO CoreApiPor
 
 		const resolver = new ServiceConnectionResolver(db);
 		const plan = await buildProvisioningPlan({
-			connections: { listHeldForProvisioning: () => listHeldConnectionsForProvisioning(db, USER_HUMAN_ID) },
+			connections: {
+				listHeldForProvisioning: () => listHeldConnectionsForProvisioning(db, USER_HUMAN_ID),
+			},
 			resolver,
 		});
 		const result = await applyProvisioningPlan({
@@ -146,7 +148,9 @@ describe("run-orchestration's connection-provisioning path makes ZERO CoreApiPor
 
 		const resolver = new ServiceConnectionResolver(db);
 		const plan = await buildProvisioningPlan({
-			connections: { listHeldForProvisioning: () => listHeldConnectionsForProvisioning(db, USER_HUMAN_ID) },
+			connections: {
+				listHeldForProvisioning: () => listHeldConnectionsForProvisioning(db, USER_HUMAN_ID),
+			},
 			resolver,
 		});
 		await applyProvisioningPlan({

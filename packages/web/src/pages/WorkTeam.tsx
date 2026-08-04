@@ -263,7 +263,12 @@ function WorkTeamLoaded({
 	// in the ui instead of in the core api service."* Same derivations
 	// (`computeHealthSignals` et al., now in `@hyperidle/shared`), same inputs,
 	// same render — one layer over.
-	const rosterRunState = useRosterRunState(roster);
+	const { byAgent: rosterRunState, status: rosterRunStatus } = useRosterRunState(roster);
+	// @lore AU26 review W6: when the run read fails, every member falls back to
+	// DEFAULT_ROSTER_RUN_STATE — idle and healthy. That default is honest for an
+	// agent with no runs and a lie about an agent whose runs we could not read, so
+	// the roster says "unknown" instead of painting a green dot.
+	const rosterRunStateUnknown = rosterRunStatus === "error";
 
 	// @lore AV4: When a split pane is open, the "editing agent" comes from the ?agent search
 	// param (not internal editingAgentId state). editingAgentId is kept for the modal path
@@ -309,6 +314,9 @@ function WorkTeamLoaded({
 						{(() => {
 							if (roster.length === 0) {
 								return <StatTile label="Status" value="—" sub="No agents" />;
+							}
+							if (rosterRunStateUnknown) {
+								return <StatTile label="Status" value="—" sub="Run state unavailable" />;
 							}
 							const runStates = roster.map(
 								(m) => rosterRunState.get(m.agentId) ?? DEFAULT_ROSTER_RUN_STATE,
@@ -508,12 +516,14 @@ function WorkTeamLoaded({
 							const healthDetail = runState.healthDetail;
 							const initials = member.name.slice(0, 2).toUpperCase();
 
-							const healthTone =
-								healthLevel === "healthy"
+							const healthTone = rosterRunStateUnknown
+								? ("neutral" as const)
+								: healthLevel === "healthy"
 									? ("success" as const)
 									: healthLevel === "warning"
 										? ("warning" as const)
 										: ("error" as const);
+							const healthLabel = rosterRunStateUnknown ? "Run state unavailable" : healthDetail;
 
 							const statusTone =
 								memberStatus === "active"
@@ -553,7 +563,7 @@ function WorkTeamLoaded({
 									data-testid="agent-row"
 									lead={
 										<>
-											<RowDot tone={healthTone} label={healthDetail} title={healthDetail} />
+											<RowDot tone={healthTone} label={healthLabel} title={healthLabel} />
 											<Avatar initials={initials} size="sm" agent />
 										</>
 									}

@@ -182,8 +182,13 @@ function AgentProfileLoaded({
 		overrideRunState ? null : data.id,
 		data.harnessAvailable,
 	);
-	const { activeSession, recentSessions, performance, healthSignals } =
+	const { activeSession, recentSessions, performance, healthSignals, status } =
 		overrideRunState ?? fetchedRunState;
+	// @lore AU26 review W6: a failed run read must not paint a healthy agent.
+	// `computeHealthSignals([])` says "not degraded" — true of an agent with no
+	// runs, a lie about an agent whose runs we could not read. The banner below
+	// switches to an explicit unavailability alert instead.
+	const runStateUnavailable = status === "error";
 
 	// A2: Derive operational status from run state, not the DB status column
 	const isActive = activeSession !== null;
@@ -227,8 +232,27 @@ function AgentProfileLoaded({
 			/>
 			<div className="flex-1 overflow-y-auto">
 				<div className="flex flex-col gap-[12px] p-[24px]">
+					{/* AU26 W6: run state could not be read — say so, never imply health. */}
+					{runStateUnavailable && (
+						<div
+							role="alert"
+							data-testid="run-state-unavailable"
+							className="rounded-[var(--r-subtle)] p-[12px] text-[13px] text-[var(--text-secondary)]"
+							style={{
+								background: "rgba(220, 100, 60, 0.08)",
+								border: "1px solid rgba(220, 100, 60, 0.2)",
+							}}
+						>
+							<span className="font-medium text-[var(--text-primary)]">Run state unavailable</span>
+							<span className="ml-2">
+								This agent's runs could not be loaded, so health, recent runs and success rate are
+								not shown.
+							</span>
+						</div>
+					)}
+
 					{/* F2: Health banner — only shown when degraded, has role="alert" */}
-					{healthSignals.degraded && (
+					{!runStateUnavailable && healthSignals.degraded && (
 						<div
 							role="alert"
 							className="rounded-[var(--r-subtle)] p-[12px] text-[13px] text-[var(--text-secondary)]"
@@ -380,7 +404,9 @@ function AgentProfileLoaded({
 						className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
 					>
 						<SectionLabel label="Recent Activity" as="h2" />
-						{recentSessions.length === 0 ? (
+						{runStateUnavailable ? (
+							<p className="text-[12px] text-[var(--text-tertiary)]">Runs could not be loaded.</p>
+						) : recentSessions.length === 0 ? (
 							<p className="text-[12px] text-[var(--text-tertiary)]">No sessions recorded.</p>
 						) : (
 							<table className="w-full text-[12px]" aria-label="Recent agent session activity">
@@ -429,10 +455,14 @@ function AgentProfileLoaded({
 					>
 						<SectionLabel label="Performance" as="h2" />
 						<div className="flex gap-[24px] flex-wrap">
-							<KeyValue label="Sessions" value={String(performance.totalSessions)} />
+							{/* AU26 W6: an unread run set is "—", never a confident 0. */}
+							<KeyValue
+								label="Sessions"
+								value={runStateUnavailable ? "—" : String(performance.totalSessions)}
+							/>
 							<KeyValue
 								label="Success rate"
-								value={`${Math.round(performance.successRate * 100)}%`}
+								value={runStateUnavailable ? "—" : `${Math.round(performance.successRate * 100)}%`}
 							/>
 						</div>
 					</section>
