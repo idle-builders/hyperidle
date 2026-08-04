@@ -90,6 +90,18 @@ scripts/lib/attestation-scope.js
 scripts/lib/attestation-scope.js.map
 scripts/lib/attestation-scope.d.ts
 scripts/lib/attestation-scope.d.ts.map
+# @lore AU26 C3: same class as the guard artifacts above, one level up — a bare
+# `tsc -p packages/db` against a stale `dist/` emits declaration MAPS straight
+# into the package source tree (`packages/db/src/*.d.ts.map`); ten of them were
+# committed once and only a code review caught them. Emitted maps are never
+# sources, in any package.
+# `.d.ts` itself is deliberately NOT ignored here — hand-written ambient
+# declarations are real sources (`packages/web/src/vite-env.d.ts`,
+# `window.d.ts`, `packages/design-system/src/css-modules.d.ts`) — except under
+# `packages/db/src`, which has none and is the one tree the emit lands in.
+packages/*/src/**/*.d.ts.map
+packages/*/src/**/*.js.map
+packages/db/src/*.d.ts
 # viewer compiled outputs (Vite resolves ./discovery.js → discovery.ts at build/dev time;
 # emitted .js/.d.ts/.map files must not be committed)
 packages/design-system/viewer/*.js
