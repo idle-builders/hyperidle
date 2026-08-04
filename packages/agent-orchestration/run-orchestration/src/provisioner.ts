@@ -465,10 +465,36 @@ async function assembleTaskFreePrompt(
 			? `\n\n## Tools\n${toolSummaries.map((tool) => `- ${tool.name}: ${tool.description}`).join("\n")}`
 			: "";
 
-	const sourceSection = params.requestContext
-		? `## Session request\nSource kind: ${params.requestContext.sourceKind}\nSource ID: ${params.requestContext.sourceId}\nCorrelation: ${JSON.stringify(params.requestContext.sourceCorrelation)}`
-		: "## Session request\nTask-free session request";
-	return [systemPromptText, sourceSection, toolSection].filter(Boolean).join("\n\n");
+	// AU27 Increment 4 (Decision 2, item 2): when a transcript is present,
+	// render a human-readable source line instead of the raw machine-id
+	// Correlation JSON (`threadId`/`messageId`) — raw ids in the system
+	// prompt of the most user-facing session is a rough edge, not a
+	// requirement; a transcript-bearing session already carries its own
+	// context in the `## Conversation` section below.
+	const sourceSection = params.transcript
+		? "## Session request\nYou are replying in an ongoing conversation."
+		: params.requestContext
+			? `## Session request\nSource kind: ${params.requestContext.sourceKind}\nSource ID: ${params.requestContext.sourceId}\nCorrelation: ${JSON.stringify(params.requestContext.sourceCorrelation)}`
+			: "## Session request\nTask-free session request";
+
+	// AU27 Increment 4 (Decision 2, item 2): the `## Conversation` section —
+	// re-provides, generically, what `params.conversational`'s own prompt
+	// path used to render only for the assistant.
+	const conversationSection =
+		params.transcript && params.transcript.length > 0
+			? `## Conversation\n${params.transcript.map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`).join("\n")}`
+			: "";
+
+	// AU27 Increment 4 (Decision 3 orientation): a one-line reminder when this
+	// session's only satisfying return action is `reply`, not the trio.
+	const replyOrientation =
+		params.callingThreadId != null && params.taskId == null
+			? "When you are done, call `reply` to answer in this conversation."
+			: "";
+
+	return [systemPromptText, sourceSection, conversationSection, replyOrientation, toolSection]
+		.filter(Boolean)
+		.join("\n\n");
 }
 
 /**
@@ -713,6 +739,17 @@ interface ProvisionSessionParams {
 	 * (Increment 2) reads it from there. ZERO orchestration -> core read.
 	 */
 	readonly callingThreadId?: string;
+	/**
+	 * AU27 Increment 4 (Decision 2) — the session's calling-thread transcript,
+	 * mapped to generic chat messages at drain time
+	 * (`runtime.ts`'s `mapTranscriptToMessages`, relocated verbatim from
+	 * `dispatch/src/service.ts`). Feeds the `## Conversation` prompt section
+	 * (Phase 8.5, every harness) and `SessionConfig.messages` (selects the
+	 * builtin adapter's chat completion over the planning loop) — the same
+	 * generic delivery `params.conversational.messages` used to provide only
+	 * to the assistant. Absent for a session with no transcript.
+	 */
+	readonly transcript?: readonly ConversationMessage[];
 	/**
 	 * AL7 Task 6: When set, the registry invoke router participates in the
 	 * trust-first review workflow for this session.
@@ -1274,6 +1311,18 @@ async function runSession(
 		);
 	}
 
+	// AU27 Increment 4 (Decision 2): generic transcript delivery, item 3 —
+	// `SessionConfig.messages` from `params.transcript` when this is NOT
+	// already a conversational-mode turn (which sources its own messages from
+	// `params.conversational.messages`). Selects the builtin adapter's chat
+	// completion (`runChatTurn`) over the planning loop
+	// (`builtin-harness-adapter.ts:397`) on a generic input, not "is this the
+	// assistant". No real session sets `params.transcript` yet in Phase A —
+	// inert until Increment 6 bakes it for a durable assistant_turn.
+	if (!params.conversational && params.transcript) {
+		conversationalMessages = [...params.transcript];
+	}
+
 	ports.contextAssembly.writeSandboxAgentsMd(sandboxPath, assembledPrompt);
 
 	// Retrieve adapter capabilities once.
@@ -1285,12 +1334,20 @@ async function runSession(
 		fs.writeFileSync(mcpJsonPath, JSON.stringify({ mcpServers: {} }, null, 2), "utf-8");
 	}
 
+	// AU27 Increment 4 (Decision 3's structural rule): a session whose output
+	// belongs in a calling thread and has no task (the assistant, post-AU27 —
+	// no real session matches this in Phase A, since the assistant still runs
+	// the old conversational/dispatch path) must call `reply`, not the trio.
+	// No `sourceKind` check anywhere — purely structural.
+	const requiredReturnActions: readonly string[] | undefined =
+		params.callingThreadId != null && params.taskId == null ? ["reply"] : undefined;
+
 	// AL6: One gate per session — all events observed by this gate. Declared
 	// here (before the MCP bridge's `onToolCall` closure below references it)
 	// so the closure captures the same binding `createReturnGate()`
 	// initializes — the closure only ever fires later, once an actual tool
 	// call streams in (well after this synchronous assignment completes).
-	const returnGate = ports.harnessRuntime.createReturnGate();
+	const returnGate = ports.harnessRuntime.createReturnGate(requiredReturnActions);
 	let mcpBridgeToken: string | undefined;
 	/** AL7 delta: per-session MCP token env for CLI harnesses (codex: HYPERIDLE_MCP_TOKEN). */
 	let mcpTokenEnv: Record<string, string> | undefined;
@@ -1406,6 +1463,7 @@ async function runSession(
 		gate: returnGate,
 		forceCount: 0,
 		exempt,
+		...(requiredReturnActions ? { requiredReturnActions } : {}),
 	});
 
 	let crashed = false;
@@ -1438,6 +1496,7 @@ async function runSession(
 		...(params.sessionWorkflow ? { sessionWorkflow: params.sessionWorkflow } : {}),
 		...(mcpTokenEnv ? { mcpTokenEnv } : {}),
 		...(conversationalMessages ? { messages: conversationalMessages } : {}),
+		...(requiredReturnActions ? { requiredReturnActions } : {}),
 	};
 
 	// X5: Determine whether to intercept tool_call events from the stream.

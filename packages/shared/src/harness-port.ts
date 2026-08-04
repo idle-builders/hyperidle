@@ -50,7 +50,7 @@ import type {
 } from "./agent-work-intent-recorder.js";
 import type { EventBus } from "./event-bus.js";
 import type { SessionOutcome } from "./events.js";
-import type { SessionMetrics } from "./harness/harness-adapter.js";
+import type { ConversationMessage, SessionMetrics } from "./harness/harness-adapter.js";
 import type { CapturedToolCall } from "./harness/harness-events.js";
 import type { ResolvedModel } from "./model-gateway.js";
 import type { AgentSessionSourceCorrelation, AgentSessionSourceKind } from "./session-request.js";
@@ -118,6 +118,17 @@ export interface RunContextBundle {
 	 * then `ToolContext.threadId` — ZERO orchestration -> core read (AU21 AC #2).
 	 */
 	readonly callingThreadId?: string;
+	/**
+	 * AU27 Increment 4 (Decision 2) — the session's calling-thread transcript,
+	 * mapped to generic chat messages at emit time (`assistant_turn` today —
+	 * any future kind that bakes a `transcript` gets the same generic
+	 * delivery, no per-kind branch). Re-provides, generically, the input path
+	 * `conversational.messages` used to deliver only to the assistant: feeds
+	 * both the `## Conversation` prompt section (every harness) and
+	 * `SessionConfig.messages` (selects the builtin adapter's chat completion
+	 * over the planning loop). Absent for a session with no transcript.
+	 */
+	readonly transcript?: readonly ConversationMessage[];
 	/**
 	 * AU21 §9 Increment 12 follow-up (F2 gap closure) — the target agent's
 	 * baked injected-filesystems list, sourced from the drained
