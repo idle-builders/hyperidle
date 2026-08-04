@@ -1,13 +1,13 @@
-import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";
 import { registerAssistantThreadPinReaction } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { type DbFixtures, test as dbTest } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/shared";
 import { findUser } from "@hyperidle/users";
 import type { Hono } from "hono";
-import { createCoreApiApp, disposeApp } from "./app.js";
+import { disposeApp } from "./app.js";
 import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
 import { registerAssistantTurnCoherenceTrigger } from "./services/assistant-turn-coherence-trigger.js";
+import { createTestApp } from "./test-utils.js";
 
 export interface IntegrationFixtures extends DbFixtures {
 	app: Hono;
@@ -46,17 +46,15 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 		unregisterPin();
 		unregister();
 	},
-	// @lore AU26 B1a: the fixture is an Application — it boots BOTH Layers and
-	// mounts the second into core-api's `/api` router, exactly as
-	// `server-factory.ts` does. Without this the four `/api/sessions` routes that
-	// moved onto agent-orchestration's app would 404 for every fixture-based
-	// test. `bootAgentOrchestration`'s teardown rides `disposeApp`'s bag.
+	// @lore AU26 B1b: the fixture is an Application — it delegates to
+	// `createTestApp`, the single test-harness composition site, which boots BOTH
+	// Layers, applies the middleware stack and mounts both apps on one `/api`
+	// router exactly as `remote-server`'s `createServer` does. Without the second
+	// Layer the four `/api/sessions` routes that moved onto agent-orchestration's
+	// app would 404 for every fixture-based test. Both Layers' teardown rides
+	// `disposeApp`'s bag.
 	app: async ({ db, eventBus }, use) => {
-		const app = await createCoreApiApp({
-			db,
-			eventBus,
-			agentOrchestration: bootAgentOrchestration({ db, eventBus }),
-		});
+		const app = await createTestApp({ db, eventBus });
 		await use(app);
 		disposeApp(app);
 	},

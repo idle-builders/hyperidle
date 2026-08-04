@@ -14,9 +14,9 @@ import {
 	createSandboxAdapter,
 } from "@hyperidle/harness-registry";
 import { requireHarness } from "@hyperidle/harness-registry/test-utils";
+import { createServer } from "@hyperidle/remote-server/create-server";
 import { encryptCredentialValue } from "@hyperidle/shared/crypto";
 import { eq } from "drizzle-orm";
-import { createServer } from "../server-factory.js";
 import { describe, expect, test } from "../test-fixtures.js";
 
 /**

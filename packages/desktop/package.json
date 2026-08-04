@@ -17,9 +17,9 @@
 		"@electric-sql/pglite": "^0.5.4"
 	},
 	"devDependencies": {
-		"@hyperidle/core-api": "*",
 		"@hyperidle/db": "*",
 		"@hyperidle/harness-registry": "*",
+		"@hyperidle/remote-server": "*",
 		"@hyperidle/remote-worker": "*",
 		"@hyperidle/shared": "*",
 		"electron": "^43.1.1",

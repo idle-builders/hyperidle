@@ -24,10 +24,10 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
-import { createServer } from "@hyperidle/core-api/server-factory";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { schema } from "@hyperidle/db";
 import { createLocalAdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
+import { createServer } from "@hyperidle/remote-server/create-server";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 

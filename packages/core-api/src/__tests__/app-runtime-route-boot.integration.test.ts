@@ -1,7 +1,7 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { AdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
+import { createServer, type ServerHandle } from "@hyperidle/remote-server/create-server";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { createServer, type ServerHandle } from "../server-factory.js";
 import { test as fixtureTest } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-au3-boot";

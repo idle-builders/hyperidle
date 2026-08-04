@@ -5,7 +5,16 @@
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",
-		"./server-factory": "./src/server-factory.ts",
+		"./app": "./src/app.ts",
+		"./boot": "./src/boot.ts",
+		"./service-bootstrap": "./src/service-bootstrap.ts",
+		"./routes/health": "./src/routes/health.ts",
+		"./routes/ws": "./src/routes/ws.ts",
+		"./services/agent-orchestration-port-composition": "./src/services/agent-orchestration-port-composition.ts",
+		"./services/core-api-port-composition": "./src/services/core-api-port-composition.ts",
+		"./services/run-orchestration-composition": "./src/services/run-orchestration-composition.ts",
+		"./services/work-state-push-gateway": "./src/services/work-state-push-gateway.ts",
+		"./test-fixtures": "./src/test-fixtures.ts",
 		"./routines": "./src/routines.ts",
 		"./test-utils": "./src/test-utils.ts",
 		"./schemas": "./src/schemas/index.ts",
@@ -44,11 +53,9 @@
 		"@hyperidle/work": "*",
 		"drizzle-orm": "^0.45.2",
 		"hono": "^4.12.27",
-		"ws": "^8.20.0",
 		"zod": "^4.3.6"
 	},
 	"devDependencies": {
-		"@electric-sql/pglite": "^0.5.4",
-		"@types/ws": "^8.18.1"
+		"@electric-sql/pglite": "^0.5.4"
 	}
 }

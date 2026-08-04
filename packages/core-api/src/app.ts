@@ -11,18 +11,13 @@ import type { NotificationAdapter, NotificationsDeps } from "@hyperidle/notifica
 import { getTeamMembers } from "@hyperidle/org";
 import { enqueueWorkIntent, findSessionRequest } from "@hyperidle/session-requests";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
-import type { ApiErrorResponse } from "@hyperidle/shared";
-import { API_ERROR_CODES, createLogger, EventBus } from "@hyperidle/shared";
+import { createLogger, EventBus } from "@hyperidle/shared";
 import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/shared/crypto";
-import { createRateLimiter, failClosedAssertion, type HyperIdleEnv } from "@hyperidle/shared/http";
+import { createRateLimiter } from "@hyperidle/shared/http";
 import { createUpgradeTokenStore, findUser, type UpgradeTokenStore } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { checkAndUnblockDependents } from "@hyperidle/work";
 import { Hono } from "hono";
-import { authMiddleware, createAuthMiddleware } from "./middleware/auth.js";
-import { createBodyLimit } from "./middleware/body-limit.js";
-import { corsMiddleware } from "./middleware/cors.js";
-import { errorHandler } from "./middleware/error-handler.js";
 import { type ObservabilityDeps, startObservability } from "./observability-runtime.js";
 import { createAgentRoutes } from "./routes/agents.js";
 import { createArtifactRoutes } from "./routes/artifacts.js";
@@ -33,7 +28,7 @@ import { createConversationRoutes } from "./routes/conversations.js";
 import { createCredentialRoutes } from "./routes/credentials.js";
 import { createFilesystemRoutes } from "./routes/filesystems.js";
 import { createHarnessRoutes } from "./routes/harnesses.js";
-import { authHealth, health } from "./routes/health.js";
+import { authHealth } from "./routes/health.js";
 import { createHintRoutes } from "./routes/hints.js";
 import { createKnowledgeRoutes, createTeamMembersRoutes } from "./routes/knowledge.js";
 import { createModelGatewayRoutes } from "./routes/model-gateway.js";
@@ -53,10 +48,6 @@ import { registerTestRoutes } from "./routes/test-routes.js";
 import { createThreadRoutes } from "./routes/threads.js";
 import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
 import { createWorkersRoutes } from "./routes/workers.js";
-import {
-	createInProcessAgentOrchestrationTransport,
-	registerAgentOrchestrationTransport,
-} from "./services/agent-orchestration-port-composition.js";
 import { taskRunResolverDeps } from "./services/task-run-resolver-bindings.js";
 
 const agentWorkIntentRecorder = { record: enqueueWorkIntent };
@@ -73,21 +64,6 @@ const agentWorkIntentReader: import("@hyperidle/shared").AgentWorkIntentReader<H
  */
 export interface WsPushTarget {
 	broadcast(topic: string, data: string): void;
-}
-
-/**
- * A booted Layer the Application mounts inside this app's `/api` router.
- * Structural on purpose: `core-api` declares the shape it consumes rather than
- * importing `@hyperidle/agent-orchestration`'s `AgentOrchestrationBoot`, so
- * nothing in this file names the other Layer at all.
- */
-export interface MountedLayer {
-	/** Mounted AFTER the auth middleware, at the `/api` root. */
-	readonly app: Hono<HyperIdleEnv>;
-	/** Registered BEFORE the auth middleware (the worker WS upgrade). */
-	readonly registerPreAuthRoutes?: (apiRouter: Hono) => void;
-	/** Torn down by `disposeApp`. */
-	readonly dispose?: () => void;
 }
 
 interface AppOptions {
@@ -142,33 +118,6 @@ interface AppOptions {
 	 * events unchanged either way).
 	 */
 	wsHub?: WsPushTarget;
-	/**
-	 * AU26 B1a (§D-B): the OTHER Layer's booted app, handed in by the Application.
-	 *
-	 * `core-api` never constructs it, never imports its route modules (AC5(a),
-	 * enforced by `scripts/composition-edge-anti-regrowth-guard.ts`) and knows
-	 * nothing about what it serves — it receives an opaque `Hono` plus two
-	 * callbacks, exactly like `registerWebSocket`/`registerMcpRoute`. The
-	 * Application decides to put another Layer behind this stack; only an
-	 * Application may.
-	 *
-	 * @lore AU26 B1a: this option replaces `registerWorkerWebSocket`, which was a
-	 * core-api-shaped hook for an orchestration-owned socket. B1b inverts the
-	 * relationship entirely — the Application will own the `/api` router and
-	 * mount both apps itself, at which point this option disappears.
-	 */
-	agentOrchestration?: MountedLayer;
-	/**
-	 * Optional MCP bridge route registration hook. When provided,
-	 * `createApp` invokes it with the `/api` sub-router BEFORE the auth
-	 * middleware — MCP clients authenticate via the session token in the URL
-	 * path, not via X-API-Key.
-	 *
-	 * @lore X2: The MCP route must be mounted before auth middleware so external
-	 * harnesses (e.g. Claude Code) can call agent tools via MCP without needing
-	 * the user API key. The 64-char hex token in the URL is the credential.
-	 */
-	registerMcpRoute?: (apiRouter: Hono) => void;
 	/**
 	 * Override the upgrade-token store used by `/api/auth/ws-token` and the
 	 * WebSocket auth middleware. Tests inject a custom store with a tiny
@@ -283,38 +232,42 @@ const notificationsDeps: NotificationsDeps = {
 };
 
 /**
- * Create `core-api`'s Hono application.
+ * Resolve the one-shot WebSocket upgrade-token store this app instance uses.
  *
- * WebSocket routes are registered separately via registerWsRoute(), injected
- * through the `registerWebSocket` option so the app remains runtime-agnostic.
+ * I2 review arch H-2/H-3: the store — and with it `/api/auth/ws-token` — exists
+ * ONLY when WS support is being wired. Apps without a `registerWebSocket` hook
+ * (integration tests that do not need WebSocket) never expose the mint route.
  *
- * @lore AU26 B1a: renamed from `createApp`. It is no longer *the* app — it is
- * one of two, beside `bootAgentOrchestration().app`. It still applies the
- * middleware stack and owns the `/api` router at this increment; B1b lifts both
- * into the Application (`remote-server/src/create-server.ts`) and this function
- * shrinks to core-api's own route table.
+ * @lore AU26 B1b: the store is now resolved by the Application (`bootCoreApi`)
+ * rather than inside `createCoreApiApp`, because the SAME instance is needed on
+ * both sides of the auth middleware — the pre-auth WS upgrade route consumes
+ * tokens, the post-auth `/auth/ws-token` route mints them.
  */
-async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
-	const app = new Hono();
+export function resolveUpgradeTokenStore(options?: AppOptions): UpgradeTokenStore | null {
+	if (options?.upgradeTokenStore) return options.upgradeTokenStore;
+	return options?.registerWebSocket ? createUpgradeTokenStore() : null;
+}
 
-	// S1: shared mode — read from options (test-injectable) or env var (production).
-	// @lore S1: The env var is read once at app construction time, not per-request.
-	// This avoids per-request env lookups and is consistent with how HYPERIDLE_API_KEY
-	// is used (read at middleware invocation time, but the middleware itself is
-	// constructed once at startup).
+/**
+ * Register `core-api`'s own PRE-auth routes on the Application's `/api` router.
+ *
+ * These four must sit in front of the auth middleware, and only registration
+ * order puts them there — `createAuthMiddleware` has no path allow-list. The
+ * Application calls this after `use()`ing cors/rate-limit/body-limit and before
+ * `use()`ing auth (§D-B).
+ *
+ * @lore AU26 B1b: `GET /api/health` is registered here rather than before the
+ * rate limiter (its previous position). The limiter's `skipPaths` already
+ * exempts `/api/health`, so the liveness probe is unaffected — but the setup
+ * and claim routes now also sit behind the body limit, which is strictly
+ * tighter than before and costs nothing (both post a few hundred bytes).
+ */
+export function registerCoreApiPreAuthRoutes(
+	api: Hono,
+	options: AppOptions | undefined,
+	tokenStore: UpgradeTokenStore | null,
+): void {
 	const sharedMode = options?.sharedMode ?? process.env.HYPERIDLE_SHARED_MODE === "true";
-
-	// Backward-compat: /health without auth
-	app.route("/", health);
-
-	// ----- /api sub-router -----
-	const api = new Hono();
-
-	// CORS on all /api routes
-	api.use("*", corsMiddleware);
-
-	// Error handler
-	api.onError(errorHandler);
 
 	// Public: /api/health (no auth required)
 	api.get("/health", (c) => {
@@ -325,33 +278,9 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		return c.json(response);
 	});
 
-	// I2 R1-R5: rate limit BEFORE auth so unauthenticated floods are
-	// throttled without ever touching the database. Per-identity bucket
-	// (API-key first, then trusted XFF, then direct connection).
-	//
-	// I2 review W4: `/api/health` is a liveness probe target — k8s,
-	// systemd, and load balancers fire it many times per minute and a 429
-	// would mark the pod unhealthy. The limiter exempts it via skipPaths.
-	const rateLimitPerMin = Number.parseInt(process.env.HYPERIDLE_RATE_LIMIT_PER_MIN ?? "300", 10);
-	const baseRateLimit =
-		Number.isFinite(rateLimitPerMin) && rateLimitPerMin > 0 ? rateLimitPerMin : 300;
-	api.use(
-		"*",
-		createRateLimiter({
-			limit: baseRateLimit,
-			windowMs: 60_000,
-			// Health probes never count against the limiter (k8s liveness).
-			// `/api/auth/*` is exempted here and gets its own dedicated
-			// bucket below so a WS-reconnect storm cannot starve the API.
-			skipPaths: ["/api/health", "/api/status/health", "/api/auth"],
-		}),
-	);
-
-	// P4: Public: POST /api/users (setup — no auth required on first run)
-	// @lore P4: Registered AFTER the rate limiter so DoS floods are throttled
-	// before reaching the setup route. The route itself enforces auth once a
-	// human user already exists (setup-complete guard). Registered BEFORE the
-	// auth middleware so the initial setup call can succeed without an API key.
+	// P4: Public: POST /api/users (setup — no auth required on first run).
+	// The route itself enforces auth once a human user already exists
+	// (setup-complete guard).
 	if (options?.db) {
 		// AK6 T8: eventBus passed so user_created event is emitted after assistant persist.
 		const earlyEventBus = options.eventBus ?? new EventBus();
@@ -359,12 +288,44 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 	}
 
 	// S1: Public: POST /api/auth/claim (invite claim — no auth required).
-	// @lore S1: Mounted BEFORE the auth middleware so unauthenticated users can
-	// claim invites. Only mounted in shared mode — claim is meaningless in local
-	// desktop mode where there are no invite flows.
+	// Only mounted in shared mode — claim is meaningless in local desktop mode
+	// where there are no invite flows.
 	if (options?.db && sharedMode) {
 		api.route("/auth", createPublicAuthRoutes(options.db));
 	}
+
+	// WS upgrades authenticate via a one-shot upgrade token (`?token=...`) in a
+	// middleware defined inside `registerWsRoute`, not via the API key.
+	if (options?.registerWebSocket && tokenStore) {
+		options.registerWebSocket(api, tokenStore);
+	}
+}
+
+/**
+ * Create `core-api`'s own route table — the Layer's HTTP surface and nothing
+ * else. The returned app is mounted by the Application at `/` on its `/api`
+ * router, AFTER the middleware stack, beside `bootAgentOrchestration().app`.
+ *
+ * @lore AU26 B1b: this used to be the whole application — it built the root
+ * `Hono`, the `/api` sub-router, the cors/rate-limit/body-limit/auth/fail-closed
+ * stack, the `onError`/`notFound` handlers, and it mounted the other Layer. All
+ * of that is the **Application's** now (`packages/remote-server/src/create-server.ts`
+ * in production, `test-utils.ts`'s `createTestApp` for a test harness): "only an
+ * Application may choose to put another Layer's routes behind this stack."
+ * What is left here is one Layer's routes.
+ *
+ * Two consequences a caller must know:
+ *   - every path this app registers is RELATIVE (`/bets`, not `/api/bets`);
+ *   - the pre-auth half of core-api's surface lives in
+ *     `registerCoreApiPreAuthRoutes`, not here.
+ */
+async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
+	const api = new Hono();
+
+	// S1: shared mode — read from options (test-injectable) or env var (production).
+	// @lore S1: The env var is read once at app construction time, not per-request.
+	const sharedMode = options?.sharedMode ?? process.env.HYPERIDLE_SHARED_MODE === "true";
+	const tokenStore = options?.upgradeTokenStore ?? null;
 
 	// I2 review O6 / arch H-1: the WS-token mint endpoint gets its OWN
 	// rate-limit bucket so a WS reconnect storm cannot starve the API
@@ -372,91 +333,24 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 	// browsers may legitimately reconnect in bursts during a flaky
 	// network blip; auth still gates the mint, so the cost ceiling is the
 	// API key holder's chosen budget.
-	const authMintLimit = Math.max(baseRateLimit * 2, 120);
-	const authMintLimiter = createRateLimiter({
-		limit: authMintLimit,
-		windowMs: 60_000,
-	});
-
-	// I2 R4: cap request bodies so a single oversize POST cannot stall
-	// the process. Default 1 MiB; configurable via env. Rejects with 413
-	// + the canonical ApiErrorResponse JSON shape.
-	const maxBodyBytes = Number.parseInt(process.env.HYPERIDLE_MAX_BODY_BYTES ?? "1000000", 10);
-	api.use(
-		"*",
-		createBodyLimit({
-			maxSize: Number.isFinite(maxBodyBytes) && maxBodyBytes > 0 ? maxBodyBytes : 1_000_000,
-		}),
-	);
-
-	// I2 review arch H-2/H-3: the upgrade-token store and the
-	// `/api/auth/ws-token` route are constructed ONLY when WS support is
-	// being wired. Apps without a `registerWebSocket` hook (integration
-	// tests that don't need WebSocket) never expose `/api/auth/ws-token`.
-	let tokenStore: UpgradeTokenStore | null = null;
-	if (options?.registerWebSocket) {
-		tokenStore = options.upgradeTokenStore ?? createUpgradeTokenStore();
-		// Register the WS route BEFORE the auth middleware: WS upgrades
-		// authenticate via a one-shot upgrade token (`?token=...`) in a
-		// middleware defined inside `registerWsRoute`.
-		options.registerWebSocket(api, tokenStore);
-	}
-
-	// AU26 B1a: the mounted Layer's own pre-auth routes (the worker WS upgrade —
-	// workers authenticate via HYPERIDLE_WORKER_TOKEN on the query string, not
-	// via the user API key). Registered BEFORE the auth middleware, same
-	// placement pattern as the user WS route.
-	options?.agentOrchestration?.registerPreAuthRoutes?.(api);
-
-	// Register MCP bridge route BEFORE auth middleware — MCP clients authenticate
-	// via the session token in the URL path, not via X-API-Key.
-	if (options?.registerMcpRoute) {
-		options.registerMcpRoute(api);
-	}
-
-	// Auth middleware for all other /api routes (except /health above).
-	// M3 A3: when db is available, use createAuthMiddleware({ db, sharedMode })
-	// to set userId from users table. Without db, fall back to the stateless
-	// middleware (used only by non-db app instances in tests).
-	// @lore S1 SF-2: createAuthMiddleware signature changed from (db) to
-	// ({ db, sharedMode }). All callers updated here.
-	if (options?.db) {
-		api.use("*", createAuthMiddleware({ db: options.db, sharedMode }));
-	} else {
-		api.use("*", authMiddleware);
-	}
-
-	// AF11: Global fail-closed assertion — mounted AFTER auth, covers all /api/* data routes.
-	// After the handler runs, if __boundary was never set → undeclared route touched data.
-	// In dev/test: throws loudly. In production: logs a hard error (lint is the real gate).
-	// @lore AF11: Flip order — assertion starts as warn-log. Step 10 flips to throw-in-dev/test
-	// once all data routes declare. That flip is now complete: all 41+ routes declare.
-	api.use("*", failClosedAssertion());
-
-	// I2 A3 + review O6: ws-token issuance lives behind the standard auth
-	// middleware so the master HYPERIDLE_API_KEY mints a one-shot upgrade
-	// token. The dedicated `authMintLimiter` overrides the base API
-	// limiter so a reconnect storm doesn't drain the API bucket.
 	if (tokenStore) {
-		api.use("/auth/*", authMintLimiter);
+		const rateLimitPerMin = Number.parseInt(process.env.HYPERIDLE_RATE_LIMIT_PER_MIN ?? "300", 10);
+		const baseRateLimit =
+			Number.isFinite(rateLimitPerMin) && rateLimitPerMin > 0 ? rateLimitPerMin : 300;
+		api.use(
+			"/auth/*",
+			createRateLimiter({ limit: Math.max(baseRateLimit * 2, 120), windowMs: 60_000 }),
+		);
 	}
 
 	// M3 A4: /api/auth/me is always mounted (regardless of tokenStore).
 	// The /ws-token endpoint is conditionally mounted only when WS support exists.
-	// This restructuring allows /me to be available in all deployments.
-	// @lore S1: createAuthRoutes now takes sharedMode to conditionally mount
+	// @lore S1: createAuthRoutes takes sharedMode to conditionally mount
 	// /invite and /logout (shared mode only) and to bind ws-token identity
 	// from auth context rather than X-Identity header.
 	// @lore S4: worker-token endpoint requires auth routes even without db or
-	// tokenStore — always mount when at least one of them is truthy, or when
-	// there's no db but we still want worker-token available (e.g. test apps).
-	if (options?.db) {
-		api.route("/auth", createAuthRoutes(options.db, tokenStore ?? null, sharedMode));
-	} else {
-		// Mount auth routes even without db so /worker-token is available.
-		// createAuthRoutes handles null db gracefully (skips db-dependent routes).
-		api.route("/auth", createAuthRoutes(null, tokenStore ?? null, sharedMode));
-	}
+	// tokenStore — createAuthRoutes handles null db gracefully.
+	api.route("/auth", createAuthRoutes(options?.db ?? null, tokenStore, sharedMode));
 
 	// Register test routes only in non-production environments
 	if (process.env.NODE_ENV !== "production") {
@@ -600,80 +494,45 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		});
 		disposers.push(unsubDepWatcher);
 
-		// AU26 B1a: the mounted Layer's own teardown (its activity buffer + the
-		// session-activity gateway) rides this app's disposer bag so a test that
-		// builds an app and disposes it tears both Layers down in one call.
-		const mountedDispose = options.agentOrchestration?.dispose;
-		if (mountedDispose) disposers.push(mountedDispose);
-
 		disposers.push(() => {
 			void observabilityRuntime.dispose();
 		});
-		APP_DISPOSERS.set(app, disposers);
+		APP_DISPOSERS.set(api, disposers);
 	}
 
-	// AU26 B1a (§D-B): mount the other Layer's app on the SAME `/api` router,
-	// AFTER the auth middleware and the fail-closed assertion, so every path
-	// string it serves keeps its byte-identical public URL (§D-A rule 7) and
-	// sits behind the same stack. `core-api` sees an opaque `Hono` — the
-	// Application built it, and only an Application may choose this.
-	if (options?.agentOrchestration) {
-		api.route("/", options.agentOrchestration.app);
-	}
+	return api;
+}
 
-	// 404 handler for unknown /api routes.
-	//
-	// @lore AU26 B1a (AC10): this handler is UNREACHABLE and deliberately kept
-	// as-is rather than "fixed". `api` is itself a sub-app (`app.route("/api",
-	// api)` below), and Hono applies a parent's middleware, context vars and
-	// `onError` to a mounted sub-app but NOT its `notFound` — only the ROOT
-	// app's fires (verified on the installed `hono@4.12.30`,
-	// `.pipeline/work/AU26/probes/two-app-mount/`). The canonical JSON 404 for
-	// an unknown `/api/*` path therefore comes from `app.notFound` below, and
-	// that is what the mounted agent-orchestration app relies on too. A port
-	// that moves the branch onto a sub-app turns every unknown `/api/*` into
-	// Hono's `text/plain` default.
-	api.notFound((c) => {
-		const response: ApiErrorResponse = {
-			error: "Not found",
-			code: API_ERROR_CODES.NOT_FOUND,
-		};
-		return c.json(response, 404);
-	});
+/**
+ * Attach extra disposers to an app the Application composed, so a single
+ * `disposeApp(root)` tears the whole composition down.
+ *
+ * @lore AU26 B1b: `createCoreApiApp` keys its own disposer bag on the route
+ * table it returns, but a test harness holds the composed ROOT app. The
+ * Application therefore forwards the Layer disposers onto the root, which keeps
+ * `disposeApp(app)` — the shape ~240 fixture-based tests already rely on —
+ * unchanged.
+ */
+export function registerAppDisposers(hono: Hono, disposers: ReadonlyArray<() => void>): void {
+	const bag = APP_DISPOSERS.get(hono) ?? [];
+	bag.push(...disposers);
+	APP_DISPOSERS.set(hono, bag);
+}
 
-	app.route("/api", api);
-
-	// Top-level 404 handler for all unmatched routes
-	app.notFound((c) => {
-		// Check if this is an /api route
-		if (c.req.path.startsWith("/api")) {
-			const response: ApiErrorResponse = {
-				error: "Not found",
-				code: API_ERROR_CODES.NOT_FOUND,
-			};
-			return c.json(response, 404);
-		}
-		return c.text("404 Not Found", 404);
-	});
-
-	// AU21 §9 Increment 6 (Decision D): register the in-process
-	// `AgentOrchestrationPort` transport here in `createApp` itself — NOT in
-	// `server-factory.ts` the way `CoreApiPort`'s write-seam transport is
-	// (`core-api-port-composition.ts`'s own `@lore`). That deferral exists
-	// because registering a WRITE seam's transport for every test app also
-	// activates production event-subscriber side effects tests don't expect
-	// (the double-fire hazard). This door is read-only (§12) — carries no
-	// event subscriptions and mutates nothing — so there is no equivalent
-	// hazard, and registering it unconditionally (no `options?.db` branch —
-	// keeps this function's already-over-budget cognitive complexity from
-	// growing further) means every `createApp` caller, including a db-less
-	// app, gets a working `getRegisteredAgentOrchestrationTransport()`. A
-	// db-less app never mounted `/agent-orchestration/sessions/*`, so the
-	// transport just 404s through this app's own top-level not-found handler
-	// if anything ever called it — never reached in practice.
-	registerAgentOrchestrationTransport(createInProcessAgentOrchestrationTransport(app));
-
-	return app;
+/**
+ * Detach and return an app's disposer bag.
+ *
+ * @lore AU26 B1b: the Application composes ONE root app and tears it down with
+ * ONE `disposeApp(root)` call. If the Layer boot kept its own bag and the root
+ * merely held a `() => disposeApp(layerApp)` thunk, `disposeApp` would run
+ * twice per shutdown — which `server-disposal.integration.test.ts` catches as a
+ * duplicated `app-domain` phase. Taking the bag moves ownership instead of
+ * nesting it, so every disposer runs exactly once, in order.
+ */
+export function takeAppDisposers(hono: Hono): Array<() => void> {
+	const bag = APP_DISPOSERS.get(hono) ?? [];
+	APP_DISPOSERS.delete(hono);
+	return bag;
 }
 
 /**

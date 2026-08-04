@@ -1,6 +1,6 @@
 import { describe } from "vitest";
 import type { AppOptions } from "../app.js";
-import { registerAgentLayerServices, registerCoreDomainServices } from "../server-factory.js";
+import { registerAgentLayerServices, registerCoreDomainServices } from "../service-bootstrap.js";
 import { expect, test, vi } from "../test-fixtures.js";
 import { createTestApp } from "../test-utils.js";
 

@@ -92,7 +92,7 @@ vi.mock("@hyperidle/db", async (importOriginal) => {
 	};
 });
 
-import { createServer, type ServerHandle } from "../server-factory.js";
+import { createServer, type ServerHandle } from "@hyperidle/remote-server/create-server";
 
 type AsyncServerHandle = Omit<ServerHandle, "dispose"> & {
 	dispose(): Promise<void>;

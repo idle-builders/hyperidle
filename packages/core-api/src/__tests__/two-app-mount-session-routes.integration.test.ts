@@ -279,20 +279,17 @@ describe("agent-orchestration's own app, mounted beside core-api's", () => {
 		const orchestration = bootAgentOrchestration({ db, eventBus });
 		const coreOnly = await createCoreApiApp({ db, eventBus });
 
-		// The orchestration app is mounted at `/api`; core's own routes already carry it.
-		const orchKeys = new Set(
-			[...routeKeys(orchestration.app)].map((k) => {
-				const [method, path] = k.split(" ", 2) as [string, string];
-				return `${method} /api${path}`;
-			}),
-		);
+		// @lore AU26 B1b: BOTH Layer apps are now bare route tables that the
+		// Application mounts at `/` on its own `/api` router, so their path
+		// strings are directly comparable — neither carries the `/api` prefix.
+		const orchKeys = new Set(routeKeys(orchestration.app));
 		const collisions = [...routeKeys(coreOnly)].filter((k) => orchKeys.has(k));
 		expect(collisions).toEqual([]);
 
 		// …and the moved routes really are orchestration's: core alone does not serve them.
-		expect([...routeKeys(coreOnly)]).not.toContain("GET /api/sessions/:id/activity");
-		expect(orchKeys.has("GET /api/sessions/:id/activity")).toBe(true);
-		expect([...routeKeys(coreOnly)]).toContain("POST /api/sessions");
+		expect([...routeKeys(coreOnly)]).not.toContain("GET /sessions/:id/activity");
+		expect(orchKeys.has("GET /sessions/:id/activity")).toBe(true);
+		expect([...routeKeys(coreOnly)]).toContain("POST /sessions");
 		orchestration.dispose();
 	});
 

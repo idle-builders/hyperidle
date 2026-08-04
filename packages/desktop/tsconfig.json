@@ -13,8 +13,8 @@
 	"references": [
 		{ "path": "../shared" },
 		{ "path": "../db" },
-		{ "path": "../core-api" },
 		{ "path": "../agent-execution/harness-registry" },
+		{ "path": "../remote-server" },
 		{ "path": "../remote-worker" }
 	]
 }

@@ -2,7 +2,7 @@ import { bets, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import type { DomainEvent } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { disposeApp } from "../app.js";
-import { registerAgentLayerServices, registerCoreDomainServices } from "../server-factory.js";
+import { registerAgentLayerServices, registerCoreDomainServices } from "../service-bootstrap.js";
 import { expect, test } from "../test-fixtures.js";
 import { createTestApp } from "../test-utils.js";
 
