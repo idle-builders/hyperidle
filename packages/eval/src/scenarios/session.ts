@@ -78,7 +78,6 @@ Use write_session_notes to document your analysis.`,
 				db: ctx.db,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
-				resolvedFastModel: ctx.resolvedFastModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
@@ -175,7 +174,6 @@ const sessModelTierBuilderDevops: EvalScenario = {
 				db: ctx.db,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
-				resolvedFastModel: ctx.resolvedFastModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
@@ -263,7 +261,6 @@ const sessWorkspaceCleanupBuilderFrontend: EvalScenario = {
 				db: ctx.db,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
-				resolvedFastModel: ctx.resolvedFastModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{

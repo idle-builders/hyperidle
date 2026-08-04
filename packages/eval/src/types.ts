@@ -42,8 +42,6 @@ export interface TriggerContext {
 	readonly seedResult: ScenarioSeedResult;
 	/** Pre-resolved model from --model flag or default. */
 	readonly resolvedModel: ResolvedModel;
-	/** Optional fast-tier model for builtin harness summarization. */
-	readonly resolvedFastModel?: ResolvedModel;
 }
 
 /**

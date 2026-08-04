@@ -75,7 +75,6 @@ export interface RunContextBundle {
 	readonly sandboxBasePath: string;
 	readonly modelTier?: ModelTier;
 	readonly resolvedModel?: ResolvedModel;
-	readonly resolvedFastModel?: ResolvedModel;
 	readonly routineId?: string;
 	readonly requestContext?: {
 		readonly requestId: string;

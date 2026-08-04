@@ -68,7 +68,6 @@ Use handoff_to with:
 				db: ctx.db,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
-				resolvedFastModel: ctx.resolvedFastModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
@@ -178,7 +177,6 @@ Hand off to the team product manager for stakeholder communication using handoff
 				db: ctx.db,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
-				resolvedFastModel: ctx.resolvedFastModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
@@ -269,7 +267,6 @@ This creates a review item for a human compliance expert.`,
 				db: ctx.db,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
-				resolvedFastModel: ctx.resolvedFastModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
@@ -388,7 +385,6 @@ Use handoff_to with:
 				db: ctx.db,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
-				resolvedFastModel: ctx.resolvedFastModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
@@ -500,7 +496,6 @@ Hand off using handoff_to:
 				db: ctx.db,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
-				resolvedFastModel: ctx.resolvedFastModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
@@ -597,7 +592,6 @@ Hand off to the builder using handoff_to:
 				db: ctx.db,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
-				resolvedFastModel: ctx.resolvedFastModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{

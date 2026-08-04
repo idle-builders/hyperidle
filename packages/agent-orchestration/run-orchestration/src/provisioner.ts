@@ -652,12 +652,6 @@ interface ProvisionSessionParams {
 	 * model, and API key.
 	 */
 	readonly resolvedModel?: ResolvedModel;
-	/**
-	 * X6: Resolved fast-tier model for builtin harness summarization.
-	 * Optional — when absent the builtin harness uses resolvedModel for all LLM
-	 * calls including summarization (slightly higher cost, functionally equivalent).
-	 */
-	readonly resolvedFastModel?: ResolvedModel;
 	readonly requestContext?: {
 		readonly requestId: string;
 		readonly sourceKind: AgentSessionSourceKind;
@@ -1428,7 +1422,6 @@ async function runSession(
 		modelTier,
 		tools: allowedToolNames,
 		resolvedModel: params.resolvedModel as ResolvedModel | undefined,
-		resolvedFastModel: params.resolvedFastModel as ResolvedModel | undefined,
 		mcpConnectionInfo: mcpBridgeToken
 			? { url: `${mcpBaseUrl}/api/mcp/${mcpBridgeToken}`, token: mcpBridgeToken }
 			: undefined,

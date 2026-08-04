@@ -97,12 +97,6 @@ export interface SessionConfig {
 	 */
 	readonly resolvedModel?: ResolvedModel;
 	/**
-	 * X6: Resolved model for the "fast" tier, used by the built-in harness
-	 * for mid-session tier switching (summarization, formatting).
-	 * Optional — when absent, the harness uses the primary resolvedModel for all calls.
-	 */
-	readonly resolvedFastModel?: ResolvedModel;
-	/**
 	 * X5: MCP bridge connection info for this session.
 	 * When present, adapters that support MCP can use this to configure
 	 * their harness's MCP client connection. Optional because:

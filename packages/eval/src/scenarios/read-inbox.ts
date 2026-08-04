@@ -72,7 +72,6 @@ Your response should directly address the timeline question asked.`,
 				db: ctx.db,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
-				resolvedFastModel: ctx.resolvedFastModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
@@ -132,7 +131,6 @@ Do NOT create any tasks or items if the inbox is empty — just do your assigned
 				db: ctx.db,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
-				resolvedFastModel: ctx.resolvedFastModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
@@ -236,7 +234,6 @@ Ignore unrelated threads (e.g., general team updates).`,
 				db: ctx.db,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
-				resolvedFastModel: ctx.resolvedFastModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{

@@ -6,7 +6,6 @@
  *
  * Key reviewer corrections incorporated:
  *   - AC-11: context pressure uses LATEST call's inputTokens, NOT cumulative sum
- *   - AC-12: tier switching for summarization uses resolvedFastModel
  *   - AC-13: max-iterations guard stops at configured limit
  *   - AC-5 (critique WARNING-5): startSession throws when resolvedModel is absent
  *   - AC-4 (critique WARNING-4): tool definitions sourced from registry.toClaudeToolSpecs()
@@ -40,13 +39,6 @@ const RESOLVED_MODEL = {
 	provider: "anthropic" as const,
 	model: "claude-sonnet-4-6",
 	apiKey: "sk-test-key",
-	baseUrl: "https://api.anthropic.com",
-};
-
-const RESOLVED_FAST_MODEL = {
-	provider: "anthropic" as const,
-	model: "claude-haiku-4-5",
-	apiKey: "sk-test-key-fast",
 	baseUrl: "https://api.anthropic.com",
 };
 
@@ -615,76 +607,6 @@ describe("AC-11: Pre-compaction at 80% using LATEST call's inputTokens (critique
 		// Must NOT have pre_compaction — latest tokens (40_000) is only 4% of 1_000_000
 		const preCompactEvents = events.filter((e) => e.type === "pre_compaction");
 		expect(preCompactEvents).toHaveLength(0);
-	});
-});
-
-// ── AC-12: Cost-aware tier switching for summarization ────────────────────────
-
-describe("AC-12: Summarization uses resolvedFastModel when available", () => {
-	afterEach(() => {
-		vi.clearAllMocks();
-	});
-
-	it("uses resolvedFastModel for the summarization LLM call", async () => {
-		// Trigger summarization: planning turn → high-token execute turn → summarize
-		const highTokenDone = makeTextResponse("Done.", 165_000, 100); // 82.5% of 200k
-
-		callLlmMock
-			.mockResolvedValueOnce(makeTextResponse("Planning..."))
-			.mockResolvedValueOnce(highTokenDone); // triggers pre-compaction → summarization
-
-		// Add many messages to trigger summarization (need >4 messages to summarize)
-		const config = makeSessionConfig({ resolvedFastModel: RESOLVED_FAST_MODEL });
-
-		const adapter = new BuiltinHarnessAdapter();
-		const registry = makeMockRegistry();
-		const sessionId = "sess-tier-switch";
-		adapter.setSessionToolRegistry(sessionId, registry);
-
-		// Seed some fake messages so there's something to summarize.
-		// The adapter needs ≥4 old messages to trigger summarization.
-		// We can't directly seed messages, so instead we check that callLlm
-		// is called with the fast model when summarization is triggered.
-
-		const handle = await adapter.startSession(config);
-		await collectEvents(adapter, handle);
-
-		// Find any callLlm call that used the fast model
-		const fastModelCalls = callLlmMock.mock.calls.filter(
-			([opts]) => opts.model.model === RESOLVED_FAST_MODEL.model,
-		);
-		// When summarization is triggered, the fast model must be used
-		// If there's not enough history to summarize, this can be 0 — that's OK per the spec
-		// (toSummarize.length < 4 returns early). We just verify no PRIMARY model is
-		// incorrectly used for summarization.
-		expect(fastModelCalls.every(([opts]) => opts.model.apiKey === RESOLVED_FAST_MODEL.apiKey)).toBe(
-			true,
-		);
-	});
-
-	it("falls back to primary model for summarization when resolvedFastModel is absent", async () => {
-		const highTokenDone = makeTextResponse("Done.", 165_000, 100);
-
-		callLlmMock
-			.mockResolvedValueOnce(makeTextResponse("Planning..."))
-			.mockResolvedValueOnce(highTokenDone);
-
-		// No resolvedFastModel in config
-		const config = makeSessionConfig({ resolvedFastModel: undefined });
-
-		const adapter = new BuiltinHarnessAdapter();
-		const registry = makeMockRegistry();
-		const sessionId = "sess-no-fast-model";
-		adapter.setSessionToolRegistry(sessionId, registry);
-
-		const handle = await adapter.startSession(config);
-		await collectEvents(adapter, handle);
-
-		// All callLlm calls must use the primary model
-		const fastModelCalls = callLlmMock.mock.calls.filter(
-			([opts]) => opts.model.apiKey !== RESOLVED_MODEL.apiKey,
-		);
-		expect(fastModelCalls).toHaveLength(0);
 	});
 });
 

@@ -31,7 +31,6 @@ export interface EvalProvisionDeps {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
 	readonly resolvedModel: ResolvedModel;
-	readonly resolvedFastModel?: ResolvedModel;
 	readonly sandboxBasePath: string;
 }
 
@@ -153,7 +152,6 @@ export async function runEvalSession(
 				productId: params.teamId,
 				sandboxBasePath: deps.sandboxBasePath,
 				resolvedModel: deps.resolvedModel,
-				resolvedFastModel: deps.resolvedFastModel,
 				agentConfig: bakeAgentRunnableConfig(agent),
 				harnessDisabled,
 				// No cost cap during eval — cost is tracked but not capped.

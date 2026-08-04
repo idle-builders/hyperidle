@@ -214,7 +214,6 @@ export type RunOptions =
 			readonly workerId?: string;
 			readonly claim?: { readonly now: Date; readonly leaseMs: number };
 			readonly resolvedModel?: RunContextBundle["resolvedModel"];
-			readonly resolvedFastModel?: RunContextBundle["resolvedFastModel"];
 			readonly modelTier?: RunContextBundle["modelTier"];
 			readonly sessionWorkflow?: RunContextBundle["sessionWorkflow"];
 			readonly enforceResolvedModelGuard?: boolean;

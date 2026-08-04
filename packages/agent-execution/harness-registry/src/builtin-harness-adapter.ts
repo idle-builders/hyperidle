@@ -933,7 +933,7 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 	private async summarizeHistory(session: BuiltinSession): Promise<void> {
 		const config = session.config;
 		if (!config) return;
-		const summarizeModel = config.resolvedFastModel ?? config.resolvedModel;
+		const summarizeModel = config.resolvedModel;
 		if (!summarizeModel) return;
 
 		const preserveCount = 6;
@@ -965,12 +965,7 @@ ${formatMessagesForSummary(toSummarize)}`,
 			signal: session.abortController.signal,
 		});
 
-		// Track tokens for appropriate tier
-		const tier =
-			config.resolvedFastModel !== undefined && summarizeModel === config.resolvedFastModel
-				? "fast"
-				: config.modelTier;
-		this.trackUsage(session, response.usage, tier);
+		this.trackUsage(session, response.usage, config.modelTier);
 
 		const summaryText = extractTextFromContent(response.content);
 		if (!summaryText) return;
