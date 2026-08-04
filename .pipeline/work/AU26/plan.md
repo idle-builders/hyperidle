@@ -23,6 +23,31 @@ must be dissolved to free the runner. The doc claims it leaves stale
 `facilitators.md:79-92`) are a `/write-docs` reconciliation; the product question *"should knowledge live in
 git?"* is a future `knowledge` WP, explicitly not AU26's.
 
+**Amendment (2026-08-04, architecture round 3 — the ACL's scope).** Closing the zero-exceptions bar
+(`UNOWNED_SHARED_TABLES` deleted, all four remaining unowned tables assigned owners) turned out to require
+deciding **what the table-ownership ACL governs at all** — a question the WP had left implicit. Rounds 1
+and 2 answered it with scope carve-outs (first a package allowlist, then a "runtime dependency closure of
+the shipped Applications" scope) that both, on measurement, excluded exactly the inconvenient files.
+**Round 3's answer: the ACL governs every non-test file in the workspace.** Test code is the only
+ungoverned code, and only because a test of a Service cannot be required to read the state it asserts on
+through the Service it is testing. Consequences that genuinely widen this WP's scope and are therefore
+recorded here rather than buried in the architecture:
+
+- **`packages/db`'s two seeders relocate.** `factory-bootstrap.ts` (the production first-boot seeder —
+  `packages/desktop/src/main.ts:451-454` runs it on every launch) and `demo-fixture.ts` make 18 direct
+  owned-table accesses. They cannot comply where they are: every owning Service's dependency closure is
+  exactly `{@hyperidle/db, @hyperidle/shared}`, so `db → users` would be a cycle. The code moves above the
+  Services (into `packages/core-api/src/bootstrap/`), with its three CLIs.
+- **`packages/eval` routes through the owning Services.** 69 file×table pairs across 27 files and 18
+  tables. Round 2 proposed excluding it; round 3 withdrew that, because the argument used to justify the
+  exclusion (a fixture-seeding harness that stands the domain up) describes `factory-bootstrap.ts` equally
+  well, and because an eval's system under test is the LLM + tools + prompts, never the persistence
+  Services — so reading through them is not circular.
+
+Neither is a new *axis* — both are the direct, measured cost of the zero-exceptions ruling the WP already
+carries. Measured honestly at HEAD the ACL region is **100 file×table pairs across 48 files**, against the
+12 rounds 1 and 2 reported. See `architecture.md` §D-G and increments **D0/D2a/D2b** in §12.
+
 **Type.** backend.
 
 **What exists today.** `service_connections`: see AU21's Decision J (`.pipeline/work/AU21/architecture.md`) — locked four-increment design (extract the AES-GCM primitive to `@hyperidle/shared`, rename the core package to `@hyperidle/credentials` stripped to just the LLM-key catalog, stand up a new SQL-owning `packages/agent-orchestration/connections/` Service, re-host `/api/connections`'s backend delegation + extend `AgentOrchestrationPort` with a read family). AU21's Decision K1 (shipped, CI-green) bakes the held-connection list onto every emitted request as an interim mechanism — precisely because the full move hadn't happened yet; now known-throwaway. `filesystems` (`packages/core-api/filesystems/src/`): `filesystem-registry.ts` (the record — team-registered repo/doc-set locations), `mounter-registry.ts` (`RegistryFilesystemMounter` and its per-source adapters — the actual mounting engine: symlink/copy/git-worktree-detect logic, composed ONCE at boot in `packages/core-api/src/server-factory.ts:1027` as `new RegistryFilesystemMounter(...)` and injected into `run-orchestration`'s `provisioner.ts`/`filesystem-provisioning.ts` as a same-process `FilesystemMounter` dependency — core-api itself never calls `.mount()`). AU21's own build already fixed the one live seam-call bug (the injected-filesystems LIST is now baked at emit) but left the mounting ENGINE itself sitting in core-api, unchallenged. `users` (`packages/db/src/schema.ts`) carries `kind` (`"ai"`/human), `harnessType`, `modelId`, `modelProvider`, `maxConcurrentSessions` directly on the same table as human identity/team-membership columns — confirmed by direct schema read, never individually challenged. `AgentOrchestrationPort` (a read-only seam, core-ui → agent-orchestration) already shipped in AU21 Increment 6/7, serving per-session cost — the re-hosting precedent every relocation here reuses. `packages/core-api/src/app.ts` hosts the ENTIRE HTTP/WS surface for both Layers today, including `agent-orchestration-sessions-routes.ts` (a route about orchestration, not one it hosts) — confirmed by direct search: `agent-orchestration` has no `route`-named file and no `new Hono()`/`createApp` anywhere. `realtime` (renamed `WsConnectionHub` during AU21 Increment 14d, after its generic broadcaster pattern was deleted) is the one remaining piece of `core-api`'s WS transport — pure connection/subscribe/authz/broadcast plumbing, zero owned tables, no domain concept of its own. AU20 (a sibling, still-planned WP) already established the "challenge, don't just document" pattern for a *different* axis (exposed-method-surface reduction); this WP runs one consistent domain-ownership test instead. **`model-gateway` was a fourth candidate here but is now CLOSED, decided directly in AU21 (Decision L2, 2026-08-03)** — dissolved as a Service entirely, its pure `resolveModel` function moved into `@hyperidle/shared`; no longer part of this WP's scope.
@@ -75,6 +100,13 @@ git?"* is a future `knowledge` WP, explicitly not AU26's.
 - `RegistryFilesystemMounter` (the mounting engine) relocates to agent-orchestration if the test concludes core never operationally exercises it — with the filesystem record/reachability-probe UI's own status resolved as a separate, explicit question, not assumed to follow the engine automatically.
 - `agent-orchestration` hosts its own HTTP/WS route(s) directly for at least the session/harness-streaming case (core-ui dials in without a core-api gateway hop), with a documented, evidenced verdict on `WsConnectionHub`'s own fate (stays as `workspace-api`'s own transport, or dissolves) under the same test used for everything else in this WP.
 - Every candidate whose verdict is "relocate" **or "delete"** — from **either** pass, whole-service or part-level — is actually moved into agent-orchestration (or removed) in this WP (not deferred to yet another follow-up), with the same rigor as the connections move: guard-enforced ACL, an `AgentOrchestrationPort`-style read door back to core-ui only where core-ui genuinely needs one.
+- **(new, 2026-08-04 round 3)** Neither guard contains a table carve-out, an allowlist, an exemption set, an
+  unowned-table set, **or a scope carve-out**. `scripts/table-ownership-guard.ts` scans `src/` of every
+  package under `packages/` carrying a `package.json`, holds no package-name literal in its scan logic, and
+  `inspect()` returns **zero** findings on the real tree. The count is gated by measurement, not by
+  scope: a checked-in census script reports file×table pairs under the target scope from the first
+  increment on (**100 at HEAD**) and must strictly decrease to 0.
+
 - The Settings UI's connections, filesystems, and agents pages, and the session/harness live-activity UI, all work identically end-to-end after any relocation, with zero required frontend behavior changes (route/base-URL wiring may change, but what the user sees and when does not).
 
 ## Validation scenarios

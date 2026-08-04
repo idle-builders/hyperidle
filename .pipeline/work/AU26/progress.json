@@ -4,7 +4,7 @@
   "currentStep": "architecture-critique",
   "startedAt": "2026-08-04",
   "designSkipped": {
-    "reason": "no-ui-surface \u2014 backend/infra only; plan.md Pre-build gates says design not required; AC #6 requires zero frontend behavior changes",
+    "reason": "no-ui-surface — backend/infra only; plan.md Pre-build gates says design not required; AC #6 requires zero frontend behavior changes",
     "decidedBy": "orchestrator"
   },
   "approvals": {
@@ -41,6 +41,27 @@
         "round": "reframe",
         "note": "requirements.md rewritten twice on founder direction after the critique loop passed; framing changes, verified findings carried forward"
       }
+    ],
+    "architecture": [
+      {
+        "round": 1,
+        "verdict": "REVISE",
+        "critical": 5,
+        "note": "see architecture-critique.md"
+      },
+      {
+        "round": 2,
+        "score": "7/10",
+        "verdict": "PASS, conditional",
+        "critical": 2,
+        "warning": 6,
+        "note": "waves 0-3 buildable; D2 blocked. see architecture-critique-round2.md"
+      },
+      {
+        "round": 3,
+        "verdict": "revised — awaiting critique",
+        "note": "both CRITICALs closed by re-deriving the ACL scope principle (whole workspace, tests the only ungoverned code) and re-running the census honestly (100 pairs / 48 files, vs the 12 claimed). W1-W6 + S1-S3 closed."
+      }
     ]
   },
   "artifacts": {
@@ -57,16 +78,58 @@
       ".pipeline/work/AU26/service-verdicts/group3.md",
       ".pipeline/work/AU26/service-verdicts/git-export-rechallenge.md"
     ],
-    "probes": ".pipeline/work/AU26/probes/"
+    "probes": ".pipeline/work/AU26/probes/",
+    "architectureCritiqueRound2": ".pipeline/work/AU26/architecture-critique-round2.md",
+    "censusProbe": ".pipeline/work/AU26/probes/census/"
   },
   "planAmendedByArchitecture": {
-    "what": "git-export exporter DELETION recorded as in-scope (founder call on the record, via the re-challenge); AC6 extended from 'relocate' to 'relocate or delete'.",
+    "what": "(1) 2026-08-04 — git-export exporter DELETION recorded as in-scope (founder call on the record, via the re-challenge); AC6 extended from 'relocate' to 'relocate or delete'. (2) 2026-08-04 round 3 — the ACL's scope decided: it governs every non-test file in the workspace. Two consequences widen scope and are now in plan.md: packages/db's two seeders relocate above the owning Services (D2a), and packages/eval routes through them (D2b). A new AC gates the ACL-violation count on measurement (100 at HEAD -> 0).",
     "at": "2026-08-04"
   },
   "sizing": {
-    "prs": 13,
-    "waves": 7,
-    "estimate": "3.5-5 weeks",
-    "note": "NOT one PR \u2014 see architecture.md \u00a712"
+    "prs": 19,
+    "waves": 5,
+    "note": "NOT one PR — see architecture.md §12. Round 3 corrected the count (round 2 said 13 with a 16-row table) and added D0/D2a/D2b. Wave = computed dependency depth. No duration estimate — the founder does not want them."
+  },
+  "founderConfirmationPoints": {
+    "note": "Each gate has a stated default the run takes if no answer arrives (CLAUDE.md ABSOLUTE RULE 1 — a pipeline run never waits). Recorded here when taken, with the timestamp, so a late answer is a cheap correction. See architecture.md §12.",
+    "gates": [
+      {
+        "id": "C1",
+        "question": "git-export exporter deletion (~4,500 lines)",
+        "default": "proceed — the verdict is already founder-directed",
+        "status": "pending"
+      },
+      {
+        "id": "C2",
+        "question": "observability dissolution",
+        "default": "proceed — zero routes have callers repo-wide",
+        "status": "pending"
+      },
+      {
+        "id": "C3",
+        "question": "realtime dissolution + the validation-scenario-4 WS narrowing (a founder-written AC being narrowed)",
+        "default": "proceed narrowed; record the narrowing as accepted-pending-review here and in .pipeline/AU.md (AC13(b))",
+        "status": "pending"
+      },
+      {
+        "id": "D1",
+        "question": "sessions ownership",
+        "default": "proceed — no semantics change (§D-H #1)",
+        "status": "pending"
+      },
+      {
+        "id": "D2a/D2b/D2",
+        "question": "zero exceptions is a standing ruling, so AU26 reads it as governing scan SCOPE — packages/db's seeders relocate and packages/eval routes through the owning Services. Confirm, or name the narrowing.",
+        "default": "proceed as written — D2a and D2b are in the plan. A standing ruling is not suspended by silence. If narrowed later, eval's findings are WAIVED IN THE RECORD, never by a package name in the guard.",
+        "status": "pending"
+      },
+      {
+        "id": "G1",
+        "question": "users/teams columns incl. the two DROP COLUMNs, forward-only migration",
+        "default": "proceed forward-only; smoke-test against a real populated local DB before the PR opens",
+        "status": "pending"
+      }
+    ]
   }
 }

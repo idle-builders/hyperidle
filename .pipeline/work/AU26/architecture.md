@@ -2,14 +2,16 @@
 
 Tier: **production**. Spec of record: `plan.md` (amended). Binding requirement: `requirements.md`
 (founder-approved, `progress.json → approvals.requirements`). Design phase: **skipped** — backend/infra,
-zero required frontend behaviour change. Feasibility: `feasibility.md` (P1–P6, all GO).
+zero required frontend behaviour change. Feasibility: `feasibility.md` (P1–P6 + **P5′**, all GO).
 
 Every `file:line` below was re-traced with `rg -a` on branch `pipeline/AU26` (base `origin/main` @ `75d85687`).
 
-> **Size, stated honestly up front.** This is **not one PR.** It is **13 independently shippable PRs**
-> across 7 waves, ~3.5–5 weeks. See §12. Anyone who tries to land it as one change will produce an
-> unreviewable diff touching ~250 files, three packages' public surfaces, a schema migration, and both
-> guards. The wave boundaries below are chosen so each PR is green on `main` by itself.
+> **Size, stated honestly up front.** This is **not one PR.** It is **19 independently shippable PRs
+> across 5 waves** — the number matches §12's table row for row, which round 2's "13" did not (its own
+> table had 16 rows). Anyone who tries to land it as one change will produce an unreviewable diff touching
+> ~280 files, four packages' public surfaces, a schema migration, both guards, and the eval harness. The
+> wave boundaries in §12 are computed dependency depth, so each PR is green on `main` by itself and each
+> wave is a genuine parallel band.
 
 ---
 
@@ -35,7 +37,7 @@ Named symbols verified. Only disagreements and newly-found obligations are liste
 |---|---|---|
 | `app.ts:42` imports the orchestration routes module | **Confirmed** — `import { createAgentOrchestrationSessionsRoutes } from "./routes/agent-orchestration-sessions-routes.js"`, mounted `:556-561` | Increment **B1a** deletes the import; the AC is a lint/import guard, not a test |
 | `UNOWNED_SHARED_TABLES` exempts `sessions` | **Confirmed and worse** — the Set is `{sessions, propagationLog, taskDispatchAttempts, userSkills}` — **four** tables, not one (`scripts/table-ownership-guard.ts:349-354`) | **D1 + D2** assign all four owners and delete the Set |
-| the guard enforces the ACL | **Partially — and *not* for the reason round 1 gave. Correction, verified.** `inspect()` (`:604-630`) already runs a second explicit pass over `packages/core-api/src` (the AU19 Increment 5 scan-widening, `@lore` `:612-624`). The 9 Layer `sessions` readers **are visited today**; they pass only because `sessions ∈ UNOWNED_SHARED_TABLES` (`:349-354`, filtered at `:543`). So deleting the Set alone fires immediately on all **12** already-scanned Layer pairs. The real hole is elsewhere: the scan surface is exactly `nestedServiceRoots()` **plus one hard-coded `core-api/src`** — `agent-orchestration/src`, `remote-server/src`, `agent-execution/src` and `eval/src` are never visited | **D2** replaces the two hand-written roots with a *derived* scan scope (§D-G). Not cosmetic: **B1a creates route files under `packages/agent-orchestration/src/routes/**` and B1b moves the single `propagationLog` importer into `packages/remote-server/src/`** — both land in roots the guard does not visit today, so without this change the WP would *create* the hole it claims to close |
+| the guard enforces the ACL | **Partially — and *not* for the reason round 1 gave. Correction, verified.** `inspect()` (`:604-630`) already runs a second explicit pass over `packages/core-api/src` (the AU19 Increment 5 scan-widening, `@lore` `:612-624`). The 9 Layer `sessions` readers **are visited today**; they pass only because `sessions ∈ UNOWNED_SHARED_TABLES` (`:349-354`, filtered at `:543`). So deleting the Set alone fires immediately on all **12** already-scanned Layer pairs. The real hole is elsewhere: the scan surface is exactly `nestedServiceRoots()` **plus one hard-coded `core-api/src`** — `agent-orchestration/src`, `remote-server/src`, `agent-execution/src` and `eval/src` are never visited | **D2** replaces the two hand-written roots with **the whole workspace** (§D-G — round 3 withdrew round 2's derived-closure scope, which both pulled in `packages/db/src`'s 18 accesses and missed `packages/agent-orchestration/src`). Not cosmetic: **B1a creates route files under `packages/agent-orchestration/src/routes/**` and B1b moves the single `propagationLog` importer into `packages/remote-server/src/`** — both land in roots the guard does not visit today, so without this change the WP would *create* the hole it claims to close. The honest census over the real scope is **100 file×table pairs in 48 files**, not 12 |
 | 5 non-test `createServer(` callers | **Confirmed** — `remote-server/src/index.ts:36`, `desktop/src/boot-server.ts:30`, `web/scripts/{ah1:62,ah5:140,ah6:250}-test-server.ts` | **B1b** re-points all five to one relocated `createServer` |
 | 8 test files call `createServer(` | **Confirmed** — incl. `packages/desktop/__tests__/boot-server.test.ts` and `agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts` (**outside `core-api`** — the spec's count did not say so) | **B1b** re-points; the `AN2` one is the connections live-proof, so E3 must keep it green |
 | `test-utils.ts:13` / `test-fixtures.ts:49` fan out | **Confirmed and larger than stated** — **240** test files import a fixture module | **B1b**: the two fixtures become the *only* other composition site; 240 files change zero lines |
@@ -128,7 +130,25 @@ authentication**, and — decisively — **it was never run against its own inpu
 4. **Authentication and authorization applied by the Application's middleware stack are never part of a
    route's table set.** `createAuthMiddleware` reads `@hyperidle/users`; if that counted, rule 3 would force
    *every* route onto core and orchestration-api could not exist. Stated, not assumed.
-5. **Path strings never change.** Both apps mount on the same `/api` router (§D-B, feasibility P1), so a
+5. **An emitted event is not a table touch. A subscriber is placed by its own table set, on its own
+   layer.** `PATCH /api/sessions/:id` emits `session_ended`, whose subscriber
+   `review/session-review-creator.ts` writes core tables; after the move the emit happens on
+   orchestration's side. Under a literal reading of rule 2 that route's table set would grow every table
+   every subscriber touches, transitively — which would collapse rule 3 into "everything is core." The
+   event bus is a boundary, exactly like the middleware stack in rule 4: what crosses it is a payload, not
+   a query. Stated, not assumed (round-2 W5).
+6. **A route's table set is evaluated at the moment the increment applying the rule lands — not at the end
+   of the WP.** Every set in the table below is stated **at HEAD**, so an increment is decidable while it
+   is being built. Where a later increment changes a set, it is named in the row. The one live case:
+   `POST /api/sessions`'s handler transitively reaches `filesystems`, `filesystem_injections` and
+   `service_connections` today, through `resolveSessionStartRequest`'s `resolveInjectedFilesystemsForAgent`
+   / `resolveInjectedConnectionsForAgent` arguments, called in-tx at `sessions-routes.ts:412-421`; E3 and F2
+   delete both. **Verified: the verdict does not flip** — before *and* after, the set spans `tasks`/`users`/
+   `server_config` (core) and `sessions`/`agent_work_intents`/`explicit_session_starts` (orchestration), so
+   rule 3 says core-api at every point in the WP. **Standing consequence:** if a later increment ever *did*
+   flip a verdict, the route does **not** move inside AU26 — rule 7 holds the path constant and the flip is
+   recorded as a follow-on, so no increment can invalidate an already-shipped one.
+7. **Path strings never change.** Both apps mount on the same `/api` router (§D-B, feasibility P1), so a
    route can change host app while keeping its URL byte-identical. This is what makes AC7's "zero
    `packages/web` diff" reachable. Its cost is that a duplicate `method + path` across the two apps would
    resolve silently by registration order — closed by AC12's route-table collision assertion.
@@ -155,7 +175,7 @@ Applied — **re-derived route by route, handler body open** (every row's table 
 **Two consequences of the re-derivation, stated because they change round-1 claims:**
 
 - `GET /api/tasks/:id/sessions` **stays core-hosted**, so `useTaskSessions.ts` needs no URL change. Combined
-  with rule 5, **no `packages/web` file changes at all** in this WP (AC7(c) tightened from "exactly three
+  with rule 7, **no `packages/web` file changes at all** in this WP (AC7(c) tightened from "exactly three
   files" to "zero").
 - `POST /api/sessions` **stays core-hosted**, which is what makes §D-H #16 buildable — see there.
 
@@ -328,7 +348,7 @@ socket from `getWsClient()` (`:223-230`).
 
 - **HTTP half — CLOSED.** `GET /api/sessions/:id/activity` moves to `createAgentOrchestrationApp()` and is
   served entirely by orchestration's own handler reading its own tables and its own activity buffer. No
-  core-api handler, no `AgentOrchestrationPort` hop. The URL string is unchanged (rule 5), which is a
+  core-api handler, no `AgentOrchestrationPort` hop. The URL string is unchanged (rule 7), which is a
   *transport* fact, not a routing one — the request is handled by orchestration's route.
 - **WS half — DELIBERATELY NOT CLOSED. This narrows a founder-written AC.** The socket stays on core-api's
   hub and orchestration broadcasts through the injected `{broadcast}` port. Reason, from the placement rule
@@ -376,84 +396,141 @@ The other three are not optional — the ruling is zero exceptions, and the Set 
 
 | Table | Owner | Foreign toucher → how it is closed |
 |---|---|---|
-| `sessions` | `packages/agent-orchestration/run-orchestration` | §D-H (15 core-api files) |
+| `sessions` | `packages/agent-orchestration/run-orchestration` | §D-H — **16** foreign readers: 15 core-api files + `agent-orchestration/tool-handlers` (site 17, found by round 3's census) |
 | `propagationLog` | `packages/core-api/policy` | `work/bet-kill-cascade.ts` → injected `PropagationLogWriter` port (Mechanism C, the AU12/13 precedent); `server-factory.ts`'s reaper → policy's exported `reapPropagationLog` |
 | `taskDispatchAttempts` | `packages/core-api/work` | `policy/handoff-protocol.ts` → its existing `deps.work.*` port bag gains one method |
 | `userSkills` | `packages/core-api/users` | `settings/plugin-configuration.ts` → injected reader port; `routes/users.ts` + `services/routine-scheduler-bindings.ts` (Layer) → call `users`' exported functions |
 
-#### The scan scope — corrected, and derived rather than hand-written
+#### The scan scope — re-derived in round 3, and the census re-run honestly
 
-**Round-1 correction.** Round 1 said the guard "scans only `packages/<layer>/<service>/`… **all Layer code is
-invisible**" and concluded "without extending it, deleting `UNOWNED_SHARED_TABLES` is theatre." **That premise
-is false.** `inspect()` (`scripts/table-ownership-guard.ts:604-630`) runs `nestedServiceRoots()` **and then** an
-explicit second pass over `packages/core-api/src` — the AU19 Increment 5 scan-widening, documented in its own
-`@lore` at `:612-624`. The nine Layer `sessions` readers are already visited every run; they pass solely
-because `sessions ∈ UNOWNED_SHARED_TABLES` (`:349-354`, filtered at `:543`). **Deleting the Set alone fires on
-all twelve already-scanned Layer pairs immediately** — it is not theatre, it is the whole of D1/D2's work.
+**Round-2 correction, in both directions.** Round 2 derived the scan scope from *"the runtime dependency
+closure of the shipped Applications, computed from `package.json` `dependencies`, transitively."* Computed
+at HEAD (`94cc2dfe`), that derivation is wrong three times over:
 
-The scan change is still required, for a **different and concrete** reason: the scan surface today is exactly
-`nestedServiceRoots()` **plus one hard-coded path**. Everything else is unvisited — including the two
-directories *this WP creates work in*:
+- **It pulls in `packages/db/src`, where 2 files make 18 owned-table accesses** — `demo-fixture.ts` (10)
+  and `factory-bootstrap.ts` (8). Importing from `./schema.js` does **not** evade the guard: the
+  direct-access branch (`table-ownership-guard.ts:563-573`) calls `consider()` on the *identifier name*
+  of the first argument to `.from/.insert/.update/.delete`; only the *value-import* branch is scoped to
+  `@hyperidle/db`. All 18 fire. Round 2's *"**12 pairs, all inside `packages/core-api/src`** … **zero new
+  work**"* was the `core-api/src` sub-count mistaken for the whole, and D2's proof obligation (AC8(c),
+  `inspect()` returns zero findings) was unreachable as written.
+- **It misses `packages/agent-orchestration/src` — the directory B1a creates route files in.** Both
+  umbrella packages have **zero dependents** at HEAD (`rg -a -l '"@hyperidle/agent-orchestration"'
+  --glob package.json` → only its own; same for `agent-execution`). `packages/agent-orchestration/src/index.ts`
+  is literally `export {}` and its `package.json` declares no `dependencies` field at all. What core-api
+  depends on is the *nested* Services, which `nestedServiceRoots()` already walks. So the closure would
+  only have covered B1a's new routes **after** B1b added `"@hyperidle/agent-orchestration"` to
+  `remote-server`'s deps — making the guard's correctness ride on an unnamed build step.
+- **It reads a field `desktop` does not use.** `packages/desktop/package.json` declares
+  `dependencies: {"@electric-sql/pglite": "^0.5.4"}` and puts `@hyperidle/core-api`, `db`, `shared`,
+  `harness-registry`, `remote-worker` under **`devDependencies`**. Read literally, `desktop`'s closure is
+  one third-party package; the scan only survived because `remote-server` independently pulled `core-api` in.
 
-- **B1a** puts route files under `packages/agent-orchestration/src/routes/**` — a Layer `src/` the guard has
-  never visited.
-- **B1b** moves the repo's single `propagationLog` Layer importer (`server-factory.ts`) into
-  `packages/remote-server/src/create-server.ts` — and `remote-server` is an **Application**, not a Layer, so
-  round 1's wording ("extend to Layer `src/` roots") would have missed exactly the file that moves.
+**And the principle was broken, not only the census.** Round 2 justified excluding `packages/eval` as
+*"the ACL governs code that runs inside a shipped Application,"* characterising eval as *"a fixture-seeding
+harness that stands the domain up rather than consuming it."* `factory-bootstrap.ts` is the **production
+first-boot seeder**: `packages/desktop/src/main.ts:451-454` calls `applyFactoryBootstrap(handle.db)` on
+**every** Electron launch, and its `@lore` at `:445-448` says it *"must run before the server starts so
+`system:propagation` and facilitator agents are present when the first request arrives."* Same shape as
+eval, **inside** a shipped Application. A principle that cannot decide its own hardest case is not a
+principle — it is the exclusion it was written to produce.
 
-**Decision: the scan scope is *derived*, not enumerated.** `inspect()` walks every nested Service package
-`src/` (unchanged) **plus** the `src/` of every package in the **runtime dependency closure of the shipped
-Applications** — `@hyperidle/remote-server`, `@hyperidle/desktop`, `@hyperidle/remote-worker` — computed from
-`package.json` `dependencies`, transitively. Two properties matter:
+**The principle, restated in round 3 so it decides all three cases by the same test:**
 
-1. It is **not a list**. No package name appears in the guard. A new Layer, a new Application, or a package
-   that becomes a dependency of one is picked up automatically; nothing has to be remembered.
-2. It replaces *both* hand-written roots. `core-api/src`, `agent-orchestration/src`, `agent-execution/src`,
-   `remote-server/src`, `remote-worker/src`, `shared/src`, `api-contract/src` are all in the closure and all
-   become scanned. Census at HEAD: **12 pairs, all inside `packages/core-api/src`, all on the four tables this
-   WP is assigning owners to.** Zero new work.
+> **The table-ownership ACL governs every non-test file in the workspace.** The only ungoverned code is
+> test code — `__tests__/` directories and `*.test.ts(x)` files, which the guard already skips
+> structurally (`collectSourceFiles`, `:405` and `:410-412`) — and only because a test of a Service cannot be required to read
+> the state it asserts on *through the Service it is testing*. That circularity is the one thing the ACL
+> cannot ask for. **Nothing else is out of scope: not by package, not by runtime reachability, not by
+> role.**
 
-#### `packages/eval` — stated as a principle, and put to the founder
+Mechanically this is *smaller* than round 2's rule, not larger: scan roots become `src/` of **every**
+package under `packages/` that has a `package.json`. No dependency graph is read, no closure is computed,
+no `dependencies`-vs-`devDependencies` question arises, no package name appears anywhere in the guard, and
+a package added tomorrow is scanned **by default** rather than needing to earn its way in. It reaches
+`packages/agent-orchestration/src` and `packages/remote-server/src` **at HEAD** — verified, not asserted:
+both directories exist with a `package.json` today, so B1a's route files and B1b's relocated
+`create-server.ts` are scanned the moment they are written, with or without the `package.json` edits.
 
-`packages/eval` falls **outside** that closure: it is `private: true`, has **zero dependents anywhere in the
-repo**, and is entered only through its own `npm run eval` CLI. It is not reachable from any shipped
-Application.
+**Tier 1 (barrel re-export of a raw table) does not widen.** It stays on `nestedServiceRoots()`, exactly
+as today. A *Service* barrel re-exporting a raw table hands every other package a door around the ACL;
+`packages/db`'s barrel **is** the schema's public surface — it re-exports 43 tables by design
+(`packages/db/src/index.ts:33-167`, one `export { … }` block) and every owning Service imports them from there. Widening Tier 1 to
+top-level packages would fire on the one file that must do this. Only Tier 2 (ownership + completeness)
+widens.
 
-This matters, and round 1 hid how much. Measured at HEAD, `packages/eval/src` non-test code holds **67
-file×table pairs across 18 owned tables in 26 files** (`agentWorkIntents, artifacts, bets, items,
-knowledgeAppProjection, knowledgeConflicts, knowledgeEditLog, knowledgeItems, messages, routineRuns, routines,
-sessions, tasks, teamMembers, teams, threads, userSkills, users`) — concentrated in `seeding.ts` (15 tables)
-and `judges.ts` (10). That is the single largest concentration of direct owned-table access in the repo, and
-a one-entry package allowlist is exactly what would hide it. **Round 1's "exclude it by name with a stated
-reason" was an allowlist wearing a reason, and AC8's "no allowlist of any kind" was false as written.**
+##### Reachability — the corollary, and why it is a defect report rather than an exemption
 
-**The principle this WP asserts instead:** *the table-ownership ACL governs code that runs inside a shipped
-Application.* The guard already encodes that principle structurally in two places — it skips `__tests__`
-directories (`:405`) and `*.test.ts` files. `packages/eval` is the same class one level up: a
-fixture-seeding harness that stands the domain up rather than consuming it. Deriving the scan from the
-Application closure expresses that principle **without naming eval**, so:
+A file can only be *required* to route through `owner(T)` if its package may **import** `owner(T)`.
+Measured at HEAD, every owning Service's transitive `dependencies` closure is exactly
+`{@hyperidle/db, @hyperidle/shared}` — verified for all seven owners this WP touches (`users`, `knowledge`,
+`org`, `work`, `routine`, `policy`, `run-orchestration`). Therefore:
 
-- **the zero-exceptions ruling holds in full** — no table carve-out anywhere, no `UNOWNED_SHARED_TABLES`, no
-  `ALLOWLIST`, no package name in either guard;
-- **the boundary is a scope rule, not an exemption** — and it self-maintains: the day anything shipped depends
-  on `@hyperidle/eval`, eval enters the closure and all 67 pairs fire.
+- **every package in the repo except `packages/db` and `packages/shared` can comply in place**, including
+  `packages/eval` (which already imports `@hyperidle/users`, `@hyperidle/settings`,
+  `@hyperidle/core-api/session` and `@hyperidle/core-api/routines`), `packages/agent-orchestration/*`,
+  `packages/core-api/*`, `packages/remote-server` and `packages/desktop`;
+- **`packages/db` and `packages/shared` cannot** — `users → db` means `db → users` is a cycle.
 
-**There is a real architectural argument for the boundary, not only a scoping one.** Forcing eval's seeding
-through owning Services would require those Services to export fixture-shaped writers they otherwise do not
-need — growing exactly the service surface AU20 spent a work package shrinking — and would prevent evals from
-constructing the deliberately-irregular world states they exist to construct. There is also a real argument
-*against*: an eval that seeds a state no owning Service would accept is grading the system on fiction.
+**This is not an exemption; it is where the ACL is being evaded by layering.** A governed file sitting in
+an unreachable package is a *finding about the file's location*, and the disposition is that **the code
+moves up, never that the rule bends down.** `packages/shared/src` is already clean (zero owned-table
+accesses at HEAD). `packages/db/src` is not: its two seeders are domain content living in the schema leaf,
+and they relocate (increment **D2a**). After AU26 both packages hold zero owned-table accesses and the
+guard proves it by scanning them like everything else — there is no special case in the guard, so there is
+nothing for a future WP to widen.
 
-**This is put to the founder explicitly, as a confirmation point before D2** (§12), phrased as a yes/no:
-*"does the zero-exceptions ruling govern scope, or only table carve-outs?"* If the answer is *scope*, the
-fallback is named and costed here rather than discovered later: an additional increment **D3** that routes
-`packages/eval/src`'s 26 files through the owning Services' exported writers/readers and adds `packages/eval`
-to the scan unconditionally. **AU26 does not park the question and does not answer it in a parenthesis.**
+##### The census, re-run over the real scope
 
-`UNOWNED_SHARED_TABLES` and `assertDisjointOwnership` are **deleted** (the invariant they guarded stops
-existing when one of the two sets does).
+Measured at HEAD with the guard's own `checkAccess` logic, `UNOWNED_SHARED_TABLES` deleted and this WP's
+four new `TABLE_OWNER` rows applied, over every package's `src/` minus test files
+(`.pipeline/work/AU26/probes/census/` reproduces it):
 
-### D-H · The 15 core-api `sessions` touches (6 Service + 9 Layer)
+**803 files scanned · 379 findings · 100 file×table pairs · 48 files · 20 tables.**
+
+| Region | Pairs | Files | Scanned today? | Disposition |
+|---|---:|---:|---|---|
+| `packages/core-api/src` (Layer) | 12 | 11 | **yes** (`inspect():604-630`) | `sessions` ×9 → §D-H sites 7–16, **D1**; `userSkills` ×2 (`routes/users.ts`, `services/routine-scheduler-bindings.ts`) + `propagationLog` ×1 (`server-factory.ts`) → **D2** |
+| nested core-api + agent-orchestration Services | 10 | 8 | **yes** (`nestedServiceRoots()`) | `sessions` ×7 → §D-H sites 1–6 **plus the newly-found site 17 (`tool-handlers`)**, **D1**; `taskDispatchAttempts` ×1 (`policy/handoff-protocol.ts`) + `propagationLog` ×1 (`work/bet-kill-cascade.ts`) + `userSkills` ×1 (`settings/plugin-configuration.ts`) → **D2** |
+| `packages/db/src` | 9 | 2 | no | **D2a** — seeders relocate above the Services |
+| `packages/eval/src` | 69 | 27 | no | **D2b** — route through owning Services |
+| `remote-server` / `remote-worker` / `desktop` / `web` / `shared` / `api-contract` / `design-system` `src` | **0** | 0 | no | nothing to do — and **now scanned**, so B1b's relocated `create-server.ts` is covered |
+
+Round 2's "12 pairs / zero new work" was the first row only. The true figure is **100 pairs across 48
+files**, of which **79 pairs in 30 files are work round 2 did not name** — the 21 it did name are the `core-api/src` 12 plus 9 of the 10 nested-Service pairs (§D-H sites 1–6 and the `settings`/`work` rows); `tool-handlers` is the tenth and was missed.
+
+##### `packages/eval` — the exclusion is withdrawn
+
+Round 2 excluded eval by the Application-closure principle and put the question to the founder as *"does
+zero-exceptions govern scope, or only table carve-outs?"*. Round 3 answers it in the plan rather than
+deferring it, because the two arguments round 2 rested on do not survive being written down next to
+`factory-bootstrap.ts`:
+
+- *"Forcing eval's seeding through owning Services would grow the surface AU20 shrank."* True, and it is
+  the **same** cost `factory-bootstrap.ts` and `demo-fixture.ts` impose — which the WP is paying anyway
+  under D2a. Paying it in one place and refusing it in the other is the carve-out, not the principle.
+  D2a and D2b converge: eval's `seeding.ts` and the relocated `demo-fixture.ts` are the same act (stand a
+  world up) and land on the same writers.
+- *"An eval judge reading through a Service grades the system through the code under test."* This is the
+  circularity argument the guard's `__tests__` skip encodes — **and it does not apply here.** An eval's
+  system under test is the LLM, its tools, its prompts and the assembled context; the persistence Services
+  are not being graded. `judges.ts` reading `work.get(db,"task",id)` is no more circular than any route
+  test. (Contrast a *unit test of `work`*, where it genuinely would be — which is exactly why the guard
+  skips test files and why eval, which is not a test file, gets no such pass.)
+
+**Verdict: `packages/eval/src` is governed. Its 69 pairs across 27 files and 18 tables are real work,
+scoped as increment D2b.** The largest concentrations are `judges.ts` (52 findings) and `seeding.ts` (34);
+25 further files carry the rest (24 scenario files + `runner.ts`). `UNOWNED_SHARED_TABLES` and `assertDisjointOwnership` are **deleted**
+(the invariant they guarded stops existing when one of the two sets does).
+
+**Founder confirmation point, with its default stated (§12).** The founder is asked to *narrow* this, not
+to widen it: *"zero exceptions is a standing ruling — AU26 reads it as governing scan scope, so
+`packages/db`'s seeders relocate (D2a) and `packages/eval` routes through owning Services (D2b). Confirm,
+or name the narrowing."* **Default if unanswered: proceed as written — D2a and D2b are in the plan.** A
+standing founder ruling is not suspended by silence, and round 2's shape (default to excluding eval, ask
+permission to include) inverted the burden.
+
+### D-H · The `sessions` touches — 15 in core-api (6 Service + 9 Layer), plus one in agent-orchestration
 
 **The read door already exists.** `AgentOrchestrationPort` (`packages/api-contract/src/agent-orchestration-port.ts`)
 is agent-orchestration's read-only door, shipped, with an in-process transport and a tested fidelity
@@ -500,6 +577,7 @@ record) are direct downward function calls, never Port methods; the Port stays r
 | 6 | `policy/lifecycle-propagation.ts:288-293` — `select().from(sessions).where(taskId = ? AND state="active" AND id <> ?)`, gating the task `in_progress → review` transition at `:304` | **the read is core's need, the table is not** — **this site carried no verdict in round 1** | `PolicyDeps` gains `runOrchestration.countOtherActiveRunsForTask(exec, taskId, excludeSessionId): Promise<number>`, exported by `run-orchestration`, wired by the Application. A count is the whole need — the only consumer of the rows is `${n} other active session(s) still running` in the skip message (`:301`). Purpose-shaped, one method, no row shape crossing the boundary. Same DI bag as site 1, so both land in one edit |
 | 7–15 | the nine core-api **Layer** readers | **display decoration, except two** | `routes/{status,users,recipients}.ts` → `port.sessions.listActive()`; `routes/{agent-profile,teams-routes,threads}.ts` → `port.sessions.listByAgentIds()`; `routes/agents.ts` → `listActive()` for the per-agent count and the delete/deactivate gate. The two that are **not** decoration: **`routes/tasks.ts`** keeps *both* its uses core-hosted (§D-A re-derivation) — `GET /:id/sessions` reads through `port.sessions.listByTaskId()` behind its unchanged `work.get` 404 gate (`:187-191`), and `POST /:id/handoff` (`:296-326`) stops hand-building a `SessionContext` from a raw row: it calls `buildHandoffRunContext(db, sessionId)` downward, which moves the `sandboxSnapshot` fallback sentinel (`:310-311`), the no-op `ingestion` handle (`:317-321`) and the hard-coded `traceId: ""` (`:325`) onto the side that owns `SessionContext`; and **`routes/sessions-routes.ts`** is **split, not moved** — see #16 |
 | 16 | `routes/sessions-routes.ts` — 5 registrations (`:321 GET /`, `:352 POST /`, `:512 GET /starts/:startId`, `:529 GET /:id/activity`, `:557 PATCH /:id`) | **four move, one stays** | See the split below |
+| 17 | `packages/agent-orchestration/tool-handlers/src/tool-definitions.ts:23,519-522` — the `write_session_notes` tool does `ctx.db.update(sessions).set({notes}).where(eq(sessions.id, ctx.sessionId))` | **a 16th toucher, in agent-orchestration, absent from rounds 1 and 2** | Surfaced by round 3's honest census (§D-G). `tool-handlers` is an agent-orchestration Service but it is **not** `run-orchestration`, so the ACL binds it exactly as it binds a core-api Service — the `@lore` at `:483` (*"`sessions` is `UNOWNED_SHARED_TABLES` — direct access is legal"*) is the exemption D2 deletes. `run-orchestration` exports `recordSessionNotes(exec, sessionId, notes)`; `tool-handlers` calls it as a lateral in-layer Service call (the sanctioned within-layer mechanism — no Port, no upward edge). Delete the `sessions` value import and the `@lore`. **Lands in D1**, with the other 15 |
 
 #### #16 in full — why `sessions-routes.ts` **cannot** move wholesale, and how it splits
 
@@ -523,13 +601,13 @@ import core-api Services — the exact violation this WP exists to delete — an
 the *middleware* stack as Job 2's blocker; the real blocker is this.
 
 **The split, per route, derived from §D-A rules 2–3 with the handler bodies open. Paths do not change
-(rule 5).**
+(rule 7).**
 
 | Registration | Tables touched | Host | What the builder does |
 |---|---|---|---|
 | `:321` `GET /` (list, `?task_id=&agent_id=&state=`) | `sessions` | **orchestration** | moves verbatim; in-layer read replaces the `@hyperidle/db` import |
 | `:352` `POST /` | `tasks` + `users` + `server_config` + `explicit_session_starts` + `agent_work_intents` + `sessions` | **core-api — stays** | see below |
-| `:512` `GET /starts/:startId` | `explicit_session_starts` + `sessions` | **orchestration** | moves with `projectExplicitStart`/`pendingStart`/`sendStartProjection` |
+| `:512` `GET /starts/:startId` | `explicit_session_starts` + `sessions` | **orchestration** | the *route* moves; the projection triple does **not** move with it — it is shared with `POST /`, see "the projection triple" below |
 | `:529` `GET /:id/activity` | `sessions` + the agent-execution activity buffer | **orchestration** | moves, and **drops the `AgentOrchestrationPort` indirection** (`:536-539`) — the buffer is in-layer for orchestration, so the port hop is pure overhead once the route is on the right side |
 | `:557` `PATCH /:id` (incl. the abort branch, `applyStateChangePatch` CAS `:259-263`) | `sessions` + `agent_session_requests` + `sessionRunRegistry` | **orchestration** | moves with `applyStateChangePatch`, `updateSessionSchema`, and the `transitionRun` call (which becomes in-layer, dropping `services/run-orchestration-composition.ts`) |
 
@@ -541,6 +619,7 @@ in `packages/core-api/src/routes/sessions-routes.ts`**, which shrinks to that on
 `app.ts:28`). Its two remaining raw-`sessions` touches are replaced:
 
 - `projectExplicitStart`'s row read (`:63-68`) → `port.sessions.getById(start.sessionId)` (a read → the Port);
+  **the returned shape must be the full session wire row, not a narrowing** — see below;
 - the legacy bare-insert path (`:481-499`, fires only when `!durableStartEnabled` and no `Idempotency-Key`) →
   `createBareRun(db, eventBus, { agentId, taskId, modelTier })`, a new `run-orchestration` export owning the
   insert **and** the `session_started` emit (a command → a downward call).
@@ -550,6 +629,33 @@ E3/F2 shrink this handler further: `resolveInjectedConnectionsForAgent` and
 `resolveInjectedFilesystemsForAgent` are **deleted** from the bake (orchestration reads its own tables
 in-layer at provisioning), leaving `requireRunnableAgent` + `readServerConfig` as the only Service deps
 `resolveSessionStartRequest` still takes.
+
+**The projection triple — one home, named, because both apps need it (round-2 W1).** Round 2's table said
+`GET /starts/:startId` *"moves with `projectExplicitStart`/`pendingStart`/`sendStartProjection`."* It cannot:
+`POST /` — which stays core-hosted — calls `projectExplicitStart` at `:439`, `:460`, `:464` and
+`sendStartProjection` at `:440`, `:482`, `:521`. Duplicating the triple would give one wire shape two
+implementations (the 202/422/429/500 projection AC5(b) asserts is byte-identical), and `tsc` catches an
+outright omission but never silent divergence. The single home, split by what each piece actually needs:
+
+| Piece | Home | Why |
+|---|---|---|
+| `pendingStart(start)` (`:48-58`) + the failure-code→status map (`:69-79`) | **`@hyperidle/shared/http`**, as one pure function `projectExplicitStartOutcome(start, session \| null) → { status, body }` | Zero table access — it is a pure transform over rows the caller already holds. `shared` is the only package both apps may import, and A1 is already creating `@hyperidle/shared/http` |
+| `sendStartProjection(c, projection)` (`:84-100`) | **`@hyperidle/shared/http`**, beside it | Pure Hono; `Context<HyperIdleEnv>` lands in `shared/http` in A1 anyway |
+| the `sessions` row read | **stays with each caller** | orchestration's `GET /starts/:startId` reads in-layer; core's `POST /` reads through `port.sessions.getById` |
+
+Neither app imports the other's route module, so AC5(a)'s static guard is unaffected.
+
+**A shape hazard this exposes, stated because it would silently break AC5(b).** `projectExplicitStart`'s
+202 branch returns the **whole raw `sessions` row** (`:65`, `return { status: 202, body: session }`), which
+has 18 columns (`schema.ts:221-270`). §D-H's draft `AgentOrchestrationSessionRow` has **seven**. If
+`port.sessions.getById` returns the narrowing, `POST /api/sessions`'s 202 body loses 11 fields — a wire
+regression no route test in the checklist would catch, since no `packages/web` file consumes this response
+(verified: `rg -a 'api/sessions' packages/web/src` returns only the `?task_id=` list and the `/activity`
+hook). **Decision: `getById` returns the session's full public wire shape, declared once in
+`api-contract` as `AgentOrchestrationSessionWireRow` and reused by orchestration's own `GET /` list
+handler** (which returns raw rows today and keeps doing so, in-layer). The narrowed 7-field row stays for
+`listByAgentIds`/`listByTaskId`/`listActive`, whose consumers are decoration. **AC5(d)** asserts the
+`POST /api/sessions` 202 body is byte-identical to HEAD.
 
 **Why not move `POST /` too, with a `taskExists` reader injected?** Because that is an
 `agent-orchestration → core-api` read by any honest reading — the identical construction §D-A rejects for
@@ -607,7 +713,7 @@ decides it, single-sided. The planned `AgentOrchestrationPort.connections` read 
 (core-ui dials orchestration-api directly for connections, so there is nothing for a read door to serve);
 J7's deletion of `CoreApiPort.connections` stands.
 
-**The paths do not change** (§D-A rule 5): the routes stay at `/api/connections`, `/api/connections/:id`,
+**The paths do not change** (§D-A rule 7): the routes stay at `/api/connections`, `/api/connections/:id`,
 `/api/connections/:id/validate`, served by the other app. Round 1 re-prefixed them to
 `/api/agent-orchestration/connections*` and paid for it with a `SettingsConnections.tsx` diff — an
 unnecessary wire-contract change, now withdrawn.
@@ -636,8 +742,12 @@ the J6 door" clause dies with J6.
 
 1. **`filesystem-registry.ts:42-44`'s `filesystemInjections ⋈ filesystems` innerJoin decomposes.**
    `listFilesystems(db,{agentId})` splits into orchestration's `listInjectedFilesystemIdsForAgent(db, agentId)`
-   and core's existing `listFilesystemsByIds`. `GET /api/filesystems?agentUserId=` stays core-hosted (§D-A —
-   it renders core `filesystems` rows), composes the two at the route, and returns the **identical**
+   and core's existing `listFilesystemsByIds`. `GET /api/filesystems?agentUserId=` stays core-hosted **by §D-A rules 2/3**
+   — its handler touches `filesystems` (core) and, post-F2, `filesystem_injections` (orchestration), so it is
+   two-sided and has exactly one legal host. *(Round-2 W2: this sentence used to read "it renders core
+   `filesystems` rows" — the rendering argument `requirements.md:42` outlaws, withdrawn by name in §D-A but
+   left standing here. A builder working the filesystems split reads this section, not §D-A.)* It composes
+   the two at the route, and returns the **identical**
    `{ filesystems: [...] }` body. `packages/web/src/settings/SettingsAgents.tsx:194-198` changes **zero
    lines** (it only reads `.map(f => f.id)`).
 2. **The injection write/eject routes stay core-hosted** (`routes/filesystems.ts:328` / `:408`) with their
@@ -871,7 +981,7 @@ exactly `:321 GET /`, `:352 POST /`, `:512 GET /starts/:startId`, `:529 GET /:id
 `:211`, telling the caller to poll a route that does not exist. Out of scope here; noted so nobody "restores"
 it.)
 
-**Every path string is unchanged** (§D-A rule 5). What changes is which app serves it.
+**Every path string is unchanged** (§D-A rule 7). What changes is which app serves it.
 
 | Route | Serving app after AU26 | From | Web change |
 |---|---|---|---|
@@ -901,7 +1011,7 @@ every path string constant removes all four. AC7(c) is tightened accordingly.
 `packages/core-api/src/routes/**/*.ts` to also cover `packages/agent-orchestration/**/routes/**/*.ts` —
 otherwise the AF11 rules silently stop covering the moved routes.
 
-**Collision obligation (new, forced by rule 5):** with both apps mounted at `/api` and `/api/sessions/*` split
+**Collision obligation (new, forced by rule 7):** with both apps mounted at `/api` and `/api/sessions/*` split
 across them, a duplicate `method + path` would resolve silently by registration order instead of erroring.
 **AC12** asserts the merged route table has no duplicate `method + path` pair.
 
@@ -917,7 +1027,7 @@ across them, a duplicate `method + path` would resolve silently by registration 
 | **Path traversal** | YES — the mount engine moves | `SANDBOX_SCAFFOLDING_PATHS` and the four adapters move **unchanged**; the relocation is a package move, not a rewrite. Existing adapter tests move with them and must stay green |
 | **SSRF** | YES — `lsRemote`/`clone` take a user-supplied URL | `createGitRunner`'s hardened env allow-list and 15-verb whitelist move **verbatim** to `@hyperidle/shared/git`. No behaviour change; its tests move with it |
 | **WS subscribe authorization** | YES — the authorizer is rewired | The `session:` branch keeps fail-closed semantics: unknown session → `false`. The only deletion is the FK-redundant task existence check (feasibility P4). **Test: subscribing to `session:<nonexistent>` still denies** |
-| **Route shadowing across the two apps** | YES — new class, created by §D-A rule 5 | `/api/sessions/*` is served by two apps at the same prefix. A duplicate `method + path` would be shadowed silently by registration order — including, in the worst case, a moved route landing behind a stale core-api registration that never got deleted. **AC12**: assert the merged route table has zero duplicate `method + path` pairs, and that `GET /api/sessions/:id/activity` resolves to orchestration's handler |
+| **Route shadowing across the two apps** | YES — new class, created by §D-A rule 7 | `/api/sessions/*` is served by two apps at the same prefix. A duplicate `method + path` would be shadowed silently by registration order — including, in the worst case, a moved route landing behind a stale core-api registration that never got deleted. **AC12**: assert the merged route table has zero duplicate `method + path` pairs, and that `GET /api/sessions/:id/activity` resolves to orchestration's handler |
 | **Input trust on agent-authored fields** | N/A | This WP moves code; it introduces no new agent-authored input field |
 | **New credential surface** | N/A | No new credential type. `server_credentials` stays core (`@hyperidle/credentials`), explicitly not re-litigated |
 | **Privilege change from the `sessions` ownership move** | YES | *Round-1 correction: there is no `POST /api/sessions/:id/abort` route — abort is a branch of `PATCH /api/sessions/:id` (`applyStateChangePatch`, CAS at `:259-263`).* `PATCH /api/sessions/:id` keeps its exact `requireBoundary({kind:"public-data"})` declaration and auth on the new host. **Tests: PATCH by an unauthenticated caller → 401; PATCH on an already-terminal session → 409 (`:181-190`, unchanged); PATCH on a live-runtime session → 202 (`:206-214`, unchanged)** |
@@ -926,7 +1036,7 @@ across them, a duplicate `method + path` would resolve silently by registration 
 
 ## 7. Acceptance criteria
 
-Mapped to `plan.md`'s seven ACs. Every one names its verification.
+Mapped to `plan.md`'s seven ACs (AC1–AC7); AC8–AC16 are this doc's own additions. **Numeric order is reading order** — round 2 listed AC11 between AC13 and the end, which read like a missing AC; it is now AC16 and lands last. Every criterion names its verification.
 
 | # | Criterion | Verification |
 |---|---|---|
@@ -934,15 +1044,17 @@ Mapped to `plan.md`'s seven ACs. Every one names its verification.
 | **AC2** | All 15 core-api Services have an evidenced whole-service verdict; the reverse direction confirmed once | The three `service-verdicts/*.md` files + `git-export-rechallenge.md` + §D-N of this doc. Static artefact — no test. `/architecture-critique` checks completeness against the 15-name list in requirements §3 |
 | **AC3** | Part-level verdicts for the mount engine, the `users` columns, and `WsConnectionHub` | §D-E, §D-K, §D-L. Static artefact |
 | **AC4** | The mount engine relocates; record + probe resolved separately | (a) `packages/core-api/filesystems/src/mounter-registry.ts` gone, `packages/agent-orchestration/filesystem-mounting/` present; (b) `TABLE_OWNER.filesystemCaptures` points at it and the guard fails a core-api fixture importer; (c) `filesystems` still owns `filesystems` and the knowledge-scope gate test (`routes/knowledge.ts:565` 400-without-scopeId) stays green |
-| **AC5** | Orchestration hosts its own session/harness-streaming routes; documented `WsConnectionHub` verdict | (a) **static** — an import guard (extend `scripts/composition-edge-anti-regrowth-guard.ts` with a `core-api → agent-orchestration route module` check) fails if any file under `packages/core-api/src` imports a module under `packages/agent-orchestration/**/routes/**`; `app.ts` no longer imports `agent-orchestration-sessions-routes.js`; (b) **integration tests** hitting the four routes that actually exist and actually move — `GET /api/sessions?task_id=&state=`, `GET /api/sessions/starts/:startId`, `GET /api/sessions/:id/activity`, `PATCH /api/sessions/:id` — plus `GET /api/agent-orchestration/sessions?...`, through the Application-mounted app, asserting status + body byte-shape unchanged against the pre-move baseline. *(Round 1 named `GET /api/sessions/:id`, which does not exist — a builder writing to it could not have made it pass honestly.)*; (c) 401 on each without auth |
+| **AC5** | Orchestration hosts its own session/harness-streaming routes; documented `WsConnectionHub` verdict | (a) **static** — an import guard (extend `scripts/composition-edge-anti-regrowth-guard.ts` with a `core-api → agent-orchestration route module` check) fails if any file under `packages/core-api/src` imports a module under `packages/agent-orchestration/**/routes/**`; `app.ts` no longer imports `agent-orchestration-sessions-routes.js`; (b) **integration tests** hitting the four routes that actually exist and actually move — `GET /api/sessions?task_id=&state=`, `GET /api/sessions/starts/:startId`, `GET /api/sessions/:id/activity`, `PATCH /api/sessions/:id` — plus `GET /api/agent-orchestration/sessions?...`, through the Application-mounted app, asserting status + body byte-shape unchanged against the pre-move baseline. *(Round 1 named `GET /api/sessions/:id`, which does not exist — a builder writing to it could not have made it pass honestly.)*; (c) 401 on each without auth; (d) **`POST /api/sessions`'s 202 body is byte-identical to HEAD** — the explicit-start projection returns the full session wire row, not `AgentOrchestrationSessionRow`'s 7-field narrowing (§D-H #16, "a shape hazard") |
 | **AC6** | Every relocate verdict is executed here, none parked | The increment table in §12 covers connections, mount engine, captures, injections, `users`+`teams` columns, `sessions`, `propagationLog`, `taskDispatchAttempts`, `userSkills`, `observability`, `realtime`, `git-export`, `harness-capability-read-model`, `createGitRunner`. Verified by: `UNOWNED_SHARED_TABLES` does not exist; `packages/core-api/{observability,realtime,git-export}` do not exist; `npm run knip` reports no new dead exports |
-| **AC7** | Settings + live session activity behave identically; no frontend behaviour change | (a) route-level integration tests **re-wired, never weakened or deleted** — anchor `packages/core-api/src/__tests__/AN1-connections.integration.test.ts`; (b) Playwright pass over Settings → Connections / Filesystems / Agents and the live session-activity view, **read as painted output** (`npx playwright screenshot` + read the PNG); (c) **`git diff --stat packages/web` is EMPTY.** Tightened from round 1's "exactly three files may change" — which also missed a fourth (`pages/Conversations.tsx:118`, `/api/sessions?task_id=`). §D-A rule 5 holds every path string constant, so no web file has any reason to change. A non-empty web diff is a **failed** AC, not an allowance |
-| **AC8** *(cross-cutting — the zero-exceptions bar)* | **Neither guard names a table or a package.** No table-level carve-out, no allowlist, no exemption set, no unowned-table set — in either guard. The scan **scope** is derived, not enumerated | (a) `scripts/table-ownership-guard.ts` contains no `UNOWNED_SHARED_TABLES`, no `assertDisjointOwnership`, and **no package-name literal anywhere in its scan logic** — a grep for `"packages/core-api/src"` and `"eval"` in that file returns zero; (b) its scan roots are computed from the runtime dependency closure of `@hyperidle/{remote-server,desktop,remote-worker}` (§D-G), and a fixture test proves a **new** package added to that closure is scanned without editing the guard; (c) `inspect()` returns zero findings on the real tree; (d) `scripts/composition-edge-anti-regrowth-guard.ts` keeps `ALLOWLIST`/`STATELESS_METHODS`/`isStatelessProvider` absent and `DEFERRED_FOLLOWUP` empty (verified at HEAD: `:417` `new Set([])`); (e) fixture tests prove each guard **fires** on a would-be violation of the class it used to exempt. **`packages/eval`'s 67 pairs are out of scope by the stated principle in §D-G, not by an exemption — and that principle is a named founder confirmation point before D2, with increment D3 costed as the fallback** |
+| **AC7** | Settings + live session activity behave identically; no frontend behaviour change | (a) route-level integration tests **re-wired, never weakened or deleted** — anchor `packages/core-api/src/__tests__/AN1-connections.integration.test.ts`; (b) Playwright pass over Settings → Connections / Filesystems / Agents and the live session-activity view, **read as painted output** (`npx playwright screenshot` + read the PNG); (c) **`git diff --stat packages/web` is EMPTY.** Tightened from round 1's "exactly three files may change" — which also missed a fourth (`pages/Conversations.tsx:118`, `/api/sessions?task_id=`). §D-A rule 7 holds every path string constant, so no web file has any reason to change. A non-empty web diff is a **failed** AC, not an allowance |
+| **AC8** *(cross-cutting — the zero-exceptions bar)* | **Neither guard names a table or a package.** No table-level carve-out, no allowlist, no exemption set, no unowned-table set, **no scope carve-out** — in either guard. The scan scope is *the whole workspace* | (a) `scripts/table-ownership-guard.ts` contains no `UNOWNED_SHARED_TABLES`, no `assertDisjointOwnership`, and **no package-name literal anywhere in its scan logic** — `rg -a '"packages/core-api/src"|"eval"|dependencies' scripts/table-ownership-guard.ts` returns zero; (b) its Tier-2 scan roots are `src/` of **every** package under `packages/` carrying a `package.json`, and a fixture test proves a newly-created package is scanned with **no** guard edit and **no** `package.json` dependency edit (§D-G); Tier 1 stays on `nestedServiceRoots()` — asserted, with the reason (`packages/db`'s barrel legitimately re-exports 43 raw tables); (c) **`inspect()` returns zero findings on the real tree** — reachable only because D2a and D2b close the `packages/db` (9 pairs) and `packages/eval` (69 pairs) regions first; (d) `scripts/composition-edge-anti-regrowth-guard.ts` keeps `ALLOWLIST`/`STATELESS_METHODS`/`isStatelessProvider` absent and `DEFERRED_FOLLOWUP` empty (verified at HEAD: `:417` `new Set([])`); (e) fixture tests prove each guard **fires** on a would-be violation of the class it used to exempt, including one inside `packages/agent-orchestration/src` and one inside `packages/remote-server/src` |
 | **AC9** *(new)* | `packages/eval`'s subpath imports survive | `npm run check` green with `packages/eval` importing `@hyperidle/core-api/session` and `@hyperidle/core-api/routines` unchanged; both subpaths still declared in `packages/core-api/package.json` |
 | **AC10** *(new)* | Unknown `/api/*` still returns the canonical `ApiErrorResponse` JSON 404 | **Integration test**: `GET /api/definitely-not-a-route` → 404 with `{ error, code: NOT_FOUND }` and `content-type: application/json`. Guards feasibility P1's `notFound` trap |
-| **AC12** *(new — forced by §D-A rule 5)* | The two mounted apps do not shadow each other | **Integration test**: enumerate the merged route table on the Application-composed instance and assert (a) zero duplicate `method + path` pairs across `coreApiApp` and `orchestrationApp`; (b) `GET /api/sessions/:id/activity` and `GET /api/sessions` resolve to orchestration's handlers while `POST /api/sessions` resolves to core's (assert via a handler-identifying header or a distinguishing body field the test sets up) |
-| **AC13** *(new — closes validation scenario 4 honestly)* | Scenario 4's two halves are separately proven, and the WS narrowing is on the record | (a) **HTTP half, CLOSED**: an integration test proves `GET /api/sessions/:id/activity` is served by orchestration's app (AC12(b) covers the routing assertion) and returns a body byte-identical to the pre-move baseline; (b) **WS half, NARROWED**: this doc's §D-E states the narrowing and its reasoning explicitly, and the founder confirms or rejects it at the realtime confirmation point before C3 (§12). A silent pass is a **failed** AC |
-| **AC11** | Whole-change correctness | `npm run verify` |
+| **AC12** *(new — forced by §D-A rule 7)* | The two mounted apps do not shadow each other | **Integration test**: enumerate the merged route table on the Application-composed instance and assert (a) zero duplicate `method + path` pairs across `coreApiApp` and `orchestrationApp`; (b) `GET /api/sessions/:id/activity` and `GET /api/sessions` resolve to orchestration's handlers while `POST /api/sessions` resolves to core's (assert via a handler-identifying header or a distinguishing body field the test sets up) |
+| **AC13** *(new — closes validation scenario 4 honestly)* | Scenario 4's two halves are separately proven, and the WS narrowing is on the record | (a) **HTTP half, CLOSED**: an integration test proves `GET /api/sessions/:id/activity` is served by orchestration's app (AC12(b) covers the routing assertion) and returns a body byte-identical to the pre-move baseline; (b) **WS half, NARROWED**: this doc's §D-E states the narrowing and its reasoning explicitly, and the founder confirms or rejects it at the realtime confirmation point before C3 (§12). **A silent pass is a failed AC — but silence is not a block.** If no founder answer arrives, C3 proceeds **narrowed**, and the run must record the narrowing as `accepted-pending-review` in `.pipeline/work/AU26/progress.json` and append it to `.pipeline/AU.md`. The AC is satisfied by the narrowing being *recorded and visible*, never by it being unmentioned |
+| **AC14** *(new — the goal metric, gated per increment)* | The ACL-violation count reaches **zero** by measurement, not by scope | `scripts/table-ownership-census.ts` (checked in by **D0**, wave 0) prints file×table pairs under the **target** scope — whole workspace, `UNOWNED_SHARED_TABLES` deleted, all four new owners applied — **without failing the build**. Baseline at HEAD: **100 pairs / 48 files / 20 tables**. Every increment from D0 on reports the number in its PR body and it must **strictly decrease**. The full countdown, which sums to exactly 100: D2a −9 (`packages/db/src`), D1 −16 (all `sessions` pairs outside eval), D2b −69 (`packages/eval/src`), D2 −6 (`propagationLog` ×2, `taskDispatchAttempts` ×1, `userSkills` ×3) → **0**, at which point D2 flips the guard's default scope. *(This exists because the round-2 census was wrong by 88 pairs and nothing measured it — the AU20 lesson: gate on the goal metric, not on green.)* |
+| **AC15** *(new — the reachability corollary has teeth)* | `packages/db/src` and `packages/shared/src` hold **zero** owned-table accesses | They are scanned like every other package (no special case in the guard), so `inspect()` covering them **is** the assertion. `packages/shared/src` is already at zero; D2a brings `packages/db/src` there by relocating `factory-bootstrap.ts` + `demo-fixture.ts` above the Services. **Behavioural guard, not just static:** `packages/db/src/__tests__/AF17-factory-bootstrap.integration.test.ts`, `AF17-demo-fixture-guard.test.ts`, `AF17-factory-isolation.integration.test.ts`, `AK6-factory-roster.integration.test.ts` and `seed.integration.test.ts` move with the code and stay green **unweakened**, and the desktop first-boot path is smoke-tested against a real populated local DB (same bar as G1's migration — v0.6.0's PGlite hang is the precedent) |
+| **AC16** | Whole-change correctness | `npm run verify` |
 
 ---
 
@@ -1016,6 +1128,15 @@ sharedFiles:
   - packages/api-contract/src/core-api-port.ts                 # E3 (J7 deletion)
   - packages/shared/src/agent-work-intent-recorder.ts          # E3, F2, G1 (the bake shape)
   - scripts/table-ownership-guard.ts                           # D1, D2, E4, F1, F2, G1
+  - scripts/table-ownership-census.ts                          # D0 creates; every later increment reports it
+  - packages/agent-orchestration/package.json                  # B1a — declares NO dependencies today; load-bearing for the build
+  - packages/agent-orchestration/src/index.ts                  # B1a — `export {}` today
+  - packages/remote-server/package.json                        # B1b — gains @hyperidle/agent-orchestration + db
+  - packages/desktop/package.json + src/main.ts                # B1b (createServer re-point), D2a (bootstrap re-point at main.ts:451-454)
+  - packages/db/src/{factory-bootstrap,demo-fixture,seed,setup-cli,seed-pg-cli,bootstrap-pg,index}.ts  # G1 strips columns, D2a relocates
+  - packages/eval/src/{seeding,judges}.ts + scenarios/         # D2b
+  - packages/eval/package.json                                 # D2b — gains the owning-Service deps
+  - package.json (root scripts: setup, db:seed:pg, db:bootstrap:pg)  # D2a re-points the three CLI entry paths
   - scripts/composition-edge-anti-regrowth-guard.ts            # B1a (route-import check), E4
   - eslint.config.ts                                           # A1 (authz glob)
   - vitest.config.ts, scripts/typecheck-gate.ts, package.json  # every package add/remove
@@ -1053,84 +1174,137 @@ AU27 would otherwise have to carry.
    run-config must still resolve defaults identically. The `desktop` upgrade path is the risk (v0.6.0's PGlite
    hang is precedent) — the migration must be smoke-tested against a real populated local DB, not only the
    test suite.
-5. **`packages/eval` holds 67 file×table pairs across 18 owned tables in 26 files** (`seeding.ts` alone
-   touches 15 tables; `judges.ts` 10; 12 scenario files touch `sessions`). It is **out of the guard's derived
-   scan scope**, not exempted by name — the principle, the counter-argument, and the fallback increment D3
-   are all written out in §D-G, and the question *"does zero-exceptions govern scope, or only table
-   carve-outs?"* is a **founder confirmation point before D2**, not a note. This is the largest single
-   open item in the WP and it is deliberately not decided by the builder.
-6. **AU27's `conversational` mode still bakes `modelId`/`modelProvider`** at `assistant-turn-resolver.ts:200-201`.
+5. **~~`packages/eval` is out of the guard's derived scan scope.~~ WITHDRAWN in round 3 — there is no
+   derived scope and no exclusion.** The scan is the whole workspace (§D-G). Measured honestly, the ACL
+   region is **100 file×table pairs across 48 files and 20 tables**, of which **78 pairs in 29 files were
+   unnamed by round 2**: `packages/eval/src` (69 pairs / 27 files → **D2b**), `packages/db/src`'s two
+   seeders (9 pairs / 2 files → **D2a**), and `tool-handlers/tool-definitions.ts`'s `sessions` write
+   (§D-H site 17 → D1). **What remains a real risk is not the scope but D2a**: `applyFactoryBootstrap`
+   runs on **every** desktop launch before the server starts (`packages/desktop/src/main.ts:451-454`), so a
+   relocation that changes its idempotency or its ordering breaks first boot for existing installs. Same
+   bar as G1: smoke-test against a real populated local DB, not only the suite (v0.6.0's PGlite hang is
+   the precedent).
+6. **D2b changes what eval *can* seed.** Routing `seeding.ts` through owning Services means an eval can no
+   longer construct a world state no Service would accept. Checked at HEAD: all **19** writes in
+   `seeding.ts` are plain single-row inserts of ordinary domain rows (`teams`, `teamMembers`, `users` ×5,
+   `bets`, `tasks`, `knowledgeItems`, `knowledgeAppProjection`, `threads`, `messages`, `items`,
+   `artifacts`, `knowledgeConflicts`, `routines`, `userSkills`, `sessions`) — none constructs a
+   deliberately-invalid state, and the first six are the *same rows* `demo-fixture.ts` writes, which is why
+   D2a and D2b share writers rather than each inventing their own. So it is not a live constraint today,
+   but it is a real ceiling for a future adversarial eval. If one is later blocked by it, the answer is an explicit
+   fixture-construction API on the owning Service — **not** a re-opened carve-out.
+7. **AU27's `conversational` mode still bakes `modelId`/`modelProvider`** at `assistant-turn-resolver.ts:200-201`.
    G1 deletes that bake. Confirm AU27's plan absorbs the change rather than re-adding it.
 
 ---
 
-## 12. Ordered increments — 13 PRs, 7 waves
+## 12. Ordered increments — 19 PRs, 5 waves
 
 Each row is an independently shippable PR to `main` (`npm run verify` green, no stacking). Sizes:
 S ≈ ½–1 day, M ≈ 1–2 days, L ≈ 3–5 days.
 
+**Round-3 corrections to this table.** (a) The count is **19**, not 13 — round 2's headline said 13 while
+its own table had 16 rows, and round 3 adds three (D0, D2a, D2b). (b) **Wave = dependency depth, computed,
+not asserted.** Round 2 put E1–E4 all in "wave 4" while E2←E1←, E3←E2, E4←E3 — a four-deep serial chain
+inside one wave, the exact defect round 1's W4 raised. Every wave number below is `1 + max(wave of
+dependencies)`, so a wave is now a genuine parallel band: everything in wave *n* can start the moment wave
+*n−1* is merged.
+
 | # | Wave | Increment | Size | Depends on | The test that proves it |
 |---|---|---|---|---|---|
-| **A1** | 0 · enabling | `HyperIdleEnv` + `requireBoundary` + `failClosedAssertion` + `constantTimeStringEqual` → `@hyperidle/shared/http`; re-point ~45 route/middleware files; extend the authz eslint glob | M | — | `npm run lint` (authz rules still fire on every route file); `AF11-authz.integration.test.ts` green unchanged |
-| **A2** | 0 · enabling | `createGitRunner` → `@hyperidle/shared/git`; `harness-capability-read-model` → `@hyperidle/shared` with a structural `HarnessCapabilityReader` | S–M | — | git-runner verb tests move and stay green; `const reader: HarnessCapabilityReader = pool` still compiles; `packages/web` build has no `node:child_process` in its bundle |
-| **B1a** | 1 · Job 2 | `createApp`→`createCoreApiApp` (drops the orchestration mount, worker-WS hook, `SessionActivityBuffer`); `createAgentOrchestrationApp()` + `packages/agent-orchestration/src/routes/{sessions,agent-orchestration-sessions}.ts`; `bootCoreApi`/`bootAgentOrchestration`; `session-activity-gateway` moves into orchestration's boot; **`sessions-routes.ts` splits 4-move/1-stays per §D-H #16 — `POST /api/sessions` stays core-hosted and sheds its `sessions` import**; **`server-factory` still mounts both** | L | A1 | `app.ts` no longer imports the orchestration routes (import guard); integration tests hit `GET /api/sessions`, `GET /api/sessions/starts/:id`, `GET /api/sessions/:id/activity`, `PATCH /api/sessions/:id`, `POST /api/sessions` and `/api/agent-orchestration/sessions` through the mounted app with identical bodies; 401 without auth; **AC12** (no duplicate `method + path` across the two apps) |
-| **B1b** | 1 · Job 2 | `createServer` → `packages/remote-server/src/create-server.ts`; Application owns db/EventBus/wsHub/MCP-bridge, the middleware stack, and mounts both apps; re-point 5 non-test callers + 8 test files + 2 fixtures | L | B1a | `server-disposal.integration.test.ts` + `server-factory.resolver.test.ts` green; **AC10** (`/api/nope` → JSON 404); the 240 fixture-based tests unchanged |
-| **C1** | 2 · dissolve | `git-export` exporter deletes; package removed; doc claims reconciled | M | A2 | `npm run knip` clean; `rg -a "api/git-export"` → zero; `npm run verify` |
-| **C2** | 2 · dissolve | `observability` dissolves (translator+adapter → `shared`, config pair → `settings`, `TraceIdResolver` deleted, 4 routes deleted, package removed) | M | — | dispatcher unit tests move to `shared` and stay green; `rg -a "api/observability"` → zero |
-| **D1** | 3 · sessions | `sessions` owner = `run-orchestration`; `AgentOrchestrationPort.sessions` read family (**incl. `getById`**); convert **all 15** core-api readers (9 Layer + 6 Service, incl. **`policy/lifecycle-propagation.ts`**, absent from round 1); `PolicyDeps.runOrchestration` bag added and wired; `PATCH /api/sessions/:id` (the abort branch's real home) moves with the sessions-routes split; **`GET /tasks/:id/sessions` STAYS core-hosted** (§D-A re-derivation) and reads through the port; `POST /tasks/:id/handoff` calls `buildHandoffRunContext` down; delete `review`'s redundant read; delete `work-service`'s subquery (recompose in `routes/bets.ts`); `bet-kill-cascade` → `requestRunStopForTasks`; **handoff's terminal write stays in policy's tx, delegated via `endRunForHandoff`** | L | B1a | guard fires on a fixture core-api Service importing `sessions`; bet-detail response byte-identical (existing bet route tests); bet-kill still stops runs (existing cascade test, re-wired); **handoff test asserts the run row is `done` at commit AND that no `session_ended` is emitted and no review item is created** (the round-1 design would fail exactly this test); `lifecycle-propagation` still blocks `in_progress → review` while a sibling run is active |
-| **C3** | **4** · dissolve | `realtime` dissolves into `packages/core-api/src/`; `session:` authz decomposed via `getSessionSubscribeContext`; FK-redundant `work` check deleted; package removed. Its `realtime` importer reference is the **Application composition root** (post-B1b: `packages/remote-server/src/create-server.ts`, was `server-factory.ts:65`) | S–M | B1a, B1b, D1 | `ws-broadcaster.no-session-forwarding.test.ts` green; subscribe to `session:<nonexistent>` still denies; thread-participant authz unchanged |
-| **D2** | **4** · sessions | `propagationLog`→policy, `taskDispatchAttempts`→work, `userSkills`→users; guard scan roots replaced by the **derived Application-closure scope** (§D-G — no package name in the guard); `UNOWNED_SHARED_TABLES` + `assertDisjointOwnership` deleted. The single `propagationLog` importer is the **Application composition root** (post-B1b: `packages/remote-server/src/create-server.ts`) — **this is why D2 depends on B1b**, and why round 1's "extend to Layer `src/` roots" wording would have missed it (`remote-server` is an Application, not a Layer) | M | D1, **B1b** | `table-ownership-guard --fixtures` proves it now fires on each of the four former exemptions AND on a fixture violation inside `packages/agent-orchestration/src` and `packages/remote-server/src`; a fixture proves a newly-added closure package is scanned with no guard edit; `inspect()` returns zero findings on the real tree |
-| **E1** | 4 · connections | J1 — AES-GCM primitive → `@hyperidle/shared` (re-discharge the no-DB proof first) | S | — | encrypt→decrypt round-trip matches pre-move output for a fixed key+plaintext; `credential-runtime-path` + `AN2` tests green |
-| **E2** | 4 · connections | J2 — rename to `@hyperidle/credentials`, LLM-key catalog only | M | E1 | `server-factory.resolver.test.ts`'s `instanceof DbCredentialResolver` invariant; `/api/credentials` unchanged |
-| **E3** | 4 · connections | J3 — SQL-owning `packages/agent-orchestration/connections`; provisioning in-layer; **delete K1's bake** (6 resolvers + 8 wiring sites); delete `CoreApiPort.connections` + `GET /connections/provisioning` | L | E2 | **AC1(c)** the add-after-emit test; `run-orchestration-connections-provisioning-edge-closed` still asserts zero `app.fetch`; per-user isolation |
-| **E4** | 4 · connections | J4′ — connections routes onto orchestration-api **at their unchanged paths** (`/api/connections*`); `settings`' MCP projection port re-pointed via the Application; guard row added | M | E3, B1b | `AN1-connections.integration.test.ts` re-wired and green; **`git diff packages/web` empty** (AC7(c)); Playwright pass on Settings → Connections; AC12 collision assertion covers the second `/api/connections` host |
-| **F1** | 5 · filesystems | mount engine + 4 adapters + `SANDBOX_SCAFFOLDING_PATHS` + `filesystemCaptures` → `packages/agent-orchestration/filesystem-mounting`; `listCaptures` deleted. Its construction site is the **Application composition root** (post-B1b: `packages/remote-server/src/create-server.ts`, was `server-factory.ts:1006`) — **hence the B1b dependency**, unstated in round 1 | M–L | A2, **B1b** | adapter tests move and stay green incl. `git-worktree-live-proof`; guard owns `filesystemCaptures`; a real session still mounts |
-| **F2** | 5 · filesystems | `filesystemInjections` → `packages/agent-orchestration/agent-filesystems`; **delete the filesystems bake**; decompose the `injections ⋈ filesystems` join; injection write routes stay core-hosted, persist delegated down | L | F1 | add-a-filesystem-after-emit test (the twin of AC1(c)); `SettingsAgents.tsx` diff is **zero lines**; team-mismatch 400 still fires |
-| **G1** | 6 · run config | `users` 6 + `teams` 3 run-config columns → `packages/agent-orchestration/agent-run-config`; `DROP COLUMN` × 11 incl. the 2 dead; migration + backfill honouring §D-L's written invariant (forward-only, no down-migration); every reader re-pointed; `validateAgentConfig` moves | L | **— (none)** ⟵ *round 1 listed `A1` with no stated reason; G1 keeps its route core-hosted (§D-A) and touches no route or middleware file A1 moves, so the dependency is dropped. G1 can start in wave 0.* | migration applies clean against a **populated** local DB (manual smoke, not only the suite); an agent with a per-agent model still resolves it at provisioning; `Settings → Agents` Playwright pass; `agent-profile` render unchanged |
+| **D0** | 0 | **`scripts/table-ownership-census.ts`** — prints file×table pairs under the **target** scope (whole workspace, `UNOWNED_SHARED_TABLES` deleted, all four new owners applied) and **exits 0 regardless**. Reporting only; the guard's enforced scope is untouched | S | — | run at HEAD it prints **100 pairs / 48 files / 20 tables**, matching §D-G's table region-for-region. **AC14**: every later increment reports the number and it must strictly decrease |
+| **A1** | 0 | `HyperIdleEnv` + `requireBoundary` + `failClosedAssertion` + `constantTimeStringEqual` → `@hyperidle/shared/http`; **plus the pure explicit-start projection** `projectExplicitStartOutcome` + `sendStartProjection` (§D-H #16 — both apps need them, neither may import the other's route module); re-point ~45 route/middleware files; extend the authz eslint glob | M | — | `npm run lint` (authz rules still fire on every route file); `AF11-authz.integration.test.ts` green unchanged |
+| **A2** | 0 | `createGitRunner` → `@hyperidle/shared/git`; `harness-capability-read-model` → `@hyperidle/shared` with a structural `HarnessCapabilityReader` | S–M | — | git-runner verb tests move and stay green; `const reader: HarnessCapabilityReader = pool` still compiles; `packages/web` build has no `node:child_process` in its bundle |
+| **C2** | 0 | `observability` dissolves (translator+adapter → `shared`, config pair → `settings`, `TraceIdResolver` deleted, 4 routes deleted, package removed) | M | — | dispatcher unit tests move to `shared` and stay green; `rg -a "api/observability"` → zero |
+| **E1** | 0 | J1 — AES-GCM primitive → `@hyperidle/shared` (re-discharge the no-DB proof first) | S | — | encrypt→decrypt round-trip matches pre-move output for a fixed key+plaintext; `credential-runtime-path` + `AN2` tests green |
+| **G1** | 0 | `users` 6 + `teams` 3 run-config columns → `packages/agent-orchestration/agent-run-config`; `DROP COLUMN` × 11 incl. the 2 dead; migration + backfill honouring §D-L's written invariant (forward-only, no down-migration); every reader re-pointed; `validateAgentConfig` moves; **strips the dropped columns from the two db seeders in place** (`factory-bootstrap.ts:110,111,140,141`, `demo-fixture.ts:108` — §8) | L | — | migration applies clean against a **populated** local DB (manual smoke, not only the suite); an agent with a per-agent model still resolves it at provisioning; `Settings → Agents` Playwright pass; `agent-profile` render unchanged |
+| **B1a** | 1 | `createApp`→`createCoreApiApp` (drops the orchestration mount, worker-WS hook, `SessionActivityBuffer`); `createAgentOrchestrationApp()` + `packages/agent-orchestration/src/routes/{sessions,agent-orchestration-sessions}.ts`; `bootCoreApi`/`bootAgentOrchestration`; `session-activity-gateway` moves into orchestration's boot; **`sessions-routes.ts` splits 4-move/1-stays per §D-H #16 — `POST /api/sessions` stays core-hosted and sheds its `sessions` import**; **`server-factory` still mounts both**. **Named deliverable: `packages/agent-orchestration/package.json` gains `dependencies` — it declares none today** (`hono`, `zod`, `drizzle-orm`, `@hyperidle/{db,shared,api-contract,session-requests,run-orchestration}`, matching the moved handlers' import block at `sessions-routes.ts:1-33`), **and its barrel stops being `export {}`** | L | A1 | `app.ts` no longer imports the orchestration routes (import guard); integration tests hit `GET /api/sessions`, `GET /api/sessions/starts/:id`, `GET /api/sessions/:id/activity`, `PATCH /api/sessions/:id`, `POST /api/sessions` and `/api/agent-orchestration/sessions` through the mounted app with identical bodies; 401 without auth; **AC12** (no duplicate `method + path` across the two apps); **AC5(d)** the 202 body is byte-identical; **feasibility P5** is the checked-in probe for this exact interleaved shape |
+| **C1** | 1 | `git-export` exporter deletes; package removed; doc claims reconciled | M | A2 | `npm run knip` clean; `rg -a "api/git-export"` → zero; `npm run verify` |
+| **E2** | 1 | J2 — rename to `@hyperidle/credentials`, LLM-key catalog only | M | E1 | `server-factory.resolver.test.ts`'s `instanceof DbCredentialResolver` invariant; `/api/credentials` unchanged |
+| **D2a** | 1 | **The `packages/db` seeders relocate above the owning Services** (§D-G reachability corollary). `factory-bootstrap.ts` (8 accesses: `users` ×6, `knowledgeItems`, `knowledgeAppProjection`) and `demo-fixture.ts` (10: `teams`, `teamMembers`, `users` ×4, `bets`, `tasks`, `routines`) move to `packages/core-api/src/bootstrap/`, exported as a `@hyperidle/core-api/bootstrap` subpath, and route through the owners' exported writers (`org.persistScaffoldedAgents` is the shipped precedent). The three CLIs that call them move with them (`setup-cli.ts`, `seed-pg-cli.ts`, `bootstrap-pg.ts`, plus the deprecated `seed.ts` wrapper) and the root `setup` / `db:seed:pg` / `db:bootstrap:pg` scripts re-point; **`packages/desktop/src/main.ts:451-454` re-points from `@hyperidle/db` to `@hyperidle/core-api/bootstrap`**. `packages/db` is left as schema + connection + migrate + test-utils. **Why it cannot stay:** every owning Service's dependency closure is `{db, shared}`, so `db → users` is a cycle — the code must move or the ACL can never reach it | L | G1 | **AC15.** The five AF17/AK6/seed tests move and stay green **unweakened**; `applyFactoryBootstrap` stays idempotent (`onConflictDoNothing`) and is smoke-tested against a **real populated local desktop DB**, not only the suite; census drops 100 → 91 |
+| **B1b** | 2 | `createServer` → `packages/remote-server/src/create-server.ts`; Application owns db/EventBus/wsHub/MCP-bridge, the middleware stack, and mounts both apps; re-point 5 non-test callers + 8 test files + 2 fixtures. **Named deliverable: `packages/remote-server/package.json` gains `@hyperidle/agent-orchestration` and `@hyperidle/db`** — it declares only `core-api`/`harness-registry`/`shared` today, and it cannot mount an app it does not depend on. *(Hygiene note, deliberately **not** actioned: `packages/desktop` declares its real deps under `devDependencies`. Under round 3's scope rule this is no longer load-bearing for the guard — the whole workspace is scanned either way — so re-classifying it is churn this WP does not take. B1b adds `@hyperidle/remote-server` in the same field the others already use.)* | L | B1a | `server-disposal.integration.test.ts` + `server-factory.resolver.test.ts` green; **AC10** (`/api/nope` → JSON 404); the 240 fixture-based tests unchanged |
+| **D1** | 2 | `sessions` owner = `run-orchestration`; `AgentOrchestrationPort.sessions` read family (**incl. `getById`, returning the full wire row — §D-H #16**); convert **all 16** foreign readers — 9 core-api Layer + 6 core-api Service (incl. `policy/lifecycle-propagation.ts`) + **1 in agent-orchestration (`tool-handlers/tool-definitions.ts` — §D-H site 17, found by round 3's census)**; `PolicyDeps.runOrchestration` bag added and wired; `PATCH /api/sessions/:id` moves with the sessions-routes split; **`GET /tasks/:id/sessions` STAYS core-hosted** (§D-A) and reads through the port; `POST /tasks/:id/handoff` calls `buildHandoffRunContext` down; delete `review`'s redundant read; delete `work-service`'s subquery (recompose in `routes/bets.ts`); `bet-kill-cascade` → `requestRunStopForTasks`; **handoff's terminal write stays in policy's tx, delegated via `endRunForHandoff`** | L | B1a | guard fires on a fixture core-api Service importing `sessions`; bet-detail response byte-identical (existing bet route tests); bet-kill still stops runs (existing cascade test, re-wired); **handoff test asserts the run row is `done` at commit AND that no `session_ended` is emitted and no review item is created**; `lifecycle-propagation` still blocks `in_progress → review` while a sibling run is active; **`write_session_notes` still persists notes** (existing tool test, re-wired through `recordSessionNotes`); census drops 91 → 75 (the 16 `sessions` pairs) |
+| **E3** | 2 | J3 — SQL-owning `packages/agent-orchestration/connections`; provisioning in-layer; **delete K1's bake** (6 resolvers + 8 wiring sites); delete `CoreApiPort.connections` + `GET /connections/provisioning` | L | E2 | **AC1(c)** the add-after-emit test; `run-orchestration-connections-provisioning-edge-closed` still asserts zero `app.fetch`; per-user isolation |
+| **D2b** | 2 | **`packages/eval/src` routes through the owning Services** (§D-G — the round-2 exclusion is withdrawn). 69 file×table pairs across 27 files and 18 tables: `judges.ts` (52 findings), `seeding.ts` (34), 24 scenario files + `runner.ts`. Seeding reuses the same writers D2a introduces; judging reads through the owners' existing read functions. **Not circular:** an eval's system under test is the LLM + tools + prompts + assembled context, never the persistence Services, so a judge reading `work.get(db,"task",id)` is no more circular than a route test. `packages/eval/package.json` gains the Service deps it does not already declare | L | D2a, E3 | **every eval scenario still grades identically** — the pass/fail verdict per journey is unchanged against a recorded pre-move baseline run (evals are graded tuning, not tests: a changed *score* is a finding, a changed *verdict* is a regression); `@hyperidle/core-api/session` + `/routines` subpath imports unchanged (**AC9**); census drops 75 → 6 |
+| **C3** | 3 | `realtime` dissolves into `packages/core-api/src/`; `session:` authz decomposed via `getSessionSubscribeContext`; FK-redundant `work` check deleted; package removed. Its `realtime` importer reference is the **Application composition root** (post-B1b: `packages/remote-server/src/create-server.ts`, was `server-factory.ts:65`) | S–M | B1a, B1b, D1 | `ws-broadcaster.no-session-forwarding.test.ts` green; subscribe to `session:<nonexistent>` still denies; thread-participant authz unchanged; **AC13(b)** — the WS narrowing is recorded, whether or not the founder answers |
+| **D2** | 3 | `propagationLog`→policy, `taskDispatchAttempts`→work, `userSkills`→users; **the guard's Tier-2 scan roots become `src/` of every package under `packages/`** (§D-G — no package name, no dependency graph, no closure); `UNOWNED_SHARED_TABLES` + `assertDisjointOwnership` deleted; Tier 1 stays on `nestedServiceRoots()`. The single `propagationLog` importer is the **Application composition root** (post-B1b: `packages/remote-server/src/create-server.ts`) — **hence the B1b dependency** | M | D1, B1b, **D2a**, **D2b** | `table-ownership-guard --fixtures` fires on each of the four former exemptions AND on fixture violations inside `packages/agent-orchestration/src`, `packages/remote-server/src` and `packages/db/src`; a fixture proves a **newly created** package is scanned with no guard edit and no `package.json` edit; **`inspect()` returns zero findings on the real tree** (**AC8(c)**); **census 6 → 0** (**AC14**) — the last 6 are `propagationLog` ×2, `taskDispatchAttempts` ×1, `userSkills` ×3, closed by this increment's three owner assignments |
+| **E4** | 3 | J4′ — connections routes onto orchestration-api **at their unchanged paths** (`/api/connections*`); `settings`' MCP projection port re-pointed via the Application; guard row added | M | E3, B1b | `AN1-connections.integration.test.ts` re-wired and green; **`git diff packages/web` empty** (AC7(c)); Playwright pass on Settings → Connections; AC12 collision assertion covers the second `/api/connections` host |
+| **F1** | 3 | mount engine + 4 adapters + `SANDBOX_SCAFFOLDING_PATHS` + `filesystemCaptures` → `packages/agent-orchestration/filesystem-mounting`; `listCaptures` deleted. Its construction site is the **Application composition root** (post-B1b: `packages/remote-server/src/create-server.ts`, was `server-factory.ts:1006`) — **hence the B1b dependency** | M–L | A2, B1b | adapter tests move and stay green incl. `git-worktree-live-proof`; guard owns `filesystemCaptures`; a real session still mounts |
+| **F2** | 4 | `filesystemInjections` → `packages/agent-orchestration/agent-filesystems`; **delete the filesystems bake**; decompose the `injections ⋈ filesystems` join; injection write routes stay core-hosted, persist delegated down | L | F1 | add-a-filesystem-after-emit test (the twin of AC1(c)); `SettingsAgents.tsx` diff is **zero lines**; team-mismatch 400 still fires |
 
-**Critical path — round-1 correction.** Round 1 gave `A1 → B1a → B1b → E4` and omitted that E4 also sits behind
-`E3 ← E2 ← E1`. Both chains are real and E4 is the join:
+**Critical path.** Three chains, and the census chain is now the longest:
 
 ```
-A1(M) → B1a(L) → B1b(L) ──┐
-                          ├──→ E4(M)
-E1(S) → E2(M) → E3(L) ────┘
-A1 → B1a → D1(L) → { C3(S–M) needs B1b too ; D2(M) needs B1b too }
-A2(S–M) → C1(M) ;  A2 + B1b → F1(M–L) → F2(L)
-G1(L)  — no dependency, may start immediately
-C2(M)  — no dependency
+A1 → B1a → B1b ──┐                          (Job 2)
+                 ├──→ E4                    (connections join)
+E1 → E2 → E3 ────┘
+G1 → D2a ─┐
+          ├──→ D2b ──┐
+E3 ───────┘          ├──→ D2                (the guard flip — 5 deep)
+A1 → B1a → { B1b, D1 } ──┘
+A1 → B1a → B1b → { C3, F1 → F2 }
+A2 → C1
+C2, D0  — no dependency
 ```
 
-The two longest chains are `A1 → B1a → B1b → E4` and `E1 → E2 → E3 → E4`; **the connections chain is the one
-round 1 dropped and it is at least as long.** `A2`, `C2` and `G1` are genuinely dependency-free and should
-start in wave 0. **Wave labels are now consistent with the dependency column** — round 1 labelled C3 "wave 2"
-while depending on wave-3 D1; C3 and D2 are wave 4.
+`D0`, `A1`, `A2`, `C2`, `E1` and `G1` are dependency-free and all start together. **`G1 → D2a → D2b → D2`
+is the chain round 2 did not have**, and it is what makes D2 a wave-3 increment rather than the wave-4 it
+was labelled.
 
-**Founder confirmation points (requirements §8's human gate).** Each relocate verdict is confirmed before its
-build increment, not bundled with approval of this doc:
+**Founder confirmation points — each with the action the run takes if no answer arrives.**
+`CLAUDE.md` ABSOLUTE RULE 1 says a pipeline run never pauses and never waits for feedback. A gate with no
+default is therefore not a gate, it is a stall. Every row below stays a **confirmation point** — the
+question is asked, and the answer changes the plan if it comes — but each now names what happens
+regardless. The run records the question, the default it took, and the timestamp in
+`.pipeline/work/AU26/progress.json` and appends it to `.pipeline/AU.md`, so a late answer is a cheap
+correction rather than an archaeology exercise.
 
-| Before | Confirm |
-|---|---|
-| **C1** | `git-export` exporter deletion (~4,500 lines) |
-| **C2** | `observability` dissolution |
-| **C3** | `realtime` dissolution — **and, in the same conversation, the validation-scenario-4 WS narrowing** (§D-E). This one is not a verdict, it is a founder-written AC being narrowed; it is called out separately so it cannot pass silently |
-| **D1** | `sessions` ownership. *Round-1 correction: "+ the handoff semantics change" is **removed** — there is no semantics change any more (§D-H #1, §11 risk 2)* |
-| **D2** | **The eval question, as a yes/no: does the zero-exceptions ruling govern scan *scope*, or only table carve-outs?** If scope, increment **D3** (route `packages/eval/src`'s 26 files through owning Services, add eval to the scan unconditionally) enters the plan before D2 ships. §D-G |
-| **G1** | `users`/`teams` columns incl. the two `DROP COLUMN`s, and the forward-only migration (no down-migration) |
-| — | **connections** (already given — Decision J); **mount engine + captures + injections** (already given) |
+| Before | Confirm | **Default if unanswered** |
+|---|---|---|
+| **C1** | `git-export` exporter deletion (~4,500 lines) | **Proceed with the deletion.** The verdict is already founder-directed (§D-F); this is ratification, not a new decision |
+| **C2** | `observability` dissolution | **Proceed.** Zero routes have callers repo-wide and `TraceIdResolver.seed()` has zero non-test callers — nothing observable changes |
+| **C3** | `realtime` dissolution — **and, in the same conversation, the validation-scenario-4 WS narrowing** (§D-E). Not a verdict: a founder-written AC being narrowed | **Proceed narrowed**, and record the narrowing as `accepted-pending-review` in `progress.json` + `.pipeline/AU.md` (**AC13(b)**). The reviewer verified the narrowing is *forced* — the four-table authorizer and both rejected alternatives hold — so blocking the build on it would buy nothing the record does not already give |
+| **D1** | `sessions` ownership | **Proceed.** Round 2 removed the "handoff semantics change" clause — there is none (§D-H #1, §11 risk 2) |
+| **D2a / D2b / D2** | **The scope question, put the honest way round:** *zero exceptions is a standing founder ruling, so AU26 reads it as governing scan **scope** — `packages/db`'s seeders relocate (D2a) and `packages/eval` routes through the owning Services (D2b). Confirm, or name the narrowing you want.* | **Proceed as written — D2a and D2b are in the plan.** A standing ruling is not suspended by silence, and round 2 had this backwards: it defaulted to *excluding* eval and asked permission to include it, which makes silence widen the carve-out. If the founder later narrows it, the fallback is symmetric and already scoped — drop D2b, keep `packages/eval` out of the scanned set by an explicitly-recorded founder narrowing (**never** by a package name in the guard: the guard would keep scanning everything and eval's findings would be waived in the record, so the exception stays visible and costly) |
+| **G1** | `users`/`teams` columns incl. the two `DROP COLUMN`s, and the forward-only migration (no down-migration) | **Proceed forward-only.** The migration is smoke-tested against a real populated local DB before the PR opens (§11 risk 4) |
+| — | **connections** (already given — Decision J); **mount engine + captures + injections** (already given) | n/a |
 
 "Stays" verdicts need no gate.
 
 ---
 
-## 13. What changed in this revision (round 2)
+## 13. What changed in this revision
 
 Recorded so the reviewer can check the deltas rather than re-read the whole document.
+
+### Round 3 (targeted — waves 0–3 passed round 2 as written and are untouched)
+
+Round 2 scored 7/10, PASS conditional: buildable, but D2 blocked on two CRITICALs. Both are closed below.
+**C1, C2, C4 and C5 from round 2 were confirmed and are deliberately not re-opened** — the per-route split,
+the placement rule, the handoff delegation and the WS narrowing all stand, as do the `createServer` →
+`remote-server` call, the Hono `notFound` AC and AC2's 15-service coverage.
+
+| Finding | Disposition |
+|---|---|
+| **CRITICAL 1** — the derived-closure census is false (`packages/db/src` holds 18 accesses the plan says do not exist), and the principle does not decide its own hardest case (`factory-bootstrap.ts` is the production first-boot seeder, the exact shape used to justify excluding eval) | **Fixed by re-deriving the principle, then re-running the census.** §D-G: the ACL governs **every non-test file in the workspace** — test code is the only ungoverned code, and only because a test of a Service cannot read through the Service it tests. No closure, no dependency graph, no package name. The **reachability corollary** (every owning Service's dependency closure is exactly `{db, shared}`, verified for all seven) explains why `packages/db` cannot comply *in place* — and makes that a **defect report, not an exemption**: the seeders relocate (**D2a**). The eval exclusion is **withdrawn** (**D2b**) — its two supporting arguments are answered by name in §D-G. Honest census published: **100 pairs / 48 files / 20 tables**, against round 2's "12 pairs, zero new work". A checked-in census script (**D0**) makes the number the gate (**AC14**) |
+| **CRITICAL 2** — `agent-orchestration/src` and `agent-execution/src` are not in the closure at HEAD (zero dependents, barrel is `export {}`), so the derivation misses the directory B1a creates routes in; and it reads a `dependencies` field `desktop` does not use | **Fixed at the root, not patched.** Scanning the whole workspace reaches `packages/agent-orchestration/src` and `packages/remote-server/src` **at HEAD** — verified by computation, not asserted — so the guard's correctness no longer rides on any `package.json` edit. The two edits are still required for the **build** and are now named deliverables: **B1a** adds `packages/agent-orchestration/package.json`'s missing `dependencies` (it declares none) and un-empties its barrel; **B1b** adds `@hyperidle/agent-orchestration` + `@hyperidle/db` to `packages/remote-server/package.json`. `desktop`'s `devDependencies` classification is recorded as hygiene and **deliberately not churned** — it stopped being load-bearing when the scope stopped reading dependencies |
+| **W5** — two residual seams in the placement rule: events uncovered, table sets stated as of end-of-WP | **Fixed.** §D-A gains **rule 5** (an emitted event is not a table touch; a subscriber is placed by its own table set) and **rule 6** (sets are evaluated at the increment that applies the rule, stated at HEAD; the one live case — `POST /api/sessions` reaching `filesystems`/`filesystem_injections`/`service_connections` in-tx at `sessions-routes.ts:412-421` until E3/F2 — is named and **verified not to flip the verdict**). Old rule 5 → **rule 7**, all 10 cross-references renumbered |
+| **W6** — three founder gates with no autonomous default, against `CLAUDE.md` ABSOLUTE RULE 1 | **Fixed for all six gates.** §12's table gains a **"Default if unanswered"** column; the run records question + default + timestamp in `progress.json` and `.pipeline/AU.md`. The two that matter: the scope question **defaults to proceeding with D2a + D2b** (round 2 had the burden backwards — it defaulted to *excluding* eval, so silence widened the carve-out), and C3 **proceeds narrowed** with AC13(b) satisfied by the narrowing being recorded, never by it being unmentioned |
+| **W1** — the explicit-start projection triple is used by both sides of the split | **Fixed, and it surfaced a wire regression.** §D-H #16 names one home: `pendingStart` + the failure-code map + `sendStartProjection` become pure functions in `@hyperidle/shared/http` (**A1**), and each side reads its own `sessions` row. **New finding:** the 202 branch returns the whole 18-column row, so `port.sessions.getById` must return the full wire shape — the 7-field narrowing would have dropped 11 fields with no test catching it. **AC5(d)** added |
+| **W2** — the withdrawn rendering argument survives verbatim in §D-K | **Fixed.** Re-derived from rules 2/3, with the withdrawal noted inline so the builder who reads §D-K and not §D-A sees it |
+| **W3** — wave labels contradict dependencies for E1–E4 | **Fixed properly.** Wave is now computed dependency depth (`1 + max(deps)`), so E1/E2/E3/E4 span waves 0/1/2/3 and every wave is a genuine parallel band. 5 waves, not 7 |
+| **W4** — "13 PRs" vs a 16-row table | **Fixed.** **19 PRs**, matching §12 row for row (16 + D0 + D2a + D2b). The unverifiable "~3.5–5 weeks" is dropped rather than re-guessed |
+| **S1** — the invented routing shape is not in the probes | **Fixed.** `probes/two-app-mount/poc4.ts` checked in and run: `POST /api/sessions` → core, `GET /api/sessions`, `GET /api/sessions/starts/:id`, `GET /api/sessions/:id/activity`, `PATCH /api/sessions/:id` → orchestration, `DELETE` and `GET /api/sessions/:id` → the root JSON 404, 7/7 middleware hits. Feasibility **P5′** |
+| **S2** — `agent-orchestration/package.json` declares zero dependencies | **Fixed** — a named B1a deliverable with the import block it must satisfy (§12, §10) |
+| **S3** — AC ordering reads as if an AC is missing | **Fixed.** `AC11` → **`AC16`**, so numeric order is reading order |
+| *(new, found by round 3's census)* | **A 16th `sessions` toucher**: `agent-orchestration/tool-handlers/src/tool-definitions.ts:519-522` writes `sessions.notes` from the `write_session_notes` tool, exempted by an `@lore` at `:483` citing `UNOWNED_SHARED_TABLES`. Assigned as **§D-H site 17**, closed in **D1** via `run-orchestration.recordSessionNotes` |
+
+### Round 2
 
 | Finding | Disposition |
 |---|---|
 | **C1** `sessions-routes.ts` cannot move wholesale (imports 3 core-api Services) | **Fixed.** §D-H #16: split 4-move / 1-stays. `POST /api/sessions` stays core-hosted and sheds its `sessions` import; the two remaining raw touches become `port.sessions.getById` + `createBareRun`. No upward import anywhere |
-| **C2** the guard census reasoning is false; the real hole is `packages/eval`'s 67 pairs | **Fixed, both halves.** §2 row 3 + §D-G record that `core-api/src` is already scanned (`:604-630`) and that deleting the Set alone fires on all 12 Layer pairs. The scan scope becomes *derived* (Application dependency closure) so no package name appears in the guard. Eval's 67/18/26 measured and stated; the principle is written, the counter-argument is written, the fallback (D3) is costed, and the question is a founder gate before D2. AC8 rewritten to claim only what is true |
+| **C2** the guard census reasoning is false; the real hole is `packages/eval`'s 67 pairs *(round-2 disposition — **superseded by round 3**: the derived scope and the eval exclusion are both withdrawn; see the round-3 table above)* | **Fixed, both halves.** §2 row 3 + §D-G record that `core-api/src` is already scanned (`:604-630`) and that deleting the Set alone fires on all 12 Layer pairs. The scan scope becomes *derived* (Application dependency closure) so no package name appears in the guard. Eval's 67/18/26 measured and stated; the principle is written, the counter-argument is written, the fallback (D3) is costed, and the question is a founder gate before D2. AC8 rewritten to claim only what is true |
 | **C3** the placement rule was never run against its own inputs | **Fixed.** §D-A restated as a mechanical table-set rule covering reads and writes, with auth explicitly excluded; §5 regenerated from the actual registrations. Rows changed: `GET /api/tasks/:id/sessions` → **core-api** (was orchestration); `POST /api/sessions` → **core-api** (was orchestration); `POST /api/tasks/:id/handoff` → **core-api** (newly listed); `GET /api/filesystems` → core-api but **re-derived** without the outlawed rendering argument; connections → orchestration but **path unchanged**; `/api/ws` → core-api, and the rule is what decides it. Round 1's `GET /api/sessions/:id` and `POST /api/sessions/:id/abort` deleted — they do not exist; `PATCH /api/sessions/:id` and `GET /api/sessions` added |
 | **C4** the handoff change fails on all three legs | **Fixed by withdrawal.** §D-H #1 replaced: the terminal write stays in policy's transaction, delegated down via `PolicyDeps.runOrchestration.endRunForHandoff(tx, …)`. No event re-emission, no review regression, no reaper dependency, no eventual consistency. §11 risk 2 withdrawn; D1's founder gate loses the "semantics change" clause |
 | **C5** validation scenario 4 is not closed and the narrowing is silent | **Stated, prominently.** §D-E now splits it: HTTP half closed (orchestration serves `GET /api/sessions/:id/activity` directly), WS half **deliberately narrowed** with the rule-derived reason, the two rejected ways to close it, and the design a rejection would require. AC13 added; the narrowing is a named founder confirmation point before C3 |
@@ -1146,4 +1320,4 @@ Recorded so the reviewer can check the deltas rather than re-read the whole docu
 | **S1** observability call-site list omits 3 sites | Fixed — §8 |
 | **S2** feasibility cites `hono@4.12.27` | Fixed — `feasibility.md` P1, verified `4.12.30` installed |
 | **S3** backfill rule only a risk; no rollback note | Fixed — §D-L: written invariant with the real nullability/defaults, forward-only stated |
-| **S4** AC7's "three files" vs `Conversations.tsx` | Fixed — AC7(c) is now **zero** web files, via §D-A rule 5 |
+| **S4** AC7's "three files" vs `Conversations.tsx` | Fixed — AC7(c) is now **zero** web files, via §D-A rule 7 |

@@ -131,7 +131,7 @@ the extraction is cheap because `filesystems` already modelled the dependency st
 
 ---
 
-## P6 — Census: what does the table-ownership guard actually scan, and what does fixing it cost? **GO, with one open question**
+## P6 — Census: what does the table-ownership guard actually scan, and what does fixing it cost? **GO — round-2 census withdrawn and re-run**
 
 **Round-1 correction, up front.** Round 1 stated the guard's scan root "only visits
 `packages/<layer>/<service>/` — every **Layer**-level file (`packages/core-api/src/**`) is invisible to it."
@@ -141,7 +141,8 @@ its own `@lore` at `:612-624`. The nine Layer `sessions` readers are visited on 
 only because `sessions ∈ UNOWNED_SHARED_TABLES` (`:349-354`, filtered at `:543`).
 
 **Consequence: deleting the Set alone is not theatre — it fires immediately** on all 12 already-scanned Layer
-pairs. That is D1/D2's work, not a no-op.
+pairs. That is D1/D2's work, not a no-op. *(This half of round 1's correction survives round 3 intact; what
+did not survive is the census built on top of it — see below.)*
 
 **Why probed anyway.** The requirement is **zero** exceptions. Two separate questions had to be measured:
 (1) what does the guard *not* see, and does this WP make that worse? (2) what would closing it cost?
@@ -150,39 +151,85 @@ pairs. That is D1/D2's work, not a no-op.
 then collect every non-`type` value import of one of those names from `@hyperidle/db` across every
 `packages/*/src/**` non-test file, excluding nested Service packages (already scanned). Re-run at HEAD.
 
-**Result — 37 files, 79 file×table pairs, split cleanly in two:**
+**Round-2 census WITHDRAWN — it was measured with the wrong instrument.** Round 2's census collected only
+*value imports of a table name from `@hyperidle/db`*. The guard's Tier-2 check has **two** branches: that
+one, **and** a direct-access branch (`table-ownership-guard.ts:565-575`) that calls `consider()` on the
+identifier name of the first argument to `.from/.insert/.update/.delete`, **with no import-specifier
+condition**. A file that imports its tables from a *relative* path — `packages/db/src/demo-fixture.ts` and
+`factory-bootstrap.ts` both `import … from "./schema.js"` — is invisible to the round-2 method and fully
+visible to the guard. That is how 18 accesses went unreported and how "zero new work" was concluded.
 
-| Scan status today | Files | Pairs | Detail |
-|---|---|---|---|
-| **Already scanned** (`packages/core-api/src`) | 11 | **12** | `sessions` × 9 (`routes/{agent-profile,agents,recipients,sessions-routes,status,tasks,teams-routes,threads,users}.ts`), `userSkills` × 2 (`routes/users.ts`, `services/routine-scheduler-bindings.ts`), `propagationLog` × 1 (`server-factory.ts`) — every one on a table this WP assigns an owner to |
-| **Not scanned** | 26 | **67** | **All of it `packages/eval/src`** — 18 owned tables (`agentWorkIntents, artifacts, bets, items, knowledgeAppProjection, knowledgeConflicts, knowledgeEditLog, knowledgeItems, messages, routineRuns, routines, sessions, tasks, teamMembers, teams, threads, userSkills, users`), concentrated in `seeding.ts` (15 tables) and `judges.ts` (10) |
+**Re-probe (round 3).** `probes/census/census.ts` reimplements the guard's **own** `checkAccess` — both
+branches, plus the namespace-import branch — over every `packages/*/src` and `packages/*/*/src` non-test
+file, with `UNOWNED_SHARED_TABLES` deleted and this WP's four new `TABLE_OWNER` rows applied. It is checked
+in and becomes `scripts/table-ownership-census.ts` at increment D0, so the number is a gate rather than a
+paragraph (**AC14**).
 
-Every other unscanned root — `agent-orchestration/src`, `agent-execution/src`, `remote-server/src`,
-`remote-worker/src`, `shared/src`, `api-contract/src`, `web/src`, `desktop/src` — has **zero** table imports at
-HEAD. AU12–AU18 genuinely cleaned them out.
+**Result at HEAD (`94cc2dfe`) — 803 files scanned, 379 findings, 100 file×table pairs, 48 files, 20 tables:**
 
-**The scan change is still required, for a reason round 1 got wrong.** It is not "Layer code is invisible."
-It is that **this WP creates code in two roots the guard does not visit**:
+| Region | Pairs | Files | Scanned today | Note |
+|---|---:|---:|---|---|
+| `packages/core-api/src` | 12 | 11 | **yes** | `sessions` ×9, `userSkills` ×2, `propagationLog` ×1 — round 2's figure, and the only region it counted |
+| nested Services | 10 | 8 | **yes** | §D-H sites 1–6 + `settings`/`work`; **includes `agent-orchestration/tool-handlers/src/tool-definitions.ts`'s `sessions` write, which no round named** |
+| `packages/db/src` | 9 | 2 | no | `demo-fixture.ts` (10 accesses), `factory-bootstrap.ts` (8) — invisible to round 2's method |
+| `packages/eval/src` | 69 | 27 | no | 18 tables; `judges.ts` 52 findings, `seeding.ts` 34 |
+| everything else (`remote-server`, `remote-worker`, `desktop`, `web`, `shared`, `api-contract`, `design-system`) | **0** | 0 | no | AU12–AU18 genuinely cleaned them out — that part of round 2 holds |
 
-- **B1a** writes route files under `packages/agent-orchestration/src/routes/**`;
-- **B1b** moves the repo's single `propagationLog` importer (`server-factory.ts`) into
-  `packages/remote-server/src/create-server.ts` — and `remote-server` is an **Application**, not a Layer, so
-  round 1's "extend the scan to Layer `src/` roots" wording would have missed exactly that file.
+**The two derivation facts round 2 asserted, re-measured:**
 
-**Verdict GO for the mechanical part.** `architecture.md` §D-G replaces both hand-written roots with a
-*derived* scope — nested Service `src/` plus the `src/` of every package in the runtime dependency closure of
-`@hyperidle/{remote-server,desktop,remote-worker}`, computed from `package.json`. No package name appears in
-the guard; new Layers and new Applications are picked up automatically. Cost beyond assigning the four owners:
-**zero**.
+- **`agent-orchestration` and `agent-execution` are NOT in the Application dependency closure at HEAD.**
+  Both umbrella packages have zero dependents (`rg -a -l '"@hyperidle/agent-orchestration"' --glob
+  package.json` → only their own); `packages/agent-orchestration/package.json` declares no `dependencies`
+  field and its barrel is `export {}`. So round 2's derived scope missed the directory **B1a creates route
+  files in**.
+- **`desktop` declares its real dependencies under `devDependencies`.** Its `dependencies` field is
+  `{"@electric-sql/pglite"}` alone. A closure computed from `dependencies` gives `desktop` a one-package
+  closure; the scan only survived because `remote-server` independently pulled `core-api` in.
 
-**OPEN QUESTION, not a verdict — `packages/eval`.** It is `private: true`, has zero dependents repo-wide, and
-is entered only via its own `npm run eval` CLI, so it falls outside that closure naturally. Round 1 proposed
-excluding it "by name with a stated reason" and simultaneously claimed AC8's "no allowlist of any kind" — the
-two cannot both be true, and 67 pairs across 18 tables is far too large to settle in a parenthesis. The
-principle asserted instead (*the ACL governs code that runs inside a shipped Application*), the real
-architectural argument on both sides, and the costed fallback increment **D3** are written out in
-`architecture.md` §D-G, and the yes/no is a **founder confirmation point before D2**. This probe measures the
-question; it does not answer it.
+**Verdict GO — but the scope becomes *simpler*, not more derived.** `architecture.md` §D-G replaces both
+hand-written roots with **the whole workspace**: `src/` of every package under `packages/` carrying a
+`package.json`. No closure, no dependency graph, no `dependencies`-vs-`devDependencies` question, no package
+name in the guard, and — verified by computation at HEAD, not asserted — it reaches
+`packages/agent-orchestration/src` and `packages/remote-server/src` **before** any `package.json` edit, so
+the guard's correctness does not ride on a build step. Cost beyond assigning the four owners: **not zero** —
+9 pairs in `packages/db/src` (increment D2a) and 69 in `packages/eval/src` (D2b).
+
+**The `packages/eval` open question is CLOSED, in the plan.** Round 2 left it as a founder yes/no with an
+exclusion as the default. §D-G answers it: eval is governed, its two supporting arguments are addressed by
+name (the service-surface cost is one the WP pays for `packages/db` anyway; the grading-through-the-code-
+under-test argument does not apply, because an eval's system under test is the LLM + tools + prompts, not
+the persistence Services). The founder confirmation point survives — as a request to *narrow*, with
+"proceed as written" as the stated default (§12).
+
+
+---
+
+## P5′ — Does the *interleaved* split (same path prefix, different methods, two apps) actually route? **GO**
+
+**Why load-bearing, and why it needed its own probe.** P1 proved two sub-apps mounted at the same prefix
+both route — but only for **disjoint** prefixes (`/api/bets` vs `/api/agent-orchestration/*`). §D-H #16
+invents a shape P1 never tested: `/api/sessions` served by **both** apps, split by method and sub-path
+(`POST /` on core; `GET /`, `GET /starts/:startId`, `GET /:id/activity`, `PATCH /:id` on orchestration).
+The whole per-route split rests on it, and the round-2 critique flagged that the one construction this
+design invented was the one not probed.
+
+**Probe.** `probes/two-app-mount/poc4.ts`, run on the installed `hono@4.12.30` via `npx tsx`.
+
+| Request | Resolves to |
+|---|---|
+| `POST /api/sessions` | **core** |
+| `GET /api/sessions` | **orchestration** |
+| `GET /api/sessions/starts/es-1` | **orchestration** (not shadowed by the `:id` patterns) |
+| `GET /api/sessions/s-1/activity` | **orchestration** |
+| `PATCH /api/sessions/s-1` | **orchestration** |
+| `DELETE /api/sessions/s-1` | root JSON 404 `{"error":"Not found","code":"NOT_FOUND"}` |
+| `GET /api/sessions/s-1` | root JSON 404 — **confirms the route genuinely does not exist**, matching the checklist's note that the string in `sessions-routes.ts:211`'s 202 message points at nothing |
+
+Parent middleware ran for **7 of 7** requests, including the two that 404'd.
+
+**GO.** The interleaved split routes exactly as §D-H #16 assumes, and the root `notFound` branch from P1
+still serves the canonical JSON for unmatched `/api/*`. The one hazard is unchanged and already closed:
+a duplicate `method + path` across the two apps would resolve silently by registration order — **AC12**.
 
 ---
 
