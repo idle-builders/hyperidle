@@ -11,13 +11,17 @@ Lint/typecheck commands: detailed reference is [commands.md](commands.md). Note 
 
 ## Lint-chained guards
 
-`npm run lint` chains **three** domain guard scripts after biome + eslint (`package.json` `lint`):
+`npm run lint` chains a series of domain guard scripts after biome + eslint (`package.json` `lint`) — see the `lint` script for the exact, current chain:
 
 | Script | What it guards |
 |---|---|
 | `scripts/ag7-no-divergent-classes.ts` (also `npm run check:ag7-consistency`) | Settings files use design-system primitives only — no raw DaisyUI control classes, no off-grid spacing aliases, no DaisyUI color aliases. Exists because eslint-plugin-design only flags *arbitrary-value* utilities (`gap-[16px]`); the divergent *alias* utilities (`gap-4`) pass it. Exits non-zero printing `file:line token`. Subject matter: [settings-consistency](../../ui-design/settings-consistency.md). |
 | `scripts/honest-harness-guard.ts --check` | Fails the build when a harness-facing integration test stubs/scripts/mocks the harness it should exercise against the real binary, or gates itself with `skipIf`-on-absent. |
-| `scripts/test-naming-guard.ts --check` | Fails the build when a test filename or describe/test/it string contains a workpackage identifier (`AF10-`, `"X3 — …"`) — behavior names outlive tickets. |
+| `scripts/au18-kv-shape-guard.ts` | Guards the AU18 key-value shape invariant. |
+| `scripts/table-ownership-guard.ts` | Guards per-table service ownership (reads and writes) — run once against its own fixtures (`--fixtures`), once against the real tree. |
+| `scripts/execution-boundary-guard.ts` | Guards the agent-execution boundary — run once against its own fixtures (`--fixtures`), once against the real tree. |
+| `scripts/composition-boundary-guard.ts` | Guards the composition-root boundary — run once against its own fixtures (`--fixtures`), once against the real tree. |
+| `scripts/composition-edge-anti-regrowth-guard.ts` | Guards against re-adding a forbidden orchestration↔core composition edge (AU21 AC #2) — run once against its own fixtures (`--fixtures`), once against the real tree. |
 
 ## eslint-plugin-design — AI7 page-anatomy rules
 
