@@ -64,6 +64,31 @@ vi.mock("../work/AgentDetailPane", () => ({
 	),
 }));
 
+// @lore AU26 J4: the roster's run state is fetched from `agent-orchestration`
+// (`useRosterRunState`), not stamped onto `RosterMember` by core-api. Stub the
+// hook with the values the wire fixtures used to carry — the row's rendering
+// contract is what these tests cover and it is unchanged.
+const ROSTER_RUN_STATE = new Map<string, unknown>([
+	[
+		"a1",
+		{
+			operationalStatus: "idle",
+			healthLevel: "healthy",
+			healthDetail: "Healthy",
+			activeTaskTitle: null,
+			activeTaskId: null,
+			activeBetId: null,
+		},
+	],
+]);
+
+vi.mock("../../hooks/useAgentRunState", async () => {
+	const actual = await vi.importActual<typeof import("../../hooks/useAgentRunState.js")>(
+		"../../hooks/useAgentRunState.js",
+	);
+	return { ...actual, useRosterRunState: () => ROSTER_RUN_STATE };
+});
+
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
@@ -74,12 +99,6 @@ const ROSTER_MEMBER: RosterMember = {
 	role: "builder",
 	isLead: false,
 	agentCategory: "team",
-	operationalStatus: "idle",
-	healthLevel: "healthy",
-	healthDetail: "Healthy",
-	activeTaskTitle: null,
-	activeTaskId: null,
-	activeBetId: null,
 };
 
 const TEAM_DATA: TeamDetail = {

@@ -72,6 +72,20 @@ export {
 	roleLabel,
 	TEAM_FUNCTIONS,
 } from "./agent-roles.js";
+// ── AU26 J4: the run-state wire shape agent-orchestration serves, and the pure
+//    health derivations a screen runs over it ──
+export type {
+	AgentRunActiveCountsResponse,
+	AgentRunLatestOutcomesResponse,
+	AgentRunSummary,
+	AgentRunsResponse,
+	HealthSignalInput,
+} from "./agent-run-view.js";
+export {
+	computeHealthSignals,
+	deriveHealthDetail,
+	deriveHealthLevel,
+} from "./agent-run-view.js";
 export type { ApiErrorCode, ApiErrorResponse } from "./api-types.js";
 export { API_ERROR_CODES } from "./api-types.js";
 // ── AU19 Increment 4: artifactPreviewSchema (reclassified from

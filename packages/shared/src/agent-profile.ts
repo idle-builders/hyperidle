@@ -17,7 +17,10 @@
  * not operational status (reviewer finding A2).
  */
 
-/** Active session info returned when the agent has a running session. */
+/**
+ * Active session info, derived by the profile page from the runs it fetches
+ * from `agent-orchestration` (AU26 J4). No longer served by core-api.
+ */
 export interface AgentActiveSession {
 	readonly sessionId: string;
 	readonly taskId: string;
@@ -30,7 +33,10 @@ export interface AgentActiveSession {
 	readonly startedAt: string;
 }
 
-/** One entry in the agent's recent session history. */
+/**
+ * One entry in the agent's recent run history, as the profile page assembles it
+ * (AU26 J4: run rows from `agent-orchestration`, task titles from core-api).
+ */
 export interface AgentSessionSummary {
 	readonly sessionId: string;
 	readonly taskId: string;
@@ -40,7 +46,10 @@ export interface AgentSessionSummary {
 	readonly endedAt: string | null;
 }
 
-/** Aggregate performance statistics across all sessions for this agent. */
+/**
+ * Aggregate performance statistics across all runs for this agent, derived by
+ * the profile page (AU26 J4).
+ */
 export interface AgentPerformanceStats {
 	readonly totalSessions: number;
 	readonly successCount: number;
@@ -147,18 +156,20 @@ export interface AgentProfileResponse {
 	/** MCP connection info (if configured). null in most cases. */
 	readonly mcpSetup: null;
 
-	// --- Status ---
-	/** Active session info. null when agent is idle. */
-	readonly activeSession: AgentActiveSession | null;
-
-	// --- Sessions ---
-	readonly recentSessions: AgentSessionSummary[];
-
-	// --- Performance ---
-	readonly performance: AgentPerformanceStats;
-
-	// --- Health ---
-	readonly healthSignals: AgentHealthSignals;
+	// --- Health input the browser cannot compute ---
+	/**
+	 * True when the agent has no `harnessType` preference (any adapter works) OR
+	 * when an adapter matching it is registered in the server's pool.
+	 *
+	 * @lore AU26 J4: `activeSession`, `recentSessions`, `performance` and
+	 * `healthSignals` were REMOVED from this response — every one of them was
+	 * derived in core-api from `agent-orchestration`'s `sessions` table. The
+	 * profile page fetches the runs from that Layer's own API and derives all
+	 * four itself with `computeHealthSignals` (`@hyperidle/shared`). This one
+	 * field stays because it is NOT run state: it is a fact about the adapter
+	 * pool the server process holds, which the browser cannot see.
+	 */
+	readonly harnessAvailable: boolean;
 
 	// --- Capabilities ---
 	readonly harnessCapabilities: AgentHarnessCapabilities;

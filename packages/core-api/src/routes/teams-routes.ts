@@ -40,7 +40,6 @@ import {
 import * as routineService from "@hyperidle/routine";
 import { humanizeSchedule } from "@hyperidle/routine";
 import type {
-	AgentOperationalStatus,
 	BetCardSummary,
 	CreateTeamRequest,
 	CreateTeamResponse,
@@ -53,7 +52,9 @@ import type {
 } from "@hyperidle/shared";
 import {
 	AGENT_ROLE_CATALOG,
+	computeHealthSignals,
 	createLogger,
+	deriveHealthDetail,
 	deriveInitials,
 	deriveTitle,
 	findRoleCatalogEntry,
@@ -64,12 +65,7 @@ import { findUser, insertUser, listUsers } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { desc, inArray } from "drizzle-orm";
 import { Hono } from "hono";
-import {
-	computeHealthSignals,
-	deriveHealthDetail,
-	deriveHealthLevel,
-	resolveHarnessAvailable,
-} from "./agent-profile.js";
+import { resolveHarnessAvailable } from "./agent-profile.js";
 
 // AU19 Increment 1c: `org`'s `OrgUserDirectory` port (Mechanism C), wired to
 // the real `user-store.ts` function references unchanged (no behavior change).
@@ -120,6 +116,7 @@ async function maybeNotifyAgentError(
 	db: HyperIdleDb,
 	member: RosterMember,
 	teamName: string,
+	healthDetail: string,
 ): Promise<void> {
 	// Check for existing pending notification for this agent
 	const [existing] = await listNotifications(db, {
@@ -138,7 +135,7 @@ async function maybeNotifyAgentError(
 		subjectId: member.agentId,
 		severity: "blocking",
 		title: `Agent ${member.name} needs attention`,
-		body: `${member.name} on team ${teamName}: ${member.healthDetail ?? "Error state detected"}`,
+		body: `${member.name} on team ${teamName}: ${healthDetail}`,
 		reason: "agent_health_transition",
 		channel: null,
 		status: "pending",
@@ -685,19 +682,42 @@ export function createTeamRoutes(
 				return a.name.localeCompare(b.name);
 			});
 
-			// AB2: Enrich roster with operational status and health.
-			// Batch all session queries with a single IN clause (reviewer W1).
+			// AB2: the roster's harness availability + the degraded-agent notification.
+			//
+			// @lore AU26 J4: `operationalStatus`, `activeTaskTitle`, `activeTaskId`,
+			// `activeBetId`, `healthLevel` and `healthDetail` are GONE from this
+			// response. Every one was derived here from `agent-orchestration`'s
+			// `sessions` table purely to render the roster. Founder ruling: *"its all
+			// for UI? thats why orchestration now has an api so that the ui can get
+			// the agent run state from the orchestration directly and combine this
+			// information in the ui instead of in the core api service."*
+			// `WorkTeam.tsx` fetches
+			// `GET /api/agent-orchestration/runs?agent_ids=…` for the roster and
+			// derives all six with the same `computeHealthSignals`/`deriveHealthLevel`/
+			// `deriveHealthDetail` (now in `@hyperidle/shared`), so the page renders
+			// identically. `harnessAvailable` stays server-side: it is a fact about
+			// this process's adapter pool, not run state, and the browser cannot see it.
+			//
+			// ⚠️ BLOCKER (AU26 J4, reported — do not silently "fix" by deleting):
+			// the run read below is NOT gone, because this route also has a real
+			// core-side USE of run state that is not a render at all —
+			// `maybeNotifyAgentError` enqueues an `agent.health.degraded`
+			// notification row (core's own `notification_queue`) when a roster member
+			// is in the error state. That is a product feature with no other
+			// producer anywhere in the repo, and removing it is a feature deletion,
+			// not a layering fix. It is therefore the ONE core-api read of `sessions`
+			// this work package leaves standing, scoped down to exactly the three
+			// columns the health computation needs. Closing it properly needs a
+			// founder decision on where degraded-agent notification belongs (a
+			// reactor on run-end is the obvious candidate — a GET that writes is a
+			// smell independent of layering).
 			const agentIds = agentRows.map((a) => a.id);
 			if (agentIds.length > 0) {
-				// @lore AU26 G1 (§D-L): one batched run-config read alongside the
-				// batched session read — the roster loop stays two queries.
+				// @lore AU26 G1 (§D-L): harness type reads from `agent_run_config`.
 				const rosterRunConfigs = await readAgentRunConfigs(db, agentIds);
-				// Fetch all sessions for all agents in one query, ordered by startedAt desc
-				const allAgentSessions = await db
+				const allAgentRuns = await db
 					.select({
-						id: sessions.id,
 						agentId: sessions.agentId,
-						taskId: sessions.taskId,
 						startedAt: sessions.startedAt,
 						endedAt: sessions.endedAt,
 						state: sessions.state,
@@ -707,74 +727,38 @@ export function createTeamRoutes(
 					.where(inArray(sessions.agentId, agentIds))
 					.orderBy(desc(sessions.startedAt));
 
-				// Group sessions by agentId
-				const sessionsByAgent = new Map<
+				const runsByAgent = new Map<
 					string,
 					Array<{
-						id: string;
-						taskId: string | null;
 						startedAt: string;
 						endedAt: string | null;
 						state: string | null;
 						outcome: string | null;
 					}>
 				>();
-				for (const s of allAgentSessions) {
-					if (!s.agentId) continue;
-					const bucket = sessionsByAgent.get(s.agentId) ?? [];
-					bucket.push(s);
-					sessionsByAgent.set(s.agentId, bucket);
+				for (const run of allAgentRuns) {
+					if (!run.agentId) continue;
+					const bucket = runsByAgent.get(run.agentId) ?? [];
+					bucket.push(run);
+					runsByAgent.set(run.agentId, bucket);
 				}
 
-				// For each roster member, compute operational status + health
 				for (const member of roster) {
-					const agentSessions = sessionsByAgent.get(member.agentId) ?? [];
-					const activeSession = agentSessions.find((s) => s.state === "active") ?? null;
-
-					// Resolve task info for active session
-					let activeTaskTitle: string | null = null;
-					let activeTaskId: string | null = null;
-					let activeBetId: string | null = null;
-					if (activeSession?.taskId) {
-						const taskRow = await work.get(db, "task", activeSession.taskId);
-						activeTaskTitle = taskRow?.title ?? null;
-						activeTaskId = activeSession.taskId;
-						activeBetId = taskRow?.betId ?? null;
-					}
-
-					// Health signals
-					// @lore AU26 G1 (§D-L): harness type reads from `agent_run_config`.
 					const memberHarnessType = rosterRunConfigs.get(member.agentId)?.harnessType ?? null;
-					const harnessAvail = resolveHarnessAvailable(memberHarnessType, adapterPool);
+					member.harnessAvailable = resolveHarnessAvailable(memberHarnessType, adapterPool);
+
+					const agentRuns = runsByAgent.get(member.agentId) ?? [];
 					const healthSignals = computeHealthSignals({
-						sessions: agentSessions.map((s) => ({
-							startedAt: s.startedAt,
-							endedAt: s.endedAt,
-							outcome: s.outcome,
-						})),
-						harnessType: memberHarnessType,
-						harnessAvailable: harnessAvail,
+						sessions: agentRuns,
+						harnessAvailable: member.harnessAvailable,
 					});
+					const isError =
+						agentRuns.every((r) => r.state !== "active") &&
+						(healthSignals.failureRate7d > 0.5 || healthSignals.lastSessionCrashed);
 
-					// Derive operational status
-					const hasActive = activeSession !== null;
-					const isError = healthSignals.failureRate7d > 0.5 || healthSignals.lastSessionCrashed;
-					const operationalStatus: AgentOperationalStatus = hasActive
-						? "active"
-						: isError
-							? "error"
-							: "idle";
-
-					member.operationalStatus = operationalStatus;
-					member.activeTaskTitle = activeTaskTitle;
-					member.activeTaskId = activeTaskId;
-					member.activeBetId = activeBetId;
-					member.healthLevel = deriveHealthLevel(healthSignals);
-					member.healthDetail = deriveHealthDetail(healthSignals);
-
-					// AB2 AC-6: enqueue notification when agent is in error state
-					if (operationalStatus === "error") {
-						await maybeNotifyAgentError(db, member, team.name);
+					// AB2 AC-6: enqueue notification when agent is in error state.
+					if (isError) {
+						await maybeNotifyAgentError(db, member, team.name, deriveHealthDetail(healthSignals));
 					}
 				}
 			}

@@ -3,6 +3,10 @@
  *
  * Architecture plan §4.4: inline recipient picker for new DM thread creation.
  * States: browsing (search + list), selected (recipient + message input), sending.
+ *
+ * @lore AU26 J4: `useRecipients` now makes TWO calls — core-api's recipient list
+ * and `agent-orchestration`'s active-run counts, which it combines into the live
+ * busy dot. The `stubFetch` helper routes by URL for that reason.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -16,7 +20,6 @@ interface MockRecipient {
 	name: string;
 	role: string;
 	status: string;
-	hasActiveSession: boolean;
 	avatarUrl: string | null;
 }
 
@@ -27,16 +30,31 @@ function mkRecipient(overrides: Partial<MockRecipient> = {}): MockRecipient {
 		name: overrides.name ?? "Test Agent",
 		role: overrides.role ?? "builder",
 		status: overrides.status ?? "active",
-		hasActiveSession: overrides.hasActiveSession ?? false,
 		avatarUrl: null,
 	};
 }
 
 const MOCK_RECIPIENTS: MockRecipient[] = [
-	mkRecipient({ id: "agent-builder", name: "Builder Bot", hasActiveSession: true }),
+	mkRecipient({ id: "agent-builder", name: "Builder Bot" }),
 	mkRecipient({ id: "agent-growth", name: "Growth Engine" }),
 	mkRecipient({ id: "user-founder", name: "Founder", kind: "user", role: "founder" }),
 ];
+
+/** Only `agent-builder` is mid-run — the live dot's one true case. */
+const MOCK_ACTIVE_COUNTS: Record<string, number> = { "agent-builder": 1 };
+
+/** Route the recipient list and the orchestration run counts. */
+function stubFetch(recipients: MockRecipient[] = MOCK_RECIPIENTS): void {
+	global.fetch = vi.fn().mockImplementation((url: string) =>
+		Promise.resolve({
+			ok: true,
+			json: () =>
+				Promise.resolve(
+					url.includes("/agent-orchestration/") ? { counts: MOCK_ACTIVE_COUNTS } : { recipients },
+				),
+		}),
+	) as unknown as typeof fetch;
+}
 
 function renderPicker(
 	props: { onSelect?: () => void; onCancel?: () => void } = {},
@@ -57,10 +75,7 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 
 	// AC1: picker is accessible (search field rendered)
 	it("renders a search input on mount", async () => {
-		global.fetch = vi.fn().mockResolvedValue({
-			ok: true,
-			json: () => Promise.resolve({ recipients: MOCK_RECIPIENTS }),
-		}) as unknown as typeof fetch;
+		stubFetch();
 
 		renderPicker();
 		// Search field should be present (may be labeled "Search" or have placeholder)
@@ -70,10 +85,7 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 
 	// AC2: recipient list is rendered from API response
 	it("renders a list of recipients after loading", async () => {
-		global.fetch = vi.fn().mockResolvedValue({
-			ok: true,
-			json: () => Promise.resolve({ recipients: MOCK_RECIPIENTS }),
-		}) as unknown as typeof fetch;
+		stubFetch();
 
 		renderPicker();
 		await waitFor(() => {
@@ -85,10 +97,7 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 
 	// AC2: agents with active sessions show "Live" indicator
 	it("shows a live indicator for agents with an active session", async () => {
-		global.fetch = vi.fn().mockResolvedValue({
-			ok: true,
-			json: () => Promise.resolve({ recipients: MOCK_RECIPIENTS }),
-		}) as unknown as typeof fetch;
+		stubFetch();
 
 		renderPicker();
 		await waitFor(() => {
@@ -103,10 +112,7 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 	it("clicking a recipient shows a message input", async () => {
 		const user = (await import("@testing-library/user-event")).default.setup();
 
-		global.fetch = vi.fn().mockResolvedValue({
-			ok: true,
-			json: () => Promise.resolve({ recipients: MOCK_RECIPIENTS }),
-		}) as unknown as typeof fetch;
+		stubFetch();
 
 		renderPicker();
 		await waitFor(() => {
@@ -184,6 +190,13 @@ describe("RecipientPicker (Q1 §4.4)", () => {
 					}),
 					{ status: 201, headers: { "Content-Type": "application/json" } },
 				);
+			}
+			// GET /api/agent-orchestration/runs/active-counts
+			if (url.includes("/agent-orchestration/")) {
+				return new Response(JSON.stringify({ counts: MOCK_ACTIVE_COUNTS }), {
+					status: 200,
+					headers: { "Content-Type": "application/json" },
+				});
 			}
 			// GET /api/recipients
 			return new Response(JSON.stringify({ recipients: MOCK_RECIPIENTS }), {

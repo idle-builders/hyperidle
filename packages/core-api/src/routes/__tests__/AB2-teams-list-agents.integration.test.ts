@@ -127,7 +127,6 @@ describe("AB2 AC-5: GET /teams includes agentCount", () => {
 
 		expect(team?.agentCount).toBe(3);
 	});
-
 });
 
 // ---------------------------------------------------------------------------

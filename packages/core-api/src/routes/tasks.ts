@@ -1,4 +1,4 @@
-import { type HyperIdleDb, sessions } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import type { PolicySessionContext } from "@hyperidle/policy";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import type { EventBus } from "@hyperidle/shared";
@@ -6,10 +6,13 @@ import { API_ERROR_CODES, TASK_OUTCOME_VERDICTS, TASK_STATES } from "@hyperidle/
 import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/shared/http";
 import * as work from "@hyperidle/work";
 import { transitionTask } from "@hyperidle/work";
-import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { enumValues } from "../schemas/common.schema.js";
+import {
+	buildAgentOrchestrationPort,
+	getRegisteredAgentOrchestrationTransport,
+} from "../services/agent-orchestration-port-composition.js";
 import { handoff } from "../services/policy-bindings.js";
 import { taskRunResolverDeps } from "../services/task-run-resolver-bindings.js";
 
@@ -169,43 +172,13 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 		},
 	);
 
-	// GET /tasks/:id/sessions — read-only list of a task's sessions (AF12 AC4).
-	// Returns the exact `{ sessions: TaskSession[] }` shape the `useTaskSessions`
-	// hook expects. `status` is the session `state` (drives the live dot); a
-	// cascade-stopped session reports 'stopped' (non-blank label downstream).
-	// @lore AU21 Increment 14a: this endpoint used to also serve `cost` via
-	// `AgentOrchestrationPort.sessions.getSessionCostBySessionId` — deleted
-	// along with the rest of the cost feature. The view no longer returns a
-	// `cost` field at all (not `cost: null`), no replacement.
-	// `harnessUrl`/`tokens` remain genuinely unserved (no source anywhere).
-	router.get("/:id/sessions", requireBoundary({ kind: "public-data" }), async (c) => {
-		const taskId = c.req.param("id");
-		const task = await work.get(db, "task", taskId);
-		if (!task) {
-			return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
-		}
-		const rows = await db
-			.select()
-			.from(sessions)
-			.where(eq(sessions.taskId, taskId))
-			.orderBy(sessions.startedAt);
-		const out = rows.map((s, i) => ({
-			id: s.id,
-			title: `Session ${i + 1}`,
-			agent: s.agentId,
-			tokens: null,
-			// @lore AF12: state-based contract — the frontend keys the live dot off
-			// status === 'active'. Use `state` (not `outcome`) so a cascade-stopped
-			// session renders 'stopped' via the raw-status fallback, never blank.
-			status: s.state,
-			harnessUrl: null,
-			effectivenessScore:
-				s.effectivenessScore != null && !Number.isNaN(Number.parseFloat(s.effectivenessScore))
-					? Number.parseFloat(s.effectivenessScore)
-					: null,
-		}));
-		return c.json({ sessions: out });
-	});
+	// @lore AU26 J4: `GET /tasks/:id/sessions` is DELETED. Its entire payload was
+	// agent-run data — core-api reading `agent-orchestration`'s `sessions` table
+	// to serve a list OF RUNS. Founder ruling: *"orchestration now has an api so
+	// that the ui can get the agent run state from the orchestration directly."*
+	// `useTaskSessions` now calls
+	// `GET /api/agent-orchestration/runs?task_id=…` and does the same mapping
+	// client-side, so the task view and the task sheet render identically.
 
 	// PATCH /tasks/:id — update mutable fields
 	router.patch(
@@ -290,11 +263,19 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 				return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 			}
 
-			const [session] = await db
-				.select()
-				.from(sessions)
-				.where(eq(sessions.id, body.sessionId))
-				.limit(1);
+			// @lore AU26 J4: the run row comes down the READ DOOR, not a raw
+			// `db.select().from(sessions)` — a core-api Layer route reading the other
+			// Layer's data goes through `AgentOrchestrationPort.sessions.getById`
+			// (§D-A rule 3), the same way `sessions-routes.ts` already does. No new
+			// port surface: this reuses the method that already exists. Only two
+			// fields are read below, and both are genuinely core's need — the 404
+			// (handing off a non-existent run must fail) and `agentId` (the author of
+			// every thread, message and item the handoff creates), which is a
+			// property of the run and cannot be derived from anything core owns.
+			const orchestrationPort = buildAgentOrchestrationPort(
+				getRegisteredAgentOrchestrationTransport(),
+			);
+			const session = await orchestrationPort.sessions.getById(body.sessionId);
 			if (!session) {
 				return c.json({ error: "Session not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 			}

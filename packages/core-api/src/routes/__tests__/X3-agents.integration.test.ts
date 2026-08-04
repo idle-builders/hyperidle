@@ -140,7 +140,6 @@ describe("X3 AC-4: GET /api/agents returns AI agents with config fields", () => 
 		expect(agent).toHaveProperty("modelTierPreference");
 		expect(agent).toHaveProperty("maxConcurrentSessions");
 		expect(agent).toHaveProperty("status");
-		expect(agent).toHaveProperty("activeSessions");
 	});
 
 	test("excludes system-role agents from the response", async ({ db, app }) => {
@@ -162,13 +161,17 @@ describe("X3 AC-4: GET /api/agents returns AI agents with config fields", () => 
 		expect(builderAgent?.name).toBe("X3 Builder Bot");
 	});
 
-	test("activeSessions is a number (0 when no active sessions)", async ({ db, app }) => {
+	// @lore AU26 J4: the `activeSessions` run count is GONE from this response —
+	// core-api stopped reading `agent-orchestration`'s `sessions` table. Settings →
+	// Agents fetches `GET /api/agent-orchestration/runs/active-counts` instead.
+	test("carries no agent-run count", async ({ db, app }) => {
 		await seedPrereqs(db);
 		const res = await app.request("/api/agents", { headers: authHeaders() });
 		const body = (await res.json()) as Array<Record<string, unknown>>;
 
+		expect(body.length).toBeGreaterThan(0);
 		for (const agent of body) {
-			expect(typeof agent.activeSessions).toBe("number");
+			expect(agent).not.toHaveProperty("activeSessions");
 		}
 	});
 });
@@ -217,7 +220,8 @@ describe("X3 AC-5: POST /api/agents creates a new agent", () => {
 		expect(body.status).toBe("active");
 	});
 
-	test("created agent has activeSessions = 0", async ({ db, app }) => {
+	// @lore AU26 J4: see above — the create response no longer carries a run count.
+	test("created agent carries no agent-run count", async ({ db, app }) => {
 		await seedPrereqs(db);
 		const res = await app.request("/api/agents", {
 			method: "POST",
@@ -225,7 +229,8 @@ describe("X3 AC-5: POST /api/agents creates a new agent", () => {
 			body: JSON.stringify({ name: "New Bot", role: "builder" }),
 		});
 		const body = (await res.json()) as Record<string, unknown>;
-		expect(body.activeSessions).toBe(0);
+		expect(body).not.toHaveProperty("activeSessions");
+		expect(body.name).toBe("New Bot");
 	});
 
 	test("returns 400 when name is missing", async ({ db, app }) => {

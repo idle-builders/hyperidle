@@ -27,11 +27,15 @@ import { listSessionRequests } from "@hyperidle/session-requests";
 import {
 	type ActivityEntry,
 	AGENT_SESSION_SOURCE_KINDS,
+	type AgentRunActiveCountsResponse,
+	type AgentRunLatestOutcomesResponse,
+	type AgentRunsResponse,
 	type AgentSessionSourceKind,
 	API_ERROR_CODES,
 } from "@hyperidle/shared";
 import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
-import { eq } from "drizzle-orm";
+import { and, count, desc, eq, inArray } from "drizzle-orm";
+import type { Context } from "hono";
 import { Hono } from "hono";
 
 function isAgentSessionSourceKind(value: string): value is AgentSessionSourceKind {
@@ -108,5 +112,152 @@ export function createAgentOrchestrationSessionsRoutes(
 		return c.json({ entries: getRecentActivity(sessionId) });
 	});
 
+	// ---------------------------------------------------------------------
+	// AU26 J4 — the run-state reads the UI calls DIRECTLY.
+	//
+	// Founder ruling (verbatim): *"its all for UI? thats why orchestration now
+	// has an api so that the ui can get the agent run state from the
+	// orchestration directly and combine this information in the ui instead of
+	// in the core api service."* Core-api no longer decorates its responses with
+	// run state; the bet view, the task view, the agent profile, the team page,
+	// Settings → Agents and the recipient picker each fetch what they need from
+	// here and combine it client-side.
+	//
+	// Deliberately NOT backed by new `AgentOrchestrationPort` methods — the port
+	// is core-api's door into this Layer, and these reads have no core-api
+	// caller left to walk through it.
+	//
+	// The existing `GET /api/sessions` list is NOT a substitute: it caps at
+	// `limit=50` (`routes/sessions.ts`), and the agent-profile / team-roster
+	// health window needs EVERY run of an agent. These reads carry no cap.
+	// ---------------------------------------------------------------------
+
+	// GET /agent-orchestration/runs/active-counts[?agent_ids=a,b,c]
+	// Registered before `/runs` — Hono matches in registration order and the two
+	// paths are distinct, but keeping the more specific one first is the safer
+	// habit. Agents with zero active runs are absent from the map.
+	router.get("/runs/active-counts", requireBoundary({ kind: "public-data" }), async (c) => {
+		const agentIds = parseIdList(c.req.query("agent_ids"));
+		if (agentIds !== undefined && agentIds.length === 0) {
+			return c.json({ counts: {} });
+		}
+		if (agentIds !== undefined && agentIds.length > MAX_ID_LIST) {
+			return tooManyIds(c, "agent_ids");
+		}
+		const rows = await db
+			.select({ agentId: sessions.agentId, count: count() })
+			.from(sessions)
+			.where(
+				agentIds === undefined
+					? eq(sessions.state, "active")
+					: and(eq(sessions.state, "active"), inArray(sessions.agentId, agentIds)),
+			)
+			.groupBy(sessions.agentId);
+		const counts: Record<string, number> = {};
+		for (const row of rows) {
+			if (row.agentId) counts[row.agentId] = row.count;
+		}
+		return c.json({ counts } satisfies AgentRunActiveCountsResponse);
+	});
+
+	// GET /agent-orchestration/runs/latest-outcomes?task_ids=a,b,c
+	// The outcome of the NEWEST run per task by `startedAt`. A task with no run
+	// is absent from the map (the UI renders that as `null`).
+	router.get("/runs/latest-outcomes", requireBoundary({ kind: "public-data" }), async (c) => {
+		const taskIds = parseIdList(c.req.query("task_ids"));
+		if (taskIds === undefined) {
+			return missingParam(c, "task_ids");
+		}
+		if (taskIds.length === 0) {
+			return c.json({ outcomes: {} });
+		}
+		if (taskIds.length > MAX_ID_LIST) {
+			return tooManyIds(c, "task_ids");
+		}
+		const rows = await db
+			.select({ taskId: sessions.taskId, outcome: sessions.outcome })
+			.from(sessions)
+			.where(inArray(sessions.taskId, taskIds))
+			.orderBy(desc(sessions.startedAt));
+		const outcomes: Record<string, string | null> = {};
+		for (const row of rows) {
+			// Ordered newest-first, so the first row seen per task is the latest.
+			if (row.taskId !== null && !(row.taskId in outcomes)) outcomes[row.taskId] = row.outcome;
+		}
+		return c.json({ outcomes } satisfies AgentRunLatestOutcomesResponse);
+	});
+
+	// GET /agent-orchestration/runs?task_id=…  |  ?agent_ids=a,b,c
+	// Newest first in both forms.
+	router.get("/runs", requireBoundary({ kind: "public-data" }), async (c) => {
+		const taskId = c.req.query("task_id");
+		const agentIds = parseIdList(c.req.query("agent_ids"));
+		if (taskId === undefined && agentIds === undefined) {
+			return missingParam(c, "task_id or agent_ids");
+		}
+		if (agentIds !== undefined && agentIds.length === 0) {
+			return c.json({ runs: [] });
+		}
+		if (agentIds !== undefined && agentIds.length > MAX_ID_LIST) {
+			return tooManyIds(c, "agent_ids");
+		}
+		const rows = await db
+			.select(RUN_SUMMARY_COLUMNS)
+			.from(sessions)
+			.where(
+				taskId !== undefined
+					? eq(sessions.taskId, taskId)
+					: inArray(sessions.agentId, agentIds ?? []),
+			)
+			.orderBy(desc(sessions.startedAt));
+		return c.json({ runs: rows } satisfies AgentRunsResponse);
+	});
+
 	return router;
+}
+
+/**
+ * The eight fields every run-state render in the app actually consumes.
+ *
+ * @lore AU26 J4: deliberately NOT `AgentOrchestrationSessionWireRow`'s 18
+ * columns. `sandboxSnapshot`, `notes`, `requestId`, `routineId`, `modelTier`,
+ * the source triple and the two remaining `effectivenessRecorded*` columns are
+ * consumed by no screen and are not on this wire.
+ */
+const RUN_SUMMARY_COLUMNS = {
+	id: sessions.id,
+	agentId: sessions.agentId,
+	taskId: sessions.taskId,
+	startedAt: sessions.startedAt,
+	endedAt: sessions.endedAt,
+	state: sessions.state,
+	outcome: sessions.outcome,
+	effectivenessScore: sessions.effectivenessScore,
+};
+
+/**
+ * Guard against an unbounded URL from a large roster. A team roster or a bet's
+ * task list is far below this; anything above it is a caller doing something
+ * else.
+ */
+const MAX_ID_LIST = 500;
+
+/** `undefined` when the param is absent; `[]` when it is present but empty. */
+function parseIdList(raw: string | undefined): string[] | undefined {
+	if (raw === undefined) return undefined;
+	return raw
+		.split(",")
+		.map((part) => part.trim())
+		.filter((part) => part.length > 0);
+}
+
+function missingParam(c: Context<HyperIdleEnv>, name: string): Response {
+	return c.json({ error: `${name} is required`, code: API_ERROR_CODES.VALIDATION_ERROR }, 400);
+}
+
+function tooManyIds(c: Context<HyperIdleEnv>, name: string): Response {
+	return c.json(
+		{ error: `${name} exceeds ${MAX_ID_LIST} ids`, code: API_ERROR_CODES.VALIDATION_ERROR },
+		400,
+	);
 }

@@ -112,22 +112,18 @@ describe("GET /api/recipients (Q1 §3.3)", () => {
 	});
 
 	// AC2: each recipient has the required fields
-	test("returns recipients with id, kind, name, role, status, hasActiveSession, avatarUrl", async ({
-		db,
-		app,
-	}) => {
+	//
+	// @lore AU26 J4: `hasActiveSession` is GONE — it was core-api reading
+	// `agent-orchestration`'s `sessions` table so the picker could show a live
+	// busy dot. `useRecipients` fetches
+	// `GET /api/agent-orchestration/runs/active-counts` and stamps the flag
+	// itself. The seed below gives `agent-builder` a live run, so a route that
+	// still held the read would fail this assertion.
+	test("returns recipients with id, kind, name, role, status, avatarUrl", async ({ db, app }) => {
 		await seedRecipients(db);
 		const res = await app.request("/api/recipients", { headers: authHeaders() });
 		const body = (await res.json()) as {
-			recipients: Array<{
-				id: string;
-				kind: string;
-				name: string;
-				role: string;
-				status: string;
-				hasActiveSession: boolean;
-				avatarUrl: string | null;
-			}>;
+			recipients: Array<Record<string, unknown>>;
 		};
 
 		const builder = body.recipients.find((r) => r.id === "agent-builder");
@@ -136,20 +132,8 @@ describe("GET /api/recipients (Q1 §3.3)", () => {
 		expect(builder?.name).toBe("Builder Bot");
 		expect(builder?.role).toBe("builder");
 		expect(builder?.status).toBe("active");
-		expect(builder?.hasActiveSession).toBe(true);
 		expect(builder?.avatarUrl).toBeNull();
-	});
-
-	// AC2: hasActiveSession is false for agents without active sessions
-	test("marks hasActiveSession=false for agents without an active session", async ({ db, app }) => {
-		await seedRecipients(db);
-		const res = await app.request("/api/recipients", { headers: authHeaders() });
-		const body = (await res.json()) as {
-			recipients: Array<{ id: string; hasActiveSession: boolean }>;
-		};
-
-		const growth = body.recipients.find((r) => r.id === "agent-growth");
-		expect(growth?.hasActiveSession).toBe(false);
+		expect(builder).not.toHaveProperty("hasActiveSession");
 	});
 
 	// AC2: ?q=<search> filters by name (case-insensitive)

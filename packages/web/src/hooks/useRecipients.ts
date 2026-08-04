@@ -3,9 +3,17 @@
  *
  * Fetches GET /api/recipients (optionally with ?q=<query>) and returns
  * the mapped recipient list. Uses apiFetch for API key injection.
+ *
+ * @lore AU26 J4: `hasActiveSession` no longer rides on the core-api response —
+ * core-api stopped reading `agent-orchestration`'s `sessions` table. The hook
+ * now fetches `GET /api/agent-orchestration/runs/active-counts` alongside the
+ * recipient list and stamps the flag itself, so the picker's live busy dot
+ * renders exactly as before. A run-count failure degrades to "nobody is busy"
+ * rather than failing the picker, which is core's data and stands on its own.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { fetchActiveRunCounts } from "../services/agent-runs.js";
 import { apiFetch } from "../services/api-fetch.js";
 
 export interface Recipient {
@@ -25,7 +33,10 @@ export interface UseRecipientsResult {
 	retry: () => void;
 }
 
-function isRecipient(value: unknown): value is Recipient {
+/** The core-api half of a recipient — everything except the live busy flag. */
+type RecipientBase = Omit<Recipient, "hasActiveSession">;
+
+function isRecipientBase(value: unknown): value is RecipientBase {
 	if (typeof value !== "object" || value === null) return false;
 	const v = value as Record<string, unknown>;
 	return (
@@ -34,7 +45,6 @@ function isRecipient(value: unknown): value is Recipient {
 		typeof v.name === "string" &&
 		typeof v.role === "string" &&
 		typeof v.status === "string" &&
-		typeof v.hasActiveSession === "boolean" &&
 		(v.avatarUrl === null || typeof v.avatarUrl === "string")
 	);
 }
@@ -76,8 +86,13 @@ export function useRecipients(query?: string): UseRecipientsResult {
 					setStatus("error");
 					return;
 				}
-				const valid = (body.recipients as unknown[]).filter(isRecipient);
-				setRecipients(valid);
+				const valid = (body.recipients as unknown[]).filter(isRecipientBase);
+				const counts: Readonly<Record<string, number>> = await fetchActiveRunCounts(
+					undefined,
+					ac.signal,
+				).catch(() => ({}));
+				if (ac.signal.aborted) return;
+				setRecipients(valid.map((r) => ({ ...r, hasActiveSession: (counts[r.id] ?? 0) > 0 })));
 				setStatus("ready");
 			} catch (cause) {
 				if (ac.signal.aborted) return;

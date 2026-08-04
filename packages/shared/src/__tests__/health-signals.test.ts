@@ -1,15 +1,17 @@
 /**
- * AB1 — Health signal computation: unit tests (RED phase)
+ * AB1 — Health signal computation: unit tests.
  *
- * Per reviewer finding A5: Health signal computation needs dedicated unit tests.
+ * Per reviewer finding A5: health signal computation needs dedicated unit tests.
  *
- * Tests the computeHealthSignals() function in isolation.
- * These tests FAIL until packages/server/src/routes/agent-profile.ts
- * exports computeHealthSignals.
+ * @lore AU26 J4: `computeHealthSignals` moved here from
+ * `core-api/src/routes/agent-profile.ts` — core-api stopped reading agent-run
+ * state, so the screens that render these signals fetch the runs from
+ * `agent-orchestration` and compute them in the browser. The function is
+ * unchanged; only its unused `harnessType` input field was dropped.
  */
 
 import { describe, expect, it } from "vitest";
-import { computeHealthSignals } from "../../routes/agent-profile.js";
+import { computeHealthSignals, deriveHealthDetail, deriveHealthLevel } from "../agent-run-view.js";
 
 // ---------------------------------------------------------------------------
 // computeHealthSignals unit tests
@@ -30,7 +32,6 @@ describe("computeHealthSignals", () => {
 	it("returns healthy defaults when no sessions", () => {
 		const signals = computeHealthSignals({
 			sessions: [],
-			harnessType: null,
 			harnessAvailable: true,
 		});
 
@@ -49,7 +50,6 @@ describe("computeHealthSignals", () => {
 
 		const signals = computeHealthSignals({
 			sessions,
-			harnessType: null,
 			harnessAvailable: true,
 		});
 
@@ -66,7 +66,6 @@ describe("computeHealthSignals", () => {
 
 		const signals = computeHealthSignals({
 			sessions,
-			harnessType: null,
 			harnessAvailable: true,
 		});
 
@@ -82,7 +81,6 @@ describe("computeHealthSignals", () => {
 
 		const signals = computeHealthSignals({
 			sessions,
-			harnessType: null,
 			harnessAvailable: true,
 		});
 
@@ -98,7 +96,6 @@ describe("computeHealthSignals", () => {
 
 		const signals = computeHealthSignals({
 			sessions,
-			harnessType: null,
 			harnessAvailable: true,
 		});
 
@@ -108,7 +105,6 @@ describe("computeHealthSignals", () => {
 	it("sets degraded=true when harnessAvailable=false", () => {
 		const signals = computeHealthSignals({
 			sessions: [],
-			harnessType: "aider",
 			harnessAvailable: false,
 		});
 
@@ -124,7 +120,6 @@ describe("computeHealthSignals", () => {
 
 		const signals = computeHealthSignals({
 			sessions,
-			harnessType: null,
 			harnessAvailable: true,
 		});
 
@@ -141,7 +136,6 @@ describe("computeHealthSignals", () => {
 
 		const signals = computeHealthSignals({
 			sessions,
-			harnessType: null,
 			harnessAvailable: true,
 		});
 
@@ -152,7 +146,6 @@ describe("computeHealthSignals", () => {
 	it("returns idleDurationMs as null when no sessions", () => {
 		const signals = computeHealthSignals({
 			sessions: [],
-			harnessType: null,
 			harnessAvailable: true,
 		});
 
@@ -166,7 +159,6 @@ describe("computeHealthSignals", () => {
 
 		const signals = computeHealthSignals({
 			sessions,
-			harnessType: null,
 			harnessAvailable: true,
 		});
 
@@ -179,7 +171,6 @@ describe("computeHealthSignals", () => {
 
 		const signals = computeHealthSignals({
 			sessions,
-			harnessType: null,
 			harnessAvailable: true,
 		});
 
@@ -200,7 +191,6 @@ describe("computeHealthSignals", () => {
 
 		const signals = computeHealthSignals({
 			sessions,
-			harnessType: null,
 			harnessAvailable: true,
 		});
 
@@ -209,5 +199,71 @@ describe("computeHealthSignals", () => {
 		expect(signals.idleDurationMs).toBeGreaterThan(0);
 		// Allow 10 seconds tolerance
 		expect(Math.abs((signals.idleDurationMs as number) - expectedMs)).toBeLessThan(10_000);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// AB2 — the two display derivations over the same signals.
+//
+// @lore AU26 J4: moved here with `computeHealthSignals`. Their callers are the
+// team page (roster health dot) and the notification body, and the team page is
+// now a browser-side caller.
+// ---------------------------------------------------------------------------
+
+describe("deriveHealthLevel", () => {
+	it("returns 'critical' when failureRate7d > 0.5", () => {
+		expect(deriveHealthLevel({ failureRate7d: 0.75, lastSessionCrashed: false })).toBe("critical");
+	});
+
+	it("returns 'warning' when the last run crashed", () => {
+		expect(deriveHealthLevel({ failureRate7d: 0, lastSessionCrashed: true })).toBe("warning");
+	});
+
+	it("returns 'warning' when the harness is unavailable", () => {
+		expect(
+			deriveHealthLevel({
+				failureRate7d: 0,
+				lastSessionCrashed: false,
+				harnessAvailable: false,
+			}),
+		).toBe("warning");
+	});
+
+	it("returns 'healthy' when nothing is wrong", () => {
+		expect(deriveHealthLevel({ failureRate7d: 0, lastSessionCrashed: false })).toBe("healthy");
+	});
+});
+
+describe("deriveHealthDetail", () => {
+	it("names a high failure rate with its percentage", () => {
+		expect(deriveHealthDetail({ failureRate7d: 0.75, lastSessionCrashed: false })).toBe(
+			"High failure rate (75%)",
+		);
+	});
+
+	it("names a crashed last run", () => {
+		expect(deriveHealthDetail({ failureRate7d: 0, lastSessionCrashed: true })).toBe(
+			"Last session crashed",
+		);
+	});
+
+	it("names an unavailable harness", () => {
+		expect(
+			deriveHealthDetail({
+				failureRate7d: 0,
+				lastSessionCrashed: false,
+				harnessAvailable: false,
+			}),
+		).toBe("Harness unavailable");
+	});
+
+	it("joins multiple problems", () => {
+		expect(deriveHealthDetail({ failureRate7d: 0.75, lastSessionCrashed: true })).toBe(
+			"High failure rate (75%). Last session crashed",
+		);
+	});
+
+	it("returns 'Healthy' when nothing is wrong", () => {
+		expect(deriveHealthDetail({ failureRate7d: 0, lastSessionCrashed: false })).toBe("Healthy");
 	});
 });

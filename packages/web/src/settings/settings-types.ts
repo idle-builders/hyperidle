@@ -93,7 +93,15 @@ export interface AgentConfig {
 	modelProvider: string | null;
 	maxConcurrentSessions: number;
 	status: string;
-	activeSessions: number;
+	/**
+	 * @lore AU26 J4: `activeSessions` was REMOVED. Core-api served it by counting
+	 * rows in `agent-orchestration`'s `sessions` table, and both PATCH handlers
+	 * had to re-serve it purely so the client could splice the response back into
+	 * the list row. Settings → Agents now fetches
+	 * `GET /api/agent-orchestration/runs/active-counts` alongside this list and
+	 * keeps the counts in their own state — same rendered string, and a save no
+	 * longer carries a run count at all.
+	 */
 	/** AB3: "team" | "strategy" | "individual" | null. Matches users.agentCategory. @lore AD8a: "personal" renamed to "individual". */
 	agentCategory: string | null;
 	/**

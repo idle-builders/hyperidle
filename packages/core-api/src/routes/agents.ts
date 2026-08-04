@@ -29,7 +29,7 @@ import {
 	validateAgentConfig,
 	writeAgentRunConfig,
 } from "@hyperidle/agent-run-config";
-import { type HyperIdleDb, readSystemPromptTemplateForRole, sessions } from "@hyperidle/db";
+import { type HyperIdleDb, readSystemPromptTemplateForRole } from "@hyperidle/db";
 import { getTeamMembers } from "@hyperidle/org";
 import {
 	AGENT_CATEGORIES,
@@ -43,7 +43,6 @@ import {
 } from "@hyperidle/shared";
 import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
 import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
-import { and, count, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { handleAgentProfile } from "./agent-profile.js";
@@ -171,14 +170,16 @@ export function createAgentRoutes(
 		const allAiRows = await listUsers(db, { kind: "ai" });
 		const agentRows = allAiRows.filter((u) => u.role !== "system" && u.status !== "retired");
 
-		// Count active sessions per agent
-		const activeCounts = await db
-			.select({ agentId: sessions.agentId, count: count() })
-			.from(sessions)
-			.where(eq(sessions.state, "active"))
-			.groupBy(sessions.agentId);
-
-		const countMap = new Map<string, number>(activeCounts.map((r) => [r.agentId, r.count]));
+		// @lore AU26 J4: the `activeSessions` count is GONE from this response. It
+		// was core-api counting rows in `agent-orchestration`'s `sessions` table so
+		// Settings → Agents could render "N active". Founder ruling: *"orchestration
+		// now has an api so that the ui can get the agent run state from the
+		// orchestration directly and combine this information in the ui."*
+		// `SettingsAgents.tsx` now fetches
+		// `GET /api/agent-orchestration/runs/active-counts` alongside this list and
+		// renders the same string. It also fixes a latent bug the split removes: the
+		// PATCH responses used to re-serve the count purely so the client could
+		// splice it back into the list row.
 
 		// AU26 G1: the run-config half of each agent comes from
 		// `agent_run_config` in ONE batched read — the wire shape stays flat.
@@ -201,7 +202,6 @@ export function createAgentRoutes(
 				modelProvider: runConfig.modelProvider,
 				maxConcurrentSessions: runConfig.maxConcurrentSessions,
 				status: agent.status,
-				activeSessions: countMap.get(agent.id) ?? 0,
 			};
 		});
 
@@ -292,7 +292,6 @@ export function createAgentRoutes(
 				modelProvider: effectiveProvider,
 				maxConcurrentSessions: data.maxConcurrentSessions,
 				status: "active",
-				activeSessions: 0,
 			},
 			201,
 		);
@@ -381,11 +380,6 @@ export function createAgentRoutes(
 			if (!updated) {
 				return c.json({ error: "Agent not found after update", code: "NOT_FOUND" }, 404);
 			}
-			const [activeCount] = await db
-				.select({ count: count() })
-				.from(sessions)
-				.where(and(eq(sessions.agentId, id), eq(sessions.state, "active")))
-				.limit(1);
 			const updatedRunConfig = await readAgentRunConfig(db, id);
 
 			return c.json({
@@ -401,7 +395,6 @@ export function createAgentRoutes(
 				modelProvider: updatedRunConfig.modelProvider,
 				maxConcurrentSessions: updatedRunConfig.maxConcurrentSessions,
 				status: updated.status,
-				activeSessions: activeCount?.count ?? 0,
 			});
 		}
 
@@ -458,11 +451,6 @@ export function createAgentRoutes(
 			return c.json({ error: "Agent not found after update", code: "NOT_FOUND" }, 404);
 		}
 
-		const [activeCount] = await db
-			.select({ count: count() })
-			.from(sessions)
-			.where(and(eq(sessions.agentId, id), eq(sessions.state, "active")))
-			.limit(1);
 		const updatedRunConfig = await readAgentRunConfig(db, id);
 
 		return c.json({
@@ -477,7 +465,6 @@ export function createAgentRoutes(
 			modelProvider: updatedRunConfig.modelProvider,
 			maxConcurrentSessions: updatedRunConfig.maxConcurrentSessions,
 			status: updated.status,
-			activeSessions: activeCount?.count ?? 0,
 		});
 	});
 

@@ -30,7 +30,6 @@ const TEAM_AGENT: AgentConfig = {
 	modelProvider: null,
 	maxConcurrentSessions: 2,
 	status: "active",
-	activeSessions: 0,
 	agentCategory: "team",
 };
 
@@ -45,7 +44,6 @@ const STRATEGY_AGENT: AgentConfig = {
 	modelProvider: null,
 	maxConcurrentSessions: 1,
 	status: "active",
-	activeSessions: 0,
 	agentCategory: "strategy",
 };
 
@@ -55,12 +53,6 @@ const TEAM_MEMBER: RosterMember = {
 	role: "builder",
 	isLead: false,
 	agentCategory: "team",
-	operationalStatus: "idle",
-	healthLevel: "healthy",
-	healthDetail: "Healthy",
-	activeTaskTitle: null,
-	activeTaskId: null,
-	activeBetId: null,
 };
 
 const STRATEGY_MEMBER: RosterMember = {
@@ -69,12 +61,6 @@ const STRATEGY_MEMBER: RosterMember = {
 	role: "scout",
 	isLead: false,
 	agentCategory: "strategy",
-	operationalStatus: "idle",
-	healthLevel: "healthy",
-	healthDetail: "Healthy",
-	activeTaskTitle: null,
-	activeTaskId: null,
-	activeBetId: null,
 };
 
 export default { title: "Page: Work/AgentDetailPane" };
