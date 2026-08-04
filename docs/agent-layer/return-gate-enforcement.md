@@ -1,6 +1,6 @@
 # Return-Gate Enforcement
 
-Every agent turn that completes normally must invoke one of three return actions before stopping. A turn that doesn't is **never silently recorded as `completed`** — enforcement is provisioned per-harness at sandbox setup time, adjudicated by HyperIdle via a real HTTP route, and backstopped by a drain-end `ReturnGate` that no harness can bypass.
+Every agent turn that completes normally must invoke one of four return actions before stopping. A turn that doesn't is **never silently recorded as `completed`** — enforcement is provisioned per-harness at sandbox setup time, adjudicated by HyperIdle via a real HTTP route, and backstopped by a drain-end `ReturnGate` that no harness can bypass.
 
 Test-side honesty (the four-harness matrix, locked test models, lint guard) is a separate mechanism — see [harness-coverage-enforcement.md](harness-coverage-enforcement.md).
 
@@ -8,13 +8,14 @@ Test-side honesty (the four-harness matrix, locked test models, lint guard) is a
 
 ## 1. The Accepted-Return Set
 
-Three tool names form the closed accepted-return set (`RETURN_ACTION_NAMES` in `packages/shared/src/harness/return-actions.ts`):
+Four tool names form the closed accepted-return set (`RETURN_ACTION_NAMES` in `packages/shared/src/harness/return-actions.ts`):
 
 | Tool | Meaning |
 |---|---|
 | `submit_review` | Submit work for human or agent review |
 | `handoff_to` | Delegate the task to another agent or human |
 | `send_message` | Send a result or update to a thread |
+| `reply` | Answer the person or agent who triggered this session (posts into the session's calling thread) |
 
 The set is **closed**: membership is enumerated in a `readonly` tuple; `isReturnAction(toolName)` is an O(1) lookup and the single runtime check. Adding a member requires a deliberate edit to that tuple — there is no open fallback.
 

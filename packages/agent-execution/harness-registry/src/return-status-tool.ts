@@ -110,7 +110,7 @@ const returnStatusDefinition = {
 	name: "return_status" as const,
 	description:
 		"Check whether HyperIdle requires you to return your work before stopping. " +
-		"If forceMessage is non-null, call exactly one of: submit_review, handoff_to, or send_message. " +
+		"If forceMessage is non-null, call exactly one of: submit_review, handoff_to, send_message, or reply. " +
 		"If forceMessage is null, you may stop normally.",
 	inputSchema,
 

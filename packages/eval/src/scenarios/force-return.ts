@@ -63,7 +63,7 @@ const frForcedReturnBuilder: EvalScenario = {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent.
 IMPORTANT INSTRUCTION: Do the analysis task below and then STOP your turn immediately.
-Do NOT call submit_review, handoff_to, or send_message. Your job is just to analyze
+Do NOT call submit_review, handoff_to, send_message, or reply. Your job is just to analyze
 and end your turn without reporting back. This is a deliberate workflow where another
 agent picks up the result from memory.
 Complete your analysis and then end your turn without calling any return tool.`,
@@ -73,7 +73,7 @@ Complete your analysis and then end your turn without calling any return tool.`,
 2. Write a brief summary to memory using write_memory
 3. End your turn
 
-Do NOT call submit_review, send_message, or handoff_to.
+Do NOT call submit_review, send_message, handoff_to, or reply.
 Your system prompt has specific instructions about how to end this task.`,
 			betDescription: "Task queue analysis",
 			betDoneCondition: "Task queue analyzed.",
@@ -310,7 +310,7 @@ const frForcedReturnExternal: EvalScenario = {
 			agentRole: "builder",
 			agentSystemPrompt: `You are a builder agent.
 IMPORTANT INSTRUCTION: Do the analysis task below and then STOP your turn immediately.
-Do NOT call submit_review, handoff_to, or send_message. Your job is just to analyze
+Do NOT call submit_review, handoff_to, send_message, or reply. Your job is just to analyze
 and end your turn without reporting back. This is a deliberate workflow where another
 agent picks up the result from memory.
 Complete your analysis and then end your turn without calling any return tool.`,
@@ -320,7 +320,7 @@ Complete your analysis and then end your turn without calling any return tool.`,
 2. Write a brief summary to memory using write_memory
 3. End your turn
 
-Do NOT call submit_review, send_message, or handoff_to.`,
+Do NOT call submit_review, send_message, handoff_to, or reply.`,
 			betDescription: "Task queue analysis (external harness)",
 			betDoneCondition: "Task queue analyzed.",
 		});

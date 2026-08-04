@@ -135,8 +135,13 @@ export function isInternalExtractionDrain(config: { tools: readonly string[] }):
  * stop without returning. Single source of truth — used by the SDK Stop hook
  * callback, the builtin loop re-inject, and any future forcing path.
  *
- * @lore This string is what the agent sees when forced to return. All
- * three return tools are named so the agent can choose the appropriate one.
+ * @lore This string is what the agent sees when forced to return, when
+ * the session has no specific `requiredReturnActions` (the pre-Increment-3
+ * default). It names the three return tools that are valid for every
+ * session regardless of kind — `reply` is deliberately excluded here
+ * because it is only satisfiable by a session with a calling thread;
+ * a session that needs `reply` specifically gets the required-subset
+ * message from `buildForceReturnMessage`/`shouldForceReturn` instead.
  * The message is intentionally direct and action-oriented.
  */
 export const FORCE_RETURN_MESSAGE =
