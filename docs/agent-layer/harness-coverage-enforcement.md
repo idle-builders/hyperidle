@@ -205,7 +205,7 @@ Init/system lifecycle events produce empty completions, intermediate blocks carr
 - Is **exempted** from the 4-harness coverage rule (Gate 1).
 - **Still enforced** for: (a) `requireHarness("builtin")` declared, (b) zero stubs / no `vi.mock` of harness seams, (c) no `skipIf`-on-absent gates.
 
-**The list is empty — keep it empty** unless a future production path structurally cannot run CLI harnesses and still must be tested as a harness-facing integration. The former canonical case (the assistant turn) no longer exists: AR4a routed assistant turns through `provisionSession` conversational mode (real sandbox, MCP bridge, all four harnesses), proven end-to-end by the full-matrix `conversational-reply-row.integration.test.ts`.
+**The list is empty — keep it empty** unless a future production path structurally cannot run CLI harnesses and still must be tested as a harness-facing integration. The assistant turn is not such a case: it runs through the same `provisionSession`/durable poller path as every other agent kind (real sandbox, MCP bridge, all four harnesses), proven end-to-end by `assistant-reply-live-harness.integration.test.ts`.
 
 **Why not the coverage-debt allowlist?** `coverage-debt.allowlist.json` means "below 4 harnesses _temporarily_, will reach 4." A builtin-only path will _never_ reach 4 — listing it there would be a permanent lie. The carve-out states a structural truth; the allowlist states a temporary debt.
 
@@ -231,7 +231,7 @@ Task-dispatcher and session-route happy paths run against real harnesses through
 | `nonblocking-session-creation.integration.test.ts` | `POST /api/sessions` returns 202 and the real run reaches terminal state |
 | `provisioning-single-tool-execution.integration.test.ts` | Real agent tool call executes exactly once |
 | `session-cost-per-step-delta.integration.test.ts` | Real session cost delta is persisted correctly |
-| `conversational-reply-row.integration.test.ts` | Conversational assistant path persists a non-empty assistant reply across all harnesses |
+| `assistant-reply-live-harness.integration.test.ts` | An assistant turn's reply reaches the calling thread via the agent's own `reply` tool call, across all harnesses |
 | `minimal-strategy-session.integration.test.ts` | Real session runs under the real minimal strategy |
 | `bet-decomposition-real-agent.integration.test.ts` | Real agent decomposes a bet and persists tasks |
 

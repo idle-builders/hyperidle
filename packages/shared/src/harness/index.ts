@@ -36,7 +36,6 @@ export {
 	preMapClaudeEvent,
 } from "./harness-event-normalization.js";
 export type {
-	CapturedToolCall,
 	CompletionEvent,
 	ErrorEvent,
 	HarnessEvent,
@@ -46,13 +45,19 @@ export type {
 	ToolCallEvent,
 } from "./harness-events.js";
 export { MockHarnessAdapter } from "./mock-harness-adapter.js";
-export type { ReturnActionName } from "./return-actions.js";
-// ── AL6: Closed accepted-return set + v2 forcing helpers ──
+export type { HarnessAdapterType, LiteralToolNamer, ReturnActionName } from "./return-actions.js";
+// ── Closed accepted-return set + forcing helpers ──
 export {
-	AL6_FORCE_RETURN_MESSAGE,
-	AL6_MAX_FORCE_RETURNS,
+	buildForceReturnMessage,
+	FORCE_RETURN_MESSAGE,
 	isInternalExtractionDrain,
+	isRequiredReturnAction,
 	isReturnAction,
+	// AU27 Increment 8: harness-literal tool naming for return-action mentions
+	literalToolNamerForAdapterType,
+	MAX_FORCE_RETURNS,
+	mcpNamespacedToolName,
+	opencodeToolName,
 	RETURN_ACTION_NAMES,
 	shouldForceReturn,
 } from "./return-actions.js";

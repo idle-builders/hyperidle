@@ -6,10 +6,8 @@ import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle
 import {
 	type AgentSessionSourceCorrelation,
 	type AgentSessionSourceKind,
-	AL6_MAX_FORCE_RETURNS,
 	type BakedAgentRunnableConfig,
 	type BakedContextBundle,
-	type CapturedToolCall,
 	ConcurrencyLimitError,
 	type ConversationMessage,
 	type EventBus,
@@ -18,6 +16,8 @@ import {
 	type HarnessEvent,
 	isInternalExtractionDrain,
 	isReturnAction,
+	literalToolNamerForAdapterType,
+	MAX_FORCE_RETURNS,
 	MissingCredentialError,
 	MODEL_TIERS,
 	type ModelTier,
@@ -177,6 +177,8 @@ interface SessionLifecycleEnforcementEntry {
 	readonly gate: { readonly returned: boolean };
 	forceCount: number;
 	readonly exempt: boolean;
+	/** AU27 Increment 3 (Decision 3) — the session's specific required return subset, when it has one. */
+	readonly requiredReturnActions?: readonly string[];
 }
 
 interface SessionLifecycleEnforcementRegistry {
@@ -207,7 +209,12 @@ interface SessionLifecycleSandboxAdapter {
 
 interface SessionLifecycleHarnessRuntime {
 	enforcementRegistry: SessionLifecycleEnforcementRegistry;
-	createReturnGate(): SessionLifecycleReturnGate;
+	/**
+	 * AU27 Increment 3 (Decision 3) — `requiredReturnActions`, when supplied,
+	 * narrows the predicate in the closure to only that subset. Absent ⇒ the
+	 * pre-Increment-3 default (any member of the closed return set).
+	 */
+	createReturnGate(requiredReturnActions?: readonly string[]): SessionLifecycleReturnGate;
 	evaluateReturn(
 		gate: SessionLifecycleReturnGate,
 		endReason: "completed" | "crashed" | "stopped",
@@ -252,6 +259,12 @@ interface SessionLifecycleToolContext {
 	readonly sandboxPath: string;
 	readonly ingestion: { dispose(): void };
 	readonly onAbortSession?: (sessionId: string) => void;
+	/**
+	 * AU27 Increment 1 (Decision 1) — the session's calling thread, forwarded
+	 * straight from `params.callingThreadId` (baked at emit — zero
+	 * orchestration -> core read). Absent for `routine_run`/`knowledge_action`.
+	 */
+	readonly threadId?: string;
 }
 
 /** `RegistrySessionWorkflow` (`tool-registry.ts`) — extends `@hyperidle/shared`'s `SessionWorkflow` with server-side capture anchors. This Service's own public `ProvisionSessionParams.sessionWorkflow` field type. */
@@ -358,7 +371,6 @@ interface SessionLifecycleContextAssembly {
 		readonly tools: readonly SessionLifecycleToolSummary[];
 		readonly sandboxPath: string;
 	}): Promise<{ readonly assembledPrompt: string; readonly personaToolsTokens: number }>;
-	composeAssistantPrompt(systemPromptText: string): { readonly composedPrompt: string };
 	writeSandboxAgentsMd(sandboxPath: string, assembledPrompt: string): void;
 }
 
@@ -446,16 +458,56 @@ async function assembleTaskFreePrompt(
 	systemPromptText: string,
 	toolSummaries: readonly SessionLifecycleToolSummary[],
 	_ports: SessionLifecyclePorts,
+	/**
+	 * AU27 Increment 8 (BLOCKER fix) — the selected adapter's registration
+	 * `type` (e.g. "opencode", "claude-code"), used to name the `reply` tool
+	 * literally in the orientation line below — see `literalToolNamerForAdapterType`.
+	 */
+	adapterType: string | undefined,
 ): Promise<string> {
 	const toolSection =
 		toolSummaries.length > 0
 			? `\n\n## Tools\n${toolSummaries.map((tool) => `- ${tool.name}: ${tool.description}`).join("\n")}`
 			: "";
 
-	const sourceSection = params.requestContext
-		? `## Session request\nSource kind: ${params.requestContext.sourceKind}\nSource ID: ${params.requestContext.sourceId}\nCorrelation: ${JSON.stringify(params.requestContext.sourceCorrelation)}`
-		: "## Session request\nTask-free session request";
-	return [systemPromptText, sourceSection, toolSection].filter(Boolean).join("\n\n");
+	// AU27 Increment 4 (Decision 2, item 2): when a transcript is present,
+	// render a human-readable source line instead of the raw machine-id
+	// Correlation JSON (`threadId`/`messageId`) — raw ids in the system
+	// prompt of the most user-facing session is a rough edge, not a
+	// requirement; a transcript-bearing session already carries its own
+	// context in the `## Conversation` section below.
+	const sourceSection = params.transcript
+		? "## Session request\nYou are replying in an ongoing conversation."
+		: params.requestContext
+			? `## Session request\nSource kind: ${params.requestContext.sourceKind}\nSource ID: ${params.requestContext.sourceId}\nCorrelation: ${JSON.stringify(params.requestContext.sourceCorrelation)}`
+			: "## Session request\nTask-free session request";
+
+	// The `## Conversation` section renders the session's calling-thread
+	// transcript, when one was baked for it, so any agent kind can see the
+	// conversation it is replying within.
+	const conversationSection =
+		params.transcript && params.transcript.length > 0
+			? `## Conversation\n${params.transcript.map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`).join("\n")}`
+			: "";
+
+	// AU27 Increment 4 (Decision 3 orientation): a one-line reminder when this
+	// session's only satisfying return action is `reply`, not the trio.
+	//
+	// AU27 Increment 8 (BLOCKER fix): name the LITERAL tool the harness
+	// exposes (e.g. `mcp__hyperidle__reply` / `hyperidle_reply`), not the bare
+	// name — a model that must resolve a bare mention itself either burns an
+	// extra round trip doing so (Claude's internal tool search) or, on a
+	// smaller model, fails outright trying to call a tool name that does not
+	// exist ("Model tried to call unavailable tool 'reply'").
+	const replyToolName = literalToolNamerForAdapterType(adapterType)("reply");
+	const replyOrientation =
+		params.callingThreadId != null && params.taskId == null
+			? `When you are done, call \`${replyToolName}\` to answer in this conversation.`
+			: "";
+
+	return [systemPromptText, sourceSection, conversationSection, replyOrientation, toolSection]
+		.filter(Boolean)
+		.join("\n\n");
 }
 
 /**
@@ -600,12 +652,6 @@ interface ProvisionSessionParams {
 	 * model, and API key.
 	 */
 	readonly resolvedModel?: ResolvedModel;
-	/**
-	 * X6: Resolved fast-tier model for builtin harness summarization.
-	 * Optional — when absent the builtin harness uses resolvedModel for all LLM
-	 * calls including summarization (slightly higher cost, functionally equivalent).
-	 */
-	readonly resolvedFastModel?: ResolvedModel;
 	readonly requestContext?: {
 		readonly requestId: string;
 		readonly sourceKind: AgentSessionSourceKind;
@@ -625,7 +671,7 @@ interface ProvisionSessionParams {
 	 * are built from — `kind:"task"` for `task_run`/`reengagement`,
 	 * `kind:"routine"` for `routine_run`. Sourced from the emit-time resolver
 	 * via the drained `AgentSessionRequest.payloadJson` (zero db read here).
-	 * Absent for `knowledge_action`/`session_start`/conversational turns.
+	 * Absent for `knowledge_action`/`session_start`/`assistant_turn` turns.
 	 */
 	readonly contextBundle?: BakedContextBundle;
 	/**
@@ -691,39 +737,29 @@ interface ProvisionSessionParams {
 	 */
 	readonly injectedConnections?: HeldConnectionsForProvisioning;
 	/**
+	 * AU27 Increment 1 (Decision 1) — the session's calling thread id, baked at
+	 * EMIT time by every per-kind resolver that has one (`assistant_turn` from
+	 * the triggering message's thread; `task_run`/`session_start`/
+	 * `reengagement` from Decision 0's resolve-or-create). Absent for
+	 * `routine_run`/`knowledge_action`. Forwarded verbatim onto
+	 * `SessionLifecycleToolContext.threadId` in Phase 8 — the `reply` tool
+	 * (Increment 2) reads it from there. ZERO orchestration -> core read.
+	 */
+	readonly callingThreadId?: string;
+	/**
+	 * The session's calling-thread transcript, mapped to generic chat
+	 * messages at drain time (`runtime.ts`'s `mapTranscriptToMessages`).
+	 * Feeds the `## Conversation` prompt section (Phase 8.5, every harness)
+	 * and `SessionConfig.messages` (selects the builtin adapter's chat
+	 * completion over the planning loop). Absent for a session with no
+	 * transcript.
+	 */
+	readonly transcript?: readonly ConversationMessage[];
+	/**
 	 * AL7 Task 6: When set, the registry invoke router participates in the
 	 * trust-first review workflow for this session.
 	 */
 	readonly sessionWorkflow?: SessionLifecycleRegistrySessionWorkflow;
-	/**
-	 * AR4a: When set, this session is a CONVERSATIONAL-mode turn (the assistant
-	 * replying to a thread message). Context assembly switches to the conversation
-	 * branch — thread transcript is delivered via the assembled prompt / AGENTS.md
-	 * so every harness receives it.
-	 */
-	readonly conversational?: {
-		/** The thread the assistant is replying in. */
-		readonly threadId: string;
-		/** The assistant agent id (ast-${userId}). */
-		readonly assistantAgentId: string;
-		/**
-		 * Caller-supplied draft tool surface (AR4a↔AR4b seam). Opaque — this
-		 * Service never inspects anything beyond `.definitions`, forwarded whole
-		 * to `buildToolRegistry`'s `extraTools`.
-		 */
-		readonly draftRegistry: { readonly definitions: readonly { readonly name: string }[] };
-		/**
-		 * Conversation messages for the builtin adapter's `runChatTurn` path.
-		 * Load-bearing for builtin (NIT-4).
-		 */
-		readonly messages: ConversationMessage[];
-		/**
-		 * AR4b: Strategy formation answer — persona override for this turn.
-		 * null = no override; use the agent row's systemPrompt as-is.
-		 * undefined = not set by caller (pre-AR4b callers; treated as no override).
-		 */
-		readonly systemPromptOverride?: string | null;
-	};
 }
 
 interface ProvisionSessionResult {
@@ -731,26 +767,16 @@ interface ProvisionSessionResult {
 	readonly outcome: SessionOutcome;
 	readonly taskId: string | null;
 	/**
-	 * AL6: Return-gate verdict for this session run. Present on all task-session
+	 * Return-gate verdict for this session run. Present on all task-session
 	 * outcomes ("returned" | "not_returned"). Absent (undefined) on assistant
 	 * turns and extraction drains which use different provisioning paths.
 	 */
 	readonly returnVerdict?: "returned" | "not_returned";
 	/**
-	 * AL6 v3: Unified turn-level force injection count.
+	 * Unified turn-level force injection count.
 	 */
 	readonly forceReturnCount: number;
 	readonly metrics?: SessionMetrics;
-	/**
-	 * AR4a: The agent's reply text for a CONVERSATIONAL-mode turn — the last
-	 * non-empty `completion` event text from the drain. Present ONLY when
-	 * `params.conversational` was set AND the session outcome is "completed".
-	 */
-	readonly conversationalReply?: string;
-	/**
-	 * AR4a: captured tool calls from the conversational turn.
-	 */
-	readonly conversationalToolCalls?: readonly CapturedToolCall[];
 }
 
 /**
@@ -1127,6 +1153,7 @@ async function runSession(
 		taskId: params.taskId ?? "",
 		teamId,
 		...(params.requestContext ? { requestContext: params.requestContext } : {}),
+		...(params.callingThreadId ? { threadId: params.callingThreadId } : {}),
 		sandboxPath,
 		ingestion,
 		// AL7 Task 6: inject abort callback so the workflow router can end session 1
@@ -1139,26 +1166,16 @@ async function runSession(
 				}
 			: undefined,
 	};
-	// AR4a §3b seam: in conversational mode, forward the caller-supplied draft tool
-	// surface into the registry.
-	const conversationalDraftTools = params.conversational?.draftRegistry.definitions ?? [];
-	// @lore AR4a: Conversational mode uses ONLY [draftTools + return-status] — no role tools.
-	const registry: SessionLifecycleToolRegistry = params.conversational
-		? ports.toolProvider.buildToolRegistry(toolContext, {
-				role: agentRole,
-				useOnlyExtraTools: true,
-				extraTools: [
-					ports.toolProvider.returnStatusToolForRegistry(ports.harnessRuntime.enforcementRegistry),
-					...conversationalDraftTools,
-				],
-			})
-		: ports.toolProvider.buildToolRegistry(toolContext, {
-				role: agentRole,
-				extraTools: [
-					ports.toolProvider.returnStatusToolForRegistry(ports.harnessRuntime.enforcementRegistry),
-				],
-				sessionWorkflow: params.sessionWorkflow,
-			});
+	// Every session, assistant included, gets the ordinary role-scoped tool
+	// registry — the assistant's tool surface spans every `roles: undefined`
+	// tool, deliberately, per the founder's own direction.
+	const registry: SessionLifecycleToolRegistry = ports.toolProvider.buildToolRegistry(toolContext, {
+		role: agentRole,
+		extraTools: [
+			ports.toolProvider.returnStatusToolForRegistry(ports.harnessRuntime.enforcementRegistry),
+		],
+		sessionWorkflow: params.sessionWorkflow,
+	});
 
 	// ── Phase 8.5a: inject registry into builtin harness before startSession.
 	if (
@@ -1176,33 +1193,14 @@ async function runSession(
 			description: d.description,
 		}));
 
-	/** AR4a: true only in conversational mode — gates the reply-capture drain branch. */
-	const isConversational = !!params.conversational;
-	/** AR4a NIT-4: messages for the builtin chat path (load-bearing for builtin). */
-	let conversationalMessages: ConversationMessage[] | undefined;
+	/** Messages for the builtin chat path (`runChatTurn`) — set when `params.transcript` is present. */
+	let chatMessages: ConversationMessage[] | undefined;
 
 	const effectiveSystemPromptText =
 		params.requestContext?.triggerPromptOverride ?? systemPromptText;
 
 	let assembledPrompt: string;
-	if (params.conversational) {
-		// AR4a: Conversational mode — assemble thread transcript as the system prompt.
-		const effectivePersona =
-			params.conversational.systemPromptOverride !== undefined &&
-			params.conversational.systemPromptOverride !== null
-				? params.conversational.systemPromptOverride
-				: effectiveSystemPromptText;
-		const { composedPrompt } = ports.contextAssembly.composeAssistantPrompt(effectivePersona);
-		conversationalMessages = params.conversational.messages;
-		const transcriptSection =
-			conversationalMessages.length > 0
-				? "\n\n## Conversation\n" +
-					conversationalMessages
-						.map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
-						.join("\n")
-				: "";
-		assembledPrompt = composedPrompt + transcriptSection;
-	} else if (params.routineId && params.contextBundle?.kind === "routine") {
+	if (params.routineId && params.contextBundle?.kind === "routine") {
 		// AU21 §9 Increment 12 (Decision H3): routine session — derive
 		// routine+agent+team context from the baked `kind:"routine"` bundle,
 		// ZERO db read (the routine/org reads this used to make via
@@ -1247,7 +1245,18 @@ async function runSession(
 			effectiveSystemPromptText,
 			toolSummaries,
 			ports,
+			selectedAdapter.meta.type,
 		);
+	}
+
+	// AU27 Increment 4 (Decision 2): generic transcript delivery, item 3 —
+	// `SessionConfig.messages` from `params.transcript`. Selects the builtin
+	// adapter's chat completion (`runChatTurn`) over the planning loop
+	// (`builtin-harness-adapter.ts:397`) on a generic input, not "is this the
+	// assistant" — the assistant is simply the first (and today, only) kind
+	// that bakes one, since Increment 6's switchover.
+	if (params.transcript) {
+		chatMessages = [...params.transcript];
 	}
 
 	ports.contextAssembly.writeSandboxAgentsMd(sandboxPath, assembledPrompt);
@@ -1261,12 +1270,21 @@ async function runSession(
 		fs.writeFileSync(mcpJsonPath, JSON.stringify({ mcpServers: {} }, null, 2), "utf-8");
 	}
 
-	// AL6: One gate per session — all events observed by this gate. Declared
+	// A session whose output belongs in a calling thread and has no task (the
+	// assistant, and now knowledge_action too) must call `reply`, not the
+	// trio — purely structural, no `sourceKind` check anywhere. A task-bound
+	// session (task_run/session_start/reengagement/proposed_call) also bakes
+	// a calling thread but keeps the trio available (`reply` still lands in
+	// the same thread, but so does e.g. `handoff_to`).
+	const requiredReturnActions: readonly string[] | undefined =
+		params.callingThreadId != null && params.taskId == null ? ["reply"] : undefined;
+
+	// One gate per session — all events observed by this gate. Declared
 	// here (before the MCP bridge's `onToolCall` closure below references it)
 	// so the closure captures the same binding `createReturnGate()`
 	// initializes — the closure only ever fires later, once an actual tool
 	// call streams in (well after this synchronous assignment completes).
-	const returnGate = ports.harnessRuntime.createReturnGate();
+	const returnGate = ports.harnessRuntime.createReturnGate(requiredReturnActions);
 	let mcpBridgeToken: string | undefined;
 	/** AL7 delta: per-session MCP token env for CLI harnesses (codex: HYPERIDLE_MCP_TOKEN). */
 	let mcpTokenEnv: Record<string, string> | undefined;
@@ -1366,22 +1384,23 @@ async function runSession(
 		channel: adapterCapabilities.returnEnforcement,
 		bridgeToken: mcpBridgeToken ?? "",
 		mcpUrl: mcpBridgeToken && mcpBaseUrl ? `${mcpBaseUrl}/api/mcp/${mcpBridgeToken}` : "",
-		forceBudget: AL6_MAX_FORCE_RETURNS,
+		forceBudget: MAX_FORCE_RETURNS,
 	});
 
-	// ── Phase 9-10: single startSession + drain (AL6 v4-final — Loop DELETED).
+	// ── Phase 9-10: single startSession + drain.
 
-	// AL6 v4-final: register this session in the enforcement registry now that the
+	// Register this session in the enforcement registry now that the
 	// real gate exists.
-	const exempt =
-		isConversational ||
-		isInternalExtractionDrain({
-			tools: ports.toolProvider.toolsForRole(agentRole).map((d) => d.name),
-		});
+	// The assistant is not exempt from return enforcement — it must call
+	// `reply` like every other required-return session.
+	const exempt = isInternalExtractionDrain({
+		tools: ports.toolProvider.toolsForRole(agentRole).map((d) => d.name),
+	});
 	ports.harnessRuntime.enforcementRegistry.register(sessionId, {
 		gate: returnGate,
 		forceCount: 0,
 		exempt,
+		...(requiredReturnActions ? { requiredReturnActions } : {}),
 	});
 
 	let crashed = false;
@@ -1395,7 +1414,7 @@ async function runSession(
 			? {
 					bridgeToken: mcpBridgeToken,
 					mcpUrl: `${mcpBaseUrl}/api/mcp/${mcpBridgeToken}`,
-					forceBudget: AL6_MAX_FORCE_RETURNS,
+					forceBudget: MAX_FORCE_RETURNS,
 				}
 			: undefined;
 	const sessionStartConfig = {
@@ -1406,14 +1425,14 @@ async function runSession(
 		modelTier,
 		tools: allowedToolNames,
 		resolvedModel: params.resolvedModel as ResolvedModel | undefined,
-		resolvedFastModel: params.resolvedFastModel as ResolvedModel | undefined,
 		mcpConnectionInfo: mcpBridgeToken
 			? { url: `${mcpBaseUrl}/api/mcp/${mcpBridgeToken}`, token: mcpBridgeToken }
 			: undefined,
 		returnHook: returnHookConfig,
 		...(params.sessionWorkflow ? { sessionWorkflow: params.sessionWorkflow } : {}),
 		...(mcpTokenEnv ? { mcpTokenEnv } : {}),
-		...(conversationalMessages ? { messages: conversationalMessages } : {}),
+		...(chatMessages ? { messages: chatMessages } : {}),
+		...(requiredReturnActions ? { requiredReturnActions } : {}),
 	};
 
 	// X5: Determine whether to intercept tool_call events from the stream.
@@ -1437,8 +1456,6 @@ async function runSession(
 
 	let harnessHandle: SessionHandle | null = null;
 	let metrics: SessionMetrics | undefined;
-	let conversationalReplyText = "";
-	let conversationalToolCallsCapture: readonly CapturedToolCall[] | undefined;
 
 	// W1: try/finally ensures the adapter pool slot is ALWAYS released once, even
 	// on errors.
@@ -1459,7 +1476,7 @@ async function runSession(
 		try {
 			if (harnessHandle) {
 				for await (const event of harness.streamEvents(harnessHandle)) {
-					// AL6: Observe every event FIRST — the gate is read-only.
+					// Observe every event FIRST — the gate is read-only.
 					returnGate.observe(event);
 
 					if (aborted) {
@@ -1483,12 +1500,6 @@ async function runSession(
 						});
 						if (interceptToolCalls && selectedAdapter.meta.type !== "builtin") {
 							await registry.invoke(event.toolName, event.args);
-						}
-					} else if (event.type === "completion") {
-						if (isConversational && event.text.length > 0) {
-							conversationalReplyText = event.text;
-							conversationalToolCallsCapture =
-								event.toolCalls && event.toolCalls.length > 0 ? event.toolCalls : undefined;
 						}
 					} else if (event.type === "error") {
 						crashed = true;
@@ -1574,8 +1585,8 @@ async function runSession(
 		};
 	}
 
-	// AL6: Evaluate the return gate at normal turn completion.
-	const returnEndReason = aborted || isConversational ? "stopped" : "completed";
+	// Evaluate the return gate at normal turn completion.
+	const returnEndReason = aborted ? "stopped" : "completed";
 	const returnVerdict = ports.harnessRuntime.evaluateReturn(returnGate, returnEndReason);
 
 	if (returnVerdict === "not_returned") {
@@ -1594,6 +1605,10 @@ async function runSession(
 						sourceCorrelation: params.requestContext.sourceCorrelation,
 					}
 				: {}),
+			// AU27 Increment 5 (Decision 5): the never-silent net's `conversation`
+			// subscriber needs somewhere to post — forward the already-baked
+			// calling thread id (Increment 1), zero extra read.
+			...(params.callingThreadId ? { callingThreadId: params.callingThreadId } : {}),
 			timestamp: Date.now(),
 		});
 
@@ -1651,10 +1666,6 @@ async function runSession(
 		returnVerdict,
 		forceReturnCount: computeForceReturnCount(),
 		...(metrics ? { metrics } : {}),
-		...(isConversational ? { conversationalReply: conversationalReplyText } : {}),
-		...(isConversational && conversationalToolCallsCapture
-			? { conversationalToolCalls: conversationalToolCallsCapture }
-			: {}),
 	};
 }
 

@@ -18,6 +18,7 @@ import {
 	insertThread,
 	listMessages,
 	registerAssistantThreadPinReaction,
+	registerSessionNotReturnedNotice,
 	updateMessage,
 	updateThread,
 } from "@hyperidle/conversation";
@@ -30,7 +31,6 @@ import {
 	propagationLog,
 	resolveProfile,
 } from "@hyperidle/db";
-import type { DispatchOps } from "@hyperidle/dispatch";
 import {
 	RegistryFilesystemMounter,
 	resolveInjectedFilesystemsForAgent,
@@ -94,13 +94,13 @@ import { createApp, disposeApp } from "./app.js";
 import { registerWsRoute } from "./routes/ws.js";
 import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
 import { registerAssistantTurnCoherenceTrigger } from "./services/assistant-turn-coherence-trigger.js";
+import { resolveOrCreateCallingThread } from "./services/calling-thread-bindings.js";
 import {
 	createInProcessCoreApiTransport,
 	registerCoreApiTransport,
 } from "./services/core-api-port-composition.js";
 // @lore AU21 Increment 14a: cost sentinel + `costOps`/`cost-bindings.ts` are
 // HARD-DELETED along with the rest of the cost feature — no replacement.
-import { dispatchOps } from "./services/dispatch-bindings.js";
 import { registerRoutineRunSessionEndReactions } from "./services/routine-run-session-end-reactions.js";
 import {
 	registerBuiltinRoutineReactions,
@@ -111,14 +111,9 @@ import { registerWorkSessionEndReactions } from "./services/work-session-end-rea
 import { registerWorkSessionStartedReactions } from "./services/work-session-started-reactions.js";
 import { registerWorkStatePushGateway } from "./services/work-state-push-gateway.js";
 
-type AssistantTurnDeps = Parameters<DispatchOps["runAssistantTurn"]>[0];
 /**
- * @lore AU21 §9 Increment 9 (forensic-triage wave, second pass): used to be
- * derived from `DispatchConfig["task"]` (`NonNullable<...> & {db, eventBus}`)
- * — `dispatch`'s task-queue trigger (and `DispatchConfig["task"]` with it) is
- * deleted, genuinely dead code (see `@hyperidle/dispatch`'s own `@lore`).
- * This shape now stands on its own: it is NOT a dispatch config anymore, just
- * the bundle of provisioning-related values `registerCoreDomainServices`/
+ * @lore AU21 §9 Increment 9 (forensic-triage wave, second pass): the bundle
+ * of provisioning-related values `registerCoreDomainServices`/
  * `registerAgentLayerServices` thread through — kept as a named type only so
  * `Boolean(ctx.dispatcherDeps)` still has a stable "is provisioning
  * configured" presence signal (`canProvision`'s default, below).
@@ -126,8 +121,7 @@ type AssistantTurnDeps = Parameters<DispatchOps["runAssistantTurn"]>[0];
 interface TaskDispatcherDeps {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
-	// @lore structural typing (same idiom `@hyperidle/dispatch`'s own now-deleted
-	// `TaskDispatcherDeps` used, `unknown` rather than `any` — strict): the real
+	// @lore structural typing (`unknown` rather than `any` — strict): the real
 	// call site (below) passes a concrete `AdapterPool`/`SandboxAdapter`; test
 	// call sites pass inert fakes to exercise disposer bookkeeping only, never
 	// this shape's actual runtime behavior.
@@ -460,9 +454,8 @@ export function registerCoreDomainServices(ctx: {
 	);
 
 	// AU21 §9 Increment 11 (Decision H2/F4): "pin the assistant thread after
-	// its first AI reply", moved ENTIRELY core-side from `dispatch`'s deleted
-	// `registerAssistantTriggerInternal` — a `@hyperidle/conversation`-owned
-	// reaction to its OWN `thread_message_appended` event.
+	// its first AI reply" — a `@hyperidle/conversation`-owned reaction to its
+	// OWN `thread_message_appended` event.
 	disposers.push(
 		identifyBootstrapOwner(
 			registerAssistantThreadPinReaction(db, eventBus, {
@@ -484,6 +477,20 @@ export function registerCoreDomainServices(ctx: {
 			"assistant-turn B‴ coherence trigger",
 			"unsubscribe",
 			["thread_message_appended subscription"],
+		),
+	);
+
+	// AU27 Increment 5 (Decision 5): the never-silent net — a
+	// `@hyperidle/conversation`-owned reaction to the existing
+	// `session_not_returned` event (today only observed by the observability
+	// dispatcher), posting one plain notice into the session's calling
+	// thread when the force budget is spent without a return.
+	disposers.push(
+		identifyBootstrapOwner(
+			registerSessionNotReturnedNotice(db, eventBus),
+			"session-not-returned notice",
+			"unsubscribe",
+			["session_not_returned subscription"],
 		),
 	);
 
@@ -534,6 +541,9 @@ export function registerCoreDomainServices(ctx: {
 				// AU21 §9 Increment 12 follow-up (F2 gap closure): also bake
 				// injectedFilesystems.
 				resolveInjectedFilesystemsForAgent,
+				// AU27 Increment 1 (Decision 0): also bake callingThreadId for the
+				// liveness-net re-provision.
+				resolveOrCreateCallingThread,
 			}),
 			"review subscriptions",
 			"unsubscribe",
@@ -628,11 +638,8 @@ export function registerCoreDomainServices(ctx: {
  * shell alongside `registerCoreDomainServices` (see that function's
  * doc-comment for the behavior-preservation invariant).
  *
- * @lore AU20 Ag1b: dispatch trigger registration collapsed into
- * `dispatchOps.start`. Scheduler config is absorbed here so one start call boots
- * the full dispatch lifecycle (builtin handlers + assistant dispatcher +
- * optional task trigger + optional scheduler). The returned disposer owns
- * the entire lifecycle.
+ * The assistant runs through the SAME durable poller (`startRuntime`, wired
+ * above) as every other kind — no second lifecycle to boot here.
  */
 export function registerAgentLayerServices(ctx: {
 	readonly db: HyperIdleDb;
@@ -650,31 +657,10 @@ export function registerAgentLayerServices(ctx: {
 	const disposers: Array<() => void> = [];
 	const reaperStaleAfterMs = ctx.reaperStaleAfterMs ?? DEFAULT_REAPER_STALE_AFTER_MS;
 
-	// AF6 §1 + AU20 Ag1b: `dispatchOps.start` boots the assistant + task dispatch
-	// lifecycle. AU21 §9 Increment 4: the routine scheduler (builtin-routine
-	// event reaction + the cron/due-eval tick loop) is a SEPARATE core-api-side
-	// lifecycle now (`routine-scheduler-bindings.ts`) — dispatch no longer knows
-	// about routines at all.
+	// AU21 §9 Increment 4: the routine scheduler (builtin-routine event
+	// reaction + the cron/due-eval tick loop) is its own core-api-side
+	// lifecycle (`routine-scheduler-bindings.ts`).
 	const pollIntervalMs = ctx.routinePollIntervalMs ?? DEFAULT_ROUTINE_POLL_INTERVAL_MS;
-	// AU21 §9 Increment 9 (forensic-triage wave, second pass): `dispatchOps.start`
-	// no longer takes a `task` config at all — the task-queue trigger it used to
-	// wire was genuinely dead code (see `@hyperidle/dispatch`'s own `@lore`).
-	// `ctx.dispatcherDeps` is still read below (`canProvision`'s default) as a
-	// pure "is a runtime configured" presence signal.
-	const dispatchPromise = dispatchOps.start({ db, eventBus });
-	dispatchPromise.catch((err) => {
-		serviceBootstrapLog.error("dispatch start failed", { err });
-	});
-	disposers.push(
-		identifyBootstrapOwner(
-			() => {
-				void dispatchPromise.then((d) => d()).catch(() => {});
-			},
-			"dispatch lifecycle",
-			"assistant stop",
-			["assistant"],
-		),
-	);
 
 	disposers.push(
 		identifyBootstrapOwner(
@@ -707,25 +693,60 @@ export function registerAgentLayerServices(ctx: {
 	// @lore AU21 Increment 14a: the cost sentinel (15-minute scheduled job) is
 	// deleted along with the rest of the cost feature — no replacement.
 
-	// AF7 §6: TTL workspace reaper (task trigger is now inside dispatchOps.start).
+	// AF7 §6: TTL workspace reaper — the durable poller (`startRuntime`,
+	// wired above) is the sole trigger for every kind.
 	void reaperStaleAfterMs;
 
 	return disposers;
 }
 
 /**
- * AF7 §1: build the dispatcher's `resolveModel(tier)`. The HTTP path resolves
- * models in sessions-routes via resolveModelTier; the dispatcher (no request
- * context) needs the same resolution. Reuses the server config + the production
- * credential resolver. When resolution fails (missing credential), the dispatcher
- * treats it as unrecoverable-per-task — correct.
+ * AF7 §1: build the drain's `resolveModel(tier, modelOverride?)`. The HTTP path
+ * resolves models in sessions-routes via resolveModelTier; the poller drain (no
+ * request context) needs the same resolution. Reuses the server config + the
+ * production credential resolver. When resolution fails (missing credential),
+ * the drain treats it as unrecoverable-per-request — correct.
+ *
+ * @lore AU27 Increment 6 (Decision 4, C11): `modelOverride` is the target
+ * agent's baked `modelId`/`modelProvider` (uniform for all six kinds, not
+ * assistant-only — see `agent-work-intent-recorder.ts`'s `BakedAgentRunnableConfig`).
+ * `resolveModel({kind:"agent"})` sets `agentPath: true`, and `resolveProvider`'s
+ * `openai-compatible` case THROWS `UnsupportedAgentProviderError` when
+ * `agentPath` is set — `openai-compatible` is a real, user-selectable per-agent
+ * provider (Settings → Agents), so an unguarded agent-path request would throw
+ * outside `runClaimedRequest` (feeding the unbounded re-claim loop plan.md
+ * accepts as out-of-scope) for any agent configured that way. The guard: request
+ * `{kind:"agent"}` only when the override's provider is NOT `openai-compatible`;
+ * otherwise fall back to `{kind:"tier"}` — such an agent then runs on its tier,
+ * strictly better than throwing the turn out entirely. A `modelId`-less override
+ * (or no override at all) already falls through to the tier inside
+ * `resolveModel` itself, so this guard only ever narrows the agent path, never
+ * widens it.
  */
 function makeResolveModel(
 	db: HyperIdleDb,
 	credentialResolver: CredentialResolver,
-): (tier: string) => Promise<ResolvedModel | undefined> {
-	return async (tier: string): Promise<ResolvedModel | undefined> => {
+): (
+	tier: string,
+	modelOverride?: { readonly modelId: string | null; readonly modelProvider: string | null },
+) => Promise<ResolvedModel | undefined> {
+	return async (
+		tier: string,
+		modelOverride?: { readonly modelId: string | null; readonly modelProvider: string | null },
+	): Promise<ResolvedModel | undefined> => {
 		const cfg = await readServerConfig(db);
+		if (modelOverride && modelOverride.modelProvider !== "openai-compatible") {
+			return resolveModel(
+				{
+					kind: "agent",
+					modelId: modelOverride.modelId,
+					modelProvider: modelOverride.modelProvider,
+					tierFallback: tier,
+				},
+				cfg.modelGateway,
+				credentialResolver,
+			);
+		}
 		return resolveModel(
 			{ kind: "tier", tier: tier as ModelTier },
 			cfg.modelGateway,
@@ -761,15 +782,6 @@ export interface CreateServerDeps {
 	readonly adapterPool: AdapterPool;
 	readonly workspaceAdapter: SandboxAdapter;
 	readonly sandboxBasePath?: string;
-	/**
-	 * AH6 B3: Optional assistantTurnDeps override for test environments.
-	 * When absent, createServer builds deps from adapterPool + credentialResolver.
-	 * Test servers may inject a custom stub here to control turn behavior.
-	 *
-	 * @lore AH6: The production path always builds real deps; this field exists
-	 * so the ah6-test-server.ts can override with the seeded model/credential.
-	 */
-	readonly assistantTurnDeps?: AssistantTurnDeps;
 }
 
 /**
@@ -1065,7 +1077,8 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			runtime: runtimeDeps,
 			sandboxBasePath,
 			resolveModel: makeResolveModel(db, credentialResolver),
-			assistantTurn: deps.assistantTurnDeps ?? { db, eventBus, adapterPool, credentialResolver },
+			// The assistant flows through this same durable poller like every
+			// other kind — no second execution entry.
 			// runtimeDeps deep-merges this partial override with its production
 			// context/provisioner ports; do not replace context with a fake object.
 			composition: {
@@ -1078,22 +1091,9 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		}),
 	);
 
-	// AH6 B3 (R-1): Build assistantTurnDeps from the already-constructed adapterPool
-	// + credentialResolver so the message→turn trigger fires in production.
-	// When assistantTurnDeps is absent from createApp, POST /api/threads/:id/messages
-	// stores the message but never calls runAssistantTurn — the silent no-op that
-	// caused the inert Assistant. This additive wiring closes R-1 without changing
-	// any other app behaviour.
-	//
-	// @lore AH6 B3: deps.assistantTurnDeps can override (test-only) if the caller
-	// needs to inject a stub. Production always uses the constructed deps here.
-	const assistantTurnDeps = deps.assistantTurnDeps ?? {
-		db,
-		eventBus,
-		adapterPool,
-		credentialResolver,
-	};
-
+	// Posting a message records the `assistant_turn` intent
+	// (`routes/threads.ts`), and this same `startRuntime` poller (wired
+	// above) drains it like every other kind's intent — one wiring path.
 	let wsDispose: (() => void) | null = null;
 	let sessionActivityGatewayDispose: (() => void) | null = null;
 
@@ -1125,7 +1125,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		db,
 		eventBus,
 		wsHub,
-		assistantTurnDeps,
 		serviceBootstrap: (ctx) => {
 			// AF6/AU1: production boots the routine scheduler at the default
 			// 30s cadence. Runtime deps are present, so generic routine fires
@@ -1194,7 +1193,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		 * authenticate via the 64-char hex session token in the URL, not X-API-Key.
 		 */
 		registerMcpRoute: (apiRouter) => {
-			// AL6 CRIT-1: pass enforcementRegistry so the /return-status sub-path
+			// Pass enforcementRegistry so the /return-status sub-path
 			// resolves token → sessionId → entry → forceMessage (the real adjudicator).
 			const mcpRouter = mcpBridgeRegistry.router;
 			apiRouter.route("/", mcpRouter);

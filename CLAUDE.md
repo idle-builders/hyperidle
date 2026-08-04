@@ -121,13 +121,13 @@ Each folder has an `index.md` with section links. `/pipeline:refine` and `/pipel
 
 ## Tech Stack
 
-Node.js, npm, TypeScript strict, Hono, Drizzle ORM (PGlite locally / PostgreSQL server), React + Vite, Tailwind CSS + DaisyUI (hearth-light/hearth-dark themes), Vitest, Playwright, Biome, in-process `setInterval` schedulers (`packages/fabric/src/services/`).
+Node.js, npm, TypeScript strict, Hono, Drizzle ORM (PGlite locally / PostgreSQL server), React + Vite, Tailwind CSS + DaisyUI (hearth-light/hearth-dark themes), Vitest, Playwright, Biome, in-process `setInterval` schedulers (distributed across `packages/core-api/*/src/`, `packages/agent-orchestration/*/src/` — e.g. `core-api/routine/src/routine-scheduler.ts`).
 
 ---
 
 ## Monorepo
 
-`packages/db` (schema, migrations), `packages/server` (Hono API), `packages/web` (React frontend), `packages/fabric` (knowledge fabric / context assembly), `packages/shared` (types, constants, TOON codec), `packages/api-contract` (shared types), `packages/design-system` (tokens, components), `packages/desktop` (Electron shell), `packages/strategy-minimal` (minimal strategy), `packages/eval` (eval harness), `packages/eslint-plugin-authz`, `packages/eslint-plugin-design`.
+`packages/db` (schema, migrations), `packages/core-api` (Hono API + domain Services), `packages/web` (React frontend), `packages/agent-orchestration` (run orchestration, tool handlers, session requests), `packages/agent-execution` (harness registry, tool/mcp providers), `packages/shared` (types, constants, TOON codec), `packages/api-contract` (shared types), `packages/design-system` (tokens, components), `packages/desktop` (Electron shell), `packages/remote-server` / `packages/remote-worker` (remote harness execution), `packages/eval` (eval harness), `packages/eslint-plugin-authz`, `packages/eslint-plugin-design`.
 
 ---
 

@@ -1,5 +1,5 @@
 /**
- * AL6 v4-final — hyperidle_return_status bridge tool.
+ * return_status bridge tool.
  *
  * A ToolDefinition injected into the per-session registry via
  * buildToolRegistry's extraTools option. It reads ctx.sessionId → enforcement
@@ -7,13 +7,16 @@
  *
  * Key semantics:
  *   - returned=true OR exempt=true OR budgetLeft=0 → forceMessage: null (allow end)
- *   - returned=false AND !exempt AND budgetLeft>0 → forceMessage = AL6_FORCE_RETURN_MESSAGE
+ *   - returned=false AND !exempt AND budgetLeft>0 → forceMessage = the tailored forcing
+ *     message for the session's `requiredReturnActions` (AU27 Increment 3, Decision 3),
+ *     or the default `FORCE_RETURN_MESSAGE` when the session has no specific
+ *     requirement (the pre-Increment-3 default)
  *   - calling the tool with forceMessage!==null increments forceCount in registry
  *
  * The tool is NOT in ALL_TOOL_DEFINITIONS (it is not a universal skill tool).
  * It is injected per-session via buildToolRegistry(ctx, { extraTools: [returnStatusTool.forRegistry(registry)] }).
  *
- * @lore AL6 v4-final: The tool's handler signature extends ToolDefinition with a
+ * @lore The tool's handler signature extends ToolDefinition with a
  * third `registry` argument so unit tests can call it with an isolated registry
  * (not the process-level singleton). The `forRegistry(registry)` factory returns
  * a RegisteredTool that closes over the provided registry — the production path
@@ -21,8 +24,8 @@
  */
 
 import {
-	AL6_MAX_FORCE_RETURNS,
 	type EnforcementRegistry,
+	MAX_FORCE_RETURNS,
 	ok,
 	type RegisteredTool,
 	shouldForceReturn,
@@ -69,7 +72,12 @@ async function handle(
 
 	// Read pre-increment state: "how many times have you been forced before THIS call".
 	const preForceCount = entry.forceCount;
-	const forceMessage = entry.exempt ? null : shouldForceReturn(entry.gate, preForceCount);
+	// AU27 Increment 3 (Decision 3): narrow to the session's specific required
+	// subset when the registered entry has one — the agent's own self-check
+	// must name the SAME action the other five force sites do.
+	const forceMessage = entry.exempt
+		? null
+		: shouldForceReturn(entry.gate, preForceCount, entry.requiredReturnActions);
 
 	// If forceMessage is non-null, this is an active force — increment AFTER reading.
 	if (forceMessage !== null) {
@@ -78,7 +86,7 @@ async function handle(
 
 	// forceCount in response = number of prior forces (before this call).
 	// budgetLeft = remaining budget at the time this call was made.
-	const budgetLeft = Math.max(0, AL6_MAX_FORCE_RETURNS - preForceCount);
+	const budgetLeft = Math.max(0, MAX_FORCE_RETURNS - preForceCount);
 
 	const result: ReturnStatusResult = {
 		returned: entry.gate.returned,
@@ -99,10 +107,10 @@ async function handle(
  * - `.name`, `.description`, `.inputSchema` — standard ToolDefinition fields.
  */
 const returnStatusDefinition = {
-	name: "hyperidle_return_status" as const,
+	name: "return_status" as const,
 	description:
 		"Check whether HyperIdle requires you to return your work before stopping. " +
-		"If forceMessage is non-null, call exactly one of: submit_review, handoff_to, or send_message. " +
+		"If forceMessage is non-null, call exactly one of: submit_review, handoff_to, send_message, or reply. " +
 		"If forceMessage is null, you may stop normally.",
 	inputSchema,
 
@@ -115,7 +123,7 @@ const returnStatusDefinition = {
 	 */
 	forRegistry(registry: EnforcementRegistry): RegisteredTool {
 		return {
-			name: "hyperidle_return_status",
+			name: "return_status",
 			description: this.description,
 			inputSchema,
 			handler: (args, ctx) => handle(args as Record<string, never>, ctx, registry),
@@ -130,9 +138,20 @@ const returnStatusDefinition = {
  */
 const { name: _functionName, ...returnStatusFields } = returnStatusDefinition;
 
-// biome-ignore lint/style/useNamingConvention: the function's intrinsic .name IS the tool identifier — must stay snake_case to match "hyperidle_return_status".
-function hyperidle_return_status(): typeof returnStatusDefinition {
+/**
+ * @lore AU27 Increment 8 (BLOCKER fix): this bare tool name used to be
+ * "hyperidle_return_status" (the "hyperidle_" prefix baked into the tool's
+ * OWN name). opencode's MCP client independently namespaces every tool as
+ * `<server>_<bare>` for the "hyperidle" server — the baked-in prefix and
+ * opencode's own prefix stacked, producing the double-prefixed
+ * `hyperidle_hyperidle_return_status` the model saw and could never call.
+ * Every other tool in this codebase (`reply`, `send_message`, `log_task`,
+ * ...) registers under its bare name for exactly this reason — this tool
+ * now matches that convention.
+ */
+// biome-ignore lint/style/useNamingConvention: the function's intrinsic .name IS the tool identifier — must stay snake_case to match "return_status".
+function return_status(): typeof returnStatusDefinition {
 	return returnStatusDefinition;
 }
 
-export const returnStatusTool = Object.assign(hyperidle_return_status, returnStatusFields);
+export const returnStatusTool = Object.assign(return_status, returnStatusFields);

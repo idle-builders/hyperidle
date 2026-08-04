@@ -71,8 +71,8 @@ export interface BakedWorkIntentRequest {
 	 * assembled at emit time by each per-kind resolver (the entity it already
 	 * loads to validate + resolve the target agent) instead of
 	 * `run-orchestration` reading it back at session-launch time. Absent for
-	 * `assistant_turn` (bakes `transcript` instead — a conversational turn
-	 * needs thread history, not ranked L2/L3/L4 knowledge).
+	 * `assistant_turn` (bakes `transcript` instead — a thread-reply turn needs
+	 * conversation history, not ranked L2/L3/L4 knowledge).
 	 */
 	readonly contextBundle?: BakedContextBundle;
 	/**
@@ -97,6 +97,18 @@ export interface BakedWorkIntentRequest {
 	 * fallback — `ports.settings` is deleted from `run-orchestration` entirely.
 	 */
 	readonly harnessDisabled?: readonly string[];
+	/**
+	 * AU27 — the session's calling thread id, baked at emit time by every
+	 * resolver whose kind has a real thread host: `assistant_turn` (the
+	 * conversation thread), `task_run`/`session_start`/`reengagement`/
+	 * `proposed_call` (the task's thread), and `knowledge_action` (the
+	 * knowledge item's thread). `routine_run` bakes none — a routine has no
+	 * thread host — and its `reply` tool call falls back to a direct thread
+	 * with the sole human user instead. Carried through onto the created
+	 * `AgentSessionRequest.payloadJson` alongside `agentConfig` so `reply`
+	 * has somewhere to post with zero orchestration -> core read.
+	 */
+	readonly callingThreadId?: string;
 	/**
 	 * AU21 §9 Increment 12 follow-up (F2 gap closure) — the target agent's
 	 * injected-filesystems list, baked at emit time by EVERY per-kind resolver
@@ -207,6 +219,14 @@ export interface BakedAgentRunnableConfig {
 	readonly modelTierPreference: string | null;
 	readonly harnessType: string | null;
 	readonly modelProvider: string | null;
+	/**
+	 * AU27 Increment 6 (Decision 4) — the target agent's per-agent model
+	 * override, baked uniformly for all six kinds (the same `users.modelId`
+	 * column `assistant-turn-resolver.ts` already baked separately pre-AU27).
+	 * Feeds the durable drain's `resolveModel({kind:"agent", …})` call —
+	 * `null` falls back to the tier, matching `modelProvider`'s own semantics.
+	 */
+	readonly modelId: string | null;
 	readonly maxConcurrentSessions: number;
 }
 
@@ -229,6 +249,7 @@ export function bakeAgentRunnableConfig(agent: BakedAgentRunnableConfig): BakedA
 		modelTierPreference: agent.modelTierPreference,
 		harnessType: agent.harnessType,
 		modelProvider: agent.modelProvider,
+		modelId: agent.modelId,
 		maxConcurrentSessions: agent.maxConcurrentSessions,
 	};
 }

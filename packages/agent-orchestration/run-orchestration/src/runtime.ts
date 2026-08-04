@@ -10,6 +10,7 @@ import {
 	type BakedContextBundle,
 	type BakedFilesystemForProvisioning,
 	ConcurrencyLimitError,
+	type ConversationMessage,
 	type HarnessPortDeps,
 	isAgentWorkIntentKind,
 	isAgentWorkIntentSourceKind,
@@ -134,7 +135,17 @@ function parseBakedContextBundle(request: AgentSessionRequest): BakedContextBund
  * Feeds `admitSession`'s Phase 1 (see `provisioner.ts`'s Wave E note) — a
  * missing bake is a hard provisioning failure there, not a silent allow.
  */
-function parseBakedAgentConfig(request: AgentSessionRequest): BakedAgentRunnableConfig | undefined {
+/**
+ * AU27 Increment 6 (Decision 4) — exported so `start-runtime.ts`'s drain can
+ * read the target agent's baked `modelId`/`modelProvider` override BEFORE
+ * `runSession`/`consumeAgentSessionRequest` re-parses the same payload — the
+ * drain resolves the model up front (`deps.resolveModel`), the same shape it
+ * already used pre-AU27, just now uniform across all six kinds instead of
+ * assistant-only.
+ */
+export function parseBakedAgentConfig(
+	request: AgentSessionRequest,
+): BakedAgentRunnableConfig | undefined {
 	if (!request.payloadJson) return undefined;
 	const payload = JSON.parse(request.payloadJson) as unknown;
 	if (!payload || typeof payload !== "object" || !("agentConfig" in payload)) return undefined;
@@ -189,6 +200,74 @@ function parseBakedInjectedConnections(
 		return undefined;
 	}
 	return (payload as { injectedConnections?: BakedConnectionsForProvisioning }).injectedConnections;
+}
+
+/**
+ * AU27 — the session's calling thread id, carried on `request.payloadJson`
+ * the same way Increment 11's `transcript`/`modelId` ride it
+ * (`session-requests/src/service.ts`'s `createFromBakedRequestInternal`).
+ * Absent only for `routine_run`, which has no thread host to resolve one
+ * from.
+ */
+function parseBakedCallingThreadId(request: AgentSessionRequest): string | undefined {
+	if (!request.payloadJson) return undefined;
+	const payload = JSON.parse(request.payloadJson) as unknown;
+	if (!payload || typeof payload !== "object" || !("callingThreadId" in payload)) return undefined;
+	return (payload as { callingThreadId?: string }).callingThreadId;
+}
+
+/** One raw transcript row — matches `@hyperidle/conversation`'s `resolveAssistantTurnRequest`'s `BakedTranscriptRow`. */
+interface BakedTranscriptRow {
+	readonly senderId: string;
+	readonly payload: string;
+	readonly type: string;
+}
+
+/**
+ * AU27 Increment 4 (Decision 2) — the session's baked raw transcript rows,
+ * carried on `request.payloadJson` the same way `callingThreadId`/
+ * `contextBundle`/`agentConfig` ride it. Absent for a session with no
+ * transcript (every kind except `assistant_turn`, today).
+ */
+function parseBakedTranscript(
+	request: AgentSessionRequest,
+): readonly BakedTranscriptRow[] | undefined {
+	if (!request.payloadJson) return undefined;
+	const payload = JSON.parse(request.payloadJson) as unknown;
+	if (!payload || typeof payload !== "object" || !("transcript" in payload)) return undefined;
+	return (payload as { transcript?: readonly BakedTranscriptRow[] }).transcript;
+}
+
+/**
+ * AU27 Increment 4 (Decision 2) — relocated VERBATIM from
+ * `dispatch/src/service.ts`'s `mapTranscriptToMessages` (the row -> generic
+ * chat-message mapping is pure formatting, which belongs orchestration-side
+ * under H2, not core-side). Generalized: `assistantAgentId` becomes
+ * `agentId` — the session's own running agent, not an assistant-specific
+ * concept — so a future non-assistant kind that bakes a transcript gets the
+ * same generic mapping with no new branch.
+ */
+function mapTranscriptToMessages(
+	rows: readonly BakedTranscriptRow[],
+	agentId: string,
+): ConversationMessage[] {
+	const result: ConversationMessage[] = [];
+	for (const row of rows) {
+		if (row.type !== "plain") continue;
+
+		let parsed: { text?: string; notice?: unknown };
+		try {
+			parsed = JSON.parse(row.payload) as { text?: string; notice?: unknown };
+		} catch {
+			continue;
+		}
+		if (parsed.notice !== undefined) continue;
+		if (typeof parsed.text !== "string" || parsed.text.trim() === "") continue;
+
+		const role: "user" | "assistant" = row.senderId === agentId ? "assistant" : "user";
+		result.push({ role, content: parsed.text });
+	}
+	return result;
 }
 
 async function ensureClaimedRequest(
@@ -397,6 +476,11 @@ async function consumeAgentSessionRequest(
 	const harnessDisabled = parseBakedHarnessDisabled(claimedRequest);
 	const injectedFilesystems = parseBakedInjectedFilesystems(claimedRequest);
 	const injectedConnections = parseBakedInjectedConnections(claimedRequest);
+	const callingThreadId = parseBakedCallingThreadId(claimedRequest);
+	const rawTranscript = parseBakedTranscript(claimedRequest);
+	const transcript = rawTranscript
+		? mapTranscriptToMessages(rawTranscript, claimedRequest.agentId)
+		: undefined;
 	const provisionParams: RunContextBundle = {
 		taskId: claimedRequest.taskId,
 		agentId: claimedRequest.agentId,
@@ -404,9 +488,7 @@ async function consumeAgentSessionRequest(
 		sandboxBasePath: options.sandboxBasePath,
 		...(options.modelTier ? { modelTier: options.modelTier } : {}),
 		...(options.resolvedModel ? { resolvedModel: options.resolvedModel } : {}),
-		...(options.resolvedFastModel ? { resolvedFastModel: options.resolvedFastModel } : {}),
 		...(options.sessionWorkflow ? { sessionWorkflow: options.sessionWorkflow } : {}),
-		...(options.conversational ? { conversational: options.conversational } : {}),
 		...(claimedRequest.sourceKind === "routine" && "routineId" in sourceCorrelation
 			? { routineId: sourceCorrelation.routineId }
 			: {}),
@@ -415,6 +497,8 @@ async function consumeAgentSessionRequest(
 		...(harnessDisabled ? { harnessDisabled } : {}),
 		...(injectedFilesystems ? { injectedFilesystems } : {}),
 		...(injectedConnections ? { injectedConnections } : {}),
+		...(callingThreadId ? { callingThreadId } : {}),
+		...(transcript ? { transcript } : {}),
 		requestContext: {
 			requestId: claimedRequest.id,
 			sourceKind: claimedRequest.sourceKind as AgentSessionSourceKind,

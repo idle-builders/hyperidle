@@ -1,10 +1,9 @@
 /**
  * tool-definitions — AU20 Stage 2 destructive rewrite (finalised in Stage 3).
  *
- * ALL 22 tool implementations live here as private functions. The public
- * surface is exactly two exported functions:
+ * ALL tool implementations live here as private functions. The public
+ * surface is exactly one exported function:
  *   - buildToolDefinitions(ports, opts?)
- *   - buildAssistantDraftRegistry(ctx, params, ports)
  *
  * All per-tool factory files (`createXxxTool`) are DELETED — including
  * `log-task.ts` and `create-artifact.ts` which were kept in Stage 2 because
@@ -44,10 +43,7 @@ import {
 	SCOPES_REQUIRING_ID,
 	type ScopeKind,
 	type TaskStateChangedEvent,
-	type ToolContext,
 	type ToolDefinition,
-	type ToolRegistry,
-	toClaudeToolSpec,
 	toolsForRole,
 	toRegistered,
 	type UserRole,
@@ -131,6 +127,82 @@ function makeSendMessageTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Send
 					threadId,
 					type: "plain",
 					payload: { text },
+					clientKey: crypto.randomUUID(),
+				},
+				ctx.agentId,
+			);
+			return ok({ messageId: created.id, threadId });
+		},
+	};
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// reply (AU27 Increment 2, Decision 1)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const replyInputSchema = z.object({ text: z.string().min(1).max(65_536) });
+
+type ReplyInput = z.infer<typeof replyInputSchema>;
+
+/**
+ * AU27 Increment 2 (Decision 1) — the generic session-scoped `reply` tool.
+ * Posts a plain message into the session's calling thread through the SAME
+ * `CoreApiPort` seam `send_message` already routes through
+ * (`ports.coreApi.insertMessage`, backed by `POST /threads/:id/messages`) —
+ * never an orchestration-side special write. Available to every agent kind
+ * (no `roles` filter) — this is how the assistant answers, but any agent
+ * kind with a calling thread (task_run/session_start/reengagement/
+ * knowledge_action) can use it too.
+ *
+ * Deliberately narrower than `send_message`: NO thread argument. `reply`
+ * always posts to `ctx.threadId` when one exists (the session's own calling
+ * thread, baked at emit — Increment 1) — this is what makes the tool mean
+ * "answer whoever triggered you" and removes a whole class of loop (an agent
+ * replying into an arbitrary thread it does not own).
+ *
+ * @lore AU27 — `reply` always lands somewhere. A session with no baked
+ * calling thread (routine_run, and any future kind that emits without a
+ * thread host) falls back to a direct thread with the sole human user — the
+ * SAME `findOrCreateDirectThread` machinery `send_message` already uses,
+ * over the SAME `CoreApiPort` seam, never an orchestration-side write. Only
+ * a system with literally no human user row (never true in a real seeded
+ * team) leaves `reply` with nowhere to post.
+ */
+function makeReplyTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<ReplyInput, TDb> {
+	return {
+		name: "reply",
+		description:
+			"Post a message into the conversation this session was started for. This is how you answer " +
+			"the person or agent who triggered you. Takes no thread argument — it always posts to your " +
+			"own calling thread (or, when the session has none, to a direct thread with the team's " +
+			"human).",
+		inputSchema: replyInputSchema,
+		// @lore AU27 C11 (Decision 1): `reversibility: "reversible"` is required,
+		// not decorative. `classifyReversibility` fails CLOSED to "irreversible"
+		// when a tool declares no signal — under an AL7 `sessionWorkflow`, an
+		// undeclared `reply` would route every reply to human review.
+		reversibility: "reversible",
+		handler: async (args, ctx) => {
+			const parsed = replyInputSchema.safeParse(args);
+			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
+
+			let threadId = ctx.threadId;
+			if (!threadId) {
+				const human = await ports.coreApi.findSoleHumanUser(ctx.agentId);
+				if (!human) {
+					return err(
+						"NO_REPLY_RECIPIENT",
+						"This session has no calling thread, and no human user exists to fall back to.",
+					);
+				}
+				({ id: threadId } = await ports.coreApi.findOrCreateDirectThread(human.id, ctx.agentId));
+			}
+
+			const created = await ports.coreApi.insertMessage(
+				{
+					threadId,
+					type: "plain",
+					payload: { text: parsed.data.text },
 					clientKey: crypto.randomUUID(),
 				},
 				ctx.agentId,
@@ -1098,7 +1170,7 @@ function makeAddAgentTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<AddAgen
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// create_bet  (also used internally by buildAssistantDraftRegistry)
+// create_bet
 // ─────────────────────────────────────────────────────────────────────────────
 
 const createBetInputSchema = z.object({
@@ -1147,7 +1219,7 @@ function makeCreateBetTool<TDb>(ports: ToolHandlersPorts): AssistantToolShape<Cr
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// edit_bet  (also used internally by buildAssistantDraftRegistry)
+// edit_bet
 // ─────────────────────────────────────────────────────────────────────────────
 
 const editBetInputSchema = z.object({
@@ -1549,6 +1621,7 @@ export function buildToolDefinitions(
 	const all: readonly RegisteredTool<HyperIdleDb>[] = [
 		toRegistered(makeReadInboxTool(ports)),
 		toRegistered(makeSendMessageTool(ports)),
+		toRegistered(makeReplyTool(ports)),
 		toRegistered(makeLogTaskTool(ports)),
 		toRegistered(makeQueryPracticeTool(ports)),
 		toRegistered(makeWriteMemoryTool(ports)),
@@ -1573,159 +1646,4 @@ export function buildToolDefinitions(
 		return toolsForRole(all, opts.role);
 	}
 	return all;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// buildAssistantDraftRegistry — private helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * AU21 §9 Increment 2: both the user lookup AND the `getTeamMembersById`
- * second hop route through the `coreApi` seam (org/routine/handoff wave) —
- * `userId`'s own team lookup is an agent-as-user read, same door
- * `write_memory`/`send_message` reach through. `actorId` is the calling
- * ASSISTANT agent's identity (§12), not the human `userId` being looked up
- * — the assistant is the one acting. No `db` parameter needed anymore — every
- * read crosses the seam.
- */
-async function resolveDraftTeamId(
-	userId: string,
-	actorId: string,
-	ports: ToolHandlersPorts,
-): Promise<string | undefined> {
-	const userRow = await ports.coreApi.getUserById(userId, actorId);
-	if (!userRow?.teamId) return undefined;
-	// @lore AK4: `userRow.teamId` is actually `team_members.id` (U1 schema
-	// lore) — resolve the second hop to `teams.id` via `getTeamMembersById`.
-	const memberRow = await ports.coreApi.getTeamMembersById(userRow.teamId, actorId);
-	return memberRow?.teamId;
-}
-
-async function resolveCurrentDraftBetId(
-	transcriptRows: ReadonlyArray<{ senderId: string; payload: string }>,
-	astAgentId: string,
-	ports: ToolHandlersPorts,
-): Promise<string | undefined> {
-	const reversed = [...transcriptRows].reverse();
-	for (const row of reversed) {
-		if (row.senderId !== astAgentId) continue;
-		let parsed: { toolCalls?: Array<{ name: string; status: string; output: string }> };
-		try {
-			parsed = JSON.parse(row.payload) as typeof parsed;
-		} catch {
-			continue;
-		}
-		if (!Array.isArray(parsed.toolCalls)) continue;
-		for (const tc of [...parsed.toolCalls].reverse()) {
-			if ((tc.name === "create_bet" || tc.name === "edit_bet") && tc.status === "ok") {
-				let outputParsed: { betId?: string };
-				try {
-					outputParsed = JSON.parse(tc.output) as typeof outputParsed;
-				} catch {
-					continue;
-				}
-				const betId = outputParsed.betId;
-				if (!betId) continue;
-				const bet = await ports.coreApi.getBetById(betId, astAgentId);
-				if (bet?.status === "draft") return betId;
-			}
-		}
-	}
-	return undefined;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// buildAssistantDraftRegistry — public export #2
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * AK4 — the authority boundary for the assistant's conversational tool-use
- * loop. Returns a ToolRegistry with EXACTLY [create_bet, edit_bet]:
- *   - create_bet: teamId is HARD-INJECTED from resolvedTeamId (model cannot redirect the team).
- *   - edit_bet: betId is FORCED to currentDraftBetId (model cannot target another bet).
- *
- * @lore AU20 Am10: `AssistantDraftRegistryParams` de-exported and inlined as
- * the param object type. `resolveDraftTeamId`/`resolveCurrentDraftBetId` are
- * now private helpers. `buildAssistantDraftRegistry` is now `async` (runs the
- * two cheap DB lookups before building the registry).
- */
-export async function buildAssistantDraftRegistry<TDb>(
-	ctx: ToolContext<TDb>,
-	params: {
-		readonly userId: string;
-		readonly transcriptRows: ReadonlyArray<{ readonly senderId: string; readonly payload: string }>;
-		readonly assistantAgentId: string;
-	},
-	ports: ToolHandlersPorts,
-): Promise<ToolRegistry<TDb>> {
-	const resolvedTeamId = await resolveDraftTeamId(params.userId, params.assistantAgentId, ports);
-	const currentDraftBetId = await resolveCurrentDraftBetId(
-		params.transcriptRows,
-		params.assistantAgentId,
-		ports,
-	);
-	const createBetTool = makeCreateBetTool(ports);
-	const editBetTool = makeEditBetTool(ports);
-
-	const createBetDraftInputSchema = z.object({
-		description: z.string().min(1).max(65_536),
-		doneCondition: z.string().max(65_536).optional(),
-		hypothesis: z.string().max(65_536).optional(),
-	});
-
-	const editBetDraftInputSchema = z.object({
-		description: z.string().min(1).max(65_536).optional(),
-		doneCondition: z.string().max(65_536).optional(),
-		hypothesis: z.string().max(65_536).optional(),
-	});
-
-	const createBetWrapped: RegisteredTool<TDb> = toRegistered({
-		name: createBetTool.name,
-		description: createBetTool.description,
-		inputSchema: createBetDraftInputSchema,
-		handler: async (args, toolCtx) => {
-			if (!resolvedTeamId) {
-				return err("NO_TEAM", "No team found for this user — cannot create a draft bet.");
-			}
-			const argsRecord = args as z.infer<typeof createBetDraftInputSchema>;
-			const fullArgs = { ...argsRecord, teamId: resolvedTeamId };
-			const result = await createBetTool.handler(fullArgs, toolCtx);
-			if (result.status === "ok") return ok(result.value);
-			return err("TOOL_ERROR", result.message);
-		},
-	});
-
-	const editBetWrapped: RegisteredTool<TDb> = toRegistered({
-		name: editBetTool.name,
-		description: editBetTool.description,
-		inputSchema: editBetDraftInputSchema,
-		handler: async (args, toolCtx) => {
-			if (!currentDraftBetId) {
-				return err("NO_DRAFT", "No draft to edit yet — describe the bet and I'll draft it first.");
-			}
-			const argsRecord = args as z.infer<typeof editBetDraftInputSchema>;
-			const fullArgs = { ...argsRecord, betId: currentDraftBetId };
-			const result = await editBetTool.handler(fullArgs, toolCtx);
-			if (result.status === "ok") return ok(result.value);
-			return err("TOOL_ERROR", result.message);
-		},
-	});
-
-	const definitions: readonly RegisteredTool<TDb>[] = [createBetWrapped, editBetWrapped];
-	const byName = new Map(definitions.map((d) => [d.name, d]));
-
-	// biome-ignore lint/suspicious/useAwait: returns def.handler's Promise directly; no intermediate await needed
-	async function invoke(name: string, rawArgs: unknown) {
-		const def = byName.get(name);
-		if (!def) return err("NOT_FOUND", `Tool not in draft registry: ${name}`);
-		const parsed = def.inputSchema.safeParse(rawArgs ?? {});
-		if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
-		return def.handler(parsed.data, ctx);
-	}
-
-	return {
-		definitions,
-		invoke,
-		toClaudeToolSpecs: () => definitions.map((d) => toClaudeToolSpec(d)),
-	};
 }

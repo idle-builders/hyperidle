@@ -1,6 +1,6 @@
 /** Core API composition root for the run-orchestration service. */
 
-import type { AgentSessionRequest, HyperIdleDb } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	AdapterPool,
 	createHarnessAdapter,
@@ -31,7 +31,6 @@ import {
 } from "@hyperidle/session-requests";
 import type { ToolContext, WorkerRegisterMessage } from "@hyperidle/shared";
 import { EventBus, summarizeToolArgs } from "@hyperidle/shared";
-import { dispatchOps } from "./dispatch-bindings.js";
 import { queueDeps } from "./durable-agent-queue.js";
 import { buildToolRegistry, returnStatusTool, toolsForRole } from "./tool-provider-bindings.js";
 
@@ -122,7 +121,10 @@ const observabilityAccessor: SessionLifecyclePorts["observability"] = { summariz
 const enforcement = createReturnEnforcement();
 const harnessRuntime: SessionLifecyclePorts["harnessRuntime"] = {
 	enforcementRegistry: enforcement,
-	createReturnGate: () => enforcement.createGate(),
+	// AU27 Increment 3 (Decision 3): forward the session's required-return-
+	// subset through to the enforcement registry's gate constructor — a hard
+	// COMPILE dependency (the port type gained the param first).
+	createReturnGate: (requiredReturnActions) => enforcement.createGate(requiredReturnActions),
 	evaluateReturn: (gate, reason) => enforcement.evaluate(gate, reason),
 	provisionReturnHook: async (options) => {
 		await provisionHarnessEnvironment({ ...options, token: options.bridgeToken });
@@ -224,25 +226,6 @@ const sessionLifecyclePort: SessionLifecycleRuntime = {
 // `session-lifecycle-bindings.ts`'s `harnessPort` export.
 // ---------------------------------------------------------------------------
 
-// ---------------------------------------------------------------------------
-// dispatch — real, same-layer since AU19 Increment 3h, wired to
-// dispatch-bindings.ts's bound dispatchOps.runAssistantTurn.
-// ---------------------------------------------------------------------------
-
-const dispatchPort: RuntimePorts["dispatch"] = {
-	runAssistantTurn(deps: unknown, request: AgentSessionRequest): Promise<void> {
-		// @lore boundary-crossing cast: `deps` is the real `AssistantTurnDeps` this
-		// Service's own caller built — opaque-typed crossing the boundary
-		// (`run-orchestration`'s own port keeps `deps: unknown`, never
-		// inspecting `dispatch`'s internals, even though `dispatch` itself is
-		// now a real migrated Service).
-		return dispatchOps.runAssistantTurn(
-			deps as Parameters<typeof dispatchOps.runAssistantTurn>[0],
-			request,
-		);
-	},
-};
-
 const runOrchestrationPorts: RuntimePorts = {
 	sessionRequests: {
 		claimSessionRequest,
@@ -255,7 +238,6 @@ const runOrchestrationPorts: RuntimePorts = {
 		reapExpired,
 	},
 	sessionLifecycle: sessionLifecyclePort,
-	dispatch: dispatchPort,
 };
 
 // ---------------------------------------------------------------------------
@@ -292,7 +274,7 @@ function widenWorkerRegistration(registration: unknown): WorkerRegisterMessage {
 	return registration as WorkerRegisterMessage;
 }
 
-/** @lore AU6: production code must use this boundary naming — `durable-agent-queue.ts` re-exports it under the legacy alias (see this file's top `@lore`) for its own test-assertion-surface reasons; this module never declares that other name itself (au6-agent-boundary-guard bans re-declaring it as a local binding). */
+/** @lore Production code uses this boundary naming — `durable-agent-queue.ts` re-exports it under the legacy alias (see this file's top `@lore`) for its own test-assertion-surface reasons; this module never declares that other name itself as a local binding. */
 export function runtimeDeps(
 	db: HyperIdleDb,
 	eventBus: EventBus,

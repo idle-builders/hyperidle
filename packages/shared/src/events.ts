@@ -131,10 +131,10 @@ export interface SessionStartedEvent {
 }
 
 /**
- * AL6 v2: "not_returned" added as a non-completed outcome for a turn that
- * exhausted its stream without a return action (after force budget spent, or
- * on a Tier-2 harness). Every switch(outcome) consumer MUST handle this member
- * — see the exhaustiveness guard in session-lifecycle.ts.
+ * "not_returned" is a non-completed outcome for a turn that exhausted its
+ * stream without a return action (after force budget spent, or on a Tier-2
+ * harness). Every switch(outcome) consumer MUST handle this member — see the
+ * exhaustiveness guard in session-lifecycle.ts.
  */
 export type SessionOutcome = "completed" | "crashed" | "stopped" | "not_returned";
 
@@ -208,11 +208,11 @@ export interface SessionHandoffCompletedEvent {
 }
 
 /**
- * AL6: Emitted by `runSession` (site A) when a task-session turn exhausts its
+ * Emitted by `runSession` (site A) when a task-session turn exhausts its
  * event stream without having invoked any member of the accepted-return set
  * (RETURN_ACTION_NAMES). The turn is flagged — never silently completed (AC3).
  *
- * @lore AL6: "flag" policy (concept §3.4): the turn still settles via endSession;
+ * @lore "flag" policy (concept §3.4): the turn still settles via endSession;
  * this event makes the escape visible and attributable. "redirect" (forced re-prompt)
  * is a clean additive follow-up where the harness supports it. streamId = sessionId
  * for per-session stream routing (consistent with session_started / session_ended).
@@ -228,6 +228,14 @@ export interface SessionNotReturnedEvent {
 	readonly sourceKind?: AgentSessionSourceKind;
 	readonly sourceId?: string;
 	readonly sourceCorrelation?: AgentSessionSourceCorrelation;
+	/**
+	 * AU27 Increment 5 (Decision 5) — the session's calling thread id, when it
+	 * has one (`params.callingThreadId` in hand at the emit site). Absent for
+	 * a `task_run`-sourced session (`sourceCorrelation` is `{taskId, teamId}`,
+	 * no thread) — the never-silent net's `conversation` subscriber no-ops
+	 * when this is absent; there is nowhere to post a notice.
+	 */
+	readonly callingThreadId?: string;
 	readonly timestamp: number;
 }
 
@@ -595,7 +603,7 @@ export type KernelEvent =
 	| SessionEndedEvent
 	// AU19 Increment 3g: handoff EventBus inversion
 	| SessionHandoffCompletedEvent
-	// AL6: return-gate escape surface
+	// Return-gate escape surface
 	| SessionNotReturnedEvent
 	| ThreadCreatedEvent
 	| ThreadMessageAppendedEvent

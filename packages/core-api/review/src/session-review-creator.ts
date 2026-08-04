@@ -156,6 +156,8 @@ export function registerReviewSubscriptions(
 			// AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections):
 			// also bake injectedConnections.
 			resolveInjectedConnectionsForAgent: ports.resolveInjectedConnectionsForAgent,
+			// AU27 Increment 1 (Decision 0): also bake callingThreadId.
+			resolveOrCreateCallingThread: ports.resolveOrCreateCallingThread,
 		});
 	};
 

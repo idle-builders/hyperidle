@@ -39,6 +39,7 @@
  * this import fails to resolve at runtime.
  */
 
+import { findThread } from "@hyperidle/conversation";
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { requireRunnableAgent } from "@hyperidle/users";
@@ -172,5 +173,102 @@ describe("resolveSessionStartRequest — emit-time session_start resolver (work)
 				{ requireRunnableAgent },
 			),
 		).rejects.toThrow();
+	});
+});
+
+/**
+ * AU27 Increment 1 (Decision 0/1) — `session_start` bakes `callingThreadId`
+ * via `deps.resolveOrCreateCallingThread`, the injected resolve-or-create
+ * (Mechanism C — `@hyperidle/work` cannot import `@hyperidle/conversation`
+ * directly). Mirrors `task-run-resolver.integration.test.ts`'s equivalent
+ * suite.
+ */
+describe("resolveSessionStartRequest — callingThreadId baking (Increment 1)", () => {
+	async function resolveOrCreateCallingThreadForTest(
+		db: HyperIdleDb,
+		taskId: string,
+		agentId: string,
+	): Promise<string> {
+		const { findThread: find, insertThread } = await import("@hyperidle/conversation");
+		const existing = await find(db, { host: { kind: "task", id: taskId } });
+		if (existing) return existing.id;
+		const threadId = crypto.randomUUID();
+		const now = new Date().toISOString();
+		await insertThread(db, {
+			id: threadId,
+			hostKind: "task",
+			hostId: taskId,
+			initiatorId: agentId,
+			participants: JSON.stringify([agentId]),
+			lastActiveAt: now,
+			createdAt: now,
+		});
+		return threadId;
+	}
+
+	test("bakes callingThreadId by resolving-or-creating the task's thread", async ({ db }) => {
+		const { resolveSessionStartRequest } = await import("../session-start-resolver.js");
+		await seedTeamAndBet(db, { teamId: "team-sstart-thread-1", betId: "bet-sstart-thread-1" });
+		await seedAgent(db, "agent-sstart-thread-1");
+		await seedTask(db, {
+			taskId: "task-sstart-thread-1",
+			betId: "bet-sstart-thread-1",
+			teamId: "team-sstart-thread-1",
+		});
+
+		const baked = await resolveSessionStartRequest(
+			db,
+			{ taskId: "task-sstart-thread-1", requestedAgentId: "agent-sstart-thread-1" },
+			{ requireRunnableAgent, resolveOrCreateCallingThread: resolveOrCreateCallingThreadForTest },
+		);
+
+		expect(baked.callingThreadId).toBeDefined();
+		const thread = await findThread(db, { host: { kind: "task", id: "task-sstart-thread-1" } });
+		expect(thread?.id).toBe(baked.callingThreadId);
+	});
+
+	test("reuses the SAME thread across two session_start bakes for the same task (idempotent)", async ({
+		db,
+	}) => {
+		const { resolveSessionStartRequest } = await import("../session-start-resolver.js");
+		await seedTeamAndBet(db, { teamId: "team-sstart-thread-2", betId: "bet-sstart-thread-2" });
+		await seedAgent(db, "agent-sstart-thread-2");
+		await seedTask(db, {
+			taskId: "task-sstart-thread-2",
+			betId: "bet-sstart-thread-2",
+			teamId: "team-sstart-thread-2",
+		});
+
+		const first = await resolveSessionStartRequest(
+			db,
+			{ taskId: "task-sstart-thread-2", requestedAgentId: "agent-sstart-thread-2" },
+			{ requireRunnableAgent, resolveOrCreateCallingThread: resolveOrCreateCallingThreadForTest },
+		);
+		const second = await resolveSessionStartRequest(
+			db,
+			{ taskId: "task-sstart-thread-2", requestedAgentId: "agent-sstart-thread-2" },
+			{ requireRunnableAgent, resolveOrCreateCallingThread: resolveOrCreateCallingThreadForTest },
+		);
+
+		expect(second.callingThreadId).toBe(first.callingThreadId);
+	});
+
+	test("bakes no callingThreadId when the dep is not supplied", async ({ db }) => {
+		const { resolveSessionStartRequest } = await import("../session-start-resolver.js");
+		await seedTeamAndBet(db, { teamId: "team-sstart-thread-3", betId: "bet-sstart-thread-3" });
+		await seedAgent(db, "agent-sstart-thread-3");
+		await seedTask(db, {
+			taskId: "task-sstart-thread-3",
+			betId: "bet-sstart-thread-3",
+			teamId: "team-sstart-thread-3",
+		});
+
+		const baked = await resolveSessionStartRequest(
+			db,
+			{ taskId: "task-sstart-thread-3", requestedAgentId: "agent-sstart-thread-3" },
+			{ requireRunnableAgent },
+		);
+
+		expect(baked.callingThreadId).toBeUndefined();
 	});
 });

@@ -19,24 +19,9 @@ export interface ToolCallEvent {
 	readonly args: Record<string, unknown>;
 }
 
-/**
- * @lore AK4: toolCalls is additive-optional — populated only by runChatTurn's
- * bounded tool-use loop. drainStreamEvents in assistant-turn.ts reads this to
- * attach tool call summaries to the persisted plain reply payload. The task
- * planning/execute/reflect loop never sets this field (zero blast radius).
- */
-export interface CapturedToolCall {
-	readonly name: string;
-	readonly input: Record<string, unknown>;
-	readonly output: string; // JSON-stringified tool result data or error message
-	readonly status: "ok" | "error";
-}
-
 export interface CompletionEvent {
 	readonly type: "completion";
 	readonly text: string;
-	/** AK4: tool calls captured during the conversational tool-use loop. */
-	readonly toolCalls?: readonly CapturedToolCall[];
 }
 
 export interface ErrorEvent {

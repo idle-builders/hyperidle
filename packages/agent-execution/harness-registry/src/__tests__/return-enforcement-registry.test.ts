@@ -1,10 +1,10 @@
 /**
- * AL6 v4-final — Unit tests for the per-session return-enforcement registry.
+ * Unit tests for the per-session return-enforcement registry.
  *
  * The enforcement registry is a per-session key-value store:
  *   { gate, forceCount, exempt }
  * keyed by sessionId. Used by:
- *   - the hyperidle_return_status tool handler (reads ctx.sessionId → registry)
+ *   - the return_status tool handler (reads ctx.sessionId → registry)
  *   - the in-process SDK Stop closure (reads registry directly)
  *   - the process-wrapper re-engage (reads registry for budget tracking)
  *
@@ -26,7 +26,7 @@ import { createReturnEnforcement } from "../return-enforcement.js";
 
 const createEnforcementRegistry = () => createReturnEnforcement({ isolated: true });
 
-describe("AL6 v4-final — return-enforcement-registry", () => {
+describe("return-enforcement-registry", () => {
 	// ── Lifecycle: register / get / unregister ────────────────────────────
 
 	it("register then get returns the entry", () => {

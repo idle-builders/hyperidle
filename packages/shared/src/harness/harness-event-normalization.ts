@@ -1,10 +1,5 @@
 import { MODEL_TIERS, type ModelTier } from "../types.js";
-import type {
-	CapturedToolCall,
-	HarnessEvent,
-	HarnessEventType,
-	TokenUsageEvent,
-} from "./harness-events.js";
+import type { HarnessEvent, HarnessEventType, TokenUsageEvent } from "./harness-events.js";
 
 const EVENT_TYPES = [
 	"token_usage",
@@ -26,16 +21,6 @@ function isFiniteNumber(value: unknown): value is number {
 
 function isModelTier(value: unknown): value is ModelTier {
 	return typeof value === "string" && MODEL_TIER_VALUES.has(value);
-}
-
-function isCapturedToolCall(value: unknown): value is CapturedToolCall {
-	return (
-		isRecord(value) &&
-		typeof value.name === "string" &&
-		isRecord(value.input) &&
-		typeof value.output === "string" &&
-		(value.status === "ok" || value.status === "error")
-	);
 }
 
 function unknownEvent(input: unknown): HarnessEvent {
@@ -314,12 +299,6 @@ export function normalizeHarnessEvent(input: unknown): HarnessEvent {
 	switch (n.type) {
 		case "completion": {
 			if (typeof n.text !== "string") return unknownEvent(input);
-			if (Array.isArray(n.toolCalls)) {
-				const toolCalls = n.toolCalls.filter(isCapturedToolCall);
-				return toolCalls.length > 0
-					? { type: "completion", text: n.text, toolCalls }
-					: { type: "completion", text: n.text };
-			}
 			return { type: "completion", text: n.text };
 		}
 		case "tool_call": {

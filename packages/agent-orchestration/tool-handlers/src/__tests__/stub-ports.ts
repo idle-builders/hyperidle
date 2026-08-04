@@ -26,6 +26,7 @@ export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts = {
 		createArtifact: notImplemented,
 		getUserById: notImplemented,
 		listUsersByTeam: notImplemented,
+		findSoleHumanUser: notImplemented,
 		getThreadById: notImplemented,
 		insertThread: notImplemented,
 		updateThread: notImplemented,

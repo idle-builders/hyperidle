@@ -1,9 +1,9 @@
 /**
- * AL6 v4-final — Per-session return-enforcement registry types + factory.
+ * Per-session return-enforcement registry types + factory.
  *
  * A per-session key-value store: { gate, forceCount, exempt } keyed by
  * sessionId. Accessed by:
- *   - the hyperidle_return_status tool handler (reads ctx.sessionId → registry)
+ *   - the return_status tool handler (reads ctx.sessionId → registry)
  *   - the in-process SDK Stop closure (reads registry directly)
  *   - the process-wrapper re-engage (reads registry for budget tracking)
  *   - the MCP bridge's /return-status route (mcp-provider)
@@ -27,6 +27,14 @@ export interface EnforcementEntry {
 	forceCount: number;
 	/** Exempt sessions (internal-extraction drains) skip enforcement entirely. */
 	readonly exempt: boolean;
+	/**
+	 * AU27 Increment 3 (Decision 3) — the session's specific required return
+	 * subset, when it has one (structural rule: `["reply"]` for a session
+	 * whose output belongs in a calling thread and has no task — the
+	 * assistant, post-AU27; unchanged `undefined` for every session that
+	 * still satisfies the gate via plain membership in the full return set).
+	 */
+	readonly requiredReturnActions?: readonly string[];
 }
 
 export interface EnforcementRegistry {

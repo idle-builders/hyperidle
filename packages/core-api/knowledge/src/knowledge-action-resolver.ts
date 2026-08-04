@@ -81,6 +81,20 @@ export interface KnowledgeActionResolverDeps {
 		db: HyperIdleDb,
 		agentId: string,
 	): Promise<BakedConnectionsForProvisioning>;
+	/**
+	 * AU27 — optional: resolve-or-create the knowledge item's
+	 * `hostKind:"knowledge_item"` calling thread (`@hyperidle/conversation`'s
+	 * `findThread`/`insertThread`, injected — Mechanism C,
+	 * `@hyperidle/knowledge` cannot import `@hyperidle/conversation`
+	 * directly). Absent at a call site not yet wired — the resolver bakes no
+	 * `callingThreadId`, matching every other optional-dep degrade in this
+	 * file.
+	 */
+	resolveOrCreateCallingThread?(
+		db: HyperIdleDb,
+		knowledgeItemId: string,
+		agentId: string,
+	): Promise<string>;
 }
 
 /** Thrown when the source knowledge item does not exist or is archived. */
@@ -128,6 +142,12 @@ export interface BakedKnowledgeActionRequest {
 	 * `deps.resolveInjectedConnectionsForAgent` was supplied.
 	 */
 	readonly injectedConnections?: BakedConnectionsForProvisioning;
+	/**
+	 * AU27 — the knowledge item's calling thread id, baked via the injected
+	 * resolve-or-create. Present only when `deps.resolveOrCreateCallingThread`
+	 * was supplied.
+	 */
+	readonly callingThreadId?: string;
 }
 
 /**
@@ -171,6 +191,9 @@ export async function resolveKnowledgeActionRequest(
 	const injectedConnections = deps.resolveInjectedConnectionsForAgent
 		? await deps.resolveInjectedConnectionsForAgent(db, item.updatedBy)
 		: undefined;
+	const callingThreadId = deps.resolveOrCreateCallingThread
+		? await deps.resolveOrCreateCallingThread(db, item.id, item.updatedBy)
+		: undefined;
 
 	return {
 		defaultAgentId: item.updatedBy,
@@ -198,5 +221,6 @@ export async function resolveKnowledgeActionRequest(
 		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
 		...(injectedFilesystems !== undefined ? { injectedFilesystems } : {}),
 		...(injectedConnections !== undefined ? { injectedConnections } : {}),
+		...(callingThreadId !== undefined ? { callingThreadId } : {}),
 	};
 }

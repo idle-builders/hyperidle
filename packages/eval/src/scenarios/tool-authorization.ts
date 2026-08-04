@@ -62,7 +62,6 @@ Use only the standard builder tools. Do not attempt facilitator-only tools.`,
 				db: ctx.db,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
-				resolvedFastModel: ctx.resolvedFastModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
@@ -148,7 +147,6 @@ After promoting the item, document your curation decision in session notes.`,
 				db: ctx.db,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
-				resolvedFastModel: ctx.resolvedFastModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
@@ -229,7 +227,6 @@ Document this experience in session notes — what you tried and what the restri
 				db: ctx.db,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
-				resolvedFastModel: ctx.resolvedFastModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
@@ -343,7 +340,6 @@ Use the tools available to you. Complete the task without attempting facilitator
 				db: ctx.db,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
-				resolvedFastModel: ctx.resolvedFastModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{

@@ -49,11 +49,12 @@ export interface McpConnectionInfo {
 }
 
 /**
- * AH3 §1.4: A single conversational turn carried from the thread transcript.
- * Used to deliver the user's message (and prior context) to the adapter so the
- * model answers the actual question, not a generic task-planning prompt.
+ * AH3 §1.4: A single message from a session's calling-thread transcript.
+ * Used to deliver the caller's message (and prior context) to the adapter so
+ * the model answers the actual question, not a generic task-planning prompt.
+ * Generic — any kind that bakes a `transcript` gets this, not assistant-only.
  *
- * @lore AH3 H3: The core fix for "user's message never reaches the model."
+ * @lore AH3 H3: The core fix for "the caller's message never reaches the model."
  * SessionConfig previously had no messages field; the builtin adapter started
  * every session with an empty message list and injected PLANNING_PROMPT. By
  * seeding messages from the thread transcript and branching on their presence,
@@ -96,12 +97,6 @@ export interface SessionConfig {
 	 */
 	readonly resolvedModel?: ResolvedModel;
 	/**
-	 * X6: Resolved model for the "fast" tier, used by the built-in harness
-	 * for mid-session tier switching (summarization, formatting).
-	 * Optional — when absent, the harness uses the primary resolvedModel for all calls.
-	 */
-	readonly resolvedFastModel?: ResolvedModel;
-	/**
 	 * X5: MCP bridge connection info for this session.
 	 * When present, adapters that support MCP can use this to configure
 	 * their harness's MCP client connection. Optional because:
@@ -110,18 +105,20 @@ export interface SessionConfig {
 	 */
 	readonly mcpConnectionInfo?: McpConnectionInfo;
 	/**
-	 * AH3 §1.4: Conversational message history from the thread transcript.
+	 * AH3 §1.4: Message history from a session's calling-thread transcript.
 	 * When present, the builtin adapter runs a single chat completion seeded with
-	 * these messages instead of the task-planning loop. The user's triggering
+	 * these messages instead of the task-planning loop. The caller's triggering
 	 * message is always the last entry. Absent for task sessions (planning loop).
+	 * Generic — set for any kind that bakes a `transcript` (AU27 Increment 4),
+	 * not assistant-only.
 	 *
-	 * @lore AH3 H3: This field is the mechanism that delivers "what the user
+	 * @lore AH3 H3: This field is the mechanism that delivers "what the caller
 	 * typed" to the model. Without it, the adapter starts with messages:[] and
-	 * responds to PLANNING_PROMPT, never the user's actual question.
+	 * responds to PLANNING_PROMPT, never the caller's actual question.
 	 */
 	readonly messages?: readonly ConversationMessage[];
 	/**
-	 * AL6 v4-final: Per-session return-hook configuration.
+	 * Per-session return-hook configuration.
 	 * SDK/builtin closures + process wrapper read this to reach the enforcement
 	 * registry and bridge callback. settings-* adapters use bridgeToken/mcpUrl
 	 * when writing their hook config files (handled by provisionReturnHook, not startSession).
@@ -148,6 +145,18 @@ export interface SessionConfig {
 	 * and NOT in process.env. The codex CODEX_HOME injection pattern is the precedent.
 	 */
 	readonly mcpTokenEnv?: Readonly<Record<string, string>>;
+	/**
+	 * AU27 Increment 3 (Decision 3) — the session's specific required return
+	 * subset, when it has one (structural rule computed by `run-orchestration`
+	 * — e.g. `["reply"]` for a session whose output belongs in a calling
+	 * thread and has no task). Absent ⇒ the pre-Increment-3 default: any
+	 * member of the closed return set satisfies. Read by the builtin
+	 * adapter's synthetic gate (the registry's `createGate` closure predicate
+	 * does not reach `runChatTurn`/`runExecuteTurn`'s own `session.returnSeen`
+	 * tracking) and forwarded into `provisionReturnHook` for the CLI/MCP
+	 * channels.
+	 */
+	readonly requiredReturnActions?: readonly string[];
 }
 
 export interface SessionHandle {
@@ -193,7 +202,7 @@ export interface SessionResult {
 }
 
 /**
- * AL6 v4-final: The per-harness return-enforcement provisioning channel.
+ * The per-harness return-enforcement provisioning channel.
  * Declares HOW HyperIdle provisions return enforcement for this adapter.
  * Non-optional — TypeScript strict forces every adapter to declare a channel,
  * making "uniform across harnesses" un-skippable.
@@ -207,9 +216,9 @@ export interface SessionResult {
  *   "soft-continue"   — native soft re-prompt (cursor — inert until spawnable)
  *   "none"            — no enforcement artifact — drain-gate floor only (last-resort remote)
  *
- * @lore AL6 v4-final: Replaces v3's hasNativeReturnHook + canReEngage (both removed).
- * The non-optional field is the forcing function: npm run check fails any adapter that
- * doesn't declare a channel. The drain-end ReturnGate is the un-bypassable backstop on ALL.
+ * @lore The non-optional field is the forcing function: npm run check fails any adapter
+ * that doesn't declare a channel. The drain-end ReturnGate is the un-bypassable backstop
+ * on ALL.
  */
 export type ReturnEnforcementChannel =
 	| "sdk-inprocess"
@@ -221,14 +230,14 @@ export type ReturnEnforcementChannel =
 	| "none";
 
 /**
- * AL6 v4-final: Per-session return-hook configuration.
+ * Per-session return-hook configuration.
  * Passed in SessionConfig so SDK/builtin closures + process wrapper can reach
  * the enforcement registry and bridge callback.
  */
 export interface ReturnHookConfig {
 	readonly bridgeToken: string; // bridge callback credential
 	readonly mcpUrl: string; // ${mcpBaseUrl}/api/mcp/${token}
-	readonly forceBudget: number; // AL6_MAX_FORCE_RETURNS
+	readonly forceBudget: number; // MAX_FORCE_RETURNS
 }
 
 export interface HarnessCapabilities {
@@ -248,13 +257,12 @@ export interface HarnessCapabilities {
 	 */
 	readonly mcpSupport: boolean;
 	/**
-	 * AL6 v4-final: Per-harness return-enforcement provisioning channel.
-	 * Replaces v3's hasNativeReturnHook + canReEngage (both removed).
+	 * Per-harness return-enforcement provisioning channel.
 	 * Non-optional — every adapter must declare its channel.
 	 * provisionReturnHook dispatches on this to install the right enforcement.
 	 *
-	 * @lore AL6 v4-final: The non-optional field is the "uniform across harnesses"
-	 * forcing function. npm run check fails any adapter that doesn't declare this.
+	 * @lore The non-optional field is the "uniform across harnesses" forcing
+	 * function. npm run check fails any adapter that doesn't declare this.
 	 */
 	readonly returnEnforcement: ReturnEnforcementChannel;
 	readonly descriptorModels?: readonly HarnessModelDescriptor[];
@@ -318,7 +326,7 @@ export interface HarnessAdapter {
 	getCapabilities(): HarnessCapabilities;
 
 	/**
-	 * AL6 v4-final (optional): Return the count of enforcement-registry blocks applied
+	 * Optional: Return the count of enforcement-registry blocks applied
 	 * by this adapter's native hook or in-process enforcement during a given session.
 	 * Used to compute `forceReturnCount` on `ProvisionSessionResult`.
 	 *
@@ -327,9 +335,8 @@ export interface HarnessAdapter {
 	 * in-process enforcement implement this; file-provisioned adapters use the
 	 * enforcement registry directly via the bridge.
 	 *
-	 * @lore AL6 v4-final: Replaces v3's "loopForceCount + nativeCount" formula.
-	 * The v3 loop is deleted; forceReturnCount now comes entirely from the enforcement
-	 * registry (read here for in-process adapters, read from registry.get(sessionId).forceCount
+	 * @lore forceReturnCount comes entirely from the enforcement registry (read
+	 * here for in-process adapters, read from registry.get(sessionId).forceCount
 	 * for all others).
 	 */
 	getForceReturnCount?(sessionId: string): number;

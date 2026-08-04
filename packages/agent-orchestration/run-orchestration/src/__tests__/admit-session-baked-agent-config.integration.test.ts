@@ -123,7 +123,6 @@ function buildHarnessPorts(overrides: Partial<SessionLifecyclePorts>): SessionLi
 			beginAgentWriteback: () => ({ dispose: () => undefined }),
 			assemblePrompt: neverCalled("contextAssembly.assemblePrompt"),
 			assembleRoutinePrompt: neverCalled("contextAssembly.assembleRoutinePrompt"),
-			composeAssistantPrompt: neverCalled("contextAssembly.composeAssistantPrompt"),
 			writeSandboxAgentsMd: neverCalled("contextAssembly.writeSandboxAgentsMd"),
 		},
 	};
@@ -197,6 +196,7 @@ describe("admitSession — baked agent-runnability config (Increment 12 Wave E)"
 				modelTierPreference: null,
 				harnessType: null,
 				modelProvider: null,
+				modelId: null,
 				maxConcurrentSessions: 5,
 			},
 		};
@@ -242,6 +242,7 @@ describe("admitSession — baked agent-runnability config (Increment 12 Wave E)"
 				modelTierPreference: null,
 				harnessType: null,
 				modelProvider: null,
+				modelId: null,
 				maxConcurrentSessions: 5,
 			},
 			harnessDisabled: [],

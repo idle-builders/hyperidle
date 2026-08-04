@@ -222,7 +222,7 @@ The production runtime no longer registers or selects an active Strategy, and it
 
 The routine scheduler is the one documented residual edge: it stays Core (cron/due-eval is a core domain concern) but its fire-time agent-selection call (`isAgentAtWipLimit` / `selectAgentByAppDefaults`) still reaches directly into the agent-owned `agent-selection.ts` module, unchanged from AU7. This is tracked as an AU8 should-graph-guard boundary item, not reopened by AU11 — folding it into the intent-worker's drain-time resolver would move fire-time selection to drain-time, a real behavior change AU11's import-path-only invariant forbids.
 
-Dispatch now exposes one bound `dispatchOps` object from the composition root. Eval and core callers use its coherent `fireRoutine`, `provisionTeamRoutines`, and lifecycle methods instead of a curated barrel of standalone routine functions.
+Routine-firing lives in `routine-scheduler-bindings.ts`'s `fireRoutine`, with `provisionTeamRoutines` in `@hyperidle/routine` — both re-exported through `core-api`'s `routines.ts` for eval and other cross-package callers, instead of a curated barrel of standalone routine functions.
 
 The app has the durable primitives this frame keeps: users include humans and agents, routines are editable records, knowledge is stored in canonical tables, MCP and tools run through the server runtime, harness adapters are registered centrally, and domain events are emitted. Remaining drift should be handled as boundary enforcement work (AU8's should-graph guard), not by reintroducing a third runtime owner.
 

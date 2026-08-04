@@ -29,10 +29,10 @@ import type {
 	SessionResult,
 } from "@hyperidle/shared";
 import {
-	AL6_FORCE_RETURN_MESSAGE,
-	AL6_MAX_FORCE_RETURNS,
-	isReturnAction,
+	isRequiredReturnAction,
+	MAX_FORCE_RETURNS,
 	normalizeHarnessEvent,
+	opencodeToolName,
 	preMapClaudeEvent,
 	shouldForceReturn,
 } from "@hyperidle/shared";
@@ -67,7 +67,7 @@ export type { CredentialResolver } from "@hyperidle/shared";
 /**
  * Template variable names used in args and envMap.
  * @lore AK1: {{workspace}} renamed to {{sandbox}} in AK1 harness-vocab rename.
- * @lore AL6 WARN-F2: {{prompt}} added for per-session seed prompt carrier (codex exec).
+ * @lore {{prompt}} added for per-session seed prompt carrier (codex exec).
  */
 type TemplateVar =
 	| "{{sandbox}}"
@@ -120,16 +120,16 @@ interface CliAdapterConfig {
 	 */
 	readonly envAllowlist: readonly string[];
 	/**
-	 * AL6 v4-final: The return-enforcement channel for this CLI adapter.
+	 * The return-enforcement channel for this CLI adapter.
 	 * Overrides the binary-derived default when set.
 	 * Default derivation: "codex" → "settings-codex", "opencode" → "process-reengage", else "none".
 	 *
-	 * @lore AL6 WARN-F2/WARN-F3: Per-binary channel is declared here so
+	 * @lore Per-binary channel is declared here so
 	 * provisionReturnHook can dispatch correctly without coupling to binary names.
 	 */
 	readonly returnEnforcementChannel?: ReturnEnforcementChannel;
 	/**
-	 * AL6 WARN-F2: Per-session seed prompt mechanism for Codex.
+	 * Per-session seed prompt mechanism for Codex.
 	 * Codex `exec proceed --json` uses a hardcoded "proceed" prompt. When a session
 	 * needs a per-session kickoff message (e.g. the forcing message on re-engage),
 	 * this field declares the delivery mechanism:
@@ -137,7 +137,7 @@ interface CliAdapterConfig {
 	 * "positional" — appended as the last positional argument after the template `{{prompt}}`.
 	 * Absent → no per-session prompt carrier (hardcoded only).
 	 *
-	 * @lore AL6 WARN-F2: Without this field, re-engage runs use the same generic
+	 * @lore Without this field, re-engage runs use the same generic
 	 * "proceed" prompt regardless of the forcing message — the agent never sees the
 	 * "you must return" instruction on re-engage.
 	 *
@@ -149,7 +149,7 @@ interface CliAdapterConfig {
 	 */
 	readonly seedPrompt?: "positional";
 	/**
-	 * AL6 WARN-F3: Per-session re-engage carrier for OpenCode.
+	 * Per-session re-engage carrier for OpenCode.
 	 * OpenCode `--dir <sandbox>` does not accept a per-session prompt. On re-engage
 	 * (process-reengage channel), this field declares how the forcing message is
 	 * delivered to the re-invoked process.
@@ -220,7 +220,7 @@ interface CliSession {
 	child: ChildProcess;
 	readonly sessionId: string;
 	/**
-	 * AL6 CRIT-3: The real session UUID from SessionConfig.sessionId (not the
+	 * The real session UUID from SessionConfig.sessionId (not the
 	 * internal cli-session-N id). Used to look up the enforcement registry for
 	 * process-reengage re-spawn decisions.
 	 */
@@ -252,37 +252,56 @@ interface CliSession {
 	apiDurationMs?: number;
 	readonly modelTier: SessionConfig["modelTier"];
 	/**
-	 * AL6 CRIT-3: True once a return action (submit_review, handoff_to, send_message)
-	 * has been observed in the event stream. Used to skip re-engage when the agent
+	 * True once a return action satisfying this session's
+	 * `requiredReturnActions` (or, absent one, any return action) has been
+	 * observed in the event stream. Used to skip re-engage when the agent
 	 * already returned voluntarily.
+	 *
+	 * AU27 Increment 6 (Decision 3): must be REQUIRED-SET-aware, not plain
+	 * membership — `isReturnAction` alone let a session with a specific
+	 * required action (e.g. the assistant's `["reply"]`) mark itself
+	 * "returned" by calling an unrelated member (`send_message`), which
+	 * short-circuits the `isReEngage && !session.returnSeen` pre-check below
+	 * BEFORE it ever reaches the registry's own required-subset-aware
+	 * `shouldForceReturn` — silently skipping the force this session actually
+	 * needs. Dormant through Phase A (no request set `requiredReturnActions`
+	 * yet); the assistant landing on the shared poller (Increment 6) makes it
+	 * live for the first time.
 	 */
 	returnSeen: boolean;
 	/**
-	 * AL6 CRIT-3: Number of process-reengage re-spawns for this session.
-	 * Bounded by AL6_MAX_FORCE_RETURNS. Prevents infinite re-engage loops.
+	 * AU27 Increment 6 (Decision 3) — this session's required-return subset,
+	 * threaded from `SessionConfig.requiredReturnActions` at spawn time so
+	 * `returnSeen` tracking (and any future re-engage spawn) can stay
+	 * required-set-aware without re-reading the original `SessionConfig`.
+	 */
+	readonly requiredReturnActions?: readonly string[];
+	/**
+	 * Number of process-reengage re-spawns for this session.
+	 * Bounded by MAX_FORCE_RETURNS. Prevents infinite re-engage loops.
 	 */
 	reEngageCount: number;
 	/**
-	 * AL6 CRIT-3: The sandbox path for re-spawn (needed to spawn additional
+	 * The sandbox path for re-spawn (needed to spawn additional
 	 * processes in the same workspace).
 	 */
 	readonly sandboxPath: string;
 	/**
-	 * AL6 CRIT-3: The reEngageCarrier config from the adapter, threaded here
+	 * The reEngageCarrier config from the adapter, threaded here
 	 * so streamEvents can spawn additional processes without accessing this.config.
 	 */
 	readonly reEngageCarrier?: "run-arg";
 	/**
-	 * AL6 CRIT-3: The resolved env for the process (includes CODEX_HOME, etc).
+	 * The resolved env for the process (includes CODEX_HOME, etc).
 	 * Reused for re-engage spawns.
 	 */
 	readonly spawnEnv: Record<string, string>;
 	/**
-	 * AL6 v4-fix: The resolved model string (e.g. "openrouter/~anthropic/claude-haiku-latest")
+	 * The resolved model string (e.g. "openrouter/~anthropic/claude-haiku-latest")
 	 * stored at session start so re-engage spawns can pass --model correctly.
 	 * Required for opencode "run-arg" carrier: `opencode run <msg> --format json --model <model>`.
 	 *
-	 * @lore AL6 opencode-reengage-model: The re-engage spawn cannot re-resolve templates
+	 * @lore Opencode re-engage model: The re-engage spawn cannot re-resolve templates
 	 * (no config object available in streamEvents). Storing the resolved model here avoids
 	 * the need to thread SessionConfig through streamEvents.
 	 */
@@ -319,12 +338,12 @@ function buildSandboxedEnv(
 let nextId = 1;
 
 /**
- * AL6 v4-final: Derive the return-enforcement channel from the CLI binary name.
+ * Derive the return-enforcement channel from the CLI binary name.
  * codex → settings-codex (writes .codex/hooks.json Stop hook before startSession)
  * opencode → process-reengage (.opencode/plugins/return-signal.ts + re-spawn wrapper)
  * unknown → none (drain-gate floor backstop only)
  *
- * @lore AL6 WARN-F2: Codex has a hooks.json mechanism (Stop hook). Without a trust
+ * @lore Codex has a hooks.json mechanism (Stop hook). Without a trust
  * marker the hook is silently skipped (WARN-F1). Per-session prompt carrier is a
  * separate concern (tracked in CLI_TOOL_CONFIGS.codex.args — the {{prompt}} slot).
  */
@@ -447,7 +466,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 
 	async startSession(config: SessionConfig): Promise<SessionHandle> {
 		// Build template variable map
-		// @lore AL6 WARN-F2: {{prompt}} resolves to the assembled prompt (first 200 chars
+		// @lore {{prompt}} resolves to the assembled prompt (first 200 chars
 		// as a seed summary) or "proceed" as a safe default. Codex exec uses this as the
 		// initial user message in the session; AGENTS.md in sandboxPath provides the full
 		// system context. Full prompt is written to AGENTS.md by session-provisioning.
@@ -496,7 +515,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			resolvedEnvMap[key] = resolveTemplates(value, templateVars);
 		}
 
-		// ── AL6 codex-codex-home: Per-session CODEX_HOME injection.
+		// ── Per-session CODEX_HOME injection.
 		//
 		// If the sandbox contains a .codex-home/ directory (written by provisionCodexHome),
 		// set CODEX_HOME to point at it. This makes codex load hooks.json from the
@@ -505,7 +524,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		// Also append --dangerously-bypass-hook-trust to args when CODEX_HOME is set
 		// so codex runs the hook without prompting for user confirmation.
 		//
-		// @lore AL6 codex-codex-home: CODEX_HOME must NOT be in envAllowlist (it is
+		// @lore CODEX_HOME must NOT be in envAllowlist (it is
 		// injected here, not forwarded from process.env). The per-session .codex-home/
 		// dir contains only auth.json + config.toml (no SQLite) + hooks.json.
 		const codexHomeDir = path.join(config.sandboxPath, ".codex-home");
@@ -561,7 +580,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		const session: CliSession = {
 			child,
 			sessionId,
-			// AL6 CRIT-3: store real config sessionId for registry lookup
+			// store real config sessionId for registry lookup
 			configSessionId: config.sessionId,
 			done: false,
 			exitCode: null,
@@ -588,11 +607,12 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			completionEvents: 0,
 			modelTier: config.modelTier,
 			returnSeen: false,
+			requiredReturnActions: config.requiredReturnActions,
 			reEngageCount: 0,
 			sandboxPath: config.sandboxPath,
 			reEngageCarrier: this.config.reEngageCarrier,
 			spawnEnv: sandboxedEnv,
-			// AL6 v4-fix: store resolved model for re-engage spawn (opencode --model flag).
+			// store resolved model for re-engage spawn (opencode --model flag).
 			reEngageResolvedModel: config.resolvedModel?.model,
 		};
 
@@ -670,7 +690,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			const session = adapter.sessions.get(sessionId);
 			if (!session) return;
 
-			// AL6 CRIT-3: determine if this adapter uses process-reengage channel.
+			// determine if this adapter uses process-reengage channel.
 			const channel =
 				adapter.config.returnEnforcementChannel ?? deriveCliChannel(adapter.config.binary);
 			const isReEngage = channel === "process-reengage";
@@ -745,32 +765,45 @@ export class CliHarnessAdapter implements HarnessAdapter {
 				}
 
 				if (session.done) {
-					// AL6 CRIT-3: process-reengage — after first (or subsequent) process exits,
+					// process-reengage — after first (or subsequent) process exits,
 					// check if we need to re-engage the session with a forcing message.
 					//
 					// Decision logic:
 					//   1. Only for process-reengage channel (opencode / remote).
 					//   2. Only if returnSeen=false (agent did NOT call a return action).
 					//   3. Ask the enforcement registry: if forceMessage is non-null, re-spawn.
-					//   4. Bounded by reEngageCount < AL6_MAX_FORCE_RETURNS (guards infinite loops).
+					//   4. Bounded by reEngageCount < MAX_FORCE_RETURNS (guards infinite loops).
 					//   5. reEngageCarrier="run-arg": append forceMessage as positional arg.
 					//
-					// @lore AL6 CRIT-3: The re-engage spawns a NEW child process in the same
+					// @lore The re-engage spawns a NEW child process in the same
 					// sandbox. The new process's stdout/stderr lines are appended to the same
 					// session.stdoutLines / session.stderrLines arrays (via wireStdout/wireStderr
 					// called on the new child). session.done is reset to false so the drain loop
 					// continues. This gives the outer provisioner a single continuous event stream
 					// with no visible seam between the initial run and re-engage runs.
-					if (isReEngage && !session.returnSeen && session.reEngageCount < AL6_MAX_FORCE_RETURNS) {
+					if (isReEngage && !session.returnSeen && session.reEngageCount < MAX_FORCE_RETURNS) {
 						const enforcement = createReturnEnforcement();
 						const registryEntry = enforcement.get(session.configSessionId);
 						if (registryEntry) {
-							// AL6 CRIT-3: adjudicate from the registry's forceCount (single source).
+							// adjudicate from the registry's forceCount (single source).
 							// Previously used session.reEngageCount which could diverge from the registry
 							// if other paths also incremented forceCount. The registry is authoritative.
+							// AU27 Increment 3 (Decision 3): narrow to the session's specific
+							// required subset when the registered entry has one.
+							// AU27 Increment 8 (BLOCKER fix): this branch is structurally
+							// opencode-only (`isReEngage` ⟺ `channel === "process-reengage"`,
+							// and only opencode's CLI_TOOL_CONFIGS entry sets that channel) —
+							// `opencodeToolName` names the literal `hyperidle_<bare>` tool the
+							// re-spawned opencode process actually exposes, instead of a bare
+							// name it fails to resolve ("Model tried to call unavailable tool").
 							const forceMsg = registryEntry.exempt
 								? null
-								: shouldForceReturn(registryEntry.gate, registryEntry.forceCount);
+								: shouldForceReturn(
+										registryEntry.gate,
+										registryEntry.forceCount,
+										registryEntry.requiredReturnActions,
+										opencodeToolName,
+									);
 
 							if (forceMsg !== null) {
 								// Increment the registry BEFORE spawning so drain-gate sees the force.
@@ -780,14 +813,14 @@ export class CliHarnessAdapter implements HarnessAdapter {
 
 								// Build re-engage args.
 								//
-								// @lore AL6 v4-fix: The previous approach stripped template vars with
+								// @lore The previous approach stripped template vars with
 								// `arg.replace(/\{\{[a-z]+\}\}/g, "")` and appended the forcing message.
 								// For opencode (config.args = ["--dir", "{{sandbox}}"]) this produced
 								// ["--dir", "", forceMsg] — broken: no "run" subcommand, empty --dir, and
 								// the forcing message was a stray positional. We now build the correct
 								// opencode headless invocation from scratch for "run-arg" carrier.
 								//
-								// Proven real invocation (AL6-real-harness-return-enforcement.integration.test.ts):
+								// Proven real invocation (real-harness-return-enforcement-realbinary.integration.test.ts):
 								//   opencode run <forceMsg> --format json --pure --model <model>
 								let finalReEngageArgs: string[];
 								if (session.reEngageCarrier === "run-arg") {
@@ -800,14 +833,18 @@ export class CliHarnessAdapter implements HarnessAdapter {
 									}
 									finalReEngageArgs = runArgs;
 								} else {
-									// No carrier configured — use the AL6 forcing message constant.
+									// No carrier configured — use the tailored forcing message
+									// (AU27 Increment 3: was the static FORCE_RETURN_MESSAGE
+									// constant; now the same `forceMsg` this session was just
+									// adjudicated with, so a required session sees ITS message,
+									// not the always-full-trio default).
 									// Fall back to base args (stripped of unresolved template vars via exclusion
 									// of any arg still containing "{{"). Empty-string args from stripping
 									// are excluded to avoid passing spurious flags.
 									const baseArgs = adapter.config.args
 										.map((arg) => arg.replace(/\{\{[a-z]+\}\}/g, ""))
 										.filter((arg) => arg.length > 0);
-									finalReEngageArgs = [...baseArgs, AL6_FORCE_RETURN_MESSAGE];
+									finalReEngageArgs = [...baseArgs, forceMsg];
 								}
 
 								// Spawn the re-engage child process.
@@ -824,7 +861,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 								reEngageChild.stdin?.end();
 
 								// Reset session for the new child.
-								// @lore AL6 CRIT-3: We mutate the CliSession object to point at the
+								// @lore We mutate the CliSession object to point at the
 								// new child while keeping the same stdoutLines/stderrLines arrays.
 								// This is safe because the old child has exited (session.done was true).
 								session.child.removeAllListeners();
@@ -920,7 +957,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			// X5: mcpSupport: true — CLI tools use MCP (via .mcp.json written to workspace)
 			// for HyperIdle tool calling.
 			mcpSupport: true,
-			// AL6 v4-final: channel is explicit in config, or derived from binary name.
+			// Channel is explicit in config, or derived from binary name.
 			// codex → settings-codex (writes .codex/hooks.json Stop hook)
 			// opencode → process-reengage (opencode plugin + re-spawn wrapper)
 			// unknown → none (drain-gate floor backstop only)
@@ -1025,10 +1062,15 @@ export class CliHarnessAdapter implements HarnessAdapter {
 					}
 				}
 
-				// AL6 CRIT-3: track return actions for process-reengage decisions.
-				// When the agent calls a return action, mark returnSeen so we skip
-				// re-engage on process exit.
-				if (session && event.type === "tool_call" && isReturnAction(event.toolName)) {
+				// track return actions for process-reengage decisions.
+				// When the agent calls a return action satisfying this session's
+				// required subset (AU27 Increment 6, Decision 3), mark returnSeen so
+				// we skip re-engage on process exit.
+				if (
+					session &&
+					event.type === "tool_call" &&
+					isRequiredReturnAction(event.toolName, session.requiredReturnActions)
+				) {
 					session.returnSeen = true;
 				}
 

@@ -173,4 +173,16 @@ export interface ReviewPorts {
 		db: HyperIdleDb,
 		agentId: string,
 	) => Promise<BakedConnectionsForProvisioning>;
+	/**
+	 * AU27 Increment 1 (Decision 0) — optional: resolve-or-create the task's
+	 * `hostKind:"task"` calling thread, injected (Mechanism C — `review`
+	 * cannot import `@hyperidle/conversation` directly) for the
+	 * `callingThreadId` bake `resolveReengagementRequest` forwards onto every
+	 * `reengagement` request.
+	 */
+	readonly resolveOrCreateCallingThread?: (
+		db: HyperIdleDb,
+		taskId: string,
+		agentId: string,
+	) => Promise<string>;
 }

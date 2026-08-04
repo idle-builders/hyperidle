@@ -840,7 +840,8 @@ async function createFromBakedRequestInternal(
 		baked.modelId !== undefined ||
 		baked.contextBundle !== undefined ||
 		baked.agentConfig !== undefined ||
-		baked.harnessDisabled !== undefined
+		baked.harnessDisabled !== undefined ||
+		baked.callingThreadId !== undefined
 			? {
 					payloadJson: JSON.stringify({
 						...(baked.transcript !== undefined ? { transcript: baked.transcript } : {}),
@@ -851,6 +852,10 @@ async function createFromBakedRequestInternal(
 						...(baked.agentConfig !== undefined ? { agentConfig: baked.agentConfig } : {}),
 						...(baked.harnessDisabled !== undefined
 							? { harnessDisabled: baked.harnessDisabled }
+							: {}),
+						// AU27 Increment 1 (Decision 1): the session's calling thread id.
+						...(baked.callingThreadId !== undefined
+							? { callingThreadId: baked.callingThreadId }
 							: {}),
 					}),
 				}
@@ -1319,6 +1324,12 @@ export type BakedWorkIntentRequest = {
 		readonly maxConcurrentSessions: number;
 	};
 	readonly harnessDisabled?: readonly string[];
+	/**
+	 * AU27 Increment 1 (Decision 1) — the session's calling thread id. Absent
+	 * for `routine_run`/`knowledge_action` — see `BakedWorkIntentRequest` in
+	 * `@hyperidle/shared` for the full `@lore`.
+	 */
+	readonly callingThreadId?: string;
 };
 
 /** One ranked+budgeted knowledge item as baked onto a `BakedContextBundle` (local mirror — see `@hyperidle/shared`). */

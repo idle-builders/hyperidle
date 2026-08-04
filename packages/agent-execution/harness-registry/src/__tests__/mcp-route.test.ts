@@ -81,4 +81,30 @@ describe("MCP public route", () => {
 		});
 		expect(response.status).toBe(401);
 	});
+
+	// ── AU27 Increment 3 (Decision 3): requiredReturnActions-aware return-status ──
+
+	it("forceMessage names 'reply' (not the trio) when the session's registered entry requires ['reply']", async () => {
+		const enforcement = createReturnEnforcement({ isolated: true });
+		const bridge = createMcpToolBridge({ enforcement });
+		const { token } = await bridge.open({ sessionId: "required-reply-session", registry });
+		enforcement.register("required-reply-session", {
+			gate: { returned: false },
+			forceCount: 0,
+			exempt: false,
+			requiredReturnActions: ["reply"],
+		});
+
+		const response = await bridge.router.request(`/mcp/${token}/return-status`, {
+			method: "POST",
+			headers: { authorization: `Bearer ${token}` },
+		});
+		const body = await response.text();
+
+		expect(response.status).toBe(200);
+		expect(body).toContain("reply");
+		expect(body).not.toContain("submit_review");
+
+		await bridge.close(token);
+	});
 });

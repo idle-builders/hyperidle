@@ -19,20 +19,43 @@
  *      throwing-spy wiring this test originally used.
  */
 
+import * as os from "node:os";
+import * as path from "node:path";
 import {
 	agentWorkIntents,
 	type HyperIdleDb,
 	knowledgeItems,
+	messages,
 	serviceConnections,
+	threads,
 	users,
 } from "@hyperidle/db";
 import { drainIntents } from "@hyperidle/session-requests";
+import { EventBus, type ToolContext } from "@hyperidle/shared";
+import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import {
+	createInProcessCoreApiTransport,
+	registerCoreApiTransport,
+} from "../../services/core-api-port-composition.js";
 import { queueDeps } from "../../services/durable-agent-queue.js";
-import { test } from "../../test-fixtures.js";
+import { toolHandlersPorts } from "../../services/tool-handlers-bindings.js";
+import { test as baseTest } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-au21-knowledge-action-emit";
+
+const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
+	coreApiSeamRegistration: [
+		async ({ app }, use) => {
+			registerCoreApiTransport(createInProcessCoreApiTransport(app));
+			await use(undefined);
+		},
+		{ auto: true },
+	],
+});
+
+const replyTool = buildToolDefinitions(toolHandlersPorts).find((t) => t.name === "reply")!;
 
 function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json" };
@@ -207,5 +230,60 @@ describe("knowledge_action is resolved and baked at emit time (POST /api/knowled
 		expect(
 			baked?.injectedConnections?.connections.some((c) => c.id === "sc-au21-knowledge-emit-conn"),
 		).toBe(true);
+	});
+
+	// AU27 — a knowledge_action session resolves its own calling thread at
+	// emit, so its `reply` tool call lands a real message in the knowledge
+	// item's own thread, not a fallback direct thread.
+	test("flagging with agentId bakes callingThreadId, and the resolved session's reply lands in the item's own thread", async ({
+		db,
+		app,
+	}) => {
+		await seedRunnableAgent(db, "ast-au27-knowledge-emit-thread");
+		await seedKnowledgeItem(db, {
+			id: "item-au27-knowledge-emit-thread",
+			updatedBy: "ast-au27-knowledge-emit-thread",
+		});
+
+		const res = await app.request("/api/knowledge/item-au27-knowledge-emit-thread/flag", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({ reason: "Needs review", agentId: "ast-au27-knowledge-emit-thread" }),
+		});
+		expect(res.status).toBe(200);
+
+		const [intent] = await db
+			.select()
+			.from(agentWorkIntents)
+			.where(eq(agentWorkIntents.sourceId, "knowledge:item-au27-knowledge-emit-thread"));
+		const baked = intent?.bakedRequestJson
+			? (JSON.parse(intent.bakedRequestJson) as { callingThreadId?: string })
+			: undefined;
+		expect(baked?.callingThreadId).toBeTruthy();
+		const callingThreadId = baked?.callingThreadId as string;
+
+		const [thread] = await db.select().from(threads).where(eq(threads.id, callingThreadId));
+		expect(thread?.hostKind).toBe("knowledge_item");
+		expect(thread?.hostId).toBe("item-au27-knowledge-emit-thread");
+
+		const ctx: ToolContext<HyperIdleDb> = {
+			db,
+			eventBus: new EventBus(),
+			agentId: "ast-au27-knowledge-emit-thread",
+			sessionId: "session-au27-knowledge-emit-thread",
+			taskId: "",
+			threadId: callingThreadId,
+			sandboxPath: path.join(os.tmpdir(), `hi-au27-knowledge-reply-${Date.now()}`),
+			ingestion: { dispose: (): void => {} },
+		};
+		const replyResult = await replyTool.handler({ text: "Reviewed and updated." }, ctx);
+		expect(replyResult.success).toBe(true);
+		if (!replyResult.success) return;
+		const data = replyResult.data as { messageId: string; threadId: string };
+		expect(data.threadId).toBe(callingThreadId);
+
+		const [inserted] = await db.select().from(messages).where(eq(messages.id, data.messageId));
+		expect(inserted?.threadId).toBe(callingThreadId);
+		expect(inserted?.senderId).toBe("ast-au27-knowledge-emit-thread");
 	});
 });

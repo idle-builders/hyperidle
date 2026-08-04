@@ -1,9 +1,8 @@
 /**
  * AD8b — AssistantOverlay component tests (RED phase).
  *
- * AC-7: The overlay renders tool calls, artifacts, and review messages
- *       (not just plain text). Tinted tool-call rows appear for messages
- *       with toolCalls in their payload.
+ * AC-7: The overlay renders artifacts and review messages (not just plain
+ *       text). The coverage below proves ThreadShell renders.
  *
  * AC-8: Sidebar trigger is labeled "Assistant" (verified via aria-label).
  *
@@ -114,10 +113,10 @@ describe("AD8b — AssistantOverlay open/close", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-7: Tool-call rendering in thread
+// AC-7: ThreadShell renders the overlay's message thread.
 // ---------------------------------------------------------------------------
 
-describe("AD8b — AssistantOverlay tool-call rendering", () => {
+describe("AD8b — AssistantOverlay message thread rendering", () => {
 	it("renders ThreadShell when overlay is open", () => {
 		renderOverlay(true);
 		expect(screen.getByTestId("thread-shell")).toBeInTheDocument();

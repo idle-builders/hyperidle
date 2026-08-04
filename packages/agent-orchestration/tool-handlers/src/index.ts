@@ -9,8 +9,9 @@
  *     `ToolHandlersPorts`; only the aggregate is the DI contract).
  *   - `buildAllToolDefinitions` + `toolsForRoleFromPorts` → 1
  *     `buildToolDefinitions(ports, {role?})`.
- *   - `resolveDraftTeamId` + `resolveCurrentDraftBetId` + `AssistantDraftRegistryParams`
- *     → folded inside `buildAssistantDraftRegistry` (which is now async).
+ *
+ * `create_bet`/`edit_bet` exist as ordinary `["assistant"]`-role-scoped
+ * tools in `buildToolDefinitions`'s own `all` array.
  *
  * @lore AU19 Increment 4 (§7.5 C1 resolution): the DB-/domain-touching
  * handler bodies of `tools/*` (§4 roster). `buildToolDefinitions(ports)`
@@ -20,6 +21,5 @@
  * `@hyperidle/tool-provider`'s `buildToolRegistry`.
  */
 
-export { buildAssistantDraftRegistry } from "./assistant-draft-registry.js";
 export type { ToolHandlersPorts } from "./ports.js";
 export { buildToolDefinitions } from "./tool-definitions.js";

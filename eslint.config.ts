@@ -1105,13 +1105,13 @@ export default [
 		},
 	},
 
-	// AL6 — Classifying stream-drain lint guard (AC4 static).
+	// Classifying stream-drain lint guard (AC4 static).
 	//
 	// Every `for await` loop over a streamEvents() iterable must be classified
 	// as one of:
 	//   TURN-DRAIN:   must call gate.observe(event) + evaluateReturn in fn.
-	//   RELAY:        annotated `// AL6-relay` — re-emits verbatim, no gate.
-	//   EXEMPT:       annotated `// AL6-exempt: internal-extraction drain` — tools:[], no gate.
+	//   RELAY:        annotated `// return-relay` — re-emits verbatim, no gate.
+	//   EXEMPT:       annotated `// return-exempt: internal-extraction drain` — tools:[], no gate.
 	//
 	// The rule detects BOTH the direct `.streamEvents(...)` RHS and the one-hop
 	// `const stream = adapter.streamEvents(...)` binding per the architecture
@@ -1120,7 +1120,7 @@ export default [
 	// Scoped to: server services, harness utilities, and desktop worker client.
 	// Test files are exempt — stubs and mocks legitimately drain streams without gates.
 	//
-	// @lore AL6: T9 static guard. This is a "static property → lint" enforcement
+	// @lore T9 static guard. This is a "static property → lint" enforcement
 	// (CLAUDE.md). The rule prevents the "forgotten drain" blind spot: a future
 	// unexempted turn drain that omits the gate is caught at lint time, not at
 	// runtime. Forwarding relays (desktop-worker-client)

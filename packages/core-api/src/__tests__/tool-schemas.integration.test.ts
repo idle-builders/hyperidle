@@ -13,6 +13,8 @@ const EXPECTED_TOOL_NAMES = [
 	"query_practice",
 	"read_inbox",
 	"send_message",
+	// AU27 Increment 2: the generic reply tool.
+	"reply",
 	"write_memory",
 	"write_session_notes",
 	// R5 agent work loop tools

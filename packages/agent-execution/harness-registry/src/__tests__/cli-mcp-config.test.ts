@@ -127,7 +127,7 @@ describe("T1 — writeCliMcpConfig (AC5)", () => {
 		});
 
 		test("appends to existing config.toml without destroying existing content", () => {
-			// Arrange: codex already has other config in config.toml (e.g. from AL6 provisioning).
+			// Arrange: codex already has other config in config.toml (e.g. from return-enforcement provisioning).
 			const codexHomeDir = path.join(sandboxPath, ".codex-home");
 			fs.mkdirSync(codexHomeDir, { recursive: true });
 			const configTomlPath = path.join(codexHomeDir, "config.toml");

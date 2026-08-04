@@ -76,6 +76,7 @@ import { z as zod } from "zod";
 import { authorizeRead, authorizeWrite } from "../auth/authorize.js";
 import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import type { HyperIdleEnv } from "../middleware/auth.js";
+import { resolveOrCreateCallingThread } from "../services/calling-thread-bindings.js";
 import { createAssistantThreadRoute } from "./assistant.js";
 import { createCoachRoutes } from "./coach.js";
 import {
@@ -1725,6 +1726,8 @@ export function createThreadRoutes(
 						// connections): also bake injectedConnections.
 						resolveInjectedConnectionsForAgent: (execDb: HyperIdleDb, agentId: string) =>
 							resolveInjectedConnectionsForAgent(execDb, agentId, findUser),
+						// AU27 Increment 1 (Decision 0): also bake callingThreadId.
+						resolveOrCreateCallingThread,
 					},
 				);
 

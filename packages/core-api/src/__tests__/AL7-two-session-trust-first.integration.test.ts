@@ -26,7 +26,7 @@
  * Per project rule: "e2e/expensive/live-LLM tests run locally only; never a GitHub
  * Actions job." Runs via npm run test:integration (serial harness project)
  *
- * @lore AL7 real-harness: The MCP bridge uses the same wiring as AL6's real-harness
+ * @lore AL7 real-harness: The MCP bridge uses the same wiring as the return-enforcement real-harness
  * test (createMcpRoute + local Hono server). The capturing router wraps registry.invoke
  * in-memory — no DB needed for the proof vehicle. The proof is:
  *   real binary → real MCP call → registry.invoke → capture (session 1)
@@ -51,7 +51,7 @@
  * string + _initialized boolean to the transport instance — both GC'd with the instance.
  * No new teardown code is needed here.
  *
- * @lore AL7 real-claude-full-binary: Uses same env isolation recipe as AL6:
+ * @lore AL7 real-claude-full-binary: Uses same env isolation recipe as the return-enforcement real-harness lane:
  *   CLAUDECODE="" CLAUDE_CODE_ENTRYPOINT="" CLAUDE_CODE_EXECPATH=""
  *   CLAUDE_CODE_SESSION_ID="" AI_AGENT="" CLAUDE_EFFORT=""
  * Zeroing (not removing) lets keychain auth still work via HOME + macOS Security.
@@ -134,7 +134,7 @@ const commitFileTool = toRegistered({
 // This avoids needing a full DB (proposedCalls table) for the proof.
 // The proof is: REAL binary → REAL MCP call → REAL registry.invoke → capture/execute.
 //
-// @lore AL7 real-harness: in-memory capturing router mirrors how AL6's test used
+// @lore AL7 real-harness: in-memory capturing router mirrors how the return-enforcement real-harness test used
 // the in-memory EnforcementRegistry (forceCount as the proof signal). Here the
 // captured call array is the proof signal — callCount >= 1 proves the real binary
 // called the tool via MCP.
@@ -271,7 +271,7 @@ interface Al7TestServer {
  * Start a local Hono server with the PRODUCTION MCP bridge:
  *   - createMcpBridge (stateful) registered in bridgeRegistry
  *   - createMcpRoute (ALL /api/mcp/:token) as the ONLY MCP catch-all
- *   - return-status route for AL6 enforcement hook
+ *   - return-status route for the return-enforcement hook
  *
  * T3 COMPLETE: the test-only `buildStatefulMcpServer` and the `/mcp/:token`
  * route override are gone. All three lanes (claude, codex, opencode) hit the
@@ -362,7 +362,7 @@ async function startAl7TestServer(
 }
 
 // ── Clean env for headless binary spawning ────────────────────────────────────
-// Same recipe as AL6 — zero CC session-detection vars, keep keychain auth.
+// Same recipe as the return-enforcement real-harness lane — zero CC session-detection vars, keep keychain auth.
 
 function buildCleanEnv(): Record<string, string> {
 	const env: Record<string, string> = {};
@@ -385,7 +385,7 @@ function buildCleanEnv(): Record<string, string> {
 
 /**
  * Spawn a process in its own process group (detached), wait for exit.
- * Same pattern as AL6's spawnDetached.
+ * Same pattern as the return-enforcement real-harness lane's spawnDetached.
  */
 async function spawnDetached(
 	bin: string,
@@ -847,7 +847,7 @@ describe("AL7 — LIVE real-binary trust-first two-session loop (local-only lane
 				const codexHomeDir = path.join(s1SandboxPath, ".codex-home");
 				fs.mkdirSync(codexHomeDir, { recursive: true });
 
-				// Copy auth.json + config.toml from ~/.codex (AL6 recipe).
+				// Copy auth.json + config.toml from ~/.codex (return-enforcement recipe).
 				const homeCodexDir = path.join(os.homedir(), ".codex");
 				for (const fname of ["auth.json", "config.toml"]) {
 					const src = path.join(homeCodexDir, fname);

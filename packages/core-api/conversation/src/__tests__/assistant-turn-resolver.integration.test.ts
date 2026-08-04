@@ -137,6 +137,10 @@ describe("resolveAssistantTurnRequest — emit-time assistant_turn resolver (con
 				userId: "user-resolver-1",
 				assistantAgentId: "ast-user-resolver-1",
 			},
+			// AU27 Increment 1 (Decision 1): the assistant's calling thread is
+			// always the triggering message's own thread — no resolve-or-create
+			// needed (unlike task_run/session_start/reengagement).
+			callingThreadId: "thread-resolver-1",
 		});
 	});
 

@@ -24,7 +24,6 @@
 		"@hyperidle/connections": "*",
 		"@hyperidle/conversation": "*",
 		"@hyperidle/db": "*",
-		"@hyperidle/dispatch": "*",
 		"@hyperidle/filesystems": "*",
 		"@hyperidle/git-export": "*",
 		"@hyperidle/harness-registry": "*",

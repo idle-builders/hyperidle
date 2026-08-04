@@ -230,6 +230,12 @@ interface ToolHandlersCoreApiAccessor {
 		ReadonlyArray<{ readonly id: string; readonly name: string; readonly role: string | null }>
 	>;
 	/**
+	 * AU27 Increment 1b — `reply`'s no-calling-thread fallback: the sole
+	 * human user in the system, so a routine_run (or any other thread-less
+	 * kind) can still land its reply in a direct thread with a real person.
+	 */
+	findSoleHumanUser(actorId: string): Promise<{ readonly id: string } | undefined>;
+	/**
 	 * @lore AU21 §9 Increment 2 (conversation wave): every
 	 * `ToolHandlersConversationAccessor` capability moved onto this seam
 	 * (`edge-disposition.md`'s `conversation.{findThread, insertThread,

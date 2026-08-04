@@ -48,6 +48,7 @@
  * `applyLivenessRetry`) will wire in production.
  */
 
+import { findThread } from "@hyperidle/conversation";
 import {
 	artifacts,
 	bets,
@@ -482,5 +483,88 @@ describe("resolveReengagementRequest — contextBundle baking (Increment 12 Wave
 			team: { id: teamId, name: team?.name },
 			knowledge: expect.arrayContaining([expect.objectContaining({ id: "item-reengage-ctx-l4" })]),
 		});
+	});
+});
+
+/**
+ * AU27 Increment 1 (Decision 0/1) — `reengagement` bakes `callingThreadId`
+ * via `deps.resolveOrCreateCallingThread`, the injected resolve-or-create
+ * (Mechanism C — `@hyperidle/review` cannot import `@hyperidle/conversation`
+ * directly). `seedGrantedProposedCall` already inserts a
+ * `hostKind:"task"`/`hostId:taskId` thread for the review flow — this proves
+ * the resolver RESOLVES that same thread by `(hostKind, hostId)` lookup
+ * rather than creating a duplicate (Decision 0's whole point: threads resolve
+ * by lookup, not by a dedicated column per feature).
+ */
+describe("resolveReengagementRequest — callingThreadId baking (Increment 1)", () => {
+	async function resolveOrCreateCallingThreadForTest(
+		db: HyperIdleDb,
+		taskId: string,
+		agentId: string,
+	): Promise<string> {
+		const { findThread: find, insertThread } = await import("@hyperidle/conversation");
+		const existing = await find(db, { host: { kind: "task", id: taskId } });
+		if (existing) return existing.id;
+		const threadId = crypto.randomUUID();
+		const now = new Date().toISOString();
+		await insertThread(db, {
+			id: threadId,
+			hostKind: "task",
+			hostId: taskId,
+			initiatorId: agentId,
+			participants: JSON.stringify([agentId]),
+			lastActiveAt: now,
+			createdAt: now,
+		});
+		return threadId;
+	}
+
+	test("bakes callingThreadId, resolving the task's existing hostKind:task thread (no duplicate)", async ({
+		db,
+	}) => {
+		const { resolveReengagementRequest } = await import("../proposed-call-workflow.js");
+		await seedAgent(db, { id: "ast-reengage-thread-1" });
+		const { taskId } = await seedTask(db, {
+			id: "task-reengage-thread-1",
+			ownerAgentId: "ast-reengage-thread-1",
+		});
+		await seedGrantedProposedCall(db, {
+			id: "pc-reengage-thread-1",
+			taskId,
+			agentScope: "ast-reengage-thread-1",
+			stagedByAgentId: "ast-reengage-thread-1",
+		});
+
+		const baked = await resolveReengagementRequest(db, "pc-reengage-thread-1", {
+			requireRunnableAgent,
+			getTaskById,
+			resolveOrCreateCallingThread: resolveOrCreateCallingThreadForTest,
+		});
+
+		expect(baked.callingThreadId).toBeDefined();
+		const thread = await findThread(db, { host: { kind: "task", id: taskId } });
+		expect(thread?.id).toBe(baked.callingThreadId);
+	});
+
+	test("bakes no callingThreadId when the dep is not supplied", async ({ db }) => {
+		const { resolveReengagementRequest } = await import("../proposed-call-workflow.js");
+		await seedAgent(db, { id: "ast-reengage-thread-2" });
+		const { taskId } = await seedTask(db, {
+			id: "task-reengage-thread-2",
+			ownerAgentId: "ast-reengage-thread-2",
+		});
+		await seedGrantedProposedCall(db, {
+			id: "pc-reengage-thread-2",
+			taskId,
+			agentScope: "ast-reengage-thread-2",
+			stagedByAgentId: "ast-reengage-thread-2",
+		});
+
+		const baked = await resolveReengagementRequest(db, "pc-reengage-thread-2", {
+			requireRunnableAgent,
+			getTaskById,
+		});
+
+		expect(baked.callingThreadId).toBeUndefined();
 	});
 });

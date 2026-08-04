@@ -73,7 +73,6 @@ Your reasoning should mention: what was changed and what the reviewer should che
 				db: ctx.db,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
-				resolvedFastModel: ctx.resolvedFastModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
@@ -189,7 +188,6 @@ The review will be posted as a plain message (the fallback path).`,
 				db: ctx.db,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
-				resolvedFastModel: ctx.resolvedFastModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
@@ -282,7 +280,6 @@ Use submit_review with:
 				db: ctx.db,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
-				resolvedFastModel: ctx.resolvedFastModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
@@ -395,7 +392,6 @@ No artifactRef needed for this review.`,
 				db: ctx.db,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
-				resolvedFastModel: ctx.resolvedFastModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{
@@ -510,7 +506,6 @@ Use submit_review with:
 				db: ctx.db,
 				eventBus: ctx.eventBus,
 				resolvedModel: ctx.resolvedModel,
-				resolvedFastModel: ctx.resolvedFastModel,
 				sandboxBasePath: ctx.seedResult.sandboxBasePath,
 			},
 			{

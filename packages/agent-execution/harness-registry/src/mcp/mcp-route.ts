@@ -1,6 +1,7 @@
 import {
-	AL6_MAX_FORCE_RETURNS,
 	type EnforcementRegistry,
+	MAX_FORCE_RETURNS,
+	mcpNamespacedToolName,
 	shouldForceReturn,
 } from "@hyperidle/shared";
 import { Hono, type MiddlewareHandler } from "hono";
@@ -57,7 +58,7 @@ function requireBoundary(decl: {
  *
  * Routes (all mounted on /api):
  *   ALL  /mcp/:token              — MCP JSON-RPC bridge (existing)
- *   POST /mcp/:token/return-status — AL6 v4: plain-HTTP hook adjudication endpoint
+ *   POST /mcp/:token/return-status — plain-HTTP hook adjudication endpoint
  *
  * The /return-status route is the real adjudicator for file-provisioned hooks
  * (settings-claude and settings-codex channels). The hook scripts POST to this
@@ -72,7 +73,7 @@ function requireBoundary(decl: {
  *             200  Body = forceMessage → hook blocks stop (exit 2+stderr / decision:block)
  *             401                      → token not found (no active session)
  *
- * @lore AL6 CRIT-1: The hook scripts in provision-return-hook.ts curl
+ * @lore The hook scripts in provision-return-hook.ts curl
  * `${mcpUrl}/return-status` where mcpUrl = `${base}/api/mcp/${token}`.
  * The old ALL /mcp/:token route (exact-match) 404'd on the extra /return-status
  * segment. This POST route adds the explicit sub-path so the hook reaches the
@@ -89,12 +90,12 @@ export function createMcpRouter(
 ): Hono {
 	const router = new Hono();
 
-	// ── AL6 CRIT-1: Return-status adjudication endpoint for file-provisioned hooks ──
+	// ── Return-status adjudication endpoint for file-provisioned hooks ──
 	//
 	// Must be registered BEFORE the catch-all ALL /mcp/:token route so Hono
 	// matches the more-specific path first.
 	//
-	// @lore AL6 CRIT-1: enforcementRegistry is optional so existing callers that
+	// @lore enforcementRegistry is optional so existing callers that
 	// don't pass it (e.g. tests that only need the MCP bridge) still compile and
 	// run. When absent, the endpoint returns 501 Not Implemented rather than 500,
 	// so the hook script sees a non-empty response and falls back to allow-stop
@@ -137,7 +138,21 @@ export function createMcpRouter(
 
 		// Read pre-increment state.
 		const preForceCount = entry.forceCount;
-		const forceMessage = entry.exempt ? null : shouldForceReturn(entry.gate, preForceCount);
+		// AU27 Increment 3 (Decision 3): narrow to the session's specific
+		// required subset when the registered entry has one.
+		// AU27 Increment 8 (BLOCKER fix): this route adjudicates BOTH the
+		// settings-claude and settings-codex hook channels — both present
+		// tools to the model namespaced `mcp__hyperidle__<bare>` — so a
+		// required-subset message names the literal tool the agent can
+		// actually call, instead of a bare name it must resolve itself.
+		const forceMessage = entry.exempt
+			? null
+			: shouldForceReturn(
+					entry.gate,
+					preForceCount,
+					entry.requiredReturnActions,
+					mcpNamespacedToolName,
+				);
 
 		if (forceMessage !== null) {
 			// Increment AFTER reading (mirrors returnStatusTool.handler semantics).
@@ -149,13 +164,13 @@ export function createMcpRouter(
 		}
 
 		// Budget exhausted or return already seen — allow the stop.
-		const budgetLeft = Math.max(0, AL6_MAX_FORCE_RETURNS - preForceCount);
+		const budgetLeft = Math.max(0, MAX_FORCE_RETURNS - preForceCount);
 		// Return empty body (with optional debug header that does not affect hook behavior).
 		return new Response("", {
 			status: 200,
 			headers: {
-				"X-AL6-Budget-Left": String(budgetLeft),
-				"X-AL6-Returned": String(entry.gate.returned),
+				"X-Return-Budget-Left": String(budgetLeft),
+				"X-Return-Seen": String(entry.gate.returned),
 			},
 		});
 	});

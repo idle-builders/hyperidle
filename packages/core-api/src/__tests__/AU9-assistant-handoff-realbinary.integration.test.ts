@@ -1,15 +1,33 @@
-import { agentSessionRequests, messages, sessions, threads, users } from "@hyperidle/db";
+import { encryptCredentialValue } from "@hyperidle/connections";
+import { SESSION_NOT_RETURNED_NOTICE_TEXT } from "@hyperidle/conversation";
+import {
+	agentSessionRequests,
+	messages,
+	serverCredentials,
+	sessions,
+	threads,
+	users,
+} from "@hyperidle/db";
 import {
 	AdapterPool,
 	createHarnessAdapter,
 	createSandboxAdapter,
 } from "@hyperidle/harness-registry";
-import { harnessTestResolvedModel, requireHarness } from "@hyperidle/harness-registry/test-utils";
-import { EventBus } from "@hyperidle/shared";
+import { requireHarness } from "@hyperidle/harness-registry/test-utils";
 import { eq } from "drizzle-orm";
 import { createServer } from "../server-factory.js";
 import { describe, expect, test } from "../test-fixtures.js";
 
+/**
+ * AU27 Increment 6 rewrite. Pre-AU27 this test bypassed model resolution
+ * entirely via `assistantTurnDeps.resolvedModel` (the `dispatch` package's
+ * own bespoke execution entry, now deleted). The assistant flows through the
+ * SAME durable poller as every other kind (Decision 4) — model resolution
+ * goes through the real `DbCredentialResolver`/`resolveModel({kind:"agent"})`
+ * path, so this test seeds a real `openrouter_api_key` credential (the
+ * production path, same shape `credential-resolver.integration.test.ts`
+ * uses) instead of injecting a bypass.
+ */
 describe("[harness:builtin] assistant durable handoff", () => {
 	requireHarness("builtin");
 
@@ -34,9 +52,9 @@ describe("[harness:builtin] assistant durable handoff", () => {
 				role: "assistant",
 				status: "active",
 				harnessType: "builtin",
-				// @lore AR7: modelId/modelProvider here are cosmetic — assistantTurnDeps.resolvedModel
-				// (built from the locked HARNESS_TEST_MODELS via harnessTestResolvedModel) is what the
-				// turn actually uses, bypassing resolveAgentModel/DbCredentialResolver entirely.
+				// AR7: the locked builtin test model — resolved for real via the
+				// per-agent `resolveModel({kind:"agent"})` path now that the
+				// assistant shares the durable poller (Increment 6).
 				modelId: "deepseek/deepseek-v4-flash",
 				modelProvider: "openrouter",
 				createdAt: now,
@@ -50,6 +68,18 @@ describe("[harness:builtin] assistant durable handoff", () => {
 			participants: JSON.stringify(["au9-real-human", "ast-au9-real-human"]),
 			lastActiveAt: now,
 			createdAt: now,
+		});
+		// AU27 Increment 6: seed the REAL openrouter_api_key credential
+		// (encrypted with HYPERIDLE_API_KEY, the same root secret
+		// DbCredentialResolver reads) so `makeResolveModel`'s
+		// `resolveModel({kind:"agent", modelProvider:"openrouter", ...})` call
+		// resolves through the production DbCredentialResolver path — no
+		// per-test model-resolution bypass anymore.
+		await db.insert(serverCredentials).values({
+			name: "openrouter_api_key",
+			encryptedValue: encryptCredentialValue(process.env.OPENROUTER_API_KEY as string),
+			validationState: "present_untested",
+			updatedAt: now,
 		});
 		const pool = new AdapterPool();
 		pool.register(
@@ -66,24 +96,10 @@ describe("[harness:builtin] assistant durable handoff", () => {
 				maxConcurrent: 1,
 			},
 		);
-		// @lore AR7: DbCredentialResolver has no seeded openrouter_api_key credential
-		// row in this fixture DB, so the real per-agent resolveAgentModel path would
-		// throw MissingCredentialError before ever reaching admission. The sanctioned
-		// test seam (harnessTestResolvedModel) supplies the locked builtin model +
-		// OPENROUTER_API_KEY directly, bypassing the DB-credential path entirely —
-		// this is the same seam every other real-harness test uses, not a stub of
-		// the harness itself (the adapter/model call is still 100% real).
-		const assistantEventBus = new EventBus();
 		const server = await createServer(0, {
 			db,
 			adapterPool: pool,
 			workspaceAdapter: createSandboxAdapter("local"),
-			assistantTurnDeps: {
-				db,
-				eventBus: assistantEventBus,
-				adapterPool: pool,
-				resolvedModel: harnessTestResolvedModel("builtin"),
-			},
 		});
 		try {
 			const address = server.httpServer.address();
@@ -110,8 +126,36 @@ describe("[harness:builtin] assistant durable handoff", () => {
 					{ timeout: 120_000 },
 				)
 				.toBe(1);
+			// AU27 Increment 6: the assistant now flows through the SAME durable
+			// poller as every other kind — no second execution entry (AC-5).
 			expect(await db.select().from(agentSessionRequests)).toHaveLength(1);
 			expect(await db.select().from(sessions)).toHaveLength(1);
+
+			// W2 fix (review): a message merely EXISTING from the assistant is not
+			// proof of a real reply — Increment 5's never-silent notice ("I
+			// couldn't finish that turn...") is ALSO authored as `event.agentId`
+			// (the assistant), so a turn that never called `reply`, exhausted the
+			// force budget, and got caught by the never-silent net would satisfy
+			// the row-count assertion above. Assert the actual reply TEXT the
+			// prompt asked for, and explicitly rule out the notice — same fix
+			// `assistant-reply-live-harness.integration.test.ts` already applies.
+			const [assistantReply] = await db
+				.select()
+				.from(messages)
+				.where(eq(messages.senderId, "ast-au9-real-human"));
+			const payload = JSON.parse(assistantReply?.payload ?? "{}") as { text?: string };
+			expect(
+				payload.text,
+				`assistant reply had no text payload: ${JSON.stringify(assistantReply)}`,
+			).toBeDefined();
+			expect(
+				payload.text,
+				"assistant reply was the never-silent notice, not a real reply — the agent never called reply()",
+			).not.toBe(SESSION_NOT_RETURNED_NOTICE_TEXT);
+			expect(
+				payload.text,
+				`assistant reply did not contain the required text: ${payload.text}`,
+			).toContain("durable handoff works");
 		} finally {
 			await server.dispose();
 			delete process.env.HYPERIDLE_API_KEY;

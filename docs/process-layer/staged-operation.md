@@ -11,7 +11,7 @@ The load-bearing noun **`Staged Operation` is retired; the noun is `Proposed Cal
 
 ## The gate is opt-in machinery, not default behavior
 
-The capture workflow is machinery a caller **attaches** to a session — it is not on by default. No production caller constructs the session-1 "open-work" capture workflow today: ordinary task dispatch provisions with no `sessionWorkflow`, and conversational turns explicitly get none (`packages/server/src/services/session-provisioning.ts:1027`, AR4a). The only `sessionWorkflow` producer in production is the session-2 grant path (`packages/fabric/src/services/task-dispatcher.ts:323-401`).
+The capture workflow is machinery a caller **attaches** to a session — it is not on by default. No production caller constructs the session-1 "open-work" capture workflow today: ordinary task dispatch provisions with no `sessionWorkflow`, and assistant turns never get one either. The only `sessionWorkflow` producer in production is the session-2 grant path (`packages/fabric/src/services/task-dispatcher.ts:323-401`).
 
 So the correct framing of everything below is conditional: **when a review checkpoint is attached** (because a human chose it for this case, or a learning earned it), the workflow router routes irreversible calls to review and lets reversible calls flow.
 
@@ -27,7 +27,7 @@ When a checkpoint is attached, the routing line is **reversibility** (`classifyR
 
 The single shipped carrier of the workflow on every CLI harness is **HyperIdle's production MCP bridge** — `/api/mcp/:token` (`packages/server/src/routes/mcp-route.ts`) → `createMcpBridge` (`packages/server/src/mcp/mcp-bridge.ts`) → the capturing router at `registry.invoke` (`packages/server/src/tools/tool-registry.ts:283` — "the router in `invoke` is the uniform record/consume"). The builtin harness is the same router in-process.
 
-No harness-native permission mechanism carries any of this. There is no `canUseTool` (the Agent SDK was removed; claude-code is the real `claude` CLI), no `PreToolUse` hook (AL6's codex hook is a **Stop** hook for return enforcement), and no opencode `permission` config anywhere in the codebase — the claude production adapter runs `--permission-mode bypassPermissions` (`packages/server/src/harness/adapter-pool.ts:515-530`).
+No harness-native permission mechanism carries any of this. There is no `canUseTool` (the Agent SDK was removed; claude-code is the real `claude` CLI), no `PreToolUse` hook (the codex hook is a **Stop** hook for return enforcement), and no opencode `permission` config anywhere in the codebase — the claude production adapter runs `--permission-mode bypassPermissions` (`packages/server/src/harness/adapter-pool.ts:515-530`).
 
 **Honest scope (stated once).** On a CLI harness the checkpoint covers the agent's **MCP-routed calls** — the ones that pass through the bridge to `registry.invoke`. The agent is trusted not to route an irreversible op around the bridge (raw shell / direct HTTP / its own creds). This is ETHOS §2, not a defect: the checkpoint is where a human chooses to weigh in, not a wall the agent is tested against.
 

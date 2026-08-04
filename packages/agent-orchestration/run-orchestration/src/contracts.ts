@@ -92,9 +92,6 @@ interface RunOrchestrationSessionLifecycleRuntime {
 }
 
 type RunOrchestrationSessionProvisioner = HarnessPort<HyperIdleDb>;
-interface RunOrchestrationDispatchPort {
-	runAssistantTurn(deps: unknown, request: AgentSessionRequest): Promise<void>;
-}
 
 // ---------------------------------------------------------------------------
 // Aggregate deps bundle (per registration entry point)
@@ -194,7 +191,6 @@ export interface RuntimePorts {
 	readonly sessionLifecycle: RunOrchestrationSessionLifecycleRuntime;
 	/** Test-only execution seam; production runSession binds the internal provisioner. */
 	readonly sessionProvisioner?: RunOrchestrationSessionProvisioner;
-	readonly dispatch: RunOrchestrationDispatchPort;
 }
 
 export type RunResult =
@@ -218,10 +214,8 @@ export type RunOptions =
 			readonly workerId?: string;
 			readonly claim?: { readonly now: Date; readonly leaseMs: number };
 			readonly resolvedModel?: RunContextBundle["resolvedModel"];
-			readonly resolvedFastModel?: RunContextBundle["resolvedFastModel"];
 			readonly modelTier?: RunContextBundle["modelTier"];
 			readonly sessionWorkflow?: RunContextBundle["sessionWorkflow"];
-			readonly conversational?: RunContextBundle["conversational"];
 			readonly enforceResolvedModelGuard?: boolean;
 	  }
 	| {
@@ -248,10 +242,19 @@ export interface RuntimeDeps {
 		ReturnType<typeof import("./provisioner.js").createProvisioner>["admit"]
 	>[0];
 	readonly sandboxBasePath?: string;
+	/**
+	 * AU27 Increment 6 (Decision 4) — an optional per-agent model override
+	 * (baked onto every kind's `agentConfig.modelId`/`modelProvider`, uniform,
+	 * not assistant-only). Absent means "no override, tier only" — matches the
+	 * pre-AU27 signature's own behaviour exactly.
+	 */
 	readonly resolveModel?: (
 		tier: import("@hyperidle/shared").ModelTier,
+		modelOverride?: {
+			readonly modelId: string | null;
+			readonly modelProvider: string | null;
+		},
 	) => Promise<import("@hyperidle/shared").ResolvedModel | undefined>;
-	readonly assistantTurn?: unknown;
 	readonly ports?: RuntimePorts;
 	readonly durableQueue?: Parameters<RuntimePorts["sessionRequests"]["drainIntents"]>[0];
 	readonly composition: {

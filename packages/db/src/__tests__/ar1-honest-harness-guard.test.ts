@@ -81,7 +81,7 @@ describe("isStubDirty — flags fake/scripted/mocked harness seams", () => {
 
 	test("factory function returning : HarnessAdapter → dirty (AR1 finding 3)", () => {
 		// The dominant in-repo stub idiom: a hand-rolled factory whose RETURN TYPE
-		// is HarnessAdapter (AL6-return-gate's makeStubAdapter, ah5's makeBrokenStreamAdapter).
+		// is HarnessAdapter (return-gate.test.ts makeStubAdapter, ah5's makeBrokenStreamAdapter).
 		const multiLine = [
 			`function makeStubAdapter(`,
 			`	events: HarnessEvent[],`,
@@ -266,7 +266,7 @@ describe("checkGuardRules — skipIf in a selected file is ALWAYS a violation", 
 describe("checkGuardRules — no false positives", () => {
 	test("a *.test.ts unit with a stub is NOT a violation (stubs allowed in units)", () => {
 		// Not selected by the path predicate; the guard must not flag it.
-		const p = "packages/server/src/harness/__tests__/AL6-return-gate.test.ts";
+		const p = "packages/server/src/harness/__tests__/return-gate.test.ts";
 		const results = checkGuardRules([file(p, DIRTY_SRC)], []);
 		expect(results.find((r: GuardResult) => r.path === p)?.violation).toBeNull();
 	});

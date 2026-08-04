@@ -45,6 +45,7 @@ import { readServerConfig } from "@hyperidle/settings";
 import { type AgentRunAdmissionFailedEvent, createLogger, type EventBus } from "@hyperidle/shared";
 import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
+import { resolveOrCreateCallingThread } from "./calling-thread-bindings.js";
 
 const logger = createLogger({ pkg: "core-api.agent-run-admission-reactions" });
 const registeredBuses = new WeakSet<EventBus>();
@@ -126,6 +127,8 @@ async function reactToAdmissionFailure(
 				// connections): also bake injectedConnections.
 				resolveInjectedConnectionsForAgent: (db, agentId) =>
 					resolveInjectedConnectionsForAgent(db, agentId, findUser),
+				// AU27 Increment 1 (Decision 0): also bake callingThreadId.
+				resolveOrCreateCallingThread,
 			});
 			return;
 		case "assistant_turn":

@@ -50,8 +50,7 @@ import type {
 } from "./agent-work-intent-recorder.js";
 import type { EventBus } from "./event-bus.js";
 import type { SessionOutcome } from "./events.js";
-import type { SessionMetrics } from "./harness/harness-adapter.js";
-import type { CapturedToolCall } from "./harness/harness-events.js";
+import type { ConversationMessage, SessionMetrics } from "./harness/harness-adapter.js";
 import type { ResolvedModel } from "./model-gateway.js";
 import type { AgentSessionSourceCorrelation, AgentSessionSourceKind } from "./session-request.js";
 import type { ModelTier } from "./types.js";
@@ -66,9 +65,8 @@ export interface HarnessPortDeps<TDb = unknown> {
 /**
  * Narrow mirror of `@hyperidle/session-lifecycle`'s `ProvisionSessionParams`
  * — every field `run-orchestration` constructs when dispatching a run.
- * `sessionWorkflow`/`conversational` are opaque pass-through value bags
- * `run-orchestration` never inspects (only ever forwarded whole from its own
- * caller's `options`).
+ * `sessionWorkflow` is an opaque pass-through value bag `run-orchestration`
+ * never inspects (only ever forwarded whole from its own caller's `options`).
  */
 export interface RunContextBundle {
 	readonly taskId: string | null;
@@ -77,7 +75,6 @@ export interface RunContextBundle {
 	readonly sandboxBasePath: string;
 	readonly modelTier?: ModelTier;
 	readonly resolvedModel?: ResolvedModel;
-	readonly resolvedFastModel?: ResolvedModel;
 	readonly routineId?: string;
 	readonly requestContext?: {
 		readonly requestId: string;
@@ -88,14 +85,12 @@ export interface RunContextBundle {
 	};
 	/** Opaque pass-through — `session-lifecycle`-owned `RegistrySessionWorkflow` (destined for `tool-handlers`, Increment 4). Never inspected here. */
 	readonly sessionWorkflow?: unknown;
-	/** Opaque pass-through — `session-lifecycle`-owned conversational-turn bundle (incl. a `tool-handlers`-destined `ToolRegistry`). Never inspected here. */
-	readonly conversational?: unknown;
 	/**
 	 * AU21 §9 Increment 12 (Decision H3) — the baked entity+knowledge bundle a
 	 * `task_run`/`routine_run`/`reengagement` session's sandbox context (Phase
 	 * 6) and prompt persona (Phase 8.5) are built from, sourced from the
 	 * drained `AgentSessionRequest.payloadJson` (zero db read). Absent for
-	 * `knowledge_action`/`session_start`/conversational turns.
+	 * `knowledge_action`/`session_start`/`assistant_turn` turns.
 	 */
 	readonly contextBundle?: BakedContextBundle;
 	/**
@@ -109,6 +104,24 @@ export interface RunContextBundle {
 	 */
 	readonly agentConfig?: BakedAgentRunnableConfig;
 	readonly harnessDisabled?: readonly string[];
+	/**
+	 * The session's calling thread id, baked at emit time by every per-kind
+	 * resolver that has one (`assistant_turn` from the triggering message's
+	 * thread; `task_run`/`session_start`/`proposed_call` from a resolve-or-
+	 * create). Absent for `routine_run`/`knowledge_action`. Forwarded
+	 * verbatim onto `ProvisionSessionParams` and then `ToolContext.threadId`
+	 * — ZERO orchestration -> core read (AU21 AC #2).
+	 */
+	readonly callingThreadId?: string;
+	/**
+	 * The session's calling-thread transcript, mapped to generic chat
+	 * messages at emit time — any kind that bakes a `transcript` gets the
+	 * same generic delivery, no per-kind branch. Feeds both the
+	 * `## Conversation` prompt section (every harness) and
+	 * `SessionConfig.messages` (selects the builtin adapter's chat completion
+	 * over the planning loop). Absent for a session with no transcript.
+	 */
+	readonly transcript?: readonly ConversationMessage[];
 	/**
 	 * AU21 §9 Increment 12 follow-up (F2 gap closure) — the target agent's
 	 * baked injected-filesystems list, sourced from the drained
@@ -145,8 +158,6 @@ export interface HarnessRunOutput {
 	readonly returnVerdict?: "returned" | "not_returned";
 	readonly forceReturnCount: number;
 	readonly metrics?: SessionMetrics;
-	readonly conversationalReply?: string;
-	readonly conversationalToolCalls?: readonly CapturedToolCall[];
 }
 
 /**

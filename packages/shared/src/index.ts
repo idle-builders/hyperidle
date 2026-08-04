@@ -271,12 +271,13 @@ export type { EnforcementEntry, EnforcementRegistry } from "./harness/enforcemen
 export type {
 	AdapterInfo,
 	AdapterMeta,
-	CapturedToolCall,
 	CompletionEvent,
 	ConversationMessage,
 	ErrorEvent,
 	HarnessAccessMode,
 	HarnessAdapter,
+	// AU27 Increment 8: harness adapter type identifiers
+	HarnessAdapterType,
 	HarnessAuthActionDescriptor,
 	HarnessAuthActionKind,
 	HarnessCapabilities,
@@ -293,11 +294,13 @@ export type {
 	HarnessRuntimeCapabilities,
 	// AN1: inherited tools enumeration
 	InheritedToolDescriptor,
+	// AU27 Increment 8: harness-literal tool namer function type
+	LiteralToolNamer,
 	McpConnectionInfo,
 	PreCompactionEvent,
-	// AL6: return action name type
+	// Return action name type
 	ReturnActionName,
-	// AL6 v4-final: per-harness enforcement channel + hook config
+	// Per-harness enforcement channel + hook config
 	ReturnEnforcementChannel,
 	ReturnHookConfig,
 	ServerDispatchMessage,
@@ -321,20 +324,27 @@ export type {
 	WorkerToServerMessage,
 } from "./harness/index.js";
 export {
-	// AL6 v2: forcing constants + helper
-	AL6_FORCE_RETURN_MESSAGE,
-	AL6_MAX_FORCE_RETURNS,
+	// AU27 Increment 3: tailored forcing message + required-set predicate
+	buildForceReturnMessage,
 	// AV1: derive PrimaryHarnessConfig from a HarnessCapabilityDescriptor
 	derivePrimaryHarness,
+	// Forcing constants + helper
+	FORCE_RETURN_MESSAGE,
 	HARNESS_OPTION_CONTROL_KINDS,
 	isHarnessEvent,
 	isInternalExtractionDrain,
+	isRequiredReturnAction,
 	isReturnAction,
+	// AU27 Increment 8: harness-literal tool naming for return-action mentions
+	literalToolNamerForAdapterType,
+	MAX_FORCE_RETURNS,
 	MockHarnessAdapter,
+	mcpNamespacedToolName,
 	normalizeHarnessEvent,
+	opencodeToolName,
 	// claude CLI adapter: pre-map for stream-json events
 	preMapClaudeEvent,
-	// AL6: closed accepted-return set
+	// Closed accepted-return set
 	RETURN_ACTION_NAMES,
 	shouldForceReturn,
 } from "./harness/index.js";

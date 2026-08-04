@@ -76,3 +76,8 @@ export {
 	updateMessage,
 	updateThread,
 } from "./conversation-store.js";
+// -- never-silent net (AU27 Increment 5, Decision 5) --
+export {
+	registerSessionNotReturnedNotice,
+	SESSION_NOT_RETURNED_NOTICE_TEXT,
+} from "./session-not-returned-notice.js";

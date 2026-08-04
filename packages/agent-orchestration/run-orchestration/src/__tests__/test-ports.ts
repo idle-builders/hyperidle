@@ -8,7 +8,7 @@
  * `@hyperidle/session-requests`'s own `transitionSessionRequest` (the
  * same durable write used by the real implementation). These tests never set
  * a termination reason, so precedence behavior is not exercised here.
- * `sessionProvisioner`/`dispatch`/`crashSession`/`requestAgentTermination`/
+ * `sessionProvisioner`/`crashSession`/`requestAgentTermination`/
  * `recoverRequestedTerminations` are `vi.fn()` stubs — overridden per test
  * where behavior matters (matching the pre-move tests' own
  * `vi.mock("../session-provisioning.js")` stand-in for the same harness-
@@ -145,11 +145,6 @@ export function buildTestPorts(): RunOrchestrationPorts {
 		sessionProvisioner: {
 			admitSession: vi.fn(),
 			runSession: vi.fn(),
-		},
-		dispatch: {
-			runAssistantTurn: vi.fn(async () => {
-				/* no-op */
-			}),
 		},
 	};
 }

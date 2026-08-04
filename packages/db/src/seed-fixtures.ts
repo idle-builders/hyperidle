@@ -22,8 +22,3 @@ export const COMMUNITY_DISPLAY_NAMES: Record<PracticeCommunity, string> = {
 	ops: "Ops",
 	facilitation: "Facilitation",
 };
-
-// @lore AF17: BUILTIN_ROUTINE_SEEDS and BuiltinRoutineSeed were removed.
-// The global seeding loop was eliminated by the seed factory split. The server's
-// team-creation flow now asks dispatchOps to provision each team's builtin routines;
-// dispatch owns the canonical five builtin defaults.

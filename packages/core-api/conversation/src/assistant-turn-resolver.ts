@@ -75,7 +75,7 @@ export interface AssistantTurnResolverDeps {
 /** Thrown when the source message does not exist, is deleted, or is redacted. */
 export class AssistantTurnSourceUnavailableError extends Error {}
 
-/** One raw transcript row — matches `dispatch`'s `loadRawTranscript` return shape verbatim. */
+/** One raw transcript row. */
 export interface BakedTranscriptRow {
 	readonly senderId: string;
 	readonly payload: string;
@@ -85,10 +85,9 @@ export interface BakedTranscriptRow {
 /**
  * The baked `assistant_turn` request shape, matching `resolveIntentInputInternal`'s
  * current return, PLUS (AU21 §9 Increment 11, Decision H2) the thread's full
- * conversational transcript — the same content `dispatch`'s `loadRawTranscript`
- * used to read live at execution time. Baking it here (core-api's own
- * `conversation` state, at emit time) lets `dispatch` build the harness input
- * from this payload with ZERO reads back into core.
+ * conversation transcript. Baking it here (core-api's own `conversation`
+ * state, at emit time) lets `run-orchestration`'s generic drain build the
+ * harness input from this payload with ZERO reads back into core.
  *
  * @lore AU21 §9 Increment 11 (Decision H2 follow-up, closing a Wave A
  * regression): `modelId`/`modelProvider` ride alongside `transcript` here,
@@ -114,6 +113,13 @@ export interface BakedAssistantTurnRequest {
 	};
 	/** Every message in the thread, `createdAt` ascending, including the triggering message. */
 	readonly transcript: ReadonlyArray<BakedTranscriptRow>;
+	/**
+	 * AU27 Increment 1 (Decision 1) — the assistant's calling thread, always
+	 * present (an `assistant_turn` always has a triggering thread message).
+	 * Baked from the SAME `message` this resolver already loaded — no extra
+	 * read.
+	 */
+	readonly callingThreadId: string;
 	/** Per-agent model override (`users.modelId`), or `null` when unset — see the `@lore` above. */
 	readonly modelId: string | null;
 	/** Per-agent model provider override (`users.modelProvider`), or `null` when unset. */
@@ -197,6 +203,7 @@ export async function resolveAssistantTurnRequest(
 			assistantAgentId: targetAgentId,
 		},
 		transcript,
+		callingThreadId: message.threadId,
 		modelId: agent.modelId ?? null,
 		modelProvider: agent.modelProvider ?? null,
 		agentConfig: bakeAgentRunnableConfig(agent),

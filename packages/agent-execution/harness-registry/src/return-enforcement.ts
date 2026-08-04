@@ -2,7 +2,7 @@ import {
 	type EnforcementEntry,
 	type EnforcementRegistry,
 	type HarnessEvent,
-	isReturnAction,
+	isRequiredReturnAction,
 } from "@hyperidle/shared";
 
 export interface ReturnEnforcementSpec {
@@ -15,7 +15,13 @@ interface ReturnGate {
 }
 
 interface ReturnEnforcement extends EnforcementRegistry {
-	createGate(): ReturnGate;
+	/**
+	 * AU27 Increment 3 (Decision 3) — `requiredReturnActions`, when supplied,
+	 * narrows the predicate in the closure: only a tool call naming one of
+	 * THESE specific return actions flips `returned`. Absent ⇒ the
+	 * pre-Increment-3 default (any member of the closed return set).
+	 */
+	createGate(requiredReturnActions?: readonly string[]): ReturnGate;
 	observe(gate: ReturnGate, event: HarnessEvent): void;
 	evaluate(
 		gate: ReturnGate,
@@ -39,11 +45,14 @@ function buildReturnEnforcement(): ReturnEnforcement {
 		unregister(sessionId) {
 			entries.delete(sessionId);
 		},
-		createGate() {
+		createGate(requiredReturnActions) {
 			let returned = false;
 			return {
 				observe(event) {
-					if (event.type === "tool_call" && isReturnAction(event.toolName, event.args)) {
+					if (
+						event.type === "tool_call" &&
+						isRequiredReturnAction(event.toolName, requiredReturnActions, event.args)
+					) {
 						returned = true;
 					}
 				},

@@ -320,3 +320,58 @@ describe("resolveKnowledgeActionRequest — contextBundle baking (Increment 12 W
 		});
 	});
 });
+
+/**
+ * AU27 — `knowledge_action` bakes its own `callingThreadId`, exactly like
+ * `task_run`'s Increment 1 (Decision 0): resolve-or-create the item's own
+ * `hostKind:"knowledge_item"` thread, so a `knowledge_action` session's
+ * `reply` tool always has somewhere real to post — the failure mode this WP
+ * deletes rather than reports.
+ */
+describe("resolveKnowledgeActionRequest — callingThreadId baking (AU27)", () => {
+	test("bakes no callingThreadId when resolveOrCreateCallingThread is not supplied", async ({
+		db,
+	}) => {
+		const { resolveKnowledgeActionRequest } = await import("../knowledge-action-resolver.js");
+		await seedAgent(db, { id: "ast-knowledge-thread-absent" });
+		await seedKnowledgeItem(db, {
+			id: "item-knowledge-thread-absent",
+			updatedBy: "ast-knowledge-thread-absent",
+		});
+
+		const baked = await resolveKnowledgeActionRequest(
+			db,
+			"knowledge:item-knowledge-thread-absent",
+			{
+				requireRunnableAgent,
+			},
+		);
+
+		expect(baked.callingThreadId).toBeUndefined();
+	});
+
+	test("bakes callingThreadId via the injected resolver, called with the item id + the resolved agent", async ({
+		db,
+	}) => {
+		const { resolveKnowledgeActionRequest } = await import("../knowledge-action-resolver.js");
+		await seedAgent(db, { id: "ast-knowledge-thread-1" });
+		await seedKnowledgeItem(db, {
+			id: "item-knowledge-thread-1",
+			updatedBy: "ast-knowledge-thread-1",
+		});
+
+		const calls: Array<{ knowledgeItemId: string; agentId: string }> = [];
+		const baked = await resolveKnowledgeActionRequest(db, "knowledge:item-knowledge-thread-1", {
+			requireRunnableAgent,
+			resolveOrCreateCallingThread: async (_db, knowledgeItemId, agentId) => {
+				calls.push({ knowledgeItemId, agentId });
+				return "thread-knowledge-thread-1";
+			},
+		});
+
+		expect(baked.callingThreadId).toBe("thread-knowledge-thread-1");
+		expect(calls).toEqual([
+			{ knowledgeItemId: "item-knowledge-thread-1", agentId: "ast-knowledge-thread-1" },
+		]);
+	});
+});

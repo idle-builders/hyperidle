@@ -43,7 +43,7 @@ Each routine can carry `costCapPerRunMinor` (AA2) and `costCapMonthlyMinor` (AA3
 
 ## 6. The five builtins
 
-Seeded per team through `dispatchOps.provisionTeamRoutines` (idempotent `onConflictDoNothing`; owners resolved from the team's roster by role, AF17), against the dispatch service's builtin defaults. IDs carry the reserved `builtin:` prefix — load-bearing for the manual-trigger API.
+Seeded per team through `provisionTeamRoutines` (idempotent `onConflictDoNothing`; owners resolved from the team's roster by role, AF17), against the builtin defaults. IDs carry the reserved `builtin:` prefix — load-bearing for the manual-trigger API.
 
 | Routine | Owner role | Trigger | humanReview | silent | Done condition |
 |---|---|---|---|---|---|

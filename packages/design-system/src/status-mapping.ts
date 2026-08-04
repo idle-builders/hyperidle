@@ -86,7 +86,7 @@ export const SESSION_OUTCOME_MAP: Record<SessionOutcome, Status> = {
 	completed: "done",
 	crashed: "error",
 	stopped: "paused",
-	// AL6 v2: not_returned is a non-completed turn outcome; maps to "error"
+	// not_returned is a non-completed turn outcome; maps to "error"
 	// in the UI (the turn was not accepted as a clean complete).
 	not_returned: "error",
 };

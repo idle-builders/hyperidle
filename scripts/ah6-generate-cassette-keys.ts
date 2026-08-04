@@ -76,8 +76,9 @@ function buildAssistantSystemPrompt(systemPromptText: string, hasDraftBet: boole
 }
 
 // ---------------------------------------------------------------------------
-// Tool definitions (must match buildAssistantDraftRegistry tool specs)
-// These are derived from the Zod schemas in assistant-draft-registry.ts.
+// Tool definitions (must match the `create_bet`/`edit_bet` specs in
+// tool-definitions.ts — the assistant's ordinary, `["assistant"]`-role-scoped
+// tools, not a bespoke registry).
 // ---------------------------------------------------------------------------
 
 // create_bet tool (relaxed schema: no teamId, only description/doneCondition/hypothesis)

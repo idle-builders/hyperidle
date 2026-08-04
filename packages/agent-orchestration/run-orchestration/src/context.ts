@@ -387,64 +387,6 @@ function writeSandboxAgentsMd(sandboxPath: string, assembledPrompt: string): voi
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AH3: Assistant persona composer (task-free)
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * AH3 §4: Result of composing the assistant persona prompt.
- * The single canonical string consumed by both harness adapter paths:
- * - builtin: passed as config.composedPrompt
- * - SDK: written to CLAUDE.md via writeSandboxAgentsMd
- */
-interface AssistantPromptResult {
-	/** The composed persona prompt, byte-equal for both adapter paths. */
-	readonly composedPrompt: string;
-}
-
-/**
- * AH3 §4: Compose a task-free assistant persona prompt from a system prompt string.
- *
- * Unlike assemblePrompt (which requires task/bet/team context), this function
- * produces a lightweight prompt containing only the persona (identity section)
- * and a short orientation. Used for the assistant conversational turn — no task,
- * no bet, no sandbox context assembly.
- *
- * **Byte-equality invariant:** the returned `composedPrompt` must be:
- *   - Passed verbatim as the builtin adapter's config.composedPrompt
- *   - Written verbatim to CLAUDE.md for the SDK adapter via writeSandboxAgentsMd
- * This guarantees the same bytes reach the model regardless of which harness executes.
- *
- * @param systemPromptText - Raw system prompt (may contain YAML frontmatter). Empty = no identity section.
- * @returns { composedPrompt } — the canonical prompt string.
- *
- * @lore AH3: composeAssistantPrompt is intentionally synchronous (vs assemblePrompt's async)
- * because it does no I/O — no sandbox files to read, no token-budget checks against DB.
- * Kept synchronous to avoid unnecessary Promise overhead in the hot path of every turn.
- * @lore AK1: systemPromptText is the post-rename persona parameter (harness-vocab rename).
- * Behaviour identical.
- */
-function composeAssistantPrompt(systemPromptText: string): AssistantPromptResult {
-	const parts: string[] = ["# Assistant Instructions", ""];
-
-	if (systemPromptText.length > 0) {
-		const stripped = stripFrontmatter(systemPromptText);
-		if (stripped.trim().length > 0) {
-			parts.push("## Identity", "", stripped.trimEnd(), "");
-		}
-	}
-
-	parts.push("## Conversation");
-	parts.push("");
-	parts.push(
-		"You are a helpful AI assistant in HyperIdle. Respond concisely and helpfully to the user's messages.",
-	);
-	parts.push("");
-
-	const composedPrompt = parts.join("\n");
-	return { composedPrompt };
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // AA2: Routine prompt assembly
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -862,7 +804,6 @@ interface ContextAssembler {
 	}): AgentWritebackHandle;
 	assemblePrompt(input: PromptCompositionInput): Promise<PromptCompositionResult>;
 	assembleRoutinePrompt(input: RoutinePromptCompositionInput): Promise<PromptCompositionResult>;
-	composeAssistantPrompt(systemPromptText: string): AssistantPromptResult;
 	writeSandboxAgentsMd(sandboxPath: string, assembledPrompt: string): void;
 	stripFrontmatter(content: string): string;
 	substituteTemplateVars(template: string, vars: Record<string, string>): string;
@@ -878,7 +819,6 @@ export function createContextAssembler(ports: ContextAssemblyPorts): ContextAsse
 		beginAgentWriteback: (input) => beginAgentWriteback(input, ports),
 		assemblePrompt: (input) => Promise.resolve(assemblePrompt(input)),
 		assembleRoutinePrompt: (input) => Promise.resolve(assembleRoutinePrompt(input)),
-		composeAssistantPrompt,
 		writeSandboxAgentsMd,
 		stripFrontmatter,
 		substituteTemplateVars,

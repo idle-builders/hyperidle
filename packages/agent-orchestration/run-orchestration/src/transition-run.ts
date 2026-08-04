@@ -185,7 +185,7 @@ async function endSession(
 	// finalized (e.g. a handoff that set state='done') — affects ZERO rows and is a
 	// no-op. The runtime is the SOLE terminal-state writer for a session it runs.
 	//
-	// AL6 v2 WARNING-A: `terminalOutcome` overrides the previously hardcoded "completed"
+	// WARNING-A: `terminalOutcome` overrides the previously hardcoded "completed"
 	// in BOTH the row write and the event emit. This ensures a not_returned turn is
 	// persisted correctly in the DB and carried on the bus — not just in the in-memory
 	// ProvisionSessionResult. Passing "not_returned" here is what gives AC1/AC3 real
@@ -213,7 +213,7 @@ async function endSession(
 					}
 				: {}),
 			timestamp: Date.now(),
-			// AL6 v2: use terminalOutcome (not hardcoded "completed") so not_returned
+			// Use terminalOutcome (not hardcoded "completed") so not_returned
 			// turns surface correctly on the bus.
 			outcome: terminalOutcome,
 			// AU21 §9 Increment 4 (Decision B″ item 3): the routine-run finalize

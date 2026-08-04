@@ -1,18 +1,16 @@
 /**
- * AL6 — AC2: Value-import unit test for the closed accepted-return set.
+ * AC2: Value-import unit test for the closed accepted-return set.
  *
  * AC2: The accepted-return set is closed + enumerable.
  *   - Every member of RETURN_ACTION_NAMES maps to a real registered tool in
  *     ALL_TOOL_DEFINITIONS (closure: the set cannot name a phantom tool).
- *   - The set is the exact trio — no extra names, no missing names.
+ *   - The set is the exact, named membership — no extra names, no missing names.
  *   - isReturnAction() returns true for every member and false for non-members.
  *
  * This is a VALUE-IMPORT unit test: imports constants, asserts on values.
  * NOT a readFileSync/grep test — per CLAUDE.md and architecture §5 AC2 row.
  * The "closed finite set" static property is enforced by the `as const` union
  * type (ReturnActionName) at check-time — not a separate test here.
- *
- * Tests FAIL until packages/shared/src/harness/return-actions.ts is implemented.
  */
 
 import { isReturnAction, RETURN_ACTION_NAMES } from "@hyperidle/shared";
@@ -29,13 +27,15 @@ describe("RETURN_ACTION_NAMES — AC2: closed enumerable set", () => {
 		expect(RETURN_ACTION_NAMES.length).toBeGreaterThan(0);
 	});
 
-	it("contains exactly the trio: submit_review, handoff_to, send_message", () => {
+	it("contains exactly the four members: submit_review, handoff_to, send_message, reply", () => {
+		// AU27 Increment 3 (Decision 3): `reply` (Increment 2's generic
+		// session-scoped reply tool) joins the trio.
 		const names = [...RETURN_ACTION_NAMES].sort();
-		expect(names).toEqual(["handoff_to", "send_message", "submit_review"]);
+		expect(names).toEqual(["handoff_to", "reply", "send_message", "submit_review"]);
 	});
 
 	it("every member maps to a real registered tool in ALL_TOOL_DEFINITIONS (closure)", () => {
-		// @lore AL6: This test is the runtime enforcement of the closure guarantee.
+		// @lore This test is the runtime enforcement of the closure guarantee.
 		// If a tool in RETURN_ACTION_NAMES is renamed in tool-registry.ts without
 		// updating return-actions.ts, this test catches the drift at CI time.
 		const registeredNames = new Set(ALL_TOOL_DEFINITIONS.map((d) => d.name));
@@ -74,6 +74,11 @@ describe("isReturnAction — AC2: per-tool return predicate", () => {
 	it("returns true for send_message unconditionally", () => {
 		expect(isReturnAction("send_message", {})).toBe(true);
 		expect(isReturnAction("send_message", { to: "human-1", body: "done" })).toBe(true);
+	});
+
+	it("returns true for reply unconditionally", () => {
+		expect(isReturnAction("reply", {})).toBe(true);
+		expect(isReturnAction("reply", { text: "done" })).toBe(true);
 	});
 
 	it("returns false for non-member tools (mid-turn tools are not returns)", () => {
@@ -149,7 +154,12 @@ describe("isReturnAction — MCP namespace stripping (AR2)", () => {
 		expect(isReturnAction("hyperidle_send_message")).toBe(true);
 		expect(isReturnAction("hyperidle_submit_review")).toBe(true);
 		expect(isReturnAction("hyperidle_handoff_to")).toBe(true);
+		expect(isReturnAction("hyperidle_reply")).toBe(true);
 		expect(isReturnAction("hyperidle_commit_file")).toBe(false);
+	});
+
+	it("namespaced reply is recognised as a return action", () => {
+		expect(isReturnAction("mcp__hyperidle__reply")).toBe(true);
 	});
 });
 

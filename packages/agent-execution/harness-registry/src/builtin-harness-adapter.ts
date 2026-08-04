@@ -12,7 +12,6 @@
  */
 
 import type {
-	CapturedToolCall,
 	ConversationMessage,
 	HarnessAdapter,
 	HarnessCapabilities,
@@ -30,7 +29,7 @@ import type {
 	// every other execution-boundary type.
 	ToolRegistry,
 } from "@hyperidle/shared";
-import { AL6_FORCE_RETURN_MESSAGE, isReturnAction, shouldForceReturn } from "@hyperidle/shared";
+import { isRequiredReturnAction, shouldForceReturn } from "@hyperidle/shared";
 // @lore X6: ModelTier is exported twice from @hyperidle/shared — once as ModelTier from types.ts
 // and once as MoneyModelTier from types/money.ts (same type, different alias). We import
 // ModelTier (not MoneyModelTier) for consistency with the rest of the codebase.
@@ -86,13 +85,13 @@ interface BuiltinSession {
 	notifyStream: (() => void) | null;
 	loopPromise: Promise<void> | null;
 	/**
-	 * AL6 v2 (T4): True once any tool_call event named a member of RETURN_ACTION_NAMES
+	 * True once any tool_call event named a member of RETURN_ACTION_NAMES
 	 * is emitted during executeToolCalls. Used by the forcing layer at stop attempts.
 	 */
 	returnSeen: boolean;
 	/**
-	 * AL6 v2 (T4): Number of force-continue re-injections applied this session.
-	 * The forcing layer uses this to bound force at AL6_MAX_FORCE_RETURNS.
+	 * Number of force-continue re-injections applied this session.
+	 * The forcing layer uses this to bound force at MAX_FORCE_RETURNS.
 	 * Exposed on stopSession for the eval harness (forceReturnCount).
 	 */
 	forceCount: number;
@@ -350,32 +349,20 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 			subAgents: false,
 			modelProviders: ["anthropic", "openrouter", "openai-compatible"],
 			mcpSupport: false,
-			// AL6 v4-final: builtin owns the in-process loop — forces return inside the
+			// Builtin owns the in-process loop — forces return inside the
 			// turn boundary without any external hook. Channel = "builtin-loop".
 			returnEnforcement: "builtin-loop",
 		};
 	}
 
 	/**
-	 * AL6 v3 (T4): Implements the optional HarnessAdapter.getForceReturnCount interface.
+	 * Implements the optional HarnessAdapter.getForceReturnCount interface.
 	 * Returns the number of in-turn force-continue re-injections (Layer-A) applied by the
 	 * builtin loop during a session. Used by the provisioning loop to unify the
 	 * turn-level forceReturnCount: loopForceCount + (harness.getForceReturnCount?.() ?? 0).
-	 *
-	 * @lore AL6 v3: Renamed from getSessionForceCount (v2 concrete-only method) to
-	 * getForceReturnCount (v3 HarnessAdapter optional interface method). The underlying
-	 * sessions.get(sessionId)?.forceCount data is unchanged.
 	 */
 	getForceReturnCount(sessionId: string): number {
 		return this.sessions.get(sessionId)?.forceCount ?? 0;
-	}
-
-	/**
-	 * @deprecated Use getForceReturnCount instead (AL6 v3 rename).
-	 * Kept for backward compat with eval code that calls it by the old name.
-	 */
-	getSessionForceCount(sessionId: string): number {
-		return this.getForceReturnCount(sessionId);
 	}
 
 	// ── Internal loop ─────────────────────────────────────────────────────────
@@ -388,12 +375,14 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 		}
 
 		try {
-			// @lore AH3 H3: Branch on config.messages to distinguish conversational
-			// assistant turns from task-planning sessions. When messages are present,
-			// run a single chat completion (the user's question → assistant's answer).
+			// @lore AH3 H3: Branch on config.messages to distinguish a chat-completion
+			// turn from a task-planning session — a GENERIC input keyed on
+			// `params.transcript`'s presence for ANY kind, not an assistant-only
+			// special case. When messages are present, run a single chat
+			// completion (the caller's message → the agent's reply).
 			// When absent, run the full task-planning loop (existing task session path).
 			// This is the fix that stops the adapter from answering PLANNING_PROMPT
-			// instead of the user's actual question.
+			// instead of the caller's actual question.
 			if (session.config.messages && session.config.messages.length > 0) {
 				await this.runChatTurn(session);
 			} else {
@@ -451,18 +440,19 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 	}
 
 	/**
-	 * Run a conversational chat turn with a bounded tool-use loop.
+	 * Run a chat-completion turn with a bounded tool-use loop.
 	 *
-	 * @lore AH3 H3: This is the assistant turn's execution path. Unlike the
+	 * @lore AH3 H3: This is the assistant turn's execution path (and, since
+	 * AU27 Increment 6, any other kind that bakes a transcript). Unlike the
 	 * task-planning loop (runPlanningTurn → execute loop → reflect), a chat turn
 	 * uses the thread transcript as seed messages and runs AT MOST MAX_TOOL_ITERATIONS
 	 * tool-use rounds before emitting a completion (never silent).
 	 *
 	 * @lore AK4: Bounded loop added (MAX_TOOL_ITERATIONS=3). If registry is
 	 * present (injected via setSessionToolRegistry), tool_use blocks are executed
-	 * via executeToolCalls. CapturedToolCall[] is accumulated and surfaced on the
-	 * CompletionEvent so runAssistantTurn can attach them to payload.toolCalls.
-	 * No planning prompt, no reflection, no sandbox — task-free.
+	 * via executeToolCalls. No planning prompt, no reflection, no sandbox — task-free.
+	 * `hadToolCalls` (a plain boolean) is the signal that decides whether
+	 * CAP_FALLBACK fires (see below).
 	 *
 	 * Never-silent: if the cap is hit without a text end_turn, the fallback copy
 	 * is emitted so the client always receives a response.
@@ -473,7 +463,7 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 		const resolvedModel = config.resolvedModel;
 		if (!resolvedModel) throw new Error("resolvedModel is required");
 
-		// @lore AK4: MAX_TOOL_ITERATIONS caps the conversational tool-use loop.
+		// @lore AK4: MAX_TOOL_ITERATIONS caps the chat-turn tool-use loop.
 		// 3 iterations: matches the accepted v1 tradeoff (one bet, one refinement,
 		// one recovery). ASSISTANT_TURN_TIMEOUT_MS still wraps the whole turn.
 		const MAX_TOOL_ITERATIONS = 3;
@@ -489,7 +479,7 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 			});
 		}
 
-		const capturedToolCalls: CapturedToolCall[] = [];
+		let hadToolCalls = false;
 		let lastText = "";
 		let toolIterations = 0;
 
@@ -525,19 +515,7 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 
 				// Execute tool calls (real handlers via registry)
 				const results = await this.executeToolCalls(session, toolUseBlocks);
-
-				// Accumulate CapturedToolCall[] for surface in CompletionEvent
-				for (let i = 0; i < toolUseBlocks.length; i++) {
-					const block = toolUseBlocks[i];
-					const result = results[i];
-					if (!(block && result)) continue;
-					capturedToolCalls.push({
-						name: block.name,
-						input: block.input,
-						output: result.content,
-						status: result.isError ? "error" : "ok",
-					});
-				}
+				hadToolCalls = true;
 
 				// Append tool results as a user message
 				session.messages.push({
@@ -560,25 +538,36 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 			// Term 2b gate to mis-fire: a degenerate empty-content cassette response
 			// persisted CAP_FALLBACK text instead of "", so the S1 predicate was true
 			// instead of false. CAP_FALLBACK now only fires on tool-call overflow.
-			// AL6 v2 (T4): Tier-1 force at the chat-turn end-of-loop break point.
+			// Tier-1 force at the chat-turn end-of-loop break point.
 			// Before emitting completion and breaking, check whether the agent has
 			// returned. If not, and budget remains, re-inject the forcing message
 			// and continue the loop instead of breaking.
 			//
-			// @lore AL6 v2: shouldForceReturn is pure — it does NOT mutate session.
+			// @lore shouldForceReturn is pure — it does NOT mutate session.
 			// We increment forceCount BEFORE the continue so the next check sees the
 			// updated budget. The forcing message is injected as a user message so
 			// the model sees it as a direct instruction.
 			//
-			// @lore AL6 v2 AK4: Force-return is EXEMPT for conversational (task-free)
-			// turns where no return actions are in the tool registry. The assistant chat
-			// path (AK4) uses a 2-tool registry (create_bet + edit_bet) without submit_review,
-			// handoff_to, or send_message. Forcing an agent to call a tool it doesn't have
-			// would cause a hard tool-not-found error. The exemption is: if none of the
-			// session's toolDefs are return actions, skip the force check entirely.
-			const hasReturnActionInRegistry = session.toolDefs.some((td) => isReturnAction(td.name));
+			// @lore AK4: Force-return is EXEMPT for a chat turn whose tool
+			// registry contains no return action at all. Forcing an agent to call a
+			// tool it doesn't have would cause a hard tool-not-found error. The
+			// exemption is: if none of the session's toolDefs are return actions,
+			// skip the force check entirely.
+			// The assistant's registry is the ordinary role-scoped registry,
+			// which always includes `reply`, so this exemption does not fire for
+			// the assistant in practice. It stays as a structural guard for any
+			// other chat-style session. The exemption + the forcing message both
+			// narrow to the session's specific required subset when one is baked.
+			const requiredReturnActionsChat = session.config?.requiredReturnActions;
+			const hasReturnActionInRegistry = session.toolDefs.some((td) =>
+				isRequiredReturnAction(td.name, requiredReturnActionsChat),
+			);
 			const forceMsg = hasReturnActionInRegistry
-				? shouldForceReturn({ returned: session.returnSeen }, session.forceCount)
+				? shouldForceReturn(
+						{ returned: session.returnSeen },
+						session.forceCount,
+						requiredReturnActionsChat,
+					)
 				: null;
 			if (forceMsg !== null) {
 				session.forceCount++;
@@ -590,7 +579,7 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 				// can surface it (e.g. the eval judge reads the stream).
 				this.emitEvent(session, {
 					type: "completion",
-					text: AL6_FORCE_RETURN_MESSAGE,
+					text: forceMsg,
 				});
 				// Re-seed the loop iteration state
 				lastText = "";
@@ -598,13 +587,12 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 				continue;
 			}
 
-			const finalText = lastText || (capturedToolCalls.length > 0 ? CAP_FALLBACK : "");
+			const finalText = lastText || (hadToolCalls ? CAP_FALLBACK : "");
 			const emitText = finalText;
 
 			this.emitEvent(session, {
 				type: "completion",
 				text: emitText,
-				...(capturedToolCalls.length > 0 ? { toolCalls: capturedToolCalls } : {}),
 			});
 			break;
 		}
@@ -744,11 +732,25 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 			});
 		} else if (response.stopReason === "end_turn" || response.stopReason === "stop") {
 			// Text-only response — agent wants to stop.
-			// AL6 v2 (T4): Intercept the stop attempt. If no return was seen and
+			// Intercept the stop attempt. If no return was seen and
 			// budget remains, re-inject the forcing message and do NOT set done=true
 			// (the run loop will call runExecuteTurn again). If budget spent or a
 			// return was already seen, allow the stop.
-			const forceMsg = shouldForceReturn({ returned: session.returnSeen }, session.forceCount);
+			// AU27 Increment 3 (Decision 3): reconciled with runChatTurn's site — both
+			// exempt a session whose registry carries none of its required return
+			// actions (previously this site force-looped such a session forever;
+			// runChatTurn's site already guarded this, this one did not).
+			const requiredReturnActionsExec = session.config?.requiredReturnActions;
+			const hasReturnActionInRegistryExec = session.toolDefs.some((td) =>
+				isRequiredReturnAction(td.name, requiredReturnActionsExec),
+			);
+			const forceMsg = hasReturnActionInRegistryExec
+				? shouldForceReturn(
+						{ returned: session.returnSeen },
+						session.forceCount,
+						requiredReturnActionsExec,
+					)
+				: null;
 			if (forceMsg !== null) {
 				session.forceCount++;
 				// Re-inject: a user message with the forcing text, so the model
@@ -759,7 +761,7 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 				});
 				// Emit the forcing message as a completion event so stream observers
 				// (e.g. the provisioning drain, eval judges) can see it fired.
-				this.emitEvent(session, { type: "completion", text: AL6_FORCE_RETURN_MESSAGE });
+				this.emitEvent(session, { type: "completion", text: forceMsg });
 				// Do NOT set session.done = true — loop continues.
 			} else {
 				// Budget spent or return seen — allow the stop.
@@ -830,10 +832,14 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 				args: toolCall.input,
 			});
 
-			// AL6 v2 (T4): Track whether a return action was seen this turn.
-			// isReturnAction uses the same closed set as the provisioning drain's
-			// ReturnGate — single source of truth, no per-adapter copy.
-			if (isReturnAction(toolCall.name)) {
+			// Track whether a return action was seen this turn.
+			// isRequiredReturnAction uses the same closed set as the provisioning
+			// drain's ReturnGate — single source of truth, no per-adapter copy.
+			// AU27 Increment 3 (Decision 3): narrows to the session's specific
+			// required subset when one is baked (`session.config.requiredReturnActions`)
+			// — a synthetic gate, so this narrowing must happen HERE, the closure
+			// held by `createGate` never reaches this path.
+			if (isRequiredReturnAction(toolCall.name, session.config?.requiredReturnActions)) {
 				session.returnSeen = true;
 			}
 
@@ -927,7 +933,7 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 	private async summarizeHistory(session: BuiltinSession): Promise<void> {
 		const config = session.config;
 		if (!config) return;
-		const summarizeModel = config.resolvedFastModel ?? config.resolvedModel;
+		const summarizeModel = config.resolvedModel;
 		if (!summarizeModel) return;
 
 		const preserveCount = 6;
@@ -959,12 +965,7 @@ ${formatMessagesForSummary(toSummarize)}`,
 			signal: session.abortController.signal,
 		});
 
-		// Track tokens for appropriate tier
-		const tier =
-			config.resolvedFastModel !== undefined && summarizeModel === config.resolvedFastModel
-				? "fast"
-				: config.modelTier;
-		this.trackUsage(session, response.usage, tier);
+		this.trackUsage(session, response.usage, config.modelTier);
 
 		const summaryText = extractTextFromContent(response.content);
 		if (!summaryText) return;

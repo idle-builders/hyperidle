@@ -74,6 +74,13 @@ export interface SessionStartResolverDeps {
 		db: HyperIdleDb,
 		agentId: string,
 	): Promise<BakedConnectionsForProvisioning>;
+	/**
+	 * AU27 Increment 1 (Decision 0) — optional: resolve-or-create the task's
+	 * `hostKind:"task"` calling thread (Mechanism C — `@hyperidle/work` cannot
+	 * import `@hyperidle/conversation` directly). Absent at a call site not yet
+	 * wired — the resolver bakes no `callingThreadId`.
+	 */
+	resolveOrCreateCallingThread?(db: HyperIdleDb, taskId: string, agentId: string): Promise<string>;
 }
 
 /** Thrown when the session-start's target task does not exist. */
@@ -117,6 +124,12 @@ export interface BakedSessionStartRequest {
 	 * `deps.resolveInjectedConnectionsForAgent` was supplied.
 	 */
 	readonly injectedConnections?: BakedConnectionsForProvisioning;
+	/**
+	 * AU27 Increment 1 (Decision 1) — the task's calling thread id, baked via
+	 * Decision 0's resolve-or-create. Present only when
+	 * `deps.resolveOrCreateCallingThread` was supplied.
+	 */
+	readonly callingThreadId?: string;
 }
 
 /**
@@ -143,6 +156,9 @@ export async function resolveSessionStartRequest(
 	const injectedConnections = deps.resolveInjectedConnectionsForAgent
 		? await deps.resolveInjectedConnectionsForAgent(db, input.requestedAgentId)
 		: undefined;
+	const callingThreadId = deps.resolveOrCreateCallingThread
+		? await deps.resolveOrCreateCallingThread(db, task.id, input.requestedAgentId)
+		: undefined;
 	return {
 		defaultAgentId: input.requestedAgentId,
 		sourceKind: "task",
@@ -155,5 +171,6 @@ export async function resolveSessionStartRequest(
 		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
 		...(injectedFilesystems !== undefined ? { injectedFilesystems } : {}),
 		...(injectedConnections !== undefined ? { injectedConnections } : {}),
+		...(callingThreadId !== undefined ? { callingThreadId } : {}),
 	};
 }

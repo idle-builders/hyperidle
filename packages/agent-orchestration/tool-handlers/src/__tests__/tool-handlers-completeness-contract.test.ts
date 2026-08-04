@@ -14,13 +14,7 @@
  *      "assistant" roles are pinned so a rewrite cannot accidentally shift
  *      role boundaries.
  *
- *   B. buildAssistantDraftRegistry constraint injection
- *      teamId is HARD-INJECTED from the user's real team — the model cannot
- *      override it. betId is FORCED from the most-recent draft in the
- *      transcript — the model cannot target another bet. Errors (NO_TEAM,
- *      NO_DRAFT) surface when preconditions are absent.
- *
- *   C. log_task handler — appendTaskNote port usage
+ *   B. log_task handler — appendTaskNote port usage
  *      The handler calls ports.coreApi.appendTaskNote (AU21 §9 Increment 2:
  *      crosses the CoreApiPort seam, not raw ports.work DI) atomically
  *      (no pre-read) and returns NOT_FOUND when the port signals the task
@@ -28,10 +22,12 @@
  *
  * @lore AU20 Stage 1/3: Stage 1 imported `createLogTaskTool` directly from
  * `../log-task.js`. Stage 3 collapsed `log-task.ts` into `tool-definitions.ts`
- * as a private maker; Section C now drives `buildToolDefinitions` to obtain
+ * as a private maker; Section B now drives `buildToolDefinitions` to obtain
  * the `log_task` tool, keeping all behaviour assertions identical.
- * `AssistantDraftRegistryParams` is intentionally NOT imported here
- * (it was de-exported in Stage 2); params are passed as object literals.
+ *
+ * `create_bet`/`edit_bet` are pinned in Section A as ordinary
+ * `["assistant"]`-role-scoped tools — their handler-level behavior is
+ * covered by `tool-definitions`'s existing per-tool tests.
  */
 
 import * as os from "node:os";
@@ -39,7 +35,6 @@ import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus, type ToolContext } from "@hyperidle/shared";
 import { beforeEach, describe, expect, it } from "vitest";
-import { buildAssistantDraftRegistry } from "../assistant-draft-registry.js";
 import type { ToolHandlersPorts } from "../ports.js";
 import { buildToolDefinitions } from "../tool-definitions.js";
 import { STUB_TOOL_HANDLERS_PORTS } from "./stub-ports.js";
@@ -72,8 +67,8 @@ function makeFakeCtx(agentId = "agent-1"): ToolContext<HyperIdleDb> {
 /**
  * Role assignment summary for the current catalog:
  *
- * No roles (unrestricted, 12 tools):
- *   read_inbox, send_message, log_task, query_practice, write_memory,
+ * No roles (unrestricted, 13 tools):
+ *   read_inbox, send_message, reply, log_task, query_practice, write_memory,
  *   handoff_to, create_item, write_session_notes, create_task, submit_review,
  *   create_artifact, commit_file
  *
@@ -89,6 +84,7 @@ describe("buildToolDefinitions — role filtering", () => {
 	const UNRESTRICTED = [
 		"read_inbox",
 		"send_message",
+		"reply",
 		"log_task",
 		"query_practice",
 		"write_memory",
@@ -112,14 +108,14 @@ describe("buildToolDefinitions — role filtering", () => {
 
 	const MULTI_ROLE = ["score_attention", "promote_knowledge", "create_conflict_review"] as const;
 
-	it("returns all 21 tools when no opts provided", () => {
+	it("returns all 22 tools when no opts provided", () => {
 		const tools = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS);
-		expect(tools).toHaveLength(21);
+		expect(tools).toHaveLength(22);
 	});
 
-	it("returns all 21 tools when opts.role is undefined", () => {
+	it("returns all 22 tools when opts.role is undefined", () => {
 		const tools = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS, { role: undefined });
-		expect(tools).toHaveLength(21);
+		expect(tools).toHaveLength(22);
 	});
 
 	it("returns same tool set for undefined and no-opts (identity guarantee)", () => {
@@ -132,10 +128,10 @@ describe("buildToolDefinitions — role filtering", () => {
 		expect(noOpts).toEqual(withUndefined);
 	});
 
-	describe("role: 'assistant' (all 21 tools)", () => {
-		it("returns 21 tools — assistant sees the full catalog", () => {
+	describe("role: 'assistant' (all 22 tools)", () => {
+		it("returns 22 tools — assistant sees the full catalog", () => {
 			const tools = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS, { role: "assistant" });
-			expect(tools).toHaveLength(21);
+			expect(tools).toHaveLength(22);
 		});
 
 		it("includes all unrestricted tools", () => {
@@ -163,10 +159,10 @@ describe("buildToolDefinitions — role filtering", () => {
 		});
 	});
 
-	describe("role: 'facilitator' (15 tools — unrestricted + multi-role, not assistant-only)", () => {
-		it("returns 15 tools for facilitator", () => {
+	describe("role: 'facilitator' (16 tools — unrestricted + multi-role, not assistant-only)", () => {
+		it("returns 16 tools for facilitator", () => {
 			const tools = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS, { role: "facilitator" });
-			expect(tools).toHaveLength(15);
+			expect(tools).toHaveLength(16);
 		});
 
 		it("includes unrestricted tools", () => {
@@ -196,10 +192,10 @@ describe("buildToolDefinitions — role filtering", () => {
 		});
 	});
 
-	describe("role: 'product_manager' (15 tools — unrestricted + multi-role, not assistant-only)", () => {
-		it("returns 15 tools for product_manager", () => {
+	describe("role: 'product_manager' (16 tools — unrestricted + multi-role, not assistant-only)", () => {
+		it("returns 16 tools for product_manager", () => {
 			const tools = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS, { role: "product_manager" });
-			expect(tools).toHaveLength(15);
+			expect(tools).toHaveLength(16);
 		});
 
 		it("excludes assistant-only tools", () => {
@@ -219,10 +215,10 @@ describe("buildToolDefinitions — role filtering", () => {
 		});
 	});
 
-	describe("role: 'builder' (12 tools — unrestricted only)", () => {
-		it("returns 12 tools for builder (unrestricted only)", () => {
+	describe("role: 'builder' (13 tools — unrestricted only)", () => {
+		it("returns 13 tools for builder (unrestricted only)", () => {
 			const tools = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS, { role: "builder" });
-			expect(tools).toHaveLength(12);
+			expect(tools).toHaveLength(13);
 		});
 
 		it("includes all unrestricted tools", () => {
@@ -253,7 +249,7 @@ describe("buildToolDefinitions — role filtering", () => {
 	it("unknown role sees only unrestricted tools (open-vocab safety)", () => {
 		const tools = buildToolDefinitions(STUB_TOOL_HANDLERS_PORTS, { role: "custom_unknown_role" });
 		// Only unrestricted tools survive (roles-restricted tools exclude unknown)
-		expect(tools).toHaveLength(12);
+		expect(tools).toHaveLength(13);
 		const names = new Set(tools.map((t) => t.name));
 		for (const name of UNRESTRICTED) {
 			expect(names.has(name), `unknown role should see: ${name}`).toBe(true);
@@ -265,309 +261,7 @@ describe("buildToolDefinitions — role filtering", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// B. buildAssistantDraftRegistry — constraint injection
-// ─────────────────────────────────────────────────────────────────────────────
-
-describe("buildAssistantDraftRegistry — constraint injection", () => {
-	/**
-	 * Fake port data:
-	 *   - user "user-with-team" has teamId = "team-members-1" (the teamMembers.id)
-	 *   - teamMembers "team-members-1" maps to teams.id = "real-team-id"
-	 *   - team "real-team-id" exists
-	 *   - "user-no-team" has no teamId
-	 */
-	const FAKE_USER_WITH_TEAM = {
-		id: "user-with-team",
-		role: null,
-		teamId: "team-members-1", // @lore AK4: this is actually teamMembers.id
-		name: "User With Team",
-	} as const;
-
-	const FAKE_USER_NO_TEAM = {
-		id: "user-no-team",
-		role: null,
-		teamId: null,
-		name: "User Without Team",
-	} as const;
-
-	/** Builds a controlled ports bundle. `createBetCalls` / `updateBetCalls` accumulate for assertion. */
-	function buildFakePorts(): {
-		ports: ToolHandlersPorts;
-		createBetCalls: Array<Record<string, unknown>>;
-		updateBetCalls: Array<{ betId: string; updates: Record<string, unknown> }>;
-	} {
-		const createBetCalls: Array<Record<string, unknown>> = [];
-		const updateBetCalls: Array<{ betId: string; updates: Record<string, unknown> }> = [];
-
-		const ports: ToolHandlersPorts = {
-			...STUB_TOOL_HANDLERS_PORTS,
-			coreApi: {
-				...STUB_TOOL_HANDLERS_PORTS.coreApi,
-				// AU21 §9 Increment 1: create_bet now routes through `ports.coreApi`,
-				// not `ports.work.createBet` (deleted) — fake the seam call here.
-				createBet: async (input, actorId) => {
-					createBetCalls.push({ ...(input as Record<string, unknown>), actorId });
-					return { id: "fake-seam-bet-id", teamId: input.teamId, status: "draft" };
-				},
-				// AU21 §9 Increment 2: `resolveDraftTeamId`/`edit_bet` now route
-				// through `ports.coreApi`, not raw `ports.work`/`ports.users` DI
-				// (both deleted) — fake the seam calls here.
-				getUserById: async (id) => {
-					if (id === "user-with-team") return { ...FAKE_USER_WITH_TEAM };
-					if (id === "user-no-team") return { ...FAKE_USER_NO_TEAM };
-					return undefined;
-				},
-				getBetById: async (betId) => {
-					if (betId === "draft-bet-1") return { status: "draft" };
-					return undefined;
-				},
-				updateBetById: async (betId, updates) => {
-					updateBetCalls.push({ betId, updates: updates as Record<string, unknown> });
-				},
-				// AU21 §9 Increment 2 (org/routine/handoff wave): `resolveDraftTeamId`'s
-				// AK4 second hop now routes through `ports.coreApi`, not raw
-				// `ports.org` DI (deleted) — fake the seam calls here.
-				getTeamMembersById: async (teamMembersId) => {
-					if (teamMembersId === "team-members-1") return { teamId: "real-team-id" };
-					return undefined;
-				},
-				getTeamById: async (teamId) => {
-					if (teamId === "real-team-id") return { id: "real-team-id", name: "Test Team" };
-					return undefined;
-				},
-			},
-		};
-
-		return { ports, createBetCalls, updateBetCalls };
-	}
-
-	/** Build transcript rows that simulate a prior successful create_bet. */
-	function makePriorCreateBetTranscript(
-		assistantAgentId: string,
-		betId = "draft-bet-1",
-	): ReadonlyArray<{ readonly senderId: string; readonly payload: string }> {
-		return [
-			{
-				senderId: assistantAgentId,
-				payload: JSON.stringify({
-					toolCalls: [{ name: "create_bet", status: "ok", output: JSON.stringify({ betId }) }],
-				}),
-			},
-		];
-	}
-
-	describe("registry structure", () => {
-		it("definitions contains exactly 2 tools: create_bet and edit_bet", async () => {
-			const { ports } = buildFakePorts();
-			const ctx = makeFakeCtx("ast-agent");
-			const registry = await buildAssistantDraftRegistry(
-				ctx,
-				{ userId: "user-with-team", transcriptRows: [], assistantAgentId: "ast-agent" },
-				ports,
-			);
-			const names = registry.definitions.map((d) => d.name);
-			expect(names).toHaveLength(2);
-			expect(names).toContain("create_bet");
-			expect(names).toContain("edit_bet");
-		});
-
-		it("toClaudeToolSpecs() returns 2 Claude specs (one per tool)", async () => {
-			const { ports } = buildFakePorts();
-			const ctx = makeFakeCtx("ast-agent");
-			const registry = await buildAssistantDraftRegistry(
-				ctx,
-				{ userId: "user-with-team", transcriptRows: [], assistantAgentId: "ast-agent" },
-				ports,
-			);
-			const specs = registry.toClaudeToolSpecs();
-			expect(specs).toHaveLength(2);
-			expect(specs.some((s) => s.name === "create_bet")).toBe(true);
-			expect(specs.some((s) => s.name === "edit_bet")).toBe(true);
-		});
-	});
-
-	describe("teamId hard-injection into create_bet", () => {
-		it("create_bet succeeds with the hard-injected teamId — not any model-supplied value", async () => {
-			const { ports, createBetCalls } = buildFakePorts();
-			const ctx = makeFakeCtx("ast-agent");
-			const registry = await buildAssistantDraftRegistry(
-				ctx,
-				{ userId: "user-with-team", transcriptRows: [], assistantAgentId: "ast-agent" },
-				ports,
-			);
-
-			const result = await registry.invoke("create_bet", { description: "Build the feature" });
-
-			// Tool must succeed
-			expect(result.success).toBe(true);
-			// The bet was created with the hard-injected teamId
-			expect(createBetCalls).toHaveLength(1);
-			expect(createBetCalls[0]!.teamId).toBe("real-team-id");
-		});
-
-		it("teamId is hard-injected even when model passes a different teamId in args (schema strips it)", async () => {
-			const { ports, createBetCalls } = buildFakePorts();
-			const ctx = makeFakeCtx("ast-agent");
-			const registry = await buildAssistantDraftRegistry(
-				ctx,
-				{ userId: "user-with-team", transcriptRows: [], assistantAgentId: "ast-agent" },
-				ports,
-			);
-
-			// The registry schema (createBetDraftInputSchema) does NOT have a teamId field —
-			// any teamId the model passes is silently stripped by Zod before the handler sees it.
-			await registry.invoke("create_bet", {
-				description: "Build the feature",
-				// biome-ignore lint/suspicious/noExplicitAny: deliberately testing model injection attempt
-				...({ teamId: "attacker-team-id" } as any),
-			});
-
-			// The bet must still be created with the real, hard-injected teamId
-			expect(createBetCalls).toHaveLength(1);
-			expect(createBetCalls[0]!.teamId).toBe("real-team-id");
-		});
-
-		it("create_bet returns NO_TEAM error when user has no team", async () => {
-			const { ports } = buildFakePorts();
-			const ctx = makeFakeCtx("ast-agent");
-			const registry = await buildAssistantDraftRegistry(
-				ctx,
-				{ userId: "user-no-team", transcriptRows: [], assistantAgentId: "ast-agent" },
-				ports,
-			);
-
-			const result = await registry.invoke("create_bet", { description: "Draft a bet" });
-			expect(result.success).toBe(false);
-			expect(result.success === false && result.code).toBe("NO_TEAM");
-		});
-
-		it("create_bet result carries the correct betId and status in the response", async () => {
-			const { ports } = buildFakePorts();
-			const ctx = makeFakeCtx("ast-agent");
-			const registry = await buildAssistantDraftRegistry(
-				ctx,
-				{ userId: "user-with-team", transcriptRows: [], assistantAgentId: "ast-agent" },
-				ports,
-			);
-
-			const result = await registry.invoke("create_bet", { description: "Build X" });
-			expect(result.success).toBe(true);
-			if (!result.success) return;
-			const data = result.data as { betId: string; status: "draft"; teamId: string };
-			expect(data.status).toBe("draft");
-			expect(typeof data.betId).toBe("string");
-			expect(data.betId.length).toBeGreaterThan(0);
-			expect(data.teamId).toBe("real-team-id");
-		});
-	});
-
-	describe("betId forced from transcript into edit_bet", () => {
-		it("edit_bet is called with the betId from the prior create_bet in the transcript", async () => {
-			const { ports, updateBetCalls } = buildFakePorts();
-			const ctx = makeFakeCtx("ast-agent");
-			const transcript = makePriorCreateBetTranscript("ast-agent", "draft-bet-1");
-			const registry = await buildAssistantDraftRegistry(
-				ctx,
-				{ userId: "user-with-team", transcriptRows: transcript, assistantAgentId: "ast-agent" },
-				ports,
-			);
-
-			const result = await registry.invoke("edit_bet", { description: "Updated description" });
-
-			expect(result.success).toBe(true);
-			expect(updateBetCalls).toHaveLength(1);
-			// The betId comes from the transcript, NOT from any model arg
-			expect(updateBetCalls[0]!.betId).toBe("draft-bet-1");
-		});
-
-		it("edit_bet result carries the correct betId", async () => {
-			const { ports } = buildFakePorts();
-			const ctx = makeFakeCtx("ast-agent");
-			const transcript = makePriorCreateBetTranscript("ast-agent", "draft-bet-1");
-			const registry = await buildAssistantDraftRegistry(
-				ctx,
-				{ userId: "user-with-team", transcriptRows: transcript, assistantAgentId: "ast-agent" },
-				ports,
-			);
-
-			const result = await registry.invoke("edit_bet", { description: "Updated" });
-			expect(result.success).toBe(true);
-			if (!result.success) return;
-			const data = result.data as { betId: string };
-			expect(data.betId).toBe("draft-bet-1");
-		});
-
-		it("edit_bet returns NO_DRAFT error when there is no prior draft bet in the transcript", async () => {
-			const { ports } = buildFakePorts();
-			const ctx = makeFakeCtx("ast-agent");
-			const registry = await buildAssistantDraftRegistry(
-				ctx,
-				// empty transcript — no prior create_bet
-				{ userId: "user-with-team", transcriptRows: [], assistantAgentId: "ast-agent" },
-				ports,
-			);
-
-			const result = await registry.invoke("edit_bet", { description: "No bet yet" });
-			expect(result.success).toBe(false);
-			expect(result.success === false && result.code).toBe("NO_DRAFT");
-		});
-
-		it("only picks up the assistant's own tool calls (not other senders) for betId resolution", async () => {
-			const { ports } = buildFakePorts();
-			const ctx = makeFakeCtx("ast-agent");
-
-			// Row from a different sender — should NOT trigger betId resolution
-			const transcriptWithWrongSender = [
-				{
-					senderId: "other-agent", // not the assistantAgentId
-					payload: JSON.stringify({
-						toolCalls: [
-							{
-								name: "create_bet",
-								status: "ok",
-								output: JSON.stringify({ betId: "draft-bet-1" }),
-							},
-						],
-					}),
-				},
-			];
-
-			const registry = await buildAssistantDraftRegistry(
-				ctx,
-				{
-					userId: "user-with-team",
-					transcriptRows: transcriptWithWrongSender,
-					assistantAgentId: "ast-agent",
-				},
-				ports,
-			);
-
-			// No draft bet found for this agent → NO_DRAFT
-			const result = await registry.invoke("edit_bet", { description: "Edit attempt" });
-			expect(result.success).toBe(false);
-			expect(result.success === false && result.code).toBe("NO_DRAFT");
-		});
-	});
-
-	describe("invoke routes unknown tool names", () => {
-		it("invoke returns NOT_FOUND for a tool not in the registry", async () => {
-			const { ports } = buildFakePorts();
-			const ctx = makeFakeCtx("ast-agent");
-			const registry = await buildAssistantDraftRegistry(
-				ctx,
-				{ userId: "user-with-team", transcriptRows: [], assistantAgentId: "ast-agent" },
-				ports,
-			);
-
-			const result = await registry.invoke("create_task", { title: "bad" });
-			expect(result.success).toBe(false);
-			expect(result.success === false && result.code).toBe("NOT_FOUND");
-		});
-	});
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// C. log_task handler — appendTaskNote port usage (atomic guarantee)
+// B. log_task handler — appendTaskNote port usage (atomic guarantee)
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("log_task handler — appendTaskNote port usage", () => {

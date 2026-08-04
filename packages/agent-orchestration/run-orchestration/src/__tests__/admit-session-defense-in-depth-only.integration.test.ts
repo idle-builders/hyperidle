@@ -126,7 +126,6 @@ function buildDefenseInDepthOnlyPorts(
 			beginAgentWriteback: () => ({ dispose: () => undefined }),
 			assemblePrompt: neverCalled("contextAssembly.assemblePrompt"),
 			assembleRoutinePrompt: neverCalled("contextAssembly.assembleRoutinePrompt"),
-			composeAssistantPrompt: neverCalled("contextAssembly.composeAssistantPrompt"),
 			writeSandboxAgentsMd: neverCalled("contextAssembly.writeSandboxAgentsMd"),
 		},
 		// NOTE: deliberately NO `agentRunnability` field — the point of this
@@ -205,6 +204,7 @@ describe("admitSession — baked-snapshot defense-in-depth ONLY, zero live read 
 				modelTierPreference: null,
 				harnessType: null,
 				modelProvider: null,
+				modelId: null,
 				maxConcurrentSessions: 5,
 			},
 		};
@@ -270,6 +270,7 @@ describe("admitSession — baked-snapshot defense-in-depth ONLY, zero live read 
 				modelTierPreference: null,
 				harnessType: null,
 				modelProvider: null,
+				modelId: null,
 				maxConcurrentSessions: 5,
 			},
 		};

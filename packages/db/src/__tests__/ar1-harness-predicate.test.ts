@@ -37,10 +37,10 @@ describe("isHarnessIntegrationPath — harness-dir integration tests (true)", ()
 		).toBe(true);
 	});
 
-	test("harness/__tests__/AL6-reprompt-loop.integration.test.ts → true", () => {
+	test("harness/__tests__/AZ9-reprompt-loop.integration.test.ts → true", () => {
 		expect(
 			isHarnessIntegrationPath(
-				"packages/server/src/harness/__tests__/AL6-reprompt-loop.integration.test.ts",
+				"packages/server/src/harness/__tests__/AZ9-reprompt-loop.integration.test.ts",
 			),
 		).toBe(true);
 	});
@@ -71,28 +71,36 @@ describe("isHarnessIntegrationPath — harness-dir integration tests (true)", ()
 	});
 });
 
-// ── POSITIVE: the explicit session-provisioning exception ─────────────────────
+// ── POSITIVE: the explicit assistant-reply-live-harness exception ─────────────
+// AU27 sweep: `session-provisioning.integration.test.ts` (the original
+// explicit exception this block tested) was deleted in AU7, long before
+// AU27 — its `EXPLICIT_HARNESS_INTEGRATION` entry was dead weight the whole
+// time (the predicate could never actually select it). Repointed at the
+// real current entry, `assistant-reply-live-harness.integration.test.ts`
+// (`core-api/src/__tests__/`, not the harness dir — same shape the original
+// exception proved: a file that genuinely drives the real CLI binary but
+// needs the `{db,app}`-shaped core-api composition, not just harness-registry).
 
-describe("isHarnessIntegrationPath — explicit session-provisioning exception (true)", () => {
-	test("session-provisioning.integration.test.ts (server __tests__, not harness dir) → true", () => {
+describe("isHarnessIntegrationPath — explicit assistant-reply-live-harness exception (true)", () => {
+	test("assistant-reply-live-harness.integration.test.ts (core-api __tests__, not harness dir) → true", () => {
 		expect(
 			isHarnessIntegrationPath(
-				"packages/server/src/__tests__/session-provisioning.integration.test.ts",
+				"packages/core-api/src/__tests__/assistant-reply-live-harness.integration.test.ts",
 			),
 		).toBe(true);
 	});
 
-	test("absolute session-provisioning path → true", () => {
+	test("absolute assistant-reply-live-harness path → true", () => {
 		expect(
 			isHarnessIntegrationPath(
-				"/repo/packages/server/src/__tests__/session-provisioning.integration.test.ts",
+				"/repo/packages/core-api/src/__tests__/assistant-reply-live-harness.integration.test.ts",
 			),
 		).toBe(true);
 	});
 
-	test("EXPLICIT_HARNESS_INTEGRATION lists exactly the session-provisioning suffix", () => {
+	test("EXPLICIT_HARNESS_INTEGRATION lists exactly the assistant-reply-live-harness suffix", () => {
 		expect(EXPLICIT_HARNESS_INTEGRATION).toContain(
-			"__tests__/session-provisioning.integration.test.ts",
+			"__tests__/assistant-reply-live-harness.integration.test.ts",
 		);
 	});
 });
@@ -101,9 +109,9 @@ describe("isHarnessIntegrationPath — explicit session-provisioning exception (
 
 describe("isHarnessIntegrationPath — false-positive guards (false)", () => {
 	test("*.test.ts unit IN the harness dir → false (stubs allowed in units)", () => {
-		// AL6-return-gate.test.ts legitimately stubs — wrong suffix, never selected.
+		// return-gate.test.ts legitimately stubs — wrong suffix, never selected.
 		expect(
-			isHarnessIntegrationPath("packages/server/src/harness/__tests__/AL6-return-gate.test.ts"),
+			isHarnessIntegrationPath("packages/server/src/harness/__tests__/return-gate.test.ts"),
 		).toBe(false);
 	});
 
@@ -125,12 +133,12 @@ describe("isHarnessIntegrationPath — false-positive guards (false)", () => {
 		);
 	});
 
-	test("X3-session-provisioning.integration.test.ts (NOT the explicit one) → false", () => {
-		// Only the exact "session-provisioning.integration.test.ts" suffix is explicit;
-		// the X3-prefixed service provisioning test is not harness-facing by path.
+	test("X3-assistant-reply-live-harness.integration.test.ts (NOT the explicit one) → false", () => {
+		// Only the exact "assistant-reply-live-harness.integration.test.ts" suffix is
+		// explicit; a differently-prefixed file is not harness-facing by path.
 		expect(
 			isHarnessIntegrationPath(
-				"packages/server/src/__tests__/X3-session-provisioning.integration.test.ts",
+				"packages/core-api/src/__tests__/X3-assistant-reply-live-harness.integration.test.ts",
 			),
 		).toBe(false);
 	});
