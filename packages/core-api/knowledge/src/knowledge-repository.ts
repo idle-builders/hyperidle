@@ -134,7 +134,7 @@ export interface KnowledgeItemWithProjection extends KnowledgeItem {
 	meta?: string | null;
 }
 
-/** Filters for listExportableKnowledgeItems (kept in barrel for git-export callers). */
+/** Filters for listExportableKnowledgeItems. */
 interface ExportableKnowledgeItemFilters {
 	readonly layers: readonly string[];
 	readonly statuses: readonly string[];
@@ -301,7 +301,7 @@ export async function create(
 	});
 
 	// @lore AU14: no domain event emitted here (deliberately). The route owns the
-	// EventBus emit (live subscribers: ws-broadcaster, git-export, observability
+	// EventBus emit (live subscribers: ws-broadcaster, observability
 	// dispatcher); non-HTTP callers (tools/writeback) never emitted on the bus
 	// before this WP and continue not to — emitting here would be a NEW event for
 	// them, a behavior change the WP forbids. See plans/AU14/architecture.md §4.
@@ -584,7 +584,7 @@ async function listBase(
  * Fetch a knowledge item by id with a discriminated view selection.
  *
  * - `{view: 'detail'}` → kernel row LEFT JOINed with projection (kind/layer/confidence/scores)
- * - `{view: 'projection'}` → projection layer+kind only (for git-export event handler)
+ * - `{view: 'projection'}` → projection layer+kind only
  * - default / `{view: 'summary'}` → raw kernel row (KnowledgeItem)
  *
  * @lore Ag7b: Collapses findById / findDetailById / findKnowledgeItemProjectionById

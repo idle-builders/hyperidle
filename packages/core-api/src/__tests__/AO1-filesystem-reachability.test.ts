@@ -22,9 +22,9 @@
  * `@hyperidle/filesystems`; imports repointed there. This test file itself
  * STAYS in `packages/server` — `probeGitRemote`/`resolveFilesystemState` now
  * take a REQUIRED `gitRunnerFactory` port (`FilesystemsGitRunnerFactory`).
- * Increment 2c: `git-export` migrated — `createGitRunner` now comes from
- * `@hyperidle/git-export`, closing this forward-reference (same "closing"
- * idiom as `work`'s `UserStoreReader` → `users`).
+ * AU26 A2/C1: `createGitRunner` now comes from `@hyperidle/shared/git` (the
+ * `git-export` package that used to host it is deleted), closing this
+ * forward-reference (same "closing" idiom as `work`'s `UserStoreReader` → `users`).
  */
 
 import * as cp from "node:child_process";

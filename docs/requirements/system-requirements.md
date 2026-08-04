@@ -14,7 +14,7 @@ Platform constraints and standing decisions — what the system must run on and 
 
 **S-2.1** Local storage is PGlite (embedded Postgres, `@electric-sql/pglite`) in the app data directory (`~/Library/Application Support/@hyperidle/desktop`). Server deployments run real Postgres (`migrate-pg.ts`, `pg-ssl.ts`). Store semantics: [../knowledge-architecture/the-canonical-store.md](../knowledge-architecture/the-canonical-store.md); deployment recipes: [../deployment/index.md](../deployment/index.md).
 
-**S-2.2** Human-readable knowledge lives as database rows and is exported to Git-versioned directories (`packages/fabric/src/services/git-export.ts`). Git is the backup and audit trail, never the source of truth. Export structure: [../knowledge-architecture/facilitators.md](../knowledge-architecture/facilitators.md).
+**S-2.2** Human-readable knowledge lives as database rows. **The Git export is not implemented** — the exporter was deleted in AU26 (increment C1) and the path this requirement cited had not existed since AU19. The database is the source of truth and currently the only store. The unimplemented export sketch: [../knowledge-architecture/facilitators.md](../knowledge-architecture/facilitators.md).
 
 **S-2.3** Session context packs use the TOON format (external spec: github.com/toon-format/toon; codec at `packages/shared/src/toon-codec.ts`), assembled by the knowledge fabric at session start (`packages/fabric/src/context-assembly.ts`).
 

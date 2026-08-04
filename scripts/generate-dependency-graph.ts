@@ -50,9 +50,10 @@ import ts from "typescript";
  * source instead of accumulating overrides here.
  */
 const MANUAL_OVERRIDES: Record<string, string | readonly string[]> = {
-	"filesystems:FilesystemsGitRunner": "git-export",
+	// @lore AU26 A2/C1: `createGitRunner` moved to `@hyperidle/shared/git` and
+	// the `git-export` package is gone — this port's real target is `shared`.
+	"filesystems:FilesystemsGitRunner": "shared",
 	"filesystems:FilesystemsServiceConnectionResolver": "connections",
-	"git-export:GitExportServerConfigPort": "settings",
 	// @lore AU26 C2: `packages/core-api/observability` no longer exists at all —
 	// the package dissolved. Its `ObservabilityServerConfigPort` override was
 	// already removed on 2026-08-03 as dead, found by the unused-override sanity

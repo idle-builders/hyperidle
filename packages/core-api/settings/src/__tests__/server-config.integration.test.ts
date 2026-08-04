@@ -99,12 +99,12 @@ describe("server config read/write", () => {
 			const secondHandle = new Proxy(db, {});
 			await Promise.all([
 				updateServerConfig(firstHandle, { notifications: { reviewAlerts: false } }),
-				updateServerConfig(secondHandle, { gitExport: { branch: "release" } }),
+				updateServerConfig(secondHandle, { observability: { adapter: "noop" } }),
 			]);
 
 			const config = await readServerConfig(db);
 			expect(config.notifications.reviewAlerts).toBe(false);
-			expect(config.gitExport.branch).toBe("release");
+			expect(config.observability.adapter).toBe("noop");
 		});
 	});
 

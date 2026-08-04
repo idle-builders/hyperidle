@@ -1,8 +1,8 @@
 /**
  * AU18 §5 — server_config schema extension round-trip tests.
  *
- * Proves each new top-level section (observability, gitExport)
- * and the extended notifications sub-sections (delivery,
+ * Proves each new top-level section (observability) and the
+ * extended notifications sub-sections (delivery,
  * mutedTypes, silence) read/write/merge correctly, including the deepened
  * notifications merge branch (a delivery-only patch must not clobber an
  * already-set silence section, and vice versa — plan §5's merge-hazard fix).
@@ -38,32 +38,6 @@ describe("server_config — observability section", () => {
 		await updateServerConfig(db, { observability: { enabled: false } });
 		const config = await readServerConfig(db);
 		expect(config.observability.enabled).toBe(false);
-	});
-});
-
-describe("server_config — gitExport section", () => {
-	test("readServerConfig returns gitExport defaults when empty", async ({ db }) => {
-		const config = await readServerConfig(db);
-		expect(config.gitExport.enabled).toBe(false);
-		expect(config.gitExport.branch).toBe("main");
-		expect(config.gitExport.authorName).toBe("HyperIdle Export");
-		expect(config.gitExport.authorEmail).toBe("export@hyperidle.local");
-		expect(config.gitExport.debounceMs).toBe(2000);
-		expect(config.gitExport.repoRoot).toEqual([]);
-		expect(config.gitExport.lastCommitAt).toBeNull();
-		expect(config.gitExport.lastCommitSha).toBeNull();
-		expect(config.gitExport.lastPushAt).toBeNull();
-	});
-
-	test("updateServerConfig merges a partial gitExport patch, preserving stamps", async ({ db }) => {
-		await updateServerConfig(db, { gitExport: { lastCommitAt: "2026-01-01T00:00:00.000Z" } });
-		await updateServerConfig(db, { gitExport: { enabled: true, repoPath: "/tmp/repo" } });
-
-		const config = await readServerConfig(db);
-		expect(config.gitExport.enabled).toBe(true);
-		expect(config.gitExport.repoPath).toBe("/tmp/repo");
-		// stamp from the earlier patch must survive an unrelated later patch
-		expect(config.gitExport.lastCommitAt).toBe("2026-01-01T00:00:00.000Z");
 	});
 });
 

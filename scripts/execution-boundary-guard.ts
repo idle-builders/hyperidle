@@ -441,10 +441,10 @@ function fixtureCheck(): void {
 			"packages/core-api/knowledge/src/spawn-leak.ts",
 			'import { spawn } from "node:child_process"; export const p = spawn("claude", ["-p"]);',
 		);
-		// Positive: git-export spawning `git` (not a harness binary) → NO finding.
+		// Positive: a core-api Service spawning `git` (not a harness binary) → NO finding.
 		writeFixture(
 			root,
-			"packages/core-api/git-export/src/git-export-runner.ts",
+			"packages/core-api/filesystems/src/git-probe.ts",
 			'import { spawn } from "node:child_process"; export const p = spawn("git", ["status"]);',
 		);
 		// Positive: the composition root legitimately imports an execution Service package → NO finding.

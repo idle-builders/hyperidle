@@ -729,7 +729,7 @@ describe("E2E API Integration (I5)", () => {
 		// @lore AU18: the generic `GET`/`PATCH /api/status/settings` catch-all is
 		// retired along with `factorySettings` — every legitimate key it carried
 		// now has a domain-specific route backed by `server_config`
-		// (notifications/git-export config have their own route tests). No web
+		// (notifications config has its own route tests). No web
 		// client depended on the raw-rows shape (confirmed via grep).
 
 		test("GET /api/status/digest returns digest data", async ({ db, app }) => {

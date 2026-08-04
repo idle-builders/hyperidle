@@ -144,8 +144,8 @@ async function checkAndPersistState(
 ): Promise<FilesystemRow> {
 	const newState = await resolveFilesystemState(row, {
 		authResolver,
-		// AU19 Increment 2c: `git-export` migrated — `createGitRunner` now
-		// comes from `@hyperidle/git-export`, closing `filesystems`' Increment 2b
+		// AU26 A2/C1: `createGitRunner` comes from `@hyperidle/shared/git`; the
+		// `git-export` package it used to live in is deleted. Closes `filesystems`' Increment 2b
 		// `FilesystemsGitRunnerFactory` forward-reference. See
 		// `@hyperidle/filesystems`' `ports.ts` top `@lore`.
 		gitRunnerFactory: createGitRunner,
@@ -252,8 +252,8 @@ export function createFilesystemRoutes(
 		validateBody(z.object({ path: z.string().min(1) })),
 		async (c) => {
 			const { path } = c.req.valid("json");
-			// AU19 Increment 2c: `git-export` migrated — `createGitRunner` now
-			// comes from `@hyperidle/git-export`. See `@hyperidle/filesystems`'
+			// AU26 A2/C1: `createGitRunner` comes from `@hyperidle/shared/git`; the
+			// `git-export` package it used to live in is deleted. See `@hyperidle/filesystems`'
 			// `ports.ts` top `@lore`.
 			const info = await inspectLocalPath(path, { gitRunnerFactory: createGitRunner });
 			return c.json(info, 200);

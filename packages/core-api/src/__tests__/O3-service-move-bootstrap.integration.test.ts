@@ -138,11 +138,6 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				constituents: ["policy engine", "lifecycle propagation", "retry interval"],
 			},
 			{
-				owner: "git-export handler",
-				cleanupEffect: "unsubscribe",
-				constituents: ["knowledge-update subscription"],
-			},
-			{
 				owner: "notifications installation",
 				cleanupEffect: "dispatcher/listener/drain all stop",
 				constituents: ["dispatcher", "listener", "drain"],
@@ -267,7 +262,9 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 					],
 					clearedIntervals: 1,
 				},
-				{ unsubscribedEvents: ["knowledge_updated"], clearedIntervals: 0 },
+				// @lore AU26 C1: the "git-export handler" owner (its one
+				// `knowledge_updated` subscription) is HARD-DELETED along with the
+				// exporter — no replacement.
 				// @lore AU21 Increment 14a: "cost_cap_breached"/"cost_cap_warning"
 				// removed from this owner's unsubscribe list — both events are
 				// HARD-DELETED along with the rest of the cost feature, no

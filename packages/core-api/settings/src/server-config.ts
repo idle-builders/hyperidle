@@ -54,21 +54,6 @@ const ObservabilitySchema = z.object({
 	bufferCap: z.number().default(10_000),
 });
 
-const GitExportSchema = z.object({
-	enabled: z.boolean().default(false),
-	repoPath: z.string().default(""),
-	remoteUrl: z.string().nullable().default(null),
-	branch: z.string().default("main"),
-	authorName: z.string().default("HyperIdle Export"),
-	authorEmail: z.string().default("export@hyperidle.local"),
-	debounceMs: z.number().default(2000),
-	allowFileRemote: z.boolean().default(false),
-	repoRoot: z.array(z.string()).default([]),
-	lastCommitAt: z.string().nullable().default(null),
-	lastCommitSha: z.string().nullable().default(null),
-	lastPushAt: z.string().nullable().default(null),
-});
-
 /**
  * @lore P3: The notifications sub-schema is defined separately so we can
  * call NotificationsSchema.parse({}) to build DEFAULTS. In Zod v4, calling
@@ -128,8 +113,6 @@ const ServerConfigSchema = z.object({
 	harnessDisabled: z.array(z.string()).default([]),
 	/** AU18: observability config (migrated from factorySettings). */
 	observability: ObservabilitySchema.optional(),
-	/** AU18: git-export config (migrated from factorySettings). */
-	gitExport: GitExportSchema.optional(),
 });
 
 type RawServerConfig = z.infer<typeof ServerConfigSchema>;
@@ -145,8 +128,6 @@ export type ServerConfig = {
 	harnessDisabled: string[];
 	/** AU18: fully-typed observability config (always present, defaults applied). */
 	observability: z.infer<typeof ObservabilitySchema>;
-	/** AU18: fully-typed git-export config (always present, defaults applied). */
-	gitExport: z.infer<typeof GitExportSchema>;
 };
 
 /** Deep partial type for use in updateServerConfig patches. */
@@ -194,7 +175,6 @@ export type ServerConfigPatch = {
 	harnessDisabled?: string[];
 	/** AU18: shallow partial — every field is independently patchable. */
 	observability?: Partial<z.infer<typeof ObservabilitySchema>>;
-	gitExport?: Partial<z.infer<typeof GitExportSchema>>;
 };
 
 /**
@@ -228,7 +208,6 @@ const DEFAULTS: ServerConfig = {
 	modelGateway: BUILT_IN_GATEWAY_CONFIG,
 	harnessDisabled: [],
 	observability: ObservabilitySchema.parse({}),
-	gitExport: GitExportSchema.parse({}),
 };
 
 /**
@@ -245,7 +224,6 @@ function applyDefaults(raw: RawServerConfig): ServerConfig {
 		// AM4: default to empty array when absent (legacy rows have no harnessDisabled key)
 		harnessDisabled: Array.isArray(raw.harnessDisabled) ? raw.harnessDisabled : [],
 		observability: ObservabilitySchema.parse(raw.observability ?? {}),
-		gitExport: GitExportSchema.parse(raw.gitExport ?? {}),
 	};
 }
 
@@ -365,10 +343,6 @@ async function patchServerConfig(
 			patch.observability !== undefined
 				? { ...current.observability, ...patch.observability }
 				: current.observability,
-		gitExport:
-			patch.gitExport !== undefined
-				? { ...current.gitExport, ...patch.gitExport }
-				: current.gitExport,
 	};
 
 	// AH1 §2: no apiKey in tiers — no encryption step needed here. Keys go to server_credentials.

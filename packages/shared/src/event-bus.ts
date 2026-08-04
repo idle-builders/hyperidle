@@ -31,7 +31,7 @@ function getLogger(): Logger {
  *
  * @lore I1 EventBus resilience: one throwing handler must not abort delivery
  * to subsequent handlers. A single bad subscriber (e.g. a newly-added
- * observability or git-export forwarder that hits a transient error) would
+ * observability forwarder that hits a transient error) would
  * otherwise silently break every durability-critical subscriber registered
  * after it. We isolate per-handler failures with try/catch and log via
  * `createLogger` so the error remains observable. Throwing handlers are still

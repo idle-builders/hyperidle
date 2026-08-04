@@ -34,7 +34,6 @@ describe("API Availability Regression Guard (I6)", () => {
 		{ path: "/api/routines", description: "Routines" },
 		{ path: "/api/sessions", description: "Sessions" },
 		{ path: "/api/status", description: "Status" },
-		{ path: "/api/git-export", description: "Git Export" },
 		{ path: "/api/notifications", description: "Notifications" },
 	] as const;
 
@@ -56,4 +55,28 @@ describe("API Availability Regression Guard (I6)", () => {
 		expect(res.status).toBe(404);
 		vi.unstubAllEnvs();
 	});
+
+	/**
+	 * AU26 C1 (§D-F) — the git exporter is deleted by founder verdict. Its four
+	 * routes must be GONE, not merely disabled: the same canonical JSON 404 any
+	 * unknown `/api/*` path returns. The mirror image of the guard above.
+	 */
+	const RETIRED_ROUTES = [
+		"/api/git-export",
+		"/api/git-export/config",
+		"/api/git-export/run",
+		"/api/git-export/status",
+	] as const;
+
+	for (const path of RETIRED_ROUTES) {
+		test(`retired: ${path} is not mounted`, async ({ app }) => {
+			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			const res = await app.request(path, { headers: auth() });
+
+			expect(res.status, `${path} is still mounted`).toBe(404);
+			expect(res.headers.get("content-type")).toContain("application/json");
+			expect(await res.json()).toMatchObject({ code: "NOT_FOUND" });
+			vi.unstubAllEnvs();
+		});
+	}
 });

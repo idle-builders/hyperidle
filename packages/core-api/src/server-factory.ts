@@ -35,7 +35,6 @@ import {
 	RegistryFilesystemMounter,
 	resolveInjectedFilesystemsForAgent,
 } from "@hyperidle/filesystems";
-import { registerGitExportHandler } from "@hyperidle/git-export";
 import {
 	type AdapterPool,
 	createReturnEnforcement,
@@ -45,8 +44,6 @@ import { createMcpToolBridge } from "@hyperidle/harness-registry/mcp";
 import {
 	assembleSessionKnowledge,
 	create as createKnowledgeItem,
-	get as getKnowledgeItem,
-	list as listKnowledgeItems,
 	reapAccessLog,
 	recordConflict as recordWritebackConflict,
 	update as updateKnowledgeItem,
@@ -233,24 +230,6 @@ export async function reapTerminalTaskDispatchAttempts(
 const notificationsServerConfigPort = { read: readServerConfig, update: updateServerConfig };
 
 /**
- * @lore AU19 Increment 2c: `git-export`'s two DI ports (Mechanism C), wired
- * here at the `packages/server` composition point — both targets
- * (`settings`, `knowledge`) are real, already-migrated packages.
- * `gitExportKnowledgeReader` closes the census-missed `git-export ->
- * knowledge` edge surfaced by this migration (see `@hyperidle/git-export`'s
- * `ports.ts` top `@lore`).
- */
-const gitExportServerConfigPort = { read: readServerConfig, update: updateServerConfig };
-const gitExportKnowledgeReader = {
-	listExportableItems: (
-		db: import("@hyperidle/db").HyperIdleDb,
-		filters: { readonly layers: readonly string[]; readonly statuses: readonly string[] },
-	) => listKnowledgeItems(db, { exportable: filters }),
-	getProjectionByItemId: (db: import("@hyperidle/db").HyperIdleDb, id: string) =>
-		getKnowledgeItem(db, id, { view: "projection" }),
-};
-
-/**
  * @lore AU20 Ag6b: collapsed from 5 separate port objects into one
  * `NotificationsDeps` bag. `installNotifications` internally extracts
  * the sub-deps it needs; the composition root sees a single wiring point.
@@ -353,7 +332,7 @@ const policyDeps: PolicyDeps = {
 /**
  * AU11: registers CORE-owned application services against the event bus —
  * knowledge (relevance listener, FTS), notifications, policy engine,
- * review routing, lifecycle propagation, retention, git-export, and the
+ * review routing, lifecycle propagation, retention, and the
  * routine scheduler (cron/due-eval + `enqueueWorkIntent`).
  *
  * Split from the former `app-runtime` shell's `bootstrapAppRuntime` —
@@ -558,18 +537,6 @@ export function registerCoreDomainServices(ctx: {
 			"policy registration",
 			"unsubscribe",
 			["policy engine", "lifecycle propagation", "retry interval"],
-		),
-	);
-	disposers.push(
-		identifyBootstrapOwner(
-			registerGitExportHandler(db, eventBus, {
-				runnerFactory: (repoPath) => createGitRunner(repoPath),
-				serverConfig: gitExportServerConfigPort,
-				knowledge: gitExportKnowledgeReader,
-			}),
-			"git-export handler",
-			"unsubscribe",
-			["knowledge-update subscription"],
 		),
 	);
 	// @lore AU20 Ag6b: three separate worker registrations (dispatcher + listener

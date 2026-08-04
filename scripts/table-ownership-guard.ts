@@ -243,18 +243,12 @@ const TABLE_OWNER: Record<string, string> = {
 	filesystems: "packages/core-api/filesystems",
 	filesystemInjections: "packages/core-api/filesystems",
 	filesystemCaptures: "packages/core-api/filesystems",
-	// AU19 Increment 2c: `git-export` migrated — resolves to ZERO owned
-	// tables (contrast `filesystems`' three, same shape as `policy`'s
-	// zero). `git-export-runner.ts` never touches the DB at all (pure git
-	// subprocess spawning); `git-export.ts` reads/writes `knowledgeItems`/
-	// `knowledgeAppProjection` (owned by `knowledge`, direct read — the
-	// export plan computation is a pure SELECT, not a write) through the
-	// injected `GitExportKnowledgeReader` port — a genuinely NEW
-	// `git-export → knowledge` edge the original architecture §10.2 census
-	// missed entirely, now appended as its own row (see §10.2) — and
-	// `server_config.gitExport` (owned by `settings`, now reached through
-	// the injected `GitExportServerConfigPort`, `ports.ts`) — no table this
-	// Service itself owns.
+	// AU26 C1: `git-export` DELETED. It always resolved to ZERO owned tables,
+	// which is why nothing here needs replacing: the exporter read `knowledge`'s
+	// tables through an injected port and `server_config.gitExport` through
+	// another, owning neither. The `gitExport` config section goes with it; the
+	// git runner itself moved to `@hyperidle/shared/git` in A2 and never touched
+	// the DB at all (pure subprocess spawning).
 	// AU26 C2: `observability` DISSOLVED. It always resolved to ZERO owned
 	// tables — the ring buffer and the console sink never touched the DB, and
 	// `config.ts` only read/wrote `server_config.observability`, a section

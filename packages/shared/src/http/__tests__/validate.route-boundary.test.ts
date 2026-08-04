@@ -7,7 +7,7 @@ import type { validateBody } from "../validate.js";
  * AF4 / AC2 — route-boundary payload soundness (RED phase).
  *
  * @lore The web app consumes config-PATCH routes (notifications /
- * observability / git-export) whose handlers read `c.req.valid("json")`.
+ * observability) whose handlers read `c.req.valid("json")`.
  * That validated payload type is produced by `validateBody(schema)`: the
  * Hono `MiddlewareHandler`'s Input map carries `{ out: { json: <Out> } }`,
  * and `<Out>` is what `c.req.valid("json")` resolves to inside the handler.

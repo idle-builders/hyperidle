@@ -356,11 +356,11 @@ function buildLeafDeclarations(root: string): void {
   // filesystem/__tests__/scaffolding-drift-guard.test.ts now import
   // `@hyperidle/filesystems`.
   //
-  // @lore AU19 Increment 2c: `core-api/git-export` added — same TS6305
-  // cascade; routes/git-export-routes.ts, routes/filesystems.ts,
-  // server-factory.ts, app.ts, and the git-export/filesystem-adapter
-  // integration test files now import `@hyperidle/git-export`. This closes
-  // `filesystems`' Increment-2b `FilesystemsGitRunner` forward-reference.
+  // @lore AU26 C1: `core-api/git-export` REMOVED — the exporter is deleted by
+  // founder verdict and the package with it. The live half, `createGitRunner`,
+  // moved to `@hyperidle/shared/git` in A2, so `filesystems`' Increment-2b
+  // `FilesystemsGitRunner` forward-reference is still closed, just from
+  // `shared` rather than from a core-api Service.
   //
   // @lore AU26 C2: `core-api/observability` REMOVED — the package dissolved
   // (translator + adapter → `@hyperidle/shared/observability`, config pair →
@@ -466,7 +466,6 @@ function buildLeafDeclarations(root: string): void {
     "core-api/review",
     "core-api/policy",
     "core-api/filesystems",
-    "core-api/git-export",
     "core-api/realtime",
     // @lore AU20 C1: core-api/retention dissolved — sweeps distributed to owning services
     // (users/knowledge/notifications) + propagation_log reaper co-located at composition root.

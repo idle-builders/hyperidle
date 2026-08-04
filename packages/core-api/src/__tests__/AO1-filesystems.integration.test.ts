@@ -14,7 +14,7 @@
  *   AC1b — inject/eject/share, UNIQUE enforcement, DELETE injection only
  *   AC2  — connection_id + resourceRef stored, NO credential on the row
  *   AC3  — doc_set accepted; SoR kinds rejected at validation boundary
- *   AC4  — filesystem distinct from knowledge_items + git-export config
+ *   AC4  — filesystem distinct from knowledge_items + server config
  *   AC5  — NoopAuthResolver → needs_attention for connection-backed; local → reachable
  *   AC6  — DELETE filesystem cascades injections
  *   AC8  — migration: filesystems + filesystem_injections tables, correct columns, no agent_user_id
@@ -23,7 +23,14 @@
  */
 
 import * as os from "node:os";
-import { type HyperIdleDb, knowledgeItems, teamMembers, teams, users } from "@hyperidle/db";
+import {
+	type HyperIdleDb,
+	knowledgeItems,
+	serverConfig,
+	teamMembers,
+	teams,
+	users,
+} from "@hyperidle/db";
 import { sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../test-fixtures.js";
@@ -601,10 +608,10 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 	});
 
 	// ─────────────────────────────────────────────────────────────────────
-	// AC4 — filesystem distinct from knowledge_items + git-export config
+	// AC4 — filesystem distinct from knowledge_items + server config
 	// ─────────────────────────────────────────────────────────────────────
 
-	describe("AC4: Filesystem distinct from knowledge_items and git-export config", () => {
+	describe("AC4: Filesystem distinct from knowledge_items and server config", () => {
 		test("registering a filesystem does not change knowledge_items rowcount", async ({
 			db,
 			app,
@@ -632,12 +639,14 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			expect(after.length).toBe(countBefore);
 		});
 
-		test("registering a filesystem does not change the git-export config", async ({ db, app }) => {
+		// @lore AU26 C1: this asserted against `/api/git-export/config`, which is
+		// deleted with the exporter. The AC is "registering a filesystem touches
+		// only its own table", so it now reads `server_config` itself — the same
+		// claim, one indirection fewer.
+		test("registering a filesystem does not change the server config", async ({ db, app }) => {
 			const { teamId } = await seedTeamAndBots(db, "ac4b");
 
-			// Read git-export config before
-			const configBefore = await app.request("/api/git-export/config", { headers: auth() });
-			const cfgBefore = (await configBefore.json()) as Record<string, unknown>;
+			const cfgBefore = await db.select().from(serverConfig);
 
 			await app.request("/api/filesystems", {
 				method: "POST",
@@ -651,9 +660,7 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 				}),
 			});
 
-			// Read git-export config after — must be identical
-			const configAfter = await app.request("/api/git-export/config", { headers: auth() });
-			const cfgAfter = (await configAfter.json()) as Record<string, unknown>;
+			const cfgAfter = await db.select().from(serverConfig);
 			expect(cfgAfter).toEqual(cfgBefore);
 		});
 	});

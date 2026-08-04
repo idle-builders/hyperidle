@@ -133,6 +133,6 @@ describe("Status Endpoints (E6)", () => {
 	// (AC13/AC14, I1 security-H1 redaction) is retired along with
 	// `factorySettings` — every legitimate key it carried now has a
 	// domain-specific route backed by `server_config`
-	// (notifications/observability/git-export config tests cover those).
+	// (the notifications config tests cover those).
 	// No web client depended on the raw-rows shape (confirmed via grep).
 });

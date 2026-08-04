@@ -64,4 +64,4 @@ The process primitives (bets, tasks, sessions, teams, routines) stay in their ow
 
 ## Git is an export, never the source of truth
 
-The human-readable markdown files in the Git repo are **exports from the database**, produced by the git-export service — only `active`/`validated` items ship; drafts (`captured`, `provisional`, `needs_human`) and `archived` tombstones stay out (`packages/server/src/services/git-export.ts`). Git is the backup and audit trail; the database is canonical. Export structure and triggers are owned by [facilitators](facilitators.md).
+**Not implemented:** there is no git export. The exporter was deleted in AU26 (increment C1), and the paths this paragraph used to cite had not existed since AU19. The database is canonical and is the *only* store — there is no markdown mirror, no git backup, and no audit trail outside the DB. The design sketch is kept in [facilitators](facilitators.md), marked as unimplemented.

@@ -34,7 +34,6 @@ import { createConnectionRoutes } from "./routes/connections.js";
 import { createConversationRoutes } from "./routes/conversations.js";
 import { createCredentialRoutes } from "./routes/credentials.js";
 import { createFilesystemRoutes } from "./routes/filesystems.js";
-import { createGitExportRoutes } from "./routes/git-export-routes.js";
 import { createHarnessRoutes } from "./routes/harnesses.js";
 import { authHealth, health } from "./routes/health.js";
 import { createHintRoutes } from "./routes/hints.js";
@@ -543,7 +542,6 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 			// and the redetect/disable routes can read/write server_config.
 			api.route("/harnesses", createHarnessRoutes(options.adapterPool, options.db));
 		}
-		api.route("/git-export", createGitExportRoutes(options.db));
 		api.route("/credentials", createCredentialRoutes(options.db));
 		// AN1: per-user service connections (token | mcp | inherited projected)
 		api.route("/connections", createConnectionRoutes(options.db, options.adapterPool));

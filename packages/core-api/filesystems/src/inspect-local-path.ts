@@ -12,7 +12,7 @@
  *
  * @lore AU19 Increment 2b: `gitRunnerFactory` is now a REQUIRED injected param
  * (this Service's own `FilesystemsGitRunnerFactory` port, `ports.ts`) instead
- * of an internal `createGitRunner` default — `git-export` hasn't migrated yet
+ * of an internal `createGitRunner` default (it lives in `@hyperidle/shared/git`)
  * (forward-reference, closed when it does; see `ports.ts`'s top `@lore`).
  */
 

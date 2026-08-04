@@ -2,7 +2,7 @@
 
 Most agent systems have workers (agents that do things) and maybe an orchestrator (routes work). They're missing the role that actually makes knowledge compound: **the facilitator** — a dedicated agent per layer whose entire job is to organize the layer's knowledge, score what needs human attention, and collect exactly the feedback that converts information into knowledge. The role a great librarian, community manager, or editor plays in a human org. Without them, information accumulates but knowledge doesn't.
 
-> **Load-bearing doc.** `packages/fabric/src/promotion-pipeline.ts:17-24` quotes the auto-promotion sentence in §Auto-promotion verbatim (code comment still references `KNOWLEDGE_ARCHITECTURE.md §6.5` — the old monolith path; update that comment when renaming). `packages/fabric/src/services/git-export.ts:36-42` cites the pre-validation draft rule (code comment references `KNOWLEDGE_ARCHITECTURE.md §9`). Change those sections and the code comments together.
+> **Load-bearing doc.** `packages/fabric/src/promotion-pipeline.ts:17-24` quotes the auto-promotion sentence in §Auto-promotion verbatim (code comment still references `KNOWLEDGE_ARCHITECTURE.md §6.5` — the old monolith path; update that comment when renaming). Change that section and the code comment together.
 
 ## The facilitator family
 
@@ -54,7 +54,7 @@ STALE          ─┐
 ARCHIVED
 ```
 
-Implemented as fabric `KNOWLEDGE_STATUSES` (`packages/fabric/src/types.ts:41-49`). The kernel only knows `draft/active/archived/needs_human` (`packages/shared/src/types.ts:77`); the 7-state lifecycle is strategy(fabric)-owned. `captured`, `provisional`, and `needs_human` are **pre-validation drafts** — the git export refuses to publish them (see below).
+Implemented as fabric `KNOWLEDGE_STATUSES` (`packages/fabric/src/types.ts:41-49`). The kernel only knows `draft/active/archived/needs_human` (`packages/shared/src/types.ts:77`); the 7-state lifecycle is strategy(fabric)-owned. `captured`, `provisional`, and `needs_human` are **pre-validation drafts**.
 
 ### Auto-promotion
 
@@ -74,9 +74,16 @@ The agent side is **always flat**: one layer of product teams, each with its own
 
 A product team owns *a unit of value* — standalone product or part of a larger multi-product business — but the business dimension lives as human-maintained metadata, never as a nested agent hierarchy. **Business leaders are always the humans:** suite-level strategy, pricing, positioning, bundling.
 
-## Git export structure
+## Git export structure — NOT IMPLEMENTED
 
-Markdown files are **exports** from the canonical `knowledge_items` table (`packages/db/src/schema.ts:580`; see [the-canonical-store](./the-canonical-store.md)), maintained in a git repo for version history (`packages/fabric/src/services/git-export.ts`):
+> **Not implemented.** There is no git export. The exporter was deleted in AU26
+> (increment C1) and the code paths this section used to cite have not existed
+> since AU19. The canonical `knowledge_items` table (`packages/db/src/schema.ts`)
+> is the only store; nothing writes markdown files to a git repo. Whether
+> knowledge should live in git at all is an open product question for a future
+> knowledge work package, not a description of the system.
+>
+> The shape below is kept as the design sketch it always was:
 
 ```
 products/
@@ -88,8 +95,8 @@ factory/
   REFLECTIONS/<topic>.md      # L4 REFLECTION items
 ```
 
-- Exported kinds: `BRIEF`, `ARCHITECTURE`, `BRAND`, `PRINCIPLES`, `FOCUS`, `PORTFOLIO`, `REFLECTION` (`git-export.ts:26-34`).
-- Only `active` and `validated` items export (`git-export.ts:42`); pre-validation drafts (`captured`/`provisional`/`needs_human`) and `archived` tombstones stay out.
+- Sketched kinds: `BRIEF`, `ARCHITECTURE`, `BRAND`, `PRINCIPLES`, `FOCUS`, `PORTFOLIO`, `REFLECTION`.
+- Sketched rule: only `active` and `validated` items would export; pre-validation drafts (`captured`/`provisional`/`needs_human`) and `archived` tombstones would stay out.
 - No `businesses/` directory, no nesting. Business-level framing is human-maintained at the factory level — the agent structure stays dead simple.
 
 ## The learning loop
