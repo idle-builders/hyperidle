@@ -80,7 +80,6 @@ function buildHarnessPorts(): SessionLifecyclePorts {
 			beginAgentWriteback: () => ({ dispose: () => undefined }),
 			assemblePrompt: neverCalled("contextAssembly.assemblePrompt"),
 			assembleRoutinePrompt: neverCalled("contextAssembly.assembleRoutinePrompt"),
-			composeAssistantPrompt: neverCalled("contextAssembly.composeAssistantPrompt"),
 			writeSandboxAgentsMd: vi.fn(),
 		},
 	};
@@ -155,6 +154,7 @@ describe("session_not_returned carries callingThreadId (Increment 5)", () => {
 				modelTierPreference: null,
 				harnessType: null,
 				modelProvider: null,
+				modelId: null,
 				maxConcurrentSessions: 5,
 			},
 			harnessDisabled: [],
@@ -230,6 +230,7 @@ describe("session_not_returned carries callingThreadId (Increment 5)", () => {
 				modelTierPreference: null,
 				harnessType: null,
 				modelProvider: null,
+				modelId: null,
 				maxConcurrentSessions: 5,
 			},
 			harnessDisabled: [],

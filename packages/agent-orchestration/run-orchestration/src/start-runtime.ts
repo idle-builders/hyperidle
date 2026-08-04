@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { createContextAssembler } from "./context.js";
 import type { RuntimeDeps, RuntimeHandle, RuntimePorts } from "./contracts.js";
 import { createProvisioner } from "./provisioner.js";
-import { runSession } from "./runtime.js";
+import { parseBakedAgentConfig, runSession } from "./runtime.js";
 import { createRuntimeReapers } from "./runtime-reapers.js";
 import { createWorkerIngress } from "./worker-ingress.js";
 import { createWritebackProcessor } from "./writeback-processor.js";
@@ -107,44 +107,54 @@ async function drainAgentSessionRequests(deps: RuntimeDeps): Promise<number> {
 		const explicitStartId =
 			correlatedIntent?.sourceKind === "explicit_session_start" ? correlatedIntent.sourceId : null;
 		try {
-			if (request.sourceKind === "assistant") {
-				if (!deps.assistantTurn) {
-					if (request.claimToken) {
-						await deps.ports.sessionRequests.releaseClaim(deps.db, request.id, request.claimToken);
-					}
-					return consumed;
-				}
-				await deps.ports.dispatch.runAssistantTurn(deps.assistantTurn, request);
-			} else {
-				let tier: ModelTier = "workhorse";
-				if (explicitStartId) {
-					const start = await deps.ports.sessionRequests.findSessionRequest(deps.db, {
-						by: "explicitStart",
-						startId: explicitStartId,
-					});
-					tier = (start?.requestedModelTier as ModelTier | null) ?? tier;
-				}
-				const resolvedModel = await deps.resolveModel?.(tier);
-				const result = await runSession(deps, {
-					mode: "durable",
-					request,
-					sandboxBasePath: deps.sandboxBasePath ?? "/tmp/hyperidle-workspaces",
-					modelTier: tier,
-					resolvedModel,
-					completion: "admit",
+			// The assistant falls through the SAME drain path as every other
+			// kind — `requiredReturnActions` and the calling-thread bake make
+			// its session-scoped output generic like any other agent's.
+			let tier: ModelTier = "workhorse";
+			if (explicitStartId) {
+				const start = await deps.ports.sessionRequests.findSessionRequest(deps.db, {
+					by: "explicitStart",
+					startId: explicitStartId,
 				});
-				if (explicitStartId) {
-					if (result.mode === "assembled") {
-						throw new Error("Durable execution returned assembly-only result");
-					}
-					await deps.ports.sessionRequests.transitionSessionRequest(deps.db, {
-						target: "explicitStart",
-						to: "admitted",
-						startId: explicitStartId,
-						requestId: request.id,
-						sessionId: result.sessionId,
-					});
+				tier = (start?.requestedModelTier as ModelTier | null) ?? tier;
+			}
+			// AU27 Increment 6 (Decision 4, C11): the target agent's per-agent
+			// model override rides `agentConfig.modelId`/`modelProvider`, baked
+			// uniformly for all six kinds (Wave E's own bake, extended with
+			// `modelId`). `deps.resolveModel` (server-factory's `makeResolveModel`)
+			// applies the `openai-compatible` guard — request `{kind:"agent"}` only
+			// when the provider supports it, else `{kind:"tier"}` — so this call
+			// site stays a plain pass-through, no branch here.
+			const agentConfig = parseBakedAgentConfig(request);
+			const modelOverride = agentConfig
+				? { modelId: agentConfig.modelId, modelProvider: agentConfig.modelProvider }
+				: undefined;
+			const resolvedModel = await deps.resolveModel?.(tier, modelOverride);
+			// AU27 Increment 6 (Decision 4, item 3): resolve the fast-tier model
+			// too — pre-AU27 only the assistant's dispatch runner did this
+			// (`resolvedFastModel`), so every other kind's summarization already
+			// silently fell back to the workhorse model. Uniform now, for all six.
+			const resolvedFastModel = await deps.resolveModel?.("fast");
+			const result = await runSession(deps, {
+				mode: "durable",
+				request,
+				sandboxBasePath: deps.sandboxBasePath ?? "/tmp/hyperidle-workspaces",
+				modelTier: tier,
+				resolvedModel,
+				resolvedFastModel,
+				completion: "admit",
+			});
+			if (explicitStartId) {
+				if (result.mode === "assembled") {
+					throw new Error("Durable execution returned assembly-only result");
 				}
+				await deps.ports.sessionRequests.transitionSessionRequest(deps.db, {
+					target: "explicitStart",
+					to: "admitted",
+					startId: explicitStartId,
+					requestId: request.id,
+					sessionId: result.sessionId,
+				});
 			}
 			consumed += 1;
 		} catch (error) {
@@ -160,8 +170,9 @@ async function drainAgentSessionRequests(deps: RuntimeDeps): Promise<number> {
 			// silent-no-op-turned-crash class R1 exists to kill) or incorrectly
 			// terminalize a legitimately-retryable released claim. This catch's only
 			// remaining job is the family-specific explicit-session-start projection.
-			// (runAssistantTurn never throws here — it maps failures to
-			// persisted notices internally.)
+			// A pre-admission throw for an `assistant_turn` request behaves
+			// exactly like every other kind's (plan.md's accepted, pre-existing
+			// re-claim-until-lease-expiry gap, §"Out of scope" (c)).
 			if (explicitStartId) {
 				await deps.ports.sessionRequests.transitionSessionRequest(deps.db, {
 					target: "explicitStart",

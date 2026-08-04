@@ -115,7 +115,6 @@ function buildHarnessPorts(overrides: Partial<SessionLifecyclePorts>): SessionLi
 			beginAgentWriteback: () => ({ dispose: () => undefined }),
 			assemblePrompt: neverCalled("contextAssembly.assemblePrompt"),
 			assembleRoutinePrompt: neverCalled("contextAssembly.assembleRoutinePrompt"),
-			composeAssistantPrompt: neverCalled("contextAssembly.composeAssistantPrompt"),
 			writeSandboxAgentsMd: neverCalled("contextAssembly.writeSandboxAgentsMd"),
 		},
 	};
@@ -203,6 +202,7 @@ describe("admitSession mounts from the baked injected-filesystems list", () => {
 				modelTierPreference: null,
 				harnessType: null,
 				modelProvider: null,
+				modelId: null,
 				maxConcurrentSessions: 5,
 			},
 			harnessDisabled: [],
@@ -258,6 +258,7 @@ describe("admitSession mounts from the baked injected-filesystems list", () => {
 				modelTierPreference: null,
 				harnessType: null,
 				modelProvider: null,
+				modelId: null,
 				maxConcurrentSessions: 5,
 			},
 			harnessDisabled: [],

@@ -1,6 +1,6 @@
 /** Core API composition root for the run-orchestration service. */
 
-import type { AgentSessionRequest, HyperIdleDb } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	AdapterPool,
 	createHarnessAdapter,
@@ -31,7 +31,6 @@ import {
 } from "@hyperidle/session-requests";
 import type { ToolContext, WorkerRegisterMessage } from "@hyperidle/shared";
 import { EventBus, summarizeToolArgs } from "@hyperidle/shared";
-import { dispatchOps } from "./dispatch-bindings.js";
 import { queueDeps } from "./durable-agent-queue.js";
 import { buildToolRegistry, returnStatusTool, toolsForRole } from "./tool-provider-bindings.js";
 
@@ -228,23 +227,9 @@ const sessionLifecyclePort: SessionLifecycleRuntime = {
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// dispatch — real, same-layer since AU19 Increment 3h, wired to
-// dispatch-bindings.ts's bound dispatchOps.runAssistantTurn.
+// The assistant runs through the shared `sessionRequests`/`sessionLifecycle`
+// poller path like every other kind — no second execution entry to wire.
 // ---------------------------------------------------------------------------
-
-const dispatchPort: RuntimePorts["dispatch"] = {
-	runAssistantTurn(deps: unknown, request: AgentSessionRequest): Promise<void> {
-		// @lore boundary-crossing cast: `deps` is the real `AssistantTurnDeps` this
-		// Service's own caller built — opaque-typed crossing the boundary
-		// (`run-orchestration`'s own port keeps `deps: unknown`, never
-		// inspecting `dispatch`'s internals, even though `dispatch` itself is
-		// now a real migrated Service).
-		return dispatchOps.runAssistantTurn(
-			deps as Parameters<typeof dispatchOps.runAssistantTurn>[0],
-			request,
-		);
-	},
-};
 
 const runOrchestrationPorts: RuntimePorts = {
 	sessionRequests: {
@@ -258,7 +243,6 @@ const runOrchestrationPorts: RuntimePorts = {
 		reapExpired,
 	},
 	sessionLifecycle: sessionLifecyclePort,
-	dispatch: dispatchPort,
 };
 
 // ---------------------------------------------------------------------------

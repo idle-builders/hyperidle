@@ -92,7 +92,6 @@ function buildHarnessPorts(captured: {
 			beginAgentWriteback: () => ({ dispose: () => undefined }),
 			assemblePrompt: neverCalled("contextAssembly.assemblePrompt"),
 			assembleRoutinePrompt: neverCalled("contextAssembly.assembleRoutinePrompt"),
-			composeAssistantPrompt: neverCalled("contextAssembly.composeAssistantPrompt"),
 			writeSandboxAgentsMd: vi.fn(),
 		},
 	};
@@ -169,6 +168,7 @@ describe("provisioner.run — ToolContext.threadId forwarded from params.calling
 				modelTierPreference: null,
 				harnessType: null,
 				modelProvider: null,
+				modelId: null,
 				maxConcurrentSessions: 5,
 			},
 			harnessDisabled: [],
@@ -216,6 +216,7 @@ describe("provisioner.run — ToolContext.threadId forwarded from params.calling
 				modelTierPreference: null,
 				harnessType: null,
 				modelProvider: null,
+				modelId: null,
 				maxConcurrentSessions: 5,
 			},
 			harnessDisabled: [],

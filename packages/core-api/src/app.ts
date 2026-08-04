@@ -9,12 +9,7 @@ import {
 	writeCredential,
 } from "@hyperidle/connections";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
-import type { DispatchOps } from "@hyperidle/dispatch";
-import type { AdapterPool, SandboxAdapter } from "@hyperidle/harness-registry";
-
-type AssistantTurnDeps = Parameters<DispatchOps["runAssistantTurn"]>[0];
-
-import type { McpToolBridge } from "@hyperidle/harness-registry";
+import type { AdapterPool, McpToolBridge, SandboxAdapter } from "@hyperidle/harness-registry";
 import type { NotificationAdapter, NotificationsDeps } from "@hyperidle/notifications";
 import {
 	type ObservabilityConfig,
@@ -205,15 +200,6 @@ interface AppOptions {
 	 * Used when writing `.mcp.json` to the workspace during session provisioning.
 	 */
 	mcpBaseUrl?: string;
-	/**
-	 * AH3: Optional assistant turn dependencies. When provided, a human plain
-	 * message on the assistant thread fires runAssistantTurn (fire-and-forget).
-	 * When absent, the trigger is a no-op (kernel-only mode, chrome tests).
-	 *
-	 * @lore AH3 §1.5: AH5's real-model lane supplies these deps at boot time.
-	 * Integration tests supply them per-test via createTestApp({ assistantTurnDeps }).
-	 */
-	assistantTurnDeps?: AssistantTurnDeps;
 	/**
 	 * Enable shared-mode authentication (S1). When true, the auth middleware
 	 * accepts Bearer tokens from LoginSessions in addition to X-API-Key.

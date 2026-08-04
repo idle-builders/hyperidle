@@ -30,7 +30,7 @@ import type {
 } from "@hyperidle/shared";
 import {
 	AL6_MAX_FORCE_RETURNS,
-	isReturnAction,
+	isRequiredReturnAction,
 	normalizeHarnessEvent,
 	preMapClaudeEvent,
 	shouldForceReturn,
@@ -251,11 +251,30 @@ interface CliSession {
 	apiDurationMs?: number;
 	readonly modelTier: SessionConfig["modelTier"];
 	/**
-	 * AL6 CRIT-3: True once a return action (submit_review, handoff_to, send_message)
-	 * has been observed in the event stream. Used to skip re-engage when the agent
+	 * AL6 CRIT-3: True once a return action satisfying this session's
+	 * `requiredReturnActions` (or, absent one, any return action) has been
+	 * observed in the event stream. Used to skip re-engage when the agent
 	 * already returned voluntarily.
+	 *
+	 * AU27 Increment 6 (Decision 3): must be REQUIRED-SET-aware, not plain
+	 * membership — `isReturnAction` alone let a session with a specific
+	 * required action (e.g. the assistant's `["reply"]`) mark itself
+	 * "returned" by calling an unrelated member (`send_message`), which
+	 * short-circuits the `isReEngage && !session.returnSeen` pre-check below
+	 * BEFORE it ever reaches the registry's own required-subset-aware
+	 * `shouldForceReturn` — silently skipping the force this session actually
+	 * needs. Dormant through Phase A (no request set `requiredReturnActions`
+	 * yet); the assistant landing on the shared poller (Increment 6) makes it
+	 * live for the first time.
 	 */
 	returnSeen: boolean;
+	/**
+	 * AU27 Increment 6 (Decision 3) — this session's required-return subset,
+	 * threaded from `SessionConfig.requiredReturnActions` at spawn time so
+	 * `returnSeen` tracking (and any future re-engage spawn) can stay
+	 * required-set-aware without re-reading the original `SessionConfig`.
+	 */
+	readonly requiredReturnActions?: readonly string[];
 	/**
 	 * AL6 CRIT-3: Number of process-reengage re-spawns for this session.
 	 * Bounded by AL6_MAX_FORCE_RETURNS. Prevents infinite re-engage loops.
@@ -587,6 +606,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			completionEvents: 0,
 			modelTier: config.modelTier,
 			returnSeen: false,
+			requiredReturnActions: config.requiredReturnActions,
 			reEngageCount: 0,
 			sandboxPath: config.sandboxPath,
 			reEngageCarrier: this.config.reEngageCarrier,
@@ -1035,9 +1055,14 @@ export class CliHarnessAdapter implements HarnessAdapter {
 				}
 
 				// AL6 CRIT-3: track return actions for process-reengage decisions.
-				// When the agent calls a return action, mark returnSeen so we skip
-				// re-engage on process exit.
-				if (session && event.type === "tool_call" && isReturnAction(event.toolName)) {
+				// When the agent calls a return action satisfying this session's
+				// required subset (AU27 Increment 6, Decision 3), mark returnSeen so
+				// we skip re-engage on process exit.
+				if (
+					session &&
+					event.type === "tool_call" &&
+					isRequiredReturnAction(event.toolName, session.requiredReturnActions)
+				) {
 					session.returnSeen = true;
 				}
 
