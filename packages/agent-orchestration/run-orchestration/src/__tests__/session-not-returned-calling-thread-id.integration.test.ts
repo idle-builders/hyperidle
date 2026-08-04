@@ -27,7 +27,6 @@ function buildFakeHarnessAdapter(): FakeHarnessAdapter {
 	return {
 		startSession: async (config) => ({ sessionId: config.sessionId }),
 		streamEvents: () => ({
-			// biome-ignore lint/suspicious/useAwait: async generator with no events
 			async *[Symbol.asyncIterator]() {
 				/* no events — the agent never calls a return action */
 			},
