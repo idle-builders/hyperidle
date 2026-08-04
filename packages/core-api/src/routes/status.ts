@@ -2,11 +2,11 @@ import { listMessages } from "@hyperidle/conversation";
 import type { WriteExecutor } from "@hyperidle/db";
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import { getDailyDigest } from "@hyperidle/notifications";
+import { requireBoundary } from "@hyperidle/shared/http";
 import { listUsers } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
-import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 
 /**
  * @lore AU19 Increment 1g: `getDailyDigest` (`@hyperidle/notifications`) now

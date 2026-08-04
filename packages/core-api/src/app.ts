@@ -22,11 +22,11 @@ import { enqueueWorkIntent, findSessionRequest } from "@hyperidle/session-reques
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger, EventBus } from "@hyperidle/shared";
+import { failClosedAssertion } from "@hyperidle/shared/http";
 import { createUpgradeTokenStore, findUser, type UpgradeTokenStore } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { checkAndUnblockDependents } from "@hyperidle/work";
 import { Hono } from "hono";
-import { failClosedAssertion } from "./middleware/access-boundary-middleware.js";
 import { authMiddleware, createAuthMiddleware } from "./middleware/auth.js";
 import { createBodyLimit } from "./middleware/body-limit.js";
 import { corsMiddleware } from "./middleware/cors.js";

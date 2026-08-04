@@ -14,10 +14,10 @@ import {
 	type RoutineRunOutcome,
 	type RoutineRunSummary,
 } from "@hyperidle/shared";
+import { requireBoundary } from "@hyperidle/shared/http";
 import { findUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
-import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { validateBody } from "../middleware/validate.js";
 import { fireRoutine } from "../services/routine-scheduler-bindings.js";
 

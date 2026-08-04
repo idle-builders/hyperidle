@@ -12,6 +12,12 @@
  * the standard mitigation; we accept the cost of two SHA-256 calls per
  * authenticated request because key compares happen at the request boundary,
  * not inside hot loops.
+ *
+ * @lore AU26 A1: moved from `packages/core-api/src/middleware/timing-safe.ts`.
+ * Both applications authenticate at the boundary, and a second hand-rolled copy
+ * of a timing-safe compare is exactly the drift this WP exists to delete —
+ * `run-orchestration/src/worker-ingress.ts:37` already carries one because it
+ * could not import core-api's.
  */
 import { createHash, timingSafeEqual } from "node:crypto";
 

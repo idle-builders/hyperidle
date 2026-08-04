@@ -19,14 +19,16 @@ import {
 	insertThread,
 	listInbox,
 } from "@hyperidle/conversation";
+import {
+	constantTimeStringEqual,
+	type HyperIdleEnv,
+	requireBoundary,
+} from "@hyperidle/shared/http";
 import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
-import { requireBoundary } from "../middleware/access-boundary-middleware.js";
-import type { HyperIdleEnv } from "../middleware/auth.js";
-import { constantTimeStringEqual } from "../middleware/timing-safe.js";
 import { validateBody } from "../middleware/validate.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
 import { createAssistantSoulRoutes } from "./assistant.js";

@@ -13,8 +13,8 @@
  * already loaded the resource to build its response.
  */
 
+import type { HyperIdleEnv } from "@hyperidle/shared/http";
 import type { Context } from "hono";
-import type { HyperIdleEnv } from "../middleware/auth.js";
 import { type AuthorizableResource, canRead, canWrite } from "./access-boundary.js";
 
 const FORBIDDEN_BODY = {

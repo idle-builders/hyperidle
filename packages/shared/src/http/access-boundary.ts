@@ -4,8 +4,8 @@
  * requireBoundary(decl): stamps the route's declared boundary intent onto
  * the Hono context. Every data route must call this at registration time.
  *
- * failClosedAssertion(): global middleware (mounted once in app.ts after auth).
- * After the handler runs, checks if __boundary was set. If not:
+ * failClosedAssertion(): global middleware (mounted once by the Application after
+ * auth). After the handler runs, checks if __boundary was set. If not:
  *   - dev/test: throws an error (loud, immediate)
  *   - prod: logs a hard error (lint is the real gate per architecture §60)
  *
@@ -20,11 +20,16 @@
  *
  * @lore AF11: Flip order complete. Step 10 ("flip warn → throw-in-dev/test")
  * executed after all 41+ data routes confirmed declared (lint 0 violations).
+ *
+ * @lore AU26 A1: moved here from `packages/core-api/src/middleware/`. A route on
+ * EITHER application must be able to declare its boundary, and an
+ * `agent-orchestration` route file may not import core-api. `shared` is the one
+ * package both may import. Behaviour is byte-identical to the core-api original.
  */
 
-import { createLogger } from "@hyperidle/shared";
 import type { MiddlewareHandler } from "hono";
-import type { HyperIdleEnv } from "./auth.js";
+import { createLogger } from "../logger.js";
+import type { HyperIdleEnv } from "./env.js";
 
 const assertionLogger = createLogger({ pkg: "server.authz.assertion" });
 
@@ -46,7 +51,8 @@ export interface BoundaryDeclaration {
 export function requireBoundary(decl: BoundaryDeclaration): MiddlewareHandler<HyperIdleEnv> {
 	return async (c, next) => {
 		// Record the declared boundary on context so the global fail-closed
-		// assertion (app.ts) can verify it was set after the handler runs.
+		// assertion (applied by the Application) can verify it was set after the
+		// handler runs.
 		// @lore AF11: The lint rule is the primary build-time gate; this runtime
 		// stamp is the dev/test safety net per the architecture flip-order requirement.
 		c.set("__boundary", decl.kind);
@@ -55,7 +61,8 @@ export function requireBoundary(decl: BoundaryDeclaration): MiddlewareHandler<Hy
 }
 
 /**
- * Global fail-closed assertion middleware — mounted once in app.ts after auth.
+ * Global fail-closed assertion middleware — mounted once by the Application after
+ * auth.
  *
  * After the handler runs, checks if requireBoundary() set `__boundary` on the
  * context. If not, an undeclared route reached data without a boundary declaration.

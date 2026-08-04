@@ -14,10 +14,10 @@ import {
 	isRegisteredKind,
 	OLD_KIND_MAP,
 } from "@hyperidle/shared";
+import { requireBoundary } from "@hyperidle/shared/http";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";
-import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { createBodyLimit } from "../middleware/body-limit.js";
 import { validateBody } from "../middleware/validate.js";
 

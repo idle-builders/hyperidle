@@ -10,12 +10,11 @@ import { getTeam, getTeamMembers, listTeamMembers, listTeams, updateTeam } from 
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import type { ArtifactThreadSummary, EventBus } from "@hyperidle/shared";
 import { BET_OUTCOME_VERDICTS, deriveTitle, InvalidTransitionError } from "@hyperidle/shared";
+import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
 import * as work from "@hyperidle/work";
 import { cascadeBetKill, transitionBet, updateBetField } from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";
-import { requireBoundary } from "../middleware/access-boundary-middleware.js";
-import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import { enumValues } from "../schemas/common.schema.js";
 import { taskRunResolverDeps } from "../services/task-run-resolver-bindings.js";

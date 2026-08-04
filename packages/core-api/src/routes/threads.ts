@@ -67,6 +67,7 @@ import {
 	headCollapsePredicate,
 	resolveMentions,
 } from "@hyperidle/shared";
+import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
 import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { desc, eq } from "drizzle-orm";
@@ -74,8 +75,6 @@ import { Hono } from "hono";
 import type { ZodError, z } from "zod";
 import { z as zod } from "zod";
 import { authorizeRead, authorizeWrite } from "../auth/authorize.js";
-import { requireBoundary } from "../middleware/access-boundary-middleware.js";
-import type { HyperIdleEnv } from "../middleware/auth.js";
 import { resolveOrCreateCallingThread } from "../services/calling-thread-bindings.js";
 import { createAssistantThreadRoute } from "./assistant.js";
 import { createCoachRoutes } from "./coach.js";

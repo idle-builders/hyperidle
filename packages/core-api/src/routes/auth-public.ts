@@ -12,9 +12,9 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
+import { requireBoundary } from "@hyperidle/shared/http";
 import { claimInvite } from "@hyperidle/users";
 import { Hono } from "hono";
-import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 
 export function createPublicAuthRoutes(db: HyperIdleDb): Hono {
 	const router = new Hono();

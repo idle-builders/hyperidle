@@ -5,9 +5,8 @@
  * Returns AdapterInfo[] — one entry per registered adapter.
  */
 
+import { constantTimeStringEqual, requireBoundary } from "@hyperidle/shared/http";
 import { Hono } from "hono";
-import { requireBoundary } from "../middleware/access-boundary-middleware.js";
-import { constantTimeStringEqual } from "../middleware/timing-safe.js";
 import {
 	type HarnessCapabilityReader,
 	workerConnections,

@@ -2,12 +2,11 @@ import { countThreads, findThread, listThreads } from "@hyperidle/conversation";
 import type { HyperIdleDb, Item } from "@hyperidle/db";
 import type { ApiErrorResponse, EventBus, HostKind, ItemCreatedEvent } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
+import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";
 import { authorizeRead } from "../auth/authorize.js";
-import { requireBoundary } from "../middleware/access-boundary-middleware.js";
-import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 
 // @lore L1 step5 (S-C2): the legacy `POST /api/conversations/responses` path

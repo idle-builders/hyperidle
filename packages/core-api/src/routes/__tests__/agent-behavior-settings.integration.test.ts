@@ -4,8 +4,8 @@ import {
 	setPluginState,
 	writeConfigurationOverride,
 } from "@hyperidle/settings";
+import { failClosedAssertion } from "@hyperidle/shared/http";
 import { Hono } from "hono";
-import { failClosedAssertion } from "../../middleware/access-boundary-middleware.js";
 import { authMiddleware } from "../../middleware/auth.js";
 import { describe, expect, test, vi } from "../../test-fixtures.js";
 

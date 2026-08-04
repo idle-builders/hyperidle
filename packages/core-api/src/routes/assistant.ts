@@ -28,15 +28,14 @@ import {
 	type RedactedPayload,
 	type Thread,
 } from "@hyperidle/shared";
-import { findUser, insertUser, updateUser } from "@hyperidle/users";
-import { Hono } from "hono";
-import z from "zod";
 // AK6 T8: BUILTIN_ASSISTANT_SYSTEM_PROMPT removed — persona comes from app defaults.
 // The Kernel no longer hard-codes any assistant persona constant. Lazy-create paths
 // now call app scaffolding + persistScaffoldedAgents, identical
 // to POST /api/users. DEFAULT_AGENT_MODEL_ID/PROVIDER removed (persistScaffoldedAgents owns those fields).
-import { requireBoundary } from "../middleware/access-boundary-middleware.js";
-import type { HyperIdleEnv } from "../middleware/auth.js";
+import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
+import { findUser, insertUser, updateUser } from "@hyperidle/users";
+import { Hono } from "hono";
+import z from "zod";
 import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
 import { validateAgentConfig } from "./agents.js";
 import { messageRowSchema, threadParticipantsSchema } from "./threads-schema.js";

@@ -33,12 +33,11 @@ import {
 	isCatalogModel,
 	MODEL_TIERS,
 } from "@hyperidle/shared";
+import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
 import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import { and, count, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
-import { requireBoundary } from "../middleware/access-boundary-middleware.js";
-import type { HyperIdleEnv } from "../middleware/auth.js";
 import {
 	type HarnessCapabilityReader,
 	harnessRegistrationMeta,

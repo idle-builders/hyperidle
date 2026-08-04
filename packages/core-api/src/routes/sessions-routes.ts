@@ -17,14 +17,18 @@ import {
 	type SessionOutcome,
 	type SessionStartedEvent,
 } from "@hyperidle/shared";
+import {
+	type HyperIdleEnv,
+	projectExplicitStartOutcome,
+	requireBoundary,
+	sendStartProjection,
+} from "@hyperidle/shared/http";
 import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { resolveSessionStartRequest } from "@hyperidle/work";
 import { and, eq } from "drizzle-orm";
-import { type Context, Hono } from "hono";
+import { Hono } from "hono";
 import z from "zod";
-import { requireBoundary } from "../middleware/access-boundary-middleware.js";
-import type { HyperIdleEnv } from "../middleware/auth.js";
 import { validateBody } from "../middleware/validate.js";
 import {
 	buildAgentOrchestrationPort,
@@ -46,18 +50,16 @@ const createSessionSchema = z.object({
 export const EXPLICIT_SESSION_ADMISSION_WAIT_MS = 2_000;
 const IDEMPOTENCY_KEY_PATTERN = /^[\x21-\x7e]{1,200}$/;
 
-function pendingStart(start: ExplicitSessionStart) {
-	return {
-		status: "requested" as const,
-		startId: start.id,
-		taskId: start.taskId,
-		requestedAgentId: start.requestedAgentId,
-		requestedModelTier: start.requestedModelTier,
-		idempotencyKey: start.idempotencyKey,
-		pollUrl: `/api/sessions/starts/${start.id}` as const,
-	};
-}
-
+/**
+ * Resolve the session row an admitted start points at, then hand both to the
+ * shared wire projection.
+ *
+ * @lore AU26 A1: the projection itself moved to `@hyperidle/shared/http`
+ * (`projectExplicitStartOutcome`) because `GET /api/sessions/starts/:startId` moves
+ * to the orchestration app while `POST /api/sessions` stays here — both render the
+ * same 202/422/429/500 contract and neither app may import the other's routes. Only
+ * the row READ stays per-caller: each side reads `sessions` its own legal way.
+ */
 async function projectExplicitStart(db: HyperIdleDb, start: ExplicitSessionStart) {
 	if (start.status === "admitted" && start.sessionId) {
 		const [session] = await db
@@ -65,37 +67,9 @@ async function projectExplicitStart(db: HyperIdleDb, start: ExplicitSessionStart
 			.from(sessions)
 			.where(eq(sessions.id, start.sessionId))
 			.limit(1);
-		if (session) return { status: 202 as const, body: session };
+		return projectExplicitStartOutcome(start, session ?? null);
 	}
-	if (start.status === "failed") {
-		const code = start.failureCode ?? "INTERNAL_ERROR";
-		const status =
-			// @lore AU21 Increment 14a: "COST_CAP_EXCEEDED" removed from this
-			// mapping — the cost-cap gate that used to produce it is HARD-DELETED,
-			// no replacement admission-failure code.
-			code === "NO_ELIGIBLE_HARNESS" ? 422 : code === "CONCURRENCY_LIMIT" ? 429 : 500;
-		return {
-			status,
-			body: { error: code === "INTERNAL_ERROR" ? "Session provisioning failed" : code, code },
-		};
-	}
-	return { status: 202 as const, body: pendingStart(start) };
-}
-
-function sendStartProjection(
-	c: Context<HyperIdleEnv>,
-	projection: Awaited<ReturnType<typeof projectExplicitStart>>,
-) {
-	switch (projection.status) {
-		case 422:
-			return c.json(projection.body, 422);
-		case 429:
-			return c.json(projection.body, 429);
-		case 500:
-			return c.json(projection.body, 500);
-		default:
-			return c.json(projection.body, 202);
-	}
+	return projectExplicitStartOutcome(start, null);
 }
 
 const updateSessionSchema = z.object({

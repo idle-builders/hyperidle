@@ -52,12 +52,11 @@ import {
 	deriveTitle,
 	findRoleCatalogEntry,
 } from "@hyperidle/shared";
+import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
 import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { desc, inArray } from "drizzle-orm";
 import { Hono } from "hono";
-import { requireBoundary } from "../middleware/access-boundary-middleware.js";
-import type { HyperIdleEnv } from "../middleware/auth.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
 import {
 	computeHealthSignals,

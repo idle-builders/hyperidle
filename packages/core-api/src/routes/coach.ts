@@ -28,10 +28,9 @@ import type {
 	RedactedPayload,
 	Thread,
 } from "@hyperidle/shared";
+import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
 import { findUser } from "@hyperidle/users";
 import { Hono } from "hono";
-import { requireBoundary } from "../middleware/access-boundary-middleware.js";
-import type { HyperIdleEnv } from "../middleware/auth.js";
 import { messageRowSchema, threadParticipantsSchema } from "./threads-schema.js";
 
 // @lore AF11-IDOR: SENDER_HEADER and readSenderId removed. Authorization paths

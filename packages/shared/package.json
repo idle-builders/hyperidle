@@ -5,6 +5,7 @@
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",
+		"./http": "./src/http/index.ts",
 		"./net": "./src/net/ssrf.ts"
 	},
 	"scripts": {
@@ -15,6 +16,7 @@
 	},
 	"dependencies": {
 		"@noble/hashes": "^2.2.0",
+		"hono": "^4.12.27",
 		"github-slugger": "^2.0.0",
 		"remark-gfm": "^4.0.1",
 		"remark-parse": "^11.0.0",

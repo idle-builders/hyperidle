@@ -36,8 +36,8 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/shared";
+import { requireBoundary } from "@hyperidle/shared/http";
 import { Hono } from "hono";
-import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { createRateLimiter } from "../middleware/rate-limit.js";
 import {
 	type HarnessCapabilityReader,

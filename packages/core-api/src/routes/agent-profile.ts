@@ -34,11 +34,11 @@ import type {
 	AgentSessionSummary,
 	HarnessCapabilities,
 } from "@hyperidle/shared";
+import type { HyperIdleEnv } from "@hyperidle/shared/http";
 import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { desc, eq } from "drizzle-orm";
 import type { Context } from "hono";
-import type { HyperIdleEnv } from "../middleware/auth.js";
 import {
 	type HarnessCapabilityReader,
 	harnessCapabilitiesForType,

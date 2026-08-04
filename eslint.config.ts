@@ -511,13 +511,29 @@ export default [
 	//   authz/no-header-identity-in-authz        — Hard Rule 2: no header in authz sink
 	//   authz/require-boundary-declaration       — Hard Rule 6: every route must declare a boundary
 	//   authz/no-raw-db-in-route-bypassing-policy — Hard Rule 6: enforced routes need authorizeRead/Write
+	// @lore AU26 A1: the glob covers BOTH applications' route directories. AF11 is a
+	// property of a route, not of a package — once `requireBoundary` lives in
+	// `@hyperidle/shared/http` an `agent-orchestration` route can declare a boundary,
+	// so it must be held to the same rule. `packages/agent-orchestration/**/routes/`
+	// is matched at HEAD (it is where B1a's route files land) rather than added later,
+	// so the first orchestration route is governed the moment it is written.
 	{
-		files: ["packages/core-api/src/routes/**/*.ts"],
+		files: [
+			"packages/core-api/src/routes/**/*.ts",
+			"packages/agent-orchestration/**/routes/**/*.ts",
+			"packages/agent-execution/**/routes/**/*.ts",
+		],
 		ignores: [
 			"packages/core-api/src/routes/**/__tests__/**",
 			"packages/core-api/src/routes/**/*.test.ts",
 			"packages/core-api/src/routes/**/*.integration.test.ts",
 			"packages/core-api/src/routes/**/*.spec.ts",
+			"packages/agent-orchestration/**/routes/**/__tests__/**",
+			"packages/agent-orchestration/**/routes/**/*.test.ts",
+			"packages/agent-orchestration/**/routes/**/*.integration.test.ts",
+			"packages/agent-execution/**/routes/**/__tests__/**",
+			"packages/agent-execution/**/routes/**/*.test.ts",
+			"packages/agent-execution/**/routes/**/*.integration.test.ts",
 		],
 		languageOptions: {
 			parser: tsParser,

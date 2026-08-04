@@ -43,9 +43,8 @@ import {
 	type AgentSessionSourceKind,
 	API_ERROR_CODES,
 } from "@hyperidle/shared";
+import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
 import { Hono } from "hono";
-import { requireBoundary } from "../middleware/access-boundary-middleware.js";
-import type { HyperIdleEnv } from "../middleware/auth.js";
 
 function isAgentSessionSourceKind(value: string): value is AgentSessionSourceKind {
 	return (AGENT_SESSION_SOURCE_KINDS as readonly string[]).includes(value);

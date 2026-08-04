@@ -26,11 +26,10 @@ import type {
 	FilesystemInjection,
 } from "@hyperidle/shared";
 import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/shared";
+import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
 import { findUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import { z } from "zod";
-import { requireBoundary } from "../middleware/access-boundary-middleware.js";
-import type { HyperIdleEnv } from "../middleware/auth.js";
 import { createBodyLimit } from "../middleware/body-limit.js";
 import { validateBody } from "../middleware/validate.js";
 

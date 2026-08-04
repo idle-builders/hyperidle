@@ -9,9 +9,9 @@ import {
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { ApiErrorResponse, Logger } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger } from "@hyperidle/shared";
+import { requireBoundary } from "@hyperidle/shared/http";
 import { Hono, type MiddlewareHandler } from "hono";
 import z from "zod";
-import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 import { validateBody } from "../middleware/validate.js";
 
 /**
