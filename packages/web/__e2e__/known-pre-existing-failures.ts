@@ -43,6 +43,27 @@
  * removable paper trail for the cleanup WP to shrink to zero over time.
  */
 export const AU21_PRE_EXISTING_E2E_FAILURES: readonly string[] = [
+	// @lore AU28 (2026-08-04): four lane-scoped specs that only ever pass under their OWN
+	// playwright config (`playwright.ah5.config.ts` / `playwright.ah6.config.ts`, which boot
+	// `__scripts__/ah{5,6}-test-server.ts`). Under the DEFAULT chromium project there is no
+	// such server, so they cannot pass by construction. They were invisible until AU28
+	// because `--only-changed=origin/main` never selected them; AU28's `e2e/` → `__e2e__/`
+	// rename marks every spec changed, so the default project now runs them.
+	//
+	// Verified in BOTH directions, as this list's standard requires: `npm run test:e2e:full`
+	// on the pre-AU28 base commit `aaa5243f` returned the identical 4 failed / 33 skipped /
+	// 251 passed, and the same run on the AU28 branch returns exactly the same set. Nothing
+	// here is caused by AU28.
+	//
+	// AU28 did fix two genuine bugs in the ah6 lane on the way past (the assistant agent and
+	// the OpenRouter credential were both seeded record-mode-only, so replay failed at
+	// message-append with "not a runnable AI agent" and then at "No API key yet"). What
+	// remains is a stale cassette — re-recording needs a real OpenRouter run, which is its
+	// own work package.
+	"server_credentials row exists after test-server boot",
+	"send 'What is 1 + 1?' → reply appears, distinct from welcome text, non-empty",
+	"prescriptive bet-shaping message → tool-call-summaries row visible → create_bet effect",
+	"thinking row appears while replay is in-flight (LLM_REPLAY_DELAY_MS=80), then disappears once reply lands",
 	// AU21 follow-up (harness-telemetry narrowing, 2026-08-03): same mechanism
 	// as above — this commit touches @hyperidle/shared's harness types, which
 	// nothing in knowledge-edit.spec.ts's own feature area depends on. Neither

@@ -176,13 +176,21 @@ if (resolveModelFile && fs.existsSync(resolveModelFile)) {
 	process.stdout.write(`[ah6-test-server] Using default smoke model: ${smokeModelId}\n`);
 }
 
-if (cassettMode === "record") {
+{
 	// Seed OpenRouter API key encrypted into server_credentials.
 	// @lore AH6 CRITICAL-3: This is the production DbCredentialResolver path — same as
 	// AH5. Without this, createServer builds a DbCredentialResolver but the credential
 	// slot is empty → resolveAgentModel throws MissingCredentialError and falls back to
 	// env-based Anthropic path, never exercising the per-agent OpenRouter seam (R-5).
-	const openrouterApiKey = process.env.OPENROUTER_API_KEY;
+	//
+	// @lore AU28: this used to be record-mode only. Once the assistant agent is pre-seeded
+	// with modelProvider:"openrouter" (it is, in both modes — see below), replay mode needs
+	// the credential slot filled too or resolveAgentModel throws MissingCredentialError and
+	// the UI shows "No API key yet" before callLlm is ever reached. In replay the value is
+	// a placeholder that never leaves the process: the cassette interceptor short-circuits
+	// callLlm ahead of any network call.
+	const openrouterApiKey =
+		cassettMode === "record" ? process.env.OPENROUTER_API_KEY : "ah6-replay-placeholder-key";
 	if (openrouterApiKey) {
 		// @lore AU20 Am4: encryptCredentialValue is now no-arg; HYPERIDLE_CREDENTIAL_KEY
 		// is set above so the secret is available. Throws MISSING_ROOT_SECRET if absent.
@@ -218,39 +226,46 @@ if (cassettMode === "record") {
 				"Real LLM calls will fail with MissingCredentialError.\n",
 		);
 	}
-
-	// Seed the assistant agent with modelProvider:"openrouter" + resolved modelId.
-	// @lore AH6 CRITICAL-3: The assistant agent is lazy-created by runAssistantTurn
-	// with modelId:"claude-sonnet-4-6" + modelProvider:"anthropic" if absent. We pre-seed
-	// it here with OpenRouter so resolveAgentModel takes the per-agent branch (gateway
-	// L194) rather than the tier fallback. The agent id is ast-${userId} per assistant-turn.ts.
-	const assistantAgentId = `ast-${AH6_USER_ID}`;
-	await db
-		.insert(users)
-		.values({
-			id: assistantAgentId,
-			kind: "ai",
-			name: "AH6 Assistant",
-			role: "assistant",
-			agentCategory: "individual",
-			status: "active",
-			harnessType: "builtin",
-			modelId: smokeModelId,
-			modelProvider: "openrouter",
-			systemPrompt:
-				"You are a helpful AI assistant. Be concise, direct, and thoughtful in your responses.",
-			maxConcurrentSessions: 1,
-			createdAt: now,
-		})
-		.onConflictDoUpdate({
-			target: users.id,
-			// users table has no updatedAt — only update the model fields
-			set: { modelId: smokeModelId, modelProvider: "openrouter" },
-		});
-	process.stdout.write(
-		`[ah6-test-server] Assistant agent seeded: id=${assistantAgentId}, model=${smokeModelId}, provider=openrouter\n`,
-	);
 }
+
+// @lore AU28: the assistant-agent pre-seed used to sit INSIDE the
+// `if (cassettMode === "record")` block, so in replay mode `ast-${AH6_USER_ID}` never
+// existed and the very first message POST failed with "Agent ast-u-founder is not a
+// runnable AI agent" — the append path calls requireRunnableAgent before
+// runAssistantTurn's lazy creation can happen. Both modes need the agent; only the
+// OpenRouter credential is record-only.
+
+// Seed the assistant agent with modelProvider:"openrouter" + resolved modelId.
+// @lore AH6 CRITICAL-3: The assistant agent is lazy-created by runAssistantTurn
+// with modelId:"claude-sonnet-4-6" + modelProvider:"anthropic" if absent. We pre-seed
+// it here with OpenRouter so resolveAgentModel takes the per-agent branch (gateway
+// L194) rather than the tier fallback. The agent id is ast-${userId} per assistant-turn.ts.
+const assistantAgentId = `ast-${AH6_USER_ID}`;
+await db
+	.insert(users)
+	.values({
+		id: assistantAgentId,
+		kind: "ai",
+		name: "AH6 Assistant",
+		role: "assistant",
+		agentCategory: "individual",
+		status: "active",
+		harnessType: "builtin",
+		modelId: smokeModelId,
+		modelProvider: "openrouter",
+		systemPrompt:
+			"You are a helpful AI assistant. Be concise, direct, and thoughtful in your responses.",
+		maxConcurrentSessions: 1,
+		createdAt: now,
+	})
+	.onConflictDoUpdate({
+		target: users.id,
+		// users table has no updatedAt — only update the model fields
+		set: { modelId: smokeModelId, modelProvider: "openrouter" },
+	});
+process.stdout.write(
+	`[ah6-test-server] Assistant agent seeded: id=${assistantAgentId}, model=${smokeModelId}, provider=openrouter\n`,
+);
 
 // ---------------------------------------------------------------------------
 // 4. Boot the Hono server.
