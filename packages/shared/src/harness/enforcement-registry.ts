@@ -1,5 +1,5 @@
 /**
- * AL6 v4-final — Per-session return-enforcement registry types + factory.
+ * Per-session return-enforcement registry types + factory.
  *
  * A per-session key-value store: { gate, forceCount, exempt } keyed by
  * sessionId. Accessed by:

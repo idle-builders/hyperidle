@@ -35,7 +35,7 @@ import { requireFocusOnInteractive } from "./rules/require-focus-on-interactive.
 import { requireStoriesSibling } from "./rules/require-stories-sibling.js";
 
 export const rules: Record<string, Rule.RuleModule> = {
-	// AL6: classifying stream-drain lint guard (AC4 static)
+	// Classifying stream-drain lint guard (AC4 static)
 	"no-ungated-stream-drain": noUngatedStreamDrain,
 	"no-mock-data-import": noMockDataImport,
 	"no-mock-data-symbol": noMockDataSymbol,

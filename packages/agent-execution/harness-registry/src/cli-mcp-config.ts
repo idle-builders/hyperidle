@@ -117,7 +117,7 @@ function writeCodexToml(params: {
 		`bearer_token_env_var = "HYPERIDLE_MCP_TOKEN"\n` +
 		'default_tools_approval_mode = "approve"\n';
 
-	// Append to existing config.toml (AL6 provisioning may have written model/auth
+	// Append to existing config.toml (return-enforcement provisioning may have written model/auth
 	// blocks already). Create the file if absent.
 	fs.appendFileSync(configTomlPath, mcpBlock, "utf-8");
 

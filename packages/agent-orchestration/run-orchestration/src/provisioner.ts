@@ -6,7 +6,6 @@ import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle
 import {
 	type AgentSessionSourceCorrelation,
 	type AgentSessionSourceKind,
-	AL6_MAX_FORCE_RETURNS,
 	type BakedAgentRunnableConfig,
 	type BakedContextBundle,
 	ConcurrencyLimitError,
@@ -18,6 +17,7 @@ import {
 	isInternalExtractionDrain,
 	isReturnAction,
 	literalToolNamerForAdapterType,
+	MAX_FORCE_RETURNS,
 	MissingCredentialError,
 	MODEL_TIERS,
 	type ModelTier,
@@ -773,13 +773,13 @@ interface ProvisionSessionResult {
 	readonly outcome: SessionOutcome;
 	readonly taskId: string | null;
 	/**
-	 * AL6: Return-gate verdict for this session run. Present on all task-session
+	 * Return-gate verdict for this session run. Present on all task-session
 	 * outcomes ("returned" | "not_returned"). Absent (undefined) on assistant
 	 * turns and extraction drains which use different provisioning paths.
 	 */
 	readonly returnVerdict?: "returned" | "not_returned";
 	/**
-	 * AL6 v3: Unified turn-level force injection count.
+	 * Unified turn-level force injection count.
 	 */
 	readonly forceReturnCount: number;
 	readonly metrics?: SessionMetrics;
@@ -1282,7 +1282,7 @@ async function runSession(
 	const requiredReturnActions: readonly string[] | undefined =
 		params.callingThreadId != null && params.taskId == null ? ["reply"] : undefined;
 
-	// AL6: One gate per session — all events observed by this gate. Declared
+	// One gate per session — all events observed by this gate. Declared
 	// here (before the MCP bridge's `onToolCall` closure below references it)
 	// so the closure captures the same binding `createReturnGate()`
 	// initializes — the closure only ever fires later, once an actual tool
@@ -1387,12 +1387,12 @@ async function runSession(
 		channel: adapterCapabilities.returnEnforcement,
 		bridgeToken: mcpBridgeToken ?? "",
 		mcpUrl: mcpBridgeToken && mcpBaseUrl ? `${mcpBaseUrl}/api/mcp/${mcpBridgeToken}` : "",
-		forceBudget: AL6_MAX_FORCE_RETURNS,
+		forceBudget: MAX_FORCE_RETURNS,
 	});
 
-	// ── Phase 9-10: single startSession + drain (AL6 v4-final — Loop DELETED).
+	// ── Phase 9-10: single startSession + drain.
 
-	// AL6 v4-final: register this session in the enforcement registry now that the
+	// Register this session in the enforcement registry now that the
 	// real gate exists.
 	// The assistant is not exempt from return enforcement — it must call
 	// `reply` like every other required-return session.
@@ -1417,7 +1417,7 @@ async function runSession(
 			? {
 					bridgeToken: mcpBridgeToken,
 					mcpUrl: `${mcpBaseUrl}/api/mcp/${mcpBridgeToken}`,
-					forceBudget: AL6_MAX_FORCE_RETURNS,
+					forceBudget: MAX_FORCE_RETURNS,
 				}
 			: undefined;
 	const sessionStartConfig = {
@@ -1480,7 +1480,7 @@ async function runSession(
 		try {
 			if (harnessHandle) {
 				for await (const event of harness.streamEvents(harnessHandle)) {
-					// AL6: Observe every event FIRST — the gate is read-only.
+					// Observe every event FIRST — the gate is read-only.
 					returnGate.observe(event);
 
 					if (aborted) {
@@ -1589,7 +1589,7 @@ async function runSession(
 		};
 	}
 
-	// AL6: Evaluate the return gate at normal turn completion.
+	// Evaluate the return gate at normal turn completion.
 	const returnEndReason = aborted ? "stopped" : "completed";
 	const returnVerdict = ports.harnessRuntime.evaluateReturn(returnGate, returnEndReason);
 

@@ -216,10 +216,10 @@ export class RemoteHarnessAdapter implements HarnessAdapter {
 			subAgents: false,
 			modelProviders: this.registration.modelProviders,
 			mcpSupport: false,
-			// AL6 v4-final: remote has no in-process hook. HyperIdle can re-engage by
+			// Remote has no in-process hook. HyperIdle can re-engage by
 			// re-dispatching the provisioning config over the WS connection (process-wrapper
 			// re-engage pattern). Non-conforming workers degrade to not_returned after budget.
-			// @lore AL6 v4-final: "process-reengage" for remote — HyperIdle re-dispatches
+			// @lore "process-reengage" for remote — HyperIdle re-dispatches
 			// provisioning over WS when the session ends without return. Same semantics as
 			// the opencode re-spawn, but via WS protocol instead of spawn().
 			returnEnforcement: "process-reengage",

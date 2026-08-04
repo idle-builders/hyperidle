@@ -1,5 +1,5 @@
 /**
- * AL6 v4-final — return_status bridge tool.
+ * return_status bridge tool.
  *
  * A ToolDefinition injected into the per-session registry via
  * buildToolRegistry's extraTools option. It reads ctx.sessionId → enforcement
@@ -9,14 +9,14 @@
  *   - returned=true OR exempt=true OR budgetLeft=0 → forceMessage: null (allow end)
  *   - returned=false AND !exempt AND budgetLeft>0 → forceMessage = the tailored forcing
  *     message for the session's `requiredReturnActions` (AU27 Increment 3, Decision 3),
- *     or the default `AL6_FORCE_RETURN_MESSAGE` when the session has no specific
+ *     or the default `FORCE_RETURN_MESSAGE` when the session has no specific
  *     requirement (the pre-Increment-3 default)
  *   - calling the tool with forceMessage!==null increments forceCount in registry
  *
  * The tool is NOT in ALL_TOOL_DEFINITIONS (it is not a universal skill tool).
  * It is injected per-session via buildToolRegistry(ctx, { extraTools: [returnStatusTool.forRegistry(registry)] }).
  *
- * @lore AL6 v4-final: The tool's handler signature extends ToolDefinition with a
+ * @lore The tool's handler signature extends ToolDefinition with a
  * third `registry` argument so unit tests can call it with an isolated registry
  * (not the process-level singleton). The `forRegistry(registry)` factory returns
  * a RegisteredTool that closes over the provided registry — the production path
@@ -24,8 +24,8 @@
  */
 
 import {
-	AL6_MAX_FORCE_RETURNS,
 	type EnforcementRegistry,
+	MAX_FORCE_RETURNS,
 	ok,
 	type RegisteredTool,
 	shouldForceReturn,
@@ -86,7 +86,7 @@ async function handle(
 
 	// forceCount in response = number of prior forces (before this call).
 	// budgetLeft = remaining budget at the time this call was made.
-	const budgetLeft = Math.max(0, AL6_MAX_FORCE_RETURNS - preForceCount);
+	const budgetLeft = Math.max(0, MAX_FORCE_RETURNS - preForceCount);
 
 	const result: ReturnStatusResult = {
 		returned: entry.gate.returned,

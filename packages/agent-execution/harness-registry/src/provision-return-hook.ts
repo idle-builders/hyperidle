@@ -1,5 +1,5 @@
 /**
- * AL6 v4-final — Per-harness return-enforcement hook provisioning.
+ * Per-harness return-enforcement hook provisioning.
  *
  * `provisionReturnHook` is called at sandbox setup time (Phase 8b in
  * session-provisioning.ts, BEFORE startSession) to install the enforcement
@@ -21,20 +21,18 @@
  * by writing the appropriate trust marker. Without it the harness silently skips
  * the project-local hook — producing not_returned with forceCount=0 (v1 regression).
  *
- * @lore AL6 v4-final: This module is the "write hook artifact" step that replaces
- * v3's rewriteSandboxForcing (which rewrote AGENTS.md with the forcing message).
- * v4 provisions the hook ONCE at setup; the hook fires natively at turn-end.
- * The bridge URL and token are server-minted — no agent-authored value enters the
- * shell command (no injection surface).
+ * @lore This module writes the hook artifact once at sandbox setup; the hook
+ * fires natively at turn-end. The bridge URL and token are server-minted — no
+ * agent-authored value enters the shell command (no injection surface).
  *
- * @lore AL6 codex-codex-home: Codex reads hooks from CODEX_HOME/hooks.json
+ * @lore Codex-home: Codex reads hooks from CODEX_HOME/hooks.json
  * (default: ~/.codex/hooks.json); a project-local .codex/hooks.json is only
  * honored in *trusted* projects, so our per-session CODEX_HOME is the reliable channel.
  * CODEX_HOME redirect works when we copy ONLY auth.json + config.toml (not the SQLite
  * database files) — those lock and cause codex to exit before making an LLM call.
  * Per-session CODEX_HOME is created at <sandboxPath>/.codex-home/ for isolation.
  * Verified with codex-cli v0.141.0: CODEX_HOME env var is respected; hook fires
- * and bridge receives POST. See AL6-real-harness-return-enforcement.integration.test.ts.
+ * and bridge receives POST. See real-harness-return-enforcement-realbinary.integration.test.ts.
  */
 
 import * as fs from "node:fs";
@@ -57,7 +55,7 @@ interface ReturnHookOptions {
  * This function is idempotent: calling it twice for the same sandboxPath
  * and channel overwrites the existing artifact with the same content.
  *
- * @lore AL6 WARN-F1: The function ensures workspace trust for file-based channels.
+ * @lore WARN-F1: The function ensures workspace trust for file-based channels.
  * Claude Code silently ignores project-level hooks in untrusted workspaces.
  * Codex requires a trust marker in the .codex/ directory. Writing the hook
  * without establishing trust is what caused the v1 forceCount=0 regression.
@@ -121,13 +119,13 @@ async function installReturnHook(opts: ReturnHookOptions): Promise<void> {
  * The Stop hook uses exit-2+stderr semantics: a non-zero exit from the hook
  * command causes Claude Code to re-prompt with the stderr as the blocking message.
  *
- * @lore AL6 WARN-F1: We write the shell script to `.claude/return-check.sh` and
+ * @lore WARN-F1: We write the shell script to `.claude/return-check.sh` and
  * reference ONLY the script path in settings.json. This ensures settings.json
  * contains no shell-expansion characters (`$`, `>`, `|`, `;`, `&`) — the JSON
  * hook config is injection-safe, carrying only the server-minted script path.
  * The script itself contains shell syntax but is never interpolated in JSON.
  *
- * @lore AL6 WARN-F1: exit-2+stderr semantics: the hook must exit with code 2
+ * @lore WARN-F1: exit-2+stderr semantics: the hook must exit with code 2
  * and write the force message to stderr for Claude Code to treat it as a blocking
  * response. The curl command signals HyperIdle to check return status; HyperIdle
  * responds with forceMessage on stdout which the hook relays to stderr then exits 2.
@@ -193,21 +191,21 @@ async function provisionClaudeSettings(
  * This function ALSO writes .codex/hooks.json for backward-compat with unit tests
  * that inspect the sandbox .codex/ directory.
  *
- * @lore AL6 codex-codex-home: Verified end-to-end with codex-cli v0.141.0:
+ * @lore Codex-home: Verified end-to-end with codex-cli v0.141.0:
  *   1. Per-session CODEX_HOME created with auth.json + config.toml + hooks.json
  *   2. Codex spawned with CODEX_HOME=<sandboxPath>/.codex-home + --dangerously-bypass-hook-trust
  *   3. Stop hook fires → bridge POST received → callCount >= 1 proven.
  *   Previous attempts copied the full ~/.codex/ (with SQLite files) → file-lock → codex crash.
  *   Solution: copy only auth.json + config.toml (absent these, codex works with env-based auth).
  *
- * @lore AL6 WARN-F1 (real codex v0.141.0): The hooks.json format is:
+ * @lore WARN-F1 (real codex v0.141.0): The hooks.json format is:
  * ```json
  * { "hooks": { "Stop": [{ "hooks": [{ "type": "command", "command": "..." }] }] } }
  * ```
  * NOT a top-level "Stop" key. The old flat format `{ "Stop": { "command": "..." } }`
  * is WRONG and silently ignored by codex.
  *
- * @lore AL6 WARN-F1 (codex decision:block): Codex Stop hooks accept JSON-on-stdout
+ * @lore WARN-F1 (codex decision:block): Codex Stop hooks accept JSON-on-stdout
  * (`{"decision":"block","reason":"..."}` blocks+re-prompts); recent codex also accepts
  * exit-2+stderr like Claude, but we use the JSON form.
  * stdout `{"decision":"approve"}` or exit 0 with no JSON allows the stop.
@@ -227,7 +225,7 @@ async function provisionCodexHome(
 	const scriptContent = buildCodexReturnCheckScript(bridgeToken, mcpUrl);
 	fs.writeFileSync(scriptPath, scriptContent, { encoding: "utf-8", mode: 0o755 });
 
-	// @lore AL6 WARN-F1: Codex hooks.json format verified against real installed binary.
+	// @lore WARN-F1: Codex hooks.json format verified against real installed binary.
 	const hooksConfig = buildCodexHooksConfig(codexDir);
 
 	fs.writeFileSync(
@@ -238,7 +236,7 @@ async function provisionCodexHome(
 
 	// ── 2. Per-session CODEX_HOME: create .codex-home/ with auth + config + hooks.
 	//
-	// @lore AL6 codex-codex-home: This is the REAL enforcement path that makes the
+	// @lore Codex-home: This is the REAL enforcement path that makes the
 	// Stop hook fire when codex is spawned by CliHarnessAdapter. The .codex/ dir above
 	// is the legacy/compat path for unit tests. CliHarnessAdapter sets CODEX_HOME to
 	// this directory when it detects it exists.
@@ -246,7 +244,7 @@ async function provisionCodexHome(
 	fs.mkdirSync(codexHomeDir, { recursive: true });
 
 	// Copy ONLY auth.json and config.toml from ~/.codex — NOT the SQLite database files.
-	// @lore AL6 codex-codex-home: SQLite files (.sqlite, .sqlite-wal, .sqlite-shm) get
+	// @lore Codex-home: SQLite files (.sqlite, .sqlite-wal, .sqlite-shm) get
 	// locked when a second codex process tries to open them → codex exits immediately.
 	// Absent auth.json/config.toml: codex falls back to env-based auth (OPENAI_API_KEY)
 	// which still works. Copy them when present to preserve user's model config.
@@ -306,7 +304,7 @@ async function provisionCodexHome(
 /**
  * Build the codex hooks.json config structure referencing a return-check.sh in the given dir.
  *
- * @lore AL6 WARN-F1: Uses absolute path to the script so codex can find it regardless of
+ * @lore WARN-F1: Uses absolute path to the script so codex can find it regardless of
  * the working directory it was spawned in.
  */
 function buildCodexHooksConfig(scriptDir: string): Record<string, unknown> {
@@ -335,7 +333,7 @@ function buildCodexHooksConfig(scriptDir: string): Record<string, unknown> {
  *   - Bridge returns a forceMessage → write to stderr + exit 2 (block stop;
  *     Claude Code re-prompts with the stderr content as a blocking message).
  *
- * @lore AL6 WARN-F1: The script uses single-quoted shell strings for the URL and
+ * @lore WARN-F1: The script uses single-quoted shell strings for the URL and
  * token to prevent shell variable expansion. Both values are server-minted
  * (hex-token + localhost URL) and contain no single-quote characters.
  */
@@ -361,7 +359,7 @@ function buildReturnCheckScript(bridgeToken: string, mcpUrl: string): string {
  *   - Bridge returns a forceMessage → print {"decision":"block","reason":"..."} on stdout
  *     and exit 0 (Codex re-prompts with the reason).
  *
- * @lore AL6 WARN-F1 (real codex v0.141.0): Codex Stop hooks use JSON stdout semantics,
+ * @lore WARN-F1 (real codex v0.141.0): Codex Stop hooks use JSON stdout semantics,
  * NOT exit 2 + stderr like Claude Code. Verified by running codex with a blocking
  * Stop hook that returns {"decision":"block","reason":"..."} — codex correctly
  * re-prompted with the reason text.
@@ -389,7 +387,7 @@ function buildCodexReturnCheckScript(bridgeToken: string, mcpUrl: string): strin
  * If the bridge returns a forceMessage, the plugin injects it as a new user
  * message to re-engage the session.
  *
- * @lore AL6 WARN-F3: This is the "process-reengage" channel. It is weaker than
+ * @lore WARN-F3: This is the "process-reengage" channel. It is weaker than
  * "settings-claude" because it requires the plugin runtime to be loaded and
  * session.idle to fire reliably. The drain-gate floor backstops any escape.
  */
@@ -401,7 +399,7 @@ async function provisionOpencodePlugin(
 	const pluginDir = path.join(sandboxPath, ".opencode", "plugins");
 	fs.mkdirSync(pluginDir, { recursive: true });
 
-	// @lore AL6 WARN-F3: session.idle is the OpenCode lifecycle event that
+	// @lore WARN-F3: session.idle is the OpenCode lifecycle event that
 	// fires when the agent's turn completes without further tool calls.
 	// This is the closest analog to a "Stop hook" in OpenCode's plugin API.
 	const pluginContent = `/**

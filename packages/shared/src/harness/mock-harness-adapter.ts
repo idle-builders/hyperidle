@@ -15,7 +15,7 @@ let nextId = 1;
 /**
  * Options for MockHarnessAdapter.
  *
- * @lore AL6 v4-final WARN-F4: returnEnforcement is non-optional on HarnessCapabilities.
+ * @lore WARN-F4: returnEnforcement is non-optional on HarnessCapabilities.
  * The mock must support a channel override so tests can exercise multiple channels
  * through one adapter class. Default is "none" (suitable for tests that don't
  * care about the enforcement channel).
@@ -29,7 +29,7 @@ export class MockHarnessAdapter implements HarnessAdapter {
 	private readonly returnEnforcementChannel: ReturnEnforcementChannel;
 
 	/**
-	 * @lore AL6 v4-final WARN-F4: Constructor accepts an options object with
+	 * @lore WARN-F4: Constructor accepts an options object with
 	 * returnEnforcement override. Default is "none" so existing tests that
 	 * construct MockHarnessAdapter() without args continue to work.
 	 */
@@ -75,7 +75,7 @@ export class MockHarnessAdapter implements HarnessAdapter {
 
 	getCapabilities(): HarnessCapabilities {
 		// X5: mcpSupport: false — mock adapter is test-only and does not wire MCP.
-		// AL6 v4-final: returnEnforcement declared from constructor override or default "none".
+		// returnEnforcement declared from constructor override or default "none".
 		return {
 			preCompactionTrigger: true,
 			subAgents: true,

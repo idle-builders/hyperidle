@@ -457,7 +457,7 @@ export function registerObservabilityDispatcher(
 			// consumed by `registerAgentRunAdmissionReactions`, not an
 			// observability event.
 			case "agent_run_admission_failed":
-			// AL6: return-gate escape surface — surfaced via bus, not an observability metric.
+			// Return-gate escape surface — surfaced via bus, not an observability metric.
 			case "session_not_returned":
 			// AU19 Increment 3f: filesystems ⚠ capture-writeback EventBus inversion —
 			// internal plumbing between two Services, not an observability event.

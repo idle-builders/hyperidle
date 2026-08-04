@@ -1193,7 +1193,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		 * authenticate via the 64-char hex session token in the URL, not X-API-Key.
 		 */
 		registerMcpRoute: (apiRouter) => {
-			// AL6 CRIT-1: pass enforcementRegistry so the /return-status sub-path
+			// Pass enforcementRegistry so the /return-status sub-path
 			// resolves token → sessionId → entry → forceMessage (the real adjudicator).
 			const mcpRouter = mcpBridgeRegistry.router;
 			apiRouter.route("/", mcpRouter);

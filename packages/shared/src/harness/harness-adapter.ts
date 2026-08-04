@@ -124,7 +124,7 @@ export interface SessionConfig {
 	 */
 	readonly messages?: readonly ConversationMessage[];
 	/**
-	 * AL6 v4-final: Per-session return-hook configuration.
+	 * Per-session return-hook configuration.
 	 * SDK/builtin closures + process wrapper read this to reach the enforcement
 	 * registry and bridge callback. settings-* adapters use bridgeToken/mcpUrl
 	 * when writing their hook config files (handled by provisionReturnHook, not startSession).
@@ -208,7 +208,7 @@ export interface SessionResult {
 }
 
 /**
- * AL6 v4-final: The per-harness return-enforcement provisioning channel.
+ * The per-harness return-enforcement provisioning channel.
  * Declares HOW HyperIdle provisions return enforcement for this adapter.
  * Non-optional — TypeScript strict forces every adapter to declare a channel,
  * making "uniform across harnesses" un-skippable.
@@ -222,9 +222,9 @@ export interface SessionResult {
  *   "soft-continue"   — native soft re-prompt (cursor — inert until spawnable)
  *   "none"            — no enforcement artifact — drain-gate floor only (last-resort remote)
  *
- * @lore AL6 v4-final: Replaces v3's hasNativeReturnHook + canReEngage (both removed).
- * The non-optional field is the forcing function: npm run check fails any adapter that
- * doesn't declare a channel. The drain-end ReturnGate is the un-bypassable backstop on ALL.
+ * @lore The non-optional field is the forcing function: npm run check fails any adapter
+ * that doesn't declare a channel. The drain-end ReturnGate is the un-bypassable backstop
+ * on ALL.
  */
 export type ReturnEnforcementChannel =
 	| "sdk-inprocess"
@@ -236,14 +236,14 @@ export type ReturnEnforcementChannel =
 	| "none";
 
 /**
- * AL6 v4-final: Per-session return-hook configuration.
+ * Per-session return-hook configuration.
  * Passed in SessionConfig so SDK/builtin closures + process wrapper can reach
  * the enforcement registry and bridge callback.
  */
 export interface ReturnHookConfig {
 	readonly bridgeToken: string; // bridge callback credential
 	readonly mcpUrl: string; // ${mcpBaseUrl}/api/mcp/${token}
-	readonly forceBudget: number; // AL6_MAX_FORCE_RETURNS
+	readonly forceBudget: number; // MAX_FORCE_RETURNS
 }
 
 export interface HarnessCapabilities {
@@ -263,13 +263,12 @@ export interface HarnessCapabilities {
 	 */
 	readonly mcpSupport: boolean;
 	/**
-	 * AL6 v4-final: Per-harness return-enforcement provisioning channel.
-	 * Replaces v3's hasNativeReturnHook + canReEngage (both removed).
+	 * Per-harness return-enforcement provisioning channel.
 	 * Non-optional — every adapter must declare its channel.
 	 * provisionReturnHook dispatches on this to install the right enforcement.
 	 *
-	 * @lore AL6 v4-final: The non-optional field is the "uniform across harnesses"
-	 * forcing function. npm run check fails any adapter that doesn't declare this.
+	 * @lore The non-optional field is the "uniform across harnesses" forcing
+	 * function. npm run check fails any adapter that doesn't declare this.
 	 */
 	readonly returnEnforcement: ReturnEnforcementChannel;
 	readonly descriptorModels?: readonly HarnessModelDescriptor[];
@@ -333,7 +332,7 @@ export interface HarnessAdapter {
 	getCapabilities(): HarnessCapabilities;
 
 	/**
-	 * AL6 v4-final (optional): Return the count of enforcement-registry blocks applied
+	 * Optional: Return the count of enforcement-registry blocks applied
 	 * by this adapter's native hook or in-process enforcement during a given session.
 	 * Used to compute `forceReturnCount` on `ProvisionSessionResult`.
 	 *
@@ -342,9 +341,8 @@ export interface HarnessAdapter {
 	 * in-process enforcement implement this; file-provisioned adapters use the
 	 * enforcement registry directly via the bridge.
 	 *
-	 * @lore AL6 v4-final: Replaces v3's "loopForceCount + nativeCount" formula.
-	 * The v3 loop is deleted; forceReturnCount now comes entirely from the enforcement
-	 * registry (read here for in-process adapters, read from registry.get(sessionId).forceCount
+	 * @lore forceReturnCount comes entirely from the enforcement registry (read
+	 * here for in-process adapters, read from registry.get(sessionId).forceCount
 	 * for all others).
 	 */
 	getForceReturnCount?(sessionId: string): number;

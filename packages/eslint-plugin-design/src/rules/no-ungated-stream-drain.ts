@@ -1,5 +1,5 @@
 /**
- * design/no-ungated-stream-drain — AL6 classifying lint guard (AC4 static).
+ * design/no-ungated-stream-drain — classifying lint guard (AC4 static).
  *
  * Classifies every `for await ... of <streamEvents-iterable>` loop into one of
  * three kinds and enforces per-kind:
@@ -8,11 +8,11 @@
  *                 enclosing function must call `evaluateReturn(...)`.
  *                 A violation means a future turn drain forgot the gate.
  *
- *   RELAY:        loop is annotated with a leading `// AL6-relay` comment.
+ *   RELAY:        loop is annotated with a leading `// return-relay` comment.
  *                 Must NOT call `observe` — the turn is already gated at the
  *                 parent enforced drain.
  *
- *   EXEMPT:       loop is annotated with a leading `// AL6-exempt: internal-
+ *   EXEMPT:       loop is annotated with a leading `// return-exempt: internal-
  *                 extraction drain` comment. Must NOT require `observe` — the
  *                 SessionConfig.tools is [] and a return action is impossible.
  *
@@ -25,7 +25,7 @@
  * — the rule does NOT silently skip site B (`assistant-turn.ts`) or site C
  * (`bet-decomposition.ts`) which use the `const stream = ...` indirection.
  *
- * @lore AL6: The classifying rule is a static property → lint, per CLAUDE.md.
+ * @lore The classifying rule is a static property → lint, per CLAUDE.md.
  * It does NOT fire on tests or `.stories.tsx` files. The rule is registered in
  * the "harness" scope in eslint.config.ts (server package only).
  *
@@ -37,21 +37,21 @@ import type { ForOfStatement, Node } from "estree";
 import { asReportNode } from "../util.js";
 
 /** Marker text embedded in a comment that classifies the loop as a relay. */
-const RELAY_MARKER = "AL6-relay";
+const RELAY_MARKER = "return-relay";
 /** Marker text embedded in a comment that classifies the loop as an exempt drain. */
-const EXEMPT_MARKER = "AL6-exempt: internal-extraction drain";
+const EXEMPT_MARKER = "return-exempt: internal-extraction drain";
 /**
  * Marker text for an observe-only enforced drain: the drain MUST call gate.observe()
  * (for harness-uniform enforcement) but legitimately does NOT call evaluateReturn()
  * because the verdict is deferred to its caller or the path is compliant-by-construction
  * (e.g. assistant path, concept §4.4). observe is still mandatory — absence still errors.
  *
- * @lore AL6: This classification was added in the fix pass after the reviewer flagged
+ * @lore This classification was added in the fix pass after the reviewer flagged
  * two dead `evaluateReturn(gate, …)` calls in drainStreamEvents that existed solely to
  * satisfy the lint rule's textual presence-check. The observe-only marker lets the rule
  * be honest: require the real enforcement hook (observe) without forcing dead computation.
  */
-const OBSERVE_ONLY_MARKER = "AL6-observe-only:";
+const OBSERVE_ONLY_MARKER = "return-observe-only:";
 
 /**
  * Walk the ancestor chain of a node to find the closest enclosing function body,
@@ -157,24 +157,24 @@ export const noUngatedStreamDrain: Rule.RuleModule = {
 		type: "problem",
 		docs: {
 			description:
-				"AL6: Every for-await loop over a streamEvents() iterable must be classified as " +
-				"turn-drain (must call gate.observe + evaluateReturn), AL6-relay (forwarding relay, " +
-				"no gate), or AL6-exempt (internal-extraction drain, no gate). A turn-drain without " +
-				"the gate creates the 'forgotten drain' blind spot AL6 closes.",
+				"Every for-await loop over a streamEvents() iterable must be classified as " +
+				"turn-drain (must call gate.observe + evaluateReturn), return-relay (forwarding relay, " +
+				"no gate), or return-exempt (internal-extraction drain, no gate). A turn-drain without " +
+				"the gate creates a 'forgotten drain' blind spot in return enforcement.",
 			recommended: false,
 		},
 		schema: [],
 		messages: {
 			missingObserve:
 				"Turn-drain loop over streamEvents() must call `<gate>.observe(event)` inside the loop body. " +
-				"If this is a forwarding relay, add `// AL6-relay` before the loop. " +
-				"If this is an exempt internal-extraction drain (tools:[]), add `// AL6-exempt: internal-extraction drain`. " +
-				"If observe-only (verdict deferred to caller), add `// AL6-observe-only: <reason>` — observe is still required.",
+				"If this is a forwarding relay, add `// return-relay` before the loop. " +
+				"If this is an exempt internal-extraction drain (tools:[]), add `// return-exempt: internal-extraction drain`. " +
+				"If observe-only (verdict deferred to caller), add `// return-observe-only: <reason>` — observe is still required.",
 			missingEvaluateReturn:
 				"Turn-drain loop over streamEvents() must call `evaluateReturn(...)` in the enclosing function. " +
-				"If this is a forwarding relay, add `// AL6-relay` before the loop. " +
-				"If this is an exempt internal-extraction drain (tools:[]), add `// AL6-exempt: internal-extraction drain`. " +
-				"If observe-only (verdict deferred to caller), add `// AL6-observe-only: <reason>` — evaluateReturn is then NOT required.",
+				"If this is a forwarding relay, add `// return-relay` before the loop. " +
+				"If this is an exempt internal-extraction drain (tools:[]), add `// return-exempt: internal-extraction drain`. " +
+				"If observe-only (verdict deferred to caller), add `// return-observe-only: <reason>` — evaluateReturn is then NOT required.",
 		},
 	},
 	create(context) {
