@@ -15,8 +15,10 @@ Hono could not merge two sub-apps at the same prefix, or if the shared auth/rate
 did not apply to a mounted sub-app, the split would need a second listener — which requirements §5
 forbids outright.
 
-**Probe.** `probes/two-app-mount/poc.ts`, `poc2.ts`, `poc3.ts`, run on the repo's own `hono@4.12.27`
-via `npx tsx`.
+**Probe.** `probes/two-app-mount/poc.ts`, `poc2.ts`, `poc3.ts`, run on the repo's own **installed**
+`hono@4.12.30` via `npx tsx`. *(Round 1 cited `4.12.27` — that is the `^` range in `package.json`, not the
+resolved version. `node -e "require('hono/package.json').version"` → `4.12.30`. Findings unchanged; the
+critique independently re-ran the probe on `4.12.30` and reproduced both results exactly.)*
 
 **Results.**
 
@@ -129,37 +131,58 @@ the extraction is cheap because `filesystems` already modelled the dependency st
 
 ---
 
-## P6 — Census: how much does extending the table-ownership guard to Layer roots actually cost?
+## P6 — Census: what does the table-ownership guard actually scan, and what does fixing it cost? **GO, with one open question**
 
-**Why probed.** Requirements demand the guard end at **zero** exceptions. `UNOWNED_SHARED_TABLES`
-(`scripts/table-ownership-guard.ts:349-354`) exempts four tables from BOTH the ACL and the
-completeness check. Separately, the guard's scan root (`nestedServiceRoots`, `:421-436`) only visits
-`packages/<layer>/<service>/` — every **Layer**-level file (`packages/core-api/src/**`) is invisible
-to it. Deleting the exemption set without extending the scan would leave a hole the ruling forbids;
-extending the scan could surface an unbounded pre-existing backlog.
+**Round-1 correction, up front.** Round 1 stated the guard's scan root "only visits
+`packages/<layer>/<service>/` — every **Layer**-level file (`packages/core-api/src/**`) is invisible to it."
+**That is false.** `inspect()` (`scripts/table-ownership-guard.ts:604-630`) runs `nestedServiceRoots()`
+**and then** an explicit second pass over `packages/core-api/src` — the AU19 Increment 5 scan-widening, with
+its own `@lore` at `:612-624`. The nine Layer `sessions` readers are visited on every run today; they pass
+only because `sessions ∈ UNOWNED_SHARED_TABLES` (`:349-354`, filtered at `:543`).
 
-**Probe.** `probes/` census script — parse every `export const X = pgTable` from
-`packages/db/src/schema.ts`, then collect every non-type value import of one of those names from
-`@hyperidle/db` in every `packages/*/src/**` Layer-level file (nested Service packages excluded, they
-are already scanned).
+**Consequence: deleting the Set alone is not theatre — it fires immediately** on all 12 already-scanned Layer
+pairs. That is D1/D2's work, not a no-op.
 
-**Result — 19 tables, 79 file×table pairs, but only 12 outside `packages/eval`:**
+**Why probed anyway.** The requirement is **zero** exceptions. Two separate questions had to be measured:
+(1) what does the guard *not* see, and does this WP make that worse? (2) what would closing it cost?
 
-| Table | Layer files (non-eval) |
-|---|---|
-| `sessions` | 9 — `routes/{agent-profile,agents,recipients,sessions-routes,status,tasks,teams-routes,threads,users}.ts` |
-| `userSkills` | 2 — `routes/users.ts`, `services/routine-scheduler-bindings.ts` |
-| `propagationLog` | 1 — `server-factory.ts` |
+**Probe.** Census script (`probes/`): parse every `export const X = pgTable` from `packages/db/src/schema.ts`,
+then collect every non-`type` value import of one of those names from `@hyperidle/db` across every
+`packages/*/src/**` non-test file, excluding nested Service packages (already scanned). Re-run at HEAD.
 
-**Every remaining pair is inside `packages/eval`** (`judges.ts`, `seeding.ts`, the scenario files) —
-a fixture-seeding eval harness, the same class as `__tests__`, which the guard already skips.
+**Result — 37 files, 79 file×table pairs, split cleanly in two:**
 
-**Verdict GO — the extension is free.** Every Layer-level violation is on one of the four tables this
-WP is already assigning owners to. AU12–AU18 genuinely cleaned every other table out of Layer code.
-So "extend the scan to Layer `src/` roots" adds **zero** work beyond what assigning the four owners
-already costs, and it is the only way the zero-exceptions claim is honest. Exclude `packages/eval`
-explicitly with a stated reason (seeding harness, not a Layer), and — important — exclude it *by
-name*, not by re-introducing a table-level carve-out.
+| Scan status today | Files | Pairs | Detail |
+|---|---|---|---|
+| **Already scanned** (`packages/core-api/src`) | 11 | **12** | `sessions` × 9 (`routes/{agent-profile,agents,recipients,sessions-routes,status,tasks,teams-routes,threads,users}.ts`), `userSkills` × 2 (`routes/users.ts`, `services/routine-scheduler-bindings.ts`), `propagationLog` × 1 (`server-factory.ts`) — every one on a table this WP assigns an owner to |
+| **Not scanned** | 26 | **67** | **All of it `packages/eval/src`** — 18 owned tables (`agentWorkIntents, artifacts, bets, items, knowledgeAppProjection, knowledgeConflicts, knowledgeEditLog, knowledgeItems, messages, routineRuns, routines, sessions, tasks, teamMembers, teams, threads, userSkills, users`), concentrated in `seeding.ts` (15 tables) and `judges.ts` (10) |
+
+Every other unscanned root — `agent-orchestration/src`, `agent-execution/src`, `remote-server/src`,
+`remote-worker/src`, `shared/src`, `api-contract/src`, `web/src`, `desktop/src` — has **zero** table imports at
+HEAD. AU12–AU18 genuinely cleaned them out.
+
+**The scan change is still required, for a reason round 1 got wrong.** It is not "Layer code is invisible."
+It is that **this WP creates code in two roots the guard does not visit**:
+
+- **B1a** writes route files under `packages/agent-orchestration/src/routes/**`;
+- **B1b** moves the repo's single `propagationLog` importer (`server-factory.ts`) into
+  `packages/remote-server/src/create-server.ts` — and `remote-server` is an **Application**, not a Layer, so
+  round 1's "extend the scan to Layer `src/` roots" wording would have missed exactly that file.
+
+**Verdict GO for the mechanical part.** `architecture.md` §D-G replaces both hand-written roots with a
+*derived* scope — nested Service `src/` plus the `src/` of every package in the runtime dependency closure of
+`@hyperidle/{remote-server,desktop,remote-worker}`, computed from `package.json`. No package name appears in
+the guard; new Layers and new Applications are picked up automatically. Cost beyond assigning the four owners:
+**zero**.
+
+**OPEN QUESTION, not a verdict — `packages/eval`.** It is `private: true`, has zero dependents repo-wide, and
+is entered only via its own `npm run eval` CLI, so it falls outside that closure naturally. Round 1 proposed
+excluding it "by name with a stated reason" and simultaneously claimed AC8's "no allowlist of any kind" — the
+two cannot both be true, and 67 pairs across 18 tables is far too large to settle in a parenthesis. The
+principle asserted instead (*the ACL governs code that runs inside a shipped Application*), the real
+architectural argument on both sides, and the costed fallback increment **D3** are written out in
+`architecture.md` §D-G, and the yes/no is a **founder confirmation point before D2**. This probe measures the
+question; it does not answer it.
 
 ---
 
