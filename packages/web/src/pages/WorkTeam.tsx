@@ -264,11 +264,13 @@ function WorkTeamLoaded({
 	// (`computeHealthSignals` et al., now in `@hyperidle/shared`), same inputs,
 	// same render — one layer over.
 	const { byAgent: rosterRunState, status: rosterRunStatus } = useRosterRunState(roster);
-	// @lore AU26 review W6: when the run read fails, every member falls back to
-	// DEFAULT_ROSTER_RUN_STATE — idle and healthy. That default is honest for an
-	// agent with no runs and a lie about an agent whose runs we could not read, so
-	// the roster says "unknown" instead of painting a green dot.
-	const rosterRunStateUnknown = rosterRunStatus === "error";
+	// @lore AU26 review W5/W6: when the run read fails — or has not landed yet —
+	// every member falls back to DEFAULT_ROSTER_RUN_STATE, idle and healthy. That
+	// default is honest for an agent with no runs and a lie about an agent whose
+	// runs we could not read (W6) or have not read yet (W5: the roster used to
+	// paint a full green column, then re-paint a round-trip later). Both cases
+	// render as unknown instead.
+	const rosterRunStateUnknown = rosterRunStatus !== "ready";
 
 	// @lore AV4: When a split pane is open, the "editing agent" comes from the ?agent search
 	// param (not internal editingAgentId state). editingAgentId is kept for the modal path
@@ -316,7 +318,15 @@ function WorkTeamLoaded({
 								return <StatTile label="Status" value="—" sub="No agents" />;
 							}
 							if (rosterRunStateUnknown) {
-								return <StatTile label="Status" value="—" sub="Run state unavailable" />;
+								return (
+									<StatTile
+										label="Status"
+										value="—"
+										sub={
+											rosterRunStatus === "error" ? "Run state unavailable" : "Loading run state"
+										}
+									/>
+								);
 							}
 							const runStates = roster.map(
 								(m) => rosterRunState.get(m.agentId) ?? DEFAULT_ROSTER_RUN_STATE,
@@ -523,7 +533,11 @@ function WorkTeamLoaded({
 									: healthLevel === "warning"
 										? ("warning" as const)
 										: ("error" as const);
-							const healthLabel = rosterRunStateUnknown ? "Run state unavailable" : healthDetail;
+							const healthLabel = rosterRunStateUnknown
+								? rosterRunStatus === "error"
+									? "Run state unavailable"
+									: "Run state loading"
+								: healthDetail;
 
 							const statusTone =
 								memberStatus === "active"

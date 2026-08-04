@@ -86,6 +86,19 @@ describe("AgentProfile — run state could not be read", () => {
 		expect(performance.textContent).not.toContain("0%");
 	});
 
+	it("does not assert zeros while the run read is still in flight (W5)", () => {
+		renderProfile(runState("loading"));
+
+		const performance = screen.getByTestId("agent-performance-section");
+		expect(performance.textContent).toContain("—");
+		expect(performance.textContent).not.toContain("0%");
+		expect(screen.getByTestId("agent-activity-section").textContent).not.toContain(
+			"No sessions recorded",
+		);
+		// Nothing is wrong yet, so nothing is alarming yet.
+		expect(screen.queryByTestId("run-state-unavailable")).toBeNull();
+	});
+
 	it("does not show the unavailability alert when the run state loaded", () => {
 		renderProfile(runState("ready"));
 

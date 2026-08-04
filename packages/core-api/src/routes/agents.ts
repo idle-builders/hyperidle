@@ -259,24 +259,33 @@ export function createAgentRoutes(
 		const id = randomUUID();
 		const now = new Date().toISOString();
 
-		await insertUser(db, {
-			id,
-			kind: "ai",
-			name: data.name,
-			role: data.role,
-			agentCategory,
-			status: "active",
-			teamId: data.teamId ?? null,
-			createdAt: now,
-		});
 		// AU26 G1: the run config is a second write, delegated down to its owner.
-		await writeAgentRunConfig(db, id, {
-			systemPrompt: data.systemPrompt ?? null,
-			harnessType: effectiveHarnessType,
-			modelTierPreference: data.modelTierPreference ?? null,
-			modelId: effectiveModelId,
-			modelProvider: effectiveProvider,
-			maxConcurrentSessions: data.maxConcurrentSessions,
+		//
+		// @lore AU26 review W10: the two writes are ONE transaction. Before the G1
+		// column move this was a single insert; splitting it without a transaction
+		// meant a failure in between left an agent whose config silently resolves
+		// the all-null default (builtin, one concurrent session) instead of the
+		// harness the caller asked for — no error, no repair path, wrong harness
+		// forever.
+		await db.transaction(async (tx) => {
+			await insertUser(tx, {
+				id,
+				kind: "ai",
+				name: data.name,
+				role: data.role,
+				agentCategory,
+				status: "active",
+				teamId: data.teamId ?? null,
+				createdAt: now,
+			});
+			await writeAgentRunConfig(tx, id, {
+				systemPrompt: data.systemPrompt ?? null,
+				harnessType: effectiveHarnessType,
+				modelTierPreference: data.modelTierPreference ?? null,
+				modelId: effectiveModelId,
+				modelProvider: effectiveProvider,
+				maxConcurrentSessions: data.maxConcurrentSessions,
+			});
 		});
 
 		return c.json(

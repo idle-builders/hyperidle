@@ -299,29 +299,35 @@ export function createTeamRoutes(
 		const teamMembersId = `team-${crypto.randomUUID()}`;
 
 		// @lore AU20 Am7: atomic createTeam inserts teams + teamMembers companion in one call.
-		await createTeam(db, {
-			id: teamId,
-			name: name.trim(),
-			phase: "build",
-			factoryDbPath: typeof repoPath === "string" ? repoPath.trim() || null : null,
-			// AE2: store chosen functions as JSON for future reads.
-			functions: JSON.stringify(teamFunctions),
-			createdAt: now,
-			// teamMembers companion (1:1)
-			teamMembersId,
-			capacity: 5,
-			activeBets: 0,
-			formedAt: now,
-		});
-
+		//
 		// AV1: persist primary harness as team default — every agent-creation path reads it.
 		// @lore AU26 G1 (§D-L): the three `teams.default_*` columns moved into
 		// `team_run_config_defaults`, so the write is a second call to their owner.
 		// The route stays core-hosted and delegates the persist down (§D-A rule 3).
-		await writeTeamRunConfigDefaults(db, teamId, {
-			defaultHarnessType: primaryHarness?.harnessType ?? null,
-			defaultModelId: primaryHarness?.modelId ?? null,
-			defaultModelProvider: primaryHarness?.modelProvider ?? null,
+		//
+		// @lore AU26 review W10: both calls are ONE transaction — a team that
+		// exists without its run-config defaults hands every agent scaffolded into
+		// it the all-null default instead of the harness the founder just chose.
+		await db.transaction(async (tx) => {
+			await createTeam(tx, {
+				id: teamId,
+				name: name.trim(),
+				phase: "build",
+				factoryDbPath: typeof repoPath === "string" ? repoPath.trim() || null : null,
+				// AE2: store chosen functions as JSON for future reads.
+				functions: JSON.stringify(teamFunctions),
+				createdAt: now,
+				// teamMembers companion (1:1)
+				teamMembersId,
+				capacity: 5,
+				activeBets: 0,
+				formedAt: now,
+			});
+			await writeTeamRunConfigDefaults(tx, teamId, {
+				defaultHarnessType: primaryHarness?.harnessType ?? null,
+				defaultModelId: primaryHarness?.modelId ?? null,
+				defaultModelProvider: primaryHarness?.modelProvider ?? null,
+			});
 		});
 
 		// AU3: route through app-owned scaffolding for the default roster.
@@ -446,20 +452,24 @@ export function createTeamRoutes(
 					const userRow = await findUser(db, { id: userId });
 					const assistantName = userRow ? `${userRow.name}'s Assistant` : "Assistant";
 
-					await insertUser(db, {
-						id: assistantId,
-						kind: "ai",
-						name: assistantName,
-						role: "assistant",
-						status: "active",
-						createdAt: now,
-					});
 					// @lore AU26 G1 (§D-L): the harness triple left `users`, so the
 					// stub's identity row and its run config are two writes now.
-					await writeAgentRunConfig(db, assistantId, {
-						harnessType: stubHarness?.harnessType ?? "builtin",
-						modelId: stubHarness?.modelId ?? "claude-sonnet-4-6",
-						modelProvider: stubHarness?.modelProvider ?? "anthropic",
+					// @lore AU26 review W10: in one transaction — an assistant stub with
+					// no run config resolves the all-null default, not the team harness.
+					await db.transaction(async (tx) => {
+						await insertUser(tx, {
+							id: assistantId,
+							kind: "ai",
+							name: assistantName,
+							role: "assistant",
+							status: "active",
+							createdAt: now,
+						});
+						await writeAgentRunConfig(tx, assistantId, {
+							harnessType: stubHarness?.harnessType ?? "builtin",
+							modelId: stubHarness?.modelId ?? "claude-sonnet-4-6",
+							modelProvider: stubHarness?.modelProvider ?? "anthropic",
+						});
 					});
 				} else if (stubHarness !== undefined) {
 					// Assistant already exists (created at user registration with no harness).

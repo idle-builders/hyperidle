@@ -189,6 +189,12 @@ function AgentProfileLoaded({
 	// runs, a lie about an agent whose runs we could not read. The banner below
 	// switches to an explicit unavailability alert instead.
 	const runStateUnavailable = status === "error";
+	// @lore AU26 review W5: while the run read is still in flight the page knows
+	// nothing about runs — painting "0 sessions · 0% · No sessions recorded" and
+	// then replacing it a round-trip later is a flicker that states a falsehood
+	// on the way. The server-composed response used to arrive atomically; these
+	// two blocks wait for the same certainty.
+	const runStateSettled = status === "ready";
 
 	// A2: Derive operational status from run state, not the DB status column
 	const isActive = activeSession !== null;
@@ -406,6 +412,8 @@ function AgentProfileLoaded({
 						<SectionLabel label="Recent Activity" as="h2" />
 						{runStateUnavailable ? (
 							<p className="text-[12px] text-[var(--text-tertiary)]">Runs could not be loaded.</p>
+						) : !runStateSettled ? (
+							<p className="text-[12px] text-[var(--text-tertiary)]">Loading runs…</p>
 						) : recentSessions.length === 0 ? (
 							<p className="text-[12px] text-[var(--text-tertiary)]">No sessions recorded.</p>
 						) : (
@@ -458,11 +466,11 @@ function AgentProfileLoaded({
 							{/* AU26 W6: an unread run set is "—", never a confident 0. */}
 							<KeyValue
 								label="Sessions"
-								value={runStateUnavailable ? "—" : String(performance.totalSessions)}
+								value={runStateSettled ? String(performance.totalSessions) : "—"}
 							/>
 							<KeyValue
 								label="Success rate"
-								value={runStateUnavailable ? "—" : `${Math.round(performance.successRate * 100)}%`}
+								value={runStateSettled ? `${Math.round(performance.successRate * 100)}%` : "—"}
 							/>
 						</div>
 					</section>

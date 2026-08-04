@@ -227,7 +227,7 @@ export interface CreateTeamInput {
  * rows are inserted in one call. Callers that previously called `createTeam` +
  * `createTeamMembersGroup` separately should migrate to this single call.
  */
-export async function createTeam(db: HyperIdleDb, input: CreateTeamInput): Promise<void> {
+export async function createTeam(db: WriteExecutor, input: CreateTeamInput): Promise<void> {
 	const {
 		teamMembersId,
 		capacity = 5,
