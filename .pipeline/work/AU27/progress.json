@@ -1,7 +1,7 @@
 {
   "id": "AU27",
   "status": "in_progress",
-  "currentStep": "build-phase-A",
+  "currentStep": "review",
   "startedAt": "2026-08-04",
   "worktree": ".worktrees/pipeline-AU27",
   "branch": "pipeline/AU27",

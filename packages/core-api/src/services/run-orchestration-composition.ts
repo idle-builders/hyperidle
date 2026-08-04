@@ -279,7 +279,7 @@ function widenWorkerRegistration(registration: unknown): WorkerRegisterMessage {
 	return registration as WorkerRegisterMessage;
 }
 
-/** @lore AU6: production code must use this boundary naming — `durable-agent-queue.ts` re-exports it under the legacy alias (see this file's top `@lore`) for its own test-assertion-surface reasons; this module never declares that other name itself (au6-agent-boundary-guard bans re-declaring it as a local binding). */
+/** @lore Production code uses this boundary naming — `durable-agent-queue.ts` re-exports it under the legacy alias (see this file's top `@lore`) for its own test-assertion-surface reasons; this module never declares that other name itself as a local binding. */
 export function runtimeDeps(
 	db: HyperIdleDb,
 	eventBus: EventBus,
