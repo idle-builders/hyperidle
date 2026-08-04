@@ -89,7 +89,7 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 	});
 
 	// @lore AD8b: role string "chief_of_staff" renamed to "assistant".
-	test("B3: assistant registry includes all 22 tools (15 + 5 AE3 management tools + 1 AK4 draft tool + 1 AL7 stage_operation + 1 AU27 reply)", ({
+	test("B3: assistant registry includes all 22 tools (15 + 5 AE3 management tools + 1 AK4 draft tool + 1 AL7 stage_operation + the generic reply tool)", ({
 		db,
 	}) => {
 		const registry = buildToolRegistry(makeContext(db), { role: "assistant" });

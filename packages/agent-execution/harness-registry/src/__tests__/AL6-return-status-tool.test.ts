@@ -232,4 +232,44 @@ describe("AL6 v4-final — hyperidle_return_status tool", () => {
 		);
 		expect(hasReturnStatusTool).toBe(true);
 	});
+
+	// ── AU27 Increment 3 (Decision 3): requiredReturnActions-aware self-check ──
+
+	describe("requiredReturnActions narrows the self-check", () => {
+		it("forceMessage names 'reply' (not the trio) when the registered entry requires ['reply']", async () => {
+			const registry = createEnforcementRegistry();
+			const gate = { returned: false };
+			const sessionId = "test-session-required-reply";
+			registry.register(sessionId, {
+				gate,
+				forceCount: 0,
+				exempt: false,
+				requiredReturnActions: ["reply"],
+			});
+
+			const result = await returnStatusTool.handler({}, makeCtx(sessionId), registry);
+
+			expect(result.success).toBe(true);
+			if (!result.success) return;
+			const data = result.data as Record<string, unknown>;
+			const msg = data.forceMessage as string | null;
+			expect(msg).not.toBeNull();
+			expect(msg).toContain("reply");
+			expect(msg).not.toContain("submit_review");
+		});
+
+		it("no requiredReturnActions on the entry ⇒ byte-identical default trio message (unchanged)", async () => {
+			const registry = createEnforcementRegistry();
+			const gate = { returned: false };
+			const sessionId = "test-session-no-required";
+			registry.register(sessionId, { gate, forceCount: 0, exempt: false });
+
+			const result = await returnStatusTool.handler({}, makeCtx(sessionId), registry);
+
+			expect(result.success).toBe(true);
+			if (!result.success) return;
+			const data = result.data as Record<string, unknown>;
+			expect(data.forceMessage).toBe(AL6_FORCE_RETURN_MESSAGE);
+		});
+	});
 });

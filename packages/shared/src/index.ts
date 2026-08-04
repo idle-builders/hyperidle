@@ -324,11 +324,14 @@ export {
 	// AL6 v2: forcing constants + helper
 	AL6_FORCE_RETURN_MESSAGE,
 	AL6_MAX_FORCE_RETURNS,
+	// AU27 Increment 3: tailored forcing message + required-set predicate
+	buildForceReturnMessage,
 	// AV1: derive PrimaryHarnessConfig from a HarnessCapabilityDescriptor
 	derivePrimaryHarness,
 	HARNESS_OPTION_CONTROL_KINDS,
 	isHarnessEvent,
 	isInternalExtractionDrain,
+	isRequiredReturnAction,
 	isReturnAction,
 	MockHarnessAdapter,
 	normalizeHarnessEvent,

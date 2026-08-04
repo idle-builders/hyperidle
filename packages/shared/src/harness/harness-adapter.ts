@@ -148,6 +148,18 @@ export interface SessionConfig {
 	 * and NOT in process.env. The codex CODEX_HOME injection pattern is the precedent.
 	 */
 	readonly mcpTokenEnv?: Readonly<Record<string, string>>;
+	/**
+	 * AU27 Increment 3 (Decision 3) — the session's specific required return
+	 * subset, when it has one (structural rule computed by `run-orchestration`
+	 * — e.g. `["reply"]` for a session whose output belongs in a calling
+	 * thread and has no task). Absent ⇒ the pre-Increment-3 default: any
+	 * member of the closed return set satisfies. Read by the builtin
+	 * adapter's synthetic gate (the registry's `createGate` closure predicate
+	 * does not reach `runChatTurn`/`runExecuteTurn`'s own `session.returnSeen`
+	 * tracking) and forwarded into `provisionReturnHook` for the CLI/MCP
+	 * channels.
+	 */
+	readonly requiredReturnActions?: readonly string[];
 }
 
 export interface SessionHandle {

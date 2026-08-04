@@ -122,7 +122,10 @@ const observabilityAccessor: SessionLifecyclePorts["observability"] = { summariz
 const enforcement = createReturnEnforcement();
 const harnessRuntime: SessionLifecyclePorts["harnessRuntime"] = {
 	enforcementRegistry: enforcement,
-	createReturnGate: () => enforcement.createGate(),
+	// AU27 Increment 3 (Decision 3): forward the session's required-return-
+	// subset through to the enforcement registry's gate constructor — a hard
+	// COMPILE dependency (the port type gained the param first).
+	createReturnGate: (requiredReturnActions) => enforcement.createGate(requiredReturnActions),
 	evaluateReturn: (gate, reason) => enforcement.evaluate(gate, reason),
 	provisionReturnHook: async (options) => {
 		await provisionHarnessEnvironment({ ...options, token: options.bridgeToken });

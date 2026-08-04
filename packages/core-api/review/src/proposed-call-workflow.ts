@@ -241,11 +241,7 @@ export interface ReengagementResolverDeps {
 	 * cannot import `@hyperidle/conversation` directly). Absent at a call site
 	 * not yet wired — the resolver bakes no `callingThreadId`.
 	 */
-	resolveOrCreateCallingThread?(
-		db: HyperIdleDb,
-		taskId: string,
-		agentId: string,
-	): Promise<string>;
+	resolveOrCreateCallingThread?(db: HyperIdleDb, taskId: string, agentId: string): Promise<string>;
 }
 
 /**

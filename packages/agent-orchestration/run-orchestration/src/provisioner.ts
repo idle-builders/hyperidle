@@ -177,6 +177,8 @@ interface SessionLifecycleEnforcementEntry {
 	readonly gate: { readonly returned: boolean };
 	forceCount: number;
 	readonly exempt: boolean;
+	/** AU27 Increment 3 (Decision 3) — the session's specific required return subset, when it has one. */
+	readonly requiredReturnActions?: readonly string[];
 }
 
 interface SessionLifecycleEnforcementRegistry {
@@ -207,7 +209,12 @@ interface SessionLifecycleSandboxAdapter {
 
 interface SessionLifecycleHarnessRuntime {
 	enforcementRegistry: SessionLifecycleEnforcementRegistry;
-	createReturnGate(): SessionLifecycleReturnGate;
+	/**
+	 * AU27 Increment 3 (Decision 3) — `requiredReturnActions`, when supplied,
+	 * narrows the predicate in the closure to only that subset. Absent ⇒ the
+	 * pre-Increment-3 default (any member of the closed return set).
+	 */
+	createReturnGate(requiredReturnActions?: readonly string[]): SessionLifecycleReturnGate;
 	evaluateReturn(
 		gate: SessionLifecycleReturnGate,
 		endReason: "completed" | "crashed" | "stopped",

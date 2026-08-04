@@ -49,9 +49,9 @@ function buildFakeHarnessAdapter(): FakeHarnessAdapter {
 }
 
 /** Every port method not exercised by this scenario throws if called. */
-function buildHarnessPorts(
-	captured: { toolContext?: { readonly threadId?: string } },
-): SessionLifecyclePorts {
+function buildHarnessPorts(captured: {
+	toolContext?: { readonly threadId?: string };
+}): SessionLifecyclePorts {
 	const neverCalled = (label: string) =>
 		vi.fn(() => {
 			throw new Error(`${label}: must not be called in this test scenario`);
@@ -108,7 +108,13 @@ function buildDeps(db: HyperIdleDb, sandboxPath: string): ProvisionSessionDeps {
 			select: () => ({
 				id: "fake-adapter",
 				adapter: buildFakeHarnessAdapter(),
-				meta: { name: "Fake", kind: "local", type: undefined, modelProviders: [], maxConcurrent: 5 },
+				meta: {
+					name: "Fake",
+					kind: "local",
+					type: undefined,
+					modelProviders: [],
+					maxConcurrent: 5,
+				},
 			}),
 			release: () => undefined,
 		},

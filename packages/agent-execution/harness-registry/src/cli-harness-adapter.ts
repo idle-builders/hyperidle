@@ -29,7 +29,6 @@ import type {
 	SessionResult,
 } from "@hyperidle/shared";
 import {
-	AL6_FORCE_RETURN_MESSAGE,
 	AL6_MAX_FORCE_RETURNS,
 	isReturnAction,
 	normalizeHarnessEvent,
@@ -768,9 +767,15 @@ export class CliHarnessAdapter implements HarnessAdapter {
 							// AL6 CRIT-3: adjudicate from the registry's forceCount (single source).
 							// Previously used session.reEngageCount which could diverge from the registry
 							// if other paths also incremented forceCount. The registry is authoritative.
+							// AU27 Increment 3 (Decision 3): narrow to the session's specific
+							// required subset when the registered entry has one.
 							const forceMsg = registryEntry.exempt
 								? null
-								: shouldForceReturn(registryEntry.gate, registryEntry.forceCount);
+								: shouldForceReturn(
+										registryEntry.gate,
+										registryEntry.forceCount,
+										registryEntry.requiredReturnActions,
+									);
 
 							if (forceMsg !== null) {
 								// Increment the registry BEFORE spawning so drain-gate sees the force.
@@ -800,14 +805,18 @@ export class CliHarnessAdapter implements HarnessAdapter {
 									}
 									finalReEngageArgs = runArgs;
 								} else {
-									// No carrier configured — use the AL6 forcing message constant.
+									// No carrier configured — use the tailored forcing message
+									// (AU27 Increment 3: was the static AL6_FORCE_RETURN_MESSAGE
+									// constant; now the same `forceMsg` this session was just
+									// adjudicated with, so a required session sees ITS message,
+									// not the always-full-trio default).
 									// Fall back to base args (stripped of unresolved template vars via exclusion
 									// of any arg still containing "{{"). Empty-string args from stripping
 									// are excluded to avoid passing spurious flags.
 									const baseArgs = adapter.config.args
 										.map((arg) => arg.replace(/\{\{[a-z]+\}\}/g, ""))
 										.filter((arg) => arg.length > 0);
-									finalReEngageArgs = [...baseArgs, AL6_FORCE_RETURN_MESSAGE];
+									finalReEngageArgs = [...baseArgs, forceMsg];
 								}
 
 								// Spawn the re-engage child process.

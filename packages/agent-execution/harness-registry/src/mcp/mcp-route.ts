@@ -137,7 +137,11 @@ export function createMcpRouter(
 
 		// Read pre-increment state.
 		const preForceCount = entry.forceCount;
-		const forceMessage = entry.exempt ? null : shouldForceReturn(entry.gate, preForceCount);
+		// AU27 Increment 3 (Decision 3): narrow to the session's specific
+		// required subset when the registered entry has one.
+		const forceMessage = entry.exempt
+			? null
+			: shouldForceReturn(entry.gate, preForceCount, entry.requiredReturnActions);
 
 		if (forceMessage !== null) {
 			// Increment AFTER reading (mirrors returnStatusTool.handler semantics).

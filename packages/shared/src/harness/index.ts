@@ -51,7 +51,9 @@ export type { ReturnActionName } from "./return-actions.js";
 export {
 	AL6_FORCE_RETURN_MESSAGE,
 	AL6_MAX_FORCE_RETURNS,
+	buildForceReturnMessage,
 	isInternalExtractionDrain,
+	isRequiredReturnAction,
 	isReturnAction,
 	RETURN_ACTION_NAMES,
 	shouldForceReturn,

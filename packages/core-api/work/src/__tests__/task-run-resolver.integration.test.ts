@@ -511,7 +511,9 @@ describe("resolveTaskRunRequest — callingThreadId baking (Increment 1)", () =>
 			agentId: "agent-trun-thread-3",
 		});
 
-		const baked = await resolveTaskRunRequest(db, "attempt-trun-thread-3", { requireRunnableAgent });
+		const baked = await resolveTaskRunRequest(db, "attempt-trun-thread-3", {
+			requireRunnableAgent,
+		});
 
 		expect(baked.callingThreadId).toBeUndefined();
 	});

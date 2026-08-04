@@ -30,7 +30,7 @@ import type {
 	// every other execution-boundary type.
 	ToolRegistry,
 } from "@hyperidle/shared";
-import { AL6_FORCE_RETURN_MESSAGE, isReturnAction, shouldForceReturn } from "@hyperidle/shared";
+import { isRequiredReturnAction, shouldForceReturn } from "@hyperidle/shared";
 // @lore X6: ModelTier is exported twice from @hyperidle/shared — once as ModelTier from types.ts
 // and once as MoneyModelTier from types/money.ts (same type, different alias). We import
 // ModelTier (not MoneyModelTier) for consistency with the rest of the codebase.
@@ -576,9 +576,18 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 			// handoff_to, or send_message. Forcing an agent to call a tool it doesn't have
 			// would cause a hard tool-not-found error. The exemption is: if none of the
 			// session's toolDefs are return actions, skip the force check entirely.
-			const hasReturnActionInRegistry = session.toolDefs.some((td) => isReturnAction(td.name));
+			// AU27 Increment 3 (Decision 3): the exemption + the forcing message both
+			// narrow to the session's specific required subset when one is baked.
+			const requiredReturnActionsChat = session.config?.requiredReturnActions;
+			const hasReturnActionInRegistry = session.toolDefs.some((td) =>
+				isRequiredReturnAction(td.name, requiredReturnActionsChat),
+			);
 			const forceMsg = hasReturnActionInRegistry
-				? shouldForceReturn({ returned: session.returnSeen }, session.forceCount)
+				? shouldForceReturn(
+						{ returned: session.returnSeen },
+						session.forceCount,
+						requiredReturnActionsChat,
+					)
 				: null;
 			if (forceMsg !== null) {
 				session.forceCount++;
@@ -590,7 +599,7 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 				// can surface it (e.g. the eval judge reads the stream).
 				this.emitEvent(session, {
 					type: "completion",
-					text: AL6_FORCE_RETURN_MESSAGE,
+					text: forceMsg,
 				});
 				// Re-seed the loop iteration state
 				lastText = "";
@@ -748,7 +757,21 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 			// budget remains, re-inject the forcing message and do NOT set done=true
 			// (the run loop will call runExecuteTurn again). If budget spent or a
 			// return was already seen, allow the stop.
-			const forceMsg = shouldForceReturn({ returned: session.returnSeen }, session.forceCount);
+			// AU27 Increment 3 (Decision 3): reconciled with runChatTurn's site — both
+			// exempt a session whose registry carries none of its required return
+			// actions (previously this site force-looped such a session forever;
+			// runChatTurn's site already guarded this, this one did not).
+			const requiredReturnActionsExec = session.config?.requiredReturnActions;
+			const hasReturnActionInRegistryExec = session.toolDefs.some((td) =>
+				isRequiredReturnAction(td.name, requiredReturnActionsExec),
+			);
+			const forceMsg = hasReturnActionInRegistryExec
+				? shouldForceReturn(
+						{ returned: session.returnSeen },
+						session.forceCount,
+						requiredReturnActionsExec,
+					)
+				: null;
 			if (forceMsg !== null) {
 				session.forceCount++;
 				// Re-inject: a user message with the forcing text, so the model
@@ -759,7 +782,7 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 				});
 				// Emit the forcing message as a completion event so stream observers
 				// (e.g. the provisioning drain, eval judges) can see it fired.
-				this.emitEvent(session, { type: "completion", text: AL6_FORCE_RETURN_MESSAGE });
+				this.emitEvent(session, { type: "completion", text: forceMsg });
 				// Do NOT set session.done = true — loop continues.
 			} else {
 				// Budget spent or return seen — allow the stop.
@@ -831,9 +854,13 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 			});
 
 			// AL6 v2 (T4): Track whether a return action was seen this turn.
-			// isReturnAction uses the same closed set as the provisioning drain's
-			// ReturnGate — single source of truth, no per-adapter copy.
-			if (isReturnAction(toolCall.name)) {
+			// isRequiredReturnAction uses the same closed set as the provisioning
+			// drain's ReturnGate — single source of truth, no per-adapter copy.
+			// AU27 Increment 3 (Decision 3): narrows to the session's specific
+			// required subset when one is baked (`session.config.requiredReturnActions`)
+			// — a synthetic gate, so this narrowing must happen HERE, the closure
+			// held by `createGate` never reaches this path.
+			if (isRequiredReturnAction(toolCall.name, session.config?.requiredReturnActions)) {
 				session.returnSeen = true;
 			}
 

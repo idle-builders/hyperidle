@@ -19,8 +19,22 @@
  * pre-wired for path A (argument-gated member) without widening the set.
  */
 
-/** The three v1 return-action names as a frozen readonly tuple. */
-export const RETURN_ACTION_NAMES = ["submit_review", "handoff_to", "send_message"] as const;
+/**
+ * The return-action names as a frozen readonly tuple.
+ *
+ * @lore AU27 Increment 3 (Decision 3): `reply` (the generic session-scoped
+ * reply tool, Increment 2) joins the set — a session whose output belongs in
+ * a calling thread (the assistant, and any other kind with one) satisfies
+ * the gate by calling it. Membership alone is not enough to bind an agent to
+ * the RIGHT action, though — see `shouldForceReturn`'s `required` param and
+ * `harness-registry`'s `createGate(requiredReturnActions?)`.
+ */
+export const RETURN_ACTION_NAMES = [
+	"submit_review",
+	"handoff_to",
+	"send_message",
+	"reply",
+] as const;
 
 /** Finite union of all valid return-action tool names. */
 export type ReturnActionName = (typeof RETURN_ACTION_NAMES)[number];
@@ -74,6 +88,28 @@ export function isReturnAction(toolName: string, _args?: Record<string, unknown>
 }
 
 /**
+ * AU27 Increment 3 (Decision 3) — return predicate that additionally binds
+ * to a specific REQUIRED subset of the closed return set, not just "any
+ * member". Membership alone both under-binds a session with a specific
+ * required action (a `task_run` agent could satisfy the gate with
+ * `reply("done")` instead of `submit_review`) and over-permits one (the
+ * assistant has `send_message`/`handoff_to`/`submit_review` in its ordinary
+ * registry too — plain membership would let it end without answering).
+ *
+ * `required` absent or empty ⇒ falls back to plain membership (the
+ * unchanged, pre-Increment-3 behavior — every return action satisfies).
+ */
+export function isRequiredReturnAction(
+	toolName: string,
+	required: readonly string[] | undefined,
+	args?: Record<string, unknown>,
+): boolean {
+	if (!isReturnAction(toolName, args)) return false;
+	if (!required || required.length === 0) return true;
+	return required.includes(stripMcpNamespace(toolName));
+}
+
+/**
  * AL6: Exemption predicate for internal-extraction drains (concept §1.5).
  *
  * A session run is an internal-extraction drain — exempt from return
@@ -108,6 +144,35 @@ export const AL6_FORCE_RETURN_MESSAGE =
 	"submit_review (submit work for review), handoff_to (hand the task to another agent or a human), or " +
 	"send_message (send your result to a thread). Choose the one that fits and call it now.";
 
+/** Human-readable description of each return action, used to build a tailored forcing message. */
+const RETURN_ACTION_DESCRIPTIONS: Record<ReturnActionName, string> = {
+	submit_review: "submit_review (submit work for review)",
+	handoff_to: "handoff_to (hand the task to another agent or a human)",
+	send_message: "send_message (send your result to a thread)",
+	reply: "reply (answer the person or agent who triggered this session)",
+};
+
+/**
+ * AU27 Increment 3 (Decision 3) — the forcing message, tailored to a
+ * SPECIFIC required subset of the return set when one applies (e.g. the
+ * assistant must be told to call `reply`, not the trio `AL6_FORCE_RETURN_MESSAGE`
+ * names). `required` absent or empty returns the byte-identical
+ * `AL6_FORCE_RETURN_MESSAGE` (the pre-Increment-3 default, full-set message)
+ * — no behavior change for every session that has no specific requirement.
+ */
+export function buildForceReturnMessage(required?: readonly string[]): string {
+	if (!required || required.length === 0) return AL6_FORCE_RETURN_MESSAGE;
+	const described = required.map(
+		(name) => RETURN_ACTION_DESCRIPTIONS[name as ReturnActionName] ?? name,
+	);
+	if (described.length === 1) {
+		return `You have not yet returned your work to HyperIdle. Before this turn can end you must call ${described[0]}. Call it now.`;
+	}
+	const last = described[described.length - 1];
+	const joined = `${described.slice(0, -1).join(", ")}, or ${last}`;
+	return `You have not yet returned your work to HyperIdle. Before this turn can end you must call exactly one of: ${joined}. Choose the one that fits and call it now.`;
+}
+
 /**
  * AL6 v2: Maximum number of force-continue re-injections per turn before
  * falling through to Tier-2 reject. N=2 matches the builtin's bounded-retry
@@ -136,8 +201,15 @@ export const AL6_MAX_FORCE_RETURNS = 2;
 export function shouldForceReturn(
 	gate: { readonly returned: boolean },
 	forceCount: number,
+	/**
+	 * AU27 Increment 3 (Decision 3) — the session's specific required return
+	 * subset, when it has one (e.g. `["reply"]` for a session whose output
+	 * belongs in a calling thread). Absent ⇒ the pre-Increment-3 default
+	 * (byte-identical `AL6_FORCE_RETURN_MESSAGE`, membership-only).
+	 */
+	required?: readonly string[],
 ): string | null {
 	if (gate.returned) return null; // return was seen — allow stop
 	if (forceCount >= AL6_MAX_FORCE_RETURNS) return null; // budget spent — Tier-2 reject
-	return AL6_FORCE_RETURN_MESSAGE;
+	return buildForceReturnMessage(required);
 }

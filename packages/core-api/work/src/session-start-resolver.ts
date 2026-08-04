@@ -80,11 +80,7 @@ export interface SessionStartResolverDeps {
 	 * import `@hyperidle/conversation` directly). Absent at a call site not yet
 	 * wired — the resolver bakes no `callingThreadId`.
 	 */
-	resolveOrCreateCallingThread?(
-		db: HyperIdleDb,
-		taskId: string,
-		agentId: string,
-	): Promise<string>;
+	resolveOrCreateCallingThread?(db: HyperIdleDb, taskId: string, agentId: string): Promise<string>;
 }
 
 /** Thrown when the session-start's target task does not exist. */

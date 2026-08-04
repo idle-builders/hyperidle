@@ -7,7 +7,10 @@
  *
  * Key semantics:
  *   - returned=true OR exempt=true OR budgetLeft=0 → forceMessage: null (allow end)
- *   - returned=false AND !exempt AND budgetLeft>0 → forceMessage = AL6_FORCE_RETURN_MESSAGE
+ *   - returned=false AND !exempt AND budgetLeft>0 → forceMessage = the tailored forcing
+ *     message for the session's `requiredReturnActions` (AU27 Increment 3, Decision 3),
+ *     or the default `AL6_FORCE_RETURN_MESSAGE` when the session has no specific
+ *     requirement (the pre-Increment-3 default)
  *   - calling the tool with forceMessage!==null increments forceCount in registry
  *
  * The tool is NOT in ALL_TOOL_DEFINITIONS (it is not a universal skill tool).
@@ -69,7 +72,12 @@ async function handle(
 
 	// Read pre-increment state: "how many times have you been forced before THIS call".
 	const preForceCount = entry.forceCount;
-	const forceMessage = entry.exempt ? null : shouldForceReturn(entry.gate, preForceCount);
+	// AU27 Increment 3 (Decision 3): narrow to the session's specific required
+	// subset when the registered entry has one — the agent's own self-check
+	// must name the SAME action the other five force sites do.
+	const forceMessage = entry.exempt
+		? null
+		: shouldForceReturn(entry.gate, preForceCount, entry.requiredReturnActions);
 
 	// If forceMessage is non-null, this is an active force — increment AFTER reading.
 	if (forceMessage !== null) {

@@ -101,11 +101,7 @@ export interface TaskRunResolverDeps {
 	 * not yet wired — the resolver bakes no `callingThreadId`, matching every
 	 * other optional-dep degrade in this file.
 	 */
-	resolveOrCreateCallingThread?(
-		db: HyperIdleDb,
-		taskId: string,
-		agentId: string,
-	): Promise<string>;
+	resolveOrCreateCallingThread?(db: HyperIdleDb, taskId: string, agentId: string): Promise<string>;
 }
 
 /** Thrown when the dispatch attempt or its task is unavailable / ineligible. */
