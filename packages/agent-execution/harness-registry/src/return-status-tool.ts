@@ -1,5 +1,5 @@
 /**
- * AL6 v4-final — hyperidle_return_status bridge tool.
+ * AL6 v4-final — return_status bridge tool.
  *
  * A ToolDefinition injected into the per-session registry via
  * buildToolRegistry's extraTools option. It reads ctx.sessionId → enforcement
@@ -107,7 +107,7 @@ async function handle(
  * - `.name`, `.description`, `.inputSchema` — standard ToolDefinition fields.
  */
 const returnStatusDefinition = {
-	name: "hyperidle_return_status" as const,
+	name: "return_status" as const,
 	description:
 		"Check whether HyperIdle requires you to return your work before stopping. " +
 		"If forceMessage is non-null, call exactly one of: submit_review, handoff_to, or send_message. " +
@@ -123,7 +123,7 @@ const returnStatusDefinition = {
 	 */
 	forRegistry(registry: EnforcementRegistry): RegisteredTool {
 		return {
-			name: "hyperidle_return_status",
+			name: "return_status",
 			description: this.description,
 			inputSchema,
 			handler: (args, ctx) => handle(args as Record<string, never>, ctx, registry),
@@ -138,9 +138,20 @@ const returnStatusDefinition = {
  */
 const { name: _functionName, ...returnStatusFields } = returnStatusDefinition;
 
-// biome-ignore lint/style/useNamingConvention: the function's intrinsic .name IS the tool identifier — must stay snake_case to match "hyperidle_return_status".
-function hyperidle_return_status(): typeof returnStatusDefinition {
+/**
+ * @lore AU27 Increment 8 (BLOCKER fix): this bare tool name used to be
+ * "hyperidle_return_status" (the "hyperidle_" prefix baked into the tool's
+ * OWN name). opencode's MCP client independently namespaces every tool as
+ * `<server>_<bare>` for the "hyperidle" server — the baked-in prefix and
+ * opencode's own prefix stacked, producing the double-prefixed
+ * `hyperidle_hyperidle_return_status` the model saw and could never call.
+ * Every other tool in this codebase (`reply`, `send_message`, `log_task`,
+ * ...) registers under its bare name for exactly this reason — this tool
+ * now matches that convention.
+ */
+// biome-ignore lint/style/useNamingConvention: the function's intrinsic .name IS the tool identifier — must stay snake_case to match "return_status".
+function return_status(): typeof returnStatusDefinition {
 	return returnStatusDefinition;
 }
 
-export const returnStatusTool = Object.assign(hyperidle_return_status, returnStatusFields);
+export const returnStatusTool = Object.assign(return_status, returnStatusFields);

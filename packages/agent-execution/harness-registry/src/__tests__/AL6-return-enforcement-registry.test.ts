@@ -4,7 +4,7 @@
  * The enforcement registry is a per-session key-value store:
  *   { gate, forceCount, exempt }
  * keyed by sessionId. Used by:
- *   - the hyperidle_return_status tool handler (reads ctx.sessionId → registry)
+ *   - the return_status tool handler (reads ctx.sessionId → registry)
  *   - the in-process SDK Stop closure (reads registry directly)
  *   - the process-wrapper re-engage (reads registry for budget tracking)
  *

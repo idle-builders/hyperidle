@@ -1,5 +1,5 @@
 /**
- * AL6 v4-final — Unit tests for the hyperidle_return_status bridge tool.
+ * AL6 v4-final — Unit tests for the return_status bridge tool.
  *
  * The tool is a ToolDefinition injected into the per-session registry via
  * buildToolRegistry's extraTools option. It reads ctx.sessionId → enforcement
@@ -46,12 +46,12 @@ function makeCtx(sessionId: string): Parameters<typeof returnStatusTool.handler>
 	} as any;
 }
 
-describe("AL6 v4-final — hyperidle_return_status tool", () => {
+describe("AL6 v4-final — return_status tool", () => {
 	// ── Tool definition structure ─────────────────────────────────────────
 
-	it("tool has name 'hyperidle_return_status'", () => {
+	it("tool has name 'return_status'", () => {
 		// FAILS red: returnStatusTool does not exist
-		expect(returnStatusTool.name).toBe("hyperidle_return_status");
+		expect(returnStatusTool.name).toBe("return_status");
 	});
 
 	it("tool has a description", () => {
@@ -221,15 +221,13 @@ describe("AL6 v4-final — hyperidle_return_status tool", () => {
 		// biome-ignore lint/suspicious/noExplicitAny: minimal ctx for testing
 		const ctx = makeCtx(sessionId) as any;
 
-		// buildToolRegistry with extraTools should include hyperidle_return_status
+		// buildToolRegistry with extraTools should include return_status
 		const toolRegistry = buildToolRegistry([], ctx, {
 			role: "builder",
 			extraTools: [returnStatusTool.forRegistry(registry)],
 		});
 
-		const hasReturnStatusTool = toolRegistry.definitions.some(
-			(d) => d.name === "hyperidle_return_status",
-		);
+		const hasReturnStatusTool = toolRegistry.definitions.some((d) => d.name === "return_status");
 		expect(hasReturnStatusTool).toBe(true);
 	});
 
