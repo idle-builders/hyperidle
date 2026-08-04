@@ -70,6 +70,14 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				cleanupEffect: "unsubscribe",
 				constituents: ["session_ended subscription", "agent_run_lifecycle_changed subscription"],
 			},
+			// @lore AU26: the POST-SESSION agent-health reaction — the event-driven
+			// degraded-agent notification that replaced `routes/teams-routes.ts`'s
+			// `maybeNotifyAgentError`, closing core-api's last `sessions` read.
+			{
+				owner: "agent-health session-end reactions",
+				cleanupEffect: "unsubscribe",
+				constituents: ["session_ended subscription"],
+			},
 			// @lore AU21 §9 Increment 10 (Decision H1)/Increment 12 (Decision H3)
 			// Wave D: the POST-SESSION `task` dispatch-attempt finalize reaction
 			// PLUS the bet per-tier token-writeback reaction (Wave D's additive
@@ -216,6 +224,16 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				// subscriptions unsubscribe for real.
 				{
 					unsubscribedEvents: ["session_ended", "agent_run_lifecycle_changed"],
+					clearedIntervals: 0,
+				},
+				// @lore AU26: `registerAgentHealthSessionEndReactions` — the
+				// event-driven degraded-agent notification that replaced
+				// `routes/teams-routes.ts`'s `maybeNotifyAgentError` (and with it
+				// core-api's last `sessions` read). Not pre-registered on the
+				// `eventBus` test fixture, so its single subscription unsubscribes
+				// for real.
+				{
+					unsubscribedEvents: ["session_ended"],
 					clearedIntervals: 0,
 				},
 				// @lore AU21 §9 Increment 10 (Decision H1)/Increment 12 (Decision H3)

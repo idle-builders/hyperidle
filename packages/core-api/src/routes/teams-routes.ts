@@ -25,8 +25,7 @@ import {
 	writeTeamRunConfigDefaults,
 } from "@hyperidle/agent-run-config";
 import { findThread, insertMessage, insertThread } from "@hyperidle/conversation";
-import { type HyperIdleDb, resolveAgentScaffoldSpecs, sessions } from "@hyperidle/db";
-import { enqueue, listNotifications } from "@hyperidle/notifications";
+import { type HyperIdleDb, resolveAgentScaffoldSpecs } from "@hyperidle/db";
 import {
 	createTeam,
 	deleteTeam,
@@ -52,9 +51,7 @@ import type {
 } from "@hyperidle/shared";
 import {
 	AGENT_ROLE_CATALOG,
-	computeHealthSignals,
 	createLogger,
-	deriveHealthDetail,
 	deriveInitials,
 	deriveTitle,
 	findRoleCatalogEntry,
@@ -63,7 +60,6 @@ import {
 import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
 import { findUser, insertUser, listUsers } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-import { desc, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { resolveHarnessAvailable } from "./agent-profile.js";
 
@@ -100,48 +96,6 @@ function deriveTeamStatus(
 	const overCapacity = memberGroup.activeBets > memberGroup.capacity;
 	if (overCapacity) return "behind";
 	return "healthy";
-}
-
-/**
- * AB2: Enqueue a health-degraded notification for an agent, unless one is
- * already pending. Throttles by (subjectId + eventType) so a single team
- * page load never floods the queue.
- *
- * @lore AB2: Notification fires on every GET /teams/:id that finds an agent
- * in error state. The "already pending" guard is the dedup/throttle — we check
- * for an existing pending row before inserting, preventing duplicates when the
- * page is refreshed.
- */
-async function maybeNotifyAgentError(
-	db: HyperIdleDb,
-	member: RosterMember,
-	teamName: string,
-	healthDetail: string,
-): Promise<void> {
-	// Check for existing pending notification for this agent
-	const [existing] = await listNotifications(db, {
-		kind: "pending-by-event",
-		eventType: "agent.health.degraded",
-		subjectId: member.agentId,
-	});
-
-	if (existing) return; // already pending — throttled
-
-	// @lore AU20 Ag6b: enqueueNotification removed from public API; use enqueue
-	// with explicit id, status, attempts, createdAt fields.
-	await enqueue(db, {
-		id: crypto.randomUUID(),
-		eventType: "agent.health.degraded",
-		subjectId: member.agentId,
-		severity: "blocking",
-		title: `Agent ${member.name} needs attention`,
-		body: `${member.name} on team ${teamName}: ${healthDetail}`,
-		reason: "agent_health_transition",
-		channel: null,
-		status: "pending",
-		attempts: 0,
-		createdAt: new Date().toISOString(),
-	});
 }
 
 const teamsLogger = createLogger({ pkg: "server.teams" });
@@ -692,7 +646,8 @@ export function createTeamRoutes(
 				return a.name.localeCompare(b.name);
 			});
 
-			// AB2: the roster's harness availability + the degraded-agent notification.
+			// AB2: the roster's harness availability. Nothing else — this route
+			// reads no run state at all.
 			//
 			// @lore AU26 J4: `operationalStatus`, `activeTaskTitle`, `activeTaskId`,
 			// `activeBetId`, `healthLevel` and `healthDetail` are GONE from this
@@ -708,68 +663,24 @@ export function createTeamRoutes(
 			// identically. `harnessAvailable` stays server-side: it is a fact about
 			// this process's adapter pool, not run state, and the browser cannot see it.
 			//
-			// ⚠️ BLOCKER (AU26 J4, reported — do not silently "fix" by deleting):
-			// the run read below is NOT gone, because this route also has a real
-			// core-side USE of run state that is not a render at all —
-			// `maybeNotifyAgentError` enqueues an `agent.health.degraded`
-			// notification row (core's own `notification_queue`) when a roster member
-			// is in the error state. That is a product feature with no other
-			// producer anywhere in the repo, and removing it is a feature deletion,
-			// not a layering fix. It is therefore the ONE core-api read of `sessions`
-			// this work package leaves standing, scoped down to exactly the three
-			// columns the health computation needs. Closing it properly needs a
-			// founder decision on where degraded-agent notification belongs (a
-			// reactor on run-end is the obvious candidate — a GET that writes is a
-			// smell independent of layering).
+			// @lore AU26: the batched `sessions` read that used to sit here is GONE,
+			// and with it core-api's LAST read of an `agent-orchestration` table.
+			// It survived J4 only because this GET also enqueued the
+			// `agent.health.degraded` notification (`maybeNotifyAgentError`) — a real
+			// core-side use of run state, not a render, so deleting it then would
+			// have been a feature deletion. The founder ruled the feature should be
+			// event-driven instead: `services/agent-health-session-end-reactions.ts`
+			// now reacts to a crashed `session_ended` and counts the notification
+			// system's own rows. The feature got better (it fires when the agent
+			// breaks, not when a human opens a page), the GET stopped writing, and
+			// the read had nothing left to justify it.
 			const agentIds = agentRows.map((a) => a.id);
 			if (agentIds.length > 0) {
 				// @lore AU26 G1 (§D-L): harness type reads from `agent_run_config`.
 				const rosterRunConfigs = await readAgentRunConfigs(db, agentIds);
-				const allAgentRuns = await db
-					.select({
-						agentId: sessions.agentId,
-						startedAt: sessions.startedAt,
-						endedAt: sessions.endedAt,
-						state: sessions.state,
-						outcome: sessions.outcome,
-					})
-					.from(sessions)
-					.where(inArray(sessions.agentId, agentIds))
-					.orderBy(desc(sessions.startedAt));
-
-				const runsByAgent = new Map<
-					string,
-					Array<{
-						startedAt: string;
-						endedAt: string | null;
-						state: string | null;
-						outcome: string | null;
-					}>
-				>();
-				for (const run of allAgentRuns) {
-					if (!run.agentId) continue;
-					const bucket = runsByAgent.get(run.agentId) ?? [];
-					bucket.push(run);
-					runsByAgent.set(run.agentId, bucket);
-				}
-
 				for (const member of roster) {
 					const memberHarnessType = rosterRunConfigs.get(member.agentId)?.harnessType ?? null;
 					member.harnessAvailable = resolveHarnessAvailable(memberHarnessType, adapterPool);
-
-					const agentRuns = runsByAgent.get(member.agentId) ?? [];
-					const healthSignals = computeHealthSignals({
-						sessions: agentRuns,
-						harnessAvailable: member.harnessAvailable,
-					});
-					const isError =
-						agentRuns.every((r) => r.state !== "active") &&
-						(healthSignals.failureRate7d > 0.5 || healthSignals.lastSessionCrashed);
-
-					// AB2 AC-6: enqueue notification when agent is in error state.
-					if (isError) {
-						await maybeNotifyAgentError(db, member, team.name, deriveHealthDetail(healthSignals));
-					}
 				}
 			}
 

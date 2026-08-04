@@ -48,6 +48,7 @@ import * as work from "@hyperidle/work";
 import { getTaskRiskTierByTaskId } from "@hyperidle/work";
 import { and, inArray, lt } from "drizzle-orm";
 import { attachRelevanceListener } from "../knowledge/src/relevance-listener.js";
+import { registerAgentHealthSessionEndReactions } from "./services/agent-health-session-end-reactions.js";
 import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
 import { registerAssistantTurnCoherenceTrigger } from "./services/assistant-turn-coherence-trigger.js";
 import { resolveOrCreateCallingThread } from "./services/calling-thread-bindings.js";
@@ -348,6 +349,20 @@ export function registerCoreDomainServices(ctx: {
 			"routine-run session-end reactions",
 			"unsubscribe",
 			["session_ended subscription", "agent_run_lifecycle_changed subscription"],
+		),
+	);
+
+	// AU26: the degraded-agent notification, event-driven. Replaces
+	// `routes/teams-routes.ts`'s deleted `maybeNotifyAgentError` — a notification
+	// that only fired when a human opened the team page, via a GET that wrote.
+	// Removing it closed core-api's last read of `agent-orchestration`'s
+	// `sessions` table.
+	disposers.push(
+		identifyBootstrapOwner(
+			registerAgentHealthSessionEndReactions(db, eventBus),
+			"agent-health session-end reactions",
+			"unsubscribe",
+			["session_ended subscription"],
 		),
 	);
 

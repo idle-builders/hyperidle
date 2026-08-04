@@ -9,15 +9,21 @@
  * derivations lives with the derivations, in
  * `packages/shared/src/__tests__/health-signals.test.ts`.
  *
- * Two things stay here, and this file covers exactly those:
+ * One thing stays here, and this file covers exactly that:
  *   - `harnessAvailable` per roster member — NOT run state; a fact about the
  *     server process's adapter pool, and an input to the browser's own
  *     `computeHealthSignals` call.
- *   - AC-6: a degraded agent still enqueues an `agent.health.degraded`
- *     notification. This is the ONE genuine core-side USE of run state on this
- *     route (it writes core's own `notification_queue`), and it is why the
- *     route's `sessions` read is the one AU26 leaves standing — see the BLOCKER
- *     note at the read site in `teams-routes.ts`.
+ *
+ * @lore AU26: AB2's AC-6 ("a degraded agent enqueues an `agent.health.degraded`
+ * notification") is NOT deleted — it MOVED off this route. The founder's ruling
+ * made it event-driven: `registerAgentHealthSessionEndReactions` reacts to a
+ * crashed `session_ended` and the notification system counts its own rows. That
+ * closed the route's last `sessions` read (a GET that writes was a smell
+ * independent of layering, and a notification that only fires when a human
+ * happens to open a page is not a notification). The behavior lives in
+ * `services/__tests__/agent-health-session-end-reactions.integration.test.ts`;
+ * what this file now asserts is the REMOVAL — loading the team page enqueues
+ * nothing, ever.
  */
 
 import {
@@ -154,10 +160,11 @@ describe("AB2 AC-2: GET /teams/:id roster shape", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-6: Error notification throttling
+// AU26: the GET no longer writes. AB2's AC-6 producer moved to a session_ended
+// reactor; this asserts the route side of that move.
 // ---------------------------------------------------------------------------
 
-describe("AB2 AC-6: Agent error state triggers notification (throttled)", () => {
+describe("AU26: GET /teams/:teamId enqueues nothing", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 	});
@@ -166,7 +173,10 @@ describe("AB2 AC-6: Agent error state triggers notification (throttled)", () => 
 		vi.unstubAllEnvs();
 	});
 
-	test("notification_queue gets a row when agent enters critical state", async ({ db, app }) => {
+	test("a roster full of crashed runs still produces zero notification rows", async ({
+		db,
+		app,
+	}) => {
 		await seedBase(db);
 		// Seed enough crashes to trigger critical
 		await db.insert(bets).values({
@@ -199,14 +209,12 @@ describe("AB2 AC-6: Agent error state triggers notification (throttled)", () => 
 			});
 		}
 
-		// Trigger the GET /teams/:id — this should enqueue a notification
-		await app.request("/api/teams/ab2-team", { headers: authHeaders() });
+		// The old producer ran here. Twice, to also rule out a throttled second write.
+		const first = await app.request("/api/teams/ab2-team", { headers: authHeaders() });
+		expect(first.status).toBe(200);
+		const second = await app.request("/api/teams/ab2-team", { headers: authHeaders() });
+		expect(second.status).toBe(200);
 
-		// maybeNotifyAgentError uses subjectId=agentId and eventType="agent.health.degraded"
-		const notifications = (await listNotifications(db, { kind: "all" })).filter(
-			(r) => r.subjectId === "ab2-agent-idle" && r.eventType === "agent.health.degraded",
-		);
-
-		expect(notifications.length).toBeGreaterThan(0);
+		expect(await listNotifications(db, { kind: "all" })).toHaveLength(0);
 	});
 });
