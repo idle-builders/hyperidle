@@ -1,19 +1,26 @@
 /**
- * AU26 B1a (§D-H #16) — the legacy no-adapters session start.
+ * AU26 B1a (§D-A's `sessions-routes.ts` split) — the legacy no-adapters session start.
  *
  * `POST /api/sessions` stays core-hosted (its handler gates on `tasks`, bakes
  * `users`/`server_config` and writes `explicit_session_starts`/
  * `agent_work_intents` — a two-sided table set, and §D-A rule 3 gives a
  * two-sided route exactly one legal host). But the branch that fires when the
  * composition root wired no adapter pool used to `db.insert(sessions)` straight
- * from the route file, which is a core-api Layer write into a table
- * `run-orchestration` owns.
+ * from the route file. The insert AND the `session_started` emit move here as
+ * one operation — core asks the Layer that runs sessions to create the run
+ * (§D-A rule 3's command form: a direct downward call, never an
+ * `AgentOrchestrationPort` method — that door stays read-only).
+ * `@hyperidle/run-orchestration` is already a core-api dependency, so no
+ * package edge is added.
  *
- * The insert AND the `session_started` emit move here as one operation — core
- * asks orchestration to create the run (§D-A rule 3's command form: a direct
- * downward call, never a `AgentOrchestrationPort` method — that door stays
- * read-only). `@hyperidle/run-orchestration` is already a core-api dependency,
- * so no package edge is added.
+ * @lore AU26 B1a: this is an ACCEPTED OVER-DELIVERY, not an AU26 requirement.
+ * The repo-wide `sessions`-ownership programme was cut to AU28 mid-increment, so
+ * `sessions` is still an unowned shared table and the route was under no
+ * obligation to stop writing it. This had already landed and is green, and it is
+ * a natural rider on the split AU26 does perform (`POST /` no longer shares a
+ * file with the handlers that own the runtime), so it was kept rather than
+ * reverted. If it ever regresses, the fallback is the direct insert — not more
+ * port surface. See §D-A's "accepted as already built" note.
  */
 
 import { type HyperIdleDb, sessions } from "@hyperidle/db";

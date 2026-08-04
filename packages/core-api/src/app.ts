@@ -506,7 +506,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		api.route("/routines", createRoutineRoutes(options.db, eventBus));
 		api.route("/recipients", createRecipientRoutes(options.db, eventBus));
 
-		// AU26 B1a (§D-H #16): `POST /api/sessions` is all that is left of this
+		// AU26 B1a (§D-A's `sessions-routes.ts` split): `POST /api/sessions` is all that is left of this
 		// route module. `GET /`, `GET /starts/:startId`, `GET /:id/activity` and
 		// `PATCH /:id` moved onto agent-orchestration's own app — same URLs (§D-A
 		// rule 7), different host. POST stays because its handler gates on `tasks`

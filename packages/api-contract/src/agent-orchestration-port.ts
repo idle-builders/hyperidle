@@ -50,7 +50,7 @@ export interface AgentOrchestrationSessionActivityEntry {
  * One session row, in full — every column `sessions` has (18), hand-typed the
  * same way as the entries above because `api-contract` stays zero-runtime-deps.
  *
- * @lore AU26 B1a (§D-H #16, AC5(d)): this is deliberately NOT a narrowing.
+ * @lore AU26 B1a (§D-A's `sessions-routes.ts` split, AC5(d)): this is deliberately NOT a narrowing.
  * `POST /api/sessions` stays core-hosted and reads its admitted session row
  * through `getById`; its 202 branch returns that row verbatim. The seven-field
  * shape the decoration reads use (`listByAgentIds`/`listByTaskId`/`listActive`,
@@ -103,7 +103,7 @@ export interface AgentOrchestrationSessionsPort {
 	/**
 	 * One session row by id, in FULL wire shape, or `null` when it does not
 	 * exist. The door core-hosted `POST /api/sessions` reads its admitted
-	 * session through (§D-H #16) — a read, so it goes through the Port; the
+	 * session through (§D-A's `sessions-routes.ts` split) — a read, so it goes through the Port; the
 	 * Port stays strictly read-only.
 	 */
 	getById(sessionId: string): Promise<AgentOrchestrationSessionWireRow | null>;

@@ -317,13 +317,13 @@ export function runSession(deps: ProvisionSessionDeps, spec: RunOptions): Promis
 	);
 }
 
-export function transitionRun(
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	spec: Parameters<typeof transitionRunInternal>[1],
-): ReturnType<typeof transitionRunInternal> {
-	return transitionRunInternal({ db, eventBus, ports: transitionPorts }, spec);
-}
+// @lore AU26 B1a (§D-A's `sessions-routes.ts` split): this file used to export a `transitionRun` wrapper
+// over `transitionRunInternal` + `transitionPorts`. Its ONE caller was
+// `routes/sessions-routes.ts`'s `PATCH /api/sessions/:id`, which moved onto
+// agent-orchestration's own app — and that Layer composes the same two of its
+// own Services in-layer (`agent-orchestration/src/services/run-transition.ts`)
+// rather than reaching up here. The wrapper left with its caller; `transitionPorts`
+// stays, still feeding this file's `sessionLifecyclePort`.
 
 export function startRuntime(deps: RuntimeDeps): ReturnType<typeof startRuntimeInternal> {
 	return startRuntimeInternal(runtimeDeps(deps.db, deps.eventBus ?? new EventBus(), deps));

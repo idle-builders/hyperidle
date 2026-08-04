@@ -81,7 +81,7 @@ export function createAgentOrchestrationSessionsRoutes(
 
 	// GET /agent-orchestration/sessions/:sessionId — backs
 	// `AgentOrchestrationPort.sessions.getById`, the door core-hosted
-	// `POST /api/sessions` reads its admitted session row through (§D-H #16).
+	// `POST /api/sessions` reads its admitted session row through (§D-A's `sessions-routes.ts` split).
 	//
 	// @lore AU26 B1a (AC5(d)): this returns the session's FULL public wire row,
 	// not the seven-field narrowing the decoration reads use. The 202 branch of

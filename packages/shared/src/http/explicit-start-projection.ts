@@ -1,7 +1,7 @@
 /**
  * The explicit-session-start wire projection — one home, both applications.
  *
- * @lore AU26 A1 (architecture §D-H #16): `POST /api/sessions` stays core-hosted
+ * @lore AU26 A1 (architecture §D-A's `sessions-routes.ts` split): `POST /api/sessions` stays core-hosted
  * (its handler gates on `tasks`, a core table) while `GET /api/sessions/starts/:id`
  * moves to the orchestration app. Both render the SAME 202/422/429/500 projection,
  * and neither app may import the other's route module. Duplicating the transform

@@ -16,10 +16,16 @@
  *     `AgentOrchestrationPort.sessions.getById` returns that same full wire
  *     shape, not a narrowing (AC5(d));
  *   - the two apps do not shadow each other — zero duplicate `method + path`
- *     (AC12);
+ *     (AC10);
  *   - an unknown `/api/*` path still gets the canonical JSON 404, not Hono's
  *     `text/plain` default — only the ROOT app's `notFound` fires for a mounted
- *     sub-app (AC10, the feasibility P1 trap).
+ *     sub-app (AC9, the feasibility P1 trap).
+ *
+ * @lore AU26 B1a: `POST /api/sessions`'s two `sessions` touches going through
+ * `getById` + `createBareRun` is an ACCEPTED OVER-DELIVERY, not an AU26
+ * requirement — the repo-wide `sessions`-ownership programme was cut to AU28
+ * mid-increment (§D-A's "accepted as already built" note). If either regresses,
+ * the fallback is the direct read/insert, not more port surface.
  */
 
 import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";
@@ -112,7 +118,7 @@ function routeKeys(app: {
 	return keys;
 }
 
-describe("AU26 B1a — agent-orchestration's own app, mounted beside core-api's", () => {
+describe("agent-orchestration's own app, mounted beside core-api's", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 	});
@@ -120,7 +126,7 @@ describe("AU26 B1a — agent-orchestration's own app, mounted beside core-api's"
 		vi.unstubAllEnvs();
 	});
 
-	describe("the four moved routes answer through the composed app (AC5(b))", () => {
+	describe("the four relocated session routes answer through the composed app", () => {
 		test("GET /api/sessions lists, and filters by task_id", async ({ db, app }) => {
 			await seed(db);
 			const res = await app.request("/api/sessions?task_id=task-1", { headers: authHeaders() });
@@ -214,7 +220,7 @@ describe("AU26 B1a — agent-orchestration's own app, mounted beside core-api's"
 		});
 	});
 
-	test("POST /api/sessions stays core-hosted and returns the whole row (AC5(d))", async ({
+	test("POST /api/sessions stays core-hosted and returns the whole session row", async ({
 		db,
 		app,
 	}) => {
@@ -233,7 +239,7 @@ describe("AU26 B1a — agent-orchestration's own app, mounted beside core-api's"
 		expect(created).toEqual(JSON.parse(JSON.stringify(row)));
 	});
 
-	test("AgentOrchestrationPort.sessions.getById returns the FULL wire row (AC5(d))", async ({
+	test("AgentOrchestrationPort.sessions.getById returns the full session wire row", async ({
 		db,
 		app,
 	}) => {
@@ -245,7 +251,7 @@ describe("AU26 B1a — agent-orchestration's own app, mounted beside core-api's"
 		expect(await port.sessions.getById("nope")).toBeNull();
 	});
 
-	test("every moved route 401s without auth (AC5(c))", async ({ db, app }) => {
+	test("every relocated route 401s without auth", async ({ db, app }) => {
 		await seed(db);
 		const cases: ReadonlyArray<readonly [string, string]> = [
 			["GET", "/api/sessions"],
@@ -266,7 +272,7 @@ describe("AU26 B1a — agent-orchestration's own app, mounted beside core-api's"
 		}
 	});
 
-	test("the two apps do not shadow each other — zero duplicate method+path (AC12)", async ({
+	test("the two apps do not shadow each other — zero duplicate method+path", async ({
 		db,
 		eventBus,
 	}) => {
@@ -290,7 +296,7 @@ describe("AU26 B1a — agent-orchestration's own app, mounted beside core-api's"
 		orchestration.dispose();
 	});
 
-	test("an unknown /api path still gets the canonical JSON 404 (AC10)", async ({ app }) => {
+	test("an unknown /api path still gets the canonical JSON 404", async ({ app }) => {
 		const res = await app.request("/api/definitely-not-a-route", { headers: authHeaders() });
 		expect(res.status).toBe(404);
 		expect(res.headers.get("content-type")).toContain("application/json");

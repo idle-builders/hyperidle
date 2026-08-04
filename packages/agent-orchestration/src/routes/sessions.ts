@@ -1,5 +1,5 @@
 /**
- * AU26 B1a (§D-H #16) — the four `/api/sessions` registrations that moved off
+ * AU26 B1a (§D-A's `sessions-routes.ts` split) — the four `/api/sessions` registrations that moved off
  * core-api's app onto agent-orchestration's own.
  *
  * `GET /`, `GET /starts/:startId`, `GET /:id/activity` and `PATCH /:id` all
@@ -14,8 +14,8 @@
  * `/api` router, so a route changes host app while keeping its URL byte-
  * identical — which is what makes AU26's "zero `packages/web` diff" reachable.
  * The cost is that a duplicate `method + path` across the two apps would
- * resolve silently by registration order; AC12's route-table collision
- * assertion closes it (`AU26-B1a-two-app-mount.integration.test.ts`).
+ * resolve silently by registration order; AC10's route-table collision
+ * assertion closes it (`two-app-mount-session-routes.integration.test.ts`).
  *
  * @lore AU26 B1a: `GET /:id/activity` DROPS the `AgentOrchestrationPort`
  * indirection it carried in core-api (`sessions-routes.ts:536-539` at HEAD).

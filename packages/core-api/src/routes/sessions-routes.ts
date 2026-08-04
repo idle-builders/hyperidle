@@ -52,7 +52,7 @@ const IDEMPOTENCY_KEY_PATTERN = /^[\x21-\x7e]{1,200}$/;
  * same 202/422/429/500 contract and neither app may import the other's routes. Only
  * the row READ stays per-caller: each side reads `sessions` its own legal way.
  *
- * @lore AU26 B1a (§D-H #16, AC5(d)): this side's legal way is
+ * @lore AU26 B1a (§D-A's `sessions-routes.ts` split, AC5(d)): this side's legal way is
  * `AgentOrchestrationPort.sessions.getById` — a Layer route reading the other
  * Layer's data goes through the read door (§D-A rule 3), never a raw
  * `db.select().from(sessions)`. `getById` returns the FULL 18-column wire row on
@@ -89,7 +89,7 @@ async function projectExplicitStart(start: ExplicitSessionStart) {
  *   removal note above — this replaces the former `deps.adapterPool`
  *   presence check with a plain boolean, no harness type dependency).
  *
- * @lore AU26 B1a (§D-H #16): this file used to register five routes; four moved
+ * @lore AU26 B1a (§D-A's `sessions-routes.ts` split): this file used to register five routes; four moved
  * to `packages/agent-orchestration/src/routes/sessions.ts` (`GET /`,
  * `GET /starts/:startId`, `GET /:id/activity`, `PATCH /:id`) at their unchanged
  * paths. `POST /` stays because §D-A rule 3 gives a two-sided route exactly one
@@ -259,7 +259,7 @@ export function createSessionRoutes(
 			}
 
 			// ── Legacy bare-insert path (no adapters) ─────────────────────────────
-			// @lore AU26 B1a (§D-H #16): the insert AND the `session_started` emit
+			// @lore AU26 B1a (§D-A's `sessions-routes.ts` split): the insert AND the `session_started` emit
 			// are `run-orchestration`'s `createBareRun` now — core asking the owning
 			// Layer to create its own record is a downward command (§D-A rule 3), not
 			// a Port method. `@hyperidle/run-orchestration` was already a core-api
