@@ -40,6 +40,10 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { serve } from "@hono/node-server";
 import {
+	registerSessionNotReturnedNotice,
+	SESSION_NOT_RETURNED_NOTICE_TEXT,
+} from "@hyperidle/conversation";
+import {
 	type AgentSessionRequest,
 	agentSessionRequests,
 	agentWorkIntents,
@@ -121,6 +125,15 @@ async function startLiveServer(db: HyperIdleDb): Promise<LiveServer> {
 	});
 	const httpServer = serve({ fetch: app.fetch, port: 0 }, (info) => resolvePort(info.port));
 	const port = await portPromise;
+
+	// Mirrors production composition (`server-factory.ts`'s registration
+	// list) — the never-silent net (Increment 5) posts a fixed notice
+	// message, authored as the SAME assistant agent, when a turn ends
+	// without returning. `createApp` alone (unlike `createServer`) does not
+	// wire this reaction; wiring it here so the sanity-break below is
+	// against the real subscriber, not an absent one that would make the
+	// break meaningless.
+	registerSessionNotReturnedNotice(db, eventBus);
 
 	return {
 		url: `http://127.0.0.1:${port}`,
@@ -306,6 +319,27 @@ describe("the assistant reply reaches the calling thread via a real harness's ow
 				.where(eq(messages.threadId, threadId));
 			const assistantReply = replies.find((m) => m.senderId === assistantId);
 			expect(assistantReply, `no reply message from ${assistantId} on ${harness}`).toBeDefined();
+
+			// AU27 Increment 8 (BLOCKER fix): a message merely EXISTING from
+			// assistantId is not proof of a real reply — Increment 5's
+			// never-silent notice ("I couldn't finish that turn...") is ALSO
+			// authored as `event.agentId` (the assistant), so a session that
+			// FAILED to reply and instead got caught by the never-silent net
+			// satisfies the old, weaker assertion. Assert the actual reply
+			// TEXT, and explicitly rule out the notice.
+			const payload = JSON.parse(assistantReply?.payload ?? "{}") as { text?: string };
+			expect(
+				payload.text,
+				`assistant reply on ${harness} had no text payload: ${JSON.stringify(assistantReply)}`,
+			).toBeDefined();
+			expect(
+				payload.text,
+				`assistant reply on ${harness} was the never-silent notice, not a real reply — the agent never called reply()`,
+			).not.toBe(SESSION_NOT_RETURNED_NOTICE_TEXT);
+			expect(
+				payload.text,
+				`assistant reply on ${harness} did not contain the required text: ${payload.text}`,
+			).toContain("HARNESS_REPLY_OK");
 		} finally {
 			await server.close();
 		}
