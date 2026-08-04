@@ -35,7 +35,7 @@ import {
 	RegistryFilesystemMounter,
 	resolveInjectedFilesystemsForAgent,
 } from "@hyperidle/filesystems";
-import { createGitRunner, registerGitExportHandler } from "@hyperidle/git-export";
+import { registerGitExportHandler } from "@hyperidle/git-export";
 import {
 	type AdapterPool,
 	createReturnEnforcement,
@@ -79,6 +79,7 @@ import {
 	type ResolvedModel,
 	resolveModel,
 } from "@hyperidle/shared";
+import { createGitRunner } from "@hyperidle/shared/git";
 import {
 	findUser,
 	listUsers,

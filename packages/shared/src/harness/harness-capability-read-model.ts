@@ -36,8 +36,26 @@
  * `options.adapterPool`), same as before this migration.
  */
 
-import type { AdapterInfo, AdapterMeta, AdapterPool } from "@hyperidle/harness-registry";
-import type { HarnessCapabilities, HarnessCapabilityDescriptor } from "@hyperidle/shared";
+import type { AdapterInfo, AdapterMeta, HarnessCapabilities } from "./harness-adapter.js";
+import type { HarnessCapabilityDescriptor } from "./harness-capability-descriptor.js";
+
+/**
+ * @lore AU26 A2: moved from `packages/core-api/src/services/`. Its readers land on
+ * BOTH sides of the boundary after this WP (`routes/connections.ts` follows
+ * connections to the orchestration app; `agent-profile`/`teams-routes`/`agents`/
+ * `users` stay core), and Mechanism B forbids the orchestration side importing a
+ * core-api module. Six stateless forwarders over an injected handle — no table, no
+ * lifecycle, no domain — so `shared` is where it belongs.
+ *
+ * @lore AU26 A2: `HarnessCapabilityReader` is now declared STRUCTURALLY rather than
+ * as `Pick<AdapterPool, …>`: `shared` cannot import `@hyperidle/harness-registry`
+ * (harness-registry depends on shared — that is the cycle). The anti-drift guarantee
+ * the `Pick` provided did not move into the type; it moved into the ASSERTION
+ * `const reader: HarnessCapabilityReader = pool` in
+ * `core-api/src/services/__tests__/harness-capability-read-model.test.ts`, which
+ * still holds a REAL `AdapterPool`. Do not delete that assertion — without it,
+ * this interface could silently drift away from the pool it is a view of.
+ */
 
 /**
  * Read-only handle over the harness adapter pool. Exactly the
@@ -45,14 +63,28 @@ import type { HarnessCapabilities, HarnessCapabilityDescriptor } from "@hyperidl
  * no execution, selection, registration, or lifecycle surface. AdapterPool
  * satisfies this structurally, so app.ts passes the concrete pool unchanged.
  *
- * @lore AU16: derived from AdapterPool via Pick so it cannot silently drift to
- * include an execution method — widening the surface requires editing this key
- * list, a visible reviewable act. THIS Pick narrowing IS the structural
- * guarantee that replaces the hand-verified DESCRIPTOR_READ_ALLOWLIST: a route
- * whose pool handle is typed HarnessCapabilityReader cannot name select()/
- * register()/execute() regardless of how many forwarders exist.
+ * @lore AU16 (amended AU26 A2): this interface names exactly four members, so it
+ * cannot silently grow an execution method — widening it requires editing this
+ * declaration, a visible reviewable act. THAT narrowing IS the structural guarantee
+ * which replaced the hand-verified DESCRIPTOR_READ_ALLOWLIST: a route whose pool
+ * handle is typed `HarnessCapabilityReader` cannot name `select()`/`register()`/
+ * `execute()` regardless of how many forwarders exist. It was written as
+ * `Pick<AdapterPool, …>` until AU26 A2 moved the module into `shared`, which may not
+ * import `harness-registry`; the compile-time link to the real pool now lives in the
+ * `const reader: HarnessCapabilityReader = pool` assertion in core-api's test.
  */
-export type HarnessCapabilityReader = Pick<AdapterPool, "size" | "list" | "describe" | "refresh">;
+export interface HarnessCapabilityFilter {
+	readonly type?: string;
+	readonly kind?: "local" | "remote";
+	readonly includeKnownMissing?: boolean;
+}
+
+export interface HarnessCapabilityReader {
+	readonly size: number;
+	list(): AdapterInfo[];
+	describe(options?: HarnessCapabilityFilter): HarnessCapabilityDescriptor[];
+	refresh(): Promise<void>;
+}
 
 /** Number of registered adapters. Used by resolveHarnessAvailable (agent-profile.ts). */
 export function registeredHarnessCount(reader: HarnessCapabilityReader): number {

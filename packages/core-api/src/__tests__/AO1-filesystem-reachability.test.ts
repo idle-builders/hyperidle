@@ -32,9 +32,9 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { resolveFilesystemState } from "@hyperidle/filesystems";
-import { createGitRunner } from "@hyperidle/git-export";
 import type { FilesystemAuthResolver } from "@hyperidle/shared";
 import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/shared";
+import { createGitRunner } from "@hyperidle/shared/git";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 // ─── Lane A: Hermetic temp-repo setup ────────────────────────────────────────

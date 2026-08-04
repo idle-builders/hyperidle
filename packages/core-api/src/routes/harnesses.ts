@@ -36,14 +36,14 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/shared";
-import { requireBoundary } from "@hyperidle/shared/http";
-import { Hono } from "hono";
-import { createRateLimiter } from "../middleware/rate-limit.js";
 import {
 	type HarnessCapabilityReader,
 	harnessCapabilityDescriptors,
 	refreshHarnessDiscoveries,
-} from "../services/harness-capability-read-model.js";
+} from "@hyperidle/shared";
+import { requireBoundary } from "@hyperidle/shared/http";
+import { Hono } from "hono";
+import { createRateLimiter } from "../middleware/rate-limit.js";
 
 /**
  * Helper: stamp discovery.disabled per descriptor based on harnessDisabled config.

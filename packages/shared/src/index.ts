@@ -282,6 +282,9 @@ export type {
 	HarnessAuthActionKind,
 	HarnessCapabilities,
 	HarnessCapabilityDescriptor,
+	// AU26 A2: the harness capability read model
+	HarnessCapabilityFilter,
+	HarnessCapabilityReader,
 	HarnessDiscoveryStatus,
 	HarnessEvent,
 	HarnessEventType,
@@ -331,6 +334,10 @@ export {
 	// Forcing constants + helper
 	FORCE_RETURN_MESSAGE,
 	HARNESS_OPTION_CONTROL_KINDS,
+	// AU26 A2: the six stateless capability-read forwarders
+	harnessCapabilitiesForType,
+	harnessCapabilityDescriptors,
+	harnessRegistrationMeta,
 	isHarnessEvent,
 	isInternalExtractionDrain,
 	isRequiredReturnAction,
@@ -346,7 +353,10 @@ export {
 	preMapClaudeEvent,
 	// Closed accepted-return set
 	RETURN_ACTION_NAMES,
+	refreshHarnessDiscoveries,
+	registeredHarnessCount,
 	shouldForceReturn,
+	workerConnections,
 } from "./harness/index.js";
 // ── AU19 §7.4: HarnessPort — the one genuine cross-process seam ──
 export type {

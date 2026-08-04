@@ -21,6 +21,7 @@ import { persistScaffoldedAgents } from "@hyperidle/org";
 import {
 	API_ERROR_CODES,
 	type EventBus,
+	type HarnessCapabilityReader,
 	type HostKind,
 	type Message,
 	type MessageType,
@@ -36,7 +37,6 @@ import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
 import { findUser, insertUser, updateUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
-import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
 import { validateAgentConfig } from "./agents.js";
 import { messageRowSchema, threadParticipantsSchema } from "./threads-schema.js";
 

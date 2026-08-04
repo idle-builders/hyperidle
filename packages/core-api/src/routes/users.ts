@@ -6,7 +6,12 @@ import {
 	userSkills,
 } from "@hyperidle/db";
 import { persistScaffoldedAgents } from "@hyperidle/org";
-import { API_ERROR_CODES, type EventBus, type ItemCreatedEvent } from "@hyperidle/shared";
+import {
+	API_ERROR_CODES,
+	type EventBus,
+	type HarnessCapabilityReader,
+	type ItemCreatedEvent,
+} from "@hyperidle/shared";
 
 // AK6: BUILTIN_ASSISTANT_SYSTEM_PROMPT REMOVED — persona comes from app defaults (T8).
 // The Kernel no longer hard-codes any assistant persona constant.
@@ -30,7 +35,6 @@ import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { validateBody } from "../middleware/validate.js";
-import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
 import { createAssistantSoulRoutes } from "./assistant.js";
 
 // AU19 Increment 1c: `org`'s `OrgUserDirectory` port (Mechanism C), wired to

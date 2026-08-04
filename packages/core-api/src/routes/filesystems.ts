@@ -17,7 +17,6 @@ import {
 	saveInjection,
 	updateFilesystemState,
 } from "@hyperidle/filesystems";
-import { createGitRunner } from "@hyperidle/git-export";
 import { getTeamMembers } from "@hyperidle/org";
 import type {
 	EventBus,
@@ -26,6 +25,7 @@ import type {
 	FilesystemInjection,
 } from "@hyperidle/shared";
 import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/shared";
+import { createGitRunner } from "@hyperidle/shared/git";
 import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
 import { findUser } from "@hyperidle/users";
 import { Hono } from "hono";

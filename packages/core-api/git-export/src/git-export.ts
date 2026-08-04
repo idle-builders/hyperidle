@@ -8,13 +8,13 @@ import {
 	type KnowledgeUpdatedEvent,
 	type Logger,
 } from "@hyperidle/shared";
+import type { GitRunner } from "@hyperidle/shared/git";
 import {
 	type GitExportConfig,
 	loadGitExportConfig,
 	sanitizePathSegment,
 	writeExportMeta,
 } from "./git-export-config.js";
-import type { GitRunner } from "./git-export-runner.js";
 import type {
 	GitExportDeps,
 	GitExportKnowledgeItemRow,

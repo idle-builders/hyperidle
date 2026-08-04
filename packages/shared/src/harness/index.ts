@@ -30,6 +30,18 @@ export type {
 	InheritedToolDescriptor,
 } from "./harness-capability-descriptor.js";
 export { HARNESS_OPTION_CONTROL_KINDS } from "./harness-capability-descriptor.js";
+export type {
+	HarnessCapabilityFilter,
+	HarnessCapabilityReader,
+} from "./harness-capability-read-model.js";
+export {
+	harnessCapabilitiesForType,
+	harnessCapabilityDescriptors,
+	harnessRegistrationMeta,
+	refreshHarnessDiscoveries,
+	registeredHarnessCount,
+	workerConnections,
+} from "./harness-capability-read-model.js";
 export {
 	isHarnessEvent,
 	normalizeHarnessEvent,

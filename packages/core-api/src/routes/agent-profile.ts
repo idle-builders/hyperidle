@@ -34,16 +34,16 @@ import type {
 	AgentSessionSummary,
 	HarnessCapabilities,
 } from "@hyperidle/shared";
+import {
+	type HarnessCapabilityReader,
+	harnessCapabilitiesForType,
+	registeredHarnessCount,
+} from "@hyperidle/shared";
 import type { HyperIdleEnv } from "@hyperidle/shared/http";
 import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { desc, eq } from "drizzle-orm";
 import type { Context } from "hono";
-import {
-	type HarnessCapabilityReader,
-	harnessCapabilitiesForType,
-	registeredHarnessCount,
-} from "../services/harness-capability-read-model.js";
 import { computeApprovalRate } from "../services/policy-bindings.js";
 
 // ---------------------------------------------------------------------------

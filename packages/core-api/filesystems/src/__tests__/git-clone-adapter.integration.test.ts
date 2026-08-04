@@ -10,8 +10,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { type AdapterDeps, RegistryFilesystemMounter } from "@hyperidle/filesystems";
-import { createGitRunner } from "@hyperidle/git-export";
 import type { Filesystem } from "@hyperidle/shared";
+import { createGitRunner } from "@hyperidle/shared/git";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 // Create a local bare-style repo (works for local clone with git-cli).

@@ -27,7 +27,6 @@ import {
 import {
 	type GitExportConfig,
 	type GitExportConfigPatch,
-	type GitRunner,
 	getLastExportMeta,
 	type RunGitExportDeps,
 	registerGitExportHandler,
@@ -50,6 +49,7 @@ import {
 import { get as getKnowledgeItem, list as listKnowledgeItems } from "@hyperidle/knowledge";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { KnowledgeUpdatedEvent } from "@hyperidle/shared";
+import type { GitRunner } from "@hyperidle/shared/git";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 
 type FsAdapter = NonNullable<RunGitExportDeps["fs"]>;

@@ -31,15 +31,12 @@ import {
 } from "@hyperidle/connections";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ConnectionHealth, ServiceConnectionView } from "@hyperidle/shared";
+import { type HarnessCapabilityReader, harnessCapabilityDescriptors } from "@hyperidle/shared";
 import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
 import { isPrivateHostLiteral, resolveUrlForSSRF } from "@hyperidle/shared/net";
 import { Hono } from "hono";
 import { z } from "zod";
 import { createRateLimiter } from "../middleware/rate-limit.js";
-import {
-	type HarnessCapabilityReader,
-	harnessCapabilityDescriptors,
-} from "../services/harness-capability-read-model.js";
 
 // ---------------------------------------------------------------------------
 // Input validation

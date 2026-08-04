@@ -11,7 +11,6 @@
 import { type HyperIdleDb, knowledgeItems } from "@hyperidle/db";
 import {
 	type GitExportConfigPatch,
-	type GitRunner,
 	type RunGitExportDeps,
 	updateGitExportConfig,
 } from "@hyperidle/git-export";
@@ -19,6 +18,7 @@ import { resetExportMutexes, writeExportMeta } from "@hyperidle/git-export/testi
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES } from "@hyperidle/shared";
+import type { GitRunner } from "@hyperidle/shared/git";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { authMiddleware } from "../middleware/auth.js";

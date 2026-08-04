@@ -51,13 +51,13 @@ import {
 	deriveInitials,
 	deriveTitle,
 	findRoleCatalogEntry,
+	type HarnessCapabilityReader,
 } from "@hyperidle/shared";
 import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
 import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { desc, inArray } from "drizzle-orm";
 import { Hono } from "hono";
-import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
 import {
 	computeHealthSignals,
 	deriveHealthDetail,

@@ -30,6 +30,8 @@ import {
 	DEFAULT_AGENT_MODEL_ID,
 	DEFAULT_AGENT_MODEL_PROVIDER,
 	findRoleCatalogEntry,
+	type HarnessCapabilityReader,
+	harnessRegistrationMeta,
 	isCatalogModel,
 	MODEL_TIERS,
 } from "@hyperidle/shared";
@@ -38,10 +40,6 @@ import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import { and, count, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
-import {
-	type HarnessCapabilityReader,
-	harnessRegistrationMeta,
-} from "../services/harness-capability-read-model.js";
 import { handleAgentProfile } from "./agent-profile.js";
 
 // ---------------------------------------------------------------------------

@@ -39,12 +39,9 @@ export {
 	updateGitExportConfig,
 } from "./git-export-config.js";
 // ── A. Git-execution platform ──────────────────────────────────────────────
-export type {
-	CreateGitRunnerOptions,
-	GitConfigInjection,
-	GitRunner,
-} from "./git-export-runner.js";
-export { createGitRunner } from "./git-export-runner.js";
+// @lore AU26 A2: `createGitRunner` + its types moved to `@hyperidle/shared/git`.
+// This barrel no longer re-exports them — a re-export would leave a second import
+// path into the runner and defeat the move. Import from `@hyperidle/shared/git`.
 
 // ── E. DI port bag ─────────────────────────────────────────────────────────
 export type {
