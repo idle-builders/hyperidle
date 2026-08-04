@@ -282,17 +282,37 @@ async function propagateSessionToTask(
 
 	// @lore AU26 J2: the "is another run still active on this task" guard is
 	// DELETED, and with it core-api's last policy-side read of `sessions` (an
-	// `agent-orchestration` table). It defended a state no normal path produces:
-	// a run request is only created when a task enters `accepted`
-	// (`work/src/task-state-machine.ts`), and the lifecycle grammar
-	// (`shared/src/task-transition.ts`) has no edge from `in_progress` back to
-	// `accepted`; a handoff closes the old run and opens the new one in ONE
-	// transaction (`handoff-protocol.ts:121`), so the abandoned run is already
-	// `done` and never reaches this code (`endRunForHandoff` takes no event bus,
-	// and the later `endSession` is conditional on the row still being `active`).
-	// If the contrived two-live-runs state ever does occur, the second run's end
-	// sees a task that is no longer `in_progress` and quietly does nothing, and
-	// `review -> in_progress` is a legal move anyone can make. No replacement
+	// `agent-orchestration` table).
+	//
+	// What it defended against is NOT unreachable, and the earlier version of
+	// this note claiming "a state no normal path produces" was wrong — the
+	// work package's own analysis (`.pipeline/work/AU26/policy-sibling-guard.md`)
+	// names two reachable paths, both confirmed in code:
+	//   1. `POST /api/sessions` twice on the same task. The route checks that
+	//      the task exists and the agent is runnable and nothing else
+	//      (`core-api/src/routes/sessions-routes.ts`,
+	//      `work/src/session-start-resolver.ts`); `concurrency.ts` caps runs per
+	//      AGENT, not per task, and no DB constraint says one active run per
+	//      task. No screen calls this — it is an API-only path.
+	//   2. `accepted -> hold -> accepted` while the first run request is still
+	//      queued (`shared/src/task-transition.ts` allows both edges). The
+	//      queued request is not re-checked at drain, so a second attempt mints
+	//      a second run.
+	// What is genuinely absent is the ORDINARY path: a run request is only
+	// created when a task enters `accepted` (`work/src/task-state-machine.ts`),
+	// there is no `in_progress -> accepted` edge, and a handoff closes the old
+	// run and opens the new one in ONE transaction (`handoff-protocol.ts:121`),
+	// so the abandoned run is already `done` and never reaches this code
+	// (`endRunForHandoff` takes no event bus, and the later `endSession` is
+	// conditional on the row still being `active`).
+	//
+	// The residue, stated plainly: when two runs ARE live on one task, the
+	// first to finish flips the task `in_progress -> review` while the second is
+	// still working. The second run's end then sees a task that is no longer
+	// `in_progress` and quietly does nothing. That is recoverable —
+	// `review -> in_progress` is a legal move anyone can make — and under
+	// ETHOS.md a preemptive wall against a state only a hand-made API call
+	// reaches is not worth a cross-Layer read. Founder-ruled. No replacement
 	// event, no counter, no downward call.
 
 	// Transition task to review
