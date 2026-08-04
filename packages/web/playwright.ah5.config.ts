@@ -6,7 +6,7 @@
  *   2. Vite dev server on port 5182 (proxies /api to 3097).
  *
  * CRITICAL: Tests in this config MUST NOT mock the credential, session,
- * assistant/LLM, or OpenRouter paths. See the no-mock guard in scripts/ah5-no-mock-guard.ts.
+ * assistant/LLM, or OpenRouter paths. See the no-mock guard in scripts/ah5-no-mock-guard.ts (retired in AU28).
  *
  * The AH5 lane requires OPENROUTER_API_KEY in env. The CI workflow injects it
  * from GitHub secrets. Local runs: `OPENROUTER_API_KEY=<key> npm run -w @hyperidle/web test:e2e:ah5`.
@@ -30,7 +30,7 @@ import { defineConfig, devices } from "@playwright/test";
 const AH5_API_PORT = 3097;
 const AH5_VITE_PORT = 5182;
 
-// These must match the values in scripts/ah5-test-server.ts.
+// These must match the values in __scripts__/ah5-test-server.ts.
 const AH5_API_KEY = "ah5-e2e-test-key";
 const AH5_CREDENTIAL_KEY = "ah5-e2e-cred-key-32-chars!!!!!";
 
@@ -71,7 +71,7 @@ export default defineConfig({
 			 *
 			 * OPENROUTER_API_KEY must be in env (from CI secret or local shell).
 			 */
-			command: "npx tsx scripts/ah5-test-server.ts",
+			command: "npx tsx __scripts__/ah5-test-server.ts",
 			url: `http://localhost:${AH5_API_PORT}/api/health`,
 			reuseExistingServer: !process.env.CI,
 			timeout: 120_000,

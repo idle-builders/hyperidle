@@ -37,7 +37,7 @@ const Dirname = path.dirname(fileURLToPath(import.meta.url));
 const AH6_API_PORT = 3098;
 const AH6_VITE_PORT = 5183;
 
-// These must match the values in scripts/ah6-test-server.ts.
+// These must match the values in __scripts__/ah6-test-server.ts.
 const AH6_API_KEY = "ah6-e2e-test-key";
 
 // Absolute path to the cassettes directory — WARNING-3 compliance.
@@ -98,7 +98,7 @@ export default defineConfig({
 			 * silently replay committed cassettes instead of making real OpenRouter calls.
 			 * Record mode MUST always start a fresh server with the correct env.
 			 */
-			command: "npx tsx scripts/ah6-test-server.ts",
+			command: "npx tsx __scripts__/ah6-test-server.ts",
 			url: `http://localhost:${AH6_API_PORT}/api/health`,
 			reuseExistingServer: process.env.LLM_CASSETTE_MODE === "record" ? false : !process.env.CI,
 			timeout: 60_000,

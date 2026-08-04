@@ -17,7 +17,7 @@
  *   5180 — AH1 Vite dev server (proxies /api → 3099, VITE_HYPERIDLE_API_KEY set)
  *   (3001/5179 are the main dev and test ports — left untouched)
  *
- * @lore AH1: The API server is started with scripts/ah1-test-server.ts which:
+ * @lore AH1: The API server is started with __scripts__/ah1-test-server.ts which:
  *   - Creates an in-memory PGlite DB
  *   - Applies Drizzle migrations
  *   - Boots createServer(3099, { db })
@@ -33,7 +33,7 @@ import { defineConfig, devices } from "@playwright/test";
 const AH1_API_PORT = 3099;
 const AH1_VITE_PORT = 5180;
 
-// These must match the values in scripts/ah1-test-server.ts.
+// These must match the values in __scripts__/ah1-test-server.ts.
 const AH1_API_KEY = "ah1-e2e-test-key";
 const AH1_CREDENTIAL_KEY = "ah1-e2e-cred-key-32-chars!!!!!";
 
@@ -66,7 +66,7 @@ export default defineConfig({
 			 * Boot the real Hono API server with an in-memory migrated PGlite DB.
 			 * readyPattern matches the stdout line from ah1-test-server.ts.
 			 */
-			command: `npx tsx scripts/ah1-test-server.ts`,
+			command: `npx tsx __scripts__/ah1-test-server.ts`,
 			url: `http://localhost:${AH1_API_PORT}/api/health`,
 			reuseExistingServer: !process.env.CI,
 			timeout: 60_000,
