@@ -12,10 +12,12 @@ import {
 	agentLifecycleInbox,
 	agentSessionRequests,
 	bets,
+	messages,
 	sessions,
 	tasks,
 	teamMembers,
 	teams,
+	threads,
 	users,
 } from "@hyperidle/db";
 import type { RuntimePorts } from "@hyperidle/run-orchestration";
@@ -134,6 +136,81 @@ async function seedTaskRequest(
 	});
 }
 
+/**
+ * AU27 W1 fix — the assistant turn's own `sourceKind: "assistant"` request,
+ * seeded directly on `agentSessionRequests` (bypassing the trigger-recording
+ * stage) exactly like `seedTaskRequest` does for `task` — proving the shared
+ * drain (`drainAgentSessionRequests` → `runClaimedRequest`) is genuinely
+ * agnostic to source kind, not merely that `task` happens to work.
+ */
+async function seedAssistantTurnRequest(
+	db: import("@hyperidle/db").HyperIdleDb,
+	id: string,
+): Promise<void> {
+	const now = new Date().toISOString();
+	const founderId = `${id}-founder`;
+	const assistantId = `ast-${founderId}`;
+	const threadId = `${id}-thread`;
+	const messageId = `${id}-msg`;
+	await db.insert(users).values({
+		id: founderId,
+		kind: "human",
+		name: "Founder",
+		role: "founder",
+		status: "active",
+		createdAt: now,
+	});
+	await db.insert(users).values({
+		id: assistantId,
+		kind: "ai",
+		name: "Assistant",
+		role: "assistant",
+		status: "active",
+		harnessType: "builtin",
+		modelId: "deepseek/deepseek-v4-flash",
+		modelProvider: "openrouter",
+		createdAt: now,
+	});
+	await db.insert(threads).values({
+		id: threadId,
+		hostKind: "user",
+		hostId: founderId,
+		initiatorId: founderId,
+		participants: JSON.stringify([founderId, assistantId]),
+		lastActiveAt: now,
+		createdAt: now,
+	});
+	await db.insert(messages).values({
+		id: messageId,
+		threadId,
+		senderId: founderId,
+		type: "plain",
+		payload: JSON.stringify({ text: "What is 1 + 1?" }),
+		clientKey: `ck-${id}`,
+		createdAt: now,
+	});
+	await db.insert(agentSessionRequests).values({
+		id,
+		sourceKind: "assistant",
+		sourceId: messageId,
+		streamId: `assistant:${messageId}`,
+		taskId: null,
+		agentId: assistantId,
+		userId: founderId,
+		promptMode: "conversation",
+		sourceCorrelationJson: JSON.stringify({
+			threadId,
+			messageId,
+			userId: founderId,
+			assistantAgentId: assistantId,
+		}),
+		idempotencyKey: id,
+		status: "pending",
+		createdAt: now,
+		updatedAt: now,
+	});
+}
+
 describe("request custody drives the real drain and runtime", () => {
 	test("two concurrent drains yield exactly one winner for a pending request", async ({ db }) => {
 		await seedTaskRequest(db, "pending-race");
@@ -208,6 +285,47 @@ describe("request custody drives the real drain and runtime", () => {
 			.select()
 			.from(agentLifecycleInbox)
 			.where(eq(agentLifecycleInbox.requestId, "terminal-request"));
+		expect(inbox).toHaveLength(1);
+		expect(inbox[0]).toMatchObject({ state: "completed" });
+	});
+
+	// -------------------------------------------------------------------------
+	// AU27 W1 — AC-5's promised proof: the assistant's `sourceKind: "assistant"`
+	// request drains through the SAME shared poller as `task`, and reaches
+	// "completed" only via the real `running`-precondition CAS
+	// (`transition-run.ts`'s `transitionAgentRunLifecycle`) — not merely
+	// because a row exists. `runClaimedRequest` (runtime.ts:370-375) writes
+	// `to: "running"` BEFORE admitting; only after that does the detached
+	// `runSession` completion write `to: "completed"` under a
+	// `precondition: "running"` CAS. A request that never reached "running"
+	// cannot reach "completed" — it would CAS-miss and terminalize "failed"
+	// instead (runtime.ts's `.catch` branch), so this assertion is a genuine
+	// lifecycle-transition proof, not a row-existence check.
+	// -------------------------------------------------------------------------
+
+	test("an assistant_turn request reaches running then completed through the shared durable poller (AC-5)", async ({
+		db,
+	}) => {
+		await seedAssistantTurnRequest(db, "assistant-lifecycle-request");
+		await drain(db);
+
+		const [request] = await db
+			.select()
+			.from(agentSessionRequests)
+			.where(eq(agentSessionRequests.id, "assistant-lifecycle-request"));
+		expect(request?.status).toBe("completed");
+		expect(request?.sourceKind).toBe("assistant");
+
+		const [session] = await db
+			.select()
+			.from(sessions)
+			.where(eq(sessions.requestId, "assistant-lifecycle-request"));
+		expect(session?.sourceKind).toBe("assistant");
+
+		const inbox = await db
+			.select()
+			.from(agentLifecycleInbox)
+			.where(eq(agentLifecycleInbox.requestId, "assistant-lifecycle-request"));
 		expect(inbox).toHaveLength(1);
 		expect(inbox[0]).toMatchObject({ state: "completed" });
 	});
