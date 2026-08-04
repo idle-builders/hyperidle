@@ -1,8 +1,9 @@
 {
   "workPackage": "AU26",
-  "status": "in_progress",
-  "currentStep": "review-fixes",
+  "status": "done",
+  "currentStep": "shipped",
   "startedAt": "2026-08-04",
+  "completedAt": "2026-08-05",
   "designSkipped": {
     "reason": "no-ui-surface — backend/infra only; plan.md Pre-build gates says design not required; AC #6 requires zero frontend behavior changes",
     "decidedBy": "orchestrator"
@@ -31,7 +32,10 @@
       "recordedAt": "2026-08-04"
     },
     "final": {
-      "approved": false
+      "approved": true,
+      "recordedBy": "founder",
+      "recordedAt": "2026-08-05",
+      "note": "Founder approved the work package for ship after the review fixes landed. Review round 1 was NOT DONE (3 CRITICAL); all three CRITICALs and 9 of 12 WARNINGs are fixed and recorded under review.fixesApplied, the remaining three WARNINGs recorded as deliberate/out-of-scope/founder-accepted."
     }
   },
   "critiqueScores": {
