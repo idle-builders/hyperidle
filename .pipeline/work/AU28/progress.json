@@ -1,0 +1,20 @@
+{
+  "id": "AU28",
+  "status": "in_progress",
+  "currentStep": "architecture",
+  "startedAt": "2026-08-04",
+  "approvals": {
+    "requirements": "approved 2026-08-04 (founder, in-session; Rulings 1-9)",
+    "concept": null,
+    "final": null
+  },
+  "critiqueScores": {
+    "refine": 7.7
+  },
+  "scope": "step-1: production/development split + governance lint (founder-narrowed, Ruling 9)",
+  "successors": [
+    "step-2: role folders (blocked on AU26)",
+    "step-3: layer access patterns per world",
+    "step-4: split shared + clear violations"
+  ]
+}

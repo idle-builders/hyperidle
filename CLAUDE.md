@@ -63,7 +63,7 @@ Before any work is complete: `npm run check` (zero type errors) + `npm run lint`
 | `*.integration.test.ts` | Integration — a real integration point, no stub of it. **Service**: real DB + app (`{ db, app, eventBus }` fixtures). **Harness-facing**: the real installed binary, zero stubs, hard-fail if absent. See `.claude/rules/testing.md` §Integration tests: two archetypes. | 1-10s service / 30-90s harness |
 | `*.spec.ts` | E2E (Playwright, separate from vitest) | 5-30s per test |
 
-**Harness-facing integration tests use the REAL installed harness binary — never a stub.** Decide by "is the harness/agent/CLI the thing under test?"; if yes, a stubbed/scripted/mocked adapter makes it a mislabeled unit test, not an integration test. Gate with `requireHarness(<name>)` (claude/codex/opencode/gh = binary on PATH; builtin = `OPENROUTER_API_KEY`) — a missing harness hard-fails the run (the work can't be completed), never `skipIf` to green. Enforced via Track AR1: `requireHarness` + the `honest-harness-guard` lint check + the attestation agentic floor. **Like e2e, the harness lane is release-gated:** per-merge verify (affected scope) runs the service project only; `verify:release` (full scope) runs the harness lane and its floors (agentic executed-count + per-harness symmetry) enforce it.
+**Harness-facing integration tests use the REAL installed harness binary — never a stub.** Decide by "is the harness/agent/CLI the thing under test?"; if yes, a stubbed/scripted/mocked adapter makes it a mislabeled unit test, not an integration test. Gate with `requireHarness(<name>)` (claude/codex/opencode/gh = binary on PATH; builtin = `OPENROUTER_API_KEY`) — a missing harness hard-fails the run (the work can't be completed), never `skipIf` to green. Enforced via `requireHarness` + the attestation agentic floor. **Like e2e, the harness lane is release-gated:** per-merge verify (affected scope) runs the service project only; `verify:release` (full scope) runs the harness lane and its floors (agentic executed-count + per-harness symmetry) enforce it.
 
 `verify` is pure npm script chaining — no custom process orchestrator. The shell owns every child process. Attestation is a standalone script (`scripts/verify-attest.ts`).
 
@@ -81,7 +81,9 @@ When you make a non-obvious decision, encounter a cross-cutting constraint, or d
 
 ## Architecture
 
-Three-layer system with strict downward dependency: Human Interface → Meta Layer → Agent Runtime. No layer reaches past its neighbor.
+Package boundaries — what may import what, and how packages talk across them — are **machine-enforced**. `npm run lint` is the source of truth.
+
+Never infer a boundary rule from the code around you: an existing import may be a violation nobody has caught yet. Never restate the rules in prose either — a second copy drifts from the enforced one, and then agents follow the wrong copy.
 
 ## Documentation
 
@@ -127,7 +129,9 @@ Node.js, npm, TypeScript strict, Hono, Drizzle ORM (PGlite locally / PostgreSQL 
 
 ## Monorepo
 
-`packages/db` (schema, migrations), `packages/core-api` (Hono API + domain Services), `packages/web` (React frontend), `packages/agent-orchestration` (run orchestration, tool handlers, session requests), `packages/agent-execution` (harness registry, tool/mcp providers), `packages/shared` (types, constants, TOON codec), `packages/api-contract` (shared types), `packages/design-system` (tokens, components), `packages/desktop` (Electron shell), `packages/remote-server` / `packages/remote-worker` (remote harness execution), `packages/eval` (eval harness), `packages/eslint-plugin-authz`, `packages/eslint-plugin-design`.
+Run `ls packages/` — never work from a remembered list of package names.
+
+Never hardcode a package path in a script, guard, or config. Discover paths by scanning, and **hard-fail when a scan finds nothing** — a guard that silently matches zero files reads as passing forever.
 
 ---
 

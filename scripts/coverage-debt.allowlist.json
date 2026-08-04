@@ -1,8 +1,0 @@
-[
-	"packages/agent-execution/harness-registry/src/__tests__/AM2-builtin-gateway.integration.test.ts",
-	"packages/agent-execution/harness-registry/src/__tests__/AM2-real-harness-session-probe.integration.test.ts",
-	"packages/agent-execution/harness-registry/src/__tests__/AN1-real-harness-inherited.integration.test.ts",
-	"packages/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts",
-	"packages/agent-execution/harness-registry/src/__tests__/cli-adapter-real-binary.integration.test.ts",
-	"packages/agent-execution/harness-registry/src/__tests__/opencode-model-probe.integration.test.ts"
-]

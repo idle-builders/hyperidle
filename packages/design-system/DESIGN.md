@@ -312,7 +312,7 @@ via `color-mix(in oklab, ...)`.
 
 ## Token Enforcement Gate
 
-`npm run verify` includes `token-guard:check` (AI1), which walks all shipped CSS and TSX files under `packages/{design-system,web}/src/**` and fails if any `var(--x)` references a custom property not defined in `tokens.css`.
+Token resolution (`var(--x)` referencing a custom property defined in `tokens.css`) is not currently machine-checked — the AI1 `token-guard:check` was retired with the rest of the guard set in AU28 and has not yet been re-derived in the new governance lint.
 
 **For contributors:**
 - Every `var(--…)` in shipped source must resolve to a name declared in `packages/design-system/src/tokens.css`.

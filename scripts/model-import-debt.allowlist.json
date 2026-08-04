@@ -1,4 +1,0 @@
-[
-	"packages/agent-execution/harness-registry/src/__tests__/AM2-builtin-gateway.integration.test.ts",
-	"packages/agent-execution/harness-registry/src/__tests__/cli-adapter-real-binary.integration.test.ts"
-]
