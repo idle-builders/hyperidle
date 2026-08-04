@@ -18,7 +18,6 @@
 import { readAgentRunConfig } from "@hyperidle/agent-run-config";
 import { insertThread, listThreads } from "@hyperidle/conversation";
 import { type HyperIdleDb, type Routine, userSkills, type WriteExecutor } from "@hyperidle/db";
-import { resolveInjectedFilesystemsForAgent } from "@hyperidle/filesystems";
 import {
 	assembleSessionKnowledge,
 	list as listKnowledgeItems,
@@ -169,9 +168,6 @@ export const routineSchedulerPorts: RoutineSchedulerPorts = {
 	// time instead of `run-orchestration` reading it back at launch.
 	getTeamById: (db: HyperIdleDb, id: string) => getTeam(db, { id }),
 	assembleSessionKnowledge,
-	// AU21 §9 Increment 12 follow-up (F2 gap closure): also bake
-	// injectedFilesystems.
-	resolveInjectedFilesystemsForAgent,
 };
 
 /** Bound wrapper — starts the cron/due-eval scheduler with the real ports. */

@@ -1,47 +1,34 @@
 /**
- * AU21 §9 Increment 12 follow-up (F2 gap closure) — RED phase.
+ * AU26 F2 — the LIVE, in-layer injected-filesystem read one spawn performs.
  *
- * Decision H3 already established the pattern (task/bet/team/routine content,
- * ranked knowledge, agentConfig/harnessDisabled) — bake everything a session
- * needs at EMIT time, keyed off the resolved agentId, so run-orchestration
- * never reads core-api back at provisioning time. Decision F2 (Increment 8)
- * left ONE seam call standing that H3's later, more complete principle
- * should have superseded but never revisited:
- * `CoreApiPort.filesystems.listFilesystemsByAgent(agentId)`, backed by
- * `GET /filesystems?agentUserId=` (`routes/filesystems.ts`), which resolves
- * `sessions.agentId -> filesystem_injections -> filesystems` via
- * `listFilesystems(db, {agentId})` + `rowToFilesystem`'s parsed-`resourceRef`
- * mapping.
+ * AU21 §9 Increment 12 introduced this function as an EMIT-TIME bake helper
+ * (`resolveInjectedFilesystemsForAgent`), because `filesystems` /
+ * `filesystem_injections` still lived in core-api and `run-orchestration` was
+ * forbidden to read them. The founder's 2026-08-04 ruling moved both tables
+ * into this Layer, so the same query is now what a spawn runs directly —
+ * renamed `listInjectedFilesystemsForProvisioning`, the twin of E3's
+ * `listHeldConnectionsForProvisioning`.
  *
- * This test targets `resolveInjectedFilesystemsForAgent(db, agentId)` — a
- * NEW shared helper this Service (`@hyperidle/filesystems`, already the
- * domain owner) exposes so every per-kind emit-time resolver can bake the
- * agent's injected filesystem list onto the request payload via ordinary
- * same-layer core-api DI (never a new port, never a live read at
- * provisioning time). It does not exist yet — every test below fails at
- * IMPORT-RESOLUTION time (`resolveInjectedFilesystemsForAgent` is not
- * exported from `../index.js`). RED for the right reason: the helper has not
- * been built yet.
- *
- * Test 1 is a real regression PIN, not a compile-check: the expected value is
- * written out by hand against the fixture data — the EXACT shape the OLD
- * `GET /api/filesystems?agentUserId=` route's `rowToFilesystem` mapping
- * produces (parsed `resourceRef`, same field set — see
- * `core-api-port-increment8-connections-filesystems.integration.test.ts` for
- * the seam-level proof of that OLD behavior) — never re-derived from the
- * function under test itself.
+ * The behaviour these cases pin did NOT change with the rename, which is the
+ * point: test 1 is a real regression PIN written out by hand against the
+ * fixture data — the EXACT shape `routes/filesystems.ts`'s `rowToFilesystem`
+ * mapping produces (parsed `resourceRef`, same field set) — never re-derived
+ * from the function under test itself. What a session gets mounted is
+ * byte-identical; only WHEN it is read moved.
  */
 
 import { filesystemInjections, filesystems as filesystemsTable, teams, users } from "@hyperidle/db";
 import { test } from "@hyperidle/db/test-fixtures";
 import { describe, expect } from "vitest";
-// biome-ignore lint/correctness/noUnresolvedImports: RED phase — helper does not exist yet in this pass.
-import { resolveInjectedFilesystemsForAgent } from "../index.js";
+import {
+	type InjectedFilesystemForProvisioning,
+	listInjectedFilesystemsForProvisioning,
+} from "../index.js";
 
 const NOW = "2026-08-02T00:00:00.000Z";
 
-describe("resolveInjectedFilesystemsForAgent bakes an agent's injected filesystems at emit time", () => {
-	test("matches EXACTLY what the OLD seam-based lookup (filesystem_injections -> filesystems join) returned for a fixed agent/team/injection fixture", async ({
+describe("listInjectedFilesystemsForProvisioning reads an agent's injected filesystems live at spawn", () => {
+	test("matches EXACTLY what the route's `filesystem_injections -> filesystems` join returns for a fixed agent/team/injection fixture", async ({
 		db,
 	}) => {
 		await db
@@ -72,7 +59,7 @@ describe("resolveInjectedFilesystemsForAgent bakes an agent's injected filesyste
 			createdAt: NOW,
 		});
 
-		const result = await resolveInjectedFilesystemsForAgent(db, "agent-rifa-1");
+		const result = await listInjectedFilesystemsForProvisioning(db, "agent-rifa-1");
 
 		// Pinned by hand against the fixture above — the OLD route's
 		// `rowToFilesystem` shape, `resourceRef` already parsed.
@@ -134,10 +121,12 @@ describe("resolveInjectedFilesystemsForAgent bakes an agent's injected filesyste
 			{ agentUserId: "agent-rifa-2", filesystemId: "fs-rifa-2b", createdAt: NOW },
 		]);
 
-		const result = await resolveInjectedFilesystemsForAgent(db, "agent-rifa-2");
+		const result = await listInjectedFilesystemsForProvisioning(db, "agent-rifa-2");
 
 		expect(result).toHaveLength(2);
-		const byId = new Map(result.map((row) => [row.id, row]));
+		const byId = new Map<string, InjectedFilesystemForProvisioning>(
+			result.map((row) => [row.id, row]),
+		);
 		expect(byId.get("fs-rifa-2a")).toEqual({
 			id: "fs-rifa-2a",
 			teamId: "team-rifa-2",
@@ -174,7 +163,7 @@ describe("resolveInjectedFilesystemsForAgent bakes an agent's injected filesyste
 			createdAt: NOW,
 		});
 
-		const result = await resolveInjectedFilesystemsForAgent(db, "agent-rifa-3");
+		const result = await listInjectedFilesystemsForProvisioning(db, "agent-rifa-3");
 
 		expect(result).toEqual([]);
 	});

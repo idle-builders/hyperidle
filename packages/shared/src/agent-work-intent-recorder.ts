@@ -97,43 +97,12 @@ export interface BakedWorkIntentRequest {
 	 * has somewhere to post with zero orchestration -> core read.
 	 */
 	readonly callingThreadId?: string;
-	/**
-	 * AU21 §9 Increment 12 follow-up (F2 gap closure) — the target agent's
-	 * injected-filesystems list, baked at emit time by EVERY per-kind resolver
-	 * (all six kinds — mirrors `agentConfig`/`harnessDisabled`'s uniform Wave E
-	 * bake, not just the four `contextBundle`-baking families) from
-	 * `@hyperidle/filesystems`'s `resolveInjectedFilesystemsForAgent(db,
-	 * agentId)`, reusing the SAME `agentId` each resolver already resolves via
-	 * `requireRunnableAgent`. Replaces `mountFilesystemsForAgent`'s former live
-	 * `CoreApiPort.filesystems.listFilesystemsByAgent` seam read (Decision F2,
-	 * Increment 8) — a genuine gap H3's later, more complete principle should
-	 * have closed but never revisited. Absent/empty means "no injected
-	 * filesystems", matching the seam-based lookup's own empty-list behavior
-	 * unchanged.
-	 */
-	readonly injectedFilesystems?: readonly BakedFilesystemForProvisioning[];
-}
-
-/**
- * AU21 §9 Increment 12 follow-up (F2 gap closure) — one injected filesystem's
- * provisioning-relevant fields, baked onto `BakedWorkIntentRequest`/
- * `RunContextBundle`/`ProvisionSessionParams` at emit time. Mirrors
- * `@hyperidle/run-orchestration`'s `FilesystemForProvisioning` shape
- * (`filesystem-provisioning.ts`) exactly — duck-typed here (same idiom as
- * `SessionKnowledgeItemLike`) since `@hyperidle/shared` has zero
- * `@hyperidle/db` dependency. `resourceRef` arrives ALREADY PARSED (the bake
- * helper's own mapping mirrors the former seam route's `rowToFilesystem`).
- */
-export interface BakedFilesystemForProvisioning {
-	readonly id: string;
-	readonly teamId: string;
-	readonly source: string;
-	readonly kind: string;
-	readonly connectionId: string | null;
-	readonly resourceRef: unknown;
-	readonly writeback: string;
-	readonly state: string;
-	readonly createdAt: string;
+	// @lore AU26 F2: an `injectedFilesystems` bake used to ride here, frozen at
+	// emit time by every per-kind resolver. It is DELETED, exactly as E3 deleted
+	// the `injectedConnections` twin: `filesystems` / `filesystem_injections`
+	// are agent-orchestration's own tables now, so the spawn reads the record
+	// live and in-layer instead of consuming a snapshot that went stale between
+	// emit and drain.
 }
 
 /**

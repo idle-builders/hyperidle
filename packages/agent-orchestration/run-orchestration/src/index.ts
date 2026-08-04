@@ -12,6 +12,11 @@
 // `@hyperidle/connections` — this Layer's own table, so this is not a seam.
 // A port rather than a direct import because `run-orchestration` is itself a
 // Service (Mechanism C); the Application wires the two.
+//
+// AU26 F2: and now the filesystems half as well —
+// `InjectedFilesystemsReaderPort`, backed by `@hyperidle/filesystems`, same
+// shape and same reasoning. NOTHING about connections or filesystems rides an
+// emitted request any more.
 
 export { isAgentAtCapacity } from "./concurrency.js";
 export {
@@ -38,6 +43,7 @@ export type { FileWatcher, FileWatcherConfig } from "./file-watcher.js";
 export { startWatcher } from "./file-watcher.js";
 export {
 	type FilesystemForProvisioning,
+	type InjectedFilesystemsReaderPort,
 	mountFilesystemsForAgent,
 } from "./filesystem-provisioning.js";
 export {

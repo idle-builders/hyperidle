@@ -98,10 +98,11 @@ function buildDefenseInDepthOnlyPorts(
 			summarizeToolArgs: () => "",
 		},
 		// AU21 §9 Increment 12 follow-up (F2 gap closure): `SessionLifecyclePorts`
-		// no longer carries a `filesystems` seam reader at all — the agent's
-		// injected filesystems are baked onto `params.injectedFilesystems` at
-		// emit time instead (see `admit-session-baked-filesystems.integration.test.ts`
-		// for that proof). There is no port left here to wire as `neverCalled`.
+		// no longer carries a `filesystems` seam reader at all. AU26 F2: nor does
+		// the request carry a baked list — the spawn reads the injection record
+		// live through `ProvisionSessionDeps.injectedFilesystems`, an in-layer
+		// port (see `admit-session-live-filesystems.integration.test.ts`). There
+		// is no core-api port left here to wire as `neverCalled`.
 		// AU21 Increment 14a: `SessionLifecyclePorts` no longer carries a `cost`
 		// field at all — the cap-gate port is deleted, no replacement.
 		harnessRuntime: {

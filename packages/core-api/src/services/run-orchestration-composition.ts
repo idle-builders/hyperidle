@@ -103,10 +103,10 @@ const observabilityAccessor: SessionLifecyclePorts["observability"] = { summariz
 // AU21 §9 Increment 12 follow-up (F2 gap closure): the `filesystemsReader`
 // seam wiring that used to live here (`seamPortForActor(agentId).filesystems
 // .listFilesystemsByAgent(agentId)`) is DELETED — `SessionLifecyclePorts` no
-// longer carries a `filesystems` field at all. The agent's injected
-// filesystem list is now baked at emit time by every per-kind resolver
-// (`@hyperidle/filesystems`'s `resolveInjectedFilesystemsForAgent`) onto
-// `ProvisionSessionParams.injectedFilesystems` instead.
+// longer carries a `filesystems` field at all. AU26 F2: the emit-time bake that
+// replaced it is deleted too. The spawn reads the injection record live and
+// in-layer through `ProvisionSessionDeps.injectedFilesystems`, wired at the
+// Application composition root from `@hyperidle/filesystems`.
 //
 // AU21 §9 Increment 12 follow-up part 2 (F2 gap closure): the
 // `connectionsProvisioner` seam wiring that used to live here

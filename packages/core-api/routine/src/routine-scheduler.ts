@@ -615,10 +615,6 @@ export async function fireGenericRoutine(
 				// `settings.readServerConfig` for the `harnessDisabled` bake — no
 				// second `settings` read.
 				readServerConfig: (db) => ports.settings.readServerConfig(db),
-				// AU21 §9 Increment 12 follow-up (F2 gap closure): forward the
-				// optional injectedFilesystems bake dep (present once the
-				// composition root wires it — `routine-scheduler-bindings.ts`).
-				resolveInjectedFilesystemsForAgent: ports.resolveInjectedFilesystemsForAgent,
 			});
 			intent = await ports.workIntents.enqueueWorkIntent(tx, {
 				kind: "routine_run",

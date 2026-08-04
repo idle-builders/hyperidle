@@ -25,7 +25,6 @@ import type { Bet, HyperIdleDb, Task, Team, User } from "@hyperidle/db";
 import type {
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
-	BakedFilesystemForProvisioning,
 	SessionKnowledgeItemLike,
 } from "@hyperidle/shared";
 import { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "@hyperidle/shared";
@@ -67,19 +66,6 @@ export interface TaskRunResolverDeps {
 	 * nothing disabled" degrade), never a live read reintroduced downstream.
 	 */
 	readServerConfig?(db: HyperIdleDb): Promise<{ readonly harnessDisabled: readonly string[] }>;
-	/**
-	 * AU21 §9 Increment 12 follow-up (F2 gap closure) — optional:
-	 * `@hyperidle/filesystems`'s `resolveInjectedFilesystemsForAgent`, injected
-	 * (Mechanism C — `@hyperidle/work` cannot import `@hyperidle/filesystems`
-	 * directly) for the `injectedFilesystems` bake. Absent at a call site not
-	 * yet wired — the resolver bakes no `injectedFilesystems` (matches
-	 * `mountFilesystemsForAgent`'s "absent/empty = no injected filesystems"
-	 * degrade).
-	 */
-	resolveInjectedFilesystemsForAgent?(
-		db: HyperIdleDb,
-		agentId: string,
-	): Promise<readonly BakedFilesystemForProvisioning[]>;
 	/**
 	 * AU27 Increment 1 (Decision 0) — optional: resolve-or-create the task's
 	 * `hostKind:"task"` calling thread (`@hyperidle/conversation`'s
@@ -128,12 +114,6 @@ export interface BakedTaskRunRequest {
 	 * was supplied (see `TaskRunResolverDeps` `@lore`).
 	 */
 	readonly harnessDisabled?: readonly string[];
-	/**
-	 * AU21 §9 Increment 12 follow-up (F2 gap closure) — the target agent's
-	 * injected-filesystems list. Present only when
-	 * `deps.resolveInjectedFilesystemsForAgent` was supplied.
-	 */
-	readonly injectedFilesystems?: readonly BakedFilesystemForProvisioning[];
 	/**
 	 * AU27 Increment 1 (Decision 1) — the task's calling thread id, baked via
 	 * Decision 0's resolve-or-create. Present only when
@@ -218,12 +198,7 @@ export async function resolveTaskRunRequest(
 	// destructured into locals so TS keeps them narrowed non-optional inside
 	// the block below, no non-null assertion needed.
 	let contextBundle: BakedContextBundle | undefined;
-	const {
-		getTeamById,
-		assembleSessionKnowledge,
-		readServerConfig,
-		resolveInjectedFilesystemsForAgent,
-	} = deps;
+	const { getTeamById, assembleSessionKnowledge, readServerConfig } = deps;
 	if (getTeamById && assembleSessionKnowledge) {
 		const bet = await work.get(db, "bet", task.betId);
 		if (bet) {
@@ -240,9 +215,6 @@ export async function resolveTaskRunRequest(
 	const harnessDisabled = readServerConfig
 		? (await readServerConfig(db)).harnessDisabled
 		: undefined;
-	const injectedFilesystems = resolveInjectedFilesystemsForAgent
-		? await resolveInjectedFilesystemsForAgent(db, attempt.agentId)
-		: undefined;
 	const callingThreadId = deps.resolveOrCreateCallingThread
 		? await deps.resolveOrCreateCallingThread(db, task.id, attempt.agentId)
 		: undefined;
@@ -258,7 +230,6 @@ export async function resolveTaskRunRequest(
 		agentConfig: bakeAgentRunnableConfig(agent),
 		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
 		...(contextBundle ? { contextBundle } : {}),
-		...(injectedFilesystems !== undefined ? { injectedFilesystems } : {}),
 		...(callingThreadId !== undefined ? { callingThreadId } : {}),
 	};
 }

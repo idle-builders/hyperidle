@@ -25,6 +25,7 @@
 		"@hyperidle/db": "*",
 		"@hyperidle/dispatch": "*",
 		"@hyperidle/filesystem-mounting": "*",
+		"@hyperidle/filesystems": "*",
 		"@hyperidle/harness-registry": "*",
 		"@hyperidle/knowledge": "*",
 		"@hyperidle/org": "*",

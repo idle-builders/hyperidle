@@ -78,6 +78,7 @@ import {
 	type WriteExecutor,
 } from "@hyperidle/db";
 import { RegistryFilesystemMounter } from "@hyperidle/filesystem-mounting";
+import { listInjectedFilesystemsForProvisioning } from "@hyperidle/filesystems";
 import {
 	type AdapterPool,
 	createReturnEnforcement,
@@ -507,6 +508,14 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		// between an intent's emit and its drain reaches the sandbox (AC1(c)).
 		heldConnections: {
 			listHeldForProvisioning: () => listHeldConnectionsForProvisioning(db),
+		},
+		// @lore AU26 F2: the spawn-time injected-filesystem read, live and
+		// in-layer — the twin of `heldConnections` above. Replaces AU21 §9
+		// Increment 12's emit-time bake, so a filesystem assigned to the agent
+		// between an intent's emit and its drain is actually mounted.
+		injectedFilesystems: {
+			listInjectedForProvisioning: (agentId: string) =>
+				listInjectedFilesystemsForProvisioning(db, agentId),
 		},
 		mounter,
 	} as ProvisionSessionDeps;

@@ -24,7 +24,6 @@
 
 import { insertThread } from "@hyperidle/conversation";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
-import { resolveInjectedFilesystemsForAgent } from "@hyperidle/filesystems";
 import {
 	remove as archiveKnowledgeItem,
 	countAccesses,
@@ -923,7 +922,6 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 							{
 								requireRunnableAgent,
 								readServerConfig,
-								resolveInjectedFilesystemsForAgent,
 								// AU27: also bake callingThreadId — the knowledge item's own
 								// hostKind:"knowledge_item" thread, so a knowledge_action
 								// session's `reply` tool has somewhere real to post.

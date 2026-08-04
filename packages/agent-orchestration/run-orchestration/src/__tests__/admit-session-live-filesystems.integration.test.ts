@@ -1,27 +1,23 @@
 /**
- * AU21 §9 Increment 12 follow-up (F2 gap closure) — GREEN phase.
+ * AU26 F2 — `admitSession` Phase 4.5 mounts what the LIVE record says.
  *
- * Decision H3 (Increment 12) already established the pattern: core bakes
- * everything a session needs into the request AT EMIT TIME, keyed off the
- * resolved agentId, so run-orchestration never reads core-api back at
- * provisioning time — this landed for task/bet/team/routine content, ranked
- * knowledge, and agentConfig/harnessDisabled (all six intent kinds). Decision
- * F2 (Increment 8) left ONE seam call standing that H3's later, more
- * complete principle should have superseded but never revisited:
- * `CoreApiPort.filesystems.listFilesystemsByAgent(agentId)`, called from
- * `mountFilesystemsForAgent` inside `admitSession`'s Phase 4.5 (after sandbox
- * spawn, before context assembly).
+ * History: Decision F2 (AU21 §9 Increment 8) had Phase 4.5 call the seam
+ * `CoreApiPort.filesystems.listFilesystemsByAgent(agentId)`. AU21 §9 Increment
+ * 12 replaced that seam with an emit-time BAKE frozen onto the request. AU26 F2
+ * deletes the bake: `filesystems` / `filesystem_injections` are
+ * agent-orchestration's own tables now, so Phase 4.5 asks
+ * `ProvisionSessionDeps.injectedFilesystems` — an in-layer reader port the
+ * Application backs with `@hyperidle/filesystems` — at spawn time.
  *
  * This file proves the closure at the `admitSession` level (any of the six
  * intent kinds can reach this Phase — this test exercises it directly via
- * `provisioner.admit`, kind-agnostic): with the agent's injected-filesystems
- * list baked onto `params.injectedFilesystems` (mirroring how
- * `params.agentConfig`/`params.contextBundle` are already baked, Wave E),
- * Phase 4.5 mounts from the BAKED list alone. Proof is now STRUCTURAL, not
- * merely a runtime spy: `SessionLifecyclePorts` no longer declares a
- * `filesystems` field at all (deleted, not wired as `neverCalled` — see
- * `provisioner.ts`'s own top-of-file `filesystems` `@lore`), so there is no
- * seam reader left for Phase 4.5 to reach even if it wanted to.
+ * `provisioner.admit`, kind-agnostic). The structural half of the proof is
+ * unchanged and still stronger than a runtime spy: `SessionLifecyclePorts`
+ * declares no `filesystems` field at all, so there is no core-api seam left for
+ * Phase 4.5 to reach even if it wanted to. What changed is where the list comes
+ * from — the port is asked for THIS agent, and nothing about filesystems rides
+ * the request. The end-to-end staleness proof (assign after emit, still
+ * mounted) lives in `filesystems-added-after-emit.integration.test.ts`.
  */
 
 import { type HyperIdleDb, users } from "@hyperidle/db";
@@ -38,6 +34,11 @@ type AdmitArgs = Parameters<Provisioner["admit"]>;
 type ProvisionSessionDeps = AdmitArgs[0];
 type ProvisionSessionParams = AdmitArgs[1];
 type FakeAdapterPoolEntry = NonNullable<ReturnType<ProvisionSessionDeps["adapterPool"]["select"]>>;
+type InjectedFilesystem = Awaited<
+	ReturnType<
+		NonNullable<ProvisionSessionDeps["injectedFilesystems"]>["listInjectedForProvisioning"]
+	>
+>[number];
 type FakeHarnessAdapter = FakeAdapterPoolEntry["adapter"];
 
 /** A harness adapter that is never actually invoked by `admitSession` (Phases 1-7 stop short of harness spawn). */
@@ -64,9 +65,6 @@ function buildFakeHarnessAdapter(): FakeHarnessAdapter {
  * Every field admitSession's Phases 1-7 do not exercise in this test's
  * scenario is a `vi.fn()` that throws if ever called — an unexpected
  * invocation fails loudly instead of silently no-op'ing.
- * `filesystems.listFilesystemsByAgent` is the ONE port this file cares about:
- * it must NEVER be called once the baked `injectedFilesystems` list is
- * present.
  */
 function buildHarnessPorts(overrides: Partial<SessionLifecyclePorts>): SessionLifecyclePorts {
 	const neverCalled = (label: string) =>
@@ -85,13 +83,12 @@ function buildHarnessPorts(overrides: Partial<SessionLifecyclePorts>): SessionLi
 		observability: {
 			summarizeToolArgs: () => "",
 		},
-		// AU21 §9 Increment 12 follow-up (F2 gap closure) — GREEN phase: the
-		// `filesystems` seam reader is DELETED from `SessionLifecyclePorts`
+		// The `filesystems` seam reader is DELETED from `SessionLifecyclePorts`
 		// entirely (not merely wired as `neverCalled`) — a stronger proof than a
-		// runtime spy: there is no port left to call. The baked
-		// `params.injectedFilesystems` list this file's own tests assert on is
-		// the ONLY source `mountFilesystemsForAgent` reads from now. AU21
-		// Increment 14a: `SessionLifecyclePorts` no longer carries a `cost`
+		// runtime spy: there is no core-api port left to call. AU26 F2: the only
+		// source `mountFilesystemsForAgent` reads from is the in-layer
+		// `ProvisionSessionDeps.injectedFilesystems` port these tests supply.
+		// AU21 Increment 14a: `SessionLifecyclePorts` no longer carries a `cost`
 		// field at all — the cap-gate port is deleted, no replacement.
 		harnessRuntime: {
 			enforcementRegistry: {
@@ -134,9 +131,23 @@ function buildHarnessPorts(overrides: Partial<SessionLifecyclePorts>): SessionLi
 	return { ...base, ...overrides };
 }
 
-function buildDeps(db: HyperIdleDb, mounter: FilesystemMounter): ProvisionSessionDeps {
+function buildDeps(
+	db: HyperIdleDb,
+	mounter: FilesystemMounter,
+	injected: readonly InjectedFilesystem[] = [],
+	asked: string[] = [],
+): ProvisionSessionDeps {
 	return {
 		db,
+		// AU26 F2: the in-layer reader port. Production backs it with
+		// `@hyperidle/filesystems`' `listInjectedFilesystemsForProvisioning`;
+		// here it records which agent Phase 4.5 asked about.
+		injectedFilesystems: {
+			listInjectedForProvisioning: async (agentId: string) => {
+				asked.push(agentId);
+				return injected;
+			},
+		},
 		eventBus: new EventBus(),
 		adapterPool: {
 			select: () => ({
@@ -162,10 +173,8 @@ function buildDeps(db: HyperIdleDb, mounter: FilesystemMounter): ProvisionSessio
 	};
 }
 
-describe("admitSession mounts from the baked injected-filesystems list", () => {
-	test("mounts the baked injectedFilesystems list — the filesystems seam reader is NEVER called", async ({
-		db,
-	}) => {
+describe("admitSession mounts what the live injection record says", () => {
+	test("asks the in-layer reader for THIS agent and mounts what it returns", async ({ db }) => {
 		const now = new Date().toISOString();
 		await db.insert(users).values({
 			id: "agent-baked-fs-1",
@@ -188,7 +197,7 @@ describe("admitSession mounts from the baked injected-filesystems list", () => {
 		const ports = buildHarnessPorts({});
 		const provisioner = createProvisioner(ports);
 
-		const bakedFilesystem = {
+		const liveFilesystem: InjectedFilesystem = {
 			id: "fs-baked-1",
 			teamId: "team-baked-1",
 			source: "local",
@@ -212,23 +221,23 @@ describe("admitSession mounts from the baked injected-filesystems list", () => {
 				teamId: null,
 			},
 			harnessDisabled: [],
-			// AU21 §9 Increment 12 follow-up (F2 gap closure) — the field this fix
-			// adds: NOT yet declared on `ProvisionSessionParams` (RED). Every
-			// per-kind resolver will bake this from the SAME
-			// `resolveInjectedFilesystemsForAgent(db, agentId)` call the emit-time
-			// resolver makes, one layer up.
-			injectedFilesystems: [bakedFilesystem],
 		} as ProvisionSessionParams;
 
-		const admitted = await provisioner.admit(buildDeps(db as HyperIdleDb, mounter), params);
+		const asked: string[] = [];
+		const admitted = await provisioner.admit(
+			buildDeps(db as HyperIdleDb, mounter, [liveFilesystem], asked),
+			params,
+		);
 
+		// Nothing about filesystems rode the request; the port was asked instead.
+		expect(asked).toEqual(["agent-baked-fs-1"]);
 		expect(admitted.mountedFilesystems).toHaveLength(1);
 		expect(admitted.mountedFilesystems[0]?.id).toBe("fs-baked-1");
 		expect(mountCalls).toHaveLength(1);
 		expect(mountCalls[0]?.resourceRef).toEqual({ kind: "doc_set", folder: "/docs" });
 	});
 
-	test("an agent with NO baked injected filesystems mounts nothing — unchanged from today's behavior, still zero reader call", async ({
+	test("an agent with NO injected filesystems mounts nothing — unchanged from today's behavior", async ({
 		db,
 	}) => {
 		const now = new Date().toISOString();
@@ -261,7 +270,6 @@ describe("admitSession mounts from the baked injected-filesystems list", () => {
 				teamId: null,
 			},
 			harnessDisabled: [],
-			injectedFilesystems: [],
 		} as ProvisionSessionParams;
 
 		const admitted = await provisioner.admit(buildDeps(db as HyperIdleDb, mounter), params);

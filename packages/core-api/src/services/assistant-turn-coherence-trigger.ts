@@ -47,7 +47,6 @@
 
 import { findMessage, resolveAssistantTurnRequest } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { resolveInjectedFilesystemsForAgent } from "@hyperidle/filesystems";
 import { enqueueWorkIntent, listPendingIntentsByKind } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import { createLogger, type EventBus, type ThreadMessageAppendedEvent } from "@hyperidle/shared";
@@ -78,7 +77,6 @@ async function rebakePendingSiblingsForThread(
 			// carries harnessDisabled + the agent's injected filesystems —
 			// consistent with the "granted" reengagement path's forwarding.
 			readServerConfig,
-			resolveInjectedFilesystemsForAgent,
 		});
 		await enqueueWorkIntent(db, {
 			kind: "assistant_turn",

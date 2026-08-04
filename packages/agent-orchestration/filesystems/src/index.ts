@@ -20,15 +20,15 @@ export {
 	saveInjection,
 	updateFilesystemState,
 } from "./filesystem-registry.js";
+export type { InjectedFilesystemForProvisioning } from "./injected-filesystems-for-provisioning.js";
+// AU26 F2 — the LIVE, in-layer read one spawn performs. It replaces AU21 §9
+// Increment 12's emit-time bake helper outright: no per-kind resolver calls
+// anything about filesystems any more, and nothing about filesystems rides the
+// request. See this module's own top-of-file `@lore`.
+export { listInjectedFilesystemsForProvisioning } from "./injected-filesystems-for-provisioning.js";
 export type { LocalPathInfo } from "./inspect-local-path.js";
 export { inspectLocalPath } from "./inspect-local-path.js";
 export type {
 	FilesystemsGitRunnerFactory,
 	FilesystemsServiceConnectionResolver,
 } from "./ports.js";
-export type { InjectedFilesystemForAgent } from "./resolve-injected-filesystems-for-agent.js";
-// AU21 §9 Increment 12 follow-up (F2 gap closure) — the emit-time bake helper
-// every per-kind resolver calls to resolve an agent's injected filesystems at
-// EMIT TIME, replacing the deleted `CoreApiPort.filesystems.listFilesystemsByAgent`
-// seam call. See this module's own top-of-file `@lore`.
-export { resolveInjectedFilesystemsForAgent } from "./resolve-injected-filesystems-for-agent.js";

@@ -31,7 +31,7 @@
  */
 
 import type { HyperIdleDb, User } from "@hyperidle/db";
-import type { BakedAgentRunnableConfig, BakedFilesystemForProvisioning } from "@hyperidle/shared";
+import type { BakedAgentRunnableConfig } from "@hyperidle/shared";
 import { bakeAgentRunnableConfig } from "@hyperidle/shared";
 import * as work from "./work-service.js";
 
@@ -47,17 +47,6 @@ export interface SessionStartResolverDeps {
 	 * degrade).
 	 */
 	readServerConfig?(db: HyperIdleDb): Promise<{ readonly harnessDisabled: readonly string[] }>;
-	/**
-	 * AU21 §9 Increment 12 follow-up (F2 gap closure) — optional:
-	 * `@hyperidle/filesystems`'s `resolveInjectedFilesystemsForAgent`, injected
-	 * (Mechanism C — `@hyperidle/work` cannot import `@hyperidle/filesystems`
-	 * directly) for the `injectedFilesystems` bake. Absent at a call site not
-	 * yet wired — the resolver bakes no `injectedFilesystems`.
-	 */
-	resolveInjectedFilesystemsForAgent?(
-		db: HyperIdleDb,
-		agentId: string,
-	): Promise<readonly BakedFilesystemForProvisioning[]>;
 	/**
 	 * AU27 Increment 1 (Decision 0) — optional: resolve-or-create the task's
 	 * `hostKind:"task"` calling thread (Mechanism C — `@hyperidle/work` cannot
@@ -97,12 +86,6 @@ export interface BakedSessionStartRequest {
 	 */
 	readonly harnessDisabled?: readonly string[];
 	/**
-	 * AU21 §9 Increment 12 follow-up (F2 gap closure) — the target agent's
-	 * injected-filesystems list. Present only when
-	 * `deps.resolveInjectedFilesystemsForAgent` was supplied.
-	 */
-	readonly injectedFilesystems?: readonly BakedFilesystemForProvisioning[];
-	/**
 	 * AU27 Increment 1 (Decision 1) — the task's calling thread id, baked via
 	 * Decision 0's resolve-or-create. Present only when
 	 * `deps.resolveOrCreateCallingThread` was supplied.
@@ -128,9 +111,6 @@ export async function resolveSessionStartRequest(
 	const harnessDisabled = deps.readServerConfig
 		? (await deps.readServerConfig(db)).harnessDisabled
 		: undefined;
-	const injectedFilesystems = deps.resolveInjectedFilesystemsForAgent
-		? await deps.resolveInjectedFilesystemsForAgent(db, input.requestedAgentId)
-		: undefined;
 	const callingThreadId = deps.resolveOrCreateCallingThread
 		? await deps.resolveOrCreateCallingThread(db, task.id, input.requestedAgentId)
 		: undefined;
@@ -144,7 +124,6 @@ export async function resolveSessionStartRequest(
 		sourceCorrelation: { taskId: task.id, teamId: task.teamId },
 		agentConfig: bakeAgentRunnableConfig(agent),
 		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
-		...(injectedFilesystems !== undefined ? { injectedFilesystems } : {}),
 		...(callingThreadId !== undefined ? { callingThreadId } : {}),
 	};
 }

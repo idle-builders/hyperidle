@@ -1,16 +1,17 @@
 /**
- * AU21 §9 Increment 12 follow-up (F2 gap closure).
+ * AU26 F2 — `run-orchestration -> filesystems` stays a NON-edge.
  *
- * Decision F2 (Increment 8) left ONE seam call standing that Decision H3's
- * later, more complete "bake everything at emit time" principle should have
- * superseded but never revisited: `CoreApiPort.filesystems.listFilesystemsByAgent`,
- * wired at `run-orchestration-composition.ts` as `filesystemsReader` onto
- * `SessionLifecyclePorts.filesystems`. That wiring — and the port field itself
- * — is now DELETED: the agent's injected filesystem list is baked at emit
- * time by every per-kind resolver instead
- * (`@hyperidle/filesystems`'s `resolveInjectedFilesystemsForAgent`).
+ * History: Decision F2 (AU21 §9 Increment 8) wired
+ * `CoreApiPort.filesystems.listFilesystemsByAgent` onto
+ * `SessionLifecyclePorts.filesystems` at `run-orchestration-composition.ts`.
+ * AU21 §9 Increment 12 deleted that seam in favour of an emit-time bake. AU26 F2
+ * deletes the bake too: `@hyperidle/filesystems` is an agent-orchestration
+ * Service now, and the spawn reads the record live through
+ * `ProvisionSessionDeps.injectedFilesystems`, a port the APPLICATION
+ * (`remote-server`'s `create-server.ts`) composes — never core-api's
+ * composition root.
  *
- * @lore CONFUSION (flagged during the RED phase, confirmed here): the raw
+ * @lore CONFUSION (flagged during the original RED phase, still true): the raw
  * composition-bundle detector (`detectHiddenCompositionEdges`) never actually
  * flagged `run-orchestration::filesystems` as a hidden edge — the F2 seam call
  * routed through a LOCAL relative import (`./core-api-port-composition.js`),
@@ -19,10 +20,10 @@
  * composition-root file). So this pair was never present in `DEFERRED_FOLLOWUP`
  * and was never a tracked/deferred edge to begin with — this test is not "the
  * edge moved from deferred to closed" (there was no deferred entry), it is a
- * closure PIN: this fix's deletion must not accidentally reintroduce a real,
- * DETECTABLE `run-orchestration -> filesystems` edge (a literal
- * `@hyperidle/filesystems` import inside a composition-root file), and the
- * dead port method must stay off `CoreApiPort` entirely. Mirrors
+ * closure PIN: neither the bake's deletion nor the port that replaced it may
+ * reintroduce a real, DETECTABLE `run-orchestration -> filesystems` edge (a
+ * literal `@hyperidle/filesystems` import inside core-api's composition root),
+ * and the dead port method must stay off `CoreApiPort` entirely. Mirrors
  * `run-orchestration-users-edge-closed.test.ts`'s shape for the users edge.
  */
 
@@ -56,7 +57,7 @@ describe("run-orchestration -> filesystems composition edge stays closed", () =>
 
 		expect(
 			filesystemsEdge,
-			"expected zero run-orchestration -> filesystems edge — the agent's injected filesystems are baked at emit time, never read back at provisioning time",
+			"expected zero run-orchestration -> filesystems edge — the injected-filesystem reader is an in-layer port the Application composes, never a core-api composition-root bundle",
 		).toBeUndefined();
 	});
 

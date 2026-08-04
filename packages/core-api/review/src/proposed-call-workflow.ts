@@ -44,7 +44,6 @@ import {
 import type {
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
-	BakedFilesystemForProvisioning,
 	SessionKnowledgeItemLike,
 	ToolResult,
 } from "@hyperidle/shared";
@@ -212,17 +211,6 @@ export interface ReengagementResolverDeps {
 	 */
 	readServerConfig?(db: HyperIdleDb): Promise<{ readonly harnessDisabled: readonly string[] }>;
 	/**
-	 * AU21 §9 Increment 12 follow-up (F2 gap closure) — optional:
-	 * `@hyperidle/filesystems`'s `resolveInjectedFilesystemsForAgent`, injected
-	 * (Mechanism C — `@hyperidle/review` cannot import `@hyperidle/filesystems`
-	 * directly) for the `injectedFilesystems` bake. Absent at a call site not
-	 * yet wired — the resolver bakes no `injectedFilesystems`.
-	 */
-	resolveInjectedFilesystemsForAgent?(
-		db: HyperIdleDb,
-		agentId: string,
-	): Promise<readonly BakedFilesystemForProvisioning[]>;
-	/**
 	 * AU27 Increment 1 (Decision 0) — optional: resolve-or-create the task's
 	 * `hostKind:"task"` calling thread (Mechanism C — `@hyperidle/review`
 	 * cannot import `@hyperidle/conversation` directly). Absent at a call site
@@ -239,7 +227,7 @@ export interface ReengagementResolverDeps {
  * drift out of sync on which optional deps get forwarded (AU21 review fix:
  * the "granted" branch previously forwarded only
  * `{getTaskById, requireRunnableAgent}`, silently dropping every optional
- * contextBundle dep including `resolveInjectedFilesystemsForAgent`).
+ * contextBundle dep).
  */
 function optionalReengagementBakeDeps(
 	deps: Partial<ReengagementResolverDeps>,
@@ -251,9 +239,6 @@ function optionalReengagementBakeDeps(
 			? { assembleSessionKnowledge: deps.assembleSessionKnowledge }
 			: {}),
 		...(deps.readServerConfig ? { readServerConfig: deps.readServerConfig } : {}),
-		...(deps.resolveInjectedFilesystemsForAgent
-			? { resolveInjectedFilesystemsForAgent: deps.resolveInjectedFilesystemsForAgent }
-			: {}),
 		...(deps.resolveOrCreateCallingThread
 			? { resolveOrCreateCallingThread: deps.resolveOrCreateCallingThread }
 			: {}),
@@ -300,12 +285,6 @@ export interface BakedReengagementRequest {
 	 * was supplied.
 	 */
 	readonly harnessDisabled?: readonly string[];
-	/**
-	 * AU21 §9 Increment 12 follow-up (F2 gap closure) — the target agent's
-	 * injected-filesystems list. Present only when
-	 * `deps.resolveInjectedFilesystemsForAgent` was supplied.
-	 */
-	readonly injectedFilesystems?: readonly BakedFilesystemForProvisioning[];
 	/**
 	 * AU27 Increment 1 (Decision 1) — the task's calling thread id, baked via
 	 * Decision 0's resolve-or-create. Present only when
@@ -371,13 +350,9 @@ export async function resolveReengagementRequest(
 			};
 		}
 	}
-	const { readServerConfig, resolveInjectedFilesystemsForAgent, resolveOrCreateCallingThread } =
-		deps;
+	const { readServerConfig, resolveOrCreateCallingThread } = deps;
 	const harnessDisabled = readServerConfig
 		? (await readServerConfig(db)).harnessDisabled
-		: undefined;
-	const injectedFilesystems = resolveInjectedFilesystemsForAgent
-		? await resolveInjectedFilesystemsForAgent(db, view.grant.agentScope)
 		: undefined;
 	const callingThreadId = resolveOrCreateCallingThread
 		? await resolveOrCreateCallingThread(db, task.id, view.grant.agentScope)
@@ -398,7 +373,6 @@ export async function resolveReengagementRequest(
 		...(contextBundle ? { contextBundle } : {}),
 		agentConfig: bakeAgentRunnableConfig(agent),
 		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
-		...(injectedFilesystems !== undefined ? { injectedFilesystems } : {}),
 		...(callingThreadId !== undefined ? { callingThreadId } : {}),
 	};
 }
@@ -772,7 +746,6 @@ export async function handleUnconsumedGrantOnSessionEnd(
 			getTeamById: opts.getTeamById,
 			assembleSessionKnowledge: opts.assembleSessionKnowledge,
 			readServerConfig: opts.readServerConfig,
-			resolveInjectedFilesystemsForAgent: opts.resolveInjectedFilesystemsForAgent,
 		});
 	}
 }
@@ -808,6 +781,5 @@ export async function reengageOnAdmissionFailure(
 		getTeamById: opts.getTeamById,
 		assembleSessionKnowledge: opts.assembleSessionKnowledge,
 		readServerConfig: opts.readServerConfig,
-		resolveInjectedFilesystemsForAgent: opts.resolveInjectedFilesystemsForAgent,
 	});
 }

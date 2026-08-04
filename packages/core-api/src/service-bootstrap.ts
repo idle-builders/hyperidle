@@ -22,7 +22,6 @@ import {
 import { deleteCredential, readCredentials, writeCredential } from "@hyperidle/credentials";
 import type { WriteExecutor } from "@hyperidle/db";
 import { type HyperIdleDb, propagationLog } from "@hyperidle/db";
-import { resolveInjectedFilesystemsForAgent } from "@hyperidle/filesystems";
 import { assembleSessionKnowledge, reapAccessLog } from "@hyperidle/knowledge";
 import {
 	enqueue,
@@ -464,9 +463,6 @@ export function registerCoreDomainServices(ctx: {
 				getTeamById: (db: HyperIdleDb, id: string) => getTeam(db, { id }),
 				assembleSessionKnowledge,
 				readServerConfig,
-				// AU21 §9 Increment 12 follow-up (F2 gap closure): also bake
-				// injectedFilesystems.
-				resolveInjectedFilesystemsForAgent,
 				// AU27 Increment 1 (Decision 0): also bake callingThreadId for the
 				// liveness-net re-provision.
 				resolveOrCreateCallingThread,

@@ -283,16 +283,11 @@ describe("assistant_turn B‴ coherence trigger — a thread reply re-bakes a pe
 				(row) => row.senderId === assistantAgentId && row.payload.includes(replyText),
 			),
 		).toBe(true);
-		// The re-baked intent must still carry the assistant agent's injected
-		// filesystems — not silently dropped by the rebake path.
-		const freshBaked = freshIntent?.bakedRequestJson
-			? (JSON.parse(freshIntent.bakedRequestJson) as {
-					injectedFilesystems?: readonly { id: string }[];
-				})
-			: undefined;
-		expect(freshBaked?.injectedFilesystems).toEqual([
-			expect.objectContaining({ id: "fs-inc11-b3-coherence" }),
-		]);
+		// @lore AU26 F2: this used to assert the re-baked intent still carried the
+		// assistant agent's injected filesystems. That bake is deleted — the spawn
+		// reads the injection record live and in-layer — so the rebake path must
+		// carry nothing about filesystems either.
+		expect(freshIntent?.bakedRequestJson ?? "").not.toContain("injectedFilesystems");
 		// @lore AU26 E3: K1's connection assertion here is gone with the bake.
 		// The rebake path must still carry nothing about connections.
 		expect(freshIntent?.bakedRequestJson ?? "").not.toContain("injectedConnections");

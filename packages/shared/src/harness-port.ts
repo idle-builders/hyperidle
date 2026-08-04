@@ -42,11 +42,7 @@
  * fields).
  */
 
-import type {
-	BakedAgentRunnableConfig,
-	BakedContextBundle,
-	BakedFilesystemForProvisioning,
-} from "./agent-work-intent-recorder.js";
+import type { BakedAgentRunnableConfig, BakedContextBundle } from "./agent-work-intent-recorder.js";
 import type { EventBus } from "./event-bus.js";
 import type { SessionOutcome } from "./events.js";
 import type { ConversationMessage, SessionMetrics } from "./harness/harness-adapter.js";
@@ -121,13 +117,6 @@ export interface RunContextBundle {
 	 * over the planning loop). Absent for a session with no transcript.
 	 */
 	readonly transcript?: readonly ConversationMessage[];
-	/**
-	 * AU21 §9 Increment 12 follow-up (F2 gap closure) — the target agent's
-	 * baked injected-filesystems list, sourced from the drained
-	 * `AgentSessionRequest.payloadJson` (zero db read). Absent/empty means "no
-	 * injected filesystems". Feeds `admitSession`'s Phase 4.5 mount step.
-	 */
-	readonly injectedFilesystems?: readonly BakedFilesystemForProvisioning[];
 }
 
 /** Narrow mirror of `@hyperidle/session-lifecycle`'s `AdmittedSession` — only the field `run-orchestration` reads directly; the rest flows through opaquely. */

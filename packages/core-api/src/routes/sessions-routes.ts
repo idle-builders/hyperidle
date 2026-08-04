@@ -1,5 +1,4 @@
 import type { ExplicitSessionStart, HyperIdleDb } from "@hyperidle/db";
-import { resolveInjectedFilesystemsForAgent } from "@hyperidle/filesystems";
 import { createBareRun } from "@hyperidle/run-orchestration";
 import { createSessionRequest, findSessionRequest } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
@@ -188,7 +187,6 @@ export function createSessionRoutes(
 							{
 								requireRunnableAgent,
 								readServerConfig,
-								resolveInjectedFilesystemsForAgent,
 								// AU27 Increment 1 (Decision 0): also bake callingThreadId.
 								resolveOrCreateCallingThread,
 							},

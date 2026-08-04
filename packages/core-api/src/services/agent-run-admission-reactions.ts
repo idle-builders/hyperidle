@@ -32,7 +32,6 @@
 
 import { insertThread } from "@hyperidle/conversation";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
-import { resolveInjectedFilesystemsForAgent } from "@hyperidle/filesystems";
 import {
 	type CreateReviewItemResult,
 	createReviewItem,
@@ -119,9 +118,6 @@ async function reactToAdmissionFailure(
 				getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
 				requireRunnableAgent,
 				readServerConfig,
-				// AU21 §9 Increment 12 follow-up (F2 gap closure): also bake
-				// injectedFilesystems.
-				resolveInjectedFilesystemsForAgent,
 				// AU27 Increment 1 (Decision 0): also bake callingThreadId.
 				resolveOrCreateCallingThread,
 			});

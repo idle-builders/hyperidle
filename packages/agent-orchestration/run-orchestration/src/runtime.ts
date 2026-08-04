@@ -7,7 +7,6 @@ import {
 	agentSessionRequestInputSchema,
 	type BakedAgentRunnableConfig,
 	type BakedContextBundle,
-	type BakedFilesystemForProvisioning,
 	ConcurrencyLimitError,
 	type ConversationMessage,
 	type HarnessPortDeps,
@@ -161,25 +160,6 @@ function parseBakedHarnessDisabled(request: AgentSessionRequest): readonly strin
 	const payload = JSON.parse(request.payloadJson) as unknown;
 	if (!payload || typeof payload !== "object" || !("harnessDisabled" in payload)) return undefined;
 	return (payload as { harnessDisabled?: readonly string[] }).harnessDisabled;
-}
-
-/**
- * AU21 §9 Increment 12 follow-up (F2 gap closure) — every intent kind's baked
- * injected-filesystems list, carried on `request.payloadJson` the same way
- * `agentConfig`/`harnessDisabled` ride it. Feeds `admitSession`'s Phase 4.5
- * mount step — replaces the former live `ports.filesystems.listFilesystemsByAgent`
- * seam read (Decision F2) entirely.
- */
-function parseBakedInjectedFilesystems(
-	request: AgentSessionRequest,
-): readonly BakedFilesystemForProvisioning[] | undefined {
-	if (!request.payloadJson) return undefined;
-	const payload = JSON.parse(request.payloadJson) as unknown;
-	if (!payload || typeof payload !== "object" || !("injectedFilesystems" in payload)) {
-		return undefined;
-	}
-	return (payload as { injectedFilesystems?: readonly BakedFilesystemForProvisioning[] })
-		.injectedFilesystems;
 }
 
 /**
@@ -454,7 +434,6 @@ async function consumeAgentSessionRequest(
 	const contextBundle = parseBakedContextBundle(claimedRequest);
 	const agentConfig = parseBakedAgentConfig(claimedRequest);
 	const harnessDisabled = parseBakedHarnessDisabled(claimedRequest);
-	const injectedFilesystems = parseBakedInjectedFilesystems(claimedRequest);
 	const callingThreadId = parseBakedCallingThreadId(claimedRequest);
 	const rawTranscript = parseBakedTranscript(claimedRequest);
 	const transcript = rawTranscript
@@ -474,7 +453,6 @@ async function consumeAgentSessionRequest(
 		...(contextBundle ? { contextBundle } : {}),
 		...(agentConfig ? { agentConfig } : {}),
 		...(harnessDisabled ? { harnessDisabled } : {}),
-		...(injectedFilesystems ? { injectedFilesystems } : {}),
 		...(callingThreadId ? { callingThreadId } : {}),
 		...(transcript ? { transcript } : {}),
 		requestContext: {
