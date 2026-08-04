@@ -1,4 +1,5 @@
 import { encryptCredentialValue } from "@hyperidle/connections";
+import { SESSION_NOT_RETURNED_NOTICE_TEXT } from "@hyperidle/conversation";
 import {
 	agentSessionRequests,
 	messages,
@@ -129,6 +130,32 @@ describe("[harness:builtin] assistant durable handoff", () => {
 			// poller as every other kind — no second execution entry (AC-5).
 			expect(await db.select().from(agentSessionRequests)).toHaveLength(1);
 			expect(await db.select().from(sessions)).toHaveLength(1);
+
+			// W2 fix (review): a message merely EXISTING from the assistant is not
+			// proof of a real reply — Increment 5's never-silent notice ("I
+			// couldn't finish that turn...") is ALSO authored as `event.agentId`
+			// (the assistant), so a turn that never called `reply`, exhausted the
+			// force budget, and got caught by the never-silent net would satisfy
+			// the row-count assertion above. Assert the actual reply TEXT the
+			// prompt asked for, and explicitly rule out the notice — same fix
+			// `assistant-reply-live-harness.integration.test.ts` already applies.
+			const [assistantReply] = await db
+				.select()
+				.from(messages)
+				.where(eq(messages.senderId, "ast-au9-real-human"));
+			const payload = JSON.parse(assistantReply?.payload ?? "{}") as { text?: string };
+			expect(
+				payload.text,
+				`assistant reply had no text payload: ${JSON.stringify(assistantReply)}`,
+			).toBeDefined();
+			expect(
+				payload.text,
+				"assistant reply was the never-silent notice, not a real reply — the agent never called reply()",
+			).not.toBe(SESSION_NOT_RETURNED_NOTICE_TEXT);
+			expect(
+				payload.text,
+				`assistant reply did not contain the required text: ${payload.text}`,
+			).toContain("durable handoff works");
 		} finally {
 			await server.dispose();
 			delete process.env.HYPERIDLE_API_KEY;
