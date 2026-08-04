@@ -11,7 +11,7 @@
  *   beside knowledge edit for experience parity review (AC3, AC8)
  *
  * Strategy: page.route() mocks. No DB seeding.
- * Screenshots: e2e/screenshots/ag3-*.png
+ * Screenshots: __e2e__/screenshots/ag3-*.png
  *
  * @lore AG3: BetCreateDialog deleted; bet creation is full-page at /work/bet/new.
  * WorkBetCreate uses useTeams() so /api/teams must be mocked before goto.
@@ -190,7 +190,7 @@ test.describe("AG3 — Full-page bet create (AC8, AC5)", () => {
 
 		// Screenshot: bet create surface (AC8 evidence)
 		await page.screenshot({
-			path: "e2e/screenshots/ag3-bet-create-surface.png",
+			path: "__e2e__/screenshots/ag3-bet-create-surface.png",
 			fullPage: false,
 		});
 	});
@@ -211,7 +211,7 @@ test.describe("AG3 — Full-page bet create (AC8, AC5)", () => {
 
 		// Screenshot: live title preview state (AC8 evidence)
 		await page.screenshot({
-			path: "e2e/screenshots/ag3-bet-create-with-title.png",
+			path: "__e2e__/screenshots/ag3-bet-create-with-title.png",
 			fullPage: false,
 		});
 	});
@@ -229,7 +229,7 @@ test.describe("AG3 — Full-page bet create (AC8, AC5)", () => {
 
 		// Screenshot: commitments aside with appetite
 		await page.screenshot({
-			path: "e2e/screenshots/ag3-bet-create-commitments-aside.png",
+			path: "__e2e__/screenshots/ag3-bet-create-commitments-aside.png",
 			fullPage: false,
 		});
 	});
@@ -313,7 +313,7 @@ test.describe("AG3 — Bet edit parity screenshots (AC3, AC8)", () => {
 
 		// Screenshot: bet edit surface (AC3/AC8 evidence)
 		await page.screenshot({
-			path: "e2e/screenshots/ag3-bet-edit-surface.png",
+			path: "__e2e__/screenshots/ag3-bet-edit-surface.png",
 			fullPage: false,
 		});
 	});
@@ -326,7 +326,7 @@ test.describe("AG3 — Bet edit parity screenshots (AC3, AC8)", () => {
 
 		// Screenshot: knowledge create surface beside bet create (AC8 parity evidence)
 		await page.screenshot({
-			path: "e2e/screenshots/ag3-knowledge-create-parity.png",
+			path: "__e2e__/screenshots/ag3-knowledge-create-parity.png",
 			fullPage: false,
 		});
 	});
