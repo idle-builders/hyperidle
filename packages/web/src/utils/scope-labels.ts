@@ -61,18 +61,21 @@ export const SCOPE_PILL_OPTIONS: ScopePillOption[] = [
 
 /**
  * Options for the knowledge create/change flow scope picker.
- * Shared → factory | Team → team | Private → user | Role → practice |
- * Filesystem → filesystem.
+ * Shared → factory | Team → team | Private → user | Role → practice.
  *
  * @lore AV3 A2: AD6 collapsed routine human authoring to three common buckets,
- * but AV3 made role/filesystem scopes first-class readable names. They must also
- * be selectable by humans/agents, so the picker exposes them while preserving the
+ * but AV3 made the role scope a first-class readable name. It must also be
+ * selectable by humans/agents, so the picker exposes it while preserving the
  * original three bucket labels.
+ *
+ * @lore AU26 F2 (founder ruling): the fifth option, Filesystem, is REMOVED. A
+ * filesystem is an agent's execution environment, not a place knowledge lives,
+ * and this picker entry was the last thing keeping the `filesystems` record in
+ * core-api while its mounting engine sat in agent-orchestration.
  */
 export const SCOPE_CREATE_OPTIONS: ScopeCreateOption[] = [
 	{ label: "Shared", id: "shared", scopeKind: "factory" },
 	{ label: "Team", id: "team", scopeKind: "team" },
 	{ label: "Private", id: "private", scopeKind: "user" },
 	{ label: "Role", id: "role", scopeKind: "practice" },
-	{ label: "Filesystem", id: "filesystem", scopeKind: "filesystem" },
 ];

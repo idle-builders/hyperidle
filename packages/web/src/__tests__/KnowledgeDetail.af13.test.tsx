@@ -248,7 +248,7 @@ describe("AF13 §4A — ScopeChangeDialog renders labeled options (not raw enums
 		vi.clearAllMocks();
 	});
 
-	it("renders labeled scope pills including Role and Filesystem — not raw enums", () => {
+	it("renders labeled scope pills including Role — not raw enums", () => {
 		render(
 			<MemoryRouter>
 				<ScopeChangeDialog
@@ -273,7 +273,8 @@ describe("AF13 §4A — ScopeChangeDialog renders labeled options (not raw enums
 		expect(optionTexts).toContain("Team");
 		expect(optionTexts).toContain("Private");
 		expect(optionTexts).toContain("Role");
-		expect(optionTexts).toContain("Filesystem");
+		// AU26 F2 (founder ruling): the Filesystem scope is gone.
+		expect(optionTexts).not.toContain("Filesystem");
 
 		expect(optionTexts).not.toContain("factory");
 		expect(optionTexts).not.toContain("practice");
@@ -281,7 +282,7 @@ describe("AF13 §4A — ScopeChangeDialog renders labeled options (not raw enums
 		expect(optionTexts).not.toContain("task");
 		expect(optionTexts).not.toContain("product");
 
-		expect(optionTexts.filter((t) => t.length > 0)).toHaveLength(5);
+		expect(optionTexts.filter((t) => t.length > 0)).toHaveLength(4);
 	});
 });
 

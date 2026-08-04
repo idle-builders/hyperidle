@@ -53,13 +53,14 @@ describe("AD6: KnowledgeCreateDialog — 3-pill scope picker", () => {
 		vi.clearAllMocks();
 	});
 
-	it("shows scope pills including Role and Filesystem when not locked", () => {
+	it("shows scope pills including Role when not locked", () => {
 		render(<KnowledgeCreateDialog {...BASE_PROPS} />);
 		expect(screen.getByTestId("scope-pill-dialog-shared")).toBeInTheDocument();
 		expect(screen.getByTestId("scope-pill-dialog-team")).toBeInTheDocument();
 		expect(screen.getByTestId("scope-pill-dialog-private")).toBeInTheDocument();
 		expect(screen.getByTestId("scope-pill-dialog-role")).toBeInTheDocument();
-		expect(screen.getByTestId("scope-pill-dialog-filesystem")).toBeInTheDocument();
+		// AU26 F2 (founder ruling): the Filesystem scope is gone.
+		expect(screen.queryByTestId("scope-pill-dialog-filesystem")).not.toBeInTheDocument();
 	});
 
 	it("does not show a combobox dropdown (AD6 replaced with pills)", () => {

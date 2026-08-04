@@ -190,87 +190,25 @@ describe("resolveScopeName — resolves scopeId to human-readable scope name", (
 		expect(result).toBe("Shared");
 	});
 
-	// ── filesystem (AV3 amendment A2) ────────────────────────────────────────
-	it("filesystem code kind → repo last path segment ('owner/nimmly' → 'nimmly')", async () => {
+	// ── filesystem is no longer a scope kind (AU26 F2, founder ruling) ───────
+	// AV3 amendment A2 gave knowledge items a `filesystem` scope, which read
+	// `filesystems` to compose a display name. That scope is DELETED: a
+	// filesystem is an agent's execution environment, not a place knowledge
+	// lives, and the scope was the one reason the record had to stay
+	// core-owned. `resolveScopeName` no longer touches `filesystems` at all —
+	// the string falls through to the unknown-kind fallback like any other.
+	it("filesystem is an unknown scope kind now — falls through to the shared fallback", async () => {
 		const { filesystems } = await import("@hyperidle/db");
 		const resourceRef = JSON.stringify({ kind: "code", repo: "owner/nimmly", branch: "main" });
 		const db = makeDb(new Map([[filesystems, [{ source: "github", kind: "code", resourceRef }]]]));
 		const result = await resolveScopeName(db, "filesystem", "fs-1");
-		expect(result).toBe("nimmly");
-	});
-
-	it("filesystem code kind bare name → last segment ('my-repo' → 'my-repo')", async () => {
-		const { filesystems } = await import("@hyperidle/db");
-		const resourceRef = JSON.stringify({ kind: "code", repo: "my-repo", branch: "main" });
-		const db = makeDb(new Map([[filesystems, [{ source: "local", kind: "code", resourceRef }]]]));
-		const result = await resolveScopeName(db, "filesystem", "fs-2");
-		expect(result).toBe("my-repo");
-	});
-
-	it("filesystem doc_set kind → folder basename ('/home/user/docs/my-notes' → 'my-notes')", async () => {
-		const { filesystems } = await import("@hyperidle/db");
-		const resourceRef = JSON.stringify({ kind: "doc_set", folder: "/home/user/docs/my-notes" });
-		const db = makeDb(
-			new Map([[filesystems, [{ source: "obsidian", kind: "doc_set", resourceRef }]]]),
-		);
-		const result = await resolveScopeName(db, "filesystem", "fs-3");
-		expect(result).toBe("my-notes");
-	});
-
-	it("filesystem with malformed resourceRef → source label ('github' → 'GitHub')", async () => {
-		const { filesystems } = await import("@hyperidle/db");
-		const db = makeDb(
-			new Map([[filesystems, [{ source: "github", kind: "code", resourceRef: "not-json" }]]]),
-		);
-		const result = await resolveScopeName(db, "filesystem", "fs-4");
-		expect(result).toBe("GitHub");
-	});
-
-	it("filesystem source label map: gdrive → 'Google Drive'", async () => {
-		const { filesystems } = await import("@hyperidle/db");
-		const db = makeDb(
-			new Map([[filesystems, [{ source: "gdrive", kind: "doc_set", resourceRef: "{bad}" }]]]),
-		);
-		const result = await resolveScopeName(db, "filesystem", "fs-5");
-		expect(result).toBe("Google Drive");
-	});
-
-	it("filesystem source label map: obsidian → 'Obsidian'", async () => {
-		const { filesystems } = await import("@hyperidle/db");
-		const db = makeDb(
-			new Map([[filesystems, [{ source: "obsidian", kind: "doc_set", resourceRef: "{bad}" }]]]),
-		);
-		const result = await resolveScopeName(db, "filesystem", "fs-6");
-		expect(result).toBe("Obsidian");
-	});
-
-	it("filesystem source label map: local → 'Local'", async () => {
-		const { filesystems } = await import("@hyperidle/db");
-		const db = makeDb(
-			new Map([[filesystems, [{ source: "local", kind: "code", resourceRef: "{bad}" }]]]),
-		);
-		const result = await resolveScopeName(db, "filesystem", "fs-7");
-		expect(result).toBe("Local");
-	});
-
-	it("filesystem source label map: unknown source → raw source string", async () => {
-		const { filesystems } = await import("@hyperidle/db");
-		const db = makeDb(
-			new Map([[filesystems, [{ source: "dropbox", kind: "doc_set", resourceRef: "{bad}" }]]]),
-		);
-		const result = await resolveScopeName(db, "filesystem", "fs-8");
-		expect(result).toBe("dropbox");
-	});
-
-	it("filesystem missing row → scopeKindToLabel('filesystem') = 'Filesystem'", async () => {
-		const result = await resolveScopeName(emptyDb(), "filesystem", "nonexistent");
 		expect(result).toBe(scopeKindToLabel("filesystem"));
-		expect(result).toBe("Filesystem");
+		expect(result).toBe("Shared");
 	});
 
-	it("filesystem null scopeId → 'Filesystem'", async () => {
+	it("filesystem null scopeId → the same unknown-kind fallback", async () => {
 		const result = await resolveScopeName(emptyDb(), "filesystem", null);
-		expect(result).toBe("Filesystem");
+		expect(result).toBe("Shared");
 	});
 
 	// ── missing entity never returns UUID ────────────────────────────────────
