@@ -12,7 +12,9 @@
 	},
 	"dependencies": {
 		"@hyperidle/db": "*",
-		"@hyperidle/shared": "*",
+		"@hyperidle/shared": "*"
+	},
+	"devDependencies": {
 		"drizzle-orm": "^0.45.2"
 	}
 }
