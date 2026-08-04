@@ -95,7 +95,7 @@ const SENDER_HEADER = "X-Identity";
 /**
  * AU21 §6 Decision L4 / §9 Increment 14d — the minimal shape this route needs
  * to push data onto the WS connection hub. Satisfied by
- * `WsConnectionHub.broadcast(topic, data)` (`@hyperidle/realtime`) without
+ * `WsConnectionHub.broadcast(topic, data)` (`../ws-connection-hub.js`) without
  * this module depending on that package's full class — same narrow-interface
  * pattern as `session-activity-gateway.ts`'s `SessionActivityBroadcastTarget`.
  */

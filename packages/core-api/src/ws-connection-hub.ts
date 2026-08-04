@@ -1,7 +1,22 @@
-import { type HyperIdleDb, sessions } from "@hyperidle/db";
-import type { AgentSessionSourceCorrelation } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
-import type { SubscribeAuthorizerDeps } from "./ports.js";
+/**
+ * `WsConnectionHub` — the single WebSocket connection/subscription/broadcast
+ * transport for the whole Application.
+ *
+ * @lore AU26 C3 (§D-E): this file used to be its own package,
+ * `@hyperidle/realtime`. The verdict was **dissolves**: it owned zero tables,
+ * did zero event routing (AU21 L4 deleted the forwarder), its own header called
+ * it "a dumb pub/sub socket transport", and its other three callers each
+ * declared a local one-method `{ broadcast(topic, data) }` interface
+ * specifically to avoid depending on it. It could NOT move to
+ * `agent-orchestration`: three of its four production topics are core-domain
+ * (`thread:<id>` and `conversations` from `routes/threads.ts`, `work` from
+ * `services/work-state-push-gateway.ts`). So it lands here, in the `core-api`
+ * Layer, as Layer transport — not a Service. The three local `{ broadcast }`
+ * structural interfaces stay exactly as they are; they are already the right
+ * shape, and `agent-orchestration` receives that one-method sink injected by
+ * the Application, so there is still exactly ONE WS listener and ONE topic
+ * space.
+ */
 
 /**
  * Manages WebSocket topic subscriptions and broadcasting. A dumb pub/sub
@@ -48,7 +63,8 @@ export interface WsClient {
  */
 export type SubscribeResult = "ok" | "forbidden" | "unknown_client";
 
-interface SubscribeAuthorizer {
+/** The authorization seam `createDbSubscribeAuthorizer` (ws-subscribe-authorizer.ts) satisfies. */
+export interface SubscribeAuthorizer {
 	canSubscribe(senderId: string, topic: string): Promise<boolean>;
 }
 
@@ -125,97 +141,4 @@ export class WsConnectionHub {
 	get clientCount(): number {
 		return this.clients.size;
 	}
-}
-
-/**
- * Build an authorizer that allows:
- *  - any authenticated identity to subscribe to global topics
- *    (`conversations`, `work`)
- *  - only thread participants to subscribe to `thread:<id>` topics
- *
- * @lore L1 step9 (Adv-C1): subscribe authorization for per-thread topics is
- * the L1a §6.2 contract. The DB lookup is one-shot per subscribe call;
- * topic membership is cached in `WsConnectionHub`'s set.
- *
- * @lore AU19 Increment 2f: `deps` is the Mechanism C DI bundle for this
- * Service's four real outbound edges (`conversation`/`users`/`org`/`work` —
- * see `ports.ts`'s top comment for the census correction that added `org`).
- * `sessions` stays a direct `@hyperidle/db` read — it is in
- * `UNOWNED_SHARED_TABLES`, not owned by any single Service.
- */
-export function createDbSubscribeAuthorizer(
-	db: HyperIdleDb,
-	deps: SubscribeAuthorizerDeps,
-): SubscribeAuthorizer {
-	const GLOBAL_TOPICS = new Set(["conversations", "work"]);
-	async function senderInThread(senderId: string, threadId: string): Promise<boolean> {
-		const row = await deps.conversation.getThreadById(db, threadId);
-		if (!row) return false;
-		try {
-			const parts = JSON.parse(row.participants);
-			return Array.isArray(parts) && parts.includes(senderId);
-		} catch {
-			return false;
-		}
-	}
-	async function senderInTeam(senderId: string, teamId: string): Promise<boolean> {
-		const sender = await deps.users.getUserById(db, senderId);
-		if (!sender?.teamId) return false;
-		const membership = await deps.org.getTeamMembersById(db, sender.teamId);
-		return membership?.teamId === teamId;
-	}
-	async function canSubscribeToTaskFreeSession(
-		senderId: string,
-		sessionRow: typeof sessions.$inferSelect,
-	): Promise<boolean> {
-		if (!(sessionRow.sourceKind && sessionRow.sourceCorrelationJson)) return false;
-		let correlation: AgentSessionSourceCorrelation;
-		try {
-			correlation = JSON.parse(sessionRow.sourceCorrelationJson) as AgentSessionSourceCorrelation;
-		} catch {
-			return false;
-		}
-		if ("userId" in correlation && correlation.userId === senderId) return true;
-		if ("threadId" in correlation) return senderInThread(senderId, correlation.threadId);
-		if ("teamId" in correlation && correlation.teamId) {
-			return senderInTeam(senderId, correlation.teamId);
-		}
-		return false;
-	}
-	return {
-		async canSubscribe(senderId: string, topic: string): Promise<boolean> {
-			if (GLOBAL_TOPICS.has(topic)) return true;
-			// Q1 §3.4 / AF11 Hole 1 (WS): session topics are host-scope — any authenticated
-			// principal may observe a valid session. However, the session must EXIST and its
-			// task host must be resolvable; a non-existent or host-unresolvable session now
-			// denies (fail-closed), rather than the prior "ok-for-any-non-empty-id" bypass.
-			//
-			// @lore AF11: The prior `return sessionId.length > 0` allowed subscription to
-			// any session topic regardless of existence — an accidental bypass of read-parity.
-			// Valid sessions still return true (host-scope = true); only non-existent or
-			// unresolvable sessions now return false.
-			if (topic.startsWith("session:")) {
-				const sessionId = topic.slice("session:".length);
-				if (!sessionId) return false;
-
-				// Load the session row
-				const [sessionRow] = await db
-					.select()
-					.from(sessions)
-					.where(eq(sessions.id, sessionId))
-					.limit(1);
-				if (!sessionRow) return false;
-				if (!sessionRow.taskId) return canSubscribeToTaskFreeSession(senderId, sessionRow);
-
-				// Resolve the task host to verify it exists and confirm host-scope
-				const taskRow = await deps.work.getTaskById(db, sessionRow.taskId);
-				// Task must exist; host-scope = any authenticated principal → true
-				return taskRow !== undefined;
-			}
-			if (!topic.startsWith("thread:")) return false;
-			const threadId = topic.slice("thread:".length);
-			if (!threadId) return false;
-			return senderInThread(senderId, threadId);
-		},
-	};
 }

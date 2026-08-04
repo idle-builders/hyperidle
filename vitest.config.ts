@@ -38,7 +38,6 @@ export default defineConfig({
 			"packages/core-api/notifications",
 			"packages/core-api/credentials",
 			"packages/core-api/filesystems",
-			"packages/core-api/realtime",
 			"packages/agent-orchestration",
 			"packages/agent-orchestration/agent-run-config",
 			"packages/agent-orchestration/connections",

@@ -19,7 +19,6 @@
 		{ "path": "notifications" },
 		{ "path": "org" },
 		{ "path": "policy" },
-		{ "path": "realtime" },
 		{ "path": "review" },
 		{ "path": "routine" },
 		{ "path": "../agent-orchestration/run-orchestration" },

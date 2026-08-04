@@ -370,9 +370,9 @@ function buildLeafDeclarations(root: string): void {
   // cascade; server-factory.ts, services/agent-work-assistant.ts, and
   // packages/eval/src/runner.ts now import `@hyperidle/model-gateway`.
   //
-  // @lore AU19 Increment 2f: `core-api/realtime` added — same TS6305
-  // cascade; server-factory.ts, routes/ws.ts, and
-  // ws-subscribe-authz.integration.test.ts now import `@hyperidle/realtime`.
+  // @lore AU26 C3: `core-api/realtime` dissolved — package removed; the hub and
+  // its subscribe authorizer are core-api Layer transport now
+  // (`src/ws-connection-hub.ts` + `src/ws-subscribe-authorizer.ts`).
   //
   // @lore AU20 C1: `core-api/retention` dissolved — package removed, sweeps
   // distributed to owning services, propagation_log reaper at composition root.

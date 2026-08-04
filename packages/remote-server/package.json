@@ -28,7 +28,6 @@
 		"@hyperidle/harness-registry": "*",
 		"@hyperidle/knowledge": "*",
 		"@hyperidle/org": "*",
-		"@hyperidle/realtime": "*",
 		"@hyperidle/routine": "*",
 		"@hyperidle/run-orchestration": "*",
 		"@hyperidle/settings": "*",

@@ -30,7 +30,7 @@ import type { EventBus } from "@hyperidle/shared";
 
 /**
  * The minimal shape this gateway needs from a broadcast sink — satisfied by
- * `WsBroadcaster.broadcast(topic, data)` (`@hyperidle/realtime`) without this
+ * `WsConnectionHub.broadcast(topic, data)` (core-api's Layer transport) without this
  * module depending on that package's full class.
  */
 export interface SessionActivityBroadcastTarget {

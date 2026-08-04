@@ -61,6 +61,8 @@ import {
 	startRuntime,
 } from "@hyperidle/core-api/services/run-orchestration-composition";
 import { registerWorkStatePushGateway } from "@hyperidle/core-api/services/work-state-push-gateway";
+import { WsConnectionHub } from "@hyperidle/core-api/ws-connection-hub";
+import { createDbSubscribeAuthorizer } from "@hyperidle/core-api/ws-subscribe-authorizer";
 import {
 	type CredentialResolver,
 	DbCredentialResolver,
@@ -89,7 +91,6 @@ import {
 	VersionConflictError,
 } from "@hyperidle/knowledge";
 import { getTeamMembers } from "@hyperidle/org";
-import { createDbSubscribeAuthorizer, WsConnectionHub } from "@hyperidle/realtime";
 import { listRoutines } from "@hyperidle/routine";
 import type { RuntimeDeps } from "@hyperidle/run-orchestration";
 import {
@@ -539,7 +540,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// pushes domain data directly (`createThreadRoutes`'s per-thread +
 	// conversations-list pushes via `wsHub`, `work-state-push-gateway.ts`'s
 	// task/bet forwarder) — one topic space, one transport instance.
-	// `createDbSubscribeAuthorizer` is `@hyperidle/realtime`'s Mechanism C DI
+	// `createDbSubscribeAuthorizer` is the hub's Mechanism C DI
 	// boundary — this deps bundle wires its four real outbound edges
 	// (`conversation`/`users`/`org`/`work`) to the real already-imported
 	// functions above.

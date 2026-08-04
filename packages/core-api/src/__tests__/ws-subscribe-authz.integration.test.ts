@@ -19,16 +19,15 @@ import { findThread } from "@hyperidle/conversation";
 import type { WriteExecutor } from "@hyperidle/db";
 import { sessions, threads as threadsTable, users } from "@hyperidle/db";
 import { getTeamMembers } from "@hyperidle/org";
-import {
-	createDbSubscribeAuthorizer,
-	type SubscribeAuthorizerDeps,
-	type WsClient,
-	WsConnectionHub,
-} from "@hyperidle/realtime";
 import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { describe, expect } from "vitest";
 import { test } from "../test-fixtures.js";
+import { type WsClient, WsConnectionHub } from "../ws-connection-hub.js";
+import {
+	createDbSubscribeAuthorizer,
+	type SubscribeAuthorizerDeps,
+} from "../ws-subscribe-authorizer.js";
 
 function createMockClient(): WsClient & { messages: string[] } {
 	const messages: string[] = [];
@@ -139,6 +138,24 @@ describe("WsConnectionHub — subscribe authorization (L1 Adv-C1)", () => {
 		hub.addClient(client, "agent-1");
 
 		expect(await hub.subscribe(client, "thread:does-not-exist")).toBe("forbidden");
+	});
+
+	/**
+	 * AU26 C3 (§7 "WS subscribe authorization"): the `realtime` package
+	 * dissolved into `core-api`'s Layer transport. The authorizer moved
+	 * VERBATIM, so its fail-closed semantics must be observable after the move:
+	 * an unknown session denies. Sanity-broken during C3 by flipping
+	 * `if (!sessionRow) return false` to `return true` — this case, and only
+	 * this case, went red.
+	 */
+	test("subscribe to session:<nonexistent> → forbidden (fail-closed)", async ({ db }) => {
+		const hub = new WsConnectionHub(createDbSubscribeAuthorizer(db, REALTIME_DEPS));
+		const client = createMockClient();
+		hub.addClient(client, "agent-1");
+
+		expect(await hub.subscribe(client, "session:no-such-session")).toBe("forbidden");
+		// An empty session id is denied too — not treated as "any session".
+		expect(await hub.subscribe(client, "session:")).toBe("forbidden");
 	});
 
 	test("subscribe to malformed topic prefix → forbidden", async ({ db }) => {

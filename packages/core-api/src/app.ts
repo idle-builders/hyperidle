@@ -58,7 +58,7 @@ const agentWorkIntentReader: import("@hyperidle/shared").AgentWorkIntentReader<H
 
 /**
  * The minimal shape a route needs to push data onto the WS connection hub —
- * satisfied by `WsConnectionHub.broadcast(topic, data)` (`@hyperidle/realtime`)
+ * satisfied by `WsConnectionHub.broadcast(topic, data)` (`./ws-connection-hub.js`)
  * without this module depending on that package's full class (same narrow-
  * interface pattern as `session-activity-gateway.ts`'s `SessionActivityBroadcastTarget`).
  */
