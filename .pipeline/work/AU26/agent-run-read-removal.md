@@ -362,3 +362,40 @@ Three honest gaps. None of them is papered over with an invented mechanism.
    `activeSessions` is dropped, since `agentStates` and `uptime` are equally unread. Deleting the whole route
    is the honest end state, but deleting a route is a product call, not a layering fix, so J1 scopes itself
    to the read and records the route as a candidate for whoever next audits dead HTTP surface.
+
+---
+
+## 7. Built (the founder's rulings, not §5's J series)
+
+§5's J1–J5c were written before the founder ruled on the shape. The ruling replaced §4's port-based
+mechanism outright — *"its all for UI? thats why orchestration now has an api so that the ui can get the
+agent run state from the orchestration directly and combine this information in the ui instead of in the
+core api service"* — and replaced §3's WS decomposition with a whole move — *"session dial in is 1000%
+orchestration and has nothing to do with core."* What shipped, in four commits:
+
+| # | What | Sites closed |
+|---|---|---|
+| **J1** | The four deletions (`status.ts`, `users.ts`, `threads.ts`, `teams-routes.ts` team list) + the handoff shrink (`sandboxPath`/`ingestion`/`traceId` deleted; the surviving run read goes down the EXISTING `AgentOrchestrationPort.sessions.getById`, no new port surface) | 1, 2, 3, 4, 5 |
+| **J2** | The policy sibling-run guard **deleted outright** — no event, no counter, no downward call (`policy-sibling-guard.md`) | 15 |
+| **J3** | `session:<id>` moved wholly onto `agent-orchestration`'s own socket (`/api/agent-orchestration/ws`), its own `SessionStreamHub`, its own authorizer (authenticated user + the run exists). Core's authorizer lost the branch, the `sessions` read, and three of its four DI ports | 14 |
+| **J4** | Four run reads on orchestration's own read-door router (`/runs?task_id=`, `/runs?agent_ids=`, `/runs/active-counts`, `/runs/latest-outcomes`); core-api stopped returning run fields; the six screens fetch and combine client-side. `computeHealthSignals`/`deriveHealthLevel`/`deriveHealthDetail` moved to `@hyperidle/shared` so the browser runs the same derivations | 6, 7, 8, 9, 10, 11, 12, 13 |
+
+**14 of 15 closed. `packages/core-api` imports the `sessions` table object in exactly ONE production file.**
+
+### The one that remains — a BLOCKER, not an oversight
+
+`packages/core-api/src/routes/teams-routes.ts` (the roster read inside `GET /api/org/teams/:teamId`).
+
+The six run-derived roster fields are gone from the response as ruled. The read itself could not go, because
+this route has a **second consumer of run state that is not a render at all**: `maybeNotifyAgentError`
+enqueues an `agent.health.degraded` row into core's own `notification_queue` when a roster member is in the
+error state. That is a real product feature — a notification the user sees in the popover — with **no other
+producer anywhere in the repo** (`rg agent.health.degraded` hits only this file and its tests).
+
+Removing it is a feature deletion, not a layering fix, and no founder ruling covers it. The read is therefore
+left standing, scoped down to the three columns the health computation needs, with the reasoning inline at the
+read site.
+
+**What closing it needs:** a founder decision on where degraded-agent notification belongs. A reactor on
+run-end is the obvious candidate — and note that a `GET` that writes a notification row is a smell
+*independent* of layering: the notification fires only when somebody happens to open the team page.

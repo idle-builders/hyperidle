@@ -469,30 +469,41 @@ structural interface `services/session-activity-gateway.ts:37` already declares 
 WS listener and **one** topic space, and `packages/web/src/hooks/useSessionActivity.ts`'s WS URL does not
 change.
 
-**Validation scenario 4 is HALF-CLOSED, and this document says so rather than reading as closed.**
+**Validation scenario 4 is CLOSED. (It was recorded HALF-CLOSED here; the founder overturned the reason.)**
 `plan.md` scenario 4 reads: *"when the UI connects for streaming updates, then it reaches agent-orchestration's
-own route directly."* Traced at HEAD, `useSessionActivity.ts` does two things: an HTTP snapshot
-`GET /api/sessions/:id/activity` (`:150`) and a WS subscribe to `session:${sessionId}` over the single shared
-socket from `getWsClient()` (`:223-230`).
+own route directly."* `useSessionActivity.ts` does two things: an HTTP snapshot
+`GET /api/sessions/:id/activity` and a WS subscribe to `session:${sessionId}`.
 
-- **HTTP half — CLOSED.** `GET /api/sessions/:id/activity` moves to `createAgentOrchestrationApp()` and is
-  served entirely by orchestration's own handler reading its own tables and its own activity buffer. No
+- **HTTP half — CLOSED (B1a).** `GET /api/sessions/:id/activity` moved to `createAgentOrchestrationApp()` and
+  is served entirely by orchestration's own handler reading its own tables and its own activity buffer. No
   core-api handler, no `AgentOrchestrationPort` hop. The URL string is unchanged (rule 7), which is a
   *transport* fact, not a routing one — the request is handled by orchestration's route.
-- **WS half — DELIBERATELY NOT CLOSED. This narrows a founder-written AC.** The socket stays on core-api's
-  hub and orchestration broadcasts through the injected `{broadcast}` port. Reason, from the placement rule
-  itself (rules 2/3), not from convenience: the `/api/ws` endpoint's subscribe authorizer must touch
-  `threads` (`senderInThread`), `users` + `team_members` (`senderInTeam`, reachable from
-  `canSubscribeToTaskFreeSession` at `ws-connection-hub.ts:167-184`) **and** `sessions`. That is a two-sided
-  table set, and rule 3 gives a two-sided route exactly one legal host: core-api. The only ways to close it
-  fully are (a) let orchestration read `threads`/`users`/`team_members` — forbidden outright, or (b) open a
-  **second** WS listener owned by orchestration for the `session:` topic alone — which re-splits one socket
-  and one topic space into two, and still cannot authorize the task-free branch without (a).
-  **This is a narrowing of a founder-written acceptance criterion and is put to the founder as such, at the
-  realtime confirmation point (before C3).** If the founder rejects the narrowing, the only honest way to
-  satisfy it is to move thread/team subscribe authorization out of the socket entirely (a signed subscribe
-  token minted by core at snapshot time), which is a new design and a separate WP — not something to
-  smuggle into AU26.
+- **WS half — CLOSED (J3).** Founder ruling (2026-08-04, verbatim): *"session dial in is 1000%
+  orchestration and has nothing to do with core. core should not know about this session live stuff at all."*
+
+  The narrowing recorded above rested on one premise: that authorizing a `session:` subscribe **requires**
+  `threads` + `users` + `team_members`, making the route two-sided and therefore core-hosted by rule 3. That
+  premise does not survive the code. On the **task-backed** path the old check read the run, read the run's
+  task, and returned "the task exists" — which **every authenticated principal passes**; it touched no core
+  table at all. The `threads`/`users`/`team_members` reads fired **only** for task-free runs, as a fallback
+  behind a `sourceCorrelationJson.userId` check the run row already carries. So the route was never
+  two-sided on its main path, and the fallback was a preemptive guard of exactly the shape `ETHOS.md` §2
+  rejects (reviewer-hypothesised, no recorded harm, gating a topic whose payload is `toolName` plus an
+  already-scrubbed `argsSummary`).
+
+  What J3 built: `agent-orchestration` hosts `GET /api/agent-orchestration/ws` on its own app, with its own
+  `SessionStreamHub` and its own authorizer — **an authenticated user, plus the run exists**, one read of its
+  own `sessions` table and nothing else. `packages/core-api/src/ws-subscribe-authorizer.ts` lost the whole
+  `session:` branch and, with it, the `sessions` read AND three of its four DI ports (`users`/`org`/`work`
+  existed only to serve that branch). Core's socket carries `thread:<id>`, `conversations` and `work`; it
+  denies `session:*` outright. The Application hands both sockets the SAME one-shot upgrade-token store, so
+  `POST /api/auth/ws-token` still mints for both and neither Layer imports the other.
+
+  **The honest price, accepted by the founder:** the browser holds TWO sockets, and in a shared deployment a
+  second logged-in user holding a run's `randomUUID` could watch a tool-name-and-scrubbed-summary stream of
+  someone else's assistant run. A partial owner check was considered and rejected — only the `assistant`
+  correlation carries a `userId`, so keeping it would start DENYING task-free `routine`/`knowledge` runs the
+  old team fallback admitted, which is a real regression in what a user can watch.
 
 ### D-F · `git-export` splits (founder-directed)
 
@@ -1094,7 +1105,8 @@ it.)
 | `GET/PATCH/POST /api/git-export*` (4) | **DELETED** | `routes/git-export-routes.ts` | none (zero callers) |
 | `GET /api/filesystems`, `GET /api/filesystems/:id`, `POST /api/filesystems`, `DELETE /api/filesystems/:id`, `POST /:id/injections`, `DELETE /:id/injections/:agentUserId` | **core-api (stay)** | `routes/filesystems.ts:180,250,266,299,313,328,408` | **none**, decomposed internals only (§D-I) |
 | `PATCH /api/agents/:id`, assistant PATCH | **core-api (stay)** | unchanged host, persist delegated down (§D-A) | **none** |
-| `/api/ws` (user WS) | **core-api (stays)** — §D-E, validation scenario 4's WS half, explicitly narrowed | `app.ts` pre-auth hook | none |
+| `/api/ws` (user WS) | **core-api (stays)** — core's OWN topics only (`thread:<id>`/`conversations`/`work`) after J3 | Application pre-auth hook | none |
+| `/api/agent-orchestration/ws` (live-run WS) | **orchestration** — J3, validation scenario 4's WS half, CLOSED | Application pre-auth hook | `useSessionActivity.ts` opens a second socket (`getSessionStreamClient()`) |
 | `/api/ws/worker`, MCP bridge | **orchestration** (Application registers pre-auth) | `app.ts` hooks | none |
 
 **Net `packages/web` diff for this WP: zero files.** Holding every path string constant removes every reason
