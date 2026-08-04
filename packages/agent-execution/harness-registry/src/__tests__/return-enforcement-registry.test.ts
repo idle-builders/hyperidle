@@ -1,5 +1,5 @@
 /**
- * AL6 v4-final — Unit tests for the per-session return-enforcement registry.
+ * Unit tests for the per-session return-enforcement registry.
  *
  * The enforcement registry is a per-session key-value store:
  *   { gate, forceCount, exempt }
@@ -26,7 +26,7 @@ import { createReturnEnforcement } from "../return-enforcement.js";
 
 const createEnforcementRegistry = () => createReturnEnforcement({ isolated: true });
 
-describe("AL6 v4-final — return-enforcement-registry", () => {
+describe("return-enforcement-registry", () => {
 	// ── Lifecycle: register / get / unregister ────────────────────────────
 
 	it("register then get returns the entry", () => {

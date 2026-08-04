@@ -20,7 +20,7 @@ export { createConflictReviewScenarios } from "./create-conflict-review.js";
 export { createItemScenarios } from "./create-item.js";
 export { createTaskScenarios } from "./create-task.js";
 export { delegationScenarios } from "./delegation.js";
-// AL6 v2: live eval scaffold for force-return enforcement
+// Live eval scaffold for force-return enforcement
 export { forceReturnScenarios } from "./force-return.js";
 export { handoffToScenarios } from "./handoff-to.js";
 export { knowledgeWritebackScenarios } from "./knowledge-writeback.js";

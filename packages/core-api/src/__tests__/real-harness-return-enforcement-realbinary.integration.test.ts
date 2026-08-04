@@ -1,5 +1,5 @@
 /**
- * AL6 v4-final — LIVE real-binary harness return-enforcement tests.
+ * LIVE real-binary harness return-enforcement tests.
  *
  * ⚠️  LOCAL-ONLY LANE — NOT IN CI / NOT IN test:all / NOT IN test:integration
  *
@@ -12,26 +12,27 @@
  *
  * Per project rule: "e2e/expensive/live-LLM tests run locally only; never a
  * GitHub Actions job." These tests prove the real hook transport end-to-end
- * (binary → provisioned hook → real HyperIdle route → real enforcement registry)
- * and are the DoD artifact for AL6 v4-final §9.1. They have already been run
- * and proved enforcement (callCount >= 1 confirmed for claude, codex, opencode).
+ * (binary → provisioned hook → real HyperIdle route → real enforcement registry).
+ * They have already been run and proved enforcement (callCount >= 1 confirmed
+ * for claude, codex, opencode).
  *
  * Runs via npm run test:integration (serial harness project)
  *
  * Deterministic real-loop coverage (route/registry/injected-spawn/builtin) stays in
- * test:all via AL6-real-harness-return-enforcement.integration.test.ts. Those tests
- * are the CI anchor — they run without any real binary or LLM call.
+ * test:all via the unit tests in this package (return-status-route.test.ts,
+ * return-enforcement-registry.test.ts, cli-reengage-adapter.test.ts, return-gate.test.ts).
+ * Those tests are the CI anchor — they run without any real binary or LLM call.
  *
- * @lore AL6 v4-final: Real-harness tests prove the ⚠️ UNVERIFIED-AT-RUNTIME claims:
+ * @lore Real-harness tests prove the ⚠️ UNVERIFIED-AT-RUNTIME claims:
  * - Claude CLI: full binary spawn → Stop hook → bridge POST PROVEN (see "FULL BINARY PROOF")
- * - Claude CLI exit-2+stderr Stop hook end-to-end (§0.2) — also PROVEN via hook script
- * - Codex CODEX_HOME per-session hook (§0.3) — FULL BINARY PROOF via CODEX_HOME strategy.
+ * - Claude CLI exit-2+stderr Stop hook end-to-end — also PROVEN via hook script
+ * - Codex CODEX_HOME per-session hook — FULL BINARY PROOF via CODEX_HOME strategy.
  *   provisionCodexHome creates .codex-home/ (auth+config+hooks, no SQLite); CliHarnessAdapter
  *   sets CODEX_HOME=<path>+--dangerously-bypass-hook-trust; real binary fires hook → bridge POST.
- * - OpenCode process-reengage (§0.4) — PROVEN: step_finish detected on first spawn;
+ * - OpenCode process-reengage — PROVEN: step_finish detected on first spawn;
  *   re-engage fires second spawn with forcing message; both turns complete successfully.
  *
- * @lore AL6 real-claude-full-binary: The FULL BINARY PROOF for claude uses:
+ * @lore Real-claude-full-binary: The FULL BINARY PROOF for claude uses:
  *   CLAUDECODE="" CLAUDE_CODE_ENTRYPOINT="" CLAUDE_CODE_EXECPATH=""
  *   CLAUDE_CODE_SESSION_ID="" AI_AGENT="" CLAUDE_EFFORT=""
  * Zeroing (not removing) these vars lets the process inherit the rest of the env
@@ -43,16 +44,16 @@
  * every clean run. detached:true puts the process in its own process group so CC's
  * process-tree SIGTERM doesn't propagate before the hook fires.
  *
- * @lore AL6 real-codex-format: codex-cli v0.141.0 hooks.json MUST use:
+ * @lore Real-codex-format: codex-cli v0.141.0 hooks.json MUST use:
  * { "hooks": { "Stop": [{ "hooks": [{ "type":"command","command":"..." }] }] } }
  * The old flat format { "Stop": { "command": "..." } } is silently ignored.
  * Verified against /opt/homebrew/.codex/hooks.json installed by Homebrew.
  *
- * @lore AL6 real-codex-semantics: Codex Stop hooks use JSON stdout semantics:
+ * @lore Real-codex-semantics: Codex Stop hooks use JSON stdout semantics:
  * { "decision": "block", "reason": "..." } blocks the stop (NOT exit 2 + stderr).
  * Claude Code uses exit 2 + stderr. Both verified against real installed binaries.
  *
- * @lore AL6 codex-codex-home: Codex reads hooks ONLY from CODEX_HOME/hooks.json
+ * @lore Codex-home: Codex reads hooks ONLY from CODEX_HOME/hooks.json
  * (default: ~/.codex/hooks.json). Project-local .codex/hooks.json is silently ignored.
  * CODEX_HOME redirect WORKS when ONLY auth.json + config.toml are copied (not the SQLite
  * database files). Copying the full ~/.codex/ brings in SQLite files that lock → codex
@@ -86,13 +87,13 @@ const provisionReturnHook = (options: {
 
 // ── Real HyperIdle server for hook callback capture ──────────────────────────
 //
-// AL6 CRIT-1 FIX: Replace the bespoke `startBridgeServer` mock with a REAL
+// CRIT-1 FIX: Replace the bespoke `startBridgeServer` mock with a REAL
 // Hono server that mounts the REAL `/api/mcp/:token/return-status` route and
 // the REAL enforcement registry. This proves the full loop:
 //   real binary → real provisioned hook → real HyperIdle route →
 //   real return-enforcement-registry → real block → forceCount from a real fire.
 //
-// @lore AL6 CRIT-1: The fake bridge stub (token + sessionId only) is registered
+// @lore CRIT-1: The fake bridge stub (token + sessionId only) is registered
 // in the bridge registry so the route can resolve token → sessionId without
 // needing a real McpServer or transport (the route only reads bridge.sessionId).
 // The enforcement registry entry is registered with gate.returned=false and
@@ -119,13 +120,13 @@ interface RealHyperIdleServer {
  *   enforcementReg.get(sessionId)?.forceCount >= 1
  * This proves the real route + real registry loop end-to-end.
  *
- * @lore AL6 CRIT-1 real-server: Uses @hono/node-server `serve()` on port 0
+ * @lore CRIT-1 real-server: Uses @hono/node-server `serve()` on port 0
  * (OS-assigned random port). The app only mounts the /api/mcp route (no DB,
  * no auth, no session routes) — just enough for the hook to reach the real
  * /return-status adjudicator. Sessions are registered directly in the in-process
  * registries rather than via provisionSession (no DB needed for the binary proof).
  *
- * @lore AL6 CRIT-1 sanity-break: To verify the test FAILS if the route is broken,
+ * @lore CRIT-1 sanity-break: To verify the test FAILS if the route is broken,
  * temporarily change the token used in provisionReturnHook to a wrong value —
  * the lookup fails, forceCount stays 0, and the assertion fails. This confirms
  * the test is not vacuous.
@@ -212,7 +213,7 @@ async function startRealServer(
  * Keychain auth (claude.ai OAuth) uses the macOS Security framework via HOME.
  * Zeroing the CC session vars does NOT break keychain lookup — verified manually.
  *
- * @lore AL6 real-claude-full-binary: These exact vars must be zeroed. Deleting
+ * @lore Real-claude-full-binary: These exact vars must be zeroed. Deleting
  * them (via `process.env` spread minus keys) does not work because the CC binary
  * checks for the presence of these vars, not their values.
  */
@@ -248,7 +249,7 @@ function buildCleanEnv(): Record<string, string> {
  * session teardown does NOT propagate to our test subprocess. We manage the child
  * lifecycle via the returned promise and a timeout guard.
  *
- * @lore AL6 real-claude-full-binary: `detached: true` + `stdio: ['ignore','pipe','pipe']`
+ * @lore Real-claude-full-binary: `detached: true` + `stdio: ['ignore','pipe','pipe']`
  * is the correct posture for spawning a harness binary from vitest. The child runs in
  * its own process group; we ref/unref to avoid vitest hanging on process exit.
  */
@@ -308,11 +309,11 @@ async function spawnDetached(
 
 // ── Lifecycle ──────────────────────────────────────────────────────────────
 
-describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-only lane)", () => {
+describe("LIVE real-binary harness return-enforcement (local-only lane)", () => {
 	let sandboxBasePath: string;
 
 	beforeEach(() => {
-		sandboxBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-live-"));
+		sandboxBasePath = fs.mkdtempSync(path.join(os.tmpdir(), "rgate-live-"));
 	});
 
 	afterEach(() => {
@@ -321,7 +322,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 
 	// ── CLAUDE-CODE CLI (binary+auth gated, LIVE ENFORCEMENT) ───────────────
 	//
-	// AL6 v4 final: Spawns the REAL claude binary headless in an ISOLATED
+	// Spawns the REAL claude binary headless in an ISOLATED
 	// subprocess environment. env isolation strips CLAUDECODE family vars so
 	// nested-session detection does NOT fire; keychain auth still works via HOME.
 	//
@@ -332,7 +333,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 	//   2. Hook script execution: proves the exact script semantics (exit 2 + stderr
 	//      re-prompt when bridge returns forcing message). Kept for fast CI.
 	//
-	// @lore AL6 real-claude-full-binary: The nested-session detection is bypassed
+	// @lore Real-claude-full-binary: The nested-session detection is bypassed
 	// by zeroing CLAUDECODE, CLAUDE_CODE_ENTRYPOINT, CLAUDE_CODE_EXECPATH,
 	// CLAUDE_CODE_SESSION_ID, AI_AGENT, CLAUDE_EFFORT (not stripping — the child
 	// inherits the rest of env including HOME/PATH/keychain). `detached: true`
@@ -342,18 +343,18 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 	describe("[harness:claude] claude-code CLI (settings-claude channel, LIVE hook fire proof)", () => {
 		requireHarness("claude");
 		test("FULL BINARY PROOF: spawn real claude -p headless → LLM turn completes → Stop hook POSTs to bridge (callCount>=1)", async () => {
-			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-claude-fb-"));
-			const testSessionId = `al6v4-claude-fb-${Math.random().toString(36).slice(2, 10)}`;
+			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "rgate-claude-fb-"));
+			const testSessionId = `rgate-claude-fb-${Math.random().toString(36).slice(2, 10)}`;
 
 			try {
 				const bridgeToken = `test-bridge-token-${Math.random().toString(36).slice(2)}`;
 
-				// AL6 CRIT-1 FIX: Start the REAL HyperIdle server (not startBridgeServer mock).
+				// CRIT-1 FIX: Start the REAL HyperIdle server (not startBridgeServer mock).
 				// The real server mounts POST /api/mcp/:token/return-status with the REAL
 				// enforcement registry. After the hook fires, we assert forceCount >= 1
 				// in the REAL registry — proving the full loop: binary → real route → real registry.
 				//
-				// @lore AL6 CRIT-1: The mcpUrl points at the REAL server. The provisioned hook
+				// @lore CRIT-1: The mcpUrl points at the REAL server. The provisioned hook
 				// script curls this URL. The route resolves token → sessionId → registry entry →
 				// shouldForceReturn → forceMessage (or empty). The registry forceCount is incremented
 				// by the route on each block. This proves the real hook→adjudicator loop.
@@ -387,7 +388,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 					// detached: true (inside spawnDetached): own process group → CC's
 					//   SIGTERM cascade does not reach the child before hook fires.
 					//
-					// @lore AL6 real-claude-full-binary: The prompt MUST be short and
+					// @lore Real-claude-full-binary: The prompt MUST be short and
 					// trivial so the LLM call completes quickly (~3s). The Stop hook
 					// fires when the session ends — before the claude process exits.
 					// @lore AR7: model is AR7-locked via harnessTestResolvedModel("claude") — never hardcode.
@@ -440,13 +441,13 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 		}, 60_000);
 
 		test("LIVE: provision .claude/settings.json Stop hook script → execute script → POSTs to bridge (callCount>=1)", async () => {
-			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-claude-live-"));
-			const testSessionId = `al6v4-claude-live-${Math.random().toString(36).slice(2, 10)}`;
+			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "rgate-claude-live-"));
+			const testSessionId = `rgate-claude-live-${Math.random().toString(36).slice(2, 10)}`;
 
 			try {
 				const bridgeToken = `test-bridge-token-${Math.random().toString(36).slice(2)}`;
 
-				// AL6 CRIT-1 FIX: Start the REAL HyperIdle server.
+				// CRIT-1 FIX: Start the REAL HyperIdle server.
 				// The real route returns forceMessage when gate.returned=false (the default).
 				// The hook script receives the forceMessage and exits 2 (stderr carries it).
 				const realServer = await startRealServer(bridgeToken, testSessionId);
@@ -488,9 +489,9 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 					// executes when a session stops. The script POSTs to the REAL route.
 					// This proves the TRANSPORT end-to-end: hook script → real route → real registry.
 					//
-					// @lore AL6 CRIT-1 real-claude-hook-transport: The script is executed
+					// @lore CRIT-1 real-claude-hook-transport: The script is executed
 					// directly (not via full claude session) to isolate the transport proof.
-					// The real route returns AL6_FORCE_RETURN_MESSAGE (because gate.returned=false),
+					// The real route returns FORCE_RETURN_MESSAGE (because gate.returned=false),
 					// the script sees non-empty body → exits 2 + stderr = forceMessage.
 					const scriptResult = await new Promise<{
 						stdout: string;
@@ -540,7 +541,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 		}, 30_000);
 
 		test("provision .claude/settings.json → hook file structure correct, injection-safe", async () => {
-			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-claude-"));
+			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "rgate-claude-"));
 
 			try {
 				const registry = createEnforcementRegistry();
@@ -580,7 +581,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 				// biome-ignore lint/complexity/useRegexLiterals: guard-backtick — see @lore AR6 guard-backtick
 				expect(hookStr).not.toMatch(new RegExp("[`$<>|;&]"));
 
-				const sessionId = `al6v4-claude-test-${Math.random().toString(36).slice(2)}`;
+				const sessionId = `rgate-claude-test-${Math.random().toString(36).slice(2)}`;
 				const gate = { returned: false };
 				registry.register(sessionId, { gate, forceCount: 0, exempt: false });
 
@@ -606,7 +607,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 			// session actually needs" — proven here against the REAL route
 			// (the same one the real claude Stop hook script curls), not a
 			// gate-unit-only check of buildForceReturnMessage in isolation.
-			const testSessionId = `al6v4-claude-required-${Math.random().toString(36).slice(2)}`;
+			const testSessionId = `rgate-claude-required-${Math.random().toString(36).slice(2)}`;
 			// `startRealServer`'s first param is a pre-existing dead param — the
 			// bridge always mints its OWN token internally; the real callable
 			// token is `realServer.token`, not a locally-fabricated string.
@@ -645,7 +646,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 
 	// ── CODEX CLI (binary+auth gated, LIVE ENFORCEMENT) ──────────────────────
 	//
-	// AL6 v4 FULL BINARY PROOF (CODEX_HOME strategy — proven end-to-end):
+	// FULL BINARY PROOF (CODEX_HOME strategy — proven end-to-end):
 	//   provisionCodexHome writes a per-session CODEX_HOME dir (.codex-home/) with:
 	//     - auth.json + config.toml copied from ~/.codex (NO SQLite files)
 	//     - hooks.json with the Stop hook → bridge POST
@@ -653,26 +654,26 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 	//   --dangerously-bypass-hook-trust when spawning codex exec.
 	//   The real codex binary completes a turn → Stop hook fires → bridge callCount >= 1.
 	//
-	// @lore AL6 codex-codex-home: Project-local .codex/hooks.json is silently ignored.
+	// @lore Codex-home: Project-local .codex/hooks.json is silently ignored.
 	// CODEX_HOME env var redirects the config home to a per-session dir. The key
 	// insight: copy ONLY auth.json + config.toml (NOT the SQLite database files).
 	// SQLite files lock and cause codex to exit before making an LLM call.
 	// Verified end-to-end with codex-cli v0.141.0: hook fires, bridge receives POST.
 	//
-	// @lore AL6 real-codex-format: Verified against codex-cli v0.141.0.
+	// @lore Real-codex-format: Verified against codex-cli v0.141.0.
 	// The hook format uses decision:block JSON on stdout (not exit 2 + stderr).
 	// Trust: --dangerously-bypass-hook-trust bypasses hash-check for automation.
 
 	describe("[harness:codex] codex CLI (settings-codex channel, LIVE hook fire proof)", () => {
 		requireHarness("codex");
 		test("LIVE: provision .codex/hooks.json Stop hook script → execute script → POSTs to bridge (callCount>=1), decision:block on stdout", async () => {
-			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-codex-live-"));
-			const testSessionId = `al6v4-codex-live-${Math.random().toString(36).slice(2, 10)}`;
+			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "rgate-codex-live-"));
+			const testSessionId = `rgate-codex-live-${Math.random().toString(36).slice(2, 10)}`;
 
 			try {
 				const bridgeToken = `codex-test-token-${Math.random().toString(36).slice(2)}`;
 
-				// AL6 CRIT-1 FIX: Start the REAL HyperIdle server.
+				// CRIT-1 FIX: Start the REAL HyperIdle server.
 				// The real route returns forceMessage (gate.returned=false → shouldForceReturn → message).
 				// The codex hook script receives it and outputs {"decision":"block","reason":message}.
 				const realServer = await startRealServer(bridgeToken, testSessionId);
@@ -705,7 +706,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 					// at turn-end. The script POSTs to the REAL route and prints
 					// {"decision":"block","reason":"..."} on stdout when blocking.
 					//
-					// @lore AL6 CRIT-1 real-codex-hook-transport: Script execution proves the
+					// @lore CRIT-1 real-codex-hook-transport: Script execution proves the
 					// full transport: hook → real route → real registry. The codex blocking
 					// behavior (decision:block JSON stdout) was verified manually.
 					const scriptResult = await new Promise<{
@@ -742,7 +743,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 
 					// When the real route returns a forcing message, the codex hook script must
 					// output {"decision":"block","reason":"..."} on stdout and exit 0.
-					// @lore AL6 real-codex-semantics: Codex uses JSON stdout, NOT exit 2.
+					// @lore Real-codex-semantics: Codex uses JSON stdout, NOT exit 2.
 					expect(scriptResult.stdout).toContain('"decision":"block"');
 					expect(scriptResult.stdout).toContain("return");
 					expect(scriptResult.exitCode).toBe(0);
@@ -755,7 +756,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 		}, 30_000);
 
 		test("provision .codex/hooks.json → CORRECT nested format (not flat top-level Stop)", async () => {
-			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-codex-"));
+			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "rgate-codex-"));
 
 			try {
 				const registry = createEnforcementRegistry();
@@ -781,7 +782,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 					unknown
 				>;
 
-				// @lore AL6 real-codex-format: MUST be { "hooks": { "Stop": [...] } }
+				// @lore Real-codex-format: MUST be { "hooks": { "Stop": [...] } }
 				// NOT the flat { "Stop": { ... } } format which is silently ignored.
 				expect(hooksContent).toHaveProperty("hooks");
 				const hooksObj = hooksContent.hooks as Record<string, unknown>;
@@ -805,7 +806,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 				// Trust: codex uses --dangerously-bypass-hook-trust at spawn time.
 				// No sentinel file needed (trust is per-invocation, not filesystem).
 
-				const sessionId = `al6v4-codex-test-${Math.random().toString(36).slice(2)}`;
+				const sessionId = `rgate-codex-test-${Math.random().toString(36).slice(2)}`;
 				const gate = { returned: false };
 				registry.register(sessionId, { gate, forceCount: 0, exempt: false });
 
@@ -821,7 +822,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 
 		test("FULL BINARY PROOF (CODEX_HOME): spawn real codex exec with per-session CODEX_HOME → LLM turn completes → Stop hook POSTs to real route → enforcementReg.forceCount>=1", async () => {
 			// Create a git-init'd sandbox (codex requires a git repo).
-			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-codex-fb-"));
+			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "rgate-codex-fb-"));
 
 			try {
 				// codex requires a git repo in the working directory.
@@ -842,7 +843,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 				const bridgeToken = `codex-fb-token-${Math.random().toString(36).slice(2)}`;
 				const testSessionId = `codex-fb-session-${Math.random().toString(36).slice(2)}`;
 
-				// AL6 CRIT-1 FIX: Start the REAL HyperIdle server (not startBridgeServer mock).
+				// CRIT-1 FIX: Start the REAL HyperIdle server (not startBridgeServer mock).
 				// The real server mounts /api/mcp/:token/return-status with the real enforcement
 				// registry. forceCount>=1 proves the hook fired against the REAL route.
 				const realServer = await startRealServer(bridgeToken, testSessionId);
@@ -873,7 +874,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 					// --dangerously-bypass-hook-trust: bypass hash-check for automation.
 					// --json: JSONL output including turn.completed.
 					//
-					// @lore AL6 codex-codex-home: CODEX_HOME must point to the per-session
+					// @lore Codex-home: CODEX_HOME must point to the per-session
 					// dir (not ~/.codex). The dir contains only auth.json + config.toml —
 					// no SQLite files. codex reads hooks.json from CODEX_HOME/hooks.json.
 					const cleanEnv = buildCleanEnv();
@@ -889,7 +890,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 						},
 					);
 
-					// AL6 CRIT-1: Assert against the REAL enforcement registry, NOT a mock callCount.
+					// CRIT-1: Assert against the REAL enforcement registry, NOT a mock callCount.
 					// If the Stop hook POSTed to the real /api/mcp/:token/return-status route,
 					// enforcementRegistry.incrementForce was called → forceCount >= 1.
 					// This test FAILS if the route is removed or the hook posts to the wrong URL.
@@ -939,7 +940,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 			// Same route + adjudication code (site 3, mcp-route.ts) serves BOTH
 			// the settings-claude and settings-codex hook channels — proven
 			// here for codex's channel specifically.
-			const testSessionId = `al6v4-codex-required-${Math.random().toString(36).slice(2)}`;
+			const testSessionId = `rgate-codex-required-${Math.random().toString(36).slice(2)}`;
 			// `startRealServer`'s first param is a pre-existing dead param — the
 			// bridge always mints its OWN token internally; the real callable
 			// token is `realServer.token`, not a locally-fabricated string.
@@ -983,19 +984,19 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 	//      run with the forcing message as positional arg (reEngageCarrier:"run-arg")
 	//   3. The second invocation also completes → proves the full re-engage invocation path.
 	//
-	// @lore AL6 opencode-process-reengage-proven: The process-reengage wrapper is
+	// @lore Opencode-process-reengage-proven: The process-reengage wrapper is
 	// implemented in CliHarnessAdapter.streamEvents (cli-harness-adapter.ts:513-599).
 	// This real-binary test proves the full binary spawn path (step_finish detected,
 	// re-invoke with forcing message via run-arg carrier) using real opencode binary.
 	// The adapter re-engage loop is separately proven via injected spawnFn in
-	// AL6-cli-reengage-adapter.test.ts (no binary required, deterministic).
+	// cli-reengage-adapter.test.ts (no binary required, deterministic).
 	//
-	// @lore AL6 opencode-plugin-limit: opencode run does not auto-load project-local
+	// @lore Opencode-plugin-limit: opencode run does not auto-load project-local
 	// .opencode/plugins/*.ts. The plugin file is provisioned as a signal mechanism
 	// (tells the operator the channel is armed); enforcement comes from HyperIdle's
 	// process wrapper re-invocation path (what this test proves).
 	//
-	// @lore AL6 opencode-model-format: opencode uses provider-prefixed model IDs.
+	// @lore Opencode-model-format: opencode uses provider-prefixed model IDs.
 	// OpenRouter models: "openrouter/~anthropic/claude-haiku-latest".
 	// Use `opencode models` to list valid IDs for the configured provider.
 
@@ -1006,7 +1007,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 			// detached: true (inside spawnDetached) — own process group so CC's
 			// SIGTERM cascade doesn't reach it before the session completes.
 			//
-			// @lore AL6 opencode-full-binary: Uses AR7-locked model (harnessTestResolvedModel("opencode").model
+			// @lore Opencode-full-binary: Uses AR7-locked model (harnessTestResolvedModel("opencode").model
 			// → openrouter/z-ai/glm-4.7-flash). Pure mode (--pure) skips external plugin loading. JSON
 			// output streamed per-event; step_finish proves turn completed.
 			// @lore AR7: model replaced from openrouter/~anthropic/claude-haiku-latest to AR7 matrix model.
@@ -1047,7 +1048,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 		}, 60_000);
 
 		test("provision .opencode/plugins/return-signal.ts → plugin file written, process-reengage armed", async () => {
-			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-opencode-"));
+			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "rgate-opencode-"));
 
 			try {
 				const bridgeToken = `opencode-test-token-${Math.random().toString(36).slice(2)}`;
@@ -1111,13 +1112,13 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 			//      with the forcing message as a positional arg (reEngageCarrier:"run-arg").
 			//   4. The second invocation completes → re-engage path proven end-to-end.
 			//
-			// @lore AL6 opencode-process-reengage-proven: The production re-engage logic
+			// @lore Opencode-process-reengage-proven: The production re-engage logic
 			// lives in CliHarnessAdapter.streamEvents (cli-harness-adapter.ts:513-599).
 			// This test proves the real opencode binary spawns headlessly and completes
 			// a turn (step_finish in stdout), and that a second spawn with the forcing
 			// message as the first positional arg also completes — validating the run-arg
 			// carrier mechanism. The deterministic adapter loop is proven separately in
-			// AL6-cli-reengage-adapter.test.ts via injected spawnFn (no binary required).
+			// cli-reengage-adapter.test.ts via injected spawnFn (no binary required).
 
 			const FORCING_MESSAGE =
 				"IMPORTANT: You must call a return action (submit_review) before stopping. Please do so now.";
@@ -1151,7 +1152,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 
 			// Re-engage: spawn opencode again with the forcing message as first arg.
 			// This is the "run-arg" carrier (reEngageCarrier:"run-arg" in CLI_TOOL_CONFIGS).
-			// @lore AL6 opencode-reengage-carrier: opencode run <msg> passes the message
+			// @lore Opencode-reengage-carrier: opencode run <msg> passes the message
 			// as the initial user prompt. The forcing message instructs the agent to return.
 			const reEngageResult = await spawnDetached(
 				"opencode",
@@ -1188,7 +1189,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 		requireHarness("cursor-agent");
 
 		test("LIVE: provision soft-continue channel without throw", async () => {
-			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-cursor-agent-"));
+			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "rgate-cursor-agent-"));
 
 			try {
 				const bridgeToken = `cursor-agent-test-token-${Math.random().toString(36).slice(2)}`;
@@ -1239,7 +1240,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 			//
 			// @lore AR6 builtin-lane: builtin-loop = no file artifact; the loop enforcement
 			// is wired directly in BuiltinHarnessAdapter.streamEvents, not via a hook script.
-			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-builtin-"));
+			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "rgate-builtin-"));
 
 			try {
 				const bridgeToken = `builtin-test-token-${Math.random().toString(36).slice(2)}`;
@@ -1291,7 +1292,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 				expect(res.status).toBe(200);
 				const body = await res.text();
 				// The enforcement registry entry was registered with gate.returned=false,
-				// so shouldForceReturn returns the AL6_FORCE_RETURN_MESSAGE.
+				// so shouldForceReturn returns the FORCE_RETURN_MESSAGE.
 				expect(body.length).toBeGreaterThan(0);
 
 				// The forceCount must have been incremented by the real route.
@@ -1332,7 +1333,7 @@ describe("AL6 v4-final — LIVE real-binary harness return-enforcement (local-on
 		});
 
 		test("builtin-loop provisioning is idempotent and leaves no filesystem hook artifact", async () => {
-			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-builtin-idem-"));
+			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "rgate-builtin-idem-"));
 
 			try {
 				const bridgeToken = `builtin-idem-token-${Math.random().toString(36).slice(2)}`;

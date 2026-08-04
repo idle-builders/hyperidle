@@ -69,7 +69,7 @@ const STUB_PATTERNS: readonly RegExp[] = [
 	// colon scopes this to a RETURN-TYPE annotation, so a parameter annotation
 	// (`adapter: HarnessAdapter`) and a type import do NOT match. AC5: stub-the-seam
 	// via a factory must fail the build just like `new ScriptedAdapter` /
-	// `implements HarnessAdapter`. (AR1 finding 3 — AL6-return-gate +
+	// `implements HarnessAdapter`. (AR1 finding 3 — return-gate.test.ts +
 	// ah5-gates-on-broken-stream evaded the old set with this exact shape.)
 	/\)\s*:\s*HarnessAdapter\b/,
 	// importing a mock harness adapter module
@@ -761,7 +761,7 @@ function writeAllowlist(): void {
  *
  * @lore AR2 W1: The coverage-debt set is the set of files where missingHarnesses()
  * returns a non-empty slice. The stub allowlist is derived from isStubDirty(). These
- * are currently the same five files (AL6/ah5) by coincidence — but each debt axis must
+ * are currently the same five files (return-gate/ah5) by coincidence — but each debt axis must
  * retire independently, so they are stored in separate JSON files.
  */
 function writeCoverageAllowlist(): void {

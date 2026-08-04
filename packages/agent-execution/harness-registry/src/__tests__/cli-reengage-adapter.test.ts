@@ -1,5 +1,5 @@
 /**
- * AL6 CRIT-3 — CliHarnessAdapter.streamEvents process-reengage loop tests.
+ * CliHarnessAdapter.streamEvents process-reengage loop tests.
  *
  * These tests drive the PRODUCTION re-engage code in CliHarnessAdapter.streamEvents
  * (cli-harness-adapter.ts:513-599) using an injected spawnFn (deterministic, no binary).
@@ -9,27 +9,27 @@
  *    spawn (an injectable spawnFn/seam on the adapter) that emits a step_finish/turn-end
  *    with NO return action, and assert the adapter: detects turn-end, checks shouldForceReturn
  *    against the registry, RE-spawns with the forcing message, increments the registry,
- *    bounded by AL6_MAX_FORCE_RETURNS, then settles not_returned."
+ *    bounded by MAX_FORCE_RETURNS, then settles not_returned."
  *
  * Tests FAIL if the re-engage loop is deleted from CliHarnessAdapter.streamEvents.
  *
- * @lore AL6 CRIT-3: The opencode re-engage loop lives in CliHarnessAdapter.streamEvents,
+ * @lore The opencode re-engage loop lives in CliHarnessAdapter.streamEvents,
  * NOT in the test. The test injects a spawnFn that returns fake child processes to control
  * turn-end timing without spawning real binaries. The enforcement registry singleton is
  * used directly (same as production) — the session must be registered BEFORE streamEvents
  * is entered, just as session-provisioning.ts registers it before startSession.
  *
- * @lore AL6 CRIT-3 test-design: We pre-seed the enforcement registry with the session's
+ * @lore Test design: We pre-seed the enforcement registry with the session's
  * configSessionId (the real session UUID from SessionConfig.sessionId). The adapter reads
  * `enforcementRegistry.get(session.configSessionId)` inside streamEvents. Correct seeding
  * is the same requirement the production flow satisfies via enforcementRegistry.register()
  * at session-provisioning.ts:760.
  *
- * @lore AL6 CRIT-3 budget-termination: AL6_MAX_FORCE_RETURNS=2, so we need to provide
+ * @lore Budget termination: MAX_FORCE_RETURNS=2, so we need to provide
  * enough fake children to exhaust the budget OR set gate.returned=true to stop re-engaging.
  * Setting gate.returned=true after N re-engages mimics the agent finally returning.
  *
- * @lore AL6 v4-fix test-drives-real-config: This test uses CLI_TOOL_CONFIGS.opencode
+ * @lore Test drives real config: This test uses CLI_TOOL_CONFIGS.opencode
  * (the REAL shipped config, args: ["--dir", "{{sandbox}}"]) NOT a fabricated config.
  * The previous fabricated config (args: ["run", "--format", "json"]) masked the production
  * bug where re-engage produced ["--dir", "", forceMsg] — broken invocation. Now any
@@ -39,7 +39,7 @@
 import type { ChildProcess, spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
 import type { HarnessEvent, SessionConfig } from "@hyperidle/shared";
-import { AL6_FORCE_RETURN_MESSAGE, AL6_MAX_FORCE_RETURNS } from "@hyperidle/shared";
+import { FORCE_RETURN_MESSAGE, MAX_FORCE_RETURNS } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CliAdapterConfig } from "../cli-harness-adapter.js";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
@@ -57,7 +57,7 @@ const enforcementRegistry = createReturnEnforcement();
  * broken template-strip approach, the test fails because re-engage args will be
  * ["--dir", "", forceMsg] (no "run" subcommand, empty --dir, stray positional).
  *
- * @lore AL6 v4-fix: Using CLI_TOOL_CONFIGS.opencode ensures the test exercises the
+ * @lore Using CLI_TOOL_CONFIGS.opencode ensures the test exercises the
  * production code path, not a fabricated config that hid the real bug.
  */
 function makeProcessReEngageConfig(overrides: Partial<CliAdapterConfig> = {}): CliAdapterConfig {
@@ -95,7 +95,7 @@ function makeSessionConfig(
 
 /**
  * Create a fake child process whose stdout/stderr/stdin are controllable.
- * @lore AL6 CRIT-3: pid must be non-undefined so the adapter's ENOENT guard
+ * @lore pid must be non-undefined so the adapter's ENOENT guard
  * doesn't block. We set pid=99999.
  */
 function makeFakeChild(): {
@@ -127,7 +127,7 @@ function makeFakeChild(): {
  * Create a spawnFn that returns fake children from a pre-built list.
  * Each call returns the next child in the list.
  *
- * @lore AL6 CRIT-3 type-cast: vi.fn() doesn't match `typeof spawn` (heavily overloaded).
+ * @lore Type cast: vi.fn() doesn't match `typeof spawn` (heavily overloaded).
  * We cast via `unknown` to satisfy the CliAdapterDeps.spawnFn type without disabling
  * strict mode. The mock only implements the (binary, args, options) → ChildProcess call
  * shape that CliHarnessAdapter actually invokes at runtime.
@@ -153,11 +153,11 @@ function makeFakeSpawnFn(children: ReturnType<typeof makeFakeChild>[]): {
 
 // ── Registry lifecycle ────────────────────────────────────────────────────────
 
-describe("AL6 CRIT-3 — CliHarnessAdapter.streamEvents process-reengage loop", () => {
+describe("CliHarnessAdapter.streamEvents process-reengage loop", () => {
 	let testSessionId: string;
 
 	beforeEach(() => {
-		testSessionId = `al6-crit3-test-${Math.random().toString(36).slice(2, 10)}`;
+		testSessionId = `reengage-test-${Math.random().toString(36).slice(2, 10)}`;
 	});
 
 	afterEach(() => {
@@ -166,9 +166,9 @@ describe("AL6 CRIT-3 — CliHarnessAdapter.streamEvents process-reengage loop", 
 	});
 
 	it("re-spawns with forcing message when first turn ends without return action (registry-driven)", async () => {
-		// Arrange: provide enough fake children to exhaust the budget (AL6_MAX_FORCE_RETURNS + 1 total).
+		// Arrange: provide enough fake children to exhaust the budget (MAX_FORCE_RETURNS + 1 total).
 		// After budget exhausted, the loop breaks. Last child exits and stream ends.
-		const children = Array.from({ length: AL6_MAX_FORCE_RETURNS + 1 }, () => makeFakeChild());
+		const children = Array.from({ length: MAX_FORCE_RETURNS + 1 }, () => makeFakeChild());
 		const { spawnFn, spawnCalls } = makeFakeSpawnFn(children);
 
 		const adapter = new CliHarnessAdapter(makeProcessReEngageConfig(), { spawnFn });
@@ -205,7 +205,7 @@ describe("AL6 CRIT-3 — CliHarnessAdapter.streamEvents process-reengage loop", 
 		// Must start with "run" subcommand — not "--dir" (the raw config arg).
 		expect(reEngageArgs[0]).toBe("run");
 		// Must carry the forcing message as the first positional after "run".
-		expect(reEngageArgs).toContain(AL6_FORCE_RETURN_MESSAGE);
+		expect(reEngageArgs).toContain(FORCE_RETURN_MESSAGE);
 		// Must NOT contain empty strings (broken template-strip would leave "").
 		expect(reEngageArgs).not.toContain("");
 		// Must include --format json (JSON output flag for opencode).
@@ -223,8 +223,8 @@ describe("AL6 CRIT-3 — CliHarnessAdapter.streamEvents process-reengage loop", 
 
 		await streamDone;
 
-		// Total spawns: 1 initial + AL6_MAX_FORCE_RETURNS re-engages = budget+1.
-		expect(spawnCalls.length).toBeLessThanOrEqual(AL6_MAX_FORCE_RETURNS + 1);
+		// Total spawns: 1 initial + MAX_FORCE_RETURNS re-engages = budget+1.
+		expect(spawnCalls.length).toBeLessThanOrEqual(MAX_FORCE_RETURNS + 1);
 	}, 15_000);
 
 	it("does NOT re-spawn when return action was seen in first turn (gate.returned=true)", async () => {
@@ -256,7 +256,7 @@ describe("AL6 CRIT-3 — CliHarnessAdapter.streamEvents process-reengage loop", 
 	it("registry incrementForce is called on each re-engage — forceCount increases", async () => {
 		// Verify the registry is the counter (not just a local variable).
 		// On each re-engage, enforcementRegistry.incrementForce must be called.
-		const children = Array.from({ length: AL6_MAX_FORCE_RETURNS + 1 }, () => makeFakeChild());
+		const children = Array.from({ length: MAX_FORCE_RETURNS + 1 }, () => makeFakeChild());
 		const { spawnFn } = makeFakeSpawnFn(children);
 
 		const adapter = new CliHarnessAdapter(makeProcessReEngageConfig(), { spawnFn });
@@ -293,12 +293,12 @@ describe("AL6 CRIT-3 — CliHarnessAdapter.streamEvents process-reengage loop", 
 		// Final forceCount must equal the number of re-engages (bounded by budget).
 		const finalEntry = enforcementRegistry.get(testSessionId);
 		expect(finalEntry?.forceCount).toBeGreaterThanOrEqual(1);
-		expect(finalEntry?.forceCount).toBeLessThanOrEqual(AL6_MAX_FORCE_RETURNS);
+		expect(finalEntry?.forceCount).toBeLessThanOrEqual(MAX_FORCE_RETURNS);
 	}, 15_000);
 
-	it("re-engage args carry AL6_FORCE_RETURN_MESSAGE (not silent re-run or 'proceed')", async () => {
+	it("re-engage args carry FORCE_RETURN_MESSAGE (not silent re-run or 'proceed')", async () => {
 		// The re-engage args must include the specific forcing message, not a silent re-run.
-		const children = Array.from({ length: AL6_MAX_FORCE_RETURNS + 1 }, () => makeFakeChild());
+		const children = Array.from({ length: MAX_FORCE_RETURNS + 1 }, () => makeFakeChild());
 		const { spawnFn, spawnCalls } = makeFakeSpawnFn(children);
 
 		const adapter = new CliHarnessAdapter(makeProcessReEngageConfig(), { spawnFn });
@@ -321,7 +321,7 @@ describe("AL6 CRIT-3 — CliHarnessAdapter.streamEvents process-reengage loop", 
 		const reEngageArgs = spawnCalls[1]?.args ?? [];
 		// Must start with "run" subcommand — the correct headless opencode invocation.
 		expect(reEngageArgs[0]).toBe("run");
-		expect(reEngageArgs).toContain(AL6_FORCE_RETURN_MESSAGE);
+		expect(reEngageArgs).toContain(FORCE_RETURN_MESSAGE);
 		// Not a silent/generic re-run — must not ONLY contain base args without message.
 		expect(reEngageArgs.join(" ")).toContain("return");
 		// Must NOT contain empty strings (broken template-strip artifact).
@@ -346,7 +346,7 @@ describe("AL6 CRIT-3 — CliHarnessAdapter.streamEvents process-reengage loop", 
 		// tool as `hyperidle_<bare>`), so the re-spawned agent could not
 		// resolve it and failed exactly as real opencode did in production
 		// ("Model tried to call unavailable tool 'reply'").
-		const children = Array.from({ length: AL6_MAX_FORCE_RETURNS + 1 }, () => makeFakeChild());
+		const children = Array.from({ length: MAX_FORCE_RETURNS + 1 }, () => makeFakeChild());
 		const { spawnFn, spawnCalls } = makeFakeSpawnFn(children);
 
 		const adapter = new CliHarnessAdapter(makeProcessReEngageConfig(), { spawnFn });
@@ -390,10 +390,10 @@ describe("AL6 CRIT-3 — CliHarnessAdapter.streamEvents process-reengage loop", 
 		await streamDone;
 	}, 15_000);
 
-	it("is bounded by AL6_MAX_FORCE_RETURNS — no re-spawn after budget exhausted", async () => {
-		// After AL6_MAX_FORCE_RETURNS re-engages, the loop must stop.
-		// Total spawns = 1 initial + AL6_MAX_FORCE_RETURNS re-engages.
-		const children = Array.from({ length: AL6_MAX_FORCE_RETURNS + 1 }, () => makeFakeChild());
+	it("is bounded by MAX_FORCE_RETURNS — no re-spawn after budget exhausted", async () => {
+		// After MAX_FORCE_RETURNS re-engages, the loop must stop.
+		// Total spawns = 1 initial + MAX_FORCE_RETURNS re-engages.
+		const children = Array.from({ length: MAX_FORCE_RETURNS + 1 }, () => makeFakeChild());
 		const { spawnFn, spawnCalls } = makeFakeSpawnFn(children);
 
 		const adapter = new CliHarnessAdapter(makeProcessReEngageConfig(), { spawnFn });
@@ -418,7 +418,7 @@ describe("AL6 CRIT-3 — CliHarnessAdapter.streamEvents process-reengage loop", 
 		await streamDone;
 
 		// Total spawns must be exactly initial + budget (not initial + budget + 1).
-		expect(spawnCalls.length).toBe(AL6_MAX_FORCE_RETURNS + 1);
+		expect(spawnCalls.length).toBe(MAX_FORCE_RETURNS + 1);
 	}, 15_000);
 
 	it("does not re-engage for non-process-reengage channels (settings-claude)", async () => {

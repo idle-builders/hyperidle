@@ -1,5 +1,5 @@
 /**
- * AL6 v4-final — Unit tests for provisionReturnHook.
+ * Unit tests for provisionReturnHook.
  *
  * Covers:
  *   - Writes the correct file per channel (settings-claude, settings-codex, process-reengage)
@@ -30,11 +30,11 @@ const provisionReturnHook = (options: {
 	readonly forceBudget: number;
 }) => provisionHarnessEnvironment({ ...options, token: options.bridgeToken });
 
-describe("AL6 v4-final — provisionReturnHook", () => {
+describe("provisionReturnHook", () => {
 	let sandboxPath: string;
 
 	beforeEach(() => {
-		sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "al6v4-prh-"));
+		sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "prh-"));
 	});
 
 	afterEach(() => {
@@ -198,7 +198,7 @@ describe("AL6 v4-final — provisionReturnHook", () => {
 			const hooksPath = path.join(sandboxPath, ".codex", "hooks.json");
 			const content = JSON.parse(fs.readFileSync(hooksPath, "utf-8")) as Record<string, unknown>;
 
-			// @lore AL6 real-codex-format: The format is { "hooks": { "Stop": [...] } }
+			// @lore Real codex format: The format is { "hooks": { "Stop": [...] } }
 			// NOT a top-level "Stop" key. Verified against codex-cli v0.141.0.
 			// The old flat format { "Stop": { "command": "..." } } is silently ignored.
 			expect(content).toHaveProperty("hooks");
@@ -219,7 +219,7 @@ describe("AL6 v4-final — provisionReturnHook", () => {
 		});
 
 		it("WARN-F1 (trust): codex trust is per-invocation (--dangerously-bypass-hook-trust), no sentinel file needed", async () => {
-			// @lore AL6 real-codex-trust: Codex trust is a per-invocation flag:
+			// @lore Real codex trust: Codex trust is a per-invocation flag:
 			// --dangerously-bypass-hook-trust bypasses hash-check for automation.
 			// There is NO sentinel file mechanism (no "trusted" file, no config.toml needed).
 			// This test asserts the CORRECT behavior: no bogus trust file is written.
@@ -365,7 +365,7 @@ describe("AL6 v4-final — provisionReturnHook", () => {
 		for (const channel of allChannels) {
 			it(`handles channel="${channel}" without throwing`, async () => {
 				const channelSandbox = fs.mkdtempSync(
-					path.join(os.tmpdir(), `al6v4-ch-${channel.replace(/-/g, "")}-`),
+					path.join(os.tmpdir(), `prh-ch-${channel.replace(/-/g, "")}-`),
 				);
 				try {
 					await expect(

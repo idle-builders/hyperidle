@@ -24,7 +24,7 @@ The set is **closed**: membership is enumerated in a `readonly` tuple; `isReturn
 
 ## 2. Exemptions
 
-**Internal-extraction drains** — sessions provisioned with `tools: []` — are structurally exempt. With no tools the agent cannot call any return action; enforcement is impossible, not merely waived. The exemption check is `isInternalExtractionDrain({ tools })` (same file). The `no-ungated-stream-drain` lint rule marks these loops `// AL6-exempt: internal-extraction drain` so the static check skips them.
+**Internal-extraction drains** — sessions provisioned with `tools: []` — are structurally exempt. With no tools the agent cannot call any return action; enforcement is impossible, not merely waived. The exemption check is `isInternalExtractionDrain({ tools })` (same file). The `no-ungated-stream-drain` lint rule marks these loops `// return-exempt: internal-extraction drain` so the static check skips them.
 
 **Non-completed end-reasons** (`crashed`, `stopped`, `budget_exhausted`) are also exempt. `evaluateReturn(gate, endReason)` returns `"returned"` for any non-`completed` reason — the agent was prevented from finishing, not choosing to skip the return.
 
@@ -86,7 +86,7 @@ The registry is the single source of truth for force budget tracking. It is regi
 
 **Blocking protocol:** exit-2 + stderr. Claude Code re-prompts with the stderr content as a blocking user message.
 
-**Proof:** `AL6-real-harness-return-enforcement-realbinary.integration.test.ts` — "FULL BINARY PROOF (claude)" spawns the real `claude` binary (`buildCleanEnv` zeroes `CLAUDECODE`/`CLAUDE_CODE_ENTRYPOINT`/etc. so nested-session detection is bypassed; keychain auth still works via `HOME`/`PATH`). Turn completes → Stop hook fires → bridge receives `POST` → `callCount >= 1` asserted.
+**Proof:** `real-harness-return-enforcement-realbinary.integration.test.ts` — "FULL BINARY PROOF (claude)" spawns the real `claude` binary (`buildCleanEnv` zeroes `CLAUDECODE`/`CLAUDE_CODE_ENTRYPOINT`/etc. so nested-session detection is bypassed; keychain auth still works via `HOME`/`PATH`). Turn completes → Stop hook fires → bridge receives `POST` → `callCount >= 1` asserted.
 
 ### `codex` — `settings-codex` (CODEX_HOME strategy)
 
@@ -104,7 +104,7 @@ Codex reads hooks **only** from `CODEX_HOME/hooks.json` (default `~/.codex/hooks
 
 **Blocking protocol:** `{"decision":"block","reason":"..."}` on stdout (not exit-2 + stderr like Claude Code). Exit 0 with this JSON output blocks the stop and re-prompts with the reason. Exit 0 with no JSON (or `{"decision":"approve"}`) allows the stop.
 
-**Proof:** `AL6-real-harness-return-enforcement-realbinary.integration.test.ts` — "FULL BINARY PROOF (CODEX_HOME)" proves end-to-end: real `codex exec` binary, per-session CODEX_HOME, Stop hook fires, bridge POST received, `callCount >= 1` asserted.
+**Proof:** `real-harness-return-enforcement-realbinary.integration.test.ts` — "FULL BINARY PROOF (CODEX_HOME)" proves end-to-end: real `codex exec` binary, per-session CODEX_HOME, Stop hook fires, bridge POST received, `callCount >= 1` asserted.
 
 ### `opencode` — `process-reengage`
 
@@ -112,9 +112,9 @@ OpenCode has no native blocking Stop hook. Enforcement is via **process wrapper 
 
 `provisionReturnHook` writes `.opencode/plugins/return-signal.ts` (a plugin that listens on `session.idle`), but plugin auto-load from a project-local `.opencode/` directory is not supported by the current opencode release. The operative enforcement path is the process wrapper.
 
-Re-engage is bounded by `AL6_MAX_FORCE_RETURNS`. The `CliSession.reEngageCount` counter tracks re-spawns; when the budget is spent, the session ends and the drain-gate floor settles the verdict.
+Re-engage is bounded by `MAX_FORCE_RETURNS`. The `CliSession.reEngageCount` counter tracks re-spawns; when the budget is spent, the session ends and the drain-gate floor settles the verdict.
 
-**Proof:** `AL6-real-harness-return-enforcement-realbinary.integration.test.ts` — the live process-reengage proof spawns the real opencode binary, detects `step_finish` on the first turn, fires the re-engage spawn with the forcing message, and confirms both turns complete.
+**Proof:** `real-harness-return-enforcement-realbinary.integration.test.ts` — the live process-reengage proof spawns the real opencode binary, detects `step_finish` on the first turn, fires the re-engage spawn with the forcing message, and confirms both turns complete.
 
 ### `builtin` — `builtin-loop`
 
@@ -130,9 +130,9 @@ Cursor Agent is not spawnable today (`cursor-agent` binary unavailable; no docum
 
 ## 5. Forcing Budget
 
-`AL6_MAX_FORCE_RETURNS = 2` (`packages/shared/src/harness/return-actions.ts`). The budget is enforced via `shouldForceReturn(gate, forceCount)`:
+`MAX_FORCE_RETURNS = 2` (`packages/shared/src/harness/return-actions.ts`). The budget is enforced via `shouldForceReturn(gate, forceCount)`:
 
-- Returns the `AL6_FORCE_RETURN_MESSAGE` string when `!gate.returned && forceCount < AL6_MAX_FORCE_RETURNS`.
+- Returns the `FORCE_RETURN_MESSAGE` string when `!gate.returned && forceCount < MAX_FORCE_RETURNS`.
 - Returns `null` when budget is exhausted or the agent already returned.
 
 Each hook invocation that returns a force message increments `entry.forceCount` in the enforcement registry (via the `/return-status` route or the in-process registry call). When `forceCount >= 2`, `shouldForceReturn` returns `null` and the hook allows the stop — the session proceeds to drain-gate evaluation.
@@ -201,8 +201,8 @@ The registry is the primary source (incremented by the `/return-status` route); 
 The ESLint rule `design/no-ungated-stream-drain` (`packages/eslint-plugin-design/src/rules/no-ungated-stream-drain.ts`) classifies every `for await … of <streamEvents-iterable>` loop as one of:
 
 - **TURN-DRAIN** — must call `gate.observe(event)` in the loop body.
-- **RELAY** — loop body passes events through; annotated `// AL6-relay`. Must NOT call `observe`.
-- **EXEMPT** — exempt internal-extraction drain; annotated `// AL6-exempt: internal-extraction drain`. Must NOT call `observe`.
+- **RELAY** — loop body passes events through; annotated `// return-relay`. Must NOT call `observe`.
+- **EXEMPT** — exempt internal-extraction drain; annotated `// return-exempt: internal-extraction drain`. Must NOT call `observe`.
 
 A violation is a build error. Future drain sites cannot silently skip the gate.
 
@@ -232,7 +232,7 @@ Together the two external scenarios form complete process-reengage coverage: for
 
 ## 11. Real-Harness Integration Tests
 
-`packages/server/src/harness/__tests__/AL6-real-harness-return-enforcement-realbinary.integration.test.ts` covers the four supported harnesses in a single file (AR6 consolidation — the former scripted in-process anchor file was merged into this file).
+`packages/core-api/src/__tests__/real-harness-return-enforcement-realbinary.integration.test.ts` covers the four supported harnesses in a single file (AR6 consolidation — the former scripted in-process anchor file was merged into this file).
 
 Each real-binary lane is gated by `requireHarness(<name>)` (hard-fail, never skip) + an inner auth check. Runs locally via `test:integration`'s serial `harness` project; the signed attestation carries the result.
 
@@ -243,4 +243,4 @@ Each real-binary lane is gated by `requireHarness(<name>)` (hard-fail, never ski
 | `opencode` | live process-reengage proof — `step_finish` detected; re-engage spawn fires with forcing message; both turns complete |
 | `builtin` | realbinary block covers provisioning no-op + real route forcing |
 
-Real-binary tests are local-only (require binary + auth). The deterministic builtin anchor — `forceCount >= 1` on a no-return stub, `outcome = completed` on a returning stub — lives in `AL6-builtin-enforcement.test.ts` (unit test) and runs without any real binary or LLM call.
+Real-binary tests are local-only (require binary + auth). The deterministic builtin anchor — the force-bounded `shouldForceReturn` behavior and the gate's returned/not-returned detection — lives in `return-gate.test.ts` (unit test) and runs without any real binary or LLM call.

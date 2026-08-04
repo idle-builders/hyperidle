@@ -1,5 +1,5 @@
 /**
- * AL6 v4-final — Unit tests for the return_status bridge tool.
+ * Unit tests for the return_status bridge tool.
  *
  * The tool is a ToolDefinition injected into the per-session registry via
  * buildToolRegistry's extraTools option. It reads ctx.sessionId → enforcement
@@ -7,7 +7,7 @@
  *
  * Key semantics:
  *   - returned=true OR exempt=true OR budgetLeft=0 → forceMessage: null (allow end)
- *   - returned=false AND !exempt AND budgetLeft>0 → forceMessage = AL6_FORCE_RETURN_MESSAGE
+ *   - returned=false AND !exempt AND budgetLeft>0 → forceMessage = FORCE_RETURN_MESSAGE
  *   - calling the tool with forceMessage!==null increments forceCount in registry
  *
  * WARN-F1: the tool handler must call shouldForceReturn(gate, forceCount) — the
@@ -26,8 +26,8 @@ import { returnStatusTool } from "../return-status-tool.js";
 
 // biome-ignore lint/suspicious/noExplicitAny: accessing shared constants in red phase
 const sharedNs = sharedAll as Record<string, any>;
-const AL6_FORCE_RETURN_MESSAGE: string = sharedNs.AL6_FORCE_RETURN_MESSAGE;
-const AL6_MAX_FORCE_RETURNS: number = sharedNs.AL6_MAX_FORCE_RETURNS;
+const FORCE_RETURN_MESSAGE: string = sharedNs.FORCE_RETURN_MESSAGE;
+const MAX_FORCE_RETURNS: number = sharedNs.MAX_FORCE_RETURNS;
 const createEnforcementRegistry = () => createReturnEnforcement({ isolated: true });
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -46,7 +46,7 @@ function makeCtx(sessionId: string): Parameters<typeof returnStatusTool.handler>
 	} as any;
 }
 
-describe("AL6 v4-final — return_status tool", () => {
+describe("return_status tool", () => {
 	// ── Tool definition structure ─────────────────────────────────────────
 
 	it("tool has name 'return_status'", () => {
@@ -65,7 +65,7 @@ describe("AL6 v4-final — return_status tool", () => {
 
 	// ── Handler: forceMessage when not returned and budget left ───────────
 
-	it("returns forceMessage=AL6_FORCE_RETURN_MESSAGE when gate.returned=false and budget left", async () => {
+	it("returns forceMessage=FORCE_RETURN_MESSAGE when gate.returned=false and budget left", async () => {
 		const registry = createEnforcementRegistry();
 		const gate = { returned: false };
 		const sessionId = "test-session-force-1";
@@ -82,8 +82,8 @@ describe("AL6 v4-final — return_status tool", () => {
 			expect(data.returned).toBe(false);
 			expect(data.exempt).toBe(false);
 			expect(data.forceCount).toBe(0);
-			expect(data.budgetLeft).toBe(AL6_MAX_FORCE_RETURNS);
-			expect(data.forceMessage).toBe(AL6_FORCE_RETURN_MESSAGE);
+			expect(data.budgetLeft).toBe(MAX_FORCE_RETURNS);
+			expect(data.forceMessage).toBe(FORCE_RETURN_MESSAGE);
 		}
 	});
 
@@ -113,7 +113,7 @@ describe("AL6 v4-final — return_status tool", () => {
 		if (result2.success) {
 			const data = result2.data as Record<string, unknown>;
 			expect(data.forceCount).toBe(1);
-			expect(data.budgetLeft).toBe(AL6_MAX_FORCE_RETURNS - 1);
+			expect(data.budgetLeft).toBe(MAX_FORCE_RETURNS - 1);
 		}
 	});
 
@@ -151,13 +151,13 @@ describe("AL6 v4-final — return_status tool", () => {
 		}
 	});
 
-	it("returns forceMessage=null when budget exhausted (forceCount>=AL6_MAX_FORCE_RETURNS)", async () => {
+	it("returns forceMessage=null when budget exhausted (forceCount>=MAX_FORCE_RETURNS)", async () => {
 		const registry = createEnforcementRegistry();
 		const gate = { returned: false };
 		const sessionId = "test-session-budget-1";
 
 		// Start at max force count (budget exhausted)
-		registry.register(sessionId, { gate, forceCount: AL6_MAX_FORCE_RETURNS, exempt: false });
+		registry.register(sessionId, { gate, forceCount: MAX_FORCE_RETURNS, exempt: false });
 
 		const result = await returnStatusTool.handler({}, makeCtx(sessionId), registry);
 
@@ -267,7 +267,7 @@ describe("AL6 v4-final — return_status tool", () => {
 			expect(result.success).toBe(true);
 			if (!result.success) return;
 			const data = result.data as Record<string, unknown>;
-			expect(data.forceMessage).toBe(AL6_FORCE_RETURN_MESSAGE);
+			expect(data.forceMessage).toBe(FORCE_RETURN_MESSAGE);
 		});
 	});
 });

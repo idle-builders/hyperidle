@@ -10,8 +10,8 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-	AL6_FORCE_RETURN_MESSAGE,
 	buildForceReturnMessage,
+	FORCE_RETURN_MESSAGE,
 	isRequiredReturnAction,
 	shouldForceReturn,
 } from "../return-actions.js";
@@ -56,8 +56,8 @@ describe("isRequiredReturnAction — return predicate narrowed to a required sub
 
 describe("buildForceReturnMessage — tailored forcing message", () => {
 	it("required absent or empty returns the byte-identical default message", () => {
-		expect(buildForceReturnMessage()).toBe(AL6_FORCE_RETURN_MESSAGE);
-		expect(buildForceReturnMessage([])).toBe(AL6_FORCE_RETURN_MESSAGE);
+		expect(buildForceReturnMessage()).toBe(FORCE_RETURN_MESSAGE);
+		expect(buildForceReturnMessage([])).toBe(FORCE_RETURN_MESSAGE);
 	});
 
 	it("required ['reply'] names reply, not the trio", () => {
@@ -96,7 +96,7 @@ describe("shouldForceReturn — required param narrows the forcing message", () 
 
 	it("required absent ⇒ byte-identical to the pre-Increment-3 call shape", () => {
 		const gate = { returned: false };
-		expect(shouldForceReturn(gate, 0)).toBe(AL6_FORCE_RETURN_MESSAGE);
-		expect(shouldForceReturn(gate, 0, undefined)).toBe(AL6_FORCE_RETURN_MESSAGE);
+		expect(shouldForceReturn(gate, 0)).toBe(FORCE_RETURN_MESSAGE);
+		expect(shouldForceReturn(gate, 0, undefined)).toBe(FORCE_RETURN_MESSAGE);
 	});
 });

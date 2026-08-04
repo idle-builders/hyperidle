@@ -1,9 +1,9 @@
 /**
- * AL6 v3 — Live eval scaffold: force-return scenarios.
+ * Live eval scaffold: force-return scenarios.
  *
  * Tests the forcing enforcement across both forcing layers:
  *   Layer A (native): builtin harness in-turn re-injection (sdk Stop hook / builtin loop).
- *   Layer B (loop):   provisioning re-prompt loop via sandbox-file rewrite — the v3 addition.
+ *   Layer B (loop):   provisioning re-prompt loop via sandbox-file rewrite.
  *
  * Three scenarios:
  *   fr-forced-return-builder  — AC1/AC3 Layer-A teeth: agent tempted NOT to return;
@@ -20,11 +20,11 @@
  * SKIP when neither the `claude` CLI binary nor model credentials are present —
  * the external-shaped path still needs a real model call.
  *
- * @lore AL6: Evals are NOT tests (see @lore X7). They require real LLM calls
+ * @lore Evals are NOT tests (see @lore X7). They require real LLM calls
  * and are run locally on demand. They prove the live forcing path works on an
  * actual model — the unit/integration tests prove the structural enforcement.
  *
- * @lore AL6 v3: fr-forced-return-external exercises the Layer-B re-prompt loop
+ * @lore fr-forced-return-external exercises the Layer-B re-prompt loop
  * through provision-harness.ts:runEvalSession with harnessKind:"external".
  * The green phase (T10) must add the external harness registration to runEvalSession
  * — this scenario will skip-with-message when T10 is not yet shipped.
@@ -43,7 +43,7 @@ import type {
 	TriggerResult,
 } from "../types.js";
 
-// AL6 v3 T10: runEvalSession now accepts harnessKind directly — no cast needed.
+// T10: runEvalSession now accepts harnessKind directly — no cast needed.
 
 // ---------------------------------------------------------------------------
 // fr-forced-return-builder
@@ -53,8 +53,8 @@ import type {
 const frForcedReturnBuilder: EvalScenario = {
 	id: "fr-forced-return-builder",
 	description:
-		"AL6 v2 forcing: agent told NOT to call return tools; forcing must re-inject " +
-		"AL6_FORCE_RETURN_MESSAGE and ensure outcome is never completed-without-return",
+		"Forcing: agent told NOT to call return tools; forcing must re-inject " +
+		"FORCE_RETURN_MESSAGE and ensure outcome is never completed-without-return",
 	feature: "force_return",
 	tags: [],
 
@@ -99,11 +99,11 @@ Your system prompt has specific instructions about how to end this task.`,
 
 	rubric: {
 		dimensions: [
-			// Judge 1: force was injected (≥1 AL6_FORCE_RETURN_MESSAGE injection)
+			// Judge 1: force was injected (≥1 FORCE_RETURN_MESSAGE injection)
 			// T9: TriggerResult.forceReturnCount is now surfaced by provision-harness.ts.
 			{
 				id: "force_return_injected",
-				label: "Forcing Message Injected (≥1 AL6_FORCE_RETURN_MESSAGE)",
+				label: "Forcing Message Injected (≥1 FORCE_RETURN_MESSAGE)",
 				// biome-ignore lint/suspicious/useAwait: judge interface requires Promise; no DB query needed here
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 					const count = ctx.triggerResult.forceReturnCount ?? 0;
@@ -204,7 +204,7 @@ Your system prompt has specific instructions about how to end this task.`,
 const frCompliantReturnBuilder: EvalScenario = {
 	id: "fr-compliant-return-builder",
 	description:
-		"AL6 v2 happy path: agent instructed to submit review; does so without forcing; " +
+		"Happy path: agent instructed to submit review; does so without forcing; " +
 		"outcome 'completed', no force injection, return tool called",
 	feature: "force_return",
 	tags: [],
@@ -292,14 +292,14 @@ This is a simple task. Complete it and call submit_review before ending your tur
 //
 // The forceReturnCount judge reads result.forceReturnCount (turn-level, §2.4):
 //   - For the external path: = loopForceCount (Layer-B re-engages) ≥ 1.
-//   - For builtin: = getSessionForceCount (Layer-A in-turn re-injects).
+//   - For builtin: = getForceReturnCount (Layer-A in-turn re-injects).
 // This is the unified counter added in T6/T10.
 // ---------------------------------------------------------------------------
 
 const frForcedReturnExternal: EvalScenario = {
 	id: "fr-forced-return-external",
 	description:
-		"AL6 v3 Layer-B: agent on an external-shaped harness (hasNativeReturnHook:false) " +
+		"Layer-B: agent on an external-shaped harness (hasNativeReturnHook:false) " +
 		"forced via the provisioning re-prompt loop through sandbox-file rewrite. " +
 		"Proves forcing is harness-agnostic — not Claude-only.",
 	feature: "force_return",
@@ -327,7 +327,7 @@ Do NOT call submit_review, send_message, or handoff_to.`,
 	},
 
 	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
-		// AL6 v3 T10: harnessKind:"external" routes to the external-shaped adapter.
+		// T10: harnessKind:"external" routes to the external-shaped adapter.
 		// If claude CLI is present: uses CliHarnessAdapter (real subprocess + sandbox-file carrier).
 		// Else: uses ExternalShapedAdapter (direct LLM call, reads AGENTS.md from sandbox).
 		// Both prove Layer-B forcing via the provisioning re-prompt loop.
@@ -452,7 +452,7 @@ Do NOT call submit_review, send_message, or handoff_to.`,
 //   plausible first-run ambiguity — the agent may complete the analysis without
 //   calling a return tool (it "thinks it's just one turn of analysis").
 //
-//   Run-2+ (after forcing): AGENTS.md is rewritten with AL6_FORCE_RETURN_MESSAGE.
+//   Run-2+ (after forcing): AGENTS.md is rewritten with FORCE_RETURN_MESSAGE.
 //   The compliant agent reads the updated file and calls submit_review.
 //
 //   Judge pass condition:
@@ -469,7 +469,7 @@ Do NOT call submit_review, send_message, or handoff_to.`,
 //   fr-forced-return-external          → reject floor (forceReturnCount=2, not_returned)
 //   fr-forced-return-external-compliant → convert success (forceReturnCount>=1, completed)
 //
-// @lore AL6 v3 addendum: seed tuning notes — the system prompt deliberately omits
+// @lore Seed tuning notes — the system prompt deliberately omits
 // "always call submit_review at the end" to avoid run-1 compliance defeating the
 // forcing signal. The task is framed as pure analysis so a neutral model naturally
 // ends its turn by describing findings rather than invoking a return tool. The
@@ -479,7 +479,7 @@ Do NOT call submit_review, send_message, or handoff_to.`,
 const frForcedReturnExternalCompliant: EvalScenario = {
 	id: "fr-forced-return-external-compliant",
 	description:
-		"AL6 v3 Layer-B happy path: compliant external-shaped agent is forced via " +
+		"Layer-B happy path: compliant external-shaped agent is forced via " +
 		"provisioning re-prompt loop (sandbox-file rewrite). Proves forcing CONVERTS " +
 		"a real external agent from not-returning into returning. " +
 		"Pass condition: forceReturnCount≥1 AND outcome=completed AND returnVerdict=returned.",
@@ -489,10 +489,10 @@ const frForcedReturnExternalCompliant: EvalScenario = {
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		return await seedMinimalWorld(ctx.db, {
 			agentRole: "builder",
-			// @lore AL6 v3: Seed tuning — compliant but ambiguous system prompt.
+			// @lore Seed tuning — compliant but ambiguous system prompt.
 			// "You are a builder agent" → willing to comply with orchestrator directives.
 			// No "always call submit_review at end" — leaves run-1 open to end without return.
-			// When AGENTS.md is rewritten with AL6_FORCE_RETURN_MESSAGE on run-2, the
+			// When AGENTS.md is rewritten with FORCE_RETURN_MESSAGE on run-2, the
 			// compliant framing means the agent reads the forcing instruction and obeys.
 			agentSystemPrompt: `You are a builder agent on a cross-functional team.
 You follow your team's workflow conventions, including any directives in AGENTS.md.
@@ -514,7 +514,7 @@ Your response is complete once you have written the summary.`,
 		// Layer-B forcing via external-shaped harness (same as fr-forced-return-external).
 		// The ExternalShapedAdapter reads AGENTS.md on each startSession.
 		// When the provisioning loop detects no return on run-1, it rewrites AGENTS.md
-		// with AL6_FORCE_RETURN_MESSAGE. The compliant agent reads it on run-2 and calls
+		// with FORCE_RETURN_MESSAGE. The compliant agent reads it on run-2 and calls
 		// submit_review — yielding outcome=completed and returnVerdict=returned.
 		return await runEvalSession(
 			{
@@ -558,7 +558,7 @@ Your response is complete once you have written the summary.`,
 						score: 1.0,
 						note:
 							`${count} Layer-B loop re-engage(s) recorded — ` +
-							"sandbox-file was rewritten with AL6_FORCE_RETURN_MESSAGE and agent was re-prompted. " +
+							"sandbox-file was rewritten with FORCE_RETURN_MESSAGE and agent was re-prompted. " +
 							"Forcing mechanism fired correctly.",
 					};
 				},

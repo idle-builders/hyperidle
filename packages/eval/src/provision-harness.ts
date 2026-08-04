@@ -52,8 +52,8 @@ export interface EvalProvisionDeps {
  * sessions cannot be manually stopped. This narrowing satisfies the
  * TriggerResult.outcome type ("completed" | "crashed").
  *
- * @lore AL6 v3 T10: harnessKind:"external" registers the ExternalShapedAdapter
- * (hasNativeReturnHook:false, canReEngage:true). Adapter selection:
+ * @lore T10: harnessKind:"external" registers the ExternalShapedAdapter
+ * (returnEnforcement:"none" — Layer-B re-prompt loop only). Adapter selection:
  * 1. If the `claude` CLI binary is available: use CliHarnessAdapter (real subprocess).
  * 2. Else: use ExternalShapedAdapter (direct LLM call, reads AGENTS.md from sandbox).
  * Both prove the Layer-B re-prompt loop — neither uses Layer-A in-turn forcing.
@@ -66,7 +66,7 @@ export async function runEvalSession(
 		/** The teamId value — mapped to productId in ProvisionSessionParams. */
 		readonly teamId: string;
 		/**
-		 * AL6 v3 T10: Select the harness kind.
+		 * T10: Select the harness kind.
 		 * "builtin" (default): uses BuiltinHarnessAdapter (Layer-A, in-turn hook).
 		 * "external": uses external-shaped adapter (Layer-B, re-prompt loop only).
 		 */
@@ -164,7 +164,7 @@ export async function runEvalSession(
 
 	const durationMs = Date.now() - startMs;
 
-	// AL6 v2 (T9 WARNING-B): Map outcomes to TriggerResult.
+	// T9 WARNING-B: Map outcomes to TriggerResult.
 	// "completed" → "completed", "not_returned" → "not_returned" (first-class).
 	// "stopped" → "crashed" (eval sessions cannot be manually stopped).
 	// "budget_exhausted" | "crashed" → "crashed".
@@ -175,7 +175,7 @@ export async function runEvalSession(
 				? "not_returned"
 				: "crashed";
 
-	// AL6 v3 (T10): Surface forceReturnCount from ProvisionSessionResult directly.
+	// T10: Surface forceReturnCount from ProvisionSessionResult directly.
 	// result.forceReturnCount is the unified Layer-A + Layer-B count set by runSession.
 	// This works for ALL adapter types (builtin, cli, external) — not just builtin.
 	const forceReturnCount = result.forceReturnCount;
@@ -185,7 +185,7 @@ export async function runEvalSession(
 		outcome,
 		taskId: result.taskId ?? params.taskId,
 		durationMs,
-		// AL6 v2: Return verdict and force count for eval judges.
+		// Return verdict and force count for eval judges.
 		returnVerdict: result.returnVerdict,
 		forceReturnCount,
 	};

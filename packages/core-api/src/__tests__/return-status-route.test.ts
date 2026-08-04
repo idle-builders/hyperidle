@@ -1,6 +1,6 @@
 import { createReturnEnforcement } from "@hyperidle/harness-registry";
 import { createMcpToolBridge } from "@hyperidle/harness-registry/mcp";
-import { AL6_MAX_FORCE_RETURNS, type ToolRegistry } from "@hyperidle/shared";
+import { MAX_FORCE_RETURNS, type ToolRegistry } from "@hyperidle/shared";
 import { describe, expect, test } from "vitest";
 
 const registry: ToolRegistry = {
@@ -36,7 +36,7 @@ describe("return-status adjudication", () => {
 			{
 				sessionId: "exhausted",
 				gate: { returned: false },
-				forceCount: AL6_MAX_FORCE_RETURNS,
+				forceCount: MAX_FORCE_RETURNS,
 				exempt: false,
 			},
 		] as const;

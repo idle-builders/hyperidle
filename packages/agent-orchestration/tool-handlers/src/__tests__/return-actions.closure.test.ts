@@ -1,18 +1,16 @@
 /**
- * AL6 — AC2: Value-import unit test for the closed accepted-return set.
+ * AC2: Value-import unit test for the closed accepted-return set.
  *
  * AC2: The accepted-return set is closed + enumerable.
  *   - Every member of RETURN_ACTION_NAMES maps to a real registered tool in
  *     ALL_TOOL_DEFINITIONS (closure: the set cannot name a phantom tool).
- *   - The set is the exact trio — no extra names, no missing names.
+ *   - The set is the exact, named membership — no extra names, no missing names.
  *   - isReturnAction() returns true for every member and false for non-members.
  *
  * This is a VALUE-IMPORT unit test: imports constants, asserts on values.
  * NOT a readFileSync/grep test — per CLAUDE.md and architecture §5 AC2 row.
  * The "closed finite set" static property is enforced by the `as const` union
  * type (ReturnActionName) at check-time — not a separate test here.
- *
- * Tests FAIL until packages/shared/src/harness/return-actions.ts is implemented.
  */
 
 import { isReturnAction, RETURN_ACTION_NAMES } from "@hyperidle/shared";
@@ -37,7 +35,7 @@ describe("RETURN_ACTION_NAMES — AC2: closed enumerable set", () => {
 	});
 
 	it("every member maps to a real registered tool in ALL_TOOL_DEFINITIONS (closure)", () => {
-		// @lore AL6: This test is the runtime enforcement of the closure guarantee.
+		// @lore This test is the runtime enforcement of the closure guarantee.
 		// If a tool in RETURN_ACTION_NAMES is renamed in tool-registry.ts without
 		// updating return-actions.ts, this test catches the drift at CI time.
 		const registeredNames = new Set(ALL_TOOL_DEFINITIONS.map((d) => d.name));

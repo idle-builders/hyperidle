@@ -4,8 +4,9 @@
  * ⚠️  LOCAL-ONLY LANE — runs via test:integration's serial `harness` project; the
  *     signed attestation carries the result. No test suite runs in GitHub Actions.
  *
- * These tests close the test-coverage seam: the existing real-harness lane (AL6/AL7)
- * proves the real binaries behave, but spawns them DIRECTLY (hand-rolled spawn).
+ * These tests close the test-coverage seam: the existing real-harness lanes
+ * (return-enforcement, AL7) prove the real binaries behave, but spawn them
+ * DIRECTLY (hand-rolled spawn).
  * The existing mock-adapter test (claude-cli-adapter.test.ts) drives the REAL adapter
  * against a MOCK spawn. This file exercises both together:
  *
@@ -29,7 +30,8 @@
  * Actions job." Runs via `npm run test:integration` (serial harness project).
  *
  * @lore cli-adapter-real-binary: This test gates each binary with requireHarness(<name>)
- * (hard-fail, never skip) + an inner auth check. The key difference vs AL6/AL7: instead of spawning
+ * (hard-fail, never skip) + an inner auth check. The key difference vs the
+ * return-enforcement/AL7 lanes: instead of spawning
  * `claude -p ...` directly, we drive `new CliHarnessAdapter(CLAUDE_CLI_CONFIG)` so every
  * line of the production adapter (parseStdoutLine, buildResult, wireStdout) is exercised
  * against real binary output.
@@ -83,7 +85,7 @@ async function rmSandboxWithRetry(sandboxPath: string): Promise<void> {
 	fs.rmSync(sandboxPath, { recursive: true, force: true });
 }
 
-// ── Binary detection (same pattern as AL6/AL7) ────────────────────────────────
+// ── Binary detection (same pattern as the return-enforcement/AL7 lanes) ──────
 
 async function claudeAuthed(): Promise<boolean> {
 	try {
@@ -340,7 +342,7 @@ async function runCodexAdapterTest({ skip }: { skip: () => void }): Promise<void
 	const authed = await codexAuthed();
 	if (!authed) {
 		// codex not authenticated — skip with explicit log.
-		// If the AL6 codex real-harness tests pass in this env, this skip is suspicious.
+		// If the return-enforcement codex real-harness tests pass in this env, this skip is suspicious.
 		// Run `codex login status` to debug.
 		process.stdout.write(
 			"[cli-adapter-real-binary codex] SKIP: codex not authenticated (codex login status returned not logged in)\n",
@@ -368,7 +370,7 @@ async function runCodexAdapterTest({ skip }: { skip: () => void }): Promise<void
 
 		// Provision .codex-home/ (auth.json + config.toml only — no SQLite).
 		// The adapter detects this dir and sets CODEX_HOME automatically.
-		// @lore AL6 codex-codex-home: Copy ONLY auth.json + config.toml.
+		// @lore Codex-home: Copy ONLY auth.json + config.toml.
 		// SQLite files lock and cause codex to exit before making an LLM call.
 		const authFound = provisionCodexHome(sandboxPath);
 		if (!authFound) {
@@ -527,7 +529,7 @@ describe("opencode CLI adapter (real binary, production CliHarnessAdapter path)"
 				resolvedModel: {
 					provider: "openai-compatible" as const,
 					// Provider-prefixed model id required by opencode (OpenRouter route).
-					// @lore AL6 opencode-model-format: opencode uses provider-prefixed model IDs.
+					// @lore Opencode uses provider-prefixed model IDs.
 					model: "openrouter/openai/gpt-4o-mini",
 					apiKey,
 					baseUrl: "https://openrouter.ai/api",

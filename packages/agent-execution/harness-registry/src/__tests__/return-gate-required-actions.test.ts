@@ -4,7 +4,7 @@
  * `send_message`/`handoff_to`/`submit_review` — only by `reply` itself.
  * Absent `requiredReturnActions` preserves the pre-Increment-3 default (any
  * member of the closed return set flips the gate) — proven against the SAME
- * `createReturnEnforcement()` singleton `AL6-return-gate.test.ts` exercises,
+ * `createReturnEnforcement()` singleton `return-gate.test.ts` exercises,
  * isolated per test so the two files never share mutable state.
  */
 import type { HarnessEvent } from "@hyperidle/shared";

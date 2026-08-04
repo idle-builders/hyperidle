@@ -37,10 +37,10 @@ describe("isHarnessIntegrationPath — harness-dir integration tests (true)", ()
 		).toBe(true);
 	});
 
-	test("harness/__tests__/AL6-reprompt-loop.integration.test.ts → true", () => {
+	test("harness/__tests__/AZ9-reprompt-loop.integration.test.ts → true", () => {
 		expect(
 			isHarnessIntegrationPath(
-				"packages/server/src/harness/__tests__/AL6-reprompt-loop.integration.test.ts",
+				"packages/server/src/harness/__tests__/AZ9-reprompt-loop.integration.test.ts",
 			),
 		).toBe(true);
 	});
@@ -101,9 +101,9 @@ describe("isHarnessIntegrationPath — explicit session-provisioning exception (
 
 describe("isHarnessIntegrationPath — false-positive guards (false)", () => {
 	test("*.test.ts unit IN the harness dir → false (stubs allowed in units)", () => {
-		// AL6-return-gate.test.ts legitimately stubs — wrong suffix, never selected.
+		// return-gate.test.ts legitimately stubs — wrong suffix, never selected.
 		expect(
-			isHarnessIntegrationPath("packages/server/src/harness/__tests__/AL6-return-gate.test.ts"),
+			isHarnessIntegrationPath("packages/server/src/harness/__tests__/return-gate.test.ts"),
 		).toBe(false);
 	});
 

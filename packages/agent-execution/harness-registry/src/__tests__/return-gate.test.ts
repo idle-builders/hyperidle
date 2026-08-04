@@ -1,22 +1,13 @@
 /**
- * AL6 v4-final — Unit tests for ReturnGate + force-budget helper.
- *
- * RE-AUTHORED from v3 (second re-author — v4-final):
- *   - Deleted: hasNativeReturnHook/canReEngage capability shape tests (v3 fields REMOVED)
- *   - Deleted: "canForceReturn is GONE" assertion (now returnEnforcement replaces it)
- *   - Added: returnEnforcement channel declared on every adapter (v4 model)
- *   - Kept: AC2, AC3, AC5, shouldForceReturn — unchanged
+ * Unit tests for ReturnGate + force-budget helper.
  *
  * Covers:
- *   AC2: Closed return set — every RETURN_ACTION_NAMES member maps to a real tool.
- *   AC3: Detection — not_returned when no return seen; returned when return seen.
- *   AC5: Mid-turn non-terminal tool use is unaffected by the gate.
- *   AC1/forcing (unit): shouldForceReturn helper is bounded at AL6_MAX_FORCE_RETURNS.
- *   v4 capability shape: returnEnforcement channel declared per adapter (non-optional).
- *
- * Tests FAIL (red) until:
- *   - Task 1: returnEnforcement replaces hasNativeReturnHook/canReEngage
- *   - Tasks 5-8: all adapters implement returnEnforcement
+ *   Closed return set — every RETURN_ACTION_NAMES member maps to a real tool.
+ *   Detection — not_returned when no return seen; returned when return seen.
+ *   Mid-turn non-terminal tool use is unaffected by the gate.
+ *   Forcing (unit): shouldForceReturn helper is bounded at MAX_FORCE_RETURNS.
+ *   Capability shape: returnEnforcement channel declared per adapter (non-optional
+ *   — the type system forces this, `npm run check` fails any omission).
  */
 
 import type { HarnessEvent } from "@hyperidle/shared";
@@ -38,8 +29,8 @@ type ReturnVerdict = ReturnType<typeof evaluateReturn>;
 // biome-ignore lint/suspicious/noExplicitAny: accessing not-yet-exported members in red phase
 const sharedNs = sharedAll as Record<string, any>;
 
-const AL6_FORCE_RETURN_MESSAGE: string = sharedNs.AL6_FORCE_RETURN_MESSAGE;
-const AL6_MAX_FORCE_RETURNS: number = sharedNs.AL6_MAX_FORCE_RETURNS;
+const FORCE_RETURN_MESSAGE: string = sharedNs.FORCE_RETURN_MESSAGE;
+const MAX_FORCE_RETURNS: number = sharedNs.MAX_FORCE_RETURNS;
 const shouldForceReturn: (
 	gate: ReturnType<typeof createReturnGate>,
 	forceCount: number,
@@ -210,27 +201,27 @@ describe("ReturnGate — AC5: gate is observation-only", () => {
 	});
 });
 
-// ── Shared constants (kept, already green from v2) ───────────────────────────
+// ── Shared constants ───────────────────────────────────────────────────────
 
-describe("AL6 — shared forcing constants", () => {
-	it("AL6_FORCE_RETURN_MESSAGE is a non-empty string naming the three return tools", () => {
-		expect(typeof AL6_FORCE_RETURN_MESSAGE).toBe("string");
-		expect(AL6_FORCE_RETURN_MESSAGE.length).toBeGreaterThan(0);
-		expect(AL6_FORCE_RETURN_MESSAGE).toContain("submit_review");
-		expect(AL6_FORCE_RETURN_MESSAGE).toContain("handoff_to");
-		expect(AL6_FORCE_RETURN_MESSAGE).toContain("send_message");
+describe("shared forcing constants", () => {
+	it("FORCE_RETURN_MESSAGE is a non-empty string naming the three return tools", () => {
+		expect(typeof FORCE_RETURN_MESSAGE).toBe("string");
+		expect(FORCE_RETURN_MESSAGE.length).toBeGreaterThan(0);
+		expect(FORCE_RETURN_MESSAGE).toContain("submit_review");
+		expect(FORCE_RETURN_MESSAGE).toContain("handoff_to");
+		expect(FORCE_RETURN_MESSAGE).toContain("send_message");
 	});
 
-	it("AL6_MAX_FORCE_RETURNS is 2 (architecture-specified budget)", () => {
-		expect(typeof AL6_MAX_FORCE_RETURNS).toBe("number");
-		expect(Number.isInteger(AL6_MAX_FORCE_RETURNS)).toBe(true);
-		expect(AL6_MAX_FORCE_RETURNS).toBe(2);
+	it("MAX_FORCE_RETURNS is 2 (architecture-specified budget)", () => {
+		expect(typeof MAX_FORCE_RETURNS).toBe("number");
+		expect(Number.isInteger(MAX_FORCE_RETURNS)).toBe(true);
+		expect(MAX_FORCE_RETURNS).toBe(2);
 	});
 });
 
 // ── Force-budget helper (shouldForceReturn) ───────────────────────────────────
 
-describe("AL6 — shouldForceReturn helper", () => {
+describe("shouldForceReturn helper", () => {
 	it("returns null when return was already seen (gate.returned === true)", () => {
 		const gate = createReturnGate();
 		gate.observe(toolCallEvent("submit_review", {}));
@@ -239,32 +230,32 @@ describe("AL6 — shouldForceReturn helper", () => {
 		expect(shouldForceReturn(gate, 99)).toBeNull();
 	});
 
-	it("returns AL6_FORCE_RETURN_MESSAGE on first no-return stop attempt (forceCount=0)", () => {
+	it("returns FORCE_RETURN_MESSAGE on first no-return stop attempt (forceCount=0)", () => {
 		const gate = createReturnGate();
-		expect(shouldForceReturn(gate, 0)).toBe(AL6_FORCE_RETURN_MESSAGE);
+		expect(shouldForceReturn(gate, 0)).toBe(FORCE_RETURN_MESSAGE);
 	});
 
-	it("returns AL6_FORCE_RETURN_MESSAGE on second no-return stop attempt (forceCount=1)", () => {
+	it("returns FORCE_RETURN_MESSAGE on second no-return stop attempt (forceCount=1)", () => {
 		const gate = createReturnGate();
-		expect(shouldForceReturn(gate, 1)).toBe(AL6_FORCE_RETURN_MESSAGE);
+		expect(shouldForceReturn(gate, 1)).toBe(FORCE_RETURN_MESSAGE);
 	});
 
-	it("returns null (budget exhausted) when forceCount === AL6_MAX_FORCE_RETURNS", () => {
+	it("returns null (budget exhausted) when forceCount === MAX_FORCE_RETURNS", () => {
 		const gate = createReturnGate();
-		expect(shouldForceReturn(gate, AL6_MAX_FORCE_RETURNS)).toBeNull();
+		expect(shouldForceReturn(gate, MAX_FORCE_RETURNS)).toBeNull();
 	});
 
-	it("returns null (budget exhausted) when forceCount > AL6_MAX_FORCE_RETURNS", () => {
+	it("returns null (budget exhausted) when forceCount > MAX_FORCE_RETURNS", () => {
 		const gate = createReturnGate();
-		expect(shouldForceReturn(gate, AL6_MAX_FORCE_RETURNS + 1)).toBeNull();
+		expect(shouldForceReturn(gate, MAX_FORCE_RETURNS + 1)).toBeNull();
 		expect(shouldForceReturn(gate, 100)).toBeNull();
 	});
 
-	it("force is bounded: exactly AL6_MAX_FORCE_RETURNS injections, then null", () => {
+	it("force is bounded: exactly MAX_FORCE_RETURNS injections, then null", () => {
 		const gate = createReturnGate();
 		const injections: (string | null)[] = [];
 		let forceCount = 0;
-		for (let attempt = 0; attempt <= AL6_MAX_FORCE_RETURNS + 1; attempt++) {
+		for (let attempt = 0; attempt <= MAX_FORCE_RETURNS + 1; attempt++) {
 			const msg = shouldForceReturn(gate, forceCount);
 			injections.push(msg);
 			if (msg !== null) forceCount++;
@@ -272,9 +263,9 @@ describe("AL6 — shouldForceReturn helper", () => {
 		const forceMessages = injections.filter((m) => m !== null);
 		const nullResponses = injections.filter((m) => m === null);
 
-		expect(forceMessages).toHaveLength(AL6_MAX_FORCE_RETURNS);
+		expect(forceMessages).toHaveLength(MAX_FORCE_RETURNS);
 		expect(nullResponses.length).toBeGreaterThan(0);
-		expect(injections[AL6_MAX_FORCE_RETURNS]).toBeNull();
+		expect(injections[MAX_FORCE_RETURNS]).toBeNull();
 	});
 
 	it("shouldForceReturn is pure: same inputs same output, no mutation of gate", () => {
@@ -286,19 +277,13 @@ describe("AL6 — shouldForceReturn helper", () => {
 	});
 });
 
-// ── v4: returnEnforcement channel declared per adapter ─────────────────────
+// ── returnEnforcement channel declared per adapter ──────────────────────────
 //
-// REPLACES v3's hasNativeReturnHook/canReEngage shape.
-//
-// v4 semantics:
-//   returnEnforcement: non-optional — every adapter must declare its provisioning channel.
-//   The type system forces this (npm run check fails any omission).
-//
-// These tests FAIL (red) until Task 1 (type) + Tasks 5-8 (all adapters) ship:
-//   - returnEnforcement replaces hasNativeReturnHook/canReEngage (Task 1)
-//   - All adapters updated with the correct channel (Tasks 5-8)
+// returnEnforcement is non-optional — every adapter must declare its
+// provisioning channel. The type system forces this (npm run check fails
+// any omission).
 
-describe("AL6 v4 — returnEnforcement channel declared per adapter (Task 1/5-8 red)", () => {
+describe("returnEnforcement channel declared per adapter", () => {
 	// ── Hard-block adapters ────────────────────────────────────────────────
 
 	it("BuiltinHarnessAdapter: returnEnforcement='builtin-loop'", () => {

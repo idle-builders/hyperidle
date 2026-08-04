@@ -52,13 +52,12 @@ export interface TriggerContext {
  * @lore X7: outcome narrows SessionOutcome ("completed" | "crashed" | "stopped")
  * to just "completed" | "crashed" | "not_returned". "stopped" maps to "crashed"
  * (eval sessions cannot be manually stopped). "not_returned" is a first-class
- * outcome for AL6 v2 forcing scenarios.
+ * outcome for force-return scenarios.
  *
- * @lore AL6 v2 WARNING-B: TriggerResult is widened to carry `outcome: "not_returned"`,
- * `returnVerdict`, and `forceReturnCount` so AL6 eval judges can assert the exact
- * v1 regression (outcome=completed with returnVerdict=not_returned is the bug) and
- * verify the forcing message actually fired. Without this widening, the three AL6
- * judges cannot distinguish a v1-bug run from a correct run.
+ * @lore WARNING-B: TriggerResult is widened to carry `outcome: "not_returned"`,
+ * `returnVerdict`, and `forceReturnCount` so the force-return eval judges can assert
+ * that a session is never silently completed-without-return, and verify the forcing
+ * message actually fired.
  */
 export interface TriggerResult {
 	readonly sessionId: string;
@@ -67,12 +66,12 @@ export interface TriggerResult {
 	/** Wall-clock duration in milliseconds. */
 	readonly durationMs: number;
 	/**
-	 * AL6 v2: Return verdict from the provisioning drain ("returned" | "not_returned").
+	 * Return verdict from the provisioning drain ("returned" | "not_returned").
 	 * Absent for sessions that crashed before the gate was evaluated.
 	 */
 	readonly returnVerdict?: "returned" | "not_returned";
 	/**
-	 * AL6 v2: Number of force-continue re-injections applied by the builtin
+	 * Number of force-continue re-injections applied by the builtin
 	 * Tier-1 harness this session. Zero on non-builtin harnesses or if no forcing
 	 * was needed. Absent on crashed sessions.
 	 */
