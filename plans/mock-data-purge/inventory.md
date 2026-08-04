@@ -8,8 +8,8 @@ Total offenders: **10**
 
 | path | line | symbol | kind | shape |
 |---|---|---|---|---|
-| `packages/core-api/policy/src/lifecycle-propagation.ts` | 470 | `u-founder` | literal-id | string |
-| `packages/core-api/policy/src/lifecycle-propagation.ts` | 472 | `u-founder` | literal-id | string |
+| `packages/core-api/policy/src/lifecycle-propagation.ts` | 483 | `u-founder` | literal-id | string |
+| `packages/core-api/policy/src/lifecycle-propagation.ts` | 485 | `u-founder` | literal-id | string |
 | `packages/core-api/src/middleware/auth.ts` | 144 | `u-founder` | literal-id | string |
 | `packages/core-api/src/middleware/auth.ts` | 164 | `u-founder` | literal-id | string |
 | `packages/core-api/src/routes/auth.ts` | 63 | `u-founder` | literal-id | string |
