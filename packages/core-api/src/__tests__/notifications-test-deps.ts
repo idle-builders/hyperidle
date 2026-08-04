@@ -20,7 +20,7 @@
  * that takes the collapsed type.
  */
 
-import { deleteCredential, readCredentials, writeCredential } from "@hyperidle/connections";
+import { deleteCredential, readCredentials, writeCredential } from "@hyperidle/credentials";
 import type { WriteExecutor } from "@hyperidle/db";
 import type { NotificationsDeps } from "@hyperidle/notifications";
 import { getTeamMembers } from "@hyperidle/org";

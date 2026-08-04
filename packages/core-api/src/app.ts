@@ -1,10 +1,10 @@
+import { ServiceConnectionResolver } from "@hyperidle/connections";
 import {
 	type CredentialResolver,
 	deleteCredential,
 	readCredentials,
-	ServiceConnectionResolver,
 	writeCredential,
-} from "@hyperidle/connections";
+} from "@hyperidle/credentials";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import type { AdapterPool, McpToolBridge, SandboxAdapter } from "@hyperidle/harness-registry";
 import type { NotificationAdapter, NotificationsDeps } from "@hyperidle/notifications";

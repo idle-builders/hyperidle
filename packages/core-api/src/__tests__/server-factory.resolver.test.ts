@@ -23,7 +23,7 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
-import { DbCredentialResolver } from "@hyperidle/connections";
+import { DbCredentialResolver } from "@hyperidle/credentials";
 import { serverCredentials } from "@hyperidle/db";
 import { AdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
 import { encryptCredentialValue } from "@hyperidle/shared/crypto";

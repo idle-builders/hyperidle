@@ -4,14 +4,7 @@ import * as path from "node:path";
 import { type ServerType, serve, upgradeWebSocket } from "@hono/node-server";
 import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";
 import { readAgentRunConfigs } from "@hyperidle/agent-run-config";
-import {
-	type CredentialResolver,
-	DbCredentialResolver,
-	deleteCredential,
-	listConnections,
-	readCredentials,
-	writeCredential,
-} from "@hyperidle/connections";
+import { listConnections } from "@hyperidle/connections";
 import {
 	findThread,
 	insertMessage,
@@ -22,6 +15,13 @@ import {
 	updateMessage,
 	updateThread,
 } from "@hyperidle/conversation";
+import {
+	type CredentialResolver,
+	DbCredentialResolver,
+	deleteCredential,
+	readCredentials,
+	writeCredential,
+} from "@hyperidle/credentials";
 import type { WriteExecutor } from "@hyperidle/db";
 import {
 	createPgliteDb,

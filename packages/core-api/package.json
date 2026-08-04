@@ -24,6 +24,7 @@
 		"@hyperidle/api-contract": "*",
 		"@hyperidle/connections": "*",
 		"@hyperidle/conversation": "*",
+		"@hyperidle/credentials": "*",
 		"@hyperidle/db": "*",
 		"@hyperidle/filesystems": "*",
 		"@hyperidle/harness-registry": "*",

@@ -132,8 +132,14 @@ const TABLE_OWNER: Record<string, string> = {
 	// are unaffected — this guard's ACL/completeness tiers scan only the new
 	// nested Service packages, not `packages/server` (see this file's
 	// top-level `@lore`).
-	serverCredentials: "packages/core-api/connections",
-	serviceConnections: "packages/core-api/connections",
+	serverCredentials: "packages/core-api/credentials",
+	// @lore AU26 E2/E3 (AU21 Decision J): `service_connections` is
+	// agent-session-provisioning domain, not core domain — core only ever let a
+	// human administer the record, it never operationally consumed one. The
+	// ACL-holder moves; the table DEFINITION stays in `packages/db/src/schema.ts`
+	// (no migration, no data move). `serverCredentials` stays core-owned, in the
+	// package now honestly named `credentials`.
+	serviceConnections: "packages/agent-orchestration/connections",
 	// AU19 Increment 1i: `routine` migrated — `routines`/`routineRuns` are its
 	// two owned tables (`routine-service.ts` moved unchanged, the sole module
 	// touching either table per its own top-level `@lore`). Neither table was

@@ -461,7 +461,7 @@ function buildLeafDeclarations(root: string): void {
     "core-api/conversation",
     "core-api/settings",
     "core-api/notifications",
-    "core-api/connections",
+    "core-api/credentials",
     "core-api/routine",
     "core-api/review",
     "core-api/policy",
@@ -470,6 +470,7 @@ function buildLeafDeclarations(root: string): void {
     // @lore AU20 C1: core-api/retention dissolved — sweeps distributed to owning services
     // (users/knowledge/notifications) + propagation_log reaper co-located at composition root.
     // @lore AU20 B1b: agent-orchestration/trigger-resolution folded into session-requests.
+    "agent-orchestration/connections",
     "agent-orchestration/session-requests",
     "agent-orchestration/run-orchestration",
     // @lore AU21 §6 Decision F1 (Increment 8): agent-orchestration/agent-selection

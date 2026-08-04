@@ -9,7 +9,7 @@
  * credentials live in safeStorage on the desktop.
  */
 
-import { deleteCredential, readCredentials, writeCredential } from "@hyperidle/connections";
+import { deleteCredential, readCredentials, writeCredential } from "@hyperidle/credentials";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { readServerConfig } from "@hyperidle/settings";
 import type { CredentialName, CredentialState } from "@hyperidle/shared";
