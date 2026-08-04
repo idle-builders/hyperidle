@@ -71,3 +71,76 @@ describe("agent-orchestration live-run socket", () => {
 		expect((await api.request("/agent-orchestration/ws?token=good")).status).toBe(401);
 	});
 });
+
+/**
+ * AU26 review W12 — two upgrades in flight must not cross identities.
+ *
+ * The identity is consumed in the (async) middleware and needed in `onOpen`,
+ * which fires on the runtime's upgrade event. A single module-scoped slot
+ * between the two is only safe if nothing can interleave — and nothing
+ * guarantees that: the middleware is `async`, and two browsers (or two tabs)
+ * connecting at once run middleware(A) → middleware(B) → onOpen(A), at which
+ * point A is registered under B's identity. With the socket's authorizer
+ * admitting on identity alone, the mixed-up identity is indistinguishable from
+ * the right one.
+ *
+ * The interleave below is exactly that order, forced deterministically.
+ */
+describe("two concurrent upgrades keep their own identities", () => {
+	it("registers each socket under the identity of ITS OWN token", async () => {
+		const subscribedBy: Array<{ identity: string | undefined; topic: string }> = [];
+		const hub = new SessionStreamHub({
+			canSubscribe: (identity, topic) => {
+				subscribedBy.push({ identity, topic });
+				return Promise.resolve(true);
+			},
+		});
+
+		// Release both upgrades only after BOTH have cleared the middleware.
+		let releaseOpen: () => void = () => undefined;
+		const openGate = new Promise<void>((resolve) => {
+			releaseOpen = resolve;
+		});
+		let clearedMiddleware = 0;
+
+		const interleavingUpgrade = defineWebSocketHelper(async (c, events) => {
+			clearedMiddleware += 1;
+			if (clearedMiddleware === 2) releaseOpen();
+			await openGate;
+			const ws = { send: () => undefined, close: () => undefined } as unknown as Parameters<
+				NonNullable<typeof events.onOpen>
+			>[1];
+			events.onOpen?.(new Event("open"), ws);
+			await events.onMessage?.(
+				{
+					data: JSON.stringify({ type: "subscribe", topic: `session:${c.req.query("token")}` }),
+				} as unknown as Parameters<NonNullable<typeof events.onMessage>>[0],
+				ws,
+			);
+			return c.newResponse("upgraded");
+		});
+
+		const api = new Hono();
+		registerSessionStreamRoute(
+			api,
+			createStore(
+				new Map([
+					["alice", "user-alice"],
+					["bob", "user-bob"],
+				]),
+			),
+			interleavingUpgrade,
+			hub,
+		);
+
+		await Promise.all([
+			api.request("/agent-orchestration/ws?token=alice"),
+			api.request("/agent-orchestration/ws?token=bob"),
+		]);
+
+		// Each subscribe carries the identity of the token that opened ITS socket.
+		expect(subscribedBy).toHaveLength(2);
+		expect(subscribedBy.find((s) => s.topic === "session:alice")?.identity).toBe("user-alice");
+		expect(subscribedBy.find((s) => s.topic === "session:bob")?.identity).toBe("user-bob");
+	});
+});

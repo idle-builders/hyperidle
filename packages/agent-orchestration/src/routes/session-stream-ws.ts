@@ -53,11 +53,22 @@ export function registerSessionStreamRoute(
 	hub: SessionStreamHub,
 ): () => void {
 	const adapters = new Map<WSContext, WsContextAdapter>();
-	// The consume happens in the middleware (URL-time); `addClient` happens on
-	// `onOpen`. The upgrade flow gives us no way to thread the identity through
-	// directly, so it is stashed in a single slot — safe because the
-	// middleware → onOpen handoff is synchronous. Same shape as core's socket.
-	let pendingIdentity: string | undefined;
+	// The token is consumed in the middleware (URL-time); `addClient` happens on
+	// `onOpen`, which fires on the runtime's upgrade event. The identity has to
+	// travel between the two.
+	//
+	// @lore AU26 review W12: it travels ON THE REQUEST, keyed by the Hono
+	// `Context` of the upgrade that resolved it — never in a single
+	// module-scoped slot. A shared slot is only safe if nothing can interleave,
+	// and the middleware is `async`: two upgrades at once run middleware(A) →
+	// middleware(B) → onOpen(A), and A joins under B's identity. With this
+	// socket's authorizer admitting on identity alone, that mix-up is
+	// indistinguishable from the right answer. `upgradeWebSocket`'s factory is
+	// called per request with that same `Context`, so the handoff needs no slot
+	// at all. Weakly keyed, so a request that never upgrades leaves nothing
+	// behind. (Core-api's socket carries the older shape; same fix applies
+	// there, tracked separately — this Layer does not import it.)
+	const identityByRequest = new WeakMap<object, string>();
 
 	apiRouter.use("/agent-orchestration/ws", async (c, next) => {
 		const token = c.req.query("token");
@@ -69,18 +80,18 @@ export function registerSessionStreamRoute(
 			};
 			return c.json(response, 401);
 		}
-		pendingIdentity = result.identityId;
+		if (result.identityId !== undefined) identityByRequest.set(c, result.identityId);
 		await next();
 	});
 
 	apiRouter.get(
 		"/agent-orchestration/ws",
-		upgradeWebSocket(() => ({
+		upgradeWebSocket((c) => ({
 			onOpen(_evt, ws) {
 				const adapter = new WsContextAdapter(ws);
 				adapters.set(ws, adapter);
-				hub.addClient(adapter, pendingIdentity);
-				pendingIdentity = undefined;
+				hub.addClient(adapter, identityByRequest.get(c));
+				identityByRequest.delete(c);
 				ws.send(JSON.stringify({ type: "connected" }));
 			},
 			async onMessage(evt, ws) {
