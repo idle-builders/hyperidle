@@ -1,3 +1,15 @@
+/**
+ * The filesystem mount engine — `RegistryFilesystemMounter` and its four
+ * adapters.
+ *
+ * @lore AU26 F1 (§D-I): relocated VERBATIM from
+ * `packages/core-api/filesystems/src/mounter-registry.ts`. The relocation is a
+ * package move, not a rewrite: the four adapters, `SANDBOX_SCAFFOLDING_PATHS`
+ * and the capture-root containment check are unchanged, and their tests moved
+ * with them. `filesystem_captures` is now owned HERE — this class is its only
+ * writer (`scripts/table-ownership-guard.ts`).
+ */
+
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
@@ -10,13 +22,13 @@ import type {
 	FilesystemMounter,
 	MountResult,
 } from "@hyperidle/shared";
-import type { FilesystemsGitRunnerFactory } from "./ports.js";
+import type { MountingGitRunnerFactory } from "./ports.js";
 import { SANDBOX_SCAFFOLDING_PATHS } from "./scaffolding-paths.js";
 
 const CLOUD_SOURCES = new Set(["gdrive", "dropbox", "s3"]);
 
 export interface AdapterDeps {
-	readonly gitRunnerFactory: FilesystemsGitRunnerFactory;
+	readonly gitRunnerFactory: MountingGitRunnerFactory;
 	readonly capturesDir: string;
 	readonly db: WriteExecutor;
 }

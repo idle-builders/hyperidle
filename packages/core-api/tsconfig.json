@@ -13,6 +13,7 @@
 		{ "path": "credentials" },
 		{ "path": "../agent-orchestration/connections" },
 		{ "path": "conversation" },
+		{ "path": "../agent-orchestration/filesystem-mounting" },
 		{ "path": "filesystems" },
 		{ "path": "../agent-execution/harness-registry" },
 		{ "path": "knowledge" },

@@ -15,7 +15,6 @@ export {
 	deleteFilesystem,
 	deleteInjection,
 	getFilesystem,
-	listCaptures,
 	listFilesystems,
 	saveFilesystem,
 	saveInjection,
@@ -23,8 +22,6 @@ export {
 } from "./filesystem-registry.js";
 export type { LocalPathInfo } from "./inspect-local-path.js";
 export { inspectLocalPath } from "./inspect-local-path.js";
-export type { AdapterDeps } from "./mounter-registry.js";
-export { RegistryFilesystemMounter } from "./mounter-registry.js";
 export type {
 	FilesystemsGitRunnerFactory,
 	FilesystemsServiceConnectionResolver,
@@ -35,4 +32,3 @@ export type { InjectedFilesystemForAgent } from "./resolve-injected-filesystems-
 // EMIT TIME, replacing the deleted `CoreApiPort.filesystems.listFilesystemsByAgent`
 // seam call. See this module's own top-of-file `@lore`.
 export { resolveInjectedFilesystemsForAgent } from "./resolve-injected-filesystems-for-agent.js";
-export { SANDBOX_SCAFFOLDING_PATHS } from "./scaffolding-paths.js";

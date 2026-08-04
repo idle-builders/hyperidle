@@ -10,10 +10,10 @@ import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { type AdapterDeps, RegistryFilesystemMounter } from "@hyperidle/filesystems";
 import type { Filesystem } from "@hyperidle/shared";
 import { createGitRunner } from "@hyperidle/shared/git";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { type AdapterDeps, RegistryFilesystemMounter } from "../index.js";
 
 async function createSourceRepo(parentDir: string): Promise<string> {
 	const repoDir = path.join(parentDir, "source-repo");

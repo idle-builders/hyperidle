@@ -248,7 +248,10 @@ const TABLE_OWNER: Record<string, string> = {
 	// registry functions instead of querying the tables raw.
 	filesystems: "packages/core-api/filesystems",
 	filesystemInjections: "packages/core-api/filesystems",
-	filesystemCaptures: "packages/core-api/filesystems",
+	// AU26 F1 (§D-I): the mount engine relocated to the agent-orchestration Layer
+	// and `filesystem_captures` went with it — the engine is its only writer, its
+	// FK points at `sessions`, and `listCaptures` had zero non-test readers.
+	filesystemCaptures: "packages/agent-orchestration/filesystem-mounting",
 	// AU26 C1: `git-export` DELETED. It always resolved to ZERO owned tables,
 	// which is why nothing here needs replacing: the exporter read `knowledge`'s
 	// tables through an injected port and `server_config.gitExport` through

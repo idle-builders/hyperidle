@@ -42,6 +42,7 @@ export default defineConfig({
 			"packages/agent-orchestration/agent-run-config",
 			"packages/agent-orchestration/connections",
 			"packages/agent-orchestration/run-orchestration",
+			"packages/agent-orchestration/filesystem-mounting",
 			"packages/agent-orchestration/tool-handlers",
 			"packages/agent-execution",
 			"packages/agent-execution/harness-registry",

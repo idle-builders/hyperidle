@@ -3,12 +3,12 @@
 // Source of truth: plans/AO1/architecture.md §3 + §v2 (Reachability rework v2).
 
 import * as crypto from "node:crypto";
-import type { ServiceConnectionResolver } from "@hyperidle/connections";
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	deleteFilesystem,
 	deleteInjection,
 	type FilesystemRow,
+	type FilesystemsServiceConnectionResolver,
 	getFilesystem,
 	inspectLocalPath,
 	listFilesystems,
@@ -99,6 +99,14 @@ function rowToInjection(row: FilesystemInjection): FilesystemInjection {
  * @lore AO1 v2: The resolver MUST be constructed per-request — it closes over userId.
  * A singleton would bind to one userId across all requests.
  *
+ * @lore AU26 F1 (AU21 Decision J8, bounded co-move): this route used to
+ * type-import `ServiceConnectionResolver` from `@hyperidle/connections`, which
+ * AU26 E2/E3 made an `agent-orchestration` Service — a core-api Layer file
+ * type-importing across the Layer boundary. It now names the structural port
+ * `FilesystemsServiceConnectionResolver` (`@hyperidle/filesystems`' own
+ * `ports.ts`), which the concrete resolver satisfies. Zero behaviour change:
+ * the Layer still composes the real resolver downward at construction.
+ *
  * @lore AU20 R-filesystems: NoopAuthResolver and ServiceConnectionResolverAdapter
  * classes deleted from @hyperidle/filesystems barrel — caller-site inline objects
  * satisfy the structural FilesystemAuthResolver interface from @hyperidle/shared.
@@ -107,7 +115,7 @@ function rowToInjection(row: FilesystemInjection): FilesystemInjection {
  * falls through to body.sourceHint ?? "unknown").
  */
 function buildAuthResolver(
-	connectionResolver: ServiceConnectionResolver | undefined,
+	connectionResolver: FilesystemsServiceConnectionResolver | undefined,
 	userId: string,
 ): FilesystemAuthResolver {
 	if (connectionResolver) {
@@ -170,7 +178,7 @@ export function createFilesystemRoutes(
 	 * is constructed PER REQUEST (inside the handler) because it closes over userId
 	 * from c.get("userId"). A process-singleton adapter would bind to one userId — wrong.
 	 */
-	connectionResolver?: ServiceConnectionResolver,
+	connectionResolver?: FilesystemsServiceConnectionResolver,
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 

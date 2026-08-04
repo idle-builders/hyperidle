@@ -77,7 +77,7 @@ import {
 	resolveProfile,
 	type WriteExecutor,
 } from "@hyperidle/db";
-import { RegistryFilesystemMounter } from "@hyperidle/filesystems";
+import { RegistryFilesystemMounter } from "@hyperidle/filesystem-mounting";
 import {
 	type AdapterPool,
 	createReturnEnforcement,

@@ -2,8 +2,6 @@ import {
 	type FilesystemRow as DbFilesystemRow,
 	type NewFilesystem as DbNewFilesystem,
 	type NewFilesystemInjection as DbNewFilesystemInjection,
-	type FilesystemCaptureRow,
-	filesystemCaptures,
 	filesystemInjections,
 	filesystems,
 	type WriteExecutor,
@@ -88,24 +86,4 @@ export async function deleteInjection(
 		)
 		.returning({ agentUserId: filesystemInjections.agentUserId });
 	return deleted.length > 0;
-}
-
-export async function listCaptures(
-	exec: WriteExecutor,
-	filter: { sessionId?: string; filesystemId?: string },
-): Promise<FilesystemCaptureRow[]> {
-	const conditions = [];
-	if (filter.sessionId != null) {
-		conditions.push(eq(filesystemCaptures.sessionId, filter.sessionId));
-	}
-	if (filter.filesystemId != null) {
-		conditions.push(eq(filesystemCaptures.filesystemId, filter.filesystemId));
-	}
-	if (conditions.length === 0) {
-		return exec.select().from(filesystemCaptures);
-	}
-	return exec
-		.select()
-		.from(filesystemCaptures)
-		.where(conditions.length === 1 ? conditions[0] : and(...conditions));
 }
