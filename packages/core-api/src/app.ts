@@ -9,12 +9,6 @@ import {
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import type { AdapterPool, McpToolBridge, SandboxAdapter } from "@hyperidle/harness-registry";
 import type { NotificationAdapter, NotificationsDeps } from "@hyperidle/notifications";
-import {
-	type ObservabilityConfig,
-	type ObservabilityDeps,
-	type ObservabilityRuntime,
-	startObservability,
-} from "@hyperidle/observability";
 import { getTeamMembers } from "@hyperidle/org";
 import { enqueueWorkIntent, findSessionRequest } from "@hyperidle/session-requests";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
@@ -31,6 +25,7 @@ import { createBodyLimit } from "./middleware/body-limit.js";
 import { corsMiddleware } from "./middleware/cors.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { createRateLimiter } from "./middleware/rate-limit.js";
+import { type ObservabilityDeps, startObservability } from "./observability-runtime.js";
 import { createAgentOrchestrationSessionsRoutes } from "./routes/agent-orchestration-sessions-routes.js";
 import { createAgentRoutes } from "./routes/agents.js";
 import { createArtifactRoutes } from "./routes/artifacts.js";
@@ -48,7 +43,6 @@ import { createHintRoutes } from "./routes/hints.js";
 import { createKnowledgeRoutes, createTeamMembersRoutes } from "./routes/knowledge.js";
 import { createModelGatewayRoutes } from "./routes/model-gateway.js";
 import { createNotificationRoutes } from "./routes/notifications-routes.js";
-import { createObservabilityRoutes } from "./routes/observability-routes.js";
 import { createOrgRoutes } from "./routes/org.js";
 import { createRecipientRoutes } from "./routes/recipients.js";
 import { createReviewRoutes } from "./routes/reviews.js";
@@ -249,13 +243,6 @@ const appLogger = createLogger({ pkg: "server.app" });
  * `NotificationsDeps` bag (same pattern as server-factory.ts).
  */
 const notificationsServerConfigPort = { read: readServerConfig, update: updateServerConfig };
-
-/**
- * AU20 Ab3: observability config port — same `{ read, update }` pair wired
- * into `startObservability` (the collapsed `ObservabilityDeps` contract),
- * same idiom as `notificationsServerConfigPort` above.
- */
-const observabilityServerConfigPort = { read: readServerConfig, update: updateServerConfig };
 
 const notificationsDeps: NotificationsDeps = {
 	serverConfig: notificationsServerConfigPort,
@@ -571,28 +558,19 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 			}),
 		);
 
-		// Observability runtime (H3, AU20 Ab3). `startObservability` wires the
-		// adapter, resolver, dispatcher, and bus subscription in one call.
-		// PATCH /config calls `runtime.reconfigure(cfg)` so adapter switches
-		// and enable/disable transitions take effect without a process restart
-		// (security M-3, architect C1, adversary WARN).
+		// Observability runtime. `startObservability` wires the adapter,
+		// dispatcher and bus subscription in one call.
+		//
+		// @lore AU26 C2: the `/api/observability*` routes are GONE — all four had
+		// zero requesters repo-wide — and with them the `reconfigure` seam that
+		// let PATCH /config rotate the adapter without a process restart. Config
+		// is read once at boot; changing it is a restart.
 		const db = options.db;
 		const observabilityRuntime = await startObservability({
 			db,
 			eventBus,
-			serverConfig: observabilityServerConfigPort,
 			...(options?.observabilityAdapter ? { adapter: options.observabilityAdapter } : {}),
 		});
-
-		api.route(
-			"/observability",
-			createObservabilityRoutes(db, {
-				getRuntime: (): ObservabilityRuntime => observabilityRuntime,
-				onConfigChange: (cfg: ObservabilityConfig): void => {
-					observabilityRuntime.reconfigure(cfg);
-				},
-			}),
-		);
 
 		const disposers: Array<() => void> = [];
 

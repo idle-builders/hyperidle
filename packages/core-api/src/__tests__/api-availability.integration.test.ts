@@ -36,7 +36,6 @@ describe("API Availability Regression Guard (I6)", () => {
 		{ path: "/api/status", description: "Status" },
 		{ path: "/api/git-export", description: "Git Export" },
 		{ path: "/api/notifications", description: "Notifications" },
-		{ path: "/api/observability", description: "Observability" },
 	] as const;
 
 	for (const route of ROUTE_MODULES) {

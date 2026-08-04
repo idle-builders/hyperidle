@@ -1,4 +1,4 @@
-import type { ObservabilityEvent } from "@hyperidle/shared";
+import type { ObservabilityEvent } from "./events.js";
 
 /** Adapter channel — mirrors the configured adapter's `name`. */
 export type ObservabilityChannel = "console" | "noop";
@@ -49,6 +49,13 @@ export interface ObservabilityDispatcher {
 	flush(): Promise<FlushOutcome>;
 	/** Stop the background timer + unsubscribe from the bus. */
 	dispose(): Promise<void>;
-	/** Operator-visible snapshot for `/api/observability/status`. */
+	/**
+	 * Operator-visible snapshot.
+	 *
+	 * @lore AU26 C2: its one production caller was the deleted
+	 * `GET /api/observability/status` route. It survives as the seam the
+	 * dispatcher's own drop/deliver/last-error accounting is asserted through —
+	 * if an operator surface returns, it reads from here.
+	 */
 	status(): ObservabilityDispatcherStatus;
 }

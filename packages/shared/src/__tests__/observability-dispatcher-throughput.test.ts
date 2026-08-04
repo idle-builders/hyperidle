@@ -14,8 +14,8 @@
 
 import type { ObservabilityEvent } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
-import { createObservabilityDispatcher } from "../dispatcher.js";
-import type { ObservabilityAdapter } from "../types.js";
+import { createObservabilityDispatcher } from "../observability/dispatcher.js";
+import type { ObservabilityAdapter } from "../observability/types.js";
 
 function quietAdapter(): ObservabilityAdapter {
 	return {
@@ -31,7 +31,7 @@ function realisticArgsSummary(): string {
 	return JSON.stringify({ path: "/workspace/src/foo.ts", glob: "*.ts", content: filler });
 }
 
-describe("H3 AC5 — 1000 events in <100ms", () => {
+describe("dispatcher throughput — 1000 events in <100ms", () => {
 	it("enqueues 1000 events in under 100ms (realistic payload)", async () => {
 		const dispatcher = createObservabilityDispatcher({
 			adapter: quietAdapter(),

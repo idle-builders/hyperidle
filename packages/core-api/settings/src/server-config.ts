@@ -510,3 +510,43 @@ export async function migrateCredentialsToStore(
 		}
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Observability config
+// ---------------------------------------------------------------------------
+
+/**
+ * The observability section of `server_config`, fully defaulted.
+ *
+ * @lore AU26 C2: this type + the read/update pair below arrived from the
+ * dissolved `packages/core-api/observability`. There they were a two-line
+ * pass-through over an injected `{ read, update }` port — a port that existed
+ * ONLY because `composition-boundary-guard` bans one core-api Service from
+ * importing another. `settings` owns `server_config`, and `ObservabilitySchema`
+ * (`:48`) has always lived right here, so at home the port is unnecessary
+ * indirection and is gone: `readObservabilityConfig(db)` reads settings' own
+ * config. The observability *runtime* keeps no config-shaped DI seam.
+ */
+export type ObservabilityConfig = ServerConfig["observability"];
+
+/** Patch shape for {@link updateObservabilityConfig}. */
+export type ObservabilityConfigPatch = Partial<ObservabilityConfig>;
+
+/**
+ * Always returns a config (even when disabled), so a caller can surface the
+ * persisted values regardless of the `enabled` flag. Callers that want a null
+ * short-circuit when observability is off inline the `cfg.enabled` check.
+ */
+export async function readObservabilityConfig(db: HyperIdleDb): Promise<ObservabilityConfig> {
+	const { observability } = await readServerConfig(db);
+	return observability;
+}
+
+/** Apply a partial observability patch and return the merged result. */
+export async function updateObservabilityConfig(
+	db: HyperIdleDb,
+	patch: ObservabilityConfigPatch,
+): Promise<ObservabilityConfig> {
+	const { observability } = await updateServerConfig(db, { observability: patch });
+	return observability;
+}

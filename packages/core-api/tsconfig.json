@@ -17,7 +17,6 @@
 		{ "path": "../agent-execution/harness-registry" },
 		{ "path": "knowledge" },
 		{ "path": "notifications" },
-		{ "path": "observability" },
 		{ "path": "org" },
 		{ "path": "policy" },
 		{ "path": "realtime" },

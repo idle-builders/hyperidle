@@ -23,7 +23,6 @@
  * bursts when the buffer stayed at cap (adversary review H3 #2).
  */
 
-import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	type BetStateChangedEvent,
 	createLogger,
@@ -36,8 +35,7 @@ import {
 	type SessionStartedEvent,
 	type TaskStateChangedEvent,
 	type ToolCallRecordedEvent,
-} from "@hyperidle/shared";
-import type { ObservabilityConfig } from "./config.js";
+} from "../index.js";
 import type {
 	FlushOutcome,
 	ObservabilityAdapter,
@@ -46,9 +44,23 @@ import type {
 	ObservabilityDispatcherStatus,
 } from "./types.js";
 
+/**
+ * The three ring-buffer knobs the dispatcher needs.
+ *
+ * @lore AU26 C2: this used to be `Pick<ObservabilityConfig, ...>`. The config
+ * value now lives in `@hyperidle/settings` (it is a `server_config` section),
+ * and `@hyperidle/shared` may not import a Service — so the dispatcher states
+ * its own requirement structurally. `ObservabilityConfig` satisfies it.
+ */
+export interface DispatcherRingConfig {
+	readonly batchSize: number;
+	readonly flushIntervalMs: number;
+	readonly bufferCap: number;
+}
+
 export interface DispatcherDeps {
 	readonly adapter: ObservabilityAdapter;
-	readonly config: Pick<ObservabilityConfig, "batchSize" | "flushIntervalMs" | "bufferCap">;
+	readonly config: DispatcherRingConfig;
 	readonly now?: () => Date;
 	readonly logger?: Logger;
 	/** Override the setInterval used for the background timer (tests). */
@@ -128,31 +140,14 @@ interface DispatcherState {
 }
 
 /**
- * Resolve a `traceId` for a session id via a cached lookup. Tests may
- * pass a plain map; production wiring queries the `sessions` table.
+ * @lore AU26 C2: `TraceIdResolver` + `createDbTraceIdResolver` are DELETED.
+ * The `sessions.traceId` column was stripped in O2, after which the "DB"
+ * resolver was a bare in-memory cache that only `seed()` could ever fill —
+ * and `seed()` had ZERO non-test callers repo-wide. So in production
+ * `resolve()` always returned null and every traceId was already the
+ * fallback below. The resolver was dead machinery kept alive by its own
+ * tests; removing it changes no observable behaviour.
  */
-export interface TraceIdResolver {
-	resolve(sessionId: string): string | null;
-	seed(sessionId: string, traceId: string): void;
-}
-
-export function createDbTraceIdResolver(db: HyperIdleDb): TraceIdResolver {
-	// @lore O2: `sessions.traceId` column was stripped as part of kernel/strategy
-	// separation. The DB resolver now falls through to cache-only resolution.
-	// TraceIds must be seeded via `seed()` (e.g., from session-lifecycle which
-	// keeps traceId in-memory on SessionContext). The `db` parameter is retained
-	// for API compatibility but no longer queries the sessions table.
-	void db;
-	const cache = new Map<string, string>();
-	return {
-		resolve(sessionId: string): string | null {
-			return cache.get(sessionId) ?? null;
-		},
-		seed(sessionId: string, traceId: string): void {
-			cache.set(sessionId, traceId);
-		},
-	};
-}
 
 export function createObservabilityDispatcher(deps: DispatcherDeps): ObservabilityDispatcher {
 	const logger = deps.logger ?? createLogger({ pkg: "observability.dispatcher" });
@@ -287,7 +282,6 @@ export function createObservabilityDispatcher(deps: DispatcherDeps): Observabili
 
 export interface RegisterObservabilityDispatcherDeps {
 	readonly dispatcher: ObservabilityDispatcher;
-	readonly resolver: TraceIdResolver;
 	readonly now?: () => Date;
 	readonly logger?: Logger;
 }
@@ -304,16 +298,15 @@ export function registerObservabilityDispatcher(
 	}
 
 	/**
-	 * Resolve the trace id for an event tied to a session. When the
-	 * session id is empty or the resolver misses, fall back to the
-	 * provided `fallback`. An empty `sessionId` is never a valid trace —
-	 * we refuse to collapse every "unknown" event onto a single empty
-	 * trace (adversary review H3 WARN: empty-sessionId). Callers should
-	 * pass a unique fallback string (e.g. `"unknown"` or `"entity:<id>"`).
+	 * The trace id for an event tied to a session: the session id itself.
+	 *
+	 * An empty `sessionId` is never a valid trace — we refuse to collapse every
+	 * "unknown" event onto a single empty trace (adversary review H3 WARN:
+	 * empty-sessionId), so callers pass a unique `fallback` (e.g. `"unknown"`).
 	 */
 	function traceFor(sessionId: string, fallback: string): string {
 		if (sessionId.length === 0) return fallback;
-		return deps.resolver.resolve(sessionId) ?? fallback;
+		return sessionId;
 	}
 
 	/**
@@ -328,10 +321,6 @@ export function registerObservabilityDispatcher(
 			case "session_started": {
 				const ev = event as SessionStartedEvent;
 				// @lore session_started's streamId is always the sessionId.
-				// The DB resolver caches the first lookup; subsequent events
-				// for the same session hit the in-memory map. Session-lifecycle
-				// does NOT pre-seed the resolver today (architect O3) — the
-				// first event triggers one DB read per session.
 				const traceId = traceFor(ev.sessionId, ev.sessionId || "unknown");
 				deps.dispatcher.enqueue({
 					kind: "session_started",

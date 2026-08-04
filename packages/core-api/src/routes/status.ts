@@ -38,7 +38,7 @@ const SERVER_START_TIME = new Date().toISOString();
  * @lore AU18 §3.1: the generic `GET`/`PATCH /settings` catch-all is retired
  * along with `factorySettings`. Every legitimate key it used to carry now
  * has a domain-specific route (`/api/notifications/config`,
- * `/api/observability/config`, `/api/git-export/config`) backed by
+ * `/api/git-export/config`) backed by
  * `server_config`; there is no remaining legitimate key for a generic
  * settings surface to serve. Confirmed no web client depends on the raw-rows
  * shape (`packages/web` has zero references to `/status/settings`) — the

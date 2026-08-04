@@ -1,6 +1,11 @@
 /**
  * H3 AC3/AC4/AC5 — Dispatcher tests.
  *
+ * @lore AU26 C2: `TraceIdResolver` is DELETED. `seed()` had zero non-test
+ * callers, so `resolve()` always missed in production and every traceId was
+ * already the fallback — the sessionId. These tests now assert that production
+ * behaviour directly instead of a seeded value no running system could produce.
+ *
  * Covers:
  *  - Trace correlation (AC3): events within a session share traceId.
  *  - Events logged (AC4): all 6 kinds reach the adapter.
@@ -17,10 +22,14 @@ import {
 	type SessionStartedEvent,
 	summarizeToolArgs,
 	type TaskStateChangedEvent,
+	type ToolCallRecordedEvent,
 } from "@hyperidle/shared";
 import { afterEach, describe, expect, test } from "vitest";
-import { createObservabilityDispatcher, registerObservabilityDispatcher } from "../dispatcher.js";
-import type { ObservabilityAdapter, ObservabilityChannel } from "../types.js";
+import {
+	createObservabilityDispatcher,
+	registerObservabilityDispatcher,
+} from "../observability/dispatcher.js";
+import type { ObservabilityAdapter, ObservabilityChannel } from "../observability/types.js";
 
 function fakeAdapter(
 	name: ObservabilityChannel = "console",
@@ -40,20 +49,6 @@ function fakeAdapter(
 		},
 		async flush(): Promise<void> {
 			flushed += 1;
-		},
-	};
-}
-
-function makeInMemResolver(): ReturnType<
-	typeof import("../dispatcher.js").createDbTraceIdResolver
-> {
-	const map = new Map<string, string>();
-	return {
-		resolve(sessionId: string): string | null {
-			return map.get(sessionId) ?? null;
-		},
-		seed(sessionId: string, traceId: string): void {
-			map.set(sessionId, traceId);
 		},
 	};
 }
@@ -226,9 +221,7 @@ describe("registerObservabilityDispatcher — bus subscriber", () => {
 			adapter,
 			config: { batchSize: 100, flushIntervalMs: 60_000, bufferCap: 1000 },
 		});
-		const resolver = makeInMemResolver();
-		resolver.seed("sess-1", "trace-42");
-		const unsub = registerObservabilityDispatcher(bus, { dispatcher, resolver });
+		const unsub = registerObservabilityDispatcher(bus, { dispatcher });
 
 		const now = Date.now();
 		bus.emit<"session_started">({
@@ -283,23 +276,23 @@ describe("registerObservabilityDispatcher — bus subscriber", () => {
 			"knowledge_write",
 			"session_ended",
 		]);
-		// Session events carry the pre-seeded trace id (AC3).
+		// AC3 — both session events for one session share ONE trace id, and that
+		// trace id is the session id itself.
 		const sessionEvents = flat.filter(
 			(e) => e.kind === "session_started" || e.kind === "session_ended",
 		);
-		for (const ev of sessionEvents) expect(ev.traceId).toBe("trace-42");
+		for (const ev of sessionEvents) expect(ev.traceId).toBe("sess-1");
 		await dispatcher.dispose();
 	});
 
-	test("falls back to sessionId as traceId when resolver misses (AC3)", async () => {
+	test("derives traceId from sessionId — the only path once the resolver is gone (AC3)", async () => {
 		const bus = new EventBus();
 		const adapter = fakeAdapter();
 		const dispatcher = createObservabilityDispatcher({
 			adapter,
 			config: { batchSize: 10, flushIntervalMs: 60_000, bufferCap: 100 },
 		});
-		const resolver = makeInMemResolver(); // empty
-		const unsub = registerObservabilityDispatcher(bus, { dispatcher, resolver });
+		const unsub = registerObservabilityDispatcher(bus, { dispatcher });
 
 		bus.emit<"session_started">({
 			type: "session_started",
@@ -323,9 +316,7 @@ describe("registerObservabilityDispatcher — bus subscriber", () => {
 			adapter,
 			config: { batchSize: 10, flushIntervalMs: 60_000, bufferCap: 100 },
 		});
-		const resolver = makeInMemResolver();
-		resolver.seed("sess-1", "trace-1");
-		const unsub = registerObservabilityDispatcher(bus, { dispatcher, resolver });
+		const unsub = registerObservabilityDispatcher(bus, { dispatcher });
 		unsub();
 		bus.emit<"session_started">({
 			type: "session_started",
@@ -356,5 +347,51 @@ describe("summarizeToolArgs", () => {
 	test("scrubs sk-/pk- keys", () => {
 		const out = summarizeToolArgs({ key: "sk-proj-verysecretvalueshere" });
 		expect(out).not.toContain("verysecret");
+	});
+});
+
+/**
+ * @lore AU26 C2: folded in from the deleted
+ * `observability/src/__tests__/trace-correlation.integration.test.ts`. Its
+ * first test only exercised `createDbTraceIdResolver`'s seed cache — dead
+ * machinery kept alive by its own test, deleted here. Its second test — the
+ * real AC3 claim — is preserved verbatim in substance below, minus the
+ * hand-built resolver no production caller ever supplied.
+ */
+describe("trace correlation", () => {
+	test("a session's events all carry the same trace id", async () => {
+		const bus = new EventBus();
+		const adapter = fakeAdapter();
+		const dispatcher = createObservabilityDispatcher({
+			adapter,
+			config: { batchSize: 100, flushIntervalMs: 60_000, bufferCap: 1000 },
+		});
+		const unsub = registerObservabilityDispatcher(bus, { dispatcher });
+
+		bus.emit<"session_started">({
+			type: "session_started",
+			streamId: "sess-X",
+			sessionId: "sess-X",
+			agentId: "a",
+			taskId: "t",
+			timestamp: Date.now(),
+		} satisfies SessionStartedEvent);
+		bus.emit<"tool_call_recorded">({
+			type: "tool_call_recorded",
+			streamId: "sess-X",
+			sessionId: "sess-X",
+			toolName: "Read",
+			argsSummary: "{}",
+			timestamp: Date.now(),
+		} satisfies ToolCallRecordedEvent);
+
+		await dispatcher.flush();
+		unsub();
+		const flat = adapter.batches.flat();
+		expect(flat).toHaveLength(2);
+		const [session, toolCall] = flat;
+		expect(session!.traceId).toBe("sess-X");
+		expect(toolCall!.traceId).toBe(session!.traceId);
+		await dispatcher.dispose();
 	});
 });

@@ -362,9 +362,9 @@ function buildLeafDeclarations(root: string): void {
   // integration test files now import `@hyperidle/git-export`. This closes
   // `filesystems`' Increment-2b `FilesystemsGitRunner` forward-reference.
   //
-  // @lore AU19 Increment 2d: `core-api/observability` added — same TS6305
-  // cascade; routes/observability-routes.ts, app.ts,
-  // services/session-provisioning.ts now import `@hyperidle/observability`.
+  // @lore AU26 C2: `core-api/observability` REMOVED — the package dissolved
+  // (translator + adapter → `@hyperidle/shared/observability`, config pair →
+  // `@hyperidle/settings`, runtime → the composition layer, routes deleted).
   //
   // @lore AU19 Increment 2e: `core-api/model-gateway` added — same TS6305
   // cascade; server-factory.ts, services/agent-work-assistant.ts, and
@@ -467,7 +467,6 @@ function buildLeafDeclarations(root: string): void {
     "core-api/policy",
     "core-api/filesystems",
     "core-api/git-export",
-    "core-api/observability",
     "core-api/realtime",
     // @lore AU20 C1: core-api/retention dissolved — sweeps distributed to owning services
     // (users/knowledge/notifications) + propagation_log reaper co-located at composition root.

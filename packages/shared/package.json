@@ -8,7 +8,8 @@
 		"./crypto": "./src/crypto/index.ts",
 		"./git": "./src/git/git-runner.ts",
 		"./http": "./src/http/index.ts",
-		"./net": "./src/net/ssrf.ts"
+		"./net": "./src/net/ssrf.ts",
+		"./observability": "./src/observability/index.ts"
 	},
 	"scripts": {
 		"check": "tsc --noEmit"

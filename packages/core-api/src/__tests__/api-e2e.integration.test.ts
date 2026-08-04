@@ -729,8 +729,8 @@ describe("E2E API Integration (I5)", () => {
 		// @lore AU18: the generic `GET`/`PATCH /api/status/settings` catch-all is
 		// retired along with `factorySettings` — every legitimate key it carried
 		// now has a domain-specific route backed by `server_config`
-		// (notifications/observability/git-export config have their own route
-		// tests). No web client depended on the raw-rows shape (confirmed via grep).
+		// (notifications/git-export config have their own route tests). No web
+		// client depended on the raw-rows shape (confirmed via grep).
 
 		test("GET /api/status/digest returns digest data", async ({ db, app }) => {
 			await seedBase(db);
@@ -846,37 +846,6 @@ describe("E2E API Integration (I5)", () => {
 			const body = (await res.json()) as { ok: boolean; channel: string };
 			expect(body.ok).toBe(true);
 			expect(body.channel).toBe("console");
-		});
-	});
-
-	// -------------------------------------------------------
-	// 13. Observability
-	// -------------------------------------------------------
-	describe("Observability", () => {
-		test("GET /api/observability returns resource descriptor", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/observability", { headers: auth() });
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as { ok: boolean; resource: string };
-			expect(body.ok).toBe(true);
-			expect(body.resource).toBe("observability");
-		});
-
-		test("GET /api/observability/config returns observability config", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/observability/config", { headers: auth() });
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as { enabled: boolean; adapter: string };
-			expect(typeof body.enabled).toBe("boolean");
-			expect(typeof body.adapter).toBe("string");
-		});
-
-		test("GET /api/observability/status returns status info", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/observability/status", { headers: auth() });
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as { enabled: boolean };
-			expect(typeof body.enabled).toBe("boolean");
 		});
 	});
 

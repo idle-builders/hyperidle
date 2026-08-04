@@ -39,7 +39,6 @@ export default defineConfig({
 			"packages/core-api/connections",
 			"packages/core-api/filesystems",
 			"packages/core-api/git-export",
-			"packages/core-api/observability",
 			"packages/core-api/realtime",
 			"packages/agent-orchestration",
 			"packages/agent-orchestration/run-orchestration",

@@ -4,7 +4,7 @@
 
 import type { Logger, ObservabilityEvent } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
-import { createConsoleObservabilityAdapter } from "../console-adapter.js";
+import { createConsoleObservabilityAdapter } from "../observability/console-adapter.js";
 
 interface LogCall {
 	level: "debug" | "info" | "warn" | "error";
@@ -23,7 +23,7 @@ function capturingLogger(): { logger: Logger; calls: LogCall[] } {
 	return { logger, calls };
 }
 
-describe("ConsoleObservabilityAdapter (H3 AC1)", () => {
+describe("ConsoleObservabilityAdapter", () => {
 	it("exposes name=console", () => {
 		const { logger } = capturingLogger();
 		const adapter = createConsoleObservabilityAdapter(logger);

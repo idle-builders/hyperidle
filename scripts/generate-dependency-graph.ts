@@ -53,12 +53,11 @@ const MANUAL_OVERRIDES: Record<string, string | readonly string[]> = {
 	"filesystems:FilesystemsGitRunner": "git-export",
 	"filesystems:FilesystemsServiceConnectionResolver": "connections",
 	"git-export:GitExportServerConfigPort": "settings",
-	// @lore detector fix (2026-08-03): `observability:ObservabilityServerConfigPort`
-	// override REMOVED — found dead by the new unused-override sanity check.
-	// `packages/core-api/observability/src` has no `ports.ts` file at all
-	// anymore; the dependency this override targeted was refactored away at
-	// some earlier, undated point and nobody noticed, because nothing checked
-	// whether a registered override was ever actually reachable.
+	// @lore AU26 C2: `packages/core-api/observability` no longer exists at all —
+	// the package dissolved. Its `ObservabilityServerConfigPort` override was
+	// already removed on 2026-08-03 as dead, found by the unused-override sanity
+	// check after the port was refactored away at some earlier, undated point
+	// that nobody noticed because nothing checked reachability.
 	// @lore AU21 Increment 14b: the `model-gateway:ModelGatewayCredentialResolver`
 	// override is REMOVED — `@hyperidle/model-gateway` is dissolved into
 	// `@hyperidle/shared` (Decision L2); there is no such Service left to
