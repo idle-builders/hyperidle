@@ -13,13 +13,25 @@ Every `file:line` below was re-traced with `rg -a` on branch `pipeline/AU26` (ba
 > to what is the task of this workpackage and only do that."* / *"you are doing AU26. focus only on what is
 > the scope of au26."*
 >
-> This revision cuts that work out. **The findings are not lost** — §14 hands every one of them to AU28
-> with its evidence. What AU26 keeps is what its own acceptance criteria ask for: move the agent-shaped
-> things out of core-api that core never uses, give `agent-orchestration` its own API, and enforce the new
-> owner of each table AU26 itself moves.
+> That revision cut the work out. **The findings are not lost** — §14 hands the rule-writing to AU28 with
+> its evidence.
 
-> **Size, stated honestly up front.** This is **not one PR.** It is **13 independently shippable PRs across
-> 5 waves** — the number matches §13's table row for row. The wave boundaries in §13 are computed
+> **Round 5 — the founder's correction (2026-08-04).** Round 4 drew the line in the wrong place. It used
+> *"ownership work vs. relocations"* as the axis and, on that axis, swept four real **code moves** and one
+> **package dissolution** out along with the governance programme. The founder restated the line:
+>
+> *"policy, review and work are not cut to AU28. the move is part of this package. what is not part of this
+> package is writing package boundary definition or linters and such."*
+>
+> **The axis is moving code vs. writing rules.** This revision restores the moves (§D-M: `policy`'s handoff
+> run-end write, `work`'s bet-kill run-stop write, `work`'s `latestSessionOutcome` subquery, `review`'s
+> redundant session read) and re-confirms the `realtime` dissolution (increment C3) as a move. §14 now hands
+> AU28 the rule-writing only. **AU26 still gives `sessions` no owner** and changes no guard behaviour — a
+> move that incidentally removes a violation is still a move.
+
+> **Size, stated honestly up front.** This is **not one PR.** It is **17 independently shippable PRs across
+> 5 waves** — the number matches §13's table row for row. *(Round 4's heading said 13 against a 14-row table;
+> the 14th was `D0`, cut in prose only and since reverted at `0317818a`. Round 5 adds H1/H2/H3.)* The wave boundaries in §13 are computed
 > dependency depth, so each PR is green on `main` by itself and each wave is a genuine parallel band.
 
 ---
@@ -42,32 +54,50 @@ Every `file:line` below was re-traced with `rg -a` on branch `pipeline/AU26` (ba
 
 ## 2. Scope boundary — AU26 vs AU28
 
-Stated first, because round 3 crossed it and the correction is the point of this revision.
+Stated first, because rounds 3 and 4 crossed it in opposite directions and getting it right is the point of
+this revision.
 
-**AU26 is a relocation work package.** Its deliverable is moved code: domains that core-api administers but
-never operationally uses, moved into `agent-orchestration`, plus `agent-orchestration` getting its own Hono
-app. Every table AU26 **moves** needs its new owner enforced — that is part of performing the move, and it
-stays.
+**The founder's line, verbatim (2026-08-04):** *"policy, review and work are not cut to AU28. the move is
+part of this package. what is not part of this package is writing package boundary definition or linters and
+such."*
 
-**AU28 is the interface-architecture work package** (`.pipeline/work/AU28/plan.md`): one canonical spec for
-how Layers and Services may communicate, plus a guard that warns on every existing violation and hard-fails
-on new ones. The repo's *general* ownership debt — tables with no owner, files reaching around the ACL,
-what the guard's scan scope should be — is that programme's, not this one's.
+**The axis is moving code vs. writing rules** — not "relocation vs. ownership", which is what round 4 used
+and which cut real work.
+
+- **AU26 moves code.** Code in the wrong place is moved, deleted or dissolved here: a core-api Service
+  performing a write that belongs to `agent-orchestration`, a query core does not need, a package that
+  should not be a package. **A move that incidentally removes an ACL violation is still a move** — that is
+  expected, not scope creep.
+- **AU28 writes rules.** Package-boundary definitions, owners for tables nobody moves, guard scan scopes,
+  exemption sets, linters, violation censuses and countdowns. `.pipeline/work/AU28/plan.md` is the
+  interface-architecture work package: one canonical spec for how Layers and Services may communicate, plus
+  a guard that warns on every existing violation and hard-fails on new ones. The repo's *general* ownership
+  debt is that programme's, not this one's.
 
 | Question | Owner |
 |---|---|
 | Does `serviceConnections`'s owner change because AU26 moves the Service? | **AU26** (AC1 names it) |
 | Do `filesystemCaptures` / `filesystemInjections` get new owners because AU26 moves them? | **AU26** (AC4, AC12) |
 | Do the two new `agent_run_config` / `team_run_config_defaults` tables get owners? | **AU26** (AC12) |
-| Who owns `sessions`, and what do its 17 foreign touchers do about it? | **AU28** (§14 finding 1) |
+| `policy/handoff-protocol.ts` ends the run with a raw write inside policy's transaction | **AU26** — a misplaced write (§D-M.1) |
+| `work/bet-kill-cascade.ts` stops runs with a raw CAS write | **AU26** — a misplaced write (§D-M.2) |
+| `work/work-service.ts`'s `latestSessionOutcome` correlated subquery | **AU26** — a query core does not need (§D-M.3) |
+| `review/session-review-creator.ts` re-reads what `SessionEndedEvent` already carries | **AU26** — a redundant read (§D-M.4) |
+| Should `realtime` stop being a package? | **AU26** — a dissolution is a move (§D-E, increment C3) |
+| Who **owns** `sessions`, and do the ten core-api Layer routes that read it convert to a port family? | **AU28** (§14 finding 1) |
+| Does `policy/lifecycle-propagation.ts`'s active-run count convert to a downward call? | **AU28** (§14 finding 1) |
+| Does `realtime`'s subscribe authorizer decompose its `sessions` read? | **AU28** (§14 finding 1) |
 | Who owns `propagationLog` / `taskDispatchAttempts` / `userSkills`? | **AU28** (§14 finding 2) |
 | Should `UNOWNED_SHARED_TABLES` exist at all? | **AU28** (§14 finding 3) |
 | What source roots should the ownership guard scan? | **AU28** (§14 finding 4) |
 | Should `packages/eval` route through owning Services? | **AU28** (§14 finding 5) |
 | Should `packages/db`'s seeders live above the Services? | **AU28** (§14 finding 6) |
 
-**The one-line test a builder applies when unsure:** *does AU26 move this thing?* If yes, AU26 enforces its
-new home. If the justification is "the ACL should govern X," it is AU28's.
+**The one-line test a builder applies when unsure:** *is this code in the wrong place, judged without
+appealing to an ownership rule?* — core executing another Layer's write, or carrying a read it does not
+need. If yes, AU26 moves it, and enforces the new home of any table it moved. If the only argument is *"the
+ACL should govern X"*, or the fix is a new rule, a new guard, or a new read surface built to satisfy that
+rule, it is AU28's.
 
 ---
 
@@ -116,9 +146,17 @@ Named symbols verified. Only disagreements and newly-found obligations are liste
    `session-requests`, `tool-handlers`) and on `harness-registry`. Those dependencies move to the
    orchestration Layer package in **B1a/B1b**; core-api's `package.json` sheds them.
 
-**What is deliberately absent from this list:** the `sessions` read surface (35 files repo-wide, 15 in
-core-api). It was blast-radius item 1 in rounds 1–3. AU26 does not move `sessions`, so it is not AU26's
-blast radius — it is **§14 finding 1**, handed to AU28 with the full census.
+**What is deliberately absent from this list:** the `sessions` **read** surface (35 files repo-wide, 15 in
+core-api). It was blast-radius item 1 in rounds 1–3. AU26 gives `sessions` no owner, so converting reads is
+not AU26's blast radius — that is **§14 finding 1**, handed to AU28 with the full census.
+
+**Round 5 adds a sixth, small, blast-radius item.** §D-M restores four core-api Service sites — two misplaced
+writes and two deletions. Each is confined to one file plus its wiring line: `policy/handoff-protocol.ts` +
+`policy/src/ports.ts` + `services/policy-bindings.ts:106`; `work/bet-kill-cascade.ts` +
+`routes/bets.ts:667`; `work/work-service.ts` + `routes/bets.ts:376`; `review/session-review-creator.ts`
+alone. Two new exports on `run-orchestration`'s existing barrel. No new package edge (`packages/core-api/`
+`package.json:39` already declares `@hyperidle/run-orchestration`), no new Port method, no `packages/web`
+change. Increments **H1**, **H2**, **H3**.
 
 ---
 
@@ -212,12 +250,22 @@ honest reading, the anti-regrowth guard would fire on the composition edge, and 
 `taskExists` reader so `POST /api/sessions` could move — that is why it stays core-hosted.
 
 **Scope note — what this rule does NOT do in AU26.** The rule decides *which app hosts a route*. It does
-**not** re-route core-api's existing direct `sessions` reads through a port. `sessions` is an unowned table
-today (`table-ownership-guard.ts:360-365`) and AU26 does not move it, so the nine core-api Layer routes and
-six core-api Services that read it keep their direct reads, unchanged, and `AgentOrchestrationPort` gains
-**no** new methods. Rounds 1–3 planned that conversion (`AgentOrchestrationPort.sessions`, a
-`PolicyDeps.runOrchestration` bag, six new `run-orchestration` exports); it is cut to AU28 — §14 finding 1
-carries the full site list.
+**not** re-route core-api's existing direct `sessions` **reads** through a port. `sessions` is an unowned
+table today (`table-ownership-guard.ts:360-365`) and AU26 does not give it an owner, so every core-api Layer
+route that reads it keeps its direct read (ten of them after §D-M.3 adds `routes/bets.ts`), and
+`AgentOrchestrationPort` gains **no** new read family. Rounds 1–3 planned that conversion
+(`AgentOrchestrationPort.sessions`' four-to-five-method family); it is AU28's — §14 finding 1 carries the
+full site list.
+
+**Round 5 correction — what AU26 *does* do, and why it is not this.** §D-M restores four core-api **Service**
+sites: two misplaced **writes** (`policy/handoff-protocol.ts`, `work/bet-kill-cascade.ts`) that become
+downward calls under rule 3's third bullet — *"core asking orchestration to change its own record → a direct
+downward function call, never a Port method"* — and two **deletions**
+(`work/work-service.ts`'s decoration subquery, `review/session-review-creator.ts`'s redundant read). None of
+them is a read conversion, none adds Port surface, and none needs an ownership rule to be seen as misplaced.
+Of the six core-api Service `sessions` touchers at `origin/main`, two remain after AU26 —
+`policy/lifecycle-propagation.ts` and (post-C3) the relocated WS subscribe authorizer — both reads core
+genuinely consumes, both AU28's.
 
 #### The `sessions-routes.ts` split — four registrations move, one stays
 
@@ -679,6 +727,227 @@ re-opened. *(`sessions` is currently unowned; who should own it is §14 finding 
 
 ---
 
+### D-M · Four core-api Service sites doing orchestration's work (restored — founder ruling, round 5)
+
+Round 4 handed these to AU28 as part of "`sessions` ownership". That reading was wrong on both halves:
+**none of them needs an ownership rule to be seen as wrong, and none of them is fixed by writing one.** Each
+is either core-api **executing a write that belongs to `agent-orchestration`**, or core-api **carrying a read
+it does not need**. The founder restored them by name — *"policy, review and work are not cut to AU28. the
+move is part of this package."*
+
+**Three properties hold across all four, and they are what makes them AU26's:**
+
+1. **`sessions` still gets no owner.** It stays in `UNOWNED_SHARED_TABLES`
+   (`scripts/table-ownership-guard.ts:360-365`); no `TABLE_OWNER` row is added for it; no guard scan scope,
+   exemption set or lint rule changes. AC12's *"and nothing else in that file"* is untouched.
+2. **No new `AgentOrchestrationPort` methods, and no new read surface.** Checked one by one: D-M.1 and D-M.2
+   are **downward function calls** — `core-api → agent-orchestration` is the permitted direction and
+   `@hyperidle/run-orchestration` is already a core-api dependency (`packages/core-api/package.json:39`), so
+   no package edge is added either. D-M.3 and D-M.4 are **deletions**. §5's *"`AgentOrchestrationPort` gains
+   no read family in this WP"* stands unchanged.
+3. **Each is provable without the rule.** D-M.1/D-M.2 write another Layer's row and then have to *suppress
+   that Layer's own event* to stay correct — a hand-rolled copy of a state transition, not a read. D-M.3/D-M.4
+   are dead weight: one is decoration rendered at a route, the other re-reads three fields the event already
+   carries and whose sibling handler already reads off the event.
+
+**Net effect on the two Services the founder named by domain:** after H2 and H3, `packages/core-api/work`
+and `packages/core-api/review` import the `sessions` table object **zero** times. `packages/core-api/policy`
+goes from two to one — `lifecycle-propagation.ts:7,288-293` remains, and it stays because it is a read core
+genuinely needs and consumes (see "What does not come back", below).
+
+#### D-M.1 · `policy/handoff-protocol.ts` — the run-end write goes down (increment **H1**)
+
+At HEAD, `handoff-protocol.ts:2` imports the `sessions` table object and `:120-124` writes it inside
+policy's own transaction:
+
+```ts
+// 1. End current session (state + endedAt).
+await tx
+    .update(sessions)
+    .set({ state: "done", endedAt: now })
+    .where(eq(sessions.id, sessionContext.sessionId));
+```
+
+The **terminal state** is core's need — a handoff must leave no live run. The **write** is not: it is
+`run-orchestration`'s state transition, hand-copied one Layer up, complete with a comment
+(`handoff-protocol.ts:102-107`) explaining that `session_ended` must NOT be emitted here.
+
+**The move.** `PolicyDeps` (`packages/core-api/policy/src/ports.ts:24`) gains a `runOrchestration` bag with
+one method, in the same Mechanism-C shape its existing `work`/`conversation` bags already use:
+
+```ts
+readonly runOrchestration: {
+  endRunForHandoff(exec: WriteExecutor, sessionId: string, endedAt: string): Promise<void>;
+};
+```
+
+`packages/agent-orchestration/run-orchestration` exports the implementation and the barrel
+(`run-orchestration/src/index.ts`) exports it beside `transitionRun` and `createBareRun`. It is wired into
+`handoffDeps` at `packages/core-api/src/services/policy-bindings.ts:106` (`buildHandoff(handoffDeps)`) — a
+core-api **Layer** wiring file, which may import `@hyperidle/run-orchestration` directly.
+
+**Four properties the implementation must preserve, and they are the whole risk of this increment.**
+
+- **Same transaction.** It is called **with the `tx` handle**, not `db`. The run row must be terminal at the
+  same commit the task claim is, or a handoff can commit with a live run.
+- **Same fields, same values.** `{ state: "done", endedAt }` — not `crashed`, not an outcome. `endedAt` is
+  the caller's `now`, passed in, not re-derived inside orchestration.
+- **Still no `session_ended`.** The suppression decision moves to the side that owns the table; it does not
+  disappear. A handoff that emits `session_ended` creates a spurious review item on **every** handoff, via
+  `review/session-review-creator.ts`.
+- **Unconditional.** It writes the row whether or not a matching `agentSessionRequests` row exists.
+
+**The three traps a previous design hit. Re-stated here so they are not re-hit; each verified at HEAD.**
+
+- **(a) The existing `session_handoff_completed` subscriber does not end the session.**
+  `run-orchestration/src/start-runtime.ts:320-336` subscribes and calls
+  `ports.sessionLifecycle.requestAgentTermination(...)` **only if**
+  `findSessionRequest({ by: "sessionId" })` returns a row. That transitions the *request*, never
+  `sessions.state`. Routing the handoff's run-end through this subscriber would silently do nothing for any
+  session with no request row, and would in any case be post-commit rather than in-tx. **Do not delete the
+  write and lean on this subscriber.**
+- **(b) The runtime path that does write the row emits `session_ended`.** `endSession` →
+  `updateSessionRow` (`run-orchestration/src/transition-run.ts:363-376`) is the obvious-looking reuse and is
+  wrong twice: it CASes on `state = "active"` (a handoff on a non-active run would silently no-op) and its
+  caller emits `session_ended`. `endRunForHandoff` is therefore a **new, separate export**, not a call into
+  `endSession`.
+- **(c) The reaper does not cover the gap.** `run-orchestration/src/runtime-reapers.ts:178-184` selects
+  `state = "active" AND ${sessions.routineId} is not null AND startedAt < cutoff` — **routine sessions
+  only**. A handed-off session left `active` is never reaped. There is no safety net behind this write.
+
+**Protected tests (also listed in §10), asserting exactly these semantics — re-wire, never weaken:**
+`packages/core-api/src/__tests__/handoff-to.integration.test.ts` (run row terminal at commit **and** no
+`session_ended` / no review item) and `af7-handoff-revokes-tools.test.ts` (the runtime-teardown half).
+
+#### D-M.2 · `work/bet-kill-cascade.ts` — the run-stop write goes down (increment **H2**)
+
+`bet-kill-cascade.ts:1` imports `sessions`; `:58-61` selects the active runs per task and `:66-70` stops each
+with a CAS write, deliberately suppressing `session_ended` (`@lore` `:24-26`). Same shape as D-M.1: a genuine
+core need — killing a bet must stop its runs — executed as another Layer's write.
+
+**The move.** `run-orchestration` exports:
+
+```ts
+requestRunStopForTasks(
+  exec: WriteExecutor,
+  taskIds: readonly string[],
+  opts: { reason: "bet_killed" },
+): Promise<ReadonlyArray<{ taskId: string; sessionId: string }>>;
+```
+
+The select, the CAS on `state = "active"`, the `{ state: "stopped", outcome: "stopped", endedAt }` values and
+the no-`session_ended` decision all move to orchestration's side. It returns the runs it actually stopped, so
+`work` still writes its own `propagation_log` hop per stopped run — that row is core's (`policy` owns the
+concept; `work` writes it today) and does **not** move. It is wired through the deps object
+`routes/bets.ts:667` already passes to `cascadeBetKill`, from `@hyperidle/run-orchestration`.
+
+**Preserve:** the 0-row-CAS branch (`bet-kill-cascade.ts:72-73`) must stay observable to `work` — an
+already-stopped run must still write **no** phantom `propagation_log` row. That is why the export returns the
+stopped set rather than a count. `cascadeBetKill`'s return shape
+(`{ tasksKilled: string[]; sessionsStopped: string[] }`) is unchanged.
+
+#### D-M.3 · `work/work-service.ts` — the `latestSessionOutcome` subquery is deleted (increment **H2**)
+
+`work-service.ts:50` imports `sessions` for exactly one thing: the correlated subquery at `:382-386` behind
+`list(exec, "task", { betId, include: "latestSessionOutcome" })`. Its sole caller is
+`packages/core-api/src/routes/bets.ts:376`, and the value is rendered as a status chip
+(`packages/web/src/shell/TaskSheet.tsx:422`, sorted at `WorkBet.tsx:105-106`).
+
+**Rendering is not a use.** Delete the `include: "latestSessionOutcome"` overload
+(`work-service.ts:296-301`), its branch (`:363-393`), the `BetTaskWithLatestSessionOutcome` type (`:154`),
+and the `sessions` import. `routes/bets.ts` recomposes: `work.list(db, "task", { betId })` plus its own
+lookup of the latest outcome per task, merged into the same response field.
+
+**The response body must stay byte-identical** — same field name `latestSessionOutcome`, same `null` for a
+task with no run, same ordering — so `packages/web` does not change (AC7(c)).
+
+**Where the read lands, stated plainly rather than left implicit.** `routes/bets.ts` is a core-api **Layer**
+route, and it reads `sessions` directly. That is legal today and after AU26 (`sessions` is unowned), and it
+makes `bets.ts` the **tenth** core-api Layer route reading `sessions` — §14 finding 1's list grows from nine
+to ten. That is the honest trade and it is the right one: the defect AU26 fixes is a **Service** reaching
+into a foreign table inside its own query surface; whether a Layer route may read that table at all is the
+rule AU28 writes, and it will convert all ten in one pass rather than nine plus a straggler.
+
+Also delete `work-service.ts:29-38`'s *"foreign-import ceiling"* `@lore` — its last sentence (*"The one
+remaining foreign read here … predates and is unaffected by this ruling"*) stops being true, and the
+standing ruling is zero exceptions. `routes/bets.ts:369-371`'s comment citing the same ceiling goes with it.
+
+#### D-M.4 · `review/session-review-creator.ts` — the redundant read is deleted (increment **H3**)
+
+`session-review-creator.ts:1` imports `sessions`; `:50-54` re-reads the session row on `session_ended`. It
+uses exactly three fields — `taskId` (`:58`, `:64`), `agentId` (`:78`, `:79`, `:87`, `:91`, `:102`) and
+`outcome` (`:112`) — and **all three are already on the event**: `SessionEndedEvent.agentId`
+(`packages/shared/src/events.ts:145`), `.taskId` (`:146`), `.outcome` (`:153`). The proof that this is free
+is in the same file: the sibling handler at `:137-141` already reads them straight off the event, with the
+comment *"SessionEndedEvent carries agentId and taskId directly — no DB lookup needed."*
+
+**The move is a deletion.** Drop the query, drop the `sessions` import, read the three fields off `event`.
+Two equivalences to hold:
+
+- The `if (!session?.taskId) return;` guard becomes `if (!event.taskId) return;` — identical outcome. The row
+  existence check it doubled as is redundant: the event fires only for a session that ended.
+- `session.outcome ?? "completed"` becomes `event.outcome`, which is non-optional `SessionOutcome` on the
+  event type, so the `??` fallback is unreachable and goes with it.
+
+#### What does **not** come back, and why — stated so this is a line, not a preference
+
+Round 5 restores the four sites above. It does **not** restore the rest of §14 finding 1, and each exclusion
+is decided on the same test §2 states, not on where the round-4 cut happened to land.
+
+- **The ten core-api Layer routes that read `sessions`** — `routes/{agent-profile,agents,recipients,`
+  `sessions-routes,status,tasks,teams-routes,threads,users}.ts` plus `bets.ts` after D-M.3. **AU28.** Three
+  reasons, any one sufficient. (i) Nothing is misplaced: each reads a foreign table to decorate its own
+  response, and the read is correct where it stands. The only argument for touching them is *"core may not
+  read `sessions`"* — the rule AU28 writes. (ii) Closing them requires a **five-method port family**
+  (`listActive`, `listByAgentIds`, `listByTaskId`, `latestOutcomeByTaskIds`, plus the narrowed decoration
+  row) built solely to serve that rule — new read surface, which §D-A rule 3 and the "no new port methods"
+  bar both forbid here. (iii) There is a live, untested regression hazard in the narrowing: `sessions` has 18
+  columns and no `packages/web` file consumes the 202 body, so a seven-field decoration row would silently
+  drop 11 fields with nothing catching it (§14 finding 1).
+- **`policy/lifecycle-propagation.ts:288-293`** — the active-run count gating `in_progress → review`.
+  **AU28**, even though it sits in `policy`, which the founder named. It is not the same kind of thing as
+  D-M.1: it is a **read core genuinely needs and consumes** (the count drives the transition, and its rows
+  feed the `${n} other active session(s) still running` skip message at `:301`), it performs no foreign
+  write, and it suppresses nothing. It is the Service-level twin of the ten Layer routes, and it converts
+  with them, in one pass, under one rule. Recorded explicitly rather than silently, because "policy" was
+  named: if the founder wants it in AU26 too, it is a small increment of the D-M.2 shape
+  (`PolicyDeps.runOrchestration.countOtherActiveRunsForTask`, wired at the same `policy-bindings.ts:106`
+  site H1 already edits) and lands beside H1 with no re-planning.
+- **`realtime`'s subscribe authorizer decomposition** (`ws-connection-hub.ts:1,169,204`) — **AU28.** Same
+  category: a read the authorizer needs, no foreign write. Note the distinction that matters here: **the
+  `realtime` package dissolution IS restored** (increment C3, §D-E) because it is a move; the authorizer's
+  `sessions` **read** moves with it verbatim and is not converted. The FK-redundancy free rider
+  (`sessions.taskId → tasks.id`, `onDelete:"restrict"`, `packages/db/src/schema.ts:229`, feasibility P4) is
+  a real proof and is handed on unused, not acted on.
+- **`tool-handlers/src/tool-definitions.ts:519-522`** (`write_session_notes`) — **AU28.** It is inside
+  `agent-orchestration` already; nothing crosses a Layer. Whether one orchestration Service may write
+  another's table is exactly the interface definition AU28 writes.
+- **`POST /api/sessions`'s two raw touches** — see §D-A's accepted-as-built note and §D-M.5.
+
+#### D-M.5 · Ruling on B1a's `AgentOrchestrationPort.getById` — it **stands**
+
+`AgentOrchestrationSessionWireRow` + `getById` were added by increment B1a (committed `a653df7f`) and a
+revert was started and abandoned. Under §2's line, the ruling is **keep**, and the reason is not "it is
+already built":
+
+- **It is the read-back half of a move AU26 does perform.** B1a moved the legacy bare-insert **and** its
+  `session_started` emit out of `packages/core-api/src/routes/sessions-routes.ts` into
+  `packages/agent-orchestration/run-orchestration/src/create-bare-run.ts` — a D-M.1-shaped misplaced write,
+  squarely AU26's. In the same act the file shed its `sessions` table import entirely. Reverting only the
+  read would leave `sessions-routes.ts` **re-importing the table it just stopped writing** for one row read —
+  a state worse than either end, and one no rule in this document asks for.
+- **It creates none of the surface the exclusion above is about.** The five-method decoration family is what
+  AU28 builds and what is forbidden here. `getById` is one method, serving one route AU26 itself
+  restructured, and it returns the **full 18-column** wire row on purpose
+  (`packages/api-contract/src/agent-orchestration-port.ts:49-59`), so the narrowing hazard that made the
+  decoration family risky does not exist for it. AC5(d) is the standing regression guard.
+- **The Port stays read-only.** `agent-orchestration-port-readonly.integration.test.ts` is unmodified.
+
+Recorded as an **over-delivery against AC5**, not an AU26 requirement: if it ever regresses, the fallback is
+the direct read, not more port surface.
+
+---
+
 ## 5. Contracts
 
 ```ts
@@ -752,6 +1021,34 @@ export function upsertAgentRunConfig(exec: WriteExecutor, agentUserId: string, p
 export function getTeamRunConfigDefaults(exec: WriteExecutor, teamId: string): Promise<TeamRunConfigDefaults | null>;
 ```
 
+```ts
+// packages/agent-orchestration/run-orchestration/src/index.ts — §D-M's two downward calls.
+// Both are plain exported functions on the existing barrel, NOT Port methods.
+
+/** D-M.1 (H1). Ends the run a handoff just superseded. Called WITH the caller's transaction
+ *  handle so the run row is terminal at the same commit as the task claim. Writes
+ *  `{ state: "done", endedAt }`, unconditionally (no CAS on `active`), and emits NO
+ *  `session_ended` — the suppression the handoff needs is owned here, not one Layer up. */
+export function endRunForHandoff(exec: WriteExecutor, sessionId: string, endedAt: string): Promise<void>;
+
+/** D-M.2 (H2). Stops every active run on the given tasks. CAS on `state = "active"` for
+ *  idempotency, `{ state: "stopped", outcome: "stopped", endedAt }`, no `session_ended`.
+ *  Returns only the runs it ACTUALLY stopped, so the caller writes no phantom
+ *  `propagation_log` row for an already-stopped run. */
+export function requestRunStopForTasks(
+  exec: WriteExecutor,
+  taskIds: readonly string[],
+  opts: { reason: "bet_killed" },
+): Promise<ReadonlyArray<{ taskId: string; sessionId: string }>>;
+```
+
+```ts
+// packages/core-api/policy/src/ports.ts — PolicyDeps gains one Mechanism-C bag (H1)
+readonly runOrchestration: {
+  endRunForHandoff(exec: WriteExecutor, sessionId: string, endedAt: string): Promise<void>;
+};
+```
+
 **`AgentOrchestrationPort` gains no read family in this WP.** The five-method `sessions.*` family rounds 1–3
 planned (`listActive`, `listByAgentIds`, `listByTaskId`, `latestOutcomeByTaskIds`, and the decoration
 narrowing) is cut to §14 finding 1. Its two existing methods (`listSessionHistoryBySource`,
@@ -759,7 +1056,11 @@ narrowing) is cut to §14 finding 1. Its two existing methods (`listSessionHisto
 (§D-A rule 7), so the port composition is unaffected. **One exception, already built and kept:**
 `AgentOrchestrationSessionWireRow` + `getById`, added by B1a for `POST /api/sessions`'s 202 projection at
 full 18-column width (§D-A's accepted-as-built note). Both are readonly; the Port stays read-only and
-`agent-orchestration-port-readonly.integration.test.ts` stays green unmodified.
+`agent-orchestration-port-readonly.integration.test.ts` stays green unmodified. §D-M.5 gives the ruling on
+`getById` under the round-5 line, on its merits rather than on it being already built. **§D-M's two restored
+writes add no Port surface at all** — they are downward function calls on `run-orchestration`'s own barrel,
+and `@hyperidle/run-orchestration` is already a core-api dependency (`packages/core-api/package.json:39`), so
+they add no package edge either.
 
 **Barrel discipline (Mechanism A):** every new SQL-owning Service barrel exports typed functions only — never
 `serviceConnections`, `filesystemCaptures`, `filesystemInjections`, `agentRunConfig`.
@@ -829,8 +1130,10 @@ across them, a duplicate `method + path` would resolve silently by registration 
 
 ## 8. Acceptance criteria
 
-AC1–AC7 map to `plan.md`'s seven acceptance criteria; AC8–AC13 are this doc's own additions. **Numeric order
-is reading order.** Every criterion names its verification.
+AC1–AC7 map to `plan.md`'s seven acceptance criteria; AC8–AC13 and AC15 are this doc's own additions.
+**Numeric order is reading order.** Every criterion names its verification. **AC14 is retired and its number
+is not reused** — it was the 100→0 ownership-violation countdown, deleted with the round-4 cut and now
+AU28's (§14 finding 7).
 
 | # | Criterion | Verification |
 |---|---|---|
@@ -847,6 +1150,7 @@ is reading order.** Every criterion names its verification.
 | **AC11** | Validation scenario 4's two halves are separately proven, and the WS narrowing is on the record | (a) **HTTP half, CLOSED**: an integration test proves `GET /api/sessions/:id/activity` is served by orchestration's app (AC10(b) covers the routing assertion) and returns a body byte-identical to the pre-move baseline; (b) **WS half, NARROWED**: §D-E states the narrowing and its reasoning explicitly, and the founder confirms or rejects it at the realtime confirmation point before C3 (§13). **A silent pass is a failed AC — but silence is not a block.** If no founder answer arrives, C3 proceeds **narrowed**, and the run records the narrowing as `accepted-pending-review` in `.pipeline/work/AU26/progress.json` and appends it to `.pipeline/AU.md` |
 | **AC12** *(the relocation ACL — scoped to what AU26 moves)* | Every table AU26 relocates or creates has its owner declared, and the guard fires on a foreign importer | `scripts/table-ownership-guard.ts`'s `TABLE_OWNER` contains, after this WP: `serviceConnections → packages/agent-orchestration/connections` (E3), `filesystemCaptures → packages/agent-orchestration/filesystem-mounting` (F1), `filesystemInjections → packages/agent-orchestration/agent-filesystems` (F2), and new rows `agentRunConfig` + `teamRunConfigDefaults → packages/agent-orchestration/agent-run-config` (G1). `filesystems` (`:251`) is unchanged. `--fixtures` proves the guard fires on a core-api Service importing each of the five. **`UNOWNED_SHARED_TABLES` (`:360-365`) is NOT touched by this WP** — none of the five tables is in it, and the set's fate is AU28's (§14 finding 3) |
 | **AC13** | Whole-change correctness | `npm run verify` |
+| **AC15** *(round 5 — the four restored moves; §D-M)* | `work` and `review` hold **zero** `sessions` table touches; `policy` holds exactly one (the read AU28 converts); the two restored writes are downward calls, and neither adds a Port method | (a) **static**: `rg -a '\bsessions\b' packages/core-api/{work,review}/src --glob '!**/__tests__/**'` returns no `@hyperidle/db` value import, and `packages/core-api/policy/src` returns exactly one (`lifecycle-propagation.ts`) — a `tsc` failure if any deleted symbol survives; (b) **integration test, H1**: `handoff-to.integration.test.ts` unweakened — the run row is terminal **at commit**, no `session_ended` is emitted, no review item is created; plus a case where **no `agentSessionRequests` row exists** for the session, proving trap (a) is not re-hit; (c) **integration test, H2**: killing a bet stops its active runs, and a **second** kill of the same bet writes no additional `propagation_log` row (the 0-row-CAS branch survives the move); (d) **response-shape test, H2**: `GET /api/bets/:id`'s task rows carry `latestSessionOutcome` with byte-identical values incl. `null`, and `git diff --stat packages/web` stays empty; (e) **H3**: the review-item path still fires on `session_ended` for a medium/high-risk task with the DB read gone; (f) `packages/api-contract/src/agent-orchestration-port.ts` gains no method beyond B1a's `getById` (§D-M.5) |
 
 ---
 
@@ -868,6 +1172,10 @@ is reading order.** Every criterion names its verification.
 | `users.systemPromptPath` / `users.skills` **DROP COLUMN** | `db/src/factory-bootstrap.ts:110,111,140,141`, `db/src/demo-fixture.ts:108` | drop + strip seeds **in place** (the seeder files do not move — §14 finding 6) |
 | `packages/core-api/{observability,realtime,git-export}` **delete package** | `core-api/package.json` deps; `vitest.config.ts:42`; `scripts/typecheck-gate.ts:365,476`; root `package-lock.json` | delete |
 | the `/api/observability*` **surface inventory** | `routes/status.ts:41` (a doc comment naming `/api/observability/config`); `src/__tests__/api-availability.integration.test.ts:39` (`{ path: "/api/observability", description: "Observability" }` in the enumerated surface list); `src/__tests__/api-e2e.integration.test.ts:732,856,865,874` (three route tests + one comment) | delete with C2 |
+| `sessions` write in `policy` **delete → downward call** (H1) | `policy/src/handoff-protocol.ts:2` (the table import), `:120-124` (the write); `policy/src/ports.ts:24` (`PolicyDeps` gains `runOrchestration`); `src/services/policy-bindings.ts:106` (wires it); `run-orchestration/src/index.ts` (new export) | move (§D-M.1) |
+| `sessions` writes in `work` **delete → downward call** (H2) | `work/src/bet-kill-cascade.ts:1,58-61,66-70`; `src/routes/bets.ts:667` (deps object gains the port); `run-orchestration/src/index.ts` (new export) | move (§D-M.2) |
+| `latestSessionOutcome` subquery **delete** (H2) | `work/src/work-service.ts:29-38` (the stale `@lore`), `:50` (the import), `:154`, `:215`, `:296-301`, `:363-393`; recomposed at `src/routes/bets.ts:369-376` | delete + recompose (§D-M.3) |
+| `sessions` read in `review` **delete** (H3) | `review/src/session-review-creator.ts:1,50-55`; `session.taskId/agentId/outcome` → `event.*` at `:58,64,78,79,87,91,102,112` | delete (§D-M.4) |
 | `TABLE_OWNER` rows re-pointed / added | `table-ownership-guard.ts:144` (E3), `:252` (F2), `:253` (F1), two new rows (G1) | edit — **and nothing else in that file** (AC12) |
 
 ---
@@ -892,6 +1200,9 @@ protectedTests:
   - packages/core-api/filesystems/src/__tests__/git-worktree-live-proof.integration.test.ts
   - packages/core-api/src/__tests__/server-disposal.integration.test.ts
   - packages/core-api/src/__tests__/server-factory.resolver.test.ts
+  - packages/core-api/src/__tests__/handoff-to.integration.test.ts                  # H1 — run row terminal AT COMMIT, and NO session_ended / no review item
+  - packages/core-api/src/__tests__/af7-handoff-revokes-tools.test.ts               # H1 — the runtime-teardown half of the same handoff
+  - packages/core-api/src/__tests__/lifecycle-propagation.integration.test.ts       # NOT touched by AU26 (that site is AU28's) — protected so H1's PolicyDeps edit cannot regress it
 ```
 
 The `git-export` test files are the **exception**: they are deleted with the feature (C1), by founder verdict.
@@ -919,6 +1230,10 @@ sharedFiles:
   - packages/desktop/package.json + src/boot-server.ts         # B1b (createServer re-point)
   - packages/db/src/{factory-bootstrap,demo-fixture}.ts        # G1 strips the two dropped columns, in place
   - packages/eval/src/seeding.ts                               # G1 re-points the moved run-config columns
+  - packages/core-api/policy/src/ports.ts                      # H1 — PolicyDeps gains `runOrchestration`
+  - packages/core-api/src/services/policy-bindings.ts           # H1 — wires it
+  - packages/core-api/src/routes/bets.ts                        # H2 — cascade deps + the latestSessionOutcome recompose (ONE increment on purpose)
+  - packages/agent-orchestration/run-orchestration/src/index.ts # H1, H2 — two new exports
   - scripts/composition-edge-anti-regrowth-guard.ts            # B1a (route-import check), E4
   - eslint.config.ts                                           # A1 (authz glob)
   - vitest.config.ts, scripts/typecheck-gate.ts, package.json  # every package add/remove
@@ -952,7 +1267,19 @@ AU27 would otherwise have to carry.
    test suite.
 4. **AU27's `conversational` mode still bakes `modelId`/`modelProvider`** at `assistant-turn-resolver.ts:200-201`.
    G1 deletes that bake. Confirm AU27's plan absorbs the change rather than re-adding it.
-5. **AU26 creates route files in a directory the ownership guard does not scan.** B1a writes
+5. **H1 is the sharpest single edit in this WP.** It moves a write that is load-bearing for correctness in
+   three separate ways (in-transaction, event-suppressed, unconditional) and has **no safety net behind it** —
+   §D-M.1 trap (c): the reaper is routine-only, so a handed-off run left `active` stays `active` forever.
+   Build it against the protected handoff tests first, and add the "no `agentSessionRequests` row" case
+   (AC15(b)) before touching the write — that is the exact case trap (a) makes silently wrong.
+6. **H1/H2's wiring sites are files B1b relocates.** `policy-bindings.ts` and the `registerCoreDomainServices`
+   block move verbatim in B1b. Whichever lands first, the other rebases — a one-line move, no redesign. H1/H2
+   are deliberately **not** made to depend on B1b: making a two-line DI edit wait on the largest PR in the WP
+   would buy nothing.
+7. **`routes/bets.ts` becomes the tenth core-api Layer `sessions` reader** (§D-M.3). Deliberate and recorded
+   in §14 finding 1 so AU28 converts ten, not nine plus a straggler. If AU28 lands first, H2 recomposes
+   through whatever door AU28 built instead of a direct read — the response shape is the contract either way.
+8. **AU26 creates route files in a directory the ownership guard does not scan.** B1a writes
    `packages/agent-orchestration/src/routes/sessions.ts`, which reads `sessions` directly; the guard's Tier-2
    scan roots are `nestedServiceRoots()` plus a hard-coded `packages/core-api/src` (`:646`, `:664`), so
    `packages/agent-orchestration/src` is never visited. **This is not a regression AU26 introduces** — the
@@ -962,7 +1289,7 @@ AU27 would otherwise have to carry.
 
 ---
 
-## 13. Ordered increments — 13 PRs, 5 waves
+## 13. Ordered increments — 17 PRs, 5 waves
 
 Each row is an independently shippable PR to `main` (`npm run verify` green, no stacking). Sizes:
 S ≈ ½–1 day, M ≈ 1–2 days, L ≈ 3–5 days. **Wave = computed dependency depth** (`1 + max(wave of
@@ -976,12 +1303,15 @@ dependencies)`), so a wave is a genuine parallel band: everything in wave *n* ca
 | **C2** | 0 | `observability` dissolves (translator+adapter → `shared`, config pair → `settings`, `TraceIdResolver` deleted, 4 routes deleted, package removed) | M | — | dispatcher unit tests move to `shared` and stay green; `rg -a "api/observability"` → zero |
 | **E1** | 0 | J1 — AES-GCM primitive → `@hyperidle/shared` (re-discharge the no-DB proof first) | S | — | encrypt→decrypt round-trip matches pre-move output for a fixed key+plaintext; `credential-runtime-path` + `AN2` tests green |
 | **G1** | 0 | `users` 6 + `teams` 3 run-config columns → `packages/agent-orchestration/agent-run-config`; **two new `TABLE_OWNER` rows** (AC12); `DROP COLUMN` × 11 incl. the 2 dead; migration + backfill honouring §D-J's written invariant (forward-only, no down-migration); every reader re-pointed; `validateAgentConfig` moves; **strips the dropped columns from the two db seeders in place** (`factory-bootstrap.ts:110,111,140,141`, `demo-fixture.ts:108` — §9) | L | — | migration applies clean against a **populated** local DB (manual smoke, not only the suite); an agent with a per-agent model still resolves it at provisioning; `Settings → Agents` Playwright pass; `agent-profile` render unchanged |
-| **B1a** | 1 | `createApp`→`createCoreApiApp` (drops the orchestration mount, worker-WS hook, `SessionActivityBuffer`); `createAgentOrchestrationApp()` + `packages/agent-orchestration/src/routes/{sessions,agent-orchestration-sessions}.ts`; `bootCoreApi`/`bootAgentOrchestration`; `session-activity-gateway` moves into orchestration's boot; **`sessions-routes.ts` splits 4-move/1-stays per §D-A — `POST /api/sessions` stays core-hosted with its two direct `sessions` touches unchanged**; **`server-factory` still mounts both**. **Named deliverable: `packages/agent-orchestration/package.json` gains `dependencies` — it declares none today** (`hono`, `zod`, `drizzle-orm`, `@hyperidle/{db,shared,api-contract,session-requests,run-orchestration}`, matching the moved handlers' import block at `sessions-routes.ts:1-33`), **and its barrel stops being `export {}`** | L | A1 | `app.ts` no longer imports the orchestration routes (import guard); integration tests hit `GET /api/sessions`, `GET /api/sessions/starts/:id`, `GET /api/sessions/:id/activity`, `PATCH /api/sessions/:id`, `POST /api/sessions` and `/api/agent-orchestration/sessions` through the mounted app with identical bodies; 401 without auth; **AC10** (no duplicate `method + path` across the two apps); **AC5(d)** the 202 body is byte-identical; **feasibility P5′** is the checked-in probe for this exact interleaved shape |
+| **H1** | 0 | §D-M.1 — `policy/handoff-protocol.ts`'s run-end write becomes `runOrchestration.endRunForHandoff(tx, sessionId, endedAt)` on `PolicyDeps`; new `run-orchestration` export; wired at `services/policy-bindings.ts:106`. **In-tx, unconditional, still no `session_ended`.** Traps (a)/(b)/(c) in §D-M.1 | S–M | — | `handoff-to.integration.test.ts` unweakened (terminal at commit, no `session_ended`, no review item) **plus a new case with no `agentSessionRequests` row** (trap a); `af7-handoff-revokes-tools.test.ts` green; `lifecycle-propagation.integration.test.ts` green (untouched site) |
+| **H2** | 0 | §D-M.2 + §D-M.3 — `work`'s two `sessions` touches, one PR because both edit `routes/bets.ts`: `bet-kill-cascade`'s select+CAS-stop becomes `requestRunStopForTasks(db, taskIds, {reason:"bet_killed"})`; the `latestSessionOutcome` subquery + overload + type are deleted and recomposed at the route. **`packages/core-api/work` sheds its `sessions` import** | M | — | killing a bet still stops its active runs, and a **second** kill writes no extra `propagation_log` row (0-row-CAS branch survives); `GET /api/bets/:id`'s `latestSessionOutcome` values byte-identical incl. `null`; `git diff --stat packages/web` empty |
+| **H3** | 0 | §D-M.4 — `review/session-review-creator.ts`'s session row read deleted; `taskId`/`agentId`/`outcome` read off `SessionEndedEvent`. **`packages/core-api/review` sheds its `sessions` import** | S | — | the review-item path still fires on `session_ended` for a medium/high-risk task with the DB read gone; the liveness-net sibling handler (`:137-141`) unchanged |
+| **B1a** | 1 | `createApp`→`createCoreApiApp` (drops the orchestration mount, worker-WS hook, `SessionActivityBuffer`); `createAgentOrchestrationApp()` + `packages/agent-orchestration/src/routes/{sessions,agent-orchestration-sessions}.ts`; `bootCoreApi`/`bootAgentOrchestration`; `session-activity-gateway` moves into orchestration's boot; **`sessions-routes.ts` splits 4-move/1-stays per §D-A — `POST /api/sessions` stays core-hosted; as built it also relocated the legacy bare-insert to `run-orchestration`'s `createBareRun` and put its 202 row read on `AgentOrchestrationPort.getById` at full 18-column width. Both stand (§D-M.5)**; **`server-factory` still mounts both**. **Named deliverable: `packages/agent-orchestration/package.json` gains `dependencies` — it declares none today** (`hono`, `zod`, `drizzle-orm`, `@hyperidle/{db,shared,api-contract,session-requests,run-orchestration}`, matching the moved handlers' import block at `sessions-routes.ts:1-33`), **and its barrel stops being `export {}`** | L | A1 | `app.ts` no longer imports the orchestration routes (import guard); integration tests hit `GET /api/sessions`, `GET /api/sessions/starts/:id`, `GET /api/sessions/:id/activity`, `PATCH /api/sessions/:id`, `POST /api/sessions` and `/api/agent-orchestration/sessions` through the mounted app with identical bodies; 401 without auth; **AC10** (no duplicate `method + path` across the two apps); **AC5(d)** the 202 body is byte-identical; **feasibility P5′** is the checked-in probe for this exact interleaved shape |
 | **C1** | 1 | `git-export` exporter deletes; package removed; doc claims reconciled | M | A2 | `npm run knip` clean; `rg -a "api/git-export"` → zero; `npm run verify` |
 | **E2** | 1 | J2 — rename to `@hyperidle/credentials`, LLM-key catalog only | M | E1 | `server-factory.resolver.test.ts`'s `instanceof DbCredentialResolver` invariant; `/api/credentials` unchanged |
 | **B1b** | 2 | `createServer` → `packages/remote-server/src/create-server.ts`; Application owns db/EventBus/wsHub/MCP-bridge, the middleware stack, and mounts both apps; re-point 5 non-test callers + 8 test files + 2 fixtures. **Named deliverable: `packages/remote-server/package.json` gains `@hyperidle/agent-orchestration` and `@hyperidle/db`** — it declares only `core-api`/`harness-registry`/`shared` today, and it cannot mount an app it does not depend on | L | B1a | `server-disposal.integration.test.ts` + `server-factory.resolver.test.ts` green; **AC9** (`/api/nope` → JSON 404); the 240 fixture-based tests unchanged |
 | **E3** | 2 | J3 — SQL-owning `packages/agent-orchestration/connections`; **`TABLE_OWNER.serviceConnections` re-pointed** (AC1(a), AC12); provisioning in-layer; **delete K1's bake** (6 resolvers + 8 wiring sites); delete `CoreApiPort.connections` + `GET /connections/provisioning` | L | E2 | **AC1(c)** the add-after-emit test; `run-orchestration-connections-provisioning-edge-closed` still asserts zero `app.fetch`; per-user isolation; guard `--fixtures` fires on a core-api Service importing `serviceConnections` |
-| **C3** | 3 | `realtime` dissolves into `packages/core-api/src/` — the hub and the subscribe authorizer move **verbatim**, keeping their direct `sessions` read and all four DI edges (§D-E); package removed. Its `realtime` importer reference is the **Application composition root** (post-B1b: `packages/remote-server/src/create-server.ts`, was `server-factory.ts:65`) | S | B1a, B1b | `ws-broadcaster.no-session-forwarding.test.ts` green; subscribe to `session:<nonexistent>` still denies; thread-participant authz unchanged; **AC11(b)** — the WS narrowing is recorded, whether or not the founder answers |
+| **C3** | 3 | **(round 5: kept — a trim to verdict-only was proposed and is overruled; a dissolution is a move, §2)** `realtime` dissolves into `packages/core-api/src/` — the hub and the subscribe authorizer move **verbatim**, keeping their direct `sessions` read and all four DI edges (§D-E); package removed. Its `realtime` importer reference is the **Application composition root** (post-B1b: `packages/remote-server/src/create-server.ts`, was `server-factory.ts:65`) | S | B1a, B1b | `ws-broadcaster.no-session-forwarding.test.ts` green; subscribe to `session:<nonexistent>` still denies; thread-participant authz unchanged; **AC11(b)** — the WS narrowing is recorded, whether or not the founder answers |
 | **E4** | 3 | J4′ — connections routes onto orchestration-api **at their unchanged paths** (`/api/connections*`); `settings`' MCP projection port re-pointed via the Application | M | E3, B1b | `AN1-connections.integration.test.ts` re-wired and green; **`git diff packages/web` empty** (AC7(c)); Playwright pass on Settings → Connections; AC10's collision assertion covers the second `/api/connections` host |
 | **F1** | 3 | mount engine + 4 adapters + `SANDBOX_SCAFFOLDING_PATHS` + `filesystemCaptures` → `packages/agent-orchestration/filesystem-mounting`; **`TABLE_OWNER.filesystemCaptures` re-pointed** (AC4(b), AC12); `listCaptures` deleted. Its construction site is the **Application composition root** (post-B1b: `packages/remote-server/src/create-server.ts`, was `server-factory.ts:1006`) — **hence the B1b dependency** | M–L | A2, B1b | adapter tests move and stay green incl. `git-worktree-live-proof`; guard owns `filesystemCaptures`; a real session still mounts |
 | **F2** | 4 | `filesystemInjections` → `packages/agent-orchestration/agent-filesystems`; **`TABLE_OWNER.filesystemInjections` re-pointed** (AC12); **delete the filesystems bake**; decompose the `injections ⋈ filesystems` join; injection write routes stay core-hosted, persist delegated down | L | F1 | add-a-filesystem-after-emit test (the twin of AC1(c)); `SettingsAgents.tsx` diff is **zero lines**; team-mismatch 400 still fires |
@@ -994,10 +1324,12 @@ A1 → B1a → B1b ──┐                          (Job 2)
 E1 → E2 → E3 ────┘
 A1 → B1a → B1b → { C3, F1 → F2 }
 A2 → C1
-G1  — no dependency
+G1          — no dependency
+H1, H2, H3  — no dependency                 (§D-M, the restored moves)
 ```
 
-`A1`, `A2`, `C2`, `E1` and `G1` are dependency-free and all start together.
+`A1`, `A2`, `C2`, `E1`, `G1`, `H1`, `H2` and `H3` are dependency-free and all start together.
+H1/H2 edit wiring that B1b later relocates verbatim; whichever lands first, the other rebases one line.
 
 **Founder confirmation points — each with the action the run takes if no answer arrives.**
 `CLAUDE.md` ABSOLUTE RULE 1 says a pipeline run never pauses and never waits for feedback. A gate with no
@@ -1012,72 +1344,92 @@ appends it to `.pipeline/AU.md`.
 | **C2** | `observability` dissolution | **Proceed.** Zero routes have callers repo-wide and `TraceIdResolver.seed()` has zero non-test callers — nothing observable changes |
 | **C3** | `realtime` dissolution — **and, in the same conversation, the validation-scenario-4 WS narrowing** (§D-E). Not a verdict: a founder-written AC being narrowed | **Proceed narrowed**, and record the narrowing as `accepted-pending-review` in `progress.json` + `.pipeline/AU.md` (**AC11(b)**). The narrowing is *forced* — the four-table authorizer and both rejected alternatives hold — so blocking the build on it would buy nothing the record does not already give |
 | **G1** | `users`/`teams` columns incl. the two `DROP COLUMN`s, and the forward-only migration (no down-migration) | **Proceed forward-only.** The migration is smoke-tested against a real populated local DB before the PR opens (§12 risk 3) |
-| — | **connections** (already given — Decision J); **mount engine + captures + injections** (already given) | n/a |
+| **H1** | Nothing to confirm — the founder restored this by name. Listed only so its risk is visible: the handoff write has no reaper safety net (§D-M.1 trap c) | **Proceed.** Build the trap-(a) test case before touching the write |
+| — | **connections** (already given — Decision J); **mount engine + captures + injections** (already given); **H1/H2/H3** (founder-restored, round 5) | n/a |
 
 "Stays" verdicts need no gate.
 
 ---
 
-## 14. HANDOFF TO AU28 — the ownership findings AU26 cut
+## 14. HANDOFF TO AU28 — the rule-writing AU26 does not do
 
 Everything below was measured during AU26's pass-A sweep and its round-2/round-3 architecture passes. It is
-real, it was expensive to discover, and **it is not AU26's work.** It is recorded here so AU28 inherits the
-evidence rather than re-deriving it. All `file:line` references are against `origin/main` @ `75d85687` plus
-AU26's own merged increments; AU28 should re-confirm the counts after AU26 lands (finding 4 explains why).
+real, it was expensive to discover, and **it is rule-writing, not moving.** Under §2's line, AU26 moves code;
+AU28 writes the package-boundary definition, the ownership assignments and the guards. This section is the
+evidence AU28 inherits so it does not re-derive it.
 
-### Finding 1 — `sessions` has no owner, and 17 files touch it across two Layers
+**Round 5 changed what is in here.** Four code moves round 4 filed under "`sessions` ownership" came back to
+AU26 (§D-M): `policy/handoff-protocol.ts`'s run-end write, `work/bet-kill-cascade.ts`'s run-stop write,
+`work/work-service.ts`'s `latestSessionOutcome` subquery, and `review/session-review-creator.ts`'s redundant
+read. The `realtime` package dissolution came back too (increment C3). What stays here is what needs a rule
+written before it can be closed. Each exclusion's reasoning is in §D-M's *"What does not come back"*.
+
+All `file:line` references are against `origin/main` @ `75d85687` plus AU26's own merged increments; AU28
+should re-confirm the counts after AU26 lands (finding 4 explains why, and §D-M changes several of them).
+
+### Finding 1 — `sessions` has no owner; after AU26, thirteen files still touch it across two Layers
 
 `sessions` sits in `UNOWNED_SHARED_TABLES` (`scripts/table-ownership-guard.ts:360-365`). The de-facto owner
-is `packages/agent-orchestration/run-orchestration`: it inserts (`runtime.ts:67`, `provisioner.ts:965`) and
-transitions (`transition-run.ts:371`, `start-runtime.ts:37`, `runtime-reapers.ts:193`). The `@lore` at
-`table-ownership-guard.ts:300` already says to revisit when a real owner exists.
+is `packages/agent-orchestration/run-orchestration`: it inserts (`runtime.ts:67`, `provisioner.ts:965`,
+and post-B1a `create-bare-run.ts`) and transitions (`transition-run.ts:371`, `start-runtime.ts:37`,
+`runtime-reapers.ts:193`). The `@lore` at `table-ownership-guard.ts:300` already says to revisit when a real
+owner exists. **AU26 does not create one** — it removes four misplaced writes/reads and leaves the table
+unowned, exactly as it found it.
 
-A full value-import census (`sessions` from `@hyperidle/db`, every `packages/**` non-test file) returns **35
-files**: 8 in `agent-orchestration` (its own), 12 in `packages/eval` (finding 5), and **15 in core-api**.
-The core-api 15, plus one more in `agent-orchestration`:
+A full value-import census (`sessions` from `@hyperidle/db`, every `packages/**` non-test file) returned **35
+files** at `origin/main`: 8 in `agent-orchestration` (its own), 12 in `packages/eval` (finding 5), and **15 in
+core-api**. **AU26 removes four of the core-api 15 and adds one** (§D-M.3 recomposes `latestSessionOutcome` at
+`routes/bets.ts`), so AU28 inherits **twelve** in core-api plus one in `agent-orchestration`.
 
-**Six core-api Service files** — the substantive ones, each with a designed disposition AU26 traced and then
-cut:
+**Two core-api Service files remain** — both are **reads core genuinely needs**, which is why they need the
+rule before they can move (§D-M's exclusion reasoning):
 
 | Site | What it does | Disposition AU26 designed (not built) |
 |---|---|---|
-| `policy/handoff-protocol.ts:2,122-124` | `tx.update(sessions).set({state:"done", endedAt})` inside policy's transaction | The *terminal state* is core's need; the *write* is not. `PolicyDeps` gains `runOrchestration.endRunForHandoff(exec, sessionId, endedAt)`, called **with the transaction handle**, so it is still same-transaction and still emits **no** `session_ended` — the suppression decision (`handoff-protocol.ts:104-107`) moves to the side that owns the table. **Three traps AU28 must not fall into:** (a) the existing `session_handoff_completed` subscriber does **not** end the session — `start-runtime.ts:320-336` only calls `requestAgentTermination`, and only if `findSessionRequest({by:"sessionId"})` returns a row; that transitions the *request*, never `sessions.state` (`transition-run.ts:39-51`); (b) the runtime path that *does* write the row (`endSession` → `updateSessionRow`, `transition-run.ts:365-380`) **emits `session_ended`**, which would create a spurious review item on **every handoff**; (c) `runtime-reapers.ts:180-183` reaps `state="active" AND routineId is not null` — **routine sessions only** — so a handed-off session left `active` is never reaped |
-| `work/bet-kill-cascade.ts:1,43` | selects active sessions per task, writes `state:"stopped"`, CAS-guarded, deliberately suppressing `session_ended` (`@lore` `:24`) | Need is core's, mechanism is not. `work` calls a new orchestration operation `requestRunStopForTasks(db, taskIds, {reason:"bet_killed"})` — a downward call, in-layer for orchestration, which keeps the CAS + the suppression decision on its own side and returns the stopped session ids so `work` still writes its `propagation_log` hop |
-| `work/work-service.ts:50,384` | `latestSessionOutcome` correlated subquery; sole caller `routes/bets.ts:378`; rendered as a status chip in `TaskSheet.tsx:422` / `WorkBet.tsx:105` | Rendering is not a use. Delete the `include:"latestSessionOutcome"` branch; `routes/bets.ts` composes at the route (`work.list` + an orchestration read), merged into the same response field. **Response shape byte-identical → zero `packages/web` change.** Also delete `work-service.ts:30-38`'s "foreign-import ceiling" `@lore` — the standing ruling is zero exceptions |
-| `review/session-review-creator.ts:1,52-53` | reads the session row on `session_ended` | **Redundant, free deletion.** All three fields it uses are already on `SessionEndedEvent` (`shared/src/events.ts:145,146,153`), and the sibling handler at `:137-141` already reads them straight off the event |
-| `policy/lifecycle-propagation.ts:7,288-293` | `select().from(sessions).where(taskId = ? AND state="active" AND id <> ?)`, gating the task `in_progress → review` transition at `:304` | A count is the whole need — the only consumer of the rows is `${n} other active session(s) still running` in the skip message (`:301`). `PolicyDeps` gains `runOrchestration.countOtherActiveRunsForTask(exec, taskId, excludeSessionId): Promise<number>` — same DI bag as the handoff site, so both land in one edit |
-| `realtime/ws-connection-hub.ts:1,169,204` (post-AU26: `packages/core-api/src/ws-connection-hub.ts`) | topic authorization for `session:<id>` | Decompose: orchestration exports `getSessionSubscribeContext(db, sessionId) → { taskId, sourceKind, sourceCorrelationJson } \| null`; the core authorizer takes it as an injected reader and applies its **own** core-domain checks (thread participant via `conversation`; team via `users`+`org`). **Free rider AU26 proved and did not take:** the `deps.work.getTaskById` existence check is provably redundant — `sessions.taskId` is an FK to `tasks.id` with `onDelete:"restrict"` (`packages/db/src/schema.ts:229`), so `taskId !== null → true` is behaviour-identical. Feasibility P4 in `.pipeline/work/AU26/feasibility.md` |
+| `policy/lifecycle-propagation.ts:7,288-293` | `select().from(sessions).where(taskId = ? AND state="active" AND id <> ?)`, gating the task `in_progress → review` transition at `:304` | A count is the whole need — the only consumer of the rows is `${n} other active session(s) still running` in the skip message (`:301`). `PolicyDeps` gains `runOrchestration.countOtherActiveRunsForTask(exec, taskId, excludeSessionId): Promise<number>`. **AU26's H1 already adds the `runOrchestration` bag to `PolicyDeps` and wires it at `services/policy-bindings.ts:106`, so this is one method and one wiring line on an edge that now exists.** No foreign write, no event suppression — it is a read, hence AU28's |
+| `realtime`'s subscribe authorizer — post-C3 `packages/core-api/src/ws-connection-hub.ts:1,169,204` | topic authorization for `session:<id>` | Decompose: orchestration exports `getSessionSubscribeContext(db, sessionId) → { taskId, sourceKind, sourceCorrelationJson } \| null`; the core authorizer takes it as an injected reader and applies its **own** core-domain checks (thread participant via `conversation`; team via `users`+`org`). **AU26 dissolves the package (C3) but moves the authorizer verbatim** — the dissolution is a move, the read conversion is a rule. **Free rider AU26 proved and did not take:** the `deps.work.getTaskById` existence check is provably redundant — `sessions.taskId` is an FK to `tasks.id` with `onDelete:"restrict"` (`packages/db/src/schema.ts:229`), so `taskId !== null → true` is behaviour-identical. Feasibility P4 in `.pipeline/work/AU26/feasibility.md` |
 
-**Nine core-api Layer routes** — display decoration, all satisfiable by one read-only port family:
-`routes/{agent-profile,agents,recipients,sessions-routes,status,tasks,teams-routes,threads,users}.ts`.
+**Four Service sites are gone from this list — they are AU26's, built in H1/H2/H3.**
+`policy/handoff-protocol.ts` (the in-tx run-end write, with its three traps), `work/bet-kill-cascade.ts` (the
+CAS run-stop write), `work/work-service.ts` (the `latestSessionOutcome` subquery) and
+`review/session-review-creator.ts` (the redundant row read) are specified in **§D-M.1–§D-M.4**. AU28 must not
+re-plan them. If AU28 runs after AU26, `packages/core-api/work` and `packages/core-api/review` hold **zero**
+`sessions` touches and `packages/core-api/policy` holds **one**.
+
+**Ten core-api Layer routes** — display decoration, all satisfiable by one read-only port family:
+`routes/{agent-profile,agents,recipients,sessions-routes,status,tasks,teams-routes,threads,users}.ts`
+**plus `routes/bets.ts`, which AU26's §D-M.3 adds** when it moves `latestSessionOutcome` out of the `work`
+Service and recomposes it at the route. That was a deliberate trade, recorded here rather than hidden: AU26
+fixes the Service-level defect, AU28 converts all ten Layer reads in one pass under one rule.
+
 The shape AU26 designed: `AgentOrchestrationPort` (`packages/api-contract/src/agent-orchestration-port.ts`)
-grows `getById`, `listActive`, `listByAgentIds`, `listByTaskId`, `latestOutcomeByTaskIds` — all readonly,
-backed by GET routes on orchestration's own app. **One shape hazard AU26 found and AU28 must respect:**
-`projectExplicitStart`'s 202 branch (`sessions-routes.ts:65`) returns the **whole raw `sessions` row** — 18
-columns (`schema.ts:221-270`). A narrowed 7-field port row would silently drop 11 fields with no test
-catching it (no `packages/web` file consumes that response). `getById` must return the full public wire
-shape.
+grows `listActive`, `listByAgentIds`, `listByTaskId`, `latestOutcomeByTaskIds` — all readonly, backed by GET
+routes on orchestration's own app. **`getById` already exists** (added by B1a, kept — §D-M.5), so AU28 adds
+four, not five. **One shape hazard AU26 found and AU28 must respect:** `projectExplicitStart`'s 202 branch
+returns the **whole raw `sessions` row** — 18 columns (`schema.ts:221-270`). A narrowed 7-field port row would
+silently drop 11 fields with no test catching it (no `packages/web` file consumes that response). This is why
+`getById` is deliberately full-width (`agent-orchestration-port.ts:49-59`) and why the decoration family must
+be a **separate, narrower** row type rather than a re-use.
 
 **One agent-orchestration site** — `tool-handlers/src/tool-definitions.ts:23,519-522`: the
 `write_session_notes` tool does `ctx.db.update(sessions).set({notes})`. `tool-handlers` is an
 agent-orchestration Service but it is **not** `run-orchestration`, so an ACL binds it exactly as it binds a
 core-api Service. The `@lore` at `:483` (*"`sessions` is `UNOWNED_SHARED_TABLES` — direct access is legal"*)
 is the exemption. Fix: `run-orchestration` exports `recordSessionNotes(exec, sessionId, notes)`;
-`tool-handlers` calls it as a lateral in-layer Service call.
+`tool-handlers` calls it as a lateral in-layer Service call. **Nothing crosses a Layer here** — whether one
+orchestration Service may write another's table is precisely the interface definition AU28 writes.
 
-**Two raw touches AU26 does not require converting** (though B1a already did — see §D-A's accepted-as-built note) (`packages/core-api/src/routes/sessions-routes.ts`,
-post-B1a it is the `POST /` handler only): `projectExplicitStart`'s row read (`:63-68`) and the legacy
-bare-insert path (`:481-499`, fires only when `!durableStartEnabled` and no `Idempotency-Key`). AU26's
-design for them: the read → `port.sessions.getById`; the insert → a new `run-orchestration` export
-`createBareRun(exec, eventBus, {agentId, taskId, modelTier})` owning the insert **and** the
-`session_started` emit. `@hyperidle/run-orchestration` is already a core-api dependency, so no package edge
-is added.
+**One raw touch AU26 does not require converting** — `packages/core-api/src/routes/sessions-routes.ts`, post-B1a
+the `POST /` handler only. B1a converted **both** of the two that were there: the legacy bare-insert moved to
+`run-orchestration`'s `createBareRun` (a §D-M-shaped misplaced write, squarely AU26's) and the 202 row read
+went onto `AgentOrchestrationPort.getById` at full 18-column width. §D-M.5 rules that this **stands**. So the
+file's remaining exposure is via the port, not the table.
 
-**Protected tests for whoever builds this** — these assert the exact semantics the handoff/propagation
-redesign must preserve, and must not be weakened:
-`packages/core-api/src/__tests__/handoff-to.integration.test.ts` (the run row must be terminal at commit AND
-no `session_ended` / review item), `af7-handoff-revokes-tools.test.ts` (the runtime-teardown half),
-`lifecycle-propagation.integration.test.ts` (a sibling active run must still block `in_progress → review`).
+**Protected tests for whoever builds the rest** — these assert semantics the propagation redesign must
+preserve and must not be weakened: `packages/core-api/src/__tests__/lifecycle-propagation.integration.test.ts`
+(a sibling active run must still block `in_progress → review`). The two handoff tests
+(`handoff-to.integration.test.ts`, `af7-handoff-revokes-tools.test.ts`) are now **AU26's** protected tests —
+§10.
 
 ### Finding 2 — three more tables have no owner
 
@@ -1110,6 +1462,11 @@ Two AU26 outputs land in unvisited roots and change the shape of AU28's problem:
 - **B1a creates `packages/agent-orchestration/src/routes/sessions.ts`**, which reads `sessions` directly.
 - **B1b relocates the composition root to `packages/remote-server/src/create-server.ts`**, which carries the
   single `propagationLog` access that finding 2's reaper row names.
+
+A third, from round 5: **§D-M moves two `sessions` writes into
+`packages/agent-orchestration/run-orchestration/src/`** — a nested Service root the guard *does* scan
+(`nestedServiceRoots()`), and legal there either way while `sessions` is unowned. It matters for finding 1's
+count, not for the scan scope.
 
 **Do not size AU28's scan-scope work against the pre-AU26 tree.**
 
@@ -1203,44 +1560,101 @@ Measured at HEAD with the guard's own `checkAccess` logic, `UNOWNED_SHARED_TABLE
 
 The reproduction lives in `.pipeline/work/AU26/probes/census/` and `feasibility.md` P6.
 
-**`scripts/table-ownership-census.ts` + `npm run census:tables` are already committed** (commit `af317a25`,
-under AU26's original scope). It prints the file×table pairs under the target scope and **exits 0
-regardless** — reporting only, zero enforcement, no coupling to the guard's live behaviour.
+**The census script is gone from the branch — AU28 writes it.** `scripts/table-ownership-census.ts`, its
+240-line test, the `census:tables` npm script and the refactor of `scripts/table-ownership-guard.ts` that
+existed only so the census could share the checker were committed under AU26 (`af317a25`) and **reverted**
+(`0317818a`). It was the goal metric of a programme the founder moved to AU28, and the guard refactor
+breached AU26's own AC12 (*"`TABLE_OWNER` rows … and nothing else in that file"*).
 
-**Recommendation: leave it in place; AU28 adopts it.** Reasons: (1) AU28's AC3 asks for *"a tracked,
-exhaustive violation worklist… scoped from data, not re-discovered by hand"* — this script is exactly that
-instrument; (2) it exits 0 and is reachable from a `package.json` script (`package.json:60`), so it neither
-gates a build nor reads as dead code; (3) reverting costs a revert commit now plus a rebuild in AU28 for
-zero benefit. **AU26 removes the census from its own acceptance criteria** — no AU26 increment reports it and
-nothing in AU26 gates on it. If the founder prefers a clean AU26 diff, reverting `af317a25` is safe and
-AU28 rebuilds it; that is the only argument on the other side.
+Against `origin/main`, `scripts/table-ownership-guard.ts` now differs only by owner rows. **The measurement
+above is the durable output** — AU28's AC3 asks for *"a tracked, exhaustive violation worklist… scoped from
+data, not re-discovered by hand"*, and the table in this finding plus the reproduction in
+`.pipeline/work/AU26/probes/census/` is that data. Rebuilding the script is a small job under AU28, where the
+founder put it; the expensive part — knowing what it will print — is already done here. Note the numbers
+predate §D-M: AU26 removes four core-api Service pairs and adds one Layer pair, so re-measure.
 
 ---
 
 ## 15. What changed in this revision
 
-### Round 4 — the founder's scope cut (this revision)
+### Round 5 — the founder's correction to round 4's dividing line (this revision)
+
+Round 4 cut on the wrong axis. It asked *"is this ownership work or a relocation?"*; the founder's actual
+line is *"is this moving code or writing rules?"* — *"policy, review and work are not cut to AU28. the move
+is part of this package. what is not part of this package is writing package boundary definition or linters
+and such."* On the wrong axis, four genuine code moves and one package dissolution went out with the
+governance programme.
+
+**Restored to AU26:**
+
+| Restored | Why it is a move, not a rule | Lands in |
+|---|---|---|
+| `policy/handoff-protocol.ts:120-124` — the in-tx run-end write | core-api executes `run-orchestration`'s state transition and suppresses that Layer's own event to stay correct. Becomes `PolicyDeps.runOrchestration.endRunForHandoff(tx,…)`, a **downward call** | §D-M.1, increment **H1** |
+| `work/bet-kill-cascade.ts:58-70` — the select + CAS run-stop write | same shape: real core need, another Layer's write. Becomes `requestRunStopForTasks(taskIds)`, CAS + suppression owned on orchestration's side | §D-M.2, increment **H2** |
+| `work/work-service.ts:382-386` — the `latestSessionOutcome` subquery | pure decoration inside a Service's query surface; **deleted** and recomposed at `routes/bets.ts` byte-identically | §D-M.3, increment **H2** |
+| `review/session-review-creator.ts:50-55` — the row read | **deleted**; all three fields are already on `SessionEndedEvent` and the sibling handler at `:137-141` proves it | §D-M.4, increment **H3** |
+| `realtime`'s dissolution | a trim to "verdict-only" was proposed on the grounds that *"this shouldn't be a package"* is AU28's taxonomy axis. **Overruled** — a dissolution is a move. Increment C3 stands as written | §D-E, increment **C3** |
+
+**Guarantees carried through the restore, each checked rather than assumed:** `sessions` still gets **no
+owner** and no `TABLE_OWNER` row; `UNOWNED_SHARED_TABLES`, the guard's scan scope and the exemption set are
+untouched; **no new `AgentOrchestrationPort` methods** (two downward calls, two deletions); **no new package
+edge** (`@hyperidle/run-orchestration` is already a core-api dependency, `packages/core-api/package.json:39`).
+A move that incidentally removes an ACL violation is still a move — that is expected.
+
+**Two calls made on the merits and stated so they can be overturned cheaply:**
+
+- **The ten core-api Layer routes reading `sessions` stay with AU28.** They are correct where they stand;
+  the only argument for touching them is the ownership rule itself; closing them needs a four-to-five-method
+  port family built to serve that rule; and the narrowing carries an untested 18-column drop hazard. §D-M's
+  *"What does not come back"*. `routes/bets.ts` joins them as the tenth, by §D-M.3's own doing — recorded in
+  §14 finding 1 rather than hidden.
+- **`AgentOrchestrationPort.getById` (B1a, `a653df7f`) stands; the interrupted revert is abandoned.** It is
+  the read-back half of a move AU26 does perform — B1a relocated the legacy bare-insert *and* its
+  `session_started` emit into `run-orchestration`'s `createBareRun`, and the file shed its `sessions` import
+  in the same act. Reverting only the read would leave `sessions-routes.ts` re-importing the table it just
+  stopped writing. It is one full-width method for one route AU26 restructured, not the decoration family.
+  §D-M.5.
+
+**Also restated as AU28's, unchanged:** `policy/lifecycle-propagation.ts:288-293` (a read core needs and
+consumes — the Service-level twin of the ten Layer routes; recorded explicitly because "policy" was named,
+and it lands beside H1 for free if the founder wants it here); the `realtime` authorizer's `sessions` read
+(the package dissolves in AU26, the read converts in AU28); `tool-handlers`' `write_session_notes` (entirely
+inside `agent-orchestration`).
+
+**Renumbered / renamed:** new decision **§D-M** (existing D-A…D-L unchanged); new acceptance criterion
+**AC15** (AC14 stays retired and its number is not reused); increments **14 → 17 PRs**, waves unchanged (5,
+0–4) — round 4's heading said 13 against a 14-row table, an off-by-one now corrected — H1/H2/H3 are all dependency-free wave 0. §14's title changes from *"the ownership findings AU26 cut"*
+to *"the rule-writing AU26 does not do"*, and finding 7 is corrected: the census was **reverted**
+(`0317818a`), not left in place.
+
+**`plan.md` corrected:** a round-5 amendment records the founder's line verbatim and states that the
+round-4 amendment's *"General ownership debt belongs to AU28"* never meant these four moves. Its seven
+acceptance criteria are untouched.
+
+### Round 4 — the founder's scope cut
 
 | Cut | Where it went |
 |---|---|
 | **D0** — the census script as an AU26 increment, and **AC14** (the 100 → 0 countdown gated per increment) | §14 finding 7. The script is already committed; recommendation is to leave it for AU28 |
-| **D1** — `sessions` ownership + converting all 17 foreign readers, `AgentOrchestrationPort.sessions`, `PolicyDeps.runOrchestration`, six new `run-orchestration` exports | §14 finding 1, with every site, every designed mechanism and the three handoff traps preserved |
+| **D1** — `sessions` ownership + converting all 17 foreign readers, `AgentOrchestrationPort.sessions`, `PolicyDeps.runOrchestration`, six new `run-orchestration` exports | §14 finding 1, with every site, every designed mechanism and the three handoff traps preserved. **Round 5 pulled four of those sites back into AU26** (§D-M) — the two misplaced writes and the two redundant reads. What stays in finding 1 is the read conversions and the ownership assignment |
 | **D2** — owners for `propagationLog` / `taskDispatchAttempts` / `userSkills`, deleting `UNOWNED_SHARED_TABLES` + `assertDisjointOwnership`, and widening the guard's scan roots to the whole workspace | §14 findings 2, 3, 4 |
 | **D2a** — relocating `packages/db`'s two seeders above the Services | §14 finding 6 |
 | **D2b** — routing `packages/eval` through the owning Services | §14 finding 5 |
 | **AC8 (old)** — "neither guard contains a table carve-out, allowlist, exemption set, unowned-table set, or scope carve-out; `inspect()` returns zero findings on the real tree" | AU28's own ACs. AU26 keeps a scoped replacement: **AC12**, which asserts only the five tables AU26 relocates or creates |
 | **AC15 (old)** — `packages/db/src` and `packages/shared/src` hold zero owned-table accesses | §14 finding 6 |
 | **§D-E's authorizer decomposition** (`getSessionSubscribeContext`) and the FK-redundant `deps.work` check deletion | §14 finding 1's last row. `realtime` now dissolves as a verbatim package move |
-| **§D-H #16's port conversions** (`port.sessions.getById`, `createBareRun`) | §14 finding 1's "two remaining raw touches" |
+| **§D-H #16's port conversions** (`port.sessions.getById`, `createBareRun`) | §14 finding 1's "two remaining raw touches". **Round 5 ruled both stand** — `createBareRun` is a misplaced write AU26 owns, `getById` its read-back half (§D-M.5) |
 
 **Built anyway, and kept:** B1a was in flight when the ruling landed and had already converted
 `POST /api/sessions`'s two raw `sessions` touches (`create-bare-run.ts`, `AgentOrchestrationSessionWireRow`
-+ `getById`). Not reverted — see §D-A's accepted-as-built note. Everything else in the cut list was
-unstarted.
++ `getById`). Not reverted — see §D-A's accepted-as-built note, and **§D-M.5, which re-decides it on the
+merits under round 5's line rather than on it being already built**: a revert was started and is abandoned.
+Everything else in the cut list was unstarted.
 
 **Renumbered:** decisions `D-I…D-N` → `D-G…D-L` (old `D-G` and `D-H` are gone); acceptance criteria
 `AC9,AC10,AC12,AC13,AC16` → `AC8,AC9,AC10,AC11,AC13`, with a new scoped `AC12`. Sections 2–13 shifted by one
 to make room for §2's scope boundary. Increments: **19 → 13 PRs**, waves recomputed (still 5, 0–4).
+*(Round 5: 17 — the round-4 table actually held 14 rows, and H1/H2/H3 are added at wave 0.)*
 
 **`plan.md` reverted:** the *"Amendment (2026-08-04, architecture round 3 — the ACL's scope)"* block and the
 acceptance criterion it added (the zero-carve-out / census bar) are removed. They were architecture-round
@@ -1267,7 +1681,7 @@ stand.
 | **W1** — the explicit-start projection triple is used by both sides of the split | **Stands.** §D-A names one home in `@hyperidle/shared/http`. The 18-column wire-shape hazard it surfaced is carried to §14 finding 1, since the port narrowing that would have triggered it is cut; **AC5(d)** stays as the cheap regression guard |
 | **W2** — the withdrawn rendering argument survived verbatim in the filesystems section | **Stands.** §D-I re-derived from rules 2/3, withdrawal noted inline |
 | **W3** — wave labels contradict dependencies | **Stands.** Wave is computed dependency depth; recomputed for 13 increments |
-| **W4** — "13 PRs" vs a 16-row table | **Stands, differently.** 13 PRs, matching §13 row for row |
+| **W4** — "13 PRs" vs a 16-row table | **Reopened by round 5.** Round 4 claimed 13 against a table that held **14** (the extra row was `D0`, cut in prose but not reverted until `0317818a`). The count is now **17**, matching §13 row for row |
 | **S1** — the invented routing shape is not in the probes | **Stands.** `probes/two-app-mount/poc4.ts` checked in and run; feasibility **P5′** |
 | **S2** — `agent-orchestration/package.json` declares zero dependencies | **Stands** — a named B1a deliverable |
 | **S3** — AC ordering reads as if an AC is missing | **Stands** — numeric order is reading order |

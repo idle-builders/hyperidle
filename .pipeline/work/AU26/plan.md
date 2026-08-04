@@ -34,6 +34,38 @@ never uses, give `agent-orchestration` its own API, and enforce the new owner of
 moves**. General ownership debt belongs to AU28 (`.pipeline/work/AU28/plan.md`). The findings are not lost —
 `architecture.md` §14 hands every one of them to AU28 with its `file:line` evidence.
 
+**Amendment (2026-08-04, founder — the correction to the amendment above; the dividing line).** The scope
+cut recorded above was applied on the wrong axis. It asked *"is this ownership work or a relocation?"* and,
+on that reading, swept out four real **code moves** and one **package dissolution** along with the governance
+programme. The founder restated the line: *"policy, review and work are not cut to AU28. the move is part of
+this package. what is not part of this package is writing package boundary definition or linters and such."*
+
+**The axis is moving code vs. writing rules.** AU26 moves code that is in the wrong place — including when a
+move incidentally removes an ACL violation. AU28 writes package-boundary definitions, owners for tables
+nobody moves, guard scan scopes, exemption sets, linters and violation censuses. Restored to AU26 by this
+correction, all four provable as misplaced without appealing to any ownership rule, and all four needing no
+new `AgentOrchestrationPort` surface:
+
+- `packages/core-api/policy/src/handoff-protocol.ts:120-124` — core-api writes the agent-run row inside
+  policy's own transaction and suppresses the run Layer's own `session_ended` to stay correct. Becomes a
+  downward call.
+- `packages/core-api/work/src/bet-kill-cascade.ts:58-70` — a real core need (kill a bet → stop its runs) done
+  as a raw CAS write with the same event suppression. Becomes a downward call.
+- `packages/core-api/work/src/work-service.ts:382-386` — the `latestSessionOutcome` correlated subquery is
+  pure decoration rendered at `routes/bets.ts:376`. Deleted and recomposed at the route, response
+  byte-identical.
+- `packages/core-api/review/src/session-review-creator.ts:50-55` — re-reads three fields
+  `SessionEndedEvent` already carries. Deleted.
+- the **`realtime` dissolution** (a "moves" verdict in `service-verdicts/group2.md`) is executed here as
+  written; a dissolution is a move, and this WP's own acceptance criteria forbid parking a "moves" verdict.
+
+**Still out, unchanged:** giving `sessions` an owner; converting the core-api **Layer** routes that read it
+(a read core genuinely needs, closable only by first writing the rule and building a read family to serve
+it); the table-ownership census and any violation countdown; the guard's scan scope, `UNOWNED_SHARED_TABLES`
+and `assertDisjointOwnership`; owners for tables this WP does not move; routing `packages/eval` through
+owning Services; relocating `packages/db`'s seeders. Those remain AU28's, handed over with their evidence in
+`architecture.md` §14. The seven acceptance criteria below are unchanged by this correction.
+
 **Type.** backend.
 
 **What exists today.** `service_connections`: see AU21's Decision J (`.pipeline/work/AU21/architecture.md`) — locked four-increment design (extract the AES-GCM primitive to `@hyperidle/shared`, rename the core package to `@hyperidle/credentials` stripped to just the LLM-key catalog, stand up a new SQL-owning `packages/agent-orchestration/connections/` Service, re-host `/api/connections`'s backend delegation + extend `AgentOrchestrationPort` with a read family). AU21's Decision K1 (shipped, CI-green) bakes the held-connection list onto every emitted request as an interim mechanism — precisely because the full move hadn't happened yet; now known-throwaway. `filesystems` (`packages/core-api/filesystems/src/`): `filesystem-registry.ts` (the record — team-registered repo/doc-set locations), `mounter-registry.ts` (`RegistryFilesystemMounter` and its per-source adapters — the actual mounting engine: symlink/copy/git-worktree-detect logic, composed ONCE at boot in `packages/core-api/src/server-factory.ts:1027` as `new RegistryFilesystemMounter(...)` and injected into `run-orchestration`'s `provisioner.ts`/`filesystem-provisioning.ts` as a same-process `FilesystemMounter` dependency — core-api itself never calls `.mount()`). AU21's own build already fixed the one live seam-call bug (the injected-filesystems LIST is now baked at emit) but left the mounting ENGINE itself sitting in core-api, unchallenged. `users` (`packages/db/src/schema.ts`) carries `kind` (`"ai"`/human), `harnessType`, `modelId`, `modelProvider`, `maxConcurrentSessions` directly on the same table as human identity/team-membership columns — confirmed by direct schema read, never individually challenged. `AgentOrchestrationPort` (a read-only seam, core-ui → agent-orchestration) already shipped in AU21 Increment 6/7, serving per-session cost — the re-hosting precedent every relocation here reuses. `packages/core-api/src/app.ts` hosts the ENTIRE HTTP/WS surface for both Layers today, including `agent-orchestration-sessions-routes.ts` (a route about orchestration, not one it hosts) — confirmed by direct search: `agent-orchestration` has no `route`-named file and no `new Hono()`/`createApp` anywhere. `realtime` (renamed `WsConnectionHub` during AU21 Increment 14d, after its generic broadcaster pattern was deleted) is the one remaining piece of `core-api`'s WS transport — pure connection/subscribe/authz/broadcast plumbing, zero owned tables, no domain concept of its own. AU20 (a sibling, still-planned WP) already established the "challenge, don't just document" pattern for a *different* axis (exposed-method-surface reduction); this WP runs one consistent domain-ownership test instead. **`model-gateway` was a fourth candidate here but is now CLOSED, decided directly in AU21 (Decision L2, 2026-08-03)** — dissolved as a Service entirely, its pure `resolveModel` function moved into `@hyperidle/shared`; no longer part of this WP's scope.
@@ -70,7 +102,7 @@ moves**. General ownership debt belongs to AU28 (`.pipeline/work/AU28/plan.md`).
 **Out of scope.**
 - **REVERSED by the 2026-08-04 amendment.** Every core-api Service package IS individually challenged now — `conversation`, `git-export`, `knowledge`, `notifications`, `observability`, `org`, `policy`, `realtime`, `review`, `routine`, `settings`, `users`, `work`, `filesystems`, `connections`, all 15, each gets a whole-service verdict. What IS out of scope is letting a verdict become an audit: a verdict is **one evidenced line** per service (the domain it owns, one named real core-side use with `file:line`, verdict), and depth is spent only where (a) that line can't be written, (b) the verdict is "moves," or (c) the verdict is "stays but contains something that moves." No inventory, no method-surface review (that is AU20's axis), no per-service doc for a service that obviously stays. Verdicts are for all 15; moves are only for what fails — and every "moves" is executed in this WP, never parked.
 - A second sweep in the reverse direction. "Is anything core-domain sitting inside `agent-orchestration`?" is answered by ONE grep over its 4 Service packages (`dispatch`, `run-orchestration`, `session-requests`, `tool-handlers`) for `@hyperidle/db` table objects in non-test source, recorded as one line. A bounded confirmation, never a per-service pass of its own.
-- **The general table-ownership programme — AU28's, not AU26's** (2026-08-04 founder ruling). Specifically out: assigning owners to tables this WP does not move (`sessions`, `propagationLog`, `taskDispatchAttempts`, `userSkills`); deleting or shrinking `UNOWNED_SHARED_TABLES`; changing what source roots `scripts/table-ownership-guard.ts` scans; a repo-wide violation census or a count that must reach zero; routing `packages/eval` through the owning Services; relocating `packages/db`'s seeders. AU26 declares owners **only** for the tables it itself relocates or creates. Findings are handed to AU28 in `architecture.md` §14 with their evidence.
+- **The general table-ownership programme — AU28's, not AU26's** (2026-08-04 founder ruling). Specifically out: assigning owners to tables this WP does not move (`sessions`, `propagationLog`, `taskDispatchAttempts`, `userSkills`); deleting or shrinking `UNOWNED_SHARED_TABLES`; changing what source roots `scripts/table-ownership-guard.ts` scans; a repo-wide violation census or a count that must reach zero; routing `packages/eval` through the owning Services; relocating `packages/db`'s seeders. AU26 declares owners **only** for the tables it itself relocates or creates. Findings are handed to AU28 in `architecture.md` §14 with their evidence. **Read this bullet with the correcting amendment above: it is a bar on writing rules, never on moving code.** The four `policy`/`work`/`review` moves and the `realtime` dissolution are AU26's, and a move that incidentally clears a violation is still a move.
 - The filesystem *record*/reachability-probe UI as a whole — only the mounting engine is challenged; the record's own domain status is a separate, narrower question this WP resolves alongside the engine, not a foregone "stays" conclusion either way.
 - Any UI redesign of the Settings connections/filesystems/agents pages — behavior only, no redesign.
 - Moving or renaming the LLM-key catalog (`server_credentials`/`@hyperidle/credentials`) itself.
