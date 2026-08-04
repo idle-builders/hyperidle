@@ -11,7 +11,7 @@ The load-bearing noun **`Staged Operation` is retired; the noun is `Proposed Cal
 
 ## The gate is opt-in machinery, not default behavior
 
-The capture workflow is machinery a caller **attaches** to a session — it is not on by default. No production caller constructs the session-1 "open-work" capture workflow today: ordinary task dispatch provisions with no `sessionWorkflow`, and conversational turns explicitly get none (`packages/server/src/services/session-provisioning.ts:1027`, AR4a). The only `sessionWorkflow` producer in production is the session-2 grant path (`packages/fabric/src/services/task-dispatcher.ts:323-401`).
+The capture workflow is machinery a caller **attaches** to a session — it is not on by default. No production caller constructs the session-1 "open-work" capture workflow today: ordinary task dispatch provisions with no `sessionWorkflow`, and assistant turns never get one either. The only `sessionWorkflow` producer in production is the session-2 grant path (`packages/fabric/src/services/task-dispatcher.ts:323-401`).
 
 So the correct framing of everything below is conditional: **when a review checkpoint is attached** (because a human chose it for this case, or a learning earned it), the workflow router routes irreversible calls to review and lets reversible calls flow.
 

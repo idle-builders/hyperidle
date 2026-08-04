@@ -12,15 +12,11 @@ There are no `shaped`, `committed`, `review`, or `shipped` statuses and no human
 
 **Form-first (hand-typed):** the founder opens New Bet, writes goal and description, saves a `draft` bet.
 
-**Conversation-first (AK4):** the founder describes an idea in the assistant thread. The assistant produces a draft bet — goal plus concept body — surfaced as a `BetCard` in the thread. The founder edits it in the normal bet authoring surface (`WorkBet`) and commits when satisfied.
+**Conversation-first (AK4):** the founder describes an idea in the assistant thread and the assistant, holding `create_bet`/`edit_bet` as ordinary `["assistant"]`-role-scoped tools (the same full tool surface as every other agent kind, AU27), can draft a bet in the thread. **Currently non-functional:** `create_bet` requires a resolvable `teams.id`, which the assistant's calling thread cannot supply — re-providing that capability is a later WP. Until then, bets originate form-first.
 
 Both paths enter the lifecycle at `draft` and proceed identically. The assistant **never commits a bet** — commit is always a human action. A draft the assistant created is as editable, discardable, or reviewable as a hand-typed one.
 
-**Conversational iteration:** continued talk in the same thread refines the *same* draft in place — one living draft per conversational thread, edited via `edit_bet`. Prior cards remain in thread history; the newest draft is always the live target. A second `create_bet` in the same conversation orphans the first draft as a stale history entry.
-
-**Authority boundary:** the assistant can only author or update a `draft` bet. Once committed (`draft → active`), the conversational path stops targeting that bet — further iteration in the thread begins a new draft. The assistant has no commit or kill tool. The AI recommends and drafts; the human decides the irreversible.
-
-**Tool surface (AC3b):** the conversational tool-use loop injects a registry of exactly `[create_bet, edit_bet]` (`packages/server/src/tools/assistant-draft-registry.ts`) — provably no `create_team`, `add_agent`, `create_routine`, `submit_review`, `handoff_to`, commit, or kill tool. `teamId` is server-resolved and hard-injected (the model cannot redirect the team); `edit_bet`'s `betId` is server-bound to the current draft (the model cannot target a different bet).
+**Authority boundary:** the assistant can only author or update a `draft` bet, never commit or kill one. The AI recommends and drafts; the human decides the irreversible.
 
 ## 3. Shape
 

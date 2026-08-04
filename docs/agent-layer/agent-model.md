@@ -66,11 +66,9 @@ Each human gets exactly one assistant: a personal operator scoped to that user. 
 
 **Lifecycle.** Created at user registration (`packages/server/src/routes/users.ts:140`) or lazily via resolve-or-create (GET `/api/threads/assistant`). The thread starts unpinned, pins after the first real AI response, and stays pinned (`packages/fabric/src/services/assistant-dispatcher.ts`).
 
-**Draft-bet capability (AK4).** The Assistant holds a real back-and-forth with the founder and, when the conversation calls for it, produces a draft bet in the thread as a `BetCard`. The founder reviews, edits in WorkBet, and commits — the Assistant **never commits autonomously**. One living draft per conversation, refined in place via `edit_bet`.
+**Draft-bet capability (AK4).** `create_bet`/`edit_bet` are ordinary `["assistant"]`-role-scoped tools — the Assistant has the same full tool surface as every other agent kind (AU27). `create_bet` requires a resolvable `teams.id`, which the Assistant's calling thread cannot supply, so drafting a bet from the assistant thread does not work today; re-providing that capability is a later WP.
 
-The conversational tool loop runs with a bounded registry of exactly two tools: `create_bet` and `edit_bet` (`packages/server/src/tools/assistant-draft-registry.ts`). No other tools exist in this path — the Assistant cannot create teams, add agents, or submit reviews from the thread. The team for any draft is resolved server-side and hard-injected; `edit_bet` is forced to the current draft; the model cannot redirect either. This is the User Sovereignty line drawn in code.
-
-**Turn lifecycle (AR4a/AU1).** The conversational turn (`runAssistantTurn`) delegates through the shared session-request/runtime path in conversational mode — real sandbox, real MCP bridge, all harnesses, task-free source correlation. The loop is capped at `MAX_TOOL_ITERATIONS=3` and always persists a reply — never silent, even on cap exhaustion.
+**Turn lifecycle.** The assistant turn runs through the same shared `run-orchestration` poller (`drainIntents → runClaimedRequest`) as every other agent kind — no second execution entry. It answers by calling the generic `reply` tool during the session, the same mechanism a `task_run` agent uses to post a comment into its task's thread. The session's return gate requires the assistant to call `reply` before ending; the loop is capped at `MAX_TOOL_ITERATIONS=3` (~5 effective rounds via the force-return reset) and always persists a reply — never silent, even on cap exhaustion.
 
 ### 3.4 Category is not role
 
