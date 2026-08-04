@@ -14,7 +14,7 @@ import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger, EventBus } from "@hyperidle/shared";
 import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/shared/crypto";
-import { failClosedAssertion, type HyperIdleEnv } from "@hyperidle/shared/http";
+import { createRateLimiter, failClosedAssertion, type HyperIdleEnv } from "@hyperidle/shared/http";
 import { createUpgradeTokenStore, findUser, type UpgradeTokenStore } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { checkAndUnblockDependents } from "@hyperidle/work";
@@ -23,14 +23,12 @@ import { authMiddleware, createAuthMiddleware } from "./middleware/auth.js";
 import { createBodyLimit } from "./middleware/body-limit.js";
 import { corsMiddleware } from "./middleware/cors.js";
 import { errorHandler } from "./middleware/error-handler.js";
-import { createRateLimiter } from "./middleware/rate-limit.js";
 import { type ObservabilityDeps, startObservability } from "./observability-runtime.js";
 import { createAgentRoutes } from "./routes/agents.js";
 import { createArtifactRoutes } from "./routes/artifacts.js";
 import { createAuthRoutes } from "./routes/auth.js";
 import { createPublicAuthRoutes } from "./routes/auth-public.js";
 import { createBetRoutes } from "./routes/bets.js";
-import { createConnectionRoutes } from "./routes/connections.js";
 import { createConversationRoutes } from "./routes/conversations.js";
 import { createCredentialRoutes } from "./routes/credentials.js";
 import { createFilesystemRoutes } from "./routes/filesystems.js";
@@ -543,8 +541,9 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 			api.route("/harnesses", createHarnessRoutes(options.adapterPool, options.db));
 		}
 		api.route("/credentials", createCredentialRoutes(options.db));
-		// AN1: per-user service connections (token | mcp | inherited projected)
-		api.route("/connections", createConnectionRoutes(options.db, options.adapterPool));
+		// AU26 E4: `/api/connections` is served by `agent-orchestration`'s own
+		// app now (its whole table set is `service_connections`, which that Layer
+		// owns). Same path, other host — see `createAgentOrchestrationApp`.
 		api.route("/hint-progress", createHintRoutes(options.db));
 		api.route("/search", createSearchRoutes(options.db, eventBus));
 		// Tests may override via notificationAdapterFactory for route-level adapter injection.

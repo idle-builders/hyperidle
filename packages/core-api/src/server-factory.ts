@@ -964,6 +964,13 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// core-api→core-api edges, zero behavior change.
 	// @lore AU20 Am4: listServiceConnectionsByAuthSource removed from barrel; adapt
 	// to listConnections(db, { authSource }) to satisfy ServiceConnectionsReader port.
+	// @lore AU26 E2/E4: `settings`' `ServiceConnectionsReader` is the SECOND
+	// consumer of the connections record, and it is a display-only boot-time
+	// projection (the MCP plugin seed) with no operational dependence — so the
+	// port stays and only its implementation moved Layer, wired here by the
+	// Application. It does not cost `service_connections` its "exactly one
+	// Service importer" property: a port is a structural interface, not an
+	// import, and `settings` never sees the table.
 	await backfillConfigurationDefaults(db, {
 		users: { listUsersByKind: (db, kind) => listUsers(db, { kind }) },
 		routines: { listRoutines },
@@ -1121,6 +1128,10 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		db,
 		eventBus,
 		broadcast: wsHub,
+		// AU26 E4: `/api/connections`' inherited projection reads this pool's
+		// cached descriptors. Same pool core-api already holds; the Layer only
+		// gets the read.
+		adapterPool,
 		registerWorkerWebSocket: (apiRouter) => {
 			runRuntime.registerWorkerWebSocket(apiRouter, upgradeWebSocket);
 		},

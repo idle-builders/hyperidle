@@ -24,7 +24,7 @@
 
 import { SessionActivityBuffer } from "@hyperidle/agent-execution";
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { EventBus } from "@hyperidle/shared";
+import type { EventBus, HarnessCapabilityReader } from "@hyperidle/shared";
 import type { HyperIdleEnv } from "@hyperidle/shared/http";
 import type { Hono } from "hono";
 import { createAgentOrchestrationApp } from "./app.js";
@@ -53,6 +53,12 @@ export interface AgentOrchestrationBootOptions {
 	 * Layer has pre-auth routes, not what they are.
 	 */
 	readonly registerWorkerWebSocket?: (apiRouter: Hono) => void;
+	/**
+	 * AU26 E4: cached harness descriptors for `/api/connections`' inherited
+	 * projection. The Application already holds the pool; this Layer only reads
+	 * the cache off it.
+	 */
+	readonly adapterPool?: HarnessCapabilityReader;
 }
 
 export interface AgentOrchestrationBoot {
@@ -67,7 +73,7 @@ export interface AgentOrchestrationBoot {
 export function bootAgentOrchestration(
 	options: AgentOrchestrationBootOptions,
 ): AgentOrchestrationBoot {
-	const { db, eventBus, broadcast, registerWorkerWebSocket } = options;
+	const { db, eventBus, broadcast, registerWorkerWebSocket, adapterPool } = options;
 
 	const activityBuffer = new SessionActivityBuffer(eventBus);
 	activityBuffer.start();
@@ -80,6 +86,7 @@ export function bootAgentOrchestration(
 		db,
 		eventBus,
 		getRecentActivity: (sessionId) => activityBuffer.getActivity(sessionId),
+		...(adapterPool ? { adapterPool } : {}),
 	});
 
 	return {

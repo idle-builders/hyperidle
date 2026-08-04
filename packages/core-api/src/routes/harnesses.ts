@@ -41,9 +41,8 @@ import {
 	harnessCapabilityDescriptors,
 	refreshHarnessDiscoveries,
 } from "@hyperidle/shared";
-import { requireBoundary } from "@hyperidle/shared/http";
+import { createRateLimiter, requireBoundary } from "@hyperidle/shared/http";
 import { Hono } from "hono";
-import { createRateLimiter } from "../middleware/rate-limit.js";
 
 /**
  * Helper: stamp discovery.disabled per descriptor based on harnessDisabled config.

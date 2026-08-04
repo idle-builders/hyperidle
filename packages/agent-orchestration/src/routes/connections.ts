@@ -18,6 +18,22 @@
  * @lore AN1: Concept hard-rule 1 — encryptedToken NEVER appears in any response.
  * The resolver (ServiceConnectionResolver) is the only plaintext path, wired to
  * sandbox injection (AN2), not to routes.
+ *
+ * @lore AU26 E4 (AU21 Decision J4, with J6 superseded): this module lives on
+ * `agent-orchestration`'s own app now, not core-api's. J6 kept the HTTP surface
+ * core-hosted and had it delegate downward; §D-A supersedes that — a route goes
+ * where its tables go, and this file's whole table set is `service_connections`
+ * alone. Reads AND mutations moved, not just reads.
+ *
+ * **The paths do not change.** Both apps mount on the Application's one `/api`
+ * router, so `/api/connections`, `/api/connections/:id` and
+ * `/api/connections/:id/validate` are byte-identical to before and
+ * `packages/web` needs no change at all (AC7(c)).
+ *
+ * The middleware stack — cors, body limit, auth, fail-closed, `onError` — is
+ * Application-applied to that shared router and reaches this module unchanged.
+ * This file declares its own boundaries with `@hyperidle/shared/http`'s
+ * `requireBoundary` and imports nothing from core-api.
  */
 
 import {
@@ -31,11 +47,10 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import type { ConnectionHealth, ServiceConnectionView } from "@hyperidle/shared";
 import { type HarnessCapabilityReader, harnessCapabilityDescriptors } from "@hyperidle/shared";
 import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/shared/crypto";
-import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
+import { createRateLimiter, type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
 import { isPrivateHostLiteral, resolveUrlForSSRF } from "@hyperidle/shared/net";
 import { Hono } from "hono";
 import { z } from "zod";
-import { createRateLimiter } from "../middleware/rate-limit.js";
 
 // ---------------------------------------------------------------------------
 // Input validation

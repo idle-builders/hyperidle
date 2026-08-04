@@ -138,7 +138,7 @@ async function provisionConnections(
 	return plan;
 }
 
-describe("AU26 E3 / AC1(c) — held connections are read live at spawn, never carried on the request", () => {
+describe("held connections are read live at spawn, never carried on the request", () => {
 	test("a connection added AFTER the intent is emitted and drained is still provisioned at spawn", async ({
 		db,
 		eventBus,

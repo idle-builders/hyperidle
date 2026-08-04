@@ -15,10 +15,9 @@ import { readServerConfig } from "@hyperidle/settings";
 import type { CredentialName, CredentialState } from "@hyperidle/shared";
 import { CREDENTIAL_CATALOG, CREDENTIAL_STATES, isCredentialName } from "@hyperidle/shared";
 import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/shared/crypto";
-import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
+import { createRateLimiter, type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
 import { Hono } from "hono";
 import { z } from "zod";
-import { createRateLimiter } from "../middleware/rate-limit.js";
 
 /** Validation timeout: 10 seconds for all external service calls. */
 const VALIDATE_TIMEOUT_MS = 10_000;

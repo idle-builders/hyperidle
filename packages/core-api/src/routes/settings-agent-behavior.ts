@@ -6,9 +6,8 @@ import {
 	type AgentBehaviorConfigPatchResponse,
 	isAgentBehaviorConfigKind,
 } from "@hyperidle/shared";
-import { requireBoundary } from "@hyperidle/shared/http";
+import { createRateLimiter, requireBoundary } from "@hyperidle/shared/http";
 import { Hono } from "hono";
-import { createRateLimiter } from "../middleware/rate-limit.js";
 import {
 	AgentBehaviorConfigError,
 	listAgentBehaviorConfiguration,

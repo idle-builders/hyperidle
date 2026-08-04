@@ -1,8 +1,9 @@
 /**
  * AU26 B1a (§D-B) — `agent-orchestration`'s own Hono app.
  *
- * The Layer that owns `sessions`, `explicit_session_starts` and
- * `agent_session_requests` now serves their HTTP surface itself. What it does
+ * The Layer that owns `sessions`, `explicit_session_starts`,
+ * `agent_session_requests` and (AU26 E3) `service_connections` now serves their
+ * HTTP surface itself. What it does
  * NOT do is own the middleware stack: cors / rate-limit / body-limit / auth /
  * fail-closed / `onError` / `notFound` are **Application-applied** to the `/api`
  * router both apps mount on. `createAuthMiddleware` legitimately reads
@@ -22,10 +23,11 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { ActivityEntry, EventBus } from "@hyperidle/shared";
+import type { ActivityEntry, EventBus, HarnessCapabilityReader } from "@hyperidle/shared";
 import type { HyperIdleEnv } from "@hyperidle/shared/http";
 import { Hono } from "hono";
 import { createAgentOrchestrationSessionsRoutes } from "./routes/agent-orchestration-sessions.js";
+import { createConnectionRoutes } from "./routes/connections.js";
 import { createOrchestrationSessionRoutes } from "./routes/sessions.js";
 
 export interface AgentOrchestrationAppOptions {
@@ -33,16 +35,25 @@ export interface AgentOrchestrationAppOptions {
 	readonly eventBus: EventBus;
 	/** Reads the Layer's own `SessionActivityBuffer` — see `boot.ts`. */
 	readonly getRecentActivity: (sessionId: string) => ReadonlyArray<ActivityEntry>;
+	/**
+	 * AU26 E4: cached harness descriptors, for `/connections`' inherited
+	 * projection. Read-only and DB-free (`listCapabilityDescriptors()`), never a
+	 * per-request probe. Absent → the inherited group is empty, exactly as it
+	 * was when this route was core-hosted with no pool.
+	 */
+	readonly adapterPool?: HarnessCapabilityReader;
 }
 
 export function createAgentOrchestrationApp(
 	options: AgentOrchestrationAppOptions,
 ): Hono<HyperIdleEnv> {
 	const app = new Hono<HyperIdleEnv>();
-	const { db, eventBus, getRecentActivity } = options;
+	const { db, eventBus, getRecentActivity, adapterPool } = options;
 
 	app.route("/sessions", createOrchestrationSessionRoutes(db, eventBus, getRecentActivity));
 	app.route("/agent-orchestration", createAgentOrchestrationSessionsRoutes(db, getRecentActivity));
+	// AU26 E4: `/api/connections` — the path is unchanged; only the host app is.
+	app.route("/connections", createConnectionRoutes(db, adapterPool));
 
 	return app;
 }
