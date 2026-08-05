@@ -212,30 +212,28 @@ remains the reason. **No governance rule may be implemented as an ESLint rule.**
 ESLint entry in the stack — the `scripts/rules/**` filesystem ban — stays, because it is an error and
 it is about the guard's own source, not about the repo's architecture.
 
-**The second trap, which the brief did not name: volume.** Printing 4,481 development warnings on
-every lint run is worse than printing none. It buries the error-level findings, it makes the output
-unreadable, and within a week nobody reads it — "ignorable by habit" achieved by a different route.
+**On volume — the founder ruled, and the ruling overrides the earlier draft of this section.**
 
-**Adopted output shape.** Warnings are aggregated, never enumerated:
+> "I think it's fine to have individual warnings. the next step is anyhow a work package to solve
+> those, nothing else happens in the meantime. also you can just ask the linter to only output the
+> errors."
+
+So warnings are **enumerated, one line per site** — the shape a work package can work straight
+through. The aggregation design this section previously specified is dropped: it optimised for a
+reader skimming past the warnings, and nobody is going to be skimming past them, because clearing
+them is the next thing that happens.
+
+What replaces it is a **`--errors-only` flag**, so the runs that only care about the gate stay quiet:
 
 ```
-governance-lint: 121 rules over 8 detectors · 11,559 instances · PASS (30 error-level rules clean)
-
-  WARN  layer → db:table (other) [table:write]   dev  1672  (baseline 1672, Δ0)   → AU29
-  WARN  service → db:table (other) [table:write] dev   200  (baseline  200, Δ0)   → AU29
-  WARN  layer → service (other layer) [import]   prod    36 (baseline   36, Δ0)   → AU31
-  ... 25 more
-  28 rules at warn · 4,506 known violations · 0 new · successors: AU29 AU30 AU31 AU32 AU33 AU34 AU35
+npx tsx scripts/governance-lint.ts                 # every finding, errors and warnings
+npx tsx scripts/governance-lint.ts --errors-only   # errors only — the gate
 ```
 
-One line per rule at warn, with the count, the delta against the baseline, and **the named successor
-work package**. Bounded at ~30 lines. Individual sites are written on demand
-(`--report governance-report.md`), never to the console.
-
-Three properties this buys:
-- The delta column is the thing a reader's eye lands on. `Δ0` is fine; anything else is a failure.
-- A rule at warn without a registered successor is a load-time error — no orphan debt.
-- The count is the goal metric. It is on screen every run, so progress is visible without a report.
+Still required, unchanged from the earlier draft:
+- A summary line carrying the total per rule and **the delta against the baseline**. `Δ0` is fine;
+  anything else is a failure.
+- A rule at warn without a registered successor work package is a load-time error — no orphan debt.
 
 ### 3.3 The ratchet: keyed by site, bidirectional
 

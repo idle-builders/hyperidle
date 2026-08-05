@@ -1,0 +1,103 @@
+{
+	"au28Architecture": true,
+	"note": "The registries the governance clauses read. This file is DATA — it changes when packages, surfaces or owners change. The clauses that read it are CODE (scripts/lib/governance-model.ts) — they change only by founder ruling on architecture. Nothing here is a per-pair verdict; verdicts are derived.",
+
+	"roles": {
+		"note": "A package's role comes from the `workspaces` glob in the root manifest that claims it — never from matching its directory path (Ruling 5). Adding a role folder is an edit here plus an edit to `workspaces`, and nothing else.",
+		"byWorkspacePattern": [
+			{ "pattern": "layers/*", "role": "layer" },
+			{ "pattern": "layers/*/*", "role": "service" },
+			{ "pattern": "framework/*", "role": "framework" },
+			{ "pattern": "applications/*", "role": "application" },
+			{ "pattern": "tools/*", "role": "tooling" }
+		]
+	},
+
+	"containment": {
+		"note": "A service lives inside exactly one layer. A layer belongs to itself. Composition roots live outside the tree and are the only actors permitted to reach across it.",
+		"compositionRootRoles": ["application", "tooling", "deployment"],
+		"repoRootIsCompositionRoot": true
+	},
+
+	"surfaces": {
+		"note": "Who may name this surface. `everyone` = any actor; `composition roots` = the roles above plus the repo root; a list = exactly those roles or package names; an empty list = nobody.",
+
+		"framework/shared": {
+			"reach": "everyone",
+			"why": "the shared substrate — the one target every role may name"
+		},
+		"framework/db": {
+			"reach": "everyone",
+			"why": "the manifest-level dependency on the database package. Which surface INSIDE it you may touch is decided per surface below, so declaring the dependency is not itself a decision."
+		},
+		"framework/api-contract": {
+			"reach": ["layer"],
+			"why": "the request/response shapes two layers agree on. A service talks through its own layer, so it has no business naming the contract directly."
+		},
+		"framework/design-system": {
+			"reach": ["core-ui"],
+			"why": "there is exactly one user interface. A second consumer of the design system means a second interface, which is a product decision, not an import."
+		},
+
+		"db:client": {
+			"reach": "everyone",
+			"why": "holding a database handle is not the same as touching a table"
+		},
+		"db:row-type": {
+			"reach": "everyone",
+			"why": "a row type is a shape, not an access path"
+		},
+		"db:bootstrap": {
+			"reach": "composition roots",
+			"why": "putting the database into a known first-boot state is the job of whatever boots the system"
+		},
+		"db:schema-ns": {
+			"reach": [],
+			"why": "one import that hands over every table at once. The database's own client factory does the same job for the one legitimate use."
+		},
+		"db:unknown": {
+			"reach": [],
+			"why": "an export of the database package that belongs to no named surface. Reaching it means the surface has not been decided yet."
+		},
+		"db:testing": {
+			"reach": [],
+			"why": "development code. A production file naming it is already an error under the production-may-not-name-development clause; this entry keeps the two answers from disagreeing."
+		},
+		"db:util": {
+			"reach": ["service"],
+			"why": "ANOMALY, pending follow-up W1. escapeLikePattern, resolveAgentScaffoldSpecs and resolveProfile touch no database — no SQL, no schema, no connection. The surface should not exist. Ruling 12.3 moves them out; until then the founder's round-1 verdict stands for services and the researched verdict stands for everyone else."
+		}
+	},
+
+	"endpoints": {
+		"note": "A door is dialled only if the target declares it.",
+		"httpApiLayers": {
+			"layers": ["core-api", "agent-orchestration"],
+			"audience": "everyone",
+			"why": "a layer that publishes an HTTP API publishes it to the whole system. agent-execution is absent because it hosts no API."
+		},
+		"mcpRouter": {
+			"host": "agent-execution",
+			"alsoDialledBy": ["harness"],
+			"why": "the router exists to serve the harness. Only the layer that owns the harness relationship, and the harness itself, dial it. It is mounted in the wrong place today — follow-up W3."
+		}
+	},
+
+	"eventBus": {
+		"host": "framework",
+		"why": "the framework provides the bus. A framework package that also publishes on it is both the pipe and the water, and the bus can no longer be reasoned about from the outside."
+	},
+
+	"rawRuntime": {
+		"host": "agent-execution",
+		"why": "every model and harness call goes through one door so it can be recorded, priced and replayed. Constructing a vendor SDK anywhere else builds a path the rest of the system cannot see."
+	},
+
+	"oneDoorSurfaces": {
+		"note": "The development world relaxes every production rule EXCEPT these. Each names a surface where production has exactly one door — going around it builds a world production cannot produce, which is the one thing a test may not do.",
+		"surfaces": ["db:schema-ns", "db:util", "db:unknown", "framework/design-system"],
+		"rawRuntime": true,
+		"foreignTableWrite": true,
+		"why": "a test may cross any boundary to arrange the world; it may not go around a door production has only one of"
+	}
+}

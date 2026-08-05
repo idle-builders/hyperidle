@@ -306,6 +306,8 @@ export interface Census {
 	readonly edges: readonly ImportEdge[];
 	/** Count of files decided by each pattern id. Every pattern id is present, even at zero. */
 	readonly patternCounts: ReadonlyMap<string, number>;
+	/** Every workspace package with its manifest-declared role. Empty when no role rules were given. */
+	readonly packages: readonly WorkspacePackage[];
 }
 
 const PARSEABLE = /\.(?:m|c)?[jt]sx?$/;
@@ -376,6 +378,112 @@ interface PackageEntry {
 	readonly dir: string;
 	readonly exports: ExportsField;
 	readonly main: string | undefined;
+}
+
+/**
+ * A workspace package with the role the workspace declaration gives it.
+ *
+ * @lore AU28 Ruling 5: a package's role is NEVER read off its directory path. It comes from which
+ * `workspaces` glob in the root manifest claims it — `layers/*` declares a layer, `layers/*\/*`
+ * declares a service inside that layer. Matching the path directly is the tempting shortcut and it
+ * silently mis-roles the first package that lands somewhere new.
+ */
+export interface WorkspacePackage {
+	/** Unscoped name — how the governance registries and the census key a package. */
+	readonly name: string;
+	/** The full name from the manifest, e.g. `@hyperidle/work`. */
+	readonly scopedName: string;
+	readonly dir: string;
+	readonly role: PackageRole;
+	/** The layer this package lives in. A layer lives in itself; a framework package lives nowhere. */
+	readonly layer: string | undefined;
+}
+
+export type PackageRole = "layer" | "service" | "framework" | "application" | "tooling" | "deployment";
+
+/** Glob depth per role: `layers/*` is one segment under `layers`, `layers/*\/*` is two. */
+export interface WorkspaceRoleRule {
+	readonly pattern: string;
+	readonly role: PackageRole;
+}
+
+/**
+ * Turns a `workspaces` glob into (root, depth), where depth is the number of path segments a package
+ * directory must have to match. `layers/*` is depth 2 (`layers/core-api`); `layers/*\/*` is depth 3.
+ * Only `*` segments are supported — that is all npm uses here, and a glob shape this code does not
+ * understand must fail loudly rather than silently claim the wrong packages.
+ */
+const globShape = (pattern: string): { root: string; depth: number } => {
+	const segments = pattern.split("/");
+	for (const segment of segments.slice(1)) {
+		if (segment !== "*") throw new Error(`repo-census: workspace glob "${pattern}" is not of the form root/*[/*]`);
+	}
+	return { root: segments[0] ?? "", depth: segments.length };
+};
+
+/**
+ * Every workspace package, with its manifest-declared role.
+ *
+ * @param roleRules maps a `workspaces` glob to the role it declares — from
+ * `governance/architecture.json`, so adding a role folder is a registry edit, not a code edit.
+ * @throws when a manifest sits in the tree but no glob claims it, or when a glob claims nothing.
+ * A role that matches zero packages is the `au6` failure mode: it reads as clean forever.
+ */
+export function readWorkspacePackages(
+	files: readonly string[],
+	readFile: (p: string) => string,
+	roleRules: readonly WorkspaceRoleRule[],
+): readonly WorkspacePackage[] {
+	if (roleRules.length === 0) throw new Error("repo-census: no workspace role rules — nothing could be assigned a role.");
+
+	const shapes = roleRules.map((r) => ({ ...r, ...globShape(r.pattern) }));
+	// Deepest glob first: `layers/*\/*` must claim a service before `layers/*` sees it.
+	shapes.sort((a, b) => b.depth - a.depth);
+
+	const out: WorkspacePackage[] = [];
+	const unclaimed: string[] = [];
+	const matched = new Map<string, number>(roleRules.map((r) => [r.pattern, 0]));
+
+	for (const file of files) {
+		if (basename(file) !== "package.json") continue;
+		const dir = dirnameOf(file);
+		if (dir === "" || dir.includes("node_modules")) continue;
+		let parsed: Record<string, unknown>;
+		try {
+			parsed = JSON.parse(readFile(file)) as Record<string, unknown>;
+		} catch {
+			continue;
+		}
+		const scopedName = parsed.name;
+		if (typeof scopedName !== "string" || scopedName === "") continue;
+
+		const segments = dir.split("/");
+		const shape = shapes.find((s) => segments[0] === s.root && segments.length === s.depth);
+		if (shape === undefined) {
+			unclaimed.push(dir);
+			continue;
+		}
+		matched.set(shape.pattern, (matched.get(shape.pattern) ?? 0) + 1);
+		out.push({
+			name: segments[segments.length - 1] ?? scopedName,
+			scopedName,
+			dir,
+			role: shape.role,
+			layer: shape.role === "layer" ? segments[1] : shape.role === "service" ? segments[1] : undefined,
+		});
+	}
+
+	if (unclaimed.length > 0) {
+		throw new Error(
+			`repo-census: ${unclaimed.length} workspace package(s) no role rule claims: ${unclaimed.join(", ")}. ` +
+				"A package with no role cannot be governed — add the glob to governance/architecture.json.",
+		);
+	}
+	const dead = [...matched].filter(([, n]) => n === 0).map(([p]) => p);
+	if (dead.length > 0) {
+		throw new Error(`repo-census: role rule(s) matched zero packages: ${dead.join(", ")}. A rule that claims nothing reads as clean forever.`);
+	}
+	return out;
 }
 
 function readPackageIndex(files: readonly string[], readFile: (p: string) => string): PackageEntry[] {
@@ -479,6 +587,12 @@ export interface CensusInput {
 	/** Repo-relative paths, forward slashes. The authoritative file set — nothing else is known. */
 	readonly files: readonly string[];
 	readonly readFile: (repoRelativePath: string) => string;
+	/**
+	 * Maps a `workspaces` glob to the role it declares — from `governance/architecture.json`.
+	 * Omit it and `census.packages` is empty; the rules that need roles then have nothing to stand on,
+	 * which they must treat as a build error rather than a clean result.
+	 */
+	readonly roleRules?: readonly WorkspaceRoleRule[];
 }
 
 /** Builds the census from an injected file list + reader. No fs, no git, no glob. */
@@ -518,5 +632,8 @@ export function buildCensus(input: CensusInput): Census {
 		}
 	}
 
-	return { files, byPath, edges, patternCounts };
+	const workspacePackages =
+		input.roleRules === undefined ? [] : readWorkspacePackages(input.files, input.readFile, input.roleRules);
+
+	return { files, byPath, edges, patternCounts, packages: workspacePackages };
 }

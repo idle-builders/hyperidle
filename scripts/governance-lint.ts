@@ -18,8 +18,16 @@
  * Tracked-by-git is the only definition of "the repo's files" that cannot drift.
  *
  * Usage:
- *   npx tsx scripts/governance-lint.ts             # check the live tree
- *   npx tsx scripts/governance-lint.ts --fixtures  # self-test the detector on a synthetic tree
+ *   npx tsx scripts/governance-lint.ts                # check the live tree
+ *   npx tsx scripts/governance-lint.ts --errors-only  # errors only — the gate, without the debt
+ *   npx tsx scripts/governance-lint.ts --fixtures     # self-test the detector on a synthetic tree
+ *
+ * @lore AU28: warnings are printed ONE LINE PER SITE, never aggregated. The founder ruled on this:
+ * the next thing that happens after a rule lands at warn is a work package that clears it, and that
+ * work package needs the sites. `--errors-only` exists for the runs that only care about the gate.
+ * What is NOT acceptable is an ESLint warning — `npm run lint` runs `eslint . --quiet`, which
+ * discards warnings entirely, and that is how `eslint-plugin-design` came to enforce nothing on the
+ * product UI while looking like a net.
  */
 
 import { execFileSync } from "node:child_process";
@@ -28,14 +36,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { runFixtureSelfTest } from "./lib/governance-fixtures.js";
+import type { Architecture } from "./lib/governance-model.js";
 import { DeadRuleError, formatFinding, hasErrors, type Rule, runRules } from "./lib/governance-rules.js";
-import { buildCensus } from "./lib/repo-census.js";
+import { buildCensus, type WorkspaceRoleRule } from "./lib/repo-census.js";
 import { classificationTotal } from "./rules/classification-total.js";
 import { noProductionImportsDevelopment } from "./rules/no-production-imports-development.js";
 import { patternLive } from "./rules/pattern-live.js";
-
-/** The registered rule set. Steps 3 and 4 add layer-access rules here, over the same census. */
-const RULES: readonly Rule[] = [classificationTotal, patternLive, noProductionImportsDevelopment];
+import { registriesHonest } from "./rules/registries-honest.js";
 
 /**
  * Floor on the census itself. If `git ls-files` ever returns a near-empty set — wrong cwd, a broken
@@ -68,7 +75,12 @@ function runFixtures(): number {
 	return 0;
 }
 
-function runLive(): number {
+function loadArchitecture(): Architecture & { roles: { byWorkspacePattern: readonly WorkspaceRoleRule[] } } {
+	const raw = readFileSync(path.join(REPO_ROOT, "governance/architecture.json"), "utf8");
+	return JSON.parse(raw) as Architecture & { roles: { byWorkspacePattern: readonly WorkspaceRoleRule[] } };
+}
+
+function runLive(errorsOnly: boolean): number {
 	const files = trackedFiles();
 	if (files.length < MIN_TRACKED_FILES) {
 		console.error(
@@ -78,10 +90,20 @@ function runLive(): number {
 		return 1;
 	}
 
+	const architecture = loadArchitecture();
 	const census = buildCensus({
 		files,
 		readFile: (p) => readFileSync(path.join(REPO_ROOT, p), "utf8"),
+		roleRules: architecture.roles.byWorkspacePattern,
 	});
+
+	/** The registered rule set. Later steps add the crossing rules here, over the same census. */
+	const RULES: readonly Rule[] = [
+		classificationTotal,
+		patternLive,
+		noProductionImportsDevelopment,
+		registriesHonest(architecture),
+	];
 
 	let result: ReturnType<typeof runRules>;
 	try {
@@ -96,13 +118,18 @@ function runLive(): number {
 
 	const errors = result.findings.filter((f) => f.severity === "error");
 	const warnings = result.findings.filter((f) => f.severity === "warn");
-	for (const finding of [...errors, ...warnings]) console.error(formatFinding(finding));
+	const shown = errorsOnly ? errors : [...errors, ...warnings];
+	for (const finding of shown) console.error(formatFinding(finding));
+	if (errorsOnly && warnings.length > 0) {
+		console.error(`  (${warnings.length} warning(s) hidden by --errors-only)`);
+	}
 
 	const production = census.files.filter((f) => f.kind === "production").length;
 	const development = census.files.length - production;
 	const summary =
 		`${census.files.length} tracked files (${production} production, ${development} development), ` +
-		`${census.edges.length} resolved import edges, ${RULES.length} rules`;
+		`${census.packages.length} packages, ${census.edges.length} resolved import edges, ` +
+		`${RULES.length} rules, ${warnings.length} warning(s)`;
 
 	if (hasErrors(result.findings)) {
 		console.error(`\ngovernance-lint: FAIL — ${errors.length} error(s). ${summary}.`);
@@ -112,5 +139,7 @@ function runLive(): number {
 	return 0;
 }
 
-const exitCode = process.argv.includes("--fixtures") ? runFixtures() : runLive();
+const exitCode = process.argv.includes("--fixtures")
+	? runFixtures()
+	: runLive(process.argv.includes("--errors-only"));
 process.exit(exitCode);
