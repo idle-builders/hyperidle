@@ -15,7 +15,7 @@
  * `governance-fixtures.ts`: a near-miss that must NOT be detected.
  */
 
-import { detectAstCrossings } from "./crossing-detectors.js";
+import { buildCompanionGroups, buildWriteSets, detectAstCrossings } from "./crossing-detectors.js";
 import type { DbSurfaceIndex } from "./db-surfaces.js";
 import type { Actor, Crossing, Kind, Target } from "./governance-model.js";
 import type { TableOwners } from "./governance-registry.js";
@@ -228,6 +228,11 @@ export function detectCrossings(input: CrossingsInput, floors: readonly Detector
 			ownerOf: (table) => ownerOf(input.tableOwners, table),
 			mcpRouterHost: input.mcpRouterHost,
 			eventTypesModule: input.eventTypesModule,
+			companions: buildCompanionGroups(
+				{ census: input.census, readFile: input.readFile, locate, tables: input.db.tables },
+				(table) => ownerOf(input.tableOwners, table),
+			),
+			writeSetOf: buildWriteSets({ census: input.census, readFile: input.readFile, tables: input.db.tables }),
 		}),
 	];
 

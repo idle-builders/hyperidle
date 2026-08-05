@@ -49,7 +49,7 @@
  */
 
 import { execSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   type DebtFile,
@@ -519,6 +519,35 @@ function buildLeafDeclarations(root: string): void {
       // declarations to dist/. Real errors surface in the per-package measurement.
     }
   }
+  cleanEmittedGovernanceArtifacts(root);
+}
+
+/**
+ * Remove compiled copies this build emitted beside their own sources under `scripts/`.
+ *
+ * @lore AU28: the governance tests in `framework/db` import `scripts/lib/*.js`, which pulls those
+ * files into a composite build whose rootDir they sit outside. tsc emits `.js`/`.d.ts` next to the
+ * `.ts` (hiding the reason as TS6059, which this gate filters as reference noise) — and then Node,
+ * tsx and vitest ALL resolve the compiled copy first. The guard runs stale logic while the source on
+ * disk says something else, and the only symptom is a failure that makes no sense. This build makes
+ * them, so this build cleans them; `au28-no-stale-build-artifacts` catches any that survive.
+ */
+function cleanEmittedGovernanceArtifacts(root: string): void {
+  const suffixes = [".d.ts.map", ".js.map", ".d.ts", ".js"];
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = resolve(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(full);
+        continue;
+      }
+      const suffix = suffixes.find((s) => entry.name.endsWith(s));
+      if (suffix === undefined) continue;
+      if (existsSync(`${full.slice(0, -suffix.length)}.ts`)) rmSync(full, { force: true });
+    }
+  };
+  const scripts = resolve(root, "scripts");
+  if (existsSync(scripts)) walk(scripts);
 }
 
 // -- Main --

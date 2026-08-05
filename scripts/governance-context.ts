@@ -70,6 +70,21 @@ export const DETECTOR_FLOORS: readonly DetectorFloor[] = [
  * directories unless it is hand-tuned, and picks up gitignored output that is not part of the
  * repository at all. Tracked-by-git is the only definition that cannot drift.
  */
+/**
+ * Files present in the working tree under the governance source dirs, tracked or not.
+ *
+ * `git ls-files` deliberately does not see gitignored build output — which is exactly what the
+ * stale-artifact rule needs to look at. Narrow on purpose: only where the guard's own source lives.
+ */
+export function presentGovernanceFiles(): string[] {
+	const raw = execFileSync("git", ["ls-files", "-z", "--others", "--cached", "scripts"], {
+		cwd: REPO_ROOT,
+		encoding: "utf8",
+		maxBuffer: 64 * 1024 * 1024,
+	});
+	return raw.split("\0").filter((p) => p !== "");
+}
+
 export function trackedFiles(): string[] {
 	const raw = execFileSync("git", ["ls-files", "-z"], {
 		cwd: REPO_ROOT,

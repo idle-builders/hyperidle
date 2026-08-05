@@ -9,6 +9,8 @@
 
 import { describe, expect, it } from "vitest";
 import {
+	buildCompanionGroups,
+	buildWriteSets,
 	detectAstCrossings,
 	layerServing,
 	readEventTypes,
@@ -65,6 +67,8 @@ function detect(
 		ownerOf: (t) => (t === "bets" ? "work" : null),
 		mcpRouterHost: "agent-execution",
 		eventTypesModule: "framework/shared/events.ts",
+		companions: new Map(),
+		writeSetOf: () => new Set<string>(),
 	});
 }
 
@@ -421,5 +425,117 @@ describe("AU28 — how a crossing is named", () => {
 				"production",
 			),
 		).toBe("service → db:table (other) [table:write] production");
+	});
+});
+
+describe("AU28 — companion rows (Ruling 13)", () => {
+	/** An owner that writes two rows in one call, and one that dispatches to a single insert. */
+	const OWNERS = {
+		"layers/core-api/org/src/team-lookup.ts": `
+			import { teams, teamMembers } from "@hyperidle/db";
+			export async function createTeam(db: any, input: any) {
+				await db.insert(teams).values(input);
+				await db.insert(teamMembers).values(input);
+			}
+		`,
+		"layers/core-api/work/src/work-service.ts": `
+			import { bets, users } from "@hyperidle/db";
+			export async function create(exec: any, entity: string, values: any) {
+				switch (entity) {
+					case "bet": await exec.insert(bets).values(values); return;
+					case "user": await exec.insert(users).values(values); return;
+				}
+			}
+		`,
+	};
+
+	function companions(extra: Record<string, string> = {}) {
+		const repo = syntheticRepo({
+			"framework/shared/events.ts": "",
+			"layers/core-api/org/package.json": JSON.stringify({ name: "@hyperidle/org" }),
+			...OWNERS,
+			...extra,
+		});
+		const census = buildCensus({
+			files: repo.files,
+			readFile: repo.readFile,
+			roleRules: ROLE_RULES,
+		});
+		return buildCompanionGroups(
+			{
+				census,
+				readFile: repo.readFile,
+				locate: buildPackageLocator(census.packages),
+				tables: new Set(["teams", "teamMembers", "bets", "users"]),
+			},
+			(t) => (t === "teams" || t === "teamMembers" ? "org" : "work"),
+		);
+	}
+
+	it("groups the two rows an owner writes together", () => {
+		const groups = companions();
+		expect([...(groups.get("teams") ?? [])]).toEqual(["teamMembers"]);
+		expect([...(groups.get("teamMembers") ?? [])]).toEqual(["teams"]);
+	});
+
+	it("negative control — a switch that dispatches to one insert per branch is NOT a group", () => {
+		// `work.create()` writes four tables across its cases, but any one call writes exactly one.
+		// Treating it as a group is the mistake that would have kept 406 pointless sites in the rule.
+		const groups = companions();
+		expect(groups.has("bets")).toBe(false);
+		expect(groups.has("users")).toBe(false);
+	});
+
+	it("negative control — a seeder outside the owning package is not the owner's writer", () => {
+		// A demo seeder writes every table in the schema. If it counted, every table would be every
+		// other table's companion and the rule would be meaningless.
+		const groups = companions({
+			"framework/db/src/seed.ts": `
+				import { teams, bets, users } from "@hyperidle/db";
+				export async function seedDemoWorld(db: any) {
+					await db.insert(teams).values({});
+					await db.insert(bets).values({});
+					await db.insert(users).values({});
+				}
+			`,
+		});
+		expect([...(groups.get("teams") ?? [])]).toEqual(["teamMembers"]);
+		expect(groups.has("bets")).toBe(false);
+	});
+
+	it("counts writes a test makes through a development helper it imports", () => {
+		// Judging a file alone would report teamMembers missing when a shared fixture supplies it —
+		// and a rule that cries wolf on the shared helper is a rule people switch off.
+		const repo = syntheticRepo({
+			"framework/shared/events.ts": "",
+			"layers/core-api/src/__tests__/_helpers.ts": `
+				import { teamMembers } from "@hyperidle/db";
+				export const seedBase = (db: any) => db.insert(teamMembers).values({});
+			`,
+			"layers/core-api/src/__tests__/a.test.ts": `
+				import { teams } from "@hyperidle/db";
+				import { seedBase } from "./_helpers.js";
+				export const t = (db: any) => { seedBase(db); return db.insert(teams).values({}); };
+			`,
+			"layers/core-api/src/__tests__/b.test.ts": `
+				import { teams } from "@hyperidle/db";
+				export const t = (db: any) => db.insert(teams).values({});
+			`,
+		});
+		const census = buildCensus({
+			files: repo.files,
+			readFile: repo.readFile,
+			roleRules: ROLE_RULES,
+		});
+		const writeSetOf = buildWriteSets({
+			census,
+			readFile: repo.readFile,
+			tables: new Set(["teams", "teamMembers"]),
+		});
+		expect([...writeSetOf("layers/core-api/src/__tests__/a.test.ts")].sort()).toEqual([
+			"teamMembers",
+			"teams",
+		]);
+		expect([...writeSetOf("layers/core-api/src/__tests__/b.test.ts")]).toEqual(["teams"]);
 	});
 });

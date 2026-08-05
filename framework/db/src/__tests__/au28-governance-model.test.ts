@@ -171,8 +171,10 @@ describe("AU28 — the decided rule set is intact", () => {
 		// re-derived what was decided instead of reading it — that happened once and cost hours.
 		expect(count("production", "allowed")).toBe(69);
 		expect(count("production", "forbidden")).toBe(56);
-		expect(count("development", "allowed")).toBe(113);
-		expect(count("development", "forbidden")).toBe(12);
+		// Ruling 13 moved the two `db:table (other) [table:write]` rows from forbidden to allowed:
+		// the flat rule is replaced by the companion clause, which no row can express.
+		expect(count("development", "allowed")).toBe(115);
+		expect(count("development", "forbidden")).toBe(10);
 	});
 
 	it("has no duplicate rows", () => {
@@ -225,6 +227,16 @@ describe("AU28 — nine clauses derive all 250 decided verdicts", () => {
 				);
 			}
 		}
+		// One clause cannot be reached from the decided rows: a row names a role pair and a kind, and
+		// `write-the-whole-row-set` fires on a property of the individual write — which companion row
+		// the writer left out. It is covered by its own scenario below.
+		const beyondTheRows: Crossing = {
+			kind: "table:write",
+			source: { sort: "package", name: "review", role: "service", layer: "core-api" },
+			target: { sort: "table", table: "teams", owner: "org", missingCompanions: ["teamMembers"] },
+		};
+		used.add(decide(architecture, beyondTheRows, "development").clause);
+
 		expect([...CLAUSES].filter((c) => !used.has(c))).toEqual([]);
 	});
 });
@@ -337,15 +349,39 @@ describe("AU28 — the clauses hold beyond the decided rows", () => {
 		expect(d.why).toContain("no service owns");
 	});
 
-	it("a foreign table read relaxes for development but a write does not", () => {
-		const foreign = { sort: "table", table: "bets", owner: "work" } as const;
+	it("lets a test write a foreign table, but not leave a companion row unwritten — Ruling 13", () => {
 		const src = servicePkg("review", "core-api");
+		const plain = { sort: "table", table: "bets", owner: "work" } as const;
+		const orphaned = {
+			sort: "table",
+			table: "teams",
+			owner: "org",
+			missingCompanions: ["teamMembers"],
+		} as const;
+
 		expect(
-			decide(architecture, { kind: "table:read", source: src, target: foreign }, "development")
+			decide(architecture, { kind: "table:read", source: src, target: plain }, "development")
 				.verdict,
 		).toBe("allowed");
+		// A plain foreign write is fine — the owner's writer adds nothing a direct insert misses.
 		expect(
-			decide(architecture, { kind: "table:write", source: src, target: foreign }, "development")
+			decide(architecture, { kind: "table:write", source: src, target: plain }, "development")
+				.verdict,
+		).toBe("allowed");
+
+		// Leaving the companion unwritten builds a state production cannot produce.
+		const held = decide(
+			architecture,
+			{ kind: "table:write", source: src, target: orphaned },
+			"development",
+		);
+		expect(held.verdict).toBe("forbidden");
+		expect(held.clause).toBe("write-the-whole-row-set");
+		expect(held.why).toContain("teamMembers");
+
+		// Production is unchanged: the owner and nobody else.
+		expect(
+			decide(architecture, { kind: "table:write", source: src, target: plain }, "production")
 				.verdict,
 		).toBe("forbidden");
 	});

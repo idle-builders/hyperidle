@@ -95,3 +95,11 @@ framework/design-system/viewer/**/*.d.ts.map
 
 # docs audit working artifacts (not repo content)
 .docs-audit/
+
+# Compiled output emitted beside governance sources by composite builds — see
+# scripts/rules/no-stale-build-artifacts.ts. Never committed, and the lint fails if present.
+scripts/**/*.js
+scripts/**/*.d.ts
+scripts/**/*.js.map
+scripts/**/*.d.ts.map
+!scripts/*.mjs

@@ -82,6 +82,73 @@ export function buildConstantExports(input: Pick<AstDetectorInput, "census" | "r
 	return out;
 }
 
+/**
+ * Tables an owner writes together in a single call.
+ *
+ * @lore AU28 Ruling 13: this is what replaced "a test must write foreign tables through the owner's
+ * writer". That rule cost 2,016 sites and 63% of them would have routed through a function that is
+ * literally `exec.insert(X).values(values)` — byte-identical SQL, one more indirection to read
+ * through. What it was actually protecting was narrower: an owner that writes two rows in one call
+ * has a cross-row invariant, and a test writing only one of them builds a state production cannot
+ * produce. Nineteen files create a team with no membership row; nineteen create a knowledge item
+ * with no projection. THOSE are the bugs, and this is how they are found.
+ *
+ * Derived, never listed: a group is any exported function in the OWNING package that inserts two or
+ * more tables unconditionally. A `switch` that dispatches to one insert per branch is not a group —
+ * `work.create()` writes four tables but any one call writes exactly one.
+ */
+export function buildCompanionGroups(
+	input: Pick<AstDetectorInput, "census" | "readFile" | "locate" | "tables">,
+	ownerOf: (table: string) => string | null,
+): Map<string, ReadonlySet<string>> {
+	const groups = new Map<string, Set<string>>();
+
+	/** Tables INSERTED on every path through this function — not inside a branch. */
+	const unconditionalInserts = (fn: ts.FunctionDeclaration): Set<string> => {
+		const found = new Set<string>();
+		const walk = (node: ts.Node, branched: boolean): void => {
+			const nowBranched = branched || ts.isCaseClause(node) || ts.isDefaultClause(node) || ts.isConditionalExpression(node);
+			if (!nowBranched && ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)) {
+				const arg = node.arguments[0];
+				if (node.expression.name.text === "insert" && arg !== undefined && ts.isIdentifier(arg) && input.tables.has(arg.text)) {
+					found.add(arg.text);
+				}
+			}
+			ts.forEachChild(node, (child) => walk(child, nowBranched));
+		};
+		if (fn.body !== undefined) ts.forEachChild(fn.body, (child) => walk(child, false));
+		return found;
+	};
+
+	for (const record of input.census.files) {
+		if (record.kind !== "production" || !/\.tsx?$/.test(record.path)) continue;
+		const owner = input.locate(record.path);
+		if (owner === undefined) continue;
+		let sf: ts.SourceFile;
+		try {
+			sf = parseFile(record.path, input.readFile(record.path));
+		} catch {
+			continue;
+		}
+		for (const statement of sf.statements) {
+			if (!ts.isFunctionDeclaration(statement) || statement.name === undefined) continue;
+			if (!statement.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword)) continue;
+			const written = unconditionalInserts(statement);
+			if (written.size < 2) continue;
+			// Only the OWNING service's writer counts. A seeder in the database package writes every
+			// table in the schema and is not a door any test would go through.
+			const owned = [...written].filter((table) => ownerOf(table) === owner.name);
+			if (owned.length < 2) continue;
+			for (const table of owned) {
+				const group = groups.get(table) ?? new Set<string>();
+				for (const companion of owned) if (companion !== table) group.add(companion);
+				groups.set(table, group);
+			}
+		}
+	}
+	return groups;
+}
+
 export interface AstDetectorInput {
 	readonly census: Census;
 	readonly readFile: (path: string) => string;
@@ -93,6 +160,67 @@ export interface AstDetectorInput {
 	readonly mcpRouterHost: string;
 	/** Module declaring every event the bus can carry. */
 	readonly eventTypesModule: string;
+	/** Table → the tables its owner always writes alongside it. */
+	readonly companions: ReadonlyMap<string, ReadonlySet<string>>;
+	/** Tables each file writes, including through the development helpers it imports. */
+	readonly writeSetOf: (file: string) => ReadonlySet<string>;
+}
+
+/**
+ * Tables each file writes — including through the development helpers it imports.
+ *
+ * A test that calls a shared `seedBase()` helper has written whatever the helper writes. Judging the
+ * file alone would report a companion as missing when a fixture module three lines away supplies it,
+ * and a rule that cries wolf on the shared helper is a rule people switch off.
+ */
+export function buildWriteSets(
+	input: Pick<AstDetectorInput, "census" | "readFile" | "tables">,
+): (file: string) => ReadonlySet<string> {
+	const own = new Map<string, Set<string>>();
+	for (const record of input.census.files) {
+		if (!/\.tsx?$/.test(record.path)) continue;
+		let sf: ts.SourceFile;
+		try {
+			sf = parseFile(record.path, input.readFile(record.path));
+		} catch {
+			continue;
+		}
+		const found = new Set<string>();
+		const walk = (node: ts.Node): void => {
+			if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)) {
+				const arg = node.arguments[0];
+				if (WRITE_OPS.has(node.expression.name.text) && arg !== undefined && ts.isIdentifier(arg) && input.tables.has(arg.text)) {
+					found.add(arg.text);
+				}
+			}
+			ts.forEachChild(node, walk);
+		};
+		walk(sf);
+		own.set(record.path, found);
+	}
+
+	const importsOf = new Map<string, string[]>();
+	for (const edge of input.census.edges) {
+		importsOf.set(edge.from, [...(importsOf.get(edge.from) ?? []), edge.to]);
+	}
+
+	const cache = new Map<string, Set<string>>();
+	const resolve = (file: string, seen: Set<string>): Set<string> => {
+		const cached = cache.get(file);
+		if (cached !== undefined) return cached;
+		if (seen.has(file)) return new Set();
+		seen.add(file);
+		const out = new Set(own.get(file) ?? []);
+		for (const target of importsOf.get(file) ?? []) {
+			// Only development helpers count. A production writer the test calls is the owner's door,
+			// which is a different question entirely.
+			if (input.census.byPath.get(target)?.kind !== "development") continue;
+			for (const table of resolve(target, seen)) out.add(table);
+		}
+		cache.set(file, out);
+		return out;
+	};
+	return (file: string) => resolve(file, new Set());
 }
 
 export interface AstFinding {
@@ -319,7 +447,12 @@ export function detectAstCrossings(input: AstDetectorInput): AstFinding[] {
 		const add = (kind: Kind, target: Target, node: ts.Node, detail: string): void => {
 			out.push({ crossing: { kind, source, target }, file: record.path, line: lineOf(sf, node), world, detail });
 		};
-		const tableTarget = (table: string): Target => ({ sort: "table", table, owner: input.ownerOf(table) });
+		const written = input.writeSetOf(record.path);
+		const tableTarget = (table: string): Target => {
+			const companions = input.companions.get(table);
+			const missing = companions === undefined ? [] : [...companions].filter((c) => !written.has(c)).sort();
+			return { sort: "table", table, owner: input.ownerOf(table), ...(missing.length > 0 ? { missingCompanions: missing } : {}) };
+		};
 
 		// --- specifier-level: raw runtimes -----------------------------------------------------
 		for (const statement of sf.statements) {

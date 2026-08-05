@@ -10,8 +10,8 @@
 			"forbidden": 56
 		},
 		"development": {
-			"allowed": 113,
-			"forbidden": 12
+			"allowed": 115,
+			"forbidden": 10
 		},
 		"differ": 44
 	},
@@ -802,11 +802,12 @@
 			"kind": "table:write",
 			"scope": "general",
 			"production": "forbidden",
-			"development": "forbidden",
+			"development": "allowed",
 			"instances": {
 				"production": 4,
 				"development": 1672
-			}
+			},
+			"developmentNote": "Ruling 13 — a test may write a foreign table directly. What is held instead is the COMPANION rule: writing one row of a set the owner always writes together is forbidden, because it builds a state production cannot produce. That condition cannot be expressed as a row here; it lives in the `write-the-whole-row-set` clause."
 		},
 		{
 			"source": "service",
@@ -838,11 +839,12 @@
 			"kind": "table:write",
 			"scope": "general",
 			"production": "forbidden",
-			"development": "forbidden",
+			"development": "allowed",
 			"instances": {
 				"production": 25,
 				"development": 200
-			}
+			},
+			"developmentNote": "Ruling 13 — a test may write a foreign table directly. What is held instead is the COMPANION rule: writing one row of a set the owner always writes together is forbidden, because it builds a state production cannot produce. That condition cannot be expressed as a row here; it lives in the `write-the-whole-row-set` clause."
 		},
 		{
 			"source": "tooling",
@@ -1516,5 +1518,6 @@
 				"development": 0
 			}
 		}
-	]
+	],
+	"ruling13": "2026-08-05 — the flat `no foreign table writes in tests` rule is replaced by the companion rule. Measured: 63% of its 2,016 sites would have routed through a function that is literally `insert(X).values(v)`; 6% had no owner at all. The 31% that mattered were owners writing two rows in one call. Development violations: 2,022 -> 125."
 }

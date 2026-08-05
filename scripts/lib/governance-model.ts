@@ -52,8 +52,17 @@ export type Target =
 	| { readonly sort: "package"; readonly name: string; readonly role: Role; readonly layer?: string }
 	/** A named surface of a framework package — see `surfaces` in architecture.json. */
 	| { readonly sort: "surface"; readonly surface: string }
-	/** A database table. `owner` is the service that owns it, or null when nobody does. */
-	| { readonly sort: "table"; readonly table: string; readonly owner: string | null }
+	/**
+	 * A database table. `owner` is the service that owns it, or null when nobody does.
+	 * `missingCompanions` lists the rows the owner would have written alongside this one and the
+	 * writer did not — see the companion clause in the development relaxation.
+	 */
+	| {
+			readonly sort: "table";
+			readonly table: string;
+			readonly owner: string | null;
+			readonly missingCompanions?: readonly string[];
+	  }
 	/** An HTTP API hosted by a layer. */
 	| { readonly sort: "http-api"; readonly layer: string }
 	| { readonly sort: "mcp-router" }
@@ -98,7 +107,8 @@ export interface Architecture {
 	readonly oneDoorSurfaces: {
 		readonly surfaces: readonly string[];
 		readonly rawRuntime: boolean;
-		readonly foreignTableWrite: boolean;
+		/** Hold a foreign write only when it leaves a companion row unwritten — Ruling 13. */
+		readonly foreignTableWriteMissingCompanion: boolean;
 		readonly why: string;
 	};
 }
@@ -336,12 +346,24 @@ function relaxForDevelopment(arch: Architecture, crossing: Crossing, production:
 	const guarded =
 		(target.sort === "surface" && arch.oneDoorSurfaces.surfaces.includes(target.surface)) ||
 		(target.sort === "raw-runtime" && arch.oneDoorSurfaces.rawRuntime) ||
-		(target.sort === "table" && kind === "table:write" && arch.oneDoorSurfaces.foreignTableWrite);
+		(target.sort === "table" &&
+			kind === "table:write" &&
+			arch.oneDoorSurfaces.foreignTableWriteMissingCompanion &&
+			(target.missingCompanions?.length ?? 0) > 0);
 
 	if (guarded) {
-		// The one-door surfaces hold — with one carve: a table write is only a bypass if a door
-		// exists, and tooling never had one to bypass.
+		// Tooling never had a door to bypass — it reads and writes across the whole database by
+		// definition, so there is nothing for it to be going around.
 		if (target.sort === "table" && source.sort === "package" && source.role === "tooling") return production;
+		if (target.sort === "table" && kind === "table:write") {
+			return {
+				verdict: "forbidden",
+				clause: "write-the-whole-row-set",
+				why:
+					`writing ${target.table} without ${(target.missingCompanions ?? []).join(", ")} builds a state production ` +
+					`cannot produce — ${target.owner ?? "its owner"} always writes them together`,
+			};
+		}
 		return { ...production, clause: `${production.clause} (held: one door)`, why: production.why };
 	}
 
@@ -375,4 +397,5 @@ export const CLAUSES = [
 	"reach-your-own-contents",
 	"reach-across-only-from-a-composition-root",
 	"development-may-arrange-the-world",
+	"write-the-whole-row-set",
 ] as const;

@@ -37,6 +37,7 @@ import {
 	loadArchitecture,
 	loadBaseline,
 	MIN_TRACKED_FILES,
+	presentGovernanceFiles,
 	trackedFiles,
 } from "./governance-context.js";
 import { runFixtureSelfTest } from "./lib/governance-fixtures.js";
@@ -45,6 +46,7 @@ import { DeadRuleError, type Finding, formatFinding, hasErrors, type Rule, runRu
 import { classificationTotal } from "./rules/classification-total.js";
 import { baselineRatchet, crossingRules } from "./rules/crossings.js";
 import { noProductionImportsDevelopment } from "./rules/no-production-imports-development.js";
+import { noStaleBuildArtifacts } from "./rules/no-stale-build-artifacts.js";
 import { patternLive } from "./rules/pattern-live.js";
 import { registriesHonest } from "./rules/registries-honest.js";
 
@@ -125,6 +127,7 @@ function runLive(errorsOnly: boolean): number {
 		patternLive,
 		noProductionImportsDevelopment,
 		registriesHonest(architecture),
+		noStaleBuildArtifacts(presentGovernanceFiles()),
 		...crossingRules(ruleInput),
 		baselineRatchet(ruleInput),
 	];

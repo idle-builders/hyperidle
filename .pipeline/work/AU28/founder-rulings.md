@@ -615,3 +615,49 @@ dual Layer/Application role; (2) the in-flight foundation re-cut (`shared` split
 relocation). Known open cells: `web/scripts/*` package-vs-file role; Foundation→Foundation
 (live, unruled); Application→Application (no verdict); MCP unnamed as a kind; the
 `apiFetch` + WebSocket traffic carrying 100% of UI data matches no named kind.
+
+---
+
+## Ruling 13 — the companion rule replaces "route test writes through the owner"
+
+**2026-08-05. Founder challenged the biggest development rule on cost/value grounds and it did not
+survive contact with the evidence.**
+
+The rule was: a development file may not write a table it does not own; it must go through the
+owner's writer. 2,016 sites, 205 files.
+
+**Measured, by what the owner's writer actually does:**
+
+| | sites | share |
+|---|--:|--:|
+| owner's writer is a pure pass-through | 1,262 | 63% |
+| no owner exists at all | 120 | 6% |
+| owner writes two or more rows in ONE call | 634 | 31% |
+
+`insertUser` in full is `await exec.insert(users).values(values)`. Routing a test through it produces
+byte-identical SQL and adds an indirection to read past. `work.create()` looks multi-table but is a
+`switch` — any one call writes exactly one row. The conversation store labels its own writers
+"CRUD writes — irreducible".
+
+**What the rule was really protecting** is narrower and real: where an owner writes two rows in one
+call it has a cross-row invariant, and a test writing only one builds a state production cannot
+produce. 19 files create a team with no membership row; 19 create a knowledge item with no
+projection.
+
+**The rule is therefore:**
+
+> A test may write any table directly. It may not leave a companion row unwritten — where the owner
+> writes two rows in one call, a test that writes one must write both.
+
+Companion groups are DERIVED from the owners' own writers (exported functions inserting two or more
+owned tables unconditionally), never listed. A file's write set includes what it writes through the
+development helpers it imports, so a shared fixture supplying the companion is not a violation.
+
+**Effect: development violations 2,022 → 125.** Production is unchanged — the owner and nobody else.
+
+**Open, flagged not decided:** 91 of the remaining 125 involve `knowledgeEditLog`. `knowledge.create`
+writes it unconditionally alongside the item, so it is a companion by the derived criterion — but an
+edit log is append-only history and its foreign key points AT the item, so an item with no log row
+breaks nothing. No mechanical criterion separates it: the pair is both co-written and co-read, same
+as `teams`/`teamMembers`. Excluding it would be a judgement, so it is left in and named here instead.
+One line in `governance/architecture.json` would carve it out if the founder rules that way.
