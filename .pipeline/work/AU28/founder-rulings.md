@@ -305,6 +305,65 @@ not be described as one.
 
 ---
 
+## Ruling 11 — step-3 list structure and `framework/db` surfaces (2026-08-05)
+
+Founder feedback while working the step-3 worksheet.
+
+### 11.1 — Rules live at the GENERAL package level by default
+
+> "sometimes we talk about layer vs service, and then we talk about core-api vs knowledge — a lot of
+> this is duplication and not properly structured. the default is that those rules should be on the
+> general package level (layer, service, framework, ...). and only for a specific few where we need
+> to go to the named level we will do the named level, but there we will only count the specific
+> rules, general counts always come first."
+
+The rule set is written against **roles** — Layer, Service, Framework, Application, Tooling, harness
+process — not against named packages. A named row (`core-api → knowledge`) exists only where that
+specific pair needs a rule the general row cannot express. **Counting:** a general row carries the
+full aggregate count; a named row counts only its own specific instances, never re-counted into the
+general row. General rows are listed first.
+
+### 11.2 — `framework/db` is not one target; it is several surfaces
+
+`export * as schema` (`framework/db/src/index.ts:32`) hands everything through one symbol, and the
+old "any table (owner unknown)" row was useless — the ownership registry was deleted with the guard
+set under Ruling 10, so nothing can currently say who owns what. Measured composition of
+`framework/db/src/schema.ts`: **45 `pgTable` definitions and 89 row types** (`$inferSelect` /
+`$inferInsert`), no enums, no relations.
+
+Split the target into surfaces with genuinely different rules:
+
+| Surface | What | Rule direction |
+|---|---|---|
+| `db:table` | the 45 `pgTable` symbols | **owner-only** — one owning Service per table, nobody else reads or writes |
+| `db:row-type` | the 89 `$inferSelect`/`$inferInsert` types | type-only, no runtime coupling — **widely available** |
+| `db:schema-ns` | `export * as schema` | **forbidden everywhere** — defeats any table ACL by construction |
+| `db:client` | `HyperIdleDb`, `WriteExecutor`, `createPgliteDb`, `applyMigrations`, `isDowngrade` | runtime plumbing — narrow |
+| `db:bootstrap` | `applyFactoryBootstrap`, `seedDemoWorld`, `runSetup` | first-boot/demo seeding — Application tier |
+| `db:util` | `escapeLikePattern`, agent-scaffold, profiles | |
+| `db:zod-schemas` | the `./zod-schemas` subpath | |
+
+**The table ACL cannot be enforced until an ownership registry exists again.** It went with the
+guards. Re-deriving it is part of step 3, not an assumption the census may make.
+
+*Founder note corrected:* `agentRunConfig` and `teamRunConfigDefaults` **are** tables
+(`schema.ts:110` and `:51`). The config-looking names on `schema.ts:1616-1620` are their row types.
+
+### 11.3 — `core-ui` may import the design system
+
+Settled. 61 production / 57 development statements today.
+
+### Open question — what happens to `web`?
+
+> "the web is a bit weird because it shows production code but I thought that entire thing is just
+> development? Also will anyhow be split and just become the framework so those rules need to be
+> rewritten based on what this looks like when its split."
+
+Not actioned — the intent is unclear and guessing would write the wrong rules. `layers/web` holds
+real shipped UI today. Needs the founder to say what the split produces before its rows are written.
+
+---
+
 ## Ruling 10 — clean slate: every past rule is assumed wrong (2026-08-04)
 
 > "we are redesigning the architecturall goverannce complete new here. you have to assume that all
