@@ -76,6 +76,12 @@ const MAX_ERROR_LINES = 10;
 // package name is hardcoded, and an empty scan is FATAL below.
 const PACKAGE_ROOTS = ["layers", "framework", "applications", "tools"] as const;
 
+// @lore AU28: `scripts/` is not a workspace package but it holds the governance guard — the code
+// that decides whether every other boundary rule passes. It went untypechecked until AU28 wired it
+// in here, and a guard nothing typechecks is the same silent-rot shape the guard exists to prevent.
+// It has its own tsconfig because it is Node-resolved and emits nothing.
+const EXTRA_PROJECTS = ["scripts"] as const;
+
 // Matches: <root>/<path...>/file.ts(line,col): error TS1234: message
 // or:      <root>/<path...>/file.ts:line:col - error TS1234: message
 // Group 1 = full repo-relative path; group 2 = TS error code. The owning
@@ -83,7 +89,7 @@ const PACKAGE_ROOTS = ["layers", "framework", "applications", "tools"] as const;
 // packages share a top-level segment, so a bare first-segment match would
 // mis-attribute a Service's error to its Layer).
 const ERROR_LINE_RE = new RegExp(
-  `^((?:${PACKAGE_ROOTS.join("|")})\\/[^:]+)[:(].*\\berror (TS\\d+)\\b`,
+  `^((?:${[...PACKAGE_ROOTS, ...EXTRA_PROJECTS].join("|")})\\/[^:]+)[:(].*\\berror (TS\\d+)\\b`,
 );
 
 // -- Discovery --
@@ -115,6 +121,9 @@ function discoverPackages(root: string): string[] {
         }
       }
     }
+  }
+  for (const extra of EXTRA_PROJECTS) {
+    if (existsSync(resolve(root, extra, "tsconfig.json"))) found.push(extra);
   }
   return found.sort();
 }

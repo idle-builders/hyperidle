@@ -33,6 +33,7 @@
 		"test:e2e:ah5": "npm run -w @hyperidle/core-ui test:e2e:ah5",
 		"test:e2e:ah6": "npm run -w @hyperidle/core-ui test:e2e:ah6",
 		"check": "npx tsx scripts/typecheck-gate.ts",
+		"governance:baseline": "npx tsx scripts/governance-baseline.ts",
 		"governance:new-cells": "npx tsx scripts/governance-new-cells.ts",
 		"lint": "biome check . --reporter=summary && npx eslint . --quiet && npx tsx scripts/governance-lint.ts --fixtures && npx tsx scripts/governance-lint.ts",
 		"lint:biome": "biome check . --reporter=summary",

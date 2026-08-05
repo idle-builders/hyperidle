@@ -97,8 +97,8 @@ export function extractAgenticCounts(
 			// AR2: bucket by [harness:X] tag from ancestorTitles.
 			const joinedAncestors = (assertion.ancestorTitles ?? []).join(" ");
 			const match = HARNESS_TAG.exec(joinedAncestors);
-			if (match) {
-				const harness = match[1];
+			const harness = match?.[1];
+			if (harness !== undefined) {
 				if (!byHarness[harness]) {
 					byHarness[harness] = { executed: 0, skipped: 0 };
 				}

@@ -30,36 +30,23 @@
  * product UI while looking like a net.
  */
 
-import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-
+import {
+	buildCrossings,
+	buildLiveCensus,
+	DETECTOR_FLOORS,
+	loadArchitecture,
+	loadBaseline,
+	MIN_TRACKED_FILES,
+	trackedFiles,
+} from "./governance-context.js";
 import { runFixtureSelfTest } from "./lib/governance-fixtures.js";
-import type { Architecture } from "./lib/governance-model.js";
+import type { Kind } from "./lib/governance-model.js";
 import { DeadRuleError, formatFinding, hasErrors, type Rule, runRules } from "./lib/governance-rules.js";
-import { buildCensus, type WorkspaceRoleRule } from "./lib/repo-census.js";
 import { classificationTotal } from "./rules/classification-total.js";
+import { baselineRatchet, crossingRules } from "./rules/crossings.js";
 import { noProductionImportsDevelopment } from "./rules/no-production-imports-development.js";
 import { patternLive } from "./rules/pattern-live.js";
 import { registriesHonest } from "./rules/registries-honest.js";
-
-/**
- * Floor on the census itself. If `git ls-files` ever returns a near-empty set — wrong cwd, a broken
- * git invocation, a shallow checkout — every rule below would pass vacuously.
- */
-const MIN_TRACKED_FILES = 1000;
-
-const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-
-function trackedFiles(): string[] {
-	const raw = execFileSync("git", ["ls-files", "-z"], {
-		cwd: REPO_ROOT,
-		encoding: "utf8",
-		maxBuffer: 64 * 1024 * 1024,
-	});
-	return raw.split("\0").filter((p) => p !== "");
-}
 
 function runFixtures(): number {
 	const results = runFixtureSelfTest();
@@ -75,11 +62,6 @@ function runFixtures(): number {
 	return 0;
 }
 
-function loadArchitecture(): Architecture & { roles: { byWorkspacePattern: readonly WorkspaceRoleRule[] } } {
-	const raw = readFileSync(path.join(REPO_ROOT, "governance/architecture.json"), "utf8");
-	return JSON.parse(raw) as Architecture & { roles: { byWorkspacePattern: readonly WorkspaceRoleRule[] } };
-}
-
 function runLive(errorsOnly: boolean): number {
 	const files = trackedFiles();
 	if (files.length < MIN_TRACKED_FILES) {
@@ -91,18 +73,24 @@ function runLive(errorsOnly: boolean): number {
 	}
 
 	const architecture = loadArchitecture();
-	const census = buildCensus({
-		files,
-		readFile: (p) => readFileSync(path.join(REPO_ROOT, p), "utf8"),
-		roleRules: architecture.roles.byWorkspacePattern,
-	});
+	const census = buildLiveCensus(architecture, files);
 
-	/** The registered rule set. Later steps add the crossing rules here, over the same census. */
+	const detected = buildCrossings(census, architecture);
+	const baseline = loadBaseline();
+	const ruleInput = {
+		architecture,
+		crossings: detected.crossings,
+		baseline,
+		floors: new Map<Kind, number>(DETECTOR_FLOORS.map((f) => [f.kind, f.min])),
+	};
+
 	const RULES: readonly Rule[] = [
 		classificationTotal,
 		patternLive,
 		noProductionImportsDevelopment,
 		registriesHonest(architecture),
+		...crossingRules(ruleInput),
+		baselineRatchet(ruleInput),
 	];
 
 	let result: ReturnType<typeof runRules>;
@@ -124,12 +112,17 @@ function runLive(errorsOnly: boolean): number {
 		console.error(`  (${warnings.length} warning(s) hidden by --errors-only)`);
 	}
 
+	if (detected.unplacedDbSymbols.size > 0) {
+		console.error(`  NOTE  ${detected.unplacedDbSymbols.size} database symbol(s) fall to db:unknown:`);
+		for (const [symbol, why] of detected.unplacedDbSymbols) console.error(`          ${symbol} — ${why}`);
+	}
+
 	const production = census.files.filter((f) => f.kind === "production").length;
 	const development = census.files.length - production;
 	const summary =
 		`${census.files.length} tracked files (${production} production, ${development} development), ` +
-		`${census.packages.length} packages, ${census.edges.length} resolved import edges, ` +
-		`${RULES.length} rules, ${warnings.length} warning(s)`;
+		`${census.packages.length} packages, ${detected.crossings.length} crossings, ` +
+		`${RULES.length} rules, ${warnings.length} known violation(s) at warn`;
 
 	if (hasErrors(result.findings)) {
 		console.error(`\ngovernance-lint: FAIL — ${errors.length} error(s). ${summary}.`);

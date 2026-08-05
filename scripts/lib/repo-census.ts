@@ -298,6 +298,13 @@ export interface ImportEdge {
 	readonly specifier: string;
 	/** Repo-relative path of the resolved target — always a member of the census file set. */
 	readonly to: string;
+	/**
+	 * The names this import binds. A package barrel exports many surfaces, so WHICH names are taken
+	 * is the only thing that distinguishes reading a row type from reaching a table.
+	 */
+	readonly symbols: readonly string[];
+	/** True when the whole module is bound at once. Taking a module whole is its own act. */
+	readonly namespace: boolean;
 }
 
 export interface Census {
@@ -397,6 +404,15 @@ export interface WorkspacePackage {
 	readonly role: PackageRole;
 	/** The layer this package lives in. A layer lives in itself; a framework package lives nowhere. */
 	readonly layer: string | undefined;
+	/**
+	 * Declared workspace dependencies, kept per block.
+	 *
+	 * The BLOCK decides the world: a `dependencies` row is a production crossing, a `devDependencies`
+	 * row is a development one. Collapsing them loses that, and the manifest sits in a production
+	 * directory either way — so every test-serving dependency would read as production.
+	 */
+	readonly dependencies: readonly string[];
+	readonly devDependencies: readonly string[];
 }
 
 export type PackageRole = "layer" | "service" | "framework" | "application" | "tooling" | "deployment";
@@ -464,12 +480,16 @@ export function readWorkspacePackages(
 			continue;
 		}
 		matched.set(shape.pattern, (matched.get(shape.pattern) ?? 0) + 1);
+		const names = (block: unknown): string[] =>
+			typeof block === "object" && block !== null ? Object.keys(block as Record<string, unknown>) : [];
 		out.push({
 			name: segments[segments.length - 1] ?? scopedName,
 			scopedName,
 			dir,
 			role: shape.role,
 			layer: shape.role === "layer" ? segments[1] : shape.role === "service" ? segments[1] : undefined,
+			dependencies: names(parsed.dependencies),
+			devDependencies: names(parsed.devDependencies),
 		});
 	}
 
@@ -543,6 +563,36 @@ function resolvePackageSpecifier(spec: string, packages: readonly PackageEntry[]
 interface RawSpecifier {
 	readonly specifier: string;
 	readonly line: number;
+	/** The names bound by this import/export, e.g. `bets`, `createPgliteDb`. Empty for side-effect imports. */
+	readonly symbols: readonly string[];
+	/** True when the whole module is bound at once — `import * as x`, `export *`, `export * as x`. */
+	readonly namespace: boolean;
+}
+
+/**
+ * The names a dynamic `import()` / `require()` result is bound to.
+ *
+ * `const { a, b } = await import("x")` binds two symbols; `const m = await import("x")` takes the
+ * module whole. Anything else the AST cannot read is treated as taking it whole — the conservative
+ * direction, because a namespace binding is the stricter verdict.
+ */
+function boundNamesOf(call: ts.CallExpression): { symbols: string[]; namespace: boolean } {
+	let node: ts.Node = call;
+	// Step out through `await` and parentheses to the declaration, if there is one.
+	while (node.parent !== undefined && (ts.isAwaitExpression(node.parent) || ts.isParenthesizedExpression(node.parent))) {
+		node = node.parent;
+	}
+	const parent = node.parent;
+	if (parent === undefined || !ts.isVariableDeclaration(parent)) return { symbols: [], namespace: true };
+	if (ts.isObjectBindingPattern(parent.name)) {
+		const symbols: string[] = [];
+		for (const el of parent.name.elements) {
+			const key = el.propertyName ?? el.name;
+			if (ts.isIdentifier(key)) symbols.push(key.text);
+		}
+		return { symbols, namespace: false };
+	}
+	return { symbols: [], namespace: true };
 }
 
 /**
@@ -559,23 +609,68 @@ export function collectSpecifiers(filePath: string, source: string): RawSpecifie
 	const sf = ts.createSourceFile(filePath, source, ts.ScriptTarget.Latest, true, scriptKind);
 	const out: RawSpecifier[] = [];
 
-	const push = (node: ts.Node, literal: ts.Node | undefined): void => {
+	const push = (
+		node: ts.Node,
+		literal: ts.Node | undefined,
+		symbols: readonly string[] = [],
+		namespace = false,
+	): void => {
 		if (literal === undefined || !ts.isStringLiteralLike(literal)) return;
 		out.push({
 			specifier: literal.text,
 			line: sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1,
+			symbols,
+			namespace,
 		});
 	};
 
+	/** Names bound by an import clause. `import * as x` and `import x` both take the module whole. */
+	const fromImportClause = (clause: ts.ImportClause | undefined): { symbols: string[]; namespace: boolean } => {
+		if (clause === undefined) return { symbols: [], namespace: false };
+		const symbols: string[] = [];
+		let namespace = false;
+		if (clause.name !== undefined) {
+			// A default import binds one name but says nothing about which surface it came from.
+			symbols.push(clause.name.text);
+		}
+		const bindings = clause.namedBindings;
+		if (bindings !== undefined) {
+			if (ts.isNamespaceImport(bindings)) namespace = true;
+			else for (const el of bindings.elements) symbols.push((el.propertyName ?? el.name).text);
+		}
+		return { symbols, namespace };
+	};
+
 	const visit = (node: ts.Node): void => {
-		if (ts.isImportDeclaration(node)) push(node, node.moduleSpecifier);
-		else if (ts.isExportDeclaration(node)) push(node, node.moduleSpecifier);
-		else if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference)) {
-			push(node, node.moduleReference.expression);
+		if (ts.isImportDeclaration(node)) {
+			const { symbols, namespace } = fromImportClause(node.importClause);
+			push(node, node.moduleSpecifier, symbols, namespace);
+		} else if (ts.isExportDeclaration(node)) {
+			const clause = node.exportClause;
+			if (clause === undefined) {
+				// `export * from "x"` — the whole module, re-exported.
+				push(node, node.moduleSpecifier, [], true);
+			} else if (ts.isNamespaceExport(clause)) {
+				push(node, node.moduleSpecifier, [], true);
+			} else {
+				push(
+					node,
+					node.moduleSpecifier,
+					clause.elements.map((el) => (el.propertyName ?? el.name).text),
+					false,
+				);
+			}
+		} else if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference)) {
+			push(node, node.moduleReference.expression, [node.name.text], true);
 		} else if (ts.isCallExpression(node)) {
 			const isDynamicImport = node.expression.kind === ts.SyntaxKind.ImportKeyword;
 			const isRequire = ts.isIdentifier(node.expression) && node.expression.text === "require";
-			if (isDynamicImport || isRequire) push(node, node.arguments[0]);
+			if (isDynamicImport || isRequire) {
+				// `const { a, b } = await import("x")` / `= require("x")` — read the destructuring if
+				// there is one, otherwise the module is taken whole.
+				const bound = boundNamesOf(node);
+				push(node, node.arguments[0], bound.symbols, bound.namespace);
+			}
 		}
 		ts.forEachChild(node, visit);
 	};
@@ -628,7 +723,14 @@ export function buildCensus(input: CensusInput): Census {
 		for (const raw of collectSpecifiers(record.path, source)) {
 			const to = resolve(record.path, raw.specifier);
 			if (to === null || to === record.path) continue;
-			edges.push({ from: record.path, line: raw.line, specifier: raw.specifier, to });
+			edges.push({
+				from: record.path,
+				line: raw.line,
+				specifier: raw.specifier,
+				to,
+				symbols: raw.symbols,
+				namespace: raw.namespace,
+			});
 		}
 	}
 

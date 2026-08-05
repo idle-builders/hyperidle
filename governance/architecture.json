@@ -69,6 +69,30 @@
 		}
 	},
 
+	"databasePackage": {
+		"note": "`framework/db` is not one target — it is several surfaces with different rules (Ruling 11.2). Which surface an import lands on is decided by the MODULE the symbol is defined in. Tables and row types are detected from the schema source itself, so they are absent here. A module not listed falls to `db:unknown` and is reported — guessing its surface would be fabrication.",
+		"packageName": "db",
+		"sourceRoot": "framework/db/src",
+		"barrel": "framework/db/src/index.ts",
+		"schemaModule": "framework/db/src/schema.ts",
+		"zodModule": "framework/db/src/zod-schemas.ts",
+		"moduleSurface": {
+			"connection.ts": "db:client",
+			"migrate.ts": "db:client",
+			"write-executor.ts": "db:client",
+			"migrate-pg.ts": "db:client",
+			"bootstrap-pg.ts": "db:client",
+			"pg-ssl.ts": "db:client",
+			"factory-bootstrap.ts": "db:bootstrap",
+			"demo-fixture.ts": "db:bootstrap",
+			"setup-cli.ts": "db:bootstrap",
+			"seed-fixtures.ts": "db:bootstrap",
+			"like-escape.ts": "db:util",
+			"agent-scaffold.ts": "db:util",
+			"profiles.ts": "db:util"
+		}
+	},
+
 	"endpoints": {
 		"note": "A door is dialled only if the target declares it.",
 		"httpApiLayers": {
