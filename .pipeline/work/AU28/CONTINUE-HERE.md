@@ -14,7 +14,9 @@ Clean, pushed, `npm run verify` green. **No PR opened** — that is deliberate.
 |---|---|
 | 1 · production/development split + governance lint | **shipped** |
 | 2 · packages into role folders | **shipped** |
-| 3 · access rules per world | **decided, not yet enforced** ← you are here |
+| 3a · access rules per world | **decided** |
+| 3b · the compact rule engine | **built** — 13 clauses reproduce all 250 verdicts |
+| 3c · the 8-kind census + wiring the engine into the lint | **not started** ← you are here |
 | 4 · split `shared`, clear violations | not started |
 | 5 · rewrite `CLAUDE.md` + `.claude/rules` | not started |
 | 6 · purge `strategy` | not started |
@@ -74,7 +76,42 @@ no `/` between roles. Target qualifiers are limited to `own` / `other` / `same l
 
 ---
 
-## 4. NEXT TASK — architect the compact rule engine
+## 4. The compact rule engine — BUILT (commit `3af8f43e`)
+
+Live at `governance/` + `scripts/lib/governance-model.ts`. Read **`governance/README.md`** first — it
+explains the three-way split (clauses = principles in code · registries = facts in JSON · decided
+rules = frozen decisions) and how to change each.
+
+**13 clauses reproduce all 250 decided verdicts** (125 rows × 2 worlds), asserted by
+`framework/db/src/__tests__/au28-governance-model.test.ts` — 25 tests, green. What the compression
+found, and what it cost, is in the commit message.
+
+Enforced in the lint today: `au28-registries-honest` (registries name only packages that exist,
+every service's layer exists) plus the three step-1 rules. `npm run governance:new-cells` reports the
+355 cells the model answers that the founder was never asked.
+
+### NEXT — the 8-kind census, then wire the engine in
+
+The model can decide any crossing; **nothing yet produces crossings for it to decide.**
+`scripts/lib/repo-census.ts` resolves imports only. The other kinds live in
+`.pipeline/work/AU28/census-detector.ts.txt` (2,677 lines, scratchpad-grade, never fixture-tested).
+
+Order, from §5 of `enforcement-plan.md` (Increment 1 is done — the rule set has moved to
+`governance/`; Increment 2 is next and is the prerequisite for everything after it):
+
+1. **2a** instance model + `manifest` — lands the devDependencies attribution fix
+2. **2b** `table` — read/write split; highest value, 3,604 instances
+3. **2c** `di` — carries the 26 known false-positive exclusions
+4. **2d** `api`, `mcp`, `event`, `capability`
+5. the per-rule warn/error dial, then the site-keyed two-directional ratchet
+6. wire in, land at warn, promote the rules already clean
+
+**Every detector needs negative controls, not just positive fixtures** — see §5's risk note. That is
+the one thing that can still make this whole model confidently wrong.
+
+---
+
+## 4b. (historical) The instruction that produced the engine
 
 **Founder's instruction, verbatim:**
 
