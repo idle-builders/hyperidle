@@ -1,12 +1,12 @@
 ---
 paths:
-  - "packages/web/**/*.tsx"
-  - "packages/web/**/*.ts"
+  - "layers/web/**/*.tsx"
+  - "layers/web/**/*.ts"
 ---
 
 # Frontend Rules
 
-- Design-system components first (`packages/design-system/src/index.ts` is the live inventory; catalogued in `DESIGN.md`). Use DaisyUI primitives directly only where the design system deliberately doesn't own the shape — never wrap them, never hand-roll an equivalent of an existing component.
+- Design-system components first (`framework/design-system/src/index.ts` is the live inventory; catalogued in `DESIGN.md`). Use DaisyUI primitives directly only where the design system deliberately doesn't own the shape — never wrap them, never hand-roll an equivalent of an existing component.
 - Tailwind utility classes with Hearth theme tokens. Use Hearth spacing tokens (`--space-*`) for all padding. Card padding: `--space-6` (18px). Small element padding: `--space-4` (12px). Component padding uses the 6px grid: `{3, 6, 9, 12, 18, 24, 36, 48}` px.
 - Handle all states: empty, loading, error, populated.
 - API endpoints in `packages/server/src/routes/`. RESTful naming. Consistent error response format.

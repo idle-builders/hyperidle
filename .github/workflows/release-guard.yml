@@ -3,11 +3,11 @@ name: Release Guard
 # PR gate for the release pipeline. If a PR bumps the root package.json version,
 # it must ALSO carry proof that the notarized DMG for that version was staged:
 #   - version sources in sync (root == desktop == chart appVersion)
-#   - packages/desktop/release-manifest.json present + matching the new version
+#   - applications/desktop/release-manifest.json present + matching the new version
 #   - a DRAFT GitHub Release v<version> exists on this repo with the DMG asset,
 #     whose sha256 matches the manifest
 #
-# Bumping the version without staging the DMG (via packages/desktop/scripts/release.sh)
+# Bumping the version without staging the DMG (via applications/desktop/scripts/release.sh)
 # fails this check — so a version bump can never merge without its artifact.
 # PRs that don't touch the version are a no-op.
 on:
@@ -57,9 +57,9 @@ jobs:
         id: manifest
         run: |
           VERSION="${{ steps.bump.outputs.version }}"
-          MF=packages/desktop/release-manifest.json
+          MF=applications/desktop/release-manifest.json
           if [ ! -f "$MF" ]; then
-            echo "::error::$MF missing — run packages/desktop/scripts/release.sh $VERSION to stage the DMG"
+            echo "::error::$MF missing — run applications/desktop/scripts/release.sh $VERSION to stage the DMG"
             exit 1
           fi
           MV=$(jq -r .version "$MF")
@@ -88,7 +88,7 @@ jobs:
 
           # The staged release is a DRAFT on this private repo — GITHUB_TOKEN can read it.
           if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets,isDraft > rel.json 2>/dev/null; then
-            echo "::error::No staged release $TAG found. Run packages/desktop/scripts/release.sh $VERSION (it uploads the DMG to a draft release)."
+            echo "::error::No staged release $TAG found. Run applications/desktop/scripts/release.sh $VERSION (it uploads the DMG to a draft release)."
             exit 1
           fi
           if [ "$(jq -r .isDraft rel.json)" != "true" ]; then

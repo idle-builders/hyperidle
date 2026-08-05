@@ -13,7 +13,7 @@
  * directory that had not existed for two tracks and printed PASS.
  *
  * @lore AU28: the file list comes from `git ls-files`, not a filesystem walk. A walk misses the two
- * tracked files under `packages/desktop/build/` (`entitlements.mac.plist`, `icon.icns`) unless it is
+ * tracked files under `applications/desktop/build/` (`entitlements.mac.plist`, `icon.icns`) unless it is
  * hand-tuned, and it picks up gitignored build output that is not part of the repository at all.
  * Tracked-by-git is the only definition of "the repo's files" that cannot drift.
  *

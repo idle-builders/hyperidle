@@ -1,0 +1,13 @@
+{
+	"extends": "../../tsconfig.json",
+	"compilerOptions": {
+		"outDir": "dist",
+		"rootDir": "src",
+		"jsx": "react-jsx",
+		"composite": false,
+		"declaration": false,
+		"declarationMap": false
+	},
+	"include": ["src"],
+	"references": [{ "path": "../../framework/shared" }, { "path": "../../framework/design-system" }]
+}

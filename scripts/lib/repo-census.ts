@@ -29,8 +29,8 @@ export type ClassificationClause =
 	| "test-suffix"
 	| "spec-suffix"
 	| "dunder-segment"
-	| "development-package"
-	| "outside-packages"
+	| "development-root"
+	| "outside-production-roots"
 	| "test-runner-config"
 	| "default-production";
 
@@ -55,15 +55,28 @@ export interface ClassificationPattern {
 }
 
 /**
- * The three wholly-development packages, named by directory under `packages/`.
+ * The role roots that hold SHIPPING code. Everything under one of these is production unless a name
+ * clause says otherwise; everything not under one of them is development.
+ *
+ * @lore AU28 step 2: this is the whole classification-by-location rule now — three production roots
+ * and one development root (`tools/`), replacing "under `packages/`" plus a hand-maintained
+ * three-entry list of wholly-development package directories. Ruling 9 predicted that list would
+ * delete itself when `eval` / `eslint-plugin-authz` / `eslint-plugin-design` moved into `tools/`, and
+ * it has: the roots ARE the statement. `deploy/` (chart, homebrew, bin) is deliberately absent from
+ * both lists — it is neither shipping source nor a package, so it falls to
+ * `outside-production-roots` exactly like `scripts/`, `docs/` and the repo-root files do.
  *
  * @lore AU28: Ruling 5 says a package's ROLE never derives from its path. This is not a role — it is
  * a file KIND, and Ruling 8.3 settles that file kind must come from path or name because there is no
  * per-file manifest. The safeguard Ruling 8.3 demands is that the set be closed and enumerated, which
- * it is, and that a dead entry fail loudly, which the per-entry floors below do. Ruling 9 expects this
- * list to delete itself at step 2, when these packages move under `tools/`.
+ * it is, and that a dead root fail loudly, which the floors below do.
  */
-export const DEVELOPMENT_PACKAGE_DIRS = ["eval", "eslint-plugin-authz", "eslint-plugin-design"] as const;
+export const PRODUCTION_ROOTS = ["layers", "framework", "applications"] as const;
+
+/**
+ * The role roots that are wholly development. One entry, one clause.
+ */
+export const DEVELOPMENT_ROOTS = ["tools"] as const;
 
 /**
  * Test-runner config filenames.
@@ -74,9 +87,9 @@ export const DEVELOPMENT_PACKAGE_DIRS = ["eval", "eslint-plugin-authz", "eslint-
  * `.stories.tsx`, which is pinned beside its component by the TSX-first ruling. Matched on basename
  * alone: a file called `vitest.config.ts` is a runner config wherever it sits.
  *
- * `vitest.*.config.ts` is deliberately ABSENT. It matches zero files under `packages/` — the only one
- * in the repo is the root `vitest.integration.config.ts`, already development for sitting outside
- * `packages/`. A pattern that matches nothing is the defect this whole design exists to prevent.
+ * `vitest.*.config.ts` is deliberately ABSENT. It matches zero files under a production root — the
+ * only one in the repo is the root `vitest.integration.config.ts`, already development for sitting
+ * outside them. A pattern that matches nothing is the defect this whole design exists to prevent.
  */
 export const TEST_RUNNER_CONFIG_BASENAMES = ["vitest.config.ts", "playwright.config.ts"] as const;
 
@@ -134,8 +147,8 @@ const NAME_DECLARED_SUFFIXES: readonly {
  *
  *   1. the filename declares it development — `.stories.tsx`, `.test.ts(x)`, `.spec.ts(x)`
  *   2. a path segment starts with `__`
- *   3. it belongs to a wholly-development package
- *   4. it sits outside `packages/`
+ *   3. it sits under a wholly-development role root (`tools/`)
+ *   4. it sits outside the production role roots (`layers/`, `framework/`, `applications/`)
  *   5. it is a test-runner config
  *   6. otherwise production
  *
@@ -158,11 +171,20 @@ const NAME_DECLARED_SUFFIXES: readonly {
  *
  * Measured on the tree this commit produces (3,256 tracked / 789 production / 2,467 development):
  *   stories-suffix 144 · test-suffix 892 · spec-suffix 87 · dunder-segment 152 ·
- *   outside-packages 1,064 · default-production 789.
+ *   development-root:tools 94 · outside-production-roots 1,064 ·
+ *   test-runner-config 30 + 1 + 3 · default-production 789.
  * Each magnitude floor sits at ~87-90% of its real count — tight enough that losing a package's worth
  * of files trips it, loose enough that ordinary churn does not. The enumerated-set patterns
- * (`development-package:*`, `test-runner-config:*`) stay at 1 on purpose: they are existence checks
+ * (`development-root:*`, `test-runner-config:*`) stay at 1 on purpose: they are existence checks
  * over a closed list, and their job is to fail when an ENTRY dies, not when a count dips.
+ *
+ * @lore AU28 step 2: the role-folder move (`packages/` → `layers/` + `framework/` + `applications/` +
+ * `tools/`, and root-level `bin`/`chart`/`homebrew` → `deploy/`) left EVERY number above unchanged —
+ * 3,256 / 789 / 2,467, and each magnitude count identical to the digit. The only shift is which
+ * pattern id owns a file: `development-package:{eval,eslint-plugin-authz,eslint-plugin-design}`
+ * (41 + 7 + 46) collapsed into the single `development-root:tools` (94), and `outside-packages`
+ * became `outside-production-roots` at the same 1,064. That the totals are invariant under the move
+ * is the proof the rewrite re-expressed the rule rather than changing it.
  */
 export const CLASSIFICATION_PATTERNS: readonly ClassificationPattern[] = [
 	...NAME_DECLARED_SUFFIXES.map(
@@ -183,23 +205,23 @@ export const CLASSIFICATION_PATTERNS: readonly ClassificationPattern[] = [
 		minFiles: 135,
 		matches: hasDunderSegment,
 	},
-	...DEVELOPMENT_PACKAGE_DIRS.map(
-		(dir): ClassificationPattern => ({
-			id: `development-package:${dir}`,
-			clause: "development-package",
+	...DEVELOPMENT_ROOTS.map(
+		(root): ClassificationPattern => ({
+			id: `development-root:${root}`,
+			clause: "development-root",
 			kind: "development",
-			description: `every file in the wholly-development package \`packages/${dir}\``,
+			description: `every file under the wholly-development role root \`${root}/\``,
 			minFiles: 1,
-			matches: (p) => p.startsWith(`packages/${dir}/`),
+			matches: (p) => p.startsWith(`${root}/`),
 		}),
 	),
 	{
-		id: "outside-packages",
-		clause: "outside-packages",
+		id: "outside-production-roots",
+		clause: "outside-production-roots",
 		kind: "development",
-		description: "anything outside `packages/` is repo tooling, docs or pipeline state",
+		description: `anything outside the production role roots (${PRODUCTION_ROOTS.map((r) => `\`${r}/\``).join(", ")}) is repo tooling, deployment assets, docs or pipeline state`,
 		minFiles: 950,
-		matches: (p) => !p.startsWith("packages/"),
+		matches: (p) => !PRODUCTION_ROOTS.some((root) => p.startsWith(`${root}/`)),
 	},
 	...TEST_RUNNER_CONFIG_BASENAMES.map(
 		(name): ClassificationPattern => ({

@@ -147,7 +147,7 @@ jobs:
         env:
           HELM_DRIVER: configmap
         run: |
-          helm upgrade --install ${{ env.NAMESPACE }} ./chart \
+          helm upgrade --install ${{ env.NAMESPACE }} ./deploy/chart \
             --namespace ${{ env.NAMESPACE }} \
             --set image.tag=${{ github.sha }} \
             --wait --timeout 5m

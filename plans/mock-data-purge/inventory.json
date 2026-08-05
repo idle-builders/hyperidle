@@ -1,6 +1,6 @@
 [
   {
-    "path": "packages/core-api/policy/src/lifecycle-propagation.ts",
+    "path": "layers/core-api/policy/src/lifecycle-propagation.ts",
     "line": 483,
     "symbol": "u-founder",
     "kind": "literal-id",
@@ -9,7 +9,7 @@
     "triageHint": "straight-swap"
   },
   {
-    "path": "packages/core-api/policy/src/lifecycle-propagation.ts",
+    "path": "layers/core-api/policy/src/lifecycle-propagation.ts",
     "line": 485,
     "symbol": "u-founder",
     "kind": "literal-id",
@@ -18,7 +18,7 @@
     "triageHint": "straight-swap"
   },
   {
-    "path": "packages/core-api/src/middleware/auth.ts",
+    "path": "layers/core-api/src/middleware/auth.ts",
     "line": 144,
     "symbol": "u-founder",
     "kind": "literal-id",
@@ -27,7 +27,7 @@
     "triageHint": "straight-swap"
   },
   {
-    "path": "packages/core-api/src/middleware/auth.ts",
+    "path": "layers/core-api/src/middleware/auth.ts",
     "line": 164,
     "symbol": "u-founder",
     "kind": "literal-id",
@@ -36,7 +36,7 @@
     "triageHint": "straight-swap"
   },
   {
-    "path": "packages/core-api/src/routes/auth.ts",
+    "path": "layers/core-api/src/routes/auth.ts",
     "line": 63,
     "symbol": "u-founder",
     "kind": "literal-id",
@@ -45,7 +45,7 @@
     "triageHint": "straight-swap"
   },
   {
-    "path": "packages/web/src/fixtures/knowledge-data.ts",
+    "path": "layers/web/src/fixtures/knowledge-data.ts",
     "line": 72,
     "symbol": "MOCK_KNOWLEDGE_ITEMS",
     "kind": "symbol",
@@ -54,7 +54,7 @@
     "triageHint": "borderline"
   },
   {
-    "path": "packages/web/src/pages/KnowledgeDetail.tsx",
+    "path": "layers/web/src/pages/KnowledgeDetail.tsx",
     "line": 67,
     "symbol": "../fixtures/knowledge-data",
     "kind": "import",
@@ -63,7 +63,7 @@
     "triageHint": "borderline"
   },
   {
-    "path": "packages/web/src/pages/KnowledgeDetail.tsx",
+    "path": "layers/web/src/pages/KnowledgeDetail.tsx",
     "line": 127,
     "symbol": "LEGACY_DETAILS",
     "kind": "symbol",
@@ -72,7 +72,7 @@
     "triageHint": "borderline"
   },
   {
-    "path": "packages/web/src/pages/KnowledgeDetail.tsx",
+    "path": "layers/web/src/pages/KnowledgeDetail.tsx",
     "line": 205,
     "symbol": "LEGACY_SOURCES",
     "kind": "symbol",
@@ -81,7 +81,7 @@
     "triageHint": "borderline"
   },
   {
-    "path": "packages/web/src/pages/KnowledgeDetail.tsx",
+    "path": "layers/web/src/pages/KnowledgeDetail.tsx",
     "line": 211,
     "symbol": "FALLBACK_DETAIL",
     "kind": "symbol",

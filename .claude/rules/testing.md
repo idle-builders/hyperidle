@@ -30,8 +30,8 @@ If you can't express the assertion as `import { thing } from "../module" → exp
 
 ## Structure
 
-- Tests only live in `packages/`. No tests in `scripts/` or project root.
-- Unit tests: `<name>.test.ts` in `packages/<pkg>/src/__tests__/`.
+- Tests only live inside a package (under `layers/`, `framework/`, `applications/` or `tools/`). No tests in `scripts/` or project root.
+- Unit tests: `<name>.test.ts` in `<root>/<pkg>/src/__tests__/`.
 - Integration tests: `<name>.integration.test.ts` — exercise a **real integration point** with no stub standing in for it. Service integration uses the vitest fixtures that inject `{ db, app, eventBus }`; harness-facing integration uses the **real installed harness binary**. See **Integration tests: two archetypes**.
 - E2E tests: Playwright for user-facing features (`*.spec.ts`).
 - Tests must not depend on execution order.
@@ -133,6 +133,6 @@ describe("Feature", () => {
 
 Fixture sources:
 - `packages/server/src/test-fixtures.ts` — exports `{ test, describe, expect }` with `{ db, app, eventBus }` context.
-- `packages/db/src/test-fixtures.ts` (re-exported as `@hyperidle/db/test-fixtures`) — exports `{ test, describe, expect }` with `{ db }` context.
+- `framework/db/src/test-fixtures.ts` (re-exported as `@hyperidle/db/test-fixtures`) — exports `{ test, describe, expect }` with `{ db }` context.
 
 PGlite pool pre-warms 1 instance per worker and reuses it between tests via `TRUNCATE` (~19ms). No teardown needed in test files.

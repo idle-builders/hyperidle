@@ -8,7 +8,7 @@
  *   4. Resolve the model (or honor AH6_MODEL_OVERRIDE).
  *   5. Record cassettes — run the AH6 Playwright lane with LLM_CASSETTE_MODE=record
  *      against the live test-server. Three real turns fire real OpenRouter calls;
- *      recordLlm writes packages/web/__e2e__/cassettes/default.json + ah6-cost.json
+ *      recordLlm writes layers/web/__e2e__/cassettes/default.json + ah6-cost.json
  *      (token-usage report — see AU21 lore below).
  *   6. Backup ah6-cost.json to /tmp before Playwright clears its report dir.
  *   7. Budget assert — fail-closed on cap.
@@ -53,13 +53,13 @@
  * @lore AH6: The orchestrator's selection-test run (step 3) is a convenience
  * pre-flight that catches selection regressions before spending money on the
  * live record run. It is NOT the authoritative gate — the authoritative gate is
- * `npm run test` which already runs select-smoke-model.test.ts in packages/eval.
+ * `npm run test` which already runs select-smoke-model.test.ts in tools/eval.
  *
- * @lore AH6: Usage report path — packages/web/playwright-report-ah6/ah6-cost.json.
+ * @lore AH6: Usage report path — layers/web/playwright-report-ah6/ah6-cost.json.
  * The recorder writes it; the budget-assert reads it. The backup at /tmp/ah6-cost.json
  * survives Playwright clearing the report dir.
  *
- * @lore AH6: The record run rewrites packages/web/__e2e__/cassettes/default.json.
+ * @lore AH6: The record run rewrites layers/web/__e2e__/cassettes/default.json.
  * Review the git diff before committing — the cassette is the replay evidence.
  */
 
@@ -140,7 +140,7 @@ run(
 
 run(
 	"Model-selection unit tests (pre-flight — not the authoritative gate; that is npm run test)",
-	"npx vitest run --config vitest.config.ts packages/eval/src/smoke/__tests__/select-smoke-model.test.ts",
+	"npx vitest run --config vitest.config.ts tools/eval/src/smoke/__tests__/select-smoke-model.test.ts",
 );
 
 // ---------------------------------------------------------------------------
@@ -166,7 +166,7 @@ if (override && override.trim() !== "") {
 } else {
 	run(
 		"Resolve model (live OpenRouter selection)",
-		`RESOLVE_MODEL_FILE=${RESOLVE_MODEL_FILE} npx tsx packages/web/__scripts__/ah5-resolve-model.ts`,
+		`RESOLVE_MODEL_FILE=${RESOLVE_MODEL_FILE} npx tsx layers/web/__scripts__/ah5-resolve-model.ts`,
 	);
 }
 
@@ -184,7 +184,7 @@ try {
 //
 // LLM_CASSETTE_MODE=record causes callLlm → recordLlm which:
 //   - Makes a real OpenRouter call per scenario turn.
-//   - Writes packages/web/__e2e__/cassettes/default.json (all S1/S2/S3 entries).
+//   - Writes layers/web/__e2e__/cassettes/default.json (all S1/S2/S3 entries).
 //   - Accumulates token usage and writes ah6-cost.json (usage report; @lore
 //     AU21 harness-telemetry narrowing — no $ figure anymore).
 // ---------------------------------------------------------------------------
@@ -224,7 +224,7 @@ process.stdout.write(`[smoke:ah6] Usage report at: ${usageReportPath}\n`);
 
 run(
 	"Budget assert (fail-closed — redundant safety step)",
-	`AH6_MAX_TOKENS=${MAX_TOKENS} npx tsx packages/web/__scripts__/ah6-assert-budget.ts`,
+	`AH6_MAX_TOKENS=${MAX_TOKENS} npx tsx layers/web/__scripts__/ah6-assert-budget.ts`,
 );
 
 // ---------------------------------------------------------------------------
@@ -241,7 +241,7 @@ try {
 	/* usage report may be absent if an early step failed */
 }
 
-const reportDir = path.join(repoRoot, "packages/web/playwright-report-ah6");
+const reportDir = path.join(repoRoot, "layers/web/playwright-report-ah6");
 process.stdout.write("\n[smoke:ah6] ==================== SUMMARY ====================\n");
 process.stdout.write(`[smoke:ah6] Model:         ${resolvedModelId}\n`);
 process.stdout.write(

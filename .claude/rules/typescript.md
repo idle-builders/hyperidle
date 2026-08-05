@@ -9,7 +9,7 @@ paths:
 - Strict mode everywhere. No `any`, no `@ts-ignore`, no unsafe `as` casts.
 - Explicit return types on all exported functions.
 - Use workspace imports: `@hyperidle/db`, `@hyperidle/server`, `@hyperidle/shared`, etc.
-- No barrel files except `packages/*/src/index.ts`.
+- No barrel files except a package's own `src/index.ts`.
 - camelCase for variables/functions, PascalCase for types/components, SCREAMING_SNAKE_CASE for constants.
 - File names match their primary export.
 - Use result types for expected errors. Let unexpected errors propagate — no swallowing with try-catch.

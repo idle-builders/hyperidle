@@ -67,7 +67,7 @@ For **implementation** ambiguity (schema vs. interface choice, library API shape
 
 ## Design System
 
-Before any UI code, read `packages/design-system/DESIGN.md` and `packages/design-system/src/`. Use what exists. Tokens only — no hardcoded colors, spacing, radii, or font sizes. Every new UI component needs a `.stories.tsx` file.
+Before any UI code, read `framework/design-system/DESIGN.md` and `framework/design-system/src/`. Use what exists. Tokens only — no hardcoded colors, spacing, radii, or font sizes. Every new UI component needs a `.stories.tsx` file.
 
 ## What You Do NOT Do
 

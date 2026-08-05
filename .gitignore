@@ -10,7 +10,7 @@ playwright-report-ah1/
 playwright-report-ah5/
 playwright-report-ah6/
 test-results/
-packages/web/__e2e__/screenshots/
+layers/web/__e2e__/screenshots/
 visual-reports/
 sync-reports/
 .pipeline/*
@@ -37,10 +37,12 @@ test-output.toon
 .verify.pid
 # plans/ is tracked — pipeline artifacts persist across worktrees and are retired
 # at the /write-docs step once their essence lives in docs/ + code. (Was: plans/*)
-packages/*/plans/
-packages/design-system/03-hearth.html
-packages/design-system/inspiration/
-packages/server/hyperidle-pg/
+layers/*/plans/
+framework/*/plans/
+applications/*/plans/
+tools/*/plans/
+framework/design-system/03-hearth.html
+framework/design-system/inspiration/
 hyperidle-pg/
 eval-results*.json
 docs/product/.vitepress/cache
@@ -48,7 +50,7 @@ docs/product/.vitepress/cache
 # @lore AU28: `scripts/` runs via tsx and is never compiled deliberately, but tsc emits
 # declaration + map siblings there transitively (root tsconfig has `include: []`, so
 # `scripts/**` is only typechecked through the guard-logic tests in
-# `packages/db/src/__tests__/`, which are part of a `composite` project). Those artifacts
+# `framework/db/src/__tests__/`, which are part of a `composite` project). Those artifacts
 # must never reach the tracked tree — a stale emitted `.js` next to a `.ts` also shadows
 # the source at resolution time. One rule instead of the per-file list AU28 replaced.
 scripts/**/*.js
@@ -57,28 +59,36 @@ scripts/**/*.d.ts
 scripts/**/*.d.ts.map
 !scripts/knip-production-test-files.mjs
 # @lore AU26 C3: same class as the guard artifacts above, one level up — a bare
-# `tsc -p packages/db` against a stale `dist/` emits declaration MAPS straight
-# into the package source tree (`packages/db/src/*.d.ts.map`); ten of them were
+# `tsc -p framework/db` against a stale `dist/` emits declaration MAPS straight
+# into the package source tree (`framework/db/src/*.d.ts.map`); ten of them were
 # committed once and only a code review caught them. Emitted maps are never
 # sources, in any package.
 # `.d.ts` itself is deliberately NOT ignored here — hand-written ambient
-# declarations are real sources (`packages/web/src/vite-env.d.ts`,
-# `window.d.ts`, `packages/design-system/src/css-modules.d.ts`) — except under
-# `packages/db/src`, which has none and is the one tree the emit lands in.
-packages/*/src/**/*.d.ts.map
-packages/*/src/**/*.js.map
-packages/db/src/*.d.ts
+# declarations are real sources (`layers/web/src/vite-env.d.ts`,
+# `window.d.ts`, `framework/design-system/src/css-modules.d.ts`) — except under
+# `framework/db/src`, which has none and is the one tree the emit lands in.
+layers/*/src/**/*.d.ts.map
+layers/*/src/**/*.js.map
+layers/*/*/src/**/*.d.ts.map
+layers/*/*/src/**/*.js.map
+framework/*/src/**/*.d.ts.map
+framework/*/src/**/*.js.map
+applications/*/src/**/*.d.ts.map
+applications/*/src/**/*.js.map
+tools/*/src/**/*.d.ts.map
+tools/*/src/**/*.js.map
+framework/db/src/*.d.ts
 # viewer compiled outputs (Vite resolves ./discovery.js → discovery.ts at build/dev time;
 # emitted .js/.d.ts/.map files must not be committed)
-packages/design-system/viewer/*.js
-packages/design-system/viewer/*.d.ts
-packages/design-system/viewer/*.js.map
-packages/design-system/viewer/*.d.ts.map
+framework/design-system/viewer/*.js
+framework/design-system/viewer/*.d.ts
+framework/design-system/viewer/*.js.map
+framework/design-system/viewer/*.d.ts.map
 # AJ7: same for the annotations/ subdir (the inspector modules)
-packages/design-system/viewer/**/*.js
-packages/design-system/viewer/**/*.d.ts
-packages/design-system/viewer/**/*.js.map
-packages/design-system/viewer/**/*.d.ts.map
+framework/design-system/viewer/**/*.js
+framework/design-system/viewer/**/*.d.ts
+framework/design-system/viewer/**/*.js.map
+framework/design-system/viewer/**/*.d.ts.map
 
 # AJ5: annotation files (gitignored — founder reviews .annotations/annotations.md locally)
 .annotations/

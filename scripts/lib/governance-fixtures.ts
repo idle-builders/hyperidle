@@ -9,7 +9,7 @@
  * happens to be clean. A guard that only ever runs against a clean repo cannot distinguish "nothing is
  * wrong" from "I stopped looking". The same `FIXTURE_CASES` array is consumed twice: by `--fixtures`
  * in the lint chain, and by real vitest assertions in
- * `packages/db/src/__tests__/au28-governance-lint.test.ts`.
+ * `framework/db/src/__tests__/au28-governance-lint.test.ts`.
  */
 
 import { type Census, type FileKind, buildCensus, classifyFile } from "./repo-census.js";
@@ -43,70 +43,70 @@ const PLAIN_MANIFEST = JSON.stringify({ name: "@fix/plain" });
  */
 export const FIXTURE_TREE: Readonly<Record<string, string>> = {
 	// --- manifests -----------------------------------------------------------
-	"packages/app/package.json": APP_MANIFEST,
-	"packages/eval/package.json": BENCH_MANIFEST,
-	"packages/plain/package.json": PLAIN_MANIFEST,
+	"layers/app/package.json": APP_MANIFEST,
+	"tools/eval/package.json": BENCH_MANIFEST,
+	"framework/plain/package.json": PLAIN_MANIFEST,
 
 	// --- development targets -------------------------------------------------
-	"packages/app/src/__testing__/helpers.ts": "export const helper = 1;\n",
-	"packages/app/src/__testing__/index.ts": "export * from './helpers.js';\n",
-	"packages/app/src/Widget.stories.tsx": "export const Story = () => null;\n",
+	"layers/app/src/__testing__/helpers.ts": "export const helper = 1;\n",
+	"layers/app/src/__testing__/index.ts": "export * from './helpers.js';\n",
+	"layers/app/src/Widget.stories.tsx": "export const Story = () => null;\n",
 	// Name-declared development files sitting BESIDE production code, not inside `__tests__/`. Under a
 	// dunder-only rule these would classify production and their imports would read as crossings.
-	"packages/app/src/Widget.test.ts": 'import { helper } from "./__testing__/helpers.js";\nexport const t = helper;\n',
-	"packages/app/src/Widget.spec.ts": 'import { helper } from "./__testing__/helpers.js";\nexport const s = helper;\n',
-	"packages/app/vitest.config.ts": "export default {};\n",
-	"packages/app/playwright.config.ts": "export default {};\n",
-	"packages/app/playwright.ah1.config.ts": "export default {};\n",
-	"packages/eval/src/smoke/index.ts": "export const smoke = 1;\n",
-	"tools/outside.ts": "export const outside = 1;\n",
+	"layers/app/src/Widget.test.ts": 'import { helper } from "./__testing__/helpers.js";\nexport const t = helper;\n',
+	"layers/app/src/Widget.spec.ts": 'import { helper } from "./__testing__/helpers.js";\nexport const s = helper;\n',
+	"layers/app/vitest.config.ts": "export default {};\n",
+	"layers/app/playwright.config.ts": "export default {};\n",
+	"layers/app/playwright.ah1.config.ts": "export default {};\n",
+	"tools/eval/src/smoke/index.ts": "export const smoke = 1;\n",
+	"scripts/outside.ts": "export const outside = 1;\n",
 
 	// --- production files, one evasion each ----------------------------------
-	"packages/app/src/index.ts": "export const app = 1;\n",
-	"packages/app/src/evasion-plain.ts": 'import { helper } from "./__testing__/helpers.js";\nexport const a = helper;\n',
-	"packages/app/src/evasion-reexport.ts": 'export { helper } from "./__testing__/helpers.js";\n',
-	"packages/app/src/evasion-type-only.ts":
+	"layers/app/src/index.ts": "export const app = 1;\n",
+	"layers/app/src/evasion-plain.ts": 'import { helper } from "./__testing__/helpers.js";\nexport const a = helper;\n',
+	"layers/app/src/evasion-reexport.ts": 'export { helper } from "./__testing__/helpers.js";\n',
+	"layers/app/src/evasion-type-only.ts":
 		'import type { helper } from "./__testing__/helpers.js";\nexport type T = typeof helper;\n',
-	"packages/app/src/evasion-dynamic.ts":
+	"layers/app/src/evasion-dynamic.ts":
 		'export async function load() {\n  return await import("./__testing__/helpers.js");\n}\n',
-	"packages/app/src/evasion-namespace.ts": 'import * as ns from "./__testing__/helpers.js";\nexport const b = ns;\n',
-	"packages/app/src/evasion-multiline.ts":
+	"layers/app/src/evasion-namespace.ts": 'import * as ns from "./__testing__/helpers.js";\nexport const b = ns;\n',
+	"layers/app/src/evasion-multiline.ts":
 		'import {\n  helper,\n} from\n  "./__testing__/helpers.js";\nexport const c = helper;\n',
-	"packages/app/src/evasion-extensionless.ts": 'import { helper } from "./__testing__/helpers";\nexport const d = helper;\n',
-	"packages/app/src/evasion-directory-index.ts": 'import { helper } from "./__testing__";\nexport const e = helper;\n',
-	"packages/app/src/evasion-subpath-export.ts": 'import { helper } from "@fix/app/helpers";\nexport const f = helper;\n',
-	"packages/app/src/evasion-cross-package.ts": 'import { smoke } from "@fix/eval/smoke";\nexport const g = smoke;\n',
-	"packages/app/src/evasion-story.ts": 'import { Story } from "./Widget.stories.js";\nexport const h = Story;\n',
-	"packages/app/src/evasion-outside-packages.ts":
-		'import { outside } from "../../../tools/outside.js";\nexport const i = outside;\n',
+	"layers/app/src/evasion-extensionless.ts": 'import { helper } from "./__testing__/helpers";\nexport const d = helper;\n',
+	"layers/app/src/evasion-directory-index.ts": 'import { helper } from "./__testing__";\nexport const e = helper;\n',
+	"layers/app/src/evasion-subpath-export.ts": 'import { helper } from "@fix/app/helpers";\nexport const f = helper;\n',
+	"layers/app/src/evasion-cross-package.ts": 'import { smoke } from "@fix/eval/smoke";\nexport const g = smoke;\n',
+	"layers/app/src/evasion-story.ts": 'import { Story } from "./Widget.stories.js";\nexport const h = Story;\n',
+	"layers/app/src/evasion-outside-production-roots.ts":
+		'import { outside } from "../../../scripts/outside.js";\nexport const i = outside;\n',
 
 	// --- production files that must stay clean --------------------------------
-	"packages/app/src/clean-external.ts": 'import { useState } from "react";\nexport const j = useState;\n',
-	"packages/app/src/clean-sibling.ts": 'import { app } from "./index.js";\nexport const k = app;\n',
-	"packages/app/src/clean-string-literal.ts":
+	"layers/app/src/clean-external.ts": 'import { useState } from "react";\nexport const j = useState;\n',
+	"layers/app/src/clean-sibling.ts": 'import { app } from "./index.js";\nexport const k = app;\n',
+	"layers/app/src/clean-string-literal.ts":
 		'export const path = "./__testing__/helpers.js";\n// import { helper } from "./__testing__/helpers.js";\n',
-	"packages/app/src/clean-unresolvable.ts": 'import { x } from "./does-not-exist.js";\nexport const l = x;\n',
+	"layers/app/src/clean-unresolvable.ts": 'import { x } from "./does-not-exist.js";\nexport const l = x;\n',
 
 	// --- development files may import anything --------------------------------
-	"packages/app/src/__tests__/uses-dev.ts":
+	"layers/app/src/__tests__/uses-dev.ts":
 		'import { helper } from "../__testing__/helpers.js";\nimport { smoke } from "@fix/eval/smoke";\nexport const m = [helper, smoke];\n',
-	"packages/eval/src/uses-production.ts": 'import { app } from "@fix/app";\nexport const n = app;\n',
+	"tools/eval/src/uses-production.ts": 'import { app } from "@fix/app";\nexport const n = app;\n',
 };
 
 /** The crossings the fixture tree is designed to contain — `from` path only, one per evasion file. */
 const EXPECTED_CROSSINGS: readonly string[] = [
-	"packages/app/src/evasion-cross-package.ts",
-	"packages/app/src/evasion-directory-index.ts",
-	"packages/app/src/evasion-dynamic.ts",
-	"packages/app/src/evasion-extensionless.ts",
-	"packages/app/src/evasion-multiline.ts",
-	"packages/app/src/evasion-namespace.ts",
-	"packages/app/src/evasion-outside-packages.ts",
-	"packages/app/src/evasion-plain.ts",
-	"packages/app/src/evasion-reexport.ts",
-	"packages/app/src/evasion-story.ts",
-	"packages/app/src/evasion-subpath-export.ts",
-	"packages/app/src/evasion-type-only.ts",
+	"layers/app/src/evasion-cross-package.ts",
+	"layers/app/src/evasion-directory-index.ts",
+	"layers/app/src/evasion-dynamic.ts",
+	"layers/app/src/evasion-extensionless.ts",
+	"layers/app/src/evasion-multiline.ts",
+	"layers/app/src/evasion-namespace.ts",
+	"layers/app/src/evasion-outside-production-roots.ts",
+	"layers/app/src/evasion-plain.ts",
+	"layers/app/src/evasion-reexport.ts",
+	"layers/app/src/evasion-story.ts",
+	"layers/app/src/evasion-subpath-export.ts",
+	"layers/app/src/evasion-type-only.ts",
 ];
 
 export function buildFixtureCensus(): Census {
@@ -144,28 +144,43 @@ const expectClassification = (path: string, kind: FileKind, patternId: string): 
 });
 
 const CLASSIFICATION_CASES: readonly FixtureCase[] = [
-	expectClassification("packages/app/src/__testing__/helpers.ts", "development", "dunder-segment"),
-	expectClassification("packages/app/src/__generated__/x.ts", "development", "dunder-segment"),
-	expectClassification("packages/app/src/Widget.stories.tsx", "development", "stories-suffix"),
-	expectClassification("packages/app/src/Widget.test.ts", "development", "test-suffix"),
-	expectClassification("packages/app/src/Widget.test.tsx", "development", "test-suffix"),
-	expectClassification("packages/app/src/Widget.spec.ts", "development", "spec-suffix"),
-	expectClassification("packages/app/src/Widget.spec.tsx", "development", "spec-suffix"),
-	expectClassification("packages/eval/src/smoke/index.ts", "development", "development-package:eval"),
-	expectClassification("packages/eslint-plugin-authz/src/x.ts", "development", "development-package:eslint-plugin-authz"),
-	expectClassification("packages/eslint-plugin-design/src/x.ts", "development", "development-package:eslint-plugin-design"),
-	expectClassification("tools/outside.ts", "development", "outside-packages"),
-	expectClassification("vitest.integration.config.ts", "development", "outside-packages"),
-	expectClassification("packages/app/vitest.config.ts", "development", "test-runner-config:vitest.config.ts"),
-	expectClassification("packages/app/playwright.config.ts", "development", "test-runner-config:playwright.config.ts"),
+	expectClassification("layers/app/src/__testing__/helpers.ts", "development", "dunder-segment"),
+	expectClassification("layers/app/src/__generated__/x.ts", "development", "dunder-segment"),
+	expectClassification("layers/app/src/Widget.stories.tsx", "development", "stories-suffix"),
+	expectClassification("layers/app/src/Widget.test.ts", "development", "test-suffix"),
+	expectClassification("layers/app/src/Widget.test.tsx", "development", "test-suffix"),
+	expectClassification("layers/app/src/Widget.spec.ts", "development", "spec-suffix"),
+	expectClassification("layers/app/src/Widget.spec.tsx", "development", "spec-suffix"),
+	// --- the development role root: everything under `tools/` ------------------
+	expectClassification("tools/eval/src/smoke/index.ts", "development", "development-root:tools"),
+	expectClassification("tools/eslint-plugin-authz/src/x.ts", "development", "development-root:tools"),
+	expectClassification("tools/eslint-plugin-design/src/x.ts", "development", "development-root:tools"),
+	expectClassification("tools/a-brand-new-bench/src/main.ts", "development", "development-root:tools"),
+	// --- the production role roots: production unless a NAME says otherwise ----
+	expectClassification("framework/plain/src/index.ts", "production", "default-production"),
+	expectClassification("applications/shell/src/main.ts", "production", "default-production"),
+	expectClassification("layers/app/src/nested/deep/thing.ts", "production", "default-production"),
+	expectClassification("framework/plain/src/Foo.stories.tsx", "development", "stories-suffix"),
+	expectClassification("applications/shell/__tests__/boot.ts", "development", "dunder-segment"),
+	// --- outside every role root: development, whatever it is ------------------
+	expectClassification("README.md", "development", "outside-production-roots"),
+	expectClassification("package.json", "development", "outside-production-roots"),
+	expectClassification("scripts/outside.ts", "development", "outside-production-roots"),
+	expectClassification("docs/architecture/index.md", "development", "outside-production-roots"),
+	// `deploy/` is deliberately in NEITHER root list — it holds deployment assets, not shipping source.
+	expectClassification("deploy/chart/values.yaml", "development", "outside-production-roots"),
+	expectClassification("deploy/bin/service", "development", "outside-production-roots"),
+	expectClassification("vitest.integration.config.ts", "development", "outside-production-roots"),
+	expectClassification("layers/app/vitest.config.ts", "development", "test-runner-config:vitest.config.ts"),
+	expectClassification("layers/app/playwright.config.ts", "development", "test-runner-config:playwright.config.ts"),
 	expectClassification(
-		"packages/app/playwright.ah1.config.ts",
+		"layers/app/playwright.ah1.config.ts",
 		"development",
 		"test-runner-config:playwright.*.config.ts",
 	),
-	expectClassification("packages/app/src/index.ts", "production", "default-production"),
-	expectClassification("packages/app/package.json", "production", "default-production"),
-	expectClassification("packages/app/vite.config.ts", "production", "default-production"),
+	expectClassification("layers/app/src/index.ts", "production", "default-production"),
+	expectClassification("layers/app/package.json", "production", "default-production"),
+	expectClassification("layers/app/vite.config.ts", "production", "default-production"),
 	// Precedence: a path matching two clauses resolves to the earlier one, and the order is
 	// declared, not incidental. Each of these would classify differently under a different order.
 	//
@@ -174,71 +189,100 @@ const CLASSIFICATION_CASES: readonly FixtureCase[] = [
 	// clause first `test-suffix` would match nothing and `pattern-live` would kill the build.
 	{
 		id: "classify:precedence:test-suffix-beats-dunder",
-		detail: "packages/app/src/__tests__/x.test.ts resolves to test-suffix, not dunder-segment",
+		detail: "layers/app/src/__tests__/x.test.ts resolves to test-suffix, not dunder-segment",
 		run: () => {
-			const record = classifyFile("packages/app/src/__tests__/x.test.ts");
+			const record = classifyFile("layers/app/src/__tests__/x.test.ts");
 			return record.patternId === "test-suffix" ? null : `got ${record.patternId}`;
 		},
 	},
 	{
 		id: "classify:precedence:spec-suffix-beats-dunder",
-		detail: "packages/app/__e2e__/flow.spec.ts resolves to spec-suffix, not dunder-segment",
+		detail: "layers/app/__e2e__/flow.spec.ts resolves to spec-suffix, not dunder-segment",
 		run: () => {
-			const record = classifyFile("packages/app/__e2e__/flow.spec.ts");
+			const record = classifyFile("layers/app/__e2e__/flow.spec.ts");
 			return record.patternId === "spec-suffix" ? null : `got ${record.patternId}`;
 		},
 	},
 	{
 		id: "classify:precedence:stories-suffix-beats-dunder",
-		detail: "packages/app/src/__tests__/Foo.stories.tsx resolves to stories-suffix, not dunder-segment",
+		detail: "layers/app/src/__tests__/Foo.stories.tsx resolves to stories-suffix, not dunder-segment",
 		run: () => {
-			const record = classifyFile("packages/app/src/__tests__/Foo.stories.tsx");
+			const record = classifyFile("layers/app/src/__tests__/Foo.stories.tsx");
 			return record.patternId === "stories-suffix" ? null : `got ${record.patternId}`;
 		},
 	},
 	// ...and the folder mechanism still stands on its own for a file whose name declares nothing.
 	{
 		id: "classify:precedence:unsuffixed-helper-in-dunder-folder-stays-dunder",
-		detail: "packages/app/src/__tests__/_helpers.ts resolves to dunder-segment — the folder clause is not vestigial",
+		detail: "layers/app/src/__tests__/_helpers.ts resolves to dunder-segment — the folder clause is not vestigial",
 		run: () => {
-			const record = classifyFile("packages/app/src/__tests__/_helpers.ts");
+			const record = classifyFile("layers/app/src/__tests__/_helpers.ts");
 			return record.patternId === "dunder-segment" ? null : `got ${record.patternId}`;
 		},
 	},
 	// A name-declared development file beside production code needs no folder at all.
 	{
 		id: "classify:precedence:stories-beside-production-component",
-		detail: "packages/app/src/components/Card.stories.tsx resolves to stories-suffix with no dunder folder in sight",
+		detail: "layers/app/src/components/Card.stories.tsx resolves to stories-suffix with no dunder folder in sight",
 		run: () => {
-			const record = classifyFile("packages/app/src/components/Card.stories.tsx");
+			const record = classifyFile("layers/app/src/components/Card.stories.tsx");
 			if (record.patternId !== "stories-suffix") return `got ${record.patternId}`;
 			// The component it sits beside stays production — the suffix classifies the file, not the folder.
-			const sibling = classifyFile("packages/app/src/components/Card.tsx");
+			const sibling = classifyFile("layers/app/src/components/Card.tsx");
 			return sibling.kind === "production" ? null : `sibling component classified ${sibling.kind}`;
 		},
 	},
 	{
-		id: "classify:precedence:dunder-beats-development-package",
-		detail: "packages/eval/src/__tests__/x.ts resolves to dunder-segment, not development-package:eval",
+		id: "classify:precedence:dunder-beats-development-root",
+		detail: "tools/eval/src/__tests__/x.ts resolves to dunder-segment, not development-root:tools",
 		run: () => {
-			const record = classifyFile("packages/eval/src/__tests__/x.ts");
+			const record = classifyFile("tools/eval/src/__tests__/x.ts");
 			return record.patternId === "dunder-segment" ? null : `got ${record.patternId}`;
 		},
 	},
 	{
-		id: "classify:precedence:stories-beats-development-package",
-		detail: "packages/eval/src/Foo.stories.tsx resolves to stories-suffix, not development-package:eval",
+		id: "classify:precedence:stories-beats-development-root",
+		detail: "tools/eval/src/Foo.stories.tsx resolves to stories-suffix, not development-root:tools",
 		run: () => {
-			const record = classifyFile("packages/eval/src/Foo.stories.tsx");
+			const record = classifyFile("tools/eval/src/Foo.stories.tsx");
 			return record.patternId === "stories-suffix" ? null : `got ${record.patternId}`;
 		},
 	},
 	{
-		id: "classify:precedence:development-package-beats-test-runner-config",
-		detail: "packages/eval/vitest.config.ts resolves to development-package:eval, not test-runner-config",
+		id: "classify:precedence:development-root-beats-test-runner-config",
+		detail: "tools/eval/vitest.config.ts resolves to development-root:tools, not test-runner-config",
 		run: () => {
-			const record = classifyFile("packages/eval/vitest.config.ts");
-			return record.patternId === "development-package:eval" ? null : `got ${record.patternId}`;
+			const record = classifyFile("tools/eval/vitest.config.ts");
+			return record.patternId === "development-root:tools" ? null : `got ${record.patternId}`;
+		},
+	},
+	{
+		id: "classify:precedence:development-root-beats-outside-production-roots",
+		detail: "tools/eval/src/x.ts resolves to development-root:tools, not outside-production-roots",
+		run: () => {
+			const record = classifyFile("tools/eval/src/x.ts");
+			return record.patternId === "development-root:tools" ? null : `got ${record.patternId}`;
+		},
+	},
+	{
+		id: "classify:precedence:test-runner-config-only-inside-a-production-root",
+		detail:
+			"layers/app/playwright.config.ts is test-runner-config, but the identically named file outside a production root is outside-production-roots",
+		run: () => {
+			const inside = classifyFile("layers/app/playwright.config.ts");
+			if (inside.patternId !== "test-runner-config:playwright.config.ts") return `inside: got ${inside.patternId}`;
+			const outside = classifyFile("playwright.config.ts");
+			return outside.patternId === "outside-production-roots" ? null : `outside: got ${outside.patternId}`;
+		},
+	},
+	{
+		id: "classify:a-role-root-name-only-counts-as-a-leading-segment",
+		detail: "`vendor/tools/x.ts` and `my-layers/app/src/x.ts` are NOT claimed by the role-root clauses",
+		run: () => {
+			const fakeTools = classifyFile("vendor/tools/x.ts");
+			if (fakeTools.patternId !== "outside-production-roots") return `vendor/tools: got ${fakeTools.patternId}`;
+			const fakeLayer = classifyFile("my-layers/app/src/x.ts");
+			return fakeLayer.patternId === "outside-production-roots" ? null : `my-layers: got ${fakeLayer.patternId}`;
 		},
 	},
 ];
@@ -273,7 +317,7 @@ const NEGATIVE_CASES: readonly FixtureCase[] = [
 			const census = buildFixtureCensus();
 			const bad = noProductionImportsDevelopment
 				.evaluate(census)
-				.filter((f) => f.path === "packages/app/src/__tests__/uses-dev.ts");
+				.filter((f) => f.path === "layers/app/src/__tests__/uses-dev.ts");
 			return bad.length === 0 ? null : "flagged a development->development edge";
 		},
 	},
@@ -284,7 +328,7 @@ const NEGATIVE_CASES: readonly FixtureCase[] = [
 			const census = buildFixtureCensus();
 			const reported = noProductionImportsDevelopment
 				.evaluate(census)
-				.filter((f) => f.path === "packages/app/src/Widget.test.ts" || f.path === "packages/app/src/Widget.spec.ts");
+				.filter((f) => f.path === "layers/app/src/Widget.test.ts" || f.path === "layers/app/src/Widget.spec.ts");
 			return reported.length === 0 ? null : `flagged ${reported.map((f) => f.path).join(", ")}`;
 		},
 	},
@@ -295,7 +339,7 @@ const NEGATIVE_CASES: readonly FixtureCase[] = [
 			const census = buildFixtureCensus();
 			const bad = noProductionImportsDevelopment
 				.evaluate(census)
-				.filter((f) => f.path === "packages/eval/src/uses-production.ts");
+				.filter((f) => f.path === "tools/eval/src/uses-production.ts");
 			return bad.length === 0 ? null : "flagged a development->production edge";
 		},
 	},
@@ -380,13 +424,25 @@ const STRUCTURAL_CASES: readonly FixtureCase[] = [
 	},
 	{
 		id: "runner:pattern-floor-breach-is-reported",
-		detail: "pattern-live reports a pattern that has stopped matching",
+		detail: "pattern-live reports a pattern whose live count has fallen below its floor",
 		run: () => {
-			// The fixture tree has no `packages/eslint-plugin-authz/**`, so that pattern's floor is breached.
+			// The fixture tree holds a single `.stories.tsx`, far below the live floor of 125.
 			const census = buildFixtureCensus();
 			const findings = patternLive.evaluate(census);
-			const hit = findings.some((f) => f.message.includes("development-package:eslint-plugin-authz"));
-			return hit ? null : "a pattern matching zero files was not reported";
+			const hit = findings.some((f) => f.message.includes('"stories-suffix"'));
+			return hit ? null : "a pattern below its floor was not reported";
+		},
+	},
+	{
+		id: "runner:pattern-that-still-matches-is-not-reported",
+		detail: "pattern-live stays silent about `development-root:tools`, which the fixture tree does exercise",
+		run: () => {
+			// The complement of the case above: the existence-check patterns (floor 1) must NOT fire while
+			// they still match, or the breach signal above would be indistinguishable from noise.
+			const census = buildFixtureCensus();
+			const findings = patternLive.evaluate(census);
+			const hit = findings.some((f) => f.message.includes('"development-root:tools"'));
+			return hit ? "reported a pattern that is still matching files" : null;
 		},
 	},
 ];

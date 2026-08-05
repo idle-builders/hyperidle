@@ -27,7 +27,7 @@ export default [
 
 	// React Compiler + Hooks (web package)
 	{
-		files: ["packages/web/src/**/*.{ts,tsx}"],
+		files: ["layers/web/src/**/*.{ts,tsx}"],
 		languageOptions: {
 			parser: tsParser,
 			parserOptions: {
@@ -47,7 +47,7 @@ export default [
 
 	// Drizzle ORM safety (db + server packages)
 	{
-		files: ["packages/db/src/**/*.ts", "packages/core-api/src/**/*.ts"],
+		files: ["framework/db/src/**/*.ts", "layers/core-api/src/**/*.ts"],
 		languageOptions: {
 			parser: tsParser,
 		},
@@ -62,20 +62,20 @@ export default [
 
 	// Track-L recurrence — `design/no-raw-actor-fetch` enforces that any
 	// fetch('/api/...') in the web package goes through useRecoveryFetch (or a
-	// sibling actor-aware helper in `packages/web/src/hooks/`). Detected on
+	// sibling actor-aware helper in `layers/web/src/hooks/`). Detected on
 	// L2/L4/L7 (X-Actor-Id silently dropped). Wired at warn-level for now;
 	// promotes to error in the next track once the existing-offender baseline
 	// is cleared. The rule itself allowlists `hooks/`, `__tests__/`, and `*.spec.*`.
 	{
-		files: ["packages/web/src/**/*.{ts,tsx}"],
+		files: ["layers/web/src/**/*.{ts,tsx}"],
 		ignores: [
-			"packages/web/src/**/*.stories.tsx",
-			"packages/web/src/**/__tests__/**",
-			"packages/web/src/**/*.spec.{ts,tsx}",
-			"packages/web/src/**/*.test.{ts,tsx}",
+			"layers/web/src/**/*.stories.tsx",
+			"layers/web/src/**/__tests__/**",
+			"layers/web/src/**/*.spec.{ts,tsx}",
+			"layers/web/src/**/*.test.{ts,tsx}",
 			// Hooks ARE the actor-aware wrappers — they legitimately call fetch
 			// and define the helper boundary the rule defends.
-			"packages/web/src/hooks/**",
+			"layers/web/src/hooks/**",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -92,8 +92,8 @@ export default [
 	// K6 — Design lint rules for the web package. All warn-level: the wider
 	// codebase still has documented backlog (see eslint-plugin-design/waivers.md).
 	{
-		files: ["packages/web/src/**/*.tsx"],
-		ignores: ["packages/web/src/**/*.stories.tsx"],
+		files: ["layers/web/src/**/*.tsx"],
+		ignores: ["layers/web/src/**/*.stories.tsx"],
 		languageOptions: {
 			parser: tsParser,
 			parserOptions: {
@@ -141,11 +141,11 @@ export default [
 	// hits are all in test fixtures. Separate block so the promotion scope is
 	// explicit and doesn't silently widen other warn-level rules.
 	{
-		files: ["packages/web/src/pages/**/*.tsx", "packages/web/src/components/**/*.tsx"],
+		files: ["layers/web/src/pages/**/*.tsx", "layers/web/src/components/**/*.tsx"],
 		ignores: [
-			"packages/web/src/**/__tests__/**",
-			"packages/web/src/**/*.stories.tsx",
-			"packages/web/src/**/*.test.tsx",
+			"layers/web/src/**/__tests__/**",
+			"layers/web/src/**/*.stories.tsx",
+			"layers/web/src/**/*.test.tsx",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -175,14 +175,14 @@ export default [
 	//   @lore AI7: ignore-vs-allowlist: a two-entry ignores is the minimal, explicit,
 	//   greppable exemption that doesn't couple the rule scope to the migration list.
 	{
-		files: ["packages/web/src/pages/**/*.tsx"],
+		files: ["layers/web/src/pages/**/*.tsx"],
 		ignores: [
-			"packages/web/src/**/__tests__/**",
-			"packages/web/src/**/*.stories.tsx",
-			"packages/web/src/**/*.test.tsx",
+			"layers/web/src/**/__tests__/**",
+			"layers/web/src/**/*.stories.tsx",
+			"layers/web/src/**/*.test.tsx",
 			// AG7 + onboarding own these migrations — not in AI7 scope.
-			"packages/web/src/pages/SettingsPage.tsx",
-			"packages/web/src/pages/SetupFlow.tsx",
+			"layers/web/src/pages/SettingsPage.tsx",
+			"layers/web/src/pages/SetupFlow.tsx",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -197,19 +197,19 @@ export default [
 		},
 	},
 
-	// AI7 — no-undefined-font-heading at warn on the rest of packages/web/src/**
+	// AI7 — no-undefined-font-heading at warn on the rest of layers/web/src/**
 	// (outside pages/**). The `font-heading` arm fires everywhere because it is
 	// an undefined utility (defect). The `tracking-wider` arm is self-gated to
 	// /pages/ path segments inside the rule, so this warn-level block never
 	// triggers it for components, shell, or design-system files.
 	// ~8 intentional tracking-wider usages in non-pages files are NOT flagged.
 	{
-		files: ["packages/web/src/**/*.tsx"],
+		files: ["layers/web/src/**/*.tsx"],
 		ignores: [
-			"packages/web/src/pages/**",
-			"packages/web/src/**/__tests__/**",
-			"packages/web/src/**/*.stories.tsx",
-			"packages/web/src/**/*.test.tsx",
+			"layers/web/src/pages/**",
+			"layers/web/src/**/__tests__/**",
+			"layers/web/src/**/*.stories.tsx",
+			"layers/web/src/**/*.test.tsx",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -235,14 +235,14 @@ export default [
 	// Warn-level so the baseline does not break during the migration window;
 	// will promote to error once the remaining offenders are cleared.
 	{
-		files: ["packages/core-api/src/**/*.ts", "packages/web/src/**/*.{ts,tsx}"],
+		files: ["layers/core-api/src/**/*.ts", "layers/web/src/**/*.{ts,tsx}"],
 		ignores: [
-			"packages/core-api/src/**/__tests__/**",
-			"packages/core-api/src/**/*.test.ts",
-			"packages/core-api/src/**/*.spec.ts",
-			"packages/web/src/**/__tests__/**",
-			"packages/web/src/**/*.test.{ts,tsx}",
-			"packages/web/src/**/*.spec.{ts,tsx}",
+			"layers/core-api/src/**/__tests__/**",
+			"layers/core-api/src/**/*.test.ts",
+			"layers/core-api/src/**/*.spec.ts",
+			"layers/web/src/**/__tests__/**",
+			"layers/web/src/**/*.test.{ts,tsx}",
+			"layers/web/src/**/*.spec.{ts,tsx}",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -261,11 +261,11 @@ export default [
 	// K8 — Design lint rules for the design-system package. Rules with zero
 	// surviving warnings post-K7 are promoted to `error` here; the two rules
 	// with documented designer-call exceptions remain `warn`. See
-	// `packages/eslint-plugin-design/waivers.md` for the per-warning waiver
+	// `tools/eslint-plugin-design/waivers.md` for the per-warning waiver
 	// list.
 	{
-		files: ["packages/design-system/src/**/*.tsx"],
-		ignores: ["packages/design-system/src/**/*.stories.tsx"],
+		files: ["framework/design-system/src/**/*.tsx"],
+		ignores: ["framework/design-system/src/**/*.stories.tsx"],
 		languageOptions: {
 			parser: tsParser,
 			parserOptions: {
@@ -298,20 +298,20 @@ export default [
 	// error for __fixtures__/ imports. This rule layers on top with broader
 	// coverage (also catches fixtures/ without double-underscore) at warn.
 	{
-		files: ["packages/web/src/**/*.{ts,tsx}", "packages/core-api/src/**/*.ts"],
+		files: ["layers/web/src/**/*.{ts,tsx}", "layers/core-api/src/**/*.ts"],
 		ignores: [
-			"packages/web/src/**/*.stories.tsx",
-			"packages/web/src/**/__tests__/**",
-			"packages/web/src/**/*.test.{ts,tsx}",
-			"packages/web/src/**/*.spec.{ts,tsx}",
-			"packages/web/src/**/__fixtures__/**",
-			"packages/web/src/**/e2e/**",
-			"packages/core-api/src/**/__tests__/**",
-			"packages/core-api/src/**/*.test.ts",
-			"packages/core-api/src/**/*.spec.ts",
-			"packages/core-api/src/**/__fixtures__/**",
-			"packages/core-api/src/**/e2e/**",
-			"packages/core-api/src/**/seed*.ts",
+			"layers/web/src/**/*.stories.tsx",
+			"layers/web/src/**/__tests__/**",
+			"layers/web/src/**/*.test.{ts,tsx}",
+			"layers/web/src/**/*.spec.{ts,tsx}",
+			"layers/web/src/**/__fixtures__/**",
+			"layers/web/src/**/e2e/**",
+			"layers/core-api/src/**/__tests__/**",
+			"layers/core-api/src/**/*.test.ts",
+			"layers/core-api/src/**/*.spec.ts",
+			"layers/core-api/src/**/__fixtures__/**",
+			"layers/core-api/src/**/e2e/**",
+			"layers/core-api/src/**/seed*.ts",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -326,17 +326,17 @@ export default [
 		},
 	},
 
-	// L16 AC-3: production code in packages/web/src/ must NOT import values
+	// L16 AC-3: production code in layers/web/src/ must NOT import values
 	// from any __fixtures__/ directory. Stories (*.stories.tsx) and tests
 	// (*.test.ts, *.test.tsx) are exempt; they are whitelisted by file pattern
 	// in the override below. The fixtures file itself is also exempt.
 	{
-		files: ["packages/web/src/**/*.{ts,tsx}"],
+		files: ["layers/web/src/**/*.{ts,tsx}"],
 		ignores: [
-			"packages/web/src/**/*.stories.tsx",
-			"packages/web/src/**/*.test.ts",
-			"packages/web/src/**/*.test.tsx",
-			"packages/web/src/**/__fixtures__/**",
+			"layers/web/src/**/*.stories.tsx",
+			"layers/web/src/**/*.test.ts",
+			"layers/web/src/**/*.test.tsx",
+			"layers/web/src/**/__fixtures__/**",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -364,7 +364,7 @@ export default [
 	// Routes should use the Hono chaining pattern (.get().post()…) so the return type is
 	// inferred as a union of typed routes — required for AppType / hono/client.
 	{
-		files: ["packages/core-api/src/routes/**/*.ts"],
+		files: ["layers/core-api/src/routes/**/*.ts"],
 		languageOptions: {
 			parser: tsParser,
 		},
@@ -382,13 +382,13 @@ export default [
 	},
 
 	// api-typesafety Rule 4 (warn): Discourage importing the legacy services/api-fetch module
-	// from web package code. Prefer the typed hono/client via packages/web/src/api/client.ts.
+	// from web package code. Prefer the typed hono/client via layers/web/src/api/client.ts.
 	{
-		files: ["packages/web/src/**/*.{ts,tsx}"],
+		files: ["layers/web/src/**/*.{ts,tsx}"],
 		ignores: [
-			"packages/web/src/**/*.stories.tsx",
-			"packages/web/src/**/*.test.ts",
-			"packages/web/src/**/*.test.tsx",
+			"layers/web/src/**/*.stories.tsx",
+			"layers/web/src/**/*.test.ts",
+			"layers/web/src/**/*.test.tsx",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -416,11 +416,11 @@ export default [
 	// All API calls must go through the typed hono/client so TypeScript can verify
 	// request/response shapes at compile time.
 	{
-		files: ["packages/web/src/**/*.{ts,tsx}"],
+		files: ["layers/web/src/**/*.{ts,tsx}"],
 		ignores: [
-			"packages/web/src/api/client.ts",
-			"packages/web/src/**/*.test.ts",
-			"packages/web/src/**/*.test.tsx",
+			"layers/web/src/api/client.ts",
+			"layers/web/src/**/*.test.ts",
+			"layers/web/src/**/*.test.tsx",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -447,10 +447,10 @@ export default [
 	},
 
 	// api-typesafety Rule 6 (error): Ban zValidator from @hono/zod-validator in route files.
-	// Use the internal validateBody() helper (packages/core-api/src/middleware/validate.ts) which
+	// Use the internal validateBody() helper (layers/core-api/src/middleware/validate.ts) which
 	// integrates with the response-validator middleware and error schema.
 	{
-		files: ["packages/core-api/src/routes/**/*.ts"],
+		files: ["layers/core-api/src/routes/**/*.ts"],
 		languageOptions: {
 			parser: tsParser,
 		},
@@ -477,8 +477,8 @@ export default [
 	// The client.ts file is the ONLY file allowed to import from @hyperidle/core-api/schemas
 	// (it uses AppType for hc<AppType>). All other web code must go through @/api/client.
 	{
-		files: ["packages/web/src/**/*.{ts,tsx}"],
-		// @lore AU28 Ruling 4.1: the `packages/web/src/api/client.ts` carve-out that used
+		files: ["layers/web/src/**/*.{ts,tsx}"],
+		// @lore AU28 Ruling 4.1: the `layers/web/src/api/client.ts` carve-out that used
 		// to sit here is gone with the file. It was a dead Hono RPC client (zero call
 		// sites, `AppType = Hono` with zero route inference) whose only remaining effect
 		// was to require an exemption from this very rule.
@@ -514,26 +514,26 @@ export default [
 	// @lore AU26 A1: the glob covers BOTH applications' route directories. AF11 is a
 	// property of a route, not of a package — once `requireBoundary` lives in
 	// `@hyperidle/shared/http` an `agent-orchestration` route can declare a boundary,
-	// so it must be held to the same rule. `packages/agent-orchestration/**/routes/`
+	// so it must be held to the same rule. `layers/agent-orchestration/**/routes/`
 	// is matched at HEAD (it is where B1a's route files land) rather than added later,
 	// so the first orchestration route is governed the moment it is written.
 	{
 		files: [
-			"packages/core-api/src/routes/**/*.ts",
-			"packages/agent-orchestration/**/routes/**/*.ts",
-			"packages/agent-execution/**/routes/**/*.ts",
+			"layers/core-api/src/routes/**/*.ts",
+			"layers/agent-orchestration/**/routes/**/*.ts",
+			"layers/agent-execution/**/routes/**/*.ts",
 		],
 		ignores: [
-			"packages/core-api/src/routes/**/__tests__/**",
-			"packages/core-api/src/routes/**/*.test.ts",
-			"packages/core-api/src/routes/**/*.integration.test.ts",
-			"packages/core-api/src/routes/**/*.spec.ts",
-			"packages/agent-orchestration/**/routes/**/__tests__/**",
-			"packages/agent-orchestration/**/routes/**/*.test.ts",
-			"packages/agent-orchestration/**/routes/**/*.integration.test.ts",
-			"packages/agent-execution/**/routes/**/__tests__/**",
-			"packages/agent-execution/**/routes/**/*.test.ts",
-			"packages/agent-execution/**/routes/**/*.integration.test.ts",
+			"layers/core-api/src/routes/**/__tests__/**",
+			"layers/core-api/src/routes/**/*.test.ts",
+			"layers/core-api/src/routes/**/*.integration.test.ts",
+			"layers/core-api/src/routes/**/*.spec.ts",
+			"layers/agent-orchestration/**/routes/**/__tests__/**",
+			"layers/agent-orchestration/**/routes/**/*.test.ts",
+			"layers/agent-orchestration/**/routes/**/*.integration.test.ts",
+			"layers/agent-execution/**/routes/**/__tests__/**",
+			"layers/agent-execution/**/routes/**/*.test.ts",
+			"layers/agent-execution/**/routes/**/*.integration.test.ts",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -550,8 +550,8 @@ export default [
 	// Patterns like `as Promise<`, `as any`, and `res.json() as` hide type errors
 	// that the hono/client already prevents — using them defeats the purpose of typed API calls.
 	{
-		files: ["packages/web/src/**/*.{ts,tsx}"],
-		ignores: ["packages/web/src/**/*.test.ts", "packages/web/src/**/*.test.tsx"],
+		files: ["layers/web/src/**/*.{ts,tsx}"],
+		ignores: ["layers/web/src/**/*.test.ts", "layers/web/src/**/*.test.tsx"],
 		languageOptions: {
 			parser: tsParser,
 			parserOptions: {
@@ -578,11 +578,11 @@ export default [
 
 	// AK2 — Strategy Port static guard (AC4).
 	//
-	// The Kernel (packages/core-api/src/**) must NOT import a concrete Strategy
+	// The Kernel (layers/core-api/src/**) must NOT import a concrete Strategy
 	// implementation. The port contract is:
 	//   1. assembleContext, startWatcher, FileWatcher, FileWatcherConfig from
 	//      @hyperidle/fabric are now behind the Strategy Port — use getActiveStrategy()
-	//      from packages/core-api/src/services/strategy-registry.ts instead.
+	//      from layers/core-api/src/services/strategy-registry.ts instead.
 	//   2. The whole @hyperidle/strategy-minimal package is banned from Kernel
 	//      non-composition-root files (the Kernel must not know which Strategy
 	//      is active — only the composition root picks one).
@@ -596,13 +596,13 @@ export default [
 	// AK2 bans ONLY the two port-crossing symbols (assembleContext + startWatcher)
 	// and the minimal Strategy package.
 	{
-		files: ["packages/core-api/src/**/*.ts"],
+		files: ["layers/core-api/src/**/*.ts"],
 		ignores: [
-			"packages/core-api/src/server-factory.ts", // composition root — may import a concrete Strategy
-			"packages/core-api/src/__testing__/test-fixtures.ts", // test infrastructure — registers minimalStrategy as fixture default
-			"packages/core-api/src/**/__tests__/**",
-			"packages/core-api/src/**/*.test.ts",
-			"packages/core-api/src/**/*.spec.ts",
+			"layers/core-api/src/server-factory.ts", // composition root — may import a concrete Strategy
+			"layers/core-api/src/__testing__/test-fixtures.ts", // test infrastructure — registers minimalStrategy as fixture default
+			"layers/core-api/src/**/__tests__/**",
+			"layers/core-api/src/**/*.test.ts",
+			"layers/core-api/src/**/*.spec.ts",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -648,7 +648,7 @@ export default [
 	//     catch a module-local const (it is never imported); this selector is the real
 	//     enforcement for hard-rule #1.
 	//
-	// Scoped to creation surfaces only: routes/ + tools/ in packages/core-api/src.
+	// Scoped to creation surfaces only: routes/ + tools/ in layers/core-api/src.
 	// Test files are exempt (same pattern as AK2 above).
 	//
 	// @lore AK6 T10: Both guards exist because they catch orthogonal violations.
@@ -656,20 +656,20 @@ export default [
 	// (b) catches "I added a BUILTIN_ASSISTANT_SYSTEM_PROMPT const locally and used it".
 	// Neither can substitute for the other.
 	{
-		// @lore AU19 Increment 4: `packages/core-api/src/tools/**` (the domain-
+		// @lore AU19 Increment 4: `layers/core-api/src/tools/**` (the domain-
 		// touching tool bodies) moved to `agent-orchestration/tool-handlers` —
 		// creation surfaces now live there, not under `packages/server`.
 		files: [
-			"packages/core-api/src/routes/**/*.ts",
-			"packages/agent-orchestration/tool-handlers/src/**/*.ts",
+			"layers/core-api/src/routes/**/*.ts",
+			"layers/agent-orchestration/tool-handlers/src/**/*.ts",
 		],
 		ignores: [
-			"packages/core-api/src/routes/**/__tests__/**",
-			"packages/core-api/src/routes/**/*.test.ts",
-			"packages/core-api/src/routes/**/*.spec.ts",
-			"packages/agent-orchestration/tool-handlers/src/__tests__/**",
-			"packages/agent-orchestration/tool-handlers/src/**/*.test.ts",
-			"packages/agent-orchestration/tool-handlers/src/**/*.spec.ts",
+			"layers/core-api/src/routes/**/__tests__/**",
+			"layers/core-api/src/routes/**/*.test.ts",
+			"layers/core-api/src/routes/**/*.spec.ts",
+			"layers/agent-orchestration/tool-handlers/src/__tests__/**",
+			"layers/agent-orchestration/tool-handlers/src/**/*.test.ts",
+			"layers/agent-orchestration/tool-handlers/src/**/*.spec.ts",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -706,7 +706,7 @@ export default [
 
 	// AI3 — One-clock static gate (AC-2/AC-5).
 	//
-	// Bans two categories of local timestamp formatting in packages/web/src + packages/design-system/src:
+	// Bans two categories of local timestamp formatting in layers/web/src + framework/design-system/src:
 	//
 	// 1. toLocale* calls on a Date receiver (new Date(...).toLocale*)
 	//    Selector is pinned to the inline `new Date(…).toLocale*` construction to avoid
@@ -714,7 +714,7 @@ export default [
 	//    six exempt ms-arithmetic sites (sort comparators, window checks, UI timers, ID gen).
 	//    The six exempt sites use Date.now()/getTime() for computation, not for rendering via
 	//    toLocale* — they are NOT in scope of this rule.
-	//    Allow-list: packages/shared/src/format/time.ts is the one permitted formatting module.
+	//    Allow-list: framework/shared/src/format/time.ts is the one permitted formatting module.
 	//
 	// 2. Imports of the deleted utils/format-time or utils/relative-time paths (dead-import ban).
 	//    Prevents resurrection of the deleted files under any import depth.
@@ -724,18 +724,18 @@ export default [
 	// share the same AST. The ban covers only what is architecturally distinguishable:
 	// toLocale* rendering on a Date receiver. See plans/AI3/architecture.md §"AC-2/AC-5 static gate (split)".
 	{
-		files: ["packages/web/src/**/*.{ts,tsx}", "packages/design-system/src/**/*.{ts,tsx}"],
+		files: ["layers/web/src/**/*.{ts,tsx}", "framework/design-system/src/**/*.{ts,tsx}"],
 		ignores: [
 			// The one module permitted to call toLocale* for formatting
-			"packages/shared/src/format/time.ts",
+			"framework/shared/src/format/time.ts",
 			// Stories and tests are exempt from the display-formatting gate
-			"packages/web/src/**/*.stories.tsx",
-			"packages/web/src/**/__tests__/**",
-			"packages/web/src/**/*.test.{ts,tsx}",
-			"packages/web/src/**/*.spec.{ts,tsx}",
-			"packages/design-system/src/**/*.stories.tsx",
-			"packages/design-system/src/**/__tests__/**",
-			"packages/design-system/src/**/*.test.{ts,tsx}",
+			"layers/web/src/**/*.stories.tsx",
+			"layers/web/src/**/__tests__/**",
+			"layers/web/src/**/*.test.{ts,tsx}",
+			"layers/web/src/**/*.spec.{ts,tsx}",
+			"framework/design-system/src/**/*.stories.tsx",
+			"framework/design-system/src/**/__tests__/**",
+			"framework/design-system/src/**/*.test.{ts,tsx}",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -788,15 +788,15 @@ export default [
 	// Production-only: tests, stories, specs, fixtures, e2e, and _dev dirs are
 	// exempt — mock/fixture construction legitimately fabricates partial shapes.
 	{
-		files: ["packages/*/src/**/*.{ts,tsx}"],
+		files: ["{layers,framework,applications,tools}/*/src/**/*.{ts,tsx}"],
 		ignores: [
-			"packages/*/src/**/__tests__/**",
-			"packages/*/src/**/*.test.{ts,tsx}",
-			"packages/*/src/**/*.spec.{ts,tsx}",
-			"packages/*/src/**/*.stories.tsx",
-			"packages/*/src/**/__fixtures__/**",
-			"packages/*/src/**/e2e/**",
-			"packages/*/src/**/_dev/**",
+			"{layers,framework,applications,tools}/*/src/**/__tests__/**",
+			"{layers,framework,applications,tools}/*/src/**/*.test.{ts,tsx}",
+			"{layers,framework,applications,tools}/*/src/**/*.spec.{ts,tsx}",
+			"{layers,framework,applications,tools}/*/src/**/*.stories.tsx",
+			"{layers,framework,applications,tools}/*/src/**/__fixtures__/**",
+			"{layers,framework,applications,tools}/*/src/**/e2e/**",
+			"{layers,framework,applications,tools}/*/src/**/_dev/**",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -815,7 +815,7 @@ export default [
 	// (web → design-system → web) that breaks the acyclic dependency direction
 	// the monorepo depends on. design-system/src/ never imports @hyperidle/web.
 	{
-		files: ["packages/design-system/src/**/*.{ts,tsx}"],
+		files: ["framework/design-system/src/**/*.{ts,tsx}"],
 		languageOptions: {
 			parser: tsParser,
 			parserOptions: {
@@ -845,7 +845,7 @@ export default [
 		},
 	},
 
-	// AJ3: the isolation harness (packages/web/src/__preview__/**) is a dev/story/test
+	// AJ3: the isolation harness (layers/web/src/__preview__/**) is a dev/story/test
 	// surface. It must NEVER reach a backend — importing @hyperidle/core-api or
 	// @hyperidle/db would defeat the no-backend contract that lets a design mount
 	// in jsdom with no server, db, or real data. Static "must not
@@ -855,7 +855,7 @@ export default [
 	// @lore AJ3: placed LAST in the config array on purpose. ESLint flat config
 	// REPLACES (does not merge) a rule's options when a later config object
 	// re-sets the same rule for overlapping files. Several broader
-	// `packages/web/src/**` blocks set `no-restricted-imports` (fixtures ban,
+	// `layers/web/src/**` blocks set `no-restricted-imports` (fixtures ban,
 	// api-typesafety server ban, format-time dead-import ban) — being last makes
 	// THIS block authoritative for preview/**, so it must re-state the full
 	// AK7 — Selection seam static guards (AC1 absence half + AC2 absence half).
@@ -868,7 +868,7 @@ export default [
 	//   The select-agent.ts file is the ONLY place the Kernel is permitted to
 	//   perform candidate selection logic; all others must call selectOwner.
 	//
-	//   Scoped to: packages/core-api/src/services/**  (Kernel services only)
+	//   Scoped to: layers/core-api/src/services/**  (Kernel services only)
 	//   Allowlisted: select-agent.ts (the single permitted caller)
 	//   @lore AK7: This guard carries the static half of AC1 ("Kernel no longer
 	//   chooses"). The runtime half is the selectOwner seam itself. The selector
@@ -881,7 +881,7 @@ export default [
 	//   Bans `systemPrompt` and `AGENTS.md` string literals in select-agent.ts.
 	//   Enforces §2a Execution rule: "the Kernel never inspects the AGENTS.md".
 	//   select-agent.ts is a selection helper; it must not read persona content.
-	//   Scoped to: packages/core-api/src/services/select-agent.ts only.
+	//   Scoped to: layers/core-api/src/services/select-agent.ts only.
 	{
 		// @lore AU19: `select-agent.ts` (agent-selection Service) and
 		// `bet-decomposition.ts` (work Service) split into separate Service
@@ -890,7 +890,7 @@ export default [
 		// `bet-decomposition.ts` (its own comment above names it as the original
 		// round-robin offender); pointing directly at it achieves the same intent
 		// as the old glob+ignore pair without needing a cross-package ignore.
-		files: ["packages/core-api/work/src/bet-decomposition.ts"],
+		files: ["layers/core-api/work/src/bet-decomposition.ts"],
 		languageOptions: {
 			parser: tsParser,
 		},
@@ -918,8 +918,8 @@ export default [
 		// above) rather than deleting the guard — the persona-inspection ban
 		// is still the invariant both new modules must hold.
 		files: [
-			"packages/core-api/work/src/agent-assignment.ts",
-			"packages/core-api/routine/src/agent-delegation.ts",
+			"layers/core-api/work/src/agent-assignment.ts",
+			"layers/core-api/routine/src/agent-delegation.ts",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -944,7 +944,7 @@ export default [
 
 	// server+db ban itself rather than relying on any earlier block.
 	{
-		files: ["packages/web/src/__preview__/**/*.{ts,tsx}"],
+		files: ["layers/web/src/__preview__/**/*.{ts,tsx}"],
 		languageOptions: {
 			parser: tsParser,
 			parserOptions: {
@@ -989,9 +989,9 @@ export default [
 	// Scoped to production code only — stories and tests are exempt.
 	{
 		files: [
-			"packages/web/src/settings/harness-presentation.ts",
-			"packages/web/src/settings/HarnessCard.tsx",
-			"packages/web/src/settings/SettingsHarnesses.tsx",
+			"layers/web/src/settings/harness-presentation.ts",
+			"layers/web/src/settings/HarnessCard.tsx",
+			"layers/web/src/settings/SettingsHarnesses.tsx",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -1019,7 +1019,7 @@ export default [
 	// AgentSessionRequest, but runtime start belongs to agent-session-runtime /
 	// session-provisioning. Keep adapter selection and harness starts out of this file.
 	{
-		files: ["packages/core-api/work/src/bet-decomposition.ts"],
+		files: ["layers/core-api/work/src/bet-decomposition.ts"],
 		languageOptions: {
 			parser: tsParser,
 		},
@@ -1066,17 +1066,17 @@ export default [
 	// SOURCE type — `Message`/`InlineRef`/`thread*` or any `harness` path — so a
 	// second adapter (AM3's session adapter) can feed the SAME renderer with zero
 	// change. A static "must not import X" property is a lint rule, not a test
-	// (CLAUDE.md). The adapter (`packages/shared/src/part.ts`) is the ONLY place
+	// (CLAUDE.md). The adapter (`framework/shared/src/part.ts`) is the ONLY place
 	// permitted to import `Message`/`InlineRef`.
 	//
 	// @lore AM1: placed LAST so this block is authoritative for these paths —
 	// ESLint flat config REPLACES (does not merge) `no-restricted-imports` when a
-	// later config re-sets it for overlapping files. The broad `packages/web/src/**`
+	// later config re-sets it for overlapping files. The broad `layers/web/src/**`
 	// api-fetch ban (Rule 4) is restated here so it still applies.
 	{
 		files: [
-			"packages/web/src/components/PartList.tsx",
-			"packages/web/src/components/parts/**/*.{ts,tsx}",
+			"layers/web/src/components/PartList.tsx",
+			"layers/web/src/components/parts/**/*.{ts,tsx}",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -1093,7 +1093,7 @@ export default [
 							name: "@hyperidle/shared",
 							importNames: ["Message", "InlineRef", "EntityRef", "BlockRef", "MentionRef"],
 							message:
-								"AM1 W1: the source-agnostic Part renderer must NOT import source types (Message/InlineRef/…). Render the `Part`/`Embed` vocabulary only — the adapter (packages/shared/src/part.ts) owns all knowledge of Message. This is the AM1↔AM3 reuse boundary (AC5).",
+								"AM1 W1: the source-agnostic Part renderer must NOT import source types (Message/InlineRef/…). Render the `Part`/`Embed` vocabulary only — the adapter (framework/shared/src/part.ts) owns all knowledge of Message. This is the AM1↔AM3 reuse boundary (AC5).",
 						},
 					],
 					patterns: [
@@ -1143,30 +1143,30 @@ export default [
 	// and the extraction drain (bet-decomposition) are classified by their markers
 	// so the rule never requires eslint-disable on them.
 	{
-		// @lore AU19 Increment 4: `packages/core-api/src/harness/**` moved to
+		// @lore AU19 Increment 4: `layers/core-api/src/harness/**` moved to
 		// `agent-execution/harness-registry` — the stream-drain surfaces this
 		// guard polices now live there, not under `packages/server`.
 		// @lore AU19 Increment 5 (item 2): `packages/server` dissolved —
-		// the composition-root services relocated to `packages/core-api/src/
+		// the composition-root services relocated to `layers/core-api/src/
 		// services/**`, and `desktop-worker-client.ts` (a forwarding relay)
-		// relocated to `packages/remote-worker/src/**`.
+		// relocated to `applications/remote-worker/src/**`.
 		files: [
-			"packages/core-api/src/services/**/*.ts",
-			"packages/agent-execution/harness-registry/src/**/*.ts",
-			"packages/desktop/src/**/*.ts",
-			"packages/remote-worker/src/**/*.ts",
+			"layers/core-api/src/services/**/*.ts",
+			"layers/agent-execution/harness-registry/src/**/*.ts",
+			"applications/desktop/src/**/*.ts",
+			"applications/remote-worker/src/**/*.ts",
 		],
 		ignores: [
-			"packages/core-api/src/services/**/__tests__/**",
-			"packages/core-api/src/services/**/*.test.ts",
-			"packages/core-api/src/services/**/*.integration.test.ts",
-			"packages/agent-execution/harness-registry/src/__tests__/**",
-			"packages/agent-execution/harness-registry/src/**/*.test.ts",
-			"packages/agent-execution/harness-registry/src/**/*.integration.test.ts",
-			"packages/desktop/src/**/__tests__/**",
-			"packages/desktop/src/**/*.test.ts",
-			"packages/remote-worker/src/**/__tests__/**",
-			"packages/remote-worker/src/**/*.test.ts",
+			"layers/core-api/src/services/**/__tests__/**",
+			"layers/core-api/src/services/**/*.test.ts",
+			"layers/core-api/src/services/**/*.integration.test.ts",
+			"layers/agent-execution/harness-registry/src/__tests__/**",
+			"layers/agent-execution/harness-registry/src/**/*.test.ts",
+			"layers/agent-execution/harness-registry/src/**/*.integration.test.ts",
+			"applications/desktop/src/**/__tests__/**",
+			"applications/desktop/src/**/*.test.ts",
+			"applications/remote-worker/src/**/__tests__/**",
+			"applications/remote-worker/src/**/*.test.ts",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -1180,20 +1180,20 @@ export default [
 	// AU3 — production runtime must not import Fabric/Strategy package seams.
 	{
 		files: [
-			"packages/core-api/src/**/*.ts",
-			"packages/shared/src/**/*.ts",
-			"packages/api-contract/src/**/*.ts",
-			"packages/web/src/**/*.{ts,tsx}",
-			"packages/design-system/src/**/*.{ts,tsx}",
+			"layers/core-api/src/**/*.ts",
+			"framework/shared/src/**/*.ts",
+			"framework/api-contract/src/**/*.ts",
+			"layers/web/src/**/*.{ts,tsx}",
+			"framework/design-system/src/**/*.{ts,tsx}",
 		],
 		ignores: [
-			"packages/**/src/**/__tests__/**",
-			"packages/**/*.test.{ts,tsx}",
-			"packages/**/*.integration.test.{ts,tsx}",
-			"packages/**/*.spec.{ts,tsx}",
-			"packages/**/*.stories.tsx",
-			"packages/core-api/src/services/strategy-registry.ts",
-			"packages/shared/src/strategy-port.ts",
+			"{layers,framework,applications,tools}/**/src/**/__tests__/**",
+			"{layers,framework,applications,tools}/**/*.test.{ts,tsx}",
+			"{layers,framework,applications,tools}/**/*.integration.test.{ts,tsx}",
+			"{layers,framework,applications,tools}/**/*.spec.{ts,tsx}",
+			"{layers,framework,applications,tools}/**/*.stories.tsx",
+			"layers/core-api/src/services/strategy-registry.ts",
+			"framework/shared/src/strategy-port.ts",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -1261,13 +1261,13 @@ export default [
 	// template-concat violations appear. The open-handler.ts exemption is intentional
 	// (it IS the only allowed site). open-handler.test.ts + stories are also exempt.
 	{
-		files: ["packages/web/src/**/*.{ts,tsx}"],
+		files: ["layers/web/src/**/*.{ts,tsx}"],
 		ignores: [
-			"packages/web/src/services/open-handler.ts",
-			"packages/web/src/**/__tests__/**",
-			"packages/web/src/**/*.test.{ts,tsx}",
-			"packages/web/src/**/*.spec.{ts,tsx}",
-			"packages/web/src/**/*.stories.tsx",
+			"layers/web/src/services/open-handler.ts",
+			"layers/web/src/**/__tests__/**",
+			"layers/web/src/**/*.test.{ts,tsx}",
+			"layers/web/src/**/*.spec.{ts,tsx}",
+			"layers/web/src/**/*.stories.tsx",
 		],
 		languageOptions: {
 			parser: tsParser,

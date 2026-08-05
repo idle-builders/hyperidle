@@ -123,13 +123,13 @@ Each folder has an `index.md` with section links. `/pipeline:refine` and `/pipel
 
 ## Tech Stack
 
-Node.js, npm, TypeScript strict, Hono, Drizzle ORM (PGlite locally / PostgreSQL server), React + Vite, Tailwind CSS + DaisyUI (hearth-light/hearth-dark themes), Vitest, Playwright, Biome, in-process `setInterval` schedulers (distributed across `packages/core-api/*/src/`, `packages/agent-orchestration/*/src/` — e.g. `core-api/routine/src/routine-scheduler.ts`).
+Node.js, npm, TypeScript strict, Hono, Drizzle ORM (PGlite locally / PostgreSQL server), React + Vite, Tailwind CSS + DaisyUI (hearth-light/hearth-dark themes), Vitest, Playwright, Biome, in-process `setInterval` schedulers (distributed across `layers/core-api/*/src/`, `layers/agent-orchestration/*/src/` — e.g. `core-api/routine/src/routine-scheduler.ts`).
 
 ---
 
 ## Monorepo
 
-Run `ls packages/` — never work from a remembered list of package names.
+Run `ls layers/ framework/ applications/ tools/` — never work from a remembered list of package names.
 
 Never hardcode a package path in a script, guard, or config. Discover paths by scanning, and **hard-fail when a scan finds nothing** — a guard that silently matches zero files reads as passing forever.
 
