@@ -843,11 +843,7 @@ export default [
 					],
 					patterns: [
 						{
-							group: [
-								"**/layers/core-ui/**",
-								"../../../layers/core-ui/**",
-								"**/core-ui/src/**",
-							],
+							group: ["**/layers/core-ui/**", "../../../layers/core-ui/**", "**/core-ui/src/**"],
 							message:
 								"AJ6 AC8: design-system/src must not import core-ui source files. This creates an import cycle: core-ui → design-system → core-ui.",
 						},
