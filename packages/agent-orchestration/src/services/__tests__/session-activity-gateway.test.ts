@@ -33,7 +33,7 @@
  * the integration bar. Its `db` fixture was unused (`_db`) at every call site.
  */
 
-import { describe, expect, test } from "../../test-fixtures.js";
+import { describe, expect, test } from "../../__testing__/test-fixtures.js";
 import { registerSessionActivityGateway } from "../session-activity-gateway.js";
 
 interface RecordedBroadcast {

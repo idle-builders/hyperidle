@@ -111,19 +111,19 @@ const NAME_DECLARED_SUFFIXES: readonly {
 		clause: "stories-suffix",
 		suffixes: [".stories.tsx"],
 		description: "a `.stories.tsx` file is a design artifact, pinned beside its component",
-		minFiles: 100,
+		minFiles: 125,
 	},
 	{
 		clause: "test-suffix",
 		suffixes: [".test.ts", ".test.tsx"],
 		description: "a `.test.ts(x)` file is a test — including the `.integration.test.ts` form",
-		minFiles: 600,
+		minFiles: 800,
 	},
 	{
 		clause: "spec-suffix",
 		suffixes: [".spec.ts", ".spec.tsx"],
 		description: "a `.spec.ts(x)` file is a Playwright end-to-end spec",
-		minFiles: 50,
+		minFiles: 75,
 	},
 ];
 
@@ -149,8 +149,20 @@ const NAME_DECLARED_SUFFIXES: readonly {
  * `test-suffix` matching zero files — which `pattern-live` correctly rejects as a dead rule. Suffix
  * first is also the more specific signal, so it is the right precedence on the merits, not a
  * workaround. The reorder moved ~958 files from `dunder-segment` into the suffix clauses; it changed
- * WHICH clause claims a file, never WHETHER the file is development (773 production / 2,416
- * development, unchanged).
+ * WHICH clause claims a file, never WHETHER the file is development.
+ *
+ * @lore AU28: the floors are RECOMPUTED against the live tree whenever the tree moves under them, and
+ * the recompute is part of the merge, not a follow-up. Rebasing onto AU26 + AU27 changed 632 files and
+ * every magnitude below with it. A floor left at its pre-merge value is the precise rot these floors
+ * exist to catch — it still passes, so nobody notices it has stopped measuring anything.
+ *
+ * Measured on the tree this commit produces (3,256 tracked / 789 production / 2,467 development):
+ *   stories-suffix 144 · test-suffix 892 · spec-suffix 87 · dunder-segment 152 ·
+ *   outside-packages 1,064 · default-production 789.
+ * Each magnitude floor sits at ~87-90% of its real count — tight enough that losing a package's worth
+ * of files trips it, loose enough that ordinary churn does not. The enumerated-set patterns
+ * (`development-package:*`, `test-runner-config:*`) stay at 1 on purpose: they are existence checks
+ * over a closed list, and their job is to fail when an ENTRY dies, not when a count dips.
  */
 export const CLASSIFICATION_PATTERNS: readonly ClassificationPattern[] = [
 	...NAME_DECLARED_SUFFIXES.map(
@@ -168,7 +180,7 @@ export const CLASSIFICATION_PATTERNS: readonly ClassificationPattern[] = [
 		clause: "dunder-segment",
 		kind: "development",
 		description: "any path segment starting with `__` marks the file development",
-		minFiles: 100,
+		minFiles: 135,
 		matches: hasDunderSegment,
 	},
 	...DEVELOPMENT_PACKAGE_DIRS.map(
@@ -186,7 +198,7 @@ export const CLASSIFICATION_PATTERNS: readonly ClassificationPattern[] = [
 		clause: "outside-packages",
 		kind: "development",
 		description: "anything outside `packages/` is repo tooling, docs or pipeline state",
-		minFiles: 800,
+		minFiles: 950,
 		matches: (p) => !p.startsWith("packages/"),
 	},
 	...TEST_RUNNER_CONFIG_BASENAMES.map(
