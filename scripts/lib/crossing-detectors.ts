@@ -103,6 +103,39 @@ export function buildCompanionGroups(
 ): Map<string, ReadonlySet<string>> {
 	const groups = new Map<string, Set<string>>();
 
+	/**
+	 * Tables the owner ever REVISES — updates or deletes a row of, independently.
+	 *
+	 * @lore AU28 Ruling 13a: a companion the owner only ever appends to and never revises is a LOG,
+	 * not part of the entity's state. Nothing reads it to decide what the entity is, and its foreign
+	 * key points AT the entity rather than the other way round — so a test that omits it produces the
+	 * same mutable state production would. `knowledgeEditLog` and `knowledgeAccessLog` have zero
+	 * updates between them; `teamMembers` and `knowledgeAppProjection` are updated by their owners and
+	 * are genuinely part of the row set. Requiring a fabricated audit row in 51 test sites would have
+	 * been exactly the ceremony Ruling 13 removed, one scale smaller.
+	 */
+	const revised = new Set<string>();
+	for (const record of input.census.files) {
+		if (record.kind !== "production" || !/\.tsx?$/.test(record.path)) continue;
+		let sf: ts.SourceFile;
+		try {
+			sf = parseFile(record.path, input.readFile(record.path));
+		} catch {
+			continue;
+		}
+		const walk = (node: ts.Node): void => {
+			if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)) {
+				const method = node.expression.name.text;
+				const arg = node.arguments[0];
+				if ((method === "update" || method === "delete") && arg !== undefined && ts.isIdentifier(arg) && input.tables.has(arg.text)) {
+					revised.add(arg.text);
+				}
+			}
+			ts.forEachChild(node, walk);
+		};
+		walk(sf);
+	}
+
 	/** Tables INSERTED on every path through this function — not inside a branch. */
 	const unconditionalInserts = (fn: ts.FunctionDeclaration): Set<string> => {
 		const found = new Set<string>();
@@ -135,9 +168,11 @@ export function buildCompanionGroups(
 			if (!statement.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword)) continue;
 			const written = unconditionalInserts(statement);
 			if (written.size < 2) continue;
-			// Only the OWNING service's writer counts. A seeder in the database package writes every
-			// table in the schema and is not a door any test would go through.
-			const owned = [...written].filter((table) => ownerOf(table) === owner.name);
+			// A seeder in the database package writes every table in the schema and is not a door any
+			// test would go through, so the owner check below also excludes it.
+			// Only the OWNING service's writer counts, and only tables the owner actually revises —
+			// an append-only log is history, not state.
+			const owned = [...written].filter((table) => ownerOf(table) === owner.name && revised.has(table));
 			if (owned.length < 2) continue;
 			for (const table of owned) {
 				const group = groups.get(table) ?? new Set<string>();

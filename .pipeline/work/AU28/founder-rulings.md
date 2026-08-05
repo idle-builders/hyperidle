@@ -655,9 +655,42 @@ development helpers it imports, so a shared fixture supplying the companion is n
 
 **Effect: development violations 2,022 → 125.** Production is unchanged — the owner and nobody else.
 
-**Open, flagged not decided:** 91 of the remaining 125 involve `knowledgeEditLog`. `knowledge.create`
-writes it unconditionally alongside the item, so it is a companion by the derived criterion — but an
-edit log is append-only history and its foreign key points AT the item, so an item with no log row
-breaks nothing. No mechanical criterion separates it: the pair is both co-written and co-read, same
-as `teams`/`teamMembers`. Excluding it would be a judgement, so it is left in and named here instead.
-One line in `governance/architecture.json` would carve it out if the founder rules that way.
+### Ruling 13a — an append-only log is history, not part of the row set
+
+The 91 `knowledgeEditLog` violations left open above are **resolved, and it did not need a
+judgement call.** The criterion I first reached for — "is the companion read?" — does not separate
+them: `knowledgeEditLog` is co-written AND co-read exactly like `teamMembers`. The one that does:
+
+> **Does the owner ever REVISE the row?**
+
+| table | inserts | updates |
+|---|--:|--:|
+| `teamMembers` | 3 | **2** |
+| `knowledgeAppProjection` | 7 | **4** |
+| `knowledgeEditLog` | 12 | **0** |
+| `knowledgeAccessLog` | 1 | **0** |
+
+A companion the owner only ever appends to and never revises is a LOG. Nothing reads it to decide
+what the entity is, and its foreign key points AT the entity rather than the other way round — so a
+test that omits it produces the same mutable state production would. Requiring a fabricated audit row
+in 51 test sites would have been the ceremony Ruling 13 removed, one scale smaller.
+
+**Effect: development violations 125 → 69.** Derived from the owners' own code, so a log that starts
+being revised becomes a companion automatically.
+
+### What is left, and why it is not all mechanical
+
+63 companion violations across 41 files — median one per file:
+
+| | n |
+|---|--:|
+| `knowledgeItems` without `knowledgeAppProjection` | 34 |
+| `teams` without `teamMembers` | 27 |
+| the two orphan-companion cases | 2 |
+
+Most are a one-line fixture addition. **About six are not**, and they are worth naming before anyone
+runs a codemod over them: `framework/db/src/__tests__/foreign-keys.integration.test.ts`,
+`schema.integration.test.ts`, `migration.integration.test.ts` and `seed-then-migrate.integration.test.ts`
+are tests OF THE SCHEMA. They insert a deliberately minimal row to prove a constraint fires or that
+an old-shape row migrates. Adding the companion there does not make them more faithful — it changes
+what is under test. They stay at warn until someone decides case by case.

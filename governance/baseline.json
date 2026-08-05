@@ -58,9 +58,9 @@
 		"framework → db:table (other) [table:write] development": {
 			"successor": "W5-W6",
 			"sites": {
-				"framework/db/src/__tests__/foreign-keys.integration.test.ts": 5,
+				"framework/db/src/__tests__/foreign-keys.integration.test.ts": 4,
 				"framework/db/src/__tests__/migration.integration.test.ts": 1,
-				"framework/db/src/__tests__/schema.integration.test.ts": 6,
+				"framework/db/src/__tests__/schema.integration.test.ts": 4,
 				"framework/db/src/__tests__/seed-then-migrate.integration.test.ts": 2,
 				"framework/db/src/__tests__/session-requests.integration.test.ts": 1
 			}
@@ -110,40 +110,30 @@
 			"successor": "W5-W6",
 			"sites": {
 				"layers/agent-orchestration/src/services/__tests__/session-stream-hub.integration.test.ts": 1,
-				"layers/core-api/src/__tests__/AD7-search.integration.test.ts": 2,
-				"layers/core-api/src/__tests__/af9-attention-population.integration.test.ts": 2,
-				"layers/core-api/src/__tests__/af9-promotion-routine.integration.test.ts": 2,
 				"layers/core-api/src/__tests__/app-runtime-domain-observability.integration.test.ts": 1,
-				"layers/core-api/src/__tests__/attention-service.integration.test.ts": 4,
-				"layers/core-api/src/__tests__/builtin-routines.integration.test.ts": 10,
 				"layers/core-api/src/__tests__/create-conflict-review.integration.test.ts": 1,
 				"layers/core-api/src/__tests__/knowledge-access.integration.test.ts": 4,
-				"layers/core-api/src/__tests__/knowledge-scope-name.integration.test.ts": 2,
 				"layers/core-api/src/__tests__/knowledge-signals.integration.test.ts": 5,
 				"layers/core-api/src/__tests__/M3-settings-routes.integration.test.ts": 4,
 				"layers/core-api/src/__tests__/P2-auth-resolution.integration.test.ts": 1,
 				"layers/core-api/src/__tests__/P3-settings-config.integration.test.ts": 1,
 				"layers/core-api/src/__tests__/promote-knowledge.integration.test.ts": 2,
 				"layers/core-api/src/__tests__/R7-knowledge-e2e.integration.test.ts": 2,
-				"layers/core-api/src/__tests__/relevance-service.integration.test.ts": 3,
+				"layers/core-api/src/__tests__/relevance-service.integration.test.ts": 1,
 				"layers/core-api/src/__tests__/retention-reaper.integration.test.ts": 1,
-				"layers/core-api/src/__tests__/score-attention.integration.test.ts": 3,
 				"layers/core-api/src/routes/__tests__/AF14-threads.integration.test.ts": 1,
 				"layers/core-api/src/routes/__tests__/bets.AK5-promote.integration.test.ts": 1,
 				"layers/core-api/src/routes/__tests__/knowledge.af13.integration.test.ts": 1,
 				"layers/core-api/src/routes/__tests__/knowledge.knowledge-action-baked-emit.integration.test.ts": 1,
 				"layers/core-api/src/routes/__tests__/knowledge.q2.integration.test.ts": 1,
 				"layers/core-api/src/routes/__tests__/knowledge.validation.integration.test.ts": 1,
-				"layers/core-api/src/routes/__tests__/knowledge.y4-triage.integration.test.ts": 4,
 				"layers/core-api/src/services/__tests__/agent-run-admission-failed-emission.integration.test.ts": 1,
 				"layers/core-api/src/services/__tests__/agent-run-admission-failed-knowledge-action-migration.integration.test.ts": 1,
 				"layers/core-api/src/services/__tests__/agent-run-admission-failed-subscribers.integration.test.ts": 1,
 				"layers/core-api/src/services/__tests__/agent-work-intent-supersede.integration.test.ts": 1,
 				"layers/core-api/src/services/__tests__/assistant-turn-b3-coherence-trigger.integration.test.ts": 1,
-				"layers/core-api/src/services/__tests__/context-bundle-sandbox-byte-parity.integration.test.ts": 6,
 				"layers/core-api/src/services/__tests__/core-api-port-increment2-knowledge.integration.test.ts": 1,
-				"layers/core-api/src/services/__tests__/routine-scheduler-relocation.integration.test.ts": 2,
-				"layers/core-api/src/services/__tests__/session-knowledge-assembler-ranking-parity.integration.test.ts": 10
+				"layers/core-api/src/services/__tests__/routine-scheduler-relocation.integration.test.ts": 2
 			}
 		},
 		"layer → db:table (unowned) [import] production": {
@@ -268,13 +258,11 @@
 				"layers/agent-orchestration/filesystem-mounting/src/__tests__/capture-provenance.integration.test.ts": 1,
 				"layers/agent-orchestration/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts": 1,
 				"layers/agent-orchestration/filesystems/src/__tests__/injected-filesystems-for-provisioning.integration.test.ts": 2,
-				"layers/core-api/review/src/__tests__/reengagement-resolver.integration.test.ts": 2,
-				"layers/core-api/routine/src/__tests__/routine-run-resolver.integration.test.ts": 3,
+				"layers/core-api/routine/src/__tests__/routine-run-resolver.integration.test.ts": 1,
 				"layers/core-api/routine/src/__tests__/routine-scheduler-completeness.integration.test.ts": 1,
 				"layers/core-api/routine/src/__tests__/routine-service.integration.test.ts": 2,
 				"layers/core-api/work/src/__tests__/append-task-note.integration.test.ts": 1,
 				"layers/core-api/work/src/__tests__/task-planning-signals.integration.test.ts": 1,
-				"layers/core-api/work/src/__tests__/task-run-resolver.integration.test.ts": 2,
 				"layers/core-api/work/src/__tests__/work-completeness.integration.test.ts": 1
 			}
 		},

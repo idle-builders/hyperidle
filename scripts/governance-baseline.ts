@@ -93,7 +93,7 @@ if (orphans.length > 0) {
 }
 
 if (process.argv.includes("--write")) {
-	writeFileSync(path.join(REPO_ROOT, "governance/baseline.json"), `${JSON.stringify(baseline, null, 1)}\n`);
+	writeFileSync(path.join(REPO_ROOT, "governance/baseline.json"), `${JSON.stringify(baseline, null, "\t")}\n`);
 	console.log("  written to governance/baseline.json");
 } else {
 	console.log("  (dry run — pass --write to rewrite the file)");

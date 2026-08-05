@@ -437,6 +437,12 @@ describe("AU28 — companion rows (Ruling 13)", () => {
 				await db.insert(teams).values(input);
 				await db.insert(teamMembers).values(input);
 			}
+			// Both rows are REVISED by their owner, which is what makes them state rather than
+			// history — see the append-only test below.
+			export async function updateTeam(db: any, id: string, patch: any) {
+				await db.update(teams).set(patch);
+				await db.update(teamMembers).set(patch);
+			}
 		`,
 		"layers/core-api/work/src/work-service.ts": `
 			import { bets, users } from "@hyperidle/db";
@@ -484,6 +490,60 @@ describe("AU28 — companion rows (Ruling 13)", () => {
 		const groups = companions();
 		expect(groups.has("bets")).toBe(false);
 		expect(groups.has("users")).toBe(false);
+	});
+
+	it("negative control — an append-only log is history, not part of the row set", () => {
+		// `knowledgeEditLog` is written alongside every knowledge item and NEVER updated. Nothing
+		// reads it to decide what the item is, and its foreign key points AT the item. A test that
+		// omits it produces the same mutable state production would — so requiring a fabricated audit
+		// row in 51 places would have been the same ceremony Ruling 13 removed, one scale smaller.
+		const groups = companions({
+			"layers/core-api/org/src/audit.ts": `
+				import { teams, teamMembers } from "@hyperidle/db";
+				export async function logTeamChange(db: any, v: any) {
+					await db.insert(teams).values(v);
+					await db.insert(teamMembers).values(v);
+				}
+			`,
+		});
+		// teamMembers IS updated by its owner, so it stays a companion.
+		expect([...(groups.get("teams") ?? [])]).toEqual(["teamMembers"]);
+	});
+
+	it("drops a companion the owner never revises", () => {
+		const repo = syntheticRepo({
+			"framework/shared/events.ts": "",
+			"layers/core-api/org/package.json": JSON.stringify({ name: "@hyperidle/org" }),
+			"layers/core-api/org/src/store.ts": `
+				import { teams, teamMembers, orgEdges } from "@hyperidle/db";
+				export async function createTeam(db: any, v: any) {
+					await db.insert(teams).values(v);
+					await db.insert(teamMembers).values(v);
+					await db.insert(orgEdges).values(v);
+				}
+				export async function rename(db: any, v: any) {
+					await db.update(teamMembers).set(v);
+				}
+			`,
+		});
+		const census = buildCensus({
+			files: repo.files,
+			readFile: repo.readFile,
+			roleRules: ROLE_RULES,
+		});
+		const groups = buildCompanionGroups(
+			{
+				census,
+				readFile: repo.readFile,
+				locate: buildPackageLocator(census.packages),
+				tables: new Set(["teams", "teamMembers", "orgEdges"]),
+			},
+			() => "org",
+		);
+		// `orgEdges` is inserted alongside but never updated — append-only, so not a companion.
+		// `teams` is never updated here either, so only the revised pair survives... and a pair needs
+		// two members, so nothing is required of a writer whose rows are all append-only.
+		expect(groups.has("orgEdges")).toBe(false);
 	});
 
 	it("negative control — a seeder outside the owning package is not the owner's writer", () => {
