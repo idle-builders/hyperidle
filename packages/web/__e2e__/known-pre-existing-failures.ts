@@ -349,4 +349,29 @@ export const AU21_PRE_EXISTING_E2E_FAILURES: readonly string[] = [
 	"user-scoped item renders Private tag",
 	"work empty state visible when no bets",
 	"work portfolio bet grid: content area ≤ 960px",
+
+	// @lore AU28 (2026-08-05, the AU26+AU27 rebase): five tests that AU26's route move broke
+	// on `main`, invisible there and unmasked here. AU26 repointed the web session/run reads
+	// at agent-orchestration's new API surface (`useTaskSessions` now fetches
+	// `GET /api/agent-orchestration/runs?task_id=…`, and the agent-profile activity table
+	// followed), but these two specs still `page.route()` the pre-move paths — so no session
+	// row ever renders and every assertion that waits for one times out. Stale e2e fixtures,
+	// not a product regression: the app calls the route it should, the mock answers the one
+	// that no longer exists.
+	//
+	// They stayed invisible on `main` because `--only-changed=origin/main` never selected
+	// them there. AU28's `e2e/` → `__e2e__/` rename marks every spec changed, so the default
+	// project runs them for the first time.
+	//
+	// Verified in BOTH directions, as this list's standard requires: a FRESH
+	// `git worktree` + `npm ci` at `f484b295` (origin/main, AU26's merge commit) running
+	// `npx playwright test e2e/AB1-agent-profile.spec.ts e2e/AI4-status-language.spec.ts`
+	// reproduces all five byte-for-byte — same titles, same line numbers, same
+	// `session-row` locator timeout — with 18 passed alongside. Nothing here is caused by
+	// AU28, and the fix belongs to whoever re-points these mocks at the moved routes.
+	"shows Recent Activity section with sessions table",
+	"does not show health banner when agent is healthy",
+	"shows active session link when agent has running session",
+	"recent activity table has accessible aria-label",
+	"livedot-worktask-session: LiveDot present in WorkTask active session row",
 ] as const;
