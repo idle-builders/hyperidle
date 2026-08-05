@@ -17,7 +17,9 @@
 	},
 	"devDependencies": {
 		"@types/estree": "^1.0.0",
+		"@typescript-eslint/parser": "^8.62.0",
 		"estree-jsx": "^0.0.1",
-		"react": "^19.2.7"
+		"react": "^19.2.7",
+		"vitest": "^4.1.9"
 	}
 }

@@ -186,6 +186,10 @@
 	},
 	"overrides": [
 		{
+			"includes": ["knip.json"],
+			"json": { "parser": { "allowComments": true } }
+		},
+		{
 			"includes": ["**/logger.ts", "**/logger.test.ts"],
 			"linter": {
 				"rules": {

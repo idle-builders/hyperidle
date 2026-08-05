@@ -13,5 +13,8 @@
 	"dependencies": {
 		"@hyperidle/harness-registry": "*",
 		"@hyperidle/shared": "*"
+	},
+	"devDependencies": {
+		"vitest": "^4.1.9"
 	}
 }

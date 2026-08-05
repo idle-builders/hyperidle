@@ -14,5 +14,8 @@
 		"@hyperidle/db": "*",
 		"@hyperidle/shared": "*",
 		"drizzle-orm": "^0.45.2"
+	},
+	"devDependencies": {
+		"vitest": "^4.1.9"
 	}
 }

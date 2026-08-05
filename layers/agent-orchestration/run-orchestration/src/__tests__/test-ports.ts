@@ -17,9 +17,8 @@
  * @lore AU20 Ag3b: `findAgentSessionRequestById`, `findAgentWorkIntentSourceByRequestId`,
  * `isAgentSessionRequestClaimActive`, `markRequestRunning`, and
  * `terminalizeAgentSessionRequest` are no longer barrel-exported. Replaced by
- * `findSessionRequest` + `transitionSessionRequest`. `testMarkRequestRunning`
- * and `testTerminalize` updated to call the new unified API; the `{state}` field
- * in `testTerminalize`'s callers becomes `{to}`.
+ * `findSessionRequest` + `transitionSessionRequest`. `testTerminalize` updated to
+ * call the new unified API; the `{state}` field in its callers becomes `{to}`.
  */
 import type { AgentSessionRequest, HyperIdleDb } from "@hyperidle/db";
 import {
@@ -38,33 +37,6 @@ import type { RuntimePorts } from "../contracts.js";
 
 type RunOrchestrationPorts = RuntimePorts;
 type RunOrchestrationSessionLifecycleRuntime = RuntimePorts["sessionLifecycle"];
-
-/** `transitionSessionRequest({to:'running',...})` against the real queue state machine. */
-export function testMarkRequestRunning(
-	db: HyperIdleDb,
-	requestId: string,
-	sessionId: string,
-	claimToken?: string,
-): Promise<void> {
-	return (async () => {
-		const activeToken =
-			claimToken ??
-			(
-				await claimSessionRequest(
-					db,
-					{ id: requestId },
-					{ workerId: "run-boundary-test", now: new Date(), leaseMs: 30_000 },
-				)
-			)?.claimToken;
-		if (!activeToken) throw new Error(`Unable to claim test request ${requestId}`);
-		await transitionSessionRequest(db, {
-			to: "running",
-			requestId,
-			sessionId,
-			claimToken: activeToken,
-		});
-	})();
-}
 
 /** `transitionSessionRequest` terminal — AU20 B1a: no deps needed (table owned directly). */
 export async function testTerminalize(

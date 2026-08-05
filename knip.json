@@ -34,9 +34,7 @@
 	"workspaces": {
 		".": {
 			"entry": ["scripts/*.ts!", "scripts/lib/**/*.ts!", "scripts/rules/**/*.ts!"],
-			"project": ["scripts/**/*.ts"],
-			"ignoreBinaries": ["vitepress"],
-			"ignoreDependencies": ["vitepress"]
+			"project": ["scripts/**/*.ts"]
 		},
 		"framework/shared": {},
 		"framework/db": {
@@ -47,17 +45,16 @@
 				"src/__testing__/pg-test-runner.ts!",
 				"__scripts__/strip-public-schema.ts!"
 			],
-			"ignoreBinaries": ["drizzle-kit", "vitest"],
-			"ignoreDependencies": ["zod"]
+			// pg-test-runner.ts spawns the `vitest` binary; vitest is a devDependency, which
+			// the --production lane does not count, so only that lane reports it.
+			"ignoreBinaries": ["vitest"]
 		},
 		"framework/api-contract": {},
 		"layers/agent-execution/harness-registry": {
-			"entry": ["src/harness-session-probe.ts!"],
-			"ignoreBinaries": ["which", "codex", "claude", "opencode", "cursor", "gh"]
+			"entry": ["src/harness-session-probe.ts!"]
 		},
 		"framework/design-system": {
-			"entry": ["src/**/*.stories.tsx", "__scripts__/*.ts!"],
-			"ignoreDependencies": ["@tiptap/pm"]
+			"entry": ["src/**/*.stories.tsx", "__scripts__/*.ts!"]
 		},
 		"layers/core-ui": {
 			"entry": [
@@ -73,24 +70,17 @@
 					"playwright.ah5.config.ts",
 					"playwright.ah6.config.ts"
 				]
-			},
-			"ignoreBinaries": ["vite", "playwright"],
-			"ignoreDependencies": ["@electric-sql/pglite", "drizzle-orm"]
+			}
 		},
 		"applications/desktop": {
 			"entry": ["src/preload.ts!", "__scripts__/bundle.ts!", "__scripts__/check-native.ts!"],
-			"ignoreBinaries": ["electron", "electron-builder"],
+			// Never imported: marked external in __scripts__/bundle.ts and copied verbatim by
+			// electron-builder.yml, so the WASM bundle loads from node_modules at runtime.
 			"ignoreDependencies": ["@electric-sql/pglite"]
 		},
 		"tools/eslint-plugin-design": {},
 		"tools/eval": {
-			"entry": ["src/judges.ts!", "src/cli.ts!"],
-			"ignoreBinaries": ["tsx"],
-			"ignoreDependencies": ["tsx"]
-		},
-		"scripts": {
-			"entry": ["*.ts!", "lib/**/*.ts!", "rules/**/*.ts!", "__tests__/**/*.test.ts"],
-			"project": ["**/*.ts"]
+			"entry": ["src/judges.ts!", "src/cli.ts!"]
 		}
 	}
 }

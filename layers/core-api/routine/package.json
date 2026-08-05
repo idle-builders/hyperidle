@@ -14,5 +14,11 @@
 		"@hyperidle/db": "*",
 		"@hyperidle/shared": "*",
 		"drizzle-orm": "^0.45.2"
+	},
+	"devDependencies": {
+		"@hyperidle/knowledge": "*",
+		"@hyperidle/org": "*",
+		"@hyperidle/users": "*",
+		"vitest": "^4.1.9"
 	}
 }

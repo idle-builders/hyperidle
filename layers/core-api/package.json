@@ -14,14 +14,12 @@
 		"./services/core-api-port-composition": "./src/services/core-api-port-composition.ts",
 		"./services/run-orchestration-composition": "./src/services/run-orchestration-composition.ts",
 		"./services/work-state-push-gateway": "./src/services/work-state-push-gateway.ts",
-		"./test-fixtures": "./src/test-fixtures.ts",
 		"./ws-connection-hub": "./src/ws-connection-hub.ts",
 		"./ws-subscribe-authorizer": "./src/ws-subscribe-authorizer.ts",
 		"./routines": "./src/routines.ts",
 		"./test-utils": "./src/__testing__/test-utils.ts",
 		"./schemas": "./src/schemas/index.ts",
-		"./session": "./src/session.ts",
-		"./services/run-orchestration-runtime": "./src/services/run-orchestration-runtime.ts"
+		"./session": "./src/session.ts"
 	},
 	"scripts": {
 		"check": "tsc --noEmit",
@@ -55,9 +53,11 @@
 		"zod": "^4.3.6"
 	},
 	"devDependencies": {
-		"@electric-sql/pglite": "^0.5.4",
 		"@hono/node-server": "^2.0.6",
+		"@hyperidle/connections": "*",
 		"@hyperidle/filesystem-mounting": "*",
-		"@types/node": "^24"
+		"@hyperidle/remote-server": "*",
+		"@types/node": "^24",
+		"vitest": "^4.1.9"
 	}
 }
