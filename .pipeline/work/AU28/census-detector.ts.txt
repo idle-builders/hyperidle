@@ -1,0 +1,2944 @@
+#!/usr/bin/env tsx
+/**
+ * AU28 step-3 input — the ACCESS-PATTERN RULE SET (not an inventory).
+ *
+ * Founder Ruling 11.1: rules are stated against ROLES (Layer root, Service, Framework surface,
+ * Application, Tooling, harness process), never against named packages. A GENERAL row carries the
+ * full aggregate count of every instance its rule covers. A NAMED row exists only where that
+ * specific pair needs a rule the general row cannot express; it counts only its own instances and
+ * they are EXCLUDED from the general row, so nothing is counted twice. General rows sort first.
+ *
+ * Founder Ruling 11.2: `framework/db` is not one target. It is split into surfaces
+ * (`db:table`, `db:row-type`, `db:schema-ns`, `db:client`, `db:bootstrap`, `db:util`,
+ * `db:zod-schemas`) detected from the IMPORTED SYMBOL via a mechanically built symbol→surface map.
+ *
+ * Table ownership: the registry deleted under Ruling 10 was recovered from git and lives in
+ * `scratchpad/table-owner.json`. It is EVIDENCE, not authority — step 3 ratifies it.
+ *
+ * Three verdicts only: allowed / forbidden / unsettled. Where nothing describes a pattern, the rule
+ * TEXT says so; the verdict is still `unsettled`.
+ *
+ * Classification + import edges are NOT re-derived: they come from `scripts/lib/repo-census.ts`
+ * (`buildCensus`), the same module the one enforced governance rule uses. Every other crossing kind
+ * is detected here with the TypeScript AST. Analysis only — writes into the scratchpad, touches
+ * nothing in the repo.
+ */
+import { execFileSync } from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import ts from "typescript";
+
+const ROOT = "/Users/tg/hyperidle/.worktrees/pipeline-AU28";
+const SCRATCH = "/private/tmp/claude-501/-Users-tg-hyperidle/0dd09c7f-0484-4b82-be9e-38c4d32a5edf/scratchpad";
+const OUT = `${SCRATCH}/census2.json`;
+const OUT_COMPACT = `${SCRATCH}/census2-compact.json`;
+
+const { buildCensus } = (await import(`${ROOT}/scripts/lib/repo-census.ts`)) as typeof import(
+	"/Users/tg/hyperidle/.worktrees/pipeline-AU28/scripts/lib/repo-census.js"
+);
+
+// ---------------------------------------------------------------------------
+// file set + census (reused classifier)
+// ---------------------------------------------------------------------------
+
+const commit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" }).trim();
+const files = execFileSync("git", ["ls-files", "-z"], { cwd: ROOT, encoding: "utf8", maxBuffer: 1 << 28 })
+	.split("\0")
+	.filter((f) => f !== "");
+
+const readCache = new Map<string, string>();
+const readFile = (p: string): string => {
+	let v = readCache.get(p);
+	if (v === undefined) {
+		v = readFileSync(join(ROOT, p), "utf8");
+		readCache.set(p, v);
+	}
+	return v;
+};
+
+const census = buildCensus({ files, readFile });
+const kindOf = (p: string): "production" | "development" => census.byPath.get(p)?.kind ?? "development";
+
+/**
+ * `layers/web` → `layers/core-ui` is landing on this branch (founder: "web is completely the wrong
+ * name"). Everything downstream speaks ONE actor name, `core-ui`, whichever side of the rename the
+ * tree is on, and every emitted file path is normalised too so call sites point at real files after
+ * the rename lands.
+ */
+const NORM_SHORT: Record<string, string> = { web: "core-ui" };
+const norm = (s: string): string => NORM_SHORT[s] ?? s;
+const normPath = (p: string): string => (p.startsWith("layers/web/") ? `layers/core-ui/${p.slice("layers/web/".length)}` : p);
+
+// ---------------------------------------------------------------------------
+// actors — role from the workspace manifest layout, never from a file path
+// ---------------------------------------------------------------------------
+
+type Role = "foundation" | "layer" | "service" | "application" | "tooling" | "deployment" | "repo-root";
+type LayerName = "core-ui" | "core-api" | "agent-orchestration" | "agent-execution";
+
+interface Pkg {
+	name: string;
+	short: string;
+	dir: string;
+	role: Role;
+	layer: LayerName | null;
+}
+
+const packages: Pkg[] = [];
+for (const f of files) {
+	if (!f.endsWith("package.json")) continue;
+	const dir = f === "package.json" ? "" : f.slice(0, -"/package.json".length);
+	const isWorkspace =
+		dir === "" ||
+		/^layers\/[^/]+$/.test(dir) ||
+		/^layers\/[^/]+\/[^/]+$/.test(dir) ||
+		/^framework\/[^/]+$/.test(dir) ||
+		/^applications\/[^/]+$/.test(dir) ||
+		/^tools\/[^/]+$/.test(dir);
+	if (!isWorkspace) continue;
+	const name = (JSON.parse(readFile(f)) as { name?: string }).name;
+	if (name === undefined) continue;
+	let role: Role;
+	let layer: LayerName | null = null;
+	const layerRoot = /^layers\/([^/]+)$/.exec(dir);
+	const nested = /^layers\/([^/]+)\/[^/]+$/.exec(dir);
+	if (dir === "") role = "repo-root";
+	else if (dir.startsWith("framework/")) role = "foundation";
+	else if (dir.startsWith("applications/")) role = "application";
+	else if (dir.startsWith("tools/")) role = "tooling";
+	else if (layerRoot !== null) {
+		role = "layer";
+		layer = norm(layerRoot[1] as string) as LayerName;
+	} else if (nested !== null) {
+		role = "service";
+		layer = norm(nested[1] as string) as LayerName;
+	} else continue;
+	packages.push({ name, short: norm(name.replace(/^@hyperidle\//, "")), dir, role, layer });
+}
+/**
+ * `deploy/` (chart, homebrew, bin) is a role folder with no package.json in it, so it needs a
+ * synthetic actor or its files would silently fall to the repo root. Same status as `harness`: a real
+ * actor that is not a workspace package.
+ */
+packages.push({ name: "deploy", short: "deployment", dir: "deploy", role: "deployment", layer: null });
+packages.sort((a, b) => b.dir.length - a.dir.length);
+const rootPkgIdx = packages.findIndex((p) => p.role === "repo-root");
+if (rootPkgIdx >= 0) (packages[rootPkgIdx] as Pkg).short = "repo root";
+const byName = new Map(packages.map((p) => [p.name, p]));
+const byShort = new Map(packages.map((p) => [p.short, p]));
+const ROOT_PKG = packages.find((p) => p.role === "repo-root") as Pkg;
+const LAYERS = packages.filter((p) => p.role === "layer").map((p) => p.layer as LayerName);
+
+const pkgCache = new Map<string, Pkg>();
+const pkgFor = (path: string): Pkg => {
+	let v = pkgCache.get(path);
+	if (v === undefined) {
+		v = ROOT_PKG;
+		for (const p of packages) {
+			if (p.dir !== "" && path.startsWith(`${p.dir}/`)) {
+				v = p;
+				break;
+			}
+		}
+		pkgCache.set(path, v);
+	}
+	return v;
+};
+
+/** Structural properties of a Layer, used so rules stay ROLE-level instead of naming a Layer. */
+const HOSTS_ROUTER: Record<string, boolean> = {
+	"core-ui": false,
+	"core-api": true,
+	"agent-orchestration": true,
+	"agent-execution": false,
+};
+const BROWSER_HOSTED: Record<string, boolean> = {
+	"core-ui": true,
+	"core-api": false,
+	"agent-orchestration": false,
+	"agent-execution": false,
+};
+/** The Layer that owns the agent runtime. Named, because the capability rules are genuinely its own. */
+const RUNTIME_LAYER: LayerName = "agent-execution";
+
+// ---------------------------------------------------------------------------
+// framework/db — the symbol → surface map, built mechanically from the source
+// ---------------------------------------------------------------------------
+
+const sfCache = new Map<string, ts.SourceFile>();
+function parse(path: string): ts.SourceFile {
+	let sf = sfCache.get(path);
+	if (sf === undefined) {
+		sf = ts.createSourceFile(path, readFile(path), ts.ScriptTarget.Latest, true, path.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+		sfCache.set(path, sf);
+	}
+	return sf;
+}
+const lineOf = (sf: ts.SourceFile, n: ts.Node): number => sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1;
+
+type Surface =
+	| "db:table"
+	| "db:row-type"
+	| "db:schema-ns"
+	| "db:client"
+	| "db:bootstrap"
+	| "db:util"
+	| "db:testing"
+	| "db:unknown";
+
+const TABLES = new Set<string>();
+const ROW_TYPES = new Set<string>();
+{
+	const schema = parse("framework/db/src/schema.ts");
+	for (const st of schema.statements) {
+		const exported = ts.canHaveModifiers(st) && ts.getModifiers(st)?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword) === true;
+		if (!exported) continue;
+		if (ts.isVariableStatement(st)) {
+			for (const d of st.declarationList.declarations) {
+				if (!ts.isIdentifier(d.name)) continue;
+				const init = d.initializer;
+				if (init !== undefined && ts.isCallExpression(init) && ts.isIdentifier(init.expression) && init.expression.text === "pgTable") {
+					TABLES.add(d.name.text);
+				}
+			}
+		} else if (ts.isTypeAliasDeclaration(st) && /\$infer(Select|Insert)/.test(st.type.getText(schema))) {
+			ROW_TYPES.add(st.name.text);
+		}
+	}
+}
+
+/**
+ * Module → surface. The three symbol lists in Ruling 11.2 (`db:client`, `db:bootstrap`, `db:util`)
+ * each land wholly inside one source module, so the mapping is stated once per module rather than
+ * per symbol. `system-prompt-templates.ts` is deliberately absent — Ruling 11.2 does not name it and
+ * guessing a surface for it would be fabrication, so its symbols fall to `db:unknown` and are
+ * reported.
+ */
+const MODULE_SURFACE: Record<string, Surface> = {
+	"connection.ts": "db:client",
+	"migrate.ts": "db:client",
+	"write-executor.ts": "db:client",
+	"migrate-pg.ts": "db:client",
+	"bootstrap-pg.ts": "db:client",
+	"pg-ssl.ts": "db:client",
+	"factory-bootstrap.ts": "db:bootstrap",
+	"demo-fixture.ts": "db:bootstrap",
+	"setup-cli.ts": "db:bootstrap",
+	"seed-fixtures.ts": "db:bootstrap",
+	"like-escape.ts": "db:util",
+	"agent-scaffold.ts": "db:util",
+	"profiles.ts": "db:util",
+};
+
+/**
+ * `@hyperidle/db/zod-schemas` symbol → the TABLE it is generated from.
+ *
+ * Round-1 answer 6: every export is `createSelectSchema(<table>)` / `createInsertSchema(<table>)`, so
+ * the module is global but every SYMBOL is per-table. A schema generated from a table is the same
+ * access wearing a different hat — allowing the barrel while forbidding the table import would be a
+ * hole around the table ACL. So these resolve to `db:table` and inherit the owner rule; the surface
+ * `db:zod-schemas` no longer exists as a separately-ruled thing.
+ */
+const ZOD_TABLE = new Map<string, string>();
+{
+	const zs = parse("framework/db/src/zod-schemas.ts");
+	for (const st of zs.statements) {
+		if (!ts.isVariableStatement(st)) continue;
+		for (const d of st.declarationList.declarations) {
+			if (!ts.isIdentifier(d.name) || d.initializer === undefined || !ts.isCallExpression(d.initializer)) continue;
+			const fn = d.initializer.expression;
+			if (!ts.isIdentifier(fn) || !/^create(Select|Insert)Schema$/.test(fn.text)) continue;
+			const a = d.initializer.arguments[0];
+			if (a !== undefined && ts.isIdentifier(a) && TABLES.has(a.text)) ZOD_TABLE.set(d.name.text, a.text);
+		}
+	}
+}
+
+/** Barrel symbol → surface, built from `framework/db/src/index.ts`'s re-export list. */
+const BARREL_SURFACE = new Map<string, Surface>();
+const UNKNOWN_SYMBOLS = new Map<string, string>(); // symbol → why
+{
+	const index = parse("framework/db/src/index.ts");
+	for (const st of index.statements) {
+		if (!ts.isExportDeclaration(st) || st.moduleSpecifier === undefined || !ts.isStringLiteral(st.moduleSpecifier)) continue;
+		const mod = st.moduleSpecifier.text.replace(/^\.\//, "").replace(/\.js$/, ".ts");
+		const ec = st.exportClause;
+		if (ec === undefined) continue;
+		if (ts.isNamespaceExport(ec)) {
+			BARREL_SURFACE.set(ec.name.text, "db:schema-ns");
+			continue;
+		}
+		for (const el of ec.elements) {
+			const sym = el.name.text;
+			if (mod === "schema.ts") {
+				if (TABLES.has(sym)) BARREL_SURFACE.set(sym, "db:table");
+				else if (ROW_TYPES.has(sym)) BARREL_SURFACE.set(sym, "db:row-type");
+				else {
+					BARREL_SURFACE.set(sym, "db:unknown");
+					UNKNOWN_SYMBOLS.set(sym, "exported from schema.ts but neither a pgTable nor a $inferSelect/$inferInsert row type");
+				}
+				continue;
+			}
+			const surf = MODULE_SURFACE[mod];
+			if (surf === undefined) {
+				BARREL_SURFACE.set(sym, "db:unknown");
+				UNKNOWN_SYMBOLS.set(sym, `re-exported from ./${mod}, a module Ruling 11.2 does not name`);
+			} else BARREL_SURFACE.set(sym, surf);
+		}
+	}
+}
+
+/** Surface for a db import: resolved target FILE first, then the imported SYMBOL. */
+/** For a zod-schema symbol, the table it is generated from; otherwise the symbol itself. */
+const tableForSymbol = (toFile: string, sym: string): string => (toFile.endsWith("zod-schemas.ts") ? (ZOD_TABLE.get(sym) ?? sym) : sym);
+
+function surfaceForSymbol(toFile: string, sym: string, isNamespace: boolean): Surface {
+	const base = toFile.slice("framework/db/src/".length);
+	if (base.startsWith("__testing__/") || base.startsWith("__tests__/")) return "db:testing";
+	if (base === "zod-schemas.ts") return ZOD_TABLE.has(sym) ? "db:table" : "db:unknown";
+	if (base === "schema.ts") {
+		if (isNamespace) return "db:schema-ns";
+		if (TABLES.has(sym)) return "db:table";
+		if (ROW_TYPES.has(sym)) return "db:row-type";
+		UNKNOWN_SYMBOLS.set(sym, "imported from schema.ts directly but neither a pgTable nor a row type");
+		return "db:unknown";
+	}
+	if (base === "index.ts") {
+		if (isNamespace) return "db:schema-ns";
+		const s = BARREL_SURFACE.get(sym);
+		if (s !== undefined) return s;
+		UNKNOWN_SYMBOLS.set(sym, "not present in framework/db/src/index.ts's re-export list");
+		return "db:unknown";
+	}
+	const s = MODULE_SURFACE[base];
+	if (s !== undefined) return s;
+	UNKNOWN_SYMBOLS.set(`${base}:${sym}`, `deep import of framework/db/src/${base}, a module Ruling 11.2 does not name`);
+	return "db:unknown";
+}
+
+// ---------------------------------------------------------------------------
+// table ownership — RECOVERED evidence, remapped onto today's packages
+// ---------------------------------------------------------------------------
+
+const RECOVERED: Record<string, string> = JSON.parse(readFileSync(`${SCRATCH}/table-owner.json`, "utf8")) as Record<string, string>;
+
+/** Tables the deleted guard exempted as "cross-cutting". Ruling 6 abolished that concept. */
+const LEGACY_UNOWNED = new Set(["sessions", "propagationLog", "taskDispatchAttempts", "userSkills"]);
+
+/**
+ * Founder Ruling 12.1 — `db:table (owner moved)` is abolished. The recovered registry records owners
+ * at pre-AU26 `packages/…` paths and AU26 relocated five services; that is a stale path, not an
+ * ambiguity. Each of the five has exactly one production accessor and it IS the owner, so the
+ * founder ratifies the successor rather than forbidding it. Two are pure relocations, two are
+ * splits; the resolution is the founder's, recorded here verbatim so it is auditable.
+ */
+const RULING_12_OWNERS: Record<string, { owner: string; how: string }> = {
+	filesystems: { owner: "filesystems", how: "pure relocation — core-api/filesystems → agent-orchestration/filesystems" },
+	filesystemInjections: { owner: "filesystems", how: "pure relocation — core-api/filesystems → agent-orchestration/filesystems" },
+	serviceConnections: { owner: "connections", how: "pure relocation — core-api/connections → agent-orchestration/connections" },
+	filesystemCaptures: { owner: "filesystem-mounting", how: "split — core-api/filesystems split, this table went to filesystem-mounting" },
+	serverCredentials: { owner: "credentials", how: "split — core-api/connections split, this table went to core-api/credentials" },
+};
+
+type OwnerState = "owned" | "unowned";
+interface TableInfo {
+	owner: string | null;
+	state: OwnerState;
+	recordedPath: string | null;
+	note: string;
+}
+const TABLE_INFO = new Map<string, TableInfo>();
+for (const t of TABLES) {
+	const ruled = RULING_12_OWNERS[t];
+	if (ruled !== undefined) {
+		TABLE_INFO.set(t, {
+			owner: ruled.owner,
+			state: "owned",
+			recordedPath: RECOVERED[t] ?? null,
+			note: `owner ratified by founder Ruling 12.1 (${ruled.how}); the recovered registry's \`${RECOVERED[t] ?? "—"}\` is a stale pre-AU26 path`,
+		});
+		continue;
+	}
+	const recorded = RECOVERED[t];
+	if (recorded === undefined) {
+		TABLE_INFO.set(t, {
+			owner: null,
+			state: "unowned",
+			recordedPath: null,
+			note: LEGACY_UNOWNED.has(t)
+				? "member of the deleted guard's UNOWNED_SHARED_TABLES exempt set; Ruling 6 abolished that concept"
+				: "added after the registry was written (AU26) and never assigned an owner",
+		});
+		continue;
+	}
+	const shortName = norm(recorded.split("/").pop() as string);
+	const live = byShort.get(shortName);
+	if (live === undefined) {
+		TABLE_INFO.set(t, { owner: null, state: "unowned", recordedPath: recorded, note: `the recovered registry names \`${recorded}\`, and no package of that name exists today` });
+		continue;
+	}
+	TABLE_INFO.set(t, {
+		owner: shortName,
+		state: "owned",
+		recordedPath: recorded,
+		note: `the recovered registry names \`${recorded}\`, which is today's \`layers/${live.layer}/${shortName}\``,
+	});
+}
+
+// ---------------------------------------------------------------------------
+// instances
+// ---------------------------------------------------------------------------
+
+/**
+ * READ / WRITE SPLIT OF THE TABLE KIND. `table` used to be one kind carrying both halves of database
+ * access, which made the rule row `<role> → db:table (other) [table]` unable to say the thing the
+ * founder decided: in the development world a foreign-table READ is allowed and a foreign-table
+ * WRITE is not. The kind is therefore split at the instance, driven by the Drizzle operation already
+ * detected in `Inst.op`:
+ *
+ *   table:read   `from` (select), `leftJoin`/`innerJoin`/`rightJoin`/`fullJoin`, and a bare
+ *                schema-namespace dereference (`schema.users` outside a Drizzle call — a column
+ *                reference in a where/order clause, which reads and never writes).
+ *   table:write  `insert`, `update`, `delete`. Drizzle spells an upsert `insert(...).onConflictDo…`,
+ *                so an upsert is already counted as an insert and lands here.
+ *
+ * A TABLE-SYMBOL IMPORT IS NEITHER. `import { users } from "@hyperidle/db"` obtains the symbol; it
+ * performs no database operation at all, so it stays on the `[import]` row where it already was.
+ * Reading the import row as "a read" would double-count the access and mis-state the rule.
+ */
+type Kind = "import" | "manifest" | "di" | "api" | "mcp" | "event" | "table:read" | "table:write" | "capability";
+
+/** Drizzle ops that mutate. Everything else on a table is a read. */
+const WRITE_OPS = new Set(["insert", "update", "delete", "upsert"]);
+const tableKind = (op: string): Kind => (WRITE_OPS.has(op) ? "table:write" : "table:read");
+
+interface Inst {
+	kind: Kind;
+	source: string;
+	target: string;
+	file: string;
+	line: number;
+	symbol: string;
+	op: string;
+	world: "production" | "development";
+	prodImportsDev?: boolean;
+	/** table symbol, when the target is a table */
+	table?: string;
+}
+const insts: Inst[] = [];
+const add = (i: Inst): void => {
+	insts.push({ ...i, file: normPath(i.file) });
+};
+
+function litText(sf: ts.SourceFile, a: ts.Expression | undefined): string {
+	if (a === undefined) return "(none)";
+	if (ts.isStringLiteralLike(a)) return a.text;
+	if (ts.isTemplateExpression(a)) {
+		let out = a.head.text;
+		for (const sp of a.templateSpans) out += `\${…}${sp.literal.text}`;
+		return out;
+	}
+	return `(dynamic:${a.getText(sf).replace(/\s+/g, " ").slice(0, 40)})`;
+}
+
+const TS_FILES = files.filter((f) => /\.(m|c)?tsx?$/.test(f) && !f.endsWith(".d.ts"));
+
+/**
+ * Exported VALUE CONSTANTS, per package: `export const X = [...] as const`, a frozen array, or a
+ * primitive. Round-1 answer 10: all four production `layer → framework [di]` instances were
+ * `z.enum(enumValues(BET_OUTCOME_VERDICTS))` and friends — a frozen array imported from `shared` and
+ * passed inline to a Zod schema. No port, no injection, no inversion. Passing a constant is an
+ * ordinary import, so the DI detector must not score it, or that row carries permanent noise.
+ *
+ * Deliberately narrow: only array literals and primitives count. An object literal is NOT treated as
+ * a constant, because an object of functions is a plausible injected port and suppressing it would
+ * hide a real crossing.
+ */
+const CONST_EXPORTS = new Map<string, Set<string>>();
+{
+	const unwrap = (e: ts.Expression): ts.Expression => {
+		let x = e;
+		for (;;) {
+			if (ts.isAsExpression(x) || ts.isParenthesizedExpression(x) || ts.isTypeAssertionExpression(x)) x = x.expression;
+			else if (ts.isCallExpression(x) && ts.isPropertyAccessExpression(x.expression) && x.expression.name.text === "freeze" && x.arguments[0] !== undefined) x = x.arguments[0] as ts.Expression;
+			else return x;
+		}
+	};
+	const isConstValue = (e: ts.Expression): boolean => {
+		const x = unwrap(e);
+		return (
+			ts.isArrayLiteralExpression(x) ||
+			ts.isStringLiteralLike(x) ||
+			ts.isNumericLiteral(x) ||
+			x.kind === ts.SyntaxKind.TrueKeyword ||
+			x.kind === ts.SyntaxKind.FalseKeyword
+		);
+	};
+	for (const path of TS_FILES) {
+		const owner = pkgFor(path).short;
+		const sf = parse(path);
+		for (const st of sf.statements) {
+			if (!ts.isVariableStatement(st)) continue;
+			if (ts.getModifiers(st)?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword) !== true) continue;
+			for (const d of st.declarationList.declarations) {
+				if (!ts.isIdentifier(d.name) || d.initializer === undefined) continue;
+				if (!isConstValue(d.initializer)) continue;
+				const set = CONST_EXPORTS.get(owner) ?? new Set<string>();
+				set.add(d.name.text);
+				CONST_EXPORTS.set(owner, set);
+			}
+		}
+	}
+}
+let diConstantsSuppressed = 0;
+
+/**
+ * Which Layer serves which `/api/...` path. Built by AST from every route registration inside a
+ * Layer — `.route(p, …)`, `.use(p, …)`, `.get/.post/.put/.patch/.delete/.all(p, …)` — so it moves
+ * with the code instead of being a hand list.
+ *
+ * Round-1 answer 3: `application → layer [api]` read 0 because the census counted only `apiFetch()`,
+ * `ws*.subscribe()` and seam-port calls. `applications/remote-worker` is a DETACHED PROCESS — the one
+ * application that cannot compose Layers in-process — and dials both Layers with a raw `fetch` and a
+ * raw WebSocket. Longest-prefix match, because both `/ws` (core-api) and `/ws/worker`
+ * (agent-orchestration) exist and only the longer one is right.
+ */
+const ROUTE_INDEX: { path: string; layer: LayerName }[] = [];
+const ROUTE_FNS = new Set(["route", "use", "get", "post", "put", "patch", "delete", "all", "on"]);
+for (const path of TS_FILES) {
+	const owner = pkgFor(path);
+	if (owner.layer === null || kindOf(path) !== "production") continue;
+	const sf = parse(path);
+	const walk = (n: ts.Node): void => {
+		// A route registration always passes a path AND at least one handler. Without the arity test,
+		// `someMap.get("/x")` and `set.delete("/x")` land in the index and mis-attribute real dials —
+		// which is exactly how `/api/mcp/` first resolved to the wrong Layer.
+		if (ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression) && ROUTE_FNS.has(n.expression.name.text) && n.arguments.length >= 2) {
+			const a = n.arguments[0];
+			if (a !== undefined && ts.isStringLiteral(a) && a.text.startsWith("/") && a.text.length > 1) {
+				ROUTE_INDEX.push({ path: a.text.replace(/\/$/, ""), layer: owner.layer as LayerName });
+			}
+		}
+		ts.forEachChild(n, walk);
+	};
+	walk(sf);
+}
+ROUTE_INDEX.sort((a, b) => b.path.length - a.path.length);
+/**
+ * Resolve a dialled `/api/...` path to the Layer that DECLARES it. Null when nothing matches.
+ *
+ * Segment-wise, because two things break a plain string prefix: a registered `:param` matches any
+ * one segment (`/mcp/:token`), and a dialled url whose tail is interpolated stops early
+ * (`${base}/api/mcp/${token}` yields `/api/mcp/`). Longest match wins — that is what tells core-api's
+ * `/ws` apart from agent-orchestration's `/ws/worker`.
+ */
+function layerServing(apiPath: string): LayerName | null {
+	const want = apiPath
+		.replace(/^\/api/, "")
+		.replace(/[?#].*$/, "")
+		.split("/")
+		.filter((x) => x !== "");
+	if (want.length === 0) return null;
+	let best: { n: number; layer: LayerName } | null = null;
+	for (const r of ROUTE_INDEX) {
+		const have = r.path.split("/").filter((x) => x !== "");
+		// The FIRST segment must match literally. Without this a route registered as `/:id` matches any
+		// url on earth — including `https://openrouter.ai/api/v1/auth/key`, which is not our API at all.
+		if (have.length === 0 || (have[0] as string).startsWith(":") || have[0] !== want[0]) continue;
+		const n = Math.min(have.length, want.length);
+		let ok = true;
+		for (let k = 0; k < n; k += 1) {
+			const h = have[k] as string;
+			if (h.startsWith(":")) continue;
+			if (h !== want[k]) {
+				ok = false;
+				break;
+			}
+		}
+		if (ok && (best === null || n > best.n)) best = { n, layer: r.layer };
+	}
+	return best === null ? null : best.layer;
+}
+const shortOfLayerName = (l: LayerName): string => packages.find((q) => q.role === "layer" && q.layer === l)?.short ?? l;
+const unresolvedApiDials: { file: string; line: number; path: string }[] = [];
+let rawApiDials = 0;
+
+const edgesByFrom = new Map<string, Map<string, string>>();
+for (const e of census.edges) {
+	let m = edgesByFrom.get(e.from);
+	if (m === undefined) {
+		m = new Map();
+		edgesByFrom.set(e.from, m);
+	}
+	m.set(e.specifier, e.to);
+}
+
+// --- 1. import (from the reused edge set), db split per SYMBOL ---------------
+
+/**
+ * The surfaces a single db import statement reaches. A db import is decomposed into one instance per
+ * SURFACE (and, for tables, per TABLE symbol) because the rule differs per surface and per table
+ * owner — one instance per statement could not carry that. Non-db edges stay one instance each.
+ */
+function dbSurfacesForEdge(from: string, specifier: string, to: string): { surface: Surface; symbol: string; table?: string }[] {
+	const out: { surface: Surface; symbol: string; table?: string }[] = [];
+	const seen = new Set<string>();
+	const push = (surface: Surface, symbol: string): void => {
+		const table = surface === "db:table" ? tableForSymbol(to, symbol) : undefined;
+		const key = surface === "db:table" ? `${surface}:${table as string}` : surface;
+		if (seen.has(key)) return;
+		seen.add(key);
+		out.push({ surface, symbol, ...(table === undefined ? {} : { table }) });
+	};
+	const sf = parse(from);
+	const walk = (node: ts.Node): void => {
+		const spec =
+			(ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && node.moduleSpecifier !== undefined && ts.isStringLiteral(node.moduleSpecifier)
+				? node.moduleSpecifier.text
+				: null;
+		if (spec === specifier) {
+			if (ts.isImportDeclaration(node)) {
+				const cl = node.importClause;
+				if (cl === undefined) push("db:unknown", "(side-effect import, no binding)");
+				else {
+					if (cl.name !== undefined) push(surfaceForSymbol(to, cl.name.text, false), cl.name.text);
+					const nb = cl.namedBindings;
+					if (nb !== undefined) {
+						if (ts.isNamespaceImport(nb)) push(surfaceForSymbol(to, nb.name.text, true), `* as ${nb.name.text}`);
+						else for (const el of nb.elements) push(surfaceForSymbol(to, (el.propertyName ?? el.name).text, false), (el.propertyName ?? el.name).text);
+					}
+				}
+			}
+		}
+		// `const { createPgliteDb } = await import("@hyperidle/db")` — round-1 answer 5: two of the
+		// three production `db:unknown` instances were this shape, not an unclassified surface. The
+		// AST can read the binding pattern; it just was not being asked to.
+		if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+			const a = node.arguments[0];
+			if (a !== undefined && ts.isStringLiteralLike(a) && a.text === specifier) {
+				let n: ts.Node = node;
+				while (n.parent !== undefined && (ts.isAwaitExpression(n.parent) || ts.isParenthesizedExpression(n.parent) || ts.isAsExpression(n.parent))) n = n.parent;
+				const decl = n.parent;
+				if (decl !== undefined && ts.isVariableDeclaration(decl) && ts.isObjectBindingPattern(decl.name)) {
+					for (const el of decl.name.elements) {
+						const sym = (el.propertyName !== undefined && ts.isIdentifier(el.propertyName) ? el.propertyName : el.name) as ts.Identifier;
+						if (ts.isIdentifier(sym)) push(surfaceForSymbol(to, sym.text, false), sym.text);
+					}
+				} else if (decl !== undefined && ts.isVariableDeclaration(decl) && ts.isIdentifier(decl.name)) {
+					push("db:schema-ns", `await import() bound whole as ${decl.name.text}`);
+				} else {
+					push("db:unknown", "await import() whose bindings the AST cannot read");
+				}
+			}
+		}
+		if (spec === specifier) {
+			if (ts.isExportDeclaration(node)) {
+				const ec = node.exportClause;
+				if (ec === undefined) push("db:schema-ns", "export * (re-export of the whole module)");
+				else if (ts.isNamespaceExport(ec)) push("db:schema-ns", `export * as ${ec.name.text}`);
+				else for (const el of ec.elements) push(surfaceForSymbol(to, (el.propertyName ?? el.name).text, false), (el.propertyName ?? el.name).text);
+			}
+		}
+		ts.forEachChild(node, walk);
+	};
+	walk(sf);
+	if (out.length === 0) push("db:unknown", "(specifier not resolvable to an import clause)");
+	return out;
+}
+
+let dbEdges = 0;
+let dbSymbolInstances = 0;
+for (const e of census.edges) {
+	const s = pkgFor(e.from);
+	const t = pkgFor(e.to);
+	const fromKind = kindOf(e.from);
+	const toKind = kindOf(e.to);
+	const prodImportsDev = fromKind === "production" && toKind === "development";
+	const base = {
+		kind: "import" as const,
+		source: s.short,
+		file: e.from,
+		line: e.line,
+		world: fromKind,
+		...(prodImportsDev ? { prodImportsDev: true } : {}),
+	};
+	if (prodImportsDev) {
+		add({ ...base, target: `${t.short} [development file]`, symbol: e.specifier, op: "import→development-file" });
+		continue;
+	}
+	if (t.short === "db" && s.short !== "db" && /\.(m|c)?tsx?$/.test(e.from)) {
+		dbEdges += 1;
+		for (const { surface, symbol, table } of dbSurfacesForEdge(e.from, e.specifier, e.to)) {
+			dbSymbolInstances += 1;
+			add({
+				...base,
+				target: surface === "db:table" ? `db:table:${table ?? symbol}` : surface,
+				symbol,
+				op: symbol.startsWith("await import") ? "dynamic-import" : "import",
+				...(surface === "db:table" ? { table: table ?? symbol } : {}),
+			});
+		}
+		continue;
+	}
+	add({ ...base, target: t.short, symbol: e.specifier, op: "import" });
+}
+
+// --- 2. manifest -------------------------------------------------------------
+
+let undeclaredButImported = 0;
+const importedPairs = new Set<string>();
+for (const e of census.edges) {
+	const s = pkgFor(e.from);
+	const t = pkgFor(e.to);
+	if (s.name !== t.name) importedPairs.add(`${s.name}|${t.name}`);
+}
+for (const p of packages) {
+	// `deploy/` is a role folder with no package.json — a synthetic actor, so it has no manifest rows.
+	if (p.role === "deployment") continue;
+	const rel = p.dir === "" ? "package.json" : `${p.dir}/package.json`;
+	const raw = readFile(rel);
+	const json = JSON.parse(raw) as Record<string, Record<string, string> | undefined>;
+	const lines = raw.split("\n");
+	const declared = new Set<string>();
+	for (const field of ["dependencies", "devDependencies", "peerDependencies"]) {
+		for (const dep of Object.keys(json[field] ?? {})) {
+			if (!dep.startsWith("@hyperidle/")) continue;
+			declared.add(dep);
+			const t = byName.get(dep);
+			add({
+				kind: "manifest",
+				source: p.short,
+				target: t?.short ?? `${dep} [unknown package]`,
+				file: rel,
+				line: lines.findIndex((l) => l.includes(`"${dep}"`)) + 1,
+				symbol: dep,
+				op: field,
+				world: kindOf(rel),
+			});
+		}
+	}
+	for (const key of importedPairs) {
+		const [s, t] = key.split("|") as [string, string];
+		if (s === p.name && t.startsWith("@hyperidle/") && !declared.has(t)) undeclaredButImported += 1;
+	}
+}
+
+// --- per-file AST pass: table queries, di, api, mcp, events, capabilities ----
+
+const EVENTS = new Set<string>();
+for (const m of readFile("framework/shared/src/events.ts").matchAll(/type:\s*"([a-z0-9_]+)"/g)) EVENTS.add(m[1] as string);
+
+const LLM_SDK = [/^openai$/, /^@anthropic-ai\/sdk/, /^@google\/generative-ai/];
+const MCP_SDK = [/^@modelcontextprotocol\/sdk/];
+const HARNESS_BINS = new Set(["claude", "codex", "opencode", "cursor-agent", "gh"]);
+const SPAWN_FNS = new Set(["spawn", "spawnSync", "exec", "execSync", "execFile", "execFileSync", "fork"]);
+
+interface EvSite {
+	pkg: Pkg;
+	file: string;
+	line: number;
+	event: string;
+	dir: "emit" | "on";
+	world: "production" | "development";
+}
+const evSites: EvSite[] = [];
+let dynamicEventOnSites = 0;
+let rejectedEventLiterals = 0;
+
+const DIRECT_OPS: Record<string, string> = { from: "read", insert: "insert", update: "update", delete: "delete" };
+const JOIN_OPS = new Set(["leftJoin", "innerJoin", "rightJoin", "fullJoin"]);
+
+function importedIdentifierOrigins(path: string, sf: ts.SourceFile): Map<string, Pkg> {
+	const out = new Map<string, Pkg>();
+	const rel = edgesByFrom.get(path);
+	for (const st of sf.statements) {
+		if (!ts.isImportDeclaration(st) || !ts.isStringLiteral(st.moduleSpecifier)) continue;
+		if (st.importClause?.isTypeOnly === true) continue;
+		const spec = st.moduleSpecifier.text;
+		let tgt: Pkg | undefined;
+		if (spec.startsWith("@hyperidle/")) tgt = byName.get(spec.split("/").slice(0, 2).join("/"));
+		else if (spec.startsWith(".")) {
+			const to = rel?.get(spec);
+			if (to !== undefined) tgt = pkgFor(to);
+		}
+		if (tgt === undefined) continue;
+		const cl = st.importClause;
+		if (cl === undefined) continue;
+		if (cl.name !== undefined) out.set(cl.name.text, tgt);
+		const nb = cl.namedBindings;
+		if (nb !== undefined) {
+			if (ts.isNamespaceImport(nb)) out.set(nb.name.text, tgt);
+			else for (const el of nb.elements) if (el.isTypeOnly !== true) out.set(el.name.text, tgt);
+		}
+	}
+	return out;
+}
+
+for (const path of TS_FILES) {
+	const p = pkgFor(path);
+	const world = kindOf(path);
+	const sf = parse(path);
+	const origins = importedIdentifierOrigins(path, sf);
+
+	const dbNs = new Set<string>();
+	for (const st of sf.statements) {
+		if (
+			ts.isImportDeclaration(st) &&
+			ts.isStringLiteral(st.moduleSpecifier) &&
+			(st.moduleSpecifier.text.startsWith("@hyperidle/db") || (edgesByFrom.get(path)?.get(st.moduleSpecifier.text) ?? "").startsWith("framework/db/")) &&
+			st.importClause?.namedBindings !== undefined &&
+			ts.isNamespaceImport(st.importClause.namedBindings)
+		) {
+			dbNs.add(st.importClause.namedBindings.name.text);
+		}
+	}
+
+	const portRoots = new Map<string, "core-api" | "agent-orchestration">();
+	const typeKind = (t: string): "core-api" | "agent-orchestration" | null =>
+		/AgentOrchestration\w*Port|buildAgentOrchestrationPort/.test(t) ? "agent-orchestration" : /CoreApi\w*Port|buildCoreApiPort/.test(t) ? "core-api" : null;
+	const collectRoots = (n: ts.Node): void => {
+		if ((ts.isVariableDeclaration(n) || ts.isParameter(n) || ts.isPropertyDeclaration(n)) && ts.isIdentifier(n.name)) {
+			const fromType = n.type !== undefined ? typeKind(n.type.getText(sf)) : null;
+			const init = (n as { initializer?: ts.Expression }).initializer;
+			const fromInit = init !== undefined && ts.isCallExpression(init) && ts.isIdentifier(init.expression) ? typeKind(init.expression.text) : null;
+			const k = fromType ?? fromInit;
+			if (k !== null) portRoots.set(n.name.text, k);
+		}
+		ts.forEachChild(n, collectRoots);
+	};
+	collectRoots(sf);
+
+	const visit = (n: ts.Node): void => {
+		// table — Drizzle ops
+		if (ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression)) {
+			const m = n.expression.name.text;
+			const op = DIRECT_OPS[m] ?? (JOIN_OPS.has(m) ? "join" : null);
+			if (op !== null) {
+				const a = n.arguments[0];
+				let tbl: string | null = null;
+				if (a !== undefined && ts.isIdentifier(a) && TABLES.has(a.text)) tbl = a.text;
+				else if (a !== undefined && ts.isPropertyAccessExpression(a) && ts.isIdentifier(a.expression) && dbNs.has(a.expression.text) && TABLES.has(a.name.text))
+					tbl = a.name.text;
+				if (tbl !== null)
+					add({ kind: tableKind(op), source: p.short, target: `db:table:${tbl}`, table: tbl, file: path, line: lineOf(sf, n.expression.name), symbol: tbl, op, world });
+			}
+		}
+		// table — schema-namespace dereference
+		if (ts.isPropertyAccessExpression(n) && ts.isIdentifier(n.expression) && dbNs.has(n.expression.text) && TABLES.has(n.name.text)) {
+			const parentIsDrizzleArg =
+				n.parent !== undefined &&
+				ts.isCallExpression(n.parent) &&
+				ts.isPropertyAccessExpression(n.parent.expression) &&
+				(DIRECT_OPS[n.parent.expression.name.text] !== undefined || JOIN_OPS.has(n.parent.expression.name.text));
+			if (!parentIsDrizzleArg)
+				add({
+						kind: tableKind("schema-ns-deref"),
+						source: p.short,
+						target: `db:table:${n.name.text}`,
+						table: n.name.text,
+						file: path,
+						line: lineOf(sf, n),
+						symbol: n.name.text,
+						op: "schema-ns-deref",
+						world,
+					});
+		}
+		// capability — SDK imports
+		if ((ts.isImportDeclaration(n) || ts.isExportDeclaration(n)) && n.moduleSpecifier !== undefined && ts.isStringLiteral(n.moduleSpecifier)) {
+			const spec = n.moduleSpecifier.text;
+			if (LLM_SDK.some((r) => r.test(spec))) add({ kind: "capability", source: p.short, target: "capability:llm-sdk", file: path, line: lineOf(sf, n), symbol: spec, op: "import", world });
+			else if (MCP_SDK.some((r) => r.test(spec))) add({ kind: "capability", source: p.short, target: "capability:mcp-sdk", file: path, line: lineOf(sf, n), symbol: spec, op: "import", world });
+		}
+		if (ts.isCallExpression(n) && n.expression.kind === ts.SyntaxKind.ImportKeyword) {
+			const a = n.arguments[0];
+			if (a !== undefined && ts.isStringLiteralLike(a)) {
+				if (LLM_SDK.some((r) => r.test(a.text)))
+					add({ kind: "capability", source: p.short, target: "capability:llm-sdk", file: path, line: lineOf(sf, n), symbol: a.text, op: "dynamic-import", world });
+				else if (MCP_SDK.some((r) => r.test(a.text)))
+					add({ kind: "capability", source: p.short, target: "capability:mcp-sdk", file: path, line: lineOf(sf, n), symbol: a.text, op: "dynamic-import", world });
+			}
+		}
+		if (ts.isCallExpression(n)) {
+			const callee = n.expression;
+			const fname = ts.isIdentifier(callee) ? callee.text : ts.isPropertyAccessExpression(callee) ? callee.name.text : "";
+			const baseText = ts.isPropertyAccessExpression(callee) ? callee.expression.getText(sf) : "";
+			if (SPAWN_FNS.has(fname)) {
+				const a = n.arguments[0];
+				if (a !== undefined && ts.isStringLiteralLike(a)) {
+					const bin = a.text.split("/").pop() ?? a.text;
+					if (HARNESS_BINS.has(bin)) add({ kind: "capability", source: p.short, target: "capability:harness-cli", file: path, line: lineOf(sf, n), symbol: bin, op: `${fname}()`, world });
+				}
+			}
+			if (ts.isPropertyAccessExpression(callee) && callee.name.text === "emit") {
+				const a = n.arguments[0];
+				if (a !== undefined && ts.isObjectLiteralExpression(a)) {
+					const tp = a.properties.find((pr): pr is ts.PropertyAssignment => ts.isPropertyAssignment(pr) && ts.isIdentifier(pr.name) && pr.name.text === "type");
+					if (tp !== undefined && ts.isStringLiteralLike(tp.initializer)) {
+						if (EVENTS.has(tp.initializer.text)) evSites.push({ pkg: p, file: path, line: lineOf(sf, callee.name), event: tp.initializer.text, dir: "emit", world });
+						else rejectedEventLiterals += 1;
+					}
+				}
+			}
+			if (ts.isPropertyAccessExpression(callee) && callee.name.text === "on") {
+				const a = n.arguments[0];
+				if (a !== undefined && ts.isStringLiteralLike(a)) {
+					if (a.text === "*" || EVENTS.has(a.text)) evSites.push({ pkg: p, file: path, line: lineOf(sf, callee.name), event: a.text, dir: "on", world });
+					else rejectedEventLiterals += 1;
+				} else if (a !== undefined && ts.isIdentifier(a)) dynamicEventOnSites += 1;
+			}
+			if (ts.isIdentifier(callee) && callee.text === "apiFetch") {
+				// (the seam helper — raw dials are handled below, on the literal itself)
+			}
+			if (ts.isIdentifier(callee) && callee.text === "apiFetch") {
+				add({ kind: "api", source: p.short, target: "core-api", file: path, line: lineOf(sf, n), symbol: litText(sf, n.arguments[0]), op: "apiFetch", world });
+			}
+			if (ts.isPropertyAccessExpression(callee) && callee.name.text === "subscribe" && /\bws|wsClient|socket/i.test(callee.expression.getText(sf))) {
+				add({ kind: "api", source: p.short, target: "core-api", file: path, line: lineOf(sf, n), symbol: litText(sf, n.arguments[0]), op: "ws-subscribe", world });
+			}
+			if (ts.isPropertyAccessExpression(callee)) {
+				const chain: string[] = [];
+				let cur: ts.Expression = callee;
+				while (ts.isPropertyAccessExpression(cur)) {
+					chain.unshift(cur.name.text);
+					cur = cur.expression;
+				}
+				let k: "core-api" | "agent-orchestration" | null = null;
+				if (ts.isIdentifier(cur)) k = portRoots.get(cur.text) ?? null;
+				else if (ts.isCallExpression(cur) && ts.isIdentifier(cur.expression)) k = typeKind(cur.expression.text);
+				if (k !== null && chain.length >= 1) add({ kind: "api", source: p.short, target: k, file: path, line: lineOf(sf, n), symbol: chain.join("."), op: "seam-port", world });
+			}
+			if (fname === "createMcpToolBridge") add({ kind: "mcp", source: p.short, target: "mcp-router", file: path, line: lineOf(sf, n), symbol: fname, op: "bridge-construct", world });
+			if (fname === "registerTool") add({ kind: "mcp", source: p.short, target: "mcp-router", file: path, line: lineOf(sf, n), symbol: litText(sf, n.arguments[0]), op: "sdk-register-tool", world });
+			if (fname === "open" && /mcp/i.test(baseText)) add({ kind: "mcp", source: p.short, target: "mcp-router", file: path, line: lineOf(sf, n), symbol: `${baseText}.open`, op: "session-open", world });
+			if (origins.size > 0) {
+				const calleeRoot = ts.isIdentifier(callee) ? callee.text : ts.isPropertyAccessExpression(callee) && ts.isIdentifier(callee.expression) ? callee.expression.text : null;
+				const consumer = calleeRoot !== null ? origins.get(calleeRoot) : undefined;
+				if (consumer !== undefined) {
+					const seen = new Set<string>();
+					const hit = (name: string, op: string): void => {
+						// A TABLE symbol passed as an argument is a table access, not a port injection —
+						// already counted under kind `table`. Counting it here too produced 1,681 phantom
+						// `core-api → db` "DI" edges on the first run, all of them `fn(db, bets)`.
+						if (TABLES.has(name)) return;
+						const prov = origins.get(name);
+						if (prov === undefined || prov.name === consumer.name) return;
+						// An imported constant handed to a call is an ordinary import, not an injected port.
+						if (CONST_EXPORTS.get(prov.short)?.has(name) === true) {
+							diConstantsSuppressed += 1;
+							return;
+						}
+						if (seen.has(`${prov.name}|${name}`)) return;
+						seen.add(`${prov.name}|${name}`);
+						add({ kind: "di", source: consumer.short, target: prov.short, file: path, line: lineOf(sf, n), symbol: name, op, world });
+					};
+					const scanArg = (a: ts.Node, depth: number): void => {
+						if (depth > 4) return;
+						if (ts.isIdentifier(a)) {
+							hit(a.text, "wired-in");
+							return;
+						}
+						if (ts.isObjectLiteralExpression(a)) {
+							for (const pr of a.properties) {
+								if (ts.isPropertyAssignment(pr)) scanArg(pr.initializer, depth + 1);
+								else if (ts.isShorthandPropertyAssignment(pr)) hit(pr.name.text, "wired-in (bundle)");
+							}
+							return;
+						}
+						if (ts.isArrayLiteralExpression(a)) {
+							for (const el of a.elements) scanArg(el, depth + 1);
+							return;
+						}
+						if (ts.isCallExpression(a)) {
+							if (ts.isIdentifier(a.expression)) hit(a.expression.text, "wired-in (factory)");
+							for (const inner of a.arguments) scanArg(inner, depth + 1);
+							return;
+						}
+						if (ts.isAsExpression(a) || ts.isParenthesizedExpression(a) || ts.isSatisfiesExpression(a)) scanArg(a.expression, depth);
+					};
+					for (const a of n.arguments) scanArg(a, 0);
+				}
+			}
+		}
+		// A RAW DIAL — `fetch("…/api/x")` or a WebSocket url — as opposed to the `apiFetch` seam, which
+		// is detected separately above. Matched on the URL literal, because the WebSocket case builds
+		// its url in a preceding statement and never passes a literal to the constructor. Three shapes,
+		// all narrow on purpose: an argument to `fetch(...)`, an argument to `new WebSocket(...)`, or the
+		// initializer of a variable whose name ends in `url`. Anything looser re-counts every `apiFetch`
+		// path literal as a second crossing.
+		if (ts.isStringLiteralLike(n) || ts.isTemplateExpression(n)) {
+			const text = ts.isTemplateExpression(n) ? n.getText(sf) : n.text;
+			const m = /\/api\/[A-Za-z0-9\-_/]*/.exec(text);
+			if (m !== null) {
+				// Walk out through the expression that BUILDS the url, then look at what consumes it.
+				let cur: ts.Node = n;
+				while (
+					cur.parent !== undefined &&
+					(ts.isBinaryExpression(cur.parent) || ts.isTemplateExpression(cur.parent) || ts.isTemplateSpan(cur.parent) || ts.isParenthesizedExpression(cur.parent) || ts.isAsExpression(cur.parent))
+				) {
+					cur = cur.parent;
+				}
+				const host = cur.parent;
+				let shape: string | null = null;
+				if (host !== undefined && ts.isCallExpression(host) && ts.isIdentifier(host.expression) && host.expression.text === "fetch") shape = "raw-fetch";
+				else if (host !== undefined && ts.isNewExpression(host) && /websocket|wsconstructor/i.test(host.expression.getText(sf))) shape = "raw-websocket";
+				else if (host !== undefined && ts.isVariableDeclaration(host) && ts.isIdentifier(host.name) && /url$/i.test(host.name.text)) shape = "raw-dial (url built inline)";
+				if (shape !== null) {
+					const apiPath = m[0];
+					const servedBy = layerServing(apiPath);
+					rawApiDials += 1;
+					if (servedBy === null) unresolvedApiDials.push({ file: normPath(path), line: lineOf(sf, n), path: apiPath });
+					else if (servedBy !== p.layer) {
+						add({ kind: "api", source: p.short, target: shortOfLayerName(servedBy), file: path, line: lineOf(sf, n), symbol: apiPath, op: shape, world });
+					}
+				}
+			}
+		}
+		if (ts.isFunctionDeclaration(n) && n.name !== undefined && /^createMcp(Router|ToolBridge|Session)$/.test(n.name.text)) {
+			add({ kind: "mcp", source: p.short, target: "mcp-router", file: path, line: lineOf(sf, n), symbol: n.name.text, op: "router-definition", world });
+		}
+		if (ts.isPropertyAccessExpression(n) && n.name.text === "router" && /mcp/i.test(n.expression.getText(sf))) {
+			add({ kind: "mcp", source: p.short, target: "mcp-router", file: path, line: lineOf(sf, n), symbol: `${n.expression.getText(sf)}.router`, op: "router-host", world });
+		}
+		ts.forEachChild(n, visit);
+	};
+	visit(sf);
+}
+
+// --- events: the EventBus is the endpoint, not the subscriber's package -------
+//
+// Round-1 answers 2c, 11 and 12: `EventBus` is ANONYMOUS pub/sub. An emitter names an event TYPE; it
+// does not name a package. The previous pass credited whichever package happened to hold a
+// subscriber, which manufactured two rows that read like access rules and are not: `service → own
+// layer [event]` (subscribers sit in the layer root) and `service → framework [event]` (the one
+// wildcard subscriber in `shared` swallowed every emit in the repo). Both were counting artefacts.
+//
+// So every event site — emit and subscribe alike — is a crossing with the EventBus and nothing else.
+// The emitter→subscriber graph is still resolved, but it is reported as data in the summary, never
+// as a rule row.
+
+const subsByEvent = new Map<string, Set<string>>();
+const wildcardSubs = new Set<string>();
+for (const s of evSites) {
+	if (s.dir !== "on" || s.world !== "production") continue;
+	if (s.event === "*") {
+		wildcardSubs.add(s.pkg.short);
+		continue;
+	}
+	const set = subsByEvent.get(s.event) ?? new Set<string>();
+	set.add(s.pkg.short);
+	subsByEvent.set(s.event, set);
+}
+const deadEvents: string[] = [];
+for (const ev of EVENTS) {
+	const set = subsByEvent.get(ev) ?? new Set<string>();
+	if (set.size === 0 && wildcardSubs.size === 0) deadEvents.push(ev);
+	for (const w of wildcardSubs) set.add(w);
+	subsByEvent.set(ev, set);
+}
+for (const s of evSites) {
+	add({
+		kind: "event",
+		source: s.pkg.short,
+		target: "EventBus",
+		file: s.file,
+		line: s.line,
+		symbol: s.event,
+		op: s.dir === "on" ? "subscribe" : "emit",
+		world: s.world,
+	});
+}
+/** Who subscribes to what — evidence for step 3, deliberately NOT a set of rows. */
+const eventGraph = [...subsByEvent].map(([ev, subs]) => ({ event: ev, subscribers: [...subs].sort() })).sort((a, b) => a.event.localeCompare(b.event));
+
+// ---------------------------------------------------------------------------
+// verdict vocabulary — THREE verdicts, no `unruled`
+// ---------------------------------------------------------------------------
+
+type Verdict = "allowed" | "forbidden" | "unsettled";
+const ENF = "ENFORCED TODAY";
+const SPEC = "SPECIFIED ONLY — no lint enforces it.";
+const NOTHING = "NOTHING WRITTEN DESCRIBES THIS PATTERN — step 3 must decide it. It is recorded `unsettled` because a missing rule is an open decision, not a permission.";
+const XALT = "cross-Layer conversation goes over API, MCP or events — founder Ruling 1(3)";
+const R12 = `founder Ruling 1(2) — a Layer may import only \`shared\` or code within its own Layer. BINDING. ${SPEC}`;
+const R11 = `founder Ruling 1(1) — DI is legal only within the same Layer. BINDING. ${SPEC}`;
+const R13 = `founder Ruling 1(3) — API / MCP / events are the legal cross-Layer mechanisms. BINDING. ${SPEC}`;
+const R31 = `founder Ruling 3.1 — Foundation importability is per-Layer and that matrix is NOT WRITTEN (the foundation inventory is a stated precondition). ${SPEC}`;
+const R7 = `founder Ruling 7 — a bench may access the database, foreign tables included; an eval is a test and must be able to put the database into a known state. Stated as a GENERAL rule for the Tooling role, not an exception. BINDING. ${SPEC}`;
+const R81 = `founder Ruling 8.1 — a production file may never import a development file. ${ENF} by scripts/rules/no-production-imports-development.ts, the ONLY governance rule in the lint.`;
+const R112 = "founder Ruling 11.2 — `framework/db` is not one target; it is several surfaces with genuinely different rules.";
+const OWNERSRC =
+	"Ownership comes from the registry recovered out of git (`scripts/table-ownership-guard.ts`, deleted with the whole guard set under Ruling 10) — 39 of the 45 tables. Ruling 10 strips it of authority: it is EVIDENCE of what ownership WAS, and step 3 ratifies it.";
+const DRAFT = (m: string): string => `rule-matrix ${m} — DRAFT ONLY (the matrix predates AU26 and the role-folder restructure). ${SPEC}`;
+
+/**
+ * THE DEVELOPMENT-WORLD VERDICT (Ruling 8.2: production and development are two worlds with two
+ * tables). Every row carries a verdict per world. The production verdict is decided in this file;
+ * the development verdict is the DECIDED set from
+ * `.pipeline/work/AU28/rulings/development-world-rules.md` — read here rather than restated, keyed
+ * `source|target|kind`. A row the decided set does not name inherits its production verdict, which
+ * is the correct default: nothing in the development world narrows or relaxes it.
+ *
+ * A rule template may override the development verdict per kind. That is what makes the read/write
+ * split worth having: `<role> → db:table (other)` is forbidden in production for both halves, but in
+ * development the READ half is allowed and only the WRITE half is held.
+ */
+interface DecidedDev {
+	dev: Verdict;
+	why: string;
+}
+const DEV_DECIDED = new Map<string, DecidedDev>();
+{
+	const md = readFileSync(`${ROOT}/.pipeline/work/AU28/rulings/development-world-rules.md`, "utf8");
+	const block = /```json\n([\s\S]*?)```/.exec(md);
+	if (block === null) throw new Error("development-world-rules.md: no decided-rule JSON block found");
+	const parsed = JSON.parse(block[1] as string) as { rules: { from: string; to: string; via: string; dev: Verdict; why: string }[] };
+	for (const r of parsed.rules) DEV_DECIDED.set(`${r.from}|${r.to}|${r.via}`, { dev: r.dev, why: r.why });
+}
+let devDecidedHits = 0;
+let devDecidedMisses = 0;
+const devDecidedUsed = new Set<string>();
+const devFor = (source: string, target: string, kind: string, prodVerdict: Verdict, override?: Verdict, overrideWhy?: string): DecidedDev => {
+	const key = `${source}|${target}|${kind}`;
+	const decided = DEV_DECIDED.get(key);
+	if (decided !== undefined) {
+		devDecidedHits += 1;
+		devDecidedUsed.add(key);
+	} else devDecidedMisses += 1;
+	if (override !== undefined) return { dev: override, why: overrideWhy ?? decided?.why ?? "" };
+	return decided ?? { dev: prodVerdict, why: "not named in the decided development-world set — inherits the production verdict, because nothing in the development world narrows or relaxes it" };
+};
+
+// ---------------------------------------------------------------------------
+// the rule set
+//
+// FOUNDER CONSTRAINT (binding): every row has EXACTLY ONE role as its source and EXACTLY ONE role or
+// concrete surface as its target. No unions, no `any`, no `except`, no `/` between roles. The role
+// vocabulary is closed and its members are peers — each is a top-level folder holding packages:
+//
+//   layer (layers/) · service (a package nested inside a layer) · framework (framework/) ·
+//   application (applications/) · tooling (tools/) · deployment (deploy/)
+//
+// plus `harness`, the one non-package actor, `repo root` for the un-roled files at the top of the
+// tree, and a NAMED PACKAGE where one genuinely needs its own rule. Target qualifiers are limited to
+// own / other / same layer / other layer, plus the concrete surfaces (`db:*`, `framework/<pkg>`,
+// EventBus, MCP router, raw runtime, repo root, development file).
+//
+// A rule that applies to four roles is therefore FOUR ROWS, each counting only its own instances.
+// The row count goes up; the ambiguity goes to zero. Kinds are single too — no `import+manifest`,
+// no `all 8 kinds`.
+// ---------------------------------------------------------------------------
+
+interface Cell {
+	id: string;
+	scope: "general" | "named";
+	matrix: string;
+	source: string;
+	target: string;
+	kind: string;
+	/** the PRODUCTION-world verdict */
+	verdict: Verdict;
+	/** the DEVELOPMENT-world verdict (Ruling 8.2) — may differ from `verdict` on the same row */
+	devVerdict: Verdict;
+	/** why the development verdict is what it is, when it differs or was explicitly decided */
+	devRule: string;
+	rule: string;
+	alternative: string | null;
+	note?: string;
+	/** the general cell this named cell carves its instances out of */
+	qualifies?: string;
+	/** the one sentence that is true of this pair and NOT of its role peers */
+	evidence?: string;
+	/** never collapsed, even if forbidden and empty */
+	pin?: boolean;
+	match: (i: Inst, s: Pkg | undefined, t: Pkg | undefined) => boolean;
+}
+const cells: Cell[] = [];
+
+/** The closed role vocabulary. `harness` and `repo root` are the two non-package actors. */
+type RoleName = "layer" | "service" | "framework" | "application" | "tooling" | "deployment" | "harness" | "repo root";
+const ROLE_OF_PKGROLE: Record<Role, RoleName> = {
+	layer: "layer",
+	service: "service",
+	foundation: "framework",
+	application: "application",
+	tooling: "tooling",
+	deployment: "deployment",
+	"repo-root": "repo root",
+};
+const roleOf = (p: Pkg | undefined): RoleName | null => (p === undefined ? null : ROLE_OF_PKGROLE[p.role]);
+
+/**
+ * THE READ / WRITE SPLIT, reported as its own finding so the rule rows can be checked against it.
+ * `reads` and `writes` are the two halves of the former `table` kind; `symbolImports` is the
+ * `[import]` row that sits beside them and is NEITHER — it obtains the table symbol and performs no
+ * database operation. Counted per rule family, production and development separately, so the four
+ * split rows can be read straight off it.
+ */
+const rwZero = (): { reads: number; writes: number; symbolImports: number } => ({ reads: 0, writes: 0, symbolImports: 0 });
+const tableRW = {
+	"service → db:table (own)": { prod: rwZero(), dev: rwZero() },
+	"layer → db:table (other)": { prod: rwZero(), dev: rwZero() },
+	"service → db:table (other)": { prod: rwZero(), dev: rwZero() },
+	"tooling → db:table (other)": { prod: rwZero(), dev: rwZero() },
+	other: { prod: rwZero(), dev: rwZero() },
+};
+/** every Drizzle operation seen on a table, so the read/write assignment is auditable */
+const tableOps: Record<string, { prod: number; dev: number; classedAs: string }> = {};
+for (const i of insts) {
+	if (i.table === undefined) continue;
+	const s = byShort.get(i.source);
+	if (s?.short === "db") continue; // intra-package, excluded from the rows
+	if (i.kind !== "import") {
+		const o = (tableOps[i.op] ??= { prod: 0, dev: 0, classedAs: i.kind });
+		if (i.world === "production") o.prod += 1;
+		else o.dev += 1;
+	}
+	const role = roleOf(s);
+	const own = TABLE_INFO.get(i.table)?.owner === i.source;
+	const family =
+		role === "tooling"
+			? "tooling → db:table (other)"
+			: role === "service" && own
+				? "service → db:table (own)"
+				: role === "layer"
+					? "layer → db:table (other)"
+					: role === "service"
+						? "service → db:table (other)"
+						: "other";
+	const slot = tableRW[family as keyof typeof tableRW][i.world === "production" ? "prod" : "dev"];
+	if (i.kind === "table:read") slot.reads += 1;
+	else if (i.kind === "table:write") slot.writes += 1;
+	else slot.symbolImports += 1;
+}
+/**
+ * The §4 recommendation in `development-world-rules.md` cited 1,872 development writes, 742
+ * development reads and 1,417 table-symbol imports across the FOREIGN block (`layer` + `service` →
+ * `db:table (other)`; Tooling is a separate, already-allowed row). This recomputes those three
+ * numbers from the split and states whether they agree.
+ */
+const fgn = (w: "prod" | "dev") => ({
+	reads: tableRW["layer → db:table (other)"][w].reads + tableRW["service → db:table (other)"][w].reads,
+	writes: tableRW["layer → db:table (other)"][w].writes + tableRW["service → db:table (other)"][w].writes,
+	symbolImports: tableRW["layer → db:table (other)"][w].symbolImports + tableRW["service → db:table (other)"][w].symbolImports,
+});
+const foreignDev = fgn("dev");
+const recommendationCheck = {
+	claim: { developmentWrites: 1872, developmentReads: 742, tableSymbolImports: 1417 },
+	measured: { developmentWrites: foreignDev.writes, developmentReads: foreignDev.reads, tableSymbolImports: foreignDev.symbolImports },
+	agrees: foreignDev.writes === 1872 && foreignDev.reads === 742 && foreignDev.symbolImports === 1417,
+	scope: "`layer` + `service` → `db:table (other)`, development world only — the block §4 of development-world-rules.md is about.",
+};
+
+/**
+ * WHY THE WRITE ROW IS FIXABLE. §4.2 of `development-world-rules.md` went table by table through
+ * every foreign table the development world writes and asked whether the owning service already
+ * exports a writer that PRODUCTION itself calls. For all but five tables it does — so the test is
+ * bypassing a door that already exists, which is what makes "writes forbidden" an instruction rather
+ * than a complaint. These five are the exceptions: no barrel-exported, production-used writer exists,
+ * and §4.2's ruling is DO NOT BUILD ONE (inventing a writer only tests can call is the dead code the
+ * constraint forbids). The counts below are recomputed here so the row states a measured fact.
+ */
+const NO_WRITER_TABLES = ["taskPlanningSignals", "userSkills", "propagationLog", "taskDispatchAttempts", "agentLifecycleInbox"];
+const writerCoverage = (() => {
+	const noWriter: Record<string, number> = {};
+	let withWriter = 0;
+	let without = 0;
+	for (const i of insts) {
+		if (i.table === undefined || i.kind !== "table:write" || i.world !== "development") continue;
+		const s = byShort.get(i.source);
+		if (s?.short === "db") continue;
+		const role = roleOf(s);
+		if (role !== "layer" && role !== "service") continue;
+		if (TABLE_INFO.get(i.table)?.owner === i.source) continue; // own table, not the foreign block
+		if (NO_WRITER_TABLES.includes(i.table)) {
+			noWriter[i.table] = (noWriter[i.table] ?? 0) + 1;
+			without += 1;
+		} else withWriter += 1;
+	}
+	return {
+		foreignDevelopmentWrites: withWriter + without,
+		haveProductionUsedOwnerWriter: withWriter,
+		haveNone: without,
+		haveNoneByTable: noWriter,
+		claim: { haveProductionUsedOwnerWriter: 1839, haveNone: 33 },
+		agrees: withWriter === 1839 && without === 33,
+		ruling: "§4.2 of development-world-rules.md — Group 1 switches to the owner's writer; Group 2 keeps the direct write and no writer is invented for it.",
+	};
+})();
+/** the sentence the two `table:write` rows carry, so the fixable/unfixable split lives on the row */
+const WRITE_FACT =
+	`${writerCoverage.haveProductionUsedOwnerWriter.toLocaleString("en-US")} of ${writerCoverage.foreignDevelopmentWrites.toLocaleString("en-US")} foreign-table development writes already go to a table whose owning service exports a writer that PRODUCTION ITSELF CALLS — the write is bypassing a door that already exists, so forbidding it is an instruction, not a complaint. ` +
+	`The remaining ${writerCoverage.haveNone} have no such writer and no production path to build one on (${NO_WRITER_TABLES.map((t) => `\`${t}\` ${writerCoverage.haveNoneByTable[t] ?? 0}`).join(", ")}); §4.2 rules that the direct write STAYS there and no writer is invented for it, because a writer only tests call is dead code. ` +
+	`Enforcement is therefore WARN, not fail, until those ${writerCoverage.haveNone} are carved out by name.`;
+/**
+ * The clause every `db:table … [import]` row carries. It exists so nobody reads the import row as
+ * the read half of the split.
+ */
+const TBL_IMPORT_CLAUSE =
+	"THIS ROW IS NEITHER A READ NOR A WRITE. It is the table SYMBOL arriving in the file — `import { users } from \"@hyperidle/db\"`, or the same symbol reached through a schema namespace. No database operation happens here; the operation is on the `[table:read]` or `[table:write]` row. An import is not a read, and counting it as one would count the same access twice.";
+
+
+/** Roles that hold packages, in the founder's order. */
+const PKG_ROLES: RoleName[] = ["layer", "service", "framework", "application", "tooling", "deployment"];
+/** Roles that can hold production source files. */
+const PROD_ROLES: RoleName[] = ["layer", "service", "framework", "application"];
+/** Everything in the Layer world plus the two outer package roles — the usual consumer set. */
+const CONSUMERS: RoleName[] = ["layer", "service", "application", "tooling", "deployment"];
+
+const ALL_KINDS: Kind[] = ["import", "manifest", "di", "api", "mcp", "event", "table:read", "table:write", "capability"];
+
+interface Tmpl {
+	id: string;
+	matrix: string;
+	sources: RoleName[];
+	target: string;
+	kinds: Kind[];
+	verdict: Verdict;
+	rule: string;
+	alt?: string | null;
+	note?: string;
+	pin?: boolean;
+	/** per-kind development verdict override — the reason the read/write split exists */
+	dev?: Partial<Record<Kind, Verdict>>;
+	/** per-kind clause appended to the rule text, so a split row can say what its half means */
+	kindRule?: Partial<Record<Kind, string>>;
+	/** target-side predicate; the source-role and kind tests are added automatically */
+	on: (i: Inst, s: Pkg | undefined, t: Pkg | undefined) => boolean;
+}
+/** Expand one rule into one row per (source role × kind). */
+const GR = (t: Tmpl): void => {
+	for (const src of t.sources) {
+		for (const k of t.kinds) {
+			const extra = t.kindRule?.[k];
+			const rule = extra === undefined ? t.rule : `${t.rule} ${extra}`;
+			const d = devFor(src, t.target, k, t.verdict, t.dev?.[k]);
+			cells.push({
+				id: `${t.id}.${src.replace(/ /g, "-")}.${k}`,
+				scope: "general",
+				matrix: t.matrix,
+				source: src,
+				target: t.target,
+				kind: k,
+				verdict: t.verdict,
+				devVerdict: d.dev,
+				devRule: d.why,
+				rule,
+				alternative: t.alt ?? null,
+				...(t.note === undefined ? {} : { note: t.note }),
+				...(t.pin === true ? { pin: true } : {}),
+				match: (i, s, tp) => i.kind === k && roleOf(s) === src && t.on(i, s, tp),
+			});
+		}
+	}
+};
+interface NTmpl {
+	id: string;
+	matrix: string;
+	source: string;
+	target: string;
+	kinds: Kind[];
+	verdict: Verdict;
+	rule: string;
+	alt?: string | null;
+	evidence: string;
+	qualifies?: string;
+	note?: string;
+	dev?: Partial<Record<Kind, Verdict>>;
+	kindRule?: Partial<Record<Kind, string>>;
+	on: (i: Inst, s: Pkg | undefined, t: Pkg | undefined) => boolean;
+}
+/** A named row. One source, one target, one kind each — same shape, just a package name in a slot. */
+const NR = (t: NTmpl): void => {
+	for (const k of t.kinds) {
+		const extra = t.kindRule?.[k];
+		const d = devFor(t.source, t.target, k, t.verdict, t.dev?.[k]);
+		cells.push({
+			id: `${t.id}.${k}`,
+			scope: "named",
+			matrix: t.matrix,
+			source: t.source,
+			target: t.target,
+			kind: k,
+			verdict: t.verdict,
+			devVerdict: d.dev,
+			devRule: d.why,
+			rule: extra === undefined ? t.rule : `${t.rule} ${extra}`,
+			alternative: t.alt ?? null,
+			evidence: t.evidence,
+			...(t.qualifies === undefined ? {} : { qualifies: `${t.qualifies}.${k}` }),
+			...(t.note === undefined ? {} : { note: t.note }),
+			match: (i, s, tp) => i.kind === k && t.on(i, s, tp),
+		});
+	}
+};
+
+// shared predicates -----------------------------------------------------------
+const tRole = (t: Pkg | undefined, r: Role): boolean => t?.role === r;
+const sameLayer = (s: Pkg | undefined, t: Pkg | undefined): boolean => s?.layer !== null && s?.layer !== undefined && s.layer === t?.layer;
+const isTable = (i: Inst): boolean => i.table !== undefined;
+const infoFor = (i: Inst): TableInfo | undefined => (i.table === undefined ? undefined : TABLE_INFO.get(i.table));
+const surf = (i: Inst, s: string): boolean => i.target === s;
+const fwPkg = (i: Inst, t: Pkg | undefined, short: string): boolean => (short === "db" ? i.target.startsWith("db:") || t?.short === "db" : t?.short === short);
+const TBL_KINDS: Kind[] = ["import", "table:read", "table:write"];
+const IMK: Kind[] = ["import", "manifest"];
+/** the two Layers that host an HTTP router today */
+const ROUTER_LAYERS = ["core-api", "agent-orchestration"];
+/** the package that owns the agent runtime and the MCP router */
+const RUNTIME_SERVICE = "harness-registry";
+
+// ---- E: the only enforced rule ----------------------------------------------
+
+GR({
+	id: "E",
+	matrix: "E enforced",
+	sources: PROD_ROLES,
+	target: "development file",
+	kinds: ["import"],
+	verdict: "forbidden",
+	rule: R81,
+	alt: "move the imported code into a production file, or reclassify the importer as development",
+	pin: true,
+	on: (i) => i.prodImportsDev === true,
+});
+
+// ---- layer → layer -----------------------------------------------------------
+
+const M_LL = "layer → layer";
+GR({
+	id: "LL.im",
+	matrix: M_LL,
+	sources: ["layer"],
+	target: "layer (other)",
+	kinds: IMK,
+	verdict: "forbidden",
+	rule: R12,
+	alt: XALT,
+	on: (i, s, t) => tRole(t, "layer") && !sameLayer(s, t),
+});
+GR({
+	id: "LL.di",
+	matrix: M_LL,
+	sources: ["layer"],
+	target: "layer (other)",
+	kinds: ["di"],
+	verdict: "forbidden",
+	rule: `${R11} An injected port crossing a Layer boundary is the crossing the founder names first and the one invisible to import-based checks by construction.`,
+	alt: XALT,
+	on: (i, s, t) => tRole(t, "layer") && !sameLayer(s, t),
+});
+GR({
+	id: "LL.mcp",
+	matrix: M_LL,
+	sources: ["layer"],
+	target: "layer (other)",
+	kinds: ["mcp"],
+	verdict: "forbidden",
+	rule: `the MCP caller is a running harness process, never a package — a Layer never makes an MCP tool call. ${DRAFT("M1 kind 5")}`,
+	alt: "API or events",
+	on: (i, s, t) => tRole(t, "layer") && !sameLayer(s, t),
+});
+
+// ---- layer → service ----------------------------------------------------------
+
+const M_LS = "layer → service";
+GR({
+	id: "LS.own.im",
+	matrix: M_LS,
+	sources: ["layer"],
+	target: "service (same layer)",
+	kinds: IMK,
+	verdict: "allowed",
+	rule: `${R12} A Layer composes its own Services — the one ground-truth statement AU28 keeps.`,
+	on: (i, s, t) => tRole(t, "service") && sameLayer(s, t),
+});
+GR({
+	id: "LS.own.di",
+	matrix: M_LS,
+	sources: ["layer"],
+	target: "service (same layer)",
+	kinds: ["di"],
+	verdict: "allowed",
+	rule: R11,
+	on: (i, s, t) => tRole(t, "service") && sameLayer(s, t),
+});
+GR({
+	id: "LS.own.dial",
+	matrix: M_LS,
+	sources: ["layer"],
+	target: "service (same layer)",
+	kinds: ["api", "mcp"],
+	verdict: "forbidden",
+	rule: `a Layer does not dial its own Service over HTTP; it composes it. ${DRAFT("M5(a)")}`,
+	alt: "import it or inject it",
+	on: (i, s, t) => tRole(t, "service") && sameLayer(s, t),
+});
+GR({
+	id: "LS.other.reach",
+	matrix: M_LS,
+	sources: ["layer"],
+	target: "service (other layer)",
+	kinds: ["import", "manifest", "di", "api", "mcp"],
+	verdict: "forbidden",
+	rule: `${R12} Reaching past a foreign Layer's barrel into a Service inside it. An API call addresses a Layer's router, not a Service within it.`,
+	alt: XALT,
+	on: (i, s, t) => tRole(t, "service") && !sameLayer(s, t),
+});
+
+// ---- service → layer ----------------------------------------------------------
+
+const M_SL = "service → layer";
+GR({
+	id: "SL.own.im",
+	matrix: M_SL,
+	sources: ["service"],
+	target: "layer (own)",
+	kinds: IMK,
+	verdict: "unsettled",
+	rule: `CONFLICT, unresolved: Ruling 1(2) PERMITS it (same Layer) while rule-matrix M5(c) FORBIDS it as an import cycle — the root already imports the Service. ${SPEC} Step 3 must pick one.`,
+	on: (i, s, t) => tRole(t, "layer") && sameLayer(s, t),
+});
+GR({
+	id: "SL.own.di",
+	matrix: M_SL,
+	sources: ["service"],
+	target: "layer (own)",
+	kinds: ["di"],
+	verdict: "allowed",
+	rule: R11,
+	on: (i, s, t) => tRole(t, "layer") && sameLayer(s, t),
+});
+GR({
+	id: "SL.own.dial",
+	matrix: M_SL,
+	sources: ["service"],
+	target: "layer (own)",
+	kinds: ["api", "mcp"],
+	verdict: "forbidden",
+	rule: `a Service does not dial the Layer that composes it. ${DRAFT("M5(c)")}`,
+	alt: "events",
+	on: (i, s, t) => tRole(t, "layer") && sameLayer(s, t),
+});
+GR({
+	id: "SL.other.reach",
+	matrix: M_SL,
+	sources: ["service"],
+	target: "layer (other)",
+	kinds: ["import", "manifest", "di", "mcp"],
+	verdict: "forbidden",
+	rule: `${R12} ${R11}`,
+	alt: XALT,
+	on: (i, s, t) => tRole(t, "layer") && !sameLayer(s, t),
+});
+
+// ---- service → service ---------------------------------------------------------
+
+const M_SS = "service → service";
+GR({
+	id: "SS.same.im",
+	matrix: M_SS,
+	sources: ["service"],
+	target: "service (same layer)",
+	kinds: IMK,
+	verdict: "unsettled",
+	rule: `CONFLICT, unresolved: Ruling 1(2) PERMITS it (same Layer) while rule-matrix M5(d) FORBIDS it, citing AU19 — an authority Ruling 10 explicitly stripped. ${SPEC} The single highest-volume contested cell in the repo; step 3 must pick one.`,
+	on: (i, s, t) => tRole(t, "service") && sameLayer(s, t),
+});
+GR({
+	id: "SS.same.di",
+	matrix: M_SS,
+	sources: ["service"],
+	target: "service (same layer)",
+	kinds: ["di"],
+	verdict: "allowed",
+	rule: `${R11} Sibling-Service DI wired by the Layer root is exactly the cell Ruling 1(1) legalises.`,
+	on: (i, s, t) => tRole(t, "service") && sameLayer(s, t),
+});
+GR({
+	id: "SS.same.dial",
+	matrix: M_SS,
+	sources: ["service"],
+	target: "service (same layer)",
+	kinds: ["api", "mcp"],
+	verdict: "forbidden",
+	rule: `siblings are composed by their Layer root, not dialled. ${DRAFT("M5(d)")}`,
+	alt: "DI through the Layer root, or events",
+	on: (i, s, t) => tRole(t, "service") && sameLayer(s, t),
+});
+GR({
+	id: "SS.other.reach",
+	matrix: M_SS,
+	sources: ["service"],
+	target: "service (other layer)",
+	kinds: ["import", "manifest", "api", "mcp"],
+	verdict: "forbidden",
+	rule: `${R12} An API call addresses a Layer's router, not a Service inside it.`,
+	alt: XALT,
+	on: (i, s, t) => tRole(t, "service") && !sameLayer(s, t),
+});
+GR({
+	id: "SS.other.di",
+	matrix: M_SS,
+	sources: ["service"],
+	target: "service (other layer)",
+	kinds: ["di"],
+	verdict: "forbidden",
+	rule: `${R11} These are the injected-port crossings invisible to any import-based check by construction.`,
+	alt: XALT,
+	on: (i, s, t) => tRole(t, "service") && !sameLayer(s, t),
+});
+
+// ---- → framework/shared ---------------------------------------------------------
+
+const M_FW = "→ framework";
+GR({
+	id: "FW.shared",
+	matrix: M_FW,
+	sources: CONSUMERS,
+	target: "framework/shared",
+	kinds: IMK,
+	verdict: "allowed",
+	rule: `${R12} \`shared\` is the one framework package the ruling names outright, for every role. The verdict is Allowed but the SURFACE is contested — the \`shared\` decomposition (Ruling 9 step 4) narrows what sits behind this edge.`,
+	on: (i, _s, t) => t?.short === "shared",
+});
+GR({
+	id: "FW.shared.fw",
+	matrix: M_FW,
+	sources: ["framework"],
+	target: "framework/shared",
+	kinds: IMK,
+	verdict: "allowed",
+	rule: `framework is a ranked DAG: rank 1 (db, api-contract, design-system) may import rank 0 (\`shared\`). ${DRAFT("M3")}`,
+	on: (i, _s, t) => t?.short === "shared",
+});
+GR({
+	id: "FW.apicontract.open",
+	matrix: M_FW,
+	sources: ["layer", "service"],
+	target: "framework/api-contract",
+	kinds: IMK,
+	verdict: "unsettled",
+	rule: `${R31} The draft row reads: Allowed iff the importer is a party (host or caller) to a port family declared there.`,
+	on: (i, _s, t) => t?.short === "api-contract",
+});
+GR({
+	id: "FW.apicontract.no",
+	matrix: M_FW,
+	sources: ["application", "tooling", "deployment", "framework"],
+	target: "framework/api-contract",
+	kinds: IMK,
+	verdict: "forbidden",
+	rule: `not a party to a port family — an Application composes Layers, a bench drives them, and a peer framework package may not import another rank-1 package. ${DRAFT("M3/M6/M7")}`,
+	on: (i, _s, t) => t?.short === "api-contract",
+});
+GR({
+	id: "FW.designsystem.open",
+	matrix: M_FW,
+	sources: ["layer", "service"],
+	target: "framework/design-system",
+	kinds: IMK,
+	verdict: "unsettled",
+	rule: `${R31} Ruling 11.3 settles exactly one pair — core-ui, see the named row — and leaves every other Layer and every Service open. A second, independent reason it cannot be settled for the service role: core-ui has ZERO nested Services, so the Service-side actor does not exist.`,
+	on: (i, _s, t) => t?.short === "design-system",
+});
+GR({
+	id: "FW.designsystem.no",
+	matrix: M_FW,
+	sources: ["application", "tooling", "deployment", "framework"],
+	target: "framework/design-system",
+	kinds: IMK,
+	verdict: "forbidden",
+	rule: `the design system is the browser-hosted Layer's surface; nothing else renders. ${DRAFT("M3/M6/M7")}`,
+	on: (i, _s, t) => t?.short === "design-system",
+});
+GR({
+	id: "FW.db.fw",
+	matrix: M_FW,
+	sources: ["framework"],
+	target: "framework/db",
+	kinds: IMK,
+	verdict: "forbidden",
+	rule: `rank-1 framework packages are peers; none may import another, and rank 0 imports nothing. ${DRAFT("M3")}`,
+	alt: "hoist the shared symbol down into `shared` (rank 0)",
+	on: (i, _s, t) => fwPkg(i, t, "db"),
+});
+
+// ---- db surfaces ------------------------------------------------------------------
+
+const M_DB = "→ db surface";
+GR({
+	id: "DB.rowtype",
+	matrix: M_DB,
+	sources: CONSUMERS,
+	target: "db:row-type",
+	kinds: ["import"],
+	verdict: "allowed",
+	rule: `${R112} A row type is erased at compile time: importing one creates no runtime coupling and cannot read or write a row, so the table ACL has nothing to protect against. Ruling 11.2 marks the surface widely available. ${ROW_TYPES.size} types.`,
+	on: (i) => surf(i, "db:row-type"),
+});
+GR({
+	id: "DB.schemans",
+	matrix: M_DB,
+	sources: CONSUMERS,
+	target: "db:schema-ns",
+	kinds: ["import"],
+	verdict: "forbidden",
+	rule: `${R112} Forbidden everywhere: one symbol hands all ${TABLES.size} tables through, so no name-based table ACL can see what is being reached. \`framework/db/src/index.ts:32\` is the single line that creates the surface.`,
+	alt: "import the specific symbol you need — `createPgliteDb` / `applyMigrations` for plumbing, the owned table for data",
+	on: (i) => surf(i, "db:schema-ns"),
+});
+GR({
+	id: "DB.client.yes",
+	matrix: M_DB,
+	sources: ["application", "tooling"],
+	target: "db:client",
+	kinds: ["import"],
+	verdict: "allowed",
+	rule: `${R112} Opening the connection and running migrations is a deployment concern, and a bench that may seed the database must be able to open it. Surface: \`HyperIdleDb\`, \`WriteExecutor\`, \`createPgliteDb\`, \`applyMigrations\`, \`isDowngrade\`.`,
+	on: (i) => surf(i, "db:client"),
+});
+GR({
+	id: "DB.client.open",
+	matrix: M_DB,
+	sources: ["layer", "service", "deployment"],
+	target: "db:client",
+	kinds: ["import"],
+	verdict: "unsettled",
+	rule: `${R31} Ruling 11.2 calls this surface runtime plumbing, narrow, but does not say how narrow. The draft row reads: Allowed for the Layers that own persistent state, Forbidden for the browser-hosted Layer and the runtime Layer. Step 3 writes it.`,
+	on: (i) => surf(i, "db:client"),
+});
+GR({
+	id: "DB.bootstrap.yes",
+	matrix: M_DB,
+	sources: ["application", "tooling"],
+	target: "db:bootstrap",
+	kinds: ["import"],
+	verdict: "allowed",
+	rule: `${R112} First-boot and demo seeding is the Application tier, per Ruling 11.2's own rule direction, and putting the database into a known state is exactly what Ruling 7 legalises for a bench. Surface: \`applyFactoryBootstrap\`, \`seedDemoWorld\`, \`runSetup\`.`,
+	on: (i) => surf(i, "db:bootstrap"),
+});
+GR({
+	id: "DB.bootstrap.no",
+	matrix: M_DB,
+	sources: ["layer", "service", "deployment"],
+	target: "db:bootstrap",
+	kinds: ["import"],
+	verdict: "forbidden",
+	rule: `${R112} Ruling 11.2 assigns this surface to the Application tier. A Layer that seeds its own first boot has taken on its deployment's job.`,
+	alt: "the Application calls it at boot and hands the Layer a ready database",
+	on: (i) => surf(i, "db:bootstrap"),
+});
+GR({
+	id: "DB.util",
+	matrix: M_DB,
+	sources: CONSUMERS,
+	target: "db:util",
+	kinds: ["import"],
+	verdict: "unsettled",
+	rule: `THIS SURFACE SHOULD NOT EXIST. \`escapeLikePattern\`, \`resolveAgentScaffoldSpecs\` and \`resolveProfile\` touch no database — no SQL, no schema, no connection. Ruling 12.3 makes moving them out of \`db\` a follow-up work package; the surface is kept only because the files are still there. Ruling 11.2 lists it but leaves its rule direction BLANK, so no verdict is written yet — and the right answer is that the question disappears when the code moves to \`shared\`. ${NOTHING}`,
+	on: (i) => surf(i, "db:util"),
+});
+GR({
+	id: "DB.testing",
+	matrix: M_DB,
+	sources: CONSUMERS,
+	target: "db:testing",
+	kinds: ["import"],
+	verdict: "unsettled",
+	rule: `a DEVELOPMENT surface of a production package (\`./testing\`, \`./test-fixtures\`, \`./test-pool\`). A production importer is caught by the enforced rule; what is left is the development-world question, and Ruling 9 puts that table at step 3. ${NOTHING}`,
+	on: (i) => surf(i, "db:testing"),
+});
+GR({
+	id: "DB.unknown",
+	matrix: M_DB,
+	sources: CONSUMERS,
+	target: "db:unknown",
+	kinds: ["import"],
+	verdict: "unsettled",
+	rule: `the symbol resolves to a real \`framework/db\` export that fits none of Ruling 11.2's seven surfaces — reported rather than guessed into one. Two DIFFERENT things land here and only one is a rule question: (a) the system-prompt templates, which are a filesystem read of \`docs/\` with no SQL and are in \`db\` only because AU18 lifted them out of \`factory-bootstrap.ts\` — Ruling 12.3 makes moving them a follow-up; (b) symbols the detector could not attribute. This census now resolves destructured \`await import()\`, which was the whole of (b) in production: the surface is down to ONE production instance, the template symbol, so the relocation Ruling 12.3 schedules will clear it. What is left is development-only — a \`seed\` symbol in \`applications/desktop/__tests__/migrate.test.ts\` that is not in the db barrel at all. ${NOTHING}`,
+	on: (i) => surf(i, "db:unknown"),
+});
+GR({
+	id: "DB.manifest.open",
+	matrix: M_DB,
+	sources: ["layer", "service", "deployment"],
+	target: "framework/db",
+	kinds: ["manifest"],
+	verdict: "unsettled",
+	rule: `${R31} A manifest row declares the whole package, so it cannot express a surface — which is exactly why the surface rules have to be enforced at the IMPORT (Ruling 3.2). Whether this role may declare \`@hyperidle/db\` at all follows whatever step 3 settles for db:client and db:table.`,
+	on: (i, _s, t) => fwPkg(i, t, "db"),
+});
+GR({
+	id: "DB.manifest.yes",
+	matrix: M_DB,
+	sources: ["application", "tooling"],
+	target: "framework/db",
+	kinds: ["manifest"],
+	verdict: "allowed",
+	rule: `both roles have an Allowed import surface into db — db:client and db:bootstrap for an Application, every surface for a bench under Ruling 7 — so the declaration is legitimate.`,
+	on: (i, _s, t) => fwPkg(i, t, "db"),
+});
+
+// ---- db:table — the ownership ACL --------------------------------------------------
+
+const M_TBL = "→ db:table";
+GR({
+	id: "TBL.own",
+	matrix: M_TBL,
+	sources: ["service"],
+	target: "db:table (own)",
+	kinds: TBL_KINDS,
+	verdict: "allowed",
+	rule: `founder Ruling 12.2, the table rule in final form: EVERY TABLE HAS EXACTLY ONE OWNING SERVICE, AND ONLY THAT SERVICE MAY READ OR WRITE IT. Two cells, nothing else. This is the one Allowed table cell — single ownership is what closes the biggest bypass in the system, because a shared table is a cross-Layer channel with no import and no DI, invisible to every import- and DI-based check (Ruling 6). ${OWNERSRC}`,
+	dev: { import: "allowed", "table:read": "allowed", "table:write": "allowed" },
+	kindRule: {
+		import: TBL_IMPORT_CLAUSE,
+		"table:read": `READ half of the split. Allowed in both worlds: the owner reading its own table is the whole point of owning it.`,
+		"table:write": `WRITE half of the split. Allowed in both worlds — the owner is the only role permitted to write, so there is nothing for the development world to narrow.`,
+	},
+	on: (i, s) => isTable(i) && infoFor(i)?.owner === s?.short,
+});
+GR({
+	id: "TBL.other",
+	matrix: M_TBL,
+	sources: ["layer", "service", "application", "deployment"],
+	target: "db:table (other)",
+	kinds: TBL_KINDS,
+	verdict: "forbidden",
+	rule: `founder Ruling 12.2 — a table this role does not own. Zero exceptions IN PRODUCTION: there the owner's exclusivity covers READS as well as writes. The development world splits the two — see the per-kind clause below. A table with NO owner lands here too, because nobody owns it; that is a violation of the completeness rule (every table has an owner), reported as its own finding in \`summary.dbSurfaces.ownership.completeness\` rather than given a rule row of its own. Ruling 12: govern the END STATE — warn while the ownership migration is in flight, hard-fail once it lands, but never bend the rule to fit the current mess. \`pairs\` names the accessor and the table on every instance.`,
+	alt: "call the owning Service over its API, or react to the event it emits",
+	dev: { import: "allowed", "table:read": "allowed", "table:write": "forbidden" },
+	kindRule: {
+		import: `${TBL_IMPORT_CLAUSE} Allowed in development because the symbol is what the permitted foreign READS need, and what the ${writerCoverage.haveNone} writes with no production path need.`,
+		"table:read": `READ half of the split. FORBIDDEN in production, ALLOWED IN DEVELOPMENT: a read cannot create a row shape production could not have created, so forbidding it buys nothing — it only stops a test from asserting on state the owner already exposes. This is the half the old undivided \`table\` row could not express.`,
+		"table:write": `WRITE half of the split. FORBIDDEN IN BOTH WORLDS — this is the half the development world holds. ${WRITE_FACT}`,
+	},
+	on: (i, s) => isTable(i) && infoFor(i)?.owner !== s?.short,
+});
+GR({
+	id: "TBL.tool",
+	matrix: M_TBL,
+	sources: ["tooling"],
+	target: "db:table (other)",
+	kinds: TBL_KINDS,
+	verdict: "allowed",
+	rule: `${R7} It does NOT extend to reaching past a Layer barrel into a Service — database access and Service reach-through are different rules, and Ruling 7's second half says so explicitly.`,
+	dev: { import: "allowed", "table:read": "allowed", "table:write": "allowed" },
+	kindRule: {
+		import: TBL_IMPORT_CLAUSE,
+		"table:read": `READ half of the split. Allowed in both worlds under Ruling 7.`,
+		"table:write": `WRITE half of the split. Allowed in both worlds under Ruling 7 — a bench must be able to put the database into a known state, and that is a write. The read/write split changes nothing here; it is recorded so the Tooling row reads the same way as every other table row.`,
+	},
+	on: (i) => isTable(i),
+});
+
+// ---- framework as a source, reaching upward ----------------------------------------
+
+const M_FS = "framework → *";
+for (const [tid, tlabel, pred] of [
+	["FS.layer", "layer", (t: Pkg | undefined) => tRole(t, "layer")],
+	["FS.service", "service", (t: Pkg | undefined) => tRole(t, "service")],
+	["FS.application", "application", (t: Pkg | undefined) => tRole(t, "application")],
+	["FS.tooling", "tooling", (t: Pkg | undefined) => tRole(t, "tooling")],
+	["FS.deployment", "deployment", (t: Pkg | undefined) => tRole(t, "deployment")],
+] as [string, string, (t: Pkg | undefined) => boolean][]) {
+	GR({
+		id: tid,
+		matrix: M_FS,
+		sources: ["framework"],
+		target: tlabel,
+		kinds: ALL_KINDS,
+		verdict: "forbidden",
+		rule: `framework is the floor — nothing below it exists. A framework package that reaches upward makes every Layer's closure cyclic. ${DRAFT("M4")}`,
+		alt: "invert the dependency — the consumer imports framework",
+		note: "invisible to this method: a framework package DECLARING a port interface whose implementer and caller sit in different Layers. `shared/src/agent-work-intent-recorder.ts` was the live instance.",
+		on: (_i, _s, t) => pred(t),
+	});
+}
+
+// ---- EventBus ----------------------------------------------------------------------
+
+const M_EV = "→ EventBus";
+GR({
+	id: "EV.sub",
+	matrix: M_EV,
+	sources: ["layer", "service", "application", "tooling"],
+	target: "EventBus",
+	kinds: ["event"],
+	verdict: "allowed",
+	rule: `${R13} Emitting and subscribing are the same crossing with the same counterparty: the bus. \`EventBus\` is ANONYMOUS pub/sub — an emitter names an event TYPE, never a package — so there is no such thing as sending an event "to" a Layer or a Service. Attributing a crossing to whichever package happens to hold a subscriber manufactures rules that do not exist; the emitter→subscriber graph is reported as evidence in \`summary.events\`, not as rows.`,
+	on: (i) => i.target === "EventBus",
+});
+GR({
+	id: "EV.fw",
+	matrix: M_EV,
+	sources: ["framework"],
+	target: "EventBus",
+	kinds: ["event"],
+	verdict: "forbidden",
+	rule: `END STATE: a framework package is not an EventBus endpoint. \`shared\` is the leaf everybody imports, not a participant with behaviour. One production instance — \`framework/shared/src/observability/dispatcher.ts:473\`, \`bus.on("*", …)\` — and the DESIGN is good (one wildcard subscription instead of wiring 30+ call sites, with an exhaustiveness check that turns a new event into a compile error). Keep the subscriber; move it out of \`shared\` into a module allowed to be an endpoint. Ruling 12.3 lists that relocation as a follow-up work package, so this is warned now and enforced when it lands — the rule states the end state either way. While it sits in \`shared\`, every emit in the repo resolves to a framework subscriber, which is why the old subscriber-attributed rows tracked total emit volume.`,
+	alt: "relocate the observability dispatcher to its own package or a layer-root service",
+	on: (i) => i.target === "EventBus",
+});
+
+// ---- DI whose provider is a framework package ---------------------------------------
+
+GR({
+	id: "FW.di",
+	matrix: M_FW,
+	sources: ["layer", "service", "framework", "application", "tooling", "deployment"],
+	target: "framework",
+	kinds: ["di"],
+	verdict: "unsettled",
+	rule: `DI whose PROVIDER is a framework package — the source here is the party RECEIVING the injected value. Ruling 1(1) is about a port crossing a LAYER boundary, which a framework provider does not; the draft matrix's framework row governs the opposite direction. ${NOTHING} It is either harmless — a \`shared\` helper handed to a callee, already governed as an import — or the \`agent-work-intent-recorder\` shape, a cross-Layer port parked in framework, and this detector cannot tell them apart.`,
+	on: (i, _s, t) => t?.role === "foundation",
+});
+GR({
+	id: "FW.dial",
+	matrix: M_FW,
+	sources: ["layer", "service", "application", "tooling", "deployment"],
+	target: "framework",
+	kinds: ["api", "mcp"],
+	verdict: "forbidden",
+	rule: `a framework package hosts no router and owns no MCP bridge. ${DRAFT("§5 F-FOUND")}`,
+	alt: "import it — that is the only way to reach framework",
+	on: (i, _s, t) => t?.role === "foundation",
+});
+
+// ---- MCP router ------------------------------------------------------------------
+
+const M_MCP = "→ MCP router";
+GR({
+	id: "MCP.no",
+	matrix: M_MCP,
+	sources: ["layer", "service", "framework", "application", "tooling", "deployment"],
+	target: "MCP router",
+	kinds: ["mcp"],
+	verdict: "forbidden",
+	rule: `the MCP router belongs to the package that provisions the harness. Hosting or constructing it elsewhere makes the founder's own legal cross-Layer mechanism depend on an illegal crossing. ${DRAFT("§3.2")}`,
+	alt: "agent-execution exports its own Hono app carrying the MCP router; the Application mounts it (AU26's locked design)",
+	on: (i) => i.target === "mcp-router",
+});
+GR({
+	id: "MCP.harness",
+	matrix: M_MCP,
+	sources: ["harness"],
+	target: "MCP router",
+	kinds: ["mcp"],
+	verdict: "allowed",
+	rule: `${R13} A harness reaches the system through exactly one door: an MCP tool call authed by a per-session bearer token. ${DRAFT("M8")}`,
+	note: "an external process leaves no module-graph instance, so 0 here means 'not observable by this method', never 'does not happen'.",
+	on: () => false,
+});
+
+// ---- raw runtime -------------------------------------------------------------------
+
+const M_RT = "→ raw runtime";
+GR({
+	id: "RT.no",
+	matrix: M_RT,
+	sources: ["layer", "service", "framework", "application", "tooling", "deployment"],
+	target: "raw runtime",
+	kinds: ["capability"],
+	verdict: "forbidden",
+	rule: `only the package that provisions the harness touches the raw runtime — harness CLI spawn, raw LLM SDK, MCP SDK. ${DRAFT("M9")} Ruling 8.4 records that raw-LLM-SDK usage in PRODUCTION code is ZERO; the live instances are bench files, a bench-quality problem (no cassette replay, locked to one provider), NOT a production boundary breach, and must not be described as one.`,
+	alt: "route through the model gateway or the harness registry",
+	on: (i) => i.kind === "capability",
+});
+
+// ---- harness as a target -------------------------------------------------------------
+
+const M_HN = "→ harness";
+GR({
+	id: "HN.no",
+	matrix: M_HN,
+	sources: ["layer", "service", "framework", "application", "tooling", "deployment"],
+	target: "harness",
+	kinds: ALL_KINDS,
+	verdict: "forbidden",
+	rule: `only the package that provisions a harness talks to one — the working directory and the process are its exclusive concern. ${DRAFT("M1b/M5(p2)/M6/M7")}`,
+	alt: "call the provisioning surface over API or events",
+	note: "UNMEASURED, not zero: WORKSPACE HANDOFF (files written into a harness working dir — .mcp.json, AGENTS.md, injected credentials) is not in the crossing taxonomy and is not detected. It is the channel behind every `→ harness` row.",
+	on: () => false,
+});
+for (const [tid, tlabel] of [
+	["HS.layer", "layer"],
+	["HS.service", "service"],
+	["HS.framework", "framework"],
+	["HS.application", "application"],
+	["HS.tooling", "tooling"],
+] as [string, string][]) {
+	GR({
+		id: tid,
+		matrix: "harness → *",
+		sources: ["harness"],
+		target: tlabel,
+		kinds: ALL_KINDS,
+		verdict: "forbidden",
+		rule: `a harness holds a per-session MCP bearer token, not an API key; giving it one hands a sandboxed process the whole API surface. Everything beyond the MCP door is structurally impossible for a process with no module graph — kept Forbidden so that making it possible would require changing the contract first. ${DRAFT("M8")}`,
+		alt: "MCP tool call",
+		on: () => false,
+	});
+}
+
+// ---- application as a source -----------------------------------------------------------
+
+const M_AP = "application → *";
+GR({
+	id: "AP.layer.im",
+	matrix: M_AP,
+	sources: ["application"],
+	target: "layer",
+	kinds: IMK,
+	verdict: "allowed",
+	rule: `an Application composes Layers into a deployment — that is its entire job. ${DRAFT("M6")}`,
+	on: (_i, _s, t) => tRole(t, "layer"),
+});
+GR({
+	id: "AP.layer.di",
+	matrix: M_AP,
+	sources: ["application"],
+	target: "layer",
+	kinds: ["di"],
+	verdict: "forbidden",
+	rule: `an Application may wire only ports whose declaring interface belongs to the RECEIVING Layer. Routing a foreign Layer's port through an Application launders it; it does not legalise it — Ruling 1(1) is about the port, not the wirer. ${DRAFT("M6")}`,
+	alt: XALT,
+	on: (_i, _s, t) => tRole(t, "layer"),
+});
+GR({
+	id: "AP.layer.evmcp",
+	matrix: M_AP,
+	sources: ["application"],
+	target: "layer",
+	kinds: ["event", "mcp"],
+	verdict: "forbidden",
+	rule: `an Application is not an EventBus endpoint and is not a harness process. ${DRAFT("M6")}`,
+	alt: "API",
+	on: (_i, _s, t) => tRole(t, "layer"),
+});
+GR({
+	id: "AP.service",
+	matrix: M_AP,
+	sources: ["application"],
+	target: "service",
+	kinds: ALL_KINDS,
+	verdict: "forbidden",
+	rule: `an Application composes Layers; a Layer's internal decomposition is not the Application's business. Reaching a Service directly is what makes an Application a second composition root. ${DRAFT("M6")}`,
+	alt: "import the Layer barrel — it already re-exports the Service",
+	on: (_i, _s, t) => tRole(t, "service"),
+});
+GR({
+	id: "AP.application",
+	matrix: M_AP,
+	sources: ["application"],
+	target: "application",
+	kinds: ALL_KINDS,
+	verdict: "forbidden",
+	rule: `an Application is a deployment root; roots do not compose roots. ${DRAFT("M6")}`,
+	alt: "relocate the reusable class into the Layer that owns it",
+	on: (_i, _s, t) => tRole(t, "application"),
+});
+
+// ---- tooling as a source -----------------------------------------------------------------
+
+const M_TL = "tooling → *";
+GR({
+	id: "TL.layer.im",
+	matrix: M_TL,
+	sources: ["tooling"],
+	target: "layer",
+	kinds: IMK,
+	verdict: "allowed",
+	rule: `a bench may boot and dial the system it benches — Tooling gets the same Layer access an Application gets, because it is the same act. ${DRAFT("M7")}`,
+	on: (_i, _s, t) => tRole(t, "layer"),
+});
+GR({
+	id: "TL.layer.other",
+	matrix: M_TL,
+	sources: ["tooling"],
+	target: "layer",
+	kinds: ["di", "event", "mcp"],
+	verdict: "forbidden",
+	rule: `a bench is outside the runtime graph: nothing is injected into it, it is not an EventBus endpoint and it is not a harness process. ${DRAFT("M7")}`,
+	alt: "boot and dial the Layer",
+	on: (_i, _s, t) => tRole(t, "layer"),
+});
+GR({
+	id: "TL.service",
+	matrix: M_TL,
+	sources: ["tooling"],
+	target: "service",
+	kinds: ALL_KINDS,
+	verdict: "forbidden",
+	rule: `founder Ruling 7, second half — reaching PAST a Layer barrel into a Service is explicitly NOT covered by the database carve-out. Database access and Service reach-through are different rules; do not let the former launder the latter. BINDING. ${SPEC}`,
+	alt: "import the Layer barrel",
+	on: (_i, _s, t) => tRole(t, "service"),
+});
+GR({
+	id: "TL.application",
+	matrix: M_TL,
+	sources: ["tooling"],
+	target: "application",
+	kinds: ALL_KINDS,
+	verdict: "forbidden",
+	rule: `a bench drives Layers, not deployments — depending on a deployment root couples the bench to one packaging of the system. ${DRAFT("M7")}`,
+	on: (_i, _s, t) => tRole(t, "application"),
+});
+GR({
+	id: "TL.tooling",
+	matrix: M_TL,
+	sources: ["tooling"],
+	target: "tooling",
+	kinds: ALL_KINDS,
+	verdict: "forbidden",
+	rule: `two benches that share code share it through a Layer or through framework, not through each other. ${DRAFT("M7")}`,
+	on: (_i, s, t) => tRole(t, "tooling") && s?.short !== t?.short,
+});
+
+// ---- the runtime graph must not know its own packaging -------------------------------------
+
+const M_OUT = "runtime graph → outer roles";
+for (const [tid, tlabel, role, rule, alt] of [
+	[
+		"OUT.application",
+		"application",
+		"application",
+		`a Layer must not know its own deployment — an Application composes Layers, never the reverse. ${DRAFT("M1b")}`,
+		"the Application composes the Layer",
+	],
+	[
+		"OUT.tooling",
+		"tooling",
+		"tooling",
+		`Tooling is out-of-band; nothing in the runtime graph may depend on a bench or a lint plugin. ${DRAFT("M1b")} — and, whenever the importing FILE is production, ${R81}`,
+		"delete the dependency",
+	],
+	["OUT.deployment", "deployment", "deployment", `\`deploy/\` holds packaging assets, not code — nothing imports them. ${DRAFT("M1b")}`, null],
+] as [string, string, Role, string, string | null][]) {
+	GR({
+		id: tid,
+		matrix: M_OUT,
+		sources: ["layer", "service"],
+		target: tlabel,
+		kinds: ALL_KINDS,
+		verdict: "forbidden",
+		rule,
+		alt,
+		on: (_i, _s, t) => t?.role === role,
+	});
+}
+
+// ---- deployment and repo root: the un-roled edges -------------------------------------------
+
+const M_RR = "repo root · deployment";
+for (const [tid, tlabel, role] of [
+	["RR.out.layer", "layer", "layer"],
+	["RR.out.service", "service", "service"],
+	["RR.out.framework", "framework", "foundation"],
+	["RR.out.application", "application", "application"],
+	["RR.out.tooling", "tooling", "tooling"],
+] as [string, string, Role][]) {
+	GR({
+		id: tid,
+		matrix: M_RR,
+		sources: ["repo root", "deployment"],
+		target: tlabel,
+		kinds: ALL_KINDS,
+		verdict: "unsettled",
+		rule: `the repo root is not a workspace package and \`deploy/\` holds no package either; neither has a role in any matrix. Everything under both is development by classification, and Ruling 9 puts the development-world access table at step 3. ${NOTHING}`,
+		on: (_i, _s, t) => t?.role === role,
+	});
+}
+GR({
+	id: "RR.in",
+	matrix: M_RR,
+	sources: PKG_ROLES,
+	target: "repo root",
+	kinds: ALL_KINDS,
+	verdict: "unsettled",
+	rule: `reaching out of a package into an un-roled repo-root file. ${NOTHING}`,
+	on: (_i, _s, t) => t?.role === "repo-root",
+});
+
+// ---------------------------------------------------------------------------
+// NAMED rows — one source, one target, and one sentence true of this pair only
+// ---------------------------------------------------------------------------
+
+NR({
+	id: "N.coreui.designsystem",
+	matrix: M_FW,
+	source: "core-ui",
+	target: "framework/design-system",
+	kinds: IMK,
+	verdict: "allowed",
+	qualifies: "FW.designsystem.open.layer",
+	evidence:
+		"Ruling 11.3 settles this ONE pair allowed by name while the role-level row stays unsettled — no other Layer or Service has a settled design-system verdict, so the `layer` row cannot carry it.",
+	rule: `founder Ruling 11.3 — "core-ui may import the design system. Settled." BINDING, and it settles a single pair: the per-Layer framework matrix (Ruling 3.1) remains unwritten for every other actor. \`layers/core-ui/src\` is the shipped React UI and stays a Layer; \`__e2e__/\` and \`__scripts__/\` beside it are development and are headed for \`tools/\`. ${SPEC}`,
+	on: (i, s, t) => s?.role === "layer" && s.layer === "core-ui" && t?.short === "design-system",
+});
+for (const routerLayer of ROUTER_LAYERS) {
+	for (const [srcRole, srcLabel] of [
+		["layer", "layer"],
+		["service", "service"],
+		["application", "application"],
+		["tooling", "tooling"],
+	] as [RoleName, string][]) {
+		NR({
+			id: `N.${srcRole}.api.${routerLayer}`,
+			matrix: M_LL,
+			source: srcLabel,
+			target: routerLayer,
+			kinds: ["api"],
+			verdict: "allowed",
+			evidence: `${routerLayer} hosts its own HTTP router, so it is dialable; the two Layers that host none are not, which makes the verdict a property of this named package rather than of the \`layer\` role.`,
+			rule: `${R13} ${routerLayer === "agent-orchestration" ? "rule-matrix marked `→ agent-orchestration` UNSETTLED because it hosted zero routers; AU26 RESOLVED IT — it now hosts `layers/agent-orchestration/src/routes/` (5 modules) + boot.ts." : "core-api has hosted the API since the beginning."} ${SPEC}`,
+			on: (i, s, t) => i.kind === "api" && i.target === routerLayer && roleOf(s) === srcRole && (s?.layer === undefined || s.layer === null || s.layer !== t?.layer),
+		});
+	}
+}
+for (const [srcRole, srcLabel] of [
+	["layer", "layer"],
+	["service", "service"],
+	["application", "application"],
+	["tooling", "tooling"],
+] as [RoleName, string][]) {
+	NR({
+		id: `N.${srcRole}.api.agent-execution`,
+		matrix: M_LL,
+		source: srcLabel,
+		target: "agent-execution",
+		kinds: ["api"],
+		verdict: "unsettled",
+		evidence:
+			"agent-execution is the only Layer that DECLARES an HTTP route without HOSTING one — `/api/mcp/:token` lives in `layers/agent-execution/harness-registry/src/mcp/mcp-route.ts:158` but is mounted by an Application, so who may dial it is a different question from the other two router Layers.",
+		rule: `\`/api/mcp/:token\` is the harness's door, and its intended caller is a harness PROCESS holding a per-session bearer token — not a package. The instances here are not really dials: the production one is \`layers/agent-orchestration/run-orchestration/src/provisioner.ts:1349\` BUILDING the url to bake into a sandbox's \`.mcp.json\`, which is workspace handoff, and the rest are tests standing in for a harness. This detector cannot tell a dial from a url handed to another process. ${NOTHING} And the shape of the answer changes when Ruling 12.3's follow-up lands — agent-execution getting its own app, so the route finally has a Layer host (round-1 answer 13, points 1 and 2). Step 3 decides after that.`,
+		on: (i, s) => i.kind === "api" && i.target === "agent-execution" && roleOf(s) === srcRole,
+	});
+}
+NR({
+	id: "N.tooling.schemans",
+	matrix: M_DB,
+	source: "tooling",
+	target: "db:schema-ns",
+	kinds: ["import"],
+	verdict: "unsettled",
+	qualifies: "DB.schemans.tooling",
+	evidence:
+		"Two binding rulings collide on this pair and on no other: Ruling 7 explicitly counted the bench's `dbschemans.import` among the violations it legalised, and Ruling 11.2 then declared the namespace forbidden everywhere.",
+	rule: `CONFLICT between two binding rulings. Ruling 7's measured impact lists \`V.eval→dbschemans.import 1\` among the 278 violations it REMOVES; Ruling 11.2 later says db:schema-ns is "forbidden everywhere — defeats any table ACL by construction". 11.2 is later and surface-specific; 7 is role-general and was stated with this exact instance in its count. ${SPEC} Step 3 must pick one — and if 11.2 wins, Ruling 7's headline number moves by one.`,
+	alt: "the bench imports the specific tables it seeds — which Ruling 7 already allows it to do",
+	on: (i, s) => surf(i, "db:schema-ns") && roleOf(s) === "tooling",
+});
+NR({
+	id: "N.harnessregistry.mcprouter",
+	matrix: M_MCP,
+	source: RUNTIME_SERVICE,
+	target: "MCP router",
+	kinds: ["mcp"],
+	verdict: "allowed",
+	qualifies: "MCP.no.service",
+	evidence: "harness-registry OWNS the MCP router — it is the single door a harness process comes through, a property of this package's identity and not of the `service` role.",
+	rule: `${R13} The router is the one legal inbound mechanism for a harness, and the package that provisions the harness owns it. ${DRAFT("§3.2 / M8")}`,
+	on: (i, s) => i.kind === "mcp" && i.target === "mcp-router" && s?.short === RUNTIME_SERVICE,
+});
+NR({
+	id: "N.agentexecution.mcprouter",
+	matrix: M_MCP,
+	source: "agent-execution",
+	target: "MCP router",
+	kinds: ["mcp"],
+	verdict: "allowed",
+	qualifies: "MCP.no.layer",
+	evidence: "agent-execution is the Layer that contains the MCP router, so the Layer root may host and mount it where no other Layer may.",
+	rule: `${R13} AU26's locked design: agent-execution exports its own Hono app carrying the MCP router and the Application mounts it. ${DRAFT("§3.2 / M8")}`,
+	on: (i, s) => i.kind === "mcp" && i.target === "mcp-router" && s?.role === "layer" && s.layer === RUNTIME_LAYER,
+});
+NR({
+	id: "N.harnessregistry.runtime",
+	matrix: M_RT,
+	source: RUNTIME_SERVICE,
+	target: "raw runtime",
+	kinds: ["capability"],
+	verdict: "allowed",
+	qualifies: "RT.no.service",
+	evidence: "harness-registry is the one package that spawns a harness binary and holds the raw SDKs; the permission attaches to it, not to the `service` role.",
+	rule: `only the package that provisions a harness touches the raw runtime — harness CLI spawn, raw LLM SDK, MCP SDK are its mechanism. ${DRAFT("M9")}`,
+	on: (i, s) => i.kind === "capability" && s?.short === RUNTIME_SERVICE,
+});
+NR({
+	id: "N.agentexecution.runtime",
+	matrix: M_RT,
+	source: "agent-execution",
+	target: "raw runtime",
+	kinds: ["capability"],
+	verdict: "allowed",
+	qualifies: "RT.no.layer",
+	evidence: "agent-execution is the Layer that owns the agent runtime; its root may hold the same capability its Service does, where no other Layer may.",
+	rule: `only the Layer that owns the agent runtime touches it. ${DRAFT("M9")}`,
+	on: (i, s) => i.kind === "capability" && s?.role === "layer" && s.layer === RUNTIME_LAYER,
+});
+NR({
+	id: "N.harnessregistry.harness",
+	matrix: M_HN,
+	source: RUNTIME_SERVICE,
+	target: "harness",
+	kinds: ["capability"],
+	verdict: "allowed",
+	qualifies: "HN.no.service",
+	evidence: "harness-registry provisions the working directory and spawns the process; it is the only package on the legal side of this boundary.",
+	rule: `the harness's working directory and process are this package's exclusive concern. ${DRAFT("M1b/M5(p2)")}`,
+	note: "UNMEASURED, not zero — workspace handoff leaves no module-graph instance.",
+	on: () => false,
+});
+
+// ---------------------------------------------------------------------------
+// attach instances — ENFORCED first, then NAMED (carve-out), then GENERAL
+// ---------------------------------------------------------------------------
+
+const order = (c: Cell): number => (c.id.startsWith("E.") ? 0 : c.scope === "named" ? 1 : 2);
+const matchOrder = [...cells].sort((a, b) => order(a) - order(b));
+
+const cellHits = new Map<string, Inst[]>();
+let intraPackage = 0;
+let unassigned = 0;
+const unassignedSamples: Inst[] = [];
+
+for (const i of insts) {
+	const s = byShort.get(i.source);
+	const tShort = i.target.replace(/ \[.*$/, "").replace(/^db:.*/, "db");
+	const t = byShort.get(tShort);
+	if (s !== undefined && t !== undefined && s.name === t.name && i.prodImportsDev !== true) {
+		intraPackage += 1;
+		continue;
+	}
+	let hit: Cell | undefined;
+	for (const c of matchOrder) {
+		if (c.match(i, s, t)) {
+			hit = c;
+			break;
+		}
+	}
+	if (hit === undefined) {
+		unassigned += 1;
+		if (unassignedSamples.length < 400) unassignedSamples.push(i);
+		continue;
+	}
+	const arr = cellHits.get(hit.id);
+	if (arr === undefined) cellHits.set(hit.id, [i]);
+	else arr.push(i);
+}
+
+// ---------------------------------------------------------------------------
+// rows
+// ---------------------------------------------------------------------------
+
+interface Pair {
+	label: string;
+	prod: number;
+	dev: number;
+}
+interface Row {
+	id: string;
+	row: "enumerated" | "live";
+	scope: "general" | "named";
+	matrix: string;
+	source: string;
+	target: string;
+	kind: string;
+	/** the PRODUCTION-world verdict */
+	verdict: Verdict;
+	/** the DEVELOPMENT-world verdict (Ruling 8.2) */
+	devVerdict: Verdict;
+	/** why the development verdict is what it is */
+	devRule: string;
+	/** instance counts: `prod` is production-world, `dev` is development-world */
+	prod: number;
+	dev: number;
+	total: number;
+	/** for a general row that has named carve-outs: what it would count if they were folded back in */
+	coveredIncludingNamed?: number;
+	namedCarveOuts?: string[];
+	qualifies?: string;
+	evidence?: string;
+	rule: string;
+	alternative: string | null;
+	note?: string;
+	/** every concrete (source → target) pair the row covers, prod-desc; the replacement for the old per-pair rows */
+	pairs: Pair[];
+	pairsTotal: number;
+	pairsShown: number;
+	exTotal: number;
+	ex: { s: string; t: string; f: string; l: number; y: string; o: string; k: string }[];
+}
+
+const EX_CAP = 24;
+const PAIR_CAP = 40;
+const toEx = (arr: Inst[]): Row["ex"] =>
+	[...arr]
+		.sort((a, b) => (a.world === b.world ? 0 : a.world === "production" ? -1 : 1))
+		.slice(0, EX_CAP)
+		.map((i) => ({ s: i.source, t: i.target, f: i.file, l: i.line, y: i.symbol, o: i.op, k: i.world }));
+
+const tableSuffix = (t: string | undefined): string => {
+	if (t === undefined) return "";
+	const info = TABLE_INFO.get(t);
+	if (info === undefined) return "";
+	if (info.state === "owned") return ` · owner: ${info.owner as string}`;
+	return " · NO OWNER — violates the completeness rule";
+};
+
+const toPairs = (arr: Inst[]): { pairs: Pair[]; total: number } => {
+	const m = new Map<string, Pair>();
+	for (const i of arr) {
+		const label = `${i.source} → ${i.target}${tableSuffix(i.table)}`;
+		let p = m.get(label);
+		if (p === undefined) {
+			p = { label, prod: 0, dev: 0 };
+			m.set(label, p);
+		}
+		if (i.world === "production") p.prod += 1;
+		else p.dev += 1;
+	}
+	const all = [...m.values()].sort((a, b) => b.prod - a.prod || b.dev - a.dev || a.label.localeCompare(b.label));
+	return { pairs: all.slice(0, PAIR_CAP), total: all.length };
+};
+
+const namedByQualified = new Map<string, string[]>();
+for (const c of cells) {
+	if (c.scope !== "named" || c.qualifies === undefined) continue;
+	const a = namedByQualified.get(c.qualifies) ?? [];
+	a.push(c.id);
+	namedByQualified.set(c.qualifies, a);
+}
+
+/**
+ * COLLAPSING THE EMPTY CELLS. Expanding every union into one row per role produces the complete
+ * grid, and most of that grid is the default: forbidden with nothing in it. A cell earns a row when
+ * it is ALLOWED (the founder wants the permission list complete, unused permissions included), when
+ * it has at least one live instance in either world, when it is the enforced rule, or when a named
+ * row carves out of it. Everything else is recorded by name in `summary.collapsedCells` with the
+ * reason, so nothing vanishes silently — and because every collapsed cell holds zero instances by
+ * construction, the collapse cannot move a single count.
+ */
+const collapsedCells: { id: string; matrix: string; source: string; target: string; kind: string; verdict: Verdict; devVerdict: Verdict; reason: string; rule: string }[] = [];
+/**
+ * A named row can carry the SAME (source, target, kind) label as the general row it carves out of —
+ * `tooling → db:schema-ns [import]` is both. If the general row is left at zero the two are
+ * indistinguishable on the page, which is the ambiguity this whole restructure exists to remove. The
+ * named row is the rule for that cell, so the emptied general row is collapsed.
+ */
+const namedTriples = new Set(cells.filter((c) => c.scope === "named").map((c) => `${c.source}|${c.target}|${c.kind}`));
+const rows: Row[] = [];
+for (const c of cells) {
+	const arr = cellHits.get(c.id) ?? [];
+	const prod = arr.filter((i) => i.world === "production").length;
+	const { pairs, total: pairsTotal } = toPairs(arr);
+	const carve = namedByQualified.get(c.id) ?? [];
+	const carveTotal = carve.reduce((n, id) => n + (cellHits.get(id)?.length ?? 0), 0);
+	const supersededByNamed = c.scope === "general" && arr.length === 0 && namedTriples.has(`${c.source}|${c.target}|${c.kind}`);
+	const keep = !supersededByNamed && (c.verdict === "allowed" || arr.length > 0 || carveTotal > 0 || c.pin === true);
+	if (!keep) {
+		collapsedCells.push({
+			id: c.id,
+			matrix: c.matrix,
+			source: c.source,
+			target: c.target,
+			kind: c.kind,
+			verdict: c.verdict,
+			devVerdict: c.devVerdict,
+			reason: supersededByNamed
+				? "superseded in full by the named row with the same source, target and kind — every instance is the named one"
+				: c.verdict === "forbidden"
+					? "forbidden by default — nothing written permits it and nothing in the repo does it"
+					: "no rule describes it and nothing in the repo does it",
+			rule: c.rule,
+		});
+		continue;
+	}
+	rows.push({
+		id: c.id,
+		row: c.scope === "general" ? "enumerated" : "live",
+		scope: c.scope,
+		matrix: c.matrix,
+		source: c.source,
+		target: c.target,
+		kind: c.kind,
+		verdict: c.verdict,
+		devVerdict: c.devVerdict,
+		devRule: c.devRule,
+		prod,
+		dev: arr.length - prod,
+		total: arr.length,
+		...(carve.length > 0 ? { coveredIncludingNamed: arr.length + carveTotal, namedCarveOuts: carve } : {}),
+		...(c.qualifies === undefined ? {} : { qualifies: c.qualifies }),
+		...(c.evidence === undefined ? {} : { evidence: c.evidence }),
+		rule: c.rule,
+		alternative: c.alternative,
+		...(c.note === undefined ? {} : { note: c.note }),
+		pairs,
+		pairsTotal,
+		pairsShown: pairs.length,
+		exTotal: arr.length,
+		ex: toEx(arr),
+	});
+}
+
+// general first; named after, grouped under the general rule they qualify
+const generalIndex = new Map(rows.filter((r) => r.scope === "general").map((r, n) => [r.id, n]));
+rows.sort((a, b) => {
+	if (a.scope !== b.scope) return a.scope === "general" ? -1 : 1;
+	if (a.scope === "general") return (generalIndex.get(a.id) ?? 0) - (generalIndex.get(b.id) ?? 0);
+	if (a.matrix !== b.matrix) return a.matrix.localeCompare(b.matrix);
+	const ga = generalIndex.get(a.qualifies ?? "") ?? 1e9;
+	const gb = generalIndex.get(b.qualifies ?? "") ?? 1e9;
+	return ga - gb || a.id.localeCompare(b.id);
+});
+
+// ---------------------------------------------------------------------------
+// reconciliation — the proof that nothing is counted twice
+// ---------------------------------------------------------------------------
+
+const generalRows = rows.filter((r) => r.scope === "general");
+const namedRows = rows.filter((r) => r.scope === "named");
+const sum = (rs: Row[], f: (r: Row) => number): number => rs.reduce((n, r) => n + f(r), 0);
+const generalTotal = sum(generalRows, (r) => r.total);
+const namedTotal = sum(namedRows, (r) => r.total);
+const reconciliation = {
+	rawInstances: insts.length,
+	intraPackageExcluded: intraPackage,
+	boundaryCrossingInstances: insts.length - intraPackage,
+	generalRowTotal: generalTotal,
+	namedRowTotal: namedTotal,
+	matchedNoRow: unassigned,
+	sum: generalTotal + namedTotal + intraPackage + unassigned,
+	balances: generalTotal + namedTotal + intraPackage + unassigned === insts.length,
+	cellsCollapsedAsEmpty: collapsedCells.length,
+	instancesInCollapsedCells: 0,
+	statement:
+		"Every instance is claimed by AT MOST ONE row: matching runs ENFORCED → NAMED → GENERAL and stops at the first hit, so a named row's instances are removed from its general row rather than added on top. generalRowTotal + namedRowTotal + intraPackageExcluded + matchedNoRow must equal rawInstances. Cells collapsed for being empty held zero instances by construction (that is the collapse condition), so the collapse cannot move any count — they are listed by name in `summary.collapsedCells`.",
+};
+if (!reconciliation.balances) {
+	throw new Error(`reconciliation FAILED: ${JSON.stringify(reconciliation)}`);
+}
+const prodRecon = {
+	rawProduction: insts.filter((i) => i.world === "production").length,
+	generalProduction: sum(generalRows, (r) => r.prod),
+	namedProduction: sum(namedRows, (r) => r.prod),
+};
+
+// ---------------------------------------------------------------------------
+// summary
+// ---------------------------------------------------------------------------
+
+const tally = (rs: Row[]): Record<string, number> => {
+	const o: Record<string, number> = { allowed: 0, forbidden: 0, unsettled: 0 };
+	for (const r of rs) o[r.verdict] = (o[r.verdict] ?? 0) + 1;
+	return o;
+};
+/** the same tally for the DEVELOPMENT world, plus the rows where the two worlds disagree */
+const devTally = (rs: Row[]): Record<string, number> => {
+	const o: Record<string, number> = { allowed: 0, forbidden: 0, unsettled: 0 };
+	for (const r of rs) o[r.devVerdict] = (o[r.devVerdict] ?? 0) + 1;
+	return o;
+};
+const byKind: Record<string, { prod: number; dev: number; total: number }> = {};
+for (const i of insts) {
+	const e = (byKind[i.kind] ??= { prod: 0, dev: 0, total: 0 });
+	if (i.world === "production") e.prod += 1;
+	else e.dev += 1;
+	e.total += 1;
+}
+const production = census.files.filter((f) => f.kind === "production").length;
+
+// db surface breakdown
+const surfaceCounts: Record<string, { prod: number; dev: number; total: number }> = {};
+for (const i of insts) {
+	let key: string | null = null;
+	if (i.table !== undefined) key = "db:table";
+	else if (i.target.startsWith("db:")) key = i.target;
+	if (key === null) continue;
+	const e = (surfaceCounts[key] ??= { prod: 0, dev: 0, total: 0 });
+	if (i.world === "production") e.prod += 1;
+	else e.dev += 1;
+	e.total += 1;
+}
+const tableAccess = new Map<string, { prod: number; dev: number; accessors: Set<string> }>();
+for (const i of insts) {
+	if (i.table === undefined) continue;
+	const e = tableAccess.get(i.table) ?? { prod: 0, dev: 0, accessors: new Set<string>() };
+	if (i.world === "production") e.prod += 1;
+	else e.dev += 1;
+	if (i.world === "production" && i.source !== "db") e.accessors.add(i.source);
+	tableAccess.set(i.table, e);
+}
+const tablesOut = [...TABLES].sort().map((t) => {
+	const info = TABLE_INFO.get(t) as TableInfo;
+	const acc = tableAccess.get(t);
+	return {
+		table: t,
+		state: info.state,
+		owner: info.owner,
+		recordedPath: info.recordedPath,
+		prod: acc?.prod ?? 0,
+		dev: acc?.dev ?? 0,
+		productionAccessors: [...(acc?.accessors ?? [])].sort(),
+		note: info.note,
+	};
+});
+const byState: Record<string, number> = {};
+for (const t of tablesOut) byState[t.state] = (byState[t.state] ?? 0) + 1;
+
+/** Production table traffic, split the way the ACL splits it. The headline is the `foreign` line. */
+const tableProd = { own: 0, foreign: 0, unowned: 0, tooling: 0 };
+for (const i of insts) {
+	if (i.table === undefined || i.world !== "production") continue;
+	const s = byShort.get(i.source);
+	// `framework/db`'s own files touching its own tables are intra-package, not a boundary crossing —
+	// excluded from the rows, so they must be excluded here too or the split will not reconcile.
+	if (s?.short === "db") continue;
+	const info = TABLE_INFO.get(i.table) as TableInfo;
+	if (s?.role === "tooling") tableProd.tooling += 1;
+	else if (info.state === "unowned") tableProd.unowned += 1;
+	else if (info.owner === i.source) tableProd.own += 1;
+	else tableProd.foreign += 1;
+}
+/**
+ * THE COMPLETENESS RULE, as a finding. Ruling 12.2: a table with no owner is a violation, not a
+ * third kind of cell. Warned now, enforced when every table has an owner.
+ */
+const completeness = tablesOut
+	.filter((t) => t.state === "unowned")
+	.map((t) => ({
+		table: t.table,
+		prod: t.prod,
+		dev: t.dev,
+		productionAccessors: t.productionAccessors,
+		why: t.note,
+		fix:
+			t.table === "sessions"
+				? "needs a service that does not exist yet — creating the boundary, not recording it (Ruling 6). Its own follow-up work package."
+				: t.productionAccessors.length === 1
+					? `one production accessor (${t.productionAccessors[0] as string}) — assigning it is a one-line decision`
+					: `${t.productionAccessors.length} production accessors — the owner has to be chosen, then the others routed through it`,
+	}));
+
+const out = {
+	summary: {
+		commit,
+		totalFiles: census.files.length,
+		production,
+		development: census.files.length - production,
+		edges: census.edges.length,
+		instances: insts.length,
+		rows: rows.length,
+		generalRows: generalRows.length,
+		namedRows: namedRows.length,
+		// kept for the page, which reads these two names
+		enumeratedRows: generalRows.length,
+		liveRows: namedRows.length,
+		byKind,
+		byVerdict: { general: tally(generalRows), named: tally(namedRows), all: tally(rows) },
+		byVerdictDevelopment: { general: devTally(generalRows), named: devTally(namedRows), all: devTally(rows) },
+		worldsDisagree: rows.filter((r) => r.verdict !== r.devVerdict).map((r) => ({ id: r.id, source: r.source, target: r.target, kind: r.kind, production: r.verdict, development: r.devVerdict })),
+		developmentVerdictSource: {
+			from: ".pipeline/work/AU28/rulings/development-world-rules.md — the decided development-world rule set, read here rather than restated",
+			decidedEntries: DEV_DECIDED.size,
+			cellsMatchedToADecision: devDecidedHits,
+			cellsInheritingTheProductionVerdict: devDecidedMisses,
+			/**
+			 * A decided entry with no cell left to attach to. Expect exactly the four obsolete
+			 * `<role> → db:table … [table]` keys: that kind no longer exists, its instances now sit on
+			 * `[table:read]` and `[table:write]`, and the decided set already carries entries for both.
+			 */
+			decidedEntriesWithNoCell: [...DEV_DECIDED.keys()].filter((k) => !devDecidedUsed.has(k)),
+		},
+		reconciliation,
+		productionReconciliation: prodRecon,
+		collapsedCells: {
+			principle:
+				"Every role pair is generated, then a cell earns a row only if it is ALLOWED (the permission list stays complete, unused permissions included), has a live instance, is the enforced rule, or is carved out by a named row. The rest are the default — forbidden, or unruled, with nothing in them — and are listed here by name with their rule text. Zero instances is the collapse condition, so no count moves.",
+			cells: collapsedCells.length,
+			instances: 0,
+			list: collapsedCells,
+		},
+		notableFindings: [
+			`THE TABLE RULE IS TWO CELLS NOW (Ruling 12.2), and under it production access to a table owned by ANOTHER service is ${tableProd.foreign}. Every production table access is by the owning service (${tableProd.own}) or to one of the ${completeness.length} tables that have no owner (${tableProd.unowned}). The remaining problem is COMPLETENESS, not foreign reads.`,
+			`\`db:table (owner moved)\` is gone. It was never a real category — the recovered registry records pre-AU26 \`packages/…\` paths and AU26 relocated five services. All five resolve to a current owner with exactly one production accessor, and forbidding them would have stopped \`filesystems\` reading the \`filesystems\` table.`,
+			`ZERO production files import a development file (the four \`→ development file\` rows are live and at 0). Ruling 8.1 costs nothing to adopt and is pure regression protection.`,
+			`\`application → layer [api]\` is LIVE, not empty — the previous census could not see it. \`applications/remote-worker\` is a detached process and dials both Layers with a raw \`fetch\` and a raw WebSocket; the detector now reads route registrations out of each Layer by AST and matches the dialled path longest-prefix-first, which is what distinguishes core-api's \`/ws\` from agent-orchestration's \`/ws/worker\`.`,
+			`The two event rows that read like access rules were counting artefacts and are gone. \`EventBus\` is anonymous pub/sub, so every event site is a crossing with the bus and nothing else. What remains is one real breach: \`framework → EventBus\`, the single wildcard subscriber in \`shared\` — a good design in the wrong package, and the reason every emit in the repo used to attribute to \`shared\`.`,
+			`\`db:zod-schemas\` no longer exists as a separately-ruled surface. Every symbol in it is \`createSelectSchema(<one table>)\`, so it inherits the table ACL symbol-by-symbol; allowing the barrel while forbidding the table import was a hole. The one production consumer now shows up as what it is: a layer root reading a schema generated from a table another service owns.`,
+			`Four production \`layer → framework [di]\` instances were detector noise — frozen arrays from \`shared\` passed inline to \`z.enum\`. The DI detector no longer scores an imported constant as an injected port; ${diConstantsSuppressed} such arguments are now excluded repo-wide.`,
+			`\`db:util\` should not exist: \`escapeLikePattern\`, \`resolveAgentScaffoldSpecs\` and \`resolveProfile\` touch no database. Kept as a surface only because the files are still in \`db\`; Ruling 12.3 makes the move a follow-up.`,
+		],
+		roleVocabulary: {
+			roles: ["layer", "service", "framework", "application", "tooling", "deployment"],
+			statement:
+				"Founder, binding: every rule applies to exactly one role as its source and exactly one role or concrete surface as its target. No unions, no `any`, no `except`, no `/` between roles. The six roles are peers — each is a top-level folder holding packages (`layers/`, `framework/`, `applications/`, `tools/`, `deploy/`), with `service` being a package nested inside a layer.",
+			nonPackageActors: ["harness", "repo root"],
+			targetQualifiers: ["own", "other", "same layer", "other layer"],
+			ruling12:
+				"A rule states the END STATE; enforcement level is a separate dial. No rule category may encode `mid-migration` — that turns a temporary mess into permanent vocabulary and excuses the migration from finishing. Three categories were deleted under this: `db:table (owner moved)`, `db:table (unowned, legacy)` and `db:table (unowned, never assigned)`. What is left is two table cells plus a completeness rule reported as a finding.",
+			concreteSurfaces: [
+				"db:table (own)",
+				"db:table (other)",
+				"db:row-type",
+				"db:schema-ns",
+				"db:client",
+				"db:bootstrap",
+				"db:util",
+				"db:testing",
+				"db:unknown",
+				"framework/shared",
+				"framework/db",
+				"framework/api-contract",
+				"framework/design-system",
+				"EventBus",
+				"MCP router",
+				"raw runtime",
+				"repo root",
+				"development file",
+			],
+			kinds: "single too — no `import+manifest`, no `all 8 kinds`. Eight kinds: import, manifest, di, api, mcp, event, table, capability.",
+			oneOffTarget:
+				"`development file` is the only target that is not a role or a package surface. It is the other axis entirely — file kind — and it belongs to the one rule the lint enforces, which is about file kind and nothing else.",
+			deployment:
+				"`deploy/` (chart, homebrew, bin) holds no package.json and no TypeScript, so it needs a synthetic actor or its files fall silently to the repo root. It has zero crossings in either direction today; its rows exist so the grid is complete.",
+		},
+		structure: {
+			general:
+				"the rule is stated over a ROLE. Expanded, never merged: a rule that applies to four roles is four rows, each counting only its own instances. The count on a general row is the full aggregate for that one role.",
+			named:
+				"the rule names a specific package. It exists ONLY where the role-level row cannot carry the verdict; each named row states, in one sentence (`evidence`), the rule that is true of it and not of its role peers. Its instances are EXCLUDED from the general row it qualifies (`qualifies`).",
+			ordering: "general rows first, in matrix order; named rows after, grouped by matrix and under the general row each one qualifies.",
+			pairs:
+				"`pairs` replaces per-package rows entirely. It lists every concrete (source → target) the row covers with prod/dev counts and the table owner inline — the inventory folded INSIDE the rule instead of duplicated beside it. `pairsTotal` is the true number of distinct pairs; `pairsShown` says how many are listed.",
+			completeness:
+				"Every role pair is generated. A cell earns a row when it is ALLOWED (so the permission list is complete, unused permissions included), when it has a live instance, when it is the enforced rule, or when a named row carves out of it. The rest are the default and are listed by name in `collapsedCells`.",
+		},
+		events: {
+			model:
+				"`EventBus` is anonymous pub/sub: an emitter names an event TYPE, never a package. Every event site — emit and subscribe — is therefore a crossing with the bus and nothing else. Attributing the crossing to whichever package held a subscriber (the previous pass) manufactured two rows that read like access rules and were pure counting artefacts: `service → own layer [event]`, because subscribers sit in layer roots, and `service → framework [event]`, because the single wildcard subscriber in `shared` swallowed every emit in the repo.",
+			typesKnown: EVENTS.size,
+			emitSites: evSites.filter((e) => e.dir === "emit").length,
+			subscribeSites: evSites.filter((e) => e.dir === "on").length,
+			wildcardSubscribers: [...wildcardSubs],
+			eventsWithNoSubscriber: deadEvents,
+			frameworkBreach:
+				"`framework → EventBus` is the one real event rule violation, and there are TWO production instances, not one: `framework/shared/src/observability/dispatcher.ts:473` subscribes with `bus.on(\"*\")`, and `framework/shared/src/agent-run-admission.ts:65` EMITS. The subscriber is a good design in the wrong package (one subscription instead of 30+ call sites, exhaustiveness-checked); the emit is a second, separate breach. Ruling 12.3 makes relocating the dispatcher a follow-up work package.",
+			graph: eventGraph,
+		},
+		dbSurfaces: {
+			source: "framework/db/src/index.ts + framework/db/src/schema.ts, parsed with the TypeScript AST — symbol → surface, never a hand list.",
+			tablesDefined: TABLES.size,
+			rowTypesDefined: ROW_TYPES.size,
+			dbImportEdges: dbEdges,
+			dbSymbolInstances,
+			decomposition:
+				"a db import statement is decomposed into ONE INSTANCE PER SURFACE (and per TABLE symbol), because surface and table ownership are per-symbol and one instance per statement could not carry either. A non-db import is one instance. That is why the `import` kind total exceeds the raw edge count.",
+			counts: surfaceCounts,
+			readWriteSplit: {
+				what: "the former `table` kind, split into `table:read` and `table:write` by the Drizzle operation. `symbolImports` is the `[import]` row beside them and is NEITHER a read nor a write — it obtains the table symbol and performs no database operation.",
+				opsClassified: tableOps,
+				byRuleFamily: tableRW,
+				recommendationCheck,
+				writerCoverage,
+			},
+			unclassifiedSymbols: [...UNKNOWN_SYMBOLS].map(([sym, why]) => ({ symbol: sym, why })),
+			ownership: {
+				source: OWNERSRC,
+				recoveredEntries: Object.keys(RECOVERED).length,
+				byState,
+				productionAccessSplit: tableProd,
+				headline:
+					`In PRODUCTION code, access to a table owned by ANOTHER service is ${tableProd.foreign}. Every production table access is either by the table's own service (${tableProd.own}) ` +
+					`or to one of the ${completeness.length} tables that have no owner at all (${tableProd.unowned}). So the ACL's remaining problem is not foreign reads — it is COMPLETENESS. ` +
+					`The ${surfaceCounts["db:table"]?.dev ?? 0} development-world table accesses are a separate world with a separate table (Ruling 8.2) that does not exist yet.`,
+				ruling12: "`db:table (owner moved)` is abolished — the five tables behind it are resolved to their current owner and folded into the normal cells. `unowned` is no longer a rule category either; the 6 tables without an owner are violations of the completeness rule below.",
+				completeness,
+				ruling12Resolved: Object.entries(RULING_12_OWNERS).map(([table, v]) => ({ table, owner: v.owner, how: v.how })),
+			},
+			tables: tablesOut,
+		},
+		actors: {
+			packages: packages.length,
+			layers: packages.filter((p) => p.role === "layer").map((p) => p.short),
+			services: packages.filter((p) => p.role === "service").map((p) => `${p.layer}/${p.short}`),
+			framework: packages.filter((p) => p.role === "foundation").map((p) => p.short),
+			applications: packages.filter((p) => p.role === "application").map((p) => p.short),
+			tooling: packages.filter((p) => p.role === "tooling").map((p) => p.short),
+			nonPackage: ["harness process", "repo root"],
+			rename:
+				"`layers/web` → `layers/core-ui` is landing on this branch. This census emits ONE actor, `core-ui`, on both the source and target side, and normalises every emitted file path to `layers/core-ui/…`, so the numbers are identical either side of the rename.",
+		},
+		measurement: {
+			classifier: "scripts/lib/repo-census.ts buildCensus() — the same module the enforced governance rule uses, so these numbers agree with the lint by construction.",
+			rowDirection:
+				"source → target is the direction of DEPENDENCE. For `import`/`manifest` the source names the target. For `di` the source is the CONSUMER (the party receiving the injected object) and the target is the PROVIDER — the consumer never names the provider, which is what makes DI invisible to import checks. For `api`/`mcp` the source is the DIALLER. For `event` the source is the EMITTER and the target the SUBSCRIBING package.",
+			intraPackage: "imports and edges where source package === target package are counted in `byKind` but excluded from the rows — they are not boundary crossings.",
+			tablesKnown: TABLES.size,
+			eventTypesKnown: EVENTS.size,
+			undeclaredButImportedPairs: undeclaredButImported,
+			dynamicEventOnSites,
+			rejectedEventLiterals,
+			detectorFixes: [
+				"DI no longer scores an imported CONSTANT as an injected port. Round-1 answer 10: all four production `layer → framework [di]` instances were frozen arrays from `shared` (`BET_OUTCOME_VERDICTS`, `TASK_OUTCOME_VERDICTS`, `BET_STATUSES`) passed inline to `z.enum`. Only array literals and primitives are suppressed — an object literal could be a real port, so it is left alone.",
+				"`api` now counts RAW dials, not just the `apiFetch` seam: an argument to `fetch(...)`, an argument to `new WebSocket(...)`, or a url built into a variable whose name ends in `url`. The target Layer is resolved from a route index built by AST out of every Layer's own route registrations, matched LONGEST-PREFIX-FIRST — which is what tells core-api's `/ws` apart from agent-orchestration's `/ws/worker`.",
+				"destructured `await import(\"@hyperidle/db\")` now resolves per symbol. Round-1 answer 5: two of the three production `db:unknown` instances were this shape, and they are `db:client` and `db:bootstrap`.",
+				"`@hyperidle/db/zod-schemas` symbols resolve to the TABLE they are generated from, so they inherit the table ACL instead of sitting in a broadly-allowed surface of their own.",
+				"events are attributed to the EventBus, never to a subscriber's package — see `summary.events`.",
+			],
+			rawApiDials,
+			rawDialCaveat:
+				"`raw-fetch` and `raw-websocket` are direct dials. `raw-dial (url built inline)` means a url for that route was CONSTRUCTED here — usually dialled by the same package, but not always: `layers/agent-orchestration/run-orchestration/src/provisioner.ts` bakes `${mcpBaseUrl}/api/mcp/${token}` into a sandbox's `.mcp.json` for the harness to call, which is workspace handoff, not a dial. The op is recorded on every instance so the two can be told apart.",
+			mcpRouteHasNoLayerHost:
+				"`/api/mcp/:token` is DECLARED in a Layer (`layers/agent-execution/harness-registry/src/mcp/mcp-route.ts:158`) but HOSTED by an Application (`applications/remote-server/src/create-server.ts:788`, `api.route(\"/\", mcpBridgeRegistry.router)`). It is the one route family in the repo with no Layer host — core-api and agent-orchestration each host their own. Ruling 12.3 lists giving agent-execution its own app as a follow-up; until then the route index attributes these dials to the Layer that declares them.",
+			unresolvedApiDials,
+			diConstantsSuppressed,
+			unmeasured: [
+				"WORKSPACE HANDOFF — files written into a harness working dir (.mcp.json, AGENTS.md, injected credentials). Not in the crossing taxonomy, not detected. Treat as unmeasured, never as zero; it is the channel behind every `→ harness process` row.",
+				"HARNESS-PROCESS-as-actor rows necessarily show 0: an external process leaves no module-graph or call-site instance.",
+				"`core-api`'s dual Layer/Application role. Ruling 2 names the ~26 Application-role crossings sitting inside core-api's own source as the thing the later relocation round must scope. That is a composition-root question about WHICH FILE a crossing lives in, not which package — this census works at package grain and cannot see it.",
+				"`di` is a RE-DERIVATION — the composition-bundle detector was deleted under Ruling 10. Detection here: a call whose callee identifier was imported from package A receiving an argument identifier imported from package B (A != B). It cannot see a port assembled across several statements.",
+				"`api` covers apiFetch(), `ws*.subscribe()` and injected-transport seam-port method calls only. A raw fetch()/WebSocket dial through none of those is not counted.",
+				"harness-CLI spawn detection uses a closed, stated binary list (claude, codex, opencode, cursor-agent, gh) and requires a string-literal first argument.",
+			],
+		},
+		verdictPolicy: {
+			count: 3,
+			allowed: "a binding founder ruling permits it, or the draft rule-matrix permits it — the rule text says which.",
+			forbidden: "a binding founder ruling forbids it, or the draft rule-matrix forbids it — the rule text says which.",
+			unsettled:
+				"the decision is open. Three ways in, all stated in the RULE TEXT rather than in a fourth verdict: (1) a rule describes the pattern but its verdict is not settled (Ruling 3.1's unwritten per-Layer framework matrix; a binding ruling and the draft matrix in conflict); (2) the registry a rule needs was recovered but its owner package has since moved, so it cannot decide alone; (3) NOTHING WRITTEN DESCRIBES THE PATTERN AT ALL. The old `unruled` verdict is gone — founder: \"no rule makes no sense, it's either forbidden, unsettled or allowed\".",
+			enforcedRules: ["no-production-imports-development — scripts/rules/no-production-imports-development.ts. THE ONLY governance rule the lint runs."],
+		},
+	},
+	patterns: rows,
+	unassignedSamples: unassignedSamples.slice(0, 60),
+};
+
+writeFileSync(OUT, JSON.stringify(out));
+
+// ---------------------------------------------------------------------------
+// compact encoding — array rows + deduped rule-string table (page format)
+// ---------------------------------------------------------------------------
+
+const ruleTable: string[] = [];
+const ruleIdx = new Map<string, number>();
+const R = (s: string | null | undefined): number => {
+	if (s === null || s === undefined || s === "") return -1;
+	let n = ruleIdx.get(s);
+	if (n === undefined) {
+		n = ruleTable.length;
+		ruleTable.push(s);
+		ruleIdx.set(s, n);
+	}
+	return n;
+};
+const VCODE: Record<Verdict, number> = { allowed: 0, forbidden: 1, unsettled: 2 };
+const EX_COMPACT = 6;
+const PAIR_COMPACT = 10;
+const compactRows = rows.map((r) => [
+	r.scope === "general" ? 1 : 0,
+	r.source,
+	r.target,
+	r.kind,
+	VCODE[r.verdict],
+	r.prod,
+	r.dev,
+	/ENFORCED TODAY/.test(r.rule) ? 1 : 0,
+	R(r.rule),
+	R(r.alternative),
+	r.ex.slice(0, EX_COMPACT).map((x) => [`${x.s}→${x.t}`, x.f.replace(/^(layers|framework|applications|tools)\//, ""), x.l, x.y.slice(0, 60), x.k === "production" ? 1 : 0]),
+	// --- appended, so every index the page already reads is unchanged ---
+	r.scope === "general" ? "g" : "n",
+	r.exTotal,
+	r.pairs.slice(0, PAIR_COMPACT).map((p) => [p.label, p.prod, p.dev]),
+	r.pairsTotal,
+	R(r.evidence),
+	r.qualifies ?? "",
+	r.matrix,
+	r.id,
+	R(r.note),
+	// [20] is the DEVELOPMENT verdict, same 0/1/2 codes as [4] — this is the slot the page decodes as
+	// `devBase`. It is what lets one row say `forbidden` in production and `allowed` in development,
+	// which is the whole reason the table kind was split into read and write.
+	VCODE[r.devVerdict],
+	// --- appended after [20]; the page reads nothing beyond it ---
+	r.coveredIncludingNamed ?? r.total,
+	R(r.devRule),
+]);
+const compact = {
+	s: {
+		c: commit.slice(0, 8),
+		f: census.files.length,
+		p: production,
+		d: census.files.length - production,
+		e: census.edges.length,
+		n: rows.length,
+		en: generalRows.length,
+		lv: namedRows.length,
+		bk: byKind,
+		gen: generalRows.length,
+		nam: namedRows.length,
+		recon: reconciliation,
+		db: out.summary.dbSurfaces,
+		verdicts: out.summary.byVerdict,
+		roles: out.summary.roleVocabulary,
+		structure: out.summary.structure,
+		defaults: {
+			...out.summary.collapsedCells,
+			// rule text dropped here only — the full text of every collapsed cell is in census2.json
+			list: collapsedCells.map((c) => [c.id, c.source, c.target, c.kind, c.verdict]),
+		},
+		findings: out.summary.notableFindings,
+	},
+	summary: undefined as unknown,
+	rules: ruleTable,
+	rows: compactRows,
+	legend: {
+		row: "[0]=1 general / 0 named · [1]source · [2]target · [3]kind · [4]PRODUCTION verdict 0=allowed 1=forbidden 2=unsettled · [5]prod · [6]dev · [7]enforced · [8]ruleIdx · [9]altIdx · [10]ex · [11]scope g|n · [12]exTotal · [13]pairs [label,prod,dev] · [14]pairsTotal · [15]evidenceIdx · [16]qualifies · [17]matrix · [18]id · [19]noteIdx · [20]DEVELOPMENT verdict, same codes as [4] · [21]coveredIncludingNamed · [22]devRuleIdx",
+		ex: "[srcTgt, file, line, symbol, world 1=prod]",
+	},
+};
+compact.summary = compact.s;
+writeFileSync(OUT_COMPACT, JSON.stringify(compact));
+
+// ---------------------------------------------------------------------------
+// console report
+// ---------------------------------------------------------------------------
+
+console.log(
+	JSON.stringify(
+		{
+			commit,
+			rows: rows.length,
+			general: generalRows.length,
+			named: namedRows.length,
+			byVerdict: out.summary.byVerdict,
+			reconciliation,
+			productionReconciliation: prodRecon,
+			collapsedCells: collapsedCells.length,
+			tableProductionAccessSplit: tableProd,
+			tableOpsClassified: tableOps,
+			tableReadWriteByRuleFamily: tableRW,
+			recommendationCheck,
+			writerCoverage,
+			developmentVerdictSource: out.summary.developmentVerdictSource,
+			worldsDisagree: out.summary.worldsDisagree.length,
+			completeness,
+			dbSurfaceCounts: surfaceCounts,
+			tableOwnershipStates: byState,
+			unclassifiedDbSymbols: out.summary.dbSurfaces.unclassifiedSymbols,
+			relocatedOwners: out.summary.dbSurfaces.ownership.relocatedOwners,
+			neverAssigned: out.summary.dbSurfaces.ownership.neverAssigned,
+			actors: out.summary.actors.layers,
+		},
+		null,
+		2,
+	),
+);
+console.log(`\nnamed rows:`);
+for (const r of namedRows) console.log(`  ${r.id.padEnd(28)} ${String(r.prod).padStart(4)}p/${String(r.dev).padStart(4)}d  ${r.source} → ${r.target}`);
+console.log(`\nwritten: ${OUT}`);
+console.log(`written: ${OUT_COMPACT}`);
