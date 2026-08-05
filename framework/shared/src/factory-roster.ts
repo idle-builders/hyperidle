@@ -126,17 +126,3 @@ export const defaultFactoryRoster: FactoryRosterSpec = {
 		idHint: "seed-agent-cos",
 	},
 };
-
-/**
- * The minimal factory roster — empty facilitator set + no system assistant.
- *
- * Passed to `applyFactoryBootstrap(db, minimalFactoryRoster)` when the Minimal
- * Strategy is active and the server wants a plain-world environment (no
- * pre-seeded facilitators or system assistant). The db infra rows
- * (`system:propagation`, `factorySettings`, `seed-ki-1`) are still written
- * unconditionally — only the roster-driven rows are skipped.
- */
-export const minimalFactoryRoster: FactoryRosterSpec = {
-	facilitators: [],
-	systemAssistant: null,
-};

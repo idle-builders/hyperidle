@@ -25,7 +25,7 @@ HyperIdle is an agentic operating system for AI-first companies. Flat teams of h
 
 **No code is written until the definition of done and validation setup exist.** This is non-negotiable. For every work package or task:
 
-1. Extract the acceptance criteria from the relevant track file in `.pipeline/work-packages/`.
+1. Extract the acceptance criteria from the work package's own spec, `.pipeline/work/<id>/plan.md` (older, unmigrated work packages: `.pipeline/work-packages/TRACK-*.md`).
 2. Define the verification method for each criterion — pick the right tool for each:
    - **Runtime behavior** (function returns X, API responds Y, component renders Z) → automated test
    - **Static codebase property** (no forbidden imports, naming conventions, config shape) → ESLint rule or type system
@@ -37,7 +37,7 @@ Tests are for application logic. A test imports code and asserts on its behavior
 
 ## Validation
 
-Before any work is complete: `npm run check` (zero type errors) + `npm run lint` (zero lint errors) + `npm run test` (all green). Tests only live in `packages/` and only test runtime behavior through imports. Only **new** lint/type errors you introduce block — don't drain a pre-existing baseline you didn't cause.
+Before any work is complete: `npm run check` (zero type errors) + `npm run lint` (zero lint errors) + `npm run test` (all green). Tests live inside a package — under `layers/`, `framework/`, `applications/` or `tools/`, never in `scripts/` or the repo root — and only test runtime behavior through imports. Only **new** lint/type errors you introduce block — don't drain a pre-existing baseline you didn't cause.
 
 ### Which command to use when
 

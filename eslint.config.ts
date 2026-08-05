@@ -576,85 +576,30 @@ export default [
 		},
 	},
 
-	// AK2 — Strategy Port static guard (AC4).
+	// A route or tool handler composes no roster and hard-codes no persona.
 	//
-	// The Kernel (layers/core-api/src/**) must NOT import a concrete Strategy
-	// implementation. The port contract is:
-	//   1. assembleContext, startWatcher, FileWatcher, FileWatcherConfig from
-	//      @hyperidle/fabric are now behind the Strategy Port — use getActiveStrategy()
-	//      from layers/core-api/src/services/strategy-registry.ts instead.
-	//   2. The whole @hyperidle/strategy-minimal package is banned from Kernel
-	//      non-composition-root files (the Kernel must not know which Strategy
-	//      is active — only the composition root picks one).
+	// Two orthogonal mechanisms, neither substituting for the other:
 	//
-	// Allowlisted: server-factory.ts (the composition root — the ONLY place
-	// permitted to import a concrete Strategy). Test files are also exempt.
+	// (a) no-restricted-imports bans `defaultRoster` from @hyperidle/shared in these
+	//     surfaces. Roster composition belongs to `framework/db/src/agent-scaffold.ts`,
+	//     its one legitimate caller. Not vacuous: `teams-routes.ts` and `create-team.ts`
+	//     genuinely imported it before the ban landed.
 	//
-	// @lore AK2 §7: The residual fabric symbols (cost-cap, session-context,
-	// context-assembly-prompt) are NOT banned here — they are Kernel-conceptual
-	// code physically living in @hyperidle/fabric pending AK2b relocation.
-	// AK2 bans ONLY the two port-crossing symbols (assembleContext + startWatcher)
-	// and the minimal Strategy package.
-	{
-		files: ["layers/core-api/src/**/*.ts"],
-		ignores: [
-			"layers/core-api/src/server-factory.ts", // composition root — may import a concrete Strategy
-			"layers/core-api/src/__testing__/test-fixtures.ts", // test infrastructure — registers minimalStrategy as fixture default
-			"layers/core-api/src/**/__tests__/**",
-			"layers/core-api/src/**/*.test.ts",
-			"layers/core-api/src/**/*.spec.ts",
-		],
-		languageOptions: {
-			parser: tsParser,
-		},
-		rules: {
-			"no-restricted-imports": [
-				"error",
-				{
-					patterns: [
-						{
-							group: ["@hyperidle/strategy-minimal", "@hyperidle/strategy-minimal/*"],
-							message:
-								"Kernel must not import a concrete Strategy. Use the Strategy type from @hyperidle/shared via getActiveStrategy().",
-						},
-					],
-					paths: [
-						{
-							name: "@hyperidle/fabric",
-							importNames: ["assembleContext", "startWatcher", "FileWatcher", "FileWatcherConfig"],
-							message:
-								"context assembly + ingestion are behind the Strategy Port — use getActiveStrategy() from strategy-registry.ts, not a direct Fabric import. (AK2 AC4)",
-						},
-					],
-				},
-			],
-		},
-	},
-
-	// AK6 T10 — Strategy Port: hard-rule #1 static guard (AC2/AC6).
+	// (b) no-restricted-syntax bans an inline persona / system-prompt const
+	//     (`*_SYSTEM_PROMPT`, `BUILTIN_*PROMPT`, `PERSONA*`). The import ban cannot see a
+	//     module-local const, so this selector is what actually holds the line. Prompt
+	//     content belongs in `docs/system-prompts/*.md`, read through
+	//     `SYSTEM_PROMPT_TEMPLATE_FILES`; an inline copy silently drifts from it.
 	//
-	// Two mechanisms enforcing "Kernel creation surfaces hard-code no persona/roster":
-	//
-	// (a) no-restricted-imports: ban `defaultRoster` (named import) from @hyperidle/shared
-	//     in Kernel creation routes and tools. `defaultRoster` is the Fabric-only utility
-	//     for roster composition — Kernel callers must not call it directly; the Strategy
-	//     port (scaffoldAgents) is the only permitted path.
-	//     Genuinely imported pre-AK6 at teams-routes.ts:51, create-team.ts:4 — the ban
-	//     is valid (not vacuous) and proven by T10 in the PR review.
-	//
-	// (b) no-restricted-syntax: ban reintroduction of an inline persona/system-prompt
-	//     constant (e.g. `BUILTIN_ASSISTANT_SYSTEM_PROMPT` or any `*_SYSTEM_PROMPT`/
-	//     `PERSONA*` const) in Kernel creation surfaces. The import-ban above CANNOT
-	//     catch a module-local const (it is never imported); this selector is the real
-	//     enforcement for hard-rule #1.
-	//
-	// Scoped to creation surfaces only: routes/ + tools/ in layers/core-api/src.
-	// Test files are exempt (same pattern as AK2 above).
-	//
-	// @lore AK6 T10: Both guards exist because they catch orthogonal violations.
-	// (a) catches "I just re-imported the roster function instead of using the port".
-	// (b) catches "I added a BUILTIN_ASSISTANT_SYSTEM_PROMPT const locally and used it".
-	// Neither can substitute for the other.
+	// @lore AU28 step 6: this guard used to be phrased as "the Kernel must not do X, the
+	// Strategy owns X" and pointed callers at `getActiveStrategy().scaffoldAgents()`. The
+	// Strategy concept is dead (founder, 2026-08-04) and that API no longer exists, so the
+	// messages named a destination nobody could go to. The RULES are unchanged and still
+	// match real files — only the justification was rewritten to the reason that survives:
+	// one composition path, one home for prompt text. Rules retired outright in the same
+	// pass — the AK2 strategy-port ban and the AU3 fabric/strategy import ban — were
+	// deleted rather than rephrased because every package, symbol and exempted file they
+	// named was already gone; they matched nothing and would have passed forever.
 	{
 		// @lore AU19 Increment 4: `layers/core-api/src/tools/**` (the domain-
 		// touching tool bodies) moved to `agent-orchestration/tool-handlers` —
@@ -683,7 +628,7 @@ export default [
 							name: "@hyperidle/shared",
 							importNames: ["defaultRoster"],
 							message:
-								"AK6 hard-rule #1: Kernel creation surfaces must not call defaultRoster() directly. Use the Strategy port (getActiveStrategy().scaffoldAgents()) — the active Strategy owns roster composition.",
+								"A route or tool handler must not compose a roster. Roster composition belongs to the agent-scaffolding path (framework/db/src/agent-scaffold.ts), which is the one caller of defaultRoster().",
 						},
 					],
 				},
@@ -698,7 +643,7 @@ export default [
 					selector:
 						"VariableDeclarator[id.name=/_SYSTEM_PROMPT$|^BUILTIN_.*PROMPT$|PERSONA/i][init.type='Literal']",
 					message:
-						"AK6 hard-rule #1: Kernel hard-codes no persona — persona/system-prompt content is Strategy-owned. Supply it via the Strategy's scaffoldAgents spec, not an inline const.",
+						"No inline persona or system-prompt const. Prompt content lives in docs/system-prompts/*.md, read through SYSTEM_PROMPT_TEMPLATE_FILES — an inline copy drifts from the file everything else reads.",
 				},
 			],
 		},
@@ -1182,69 +1127,6 @@ export default [
 		plugins: { design },
 		rules: {
 			"design/no-ungated-stream-drain": "error",
-		},
-	},
-
-	// AU3 — production runtime must not import Fabric/Strategy package seams.
-	{
-		files: [
-			"layers/core-api/src/**/*.ts",
-			"framework/shared/src/**/*.ts",
-			"framework/api-contract/src/**/*.ts",
-			"layers/core-ui/src/**/*.{ts,tsx}",
-			"framework/design-system/src/**/*.{ts,tsx}",
-		],
-		ignores: [
-			"{layers,framework,applications,tools}/**/src/**/__tests__/**",
-			"{layers,framework,applications,tools}/**/*.test.{ts,tsx}",
-			"{layers,framework,applications,tools}/**/*.integration.test.{ts,tsx}",
-			"{layers,framework,applications,tools}/**/*.spec.{ts,tsx}",
-			"{layers,framework,applications,tools}/**/*.stories.tsx",
-			"layers/core-api/src/services/strategy-registry.ts",
-			"framework/shared/src/strategy-port.ts",
-		],
-		languageOptions: {
-			parser: tsParser,
-			parserOptions: {
-				ecmaFeatures: { jsx: true },
-			},
-		},
-		rules: {
-			"no-restricted-imports": [
-				"error",
-				{
-					paths: [
-						{
-							name: "@hyperidle/fabric",
-							message:
-								"AU3: production runtime imports must use app/server-owned modules, not @hyperidle/fabric.",
-						},
-						{
-							name: "@hyperidle/fabric/types",
-							message:
-								"AU3: knowledge vocabulary must come from @hyperidle/shared or app-owned modules.",
-						},
-						{
-							name: "@hyperidle/strategy-minimal",
-							message: "AU3: production boot has no Strategy package dependency.",
-						},
-					],
-					patterns: [
-						{
-							group: ["**/strategy-registry", "**/strategy-registry.js"],
-							message: "AU3: production code must call app-owned resolvers, not strategy-registry.",
-						},
-					],
-				},
-			],
-			"no-restricted-syntax": [
-				"error",
-				{
-					selector:
-						"Identifier[name=/^(setActiveStrategy|getActiveStrategy|fabricStrategy|bootstrapFabric)$/]",
-					message: "AU3: Strategy/Fabric runtime symbols are banned from production code.",
-				},
-			],
 		},
 	},
 

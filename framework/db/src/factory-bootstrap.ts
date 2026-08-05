@@ -1,5 +1,4 @@
 import * as path from "node:path";
-import type { FactoryRosterSpec } from "@hyperidle/shared";
 import { defaultFactoryRoster } from "@hyperidle/shared";
 import { and, eq, inArray } from "drizzle-orm";
 import type { HyperIdleDb } from "./connection.js";
@@ -86,23 +85,17 @@ async function upsertRunConfig(
  * data (demo team), and team-provisioning. The split enforces hard-rule 1:
  * "No team_id on factory rows." and hard-rule 5: "No demo data in production."
  *
- * @lore AK6: `roster` is the AK6 registry-free injection seam. The DEFAULT is the
- * Fabric's factory roster so all four registry-less boot paths (desktop + 3 leaf CLIs)
- * call `applyFactoryBootstrap(db)` with NO second arg and get the Fabric roster
- * unchanged (AF17 green). A server that wants Minimal active passes minimalFactoryRoster.
- *
- * @lore AK6: The bootstrap-swap exception is BOUNDED and legitimate. The leaf/desktop
- * boot paths (applications/desktop/src/main.ts, setup-cli.ts, bootstrap-pg.ts,
- * seed-pg-cli.ts) call `applyFactoryBootstrap(db)` with NO roster arg and seed the
- * *default* Fabric roster because they run before any Strategy is registered.
- * Third-party rosters are honored only on the server boot path (which passes the
- * active Strategy's spec). This does not violate AC2 because the leaf path carries
- * a *value* (the default), not a Kernel roster decision.
+ * @lore AU28 step 6: AK6's `roster` injection seam is GONE. It existed to let a server
+ * running the Minimal strategy swap the factory roster, and the founder confirmed that
+ * concept dead ("strategy was completely killed a long time ago"). Every boot path —
+ * desktop, setup-cli, bootstrap-pg, seed-pg-cli — always called this with no second
+ * argument, so the parameter had exactly zero production callers and the only thing
+ * exercising the alternative branch was the test written to cover it. AK6's "no hardcoded
+ * roster in factory-bootstrap" rule died with the seam it served: the roster is a
+ * constant again, which is what it always was at runtime.
  */
-export async function applyFactoryBootstrap(
-	db: HyperIdleDb,
-	roster: FactoryRosterSpec = defaultFactoryRoster,
-): Promise<void> {
+export async function applyFactoryBootstrap(db: HyperIdleDb): Promise<void> {
+	const roster = defaultFactoryRoster;
 	const now = new Date().toISOString();
 
 	// ── system:propagation — DB infra, ALWAYS written unconditionally ──

@@ -243,7 +243,7 @@ export type {
 	FactoryRosterSpec,
 	FactorySystemAssistantSpec,
 } from "./factory-roster.js";
-export { defaultFactoryRoster, minimalFactoryRoster } from "./factory-roster.js";
+export { defaultFactoryRoster } from "./factory-roster.js";
 // ── AO1: Filesystem primitive ──
 export type {
 	CaptureResult,

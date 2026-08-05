@@ -475,9 +475,9 @@ step 1 only, with steps 2–4 recorded as named successors (an explicit narrowin
 | **1** | **Production/development split** — the rule, the file moves, the governance lint. **AU28, now.** | plan → fresh critique → build → review |
 | **2** | **Move packages into role folders** — `layers/`, `framework/`, `applications/`, `tools/`, `deploy/`. | **blocked on AU26** (29 commits in, no PR yet) |
 | **3** | **Layer access patterns**, stated separately for the production world and the development world. | after step 2 |
-| **4** | **Split `shared`** + clear the remaining violations. | after step 3 |
-| **5** | **Rewrite `CLAUDE.md` + `.claude/rules/`** to the settled structure and rules. | after step 3 (but see the two live errors below) |
-| **6** | **Purge dead concepts** — `strategy` (sense 1 confirmed dead; sense 2 pending founder call), stale package references. | founder decision pending |
+| **4** | **Split `shared`** + clear the remaining violations. | **DONE as planning** — the violations became AU29/AU30/AU31/AU32; the `shared` split became AU34. |
+| **5** | **Rewrite `CLAUDE.md` + `.claude/rules/`** to the settled structure and rules. | **DONE 2026-08-06** — see the closure note below. |
+| **6** | **Purge dead concepts** — `strategy` (sense 1 confirmed dead; sense 2 pending founder call), stale package references. | **DONE 2026-08-06** — sense 1 purged in AU28; sense 2 registered as **AU35**. See the closure note below. |
 
 ### Step 5 — the docs are wrong now, not just after the refactor
 
@@ -694,3 +694,81 @@ runs a codemod over them: `framework/db/src/__tests__/foreign-keys.integration.t
 are tests OF THE SCHEMA. They insert a deliberately minimal row to prove a constraint fires or that
 an old-shape row migrates. Adding the companion there does not make them more faithful — it changes
 what is under test. They stay at warn until someone decides case by case.
+
+---
+
+## Closure — steps 4, 5 and 6 (2026-08-06)
+
+### Step 4 — became five work packages, not a step
+
+The 290 remaining violations decompose by the mechanism that clears each, not by rule:
+**AU29** (framework stops acting, 30) → **AU30** (every table owned, 100) · **AU31** (composition
+roots only, 92) · **AU32** (fixtures build producible states, 68) · **AU34** (split `shared`, 0).
+Retiring the baseline is not its own work package: since the generator became shrink-only, clearing a
+group's last site deletes the entry and that rule is at error from the same commit, so each of the
+four carries the same criterion — whichever clears the last entry deletes the file and `--adopt`.
+
+### Step 5 — what was actually wrong
+
+`CLAUDE.md`: the acceptance-criteria source pointed at `.pipeline/work-packages/` (the new shape is
+`.pipeline/work/<id>/plan.md`), and "tests only live in `packages/`" named a directory that no longer
+exists. `.claude/rules/frontend.md` put API routes in `packages/server/src/routes/`; each layer now
+hosts its own app. `.claude/rules/typescript.md` listed `@hyperidle/server` as an example import.
+
+`.claude/rules/testing.md` was the real problem: **~45 lines restating the harness-enforcement
+mechanism, and part of it had become false.** It described `honest-harness-guard.ts` and three
+shrink-only allowlists as wired into `npm run lint` — all four deleted by this work package's own
+Ruling 10. An agent reading it would believe a source-level check existed. Replaced with a pointer to
+`docs/agent-layer/harness-coverage-enforcement.md` plus the two facts worth knowing: the source gate
+is **gone**, the attestation execution floor is **real**.
+
+**Found while auditing, not fixed here:** `scripts/lib/honest-harness-predicate.ts`'s
+`harness/__tests__/` directory rule matches **zero** files — the harness code lives at
+`layers/agent-execution/harness-registry/src/__tests__/`, which has no `/harness/` segment. The
+predicate identifies 1 of the 12 files that call `requireHarness`, so the attestation floor is
+near-blind. This broke when the packages moved (AU26), **not** when the guard was deleted, and it is
+already registered as AU27 review follow-up **N12**. Recorded as `@lore harness-predicate-blind` in
+the file so the next reader cannot miss it. The fix is to re-derive the rule from something that
+survives a package move — not to patch the regex at a new path.
+
+### Step 6 — sense 1 purged, sense 2 registered, and two dead lint rules found
+
+**Sense 1, purged.** Verified against the live tree first: every production boot path
+(`applications/desktop/src/main.ts`, `setup-cli.ts`, `bootstrap-pg.ts`, `seed-pg-cli.ts`) called
+`applyFactoryBootstrap(db)` with no roster argument, so the parameter had exactly zero production
+callers and the only thing exercising the alternative branch was the test written to cover it.
+Removed: the `roster?` parameter, `minimalFactoryRoster` and its barrel export,
+`AK6-factory-roster.integration.test.ts`. `applyFactoryBootstrap` itself stays — the name is legacy,
+the behaviour is shipped. AK6's "hard-rule #1: no hardcoded roster in factory-bootstrap" died with
+the seam it served. All factory goldens green (AF17 ×2, factory-and-demo, propagation-bootstrap, U1,
+AD8a, X3 — 110 assertions).
+
+**Two entire lint rules were dead and are deleted.** Not stale wording — zero-match guards, the exact
+failure mode Ruling 10 was written for:
+
+- **AK2 strategy-port ban** (55 lines) — banned `@hyperidle/strategy-minimal` and four
+  `@hyperidle/fabric` symbols from the Kernel, and exempted `server-factory.ts` as the composition
+  root. Neither package exists. `server-factory.ts` does not exist. `strategy-registry.ts` does not
+  exist. Only `eslint.config.ts` still mentioned any of them.
+- **AU3 fabric/strategy import ban** (63 lines) — same shape. Both of its exempted files
+  (`strategy-registry.ts`, `strategy-port.ts`) are gone, and its four banned runtime symbols
+  (`setActiveStrategy`, `getActiveStrategy`, `fabricStrategy`, `bootstrapFabric`) appear nowhere in
+  the tree.
+
+**One rule was live and was NOT deleted.** The AK6 T10 guard (no `defaultRoster` in a route or tool
+handler; no inline `*_SYSTEM_PROMPT` const) matches real files and `defaultRoster` is genuinely still
+used by `framework/db/src/agent-scaffold.ts`. Only its *messages* were dead — they told callers to
+use `getActiveStrategy().scaffoldAgents()`, an API that no longer exists. Rewritten to the reason that
+survives the concept: one composition path, one home for prompt text. The rules themselves are
+unchanged. Deleting a live rule because its rationale went stale would have been the opposite error.
+
+**Sense 2 → AU35.** Confirmed dead by the founder but held back, exactly as this ruling specified:
+it is a schema migration against live rows plus a user-visible taxonomy change. Two UI surfaces
+branch on the category, and four factory roles still WRITE it on every first boot — the dead concept
+is being manufactured, not merely remembered. `/refine` is required on **facilitator**: those four are
+real agents filed under a dead category, and where they go is a product decision.
+
+**A third sense exists and is out of scope for AU35:** `knowledge_strategy_fabric` /
+`task_strategy_fabric` and the `@lore O2` strategy-layer columns are unrelated to the agent category
+and share only the word. AU35's contract says so explicitly so a purge does not overreach.
+
