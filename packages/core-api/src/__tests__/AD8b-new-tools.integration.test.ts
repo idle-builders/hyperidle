@@ -56,7 +56,6 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		role: "assistant",
 		agentCategory: "individual",
 		status: "active",
-		maxConcurrentSessions: 1,
 		createdAt: NOW,
 	});
 }

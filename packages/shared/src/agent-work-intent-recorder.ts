@@ -51,18 +51,6 @@ export interface BakedWorkIntentRequest {
 		readonly type: string;
 	}>;
 	/**
-	 * AU21 §9 Increment 11 (Decision H2 follow-up): the `assistant_turn`
-	 * family's baked per-agent model override (`@hyperidle/conversation`'s
-	 * `resolveAssistantTurnRequest`, sourced from the target agent's `users`
-	 * row — `modelId`/`modelProvider`, configured via Settings → Agents).
-	 * Absent for every other kind. Carried through onto the created
-	 * `AgentSessionRequest.payloadJson` alongside `transcript` so `dispatch`
-	 * can resolve the harness model from the baked payload instead of a live
-	 * `getOrCreateUser` read.
-	 */
-	readonly modelId?: string | null;
-	readonly modelProvider?: string | null;
-	/**
 	 * AU21 §9 Increment 12 (Decision H3): the `task_run`/`knowledge_action`/
 	 * `routine_run`/`reengagement` families' baked entity content (task/bet/
 	 * agent/team, or routine/agent/team) plus the ranked+budgeted knowledge
@@ -109,125 +97,40 @@ export interface BakedWorkIntentRequest {
 	 * has somewhere to post with zero orchestration -> core read.
 	 */
 	readonly callingThreadId?: string;
-	/**
-	 * AU21 §9 Increment 12 follow-up (F2 gap closure) — the target agent's
-	 * injected-filesystems list, baked at emit time by EVERY per-kind resolver
-	 * (all six kinds — mirrors `agentConfig`/`harnessDisabled`'s uniform Wave E
-	 * bake, not just the four `contextBundle`-baking families) from
-	 * `@hyperidle/filesystems`'s `resolveInjectedFilesystemsForAgent(db,
-	 * agentId)`, reusing the SAME `agentId` each resolver already resolves via
-	 * `requireRunnableAgent`. Replaces `mountFilesystemsForAgent`'s former live
-	 * `CoreApiPort.filesystems.listFilesystemsByAgent` seam read (Decision F2,
-	 * Increment 8) — a genuine gap H3's later, more complete principle should
-	 * have closed but never revisited. Absent/empty means "no injected
-	 * filesystems", matching the seam-based lookup's own empty-list behavior
-	 * unchanged.
-	 */
-	readonly injectedFilesystems?: readonly BakedFilesystemForProvisioning[];
-	/**
-	 * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) —
-	 * the owning human's held-connection list, baked at emit time by EVERY
-	 * per-kind resolver (same uniform-bake precedent as `injectedFilesystems`)
-	 * from `@hyperidle/connections`'s `resolveInjectedConnectionsForAgent(db,
-	 * agentId)`. Replaces `buildProvisioningPlan`'s former live
-	 * `CoreApiPort.connections.listHeldConnectionsForProvisioning()` seam read
-	 * (Decision F2, Increment 8) — the SAME class of gap `injectedFilesystems`
-	 * closed, left standing here until this pass. `agentId` is accepted for
-	 * signature uniformity but unused internally — a held connection is scoped
-	 * to the single owning human, not per-agent (AN2: "Single-founder is the
-	 * locked deployment"). Absent means "no held connections", matching the
-	 * seam-based lookup's own empty-list behavior unchanged. NEVER carries
-	 * `encryptedToken` or any decrypted secret — the decrypt step
-	 * (`ServiceConnectionResolver`) stays an Application-composed direct
-	 * dependency, decrypting live at spawn time from the baked `connectionId`
-	 * (AN1 hard-rule 1), never baked onto this event payload.
-	 */
-	readonly injectedConnections?: BakedConnectionsForProvisioning;
-}
-
-/**
- * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) — one
- * held connection's provisioning-relevant fields, baked onto
- * `BakedWorkIntentRequest`/`RunContextBundle`/`ProvisionSessionParams` at
- * emit time. Mirrors the former `CoreApiPort.connections
- * .listHeldConnectionsForProvisioning()` seam response element exactly.
- * NEVER includes `encryptedToken` (AN1 hard-rule 1).
- */
-export interface BakedConnectionForProvisioning {
-	readonly id: string;
-	readonly service: string;
-	readonly authSource: "token" | "mcp";
-	readonly serverUrl: string | null;
-}
-
-/**
- * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) — the
- * owning human's held-connection list, mirroring the former seam's
- * `ListHeldConnectionsForProvisioningResponse` body exactly.
- */
-export interface BakedConnectionsForProvisioning {
-	readonly userId: string;
-	readonly connections: readonly BakedConnectionForProvisioning[];
-}
-
-/**
- * AU21 §9 Increment 12 follow-up (F2 gap closure) — one injected filesystem's
- * provisioning-relevant fields, baked onto `BakedWorkIntentRequest`/
- * `RunContextBundle`/`ProvisionSessionParams` at emit time. Mirrors
- * `@hyperidle/run-orchestration`'s `FilesystemForProvisioning` shape
- * (`filesystem-provisioning.ts`) exactly — duck-typed here (same idiom as
- * `SessionKnowledgeItemLike`) since `@hyperidle/shared` has zero
- * `@hyperidle/db` dependency. `resourceRef` arrives ALREADY PARSED (the bake
- * helper's own mapping mirrors the former seam route's `rowToFilesystem`).
- */
-export interface BakedFilesystemForProvisioning {
-	readonly id: string;
-	readonly teamId: string;
-	readonly source: string;
-	readonly kind: string;
-	readonly connectionId: string | null;
-	readonly resourceRef: unknown;
-	readonly writeback: string;
-	readonly state: string;
-	readonly createdAt: string;
+	// @lore AU26 F2: an `injectedFilesystems` bake used to ride here, frozen at
+	// emit time by every per-kind resolver. It is DELETED, exactly as E3 deleted
+	// the `injectedConnections` twin: `filesystems` / `filesystem_injections`
+	// are agent-orchestration's own tables now, so the spawn reads the record
+	// live and in-layer instead of consuming a snapshot that went stale between
+	// emit and drain.
 }
 
 /**
  * AU21 §9 Increment 12 (Decision H3), Wave E — the target agent's
  * admission-relevant configuration, baked at emit time from the SAME
  * `agent: User` row every per-kind resolver already loads via
- * `requireRunnableAgent` to validate the ast-`<userId>` invariant. Mirrors
- * exactly the set of `users` columns `admitSession`'s former Phase 1/3 live
- * read (`ports.users.getUserById`) consumed: the runnability predicate
- * (`kind`/`status`), the fields `context.ts`/prompt assembly used
- * (`role`/`systemPrompt`/`modelTierPreference`), the fields adapter selection
- * used (`harnessType`/`modelProvider`), the concurrency-check bound
- * (`maxConcurrentSessions`), and the agent's own home team
- * (`teamId` — feeds the Phase 2 cost-cap check's `team` scope, distinct from
- * `ProvisionSessionParams.productId`, which is the TASK's team; verified from
- * `admitSession`'s pre-Wave-E `const teamId = agent.teamId ?? undefined`,
- * consumed by `ports.cost.checkCostCap`/`recordCostAndCheck` — this field was
- * NOT in this wave's originating task field list and would have been a silent
- * drop had it been omitted here).
+ * `requireRunnableAgent` to validate the ast-`<userId>` invariant. Carries the
+ * runnability predicate (`kind`/`status`), the `role` prompt assembly needs,
+ * and the agent's own home team (`teamId`, distinct from
+ * `ProvisionSessionParams.productId`, which is the TASK's team).
+ *
+ * @lore AU26 G1 (architecture §D-L): the five RUN-CONFIG fields this shape used
+ * to carry — `systemPrompt`, `modelTierPreference`, `harnessType`,
+ * `modelProvider`, `maxConcurrentSessions` — LEFT the bake when the columns
+ * left `users`. They are no longer core state, so there is nothing for core to
+ * bake: they live in `agent_run_config`, which agent-orchestration owns, and
+ * `admitSession` reads them live at drain through
+ * `ports.agentRunConfig.readAgentRunConfig`. That is an IN-LAYER read of
+ * orchestration's own table, not a reinstatement of the core-state read AU21
+ * Increment 12 closed — the four fields left here are all genuinely core's
+ * (`middleware/auth.ts`, `recipients.ts`, `policy-bindings.ts` all use them).
+ * Do not re-add a run-config field to this shape; add it to `agent_run_config`.
  */
 export interface BakedAgentRunnableConfig {
 	readonly kind: string;
 	readonly status: string;
 	readonly role: UserRole;
 	readonly teamId: string | null;
-	readonly systemPrompt: string | null;
-	readonly modelTierPreference: string | null;
-	readonly harnessType: string | null;
-	readonly modelProvider: string | null;
-	/**
-	 * AU27 Increment 6 (Decision 4) — the target agent's per-agent model
-	 * override, baked uniformly for all six kinds (the same `users.modelId`
-	 * column `assistant-turn-resolver.ts` already baked separately pre-AU27).
-	 * Feeds the durable drain's `resolveModel({kind:"agent", …})` call —
-	 * `null` falls back to the tier, matching `modelProvider`'s own semantics.
-	 */
-	readonly modelId: string | null;
-	readonly maxConcurrentSessions: number;
 }
 
 /**
@@ -245,12 +148,6 @@ export function bakeAgentRunnableConfig(agent: BakedAgentRunnableConfig): BakedA
 		status: agent.status,
 		role: agent.role,
 		teamId: agent.teamId,
-		systemPrompt: agent.systemPrompt,
-		modelTierPreference: agent.modelTierPreference,
-		harnessType: agent.harnessType,
-		modelProvider: agent.modelProvider,
-		modelId: agent.modelId,
-		maxConcurrentSessions: agent.maxConcurrentSessions,
 	};
 }
 

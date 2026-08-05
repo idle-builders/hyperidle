@@ -7,15 +7,21 @@
  *
  * For Q1, recipients are agents only. User records do not yet have a
  * separate table — the "user" kind is reserved for future use.
- * hasActiveSession is derived by joining against sessions with state=active.
+ *
+ * @lore AU26 J4: `hasActiveSession` is GONE from this response. It was core-api
+ * reading `agent-orchestration`'s `sessions` table so the recipient picker could
+ * show a live busy dot. Founder ruling: *"orchestration now has an api so that
+ * the ui can get the agent run state from the orchestration directly and combine
+ * this information in the ui."* `useRecipients` now fetches
+ * `GET /api/agent-orchestration/runs/active-counts` alongside this list; the dot
+ * renders exactly as before.
  */
 
-import { type HyperIdleDb, sessions } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/shared";
+import { requireBoundary } from "@hyperidle/shared/http";
 import { listUsers } from "@hyperidle/users";
-import { eq } from "drizzle-orm";
 import { Hono } from "hono";
-import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 
 export interface RecipientRow {
 	id: string;
@@ -23,7 +29,6 @@ export interface RecipientRow {
 	name: string;
 	role: string;
 	status: string;
-	hasActiveSession: boolean;
 	avatarUrl: string | null;
 }
 
@@ -50,17 +55,12 @@ export function createRecipientRoutes(db: HyperIdleDb, _eventBus?: EventBus): Ho
 					? allUsers.filter((u) => u.kind === "ai")
 					: allUsers;
 
-		// Fetch active sessions to determine hasActiveSession
-		const activeSessions = await db.select().from(sessions).where(eq(sessions.state, "active"));
-		const activeUserIds = new Set(activeSessions.map((s) => s.agentId));
-
 		const recipients: RecipientRow[] = filtered.map((user) => ({
 			id: user.id,
 			kind: user.kind === "human" ? "user" : ("agent" as const),
 			name: user.name,
 			role: user.role,
 			status: user.status,
-			hasActiveSession: activeUserIds.has(user.id),
 			avatarUrl: user.avatarUrl ?? null,
 		}));
 

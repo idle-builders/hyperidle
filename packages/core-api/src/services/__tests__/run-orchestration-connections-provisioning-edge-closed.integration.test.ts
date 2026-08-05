@@ -16,7 +16,7 @@
  * `createInProcessCoreApiTransport(app)` (`core-api-port-composition.ts`)
  * dispatches every seam call as `app.fetch(req)`. Spying on `app.fetch`
  * itself, then running the REAL connections-provisioning path end-to-end
- * (real `resolveInjectedConnectionsForAgent` bake + real
+ * (real in-layer `listHeldConnectionsForProvisioning` read + real
  * `buildProvisioningPlan`/`applyProvisioningPlan`, the same real functions
  * `connections-provisioning-e2e.integration.test.ts` exercises), proves ZERO
  * `CoreApiPort` calls of ANY kind happen at provisioning time — not merely
@@ -26,19 +26,23 @@
  * `admit-session-defense-in-depth-only.integration.test.ts` and the
  * "edge genuinely gone, not deferred" idiom of
  * `run-orchestration-users-edge-closed.test.ts`.
+ *
+ * @lore AU26 E3: the path this guards changed from K1's emit-time bake to a
+ * live in-layer read, and the assertion is unchanged and still load-bearing —
+ * a live read is exactly the shape that COULD regrow a seam call, so proving
+ * `app.fetch` never fires now proves more than it did against a frozen list.
  */
 
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import {
-	encryptCredentialValue,
-	resolveInjectedConnectionsForAgent,
+	listHeldConnectionsForProvisioning,
 	ServiceConnectionResolver,
 } from "@hyperidle/connections";
 import { serviceConnections, users } from "@hyperidle/db";
 import { applyProvisioningPlan, buildProvisioningPlan } from "@hyperidle/run-orchestration";
-import { findUser } from "@hyperidle/users";
+import { encryptCredentialValue } from "@hyperidle/shared/crypto";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../../test-fixtures.js";
 
 const SERVER_SECRET = "au21-k1-edge-closed-secret";
@@ -58,7 +62,7 @@ afterEach(() => {
 });
 
 describe("run-orchestration's connection-provisioning path makes ZERO CoreApiPort calls of any kind at provisioning time", () => {
-	test("bake -> buildProvisioningPlan -> applyProvisioningPlan completes fully with `app.fetch` (the ONE choke point every in-process CoreApiPort call goes through) NEVER invoked", async ({
+	test("live in-layer read -> buildProvisioningPlan -> applyProvisioningPlan completes fully with `app.fetch` (the ONE choke point every in-process CoreApiPort call goes through) NEVER invoked", async ({
 		db,
 		app,
 	}) => {
@@ -81,7 +85,6 @@ describe("run-orchestration's connection-provisioning path makes ZERO CoreApiPor
 				name: "K1 Edge-Closed Agent",
 				role: "engineer",
 				status: "active",
-				maxConcurrentSessions: 1,
 				createdAt: NOW,
 			})
 			.onConflictDoNothing();
@@ -105,9 +108,13 @@ describe("run-orchestration's connection-provisioning path makes ZERO CoreApiPor
 		// future regression might use.
 		const fetchSpy = vi.spyOn(app, "fetch");
 
-		const heldConnections = await resolveInjectedConnectionsForAgent(db, AGENT_CALLER_ID, findUser);
 		const resolver = new ServiceConnectionResolver(db);
-		const plan = await buildProvisioningPlan({ heldConnections, resolver });
+		const plan = await buildProvisioningPlan({
+			connections: {
+				listHeldForProvisioning: () => listHeldConnectionsForProvisioning(db, USER_HUMAN_ID),
+			},
+			resolver,
+		});
 		const result = await applyProvisioningPlan({
 			plan,
 			sandboxPath,
@@ -125,19 +132,27 @@ describe("run-orchestration's connection-provisioning path makes ZERO CoreApiPor
 		fetchSpy.mockRestore();
 	});
 
-	test("the same proof holds when the owning human resolves to the 'u-founder' fallback (no findUser match) — still zero CoreApiPort calls", async ({
+	// @lore AU26 E3: this used to assert the `?? "u-founder"` owner fallback K1's
+	// bake helper carried over from the deleted seam route. The owner is not
+	// resolved down here any more — the Application resolves it and hands the id
+	// to the read (`create-server.ts`'s `resolveProvisioningOwnerUserId`), and no
+	// human means no connections rather than a sentinel — so the sibling case
+	// worth holding is the empty one: a
+	// deployment with no held connections must still reach zero seam calls,
+	// rather than quietly taking some other path.
+	test("the same proof holds when there is no held connection at all — still zero CoreApiPort calls", async ({
 		db,
 		app,
 	}) => {
 		const fetchSpy = vi.spyOn(app, "fetch");
 
-		const heldConnections = await resolveInjectedConnectionsForAgent(
-			db,
-			"agent-k1-edge-closed-no-owner",
-			async () => undefined,
-		);
 		const resolver = new ServiceConnectionResolver(db);
-		const plan = await buildProvisioningPlan({ heldConnections, resolver });
+		const plan = await buildProvisioningPlan({
+			connections: {
+				listHeldForProvisioning: () => listHeldConnectionsForProvisioning(db, USER_HUMAN_ID),
+			},
+			resolver,
+		});
 		await applyProvisioningPlan({
 			plan,
 			sandboxPath,
@@ -145,7 +160,7 @@ describe("run-orchestration's connection-provisioning path makes ZERO CoreApiPor
 			claudeNative: true,
 		});
 
-		expect(heldConnections.userId).toBe("u-founder");
+		expect(plan.mcpServers).toEqual([]);
 		expect(fetchSpy).not.toHaveBeenCalled();
 
 		fetchSpy.mockRestore();

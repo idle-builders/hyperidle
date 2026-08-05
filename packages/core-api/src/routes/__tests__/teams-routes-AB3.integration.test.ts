@@ -11,7 +11,7 @@
  * - GET /api/teams/:id includes agentCategory in the roster assembly
  */
 
-import { type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
+import { agentRunConfig, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
@@ -53,10 +53,14 @@ async function seedTeamWithCategorizedAgents(db: HyperIdleDb): Promise<{
 		name: "Team Builder",
 		role: "builder",
 		status: "active",
-		maxConcurrentSessions: 2,
 		teamId: teamMembersId,
 		agentCategory: "team",
 		createdAt: NOW,
+	});
+	// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+	await db.insert(agentRunConfig).values({
+		agentUserId: teamAgentId,
+		maxConcurrentSessions: 2,
 	});
 
 	// Strategy category agent
@@ -66,7 +70,6 @@ async function seedTeamWithCategorizedAgents(db: HyperIdleDb): Promise<{
 		name: "Scout Agent",
 		role: "scout",
 		status: "active",
-		maxConcurrentSessions: 1,
 		teamId: teamMembersId,
 		agentCategory: "strategy",
 		createdAt: NOW,
@@ -175,7 +178,6 @@ describe("AB3 — teams routes: agentCategory in roster", () => {
 				name: "No Category Agent",
 				role: "builder",
 				status: "active",
-				maxConcurrentSessions: 1,
 				teamId: teamMembersId,
 				// agentCategory deliberately not set
 				createdAt: NOW,
@@ -211,10 +213,14 @@ describe("AB3 — teams routes: agentCategory in roster", () => {
 				name: "Patch Test Agent",
 				role: "builder",
 				status: "active",
-				maxConcurrentSessions: 1,
 				teamId: teamMembersId,
-				modelTierPreference: null,
 				createdAt: NOW,
+			});
+			// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+			await db.insert(agentRunConfig).values({
+				agentUserId: "ab3-patch-agent",
+				maxConcurrentSessions: 1,
+				modelTierPreference: null,
 			});
 
 			const res = await app.request("/api/agents/ab3-patch-agent", {

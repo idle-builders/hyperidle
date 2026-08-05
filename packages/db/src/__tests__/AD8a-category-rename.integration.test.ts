@@ -21,7 +21,6 @@ describe("AD8a — agentCategory 'individual' rename", () => {
 			kind: "ai",
 			role: "assistant",
 			status: "active",
-			maxConcurrentSessions: 1,
 			createdAt: new Date().toISOString(),
 			agentCategory: "individual",
 		});

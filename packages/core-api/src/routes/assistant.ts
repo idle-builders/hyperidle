@@ -15,12 +15,19 @@
  * hostId=userId + participants includes the assistant agent.
  */
 
+import {
+	type AgentRunConfigPatch,
+	readAgentRunConfig,
+	validateAgentConfig,
+	writeAgentRunConfig,
+} from "@hyperidle/agent-run-config";
 import { findThread, insertThread, listMessages } from "@hyperidle/conversation";
 import { type HyperIdleDb, resolveAgentScaffoldSpecs } from "@hyperidle/db";
 import { persistScaffoldedAgents } from "@hyperidle/org";
 import {
 	API_ERROR_CODES,
 	type EventBus,
+	type HarnessCapabilityReader,
 	type HostKind,
 	type Message,
 	type MessageType,
@@ -28,24 +35,25 @@ import {
 	type RedactedPayload,
 	type Thread,
 } from "@hyperidle/shared";
-import { findUser, insertUser, updateUser } from "@hyperidle/users";
-import { Hono } from "hono";
-import z from "zod";
 // AK6 T8: BUILTIN_ASSISTANT_SYSTEM_PROMPT removed — persona comes from app defaults.
 // The Kernel no longer hard-codes any assistant persona constant. Lazy-create paths
 // now call app scaffolding + persistScaffoldedAgents, identical
 // to POST /api/users. DEFAULT_AGENT_MODEL_ID/PROVIDER removed (persistScaffoldedAgents owns those fields).
-import { requireBoundary } from "../middleware/access-boundary-middleware.js";
-import type { HyperIdleEnv } from "../middleware/auth.js";
-import type { HarnessCapabilityReader } from "../services/harness-capability-read-model.js";
-import { validateAgentConfig } from "./agents.js";
+import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
+import { findUser, insertUser } from "@hyperidle/users";
+import { Hono } from "hono";
+import z from "zod";
 import { messageRowSchema, threadParticipantsSchema } from "./threads-schema.js";
 
 // AU19 Increment 1c / AU20 Am11: `org`'s `OrgUserDirectory` port (Mechanism C),
 // wired via adapter so `findUser({id})` satisfies `getUserById`.
+// AU26 G1 (§D-L): `persistScaffoldedAgents` also stamps the run config, which
+// left `users` for `agent_run_config`. The Layer wires the writer down the same
+// Mechanism-C way it wires the user directory.
 const orgUsers = {
 	getUserById: (db: HyperIdleDb, id: string) => findUser(db, { id }),
 	insertUser,
+	writeAgentRunConfig,
 };
 
 // @lore AF11-IDOR: SENDER_HEADER and readSenderId removed. Authorization paths
@@ -327,13 +335,17 @@ export function createAssistantSoulRoutes(
 			);
 		}
 
+		// @lore AU26 G1 (§D-L): the assistant row is an AI user with agent
+		// semantics, so its run config moved with every other agent's.
+		const runConfig = await readAgentRunConfig(db, assistantAgentId);
+
 		return c.json({
 			id: agentRow.id,
 			name: agentRow.name,
-			harnessType: agentRow.harnessType ?? null,
-			modelId: agentRow.modelId ?? null,
-			modelProvider: agentRow.modelProvider ?? null,
-			systemPrompt: agentRow.systemPrompt ?? null,
+			harnessType: runConfig.harnessType,
+			modelId: runConfig.modelId,
+			modelProvider: runConfig.modelProvider,
+			systemPrompt: runConfig.systemPrompt,
 		});
 	});
 
@@ -440,41 +452,43 @@ export function createAssistantSoulRoutes(
 			);
 		}
 
-		// Build the update set — only include fields explicitly provided in the request.
+		// Build the patch — only include fields explicitly provided in the request.
 		// systemPrompt: if omitted, preserve existing value.
 		// harness/model: if provided, update; if omitted, preserve existing.
-		const updateSet: {
-			systemPrompt?: string | null;
-			harnessType?: string | null;
-			modelId?: string | null;
-			modelProvider?: string | null;
-		} = {};
+		//
+		// @lore AU26 G1 (§D-L): all four writable fields left `users` for
+		// `agent_run_config`, so this handler no longer writes the `users` row at
+		// all — it delegates the whole persist down to the owning Service. The
+		// route stays core-hosted (§D-A rule 3) and the wire shape is unchanged.
+		const patch: AgentRunConfigPatch = {};
 
 		if (parsed.data.systemPrompt !== undefined) {
-			updateSet.systemPrompt = parsed.data.systemPrompt;
+			patch.systemPrompt = parsed.data.systemPrompt;
 		}
 		if (harnessType !== undefined) {
-			updateSet.harnessType = harnessType;
+			patch.harnessType = harnessType;
 		}
 		if (modelId !== undefined) {
-			updateSet.modelId = modelId;
+			patch.modelId = modelId;
 		}
 		if (modelProvider !== undefined) {
-			updateSet.modelProvider = modelProvider;
+			patch.modelProvider = modelProvider;
 		}
 
-		await updateUser(db, assistantAgentId, updateSet);
+		if (Object.keys(patch).length > 0) {
+			await writeAgentRunConfig(db, assistantAgentId, patch);
+		}
 
-		// Re-read the updated row to return accurate values
-		const updatedRow = await findUser(db, { id: assistantAgentId });
+		// Re-read the updated config to return accurate values
+		const updatedRunConfig = await readAgentRunConfig(db, assistantAgentId);
 
 		return c.json({
 			id: agentRow.id,
 			name: agentRow.name,
-			systemPrompt: updatedRow?.systemPrompt ?? null,
-			harnessType: updatedRow?.harnessType ?? null,
-			modelId: updatedRow?.modelId ?? null,
-			modelProvider: updatedRow?.modelProvider ?? null,
+			systemPrompt: updatedRunConfig.systemPrompt,
+			harnessType: updatedRunConfig.harnessType,
+			modelId: updatedRunConfig.modelId,
+			modelProvider: updatedRunConfig.modelProvider,
 		});
 	});
 

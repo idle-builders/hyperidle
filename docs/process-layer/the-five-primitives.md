@@ -27,7 +27,7 @@ Knowledge in a healthy flat company doesn't flow one way. The founders set direc
 
 ### 2.1 Top-down: vision and focus, not assignments
 
-- **`PRINCIPLES` and `FOCUS`** — canonical L4 knowledge items. App-runtime git export writes them to the team's git repo; context assembly fetches all L4 items from `knowledge_items` and writes them into the session sandbox. Edited by humans through the assistant thread and approved through Conversations.
+- **`PRINCIPLES` and `FOCUS`** — canonical L4 knowledge items. Context assembly fetches all L4 items from `knowledge_items` and writes them into the session sandbox. (There is no git export — see [facilitators](../knowledge-architecture/facilitators.md).) Edited by humans through the assistant thread and approved through Conversations.
 - **The assistant conversation** — the persistent thread where founders shape direction in dialogue with the assistant; the assistant distills it into proposed updates that loop back through Conversations for approval.
 - **Committing a bet in the Work view** — a direct top-down signal: "this is what we're doing for the next cycle."
 

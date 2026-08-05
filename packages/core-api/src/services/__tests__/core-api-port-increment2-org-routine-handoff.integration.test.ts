@@ -199,7 +199,6 @@ async function seedAgent(
 		name: `Agent ${id}`,
 		role: opts.role ?? "engineer",
 		status: "active",
-		maxConcurrentSessions: 1,
 		teamId: opts.teamId,
 		createdAt: NOW,
 	});

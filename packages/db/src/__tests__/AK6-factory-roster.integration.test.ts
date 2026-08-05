@@ -120,9 +120,13 @@ describe("AK6 T9: applyFactoryBootstrap with default roster (Fabric) — AF17 go
 		// seeded BEFORE the facilitator systemPrompt backfill reads them.
 		await applyFactoryBootstrap(db);
 
+		// @lore AU26 G1: `system_prompt` relocated to `agent_run_config`; the
+		// ordering invariant this test guards is unchanged.
 		const rows = await queryRows<{ id: string; system_prompt: string | null }>(
 			db,
-			"SELECT id, system_prompt FROM users WHERE id LIKE 'seed-agent-pf-%' LIMIT 1",
+			`SELECT u.id, c.system_prompt FROM users u
+			   JOIN agent_run_config c ON c.agent_user_id = u.id
+			  WHERE u.id LIKE 'seed-agent-pf-%' LIMIT 1`,
 		);
 		expect(rows.length).toBeGreaterThanOrEqual(1);
 		const prompt = rows[0]?.system_prompt;

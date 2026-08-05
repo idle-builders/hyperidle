@@ -2,21 +2,21 @@
  * Server lifecycle: migrate → start → health-check.
  */
 
+import { createLocalAdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
 // @lore PGlite migration: createServer is now async (awaits PGlite WASM init).
 //
 // @lore AU19 Increment 5 (item 2): `desktop` (the `core-api` + `agent-execution`
 // + `agent-orchestration` Application per §3) now constructs and injects its
 // own concrete `HarnessPort` adapter — `LocalSandboxAdapter` +
 // `createLocalAdapterPool()` (in-process CLI harness discovery) — instead of
-// `@hyperidle/core-api`'s `createServer` defaulting it internally via a
-// `HYPERIDLE_PROFILE` runtime branch. See `server-factory.ts`'s
+// `@hyperidle/remote-server`'s `createServer` defaulting it internally via a
+// `HYPERIDLE_PROFILE` runtime branch. See `create-server.ts`'s
 // `CreateServerDeps` top `@lore` and `packages/remote-server/src/index.ts`
 // (the mirror-image Application, empty pool + `DisabledSandboxAdapter`).
 import {
 	createServer as _createServer,
 	type ServerHandle,
-} from "@hyperidle/core-api/server-factory";
-import { createLocalAdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
+} from "@hyperidle/remote-server/create-server";
 
 export type { ServerHandle };
 

@@ -17,7 +17,7 @@ import type { EventBus } from "@hyperidle/shared";
 
 /**
  * The minimal shape this gateway needs from a broadcast sink — satisfied by
- * `WsConnectionHub.broadcast(topic, data)` (`@hyperidle/realtime`) without
+ * `WsConnectionHub.broadcast(topic, data)` (`../ws-connection-hub.js`) without
  * this module depending on that package's full class.
  */
 export interface WorkStatePushTarget {

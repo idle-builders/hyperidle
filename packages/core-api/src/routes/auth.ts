@@ -41,6 +41,7 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, INVITE_ROLES } from "@hyperidle/shared";
+import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
 import {
 	createInvite,
 	findUser,
@@ -48,8 +49,6 @@ import {
 	type UpgradeTokenStore,
 } from "@hyperidle/users";
 import { Hono } from "hono";
-import { requireBoundary } from "../middleware/access-boundary-middleware.js";
-import type { HyperIdleEnv } from "../middleware/auth.js";
 
 export function createAuthRoutes(
 	db: HyperIdleDb | null,

@@ -19,8 +19,9 @@ import {
 } from "@hyperidle/notifications";
 import type { RoutineFiredEvent } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, vi } from "vitest";
-import { createApp, disposeApp } from "../../app.js";
+import { disposeApp } from "../../app.js";
 import { expect, test } from "../../test-fixtures.js";
+import { createTestApp } from "../../test-utils.js";
 import { notificationsDeps } from "../notifications-test-deps.js";
 
 interface AdapterCall {
@@ -67,7 +68,7 @@ describe("H2 Dispatcher integration via createApp", () => {
 
 	test("subscribes to item_created and pushes on blocking items", async ({ db, eventBus }) => {
 		const adapter = createFakeAdapter();
-		const app = await createApp({
+		const app = await createTestApp({
 			db,
 			eventBus,
 			serviceBootstrap: ({ db: testDb, eventBus: testBus }) => [
@@ -124,7 +125,7 @@ describe("H2 Dispatcher integration via createApp", () => {
 		eventBus,
 	}) => {
 		const adapter = createFakeAdapter();
-		const app = await createApp({
+		const app = await createTestApp({
 			db,
 			eventBus,
 			serviceBootstrap: ({ db: testDb, eventBus: testBus }) => [

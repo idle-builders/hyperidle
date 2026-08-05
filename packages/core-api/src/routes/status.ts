@@ -1,12 +1,10 @@
 import { listMessages } from "@hyperidle/conversation";
-import type { WriteExecutor } from "@hyperidle/db";
-import { type HyperIdleDb, sessions } from "@hyperidle/db";
+import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import { getDailyDigest } from "@hyperidle/notifications";
+import { requireBoundary } from "@hyperidle/shared/http";
 import { listUsers } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-import { eq } from "drizzle-orm";
 import { Hono } from "hono";
-import { requireBoundary } from "../middleware/access-boundary-middleware.js";
 
 /**
  * @lore AU19 Increment 1g: `getDailyDigest` (`@hyperidle/notifications`) now
@@ -38,7 +36,7 @@ const SERVER_START_TIME = new Date().toISOString();
  * @lore AU18 §3.1: the generic `GET`/`PATCH /settings` catch-all is retired
  * along with `factorySettings`. Every legitimate key it used to carry now
  * has a domain-specific route (`/api/notifications/config`,
- * `/api/observability/config`, `/api/git-export/config`) backed by
+ * `/api/notifications/config`) backed by
  * `server_config`; there is no remaining legitimate key for a generic
  * settings surface to serve. Confirmed no web client depends on the raw-rows
  * shape (`packages/web` has zero references to `/status/settings`) — the
@@ -57,9 +55,15 @@ export function createStatusRoutes(db: HyperIdleDb): Hono {
 	});
 
 	// GET / — Factory-wide status
+	//
+	// @lore AU26 J1: `activeSessions` (a raw `sessions` count) is DELETED. The
+	// root `/api/status` route has zero consumers repo-wide — `packages/web`,
+	// `packages/web/e2e`, `packages/desktop` and `packages/eval` reference only
+	// `/api/status/health` and `/api/status/digest`. (`SettingsWorker.tsx`'s
+	// `status.activeSessions` is the Electron `WorkerStatus` bridge object, a
+	// different shape entirely.) Agent-run state is `agent-orchestration`'s;
+	// core-api does not read it to decorate a response nobody reads.
 	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
-		const activeSessions = await db.select().from(sessions).where(eq(sessions.state, "active"));
-
 		const allAgents = await listUsers(db);
 
 		const agentStates: Record<string, number> = {};
@@ -75,7 +79,6 @@ export function createStatusRoutes(db: HyperIdleDb): Hono {
 		// HARD-DELETED along with the rest of the cost-cap/accounting feature —
 		// the column is dropped, no replacement.
 		return c.json({
-			activeSessions: activeSessions.length,
 			agentStates,
 			uptime,
 		});

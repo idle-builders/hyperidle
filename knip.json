@@ -22,6 +22,7 @@
 		"packages/agent-execution/harness-registry/src/re-engage.ts",
 		"packages/core-api/src/__tests__/AL7-no-kernel-executor.test.ts",
 		"packages/core-api/src/__tests__/notifications-test-deps.ts",
+		"packages/agent-orchestration/src/test-fixtures.ts",
 		"packages/agent-orchestration/run-orchestration/src/__tests__/test-ports.ts",
 		"packages/agent-orchestration/tool-handlers/src/__tests__/stub-ports.ts"
 	],

@@ -62,7 +62,7 @@ export {
 } from "./knowledge-conflicts.js";
 // -- the CRUD repository --
 // @lore Ag7c: ExportableKnowledgeItemFilters kept — inline-typed by
-// server-factory.ts and git-export-routes.ts via
+// server-factory.ts via
 // `import("@hyperidle/knowledge").ExportableKnowledgeItemFilters`.
 // All other row/filter types removed (callers infer from return types).
 // @lore AU20 K1-reads: countAccessesSince/countTriageVisible/searchByText/

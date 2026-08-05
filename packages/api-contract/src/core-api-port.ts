@@ -617,22 +617,26 @@ export interface CoreApiKnowledgePort {
 
 /**
  * AU21 §9 Increment 12 follow-up (F2 gap closure): `FilesystemProvisioningView`/
- * `CoreApiFilesystemsPort` (Decision F2, AU21 §9 Increment 8) are DELETED —
- * the agent's injected filesystem list is now baked at emit time by every
- * per-kind resolver (`@hyperidle/filesystems`'s
- * `resolveInjectedFilesystemsForAgent`) instead of read back through this
- * seam. The plain `GET /filesystems?agentUserId=` ROUTE stays (the Settings
- * UI calls it directly, not through this port) — only the seam method is
- * gone.
+ * `CoreApiFilesystemsPort` (Decision F2, AU21 §9 Increment 8) are DELETED, and
+ * nothing grows back here. AU26 F2 finished the job: `filesystems` /
+ * `filesystem_injections` are agent-orchestration's own tables now, so the
+ * spawn reads them live and in-layer through
+ * `@hyperidle/filesystems`' `listInjectedFilesystemsForProvisioning` — no seam,
+ * and no emit-time bake either. The plain `GET /filesystems?agentUserId=` ROUTE
+ * stays (the Settings UI calls it directly, not through this port); it is just
+ * served by the other app now.
  *
- * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections):
+ * AU21 §9 Increment 12 follow-up part 2 (Decision K1 — connections):
  * `HeldConnectionProvisioningView`/`ListHeldConnectionsForProvisioningResponse`/
  * `CoreApiConnectionsPort` (Decision F2, AU21 §9 Increment 8) are likewise
- * DELETED — the owning human's held-connection list is now baked at emit
- * time by every per-kind resolver (`@hyperidle/connections`'s
- * `resolveInjectedConnectionsForAgent`) instead of read back through this
- * seam. The `GET /connections/provisioning` route itself is deleted too
- * (zero other consumers, unlike filesystems' still-used plain route).
+ * DELETED, along with the `GET /connections/provisioning` route that backed
+ * them (zero other consumers, unlike filesystems' still-used plain route).
+ *
+ * @lore AU26 E3: and the emit-time bake K1 replaced them with is deleted too.
+ * `service_connections` now belongs to `agent-orchestration`, so a spawn reads
+ * it live from its own Layer — no seam, no bake, nothing on this port. This
+ * comment records that there is no connections family here and no reason to
+ * grow one back.
  */
 
 /**

@@ -1,5 +1,6 @@
 /** Core API composition root for the run-orchestration service. */
 
+import { readAgentRunConfig } from "@hyperidle/agent-run-config";
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	AdapterPool,
@@ -102,21 +103,22 @@ const observabilityAccessor: SessionLifecyclePorts["observability"] = { summariz
 // AU21 §9 Increment 12 follow-up (F2 gap closure): the `filesystemsReader`
 // seam wiring that used to live here (`seamPortForActor(agentId).filesystems
 // .listFilesystemsByAgent(agentId)`) is DELETED — `SessionLifecyclePorts` no
-// longer carries a `filesystems` field at all. The agent's injected
-// filesystem list is now baked at emit time by every per-kind resolver
-// (`@hyperidle/filesystems`'s `resolveInjectedFilesystemsForAgent`) onto
-// `ProvisionSessionParams.injectedFilesystems` instead.
+// longer carries a `filesystems` field at all. AU26 F2: the emit-time bake that
+// replaced it is deleted too. The spawn reads the injection record live and
+// in-layer through `ProvisionSessionDeps.injectedFilesystems`, wired at the
+// Application composition root from `@hyperidle/filesystems`.
 //
 // AU21 §9 Increment 12 follow-up part 2 (F2 gap closure): the
 // `connectionsProvisioner` seam wiring that used to live here
 // (`seamPortForActor(agentId).connections.listHeldConnectionsForProvisioning()`)
 // is DELETED — `SessionLifecyclePorts` no longer carries a `connections`
-// field at all. The owning human's held-connection list is now baked at
-// emit time by every per-kind resolver (`@hyperidle/connections`'s
-// `resolveInjectedConnectionsForAgent`) onto
-// `ProvisionSessionParams.injectedConnections` instead, and
-// `run-orchestration`'s own `provisioner.ts` calls `buildProvisioningPlan`/
-// `applyProvisioningPlan` directly — no composition-root port needed.
+// field at all.
+//
+// AU26 E3: nor does the emit-time bake that briefly replaced it.
+// `service_connections` is `agent-orchestration`'s own table now, so the spawn
+// reads it live through `ProvisionSessionDeps.heldConnections`, wired at the
+// composition root beside `serviceConnectionResolver` — a downward hand-off of
+// this Layer's own Service, not a seam.
 
 const enforcement = createReturnEnforcement();
 const harnessRuntime: SessionLifecyclePorts["harnessRuntime"] = {
@@ -166,6 +168,9 @@ const sessionLifecyclePorts: SessionLifecyclePorts = {
 	observability: observabilityAccessor,
 	harnessRuntime,
 	toolProvider,
+	// AU26 G1 (§D-L): the live `agent_run_config` read `admitSession` uses
+	// instead of the emit-time bake. Mechanism C — the Layer wires the Service.
+	agentRunConfig: { readAgentRunConfig },
 };
 // AU21 §9 Increment 4 (Decision B″ item 3): `transitionRunInternal`'s
 // `TransitionPorts` no longer carries a `routine` key at all — `endSession`/
@@ -313,13 +318,13 @@ export function runSession(deps: ProvisionSessionDeps, spec: RunOptions): Promis
 	);
 }
 
-export function transitionRun(
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	spec: Parameters<typeof transitionRunInternal>[1],
-): ReturnType<typeof transitionRunInternal> {
-	return transitionRunInternal({ db, eventBus, ports: transitionPorts }, spec);
-}
+// @lore AU26 B1a (§D-A's `sessions-routes.ts` split): this file used to export a `transitionRun` wrapper
+// over `transitionRunInternal` + `transitionPorts`. Its ONE caller was
+// `routes/sessions-routes.ts`'s `PATCH /api/sessions/:id`, which moved onto
+// agent-orchestration's own app — and that Layer composes the same two of its
+// own Services in-layer (`agent-orchestration/src/services/run-transition.ts`)
+// rather than reaching up here. The wrapper left with its caller; `transitionPorts`
+// stays, still feeding this file's `sessionLifecyclePort`.
 
 export function startRuntime(deps: RuntimeDeps): ReturnType<typeof startRuntimeInternal> {
 	return startRuntimeInternal(runtimeDeps(deps.db, deps.eventBus ?? new EventBus(), deps));

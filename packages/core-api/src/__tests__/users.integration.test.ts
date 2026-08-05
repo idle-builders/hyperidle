@@ -84,16 +84,18 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	// AC1: GET /api/users — list all with status, team, role, current sessions
+	// AC1: GET /api/users — list all with status, team, role.
+	// @lore AU26 J1: the `activeSessions` count is gone (see
+	// `AU26-J1-run-read-deletions.integration.test.ts`) — the run count was a raw
+	// `sessions` read serving a consumer typed `{id,name,role,teamId}`.
 	describe("AC1: GET /api/users — list all users", () => {
-		test("returns all users with activeSessions count", async ({ db, app }) => {
+		test("returns all users with their identity fields", async ({ db, app }) => {
 			await seedBase(db);
 			const res = await app.request("/api/users", { headers: authHeaders() });
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as Array<Record<string, unknown>>;
 			expect(body).toHaveLength(2);
-			expect(body[0]).toHaveProperty("activeSessions", 0);
 			expect(body[0]).toHaveProperty("status");
 			expect(body[0]).toHaveProperty("teamId");
 			expect(body[0]).toHaveProperty("role");

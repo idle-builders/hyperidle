@@ -4,40 +4,19 @@ import {
 	mcpNamespacedToolName,
 	shouldForceReturn,
 } from "@hyperidle/shared";
-import { Hono, type MiddlewareHandler } from "hono";
+/**
+ * @lore AU26 B1a: the local `requireBoundary` re-implementation this file used
+ * to declare (with its own `@lore` saying it existed only to avoid importing
+ * core-api's copy) is DELETED. A1 moved the AF11 declaration into
+ * `@hyperidle/shared/http`, a package `harness-registry` already depends on, so
+ * the reason is gone and the duplicate goes with it.
+ */
+import { requireBoundary } from "@hyperidle/shared/http";
+import { Hono } from "hono";
 
 interface McpSessionRegistry {
 	lookup(token: string): { readonly sessionId: string } | undefined;
 	handleRequest(token: string, request: Request): Promise<Response>;
-}
-
-/**
- * Local, minimal re-implementation of `packages/server`'s AF11
- * `requireBoundary` (`middleware/access-boundary-middleware.ts`) — stamps the
- * declared boundary kind onto the Hono context so the composition root's
- * global fail-closed assertion (`app.ts`'s `failClosedAssertion()`) sees this
- * route declared its access boundary, exactly like every core-api route.
- *
- * @lore AU19 Increment 4: `mcp-provider` (agent-execution) cannot import
- * `packages/server`'s `access-boundary-middleware.ts` (a core-api Layer
- * file) — that file's richer `requireBoundary<HyperIdleEnv>` signature is
- * typed against `HyperIdleEnv`, which itself transitively pulls in
- * `@hyperidle/users` (a domain Service) via `middleware/auth.ts`. This
- * route's actual runtime need is the one-line `c.set("__boundary", kind)`
- * side effect; duplicating that here (rather than inventing a shared port
- * for a one-line effect) keeps this file self-contained. Zero behavior
- * change — the `/return-status` route's own lint applicability is unchanged
- * too: `eslint-plugin-authz`'s `require-boundary-declaration` rule only
- * scans `routes/` files (this was never one), so this call was always
- * belt-and-suspenders for the runtime assertion, never lint-enforced.
- */
-function requireBoundary(decl: {
-	readonly kind: "enforced" | "principal-self" | "public-data";
-}): MiddlewareHandler {
-	return async (c, next) => {
-		c.set("__boundary", decl.kind);
-		await next();
-	};
 }
 
 /**

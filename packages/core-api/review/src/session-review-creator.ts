@@ -1,6 +1,5 @@
-import { type HyperIdleDb, sessions } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import type { EventBus, ItemCreatedEvent, SessionEndedEvent } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
 import type { ReviewPorts } from "./ports.js";
 import { handleUnconsumedGrantOnSessionEnd } from "./proposed-call-workflow.js";
 
@@ -46,22 +45,22 @@ export function registerReviewSubscriptions(
 	// --- Subscriber 1: session-review creator (AD1) ---
 	const sessionReviewHandler = (event: SessionEndedEvent): void => {
 		void (async () => {
-			// Look up session to get taskId
-			const [session] = await db
-				.select()
-				.from(sessions)
-				.where(eq(sessions.id, event.sessionId))
-				.limit(1);
-			if (!session?.taskId) return;
+			// @lore AU26 H3 (§D-M.4): `taskId`/`agentId`/`outcome` come straight
+			// off the event — the same three fields the liveness-net handler
+			// below has always read off it. The `sessions` row this used to
+			// re-read carried nothing else it needed, and the row-existence
+			// check that read doubled as was redundant: the event fires only
+			// for a session that ended.
+			if (!event.taskId) return;
 
 			// Look up task
-			const task = await ports.work.getTaskById(db, session.taskId);
+			const task = await ports.work.getTaskById(db, event.taskId);
 			if (!task) return;
 
 			// @lore O2: riskTier moved from tasks to taskPlanningSignals extension
 			// table (owned by `work` — read via the work port).
 			// Only create review items for medium/high risk.
-			const riskTier = await ports.work.getRiskTierByTaskId(db, session.taskId);
+			const riskTier = await ports.work.getRiskTierByTaskId(db, event.taskId);
 			if (riskTier !== "medium" && riskTier !== "high") return;
 
 			// Create or use existing thread
@@ -75,8 +74,8 @@ export function registerReviewSubscriptions(
 					id: threadId,
 					hostKind: "task",
 					hostId: task.id,
-					initiatorId: session.agentId,
-					participants: JSON.stringify([session.agentId]),
+					initiatorId: event.agentId,
+					participants: JSON.stringify([event.agentId]),
 					lastActiveAt: now,
 					createdAt: now,
 				});
@@ -84,11 +83,11 @@ export function registerReviewSubscriptions(
 			}
 
 			// @lore AD1: Wire review routing to humans on session-end review creation.
-			const agentRow = await ports.users.getUserById(db, session.agentId);
+			const agentRow = await ports.users.getUserById(db, event.agentId);
 			const humanIds = await ports.org.resolveReviewRecipients(
 				db,
 				{
-					userId: session.agentId,
+					userId: event.agentId,
 					agentRole: agentRow?.role ?? undefined,
 					teamId: task.teamId,
 				},
@@ -99,7 +98,7 @@ export function registerReviewSubscriptions(
 				const threadRow = await ports.conversation.getThreadById(db, threadId);
 				const currentParticipants: string[] = threadRow
 					? (JSON.parse(threadRow.participants) as string[])
-					: [session.agentId];
+					: [event.agentId];
 				const merged = [...new Set([...currentParticipants, ...humanIds])].sort();
 				await ports.conversation.updateThread(db, threadId, {
 					participants: JSON.stringify(merged),
@@ -109,12 +108,13 @@ export function registerReviewSubscriptions(
 			// Create review item
 			const itemId = crypto.randomUUID();
 			const now = new Date().toISOString();
-			const outcome = session.outcome ?? "completed";
 
 			await ports.work.createItem(db, {
 				id: itemId,
 				kind: "review",
-				title: `Session completed: ${outcome}`,
+				// `SessionEndedEvent.outcome` is a non-optional `SessionOutcome`,
+				// so the old `?? "completed"` fallback was unreachable.
+				title: `Session completed: ${event.outcome}`,
 				threadId,
 				riskTier,
 				createdAt: now,
@@ -150,12 +150,6 @@ export function registerReviewSubscriptions(
 			assembleSessionKnowledge: ports.assembleSessionKnowledge,
 			// AU21 §9 Increment 12 (Decision H3), Wave E: also bake harnessDisabled.
 			readServerConfig: ports.readServerConfig,
-			// AU21 §9 Increment 12 follow-up (F2 gap closure): also bake
-			// injectedFilesystems.
-			resolveInjectedFilesystemsForAgent: ports.resolveInjectedFilesystemsForAgent,
-			// AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections):
-			// also bake injectedConnections.
-			resolveInjectedConnectionsForAgent: ports.resolveInjectedConnectionsForAgent,
 			// AU27 Increment 1 (Decision 0): also bake callingThreadId.
 			resolveOrCreateCallingThread: ports.resolveOrCreateCallingThread,
 		});

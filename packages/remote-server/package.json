@@ -10,9 +10,33 @@
 		"start": "node --import tsx src/index.ts",
 		"test": "vitest run"
 	},
+	"exports": {
+		".": "./src/index.ts",
+		"./create-server": "./src/create-server.ts"
+	},
 	"dependencies": {
+		"@hono/node-server": "^2.0.6",
+		"@hyperidle/agent-orchestration": "*",
+		"@hyperidle/agent-run-config": "*",
+		"@hyperidle/connections": "*",
+		"@hyperidle/conversation": "*",
 		"@hyperidle/core-api": "*",
+		"@hyperidle/credentials": "*",
+		"@hyperidle/db": "*",
+		"@hyperidle/filesystem-mounting": "*",
+		"@hyperidle/filesystems": "*",
 		"@hyperidle/harness-registry": "*",
-		"@hyperidle/shared": "*"
+		"@hyperidle/knowledge": "*",
+		"@hyperidle/routine": "*",
+		"@hyperidle/run-orchestration": "*",
+		"@hyperidle/settings": "*",
+		"@hyperidle/shared": "*",
+		"@hyperidle/users": "*",
+		"hono": "^4.12.27",
+		"ws": "^8.20.0"
+	},
+	"devDependencies": {
+		"@types/node": "^24",
+		"@types/ws": "^8.18.1"
 	}
 }

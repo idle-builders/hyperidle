@@ -213,9 +213,6 @@ export interface CreateTeamInput {
 	readonly functions: string | null;
 	readonly factoryDbPath: string | null;
 	readonly createdAt: string;
-	readonly defaultHarnessType?: string | null;
-	readonly defaultModelId?: string | null;
-	readonly defaultModelProvider?: string | null;
 	// teamMembers companion (1:1)
 	readonly teamMembersId: string;
 	readonly capacity?: number;
@@ -230,7 +227,7 @@ export interface CreateTeamInput {
  * rows are inserted in one call. Callers that previously called `createTeam` +
  * `createTeamMembersGroup` separately should migrate to this single call.
  */
-export async function createTeam(db: HyperIdleDb, input: CreateTeamInput): Promise<void> {
+export async function createTeam(db: WriteExecutor, input: CreateTeamInput): Promise<void> {
 	const {
 		teamMembersId,
 		capacity = 5,
@@ -243,11 +240,15 @@ export async function createTeam(db: HyperIdleDb, input: CreateTeamInput): Promi
 		functions,
 		factoryDbPath,
 		createdAt,
-		defaultHarnessType,
-		defaultModelId,
-		defaultModelProvider,
 	} = input;
 
+	// @lore AU26 G1 (architecture §D-L): `defaultHarnessType`/`defaultModelId`/
+	// `defaultModelProvider` left this insert with the columns. They are the run
+	// config a newly scaffolded agent inherits — agent-execution configuration,
+	// not team identity — and now live in `team_run_config_defaults`, owned by
+	// `packages/agent-orchestration/agent-run-config`. `POST /api/teams` writes
+	// them through that Service in the same handler (§D-A rule 3: the route is
+	// two-sided, so it stays core-hosted and delegates the persist down).
 	await db.insert(teams).values({
 		id,
 		name,
@@ -255,9 +256,6 @@ export async function createTeam(db: HyperIdleDb, input: CreateTeamInput): Promi
 		functions,
 		factoryDbPath,
 		createdAt,
-		defaultHarnessType: defaultHarnessType ?? null,
-		defaultModelId: defaultModelId ?? null,
-		defaultModelProvider: defaultModelProvider ?? null,
 	});
 	await db.insert(teamMembers).values({
 		id: teamMembersId,

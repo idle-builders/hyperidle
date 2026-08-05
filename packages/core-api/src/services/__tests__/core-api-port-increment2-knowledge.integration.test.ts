@@ -191,7 +191,6 @@ async function seedAgent(db: HyperIdleDb, id: string): Promise<void> {
 		name: `Agent ${id}`,
 		role: "engineer",
 		status: "active",
-		maxConcurrentSessions: 1,
 		createdAt: NOW,
 	});
 }

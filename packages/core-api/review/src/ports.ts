@@ -31,8 +31,6 @@ import type {
 } from "@hyperidle/db";
 import type {
 	AgentWorkIntentRecorderInput,
-	BakedConnectionsForProvisioning,
-	BakedFilesystemForProvisioning,
 	SessionKnowledgeItemLike,
 	AgentWorkIntentRecorder as SharedAgentWorkIntentRecorder,
 } from "@hyperidle/shared";
@@ -151,28 +149,6 @@ export interface ReviewPorts {
 	readonly readServerConfig?: (
 		db: HyperIdleDb,
 	) => Promise<{ readonly harnessDisabled: readonly string[] }>;
-	/**
-	 * AU21 §9 Increment 12 follow-up (F2 gap closure) — optional:
-	 * `@hyperidle/filesystems`'s `resolveInjectedFilesystemsForAgent`, injected
-	 * (Mechanism C — `review` cannot import `filesystems` directly) for the
-	 * `injectedFilesystems` bake `resolveReengagementRequest` forwards onto
-	 * every `reengagement` request.
-	 */
-	readonly resolveInjectedFilesystemsForAgent?: (
-		db: HyperIdleDb,
-		agentId: string,
-	) => Promise<readonly BakedFilesystemForProvisioning[]>;
-	/**
-	 * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) —
-	 * optional: `@hyperidle/connections`'s `resolveInjectedConnectionsForAgent`,
-	 * injected (Mechanism C — `review` cannot import `connections` directly)
-	 * for the `injectedConnections` bake `resolveReengagementRequest` forwards
-	 * onto every `reengagement` request.
-	 */
-	readonly resolveInjectedConnectionsForAgent?: (
-		db: HyperIdleDb,
-		agentId: string,
-	) => Promise<BakedConnectionsForProvisioning>;
 	/**
 	 * AU27 Increment 1 (Decision 0) — optional: resolve-or-create the task's
 	 * `hostKind:"task"` calling thread, injected (Mechanism C — `review`

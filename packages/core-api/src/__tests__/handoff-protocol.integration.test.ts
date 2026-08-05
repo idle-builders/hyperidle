@@ -56,7 +56,6 @@ async function insertAgent(
 		role,
 		teamId,
 		status,
-		maxConcurrentSessions: 2,
 		createdAt: now,
 	});
 }

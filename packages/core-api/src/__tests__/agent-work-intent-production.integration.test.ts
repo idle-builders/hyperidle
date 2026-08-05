@@ -1,4 +1,5 @@
 import {
+	agentRunConfig,
 	agentSessionRequests,
 	agentWorkIntents,
 	artifacts,
@@ -164,12 +165,16 @@ async function seedAssistantThread(db: HyperIdleDb) {
 			name: "Assistant",
 			role: "assistant",
 			status: "active",
-			harnessType: "builtin",
-			modelId: "deepseek/deepseek-v4-flash",
-			modelProvider: "openrouter",
 			createdAt: now,
 		},
 	]);
+	// AU26 G1: the run config lives in its own table now.
+	await db.insert(agentRunConfig).values({
+		agentUserId: "ast-au9-assistant-human",
+		harnessType: "builtin",
+		modelId: "deepseek/deepseek-v4-flash",
+		modelProvider: "openrouter",
+	});
 	await db.insert(threads).values({
 		id: "au9-assistant-thread",
 		hostKind: "user",

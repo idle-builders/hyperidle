@@ -3,6 +3,12 @@
  *
  * Architecture plan §4.8: fetches GET /api/recipients?q=<query>.
  * Exposes status/recipients/error with client-side filtering for instant feedback.
+ *
+ * @lore AU26 J4: the hook now makes TWO calls — the recipient list from core-api
+ * and the live run counts from `agent-orchestration`
+ * (`/api/agent-orchestration/runs/active-counts`), which it combines into
+ * `hasActiveSession`. Core-api no longer reads `agent-orchestration`'s `sessions`
+ * table. The stub below routes by URL for exactly that reason.
  */
 
 import { renderHook, waitFor } from "@testing-library/react";
@@ -15,7 +21,6 @@ interface MockRecipient {
 	name: string;
 	role: string;
 	status: string;
-	hasActiveSession: boolean;
 	avatarUrl: string | null;
 }
 
@@ -26,16 +31,37 @@ function mkRecipient(overrides: Partial<MockRecipient> = {}): MockRecipient {
 		name: overrides.name ?? "Test Agent",
 		role: overrides.role ?? "builder",
 		status: overrides.status ?? "active",
-		hasActiveSession: overrides.hasActiveSession ?? false,
 		avatarUrl: overrides.avatarUrl ?? null,
 	};
 }
 
 const MOCK_RECIPIENTS: MockRecipient[] = [
-	mkRecipient({ id: "agent-builder", name: "Builder Bot", kind: "agent", hasActiveSession: true }),
+	mkRecipient({ id: "agent-builder", name: "Builder Bot", kind: "agent" }),
 	mkRecipient({ id: "agent-growth", name: "Growth Engine", kind: "agent" }),
 	mkRecipient({ id: "user-founder", name: "Founder", kind: "user", role: "founder" }),
 ];
+
+/** Only `agent-builder` is mid-run. */
+const MOCK_ACTIVE_COUNTS: Record<string, number> = { "agent-builder": 1 };
+
+/**
+ * Route the two calls the hook makes: core-api's recipient list and
+ * agent-orchestration's active-run counts.
+ */
+function stubFetch(
+	recipients: MockRecipient[],
+	counts: Record<string, number> = MOCK_ACTIVE_COUNTS,
+): ReturnType<typeof vi.fn> {
+	const fetchMock = vi.fn().mockImplementation((url: string) =>
+		Promise.resolve({
+			ok: true,
+			json: () =>
+				Promise.resolve(url.includes("/agent-orchestration/") ? { counts } : { recipients }),
+		}),
+	);
+	global.fetch = fetchMock as unknown as typeof fetch;
+	return fetchMock;
+}
 
 describe("useRecipients (Q1 §4.8)", () => {
 	beforeEach(() => {
@@ -48,10 +74,7 @@ describe("useRecipients (Q1 §4.8)", () => {
 
 	// AC2: transitions loading → ready and exposes recipients
 	it("transitions loading → ready and exposes mapped recipients", async () => {
-		global.fetch = vi.fn().mockResolvedValue({
-			ok: true,
-			json: () => Promise.resolve({ recipients: MOCK_RECIPIENTS }),
-		}) as unknown as typeof fetch;
+		stubFetch(MOCK_RECIPIENTS);
 
 		const { result } = renderHook(() => useRecipients());
 		expect(result.current.status).toBe("loading");
@@ -65,18 +88,14 @@ describe("useRecipients (Q1 §4.8)", () => {
 
 	// AC2: search query is passed to the fetch URL
 	it("includes query param in fetch URL when query provided", async () => {
-		const fetchMock = vi.fn().mockResolvedValue({
-			ok: true,
-			json: () => Promise.resolve({ recipients: [] }),
-		});
-		global.fetch = fetchMock as unknown as typeof fetch;
+		const fetchMock = stubFetch([]);
 
 		const { result } = renderHook(() => useRecipients("builder"));
 		await waitFor(() => expect(result.current.status).toBe("ready"));
 
-		expect(fetchMock).toHaveBeenCalledTimes(1);
-		const url = fetchMock.mock.calls[0]![0] as string;
-		expect(url).toContain("/api/recipients");
+		const url = fetchMock.mock.calls
+			.map((call) => call[0] as string)
+			.find((u) => u.includes("/api/recipients"));
 		expect(url).toContain("builder");
 	});
 
@@ -103,12 +122,9 @@ describe("useRecipients (Q1 §4.8)", () => {
 		expect(result.current.error).not.toBeNull();
 	});
 
-	// AC2: hasActiveSession is forwarded from server response
-	it("forwards hasActiveSession flag from server response", async () => {
-		global.fetch = vi.fn().mockResolvedValue({
-			ok: true,
-			json: () => Promise.resolve({ recipients: MOCK_RECIPIENTS }),
-		}) as unknown as typeof fetch;
+	// AC2 / AU26 J4: hasActiveSession is combined from agent-orchestration's counts
+	it("derives hasActiveSession from the orchestration run counts", async () => {
+		stubFetch(MOCK_RECIPIENTS);
 
 		const { result } = renderHook(() => useRecipients());
 		await waitFor(() => expect(result.current.status).toBe("ready"));
@@ -122,10 +138,7 @@ describe("useRecipients (Q1 §4.8)", () => {
 
 	// AC2: empty recipients list returns ready with empty array
 	it("returns ready with empty recipients on empty server response", async () => {
-		global.fetch = vi.fn().mockResolvedValue({
-			ok: true,
-			json: () => Promise.resolve({ recipients: [] }),
-		}) as unknown as typeof fetch;
+		stubFetch([]);
 
 		const { result } = renderHook(() => useRecipients());
 		await waitFor(() => expect(result.current.status).toBe("ready"));

@@ -46,6 +46,7 @@ import type { JSX } from "react";
 import { useMemo, useState } from "react";
 import { Link as RRLink, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
+import { DEFAULT_ROSTER_RUN_STATE, useRosterRunState } from "../hooks/useAgentRunState.js";
 import { useHint } from "../hooks/useHints";
 import { useTeam } from "../hooks/useTeam";
 import { useTeamAgents } from "../hooks/useTeamAgents.js";
@@ -254,6 +255,23 @@ function WorkTeamLoaded({
 	const rosterAgentIds = useMemo(() => roster.map((m) => m.agentId), [roster]);
 	const { agents: agentConfigs, refetch: refetchAgents } = useTeamAgents(rosterAgentIds);
 
+	// @lore AU26 J4: the roster's run state (status dot, health tone, the
+	// active-task context line) used to arrive stamped onto each `RosterMember` by
+	// core-api, which read `agent-orchestration`'s `sessions` table to compute it.
+	// Founder ruling: *"orchestration now has an api so that the ui can get the
+	// agent run state from the orchestration directly and combine this information
+	// in the ui instead of in the core api service."* Same derivations
+	// (`computeHealthSignals` et al., now in `@hyperidle/shared`), same inputs,
+	// same render — one layer over.
+	const { byAgent: rosterRunState, status: rosterRunStatus } = useRosterRunState(roster);
+	// @lore AU26 review W5/W6: when the run read fails — or has not landed yet —
+	// every member falls back to DEFAULT_ROSTER_RUN_STATE, idle and healthy. That
+	// default is honest for an agent with no runs and a lie about an agent whose
+	// runs we could not read (W6) or have not read yet (W5: the roster used to
+	// paint a full green column, then re-paint a round-trip later). Both cases
+	// render as unknown instead.
+	const rosterRunStateUnknown = rosterRunStatus !== "ready";
+
 	// @lore AV4: When a split pane is open, the "editing agent" comes from the ?agent search
 	// param (not internal editingAgentId state). editingAgentId is kept for the modal path
 	// (AgentAddDialog) but the Customize button now sets searchParams instead of editingAgentId.
@@ -299,10 +317,22 @@ function WorkTeamLoaded({
 							if (roster.length === 0) {
 								return <StatTile label="Status" value="—" sub="No agents" />;
 							}
-							const hasAttention = roster.some((m) => (m.healthLevel ?? "healthy") !== "healthy");
-							const idleCount = roster.filter(
-								(m) => (m.operationalStatus ?? "idle") === "idle",
-							).length;
+							if (rosterRunStateUnknown) {
+								return (
+									<StatTile
+										label="Status"
+										value="—"
+										sub={
+											rosterRunStatus === "error" ? "Run state unavailable" : "Loading run state"
+										}
+									/>
+								);
+							}
+							const runStates = roster.map(
+								(m) => rosterRunState.get(m.agentId) ?? DEFAULT_ROSTER_RUN_STATE,
+							);
+							const hasAttention = runStates.some((r) => r.healthLevel !== "healthy");
+							const idleCount = runStates.filter((r) => r.operationalStatus === "idle").length;
 							return (
 								<StatTile
 									label="Status"
@@ -490,17 +520,24 @@ function WorkTeamLoaded({
 						}}
 					>
 						{roster.map((member) => {
-							const memberStatus = member.operationalStatus ?? "idle";
-							const healthLevel = member.healthLevel ?? "healthy";
-							const healthDetail = member.healthDetail ?? "Healthy";
+							const runState = rosterRunState.get(member.agentId) ?? DEFAULT_ROSTER_RUN_STATE;
+							const memberStatus = runState.operationalStatus;
+							const healthLevel = runState.healthLevel;
+							const healthDetail = runState.healthDetail;
 							const initials = member.name.slice(0, 2).toUpperCase();
 
-							const healthTone =
-								healthLevel === "healthy"
+							const healthTone = rosterRunStateUnknown
+								? ("neutral" as const)
+								: healthLevel === "healthy"
 									? ("success" as const)
 									: healthLevel === "warning"
 										? ("warning" as const)
 										: ("error" as const);
+							const healthLabel = rosterRunStateUnknown
+								? rosterRunStatus === "error"
+									? "Run state unavailable"
+									: "Run state loading"
+								: healthDetail;
 
 							const statusTone =
 								memberStatus === "active"
@@ -514,8 +551,8 @@ function WorkTeamLoaded({
 								return catalogEntry?.description ?? member.role;
 							})();
 							let contextIsError = false;
-							if (memberStatus === "active" && member.activeTaskTitle) {
-								contextText = member.activeTaskTitle;
+							if (memberStatus === "active" && runState.activeTaskTitle) {
+								contextText = runState.activeTaskTitle;
 							} else if (memberStatus === "error") {
 								contextText = healthDetail;
 								contextIsError = true;
@@ -540,7 +577,7 @@ function WorkTeamLoaded({
 									data-testid="agent-row"
 									lead={
 										<>
-											<RowDot tone={healthTone} label={healthDetail} title={healthDetail} />
+											<RowDot tone={healthTone} label={healthLabel} title={healthLabel} />
 											<Avatar initials={initials} size="sm" agent />
 										</>
 									}

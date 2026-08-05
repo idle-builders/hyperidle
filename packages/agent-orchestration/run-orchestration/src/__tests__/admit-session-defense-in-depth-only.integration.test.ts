@@ -98,10 +98,11 @@ function buildDefenseInDepthOnlyPorts(
 			summarizeToolArgs: () => "",
 		},
 		// AU21 §9 Increment 12 follow-up (F2 gap closure): `SessionLifecyclePorts`
-		// no longer carries a `filesystems` seam reader at all — the agent's
-		// injected filesystems are baked onto `params.injectedFilesystems` at
-		// emit time instead (see `admit-session-baked-filesystems.integration.test.ts`
-		// for that proof). There is no port left here to wire as `neverCalled`.
+		// no longer carries a `filesystems` seam reader at all. AU26 F2: nor does
+		// the request carry a baked list — the spawn reads the injection record
+		// live through `ProvisionSessionDeps.injectedFilesystems`, an in-layer
+		// port (see `admit-session-live-filesystems.integration.test.ts`). There
+		// is no core-api port left here to wire as `neverCalled`.
 		// AU21 Increment 14a: `SessionLifecyclePorts` no longer carries a `cost`
 		// field at all — the cap-gate port is deleted, no replacement.
 		harnessRuntime: {
@@ -115,6 +116,19 @@ function buildDefenseInDepthOnlyPorts(
 			evaluateReturn: neverCalled("harnessRuntime.evaluateReturn"),
 			provisionReturnHook: neverCalled("harnessRuntime.provisionReturnHook"),
 			writeCliMcpConfig: neverCalled("harnessRuntime.writeCliMcpConfig"),
+		},
+		agentRunConfig: {
+			// AU26 G1: `admitSession` reads the six run-config fields live from
+			// `agent_run_config` instead of the emit-time bake. This fixture
+			// returns the all-null default; tests that care override it.
+			readAgentRunConfig: async () => ({
+				systemPrompt: null,
+				harnessType: null,
+				modelTierPreference: null,
+				modelId: null,
+				modelProvider: null,
+				maxConcurrentSessions: 1,
+			}),
 		},
 		toolProvider: {
 			buildToolRegistry: neverCalled("toolProvider.buildToolRegistry"),
@@ -181,7 +195,6 @@ describe("admitSession — baked-snapshot defense-in-depth ONLY, zero live read 
 			name: "Agent One",
 			role: "builder",
 			status: "active",
-			maxConcurrentSessions: 5,
 			createdAt: now,
 		});
 
@@ -200,12 +213,6 @@ describe("admitSession — baked-snapshot defense-in-depth ONLY, zero live read 
 				status: "archived",
 				role: "builder",
 				teamId: null,
-				systemPrompt: null,
-				modelTierPreference: null,
-				harnessType: null,
-				modelProvider: null,
-				modelId: null,
-				maxConcurrentSessions: 5,
 			},
 		};
 
@@ -244,7 +251,6 @@ describe("admitSession — baked-snapshot defense-in-depth ONLY, zero live read 
 			name: "Agent Two",
 			role: "builder",
 			status: "active",
-			maxConcurrentSessions: 5,
 			createdAt: now,
 		});
 		// Simulate the bounded, accepted race architecture.md §12 now names a
@@ -266,12 +272,6 @@ describe("admitSession — baked-snapshot defense-in-depth ONLY, zero live read 
 				status: "active",
 				role: "builder",
 				teamId: null,
-				systemPrompt: null,
-				modelTierPreference: null,
-				harnessType: null,
-				modelProvider: null,
-				modelId: null,
-				maxConcurrentSessions: 5,
 			},
 		};
 

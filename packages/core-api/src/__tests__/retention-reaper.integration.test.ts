@@ -44,7 +44,7 @@ import {
 	reapPropagationLog,
 	reapTerminalTaskDispatchAttempts,
 	TERMINAL_LOG_TTL_MS,
-} from "../server-factory.js";
+} from "../service-bootstrap.js";
 import { describe, expect, test } from "../test-fixtures.js";
 
 const now = new Date("2026-07-13T12:00:00.000Z");

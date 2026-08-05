@@ -113,6 +113,19 @@ function buildHarnessPorts(overrides: Partial<SessionLifecyclePorts>): SessionLi
 			provisionReturnHook: neverCalled("harnessRuntime.provisionReturnHook"),
 			writeCliMcpConfig: neverCalled("harnessRuntime.writeCliMcpConfig"),
 		},
+		agentRunConfig: {
+			// AU26 G1: `admitSession` reads the six run-config fields live from
+			// `agent_run_config` instead of the emit-time bake. This fixture
+			// returns the all-null default; tests that care override it.
+			readAgentRunConfig: async () => ({
+				systemPrompt: null,
+				harnessType: null,
+				modelTierPreference: null,
+				modelId: null,
+				modelProvider: null,
+				maxConcurrentSessions: 1,
+			}),
+		},
 		toolProvider: {
 			buildToolRegistry: neverCalled("toolProvider.buildToolRegistry"),
 			toolsForRole: () => [],
@@ -166,7 +179,6 @@ describe("admitSession — baked agent-runnability config (Increment 12 Wave E)"
 			name: "Agent One",
 			role: "builder",
 			status: "active",
-			maxConcurrentSessions: 5,
 			createdAt: now,
 		});
 		// The LIVE row is runnable — proving Phase 1 does not (and structurally
@@ -192,12 +204,6 @@ describe("admitSession — baked agent-runnability config (Increment 12 Wave E)"
 				status: "archived",
 				role: "builder",
 				teamId: null,
-				systemPrompt: null,
-				modelTierPreference: null,
-				harnessType: null,
-				modelProvider: null,
-				modelId: null,
-				maxConcurrentSessions: 5,
 			},
 		};
 
@@ -220,7 +226,6 @@ describe("admitSession — baked agent-runnability config (Increment 12 Wave E)"
 			name: "Agent Two",
 			role: "builder",
 			status: "active",
-			maxConcurrentSessions: 5,
 			createdAt: now,
 		});
 
@@ -238,12 +243,6 @@ describe("admitSession — baked agent-runnability config (Increment 12 Wave E)"
 				status: "active",
 				role: "builder",
 				teamId: "team-1",
-				systemPrompt: null,
-				modelTierPreference: null,
-				harnessType: null,
-				modelProvider: null,
-				modelId: null,
-				maxConcurrentSessions: 5,
 			},
 			harnessDisabled: [],
 			contextBundle: {

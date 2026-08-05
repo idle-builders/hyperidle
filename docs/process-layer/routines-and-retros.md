@@ -27,7 +27,7 @@ Every routine has a NOT-NULL owner agent and a NOT-NULL team (`schema.ts:302`, `
 
 ## 3. Silent runs
 
-A routine can run memory-only: `routines.silent` (`schema.ts:334`, policy in `packages/server/src/notifications/silence-policy.ts`) suppresses thread/item output so an agent stays current on context without producing anything for a human to look at. The knowledge-decay builtin runs silent — a daily sweep would otherwise flood the surface. Knowledge-promotion deliberately does **not** run silent: promotions emit `knowledge_updated` events that triage and git-export consumers need.
+A routine can run memory-only: `routines.silent` (`schema.ts:334`, policy in `packages/server/src/notifications/silence-policy.ts`) suppresses thread/item output so an agent stays current on context without producing anything for a human to look at. The knowledge-decay builtin runs silent — a daily sweep would otherwise flood the surface. Knowledge-promotion deliberately does **not** run silent: promotions emit `knowledge_updated` events that triage consumers need.
 
 ## 4. Human review is per-run and opt-in
 

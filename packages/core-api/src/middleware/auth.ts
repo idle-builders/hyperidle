@@ -1,10 +1,10 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { API_ERROR_CODES, createLogger } from "@hyperidle/shared";
+import { constantTimeStringEqual, type HyperIdleEnv } from "@hyperidle/shared/http";
 import { findUser, validateBearerToken } from "@hyperidle/users";
 import type { Context, MiddlewareHandler } from "hono";
 import { CORE_API_ACTOR_OVERRIDE_HEADER } from "../services/actor-transport-header.js";
-import { constantTimeStringEqual } from "./timing-safe.js";
 
 /**
  * API key authentication middleware.
@@ -32,30 +32,6 @@ import { constantTimeStringEqual } from "./timing-safe.js";
  * (options: AuthMiddlewareOptions) to support dual-strategy auth in shared
  * mode. All callers updated accordingly.
  */
-
-/**
- * Hono context type that carries the authenticated user identity.
- * Set by createAuthMiddleware after successful authentication.
- *
- * @lore S1: Added authMethod and loginSessionId to support dual-strategy auth.
- * authMethod distinguishes API key auth from LoginSession auth so routes can
- * enforce auth method requirements (e.g. /invite admin-only, /logout session-only).
- * loginSessionId is set only when auth is via Bearer token; undefined otherwise.
- */
-export type HyperIdleEnv = {
-	// biome-ignore lint/style/useNamingConvention: `Variables` is the Hono Env property name; the framework requires this exact PascalCase key.
-	Variables: {
-		userId: string;
-		authMethod: "api_key" | "login_session";
-		loginSessionId: string | undefined;
-		/**
-		 * AF11: Set by requireBoundary() middleware to record the declared
-		 * boundary kind for this route. The global fail-closed assertion
-		 * (in app.ts) checks this after the handler runs.
-		 */
-		__boundary: "enforced" | "principal-self" | "public-data" | undefined;
-	};
-};
 
 /**
  * Options for the auth middleware factory.

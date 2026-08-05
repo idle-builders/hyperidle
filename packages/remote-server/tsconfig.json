@@ -12,6 +12,7 @@
 	"include": ["src"],
 	"references": [
 		{ "path": "../shared" },
+		{ "path": "../db" },
 		{ "path": "../core-api" },
 		{ "path": "../agent-execution/harness-registry" }
 	]

@@ -1,8 +1,27 @@
-import { type HyperIdleDb, propagationLog, sessions } from "@hyperidle/db";
+import { type HyperIdleDb, propagationLog, type WriteExecutor } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/shared";
-import { and, eq } from "drizzle-orm";
 import { type TaskStateMachineDeps, transitionTask } from "./task-state-machine.js";
 import * as work from "./work-service.js";
+
+/**
+ * `cascadeBetKill`'s deps — `transitionTask`'s bag plus the downward run-stop
+ * call.
+ *
+ * @lore AU26 H2 (§D-M.2): stopping a run is `agent-orchestration`'s state
+ * transition, so `work` asks for it (Mechanism C — a nested Service may depend
+ * only on `@hyperidle/db` + `@hyperidle/shared`, never on another Service
+ * directly). Wired at `routes/bets.ts` to `@hyperidle/run-orchestration`'s
+ * `requestRunStopForTasks`.
+ */
+export interface BetKillCascadeDeps extends TaskStateMachineDeps {
+	readonly runOrchestration: {
+		requestRunStopForTasks(
+			exec: WriteExecutor,
+			taskIds: readonly string[],
+			opts: { reason: "bet_killed" },
+		): Promise<readonly { readonly taskId: string; readonly sessionId: string }[]>;
+	};
+}
 
 /** Task states that are terminal — never re-killed by the cascade. */
 const TERMINAL_TASK_STATES: string[] = ["done", "killed"];
@@ -14,16 +33,17 @@ const TERMINAL_TASK_STATES: string[] = ["done", "killed"];
  * tasks/sessions are stopped, so the UI's immediate refresh shows true state.
  *
  * - Non-terminal tasks on the bet → killed via the CAS-guarded `transitionTask`.
- * - Active sessions on those tasks → `state='stopped'`, `outcome='stopped'`
- *   (CAS on `state='active'` for idempotency). No `session_ended` event is
- *   emitted: the upward propagation engine only acts on `outcome='completed'`,
- *   and a silent terminal write avoids re-entrant propagation.
+ * - Active runs on those tasks → stopped via `run-orchestration`'s
+ *   `requestRunStopForTasks`, which owns the CAS and the `session_ended`
+ *   suppression.
  * - Each cascade hop writes a synchronous `propagation_log` row with
  *   `sourceEvent:'bet_killed'`, `status:'applied'`, labelled to the real target.
  *
  * @lore AF12 cascade: stops active sessions WITHOUT emitting `session_ended` to
  * avoid re-entrant upward propagation (the engine ignores non-'completed'
- * outcomes anyway, but emitting could trip unrelated handlers).
+ * outcomes anyway, but emitting could trip unrelated handlers). AU26 H2 moved
+ * both the CAS write and that suppression down into `run-orchestration`; what
+ * stays here is the `propagation_log` hop, which is core's own row.
  *
  * @lore AF12 propagation_log dual-writer: the kernel cascade writes downward rows
  * directly (fabric owns the upward log helper; kernel cannot import fabric). The
@@ -33,13 +53,14 @@ const TERMINAL_TASK_STATES: string[] = ["done", "killed"];
  *
  * @lore AF12 idempotency: all writes are CAS / `NOT IN terminal`-guarded. A 0-row
  * CAS-stop on an already-stopped session does NOT write a phantom propagation_log
- * row (the row is written only when the CAS update actually changed a row).
+ * row — which is exactly why `requestRunStopForTasks` returns the runs it
+ * actually stopped rather than a count.
  */
 export async function cascadeBetKill(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	betId: string,
-	deps: TaskStateMachineDeps,
+	deps: BetKillCascadeDeps,
 ): Promise<{ tasksKilled: string[]; sessionsStopped: string[] }> {
 	const tasksKilled: string[] = [];
 	const sessionsStopped: string[] = [];
@@ -53,31 +74,26 @@ export async function cascadeBetKill(
 		(t) => !TERMINAL_TASK_STATES.includes(t.state),
 	);
 
+	// 2. Stop the active runs on those tasks. `run-orchestration` owns the
+	// select, the CAS and the `session_ended` suppression; it returns only the
+	// runs it actually stopped, so an already-stopped run writes no phantom
+	// `propagation_log` row below.
+	const stoppedRuns = await deps.runOrchestration.requestRunStopForTasks(
+		db,
+		nonTerminalTasks.map((t) => t.id),
+		{ reason: "bet_killed" },
+	);
+
 	for (const task of nonTerminalTasks) {
-		// 2. Active sessions on this task.
-		const activeSessions = await db
-			.select({ id: sessions.id })
-			.from(sessions)
-			.where(and(eq(sessions.taskId, task.id), eq(sessions.state, "active")));
-
-		for (const sess of activeSessions) {
-			// 3. Stop each active session (CAS on state='active' for idempotency).
-			const now = new Date().toISOString();
-			const stopped = await db
-				.update(sessions)
-				.set({ state: "stopped", outcome: "stopped", endedAt: now })
-				.where(and(eq(sessions.id, sess.id), eq(sessions.state, "active")))
-				.returning({ id: sessions.id });
-
-			// 0-row CAS (already stopped) → no phantom propagation_log row.
-			if (stopped.length === 0) continue;
-
-			sessionsStopped.push(sess.id);
+		// 3. One `propagation_log` hop per run actually stopped. The row is
+		// core's (`policy` owns the concept, `work` writes it) and stays here.
+		for (const run of stoppedRuns.filter((r) => r.taskId === task.id)) {
+			sessionsStopped.push(run.sessionId);
 			await writeCascadeRow(db, {
 				sourceLevel: "task",
 				sourceId: task.id,
 				targetLevel: "session",
-				targetId: sess.id,
+				targetId: run.sessionId,
 				targetTransition: "active -> stopped",
 			});
 		}

@@ -54,13 +54,20 @@ export interface RosterMember {
 	isLead: boolean; // matches leadAgentId on the team
 	/** AB3: "team" | "strategy" | "individual" | null. Null when category is unset. */
 	agentCategory: string | null;
-	// AB2: operational fields (optional for backward compat with pre-AB2 fixtures)
-	operationalStatus?: AgentOperationalStatus;
-	activeTaskTitle?: string | null;
-	activeTaskId?: string | null;
-	activeBetId?: string | null;
-	healthLevel?: AgentHealthLevel;
-	healthDetail?: string | null;
+	/**
+	 * Whether an adapter matching this agent's harness type is registered in the
+	 * server's pool (or the agent has no preference).
+	 *
+	 * @lore AU26 J4: `operationalStatus`, `activeTaskTitle`, `activeTaskId`,
+	 * `activeBetId`, `healthLevel` and `healthDetail` were REMOVED — core-api
+	 * derived every one of them from `agent-orchestration`'s `sessions` table
+	 * purely to render this roster. `WorkTeam.tsx` fetches the runs from that
+	 * Layer's own API and derives them itself. `harnessAvailable` stays on the
+	 * wire because it is NOT run state — it is a fact about the server process's
+	 * adapter pool, which the browser cannot see, and it is an input to the same
+	 * `computeHealthSignals` the browser now calls.
+	 */
+	harnessAvailable?: boolean;
 }
 
 /**
@@ -107,10 +114,12 @@ export interface TeamListItem extends TeamSummary {
 	routineCount: number;
 	/** AB2: total AI agents in the team. */
 	agentCount: number;
-	/** AB2: AI agents with an active session right now. */
-	activeAgentCount: number;
-	/** AB2: true when any agent has degraded health (>50% failures or lastSessionCrashed). */
-	agentHealthWarning: boolean;
+	/**
+	 * @lore AU26 J1: `activeAgentCount` and `agentHealthWarning` are DELETED.
+	 * Both were derived in core-api from a raw `sessions` read and had zero
+	 * production readers. Agent-run state belongs to `agent-orchestration`; a
+	 * surface that wants it reads that Layer's own API and combines client-side.
+	 */
 }
 
 export interface TeamListResponse {

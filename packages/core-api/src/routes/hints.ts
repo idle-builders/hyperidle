@@ -18,10 +18,9 @@
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { isHintId } from "@hyperidle/shared";
+import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
 import { dismissHint, listDismissedHints } from "@hyperidle/users";
 import { Hono } from "hono";
-import { requireBoundary } from "../middleware/access-boundary-middleware.js";
-import type { HyperIdleEnv } from "../middleware/auth.js";
 
 export function createHintRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();

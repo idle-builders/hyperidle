@@ -4,9 +4,10 @@ import { type DbFixtures, test as dbTest } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/shared";
 import { findUser } from "@hyperidle/users";
 import type { Hono } from "hono";
-import { createApp, disposeApp } from "./app.js";
+import { disposeApp } from "./app.js";
 import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
 import { registerAssistantTurnCoherenceTrigger } from "./services/assistant-turn-coherence-trigger.js";
+import { createTestApp } from "./test-utils.js";
 
 export interface IntegrationFixtures extends DbFixtures {
 	app: Hono;
@@ -45,8 +46,15 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 		unregisterPin();
 		unregister();
 	},
+	// @lore AU26 B1b: the fixture is an Application — it delegates to
+	// `createTestApp`, the single test-harness composition site, which boots BOTH
+	// Layers, applies the middleware stack and mounts both apps on one `/api`
+	// router exactly as `remote-server`'s `createServer` does. Without the second
+	// Layer the four `/api/sessions` routes that moved onto agent-orchestration's
+	// app would 404 for every fixture-based test. Both Layers' teardown rides
+	// `disposeApp`'s bag.
 	app: async ({ db, eventBus }, use) => {
-		const app = await createApp({ db, eventBus });
+		const app = await createTestApp({ db, eventBus });
 		await use(app);
 		disposeApp(app);
 	},

@@ -169,6 +169,14 @@ export type OrgEdgeMechanism = (typeof ORG_EDGE_MECHANISMS)[number];
  * @lore Q2: scope_kind lives on the kernel knowledgeItems table so every
  * item knows where it belongs, regardless of which strategy fabric is active.
  * The fabric maps scope_kind → layer via scopeToLayer() in packages/server/src/knowledge/types.ts.
+ *
+ * @lore AU26 F2 (founder ruling, 2026-08-04): `"filesystem"` is REMOVED. AV3
+ * had added it so a knowledge item could hang off a repo/doc-set, and that one
+ * usage was the only reason the `filesystems` record had to stay core-owned
+ * while its mounting engine lived in agent-orchestration. A filesystem is an
+ * agent's execution environment, not a place knowledge lives — the founder
+ * ruled the scope out and the record whole into agent-orchestration. There is
+ * no production data, so nothing is migrated.
  */
 export const SCOPE_KINDS = [
 	"factory",
@@ -178,7 +186,6 @@ export const SCOPE_KINDS = [
 	"bet",
 	"task",
 	"user",
-	"filesystem",
 ] as const;
 
 export type ScopeKind = (typeof SCOPE_KINDS)[number];
@@ -190,6 +197,7 @@ export type ScopeKind = (typeof SCOPE_KINDS)[number];
  * @lore Q2: Extracted to @hyperidle/shared so the web dialogs (KnowledgeCreateDialog,
  * ScopeChangeDialog) and the server route (knowledge.ts) share a single source of truth.
  * @lore AV3 A2: "filesystem" added — references filesystems.id.
+ * @lore AU26 F2: "filesystem" removed again with the scope kind itself.
  */
 export const SCOPES_REQUIRING_ID: ReadonlySet<ScopeKind> = new Set<ScopeKind>([
 	"product",
@@ -197,7 +205,6 @@ export const SCOPES_REQUIRING_ID: ReadonlySet<ScopeKind> = new Set<ScopeKind>([
 	"team",
 	"bet",
 	"task",
-	"filesystem",
 ]);
 
 /**

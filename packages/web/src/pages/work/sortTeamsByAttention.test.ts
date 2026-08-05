@@ -2,7 +2,8 @@
  * AD9 — sortTeamsByAttention unit tests (AC3).
  *
  * Pure helper: rank blocked(0) → behind(1) → healthy(2); tie-break name asc only.
- * No agentHealthWarning tie-break (removed per founder design-review).
+ * No agent-health tie-break (removed per founder design-review; AU26 J1 then
+ * deleted the `agentHealthWarning` field from the wire type outright).
  */
 
 import type { TeamListItem } from "@hyperidle/shared";
@@ -18,8 +19,6 @@ const BASE: Omit<TeamListItem, "id" | "name" | "status"> = {
 	progress: { done: 0, total: 0 },
 	routineCount: 0,
 	agentCount: 0,
-	activeAgentCount: 0,
-	agentHealthWarning: false,
 };
 
 function team(id: string, name: string, status: TeamListItem["status"]): TeamListItem {
@@ -51,14 +50,6 @@ describe("sortTeamsByAttention", () => {
 		];
 		const result = sortTeamsByAttention(input);
 		expect(result.map((t) => t.name)).toEqual(["Apple", "Mango", "Zebra"]);
-	});
-
-	it("tie-break is name asc ONLY — agentHealthWarning does not affect ordering", () => {
-		const t1 = { ...team("a", "Alpha", "healthy"), agentHealthWarning: true };
-		const t2 = { ...team("b", "Beta", "healthy"), agentHealthWarning: false };
-		const result = sortTeamsByAttention([t2, t1]);
-		// Alpha should still come first (name asc), not Beta despite no health warning
-		expect(result.map((t) => t.name)).toEqual(["Alpha", "Beta"]);
 	});
 
 	it("mixed ranks + ties: blocked before behind before healthy, names asc within rank", () => {

@@ -30,10 +30,8 @@
  * double-registers and double-fires a reaction.
  */
 
-import { resolveInjectedConnectionsForAgent } from "@hyperidle/connections";
 import { insertThread } from "@hyperidle/conversation";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
-import { resolveInjectedFilesystemsForAgent } from "@hyperidle/filesystems";
 import {
 	type CreateReviewItemResult,
 	createReviewItem,
@@ -43,7 +41,7 @@ import * as routineService from "@hyperidle/routine";
 import { enqueueWorkIntent, transitionSessionRequest } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import { type AgentRunAdmissionFailedEvent, createLogger, type EventBus } from "@hyperidle/shared";
-import { findUser, requireRunnableAgent } from "@hyperidle/users";
+import { requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { resolveOrCreateCallingThread } from "./calling-thread-bindings.js";
 
@@ -120,13 +118,6 @@ async function reactToAdmissionFailure(
 				getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
 				requireRunnableAgent,
 				readServerConfig,
-				// AU21 §9 Increment 12 follow-up (F2 gap closure): also bake
-				// injectedFilesystems.
-				resolveInjectedFilesystemsForAgent,
-				// AU21 §9 Increment 12 follow-up part 2 (F2 gap closure —
-				// connections): also bake injectedConnections.
-				resolveInjectedConnectionsForAgent: (db, agentId) =>
-					resolveInjectedConnectionsForAgent(db, agentId, findUser),
 				// AU27 Increment 1 (Decision 0): also bake callingThreadId.
 				resolveOrCreateCallingThread,
 			});

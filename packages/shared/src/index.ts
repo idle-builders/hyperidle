@@ -12,11 +12,8 @@ export type {
 	AgentWorkIntentRecorder,
 	AgentWorkIntentRecorderInput,
 	BakedAgentRunnableConfig,
-	BakedConnectionForProvisioning,
-	BakedConnectionsForProvisioning,
 	BakedContextBundle,
 	BakedContextKnowledgeItem,
-	BakedFilesystemForProvisioning,
 	BakedWorkIntentRequest,
 	SessionKnowledgeItemLike,
 } from "./agent-work-intent-recorder.js";
@@ -75,6 +72,20 @@ export {
 	roleLabel,
 	TEAM_FUNCTIONS,
 } from "./agent-roles.js";
+// ── AU26 J4: the run-state wire shape agent-orchestration serves, and the pure
+//    health derivations a screen runs over it ──
+export type {
+	AgentRunActiveCountsResponse,
+	AgentRunLatestOutcomesResponse,
+	AgentRunSummary,
+	AgentRunsResponse,
+	HealthSignalInput,
+} from "./agent-run-view.js";
+export {
+	computeHealthSignals,
+	deriveHealthDetail,
+	deriveHealthLevel,
+} from "./agent-run-view.js";
 export type { ApiErrorCode, ApiErrorResponse } from "./api-types.js";
 export { API_ERROR_CODES } from "./api-types.js";
 // ── AU19 Increment 4: artifactPreviewSchema (reclassified from
@@ -282,6 +293,9 @@ export type {
 	HarnessAuthActionKind,
 	HarnessCapabilities,
 	HarnessCapabilityDescriptor,
+	// AU26 A2: the harness capability read model
+	HarnessCapabilityFilter,
+	HarnessCapabilityReader,
 	HarnessDiscoveryStatus,
 	HarnessEvent,
 	HarnessEventType,
@@ -331,6 +345,10 @@ export {
 	// Forcing constants + helper
 	FORCE_RETURN_MESSAGE,
 	HARNESS_OPTION_CONTROL_KINDS,
+	// AU26 A2: the six stateless capability-read forwarders
+	harnessCapabilitiesForType,
+	harnessCapabilityDescriptors,
+	harnessRegistrationMeta,
 	isHarnessEvent,
 	isInternalExtractionDrain,
 	isRequiredReturnAction,
@@ -346,7 +364,10 @@ export {
 	preMapClaudeEvent,
 	// Closed accepted-return set
 	RETURN_ACTION_NAMES,
+	refreshHarnessDiscoveries,
+	registeredHarnessCount,
 	shouldForceReturn,
+	workerConnections,
 } from "./harness/index.js";
 // ── AU19 §7.4: HarnessPort — the one genuine cross-process seam ──
 export type {

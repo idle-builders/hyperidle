@@ -14,11 +14,10 @@ import {
 	type RoutineRunOutcome,
 	type RoutineRunSummary,
 } from "@hyperidle/shared";
+import { requireBoundary, validateBody } from "@hyperidle/shared/http";
 import { findUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
-import { requireBoundary } from "../middleware/access-boundary-middleware.js";
-import { validateBody } from "../middleware/validate.js";
 import { fireRoutine } from "../services/routine-scheduler-bindings.js";
 
 const ROUTINE_STATE_VALUES = ROUTINE_STATES as readonly [string, ...string[]];
@@ -296,7 +295,7 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 			// `as z.infer<…>` double cast is load-bearing: dropping either
 			// half resurrects the TS error. This matches the pattern used
 			// across `bets.ts`, `tasks.ts`, `knowledge.ts`, `sessions-routes.ts`,
-			// and `agents.ts`; `git-export-routes.ts` gets away without the
+			// and `agents.ts`; some route files get away without the
 			// cast because it does not re-export the route factory. Fixing
 			// this properly requires either rewriting `validateBody` to
 			// preserve the generic parameter chain or inlining `zValidator`

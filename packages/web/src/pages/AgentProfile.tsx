@@ -50,6 +50,7 @@ import {
 import type { JSX } from "react";
 import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
 import { useAgentProfile } from "../hooks/useAgentProfile.js";
+import { type AgentRunState, useAgentRunState } from "../hooks/useAgentRunState.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
 import { deriveInitials } from "../utils/initials.js";
@@ -69,12 +70,23 @@ export interface AgentProfileProps {
 	overrideData?: AgentProfileResponse | null;
 	overrideLoading?: boolean;
 	overrideError?: Error | null;
+	/**
+	 * Override the agent's run state (active run, recent runs, performance,
+	 * health signals). Used by stories and tests.
+	 *
+	 * @lore AU26 J4: these four used to arrive on `overrideData` because core-api
+	 * served them on the profile response. They are fetched from
+	 * `agent-orchestration` now, so the story/test injection seam for them is its
+	 * own prop — same pattern as `overrideData`, one prop per source.
+	 */
+	overrideRunState?: AgentRunState;
 }
 
 export function AgentProfile({
 	overrideData,
 	overrideLoading,
 	overrideError,
+	overrideRunState,
 }: AgentProfileProps = {}): JSX.Element {
 	const { agentId } = useParams<{ agentId: string }>();
 
@@ -140,19 +152,53 @@ export function AgentProfile({
 		);
 	}
 
-	return <AgentProfileLoaded data={data} />;
+	return <AgentProfileLoaded data={data} overrideRunState={overrideRunState} />;
 }
 
 /** Internal component rendered when data is fully resolved. */
-function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Element {
+function AgentProfileLoaded({
+	data,
+	overrideRunState,
+}: {
+	data: AgentProfileResponse;
+	overrideRunState?: AgentRunState;
+}): JSX.Element {
 	const catalogEntry = findRoleCatalogEntry(data.role);
 	const initials = deriveInitials(data.name);
 	const navigate = useNavigate();
 	const { sidebarMobile } = useViewportBreakpoint();
 
-	// A2: Derive operational status from data, not DB status column
-	const isActive = data.activeSession !== null;
-	const isError = !isActive && data.healthSignals.lastSessionCrashed;
+	// @lore AU26 J4: `activeSession`, `recentSessions`, `performance` and
+	// `healthSignals` used to arrive on this response, computed by core-api from
+	// `agent-orchestration`'s `sessions` table. Founder ruling: *"orchestration
+	// now has an api so that the ui can get the agent run state from the
+	// orchestration directly and combine this information in the ui instead of in
+	// the core api service."* This hook fetches the runs from that Layer and
+	// derives the same four with the same `computeHealthSignals` — the live chip,
+	// the recent-runs table, the success rate and the degraded banner all render
+	// exactly what they rendered before. `harnessAvailable` still comes from
+	// core-api: it is a fact about the server's adapter pool, not run state.
+	const fetchedRunState = useAgentRunState(
+		overrideRunState ? null : data.id,
+		data.harnessAvailable,
+	);
+	const { activeSession, recentSessions, performance, healthSignals, status } =
+		overrideRunState ?? fetchedRunState;
+	// @lore AU26 review W6: a failed run read must not paint a healthy agent.
+	// `computeHealthSignals([])` says "not degraded" — true of an agent with no
+	// runs, a lie about an agent whose runs we could not read. The banner below
+	// switches to an explicit unavailability alert instead.
+	const runStateUnavailable = status === "error";
+	// @lore AU26 review W5: while the run read is still in flight the page knows
+	// nothing about runs — painting "0 sessions · 0% · No sessions recorded" and
+	// then replacing it a round-trip later is a flicker that states a falsehood
+	// on the way. The server-composed response used to arrive atomically; these
+	// two blocks wait for the same certainty.
+	const runStateSettled = status === "ready";
+
+	// A2: Derive operational status from run state, not the DB status column
+	const isActive = activeSession !== null;
+	const isError = !isActive && healthSignals.lastSessionCrashed;
 	const operationalStatus = isActive ? "active" : isError ? "error" : "idle";
 
 	const createdDate = absoluteDate(data.createdAt);
@@ -192,8 +238,27 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 			/>
 			<div className="flex-1 overflow-y-auto">
 				<div className="flex flex-col gap-[12px] p-[24px]">
+					{/* AU26 W6: run state could not be read — say so, never imply health. */}
+					{runStateUnavailable && (
+						<div
+							role="alert"
+							data-testid="run-state-unavailable"
+							className="rounded-[var(--r-subtle)] p-[12px] text-[13px] text-[var(--text-secondary)]"
+							style={{
+								background: "rgba(220, 100, 60, 0.08)",
+								border: "1px solid rgba(220, 100, 60, 0.2)",
+							}}
+						>
+							<span className="font-medium text-[var(--text-primary)]">Run state unavailable</span>
+							<span className="ml-2">
+								This agent's runs could not be loaded, so health, recent runs and success rate are
+								not shown.
+							</span>
+						</div>
+					)}
+
 					{/* F2: Health banner — only shown when degraded, has role="alert" */}
-					{data.healthSignals.degraded && (
+					{!runStateUnavailable && healthSignals.degraded && (
 						<div
 							role="alert"
 							className="rounded-[var(--r-subtle)] p-[12px] text-[13px] text-[var(--text-secondary)]"
@@ -203,16 +268,16 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 							}}
 						>
 							<span className="font-medium text-[var(--text-primary)]">Health warning</span>
-							{data.healthSignals.failureRate7d > 0.5 && (
+							{healthSignals.failureRate7d > 0.5 && (
 								<span className="ml-2">
-									High failure rate: {Math.round(data.healthSignals.failureRate7d * 100)}% in last 7
+									High failure rate: {Math.round(healthSignals.failureRate7d * 100)}% in last 7
 									days.
 								</span>
 							)}
-							{data.healthSignals.lastSessionCrashed && (
+							{healthSignals.lastSessionCrashed && (
 								<span className="ml-2">Last session crashed.</span>
 							)}
-							{!data.healthSignals.harnessAvailable && (
+							{!healthSignals.harnessAvailable && (
 								<span className="ml-2">Required harness not available.</span>
 							)}
 						</div>
@@ -246,13 +311,13 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 									<span className="ml-2">· Created {createdDate}</span>
 								</p>
 								{/* Active session link — /work/bet/:betId/task/:taskId (M1: was using taskId as betId) */}
-								{data.activeSession !== null && (
+								{activeSession !== null && (
 									<div className="mt-[6px]" data-testid="agent-active-session">
 										<RRLink
-											to={`/work/bet/${encodeURIComponent(data.activeSession.betId)}/task/${encodeURIComponent(data.activeSession.taskId)}`}
+											to={`/work/bet/${encodeURIComponent(activeSession.betId)}/task/${encodeURIComponent(activeSession.taskId)}`}
 											className="text-[12px] text-[var(--accent-primary)] hover:underline"
 										>
-											↗ Active session: {data.activeSession.sessionId}
+											↗ Active session: {activeSession.sessionId}
 										</RRLink>
 									</div>
 								)}
@@ -345,7 +410,11 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 						className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
 					>
 						<SectionLabel label="Recent Activity" as="h2" />
-						{data.recentSessions.length === 0 ? (
+						{runStateUnavailable ? (
+							<p className="text-[12px] text-[var(--text-tertiary)]">Runs could not be loaded.</p>
+						) : !runStateSettled ? (
+							<p className="text-[12px] text-[var(--text-tertiary)]">Loading runs…</p>
+						) : recentSessions.length === 0 ? (
 							<p className="text-[12px] text-[var(--text-tertiary)]">No sessions recorded.</p>
 						) : (
 							<table className="w-full text-[12px]" aria-label="Recent agent session activity">
@@ -357,7 +426,7 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 									</tr>
 								</thead>
 								<tbody>
-									{data.recentSessions.map((session) => (
+									{recentSessions.map((session) => (
 										<tr
 											key={session.sessionId}
 											className="border-b border-[var(--border-subtle)] last:border-0"
@@ -394,10 +463,14 @@ function AgentProfileLoaded({ data }: { data: AgentProfileResponse }): JSX.Eleme
 					>
 						<SectionLabel label="Performance" as="h2" />
 						<div className="flex gap-[24px] flex-wrap">
-							<KeyValue label="Sessions" value={String(data.performance.totalSessions)} />
+							{/* AU26 W6: an unread run set is "—", never a confident 0. */}
+							<KeyValue
+								label="Sessions"
+								value={runStateSettled ? String(performance.totalSessions) : "—"}
+							/>
 							<KeyValue
 								label="Success rate"
-								value={`${Math.round(data.performance.successRate * 100)}%`}
+								value={runStateSettled ? `${Math.round(performance.successRate * 100)}%` : "—"}
 							/>
 						</div>
 					</section>

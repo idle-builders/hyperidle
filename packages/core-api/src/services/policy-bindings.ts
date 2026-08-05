@@ -35,6 +35,7 @@ import type { HyperIdleDb, NewItem, NewTask, WriteExecutor } from "@hyperidle/db
 import { getTeamMembers } from "@hyperidle/org";
 import type { HandoffParams, HandoffResult } from "@hyperidle/policy";
 import { buildHandoff, computeApprovalRate as policyComputeApprovalRate } from "@hyperidle/policy";
+import { endRunForHandoff } from "@hyperidle/run-orchestration";
 import { enqueueWorkIntent, sessionRunRegistry } from "@hyperidle/session-requests";
 import type { EventBus } from "@hyperidle/shared";
 import { findUser } from "@hyperidle/users";
@@ -96,6 +97,12 @@ const handoffDeps = {
 		resolve: (exec: WriteExecutor, attemptId: string) =>
 			resolveTaskRunRequest(exec as HyperIdleDb, attemptId, taskRunResolverDeps),
 	},
+	// AU26 H1 (§D-M.1): the handoff's run-end write is `agent-orchestration`'s
+	// state transition. `core-api → agent-orchestration` is the permitted
+	// direction and `@hyperidle/run-orchestration` is already a dependency, so
+	// this is a plain downward call — NOT an `AgentOrchestrationPort` method
+	// (that door stays read-only).
+	runOrchestration: { endRunForHandoff },
 };
 
 /** Production-wired `handoff` — every real call site imports this, not `@hyperidle/policy` directly. */

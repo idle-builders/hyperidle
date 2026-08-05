@@ -1,22 +1,43 @@
 /**
- * AB2 — GET /teams/:id roster: agent operational status and health (RED phase)
+ * AB2 — GET /teams/:id roster: what core-api still serves, and what it still does.
  *
- * AC coverage:
- * AC-2: Each agent in roster has operationalStatus, healthLevel, healthDetail, activeTaskTitle
- * AC-4: Health computed from same AB1 signals (failureRate7d, lastSessionCrashed)
- * AC-6: Error state triggers notification; throttling prevents duplicate
+ * @lore AU26 J4: `operationalStatus`, `activeTaskTitle`, `activeTaskId`,
+ * `activeBetId`, `healthLevel` and `healthDetail` were REMOVED from the roster —
+ * every one was derived in core-api from `agent-orchestration`'s `sessions`
+ * table purely to render the team page, and the page now fetches the runs from
+ * that Layer's own API and derives them itself. AC-2 and AC-4's coverage of the
+ * derivations lives with the derivations, in
+ * `packages/shared/src/__tests__/health-signals.test.ts`.
  *
- * These tests FAIL until:
- * - RosterMember extended with operational fields in packages/shared/src/team.ts
- * - deriveHealthLevel / deriveHealthDetail exported from agent-profile.ts
- * - GET /teams/:id enriches roster with operational data
- * - maybeNotifyAgentError writes to notification_queue (throttled)
+ * One thing stays here, and this file covers exactly that:
+ *   - `harnessAvailable` per roster member — NOT run state; a fact about the
+ *     server process's adapter pool, and an input to the browser's own
+ *     `computeHealthSignals` call.
+ *
+ * @lore AU26: AB2's AC-6 ("a degraded agent enqueues an `agent.health.degraded`
+ * notification") is NOT deleted — it MOVED off this route. The founder's ruling
+ * made it event-driven: `registerAgentHealthSessionEndReactions` reacts to a
+ * crashed `session_ended` and the notification system counts its own rows. That
+ * closed the route's last `sessions` read (a GET that writes was a smell
+ * independent of layering, and a notification that only fires when a human
+ * happens to open a page is not a notification). The behavior lives in
+ * `services/__tests__/agent-health-session-end-reactions.integration.test.ts`;
+ * what this file now asserts is the REMOVAL — loading the team page enqueues
+ * nothing, ever.
  */
 
-import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import {
+	agentRunConfig,
+	bets,
+	type HyperIdleDb,
+	sessions,
+	tasks,
+	teamMembers,
+	teams,
+	users,
+} from "@hyperidle/db";
 import { listNotifications } from "@hyperidle/notifications";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { deriveHealthDetail, deriveHealthLevel } from "../../routes/agent-profile.js";
 import { test } from "../../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-ab2-team-agents";
@@ -50,8 +71,12 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		role: "founder",
 		status: "active",
 		email: "ab2-founder@hyperidle.com",
-		maxConcurrentSessions: 0,
 		createdAt: NOW,
+	});
+	// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+	await db.insert(agentRunConfig).values({
+		agentUserId: "u-founder-ab2",
+		maxConcurrentSessions: 0,
 	});
 
 	// AI agent — healthy, idle (no sessions)
@@ -61,9 +86,13 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		name: "AB2 Idle Agent",
 		role: "builder",
 		status: "active",
-		maxConcurrentSessions: 2,
 		teamId: "ab2-tm",
 		createdAt: NOW,
+	});
+	// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+	await db.insert(agentRunConfig).values({
+		agentUserId: "ab2-agent-idle",
+		maxConcurrentSessions: 2,
 	});
 }
 
@@ -71,7 +100,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 // AC-2: Roster member has operationalStatus
 // ---------------------------------------------------------------------------
 
-describe("AB2 AC-2: GET /teams/:id roster includes operationalStatus", () => {
+describe("AB2 AC-2: GET /teams/:id roster shape", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 	});
@@ -80,21 +109,7 @@ describe("AB2 AC-2: GET /teams/:id roster includes operationalStatus", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("returns idle operationalStatus for an agent with no sessions", async ({ db, app }) => {
-		await seedBase(db);
-		const res = await app.request("/api/teams/ab2-team", { headers: authHeaders() });
-		expect(res.status).toBe(200);
-
-		const body = (await res.json()) as Record<string, unknown>;
-		const roster = body.roster as Array<Record<string, unknown>>;
-		expect(roster.length).toBeGreaterThan(0);
-
-		const idleAgent = roster.find((m) => m.agentId === "ab2-agent-idle");
-		expect(idleAgent).toBeDefined();
-		expect(idleAgent?.operationalStatus).toBe("idle");
-	});
-
-	test("returns active operationalStatus when agent has an active session", async ({ db, app }) => {
+	test("carries harnessAvailable and no run-derived fields", async ({ db, app }) => {
 		await seedBase(db);
 		await db.insert(bets).values({
 			id: "ab2-bet-1",
@@ -112,6 +127,7 @@ describe("AB2 AC-2: GET /teams/:id roster includes operationalStatus", () => {
 			createdAt: NOW,
 			updatedAt: NOW,
 		});
+		// A live run — a roster that still carried run state would report it.
 		await db.insert(sessions).values({
 			id: "ab2-sess-active",
 			taskId: "ab2-task-1",
@@ -122,56 +138,33 @@ describe("AB2 AC-2: GET /teams/:id roster includes operationalStatus", () => {
 		});
 
 		const res = await app.request("/api/teams/ab2-team", { headers: authHeaders() });
+		expect(res.status).toBe(200);
 		const body = (await res.json()) as Record<string, unknown>;
 		const roster = body.roster as Array<Record<string, unknown>>;
+		expect(roster.length).toBeGreaterThan(0);
 
 		const agent = roster.find((m) => m.agentId === "ab2-agent-idle");
-		expect(agent?.operationalStatus).toBe("active");
-		expect(agent?.activeTaskTitle).toBe("Implement feature");
-		expect(agent?.activeTaskId).toBe("ab2-task-1");
-	});
-
-	test("returns healthLevel field for each roster member", async ({ db, app }) => {
-		await seedBase(db);
-		const res = await app.request("/api/teams/ab2-team", { headers: authHeaders() });
-		const body = (await res.json()) as Record<string, unknown>;
-		const roster = body.roster as Array<Record<string, unknown>>;
-
-		for (const member of roster) {
-			expect(member).toHaveProperty("healthLevel");
-			const hl = member.healthLevel;
-			expect(["healthy", "warning", "critical"]).toContain(hl);
+		expect(agent).toBeDefined();
+		expect(typeof agent?.harnessAvailable).toBe("boolean");
+		for (const field of [
+			"operationalStatus",
+			"activeTaskTitle",
+			"activeTaskId",
+			"activeBetId",
+			"healthLevel",
+			"healthDetail",
+		]) {
+			expect(agent).not.toHaveProperty(field);
 		}
-	});
-
-	test("returns healthDetail field for each roster member", async ({ db, app }) => {
-		await seedBase(db);
-		const res = await app.request("/api/teams/ab2-team", { headers: authHeaders() });
-		const body = (await res.json()) as Record<string, unknown>;
-		const roster = body.roster as Array<Record<string, unknown>>;
-
-		for (const member of roster) {
-			expect(member).toHaveProperty("healthDetail");
-			expect(typeof member.healthDetail).toBe("string");
-		}
-	});
-
-	test("returns healthy when agent has no sessions", async ({ db, app }) => {
-		await seedBase(db);
-		const res = await app.request("/api/teams/ab2-team", { headers: authHeaders() });
-		const body = (await res.json()) as Record<string, unknown>;
-		const roster = body.roster as Array<Record<string, unknown>>;
-
-		const idleAgent = roster.find((m) => m.agentId === "ab2-agent-idle");
-		expect(idleAgent?.healthLevel).toBe("healthy");
 	});
 });
 
 // ---------------------------------------------------------------------------
-// AC-4: Health computed from AB1 signals (critical when >50% crashes)
+// AU26: the GET no longer writes. AB2's AC-6 producer moved to a session_ended
+// reactor; this asserts the route side of that move.
 // ---------------------------------------------------------------------------
 
-describe("AB2 AC-4: Health computed from AB1 signals", () => {
+describe("AU26: GET /teams/:teamId enqueues nothing", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 	});
@@ -180,129 +173,10 @@ describe("AB2 AC-4: Health computed from AB1 signals", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("returns critical healthLevel when agent has >50% crash rate in 7d", async ({ db, app }) => {
-		await seedBase(db);
-		// Seed 3 crashed sessions + 1 success = 75% crash rate
-		await db.insert(bets).values({
-			id: "ab2-bet-health",
-			teamId: "ab2-team",
-			description: "Health bet",
-			status: "active",
-			createdAt: NOW,
-		});
-
-		for (let i = 1; i <= 4; i++) {
-			const paddedId = i.toString().padStart(2, "0");
-			await db.insert(tasks).values({
-				id: `ab2-task-health-${paddedId}`,
-				betId: "ab2-bet-health",
-				teamId: "ab2-team",
-				title: `Task ${i}`,
-				state: "completed",
-				createdAt: NOW,
-				updatedAt: NOW,
-			});
-			await db.insert(sessions).values({
-				id: `ab2-sess-health-${paddedId}`,
-				taskId: `ab2-task-health-${paddedId}`,
-				agentId: "ab2-agent-idle",
-				modelTier: "workhorse",
-				startedAt: THREE_DAYS_AGO,
-				endedAt: THREE_DAYS_AGO,
-				state: "completed",
-				outcome: i <= 3 ? "crashed" : "completed",
-			});
-		}
-
-		const res = await app.request("/api/teams/ab2-team", { headers: authHeaders() });
-		const body = (await res.json()) as Record<string, unknown>;
-		const roster = body.roster as Array<Record<string, unknown>>;
-
-		const agent = roster.find((m) => m.agentId === "ab2-agent-idle");
-		expect(agent?.healthLevel).toBe("critical");
-	});
-
-	test("returns warning healthLevel when agent has lastSessionCrashed", async ({ db, app }) => {
-		await seedBase(db);
-		await db.insert(bets).values({
-			id: "ab2-bet-warn",
-			teamId: "ab2-team",
-			description: "Warn bet",
-			status: "active",
-			createdAt: NOW,
-		});
-		await db.insert(tasks).values({
-			id: "ab2-task-warn",
-			betId: "ab2-bet-warn",
-			teamId: "ab2-team",
-			title: "Crashed task",
-			state: "completed",
-			createdAt: NOW,
-			updatedAt: NOW,
-		});
-		await db.insert(sessions).values({
-			id: "ab2-sess-warn",
-			taskId: "ab2-task-warn",
-			agentId: "ab2-agent-idle",
-			modelTier: "workhorse",
-			startedAt: THREE_DAYS_AGO,
-			endedAt: THREE_DAYS_AGO,
-			state: "completed",
-			outcome: "crashed",
-		});
-
-		const res = await app.request("/api/teams/ab2-team", { headers: authHeaders() });
-		const body = (await res.json()) as Record<string, unknown>;
-		const roster = body.roster as Array<Record<string, unknown>>;
-
-		const agent = roster.find((m) => m.agentId === "ab2-agent-idle");
-		// Either warning or critical is acceptable for a single crash
-		expect(["warning", "critical"]).toContain(agent?.healthLevel);
-	});
-});
-
-// ---------------------------------------------------------------------------
-// AC-6: Error notification throttling
-// ---------------------------------------------------------------------------
-
-describe("AB2 AC-6: Agent error state triggers notification (throttled)", () => {
-	beforeEach(() => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-	});
-
-	afterEach(() => {
-		vi.unstubAllEnvs();
-	});
-
-	test("deriveHealthLevel returns 'critical' when failureRate7d > 0.5", async ({}) => {
-		const result = deriveHealthLevel({ failureRate7d: 0.75, lastSessionCrashed: false });
-		expect(result).toBe("critical");
-	});
-
-	test("deriveHealthLevel returns 'warning' when lastSessionCrashed", async ({}) => {
-		const result = deriveHealthLevel({ failureRate7d: 0, lastSessionCrashed: true });
-		expect(result).toBe("warning");
-	});
-
-	test("deriveHealthLevel returns 'healthy' when no issues", async ({}) => {
-		const result = deriveHealthLevel({ failureRate7d: 0, lastSessionCrashed: false });
-		expect(result).toBe("healthy");
-	});
-
-	test("deriveHealthDetail returns a non-empty string for each health level", async ({}) => {
-		const criticalDetail = deriveHealthDetail({ failureRate7d: 0.75, lastSessionCrashed: false });
-		const warningDetail = deriveHealthDetail({ failureRate7d: 0, lastSessionCrashed: true });
-		const healthyDetail = deriveHealthDetail({ failureRate7d: 0, lastSessionCrashed: false });
-
-		expect(typeof criticalDetail).toBe("string");
-		expect(criticalDetail.length).toBeGreaterThan(0);
-		expect(typeof warningDetail).toBe("string");
-		expect(warningDetail.length).toBeGreaterThan(0);
-		expect(typeof healthyDetail).toBe("string");
-		expect(healthyDetail.length).toBeGreaterThan(0);
-	});
-
-	test("notification_queue gets a row when agent enters critical state", async ({ db, app }) => {
+	test("a roster full of crashed runs still produces zero notification rows", async ({
+		db,
+		app,
+	}) => {
 		await seedBase(db);
 		// Seed enough crashes to trigger critical
 		await db.insert(bets).values({
@@ -335,14 +209,12 @@ describe("AB2 AC-6: Agent error state triggers notification (throttled)", () => 
 			});
 		}
 
-		// Trigger the GET /teams/:id — this should enqueue a notification
-		await app.request("/api/teams/ab2-team", { headers: authHeaders() });
+		// The old producer ran here. Twice, to also rule out a throttled second write.
+		const first = await app.request("/api/teams/ab2-team", { headers: authHeaders() });
+		expect(first.status).toBe(200);
+		const second = await app.request("/api/teams/ab2-team", { headers: authHeaders() });
+		expect(second.status).toBe(200);
 
-		// maybeNotifyAgentError uses subjectId=agentId and eventType="agent.health.degraded"
-		const notifications = (await listNotifications(db, { kind: "all" })).filter(
-			(r) => r.subjectId === "ab2-agent-idle" && r.eventType === "agent.health.degraded",
-		);
-
-		expect(notifications.length).toBeGreaterThan(0);
+		expect(await listNotifications(db, { kind: "all" })).toHaveLength(0);
 	});
 });

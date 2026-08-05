@@ -53,7 +53,6 @@ async function seedOwners(db: HyperIdleDb): Promise<void> {
 		name: "System Agent",
 		role: "assistant",
 		status: "active",
-		maxConcurrentSessions: 1,
 		createdAt: NOW_ISO,
 	});
 	await db.insert(users).values({
@@ -61,7 +60,6 @@ async function seedOwners(db: HyperIdleDb): Promise<void> {
 		name: "Facilitation Facilitator",
 		role: "facilitator",
 		status: "active",
-		maxConcurrentSessions: 1,
 		createdAt: NOW_ISO,
 	});
 	await db.insert(users).values({
@@ -69,7 +67,6 @@ async function seedOwners(db: HyperIdleDb): Promise<void> {
 		name: "Acme PM",
 		role: "product_manager",
 		status: "active",
-		maxConcurrentSessions: 1,
 		teamId: "team-1",
 		createdAt: NOW_ISO,
 	});

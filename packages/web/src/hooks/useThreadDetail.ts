@@ -22,11 +22,14 @@ export interface ThreadDetail {
 	thread: Thread;
 	messages: ReadonlyArray<Message>;
 	headMessageId: string | null;
-	/** AE5: Extended identities map including isAgent and operationalStatus for AI users. */
-	identities: Record<
-		string,
-		{ name: string; role?: string; isAgent?: boolean; operationalStatus?: string }
-	>;
+	/**
+	 * AE5: Extended identities map including isAgent for AI users.
+	 *
+	 * @lore AU26 J1: `operationalStatus` is gone — core-api derived it from a raw
+	 * `sessions` read (an N+1) and nothing ever rendered it. Live agent state now
+	 * comes from `agent-orchestration`'s own API where a surface needs it.
+	 */
+	identities: Record<string, { name: string; role?: string; isAgent?: boolean }>;
 	artifactRef?: ArtifactRef;
 	/** AE5: Host entity title for context link. Null when unresolvable. */
 	hostTitle?: string | null;
@@ -72,10 +75,7 @@ function decodeThreadDetail(value: unknown): ThreadDetail {
 		throw new ThreadDetailDecodeError("invalid headMessageId");
 	}
 	const identitiesRaw = isObject(value.identities) ? value.identities : {};
-	const identities: Record<
-		string,
-		{ name: string; role?: string; isAgent?: boolean; operationalStatus?: string }
-	> = {};
+	const identities: Record<string, { name: string; role?: string; isAgent?: boolean }> = {};
 	for (const [k, v] of Object.entries(identitiesRaw)) {
 		if (!isObject(v) || typeof v.name !== "string") continue;
 		identities[k] = {
@@ -83,9 +83,6 @@ function decodeThreadDetail(value: unknown): ThreadDetail {
 			...(typeof v.role === "string" ? { role: v.role } : {}),
 			// AE5: optional extended fields for presence indicators
 			...(v.isAgent === true ? { isAgent: true } : {}),
-			...(typeof v.operationalStatus === "string"
-				? { operationalStatus: v.operationalStatus }
-				: {}),
 		};
 	}
 	// AE5: hostTitle for context link in Conversations header.
@@ -120,7 +117,6 @@ type ThreadPushIdentity = {
 	name: string;
 	role?: string;
 	isAgent?: boolean;
-	operationalStatus?: string;
 };
 
 /**

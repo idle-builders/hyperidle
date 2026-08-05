@@ -77,7 +77,6 @@ describe("CoreApiPort write seam — §11 contract-test harness", () => {
 			name: "Seam Agent",
 			role: "engineer",
 			status: "active",
-			maxConcurrentSessions: 1,
 			createdAt: NOW,
 		});
 
@@ -112,7 +111,6 @@ describe("CoreApiPort write seam — §11 contract-test harness", () => {
 			name: "Seam Agent Net",
 			role: "engineer",
 			status: "active",
-			maxConcurrentSessions: 1,
 			createdAt: NOW,
 		});
 
@@ -183,7 +181,6 @@ describe("CoreApiPort write seam — §11 contract-test harness", () => {
 			name: "Founder",
 			role: "founder",
 			status: "active",
-			maxConcurrentSessions: 1,
 			createdAt: NOW,
 		});
 		await db.insert(users).values({
@@ -192,7 +189,6 @@ describe("CoreApiPort write seam — §11 contract-test harness", () => {
 			name: "Real Calling Agent",
 			role: "engineer",
 			status: "active",
-			maxConcurrentSessions: 1,
 			createdAt: NOW,
 		});
 

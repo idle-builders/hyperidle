@@ -21,8 +21,11 @@
  * factory/practice/bet/task → "Shared"
  * team/product → "Team"
  * user → "Private"
- * filesystem → "Filesystem"
  * Anything else → "Shared" (safe fallback).
+ *
+ * @lore AU26 F2 (founder ruling): the "filesystem" branch is gone with the
+ * scope kind itself. A stored `filesystem` string is now just an unknown kind
+ * and takes the safe fallback like any other.
  *
  * This is the single source of truth for scope bucket labels — used by
  * both the server (missing-entity fallback in resolveScopeName) and the
@@ -35,7 +38,6 @@
 export function scopeKindToLabel(scopeKind: string): string {
 	if (scopeKind === "user") return "Private";
 	if (scopeKind === "team" || scopeKind === "product") return "Team";
-	if (scopeKind === "filesystem") return "Filesystem";
 	// factory, practice, bet, task, unknown → Shared
 	return "Shared";
 }

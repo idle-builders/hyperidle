@@ -24,8 +24,9 @@ import {
 } from "@hyperidle/notifications";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, vi } from "vitest";
-import { createApp, disposeApp } from "../../app.js";
+import { disposeApp } from "../../app.js";
 import { expect, test } from "../../test-fixtures.js";
+import { createTestApp } from "../../test-utils.js";
 import { notificationsDeps } from "../notifications-test-deps.js";
 
 const API_KEY = "test-key-H2-routes";
@@ -66,7 +67,7 @@ describe("H2 /api/notifications routes", () => {
 
 	test("GET /config requires auth", async ({ db, eventBus }) => {
 		const adapter = createFakeAdapter();
-		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		const app = await createTestApp({ db, eventBus, notificationAdapterFactory: () => adapter });
 		try {
 			const res = await app.request("/api/notifications/config");
 			expect(res.status).toBe(401);
@@ -80,7 +81,7 @@ describe("H2 /api/notifications routes", () => {
 		eventBus,
 	}) => {
 		const adapter = createFakeAdapter();
-		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		const app = await createTestApp({ db, eventBus, notificationAdapterFactory: () => adapter });
 		try {
 			// Seed a password + auth token; verify they come back as "***".
 			await updateConfig(
@@ -117,7 +118,7 @@ describe("H2 /api/notifications routes", () => {
 
 	test("PATCH /config rejects invalid email", async ({ db, eventBus }) => {
 		const adapter = createFakeAdapter();
-		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		const app = await createTestApp({ db, eventBus, notificationAdapterFactory: () => adapter });
 		try {
 			const res = await app.request("/api/notifications/config", {
 				method: "PATCH",
@@ -134,7 +135,7 @@ describe("H2 /api/notifications routes", () => {
 
 	test("PATCH /config rejects unsafe ntfy URL", async ({ db, eventBus }) => {
 		const adapter = createFakeAdapter();
-		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		const app = await createTestApp({ db, eventBus, notificationAdapterFactory: () => adapter });
 		try {
 			const res = await app.request("/api/notifications/config", {
 				method: "PATCH",
@@ -149,7 +150,7 @@ describe("H2 /api/notifications routes", () => {
 
 	test("PATCH /config accepts a valid partial patch", async ({ db, eventBus }) => {
 		const adapter = createFakeAdapter();
-		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		const app = await createTestApp({ db, eventBus, notificationAdapterFactory: () => adapter });
 		try {
 			const res = await app.request("/api/notifications/config", {
 				method: "PATCH",
@@ -175,7 +176,7 @@ describe("H2 /api/notifications routes", () => {
 		eventBus,
 	}) => {
 		const adapter = createFakeAdapter();
-		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		const app = await createTestApp({ db, eventBus, notificationAdapterFactory: () => adapter });
 		try {
 			// Configure notifications.
 			await app.request("/api/notifications/config", {
@@ -204,7 +205,7 @@ describe("H2 /api/notifications routes", () => {
 
 	test("GET /queue returns pending rows", async ({ db, eventBus }) => {
 		const adapter = createFakeAdapter();
-		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		const app = await createTestApp({ db, eventBus, notificationAdapterFactory: () => adapter });
 		try {
 			const now = "2026-04-18T00:00:00.000Z";
 			await enqueue(db, {
@@ -243,7 +244,7 @@ describe("H2 /api/notifications routes", () => {
 		eventBus,
 	}) => {
 		const adapter = createFakeAdapter();
-		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		const app = await createTestApp({ db, eventBus, notificationAdapterFactory: () => adapter });
 		try {
 			const res = await app.request("/api/notifications/config", {
 				method: "PATCH",
@@ -260,7 +261,7 @@ describe("H2 /api/notifications routes", () => {
 
 	test("PATCH /config rejects ntfy URL with RFC1918 private IP", async ({ db, eventBus }) => {
 		const adapter = createFakeAdapter();
-		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		const app = await createTestApp({ db, eventBus, notificationAdapterFactory: () => adapter });
 		try {
 			const res = await app.request("/api/notifications/config", {
 				method: "PATCH",
@@ -275,7 +276,7 @@ describe("H2 /api/notifications routes", () => {
 
 	test("PATCH /config rejects ntfy URL with mDNS .local suffix", async ({ db, eventBus }) => {
 		const adapter = createFakeAdapter();
-		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		const app = await createTestApp({ db, eventBus, notificationAdapterFactory: () => adapter });
 		try {
 			const res = await app.request("/api/notifications/config", {
 				method: "PATCH",
@@ -290,7 +291,7 @@ describe("H2 /api/notifications routes", () => {
 
 	test("PATCH /config rejects SMTP username with CR/LF", async ({ db, eventBus }) => {
 		const adapter = createFakeAdapter();
-		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		const app = await createTestApp({ db, eventBus, notificationAdapterFactory: () => adapter });
 		try {
 			const res = await app.request("/api/notifications/config", {
 				method: "PATCH",
@@ -305,7 +306,7 @@ describe("H2 /api/notifications routes", () => {
 
 	test("PATCH /config rejects SMTP password with NUL", async ({ db, eventBus }) => {
 		const adapter = createFakeAdapter();
-		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		const app = await createTestApp({ db, eventBus, notificationAdapterFactory: () => adapter });
 		try {
 			const res = await app.request("/api/notifications/config", {
 				method: "PATCH",
@@ -320,7 +321,7 @@ describe("H2 /api/notifications routes", () => {
 
 	test("PATCH /config rejects smtpIgnoreTls=true in production", async ({ db, eventBus }) => {
 		const adapter = createFakeAdapter();
-		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		const app = await createTestApp({ db, eventBus, notificationAdapterFactory: () => adapter });
 		try {
 			vi.stubEnv("NODE_ENV", "production");
 			const res = await app.request("/api/notifications/config", {
@@ -343,7 +344,7 @@ describe("H2 /api/notifications routes", () => {
 		eventBus,
 	}) => {
 		const adapter = createFakeAdapter();
-		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		const app = await createTestApp({ db, eventBus, notificationAdapterFactory: () => adapter });
 		try {
 			// Tighten the bucket to 1/hour.
 			await app.request("/api/notifications/config", {
@@ -371,7 +372,7 @@ describe("H2 /api/notifications routes", () => {
 
 	test("GET /queue rejects invalid status with 400", async ({ db, eventBus }) => {
 		const adapter = createFakeAdapter();
-		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		const app = await createTestApp({ db, eventBus, notificationAdapterFactory: () => adapter });
 		try {
 			const res = await app.request("/api/notifications/queue?status=garbage", {
 				headers: headers(),
@@ -402,7 +403,7 @@ describe("H2 /api/notifications routes", () => {
 			error: () => undefined,
 		};
 		// Build a new app that wires the capture logger.
-		const audit = await createApp({
+		const audit = await createTestApp({
 			db,
 			eventBus,
 			notificationAdapterFactory: () => adapter,
@@ -445,7 +446,7 @@ describe("H2 /api/notifications routes", () => {
 
 	test("POST /digest runs the digest and marks rows sent", async ({ db, eventBus }) => {
 		const adapter = createFakeAdapter();
-		const app = await createApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		const app = await createTestApp({ db, eventBus, notificationAdapterFactory: () => adapter });
 		try {
 			// Configure + seed.
 			await app.request("/api/notifications/config", {

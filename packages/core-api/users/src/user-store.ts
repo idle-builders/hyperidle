@@ -27,7 +27,14 @@
  * themselves, as every other route already does.
  */
 
-import { escapeLikePattern, type HyperIdleDb, type NewUser, type User, users } from "@hyperidle/db";
+import {
+	escapeLikePattern,
+	type HyperIdleDb,
+	type NewUser,
+	type User,
+	users,
+	type WriteExecutor,
+} from "@hyperidle/db";
 import { and, eq, inArray, ne, type SQL, sql } from "drizzle-orm";
 
 /** Per-column patch that also admits SQL expressions (e.g. cost coalesce). */
@@ -126,7 +133,14 @@ export async function listUsers(exec: HyperIdleDb, filter: UserFilter = {}): Pro
 // Writes
 // ===========================================================================
 
-export async function insertUser(exec: HyperIdleDb, values: NewUser): Promise<void> {
+/**
+ * @lore AU26 review W10: `WriteExecutor`, not `HyperIdleDb` — an agent's
+ * identity row and its `agent_run_config` row are two writes since the G1
+ * column move, and `POST /api/agents` wraps them in one `db.transaction` so a
+ * failure between them cannot leave an agent silently running the all-null
+ * default config. That needs this to accept the transaction handle.
+ */
+export async function insertUser(exec: WriteExecutor, values: NewUser): Promise<void> {
 	await exec.insert(users).values(values);
 }
 

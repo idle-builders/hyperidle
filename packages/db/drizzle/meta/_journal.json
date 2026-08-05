@@ -386,6 +386,13 @@
 			"when": 1785628800000,
 			"tag": "0054_AU21_cost_hard_delete",
 			"breakpoints": true
+		},
+		{
+			"idx": 55,
+			"version": "7",
+			"when": 1785632400000,
+			"tag": "0055_AU26_agent_run_config",
+			"breakpoints": true
 		}
 	]
 }

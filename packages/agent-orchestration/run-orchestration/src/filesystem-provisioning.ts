@@ -6,37 +6,58 @@
  * `mountFilesystemsForAgent`, collapsing a two-step port dance into the ONE
  * seam call `CoreApiPort.filesystems.listFilesystemsByAgent(agentId)`.
  *
- * AU21 §9 Increment 12 follow-up (F2 gap closure): that ONE seam call was
- * itself the gap H3's later, more complete "bake everything at emit time"
- * principle should have superseded but never revisited. It is now GONE — this
- * function takes the agent's injected-filesystems list already BAKED onto the
- * request (`params.injectedFilesystems`, resolved at emit time by every
- * per-kind resolver via `@hyperidle/filesystems`'s
- * `resolveInjectedFilesystemsForAgent`) instead of reading it back here. No
- * seam reader, no `agentId` parameter — this function is now pure mount logic
- * over an already-resolved list.
+ * AU21 §9 Increment 12 follow-up (historical): that seam call was replaced by a
+ * BAKE — the injected-filesystem list frozen onto the request at emit time. It
+ * existed only because `filesystems` still sat in core-api, and it bought the
+ * closed boundary at the price of a stale snapshot (a filesystem assigned
+ * between emit and drain never reached the sandbox).
  *
- * `resourceRef` arrives ALREADY PARSED (the bake helper's own mapping mirrors
- * the former route's `rowToFilesystem`) — this function must NOT re-`JSON.parse` it.
+ * AU26 F2 (founder ruling): the tables are agent-orchestration's own now, so the
+ * bake is DELETED and the read is live and in-layer — `deps.filesystems`, one
+ * injected port backed by `@hyperidle/filesystems`'
+ * `listInjectedFilesystemsForProvisioning`. Not a seam: it is this Layer reading
+ * this Layer's own tables. `run-orchestration` is itself a Service, so it takes
+ * the reader as a port rather than importing that Service (Mechanism C); the
+ * Application wires the two together. Exactly the shape E3 gave connections.
+ *
+ * `resourceRef` arrives ALREADY PARSED (the reader's own mapping mirrors the
+ * route's `rowToFilesystem`) — this function must NOT re-`JSON.parse` it.
  */
 
-import type {
-	BakedFilesystemForProvisioning,
-	Filesystem,
-	FilesystemMounter,
-} from "@hyperidle/shared";
+import type { Filesystem, FilesystemMounter } from "@hyperidle/shared";
 
 /**
- * One filesystem's provisioning-relevant fields — mirrors the emit-time bake
- * helper's record shape (`resourceRef` already parsed). Kept as a local alias
- * (not a re-declaration) of `@hyperidle/shared`'s `BakedFilesystemForProvisioning`
- * — the SAME shape every per-kind resolver bakes onto the request.
+ * One filesystem's provisioning-relevant fields (`resourceRef` already parsed).
+ * Structurally identical to `@hyperidle/filesystems`' own
+ * `InjectedFilesystemForProvisioning` — the two are wired together by the
+ * Application, so this Service names the shape without importing that one
+ * (Mechanism C, same idiom as `HeldConnectionForProvisioning` beside it).
  */
-export type FilesystemForProvisioning = BakedFilesystemForProvisioning;
+export interface FilesystemForProvisioning {
+	readonly id: string;
+	readonly teamId: string;
+	readonly source: string;
+	readonly kind: string;
+	readonly connectionId: string | null;
+	readonly resourceRef: unknown;
+	readonly writeback: string;
+	readonly state: string;
+	readonly createdAt: string;
+}
 
 /**
- * AO2: Mount every filesystem in the BAKED `injectedFilesystems` list for
- * this spawned session.
+ * AU26 F2 — the live, in-layer injected-filesystem read one spawn performs.
+ * Application-composed from `@hyperidle/filesystems`. Absent means "this
+ * deployment mounts no filesystems" (the graceful-degradation posture the
+ * optional `mounter` already has), not "read failed".
+ */
+export interface InjectedFilesystemsReaderPort {
+	listInjectedForProvisioning(agentId: string): Promise<readonly FilesystemForProvisioning[]>;
+}
+
+/**
+ * AO2: Mount every filesystem currently injected into this agent, read LIVE at
+ * spawn for this session.
  *
  * Called in admitSession Phase 4.5 (AFTER sandbox spawn, BEFORE context assembly).
  * Returns the list of successfully-mounted Filesystem records — stored on AdmittedSession
@@ -50,15 +71,19 @@ export type FilesystemForProvisioning = BakedFilesystemForProvisioning;
  * no mounts, no capture rows — purely non-breaking for existing sessions.
  */
 export async function mountFilesystemsForAgent(params: {
-	readonly injectedFilesystems: readonly FilesystemForProvisioning[];
+	readonly agentId: string;
+	readonly filesystems?: InjectedFilesystemsReaderPort;
 	readonly sandboxPath: string;
 	readonly mounter: FilesystemMounter;
 }): Promise<Filesystem[]> {
-	const { injectedFilesystems: rows, sandboxPath, mounter } = params;
+	const { agentId, filesystems, sandboxPath, mounter } = params;
+
+	if (!filesystems) return [];
+	const rows = await filesystems.listInjectedForProvisioning(agentId);
 
 	if (rows.length === 0) return [];
 
-	// The seam's backing route already parses resourceRef — pass the record's fields through.
+	// The reader already parses resourceRef — pass the record's fields through.
 	const fsList: Filesystem[] = rows.map((row) => ({
 		id: row.id,
 		teamId: row.teamId,

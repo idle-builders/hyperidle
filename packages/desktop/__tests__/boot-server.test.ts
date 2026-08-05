@@ -2,7 +2,7 @@
  * N4 — boot-server tests
  *
  * AC coverage:
- *  - startServer() calls createServer(0, deps) from @hyperidle/core-api/server-factory,
+ *  - startServer() calls createServer(0, deps) from @hyperidle/remote-server/create-server,
  *    injecting a concrete LocalSandboxAdapter/AdapterPool (AU19 Increment 5 item 2)
  *  - getPort() extracts the OS-assigned port from a listening handle
  *  - waitForHealth() resolves when /api/health returns 200
@@ -14,9 +14,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { getPort, startServer, waitForHealth } from "../src/boot-server.js";
 
 // ---------------------------------------------------------------------------
-// Mock @hyperidle/core-api/server-factory + @hyperidle/harness-registry
+// Mock @hyperidle/remote-server/create-server + @hyperidle/harness-registry
 // ---------------------------------------------------------------------------
-vi.mock("@hyperidle/core-api/server-factory", () => ({
+vi.mock("@hyperidle/remote-server/create-server", () => ({
 	createServer: vi.fn(async (port: number) => ({
 		httpServer: {
 			address: () => ({ port: port === 0 ? 51234 : port }),
@@ -33,7 +33,7 @@ vi.mock("@hyperidle/harness-registry", () => ({
 
 describe("startServer", () => {
 	it("calls createServer with port 0 and an injected adapterPool/workspaceAdapter", async () => {
-		const { createServer } = await import("@hyperidle/core-api/server-factory");
+		const { createServer } = await import("@hyperidle/remote-server/create-server");
 		await startServer();
 		expect(createServer).toHaveBeenCalledWith(
 			0,

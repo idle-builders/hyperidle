@@ -226,25 +226,13 @@ describe("agent_run_admission_failed — reengagement reaction fires for a REAL 
 			// recorded by the liveness net's admission-failure reaction.
 			expect(retryIntents.length).toBeGreaterThanOrEqual(2);
 
-			// AU21 Decision K1 (guard blind-spot closure item 4): proves the
-			// composition-root binding at THIS real site
-			// (`reengageOnAdmissionFailure`'s `resolveInjectedConnectionsForAgent`
-			// dep, `agent-run-admission-reactions.ts`'s liveness-net retry path —
-			// distinct from the initial grant's own binding at `routes/threads.ts`)
-			// actually bakes the owning human's held connections onto the FRESH
-			// re-provision intent, not silently undefined.
+			// @lore AU26 E3: the K1 assertion here proved this retry site baked the
+			// owning human's held connections onto the fresh re-provision intent.
+			// That bake is deleted — connections are read live at spawn — so the
+			// fresh intent correctly carries none. What still matters is that the
+			// liveness net produced a real fresh intent at all.
 			const freshRetryIntent = retryIntents.find((row) => row.id !== intentBeforeDrain?.id);
-			const freshBaked = freshRetryIntent?.bakedRequestJson
-				? (JSON.parse(freshRetryIntent.bakedRequestJson) as {
-						injectedConnections?: { userId: string; connections: readonly { id: string }[] };
-					})
-				: undefined;
-			expect(freshBaked?.injectedConnections?.userId).toBe("u-au21-reengage-migration-founder");
-			expect(
-				freshBaked?.injectedConnections?.connections.some(
-					(c) => c.id === "sc-au21-reengage-migration",
-				),
-			).toBe(true);
+			expect(freshRetryIntent?.bakedRequestJson ?? "").not.toContain("injectedConnections");
 		});
 	});
 });

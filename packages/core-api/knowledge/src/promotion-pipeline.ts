@@ -500,7 +500,7 @@ interface StaleSweepOptions {
 	 *
 	 * @lore G4 silent knowledge-decay: the built-in `knowledge-decay`
 	 * routine is seeded with `silent=1` so its scheduled sweep does not
-	 * flood subscribers (e.g. git-export, session-review-creator) with
+	 * flood subscribers (e.g. session-review-creator) with
 	 * decay events every day. When silent is set, the sweep still writes
 	 * the `stale` transitions and the edit log — only the event emission
 	 * is suppressed.

@@ -75,7 +75,6 @@ const MOCK_AGENTS = [
 		modelTierPreference: null,
 		maxConcurrentSessions: 1,
 		status: "active",
-		activeSessions: 0,
 		agentCategory: "team",
 	},
 	{
@@ -89,7 +88,6 @@ const MOCK_AGENTS = [
 		modelTierPreference: null,
 		maxConcurrentSessions: 2,
 		status: "active",
-		activeSessions: 1,
 		agentCategory: "team",
 		// AO1: this bot has 2 registered filesystems injected.
 		filesystemIds: ["fs-storefront", "fs-product-notes"],

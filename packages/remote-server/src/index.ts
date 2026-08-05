@@ -7,7 +7,7 @@
  * boot sequence. The one REAL structural change: this Application now
  * constructs and injects its own concrete `HarnessPort` adapter instead of
  * `@hyperidle/core-api`'s `createServer` defaulting it internally via a
- * `HYPERIDLE_PROFILE` runtime branch (see `server-factory.ts`'s
+ * `HYPERIDLE_PROFILE` runtime branch (see `create-server.ts`'s
  * `CreateServerDeps` top `@lore`). `remote-server` never runs a sandbox
  * in-process — its `adapterPool` starts EMPTY (no local CLI harness
  * discovery, unlike `desktop`'s `createLocalAdapterPool()`) and is populated
@@ -19,9 +19,10 @@
  * provisions a local sandbox; it fails loudly only if something actually
  * tries to.
  */
-import { createServer } from "@hyperidle/core-api/server-factory";
+
 import { AdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
 import { createLogger, validateStartupEnv } from "@hyperidle/shared";
+import { createServer } from "./create-server.js";
 
 const log = createLogger({ pkg: "remote-server" });
 

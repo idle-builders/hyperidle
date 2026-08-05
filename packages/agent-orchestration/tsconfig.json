@@ -8,10 +8,16 @@
 	"include": ["src"],
 	"references": [
 		{
+			"path": "../api-contract"
+		},
+		{
 			"path": "../db"
 		},
 		{
 			"path": "../shared"
+		},
+		{
+			"path": "filesystems"
 		},
 		{
 			"path": "tool-handlers"

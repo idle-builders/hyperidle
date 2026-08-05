@@ -26,7 +26,14 @@
  * Guard: this file is NOT in EXPLICIT_HARNESS_INTEGRATION (service-integration only).
  */
 
-import { agentWorkIntents, type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
+import {
+	agentRunConfig,
+	agentWorkIntents,
+	type HyperIdleDb,
+	messages,
+	threads,
+	users,
+} from "@hyperidle/db";
 import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { CORE_API_ACTOR_OVERRIDE_HEADER } from "../services/actor-transport-header.js";
@@ -75,12 +82,15 @@ async function seedFounderAndThread(
 		kind: "ai",
 		agentCategory: "individual",
 		status: "active",
+		createdAt: new Date().toISOString(),
+	});
+	// AU26 G1: the run config lives in `agent_run_config` now.
+	await db.insert(agentRunConfig).values({
+		agentUserId: assistantId,
 		harnessType: "builtin",
 		modelId: PER_AGENT_MODEL_ID,
 		modelProvider: "openrouter",
 		systemPrompt: "You are a helpful assistant.",
-		maxConcurrentSessions: 1,
-		createdAt: new Date().toISOString(),
 	});
 
 	await db.insert(threads).values({

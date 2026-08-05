@@ -32,10 +32,12 @@ export {
 export * as schema from "./schema.js";
 export {
 	type AgentLifecycleInboxRow,
+	type AgentRunConfigRow,
 	type AgentSessionRequest,
 	type AgentWorkIntent,
 	type ArtifactRow,
 	agentLifecycleInbox,
+	agentRunConfig,
 	agentSessionRequests,
 	agentWorkIntents,
 	artifacts,
@@ -72,6 +74,7 @@ export {
 	type Message,
 	messages,
 	type NewAgentLifecycleInboxRow,
+	type NewAgentRunConfigRow,
 	type NewAgentSessionRequest,
 	type NewArtifactRow,
 	type NewBet,
@@ -110,6 +113,7 @@ export {
 	type NewTeam,
 	// @lore U1: NewTeamMember (formerly NewTeam) is the agent-membership insert type.
 	type NewTeamMember,
+	type NewTeamRunConfigDefaultsRow,
 	type NewThread,
 	type NewTriggerResolutionHistoryRow,
 	type NewUser,
@@ -148,6 +152,7 @@ export {
 	type Team,
 	// @lore U1: TeamMember (formerly Team) is the agent-membership select type.
 	type TeamMember,
+	type TeamRunConfigDefaultsRow,
 	type Thread,
 	type TriggerResolutionHistoryRow,
 	tailoredGrants,
@@ -157,6 +162,7 @@ export {
 	// @lore U1: teamMembers table (formerly teams agent-membership table).
 	teamMembers,
 	// @lore U1: teams table (formerly products table).
+	teamRunConfigDefaults,
 	teams,
 	threads,
 	triggerResolutionHistory,

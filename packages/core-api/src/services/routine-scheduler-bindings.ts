@@ -15,10 +15,9 @@
  * wired here needs `createPracticeMeeting`.
  */
 
-import { resolveInjectedConnectionsForAgent } from "@hyperidle/connections";
+import { readAgentRunConfig } from "@hyperidle/agent-run-config";
 import { insertThread, listThreads } from "@hyperidle/conversation";
 import { type HyperIdleDb, type Routine, userSkills, type WriteExecutor } from "@hyperidle/db";
-import { resolveInjectedFilesystemsForAgent } from "@hyperidle/filesystems";
 import {
 	assembleSessionKnowledge,
 	list as listKnowledgeItems,
@@ -44,6 +43,25 @@ import type { EventBus } from "@hyperidle/shared";
 import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
+
+/**
+ * AU26 G1 (architecture §D-L) — `isAgentAtCapacity`'s bound reader, composed
+ * from the two Services that now own the two halves: `users` answers "does this
+ * agent exist at all" (fail closed if not) and `agent-run-config` answers "what
+ * is its `maxConcurrentSessions`" (1 when never configured). Before the column
+ * move a single `findUser` answered both.
+ */
+const concurrencyBoundReader = {
+	async getConcurrencyBound(
+		execDb: HyperIdleDb,
+		agentId: string,
+	): Promise<{ readonly maxConcurrentSessions: number } | undefined> {
+		const user = await findUser(execDb, { id: agentId });
+		if (!user) return undefined;
+		const { maxConcurrentSessions } = await readAgentRunConfig(execDb, agentId);
+		return { maxConcurrentSessions };
+	},
+};
 
 /**
  * AU21 §6 Decision F1 fold — the `userSkills` read `routine`'s own
@@ -93,13 +111,12 @@ async function recomputeAttentionForCandidates(
 	return result;
 }
 
-// AU21 Decision K1 (guard blind-spot closure item 4): exported (was
-// module-private) SOLELY so `connections-wiring-completeness.integration.test.ts`
-// can directly assert this real, production composition object actually
-// supplies a non-undefined `resolveInjectedConnectionsForAgent` — the
-// same-shaped silent-drop class (an optional Mechanism-C dep quietly
-// omitted, no compile error, no failing test) that recurred 3 times earlier
-// in this build. No behavior change — same object, now also importable.
+// @lore AU26 E3: this object was exported (was module-private) for AU21 K1's
+// wiring-completeness test, which proved every one of the eight composition
+// sites actually supplied the optional connections-bake dep. With the bake
+// deleted there is no per-site wiring left to forget — the held-connection read
+// happens once, at spawn, from one place — so that test is gone. The export
+// stays because `routine-scheduler-bindings` is imported by name elsewhere.
 export const routineSchedulerPorts: RoutineSchedulerPorts = {
 	work: {
 		getBetById: (db, id) => work.get(db, "bet", id),
@@ -133,17 +150,13 @@ export const routineSchedulerPorts: RoutineSchedulerPorts = {
 	},
 	workIntents: { enqueueWorkIntent },
 	agentSelection: {
-		isAtCapacity: (db, agentId) =>
-			isAgentAtCapacity(db, agentId, { getUserById: (execDb, id) => findUser(execDb, { id }) }),
+		isAtCapacity: (db, agentId) => isAgentAtCapacity(db, agentId, concurrencyBoundReader),
 		selectAgent: (input) =>
 			selectRoutineDelegate(
 				input.db,
 				{
 					listAgentIdsBySkill,
-					isAtCapacity: (db, agentId) =>
-						isAgentAtCapacity(db, agentId, {
-							getUserById: (execDb, id) => findUser(execDb, { id }),
-						}),
+					isAtCapacity: (db, agentId) => isAgentAtCapacity(db, agentId, concurrencyBoundReader),
 				},
 				input,
 			),
@@ -155,13 +168,6 @@ export const routineSchedulerPorts: RoutineSchedulerPorts = {
 	// time instead of `run-orchestration` reading it back at launch.
 	getTeamById: (db: HyperIdleDb, id: string) => getTeam(db, { id }),
 	assembleSessionKnowledge,
-	// AU21 §9 Increment 12 follow-up (F2 gap closure): also bake
-	// injectedFilesystems.
-	resolveInjectedFilesystemsForAgent,
-	// AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections):
-	// also bake injectedConnections.
-	resolveInjectedConnectionsForAgent: (db: HyperIdleDb, agentId: string) =>
-		resolveInjectedConnectionsForAgent(db, agentId, findUser),
 };
 
 /** Bound wrapper — starts the cron/due-eval scheduler with the real ports. */

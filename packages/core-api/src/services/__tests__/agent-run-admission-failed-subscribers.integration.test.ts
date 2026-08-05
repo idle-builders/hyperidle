@@ -93,7 +93,6 @@ async function seedAgent(
 		role: "builder",
 		status: opts.status ?? "active",
 		teamId: opts.teamMembersId,
-		maxConcurrentSessions: 1,
 		createdAt: NOW,
 	});
 }

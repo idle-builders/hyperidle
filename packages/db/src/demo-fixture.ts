@@ -17,7 +17,7 @@
 
 import { and, eq, inArray } from "drizzle-orm";
 import type { HyperIdleDb } from "./connection.js";
-import { bets, routines, tasks, teamMembers, teams, users } from "./schema.js";
+import { agentRunConfig, bets, routines, tasks, teamMembers, teams, users } from "./schema.js";
 import { readSystemPromptTemplateForRole } from "./system-prompt-templates.js";
 
 /**
@@ -30,6 +30,29 @@ import { readSystemPromptTemplateForRole } from "./system-prompt-templates.js";
  *
  * @returns { teamId, founderId } — the demo team id and founder user id.
  */
+/**
+ * AU26 G1 — write a demo agent's run config.
+ *
+ * @lore AU26 G1: same temporary direct-table exception as
+ * `factory-bootstrap.ts`'s `upsertRunConfig` — see that function's `@lore` for
+ * why `packages/db` cannot call `@hyperidle/agent-run-config` yet and which
+ * increment (D2a) closes it.
+ */
+async function upsertDemoRunConfig(
+	db: HyperIdleDb,
+	agentUserId: string,
+	patch: { readonly systemPrompt?: string | null; readonly maxConcurrentSessions?: number },
+): Promise<void> {
+	await db
+		.insert(agentRunConfig)
+		.values({
+			agentUserId,
+			systemPrompt: patch.systemPrompt ?? null,
+			maxConcurrentSessions: patch.maxConcurrentSessions ?? 1,
+		})
+		.onConflictDoUpdate({ target: agentRunConfig.agentUserId, set: { ...patch } });
+}
+
 export async function seedDemoWorld(
 	db: HyperIdleDb,
 ): Promise<{ teamId: string; founderId: string }> {
@@ -72,7 +95,6 @@ export async function seedDemoWorld(
 			role: "founder",
 			status: "active",
 			email: "founder@example.com",
-			maxConcurrentSessions: 0,
 			createdAt: now,
 		})
 		.onConflictDoNothing();
@@ -87,11 +109,11 @@ export async function seedDemoWorld(
 			role: "builder",
 			agentCategory: "team",
 			status: "active",
-			maxConcurrentSessions: 3,
 			teamId: teamMembersId,
 			createdAt: now,
 		})
 		.onConflictDoNothing();
+	await upsertDemoRunConfig(db, "demo-agent-builder", { maxConcurrentSessions: 3 });
 
 	// Demo product manager agent
 	await db
@@ -104,11 +126,10 @@ export async function seedDemoWorld(
 			agentCategory: "team",
 			teamId: teamMembersId,
 			status: "active",
-			maxConcurrentSessions: 1,
-			systemPromptPath: "docs/system-prompts/product-manager.md",
 			createdAt: now,
 		})
 		.onConflictDoNothing();
+	await upsertDemoRunConfig(db, "demo-agent-pm", { maxConcurrentSessions: 1 });
 
 	// Set team lead to demo builder
 	await db
@@ -175,14 +196,19 @@ export async function seedDemoWorld(
 	// (written by bootstrap); that table is retired. Read directly via the shared
 	// `readSystemPromptTemplateForRole` (system-prompt-templates.ts) — the same
 	// map/reader bootstrap, roster.ts, and agents.ts now all use.
+	// @lore AU26 G1: `systemPrompt` moved to `agent_run_config`, so the role-scoped
+	// backfill resolves ids off `users` first and writes to the run-config rows.
 	const DEMO_AGENT_ROLES = ["builder", "product_manager"] as const;
 	for (const role of DEMO_AGENT_ROLES) {
 		const content = readSystemPromptTemplateForRole(role);
 		if (content === null) continue;
-		await db
-			.update(users)
-			.set({ systemPrompt: content })
+		const matching = await db
+			.select({ id: users.id })
+			.from(users)
 			.where(and(inArray(users.id, ["demo-agent-builder", "demo-agent-pm"]), eq(users.role, role)));
+		for (const { id } of matching) {
+			await upsertDemoRunConfig(db, id, { systemPrompt: content });
+		}
 	}
 
 	return { teamId, founderId };

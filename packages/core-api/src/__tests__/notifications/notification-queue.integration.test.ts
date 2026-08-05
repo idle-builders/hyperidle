@@ -300,6 +300,94 @@ describe("listNotifications — pending-by-event (replaces findPendingByEventSub
 	});
 });
 
+/**
+ * AU26 — the notification system counting its OWN rows. The degraded-agent
+ * rule is "N failures in 7 days", and the only ledger of those failures is the
+ * `agent.health.degraded` rows this repository already owns — no new table, no
+ * tally state.
+ */
+describe("listNotifications — by-event-since (AU26 windowed count)", () => {
+	test("matches eventType + subjectId inside the window, any status", async ({ db }) => {
+		await enqueue(
+			db,
+			row({
+				id: "since-old",
+				eventType: "agent.health.degraded",
+				subjectId: "agent-1",
+				status: "dropped",
+				createdAt: "2026-06-01T00:00:00.000Z",
+			}),
+		);
+		await enqueue(
+			db,
+			row({
+				id: "since-recent-dropped",
+				eventType: "agent.health.degraded",
+				subjectId: "agent-1",
+				status: "dropped",
+				createdAt: "2026-07-02T00:00:00.000Z",
+			}),
+		);
+		await enqueue(
+			db,
+			row({
+				id: "since-recent-pending",
+				eventType: "agent.health.degraded",
+				subjectId: "agent-1",
+				status: "pending",
+				createdAt: "2026-07-03T00:00:00.000Z",
+			}),
+		);
+		// Different subject — must not leak into another agent's count.
+		await enqueue(
+			db,
+			row({
+				id: "since-other-agent",
+				eventType: "agent.health.degraded",
+				subjectId: "agent-2",
+				createdAt: "2026-07-03T00:00:00.000Z",
+			}),
+		);
+		// Different eventType, same subject — must not leak either.
+		await enqueue(
+			db,
+			row({
+				id: "since-other-event",
+				eventType: "review_request",
+				subjectId: "agent-1",
+				createdAt: "2026-07-03T00:00:00.000Z",
+			}),
+		);
+
+		const rows = await listNotifications(db, {
+			kind: "by-event-since",
+			eventType: "agent.health.degraded",
+			subjectId: "agent-1",
+			since: "2026-07-01T00:00:00.000Z",
+		});
+		expect(rows.map((r) => r.id).sort()).toEqual(["since-recent-dropped", "since-recent-pending"]);
+	});
+
+	test("returns an empty list when every row predates the window", async ({ db }) => {
+		await enqueue(
+			db,
+			row({
+				id: "since-only-old",
+				eventType: "agent.health.degraded",
+				subjectId: "agent-9",
+				createdAt: "2026-06-01T00:00:00.000Z",
+			}),
+		);
+		const rows = await listNotifications(db, {
+			kind: "by-event-since",
+			eventType: "agent.health.degraded",
+			subjectId: "agent-9",
+			since: "2026-07-01T00:00:00.000Z",
+		});
+		expect(rows).toHaveLength(0);
+	});
+});
+
 // ── markNotifications ─────────────────────────────────────────────────────
 
 describe("markNotifications — claim (replaces claimForSend)", () => {

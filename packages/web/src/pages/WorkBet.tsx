@@ -40,7 +40,7 @@ import {
 	taskOutcomeVerdictToStatus,
 	taskStateToStatus,
 } from "@hyperidle/design-system";
-import type { BetOutcomeVerdict, BetStatus, Message } from "@hyperidle/shared";
+import type { BetOutcomeVerdict, BetStatus, Message, SessionOutcome } from "@hyperidle/shared";
 import {
 	BET_OUTCOME_VERDICT_LABEL,
 	BET_OUTCOME_VERDICTS,
@@ -57,6 +57,7 @@ import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.
 import { ArtifactThreadsSummary } from "../components/ArtifactThreadsSummary.js";
 import { AssistantAttachButton } from "../components/AssistantAttachButton";
 import { AssistantContext } from "../contexts/AssistantContext.js";
+import { useLatestRunOutcomes } from "../hooks/useAgentRunState.js";
 import { useBet } from "../hooks/useBet";
 import { useBetDescriptionSave } from "../hooks/useBetDescriptionSave.js";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
@@ -89,6 +90,20 @@ type SortDirection = "asc" | "desc";
  * The frontend check is defense-in-depth; the server enforces the constraint too.
  */
 const BET_DESCRIPTION_MUTABLE_STATUSES = new Set<BetStatus>(["draft", "active"]);
+
+/**
+ * Narrow the run outcome `agent-orchestration` returns onto the wire enum the
+ * outcome chip renders (AU26 J4).
+ */
+const SESSION_OUTCOMES: ReadonlySet<string> = new Set([
+	"completed",
+	"crashed",
+	"stopped",
+	"not_returned",
+]);
+function toSessionOutcome(value: string | null): SessionOutcome | null {
+	return value !== null && SESSION_OUTCOMES.has(value) ? (value as SessionOutcome) : null;
+}
 
 function sortTasks(
 	tasks: BetDetail["tasks"],
@@ -502,14 +517,35 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 		return map;
 	}, [threadData?.messages]);
 
+	// @lore AU26 J4: `latestSessionOutcome` used to arrive on each task in
+	// `GET /api/bets/:id` — core-api reading `agent-orchestration`'s `sessions`
+	// table to decorate a task row. Founder ruling: *"orchestration now has an api
+	// so that the ui can get the agent run state from the orchestration directly
+	// and combine this information in the ui instead of in the core api
+	// service."* The outcome chip on the task sheet and the outcome sort column
+	// read it from here now; the merge below keeps the task objects the exact
+	// shape both renders already expect.
+	const betTaskIds = useMemo(() => (bet?.tasks ?? []).map((t) => t.id), [bet?.tasks]);
+	const latestOutcomes = useLatestRunOutcomes(betTaskIds);
+	const tasksWithOutcome = useMemo(
+		() =>
+			(bet?.tasks ?? []).map((task) => ({
+				...task,
+				latestSessionOutcome: toSessionOutcome(latestOutcomes[task.id] ?? null),
+			})),
+		[bet?.tasks, latestOutcomes],
+	);
+
 	const sortedTasks = useMemo(
-		() => sortTasks(bet?.tasks ?? [], sortColumn, sortDirection),
-		[bet?.tasks, sortColumn, sortDirection],
+		() => sortTasks(tasksWithOutcome, sortColumn, sortDirection),
+		[tasksWithOutcome, sortColumn, sortDirection],
 	);
 
 	// L13: Derive selectedTask from the bet's task list for TaskSheet.
 	const selectedTask =
-		selectedTaskId !== null ? (bet?.tasks.find((t) => t.id === selectedTaskId) ?? null) : null;
+		selectedTaskId !== null
+			? (tasksWithOutcome.find((t) => t.id === selectedTaskId) ?? null)
+			: null;
 
 	// L13: TaskSheet callbacks — mirror WorkTeam.tsx patterns.
 	// @lore M3 A12: FOUNDER_ID constant deleted; use user?.id from useCurrentUser.

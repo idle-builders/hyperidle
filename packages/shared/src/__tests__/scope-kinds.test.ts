@@ -2,14 +2,19 @@
  * Q2 — AC-2: ScopeKind type + SCOPE_KINDS const in @hyperidle/shared.
  *
  * AV3 amendment: "filesystem" added as the 8th scope kind.
+ * AU26 F2 amendment (founder ruling, 2026-08-04): "filesystem" REMOVED again.
+ * A filesystem is an agent's execution environment, not a place knowledge
+ * lives — the scope was the single reason the `filesystems` record had to stay
+ * core-owned, and the founder ruled the record moves to agent-orchestration
+ * whole. Seven kinds, none of them a filesystem.
  */
 
 import { describe, expect, it } from "vitest";
 import { SCOPE_KINDS, SCOPES_REQUIRING_ID } from "../types.js";
 
 describe("Q2 AC-2: SCOPE_KINDS and ScopeKind", () => {
-	it("exports exactly 8 scope kinds (AV3: filesystem added)", () => {
-		expect(SCOPE_KINDS).toHaveLength(8);
+	it("exports exactly 7 scope kinds (AU26 F2: filesystem removed)", () => {
+		expect(SCOPE_KINDS).toHaveLength(7);
 	});
 
 	it("includes all required scope values", () => {
@@ -21,7 +26,10 @@ describe("Q2 AC-2: SCOPE_KINDS and ScopeKind", () => {
 		expect(kinds).toContain("bet");
 		expect(kinds).toContain("task");
 		expect(kinds).toContain("user");
-		expect(kinds).toContain("filesystem");
+	});
+
+	it("no longer offers a filesystem scope", () => {
+		expect(SCOPE_KINDS as readonly string[]).not.toContain("filesystem");
 	});
 
 	it("is a readonly tuple (as const)", () => {
@@ -29,7 +37,7 @@ describe("Q2 AC-2: SCOPE_KINDS and ScopeKind", () => {
 		expect(Array.isArray(SCOPE_KINDS)).toBe(true);
 	});
 
-	it("SCOPES_REQUIRING_ID includes filesystem", () => {
-		expect(SCOPES_REQUIRING_ID.has("filesystem" as never)).toBe(true);
+	it("SCOPES_REQUIRING_ID no longer includes filesystem", () => {
+		expect(SCOPES_REQUIRING_ID.has("filesystem" as never)).toBe(false);
 	});
 });

@@ -5,7 +5,18 @@
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",
-		"./server-factory": "./src/server-factory.ts",
+		"./app": "./src/app.ts",
+		"./boot": "./src/boot.ts",
+		"./service-bootstrap": "./src/service-bootstrap.ts",
+		"./routes/health": "./src/routes/health.ts",
+		"./routes/ws": "./src/routes/ws.ts",
+		"./services/agent-orchestration-port-composition": "./src/services/agent-orchestration-port-composition.ts",
+		"./services/core-api-port-composition": "./src/services/core-api-port-composition.ts",
+		"./services/run-orchestration-composition": "./src/services/run-orchestration-composition.ts",
+		"./services/work-state-push-gateway": "./src/services/work-state-push-gateway.ts",
+		"./test-fixtures": "./src/test-fixtures.ts",
+		"./ws-connection-hub": "./src/ws-connection-hub.ts",
+		"./ws-subscribe-authorizer": "./src/ws-subscribe-authorizer.ts",
 		"./routines": "./src/routines.ts",
 		"./test-utils": "./src/test-utils.ts",
 		"./schemas": "./src/schemas/index.ts",
@@ -18,21 +29,18 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"@hono/node-server": "^2.0.6",
-		"@hono/zod-validator": "^0.9.0",
+		"@hyperidle/agent-orchestration": "*",
+		"@hyperidle/agent-run-config": "*",
 		"@hyperidle/api-contract": "*",
-		"@hyperidle/connections": "*",
 		"@hyperidle/conversation": "*",
+		"@hyperidle/credentials": "*",
 		"@hyperidle/db": "*",
 		"@hyperidle/filesystems": "*",
-		"@hyperidle/git-export": "*",
 		"@hyperidle/harness-registry": "*",
 		"@hyperidle/knowledge": "*",
 		"@hyperidle/notifications": "*",
-		"@hyperidle/observability": "*",
 		"@hyperidle/org": "*",
 		"@hyperidle/policy": "*",
-		"@hyperidle/realtime": "*",
 		"@hyperidle/review": "*",
 		"@hyperidle/routine": "*",
 		"@hyperidle/run-orchestration": "*",
@@ -44,11 +52,12 @@
 		"@hyperidle/work": "*",
 		"drizzle-orm": "^0.45.2",
 		"hono": "^4.12.27",
-		"ws": "^8.20.0",
 		"zod": "^4.3.6"
 	},
 	"devDependencies": {
 		"@electric-sql/pglite": "^0.5.4",
-		"@types/ws": "^8.18.1"
+		"@hono/node-server": "^2.0.6",
+		"@hyperidle/filesystem-mounting": "*",
+		"@types/node": "^24"
 	}
 }

@@ -6,9 +6,7 @@ import {
 	type AgentSessionSourceKind,
 	agentSessionRequestInputSchema,
 	type BakedAgentRunnableConfig,
-	type BakedConnectionsForProvisioning,
 	type BakedContextBundle,
-	type BakedFilesystemForProvisioning,
 	ConcurrencyLimitError,
 	type ConversationMessage,
 	type HarnessPortDeps,
@@ -136,16 +134,14 @@ function parseBakedContextBundle(request: AgentSessionRequest): BakedContextBund
  * missing bake is a hard provisioning failure there, not a silent allow.
  */
 /**
- * AU27 Increment 6 (Decision 4) — exported so `start-runtime.ts`'s drain can
- * read the target agent's baked `modelId`/`modelProvider` override BEFORE
- * `runSession`/`consumeAgentSessionRequest` re-parses the same payload — the
- * drain resolves the model up front (`deps.resolveModel`), the same shape it
- * already used pre-AU27, just now uniform across all six kinds instead of
- * assistant-only.
+ * @lore AU27 Increment 6 (Decision 4) exported this so `start-runtime.ts`'s
+ * drain could read the target agent's baked `modelId`/`modelProvider` override
+ * up front. AU26 G1 moved those two columns into `agent_run_config`, so the
+ * drain reads them LIVE through `ports.agentRunConfig` instead and this parse
+ * is module-internal again — the bake it reads now carries only the four
+ * genuinely-core fields (`kind`/`status`/`role`/`teamId`).
  */
-export function parseBakedAgentConfig(
-	request: AgentSessionRequest,
-): BakedAgentRunnableConfig | undefined {
+function parseBakedAgentConfig(request: AgentSessionRequest): BakedAgentRunnableConfig | undefined {
 	if (!request.payloadJson) return undefined;
 	const payload = JSON.parse(request.payloadJson) as unknown;
 	if (!payload || typeof payload !== "object" || !("agentConfig" in payload)) return undefined;
@@ -162,44 +158,6 @@ function parseBakedHarnessDisabled(request: AgentSessionRequest): readonly strin
 	const payload = JSON.parse(request.payloadJson) as unknown;
 	if (!payload || typeof payload !== "object" || !("harnessDisabled" in payload)) return undefined;
 	return (payload as { harnessDisabled?: readonly string[] }).harnessDisabled;
-}
-
-/**
- * AU21 §9 Increment 12 follow-up (F2 gap closure) — every intent kind's baked
- * injected-filesystems list, carried on `request.payloadJson` the same way
- * `agentConfig`/`harnessDisabled` ride it. Feeds `admitSession`'s Phase 4.5
- * mount step — replaces the former live `ports.filesystems.listFilesystemsByAgent`
- * seam read (Decision F2) entirely.
- */
-function parseBakedInjectedFilesystems(
-	request: AgentSessionRequest,
-): readonly BakedFilesystemForProvisioning[] | undefined {
-	if (!request.payloadJson) return undefined;
-	const payload = JSON.parse(request.payloadJson) as unknown;
-	if (!payload || typeof payload !== "object" || !("injectedFilesystems" in payload)) {
-		return undefined;
-	}
-	return (payload as { injectedFilesystems?: readonly BakedFilesystemForProvisioning[] })
-		.injectedFilesystems;
-}
-
-/**
- * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) —
- * every intent kind's baked held-connection list, carried on
- * `request.payloadJson` the same way `agentConfig`/`injectedFilesystems`
- * ride it. Feeds Phase 8b-connections' `buildProvisioningPlan` call —
- * replaces the former live `CoreApiPort.connections
- * .listHeldConnectionsForProvisioning()` seam read (Decision F2) entirely.
- */
-function parseBakedInjectedConnections(
-	request: AgentSessionRequest,
-): BakedConnectionsForProvisioning | undefined {
-	if (!request.payloadJson) return undefined;
-	const payload = JSON.parse(request.payloadJson) as unknown;
-	if (!payload || typeof payload !== "object" || !("injectedConnections" in payload)) {
-		return undefined;
-	}
-	return (payload as { injectedConnections?: BakedConnectionsForProvisioning }).injectedConnections;
 }
 
 /**
@@ -474,8 +432,6 @@ async function consumeAgentSessionRequest(
 	const contextBundle = parseBakedContextBundle(claimedRequest);
 	const agentConfig = parseBakedAgentConfig(claimedRequest);
 	const harnessDisabled = parseBakedHarnessDisabled(claimedRequest);
-	const injectedFilesystems = parseBakedInjectedFilesystems(claimedRequest);
-	const injectedConnections = parseBakedInjectedConnections(claimedRequest);
 	const callingThreadId = parseBakedCallingThreadId(claimedRequest);
 	const rawTranscript = parseBakedTranscript(claimedRequest);
 	const transcript = rawTranscript
@@ -495,8 +451,6 @@ async function consumeAgentSessionRequest(
 		...(contextBundle ? { contextBundle } : {}),
 		...(agentConfig ? { agentConfig } : {}),
 		...(harnessDisabled ? { harnessDisabled } : {}),
-		...(injectedFilesystems ? { injectedFilesystems } : {}),
-		...(injectedConnections ? { injectedConnections } : {}),
 		...(callingThreadId ? { callingThreadId } : {}),
 		...(transcript ? { transcript } : {}),
 		requestContext: {

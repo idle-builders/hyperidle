@@ -47,6 +47,38 @@ export interface AgentOrchestrationSessionActivityEntry {
 }
 
 /**
+ * One session row, in full — every column `sessions` has (18), hand-typed the
+ * same way as the entries above because `api-contract` stays zero-runtime-deps.
+ *
+ * @lore AU26 B1a (§D-A's `sessions-routes.ts` split, AC5(d)): this is deliberately NOT a narrowing.
+ * `POST /api/sessions` stays core-hosted and reads its admitted session row
+ * through `getById`; its 202 branch returns that row verbatim. The seven-field
+ * shape the decoration reads use (`listByAgentIds`/`listByTaskId`/`listActive`,
+ * D1) would silently drop 11 fields from a shipped response, and no route test
+ * in the checklist would catch it.
+ */
+export interface AgentOrchestrationSessionWireRow {
+	readonly id: string;
+	readonly taskId: string | null;
+	readonly requestId: string | null;
+	readonly sourceKind: string | null;
+	readonly sourceId: string | null;
+	readonly sourceCorrelationJson: string | null;
+	readonly agentId: string;
+	readonly modelTier: string;
+	readonly startedAt: string;
+	readonly endedAt: string | null;
+	readonly state: string;
+	readonly sandboxSnapshot: string | null;
+	readonly outcome: string | null;
+	readonly notes: string | null;
+	readonly routineId: string | null;
+	readonly effectivenessScore: string | null;
+	readonly effectivenessRecordedAt: string | null;
+	readonly effectivenessRecordedBy: string | null;
+}
+
+/**
  * The `sessions` capability family (Decision D/E) — session/run history
  * for a given work source + the relocated session-activity stream (§9
  * Increment 7: `agent-execution` owns the buffer, this door gateways it).
@@ -68,6 +100,13 @@ export interface AgentOrchestrationSessionsPort {
 	getRecentActivity(
 		sessionId: string,
 	): Promise<ReadonlyArray<AgentOrchestrationSessionActivityEntry>>;
+	/**
+	 * One session row by id, in FULL wire shape, or `null` when it does not
+	 * exist. The door core-hosted `POST /api/sessions` reads its admitted
+	 * session through (§D-A's `sessions-routes.ts` split) — a read, so it goes through the Port; the
+	 * Port stays strictly read-only.
+	 */
+	getById(sessionId: string): Promise<AgentOrchestrationSessionWireRow | null>;
 }
 
 /**

@@ -1,55 +1,37 @@
-import { SessionActivityBuffer } from "@hyperidle/agent-execution";
 import {
 	type CredentialResolver,
-	decryptCredentialValue,
 	deleteCredential,
-	encryptCredentialValue,
 	readCredentials,
-	ServiceConnectionResolver,
 	writeCredential,
-} from "@hyperidle/connections";
+} from "@hyperidle/credentials";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import type { AdapterPool, McpToolBridge, SandboxAdapter } from "@hyperidle/harness-registry";
 import type { NotificationAdapter, NotificationsDeps } from "@hyperidle/notifications";
-import {
-	type ObservabilityConfig,
-	type ObservabilityDeps,
-	type ObservabilityRuntime,
-	startObservability,
-} from "@hyperidle/observability";
 import { getTeamMembers } from "@hyperidle/org";
 import { enqueueWorkIntent, findSessionRequest } from "@hyperidle/session-requests";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
-import type { ApiErrorResponse } from "@hyperidle/shared";
-import { API_ERROR_CODES, createLogger, EventBus } from "@hyperidle/shared";
+import { createLogger, EventBus } from "@hyperidle/shared";
+import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/shared/crypto";
+import { createRateLimiter } from "@hyperidle/shared/http";
 import { createUpgradeTokenStore, findUser, type UpgradeTokenStore } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { checkAndUnblockDependents } from "@hyperidle/work";
 import { Hono } from "hono";
-import { failClosedAssertion } from "./middleware/access-boundary-middleware.js";
-import { authMiddleware, createAuthMiddleware } from "./middleware/auth.js";
-import { createBodyLimit } from "./middleware/body-limit.js";
-import { corsMiddleware } from "./middleware/cors.js";
-import { errorHandler } from "./middleware/error-handler.js";
-import { createRateLimiter } from "./middleware/rate-limit.js";
-import { createAgentOrchestrationSessionsRoutes } from "./routes/agent-orchestration-sessions-routes.js";
+import { type ObservabilityDeps, startObservability } from "./observability-runtime.js";
 import { createAgentRoutes } from "./routes/agents.js";
 import { createArtifactRoutes } from "./routes/artifacts.js";
 import { createAuthRoutes } from "./routes/auth.js";
 import { createPublicAuthRoutes } from "./routes/auth-public.js";
 import { createBetRoutes } from "./routes/bets.js";
-import { createConnectionRoutes } from "./routes/connections.js";
 import { createConversationRoutes } from "./routes/conversations.js";
 import { createCredentialRoutes } from "./routes/credentials.js";
-import { createFilesystemRoutes } from "./routes/filesystems.js";
-import { createGitExportRoutes } from "./routes/git-export-routes.js";
+import { createFilesystemInjectionRoutes } from "./routes/filesystems.js";
 import { createHarnessRoutes } from "./routes/harnesses.js";
-import { authHealth, health } from "./routes/health.js";
+import { authHealth } from "./routes/health.js";
 import { createHintRoutes } from "./routes/hints.js";
 import { createKnowledgeRoutes, createTeamMembersRoutes } from "./routes/knowledge.js";
 import { createModelGatewayRoutes } from "./routes/model-gateway.js";
 import { createNotificationRoutes } from "./routes/notifications-routes.js";
-import { createObservabilityRoutes } from "./routes/observability-routes.js";
 import { createOrgRoutes } from "./routes/org.js";
 import { createRecipientRoutes } from "./routes/recipients.js";
 import { createReviewRoutes } from "./routes/reviews.js";
@@ -65,10 +47,6 @@ import { registerTestRoutes } from "./routes/test-routes.js";
 import { createThreadRoutes } from "./routes/threads.js";
 import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
 import { createWorkersRoutes } from "./routes/workers.js";
-import {
-	createInProcessAgentOrchestrationTransport,
-	registerAgentOrchestrationTransport,
-} from "./services/agent-orchestration-port-composition.js";
 import { taskRunResolverDeps } from "./services/task-run-resolver-bindings.js";
 
 const agentWorkIntentRecorder = { record: enqueueWorkIntent };
@@ -79,7 +57,7 @@ const agentWorkIntentReader: import("@hyperidle/shared").AgentWorkIntentReader<H
 
 /**
  * The minimal shape a route needs to push data onto the WS connection hub —
- * satisfied by `WsConnectionHub.broadcast(topic, data)` (`@hyperidle/realtime`)
+ * satisfied by `WsConnectionHub.broadcast(topic, data)` (`./ws-connection-hub.js`)
  * without this module depending on that package's full class (same narrow-
  * interface pattern as `session-activity-gateway.ts`'s `SessionActivityBroadcastTarget`).
  */
@@ -139,28 +117,6 @@ interface AppOptions {
 	 * events unchanged either way).
 	 */
 	wsHub?: WsPushTarget;
-	/**
-	 * Optional worker WebSocket registration hook. When provided,
-	 * `createApp` invokes it with the `/api` sub-router at the same point as
-	 * `registerWebSocket` — BEFORE the auth middleware — so workers can
-	 * authenticate via query token without requiring a user API key.
-	 *
-	 * @lore S2-F01: worker WS route must be registered before auth middleware
-	 * (same pattern as user WS route). Production createServer passes this hook
-	 * so dead-code paths are eliminated.
-	 */
-	registerWorkerWebSocket?: (apiRouter: Hono) => void;
-	/**
-	 * Optional MCP bridge route registration hook. When provided,
-	 * `createApp` invokes it with the `/api` sub-router BEFORE the auth
-	 * middleware — MCP clients authenticate via the session token in the URL
-	 * path, not via X-API-Key.
-	 *
-	 * @lore X2: The MCP route must be mounted before auth middleware so external
-	 * harnesses (e.g. Claude Code) can call agent tools via MCP without needing
-	 * the user API key. The 64-char hex token in the URL is the credential.
-	 */
-	registerMcpRoute?: (apiRouter: Hono) => void;
 	/**
 	 * Override the upgrade-token store used by `/api/auth/ws-token` and the
 	 * WebSocket auth middleware. Tests inject a custom store with a tiny
@@ -251,13 +207,6 @@ const appLogger = createLogger({ pkg: "server.app" });
  */
 const notificationsServerConfigPort = { read: readServerConfig, update: updateServerConfig };
 
-/**
- * AU20 Ab3: observability config port — same `{ read, update }` pair wired
- * into `startObservability` (the collapsed `ObservabilityDeps` contract),
- * same idiom as `notificationsServerConfigPort` above.
- */
-const observabilityServerConfigPort = { read: readServerConfig, update: updateServerConfig };
-
 const notificationsDeps: NotificationsDeps = {
 	serverConfig: notificationsServerConfigPort,
 	credentialCipher: { encryptCredentialValue, decryptCredentialValue },
@@ -282,31 +231,42 @@ const notificationsDeps: NotificationsDeps = {
 };
 
 /**
- * Create the Hono application.
- * WebSocket routes are registered separately via registerWsRoute(), injected
- * through the `registerWebSocket` option so the app remains runtime-agnostic.
+ * Resolve the one-shot WebSocket upgrade-token store this app instance uses.
+ *
+ * I2 review arch H-2/H-3: the store — and with it `/api/auth/ws-token` — exists
+ * ONLY when WS support is being wired. Apps without a `registerWebSocket` hook
+ * (integration tests that do not need WebSocket) never expose the mint route.
+ *
+ * @lore AU26 B1b: the store is now resolved by the Application (`bootCoreApi`)
+ * rather than inside `createCoreApiApp`, because the SAME instance is needed on
+ * both sides of the auth middleware — the pre-auth WS upgrade route consumes
+ * tokens, the post-auth `/auth/ws-token` route mints them.
  */
-async function createApp(options?: AppOptions): Promise<Hono> {
-	const app = new Hono();
+export function resolveUpgradeTokenStore(options?: AppOptions): UpgradeTokenStore | null {
+	if (options?.upgradeTokenStore) return options.upgradeTokenStore;
+	return options?.registerWebSocket ? createUpgradeTokenStore() : null;
+}
 
-	// S1: shared mode — read from options (test-injectable) or env var (production).
-	// @lore S1: The env var is read once at app construction time, not per-request.
-	// This avoids per-request env lookups and is consistent with how HYPERIDLE_API_KEY
-	// is used (read at middleware invocation time, but the middleware itself is
-	// constructed once at startup).
+/**
+ * Register `core-api`'s own PRE-auth routes on the Application's `/api` router.
+ *
+ * These four must sit in front of the auth middleware, and only registration
+ * order puts them there — `createAuthMiddleware` has no path allow-list. The
+ * Application calls this after `use()`ing cors/rate-limit/body-limit and before
+ * `use()`ing auth (§D-B).
+ *
+ * @lore AU26 B1b: `GET /api/health` is registered here rather than before the
+ * rate limiter (its previous position). The limiter's `skipPaths` already
+ * exempts `/api/health`, so the liveness probe is unaffected — but the setup
+ * and claim routes now also sit behind the body limit, which is strictly
+ * tighter than before and costs nothing (both post a few hundred bytes).
+ */
+export function registerCoreApiPreAuthRoutes(
+	api: Hono,
+	options: AppOptions | undefined,
+	tokenStore: UpgradeTokenStore | null,
+): void {
 	const sharedMode = options?.sharedMode ?? process.env.HYPERIDLE_SHARED_MODE === "true";
-
-	// Backward-compat: /health without auth
-	app.route("/", health);
-
-	// ----- /api sub-router -----
-	const api = new Hono();
-
-	// CORS on all /api routes
-	api.use("*", corsMiddleware);
-
-	// Error handler
-	api.onError(errorHandler);
 
 	// Public: /api/health (no auth required)
 	api.get("/health", (c) => {
@@ -317,33 +277,9 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		return c.json(response);
 	});
 
-	// I2 R1-R5: rate limit BEFORE auth so unauthenticated floods are
-	// throttled without ever touching the database. Per-identity bucket
-	// (API-key first, then trusted XFF, then direct connection).
-	//
-	// I2 review W4: `/api/health` is a liveness probe target — k8s,
-	// systemd, and load balancers fire it many times per minute and a 429
-	// would mark the pod unhealthy. The limiter exempts it via skipPaths.
-	const rateLimitPerMin = Number.parseInt(process.env.HYPERIDLE_RATE_LIMIT_PER_MIN ?? "300", 10);
-	const baseRateLimit =
-		Number.isFinite(rateLimitPerMin) && rateLimitPerMin > 0 ? rateLimitPerMin : 300;
-	api.use(
-		"*",
-		createRateLimiter({
-			limit: baseRateLimit,
-			windowMs: 60_000,
-			// Health probes never count against the limiter (k8s liveness).
-			// `/api/auth/*` is exempted here and gets its own dedicated
-			// bucket below so a WS-reconnect storm cannot starve the API.
-			skipPaths: ["/api/health", "/api/status/health", "/api/auth"],
-		}),
-	);
-
-	// P4: Public: POST /api/users (setup — no auth required on first run)
-	// @lore P4: Registered AFTER the rate limiter so DoS floods are throttled
-	// before reaching the setup route. The route itself enforces auth once a
-	// human user already exists (setup-complete guard). Registered BEFORE the
-	// auth middleware so the initial setup call can succeed without an API key.
+	// P4: Public: POST /api/users (setup — no auth required on first run).
+	// The route itself enforces auth once a human user already exists
+	// (setup-complete guard).
 	if (options?.db) {
 		// AK6 T8: eventBus passed so user_created event is emitted after assistant persist.
 		const earlyEventBus = options.eventBus ?? new EventBus();
@@ -351,12 +287,44 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 	}
 
 	// S1: Public: POST /api/auth/claim (invite claim — no auth required).
-	// @lore S1: Mounted BEFORE the auth middleware so unauthenticated users can
-	// claim invites. Only mounted in shared mode — claim is meaningless in local
-	// desktop mode where there are no invite flows.
+	// Only mounted in shared mode — claim is meaningless in local desktop mode
+	// where there are no invite flows.
 	if (options?.db && sharedMode) {
 		api.route("/auth", createPublicAuthRoutes(options.db));
 	}
+
+	// WS upgrades authenticate via a one-shot upgrade token (`?token=...`) in a
+	// middleware defined inside `registerWsRoute`, not via the API key.
+	if (options?.registerWebSocket && tokenStore) {
+		options.registerWebSocket(api, tokenStore);
+	}
+}
+
+/**
+ * Create `core-api`'s own route table — the Layer's HTTP surface and nothing
+ * else. The returned app is mounted by the Application at `/` on its `/api`
+ * router, AFTER the middleware stack, beside `bootAgentOrchestration().app`.
+ *
+ * @lore AU26 B1b: this used to be the whole application — it built the root
+ * `Hono`, the `/api` sub-router, the cors/rate-limit/body-limit/auth/fail-closed
+ * stack, the `onError`/`notFound` handlers, and it mounted the other Layer. All
+ * of that is the **Application's** now (`packages/remote-server/src/create-server.ts`
+ * in production, `test-utils.ts`'s `createTestApp` for a test harness): "only an
+ * Application may choose to put another Layer's routes behind this stack."
+ * What is left here is one Layer's routes.
+ *
+ * Two consequences a caller must know:
+ *   - every path this app registers is RELATIVE (`/bets`, not `/api/bets`);
+ *   - the pre-auth half of core-api's surface lives in
+ *     `registerCoreApiPreAuthRoutes`, not here.
+ */
+async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
+	const api = new Hono();
+
+	// S1: shared mode — read from options (test-injectable) or env var (production).
+	// @lore S1: The env var is read once at app construction time, not per-request.
+	const sharedMode = options?.sharedMode ?? process.env.HYPERIDLE_SHARED_MODE === "true";
+	const tokenStore = options?.upgradeTokenStore ?? null;
 
 	// I2 review O6 / arch H-1: the WS-token mint endpoint gets its OWN
 	// rate-limit bucket so a WS reconnect storm cannot starve the API
@@ -364,91 +332,24 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 	// browsers may legitimately reconnect in bursts during a flaky
 	// network blip; auth still gates the mint, so the cost ceiling is the
 	// API key holder's chosen budget.
-	const authMintLimit = Math.max(baseRateLimit * 2, 120);
-	const authMintLimiter = createRateLimiter({
-		limit: authMintLimit,
-		windowMs: 60_000,
-	});
-
-	// I2 R4: cap request bodies so a single oversize POST cannot stall
-	// the process. Default 1 MiB; configurable via env. Rejects with 413
-	// + the canonical ApiErrorResponse JSON shape.
-	const maxBodyBytes = Number.parseInt(process.env.HYPERIDLE_MAX_BODY_BYTES ?? "1000000", 10);
-	api.use(
-		"*",
-		createBodyLimit({
-			maxSize: Number.isFinite(maxBodyBytes) && maxBodyBytes > 0 ? maxBodyBytes : 1_000_000,
-		}),
-	);
-
-	// I2 review arch H-2/H-3: the upgrade-token store and the
-	// `/api/auth/ws-token` route are constructed ONLY when WS support is
-	// being wired. Apps without a `registerWebSocket` hook (integration
-	// tests that don't need WebSocket) never expose `/api/auth/ws-token`.
-	let tokenStore: UpgradeTokenStore | null = null;
-	if (options?.registerWebSocket) {
-		tokenStore = options.upgradeTokenStore ?? createUpgradeTokenStore();
-		// Register the WS route BEFORE the auth middleware: WS upgrades
-		// authenticate via a one-shot upgrade token (`?token=...`) in a
-		// middleware defined inside `registerWsRoute`.
-		options.registerWebSocket(api, tokenStore);
-	}
-
-	// Register worker WS route BEFORE auth middleware — workers authenticate
-	// via HYPERIDLE_WORKER_TOKEN query param, not via the user API key.
-	if (options?.registerWorkerWebSocket) {
-		options.registerWorkerWebSocket(api);
-	}
-
-	// Register MCP bridge route BEFORE auth middleware — MCP clients authenticate
-	// via the session token in the URL path, not via X-API-Key.
-	if (options?.registerMcpRoute) {
-		options.registerMcpRoute(api);
-	}
-
-	// Auth middleware for all other /api routes (except /health above).
-	// M3 A3: when db is available, use createAuthMiddleware({ db, sharedMode })
-	// to set userId from users table. Without db, fall back to the stateless
-	// middleware (used only by non-db app instances in tests).
-	// @lore S1 SF-2: createAuthMiddleware signature changed from (db) to
-	// ({ db, sharedMode }). All callers updated here.
-	if (options?.db) {
-		api.use("*", createAuthMiddleware({ db: options.db, sharedMode }));
-	} else {
-		api.use("*", authMiddleware);
-	}
-
-	// AF11: Global fail-closed assertion — mounted AFTER auth, covers all /api/* data routes.
-	// After the handler runs, if __boundary was never set → undeclared route touched data.
-	// In dev/test: throws loudly. In production: logs a hard error (lint is the real gate).
-	// @lore AF11: Flip order — assertion starts as warn-log. Step 10 flips to throw-in-dev/test
-	// once all data routes declare. That flip is now complete: all 41+ routes declare.
-	api.use("*", failClosedAssertion());
-
-	// I2 A3 + review O6: ws-token issuance lives behind the standard auth
-	// middleware so the master HYPERIDLE_API_KEY mints a one-shot upgrade
-	// token. The dedicated `authMintLimiter` overrides the base API
-	// limiter so a reconnect storm doesn't drain the API bucket.
 	if (tokenStore) {
-		api.use("/auth/*", authMintLimiter);
+		const rateLimitPerMin = Number.parseInt(process.env.HYPERIDLE_RATE_LIMIT_PER_MIN ?? "300", 10);
+		const baseRateLimit =
+			Number.isFinite(rateLimitPerMin) && rateLimitPerMin > 0 ? rateLimitPerMin : 300;
+		api.use(
+			"/auth/*",
+			createRateLimiter({ limit: Math.max(baseRateLimit * 2, 120), windowMs: 60_000 }),
+		);
 	}
 
 	// M3 A4: /api/auth/me is always mounted (regardless of tokenStore).
 	// The /ws-token endpoint is conditionally mounted only when WS support exists.
-	// This restructuring allows /me to be available in all deployments.
-	// @lore S1: createAuthRoutes now takes sharedMode to conditionally mount
+	// @lore S1: createAuthRoutes takes sharedMode to conditionally mount
 	// /invite and /logout (shared mode only) and to bind ws-token identity
 	// from auth context rather than X-Identity header.
 	// @lore S4: worker-token endpoint requires auth routes even without db or
-	// tokenStore — always mount when at least one of them is truthy, or when
-	// there's no db but we still want worker-token available (e.g. test apps).
-	if (options?.db) {
-		api.route("/auth", createAuthRoutes(options.db, tokenStore ?? null, sharedMode));
-	} else {
-		// Mount auth routes even without db so /worker-token is available.
-		// createAuthRoutes handles null db gracefully (skips db-dependent routes).
-		api.route("/auth", createAuthRoutes(null, tokenStore ?? null, sharedMode));
-	}
+	// tokenStore — createAuthRoutes handles null db gracefully.
+	api.route("/auth", createAuthRoutes(options?.db ?? null, tokenStore, sharedMode));
 
 	// Register test routes only in non-production environments
 	if (process.env.NODE_ENV !== "production") {
@@ -471,11 +372,13 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		api.route("/tasks", createTaskRoutes(options.db, eventBus));
 		api.route("/reviews", createReviewRoutes(options.db));
 		api.route("/artifacts", createArtifactRoutes(options.db, eventBus));
-		// AO1 v2: Wire the real ServiceConnectionResolver for reachability probes.
-		// serverSecret may be null (no credential key configured) — the resolver handles null
-		// gracefully (returns null for every connectionId → needs_attention for git probes).
-		const scResolver = new ServiceConnectionResolver(options.db);
-		api.route("/filesystems", createFilesystemRoutes(options.db, eventBus, scResolver));
+		// AU26 F2: only ONE `/api/filesystems` registration is still core-hosted —
+		// `POST /:id/injections`, whose team-consistency gate reads `users` +
+		// `team_members`. Every other registration (and the reachability probe's
+		// `ServiceConnectionResolver`, which core-api no longer constructs) lives
+		// on agent-orchestration's app at byte-identical paths. See
+		// `routes/filesystems.ts`'s own top-of-file `@lore`.
+		api.route("/filesystems", createFilesystemInjectionRoutes(options.db));
 		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus));
 		api.route("/team-members", createTeamMembersRoutes(options.db));
 		api.route("/settings", createSettingsRoutes(options.db, eventBus));
@@ -495,24 +398,17 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		api.route("/routines", createRoutineRoutes(options.db, eventBus));
 		api.route("/recipients", createRecipientRoutes(options.db, eventBus));
 
-		// Q1 §6.1 / AU21 §6 Decision E, §9 Increment 7: session activity buffer —
-		// subscribes to tool_call_recorded/session_started/session_ended events
-		// and serves recent activity. Relocated to `@hyperidle/agent-execution`
-		// (its real architectural home — tokens/tool-calls originate in
-		// execution, not orchestration); core-api still owns *instantiating* it
-		// (Application composition root, same as any other Layer-owned
-		// stateful Service) and exposes it two ways: (a) the REST route below
-		// (`GET /api/sessions/:id/activity`) now reads it THROUGH
-		// `AgentOrchestrationPort.sessions.getRecentActivity` rather than a
-		// directly-injected reference — see `sessions-routes.ts` — and (b) the
-		// new agent-orchestration-owned gateway route
-		// (`createAgentOrchestrationSessionsRoutes`'s `getRecentActivity` param)
-		// that door's own backing route calls directly, in-process.
-		// @lore Q1: The buffer is created once per app instance, started immediately,
-		// and disposed with the app. Tests that emit events against the same eventBus
-		// instance will see the buffer populated correctly.
-		const activityBuffer = new SessionActivityBuffer(eventBus);
-		activityBuffer.start();
+		// AU26 B1a (§D-A's `sessions-routes.ts` split): `POST /api/sessions` is all that is left of this
+		// route module. `GET /`, `GET /starts/:startId`, `GET /:id/activity` and
+		// `PATCH /:id` moved onto agent-orchestration's own app — same URLs (§D-A
+		// rule 7), different host. POST stays because its handler gates on `tasks`
+		// and bakes `users`/`server_config`: a two-sided table set, and §D-A rule 3
+		// gives a two-sided route exactly one legal host.
+		//
+		// @lore AU26 B1a: the `SessionActivityBuffer` this block used to construct
+		// and start is GONE from core-api. Both of its readers (the REST activity
+		// route and the `AgentOrchestrationPort` backing route) are on the owning
+		// side now, so `bootAgentOrchestration` owns the buffer's lifecycle.
 		api.route(
 			"/sessions",
 			// AU11 AC-2: the route only ever read the adapter-pool PRESENCE as a
@@ -528,21 +424,6 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 			),
 		);
 		api.route("/status", createStatusRoutes(options.db));
-		// AU21 §9 Increment 6 (Decision D): the real backing route for
-		// `AgentOrchestrationPort`'s read-only session-cost/history methods —
-		// see `agent-orchestration-sessions-routes.ts`'s header for why the HTTP
-		// hosting lives here even though the data/query logic is
-		// agent-orchestration's own (`@hyperidle/session-requests`).
-		// §9 Increment 7 (Decision E): `getRecentActivity` reads the SAME
-		// relocated `activityBuffer` instance directly — an in-process call,
-		// not a cross-transport read, mirroring how the cost/history routes
-		// above call `@hyperidle/session-requests`'s query functions directly.
-		api.route(
-			"/agent-orchestration",
-			createAgentOrchestrationSessionsRoutes(options.db, (sessionId) =>
-				activityBuffer.getActivity(sessionId),
-			),
-		);
 
 		// S2: worker admin visibility — GET /api/workers lists registered adapters.
 		// Requires X-API-Key matching HYPERIDLE_API_KEY (admin-level auth inside route).
@@ -554,10 +435,10 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 			// and the redetect/disable routes can read/write server_config.
 			api.route("/harnesses", createHarnessRoutes(options.adapterPool, options.db));
 		}
-		api.route("/git-export", createGitExportRoutes(options.db));
 		api.route("/credentials", createCredentialRoutes(options.db));
-		// AN1: per-user service connections (token | mcp | inherited projected)
-		api.route("/connections", createConnectionRoutes(options.db, options.adapterPool));
+		// AU26 E4: `/api/connections` is served by `agent-orchestration`'s own
+		// app now (its whole table set is `service_connections`, which that Layer
+		// owns). Same path, other host — see `createAgentOrchestrationApp`.
 		api.route("/hint-progress", createHintRoutes(options.db));
 		api.route("/search", createSearchRoutes(options.db, eventBus));
 		// Tests may override via notificationAdapterFactory for route-level adapter injection.
@@ -572,28 +453,19 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 			}),
 		);
 
-		// Observability runtime (H3, AU20 Ab3). `startObservability` wires the
-		// adapter, resolver, dispatcher, and bus subscription in one call.
-		// PATCH /config calls `runtime.reconfigure(cfg)` so adapter switches
-		// and enable/disable transitions take effect without a process restart
-		// (security M-3, architect C1, adversary WARN).
+		// Observability runtime. `startObservability` wires the adapter,
+		// dispatcher and bus subscription in one call.
+		//
+		// @lore AU26 C2: the `/api/observability*` routes are GONE — all four had
+		// zero requesters repo-wide — and with them the `reconfigure` seam that
+		// let PATCH /config rotate the adapter without a process restart. Config
+		// is read once at boot; changing it is a restart.
 		const db = options.db;
 		const observabilityRuntime = await startObservability({
 			db,
 			eventBus,
-			serverConfig: observabilityServerConfigPort,
 			...(options?.observabilityAdapter ? { adapter: options.observabilityAdapter } : {}),
 		});
-
-		api.route(
-			"/observability",
-			createObservabilityRoutes(db, {
-				getRuntime: (): ObservabilityRuntime => observabilityRuntime,
-				onConfigChange: (cfg: ObservabilityConfig): void => {
-					observabilityRuntime.reconfigure(cfg);
-				},
-			}),
-		);
 
 		const disposers: Array<() => void> = [];
 
@@ -624,57 +496,44 @@ async function createApp(options?: AppOptions): Promise<Hono> {
 		disposers.push(unsubDepWatcher);
 
 		disposers.push(() => {
-			activityBuffer.stop();
-		});
-
-		disposers.push(() => {
 			void observabilityRuntime.dispose();
 		});
-		APP_DISPOSERS.set(app, disposers);
+		APP_DISPOSERS.set(api, disposers);
 	}
 
-	// 404 handler for unknown /api routes
-	api.notFound((c) => {
-		const response: ApiErrorResponse = {
-			error: "Not found",
-			code: API_ERROR_CODES.NOT_FOUND,
-		};
-		return c.json(response, 404);
-	});
+	return api;
+}
 
-	app.route("/api", api);
+/**
+ * Attach extra disposers to an app the Application composed, so a single
+ * `disposeApp(root)` tears the whole composition down.
+ *
+ * @lore AU26 B1b: `createCoreApiApp` keys its own disposer bag on the route
+ * table it returns, but a test harness holds the composed ROOT app. The
+ * Application therefore forwards the Layer disposers onto the root, which keeps
+ * `disposeApp(app)` — the shape ~240 fixture-based tests already rely on —
+ * unchanged.
+ */
+export function registerAppDisposers(hono: Hono, disposers: ReadonlyArray<() => void>): void {
+	const bag = APP_DISPOSERS.get(hono) ?? [];
+	bag.push(...disposers);
+	APP_DISPOSERS.set(hono, bag);
+}
 
-	// Top-level 404 handler for all unmatched routes
-	app.notFound((c) => {
-		// Check if this is an /api route
-		if (c.req.path.startsWith("/api")) {
-			const response: ApiErrorResponse = {
-				error: "Not found",
-				code: API_ERROR_CODES.NOT_FOUND,
-			};
-			return c.json(response, 404);
-		}
-		return c.text("404 Not Found", 404);
-	});
-
-	// AU21 §9 Increment 6 (Decision D): register the in-process
-	// `AgentOrchestrationPort` transport here in `createApp` itself — NOT in
-	// `server-factory.ts` the way `CoreApiPort`'s write-seam transport is
-	// (`core-api-port-composition.ts`'s own `@lore`). That deferral exists
-	// because registering a WRITE seam's transport for every test app also
-	// activates production event-subscriber side effects tests don't expect
-	// (the double-fire hazard). This door is read-only (§12) — carries no
-	// event subscriptions and mutates nothing — so there is no equivalent
-	// hazard, and registering it unconditionally (no `options?.db` branch —
-	// keeps this function's already-over-budget cognitive complexity from
-	// growing further) means every `createApp` caller, including a db-less
-	// app, gets a working `getRegisteredAgentOrchestrationTransport()`. A
-	// db-less app never mounted `/agent-orchestration/sessions/*`, so the
-	// transport just 404s through this app's own top-level not-found handler
-	// if anything ever called it — never reached in practice.
-	registerAgentOrchestrationTransport(createInProcessAgentOrchestrationTransport(app));
-
-	return app;
+/**
+ * Detach and return an app's disposer bag.
+ *
+ * @lore AU26 B1b: the Application composes ONE root app and tears it down with
+ * ONE `disposeApp(root)` call. If the Layer boot kept its own bag and the root
+ * merely held a `() => disposeApp(layerApp)` thunk, `disposeApp` would run
+ * twice per shutdown — which `server-disposal.integration.test.ts` catches as a
+ * duplicated `app-domain` phase. Taking the bag moves ownership instead of
+ * nesting it, so every disposer runs exactly once, in order.
+ */
+export function takeAppDisposers(hono: Hono): Array<() => void> {
+	const bag = APP_DISPOSERS.get(hono) ?? [];
+	APP_DISPOSERS.delete(hono);
+	return bag;
 }
 
 /**
@@ -724,4 +583,4 @@ export type { AppOptions };
  */
 export type AppType = Hono;
 
-export { createApp };
+export { createCoreApiApp };

@@ -29,15 +29,16 @@
  * When absent, the server uses AH5_FALLBACK_MODEL_ID (or a hardcoded default).
  * This keeps the model-resolution step offline from the server boot itself.
  */
+
 import * as fs from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
-import { encryptCredentialValue } from "@hyperidle/connections";
-import { createServer } from "@hyperidle/core-api/server-factory";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { schema, serverCredentials } from "@hyperidle/db";
 import { createLocalAdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
+import { createServer } from "@hyperidle/remote-server/create-server";
+import { encryptCredentialValue } from "@hyperidle/shared/crypto";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 

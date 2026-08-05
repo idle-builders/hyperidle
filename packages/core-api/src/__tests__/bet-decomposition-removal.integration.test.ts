@@ -38,11 +38,11 @@ import {
 	users,
 } from "@hyperidle/db";
 import { AdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
+import { createServer, type ServerHandle } from "@hyperidle/remote-server/create-server";
 import type { RuntimePorts } from "@hyperidle/run-orchestration";
 import { drainIntents } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
-import { createServer, type ServerHandle } from "../server-factory.js";
 import { queueDeps } from "../services/durable-agent-queue.js";
 import { afterEach, beforeEach, describe, expect, test } from "../test-fixtures.js";
 import { startTestRuntime } from "./run-orchestration-test-runtime.js";

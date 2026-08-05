@@ -37,7 +37,7 @@ describe("app runtime domain observability", () => {
 	});
 
 	fixtureTest(
-		"knowledge projection, routine request, notifications, and git export stay observable",
+		"knowledge projection, routine request, and notifications stay observable",
 		async ({ app, db }) => {
 			await seedFounder(db);
 
@@ -134,15 +134,6 @@ describe("app runtime domain observability", () => {
 
 			const requests = await db.select().from(agentSessionRequests);
 			expect(Array.isArray(requests)).toBe(true);
-
-			const gitStatusRes = await app.request("/api/git-export/status", {
-				method: "GET",
-				headers: authHeaders(),
-			});
-			expect(gitStatusRes.status).toBe(200);
-			const gitStatus = (await gitStatusRes.json()) as { enabled: boolean; branch: string };
-			expect(typeof gitStatus.enabled).toBe("boolean");
-			expect(typeof gitStatus.branch).toBe("string");
 
 			const sent = (await listNotifications(db, { kind: "all" })).find(
 				(r) => r.eventType === "au3.domain",

@@ -40,9 +40,10 @@ import {
 import { enqueue } from "@hyperidle/notifications";
 import { getTeamMembers, updateTeam } from "@hyperidle/org";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
+import { requestRunStopForTasks } from "@hyperidle/run-orchestration";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { findUser, requireRunnableAgent } from "@hyperidle/users";
-import type { TaskStateMachineDeps, WorkDeps } from "@hyperidle/work";
+import type { BetKillCascadeDeps, WorkDeps } from "@hyperidle/work";
 import * as work from "@hyperidle/work";
 import { cascadeBetKill, transitionBet } from "@hyperidle/work";
 import { and, eq } from "drizzle-orm";
@@ -109,10 +110,19 @@ const lifecyclePropagationDeps: PolicyDeps = {
 	silence: { isSilenced: () => Promise.resolve(false) },
 };
 
-/** AU19 Increment 1b: `cascadeBetKill` forwards this to `transitionTask`. */
-const testDeps: TaskStateMachineDeps = {
+/**
+ * AU19 Increment 1b: `cascadeBetKill` forwards `workIntents`/`taskRunResolver`
+ * to `transitionTask`.
+ *
+ * @lore AU26 H2: `runOrchestration` is the real production wiring — the same
+ * `@hyperidle/run-orchestration` export `routes/bets.ts` passes. The cascade no
+ * longer performs the run-stop write itself, so stubbing this would stop the
+ * AC3/AC6 assertions below from proving anything.
+ */
+const testDeps: BetKillCascadeDeps = {
 	workIntents: { record: enqueueWorkIntent },
 	taskRunResolver: { requireRunnableAgent },
+	runOrchestration: { requestRunStopForTasks },
 };
 // AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
 // to the real migrated `org` Service.

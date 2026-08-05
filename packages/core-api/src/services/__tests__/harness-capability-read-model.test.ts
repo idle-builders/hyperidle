@@ -24,7 +24,6 @@ import type {
 	SessionHandle,
 	SessionResult,
 } from "@hyperidle/shared";
-import { describe, expect, it } from "vitest";
 import {
 	type HarnessCapabilityReader,
 	harnessCapabilitiesForType,
@@ -33,7 +32,8 @@ import {
 	refreshHarnessDiscoveries,
 	registeredHarnessCount,
 	workerConnections,
-} from "../harness-capability-read-model.js";
+} from "@hyperidle/shared";
+import { describe, expect, it } from "vitest";
 
 function makeAdapter(caps?: Partial<HarnessCapabilities>): HarnessAdapter {
 	const capabilities: HarnessCapabilities = {

@@ -3,12 +3,57 @@ import type { FactoryRosterSpec } from "@hyperidle/shared";
 import { defaultFactoryRoster } from "@hyperidle/shared";
 import { and, eq, inArray } from "drizzle-orm";
 import type { HyperIdleDb } from "./connection.js";
-import { knowledgeAppProjection, knowledgeItems, users } from "./schema.js";
-import { COMMUNITY_DISPLAY_NAMES, FACILITATOR_TOOLS } from "./seed-fixtures.js";
+import { agentRunConfig, knowledgeAppProjection, knowledgeItems, users } from "./schema.js";
+import { COMMUNITY_DISPLAY_NAMES } from "./seed-fixtures.js";
 import {
 	readSystemPromptTemplate,
 	SYSTEM_PROMPT_TEMPLATE_FILES,
 } from "./system-prompt-templates.js";
+
+/**
+ * AU26 G1 — write an agent's run config from a seeder.
+ *
+ * @lore AU26 G1 (architecture §D-L): `agent_run_config` is owned by
+ * `packages/agent-orchestration/agent-run-config`, and every non-test caller is
+ * supposed to go through that Service. This seeder cannot: it lives in
+ * `packages/db`, and every owning Service's dependency closure is
+ * `{@hyperidle/db, @hyperidle/shared}` — so `db -> agent-run-config` would be a
+ * cycle. AU26 increment **D2a** closes this properly by relocating
+ * `factory-bootstrap.ts` and `demo-fixture.ts` above the Services (into
+ * `packages/core-api/src/bootstrap/`), where they can call the real writers.
+ * Until then this direct write is the SAME pre-existing exception the
+ * neighbouring `users` / `knowledge_items` writes in this file already are —
+ * it does not create a new class of violation, and `npm run census:tables`
+ * counts it so the debt stays visible.
+ *
+ * Upsert, not insert: `applyFactoryBootstrap` runs on every desktop launch and
+ * must stay idempotent, and an upgrading install needs its existing rows
+ * patched with the runnable defaults (the behaviour the pre-move
+ * `UPDATE users SET harness_type = 'builtin' …` had).
+ */
+async function upsertRunConfig(
+	db: HyperIdleDb,
+	agentUserId: string,
+	patch: {
+		readonly systemPrompt?: string | null;
+		readonly harnessType?: string | null;
+		readonly modelId?: string | null;
+		readonly modelProvider?: string | null;
+		readonly maxConcurrentSessions?: number;
+	},
+): Promise<void> {
+	await db
+		.insert(agentRunConfig)
+		.values({
+			agentUserId,
+			systemPrompt: patch.systemPrompt ?? null,
+			harnessType: patch.harnessType ?? null,
+			modelId: patch.modelId ?? null,
+			modelProvider: patch.modelProvider ?? null,
+			maxConcurrentSessions: patch.maxConcurrentSessions ?? 1,
+		})
+		.onConflictDoUpdate({ target: agentRunConfig.agentUserId, set: { ...patch } });
+}
 
 /**
  * Apply the factory bootstrap layer — team-agnostic, idempotent baseline rows
@@ -73,7 +118,6 @@ export async function applyFactoryBootstrap(
 			role: "system",
 			agentCategory: null,
 			status: "active",
-			maxConcurrentSessions: 1,
 			createdAt: now,
 		})
 		.onConflictDoNothing();
@@ -92,37 +136,29 @@ export async function applyFactoryBootstrap(
 				role: "assistant",
 				agentCategory: "individual",
 				status: "active",
-				maxConcurrentSessions: 1,
-				// AH2: runnable defaults so the agent can start without configuration.
-				harnessType: "builtin",
-				modelId: "claude-sonnet-4-6",
-				modelProvider: "anthropic",
 				createdAt: now,
 			})
 			.onConflictDoNothing();
 
-		// Patch the System Agent row with facilitator metadata (idempotent).
-		// @lore AD8a: systemPromptPath set to null — docs/system-prompts/chief-of-staff.md is deleted (renamed to assistant).
-		// AH2: also set runnable defaults on PATCH so existing rows get them on upgrade.
-		await db
-			.update(users)
-			.set({
-				systemPromptPath: null,
-				skills: JSON.stringify({ scope: null, tools: FACILITATOR_TOOLS }),
-				harnessType: "builtin",
-				modelId: "claude-sonnet-4-6",
-				modelProvider: "anthropic",
-			})
-			.where(eq(users.id, cosId));
+		// AH2: runnable defaults so the agent can start without configuration.
+		// Written on every call (upsert), so an existing row gets them on upgrade.
+		await upsertRunConfig(db, cosId, {
+			harnessType: "builtin",
+			modelId: "claude-sonnet-4-6",
+			modelProvider: "anthropic",
+			maxConcurrentSessions: 1,
+		});
 	}
 
 	// ── Facilitator agents — ROSTER-DRIVEN (one per roster.facilitators entry) ──
 	// @lore AD8c: renamed from "Practice Facilitator" (role: practice_facilitator) to
 	// "Facilitator" (role: facilitator). System prompt file: facilitator.md.
 	// Factory agents: agentCategory="strategy", team_id=null.
-	// @lore AK6 NIT-1 (architecture-critique): facilitator name and skills are DERIVED
-	// from `community` by the db-bootstrap (COMMUNITY_DISPLAY_NAMES / FACILITATOR_TOOLS
-	// stay db-owned infra). The spec carries only the roster COMPOSITION.
+	// @lore AK6 NIT-1 (architecture-critique): facilitator name is DERIVED from
+	// `community` by the db-bootstrap (COMMUNITY_DISPLAY_NAMES stays db-owned
+	// infra). The spec carries only the roster COMPOSITION.
+	// @lore AU26 G1: the `skills` half of that derivation is gone — the column was
+	// dropped (zero production readers) rather than relocated.
 	for (const f of roster.facilitators) {
 		const displayName =
 			COMMUNITY_DISPLAY_NAMES[f.community as keyof typeof COMMUNITY_DISPLAY_NAMES] ?? f.community;
@@ -136,19 +172,16 @@ export async function applyFactoryBootstrap(
 				agentCategory: "strategy",
 				teamId: null,
 				status: "active",
-				maxConcurrentSessions: 1,
-				systemPromptPath: "docs/system-prompts/facilitator.md",
-				skills: JSON.stringify({
-					scope: f.community,
-					tools: FACILITATOR_TOOLS,
-				}),
-				// AH2: runnable defaults so factory agents can start without configuration.
-				harnessType: "builtin",
-				modelId: "claude-sonnet-4-6",
-				modelProvider: "anthropic",
 				createdAt: now,
 			})
 			.onConflictDoNothing();
+		// AH2: runnable defaults so factory agents can start without configuration.
+		await upsertRunConfig(db, f.idHint, {
+			harnessType: "builtin",
+			modelId: "claude-sonnet-4-6",
+			modelProvider: "anthropic",
+			maxConcurrentSessions: 1,
+		});
 	}
 
 	// ── System prompt templates from docs/system-prompts/ — read directly, no cache table ──
@@ -181,10 +214,16 @@ export async function applyFactoryBootstrap(
 
 	if (rosterAgentIds.length > 0) {
 		for (const [role, template] of Object.entries(templateValues)) {
-			await db
-				.update(users)
-				.set({ systemPrompt: template })
+			// AU26 G1: `systemPrompt` moved to `agent_run_config`, so the role-scoped
+			// backfill resolves the matching ids off `users` first, then writes the
+			// prompt to the run-config rows. Same set of agents, same values.
+			const matching = await db
+				.select({ id: users.id })
+				.from(users)
 				.where(and(eq(users.role, role), eq(users.kind, "ai"), inArray(users.id, rosterAgentIds)));
+			for (const { id } of matching) {
+				await upsertRunConfig(db, id, { systemPrompt: template });
+			}
 		}
 	}
 

@@ -22,7 +22,6 @@ import {
 	agentWorkIntents,
 	bets,
 	type HyperIdleDb,
-	serviceConnections,
 	tasks,
 	teamMembers,
 	teams,
@@ -195,58 +194,9 @@ describe("session_start is resolved and baked at emit time (POST /api/sessions)"
 		expect(intent?.requestId).toBeTruthy();
 	});
 
-	// AU21 Decision K1 (guard blind-spot closure item 4): proves the
-	// composition-root binding at this real emit site (`resolveSessionStartRequest`'s
-	// `resolveInjectedConnectionsForAgent` dep, `sessions-routes.ts`) actually
-	// bakes the owning human's held connections — not silently undefined.
-	test("an explicit session start for a founder with a held connection bakes the full injectedConnections list onto the recorded intent", async ({
-		db,
-		app,
-	}) => {
-		await seedTaskWorld(db, {
-			teamId: "team-au21-sstart-emit-conn",
-			betId: "bet-au21-sstart-emit-conn",
-			taskId: "task-au21-sstart-emit-conn",
-			agentId: "agent-au21-sstart-emit-conn",
-		});
-		await db.insert(serviceConnections).values({
-			id: "sc-au21-sstart-emit-conn",
-			userId: "agent-au21-sstart-emit-conn-founder",
-			service: "github",
-			authSource: "token",
-			encryptedToken: "au21-sstart-emit-conn-encrypted-placeholder",
-			serverUrl: null,
-			health: "needs-attention",
-			lastValidatedAt: null,
-			createdAt: new Date().toISOString(),
-			updatedAt: new Date().toISOString(),
-		});
-
-		const res = await app.request("/api/sessions", {
-			method: "POST",
-			headers: { ...authHeaders(), "Idempotency-Key": "au21-sstart-emit-conn-key" },
-			body: JSON.stringify({
-				agentId: "agent-au21-sstart-emit-conn",
-				taskId: "task-au21-sstart-emit-conn",
-				modelTier: "workhorse",
-			}),
-		});
-		expect(res.status).toBe(202);
-		const body = (await res.json()) as { startId: string };
-
-		const [intent] = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.sourceId, body.startId));
-		const baked = intent?.bakedRequestJson
-			? (JSON.parse(intent.bakedRequestJson) as {
-					injectedConnections?: { userId: string; connections: readonly { id: string }[] };
-				})
-			: undefined;
-
-		expect(baked?.injectedConnections?.userId).toBe("agent-au21-sstart-emit-conn-founder");
-		expect(
-			baked?.injectedConnections?.connections.some((c) => c.id === "sc-au21-sstart-emit-conn"),
-		).toBe(true);
-	});
+	// @lore AU26 E3: the K1 test that lived here proved this emit site baked
+	// the owning human's held connections onto the intent. That bake is
+	// deleted — connections are read live at spawn — so there is nothing
+	// left for this site to forget. See
+	// `connections-added-after-emit.integration.test.ts`.
 });

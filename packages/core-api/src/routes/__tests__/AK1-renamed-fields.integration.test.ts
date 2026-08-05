@@ -15,7 +15,7 @@
  *   - packages/db/src/schema.ts renames `soulPrompt` → `systemPrompt` column
  */
 
-import { type HyperIdleDb, users } from "@hyperidle/db";
+import { agentRunConfig, type HyperIdleDb, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
 
@@ -40,7 +40,6 @@ async function seedFounder(db: HyperIdleDb, id: string): Promise<void> {
 		status: "active",
 		email: `${id}@test.local`,
 		createdAt: NOW,
-		maxConcurrentSessions: 0,
 	});
 }
 
@@ -176,9 +175,13 @@ describe("AK1 — agents route uses systemPrompt (not soulPrompt)", () => {
 			name: "AK1 Builder Bot",
 			role: "builder",
 			status: "active",
-			maxConcurrentSessions: 2,
 			teamId: "ak1-tm",
 			createdAt: NOW,
+		});
+		// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+		await db.insert(agentRunConfig).values({
+			agentUserId: "ak1-agent-1",
+			maxConcurrentSessions: 2,
 		});
 
 		const res = await app.request("/api/agents", {

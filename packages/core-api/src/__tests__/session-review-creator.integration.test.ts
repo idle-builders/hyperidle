@@ -120,6 +120,12 @@ describe("registerReviewSubscriptions", () => {
 			.insert(taskPlanningSignals)
 			.values({ id: "tsf-task-1", taskId: "task-1", riskTier: "high" });
 
+		// @lore AU26 H3: the row's `outcome` matches the event's. In production
+		// they always do — `endSession` writes `terminalOutcome` to the row and
+		// emits the SAME value — and after AU26 H3 the event is the only source
+		// the review creator reads. `SessionOutcome` is a closed 4-member union;
+		// this file used to seed free-text values ("success"/"partial") that no
+		// producer can ever emit.
 		await db.insert(sessions).values({
 			id: "session-1",
 			taskId: "task-1",
@@ -127,7 +133,7 @@ describe("registerReviewSubscriptions", () => {
 			modelTier: "capable",
 			startedAt: new Date().toISOString(),
 			state: "ended",
-			outcome: "success",
+			outcome: "not_returned",
 		});
 
 		// Track emitted events
@@ -142,7 +148,7 @@ describe("registerReviewSubscriptions", () => {
 			agentId: "agent-1",
 			taskId: "task-1",
 			timestamp: Date.now(),
-			outcome: "completed",
+			outcome: "not_returned",
 		};
 		eventBus.emit(event);
 
@@ -151,7 +157,7 @@ describe("registerReviewSubscriptions", () => {
 			const createdItems = await db.select().from(items).where(eq(items.threadId, "thread-1"));
 			expect(createdItems).toHaveLength(1);
 			expect(createdItems[0]!.kind).toBe("review");
-			expect(createdItems[0]!.title).toBe("Session completed: success");
+			expect(createdItems[0]!.title).toBe("Session completed: not_returned");
 		});
 
 		expect(emittedEvents).toHaveLength(1);
@@ -231,7 +237,7 @@ describe("registerReviewSubscriptions", () => {
 			modelTier: "capable",
 			startedAt: new Date().toISOString(),
 			state: "ended",
-			outcome: "partial",
+			outcome: "crashed",
 		});
 
 		const event: SessionEndedEvent = {
@@ -241,7 +247,7 @@ describe("registerReviewSubscriptions", () => {
 			agentId: "agent-1",
 			taskId: "task-no-thread",
 			timestamp: Date.now(),
-			outcome: "completed",
+			outcome: "crashed",
 		};
 		eventBus.emit(event);
 
@@ -257,10 +263,105 @@ describe("registerReviewSubscriptions", () => {
 		const allItems = await db.select().from(items);
 		expect(allItems).toHaveLength(1);
 		expect(allItems[0]!.threadId).toBe(allThreads[0]!.id);
-		expect(allItems[0]!.title).toBe("Session completed: partial");
+		expect(allItems[0]!.title).toBe("Session completed: crashed");
 
 		const [updatedTask] = await db.select().from(tasks).where(eq(tasks.id, "task-no-thread"));
 		expect(updatedTask?.threadId).toBe(allThreads[0]!.id);
+
+		unsubscribe();
+	});
+
+	/**
+	 * AU26 H3 (§D-M.4) — RED. The session-review creator re-read the `sessions`
+	 * row for exactly three fields (`taskId`, `agentId`, `outcome`), all three
+	 * of which `SessionEndedEvent` already carries; its sibling handler in the
+	 * same file has always read them straight off the event. These two tests
+	 * pin the event as the source: neither can pass while the DB read is there.
+	 */
+	test("reads outcome off the event, not off the session row", async ({ db, eventBus }) => {
+		await seedBase(db);
+		const unsubscribe = registerReviewSubscriptions(db, eventBus, reviewDeps);
+
+		await db.insert(tasks).values({
+			id: "task-outcome",
+			betId: "bet-1",
+			teamId: "prod-1",
+			title: "Outcome task",
+			state: "in_progress",
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		});
+		await db
+			.insert(taskPlanningSignals)
+			.values({ id: "tsf-task-outcome", taskId: "task-outcome", riskTier: "high" });
+		// The row is deliberately stale — it carries no outcome at all. The
+		// event is the authority.
+		await db.insert(sessions).values({
+			id: "session-outcome",
+			taskId: "task-outcome",
+			agentId: "agent-1",
+			modelTier: "capable",
+			startedAt: new Date().toISOString(),
+			state: "active",
+		});
+
+		const event: SessionEndedEvent = {
+			type: "session_ended",
+			streamId: "stream-outcome",
+			sessionId: "session-outcome",
+			agentId: "agent-1",
+			taskId: "task-outcome",
+			timestamp: Date.now(),
+			outcome: "not_returned",
+		};
+		eventBus.emit(event);
+
+		await vi.waitFor(async () => {
+			const allItems = await db.select().from(items);
+			expect(allItems).toHaveLength(1);
+			// Reading the row would have produced the `?? "completed"` fallback.
+			expect(allItems[0]!.title).toBe("Session completed: not_returned");
+		});
+
+		unsubscribe();
+	});
+
+	test("creates the review item with no session row present at all", async ({ db, eventBus }) => {
+		await seedBase(db);
+		const unsubscribe = registerReviewSubscriptions(db, eventBus, reviewDeps);
+
+		await db.insert(tasks).values({
+			id: "task-rowless",
+			betId: "bet-1",
+			teamId: "prod-1",
+			title: "Rowless task",
+			state: "in_progress",
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		});
+		await db
+			.insert(taskPlanningSignals)
+			.values({ id: "tsf-task-rowless", taskId: "task-rowless", riskTier: "medium" });
+
+		expect(await db.select().from(sessions)).toHaveLength(0);
+
+		const event: SessionEndedEvent = {
+			type: "session_ended",
+			streamId: "stream-rowless",
+			sessionId: "session-rowless",
+			agentId: "agent-1",
+			taskId: "task-rowless",
+			timestamp: Date.now(),
+			outcome: "completed",
+		};
+		eventBus.emit(event);
+
+		await vi.waitFor(async () => {
+			const allItems = await db.select().from(items);
+			expect(allItems).toHaveLength(1);
+			expect(allItems[0]!.kind).toBe("review");
+			expect(allItems[0]!.title).toBe("Session completed: completed");
+		});
 
 		unsubscribe();
 	});

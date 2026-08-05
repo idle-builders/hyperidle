@@ -1,33 +1,20 @@
 /**
- * AU21 §9 Increment 8, Wave F2 (credentials/filesystems provisioning split) —
- * historical RED-phase note kept for context: `mountFilesystemsForAgent`
+ * AU21 §9 Increment 8, Wave F2 — historical: `mountFilesystemsForAgent`
  * originally moved core-side reads behind the ONE seam call
- * `CoreApiPort.filesystems.listFilesystemsByAgent(agentId)`.
+ * `CoreApiPort.filesystems.listFilesystemsByAgent(agentId)`. AU21 §9 Increment
+ * 12 then replaced that with an EMIT-TIME bake: the list was frozen onto the
+ * request, and this function consumed it.
  *
- * AU21 §9 Increment 12 follow-up (F2 gap closure) — RED phase, current pass.
+ * AU26 F2 (founder ruling): both tables are agent-orchestration's own now, so
+ * the bake is deleted and the function reads the record LIVE at spawn through
+ * `deps.filesystems` — an injected `InjectedFilesystemsReaderPort` (Mechanism
+ * C), not a seam and not a frozen list.
  *
- * Decision H3 already established the pattern this fix extends: core bakes
- * everything a session needs into the request AT EMIT TIME, keyed off the
- * resolved agentId, so run-orchestration never reads core-api back at
- * provisioning time. F2's seam call above was the one genuine gap H3's later,
- * more complete principle should have superseded but never revisited — there
- * is no principled difference between "read the task's context at launch"
- * (already fixed by H3) and "read the agent's filesystem list at launch"
- * (this fix).
- *
- * `mountFilesystemsForAgent` now consumes the baked `injectedFilesystems`
- * list directly (every per-kind resolver bakes it at emit time via
- * `@hyperidle/filesystems`'s new `resolveInjectedFilesystemsForAgent`, one
- * layer up the call stack) — it no longer takes a `filesystems` seam reader
- * or an `agentId` to resolve one with. Every test below currently fails: the
- * live implementation still requires `{filesystems, agentId, sandboxPath,
- * mounter}` and reads `filesystems.listFilesystemsByAgent(agentId)`
- * internally — calling it with the NEW `{injectedFilesystems, sandboxPath,
- * mounter}` shape leaves `filesystems` `undefined`, so the live code throws
- * `TypeError: Cannot read properties of undefined (reading
- * 'listFilesystemsByAgent')` before ever reaching the mount loop. RED for the
- * right reason: the function has not been migrated to the baked-list API
- * yet, not a typo.
+ * These cases pin the mount loop itself, which did not change: the port is
+ * asked once for the agent, every row it returns is mounted, a failed mount is
+ * excluded rather than thrown, and an absent port mounts nothing. The
+ * end-to-end staleness proof lives in
+ * `filesystems-added-after-emit.integration.test.ts`.
  */
 
 import * as fs from "node:fs";
@@ -39,6 +26,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { startWatcher } from "../file-watcher.js";
 import {
 	type FilesystemForProvisioning,
+	type InjectedFilesystemsReaderPort,
 	mountFilesystemsForAgent,
 } from "../filesystem-provisioning.js";
 
@@ -51,9 +39,22 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-// ── mountFilesystemsForAgent — consumes the BAKED list, zero seam reader ────
+// ── mountFilesystemsForAgent — reads the record LIVE, zero baked list ──────
 
-describe("mountFilesystemsForAgent consumes the baked injectedFilesystems list", () => {
+/** The reader port, recording which agent the mount step asked about. */
+function reader(
+	rows: readonly FilesystemForProvisioning[],
+	asked: string[] = [],
+): InjectedFilesystemsReaderPort {
+	return {
+		listInjectedForProvisioning: async (agentId: string) => {
+			asked.push(agentId);
+			return rows;
+		},
+	};
+}
+
+describe("mountFilesystemsForAgent reads the injected filesystems live at spawn", () => {
 	function buildFilesystemRecord(
 		overrides: Partial<FilesystemForProvisioning> = {},
 	): FilesystemForProvisioning {
@@ -71,8 +72,9 @@ describe("mountFilesystemsForAgent consumes the baked injectedFilesystems list",
 		};
 	}
 
-	test("mounts every filesystem in the baked injectedFilesystems list — zero reader/seam call", async () => {
-		const bakedRow = buildFilesystemRecord();
+	test("mounts every filesystem the reader returns for THIS agent", async () => {
+		const row = buildFilesystemRecord();
+		const asked: string[] = [];
 		const mounted: Array<{ filesystem: Filesystem }> = [];
 		const mounter: FilesystemMounter = {
 			mount: async (input) => {
@@ -83,11 +85,13 @@ describe("mountFilesystemsForAgent consumes the baked injectedFilesystems list",
 		};
 
 		const result = await mountFilesystemsForAgent({
-			injectedFilesystems: [bakedRow],
+			agentId: "agent-inc12-1",
+			filesystems: reader([row], asked),
 			sandboxPath,
 			mounter,
 		});
 
+		expect(asked).toEqual(["agent-inc12-1"]);
 		expect(result).toHaveLength(1);
 		expect(result[0]?.id).toBe("fs-inc12-1");
 		expect(mounted).toHaveLength(1);
@@ -101,7 +105,24 @@ describe("mountFilesystemsForAgent consumes the baked injectedFilesystems list",
 		} as unknown as FilesystemMounter;
 
 		const result = await mountFilesystemsForAgent({
-			injectedFilesystems: [],
+			agentId: "agent-inc12-empty",
+			filesystems: reader([]),
+			sandboxPath,
+			mounter,
+		});
+
+		expect(result).toHaveLength(0);
+		expect(mounter.mount).not.toHaveBeenCalled();
+	});
+
+	test("an unwired reader port mounts nothing — the same graceful no-op an absent mounter gives", async () => {
+		const mounter: FilesystemMounter = {
+			mount: vi.fn(),
+			captureBack: vi.fn(),
+		} as unknown as FilesystemMounter;
+
+		const result = await mountFilesystemsForAgent({
+			agentId: "agent-inc12-unwired",
 			sandboxPath,
 			mounter,
 		});
@@ -118,7 +139,8 @@ describe("mountFilesystemsForAgent consumes the baked injectedFilesystems list",
 		};
 
 		const result = await mountFilesystemsForAgent({
-			injectedFilesystems: [bakedRow],
+			agentId: "agent-inc12-fail",
+			filesystems: reader([bakedRow]),
 			sandboxPath,
 			mounter,
 		});

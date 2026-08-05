@@ -39,6 +39,7 @@ import {
 import type { HarnessCapabilityDescriptor } from "@hyperidle/shared";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { useUiPreference } from "../hooks/useUiPreference.js";
+import { fetchActiveRunCounts } from "../services/agent-runs.js";
 import { apiFetch } from "../services/api-fetch.js";
 import { useToast } from "../shell/ToastRegion.js";
 import type { AgentEditorDraft } from "./AgentEditor.js";
@@ -96,6 +97,15 @@ export function SettingsAgents(): JSX.Element {
 	const [harnesses, setHarnesses] = useState<HarnessCapabilityDescriptor[]>([]);
 	const [filesystems, setFilesystems] = useState<InjectableFilesystem[]>([]);
 	const [orgTeams, setOrgTeams] = useState<OrgTeam[]>([]);
+	/**
+	 * @lore AU26 J4: the "N active" count per agent used to ride on
+	 * `GET /api/agents` (and on both PATCH responses, purely so the client could
+	 * splice it back into the list row). Core-api no longer reads
+	 * `agent-orchestration`'s `sessions` table; this map comes straight from the
+	 * Layer that owns it. Keeping it in its own state also removes the splice
+	 * problem outright — a save no longer has to carry a run count.
+	 */
+	const [activeRunCounts, setActiveRunCounts] = useState<Readonly<Record<string, number>>>({});
 	const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
 	// SplitView state
@@ -157,6 +167,14 @@ export function SettingsAgents(): JSX.Element {
 			if (!agentsRes.ok) throw new Error(`HTTP ${agentsRes.status}`);
 			const agentsJson = (await agentsRes.json()) as AgentConfig[];
 			setAgents(agentsJson);
+
+			// AU26 J4: run counts from agent-orchestration's own API. A failure here
+			// must not fail the page — the agent list is core's data and stands on
+			// its own; the counts simply render as 0.
+			const counts: Readonly<Record<string, number>> = await fetchActiveRunCounts().catch(
+				() => ({}),
+			);
+			setActiveRunCounts(counts);
 
 			if (harnessesRes.ok) {
 				const harnessesJson = (await harnessesRes.json()) as HarnessCapabilityDescriptor[];
@@ -452,7 +470,7 @@ export function SettingsAgents(): JSX.Element {
 									{harnessUnavailable && <StatusChip status="behind" label="Harness unavailable" />}
 								</span>
 							}
-							subtitle={`${agent.role} · ${agent.harnessType ?? "Default"} · ${agent.activeSessions} active`}
+							subtitle={`${agent.role} · ${agent.harnessType ?? "Default"} · ${activeRunCounts[agent.id] ?? 0} active`}
 							selected={isSelected}
 							actions={
 								<div className="flex gap-[6px]">

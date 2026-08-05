@@ -67,7 +67,6 @@ async function seedTaskWithAgentAndThread(
 		role: "builder",
 		teamId: "t1",
 		status: "active",
-		maxConcurrentSessions: 2,
 		createdAt: now,
 	});
 	await db.insert(threads).values({
@@ -152,7 +151,6 @@ describe("reply tool", () => {
 				name: "Founder",
 				role: "founder",
 				status: "active",
-				maxConcurrentSessions: 1,
 				createdAt: now,
 			});
 			await db.insert(users).values({
@@ -160,7 +158,6 @@ describe("reply tool", () => {
 				name: "Agent",
 				role: "builder",
 				status: "active",
-				maxConcurrentSessions: 2,
 				createdAt: now,
 			});
 
@@ -196,7 +193,6 @@ describe("reply tool", () => {
 				name: "Founder",
 				role: "founder",
 				status: "active",
-				maxConcurrentSessions: 1,
 				createdAt: now,
 			});
 			await db.insert(users).values({
@@ -204,7 +200,6 @@ describe("reply tool", () => {
 				name: "Agent",
 				role: "builder",
 				status: "active",
-				maxConcurrentSessions: 2,
 				createdAt: now,
 			});
 

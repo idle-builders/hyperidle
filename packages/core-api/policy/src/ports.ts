@@ -146,4 +146,21 @@ export interface PolicyDeps {
 	readonly taskRunResolver?: {
 		resolve(tx: WriteExecutor, attemptId: string): Promise<BakedWorkIntentRequest>;
 	};
+	/**
+	 * AU26 H1 (§D-M.1) — the run-end write a handoff performs is
+	 * `agent-orchestration`'s state transition, not policy's. `policy` asks the
+	 * Layer that runs sessions to end the run; it does not write the row itself.
+	 *
+	 * Optional for the same reason `sessionRequests`/`taskRunResolver`/`org` are:
+	 * it is a HANDOFF-only dependency, and `HandoffDeps` narrows it back to
+	 * required with `NonNullable<...>`. The reactive/query composition roots
+	 * (`registerPolicy`, `computeApprovalRate`) never touch it.
+	 *
+	 * Called with the handoff's OWN `tx` handle — the run must be terminal at
+	 * the same commit as the task claim, or a handoff commits with a live run
+	 * and nothing behind it ever cleans up (the reaper is routine-only).
+	 */
+	readonly runOrchestration?: {
+		endRunForHandoff(exec: WriteExecutor, sessionId: string, endedAt: string): Promise<void>;
+	};
 }

@@ -11,7 +11,6 @@ export const SCOPE_TO_LAYER: Readonly<Record<ScopeKind, KnowledgeLayer | null>> 
 	bet: null,
 	team: null,
 	user: null,
-	filesystem: null,
 };
 
 export function scopeToLayer(scopeKind: ScopeKind): KnowledgeLayer | null {

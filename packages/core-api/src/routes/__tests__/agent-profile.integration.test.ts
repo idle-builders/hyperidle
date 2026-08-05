@@ -26,11 +26,11 @@
  */
 
 import {
+	agentRunConfig,
 	bets,
 	type HyperIdleDb,
 	items,
 	messages,
-	sessions,
 	tasks,
 	teamMembers,
 	teams,
@@ -51,9 +51,7 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 
 const NOW = new Date().toISOString();
 // 3 days ago
-const THREE_DAYS_AGO = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
 // 10 days ago (outside 7-day health window)
-const TEN_DAYS_AGO = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
 
 /** Seed the minimum required prerequisite rows for agent profile tests. */
 async function seedPrereqs(db: HyperIdleDb): Promise<void> {
@@ -77,8 +75,12 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 		role: "founder",
 		status: "active",
 		email: "ab1-founder@hyperidle.com",
-		maxConcurrentSessions: 0,
 		createdAt: NOW,
+	});
+	// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+	await db.insert(agentRunConfig).values({
+		agentUserId: "u-founder-ab1",
+		maxConcurrentSessions: 0,
 	});
 
 	// Seed a configurable AI agent (builder role)
@@ -88,12 +90,16 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 		name: "AB1 Builder Bot",
 		role: "builder",
 		status: "active",
-		maxConcurrentSessions: 2,
 		teamId: "ab1-tm",
+		createdAt: NOW,
+	});
+	// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+	await db.insert(agentRunConfig).values({
+		agentUserId: "ab1-agent-builder",
+		maxConcurrentSessions: 2,
 		harnessType: "claude-code",
 		systemPrompt: "You are a builder agent.",
 		modelTierPreference: "workhorse",
-		createdAt: NOW,
 	});
 
 	// Seed a human user (to test 404 path)
@@ -104,8 +110,12 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 		role: "founder",
 		status: "active",
 		email: "ab1-human@hyperidle.com",
-		maxConcurrentSessions: 0,
 		createdAt: NOW,
+	});
+	// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+	await db.insert(agentRunConfig).values({
+		agentUserId: "ab1-human-user",
+		maxConcurrentSessions: 0,
 	});
 
 	// Seed a bet and task for sessions
@@ -160,14 +170,19 @@ describe("AB1 AC-1: GET /api/agents/:id/profile returns 200 with correct shape",
 		expect(body).toHaveProperty("harnessType");
 		expect(body).toHaveProperty("modelTierPreference");
 		expect(body).toHaveProperty("maxConcurrentSessions");
-		// Status
-		expect(body).toHaveProperty("activeSession");
-		// Sessions
-		expect(body).toHaveProperty("recentSessions");
-		// Performance
-		expect(body).toHaveProperty("performance");
-		// Health
-		expect(body).toHaveProperty("healthSignals");
+		// @lore AU26 J4: `activeSession`, `recentSessions`, `performance` and
+		// `healthSignals` are GONE — every one was derived here from
+		// `agent-orchestration`'s `sessions` table, and the profile page fetches
+		// the runs from that Layer and derives them itself. Their derivation is
+		// covered by `packages/shared/src/__tests__/health-signals.test.ts`; the
+		// run rows they derive from by
+		// `agent-orchestration-run-reads.integration.test.ts`.
+		for (const gone of ["activeSession", "recentSessions", "performance", "healthSignals"]) {
+			expect(body).not.toHaveProperty(gone);
+		}
+		// Harness availability — NOT run state; a fact about this process's
+		// adapter pool, and the one health input the browser cannot compute.
+		expect(body).toHaveProperty("harnessAvailable");
 		// Capabilities
 		expect(body).toHaveProperty("harnessCapabilities");
 		// Review track record (AD4: replaces skills)
@@ -196,34 +211,6 @@ describe("AB1 AC-1: GET /api/agents/:id/profile returns 200 with correct shape",
 		expect(res.status).toBe(401);
 	});
 
-	test("performance shape has required fields", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
-			headers: authHeaders(),
-		});
-		const body = (await res.json()) as Record<string, unknown>;
-		const performance = body.performance as Record<string, unknown>;
-
-		expect(performance).toHaveProperty("totalSessions");
-		expect(performance).toHaveProperty("successCount");
-		expect(performance).toHaveProperty("successRate");
-	});
-
-	test("healthSignals shape has required fields", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
-			headers: authHeaders(),
-		});
-		const body = (await res.json()) as Record<string, unknown>;
-		const health = body.healthSignals as Record<string, unknown>;
-
-		expect(health).toHaveProperty("failureRate7d");
-		expect(health).toHaveProperty("lastSessionCrashed");
-		expect(health).toHaveProperty("harnessAvailable");
-		expect(health).toHaveProperty("idleDurationMs");
-		expect(health).toHaveProperty("degraded");
-	});
-
 	test("harnessCapabilities shape has required fields", async ({ db, app }) => {
 		await seedPrereqs(db);
 		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
@@ -236,15 +223,6 @@ describe("AB1 AC-1: GET /api/agents/:id/profile returns 200 with correct shape",
 		expect(caps).toHaveProperty("mcpSupport");
 		expect(caps).toHaveProperty("fileEditing");
 		expect(caps).toHaveProperty("subAgents");
-	});
-
-	test("recentSessions is an array", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
-			headers: authHeaders(),
-		});
-		const body = (await res.json()) as Record<string, unknown>;
-		expect(Array.isArray(body.recentSessions)).toBe(true);
 	});
 
 	test("reviewTrackRecord is present and has recentVerdicts array (AD4: replaces skills)", async ({
@@ -318,559 +296,11 @@ describe("AB1 AC-3: GET /api/agents/:id/profile returns 404 for human users", ()
 // AC-4: Returns active session when agent has running session
 // ---------------------------------------------------------------------------
 
-describe("AB1 AC-4: Returns active session link when agent has running session", () => {
-	beforeEach(() => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-	});
-
-	afterEach(() => {
-		vi.unstubAllEnvs();
-	});
-
-	test("returns null activeSession when agent has no running session", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
-			headers: authHeaders(),
-		});
-		const body = (await res.json()) as Record<string, unknown>;
-		expect(body.activeSession).toBeNull();
-	});
-
-	test("returns active session info when agent has a running session", async ({ db, app }) => {
-		await seedPrereqs(db);
-		// Seed an active session
-		await db.insert(sessions).values({
-			id: "ab1-session-active",
-			taskId: "ab1-task-1",
-			agentId: "ab1-agent-builder",
-			modelTier: "workhorse",
-			startedAt: NOW,
-			state: "active",
-		});
-
-		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
-			headers: authHeaders(),
-		});
-		const body = (await res.json()) as Record<string, unknown>;
-		const activeSession = body.activeSession as Record<string, unknown>;
-
-		expect(activeSession).not.toBeNull();
-		expect(activeSession).toHaveProperty("sessionId");
-		expect(activeSession.sessionId).toBe("ab1-session-active");
-		expect(activeSession).toHaveProperty("taskId");
-		expect(activeSession.taskId).toBe("ab1-task-1");
-		// M1: betId must be present so the frontend link uses /work/bet/:betId/task/:taskId
-		expect(activeSession).toHaveProperty("betId");
-		expect(activeSession.betId).toBe("ab1-bet-1");
-		expect(activeSession).toHaveProperty("startedAt");
-	});
-});
-
-// ---------------------------------------------------------------------------
-// AC-5: Returns recent sessions (last 10, newest first)
-// ---------------------------------------------------------------------------
-
-describe("AB1 AC-5: Returns recent sessions (last 10, newest first)", () => {
-	beforeEach(() => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-	});
-
-	afterEach(() => {
-		vi.unstubAllEnvs();
-	});
-
-	test("returns empty array when no sessions exist", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
-			headers: authHeaders(),
-		});
-		const body = (await res.json()) as Record<string, unknown>;
-		expect(Array.isArray(body.recentSessions)).toBe(true);
-		expect((body.recentSessions as unknown[]).length).toBe(0);
-	});
-
-	test("returns sessions with required fields", async ({ db, app }) => {
-		await seedPrereqs(db);
-		await db.insert(sessions).values({
-			id: "ab1-session-1",
-			taskId: "ab1-task-1",
-			agentId: "ab1-agent-builder",
-			modelTier: "workhorse",
-			startedAt: THREE_DAYS_AGO,
-			endedAt: NOW,
-			state: "completed",
-			outcome: "completed",
-		});
-
-		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
-			headers: authHeaders(),
-		});
-		const body = (await res.json()) as Record<string, unknown>;
-		const sessionsList = body.recentSessions as Array<Record<string, unknown>>;
-
-		expect(sessionsList.length).toBe(1);
-		const session = sessionsList[0];
-		expect(session).toHaveProperty("sessionId");
-		expect(session).toHaveProperty("taskId");
-		expect(session).toHaveProperty("taskTitle");
-		expect(session).toHaveProperty("outcome");
-		expect(session).toHaveProperty("startedAt");
-		expect(session).toHaveProperty("endedAt");
-	});
-
-	test("returns at most 10 sessions even when 12 exist", async ({ db, app }) => {
-		await seedPrereqs(db);
-		// Seed 12 sessions - need 12 tasks
-		for (let i = 1; i <= 12; i++) {
-			const paddedId = i.toString().padStart(2, "0");
-			// Create a task for each session
-			await db.insert(tasks).values({
-				id: `ab1-task-multi-${paddedId}`,
-				betId: "ab1-bet-1",
-				teamId: "ab1-team",
-				title: `Task ${paddedId}`,
-				state: "completed",
-				createdAt: NOW,
-				updatedAt: NOW,
-			});
-			await db.insert(sessions).values({
-				id: `ab1-session-multi-${paddedId}`,
-				taskId: `ab1-task-multi-${paddedId}`,
-				agentId: "ab1-agent-builder",
-				modelTier: "workhorse",
-				startedAt: new Date(Date.now() - i * 60 * 1000).toISOString(),
-				endedAt: new Date(Date.now() - (i - 1) * 60 * 1000).toISOString(),
-				state: "completed",
-				outcome: "completed",
-			});
-		}
-
-		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
-			headers: authHeaders(),
-		});
-		const body = (await res.json()) as Record<string, unknown>;
-		const recentSessions = body.recentSessions as unknown[];
-		expect(recentSessions.length).toBe(10);
-	});
-
-	test("sessions are ordered newest first", async ({ db, app }) => {
-		await seedPrereqs(db);
-		// Seed multiple sessions with distinct times
-		await db.insert(tasks).values({
-			id: "ab1-task-oldest",
-			betId: "ab1-bet-1",
-			teamId: "ab1-team",
-			title: "Oldest task",
-			state: "completed",
-			createdAt: NOW,
-			updatedAt: NOW,
-		});
-
-		await db.insert(sessions).values({
-			id: "ab1-session-oldest",
-			taskId: "ab1-task-oldest",
-			agentId: "ab1-agent-builder",
-			modelTier: "workhorse",
-			startedAt: THREE_DAYS_AGO,
-			endedAt: THREE_DAYS_AGO,
-			state: "completed",
-			outcome: "completed",
-		});
-
-		await db.insert(sessions).values({
-			id: "ab1-session-newest",
-			taskId: "ab1-task-1",
-			agentId: "ab1-agent-builder",
-			modelTier: "workhorse",
-			startedAt: NOW,
-			state: "active",
-		});
-
-		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
-			headers: authHeaders(),
-		});
-		const body = (await res.json()) as Record<string, unknown>;
-		const recentSessions = body.recentSessions as Array<Record<string, unknown>>;
-
-		// Newest session should be first
-		expect(recentSessions[0]?.sessionId).toBe("ab1-session-newest");
-		expect(recentSessions[1]?.sessionId).toBe("ab1-session-oldest");
-	});
-});
-
-// ---------------------------------------------------------------------------
-// AC-6: Returns performance aggregates
-// ---------------------------------------------------------------------------
-
-describe("AB1 AC-6: Returns performance aggregates (total, success, rate)", () => {
-	beforeEach(() => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-	});
-
-	afterEach(() => {
-		vi.unstubAllEnvs();
-	});
-
-	test("returns zero performance stats when no sessions", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
-			headers: authHeaders(),
-		});
-		const body = (await res.json()) as Record<string, unknown>;
-		const performance = body.performance as Record<string, unknown>;
-
-		expect(performance.totalSessions).toBe(0);
-		expect(performance.successCount).toBe(0);
-		expect(performance.successRate).toBe(0);
-	});
-
-	test("computes success rate from sessions (3 success out of 4 = 75%)", async ({ db, app }) => {
-		await seedPrereqs(db);
-		for (let i = 1; i <= 4; i++) {
-			const paddedId = i.toString().padStart(2, "0");
-			await db.insert(tasks).values({
-				id: `ab1-task-perf-${paddedId}`,
-				betId: "ab1-bet-1",
-				teamId: "ab1-team",
-				title: `Perf task ${paddedId}`,
-				state: "completed",
-				createdAt: NOW,
-				updatedAt: NOW,
-			});
-		}
-
-		// 3 successful, 1 crashed
-		await db.insert(sessions).values([
-			{
-				id: "ab1-perf-s1",
-				taskId: "ab1-task-perf-01",
-				agentId: "ab1-agent-builder",
-				modelTier: "workhorse",
-				startedAt: THREE_DAYS_AGO,
-				endedAt: NOW,
-				state: "completed",
-				outcome: "completed",
-			},
-			{
-				id: "ab1-perf-s2",
-				taskId: "ab1-task-perf-02",
-				agentId: "ab1-agent-builder",
-				modelTier: "workhorse",
-				startedAt: THREE_DAYS_AGO,
-				endedAt: NOW,
-				state: "completed",
-				outcome: "completed",
-			},
-			{
-				id: "ab1-perf-s3",
-				taskId: "ab1-task-perf-03",
-				agentId: "ab1-agent-builder",
-				modelTier: "workhorse",
-				startedAt: THREE_DAYS_AGO,
-				endedAt: NOW,
-				state: "completed",
-				outcome: "completed",
-			},
-			{
-				id: "ab1-perf-s4",
-				taskId: "ab1-task-perf-04",
-				agentId: "ab1-agent-builder",
-				modelTier: "workhorse",
-				startedAt: THREE_DAYS_AGO,
-				endedAt: NOW,
-				state: "completed",
-				outcome: "crashed",
-			},
-		]);
-
-		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
-			headers: authHeaders(),
-		});
-		const body = (await res.json()) as Record<string, unknown>;
-		const performance = body.performance as Record<string, unknown>;
-
-		expect(performance.totalSessions).toBe(4);
-		expect(performance.successCount).toBe(3);
-		expect(performance.successRate).toBeCloseTo(0.75);
-	});
-});
-
-// ---------------------------------------------------------------------------
-// AC-7: Health signal: failure rate warning when >50% in 7 days
-// ---------------------------------------------------------------------------
-
-describe("AB1 AC-7: Health signal failure rate warning when >50% in 7 days", () => {
-	beforeEach(() => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-	});
-
-	afterEach(() => {
-		vi.unstubAllEnvs();
-	});
-
-	test("sets degraded=true when failure rate is >50% in last 7 days", async ({ db, app }) => {
-		await seedPrereqs(db);
-		// Seed 2 crashed out of 3 total sessions (within 7 days)
-		for (let i = 1; i <= 3; i++) {
-			const paddedId = i.toString().padStart(2, "0");
-			await db.insert(tasks).values({
-				id: `ab1-task-health-warn-${paddedId}`,
-				betId: "ab1-bet-1",
-				teamId: "ab1-team",
-				title: `Health task ${paddedId}`,
-				state: "completed",
-				createdAt: NOW,
-				updatedAt: NOW,
-			});
-		}
-
-		await db.insert(sessions).values([
-			{
-				id: "ab1-health-warn-s1",
-				taskId: "ab1-task-health-warn-01",
-				agentId: "ab1-agent-builder",
-				modelTier: "workhorse",
-				startedAt: THREE_DAYS_AGO,
-				endedAt: NOW,
-				state: "completed",
-				outcome: "crashed", // fail
-			},
-			{
-				id: "ab1-health-warn-s2",
-				taskId: "ab1-task-health-warn-02",
-				agentId: "ab1-agent-builder",
-				modelTier: "workhorse",
-				startedAt: THREE_DAYS_AGO,
-				endedAt: NOW,
-				state: "completed",
-				outcome: "crashed", // fail
-			},
-			{
-				id: "ab1-health-warn-s3",
-				taskId: "ab1-task-health-warn-03",
-				agentId: "ab1-agent-builder",
-				modelTier: "workhorse",
-				startedAt: THREE_DAYS_AGO,
-				endedAt: NOW,
-				state: "completed",
-				outcome: "completed", // success
-			},
-		]);
-
-		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
-			headers: authHeaders(),
-		});
-		const body = (await res.json()) as Record<string, unknown>;
-		const health = body.healthSignals as Record<string, unknown>;
-
-		expect(health.failureRate7d).toBeGreaterThan(0.5);
-		expect(health.degraded).toBe(true);
-	});
-});
-
-// ---------------------------------------------------------------------------
-// AC-8: Health signal: failure rate OK when ≤50%
-// ---------------------------------------------------------------------------
-
-describe("AB1 AC-8: Health signal failure rate OK when ≤50%", () => {
-	beforeEach(() => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-	});
-
-	afterEach(() => {
-		vi.unstubAllEnvs();
-	});
-
-	test("sets degraded=false when no sessions exist (no history)", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
-			headers: authHeaders(),
-		});
-		const body = (await res.json()) as Record<string, unknown>;
-		const health = body.healthSignals as Record<string, unknown>;
-
-		expect(health.failureRate7d).toBe(0);
-		expect(health.degraded).toBe(false);
-	});
-
-	test("sets degraded=false when failure rate is exactly 50%", async ({ db, app }) => {
-		await seedPrereqs(db);
-		for (let i = 1; i <= 2; i++) {
-			const paddedId = i.toString().padStart(2, "0");
-			await db.insert(tasks).values({
-				id: `ab1-task-health-ok-${paddedId}`,
-				betId: "ab1-bet-1",
-				teamId: "ab1-team",
-				title: `Health OK task ${paddedId}`,
-				state: "completed",
-				createdAt: NOW,
-				updatedAt: NOW,
-			});
-		}
-
-		await db.insert(sessions).values([
-			{
-				id: "ab1-health-ok-s1",
-				taskId: "ab1-task-health-ok-01",
-				agentId: "ab1-agent-builder",
-				modelTier: "workhorse",
-				startedAt: THREE_DAYS_AGO,
-				endedAt: NOW,
-				state: "completed",
-				outcome: "crashed",
-			},
-			{
-				id: "ab1-health-ok-s2",
-				taskId: "ab1-task-health-ok-02",
-				agentId: "ab1-agent-builder",
-				modelTier: "workhorse",
-				startedAt: THREE_DAYS_AGO,
-				endedAt: NOW,
-				state: "completed",
-				outcome: "completed",
-			},
-		]);
-
-		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
-			headers: authHeaders(),
-		});
-		const body = (await res.json()) as Record<string, unknown>;
-		const health = body.healthSignals as Record<string, unknown>;
-
-		// 50% failure rate (1 out of 2) — threshold is > 50% for degraded
-		expect(health.failureRate7d).toBeCloseTo(0.5);
-		expect(health.degraded).toBe(false);
-	});
-
-	test("only counts sessions within 7 days for failure rate", async ({ db, app }) => {
-		await seedPrereqs(db);
-		// Seed old crashed sessions (outside 7 day window)
-		for (let i = 1; i <= 2; i++) {
-			const paddedId = i.toString().padStart(2, "0");
-			await db.insert(tasks).values({
-				id: `ab1-task-old-${paddedId}`,
-				betId: "ab1-bet-1",
-				teamId: "ab1-team",
-				title: `Old task ${paddedId}`,
-				state: "completed",
-				createdAt: NOW,
-				updatedAt: NOW,
-			});
-		}
-
-		await db.insert(sessions).values([
-			{
-				id: "ab1-old-s1",
-				taskId: "ab1-task-old-01",
-				agentId: "ab1-agent-builder",
-				modelTier: "workhorse",
-				startedAt: TEN_DAYS_AGO,
-				endedAt: TEN_DAYS_AGO,
-				state: "completed",
-				outcome: "crashed", // old crash — outside 7d window
-			},
-			{
-				id: "ab1-old-s2",
-				taskId: "ab1-task-old-02",
-				agentId: "ab1-agent-builder",
-				modelTier: "workhorse",
-				startedAt: TEN_DAYS_AGO,
-				endedAt: TEN_DAYS_AGO,
-				state: "completed",
-				outcome: "crashed", // old crash — outside 7d window
-			},
-		]);
-
-		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
-			headers: authHeaders(),
-		});
-		const body = (await res.json()) as Record<string, unknown>;
-		const health = body.healthSignals as Record<string, unknown>;
-
-		// Old sessions outside 7d window shouldn't count
-		expect(health.failureRate7d).toBe(0);
-		expect(health.degraded).toBe(false);
-	});
-});
-
-// ---------------------------------------------------------------------------
-// AC-9: Health signal: last session crash warning
-// ---------------------------------------------------------------------------
-
-describe("AB1 AC-9: Health signal last session crash warning", () => {
-	beforeEach(() => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-	});
-
-	afterEach(() => {
-		vi.unstubAllEnvs();
-	});
-
-	test("sets lastSessionCrashed=false when no sessions exist", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
-			headers: authHeaders(),
-		});
-		const body = (await res.json()) as Record<string, unknown>;
-		const health = body.healthSignals as Record<string, unknown>;
-		expect(health.lastSessionCrashed).toBe(false);
-	});
-
-	test("sets lastSessionCrashed=true when most recent session outcome is 'crashed'", async ({
-		db,
-		app,
-	}) => {
-		await seedPrereqs(db);
-		await db.insert(sessions).values({
-			id: "ab1-crashed-session",
-			taskId: "ab1-task-1",
-			agentId: "ab1-agent-builder",
-			modelTier: "workhorse",
-			startedAt: NOW,
-			endedAt: NOW,
-			state: "completed",
-			outcome: "crashed",
-		});
-
-		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
-			headers: authHeaders(),
-		});
-		const body = (await res.json()) as Record<string, unknown>;
-		const health = body.healthSignals as Record<string, unknown>;
-		expect(health.lastSessionCrashed).toBe(true);
-		expect(health.degraded).toBe(true);
-	});
-
-	test("sets lastSessionCrashed=false when most recent session outcome is 'completed'", async ({
-		db,
-		app,
-	}) => {
-		await seedPrereqs(db);
-		await db.insert(sessions).values({
-			id: "ab1-success-session",
-			taskId: "ab1-task-1",
-			agentId: "ab1-agent-builder",
-			modelTier: "workhorse",
-			startedAt: NOW,
-			endedAt: NOW,
-			state: "completed",
-			outcome: "completed",
-		});
-
-		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
-			headers: authHeaders(),
-		});
-		const body = (await res.json()) as Record<string, unknown>;
-		const health = body.healthSignals as Record<string, unknown>;
-		expect(health.lastSessionCrashed).toBe(false);
-	});
-});
-
-// ---------------------------------------------------------------------------
-// AC-10: Health signal: harness available check
-// ---------------------------------------------------------------------------
-
-describe("AB1 AC-10: Health signal harness available check", () => {
+// @lore AU26 J4: `harnessAvailable` is now a TOP-LEVEL field on the profile
+// response instead of a member of the (removed) `healthSignals` block. Same
+// value, same three cases — the browser feeds it straight back into its own
+// `computeHealthSignals` call.
+describe("AB1 AC-10: Harness availability", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 	});
@@ -901,8 +331,7 @@ describe("AB1 AC-10: Health signal harness available check", () => {
 			headers: authHeaders(),
 		});
 		const body = (await res.json()) as Record<string, unknown>;
-		const health = body.healthSignals as Record<string, unknown>;
-		expect(health.harnessAvailable).toBe(true);
+		expect(body.harnessAvailable).toBe(true);
 	});
 
 	test("sets harnessAvailable=false when agent harnessType is not in pool", async ({
@@ -920,9 +349,7 @@ describe("AB1 AC-10: Health signal harness available check", () => {
 			headers: authHeaders(),
 		});
 		const body = (await res.json()) as Record<string, unknown>;
-		const health = body.healthSignals as Record<string, unknown>;
-		expect(health.harnessAvailable).toBe(false);
-		expect(health.degraded).toBe(true);
+		expect(body.harnessAvailable).toBe(false);
 	});
 
 	test("sets harnessAvailable=true when agent has no harnessType preference", async ({
@@ -949,18 +376,16 @@ describe("AB1 AC-10: Health signal harness available check", () => {
 			name: "No Harness Agent",
 			role: "builder",
 			status: "active",
-			maxConcurrentSessions: 1,
 			createdAt: NOW,
-			// no harnessType
+			// no harnessType,
 		});
 
 		const res = await app.request("/api/agents/ab1-agent-no-harness/profile", {
 			headers: authHeaders(),
 		});
 		const body = (await res.json()) as Record<string, unknown>;
-		const health = body.healthSignals as Record<string, unknown>;
 		// No harnessType preference — any adapter will do, and pool has one
-		expect(health.harnessAvailable).toBe(true);
+		expect(body.harnessAvailable).toBe(true);
 	});
 });
 
@@ -1086,54 +511,8 @@ describe("AB1 AC-11 (AD4): reviewTrackRecord — approval rate from verdict hist
 // AC: Idle duration in health signals (per F3/A3 reviewer finding)
 // ---------------------------------------------------------------------------
 
-describe("AB1: Idle duration in health signals", () => {
-	beforeEach(() => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-	});
-
-	afterEach(() => {
-		vi.unstubAllEnvs();
-	});
-
-	test("returns idleDurationMs as null when no sessions exist", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
-			headers: authHeaders(),
-		});
-		const body = (await res.json()) as Record<string, unknown>;
-		const health = body.healthSignals as Record<string, unknown>;
-		// No sessions — idle since creation, or null if no baseline
-		expect(health.idleDurationMs === null || typeof health.idleDurationMs === "number").toBe(true);
-	});
-
-	test("returns idleDurationMs as a non-negative number when sessions exist", async ({
-		db,
-		app,
-	}) => {
-		await seedPrereqs(db);
-		await db.insert(sessions).values({
-			id: "ab1-session-for-idle",
-			taskId: "ab1-task-1",
-			agentId: "ab1-agent-builder",
-			modelTier: "workhorse",
-			startedAt: THREE_DAYS_AGO,
-			endedAt: THREE_DAYS_AGO,
-			state: "completed",
-			outcome: "completed",
-		});
-
-		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
-			headers: authHeaders(),
-		});
-		const body = (await res.json()) as Record<string, unknown>;
-		const health = body.healthSignals as Record<string, unknown>;
-		expect(typeof health.idleDurationMs).toBe("number");
-		expect(health.idleDurationMs as number).toBeGreaterThan(0);
-	});
-});
-
 // ---------------------------------------------------------------------------
-// Helper
+// Helpers
 // ---------------------------------------------------------------------------
 
 import type {

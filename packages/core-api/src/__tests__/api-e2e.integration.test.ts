@@ -579,13 +579,15 @@ describe("E2E API Integration (I5)", () => {
 	// 7. Agents
 	// -------------------------------------------------------
 	describe("Agents", () => {
-		test("GET /api/users lists agents with active session counts", async ({ db, app }) => {
+		// @lore AU26 J1: the per-user `activeSessions` count is gone — it was a raw
+		// `sessions` read and the list's one consumer is typed `{id,name,role,teamId}`.
+		test("GET /api/users lists agents", async ({ db, app }) => {
 			await seedBase(db);
 			const res = await app.request("/api/users", { headers: auth() });
 			expect(res.status).toBe(200);
-			const body = (await res.json()) as Array<{ id: string; activeSessions: number }>;
+			const body = (await res.json()) as Array<{ id: string; name: string }>;
 			expect(body.length).toBeGreaterThanOrEqual(1);
-			expect(body[0]?.activeSessions).toBe(0);
+			expect(body.some((u) => u.id === "agent-1")).toBe(true);
 		});
 
 		test("GET /api/users/:id returns agent detail", async ({ db, app }) => {
@@ -710,12 +712,14 @@ describe("E2E API Integration (I5)", () => {
 	// 10. Status
 	// -------------------------------------------------------
 	describe("Status", () => {
+		// @lore AU26 J1: `activeSessions` is gone from this response.
 		test("GET /api/status returns factory-wide status", async ({ db, app }) => {
 			await seedBase(db);
 			const res = await app.request("/api/status", { headers: auth() });
 			expect(res.status).toBe(200);
-			const body = (await res.json()) as { activeSessions: number };
-			expect(body.activeSessions).toBe(0);
+			const body = (await res.json()) as { agentStates: Record<string, number>; uptime: string };
+			expect(typeof body.uptime).toBe("string");
+			expect(body.agentStates).toBeTypeOf("object");
 		});
 
 		test("GET /api/status/health returns authenticated health", async ({ db, app }) => {
@@ -729,8 +733,8 @@ describe("E2E API Integration (I5)", () => {
 		// @lore AU18: the generic `GET`/`PATCH /api/status/settings` catch-all is
 		// retired along with `factorySettings` — every legitimate key it carried
 		// now has a domain-specific route backed by `server_config`
-		// (notifications/observability/git-export config have their own route
-		// tests). No web client depended on the raw-rows shape (confirmed via grep).
+		// (notifications config has its own route tests). No web
+		// client depended on the raw-rows shape (confirmed via grep).
 
 		test("GET /api/status/digest returns digest data", async ({ db, app }) => {
 			await seedBase(db);
@@ -846,37 +850,6 @@ describe("E2E API Integration (I5)", () => {
 			const body = (await res.json()) as { ok: boolean; channel: string };
 			expect(body.ok).toBe(true);
 			expect(body.channel).toBe("console");
-		});
-	});
-
-	// -------------------------------------------------------
-	// 13. Observability
-	// -------------------------------------------------------
-	describe("Observability", () => {
-		test("GET /api/observability returns resource descriptor", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/observability", { headers: auth() });
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as { ok: boolean; resource: string };
-			expect(body.ok).toBe(true);
-			expect(body.resource).toBe("observability");
-		});
-
-		test("GET /api/observability/config returns observability config", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/observability/config", { headers: auth() });
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as { enabled: boolean; adapter: string };
-			expect(typeof body.enabled).toBe("boolean");
-			expect(typeof body.adapter).toBe("string");
-		});
-
-		test("GET /api/observability/status returns status info", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/observability/status", { headers: auth() });
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as { enabled: boolean };
-			expect(typeof body.enabled).toBe("boolean");
 		});
 	});
 

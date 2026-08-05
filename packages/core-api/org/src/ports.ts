@@ -27,3 +27,31 @@ export interface OrgUserDirectory {
 	insertUser(db: WriteExecutor, values: NewUser): Promise<void>;
 	listUsersByKind(db: WriteExecutor, kind: string): Promise<User[]>;
 }
+
+/**
+ * AU26 G1 (architecture §D-L) — the run-config half of a scaffolded agent's
+ * creation, injected the same Mechanism-C way `OrgUserDirectory` is.
+ *
+ * @lore AU26 G1: `persistScaffoldedAgents` is the single writer of agent user
+ * rows, and it stamps the Kernel-owned mechanism fields
+ * (`harnessType`/`modelId`/`modelProvider`/`maxConcurrentSessions`). Those
+ * fields left `users` for `agent_run_config`, so the writer now makes two
+ * writes instead of one. It cannot import `@hyperidle/agent-run-config`
+ * directly — `composition-boundary-guard` forbids a Service package depending
+ * on another Service — so the Layer wires this port, exactly as it already
+ * wires `orgUsers`.
+ */
+export interface OrgAgentRunConfigWriter {
+	writeAgentRunConfig(
+		db: WriteExecutor,
+		agentUserId: string,
+		patch: {
+			readonly systemPrompt?: string | null;
+			readonly harnessType?: string | null;
+			readonly modelTierPreference?: string | null;
+			readonly modelId?: string | null;
+			readonly modelProvider?: string | null;
+			readonly maxConcurrentSessions?: number;
+		},
+	): Promise<void>;
+}

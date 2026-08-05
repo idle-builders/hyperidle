@@ -74,7 +74,6 @@ async function seedRoutineWorld(
 			role: "builder",
 			status: "active",
 			teamId: tmId,
-			maxConcurrentSessions: 1,
 			createdAt: NOW,
 		},
 		{
@@ -84,7 +83,6 @@ async function seedRoutineWorld(
 			role: "builder",
 			status: "active",
 			teamId: tmId,
-			maxConcurrentSessions: 1,
 			createdAt: NOW,
 		},
 	]);

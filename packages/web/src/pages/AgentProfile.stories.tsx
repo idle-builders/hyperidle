@@ -9,6 +9,7 @@
 import type { AgentProfileResponse } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+import type { AgentRunState } from "../hooks/useAgentRunState.js";
 import { AgentProfile } from "./AgentProfile.js";
 
 function wrap(element: JSX.Element): JSX.Element {
@@ -35,6 +36,33 @@ const BASE_PROFILE: AgentProfileResponse = {
 	modelTierPreference: "workhorse",
 	maxConcurrentSessions: 2,
 	mcpSetup: null,
+	harnessAvailable: true,
+	harnessCapabilities: {
+		toolUse: true,
+		mcpSupport: true,
+		fileEditing: true,
+		subAgents: true,
+	},
+	reviewTrackRecord: {
+		approvalRate: 0.92,
+		totalVerdicts: 34,
+		recentVerdicts: [
+			{ decision: "approve", threadId: "t-1", createdAt: "2024-06-03T10:45:00.000Z" },
+			{ decision: "approve", threadId: "t-2", createdAt: "2024-06-02T14:00:00.000Z" },
+			{ decision: "request-changes", threadId: "t-3", createdAt: "2024-06-01T09:00:00.000Z" },
+			{ decision: "approve-with-comments", threadId: "t-4", createdAt: "2024-05-30T16:00:00.000Z" },
+			{ decision: "approve", threadId: "t-5", createdAt: "2024-05-29T11:00:00.000Z" },
+		],
+		windowDays: 30,
+	},
+};
+
+/**
+ * @lore AU26 J4: run state is fetched from `agent-orchestration`, not served on
+ * the profile response, so the stories inject it through its own prop.
+ */
+const BASE_RUN_STATE: AgentRunState = {
+	status: "ready",
 	activeSession: null,
 	recentSessions: [
 		{
@@ -74,46 +102,46 @@ const BASE_PROFILE: AgentProfileResponse = {
 		idleDurationMs: 3600000,
 		degraded: false,
 	},
-	harnessCapabilities: {
-		toolUse: true,
-		mcpSupport: true,
-		fileEditing: true,
-		subAgents: true,
-	},
-	reviewTrackRecord: {
-		approvalRate: 0.92,
-		totalVerdicts: 34,
-		recentVerdicts: [
-			{ decision: "approve", threadId: "t-1", createdAt: "2024-06-03T10:45:00.000Z" },
-			{ decision: "approve", threadId: "t-2", createdAt: "2024-06-02T14:00:00.000Z" },
-			{ decision: "request-changes", threadId: "t-3", createdAt: "2024-06-01T09:00:00.000Z" },
-			{ decision: "approve-with-comments", threadId: "t-4", createdAt: "2024-05-30T16:00:00.000Z" },
-			{ decision: "approve", threadId: "t-5", createdAt: "2024-05-29T11:00:00.000Z" },
-		],
-		windowDays: 30,
-	},
 };
 
 export default { title: "Page: Agents/AgentProfile" };
 
 /** Healthy agent: no active session, no degraded health, skills and activity shown. */
-export const Healthy = (): JSX.Element => wrap(<AgentProfile overrideData={BASE_PROFILE} />);
+export const Healthy = (): JSX.Element =>
+	wrap(<AgentProfile overrideData={BASE_PROFILE} overrideRunState={BASE_RUN_STATE} />);
 
 /** Agent with active session — shows active session chip and link. */
 export const WithActiveSession = (): JSX.Element =>
 	wrap(
 		<AgentProfile
-			overrideData={{
-				...BASE_PROFILE,
+			overrideData={BASE_PROFILE}
+			overrideRunState={{
+				...BASE_RUN_STATE,
 				activeSession: {
 					sessionId: "sess-active",
 					taskId: "task-active",
 					betId: "bet-1",
 					startedAt: new Date().toISOString(),
 				},
-				healthSignals: {
-					...BASE_PROFILE.healthSignals,
-				},
+			}}
+		/>,
+	);
+
+/**
+ * AU26 review W6 — the run read failed. The page must say so rather than paint
+ * a healthy, idle agent with 0 sessions: an unavailability alert, "—" for the
+ * numbers, and no health banner (there is no health to report).
+ */
+export const RunStateUnavailable = (): JSX.Element =>
+	wrap(
+		<AgentProfile
+			overrideData={BASE_PROFILE}
+			overrideRunState={{
+				...BASE_RUN_STATE,
+				status: "error",
+				activeSession: null,
+				recentSessions: [],
+				performance: { totalSessions: 0, successCount: 0, successRate: 0 },
 			}}
 		/>,
 	);
@@ -122,8 +150,9 @@ export const WithActiveSession = (): JSX.Element =>
 export const Degraded = (): JSX.Element =>
 	wrap(
 		<AgentProfile
-			overrideData={{
-				...BASE_PROFILE,
+			overrideData={{ ...BASE_PROFILE, harnessAvailable: false }}
+			overrideRunState={{
+				...BASE_RUN_STATE,
 				healthSignals: {
 					failureRate7d: 0.75,
 					lastSessionCrashed: true,
@@ -141,14 +170,17 @@ export const NoHistory = (): JSX.Element =>
 		<AgentProfile
 			overrideData={{
 				...BASE_PROFILE,
-				activeSession: null,
-				recentSessions: [],
 				reviewTrackRecord: {
 					approvalRate: 0,
 					totalVerdicts: 0,
 					recentVerdicts: [],
 					windowDays: 30,
 				},
+			}}
+			overrideRunState={{
+				status: "ready",
+				activeSession: null,
+				recentSessions: [],
 				performance: { totalSessions: 0, successCount: 0, successRate: 0 },
 				healthSignals: {
 					failureRate7d: 0,
@@ -165,6 +197,7 @@ export const NoHistory = (): JSX.Element =>
 export const NoReviews = (): JSX.Element =>
 	wrap(
 		<AgentProfile
+			overrideRunState={BASE_RUN_STATE}
 			overrideData={{
 				...BASE_PROFILE,
 				reviewTrackRecord: {
@@ -192,6 +225,7 @@ export const NotFound = (): JSX.Element =>
 export const StrategyAgent = (): JSX.Element =>
 	wrap(
 		<AgentProfile
+			overrideRunState={BASE_RUN_STATE}
 			overrideData={{
 				...BASE_PROFILE,
 				name: "Scout Strategy",

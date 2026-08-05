@@ -13,7 +13,7 @@
  *  - schema + migration 0032 adds model_id/model_provider columns
  */
 
-import { type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
+import { agentRunConfig, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
 import { AdapterPool, createHarnessAdapter } from "@hyperidle/harness-registry";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../test-fixtures.js";
@@ -71,8 +71,12 @@ async function seedPrereqs(db: HyperIdleDb) {
 		role: "founder",
 		status: "active",
 		email: "ah2-founder@hyperidle.com",
-		maxConcurrentSessions: 0,
 		createdAt: NOW,
+	});
+	// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+	await db.insert(agentRunConfig).values({
+		agentUserId: "u-founder-ah2",
+		maxConcurrentSessions: 0,
 	});
 }
 
@@ -160,11 +164,15 @@ describe("AH2 AC1: per-agent model — distinct models on different agents", () 
 			name: "AH2 Builder",
 			role: "builder",
 			status: "active",
-			maxConcurrentSessions: 1,
 			teamId: "ah2-tm",
+			createdAt: NOW,
+		});
+		// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+		await db.insert(agentRunConfig).values({
+			agentUserId: "ah2-builder",
+			maxConcurrentSessions: 1,
 			harnessType: "builtin",
 			modelTierPreference: "workhorse",
-			createdAt: NOW,
 		});
 
 		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
@@ -189,9 +197,13 @@ describe("AH2 AC1: per-agent model — distinct models on different agents", () 
 			name: "Patchable",
 			role: "builder",
 			status: "active",
+			createdAt: NOW,
+		});
+		// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+		await db.insert(agentRunConfig).values({
+			agentUserId: "ah2-patchable",
 			maxConcurrentSessions: 1,
 			harnessType: "builtin",
-			createdAt: NOW,
 		});
 
 		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
@@ -255,9 +267,13 @@ describe("AH2 AC2: unknown harness rejected", () => {
 			name: "Harness Patch",
 			role: "builder",
 			status: "active",
+			createdAt: NOW,
+		});
+		// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+		await db.insert(agentRunConfig).values({
+			agentUserId: "ah2-harness-patch",
 			maxConcurrentSessions: 1,
 			harnessType: "builtin",
-			createdAt: NOW,
 		});
 
 		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
@@ -389,9 +405,13 @@ describe("AH2 AC2b: cross-axis harness↔provider rejection", () => {
 			name: "Cross Patch",
 			role: "builder",
 			status: "active",
+			createdAt: NOW,
+		});
+		// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+		await db.insert(agentRunConfig).values({
+			agentUserId: "ah2-cross-patch",
 			maxConcurrentSessions: 1,
 			harnessType: "claude-code",
-			createdAt: NOW,
 		});
 
 		// Now PATCH only modelProvider to openrouter — this should be caught
@@ -421,9 +441,13 @@ describe("AH2 AC2b: cross-axis harness↔provider rejection", () => {
 			name: "Cross Patch 2",
 			role: "builder",
 			status: "active",
+			createdAt: NOW,
+		});
+		// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+		await db.insert(agentRunConfig).values({
+			agentUserId: "ah2-cross-patch2",
 			maxConcurrentSessions: 1,
 			harnessType: "builtin",
-			createdAt: NOW,
 		});
 		// First set openrouter provider
 		await app.request("/api/agents/ah2-cross-patch2", {
@@ -493,9 +517,13 @@ describe("AH2 AC2c: per-agent openai-compatible rejected (ARCH-3)", () => {
 			name: "OAI Patch",
 			role: "builder",
 			status: "active",
+			createdAt: NOW,
+		});
+		// @lore AU26 G1: the run config left `users` for `agent_run_config`.
+		await db.insert(agentRunConfig).values({
+			agentUserId: "ah2-oai-patch",
 			maxConcurrentSessions: 1,
 			harnessType: "builtin",
-			createdAt: NOW,
 		});
 
 		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });

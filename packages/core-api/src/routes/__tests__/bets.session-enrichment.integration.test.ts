@@ -1,12 +1,18 @@
 /**
- * L19 — GET /api/bets/:id session enrichment integration tests.
+ * L19 — GET /api/bets/:id task-row shape.
  *
- * AC coverage:
- *  - tasks with a session have latestSession* fields populated (outcome, cost,
- *    tokensInput, tokensOutput, harnessUrl)
- *  - tasks with no session have null for all latestSession* fields
- *  - when a task has multiple sessions, the most recent (by startedAt) is used
- *  - 404 returned for an unknown bet id
+ * @lore AU26 J4: `latestSessionOutcome` is GONE from this response. It was
+ * core-api reading `agent-orchestration`'s `sessions` table to decorate a task
+ * row for two renders (the outcome chip on the task sheet, the outcome sort
+ * column). Founder ruling: *"orchestration now has an api so that the ui can get
+ * the agent run state from the orchestration directly and combine this
+ * information in the ui instead of in the core api service."* `WorkBet.tsx`
+ * fetches `GET /api/agent-orchestration/runs/latest-outcomes?task_ids=…` and
+ * merges it in; the "newest run per task wins, absent task = null" contract is
+ * covered by `agent-orchestration-run-reads.integration.test.ts`.
+ *
+ * What stays covered here is what this route still owns: the task row's exact
+ * key set and key order, and the 404 for an unknown bet.
  */
 
 import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
@@ -63,31 +69,40 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 		expect(body.code).toBe("NOT_FOUND");
 	});
 
-	test("task with a session has all latestSession* fields populated", async ({ db, app }) => {
+	/**
+	 * AU26 H2 (§D-M.3) then J4 — the `latestSessionOutcome` decoration left this
+	 * route entirely. The key set and key ORDER of a task row (JSON.stringify
+	 * follows insertion order) is otherwise unchanged, INCLUDING the deliberate
+	 * omission of `outcomeRecordedBy` — a real `tasks` column that a naive
+	 * `select().from(tasks)` recompose would leak. A live run is seeded below so
+	 * a route that still held the read would fail this key-set assertion.
+	 */
+	test("bet-detail task rows keep their exact key set and key order", async ({ db, app }) => {
 		await seedBase(db);
 
 		await db.insert(bets).values({
-			id: "bet-enriched",
+			id: "bet-shape",
 			teamId: "p1",
-			description: "Test pitch",
+			description: "Shape pitch",
 			appetite: "1 week",
 			status: "active",
 			createdAt: NOW,
 		});
-
 		await db.insert(tasks).values({
-			id: "task-with-session",
-			betId: "bet-enriched",
+			id: "task-shape",
+			betId: "bet-shape",
 			teamId: "p1",
-			title: "Task with session",
+			title: "Shape task",
 			state: "in_progress",
 			createdAt: NOW,
 			updatedAt: NOW,
+			outcomeVerdict: "met",
+			outcomeRecordedAt: NOW,
+			outcomeRecordedBy: "agent-1",
 		});
-
 		await db.insert(sessions).values({
-			id: "session-1",
-			taskId: "task-with-session",
+			id: "session-shape",
+			taskId: "task-shape",
 			agentId: "agent-1",
 			modelTier: "sonnet",
 			startedAt: NOW,
@@ -95,203 +110,32 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 			outcome: "completed",
 		});
 
-		const res = await app.request("/api/bets/bet-enriched", {
+		const res = await app.request("/api/bets/bet-shape", {
 			method: "GET",
 			headers: authHeaders(),
 		});
-
 		expect(res.status).toBe(200);
-		const body = (await res.json()) as {
-			id: string;
-			tasks: Array<{
-				id: string;
-				latestSessionOutcome: string | null;
-			}>;
-		};
+		const body = (await res.json()) as { tasks: Array<Record<string, unknown>> };
 
-		expect(body.id).toBe("bet-enriched");
-		expect(body.tasks).toHaveLength(1);
-
-		const task = body.tasks[0];
-		expect(task!.id).toBe("task-with-session");
-		expect(task!.latestSessionOutcome).toBe("completed");
-	});
-
-	test("task with no session has null for all latestSession* fields", async ({ db, app }) => {
-		await seedBase(db);
-
-		await db.insert(bets).values({
-			id: "bet-no-session",
-			teamId: "p1",
-			description: "No session pitch",
-			appetite: "2 weeks",
-			status: "active",
-			createdAt: NOW,
-		});
-
-		await db.insert(tasks).values({
-			id: "task-no-session",
-			betId: "bet-no-session",
-			teamId: "p1",
-			title: "Task without session",
-			state: "queued",
-			createdAt: NOW,
-			updatedAt: NOW,
-		});
-
-		const res = await app.request("/api/bets/bet-no-session", {
-			method: "GET",
-			headers: authHeaders(),
-		});
-
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as {
-			tasks: Array<{
-				id: string;
-				latestSessionOutcome: string | null;
-			}>;
-		};
-
-		expect(body.tasks).toHaveLength(1);
-
-		const task = body.tasks[0];
-		expect(task!.id).toBe("task-no-session");
-		expect(task!.latestSessionOutcome).toBeNull();
-	});
-
-	test("mixed bet: one task with session, one without — each correctly enriched", async ({
-		db,
-		app,
-	}) => {
-		await seedBase(db);
-
-		await db.insert(bets).values({
-			id: "bet-mixed",
-			teamId: "p1",
-			description: "Mixed tasks pitch",
-			appetite: "6 weeks",
-			status: "active",
-			createdAt: NOW,
-		});
-
-		await db.insert(tasks).values({
-			id: "task-has-session",
-			betId: "bet-mixed",
-			teamId: "p1",
-			title: "Task with session",
-			state: "done",
-			createdAt: NOW,
-			updatedAt: NOW,
-		});
-
-		await db.insert(tasks).values({
-			id: "task-lacks-session",
-			betId: "bet-mixed",
-			teamId: "p1",
-			title: "Task without session",
-			state: "queued",
-			createdAt: NOW,
-			updatedAt: NOW,
-		});
-
-		await db.insert(sessions).values({
-			id: "session-mixed-1",
-			taskId: "task-has-session",
-			agentId: "agent-1",
-			modelTier: "haiku",
-			startedAt: NOW,
-			state: "done",
-			outcome: "completed",
-		});
-
-		const res = await app.request("/api/bets/bet-mixed", {
-			method: "GET",
-			headers: authHeaders(),
-		});
-
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as {
-			tasks: Array<{
-				id: string;
-				latestSessionOutcome: string | null;
-			}>;
-		};
-
-		expect(body.tasks).toHaveLength(2);
-
-		const withSession = body.tasks.find((t) => t.id === "task-has-session");
-		const withoutSession = body.tasks.find((t) => t.id === "task-lacks-session");
-
-		expect(withSession).toBeDefined();
-		expect(withSession?.latestSessionOutcome).toBe("completed");
-
-		expect(withoutSession).toBeDefined();
-		expect(withoutSession?.latestSessionOutcome).toBeNull();
-	});
-
-	test("uses the most recent session (by startedAt) when a task has multiple sessions", async ({
-		db,
-		app,
-	}) => {
-		await seedBase(db);
-
-		await db.insert(bets).values({
-			id: "bet-multi-session",
-			teamId: "p1",
-			description: "Multi-session pitch",
-			appetite: "1 week",
-			status: "active",
-			createdAt: NOW,
-		});
-
-		await db.insert(tasks).values({
-			id: "task-multi-session",
-			betId: "bet-multi-session",
-			teamId: "p1",
-			title: "Task with multiple sessions",
-			state: "in_progress",
-			createdAt: NOW,
-			updatedAt: NOW,
-		});
-
-		// Older session (earlier startedAt)
-		await db.insert(sessions).values({
-			id: "session-older",
-			taskId: "task-multi-session",
-			agentId: "agent-1",
-			modelTier: "haiku",
-			startedAt: "2026-05-01T10:00:00Z",
-			state: "done",
-			outcome: "failed",
-		});
-
-		// Newer session (later startedAt) — this one should be returned
-		await db.insert(sessions).values({
-			id: "session-newer",
-			taskId: "task-multi-session",
-			agentId: "agent-1",
-			modelTier: "sonnet",
-			startedAt: "2026-05-05T10:00:00Z",
-			state: "done",
-			outcome: "completed",
-		});
-
-		const res = await app.request("/api/bets/bet-multi-session", {
-			method: "GET",
-			headers: authHeaders(),
-		});
-
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as {
-			tasks: Array<{
-				id: string;
-				latestSessionOutcome: string | null;
-			}>;
-		};
-
-		expect(body.tasks).toHaveLength(1);
-		const task = body.tasks[0];
-		// Should reflect the newer session
-		expect(task!.latestSessionOutcome).toBe("completed");
+		expect(Object.keys(body.tasks[0]!)).toEqual([
+			"id",
+			"betId",
+			"teamId",
+			"ownerAgentId",
+			"title",
+			"description",
+			"doneCondition",
+			"state",
+			"dependencies",
+			"artifacts",
+			"threadId",
+			"notes",
+			"auditTrail",
+			"createdAt",
+			"updatedAt",
+			"outcomeVerdict",
+			"outcomeRecordedAt",
+		]);
+		expect(body.tasks[0]!.outcomeVerdict).toBe("met");
 	});
 });

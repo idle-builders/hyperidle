@@ -31,27 +31,41 @@
  * to resolve, so every test below fails at collection/import time.
  *
  * @lore CONFUSION (resolved in-flight, flagged for reviewer): `isAgentAtCapacity`
- * takes a required `ConcurrencyUserReader` (`getUserById`) third argument —
- * `run-orchestration` may not read the `users` table directly (Table ACL,
- * Mechanism A; `users` is owned by `packages/core-api/users`), the same
- * reason `provisioner.ts`'s own admission gate reads it through an injected
- * `SessionLifecycleUserReader` port rather than a raw table query. This test
- * file is itself ACL-exempt (test files legitimately seed tables directly),
- * so `testGetUserById` below queries `users` directly to build that reader —
+ * takes a required reader third argument — `run-orchestration` may not read
+ * another Service's tables directly (Table ACL, Mechanism A), the same reason
+ * `provisioner.ts`'s own admission gate reads through an injected port rather
+ * than a raw table query. This test file is itself ACL-exempt (test files
+ * legitimately seed tables directly), so the reader below queries directly —
  * the behavioral assertions this test proves are otherwise unchanged.
+ *
+ * @lore AU26 G1 (architecture §D-L): the reader is now `ConcurrencyBoundReader`
+ * (`getConcurrencyBound`) and is composed from TWO reads, because
+ * `maxConcurrentSessions` moved off `users` into `agent_run_config`: `users`
+ * answers existence (fail closed when absent) and `agent_run_config` answers
+ * the bound (1 when never configured). The "fails closed for a nonexistent
+ * agent" case below is exactly what that split must not lose.
  */
 
-import { type HyperIdleDb, sessions, users } from "@hyperidle/db";
+import { agentRunConfig, type HyperIdleDb, sessions, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 
-async function testGetUserById(
-	db: HyperIdleDb,
-	agentId: string,
-): Promise<{ readonly maxConcurrentSessions: number } | undefined> {
-	const [row] = await db.select().from(users).where(eq(users.id, agentId)).limit(1);
-	return row;
-}
+/** Mirrors the real composition in `routine-scheduler-bindings.ts` — existence, then bound. */
+const testBoundReader = {
+	async getConcurrencyBound(
+		db: HyperIdleDb,
+		agentId: string,
+	): Promise<{ readonly maxConcurrentSessions: number } | undefined> {
+		const [user] = await db.select().from(users).where(eq(users.id, agentId)).limit(1);
+		if (!user) return undefined;
+		const [config] = await db
+			.select({ maxConcurrentSessions: agentRunConfig.maxConcurrentSessions })
+			.from(agentRunConfig)
+			.where(eq(agentRunConfig.agentUserId, agentId))
+			.limit(1);
+		return { maxConcurrentSessions: config?.maxConcurrentSessions ?? 1 };
+	},
+};
 
 async function seedAgent(
 	db: HyperIdleDb,
@@ -64,9 +78,9 @@ async function seedAgent(
 		name: `Agent ${id}`,
 		role: "builder",
 		status: "active",
-		maxConcurrentSessions,
 		createdAt: new Date().toISOString(),
 	});
+	await db.insert(agentRunConfig).values({ agentUserId: id, maxConcurrentSessions });
 }
 
 async function seedSession(
@@ -88,9 +102,7 @@ describe("isAgentAtCapacity — the one canonical provision-time concurrency che
 		await seedAgent(db, "capacity-agent-1", 2);
 		await seedSession(db, { id: "session-1a", agentId: "capacity-agent-1" });
 
-		expect(await isAgentAtCapacity(db, "capacity-agent-1", { getUserById: testGetUserById })).toBe(
-			false,
-		);
+		expect(await isAgentAtCapacity(db, "capacity-agent-1", testBoundReader)).toBe(false);
 	});
 
 	test("true when active session count meets maxConcurrentSessions", async ({ db }) => {
@@ -98,9 +110,7 @@ describe("isAgentAtCapacity — the one canonical provision-time concurrency che
 		await seedAgent(db, "capacity-agent-2", 1);
 		await seedSession(db, { id: "session-2a", agentId: "capacity-agent-2" });
 
-		expect(await isAgentAtCapacity(db, "capacity-agent-2", { getUserById: testGetUserById })).toBe(
-			true,
-		);
+		expect(await isAgentAtCapacity(db, "capacity-agent-2", testBoundReader)).toBe(true);
 	});
 
 	test("non-active sessions do not count toward the limit", async ({ db }) => {
@@ -108,16 +118,12 @@ describe("isAgentAtCapacity — the one canonical provision-time concurrency che
 		await seedAgent(db, "capacity-agent-3", 1);
 		await seedSession(db, { id: "session-3a", agentId: "capacity-agent-3", state: "completed" });
 
-		expect(await isAgentAtCapacity(db, "capacity-agent-3", { getUserById: testGetUserById })).toBe(
-			false,
-		);
+		expect(await isAgentAtCapacity(db, "capacity-agent-3", testBoundReader)).toBe(false);
 	});
 
 	test("fails closed (true) for an agent that does not exist", async ({ db }) => {
 		const { isAgentAtCapacity } = await import("../concurrency.js");
 
-		expect(
-			await isAgentAtCapacity(db, "capacity-agent-missing", { getUserById: testGetUserById }),
-		).toBe(true);
+		expect(await isAgentAtCapacity(db, "capacity-agent-missing", testBoundReader)).toBe(true);
 	});
 });

@@ -1,8 +1,8 @@
 import { describe } from "vitest";
 import type { AppOptions } from "../app.js";
-import { createApp } from "../app.js";
-import { registerAgentLayerServices, registerCoreDomainServices } from "../server-factory.js";
+import { registerAgentLayerServices, registerCoreDomainServices } from "../service-bootstrap.js";
 import { expect, test, vi } from "../test-fixtures.js";
+import { createTestApp } from "../test-utils.js";
 
 /**
  * AU11: former app-runtime `bootstrapAppRuntime` split into two owner-scoped
@@ -70,6 +70,14 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				cleanupEffect: "unsubscribe",
 				constituents: ["session_ended subscription", "agent_run_lifecycle_changed subscription"],
 			},
+			// @lore AU26: the POST-SESSION agent-health reaction — the event-driven
+			// degraded-agent notification that replaced `routes/teams-routes.ts`'s
+			// `maybeNotifyAgentError`, closing core-api's last `sessions` read.
+			{
+				owner: "agent-health session-end reactions",
+				cleanupEffect: "unsubscribe",
+				constituents: ["session_ended subscription"],
+			},
 			// @lore AU21 §9 Increment 10 (Decision H1)/Increment 12 (Decision H3)
 			// Wave D: the POST-SESSION `task` dispatch-attempt finalize reaction
 			// PLUS the bet per-tier token-writeback reaction (Wave D's additive
@@ -136,11 +144,6 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				owner: "policy registration",
 				cleanupEffect: "unsubscribe",
 				constituents: ["policy engine", "lifecycle propagation", "retry interval"],
-			},
-			{
-				owner: "git-export handler",
-				cleanupEffect: "unsubscribe",
-				constituents: ["knowledge-update subscription"],
 			},
 			{
 				owner: "notifications installation",
@@ -223,6 +226,16 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 					unsubscribedEvents: ["session_ended", "agent_run_lifecycle_changed"],
 					clearedIntervals: 0,
 				},
+				// @lore AU26: `registerAgentHealthSessionEndReactions` — the
+				// event-driven degraded-agent notification that replaced
+				// `routes/teams-routes.ts`'s `maybeNotifyAgentError` (and with it
+				// core-api's last `sessions` read). Not pre-registered on the
+				// `eventBus` test fixture, so its single subscription unsubscribes
+				// for real.
+				{
+					unsubscribedEvents: ["session_ended"],
+					clearedIntervals: 0,
+				},
 				// @lore AU21 §9 Increment 10 (Decision H1)/Increment 12 (Decision H3)
 				// Wave D: `registerWorkSessionEndReactions` is NOT pre-registered on the
 				// `eventBus` test fixture either — this is its first, real registration
@@ -267,7 +280,9 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 					],
 					clearedIntervals: 1,
 				},
-				{ unsubscribedEvents: ["knowledge_updated"], clearedIntervals: 0 },
+				// @lore AU26 C1: the "git-export handler" owner (its one
+				// `knowledge_updated` subscription) is HARD-DELETED along with the
+				// exporter — no replacement.
 				// @lore AU21 Increment 14a: "cost_cap_breached"/"cost_cap_warning"
 				// removed from this owner's unsubscribe list — both events are
 				// HARD-DELETED along with the rest of the cost feature, no
@@ -323,27 +338,27 @@ describe("O3 AC-6: AppOptions.serviceBootstrap type field", () => {
 });
 
 describe("O3 AC-8: kernel-only boot (no serviceBootstrap)", () => {
-	test("createApp() without any options boots without throwing", async () => {
-		await expect(createApp()).resolves.not.toThrow();
+	test("createTestApp() without any options boots without throwing", async () => {
+		await expect(createTestApp()).resolves.not.toThrow();
 	}, 120_000);
 
-	test("createApp({ serviceBootstrap: undefined }) boots without throwing", async () => {
-		await expect(createApp({ serviceBootstrap: undefined })).resolves.not.toThrow();
+	test("createTestApp({ serviceBootstrap: undefined }) boots without throwing", async () => {
+		await expect(createTestApp({ serviceBootstrap: undefined })).resolves.not.toThrow();
 	}, 120_000);
 
 	test("GET /api/health returns 200 in kernel-only mode", async () => {
-		const app = await createApp({ serviceBootstrap: undefined });
+		const app = await createTestApp({ serviceBootstrap: undefined });
 		const res = await app.request("/api/health");
 		expect(res.status).toBe(200);
 	}, 120_000);
 });
 
 describe("O3 AC-9: full boot with registerCoreDomainServices + registerAgentLayerServices", () => {
-	test("createApp({ db, eventBus, serviceBootstrap: fullServiceBootstrap }) boots without throwing", async ({
+	test("createTestApp({ db, eventBus, serviceBootstrap: fullServiceBootstrap }) boots without throwing", async ({
 		db,
 		eventBus,
 	}) => {
-		const app = await createApp({ db, eventBus, serviceBootstrap: fullServiceBootstrap });
+		const app = await createTestApp({ db, eventBus, serviceBootstrap: fullServiceBootstrap });
 
 		void app?.request("/api/health");
 	}, 120_000);
@@ -352,7 +367,7 @@ describe("O3 AC-9: full boot with registerCoreDomainServices + registerAgentLaye
 		db,
 		eventBus,
 	}) => {
-		const app = await createApp({ db, eventBus, serviceBootstrap: fullServiceBootstrap });
+		const app = await createTestApp({ db, eventBus, serviceBootstrap: fullServiceBootstrap });
 		const res = await app.request("/api/health");
 		expect(res.status).toBe(200);
 	}, 120_000);

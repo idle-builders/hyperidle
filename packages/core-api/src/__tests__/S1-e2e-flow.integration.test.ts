@@ -18,8 +18,9 @@ import { type HyperIdleDb, users } from "@hyperidle/db";
 import { createInvite, createLoginSession, revokeLoginSession } from "@hyperidle/users";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { createApp, disposeApp } from "../app.js";
+import { disposeApp } from "../app.js";
 import { test } from "../test-fixtures.js";
+import { createTestApp } from "../test-utils.js";
 
 const TEST_API_KEY = "test-key-s1-e2e";
 const NOW = new Date().toISOString();
@@ -65,7 +66,7 @@ describe("S1 — E2E: Admin creates invite → user claims → bearer token work
 		eventBus,
 	}) => {
 		await seedAdmin(db);
-		app = await createApp({ db, eventBus, sharedMode: true });
+		app = await createTestApp({ db, eventBus, sharedMode: true });
 
 		// Step 1: Admin creates invite
 		const inviteRes = await app.request("/api/auth/invite", {
@@ -117,7 +118,7 @@ describe("S1 — E2E: Expired session → 401 SESSION_EXPIRED", () => {
 
 	test("expired session returns 401 SESSION_EXPIRED", async ({ db, eventBus }) => {
 		await seedAdmin(db, "u-e2e-admin");
-		app = await createApp({ db, eventBus, sharedMode: true });
+		app = await createTestApp({ db, eventBus, sharedMode: true });
 
 		// Create a session with 1ms TTL
 		const { token } = await createLoginSession(db, "u-e2e-admin", 1);
@@ -151,7 +152,7 @@ describe("S1 — E2E: Revoked session → 401 SESSION_REVOKED", () => {
 
 	test("revoked session returns 401 SESSION_REVOKED", async ({ db, eventBus }) => {
 		await seedAdmin(db, "u-e2e-admin");
-		app = await createApp({ db, eventBus, sharedMode: true });
+		app = await createTestApp({ db, eventBus, sharedMode: true });
 
 		const { token, session } = await createLoginSession(db, "u-e2e-admin");
 		await revokeLoginSession(db, session.id);
@@ -187,7 +188,7 @@ describe("S1 — E2E: Local mode — auth unchanged", () => {
 			status: "active",
 			createdAt: NOW,
 		});
-		app = await createApp({ db, eventBus }); // no sharedMode — defaults to local
+		app = await createTestApp({ db, eventBus }); // no sharedMode — defaults to local
 
 		const res = await app.request("/api/auth/me", {
 			headers: { "X-API-Key": TEST_API_KEY },
@@ -207,7 +208,7 @@ describe("S1 — E2E: Local mode — auth unchanged", () => {
 			status: "active",
 			createdAt: NOW,
 		});
-		app = await createApp({ db, eventBus }); // no sharedMode — defaults to local
+		app = await createTestApp({ db, eventBus }); // no sharedMode — defaults to local
 
 		const { token } = await createLoginSession(db, "u-e2e-local");
 		const res = await app.request("/api/auth/me", {
@@ -230,7 +231,7 @@ describe("S1 — E2E: Local mode — auth unchanged", () => {
 			status: "active",
 			createdAt: NOW,
 		});
-		app = await createApp({ db, eventBus }); // no sharedMode — defaults to local
+		app = await createTestApp({ db, eventBus }); // no sharedMode — defaults to local
 
 		const invite = await createInvite(db, "u-e2e-local", "member");
 		const res = await app.request("/api/auth/claim", {
@@ -273,7 +274,7 @@ describe("S1 — E2E: Two users post to same thread → correct senderId", () =>
 			status: "active",
 			createdAt: NOW,
 		});
-		app = await createApp({ db, eventBus, sharedMode: true });
+		app = await createTestApp({ db, eventBus, sharedMode: true });
 
 		// Get tokens for both users
 		const { token: token1 } = await createLoginSession(db, "u-e2e-admin");
@@ -371,7 +372,7 @@ describe("S1 — Security: token never appears in response except at creation", 
 		eventBus,
 	}) => {
 		await seedAdmin(db, "u-e2e-admin");
-		app = await createApp({ db, eventBus, sharedMode: true });
+		app = await createTestApp({ db, eventBus, sharedMode: true });
 
 		const invite = await createInvite(db, "u-e2e-admin", "member");
 		const claimRes = await app.request("/api/auth/claim", {
@@ -393,7 +394,7 @@ describe("S1 — Security: token never appears in response except at creation", 
 
 	test("invite response does NOT include a bearer token (just code)", async ({ db, eventBus }) => {
 		await seedAdmin(db, "u-e2e-admin");
-		app = await createApp({ db, eventBus, sharedMode: true });
+		app = await createTestApp({ db, eventBus, sharedMode: true });
 
 		const res = await app.request("/api/auth/invite", {
 			method: "POST",

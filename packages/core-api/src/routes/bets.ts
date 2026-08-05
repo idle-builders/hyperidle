@@ -7,16 +7,15 @@ import {
 	update as updateKnowledgeItem,
 } from "@hyperidle/knowledge";
 import { getTeam, getTeamMembers, listTeamMembers, listTeams, updateTeam } from "@hyperidle/org";
+import { requestRunStopForTasks } from "@hyperidle/run-orchestration";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import type { ArtifactThreadSummary, EventBus } from "@hyperidle/shared";
 import { BET_OUTCOME_VERDICTS, deriveTitle, InvalidTransitionError } from "@hyperidle/shared";
+import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/shared/http";
 import * as work from "@hyperidle/work";
 import { cascadeBetKill, transitionBet, updateBetField } from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";
-import { requireBoundary } from "../middleware/access-boundary-middleware.js";
-import type { HyperIdleEnv } from "../middleware/auth.js";
-import { validateBody } from "../middleware/validate.js";
 import { enumValues } from "../schemas/common.schema.js";
 import { taskRunResolverDeps } from "../services/task-run-resolver-bindings.js";
 
@@ -368,14 +367,29 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
 		}
 
-		// L19: Enrich task rows with latest session metadata via a correlated
-		// sessions subquery — owned by work-service (foreign-import ceiling, plan
-		// addendum §A2/§A9).
+		// @lore AU26 J4: `latestSessionOutcome` is GONE from this response. It was
+		// core-api reading `sessions` — an `agent-orchestration` table — purely to
+		// decorate a task row for two renders (the outcome chip on the task sheet
+		// and the task-list sort order). Founder ruling: *"orchestration now has an
+		// api so that the ui can get the agent run state from the orchestration
+		// directly and combine this information in the ui."* `WorkBet.tsx` now
+		// fetches `GET /api/agent-orchestration/runs/latest-outcomes?task_ids=…`
+		// for this bet's tasks and merges it in; what the user sees is unchanged.
+		// (H2 had already deleted the correlated subquery inside `work-service`
+		// and recomposed the read at this route — the right PLACE, still the wrong
+		// LAYER. This finishes it.)
 		// @lore O2: stripped strategy columns (durability, riskTier, attentionScore,
 		// crossTeam) removed from select. Session cost/token/harness columns also
 		// stripped — those are strategy concerns now in the app projection layer.
 		// @lore U1: tasks.teamId now references `teams` (formerly `products`). No more productId.
-		const betTasks = await work.list(db, "task", { betId, include: "latestSessionOutcome" });
+		const rawBetTasks = await work.list(db, "task", { betId });
+		const betTasks = rawBetTasks.map(
+			({ outcomeVerdict, outcomeRecordedAt, outcomeRecordedBy: _recordedBy, ...task }) => ({
+				...task,
+				outcomeVerdict,
+				outcomeRecordedAt,
+			}),
+		);
 
 		// @lore U1: `description` (formerly `pitch`), `teamId` (formerly `productId`).
 		const title = deriveTitle(bet.description, bet.id);
@@ -669,6 +683,9 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			await cascadeBetKill(db, eventBus, betId, {
 				workIntents: { record: enqueueWorkIntent },
 				taskRunResolver: taskRunResolverDeps,
+				// AU26 H2 (§D-M.2): stopping a run is `agent-orchestration`'s
+				// state transition — a downward call, not a Port method.
+				runOrchestration: { requestRunStopForTasks },
 			});
 			const updated = await work.get(db, "bet", betId);
 			if (!updated) {

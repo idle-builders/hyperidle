@@ -32,12 +32,13 @@ import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createApp, disposeApp } from "../app.js";
+import { disposeApp } from "../app.js";
 import {
 	createInProcessCoreApiTransport,
 	registerCoreApiTransport,
 } from "../services/core-api-port-composition.js";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
+import { createTestApp } from "../test-utils.js";
 
 const createItemTool = buildToolDefinitions(toolHandlersPorts).find(
 	(t) => t.name === "create_item",
@@ -137,7 +138,7 @@ describe("AD1 — create-item: review routing wires human participants", () => {
 		handle = await createTestDb();
 		db = handle.db;
 		eventBus = new EventBus();
-		app = await createApp({ db, eventBus });
+		app = await createTestApp({ db, eventBus });
 		registerCoreApiTransport(createInProcessCoreApiTransport(app));
 		await seedBase(db);
 	});

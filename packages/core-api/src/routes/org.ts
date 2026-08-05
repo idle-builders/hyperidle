@@ -16,6 +16,7 @@
 
 // @lore U1: `teams` renamed to `teamMembers` (membership group); `products` renamed to `teams` (domain entity).
 // `mechanism: "team"` targets the agent membership group → check `teamMembers`.
+import { writeAgentRunConfig } from "@hyperidle/agent-run-config";
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	createTeam,
@@ -30,12 +31,10 @@ import {
 } from "@hyperidle/org";
 import { provisionTeamRoutines } from "@hyperidle/routine";
 import { API_ERROR_CODES, ORG_EDGE_MECHANISMS } from "@hyperidle/shared";
+import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/shared/http";
 import { findUser, insertUser, listUsers } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
-import { requireBoundary } from "../middleware/access-boundary-middleware.js";
-import type { HyperIdleEnv } from "../middleware/auth.js";
-import { validateBody } from "../middleware/validate.js";
 
 const putOrgEdgeSchema = z.object({
 	fromUserId: z.string().min(1),
@@ -304,7 +303,7 @@ export function createOrgRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 			const body = c.req.valid("json" as never) as z.infer<typeof persistScaffoldedAgentsSchema>;
 			const result = await persistScaffoldedAgents(
 				db,
-				{ getUserById: (db2, id) => findUser(db2, { id }), insertUser },
+				{ getUserById: (db2, id) => findUser(db2, { id }), insertUser, writeAgentRunConfig },
 				body.teamMembersId,
 				body.specs,
 			);

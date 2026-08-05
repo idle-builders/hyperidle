@@ -16,19 +16,14 @@
  */
 
 import { findThread } from "@hyperidle/conversation";
-import type { WriteExecutor } from "@hyperidle/db";
-import { sessions, threads as threadsTable, users } from "@hyperidle/db";
-import { getTeamMembers } from "@hyperidle/org";
+import { type HyperIdleDb, threads as threadsTable } from "@hyperidle/db";
+import { describe, expect } from "vitest";
+import { test } from "../test-fixtures.js";
+import { type WsClient, WsConnectionHub } from "../ws-connection-hub.js";
 import {
 	createDbSubscribeAuthorizer,
 	type SubscribeAuthorizerDeps,
-	type WsClient,
-	WsConnectionHub,
-} from "@hyperidle/realtime";
-import { findUser } from "@hyperidle/users";
-import * as work from "@hyperidle/work";
-import { describe, expect } from "vitest";
-import { test } from "../test-fixtures.js";
+} from "../ws-subscribe-authorizer.js";
 
 function createMockClient(): WsClient & { messages: string[] } {
 	const messages: string[] = [];
@@ -40,12 +35,15 @@ function createMockClient(): WsClient & { messages: string[] } {
 	};
 }
 
-/** Real Mechanism C deps — mirrors `server-factory.ts`'s production wiring. */
+/**
+ * Real Mechanism C deps — mirrors `create-server.ts`'s production wiring.
+ *
+ * @lore AU26 J3: was four ports. `users`/`org`/`work` existed only to serve the
+ * `session:<id>` branch, which moved wholesale to `agent-orchestration`'s own
+ * socket. One edge is left: thread participation.
+ */
 const REALTIME_DEPS: SubscribeAuthorizerDeps = {
-	conversation: { getThreadById: (db, id) => findThread(db, { id }) },
-	users: { getUserById: (db, id) => findUser(db, { id }) },
-	org: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
-	work: { getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id) },
+	conversation: { getThreadById: (db: HyperIdleDb, id: string) => findThread(db, { id }) },
 };
 
 describe("WsConnectionHub — subscribe authorization (L1 Adv-C1)", () => {
@@ -141,77 +139,29 @@ describe("WsConnectionHub — subscribe authorization (L1 Adv-C1)", () => {
 		expect(await hub.subscribe(client, "thread:does-not-exist")).toBe("forbidden");
 	});
 
+	/**
+	 * @lore AU26 J3: core's socket no longer serves `session:<id>` AT ALL — the
+	 * live-run stream is `agent-orchestration`'s, on its own socket, authorized
+	 * from its own `sessions` table (see
+	 * `agent-orchestration/src/services/__tests__/session-stream-hub.integration.test.ts`).
+	 * A session topic on THIS hub falls through to the catch-all deny, exactly
+	 * like any other unknown prefix. This case is what proves the branch left,
+	 * rather than merely that its old fail-closed edge still held.
+	 */
+	test("session topics are not served by core's socket", async ({ db }) => {
+		const hub = new WsConnectionHub(createDbSubscribeAuthorizer(db, REALTIME_DEPS));
+		const client = createMockClient();
+		hub.addClient(client, "agent-1");
+
+		expect(await hub.subscribe(client, "session:any-session")).toBe("forbidden");
+		expect(await hub.subscribe(client, "session:")).toBe("forbidden");
+	});
+
 	test("subscribe to malformed topic prefix → forbidden", async ({ db }) => {
 		const hub = new WsConnectionHub(createDbSubscribeAuthorizer(db, REALTIME_DEPS));
 		const client = createMockClient();
 		hub.addClient(client, "agent-1");
 
 		expect(await hub.subscribe(client, "evil:thr-1")).toBe("forbidden");
-	});
-
-	test("task-free assistant session topic is limited to thread participants", async ({ db }) => {
-		const hub = new WsConnectionHub(createDbSubscribeAuthorizer(db, REALTIME_DEPS));
-		const now = new Date().toISOString();
-		await db.insert(users).values([
-			{
-				id: "u-founder",
-				kind: "human",
-				name: "Founder",
-				role: "founder",
-				status: "active",
-				createdAt: now,
-			},
-			{
-				id: "u-outsider",
-				kind: "human",
-				name: "Outsider",
-				role: "founder",
-				status: "active",
-				createdAt: now,
-			},
-			{
-				id: "ast-u-founder",
-				kind: "ai",
-				name: "Assistant",
-				role: "assistant",
-				status: "active",
-				createdAt: now,
-			},
-		]);
-		await db.insert(threadsTable).values({
-			id: "thr-assistant",
-			hostKind: "assistant",
-			hostId: "u-founder",
-			initiatorId: "u-founder",
-			participants: JSON.stringify(["u-founder", "ast-u-founder"]),
-			pinned: false,
-			lastActiveAt: now,
-			createdAt: now,
-		});
-		await db.insert(sessions).values({
-			id: "session-task-free-assistant",
-			taskId: null,
-			requestId: "request-assistant",
-			sourceKind: "assistant",
-			sourceId: "msg-1",
-			sourceCorrelationJson: JSON.stringify({
-				threadId: "thr-assistant",
-				messageId: "msg-1",
-				userId: "u-founder",
-				assistantAgentId: "ast-u-founder",
-			}),
-			agentId: "ast-u-founder",
-			modelTier: "workhorse",
-			startedAt: now,
-			state: "active",
-		});
-
-		const participant = createMockClient();
-		const outsider = createMockClient();
-		hub.addClient(participant, "u-founder");
-		hub.addClient(outsider, "u-outsider");
-
-		expect(await hub.subscribe(participant, "session:session-task-free-assistant")).toBe("ok");
-		expect(await hub.subscribe(outsider, "session:session-task-free-assistant")).toBe("forbidden");
 	});
 });

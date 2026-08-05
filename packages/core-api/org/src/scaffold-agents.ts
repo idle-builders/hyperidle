@@ -44,7 +44,7 @@
 
 import type { WriteExecutor } from "@hyperidle/db";
 import type { PrimaryHarnessConfig } from "@hyperidle/shared";
-import type { OrgUserDirectory } from "./ports.js";
+import type { OrgAgentRunConfigWriter, OrgUserDirectory } from "./ports.js";
 import { resolveTeamAgentHarness } from "./team-default-harness.js";
 
 export interface ScaffoldResult {
@@ -152,7 +152,7 @@ async function resolveAgentId(
  */
 export async function persistScaffoldedAgents(
 	db: WriteExecutor,
-	users: Pick<OrgUserDirectory, "getUserById" | "insertUser">,
+	users: Pick<OrgUserDirectory, "getUserById" | "insertUser"> & OrgAgentRunConfigWriter,
 	teamMembersId: string | null,
 	specs: readonly AgentScaffoldSpec[],
 	harness?: PrimaryHarnessConfig | TeamHarnessDefault,
@@ -184,17 +184,21 @@ export async function persistScaffoldedAgents(
 			name: spec.name,
 			role: spec.role,
 			agentCategory: spec.agentCategory,
-			systemPrompt: spec.systemPrompt,
 			status: "active",
-			// Kernel-owned mechanism fields — NOT on the spec (closure contract).
+			teamId: teamMembersId,
+			createdAt: now,
+		});
+		// AU26 G1 (§D-L): the Kernel-owned mechanism fields — NOT on the spec
+		// (closure contract) — moved off `users` into `agent_run_config`, so the
+		// single writer now makes two writes. The values themselves are unchanged.
+		await users.writeAgentRunConfig(db, agentId, {
+			systemPrompt: spec.systemPrompt,
 			// POLISH-060 B3: Use resolvedHarness when supplied; fall back to builtin/sonnet-4-6.
 			harnessType: resolvedHarness?.harnessType ?? "builtin",
 			modelId: resolvedHarness?.modelId ?? "claude-sonnet-4-6",
 			modelProvider: resolvedHarness?.modelProvider ?? "anthropic",
 			// builders can run 3 concurrent sessions; all others 1.
 			maxConcurrentSessions: spec.role === "builder" ? 3 : 1,
-			teamId: teamMembersId,
-			createdAt: now,
 		});
 
 		if (spec.role === "product_manager" && firstProductManagerId === null) {

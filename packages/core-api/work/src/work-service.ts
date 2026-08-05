@@ -31,11 +31,11 @@
  * `findPostBetRetroItem` `items ⋈ threads` join (AU13 addendum §A2
  * "FOREIGN-IMPORT CEILING") was decomposed into `findRetroItemByThreadIds`
  * (items-only) plus a caller-side `getThreadIdsByHost` lookup in
- * conversation-store, since Conversation owns `threads`. The one remaining
- * foreign read here (`listBetTasksWithLatestSessionOutcome` imports
- * `sessions`) predates and is unaffected by this ruling. See `searchBetsByText`
+ * conversation-store, since Conversation owns `threads`. See `searchBetsByText`
  * below for the same decompose-don't-join discipline (owned-primary query +
- * caller-side `teams` lookup).
+ * caller-side `teams` lookup). AU26 H2 (§D-M.3) closed the LAST exception: the
+ * `latestSessionOutcome` correlated `sessions` subquery is deleted and
+ * recomposed at `routes/bets.ts`. There are now zero foreign reads here.
  *
  * Event emission stays at call sites (out of scope — see plan §3).
  */
@@ -47,7 +47,6 @@ import {
 	type NewBet,
 	type NewItem,
 	type NewTask,
-	sessions,
 	taskDispatchAttempts,
 	tasks,
 	type WriteExecutor,
@@ -129,33 +128,6 @@ type ItemPatch = { [K in keyof NewItem]?: NewItem[K] | SQL };
 
 const NOTE_SEPARATOR = "\n\n---\n\n";
 
-/**
- * `routes/bets.ts:461-496` — the bet-detail route's per-task correlated
- * `sessions` subquery for `latestSessionOutcome`. Owned-primary (`.from(tasks)`)
- * with a foreign subquery — one of the two sanctioned foreign imports
- * (addendum §A2 FOREIGN-IMPORT CEILING).
- */
-export interface BetTaskWithLatestSessionOutcome {
-	readonly id: string;
-	readonly betId: string;
-	readonly teamId: string;
-	readonly ownerAgentId: string | null;
-	readonly title: string;
-	readonly description: string | null;
-	readonly doneCondition: string | null;
-	readonly state: string;
-	readonly dependencies: string | null;
-	readonly artifacts: string | null;
-	readonly threadId: string | null;
-	readonly notes: string | null;
-	readonly auditTrail: string | null;
-	readonly createdAt: string;
-	readonly updatedAt: string;
-	readonly latestSessionOutcome: string | null;
-	readonly outcomeVerdict: string | null;
-	readonly outcomeRecordedAt: string | null;
-}
-
 // ---------------------------------------------------------------------------
 // General primitives: get() and list()
 //
@@ -198,7 +170,6 @@ interface WorkEntityRowMap {
  *   - `ids`            → listBetsByIds / listTasksByIds
  *   - `teamId+status`  → listBetsByTeamAndStatus
  *   - `teamId+status+count:true` → countBetsByTeamAndStatus
- *   - `betId+include:"latestSessionOutcome"` → listBetTasksWithLatestSessionOutcome
  *   - `threadId`       → listItemsByThread
  *   - `queued+createdSince` → listQueuedItemsSince
  *   - `marker`         → findItemByReasoningMarker (returns Item[]; take [0] for {id})
@@ -212,7 +183,7 @@ export interface WorkFilter {
 	limit?: number;
 	offset?: number;
 	count?: true;
-	include?: "taskTitle" | "taskSummary" | "latestSessionOutcome";
+	include?: "taskTitle" | "taskSummary";
 	// bet-specific
 	teamId?: string;
 	status?: string;
@@ -293,12 +264,6 @@ export function list(
 	entity: WorkEntity,
 	filter: WorkFilter & { count: true },
 ): Promise<number>;
-/** Tasks with correlated latestSessionOutcome subquery. Requires betId. */
-export function list(
-	exec: WriteExecutor,
-	entity: "task",
-	filter: WorkFilter & { include: "latestSessionOutcome"; betId: string },
-): Promise<BetTaskWithLatestSessionOutcome[]>;
 /** Artifacts page join (full ArtifactWithTaskTitle shape). */
 export function list(
 	exec: WriteExecutor,
@@ -360,36 +325,6 @@ export async function list(
 	}
 
 	// ── enriched includes ────────────────────────────────────────────────────
-	if (entity === "task" && f.include === "latestSessionOutcome") {
-		const outerTaskId = sql`${sql.identifier("tasks")}.${sql.identifier("id")}`;
-		return exec
-			.select({
-				id: tasks.id,
-				betId: tasks.betId,
-				teamId: tasks.teamId,
-				ownerAgentId: tasks.ownerAgentId,
-				title: tasks.title,
-				description: tasks.description,
-				doneCondition: tasks.doneCondition,
-				state: tasks.state,
-				dependencies: tasks.dependencies,
-				artifacts: tasks.artifacts,
-				threadId: tasks.threadId,
-				notes: tasks.notes,
-				auditTrail: tasks.auditTrail,
-				createdAt: tasks.createdAt,
-				updatedAt: tasks.updatedAt,
-				latestSessionOutcome: sql<
-					string | null
-				>`(SELECT ${sessions.outcome} FROM ${sessions} WHERE ${sessions.taskId} = ${outerTaskId} ORDER BY ${sessions.startedAt} DESC LIMIT 1)`.as(
-					"latest_session_outcome",
-				),
-				outcomeVerdict: tasks.outcomeVerdict,
-				outcomeRecordedAt: tasks.outcomeRecordedAt,
-			})
-			.from(tasks)
-			.where(eq(tasks.betId, f.betId ?? ""));
-	}
 	if (entity === "artifact" && f.include === "taskTitle") {
 		if (f.taskIds !== null && f.taskIds !== undefined && f.taskIds.length === 0) return [];
 		const conditions = [];

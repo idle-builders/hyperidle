@@ -1,14 +1,24 @@
 /**
  * Lightweight WebSocket client for HyperIdle.
  *
- * Acquires a one-shot upgrade token via POST /api/auth/ws-token, then opens
- * the WebSocket at /api/ws?token=<token>. Handles subscribe/unsubscribe for
- * named topics and dispatches incoming messages to registered handlers.
+ * Acquires a one-shot upgrade token via POST /api/auth/ws-token, then opens a
+ * WebSocket at the given path with `?token=<token>`. Handles subscribe/
+ * unsubscribe for named topics and dispatches incoming messages to registered
+ * handlers.
  *
  * @lore Q1: The web package had no WebSocket client until Q1. Hooks that need
  * real-time updates (useConversationsThreads, useSessionActivity) subscribe via
- * this singleton. The singleton reconnects automatically on unexpected close.
- * Only one WS connection is opened per browser session.
+ * a singleton. Each singleton reconnects automatically on unexpected close.
+ *
+ * @lore AU26 J3: there are now TWO sockets, not one, because there are two
+ * Layers and each serves its own topics. `getWsClient()` talks to core-api's
+ * `/api/ws` (`thread:<id>`, `conversations`, `work`); `getSessionStreamClient()`
+ * talks to `agent-orchestration`'s `/api/agent-orchestration/ws`
+ * (`session:<id>`). Founder ruling: *"session dial in is 1000% orchestration and
+ * has nothing to do with core."* A second browser socket is the accepted price
+ * of the split. Both mint their token from the same core-api endpoint — the
+ * Application hands both server-side sockets the same one-shot store — and a
+ * token is single-use, so each connect mints its own.
  *
  * @lore Q1: WS transport is NOT available in JSDOM tests. Callers that need
  * WS functionality (e.g. useSessionActivity) must stub the ws-client module
@@ -29,6 +39,9 @@ interface Subscriber {
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 15000];
 
 class WsClient {
+	/** @param path the server path this socket connects to, e.g. `/api/ws`. */
+	constructor(private readonly path: string) {}
+
 	private socket: WebSocket | null = null;
 	private subscribers: Subscriber[] = [];
 	private pendingSubscribes: Set<string> = new Set();
@@ -119,7 +132,7 @@ class WsClient {
 		const wsBase = isDevProxy
 			? `ws://localhost:${devWsPort}`
 			: `${window.location.protocol.replace("http", "ws")}//${window.location.host}`;
-		const wsUrl = `${wsBase}/api/ws?token=${encodeURIComponent(token)}`;
+		const wsUrl = `${wsBase}${this.path}?token=${encodeURIComponent(token)}`;
 
 		const ws = new WebSocket(wsUrl);
 		this.socket = ws;
@@ -239,12 +252,30 @@ class WsClient {
 	}
 }
 
-// Singleton WS client — one connection per browser session
-let wsClientInstance: WsClient | null = null;
+/** core-api's socket: `thread:<id>`, `conversations`, `work`. */
+const CORE_WS_PATH = "/api/ws";
+/** agent-orchestration's socket: `session:<id>` only. */
+const SESSION_STREAM_WS_PATH = "/api/agent-orchestration/ws";
 
+// One singleton per Layer socket — one connection each per browser session.
+let wsClientInstance: WsClient | null = null;
+let sessionStreamClientInstance: WsClient | null = null;
+
+/** The core-api socket. Thread, conversation and work topics. */
 export function getWsClient(): WsClient {
 	if (!wsClientInstance) {
-		wsClientInstance = new WsClient();
+		wsClientInstance = new WsClient(CORE_WS_PATH);
 	}
 	return wsClientInstance;
+}
+
+/**
+ * The agent-orchestration socket. `session:<id>` topics only — the live agent
+ * run stream, served by the Layer that owns the run (AU26 J3).
+ */
+export function getSessionStreamClient(): WsClient {
+	if (!sessionStreamClientInstance) {
+		sessionStreamClientInstance = new WsClient(SESSION_STREAM_WS_PATH);
+	}
+	return sessionStreamClientInstance;
 }

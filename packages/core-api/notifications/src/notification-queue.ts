@@ -12,8 +12,10 @@
  * lease flush loop, adapter calls, silence/quiet-hours routing) — it
  * delegates all table I/O here. Six production call sites route through
  * this module: dispatcher.ts, digest.ts, routes/notifications-routes.ts,
- * services/retention-reaper.ts, services/lifecycle-propagation.ts,
- * routes/teams-routes.ts. Every notification test that seeds or asserts
+ * services/retention-reaper.ts, services/lifecycle-propagation.ts, and —
+ * @lore AU26, replacing `routes/teams-routes.ts`'s deleted
+ * `maybeNotifyAgentError` — services/agent-health-session-end-reactions.ts.
+ * Every notification test that seeds or asserts
  * against `notification_queue` rows also routes through this module's
  * exports (`listAll`/`findById` cover generic test assertions that don't
  * match one of the narrower, production-shaped read functions below).
@@ -24,7 +26,7 @@ import {
 	type NotificationQueueRow,
 	notificationQueue,
 } from "@hyperidle/db";
-import { and, asc, desc, eq, inArray, isNull, lt, type SQL, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, lt, type SQL, sql } from "drizzle-orm";
 
 // ─── Reads ──────────────────────────────────────────────────────────────
 
@@ -123,6 +125,31 @@ async function findPendingByEventSubject(
 	return row;
 }
 
+/**
+ * AU26 — `agent-health-session-end-reactions.ts`'s windowed failure count.
+ * Status-agnostic on purpose: a recorded-but-never-surfaced crash (status
+ * `"dropped"`) counts exactly as much as a delivered one, because the question
+ * is "how often did this agent break", not "how often did we tell you".
+ */
+async function listByEventSubjectSince(
+	db: HyperIdleDb,
+	eventType: string,
+	subjectId: string,
+	since: string,
+): Promise<NotificationQueueRow[]> {
+	return await db
+		.select()
+		.from(notificationQueue)
+		.where(
+			and(
+				eq(notificationQueue.eventType, eventType),
+				eq(notificationQueue.subjectId, subjectId),
+				gte(notificationQueue.createdAt, since),
+			),
+		)
+		.orderBy(desc(notificationQueue.createdAt));
+}
+
 /** Single-row lookup by id. Test-support read (no single narrower shape fits every call site). */
 async function findById(db: HyperIdleDb, id: string): Promise<NotificationQueueRow | undefined> {
 	const [row] = await db
@@ -212,6 +239,14 @@ export type NotificationFilter =
 	| { kind: "by-ids"; ids: readonly string[]; status?: string }
 	| { kind: "stuck"; stuckBefore: string }
 	| { kind: "pending-by-event"; eventType: string; subjectId: string }
+	/**
+	 * AU26 — every row this subject has for `eventType` whose `createdAt` is at
+	 * or after `since`, whatever its status. This is the notification system
+	 * counting its OWN events: "how many times has this agent broken in the last
+	 * 7 days" is answered from `notification_queue` alone, so the degraded-agent
+	 * rule needs no second table and no tally state. Callers take `.length`.
+	 */
+	| { kind: "by-event-since"; eventType: string; subjectId: string; since: string }
 	| { kind: "by-id"; id: string };
 
 /**
@@ -347,6 +382,8 @@ export async function listNotifications(
 					),
 				)
 				.limit(1);
+		case "by-event-since":
+			return listByEventSubjectSince(db, filter.eventType, filter.subjectId, filter.since);
 		case "by-id": {
 			const row = await findById(db, filter.id);
 			return row !== undefined ? [row] : [];

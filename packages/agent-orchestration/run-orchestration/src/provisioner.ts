@@ -37,11 +37,11 @@ import { and, eq, isNull, ne, or, sql } from "drizzle-orm";
 import {
 	applyProvisioningPlan,
 	buildProvisioningPlan,
-	type HeldConnectionsForProvisioning,
+	type HeldConnectionsReaderPort,
 } from "./connection-provisioning.js";
 import { routineSessionContextDataFromBundle, sessionContextDataFromBundle } from "./context.js";
 import {
-	type FilesystemForProvisioning,
+	type InjectedFilesystemsReaderPort,
 	mountFilesystemsForAgent,
 } from "./filesystem-provisioning.js";
 import { transitionRun } from "./transition-run.js";
@@ -104,14 +104,15 @@ interface SessionLifecycleObservability {
 }
 
 // ---------------------------------------------------------------------------
-// filesystems (AU21 §9 Increment 12 follow-up, F2 gap closure): the former
-// `SessionLifecycleFilesystemsReader` seam port is DELETED entirely —
-// `run-orchestration` holds ZERO `-> filesystems` read edge. The agent's
-// injected filesystem list is now baked at EMIT time onto
-// `ProvisionSessionParams.injectedFilesystems` by every per-kind resolver
-// (`@hyperidle/filesystems`'s `resolveInjectedFilesystemsForAgent`), the SAME
-// principle Wave E already applied to `agentConfig`/`harnessDisabled`. See
-// `filesystem-provisioning.ts`'s own top-of-file `@lore` for the full trace.
+// filesystems (AU26 F2, founder ruling): `filesystems` and
+// `filesystem_injections` are `agent-orchestration`'s OWN tables now, so the
+// spawn reads them LIVE — no seam, and no emit-time bake to go stale. AU21 §9
+// Increment 12's `ProvisionSessionParams.injectedFilesystems` is DELETED;
+// `deps.injectedFilesystems` (an `InjectedFilesystemsReaderPort` the
+// Application backs with `@hyperidle/filesystems`) replaces it. A port, not a
+// direct import, because `run-orchestration` is itself a Service and may depend
+// only on db+shared (Mechanism C) — the same reason `heldConnections` beside it
+// is injected. See `filesystem-provisioning.ts`'s own top-of-file `@lore`.
 // ---------------------------------------------------------------------------
 
 interface SessionLifecycleServiceConnectionResolver {
@@ -119,17 +120,15 @@ interface SessionLifecycleServiceConnectionResolver {
 }
 
 // ---------------------------------------------------------------------------
-// connections (AU21 §9 Increment 12 follow-up part 2, F2 gap closure): the
-// former `SessionLifecycleConnectionsProvisioner` seam-shaped port is DELETED
-// entirely — `run-orchestration` holds ZERO `-> connections` read edge. The
-// owning human's held-connection list is now baked at EMIT time onto
-// `ProvisionSessionParams.injectedConnections` by every per-kind resolver
-// (`@hyperidle/connections`'s `resolveInjectedConnectionsForAgent`), the SAME
-// principle the filesystems follow-up already applied. `buildProvisioningPlan`/
-// `applyProvisioningPlan` are called directly (plain same-package import from
-// `./connection-provisioning.js`) — no port indirection needed once there is
-// no seam call left to abstract. See `connection-provisioning.ts`'s own
-// top-of-file `@lore` for the full trace.
+// connections (AU26 E3, AU21 Decision J3): `service_connections` is
+// `agent-orchestration`'s OWN table now, so the spawn reads it LIVE — no seam,
+// and no emit-time bake to go stale. AU21 K1's `ProvisionSessionParams
+// .injectedConnections` is DELETED; `deps.heldConnections` (a
+// `HeldConnectionsReaderPort` the Application backs with
+// `@hyperidle/connections`) replaces it. A port, not a direct import, because
+// `run-orchestration` is itself a Service and may depend only on db+shared
+// (Mechanism C) — the same reason `serviceConnectionResolver` beside it is
+// injected. See `connection-provisioning.ts`'s own top-of-file `@lore`.
 // ---------------------------------------------------------------------------
 
 interface SessionLifecycleHarnessAdapter {
@@ -440,6 +439,42 @@ interface SessionLifecyclePorts {
 	readonly harnessRuntime: SessionLifecycleHarnessRuntime;
 	readonly toolProvider: SessionLifecycleToolProvider;
 	readonly contextAssembly: SessionLifecycleContextAssembly;
+	/**
+	 * AU26 G1 (architecture §D-L) — the target agent's run config, read LIVE at
+	 * drain from `agent_run_config`.
+	 *
+	 * @lore AU26 G1: `admitSession` used to take all six of these fields off
+	 * `params.agentConfig`, the emit-time bake AU21 Increment 12 introduced.
+	 * That bake existed because the columns lived on `users` — CORE state, which
+	 * orchestration may not read (the founder's "orchestration is a blind
+	 * executor" ruling). AU26 moved them into `agent_run_config`, a table
+	 * agent-orchestration OWNS, so reading them here crosses no boundary and
+	 * needs no snapshot. `params.agentConfig` still carries `kind`/`status`/
+	 * `role`/`teamId`, which are genuinely core's and stay baked.
+	 *
+	 * Wired through this ports bag rather than a direct
+	 * `@hyperidle/agent-run-config` import because Mechanism C forbids a Service
+	 * package depending on another Service (`composition-boundary-guard`).
+	 *
+	 * Returns the effective config; an agent with no row resolves the all-null
+	 * default (`maxConcurrentSessions` 1), never `undefined`.
+	 */
+	readonly agentRunConfig: SessionLifecycleAgentRunConfigReader;
+}
+
+/** Live reader of `agent_run_config` — see `SessionLifecyclePorts.agentRunConfig`. */
+export interface SessionLifecycleAgentRunConfigReader {
+	readAgentRunConfig(
+		exec: HyperIdleDb,
+		agentUserId: string,
+	): Promise<{
+		readonly systemPrompt: string | null;
+		readonly harnessType: string | null;
+		readonly modelTierPreference: string | null;
+		readonly modelId: string | null;
+		readonly modelProvider: string | null;
+		readonly maxConcurrentSessions: number;
+	}>;
 }
 
 /**
@@ -602,6 +637,19 @@ interface ProvisionSessionDeps {
 	 */
 	readonly serviceConnectionResolver?: SessionLifecycleServiceConnectionResolver;
 	/**
+	 * AU26 E3: the live, in-layer held-connection read one spawn performs.
+	 * Application-composed from `@hyperidle/connections`. Absent → the
+	 * provisioning plan is empty, the same graceful no-op an absent
+	 * `serviceConnectionResolver` already gives.
+	 */
+	readonly heldConnections?: HeldConnectionsReaderPort;
+	/**
+	 * AU26 F2: the live, in-layer injected-filesystem read one spawn performs.
+	 * Application-composed from `@hyperidle/filesystems`. Absent → nothing is
+	 * mounted, the same graceful no-op an absent `mounter` already gives.
+	 */
+	readonly injectedFilesystems?: InjectedFilesystemsReaderPort;
+	/**
 	 * AR2: optional observation hook, fired once after the agent's turn fully
 	 * drains and the sandbox is completely written, BEFORE teardown deletes it.
 	 * Observes only — it cannot pause, defer, or cancel teardown, which runs
@@ -715,27 +763,6 @@ interface ProvisionSessionParams {
 	 * degrades gracefully rather than hard-failing.
 	 */
 	readonly harnessDisabled?: readonly string[];
-	/**
-	 * AU21 §9 Increment 12 follow-up (F2 gap closure) — the target agent's
-	 * injected-filesystems list, baked at EMIT time by every per-kind resolver
-	 * via `@hyperidle/filesystems`'s `resolveInjectedFilesystemsForAgent`
-	 * (reusing the SAME `requireRunnableAgent`-resolved agentId each resolver
-	 * already has in hand). Phase 4.5 mounts directly from this list — ZERO
-	 * live `-> filesystems` read at provisioning time. Absent/empty means "no
-	 * injected filesystems", matching the seam-based lookup's own empty-list
-	 * behavior unchanged.
-	 */
-	readonly injectedFilesystems?: readonly FilesystemForProvisioning[];
-	/**
-	 * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure): the owning
-	 * human's held-connection list, baked at EMIT time by every per-kind
-	 * resolver via `@hyperidle/connections`'s
-	 * `resolveInjectedConnectionsForAgent`. Phase 8b-connections builds the
-	 * provisioning plan directly from this list — ZERO live `-> connections`
-	 * read at provisioning time. Absent means "no held connections", matching
-	 * the former seam call's own empty-list behavior unchanged.
-	 */
-	readonly injectedConnections?: HeldConnectionsForProvisioning;
 	/**
 	 * AU27 Increment 1 (Decision 1) — the session's calling thread id, baked at
 	 * EMIT time by every per-kind resolver that has one (`assistant_turn` from
@@ -861,11 +888,17 @@ async function admitSession(
 	const agentRole = agentConfig.role;
 	const teamId = agentConfig.teamId ?? undefined;
 
-	// X3: system prompt from the baked snapshot. No file read required.
-	const systemPromptText = agentConfig.systemPrompt ?? "";
+	// AU26 G1 (§D-L): the six run-config fields are read LIVE here from
+	// `agent_run_config` — orchestration's OWN table — instead of coming off the
+	// emit-time bake. An agent with no row resolves the all-null default, which
+	// is exactly what an all-null `users` row resolved before the move.
+	const runConfig = await ports.agentRunConfig.readAgentRunConfig(db, params.agentId);
+
+	// X3: system prompt from the agent's run config. No file read required.
+	const systemPromptText = runConfig.systemPrompt ?? "";
 
 	// X3: Model tier priority: explicit param > agent preference > default "workhorse".
-	const rawPreference = agentConfig.modelTierPreference;
+	const rawPreference = runConfig.modelTierPreference;
 	const agentPreference =
 		rawPreference !== null &&
 		rawPreference !== undefined &&
@@ -880,19 +913,19 @@ async function admitSession(
 	// disabled", matching the settings row's own empty-array default.
 	const harnessDisabled = params.harnessDisabled ?? [];
 	const selectRequirements = {
-		harnessType: agentConfig.harnessType ?? undefined,
-		...(agentConfig.modelProvider
-			? { modelProviders: [agentConfig.modelProvider] as readonly string[] }
+		harnessType: runConfig.harnessType ?? undefined,
+		...(runConfig.modelProvider
+			? { modelProviders: [runConfig.modelProvider] as readonly string[] }
 			: {}),
 		disabledTypes: harnessDisabled as readonly string[],
 	};
 	const selectedAdapter = adapterPool.select(selectRequirements);
 	if (!selectedAdapter) {
-		if (agentConfig.harnessType) {
-			throw new NoEligibleHarnessError(agentConfig.harnessType);
+		if (runConfig.harnessType) {
+			throw new NoEligibleHarnessError(runConfig.harnessType);
 		}
 		throw new Error(
-			`No available adapter in pool — all adapters are at capacity${agentConfig.harnessType ? ` (harnessType: ${agentConfig.harnessType})` : ""}`,
+			`No available adapter in pool — all adapters are at capacity${runConfig.harnessType ? ` (harnessType: ${runConfig.harnessType})` : ""}`,
 		);
 	}
 	const harness = selectedAdapter.adapter;
@@ -913,9 +946,9 @@ async function admitSession(
 		.from(sessions)
 		.where(activeCountWhere)
 		.limit(1);
-	if ((activeCount?.count ?? 0) >= agentConfig.maxConcurrentSessions) {
+	if ((activeCount?.count ?? 0) >= runConfig.maxConcurrentSessions) {
 		adapterPool.release(adapterId);
-		throw new ConcurrencyLimitError(params.agentId, agentConfig.maxConcurrentSessions);
+		throw new ConcurrencyLimitError(params.agentId, runConfig.maxConcurrentSessions);
 	}
 
 	// AF7 §2 (WARNING-2): resolvedModel presence guard — synchronous, pre-P5.
@@ -991,13 +1024,13 @@ async function admitSession(
 		await db.insert(sessions).values(sessionValues);
 	}
 
-	// ── Phase 4.5: mount injected filesystems (AO2). AU21 §9 Increment 12
-	// follow-up (F2 gap closure): mounts from the BAKED `params.injectedFilesystems`
-	// list — ZERO live seam read at provisioning time (see this file's own
-	// top-of-file `filesystems` `@lore`).
+	// ── Phase 4.5: mount injected filesystems (AO2). AU26 F2: reads the
+	// injection record LIVE, in-layer, at spawn — no seam, and no emit-time bake
+	// to go stale (see this file's own top-of-file `filesystems` `@lore`).
 	if (deps.mounter) {
 		mountedFilesystems = await mountFilesystemsForAgent({
-			injectedFilesystems: params.injectedFilesystems ?? [],
+			agentId: params.agentId,
+			...(deps.injectedFilesystems ? { filesystems: deps.injectedFilesystems } : {}),
 			sandboxPath,
 			mounter: deps.mounter,
 		});
@@ -1122,6 +1155,7 @@ async function runSession(
 		mcpBridgeRegistry,
 		mcpBaseUrl,
 		serviceConnectionResolver,
+		heldConnections,
 	} = deps;
 	const {
 		sessionId,
@@ -1345,13 +1379,12 @@ async function runSession(
 	}
 
 	// ── Phase 8b-connections: AN2 Connection provisioning (parallel to inbound bridge).
-	// AU21 §9 Increment 12 follow-up part 2 (F2 gap closure): builds the plan
-	// directly from the BAKED `params.injectedConnections` — no seam reader,
-	// no `ports.connections` indirection (the port is deleted entirely).
+	// AU26 E3: reads the held-connection record LIVE, in-layer, at spawn — no
+	// seam, and no emit-time bake to go stale (AC1(c)).
 	if (serviceConnectionResolver) {
 		try {
 			const plan = await buildProvisioningPlan({
-				heldConnections: params.injectedConnections,
+				...(heldConnections ? { connections: heldConnections } : {}),
 				resolver: serviceConnectionResolver,
 			});
 			const { mcpTokenEnv: connEnv } = await applyProvisioningPlan({
@@ -1764,14 +1797,14 @@ interface Provisioner {
 		params: ProvisionSessionParams,
 	): ReturnType<typeof startSessionProvision>;
 	/**
-	 * AU21 §9 Increment 12 follow-up (F2 gap closure): takes the agent's
-	 * already-BAKED `injectedFilesystems` list directly (no `agentId`
-	 * parameter, no live seam read) — `mountFilesystemsForAgent` no longer
-	 * reads back through a `filesystems` port at all. See
+	 * AU26 F2: takes the agent id plus the live, in-layer injected-filesystem
+	 * reader — `mountFilesystemsForAgent` reads the record itself at spawn
+	 * rather than consuming a list frozen onto the request. See
 	 * `filesystem-provisioning.ts`'s own top-of-file `@lore`.
 	 */
 	mount(
-		injectedFilesystems: readonly FilesystemForProvisioning[],
+		agentId: string,
+		filesystems: InjectedFilesystemsReaderPort | undefined,
 		sandboxPath: string,
 		mounter: FilesystemMounter,
 	): Promise<Filesystem[]>;
@@ -1786,8 +1819,13 @@ export function createProvisioner(ports: SessionLifecyclePorts): Provisioner {
 			runSession(deps, params, admitted, ports, onHarnessStarted),
 		provision: (deps, params) => provisionSession(deps, params, ports),
 		start: (deps, params) => startSessionProvision(deps, params, ports),
-		mount: (injectedFilesystems, sandboxPath, mounter) =>
-			mountFilesystemsForAgent({ injectedFilesystems, sandboxPath, mounter }),
+		mount: (agentId, filesystems, sandboxPath, mounter) =>
+			mountFilesystemsForAgent({
+				agentId,
+				...(filesystems ? { filesystems } : {}),
+				sandboxPath,
+				mounter,
+			}),
 		capture: (...args) => captureMountedFilesystems(...args),
 	};
 }

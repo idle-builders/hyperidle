@@ -16,7 +16,7 @@
  * When AH5 lands, the same PUT-then-resolve seam is what the live lane drives.
  */
 
-import { DbCredentialResolver } from "@hyperidle/connections";
+import { DbCredentialResolver } from "@hyperidle/credentials";
 import { serverCredentials } from "@hyperidle/db";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import { MissingCredentialError, resolveModel } from "@hyperidle/shared";

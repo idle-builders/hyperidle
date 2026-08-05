@@ -132,8 +132,14 @@ const TABLE_OWNER: Record<string, string> = {
 	// are unaffected — this guard's ACL/completeness tiers scan only the new
 	// nested Service packages, not `packages/server` (see this file's
 	// top-level `@lore`).
-	serverCredentials: "packages/core-api/connections",
-	serviceConnections: "packages/core-api/connections",
+	serverCredentials: "packages/core-api/credentials",
+	// @lore AU26 E2/E3 (AU21 Decision J): `service_connections` is
+	// agent-session-provisioning domain, not core domain — core only ever let a
+	// human administer the record, it never operationally consumed one. The
+	// ACL-holder moves; the table DEFINITION stays in `packages/db/src/schema.ts`
+	// (no migration, no data move). `serverCredentials` stays core-owned, in the
+	// package now honestly named `credentials`.
+	serviceConnections: "packages/agent-orchestration/connections",
 	// AU19 Increment 1i: `routine` migrated — `routines`/`routineRuns` are its
 	// two owned tables (`routine-service.ts` moved unchanged, the sole module
 	// touching either table per its own top-level `@lore`). Neither table was
@@ -192,6 +198,15 @@ const TABLE_OWNER: Record<string, string> = {
 	agentWorkIntents: "packages/agent-orchestration/session-requests",
 	agentSessionRequests: "packages/agent-orchestration/session-requests",
 	explicitSessionStarts: "packages/agent-orchestration/session-requests",
+	// AU26 G1 (architecture §D-L): the two run-config tables the six `users` and
+	// three `teams` run-config columns relocated into. Neither was ever in
+	// `UNOWNED_SHARED_TABLES` — a clean new-owner addition, no exemption to
+	// justify. Core-api still HOSTS the write routes (`routes/agents.ts`,
+	// `routes/assistant.ts`, `routes/teams-routes.ts` gate on `users`/`teams`,
+	// core tables, so they have exactly one legal host) and calls DOWN into this
+	// Service's exported writers — it never touches either table itself.
+	agentRunConfig: "packages/agent-orchestration/agent-run-config",
+	teamRunConfigDefaults: "packages/agent-orchestration/agent-run-config",
 	// AU19 Increment 3d: `lifecycle-projection` migrated — its `⛁` "confirm"
 	// column (§4) resolves to ONE owned table, `agentLifecycleInbox`
 	// (`agent-lifecycle-projectors.ts`'s claim/project/ack drain loop, moved
@@ -231,33 +246,34 @@ const TABLE_OWNER: Record<string, string> = {
 	// (`routes/filesystems.ts`, `routes/knowledge.ts`,
 	// `services/session-provisioning.ts`) now calls the real exported
 	// registry functions instead of querying the tables raw.
-	filesystems: "packages/core-api/filesystems",
-	filesystemInjections: "packages/core-api/filesystems",
-	filesystemCaptures: "packages/core-api/filesystems",
-	// AU19 Increment 2c: `git-export` migrated — resolves to ZERO owned
-	// tables (contrast `filesystems`' three, same shape as `policy`'s
-	// zero). `git-export-runner.ts` never touches the DB at all (pure git
-	// subprocess spawning); `git-export.ts` reads/writes `knowledgeItems`/
-	// `knowledgeAppProjection` (owned by `knowledge`, direct read — the
-	// export plan computation is a pure SELECT, not a write) through the
-	// injected `GitExportKnowledgeReader` port — a genuinely NEW
-	// `git-export → knowledge` edge the original architecture §10.2 census
-	// missed entirely, now appended as its own row (see §10.2) — and
-	// `server_config.gitExport` (owned by `settings`, now reached through
-	// the injected `GitExportServerConfigPort`, `ports.ts`) — no table this
-	// Service itself owns.
-	// AU19 Increment 2d: `observability` migrated — resolves to ZERO owned
-	// tables (same shape as `policy`'s/`git-export`'s zero). `types.ts`/
-	// `console-adapter.ts`/`dispatcher.ts` never touch the DB at all (pure
-	// in-memory ring-buffer + structured-log sink); `config.ts` reads/writes
-	// `server_config.observability` (owned by `settings`, now reached
-	// through the injected `ObservabilityServerConfigPort`, `ports.ts`) —
-	// no table this Service itself owns. The one INBOUND edge
-	// (`session-provisioning.ts`'s `summarizeToolArgs` call, a still-
-	// unmigrated agent-orchestration Service) is the caller's concern, not
-	// this row — `session-provisioning.ts` lives in the unguarded
-	// `packages/server` composition root and repoints straight to
-	// `@hyperidle/observability`'s real export (see `ports.ts`'s top `@lore`).
+	// AU26 F2 (§D-I, amended by the founder's 2026-08-04 ruling): the RECORD and
+	// the injection wiring follow the mount engine into the agent-orchestration
+	// Layer, and `packages/core-api/filesystems` moves wholesale to
+	// `packages/agent-orchestration/filesystems`. §D-I originally kept
+	// `filesystems` core-owned on the strength of ONE core-side use —
+	// `routes/knowledge.ts`'s `filesystem` knowledge scope. The founder deleted
+	// that scope ("remove that knowledge filesystem scope and move the filesystem
+	// completely to the orchestration"), so zero core-side uses remain and the
+	// domain lands whole in one Layer. Only these two rows move; no other table's
+	// owner and no `UNOWNED_SHARED_TABLES` entry is touched (AC12).
+	filesystems: "packages/agent-orchestration/filesystems",
+	filesystemInjections: "packages/agent-orchestration/filesystems",
+	// AU26 F1 (§D-I): the mount engine relocated to the agent-orchestration Layer
+	// and `filesystem_captures` went with it — the engine is its only writer, its
+	// FK points at `sessions`, and `listCaptures` had zero non-test readers.
+	filesystemCaptures: "packages/agent-orchestration/filesystem-mounting",
+	// AU26 C1: `git-export` DELETED. It always resolved to ZERO owned tables,
+	// which is why nothing here needs replacing: the exporter read `knowledge`'s
+	// tables through an injected port and `server_config.gitExport` through
+	// another, owning neither. The `gitExport` config section goes with it; the
+	// git runner itself moved to `@hyperidle/shared/git` in A2 and never touched
+	// the DB at all (pure subprocess spawning).
+	// AU26 C2: `observability` DISSOLVED. It always resolved to ZERO owned
+	// tables — the ring buffer and the console sink never touched the DB, and
+	// `config.ts` only read/wrote `server_config.observability`, a section
+	// `settings` owns. That zero is why nothing here needs replacing: the
+	// translator + adapter went to `@hyperidle/shared/observability`, the config
+	// pair went home to `@hyperidle/settings`, and no ownership row moved.
 	// …one row per table, populated as each Service migrates (Increments 1–4).
 	// AU19 Increment 5 item 4 (guard-retirement full-sweep, hintProgress —
 	// LAST sub-item, 2026-07-15 ruling): `hintProgress` cascades from

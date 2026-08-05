@@ -58,29 +58,25 @@ type MockConnection = {
 };
 
 /**
- * Builds the already-BAKED `heldConnections` list (Increment 12 follow-up
- * part 2 — no seam reader anymore) + `resolver` (Application-composed, never
- * through a seam) — `buildProvisioningPlan`'s ONLY two deps. No `db`.
+ * Builds the live in-layer `connections` reader (AU26 E3 — no bake, no seam)
+ * + `resolver` (Application-composed, never through a seam) —
+ * `buildProvisioningPlan`'s ONLY two deps. No `db`.
  */
 function buildPlanSeamDeps(
 	connections: MockConnection[],
 	ownerUserId = "u-founder",
 ): {
-	heldConnections: Parameters<typeof buildProvisioningPlan>[0]["heldConnections"];
+	connections: NonNullable<Parameters<typeof buildProvisioningPlan>[0]["connections"]>;
 	resolver: Parameters<typeof buildProvisioningPlan>[0]["resolver"];
 } {
 	const tokenMap = new Map(connections.map((c) => [c.id, c.token ?? null]));
 	const records = connections.map((c) => ({
 		id: c.id,
+		userId: ownerUserId,
 		service: c.service,
 		authSource: c.authSource,
 		serverUrl: c.serverUrl,
 	}));
-
-	const heldConnections = {
-		userId: ownerUserId,
-		connections: records,
-	};
 
 	const resolver = {
 		resolve: async (_userId: string, connectionId: string): Promise<string | null> => {
@@ -88,7 +84,7 @@ function buildPlanSeamDeps(
 		},
 	};
 
-	return { heldConnections, resolver };
+	return { connections: { listHeldForProvisioning: async () => records }, resolver };
 }
 
 function buildTestPlan(
@@ -108,18 +104,18 @@ function buildTestPlan(
 
 describe("buildProvisioningPlan (relocated to agent-orchestration, seam-shaped deps)", () => {
 	test("takes {connections, resolver} — no db, no ConnectionsUserReader", async () => {
-		const { heldConnections, resolver } = buildPlanSeamDeps([
+		const { connections, resolver } = buildPlanSeamDeps([
 			{ id: "sc-gh", service: "github", authSource: "token", serverUrl: null, token: "ghs_abc" },
 		]);
 
-		const plan = await buildProvisioningPlan({ heldConnections, resolver });
+		const plan = await buildProvisioningPlan({ connections, resolver });
 
 		expect(plan.envInjections).toMatchObject({ GH_TOKEN: "ghs_abc", GITHUB_TOKEN: "ghs_abc" });
 		expect(plan.mcpServers).toHaveLength(0);
 	});
 
 	test("token + serverUrl → mcp-bearer carrier (server entry + bearer token env), token resolved via resolver against the seam-resolved owner", async () => {
-		const { heldConnections, resolver } = buildPlanSeamDeps(
+		const { connections, resolver } = buildPlanSeamDeps(
 			[
 				{
 					id: "sc-stripe",
@@ -133,7 +129,7 @@ describe("buildProvisioningPlan (relocated to agent-orchestration, seam-shaped d
 		);
 		const resolveSpy = vi.spyOn(resolver, "resolve");
 
-		const plan = await buildProvisioningPlan({ heldConnections, resolver });
+		const plan = await buildProvisioningPlan({ connections, resolver });
 
 		expect(plan.mcpServers).toHaveLength(1);
 		expect(plan.mcpServers[0]).toMatchObject({
@@ -148,7 +144,7 @@ describe("buildProvisioningPlan (relocated to agent-orchestration, seam-shaped d
 	});
 
 	test("mcp connection → outbound pointer (no bearer token, no resolver call needed)", async () => {
-		const { heldConnections, resolver } = buildPlanSeamDeps([
+		const { connections, resolver } = buildPlanSeamDeps([
 			{
 				id: "sc-figma",
 				service: "figma",
@@ -158,7 +154,7 @@ describe("buildProvisioningPlan (relocated to agent-orchestration, seam-shaped d
 			},
 		]);
 
-		const plan = await buildProvisioningPlan({ heldConnections, resolver });
+		const plan = await buildProvisioningPlan({ connections, resolver });
 
 		expect(plan.mcpServers).toHaveLength(1);
 		expect(plan.mcpServers[0]).toMatchObject({ name: "figma", url: "https://mcp.figma.com" });
@@ -167,7 +163,7 @@ describe("buildProvisioningPlan (relocated to agent-orchestration, seam-shaped d
 
 	test("private-IP serverUrl is dropped and logged, never written", async () => {
 		const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-		const { heldConnections, resolver } = buildPlanSeamDeps([
+		const { connections, resolver } = buildPlanSeamDeps([
 			{
 				id: "sc-private",
 				service: "internal",
@@ -178,7 +174,7 @@ describe("buildProvisioningPlan (relocated to agent-orchestration, seam-shaped d
 		]);
 
 		const plan = await buildProvisioningPlan({
-			heldConnections,
+			connections,
 			resolver,
 			_ssrfLookup: async () => [{ address: "10.0.0.1", family: 4 }],
 		});
@@ -192,7 +188,7 @@ describe("buildProvisioningPlan (relocated to agent-orchestration, seam-shaped d
 		vi.spyOn(console, "warn").mockImplementation((...args: unknown[]) => {
 			loggedMessages.push(args.map(String).join(" "));
 		});
-		const { heldConnections, resolver } = buildPlanSeamDeps([
+		const { connections, resolver } = buildPlanSeamDeps([
 			{
 				id: "sc-secret",
 				service: "stripe",
@@ -202,7 +198,7 @@ describe("buildProvisioningPlan (relocated to agent-orchestration, seam-shaped d
 			},
 		]);
 
-		await buildProvisioningPlan({ heldConnections, resolver });
+		await buildProvisioningPlan({ connections, resolver });
 
 		for (const msg of loggedMessages) {
 			expect(msg).not.toContain("sk_test_SUPERSECRET_XYZ");
@@ -210,7 +206,7 @@ describe("buildProvisioningPlan (relocated to agent-orchestration, seam-shaped d
 	});
 
 	test("two connections → two entries, one per connection", async () => {
-		const { heldConnections, resolver } = buildPlanSeamDeps([
+		const { connections, resolver } = buildPlanSeamDeps([
 			{ id: "sc-gh", service: "github", authSource: "token", serverUrl: null, token: "tok1" },
 			{
 				id: "sc-figma",
@@ -221,7 +217,7 @@ describe("buildProvisioningPlan (relocated to agent-orchestration, seam-shaped d
 			},
 		]);
 
-		const plan = await buildProvisioningPlan({ heldConnections, resolver });
+		const plan = await buildProvisioningPlan({ connections, resolver });
 
 		expect(plan.envInjections.GH_TOKEN).toBe("tok1");
 		expect(plan.mcpServers).toHaveLength(1);
@@ -229,7 +225,7 @@ describe("buildProvisioningPlan (relocated to agent-orchestration, seam-shaped d
 	});
 
 	test("stripe token + stripe mcp → deterministic key suffix (stripe vs stripe-mcp) — N3", async () => {
-		const { heldConnections, resolver } = buildPlanSeamDeps([
+		const { connections, resolver } = buildPlanSeamDeps([
 			{
 				id: "sc-stripe-token",
 				service: "stripe",
@@ -246,7 +242,7 @@ describe("buildProvisioningPlan (relocated to agent-orchestration, seam-shaped d
 			},
 		]);
 
-		const plan = await buildProvisioningPlan({ heldConnections, resolver });
+		const plan = await buildProvisioningPlan({ connections, resolver });
 
 		const names = plan.mcpServers.map((s) => s.name);
 		expect(names).toContain("stripe");
@@ -254,9 +250,9 @@ describe("buildProvisioningPlan (relocated to agent-orchestration, seam-shaped d
 	});
 
 	test("no held connections for the seam-resolved owner → empty plan, no throw", async () => {
-		const { heldConnections, resolver } = buildPlanSeamDeps([]);
+		const { connections, resolver } = buildPlanSeamDeps([]);
 
-		const plan = await buildProvisioningPlan({ heldConnections, resolver });
+		const plan = await buildProvisioningPlan({ connections, resolver });
 
 		expect(plan.mcpServers).toHaveLength(0);
 		expect(Object.keys(plan.envInjections)).toHaveLength(0);

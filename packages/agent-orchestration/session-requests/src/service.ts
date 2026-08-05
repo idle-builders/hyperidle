@@ -831,13 +831,16 @@ async function createFromBakedRequestInternal(
 		idempotencyKey: intent.idempotencyKey,
 		sourceCorrelation: baked.sourceCorrelation,
 		// AU21 §9 Increment 11 (Decision H2) / Increment 12 (Decision H3): the
-		// assistant_turn family's baked transcript + per-agent model override,
-		// the task_run/routine_run/knowledge_action/reengagement families'
-		// baked contextBundle, and (Wave E) EVERY kind's baked
+		// assistant_turn family's baked transcript, the
+		// task_run/routine_run/knowledge_action/reengagement families' baked
+		// contextBundle, and (Wave E) EVERY kind's baked
 		// agentConfig/harnessDisabled ride the existing generic `payloadJson`
 		// pass-through column onto the created `AgentSessionRequest`.
+		//
+		// @lore AU26 G1: the per-agent model override (`modelId`/`modelProvider`)
+		// is no longer baked — those columns moved into `agent_run_config`,
+		// orchestration's own table, so `dispatch` reads them live instead.
 		...(baked.transcript !== undefined ||
-		baked.modelId !== undefined ||
 		baked.contextBundle !== undefined ||
 		baked.agentConfig !== undefined ||
 		baked.harnessDisabled !== undefined ||
@@ -845,9 +848,6 @@ async function createFromBakedRequestInternal(
 			? {
 					payloadJson: JSON.stringify({
 						...(baked.transcript !== undefined ? { transcript: baked.transcript } : {}),
-						...(baked.modelId !== undefined
-							? { modelId: baked.modelId, modelProvider: baked.modelProvider ?? null }
-							: {}),
 						...(baked.contextBundle !== undefined ? { contextBundle: baked.contextBundle } : {}),
 						...(baked.agentConfig !== undefined ? { agentConfig: baked.agentConfig } : {}),
 						...(baked.harnessDisabled !== undefined
@@ -1291,14 +1291,6 @@ export type BakedWorkIntentRequest = {
 		readonly type: string;
 	}>;
 	/**
-	 * AU21 §9 Increment 11 (Decision H2 follow-up): the `assistant_turn`
-	 * family's baked per-agent model override (`users.modelId`/
-	 * `modelProvider`). Absent for every other kind — see `BakedWorkIntentRequest`
-	 * in `@hyperidle/shared` for the full `@lore`.
-	 */
-	readonly modelId?: string | null;
-	readonly modelProvider?: string | null;
-	/**
 	 * AU21 §9 Increment 12 (Decision H3): the `task_run`/`knowledge_action`/
 	 * `routine_run`/`reengagement` families' baked entity content (task/bet/
 	 * agent/team, or routine/agent/team) plus the ranked+budgeted knowledge
@@ -1317,11 +1309,6 @@ export type BakedWorkIntentRequest = {
 		readonly status: string;
 		readonly role: string;
 		readonly teamId: string | null;
-		readonly systemPrompt: string | null;
-		readonly modelTierPreference: string | null;
-		readonly harnessType: string | null;
-		readonly modelProvider: string | null;
-		readonly maxConcurrentSessions: number;
 	};
 	readonly harnessDisabled?: readonly string[];
 	/**

@@ -181,14 +181,11 @@ describe("assistant_turn B‴ coherence trigger — a thread reply re-bakes a pe
 			createdAt: NOW,
 		});
 
-		// AU21 Decision K1 (guard blind-spot closure item 4): the founder
-		// (the owning human, `resolveInjectedConnectionsForAgent`'s fixed
-		// resolution target — AN2 single-founder lock) has a held connection.
-		// Proves BOTH real composition-root sites for `assistant_turn`: the
-		// initial emit at `routes/threads.ts`'s message-post route (intent1/
-		// intent2's original bake, asserted below) AND the coherence re-bake at
-		// `assistant-turn-coherence-trigger.ts` (freshIntent, asserted below) —
-		// neither silently drops `injectedConnections`.
+		// @lore AU26 E3: this held connection backed K1's assertion that both
+		// `assistant_turn` emit sites baked the owning human's connections onto
+		// the intent. The bake is deleted — connections are read live at spawn —
+		// so the row now only proves the emit path is unaffected by one
+		// existing.
 		await db.insert(serviceConnections).values({
 			id: "sc-inc11-b3-coherence",
 			userId: founderId,
@@ -221,17 +218,7 @@ describe("assistant_turn B‴ coherence trigger — a thread reply re-bakes a pe
 				and(eq(agentWorkIntents.kind, "assistant_turn"), eq(agentWorkIntents.sourceId, msg1.id)),
 			);
 		expect(intent1?.status).toBe("handed_off");
-		// Initial-emit site (`routes/threads.ts`'s message-post route): the
-		// owning human's held connection must be baked, not silently undefined.
-		const intent1Baked = intent1?.bakedRequestJson
-			? (JSON.parse(intent1.bakedRequestJson) as {
-					injectedConnections?: { userId: string; connections: readonly { id: string }[] };
-				})
-			: undefined;
-		expect(intent1Baked?.injectedConnections?.userId).toBe(founderId);
-		expect(
-			intent1Baked?.injectedConnections?.connections.some((c) => c.id === "sc-inc11-b3-coherence"),
-		).toBe(true);
+		expect(intent1?.bakedRequestJson ?? "").not.toContain("injectedConnections");
 
 		// --- Step 2: msg2 queues behind the in-flight turn1 ---
 		const msg2 = await founderPort.conversation.insertMessage({
@@ -296,25 +283,14 @@ describe("assistant_turn B‴ coherence trigger — a thread reply re-bakes a pe
 				(row) => row.senderId === assistantAgentId && row.payload.includes(replyText),
 			),
 		).toBe(true);
-		// The re-baked intent must still carry the assistant agent's injected
-		// filesystems — not silently dropped by the rebake path.
-		const freshBaked = freshIntent?.bakedRequestJson
-			? (JSON.parse(freshIntent.bakedRequestJson) as {
-					injectedFilesystems?: readonly { id: string }[];
-					injectedConnections?: { userId: string; connections: readonly { id: string }[] };
-				})
-			: undefined;
-		expect(freshBaked?.injectedFilesystems).toEqual([
-			expect.objectContaining({ id: "fs-inc11-b3-coherence" }),
-		]);
-		// AU21 Decision K1 (guard blind-spot closure item 4): the re-baked
-		// intent must still carry the owning human's held connection — not
-		// silently dropped by `assistant-turn-coherence-trigger.ts`'s own
-		// rebake wiring.
-		expect(freshBaked?.injectedConnections?.userId).toBe(founderId);
-		expect(
-			freshBaked?.injectedConnections?.connections.some((c) => c.id === "sc-inc11-b3-coherence"),
-		).toBe(true);
+		// @lore AU26 F2: this used to assert the re-baked intent still carried the
+		// assistant agent's injected filesystems. That bake is deleted — the spawn
+		// reads the injection record live and in-layer — so the rebake path must
+		// carry nothing about filesystems either.
+		expect(freshIntent?.bakedRequestJson ?? "").not.toContain("injectedFilesystems");
+		// @lore AU26 E3: K1's connection assertion here is gone with the bake.
+		// The rebake path must still carry nothing about connections.
+		expect(freshIntent?.bakedRequestJson ?? "").not.toContain("injectedConnections");
 
 		// --- Step 5: drain — old superseded, fresh handed off, ONE session, coherent ---
 		await drainIntents(deps);

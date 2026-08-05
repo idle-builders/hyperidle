@@ -31,7 +31,6 @@ import {
 	type HyperIdleDb,
 	messages,
 	proposedCalls,
-	serviceConnections,
 	tasks,
 	teamMembers,
 	teams,
@@ -185,7 +184,7 @@ describe("reengagement is resolved and baked at emit time (POST /api/threads/:th
 		});
 	});
 
-	test("approving a review for an agent with an injected filesystem bakes the full injectedFilesystems list onto the granted reengagement intent (blocking review finding: the granted branch must forward ALL of ports, not just getTaskById/requireRunnableAgent)", async ({
+	test("approving a review for an agent with an injected filesystem carries NOTHING about filesystems on the emitted intent", async ({
 		db,
 		app,
 	}) => {
@@ -223,83 +222,22 @@ describe("reengagement is resolved and baked at emit time (POST /api/threads/:th
 			.from(agentWorkIntents)
 			.where(eq(agentWorkIntents.kind, "reengagement"));
 		expect(intent?.bakedRequestJson).toBeTruthy();
-		const baked = intent?.bakedRequestJson
-			? (JSON.parse(intent.bakedRequestJson) as Record<string, unknown>)
-			: undefined;
 
-		// Before the fix, the "granted" branch forwarded ONLY
-		// {getTaskById, requireRunnableAgent} into resolveReengagementRequest,
-		// discarding resolveInjectedFilesystemsForAgent even though threads.ts
-		// supplies it — session 2's Phase 4.5 would mount nothing.
-		expect(baked?.injectedFilesystems).toEqual([
-			{
-				id: "au21-reengage-emit-fs-repo",
-				teamId,
-				source: "local",
-				kind: "code",
-				connectionId: null,
-				resourceRef: { kind: "code", repo: "org/repo", branch: "main" },
-				writeback: "git",
-				state: "attached",
-				createdAt: NOW,
-			},
-		]);
+		// @lore AU26 F2: this used to assert the opposite — that the "granted"
+		// branch baked the agent's full injected-filesystem list onto the intent,
+		// because forgetting to forward that one dep left session 2's Phase 4.5
+		// mounting nothing. The bake is DELETED: the spawn reads the injection
+		// record live and in-layer, so there is no per-site dep left to forget
+		// and no snapshot left to go stale. See
+		// `filesystems-added-after-emit.integration.test.ts`.
+		expect(intent?.bakedRequestJson ?? "").not.toContain("injectedFilesystems");
 	});
 
-	// AU21 Decision K1 (guard blind-spot closure item 4): proves the
-	// composition-root binding at this real emit site (`transitionProposedCall`'s
-	// `resolveInjectedConnectionsForAgent` dep, `routes/threads.ts`'s
-	// verdict-approve "granted" branch) actually bakes the owning human's
-	// held connections — not silently undefined.
-	test("approving a review for an owning human with a held connection bakes the full injectedConnections list onto the granted reengagement intent", async ({
-		db,
-		app,
-	}) => {
-		const { threadId, messageId } = await seedApprovableWorld(db, "au21-reengage-emit-conn");
-
-		await db.insert(users).values({
-			id: "u-au21-reengage-emit-conn-founder",
-			kind: "human",
-			name: "Founder",
-			role: "founder",
-			status: "active",
-			createdAt: NOW,
-		});
-		await db.insert(serviceConnections).values({
-			id: "sc-au21-reengage-emit-conn",
-			userId: "u-au21-reengage-emit-conn-founder",
-			service: "github",
-			authSource: "token",
-			encryptedToken: "au21-reengage-emit-conn-encrypted-placeholder",
-			serverUrl: null,
-			health: "needs-attention",
-			lastValidatedAt: null,
-			createdAt: NOW,
-			updatedAt: NOW,
-		});
-
-		const res = await app.request(`/api/threads/${threadId}/messages/${messageId}/verdict`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ decision: "approve", rationale: "LGTM" }),
-		});
-		expect(res.status).toBe(200);
-
-		const [intent] = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.kind, "reengagement"));
-		const baked = intent?.bakedRequestJson
-			? (JSON.parse(intent.bakedRequestJson) as {
-					injectedConnections?: { userId: string; connections: readonly { id: string }[] };
-				})
-			: undefined;
-
-		expect(baked?.injectedConnections?.userId).toBe("u-au21-reengage-emit-conn-founder");
-		expect(
-			baked?.injectedConnections?.connections.some((c) => c.id === "sc-au21-reengage-emit-conn"),
-		).toBe(true);
-	});
+	// @lore AU26 E3: the K1 test that lived here proved this emit site baked
+	// the owning human's held connections onto the intent. That bake is
+	// deleted — connections are read live at spawn — so there is nothing
+	// left for this site to forget. See
+	// `connections-added-after-emit.integration.test.ts`.
 
 	test("the drain hands off the real emitted reengagement intent from its baked payload — ZERO review/work/users domain reads", async ({
 		db,

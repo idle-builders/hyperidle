@@ -10,6 +10,7 @@
 
 import {
 	agentLifecycleInbox,
+	agentRunConfig,
 	agentSessionRequests,
 	bets,
 	messages,
@@ -166,10 +167,14 @@ async function seedAssistantTurnRequest(
 		name: "Assistant",
 		role: "assistant",
 		status: "active",
+		createdAt: now,
+	});
+	// AU26 G1: the run config lives in `agent_run_config` now.
+	await db.insert(agentRunConfig).values({
+		agentUserId: assistantId,
 		harnessType: "builtin",
 		modelId: "deepseek/deepseek-v4-flash",
 		modelProvider: "openrouter",
-		createdAt: now,
 	});
 	await db.insert(threads).values({
 		id: threadId,

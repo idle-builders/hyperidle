@@ -7,7 +7,7 @@
  * - Unset default → builtin fallback on scaffold AND add-agent
  */
 
-import { teams, users } from "@hyperidle/db";
+import { agentRunConfig, teamRunConfigDefaults, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
 import { describe, expect, test } from "../test-fixtures.js";
@@ -44,8 +44,13 @@ describe("primary harness persisted as team default", () => {
 		const teamId = body.team.id;
 		const teamMembersId = body.teamMembers.id;
 
-		// (a) teams row carries the default
-		const [teamRow] = await db.select().from(teams).where(eq(teams.id, teamId)).limit(1);
+		// (a) the team's run-config defaults row carries the default
+		// @lore AU26 G1: `teams.default_*` relocated to `team_run_config_defaults`.
+		const [teamRow] = await db
+			.select()
+			.from(teamRunConfigDefaults)
+			.where(eq(teamRunConfigDefaults.teamId, teamId))
+			.limit(1);
 		expect(teamRow?.defaultHarnessType).toBe("claude-code");
 		expect(teamRow?.defaultModelId).toBe("claude-haiku-4-5");
 		expect(teamRow?.defaultModelProvider).toBe("anthropic");
@@ -54,7 +59,12 @@ describe("primary harness persisted as team default", () => {
 		const agents = await db.select().from(users).where(eq(users.teamId, teamMembersId));
 		expect(agents.length).toBeGreaterThan(0);
 		for (const agent of agents) {
-			expect(agent.harnessType).toBe("claude-code");
+			const [config] = await db
+				.select()
+				.from(agentRunConfig)
+				.where(eq(agentRunConfig.agentUserId, agent.id))
+				.limit(1);
+			expect(config?.harnessType).toBe("claude-code");
 		}
 
 		vi.unstubAllEnvs();
@@ -91,14 +101,18 @@ describe("primary harness persisted as team default", () => {
 		const addBody = (await addRes.json()) as { agentId: string };
 
 		// Assert new agent inherits the persisted team default, NOT builtin
-		const [newAgent] = await db.select().from(users).where(eq(users.id, addBody.agentId)).limit(1);
+		const [newAgent] = await db
+			.select()
+			.from(agentRunConfig)
+			.where(eq(agentRunConfig.agentUserId, addBody.agentId))
+			.limit(1);
 		expect(newAgent?.harnessType).toBe("claude-code");
 		expect(newAgent?.modelId).toBe("claude-haiku-4-5");
 
 		vi.unstubAllEnvs();
 	});
 
-	test("unset default: teams.defaultHarnessType is null AND scaffolded agents fall back to builtin", async ({
+	test("unset default: no team default AND scaffolded agents fall back to builtin", async ({
 		db,
 		app,
 	}) => {
@@ -118,16 +132,25 @@ describe("primary harness persisted as team default", () => {
 		const teamId = body.team.id;
 		const teamMembersId = body.teamMembers.id;
 
-		// teams.defaultHarnessType is null
-		const [teamRow] = await db.select().from(teams).where(eq(teams.id, teamId)).limit(1);
-		expect(teamRow?.defaultHarnessType).toBeNull();
+		// the team's default harness is null
+		const [teamRow] = await db
+			.select()
+			.from(teamRunConfigDefaults)
+			.where(eq(teamRunConfigDefaults.teamId, teamId))
+			.limit(1);
+		expect(teamRow?.defaultHarnessType ?? null).toBeNull();
 
 		// Scaffolded agents fall back to builtin/claude-sonnet-4-6
 		const agents = await db.select().from(users).where(eq(users.teamId, teamMembersId));
 		expect(agents.length).toBeGreaterThan(0);
 		for (const agent of agents) {
-			expect(agent.harnessType).toBe("builtin");
-			expect(agent.modelId).toBe("claude-sonnet-4-6");
+			const [config] = await db
+				.select()
+				.from(agentRunConfig)
+				.where(eq(agentRunConfig.agentUserId, agent.id))
+				.limit(1);
+			expect(config?.harnessType).toBe("builtin");
+			expect(config?.modelId).toBe("claude-sonnet-4-6");
 		}
 
 		// Add-agent-later also falls back to builtin
@@ -138,7 +161,11 @@ describe("primary harness persisted as team default", () => {
 		});
 		expect(addRes.status).toBe(201);
 		const addBody = (await addRes.json()) as { agentId: string };
-		const [newAgent] = await db.select().from(users).where(eq(users.id, addBody.agentId)).limit(1);
+		const [newAgent] = await db
+			.select()
+			.from(agentRunConfig)
+			.where(eq(agentRunConfig.agentUserId, addBody.agentId))
+			.limit(1);
 		expect(newAgent?.harnessType).toBe("builtin");
 		expect(newAgent?.modelId).toBe("claude-sonnet-4-6");
 
@@ -181,11 +208,18 @@ describe("primary harness persisted as team default", () => {
 		// The assistant stub row has id = `ast-${userId}`
 		const assistantId = `ast-${userId}`;
 		const [assistantRow] = await db.select().from(users).where(eq(users.id, assistantId)).limit(1);
+		expect(assistantRow).toBeDefined();
+
+		// @lore AU26 G1: the stub's harness lives in `agent_run_config` now.
+		const [assistantConfig] = await db
+			.select()
+			.from(agentRunConfig)
+			.where(eq(agentRunConfig.agentUserId, assistantId))
+			.limit(1);
 
 		// Assert it carries a non-null harnessType
-		expect(assistantRow).toBeDefined();
-		expect(assistantRow?.harnessType).not.toBeNull();
-		expect(assistantRow?.harnessType).toBe("claude-code");
+		expect(assistantConfig?.harnessType).not.toBeNull();
+		expect(assistantConfig?.harnessType).toBe("claude-code");
 
 		vi.unstubAllEnvs();
 	});

@@ -35,7 +35,7 @@ export type { ReviewRoutingContext } from "./org-routing.js";
 export { resolveReviewRecipients } from "./org-routing.js";
 
 // -- ports (Mechanism C — DI-injected outbound edges) --
-export type { OrgUserDirectory } from "./ports.js";
+export type { OrgAgentRunConfigWriter, OrgUserDirectory } from "./ports.js";
 
 // -- scaffold agents (AK6 — single writer of agent user rows) --
 export type { AgentScaffoldSpec, ScaffoldResult } from "./scaffold-agents.js";

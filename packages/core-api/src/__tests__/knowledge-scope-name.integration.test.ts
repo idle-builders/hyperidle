@@ -4,6 +4,9 @@
  * AC-1: team-scoped item returns scopeName === team name (not bucket word, not UUID).
  * AC-2: scopeName present for factory/"Factory", user/name, team/name, missing→fallback.
  * AV3 amendment: practice→role label, filesystem→composed display name.
+ * AU26 F2 (founder ruling): the filesystem scope kind is DELETED — the string
+ * now resolves through the unknown-kind fallback, and this route no longer
+ * reads `filesystems` at all.
  *
  * Uses real DB + real Hono app fixtures.
  */
@@ -287,9 +290,13 @@ describe("GET /api/knowledge/:id returns resolved scopeName alongside scopeKind/
 		expect(body.scopeName).toBe("Growth Hacker");
 	});
 
-	// AV3 amendment A2 — filesystem → composed display name
-	test("filesystem item returns repo leaf name for code kind", async ({ db, app }) => {
-		// Need a team for filesystems.teamId FK
+	// AU26 F2 (founder ruling): the `filesystem` scope kind is DELETED. An item
+	// carrying the string is an unknown kind now — it resolves through the shared
+	// fallback, and the route never reads `filesystems` to name it.
+	test("a filesystem-scoped item resolves through the unknown-kind fallback", async ({
+		db,
+		app,
+	}) => {
 		const teamId = crypto.randomUUID();
 		await db.insert(teams).values({
 			id: teamId,
@@ -315,46 +322,6 @@ describe("GET /api/knowledge/:id returns resolved scopeName alongside scopeKind/
 		const res = await app.request(`/api/knowledge/${id}`, { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as Record<string, unknown>;
-		expect(body.scopeName).toBe("nimmly");
-	});
-
-	test("filesystem item returns folder basename for doc_set kind", async ({ db, app }) => {
-		const teamId = crypto.randomUUID();
-		await db.insert(teams).values({
-			id: teamId,
-			name: "Docs Team",
-			phase: "active",
-			createdAt: new Date().toISOString(),
-		});
-		const fsId = crypto.randomUUID();
-		await db.insert(filesystems).values({
-			id: fsId,
-			teamId,
-			source: "obsidian",
-			kind: "doc_set",
-			resourceRef: JSON.stringify({ kind: "doc_set", folder: "/home/user/vault/my-notes" }),
-			writeback: "file",
-			state: "attached",
-			createdAt: new Date().toISOString(),
-		});
-		const id = await createKnowledgeItem(db, {
-			scopeKind: "filesystem",
-			scopeId: fsId,
-		});
-		const res = await app.request(`/api/knowledge/${id}`, { headers: authHeaders() });
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as Record<string, unknown>;
-		expect(body.scopeName).toBe("my-notes");
-	});
-
-	test("filesystem item missing row → 'Filesystem'", async ({ db, app }) => {
-		const id = await createKnowledgeItem(db, {
-			scopeKind: "filesystem",
-			scopeId: "nonexistent-fs-id",
-		});
-		const res = await app.request(`/api/knowledge/${id}`, { headers: authHeaders() });
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as Record<string, unknown>;
-		expect(body.scopeName).toBe("Filesystem");
+		expect(body.scopeName).toBe("Shared");
 	});
 });

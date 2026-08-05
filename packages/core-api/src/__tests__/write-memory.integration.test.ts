@@ -52,7 +52,6 @@ async function seedFacilitator(db: HyperIdleDb): Promise<void> {
 		name: "Agent A",
 		role: "facilitator",
 		status: "active",
-		maxConcurrentSessions: 1,
 		createdAt: NOW,
 	});
 }
@@ -63,7 +62,6 @@ async function seedBuilder(db: HyperIdleDb): Promise<void> {
 		name: "Builder Agent",
 		role: "builder",
 		status: "active",
-		maxConcurrentSessions: 1,
 		createdAt: NOW,
 	});
 }
@@ -206,7 +204,9 @@ describe("write_memory tool", () => {
 			expect(row?.scopeId).toBe("product_manager");
 		});
 
-		test("accepts explicit filesystem scope", async ({ db }) => {
+		// AU26 F2 (founder ruling): `filesystem` is no longer a scope kind, so
+		// the tool's `z.enum(SCOPE_KINDS)` rejects it at the input boundary.
+		test("rejects a filesystem scope — the scope kind is gone", async ({ db }) => {
 			await seedFacilitator(db);
 			const result = await writeMemoryTool.handler(
 				{
@@ -219,15 +219,10 @@ describe("write_memory tool", () => {
 				},
 				makeContext(db),
 			);
-			expect(result.success).toBe(true);
-			if (!result.success) return;
-			const data = result.data as { knowledgeItemId: string };
-			const [row] = await db
-				.select({ scopeKind: knowledgeItems.scopeKind, scopeId: knowledgeItems.scopeId })
-				.from(knowledgeItems)
-				.where(eq(knowledgeItems.id, data.knowledgeItemId));
-			expect(row?.scopeKind).toBe("filesystem");
-			expect(row?.scopeId).toBe("fs-main");
+			expect(result.success).toBe(false);
+			if (result.success) return;
+			expect(result.code).toBe("INVALID_INPUT");
+			expect(await db.select().from(knowledgeItems)).toEqual([]);
 		});
 
 		test("rejects explicit scoped writes without required scopeId", async ({ db }) => {

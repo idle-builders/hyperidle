@@ -26,11 +26,7 @@
  */
 
 import type { HyperIdleDb, User } from "@hyperidle/db";
-import type {
-	BakedAgentRunnableConfig,
-	BakedConnectionsForProvisioning,
-	BakedFilesystemForProvisioning,
-} from "@hyperidle/shared";
+import type { BakedAgentRunnableConfig } from "@hyperidle/shared";
 import { bakeAgentRunnableConfig } from "@hyperidle/shared";
 import { findMessage, listMessages } from "./conversation-store.js";
 
@@ -46,30 +42,6 @@ export interface AssistantTurnResolverDeps {
 	 * degrade).
 	 */
 	readServerConfig?(db: HyperIdleDb): Promise<{ readonly harnessDisabled: readonly string[] }>;
-	/**
-	 * AU21 §9 Increment 12 follow-up (F2 gap closure) — optional:
-	 * `@hyperidle/filesystems`'s `resolveInjectedFilesystemsForAgent`, injected
-	 * (Mechanism C — `@hyperidle/conversation` cannot import
-	 * `@hyperidle/filesystems` directly) for the `injectedFilesystems` bake.
-	 * Absent at a call site not yet wired — the resolver bakes no
-	 * `injectedFilesystems`.
-	 */
-	resolveInjectedFilesystemsForAgent?(
-		db: HyperIdleDb,
-		agentId: string,
-	): Promise<readonly BakedFilesystemForProvisioning[]>;
-	/**
-	 * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) —
-	 * optional: `@hyperidle/connections`'s `resolveInjectedConnectionsForAgent`,
-	 * injected (Mechanism C — `@hyperidle/conversation` cannot import
-	 * `@hyperidle/connections` directly) for the `injectedConnections` bake.
-	 * Absent at a call site not yet wired — the resolver bakes no
-	 * `injectedConnections`.
-	 */
-	resolveInjectedConnectionsForAgent?(
-		db: HyperIdleDb,
-		agentId: string,
-	): Promise<BakedConnectionsForProvisioning>;
 }
 
 /** Thrown when the source message does not exist, is deleted, or is redacted. */
@@ -89,15 +61,15 @@ export interface BakedTranscriptRow {
  * state, at emit time) lets `run-orchestration`'s generic drain build the
  * harness input from this payload with ZERO reads back into core.
  *
- * @lore AU21 §9 Increment 11 (Decision H2 follow-up, closing a Wave A
- * regression): `modelId`/`modelProvider` ride alongside `transcript` here,
- * sourced from the SAME `requireRunnableAgent` row this resolver already
- * reads to validate runnability — no extra read. Wave A deleted `dispatch`'s
- * live `getOrCreateUser`/`readServerConfig` reads and, with them, silently
- * dropped the per-agent model override (`users.modelId`/`modelProvider`,
- * configured via Settings → Agents) instead of baking it forward. That was a
- * real regression, not an acceptable trade-off — "bake everything a run
- * needs at emit" (Decision H2) means bake the override, not drop it.
+ * @lore AU26 G1 (architecture §D-L): the `modelId`/`modelProvider` fields this
+ * shape carried from AU21 Increment 11 are GONE. AU21 baked them because the
+ * per-agent override lived on `users` — core state `dispatch` was forbidden to
+ * read. AU26 moved those columns into `agent_run_config`, which
+ * agent-orchestration owns, so `dispatch` reads the override live through
+ * `ports.agentRunConfig` instead. Nothing is dropped: the same founder-
+ * configurable Settings → Agents value still applies to every assistant turn,
+ * and it is now read at execution time rather than snapshotted at emit, so an
+ * edit between emit and drain takes effect. Do not re-bake it.
  */
 export interface BakedAssistantTurnRequest {
 	readonly defaultAgentId: string;
@@ -120,10 +92,6 @@ export interface BakedAssistantTurnRequest {
 	 * read.
 	 */
 	readonly callingThreadId: string;
-	/** Per-agent model override (`users.modelId`), or `null` when unset — see the `@lore` above. */
-	readonly modelId: string | null;
-	/** Per-agent model provider override (`users.modelProvider`), or `null` when unset. */
-	readonly modelProvider: string | null;
 	/**
 	 * AU21 §9 Increment 12 (Decision H3), Wave E — the target agent's
 	 * runnable-config snapshot, baked from the SAME already-`requireRunnableAgent`
@@ -136,18 +104,6 @@ export interface BakedAssistantTurnRequest {
 	 * was supplied.
 	 */
 	readonly harnessDisabled?: readonly string[];
-	/**
-	 * AU21 §9 Increment 12 follow-up (F2 gap closure) — the target agent's
-	 * injected-filesystems list. Present only when
-	 * `deps.resolveInjectedFilesystemsForAgent` was supplied.
-	 */
-	readonly injectedFilesystems?: readonly BakedFilesystemForProvisioning[];
-	/**
-	 * AU21 §9 Increment 12 follow-up part 2 (F2 gap closure — connections) —
-	 * the owning human's held-connection list. Present only when
-	 * `deps.resolveInjectedConnectionsForAgent` was supplied.
-	 */
-	readonly injectedConnections?: BakedConnectionsForProvisioning;
 }
 
 function resolveAssistantAgentIdForSender(senderId: string): string {
@@ -184,12 +140,6 @@ export async function resolveAssistantTurnRequest(
 	const harnessDisabled = deps.readServerConfig
 		? (await deps.readServerConfig(db)).harnessDisabled
 		: undefined;
-	const injectedFilesystems = deps.resolveInjectedFilesystemsForAgent
-		? await deps.resolveInjectedFilesystemsForAgent(db, targetAgentId)
-		: undefined;
-	const injectedConnections = deps.resolveInjectedConnectionsForAgent
-		? await deps.resolveInjectedConnectionsForAgent(db, targetAgentId)
-		: undefined;
 	return {
 		defaultAgentId: targetAgentId,
 		sourceKind: "assistant",
@@ -204,11 +154,7 @@ export async function resolveAssistantTurnRequest(
 		},
 		transcript,
 		callingThreadId: message.threadId,
-		modelId: agent.modelId ?? null,
-		modelProvider: agent.modelProvider ?? null,
 		agentConfig: bakeAgentRunnableConfig(agent),
 		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
-		...(injectedFilesystems !== undefined ? { injectedFilesystems } : {}),
-		...(injectedConnections !== undefined ? { injectedConnections } : {}),
 	};
 }

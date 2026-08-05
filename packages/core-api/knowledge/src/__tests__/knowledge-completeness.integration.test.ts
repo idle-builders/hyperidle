@@ -8,7 +8,7 @@
  *   (b) still pass GREEN on the NEW code (proving the rewrite is non-lossy)
  *
  * Consumer demand:
- *   git-export:        listExportableItems, getProjectionByItemId
+ *   export surface:    listExportableItems, getProjectionByItemId
  *   dispatch:          runAutoPromotionSweep, runStaleSweep, listRecentByLayers,
  *                      recomputeAttentionForCandidates
  *   session-requests:  findById
@@ -171,7 +171,7 @@ describe("get: summary view returns kernel row or null", () => {
 });
 
 // ===========================================================================
-// C. get (projection view) — git-export.getProjectionByItemId
+// C. get (projection view) — getProjectionByItemId
 // ===========================================================================
 
 describe("get(id, {view:'projection'}): returns layer+kind from projection table", () => {
@@ -247,7 +247,7 @@ describe("update: version-checked update writes edit-log and bumps version", () 
 });
 
 // ===========================================================================
-// F. list({exportable}) — git-export.listExportableItems
+// F. list({exportable}) — listExportableItems
 // ===========================================================================
 
 describe("list({exportable}): filters by layer and status", () => {
@@ -275,7 +275,7 @@ describe("list({exportable}): filters by layer and status", () => {
 		expect(rows[0]?.title).toBe("Exportable");
 	});
 
-	test("get(id, {view:'projection'}) returns layer+kind for git-export events", async ({ db }) => {
+	test("get(id, {view:'projection'}) returns layer+kind", async ({ db }) => {
 		const item = await seedItem(db, { layer: "L2", kind: "reflection" });
 		const row = await get(db, item.id, { view: "projection" });
 		expect(row?.layer).toBe("L2");

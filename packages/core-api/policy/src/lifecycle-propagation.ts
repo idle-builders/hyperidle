@@ -1,11 +1,6 @@
 /** Reactive lifecycle propagation with durable retry logging. */
 
-import {
-	type HyperIdleDb,
-	type NewPropagationLogRow,
-	propagationLog,
-	sessions,
-} from "@hyperidle/db";
+import { type HyperIdleDb, type NewPropagationLogRow, propagationLog } from "@hyperidle/db";
 import {
 	type BetStateChangedEvent,
 	type BetStatus,
@@ -20,7 +15,7 @@ import {
 	type TaskState,
 	type TaskStateChangedEvent,
 } from "@hyperidle/shared";
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { PolicyDeps } from "./ports.js";
 
 type LifecyclePropagationDeps = Pick<
@@ -285,22 +280,40 @@ async function propagateSessionToTask(
 		return;
 	}
 
-	// Check for other active sessions on this task (exclude the current session)
-	const otherActiveSessions = await db
-		.select()
-		.from(sessions)
-		.where(
-			and(eq(sessions.taskId, taskId), eq(sessions.state, "active"), ne(sessions.id, sessionId)),
-		);
-
-	if (otherActiveSessions.length > 0) {
-		await log({
-			status: "skipped",
-			targetTransition: null,
-			failureReason: `${otherActiveSessions.length} other active session(s) still running`,
-		});
-		return;
-	}
+	// @lore AU26 J2: the "is another run still active on this task" guard is
+	// DELETED, and with it core-api's last policy-side read of `sessions` (an
+	// `agent-orchestration` table).
+	//
+	// What it defended against is NOT unreachable, and the earlier version of
+	// this note claiming "a state no normal path produces" was wrong — the
+	// work package's own analysis (`.pipeline/work/AU26/policy-sibling-guard.md`)
+	// names two reachable paths, both confirmed in code:
+	//   1. `POST /api/sessions` twice on the same task. The route checks that
+	//      the task exists and the agent is runnable and nothing else
+	//      (`core-api/src/routes/sessions-routes.ts`,
+	//      `work/src/session-start-resolver.ts`); `concurrency.ts` caps runs per
+	//      AGENT, not per task, and no DB constraint says one active run per
+	//      task. No screen calls this — it is an API-only path.
+	//   2. `accepted -> hold -> accepted` while the first run request is still
+	//      queued (`shared/src/task-transition.ts` allows both edges). The
+	//      queued request is not re-checked at drain, so a second attempt mints
+	//      a second run.
+	// What is genuinely absent is the ORDINARY path: a run request is only
+	// created when a task enters `accepted` (`work/src/task-state-machine.ts`),
+	// there is no `in_progress -> accepted` edge, and a handoff closes the old
+	// run and opens the new one in ONE transaction (`handoff-protocol.ts:121`),
+	// so the abandoned run is already `done` and never reaches this code
+	// (`endRunForHandoff` takes no event bus, and the later `endSession` is
+	// conditional on the row still being `active`).
+	//
+	// The residue, stated plainly: when two runs ARE live on one task, the
+	// first to finish flips the task `in_progress -> review` while the second is
+	// still working. The second run's end then sees a task that is no longer
+	// `in_progress` and quietly does nothing. That is recoverable —
+	// `review -> in_progress` is a legal move anyone can make — and under
+	// ETHOS.md a preemptive wall against a state only a hand-made API call
+	// reaches is not worth a cross-Layer read. Founder-ruled. No replacement
+	// event, no counter, no downward call.
 
 	// Transition task to review
 	try {

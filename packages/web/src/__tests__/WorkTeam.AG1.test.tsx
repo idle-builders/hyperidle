@@ -49,6 +49,45 @@ vi.mock("../hooks/useHints", () => ({
 	useHint: vi.fn().mockReturnValue({ visible: false, testId: "hint", copy: "", dismiss: vi.fn() }),
 }));
 
+// @lore AU26 J4: the roster's run state is fetched from `agent-orchestration`
+// (`useRosterRunState`), not stamped onto `RosterMember` by core-api. Stub the
+// hook with the values the wire fixtures used to carry — the row's rendering
+// contract is what these tests cover and it is unchanged.
+const ROSTER_RUN_STATE = new Map<string, unknown>([
+	[
+		"agent-h",
+		{
+			operationalStatus: "active",
+			healthLevel: "healthy",
+			healthDetail: "Healthy",
+			activeTaskTitle: null,
+			activeTaskId: null,
+			activeBetId: null,
+		},
+	],
+	[
+		"agent-w",
+		{
+			operationalStatus: "idle",
+			healthLevel: "warning",
+			healthDetail: "2 of 6 sessions failed",
+			activeTaskTitle: null,
+			activeTaskId: null,
+			activeBetId: null,
+		},
+	],
+]);
+
+vi.mock("../hooks/useAgentRunState", async () => {
+	const actual = await vi.importActual<typeof import("../hooks/useAgentRunState.js")>(
+		"../hooks/useAgentRunState.js",
+	);
+	return {
+		...actual,
+		useRosterRunState: () => ({ byAgent: ROSTER_RUN_STATE, status: "ready" as const }),
+	};
+});
+
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
@@ -60,12 +99,6 @@ const AGENT_HEALTHY: RosterMember = {
 	role: "builder",
 	isLead: true,
 	agentCategory: "team",
-	operationalStatus: "active",
-	healthLevel: "healthy",
-	healthDetail: "Healthy",
-	activeTaskTitle: null,
-	activeTaskId: null,
-	activeBetId: null,
 };
 
 /** Warning-health roster member — triggers "Attention" on Status tile */
@@ -75,12 +108,6 @@ const AGENT_WARNING: RosterMember = {
 	role: "builder",
 	isLead: false,
 	agentCategory: "team",
-	operationalStatus: "idle",
-	healthLevel: "warning",
-	healthDetail: "2 of 6 sessions failed",
-	activeTaskTitle: null,
-	activeTaskId: null,
-	activeBetId: null,
 };
 
 /** Base fixture: populated team with bets, routines, and 2-member roster */

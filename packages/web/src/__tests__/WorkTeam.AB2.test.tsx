@@ -6,12 +6,14 @@
  * AC-2: Each agent appears with name, status (active/idle/error), current task, health indicator
  * AC-3: Agent row click navigates to /agents/:agentId
  *
- * These tests FAIL until:
- * - WorkTeam.tsx replaces R3 Roster/AgentCard with Agents/AgentRow
- * - data-testid changed from "team-roster" → "team-agents", "agent-card" → "agent-row"
- * - AgentRow shows operationalStatus, healthLevel, activeTaskTitle from RosterMember
- * - Row click navigates to /agents/:agentId
- * - Customize button stops propagation and fires onCustomize
+ * @lore AU26 J4: `operationalStatus`/`healthLevel`/`healthDetail`/
+ * `activeTaskTitle` no longer ride on `RosterMember` — core-api stopped reading
+ * `agent-orchestration`'s `sessions` table, and `useRosterRunState` fetches the
+ * runs from that Layer and derives them in the browser. The row's RENDERING
+ * contract is unchanged and is exactly what these tests cover, so the hook is
+ * stubbed here with the same values the wire fixtures used to carry (the same
+ * pattern as the `useTeamAgents` stub below — a fetch hook is not available in
+ * JSDOM).
  */
 
 import type { RosterMember, TeamDetail } from "@hyperidle/shared";
@@ -37,6 +39,54 @@ vi.mock("../shell/ToastRegion.js", async () => {
 vi.mock("../hooks/useTeamAgents", () => ({
 	useTeamAgents: vi.fn().mockReturnValue({ agents: new Map(), refetch: vi.fn() }),
 }));
+
+// AU26 J4: the roster's run state is fetched from agent-orchestration. Stub the
+// hook with the values the wire fixtures used to carry.
+const ROSTER_RUN_STATE = new Map([
+	[
+		"agent-idle",
+		{
+			operationalStatus: "idle",
+			healthLevel: "healthy",
+			healthDetail: "Healthy",
+			activeTaskTitle: null,
+			activeTaskId: null,
+			activeBetId: null,
+		},
+	],
+	[
+		"agent-active",
+		{
+			operationalStatus: "active",
+			healthLevel: "healthy",
+			healthDetail: "Healthy",
+			activeTaskTitle: "Implement file upload",
+			activeTaskId: "task-123",
+			activeBetId: "bet-456",
+		},
+	],
+	[
+		"agent-error",
+		{
+			operationalStatus: "error",
+			healthLevel: "critical",
+			healthDetail: "5 of 6 sessions failed",
+			activeTaskTitle: null,
+			activeTaskId: null,
+			activeBetId: null,
+		},
+	],
+]);
+
+vi.mock("../hooks/useAgentRunState", async () => {
+	const actual = await vi.importActual<typeof import("../hooks/useAgentRunState.js")>(
+		"../hooks/useAgentRunState.js",
+	);
+	return {
+		...actual,
+		useRosterRunState: () => ({ byAgent: ROSTER_RUN_STATE, status: "ready" as const }),
+	};
+});
 
 // Mock useHints — suppresses hint banners in all tests
 vi.mock("../hooks/useHints", () => ({
@@ -71,12 +121,6 @@ const AGENT_IDLE: RosterMember = {
 	role: "builder",
 	isLead: false,
 	agentCategory: null,
-	operationalStatus: "idle",
-	healthLevel: "healthy",
-	healthDetail: "Healthy",
-	activeTaskTitle: null,
-	activeTaskId: null,
-	activeBetId: null,
 };
 
 const AGENT_ACTIVE: RosterMember = {
@@ -85,12 +129,6 @@ const AGENT_ACTIVE: RosterMember = {
 	role: "builder",
 	isLead: false,
 	agentCategory: null,
-	operationalStatus: "active",
-	healthLevel: "healthy",
-	healthDetail: "Healthy",
-	activeTaskTitle: "Implement file upload",
-	activeTaskId: "task-123",
-	activeBetId: "bet-456",
 };
 
 const AGENT_ERROR: RosterMember = {
@@ -99,12 +137,6 @@ const AGENT_ERROR: RosterMember = {
 	role: "builder",
 	isLead: false,
 	agentCategory: null,
-	operationalStatus: "error",
-	healthLevel: "critical",
-	healthDetail: "5 of 6 sessions failed",
-	activeTaskTitle: null,
-	activeTaskId: null,
-	activeBetId: null,
 };
 
 const TEAM_WITH_AGENTS: TeamDetail = {
