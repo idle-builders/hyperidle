@@ -32,6 +32,7 @@
 - A layer's package manifest names no other layer or another layer's service.
 - Composition roots reach a layer's public face only — never a service, never another application.
 - No production export may be added that only tests consume.
+- The baseline is shrink-only, so this work package promotes its own rules as it goes: clearing a group's last site deletes the entry and that rule is at error from the same commit. There is no separate promotion step to remember, and none to defer.
 - Every baseline entry cleared is deleted from `governance/baseline.json`, never re-tagged.
 
 **Out of scope.**
@@ -48,6 +49,7 @@
 - An application composes layers by their public faces only, and names no service and no other application.
 - The MCP router is dialled only by the layer that owns the harness relationship and by the harness, and the layer serving it hosts the API being dialled.
 - Every composition-root, cross-layer-import, cross-layer-DI, MCP and API entry is gone from `governance/baseline.json`, and those rules fail the build on reappearance.
+- If clearing this work package's violations leaves `governance/baseline.json` empty, the file and the `--adopt` escape hatch are deleted in the same commit, and reintroducing either — under any name — fails the build. Exactly one of the four clearing work packages will trigger this; whichever gets there last owns it.
 - `npm run verify` is green and a real agent run completes end to end — proven by executing one, not by reading the code.
 
 ## Validation scenarios

@@ -31,6 +31,7 @@
 - No exception is added to the rule to make a file pass. If a file genuinely needs one, it is a founder ruling in `founder-rulings.md` with a written reason, and it is named — never a pattern or a directory.
 - No production export may be added that only tests consume — `knip:production` deletes it as dead code.
 - The companion groups stay derived from the owning services' writers; no hand-maintained list of table pairs.
+- The baseline is shrink-only, so this work package promotes its own rules as it goes: clearing a group's last site deletes the entry and that rule is at error from the same commit. There is no separate promotion step to remember, and none to defer.
 - Every baseline entry cleared is deleted from `governance/baseline.json`, never re-tagged.
 
 **Out of scope.**
@@ -45,6 +46,7 @@
 - No development file reaches past a single-door surface — no whole-schema import, no undecided database export, no directly-constructed vendor runtime.
 - Every test whose fixture changed still proves what it proved before, with its assertions intact.
 - `governance/baseline.json` holds zero development-world entries, and the development rules fail the build on reappearance.
+- If clearing this work package's violations leaves `governance/baseline.json` empty, the file and the `--adopt` escape hatch are deleted in the same commit, and reintroducing either — under any name — fails the build. Exactly one of the four clearing work packages will trigger this; whichever gets there last owns it.
 - `npm run test:all` is green and the integration suite's pass count is unchanged or higher.
 
 ## Validation scenarios

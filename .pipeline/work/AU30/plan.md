@@ -32,6 +32,7 @@
 - An owning service's exclusivity covers **reads as well as writes**.
 - No production export may be added that only tests consume.
 - If assigning an owner creates new development-world companion violations (the companion groups are derived from the owners' own writers), this work package clears them rather than leaving them for AU32.
+- The baseline is shrink-only, so this work package promotes its own rules as it goes: clearing a group's last site deletes the entry and that rule is at error from the same commit. There is no separate promotion step to remember, and none to defer.
 - Every baseline entry cleared is deleted from `governance/baseline.json`, never re-tagged.
 
 **Out of scope.**
@@ -48,6 +49,7 @@
 - A service that needs data from a table it does not own obtains it by asking the owner, with no cross-owned-table query anywhere in production.
 - The four table rules and the two table-symbol import rules fail the build in both directions on any new violation, with no baseline entry backing them.
 - Every `db:table (unowned)` and production `db:table (other)` entry is gone from `governance/baseline.json`.
+- If clearing this work package's violations leaves `governance/baseline.json` empty, the file and the `--adopt` escape hatch are deleted in the same commit, and reintroducing either — under any name — fails the build. Exactly one of the four clearing work packages will trigger this; whichever gets there last owns it.
 - `npm run verify` is green, and the behaviour of every relocated accessor is proven unchanged by tests that exercise it through the owner.
 
 ## Validation scenarios

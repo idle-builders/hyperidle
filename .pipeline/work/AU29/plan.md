@@ -30,6 +30,7 @@
 - The end state is stated as the end state, never as a migration (Ruling 12). No transitional re-export, no deprecation alias, no "temporary" surface entry.
 - No production export may be added that only tests consume — `knip:production` deletes it as dead code.
 - The `db:util` surface entry is deleted from `governance/architecture.json`, not emptied or relaxed.
+- The baseline is shrink-only, so this work package promotes its own rules as it goes: clearing a group's last site deletes the entry and that rule is at error from the same commit. There is no separate promotion step to remember, and none to defer.
 - Every baseline entry this work package clears is deleted from `governance/baseline.json`; none is re-keyed, re-tagged or moved to another group.
 - `npm run governance:baseline` is the only way the baseline file is written.
 
@@ -47,6 +48,7 @@
 - First-boot database state is established by a composition root, and the database package writes no table owned by a service.
 - The framework neither publishes to nor subscribes to the event bus.
 - Every `framework → *` and `* → db:util` / `* → db:unknown` production entry is gone from `governance/baseline.json`, and the rules covering them fail the build on reappearance.
+- If clearing this work package's violations leaves `governance/baseline.json` empty, the file and the `--adopt` escape hatch are deleted in the same commit, and reintroducing either — under any name — fails the build. Exactly one of the four clearing work packages will trigger this; whichever gets there last owns it.
 - `npm run verify` is green, and first boot on a clean database produces the same state it produces today — verified by running it, not by reading the code.
 
 ## Validation scenarios
