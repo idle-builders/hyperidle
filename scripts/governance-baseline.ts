@@ -70,14 +70,22 @@ const baseline: Baseline = {
 	groups: out,
 };
 
-const totalSites = Object.values(out).reduce((n, g) => n + Object.keys(g.sites).length, 0);
-const totalViolations = Object.values(out).reduce((n, g) => n + Object.values(g.sites).reduce((m, c) => m + c, 0), 0);
+const violationsIn = (groups: Record<string, BaselineGroup>, world: string): number =>
+	Object.entries(groups)
+		.filter(([key]) => key.endsWith(` ${world}`))
+		.reduce((n, [, g]) => n + Object.values(g.sites).reduce((m, c) => m + c, 0), 0);
 
 const previous = loadBaseline();
-const before = Object.values(previous.groups).reduce((n, g) => n + Object.values(g.sites).reduce((m, c) => m + c, 0), 0);
 
-console.log(`governance baseline: ${Object.keys(out).length} group(s), ${totalSites} file(s), ${totalViolations} violation(s)`);
-console.log(`  previously: ${before} violation(s) — delta ${totalViolations - before >= 0 ? "+" : ""}${totalViolations - before}`);
+// Production and development are totalled separately — they are different kinds of debt, and one
+// number lets the smaller, more serious half move unnoticed behind the larger one.
+console.log(`governance baseline: ${Object.keys(out).length} group(s)`);
+for (const world of ["production", "development"]) {
+	const now = violationsIn(out, world);
+	const before = violationsIn(previous.groups as Record<string, BaselineGroup>, world);
+	const delta = now - before;
+	console.log(`  ${world.padEnd(12)} ${String(now).padStart(5)} violation(s)   was ${before}   delta ${delta >= 0 ? "+" : ""}${delta}`);
+}
 const orphans = Object.entries(out).filter(([, g]) => g.successor === "UNASSIGNED");
 if (orphans.length > 0) {
 	console.log(`  ${orphans.length} group(s) with no successor work package:`);

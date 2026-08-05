@@ -41,12 +41,48 @@ import {
 } from "./governance-context.js";
 import { runFixtureSelfTest } from "./lib/governance-fixtures.js";
 import type { Kind } from "./lib/governance-model.js";
-import { DeadRuleError, formatFinding, hasErrors, type Rule, runRules } from "./lib/governance-rules.js";
+import { DeadRuleError, type Finding, formatFinding, hasErrors, type Rule, runRules } from "./lib/governance-rules.js";
 import { classificationTotal } from "./rules/classification-total.js";
 import { baselineRatchet, crossingRules } from "./rules/crossings.js";
 import { noProductionImportsDevelopment } from "./rules/no-production-imports-development.js";
 import { patternLive } from "./rules/pattern-live.js";
 import { registriesHonest } from "./rules/registries-honest.js";
+
+/**
+ * The known-violation summary: one line per rule group, split by world.
+ *
+ * @lore AU28: this is the goal metric and it is on screen every run, so progress is visible without
+ * anyone having to ask for a report. Production and development are totalled SEPARATELY on purpose —
+ * 221 production violations and 2,022 development ones are not 2,243 of the same thing, and a single
+ * number would let the serious half shrink or grow unnoticed behind the bulk.
+ */
+function printKnownDebt(findings: readonly Finding[]): void {
+	const warnings = findings.filter((f) => f.severity === "warn" && f.group !== undefined);
+	if (warnings.length === 0) return;
+
+	const byGroup = new Map<string, { count: number; files: Set<string>; world: string }>();
+	for (const finding of warnings) {
+		const key = finding.group ?? "";
+		const entry = byGroup.get(key) ?? { count: 0, files: new Set<string>(), world: finding.world ?? "?" };
+		entry.count += 1;
+		if (finding.path !== undefined) entry.files.add(finding.path);
+		byGroup.set(key, entry);
+	}
+
+	console.error("\n  known violations — the migration surface, by world\n");
+	for (const world of ["production", "development"]) {
+		const groups = [...byGroup].filter(([, g]) => g.world === world).sort((a, b) => b[1].count - a[1].count);
+		if (groups.length === 0) continue;
+		const total = groups.reduce((n, [, g]) => n + g.count, 0);
+		const files = new Set(groups.flatMap(([, g]) => [...g.files])).size;
+		console.error(`  ${world.toUpperCase()} — ${total} violation(s) across ${files} file(s), ${groups.length} rule group(s)`);
+		for (const [key, group] of groups) {
+			const label = key.replace(new RegExp(` ${world}$`), "");
+			console.error(`    ${String(group.count).padStart(5)}  ${String(group.files.size).padStart(3)} file(s)  ${label}`);
+		}
+		console.error("");
+	}
+}
 
 function runFixtures(): number {
 	const results = runFixtureSelfTest();
@@ -106,11 +142,20 @@ function runLive(errorsOnly: boolean): number {
 
 	const errors = result.findings.filter((f) => f.severity === "error");
 	const warnings = result.findings.filter((f) => f.severity === "warn");
+	// Grouped by world, production first. The two are different kinds of debt and one total hides
+	// the smaller, more serious half behind the larger one.
 	const shown = errorsOnly ? errors : [...errors, ...warnings];
-	for (const finding of shown) console.error(formatFinding(finding));
+	for (const world of ["production", "development", undefined] as const) {
+		const inWorld = shown.filter((f) => f.world === world);
+		if (inWorld.length === 0) continue;
+		console.error(`\n  ── ${world ?? "not world-specific"} · ${inWorld.length} finding(s)`);
+		for (const finding of inWorld) console.error(formatFinding(finding));
+	}
 	if (errorsOnly && warnings.length > 0) {
 		console.error(`  (${warnings.length} warning(s) hidden by --errors-only)`);
 	}
+
+	printKnownDebt(result.findings);
 
 	if (detected.unplacedDbSymbols.size > 0) {
 		console.error(`  NOTE  ${detected.unplacedDbSymbols.size} database symbol(s) fall to db:unknown:`);
@@ -121,8 +166,9 @@ function runLive(errorsOnly: boolean): number {
 	const development = census.files.length - production;
 	const summary =
 		`${census.files.length} tracked files (${production} production, ${development} development), ` +
-		`${census.packages.length} packages, ${detected.crossings.length} crossings, ` +
-		`${RULES.length} rules, ${warnings.length} known violation(s) at warn`;
+		`${census.packages.length} packages, ${detected.crossings.length} crossings, ${RULES.length} rules, ` +
+		`${warnings.filter((f) => f.world === "production").length} production + ` +
+		`${warnings.filter((f) => f.world === "development").length} development known violation(s) at warn`;
 
 	if (hasErrors(result.findings)) {
 		console.error(`\ngovernance-lint: FAIL — ${errors.length} error(s). ${summary}.`);

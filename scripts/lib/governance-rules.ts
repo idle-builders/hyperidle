@@ -26,6 +26,16 @@ export interface Finding {
 	readonly path?: string;
 	/** 1-based line, when there is one. */
 	readonly line?: number;
+	/**
+	 * Which world the offending FILE belongs to.
+	 *
+	 * Reported separately because the two are different kinds of debt: a production violation is a
+	 * defect in what ships, a development one is a test reaching around something. Mixing them in one
+	 * total hides 221 real problems behind 2,022 test-fixture ones.
+	 */
+	readonly world?: "production" | "development";
+	/** The rule group this finding belongs to, for the per-group summary. */
+	readonly group?: string;
 }
 
 export interface Rule {
