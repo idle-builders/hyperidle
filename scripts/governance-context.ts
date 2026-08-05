@@ -49,8 +49,18 @@ export const MIN_TRACKED_FILES = 1000;
  * run go green: a drop means the detector broke, not that the repo got cleaner.
  */
 export const DETECTOR_FLOORS: readonly DetectorFloor[] = [
+	// measured 3662 · 124 · 257 · 140 · 25 · 240 · 11 · 1319 · 2285 at the commit that added them
 	{ kind: "import", min: 3300 },
-	{ kind: "manifest", min: 100 },
+	{ kind: "manifest", min: 110 },
+	{ kind: "di", min: 200 },
+	{ kind: "api", min: 110 },
+	{ kind: "mcp", min: 18 },
+	{ kind: "event", min: 190 },
+	// The thinnest detector in the set, and the one most able to lose half its coverage without
+	// tripping. Treat it as a tripwire, not a boundary.
+	{ kind: "capability", min: 8 },
+	{ kind: "table:read", min: 1000 },
+	{ kind: "table:write", min: 1800 },
 ];
 
 /**
@@ -91,6 +101,9 @@ export function buildCrossings(census: Census, architecture: LoadedArchitecture)
 	return detectCrossings(
 		{
 			census,
+			readFile: readRepoFile,
+			mcpRouterHost: architecture.endpoints.mcpRouter.host,
+			eventTypesModule: architecture.eventBus.typesModule,
 			db: buildDbSurfaceIndex(architecture.databasePackage, readRepoFile),
 			tableOwners: readJson<TableOwners>("governance/table-owners.json"),
 			frameworkSurfaces: frameworkSurfacesOf(architecture, census),

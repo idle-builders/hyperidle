@@ -109,6 +109,8 @@
 
 	"eventBus": {
 		"host": "framework",
+		"typesModule": "framework/shared/src/events.ts",
+		"typesNote": "Every event the bus can carry, declared as `readonly type: \"...\"`. An emit or subscribe naming something absent from this module is not a bus event — filtering on it is what keeps ordinary `.on()` and `.emit()` calls from being counted as crossings.",
 		"why": "the framework provides the bus. A framework package that also publishes on it is both the pipe and the water, and the bus can no longer be reasoned about from the outside."
 	},
 

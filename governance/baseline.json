@@ -21,6 +21,19 @@
 				"applications/remote-server/src/create-server.ts": 1
 			}
 		},
+		"application → MCP router [mcp] production": {
+			"successor": "W3",
+			"sites": {
+				"applications/remote-server/src/create-server.ts": 1
+			}
+		},
+		"application → service [di] production": {
+			"successor": "W2",
+			"sites": {
+				"applications/desktop/src/boot-server.ts": 1,
+				"applications/remote-server/src/index.ts": 1
+			}
+		},
 		"application → service [import] production": {
 			"successor": "W7",
 			"sites": {
@@ -33,6 +46,67 @@
 			"successor": "W7",
 			"sites": {
 				"applications/remote-server/package.json": 12
+			}
+		},
+		"framework → db:table (other) [table:read] production": {
+			"successor": "W5-W6",
+			"sites": {
+				"framework/db/src/demo-fixture.ts": 1,
+				"framework/db/src/factory-bootstrap.ts": 1
+			}
+		},
+		"framework → db:table (other) [table:write] development": {
+			"successor": "W5-W6",
+			"sites": {
+				"framework/db/src/__tests__/AD8a-category-rename.integration.test.ts": 1,
+				"framework/db/src/__tests__/agent-work-intent-kind-parity.integration.test.ts": 2,
+				"framework/db/src/__tests__/artifacts.integration.test.ts": 10,
+				"framework/db/src/__tests__/db.integration.test.ts": 3,
+				"framework/db/src/__tests__/foreign-keys.integration.test.ts": 36,
+				"framework/db/src/__tests__/hint-progress.integration.test.ts": 12,
+				"framework/db/src/__tests__/migration.integration.test.ts": 1,
+				"framework/db/src/__tests__/P2-org-edges.integration.test.ts": 13,
+				"framework/db/src/__tests__/P2-user-schema.integration.test.ts": 5,
+				"framework/db/src/__tests__/schema.integration.test.ts": 42,
+				"framework/db/src/__tests__/seed-then-migrate.integration.test.ts": 5,
+				"framework/db/src/__tests__/session-requests.integration.test.ts": 7
+			}
+		},
+		"framework → db:table (other) [table:write] production": {
+			"successor": "W5-W6",
+			"sites": {
+				"framework/db/src/demo-fixture.ts": 9,
+				"framework/db/src/factory-bootstrap.ts": 6
+			}
+		},
+		"framework → db:table (unowned) [table:write] development": {
+			"successor": "W4-W6",
+			"sites": {
+				"framework/db/src/__tests__/foreign-keys.integration.test.ts": 1,
+				"framework/db/src/__tests__/P2-user-schema.integration.test.ts": 1,
+				"framework/db/src/__tests__/schema.integration.test.ts": 3,
+				"framework/db/src/__tests__/seed-then-migrate.integration.test.ts": 1,
+				"framework/db/src/__tests__/session-requests.integration.test.ts": 1
+			}
+		},
+		"framework → db:table (unowned) [table:write] production": {
+			"successor": "W4-W6",
+			"sites": {
+				"framework/db/src/demo-fixture.ts": 1,
+				"framework/db/src/factory-bootstrap.ts": 1
+			}
+		},
+		"framework → EventBus [event] production": {
+			"successor": "W1",
+			"sites": {
+				"framework/shared/src/agent-run-admission.ts": 1,
+				"framework/shared/src/observability/dispatcher.ts": 1
+			}
+		},
+		"framework → layer [di] production": {
+			"successor": "W2",
+			"sites": {
+				"layers/core-api/src/services/tool-provider-bindings.ts": 1
 			}
 		},
 		"layer → db:schema-ns [import] development": {
@@ -49,6 +123,216 @@
 				"layers/core-api/src/schemas/bet.schema.ts": 1
 			}
 		},
+		"layer → db:table (other) [table:write] development": {
+			"successor": "W5-W6",
+			"sites": {
+				"layers/agent-orchestration/src/services/__tests__/session-stream-hub.integration.test.ts": 4,
+				"layers/core-api/src/__tests__/_helpers.ts": 4,
+				"layers/core-api/src/__tests__/AC1-bet-outcome.integration.test.ts": 3,
+				"layers/core-api/src/__tests__/AC1-session-effectiveness.integration.test.ts": 5,
+				"layers/core-api/src/__tests__/AC1-task-outcome.integration.test.ts": 4,
+				"layers/core-api/src/__tests__/AC2-retro.integration.test.ts": 9,
+				"layers/core-api/src/__tests__/AD1-create-item-routing.integration.test.ts": 9,
+				"layers/core-api/src/__tests__/AD1-idor-fix.integration.test.ts": 2,
+				"layers/core-api/src/__tests__/AD1-session-review-routing.integration.test.ts": 15,
+				"layers/core-api/src/__tests__/AD4-policy-engine.integration.test.ts": 10,
+				"layers/core-api/src/__tests__/AD5-dep-unblock-event.integration.test.ts": 5,
+				"layers/core-api/src/__tests__/AD7-search.integration.test.ts": 9,
+				"layers/core-api/src/__tests__/AD8b-new-tools.integration.test.ts": 4,
+				"layers/core-api/src/__tests__/AE6-artifact-normalization.integration.test.ts": 10,
+				"layers/core-api/src/__tests__/AF11-idor-regression.integration.test.ts": 11,
+				"layers/core-api/src/__tests__/AF12-activate-capacity.integration.test.ts": 3,
+				"layers/core-api/src/__tests__/AF12-bet-cascade.integration.test.ts": 12,
+				"layers/core-api/src/__tests__/AF12-task-cas.integration.test.ts": 4,
+				"layers/core-api/src/__tests__/AF15-model-gateway-partial.integration.test.ts": 3,
+				"layers/core-api/src/__tests__/AF15-org-teams.integration.test.ts": 13,
+				"layers/core-api/src/__tests__/AF17-propagation-bootstrap.integration.test.ts": 6,
+				"layers/core-api/src/__tests__/AF17-team-routines.integration.test.ts": 6,
+				"layers/core-api/src/__tests__/af9-attention-population.integration.test.ts": 10,
+				"layers/core-api/src/__tests__/af9-promotion-routine.integration.test.ts": 8,
+				"layers/core-api/src/__tests__/agent-layer-boot-recovery.integration.test.ts": 14,
+				"layers/core-api/src/__tests__/agent-lifecycle-projection.integration.test.ts": 22,
+				"layers/core-api/src/__tests__/agent-orchestration-run-reads.integration.test.ts": 5,
+				"layers/core-api/src/__tests__/agent-request-custody.integration.test.ts": 11,
+				"layers/core-api/src/__tests__/agent-work-intent-production.integration.test.ts": 21,
+				"layers/core-api/src/__tests__/agent-work-intent-recovery.integration.test.ts": 9,
+				"layers/core-api/src/__tests__/agent-work-intent-retention.integration.test.ts": 5,
+				"layers/core-api/src/__tests__/agent-work-intent-schema.integration.test.ts": 32,
+				"layers/core-api/src/__tests__/AH6-lane-gates-broken-turn.integration.test.ts": 5,
+				"layers/core-api/src/__tests__/AL7-proposed-call-capture.integration.test.ts": 11,
+				"layers/core-api/src/__tests__/AL7-reviews-loader-redo.integration.test.ts": 10,
+				"layers/core-api/src/__tests__/AL7-two-session-loop.integration.test.ts": 18,
+				"layers/core-api/src/__tests__/AN1-connections.integration.test.ts": 2,
+				"layers/core-api/src/__tests__/AO1-filesystems.integration.test.ts": 5,
+				"layers/core-api/src/__tests__/AO1-reachability-lane-b.integration.test.ts": 4,
+				"layers/core-api/src/__tests__/api-e2e.integration.test.ts": 16,
+				"layers/core-api/src/__tests__/app-runtime-domain-observability.integration.test.ts": 2,
+				"layers/core-api/src/__tests__/AR4b-formation-seam.test.ts": 3,
+				"layers/core-api/src/__tests__/AR4c-assistant-config.integration.test.ts": 1,
+				"layers/core-api/src/__tests__/artifacts-route.integration.test.ts": 7,
+				"layers/core-api/src/__tests__/assistant-reply-live-harness.integration.test.ts": 3,
+				"layers/core-api/src/__tests__/attention-service.integration.test.ts": 5,
+				"layers/core-api/src/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts": 3,
+				"layers/core-api/src/__tests__/bet-decomposition-removal.integration.test.ts": 8,
+				"layers/core-api/src/__tests__/bet-state-machine.integration.test.ts": 31,
+				"layers/core-api/src/__tests__/bet-state-machine.L14.integration.test.ts": 21,
+				"layers/core-api/src/__tests__/bets.integration.test.ts": 34,
+				"layers/core-api/src/__tests__/bets.q3.integration.test.ts": 32,
+				"layers/core-api/src/__tests__/builtin-routines.integration.test.ts": 20,
+				"layers/core-api/src/__tests__/calling-thread-bindings.integration.test.ts": 2,
+				"layers/core-api/src/__tests__/configuration-projection-boot.integration.test.ts": 4,
+				"layers/core-api/src/__tests__/conversation-user-store-reads.integration.test.ts": 2,
+				"layers/core-api/src/__tests__/conversations.integration.test.ts": 28,
+				"layers/core-api/src/__tests__/core-api-serves-no-agent-run-decorations.integration.test.ts": 7,
+				"layers/core-api/src/__tests__/create-artifact.integration.test.ts": 4,
+				"layers/core-api/src/__tests__/create-bet-coreapiport-migration.integration.test.ts": 3,
+				"layers/core-api/src/__tests__/create-bet.integration.test.ts": 2,
+				"layers/core-api/src/__tests__/create-conflict-review.integration.test.ts": 1,
+				"layers/core-api/src/__tests__/create-item.integration.test.ts": 4,
+				"layers/core-api/src/__tests__/create-routine.integration.test.ts": 3,
+				"layers/core-api/src/__tests__/create-task.integration.test.ts": 5,
+				"layers/core-api/src/__tests__/daily-digest.integration.test.ts": 7,
+				"layers/core-api/src/__tests__/dependency-watcher.integration.test.ts": 4,
+				"layers/core-api/src/__tests__/dependency-watcher.perf.integration.test.ts": 5,
+				"layers/core-api/src/__tests__/explicit-session-start.production.integration.test.ts": 6,
+				"layers/core-api/src/__tests__/handoff-protocol.integration.test.ts": 12,
+				"layers/core-api/src/__tests__/handoff-to.integration.test.ts": 8,
+				"layers/core-api/src/__tests__/knowledge-access.integration.test.ts": 4,
+				"layers/core-api/src/__tests__/knowledge-scope-name.integration.test.ts": 13,
+				"layers/core-api/src/__tests__/knowledge-signals.integration.test.ts": 9,
+				"layers/core-api/src/__tests__/lifecycle-propagation.integration.test.ts": 14,
+				"layers/core-api/src/__tests__/log-task.integration.test.ts": 8,
+				"layers/core-api/src/__tests__/M3-auth-middleware.integration.test.ts": 4,
+				"layers/core-api/src/__tests__/M3-lifecycle-propagation-auth.integration.test.ts": 8,
+				"layers/core-api/src/__tests__/M3-settings-routes.integration.test.ts": 9,
+				"layers/core-api/src/__tests__/M3-threads-coach-auth.integration.test.ts": 7,
+				"layers/core-api/src/__tests__/notifications/AF8-notification-delivery.integration.test.ts": 2,
+				"layers/core-api/src/__tests__/notifications/dispatcher.integration.test.ts": 1,
+				"layers/core-api/src/__tests__/notifications/R8-signal-to-noise.integration.test.ts": 1,
+				"layers/core-api/src/__tests__/P2-auth-resolution.integration.test.ts": 7,
+				"layers/core-api/src/__tests__/P2-org-routes.integration.test.ts": 30,
+				"layers/core-api/src/__tests__/P2-user-routes.integration.test.ts": 24,
+				"layers/core-api/src/__tests__/P3-health-auth.integration.test.ts": 5,
+				"layers/core-api/src/__tests__/P3-settings-config.integration.test.ts": 2,
+				"layers/core-api/src/__tests__/policy-engine.integration.test.ts": 8,
+				"layers/core-api/src/__tests__/promote-knowledge.integration.test.ts": 3,
+				"layers/core-api/src/__tests__/R5-agent-work-loop.integration.test.ts": 7,
+				"layers/core-api/src/__tests__/R7-bet-lifecycle.integration.test.ts": 16,
+				"layers/core-api/src/__tests__/R7-knowledge-e2e.integration.test.ts": 10,
+				"layers/core-api/src/__tests__/read-inbox.integration.test.ts": 5,
+				"layers/core-api/src/__tests__/relevance-service.integration.test.ts": 4,
+				"layers/core-api/src/__tests__/reply-tool.integration.test.ts": 8,
+				"layers/core-api/src/__tests__/retention-reaper.integration.test.ts": 10,
+				"layers/core-api/src/__tests__/routines-aa1.integration.test.ts": 22,
+				"layers/core-api/src/__tests__/routines.integration.test.ts": 8,
+				"layers/core-api/src/__tests__/S1-auth-middleware.integration.test.ts": 1,
+				"layers/core-api/src/__tests__/S1-auth-routes.integration.test.ts": 2,
+				"layers/core-api/src/__tests__/S1-e2e-flow.integration.test.ts": 5,
+				"layers/core-api/src/__tests__/S1-invite-code.integration.test.ts": 1,
+				"layers/core-api/src/__tests__/S1-login-session.integration.test.ts": 1,
+				"layers/core-api/src/__tests__/score-attention.integration.test.ts": 4,
+				"layers/core-api/src/__tests__/send-message.integration.test.ts": 3,
+				"layers/core-api/src/__tests__/server-factory.provisioning-wiring.integration.test.ts": 7,
+				"layers/core-api/src/__tests__/server-factory.resolver.test.ts": 4,
+				"layers/core-api/src/__tests__/session-review-creator.integration.test.ts": 17,
+				"layers/core-api/src/__tests__/sessions.integration.test.ts": 15,
+				"layers/core-api/src/__tests__/silence-policy.integration.test.ts": 6,
+				"layers/core-api/src/__tests__/status.integration.test.ts": 5,
+				"layers/core-api/src/__tests__/submit-review.integration.test.ts": 6,
+				"layers/core-api/src/__tests__/task-state-machine.integration.test.ts": 5,
+				"layers/core-api/src/__tests__/tasks.integration.test.ts": 7,
+				"layers/core-api/src/__tests__/two-app-mount-session-routes.integration.test.ts": 7,
+				"layers/core-api/src/__tests__/U2-api-teams-bets.integration.test.ts": 31,
+				"layers/core-api/src/__tests__/update-routine.integration.test.ts": 8,
+				"layers/core-api/src/__tests__/users.integration.test.ts": 5,
+				"layers/core-api/src/__tests__/work-service.integration.test.ts": 6,
+				"layers/core-api/src/__tests__/write-memory.integration.test.ts": 2,
+				"layers/core-api/src/__tests__/write-session-notes.integration.test.ts": 6,
+				"layers/core-api/src/routes/__tests__/AB2-team-agents.integration.test.ts": 8,
+				"layers/core-api/src/routes/__tests__/AB2-teams-list-agents.integration.test.ts": 8,
+				"layers/core-api/src/routes/__tests__/AD4-agent-profile.integration.test.ts": 8,
+				"layers/core-api/src/routes/__tests__/AF11-authz.integration.test.ts": 24,
+				"layers/core-api/src/routes/__tests__/AF14-threads.integration.test.ts": 9,
+				"layers/core-api/src/routes/__tests__/agent-profile.integration.test.ts": 11,
+				"layers/core-api/src/routes/__tests__/AH2-agent-config.integration.test.ts": 9,
+				"layers/core-api/src/routes/__tests__/AH2-harnesses.integration.test.ts": 1,
+				"layers/core-api/src/routes/__tests__/AH4-org-edge.integration.test.ts": 10,
+				"layers/core-api/src/routes/__tests__/AK1-renamed-fields.integration.test.ts": 4,
+				"layers/core-api/src/routes/__tests__/artifacts.routes.integration.test.ts": 10,
+				"layers/core-api/src/routes/__tests__/auth-public.routes.integration.test.ts": 3,
+				"layers/core-api/src/routes/__tests__/bets.AK5-promote.integration.test.ts": 3,
+				"layers/core-api/src/routes/__tests__/bets.artifact-thread-summary.integration.test.ts": 12,
+				"layers/core-api/src/routes/__tests__/bets.L14-actions.integration.test.ts": 6,
+				"layers/core-api/src/routes/__tests__/bets.session-enrichment.integration.test.ts": 5,
+				"layers/core-api/src/routes/__tests__/bets.validation.integration.test.ts": 3,
+				"layers/core-api/src/routes/__tests__/coach.routes.integration.test.ts": 5,
+				"layers/core-api/src/routes/__tests__/conversations.routes.integration.test.ts": 7,
+				"layers/core-api/src/routes/__tests__/hints.integration.test.ts": 2,
+				"layers/core-api/src/routes/__tests__/knowledge.af13.integration.test.ts": 4,
+				"layers/core-api/src/routes/__tests__/knowledge.au14-round2.integration.test.ts": 1,
+				"layers/core-api/src/routes/__tests__/knowledge.knowledge-action-baked-emit.integration.test.ts": 2,
+				"layers/core-api/src/routes/__tests__/knowledge.q2.integration.test.ts": 6,
+				"layers/core-api/src/routes/__tests__/knowledge.validation.integration.test.ts": 1,
+				"layers/core-api/src/routes/__tests__/knowledge.y4-triage.integration.test.ts": 5,
+				"layers/core-api/src/routes/__tests__/org.routes.integration.test.ts": 4,
+				"layers/core-api/src/routes/__tests__/products.integration.test.ts": 17,
+				"layers/core-api/src/routes/__tests__/recipients.integration.test.ts": 8,
+				"layers/core-api/src/routes/__tests__/routines.routes.integration.test.ts": 8,
+				"layers/core-api/src/routes/__tests__/search.af16.integration.test.ts": 5,
+				"layers/core-api/src/routes/__tests__/sessions-routes.session-start-baked-emit.integration.test.ts": 5,
+				"layers/core-api/src/routes/__tests__/sessions.activity.integration.test.ts": 5,
+				"layers/core-api/src/routes/__tests__/tasks.batch-ids.integration.test.ts": 4,
+				"layers/core-api/src/routes/__tests__/tasks.task-run-baked-emit.integration.test.ts": 9,
+				"layers/core-api/src/routes/__tests__/tasks.validation.integration.test.ts": 5,
+				"layers/core-api/src/routes/__tests__/teams-routes-AB3.integration.test.ts": 9,
+				"layers/core-api/src/routes/__tests__/threads.assistant-turn-baked-emit.integration.test.ts": 2,
+				"layers/core-api/src/routes/__tests__/threads.assistant-turn-transcript-bake.integration.test.ts": 2,
+				"layers/core-api/src/routes/__tests__/threads.blockId.integration.test.ts": 3,
+				"layers/core-api/src/routes/__tests__/threads.identity.integration.test.ts": 13,
+				"layers/core-api/src/routes/__tests__/threads.mention.integration.test.ts": 13,
+				"layers/core-api/src/routes/__tests__/threads.reengagement-baked-emit.integration.test.ts": 11,
+				"layers/core-api/src/routes/__tests__/threads.routes.integration.test.ts": 8,
+				"layers/core-api/src/routes/__tests__/typed-routes.integration.test.ts": 7,
+				"layers/core-api/src/routes/__tests__/users-profile.integration.test.ts": 2,
+				"layers/core-api/src/routes/__tests__/X3-agents.integration.test.ts": 6,
+				"layers/core-api/src/services/__tests__/agent-health-session-end-reactions.integration.test.ts": 3,
+				"layers/core-api/src/services/__tests__/agent-orchestration-port.integration.test.ts": 2,
+				"layers/core-api/src/services/__tests__/agent-run-admission-failed-emission.integration.test.ts": 2,
+				"layers/core-api/src/services/__tests__/agent-run-admission-failed-knowledge-action-migration.integration.test.ts": 2,
+				"layers/core-api/src/services/__tests__/agent-run-admission-failed-reengagement-migration.integration.test.ts": 11,
+				"layers/core-api/src/services/__tests__/agent-run-admission-failed-routine-run-migration.integration.test.ts": 4,
+				"layers/core-api/src/services/__tests__/agent-run-admission-failed-subscribers.integration.test.ts": 21,
+				"layers/core-api/src/services/__tests__/agent-run-admission-failed-task-run-migration.integration.test.ts": 5,
+				"layers/core-api/src/services/__tests__/agent-session-request-sources.integration.test.ts": 8,
+				"layers/core-api/src/services/__tests__/agent-work-intent-baked-payload.integration.test.ts": 2,
+				"layers/core-api/src/services/__tests__/agent-work-intent-supersede.integration.test.ts": 3,
+				"layers/core-api/src/services/__tests__/agent-work-intent-worker.routine-selection.integration.test.ts": 4,
+				"layers/core-api/src/services/__tests__/assistant-thread-pin-coreapi-subscriber.integration.test.ts": 3,
+				"layers/core-api/src/services/__tests__/assistant-turn-b3-coherence-trigger.integration.test.ts": 8,
+				"layers/core-api/src/services/__tests__/connections-added-after-emit.integration.test.ts": 6,
+				"layers/core-api/src/services/__tests__/connections-provisioning-e2e.integration.test.ts": 4,
+				"layers/core-api/src/services/__tests__/context-bundle-sandbox-byte-parity.integration.test.ts": 11,
+				"layers/core-api/src/services/__tests__/core-api-port-assistant-reply-seam.integration.test.ts": 3,
+				"layers/core-api/src/services/__tests__/core-api-port-increment2-conversation.integration.test.ts": 10,
+				"layers/core-api/src/services/__tests__/core-api-port-increment2-knowledge.integration.test.ts": 4,
+				"layers/core-api/src/services/__tests__/core-api-port-increment2-org-routine-handoff.integration.test.ts": 8,
+				"layers/core-api/src/services/__tests__/core-api-port-increment2-work-users.integration.test.ts": 15,
+				"layers/core-api/src/services/__tests__/core-api-port.integration.test.ts": 6,
+				"layers/core-api/src/services/__tests__/direct-thread.recipientKind.integration.test.ts": 2,
+				"layers/core-api/src/services/__tests__/filesystems-added-after-emit.integration.test.ts": 6,
+				"layers/core-api/src/services/__tests__/routine-run-session-end-reactions.integration.test.ts": 5,
+				"layers/core-api/src/services/__tests__/routine-scheduler-baked-emit.integration.test.ts": 4,
+				"layers/core-api/src/services/__tests__/routine-scheduler-relocation.integration.test.ts": 7,
+				"layers/core-api/src/services/__tests__/routine-scheduler.au15.integration.test.ts": 6,
+				"layers/core-api/src/services/__tests__/run-orchestration-connections-provisioning-edge-closed.integration.test.ts": 3,
+				"layers/core-api/src/services/__tests__/session-knowledge-assembler-ranking-parity.integration.test.ts": 15,
+				"layers/core-api/src/services/__tests__/session-review-creator.reengagement-liveness-baked-emit.integration.test.ts": 10,
+				"layers/core-api/src/services/__tests__/work-session-end-reactions.integration.test.ts": 7,
+				"layers/core-api/src/services/__tests__/work-session-started-reactions.integration.test.ts": 5,
+				"layers/core-ui/__scripts__/ah5-test-server.ts": 1,
+				"layers/core-ui/__scripts__/ah6-test-server.ts": 5
+			}
+		},
 		"layer → db:table (unowned) [import] production": {
 			"successor": "W4-W6",
 			"sites": {
@@ -58,6 +342,77 @@
 				"layers/core-api/src/routes/users.ts": 1,
 				"layers/core-api/src/service-bootstrap.ts": 1,
 				"layers/core-api/src/services/routine-scheduler-bindings.ts": 1
+			}
+		},
+		"layer → db:table (unowned) [table:read] production": {
+			"successor": "W4-W6",
+			"sites": {
+				"layers/agent-orchestration/src/routes/agent-orchestration-sessions.ts": 4,
+				"layers/agent-orchestration/src/routes/sessions.ts": 7,
+				"layers/agent-orchestration/src/services/session-stream-hub.ts": 1,
+				"layers/core-api/src/routes/users.ts": 3,
+				"layers/core-api/src/services/routine-scheduler-bindings.ts": 1
+			}
+		},
+		"layer → db:table (unowned) [table:write] development": {
+			"successor": "W4-W6",
+			"sites": {
+				"layers/agent-orchestration/src/services/__tests__/session-stream-hub.integration.test.ts": 4,
+				"layers/core-api/src/__tests__/AC1-session-effectiveness.integration.test.ts": 1,
+				"layers/core-api/src/__tests__/AD1-session-review-routing.integration.test.ts": 3,
+				"layers/core-api/src/__tests__/AF12-bet-cascade.integration.test.ts": 1,
+				"layers/core-api/src/__tests__/agent-layer-boot-recovery.integration.test.ts": 2,
+				"layers/core-api/src/__tests__/agent-lifecycle-projection.integration.test.ts": 5,
+				"layers/core-api/src/__tests__/agent-orchestration-run-reads.integration.test.ts": 1,
+				"layers/core-api/src/__tests__/agent-request-custody.integration.test.ts": 2,
+				"layers/core-api/src/__tests__/agent-work-intent-production.integration.test.ts": 2,
+				"layers/core-api/src/__tests__/AH6-lane-gates-broken-turn.integration.test.ts": 1,
+				"layers/core-api/src/__tests__/AR4b-formation-seam.test.ts": 1,
+				"layers/core-api/src/__tests__/assistant-reply-live-harness.integration.test.ts": 1,
+				"layers/core-api/src/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts": 1,
+				"layers/core-api/src/__tests__/builtin-routines.integration.test.ts": 1,
+				"layers/core-api/src/__tests__/configuration-projection-boot.integration.test.ts": 2,
+				"layers/core-api/src/__tests__/core-api-serves-no-agent-run-decorations.integration.test.ts": 1,
+				"layers/core-api/src/__tests__/handoff-protocol.integration.test.ts": 1,
+				"layers/core-api/src/__tests__/handoff-to.integration.test.ts": 1,
+				"layers/core-api/src/__tests__/lifecycle-propagation.integration.test.ts": 10,
+				"layers/core-api/src/__tests__/P2-user-routes.integration.test.ts": 3,
+				"layers/core-api/src/__tests__/policy-engine.integration.test.ts": 1,
+				"layers/core-api/src/__tests__/retention-reaper.integration.test.ts": 2,
+				"layers/core-api/src/__tests__/session-review-creator.integration.test.ts": 5,
+				"layers/core-api/src/__tests__/two-app-mount-session-routes.integration.test.ts": 1,
+				"layers/core-api/src/__tests__/users.integration.test.ts": 1,
+				"layers/core-api/src/__tests__/write-session-notes.integration.test.ts": 2,
+				"layers/core-api/src/routes/__tests__/AB2-team-agents.integration.test.ts": 4,
+				"layers/core-api/src/routes/__tests__/AB2-teams-list-agents.integration.test.ts": 4,
+				"layers/core-api/src/routes/__tests__/AD4-agent-profile.integration.test.ts": 3,
+				"layers/core-api/src/routes/__tests__/agent-profile.integration.test.ts": 4,
+				"layers/core-api/src/routes/__tests__/AH2-agent-config.integration.test.ts": 7,
+				"layers/core-api/src/routes/__tests__/AK1-renamed-fields.integration.test.ts": 1,
+				"layers/core-api/src/routes/__tests__/bets.session-enrichment.integration.test.ts": 1,
+				"layers/core-api/src/routes/__tests__/recipients.integration.test.ts": 1,
+				"layers/core-api/src/routes/__tests__/sessions.activity.integration.test.ts": 1,
+				"layers/core-api/src/routes/__tests__/tasks.task-run-baked-emit.integration.test.ts": 1,
+				"layers/core-api/src/routes/__tests__/teams-routes-AB3.integration.test.ts": 2,
+				"layers/core-api/src/routes/__tests__/X3-agents.integration.test.ts": 2,
+				"layers/core-api/src/services/__tests__/agent-health-session-end-reactions.integration.test.ts": 1,
+				"layers/core-api/src/services/__tests__/agent-run-admission-failed-subscribers.integration.test.ts": 1,
+				"layers/core-api/src/services/__tests__/agent-session-request-sources.integration.test.ts": 1,
+				"layers/core-api/src/services/__tests__/agent-work-intent-worker.routine-selection.integration.test.ts": 2,
+				"layers/core-api/src/services/__tests__/context-bundle-sandbox-byte-parity.integration.test.ts": 1,
+				"layers/core-api/src/services/__tests__/core-api-port-increment2-org-routine-handoff.integration.test.ts": 1,
+				"layers/core-api/src/services/__tests__/routine-run-session-end-reactions.integration.test.ts": 1,
+				"layers/core-api/src/services/__tests__/routine-scheduler.au15.integration.test.ts": 1,
+				"layers/core-api/src/services/__tests__/work-session-end-reactions.integration.test.ts": 2,
+				"layers/core-api/src/services/__tests__/work-session-started-reactions.integration.test.ts": 1
+			}
+		},
+		"layer → db:table (unowned) [table:write] production": {
+			"successor": "W4-W6",
+			"sites": {
+				"layers/agent-orchestration/src/routes/sessions.ts": 2,
+				"layers/core-api/src/routes/users.ts": 1,
+				"layers/core-api/src/service-bootstrap.ts": 1
 			}
 		},
 		"layer → db:unknown [import] production": {
@@ -125,12 +480,81 @@
 				"layers/core-ui/package.json": 1
 			}
 		},
+		"service → agent-execution [api] production": {
+			"successor": "W3",
+			"sites": {
+				"layers/agent-orchestration/run-orchestration/src/provisioner.ts": 1
+			}
+		},
 		"service → db:table (other) [import] production": {
 			"successor": "W5-W6",
 			"sites": {
 				"layers/agent-orchestration/filesystem-mounting/src/mounter-registry.ts": 1,
 				"layers/core-api/credentials/src/credential-resolver.ts": 1,
 				"layers/core-api/credentials/src/credential-store.ts": 1
+			}
+		},
+		"service → db:table (other) [table:read] production": {
+			"successor": "W5-W6",
+			"sites": {
+				"layers/core-api/credentials/src/credential-resolver.ts": 1,
+				"layers/core-api/credentials/src/credential-store.ts": 2
+			}
+		},
+		"service → db:table (other) [table:write] development": {
+			"successor": "W5-W6",
+			"sites": {
+				"layers/agent-orchestration/agent-run-config/src/__tests__/agent-run-config-store.integration.test.ts": 4,
+				"layers/agent-orchestration/connections/src/__tests__/connection-store-completeness.integration.test.ts": 2,
+				"layers/agent-orchestration/connections/src/__tests__/service-connection-resolver.integration.test.ts": 1,
+				"layers/agent-orchestration/filesystem-mounting/src/__tests__/capture-provenance.integration.test.ts": 4,
+				"layers/agent-orchestration/filesystem-mounting/src/__tests__/git-worktree-live-proof.integration.test.ts": 5,
+				"layers/agent-orchestration/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts": 2,
+				"layers/agent-orchestration/filesystems/src/__tests__/injected-filesystems-for-provisioning.integration.test.ts": 5,
+				"layers/agent-orchestration/run-orchestration/src/__tests__/admit-session-baked-agent-config.integration.test.ts": 2,
+				"layers/agent-orchestration/run-orchestration/src/__tests__/admit-session-defense-in-depth-only.integration.test.ts": 3,
+				"layers/agent-orchestration/run-orchestration/src/__tests__/admit-session-live-filesystems.integration.test.ts": 2,
+				"layers/agent-orchestration/run-orchestration/src/__tests__/agent-run-boundary.integration.test.ts": 5,
+				"layers/agent-orchestration/run-orchestration/src/__tests__/agent-session-runtime.integration.test.ts": 17,
+				"layers/agent-orchestration/run-orchestration/src/__tests__/baked-transcript-mapping.integration.test.ts": 5,
+				"layers/agent-orchestration/run-orchestration/src/__tests__/calling-thread-id-bake.integration.test.ts": 5,
+				"layers/agent-orchestration/run-orchestration/src/__tests__/concurrency.integration.test.ts": 1,
+				"layers/agent-orchestration/run-orchestration/src/__tests__/end-run-for-handoff.integration.test.ts": 5,
+				"layers/agent-orchestration/run-orchestration/src/__tests__/generic-transcript-prompt-assembly.integration.test.ts": 5,
+				"layers/agent-orchestration/run-orchestration/src/__tests__/provisioner-tool-context-thread-id.integration.test.ts": 2,
+				"layers/agent-orchestration/run-orchestration/src/__tests__/request-run-stop-for-tasks.integration.test.ts": 5,
+				"layers/agent-orchestration/run-orchestration/src/__tests__/runtime-reapers-routine-collapse.integration.test.ts": 5,
+				"layers/agent-orchestration/run-orchestration/src/__tests__/session-not-returned-calling-thread-id.integration.test.ts": 2,
+				"layers/agent-orchestration/run-orchestration/src/__tests__/transition-run-routine-collapse.integration.test.ts": 8,
+				"layers/agent-orchestration/session-requests/src/__tests__/agent-lifecycle-projectors.integration.test.ts": 1,
+				"layers/agent-orchestration/session-requests/src/__tests__/agent-session-requests.integration.test.ts": 19,
+				"layers/agent-orchestration/session-requests/src/__tests__/baked-work-intent-context-bundle.integration.test.ts": 1,
+				"layers/agent-orchestration/session-requests/src/__tests__/durable-queue-regressions.integration.test.ts": 1,
+				"layers/agent-orchestration/tool-handlers/src/__tests__/_helpers.ts": 4,
+				"layers/agent-orchestration/tool-handlers/src/__tests__/create-artifact.test.ts": 5,
+				"layers/core-api/conversation/src/__tests__/assistant-turn-resolver.integration.test.ts": 4,
+				"layers/core-api/conversation/src/__tests__/assistant-turn-resolver.transcript-bake.integration.test.ts": 1,
+				"layers/core-api/conversation/src/__tests__/session-not-returned-notice.integration.test.ts": 2,
+				"layers/core-api/knowledge/src/__tests__/knowledge-action-resolver.integration.test.ts": 1,
+				"layers/core-api/org/src/__tests__/org-edges.integration.test.ts": 3,
+				"layers/core-api/org/src/__tests__/org-routing.integration.test.ts": 8,
+				"layers/core-api/review/src/__tests__/reengagement-resolver.integration.test.ts": 13,
+				"layers/core-api/routine/src/__tests__/routine-run-resolver.integration.test.ts": 4,
+				"layers/core-api/routine/src/__tests__/routine-scheduler-completeness.integration.test.ts": 2,
+				"layers/core-api/routine/src/__tests__/routine-service.integration.test.ts": 3,
+				"layers/core-api/settings/src/__tests__/plugin-configuration.test.ts": 5,
+				"layers/core-api/work/src/__tests__/append-task-note.integration.test.ts": 1,
+				"layers/core-api/work/src/__tests__/session-start-resolver.integration.test.ts": 3,
+				"layers/core-api/work/src/__tests__/task-planning-signals.integration.test.ts": 1,
+				"layers/core-api/work/src/__tests__/task-run-resolver.integration.test.ts": 6,
+				"layers/core-api/work/src/__tests__/work-completeness.integration.test.ts": 3
+			}
+		},
+		"service → db:table (other) [table:write] production": {
+			"successor": "W5-W6",
+			"sites": {
+				"layers/agent-orchestration/filesystem-mounting/src/mounter-registry.ts": 1,
+				"layers/core-api/credentials/src/credential-store.ts": 3
 			}
 		},
 		"service → db:table (unowned) [import] production": {
@@ -158,10 +582,99 @@
 				"layers/core-api/work/src/work-service.ts": 1
 			}
 		},
+		"service → db:table (unowned) [table:read] production": {
+			"successor": "W4-W6",
+			"sites": {
+				"layers/agent-orchestration/agent-run-config/src/agent-run-config-store.ts": 2,
+				"layers/agent-orchestration/agent-run-config/src/team-run-config-defaults-store.ts": 1,
+				"layers/agent-orchestration/run-orchestration/src/concurrency.ts": 1,
+				"layers/agent-orchestration/run-orchestration/src/create-bare-run.ts": 1,
+				"layers/agent-orchestration/run-orchestration/src/provisioner.ts": 2,
+				"layers/agent-orchestration/run-orchestration/src/request-run-stop-for-tasks.ts": 1,
+				"layers/agent-orchestration/run-orchestration/src/runtime-reapers.ts": 2,
+				"layers/agent-orchestration/run-orchestration/src/runtime.ts": 2,
+				"layers/agent-orchestration/run-orchestration/src/start-runtime.ts": 1,
+				"layers/core-api/policy/src/handoff-protocol.ts": 1,
+				"layers/core-api/policy/src/lifecycle-propagation.ts": 1,
+				"layers/core-api/settings/src/plugin-configuration.ts": 1,
+				"layers/core-api/work/src/task-state-machine.ts": 1,
+				"layers/core-api/work/src/work-service.ts": 1
+			}
+		},
+		"service → db:table (unowned) [table:write] development": {
+			"successor": "W4-W6",
+			"sites": {
+				"layers/agent-orchestration/filesystem-mounting/src/__tests__/capture-provenance.integration.test.ts": 1,
+				"layers/agent-orchestration/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts": 1,
+				"layers/agent-orchestration/run-orchestration/src/__tests__/concurrency.integration.test.ts": 2,
+				"layers/agent-orchestration/run-orchestration/src/__tests__/end-run-for-handoff.integration.test.ts": 1,
+				"layers/agent-orchestration/run-orchestration/src/__tests__/request-run-stop-for-tasks.integration.test.ts": 1,
+				"layers/agent-orchestration/run-orchestration/src/__tests__/runtime-reapers-routine-collapse.integration.test.ts": 2,
+				"layers/agent-orchestration/run-orchestration/src/__tests__/transition-run-routine-collapse.integration.test.ts": 2,
+				"layers/agent-orchestration/session-requests/src/__tests__/agent-session-requests.integration.test.ts": 1,
+				"layers/core-api/settings/src/__tests__/plugin-configuration.test.ts": 2,
+				"layers/core-api/work/src/__tests__/task-run-resolver.integration.test.ts": 1
+			}
+		},
+		"service → db:table (unowned) [table:write] production": {
+			"successor": "W4-W6",
+			"sites": {
+				"layers/agent-orchestration/agent-run-config/src/agent-run-config-store.ts": 1,
+				"layers/agent-orchestration/agent-run-config/src/team-run-config-defaults-store.ts": 1,
+				"layers/agent-orchestration/run-orchestration/src/create-bare-run.ts": 1,
+				"layers/agent-orchestration/run-orchestration/src/end-run-for-handoff.ts": 1,
+				"layers/agent-orchestration/run-orchestration/src/provisioner.ts": 2,
+				"layers/agent-orchestration/run-orchestration/src/request-run-stop-for-tasks.ts": 1,
+				"layers/agent-orchestration/run-orchestration/src/runtime-reapers.ts": 1,
+				"layers/agent-orchestration/run-orchestration/src/runtime.ts": 1,
+				"layers/agent-orchestration/run-orchestration/src/start-runtime.ts": 1,
+				"layers/agent-orchestration/run-orchestration/src/transition-run.ts": 1,
+				"layers/agent-orchestration/run-orchestration/src/writeback-processor.ts": 1,
+				"layers/agent-orchestration/tool-handlers/src/tool-definitions.ts": 1,
+				"layers/core-api/policy/src/handoff-protocol.ts": 1,
+				"layers/core-api/policy/src/lifecycle-propagation.ts": 5,
+				"layers/core-api/policy/src/policy-engine.ts": 1,
+				"layers/core-api/work/src/bet-kill-cascade.ts": 1,
+				"layers/core-api/work/src/task-state-machine.ts": 1,
+				"layers/core-api/work/src/work-service.ts": 3
+			}
+		},
+		"service → layer (other) [di] production": {
+			"successor": "W2",
+			"sites": {
+				"layers/core-api/src/service-bootstrap.ts": 1,
+				"layers/core-api/src/services/tool-provider-bindings.ts": 1
+			}
+		},
+		"service → MCP router [mcp] production": {
+			"successor": "W3",
+			"sites": {
+				"layers/agent-orchestration/run-orchestration/src/provisioner.ts": 1
+			}
+		},
+		"service → service (other layer) [di] production": {
+			"successor": "W2",
+			"sites": {
+				"applications/remote-server/src/create-server.ts": 1,
+				"layers/core-api/src/app.ts": 1,
+				"layers/core-api/src/routes/bets.ts": 2,
+				"layers/core-api/src/routes/org.ts": 1,
+				"layers/core-api/src/routes/tasks.ts": 1,
+				"layers/core-api/src/routes/threads.ts": 1,
+				"layers/core-api/src/service-bootstrap.ts": 1,
+				"layers/core-api/src/services/agent-run-admission-reactions.ts": 1
+			}
+		},
 		"tooling → db:schema-ns [import] development": {
 			"successor": "W6",
 			"sites": {
 				"tools/eval/src/runner.ts": 1
+			}
+		},
+		"tooling → raw runtime [capability] development": {
+			"successor": "W6",
+			"sites": {
+				"tools/eval/src/judges.ts": 1
 			}
 		}
 	}

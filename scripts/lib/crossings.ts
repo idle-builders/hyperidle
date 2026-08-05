@@ -15,6 +15,7 @@
  * `governance-fixtures.ts`: a near-miss that must NOT be detected.
  */
 
+import { detectAstCrossings } from "./crossing-detectors.js";
 import type { DbSurfaceIndex } from "./db-surfaces.js";
 import type { Actor, Crossing, Kind, Target } from "./governance-model.js";
 import type { TableOwners } from "./governance-registry.js";
@@ -40,6 +41,12 @@ export interface DetectorFloor {
 
 export interface CrossingsInput {
 	readonly census: Census;
+	/** Injected, like everywhere else in this library — the AST detectors need file contents. */
+	readonly readFile: (path: string) => string;
+	/** The layer that hosts the MCP router. */
+	readonly mcpRouterHost: string;
+	/** Module declaring every event the bus can carry. */
+	readonly eventTypesModule: string;
 	readonly db: DbSurfaceIndex;
 	readonly tableOwners: TableOwners;
 	/** Framework package name → the surface label it is named by, e.g. `shared` → `framework/shared`. */
@@ -210,7 +217,19 @@ function detectManifests(input: CrossingsInput): DetectedCrossing[] {
  */
 export function detectCrossings(input: CrossingsInput, floors: readonly DetectorFloor[]): CrossingsResult {
 	const locate = buildPackageLocator(input.census.packages);
-	const crossings = [...detectImports(input, locate), ...detectManifests(input)];
+	const crossings = [
+		...detectImports(input, locate),
+		...detectManifests(input),
+		...detectAstCrossings({
+			census: input.census,
+			readFile: input.readFile,
+			locate,
+			tables: input.db.tables,
+			ownerOf: (table) => ownerOf(input.tableOwners, table),
+			mcpRouterHost: input.mcpRouterHost,
+			eventTypesModule: input.eventTypesModule,
+		}),
+	];
 
 	const countsByKind = new Map<Kind, number>();
 	for (const found of crossings) {

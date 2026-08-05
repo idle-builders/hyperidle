@@ -93,7 +93,7 @@ export interface Architecture {
 		readonly httpApiLayers: { readonly layers: readonly string[]; readonly why: string };
 		readonly mcpRouter: { readonly host: string; readonly alsoDialledBy: readonly string[]; readonly why: string };
 	};
-	readonly eventBus: { readonly host: Role; readonly why: string };
+	readonly eventBus: { readonly host: Role; readonly typesModule: string; readonly why: string };
 	readonly rawRuntime: { readonly host: string; readonly why: string };
 	readonly oneDoorSurfaces: {
 		readonly surfaces: readonly string[];

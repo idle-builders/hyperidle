@@ -1,0 +1,425 @@
+/**
+ * AU28 — the measurement layer: detectors, database surfaces, and the ratchet.
+ *
+ * The model decides; these modules measure. A detector that under-detects is invisible to every
+ * internal consistency check — a crossing never emitted cannot unbalance anything — so each detector
+ * here is tested with a POSITIVE case and a NEGATIVE CONTROL: a near-miss that must not be detected.
+ * Positive fixtures alone only prove a detector finds what it was written to find.
+ */
+
+import { describe, expect, it } from "vitest";
+import {
+	detectAstCrossings,
+	layerServing,
+	readEventTypes,
+} from "../../../../scripts/lib/crossing-detectors.js";
+import {
+	type Baseline,
+	compareBaseline,
+	groupKey,
+	targetLabel,
+} from "../../../../scripts/lib/crossing-report.js";
+import { buildPackageLocator } from "../../../../scripts/lib/crossings.js";
+import {
+	buildDbSurfaceIndex,
+	type DatabasePackageConfig,
+} from "../../../../scripts/lib/db-surfaces.js";
+import type { Actor } from "../../../../scripts/lib/governance-model.js";
+import { buildCensus } from "../../../../scripts/lib/repo-census.js";
+
+const ROLE_RULES = [
+	{ pattern: "layers/*", role: "layer" as const },
+	{ pattern: "layers/*/*", role: "service" as const },
+	{ pattern: "framework/*", role: "framework" as const },
+	{ pattern: "applications/*", role: "application" as const },
+	{ pattern: "tools/*", role: "tooling" as const },
+];
+
+/** A minimal synthetic repo: one of every role, so no role rule is dead. */
+function syntheticRepo(extra: Record<string, string>): {
+	files: string[];
+	readFile: (p: string) => string;
+} {
+	const base: Record<string, string> = {
+		"layers/core-api/package.json": JSON.stringify({ name: "@hyperidle/core-api" }),
+		"layers/core-api/work/package.json": JSON.stringify({ name: "@hyperidle/work" }),
+		"framework/db/package.json": JSON.stringify({ name: "@hyperidle/db" }),
+		"applications/desktop/package.json": JSON.stringify({ name: "@hyperidle/desktop" }),
+		"tools/eval/package.json": JSON.stringify({ name: "@hyperidle/eval" }),
+		...extra,
+	};
+	return { files: Object.keys(base), readFile: (p) => base[p] ?? "" };
+}
+
+function detect(
+	extra: Record<string, string>,
+	eventsSource = 'interface E { readonly type: "thing_happened"; }',
+) {
+	const repo = syntheticRepo({ "framework/shared/events.ts": eventsSource, ...extra });
+	const census = buildCensus({ files: repo.files, readFile: repo.readFile, roleRules: ROLE_RULES });
+	return detectAstCrossings({
+		census,
+		readFile: repo.readFile,
+		locate: buildPackageLocator(census.packages),
+		tables: new Set(["bets", "users"]),
+		ownerOf: (t) => (t === "bets" ? "work" : null),
+		mcpRouterHost: "agent-execution",
+		eventTypesModule: "framework/shared/events.ts",
+	});
+}
+
+const kinds = (found: ReturnType<typeof detect>, kind: string): string[] =>
+	found.filter((f) => f.crossing.kind === kind).map((f) => f.detail);
+
+// -------------------------------------------------------------------------------------------
+
+describe("AU28 — the table detector", () => {
+	it("tells a read from a write, and names the table", () => {
+		const found = detect({
+			"layers/core-api/work/src/q.ts": `
+				import { bets, users } from "@hyperidle/db";
+				export const a = (db: any) => db.select().from(bets);
+				export const b = (db: any) => db.insert(users).values({});
+				export const c = (db: any) => db.update(bets).set({});
+			`,
+		});
+		expect(kinds(found, "table:read")).toHaveLength(1);
+		expect(kinds(found, "table:write")).toHaveLength(2);
+		expect(kinds(found, "table:read")[0]).toContain("from(bets)");
+	});
+
+	it("negative control — a method with the same name on something that is not a table", () => {
+		const found = detect({
+			"layers/core-api/work/src/q.ts": `
+				export const a = (rows: string[]) => Array.from(rows);
+				export const b = (m: Map<string, string>) => m.delete("bets");
+				export const c = (list: number[]) => list.from;
+			`,
+		});
+		expect(kinds(found, "table:read")).toEqual([]);
+		expect(kinds(found, "table:write")).toEqual([]);
+	});
+
+	it("counts a join as a read of the joined table", () => {
+		const found = detect({
+			"layers/core-api/work/src/q.ts": `
+				import { bets } from "@hyperidle/db";
+				export const a = (db: any) => db.select().leftJoin(bets, undefined);
+			`,
+		});
+		expect(kinds(found, "table:read")).toHaveLength(1);
+	});
+});
+
+describe("AU28 — the event detector", () => {
+	it("counts an emit and a subscribe of a declared event", () => {
+		const found = detect({
+			"layers/core-api/work/src/e.ts": `
+				export const a = (eventBus: any) => eventBus.emit({ type: "thing_happened" });
+				export const b = (eventBus: any) => eventBus.on("thing_happened", () => {});
+			`,
+		});
+		expect(kinds(found, "event")).toHaveLength(2);
+	});
+
+	it("negative control — .emit/.on of something the bus does not declare", () => {
+		const found = detect({
+			"layers/core-api/work/src/e.ts": `
+				export const a = (emitter: any) => emitter.emit({ type: "not_a_bus_event" });
+				export const b = (socket: any) => socket.on("close", () => {});
+			`,
+		});
+		expect(kinds(found, "event")).toEqual([]);
+	});
+
+	it("refuses to build an index when the events module declares nothing", () => {
+		expect(() => readEventTypes("e.ts", () => "export const nothing = 1;")).toThrow(
+			/declared no event types/,
+		);
+	});
+});
+
+describe("AU28 — the capability detector", () => {
+	it("catches a vendor SDK import and an agent CLI spawn", () => {
+		const found = detect({
+			"layers/core-api/work/src/c.ts": `
+				import Anthropic from "@anthropic-ai/sdk";
+				import { spawn } from "node:child_process";
+				export const go = () => spawn("claude", []);
+				export const x = Anthropic;
+			`,
+		});
+		expect(kinds(found, "capability")).toHaveLength(2);
+	});
+
+	it("negative control — a differently named binary and a non-SDK package", () => {
+		const found = detect({
+			"layers/core-api/work/src/c.ts": `
+				import { spawn } from "node:child_process";
+				import something from "openai-adjacent-but-not-openai";
+				export const go = () => spawn("git", ["status"]);
+				export const x = something;
+			`,
+		});
+		expect(kinds(found, "capability")).toEqual([]);
+	});
+});
+
+describe("AU28 — the dependency-injection detector", () => {
+	it("records the crossing between the CALLED package and the package the value came from", () => {
+		const found = detect({
+			"layers/core-api/work/src/thing.ts": "export const makeThing = (_dep: unknown) => 1;",
+			"framework/db/src/index.ts": "export const dbClient = {};",
+			"applications/desktop/src/boot.ts": `
+				import { makeThing } from "../../../layers/core-api/work/src/thing.js";
+				import { dbClient } from "../../../framework/db/src/index.js";
+				export const wired = makeThing(dbClient);
+			`,
+		});
+		const di = found.filter((f) => f.crossing.kind === "di");
+		expect(di).toHaveLength(1);
+		// The source is `work` — whose factory receives the dependency — not `desktop`, which wires it.
+		expect(di[0]?.crossing.source).toMatchObject({ name: "work" });
+		expect(di[0]?.crossing.target).toMatchObject({ name: "db" });
+	});
+
+	it("negative control — an exported constant handed to a call is an import, not an injection", () => {
+		const found = detect({
+			"layers/core-api/work/src/thing.ts": "export const makeThing = (_dep: unknown) => 1;",
+			"framework/db/src/index.ts": 'export const MODES = ["a", "b"];',
+			"applications/desktop/src/boot.ts": `
+				import { makeThing } from "../../../layers/core-api/work/src/thing.js";
+				import { MODES } from "../../../framework/db/src/index.js";
+				export const wired = makeThing(MODES);
+			`,
+		});
+		expect(kinds(found, "di")).toEqual([]);
+	});
+
+	it("negative control — a table symbol passed as an argument is a table access, not an injection", () => {
+		const found = detect({
+			"layers/core-api/work/src/thing.ts": "export const makeThing = (_dep: unknown) => 1;",
+			"applications/desktop/src/boot.ts": `
+				import { makeThing } from "../../../layers/core-api/work/src/thing.js";
+				import { bets } from "@hyperidle/db";
+				export const wired = makeThing(bets);
+			`,
+		});
+		expect(kinds(found, "di")).toEqual([]);
+	});
+});
+
+describe("AU28 — resolving a dialled path to the layer that serves it", () => {
+	const routes = [
+		{ path: "/ws/worker", layer: "agent-orchestration" },
+		{ path: "/ws", layer: "core-api" },
+		{ path: "/mcp/:token", layer: "agent-execution" },
+		{ path: "/bets", layer: "core-api" },
+	].sort((a, b) => b.path.length - a.path.length);
+
+	it("prefers the longest match", () => {
+		expect(layerServing(routes, "/api/ws/worker")).toBe("agent-orchestration");
+		expect(layerServing(routes, "/api/ws")).toBe("core-api");
+	});
+
+	it("matches a :param against any one segment", () => {
+		expect(layerServing(routes, "/api/mcp/abc123")).toBe("agent-execution");
+	});
+
+	it("negative control — a third-party URL is not our API", () => {
+		expect(layerServing(routes, "/api/v1/auth/key")).toBeNull();
+	});
+});
+
+describe("AU28 — database surfaces", () => {
+	const config: DatabasePackageConfig = {
+		packageName: "db",
+		sourceRoot: "db/src",
+		barrel: "db/src/index.ts",
+		schemaModule: "db/src/schema.ts",
+		zodModule: "db/src/zod-schemas.ts",
+		moduleSurface: { "connection.ts": "db:client", "like-escape.ts": "db:util" },
+	};
+	const sources: Record<string, string> = {
+		"db/src/schema.ts": `
+			export const bets = pgTable("bets", {});
+			export type Bet = typeof bets.$inferSelect;
+			export const notATable = 5;
+		`,
+		"db/src/zod-schemas.ts": "export const betSchema = createSelectSchema(bets);",
+		"db/src/index.ts": `
+			export { bets, Bet, notATable } from "./schema.js";
+			export { createPgliteDb } from "./connection.js";
+			export { escapeLikePattern } from "./like-escape.js";
+			export * as schema from "./schema.js";
+		`,
+	};
+	const index = buildDbSurfaceIndex(config, (p) => sources[p] ?? "");
+
+	it("reads tables and row types from the schema rather than a list", () => {
+		expect(index.tables.has("bets")).toBe(true);
+		expect(index.rowTypes.has("Bet")).toBe(true);
+		expect(index.tables.has("notATable")).toBe(false);
+	});
+
+	it("classifies each barrel symbol by the module it came from", () => {
+		expect(index.resolve("db/src/index.ts", "bets", false)).toMatchObject({
+			surface: "db:table",
+			table: "bets",
+		});
+		expect(index.resolve("db/src/index.ts", "Bet", false).surface).toBe("db:row-type");
+		expect(index.resolve("db/src/index.ts", "createPgliteDb", false).surface).toBe("db:client");
+		expect(index.resolve("db/src/index.ts", "escapeLikePattern", false).surface).toBe("db:util");
+	});
+
+	it("treats a generated zod schema as a reach into the table it came from", () => {
+		expect(index.resolve("db/src/zod-schemas.ts", "betSchema", false)).toMatchObject({
+			surface: "db:table",
+			table: "bets",
+		});
+	});
+
+	it("treats taking the module whole as the schema namespace", () => {
+		expect(index.resolve("db/src/index.ts", "", true).surface).toBe("db:schema-ns");
+	});
+
+	it("reports an unplaceable symbol instead of guessing a surface for it", () => {
+		expect(index.resolve("db/src/index.ts", "mysteryExport", false).surface).toBe("db:unknown");
+		expect(index.unplaced.has("mysteryExport")).toBe(true);
+	});
+
+	it("refuses to build an index over a schema with no tables", () => {
+		expect(() => buildDbSurfaceIndex(config, () => "export const nothing = 1;")).toThrow(
+			/declared no pgTable/,
+		);
+	});
+});
+
+describe("AU28 — the ratchet", () => {
+	const baseline: Baseline = {
+		au28Baseline: true,
+		note: "",
+		groups: {
+			"layer → service (other layer) [import] production": {
+				successor: "W7",
+				sites: { "a.ts": 2, "b.ts": 1 },
+			},
+		},
+	};
+	const key = "layer → service (other layer) [import] production";
+
+	it("passes when the live violations match exactly", () => {
+		const result = compareBaseline(baseline, [
+			{
+				key,
+				sites: new Map([
+					["a.ts", 2],
+					["b.ts", 1],
+				]),
+			},
+		]);
+		expect(result.newDebt).toEqual([]);
+		expect(result.stale).toEqual([]);
+	});
+
+	it("fails when a site grows", () => {
+		const result = compareBaseline(baseline, [
+			{
+				key,
+				sites: new Map([
+					["a.ts", 3],
+					["b.ts", 1],
+				]),
+			},
+		]);
+		expect(result.newDebt).toHaveLength(1);
+		expect(result.stale).toEqual([]);
+	});
+
+	it("fails when a site is fixed but the shrink is not committed", () => {
+		const result = compareBaseline(baseline, [{ key, sites: new Map([["a.ts", 2]]) }]);
+		expect(result.newDebt).toEqual([]);
+		expect(result.stale).toHaveLength(1);
+	});
+
+	it("fails on a rule with no baseline entry at all", () => {
+		const result = compareBaseline(baseline, [
+			{ key: "service → raw runtime [capability] production", sites: new Map([["x.ts", 1]]) },
+		]);
+		expect(result.newDebt).toHaveLength(1);
+	});
+
+	/**
+	 * THE test that proves the design. A count-only ratchet passes every case above and fails this
+	 * one: fix a violation in one file, add one in another, total unchanged, build green.
+	 */
+	it("catches the swap — one site fixed, one added, total unchanged", () => {
+		const result = compareBaseline(baseline, [
+			{
+				key,
+				sites: new Map([
+					["a.ts", 2],
+					["c.ts", 1],
+				]),
+			},
+		]);
+		expect(result.newDebt, "the new site must register as new debt").toHaveLength(1);
+		expect(result.stale, "the fixed site must register as a stale baseline").toHaveLength(1);
+	});
+});
+
+describe("AU28 — how a crossing is named", () => {
+	const service: Actor = { sort: "package", name: "work", role: "service", layer: "core-api" };
+	const application: Actor = { sort: "package", name: "desktop", role: "application" };
+
+	it("qualifies a peer by its relationship to the source", () => {
+		expect(
+			targetLabel({ sort: "package", name: "review", role: "service", layer: "core-api" }, service),
+		).toBe("service (same layer)");
+		expect(
+			targetLabel(
+				{
+					sort: "package",
+					name: "run-orchestration",
+					role: "service",
+					layer: "agent-orchestration",
+				},
+				service,
+			),
+		).toBe("service (other layer)");
+	});
+
+	it("does not invent a relationship for a source that lives in no layer", () => {
+		expect(
+			targetLabel(
+				{ sort: "package", name: "work", role: "service", layer: "core-api" },
+				application,
+			),
+		).toBe("service");
+	});
+
+	it("names a table by whether the source owns it", () => {
+		expect(targetLabel({ sort: "table", table: "bets", owner: "work" }, service)).toBe(
+			"db:table (own)",
+		);
+		expect(targetLabel({ sort: "table", table: "bets", owner: "org" }, service)).toBe(
+			"db:table (other)",
+		);
+		expect(targetLabel({ sort: "table", table: "sessions", owner: null }, service)).toBe(
+			"db:table (unowned)",
+		);
+	});
+
+	it("builds a group key that carries source, target, kind and world", () => {
+		expect(
+			groupKey(
+				{
+					kind: "table:write",
+					source: service,
+					target: { sort: "table", table: "bets", owner: "org" },
+				},
+				"production",
+			),
+		).toBe("service → db:table (other) [table:write] production");
+	});
+});
