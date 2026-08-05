@@ -1,12 +1,12 @@
 ---
 paths:
   - "framework/design-system/src/**"
-  - "layers/web/src/shell/*.stories.tsx"
+  - "layers/core-ui/src/shell/*.stories.tsx"
 ---
 
 # Design System
 
-Components live in `framework/design-system` (Foundation / Primitives / Blocks). Shell / region components stay in `layers/web/src/shell/`.
+Components live in `framework/design-system` (Foundation / Primitives / Blocks). Shell / region components stay in `layers/core-ui/src/shell/`.
 
 **Single source of truth.** Each component has exactly one `.tsx` (production, Tailwind). TSX is the design source of truth — there are no `.html` reference files; the `.tsx` story IS the design artifact. Every custom component must have a `.stories.tsx` — stories are a required deliverable, not optional documentation.
 

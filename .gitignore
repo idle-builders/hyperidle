@@ -10,7 +10,7 @@ playwright-report-ah1/
 playwright-report-ah5/
 playwright-report-ah6/
 test-results/
-layers/web/__e2e__/screenshots/
+layers/core-ui/__e2e__/screenshots/
 visual-reports/
 sync-reports/
 .pipeline/*
@@ -64,7 +64,7 @@ scripts/**/*.d.ts.map
 # committed once and only a code review caught them. Emitted maps are never
 # sources, in any package.
 # `.d.ts` itself is deliberately NOT ignored here — hand-written ambient
-# declarations are real sources (`layers/web/src/vite-env.d.ts`,
+# declarations are real sources (`layers/core-ui/src/vite-env.d.ts`,
 # `window.d.ts`, `framework/design-system/src/css-modules.d.ts`) — except under
 # `framework/db/src`, which has none and is the one tree the emit lands in.
 layers/*/src/**/*.d.ts.map

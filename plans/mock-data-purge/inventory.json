@@ -45,7 +45,7 @@
     "triageHint": "straight-swap"
   },
   {
-    "path": "layers/web/src/fixtures/knowledge-data.ts",
+    "path": "layers/core-ui/src/fixtures/knowledge-data.ts",
     "line": 72,
     "symbol": "MOCK_KNOWLEDGE_ITEMS",
     "kind": "symbol",
@@ -54,7 +54,7 @@
     "triageHint": "borderline"
   },
   {
-    "path": "layers/web/src/pages/KnowledgeDetail.tsx",
+    "path": "layers/core-ui/src/pages/KnowledgeDetail.tsx",
     "line": 67,
     "symbol": "../fixtures/knowledge-data",
     "kind": "import",
@@ -63,7 +63,7 @@
     "triageHint": "borderline"
   },
   {
-    "path": "layers/web/src/pages/KnowledgeDetail.tsx",
+    "path": "layers/core-ui/src/pages/KnowledgeDetail.tsx",
     "line": 127,
     "symbol": "LEGACY_DETAILS",
     "kind": "symbol",
@@ -72,7 +72,7 @@
     "triageHint": "borderline"
   },
   {
-    "path": "layers/web/src/pages/KnowledgeDetail.tsx",
+    "path": "layers/core-ui/src/pages/KnowledgeDetail.tsx",
     "line": 205,
     "symbol": "LEGACY_SOURCES",
     "kind": "symbol",
@@ -81,7 +81,7 @@
     "triageHint": "borderline"
   },
   {
-    "path": "layers/web/src/pages/KnowledgeDetail.tsx",
+    "path": "layers/core-ui/src/pages/KnowledgeDetail.tsx",
     "line": 211,
     "symbol": "FALLBACK_DETAIL",
     "kind": "symbol",

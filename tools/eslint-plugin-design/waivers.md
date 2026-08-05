@@ -11,7 +11,7 @@ Reviewed against the K7 baseline at commit `1f38497`.
 ## Rules promoted to `error` for `framework/design-system/src/**`
 
 These rules fired zero warnings on the design-system package post-K7; they
-are now hard errors there. They remain `warn` for `layers/web/src/**`
+are now hard errors there. They remain `warn` for `layers/core-ui/src/**`
 because consumer code (pages, shells) still has a small backlog.
 
 - `design/no-hardcoded-color`
@@ -69,7 +69,7 @@ One waivered usage in design-system, suppressed inline with
   `HostPill` primitive (with this waiver moved to that file) when a
   second consumer surfaces.
 
-## Rules at `warn` for `layers/web/src/**` (no promotion)
+## Rules at `warn` for `layers/core-ui/src/**` (no promotion)
 
 The wider web codebase still has 5 documented warnings (not in scope for
 K8 promotion):

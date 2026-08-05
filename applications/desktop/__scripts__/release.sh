@@ -77,7 +77,7 @@ perl -0pi -e "s/^appVersion:.*\$/appVersion: \"$VERSION\"/m" "$REPO_ROOT/deploy/
 
 # 2. Build web SPA + bundle desktop + build/sign/notarize the DMG.
 echo "==> Building web SPA"
-npm run -w @hyperidle/web build
+npm run -w @hyperidle/core-ui build
 echo "==> Bundling desktop (esbuild → dist/main.cjs)"
 npx tsx applications/desktop/scripts/bundle.ts
 echo "==> Building, signing, and notarizing DMG (this takes several minutes)"

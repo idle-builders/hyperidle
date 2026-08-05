@@ -40,8 +40,8 @@ This rule is the inverse of `design/use-density-tokens`. Both rules read the sam
 | Path | Level |
 |------|-------|
 | `framework/design-system/src/**` | `error` |
-| `layers/web/src/shell/**` | `error` (IconRail is the canonical static shell) |
-| `layers/web/src/components/**` | `warn` |
+| `layers/core-ui/src/shell/**` | `error` (IconRail is the canonical static shell) |
+| `layers/core-ui/src/components/**` | `warn` |
 
 ## When NOT to use
 

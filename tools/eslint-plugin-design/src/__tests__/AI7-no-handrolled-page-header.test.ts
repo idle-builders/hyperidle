@@ -3,7 +3,7 @@
  *
  * AC3(c): Flags the inline page-title class combo
  *   `text-[20px]` + `font-[600]` + `tracking-[-0.01em]`
- *   on any JSX element in `layers/web/src/pages/**` whose name is NOT `PageHeader`.
+ *   on any JSX element in `layers/core-ui/src/pages/**` whose name is NOT `PageHeader`.
  *
  * Three negative (compliance) cases the rule MUST honor:
  *   1. The combo in `pageTitleClassName` as a template-literal expression reference
@@ -44,10 +44,10 @@ const tester = new RuleTester({
 	},
 });
 
-const PAGES_FILENAME = "/repo/layers/web/src/pages/WorkPortfolio.tsx";
-const SETTINGS_FILENAME = "/repo/layers/web/src/pages/SettingsPage.tsx";
+const PAGES_FILENAME = "/repo/layers/core-ui/src/pages/WorkPortfolio.tsx";
+const SETTINGS_FILENAME = "/repo/layers/core-ui/src/pages/SettingsPage.tsx";
 const DS_FILENAME = "/repo/framework/design-system/src/PageHeader.tsx";
-const COMPONENTS_FILENAME = "/repo/layers/web/src/components/SomeComponent.tsx";
+const COMPONENTS_FILENAME = "/repo/layers/core-ui/src/components/SomeComponent.tsx";
 
 // The full title combo — all three tokens must appear together
 const FULL_COMBO_LITERAL = `text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] min-w-0 truncate`;

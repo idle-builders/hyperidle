@@ -39,7 +39,7 @@ const SERVER_START_TIME = new Date().toISOString();
  * `/api/notifications/config`) backed by
  * `server_config`; there is no remaining legitimate key for a generic
  * settings surface to serve. Confirmed no web client depends on the raw-rows
- * shape (`layers/web` has zero references to `/status/settings`) — the
+ * shape (`layers/core-ui` has zero references to `/status/settings`) — the
  * endpoint is removed outright rather than repointed to a read-only
  * projection (plan §3.1's "removed" option), since inventing a new
  * unconsumed shape would be dead surface, not a real migration target.
@@ -57,8 +57,8 @@ export function createStatusRoutes(db: HyperIdleDb): Hono {
 	// GET / — Factory-wide status
 	//
 	// @lore AU26 J1: `activeSessions` (a raw `sessions` count) is DELETED. The
-	// root `/api/status` route has zero consumers repo-wide — `layers/web`,
-	// `layers/web/e2e`, `applications/desktop` and `tools/eval` reference only
+	// root `/api/status` route has zero consumers repo-wide — `layers/core-ui`,
+	// `layers/core-ui/e2e`, `applications/desktop` and `tools/eval` reference only
 	// `/api/status/health` and `/api/status/digest`. (`SettingsWorker.tsx`'s
 	// `status.activeSessions` is the Electron `WorkerStatus` bridge object, a
 	// different shape entirely.) Agent-run state is `agent-orchestration`'s;

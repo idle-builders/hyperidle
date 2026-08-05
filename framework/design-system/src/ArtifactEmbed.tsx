@@ -11,7 +11,7 @@ import { dsProps } from "./ds-attrs.js";
 /**
  * @lore L3 review fix D-B5: delegated `<ArtifactView>` mount per approved.md
  * §2 line 121 + §7 row 4. The design system package cannot import from
- * `layers/web` (that would invert the dep direction), so the embed exposes
+ * `layers/core-ui` (that would invert the dep direction), so the embed exposes
  * a `viewSlot` injection point.
  *
  * @lore AM5 K5: `<ArtifactView>` shell has been DELETED (it was the second caller

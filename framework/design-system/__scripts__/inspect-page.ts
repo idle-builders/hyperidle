@@ -8,12 +8,12 @@
  *
  * Heuristics (deterministic, reproducible across runs):
  *  - design-system:    JSX tag bound to an import from `@hyperidle/design-system`
- *  - web-shell:        JSX tag bound to an import from `layers/web/src/shell/` (or relative ./shell/, ../shell/)
- *  - custom-component: JSX tag bound to any other local import (resolved within layers/web/src or framework/design-system/src)
+ *  - web-shell:        JSX tag bound to an import from `layers/core-ui/src/shell/` (or relative ./shell/, ../shell/)
+ *  - custom-component: JSX tag bound to any other local import (resolved within layers/core-ui/src or framework/design-system/src)
  *  - daisyui-primitive: raw HTML element whose className starts with a canonical DaisyUI root token
  *  - inline-styled:    raw HTML element with ≥3 layout/spacing tailwind utilities and not a daisyui-primitive
  *
- * Transitive walk: follow only local imports under layers/web/src/** and framework/design-system/src/**.
+ * Transitive walk: follow only local imports under layers/core-ui/src/** and framework/design-system/src/**.
  * Never follow into node_modules. Aliased imports (@hyperidle/design-system) are bucketed but NOT followed.
  *
  * Reuse-candidate fingerprints live below in `FINGERPRINTS` — extensible by appending entries.
@@ -216,7 +216,7 @@ function classifyImport(spec: string, fromFile: string): ImportInfo["bucket"] {
 	if (spec.startsWith(".")) {
 		const abs = resolve(dirname(fromFile), spec);
 		const rel = relative(REPO_ROOT, abs);
-		if (rel.includes("layers/web/src/shell")) return "web-shell";
+		if (rel.includes("layers/core-ui/src/shell")) return "web-shell";
 		// any other local import
 		return "custom-component";
 	}
@@ -249,7 +249,7 @@ function resolveLocalImport(spec: string, fromFile: string): string | undefined 
 
 function isFollowable(absPath: string): boolean {
 	const rel = relative(REPO_ROOT, absPath);
-	return rel.startsWith("layers/web/src/") || rel.startsWith("framework/design-system/src/");
+	return rel.startsWith("layers/core-ui/src/") || rel.startsWith("framework/design-system/src/");
 }
 
 function parseImports(sourceFile: ts.SourceFile, file: string): ImportInfo[] {
@@ -527,7 +527,7 @@ function main(argv: string[]): number {
 	if (positional.length !== 1) {
 		process.stderr.write(
 			"Usage: npm run ds:inspect <page-path> [--format=json]\n" +
-				"  <page-path>   path to a .tsx file under layers/web/src/\n",
+				"  <page-path>   path to a .tsx file under layers/core-ui/src/\n",
 		);
 		return 1;
 	}

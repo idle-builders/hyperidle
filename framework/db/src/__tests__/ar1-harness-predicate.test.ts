@@ -150,7 +150,7 @@ describe("isHarnessIntegrationPath — false-positive guards (false)", () => {
 	});
 
 	test("*.spec.ts (E2E) in any location → false", () => {
-		expect(isHarnessIntegrationPath("layers/web/e2e/ah5-live-agent-path.spec.ts")).toBe(false);
+		expect(isHarnessIntegrationPath("layers/core-ui/e2e/ah5-live-agent-path.spec.ts")).toBe(false);
 	});
 
 	test("a *.real-harness.test.ts file (pre-rename) → false (not yet *.integration.test.ts)", () => {

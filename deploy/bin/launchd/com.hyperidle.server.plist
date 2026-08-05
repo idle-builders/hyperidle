@@ -21,7 +21,7 @@
 		<key>HYPERIDLE_API_KEY</key>
 		<string>__API_KEY__</string>
 		<key>HYPERIDLE_STATIC_DIR</key>
-		<string>__REPO_DIR__/layers/web/dist</string>
+		<string>__REPO_DIR__/layers/core-ui/dist</string>
 		<key>PATH</key>
 		<string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
 	</dict>

@@ -3,14 +3,14 @@
  *
  * AI7 AC3(c): Flags the inline page-title class combination
  *   `text-[20px]` + `font-[600]` + `tracking-[-0.01em]`
- * appearing as **string literals** on any JSX element in `layers/web/src/pages/**`
+ * appearing as **string literals** on any JSX element in `layers/core-ui/src/pages/**`
  * whose name is NOT `PageHeader`.
  *
  * Rationale: this combo is the canonical Hearth page-title treatment, now owned
  * by the PageHeader primitive (AI7). Inline forks defeat the primitive abstraction
  * and will drift from the canonical treatment over time.
  *
- * Scope: `layers/web/src/pages/**` only. Exclusions:
+ * Scope: `layers/core-ui/src/pages/**` only. Exclusions:
  *   - `design-system/` — PageHeader.tsx itself uses the literal (out of scope).
  *   - Components, shell, design-system outside pages/ — not in scope.
  *   - `SettingsPage.tsx` and `SetupFlow.tsx` are exempted via eslint.config.ts
@@ -40,7 +40,7 @@ import type { Rule } from "eslint";
 import type { JSXAttribute } from "estree-jsx";
 import { asReportNode, collectClassStringsFromJSXAttribute, createRule } from "../util.js";
 
-const PAGES_SEGMENT = "layers/web/src/pages/";
+const PAGES_SEGMENT = "layers/core-ui/src/pages/";
 
 function isInPages(filename: string): boolean {
 	return filename.replace(/\\/g, "/").includes(PAGES_SEGMENT);
@@ -60,7 +60,7 @@ export const noHandrolledPageHeader: Rule.RuleModule = createRule({
 			description:
 				"Forbid the inline page-title class combo " +
 				"(`text-[20px]` + `font-[600]` + `tracking-[-0.01em]`) on non-PageHeader " +
-				"elements in layers/web/src/pages/**. Use `<PageHeader>` from " +
+				"elements in layers/core-ui/src/pages/**. Use `<PageHeader>` from " +
 				"@hyperidle/design-system instead, or compose `pageTitleClassName` for " +
 				"editable title inputs.",
 			recommended: true,

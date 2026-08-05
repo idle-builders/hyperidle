@@ -6,7 +6,7 @@
 **Workbench root font-size in effect:** **16 px** (bumped 14 → 16 in K13 Phase 0,
 commit `4db4106`). All density-derived `rem` values therefore compute identically
 to the production app's `:root` (Tailwind preserves the browser default 16 px in
-`layers/web/src/index.css`). Screenshots in `before-after-K13/` are interpretable
+`layers/core-ui/src/index.css`). Screenshots in `before-after-K13/` are interpretable
 1:1 against production.
 
 **Inputs:** K9 ladder (`compact = default × 0.75; comfortable = default × 1.5`),
@@ -258,7 +258,7 @@ a visually identical screenshot when it should not). The K11 sweep delivered
 the K10 audit's prescribed shifts.
 
 **Notable "Partial" deep-dive — the Submenu width pin.** At
-`/work/portfolio` and `/work/team`, the submenu (`layers/web/src/shell/Submenu.tsx`)
+`/work/portfolio` and `/work/team`, the submenu (`layers/core-ui/src/shell/Submenu.tsx`)
 has a fixed width (~248 px in the screenshots) and at comfortable the NavItem
 labels can wrap ("Team Board" → two lines on `/work/portfolio` comfortable,
 "Review Queue" → two lines on `/conversations/review` comfortable). This is
@@ -269,7 +269,7 @@ default. Recommendation in Phase 4 below.
 the textarea inside the composer has a literal `min-height` (rather than
 consuming `--density-row-h`). At comfortable the surrounding chrome scales
 but the composer feels static. The composer is currently a custom block in
-`layers/web/src/pages/ConversationsChat.tsx` (not a tier-2 primitive and
+`layers/core-ui/src/pages/ConversationsChat.tsx` (not a tier-2 primitive and
 not in the K10 audit). Recommendation in Phase 4 below.
 
 ---
@@ -359,13 +359,13 @@ a token-value adjustment. K11 holds.
 ### Adjacent recommendations (out of K13 token-tune scope; logged for K14)
 
 - **(designer-call) Submenu width should consume `--density-text` as a
-  cap-rule, not a pixel constant.** `layers/web/src/shell/Submenu.tsx`
+  cap-rule, not a pixel constant.** `layers/core-ui/src/shell/Submenu.tsx`
   pins ~248 px wide; at comfortable the NavItem text grows past that and
   wraps. The cleanest fix is `min-width: max-content` on the submenu's
   inner column, or — if a fixed column is wanted for the chrome — a
   shell-level width that scales with `--density-text`. This is shell
   geometry; out of K13 token scope. K14 candidate.
-- **(designer-call) The chat composer (`layers/web/src/pages/ConversationsChat.tsx`)
+- **(designer-call) The chat composer (`layers/core-ui/src/pages/ConversationsChat.tsx`)
   should be pulled into a `Composer` block primitive (Tier 2 candidate)
   and consume `--density-row-h` for its min-height plus
   `--density-card-pad` for its padding.** Today it has a literal min-height

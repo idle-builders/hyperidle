@@ -19,7 +19,7 @@
 		"paths": {
 			"@hyperidle/shared": ["./framework/shared/src"],
 			"@hyperidle/db": ["./framework/db/src"],
-			"@hyperidle/web": ["./layers/web/src"],
+			"@hyperidle/core-ui": ["./layers/core-ui/src"],
 			"@hyperidle/design-system": ["./framework/design-system/src"],
 			"@hyperidle/api-contract": ["./framework/api-contract/src"],
 			"@hyperidle/desktop": ["./applications/desktop/src"],

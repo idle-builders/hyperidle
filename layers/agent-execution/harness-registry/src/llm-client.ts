@@ -651,7 +651,7 @@ let installedInterceptor: LlmInterceptor | null = null;
  * and record arms. That is production code importing a development module, which the
  * production/development split forbids in that direction. Inverted: the cassette module
  * now installs itself and the e2e lane's server entry point does the installing
- * (`layers/web/__scripts__/ah6-test-server.ts`). Behaviour is unchanged when nothing
+ * (`layers/core-ui/__scripts__/ah6-test-server.ts`). Behaviour is unchanged when nothing
  * is installed — `callLlm` routes straight to `callLlmDirect`, zero overhead.
  */
 export function setLlmInterceptor(interceptor: LlmInterceptor | null): void {

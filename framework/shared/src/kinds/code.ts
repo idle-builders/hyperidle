@@ -11,7 +11,7 @@
 //
 // The diff delta (`DiffHunk`, `DiffLine`) lives in:
 //   framework/design-system/src/diff/code-delta-renderer.tsx (the DS diff core)
-//   layers/web/src/pages/review/review-artifact.ts (the review chrome types)
+//   layers/core-ui/src/pages/review/review-artifact.ts (the review chrome types)
 
 import z from "zod";
 import type { KindDefinition } from "./kind-definition.js";

@@ -131,7 +131,7 @@ direct the agent to also run a screenshot pass.
 **TODO for K14.**
 
 - **Add tier-coherence neighbor check** corresponding to the AQ-018
-  proposal. For each `.tsx` page file under `layers/web/src/pages/`,
+  proposal. For each `.tsx` page file under `layers/core-ui/src/pages/`,
   walk the JSX tree and flag any density-aware component placed
   adjacent to (sibling or child) a density-static neighbor that is not
   an explicitly allowlisted status indicator.

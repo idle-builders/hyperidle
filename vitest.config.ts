@@ -22,7 +22,7 @@ export default defineConfig({
 			"applications/remote-server",
 			"applications/remote-worker",
 			"framework/shared",
-			"layers/web",
+			"layers/core-ui",
 			"framework/design-system",
 			"tools/eslint-plugin-design",
 			"tools/eslint-plugin-authz",

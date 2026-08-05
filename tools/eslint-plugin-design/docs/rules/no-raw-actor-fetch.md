@@ -1,9 +1,9 @@
 # `design/no-raw-actor-fetch`
 
-Forbid raw `fetch('/api/...')` calls in `layers/web/src/**` outside of
+Forbid raw `fetch('/api/...')` calls in `layers/core-ui/src/**` outside of
 the hooks directory. Actor-authenticated routes must go through
 `useRecoveryFetch` (or another actor-aware helper that lives in
-`layers/web/src/hooks/`) so that `X-Actor-Id` (and any future
+`layers/core-ui/src/hooks/`) so that `X-Actor-Id` (and any future
 cross-cutting recovery / CSRF / idempotency-key concerns) are applied
 uniformly to every request.
 
@@ -52,7 +52,7 @@ to use the bare `fetch` identifier in HyperIdle web).
 
 The rule does not flag a call when any of these is true:
 
-1. The file is under `layers/web/src/hooks/` — these files **are**
+1. The file is under `layers/core-ui/src/hooks/` — these files **are**
    the actor-aware wrappers (`useRecoveryFetch.ts`, `useFirstRun.ts`,
    `useMe.ts`, `useConversations.ts`, `useGlobalSearch.ts`,
    `useSystemStability.ts`).
@@ -65,19 +65,19 @@ The rule does not flag a call when any of these is true:
 ### Bad
 
 ```tsx
-// layers/web/src/pages/ConversationsReview.tsx
+// layers/core-ui/src/pages/ConversationsReview.tsx
 const res = await fetch("/api/conversations/responses", { method: "POST" });
 ```
 
 ```tsx
-// layers/web/src/components/KillSwitch.tsx
+// layers/core-ui/src/components/KillSwitch.tsx
 await fetch(`/api/threads/${id}/verdict/undo`, { method: "POST" });
 ```
 
 ### Good
 
 ```tsx
-// layers/web/src/pages/ConversationsReview.tsx
+// layers/core-ui/src/pages/ConversationsReview.tsx
 import { useRecoveryFetch } from "../hooks/useRecoveryFetch";
 
 const fetchActor = useRecoveryFetch();
@@ -85,7 +85,7 @@ const res = await fetchActor("/api/conversations/responses", { method: "POST" })
 ```
 
 ```tsx
-// layers/web/src/hooks/useRecoveryFetch.ts — the wrapper itself.
+// layers/core-ui/src/hooks/useRecoveryFetch.ts — the wrapper itself.
 const res = await fetch(input, {
   ...init,
   headers: { ...init?.headers, "X-Actor-Id": actorId },
@@ -95,7 +95,7 @@ const res = await fetch(input, {
 ## Configuration
 
 The rule is enabled at `warn`-level in the root `eslint.config.js` for
-`layers/web/src/**/*.{ts,tsx}` with the same allowlist applied via
+`layers/core-ui/src/**/*.{ts,tsx}` with the same allowlist applied via
 `ignores`. There are no rule options.
 
 ## Related

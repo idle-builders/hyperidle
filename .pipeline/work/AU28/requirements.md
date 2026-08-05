@@ -141,7 +141,7 @@ changes first, then the code.
 | Role | Packages |
 |---|---|
 | **Foundation** | `@hyperidle/shared`, `@hyperidle/db`, `@hyperidle/api-contract`, `@hyperidle/design-system` |
-| **Layer** | `@hyperidle/web` (core-ui), `@hyperidle/core-api`, `@hyperidle/agent-orchestration`, `@hyperidle/agent-execution` |
+| **Layer** | `@hyperidle/core-ui` (core-ui), `@hyperidle/core-api`, `@hyperidle/agent-orchestration`, `@hyperidle/agent-execution` |
 | **Service** | the 20 nested packages at `packages/<layer>/<service>/` |
 | **Application** | `@hyperidle/desktop`, `@hyperidle/remote-server`, `@hyperidle/remote-worker` |
 | **Tooling** | `@hyperidle/eval`, `eslint-plugin-authz`, `eslint-plugin-design` |

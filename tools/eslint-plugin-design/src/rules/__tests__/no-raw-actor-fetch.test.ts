@@ -10,64 +10,64 @@ ruleTester.run("no-raw-actor-fetch", noRawActorFetch, {
 	valid: [
 		// Allowlisted: hooks directory is where wrappers live.
 		{
-			filename: "/repo/layers/web/src/hooks/useRecoveryFetch.ts",
+			filename: "/repo/layers/core-ui/src/hooks/useRecoveryFetch.ts",
 			code: 'await fetch("/api/conversations/responses", { method: "POST" });',
 		},
 		{
-			filename: "/repo/layers/web/src/hooks/useFirstRun.ts",
+			filename: "/repo/layers/core-ui/src/hooks/useFirstRun.ts",
 			code: 'await fetch("/api/first-run/status");',
 		},
 		{
-			filename: "/repo/layers/web/src/hooks/useMe.ts",
+			filename: "/repo/layers/core-ui/src/hooks/useMe.ts",
 			code: 'fetch("/api/me").then((r) => r.json());',
 		},
 		// Tests are exempt — they routinely call raw fetch to simulate boundaries.
 		{
-			filename: "/repo/layers/web/src/__tests__/something.test.ts",
+			filename: "/repo/layers/core-ui/src/__tests__/something.test.ts",
 			code: 'await fetch("/api/me");',
 		},
 		{
-			filename: "/repo/layers/web/src/pages/foo.spec.ts",
+			filename: "/repo/layers/core-ui/src/pages/foo.spec.ts",
 			code: 'await fetch("/api/conversations");',
 		},
 		// Non-/api path: not actor-authenticated, no rule trigger.
 		{
-			filename: "/repo/layers/web/src/pages/Static.tsx",
+			filename: "/repo/layers/core-ui/src/pages/Static.tsx",
 			code: 'await fetch("/static/logo.svg");',
 		},
 		{
-			filename: "/repo/layers/web/src/pages/Cdn.tsx",
+			filename: "/repo/layers/core-ui/src/pages/Cdn.tsx",
 			code: 'await fetch("https://cdn.example.com/asset.json");',
 		},
 		// Member call (e.g. window.fetch) — not the bare global identifier we
 		// detect; rule conservatively skips to avoid false positives.
 		{
-			filename: "/repo/layers/web/src/pages/Win.tsx",
+			filename: "/repo/layers/core-ui/src/pages/Win.tsx",
 			code: 'await window.fetch("/api/me");',
 		},
 	],
 	invalid: [
 		// String literal /api/ path in a page.
 		{
-			filename: "/repo/layers/web/src/pages/ConversationsReview.tsx",
+			filename: "/repo/layers/core-ui/src/pages/ConversationsReview.tsx",
 			code: 'await fetch("/api/conversations/responses", { method: "POST" });',
 			errors: [{ messageId: "rawActorFetch", data: { path: "/api/conversations/responses" } }],
 		},
 		// Template literal whose first quasi is /api/.
 		{
-			filename: "/repo/layers/web/src/pages/ConversationsReview.tsx",
+			filename: "/repo/layers/core-ui/src/pages/ConversationsReview.tsx",
 			code: "const id = 'x'; await fetch(`/api/threads/${id}/verdict/undo`, { method: 'POST' });",
 			errors: [{ messageId: "rawActorFetch", data: { path: "/api/threads/" } }],
 		},
 		// In a component file (not in hooks/, not in __tests__).
 		{
-			filename: "/repo/layers/web/src/components/KillSwitch.tsx",
+			filename: "/repo/layers/core-ui/src/components/KillSwitch.tsx",
 			code: 'await fetch("/api/admin/kill", { method: "POST" });',
 			errors: [{ messageId: "rawActorFetch", data: { path: "/api/admin/kill" } }],
 		},
 		// Plain GET in a page.
 		{
-			filename: "/repo/layers/web/src/pages/Search.tsx",
+			filename: "/repo/layers/core-ui/src/pages/Search.tsx",
 			code: 'await fetch("/api/search?q=hello");',
 			errors: [{ messageId: "rawActorFetch", data: { path: "/api/search?q=hello" } }],
 		},

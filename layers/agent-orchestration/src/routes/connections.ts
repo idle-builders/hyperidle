@@ -28,7 +28,7 @@
  * **The paths do not change.** Both apps mount on the Application's one `/api`
  * router, so `/api/connections`, `/api/connections/:id` and
  * `/api/connections/:id/validate` are byte-identical to before and
- * `layers/web` needs no change at all (AC7(c)).
+ * `layers/core-ui` needs no change at all (AC7(c)).
  *
  * The middleware stack — cors, body limit, auth, fail-closed, `onError` — is
  * Application-applied to that shared router and reaches this module unchanged.

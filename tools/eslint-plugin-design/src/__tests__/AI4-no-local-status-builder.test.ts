@@ -7,12 +7,12 @@
  *
  * The rule uses ESLint RuleTester to verify:
  *  - INVALID: *BadgeClass/*BadgeStyle/*BadgeVariant functions/arrow-fns in
- *    layers/web/src are flagged.
+ *    layers/core-ui/src are flagged.
  *  - INVALID: *_LABEL object literals (STATE_LABEL, STATUS_LABEL, etc.) in
- *    layers/web/src are flagged.
+ *    layers/core-ui/src are flagged.
  *  - INVALID: const returning bg-[rgba(... keyed on a status/state param.
  *  - VALID (negative): a *_LABEL constant defined in framework/shared is NOT flagged
- *    (the heuristic scopes to layers/web/src only).
+ *    (the heuristic scopes to layers/core-ui/src only).
  *  - VALID (negative): a presentational local const named `panelClass` is NOT flagged
  *    (name doesn't match the status-builder patterns).
  *  - VALID (negative): a const named STATUS_LABEL inside framework/shared/src is NOT flagged.
@@ -38,14 +38,14 @@ const tester = new RuleTester({
 });
 
 // The web package path that triggers the rule
-const WEB_FILENAME = "/repo/layers/web/src/pages/WorkBet.tsx";
+const WEB_FILENAME = "/repo/layers/core-ui/src/pages/WorkBet.tsx";
 // A shared package path that should NOT trigger the rule
 const SHARED_FILENAME = "/repo/framework/shared/src/types.ts";
 // A design-system path that should NOT trigger the rule
 const DS_FILENAME = "/repo/framework/design-system/src/status-mapping.ts";
 
 describe("design/no-local-status-builder rule (AI4 AC4, Decision 7)", () => {
-	it("reports *BadgeClass functions in layers/web/src", () => {
+	it("reports *BadgeClass functions in layers/core-ui/src", () => {
 		tester.run("no-local-status-builder", noLocalStatusBuilder, {
 			valid: [],
 			invalid: [
@@ -64,7 +64,7 @@ function taskStateBadgeClass(state: string): string {
 		});
 	});
 
-	it("reports *BadgeStyle functions in layers/web/src", () => {
+	it("reports *BadgeStyle functions in layers/core-ui/src", () => {
 		tester.run("no-local-status-builder", noLocalStatusBuilder, {
 			valid: [],
 			invalid: [
@@ -82,7 +82,7 @@ function statusBadgeStyle(status: string): object | null {
 		});
 	});
 
-	it("reports const arrow function matching *BadgeClass in layers/web/src", () => {
+	it("reports const arrow function matching *BadgeClass in layers/core-ui/src", () => {
 		tester.run("no-local-status-builder", noLocalStatusBuilder, {
 			valid: [],
 			invalid: [
@@ -95,7 +95,7 @@ function statusBadgeStyle(status: string): object | null {
 		});
 	});
 
-	it("reports *_STATE_LABEL object literals in layers/web/src", () => {
+	it("reports *_STATE_LABEL object literals in layers/core-ui/src", () => {
 		tester.run("no-local-status-builder", noLocalStatusBuilder, {
 			valid: [],
 			invalid: [
@@ -113,7 +113,7 @@ const TASK_STATE_LABEL: Record<string, string> = {
 		});
 	});
 
-	it("reports *_STATUS_LABEL object literals in layers/web/src", () => {
+	it("reports *_STATUS_LABEL object literals in layers/core-ui/src", () => {
 		tester.run("no-local-status-builder", noLocalStatusBuilder, {
 			valid: [],
 			invalid: [
@@ -126,7 +126,7 @@ const TASK_STATE_LABEL: Record<string, string> = {
 		});
 	});
 
-	it("reports *_VERDICT_LABEL object literals in layers/web/src", () => {
+	it("reports *_VERDICT_LABEL object literals in layers/core-ui/src", () => {
 		tester.run("no-local-status-builder", noLocalStatusBuilder, {
 			valid: [],
 			invalid: [
@@ -139,7 +139,7 @@ const TASK_STATE_LABEL: Record<string, string> = {
 		});
 	});
 
-	it("reports *_TYPE_LABEL object literals in layers/web/src", () => {
+	it("reports *_TYPE_LABEL object literals in layers/core-ui/src", () => {
 		tester.run("no-local-status-builder", noLocalStatusBuilder, {
 			valid: [],
 			invalid: [

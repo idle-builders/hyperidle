@@ -134,7 +134,7 @@ layer"), the striking fact is not a bad importer — it is the **absence of impo
    (`core-api-port.ts:10-14`: "`tsc` cannot verify these mirrors against the real routes — fidelity is
    a TESTED obligation… never a compiler guarantee").
 
-3. **`@hyperidle/web` does not import it.** `web` gets its API types from a **Layer**, not from
+3. **`@hyperidle/core-ui` does not import it.** `web` gets its API types from a **Layer**, not from
    Foundation: `packages/web/src/api/client.ts:27`, `import type { AppType } from "@hyperidle/core-api/schemas"`.
    That is the 39th crossing of C1's scan and the one `requirements.md §7-D` flags as having no AC. The
    Foundation package that exists so `web` need not import a Layer is sitting unused while `web`
@@ -273,7 +273,7 @@ Ordered by (value ÷ cost). Costs are real re-point counts from C3, not estimate
 | # | Candidate package | Clusters moved | Occurrences moved | Cost to re-point |
 |---|---|---|---|---|
 | **S1** | *(no new package)* — fold `api-types` into `@hyperidle/core-api` | `api-types` | 39 | **Near zero.** 39 occurrences, all inside `@hyperidle/core-api` already. Pure deletion of a Foundation round-trip. |
-| **S2** | *(no new package)* — fold `part` into `@hyperidle/design-system` | `part` | 40 | **Near zero.** 40 occurrences, all in `@hyperidle/web`; `design-system` is already core-ui's Foundation and already imports `shared` 48×. Removes 719 LOC of UI derivation from every Layer's closure. |
+| **S2** | *(no new package)* — fold `part` into `@hyperidle/design-system` | `part` | 40 | **Near zero.** 40 occurrences, all in `@hyperidle/core-ui`; `design-system` is already core-ui's Foundation and already imports `shared` 48×. Removes 719 LOC of UI derivation from every Layer's closure. |
 | **S3** | `@hyperidle/content` | `blocks/`, `kinds/`, `types/artifact`, `mention` | ~70 | **Low.** Consumers are `design-system` (22+1+12+2), `web` (18+10), `core-api` (1+2+3+2). Pulls `unified`/`remark-parse`/`remark-gfm`/`github-slugger`/`@noble/hashes` out of the Foundation every Layer imports — the single biggest dependency-closure win. |
 | **S4** | `@hyperidle/harness-contract` | `harness/`, `harness-port`, `tool` | 159 | **Moderate.** Dominated by agent-execution (92) + agent-orchestration (30), but core-ui imports `harness/` 9× and core-api 6×+8× — so it is not cleanly one Layer. Worth it only if the capability-descriptor types stay reachable by `web`'s settings UI. |
 | **S5** | *(relocate, no new package)* — misfiled singletons | `validate-env` → Application; `factory-roster` → `@hyperidle/db`; `builtin-tool-catalog`, `observability/`, `trigger`, `initials`, `auth`, `task-transition`, `configuration` → their one consuming Layer; `proposed-call` → core-ui | ~30 | **Low.** Each has 1–10 occurrences in exactly one Layer (or, for `factory-roster`, only in `db`). |
@@ -370,7 +370,7 @@ files, any import of a table symbol** — and checks it against `TABLE_OWNER`.
 | Importing package | Role | Layer | Violations |
 |---|---|---|---|
 | `@hyperidle/eval` | **Tooling** | — | **52** |
-| `@hyperidle/web` | **Layer** | core-ui | **5** |
+| `@hyperidle/core-ui` | **Layer** | core-ui | **5** |
 
 Complete file list (not truncated — all 23 files; counts sum to 57):
 
@@ -409,7 +409,7 @@ zero in `desktop`/`remote-server`/`remote-worker`. Every Service and Layer packa
 is already clean at the import grain — the gap is entirely **Tooling** plus **one Layer's non-`src`
 scripts directory**.
 
-**Undeclared dependency.** `@hyperidle/web` imports `@hyperidle/db` but does **not** declare it in
+**Undeclared dependency.** `@hyperidle/core-ui` imports `@hyperidle/db` but does **not** declare it in
 `packages/web/package.json` (declared: `connections`, `design-system`, `core-api`, `harness-registry`,
 `shared`). It resolves only because the monorepo hoists. C3 found this to be the **only** undeclared
 foundation dependency in the repo — every other foundation import is manifest-backed, and no package

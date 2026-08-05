@@ -3,7 +3,7 @@
  *
  * A `Part` is the typed rendering unit of a conversation. Parts are DERIVED
  * from a source (Message[] today; session events tomorrow — AM3) and NEVER
- * stored. The renderer (`layers/web/src/components/PartList.tsx`) imports
+ * stored. The renderer (`layers/core-ui/src/components/PartList.tsx`) imports
  * ONLY this module's `Part`/`Embed`/`OpenTarget` vocabulary — never a source
  * type (`Message`/`InlineRef`/`HarnessEvent`). That import-absence is the
  * AM1↔AM3 reuse boundary, enforced by a scoped `no-restricted-imports` ESLint

@@ -47,7 +47,7 @@ export interface RemoteWorkerClientOptions {
 }
 
 /**
- * Worker status snapshot — mirrors WorkerStatus in layers/web/src/window.d.ts.
+ * Worker status snapshot — mirrors WorkerStatus in layers/core-ui/src/window.d.ts.
  * Defined here (not imported from web) to avoid a cross-package dependency.
  * Keep in sync with web's WorkerStatus interface.
  */

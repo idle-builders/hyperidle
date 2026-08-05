@@ -164,7 +164,7 @@
 			"!.verify-attestation.json",
 			"!.verify-attestations",
 			"!applications/desktop/release",
-			"!layers/web/src/index.css",
+			"!layers/core-ui/src/index.css",
 			"!framework/design-system/viewer/viewer.css",
 			"!framework/design-system/*.html",
 			"!framework/design-system/html",

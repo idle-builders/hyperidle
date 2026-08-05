@@ -220,13 +220,13 @@ ok in lightness, packed into a tighter dark band).
 Lockstep updates landed in
 `framework/design-system/html/themes/lucid-light.css`,
 `framework/design-system/html/_tokens.css`, and the DaisyUI lucid-light
-theme in `layers/web/tailwind.config.ts` (`accent`, `success`,
+theme in `layers/core-ui/tailwind.config.ts` (`accent`, `success`,
 `secondary`, `warning`, `error` mirror the same darker pair so
 DaisyUI buttons / badges built from the theme also clear the floor).
-`layers/web/src/__tests__/foundation.test.ts` was updated to pin the
+`layers/core-ui/src/__tests__/foundation.test.ts` was updated to pin the
 new theme values.
 
-`layers/web/e2e/accessibility-K8.spec.ts` no longer uses `.fixme`;
+`layers/core-ui/e2e/accessibility-K8.spec.ts` no longer uses `.fixme`;
 the audit is scoped to `[data-ds-component]` (the K8-owned primitive
 surface) and now passes 7/7 un-fixmed across every route at the mobile
 viewport. The J8 desktop suite (`accessibility.spec.ts`), which audits
@@ -258,7 +258,7 @@ components (`[data-ds-shell]`) or page chrome. Real fix is a chrome
 refactor that swaps these for density-aware components reading
 `var(--density-row-h)` — out of K8 scope per the spec.
 
-Tracking: `layers/web/e2e/touch-targets.spec.ts` is scoped to Tier 1
+Tracking: `layers/core-ui/e2e/touch-targets.spec.ts` is scoped to Tier 1
 + 2 design-system primitives (`[data-ds-component]`). NavItem,
 KeyValue, KnowledgeRow, ThreadRow, BetCard, TaskCard, PitchCard,
 NotificationRow, EmptyState all read the density cascade and clear the
@@ -275,19 +275,19 @@ shells / page chrome (out of K8 token scope):
   rendered on `bg-base-100`-tinted regions where compounded surface
   layering pushes the painted background dark enough to dip the chip
   text under 4.5:1.
-- The Rail's `CollapsedPill` (`layers/web/src/shell/Rail.tsx`)  <!-- @lore AD8a: historical research (Rail deleted in U6) -->
+- The Rail's `CollapsedPill` (`layers/core-ui/src/shell/Rail.tsx`)  <!-- @lore AD8a: historical research (Rail deleted in U6) -->
   paints `text-error` on a 15 % danger tint. Even with the K8
   `--danger` darkening, the BLK / REV pill needs an explicit
   small-text guard.
 
-Tracking: `layers/web/e2e/accessibility-K8.spec.ts` is scoped to
+Tracking: `layers/core-ui/e2e/accessibility-K8.spec.ts` is scoped to
 `[data-ds-component]`. Tier 3 shells live under `[data-ds-shell]` and
 the chrome uses raw DOM — both deliberately left out of the K8 audit
 surface so the test runs un-fixmed against the K8-owned surface.
 
 K-follow-up (combined with F3): chrome refactor — replace raw
 `btn-xs`/`btn-sm`/`tab-xs` and stray `text-error` / `text-[var(--text-lo)]`
-usages in `layers/web/src/pages/**` and `layers/web/src/shell/**`
+usages in `layers/core-ui/src/pages/**` and `layers/core-ui/src/shell/**`
 with density-aware design-system components that pull both the touch
 target and the color contrast from the token system. When that lands,
 broaden both the touch-targets and the accessibility-K8 audits back to

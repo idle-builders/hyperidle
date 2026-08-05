@@ -2,21 +2,21 @@
  * design/no-local-status-builder
  *
  * AI4 AC4 / Decision 7: No page-local status→color or status→label builder
- * remains in `layers/web/src`.
+ * remains in `layers/core-ui/src`.
  *
- * Flags in `layers/web/src`:
+ * Flags in `layers/core-ui/src`:
  *   1. Function declarations / const arrow fns whose name matches:
  *      /.*(Badge|Chip)(Class|Style|Variant)$/  (e.g. taskStateBadgeClass, kindBadgeStyle)
  *   2. Object-literal const declarations whose name matches:
  *      /.*(STATE|STATUS|VERDICT|TYPE)_LABEL(S)?$/ (e.g. TASK_STATE_LABEL, TYPE_LABELS)
  *
  * Does NOT flag:
- *   - Files outside `layers/web/src` (shared/server/design-system are legitimate homes)
+ *   - Files outside `layers/core-ui/src` (shared/server/design-system are legitimate homes)
  *   - Non-status helpers (e.g. panelClass, statusText)
  *   - Consuming a label from a registry (import + variable read is fine)
  *
  * @lore AI4 Decision 7: Static codebase property → lint rule, not a test.
- * The heuristic is scoped to layers/web/src so the legitimate registry
+ * The heuristic is scoped to layers/core-ui/src so the legitimate registry
  * homes (@hyperidle/shared, @hyperidle/server) never trigger.
  */
 
@@ -30,7 +30,7 @@ const STATUS_BUILDER_FN_RE = /(Badge|Chip)(Class|Style|Variant)$/;
 const STATUS_LABEL_MAP_RE = /(STATE|STATUS|VERDICT|TYPE)_LABELS?$/;
 
 /** Path segment that must appear for the rule to fire */
-const WEB_SRC_SEGMENT = "layers/web/src";
+const WEB_SRC_SEGMENT = "layers/core-ui/src";
 
 function isWebSrcFile(filename: string): boolean {
 	// Normalise Windows separators
@@ -42,14 +42,14 @@ export const noLocalStatusBuilder: Rule.RuleModule = createRule({
 		type: "problem",
 		docs: {
 			description:
-				"Forbid page-local status→color or status→label builders in layers/web/src. " +
+				"Forbid page-local status→color or status→label builders in layers/core-ui/src. " +
 				"Use @hyperidle/shared label registries and @hyperidle/design-system status-mapping instead.",
 			recommended: true,
 		},
 		schema: [],
 		messages: {
 			localStatusBuilder:
-				"Page-local status builder '{{name}}' is not allowed in layers/web/src. " +
+				"Page-local status builder '{{name}}' is not allowed in layers/core-ui/src. " +
 				"Use the shared label registries (TASK_STATE_LABEL etc.) from @hyperidle/shared " +
 				"or the status-mapping functions from @hyperidle/design-system.",
 		},

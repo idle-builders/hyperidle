@@ -12,7 +12,7 @@
  *
  * **The path strings are unchanged** (§D-A rule 7): both apps mount on the same
  * `/api` router, so a route changes host app while keeping its URL byte-
- * identical — which is what makes AU26's "zero `layers/web` diff" reachable.
+ * identical — which is what makes AU26's "zero `layers/core-ui` diff" reachable.
  * The cost is that a duplicate `method + path` across the two apps would
  * resolve silently by registration order; AC10's route-table collision
  * assertion closes it (`two-app-mount-session-routes.integration.test.ts`).

@@ -5,7 +5,7 @@
  * This is the ONE place that adapts the seam's location-transparent
  * `CoreApiTransport` (a single-`Request` fetch-handler, `===` Hono's own
  * `app.fetch` shape) onto the real `hc<AppType>` Hono-RPC client — the exact
- * literal pattern already proven at `layers/web/src/api/client.ts`
+ * literal pattern already proven at `layers/core-ui/src/api/client.ts`
  * (`hc<AppType>(baseUrl, {fetch})`), reused here Application-side instead of
  * client-side.
  *

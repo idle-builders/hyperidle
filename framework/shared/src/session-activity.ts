@@ -1,7 +1,7 @@
 /**
  * AM3 — Normalized session ActivityEntry union.
  *
- * Lifted from `layers/web/src/hooks/useSessionActivity.ts` and
+ * Lifted from `layers/core-ui/src/hooks/useSessionActivity.ts` and
  * `packages/server/src/services/session-activity-buffer.ts` (both had
  * verbatim-duplicate definitions). This is the ONE definition; both the
  * web hook and the server buffer re-point their imports here.

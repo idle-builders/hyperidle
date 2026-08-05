@@ -2,13 +2,13 @@
  * design/no-raw-settings-textarea
  *
  * AH3 D4: Prevents regression to raw DaisyUI <textarea className="textarea textarea-bordered">
- * in layers/web/src/settings/**. Settings textareas must use <Input textarea> from
+ * in layers/core-ui/src/settings/**. Settings textareas must use <Input textarea> from
  * @hyperidle/design-system (prose font, --r-default radius, design token colors).
  *
  * @lore AH3 D4: This guard was added after a code-review finding (H2) showed that
  * a raw textarea patch violated the design-system migration contract. The design-system
  * Input component's textarea prop provides correct styling without inline-style overrides.
- * Zero violations must be maintained in layers/web/src/settings/.
+ * Zero violations must be maintained in layers/core-ui/src/settings/.
  */
 
 import type { Rule } from "eslint";
@@ -19,7 +19,7 @@ import { asReportNode, collectClassStringsFromJSXAttribute, createRule } from ".
 const FORBIDDEN_PATTERNS = ["textarea-bordered", "textarea textarea", "textarea-sm"];
 
 function isInSettingsSrc(filename: string): boolean {
-	return filename.includes("layers/web/src/settings");
+	return filename.includes("layers/core-ui/src/settings");
 }
 
 export const noRawSettingsTextarea: Rule.RuleModule = createRule({
@@ -27,7 +27,7 @@ export const noRawSettingsTextarea: Rule.RuleModule = createRule({
 		type: "problem",
 		docs: {
 			description:
-				"Forbid raw DaisyUI <textarea> elements (textarea-bordered, textarea-sm) in layers/web/src/settings/**. Use <Input textarea> from @hyperidle/design-system instead.",
+				"Forbid raw DaisyUI <textarea> elements (textarea-bordered, textarea-sm) in layers/core-ui/src/settings/**. Use <Input textarea> from @hyperidle/design-system instead.",
 			recommended: true,
 		},
 		schema: [],

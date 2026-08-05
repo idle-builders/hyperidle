@@ -1,8 +1,8 @@
 /**
  * AH5: Smoke lane — public re-exports.
  *
- * Imported by layers/web/__scripts__/ah5-test-server.ts and ah5-resolve-model.ts.
- * Workspace hoisting makes @hyperidle/eval available to scripts/ in layers/web.
+ * Imported by layers/core-ui/__scripts__/ah5-test-server.ts and ah5-resolve-model.ts.
+ * Workspace hoisting makes @hyperidle/eval available to scripts/ in layers/core-ui.
  */
 
 export type { ModelEndpoints, OpenRouterEndpoint, OpenRouterModel } from "./openrouter-catalog.js";

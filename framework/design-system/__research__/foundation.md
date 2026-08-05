@@ -63,7 +63,7 @@ This file captures the current values that the K1 recommendations tables compare
 
 ## Component pixel-value usage (sampled)
 
-Sampling under `framework/design-system/src/*.tsx` and `layers/web/src/**/*.tsx` shows hardcoded values such as `gap-[4px]`, `p-[8px]`, `gap-[6px]`, `text-[11px]`, `text-[12px]`, `text-[13px]`. These are aligned to the 4px grid but routed through arbitrary Tailwind brackets rather than the token scale. K7 owns the rewrite; K1 only catalogs the values.
+Sampling under `framework/design-system/src/*.tsx` and `layers/core-ui/src/**/*.tsx` shows hardcoded values such as `gap-[4px]`, `p-[8px]`, `gap-[6px]`, `text-[11px]`, `text-[12px]`, `text-[13px]`. These are aligned to the 4px grid but routed through arbitrary Tailwind brackets rather than the token scale. K7 owns the rewrite; K1 only catalogs the values.
 
 ## Mobile / density auto-switch
 

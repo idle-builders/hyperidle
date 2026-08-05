@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { GlobalSearchPanel } from "../../../../../../layers/web/src/components/GlobalSearchPanel.js";
+import { GlobalSearchPanel } from "../../../../../../layers/core-ui/src/components/GlobalSearchPanel.js";
 
 export default { title: "AU20 Real/Global Search Results" };
 const payload = {

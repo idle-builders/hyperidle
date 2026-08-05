@@ -1,19 +1,19 @@
 # K7 Spacing & Typography Audit
 
-Read-only inventory of every spacing / typography / radius / sizing class across `layers/web/src/**` and `framework/design-system/src/**`, with per-offender resolution tied to a row in `framework/design-system/AESTHETICS.md`.
+Read-only inventory of every spacing / typography / radius / sizing class across `layers/core-ui/src/**` and `framework/design-system/src/**`, with per-offender resolution tied to a row in `framework/design-system/AESTHETICS.md`.
 
 This audit is the precondition for any token / component edit in K7. The values below are the source of truth for the sweep — every change in K7 traces back to a row here.
 
 ## How to read
 
-- **Frequency table** counts raw class occurrences across both `layers/web/src/**` and `framework/design-system/src/**` `.tsx` files (production + stories).
+- **Frequency table** counts raw class occurrences across both `layers/core-ui/src/**` and `framework/design-system/src/**` `.tsx` files (production + stories).
 - **Off-scale offenders** lists every arbitrary-value class (`*-[Npx]`) whose value is not on the canonical 4px grid (or — for chip-internal contexts — the explicit 2px sub-grid allowance).
 - **Resolution** cites the row from AESTHETICS.md that drives the fix, OR marks the offender as a designer-call exception with rationale.
 - **Touch-target audit** lists every interactive element that, at the default viewport, is shorter than the 44px floor (AESTHETICS.md § Mobile & Touch).
 
 ## A. Frequency tables
 
-### A.1 Tailwind shorthand spacing (combined `layers/web` + `framework/design-system`)
+### A.1 Tailwind shorthand spacing (combined `layers/core-ui` + `framework/design-system`)
 
 | Class | Count |
 |---|---|
@@ -34,7 +34,7 @@ This audit is the precondition for any token / component edit in K7. The values 
 | `py-1.5`, `py-0.5`, `pt-3`, `p-1`, `p-0`, `mt-1` | 2 each |
 | `px-5`, `pt-2`, `pl-3`, `pb-3`, `pb-1`, `p-6`, `mt-3`, `mr-2`, `ml-2`, `ml-1`, `mb-6`, `mb-4`, `gap-6`, `gap-0` | 1 each |
 
-Tailwind shorthands resolve via `rem * font-size`. The `:root` font-size in the design-system viewer is 14px, but the production app uses the browser default 16px. This means `gap-1` resolves to 4px in the browser (1 × 0.25rem × 16px) and 3.5px in the viewer — the explicit `gap-[Npx]` form in design-system components avoids the discrepancy. For `layers/web/src/**` (running in the browser at 16px base) the shorthands are on the 4px grid: `gap-1`=4px, `gap-2`=8px, `gap-3`=12px, `gap-4`=16px, `p-2`=8px, `p-3`=12px, `p-4`=16px. **All Tailwind shorthand spacing is on-grid for the browser case.** No fixes required.
+Tailwind shorthands resolve via `rem * font-size`. The `:root` font-size in the design-system viewer is 14px, but the production app uses the browser default 16px. This means `gap-1` resolves to 4px in the browser (1 × 0.25rem × 16px) and 3.5px in the viewer — the explicit `gap-[Npx]` form in design-system components avoids the discrepancy. For `layers/core-ui/src/**` (running in the browser at 16px base) the shorthands are on the 4px grid: `gap-1`=4px, `gap-2`=8px, `gap-3`=12px, `gap-4`=16px, `p-2`=8px, `p-3`=12px, `p-4`=16px. **All Tailwind shorthand spacing is on-grid for the browser case.** No fixes required.
 
 `gap-1.5` (6px) and `py-0.5` (2px) are sub-grid. Per AESTHETICS.md row "Sub-grid 2px allowance", 2px is permitted only inside StatusChip / Tag. 6px is not on the allowlist; flagged below.
 

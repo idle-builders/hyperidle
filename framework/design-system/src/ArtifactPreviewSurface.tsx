@@ -1,6 +1,6 @@
 // AF16 T9/T10/T11 — ArtifactPreviewSurface updated to dispatch through renderer-registry for full size.
 //
-// @lore AF16 T9: getRenderer moved from layers/web/src/kinds/ to this package.
+// @lore AF16 T9: getRenderer moved from layers/core-ui/src/kinds/ to this package.
 // @lore AF16 T10: full size dispatches via getRenderer(kind) — images render as <img>,
 //   code as code blocks, etc. gallery size stays on summarize() text path (thumbnails).
 // @lore AF16 T11: null/error/malformed preview all collapse to one honest affordance

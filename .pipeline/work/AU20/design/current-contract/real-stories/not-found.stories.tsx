@@ -1,5 +1,5 @@
 import { MemoryRouter } from "react-router-dom";
-import { Default } from "../../../../../../layers/web/src/pages/NotFound.stories.js";
+import { Default } from "../../../../../../layers/core-ui/src/pages/NotFound.stories.js";
 
 export default { title: "AU20 Real/NotFound" };
 

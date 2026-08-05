@@ -92,7 +92,7 @@ packages; all 34 are classified below and none is unclassified.
 | Role | Count | Identities |
 |---|---|---|
 | **Foundation** | 4 | `@hyperidle/shared`, `@hyperidle/db`, `@hyperidle/api-contract`, `@hyperidle/design-system` |
-| **Layer** | 4 | `@hyperidle/web` (core-ui), `@hyperidle/core-api`, `@hyperidle/agent-orchestration`, `@hyperidle/agent-execution` |
+| **Layer** | 4 | `@hyperidle/core-ui` (core-ui), `@hyperidle/core-api`, `@hyperidle/agent-orchestration`, `@hyperidle/agent-execution` |
 | **Service** | 20 | 15 under `core-api/` · 4 under `agent-orchestration/` (`dispatch`, `run-orchestration`, `session-requests`, `tool-handlers`) · 1 under `agent-execution/` (`harness-registry`) · 0 under `core-ui` |
 | **Application** | 3 | `@hyperidle/desktop`, `@hyperidle/remote-server`, `@hyperidle/remote-worker` |
 | **Tooling** | 3 | `@hyperidle/eval`, `eslint-plugin-authz`, `eslint-plugin-design` |

@@ -34,8 +34,8 @@ const tester = new RuleTester({
 	},
 });
 
-const PAGES_FILENAME = "/repo/layers/web/src/pages/WorkTeam.tsx";
-const NON_PAGES_WEB_FILENAME = "/repo/layers/web/src/components/ArtifactSection.tsx";
+const PAGES_FILENAME = "/repo/layers/core-ui/src/pages/WorkTeam.tsx";
+const NON_PAGES_WEB_FILENAME = "/repo/layers/core-ui/src/components/ArtifactSection.tsx";
 const DS_FILENAME = "/repo/framework/design-system/src/SomeComponent.tsx";
 
 describe("design/no-undefined-font-heading rule (AI7 AC1)", () => {
@@ -171,7 +171,7 @@ describe("design/no-undefined-font-heading rule (AI7 AC1)", () => {
 		tester.run("no-undefined-font-heading", noUndefinedFontHeading, {
 			valid: [
 				{
-					filename: "/repo/layers/web/src/shell/TaskSheet.tsx",
+					filename: "/repo/layers/core-ui/src/shell/TaskSheet.tsx",
 					code: `const J = () => <div className="text-xs tracking-wider uppercase">LABEL</div>;`,
 				},
 			],
@@ -183,7 +183,7 @@ describe("design/no-undefined-font-heading rule (AI7 AC1)", () => {
 		tester.run("no-undefined-font-heading", noUndefinedFontHeading, {
 			valid: [
 				{
-					filename: "/repo/layers/web/src/components/SessionView.tsx",
+					filename: "/repo/layers/core-ui/src/components/SessionView.tsx",
 					code: `const K = () => <span className="tracking-wider">text</span>;`,
 				},
 			],

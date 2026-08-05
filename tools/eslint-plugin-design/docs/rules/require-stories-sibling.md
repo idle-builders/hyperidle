@@ -6,7 +6,7 @@
 ## Why
 
 Stories are the single demonstrable artifact for a component. Every component
-file under `framework/design-system/src/` and `layers/web/src/components/`
+file under `framework/design-system/src/` and `layers/core-ui/src/components/`
 must have a sibling `<Name>.stories.tsx`. The story is the design artifact
 rendered by the pipeline design-review tooling and covered by the catalog
 DOM-snapshot net (`framework/design-system/src/__tests__/catalog-snapshot.test.tsx`).

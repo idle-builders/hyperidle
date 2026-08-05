@@ -81,7 +81,7 @@ services:
     # reason as the server; production operators front with nginx + auth.
     ports:
       - "127.0.0.1:5173:5173"
-    command: ["npm", "run", "-w", "@hyperidle/web", "dev", "--", "--host", "0.0.0.0"]
+    command: ["npm", "run", "-w", "@hyperidle/core-ui", "dev", "--", "--host", "0.0.0.0"]
 
 volumes:
   postgres_data:

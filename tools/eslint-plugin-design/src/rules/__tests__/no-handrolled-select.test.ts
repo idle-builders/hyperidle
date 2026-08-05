@@ -9,7 +9,7 @@
  *   - className containing "select-sm" alone (DaisyUI size-only shortcut that bypasses the primitive)
  *   - inline `selectStyle` object pattern (SettingsOrgChart pattern — detected as const decl named /selectStyle/i)
  *
- * Files under layers/web/src/** only. The rule does NOT fire in design-system source.
+ * Files under layers/core-ui/src/** only. The rule does NOT fire in design-system source.
  */
 
 import { RuleTester } from "eslint";
@@ -25,47 +25,47 @@ ruleTester.run("no-handrolled-select", noHandrolledSelect, {
 	valid: [
 		// Using the canonical Select primitive — always valid
 		{
-			filename: "layers/web/src/pages/Settings.tsx",
+			filename: "layers/core-ui/src/pages/Settings.tsx",
 			code: 'const J = <Select options={opts} size="sm" />;',
 		},
 		// Non-select className — not flagged
 		{
-			filename: "layers/web/src/pages/Foo.tsx",
+			filename: "layers/core-ui/src/pages/Foo.tsx",
 			code: 'const J = <div className="flex flex-col gap-[12px]" />;',
 		},
-		// select-bordered outside layers/web/src — design-system itself is exempt
+		// select-bordered outside layers/core-ui/src — design-system itself is exempt
 		{
 			filename: "framework/design-system/src/Select.tsx",
 			code: 'const J = <select className="select-bordered" />;',
 		},
 		// A plain <select> without the DaisyUI marker classes is not flagged
 		{
-			filename: "layers/web/src/pages/Foo.tsx",
+			filename: "layers/core-ui/src/pages/Foo.tsx",
 			code: "const J = <select value={v} onChange={onChange} />;",
 		},
 	],
 	invalid: [
 		// DaisyUI select-bordered
 		{
-			filename: "layers/web/src/pages/Settings.tsx",
+			filename: "layers/core-ui/src/pages/Settings.tsx",
 			code: 'const J = <select className="select select-bordered" />;',
 			errors: [{ messageId: "handrolledSelect" }],
 		},
 		// DaisyUI select-sm
 		{
-			filename: "layers/web/src/settings/SettingsModels.tsx",
+			filename: "layers/core-ui/src/settings/SettingsModels.tsx",
 			code: 'const J = <select className="select select-sm select-bordered" />;',
 			errors: [{ messageId: "handrolledSelect" }],
 		},
 		// select-bordered alone
 		{
-			filename: "layers/web/src/pages/WorkBet.tsx",
+			filename: "layers/core-ui/src/pages/WorkBet.tsx",
 			code: 'const J = <select className="select-bordered w-full" />;',
 			errors: [{ messageId: "handrolledSelect" }],
 		},
 		// selectStyle inline object — SettingsOrgChart pattern
 		{
-			filename: "layers/web/src/settings/SettingsOrgChart.tsx",
+			filename: "layers/core-ui/src/settings/SettingsOrgChart.tsx",
 			code: "const selectStyle = { border: '1px solid var(--border-default)' };",
 			errors: [{ messageId: "handrolledSelectStyle" }],
 		},

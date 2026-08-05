@@ -218,7 +218,7 @@ export function createUserRoutes(
 	// @lore AU26 J1: the per-user `activeSessions` count (a raw `sessions` read)
 	// is DELETED. The only consumer of this list is
 	// `CoreApiPort.users.listUsersByTeam`, typed `UserView = {id,name,role,teamId}`;
-	// no `layers/web` file fetches it at all. Run counts are
+	// no `layers/core-ui` file fetches it at all. Run counts are
 	// `agent-orchestration`'s and the UI reads them from that Layer directly.
 	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		const teamMembersId = c.req.query("teamMembersId");

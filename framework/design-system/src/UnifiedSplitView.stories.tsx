@@ -23,7 +23,7 @@
 //   • The origin surfaces are faithful Hearth fixtures built from REAL design-
 //     system primitives (Block, ReferenceChip, Avatar, StatusChip, Fold). They
 //     are NOT the production page components (ConversationSurface / Review /
-//     KnowledgeBody live in `layers/web`; a design-system story must not invert
+//     KnowledgeBody live in `layers/core-ui`; a design-system story must not invert
 //     the dependency boundary by importing upward). So each origin reproduces the
 //     real surface's SHAPE — message rows + reference chips, a review canvas with
 //     result KPIs + intent checklist, a knowledge body of blocks — using the

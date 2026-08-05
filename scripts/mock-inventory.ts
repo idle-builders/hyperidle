@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 /**
  * Mock-data inventory generator (M1).
- * Walks layers/web/src/ and packages/server/src/, detects mock-data
+ * Walks layers/core-ui/src/ and packages/server/src/, detects mock-data
  * offenders, emits inventory.json + inventory.md + queue.md.
  *
  * Usage:
@@ -545,7 +545,7 @@ if (isEntrypoint) {
 	const scriptPath = fileURLToPath(import.meta.url);
 	// scripts/mock-inventory.ts → repo root is one level up
 	const repoRoot = join(scriptPath, "..", "..");
-	const webSrc = join(repoRoot, "layers/web/src");
+	const webSrc = join(repoRoot, "layers/core-ui/src");
 	const serverSrcDirs = collectAU19SrcDirs(repoRoot);
 	const outDir = join(repoRoot, "plans/mock-data-purge");
 	const inventoryPath = join(outDir, "inventory.json");

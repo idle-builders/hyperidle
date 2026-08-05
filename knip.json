@@ -7,7 +7,7 @@
 		"docs/product/.vitepress/**",
 		"tools/eslint-plugin-design/test-fixtures/**",
 		"plans/**",
-		"layers/web/src/**/*.stories.tsx",
+		"layers/core-ui/src/**/*.stories.tsx",
 		"**/vitest-setup.ts",
 		"**/vitest-integration-setup.ts",
 		"**/test-setup.ts",
@@ -15,10 +15,10 @@
 		"**/__tests__/_helpers.ts",
 		"layers/agent-execution/harness-registry/src/__tests__/require-harness.ts",
 		"layers/core-api/src/__testing__/test-fixtures.ts",
-		"layers/web/__e2e__/fixtures.ts",
-		"layers/web/__e2e__/known-pre-existing-failures.ts",
-		"layers/web/src/pages/**/__fixtures__/**",
-		"layers/web/src/__preview__/**",
+		"layers/core-ui/__e2e__/fixtures.ts",
+		"layers/core-ui/__e2e__/known-pre-existing-failures.ts",
+		"layers/core-ui/src/pages/**/__fixtures__/**",
+		"layers/core-ui/src/__preview__/**",
 		"layers/agent-execution/harness-registry/src/re-engage.ts",
 		"layers/core-api/src/__tests__/AL7-no-kernel-executor.test.ts",
 		"layers/core-api/src/__tests__/notifications-test-deps.ts",
@@ -29,7 +29,7 @@
 	"ignoreExportsUsedInFile": true,
 	"exclude": ["duplicates"],
 	"ignoreIssues": {
-		"layers/web/src/pages/review/ReviewRenderedInContext.tsx": ["exports"]
+		"layers/core-ui/src/pages/review/ReviewRenderedInContext.tsx": ["exports"]
 	},
 	"workspaces": {
 		".": {
@@ -59,7 +59,7 @@
 			"entry": ["src/**/*.stories.tsx", "__scripts__/*.ts!"],
 			"ignoreDependencies": ["@tiptap/pm"]
 		},
-		"layers/web": {
+		"layers/core-ui": {
 			"entry": [
 				"__scripts__/*.ts!",
 				"vite.ah1.config.ts!",

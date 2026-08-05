@@ -1,10 +1,10 @@
 /**
  * design/no-handrolled-select
  *
- * Maps to AG5 AC: "No hand-rolled <select> elements remain in layers/web/src/**".
+ * Maps to AG5 AC: "No hand-rolled <select> elements remain in layers/core-ui/src/**".
  * Source: plans/AG5/architecture.md § 5 (AC → verification) + § ESLint rule.
  *
- * Forbidden patterns (layers/web/src/** only; design-system itself is exempt):
+ * Forbidden patterns (layers/core-ui/src/** only; design-system itself is exempt):
  *   1. className containing "select-bordered" — DaisyUI hand-roll marker.
  *   2. className containing "select select-sm" — combined DaisyUI classes.
  *   3. className containing "select-sm" alone — DaisyUI size-only shortcut.
@@ -12,7 +12,7 @@
  *
  * @lore AG5: Rule enforces the "one canonical primitive" AC for selects. The
  * design-system/src/** is exempt because Select.tsx itself uses custom classes.
- * layers/web/src/** must use <Select> from @hyperidle/design-system.
+ * layers/core-ui/src/** must use <Select> from @hyperidle/design-system.
  */
 
 import type { Rule } from "eslint";
@@ -24,7 +24,7 @@ import { asReportNode, collectClassStringsFromJSXAttribute, createRule } from ".
 const FORBIDDEN_PATTERNS = ["select-bordered", "select-sm"];
 
 function isInWebSrc(filename: string): boolean {
-	return filename.includes("layers/web/src");
+	return filename.includes("layers/core-ui/src");
 }
 
 export const noHandrolledSelect: Rule.RuleModule = createRule({
@@ -32,7 +32,7 @@ export const noHandrolledSelect: Rule.RuleModule = createRule({
 		type: "problem",
 		docs: {
 			description:
-				"Forbid hand-rolled <select> elements using DaisyUI classes (select-bordered, select-sm) in layers/web/src/**. Use <Select> from @hyperidle/design-system instead. Also forbids inline selectStyle objects (SettingsOrgChart pattern).",
+				"Forbid hand-rolled <select> elements using DaisyUI classes (select-bordered, select-sm) in layers/core-ui/src/**. Use <Select> from @hyperidle/design-system instead. Also forbids inline selectStyle objects (SettingsOrgChart pattern).",
 			recommended: true,
 		},
 		schema: [],

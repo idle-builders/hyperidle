@@ -359,7 +359,7 @@ Settled. 61 production / 57 development statements today.
 > development? Also will anyhow be split and just become the framework so those rules need to be
 > rewritten based on what this looks like when its split."
 
-Not actioned — the intent is unclear and guessing would write the wrong rules. `layers/web` holds
+Not actioned — the intent is unclear and guessing would write the wrong rules. `layers/core-ui` holds
 real shipped UI today. Needs the founder to say what the split produces before its rows are written.
 
 ---

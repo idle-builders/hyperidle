@@ -28,7 +28,7 @@ Theme wiring facts (values stay in code): surfaces map to `--color-base-100/200/
 
 ## Boundaries
 
-- `packages/design-system/src` never imports `@hyperidle/web` — an import there creates a cycle (web → design-system → web). Enforced by ESLint `no-restricted-imports` (AJ6 AC8, `eslint.config.ts:792-811`).
+- `packages/design-system/src` never imports `@hyperidle/core-ui` — an import there creates a cycle (web → design-system → web). Enforced by ESLint `no-restricted-imports` (AJ6 AC8, `eslint.config.ts:792-811`).
 - TSX is the single design source of truth: never fork a design copy of a production component; the production `.tsx` + its `.stories.tsx` ARE the design artifact. See `.claude/rules/visual-regression.md`.
 
 Component tiers and DaisyUI usage: [Our components](./our-components.md). Layout contracts: [Page anatomy](./page-anatomy.md).

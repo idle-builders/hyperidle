@@ -12,7 +12,7 @@
  * same smell one level up. `runtime-simplification.md:159-164` says only an
  * Application may choose to put another Layer's routes behind core-api's auth
  * stack, so the choice moved to the Application that makes it. `desktop` and the
- * three `layers/web/scripts/*-test-server.ts` harnesses import it from here;
+ * three `layers/core-ui/scripts/*-test-server.ts` harnesses import it from here;
  * `core-api` keeps its Layer-composition half in `service-bootstrap.ts`.
  *
  * @lore AU26 B1b (AC9/AC10, the Hono `notFound` trap): the two Layer apps mount

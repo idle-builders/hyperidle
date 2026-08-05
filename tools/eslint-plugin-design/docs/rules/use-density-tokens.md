@@ -36,7 +36,7 @@ The opt-out manifest at `tools/eslint-plugin-design/density-allowlist.json` list
 | Path | Level |
 |------|-------|
 | `framework/design-system/src/**` | `error` |
-| `layers/web/src/**` | `warn` |
+| `layers/core-ui/src/**` | `warn` |
 
 ## When NOT to use
 

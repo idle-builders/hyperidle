@@ -16,7 +16,7 @@
  * @lore AU26 A1 shape hazard: the admitted branch returns the session row WHOLE.
  * The row has 18 columns; a narrowed 7-field projection would silently drop 11
  * fields from `POST /api/sessions`'s 202 body, which no route test would catch
- * (no `layers/web` file consumes that response). Hence the generic — the caller's
+ * (no `layers/core-ui` file consumes that response). Hence the generic — the caller's
  * row type flows through untouched.
  */
 import type { Context } from "hono";

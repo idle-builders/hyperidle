@@ -7,7 +7,7 @@ RuleTester.describe = describe as unknown as typeof RuleTester.describe;
 RuleTester.it = it as unknown as typeof RuleTester.it;
 
 const inDS = "/abs/framework/design-system/src/Foo.tsx";
-const elsewhere = "/abs/layers/web/src/Foo.tsx";
+const elsewhere = "/abs/layers/core-ui/src/Foo.tsx";
 
 ruleTester.run("require-ds-attribute", requireDsAttribute, {
 	valid: [

@@ -1,7 +1,7 @@
 /**
  * design/no-raw-actor-fetch
  *
- * Forbids raw `fetch("/api/...")` calls in `layers/web/src/**` when the
+ * Forbids raw `fetch("/api/...")` calls in `layers/core-ui/src/**` when the
  * route is actor-authenticated and should go through `useRecoveryFetch`
  * (or any future actor-aware helper) so that the `X-Actor-Id` header (and
  * any future cross-cutting recovery/CSRF/idempotency-key concerns) are
@@ -18,7 +18,7 @@
  *     - a string literal starting with `/api/`, or
  *     - a template literal whose first quasi starts with `/api/`.
  *
- * Allowlist (legitimate wrappers): files under `layers/web/src/hooks/`
+ * Allowlist (legitimate wrappers): files under `layers/core-ui/src/hooks/`
  * may call `fetch()` directly because they ARE the actor-aware helpers.
  * Tests (`__tests__`) and Playwright specs (`*.spec.ts`) are also exempt
  * — tests routinely simulate raw network paths.
@@ -58,7 +58,7 @@ function getFirstArgPath(arg: unknown): string | null {
  * helpers. Matched via path-suffix tests so the rule is portable across
  * checkout layouts and worktrees.
  */
-const HOOK_DIR_FRAGMENTS = ["/layers/web/src/hooks/", "\\packages\\web\\src\\hooks\\"];
+const HOOK_DIR_FRAGMENTS = ["/layers/core-ui/src/hooks/", "\\packages\\web\\src\\hooks\\"];
 
 const TEST_FRAGMENTS = ["/__tests__/", "\\__tests__\\"];
 
@@ -76,13 +76,13 @@ export const noRawActorFetch: Rule.RuleModule = createRule({
 		type: "problem",
 		docs: {
 			description:
-				"Forbid raw fetch('/api/...') calls outside layers/web/src/hooks/ — actor-authenticated routes must go through useRecoveryFetch (or another actor-aware helper) so X-Actor-Id is set on every request.",
+				"Forbid raw fetch('/api/...') calls outside layers/core-ui/src/hooks/ — actor-authenticated routes must go through useRecoveryFetch (or another actor-aware helper) so X-Actor-Id is set on every request.",
 			recommended: true,
 		},
 		schema: [],
 		messages: {
 			rawActorFetch:
-				"Raw fetch('{{path}}') drops the X-Actor-Id header. Use useRecoveryFetch (layers/web/src/hooks/) or a sibling actor-aware helper instead. See docs/no-raw-actor-fetch.md.",
+				"Raw fetch('{{path}}') drops the X-Actor-Id header. Use useRecoveryFetch (layers/core-ui/src/hooks/) or a sibling actor-aware helper instead. See docs/no-raw-actor-fetch.md.",
 		},
 	},
 	create(context) {

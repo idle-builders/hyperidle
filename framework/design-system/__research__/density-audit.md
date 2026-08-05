@@ -941,7 +941,7 @@ zero user benefit.
 
 ### 3.5 Note on `<main>` (the layout container)
 
-The `<main>` element in `layers/web/src/layouts/AppShell.tsx` line 459
+The `<main>` element in `layers/core-ui/src/layouts/AppShell.tsx` line 459
 already consumes `var(--density-pad-x)` and `var(--density-pad-y)` for its
 own padding, plus `var(--density-text)` for the inherited body font. **K11
 should change this to `var(--density-page-gutter)`** (a separate token, see
@@ -1289,7 +1289,7 @@ so K11 / K12 don't have to re-read the source.
   `p-[12px] gap-[8px]` with literal bar heights. Density: none today;
   should be `yes` on container after K11.
 
-**Tier 3 shells (`layers/web/src/shell/`)**
+**Tier 3 shells (`layers/core-ui/src/shell/`)**
 
 - **IconRail.tsx** — `w-12 p-2 gap-2`. DaisyUI `btn-ghost btn-sm`. Density:
   none today; correct (canonical static surface).
@@ -1315,7 +1315,7 @@ so K11 / K12 don't have to re-read the source.
   today; should be `partial` (pad + gap scale; max-h literal; cards
   inherit).
 
-**Pages (`layers/web/src/pages/`)**
+**Pages (`layers/core-ui/src/pages/`)**
 
 - **WorkPortfolio.tsx** — `gap-3` page; product card `p-3 gap-2` literal;
   H1 uppercase mono `text-sm`. Density: none today; should be `yes` after

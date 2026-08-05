@@ -36,12 +36,12 @@ const emptyCensus = () => buildCensus({ files: [], readFile: () => "" });
 describe("AU28 classifyFile — the settled production/development rule", () => {
 	it.each([
 		["framework/db/src/__testing__/test-utils.ts", "dunder-segment"],
-		["layers/web/src/pages/__fixtures__/x.ts", "dunder-segment"],
+		["layers/core-ui/src/pages/__fixtures__/x.ts", "dunder-segment"],
 		["layers/core-api/src/__tests__/a.integration.test.ts", "test-suffix"],
 		["framework/db/src/service.test.ts", "test-suffix"],
-		["layers/web/src/components/Card.test.tsx", "test-suffix"],
-		["layers/web/__e2e__/flow.spec.ts", "spec-suffix"],
-		["layers/web/src/flows/checkout.spec.ts", "spec-suffix"],
+		["layers/core-ui/src/components/Card.test.tsx", "test-suffix"],
+		["layers/core-ui/__e2e__/flow.spec.ts", "spec-suffix"],
+		["layers/core-ui/src/flows/checkout.spec.ts", "spec-suffix"],
 		["framework/design-system/src/Button.stories.tsx", "stories-suffix"],
 		["tools/eval/src/cli.ts", "development-root:tools"],
 		["tools/eslint-plugin-authz/src/index.ts", "development-root:tools"],
@@ -52,9 +52,9 @@ describe("AU28 classifyFile — the settled production/development rule", () => 
 		["deploy/chart/values.yaml", "outside-production-roots"],
 		["deploy/bin/service", "outside-production-roots"],
 		["package.json", "outside-production-roots"],
-		["layers/web/vitest.config.ts", "test-runner-config:vitest.config.ts"],
-		["layers/web/playwright.config.ts", "test-runner-config:playwright.config.ts"],
-		["layers/web/playwright.ah6.config.ts", "test-runner-config:playwright.*.config.ts"],
+		["layers/core-ui/vitest.config.ts", "test-runner-config:vitest.config.ts"],
+		["layers/core-ui/playwright.config.ts", "test-runner-config:playwright.config.ts"],
+		["layers/core-ui/playwright.ah6.config.ts", "test-runner-config:playwright.*.config.ts"],
 	])("%s is development via %s", (path, patternId) => {
 		const record = classifyFile(path);
 		expect(record.kind).toBe("development");
@@ -62,10 +62,10 @@ describe("AU28 classifyFile — the settled production/development rule", () => 
 	});
 
 	it.each([
-		"layers/web/src/main.tsx",
+		"layers/core-ui/src/main.tsx",
 		"framework/db/src/schema.ts",
 		"framework/db/package.json",
-		"layers/web/vite.config.ts",
+		"layers/core-ui/vite.config.ts",
 		"applications/desktop/build/icon.icns",
 		"applications/remote-server/src/index.ts",
 		"layers/core-api/src/app.ts",
@@ -93,7 +93,7 @@ describe("AU28 classifyFile — the settled production/development rule", () => 
 	});
 
 	it("does not treat a single underscore as a `__` segment", () => {
-		expect(classifyFile("layers/web/src/pages/_dev/Demo.tsx").kind).toBe("production");
+		expect(classifyFile("layers/core-ui/src/pages/_dev/Demo.tsx").kind).toBe("production");
 	});
 });
 

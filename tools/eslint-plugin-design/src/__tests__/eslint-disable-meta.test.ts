@@ -12,7 +12,7 @@
  *
  * Architecture ref: architecture.md § Decision 7
  *
- * The test walks layers/web/src/ and packages/server/src/ for lines matching
+ * The test walks layers/core-ui/src/ and packages/server/src/ for lines matching
  * the DISABLE_RE pattern and asserts every match also contains the TRACKED_RE pattern.
  */
 
@@ -72,11 +72,11 @@ function findBareDisableLines(filePath: string): Array<{ line: number; text: str
 }
 
 const REPO_ROOT = new URL("../../../../..", import.meta.url).pathname;
-const WEB_SRC = join(REPO_ROOT, "layers/web/src");
+const WEB_SRC = join(REPO_ROOT, "layers/core-ui/src");
 const SERVER_SRC = join(REPO_ROOT, "packages/server/src");
 
 describe("eslint-disable-meta: no bare disables for design/no-mock-data-*", () => {
-	it("layers/web/src has zero eslint-disable design/no-mock-data-* without tracking id", () => {
+	it("layers/core-ui/src has zero eslint-disable design/no-mock-data-* without tracking id", () => {
 		const files = walkTs(WEB_SRC);
 		const allViolations: Array<{ file: string; line: number; text: string }> = [];
 

@@ -13,7 +13,7 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 DESKTOP_DIR="$REPO_ROOT/applications/desktop"
 
 echo "==> Building web SPA"
-npm run -w @hyperidle/web build
+npm run -w @hyperidle/core-ui build
 
 echo "==> Bundling desktop (esbuild → dist/main.cjs)"
 npx tsx "$DESKTOP_DIR/scripts/bundle.ts"

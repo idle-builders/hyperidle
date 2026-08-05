@@ -1,7 +1,7 @@
 ---
 paths:
-  - "layers/web/**/*.tsx"
-  - "layers/web/**/*.ts"
+  - "layers/core-ui/**/*.tsx"
+  - "layers/core-ui/**/*.ts"
   - "framework/design-system/src/**/*.tsx"
 ---
 
@@ -38,7 +38,7 @@ Lints under `design/no-ai-aesthetic`. Three or more screenshot-detectable tells 
 - **AQ-101** No `rounded-3xl` (24px). `rounded-2xl` (16px) IS permitted — it maps to `--r-default` (the Hearth default card radius). `rounded-full` is always allowed for pills.
 - **AQ-102** No indigo/purple/violet/fuchsia/pink gradient backgrounds.
 - **AQ-103** No oversized padding (`p-8`/`p-10`/`p-12`/`p-14`/`p-16`) outside hero/expressive contexts. Hearth's maximum layout grid value is `--space-16` (48px); padding above 24px is for page-level section separation only.
-- **AQ-104** No hero sections in `layers/web/src/pages/work/**`.
+- **AQ-104** No hero sections in `layers/core-ui/src/pages/work/**`.
 - **AQ-105** No emoji as iconography in `Button`/`NavItem`/`StatusChip` text.
 - **AQ-106** No page-level `text-center` / `mx-auto` on body content (allow inside `EmptyState`/`Modal`/`Dialog`/`Toast`).
 - **AQ-107** No glass morphism (`backdrop-blur`, translucent card chrome) in productivity components.

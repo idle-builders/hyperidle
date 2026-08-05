@@ -1,7 +1,7 @@
 ---
 paths:
-  - "layers/web/**/*.tsx"
-  - "layers/web/**/*.ts"
+  - "layers/core-ui/**/*.tsx"
+  - "layers/core-ui/**/*.ts"
 ---
 
 # Frontend Rules

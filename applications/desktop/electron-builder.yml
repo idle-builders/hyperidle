@@ -59,7 +59,7 @@ extraResources:
     filter:
       - "**/*.sql"
       - "meta/**/*"
-  - from: "../../layers/web/dist"
+  - from: "../../layers/core-ui/dist"
     to: "web-dist"
 
 # @lore PGlite migration: no native modules — npmRebuild not needed.

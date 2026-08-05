@@ -5,7 +5,7 @@
  * implemented (task #2, green phase).
  *
  * Migrates and extends the ladder cases from the deleted
- * layers/web/src/__tests__/relative-time.test.ts onto the new named
+ * layers/core-ui/src/__tests__/relative-time.test.ts onto the new named
  * register exports.
  */
 
