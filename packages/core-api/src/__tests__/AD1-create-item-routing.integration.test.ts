@@ -31,13 +31,13 @@ import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createTestApp } from "../__testing__/test-utils.js";
 import { disposeApp } from "../app.js";
 import {
 	createInProcessCoreApiTransport,
 	registerCoreApiTransport,
 } from "../services/core-api-port-composition.js";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
-import { createTestApp } from "../test-utils.js";
 
 const createItemTool = buildToolDefinitions(toolHandlersPorts).find(
 	(t) => t.name === "create_item",

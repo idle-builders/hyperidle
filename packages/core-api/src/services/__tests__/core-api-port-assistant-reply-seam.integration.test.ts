@@ -18,7 +18,7 @@ import { EventBus, type ThreadMessageAppendedEvent, type ToolContext } from "@hy
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
-import { test as baseTest } from "../../test-fixtures.js";
+import { test as baseTest } from "../../__testing__/test-fixtures.js";
 import {
 	createInProcessCoreApiTransport,
 	registerCoreApiTransport,

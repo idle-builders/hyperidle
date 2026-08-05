@@ -28,11 +28,11 @@ import type { BakedAgentRunnableConfig } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { beforeEach, describe, expect, vi } from "vitest";
+import { test as baseTest } from "../__testing__/test-fixtures.js";
 import {
 	createInProcessCoreApiTransport,
 	registerCoreApiTransport,
 } from "../services/core-api-port-composition.js";
-import { test as baseTest } from "../__testing__/test-fixtures.js";
 
 const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
 	coreApiSeamRegistration: [

@@ -43,7 +43,7 @@ import {
 import { AdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
 import { createServer } from "@hyperidle/remote-server/create-server";
 import { encryptCredentialValue } from "@hyperidle/shared/crypto";
-import { afterEach, beforeEach, describe, expect, test, vi } from "../test-fixtures.js";
+import { afterEach, beforeEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 
 const SERVER_SECRET = "au26-c1-provisioning-wiring-secret";
 const OWNER_ID = "u-au26-c1-owner";

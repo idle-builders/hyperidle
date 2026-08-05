@@ -32,7 +32,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, vi } from "vitest";
-import { expect, test } from "../test-fixtures.js";
+import { expect, test } from "../__testing__/test-fixtures.js";
 
 const TEST_API_KEY = "test-key-au26-j1";
 

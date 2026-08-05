@@ -38,6 +38,7 @@ import { reapAccessLog } from "@hyperidle/knowledge";
 import { enqueue, listNotifications, reap } from "@hyperidle/notifications";
 import { reapExpiredCredentials } from "@hyperidle/users";
 import { and, lt } from "drizzle-orm";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 // NOT YET CREATED — this import failing to resolve is this file's primary RED
 // signal for the "task-dispatch-attempt reaper — relocated home" describe block.
 import {
@@ -45,7 +46,6 @@ import {
 	reapTerminalTaskDispatchAttempts,
 	TERMINAL_LOG_TTL_MS,
 } from "../service-bootstrap.js";
-import { describe, expect, test } from "../__testing__/test-fixtures.js";
 
 const now = new Date("2026-07-13T12:00:00.000Z");
 const DAY = 86_400_000;

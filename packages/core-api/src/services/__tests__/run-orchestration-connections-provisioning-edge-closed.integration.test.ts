@@ -43,7 +43,14 @@ import {
 import { serviceConnections, users } from "@hyperidle/db";
 import { applyProvisioningPlan, buildProvisioningPlan } from "@hyperidle/run-orchestration";
 import { encryptCredentialValue } from "@hyperidle/shared/crypto";
-import { afterEach, beforeEach, describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	test,
+	vi,
+} from "../../__testing__/test-fixtures.js";
 
 const SERVER_SECRET = "au21-k1-edge-closed-secret";
 const NOW = "2026-08-02T00:00:00.000Z";

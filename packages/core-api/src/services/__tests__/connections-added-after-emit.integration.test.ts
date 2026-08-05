@@ -32,7 +32,14 @@ import { applyProvisioningPlan, buildProvisioningPlan } from "@hyperidle/run-orc
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { encryptCredentialValue } from "@hyperidle/shared/crypto";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, test, vi } from "../../test-fixtures.js";
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	test,
+	vi,
+} from "../../__testing__/test-fixtures.js";
 import { queueDeps } from "../durable-agent-queue.js";
 
 const NOW = "2026-08-04T00:00:00.000Z";

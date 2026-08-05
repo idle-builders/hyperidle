@@ -24,12 +24,12 @@ import * as work from "@hyperidle/work";
 import { getTaskRiskTierByTaskId } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
+import { test as baseTest } from "../__testing__/test-fixtures.js";
 import {
 	createInProcessCoreApiTransport,
 	registerCoreApiTransport,
 } from "../services/core-api-port-composition.js";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
-import { test as baseTest } from "../__testing__/test-fixtures.js";
 
 /**
  * @lore AU21 §9 Increment 2: this file's tool handler(s) now reach

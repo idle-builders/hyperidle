@@ -19,7 +19,7 @@
 import { teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
-import { describe, expect, test } from "../../test-fixtures.js";
+import { describe, expect, test } from "../../__testing__/test-fixtures.js";
 
 const AGENT_NAME = "W10 Atomicity Agent";
 const TEAM_NAME = "W10 Atomicity Team";

@@ -40,7 +40,7 @@ import { listInjectedFilesystemsForProvisioning } from "@hyperidle/filesystems";
 import { mountFilesystemsForAgent } from "@hyperidle/run-orchestration";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, test } from "../../test-fixtures.js";
+import { afterEach, beforeEach, describe, expect, test } from "../../__testing__/test-fixtures.js";
 import { queueDeps } from "../durable-agent-queue.js";
 
 const NOW = "2026-08-04T00:00:00.000Z";

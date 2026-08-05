@@ -24,9 +24,9 @@ import {
 } from "@hyperidle/notifications";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, vi } from "vitest";
-import { disposeApp } from "../../app.js";
 import { expect, test } from "../../__testing__/test-fixtures.js";
-import { createTestApp } from "../../test-utils.js";
+import { createTestApp } from "../../__testing__/test-utils.js";
+import { disposeApp } from "../../app.js";
 import { notificationsDeps } from "../notifications-test-deps.js";
 
 const API_KEY = "test-key-H2-routes";

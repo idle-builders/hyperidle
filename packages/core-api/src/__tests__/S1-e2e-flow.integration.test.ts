@@ -18,9 +18,9 @@ import { type HyperIdleDb, users } from "@hyperidle/db";
 import { createInvite, createLoginSession, revokeLoginSession } from "@hyperidle/users";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { disposeApp } from "../app.js";
 import { test } from "../__testing__/test-fixtures.js";
-import { createTestApp } from "../test-utils.js";
+import { createTestApp } from "../__testing__/test-utils.js";
+import { disposeApp } from "../app.js";
 
 const TEST_API_KEY = "test-key-s1-e2e";
 const NOW = new Date().toISOString();

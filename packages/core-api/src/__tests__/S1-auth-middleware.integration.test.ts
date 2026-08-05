@@ -18,8 +18,8 @@ import type { HyperIdleEnv } from "@hyperidle/shared/http";
 import { createLoginSession, revokeLoginSession } from "@hyperidle/users";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { createAuthMiddleware } from "../middleware/auth.js";
 import { test } from "../__testing__/test-fixtures.js";
+import { createAuthMiddleware } from "../middleware/auth.js";
 
 const TEST_API_KEY = "test-key-s1-auth-mw";
 

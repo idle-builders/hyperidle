@@ -41,12 +41,12 @@ import {
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { test } from "../__testing__/test-fixtures.js";
 import { createCoreApiApp } from "../app.js";
 import {
 	buildAgentOrchestrationPort,
 	createInProcessAgentOrchestrationTransport,
 } from "../services/agent-orchestration-port-composition.js";
-import { test } from "../test-fixtures.js";
 
 const TEST_API_KEY = "test-key-au26-b1a";
 

@@ -70,13 +70,13 @@ import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect } from "vitest";
+import { createTestApp } from "../__testing__/test-utils.js";
 import {
 	createInProcessCoreApiTransport,
 	registerCoreApiTransport,
 } from "../services/core-api-port-composition.js";
 import { queueDeps } from "../services/durable-agent-queue.js";
 import { runSession } from "../services/run-orchestration-composition.js";
-import { createTestApp } from "../test-utils.js";
 
 const NOW = "2026-08-04T00:00:00.000Z";
 const TEST_API_KEY = "au27-inc8-live-harness-key";

@@ -23,7 +23,7 @@ import type {
 	AgentRunsResponse,
 } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, vi } from "vitest";
-import { expect, test } from "../test-fixtures.js";
+import { expect, test } from "../__testing__/test-fixtures.js";
 
 const TEST_API_KEY = "test-key-run-reads";
 const T1 = "2026-08-01T00:00:00.000Z";

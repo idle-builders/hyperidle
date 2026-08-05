@@ -1,10 +1,10 @@
 import { bets, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import type { DomainEvent } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, vi } from "vitest";
+import { expect, test } from "../__testing__/test-fixtures.js";
+import { createTestApp } from "../__testing__/test-utils.js";
 import { disposeApp } from "../app.js";
 import { registerAgentLayerServices, registerCoreDomainServices } from "../service-bootstrap.js";
-import { expect, test } from "../__testing__/test-fixtures.js";
-import { createTestApp } from "../test-utils.js";
 
 const TEST_API_KEY = "test-key-sessions";
 

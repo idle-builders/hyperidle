@@ -1,8 +1,8 @@
 import { describe } from "vitest";
+import { expect, test, vi } from "../__testing__/test-fixtures.js";
+import { createTestApp } from "../__testing__/test-utils.js";
 import type { AppOptions } from "../app.js";
 import { registerAgentLayerServices, registerCoreDomainServices } from "../service-bootstrap.js";
-import { expect, test, vi } from "../__testing__/test-fixtures.js";
-import { createTestApp } from "../test-utils.js";
 
 /**
  * AU11: former app-runtime `bootstrapAppRuntime` split into two owner-scoped
