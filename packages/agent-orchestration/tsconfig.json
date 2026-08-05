@@ -8,6 +8,9 @@
 	"include": ["src"],
 	"references": [
 		{
+			"path": "../api-contract"
+		},
+		{
 			"path": "../db"
 		},
 		{

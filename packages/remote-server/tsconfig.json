@@ -10,5 +10,10 @@
 		"types": ["node"]
 	},
 	"include": ["src"],
-	"references": [{ "path": "../shared" }, { "path": "../agent-execution/harness-registry" }]
+	"references": [
+		{ "path": "../shared" },
+		{ "path": "../db" },
+		{ "path": "../core-api" },
+		{ "path": "../agent-execution/harness-registry" }
+	]
 }
