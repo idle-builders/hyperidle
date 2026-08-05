@@ -11,7 +11,7 @@
  * Those 125 rows are deliberately NOT the implementation. Implementing them literally would mean 125
  * hand-written rules, each free to disagree with its neighbours, and a founder ruling would land as a
  * 125-way diff. Instead they are the ACCEPTANCE TEST: this model is correct if and only if it
- * reproduces all 250 verdicts (125 rows × 2 worlds) exactly. `au28-governance-model.test.ts` asserts
+ * reproduces all 250 verdicts (125 rows × 2 worlds) exactly. `governance-model.test.ts` asserts
  * that, so a clause edited to fix one crossing and silently breaking another cannot land.
  *
  * @lore AU28: this model is TOTAL — it returns a verdict for every crossing, including combinations

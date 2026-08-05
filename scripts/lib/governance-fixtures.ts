@@ -9,7 +9,7 @@
  * happens to be clean. A guard that only ever runs against a clean repo cannot distinguish "nothing is
  * wrong" from "I stopped looking". The same `FIXTURE_CASES` array is consumed twice: by `--fixtures`
  * in the lint chain, and by real vitest assertions in
- * `framework/db/src/__tests__/au28-governance-lint.test.ts`.
+ * `framework/db/src/__tests__/governance-lint.test.ts`.
  */
 
 import { type Census, type FileKind, buildCensus, classifyFile } from "./repo-census.js";

@@ -18,7 +18,7 @@ import type { Census } from "../lib/repo-census.js";
 /** Every package the workspace declares must have a role, and every role must claim a package. */
 export function registriesHonest(architecture: Architecture): Rule {
 	return {
-		id: "au28-registries-honest",
+		id: "registries-honest",
 		description: "the governance registries name only packages that exist, and every package has a manifest-declared role",
 		scope: (census: Census) => census.packages.map((p) => p.dir),
 		// The repo has 34 workspace packages. Well below that means the role rules stopped matching.
@@ -31,7 +31,7 @@ export function registriesHonest(architecture: Architecture): Rule {
 				validateArchitecture(architecture, names);
 			} catch (error) {
 				findings.push({
-					ruleId: "au28-registries-honest",
+					ruleId: "registries-honest",
 					severity: "error",
 					message: error instanceof Error ? error.message : String(error),
 					path: "governance/architecture.json",
@@ -45,7 +45,7 @@ export function registriesHonest(architecture: Architecture): Rule {
 				const parent = census.packages.find((p) => p.role === "layer" && p.name === pkg.layer);
 				if (parent === undefined) {
 					findings.push({
-						ruleId: "au28-registries-honest",
+						ruleId: "registries-honest",
 						severity: "error",
 						message: `service "${pkg.name}" claims to live in layer "${pkg.layer ?? "?"}", which is not a layer package`,
 						path: `${pkg.dir}/package.json`,

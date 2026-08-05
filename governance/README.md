@@ -29,7 +29,7 @@ rules would each be free to disagree with their neighbours, and a single founder
 a 125-way diff.
 
 Instead the 125 rows are the **acceptance test**: the model is correct if and only if it reproduces
-all 250 verdicts (125 rows × 2 worlds) exactly. `framework/db/src/__tests__/au28-governance-model.test.ts`
+all 250 verdicts (125 rows × 2 worlds) exactly. `framework/db/src/__tests__/governance-model.test.ts`
 asserts that, so a clause tuned to fix one crossing and silently breaking another cannot land.
 
 ## Totality, and its price
@@ -52,6 +52,28 @@ it is production's verdict plus one relaxation:
 
 The doors it may not go around are listed in `architecture.json` under `oneDoorSurfaces`, with the
 reason each one is held.
+
+## There is no warn/error dial
+
+Every rule is an error. `baseline.json` is the list of violations that already existed when the rule
+landed, and **only what is on that list warns**. So a rule is enforced exactly when its group is
+absent from the baseline — no severity field to set, and nothing to remember to flip.
+
+**The baseline may only ever shrink**, in both directions, keyed by site:
+
+- Fixing a violation and not committing the shrink **fails**, so the record cannot go stale.
+- Adding one **fails**, so a rule that is clean today cannot quietly stop being clean.
+- Fixing one violation while adding another **fails**, even though the total is unchanged.
+
+`npm run governance:baseline` is the only writer, and it refuses to add a group or raise a count.
+Clearing a group's last site deletes the entry, and from that commit the rule is at error —
+**promotion is what fixing the violation does, not a later step.**
+
+The one legitimate growth is a new rule landing over violations that already exist. That needs
+`--adopt "<group key>"`, naming the group, so it shows up in the shell and in review.
+
+The baseline records debt, never a plan: it does not say which work will clear a group. That mapping
+lives with the work packages, so the enforced contract never goes stale when planning changes.
 
 ## Changing something
 

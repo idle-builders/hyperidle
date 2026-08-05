@@ -19,6 +19,7 @@ import {
 	type Baseline,
 	compareBaseline,
 	groupKey,
+	refuseGrowth,
 	targetLabel,
 } from "../../../../scripts/lib/crossing-report.js";
 import { buildPackageLocator } from "../../../../scripts/lib/crossings.js";
@@ -301,11 +302,10 @@ describe("AU28 — database surfaces", () => {
 
 describe("AU28 — the ratchet", () => {
 	const baseline: Baseline = {
-		au28Baseline: true,
+		governanceBaseline: true,
 		note: "",
 		groups: {
 			"layer → service (other layer) [import] production": {
-				successor: "W7",
 				sites: { "a.ts": 2, "b.ts": 1 },
 			},
 		},
@@ -369,6 +369,89 @@ describe("AU28 — the ratchet", () => {
 		]);
 		expect(result.newDebt, "the new site must register as new debt").toHaveLength(1);
 		expect(result.stale, "the fixed site must register as a stale baseline").toHaveLength(1);
+	});
+
+	/**
+	 * The generator half. `compareBaseline` above is what the LINT does; these are what the
+	 * REGENERATOR does. Without them the ratchet has a hole you can drive a commit through: introduce
+	 * a violation, re-run the generator, commit the bigger file, green.
+	 */
+	describe("the baseline may only shrink", () => {
+		it("accepts a shrink", () => {
+			expect(refuseGrowth([{ key, sites: new Map([["a.ts", 1]]) }], baseline, [])).toEqual([]);
+		});
+
+		it("accepts a group clearing completely", () => {
+			expect(refuseGrowth([], baseline, [])).toEqual([]);
+		});
+
+		it("refuses a site growing past what the baseline allows", () => {
+			const refusals = refuseGrowth([{ key, sites: new Map([["a.ts", 3]]) }], baseline, []);
+			expect(refusals).toHaveLength(1);
+			expect(refusals[0]).toContain("may only shrink");
+		});
+
+		it("refuses a brand-new file inside an existing group", () => {
+			const refusals = refuseGrowth(
+				[
+					{
+						key,
+						sites: new Map([
+							["a.ts", 2],
+							["b.ts", 1],
+							["new.ts", 1],
+						]),
+					},
+				],
+				baseline,
+				[],
+			);
+			expect(refusals).toHaveLength(1);
+			expect(refusals[0]).toContain("new.ts");
+		});
+
+		it("refuses a group the baseline does not have — the rule is already at error", () => {
+			const refusals = refuseGrowth(
+				[{ key: "service → raw runtime [capability] production", sites: new Map([["x.ts", 1]]) }],
+				baseline,
+				[],
+			);
+			expect(refusals).toHaveLength(1);
+			expect(refusals[0]).toContain("at error today");
+		});
+
+		/**
+		 * The one legitimate growth: a new rule landing over debt that already existed. It has to be
+		 * named explicitly, so it cannot happen as a side effect of running the generator.
+		 */
+		it("admits a new group only when it is adopted by name", () => {
+			const newGroup = "service → raw runtime [capability] production";
+			expect(
+				refuseGrowth([{ key: newGroup, sites: new Map([["x.ts", 1]]) }], baseline, [newGroup]),
+			).toEqual([]);
+			expect(
+				refuseGrowth([{ key: newGroup, sites: new Map([["x.ts", 1]]) }], baseline, [
+					"some other group",
+				]),
+			).toHaveLength(1);
+		});
+
+		/**
+		 * Adopting one group must not open the door for every other. A blanket `--adopt` would be the
+		 * exemption apparatus this whole design exists to avoid.
+		 */
+		it("adopting one group does not admit another", () => {
+			const refusals = refuseGrowth(
+				[
+					{ key: "service → raw runtime [capability] production", sites: new Map([["x.ts", 1]]) },
+					{ key: "framework → EventBus [event] production", sites: new Map([["y.ts", 1]]) },
+				],
+				baseline,
+				["service → raw runtime [capability] production"],
+			);
+			expect(refusals).toHaveLength(1);
+			expect(refusals[0]).toContain("EventBus");
+		});
 	});
 });
 

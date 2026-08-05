@@ -453,7 +453,7 @@ const liveTables = new Set(
  *
  * Derived from `readWorkspacePackages` over a synthetic tree, not from the live filesystem. Whether
  * the registries match the *live* repo is a static property of the tree, so it is enforced by
- * `au28-registries-honest` in `npm run lint` — not here. This file tests behaviour.
+ * `registries-honest` in `npm run lint` — not here. This file tests behaviour.
  */
 const syntheticTree = [
 	...new Set([

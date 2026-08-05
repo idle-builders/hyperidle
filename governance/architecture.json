@@ -1,5 +1,5 @@
 {
-	"au28Architecture": true,
+	"governanceArchitecture": true,
 	"note": "The registries the governance clauses read. This file is DATA — it changes when packages, surfaces or owners change. The clauses that read it are CODE (scripts/lib/governance-model.ts) — they change only by founder ruling on architecture. Nothing here is a per-pair verdict; verdicts are derived.",
 	"roles": {
 		"note": "A package's role comes from the `workspaces` glob in the root manifest that claims it — never from matching its directory path (Ruling 5). Adding a role folder is an edit here plus an edit to `workspaces`, and nothing else.",

@@ -27,7 +27,7 @@ const sourceStemOf = (path: string): string | null => {
 
 export function noStaleBuildArtifacts(presentFiles: readonly string[]): Rule {
 	return {
-		id: "au28-no-stale-build-artifacts",
+		id: "no-stale-build-artifacts",
 		description: "no compiled .js/.d.ts sits beside the .ts it was built from",
 		// The population is every TypeScript source that COULD be shadowed.
 		scope: (census: Census) => census.files.filter((f) => f.path.endsWith(".ts")).map((f) => f.path),
@@ -41,7 +41,7 @@ export function noStaleBuildArtifacts(presentFiles: readonly string[]): Rule {
 				if (stem === null) continue;
 				if (!sources.has(`${stem}.ts`) && !sources.has(`${stem}.tsx`)) continue;
 				findings.push({
-					ruleId: "au28-no-stale-build-artifacts",
+					ruleId: "no-stale-build-artifacts",
 					severity: "error",
 					message:
 						`${path} is a compiled copy of ${stem}.ts sitting beside it. Node, tsx and vitest all resolve ` +

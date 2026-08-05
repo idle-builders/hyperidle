@@ -5,8 +5,13 @@
  * `governance/baseline.json` is the list of known violations, and only what is on that list warns.
  * The alternative — a per-rule `enforcement: "warn" | "error"` field — lets a rule sit at warn with
  * nothing recording what it is waiting for, and the repo's own history says any exemption apparatus
- * gets re-populated. A baseline entry cannot be silent: it carries its sites and its successor work
- * package, and it fails the build when it grows OR shrinks.
+ * gets re-populated. A baseline entry cannot be silent: it names every file it forgives, and it fails
+ * the build when it grows OR shrinks.
+ *
+ * @lore AU28: the baseline records DEBT, never a plan. It does not name the work that will clear a
+ * group — that mapping lives with the work packages, and a group is cleared by whoever gets there
+ * first. Keeping it out means the enforced contract never goes stale when planning changes, and the
+ * generator never has to be edited to register a rename.
  */
 
 import type { Actor, Crossing, Target } from "./governance-model.js";
@@ -74,14 +79,12 @@ export const groupKey = (crossing: Crossing, world: string): string =>
 // ---------------------------------------------------------------------------------------------
 
 export interface BaselineGroup {
-	/** The work package that clears this group. A group with no successor is orphan debt. */
-	readonly successor: string;
 	/** File → number of violating crossings in it. Keyed by FILE, never by line. */
 	readonly sites: Readonly<Record<string, number>>;
 }
 
 export interface Baseline {
-	readonly au28Baseline: true;
+	readonly governanceBaseline: true;
 	readonly note: string;
 	readonly groups: Readonly<Record<string, BaselineGroup>>;
 }
@@ -90,13 +93,52 @@ export type RatchetVerdict =
 	/** Not a known violation. New debt. */
 	| { readonly kind: "new"; readonly reason: string }
 	/** A known violation, unchanged. Warn and move on. */
-	| { readonly kind: "known"; readonly successor: string }
+	| { readonly kind: "known" }
 	/** Known violations have gone away. The baseline must shrink to match. */
 	| { readonly kind: "stale"; readonly reason: string };
 
 export interface LiveGroup {
 	readonly key: string;
 	readonly sites: ReadonlyMap<string, number>;
+}
+
+/**
+ * The baseline may only ever shrink. Returns one refusal per group or site that would grow it.
+ *
+ * @lore AU28: the CHECK was already ratcheted in both directions — a group with no baseline entry
+ * makes every one of its violations new debt, and a site below its recorded count fails until the
+ * shrink is committed. The GENERATOR was the laundering path: it rebuilt the file from whatever was
+ * live, so a developer who introduced a violation could run it, commit the enlarged file, and go
+ * green over a rule that had been clean. This closes that without any new mechanism — clearing a
+ * group's last site removes the entry, and from that commit the rule is at error. Promotion is not a
+ * step anyone has to remember; it is what fixing the violation DOES.
+ *
+ * `adopted` is the one legitimate growth: a NEW RULE landing over existing violations. The caller
+ * takes it from an explicit `--adopt "<group key>"` argument, so it is visible in the shell, in the
+ * diff and in review — never a silent side effect of running the generator.
+ */
+export function refuseGrowth(live: readonly LiveGroup[], previous: Baseline, adopted: readonly string[]): string[] {
+	const refusals: string[] = [];
+	for (const group of live) {
+		const known = previous.groups[group.key];
+		if (known === undefined) {
+			if (adopted.includes(group.key)) continue;
+			const total = [...group.sites.values()].reduce((n, c) => n + c, 0);
+			refusals.push(
+				`${group.key} — ${total} violation(s) in a group the baseline does not have. This rule is at ` +
+					`error today. Fix the violation, or if a new rule is landing over existing debt, re-run ` +
+					`with --adopt ${JSON.stringify(group.key)}.`,
+			);
+			continue;
+		}
+		for (const [file, count] of group.sites) {
+			const allowed = known.sites[file] ?? 0;
+			if (count > allowed) {
+				refusals.push(`${group.key} — ${file}: ${count} violation(s), baseline allows ${allowed}. The baseline may only shrink.`);
+			}
+		}
+	}
+	return refusals;
 }
 
 /**

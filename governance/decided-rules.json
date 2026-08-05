@@ -1,5 +1,5 @@
 {
-	"au28DecidedRules": true,
+	"decidedRules": true,
 	"note": "The 125 verdicts the founder decided, role pair x crossing kind x world. This file is the ACCEPTANCE TEST for scripts/lib/governance-model.ts, not the implementation — the model must reproduce every row exactly. It is frozen: a row changes only by founder ruling.",
 	"decidedAt": "2026-08-05",
 	"census": "4af3c0e6",

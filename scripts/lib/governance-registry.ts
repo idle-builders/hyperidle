@@ -15,7 +15,7 @@
 import type { Architecture, Role } from "./governance-model.js";
 
 export interface TableOwners {
-	readonly au28TableOwners: true;
+	readonly tableOwners: true;
 	readonly totals: { readonly tables: number; readonly owned: number; readonly unowned: number };
 	readonly owners: Readonly<Record<string, string>>;
 	readonly unowned: { readonly note: string; readonly tables: Readonly<Record<string, string>> };

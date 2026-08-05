@@ -530,7 +530,7 @@ function buildLeafDeclarations(root: string): void {
  * `.ts` (hiding the reason as TS6059, which this gate filters as reference noise) — and then Node,
  * tsx and vitest ALL resolve the compiled copy first. The guard runs stale logic while the source on
  * disk says something else, and the only symptom is a failure that makes no sense. This build makes
- * them, so this build cleans them; `au28-no-stale-build-artifacts` catches any that survive.
+ * them, so this build cleans them; `no-stale-build-artifacts` catches any that survive.
  */
 function cleanEmittedGovernanceArtifacts(root: string): void {
   const suffixes = [".d.ts.map", ".js.map", ".d.ts", ".js"];
