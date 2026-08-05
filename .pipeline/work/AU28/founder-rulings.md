@@ -305,6 +305,70 @@ not be described as one.
 
 ---
 
+## Ruling 12 — govern the END STATE, not the migration (2026-08-05)
+
+> "we shouldn't build architectural governance for in progress but rather for the end state. we can
+> start with warning and later enforce if a migration is currently in progress."
+>
+> "our rules must be built for a future where every table has an owner and only that owner can
+> access this table. we can start with warning only but once we are done this migration needs to be
+> done. All these various migrations might be follow ups of AU28. but they have to happen and not be
+> excused with architectural governance holes."
+
+**A rule states the end state. Enforcement level is a separate dial.** Warn while a migration is in
+flight, hard-fail once it lands — but never bend the *rule* to accommodate the current mess, and
+never invent a rule category that encodes "we are mid-migration". A category like that turns a
+temporary state into permanent vocabulary and quietly excuses the migration from ever finishing.
+
+### 12.1 — `db:table (owner moved)` is abolished
+
+It was never a real category. It existed only because the ownership registry recovered from the
+deleted guard records owners at pre-AU26 `packages/…` paths, and AU26 relocated five services. The
+`filesystems` table is owned by `filesystems`. Nothing about that is ambiguous.
+
+Resolve all five to their current owner and delete the category:
+
+| Table | Owner |
+|---|---|
+| `filesystems`, `filesystemInjections` | `filesystems` (pure relocation) |
+| `serviceConnections` | `connections` (pure relocation) |
+| `filesystemCaptures` | `filesystem-mounting` (split) |
+| `serverCredentials` | `credentials` (split) |
+
+Each has exactly one production accessor, and it is the owner. **Ratify — do not forbid.** The
+founder's round-1 `forbidden` verdict on this row is withdrawn: it would have stopped `filesystems`
+reading its own table.
+
+### 12.2 — The table rule, final form
+
+**Every table has exactly one owning service. Only that service may read or write it.** Two cells,
+nothing else:
+
+- `service → a table it owns` — **allowed**
+- any actor → a table it does not own — **forbidden**
+
+Plus one completeness rule: **a table with no owner is a violation**, not a third kind of cell.
+`db:table (unowned, legacy)` and `db:table (unowned, never assigned)` are deleted as rule
+categories. The 6 tables behind them — `sessions`, `propagationLog`, `taskDispatchAttempts`,
+`userSkills`, `teamRunConfigDefaults`, `agentRunConfig` — are **violations of the completeness rule**,
+warned now, enforced when assigned.
+
+### 12.3 — Migrations are follow-up work packages, not exemptions
+
+Every gap this exposes is a work package, and each must actually happen:
+
+- assign owners to the 6 unowned tables (`sessions` needs a service that does not exist yet)
+- move `db:util` out of `db` — `escapeLikePattern`, `resolveAgentScaffoldSpecs`, `resolveProfile`
+  touch no database
+- move the system-prompt templates out of `db`
+- move the observability dispatcher out of `framework/shared` so it stops being a bus endpoint
+- give `agent-execution` its own app so it hosts the MCP router (AU26's locked design, never built)
+- have the owning service re-export `db:zod-schemas` instead of a shared barrel
+
+None of these may be written into the rule set as a permitted state.
+
+---
+
 ## Ruling 11 — step-3 list structure and `framework/db` surfaces (2026-08-05)
 
 Founder feedback while working the step-3 worksheet.
