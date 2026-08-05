@@ -72,13 +72,13 @@ export interface ModelCatalogEntry {
 }
 
 /**
- * AH2: Closed catalog of current Claude models.
+ * AH2: Closed catalog of current models.
  * This is the only set of valid modelId values for per-agent model selection.
  *
  * @lore AH2: The catalog is intentionally small and closed — every model here
- * has been validated against the Anthropic Messages API and has known cost/
- * context-window data in the harness layer. Adding a new model requires updating
- * both this catalog AND the cost/context-window maps in the server package.
+ * has known provider/cost/context-window data in the harness layer. Adding a
+ * new model requires updating both this catalog AND the context-window map in
+ * the harness-registry package.
  */
 export const MODEL_CATALOG: readonly ModelCatalogEntry[] = [
 	{ id: "claude-opus-4-8", label: "Opus 4.8", provider: "anthropic", contextWindow: 1_000_000 },
@@ -90,6 +90,12 @@ export const MODEL_CATALOG: readonly ModelCatalogEntry[] = [
 	},
 	{ id: "claude-haiku-4-5", label: "Haiku 4.5", provider: "anthropic", contextWindow: 200_000 },
 	{ id: "claude-fable-5", label: "Fable 5", provider: "anthropic", contextWindow: 1_000_000 },
+	{
+		id: "qwen/qwen3.8-max",
+		label: "Qwen3.8 Max",
+		provider: "openrouter",
+		contextWindow: 1_000_000,
+	},
 ] as const;
 
 /** AH2: Default modelId for per-agent model selection. */

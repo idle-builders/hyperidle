@@ -2,7 +2,7 @@
  * AH2 RED — Model catalog unit tests
  *
  * AC4: Choices reflect current catalog; defaults point at current
- * - MODEL_CATALOG contains exactly the 4 current Claude models
+ * - MODEL_CATALOG contains the 4 current Claude models plus OpenRouter Qwen3.8 Max
  * - catalogEntry / isCatalogModel helpers work correctly
  * - DEFAULT_AGENT_MODEL_ID / DEFAULT_AGENT_MODEL_PROVIDER / DEFAULT_AGENT_HARNESS
  *
@@ -19,23 +19,30 @@ import {
 	DEFAULT_AGENT_MODEL_PROVIDER,
 	isCatalogModel,
 	MODEL_CATALOG,
+	MODEL_PROVIDERS,
 } from "../model-gateway.js";
 
 describe("AH2 AC4: MODEL_CATALOG entries", () => {
-	it("contains exactly the 4 current Claude model ids", () => {
+	it("contains exactly the 5 current model ids", () => {
 		const ids = MODEL_CATALOG.map((m) => m.id);
 		expect(ids).toEqual([
 			"claude-opus-4-8",
 			"claude-sonnet-4-6",
 			"claude-haiku-4-5",
 			"claude-fable-5",
+			"qwen/qwen3.8-max",
 		]);
 	});
 
-	it("all entries have provider 'anthropic'", () => {
+	it("all entries have a valid model provider", () => {
 		for (const entry of MODEL_CATALOG) {
-			expect(entry.provider).toBe("anthropic");
+			expect(MODEL_PROVIDERS).toContain(entry.provider);
 		}
+	});
+
+	it("qwen/qwen3.8-max has provider 'openrouter'", () => {
+		const entry = MODEL_CATALOG.find((m) => m.id === "qwen/qwen3.8-max");
+		expect(entry?.provider).toBe("openrouter");
 	});
 
 	it("all entries have a non-empty label", () => {
@@ -67,6 +74,11 @@ describe("AH2 AC4: MODEL_CATALOG entries", () => {
 
 	it("claude-fable-5 has 1_000_000 context window", () => {
 		const entry = MODEL_CATALOG.find((m) => m.id === "claude-fable-5");
+		expect(entry?.contextWindow).toBe(1_000_000);
+	});
+
+	it("qwen/qwen3.8-max has 1_000_000 context window", () => {
+		const entry = MODEL_CATALOG.find((m) => m.id === "qwen/qwen3.8-max");
 		expect(entry?.contextWindow).toBe(1_000_000);
 	});
 
@@ -121,6 +133,13 @@ describe("AH2 AC4: catalogEntry helper", () => {
 	it("returns entry for claude-fable-5", () => {
 		const entry = catalogEntry("claude-fable-5");
 		expect(entry).toBeDefined();
+		expect(entry?.contextWindow).toBe(1_000_000);
+	});
+
+	it("returns entry for qwen/qwen3.8-max", () => {
+		const entry = catalogEntry("qwen/qwen3.8-max");
+		expect(entry).toBeDefined();
+		expect(entry?.provider).toBe("openrouter");
 		expect(entry?.contextWindow).toBe(1_000_000);
 	});
 

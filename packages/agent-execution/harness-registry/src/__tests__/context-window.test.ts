@@ -32,6 +32,10 @@ describe("contextWindowForModel", () => {
 		expect(modelContextWindow("claude-fable-5")).toBe(1_000_000);
 	});
 
+	it("returns 1_000_000 for qwen/qwen3.8-max", () => {
+		expect(modelContextWindow("qwen/qwen3.8-max")).toBe(1_000_000);
+	});
+
 	it("returns DEFAULT_CONTEXT_WINDOW (128_000) for an unknown model", () => {
 		expect(modelContextWindow("gpt-4-turbo-unknown")).toBe(DEFAULT_CONTEXT_WINDOW);
 		expect(DEFAULT_CONTEXT_WINDOW).toBe(128_000);
@@ -51,6 +55,10 @@ describe("contextWindowForModel", () => {
 
 	it("MODEL_CONTEXT_WINDOWS includes claude-haiku-4-5", () => {
 		expect(MODEL_CONTEXT_WINDOWS["claude-haiku-4-5"]).toBe(200_000);
+	});
+
+	it("MODEL_CONTEXT_WINDOWS includes qwen/qwen3.8-max", () => {
+		expect(MODEL_CONTEXT_WINDOWS["qwen/qwen3.8-max"]).toBe(1_000_000);
 	});
 });
 

@@ -42,6 +42,10 @@ describe("AH2 AC4: MODEL_CONTEXT_WINDOWS — current catalog ids", () => {
 		expect(modelContextWindow("claude-fable-5")).toBe(1_000_000);
 	});
 
+	it("contextWindowForModel('qwen/qwen3.8-max') returns 1_000_000", () => {
+		expect(modelContextWindow("qwen/qwen3.8-max")).toBe(1_000_000);
+	});
+
 	it("every catalog id resolves to a non-default (> 128_000) or explicitly set context window", () => {
 		// The default is 128_000; every catalog id should be explicitly mapped
 		for (const entry of MODEL_CATALOG) {

@@ -11,14 +11,14 @@
  * are separate and not tracked here — they default to 16384 per call.
  */
 const MODEL_CONTEXT_WINDOWS: Record<string, number> = {
-	// Anthropic — AH2 catalog (current model IDs)
+	// AH2 catalog (current model IDs)
 	// @lore AH2: These must stay in sync with MODEL_CATALOG in @hyperidle/shared.
-	// Re-key both here and in COST_PER_MILLION_TOKENS in builtin-harness-adapter.ts
-	// whenever the catalog changes.
+	// Re-key here whenever the catalog changes.
 	"claude-opus-4-8": 1_000_000,
 	"claude-sonnet-4-6": 1_000_000,
 	"claude-haiku-4-5": 200_000,
 	"claude-fable-5": 1_000_000,
+	"qwen/qwen3.8-max": 1_000_000,
 };
 
 const DEFAULT_CONTEXT_WINDOW = 128_000;
