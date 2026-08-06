@@ -709,7 +709,7 @@ describe("AU28 misplacement-ledger — shrink-only, in both directions", () => {
 });
 
 describe("AU28 --fixtures self-test — the detector proves itself on a synthetic tree", () => {
-	// retired-guards.md §5: the only technique that would have caught au6/au9 going no-op, because it
+	// The only technique that would have caught au6/au9 going no-op, because it
 	// proves the detector works independently of whether the live tree happens to be clean.
 	it("has cases", () => {
 		expect(FIXTURE_CASES.length).toBeGreaterThan(30);

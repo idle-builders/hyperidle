@@ -1,54 +1,61 @@
 {
   "id": "AU28",
-  "status": "in_progress",
-  "currentStep": "review",
+  "status": "shipping",
+  "currentStep": "ship",
   "startedAt": "2026-08-04",
   "approvals": {
     "requirements": "approved 2026-08-04 (founder, in-session; Rulings 1-9)",
     "concept": null,
-    "final": null
+    "final": "approved 2026-08-07 (founder, conditional: \"if the rules are in place and working, approved by me\") \u2014 condition met: both round-2 critical bypasses proven caught live on the real tree"
   },
   "critiqueScores": {
     "refine": 7.7
   },
   "scope": "step-1: production/development split + governance lint (founder-narrowed, Ruling 9)",
   "successors": [
-    "step-2: role folders (blocked on AU26)",
-    "step-3: layer access patterns per world",
-    "step-4: split shared + clear violations"
+    "AU29",
+    "AU30",
+    "AU31",
+    "AU32",
+    "AU34",
+    "AU35",
+    "AU36"
   ],
   "review": {
-    "date": "2026-08-06",
-    "reviewers": 4,
-    "verdict": "NOT DONE",
-    "artifact": ".pipeline/work/AU28/review.md",
-    "acTable": {
-      "pass": 9,
-      "partial": 1,
-      "fail": 2,
-      "failed": [
+    "rounds": 2,
+    "artifact": "folded into plan.md at ship (git history holds review.md)",
+    "round1": {
+      "verdict": "NOT DONE",
+      "bypassesProven": 6,
+      "acFail": [
         "AC-6",
         "AC-12"
-      ],
-      "partialAc": [
-        "AC-11"
       ]
     },
-    "findings": {
-      "critical": 13,
-      "warning": 22,
-      "observation": 17
+    "round2": {
+      "verdict": "NOT DONE",
+      "critical": [
+        "value re-export bypasses the laundering rule",
+        "named constant bypasses the one-door rule"
+      ],
+      "alsoFound": [
+        "release-guard.yml ran a deleted script \u2014 CI broken",
+        "desktop bound all interfaces while docs claimed localhost"
+      ]
     },
-    "provenBypasses": [
-      "re-export laundering",
-      "aliased table identifier",
-      "local const table alias",
-      "raw sql template",
-      "production dir without package.json",
-      "the swap within one file"
-    ],
-    "attacksRun": 22,
-    "attacksCaught": 11,
-    "note": "Enforcement machinery is strong (12/12 model mutants killed; AC-4 and AC-5 produced real reds). The detection surface beneath it and the docs above it are what failed."
+    "closed": "all round-1 and round-2 findings; both criticals live-proven caught"
+  },
+  "ships": {
+    "crossings": 8100,
+    "rules": 18,
+    "attacks": 47,
+    "verdicts": 248,
+    "decidedRows": 124,
+    "knownViolations": {
+      "production": 221,
+      "development": 67
+    },
+    "netLines": -2007,
+    "guardsDeleted": 20
   }
 }

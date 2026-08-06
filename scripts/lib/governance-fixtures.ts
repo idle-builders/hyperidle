@@ -4,7 +4,7 @@
  * A synthetic repository, held entirely in memory, that asserts BOTH that every classification clause
  * resolves correctly AND that every known evasion of the crossing rule is caught.
  *
- * @lore AU28: retired-guards.md §5 names this as the one technique that would have caught `au6` and
+ * @lore AU28: this is the one technique that would have caught `au6` and
  * `au9` going no-op, because it proves the detector still works independently of whether the live tree
  * happens to be clean. A guard that only ever runs against a clean repo cannot distinguish "nothing is
  * wrong" from "I stopped looking". The same `FIXTURE_CASES` array is consumed twice: by `--fixtures`

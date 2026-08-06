@@ -153,3 +153,95 @@ measured baselines and the full move list: `.pipeline/work/AU28/architecture.md`
   are collected and pass — the move is proven by the runner, not by the guard.
 - Given all increments have landed, when `npm run verify` runs, then it is green and the live
   production → development crossing count is zero.
+
+---
+
+## As built (consolidated at ship, 2026-08-07)
+
+The phase artifacts this section replaces are in git history. Everything a future reader needs is here.
+
+### What shipped
+
+**The rule engine.** 15 clauses in `scripts/lib/governance-model.ts`, checked in order, first match wins,
+default `forbidden`, total over every crossing. The 124 founder-decided rows in
+`governance/decided-rules.json` are its **acceptance test** — the model is correct iff it reproduces all
+248 verdicts (124 × 2 worlds) exactly, asserted with an iteration counter so an empty row set cannot pass
+vacuously. A mutation test killed 12 of 12 single-clause mutants.
+
+**The three-way split** (`governance/README.md`): clauses are principles in code · registries are facts in
+JSON · decided rules are frozen decisions. A clause holds no package name, table name or path.
+
+**Nine crossing kinds** detected by AST over a single census sourced from git: `import` · `manifest` ·
+`di` · `api` · `mcp` · `event` · `table:read` · `table:write` · `capability`.
+
+**No warn/error dial.** Every rule is an error; `governance/baseline.json` lists the violations that
+existed when the rule landed, and only those warn. The baseline may only ever SHRINK — the generator
+refuses to add a group or raise a count, so clearing a group's last site deletes the entry and that rule
+is at error from the same commit. Promotion is what fixing the violation does, not a later step.
+
+**Break-testing is a gate.** `npm run lint` runs 47 attacks overlaid onto the live census through the
+census's injected `readFile` seam — real repo, nothing written to disk. Four anti-rot properties, the
+load-bearing one being that **a registered rule with no POSITIVE attack case fails the build**.
+
+**Twenty inherited guards deleted** against 15 rules added — net −2,007 lines.
+
+### Founder rulings — the binding record
+
+`founder-rulings.md` is retained in full alongside this plan. It is not a phase artifact: Rulings 1-15 are
+the decisions the model encodes, several of them overturning earlier ground truth, and the model cannot be
+changed safely without them. Ruling 9 narrowed AU28 to step 1; Rulings 13/13a settled the companion rule;
+Ruling 14 merged `raw runtime` and `harness` into one door; Ruling 15 closed the harness noun to LLM
+harnesses only.
+
+### Acceptance criteria — final state
+
+10 of 12 PASS. **AC-6** closed by `governance/misplaced-files.json` (four production-path files that are
+really development, each naming its reason, count failing above and below). **AC-12** closed by stating
+the file-placement rule in `CLAUDE.md` and pointing at `governance/README.md` for boundary rules —
+reconciling AC-12 against the README's own "never restate a rule", by WHEN each rule is needed.
+
+**AC-11 is the honest residual.** `npm run verify`, `test:e2e` and `test:integration` are not all executed
+at every HEAD; the release-gated lanes run at `verify:release`. Local green is a prediction — CI is the
+gate (founder: *"green is when CI reports green"*).
+
+### Deferrals and known limits — these outlive the run
+
+- **The swap within one file.** The baseline is keyed `(group, file, count)` and group keys are coarse, so
+  substituting one unowned table for another inside one already-baselined file moves nothing. Defeated
+  ACROSS file pairs, not within one. Documented at `scripts/lib/crossing-report.ts`; judged gaming rather
+  than a different implementation style, so out of scope by the founder's linter bar.
+- **Value-flow aliasing** (`const T = { bets }`, a table arriving as a function parameter), **template-
+  interpolated specifiers**, **`require(variable)`**, **untracked-file evasion** and **`eslint-disable`**
+  are all out of scope by the same bar — hiding, not style.
+- **Non-table narrow surfaces by value.** `export const esc = escapeLikePattern` still passes; the
+  publication-side resolver handles tables only. A symbol→surface resolver is separate work.
+- **CTE over-read.** A read-only SQL template mentioning a write verb in a comment keys as a write. Live
+  delta is zero; the asymmetry is deliberate — reading a write as a read loses the rule in development,
+  the reverse only tightens.
+- **`ownerOf` reads through the prototype chain** (`in`, not `Object.hasOwn`). Fails closed; not a
+  plausible-style bypass.
+- **`dep-manifest-lint.ts` ships a second census** with its own discovery, contradicting "one census, many
+  rules".
+- **`mcpRouterHost`** is threaded through five sites and read by nothing.
+- **Four database symbols fall to `db:unknown`** on every run — a NOTE, never an error, so a module
+  missing from `moduleSurface` stays invisible to the surface rules indefinitely.
+- **The harness predicate is near-blind** — its `harness/__tests__/` directory rule matches zero files, so
+  the attestation floor sees 1 of 12 harness tests. Broke at AU26, registered as AU27 follow-up N12.
+
+### The 290 violations this leaves, and who clears them
+
+221 production + 67 development, all baselined, none silent. Registered as **AU29** (framework stops
+acting) → **AU30** (every table owned) · **AU31** (composition roots only) · **AU32** (fixtures build
+producible states) · **AU34** (split `shared`) · **AU35** (delete the `strategy` category) · **AU36**
+(reach is permissions, not a harness property). Whichever of the four clearing packages empties the
+baseline last deletes the file and the `--adopt` escape hatch.
+
+### Two defects found in AU28's own work, worth remembering
+
+**A red tree was committed while the local gate reported green** — the census read `git ls-files`, which
+cannot see unstaged files, so a floor was recomputed against a census missing the files about to be
+committed. Fixed at the source; `trackedFiles()` now reads `--cached --others --exclude-standard`.
+
+**CI was broken and every local gate was green** — Ruling 10 deleted a guard and left
+`release-guard.yml` invoking it. The local suite cannot see a workflow file.
+
