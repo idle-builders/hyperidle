@@ -1,29 +1,29 @@
 # Teams: Persistent
 
-<!-- @source packages/db/src/schema.ts -->
-<!-- @source packages/server/src/routes/teams-routes.ts -->
-<!-- @source packages/web/src/pages/WorkTeam.tsx -->
+<!-- @source framework/db/src/schema.ts -->
+<!-- @source layers/core-api/src/routes/teams-routes.ts -->
+<!-- @source layers/core-ui/src/pages/WorkTeam.tsx -->
 
-A team is a persistent, product-bound group of agents. In code the merge is literal (U1): the `teams` table IS the domain entity formerly called `products`, and the old agent-membership table is now `teamMembers` — one `teamMembers` row per `teams` row, the 1:1 Product=Team invariant (`packages/db/src/schema.ts:17`, `:97`, migration `0021_U1_schema_migration.sql`). The team includes whoever the product needs — typically a Product Manager (lead by default), one or more Builders, a Reviewer for the product's primary artifact type, and any specialty agents the product calls for.
+A team is a persistent, product-bound group of agents. In code the merge is literal (U1): the `teams` table IS the domain entity formerly called `products`, and the old agent-membership table is now `teamMembers` — one `teamMembers` row per `teams` row, the 1:1 Product=Team invariant (`framework/db/src/schema.ts`, migration `0021_U1_schema_migration.sql`). The team includes whoever the product needs — typically a Product Manager (lead by default), one or more Builders, a Reviewer for the product's primary artifact type, and any specialty agents the product calls for.
 
 For the Team primitive's place among the five, see [The five primitives](./the-five-primitives.md).
 
 ## 1. Forming a team
 
-Team formation runs through Conversations as a review item (`packages/fabric/src/services/review-item-factory.ts`). The proposed team — these agents, this lead, this capacity — is posted for the founder's verdict. Approving the team kicks off the product. Membership is visible in the Work view (`WorkTeam.tsx:231` roster) and editable through subsequent review items (proven by `AK6-user-team-handoff.integration.test.ts`).
+Team formation runs through Conversations as a review item (`layers/core-api/review/src/review-item-factory.ts`). The proposed team — these agents, this lead, this capacity — is posted for the founder's verdict. Approving the team kicks off the product. Membership is visible in the Work view (`WorkTeam.tsx` roster) and editable through subsequent review items (proven by `AK6-user-team-handoff.integration.test.ts`).
 
-Roster creation today (AK6): the Strategy proposes `AgentScaffoldSpec`s (persona, role — the *who*), the Kernel attaches identity + mechanism fields and persists the rows, assigning the lead (`packages/server/src/services/scaffold-agents.ts` — lead = first product-manager, else first agent). There is no pre-existing agent pool to draw from.
+Roster creation today (AK6): the Strategy proposes `AgentScaffoldSpec`s (persona, role — the *who*), the Kernel attaches identity + mechanism fields and persists the rows, assigning the lead (`layers/core-api/org/src/scaffold-agents.ts` — lead = first product-manager, else first agent). There is no pre-existing agent pool to draw from.
 
 Formation criteria:
 
-- **Skill match** — does the team have agents with the skills the product will need? (`users.skills`, schema.ts:49)
-- **Capacity** — is this agent already on another team? **An agent belongs to exactly one team**, enforced by the single FK `users.teamId → teamMembers.id` (schema.ts:47, `onDelete: "restrict"`). If the agent is needed here, it must leave its current team first — only when its work there is done.
+- **Skill match** — does the team have agents with the skills the product will need? (`users.skills`, schema.ts)
+- **Capacity** — is this agent already on another team? **An agent belongs to exactly one team**, enforced by the single FK `users.teamId → teamMembers.id` (schema.ts, `onDelete: "restrict"`). If the agent is needed here, it must leave its current team first — only when its work there is done.
 - **Practice diversity** — does the team draw from enough practices that no single discipline is missing?
 - **Lead fit** — the Product Manager should match the product's stage (early-shaping vs. mature-iteration is a different muscle).
 
 ## 2. Persistence and muscle memory
 
-The team persists for the life of the product. Successive bets pass through the same team. The team's shared knowledge lives in the **team scope** — its own scope kind, read by every member. Team scope is *not* a knowledge layer: `scopeToLayer` maps task→L1, product→L2, practice→L3, factory→L4, and **team→null** (`packages/fabric/src/types.ts:35`). For the layer taxonomy, see [The five layers](../knowledge-architecture/the-five-layers.md).
+The team persists for the life of the product. Successive bets pass through the same team. The team's shared knowledge lives in the **team scope** — its own scope kind, read by every member. Team scope is *not* a knowledge layer: `scopeToLayer` maps task→L1, product→L2, practice→L3, factory→L4, and **team→null** (`scopeToLayer`, `framework/shared/src/knowledge.ts`). For the layer taxonomy, see [The five layers](../knowledge-architecture/the-five-layers.md).
 
 This is what makes the second bet faster than the first, and the tenth faster than the second. Every shipped bet adds to the team's muscle memory: which assumptions held, which broke, which failure modes are common in this product, which artifacts are reusable.
 
@@ -37,7 +37,7 @@ The legitimate change reasons:
 - **Remove a member** — the agent's skill is no longer needed *and* it has no active work on this team. Same.
 - **Replace a lead** — the product's stage shifted and a different lead fits better. The old lead doesn't leave the team unless its work is also done; it just stops being the lead (`teamMembers.leadAgentId`).
 
-What teams don't do is dissolve at ship. A shipped bet means the team is *between bets*, not gone — `teams`/`teamMembers` rows persist (FKs `onDelete: "restrict"`, schema.ts:104), routines owned by the team's members keep firing (routines table is independent, schema.ts:294), and when the next bet is committed for that product, the team picks it up.
+What teams don't do is dissolve at ship. A shipped bet means the team is *between bets*, not gone — `teams`/`teamMembers` rows persist (FKs `onDelete: "restrict"`, schema.ts), routines owned by the team's members keep firing (routines table is independent, schema.ts), and when the next bet is committed for that product, the team picks it up.
 
 ## 4. When teams dissolve
 

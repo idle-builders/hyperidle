@@ -1,6 +1,6 @@
 # Self-Hosting
 
-Two server-hosted profiles run HyperIdle against real Postgres: **VPS** (single-machine Docker Compose) and **cloud** (managed Postgres). Both use the postgres-js driver (`packages/db/src/profiles.ts`). The implemented, operated server deployment is the shared K8s backend — see [shared-backend](shared-backend.md). The VPS compose stack runs dev-mode processes (`npm run dev` inside the containers) — it is not hardened production.
+Two server-hosted profiles run HyperIdle against real Postgres: **VPS** (single-machine Docker Compose) and **cloud** (managed Postgres). Both use the postgres-js driver (`framework/db/src/profiles.ts`). The implemented, operated server deployment is the shared K8s backend — see [shared-backend](shared-backend.md). The VPS compose stack runs dev-mode processes (`npm run dev` inside the containers) — it is not hardened production.
 
 Agents run on the host in every profile — see [run-unit-model](../architecture/run-unit-model.md).
 
@@ -21,13 +21,13 @@ cp .env.example .env
 # Set POSTGRES_PASSWORD — compose hard-fails without it.
 npm run setup -- --profile vps
 docker compose up -d
-DATABASE_URL=postgres://hyperidle:$POSTGRES_PASSWORD@localhost:5432/hyperidle npx tsx packages/db/src/migrate-pg.ts
+DATABASE_URL=postgres://hyperidle:$POSTGRES_PASSWORD@localhost:5432/hyperidle npx tsx framework/db/src/migrate-pg.ts
 npm run db:seed:pg
 ```
 
 Notes:
 
-- `npm run setup` needs `--` before flags to forward them (`npm run setup --profile vps` silently drops the flag). The vps profile verifies `docker-compose.yml` exists (`packages/db/src/setup-cli.ts`, `requiresDockerCompose` in `profiles.ts`).
+- `npm run setup` needs `--` before flags to forward them (`npm run setup --profile vps` silently drops the flag). The vps profile verifies `docker-compose.yml` exists (`framework/db/src/setup-cli.ts`, `requiresDockerCompose` in `profiles.ts`).
 - `DATABASE_URL` inside the server container is interpolated from `POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_DB` (see `@lore` in `docker-compose.yml`). Override with an explicit `DATABASE_URL` in `.env` if needed.
 
 ### Verify
@@ -39,30 +39,30 @@ curl http://localhost:3001/health
 
 ## Cloud (managed Postgres)
 
-`HYPERIDLE_PROFILE=cloud` runs against a managed Postgres instance (Neon, Supabase, RDS, …). The cloud profile has no default URL — `DATABASE_URL` (or `--db-url`) is mandatory; setup errors with `Cloud profile requires DATABASE_URL env var or --db-url.` (`packages/db/src/setup-cli.ts:231`).
+`HYPERIDLE_PROFILE=cloud` runs against a managed Postgres instance (Neon, Supabase, RDS, …). The cloud profile has no default URL — `DATABASE_URL` (or `--db-url`) is mandatory; setup errors with `Cloud profile requires DATABASE_URL env var or --db-url.` (`framework/db/src/setup-cli.ts:231`).
 
 ```bash
 export DATABASE_URL=postgres://user:pass@host:5432/hyperidle
 export HYPERIDLE_PROFILE=cloud
 npm run setup -- --profile cloud
-npx tsx packages/db/src/migrate-pg.ts
+npx tsx framework/db/src/migrate-pg.ts
 npm run db:seed:pg
 ```
 
-**Connection pool:** default 10 connections; override via the `PG_POOL_SIZE` env var or the `maxConnections` option on `createPgDb` — all in `packages/db/src/connection.ts`.
+**Connection pool:** default 10 connections; override via the `PG_POOL_SIZE` env var or the `maxConnections` option on `createPgDb` — all in `framework/db/src/connection.ts`.
 
 **Verify:** `curl $API_URL/health` (also served at `/api/health`).
 
 ## Postgres tooling
 
-There is no `db:migrate:pg` npm script — PG migrations run via `npx tsx packages/db/src/migrate-pg.ts`, which applies migrations without `CREATE SCHEMA` so a schema-scoped tenant role (no database-level CREATE) can run it. Companion scripts:
+There is no `db:migrate:pg` npm script — PG migrations run via `npx tsx framework/db/src/migrate-pg.ts`, which applies migrations without `CREATE SCHEMA` so a schema-scoped tenant role (no database-level CREATE) can run it. Companion scripts:
 
 | Command | What it does |
 |---|---|
-| `npx tsx packages/db/src/migrate-pg.ts` | Apply PG migrations against `DATABASE_URL` |
+| `npx tsx framework/db/src/migrate-pg.ts` | Apply PG migrations against `DATABASE_URL` |
 | `npm run db:seed:pg` | Seed against `DATABASE_URL` |
 | `npm run db:bootstrap:pg` | Factory bootstrap against `DATABASE_URL` |
-| `npm run test:pg` | Run the test suite against a real `DATABASE_URL` (`packages/db/src/pg-test-runner.ts`) |
+| `npm run test:pg` | Run the test suite against a real `DATABASE_URL` (`framework/db/src/__testing__/pg-test-runner.ts`) |
 
 ## Troubleshooting
 

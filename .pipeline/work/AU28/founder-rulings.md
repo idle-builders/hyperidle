@@ -772,3 +772,74 @@ real agents filed under a dead category, and where they go is a product decision
 `task_strategy_fabric` and the `@lore O2` strategy-layer columns are unrelated to the agent category
 and share only the word. AU35's contract says so explicitly so a purge does not overreach.
 
+
+---
+
+## Ruling 14 — one door, one name (founder, 2026-08-06)
+
+**Founder, verbatim:** *"not sure what raw harness runtime is but there should only be one way to call
+harnesses. so probably one has to be removed all together."*
+
+`raw runtime` and `harness` were two targets for one act. `raw runtime` fired on importing a model
+vendor's SDK (`openai`, `@anthropic-ai/sdk`, `@google/generative-ai`, `@modelcontextprotocol/sdk`);
+`harness` fired on spawning an agent CLI (`claude`, `codex`, `opencode`, `cursor-agent`). Both mean
+**a model or agent call that does not go through `agent-execution`**. The split was a detector detail —
+one is an import, the other a process spawn — that leaked into the rule vocabulary.
+
+It had already produced a live contradiction, found by review: production forbade both, but the
+development relaxation held only `raw runtime`, so a test importing the OpenAI SDK was blocked while a
+test spawning `claude` was waved through — around the same door, by the same stated rationale. There
+was no `service → harness` row at all, so the founder was never asked.
+
+**The ruling: they collapse into ONE target.** The vocabulary loses `raw runtime` and `harness` as
+separate nouns. The surviving rule is the one that was always meant: *every model and agent call goes
+through one door, so it can be recorded, priced and replayed.* Both worlds, no relaxation — this is a
+one-door surface, and going around a door production has only one of is the one thing a test may not
+do (Ruling 13's own principle).
+
+**This changes verdicts, which are otherwise frozen.** Only the founder may do that, and this is that.
+The five decided rows collapse to four, `decided-rules.json` is edited, and
+`governance-model.test.ts`'s reproduction count moves with it. The detector emits one target sort from
+both `RAW_RUNTIME_SPECIFIERS` and `HARNESS_BINARIES`. **No other verdict moves.**
+
+Open, for whoever builds it: `gh` currently sits in the binary list. It is the GitHub CLI, not an
+agent CLI — but removing it REMOVES sight, so it stays until someone rules on whether reaching a git
+forge is the same door or a different one. Do not silently drop it.
+
+---
+
+## Ruling 15 — "harness" means LLM harness, nothing else (founder, 2026-08-06)
+
+**Founder, verbatim:** *"gh is not a harness so it 100% does not belong with the harness stuff. harness
+is only llm harnesses nothing else."* And, on the concept underneath it: *"what the agent can reach is
+permissions or filesystem not harness."*
+
+**The noun is now closed.** A harness is the thing that runs a model: `builtin`, `claude`, `codex`,
+`opencode`, `cursor-agent`. Nothing else is a harness, ever. `gh` is the GitHub CLI — its one
+production use is `gh auth status --json hosts`, an authentication probe that makes no model call.
+
+### Two corrections follow, one small and one structural
+
+**Small — `gh` leaves the harness vocabulary.** It is currently in `HARNESS_BINARIES`
+(`scripts/lib/crossing-detectors.ts:277`), in the `HarnessName` union
+(`…/harness-registry/src/__tests__/require-harness.ts:25`), in a type carve-out at `:51`, in the name
+map at `:61`, and behind `requireHarness("gh")` in two integration tests. All of that says `gh` is a
+harness. It is not. Removing it from `HARNESS_BINARIES` also prevents Ruling 14 from doing something
+absurd — putting *"every model and agent call goes through one door so it can be recorded, priced and
+replayed"* on top of a credential probe that calls no model.
+
+**Structural — "what the agent can reach" is misfiled.** The probe's result lands in `inheritedTools`
+on the **harness capability descriptor** (`framework/shared/src/harness/harness-capability-descriptor.ts:124`),
+each entry carrying a `harness:` field, and is then flattened into the Connections view by
+`layers/agent-orchestration/connections/src/service-connection-projection.ts`. So reach is modelled as
+a property of the harness. It is not: **a harness runs a model; what an agent can reach is permissions
+and filesystem.** The two are independent — the same agent on the same harness can have entirely
+different reach, and the same reach survives changing harness.
+
+This is AU26's own test applied to a descriptor instead of a domain: does this thing belong here, or is
+it only sitting here because that is where it was first written? It is the latter.
+
+**Scope.** `gh` leaving the harness vocabulary is done now — it is a rename and two test gates. Moving
+`inheritedTools` off the harness descriptor onto permissions/filesystem is a domain relocation with a
+UI surface behind it: **its own work package, not a side effect of AU28.** Registered as AU36.
+Do not fold it into a detector fix.

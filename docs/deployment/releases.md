@@ -18,10 +18,10 @@ The root `package.json` `version` is canonical. Two derived sources must match i
 
 | Source | Why it must match |
 |---|---|
-| `packages/desktop/package.json` | electron-builder names the DMG `HyperIdle-<version>-arm64.dmg` |
+| `applications/desktop/package.json` | electron-builder names the DMG `HyperIdle-<version>-arm64.dmg` |
 | `chart/Chart.yaml` `appVersion` | the deployed backend reports this version |
 
-`packages/desktop/scripts/release.sh` bumps all three together.
+`applications/desktop/__scripts__/release.sh` bumps all three together.
 
 ### Flow
 
@@ -43,7 +43,7 @@ release.sh <v>                       version bump (×3)          deploy.yml:
 
 ```bash
 # 1. Local: build + notarize + stage (uploads the DMG to a hidden draft release)
-./packages/desktop/scripts/release.sh 0.5.0
+./applications/desktop/__scripts__/release.sh 0.5.0
 
 # 2. Commit what it changed and open a PR
 git add -A && git commit -m "release: HyperIdle v0.5.0"

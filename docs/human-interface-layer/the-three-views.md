@@ -12,9 +12,9 @@ The human never thinks "which app do I open?". They open HyperIdle, scan Convers
 
 ## Conversations — review and chat
 
-The messaging surface. Reviews and chat — all as threads, on the same infrastructure agents use to talk to each other: one shared message store with identities, threads, and delivery rules. Humans are identities in the matrix, not a special category outside it (`messages.senderId → users.id`, `packages/db/src/schema.ts:462`).
+The messaging surface. Reviews and chat — all as threads, on the same infrastructure agents use to talk to each other: one shared message store with identities, threads, and delivery rules. Humans are identities in the matrix, not a special category outside it (`messages.senderId → users.id`, `framework/db/src/schema.ts`).
 
-Consequence: **agents can initiate conversations with humans**, not just surface things for approval. An agent noticing a cross-bet pattern starts a thread; the human replies, ignores, or escalates. Humans start threads too, via the RecipientPicker (`packages/web/src/components/RecipientPicker.tsx`) — pick an agent, type, send; replies arrive over WebSocket.
+Consequence: **agents can initiate conversations with humans**, not just surface things for approval. An agent noticing a cross-bet pattern starts a thread; the human replies, ignores, or escalates. Humans start threads too, via the RecipientPicker (`layers/core-ui/src/components/RecipientPicker.tsx`) — pick an agent, type, send; replies arrive over WebSocket.
 
 "Review thread" and "chat thread" are experience shorthand, not thread types. A thread has no `kind` column — shape lives on typed *messages* (a review message embeds an artifact + verdict affordance; a plain message is text), and a thread moves between the two experiences as messages are appended. The full Thread/Message model, the five-verdict grammar, and derived blocking are owned by [thread-primitive.md](thread-primitive.md).
 
@@ -23,9 +23,9 @@ What the thread list must make decidable at a glance, without reading content:
 1. **Review vs. chat** — a pending verdict is visibly marked on the ThreadRow.
 2. **Blocking vs. non-blocking** — a blocking thread means an agent is paused waiting; it gets distinct treatment and sorts first.
 
-Each ThreadRow shows sender, subject/first-line summary, timestamp, and those two indicators. The assistant's thread is pinned on top (`threads.pinned`, schema.ts:429). The `ConversationsFilter` enum is `all | blocking | async` (`packages/shared/src/thread.ts:68`); filtering is programmatic state. The visible chip bar (Blocking / Unread) was removed in AF14 AC4 — neither chip matched real state (`Conversations.tsx:62-63`).
+Each ThreadRow shows sender, subject/first-line summary, timestamp, and those two indicators. The assistant's thread is pinned on top (`threads.pinned`, schema.ts). The `ConversationsFilter` enum is `all | blocking | async` (`framework/shared/src/thread.ts`); filtering is programmatic state. The visible chip bar (Blocking / Unread) was removed in AF14 AC4 — neither chip matched real state (`Conversations.tsx`).
 
-**Session dial-in.** The founder can dial into a running session to observe the agent's live activity stream — read-only tool calls, reasoning, and accumulating cost, with `All | Tools | Reasoning | Cost` filter tabs (`SessionActivityPanel.tsx:173-178`). Toggled with the `D` key inside Conversations (`Conversations.tsx:313`); the panel opens as a right-hand split. UI detail: [information-architecture/conversations-view.md](../information-architecture/conversations-view.md).
+**Session dial-in.** The founder can dial into a running session to observe the agent's live activity stream — read-only tool calls and reasoning, with `All | Tools | Reasoning` filter tabs (`layers/core-ui/src/components/SessionActivityPanel.tsx`). Toggled with the `D` key inside Conversations (`layers/core-ui/src/pages/Conversations.tsx`); the panel opens as a right-hand split. UI detail: [information-architecture/conversations-view.md](../information-architecture/conversations-view.md).
 
 Artifact embeds inside review messages (the five `ArtifactView` shapes) are owned by [process-layer/artifact-primitive.md](../process-layer/artifact-primitive.md). The review page itself — canvases, verdict UI, trust surface — is [review-primitive.md](review-primitive.md). How items find the right view is [items-and-routing.md](items-and-routing.md); notification cadence is [notification-primitive.md](notification-primitive.md).
 
@@ -35,24 +35,23 @@ Bets and tasks: planning what to do and tracking what's in flight. The Work land
 
 Two view-level principles:
 
-- **Tasks are agent-owned.** Humans do not drag tasks between states — there is no board. Humans request state changes through the thread attached to the bet or task (`tasks.ownerAgentId`, `tasks.threadId`, schema.ts:216,225). The task list gives visibility without requiring the human to dive into individual threads.
-- **Appetite is money + tokens, never duration.** Bets carry `costAppetiteMinor`/`costAppetiteCurrency` (schema.ts:152-153); tasks carry plain-integer `costCap`/`costActual` (schema.ts:223-224). Cap grammar and the money-not-duration doctrine: [process-layer/wip-and-cost-limits.md](../process-layer/wip-and-cost-limits.md).
+- **Tasks are agent-owned.** Humans do not drag tasks between states — there is no board. Humans request state changes through the thread attached to the bet or task (`tasks.ownerAgentId`, `tasks.threadId`, schema.ts,225). The task list gives visibility without requiring the human to dive into individual threads.
 
 ## Knowledge — curate
 
 The company wiki — a catalogue of knowledge items, not a page tree. Think Confluence, not Jira. The human searches, filters, reads, edits inline, and **creates** items directly; agents contribute through their sessions. It is **not an approval gate** — knowledge flows freely without per-change human review. It is *async curation* that prevents AI-only drift. This is the most critical view to get right and the easiest to skip, because nothing forces you to open it; without it the knowledge base is a community of bots talking to itself.
 
-**Scopes.** Items are authored at any of seven scopes — `factory, product, practice, team, bet, task, user` (`SCOPE_KINDS`, `packages/shared/src/types.ts:171-179`); `user`-scoped items are private and show a "Private" badge. The view browses three scopes — practice, product, factory (`KnowledgeList.tsx:117-119`) — with **topic** as the mid-level grouping (`KnowledgeTopicGroup.tsx`). Topic headers carry health indicators: item count, active-vs-stale mix. Store semantics: [knowledge-architecture/the-canonical-store.md](../knowledge-architecture/the-canonical-store.md).
+**Scopes.** Items are authored at any of seven scopes — `factory, product, practice, team, bet, task, user` (`SCOPE_KINDS`, `framework/shared/src/types.ts`); `user`-scoped items are private and show a "Private" badge. The view browses three scopes — practice, product, factory (`KnowledgeList.tsx`) — with **topic** as the mid-level grouping (`KnowledgeTopicGroup.tsx`). Topic headers carry health indicators: item count, active-vs-stale mix. Store semantics: [knowledge-architecture/the-canonical-store.md](../knowledge-architecture/the-canonical-store.md).
 
 **Curation through exploration.** The corpus is too small (hundreds of items) and interaction too infrequent for algorithmic recommendation to carry the view — no algorithm has enough signal. The view must excel at **browsing**, with three orientations:
 
 1. **Classic navigation** — scope → topics → items. For exploration and gap-spotting.
-2. **Agent-recommended for editing** — triage sorted by `attentionScore` descending (`KnowledgeList.tsx:828-843`): what the facilitators think needs human eyes. The curation starting point.
-3. **Most accessed by agents** — backed by the knowledge access log (`knowledge_access_log`, schema.ts:642). Errors in the most-used items cost the most, so human editing energy concentrates there.
+2. **Agent-recommended for editing** — triage sorted by `attentionScore` descending (`KnowledgeList.tsx`): what the facilitators think needs human eyes. The curation starting point.
+3. **Most accessed by agents** — backed by the knowledge access log (`knowledge_access_log`, `framework/db/src/schema.ts`). Errors in the most-used items cost the most, so human editing energy concentrates there.
 
 Scoring engines behind these: [knowledge-architecture/relevance-and-attention.md](../knowledge-architecture/relevance-and-attention.md). The facilitator role and lifecycle: [knowledge-architecture/facilitators.md](../knowledge-architecture/facilitators.md).
 
-**Read and edit in one surface.** Opening an item shows the full body, editable inline — no separate edit mode. Changes auto-save with a version check, and **every edit is logged** (`knowledge_edit_log`, schema.ts:609) so facilitators learn from human corrections. Shipped grammar: search (Postgres ILIKE today, `packages/server/src/routes/search.ts`), filter, inline edit, archive (soft-delete to `archived`), create at any scope (`KnowledgeCreateDialog.tsx`), change scope with reason tracking (`ScopeChangeDialog.tsx`), and per-item threads plus per-block anchored discussion (`messages.blockId`, schema.ts:477 — see [docs/blocks/](../blocks/index.md)).
+**Read and edit in one surface.** Opening an item shows the full body, editable inline — no separate edit mode. Changes auto-save with a version check, and **every edit is logged** (`knowledge_edit_log`, schema.ts) so facilitators learn from human corrections. Shipped grammar: search (Postgres ILIKE today, `layers/core-api/src/routes/search.ts`), filter, inline edit, archive (soft-delete to `archived`), create at any scope (`KnowledgeCreateDialog.tsx`), change scope with reason tracking (`ScopeChangeDialog.tsx`), and per-item threads plus per-block anchored discussion (`messages.blockId`, schema.ts — see [docs/blocks/](../blocks/index.md)).
 
 **Design principle: editing collective intelligence, not grading homework.** The human is a senior member of the practice tending the garden, not an auditor signing off on every contribution.
 

@@ -4,6 +4,7 @@ import { join } from "node:path";
 import type { InheritedToolDescriptor } from "@hyperidle/shared";
 import { afterEach, describe, expect, test } from "vitest";
 import { discoverLocalHarnesses } from "../harness-discovery.js";
+import { requireBinary } from "./require-binary.js";
 import { requireHarness } from "./require-harness.js";
 
 const temporaryDirectories: string[] = [];
@@ -135,7 +136,8 @@ describe("AN1 real-harness inherited tool discovery", () => {
 	});
 
 	describe("environment", () => {
-		requireHarness("gh");
+		// `gh` is the GitHub CLI, not a harness — Ruling 15. The binary is still required.
+		requireBinary("gh");
 
 		test("returns only identity fields from the real gh probe", async () => {
 			const tools = (await discoverLocalHarnesses()).builtin.inheritedTools ?? [];

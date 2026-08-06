@@ -2,7 +2,7 @@
 
 Every primary page shares the same scaffold: a pinned header strip, a scrolling body, and a single `<h1>`. **PageHeader** and **SectionLabel** encode that standard.
 
-Source: `packages/design-system/src/PageHeader.tsx`, `packages/design-system/src/SectionLabel.tsx` (AI7).
+Source: `framework/design-system/src/PageHeader.tsx`, `framework/design-system/src/SectionLabel.tsx` (AI7).
 
 ---
 
@@ -92,13 +92,13 @@ import { SectionLabel } from "@hyperidle/design-system";
 
 ## Enforcement
 
-Two `eslint-plugin-design` rules live in `packages/eslint-plugin-design/src/rules/`.
+Two `eslint-plugin-design` rules live in `tools/eslint-plugin-design/src/rules/`.
 
-**`no-handrolled-page-header`** — Error on `packages/web/src/pages/**`. Flags the inline literal combination `text-[20px]` + `font-[600]` + `tracking-[-0.01em]` on any element that is not `PageHeader`. Composing `pageTitleClassName` as an identifier expression is always compliant. SettingsPage.tsx and SetupFlow.tsx are exempt via `eslint.config.ts:184-185` pending their migration.
+**`no-handrolled-page-header`** — Error on `layers/core-ui/src/pages/**`. Flags the inline literal combination `text-[20px]` + `font-[600]` + `tracking-[-0.01em]` on any element that is not `PageHeader`. Composing `pageTitleClassName` as an identifier expression is always compliant. SettingsPage.tsx and SetupFlow.tsx are exempt via `eslint.config.ts:184-185` pending their migration.
 
-**`no-undefined-font-heading`** — Error on `pages/**`, warn on the rest of `packages/web/src/**`. Flags `font-heading` everywhere (undefined Tailwind utility — silent CSS no-op). Flags `tracking-wider` only on heading elements (h1–h6) inside `pages/**` (`inPages && isHeading`, `no-undefined-font-heading.ts:105`).
+**`no-undefined-font-heading`** — Error on `pages/**`, warn on the rest of `layers/core-ui/src/**`. Flags `font-heading` everywhere (undefined Tailwind utility — silent CSS no-op). Flags `tracking-wider` only on heading elements (h1–h6) inside `pages/**` (`inPages && isHeading`, `no-undefined-font-heading.ts:105`).
 
-Run `npm run lint:eslint` to check both. RuleTester unit tests: `packages/eslint-plugin-design/src/__tests__/AI7-no-handrolled-page-header.test.ts` and `AI7-no-undefined-font-heading.test.ts`.
+Run `npm run lint:eslint` to check both. RuleTester unit tests: `tools/eslint-plugin-design/src/__tests__/AI7-no-handrolled-page-header.test.ts` and `AI7-no-undefined-font-heading.test.ts`.
 
 ---
 

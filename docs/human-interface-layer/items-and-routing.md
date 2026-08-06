@@ -1,15 +1,15 @@
 # Items and Routing
 
-<!-- @source packages/db/src/schema.ts -->
-<!-- @source packages/fabric/src/services/item-router.ts -->
+<!-- @source framework/db/src/schema.ts -->
+<!-- @source framework/api-contract/src/core-api-port.ts -->
 
 Every item that flows through any view is the same shape under the hood. The view decides how to render it; the process layer decides where to send it.
 
 ## 1. The Item shape
 
-An Item is a **routing projection**, not the conversation itself. The Thread + Message rows are the source of truth for the conversation history — including the verdict and any inline comments (see [thread-primitive.md](thread-primitive.md)). Every Item belongs to a thread: `thread_id` is a NOT NULL FK (`packages/db/src/schema.ts:505-507`).
+An Item is a **routing projection**, not the conversation itself. The Thread + Message rows are the source of truth for the conversation history — including the verdict and any inline comments (see [thread-primitive.md](thread-primitive.md)). Every Item belongs to a thread: `thread_id` is a NOT NULL FK (`framework/db/src/schema.ts`).
 
-Live columns (`packages/db/src/schema.ts:489`):
+Live columns (`framework/db/src/schema.ts`):
 
 ```
 Item {
@@ -32,7 +32,7 @@ Item {
 }
 ```
 
-Risk tiers are enforced at the tool boundary: `low | medium | high` (`packages/server/src/tools/route-item.ts:8`).
+Risk tiers are enforced at the tool boundary: `low | medium | high` (`layers/agent-orchestration/tool-handlers/src/tool-definitions.ts`).
 
 Review-kind items render through the review canvases; the decision UI is the 5-verdict grammar owned by [thread-primitive.md](thread-primitive.md).
 
@@ -41,11 +41,11 @@ Review-kind items render through the review canvases; the decision UI is the 5-v
 - **`reasoning` is non-negotiable.** Every Item explains *why* the agent surfaced it. Humans don't trust agents they can't reason about.
 - **`kind` and `verb` are separate on purpose.** `verb` is the human activity; `kind` is the rendering shape. An item can shift kinds without losing identity — a chat thread that produces a concrete proposal becomes a review thread inline, and the history is preserved.
 
-There is no separate Response record. The `responses` table was dropped (`packages/db/src/schema.ts:514`) — human verdicts project as `verdict`-typed messages on the thread, carrying a `decision` from the 5-value grammar plus `resolvesMessageId`. See [thread-primitive.md](thread-primitive.md).
+There is no separate Response record. The `responses` table was dropped (`framework/db/src/schema.ts`) — human verdicts project as `verdict`-typed messages on the thread, carrying a `decision` from the 5-value grammar plus `resolvesMessageId`. See [thread-primitive.md](thread-primitive.md).
 
 ## 2. Routing: how items find the right view
 
-Routing is a pure function: `routeItem({ riskTier, kind, verb })` in `packages/fabric/src/services/item-router.ts:5`, invoked by the `route_item` facilitator tool (`packages/server/src/tools/route-item.ts`). Facilitators — the strategy agents that curate attention — do the routing (see [../knowledge-architecture/facilitators.md](../knowledge-architecture/facilitators.md)).
+Routing is a pure function: `routeItem({ riskTier, kind, verb })` (`framework/api-contract/src/core-api-port.ts`), invoked by the `route_item` facilitator tool (`layers/agent-orchestration/tool-handlers/src/tool-definitions.ts`). Facilitators — the strategy agents that curate attention — do the routing (see [../knowledge-architecture/facilitators.md](../knowledge-architecture/facilitators.md)).
 
 Rules, in match order:
 
@@ -58,12 +58,12 @@ Rules, in match order:
 | 5 | `kind` chat | Conversations |
 | 6 | everything else | Conversations (default) |
 
-Strategic / rule-shaped items — about how the factory *operates*, not what it's doing — belong in the assistant's thread: the pinned user-hosted thread classifies as "assistant" (`packages/shared/src/thread.ts:287`).
+Strategic / rule-shaped items — about how the factory *operates*, not what it's doing — belong in the assistant's thread: the pinned user-hosted thread classifies as "assistant" (`framework/shared/src/thread.ts`).
 
 ## 3. The less-interruptive-view principle
 
-When in doubt, facilitators err toward the less interruptive view. Conversations is the most expensive surface — it can interrupt a human's day. Items that don't earn a push notification shouldn't push there: only review items with `risk_tier` ≥ medium or `blocking` earn a `review_request` push; low-risk, non-blocking reviews demote to ambient (`packages/shared/src/notifications.ts:39-44`). Notification cadence and queue mechanics live in [notification-primitive.md](notification-primitive.md).
+When in doubt, facilitators err toward the less interruptive view. Conversations is the most expensive surface — it can interrupt a human's day. Items that don't earn a push notification shouldn't push there: only review items with `risk_tier` ≥ medium or `blocking` earn a `review_request` push; low-risk, non-blocking reviews demote to ambient (`framework/shared/src/notifications.ts`). Notification cadence and queue mechanics live in [notification-primitive.md](notification-primitive.md).
 
 ## 4. Routing is not a gate
 
-Routing an item to Conversations puts it in front of a human; whether the agent *waits* is a separate question. There is no unconditional synchronous gate for high-risk or skill-change items — gating rides approval-rate trust (AD4: verdict-history × `risk_tier`, `packages/fabric/src/services/policy-engine.ts`) and fades as trust grows. The trust surface is owned by [review-primitive.md](review-primitive.md); the staged-operation checkpoint mechanics by [../process-layer/staged-operation.md](../process-layer/staged-operation.md).
+Routing an item to Conversations puts it in front of a human; whether the agent *waits* is a separate question. There is no unconditional synchronous gate for high-risk or skill-change items — gating rides approval-rate trust (AD4: verdict-history × `risk_tier`, `layers/core-api/policy/src/policy-engine.ts`) and fades as trust grows. The trust surface is owned by [review-primitive.md](review-primitive.md); the staged-operation checkpoint mechanics by [../process-layer/staged-operation.md](../process-layer/staged-operation.md).

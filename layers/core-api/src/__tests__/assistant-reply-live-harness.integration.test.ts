@@ -274,9 +274,14 @@ describe("the assistant reply reaches the calling thread via a real harness's ow
 	/**
 	 * Shared proof body — every harness runs the identical real path. Each
 	 * caller below wraps this in its OWN `describe` with a LITERAL
-	 * `requireHarness("<name>")` call (the honest-harness-guard's static
-	 * source scan only recognizes string-literal arguments, not a variable —
-	 * see `scripts/honest-harness-guard.ts`'s `declaredHarnesses`).
+	 * `requireHarness("<name>")` call, one per harness.
+	 *
+	 * @lore AU28: the literal-argument convention was originally forced by
+	 * `scripts/honest-harness-guard.ts`, whose static scan could only read a
+	 * string literal. Ruling 10 deleted that guard, so nothing enforces the
+	 * convention any more — keep it anyway. It is what makes the per-harness
+	 * lanes greppable, and the attestation floor still counts executions per
+	 * harness. Do not collapse these into a loop over a variable.
 	 */
 	async function runReplyProof(harness: SupportedHarnessName, db: HyperIdleDb): Promise<void> {
 		const founderId = `founder-inc8-${harness}`;

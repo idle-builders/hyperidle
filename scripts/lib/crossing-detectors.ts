@@ -23,6 +23,215 @@ import type { Crossing, Kind, Target } from "./governance-model.js";
 import type { Census, WorkspacePackage } from "./repo-census.js";
 
 /**
+ * Thrown when a file the census classifies `production` sits in no workspace package and still
+ * produces a crossing.
+ *
+ * @lore AU28: this is a MISCONFIGURATION failing open, which is the worst direction. `actorFor`
+ * conflated two different situations — "outside the package tree" (a build script under `scripts/`,
+ * legitimately the repo root) and "unregistered inside it" (a directory under `layers/` with no
+ * `package.json`). The second resolved to the repo-root actor, which `architecture.json` declares a
+ * COMPOSITION ROOT, so `layers/rogue/src/backdoor.ts` could import across every layer and be
+ * adjudicated allowed, while the AST detectors skipped it entirely and it could write any table it
+ * liked. A baseline entry for that would be nonsense — the census would be forgiving a hole in
+ * itself — so it throws, like every sibling census misconfiguration already does.
+ */
+export class UnclaimedProductionFileError extends Error {
+	constructor(readonly file: string) {
+		super(
+			`crossings: ${file} is production code but sits in no workspace package, so it resolves to the ` +
+				"repo-root actor — a declared composition root. Add a package.json and a `workspaces` glob, " +
+				"or move the file out of a production role root. A production file may never act as the repo root.",
+		);
+		this.name = "UnclaimedProductionFileError";
+	}
+}
+
+/**
+ * Specifier as written → the census file it resolves to, per source file.
+ *
+ * Built once per census and memoized. Three detectors need this map and each used to rebuild it by
+ * scanning all 3,600 edges per file.
+ */
+const specifierIndexes = new WeakMap<Census, Map<string, Map<string, string>>>();
+
+function specifiersOf(census: Census, file: string): ReadonlyMap<string, string> {
+	let index = specifierIndexes.get(census);
+	if (index === undefined) {
+		index = new Map<string, Map<string, string>>();
+		for (const edge of census.edges) {
+			const forFile = index.get(edge.from) ?? new Map<string, string>();
+			forFile.set(edge.specifier, edge.to);
+			index.set(edge.from, forFile);
+		}
+		specifierIndexes.set(census, index);
+	}
+	return index.get(file) ?? new Map<string, string>();
+}
+
+/** What a file can say to name a table, resolved through its BINDINGS rather than its spelling. */
+export interface TableRefs {
+	/** The table an expression names, or null when it names none. */
+	readonly resolve: (expr: ts.Expression) => string | null;
+	/** Local names bound to a whole-database namespace import, so `schema.bets` resolves. */
+	readonly namespaces: ReadonlySet<string>;
+}
+
+/**
+ * Resolve a table through the import binding, not the identifier text.
+ *
+ * @lore AU28: table detection used to be `input.tables.has(arg.text)` — the local identifier had to
+ * EQUAL the schema export name. Three spellings of the same write:
+ *
+ *     import { teams } from "@hyperidle/db";                    insert(teams)  → caught
+ *     import { teams as T } from "@hyperidle/db";               insert(T)      → invisible
+ *     import { teams } from "@hyperidle/db"; const t = teams;   insert(t)      → invisible
+ *
+ * Renaming an import is an ordinary style choice, not concealment, so the whole table ACL was one
+ * keystroke deep. It cut both ways: `buildWriteSets` also failed to CREDIT an aliased companion
+ * write, so a fixture that did supply the companion under an alias was reported as a violation.
+ *
+ * @lore AU28: the census's `ImportEdge.symbols` carries `propertyName ?? name` — the ORIGINAL export
+ * name — so it cannot supply the local alias. The alias has to come from the re-parse the detectors
+ * already do. Do not try to read it off the edge.
+ *
+ * @lore AU28 — the deliberate BOUNDARY. This resolves exactly one level of NAMING indirection:
+ * import alias, `const` alias (to a fixed point), namespace destructure, namespace property access.
+ * Value flow is out of scope — `const T = { bets }; insert(T.bets)`, a table returned from a
+ * function, a table in a `Map`. That is hiding, not a style, and a partial value-flow analysis reads
+ * as complete while being trivially escapable. The bare-name fallback is kept last so behaviour for
+ * unaliased code is byte-identical and no count moves.
+ */
+export function buildTableRefs(
+	sf: ts.SourceFile,
+	file: string,
+	input: Pick<AstDetectorInput, "census" | "locate" | "tables">,
+): TableRefs {
+	const specifiers = specifiersOf(input.census, file);
+	const namespaces = new Set<string>();
+	const local = new Map<string, string>();
+
+	// The specifier must land in the DATABASE package. Without this the resolver degrades back into
+	// a name-matcher: a local module that happens to export a symbol called `teams` would bind it.
+	const isDatabaseModule = (specifier: string): boolean =>
+		specifier.startsWith("@hyperidle/db") || input.locate(specifiers.get(specifier) ?? "")?.name === "db";
+
+	for (const statement of sf.statements) {
+		if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
+		if (!isDatabaseModule(statement.moduleSpecifier.text)) continue;
+		const bindings = statement.importClause?.namedBindings;
+		if (bindings === undefined) continue;
+		if (ts.isNamespaceImport(bindings)) {
+			namespaces.add(bindings.name.text);
+			continue;
+		}
+		for (const element of bindings.elements) {
+			if (element.isTypeOnly === true) continue;
+			const original = (element.propertyName ?? element.name).text;
+			if (input.tables.has(original)) local.set(element.name.text, original);
+		}
+	}
+
+	// `const t = teams`, `const { bets } = schema` — resolved to a fixed point so `const b = a` works.
+	for (let pass = 0; pass < 8; pass += 1) {
+		let grew = false;
+		const walk = (node: ts.Node): void => {
+			if (ts.isVariableDeclaration(node) && node.initializer !== undefined) {
+				const init = node.initializer;
+				if (ts.isIdentifier(node.name) && ts.isIdentifier(init)) {
+					const table = local.get(init.text);
+					if (table !== undefined && !local.has(node.name.text)) {
+						local.set(node.name.text, table);
+						grew = true;
+					} else if (namespaces.has(init.text) && !namespaces.has(node.name.text)) {
+						namespaces.add(node.name.text);
+						grew = true;
+					}
+				} else if (ts.isObjectBindingPattern(node.name) && ts.isIdentifier(init) && namespaces.has(init.text)) {
+					for (const element of node.name.elements) {
+						if (!ts.isIdentifier(element.name)) continue;
+						const key = element.propertyName ?? element.name;
+						if (!ts.isIdentifier(key) || !input.tables.has(key.text)) continue;
+						if (local.has(element.name.text)) continue;
+						local.set(element.name.text, key.text);
+						grew = true;
+					}
+				}
+			}
+			ts.forEachChild(node, walk);
+		};
+		walk(sf);
+		if (!grew) break;
+	}
+
+	const resolve = (expr: ts.Expression): string | null => {
+		if (ts.isIdentifier(expr)) {
+			return local.get(expr.text) ?? (input.tables.has(expr.text) ? expr.text : null);
+		}
+		if (ts.isPropertyAccessExpression(expr) && ts.isIdentifier(expr.expression)) {
+			if (namespaces.has(expr.expression.text) && input.tables.has(expr.name.text)) return expr.name.text;
+		}
+		return null;
+	};
+
+	return { resolve, namespaces };
+}
+
+/**
+ * Local names bound to drizzle's `sql` tag, so a raw template is recognised however it is imported.
+ *
+ * Only the tag is resolved here; which TABLE the template names is a string match against the
+ * physical names — see `rawSqlTables`.
+ */
+function drizzleSqlNames(sf: ts.SourceFile): Set<string> {
+	const out = new Set<string>();
+	for (const statement of sf.statements) {
+		if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
+		if (!/^drizzle-orm(\/|$)/.test(statement.moduleSpecifier.text)) continue;
+		const bindings = statement.importClause?.namedBindings;
+		if (bindings === undefined || ts.isNamespaceImport(bindings)) continue;
+		for (const element of bindings.elements) {
+			if ((element.propertyName ?? element.name).text === "sql") out.add(element.name.text);
+		}
+	}
+	return out;
+}
+
+/**
+ * Statement verbs that make a raw SQL template a WRITE. Anything else naming a table reads it.
+ *
+ * The STATEMENT verb decides, not the keyword in front of the table name — otherwise `delete from x`
+ * would count as a read as well as a write.
+ */
+const SQL_WRITE_VERBS = /\b(insert|update|delete|alter|truncate|create|drop)\b/i;
+const SQL_ANY_VERB = /\b(insert|update|delete|alter|truncate|create|drop|select|with)\b/i;
+
+/**
+ * The tables a raw SQL template names, and whether the statement reads or writes them.
+ *
+ * @lore AU28: `READ_OPS`/`WRITE_OPS` only ever saw the Drizzle query builder, so a table named
+ * inside a `sql` template was a STRING and no crossing at all —
+ * ``db.execute(sql`insert into teams (id) values ('x')`)`` passed with the crossing count unchanged.
+ * The shape is already the live style in three production services; all of them happen to touch
+ * their own tables today, which is luck rather than enforcement.
+ *
+ * @lore AU28: the keyword anchor (`from|into|update|join|table|truncate|on` before the name) is
+ * load-bearing. Without it the generic physical names — `users`, `items`, `sessions`, `teams` —
+ * collide with prose in comments and with interpolated Drizzle column references, and the detector
+ * starts inventing crossings. Measured against the live tree the anchored form yields exactly the
+ * real sites and no false positives.
+ */
+function rawSqlTables(text: string, physicalNames: ReadonlyMap<string, string>): Map<string, "table:read" | "table:write"> {
+	const found = new Map<string, "table:read" | "table:write">();
+	const verb = SQL_ANY_VERB.exec(text)?.[0] ?? "";
+	const kind = SQL_WRITE_VERBS.test(verb) ? "table:write" : "table:read";
+	for (const [physical, symbol] of physicalNames) {
+		const anchored = new RegExp(`\\b(?:from|into|update|join|table|truncate|on)\\s+"?${physical}"?\\b`, "i");
+		if (anchored.test(text)) found.set(symbol, kind);
+	}
+	return found;
+}
+
+/**
  * Exported constants, per package.
  *
  * @lore AU28: an imported CONSTANT handed to a call is an ordinary import, not an injected port. The
@@ -123,13 +332,13 @@ export function buildCompanionGroups(
 		} catch {
 			continue;
 		}
+		const refs = buildTableRefs(sf, record.path, input);
 		const walk = (node: ts.Node): void => {
 			if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)) {
 				const method = node.expression.name.text;
 				const arg = node.arguments[0];
-				if ((method === "update" || method === "delete") && arg !== undefined && ts.isIdentifier(arg) && input.tables.has(arg.text)) {
-					revised.add(arg.text);
-				}
+				const table = method === "update" || method === "delete" ? (arg === undefined ? null : refs.resolve(arg)) : null;
+				if (table !== null) revised.add(table);
 			}
 			ts.forEachChild(node, walk);
 		};
@@ -137,15 +346,14 @@ export function buildCompanionGroups(
 	}
 
 	/** Tables INSERTED on every path through this function — not inside a branch. */
-	const unconditionalInserts = (fn: ts.FunctionDeclaration): Set<string> => {
+	const unconditionalInserts = (fn: ts.FunctionDeclaration, refs: TableRefs): Set<string> => {
 		const found = new Set<string>();
 		const walk = (node: ts.Node, branched: boolean): void => {
 			const nowBranched = branched || ts.isCaseClause(node) || ts.isDefaultClause(node) || ts.isConditionalExpression(node);
 			if (!nowBranched && ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)) {
 				const arg = node.arguments[0];
-				if (node.expression.name.text === "insert" && arg !== undefined && ts.isIdentifier(arg) && input.tables.has(arg.text)) {
-					found.add(arg.text);
-				}
+				const table = node.expression.name.text === "insert" && arg !== undefined ? refs.resolve(arg) : null;
+				if (table !== null) found.add(table);
 			}
 			ts.forEachChild(node, (child) => walk(child, nowBranched));
 		};
@@ -163,10 +371,11 @@ export function buildCompanionGroups(
 		} catch {
 			continue;
 		}
+		const refs = buildTableRefs(sf, record.path, input);
 		for (const statement of sf.statements) {
 			if (!ts.isFunctionDeclaration(statement) || statement.name === undefined) continue;
 			if (!statement.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword)) continue;
-			const written = unconditionalInserts(statement);
+			const written = unconditionalInserts(statement, refs);
 			if (written.size < 2) continue;
 			// A seeder in the database package writes every table in the schema and is not a door any
 			// test would go through, so the owner check below also excludes it.
@@ -190,6 +399,8 @@ export interface AstDetectorInput {
 	readonly locate: (file: string) => WorkspacePackage | undefined;
 	/** Every table the schema declares — from the schema source, never a list. */
 	readonly tables: ReadonlySet<string>;
+	/** Physical SQL name → export symbol, so a table named inside a `sql` template resolves. */
+	readonly physicalNames: ReadonlyMap<string, string>;
 	readonly ownerOf: (table: string) => string | null;
 	/** The layer that hosts the MCP router, and the one that may hold raw runtimes. */
 	readonly mcpRouterHost: string;
@@ -207,9 +418,14 @@ export interface AstDetectorInput {
  * A test that calls a shared `seedBase()` helper has written whatever the helper writes. Judging the
  * file alone would report a companion as missing when a fixture module three lines away supplies it,
  * and a rule that cries wolf on the shared helper is a rule people switch off.
+ *
+ * @lore AU28: this side of the table resolver matters as much as the detection side. A fixture that
+ * DOES write the companion, under an alias or in a `sql` template, must be credited for it — an
+ * under-reading write set turns the companion rule into a false positive, which is the failure mode
+ * that gets a rule switched off rather than fixed.
  */
 export function buildWriteSets(
-	input: Pick<AstDetectorInput, "census" | "readFile" | "tables">,
+	input: Pick<AstDetectorInput, "census" | "readFile" | "locate" | "tables" | "physicalNames">,
 ): (file: string) => ReadonlySet<string> {
 	const own = new Map<string, Set<string>>();
 	for (const record of input.census.files) {
@@ -220,12 +436,18 @@ export function buildWriteSets(
 		} catch {
 			continue;
 		}
+		const refs = buildTableRefs(sf, record.path, input);
+		const sqlNames = drizzleSqlNames(sf);
 		const found = new Set<string>();
 		const walk = (node: ts.Node): void => {
 			if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)) {
 				const arg = node.arguments[0];
-				if (WRITE_OPS.has(node.expression.name.text) && arg !== undefined && ts.isIdentifier(arg) && input.tables.has(arg.text)) {
-					found.add(arg.text);
+				const table = WRITE_OPS.has(node.expression.name.text) && arg !== undefined ? refs.resolve(arg) : null;
+				if (table !== null) found.add(table);
+			}
+			if (ts.isTaggedTemplateExpression(node) && ts.isIdentifier(node.tag) && sqlNames.has(node.tag.text)) {
+				for (const [table, kind] of rawSqlTables(node.template.getText(sf), input.physicalNames)) {
+					if (kind === "table:write") found.add(table);
 				}
 			}
 			ts.forEachChild(node, walk);
@@ -270,12 +492,36 @@ export interface AstFinding {
 const READ_OPS = new Set(["from", "leftJoin", "innerJoin", "rightJoin", "fullJoin"]);
 const WRITE_OPS = new Set(["insert", "update", "delete"]);
 
-/** Vendor SDKs that ARE a raw runtime. A new one is invisible until it is added here. */
+/**
+ * The two spellings of ONE act: a model or agent call that does not go through `agent-execution`.
+ *
+ * @lore AU28 Ruling 14: `RAW_RUNTIME_SPECIFIERS` and `HARNESS_BINARIES` emit the SAME target sort.
+ * They used to emit two — `raw-runtime` for a vendor SDK import, `harness` for an agent CLI spawn —
+ * and that split was a detector detail (one is an import, the other a process spawn) that leaked
+ * into the rule vocabulary and let the development world hold one half and wave the other through.
+ * Two lists, one target: a new vendor SDK or a new agent CLI is still invisible until its list grows,
+ * which is a coverage limit and stated as one, not a rule.
+ */
 const RAW_RUNTIME_SPECIFIERS = [/^openai$/, /^@anthropic-ai\/sdk/, /^@google\/generative-ai/, /^@modelcontextprotocol\/sdk/];
 
-/** Agent CLIs. Spawning one directly is holding the harness. */
-const HARNESS_BINARIES = new Set(["claude", "codex", "opencode", "cursor-agent", "gh"]);
+/**
+ * Agent CLIs — the binaries that run a model.
+ *
+ * @lore AU28 Ruling 15: `gh` is NOT here and must never be. A harness is the thing that runs a
+ * model; `gh` is the GitHub CLI and its one production use is `gh auth status`, which makes no model
+ * call. Putting "every model and agent call goes through one door so it can be recorded, priced and
+ * replayed" on top of a credential probe is the absurdity that ruling removes.
+ */
+const HARNESS_BINARIES = new Set(["claude", "codex", "opencode", "cursor-agent"]);
+
+/**
+ * @lore AU28: `exec`/`execSync` take a whole COMMAND STRING, not a binary name, so the first
+ * argument is split on whitespace for those two and passed whole for the rest. Without that,
+ * `execSync("claude -p 'do the thing'")` never matched the binary list — the same act as
+ * `spawn("claude", [...])`, invisible because the API shape differs.
+ */
 const SPAWN_FUNCTIONS = new Set(["spawn", "spawnSync", "exec", "execSync", "execFile", "execFileSync", "fork"]);
+const COMMAND_STRING_SPAWNS = new Set(["exec", "execSync"]);
 
 const MCP_CONSTRUCTORS = /^createMcp(Router|ToolBridge|Session)$/;
 
@@ -380,10 +626,7 @@ export function layerServing(routes: readonly Route[], apiPath: string): string 
 /** Identifier → the package it was imported from. The basis of the `di` heuristic. */
 function importOrigins(sf: ts.SourceFile, file: string, input: AstDetectorInput): Map<string, WorkspacePackage> {
 	const out = new Map<string, WorkspacePackage>();
-	const resolved = new Map<string, string>();
-	for (const edge of input.census.edges) {
-		if (edge.from === file) resolved.set(edge.specifier, edge.to);
-	}
+	const resolved = specifiersOf(input.census, file);
 	for (const statement of sf.statements) {
 		if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
 		if (statement.importClause?.isTypeOnly === true) continue;
@@ -398,23 +641,6 @@ function importOrigins(sf: ts.SourceFile, file: string, input: AstDetectorInput)
 		if (bindings === undefined) continue;
 		if (ts.isNamespaceImport(bindings)) out.set(bindings.name.text, target);
 		else for (const element of bindings.elements) if (element.isTypeOnly !== true) out.set(element.name.text, target);
-	}
-	return out;
-}
-
-/** Names bound to a whole-database namespace import, so `schema.bets` resolves to the table. */
-function databaseNamespaces(sf: ts.SourceFile, file: string, input: AstDetectorInput): Set<string> {
-	const out = new Set<string>();
-	const resolved = new Map<string, string>();
-	for (const edge of input.census.edges) {
-		if (edge.from === file) resolved.set(edge.specifier, edge.to);
-	}
-	for (const statement of sf.statements) {
-		if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
-		const to = resolved.get(statement.moduleSpecifier.text) ?? "";
-		const isDatabase = statement.moduleSpecifier.text.startsWith("@hyperidle/db") || input.locate(to)?.name === "db";
-		const bindings = statement.importClause?.namedBindings;
-		if (isDatabase && bindings !== undefined && ts.isNamespaceImport(bindings)) out.add(bindings.name.text);
 	}
 	return out;
 }
@@ -451,7 +677,12 @@ export function detectAstCrossings(input: AstDetectorInput): AstFinding[] {
 	for (const record of input.census.files) {
 		if (!/\.tsx?$/.test(record.path)) continue;
 		const owner = input.locate(record.path);
-		if (owner === undefined) continue;
+		// A production file in no package used to be SKIPPED here — silently, so the same directory
+		// could also write any table it liked and be invisible. It fails closed now; see the error.
+		if (owner === undefined) {
+			if (record.kind === "production") throw new UnclaimedProductionFileError(record.path);
+			continue;
+		}
 		let sf: ts.SourceFile;
 		try {
 			sf = parseFile(record.path, input.readFile(record.path));
@@ -462,7 +693,9 @@ export function detectAstCrossings(input: AstDetectorInput): AstFinding[] {
 		const world = record.kind;
 		const source: Crossing["source"] = { sort: "package", name: owner.name, role: owner.role, layer: owner.layer };
 		const origins = importOrigins(sf, record.path, input);
-		const dbNamespaces = databaseNamespaces(sf, record.path, input);
+		const tableRefs = buildTableRefs(sf, record.path, input);
+		const dbNamespaces = tableRefs.namespaces;
+		const sqlNames = drizzleSqlNames(sf);
 
 		// Identifiers holding a typed cross-layer port, and which layer each one reaches.
 		const portRoots = new Map<string, string>();
@@ -506,17 +739,7 @@ export function detectAstCrossings(input: AstDetectorInput): AstFinding[] {
 				const isWrite = WRITE_OPS.has(method);
 				if (isRead || isWrite) {
 					const arg = node.arguments[0];
-					let table: string | null = null;
-					if (arg !== undefined && ts.isIdentifier(arg) && input.tables.has(arg.text)) table = arg.text;
-					else if (
-						arg !== undefined &&
-						ts.isPropertyAccessExpression(arg) &&
-						ts.isIdentifier(arg.expression) &&
-						dbNamespaces.has(arg.expression.text) &&
-						input.tables.has(arg.name.text)
-					) {
-						table = arg.name.text;
-					}
+					const table = arg === undefined ? null : tableRefs.resolve(arg);
 					if (table !== null) {
 						add(
 							isWrite ? "table:write" : "table:read",
@@ -546,6 +769,15 @@ export function detectAstCrossings(input: AstDetectorInput): AstFinding[] {
 				}
 			}
 
+			// --- table: a raw `sql` template naming the table as a string ----------------------
+			// The TEMPLATE is what is detected, not `db.execute(...)` — that also covers `tx.execute`,
+			// `exec.execute`, and a fragment handed anywhere else.
+			if (ts.isTaggedTemplateExpression(node) && ts.isIdentifier(node.tag) && sqlNames.has(node.tag.text)) {
+				for (const [table, kind] of rawSqlTables(node.template.getText(sf), input.physicalNames)) {
+					add(kind, tableTarget(table), node, `raw \`sql\` template ${kind === "table:write" ? "writes" : "reads"} \`${table}\``);
+				}
+			}
+
 			if (ts.isCallExpression(node)) {
 				const callee = node.expression;
 				const name = ts.isIdentifier(callee) ? callee.text : ts.isPropertyAccessExpression(callee) ? callee.name.text : "";
@@ -554,8 +786,9 @@ export function detectAstCrossings(input: AstDetectorInput): AstFinding[] {
 				if (SPAWN_FUNCTIONS.has(name)) {
 					const arg = node.arguments[0];
 					if (arg !== undefined && ts.isStringLiteralLike(arg)) {
-						const binary = arg.text.split("/").pop() ?? arg.text;
-						if (HARNESS_BINARIES.has(binary)) add("capability", { sort: "harness" }, node, `spawns the \`${binary}\` binary`);
+						const command = COMMAND_STRING_SPAWNS.has(name) ? (arg.text.trim().split(/\s+/)[0] ?? "") : arg.text;
+						const binary = command.split("/").pop() ?? command;
+						if (HARNESS_BINARIES.has(binary)) add("capability", { sort: "raw-runtime" }, node, `spawns the \`${binary}\` binary`);
 					}
 				}
 

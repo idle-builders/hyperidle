@@ -47,6 +47,15 @@ export interface DbSurfaceIndex {
 	readonly resolve: (toFile: string, symbol: string, namespace: boolean) => DbResolution;
 	/** Every table the schema declares. */
 	readonly tables: ReadonlySet<string>;
+	/**
+	 * Physical SQL table name → the export symbol that declares it.
+	 *
+	 * @lore AU28: `pgTable("knowledge_items", …)` names the table twice — once as a TypeScript export
+	 * and once as a string the database actually sees. Only the export name was ever kept, which is
+	 * why a table named inside a `sql` template was invisible: it is the physical name, and nothing
+	 * mapped it back. Read from the same `pgTable(` call as the export name, so the two cannot drift.
+	 */
+	readonly physicalNames: ReadonlyMap<string, string>;
 	/** Every row type the schema declares. */
 	readonly rowTypes: ReadonlySet<string>;
 	/** Symbols that could not be placed, symbol → reason. Reported, never silently absorbed. */
@@ -68,6 +77,7 @@ export function buildDbSurfaceIndex(config: DatabasePackageConfig, readFile: (pa
 
 	// --- tables and row types, read from the schema itself -----------------------------------
 	const tables = new Set<string>();
+	const physicalNames = new Map<string, string>();
 	const rowTypes = new Set<string>();
 	const schema = parse(config.schemaModule, readFile(config.schemaModule));
 	for (const statement of schema.statements) {
@@ -77,6 +87,10 @@ export function buildDbSurfaceIndex(config: DatabasePackageConfig, readFile: (pa
 				const init = declaration.initializer;
 				if (init !== undefined && ts.isCallExpression(init) && ts.isIdentifier(init.expression) && init.expression.text === "pgTable") {
 					tables.add(declaration.name.text);
+					const physical = init.arguments[0];
+					if (physical !== undefined && ts.isStringLiteralLike(physical)) {
+						physicalNames.set(physical.text, declaration.name.text);
+					}
 				}
 			}
 		} else if (ts.isTypeAliasDeclaration(statement) && /\$infer(Select|Insert)/.test(statement.type.getText(schema))) {
@@ -87,6 +101,17 @@ export function buildDbSurfaceIndex(config: DatabasePackageConfig, readFile: (pa
 		throw new Error(
 			`db-surfaces: ${config.schemaModule} declared no pgTable. An index with no tables would classify every ` +
 				"table reach as unknown and dissolve the ownership rule — refusing to build one.",
+		);
+	}
+	// A table whose physical name could not be read is a table raw SQL can reach invisibly. Every
+	// `pgTable` call in the live schema passes a string literal first, including the three-argument
+	// form, so anything else is a shape this code does not understand and must say so.
+	if (physicalNames.size !== tables.size) {
+		const named = new Set(physicalNames.values());
+		const missing = [...tables].filter((t) => !named.has(t)).sort();
+		throw new Error(
+			`db-surfaces: ${missing.length} pgTable declaration(s) do not name their physical table with a string ` +
+				`literal: ${missing.join(", ")}. Raw SQL naming those tables would be invisible to the table rules.`,
 		);
 	}
 
@@ -187,5 +212,5 @@ export function buildDbSurfaceIndex(config: DatabasePackageConfig, readFile: (pa
 		return { surface: "db:unknown", unknownReason: `${base} is not a named surface` };
 	};
 
-	return { resolve, tables, rowTypes, unplaced };
+	return { resolve, tables, physicalNames, rowTypes, unplaced };
 }

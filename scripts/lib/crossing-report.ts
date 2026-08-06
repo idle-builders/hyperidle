@@ -32,8 +32,6 @@ export function targetLabel(target: Target, source: Actor): string {
 			return "MCP router";
 		case "raw-runtime":
 			return "raw runtime";
-		case "harness":
-			return "harness";
 		case "repo-root":
 			return "repo root";
 		case "surface":
@@ -145,9 +143,19 @@ export function refuseGrowth(live: readonly LiveGroup[], previous: Baseline, ado
  * Compare the live violations against the committed baseline.
  *
  * Fails in BOTH directions on purpose. Growing is new debt. Shrinking without committing the shrink
- * is what turns a ratchet into a rubber stamp — and failing on both independently is also what
- * defeats the swap, where one violation is fixed and another introduced in the same commit so the
- * total never moves.
+ * is what turns a ratchet into a rubber stamp.
+ *
+ * @lore AU28 — WHAT THE BIDIRECTIONAL CHECK ACTUALLY GUARANTEES, both halves. It defeats the swap
+ * ACROSS `(group, file)` pairs: fix a violation in `a.ts`, introduce one in `b.ts` or in another
+ * group, and the total never moves but `a.ts` reports `stale` while `b.ts` reports `newDebt`. It
+ * does NOT defeat a swap WITHIN one `(group, file)` pair — the key is `(group, file, count)` and
+ * carries no table, and `targetLabel` collapses every unowned table to `db:table (unowned)`, so
+ * renaming one unowned table to another unowned table inside a baselined file clears three
+ * violations and creates three, with no `stale` and no `newDebt`. That is a KNOWN LIMIT, recorded
+ * rather than fixed: narrowing the key to include the table would re-key all 38 baseline groups
+ * wholesale, and the case is closer to gaming than to a style difference — nobody writes it by
+ * accident. An earlier version of this comment claimed the check defeated the swap outright. It did
+ * not, and a false claim in the file that makes it is worse than the gap.
  *
  * @lore AU28: keyed by FILE, not by line. Line keys thrash on every edit and train people to
  * regenerate the baseline reflexively, which is the same as not having one.

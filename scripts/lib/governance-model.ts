@@ -1,21 +1,29 @@
 /**
  * AU28 — the compact architecture model.
  *
- * Nine clauses decide every boundary crossing in the repo. They are stated here as code because they
- * are *principles*, and a principle changes only when the founder rules on the architecture. The
- * things that change when packages, surfaces or table owners change are DATA and live in
- * `governance/architecture.json` and `governance/table-owners.json`.
+ * FIFTEEN clauses decide every boundary crossing in the repo — the fifteen ids in `CLAUSES` below,
+ * every one of which the model can return and name in a decision. They are stated here as code
+ * because they are *principles*, and a principle changes only when the founder rules on the
+ * architecture. The things that change when packages, surfaces or table owners change are DATA and
+ * live in `governance/architecture.json` and `governance/table-owners.json`.
  *
- * @lore AU28: the decision artifact for this model is a 125-row table of hand-decided verdicts
+ * @lore AU28: the count used to be stated four different ways — "nine" here, "13" in the README and
+ * the commit, 15 entries in `CLAUSES`. Fifteen is the true number and the other three were counting
+ * something else: `decideProduction` has NINE numbered branches, but several return more than one
+ * clause id (the store branch answers with `store-tooling-measures-everything` or `store-owner-only`;
+ * the reach branch with three), and the development relaxation adds two more. Count the ids, not the
+ * `if`s — the ids are what a decision names and what the coverage assertion checks.
+ *
+ * @lore AU28: the decision artifact for this model is a 124-row table of hand-decided verdicts
  * (`governance/decided-rules.json`) — every role pair × crossing kind × world the founder ruled on.
- * Those 125 rows are deliberately NOT the implementation. Implementing them literally would mean 125
+ * Those 124 rows are deliberately NOT the implementation. Implementing them literally would mean 124
  * hand-written rules, each free to disagree with its neighbours, and a founder ruling would land as a
- * 125-way diff. Instead they are the ACCEPTANCE TEST: this model is correct if and only if it
- * reproduces all 250 verdicts (125 rows × 2 worlds) exactly. `governance-model.test.ts` asserts
+ * 124-way diff. Instead they are the ACCEPTANCE TEST: this model is correct if and only if it
+ * reproduces all 248 verdicts (124 rows × 2 worlds) exactly. `governance-model.test.ts` asserts
  * that, so a clause edited to fix one crossing and silently breaking another cannot land.
  *
  * @lore AU28: this model is TOTAL — it returns a verdict for every crossing, including combinations
- * the 125 rows never enumerated because nothing in the repo crosses that way today. That is on
+ * the 124 rows never enumerated because nothing in the repo crosses that way today. That is on
  * purpose: the previous design could fail with "instance matched no rule", which is the same failure
  * mode as a guard that scans nothing. A total model has no such hole. The cost is that it answers
  * questions the founder was never asked; `npm run governance:new-cells` lists exactly those answers.
@@ -67,10 +75,19 @@ export type Target =
 	| { readonly sort: "http-api"; readonly layer: string }
 	| { readonly sort: "mcp-router" }
 	| { readonly sort: "event-bus" }
-	/** A model or harness SDK constructed directly. */
+	/**
+	 * A model or agent call that does not go through the one runtime door — a vendor SDK
+	 * constructed directly, or an agent CLI spawned directly.
+	 *
+	 * @lore AU28 Ruling 14: this used to be TWO targets, `raw-runtime` and `harness`. They were one
+	 * act split by a detector detail — one is an import, the other a process spawn — and the split
+	 * leaked into the rule vocabulary. It had already produced a live contradiction: production
+	 * forbade both under the same stated rationale, but the development relaxation held only
+	 * `raw-runtime`, so a test importing the OpenAI SDK was blocked while a test spawning `claude`
+	 * was waved through the same door. There was no decided row for the second, so the founder was
+	 * never asked. Collapsed by founder ruling; both spellings now emit this one sort.
+	 */
 	| { readonly sort: "raw-runtime" }
-	/** The agent CLI process. */
-	| { readonly sort: "harness" }
 	| { readonly sort: "development-file" }
 	| { readonly sort: "repo-root" };
 
@@ -166,8 +183,10 @@ const livesIn = (actor: Actor, host: string): boolean =>
 /**
  * Decide one crossing in the production world.
  *
- * Nine clauses, checked in order, first match wins. The last is a default of `forbidden`, so the
- * function is total: there is no crossing it declines to answer.
+ * NINE numbered branches, checked in order, first match wins; several answer with more than one
+ * clause id, and the development relaxation adds two more, for the fifteen in `CLAUSES`. The last
+ * branch is a default of `forbidden`, so the function is total: there is no crossing it declines to
+ * answer.
  */
 function decideProduction(arch: Architecture, crossing: Crossing): Decision {
 	const { kind, source, target } = crossing;
@@ -236,8 +255,8 @@ function decideProduction(arch: Architecture, crossing: Crossing): Decision {
 		};
 	}
 
-	// 5. Raw model and harness runtimes are constructed in one layer only.
-	if (target.sort === "raw-runtime" || target.sort === "harness") {
+	// 5. Every model and agent call is made from one layer only — Ruling 14: one door, one name.
+	if (target.sort === "raw-runtime") {
 		const permitted = livesIn(source, arch.rawRuntime.host);
 		return { verdict: permitted ? "allowed" : "forbidden", clause: "hold-one-runtime-door", why: arch.rawRuntime.why };
 	}
@@ -343,6 +362,10 @@ function relaxForDevelopment(arch: Architecture, crossing: Crossing, production:
 		};
 	}
 
+	// `raw-runtime` covers BOTH spellings of the one act since Ruling 14 — importing a vendor SDK and
+	// spawning an agent CLI. Before the collapse this predicate held only the import half, so a test
+	// could go around the runtime door by spawning instead of importing. That was not a decision: the
+	// two were different target sorts and only one of them was listed here.
 	const guarded =
 		(target.sort === "surface" && arch.oneDoorSurfaces.surfaces.includes(target.surface)) ||
 		(target.sort === "raw-runtime" && arch.oneDoorSurfaces.rawRuntime) ||
@@ -381,7 +404,9 @@ export function decide(arch: Architecture, crossing: Crossing, world: World): De
 	return world === "production" ? production : relaxForDevelopment(arch, crossing, production);
 }
 
-/** Every clause id the model can return, for coverage assertions. */
+/**
+ * Every clause id the model can return, for coverage assertions. FIFTEEN — this array is the count.
+ */
 export const CLAUSES = [
 	"production-never-names-development",
 	"store-tooling-measures-everything",

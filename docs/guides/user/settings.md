@@ -77,7 +77,7 @@ Register a filesystem once here with **+ Add filesystem**; injecting it into a s
 
 **Settings → Agent backends** shows all execution environments HyperIdle can use to run agents. HyperIdle detects what is installed on this device and reports each backend's status at a glance.
 
-**The four in-scope backends:**
+**The in-scope backends:**
 
 | Backend | What it is | How to activate |
 |---------|-----------|-----------------|
@@ -85,8 +85,7 @@ Register a filesystem once here with **+ Add filesystem**; injecting it into a s
 | **Claude Code** | Anthropic's Claude Code CLI | Run `claude auth login` in a terminal |
 | **Codex** | OpenAI Codex CLI | Run `codex login` in a terminal |
 | **OpenCode** | OpenCode CLI | Run `opencode providers login` in a terminal |
-
-Cursor Agent appears as "unavailable" — Cursor does not expose a headless CLI surface HyperIdle can drive without the IDE running.
+| **Cursor Agent** | Cursor's `cursor-agent` CLI | Sign in to Cursor; HyperIdle inherits that login |
 
 **Reading the status rows.** Each row shows a colored dot and a short status line:
 

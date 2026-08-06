@@ -52,7 +52,6 @@
 				"framework/db/src/__tests__/foreign-keys.integration.test.ts": 4,
 				"framework/db/src/__tests__/migration.integration.test.ts": 1,
 				"framework/db/src/__tests__/schema.integration.test.ts": 4,
-				"framework/db/src/__tests__/seed-then-migrate.integration.test.ts": 2,
 				"framework/db/src/__tests__/session-requests.integration.test.ts": 1
 			}
 		},

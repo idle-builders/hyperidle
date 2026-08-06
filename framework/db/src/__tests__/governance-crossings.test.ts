@@ -14,6 +14,7 @@ import {
 	detectAstCrossings,
 	layerServing,
 	readEventTypes,
+	UnclaimedProductionFileError,
 } from "../../../../scripts/lib/crossing-detectors.js";
 import {
 	type Baseline,
@@ -27,8 +28,9 @@ import {
 	buildDbSurfaceIndex,
 	type DatabasePackageConfig,
 } from "../../../../scripts/lib/db-surfaces.js";
-import type { Actor } from "../../../../scripts/lib/governance-model.js";
+import type { Actor, Architecture } from "../../../../scripts/lib/governance-model.js";
 import { buildCensus } from "../../../../scripts/lib/repo-census.js";
+import { noLaunderedReExports } from "../../../../scripts/rules/no-laundered-re-exports.js";
 
 const ROLE_RULES = [
 	{ pattern: "layers/*", role: "layer" as const },
@@ -47,12 +49,21 @@ function syntheticRepo(extra: Record<string, string>): {
 		"layers/core-api/package.json": JSON.stringify({ name: "@hyperidle/core-api" }),
 		"layers/core-api/work/package.json": JSON.stringify({ name: "@hyperidle/work" }),
 		"framework/db/package.json": JSON.stringify({ name: "@hyperidle/db" }),
+		// `framework/shared/events.ts` is production by classification, so it needs a manifest — a
+		// production file in no package is a build error now, and this fixture was one.
+		"framework/shared/package.json": JSON.stringify({ name: "@hyperidle/shared" }),
 		"applications/desktop/package.json": JSON.stringify({ name: "@hyperidle/desktop" }),
 		"tools/eval/package.json": JSON.stringify({ name: "@hyperidle/eval" }),
 		...extra,
 	};
 	return { files: Object.keys(base), readFile: (p) => base[p] ?? "" };
 }
+
+/** Physical SQL name → export symbol, mirroring what `buildDbSurfaceIndex` reads off the schema. */
+const PHYSICAL_NAMES = new Map([
+	["bets", "bets"],
+	["users", "users"],
+]);
 
 function detect(
 	extra: Record<string, string>,
@@ -65,6 +76,7 @@ function detect(
 		readFile: repo.readFile,
 		locate: buildPackageLocator(census.packages),
 		tables: new Set(["bets", "users"]),
+		physicalNames: PHYSICAL_NAMES,
 		ownerOf: (t) => (t === "bets" ? "work" : null),
 		mcpRouterHost: "agent-execution",
 		eventTypesModule: "framework/shared/events.ts",
@@ -105,6 +117,60 @@ describe("AU28 — the table detector", () => {
 		expect(kinds(found, "table:write")).toEqual([]);
 	});
 
+	it("resolves the table through the import BINDING, not the identifier text", () => {
+		// Three spellings of one write. Before this, only the first was visible: the local identifier
+		// had to equal the schema export name, so renaming an import was a one-keystroke bypass.
+		const found = detect({
+			"layers/core-api/work/src/q.ts": `
+					import { users, users as U } from "@hyperidle/db";
+					const u = users;
+					export const a = (db: any) => db.insert(users).values({});
+					export const b = (db: any) => db.insert(U).values({});
+					export const c = (db: any) => db.insert(u).values({});
+				`,
+		});
+		const writes = kinds(found, "table:write");
+		expect(writes).toHaveLength(3);
+		// All three name the SAME table — the alias is resolved, not carried through as a label.
+		expect(writes.every((detail) => detail.includes("(users)"))).toBe(true);
+	});
+
+	it("resolves a const alias of a const alias, to a fixed point", () => {
+		const found = detect({
+			"layers/core-api/work/src/q.ts": `
+					import { bets } from "@hyperidle/db";
+					const first = bets;
+					const second = first;
+					export const a = (db: any) => db.insert(second).values({});
+				`,
+		});
+		expect(kinds(found, "table:write")).toHaveLength(1);
+	});
+
+	it("resolves a destructure of the whole-schema namespace", () => {
+		const found = detect({
+			"layers/core-api/work/src/q.ts": `
+					import * as schema from "@hyperidle/db";
+					const { bets: b } = schema;
+					export const a = (db: any) => db.insert(b).values({});
+				`,
+		});
+		expect(kinds(found, "table:write")).toHaveLength(1);
+	});
+
+	it("negative control — an alias of a symbol from a module that is NOT the database package", () => {
+		// Without the "must resolve into the database package" requirement, the resolver degrades back
+		// into a name-matcher and any local `users` export becomes a table.
+		const found = detect({
+			"layers/core-api/work/src/lookalike.ts": "export const users = { notATable: true };",
+			"layers/core-api/work/src/q.ts": `
+					import { users as U } from "./lookalike.js";
+					export const a = (db: any) => db.insert(U).values({});
+				`,
+		});
+		expect(kinds(found, "table:write")).toEqual([]);
+	});
+
 	it("counts a join as a read of the joined table", () => {
 		const found = detect({
 			"layers/core-api/work/src/q.ts": `
@@ -113,6 +179,116 @@ describe("AU28 — the table detector", () => {
 			`,
 		});
 		expect(kinds(found, "table:read")).toHaveLength(1);
+	});
+});
+
+describe("AU28 — raw SQL names the table as a string", () => {
+	it("tells a write statement from a read one, and names the export symbol", () => {
+		const found = detect({
+			"layers/core-api/work/src/raw.ts": `
+					import { sql } from "drizzle-orm";
+					export const w = (db: any) => db.execute(sql\`insert into users (id) values ('x')\`);
+					export const r = (db: any) => db.execute(sql\`select id from bets where id = 'x'\`);
+					export const d = (db: any) => db.execute(sql\`delete from users where id = 'x'\`);
+				`,
+		});
+		// `delete from users` is a WRITE and not also a read — the statement verb decides.
+		expect(kinds(found, "table:write")).toHaveLength(2);
+		expect(kinds(found, "table:read")).toHaveLength(1);
+		expect(kinds(found, "table:read")[0]).toContain("bets");
+	});
+
+	it("sees the template through an aliased `sql` import and a quoted table name", () => {
+		const found = detect({
+			"layers/core-api/work/src/raw.ts": `
+					import { sql as SQL } from "drizzle-orm";
+					export const w = (tx: any) => tx.execute(SQL\`update "users" set name = 'x'\`);
+				`,
+		});
+		expect(kinds(found, "table:write")).toHaveLength(1);
+	});
+
+	it("counts DDL against a table as a write", () => {
+		const found = detect({
+			"layers/core-api/work/src/raw.ts": `
+					import { sql } from "drizzle-orm";
+					export const w = (db: any) => db.execute(sql\`create index idx on users (id)\`);
+				`,
+		});
+		expect(kinds(found, "table:write")).toHaveLength(1);
+	});
+
+	it("negative control — a fragment interpolating a column produces no crossing", () => {
+		// This path is already counted by the builder detector; double-counting would inflate every
+		// floor and make the two detectors disagree about the same statement.
+		const found = detect({
+			"layers/core-api/work/src/raw.ts": `
+					import { sql } from "drizzle-orm";
+					export const f = (title: string) => sql\`lower(title) = \${title}\`;
+				`,
+		});
+		expect(kinds(found, "table:read")).toEqual([]);
+		expect(kinds(found, "table:write")).toEqual([]);
+	});
+
+	it("negative control — an unanchored mention, a comment, and a lookalike table name", () => {
+		const found = detect({
+			"layers/core-api/work/src/raw.ts": `
+					import { sql } from "drizzle-orm";
+					// rebuild the users cache
+					export const a = (db: any) => db.execute(sql\`create table users_int_test (id text)\`);
+					export const b = (db: any) => db.execute(sql\`select 1 where 'bets' = 'bets'\`);
+				`,
+		});
+		expect(kinds(found, "table:read")).toEqual([]);
+		expect(kinds(found, "table:write")).toEqual([]);
+	});
+
+	it("negative control — a template tagged by something that is not drizzle's `sql`", () => {
+		const found = detect({
+			"layers/core-api/work/src/raw.ts": `
+					import { sql } from "some-other-library";
+					export const a = () => sql\`insert into users (id) values ('x')\`;
+				`,
+		});
+		expect(kinds(found, "table:write")).toEqual([]);
+	});
+});
+
+describe("AU28 — a production file in no package fails CLOSED", () => {
+	const rogue = {
+		"layers/rogue/src/backdoor.ts": `
+				import { bets } from "@hyperidle/db";
+				export const w = (db: any) => db.insert(bets).values({});
+			`,
+	};
+
+	it("throws rather than acting as the repo root — a declared composition root", () => {
+		// `actorFor(undefined)` returned `{sort:"repo-root"}` and `classifyFile` calls anything under
+		// `layers/` production, so an unregistered directory got composition-root powers.
+		expect(() => detect(rogue)).toThrow(UnclaimedProductionFileError);
+		expect(() => detect(rogue)).toThrow(/layers\/rogue\/src\/backdoor\.ts/);
+	});
+
+	it("names what to do about it", () => {
+		expect(() => detect(rogue)).toThrow(/package\.json/);
+	});
+
+	it("negative control — a DEVELOPMENT file outside every package still resolves to the repo root", () => {
+		// This is the case that must keep working: legitimate repo-root tooling under `scripts/`.
+		expect(() =>
+			detect({
+				"scripts/build-thing.ts": `
+						import { bets } from "@hyperidle/db";
+						export const w = (db: any) => db.insert(bets).values({});
+					`,
+			}),
+		).not.toThrow();
+	});
+
+	it("negative control — a production file outside every package that parses to nothing does not throw", () => {
+		// A future `layers/README.md` is production by classification and harmless.
+		expect(() => detect({ "layers/rogue/README.md": "# not code" })).not.toThrow();
 	});
 });
 
@@ -297,6 +473,147 @@ describe("AU28 — database surfaces", () => {
 		expect(() => buildDbSurfaceIndex(config, () => "export const nothing = 1;")).toThrow(
 			/declared no pgTable/,
 		);
+	});
+});
+
+describe("AU28 — re-export laundering", () => {
+	/**
+	 * A real-shaped database package plus a service barrel, because the whole bypass lives in the
+	 * relationship between the two: both hops are individually legal and the composition is not.
+	 */
+	const DB_SOURCES: Record<string, string> = {
+		// `exports` is load-bearing: without it `@hyperidle/db` resolves to `framework/db/index.js`,
+		// no edge is produced, and every case below passes for the wrong reason.
+		"framework/db/package.json": JSON.stringify({
+			name: "@hyperidle/db",
+			exports: { ".": "./src/index.ts" },
+		}),
+		"framework/db/src/schema.ts": `
+				export const bets = pgTable("bets", {});
+				export type Bet = typeof bets.$inferSelect;
+			`,
+		"framework/db/src/zod-schemas.ts": "export const betSchema = createSelectSchema(bets);",
+		"framework/db/src/index.ts": `
+				export { bets, Bet } from "./schema.js";
+				export { escapeLikePattern } from "./like-escape.js";
+			`,
+		"framework/db/src/like-escape.ts": "export const escapeLikePattern = (s: string) => s;",
+	};
+
+	const architecture = {
+		containment: { compositionRootRoles: ["application"], repoRootIsCompositionRoot: true },
+		surfaces: {
+			"db:row-type": { reach: "everyone", why: "a row type is a shape, not an access path" },
+			"db:util": {
+				reach: ["service"],
+				why: "a narrow audience, which is what makes it launderable",
+			},
+			"framework/shared": { reach: "everyone", why: "the shared substrate every role may name" },
+		},
+		endpoints: {
+			httpApiLayers: { layers: [], why: "not used here" },
+			mcpRouter: { host: "agent-execution", alsoDialledBy: [], why: "not used here" },
+		},
+		eventBus: { host: "framework", typesModule: "", why: "not used here" },
+		rawRuntime: { host: "agent-execution", why: "not used here" },
+		oneDoorSurfaces: {
+			surfaces: [],
+			rawRuntime: true,
+			foreignTableWriteMissingCompanion: true,
+			why: "not used here",
+		},
+	} as unknown as Architecture;
+
+	function evaluate(extra: Record<string, string>) {
+		const repo = syntheticRepo({ ...DB_SOURCES, ...extra });
+		const census = buildCensus({
+			files: repo.files,
+			readFile: repo.readFile,
+			roleRules: ROLE_RULES,
+		});
+		const rule = noLaunderedReExports({
+			architecture,
+			db: buildDbSurfaceIndex(
+				{
+					packageName: "db",
+					sourceRoot: "framework/db/src",
+					barrel: "framework/db/src/index.ts",
+					schemaModule: "framework/db/src/schema.ts",
+					zodModule: "framework/db/src/zod-schemas.ts",
+					moduleSurface: { "like-escape.ts": "db:util" },
+				},
+				repo.readFile,
+			),
+			frameworkSurfaces: new Map([["shared", "framework/shared"]]),
+			locate: buildPackageLocator(census.packages),
+		});
+		return { rule, census, findings: rule.evaluate(census) };
+	}
+
+	it("refuses a table re-exported across a package boundary — even by its owner", () => {
+		// `work` OWNS `bets`, and that is exactly the laundering vector: its layer can then import the
+		// table from the service barrel and the ownership rule evaporates.
+		const { findings } = evaluate({
+			"layers/core-api/work/src/index.ts": 'export { bets as betsTable } from "@hyperidle/db";',
+		});
+		expect(findings).toHaveLength(1);
+		expect(findings[0]?.message).toContain("may never cross a package boundary");
+		expect(findings[0]?.path).toBe("layers/core-api/work/src/index.ts");
+	});
+
+	it("refuses a surface whose audience is narrower than everyone", () => {
+		const { findings } = evaluate({
+			"layers/core-api/work/src/index.ts": 'export { escapeLikePattern } from "@hyperidle/db";',
+		});
+		expect(findings).toHaveLength(1);
+		expect(findings[0]?.message).toContain("reachable by a named audience");
+	});
+
+	it("refuses `export *` from another package — it republishes every surface behind it", () => {
+		const { findings } = evaluate({
+			"layers/core-api/work/src/index.ts": 'export * from "@hyperidle/db";',
+		});
+		expect(findings).toHaveLength(1);
+		expect(findings[0]?.message).toContain("whole of");
+	});
+
+	it("negative control — a reach-`everyone` surface launders nothing", () => {
+		// Eight of the live cross-package re-exports are exactly this. Without the narrowing the rule
+		// would land on day one with a pile of findings nobody can act on, and die of noise.
+		const { findings } = evaluate({
+			"layers/core-api/work/src/index.ts": 'export type { Bet } from "@hyperidle/db";',
+		});
+		expect(findings).toEqual([]);
+	});
+
+	it("negative control — a WITHIN-package re-export is the surface's own publication", () => {
+		const { findings } = evaluate({
+			"layers/core-api/work/src/store.ts": "export const x = 1;",
+			"layers/core-api/work/src/index.ts": 'export { x } from "./store.js";',
+		});
+		expect(findings).toEqual([]);
+	});
+
+	it("negative control — IMPORTING the narrow symbol and using it is not laundering", () => {
+		const { findings } = evaluate({
+			"layers/core-api/work/src/index.ts":
+				'import { escapeLikePattern } from "@hyperidle/db";\nexport const use = (s: string) => escapeLikePattern(s);',
+		});
+		expect(findings).toEqual([]);
+	});
+
+	it("counts every `export … from` as its population, not just the violating subset", () => {
+		// Keying the floor to the violations would kill the rule the day someone tidies up the last
+		// legitimate cross-package re-export.
+		const { rule, census } = evaluate({
+			"layers/core-api/work/src/store.ts": "export const x = 1;",
+			"layers/core-api/work/src/index.ts":
+				'export { x } from "./store.js";\nexport type { Bet } from "@hyperidle/db";',
+		});
+		// Four: the two in the database package's own barrel, plus the two in the service barrel — of
+		// which only one crosses a package boundary and none is a violation.
+		expect(rule.scope(census)).toHaveLength(4);
+		expect(rule.evaluate(census)).toEqual([]);
 	});
 });
 
@@ -673,7 +990,12 @@ describe("AU28 — companion rows (Ruling 13)", () => {
 		const writeSetOf = buildWriteSets({
 			census,
 			readFile: repo.readFile,
+			locate: buildPackageLocator(census.packages),
 			tables: new Set(["teams", "teamMembers"]),
+			physicalNames: new Map([
+				["teams", "teams"],
+				["team_members", "teamMembers"],
+			]),
 		});
 		expect([...writeSetOf("layers/core-api/src/__tests__/a.test.ts")].sort()).toEqual([
 			"teamMembers",

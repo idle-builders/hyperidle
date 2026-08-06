@@ -5,12 +5,13 @@
  * The thin runner. It does three things and nothing else: source the file list, build the census
  * once, run every registered rule over it.
  *
- * @lore AU28: this file is the ONLY place in the governance stack allowed to touch the filesystem or
- * spawn a process. `scripts/lib/repo-census.ts` takes its inputs injected, and `scripts/rules/**` is
- * banned by ESLint from importing `node:fs`, `node:child_process` or any glob package. That is what
- * makes "one census, many rules — no rule does its own file discovery" a mechanical property instead
- * of a house style. Twenty inherited guards each had their own scan scope; two of them scanned a
- * directory that had not existed for two tracks and printed PASS.
+ * @lore AU28: `scripts/governance-context.ts` is the ONE module in the governance stack that touches
+ * the filesystem or spawns a process — not this file, which reads everything through it.
+ * `scripts/lib/**` takes its inputs injected and `scripts/rules/**` is banned by ESLint from
+ * importing `node:fs`, `node:child_process` or any glob package. That is what makes "one census,
+ * many rules — no rule does its own file discovery" a mechanical property instead of a house style.
+ * Twenty inherited guards each had their own scan scope; two of them scanned a directory that had not
+ * existed for two tracks and printed PASS.
  *
  * @lore AU28: the file list comes from `git ls-files`, not a filesystem walk. A walk misses the two
  * tracked files under `applications/desktop/build/` (`entitlements.mac.plist`, `icon.icns`) unless it is
@@ -21,6 +22,7 @@
  *   npx tsx scripts/governance-lint.ts                # check the live tree
  *   npx tsx scripts/governance-lint.ts --errors-only  # errors only — the gate, without the debt
  *   npx tsx scripts/governance-lint.ts --fixtures     # self-test the detector on a synthetic tree
+ *   npx tsx scripts/governance-lint.ts --attacks      # break-test every rule against the live tree
  *
  * @lore AU28: warnings are printed ONE LINE PER SITE, never aggregated. The founder ruled on this:
  * the next thing that happens after a rule lands at warn is a work package that clears it, and that
@@ -33,18 +35,27 @@
 import {
 	buildCrossings,
 	buildLiveCensus,
+	declaredFloors,
 	DETECTOR_FLOORS,
 	loadArchitecture,
 	loadBaseline,
+	loadTableOwners,
 	MIN_TRACKED_FILES,
 	presentGovernanceFiles,
+	readRepoFile,
 	trackedFiles,
 } from "./governance-context.js";
+import type { Baseline } from "./lib/crossing-report.js";
+import { buildPackageLocator, type CrossingsResult } from "./lib/crossings.js";
+import { runAttacks } from "./lib/governance-attacks.js";
 import { runFixtureSelfTest } from "./lib/governance-fixtures.js";
 import type { Kind } from "./lib/governance-model.js";
 import { DeadRuleError, type Finding, formatFinding, hasErrors, type Rule, runRules } from "./lib/governance-rules.js";
+import type { Census } from "./lib/repo-census.js";
 import { classificationTotal } from "./rules/classification-total.js";
-import { baselineRatchet, crossingRules } from "./rules/crossings.js";
+import { floorsTight } from "./rules/floors-tight.js";
+import { baselineRatchet, crossingRules, violationsOf } from "./rules/crossings.js";
+import { noLaunderedReExports } from "./rules/no-laundered-re-exports.js";
 import { noProductionImportsDevelopment } from "./rules/no-production-imports-development.js";
 import { noStaleBuildArtifacts } from "./rules/no-stale-build-artifacts.js";
 import { patternLive } from "./rules/pattern-live.js";
@@ -54,9 +65,11 @@ import { registriesHonest } from "./rules/registries-honest.js";
  * The known-violation summary: one line per rule group, split by world.
  *
  * @lore AU28: this is the goal metric and it is on screen every run, so progress is visible without
- * anyone having to ask for a report. Production and development are totalled SEPARATELY on purpose —
- * 221 production violations and 2,022 development ones are not 2,243 of the same thing, and a single
- * number would let the serious half shrink or grow unnoticed behind the bulk.
+ * anyone having to ask for a report. Production and development are totalled SEPARATELY on purpose:
+ * they are different kinds of debt, and one number lets the smaller, more serious half move
+ * unnoticed behind the larger one. The split was introduced when development stood at 2,022; Ruling
+ * 13 and 13a then collapsed that to double digits, and the split matters MORE at that size, not
+ * less — production is now the larger half and would otherwise hide the development one.
  */
 function printKnownDebt(findings: readonly Finding[]): void {
 	const warnings = findings.filter((f) => f.severity === "warn" && f.group !== undefined);
@@ -100,6 +113,72 @@ function runFixtures(): number {
 	return 0;
 }
 
+/**
+ * Every rule the build registers, over one census.
+ *
+ * @lore AU28: shared by `runLive` and `--attacks` ON PURPOSE. The break-test harness cross-checks
+ * that every registered rule has an attack case, and a hand-maintained second list of rule ids would
+ * be the one thing everybody forgets to update — which would turn the coverage gate into decoration.
+ * `baselineRatchet` is deliberately NOT in here: the overlay is not debt and must never be judged
+ * against the baseline.
+ */
+function buildRules(
+	architecture: ReturnType<typeof loadArchitecture>,
+	census: Census,
+	detected: CrossingsResult,
+): Rule[] {
+	return [
+		classificationTotal,
+		patternLive,
+		noProductionImportsDevelopment,
+		registriesHonest(architecture, loadTableOwners(), detected.db.tables),
+		noStaleBuildArtifacts(presentGovernanceFiles()),
+		floorsTight({ floors: declaredFloors(census, detected.countsByKind) }),
+		noLaunderedReExports({
+			architecture,
+			db: detected.db,
+			frameworkSurfaces: detected.frameworkSurfaces,
+			locate: buildPackageLocator(census.packages),
+		}),
+		...crossingRules({
+			architecture,
+			crossings: detected.crossings,
+			baseline: EMPTY_BASELINE,
+			floors: new Map<Kind, number>(DETECTOR_FLOORS.map((f) => [f.kind, f.min])),
+		}),
+	];
+}
+
+/** An overlaid tree has no debt, so the crossing rules judge it against nothing. */
+const EMPTY_BASELINE: Baseline = { governanceBaseline: true, note: "the attack overlay is never debt", groups: {} };
+
+function runAttackSuite(): number {
+	const architecture = loadArchitecture();
+	const results = runAttacks({
+		files: trackedFiles(),
+		readFile: readRepoFile,
+		architecture,
+		tableOwners: loadTableOwners(),
+		floors: DETECTOR_FLOORS,
+		buildRules: (overlaidCensus, overlaidDetected) => buildRules(architecture, overlaidCensus, overlaidDetected),
+		// The ratchet is registered by the live run but never by an attack pass — the overlay is not
+		// debt. It still needs a break-test, which `baseline-growth` provides.
+		alsoRegistered: ["baseline-ratchet"],
+		violationsOf,
+	});
+
+	const failures = results.filter((r) => r.failure !== null);
+	for (const failure of failures) {
+		console.error(`  FAIL  ${failure.id} — ${failure.detail}\n        ${failure.failure}`);
+	}
+	if (failures.length > 0) {
+		console.error(`\ngovernance-lint --attacks: FAIL — ${failures.length}/${results.length} break-tests failed.`);
+		return 1;
+	}
+	console.log(`governance-lint --attacks: PASS — ${results.length} break-tests against the live tree.`);
+	return 0;
+}
+
 function runLive(errorsOnly: boolean): number {
 	const files = trackedFiles();
 	if (files.length < MIN_TRACKED_FILES) {
@@ -126,8 +205,15 @@ function runLive(errorsOnly: boolean): number {
 		classificationTotal,
 		patternLive,
 		noProductionImportsDevelopment,
-		registriesHonest(architecture),
+		registriesHonest(architecture, loadTableOwners(), detected.db.tables),
 		noStaleBuildArtifacts(presentGovernanceFiles()),
+		floorsTight({ floors: declaredFloors(census, detected.countsByKind) }),
+		noLaunderedReExports({
+			architecture,
+			db: detected.db,
+			frameworkSurfaces: detected.frameworkSurfaces,
+			locate: buildPackageLocator(census.packages),
+		}),
 		...crossingRules(ruleInput),
 		baselineRatchet(ruleInput),
 	];
@@ -183,5 +269,7 @@ function runLive(errorsOnly: boolean): number {
 
 const exitCode = process.argv.includes("--fixtures")
 	? runFixtures()
-	: runLive(process.argv.includes("--errors-only"));
+	: process.argv.includes("--attacks")
+		? runAttackSuite()
+		: runLive(process.argv.includes("--errors-only"));
 process.exit(exitCode);

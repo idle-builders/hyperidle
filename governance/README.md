@@ -13,23 +13,23 @@ Three things, and the split between them is the whole design:
 
 | | what it is | changes when |
 |---|---|---|
-| **`scripts/lib/governance-model.ts`** | ~13 clauses, checked in order, first match wins, default `forbidden` | the founder rules on the architecture |
+| **`scripts/lib/governance-model.ts`** | 15 clauses, checked in order, first match wins, default `forbidden` | the founder rules on the architecture |
 | **`architecture.json` · `table-owners.json`** | the registries the clauses read — roles, surfaces, endpoints, table owners | packages, surfaces or owners change |
-| **`decided-rules.json`** | 125 verdicts the founder decided one at a time | never, except by founder ruling |
+| **`decided-rules.json`** | 124 verdicts the founder decided one at a time | never, except by founder ruling |
 
 **A clause is a principle. A registry is a fact. A decided rule is a decision.** Putting a fact in a
 clause means a new package needs a code change; putting a principle in a registry means it can be
 edited without anyone noticing the architecture moved.
 
-## Why 13 clauses and not 125 rules
+## Why 15 clauses and not 124 rules
 
 `decided-rules.json` is the **decision artifact** — every role pair × crossing kind, ruled on
-separately for the production and development worlds. It is not the implementation. 125 hand-written
+separately for the production and development worlds. It is not the implementation. 124 hand-written
 rules would each be free to disagree with their neighbours, and a single founder ruling would land as
-a 125-way diff.
+a 124-way diff.
 
-Instead the 125 rows are the **acceptance test**: the model is correct if and only if it reproduces
-all 250 verdicts (125 rows × 2 worlds) exactly. `framework/db/src/__tests__/governance-model.test.ts`
+Instead the 124 rows are the **acceptance test**: the model is correct if and only if it reproduces
+all 248 verdicts (124 rows × 2 worlds) exactly. `framework/db/src/__tests__/governance-model.test.ts`
 asserts that, so a clause tuned to fix one crossing and silently breaking another cannot land.
 
 ## Totality, and its price
@@ -74,6 +74,23 @@ The one legitimate growth is a new rule landing over violations that already exi
 
 The baseline records debt, never a plan: it does not say which work will clear a group. That mapping
 lives with the work packages, so the enforced contract never goes stale when planning changes.
+
+## Every rule is break-tested, and that is a gate
+
+`npm run lint` runs `governance-lint --attacks`: a table of attacks in
+`scripts/lib/governance-attacks.ts`, each a piece of code someone would plausibly write, overlaid
+onto the live repository through the census's injected `readFile` seam. Nothing is written to disk.
+
+Four properties keep the harness from rotting into decoration:
+
+1. every attack must produce its expected finding;
+2. every attack has a **control twin** — the same act written the legal way, asserting nothing is
+   reported, because a detector that flags everything would otherwise pass every attack;
+3. an overlay path must not already exist and a mutated path must, so a rename fails loudly instead
+   of quietly making a case test nothing;
+4. **a registered rule with no attack case fails the build.**
+
+Property 4 is the one that matters when you add a rule: it will not ship without a break-test.
 
 ## Changing something
 

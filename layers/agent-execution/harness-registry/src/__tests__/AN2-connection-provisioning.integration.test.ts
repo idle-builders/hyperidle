@@ -61,6 +61,7 @@ import * as path from "node:path";
 // job now (the pure-fs `applyProvisioningPlan` half is unchanged behavior).
 import { applyProvisioningPlan } from "@hyperidle/run-orchestration";
 import { describe, expect, test } from "vitest";
+import { requireBinary } from "./require-binary.js";
 import { requireHarness } from "./require-harness.js";
 
 // ── Clean env for headless binary spawning ────────────────────────────────────
@@ -687,7 +688,8 @@ describe("opencode: real CLI connects to AN2-provisioned MCP server via opencode
 // ── CLI-KEY: GH_TOKEN env injection ──────────────────────────────────────────
 
 describe("CLI-key: GH_TOKEN env injection → real gh CLI op succeeds", () => {
-	requireHarness("gh");
+	// `gh` is the GitHub CLI, not a harness — Ruling 15. The binary is still required.
+	requireBinary("gh");
 	test("github token → GH_TOKEN in envInjections; real gh auth status succeeds when GH_TOKEN set", async () => {
 		// Use GH_TOKEN/GITHUB_TOKEN from env, or retrieve from gh keyring.
 		let ghToken = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN ?? "";

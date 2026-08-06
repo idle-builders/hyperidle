@@ -1,6 +1,6 @@
 # Running Your Team
 
-The day-to-day operating rhythm, a playbook for common situations, and how to keep spend under control. For what each view does, see [Three Core Views](three-core-views.md); for agent roles, see [Agents](agents.md).
+The day-to-day operating rhythm and a playbook for common situations. For what each view does, see [Three Core Views](three-core-views.md); for agent roles, see [Agents](agents.md).
 
 ## Rhythms
 
@@ -43,7 +43,7 @@ When a captured insight is ready to become committed work, promote it directly �
 
 **Single team:** the bet is created immediately and you land in the bet page, body pre-filled with the item's content. Review, refine, then choose **Activate bet** from the bet's overflow menu when ready.
 
-**Multiple teams:** you are taken to the bet create page (`Work → New bet`) with the body pre-filled. Pick your team, optionally set an appetite, then create.
+**Multiple teams:** you are taken to the bet create page (`Work → New bet`) with the body pre-filled. Pick your team, then create.
 
 The source knowledge item is not changed. The new bet opens in `draft` status — you activate it manually when the description is ready. The bet header shows "From knowledge: &lt;title&gt;" with a link back to the original item, so the origin is always traceable.
 
@@ -76,23 +76,6 @@ Task and session lifecycle detail lives in [Tasks and Sessions](../../process-la
 
 The verdict grammar is defined in [Thread Primitive](../../human-interface-layer/thread-primitive.md).
 
-### A bet is over budget
-
-1. A **cost alert** notification arrives in the bell inbox (and via ntfy/email if configured) — a breach is never silent, but it does not open a conversation thread.
-2. Open the bet to compare cost actual against the appetite.
-3. Options: adjust the appetite, reduce scope, or kill the bet.
-
-### Adjusting a bet's appetite
-
-The **appetite** is how much money you're willing to spend on a bet — a budget, not a duration.
-
-1. Open the bet and click the overflow menu (`···`) next to the status badge.
-2. Choose **Adjust appetite** (available on `active` bets only).
-3. Pick a currency and enter the new amount (in whole units, e.g. `250` for $250).
-4. Add a reason — it's recorded in the bet's revision log — and click **Save**.
-
-The appetite chip on the bet updates immediately.
-
 ### Killing a bet
 
 Killing a bet stops its in-flight work and frees your team's capacity for other bets.
@@ -102,7 +85,7 @@ Killing a bet stops its in-flight work and frees your team's capacity for other 
    - **In-progress tasks are killed** and their active sessions are stopped.
    - **Existing artifacts are preserved** — nothing already produced is deleted.
    - **Team capacity is freed.**
-   - **Running agents finish their current step first**, so cost may tick up briefly before they halt — killing is not an instant cost cut-off.
+   - **Running agents finish their current step first**, so killing is not an instant stop.
 3. Enter a reason (required) and confirm.
 
 ### Viewing a task's sessions
@@ -131,26 +114,13 @@ Sync and conflict mechanics live in [Sync and Conflict Resolution](../../knowled
 3. Add a comment explaining what you want differently.
 4. The agent revises and resubmits.
 
-## Cost Management
+## Keeping work bounded
 
-Cost caps are strictly nested and checked in order:
+HyperIdle does not track or enforce spend. Your ceiling is the budget on your upstream provider account (OpenRouter, Anthropic), set there.
 
-```
-Factory cap
-  └── Team cap
-       └── Agent cap
-```
+What HyperIdle does bound is **concurrency** — how much runs at once:
 
-### How limits work
+- Each agent has a maximum number of simultaneous sessions (default 1). At the limit, new work queues or moves to a teammate.
+- Each team has a capacity — the number of parallel tasks it will take on.
 
-When a cap is hit: new sessions stop being admitted at that level; any in-progress sessions run to completion. Routines carry their own per-run and monthly caps — a run that exhausts its budget ends with a `budget_exhausted` outcome. Every breach emits a **cost alert** notification — never silent.
-
-Cap grammar (money shapes, hierarchy, breach handling) lives in [WIP and Cost Limits](../../process-layer/wip-and-cost-limits.md).
-
-### Where you see cost
-
-- **Work → Team page**: burn-vs-cap stat tiles (Burn, Cap, Capacity, Status).
-- **Work → Bet page**: cost actual vs. **cost appetite** (bets have an appetite, not a cap).
-- **Session header**: per-session cost totals.
-
-Caps are configured where the thing lives — on the team page, the bet, or the routine — not in Settings.
+You can see capacity and status on **Work → Team**. The reasoning behind bounding concurrency rather than time lives in [WIP Limits](../../process-layer/wip-and-cost-limits.md).

@@ -69,7 +69,7 @@ Server running on http://localhost:3001
 The web app is at [http://localhost:5173](http://localhost:5173). The API runs on port 3001.
 
 **Troubleshooting:**
-- `EADDRINUSE: port 3001` — another process is using that port. Set the `PORT` environment variable, or see `packages/server/src/index.ts`.
+- `EADDRINUSE: port 3001` — another process is using that port. Set the `PORT` environment variable.
 - Port 5173 busy — Vite auto-tries the next port and shows the alternative URL.
 
 ---
@@ -149,7 +149,6 @@ This is the conversation-first path — you iterate with the Assistant until the
    - **Description editor** (required) — describe the work using headings, lists, and paragraphs. For example: `Build a landing page with a hero section and a features list.`
    - **Title preview** — auto-derived from the first line of your description (heading markers stripped).
    - **Team** select — shown only when you have more than one team; the single team is used automatically otherwise.
-   - **Appetite** (optional) — set a cost budget for this bet. See [Running Your Team](./running-your-team.md) for cost controls.
 3. Click **Create**.
 
 **Expected:** You are navigated to the new Bet detail page. The Bet also appears as a `draft` card in the Team view.
@@ -191,7 +190,7 @@ Approve work that looks correct. Request changes if something is wrong — add a
 | Goal | Where to go |
 |------|-------------|
 | Understand how agents work | [Agents](./agents.md) |
-| Daily rhythm, troubleshooting, cost controls | [Running Your Team](./running-your-team.md) |
+| Daily rhythm and troubleshooting | [Running Your Team](./running-your-team.md) |
 | Knowledge layer | [Three Core Views](./three-core-views.md) |
 | Interface reference | [The Interface](./the-interface.md) |
 | Connect backends and credentials | [Connections](./connections.md) |

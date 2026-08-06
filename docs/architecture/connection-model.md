@@ -26,7 +26,7 @@ This is the concrete meaning of "ride the harness": OAuth-protected services arr
 
 ## Connection properties
 
-The view shape and its closed sets live in `packages/shared/src/connection.ts` (`ServiceConnectionView`, `CONNECTION_AUTH_SOURCES`, `CONNECTION_HEALTH`). The semantics:
+The view shape and its closed sets live in `framework/shared/src/connection.ts` (`ServiceConnectionView`, `CONNECTION_AUTH_SOURCES`, `CONNECTION_HEALTH`). The semantics:
 
 - **id** — `sc-<uuid>` for held rows; `inherited:<harness>:<name>` for projections.
 - **authSource** — closed set `token | mcp | inherited`.
@@ -65,7 +65,7 @@ Rate limits: POST/DELETE 20 req/min; validate 3 req/min.
 
 ## Storage
 
-`service_connections` pgTable in `packages/db/src/schema.ts` — one row per (userId, service, authSource), enforced by a unique index. Two storage invariants:
+`service_connections` pgTable in `framework/db/src/schema.ts:1735` — one row per (userId, service, authSource), enforced by a unique index. Two storage invariants:
 
 1. `inherited` is never a DB row — the column accepts only `token | mcp`.
 2. The token column is ciphertext (AES-GCM), nullable, present only for `token` rows; `mcp` rows store a server URL only.
@@ -76,7 +76,7 @@ Column details belong to the schema file, not this doc.
 
 ## Resolver (`ServiceConnectionResolver`)
 
-`packages/server/src/services/service-connection-resolver.ts` — the only path that returns a decrypted token. Two consumers: session provisioning injection (AN2) and filesystem reachability probes (AO1, via `ServiceConnectionResolverAdapter` in `filesystem-reachability.ts`). Both consume the plaintext internally; **the invariant is that plaintext never reaches a route response or a log line** — not that the resolver has a single caller.
+`layers/agent-orchestration/connections/src/service-connection-resolver.ts` — the only path that returns a decrypted token. Two consumers: session provisioning injection (AN2) and filesystem reachability probes (AO1, via `ServiceConnectionResolverAdapter` in `filesystem-reachability.ts`). Both consume the plaintext internally; **the invariant is that plaintext never reaches a route response or a log line** — not that the resolver has a single caller.
 
 - Queries scoped on `AND(id, userId)` — cross-user lookup returns `null`, never leaks existence.
 - Returns `null` for: cross-user, non-existent, mcp rows (no stored token), missing server secret, decryption failure. Never throws.
@@ -86,7 +86,7 @@ Column details belong to the schema file, not this doc.
 
 ## Projection (`ServiceConnectionProjection`)
 
-`packages/server/src/services/service-connection-projection.ts` — projects `descriptors[].inheritedTools` into `ServiceConnectionView[]` at GET time. Pure function over the cached descriptors: no DB access, no child-process spawn. Deduplicates by service name across harnesses (first wins). Descriptor health `unknown` displays as `working` (`service-connection-projection.ts:50-51`) — inherited tools are auto-detected and expected-healthy; `needs-attention` is reserved for explicit probe failures.
+`layers/agent-orchestration/connections/src/service-connection-projection.ts` — projects `descriptors[].inheritedTools` into `ServiceConnectionView[]` at GET time. Pure function over the cached descriptors: no DB access, no child-process spawn. Deduplicates by service name across harnesses (first wins). Descriptor health `unknown` displays as `working` (`service-connection-projection.ts:50-51`) — inherited tools are auto-detected and expected-healthy; `needs-attention` is reserved for explicit probe failures.
 
 ---
 

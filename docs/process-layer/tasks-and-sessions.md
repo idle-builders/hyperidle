@@ -1,18 +1,18 @@
 # Tasks and Sessions
 
-<!-- @source packages/db/src/schema.ts -->
-<!-- @source packages/server/src/routes/tasks.ts -->
+<!-- @source framework/db/src/schema.ts -->
+<!-- @source layers/core-api/src/routes/tasks.ts -->
 
 ## 1. Task lifecycle
 
-Tasks move through a small state machine — the eight states of `TASK_STATES` (`packages/shared/src/types.ts:10-19`):
+Tasks move through a small state machine — the eight states of `TASK_STATES` (`framework/shared/src/types.ts`):
 
 - `proposed` — a team member has drafted this task as part of decomposition. Not yet picked up.
 - `accepted` — the team lead has accepted it. The owner is committed.
-- `hold` — the task has unmet upstream dependencies (other tasks that must reach `done` first). The task cannot start until all dependencies clear. **When the last upstream dependency moves to `done`, the dependency watcher (`checkAndUnblockDependents`, `packages/server/src/services/dependency-watcher.ts`) automatically transitions this task to `accepted` and notifies the owner.** This is the key automation: no agent or human needs to manually unblock held tasks.
+- `hold` — the task has unmet upstream dependencies (other tasks that must reach `done` first). The task cannot start until all dependencies clear. **When the last upstream dependency moves to `done`, the dependency watcher (`checkAndUnblockDependents`, `layers/core-api/work/src/dependency-watcher.ts`) automatically transitions this task to `accepted` and notifies the owner.** This is the key automation: no agent or human needs to manually unblock held tasks.
 - `in_progress` — at least one session is running or has run. The task has produced some progress.
 - `blocked` — the owner is waiting on something external (a human reply, an external service, a design question). Unlike `hold`, this is a runtime block discovered during execution. Blockers are first-class: they surface in the WorkTeam AgentRow health indicators.
-- `review` — the task has produced an artifact and is awaiting verdict. Session-end events on tasks with medium/high `riskTier` (on the task app projection table, historical export `taskStrategyFabric`, `packages/db/src/schema.ts:723-738`) create review items routed to recipients (`session-review-creator`); low-risk tasks close on an internal team check.
+- `review` — the task has produced an artifact and is awaiting verdict. Session-end events on tasks with medium/high `riskTier` (on the `task_planning_signals` extension table, `framework/db/src/schema.ts`) create review items routed to recipients (`session-review-creator`); low-risk tasks close on an internal team check.
 - `done` — verdict reached, artifact accepted, task closed.
 - `killed` — abandoned. Reasoning logged.
 
@@ -26,7 +26,7 @@ How task-state changes propagate to bets and how work moves between owners is co
 
 ## 2. Sessions: many runs per task
 
-A task is not a single agent run. A session is one bounded run by one agent (`sessions.taskId` FK, `packages/db/src/schema.ts:245-290`). Many sessions can happen per task:
+A task is not a single agent run. A session is one bounded run by one agent (`sessions.taskId` FK, `framework/db/src/schema.ts`). Many sessions can happen per task:
 
 - Agent A starts a session, makes progress for a while, hits a question, ends the session by writing notes back to the task.
 - A human (or another agent) replies hours later.
@@ -55,7 +55,7 @@ This is the closest analogy to a working day in a human organization. The contex
 Three consequences fall out of this:
 
 - **Session notes should be continuous, not just end-of-session.** The agent writes notes throughout the session as it makes progress — assembly creates `work/task-notes.md` by default, and `work/session-notes.md` is synced too. If the session crashes or compaction happens unexpectedly, useful notes already exist; writeback picks up each write incrementally.
-- **Where the harness supports it, a pre-compaction trigger fires** — a final note-writing pass before the session ends (builtin adapter: 0.8 context fraction → `pre_compaction` event + snapshot into notes, `packages/server/src/harness/builtin-harness-adapter.ts:151`). Harnesses without the capability rely on the continuous-notes fallback. The capability flag and adapter contract are owned by the [harness capability descriptor](../agent-layer/harness-capability-descriptor.md).
+- **Where the harness supports it, a pre-compaction trigger fires** — a final note-writing pass before the session ends (builtin adapter: 0.8 context fraction → `pre_compaction` event + snapshot into notes, `layers/agent-execution/harness-registry/src/builtin-harness-adapter.ts`). Harnesses without the capability rely on the continuous-notes fallback. The capability flag and adapter contract are owned by the [harness capability descriptor](../agent-layer/harness-capability-descriptor.md).
 - **The task object is the real long-term memory of the work.** The agent's private memory holds identity and accumulated style; the task object holds the *current state of this specific job*. Anything not written to the task before compaction is lost from this work stream.
 
 **What matters in session notes is the flight level and description, not the structure.** Notes are free-form prose, assembled as markdown for the next session to read — never structurally parsed. Don't enforce a rigid template. Guide the agent on *what* to write about: what was the goal, what happened, what changed, what's next, what should the next session be careful about.
@@ -66,7 +66,7 @@ There's no need for a session-length cap beyond the natural one: when context co
 
 Three layers of memory bridge sessions on the same task, all mediated by Core knowledge services:
 
-- **L2 (agent's private memory)** — the agent's own notes about what it's doing and what it believes. Stored as knowledge items whose layer lives on the app projection extension table (historical export `knowledgeStrategyFabric`, `packages/db/src/schema.ts:690-714`). Assembled into `context/` at session start. Survives across sessions for the same agent.
+- **L2 (agent's private memory)** — the agent's own notes about what it's doing and what it believes. Stored as knowledge items whose layer lives on the `knowledge_app_projection` extension table (`framework/db/src/schema.ts`). Assembled into `context/` at session start. Survives across sessions for the same agent.
 - **The task's notes** (`tasks.notes`) — written continuously during the session (synced back via the file watcher) by whoever was working it. Any session by any agent can read them. This is how agent B picks up where agent A left off, and how agent A picks up tomorrow what it did today.
 - **The task's thread** (when it exists) — the conversation around the work. Comments, questions, review feedback. Read on demand, not by default.
 

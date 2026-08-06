@@ -21,7 +21,6 @@ When an agent works on a task, it runs a **session** — a bounded, streaming wo
 - **Reasoning** — folds to "Thought for Ns" in italic; click to expand.
 - **File diffs** — a "Changed files (N)" panel surfaces every file the agent edited, always reachable even when the edits are folded into the aggregate. Click to open the full diff.
 - **Sub-agent sessions** — a sub-agent tool row carries an "Open session" link into its own session view.
-- **Cost** — the combined session total (`$0.71 · 48.2k tokens`) sits in the session header, not inline per turn.
 
 **Sending mid-session.** You can type and send while the agent works. Your message queues ("Queued · sends when the agent finishes", cancellable with ✕) and is delivered at the next turn boundary — it never interrupts the agent.
 
@@ -74,9 +73,9 @@ Work is organized in three levels:
 
 **Work overview** — a flat list of your teams: name, active-bet count, and a status chip (healthy / behind / blocked). Teams sort by urgency — blocked first, then behind, then healthy. If you have exactly one team, the overview is skipped and Work opens straight on your team's page.
 
-**Team page** — burn-vs-capacity metrics, active bets, routines, and agents. **New bet** lives here and on the Work overview header.
+**Team page** — capacity and status, active bets, routines, and agents. **New bet** lives here and on the Work overview header.
 
-**Bet detail** — the bet's description (rendered as Blocks), progress, cost tracker, task list, and comment thread. Lifecycle semantics live in [bets](../../process-layer/bets-shape-commit-change-ship.md).
+**Bet detail** — the bet's description (rendered as Blocks), progress, task list, and comment thread. Lifecycle semantics live in [bets](../../process-layer/bets-shape-commit-change-ship.md).
 
 ### What the task section shows
 

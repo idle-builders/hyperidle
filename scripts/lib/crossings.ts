@@ -15,8 +15,9 @@
  * `governance-fixtures.ts`: a near-miss that must NOT be detected.
  */
 
-import { buildCompanionGroups, buildWriteSets, detectAstCrossings } from "./crossing-detectors.js";
+import { buildCompanionGroups, buildWriteSets, detectAstCrossings, UnclaimedProductionFileError } from "./crossing-detectors.js";
 import type { DbSurfaceIndex } from "./db-surfaces.js";
+import type { FloorKind } from "../rules/floors-tight.js";
 import type { Actor, Crossing, Kind, Target } from "./governance-model.js";
 import type { TableOwners } from "./governance-registry.js";
 import { ownerOf } from "./governance-registry.js";
@@ -37,6 +38,8 @@ export interface DetectedCrossing {
 export interface DetectorFloor {
 	readonly kind: Kind;
 	readonly min: number;
+	/** Every detector floor is a magnitude — declared, not assumed. See `floors-tight`. */
+	readonly floorKind: FloorKind;
 }
 
 export interface CrossingsInput {
@@ -59,6 +62,9 @@ export interface CrossingsResult {
 	readonly countsByKind: ReadonlyMap<Kind, number>;
 	/** Database symbols that could not be placed. Reported, never absorbed. */
 	readonly unplacedDbSymbols: ReadonlyMap<string, string>;
+	/** Passed back so a rule can resolve a symbol to its surface without a second index. */
+	readonly db: DbSurfaceIndex;
+	readonly frameworkSurfaces: ReadonlyMap<string, string>;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -71,9 +77,19 @@ export function buildPackageLocator(packages: readonly WorkspacePackage[]): (fil
 	return (file: string) => sorted.find((p) => file === p.dir || file.startsWith(`${p.dir}/`));
 }
 
-/** The actor performing a crossing from this file. A file in no package acts as the repo root. */
-const actorFor = (pkg: WorkspacePackage | undefined): Actor =>
-	pkg === undefined ? { sort: "repo-root" } : { sort: "package", name: pkg.name, role: pkg.role, layer: pkg.layer };
+/**
+ * The actor performing a crossing from this file.
+ *
+ * A file in no package acts as the repo root — legitimately, for a build script under `scripts/`.
+ * A PRODUCTION file may never do so: the repo root is a declared composition root, and handing
+ * composition-root powers to an unregistered directory under `layers/` is a misconfiguration failing
+ * open. `kind` is required rather than optional so a new call site cannot forget to pass it.
+ */
+const actorFor = (pkg: WorkspacePackage | undefined, kind: "production" | "development", file: string): Actor => {
+	if (pkg !== undefined) return { sort: "package", name: pkg.name, role: pkg.role, layer: pkg.layer };
+	if (kind === "production") throw new UnclaimedProductionFileError(file);
+	return { sort: "repo-root" };
+};
 
 const targetForPackage = (pkg: WorkspacePackage): Target => ({
 	sort: "package",
@@ -107,8 +123,8 @@ function detectImports(input: CrossingsInput, locate: (f: string) => WorkspacePa
 		// A file outside every package naming another such file is not a crossing either.
 		if (fromPkg === undefined && toPkg === undefined) continue;
 
-		const source = actorFor(fromPkg);
 		const world = fromRecord.kind;
+		const source = actorFor(fromPkg, world, edge.from);
 		const toRecord = census.byPath.get(edge.to);
 		const push = (target: Target, detail: string): void => {
 			out.push({ crossing: { kind: "import", source, target }, file: edge.from, line: edge.line, world, detail });
@@ -194,7 +210,8 @@ function detectManifests(input: CrossingsInput): DetectedCrossing[] {
 				out.push({
 					crossing: {
 						kind: "manifest",
-						source: actorFor(pkg),
+						// A manifest is only ever read from a package, so `locate` is not consulted here.
+						source: actorFor(pkg, block.world, manifestPath),
 						target: surface === undefined ? targetForPackage(target) : { sort: "surface", surface },
 					},
 					file: manifestPath,
@@ -225,6 +242,7 @@ export function detectCrossings(input: CrossingsInput, floors: readonly Detector
 			readFile: input.readFile,
 			locate,
 			tables: input.db.tables,
+			physicalNames: input.db.physicalNames,
 			ownerOf: (table) => ownerOf(input.tableOwners, table),
 			mcpRouterHost: input.mcpRouterHost,
 			eventTypesModule: input.eventTypesModule,
@@ -232,7 +250,13 @@ export function detectCrossings(input: CrossingsInput, floors: readonly Detector
 				{ census: input.census, readFile: input.readFile, locate, tables: input.db.tables },
 				(table) => ownerOf(input.tableOwners, table),
 			),
-			writeSetOf: buildWriteSets({ census: input.census, readFile: input.readFile, tables: input.db.tables }),
+			writeSetOf: buildWriteSets({
+				census: input.census,
+				readFile: input.readFile,
+				locate,
+				tables: input.db.tables,
+				physicalNames: input.db.physicalNames,
+			}),
 		}),
 	];
 
@@ -251,5 +275,5 @@ export function detectCrossings(input: CrossingsInput, floors: readonly Detector
 		}
 	}
 
-	return { crossings, countsByKind, unplacedDbSymbols: input.db.unplaced };
+	return { crossings, countsByKind, unplacedDbSymbols: input.db.unplaced, db: input.db, frameworkSurfaces: input.frameworkSurfaces };
 }

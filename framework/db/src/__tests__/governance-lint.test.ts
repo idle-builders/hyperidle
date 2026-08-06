@@ -26,10 +26,47 @@ import {
 	TEST_RUNNER_CONFIG_BASENAMES,
 } from "../../../../scripts/lib/repo-census.js";
 import { classificationTotal } from "../../../../scripts/rules/classification-total.js";
+import { allowedSlack, floorsTight, floorVerdict } from "../../../../scripts/rules/floors-tight.js";
 import { noProductionImportsDevelopment } from "../../../../scripts/rules/no-production-imports-development.js";
 import { patternLive } from "../../../../scripts/rules/pattern-live.js";
 
 const emptyCensus = () => buildCensus({ files: [], readFile: () => "" });
+
+/**
+ * One path that classifies under the named pattern and no earlier one.
+ *
+ * Array order in `CLASSIFICATION_PATTERNS` IS precedence, so each of these has to dodge every clause
+ * ahead of it — which is why `default-production` is a bare `.ts` under a production root and
+ * `dunder-segment` carries no name-declared suffix.
+ */
+function samplePathFor(patternId: string, index: number): string {
+	switch (patternId) {
+		case "stories-suffix":
+			return `layers/a/src/S${index}.stories.tsx`;
+		case "test-suffix":
+			return `layers/a/src/t${index}.test.ts`;
+		case "spec-suffix":
+			return `layers/a/src/s${index}.spec.ts`;
+		case "dunder-segment":
+			return `layers/a/src/__tests__/helper${index}.ts`;
+		case "development-root:tools":
+			return `tools/bench/src/x${index}.ts`;
+		case "outside-production-roots":
+			return `docs/page${index}.md`;
+		case "test-runner-config:vitest.config.ts":
+			return `layers/v${index}/vitest.config.ts`;
+		case "test-runner-config:playwright.config.ts":
+			return `layers/p${index}/playwright.config.ts`;
+		case "test-runner-config:playwright.*.config.ts":
+			return `layers/q${index}/playwright.lane${index}.config.ts`;
+		case "default-production":
+			return `layers/a/src/mod${index}.ts`;
+		default:
+			throw new Error(
+				`no sample path for pattern "${patternId}" — add one when a pattern is added`,
+			);
+	}
+}
 
 // ---------------------------------------------------------------------------
 
@@ -428,12 +465,118 @@ describe("AU28 pattern-live — no classification pattern may go dead", () => {
 		expect(findings.every((f) => f.severity === "error")).toBe(true);
 	});
 
-	it("stays silent when every pattern is above its floor", () => {
-		const patched = CLASSIFICATION_PATTERNS.map((p) => ({ ...p, minFiles: 0 }));
+	/**
+	 * W-TEST-1. What was here before mapped every `minFiles` to 0, then asserted a count was `>= 0`.
+	 * It never called `patternLive.evaluate` — the rule could have been deleted and it stayed green.
+	 * A test that cannot fail is worse than no test, because it occupies the slot where the real one
+	 * would go. These two call the thing.
+	 */
+	it("stays silent when every pattern clears its floor", () => {
+		// A synthetic tree sized to satisfy every declared floor at once. Building it from the
+		// patterns themselves is what keeps this honest when a floor moves.
+		const files = CLASSIFICATION_PATTERNS.flatMap((pattern) =>
+			Array.from({ length: pattern.minFiles }, (_, i) => samplePathFor(pattern.id, i)),
+		);
+		const census = buildCensus({ files, readFile: () => "" });
+
+		const uncovered = CLASSIFICATION_PATTERNS.filter(
+			(p) => (census.patternCounts.get(p.id) ?? 0) < p.minFiles,
+		).map((p) => `${p.id}: ${census.patternCounts.get(p.id) ?? 0} < ${p.minFiles}`);
+		expect(uncovered, "the synthetic tree must actually populate every pattern").toEqual([]);
+
+		expect(patternLive.evaluate(census)).toEqual([]);
+	});
+
+	it("reports exactly the pattern whose population drops by one", () => {
+		const shortId = "spec-suffix";
+		const files = CLASSIFICATION_PATTERNS.flatMap((pattern) =>
+			Array.from({ length: pattern.minFiles - (pattern.id === shortId ? 1 : 0) }, (_, i) =>
+				samplePathFor(pattern.id, i),
+			),
+		);
+		const findings = patternLive.evaluate(buildCensus({ files, readFile: () => "" }));
+		expect(findings).toHaveLength(1);
+		expect(findings[0]?.message).toContain(`"${shortId}"`);
+		expect(findings[0]?.severity).toBe("error");
+	});
+});
+
+describe("AU28 floors-tight — a floor with too much slack has stopped measuring", () => {
+	const record = (live: number, floor: number, floorKind: "magnitude" | "existence") => ({
+		id: "detector:pretend",
+		live,
+		floor,
+		floorKind,
+	});
+
+	it.each([
+		// live, floor, expected — the boundary, one either side, and the `max(…, 5)` term at small n.
+		[1000, 800, "ok"],
+		[1000, 799, "slack"],
+		[1000, 801, "ok"],
+		[1000, 1000, "ok"],
+		[1000, 1001, "below"],
+		// 20% of 11 is 3, below the floor-5 term, so a floor of 6 is still inside the band.
+		[11, 6, "ok"],
+		[11, 5, "slack"],
+		[11, 8, "ok"],
+		// 20% of 100 is 20, above the floor-5 term, so the percentage governs.
+		[100, 80, "ok"],
+		[100, 79, "slack"],
+	])("live %i against a floor of %i is %s", (live, floor, expected) => {
+		expect(floorVerdict(record(live, floor, "magnitude")).sort).toBe(expected);
+	});
+
+	it("names the value to write when a floor has gone slack", () => {
+		const verdict = floorVerdict(record(1000, 500, "magnitude"));
+		expect(verdict.sort).toBe("slack");
+		if (verdict.sort !== "slack") expect.unreachable("expected a slack verdict");
+		else expect(verdict.suggested).toBe(800);
+	});
+
+	it("exempts an existence floor from the band, but never from the floor itself", () => {
+		// `development-root:tools` is 94 live against a declared 1. Without the exemption the band
+		// would demand a nonsensical floor of 76 on what is a check over a closed list.
+		expect(floorVerdict(record(94, 1, "existence")).sort).toBe("ok");
+		expect(floorVerdict(record(0, 1, "existence")).sort).toBe("below");
+	});
+
+	it("does not let `floorKind` be used to dodge — a MAGNITUDE floor of 1 is still slack", () => {
+		expect(floorVerdict(record(94, 1, "magnitude")).sort).toBe("slack");
+	});
+
+	it("computes the allowed slack as the larger of 20% and 5", () => {
+		expect(allowedSlack(11)).toBe(5);
+		expect(allowedSlack(1000)).toBe(200);
+		expect(allowedSlack(3296)).toBe(660);
+	});
+
+	it("reports one error per drifted floor and stays silent otherwise", () => {
 		const census = buildCensus({ files: ["layers/a/src/x.ts"], readFile: () => "" });
-		// Floors live on the pattern definitions, so this asserts the comparison, not the constants.
-		const belowNone = patched.every((p) => (census.patternCounts.get(p.id) ?? 0) >= p.minFiles);
-		expect(belowNone).toBe(true);
+		const floors = [
+			record(1000, 800, "magnitude"),
+			{ ...record(1000, 400, "magnitude"), id: "detector:loose" },
+		];
+		const rule = floorsTight({
+			floors: [
+				...floors,
+				...Array.from({ length: 18 }, (_, i) => ({
+					...record(100, 85, "magnitude"),
+					id: `pad-${i}`,
+				})),
+			],
+		});
+		const findings = rule.evaluate(census);
+		expect(findings).toHaveLength(1);
+		expect(findings[0]?.message).toContain("detector:loose");
+		expect(findings[0]?.severity).toBe("error");
+	});
+
+	it("is a dead rule when the floor set it checks has been gutted", () => {
+		const census = buildCensus({ files: ["layers/a/src/x.ts"], readFile: () => "" });
+		expect(() =>
+			runRules([floorsTight({ floors: [record(100, 85, "magnitude")] })], census),
+		).toThrow(DeadRuleError);
 	});
 });
 

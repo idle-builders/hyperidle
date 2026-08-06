@@ -82,7 +82,7 @@ const TARGETS_BY_KIND: Readonly<Record<Kind, readonly string[]>> = {
 	event: ["EventBus"],
 	"table:read": ["db:table (own)", "db:table (other)"],
 	"table:write": ["db:table (own)", "db:table (other)"],
-	capability: ["raw runtime", "harness"],
+	capability: ["raw runtime"],
 };
 
 const SOURCE_LAYER = "core-api";
@@ -120,8 +120,6 @@ function makeTarget(labelText: string, source: Crossing["source"], kind: Kind): 
 			return { sort: "mcp-router" };
 		case "raw runtime":
 			return { sort: "raw-runtime" };
-		case "harness":
-			return { sort: "harness" };
 		case "repo root":
 			return { sort: "repo-root" };
 		case "db:table (own)":

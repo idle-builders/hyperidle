@@ -3,11 +3,17 @@
  * integration tests. Replaces every `skipIf`-on-absent availability gate.
  *
  * STRICT harness model (plans/AR/concept.md):
- *   - claude | codex | opencode | gh  → real binary on PATH (keychain / inherited
- *     login — NO API key of any kind).
+ *   - claude | codex | opencode | cursor-agent → real binary on PATH (keychain /
+ *     inherited login — NO API key of any kind).
  *   - builtin                          → OPENROUTER_API_KEY present in the env.
  *     This is the ONLY key that gates any harness. NEVER ANTHROPIC_API_KEY,
  *     NEVER OPENAI_API_KEY — those tokens do not gate anything in this system.
+ *
+ * @lore AU28 Ruling 15: a harness is the thing that RUNS A MODEL, and nothing else
+ *   is one, ever. `gh` used to be a `HarnessName`; it is the GitHub CLI and its one
+ *   production use is an auth probe that makes no model call. A test that needs the
+ *   `gh` binary now says so with `requireBinary("gh")` (./require-binary.ts) — the
+ *   gate survives, the misfiling does not.
  *
  * A missing harness means the work is NOT done. requireHarness THROWS, naming the
  * absent harness, so the suite fails loudly rather than minting a false green by
@@ -20,19 +26,23 @@
  *   harness-named; there is no key-named member.
  */
 
-import { execFileSync } from "node:child_process";
+import { isBinaryOnPath } from "./require-binary.js";
 
-export type HarnessName = "claude" | "codex" | "opencode" | "cursor-agent" | "gh" | "builtin";
+export type HarnessName = "claude" | "codex" | "opencode" | "cursor-agent" | "builtin";
 
 /**
  * AR2 §0 — bidirectional lockstep with scripts/lib/honest-harness-predicate.ts
- * SUPPORTED_HARNESSES. `packages/` cannot import `scripts/`, so we mirror the
- * 4-element literal here and assert TYPE IDENTITY in BOTH directions:
+ * SUPPORTED_HARNESSES. A package cannot import `scripts/`, so we mirror the
+ * literal here and assert TYPE IDENTITY in BOTH directions:
  *   _AssertSupportedInHarness: every supported name is a valid HarnessName (→).
  *   _AssertHarnessCoversSupported: every member of the mirror is a SupportedHarness (←).
  * Adding a harness to SUPPORTED_HARNESSES without updating HarnessName → `npm run check` RED.
  * Adding to HarnessName without updating the mirror → `npm run check` RED (the ← assert fails).
- * `gh` is intentionally a HarnessName but NOT in the mirror — it is a tool, not an agent harness.
+ *
+ * @lore AU28 Ruling 15: the two sets are now IDENTICAL. They used to differ by exactly one
+ * member — `gh`, carved out of the ← direction by hand — and that carve-out was the type system
+ * being told to tolerate a non-harness in the harness vocabulary. With `gh` gone the assert is a
+ * plain mutual-extends, which is the shape a mirror should have had all along.
  */
 // biome-ignore format: keep the mirror and asserts on adjacent lines for lockstep visibility
 const SUPPORTED_HARNESSES_MIRROR = [
@@ -43,12 +53,12 @@ const SUPPORTED_HARNESSES_MIRROR = [
 	"cursor-agent",
 ] as const;
 type SupportedHarness = (typeof SUPPORTED_HARNESSES_MIRROR)[number];
-/** Public alias for the supported-harness key (the four agent harnesses, no `gh`). */
+/** Public alias for the supported-harness key. */
 export type SupportedHarnessName = SupportedHarness;
 // Each supported name must be a valid HarnessName (→):
 type AssertSupportedInHarness = SupportedHarness extends HarnessName ? true : never;
 // Each mirror member must be a SupportedHarness — both directions enforced (←):
-type AssertHarnessCoversSupported = HarnessName extends SupportedHarness | "gh" ? true : never;
+type AssertHarnessCoversSupported = HarnessName extends SupportedHarness ? true : never;
 // Compile-time proof that both asserts hold (any `never` in the union = error):
 declare const _lockstepCheck: [AssertSupportedInHarness, AssertHarnessCoversSupported];
 
@@ -58,7 +68,6 @@ const BINARY: Record<Exclude<HarnessName, "builtin">, string> = {
 	codex: "codex",
 	opencode: "opencode",
 	"cursor-agent": "cursor-agent",
-	gh: "gh",
 };
 
 /** True iff the harness is available (binary on PATH, or OPENROUTER_API_KEY set). */
@@ -67,12 +76,7 @@ function isHarnessAvailable(name: HarnessName): boolean {
 		// The ONLY key gate. Read process.env at call time (tests stub it).
 		return Boolean(process.env.OPENROUTER_API_KEY);
 	}
-	try {
-		execFileSync("which", [BINARY[name]], { stdio: "ignore" });
-		return true;
-	} catch {
-		return false;
-	}
+	return isBinaryOnPath(BINARY[name]);
 }
 
 /**
@@ -86,7 +90,7 @@ export function requireHarness(...names: HarnessName[]): void {
 	throw new Error(
 		`requireHarness: ${missing.join(", ")} not installed/configured — harness ` +
 			`integration test cannot complete. Install the binary ` +
-			`(claude/codex/opencode/cursor-agent/gh) or set OPENROUTER_API_KEY for builtin; or demote ` +
+			`(claude/codex/opencode/cursor-agent) or set OPENROUTER_API_KEY for builtin; or demote ` +
 			`to a *.test.ts unit. (AR1: never skipIf to green.)`,
 	);
 }

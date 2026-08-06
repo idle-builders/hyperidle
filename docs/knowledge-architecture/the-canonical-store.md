@@ -1,18 +1,18 @@
 # The Canonical Store
 
-All knowledge lives in one Postgres database — **PGlite embedded locally (laptop/test), postgres-js on a server (VPS/cloud)**. Both drivers satisfy the same Drizzle `HyperIdleDb` type, so callers are driver-agnostic (`packages/db/src/connection.ts:1-16`). PGlite is the deliberate default: a zero-ops embedded Postgres — no separate process, one data directory, laptop-first — with the identical schema running unchanged on server Postgres when a deployment outgrows a single machine.
+All knowledge lives in one Postgres database — **PGlite embedded locally (laptop/test), postgres-js on a server (VPS/cloud)**. Both drivers satisfy the same Drizzle `HyperIdleDb` type, so callers are driver-agnostic (`framework/db/src/connection.ts:1-16`). PGlite is the deliberate default: a zero-ops embedded Postgres — no separate process, one data directory, laptop-first — with the identical schema running unchanged on server Postgres when a deployment outgrows a single machine.
 
-Knowledge has a core row plus app-owned projection data. The historical projection table names remain for compatibility, but production callers use app-owned services and aliases.
+Knowledge has a core row plus app-owned projection data on a separate extension table.
 
 ## Kernel table — `knowledge_items`
 
-The core row carries identity, content, scope, and concurrency control: `id`, `scope_kind` (default `factory`), `scope_id`, `topic`, `title`, `body` (markdown), `format` (`markdown` | `toon`), `status`, `version` (optimistic concurrency), `updated_by`, `created_at`, `updated_at`. Derived signals live in app-owned projection services over the compatibility table. The authoritative shape is `packages/db/src/schema.ts`; this doc never mirrors it.
+The core row carries identity, content, scope, and concurrency control: `id`, `scope_kind` (default `factory`), `scope_id`, `topic`, `title`, `body` (markdown), `format` (`markdown` | `toon`), `status`, `version` (optimistic concurrency), `updated_by`, `created_at`, `updated_at`. Derived signals live on the projection extension table below. The authoritative shape is `framework/db/src/schema.ts`; this doc never mirrors it.
 
-`status` is the 7-value taxonomy `captured` / `provisional` / `validated` / `active` / `stale` / `archived` / **`needs_human`** (`packages/shared/src/knowledge.ts` `KNOWLEDGE_STATUSES`). `needs_human` marks items a human must resolve before they can progress — it is a pre-validation state, never exported.
+`status` is the 7-value taxonomy `captured` / `provisional` / `validated` / `active` / `stale` / `archived` / **`needs_human`** (`framework/shared/src/knowledge.ts` `KNOWLEDGE_STATUSES`). `needs_human` marks items a human must resolve before they can progress — it is a pre-validation state, never exported.
 
 ### Scope (kernel)
 
-Every knowledge item attaches to exactly one entity via `scope_kind + scope_id`. Scope determines where the item lives and who naturally sees it. `SCOPE_KINDS` is a closed 7-value enum (`packages/shared/src/types.ts:171-181`):
+Every knowledge item attaches to exactly one entity via `scope_kind + scope_id`. Scope determines where the item lives and who naturally sees it. `SCOPE_KINDS` is a closed 7-value enum (`framework/shared/src/types.ts:181-191`):
 
 - `factory` — strategic decisions, principles, constraints across all products. No `scope_id`.
 - `product` — product-specific context and architecture decisions. `scope_id` = product id.
@@ -22,17 +22,17 @@ Every knowledge item attaches to exactly one entity via `scope_kind + scope_id`.
 - `task` — notes, findings, failures for a specific task. `scope_id` = task id.
 - `user` — personal notes, private scratch. No `scope_id`.
 
-`factory` and `user` are the two scopes that never need an id (`SCOPES_REQUIRING_ID`). Adding a scope kind requires a concept-doc update first — the enum is closed by contract (@lore Q2, `packages/shared/src/types.ts:164-169`).
+`factory` and `user` are the two scopes that never need an id (`SCOPES_REQUIRING_ID`). Adding a scope kind requires a concept-doc update first — the enum is closed by contract (@lore Q2, `framework/shared/src/types.ts:166-180`).
 
-Scope is mutable — a user can change an item's scope (e.g., `user` → `product` to share a private note) via the scope-change dialog. Every field edit, including scope changes, lands in `knowledge_edit_log` (`packages/db/src/schema.ts:609-624`), which deliberately outlives its subject (RESTRICT, not cascade — an agent can never wipe its own authored history).
+Scope is mutable — a user can change an item's scope (e.g., `user` → `product` to share a private note) via the scope-change dialog. Every field edit, including scope changes, lands in `knowledge_edit_log` (`framework/db/src/schema.ts:912-922`), which deliberately outlives its subject (RESTRICT, not cascade — an agent can never wipe its own authored history).
 
-## App projection compatibility table — `knowledge_strategy_fabric`
+## App projection table — `knowledge_app_projection`
 
-Derived signals live in a separate table, 1:1 with the core row by `knowledge_item_id` (unique, cascade delete): `layer`, `scope_id`, `kind`, `attention_score`, `relevance_score`, `confidence`, `citation_count`, `last_cited_at`, `meta` (`packages/db/src/schema.ts`). The physical table name is historical compatibility storage; production code uses app-owned projection aliases/services.
+Derived signals live in a separate table, 1:1 with the core row by `knowledge_item_id` (unique, cascade delete): `layer`, `scope_id`, `kind`, `attention_score`, `relevance_score`, `confidence`, `citation_count`, `last_cited_at`, `meta` (`framework/db/src/schema.ts:1004-1021`). Migrations and older code comments still call this table `knowledge_strategy_fabric` — same table, renamed in AU19.
 
 ### Layer
 
-App-runtime assigns a layer to items that participate in the maturity flow — layer definitions live in [the-five-layers](the-five-layers.md). Layer is **optional**; the mapping is `SCOPE_TO_LAYER` (`packages/shared/src/knowledge.ts`):
+App-runtime assigns a layer to items that participate in the maturity flow — layer definitions live in [the-five-layers](the-five-layers.md). Layer is **optional**; the mapping is `SCOPE_TO_LAYER` (`framework/shared/src/knowledge.ts:6-14`):
 
 | Scope kind | Layer |
 |---|---|
@@ -46,7 +46,7 @@ App-runtime assigns a layer to items that participate in the maturity flow — l
 
 There is no `session` scope kind — L0 is the ephemeral per-session pack, never a `knowledge_items` row. Layer assignment is projection work; the creation flow never sets it.
 
-Items without a layer are invisible to context assembly — the agent context provider assembles only L4/L2/L3 items into agent sessions (`packages/server/src/services/context-assembly.ts`). Promoting a layer-less item means changing its scope to a layer-mapped scope kind.
+Items without a layer are invisible to context assembly — session context assembly loads only L4, product-scoped L2, and community-scoped L3 items into agent sessions (`layers/agent-orchestration/run-orchestration/src/context.ts`). Promoting a layer-less item means changing its scope to a layer-mapped scope kind.
 
 ## The axis rule
 

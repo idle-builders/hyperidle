@@ -67,9 +67,7 @@ Agents send in-app notifications when they need your attention. Every notificati
 |---|---|---|
 | **Review requests** | An agent needs your review to proceed | Immediate (may demote to ambient for low-risk reviews) |
 | **Blocker alerts** | An agent is blocked and needs you to intervene | Immediate |
-| **Cost alerts** | Factory spend crosses a configured cost cap | Immediate |
 
-Cost caps themselves are covered in [Running Your Team](running-your-team.md).
 
 ### Notification inbox
 
@@ -88,7 +86,6 @@ Urgency dots: **red** = immediate (needs attention now), **gray** = ambient (lis
 
 - **Settings → Notifications** contains one on/off toggle per notification type — nothing else. Muting a type keeps it out of your inbox entirely.
 - **Quiet hours**, the global **factory silence** switch, delivery **channels** (ntfy push, email), and the **digest** all exist as server-side configuration — they have no settings UI yet.
-- **Hard cost breaches** bypass all preferences, including factory silence, but still respect quiet hours.
 - **Queued delivery** — blocking notifications that can't deliver (quiet hours, silence) queue persistently and deliver when the window ends; the queue survives restarts.
 - **Auto-unblock is silent** — when a task's dependencies resolve, HyperIdle moves it to `in_progress` without notifying you. That's ambient housekeeping, not a call to action.
 

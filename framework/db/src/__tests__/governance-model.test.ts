@@ -1,10 +1,13 @@
 /**
  * AU28 — the compact architecture model reproduces every decided verdict.
  *
- * `governance/decided-rules.json` holds 125 verdicts the founder decided one at a time: every role
+ * `governance/decided-rules.json` holds 124 verdicts the founder decided one at a time: every role
  * pair × crossing kind, with a separate answer for the production and development worlds. They are
- * the decision artifact. `scripts/lib/governance-model.ts` is nine clauses that must *derive* all
- * 250 answers (125 rows × 2 worlds).
+ * the decision artifact. `scripts/lib/governance-model.ts` is fifteen clauses that must *derive* all
+ * 248 answers (124 rows × 2 worlds).
+ *
+ * The row count moved once, by founder ruling: AU28 Ruling 14 collapsed `raw runtime` and `harness`
+ * into one target, merging the two `harness-registry` capability rows that had the same verdict.
  *
  * That is the whole point of this file. Without it, a clause tuned to fix one crossing can silently
  * flip another, and the compact model quietly stops meaning what the founder decided.
@@ -107,10 +110,9 @@ function makeTarget(label: string, source: Crossing["source"], kind: Kind): Targ
 			return { sort: "event-bus" };
 		case "MCP router":
 			return { sort: "mcp-router" };
+		// Ruling 14: one act, one target. There is no separate `harness` target sort.
 		case "raw runtime":
 			return { sort: "raw-runtime" };
-		case "harness":
-			return { sort: "harness" };
 		case "repo root":
 			return { sort: "repo-root" };
 
@@ -162,18 +164,18 @@ const label = (row: DecidedRow): string => `${row.source} → ${row.target} [${r
 // -------------------------------------------------------------------------------------------
 
 describe("AU28 — the decided rule set is intact", () => {
-	it("holds exactly the 125 decided rows with the decided totals", () => {
-		expect(decided.rows).toHaveLength(125);
-		expect(decided.totals.rows).toBe(125);
+	it("holds exactly the 124 decided rows with the decided totals", () => {
+		expect(decided.rows).toHaveLength(124);
+		expect(decided.totals.rows).toBe(124);
 		const count = (world: "production" | "development", verdict: string): number =>
 			decided.rows.filter((r) => r[world] === verdict).length;
 		// These four numbers are the founder's decisions. A regeneration that moves any of them has
 		// re-derived what was decided instead of reading it — that happened once and cost hours.
-		expect(count("production", "allowed")).toBe(69);
+		expect(count("production", "allowed")).toBe(68);
 		expect(count("production", "forbidden")).toBe(56);
 		// Ruling 13 moved the two `db:table (other) [table:write]` rows from forbidden to allowed:
 		// the flat rule is replaced by the companion clause, which no row can express.
-		expect(count("development", "allowed")).toBe(115);
+		expect(count("development", "allowed")).toBe(114);
 		expect(count("development", "forbidden")).toBe(10);
 	});
 
@@ -183,29 +185,38 @@ describe("AU28 — the decided rule set is intact", () => {
 	});
 });
 
-describe("AU28 — nine clauses derive all 250 decided verdicts", () => {
+describe("AU28 — fifteen clauses derive all 248 decided verdicts", () => {
+	// W-TEST-2: `expect(wrong).toEqual([])` over a `.filter()` passes vacuously when `rows` is empty
+	// — a mis-parsed or emptied decided-rules.json would read as a total green. The counter is what
+	// makes the loop assert that it RAN, and it is the reason the row count is stated twice.
 	it("reproduces every production verdict", () => {
+		let checked = 0;
 		const wrong = decided.rows
-			.filter(
-				(row) => decide(architecture, crossingFor(row), "production").verdict !== row.production,
-			)
+			.filter((row) => {
+				checked += 1;
+				return decide(architecture, crossingFor(row), "production").verdict !== row.production;
+			})
 			.map((row) => {
 				const got = decide(architecture, crossingFor(row), "production");
 				return `${label(row)} — decided ${row.production}, model says ${got.verdict} via ${got.clause}`;
 			});
 		expect(wrong).toEqual([]);
+		expect(checked, "the loop must actually iterate every decided row").toBe(124);
 	});
 
 	it("reproduces every development verdict", () => {
+		let checked = 0;
 		const wrong = decided.rows
-			.filter(
-				(row) => decide(architecture, crossingFor(row), "development").verdict !== row.development,
-			)
+			.filter((row) => {
+				checked += 1;
+				return decide(architecture, crossingFor(row), "development").verdict !== row.development;
+			})
 			.map((row) => {
 				const got = decide(architecture, crossingFor(row), "development");
 				return `${label(row)} — decided ${row.development}, model says ${got.verdict} via ${got.clause}`;
 			});
 		expect(wrong).toEqual([]);
+		expect(checked, "the loop must actually iterate every decided row").toBe(124);
 	});
 
 	it("names a clause and a reason for every decision — no unexplained verdict", () => {
@@ -386,6 +397,29 @@ describe("AU28 — the clauses hold beyond the decided rows", () => {
 		).toBe("forbidden");
 	});
 
+	it("holds the one runtime door in BOTH worlds, whichever way the call is spelled — Ruling 14", () => {
+		const outsider = servicePkg("work", "core-api");
+		const owner = servicePkg("harness-registry", "agent-execution");
+		const door = { sort: "raw-runtime" } as const;
+
+		for (const world of ["production", "development"] as const) {
+			expect(
+				decide(architecture, { kind: "capability", source: outsider, target: door }, world).verdict,
+				world,
+			).toBe("forbidden");
+			expect(
+				decide(architecture, { kind: "capability", source: owner, target: door }, world).verdict,
+				world,
+			).toBe("allowed");
+		}
+
+		// The development world says WHY it did not relax: this is a door production has one of.
+		expect(
+			decide(architecture, { kind: "capability", source: outsider, target: door }, "development")
+				.clause,
+		).toContain("held: one door");
+	});
+
 	it("an undeclared surface is forbidden rather than silently permitted", () => {
 		const d = decide(
 			architecture,
@@ -420,7 +454,6 @@ describe("AU28 — the clauses hold beyond the decided rows", () => {
 			{ sort: "mcp-router" },
 			{ sort: "event-bus" },
 			{ sort: "raw-runtime" },
-			{ sort: "harness" },
 			{ sort: "development-file" },
 			{ sort: "repo-root" },
 		];

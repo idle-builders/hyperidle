@@ -1,6 +1,6 @@
 # App Shell (Always Present)
 
-The shell is the fixed frame around every view: **Sidebar | Main**, two columns only (`packages/web/src/layouts/AppShell.tsx` — Sidebar plus the routed `<Outlet>`). It provides:
+The shell is the fixed frame around every view: **Sidebar | Main**, two columns only (`layers/core-ui/src/layouts/AppShell.tsx` — Sidebar plus the routed `<Outlet>`). It provides:
 
 1. **View switching** — navigation between Conversations, Work, and Knowledge
 2. **Per-section fast-nav** — the head of the active section's items (threads / teams / knowledge items), swapping when a different section is selected
@@ -11,7 +11,7 @@ For the end-user walkthrough of this surface, see [guides/user/the-interface](..
 
 ## 1. Sidebar layout (SidebarV2, shipped AD9)
 
-`packages/web/src/shell/Sidebar.tsx`, top to bottom:
+`layers/core-ui/src/shell/Sidebar.tsx`, top to bottom:
 
 1. **Search row** — a `SearchField` spanning the sidebar width, with the **Assistant icon button** (robot glyph, `sidebar-assistant-btn`, Sidebar.tsx:243) immediately to its right on the same flex row. ⌘K activates global search (`hooks/useCommandK.ts`).
 2. **Three selectable section items: Conversations / Work / Knowledge** (in that order). Exactly one is active at a time. The active item's icon is `--text-primary`; inactive icons are `--text-tertiary` (Sidebar.tsx:154, 196-207).
@@ -19,7 +19,7 @@ For the end-user walkthrough of this surface, see [guides/user/the-interface](..
 4. **Shared fast-nav list** — ONE list region below the separator showing the head of the currently-active section's items; it **swaps** when a different section is selected — never three stacked lists (Sidebar.tsx:484-588). Conversations: recent threads (max 5). Work: teams — suppressed entirely when there are fewer than 2 teams (AD3 AC-1, Sidebar.tsx:538). Knowledge: knowledge items (max 5).
 5. **Footer strip** pinned at the bottom, separator above: a **Notifications button** (`sidebar-notification-btn`, opens the NotificationPopover; AF8) and the **Settings gear** — icon-only, no visible label ("Settings" text renders only in the sidebar body when settings is open; Sidebar.tsx:358-360).
 
-Cost burn is **not** surfaced in the shell — team burn vs cap lives on the WorkTeam page.
+Team capacity/status is **not** surfaced in the shell — that stat strip lives on the WorkTeam page.
 
 ### 1.1 Badges
 
@@ -41,7 +41,7 @@ Cross-view edges (what links to what across the three views): [cross-view-naviga
 
 ## 3. Routes
 
-`packages/web/src/router.tsx`, all inside the shell layout:
+`layers/core-ui/src/router.tsx`, all inside the shell layout:
 
 | Route | Page |
 |---|---|
@@ -82,15 +82,17 @@ View-local shortcuts (e.g. the session dial-in toggle) are documented per view: 
 
 Settings opens **in-shell**: the sidebar body swaps to a "Settings" heading + settings nav, and Main renders `SettingsPage`. Escape closes and returns to the previous view (P4 AC-21, `AppShell.tsx:347-368`). Deep-link `/settings` redirects to `/conversations?settings=open`.
 
-`SettingsPage` is a **stacked single scrollable page** (content max-width 680px, no per-section tabs — W3 AC-47/AC-52) with 13 sections in order (`SettingsPage.tsx`):
+`SettingsPage` is a **stacked single scrollable page** (content max-width 680px, no per-section tabs — W3 AC-47/AC-52) with 11 sections in order (`SettingsPage.tsx`):
 
-Profile · Org chart · Models · Agents · Filesystems · Agent backends · Connections · Assistant · Appearance (theme only) · Credentials · Notifications (per-type mute) · Worker · Backend (mode label + desktop hint, no switch button).
+Profile · Org chart · Agents · Agent behavior · Filesystems · Agent backends · Connections · Appearance (theme only) · Credentials · Notifications (per-type mute) · Backend (mode label + desktop hint, no switch button; Worker folded in, shared-mode only).
+
+Models and Assistant are no longer standalone sections (AV2): model tiers moved into the builtin harness detail inside Agent backends, and Assistant is now a row inside Agents.
 
 Section-by-section reference: [guides/user/settings](../guides/user/settings.md).
 
 ## 6. Assistant overlay
 
-The Assistant button in the search row opens **AssistantOverlay** (`packages/web/src/shell/AssistantOverlay.tsx`): a fixed popover at bottom-right (360px wide, max-height 70vh), backed by `/api/threads/assistant`. It deliberately does **not** close on outside clicks — the user keeps interacting with Main to attach context items while it stays open (L21); only Escape or clicking the trigger again closes it.
+The Assistant button in the search row opens **AssistantOverlay** (`layers/core-ui/src/shell/AssistantOverlay.tsx`): a fixed popover at bottom-right (360px wide, max-height 70vh), backed by `/api/threads/assistant`. It deliberately does **not** close on outside clicks — the user keeps interacting with Main to attach context items while it stays open (L21); only Escape or clicking the trigger again closes it.
 
 ## 7. New conversation (N flow)
 

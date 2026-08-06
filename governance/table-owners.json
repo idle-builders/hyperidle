@@ -50,12 +50,12 @@
 	"unowned": {
 		"note": "Ruling 6 — no unowned tables. These six are the completeness defect: 90 of the 91 production table violations are here, and exactly one is a genuine foreign access. Until an owner is named NOBODY may touch them, which is what the model already says.",
 		"tables": {
-			"sessions": "a sessions service does not exist yet — 3 packages touch the table. Follow-up W6.",
-			"propagationLog": "policy(9), core-api(3), work(2) — owner plus a door for 5 sites. Follow-up W5.",
-			"taskDispatchAttempts": "work(8), policy(3) — owner plus a door for 3 sites. Follow-up W5.",
-			"userSkills": "core-api(7), settings(2) — owner plus a move for 7 sites. Follow-up W5.",
-			"teamRunConfigDefaults": "only agent-run-config touches it — a one-line assignment. Follow-up W4.",
-			"agentRunConfig": "only agent-run-config touches it — a one-line assignment. Follow-up W4."
+			"sessions": "a sessions service does not exist yet — 3 packages touch the table.",
+			"propagationLog": "policy(9), core-api(3), work(2) — owner plus a door for 5 sites.",
+			"taskDispatchAttempts": "work(8), policy(3) — owner plus a door for 3 sites.",
+			"userSkills": "core-api(7), settings(2) — owner plus a move for 7 sites.",
+			"teamRunConfigDefaults": "only agent-run-config touches it — a one-line assignment.",
+			"agentRunConfig": "only agent-run-config touches it — a one-line assignment."
 		}
 	}
 }

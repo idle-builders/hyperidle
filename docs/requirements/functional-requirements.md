@@ -1,6 +1,6 @@
 # Functional Requirements
 
-Testable, outcome-level statements of what HyperIdle does. Field lists, schemas, and mechanism depth live in the owning layer docs — each section links its owner. Shapes themselves are owned by `packages/db/src/schema.ts`.
+Testable, outcome-level statements of what HyperIdle does. Field lists, schemas, and mechanism depth live in the owning layer docs — each section links its owner. Shapes themselves are owned by `framework/db/src/schema.ts`.
 
 ---
 
@@ -10,7 +10,7 @@ Depth: [agent-layer/agent-model.md](../agent-layer/agent-model.md).
 
 **F-1.1** An agent is defined by three composable parts: system prompt (`users.systemPrompt`), context (assembled just-in-time from the knowledge layers at session start), and skills (`users.skills`). All three are independently swappable.
 
-**F-1.2** Agents belong to exactly one of three categories — `team` (does the work, team-scoped), `strategy` (knowledge-scoped, behind the scenes), `individual` (user-scoped operator). Closed enum `AGENT_CATEGORIES` (packages/shared/src/types.ts:132).
+**F-1.2** Agents belong to exactly one of three categories — `team` (does the work, team-scoped), `strategy` (knowledge-scoped, behind the scenes), `individual` (user-scoped operator). Closed enum `AGENT_CATEGORIES` (`framework/shared/src/types.ts`).
 
 **F-1.3** Every human user gets exactly one assistant (individual agent) at registration. Strategy roles include facilitator, scout, infra, and platform.
 
@@ -26,15 +26,15 @@ Depth: [agent-layer/agent-model.md](../agent-layer/agent-model.md).
 
 Shapes and semantics: [process-layer/the-five-primitives.md](../process-layer/the-five-primitives.md).
 
-**F-2.1 Bet.** A committed, cost-boxed unit of work owned by a team. Status is `draft | active | completed | killed` with an `atRisk` boolean (packages/shared/src/types.ts:92). Appetite is money (`costAppetiteMinor` + currency), never a duration. Every change to a mutable field (done condition, hypothesis, cost appetite, description, at_risk) is recorded in the bet's `revisionLog`; done-condition changes emit a review item to the responsible human. Bets carry an `outcomeVerdict` (validated / refuted / partial / inconclusive) and a `decompositionStatus`. Lifecycle depth: [process-layer/bets-shape-commit-change-ship.md](../process-layer/bets-shape-commit-change-ship.md).
+**F-2.1 Bet.** A committed unit of work owned by a team. Status is `draft | active | completed | killed` with an `atRisk` boolean (`framework/shared/src/types.ts`). Every change to a mutable field (done condition, hypothesis, token appetite, description, at_risk) is recorded in the bet's `revisionLog`; done-condition changes emit a review item to the responsible human. Bets carry an `outcomeVerdict` (validated / refuted / partial / inconclusive) and a `decompositionStatus`. Lifecycle depth: [process-layer/bets-shape-commit-change-ship.md](../process-layer/bets-shape-commit-change-ship.md).
 
-**F-2.2 Task.** A unit of work picked up by one agent. Eight states: `proposed | accepted | hold | in_progress | blocked | review | done | killed` (packages/shared/src/types.ts:10). `hold` means unmet upstream dependencies — the Dependency Watcher auto-transitions hold → accepted when all upstream tasks reach `done`. `blocked` is distinct: a runtime block discovered during execution. Tasks carry an `outcomeVerdict` (met / met_with_rework / partially_met / not_met) and an optional thread. Depth: [process-layer/tasks-and-sessions.md](../process-layer/tasks-and-sessions.md).
+**F-2.2 Task.** A unit of work picked up by one agent. Eight states: `proposed | accepted | hold | in_progress | blocked | review | done | killed` (`framework/shared/src/types.ts`). `hold` means unmet upstream dependencies — the Dependency Watcher auto-transitions hold → accepted when all upstream tasks reach `done`. `blocked` is distinct: a runtime block discovered during execution. Tasks carry an `outcomeVerdict` (met / met_with_rework / partially_met / not_met) and an optional thread. Depth: [process-layer/tasks-and-sessions.md](../process-layer/tasks-and-sessions.md).
 
-**F-2.3 Session.** A single agent's bounded run on a task, states `active | paused | done | crashed`. The session ends before context compaction, and the agent writes session notes back to the task before ending — notes are the bridge between sessions on the same task. Sessions have no cost column; spend flows through cost events into agent/team/bet counters (corrected shape owned by [process-layer/the-five-primitives.md](../process-layer/the-five-primitives.md) §Sessions).
+**F-2.3 Session.** A single agent's bounded run on a task, states `active | paused | done | crashed`. The session ends before context compaction, and the agent writes session notes back to the task before ending — notes are the bridge between sessions on the same task. Shape owned by [process-layer/the-five-primitives.md](../process-layer/the-five-primitives.md) §Sessions.
 
 **F-2.4 Team.** A persistent group of agents. Capacity is a single integer — max parallel bets. Teams persist; agents join and leave by direct membership change. Depth: [process-layer/teams.md](../process-layer/teams.md).
 
-**F-2.5 Routine.** A recurring trigger attached to a named agent with persistent state across runs (`stateKey`). Trigger types: heartbeat, calendar (cron in `triggerConfig`), event, continuous. Routines declare `doneCondition`, `delegationAllowed`, `humanReview`, and `silent` (sleep-time routines that update memory without producing items), and carry per-run and monthly cost caps. Lifecycle state is `active | paused | error` (`routines.state`, `packages/db/src/schema.ts:346`); the boolean `routines.active` is **deprecated** — new code reads `state` (AA2 will drop `active`). Each trigger is recorded in `routine_runs` — an append-only audit log (`schema.ts:391-415`). Routine creation is not approval-gated. Depth: [process-layer/routines-and-retros.md](../process-layer/routines-and-retros.md).
+**F-2.5 Routine.** A recurring trigger attached to a named agent with persistent state across runs (`stateKey`). Trigger types: heartbeat, calendar (cron in `triggerConfig`), event, continuous. Routines declare `doneCondition`, `delegationAllowed`, `humanReview`, and `silent` (sleep-time routines that update memory without producing items). Lifecycle state is `active | paused | error` (`routines.state`, `framework/db/src/schema.ts`); the boolean `routines.active` is **deprecated** — new code reads `state` (AA2 will drop `active`). Each trigger is recorded in `routine_runs` — an append-only audit log (`framework/db/src/schema.ts`). Routine creation is not approval-gated. Depth: [process-layer/routines-and-retros.md](../process-layer/routines-and-retros.md).
 
 ## F-3: Knowledge
 
@@ -48,11 +48,11 @@ Layer taxonomy (L0–L4) is owned by [knowledge-architecture/the-five-layers.md]
 
 **F-3.4** Writeback is continuous: a file watcher (500ms debounce) turns changed files into item updates with version checks, new files into items with status `captured`, and version conflicts into `knowledge_conflicts` rows for resolution. Depth: [knowledge-architecture/sync-and-conflict-resolution.md](../knowledge-architecture/sync-and-conflict-resolution.md).
 
-**F-3.5** Every knowledge item has a lifecycle status. Kernel keeps `draft / active / archived / needs_human`; the fabric 7-state lifecycle is `captured → provisional → validated → active → stale → archived` (plus `needs_human`). Promotion from provisional to validated happens automatically at 5+ cross-scope repetitions with no contradiction and no open conflict (`AUTO_PROMOTION_REPETITION_THRESHOLD = 5`, packages/fabric/src/promotion-pipeline.ts:19).
+**F-3.5** Every knowledge item has a lifecycle status. Kernel keeps `draft / active / archived / needs_human`; the fabric 7-state lifecycle is `captured → provisional → validated → active → stale → archived` (plus `needs_human`). Promotion from provisional to validated happens automatically at 5+ cross-scope repetitions with no contradiction and no open conflict (`AUTO_PROMOTION_REPETITION_THRESHOLD = 5`, `layers/core-api/knowledge/src/promotion-pipeline.ts`).
 
 **F-3.6** Items are scored for human attention (novelty, conflict, repetition, confidence, taste, recency); crossing the 0.7 threshold creates a review item. Relevance is a separate three-signal model (recency / frequency / citation). Depth: [knowledge-architecture/relevance-and-attention.md](../knowledge-architecture/relevance-and-attention.md).
 
-**F-3.7** Git is an export target for version history — factory and team knowledge export as markdown files — never the source of truth. Structure: [knowledge-architecture/facilitators.md](../knowledge-architecture/facilitators.md).
+**F-3.7** **Not implemented.** This described Git as an export target for version history — factory and team knowledge exporting as markdown files, never the source of truth. The exporter was deleted in AU26 (increment C1); see [system-requirements.md](system-requirements.md) S-2.2. The database is the only store today. The unimplemented export sketch: [knowledge-architecture/facilitators.md](../knowledge-architecture/facilitators.md).
 
 ## F-4: Facilitators
 
@@ -64,7 +64,7 @@ Duties and lifecycle: [knowledge-architecture/facilitators.md](../knowledge-arch
 
 **F-4.3** Product managers have a dual role: coordinator (decomposes bets, integrates the task list, resolves handoffs, drafts retros) and self-improver.
 
-**F-4.4** When a bet's mutable fields change (done condition, hypothesis, cost appetite), done-condition changes emit a review item to the responsible human. Beyond that, surfacing trajectory shifts is the product manager's judgement — no numerical thresholds.
+**F-4.4** When a bet's mutable fields change (done condition, hypothesis, token appetite), done-condition changes emit a review item to the responsible human. Beyond that, surfacing trajectory shifts is the product manager's judgement — no numerical thresholds.
 
 ## F-5: Decomposition and Handoff
 
@@ -82,7 +82,7 @@ Depth: [process-layer/bets-shape-commit-change-ship.md](../process-layer/bets-sh
 
 Item shape and routing rules: [human-interface-layer/items-and-routing.md](../human-interface-layer/items-and-routing.md).
 
-**F-6.1** **Not currently implemented.** This described `routeItem` routing every item to one of the three views by risk tier, kind, and verb (risk tier medium/high, reviews, skill changes, and chat → Conversations; knowledge → Knowledge; work/bets → Work; fallback Conversations). Core-api itself already stopped calling this inline at item creation (`@lore O2`, `packages/core-api/src/routes/conversations.ts`), and AU21 §6 Decision L3 traced the remaining `tool-handlers` copy (`route_item` tool + `ports.work.routeItem` + `packages/core-api/work/src/item-router.ts`) to be vestigial — its `view` output was consumed by nothing — and deleted it outright. Real item routing (persisted, actually driving where an item surfaces) does not exist in the codebase today; re-provisioning it is a separate, unscoped product decision, not this fix.
+**F-6.1** **Not currently implemented.** This described `routeItem` routing every item to one of the three views by risk tier, kind, and verb (risk tier medium/high, reviews, skill changes, and chat → Conversations; knowledge → Knowledge; work/bets → Work; fallback Conversations). Core-api itself already stopped calling this inline at item creation (`@lore O2`, `layers/core-api/src/routes/conversations.ts`), and AU21 §6 Decision L3 traced the remaining `tool-handlers` copy (`route_item` tool + `ports.work.routeItem` + the `item-router.ts` file) to be vestigial — its `view` output was consumed by nothing — and deleted it outright. Real item routing (persisted, actually driving where an item surfaces) does not exist in the codebase today; re-provisioning it is a separate, unscoped product decision, not this fix.
 
 **F-6.2** Human decisions on review items use the five-verdict grammar — see [human-interface-layer/thread-primitive.md](../human-interface-layer/thread-primitive.md).
 
@@ -94,7 +94,7 @@ Item shape and routing rules: [human-interface-layer/items-and-routing.md](../hu
 
 **F-7.1** Top-down: humans set direction through factory-layer knowledge and bet commitment in the Work view. Every session's assembled context includes the factory layer.
 
-**F-7.2** Bottom-up: agents contribute findings to their practice at the weekly practice meeting; the facilitator decides which become captured practice items. New practice knowledge is automatically available to the next session via context assembly — pull, not push. Any agent can message humans directly.
+**F-7.2** Bottom-up: agents contribute findings to their practice through direct knowledge writes; the facilitator decides which become captured practice items. New practice knowledge is automatically available to the next session via context assembly — pull, not push. Any agent can message humans directly.
 
 **F-7.3** The two flows meet at the bet: committed top-down, revised bottom-up, every revision logged in `revisionLog` with reasoning.
 
@@ -104,18 +104,12 @@ Builtin routines: [process-layer/routines-and-retros.md](../process-layer/routin
 
 **F-8.1** Every completed or killed bet produces a retro (builtin `post-bet-retro` routine on the product manager, per team): hypothesis vs. reality, surprises, practice-worthy patterns, reusable artifacts.
 
-**F-8.2** Each practice meets weekly (builtin `practice-meeting` routine on the facilitator, Monday 10:00 UTC).
+**F-8.3** A monthly portfolio retro runs on the assistant (first Monday, 30-day window): portfolio-level patterns, capacity observations.
 
-**F-8.3** A monthly portfolio retro runs on the assistant (first Monday, 30-day window): portfolio-level patterns, capacity observations, cost trends.
+## F-9: WIP Limits
 
-## F-9: WIP and Cost Limits
+Concurrency semantics: [process-layer/wip-and-cost-limits.md](../process-layer/wip-and-cost-limits.md).
 
-Cap grammar, hierarchy, and money-not-duration doctrine: [process-layer/wip-and-cost-limits.md](../process-layer/wip-and-cost-limits.md).
+**F-9.2** An agent's WIP limit is `maxConcurrentSessions`, default 1 (`framework/db/src/schema.ts`). Team capacity is a single max-parallel-bets integer.
 
-**F-9.1** Cost caps are strictly nested — agent < team < factory. Enforcement checks every level; an agent cannot exceed its cap even if the team has headroom.
-
-**F-9.2** An agent's WIP limit is `maxConcurrentSessions`, default 1 (packages/db/src/schema.ts:51). Team capacity is a single max-parallel-bets integer.
-
-**F-9.3** Hitting a cap produces a review item, never a silent drop. In-progress sessions finish; no new work starts at that level.
-
-**F-9.4** Caps can be reset per level (`resetCosts`); there is no automated daily reset cadence. The cost sentinel that monitors burn is application code, not a routine.
+**F-9.3** Hitting a WIP limit is enforced synchronously, never a silent drop: activating a bet at full team capacity is rejected with `CapacityExceededError` (409); an agent already at its session concurrency limit causes the run to retry rather than starting a second session.

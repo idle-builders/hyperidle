@@ -75,7 +75,7 @@
 		},
 		"db:util": {
 			"reach": ["service"],
-			"why": "ANOMALY, pending follow-up W1. escapeLikePattern, resolveAgentScaffoldSpecs and resolveProfile touch no database — no SQL, no schema, no connection. The surface should not exist. Ruling 12.3 moves them out; until then the founder's round-1 verdict stands for services and the researched verdict stands for everyone else."
+			"why": "ANOMALY. escapeLikePattern, resolveAgentScaffoldSpecs and resolveProfile touch no database — no SQL, no schema, no connection. The surface should not exist. Ruling 12.3 moves them out; until then the founder's round-1 verdict stands for services and the researched verdict stands for everyone else."
 		}
 	},
 	"databasePackage": {
@@ -111,7 +111,7 @@
 		"mcpRouter": {
 			"host": "agent-execution",
 			"alsoDialledBy": ["harness"],
-			"why": "the router exists to serve the harness. Only the layer that owns the harness relationship, and the harness itself, dial it. It is mounted in the wrong place today — follow-up W3."
+			"why": "the router exists to serve the harness. Only the layer that owns the harness relationship, and the harness itself, dial it. It is mounted in the wrong place today."
 		}
 	},
 	"eventBus": {
@@ -122,12 +122,14 @@
 	},
 	"rawRuntime": {
 		"host": "agent-execution",
-		"why": "every model and harness call goes through one door so it can be recorded, priced and replayed. Constructing a vendor SDK anywhere else builds a path the rest of the system cannot see."
+		"why": "every model and agent call goes through one door so it can be recorded, priced and replayed. Importing a vendor SDK or spawning an agent CLI anywhere else builds a path the rest of the system cannot see.",
+		"spellingNote": "Ruling 14 — importing the SDK and spawning the CLI are ONE act with two spellings, and one target. They used to be two targets, which let the development world hold the import and wave the spawn through the same door."
 	},
 	"oneDoorSurfaces": {
 		"note": "The development world relaxes every production rule EXCEPT these. Each names a surface where production has exactly one door — going around it builds a world production cannot produce, which is the one thing a test may not do.",
 		"surfaces": ["db:schema-ns", "db:util", "db:unknown", "framework/design-system"],
 		"rawRuntime": true,
+		"rawRuntimeNote": "Ruling 14 — this holds BOTH spellings of the one act, the SDK import and the CLI spawn, because they are one target. Going around a door production has only one of is the one thing a test may not do, and a test spawning `claude` directly is doing exactly that.",
 		"why": "a test may cross any boundary to arrange the world; it may not go around a door production has only one of",
 		"foreignTableWriteMissingCompanion": true,
 		"foreignTableWriteNote": "Ruling 13. A test may write any foreign table directly — 63% of those writes would otherwise route through a function that is literally `insert(X).values(v)`. What is held is narrower and real: where the owner writes two rows in ONE call it has a cross-row invariant, and writing one without the other builds a state production cannot produce. The companion groups are derived from the owners' own writers, never listed."

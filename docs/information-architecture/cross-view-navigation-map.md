@@ -1,6 +1,6 @@
 # Cross-View Navigation Map
 
-Every navigation edge in the shipped app, verified against `packages/web/src/router.tsx`. Shell structure (sidebar, routes, shortcuts) is owned by [app-shell-always-present.md](app-shell-always-present.md); per-view layout by the view docs. This map owns only the edges.
+Every navigation edge in the shipped app, verified against `layers/core-ui/src/router.tsx`. Shell structure (sidebar, routes, shortcuts) is owned by [app-shell-always-present.md](app-shell-always-present.md); per-view layout by the view docs. This map owns only the edges.
 
 ## Global edges (available from any view)
 

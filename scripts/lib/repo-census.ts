@@ -8,8 +8,8 @@
  * @lore AU28: this module performs NO I/O. The file list and a `readFile` function are injected.
  * That is not a testability nicety — it is the structural reason a rule cannot quietly acquire its
  * own discovery, and the reason every unit test runs against a synthetic tree rather than the live
- * repo. The CLI (`scripts/governance-lint.ts`) is the only place allowed to call `git ls-files` and
- * `node:fs`.
+ * repo. `scripts/governance-context.ts` is the one module allowed to call `git ls-files` and
+ * `node:fs`; every CLI reads the live tree through it.
  *
  * @lore AU28: module resolution deliberately resolves ONLY into the injected file set. A specifier
  * that lands outside it (node_modules, a generated `dist/` artifact, a gitignored file) yields no
@@ -17,6 +17,8 @@
  */
 
 import ts from "typescript";
+
+import type { FloorKind } from "../rules/floors-tight.js";
 
 // ---------------------------------------------------------------------------
 // Classification
@@ -51,6 +53,11 @@ export interface ClassificationPattern {
 	readonly description: string;
 	/** Minimum number of tracked files this pattern must match. Below it, the guard hard-fails. */
 	readonly minFiles: number;
+	/**
+	 * `magnitude` — the floor tracks a count and `floors-tight` holds it near the live value.
+	 * `existence` — a check over a closed enumerated set, floor exactly 1, band-exempt by declaration.
+	 */
+	readonly floorKind: FloorKind;
 	readonly matches: (repoRelativePath: string) => boolean;
 }
 
@@ -167,24 +174,33 @@ const NAME_DECLARED_SUFFIXES: readonly {
  * @lore AU28: the floors are RECOMPUTED against the live tree whenever the tree moves under them, and
  * the recompute is part of the merge, not a follow-up. Rebasing onto AU26 + AU27 changed 632 files and
  * every magnitude below with it. A floor left at its pre-merge value is the precise rot these floors
- * exist to catch — it still passes, so nobody notices it has stopped measuring anything.
+ * exist to catch — it still passes, so nobody notices it has stopped measuring anything. Run
+ * `npm run governance:floors`: it prints the live count, the slack and the value to write for every
+ * floor in the build, and `floors-tight` fails the build for any magnitude floor that has drifted
+ * more than `max(20%, 5)` below live.
  *
- * Measured on the tree this commit produces (3,256 tracked / 789 production / 2,467 development):
- *   stories-suffix 144 · test-suffix 892 · spec-suffix 87 · dunder-segment 152 ·
- *   development-root:tools 94 · outside-production-roots 1,064 ·
+ * MEASURED LIVE (3,296 tracked / 789 production / 2,507 development):
+ *   stories-suffix 144 · test-suffix 894 · spec-suffix 87 · dunder-segment 152 ·
+ *   development-root:tools 94 · outside-production-roots 1,102 ·
  *   test-runner-config 30 + 1 + 3 · default-production 789.
- * Each magnitude floor sits at ~87-90% of its real count — tight enough that losing a package's worth
- * of files trips it, loose enough that ordinary churn does not. The enumerated-set patterns
- * (`development-root:*`, `test-runner-config:*`) stay at 1 on purpose: they are existence checks
- * over a closed list, and their job is to fail when an ENTRY dies, not when a count dips.
+ *
+ * The numbers this block carried before said 3,256 / 2,467 and `outside-production-roots` 1,064 —
+ * all three stale, in the file that mandates recomputing them. Every magnitude floor still sits
+ * inside the band at the live values, so no pattern floor moved; only the prose was wrong, which is
+ * the more insidious half, because prose is what the next reader trusts.
+ *
+ * The enumerated-set patterns (`development-root:*`, `test-runner-config:*`) stay at 1 on purpose and
+ * declare `floorKind: "existence"`: they are existence checks over a closed list, and their job is to
+ * fail when an ENTRY dies, not when a count dips. That is a declared field rather than a heuristic on
+ * the number 1, so it cannot be used to dodge the band on a magnitude pattern.
  *
  * @lore AU28 step 2: the role-folder move (`packages/` → `layers/` + `framework/` + `applications/` +
- * `tools/`, and root-level `bin`/`chart`/`homebrew` → `deploy/`) left EVERY number above unchanged —
- * 3,256 / 789 / 2,467, and each magnitude count identical to the digit. The only shift is which
- * pattern id owns a file: `development-package:{eval,eslint-plugin-authz,eslint-plugin-design}`
- * (41 + 7 + 46) collapsed into the single `development-root:tools` (94), and `outside-packages`
- * became `outside-production-roots` at the same 1,064. That the totals are invariant under the move
- * is the proof the rewrite re-expressed the rule rather than changing it.
+ * `tools/`, and root-level `bin`/`chart`/`homebrew` → `deploy/`) left every number at the time
+ * unchanged, and each magnitude count identical to the digit. The only shift was which pattern id
+ * owns a file: `development-package:{eval,eslint-plugin-authz,eslint-plugin-design}` (41 + 7 + 46)
+ * collapsed into the single `development-root:tools` (94), and `outside-packages` became
+ * `outside-production-roots`. That the totals were invariant under the move is the proof the rewrite
+ * re-expressed the rule rather than changing it.
  */
 export const CLASSIFICATION_PATTERNS: readonly ClassificationPattern[] = [
 	...NAME_DECLARED_SUFFIXES.map(
@@ -194,6 +210,7 @@ export const CLASSIFICATION_PATTERNS: readonly ClassificationPattern[] = [
 			kind: "development",
 			description,
 			minFiles,
+			floorKind: "magnitude",
 			matches: (p) => suffixes.some((s) => p.endsWith(s)),
 		}),
 	),
@@ -203,6 +220,7 @@ export const CLASSIFICATION_PATTERNS: readonly ClassificationPattern[] = [
 		kind: "development",
 		description: "any path segment starting with `__` marks the file development",
 		minFiles: 135,
+		floorKind: "magnitude",
 		matches: hasDunderSegment,
 	},
 	...DEVELOPMENT_ROOTS.map(
@@ -212,6 +230,8 @@ export const CLASSIFICATION_PATTERNS: readonly ClassificationPattern[] = [
 			kind: "development",
 			description: `every file under the wholly-development role root \`${root}/\``,
 			minFiles: 1,
+			// An enumerated closed set: the job is to fail when a ROOT dies, not when a count dips.
+			floorKind: "existence",
 			matches: (p) => p.startsWith(`${root}/`),
 		}),
 	),
@@ -221,6 +241,7 @@ export const CLASSIFICATION_PATTERNS: readonly ClassificationPattern[] = [
 		kind: "development",
 		description: `anything outside the production role roots (${PRODUCTION_ROOTS.map((r) => `\`${r}/\``).join(", ")}) is repo tooling, deployment assets, docs or pipeline state`,
 		minFiles: 950,
+		floorKind: "magnitude",
 		matches: (p) => !PRODUCTION_ROOTS.some((root) => p.startsWith(`${root}/`)),
 	},
 	...TEST_RUNNER_CONFIG_BASENAMES.map(
@@ -230,6 +251,8 @@ export const CLASSIFICATION_PATTERNS: readonly ClassificationPattern[] = [
 			kind: "development",
 			description: `\`${name}\` — pinned to a production path by the runner's own discovery`,
 			minFiles: 1,
+			// An enumerated closed set: the job is to fail when an ENTRY dies, not when a count dips.
+			floorKind: "existence",
 			matches: (p) => basename(p) === name,
 		}),
 	),
@@ -239,6 +262,7 @@ export const CLASSIFICATION_PATTERNS: readonly ClassificationPattern[] = [
 		kind: "development",
 		description: "`playwright.<lane>.config.ts` — the per-lane playwright configs",
 		minFiles: 1,
+		floorKind: "existence",
 		matches: (p) => {
 			const b = basename(p);
 			return b.startsWith("playwright.") && b.endsWith(".config.ts") && b !== "playwright.config.ts";
@@ -250,6 +274,7 @@ export const CLASSIFICATION_PATTERNS: readonly ClassificationPattern[] = [
 		kind: "production",
 		description: "everything else — shipping code",
 		minFiles: 700,
+		floorKind: "magnitude",
 		matches: () => true,
 	},
 ];
@@ -305,6 +330,14 @@ export interface ImportEdge {
 	readonly symbols: readonly string[];
 	/** True when the whole module is bound at once. Taking a module whole is its own act. */
 	readonly namespace: boolean;
+	/**
+	 * True when the statement is an `export … from` rather than an `import … from`.
+	 *
+	 * The two produce the same edge for every other purpose, and deliberately so — a re-export IS a
+	 * dependency. But re-exporting also REPUBLISHES what it names, which is a second act the import
+	 * does not perform, and the only thing that can tell them apart is the statement itself.
+	 */
+	readonly reexport: boolean;
 }
 
 export interface Census {
@@ -567,6 +600,8 @@ interface RawSpecifier {
 	readonly symbols: readonly string[];
 	/** True when the whole module is bound at once — `import * as x`, `export *`, `export * as x`. */
 	readonly namespace: boolean;
+	/** True for `export … from`. See `ImportEdge.reexport`. */
+	readonly reexport: boolean;
 }
 
 /**
@@ -614,6 +649,7 @@ export function collectSpecifiers(filePath: string, source: string): RawSpecifie
 		literal: ts.Node | undefined,
 		symbols: readonly string[] = [],
 		namespace = false,
+		reexport = false,
 	): void => {
 		if (literal === undefined || !ts.isStringLiteralLike(literal)) return;
 		out.push({
@@ -621,6 +657,7 @@ export function collectSpecifiers(filePath: string, source: string): RawSpecifie
 			line: sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1,
 			symbols,
 			namespace,
+			reexport,
 		});
 	};
 
@@ -649,15 +686,16 @@ export function collectSpecifiers(filePath: string, source: string): RawSpecifie
 			const clause = node.exportClause;
 			if (clause === undefined) {
 				// `export * from "x"` — the whole module, re-exported.
-				push(node, node.moduleSpecifier, [], true);
+				push(node, node.moduleSpecifier, [], true, true);
 			} else if (ts.isNamespaceExport(clause)) {
-				push(node, node.moduleSpecifier, [], true);
+				push(node, node.moduleSpecifier, [], true, true);
 			} else {
 				push(
 					node,
 					node.moduleSpecifier,
 					clause.elements.map((el) => (el.propertyName ?? el.name).text),
 					false,
+					true,
 				);
 			}
 		} else if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference)) {
@@ -730,6 +768,7 @@ export function buildCensus(input: CensusInput): Census {
 				to,
 				symbols: raw.symbols,
 				namespace: raw.namespace,
+				reexport: raw.reexport,
 			});
 		}
 	}

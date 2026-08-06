@@ -11,7 +11,7 @@ The load-bearing noun **`Staged Operation` is retired; the noun is `Proposed Cal
 
 ## The gate is opt-in machinery, not default behavior
 
-The capture workflow is machinery a caller **attaches** to a session — it is not on by default. No production caller constructs the session-1 "open-work" capture workflow today: ordinary task dispatch provisions with no `sessionWorkflow`, and assistant turns never get one either. The only `sessionWorkflow` producer in production is the session-2 grant path (`packages/fabric/src/services/task-dispatcher.ts:323-401`).
+The capture workflow is machinery a caller **attaches** to a session — it is not on by default. No production caller constructs the session-1 "open-work" capture workflow today: ordinary task dispatch provisions with no `sessionWorkflow`, and assistant turns never get one either. The only `sessionWorkflow` producer in production is the session-2 grant path (the task dispatcher, wired in `layers/core-api/src/service-bootstrap.ts`).
 
 So the correct framing of everything below is conditional: **when a review checkpoint is attached** (because a human chose it for this case, or a learning earned it), the workflow router routes irreversible calls to review and lets reversible calls flow.
 
@@ -21,13 +21,13 @@ A review is a decision point, and a decision moves the world. Even approving a c
 
 ## The classifier: reversibility, not familiarity
 
-When a checkpoint is attached, the routing line is **reversibility** (`classifyReversibility`, `packages/server/src/tools/tool-registry.ts:217`). Reversible calls flow; irreversible calls route to review. A brand-new, never-seen, *reversible* tool just runs — **unknown does not mean gated**. Gating the unfamiliar-but-reversible is the approval fatigue that drowned the first generation of agent tools. A no-signal tool is classified irreversible out of care — surface a consequential-looking call rather than miss one — not out of suspicion of the agent.
+When a checkpoint is attached, the routing line is **reversibility** (`classifyReversibility`, `layers/agent-execution/harness-registry/src/tool-registry.ts`). Reversible calls flow; irreversible calls route to review. A brand-new, never-seen, *reversible* tool just runs — **unknown does not mean gated**. Gating the unfamiliar-but-reversible is the approval fatigue that drowned the first generation of agent tools. A no-signal tool is classified irreversible out of care — surface a consequential-looking call rather than miss one — not out of suspicion of the agent.
 
 ## The carrier: HyperIdle's MCP bridge, never a harness-native permission feature
 
-The single shipped carrier of the workflow on every CLI harness is **HyperIdle's production MCP bridge** — `/api/mcp/:token` (`packages/server/src/routes/mcp-route.ts`) → `createMcpBridge` (`packages/server/src/mcp/mcp-bridge.ts`) → the capturing router at `registry.invoke` (`packages/server/src/tools/tool-registry.ts:283` — "the router in `invoke` is the uniform record/consume"). The builtin harness is the same router in-process.
+The single shipped carrier of the workflow on every CLI harness is **HyperIdle's production MCP bridge** — `/api/mcp/:token` (`layers/agent-execution/harness-registry/src/mcp/mcp-route.ts`) → `createMcpBridge` (`layers/agent-execution/harness-registry/src/mcp/mcp-bridge.ts`) → the capturing router at `registry.invoke` (`layers/agent-execution/harness-registry/src/tool-registry.ts` — "the router in `invoke` is the uniform record/consume"). The builtin harness is the same router in-process.
 
-No harness-native permission mechanism carries any of this. There is no `canUseTool` (the Agent SDK was removed; claude-code is the real `claude` CLI), no `PreToolUse` hook (the codex hook is a **Stop** hook for return enforcement), and no opencode `permission` config anywhere in the codebase — the claude production adapter runs `--permission-mode bypassPermissions` (`packages/server/src/harness/adapter-pool.ts:515-530`).
+No harness-native permission mechanism carries any of this. There is no `canUseTool` (the Agent SDK was removed; claude-code is the real `claude` CLI), no `PreToolUse` hook (the codex hook is a **Stop** hook for return enforcement), and no opencode `permission` config anywhere in the codebase — the claude production adapter runs `--permission-mode bypassPermissions` (`layers/agent-execution/harness-registry/src/adapter-pool.ts`).
 
 **Honest scope (stated once).** On a CLI harness the checkpoint covers the agent's **MCP-routed calls** — the ones that pass through the bridge to `registry.invoke`. The agent is trusted not to route an irreversible op around the bridge (raw shell / direct HTTP / its own creds). This is ETHOS §2, not a defect: the checkpoint is where a human chooses to weigh in, not a wall the agent is tested against.
 
@@ -37,17 +37,17 @@ Per-harness capabilities, probes, and MCP wiring are owned by the [harness capab
 
 HyperIdle sessions are detached one-shots — not pausable — so the review spans **two sessions**:
 
-1. **Session 1 — capture + end.** With the workflow attached, the agent works with its own tools + creds; reversible calls flow. When an irreversible call is attempted, the capturing router records `{toolId, args}` verbatim as a **Proposed Call** (status `captured`) anchored to a review message + subject thread — idempotently per `(originSessionId, identityHash)` (`packages/db/src/schema.ts:1145`) so a retry mints no duplicate — returns `AWAITING_REVIEW`, and HyperIdle ends session 1 via the abort rail (`onAbortSession` → `sessionRunRegistry.abort`).
-2. **Review — verdict.** `threads.ts` resolves the verdict (first-verdict-wins, 409 on race, re-open); grammar owned by the [thread primitive](../human-interface-layer/thread-primitive.md). On `approve`/`approve-with-comments`, HyperIdle composes the **tailored grant** — do the approved op (plus reversible work); route any *other* irreversible op back to review — scoped to task id + agent id (session 2's id doesn't exist yet), and emits `proposed_call_granted` (`packages/shared/src/events.ts:432`), which explicitly re-engages the agent (`task-dispatcher.ts:614-656`). A non-approving verdict leaves the Proposed Call `held`.
+1. **Session 1 — capture + end.** With the workflow attached, the agent works with its own tools + creds; reversible calls flow. When an irreversible call is attempted, the capturing router records `{toolId, args}` verbatim as a **Proposed Call** (status `captured`) anchored to a review message + subject thread — idempotently per `(originSessionId, identityHash)` (`framework/db/src/schema.ts`) so a retry mints no duplicate — returns `AWAITING_REVIEW`, and HyperIdle ends session 1 via the abort rail (`onAbortSession` → `sessionRunRegistry.abort`).
+2. **Review — verdict.** `threads.ts` resolves the verdict (first-verdict-wins, 409 on race, re-open); grammar owned by the [thread primitive](../human-interface-layer/thread-primitive.md). On `approve`/`approve-with-comments`, HyperIdle composes the **tailored grant** — do the approved op (plus reversible work); route any *other* irreversible op back to review — scoped to task id + agent id (session 2's id doesn't exist yet), and emits `proposed_call_granted` (`framework/shared/src/events.ts`), which explicitly re-engages the agent (the task dispatcher). A non-approving verdict leaves the Proposed Call `held`.
 3. **Session 2 — resume under the grant + continue.** The task-dispatcher re-provisions session 2 (same task + same agent) with the grant-bearing `sessionWorkflow` (`sessionRole:"grant-bearing"`). The agent **re-does the approved work with its own tools — re-deriving the call is fine** (we trust it intends the approved thing). The grant is consumed once via a single-statement atomic CAS; the real tool return is recorded as the **Outcome**; the agent keeps working — closes the story, updates docs, proceeds.
 
-**Liveness net** (`packages/server/src/services/proposed-call-workflow.ts`): if session 2 ends with the grant unconsumed (crash / no-show — never re-derivation or arg drift), HyperIdle re-provisions once; a second miss writes a `failed` Outcome and holds the call. Never a silent hang.
+**Liveness net** (`layers/core-api/review/src/proposed-call-workflow.ts`): if session 2 ends with the grant unconsumed (crash / no-show — never re-derivation or arg drift), HyperIdle re-provisions once; a second miss writes a `failed` Outcome and holds the call. Never a silent hang.
 
 > **Not `assembleContext`, not `SessionConfig.messages`.** Context assembly writes retrieved knowledge to disk and returns only counts. Seeding the call into message history only feeds the LLM as *context* — it does not carry the workflow. The workflow is composed by HyperIdle and carried by the bridge/router.
 
 ## Definition
 
-A **Proposed Call** is the exact, fully-bound tool call (tool id + verbatim arguments) that an agent **attempted** and HyperIdle **routed to review**, captured verbatim as the subject a human reviews. A record/snapshot — not an event, not a command HyperIdle will run, not the act of executing. Types: `packages/shared/src/proposed-call.ts`; tables: `proposed_calls` (`schema.ts:1113`), `tailored_grants` (`schema.ts:1162`), Outcome (`schema.ts:1184-1192`).
+A **Proposed Call** is the exact, fully-bound tool call (tool id + verbatim arguments) that an agent **attempted** and HyperIdle **routed to review**, captured verbatim as the subject a human reviews. A record/snapshot — not an event, not a command HyperIdle will run, not the act of executing. Types: `framework/shared/src/proposed-call.ts`; tables: `proposed_calls` (`schema.ts`), `tailored_grants` (`schema.ts`), Outcome (`schema.ts`).
 
 ## Essential properties
 
@@ -67,7 +67,7 @@ Session 2 is never permitted by matching a hash of the captured bytes. Re-derivi
 
 ## The gate fades as trust grows
 
-The trust signal is **earned**: an agent's approval rate over its recent verdict history, computed by the policy engine (`packages/fabric/src/services/policy-engine.ts`, AD4). Cold-start-safe: too few verdicts → everything surfaced. There is no per-tool risk table or allowlist matrix. More autonomy is the goal. Trust surfaces in the UI are owned by the [review primitive](../human-interface-layer/review-primitive.md).
+The trust signal is **earned**: an agent's approval rate over its recent verdict history, computed by the policy engine (`layers/core-api/policy/src/policy-engine.ts`, AD4). Cold-start-safe: too few verdicts → everything surfaced. There is no per-tool risk table or allowlist matrix. More autonomy is the goal. Trust surfaces in the UI are owned by the [review primitive](../human-interface-layer/review-primitive.md).
 
 > **Implementation status.** AL7 shipped only the gated arm — an attached checkpoint routes every irreversible Proposed Call to an explicit human approve; staged ops bypass the policy engine today. Wiring the trust signal so reversible calls auto-flow and the lane widens is **AL8** (not built). Removing vestigial per-skill autonomy data is **AL9** (not built).
 
@@ -81,7 +81,7 @@ The trust signal is **earned**: an agent's approval rate over its recent verdict
 - **Not a live session pause.** Sessions are detached one-shots; the review spans two sessions.
 - **Not an agent-authored spec.** There is no `stage_operation` tool; the subject is the *real attempted call*.
 - **Not a verdict.** The verdict authorizes; the Proposed Call is authorized.
-- **Not a `ToolCallSummary`.** That records a reversible action the assistant *already ran* (AD8b, `packages/shared/src/thread.ts`). A Proposed Call is the not-yet-run irreversible call routed to review.
+- **Not a `ToolCallSummary`.** That records a reversible action the assistant *already ran* (AD8b, `framework/shared/src/thread.ts`). A Proposed Call is the not-yet-run irreversible call routed to review.
 - **Not the `action_operation` canvas.** The canvas (`ReviewActionOperation.tsx`) renders a *view*; the Proposed Call is the backing captured call.
 - **Not a permanent brake.** The checkpoint fades as trust is earned (AD4).
 
@@ -102,7 +102,7 @@ captured ──(routed to review in session 1; the exact call is recorded; sessi
 
 ## Outcome
 
-The recorded terminal result — `{ status: ok | failed, receipt | error, executedAt }`. Written from session 2's **real tool return**; immutable once recorded (PK = Proposed-Call id enforces 0..1 and no overwrite, `schema.ts:1184-1192`); surfaced where the Proposed Call's canvas rendered. A failure is an Outcome with `status: failed` and a surfaced error — never missing/silent.
+The recorded terminal result — `{ status: ok | failed, receipt | error, executedAt }`. Written from session 2's **real tool return**; immutable once recorded (PK = Proposed-Call id enforces 0..1 and no overwrite, `schema.ts`); surfaced where the Proposed Call's canvas rendered. A failure is an Outcome with `status: failed` and a surfaced error — never missing/silent.
 
 ## Authority
 

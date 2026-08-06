@@ -3,16 +3,22 @@
  *
  * Runs the full AH6 live-record lane LOCALLY in order:
  *   1. Assert OPENROUTER_API_KEY present (fail closed if absent).
- *   2. Run the no-mock static guard (ah6-no-mock-guard.ts).
- *   3. Run the selection unit tests as a fast pre-flight.
- *   4. Resolve the model (or honor AH6_MODEL_OVERRIDE).
- *   5. Record cassettes — run the AH6 Playwright lane with LLM_CASSETTE_MODE=record
+ *   2. Run the selection unit tests as a fast pre-flight.
+ *   3. Resolve the model (or honor AH6_MODEL_OVERRIDE).
+ *   4. Record cassettes — run the AH6 Playwright lane with LLM_CASSETTE_MODE=record
  *      against the live test-server. Three real turns fire real OpenRouter calls;
  *      recordLlm writes layers/core-ui/__e2e__/cassettes/default.json + ah6-cost.json
  *      (token-usage report — see AU21 lore below).
- *   6. Backup ah6-cost.json to /tmp before Playwright clears its report dir.
- *   7. Budget assert — fail-closed on cap.
- *   8. Emit a summary.
+ *   5. Backup ah6-cost.json to /tmp before Playwright clears its report dir.
+ *   6. Budget assert — fail-closed on cap.
+ *   7. Emit a summary.
+ *
+ * @lore AU28: step 2 used to run `scripts/ah6-no-mock-guard.ts`. Ruling 10 deleted the
+ * whole inherited guard set, and this caller was left pointing at the deleted file — so
+ * `npm run smoke:ah6` died on a missing module at step 2 and never reached the lane it
+ * exists to run. The lane is manual and in no gate, which is exactly why nothing caught
+ * it. Deleting a guard means deleting its callers in the same commit; a `run()` step that
+ * shells out to a path is invisible to the type checker and to knip.
  *
  * Usage:
  *   npm run smoke:ah6
@@ -126,16 +132,7 @@ if (!apiKey || apiKey.trim() === "") {
 process.stdout.write("[smoke:ah6] OPENROUTER_API_KEY is set.\n");
 
 // ---------------------------------------------------------------------------
-// STEP 2: No-mock static guard.
-// ---------------------------------------------------------------------------
-
-run(
-	"No-mock static guard",
-	"npx tsx scripts/ah6-no-mock-guard.ts",
-);
-
-// ---------------------------------------------------------------------------
-// STEP 3: Selection unit tests as a fast pre-flight (money-saver, not the gate).
+// STEP 2: Selection unit tests as a fast pre-flight (money-saver, not the gate).
 // ---------------------------------------------------------------------------
 
 run(
@@ -144,7 +141,7 @@ run(
 );
 
 // ---------------------------------------------------------------------------
-// STEP 4: Resolve the model — or honor AH6_MODEL_OVERRIDE.
+// STEP 3: Resolve the model — or honor AH6_MODEL_OVERRIDE.
 // ---------------------------------------------------------------------------
 
 const override = process.env.AH6_MODEL_OVERRIDE;
@@ -180,7 +177,7 @@ try {
 }
 
 // ---------------------------------------------------------------------------
-// STEP 5: Record cassettes via the AH6 Playwright lane in record mode.
+// STEP 4: Record cassettes via the AH6 Playwright lane in record mode.
 //
 // LLM_CASSETTE_MODE=record causes callLlm → recordLlm which:
 //   - Makes a real OpenRouter call per scenario turn.
@@ -206,7 +203,7 @@ run(
 );
 
 // ---------------------------------------------------------------------------
-// STEP 6: Verify usage report exists at /tmp/ah6-cost.json.
+// STEP 5: Verify usage report exists at /tmp/ah6-cost.json.
 //
 // @lore AH6 CRITICAL-4: The recorder writes ah6-cost.json directly to /tmp
 // (via AH6_COST_REPORT_PATH=/tmp/ah6-cost.json in playwright.ah6.config.ts).
@@ -219,7 +216,7 @@ const usageReportPath = "/tmp/ah6-cost.json";
 process.stdout.write(`[smoke:ah6] Usage report at: ${usageReportPath}\n`);
 
 // ---------------------------------------------------------------------------
-// STEP 7: Budget assert (fail-closed).
+// STEP 6: Budget assert (fail-closed).
 // ---------------------------------------------------------------------------
 
 run(
@@ -228,7 +225,7 @@ run(
 );
 
 // ---------------------------------------------------------------------------
-// STEP 8: Summary.
+// STEP 7: Summary.
 // ---------------------------------------------------------------------------
 
 let totalTokens: number | undefined;

@@ -628,7 +628,7 @@ export default [
 							name: "@hyperidle/shared",
 							importNames: ["defaultRoster"],
 							message:
-								"A route or tool handler must not compose a roster. Roster composition belongs to the agent-scaffolding path (framework/db/src/agent-scaffold.ts), which is the one caller of defaultRoster().",
+								"A route or tool handler must not compose a roster. Roster composition belongs to the agent-scaffolding path (framework/db/src/agent-scaffold.ts) and to team setup (layers/core-ui/src/pages/SetupFlow.tsx) — the two legitimate callers of defaultRoster().",
 						},
 					],
 				},

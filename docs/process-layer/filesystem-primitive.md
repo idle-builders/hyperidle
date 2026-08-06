@@ -4,7 +4,7 @@ A **registered, team-scoped file source** — durable file-like working artifact
 
 ## Why it exists
 
-Without a filesystem an agent could research and plan but not produce durable, reviewable output — code least of all. Before AO1, `knowledge_items` was the only durable output store and non-code outputs were squeezed into it; code had no home. The filesystem gives authored output a durable, history-bearing home and is the structural keystone of the self-hosting build loop. Shipped: `filesystems` + `filesystem_injections` + `filesystem_captures` (`packages/db/src/schema.ts:880-973`) and the AO2 mount adapters (`packages/server/src/filesystem/`).
+Without a filesystem an agent could research and plan but not produce durable, reviewable output — code least of all. Before AO1, `knowledge_items` was the only durable output store and non-code outputs were squeezed into it; code had no home. The filesystem gives authored output a durable, history-bearing home and is the structural keystone of the self-hosting build loop. Shipped: `filesystems` + `filesystem_injections` + `filesystem_captures` (`framework/db/src/schema.ts`) and the AO2 mount adapters (`layers/agent-orchestration/filesystem-mounting/`).
 
 ## The line: Filesystem vs Tool vs Knowledge
 
@@ -25,20 +25,20 @@ A filesystem is **deliberately narrow** — **only** a file-bearing corpus the a
 | CRM (Salesforce/HubSpot) | **Tool** (AN) | live SoR; PATCH via API |
 | Cloud drive (lookup) | **Knowledge** (read) / **Tool** (write) | read via index; write via discrete create-file; no edit-and-syncback |
 
-The rule is enforced, not just documented: SoR kinds (inbox, crm, ticket_queue) are rejected at the Zod boundary on POST (`packages/shared/src/filesystem.ts:4-9`; create-route enum in `packages/server/src/routes/filesystems.ts`). No Drive/Dropbox two-way sync engine exists.
+The rule is enforced, not just documented: SoR kinds (inbox, crm, ticket_queue) are rejected at the Zod boundary on POST (`framework/shared/src/filesystem.ts`; create-route enum in `layers/core-api/src/routes/filesystems.ts`). No Drive/Dropbox two-way sync engine exists.
 
 ## How it connects — registry + per-bot injection (two surfaces)
 
 A filesystem is **registered** and then **injected per-bot**, exactly like a connector ("connect once, inject per agent"):
 
-1. **Registry — Settings → Filesystems** (`packages/web/src/settings/SettingsFilesystems.tsx`). Connect the account once — a [Connection](../architecture/connection-model.md) (Track AN): a held token or inherited auth, **never an OAuth app HyperIdle registers**. Register **which resource** of that connection is the filesystem (a GitHub **repo**+branch; an Obsidian/Drive **folder**) as a **team-scoped** row. Each row shows its **`source`** (the source type, derived from the Connection — `local` / `github` / `gdrive` / …) as a badge, plus its resource + state.
+1. **Registry — Settings → Filesystems** (`layers/core-ui/src/settings/SettingsFilesystems.tsx`). Connect the account once — a [Connection](../architecture/connection-model.md) (Track AN): a held token or inherited auth, **never an OAuth app HyperIdle registers**. Register **which resource** of that connection is the filesystem (a GitHub **repo**+branch; an Obsidian/Drive **folder**) as a **team-scoped** row. Each row shows its **`source`** (the source type, derived from the Connection — `local` / `github` / `gdrive` / …) as a badge, plus its resource + state.
 2. **Per-bot injection — Settings → Agents** (the bot's config, `SettingsAgents.tsx`). Select **which registered filesystems to inject** into that bot. A filesystem registered once is injected to **0..N bots** (the `FilesystemInjection` mapping) — many bots may share it; a bot may have many. It is **not owned by a single agent**.
 
 The Connection supplies the auth (and the `source`); the Filesystem is the file-bearing **registered resource**; the **injection** is the per-bot wiring. Files (filesystem), auth/tools (Connection), and per-bot wiring (injection) are distinct axes that **compose**.
 
 ## Shape
 
-The `Filesystem`, `FilesystemInjection`, and `FilesystemCapture` shapes are owned by code: `packages/db/src/schema.ts:880-973` (tables + @lore) and `packages/shared/src/filesystem.ts` (wire types, `FILESYSTEM_KINDS`, `WRITEBACK_MODES`, states, `ResourceRef`). Not restated here. Two facts worth locking:
+The `Filesystem`, `FilesystemInjection`, and `FilesystemCapture` shapes are owned by code: `framework/db/src/schema.ts` (tables + @lore) and `framework/shared/src/filesystem.ts` (wire types, `FILESYSTEM_KINDS`, `WRITEBACK_MODES`, states, `ResourceRef`). Not restated here. Two facts worth locking:
 
 - `connection_id` is a **reference by id, deliberately not a DB FK** (AO1 ⟂ AN; AN may add the FK in its own migration).
 - There is **no `agent_user_id` column on the filesystem** — single-owner was replaced by the injection mapping. Mount resolves `sessions.agentId → filesystem_injections → filesystems`, never a global path.
@@ -73,7 +73,7 @@ registered ──► reachable ⇄ needs_attention      (injected into / ejected
                    └─(per session, AO2)─► mounted → authored by agent → captured back
 ```
 
-Durable record; ephemeral mount. Registration and per-bot injection are independent axes (inject/eject a registered filesystem on any bot without re-registering). The working set is placed in the sandbox, authored using the agent's own tools/creds, and **captured back before sandbox teardown** into `filesystem_captures` — a git bundle for `git` writeback, a snapshot dir for `file`, `"none"` for read-only (`schema.ts:951-973`). An authored artifact destined for an external system is drafted in the sandbox and **published via a discrete tool action** at the end. Nothing is lost when the sandbox is destroyed.
+Durable record; ephemeral mount. Registration and per-bot injection are independent axes (inject/eject a registered filesystem on any bot without re-registering). The working set is placed in the sandbox, authored using the agent's own tools/creds, and **captured back before sandbox teardown** into `filesystem_captures` — a git bundle for `git` writeback, a snapshot dir for `file`, `"none"` for read-only (`schema.ts`). An authored artifact destined for an external system is drafted in the sandbox and **published via a discrete tool action** at the end. Nothing is lost when the sandbox is destroyed.
 
 ## Authority & access
 
