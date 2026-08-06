@@ -50,7 +50,7 @@ export class UnclaimedProductionFileError extends Error {
  * Specifier as written → the census file it resolves to, per source file.
  *
  * Built once per census and memoized. Three detectors need this map and each used to rebuild it by
- * scanning all 3,600 edges per file.
+ * scanning every edge in the census, per file.
  */
 const specifierIndexes = new WeakMap<Census, Map<string, Map<string, string>>>();
 
@@ -177,6 +177,48 @@ export function buildTableRefs(
 }
 
 /**
+ * Local names bound to a fixed STRING, so a command spelled as a constant resolves to its value.
+ *
+ * @lore AU28 Ruling 14/15: the one-door rule is the strongest in the set and it required the binary to
+ * be written as a literal at the call site. `spawn("claude", …)` errored; `const AGENT_CLI = "claude";
+ * spawn(AGENT_CLI, …)` was silent. Lifting a command out into a named constant is ordinary style — it
+ * is what anyone does the second time they need the name — so the strongest rule in the set was one
+ * refactor deep. This is the same act as `buildTableRefs` performs for tables: resolve the BINDING,
+ * not the spelling.
+ *
+ * @lore AU28 — the same deliberate boundary as the table resolver. One level of NAMING indirection to
+ * a fixed point: `const a = "claude"`, `const b = a`. Value flow is out of scope — a string in an
+ * object, a string returned from a function, a template with a substitution. That is hiding rather
+ * than style, and a partial value-flow analysis reads as complete while being trivially escapable.
+ */
+function buildStringConstants(sf: ts.SourceFile): ReadonlyMap<string, string> {
+	const values = new Map<string, string>();
+	const aliases: { readonly name: string; readonly of: string }[] = [];
+	const walk = (node: ts.Node): void => {
+		if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer !== undefined) {
+			const init = node.initializer;
+			// A `no-substitution` template literal is a string literal wearing backticks.
+			if (ts.isStringLiteral(init) || ts.isNoSubstitutionTemplateLiteral(init)) values.set(node.name.text, init.text);
+			else if (ts.isIdentifier(init)) aliases.push({ name: node.name.text, of: init.text });
+		}
+		ts.forEachChild(node, walk);
+	};
+	walk(sf);
+	for (let pass = 0; pass < 8; pass += 1) {
+		let grew = false;
+		for (const alias of aliases) {
+			const value = values.get(alias.of);
+			if (value !== undefined && !values.has(alias.name)) {
+				values.set(alias.name, value);
+				grew = true;
+			}
+		}
+		if (!grew) break;
+	}
+	return values;
+}
+
+/**
  * Local names bound to drizzle's `sql` tag, so a raw template is recognised however it is imported.
  *
  * Only the tag is resolved here; which TABLE the template names is a string match against the
@@ -201,9 +243,16 @@ function drizzleSqlNames(sf: ts.SourceFile): Set<string> {
  *
  * The STATEMENT verb decides, not the keyword in front of the table name — otherwise `delete from x`
  * would count as a read as well as a write.
+ *
+ * @lore AU28: ANY write verb in the template decides, not the LEADING one. The leading verb was the
+ * original rule and a CTE walks straight past it: ``sql`with recent as (select id from tasks) update
+ * teams set …` `` leads with `with`, so the whole statement was reported `table:read`. In the
+ * development world that is not a smaller mistake but a total escape — a foreign READ is relaxed and
+ * only the WRITE is held by the Ruling-13 companion clause, so a CTE-first update in a fixture was
+ * invisible. Reading a write as a write costs at worst a stricter verdict on a template that mentions
+ * a write verb in passing; reading a write as a read costs the rule.
  */
 const SQL_WRITE_VERBS = /\b(insert|update|delete|alter|truncate|create|drop)\b/i;
-const SQL_ANY_VERB = /\b(insert|update|delete|alter|truncate|create|drop|select|with)\b/i;
 
 /**
  * The tables a raw SQL template names, and whether the statement reads or writes them.
@@ -219,13 +268,21 @@ const SQL_ANY_VERB = /\b(insert|update|delete|alter|truncate|create|drop|select|
  * collide with prose in comments and with interpolated Drizzle column references, and the detector
  * starts inventing crossings. Measured against the live tree the anchored form yields exactly the
  * real sites and no false positives.
+ *
+ * @lore AU28: the anchor also allows an optional SCHEMA QUALIFIER — `insert into public.teams` is the
+ * same act as `insert into teams` and `insert into "teams"`, and only the last two were seen. Postgres
+ * accepts all three interchangeably, so the qualifier was a one-word bypass of the whole table ACL.
+ * The qualifier is matched loosely (any identifier, quoted or not) rather than against a list of
+ * schema names: `public` is the only one this repo uses today and a list would be one more thing to
+ * keep in step with a migration.
  */
+const SQL_SCHEMA_QUALIFIER = '(?:"?[A-Za-z_][A-Za-z0-9_$]*"?\\.)?';
+
 function rawSqlTables(text: string, physicalNames: ReadonlyMap<string, string>): Map<string, "table:read" | "table:write"> {
 	const found = new Map<string, "table:read" | "table:write">();
-	const verb = SQL_ANY_VERB.exec(text)?.[0] ?? "";
-	const kind = SQL_WRITE_VERBS.test(verb) ? "table:write" : "table:read";
+	const kind = SQL_WRITE_VERBS.test(text) ? "table:write" : "table:read";
 	for (const [physical, symbol] of physicalNames) {
-		const anchored = new RegExp(`\\b(?:from|into|update|join|table|truncate|on)\\s+"?${physical}"?\\b`, "i");
+		const anchored = new RegExp(`\\b(?:from|into|update|join|table|truncate|on)\\s+${SQL_SCHEMA_QUALIFIER}"?${physical}"?\\b`, "i");
 		if (anchored.test(text)) found.set(symbol, kind);
 	}
 	return found;
@@ -299,8 +356,8 @@ export function buildConstantExports(input: Pick<AstDetectorInput, "census" | "r
  * literally `exec.insert(X).values(values)` — byte-identical SQL, one more indirection to read
  * through. What it was actually protecting was narrower: an owner that writes two rows in one call
  * has a cross-row invariant, and a test writing only one of them builds a state production cannot
- * produce. Nineteen files create a team with no membership row; nineteen create a knowledge item
- * with no projection. THOSE are the bugs, and this is how they are found.
+ * produce. Fixtures that create a team with no membership row, or a knowledge item with no
+ * projection, are the bugs — and this is how they are found.
  *
  * Derived, never listed: a group is any exported function in the OWNING package that inserts two or
  * more tables unconditionally. A `switch` that dispatches to one insert per branch is not a group —
@@ -696,6 +753,10 @@ export function detectAstCrossings(input: AstDetectorInput): AstFinding[] {
 		const tableRefs = buildTableRefs(sf, record.path, input);
 		const dbNamespaces = tableRefs.namespaces;
 		const sqlNames = drizzleSqlNames(sf);
+		const stringConstants = buildStringConstants(sf);
+		/** The fixed string an expression names — written out, or bound to a constant. Null otherwise. */
+		const fixedString = (expr: ts.Expression): string | null =>
+			ts.isStringLiteralLike(expr) ? expr.text : ts.isIdentifier(expr) ? (stringConstants.get(expr.text) ?? null) : null;
 
 		// Identifiers holding a typed cross-layer port, and which layer each one reaches.
 		const portRoots = new Map<string, string>();
@@ -785,8 +846,9 @@ export function detectAstCrossings(input: AstDetectorInput): AstFinding[] {
 				// --- capability: spawning an agent CLI -----------------------------------------
 				if (SPAWN_FUNCTIONS.has(name)) {
 					const arg = node.arguments[0];
-					if (arg !== undefined && ts.isStringLiteralLike(arg)) {
-						const command = COMMAND_STRING_SPAWNS.has(name) ? (arg.text.trim().split(/\s+/)[0] ?? "") : arg.text;
+					const spelled = arg === undefined ? null : fixedString(arg);
+					if (spelled !== null) {
+						const command = COMMAND_STRING_SPAWNS.has(name) ? (spelled.trim().split(/\s+/)[0] ?? "") : spelled;
 						const binary = command.split("/").pop() ?? command;
 						if (HARNESS_BINARIES.has(binary)) add("capability", { sort: "raw-runtime" }, node, `spawns the \`${binary}\` binary`);
 					}
@@ -795,8 +857,9 @@ export function detectAstCrossings(input: AstDetectorInput): AstFinding[] {
 				// --- capability: a dynamically imported vendor SDK -----------------------------
 				if (callee.kind === ts.SyntaxKind.ImportKeyword) {
 					const arg = node.arguments[0];
-					if (arg !== undefined && ts.isStringLiteralLike(arg) && RAW_RUNTIME_SPECIFIERS.some((re) => re.test(arg.text))) {
-						add("capability", { sort: "raw-runtime" }, node, `dynamically imports the vendor SDK ${arg.text}`);
+					const spelled = arg === undefined ? null : fixedString(arg);
+					if (spelled !== null && RAW_RUNTIME_SPECIFIERS.some((re) => re.test(spelled))) {
+						add("capability", { sort: "raw-runtime" }, node, `dynamically imports the vendor SDK ${spelled}`);
 					}
 				}
 

@@ -124,8 +124,8 @@ Twelve files call `requireHarness`. What each covers:
 | `layers/agent-execution/harness-registry/src/__tests__/AM2-real-harness-discovery.integration.test.ts` | all five |
 | `layers/agent-execution/harness-registry/src/__tests__/cli-adapter-real-binary.integration.test.ts` | claude, codex, opencode, cursor-agent |
 | `layers/agent-execution/harness-registry/src/__tests__/AM2-real-harness-session-probe.integration.test.ts` | claude, codex, opencode |
-| `layers/agent-execution/harness-registry/src/__tests__/AN1-real-harness-inherited.integration.test.ts` | claude, codex, opencode, `gh` |
-| `layers/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts` | claude, codex, opencode, `gh` |
+| `layers/agent-execution/harness-registry/src/__tests__/AN1-real-harness-inherited.integration.test.ts` | claude, codex, opencode (+ `requireBinary("gh")` probe — not a harness) |
+| `layers/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts` | claude, codex, opencode (+ `requireBinary("gh")` probe — not a harness) |
 | `layers/core-api/src/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts` | builtin |
 | `layers/agent-execution/harness-registry/src/__tests__/AM2-builtin-gateway.integration.test.ts` | builtin |
 | `layers/agent-execution/harness-registry/src/__tests__/opencode-model-probe.integration.test.ts` | opencode |

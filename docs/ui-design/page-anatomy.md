@@ -18,7 +18,7 @@ Source: `framework/design-system/src/PageHeader.tsx`, `framework/design-system/s
 </div>
 ```
 
-The AppShell page-host is `overflow-hidden` (`AppShell.tsx:589`). Window-level scroll is impossible — every page that needs any scroll must own an internal `overflow-y-auto` region. Applies to **every return branch** (loading, error, not-found, populated), not just the happy path.
+The AppShell page-host is `overflow-hidden` (`AppShell.tsx`). Window-level scroll is impossible — every page that needs any scroll must own an internal `overflow-y-auto` region. Applies to **every return branch** (loading, error, not-found, populated), not just the happy path.
 
 ---
 

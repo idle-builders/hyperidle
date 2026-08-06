@@ -131,19 +131,19 @@ const NAME_DECLARED_SUFFIXES: readonly {
 		clause: "stories-suffix",
 		suffixes: [".stories.tsx"],
 		description: "a `.stories.tsx` file is a design artifact, pinned beside its component",
-		minFiles: 125,
+		minFiles: 129,
 	},
 	{
 		clause: "test-suffix",
 		suffixes: [".test.ts", ".test.tsx"],
 		description: "a `.test.ts(x)` file is a test — including the `.integration.test.ts` form",
-		minFiles: 800,
+		minFiles: 805,
 	},
 	{
 		clause: "spec-suffix",
 		suffixes: [".spec.ts", ".spec.tsx"],
 		description: "a `.spec.ts(x)` file is a Playwright end-to-end spec",
-		minFiles: 75,
+		minFiles: 78,
 	},
 ];
 
@@ -172,22 +172,24 @@ const NAME_DECLARED_SUFFIXES: readonly {
  * WHICH clause claims a file, never WHETHER the file is development.
  *
  * @lore AU28: the floors are RECOMPUTED against the live tree whenever the tree moves under them, and
- * the recompute is part of the merge, not a follow-up. Rebasing onto AU26 + AU27 changed 632 files and
- * every magnitude below with it. A floor left at its pre-merge value is the precise rot these floors
- * exist to catch — it still passes, so nobody notices it has stopped measuring anything. Run
- * `npm run governance:floors`: it prints the live count, the slack and the value to write for every
- * floor in the build, and `floors-tight` fails the build for any magnitude floor that has drifted
- * more than `max(20%, 5)` below live.
+ * the recompute is part of the merge, not a follow-up. A single rebase onto two other tracks moved
+ * every magnitude below. A floor left at its pre-merge value is the precise rot these floors exist to
+ * catch — it still passes, so nobody notices it has stopped measuring anything. Run
+ * `npm run governance:floors`: it prints the live count, the slack, the band verdict and the value to
+ * write for every floor in the build, and `floors-tight` fails the build for any magnitude floor that
+ * has drifted more than `max(20%, 5)` below live — warning first, while the fix is still cheap.
  *
- * MEASURED LIVE (3,296 tracked / 789 production / 2,507 development):
- *   stories-suffix 144 · test-suffix 894 · spec-suffix 87 · dunder-segment 152 ·
- *   development-root:tools 94 · outside-production-roots 1,102 ·
- *   test-runner-config 30 + 1 + 3 · default-production 789.
+ * @lore AU28 — THIS BLOCK CARRIES NO MEASURED COUNTS, ON PURPOSE. It used to list the live count of
+ * every pattern beside the floor, and those transcriptions went stale three times running — the third
+ * set was written by the very commit that corrected the second. Nothing recomputes a number in prose
+ * and nothing fails when it drifts, so it rots silently while reading as authoritative, which is the
+ * worse half of the same failure the floors exist to prevent. The `minFiles` values below ARE the
+ * record: enforced, recomputed by one command, and gated by `floors-tight`. Anything a reader needs
+ * to know about the live tree comes from `npm run governance:floors`, never from here.
  *
- * The numbers this block carried before said 3,256 / 2,467 and `outside-production-roots` 1,064 —
- * all three stale, in the file that mandates recomputing them. Every magnitude floor still sits
- * inside the band at the live values, so no pattern floor moved; only the prose was wrong, which is
- * the more insidious half, because prose is what the next reader trusts.
+ * The floors below sit in the MIDDLE of their band rather than at its edge. A floor written at the
+ * edge is one added file away from failing the build, and the message it fails with says "raise the
+ * floor" — which trains the reflex these floors exist to prevent.
  *
  * The enumerated-set patterns (`development-root:*`, `test-runner-config:*`) stay at 1 on purpose and
  * declare `floorKind: "existence"`: they are existence checks over a closed list, and their job is to
@@ -195,12 +197,12 @@ const NAME_DECLARED_SUFFIXES: readonly {
  * the number 1, so it cannot be used to dodge the band on a magnitude pattern.
  *
  * @lore AU28 step 2: the role-folder move (`packages/` → `layers/` + `framework/` + `applications/` +
- * `tools/`, and root-level `bin`/`chart`/`homebrew` → `deploy/`) left every number at the time
- * unchanged, and each magnitude count identical to the digit. The only shift was which pattern id
- * owns a file: `development-package:{eval,eslint-plugin-authz,eslint-plugin-design}` (41 + 7 + 46)
- * collapsed into the single `development-root:tools` (94), and `outside-packages` became
- * `outside-production-roots`. That the totals were invariant under the move is the proof the rewrite
- * re-expressed the rule rather than changing it.
+ * `tools/`, and root-level `bin`/`chart`/`homebrew` → `deploy/`) left every magnitude count identical
+ * to the digit. The only shift was which pattern id owns a file: the three
+ * `development-package:{eval,eslint-plugin-authz,eslint-plugin-design}` patterns collapsed into the
+ * single `development-root:tools`, and `outside-packages` became `outside-production-roots`. That the
+ * totals were invariant under the move is the proof the rewrite re-expressed the rule rather than
+ * changing it.
  */
 export const CLASSIFICATION_PATTERNS: readonly ClassificationPattern[] = [
 	...NAME_DECLARED_SUFFIXES.map(
@@ -219,7 +221,7 @@ export const CLASSIFICATION_PATTERNS: readonly ClassificationPattern[] = [
 		clause: "dunder-segment",
 		kind: "development",
 		description: "any path segment starting with `__` marks the file development",
-		minFiles: 135,
+		minFiles: 137,
 		floorKind: "magnitude",
 		matches: hasDunderSegment,
 	},
@@ -240,7 +242,7 @@ export const CLASSIFICATION_PATTERNS: readonly ClassificationPattern[] = [
 		clause: "outside-production-roots",
 		kind: "development",
 		description: `anything outside the production role roots (${PRODUCTION_ROOTS.map((r) => `\`${r}/\``).join(", ")}) is repo tooling, deployment assets, docs or pipeline state`,
-		minFiles: 950,
+		minFiles: 999,
 		floorKind: "magnitude",
 		matches: (p) => !PRODUCTION_ROOTS.some((root) => p.startsWith(`${root}/`)),
 	},
@@ -273,7 +275,7 @@ export const CLASSIFICATION_PATTERNS: readonly ClassificationPattern[] = [
 		clause: "default-production",
 		kind: "production",
 		description: "everything else — shipping code",
-		minFiles: 700,
+		minFiles: 710,
 		floorKind: "magnitude",
 		matches: () => true,
 	},

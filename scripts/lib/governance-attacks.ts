@@ -22,9 +22,11 @@
  *   3. The overlay must be ADDITIVE and the mutations must land on files that exist. The runner
  *      fails if an overlay path already exists or a mutated path does not. That is what stops the
  *      live tier from silently testing nothing after a rename.
- *   4. A REGISTERED GOVERNANCE RULE WITH NO ATTACK CASE IS A BUILD ERROR. From the commit this
- *      lands, a new rule cannot ship without a break-test, and the four detectors that had no
- *      behavioural test at all are closed permanently rather than once.
+ *   4. A REGISTERED GOVERNANCE RULE WITH NO POSITIVE ATTACK CASE IS A BUILD ERROR. From the commit
+ *      this lands, a new rule cannot ship without a break-test that expects it to REPORT something,
+ *      and the detectors that had no behavioural test at all are closed permanently rather than once.
+ *      "Has a case" alone was not enough: `crossing-event` satisfied it with a control twin, which a
+ *      detector reporting nothing forever also satisfies.
  *
  * @lore AU28 — the trap that costs an hour: an overlay filename must NOT start a path segment with
  * `__`. `hasDunderSegment` splits on `/` and a FILENAME is a segment, so `__attack-x.ts` classifies
@@ -82,6 +84,14 @@ export interface StandaloneAttack {
 	readonly id: string;
 	readonly detail: string;
 	readonly rules: readonly string[];
+	/**
+	 * True when this case asserts the rule REPORTS something. Property 4 needs one per registered rule.
+	 *
+	 * Declared rather than inferred: a tree case announces its polarity in `expect.sort`, and a
+	 * standalone case has no equivalent structure to read it off. A control written as a standalone
+	 * says `positive: false` and does not count towards coverage.
+	 */
+	readonly positive: boolean;
 	/** Returns null on pass, or a human-readable failure reason. */
 	readonly run: () => string | null;
 }
@@ -114,6 +124,8 @@ export const ATTACK_ANCHORS = {
 	developmentDir: "layers/core-api/src/__tests__",
 	/** The database schema, for the unowned-table case. */
 	schemaModule: "framework/db/src/schema.ts",
+	/** A FRAMEWORK package's source root — the one role the bus host clause forbids from publishing. */
+	frameworkDir: "framework/db/src",
 	/** A manifest a cross-layer dependency can be added to. */
 	serviceManifest: "layers/core-api/work/package.json",
 } as const;
@@ -136,6 +148,7 @@ const KEY = {
 	serviceOtherLayerDi: "service → layer (other) [di] production",
 	serviceMcpRouter: "service → MCP router [mcp] production",
 	serviceUnknownSurface: "service → db:unknown [import] production",
+	frameworkEventBus: "framework → EventBus [event] production",
 } as const;
 
 // ---------------------------------------------------------------------------------------------
@@ -228,6 +241,43 @@ export const ATTACKS: readonly Attack[] = [
 		expect: { sort: "violation", file: `${a.serviceDir}/attack-raw-sql-read.ts`, groupKey: KEY.serviceForeignRead },
 	},
 	{
+		id: "raw-sql-schema-qualified",
+		detail: "the same raw write with the schema spelled out — `insert into public.teams`, which the bare-name anchor missed",
+		rules: ["crossing-table-write"],
+		overlay: {
+			[`${a.serviceDir}/attack-raw-sql-qualified.ts`]:
+				`import { sql } from "drizzle-orm";\n` +
+				`export const write = (db: { execute: (q: unknown) => unknown }) =>\n` +
+				`\tdb.execute(sql\`insert into public.${FOREIGN_TABLE.physical} (id) values ('x')\`);\n`,
+		},
+		expect: { sort: "violation", file: `${a.serviceDir}/attack-raw-sql-qualified.ts`, groupKey: KEY.serviceForeignWrite },
+	},
+	{
+		id: "raw-sql-cte-first-write",
+		detail: "a CTE-first statement — `with … as (select …) update teams set …` — whose LEADING verb is not the verb that decides",
+		rules: ["crossing-table-write"],
+		overlay: {
+			[`${a.serviceDir}/attack-raw-sql-cte.ts`]:
+				`import { sql } from "drizzle-orm";\n` +
+				`export const write = (db: { execute: (q: unknown) => unknown }) =>\n` +
+				`\tdb.execute(sql\`with recent as (select id from ${OWN_TABLE.physical}) update ${FOREIGN_TABLE.physical} set name = 'x'\`);\n`,
+		},
+		expect: { sort: "violation", file: `${a.serviceDir}/attack-raw-sql-cte.ts`, groupKey: KEY.serviceForeignWrite },
+	},
+	{
+		id: "raw-sql-cte-read-control",
+		detail:
+			"a CTE-first statement that only READS still keys as a read — the control that stops `any write verb anywhere` from calling every template a write",
+		rules: ["crossing-table-read"],
+		overlay: {
+			[`${a.serviceDir}/attack-raw-sql-cte-read.ts`]:
+				`import { sql } from "drizzle-orm";\n` +
+				`export const read = (db: { execute: (q: unknown) => unknown }) =>\n` +
+				`\tdb.execute(sql\`with recent as (select id from ${FOREIGN_TABLE.physical}) select id from recent\`);\n`,
+		},
+		expect: { sort: "violation", file: `${a.serviceDir}/attack-raw-sql-cte-read.ts`, groupKey: KEY.serviceForeignRead },
+	},
+	{
 		id: "raw-sql-control-prose",
 		detail:
 			"an unanchored mention of a table name in a comment, and a fragment interpolating a column, produce nothing — the false-positive control",
@@ -273,6 +323,30 @@ export const ATTACKS: readonly Attack[] = [
 		expect: { sort: "clean", file: `${a.serviceDir}/attack-exec-control.ts` },
 	},
 	{
+		id: "const-bound-harness-spawn",
+		detail: "the binary name lifted into a named constant — `const AGENT_CLI = \"claude\"; spawn(AGENT_CLI, …)`, one keystroke around the one-door rule",
+		rules: ["crossing-capability"],
+		overlay: {
+			[`${a.serviceDir}/attack-const-spawn.ts`]:
+				`import { spawn } from "node:child_process";\n` +
+				`const AGENT_CLI = "claude";\n` +
+				`export const go = () => spawn(AGENT_CLI, ["-p", "do the thing"]);\n`,
+		},
+		expect: { sort: "violation", file: `${a.serviceDir}/attack-const-spawn.ts`, groupKey: KEY.serviceRawRuntime },
+	},
+	{
+		id: "const-bound-spawn-control",
+		detail: "an ordinary CLI behind the same constant is clean — the constant is not the offence, the binary is",
+		rules: ["crossing-capability"],
+		overlay: {
+			[`${a.serviceDir}/attack-const-spawn-control.ts`]:
+				`import { spawn } from "node:child_process";\n` +
+				`const TOOL = "git";\n` +
+				`export const go = () => spawn(TOOL, ["status", "--short"]);\n`,
+		},
+		expect: { sort: "clean", file: `${a.serviceDir}/attack-const-spawn-control.ts` },
+	},
+	{
 		id: "raw-runtime-in-a-test",
 		detail:
 			"a DEVELOPMENT file spawning the agent CLI directly — Ruling 14 says the development relaxation does not open a door production has one of",
@@ -300,8 +374,54 @@ export const ATTACKS: readonly Attack[] = [
 			sort: "finding",
 			file: `${a.serviceDir}/attack-reexport-table.ts`,
 			ruleId: "no-laundered-re-exports",
-			messageContains: "may never cross a package boundary",
+			messageContains: "may never be republished across a package boundary",
 		},
+	},
+	{
+		id: "reexport-table-as-a-value",
+		detail: "the same republication written as a VALUE — `import { bets }; export const betsTable = bets`, which `export … from` detection never sees",
+		rules: ["no-laundered-re-exports"],
+		overlay: {
+			[`${a.serviceDir}/attack-reexport-table-value.ts`]:
+				`import { ${OWN_TABLE.symbol} } from "@hyperidle/db";\n` + `export const betsTable = ${OWN_TABLE.symbol};\n`,
+		},
+		expect: {
+			sort: "finding",
+			file: `${a.serviceDir}/attack-reexport-table-value.ts`,
+			ruleId: "no-laundered-re-exports",
+			messageContains: "may never be republished across a package boundary",
+		},
+	},
+	{
+		id: "reexport-table-as-a-value-two-file",
+		detail:
+			"the two-file spelling — the value alias in one module, a WITHIN-package `export … from` in the barrel. The within-package narrowing waves the second hop through, so the first hop is where it has to be caught.",
+		rules: ["no-laundered-re-exports"],
+		overlay: {
+			[`${a.serviceDir}/attack-table-exports.ts`]:
+				`import { ${OWN_TABLE.symbol} } from "@hyperidle/db";\n` + `export const launderedBets = ${OWN_TABLE.symbol};\n`,
+			[`${a.serviceDir}/attack-table-barrel.ts`]: `export { launderedBets } from "./attack-table-exports.js";\n`,
+		},
+		expect: {
+			sort: "finding",
+			file: `${a.serviceDir}/attack-table-exports.ts`,
+			ruleId: "no-laundered-re-exports",
+			messageContains: "may never be republished across a package boundary",
+		},
+	},
+	{
+		id: "reexport-table-value-control",
+		detail:
+			"importing the OWN table and USING it — reading it, and exporting an unrelated value — is not publication. Without this the rule would flag every legitimate consumer of a table.",
+		rules: ["no-laundered-re-exports"],
+		overlay: {
+			[`${a.serviceDir}/attack-table-value-control.ts`]:
+				`import { ${OWN_TABLE.symbol} } from "@hyperidle/db";\n` +
+				`export const label = "${OWN_TABLE.symbol}";\n` +
+				`export const read = (db: { select: () => { from: (t: unknown) => unknown } }) =>\n` +
+				`\tdb.select().from(${OWN_TABLE.symbol});\n`,
+		},
+		expect: { sort: "clean", file: `${a.serviceDir}/attack-table-value-control.ts` },
 	},
 	{
 		id: "reexport-narrow-surface",
@@ -455,13 +575,24 @@ export const ATTACKS: readonly Attack[] = [
 		expect: { sort: "clean", file: `${a.serviceDir}/attack-api-control.ts` },
 	},
 	{
+		id: "event-emit-from-the-bus-host",
+		detail:
+			"the framework that PROVIDES the bus publishing on it — the one event crossing the model forbids, and the positive case `crossing-event` had none of",
+		rules: ["crossing-event"],
+		overlay: {
+			[`${a.frameworkDir}/attack-framework-emit.ts`]:
+				`export const fire = (eventBus: { emit: (e: unknown) => void }) => eventBus.emit({ type: "agent_run_lifecycle_changed" });\n`,
+		},
+		expect: { sort: "violation", file: `${a.frameworkDir}/attack-framework-emit.ts`, groupKey: KEY.frameworkEventBus },
+	},
+	{
 		id: "event-emit-control",
 		detail:
 			"emitting a declared bus event from a service is ALLOWED — anyone but the bus host may publish. The control for the event detector.",
 		rules: ["crossing-event"],
 		overlay: {
 			[`${a.serviceDir}/attack-event.ts`]:
-				`export const fire = (eventBus: { emit: (e: unknown) => void }) => eventBus.emit({ type: "bet_created" });\n`,
+				`export const fire = (eventBus: { emit: (e: unknown) => void }) => eventBus.emit({ type: "agent_run_lifecycle_changed" });\n`,
 		},
 		expect: { sort: "clean", file: `${a.serviceDir}/attack-event.ts` },
 	},
@@ -540,7 +671,7 @@ export interface AttackTree {
 	 * ID list is what property 4 checks, and it comes from the live registry rather than from here —
 	 * a hand-maintained copy would be one more thing to forget.
 	 */
-	readonly buildRules: (census: Census, detected: CrossingsResult) => readonly Rule[];
+	readonly buildRules: (census: Census, detected: CrossingsResult, readFile: (path: string) => string) => readonly Rule[];
 	/**
 	 * Rule ids the build registers that `buildRules` does NOT return — today just the ratchet, which
 	 * is excluded because the overlay is not debt. Everything else is read off the shared pass, so the
@@ -600,20 +731,42 @@ function assertAnchors(tree: AttackTree): string | null {
 		: `attack anchors no longer exist: ${missing.join(", ")}. Re-root them — an attack against a path that is gone tests nothing.`;
 }
 
-/** Property 4: every registered rule must be attacked, and every named rule must be registered. */
+/**
+ * Property 4: every registered rule must be attacked BY A POSITIVE CASE, and every named rule must be
+ * registered.
+ *
+ * @lore AU28: "has an attack case" was not enough, and the gap was live. `crossing-event` had exactly
+ * one case — a CONTROL, expecting `clean` — so a detector that reported nothing forever satisfied the
+ * coverage gate. It was worse than vacuous: the control named an event type the bus does not declare,
+ * so it was clean for the wrong reason and would have stayed clean if the event detector were deleted
+ * outright. A control twin proves a detector is not flagging everything; only a positive case proves
+ * it is flagging anything. Both are required, and only the positive one counts here.
+ */
 export function coverageGaps(attacks: readonly Attack[], standalone: readonly StandaloneAttack[], registered: readonly string[]): string[] {
-	const attacked = new Set([...attacks.flatMap((c) => c.rules), ...standalone.flatMap((c) => c.rules)]);
+	const named = new Set([...attacks.flatMap((c) => c.rules), ...standalone.flatMap((c) => c.rules)]);
+	const provenToReport = new Set([
+		...attacks.filter((c) => c.expect.sort !== "clean").flatMap((c) => c.rules),
+		...standalone.filter((c) => c.positive).flatMap((c) => c.rules),
+	]);
 	const gaps: string[] = [];
 	for (const id of registered) {
-		if (!attacked.has(id)) {
+		if (!named.has(id)) {
 			gaps.push(
 				`rule "${id}" has no attack case. A registered rule with no break-test is a rule nobody has ` +
 					"proved works — add a case to scripts/lib/governance-attacks.ts.",
 			);
+			continue;
+		}
+		if (!provenToReport.has(id)) {
+			gaps.push(
+				`rule "${id}" has only CONTROL cases — every one of them expects nothing to be reported. A rule ` +
+					"that reports nothing forever passes those, which is exactly the failure this harness exists to " +
+					"catch. Add a case that expects a violation or a finding.",
+			);
 		}
 	}
 	const known = new Set(registered);
-	for (const id of attacked) {
+	for (const id of named) {
 		if (!known.has(id)) gaps.push(`attack case names rule "${id}", which the lint does not register.`);
 	}
 	return gaps;
@@ -656,7 +809,7 @@ function runOnePass(tree: AttackTree, attacks: readonly Attack[]): PassOutcome {
 			},
 			tree.floors,
 		);
-		const rules = tree.buildRules(census, detected);
+		const rules = tree.buildRules(census, detected, overlaid.readFile);
 		ruleIds = rules.map((rule) => rule.id);
 		findings = rules.flatMap((rule) => rule.evaluate(census));
 	} catch (error) {
@@ -792,17 +945,40 @@ export const STANDALONE_ATTACKS: readonly StandaloneAttack[] = [
 		id: "slack-floor",
 		detail: "a magnitude floor sitting at half its live count no longer measures anything",
 		rules: ["floors-tight"],
+		positive: true,
 		run: () => {
 			const verdict = floorVerdict(floorCase("detector:pretend", 1000, 500, "magnitude"));
 			if (verdict.sort !== "slack") return `expected a slack verdict, got ${verdict.sort}`;
-			return verdict.suggested === 800 ? null : `expected the fix to be 800, got ${verdict.suggested}`;
+			// The MIDDLE of the band (1000 - 200/2), never its edge (1000 - 200). A floor written at the
+			// edge is one added file from red, which is how the whole floor set came to sit there at once.
+			return verdict.suggested === 900 ? null : `expected the fix to be the band's middle, 900, got ${verdict.suggested}`;
+		},
+	},
+	{
+		id: "floor-on-the-edge-warns-before-it-errors",
+		detail:
+			"a floor sitting exactly ON the allowed edge WARNS rather than erroring — the state the whole floor set was in, one file from a red build",
+		rules: ["floors-tight"],
+		positive: true,
+		run: () => {
+			// live 1000, allowed 200. A floor of 800 is exactly on the edge.
+			const edge = floorVerdict(floorCase("detector:pretend", 1000, 800, "magnitude"));
+			if (edge.sort !== "approaching") return `a floor on the edge of its band reported ${edge.sort}, not a warning`;
+			if (edge.suggested !== 900) return `the warning named ${edge.suggested} to write, not the band's middle, 900`;
+			if (!edge.message.includes("governance:floors")) return "the warning did not name the command that prints the value to write";
+			// One past the edge is an error, and the middle is silent — the band has three states, not two.
+			const past = floorVerdict(floorCase("detector:pretend", 1000, 799, "magnitude"));
+			if (past.sort !== "slack") return `a floor past the edge reported ${past.sort}, not an error`;
+			const middle = floorVerdict(floorCase("detector:pretend", 1000, 900, "magnitude"));
+			return middle.sort === "ok" ? null : `a floor at the middle of its band reported ${middle.sort} instead of staying silent`;
 		},
 	},
 	{
 		id: "existence-floor-exempt",
 		detail:
-			"an existence floor of 1 against 94 live files is NOT slack — without this the band would demand a nonsensical floor of 76",
+			"an existence floor of 1 against 94 live files is NOT slack — without this the band would demand a nonsensical floor. A control: it asserts nothing is reported.",
 		rules: ["floors-tight"],
+		positive: false,
 		run: () => {
 			const verdict = floorVerdict(floorCase("pattern:pretend", 94, 1, "existence"));
 			return verdict.sort === "ok" ? null : `an existence floor was reported as ${verdict.sort}`;
@@ -812,6 +988,7 @@ export const STANDALONE_ATTACKS: readonly StandaloneAttack[] = [
 		id: "magnitude-floor-of-one-cannot-dodge",
 		detail: "declaring `1` on a MAGNITUDE floor is still slack — `floorKind` is not an escape hatch",
 		rules: ["floors-tight"],
+		positive: true,
 		run: () => {
 			const verdict = floorVerdict(floorCase("pattern:pretend", 94, 1, "magnitude"));
 			return verdict.sort === "slack" ? null : `expected slack, got ${verdict.sort}`;
@@ -821,6 +998,7 @@ export const STANDALONE_ATTACKS: readonly StandaloneAttack[] = [
 		id: "dead-classification-pattern",
 		detail: "a classification pattern that has stopped matching files is reported, and a live one is not",
 		rules: ["pattern-live"],
+		positive: true,
 		run: () => {
 			// Sized so `default-production` clears its floor while every development pattern is at zero:
 			// without a pattern that is genuinely ALIVE, "reports a dead pattern" is indistinguishable
@@ -837,6 +1015,7 @@ export const STANDALONE_ATTACKS: readonly StandaloneAttack[] = [
 		id: "census-duplicate-path",
 		detail: "the same path twice in the census input is a defect in the input, not a silent dedupe",
 		rules: ["classification-total"],
+		positive: true,
 		run: () => {
 			const census = buildCensus({ files: ["layers/a/src/x.ts", "layers/a/src/x.ts"], readFile: () => "" });
 			const reported = classificationTotal.evaluate(census).map((f) => f.message).join("\n");
@@ -849,6 +1028,7 @@ export const STANDALONE_ATTACKS: readonly StandaloneAttack[] = [
 		id: "baseline-growth",
 		detail: "a violation in a group the baseline does not have is new debt, and the swap across files is caught",
 		rules: ["baseline-ratchet"],
+		positive: true,
 		run: () => {
 			const key = "layer → service (other layer) [import] production";
 			const baseline: Baseline = { governanceBaseline: true, note: "", groups: { [key]: { sites: { "a.ts": 2 } } } };
@@ -866,6 +1046,7 @@ export const STANDALONE_ATTACKS: readonly StandaloneAttack[] = [
 		detail:
 			"the misplacement ledger grown by one entry, and shrunk by one fix that was never committed — both fail, and the exact match does not",
 		rules: ["misplacement-ledger"],
+		positive: true,
 		run: () => {
 			// A ledger has no live source to derive from, so it is driven directly: the tree is two
 			// production files, the ledger records both, and the committed count says two.
@@ -916,6 +1097,7 @@ export const STANDALONE_ATTACKS: readonly StandaloneAttack[] = [
 		id: "stale-build-artifact",
 		detail: "a compiled `.js` beside its `.ts` source in the guard tree is reported, and the `.ts` alone is not",
 		rules: ["no-stale-build-artifacts"],
+		positive: true,
 		run: () => {
 			const census = buildCensus({ files: ["scripts/lib/thing.ts"], readFile: () => "" });
 			const dirty = noStaleBuildArtifacts(["scripts/lib/thing.ts", "scripts/lib/thing.js"]).evaluate(census);

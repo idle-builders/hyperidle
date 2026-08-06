@@ -133,7 +133,7 @@ Lifecycle propagation does not drive the task state machine itself — it calls 
 ## Cross-references
 
 - [tasks-and-sessions.md](./tasks-and-sessions.md) — task/session state machines, hold vs blocked, session notes.
-- [bets-shape-commit-change-ship.md](./bets-shape-commit-change-ship.md) — bet lifecycle and decomposition.
+- [bets-shape-commit-change-ship.md](./bets-shape-commit-change-ship.md) — bet lifecycle.
 - [the-five-primitives.md](./the-five-primitives.md) — the hierarchy itself.
 - [thread-primitive.md](../human-interface-layer/thread-primitive.md) — thread/message shapes handoffs write into.
 - [review-primitive.md](../human-interface-layer/review-primitive.md) — escalation/review-item surface.

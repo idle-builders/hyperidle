@@ -44,9 +44,9 @@ Depth: [Bets — shape, commit, change, ship](../process-layer/bets-shape-commit
 
 ---
 
-## Tasks: one decomposer proposes, the team refines
+## Tasks
 
-When a bet activates, one decomposer agent — the Product Manager where one exists — runs a decomposition turn and proposes the full task list (`runBetDecomposition`; `decompositionStatus` on the bet tracks it). Proposed tasks are then reviewed and refined. No human review at this stage.
+When a bet activates, the task section shows "No tasks yet." Tasks are added by agents on the team as they pick up work, or by the founder directly. No automatic breakdown happens at activation.
 
 Each task has:
 - An owner (the responsible agent)

@@ -31,7 +31,7 @@ The BlockId algorithm is a **structure-aware content hash**. Stability requireme
 - Re-ordering blocks at the same outline level changes the affected blocks' ids only as far as the outline-position component differs.
 - Two blocks with byte-identical content under different outline parents get *different* ids (a `## Approach` paragraph under "Bet A" is not the same block as a `## Approach` paragraph under "Bet B").
 
-The output is **128 bits** — blake2s with `dkLen` 16, hex-encoded to a 32-char string (`block-id.ts:19-23`). The `BLOCK_ID_VERSION` constant `blk:v1` (`types.ts:36`) covers any future migration. Fields are joined with **single spaces**:
+The output is **128 bits** — blake2s with `dkLen` 16, hex-encoded to a 32-char string (`block-id.ts:19-23`). The `BLOCK_ID_VERSION` constant `blk:v1` (`framework/shared/src/blocks/types.ts`) covers any future migration. Fields are joined with **single spaces**:
 
 ```
 blockId = hex( blake2s_128(

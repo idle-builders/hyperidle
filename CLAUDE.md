@@ -43,16 +43,17 @@ Before any work is complete: `npm run check` (zero type errors) + `npm run lint`
 
 | Scenario | Command | What it does |
 |---|---|---|
-| **Unit + component tests** | `npm run test` | Fast tests only — excludes `*.integration.test.ts`. |
+| **Unit + component tests (affected)** | `npm run test` | Affected slice only (`vitest run --changed=origin/main`). Excludes integration. Passes if nothing changed. |
+| **Unit + component tests (full)** | `npm run test:full` | All fast unit + component tests (`vitest run`) — no `--changed` filter. |
 | **Integration tests** | `npm run test:integration` | All integration tests (`*.integration.test.ts`): service + harness projects. |
 | **Service integration** | `npm run test:integration:service` | DB/API integration tests only (the lane per-merge verify runs). |
 | **Harness integration** | `npm run test:integration:harness` | Real-binary + real-LLM harness tests. Release-gated: runs in `verify:release`, not per-merge verify. |
-| **All tests** | `npm run test:all` | Unit + component + integration. |
+| **All tests** | `npm run test:all` | `test:full` + `test:integration` (unit + component + integration). |
 | **E2E tests** | `npm run test:e2e` | Playwright end-to-end tests (Chromium). |
-| **Typecheck** | `npm run check` | `tsc --noEmit` directly. |
-| **Lint** | `npm run lint` | Biome + ESLint directly. |
-| **Quick verify** | `npm run verify:quick` | check + lint + knip. No tests or builds. |
-| **Full verify** | `npm run verify` | check + lint + knip + test:all + build + attestation. Sequential, no orchestrator. |
+| **Typecheck** | `npm run check` | Per-package typecheck gate (`scripts/typecheck-gate.ts`) — discovers all packages under `layers/`, `framework/`, `applications/`, `tools/`, runs `tsc --noEmit` per package, applies debt ratchet. |
+| **Lint** | `npm run lint` | Biome + ESLint + three governance-lint passes (fixtures, attacks, default). |
+| **Quick verify** | `npm run verify:quick` | check + lint + knip + knip:production + deps:check. No tests or builds. |
+| **Full verify** | `npm run verify` | check + lint + knip + knip:production + deps:check + mock-inventory:check + web build + desktop build + attestation. No tests. |
 
 ### Test file naming
 
@@ -73,7 +74,7 @@ A file is **development** if its name declares it (`.test.ts(x)`, `.spec.ts(x)`,
 
 A few production-path files are really development and cannot move yet. Each is recorded with its reason in `governance/misplaced-files.json`, warns on every lint run, and the count only shrinks — adding an entry is a diff review will challenge.
 
-**Harness-facing integration tests use the REAL installed harness binary — never a stub.** Decide by "is the harness/agent/CLI the thing under test?"; if yes, a stubbed/scripted/mocked adapter makes it a mislabeled unit test, not an integration test. Gate with `requireHarness(<name>)` (claude/codex/opencode/gh = binary on PATH; builtin = `OPENROUTER_API_KEY`) — a missing harness hard-fails the run (the work can't be completed), never `skipIf` to green. Enforced via `requireHarness` + the attestation agentic floor. **Like e2e, the harness lane is release-gated:** per-merge verify (affected scope) runs the service project only; `verify:release` (full scope) runs the harness lane and its floors (agentic executed-count + per-harness symmetry) enforce it.
+**Harness-facing integration tests use the REAL installed harness binary — never a stub.** Decide by "is the harness/agent/CLI the thing under test?"; if yes, a stubbed/scripted/mocked adapter makes it a mislabeled unit test, not an integration test. Gate with `requireHarness(<name>)` (claude/codex/opencode/cursor-agent = binary on PATH; builtin = `OPENROUTER_API_KEY`) — a missing harness hard-fails the run (the work can't be completed), never `skipIf` to green. Non-harness binaries (e.g. `gh`) use `requireBinary(<name>)` instead. Enforced via `requireHarness` + the attestation agentic floor. **Like e2e, the harness lane is release-gated:** per-merge verify (affected scope) runs the service project only; `verify:release` (full scope) runs the harness lane and its floors (agentic executed-count + per-harness symmetry) enforce it.
 
 `verify` is pure npm script chaining — no custom process orchestrator. The shell owns every child process. Attestation is a standalone script (`scripts/verify-attest.ts`).
 
@@ -149,7 +150,7 @@ Never hardcode a package path in a script, guard, or config. Discover paths by s
 
 ## Commands
 
-`npm install`, `npm run dev` (server 3001 + web 5173), `npm run verify` (check + lint + knip + test:all + build + attestation — preferred for final check before shipping), `npm run test` (fast unit + component tests, excludes integration), `npm run test:integration` (all integration tests), `npm run test:integration:service` (DB/API only), `npm run test:integration:harness` (real-harness lane, release-gated), `npm run test:all` (all tests), `npm run test:e2e` (Playwright E2E), `npm run check` (typecheck), `npm run lint` (Biome + ESLint), `npm run lint:biome`, `npm run lint:eslint`, `npm run lint:fix`, `npm run db:generate`, `npm run db:migrate`.
+`npm install`, `npm run dev` (server 3001 + web 5173), `npm run verify` (check + lint + knip + knip:production + deps:check + mock-inventory:check + web + desktop build + attestation — no tests; preferred before shipping), `npm run test` (affected slice via `--changed=origin/main`, excludes integration), `npm run test:full` (all fast unit + component tests), `npm run test:integration` (all integration tests), `npm run test:integration:service` (DB/API only), `npm run test:integration:harness` (real-harness lane, release-gated), `npm run test:all` (test:full + all integration), `npm run test:e2e` (Playwright E2E), `npm run check` (per-package typecheck gate), `npm run lint` (Biome + ESLint + three governance-lint passes), `npm run lint:biome`, `npm run lint:eslint`, `npm run lint:fix`, `npm run db:generate`, `npm run db:migrate`.
 
 ---
 

@@ -55,7 +55,7 @@ DELETE /api/connections/:id    → 204 | 404
 POST   /api/connections/:id/validate → { health }
 ```
 
-`GET` returns inherited projections first, then held rows. It reads **cached** descriptors (`pool.listCapabilityDescriptors()`) — never re-probes per request. Inherited connections have `removable: false`; DELETE of an `inherited:*` id returns 404.
+`GET` returns inherited projections first, then held rows. It reads **cached** descriptors (`pool.describe()`) — never re-probes per request. Inherited connections have `removable: false`; DELETE of an `inherited:*` id returns 404.
 
 POST accepts a discriminated union — `authSource: "token"` or `authSource: "mcp"`. A unique-constraint violation on (user × service × authSource) returns 409. Inherited connections are never created via the API; they appear automatically from harness discovery.
 

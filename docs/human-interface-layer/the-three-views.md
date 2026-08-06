@@ -31,7 +31,7 @@ Artifact embeds inside review messages (the five `ArtifactView` shapes) are owne
 
 ## Work — plan and track
 
-Bets and tasks: planning what to do and tracking what's in flight. The Work landing page is a flat, attention-sorted team list — one row per team with status chip and active-bet count (`WorkOverview.tsx`, AD9) — drilling into team → bet detail → task. Bet lifecycle (`draft | active | completed | killed`), decomposition, and the shape/commit/ship flow are owned by [process-layer/bets-shape-commit-change-ship.md](../process-layer/bets-shape-commit-change-ship.md); page structure by [information-architecture/work-view.md](../information-architecture/work-view.md). Bet bodies render as Blocks with anchored discussion — see [docs/blocks/](../blocks/index.md).
+Bets and tasks: planning what to do and tracking what's in flight. The Work landing page is a flat, attention-sorted team list — one row per team with status chip and active-bet count (`WorkOverview.tsx`, AD9) — drilling into team → bet detail → task. Bet lifecycle (`draft | active | completed | killed`) and the shape/commit/ship flow are owned by [process-layer/bets-shape-commit-change-ship.md](../process-layer/bets-shape-commit-change-ship.md); page structure by [information-architecture/work-view.md](../information-architecture/work-view.md). Bet bodies render as Blocks with anchored discussion — see [docs/blocks/](../blocks/index.md).
 
 Two view-level principles:
 

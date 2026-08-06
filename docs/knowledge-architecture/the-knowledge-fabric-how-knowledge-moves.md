@@ -36,7 +36,7 @@ The API server reads `knowledge_items` and serves the Knowledge view (`layers/co
 ```
 Human edits an item in the Knowledge view
   → PATCH /:id with { body, version }
-  → version mismatch → 409 CONFLICT with { currentVersion } (knowledge.ts:672-679)
+  → version mismatch → 409 CONFLICT with { currentVersion } (`layers/core-api/src/routes/knowledge.ts`)
   → match → update, version+1, edit log entry
 ```
 

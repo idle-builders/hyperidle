@@ -79,19 +79,17 @@ Work is organized in three levels:
 
 ### What the task section shows
 
-The Tasks section on a bet detail page shows one of five states:
+The Tasks section on a bet detail page shows one of three states:
 
 | State | What you see | What it means |
 |---|---|---|
 | Tasks present | Task rows with status chips | Agents are working or work is queued |
-| Not committed | "Not committed yet" | The bet is still a draft; commit to start work |
-| Planning | "Planning the work" with a live pulse | An agent is breaking the bet into tasks — takes a moment |
-| Blocked — no agent | "No one can take this work" + Add an agent | No agent on the team can own tasks; add one to proceed |
-| Blocked — failed | "Couldn't plan the work" | Planning failed; refine the goal and commit again |
+| Not committed | "Not committed yet" | The bet is still a draft; activate to start work |
+| No tasks yet | "No tasks yet" + Add an agent | The bet is active but no tasks exist; add an agent or task to get work started |
 
 Either tasks are there, or an honest reason explains why they aren't.
 
-**Committing a bet** immediately triggers decomposition — an agent breaks the bet into tasks, which appear once its turn finishes. Task and session details live in [tasks and sessions](../../process-layer/tasks-and-sessions.md).
+**Activating a bet** moves it from `draft` to `active`. The task section shows "No tasks yet" until agents on the team begin adding tasks. Task and session details live in [tasks and sessions](../../process-layer/tasks-and-sessions.md).
 
 ---
 

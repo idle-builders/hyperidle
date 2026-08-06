@@ -67,7 +67,7 @@ Reached from a bet row in Team View (`layers/core-ui/src/pages/WorkBet.tsx`).
 
 | Component | Information | Actions |
 |---|---|---|
-| **Breadcrumb** | Work → [team] → [bet title]; team segment links to `/work` (`WorkBet.tsx:927-932`) | Navigate |
+| **Breadcrumb** | Work → [team] → [bet title]; team segment links to `/work` (`WorkBet.tsx`) | Navigate |
 | **Overflow menu** | — | "Activate bet" (draft → active), "Kill" |
 | **Stat cards row** (`bet-stats-row`) | Progress (tasks done/total, `bet-progress-bar`) + Team (avatar + name) | — |
 | **Provenance link** | Shown when the bet was promoted from a knowledge item (AK5) | Open source item |

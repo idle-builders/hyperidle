@@ -27,7 +27,12 @@ import {
 	TEST_RUNNER_CONFIG_BASENAMES,
 } from "../../../../scripts/lib/repo-census.js";
 import { classificationTotal } from "../../../../scripts/rules/classification-total.js";
-import { allowedSlack, floorsTight, floorVerdict } from "../../../../scripts/rules/floors-tight.js";
+import {
+	allowedSlack,
+	floorsTight,
+	floorVerdict,
+	suggestedFloor,
+} from "../../../../scripts/rules/floors-tight.js";
 import { misplacementLedger } from "../../../../scripts/rules/misplacement-ledger.js";
 import { noProductionImportsDevelopment } from "../../../../scripts/rules/no-production-imports-development.js";
 import { patternLive } from "../../../../scripts/rules/pattern-live.js";
@@ -512,33 +517,51 @@ describe("AU28 floors-tight — a floor with too much slack has stopped measurin
 	});
 
 	it.each([
-		// live, floor, expected — the boundary, one either side, and the `max(…, 5)` term at small n.
-		[1000, 800, "ok"],
+		// live, floor, expected — the three states of the band, their boundaries, and the `max(…, 5)`
+		// term at small n. Allowed slack at 1000 live is 200; the warning starts at three quarters of it.
+		[1000, 900, "ok"],
+		[1000, 850, "ok"],
+		[1000, 849, "approaching"],
+		[1000, 800, "approaching"],
 		[1000, 799, "slack"],
-		[1000, 801, "ok"],
 		[1000, 1000, "ok"],
 		[1000, 1001, "below"],
-		// 20% of 11 is 3, below the floor-5 term, so a floor of 6 is still inside the band.
-		[11, 6, "ok"],
-		[11, 5, "slack"],
+		// 20% of 11 is 3, below the floor-5 term. Allowed 5, so the warning starts past 4 of slack.
 		[11, 8, "ok"],
-		// 20% of 100 is 20, above the floor-5 term, so the percentage governs.
-		[100, 80, "ok"],
+		[11, 7, "ok"],
+		[11, 6, "approaching"],
+		[11, 5, "slack"],
+		// 20% of 100 is 20, above the floor-5 term, so the percentage governs. Warning past 15 of slack.
+		[100, 86, "ok"],
+		[100, 85, "ok"],
+		[100, 84, "approaching"],
+		[100, 80, "approaching"],
 		[100, 79, "slack"],
 	])("live %i against a floor of %i is %s", (live, floor, expected) => {
 		expect(floorVerdict(record(live, floor, "magnitude")).sort).toBe(expected);
 	});
 
-	it("names the value to write when a floor has gone slack", () => {
+	it("names the MIDDLE of the band to write, never its edge", () => {
+		// The edge is 800. A floor written there is one added file from red, and the error it fails with
+		// says "raise the floor" — which is the reflex the band exists to prevent.
 		const verdict = floorVerdict(record(1000, 500, "magnitude"));
 		expect(verdict.sort).toBe("slack");
 		if (verdict.sort !== "slack") expect.unreachable("expected a slack verdict");
-		else expect(verdict.suggested).toBe(800);
+		else expect(verdict.suggested).toBe(900);
+		expect(suggestedFloor(1000)).toBe(900);
+	});
+
+	it("warns before it errors, and the warning names the command that prints the value to write", () => {
+		const verdict = floorVerdict(record(1000, 800, "magnitude"));
+		expect(verdict.sort).toBe("approaching");
+		if (verdict.sort !== "approaching") expect.unreachable("expected an approaching verdict");
+		expect(verdict.suggested).toBe(900);
+		expect(verdict.message).toContain("npm run governance:floors");
 	});
 
 	it("exempts an existence floor from the band, but never from the floor itself", () => {
-		// `development-root:tools` is 94 live against a declared 1. Without the exemption the band
-		// would demand a nonsensical floor of 76 on what is a check over a closed list.
+		// An existence pattern is a check over a closed list against many live files. Without the
+		// exemption the band would demand a nonsensical floor on what only has to fail when an entry dies.
 		expect(floorVerdict(record(94, 1, "existence")).sort).toBe("ok");
 		expect(floorVerdict(record(0, 1, "existence")).sort).toBe("below");
 	});
@@ -550,28 +573,45 @@ describe("AU28 floors-tight — a floor with too much slack has stopped measurin
 	it("computes the allowed slack as the larger of 20% and 5", () => {
 		expect(allowedSlack(11)).toBe(5);
 		expect(allowedSlack(1000)).toBe(200);
-		expect(allowedSlack(3296)).toBe(660);
+		expect(allowedSlack(3300)).toBe(660);
 	});
 
-	it("reports one error per drifted floor and stays silent otherwise", () => {
+	it("errors on a drifted floor, warns on one approaching the edge, and stays silent otherwise", () => {
 		const census = buildCensus({ files: ["layers/a/src/x.ts"], readFile: () => "" });
 		const floors = [
-			record(1000, 800, "magnitude"),
+			{ ...record(1000, 900, "magnitude"), id: "detector:mid-band" },
+			{ ...record(1000, 810, "magnitude"), id: "detector:on-the-edge" },
 			{ ...record(1000, 400, "magnitude"), id: "detector:loose" },
 		];
 		const rule = floorsTight({
 			floors: [
 				...floors,
-				...Array.from({ length: 18 }, (_, i) => ({
-					...record(100, 85, "magnitude"),
+				...Array.from({ length: 17 }, (_, i) => ({
+					...record(100, 95, "magnitude"),
 					id: `pad-${i}`,
 				})),
 			],
 		});
 		const findings = rule.evaluate(census);
-		expect(findings).toHaveLength(1);
-		expect(findings[0]?.message).toContain("detector:loose");
-		expect(findings[0]?.severity).toBe("error");
+		expect(findings).toHaveLength(2);
+		const errors = findings.filter((f) => f.severity === "error");
+		const warnings = findings.filter((f) => f.severity === "warn");
+		expect(errors).toHaveLength(1);
+		expect(errors[0]?.message).toContain("detector:loose");
+		expect(warnings).toHaveLength(1);
+		expect(warnings[0]?.message).toContain("detector:on-the-edge");
+	});
+
+	it("a floor written at the value the tool prints survives ordinary growth", () => {
+		// The regression this band exists for: recompute to the suggestion, add a file, stay green.
+		const live = 3300;
+		const floor = suggestedFloor(live);
+		expect(floorVerdict({ id: "census:pretend", live, floor, floorKind: "magnitude" }).sort).toBe(
+			"ok",
+		);
+		expect(
+			floorVerdict({ id: "census:pretend", live: live + 1, floor, floorKind: "magnitude" }).sort,
+		).toBe("ok");
 	});
 
 	it("is a dead rule when the floor set it checks has been gutted", () => {

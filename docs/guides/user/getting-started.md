@@ -153,7 +153,7 @@ This is the conversation-first path — you iterate with the Assistant until the
 
 **Expected:** You are navigated to the new Bet detail page. The Bet also appears as a `draft` card in the Team view.
 
-To start agents, open the Bet and click **Commit**. The status flips from `draft` to `active`, and the team breaks it into tasks. If your team is already at its bet capacity, activation is blocked and an inline message explains why — complete or kill another active bet first.
+To start agents, open the Bet, click the overflow menu (`···`) in the top-right, and choose **Activate bet**. The status flips from `draft` to `active`. The task section shows "No tasks yet" — agents on your team will begin adding tasks as they pick up the work. If your team is already at its bet capacity, activation is blocked and an inline message explains why — complete or kill another active bet first.
 
 **Troubleshooting:**
 - Create button stays disabled — the description field is required.

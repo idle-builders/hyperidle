@@ -92,7 +92,7 @@ Category is not a permission system — tool authorization is role-based filteri
 
 ### 3.5 Team functions and the default roster
 
-A team function is a domain label determining which roles appear in the default roster. Known functions: `development`, `product`, `design`, `marketing`, `sales`, `operations`, `support`, `research` (`TEAM_FUNCTIONS`, `agent-roles.ts:21-30`) — the catalog is open. On team creation the system auto-provisions the union of catalog roles across the team's functions (`defaultRoster()`, `agent-roles.ts:223`). Whether provisioning is idempotent (skips roles that already have an agent) is unverified in code.
+A team function is a domain label determining which roles appear in the default roster. Known functions: `development`, `product`, `design`, `marketing`, `sales`, `operations`, `support`, `research` (`TEAM_FUNCTIONS`, `agent-roles.ts:21-30`) — the catalog is open. On team creation the system auto-provisions the union of catalog roles across the team's functions (`defaultRoster()`, `agent-roles.ts`). Whether provisioning is idempotent (skips roles that already have an agent) is unverified in code.
 
 ### 3.6 Rename lore (AD8)
 

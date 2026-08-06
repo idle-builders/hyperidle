@@ -39,50 +39,48 @@ export const readRepoFile = (rel: string): string => readFileSync(path.join(REPO
  * Floor on the census itself. If `git ls-files` ever returns a near-empty set — wrong cwd, a broken
  * git invocation, a shallow checkout — every rule would pass vacuously.
  *
- * Live 3,306. Held inside the `floors-tight` band, which is why this is 2,644 and not the 1,000 it
- * sat at: a floor with 70% slack cannot fail until two thirds of the repository has disappeared.
- * Recomputed with the ledger and its rule — the band had already gone red at HEAD, which is the band
- * doing its job: the tree grew and the floor did not follow it in the same commit.
+ * Held in the middle of the `floors-tight` band rather than near zero: a floor with 70% slack, which
+ * is where this started, cannot fail until two thirds of the repository has disappeared.
  */
-export const MIN_TRACKED_FILES = 2644;
+export const MIN_TRACKED_FILES = 2976;
 
 /**
- * Minimum crossings each detector must find, MEASURED against the live tree and set inside the
- * `floors-tight` band — close enough to fail on a real loss, loose enough to survive churn.
+ * Minimum crossings each detector must find, MEASURED against the live tree and set in the MIDDLE of
+ * the `floors-tight` band — close enough to fail on a real loss, loose enough to survive churn.
  *
  * @lore AU28: this is the direct `au6` fix, one level up from where it was applied — `au6` scanned a
  * deleted directory and printed PASS over zero files for months. A floor is never lowered to make a
  * run go green: a drop means the detector broke, not that the repo got cleaner.
  *
  * @lore AU28: RECOMPUTE these whenever the tree moves under them, and do it in the same commit —
- * `npm run governance:floors` prints the live count, the slack, the allowed slack and the value to
- * write for every floor in the build. A stale floor is not a harmless leftover: it still passes, so
- * nobody notices it has stopped measuring anything, which is exactly how `di` sat at 200 against a
- * live 245 while twelve crossings went missing.
+ * `npm run governance:floors` prints the live count, the slack, the allowed slack, the band verdict
+ * and the value to write for every floor in the build. A stale floor is not a harmless leftover: it
+ * still passes, so nobody notices it has stopped measuring anything. That is exactly how one detector
+ * floor sat far enough below live for a dozen deleted crossings to go unremarked.
  *
- * Measured live at the commit that recomputed them:
- *   import 3665 · manifest 124 · di 245 · api 140 · mcp 25 · event 240 · capability 10 ·
- *   table:read 1324 · table:write 2317   (3,296 tracked files, 789 production, 2,507 development)
- *
- * `di` was recorded as 257 here and had fallen to 245. ATTRIBUTED, not assumed: all twelve missing
- * crossings came from `framework/db/src/__tests__/AK6-factory-roster.integration.test.ts`, deleted
- * by this branch's own strategy purge along with the `roster?` parameter it exercised. Real code
- * deletion, not a detector regression — verified by counting `di` at 874a6c27 (257, every one of the
- * twelve present) and diffing the crossing set against live.
+ * @lore AU28 — THIS COMMENT CARRIES NO MEASURED COUNTS, ON PURPOSE, AND NEITHER SHOULD ITS
+ * REPLACEMENT. Three separate commits transcribed the live census and detector totals into prose
+ * here and in `repo-census.ts`; all three were stale within days, and the third was written by the
+ * commit that fixed the second. A number in prose has no gate — nothing recomputes it, nothing fails
+ * when it drifts, and the next reader trusts it precisely because it looks measured. The floors below
+ * ARE the record: they are enforced, they are recomputed by one command, and `floors-tight` fails the
+ * build when they stop matching the tree. Keep the reasoning here; get the numbers from
+ * `npm run governance:floors`.
  */
 export const DETECTOR_FLOORS: readonly DetectorFloor[] = [
-	{ kind: "import", min: 3300, floorKind: "magnitude" },
-	{ kind: "manifest", min: 110, floorKind: "magnitude" },
-	{ kind: "di", min: 200, floorKind: "magnitude" },
-	{ kind: "api", min: 112, floorKind: "magnitude" },
-	{ kind: "mcp", min: 20, floorKind: "magnitude" },
-	{ kind: "event", min: 192, floorKind: "magnitude" },
+	{ kind: "import", min: 3307, floorKind: "magnitude" },
+	{ kind: "manifest", min: 111, floorKind: "magnitude" },
+	{ kind: "di", min: 220, floorKind: "magnitude" },
+	{ kind: "api", min: 126, floorKind: "magnitude" },
+	{ kind: "mcp", min: 22, floorKind: "magnitude" },
+	{ kind: "event", min: 216, floorKind: "magnitude" },
 	// The thinnest detector in the set, and the one most able to lose half its coverage without
-	// tripping. Treat it as a tripwire, not a boundary — the band's `max(…, 5)` term is what keeps
-	// this at 8 rather than demanding a number two sites of churn away from failing.
+	// tripping. Treat it as a tripwire, not a boundary. It is the one floor NOT moved to the middle of
+	// its band: the band's `max(…, 5)` term puts the midpoint BELOW where this already sits, and a
+	// floor is never lowered — least of all the one with the least to lose before it stops measuring.
 	{ kind: "capability", min: 8, floorKind: "magnitude" },
-	{ kind: "table:read", min: 1059, floorKind: "magnitude" },
-	{ kind: "table:write", min: 1853, floorKind: "magnitude" },
+	{ kind: "table:read", min: 1191, floorKind: "magnitude" },
+	{ kind: "table:write", min: 2085, floorKind: "magnitude" },
 ];
 
 /** Every floor the build declares, live counts attached — the population `floors-tight` checks. */

@@ -21,13 +21,30 @@ import {
 export type { ServerHandle };
 
 /**
- * Start the Hono server on port 0 (OS-assigned) and return its async-disposal handle.
- * Environment variables DATABASE_URL, HYPERIDLE_API_KEY, and
- * HYPERIDLE_STATIC_DIR must be set before calling this.
+ * The embedded server serves only the Electron renderer in this same process,
+ * so it binds loopback and nothing else.
+ *
+ * @lore S-9.2 ("the desktop app binds to localhost only — no public-internet
+ * exposure") was a false claim until this was passed: `createServer` binds
+ * every interface when given no hostname, so the embedded server was reachable
+ * from the local network by any machine that could guess the OS-assigned port.
+ * `remote-server` still omits `hostname` on purpose — a hosted deployment has
+ * to answer its ingress.
+ */
+const LOOPBACK = "127.0.0.1";
+
+/**
+ * Start the Hono server on port 0 (OS-assigned), bound to loopback, and return
+ * its async-disposal handle. Environment variables DATABASE_URL,
+ * HYPERIDLE_API_KEY, and HYPERIDLE_STATIC_DIR must be set before calling this.
  */
 export async function startServer(): Promise<ServerHandle> {
 	const adapterPool = await createLocalAdapterPool();
-	return _createServer(0, { adapterPool, workspaceAdapter: createSandboxAdapter("local") });
+	return _createServer(0, {
+		adapterPool,
+		workspaceAdapter: createSandboxAdapter("local"),
+		hostname: LOOPBACK,
+	});
 }
 
 /**

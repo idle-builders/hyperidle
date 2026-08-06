@@ -164,7 +164,7 @@ Triggers are the single rule for "event -> agent work." Any event that can cause
 
 ## Durable agent handoff
 
-Core actions first persist an `agent_work_intents` row. The row identifies one of seven work families—assistant, explicit session, knowledge, routine, decomposition, task, or re-engagement—and contains source identity plus an idempotency key. It contains no model, tool, prompt, harness, or execution result.
+Core actions first persist an `agent_work_intents` row. The row identifies one of six work families—assistant turn, explicit session, knowledge action, routine run, task run, or re-engagement—and contains source identity plus an idempotency key. It contains no model, tool, prompt, harness, or execution result.
 
 Explicit session starts also persist `explicit_session_starts`, the authoritative command record for requested task, agent, and model tier. The neutral intent references that row; execution choices do not leak into the shared envelope.
 

@@ -19,7 +19,7 @@ import {
 	loadArchitecture,
 	trackedFiles,
 } from "./governance-context.js";
-import { allowedSlack, floorVerdict } from "./rules/floors-tight.js";
+import { allowedSlack, floorVerdict, suggestedFloor } from "./rules/floors-tight.js";
 
 const architecture = loadArchitecture();
 const census = buildLiveCensus(architecture, trackedFiles());
@@ -36,11 +36,15 @@ console.log(`  ${row([...columns])}`);
 console.log(`  ${"─".repeat(widths.reduce((a, b) => a + b, 0) + 2 * (widths.length - 1))}`);
 
 let drifted = 0;
+let approaching = 0;
 for (const floor of floors) {
 	const verdict = floorVerdict(floor);
 	const allowed = floor.floorKind === "existence" ? "—" : String(allowedSlack(floor.live));
-	const write = verdict.sort === "slack" ? String(verdict.suggested) : "—";
-	if (verdict.sort !== "ok") drifted += 1;
+	// The `write` column is the MIDDLE of the band, never its edge — a floor written at the edge is
+	// one added file from red, which is how the whole set came to sit there at once.
+	const write = verdict.sort === "slack" || verdict.sort === "approaching" ? String(suggestedFloor(floor.live)) : "—";
+	if (verdict.sort === "approaching") approaching += 1;
+	else if (verdict.sort !== "ok") drifted += 1;
 	console.log(
 		`  ${row([
 			floor.id,
@@ -56,12 +60,21 @@ for (const floor of floors) {
 }
 
 console.log("");
+if (drifted === 0 && approaching === 0) {
+	console.log(`  ${floors.length} floor(s), zero drift. Every magnitude floor sits inside its band with room to spare.\n`);
+	process.exit(0);
+}
 if (drifted === 0) {
-	console.log(`  ${floors.length} floor(s), zero drift. Every magnitude floor is inside its band.\n`);
+	// Approaching is not a failure. Saying "zero drift" while a floor is one commit from red is how
+	// the whole set ended up on the edge, so it gets its own line and its own word.
+	console.log(
+		`  ${approaching} of ${floors.length} floor(s) are APPROACHING the edge of their band — not failing yet. ` +
+			`Copy the \`write\` column into the declaration now, while it is maintenance rather than a reflex.\n`,
+	);
 	process.exit(0);
 }
 console.log(
-	`  ${drifted} of ${floors.length} floor(s) have drifted. Copy the \`write\` column into the declaration ` +
-		`— never lower a floor to make a run go green.\n`,
+	`  ${drifted} of ${floors.length} floor(s) have drifted out of band${approaching > 0 ? `, and ${approaching} more are approaching the edge` : ""}. ` +
+		`Copy the \`write\` column into the declaration — never lower a floor to make a run go green.\n`,
 );
 process.exit(1);

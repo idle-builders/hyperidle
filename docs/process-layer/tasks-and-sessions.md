@@ -7,7 +7,7 @@
 
 Tasks move through a small state machine — the eight states of `TASK_STATES` (`framework/shared/src/types.ts`):
 
-- `proposed` — a team member has drafted this task as part of decomposition. Not yet picked up.
+- `proposed` — a team member has drafted this task. Not yet picked up.
 - `accepted` — the team lead has accepted it. The owner is committed.
 - `hold` — the task has unmet upstream dependencies (other tasks that must reach `done` first). The task cannot start until all dependencies clear. **When the last upstream dependency moves to `done`, the dependency watcher (`checkAndUnblockDependents`, `layers/core-api/work/src/dependency-watcher.ts`) automatically transitions this task to `accepted` and notifies the owner.** This is the key automation: no agent or human needs to manually unblock held tasks.
 - `in_progress` — at least one session is running or has run. The task has produced some progress.

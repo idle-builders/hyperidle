@@ -104,5 +104,3 @@ The **Assistant** button sits in the sidebar's top row, next to the search field
 | Couldn't reach the model | The provider returned a temporary error | Click **Retry** to try again |
 
 **Thinking indicator** — After you send a message, the overlay shows "Assistant is thinking…" while waiting for a reply. If the assistant hasn't responded after 2 minutes, the indicator is replaced with a **Retry** button so you can re-send without waiting forever.
-
-**Customizing the assistant** — Go to [Settings → Assistant](settings.md) to edit your assistant's system prompt (persona), harness, and model. Changes take effect on the next message.

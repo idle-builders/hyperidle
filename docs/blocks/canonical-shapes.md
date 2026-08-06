@@ -19,7 +19,7 @@ Block-anchored discussion is **message-level**, not a thread-attachment kind. Th
 
 ## 3. BlockKind — the closed vocabulary
 
-`BlockKind` is **closed**: nine content kinds plus an `unknown` sentinel, ten total (`BLOCK_KINDS`, `types.ts:6-18`). Adding a kind is doc-first: update this document, then `types.ts`, then the consumers.
+`BlockKind` is **closed**: nine content kinds plus an `unknown` sentinel, ten total (`BLOCK_KINDS`, `framework/shared/src/blocks/types.ts`). Adding a kind is doc-first: update this document, then `types.ts`, then the consumers.
 
 | Kind | Semantics |
 |---|---|
@@ -32,7 +32,7 @@ Block-anchored discussion is **message-level**, not a thread-attachment kind. Th
 | `divider` | Thematic break (`---` on its own line). |
 | `image` | Block-level image — a paragraph that is solely an image is promoted to an `image` block. |
 | `html` | Raw HTML block GFM permits, rendered as a sanitised region; if the sanitiser strips it, it falls back to `unknown` with reason `sanitiser-stripped`. |
-| `unknown` | Catch-all so derivation **never throws**. Reasons: `parser-unrecognised \| body-too-large \| sanitiser-stripped` (`types.ts:88-92`). Renders the original source. |
+| `unknown` | Catch-all so derivation **never throws**. Reasons: `parser-unrecognised \| body-too-large \| sanitiser-stripped` (`framework/shared/src/blocks/types.ts`). Renders the original source. |
 
 `unknown` is the safety valve: new GFM features land before the kind set is updated, and derivation must emit a useful block instead of crashing or dropping content. When `unknown` blocks start appearing in real bodies, that is the signal to update this list.
 
@@ -40,7 +40,7 @@ Block-anchored discussion is **message-level**, not a thread-attachment kind. Th
 
 `deriveBlocks(body, host: { kind, id }) → { blocks }` (`framework/shared/src/blocks/derive-blocks.ts:295-298`). Pure and deterministic — no I/O, no clock, no DB; same input, same output. Lives in `framework/shared`.
 
-- **No body-level metadata parsing.** `BlockDerivationResult` has only `blocks` (`types.ts:108-110`); there is no `metadata` sibling field. Three-dash front matter derives as markdown — a `divider` + `paragraph` pair, or `unknown`. A typed metadata pipeline is deferred until a concrete consumer arrives.
+- **No body-level metadata parsing.** `BlockDerivationResult` has only `blocks` (`framework/shared/src/blocks/types.ts`); there is no `metadata` sibling field. Three-dash front matter derives as markdown — a `divider` + `paragraph` pair, or `unknown`. A typed metadata pipeline is deferred until a concrete consumer arrives.
 - **Derivation is client-side, per render.** The server does not derive blocks at runtime; where derivation attaches, caching, and render surfaces: [derivation-and-rendering.md](./derivation-and-rendering.md). `bodyDigest` on `Block.source` identifies the source body snapshot — it is not used as a cache key.
 
 ## 5. Rendering-layer relationship (AM5 outcome)

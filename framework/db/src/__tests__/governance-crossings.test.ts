@@ -498,6 +498,13 @@ describe("AU28 — re-export laundering", () => {
 				export { escapeLikePattern } from "./like-escape.js";
 			`,
 		"framework/db/src/like-escape.ts": "export const escapeLikePattern = (s: string) => s;",
+		// A legitimate CONSUMER of the database package. Present in every case so the rule's value half
+		// — `export const x = <table>` — always has a population to judge; with none it correctly
+		// reports itself half-dead, which would drown every case below in the same finding.
+		"layers/core-api/work/src/reader.ts": [
+			'import { bets } from "@hyperidle/db";',
+			"export const read = (db: { select: () => { from: (t: unknown) => unknown } }) => db.select().from(bets);",
+		].join("\n"),
 	};
 
 	const architecture = {
@@ -546,6 +553,7 @@ describe("AU28 — re-export laundering", () => {
 			),
 			frameworkSurfaces: new Map([["shared", "framework/shared"]]),
 			locate: buildPackageLocator(census.packages),
+			readFile: repo.readFile,
 		});
 		return { rule, census, findings: rule.evaluate(census) };
 	}
@@ -557,8 +565,67 @@ describe("AU28 — re-export laundering", () => {
 			"layers/core-api/work/src/index.ts": 'export { bets as betsTable } from "@hyperidle/db";',
 		});
 		expect(findings).toHaveLength(1);
-		expect(findings[0]?.message).toContain("may never cross a package boundary");
+		expect(findings[0]?.message).toContain("may never be republished across a package boundary");
 		expect(findings[0]?.path).toBe("layers/core-api/work/src/index.ts");
+	});
+
+	it("refuses the same republication written as a VALUE — `export const betsTable = bets`", () => {
+		// `export … from` was the only spelling the rule saw. This one is the identical act: the
+		// consumer imports `betsTable` from the service and the table resolver on its side binds it
+		// straight back to `bets`.
+		const { findings } = evaluate({
+			"layers/core-api/work/src/index.ts":
+				'import { bets } from "@hyperidle/db";\nexport const betsTable = bets;',
+		});
+		expect(findings).toHaveLength(1);
+		expect(findings[0]?.message).toContain("may never be republished across a package boundary");
+		expect(findings[0]?.message).toContain("betsTable");
+		expect(findings[0]?.path).toBe("layers/core-api/work/src/index.ts");
+	});
+
+	it("refuses the TWO-FILE value spelling, at the module where the table leaves the package", () => {
+		// The barrel hop is a within-package re-export, which narrowing (3) waves through by design.
+		// Catching the alias itself closes the spelling without touching that narrowing.
+		const { findings } = evaluate({
+			"layers/core-api/work/src/table-exports.ts":
+				'import { bets } from "@hyperidle/db";\nexport const betsTable = bets;',
+			"layers/core-api/work/src/index.ts": 'export { betsTable } from "./table-exports.js";',
+		});
+		expect(findings).toHaveLength(1);
+		expect(findings[0]?.path).toBe("layers/core-api/work/src/table-exports.ts");
+	});
+
+	it("refuses a table published through a local `export { … }` clause with no `from`", () => {
+		const { findings } = evaluate({
+			"layers/core-api/work/src/index.ts":
+				'import { bets } from "@hyperidle/db";\nconst t = bets;\nexport { t as betsTable };',
+		});
+		expect(findings).toHaveLength(1);
+		expect(findings[0]?.message).toContain("betsTable");
+	});
+
+	it("negative control — importing a table and USING it is not publication", () => {
+		// The base tree already contains exactly this in `reader.ts`, and it must stay silent: the rule
+		// is about handing the table onward, never about touching it.
+		const { findings } = evaluate({
+			"layers/core-api/work/src/index.ts":
+				'import { bets } from "@hyperidle/db";\nexport const label = "bets";\nexport const count = (db: { select: () => { from: (t: unknown) => unknown } }) => db.select().from(bets);',
+		});
+		expect(findings).toEqual([]);
+	});
+
+	it("reports itself half-dead when nothing outside the database package names it", () => {
+		// The value half has its own population. One `minScope` number cannot tell which half collapsed,
+		// so the half that is not the binding floor says so rather than hiding behind the other's size.
+		const repo = syntheticRepo(DB_SOURCES);
+		const census = buildCensus({
+			files: repo.files.filter((f) => f !== "layers/core-api/work/src/reader.ts"),
+			readFile: repo.readFile,
+			roleRules: ROLE_RULES,
+		});
+		const { rule } = evaluate({});
+		const messages = rule.evaluate(census).map((f) => f.message);
+		expect(messages.some((m) => m.includes("measuring nothing"))).toBe(true);
 	});
 
 	it("refuses a surface whose audience is narrower than everyone", () => {
@@ -578,7 +645,7 @@ describe("AU28 — re-export laundering", () => {
 	});
 
 	it("negative control — a reach-`everyone` surface launders nothing", () => {
-		// Eight of the live cross-package re-exports are exactly this. Without the narrowing the rule
+		// Most of the live cross-package re-exports are exactly this. Without the narrowing the rule
 		// would land on day one with a pile of findings nobody can act on, and die of noise.
 		const { findings } = evaluate({
 			"layers/core-api/work/src/index.ts": 'export type { Bet } from "@hyperidle/db";',
@@ -610,9 +677,11 @@ describe("AU28 — re-export laundering", () => {
 			"layers/core-api/work/src/index.ts":
 				'export { x } from "./store.js";\nexport type { Bet } from "@hyperidle/db";',
 		});
-		// Four: the two in the database package's own barrel, plus the two in the service barrel — of
-		// which only one crosses a package boundary and none is a violation.
-		expect(rule.scope(census)).toHaveLength(4);
+		// Six: the four `export … from` statements — two in the database package's own barrel, two in
+		// the service barrel, of which only one crosses a package boundary and none is a violation —
+		// plus the two files outside the database package that name it, which is the value half's
+		// population.
+		expect(rule.scope(census)).toHaveLength(6);
 		expect(rule.evaluate(census)).toEqual([]);
 	});
 });

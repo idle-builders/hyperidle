@@ -193,7 +193,7 @@ Two code paths converge on the `HarnessEvent` union — consumers cannot tell wh
 ### `GET /api/harnesses` → `HarnessCapabilityDescriptor[]`
 
 The route handler (`layers/core-api/src/routes/harnesses.ts`):
-1. Calls `pool.listCapabilityDescriptors()` — descriptors for all registered adapters (deduped by type) plus `missingKnownHarnessDescriptors()` for unregistered first-class families (`adapter-pool.ts`).
+1. Calls `pool.describe()` — descriptors for all registered adapters (deduped by type) plus `missingKnownHarnessDescriptors()` for unregistered first-class families (`adapter-pool.ts`).
 2. Stamps `discovery.disabled: true` from `readServerConfig(db).harnessDisabled`; `builtin` is never stamped.
 3. Returns the stamped list. The response never includes API keys, base URLs, subscription tokens, or credential file contents.
 

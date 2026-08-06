@@ -47,6 +47,7 @@ import {
 	trackedFiles,
 } from "./governance-context.js";
 import type { Baseline } from "./lib/crossing-report.js";
+import { UnclaimedProductionFileError } from "./lib/crossing-detectors.js";
 import { buildPackageLocator, type CrossingsResult } from "./lib/crossings.js";
 import { runAttacks } from "./lib/governance-attacks.js";
 import { runFixtureSelfTest } from "./lib/governance-fixtures.js";
@@ -128,6 +129,7 @@ function buildRules(
 	architecture: ReturnType<typeof loadArchitecture>,
 	census: Census,
 	detected: CrossingsResult,
+	readFile: (path: string) => string,
 ): Rule[] {
 	return [
 		classificationTotal,
@@ -142,6 +144,7 @@ function buildRules(
 			db: detected.db,
 			frameworkSurfaces: detected.frameworkSurfaces,
 			locate: buildPackageLocator(census.packages),
+			readFile,
 		}),
 		...crossingRules({
 			architecture,
@@ -163,7 +166,8 @@ function runAttackSuite(): number {
 		architecture,
 		tableOwners: loadTableOwners(),
 		floors: DETECTOR_FLOORS,
-		buildRules: (overlaidCensus, overlaidDetected) => buildRules(architecture, overlaidCensus, overlaidDetected),
+		buildRules: (overlaidCensus, overlaidDetected, overlaidReadFile) =>
+			buildRules(architecture, overlaidCensus, overlaidDetected, overlaidReadFile),
 		// The ratchet is registered by the live run but never by an attack pass — the overlay is not
 		// debt. It still needs a break-test, which `baseline-growth` provides.
 		alsoRegistered: ["baseline-ratchet"],
@@ -195,7 +199,31 @@ function runLive(errorsOnly: boolean): number {
 	const architecture = loadArchitecture();
 	const census = buildLiveCensus(architecture, files);
 
-	const detected = buildCrossings(census, architecture);
+	/**
+	 * @lore AU28: `UnclaimedProductionFileError` is a VERDICT, not a crash. It is thrown from deep
+	 * inside the detectors — the only way to refuse a verdict over a file the census cannot place — and
+	 * it escaped `runLive` uncaught, so the one census misconfiguration that fails OPEN presented as a
+	 * Node stack trace with a `throw` frame at the top and the actual message four lines down. Every
+	 * other failure in this command prints one formatted finding; this one has a path and a message
+	 * already, so it prints as one too.
+	 */
+	let detected: CrossingsResult;
+	try {
+		detected = buildCrossings(census, architecture);
+	} catch (error) {
+		if (!(error instanceof UnclaimedProductionFileError)) throw error;
+		console.error(
+			`\n  ── production · 1 finding(s)\n${formatFinding({
+				ruleId: "census-claims-every-production-file",
+				severity: "error",
+				message: error.message,
+				path: error.file,
+				world: "production",
+			})}`,
+		);
+		console.error("\ngovernance-lint: FAIL — 1 error(s). The census refused a verdict, so no rule ran.");
+		return 1;
+	}
 	const baseline = loadBaseline();
 	const ruleInput = {
 		architecture,
@@ -217,6 +245,7 @@ function runLive(errorsOnly: boolean): number {
 			db: detected.db,
 			frameworkSurfaces: detected.frameworkSurfaces,
 			locate: buildPackageLocator(census.packages),
+			readFile: readRepoFile,
 		}),
 		...crossingRules(ruleInput),
 		baselineRatchet(ruleInput),

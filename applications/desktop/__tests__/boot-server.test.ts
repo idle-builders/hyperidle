@@ -44,6 +44,21 @@ describe("startServer", () => {
 		);
 	});
 
+	// S-9.2: the embedded server must not be reachable from the local network.
+	// `createServer` binds every interface unless a hostname is supplied, so the
+	// guarantee is only real if the desktop Application asks for loopback. That
+	// the parameter is honoured at the socket is proven separately, against a
+	// real bind, in
+	// `applications/remote-server/src/__tests__/server-bind-address.integration.test.ts`.
+	it("pins the embedded server to loopback", async () => {
+		const { createServer } = await import("@hyperidle/remote-server/create-server");
+		await startServer();
+		expect(createServer).toHaveBeenCalledWith(
+			0,
+			expect.objectContaining({ hostname: "127.0.0.1" }),
+		);
+	});
+
 	it("returns a ServerHandle with httpServer and dispose", async () => {
 		const handle = await startServer();
 		expect(handle).toHaveProperty("httpServer");

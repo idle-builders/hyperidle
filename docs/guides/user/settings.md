@@ -50,7 +50,7 @@ In **Settings → Agents**, click **+ Add Agent**. The form asks:
 
 Each agent can run a different model. Click **Edit** on any agent:
 
-- **Model** — one of the closed model catalog: Opus 4.8, Sonnet 4.6 (default), Haiku 4.5, or Fable 5. Overrides the default model for this agent only (independent of the tier selection in Settings → Models).
+- **Model** — one of the closed model catalog: Opus 4.8, Sonnet 4.6 (default), Haiku 4.5, or Fable 5. Overrides the default model for this agent only.
 - **Harness** — which execution environment runs this agent (e.g. Built-in, Claude Code). Must match one registered on the worker device. Defaults to Built-in.
 
 An amber warning chip appears next to an agent if its harness type is not currently registered on any available worker.
@@ -81,7 +81,7 @@ Register a filesystem once here with **+ Add filesystem**; injecting it into a s
 
 | Backend | What it is | How to activate |
 |---------|-----------|-----------------|
-| **Built-in** | HyperIdle's own model gateway (Anthropic, OpenAI, OpenRouter API keys) | Add an API key in **Settings → Models** |
+| **Built-in** | HyperIdle's own model gateway (Anthropic, OpenAI, OpenRouter API keys) | Add credentials in **Settings → Credentials** |
 | **Claude Code** | Anthropic's Claude Code CLI | Run `claude auth login` in a terminal |
 | **Codex** | OpenAI Codex CLI | Run `codex login` in a terminal |
 | **OpenCode** | OpenCode CLI | Run `opencode providers login` in a terminal |

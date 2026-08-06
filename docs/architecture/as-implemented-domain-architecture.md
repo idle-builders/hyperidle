@@ -21,7 +21,6 @@ flowchart LR
   Interface -- "HTTP API" --> Integration
 
   Coordination -- "session request\naccepted tasks, routines" --> Session
-  Coordination -- "decomposition request" --> Harness
   Conversation -- "assistant turn request" --> Session
   Knowledge -- "context and prompt material" --> Session
   Session -- "run config and event stream" --> Harness
@@ -102,7 +101,7 @@ flowchart LR
   SessionRequest["Session Request\nagent id\nwork or conversation context\nmodel tier\nmode\nconcurrency inputs"]
   SessionEvents["Session Events\nsession_started\nsession_ended\nsession_not_returned\ntool_call_recorded"]
   HarnessContract["HarnessAdapter\nstartSession(config)\nstreamEvents(handle)\nstopSession(handle)\ngetCapabilities()"]
-  AgentLayerContract["Agent layer provider\nassembleContext\nbeginLearningIngestion\nresolve defaults\nselectAgent\ndecomposeBet\nformAssistant"]
+  AgentLayerContract["Agent layer provider\nassembleContext\nbeginLearningIngestion\nresolve defaults\nselectAgent\nformAssistant"]
   ToolContract["Tool Invocation\nregistry.invoke(name, rawArgs)\nsession context bound at registry construction\noptional MCP exposure"]
   MountContract["Filesystem Mount\nregistered filesystems\nagent injection\nsession capture"]
   EventContract["Domain Events\ntyped EventBus\nstate, message, knowledge,\nnotification events"]
@@ -124,7 +123,7 @@ flowchart LR
 Contract anchors:
 
 - `HarnessAdapter` = startSession/streamEvents/stopSession/getCapabilities — `framework/shared/src/harness/harness-adapter.ts:270`. `startSession(config: SessionConfig)`; SessionConfig carries sessionId, sandboxPath, assembledPrompt, modelTier, resolvedModel, MCP bridge info, thread messages, return hook, session workflow.
-- Agent layer provider = assembleContext/beginLearningIngestion/resolve defaults/selectAgent/decomposeBet/formAssistant. Production ownership lives in `layers/agent-orchestration/`'s Services.
+- Agent layer provider = assembleContext/beginLearningIngestion/resolve defaults/selectAgent/formAssistant. Production ownership lives in `layers/agent-orchestration/`'s Services.
 - Tool invocation = `registry.invoke(name, rawArgs)` — `layers/agent-execution/harness-registry/src/tool-registry.ts`; per-session context is bound when `buildToolRegistry` constructs the registry, not passed per call.
 - Session events verified in `framework/shared/src/events.ts` (session_started :34, session_ended :51, session_not_returned :72, tool_call_recorded :207).
 
@@ -150,7 +149,6 @@ flowchart TB
   BetState["Bet state machine\ndraft → active → completed | killed"] --> Bet
   TaskState["Task state machine\ntransition, handoff, dependencies"] --> Task
   RoutineScheduler["Routine scheduler"] --> Routine
-  Decomposition["Bet decomposition"] --> Task
 
   BetState -- "bet_state_changed" --> Events["EventBus"]
   TaskState -- "task_state_changed" --> Events
@@ -158,7 +156,6 @@ flowchart TB
 
   Task -- "accepted owner task" --> SessionRequest["Session request"]
   Routine -- "trigger" --> SessionRequest
-  Bet -- "active" --> DecompositionRequest["Decomposition request"]
 ```
 
 Bet lifecycle endpoints: `POST /api/bets/:id/commit`, `/:id/ship`, `/:id/kill`, `/:id/outcome` (`layers/core-api/src/routes/bets.ts`). Task handoff: `POST /api/tasks/:id/handoff` (`layers/core-api/src/routes/tasks.ts`) via the handoff protocol. Lifecycle semantics live in [process-layer](../process-layer/bets-shape-commit-change-ship.md).
@@ -296,7 +293,6 @@ flowchart TB
   AgentServices --> LearningIngestion["Learning ingestion"]
   AgentServices --> AgentDefaults["Agent defaults"]
   AgentServices --> AgentSelection["Agent selection"]
-  AgentServices --> BetDecompose["Bet decomposition request"]
   AgentServices --> AssistantForm["Assistant formation"]
 
   ContextAssembly --> KnowledgeRepo["Knowledge repository (core-api)"]
@@ -351,7 +347,6 @@ flowchart TB
   NotificationEvents["Notification events\nnotification"] --> EventBus
 
   EventBus --> TaskDispatch["Task dispatch"]
-  EventBus --> Decomposition["Bet decomposition"]
   EventBus --> Lifecycle["Lifecycle propagation"]
   EventBus --> Dependency["Dependency unblock"]
   EventBus --> ReviewCreation["Review creation"]
@@ -377,16 +372,12 @@ flowchart TB
   Provision --> AdapterPool["AdapterPool"]
   AdapterPool --> HarnessAdapter["HarnessAdapter"]
 
-  BetActive["Bet becomes active"] --> DecompositionIntent["Durable decomposition intent"]
-  DecompositionIntent --> AgentRequest["Agent-layer session request"]
-  AgentRequest --> HarnessAdapter
-
   HarnessAdapter --> Builtin["Builtin harness"]
   HarnessAdapter --> CLI["CLI harness"]
   HarnessAdapter --> Remote["Remote harness"]
 ```
 
-All agent-run entry families persist a durable work intent. `core-api` bakes everything the run needs onto the emitted request; `agent-orchestration` claims it, formats it and dispatches. Assistant preparation lives in `layers/core-api/conversation/src/assistant-turn-resolver.ts`; decomposition no longer calls an adapter from its domain service.
+All agent-run entry families persist a durable work intent. `core-api` bakes everything the run needs onto the emitted request; `agent-orchestration` claims it, formats it and dispatches. Assistant preparation lives in `layers/core-api/conversation/src/assistant-turn-resolver.ts`.
 
 ## Component Inventory
 
@@ -417,7 +408,7 @@ See the L2 Knowledge Domain paragraph above; full design in [knowledge-architect
 
 ### API layer
 
-Hono on Node. `core-api` mounts its routes under `/api` (`layers/core-api/src/app.ts`); each Layer hosts its own app, and an Application composes them (`applications/remote-server/src/create-server.ts`, `applications/desktop/src/main.ts`). Schedulers start from `layers/core-api/src/service-bootstrap.ts`. Route groups: auth, users, agents, teams, team-members, bets (incl. `/:id/commit|ship|kill|outcome`), tasks (incl. `/:id/handoff`), sessions, reviews, artifacts, filesystems, knowledge (URL shape `/:id`, not `/:layer`), conversations, threads, org, recipients, status (incl. `/digest`), workers, harnesses, credentials, connections, hint-progress, dispatch-queue, search, settings, ws.
+Hono on Node. `core-api` mounts its routes under `/api` (`layers/core-api/src/app.ts`); each Layer hosts its own app, and an Application composes them (`applications/remote-server/src/create-server.ts`, `applications/desktop/src/main.ts`). Schedulers start from `layers/core-api/src/service-bootstrap.ts`. Route groups: auth, users, agents, teams, team-members, bets (incl. `/:id/commit|ship|kill|outcome`), tasks (incl. `/:id/handoff`), sessions, reviews, artifacts, filesystems, knowledge (URL shape `/:id`, not `/:layer`), conversations, threads, org, recipients, status (incl. `/digest`), workers, harnesses, credentials, hint-progress, dispatch-queue, search, settings, ws. `/connections` is served by `agent-orchestration`'s own app (`layers/agent-orchestration/src/app.ts`, `layers/agent-orchestration/src/routes/connections.ts`) — its table set (`service_connections`) is owned by that Layer (AU26 E4).
 
 Auth: single `HYPERIDLE_API_KEY` via `X-API-Key` header (constant-time compare) + Bearer login-session tokens + invite codes (`layers/core-api/src/middleware/auth.ts`, `layers/core-api/users/src/login-session.ts`). Boundary enforcement: [authorization model](./authorization-model.md).
 

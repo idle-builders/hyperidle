@@ -1,6 +1,6 @@
 # Bets: Shape, Commit, Change, Ship
 
-The bet lifecycle, the assistant's drafting authority, the promote-from-knowledge edge, and decomposition — as built, plus the labelled destination. Bet primitive shape lives in [the-five-primitives.md](./the-five-primitives.md).
+The bet lifecycle, the assistant's drafting authority, and the promote-from-knowledge edge. Bet primitive shape lives in [the-five-primitives.md](./the-five-primitives.md).
 
 ## 1. Lifecycle
 
@@ -20,7 +20,7 @@ Both paths enter the lifecycle at `draft` and proceed identically. The assistant
 
 ## 3. Shape
 
-Shaping happens before commitment and is *not* decomposition. The draft describes what success looks like — goal, done condition, appetite — not what tasks will produce it. Decomposition happens after commit.
+Shaping happens before commitment. The draft describes what success looks like — goal, done condition, appetite — not what tasks will produce it.
 
 ### 3.1 Promote a knowledge item into a bet (AK5)
 
@@ -34,52 +34,13 @@ Captured knowledge can seed a bet directly without retyping. From a knowledge it
 
 ## 4. Commit
 
-The founder commits from the bet detail view. At that moment:
+The founder opens the bet's overflow menu (···) and chooses **Activate bet**. At that moment the bet moves `draft → active`. The task section shows "No tasks yet" — tasks are added by agents on the team as they pick up work. If the team is already at capacity, activation is rejected with an inline error explaining why.
 
-1. The bet moves `draft → active`.
-2. The Work service emits `work_decompose_requested`, resolves the decomposer from app-owned defaults/configuration, and creates an agent-layer decomposition request when a PM turn is needed.
-3. The bet's task section shows "Planning the work" while decomposition runs; tasks appear as soon as it finishes.
+The `done_condition` (`schema.ts`) guides what the team works toward. It is revisable during the bet (§5) but must be set before committing.
 
-Commit is a **human verdict that obliges the system to start work**. After commit, every active bet has either a task breakdown or an explicit, visible reason why one couldn't be produced — no "work will start eventually" limbo.
+**Replanning is normal:** as work progresses, new tasks are added and stale ones retired as `killed` (`framework/shared/src/types.ts`). The plan is the current state of the task list, not a separate document.
 
-The `done_condition` (`schema.ts`) guides what decomposition produces. It is revisable during the bet (§6) but must be set before committing.
-
-## 5. Decompose (v1: centralized PM turn)
-
-**As-built:** on `draft → active` the Work service emits `work_decompose_requested` and resolves a decomposition plan from app-owned defaults/configuration. If the plan contains no precomputed tasks, it creates a `decomposition` `AgentSessionRequest`; the agent runtime consumes that request as a task-free PM session where the agent reads the bet's goal and done condition. Writeback happens through the normal `create_task` tool, which derives bet/team from the decomposition request context and creates proposed tasks. Created tasks remain `proposed` until the normal task acceptance flow accepts and dispatches them (see [tasks-and-sessions.md](./tasks-and-sessions.md)). No human approves the initial breakdown before it is proposed; the founder sees it on the bet surface after the fact.
-
-The PM agent's context comes through the agent-layer context provider. A default plan can return a pre-computed task list directly, skipping the PM turn.
-
-**Terminal outcomes — a closed set:**
-
-- **`done`** — ≥1 task produced and accepted; agents begin sessions.
-- **`blocked`** — no breakdown, with a visible reason:
-  - `no_eligible_agent` — no active AI agent on the team can own tasks. UI: "No one can take this work", with a link to add an agent.
-  - `empty` / `failed` — the PM produced nothing or the turn failed. UI: "Couldn't plan the work", with a prompt to re-commit.
-
-There is no third outcome. A permanent "Tasks will appear here once agents start work" promise over an empty list is forbidden.
-
-**Crash safety:** a boot-time sweep resolves any decomposition orphaned mid-flight (`decompositionStatus='running'`) to `blocked/failed` (`bet-decomposition.ts`). The UI never shows a perpetual "Planning the work".
-
-**Idempotency:** `draft → active` triggers decomposition at most once per bet — a CAS guard on `decompositionStatus` (NULL→`'running'`, `bet-decomposition.ts`) drops duplicate events.
-
-**Replanning is normal:** as work progresses, new tasks are added as `proposed` and stale ones retired as `killed` (`framework/shared/src/types.ts`). The plan is the current state of the task list, not a separate document.
-
-## 5a. Destination: practice-grounded, decentralized decomposition (not built)
-
-The v1 centralized model is a deliberate stepping stone — the smallest real seam that makes commit load-bearing. The intended destination:
-
-**Each agent decomposes their own stream.** On commit, every team member reads the bet's goal and done condition and independently proposes the tasks in their work stream, using their practice (L3) as the source of decomposition patterns — the practice layer is not just a wiki, it's what tells each discipline what tasks this kind of work typically involves (see [the-five-layers.md](../knowledge-architecture/the-five-layers.md)).
-
-**The PM integrates**, never authors: identifies dependencies between members' tasks, spots gaps, spots overlap, confirms the integrated list reaches the done condition. If the PM must add tasks the team didn't propose, that's a signal the team's practice knowledge is missing something — the missing piece becomes a Practice item to capture.
-
-**Why it matters:** centralized planning fails two ways — the planner doesn't know the discipline well enough to decompose accurately, or it over-decomposes into a bureaucratic list nobody can work from. Decentralized specialists plus an integrator matches how flat teams actually work.
-
-**When a replanning shift surfaces to the founder** is the PM's judgement call — deliberately no numerical threshold (settled decision, recorded in [handoff-and-lifecycle-propagation.md](./handoff-and-lifecycle-propagation.md)). The mechanism (PM-drafted review threads for trajectory shifts) is unbuilt.
-
-**Prerequisite:** L3 practice knowledge populated — a separate workpackage. When the decentralized model ships, `decompositionStatus` and the dispatch path survive; only the decomposition source changes.
-
-## 6. Change (bets are allowed to evolve)
+## 5. Change (bets are allowed to evolve)
 
 The single most important property of a bet is that it's allowed to change. Pretending bets never need replanning is dishonest, and "kill it and shape a new one" purism punishes learning. The discipline is the **audit trail**: every change is logged and visible. The point is not to prevent change; it's to keep change honest.
 
@@ -87,7 +48,7 @@ The single most important property of a bet is that it's allowed to change. Pret
 
 **Not built (recorded gap):** pre-approval review gates — PM-drafted revision threads the founder approves before a done-condition/hypothesis/appetite change applies, a drafted-kill flow with founder approval, and kill retros written into the practice. Changes today apply immediately with revision logging.
 
-## 7. Ship
+## 6. Ship
 
 A bet is done when its **done condition is met** — not when all tasks are done. The two coincide most of the time, but when they diverge the done condition wins; teams that ship by completing the task list rather than meeting the condition are gaming themselves.
 

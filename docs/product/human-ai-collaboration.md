@@ -26,7 +26,7 @@ Agents come in three categories — `team | strategy | individual` (`AGENT_CATEG
 
 - **Assistant** — individual, one per human user, created at registration. Holds a persistent thread with its user. Proposes changes to factory-level documents (`PRINCIPLES.md`, `FOCUS.md`). Drafts the monthly portfolio retro (`builtin:portfolio-retro`).
 - **Facilitators** — strategy agents, one per community of practice (build, product, growth, ops, facilitation). Each watches what all agents in its community learn, merges duplicates, resolves conflicts, surfaces items for human review.
-- **Product Managers** — team agents, one per team. The team lead: decomposes bets, coordinates handoffs, runs retros.
+- **Product Managers** — team agents, one per team. The team lead: coordinates handoffs, runs retros.
 
 The matrix is explicit: each agent reports vertically to their Product Manager and belongs horizontally to a community (`communityForRole`, `framework/shared/src/agent-roles.ts`). A Builder on Ambrovia reports to the Ambrovia PM and belongs to the Build community. When the Build community learns something from a different product, the Ambrovia Builder gets it at the next session.
 

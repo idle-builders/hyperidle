@@ -14,9 +14,9 @@ Every Block has (`framework/shared/src/blocks/types.ts:94-106`):
 
 - **`id: BlockId`** — a stable identifier derived from the block's kind, outline path, and normalised payload (`framework/shared/src/blocks/block-id.ts:13-23`). Stable across re-parses with identical content; stable when neighbour blocks change but the block itself does not — neighbour content is never a hash input. Algorithm in [contracts.md](contracts.md).
 - **`kind: BlockKind`** — one of the ten-kind closed set. Owned by [canonical-shapes.md](canonical-shapes.md).
-- **`source: { hostKind, hostId, bodyDigest, range }`** — the host body it was derived from. `hostKind` is one of `bet | task | knowledge_item | artifact | agent | user` (`types.ts:20-28`). `bodyDigest` is a blake2s_256 hash of the body — the field name reflects the algorithm (blake2s, not sha); it is not named `shaDigest` (`derive-blocks.ts:41-43`). `range` is the byte range inside the body — informational only, never load-bearing for identity.
-- **`payload`** — the kind-specific structured shape the renderer needs (`BlockPayload` union, `types.ts:63-92`).
-- **`anchor: BlockAnchor`** — a `{ blockId }` reference any consumer (a thread, a link, a hover preview) uses as its attachment key (`types.ts:47-49`; set on every block, `derive-blocks.ts:414`). The anchor is *not* a separate primitive; it is a property of the block itself.
+- **`source: { hostKind, hostId, bodyDigest, range }`** — the host body it was derived from. `hostKind` is one of `bet | task | knowledge_item | artifact | agent | user` (`framework/shared/src/blocks/types.ts`). `bodyDigest` is a blake2s_256 hash of the body — the field name reflects the algorithm (blake2s, not sha); it is not named `shaDigest` (`derive-blocks.ts:41-43`). `range` is the byte range inside the body — informational only, never load-bearing for identity.
+- **`payload`** — the kind-specific structured shape the renderer needs (`BlockPayload` union, `framework/shared/src/blocks/types.ts`).
+- **`anchor: BlockAnchor`** — a `{ blockId }` reference any consumer (a thread, a link, a hover preview) uses as its attachment key (`framework/shared/src/blocks/types.ts`; set on every block, `derive-blocks.ts:414`). The anchor is *not* a separate primitive; it is a property of the block itself.
 
 That is the essential field set. Anything else (hover preview text, highlighted HTML, the rendered React node) is the renderer's job, not the block's shape.
 
@@ -24,7 +24,7 @@ That is the essential field set. Anything else (hover preview text, highlighted 
 
 - **`order: number`** — the block's 0-indexed position in the document, assigned positionally (`derive-blocks.ts:415`). Stable within one derivation, unstable across edits — a re-derivation after an edit re-assigns `order` by position. **Never identity.** Never use it for thread attachment, link targets, or any persistent reference; use `id`, always.
 
-The derivation result is `BlockDerivationResult = { blocks }` — nothing else rides alongside (`types.ts:108-110`).
+The derivation result is `BlockDerivationResult = { blocks }` — nothing else rides alongside (`framework/shared/src/blocks/types.ts`).
 
 ## 3. What a Block is NOT
 
@@ -64,15 +64,15 @@ There is no block status, no block draft, no block archived — the Block type c
 - **Owner of the source body:** the host entity (knowledge item, bet, task, artifact, agent, user). Its existing authority model governs; see [process-layer](../process-layer/index.md) for work primitives.
 - **Sole producer of Blocks:** `deriveBlocks` (`framework/shared/src/blocks/derive-blocks.ts` — the only `blocks.push`, :409-416). No other code emits Blocks. Resolution is client-side at render time; there is no server-side pre-resolution endpoint (`useBlockResolution.ts` @lore T4).
 - **Mutator of Block instances:** nothing. Blocks are values — recompute, never edit. To change a block, edit the source markdown.
-- **Mutator of the BlockKind set:** doc-first. Update this folder's concept docs, then [canonical-shapes.md](canonical-shapes.md) (the canonical signature `types.ts:2-3` cites), then consumers. PRs that change the kind set without the doc update are non-conformant.
-- **Owner of the BlockId algorithm:** [contracts.md](contracts.md). `BLOCK_ID_VERSION = "blk:v1"` (`types.ts:36`) is the first hash input; bumping it is a global migration event — every derived id changes, every anchored thread degrades to "source changed" until re-anchored.
+- **Mutator of the BlockKind set:** doc-first. Update this folder's concept docs, then [canonical-shapes.md](canonical-shapes.md) (the canonical signature `framework/shared/src/blocks/types.ts` cites), then consumers. PRs that change the kind set without the doc update are non-conformant.
+- **Owner of the BlockId algorithm:** [contracts.md](contracts.md). `BLOCK_ID_VERSION = "blk:v1"` (`framework/shared/src/blocks/types.ts`) is the first hash input; bumping it is a global migration event — every derived id changes, every anchored thread degrades to "source changed" until re-anchored.
 
 ## 6. Vocabulary
 
 | Term | Definition | Aliases not to use |
 |---|---|---|
 | **Block** | The content primitive defined here — a derived, addressable region of a markdown body. Always capitalised in this sense. | section, node, chunk, fragment, segment, slice, partial, snippet |
-| **BlockKind** | The closed enum of block shapes (`types.ts:18`). | block-type, block-shape, block-class |
+| **BlockKind** | The closed enum of block shapes (`framework/shared/src/blocks/types.ts`). | block-type, block-shape, block-class |
 | **BlockId** | The stable identifier of a Block (`blockId()` + `BLOCK_ID_VERSION`). | block-key, block-uid, block-hash (hash is the algorithm, not the term) |
 | **BlockAnchor** | A `{ blockId }` reference exposed by a Block as the attachment key for external surfaces. Live as `messages.block_id` and `BlockRef`. | block-link, block-target, block-marker, block-pin |
 | **BlockDerivation** | The deterministic function (`deriveBlocks`) that turns a markdown body into an ordered list of Blocks. | parsing, ingestion (larger pipelines that *contain* derivation) |

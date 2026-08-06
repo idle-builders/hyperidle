@@ -71,6 +71,12 @@ vi.mock("@hono/node-server", async (importOriginal) => {
 				);
 			},
 			address: () => ({ address: "127.0.0.1", family: "IPv4", port: 0 }),
+			// `createServer` awaits the socket being bound before it returns a
+			// handle (binding is async whenever a hostname is given). This fake
+			// stands in for an already-listening server, so it reports the state
+			// a real one would — otherwise the fake, not the server, would decide
+			// the disposal order these tests assert.
+			listening: true,
 		}),
 	};
 });

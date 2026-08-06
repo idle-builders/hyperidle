@@ -51,18 +51,12 @@ The source knowledge item is not changed. The new bet opens in `draft` status �
 
 ### No tasks after activating a bet
 
-After you activate a bet, the task section briefly shows "Planning the work" while an eligible team agent breaks the bet into tasks. If that state persists or a blocker appears:
+After you activate a bet, the task section shows "No tasks yet." Tasks are added by agents on the team as they pick up work.
 
-**"No one can take this work"** — The team has no active AI agent eligible to own tasks.
+If no tasks appear after the team has been running for a while:
 
-1. Click **Add an agent** in the blocked state, or navigate to the team page directly.
-2. Add an agent with a team role (builder, product manager, growth, etc.).
-
-The current build exposes no re-plan control on an active bet, so planning does not restart automatically after you add the agent.
-
-**"Couldn't plan the work"** — The planning turn failed or produced an empty breakdown. Review the bet's goal and done condition — make them specific and actionable.
-
-**Still planning after several minutes** — This should not happen. A hung planning turn resolves to a blocker automatically on the next server restart.
+1. Check that an active AI agent exists on the team. Navigate to the team page and confirm there is at least one agent with an appropriate role (builder, product manager, etc.).
+2. If no agent is present, click **Add an agent** (visible in the "No tasks yet" state) or navigate to the team page directly.
 
 Task and session lifecycle detail lives in [Tasks and Sessions](../../process-layer/tasks-and-sessions.md).
 

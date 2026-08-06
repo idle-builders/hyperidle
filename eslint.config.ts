@@ -71,7 +71,6 @@ export default [
 		ignores: [
 			"layers/core-ui/src/**/*.stories.tsx",
 			"layers/core-ui/src/**/__tests__/**",
-			"layers/core-ui/src/**/*.spec.{ts,tsx}",
 			"layers/core-ui/src/**/*.test.{ts,tsx}",
 			// Hooks ARE the actor-aware wrappers — they legitimately call fetch
 			// and define the helper boundary the rule defends.
@@ -239,10 +238,8 @@ export default [
 		ignores: [
 			"layers/core-api/src/**/__tests__/**",
 			"layers/core-api/src/**/*.test.ts",
-			"layers/core-api/src/**/*.spec.ts",
 			"layers/core-ui/src/**/__tests__/**",
 			"layers/core-ui/src/**/*.test.{ts,tsx}",
-			"layers/core-ui/src/**/*.spec.{ts,tsx}",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -303,15 +300,9 @@ export default [
 			"layers/core-ui/src/**/*.stories.tsx",
 			"layers/core-ui/src/**/__tests__/**",
 			"layers/core-ui/src/**/*.test.{ts,tsx}",
-			"layers/core-ui/src/**/*.spec.{ts,tsx}",
 			"layers/core-ui/src/**/__fixtures__/**",
-			"layers/core-ui/src/**/e2e/**",
 			"layers/core-api/src/**/__tests__/**",
 			"layers/core-api/src/**/*.test.ts",
-			"layers/core-api/src/**/*.spec.ts",
-			"layers/core-api/src/**/__fixtures__/**",
-			"layers/core-api/src/**/e2e/**",
-			"layers/core-api/src/**/seed*.ts",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -417,11 +408,7 @@ export default [
 	// request/response shapes at compile time.
 	{
 		files: ["layers/core-ui/src/**/*.{ts,tsx}"],
-		ignores: [
-			"layers/core-ui/src/api/client.ts",
-			"layers/core-ui/src/**/*.test.ts",
-			"layers/core-ui/src/**/*.test.tsx",
-		],
+		ignores: ["layers/core-ui/src/**/*.test.ts", "layers/core-ui/src/**/*.test.tsx"],
 		languageOptions: {
 			parser: tsParser,
 			parserOptions: {
@@ -527,13 +514,8 @@ export default [
 			"layers/core-api/src/routes/**/__tests__/**",
 			"layers/core-api/src/routes/**/*.test.ts",
 			"layers/core-api/src/routes/**/*.integration.test.ts",
-			"layers/core-api/src/routes/**/*.spec.ts",
 			"layers/agent-orchestration/**/routes/**/__tests__/**",
 			"layers/agent-orchestration/**/routes/**/*.test.ts",
-			"layers/agent-orchestration/**/routes/**/*.integration.test.ts",
-			"layers/agent-execution/**/routes/**/__tests__/**",
-			"layers/agent-execution/**/routes/**/*.test.ts",
-			"layers/agent-execution/**/routes/**/*.integration.test.ts",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -611,10 +593,8 @@ export default [
 		ignores: [
 			"layers/core-api/src/routes/**/__tests__/**",
 			"layers/core-api/src/routes/**/*.test.ts",
-			"layers/core-api/src/routes/**/*.spec.ts",
 			"layers/agent-orchestration/tool-handlers/src/__tests__/**",
 			"layers/agent-orchestration/tool-handlers/src/**/*.test.ts",
-			"layers/agent-orchestration/tool-handlers/src/**/*.spec.ts",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -677,7 +657,6 @@ export default [
 			"layers/core-ui/src/**/*.stories.tsx",
 			"layers/core-ui/src/**/__tests__/**",
 			"layers/core-ui/src/**/*.test.{ts,tsx}",
-			"layers/core-ui/src/**/*.spec.{ts,tsx}",
 			"framework/design-system/src/**/*.stories.tsx",
 			"framework/design-system/src/**/__tests__/**",
 			"framework/design-system/src/**/*.test.{ts,tsx}",
@@ -737,10 +716,8 @@ export default [
 		ignores: [
 			"{layers,framework,applications,tools}/*/src/**/__tests__/**",
 			"{layers,framework,applications,tools}/*/src/**/*.test.{ts,tsx}",
-			"{layers,framework,applications,tools}/*/src/**/*.spec.{ts,tsx}",
 			"{layers,framework,applications,tools}/*/src/**/*.stories.tsx",
 			"{layers,framework,applications,tools}/*/src/**/__fixtures__/**",
-			"{layers,framework,applications,tools}/*/src/**/e2e/**",
 			"{layers,framework,applications,tools}/*/src/**/_dev/**",
 		],
 		languageOptions: {
@@ -811,69 +788,29 @@ export default [
 	// `layers/core-ui/src/**` blocks set `no-restricted-imports` (fixtures ban,
 	// api-typesafety server ban, format-time dead-import ban) — being last makes
 	// THIS block authoritative for preview/**, so it must re-state the full
-	// AK7 — Selection seam static guards (AC1 absence half + AC2 absence half).
+	// AK7 — Selection seam static guard ("no persona inspection in selection").
 	//
-	// Guard 1 (AC1 absence — "Kernel no longer chooses"):
-	//   Bans the round-robin expression `% <something>.length` on candidate arrays
-	//   in Kernel services OUTSIDE select-agent.ts. This catches a developer
-	//   re-implementing the round-robin spread directly in a Kernel service
-	//   (e.g. in bet-decomposition.ts) instead of going through selectOwner.
-	//   The select-agent.ts file is the ONLY place the Kernel is permitted to
-	//   perform candidate selection logic; all others must call selectOwner.
+	// Bans `systemPrompt` and `AGENTS.md` string literals in the selection
+	// modules. Enforces the §2a Execution rule: "the Kernel never inspects the
+	// AGENTS.md". Selection attaches to a user-id; persona content is
+	// Strategy-owned.
 	//
-	//   Scoped to: layers/core-api/src/services/**  (Kernel services only)
-	//   Allowlisted: select-agent.ts (the single permitted caller)
-	//   @lore AK7: This guard carries the static half of AC1 ("Kernel no longer
-	//   chooses"). The runtime half is the selectOwner seam itself. The selector
-	//   pattern `% <expr>.length` is the specific construct that bet-decomposition.ts
-	//   used for round-robin (`eligible[i % eligible.length]`). bet-decomposition.ts
-	//   was previously exempted (TODO AK7b) — that exemption is removed now that
-	//   insertProposedBetTasks routes through selectOwner (AK7 Phase-4 fix).
-	//
-	// Guard 2 (AC2 absence — "no persona inspection in selection"):
-	//   Bans `systemPrompt` and `AGENTS.md` string literals in select-agent.ts.
-	//   Enforces §2a Execution rule: "the Kernel never inspects the AGENTS.md".
-	//   select-agent.ts is a selection helper; it must not read persona content.
-	//   Scoped to: layers/core-api/src/services/select-agent.ts only.
-	{
-		// @lore AU19: `select-agent.ts` (agent-selection Service) and
-		// `bet-decomposition.ts` (work Service) split into separate Service
-		// packages at Increment 3e / 1b respectively — no longer siblings under
-		// one flat `services/` dir. Guard 1's real, historically-named target is
-		// `bet-decomposition.ts` (its own comment above names it as the original
-		// round-robin offender); pointing directly at it achieves the same intent
-		// as the old glob+ignore pair without needing a cross-package ignore.
-		files: ["layers/core-api/work/src/bet-decomposition.ts"],
-		languageOptions: {
-			parser: tsParser,
-		},
-		rules: {
-			"no-restricted-syntax": [
-				"error",
-				{
-					// Matches: someArray[i % someArray.length] or eligible[i % eligible.length]
-					// The i % something.length pattern is the round-robin spread the Kernel
-					// must not re-implement outside select-agent.ts (selectOwner handles it).
-					selector:
-						"MemberExpression > BinaryExpression[operator='%'] > MemberExpression[property.name='length']",
-					message:
-						"AK7 AC1: Round-robin selection logic (`% <candidates>.length`) must not appear in Kernel services outside select-agent.ts. Use selectOwner() — the single Kernel selection caller — instead.",
-				},
-			],
-		},
-	},
+	// @lore The AC1 half of this guard — a ban on the round-robin expression
+	// `% <candidates>.length` — is GONE, deliberately. Its sole target was
+	// `layers/core-api/work/src/bet-decomposition.ts`, and bet decomposition was
+	// deleted outright (AU21 Decision I; migration 0053 dropped the columns).
+	// The block survived the deletion pointing at a file that no longer exists,
+	// which in ESLint is a silent no-op: it reported clean forever and read as
+	// coverage. Deleted rather than repointed — there is no successor file
+	// performing that selection, so there is nothing left to police.
 	{
 		// @lore AU21 §6 Decision F1 (Increment 8): `agent-selection`'s
-		// `select-agent.ts` dissolved — the `bet_task`/`bet_decomposer`
-		// selection this guard originally targeted relocated to `work`'s own
-		// `agent-assignment.ts`; `routine_delegate` to `routine`'s own
-		// `agent-delegation.ts`. Repointed the glob (same precedent as Guard 1
-		// above) rather than deleting the guard — the persona-inspection ban
-		// is still the invariant both new modules must hold.
-		files: [
-			"layers/core-api/work/src/agent-assignment.ts",
-			"layers/core-api/routine/src/agent-delegation.ts",
-		],
+		// `select-agent.ts` dissolved. Its `routine_delegate` half moved to
+		// `@hyperidle/routine`'s own `agent-delegation.ts` — the one live target
+		// below. The `bet_task`/`bet_decomposer` half moved to `work`'s
+		// `agent-assignment.ts`, which has since gone with bet decomposition
+		// itself; that dead entry is removed rather than left to no-op.
+		files: ["layers/core-api/routine/src/agent-delegation.ts"],
 		languageOptions: {
 			parser: tsParser,
 		},
@@ -927,8 +864,8 @@ export default [
 
 	// AM4 — Descriptor-driven contract guard (AC2 static half).
 	//
-	// The presentation layer (harness-presentation.ts, HarnessCard.tsx,
-	// SettingsHarnesses.tsx) must contain ZERO per-backend string literal
+	// The presentation layer (harness-presentation.ts, SettingsHarnesses.tsx)
+	// must contain ZERO per-backend string literal
 	// comparisons — the entire surface is descriptor-driven.
 	//
 	// The ONLY allowed type literal is "builtin" — it is the intentional
@@ -941,9 +878,11 @@ export default [
 	//
 	// Scoped to production code only — stories and tests are exempt.
 	{
+		// @lore `HarnessCard.tsx` was listed here until it was absorbed into
+		// `SettingsHarnesses.tsx`. A `files:` pattern that matches nothing is a
+		// silent no-op, so a dead entry reads as coverage the rule does not have.
 		files: [
 			"layers/core-ui/src/settings/harness-presentation.ts",
-			"layers/core-ui/src/settings/HarnessCard.tsx",
 			"layers/core-ui/src/settings/SettingsHarnesses.tsx",
 		],
 		languageOptions: {
@@ -968,50 +907,14 @@ export default [
 		},
 	},
 
-	// AU1 — decomposition is a collaboration-domain entry point. It may create an
-	// AgentSessionRequest, but runtime start belongs to agent-session-runtime /
-	// session-provisioning. Keep adapter selection and harness starts out of this file.
-	{
-		files: ["layers/core-api/work/src/bet-decomposition.ts"],
-		languageOptions: {
-			parser: tsParser,
-		},
-		rules: {
-			"no-restricted-imports": [
-				"error",
-				{
-					paths: [
-						{
-							name: "../harness/adapter-pool.js",
-							message:
-								"AU1: decomposition must enqueue/consume AgentSessionRequest, not select AdapterPool directly.",
-						},
-						{
-							name: "@hyperidle/shared",
-							importNames: ["HarnessAdapter"],
-							message:
-								"AU1: decomposition must not type against HarnessAdapter; runtime owns harness start.",
-						},
-					],
-					patterns: [
-						{
-							group: ["**/harness/adapter-pool", "**/harness/adapter-pool.js"],
-							message:
-								"AU1: decomposition must enqueue/consume AgentSessionRequest, not select AdapterPool directly.",
-						},
-					],
-				},
-			],
-			"no-restricted-syntax": [
-				"error",
-				{
-					selector: "CallExpression[callee.property.name='startSession']",
-					message:
-						"AU1: decomposition must not start harness sessions directly; route through AgentSessionRequest runtime.",
-				},
-			],
-		},
-	},
+	// @lore AU1's decomposition guard — "decomposition may create an
+	// AgentSessionRequest but must not select an AdapterPool or call
+	// startSession" — lived here, scoped solely to
+	// `layers/core-api/work/src/bet-decomposition.ts`. Bet decomposition was
+	// deleted (AU21 Decision I; migration 0053 dropped the columns) and the
+	// block was left behind matching no file, which ESLint treats as a silent
+	// no-op. Removed rather than repointed: the boundary it protected belonged
+	// to a feature that no longer exists.
 
 	// AM1 W1 — the source-agnostic Part renderer boundary (AC5).
 	// PartList.tsx + parts/** render ONLY the source-agnostic `Part`/`Embed`/
@@ -1116,10 +1019,6 @@ export default [
 			"layers/agent-execution/harness-registry/src/__tests__/**",
 			"layers/agent-execution/harness-registry/src/**/*.test.ts",
 			"layers/agent-execution/harness-registry/src/**/*.integration.test.ts",
-			"applications/desktop/src/**/__tests__/**",
-			"applications/desktop/src/**/*.test.ts",
-			"applications/remote-worker/src/**/__tests__/**",
-			"applications/remote-worker/src/**/*.test.ts",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -1156,7 +1055,6 @@ export default [
 			"layers/core-ui/src/services/open-handler.ts",
 			"layers/core-ui/src/**/__tests__/**",
 			"layers/core-ui/src/**/*.test.{ts,tsx}",
-			"layers/core-ui/src/**/*.spec.{ts,tsx}",
 			"layers/core-ui/src/**/*.stories.tsx",
 		],
 		languageOptions: {

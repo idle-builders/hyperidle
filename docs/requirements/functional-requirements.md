@@ -26,7 +26,7 @@ Depth: [agent-layer/agent-model.md](../agent-layer/agent-model.md).
 
 Shapes and semantics: [process-layer/the-five-primitives.md](../process-layer/the-five-primitives.md).
 
-**F-2.1 Bet.** A committed unit of work owned by a team. Status is `draft | active | completed | killed` with an `atRisk` boolean (`framework/shared/src/types.ts`). Every change to a mutable field (done condition, hypothesis, token appetite, description, at_risk) is recorded in the bet's `revisionLog`; done-condition changes emit a review item to the responsible human. Bets carry an `outcomeVerdict` (validated / refuted / partial / inconclusive) and a `decompositionStatus`. Lifecycle depth: [process-layer/bets-shape-commit-change-ship.md](../process-layer/bets-shape-commit-change-ship.md).
+**F-2.1 Bet.** A committed unit of work owned by a team. Status is `draft | active | completed | killed` with an `atRisk` boolean (`framework/shared/src/types.ts`). Every change to a mutable field (done condition, hypothesis, token appetite, description, at_risk) is recorded in the bet's `revisionLog`; done-condition changes emit a review item to the responsible human. Bets carry an `outcomeVerdict` (validated / refuted / partial / inconclusive). Lifecycle depth: [process-layer/bets-shape-commit-change-ship.md](../process-layer/bets-shape-commit-change-ship.md).
 
 **F-2.2 Task.** A unit of work picked up by one agent. Eight states: `proposed | accepted | hold | in_progress | blocked | review | done | killed` (`framework/shared/src/types.ts`). `hold` means unmet upstream dependencies — the Dependency Watcher auto-transitions hold → accepted when all upstream tasks reach `done`. `blocked` is distinct: a runtime block discovered during execution. Tasks carry an `outcomeVerdict` (met / met_with_rework / partially_met / not_met) and an optional thread. Depth: [process-layer/tasks-and-sessions.md](../process-layer/tasks-and-sessions.md).
 
@@ -62,15 +62,13 @@ Duties and lifecycle: [knowledge-architecture/facilitators.md](../knowledge-arch
 
 **F-4.2** Facilitators continuously organize knowledge (promotion, conflict resolution, decay/archival, lifecycle propagation), score items for human attention, and close the loop by writing human feedback back into the store.
 
-**F-4.3** Product managers have a dual role: coordinator (decomposes bets, integrates the task list, resolves handoffs, drafts retros) and self-improver.
+**F-4.3** Product managers have a dual role: coordinator (integrates the task list, resolves handoffs, drafts retros) and self-improver.
 
 **F-4.4** When a bet's mutable fields change (done condition, hypothesis, token appetite), done-condition changes emit a review item to the responsible human. Beyond that, surfacing trajectory shifts is the product manager's judgement — no numerical thresholds.
 
-## F-5: Decomposition and Handoff
+## F-5: Handoff
 
-Depth: [process-layer/bets-shape-commit-change-ship.md](../process-layer/bets-shape-commit-change-ship.md) (decomposition), [process-layer/handoff-and-lifecycle-propagation.md](../process-layer/handoff-and-lifecycle-propagation.md) (handoff).
-
-**F-5.1** Committed bets decompose into tasks via a pluggable decomposition strategy that inserts tasks with owners assigned by agent selection. The kernel ships a minimal strategy; the fabric ships a richer one.
+Depth: [process-layer/handoff-and-lifecycle-propagation.md](../process-layer/handoff-and-lifecycle-propagation.md).
 
 **F-5.2** Handoff is the coordination primitive: the `handoff_to` tool (toAgent / toRole / toHuman, contextId, status, reason, artifacts, remainingWork) ends the session, transfers ownership, and notifies on the task thread.
 

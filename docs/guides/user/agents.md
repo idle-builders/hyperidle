@@ -16,7 +16,7 @@ Open the Assistant overlay by clicking the **Assistant button** in the top row o
 
 Three categories — `team`, `strategy`, `individual`:
 
-**Team agents** — do the work on a bet. A team's roster is derived from its functions (development, design, product, marketing, sales, support, operations, research), so you only get the roles your team needs. The full catalog: Builder, Designer, Product Manager (team lead — shapes and decomposes bets), QA Engineer, Growth, Brand Voice, Ops, Support, Sales, Content Writer, Data Analyst.
+**Team agents** — do the work on a bet. A team's roster is derived from its functions (development, design, product, marketing, sales, support, operations, research), so you only get the roles your team needs. The full catalog: Builder, Designer, Product Manager (team lead — shapes bets, coordinates handoffs), QA Engineer, Growth, Brand Voice, Ops, Support, Sales, Content Writer, Data Analyst.
 
 **Strategy agents** — knowledge-scoped, mostly background:
 

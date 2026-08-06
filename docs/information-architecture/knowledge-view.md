@@ -43,7 +43,7 @@ Draft and `needs_human` items sorted by `attentionScore` descending (unscored it
 
 | Component | Information | Actions |
 |---|---|---|
-| **Breadcrumb** | Back to the list (DS `Breadcrumb`, `KnowledgeDetail.tsx:749`) | Click to return |
+| **Breadcrumb** | Back to the list (DS `Breadcrumb`, `KnowledgeDetail.tsx`) | Click to return |
 | **PageHeader** | Title + metadata subtitle: confidence, 30-day access count, origin agent, topic | Edit button + overflow menu |
 | **Overflow menu** | Archive (POST `/api/knowledge/:id/archive`), scope change | Click |
 | **ScopeChangeDialog** | Move the item to a different scope: scope kind + scope id + required reason; PATCH `/api/knowledge/:id/scope` carries the current `version` so stale mutations are rejected (`pages/knowledge/ScopeChangeDialog.tsx`) | Submit |
@@ -56,7 +56,7 @@ Draft and `needs_human` items sorted by `attentionScore` descending (unscored it
 
 **Full-page create (`/knowledge/new`, `KnowledgeCreate.tsx`):** bordered header (breadcrumb + editable title input + **Create** button, disabled until title and body have content) over a two-column body — `BodyEditor` left, metadata card right with a scope picker. Create-time scope options: Shared → factory, Team → team, Private → user (`SCOPE_CREATE_OPTIONS`). Human-authored items are created as status `active` immediately (AF13 §1) — no draft detour.
 
-**In-context capture (`KnowledgeCreateDialog`):** the dialog survives for capture from a host object — e.g. "Add knowledge" on a bet detail page opens it with the bet scope locked (`WorkBet.tsx:1090`).
+**In-context capture (`KnowledgeCreateDialog`):** the dialog survives for capture from a host object — e.g. "Add knowledge" on a bet detail page opens it with the bet scope locked (`WorkBet.tsx`).
 
 ## 4. Data semantics (pointers)
 

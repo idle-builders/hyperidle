@@ -239,6 +239,21 @@ export interface CreateServerDeps {
 	readonly adapterPool: AdapterPool;
 	readonly workspaceAdapter: SandboxAdapter;
 	readonly sandboxBasePath?: string;
+	/**
+	 * Interface to bind the listening socket to. Omitted → `@hono/node-server`
+	 * binds EVERY interface, which is what the hosted deployment needs (the
+	 * container must be reachable from its ingress).
+	 *
+	 * @lore Exposure is a property of the Application, not of this factory, so
+	 * it is a parameter rather than a runtime env branch. `desktop` embeds this
+	 * server in the Electron shell and passes `127.0.0.1`: S-9.2 promises the
+	 * desktop app is not reachable from the local network, and until this field
+	 * existed that promise was false — the embedded server bound `::`, so any
+	 * machine on the same café/office LAN could reach a laptop's team data.
+	 * `remote-server` deliberately leaves this undefined. Both sides are pinned
+	 * by `src/__tests__/server-bind-address.integration.test.ts`.
+	 */
+	readonly hostname?: string;
 }
 
 /**
@@ -846,10 +861,44 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// handles the upgrade event internally and delegates to this wss instance.
 	const wss = new WebSocketServer({ noServer: true });
 
+	// `hostname` undefined → serve() binds all interfaces (the hosted default).
+	// `desktop` passes 127.0.0.1 so the embedded server is loopback-only (S-9.2).
 	const httpServer = serve({
 		fetch: staticFetch,
 		port,
+		...(deps.hostname === undefined ? {} : { hostname: deps.hostname }),
 		websocket: { server: wss },
+	});
+
+	// @lore Binding is only synchronous when NO hostname is given. `net.Server`
+	// routes `listen(port, host)` through `dns.lookup()` — even for a literal
+	// `127.0.0.1` — so with a hostname the socket is still unbound when `serve()`
+	// returns, and `httpServer.address()` is null. Every caller already assumes
+	// otherwise: desktop calls `getPort(handle)` the moment `startServer()`
+	// resolves, and would have thrown "Server not listening on a port". So the
+	// factory awaits `listening` before handing back the handle — the promise it
+	// already returns now means what callers read it to mean.
+	await new Promise<void>((resolve, reject) => {
+		if (httpServer.listening) {
+			resolve();
+			return;
+		}
+		// Declarations, not consts: each handler removes the other, so neither
+		// can be in its temporal dead zone when the first event fires.
+		function settle(error?: Error): void {
+			httpServer.removeListener("listening", onListening);
+			httpServer.removeListener("error", onFailure);
+			if (error) reject(error);
+			else resolve();
+		}
+		function onListening(): void {
+			settle();
+		}
+		function onFailure(error: Error): void {
+			settle(error);
+		}
+		httpServer.once("listening", onListening);
+		httpServer.once("error", onFailure);
 	});
 
 	let disposePromise: Promise<void> | null = null;

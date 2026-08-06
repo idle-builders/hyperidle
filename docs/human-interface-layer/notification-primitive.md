@@ -25,7 +25,7 @@ A **Notification** is a discrete record the system creates when something crosse
 
 **Composition.** *is an instance of* one type; *carries* a source link + title/body + seen state; *rendered in* the popover; *delivered through* 0..1 channels on egress.
 
-**Lifecycle.** In-app: `unread → read` (read on open/dismiss/jump). Egress: `pending → sending → {sent|failed|dropped}`; `sending` is a lease; stuck leases recover on every drain tick (`drain.ts`, 1-minute interval).
+**Lifecycle.** In-app: `unread → read` (read on open/dismiss/jump). Egress: `pending → sending → {sent|failed|dropped}`; `sending` is a lease; stuck leases recover on every drain tick (`layers/core-api/notifications/src/install.ts`, 1-minute interval).
 
 **Authority.** The notification **store** (`notification_queue`) is source of truth. The popover (web) reads it; the drain delivers egress. Notification-worthy events come from the policy engine and the dependency watcher.
 

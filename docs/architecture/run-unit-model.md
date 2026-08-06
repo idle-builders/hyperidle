@@ -68,7 +68,7 @@ interface BeforeTeardownContext {
 }
 ```
 
-It fires once after the agent's turn fully drains and the sandbox is written, **before** `endSession`/`crashSession` delete the directory (`layers/agent-orchestration/run-orchestration/src/provisioner.ts:1582`). If the hook throws, the error is logged and swallowed — teardown always runs. Production callers omit this field entirely (no behavior change). The hook is strictly for test observation; it cannot pause, defer, or cancel teardown.
+It fires once after the agent's turn fully drains and the sandbox is written, **before** `endSession`/`crashSession` delete the directory (`layers/agent-orchestration/run-orchestration/src/provisioner.ts`). If the hook throws, the error is logged and swallowed — teardown always runs. Production callers omit this field entirely (no behavior change). The hook is strictly for test observation; it cannot pause, defer, or cancel teardown.
 
 This is the correct and only observation window: the drain has completed (`harness.stopSession` has returned, all native writes flushed, the adapter slot released), but neither `endSession` nor `crashSession` has been called yet. Any earlier hook would see an incomplete sandbox; any later hook would observe an already-deleted directory.
 

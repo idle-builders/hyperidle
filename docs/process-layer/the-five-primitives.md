@@ -16,7 +16,7 @@ The middle path this layer implements: **decentralized handoffs over a shared su
 Three commitments distinguish it, all implemented:
 
 1. **Teams persist.** A team is the durable unit, not a per-task crew. Product merged 1:1 into Team (U1: the `teams` table is the former `products` table). Successive bets pass through the same team and it accumulates muscle memory. See [teams.md](teams.md).
-2. **Decomposition is decentralized and pluggable.** No central planner service. Each bet enters the agent-session request flow through the work service (`layers/core-api/work/`); app-owned defaults and knowledge services assemble the context before the chosen harness runs it. See [bets-shape-commit-change-ship.md](bets-shape-commit-change-ship.md).
+2. **Task planning is decentralized and strategy-driven.** No central planner service. Tasks emerge from agent and strategy work; the work service (`layers/core-api/work/`) coordinates state without encoding a step sequence. See [bets-shape-commit-change-ship.md](bets-shape-commit-change-ship.md).
 3. **Change is first-class, not exceptional.** Bets are meant to change as the team learns. Revisions flow through the same review-thread mechanism humans use to approve anything else, with an audit trail.
 
 ---
@@ -65,9 +65,9 @@ Shipped shape:
 - `revisionLog` — every change to done condition or hypothesis, with reasoning
 - `tokensActualJson` — accumulated TokenUsage actuals
 - `outcomeVerdict` — `validated | refuted | partial | inconclusive` (AC1), null until evaluated
-- `decompositionStatus` (AK3), `sourceKnowledgeItemId` (AK5 promote-from-knowledge), `createdAt`, `completedAt`
+- `sourceKnowledgeItemId` (AK5 promote-from-knowledge), `createdAt`, `completedAt`
 
-A bet carries no money budget. The deprecated duration `appetite` column survives for rollback safety but is rejected at the API boundary (400); the optional `tokenAppetite` on the bet API schema is the only appetite the system reads. The duration-is-not-a-budget-axis rationale lives in [wip-and-cost-limits.md](wip-and-cost-limits.md); `Money`/`TokenUsage` shapes in [canonical-shapes.md](canonical-shapes.md). Full lifecycle and decomposition: [bets-shape-commit-change-ship.md](bets-shape-commit-change-ship.md).
+A bet carries no money budget. The deprecated duration `appetite` column survives for rollback safety but is rejected at the API boundary (400); the optional `tokenAppetite` on the bet API schema is the only appetite the system reads. The duration-is-not-a-budget-axis rationale lives in [wip-and-cost-limits.md](wip-and-cost-limits.md); `Money`/`TokenUsage` shapes in [canonical-shapes.md](canonical-shapes.md). Full lifecycle: [bets-shape-commit-change-ship.md](bets-shape-commit-change-ship.md).
 
 ### 3.2 Task
 
@@ -157,7 +157,7 @@ Scope guards, all still enforced by the code:
 - **Not a workflow engine.** No DAGs. Sequences emerge from task dependencies and handoffs, not a graph editor.
 - **Not a project tracker.** Tasks have state, but the goal is agents finishing work, not stakeholders watching progress. Work view and Conversations are the human surfaces.
 - **Not a backlog.** Draft bets live in the Work view; tasks exist only inside committed bets; nothing accumulates in a "later" pile.
-- **Not a planner.** Decomposition is decentralized, per-bet, strategy-pluggable. No central planner exists.
+- **Not a planner.** Task planning is per-bet and strategy-driven. No central planner exists.
 - **Not the agent runtime.** Sessions execute on whatever harness the deployer chose (real CLI binaries via harness adapters). We coordinate; we don't run models.
 - **Not a durability substrate.** HyperIdle neither reimplements nor adapts to external workflow engines — durability is in-process `setInterval` schedulers over the primitive store.
 - **Not Jira.** If someone asks "where are the sprint reports," we've lost.
@@ -168,7 +168,7 @@ Scope guards, all still enforced by the code:
 
 Named and deliberately avoided — proposals that reintroduce them should be rejected by reference to this list:
 
-- **Centralized planner** — decomposition stays with the team, per bet.
+- **Centralized planner** — task planning stays with the team, per bet.
 - **Workflow-DAG rigidity** — no pre-wired transitions.
 - **Crew-per-task amnesia** — teams persist; context compounds.
 - **Unbounded parallelism** — WIP limits bound the factory ([wip-and-cost-limits.md](wip-and-cost-limits.md)).
