@@ -39,6 +39,7 @@ import {
 	DETECTOR_FLOORS,
 	loadArchitecture,
 	loadBaseline,
+	loadMisplacedFiles,
 	loadTableOwners,
 	MIN_TRACKED_FILES,
 	presentGovernanceFiles,
@@ -55,6 +56,7 @@ import type { Census } from "./lib/repo-census.js";
 import { classificationTotal } from "./rules/classification-total.js";
 import { floorsTight } from "./rules/floors-tight.js";
 import { baselineRatchet, crossingRules, violationsOf } from "./rules/crossings.js";
+import { misplacementLedger } from "./rules/misplacement-ledger.js";
 import { noLaunderedReExports } from "./rules/no-laundered-re-exports.js";
 import { noProductionImportsDevelopment } from "./rules/no-production-imports-development.js";
 import { noStaleBuildArtifacts } from "./rules/no-stale-build-artifacts.js";
@@ -132,6 +134,7 @@ function buildRules(
 		patternLive,
 		noProductionImportsDevelopment,
 		registriesHonest(architecture, loadTableOwners(), detected.db.tables),
+		misplacementLedger(loadMisplacedFiles()),
 		noStaleBuildArtifacts(presentGovernanceFiles()),
 		floorsTight({ floors: declaredFloors(census, detected.countsByKind) }),
 		noLaunderedReExports({
@@ -206,6 +209,7 @@ function runLive(errorsOnly: boolean): number {
 		patternLive,
 		noProductionImportsDevelopment,
 		registriesHonest(architecture, loadTableOwners(), detected.db.tables),
+		misplacementLedger(loadMisplacedFiles()),
 		noStaleBuildArtifacts(presentGovernanceFiles()),
 		floorsTight({ floors: declaredFloors(census, detected.countsByKind) }),
 		noLaunderedReExports({

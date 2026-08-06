@@ -22,7 +22,7 @@ import { buildDbSurfaceIndex, type DatabasePackageConfig } from "./lib/db-surfac
 import type { Architecture, Kind } from "./lib/governance-model.js";
 import type { FloorRecord } from "./rules/floors-tight.js";
 import { buildCensus, type Census, CLASSIFICATION_PATTERNS, type WorkspaceRoleRule } from "./lib/repo-census.js";
-import type { TableOwners } from "./lib/governance-registry.js";
+import type { MisplacedFiles, TableOwners } from "./lib/governance-registry.js";
 
 export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -39,10 +39,12 @@ export const readRepoFile = (rel: string): string => readFileSync(path.join(REPO
  * Floor on the census itself. If `git ls-files` ever returns a near-empty set — wrong cwd, a broken
  * git invocation, a shallow checkout — every rule would pass vacuously.
  *
- * Live 3,296. Held inside the `floors-tight` band, which is why this is 2,636 and not the 1,000 it
+ * Live 3,306. Held inside the `floors-tight` band, which is why this is 2,644 and not the 1,000 it
  * sat at: a floor with 70% slack cannot fail until two thirds of the repository has disappeared.
+ * Recomputed with the ledger and its rule — the band had already gone red at HEAD, which is the band
+ * doing its job: the tree grew and the floor did not follow it in the same commit.
  */
-export const MIN_TRACKED_FILES = 2636;
+export const MIN_TRACKED_FILES = 2644;
 
 /**
  * Minimum crossings each detector must find, MEASURED against the live tree and set inside the
@@ -129,18 +131,40 @@ export function presentGovernanceFiles(): string[] {
 	return raw.split("\0").filter((p) => p !== "");
 }
 
+/**
+ * Every file the repository will have once you commit: tracked, plus new files you have not
+ * committed yet. Gitignored output is excluded — `--exclude-standard` is what does that.
+ *
+ * @lore AU28: this used to be a bare `git ls-files`, which sees only what is ALREADY committed or
+ * staged. That made the local gate and the CI gate disagree on the same command: you add a file,
+ * run `npm run lint`, it passes over a census that does not contain the file you are about to
+ * commit — and CI, running on the committed tree, then fails. It is a false green in the loop where
+ * it matters most, because the whole point of the local run is to predict CI.
+ *
+ * It is not hypothetical: it bit this work package. `MIN_TRACKED_FILES` was recomputed against a
+ * census missing four not-yet-staged rule files, the run was green, and the commit that followed was
+ * red — the floor's slack had gone out of band the moment those files became tracked. The reviewer
+ * had already named this exact divergence; the fix was not applied, and then it happened.
+ *
+ * The cost is that a scratch file you never intend to commit is now linted. That is the correct
+ * trade: if it is in the working tree and not gitignored, committing it is one `git add -A` away,
+ * and the answer to "I do not want this linted" is to gitignore it — which is also the answer to
+ * "I do not want this committed".
+ */
 export function trackedFiles(): string[] {
-	const raw = execFileSync("git", ["ls-files", "-z"], {
+	const raw = execFileSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], {
 		cwd: REPO_ROOT,
 		encoding: "utf8",
 		maxBuffer: 64 * 1024 * 1024,
 	});
-	return raw.split("\0").filter((p) => p !== "");
+	// `--cached --others` can list a path twice when it is both staged and present on disk.
+	return [...new Set(raw.split("\0").filter((p) => p !== ""))];
 }
 
 export const loadArchitecture = (): LoadedArchitecture => readJson<LoadedArchitecture>("governance/architecture.json");
 export const loadBaseline = (): Baseline => readJson<Baseline>("governance/baseline.json");
 export const loadTableOwners = (): TableOwners => readJson<TableOwners>("governance/table-owners.json");
+export const loadMisplacedFiles = (): MisplacedFiles => readJson<MisplacedFiles>("governance/misplaced-files.json");
 
 export function buildLiveCensus(architecture: LoadedArchitecture, files: readonly string[]): Census {
 	return buildCensus({ files, readFile: readRepoFile, roleRules: architecture.roles.byWorkspacePattern });

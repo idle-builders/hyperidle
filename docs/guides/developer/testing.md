@@ -2,6 +2,8 @@
 
 Commands, affected-slice mechanics, and the E2E lanes. Test-writing rules — file naming, the fixture pattern, integration-test archetypes, conventions — live in [`.claude/rules/testing.md`](../../../.claude/rules/testing.md); this guide does not restate them.
 
+A test file's name also decides its **world**: `.test.ts(x)`, `.spec.ts(x)`, `.stories.tsx` and anything under a `__` path segment are development, and a production file may never import one. The rule, and the ledger of production-path files that are really development, are in [CLAUDE.md](../../../CLAUDE.md#production-and-development-files).
+
 ## Test Commands
 
 ```bash

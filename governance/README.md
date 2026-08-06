@@ -5,6 +5,19 @@ What may cross which boundary in this repo, and why.
 **Do not restate any rule from here anywhere else** — not in `CLAUDE.md`, not in `docs/`, not in a
 code comment. A second copy drifts from the enforced one and then agents follow the wrong copy.
 
+**One rule is deliberately not here, and this is the reconciliation.** The instruction above and the
+requirement to write the production/development split "where a developer hits it" pulled in opposite
+directions, and the tension was never settled. It is settled now, by *when* a rule is needed:
+
+- **A rule you need BEFORE you act** — which world a file is in, so you know what to name it and where
+  to put it — is stated at the point of action, in `CLAUDE.md`. Pointing at this file would mean
+  opening it before you can name a test file. That one rule lives there and is not repeated here.
+- **A rule you need only WHEN the linter stops you** — what may cross which boundary — lives here, and
+  everywhere else points at it. That is every other rule in this file.
+
+The split holds because the two never overlap: the file rule decides which of the two rule tables
+below applies to a file; the tables decide what that file may reach. Neither restates the other.
+
 ---
 
 ## The shape
@@ -75,6 +88,25 @@ The one legitimate growth is a new rule landing over violations that already exi
 The baseline records debt, never a plan: it does not say which work will clear a group. That mapping
 lives with the work packages, so the enforced contract never goes stale when planning changes.
 
+## The other shrinking record: `misplaced-files.json`
+
+Same shape, different subject, and the two are **disjoint**. `baseline.json` holds crossing
+violations keyed by `(group, site)`. `misplaced-files.json` holds **files the classifier calls
+production that are really development and cannot move yet** — keyed by path. A path in one will
+never appear in the other, which is why there are two files and not one.
+
+Each entry names the reason the file is stuck, never the work that will unstick it — the same
+principle the baseline follows, for the same reason. `resolvedFiles` is the committed count of
+entries that resolve to a tracked file, and the lint fails when the live count is **above** it (new
+debt parked here) or **below** it (a file was fixed and the shrink was not committed). Every entry is
+printed as a warning on every run.
+
+There is no generator, and there cannot be one: the baseline is derived from live violations, so a
+generator refusing to grow it closes the laundering path, but whether a production-path file is
+"really development" is a human judgement with nothing to derive it from. What stands in its place is
+that growing the ledger is a two-line diff — the entry and the count — which review is expected to
+challenge.
+
 ## Every rule is break-tested, and that is a gate
 
 `npm run lint` runs `governance-lint --attacks`: a table of attacks in
@@ -100,6 +132,9 @@ Property 4 is the one that matters when you add a rule: it will not ship without
   the point.
 - **A new surface of an existing framework package** → declare it in `architecture.json` `surfaces`
   with its audience and the reason. An undeclared surface is forbidden, not ignored.
+- **A production-path file that is really development and genuinely cannot move** → add it to
+  `misplaced-files.json` with the reason, and raise `resolvedFiles` in the same commit. Fixing one
+  deletes the entry and lowers the count; leaving the count is a build error either way.
 - **A verdict the founder changed** → edit `decided-rules.json`, then make the model reproduce it.
   If a clause has to grow an exception to get there, that is the signal to re-read the principle
   rather than bolt on the exception.

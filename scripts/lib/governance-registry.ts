@@ -21,6 +21,28 @@ export interface TableOwners {
 	readonly unowned: { readonly note: string; readonly tables: Readonly<Record<string, string>> };
 }
 
+/**
+ * The misplacement ledger: production-path files that are really development and cannot move yet.
+ *
+ * @lore AU28: disjoint from `baseline.json` by construction. The baseline records CROSSING
+ * violations, keyed by rule group and site; this records MISPLACED FILES, keyed by path. Neither can
+ * hold the other's rows, which is why two artifacts exist rather than one — grep the baseline for
+ * `router.tsx` and there is nothing to find.
+ *
+ * @lore AU28: an entry names its REASON, never a successor work package. The plan's wording asked for
+ * the work-package number; `scripts/lib/crossing-report.ts` had already settled the opposite for the
+ * baseline — an enforced artifact records debt, not a plan — and the numbers that were written into
+ * the other two registries had already gone stale. The reason survives a replan; the number does not.
+ */
+export interface MisplacedFiles {
+	readonly misplacedFiles: true;
+	readonly note: string;
+	/** The committed count of entries that resolve to a tracked file. Above OR below it fails. */
+	readonly resolvedFiles: number;
+	/** Repo-relative path → why it is stuck in a production path. */
+	readonly files: Readonly<Record<string, string>>;
+}
+
 export class RegistryError extends Error {
 	constructor(message: string) {
 		super(`governance registry: ${message}`);

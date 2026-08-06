@@ -15,6 +15,7 @@
 
 import { describe, expect, it } from "vitest";
 import { buildFixtureCensus, FIXTURE_CASES } from "../../../../scripts/lib/governance-fixtures.js";
+import type { MisplacedFiles } from "../../../../scripts/lib/governance-registry.js";
 import { DeadRuleError, type Rule, runRules } from "../../../../scripts/lib/governance-rules.js";
 import {
 	buildCensus,
@@ -27,6 +28,7 @@ import {
 } from "../../../../scripts/lib/repo-census.js";
 import { classificationTotal } from "../../../../scripts/rules/classification-total.js";
 import { allowedSlack, floorsTight, floorVerdict } from "../../../../scripts/rules/floors-tight.js";
+import { misplacementLedger } from "../../../../scripts/rules/misplacement-ledger.js";
 import { noProductionImportsDevelopment } from "../../../../scripts/rules/no-production-imports-development.js";
 import { patternLive } from "../../../../scripts/rules/pattern-live.js";
 
@@ -593,6 +595,76 @@ describe("AU28 classification-total", () => {
 		});
 		const findings = classificationTotal.evaluate(census);
 		expect(findings.map((f) => f.message).join("\n")).toContain("duplicate paths");
+	});
+});
+
+describe("AU28 misplacement-ledger — shrink-only, in both directions", () => {
+	const REASON = "a preview surface pinned to a production path until the real route lands";
+	const TREE = [
+		"layers/a/src/one.ts",
+		"layers/a/src/two.ts",
+		"layers/a/src/three.ts",
+		"layers/a/src/four.test.ts",
+	];
+	const census = () => buildCensus({ files: TREE, readFile: () => "" });
+	const ledger = (resolvedFiles: number, files: Record<string, string>): MisplacedFiles => ({
+		misplacedFiles: true,
+		note: "",
+		resolvedFiles,
+		files,
+	});
+	const both = { "layers/a/src/one.ts": REASON, "layers/a/src/two.ts": REASON };
+	const errors = (l: MisplacedFiles): string[] =>
+		misplacementLedger(l)
+			.evaluate(census())
+			.filter((f) => f.severity === "error")
+			.map((f) => f.message);
+
+	it("reports every entry as a warning on every run", () => {
+		const findings = misplacementLedger(ledger(2, both)).evaluate(census());
+		expect(findings.filter((f) => f.severity === "warn").map((f) => f.path)).toEqual([
+			"layers/a/src/one.ts",
+			"layers/a/src/two.ts",
+		]);
+	});
+
+	it("is clean when the live count matches the committed one", () => {
+		expect(errors(ledger(2, both))).toHaveLength(0);
+	});
+
+	it("fails when the ledger GROWS past its committed count", () => {
+		const grown = errors(ledger(2, { ...both, "layers/a/src/three.ts": REASON }));
+		expect(grown.join("\n")).toContain("may only shrink");
+	});
+
+	it("fails when a misplacement is cleared and the shrink is not committed", () => {
+		const shrunk = errors(ledger(2, { "layers/a/src/one.ts": REASON }));
+		expect(shrunk.join("\n")).toContain("without committing the shrink");
+	});
+
+	it("fails when an entry no longer resolves to a tracked file", () => {
+		const gone = errors(ledger(2, { ...both, "layers/a/src/renamed.ts": REASON }));
+		expect(gone.join("\n")).toContain("is not a tracked file");
+	});
+
+	it("fails when the classifier already calls a ledgered file development", () => {
+		const moved = errors(
+			ledger(2, { "layers/a/src/one.ts": REASON, "layers/a/src/four.test.ts": REASON }),
+		);
+		expect(moved.join("\n")).toContain("calls it development");
+	});
+
+	it("fails when an entry carries no real reason", () => {
+		expect(
+			errors(ledger(2, { "layers/a/src/one.ts": REASON, "layers/a/src/two.ts": "later" })).join(
+				"\n",
+			),
+		).toContain("no real reason");
+	});
+
+	it("is dead when nothing resolves — an emptied ledger is deleted, not left registered", () => {
+		const rule = misplacementLedger(ledger(0, {}));
+		expect(() => runRules([rule], census())).toThrow(DeadRuleError);
 	});
 });
 
