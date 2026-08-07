@@ -1,0 +1,45 @@
+{
+  "id": "AU31",
+  "status": "in-progress",
+  "currentStep": "refine",
+  "startedAt": "2026-08-07",
+  "worktree": ".worktrees/AU31",
+  "branch": "backend/AU31-layer-composition-boundary",
+  "base": "bbe82e9a",
+  "tier": "production",
+  "approvals": {
+    "requirements": null,
+    "concept": null,
+    "final": null
+  },
+  "baselineScope": {
+    "totalSitesAtStart": 93,
+    "baselineTotalAtStart": 288,
+    "groups": {
+      "application → application [import] production": 2,
+      "application → service [di] production": 2,
+      "application → service [import] production": 15,
+      "application → service [manifest] production": 12,
+      "application → MCP router [mcp] production": 1,
+      "application → db:util [import] production": 1,
+      "layer → layer (other) [import] production": 1,
+      "layer → layer (other) [manifest] production": 2,
+      "layer → service (other layer) [import] production": 36,
+      "layer → service (other layer) [manifest] production": 7,
+      "service → layer (other) [di] production": 2,
+      "service → service (other layer) [di] production": 9,
+      "service → MCP router [mcp] production": 1,
+      "service → agent-execution [api] production": 1,
+      "framework → layer [di] production": 1
+    },
+    "note": "`application → db:util [import]` may belong to AU29 (db:util is AU29's stated ANOMALY) — architecture must rule."
+  },
+  "artifacts": {
+    "requirements": ".pipeline/work/AU31/requirements.md"
+  },
+  "evaluationAttempts": {
+    "refine": 0,
+    "architecture": 0,
+    "review": 0
+  }
+}
