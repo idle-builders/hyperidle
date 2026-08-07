@@ -5,64 +5,61 @@
 		".hermes/**",
 		".opencode/**",
 		"docs/product/.vitepress/**",
-		"packages/eslint-plugin-design/test-fixtures/**",
+		"tools/eslint-plugin-design/test-fixtures/**",
 		"plans/**",
-		"packages/web/src/**/*.stories.tsx",
+		"layers/core-ui/src/**/*.stories.tsx",
 		"**/vitest-setup.ts",
 		"**/vitest-integration-setup.ts",
 		"**/test-setup.ts",
 		"**/__tests__/setup.ts",
 		"**/__tests__/_helpers.ts",
-		"packages/agent-execution/harness-registry/src/__tests__/require-harness.ts",
-		"packages/core-api/src/test-fixtures.ts",
-		"packages/web/e2e/fixtures.ts",
-		"packages/web/e2e/known-pre-existing-failures.ts",
-		"packages/web/src/pages/**/__fixtures__/**",
-		"packages/web/src/preview/**",
-		"packages/agent-execution/harness-registry/src/re-engage.ts",
-		"packages/core-api/src/__tests__/AL7-no-kernel-executor.test.ts",
-		"packages/core-api/src/__tests__/notifications-test-deps.ts",
-		"packages/agent-orchestration/src/test-fixtures.ts",
-		"packages/agent-orchestration/run-orchestration/src/__tests__/test-ports.ts",
-		"packages/agent-orchestration/tool-handlers/src/__tests__/stub-ports.ts"
+		"layers/agent-execution/harness-registry/src/__tests__/require-binary.ts",
+		"layers/agent-execution/harness-registry/src/__tests__/require-harness.ts",
+		"layers/core-api/src/__testing__/test-fixtures.ts",
+		"layers/core-ui/__e2e__/fixtures.ts",
+		"layers/core-ui/__e2e__/known-pre-existing-failures.ts",
+		"layers/core-ui/src/pages/**/__fixtures__/**",
+		"layers/core-ui/src/__preview__/**",
+		"layers/agent-execution/harness-registry/src/re-engage.ts",
+		"layers/core-api/src/__tests__/AL7-no-kernel-executor.test.ts",
+		"layers/core-api/src/__tests__/notifications-test-deps.ts",
+		"layers/agent-orchestration/src/test-fixtures.ts",
+		"layers/agent-orchestration/run-orchestration/src/__tests__/test-ports.ts",
+		"layers/agent-orchestration/tool-handlers/src/__tests__/stub-ports.ts"
 	],
 	"ignoreExportsUsedInFile": true,
 	"exclude": ["duplicates"],
 	"ignoreIssues": {
-		"packages/web/src/pages/review/ReviewRenderedInContext.tsx": ["exports"]
+		"layers/core-ui/src/pages/review/ReviewRenderedInContext.tsx": ["exports"]
 	},
 	"workspaces": {
 		".": {
-			"entry": ["scripts/*.ts!", "scripts/lib/**/*.ts!"],
-			"project": ["scripts/**/*.ts"],
-			"ignoreBinaries": ["vitepress"],
-			"ignoreDependencies": ["vitepress"]
+			"entry": ["scripts/*.ts!", "scripts/lib/**/*.ts!", "scripts/rules/**/*.ts!"],
+			"project": ["scripts/**/*.ts"]
 		},
-		"packages/shared": {},
-		"packages/db": {
+		"framework/shared": {},
+		"framework/db": {
 			"entry": [
 				"src/migrate-pg.ts!",
 				"src/bootstrap-pg.ts!",
-				"src/seed-pg-cli.ts!",
-				"src/pg-test-runner.ts!",
-				"scripts/strip-public-schema.ts!"
+				"src/__testing__/seed-pg-cli.ts!",
+				"src/__testing__/pg-test-runner.ts!",
+				"__scripts__/strip-public-schema.ts!"
 			],
-			"ignoreBinaries": ["drizzle-kit", "vitest"],
-			"ignoreDependencies": ["zod"]
+			// pg-test-runner.ts spawns the `vitest` binary; vitest is a devDependency, which
+			// the --production lane does not count, so only that lane reports it.
+			"ignoreBinaries": ["vitest"]
 		},
-		"packages/api-contract": {},
-		"packages/agent-execution/harness-registry": {
-			"entry": ["src/harness-session-probe.ts!"],
-			"ignoreBinaries": ["which", "codex", "claude", "opencode", "cursor", "gh"]
+		"framework/api-contract": {},
+		"layers/agent-execution/harness-registry": {
+			"entry": ["src/harness-session-probe.ts!"]
 		},
-		"packages/design-system": {
-			"entry": ["src/**/*.stories.tsx", "scripts/*.ts!"],
-			"ignoreDependencies": ["@tiptap/pm"]
+		"framework/design-system": {
+			"entry": ["src/**/*.stories.tsx", "__scripts__/*.ts!"]
 		},
-		"packages/web": {
+		"layers/core-ui": {
 			"entry": [
-				"src/api/client.ts!",
-				"scripts/*.ts!",
+				"__scripts__/*.ts!",
 				"vite.ah1.config.ts!",
 				"vite.ah5.config.ts!",
 				"vite.ah6.config.ts!"
@@ -74,24 +71,17 @@
 					"playwright.ah5.config.ts",
 					"playwright.ah6.config.ts"
 				]
-			},
-			"ignoreBinaries": ["vite", "playwright"],
-			"ignoreDependencies": ["@electric-sql/pglite", "drizzle-orm"]
+			}
 		},
-		"packages/desktop": {
-			"entry": ["src/preload.ts!", "scripts/bundle.ts!", "scripts/check-native.ts!"],
-			"ignoreBinaries": ["electron", "electron-builder"],
+		"applications/desktop": {
+			"entry": ["src/preload.ts!", "__scripts__/bundle.ts!", "__scripts__/check-native.ts!"],
+			// Never imported: marked external in __scripts__/bundle.ts and copied verbatim by
+			// electron-builder.yml, so the WASM bundle loads from node_modules at runtime.
 			"ignoreDependencies": ["@electric-sql/pglite"]
 		},
-		"packages/eslint-plugin-design": {},
-		"packages/eval": {
-			"entry": ["src/judges.ts!", "src/cli.ts!"],
-			"ignoreBinaries": ["tsx"],
-			"ignoreDependencies": ["tsx"]
-		},
-		"scripts": {
-			"entry": ["*.ts!", "lib/**/*.ts!", "__tests__/**/*.test.ts"],
-			"project": ["**/*.ts"]
+		"tools/eslint-plugin-design": {},
+		"tools/eval": {
+			"entry": ["src/judges.ts!", "src/cli.ts!"]
 		}
 	}
 }

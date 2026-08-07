@@ -25,7 +25,7 @@ HyperIdle is an agentic operating system for AI-first companies. Flat teams of h
 
 **No code is written until the definition of done and validation setup exist.** This is non-negotiable. For every work package or task:
 
-1. Extract the acceptance criteria from the relevant track file in `.pipeline/work-packages/`.
+1. Extract the acceptance criteria from the work package's own spec, `.pipeline/work/<id>/plan.md` (older, unmigrated work packages: `.pipeline/work-packages/TRACK-*.md`).
 2. Define the verification method for each criterion — pick the right tool for each:
    - **Runtime behavior** (function returns X, API responds Y, component renders Z) → automated test
    - **Static codebase property** (no forbidden imports, naming conventions, config shape) → ESLint rule or type system
@@ -37,22 +37,23 @@ Tests are for application logic. A test imports code and asserts on its behavior
 
 ## Validation
 
-Before any work is complete: `npm run check` (zero type errors) + `npm run lint` (zero lint errors) + `npm run test` (all green). Tests only live in `packages/` and only test runtime behavior through imports. Only **new** lint/type errors you introduce block — don't drain a pre-existing baseline you didn't cause.
+Before any work is complete: `npm run check` (zero type errors) + `npm run lint` (zero lint errors) + `npm run test` (all green). Tests live inside a package — under `layers/`, `framework/`, `applications/` or `tools/`, never in `scripts/` or the repo root — and only test runtime behavior through imports. Only **new** lint/type errors you introduce block — don't drain a pre-existing baseline you didn't cause.
 
 ### Which command to use when
 
 | Scenario | Command | What it does |
 |---|---|---|
-| **Unit + component tests** | `npm run test` | Fast tests only — excludes `*.integration.test.ts`. |
+| **Unit + component tests (affected)** | `npm run test` | Affected slice only (`vitest run --changed=origin/main`). Excludes integration. Passes if nothing changed. |
+| **Unit + component tests (full)** | `npm run test:full` | All fast unit + component tests (`vitest run`) — no `--changed` filter. |
 | **Integration tests** | `npm run test:integration` | All integration tests (`*.integration.test.ts`): service + harness projects. |
 | **Service integration** | `npm run test:integration:service` | DB/API integration tests only (the lane per-merge verify runs). |
 | **Harness integration** | `npm run test:integration:harness` | Real-binary + real-LLM harness tests. Release-gated: runs in `verify:release`, not per-merge verify. |
-| **All tests** | `npm run test:all` | Unit + component + integration. |
+| **All tests** | `npm run test:all` | `test:full` + `test:integration` (unit + component + integration). |
 | **E2E tests** | `npm run test:e2e` | Playwright end-to-end tests (Chromium). |
-| **Typecheck** | `npm run check` | `tsc --noEmit` directly. |
-| **Lint** | `npm run lint` | Biome + ESLint directly. |
-| **Quick verify** | `npm run verify:quick` | check + lint + knip. No tests or builds. |
-| **Full verify** | `npm run verify` | check + lint + knip + test:all + build + attestation. Sequential, no orchestrator. |
+| **Typecheck** | `npm run check` | Per-package typecheck gate (`scripts/typecheck-gate.ts`) — discovers all packages under `layers/`, `framework/`, `applications/`, `tools/`, runs `tsc --noEmit` per package, applies debt ratchet. |
+| **Lint** | `npm run lint` | Biome + ESLint + three governance-lint passes (fixtures, attacks, default). |
+| **Quick verify** | `npm run verify:quick` | check + lint + knip + knip:production + deps:check. No tests or builds. |
+| **Full verify** | `npm run verify` | check + lint + knip + knip:production + deps:check + mock-inventory:check + web build + desktop build + attestation. No tests. |
 
 ### Test file naming
 
@@ -63,7 +64,17 @@ Before any work is complete: `npm run check` (zero type errors) + `npm run lint`
 | `*.integration.test.ts` | Integration — a real integration point, no stub of it. **Service**: real DB + app (`{ db, app, eventBus }` fixtures). **Harness-facing**: the real installed binary, zero stubs, hard-fail if absent. See `.claude/rules/testing.md` §Integration tests: two archetypes. | 1-10s service / 30-90s harness |
 | `*.spec.ts` | E2E (Playwright, separate from vitest) | 5-30s per test |
 
-**Harness-facing integration tests use the REAL installed harness binary — never a stub.** Decide by "is the harness/agent/CLI the thing under test?"; if yes, a stubbed/scripted/mocked adapter makes it a mislabeled unit test, not an integration test. Gate with `requireHarness(<name>)` (claude/codex/opencode/gh = binary on PATH; builtin = `OPENROUTER_API_KEY`) — a missing harness hard-fails the run (the work can't be completed), never `skipIf` to green. Enforced via Track AR1: `requireHarness` + the `honest-harness-guard` lint check + the attestation agentic floor. **Like e2e, the harness lane is release-gated:** per-merge verify (affected scope) runs the service project only; `verify:release` (full scope) runs the harness lane and its floors (agentic executed-count + per-harness symmetry) enforce it.
+### Production and development files
+
+The name that decides the test lane also decides the **world** a file is in, and the world decides what may import it.
+
+A file is **development** if its name declares it (`.test.ts(x)`, `.spec.ts(x)`, `.stories.tsx`), or any path segment starts with `__`, or it is a test-runner config (`vitest.config.ts`, `playwright*.config.ts`), or it sits outside the shipping roots `layers/` · `framework/` · `applications/`. Everything else is **production**.
+
+**A production file may never import a development file.** One direction, no exceptions — no allowlist, no suppression comment. So a fixture a shipping page reads cannot just move into `__fixtures__/`; the page has to stop needing it first.
+
+A few production-path files are really development and cannot move yet. Each is recorded with its reason in `governance/misplaced-files.json`, warns on every lint run, and the count only shrinks — adding an entry is a diff review will challenge.
+
+**Harness-facing integration tests use the REAL installed harness binary — never a stub.** Decide by "is the harness/agent/CLI the thing under test?"; if yes, a stubbed/scripted/mocked adapter makes it a mislabeled unit test, not an integration test. Gate with `requireHarness(<name>)` (claude/codex/opencode/cursor-agent = binary on PATH; builtin = `OPENROUTER_API_KEY`) — a missing harness hard-fails the run (the work can't be completed), never `skipIf` to green. Non-harness binaries (e.g. `gh`) use `requireBinary(<name>)` instead. Enforced via `requireHarness` + the attestation agentic floor. **Like e2e, the harness lane is release-gated:** per-merge verify (affected scope) runs the service project only; `verify:release` (full scope) runs the harness lane and its floors (agentic executed-count + per-harness symmetry) enforce it.
 
 `verify` is pure npm script chaining — no custom process orchestrator. The shell owns every child process. Attestation is a standalone script (`scripts/verify-attest.ts`).
 
@@ -81,7 +92,11 @@ When you make a non-obvious decision, encounter a cross-cutting constraint, or d
 
 ## Architecture
 
-Three-layer system with strict downward dependency: Human Interface → Meta Layer → Agent Runtime. No layer reaches past its neighbor.
+Package boundaries — what may import what, and how packages talk across them — are **machine-enforced**. `npm run lint` is the source of truth, and [`governance/README.md`](governance/README.md) is where those rules are written down.
+
+Never infer a boundary rule from the code around you: an existing import may be a violation nobody has caught yet. Never restate them here either — a second copy drifts from the enforced one, and then agents follow the wrong copy. Read them in `governance/README.md` when the linter stops you.
+
+The one rule that is stated above rather than pointed at is which **world** a file is in — production or development — because you need it before you write the file, not after the linter rejects it.
 
 ## Documentation
 
@@ -121,19 +136,21 @@ Each folder has an `index.md` with section links. `/pipeline:refine` and `/pipel
 
 ## Tech Stack
 
-Node.js, npm, TypeScript strict, Hono, Drizzle ORM (PGlite locally / PostgreSQL server), React + Vite, Tailwind CSS + DaisyUI (hearth-light/hearth-dark themes), Vitest, Playwright, Biome, in-process `setInterval` schedulers (distributed across `packages/core-api/*/src/`, `packages/agent-orchestration/*/src/` — e.g. `core-api/routine/src/routine-scheduler.ts`).
+Node.js, npm, TypeScript strict, Hono, Drizzle ORM (PGlite locally / PostgreSQL server), React + Vite, Tailwind CSS + DaisyUI (hearth-light/hearth-dark themes), Vitest, Playwright, Biome, in-process `setInterval` schedulers (distributed across `layers/core-api/*/src/`, `layers/agent-orchestration/*/src/` — e.g. `core-api/routine/src/routine-scheduler.ts`).
 
 ---
 
 ## Monorepo
 
-`packages/db` (schema, migrations), `packages/core-api` (Hono API + domain Services), `packages/web` (React frontend), `packages/agent-orchestration` (run orchestration, tool handlers, session requests), `packages/agent-execution` (harness registry, tool/mcp providers), `packages/shared` (types, constants, TOON codec), `packages/api-contract` (shared types), `packages/design-system` (tokens, components), `packages/desktop` (Electron shell), `packages/remote-server` / `packages/remote-worker` (remote harness execution), `packages/eval` (eval harness), `packages/eslint-plugin-authz`, `packages/eslint-plugin-design`.
+Run `ls layers/ framework/ applications/ tools/` — never work from a remembered list of package names.
+
+Never hardcode a package path in a script, guard, or config. Discover paths by scanning, and **hard-fail when a scan finds nothing** — a guard that silently matches zero files reads as passing forever.
 
 ---
 
 ## Commands
 
-`npm install`, `npm run dev` (server 3001 + web 5173), `npm run verify` (check + lint + knip + test:all + build + attestation — preferred for final check before shipping), `npm run test` (fast unit + component tests, excludes integration), `npm run test:integration` (all integration tests), `npm run test:integration:service` (DB/API only), `npm run test:integration:harness` (real-harness lane, release-gated), `npm run test:all` (all tests), `npm run test:e2e` (Playwright E2E), `npm run check` (typecheck), `npm run lint` (Biome + ESLint), `npm run lint:biome`, `npm run lint:eslint`, `npm run lint:fix`, `npm run db:generate`, `npm run db:migrate`.
+`npm install`, `npm run dev` (server 3001 + web 5173), `npm run verify` (check + lint + knip + knip:production + deps:check + mock-inventory:check + web + desktop build + attestation — no tests; preferred before shipping), `npm run test` (affected slice via `--changed=origin/main`, excludes integration), `npm run test:full` (all fast unit + component tests), `npm run test:integration` (all integration tests), `npm run test:integration:service` (DB/API only), `npm run test:integration:harness` (real-harness lane, release-gated), `npm run test:all` (test:full + all integration), `npm run test:e2e` (Playwright E2E), `npm run check` (per-package typecheck gate), `npm run lint` (Biome + ESLint + three governance-lint passes), `npm run lint:biome`, `npm run lint:eslint`, `npm run lint:fix`, `npm run db:generate`, `npm run db:migrate`.
 
 ---
 

@@ -14,7 +14,7 @@ Agents execute. Humans validate. That is the collaboration model. Not zero-human
 
 The Builder agent on the Acme team is a member of that team. It picks up tasks, runs sessions, ships artifacts, and writes to the practice when it learns something. It is not a tool the founder invokes. Agents initiate conversations with founders. They surface problems. They propose changes. They flag uncertainty.
 
-**Example.** Mika is the Acme Builder. On Tuesday, she picks up "Implement Stripe webhook handler" from the payments bet. She works through the implementation and hits a product question: which webhook events does the product actually need? She creates a handoff to the founder (`toHuman`, packages/server/src/services/handoff-protocol.ts:95): "I can implement all 27 Stripe event types or scope to the 4 we need for checkout. Which?"
+**Example.** Mika is the Acme Builder. On Tuesday, she picks up "Implement Stripe webhook handler" from the payments bet. She works through the implementation and hits a product question: which webhook events does the product actually need? She creates a handoff to the founder (`toHuman`, `layers/core-api/policy/src/handoff-protocol.ts`): "I can implement all 27 Stripe event types or scope to the 4 we need for checkout. Which?"
 
 The founder replies in the thread. Mika starts a new session with the answer and completes the task. When she finds that optimal retry logic conflicts with the growth practice docs, she writes a new practice item and flags the Growth Facilitator. That knowledge becomes available to every Builder the next time webhooks come up.
 
@@ -22,19 +22,19 @@ The founder replies in the thread. Mika starts a new session with the answer and
 
 ## Three agent categories
 
-Agents come in three categories — `team | strategy | individual` (schema.ts:94). Full taxonomy, identity, and lifecycle: [agent model](../agent-layer/agent-model.md).
+Agents come in three categories — `team | strategy | individual` (`AGENT_CATEGORIES`, `framework/shared/src/types.ts:134`; `users.agent_category` in `framework/db/src/schema.ts`). Full taxonomy, identity, and lifecycle: [agent model](../agent-layer/agent-model.md).
 
 - **Assistant** — individual, one per human user, created at registration. Holds a persistent thread with its user. Proposes changes to factory-level documents (`PRINCIPLES.md`, `FOCUS.md`). Drafts the monthly portfolio retro (`builtin:portfolio-retro`).
 - **Facilitators** — strategy agents, one per community of practice (build, product, growth, ops, facilitation). Each watches what all agents in its community learn, merges duplicates, resolves conflicts, surfaces items for human review.
-- **Product Managers** — team agents, one per team. The team lead: decomposes bets, coordinates handoffs, runs retros.
+- **Product Managers** — team agents, one per team. The team lead: coordinates handoffs, runs retros.
 
-The matrix is explicit: each agent reports vertically to their Product Manager and belongs horizontally to a community (`communityForRole`, agent-roles.ts). A Builder on Ambrovia reports to the Ambrovia PM and belongs to the Build community. When the Build community learns something from a different product, the Ambrovia Builder gets it at the next session.
+The matrix is explicit: each agent reports vertically to their Product Manager and belongs horizontally to a community (`communityForRole`, `framework/shared/src/agent-roles.ts`). A Builder on Ambrovia reports to the Ambrovia PM and belongs to the Build community. When the Build community learns something from a different product, the Ambrovia Builder gets it at the next session.
 
 ---
 
 ## Trust is earned from verdicts
 
-Trust is not configured — it is computed. Every verdict a human renders on an agent's work feeds that agent's approval rate. The policy engine combines the approval rate with the risk tier of the work to decide how each agent-produced item routes: **push** to a human now, **queue** for later attention, or **auto-resolve** (packages/fabric/src/services/policy-engine.ts).
+Trust is not configured — it is computed. Every verdict a human renders on an agent's work feeds that agent's approval rate. The policy engine combines the approval rate with the risk tier of the work to decide how each agent-produced item routes: **push** to a human now, **queue** for later attention, or **auto-resolve** (`layers/core-api/policy/src/policy-engine.ts`).
 
 An agent with a strong verdict history on low-risk work flows without interruption. A new agent, or high-risk work, reaches human eyes. Nothing is gated by default — review attaches where a human chose it or a learning earned it, never preemptively.
 
@@ -54,17 +54,9 @@ Five binding verdicts — approve, approve-with-comments, request-changes, edit,
 
 ## Review canvases match what agents produce
 
-Each artifact under review renders through a purpose-built canvas selected by its kind. Nine proof-family canvases ship (packages/web/src/pages/review/): outcome summary, field change set, action/operation, rendered-in-context, metrics, visual diff, code diff, batch, and browser preview. An unknown kind still renders through a safe fallback — never blank, never crashing. The ReviewPage composes them: frame header, intent, result, risks, artifact opener rows, a global conversation thread, and a right detail pane for the selected artifact.
+Each artifact under review renders through a purpose-built canvas selected by its kind. Nine proof-family canvases ship (`layers/core-ui/src/pages/review/`): outcome summary, field change set, action/operation, rendered-in-context, metrics, visual diff, code diff, batch, and browser preview. An unknown kind still renders through a safe fallback — never blank, never crashing. The ReviewPage composes them: frame header, intent, result, risks, artifact opener rows, a global conversation thread, and a right detail pane for the selected artifact.
 
 Kind registry and shared grounding (`ToolLogo`/`CanvasSourceHeader`): [review primitive](../human-interface-layer/review-primitive.md).
-
----
-
-## Cost is visible at every level
-
-Every action shows spend. Sessions record actual cost and tokens; the Work view shows burn vs. cap per team (WorkTeam.tsx). Cost caps nest — agent, then team, then factory — and a pre-flight check stops new work before any writes when a cap is hit, surfacing the breach for a human decision: extend, pause, or kill. Cost is never invisible.
-
-Cap grammar and the money-not-duration doctrine: [WIP and cost limits](../process-layer/wip-and-cost-limits.md).
 
 ---
 

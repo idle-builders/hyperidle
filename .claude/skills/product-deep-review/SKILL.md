@@ -56,7 +56,7 @@ Prioritize findings by **user impact**, not code tidiness.
 
 Look at pixels, across states and breakpoints — not code.
 
-- Screenshot every meaningful state via Playwright (`cd packages/web && npx playwright screenshot http://localhost:5173/<route> /tmp/pdr-<name>.png --wait-for-timeout=3000`), desktop first, then mobile (three-tab form factor).
+- Screenshot every meaningful state via Playwright (`cd layers/core-ui && npx playwright screenshot http://localhost:5173/<route> /tmp/pdr-<name>.png --wait-for-timeout=3000`), desktop first, then mobile (three-tab form factor).
 - Compare against the approved design reference where one exists — open the component story in the live TSX viewer (`npm run ds:serve`, navigate to `http://localhost:8098/#<ComponentName>`). The vitest DOM-snapshot net (`npm run test`) flags structural/class drift automatically; for painted-pixel comparison use the live viewer or `npx playwright screenshot http://localhost:8098/#<ComponentName> /tmp/pdr-ds.png`.
 - Judge against the Lucid design system: density (8-12px), token compliance, all states styled (hover/focus/active/disabled), motion (80/150/250ms), accessibility (focus order, aria, keyboard), and anti-slop (no oversized padding, purple gradients, hero sections, decorative icons).
 - Read the PNGs. Cite screenshot paths in findings.
@@ -86,10 +86,10 @@ Open with the Phase 0 coverage line and a per-feature verdict (**SOLID** / **WOR
   "updated_at": "<ISO date>",          // pass via the agent; do not invent a clock
   "features": {
     "knowledge-detail": {
-      "paths": ["packages/web/src/pages/KnowledgeDetail.tsx", "packages/server/src/routes/knowledge.ts"],
+      "paths": ["layers/core-ui/src/pages/KnowledgeDetail.tsx", "packages/server/src/routes/knowledge.ts"],
       "routes": ["/knowledge/:id"],
       "last_reviewed_commit": "<HEAD sha at review>",
-      "blob_hashes": { "packages/web/src/pages/KnowledgeDetail.tsx": "<git rev-parse HEAD:path>" },
+      "blob_hashes": { "layers/core-ui/src/pages/KnowledgeDetail.tsx": "<git rev-parse HEAD:path>" },
       "verdict": "works-but",          // solid | works-but | broken
       "open_findings": ["PDR-0003"],
       "reviewed_at": "<ISO date>"

@@ -46,11 +46,11 @@ const FULL_INTEGRATION =
  * @lore AT1: Playwright --only-changed=origin/main is documented to exit
  * early/0 when no test files changed. Confirm empirically (AC9) — the web
  * script adds --pass-with-no-tests if needed. The e2e leg here uses the
- * npm run -w @hyperidle/web delegation; verify-attest runs the per-workspace script.
+ * npm run -w @hyperidle/core-ui delegation; verify-attest runs the per-workspace script.
  */
-const AFFECTED_E2E = "npm run -w @hyperidle/web test:e2e";
+const AFFECTED_E2E = "npm run -w @hyperidle/core-ui test:e2e";
 
-const FULL_E2E = "npm run -w @hyperidle/web test:e2e:full";
+const FULL_E2E = "npm run -w @hyperidle/core-ui test:e2e:full";
 
 const VALID_SCOPES: ReadonlySet<string> = new Set<VerifyScope>(["affected", "full"]);
 

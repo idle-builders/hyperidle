@@ -4,7 +4,8 @@
  *
  * Replaces the vacuous `tsc --noEmit -p tsconfig.json` which compiled nothing
  * (root tsconfig has `"include": []`). This script:
- *  1. Discovers all packages dynamically via `packages/<pkg>/tsconfig.json` globs.
+ *  1. Discovers all packages dynamically by scanning the role roots
+ *     (`layers/`, `framework/`, `applications/`, `tools/`) for `tsconfig.json`.
  *  2. Runs tsc --noEmit per package, capturing stdout+stderr.
  *  3. Filters errors to own-package files, excluding reference-noise codes.
  *  4. Applies the crash guard, non-excepted failure, and stale-ratchet rules.
@@ -48,7 +49,7 @@
  */
 
 import { execSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   type DebtFile,
@@ -68,55 +69,74 @@ const REFERENCE_NOISE_CODES: ReadonlySet<string> = new Set([
 const DEBT_FILE = "typecheck-debt.json";
 const MAX_ERROR_LINES = 10;
 
-// Matches: packages/<path...>/file.ts(line,col): error TS1234: message
-// or:      packages/<path...>/file.ts:line:col - error TS1234: message
+// @lore AU28 step 2: the four role roots replace the single `packages/` tree.
+// A package IDENTITY is now its repo-relative directory (`layers/core-api/work`,
+// `framework/db`), which is what every downstream consumer — the error regex, the
+// debt-file keys, the `-p` argument — already wanted. Discovery still SCANS; no
+// package name is hardcoded, and an empty scan is FATAL below.
+const PACKAGE_ROOTS = ["layers", "framework", "applications", "tools"] as const;
+
+// @lore AU28: `scripts/` is not a workspace package but it holds the governance guard — the code
+// that decides whether every other boundary rule passes. It went untypechecked until AU28 wired it
+// in here, and a guard nothing typechecks is the same silent-rot shape the guard exists to prevent.
+// It has its own tsconfig because it is Node-resolved and emits nothing.
+const EXTRA_PROJECTS = ["scripts"] as const;
+
+// Matches: <root>/<path...>/file.ts(line,col): error TS1234: message
+// or:      <root>/<path...>/file.ts:line:col - error TS1234: message
 // Group 1 = full repo-relative path; group 2 = TS error code. The owning
 // package is resolved by longest-prefix match (AU19: nested Layer/Service
 // packages share a top-level segment, so a bare first-segment match would
 // mis-attribute a Service's error to its Layer).
-const ERROR_LINE_RE = /^(packages\/[^:]+)[:(].*\berror (TS\d+)\b/;
+const ERROR_LINE_RE = new RegExp(
+  `^((?:${[...PACKAGE_ROOTS, ...EXTRA_PROJECTS].join("|")})\\/[^:]+)[:(].*\\berror (TS\\d+)\\b`,
+);
 
 // -- Discovery --
 
 // @lore AU19: package discovery recurses ONE level so the nested Layer/Service
-// packages (`packages/<layer>/<service>/tsconfig.json`) are typechecked. Without
+// packages (`layers/<layer>/<service>/tsconfig.json`) are typechecked. Without
 // this, the nested Service packages are never `tsc`-checked and Mechanisms B/C
 // (execution + composition boundaries) go silently unenforced by `npm run check`
 // — the single biggest silent-failure risk the AU19 architecture flags (§9.2).
 function discoverPackages(root: string): string[] {
-  const packagesDir = resolve(root, "packages");
   const found: string[] = [];
-  const topLevel = readdirSync(packagesDir, { withFileTypes: true }).filter(
-    (e) => e.isDirectory(),
-  );
-  for (const top of topLevel) {
-    if (existsSync(resolve(packagesDir, top.name, "tsconfig.json"))) {
-      found.push(top.name);
-    }
-    // Recurse one level: packages/<layer>/<service>/tsconfig.json
-    const nested = readdirSync(resolve(packagesDir, top.name), {
-      withFileTypes: true,
-    }).filter((e) => e.isDirectory());
-    for (const sub of nested) {
-      if (
-        existsSync(resolve(packagesDir, top.name, sub.name, "tsconfig.json"))
-      ) {
-        found.push(`${top.name}/${sub.name}`);
+  for (const rootDir of PACKAGE_ROOTS) {
+    const base = resolve(root, rootDir);
+    if (!existsSync(base)) continue;
+    const topLevel = readdirSync(base, { withFileTypes: true }).filter((e) =>
+      e.isDirectory(),
+    );
+    for (const top of topLevel) {
+      if (existsSync(resolve(base, top.name, "tsconfig.json"))) {
+        found.push(`${rootDir}/${top.name}`);
+      }
+      // Recurse one level: <root>/<layer>/<service>/tsconfig.json
+      const nested = readdirSync(resolve(base, top.name), {
+        withFileTypes: true,
+      }).filter((e) => e.isDirectory());
+      for (const sub of nested) {
+        if (existsSync(resolve(base, top.name, sub.name, "tsconfig.json"))) {
+          found.push(`${rootDir}/${top.name}/${sub.name}`);
+        }
       }
     }
+  }
+  for (const extra of EXTRA_PROJECTS) {
+    if (existsSync(resolve(root, extra, "tsconfig.json"))) found.push(extra);
   }
   return found.sort();
 }
 
 /**
  * Resolve which discovered package owns an error path via longest-prefix match.
- * `packages/core-api/knowledge/src/x.ts` must attribute to `core-api/knowledge`,
- * not `core-api`, so a Service error never counts against its Layer.
+ * `layers/core-api/knowledge/src/x.ts` must attribute to `layers/core-api/knowledge`,
+ * not `layers/core-api`, so a Service error never counts against its Layer.
  */
 function ownerOf(path: string, allPackages: readonly string[]): string | null {
   let owner: string | null = null;
   for (const pkg of allPackages) {
-    const prefix = `packages/${pkg}/`;
+    const prefix = `${pkg}/`;
     if (path.startsWith(prefix) && (owner === null || pkg.length > owner.length)) {
       owner = pkg;
     }
@@ -160,7 +180,7 @@ function runPackage(
   pkg: string,
   allPackages: readonly string[],
 ): PackageResult {
-  const tsconfig = `packages/${pkg}/tsconfig.json`;
+  const tsconfig = `${pkg}/tsconfig.json`;
   let rawOutput = "";
   let exitCode = 0;
 
@@ -368,7 +388,7 @@ function buildLeafDeclarations(root: string): void {
   //
   // @lore AU19 Increment 2e: `core-api/model-gateway` added — same TS6305
   // cascade; server-factory.ts, services/agent-work-assistant.ts, and
-  // packages/eval/src/runner.ts now import `@hyperidle/model-gateway`.
+  // tools/eval/src/runner.ts now import `@hyperidle/model-gateway`.
   //
   // @lore AU26 C3: `core-api/realtime` dissolved — package removed; the hub and
   // its subscribe authorizer are core-api Layer transport now
@@ -440,42 +460,42 @@ function buildLeafDeclarations(root: string): void {
   // @lore AU19 Increment 5 (item 2): `core-api` itself (the Layer package —
   // `app.ts`/`server-factory.ts`/`routes/*`/`middleware/*`/`auth/*`/`schemas/*`,
   // moved wholesale from the dissolved `packages/server`) added — same TS6305
-  // cascade; the new `packages/desktop/src/boot-server.ts`,
-  // `packages/remote-server/src/index.ts`, `packages/eval/src/{routines
-  // scenarios,provision-harness}.ts`, and `packages/web/scripts/ah{1,5,6}-
+  // cascade; the new `applications/desktop/src/boot-server.ts`,
+  // `applications/remote-server/src/index.ts`, `tools/eval/src/{routines
+  // scenarios,provision-harness}.ts`, and `layers/core-ui/__scripts__/ah{1,5,6}-
   // test-server.ts`/`src/api/client.ts` now import `@hyperidle/core-api`
   // (repointed from the deleted `@hyperidle/server`). `remote-server` and
   // `remote-worker` added the same increment — `remote-server` is itself a
   // leaf-consumed-by-nothing-else Application, but building its declarations
   // here keeps its own measurement (below) deterministic the same way every
-  // other leaf's does; `remote-worker` is consumed by `packages/desktop`.
+  // other leaf's does; `remote-worker` is consumed by `applications/desktop`.
   for (const leaf of [
-    "shared",
-    "db",
-    "design-system",
-    "core-api",
-    "core-api/knowledge",
-    "core-api/work",
-    "core-api/org",
-    "core-api/users",
-    "core-api/conversation",
-    "core-api/settings",
-    "core-api/notifications",
-    "core-api/credentials",
-    "core-api/routine",
-    "core-api/review",
-    "core-api/policy",
-    "core-api/realtime",
+    "framework/shared",
+    "framework/db",
+    "framework/design-system",
+    "layers/core-api",
+    "layers/core-api/knowledge",
+    "layers/core-api/work",
+    "layers/core-api/org",
+    "layers/core-api/users",
+    "layers/core-api/conversation",
+    "layers/core-api/settings",
+    "layers/core-api/notifications",
+    "layers/core-api/credentials",
+    "layers/core-api/routine",
+    "layers/core-api/review",
+    "layers/core-api/policy",
+    "layers/core-api/realtime",
     // @lore AU20 C1: core-api/retention dissolved — sweeps distributed to owning services
     // (users/knowledge/notifications) + propagation_log reaper co-located at composition root.
     // @lore AU20 B1b: agent-orchestration/trigger-resolution folded into session-requests.
-    "agent-orchestration/connections",
+    "layers/agent-orchestration/connections",
     // @lore AU26 F2 (§D-I, founder ruling): `core-api/filesystems` relocated
     // here whole — record, injections and reachability probe follow F1's mount
     // engine into the agent-orchestration Layer.
-    "agent-orchestration/filesystems",
-    "agent-orchestration/session-requests",
-    "agent-orchestration/run-orchestration",
+    "layers/agent-orchestration/filesystems",
+    "layers/agent-orchestration/session-requests",
+    "layers/agent-orchestration/run-orchestration",
     // @lore AU21 §6 Decision F1 (Increment 8): agent-orchestration/agent-selection
     // dissolved — bet_task/bet_decomposer selection folded into core-api/work's
     // own agent-assignment.ts, routine_delegate into core-api/routine's
@@ -485,20 +505,49 @@ function buildLeafDeclarations(root: string): void {
     // @lore AU21 Increment 14a: agent-orchestration/cost HARD-DELETED (founder) — removed from this list.
     // @lore AU20 B2b: agent-orchestration/session-lifecycle folded into run-orchestration.
     // @lore AU20 B2a: agent-orchestration/context-assembly folded into run-orchestration.
-    "agent-execution/harness-registry",
+    "layers/agent-execution/harness-registry",
     // @lore AU20 B3b: agent-execution/mcp-provider folded into harness-registry.
-    "agent-execution/tool-provider",
-    "agent-orchestration/tool-handlers",
-    "remote-server",
-    "remote-worker",
+    "layers/agent-execution/tool-provider",
+    "layers/agent-orchestration/tool-handlers",
+    "applications/remote-server",
+    "applications/remote-worker",
   ]) {
     try {
-      execSync(`npx tsc -b packages/${leaf}`, { cwd: root, stdio: "ignore" });
+      execSync(`npx tsc -b ${leaf}`, { cwd: root, stdio: "ignore" });
     } catch {
       // tsc -b exits non-zero on reference-noise (TS6059) but still emits the
       // declarations to dist/. Real errors surface in the per-package measurement.
     }
   }
+  cleanEmittedGovernanceArtifacts(root);
+}
+
+/**
+ * Remove compiled copies this build emitted beside their own sources under `scripts/`.
+ *
+ * @lore AU28: the governance tests in `framework/db` import `scripts/lib/*.js`, which pulls those
+ * files into a composite build whose rootDir they sit outside. tsc emits `.js`/`.d.ts` next to the
+ * `.ts` (hiding the reason as TS6059, which this gate filters as reference noise) — and then Node,
+ * tsx and vitest ALL resolve the compiled copy first. The guard runs stale logic while the source on
+ * disk says something else, and the only symptom is a failure that makes no sense. This build makes
+ * them, so this build cleans them; `no-stale-build-artifacts` catches any that survive.
+ */
+function cleanEmittedGovernanceArtifacts(root: string): void {
+  const suffixes = [".d.ts.map", ".js.map", ".d.ts", ".js"];
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = resolve(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(full);
+        continue;
+      }
+      const suffix = suffixes.find((s) => entry.name.endsWith(s));
+      if (suffix === undefined) continue;
+      if (existsSync(`${full.slice(0, -suffix.length)}.ts`)) rmSync(full, { force: true });
+    }
+  };
+  const scripts = resolve(root, "scripts");
+  if (existsSync(scripts)) walk(scripts);
 }
 
 // -- Main --
@@ -510,7 +559,7 @@ function main(): void {
   const allPackages = discoverPackages(root);
   if (allPackages.length === 0) {
     process.stderr.write(
-      "typecheck-gate: FATAL — no packages found under packages/. Is this the repo root?\n",
+      `typecheck-gate: FATAL — no packages found under ${PACKAGE_ROOTS.join("/, ")}/. Is this the repo root?\n`,
     );
     process.exit(1);
   }

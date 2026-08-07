@@ -1,11 +1,11 @@
 # System Prompts
 
-Runtime templates seeded by `factory-bootstrap.ts` (lines 186–216) into `system_template:<role>` rows at first boot; the live prompt for each agent is stored in `users.system_prompt` and assembled at session time. **Paths are frozen** — `factory-bootstrap.ts` references these files by literal path; never rename or move them.
+Runtime templates are read directly from these files at boot time — there is no cache table. The map of role → filename lives in one place, `SYSTEM_PROMPT_TEMPLATE_FILES` (`framework/db/src/system-prompt-templates.ts`), read by both `factory-bootstrap.ts`'s boot-time backfill and by `agents.ts` at request time. The live prompt for each agent is stored in `agent_run_config.systemPrompt` (moved off `users` in AU26), assembled at session time. **Paths are frozen** — `SYSTEM_PROMPT_TEMPLATE_FILES` references these files by literal path (the allowlist that closes path traversal by construction); never rename or move them without updating that map.
 
 Seven roles are wired (seeded on boot); `assistant.md` is an unwired draft (template declared in `agent-roles.ts` but not yet seeded — see the status note in that file).
 
-- [product-manager.md](product-manager.md) — team agent coordinating the team that ships a single product; owns bet decomposition and PM judgment.
-- [facilitator.md](facilitator.md) — strategy agent scoped to one community of practice (build/product/growth/ops/facilitation); organizes cross-product knowledge; **doubly frozen** (also referenced by literal path at `factory-bootstrap.ts:157`).
+- [product-manager.md](product-manager.md) — team agent coordinating the team that ships a single product; owns PM judgment and handoffs.
+- [facilitator.md](facilitator.md) — strategy agent scoped to one community of practice (build/product/growth/ops/facilitation); organizes cross-product knowledge.
 - [builder.md](builder.md) — team agent that writes code and ships features for a single product team.
 - [designer.md](designer.md) — team agent owning UX research, interaction design, and visual polish for a single product team.
 - [growth.md](growth.md) — team agent owning top-of-funnel (awareness, acquisition, activation) for a single product team.

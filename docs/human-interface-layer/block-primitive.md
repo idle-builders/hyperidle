@@ -4,7 +4,7 @@ The Block primitive is owned by [`docs/blocks/`](../blocks/index.md) — definit
 
 ## What it is, in one line
 
-A Block is a **derived, addressable, renderable region of a markdown body**. Bodies stay plain GitHub-flavoured markdown on disk — no HyperIdle dialect, no fenced JSON, no `<block>` tag. Blocks are derived at render time on the client (pure `deriveBlocks`, see `packages/web/src/pages/knowledge/KnowledgeBody.tsx`), never stored. Full derivation model: [`docs/blocks/derivation-and-rendering.md`](../blocks/derivation-and-rendering.md).
+A Block is a **derived, addressable, renderable region of a markdown body**. Bodies stay plain GitHub-flavoured markdown on disk — no HyperIdle dialect, no fenced JSON, no `<block>` tag. Blocks are derived at render time on the client (pure `deriveBlocks`, see `layers/core-ui/src/pages/knowledge/KnowledgeBody.tsx`), never stored. Full derivation model: [`docs/blocks/derivation-and-rendering.md`](../blocks/derivation-and-rendering.md).
 
 ## Where Blocks render in this layer
 
@@ -12,14 +12,14 @@ A Block is a **derived, addressable, renderable region of a markdown body**. Bod
 |---|---|
 | Bet description (`WorkBet.tsx`) | `bets.description` markdown |
 | Knowledge body (`KnowledgeBody.tsx`) | `knowledge_items.body` markdown |
-| Review canvas artifact bodies (`review-canvas.tsx:79`) | artifact body markdown |
+| Review canvas artifact bodies (`review-canvas.tsx`) | artifact body markdown |
 | Per-block discussion | threads anchored on the surfaces above |
 
 Conversations does **not** use Blocks — chat, review, and questionnaire messages are message shapes on the Thread primitive ([thread-primitive.md](thread-primitive.md)), not Blocks.
 
 ## Anchors and discussion
 
-Each Block exposes a `BlockAnchor` — `{ blockId }` (`packages/shared/src/blocks/types.ts:47`) — as the sole attachment key other primitives use to reference it. Per-block discussion attaches a Thread to a Block via this anchor; there is no separate "block comment" entity. What happens when an anchored block disappears is a consumer contract owned by [`docs/blocks/contracts.md`](../blocks/contracts.md).
+Each Block exposes a `BlockAnchor` — `{ blockId }` (`framework/shared/src/blocks/types.ts`) — as the sole attachment key other primitives use to reference it. Per-block discussion attaches a Thread to a Block via this anchor; there is no separate "block comment" entity. What happens when an anchored block disappears is a consumer contract owned by [`docs/blocks/contracts.md`](../blocks/contracts.md).
 
 ## Naming disambiguation
 

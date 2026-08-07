@@ -1,0 +1,27 @@
+{
+	"name": "@hyperidle/harness-registry",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./mcp": "./src/mcp/index.ts",
+		"./test-utils": "./src/__tests__/require-harness.ts",
+		"./testing": "./src/__testing__/llm-cassette.ts"
+	},
+	"scripts": {
+		"check": "tsc --noEmit",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"@hyperidle/shared": "*",
+		"@modelcontextprotocol/sdk": "^1.29.0",
+		"hono": "^4.12.27",
+		"zod": "^4.3.6"
+	},
+	"devDependencies": {
+		"@hono/node-server": "^2.0.6",
+		"@hyperidle/run-orchestration": "*",
+		"vitest": "^4.1.9"
+	}
+}

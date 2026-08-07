@@ -1,0 +1,85 @@
+# electron-builder production configuration for HyperIdle desktop.
+# N5: signing, notarization, DMG distribution, Homebrew support.
+#
+# @lore N5: extraMetadata.main overrides the `main` field in package.json AT
+# BUILD TIME only — it does not modify the source file. This lets us keep
+# `"main": "src/main.ts"` for dev mode (tsx interprets it) while telling
+# electron-builder to use the compiled `dist/main.cjs` in the packaged app.
+# This is the standard electron-builder pattern for ESM→CJS dev/prod split.
+#
+# @lore N5: publish: null suppresses electron-updater entirely. v1 distributes
+# via Homebrew only (user-initiated updates via `brew upgrade hyperidle`).
+# This eliminates the Squirrel/electron-updater attack surface.
+
+appId: com.hyperidle.app
+productName: HyperIdle
+copyright: Copyright © 2025-2026 HyperIdle
+
+# @lore N5: electron-builder defaults output to dist/, which overlaps with the
+# esbuild output (dist/main.cjs). This causes a circular inclusion — the
+# packaged app (dist/mac-arm64/) gets bundled INTO the asar via the dist/**/*
+# files pattern, inflating it by 262MB. Separating to release/ avoids this.
+directories:
+  output: release
+
+# Override main entry for production bundle without modifying source package.json
+extraMetadata:
+  main: dist/main.cjs
+
+mac:
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch: [arm64]
+  # Required for macOS notarization. Hardened runtime restricts what code can
+  # execute — see build/entitlements.mac.plist for the required exceptions.
+  hardenedRuntime: true
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  # Notarize via App Store Connect API key (APPLE_API_KEY / APPLE_API_KEY_ID /
+  # APPLE_API_ISSUER env vars set by CI secrets). electron-builder 25+ handles
+  # notarytool natively when this is true.
+  notarize: true
+  icon: build/icon.icns
+
+# Files included in the asar (app bundle)
+# @lore PGlite migration: PGlite is pure WASM — no native binaries needed.
+# The WASM bundle ships inside @electric-sql/pglite/dist and must be included
+# in the asar. Everything else is compiled into dist/main.cjs by esbuild.
+files:
+  - "dist/**/*"
+  - "!dist/**/*.map"
+  - "node_modules/@electric-sql/pglite/**"
+
+# Resources outside the asar, accessible via process.resourcesPath at runtime.
+# resolveMigrationsFolder() uses process.resourcesPath + "/drizzle" in packaged mode.
+extraResources:
+  - from: "../../framework/db/drizzle"
+    to: "drizzle"
+    filter:
+      - "**/*.sql"
+      - "meta/**/*"
+  - from: "../../layers/core-ui/dist"
+    to: "web-dist"
+
+# @lore PGlite migration: no native modules — npmRebuild not needed.
+npmRebuild: false
+
+# DMG window layout (standard Drag-to-Applications style)
+dmg:
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+
+# Explicit artifact naming so Homebrew cask URLs are predictable and stable.
+# Pattern: HyperIdle-0.0.1-arm64.dmg / HyperIdle-0.0.1-x64.dmg
+artifactName: "${productName}-${version}-${arch}.${ext}"
+
+# No auto-update server — distribution is via Homebrew only (v1).
+# @lore N5: publish: null suppresses auto-publish. The CI workflow does NOT
+# pass --publish so this is doubly enforced (config + workflow omission).
+publish: null

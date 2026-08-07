@@ -2,11 +2,11 @@
 
 The single boundary deciding **who may read/write what**, and how secrets are protected. Backend-authoritative; applies uniformly across threads, sessions, artifacts, the assistant, and workers.
 
-**This doc is load-bearing.** `packages/server/src/auth/access-boundary.ts` cites it as its sync contract — adding a host kind requires updating `HOST_SCOPE` *and* the scope table below.
+**This doc is load-bearing.** `layers/core-api/src/auth/access-boundary.ts` cites it as its sync contract — adding a host kind requires updating `HOST_SCOPE` *and* the scope table below.
 
 ## Principal
 
-The **Principal** is the *authenticated* acting identity bound to a request — `c.get("userId")`, set by `createAuthMiddleware` (`packages/server/src/middleware/auth.ts`) from a verified credential. Every authorization decision is made against the Principal and nothing else.
+The **Principal** is the *authenticated* acting identity bound to a request — `c.get("userId")`, set by `createAuthMiddleware` (`layers/core-api/src/middleware/auth.ts`) from a verified credential. Every authorization decision is made against the Principal and nothing else.
 
 - A Principal exists only when a credential was *verified*. A value from a client-supplied header is never a Principal.
 - The Principal is **not** the agent identity (persona/system prompt) and **not** the `X-Identity` header.
@@ -14,7 +14,7 @@ The **Principal** is the *authenticated* acting identity bound to a request — 
 
 ## Access boundary
 
-`canRead/canWrite(principal, resource) → bool` — a single pure predicate in `packages/server/src/auth/access-boundary.ts` (`HOST_SCOPE` :32, `canRead` :60, `canWrite` :77), evaluated server-side per request, no DB round-trip. **One rule:** *a resource's visibility inherits from its host.* Two scopes:
+`canRead/canWrite(principal, resource) → bool` — a single pure predicate in `layers/core-api/src/auth/access-boundary.ts` (`HOST_SCOPE` :32, `canRead` :60, `canWrite` :78), evaluated server-side per request, no DB round-trip. **One rule:** *a resource's visibility inherits from its host.* Two scopes:
 
 | Scope | Host kinds | Visible iff |
 |---|---|---|
@@ -42,7 +42,7 @@ Endpoints stay mode-agnostic — only the middleware differs. The invariant that
 
 A **Worker** is a capability-bounded session-execution endpoint — **not** a Principal, **not** an org member.
 
-- Identity is **server-issued and token-bound** (`GET /ws/worker?token=<HYPERIDLE_WORKER_TOKEN>`), not self-asserted: a `register` cannot claim or replace another worker's identity (`id_in_use` rejection + liveness probe, `packages/server/src/routes/worker-ws.ts`).
+- Identity is **server-issued and token-bound** (`GET /ws/worker?token=<HYPERIDLE_WORKER_TOKEN>`), not self-asserted: a `register` cannot claim or replace another worker's identity (`id_in_use` rejection + liveness probe, `layers/agent-orchestration/run-orchestration/src/worker-ingress.ts`).
 - Its token authorizes exactly one capability: *run the sessions assigned to this worker.* No authority to read threads, artifacts, knowledge, or the credential store.
 - Credentials reach a worker **scoped to its assigned session's provider** (or the server proxies the model call) — never as a readable org-wide store.
 
@@ -53,21 +53,21 @@ A **Worker** is a capability-bounded session-execution endpoint — **not** a Pr
 | **Root-of-trust secret** | The single bootstrap key (`HYPERIDLE_API_KEY`, OS-protected `secrets.json` / desktop safeStorage). | OS file permissions. *Not* encrypted-with-itself. |
 | **Managed secret** | Every other secret (provider/credential values). | Encrypted at rest, key derived from the root — mechanism owned by [credential-model.md](credential-model.md). **Never plaintext, persisted or logged, anywhere.** |
 
-Hiding a field from GET responses is **not** protection. Model-tier API keys accordingly never live in the `server_config` blob at all — AH1 removed `apiKey` from `ModelTierConfig` (`packages/shared/src/model-gateway.ts:29`); keys live exclusively in the `server_credentials` store, with a forward-only boot migration relocating legacy blob keys (`packages/server/src/services/server-config.ts:280`).
+Hiding a field from GET responses is **not** protection. Model-tier API keys accordingly never live in the `server_config` blob at all — AH1 removed `apiKey` from `ModelTierConfig` (`framework/shared/src/model-gateway.ts:38`); keys live exclusively in the `server_credentials` store, with a forward-only boot migration relocating legacy blob keys (`layers/core-api/settings/src/server-config.ts`).
 
 ## Enforcement layer & default posture
 
 **Where it runs:** the **application/server layer** (Hono middleware + the single access-boundary decision function). The DB executes whatever the server sends; there is **no Row-Level Security** (`isRLSEnabled: false`).
 
-- **Authentication is default-on** — `createAuthMiddleware` is mounted globally (`api.use("*", …)`, `packages/server/src/app.ts:360`); no `/api/*` route is reachable without a verified credential.
-- **Authorization is default-deny.** Least privilege: a route exposes or mutates per-principal/per-host data only by **explicitly declaring** its access boundary (`__boundary`); absence of a declaration **fails closed** via `failClosedAssertion()` (`app.ts:370`), never open. This is Saltzer–Schroeder *fail-safe defaults* / OWASP *deny-by-default* — a named standard, not a bespoke scheme, and the structural fix for the guard-added-to-one-endpoint-missed-on-its-neighbour recurrence.
-- **Static guardrails (lint).** "Every route declares a boundary" and "authorization never reads a client header" are *static* properties, enforced by three custom ESLint rules in `packages/eslint-plugin-authz/src/rules/`: `require-boundary-declaration`, `no-header-identity-in-authz`, `no-raw-db-in-route-bypassing-policy`.
+- **Authentication is default-on** — `createAuthMiddleware` is mounted globally (`layers/core-api/src/api-middleware-stack.ts:75`); no `/api/*` route is reachable without a verified credential.
+- **Authorization is default-deny.** Least privilege: a route exposes or mutates per-principal/per-host data only by **explicitly declaring** its access boundary (`__boundary`); absence of a declaration **fails closed** via `failClosedAssertion()` (`layers/core-api/src/api-middleware-stack.ts`), never open. This is Saltzer–Schroeder *fail-safe defaults* / OWASP *deny-by-default* — a named standard, not a bespoke scheme, and the structural fix for the guard-added-to-one-endpoint-missed-on-its-neighbour recurrence.
+- **Static guardrails (lint).** "Every route declares a boundary" and "authorization never reads a client header" are *static* properties, enforced by three custom ESLint rules in `tools/eslint-plugin-authz/src/rules/`: `require-boundary-declaration`, `no-header-identity-in-authz`, `no-raw-db-in-route-bypassing-policy`.
 
 **RLS — deferred, not rejected.** Postgres RLS would add defense-in-depth (the DB refuses cross-tenant rows even if a route forgets its guard). Deferred because the dominant deployment is local-trust single-founder (nothing to isolate), and the boundary logic is relational/JSON-array-shaped — awkward to mirror in SQL `USING` clauses, duplicating server logic. **Revisit when** a managed multi-tenant cloud deployment is on the table; that is the trigger to add RLS as a second layer beneath the server-layer chokepoint.
 
 ## WS subscribe authorization
 
-Every WebSocket subscribe routes through `canSubscribe` (`packages/server/src/services/ws-broadcaster.ts:26,173`; DB-backed authorizer `createDbSubscribeAuthorizer` :223):
+Every WebSocket subscribe routes through `canSubscribe` (DB-backed authorizer `createDbSubscribeAuthorizer`, `layers/core-api/src/ws-subscribe-authorizer.ts:78`):
 
 - **Global topics** (`conversations`, `work`) — any authenticated identity.
 - **`session:<id>`** — the session must exist and its task host must resolve; valid sessions are host-scope (any authenticated principal), non-existent or unresolvable sessions deny fail-closed.

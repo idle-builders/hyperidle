@@ -1,6 +1,6 @@
 # Users and Their Modes of Engagement
 
-HyperIdle has a unified user model — humans and agents are rows in the same `users` table, distinguished by a `kind` column (`'human' | 'ai'`, default `'ai'`; `packages/db/src/schema.ts:38-39`). The system serves both equally well. The human experience is an app they open. The agent experience is APIs, schemas, and data stores they read from and write to.
+HyperIdle has a unified user model — humans and agents are rows in the same `users` table, distinguished by a `kind` column (`'human' | 'ai'`, default `'ai'`; `framework/db/src/schema.ts`). The system serves both equally well. The human experience is an app they open. The agent experience is APIs, schemas, and data stores they read from and write to.
 
 ## 1. Human Users
 
@@ -10,13 +10,13 @@ Humans engage through six interaction modes, each with a distinct rhythm and cog
 
 **Review (seconds, reactive).** Approve, reject, or comment on concrete proposed actions. This is the daily driver. Target: 15-second decidability for simple items, with room for multi-turn conversation when the item warrants it — see [the three views](../human-interface-layer/the-three-views.md) for the full principle.
 
-**Prioritize (ambient, daily).** Glance at factory state — active bets, blockers, cost burn, capacity (`WorkOverview.tsx`, cost surfaces on `WorkBet.tsx` / `WorkRoutine.tsx` / `AgentProfile.tsx`). A few minutes with morning coffee. No decisions required, just awareness and occasional nudges.
+**Prioritize (ambient, daily).** Glance at factory state — active bets, blockers, capacity (`WorkOverview.tsx`, `WorkBet.tsx` / `WorkRoutine.tsx` / `AgentProfile.tsx`). A few minutes with morning coffee. No decisions required, just awareness and occasional nudges.
 
 **Create (minutes, proactive).** Humans are not just reviewers — they actively create:
 - **Bets** — author a markdown `description` and create bets from the Work view (`WorkBetCreate.tsx`).
-- **Knowledge** — write knowledge items at any of the 7 scopes: `factory | product | practice | team | bet | task | user` (`packages/shared/src/types.ts:171-179`; `user` = user-private).
+- **Knowledge** — write knowledge items at any of the 7 scopes: `factory | product | practice | team | bet | task | user` (`framework/shared/src/types.ts`; `user` = user-private).
 - **Conversations** — initiate threads with specific agents via the RecipientPicker, opened from the UI.
-- **Session dial-in** — observe a running agent session's live activity stream (**D** key, `Conversations.tsx:313`). Read-only, with filter tabs All | Tools | Reasoning | Cost.
+- **Session dial-in** — observe a running agent session's live activity stream (**D** key, `Conversations.tsx`). Read-only, with filter tabs All | Tools | Reasoning.
 
 **Bet (weekly, focused).** Pick the next 2–3 bets under a hard capacity cap (`team_members.capacity`). Fifteen minutes, once a week — forces trade-offs through explicit limits. Bet statuses are `draft | active | completed | killed`; lifecycle owned by [bets: shape, commit, change, ship](../process-layer/bets-shape-commit-change-ship.md).
 

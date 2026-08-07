@@ -1,0 +1,19 @@
+{
+	"extends": "../../tsconfig.json",
+	"compilerOptions": {
+		"outDir": "dist",
+		"rootDir": "src",
+		"module": "ES2022",
+		"target": "ES2022",
+		"moduleResolution": "bundler",
+		"composite": true,
+		"types": ["node"]
+	},
+	"include": ["src"],
+	"references": [
+		{ "path": "../../framework/shared" },
+		{ "path": "../../framework/db" },
+		{ "path": "../../layers/core-api" },
+		{ "path": "../../layers/agent-execution/harness-registry" }
+	]
+}

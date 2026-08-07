@@ -30,7 +30,7 @@ COPY . .
 # the cloud profile (postgres-js + pglite-WASM, both script-free).
 RUN npm ci --ignore-scripts
 
-# Build the web SPA -> packages/web/dist (served by the server at runtime).
+# Build the web SPA -> layers/core-ui/dist (served by the server at runtime).
 RUN npm run build
 
 # ---- Runtime stage ----
@@ -43,7 +43,7 @@ COPY --from=builder --chown=node:node /app /app
 
 ENV NODE_ENV=production \
     HYPERIDLE_PROFILE=cloud \
-    HYPERIDLE_STATIC_DIR=/app/packages/web/dist \
+    HYPERIDLE_STATIC_DIR=/app/layers/core-ui/dist \
     HYPERIDLE_WORKSPACES_DIR=/data/workspaces \
     PORT=3001 \
     HOME=/tmp \

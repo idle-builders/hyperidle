@@ -8,20 +8,20 @@ only** — not a public cloud / SaaS offering.
 
 It is the deployed form of the desktop client's existing **shared mode**
 (`bootSharedMode`, `validateSharedBackendKey`, `--backend-mode=shared` —
-`packages/desktop/src/main.ts`, `packages/desktop/src/credential-validator.ts`):
+`applications/desktop/src/main.ts`, `applications/desktop/src/credential-validator.ts`):
 the desktop connects to a `serverUrl` and starts no embedded server.
 
 ## Shape
 
 - **Profile:** runs `HYPERIDLE_PROFILE=cloud` (Postgres via `DATABASE_URL`,
   network-exposed, mandatory `HYPERIDLE_API_KEY` —
-  `packages/server/src/validate-env.ts`). No new profile is introduced. Cloud
+  `framework/shared/src/validate-env.ts`). No new profile is introduced. Cloud
   profile internals: [self-hosting.md](./self-hosting.md).
 - **Stateless compute:** all durable state in the shared Postgres schema; pod
   rootfs read-only, writes go only to the `/tmp` and `/data` emptyDir mounts
   (`HYPERIDLE_WORKSPACES_DIR=/data/workspaces`). Replicas are interchangeable.
 - **Serves SPA + API:** one Hono server serves the web bundle at `/`
-  (`HYPERIDLE_STATIC_DIR=/app/packages/web/dist`) and the API at `/api/*`.
+  (`HYPERIDLE_STATIC_DIR=/app/layers/core-ui/dist`) and the API at `/api/*`.
   Desktop shared-mode clients `loadURL()` the root. Runs **no agents** — no LLM
   key in the pod; agents stay on the user's machine.
 - **Auth:** one **shared team `HYPERIDLE_API_KEY`** (K8s secret `app-secrets`),
@@ -47,7 +47,7 @@ workflows never race on the same tag. See [releases.md](./releases.md).
 
 | | Provisioning — founder/infra, one-time | Deploy — CI, every release |
 |---|---|---|
-| **SQL** | Schema + role + `database-url` secret via infra **Terraform** | Additive-only **table migrations** in the `migrate` init-container (`packages/db/src/migrate-pg.ts` — custom runner, not drizzle-kit: the tenant role can't `CREATE SCHEMA`) |
+| **SQL** | Schema + role + `database-url` secret via infra **Terraform** | Additive-only **table migrations** in the `migrate` init-container (`framework/db/src/migrate-pg.ts` — custom runner, not drizzle-kit: the tenant role can't `CREATE SCHEMA`) |
 | **Auth** | `KUBE_*` GitHub secrets from Terraform output; `HYPERIDLE_API_KEY` secret via admin kubeconfig | Pod **reads** secrets via `secretKeyRef` |
 | **CI** | Store `KUBE_*` secrets, confirm GHCR perms | `deploy.yml`: version gate → build → push → `helm upgrade --install` (`HELM_DRIVER=configmap`) |
 
@@ -59,22 +59,22 @@ to make a deploy easier.
 ## Factory bootstrap (AF17)
 
 The **factory bootstrap** (`applyFactoryBootstrap`,
-`packages/db/src/factory-bootstrap.ts`) is the team-agnostic baseline row-set
+`framework/db/src/factory-bootstrap.ts`) is the team-agnostic baseline row-set
 every HyperIdle instance needs to function: the `system:propagation` identity,
 the system-assistant singleton, the roster-driven **facilitator** agents, the
-`system_template:<role>` settings, factory cost settings, and the
+`system_template:<role>` settings, and the
 `scope_kind="factory"` principle. It is **idempotent** (safe to re-run) and
 **carries no user-facing `team_id`**. It runs on every desktop launch after the
-desktop migrate step (`packages/desktop/src/main.ts:440`).
+desktop migrate step (`applications/desktop/src/main.ts`).
 
-**Gap:** `packages/db/src/bootstrap-pg.ts` (the deploy-time bootstrap CLI,
+**Gap:** `framework/db/src/bootstrap-pg.ts` (the deploy-time bootstrap CLI,
 meant to run as a second init-container after migrate) is **not wired into the
 Helm chart** — cloud deploys currently skip factory bootstrap.
 
 Factory bootstrap is **not** team provisioning and **not** demo data:
 
 - A user's own **team**, its **agent roster**, and its **built-in routines**
-  (`practice-meeting`, `post-bet-retro`, `portfolio-retro`, `knowledge-decay`,
+  (`post-bet-retro`, `portfolio-retro`, `knowledge-decay`,
   `knowledge-promotion`) are created by **onboarding / `create_team`**, provisioned
   per-team (`builtin:<kind>:<teamId>`) with an `ownerRole` resolved from the team
   roster at provision time — never factory-seeded.
@@ -114,7 +114,7 @@ A Deploy never provisions — do these once before the first release:
 **Postgres TLS note.** The tenant `DATABASE_URL` uses `sslmode=verify-ca` against
 the cluster's self-signed Postgres whose cert SANs don't include the primary
 ClusterIP name. The app honors verify-ca semantics (trust the CA, skip the
-hostname check) via `packages/db/src/pg-ssl.ts` — used by both the runtime
+hostname check) via `framework/db/src/pg-ssl.ts` — used by both the runtime
 connection and the migrate init-container (which also sets
 `NODE_EXTRA_CA_CERTS=/etc/ssl/pg/ca.crt`).
 

@@ -1,0 +1,21 @@
+{
+	"name": "@hyperidle/agent-run-config",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"check": "tsc --noEmit",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"@hyperidle/db": "*",
+		"@hyperidle/shared": "*",
+		"drizzle-orm": "^0.45.2"
+	},
+	"devDependencies": {
+		"vitest": "^4.1.9"
+	}
+}

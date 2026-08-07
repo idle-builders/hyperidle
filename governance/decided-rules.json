@@ -1,0 +1,1513 @@
+{
+	"decidedRules": true,
+	"note": "The 124 verdicts the founder decided, role pair x crossing kind x world. This file is the ACCEPTANCE TEST for scripts/lib/governance-model.ts, not the implementation — the model must reproduce every row exactly. It is frozen: a row changes only by founder ruling.",
+	"decidedAt": "2026-08-05",
+	"census": "4af3c0e6",
+	"instancesNote": "The `instances` counts are a snapshot at census 4af3c0e6 and are not asserted by anything. The verdicts are.",
+	"totals": {
+		"rows": 124,
+		"production": {
+			"allowed": 68,
+			"forbidden": 56
+		},
+		"development": {
+			"allowed": 114,
+			"forbidden": 10
+		},
+		"differ": 44
+	},
+	"rows": [
+		{
+			"source": "layer",
+			"target": "development file",
+			"kind": "import",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 0
+			}
+		},
+		{
+			"source": "service",
+			"target": "development file",
+			"kind": "import",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 0
+			}
+		},
+		{
+			"source": "framework",
+			"target": "development file",
+			"kind": "import",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 0
+			}
+		},
+		{
+			"source": "application",
+			"target": "development file",
+			"kind": "import",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 0
+			}
+		},
+		{
+			"source": "layer",
+			"target": "layer (other)",
+			"kind": "import",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 1,
+				"development": 2
+			}
+		},
+		{
+			"source": "layer",
+			"target": "layer (other)",
+			"kind": "manifest",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 2,
+				"development": 0
+			}
+		},
+		{
+			"source": "layer",
+			"target": "service (same layer)",
+			"kind": "import",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 153,
+				"development": 190
+			}
+		},
+		{
+			"source": "layer",
+			"target": "service (same layer)",
+			"kind": "manifest",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 16,
+				"development": 0
+			}
+		},
+		{
+			"source": "layer",
+			"target": "service (same layer)",
+			"kind": "di",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 19
+			}
+		},
+		{
+			"source": "layer",
+			"target": "service (other layer)",
+			"kind": "import",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 36,
+				"development": 147
+			}
+		},
+		{
+			"source": "layer",
+			"target": "service (other layer)",
+			"kind": "manifest",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 9,
+				"development": 0
+			}
+		},
+		{
+			"source": "layer",
+			"target": "service (other layer)",
+			"kind": "di",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 2
+			}
+		},
+		{
+			"source": "service",
+			"target": "layer (own)",
+			"kind": "di",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 9,
+				"development": 56
+			}
+		},
+		{
+			"source": "service",
+			"target": "layer (other)",
+			"kind": "di",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 2,
+				"development": 49
+			}
+		},
+		{
+			"source": "service",
+			"target": "service (same layer)",
+			"kind": "import",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 24
+			}
+		},
+		{
+			"source": "service",
+			"target": "service (same layer)",
+			"kind": "manifest",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 14,
+				"development": 0
+			}
+		},
+		{
+			"source": "service",
+			"target": "service (same layer)",
+			"kind": "di",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 27,
+				"development": 10
+			}
+		},
+		{
+			"source": "service",
+			"target": "service (other layer)",
+			"kind": "import",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 3
+			}
+		},
+		{
+			"source": "service",
+			"target": "service (other layer)",
+			"kind": "manifest",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 3,
+				"development": 0
+			}
+		},
+		{
+			"source": "service",
+			"target": "service (other layer)",
+			"kind": "di",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 9,
+				"development": 1
+			}
+		},
+		{
+			"source": "layer",
+			"target": "framework/shared",
+			"kind": "import",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 245,
+				"development": 218
+			}
+		},
+		{
+			"source": "layer",
+			"target": "framework/shared",
+			"kind": "manifest",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 4,
+				"development": 0
+			}
+		},
+		{
+			"source": "service",
+			"target": "framework/shared",
+			"kind": "import",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 96,
+				"development": 86
+			}
+		},
+		{
+			"source": "service",
+			"target": "framework/shared",
+			"kind": "manifest",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 19,
+				"development": 0
+			}
+		},
+		{
+			"source": "application",
+			"target": "framework/shared",
+			"kind": "import",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 8,
+				"development": 1
+			}
+		},
+		{
+			"source": "application",
+			"target": "framework/shared",
+			"kind": "manifest",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 3,
+				"development": 0
+			}
+		},
+		{
+			"source": "tooling",
+			"target": "framework/shared",
+			"kind": "import",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 12
+			}
+		},
+		{
+			"source": "tooling",
+			"target": "framework/shared",
+			"kind": "manifest",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 1
+			}
+		},
+		{
+			"source": "deployment",
+			"target": "framework/shared",
+			"kind": "import",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 0
+			}
+		},
+		{
+			"source": "deployment",
+			"target": "framework/shared",
+			"kind": "manifest",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 0
+			}
+		},
+		{
+			"source": "framework",
+			"target": "framework/shared",
+			"kind": "import",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 40,
+				"development": 28
+			}
+		},
+		{
+			"source": "framework",
+			"target": "framework/shared",
+			"kind": "manifest",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 2,
+				"development": 0
+			}
+		},
+		{
+			"source": "layer",
+			"target": "framework/api-contract",
+			"kind": "import",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 4,
+				"development": 0
+			}
+		},
+		{
+			"source": "layer",
+			"target": "framework/api-contract",
+			"kind": "manifest",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 2,
+				"development": 0
+			}
+		},
+		{
+			"source": "layer",
+			"target": "framework/design-system",
+			"kind": "import",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "forbidden",
+			"instances": {
+				"production": 0,
+				"development": 0
+			}
+		},
+		{
+			"source": "layer",
+			"target": "framework/design-system",
+			"kind": "manifest",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "forbidden",
+			"instances": {
+				"production": 0,
+				"development": 0
+			}
+		},
+		{
+			"source": "layer",
+			"target": "db:row-type",
+			"kind": "import",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 6,
+				"development": 6
+			}
+		},
+		{
+			"source": "service",
+			"target": "db:row-type",
+			"kind": "import",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 45,
+				"development": 3
+			}
+		},
+		{
+			"source": "application",
+			"target": "db:row-type",
+			"kind": "import",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 0
+			}
+		},
+		{
+			"source": "tooling",
+			"target": "db:row-type",
+			"kind": "import",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 1
+			}
+		},
+		{
+			"source": "deployment",
+			"target": "db:row-type",
+			"kind": "import",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 0
+			}
+		},
+		{
+			"source": "layer",
+			"target": "db:schema-ns",
+			"kind": "import",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "forbidden",
+			"instances": {
+				"production": 0,
+				"development": 6
+			}
+		},
+		{
+			"source": "application",
+			"target": "db:client",
+			"kind": "import",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 4,
+				"development": 6
+			}
+		},
+		{
+			"source": "tooling",
+			"target": "db:client",
+			"kind": "import",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 10
+			}
+		},
+		{
+			"source": "layer",
+			"target": "db:client",
+			"kind": "import",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 56,
+				"development": 204
+			}
+		},
+		{
+			"source": "service",
+			"target": "db:client",
+			"kind": "import",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 84,
+				"development": 48
+			}
+		},
+		{
+			"source": "application",
+			"target": "db:bootstrap",
+			"kind": "import",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 2,
+				"development": 0
+			}
+		},
+		{
+			"source": "tooling",
+			"target": "db:bootstrap",
+			"kind": "import",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 0
+			}
+		},
+		{
+			"source": "layer",
+			"target": "db:bootstrap",
+			"kind": "import",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 1
+			}
+		},
+		{
+			"source": "layer",
+			"target": "db:util",
+			"kind": "import",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "forbidden",
+			"instances": {
+				"production": 5,
+				"development": 0
+			}
+		},
+		{
+			"source": "service",
+			"target": "db:util",
+			"kind": "import",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 4,
+				"development": 0
+			}
+		},
+		{
+			"source": "application",
+			"target": "db:util",
+			"kind": "import",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "forbidden",
+			"instances": {
+				"production": 1,
+				"development": 0
+			}
+		},
+		{
+			"source": "layer",
+			"target": "db:testing",
+			"kind": "import",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 11
+			}
+		},
+		{
+			"source": "service",
+			"target": "db:testing",
+			"kind": "import",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 53
+			}
+		},
+		{
+			"source": "layer",
+			"target": "db:unknown",
+			"kind": "import",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "forbidden",
+			"instances": {
+				"production": 1,
+				"development": 0
+			}
+		},
+		{
+			"source": "application",
+			"target": "db:unknown",
+			"kind": "import",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "forbidden",
+			"instances": {
+				"production": 0,
+				"development": 6
+			}
+		},
+		{
+			"source": "layer",
+			"target": "framework/db",
+			"kind": "manifest",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 3,
+				"development": 0
+			}
+		},
+		{
+			"source": "service",
+			"target": "framework/db",
+			"kind": "manifest",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 18,
+				"development": 0
+			}
+		},
+		{
+			"source": "application",
+			"target": "framework/db",
+			"kind": "manifest",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 2,
+				"development": 0
+			}
+		},
+		{
+			"source": "tooling",
+			"target": "framework/db",
+			"kind": "manifest",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 1
+			}
+		},
+		{
+			"source": "service",
+			"target": "db:table (own)",
+			"kind": "import",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 72,
+				"development": 55
+			}
+		},
+		{
+			"source": "service",
+			"target": "db:table (own)",
+			"kind": "table:read",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 214,
+				"development": 62
+			}
+		},
+		{
+			"source": "service",
+			"target": "db:table (own)",
+			"kind": "table:write",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 135,
+				"development": 68
+			}
+		},
+		{
+			"source": "layer",
+			"target": "db:table (other)",
+			"kind": "import",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 8,
+				"development": 1269
+			}
+		},
+		{
+			"source": "layer",
+			"target": "db:table (other)",
+			"kind": "table:read",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 16,
+				"development": 708
+			}
+		},
+		{
+			"source": "layer",
+			"target": "db:table (other)",
+			"kind": "table:write",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 4,
+				"development": 1672
+			},
+			"developmentNote": "Ruling 13 — a test may write a foreign table directly. What is held instead is the COMPANION rule: writing one row of a set the owner always writes together is forbidden, because it builds a state production cannot produce. That condition cannot be expressed as a row here; it lives in the `write-the-whole-row-set` clause."
+		},
+		{
+			"source": "service",
+			"target": "db:table (other)",
+			"kind": "import",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 20,
+				"development": 148
+			}
+		},
+		{
+			"source": "service",
+			"target": "db:table (other)",
+			"kind": "table:read",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 18,
+				"development": 34
+			}
+		},
+		{
+			"source": "service",
+			"target": "db:table (other)",
+			"kind": "table:write",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 25,
+				"development": 200
+			},
+			"developmentNote": "Ruling 13 — a test may write a foreign table directly. What is held instead is the COMPANION rule: writing one row of a set the owner always writes together is forbidden, because it builds a state production cannot produce. That condition cannot be expressed as a row here; it lives in the `write-the-whole-row-set` clause."
+		},
+		{
+			"source": "tooling",
+			"target": "db:table (other)",
+			"kind": "import",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 96
+			}
+		},
+		{
+			"source": "tooling",
+			"target": "db:table (other)",
+			"kind": "table:read",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 213
+			}
+		},
+		{
+			"source": "tooling",
+			"target": "db:table (other)",
+			"kind": "table:write",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 20
+			}
+		},
+		{
+			"source": "framework",
+			"target": "layer",
+			"kind": "di",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 1,
+				"development": 0
+			}
+		},
+		{
+			"source": "framework",
+			"target": "service",
+			"kind": "di",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 29
+			}
+		},
+		{
+			"source": "layer",
+			"target": "EventBus",
+			"kind": "event",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 20,
+				"development": 134
+			}
+		},
+		{
+			"source": "service",
+			"target": "EventBus",
+			"kind": "event",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 36,
+				"development": 17
+			}
+		},
+		{
+			"source": "application",
+			"target": "EventBus",
+			"kind": "event",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 0
+			}
+		},
+		{
+			"source": "tooling",
+			"target": "EventBus",
+			"kind": "event",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 0
+			}
+		},
+		{
+			"source": "framework",
+			"target": "EventBus",
+			"kind": "event",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 2,
+				"development": 31
+			}
+		},
+		{
+			"source": "layer",
+			"target": "framework",
+			"kind": "di",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 1
+			}
+		},
+		{
+			"source": "service",
+			"target": "framework",
+			"kind": "di",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 4,
+				"development": 12
+			}
+		},
+		{
+			"source": "framework",
+			"target": "framework",
+			"kind": "di",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 12
+			}
+		},
+		{
+			"source": "layer",
+			"target": "MCP router",
+			"kind": "mcp",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 11
+			}
+		},
+		{
+			"source": "service",
+			"target": "MCP router",
+			"kind": "mcp",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 1,
+				"development": 0
+			}
+		},
+		{
+			"source": "application",
+			"target": "MCP router",
+			"kind": "mcp",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 2,
+				"development": 0
+			}
+		},
+		{
+			"source": "harness",
+			"target": "MCP router",
+			"kind": "mcp",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 0
+			}
+		},
+		{
+			"source": "service",
+			"target": "raw runtime",
+			"kind": "capability",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "forbidden",
+			"instances": {
+				"production": 0,
+				"development": 0
+			}
+		},
+		{
+			"source": "tooling",
+			"target": "raw runtime",
+			"kind": "capability",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "forbidden",
+			"instances": {
+				"production": 0,
+				"development": 1
+			}
+		},
+		{
+			"source": "application",
+			"target": "layer",
+			"kind": "import",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 12,
+				"development": 0
+			}
+		},
+		{
+			"source": "application",
+			"target": "layer",
+			"kind": "manifest",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 2,
+				"development": 0
+			}
+		},
+		{
+			"source": "application",
+			"target": "service",
+			"kind": "import",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 15,
+				"development": 0
+			}
+		},
+		{
+			"source": "application",
+			"target": "service",
+			"kind": "manifest",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 13,
+				"development": 0
+			}
+		},
+		{
+			"source": "application",
+			"target": "service",
+			"kind": "di",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 2,
+				"development": 12
+			}
+		},
+		{
+			"source": "application",
+			"target": "application",
+			"kind": "import",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 2,
+				"development": 1
+			}
+		},
+		{
+			"source": "application",
+			"target": "application",
+			"kind": "manifest",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 2,
+				"development": 0
+			}
+		},
+		{
+			"source": "tooling",
+			"target": "layer",
+			"kind": "import",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 6
+			}
+		},
+		{
+			"source": "tooling",
+			"target": "layer",
+			"kind": "manifest",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 1
+			}
+		},
+		{
+			"source": "tooling",
+			"target": "service",
+			"kind": "import",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 4
+			}
+		},
+		{
+			"source": "tooling",
+			"target": "service",
+			"kind": "manifest",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 3
+			}
+		},
+		{
+			"source": "layer",
+			"target": "application",
+			"kind": "import",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 10
+			}
+		},
+		{
+			"source": "layer",
+			"target": "application",
+			"kind": "manifest",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 2,
+				"development": 0
+			}
+		},
+		{
+			"source": "layer",
+			"target": "tooling",
+			"kind": "import",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 1
+			}
+		},
+		{
+			"source": "layer",
+			"target": "tooling",
+			"kind": "manifest",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 1,
+				"development": 0
+			}
+		},
+		{
+			"source": "repo root",
+			"target": "layer",
+			"kind": "import",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 12
+			}
+		},
+		{
+			"source": "repo root",
+			"target": "tooling",
+			"kind": "import",
+			"scope": "general",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 3
+			}
+		},
+		{
+			"source": "layer",
+			"target": "repo root",
+			"kind": "import",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 1
+			}
+		},
+		{
+			"source": "framework",
+			"target": "repo root",
+			"kind": "import",
+			"scope": "general",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 13
+			}
+		},
+		{
+			"source": "tooling",
+			"target": "db:schema-ns",
+			"kind": "import",
+			"scope": "named",
+			"production": "forbidden",
+			"development": "forbidden",
+			"instances": {
+				"production": 0,
+				"development": 2
+			}
+		},
+		{
+			"source": "core-ui",
+			"target": "framework/design-system",
+			"kind": "import",
+			"scope": "named",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 61,
+				"development": 57
+			}
+		},
+		{
+			"source": "core-ui",
+			"target": "framework/design-system",
+			"kind": "manifest",
+			"scope": "named",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 1,
+				"development": 0
+			}
+		},
+		{
+			"source": "agent-execution",
+			"target": "MCP router",
+			"kind": "mcp",
+			"scope": "named",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 0
+			}
+		},
+		{
+			"source": "harness-registry",
+			"target": "MCP router",
+			"kind": "mcp",
+			"scope": "named",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 4,
+				"development": 7
+			}
+		},
+		{
+			"source": "harness-registry",
+			"target": "raw runtime",
+			"kind": "capability",
+			"scope": "named",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 4,
+				"development": 6
+			}
+		},
+		{
+			"source": "agent-execution",
+			"target": "raw runtime",
+			"kind": "capability",
+			"scope": "named",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 0
+			}
+		},
+		{
+			"source": "application",
+			"target": "agent-orchestration",
+			"kind": "api",
+			"scope": "named",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 1,
+				"development": 0
+			}
+		},
+		{
+			"source": "application",
+			"target": "core-api",
+			"kind": "api",
+			"scope": "named",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 4,
+				"development": 0
+			}
+		},
+		{
+			"source": "layer",
+			"target": "agent-execution",
+			"kind": "api",
+			"scope": "named",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 14
+			}
+		},
+		{
+			"source": "layer",
+			"target": "agent-orchestration",
+			"kind": "api",
+			"scope": "named",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 3,
+				"development": 2
+			}
+		},
+		{
+			"source": "layer",
+			"target": "core-api",
+			"kind": "api",
+			"scope": "named",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 103,
+				"development": 12
+			}
+		},
+		{
+			"source": "service",
+			"target": "agent-execution",
+			"kind": "api",
+			"scope": "named",
+			"production": "forbidden",
+			"development": "allowed",
+			"instances": {
+				"production": 1,
+				"development": 0
+			}
+		},
+		{
+			"source": "service",
+			"target": "agent-orchestration",
+			"kind": "api",
+			"scope": "named",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 0
+			}
+		},
+		{
+			"source": "service",
+			"target": "core-api",
+			"kind": "api",
+			"scope": "named",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 0
+			}
+		},
+		{
+			"source": "tooling",
+			"target": "agent-orchestration",
+			"kind": "api",
+			"scope": "named",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 0
+			}
+		},
+		{
+			"source": "tooling",
+			"target": "core-api",
+			"kind": "api",
+			"scope": "named",
+			"production": "allowed",
+			"development": "allowed",
+			"instances": {
+				"production": 0,
+				"development": 0
+			}
+		}
+	],
+	"ruling13": "2026-08-05 — the flat `no foreign table writes in tests` rule is replaced by the companion rule. Measured: 63% of its 2,016 sites would have routed through a function that is literally `insert(X).values(v)`; 6% had no owner at all. The 31% that mattered were owners writing two rows in one call. Development violations: 2,022 -> 125.",
+	"ruling14": "2026-08-06 — `raw runtime` and `harness` were two targets for one act: a model or agent call that does not go through agent-execution. The split was a detector detail (an import vs a process spawn) that leaked into the rule vocabulary, and it had already produced a contradiction — production forbade both under the same rationale while the development relaxation held only `raw runtime`, so a test importing the OpenAI SDK was blocked and a test spawning `claude` was waved through the same door. There was no `service -> harness` row at all, so the founder was never asked. They collapse into ONE target, `raw runtime`, forbidden in BOTH worlds outside the owner. Rows 125 -> 124: `harness-registry -> harness [capability]` and `harness-registry -> raw runtime [capability]` were the same allowed/allowed verdict and merged into one row. NO OTHER VERDICT MOVES."
+}

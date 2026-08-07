@@ -34,7 +34,8 @@ visibility into other users' private threads.
 For gating of irreversible actions, see
 [`docs/process-layer/staged-operation.md`](../process-layer/staged-operation.md).
 Tool availability is registry-generated, not declared here — see
-`packages/server/src/tools/` and the `toolsForRole("assistant")` call.
+`layers/agent-orchestration/tool-handlers/src/tool-definitions.ts` and the
+`toolsForRole("assistant")` call (`framework/shared/src/tool.ts`).
 
 ## Tone
 

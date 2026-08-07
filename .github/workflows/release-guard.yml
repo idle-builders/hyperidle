@@ -3,11 +3,11 @@ name: Release Guard
 # PR gate for the release pipeline. If a PR bumps the root package.json version,
 # it must ALSO carry proof that the notarized DMG for that version was staged:
 #   - version sources in sync (root == desktop == chart appVersion)
-#   - packages/desktop/release-manifest.json present + matching the new version
+#   - applications/desktop/release-manifest.json present + matching the new version
 #   - a DRAFT GitHub Release v<version> exists on this repo with the DMG asset,
 #     whose sha256 matches the manifest
 #
-# Bumping the version without staging the DMG (via packages/desktop/scripts/release.sh)
+# Bumping the version without staging the DMG (via applications/desktop/__scripts__/release.sh)
 # fails this check — so a version bump can never merge without its artifact.
 # PRs that don't touch the version are a no-op.
 on:
@@ -48,18 +48,52 @@ jobs:
             echo "version=$HEAD" >> "$GITHUB_OUTPUT"
           fi
 
+      # The three version sources that must move together:
+      #   root package.json `version`             — source of truth, release trigger
+      #   applications/desktop/package.json       — names the DMG via electron-builder
+      #   deploy/chart/Chart.yaml `appVersion`    — app version the deployed backend reports
+      # Inline rather than a script: it is three file reads, and a workflow step
+      # cannot silently no-op the way a moved/deleted script path can.
       - name: Version sources in sync
         if: steps.bump.outputs.bumped == 'true'
-        run: npx tsx scripts/check-version-sync.ts
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.bump.outputs.version }}"
+          DESKTOP_PKG=applications/desktop/package.json
+          CHART=deploy/chart/Chart.yaml
+
+          for f in "$DESKTOP_PKG" "$CHART"; do
+            if [ ! -f "$f" ]; then
+              echo "::error::$f missing — version sync cannot be checked"
+              exit 1
+            fi
+          done
+
+          DESKTOP=$(jq -er .version "$DESKTOP_PKG")
+          APPVERSION=$(sed -nE 's/^appVersion:[[:space:]]*"?([^"[:space:]]+)"?[[:space:]]*$/\1/p' "$CHART")
+          if [ -z "$APPVERSION" ]; then
+            echo "::error::$CHART has no appVersion field"
+            exit 1
+          fi
+
+          echo "root=$VERSION desktop=$DESKTOP chart appVersion=$APPVERSION"
+          FAIL=0
+          [ "$DESKTOP" = "$VERSION" ] || { echo "::error::$DESKTOP_PKG version $DESKTOP != root $VERSION"; FAIL=1; }
+          [ "$APPVERSION" = "$VERSION" ] || { echo "::error::$CHART appVersion $APPVERSION != root $VERSION"; FAIL=1; }
+          if [ "$FAIL" = 1 ]; then
+            echo "::error::Run applications/desktop/__scripts__/release.sh $VERSION to bump all sources together."
+            exit 1
+          fi
+          echo "✓ all version sources at $VERSION"
 
       - name: Manifest present and matches
         if: steps.bump.outputs.bumped == 'true'
         id: manifest
         run: |
           VERSION="${{ steps.bump.outputs.version }}"
-          MF=packages/desktop/release-manifest.json
+          MF=applications/desktop/release-manifest.json
           if [ ! -f "$MF" ]; then
-            echo "::error::$MF missing — run packages/desktop/scripts/release.sh $VERSION to stage the DMG"
+            echo "::error::$MF missing — run applications/desktop/__scripts__/release.sh $VERSION to stage the DMG"
             exit 1
           fi
           MV=$(jq -r .version "$MF")
@@ -88,7 +122,7 @@ jobs:
 
           # The staged release is a DRAFT on this private repo — GITHUB_TOKEN can read it.
           if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets,isDraft > rel.json 2>/dev/null; then
-            echo "::error::No staged release $TAG found. Run packages/desktop/scripts/release.sh $VERSION (it uploads the DMG to a draft release)."
+            echo "::error::No staged release $TAG found. Run applications/desktop/__scripts__/release.sh $VERSION (it uploads the DMG to a draft release)."
             exit 1
           fi
           if [ "$(jq -r .isDraft rel.json)" != "true" ]; then

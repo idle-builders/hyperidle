@@ -42,6 +42,7 @@ function rewriteForContainer(env: Record<string, string>): Record<string, string
 function flagValue(args: string[], name: string): string | undefined {
 	for (let i = 0; i < args.length; i++) {
 		const a = args[i];
+		if (a === undefined) continue;
 		if (a === `--${name}`) return args[i + 1];
 		if (a.startsWith(`--${name}=`)) return a.slice(name.length + 3);
 		if (a.startsWith(`--${name}:`)) return a.slice(name.length + 3);
@@ -83,7 +84,7 @@ function env(args: string[]): void {
 		additions["hyperidle.workpackage"] = workpackage;
 	}
 	if (Object.keys(additions).length > 0) {
-		out.OTEL_RESOURCE_ATTRIBUTES = mergeResourceAttrs(out.OTEL_RESOURCE_ATTRIBUTES, additions);
+		out.OTEL_RESOURCE_ATTRIBUTES = mergeResourceAttrs(out.OTEL_RESOURCE_ATTRIBUTES ?? "", additions);
 	}
 	process.stdout.write(formatExports(out));
 }

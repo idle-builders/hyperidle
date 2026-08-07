@@ -4,7 +4,7 @@ Fictional-but-grounded sample content for populating designs with realistic dens
 
 ## Review threads
 
-Each example uses one of the real artifact embed layouts (`text_diff`, `action_summary`, `content_preview`, `visual_comparison`, `data_metrics` — `packages/shared/src/thread.ts:49-53`). Layout semantics live in the [artifact primitive](../process-layer/artifact-primitive.md).
+Each example uses one of the real artifact embed layouts (`text_diff`, `action_summary`, `content_preview`, `visual_comparison`, `data_metrics` — `framework/shared/src/thread.ts`). Layout semantics live in the [artifact primitive](../process-layer/artifact-primitive.md).
 
 - **Text diff:** Subject: "Deploy Acme pricing-engine v1.4.2 to staging". Author: Acme Backend Builder. Artifact: a 40-line diff in `pricing-engine/src/calculate.ts` — changes to margin calculation logic. Inline comment example: "Line 23: this rounds down to the nearest cent, but our contracts specify rounding to four decimal places. Intentional?"
 - **Action summary:** Subject: "Enable Stripe live mode for Ambrovia Pro tier". Author: Ambrovia Growth Agent. Artifact: structured summary — what's changing (test→live keys), why (Pro launch next Monday), impact (real charges begin), rollback plan (revert to test keys via env var), checks passed (webhook signature verified, idempotency tested).
@@ -23,19 +23,18 @@ Each example uses one of the real artifact embed layouts (`text_diff`, `action_s
 - Bets: "Acme: Pricing overhaul — 4/7 tasks done · week 3 of 6" | "Ambrovia: Onboarding v2 — 1/4 tasks done · week 1 of 4"
 - Blocked: "2 agents blocked" → "Acme Backend Builder: waiting on Stripe API keys (3h)" | "Ambrovia Frontend Builder: waiting on review verdict (45min)"
 - Knowledge triage badge: "+8 new items this week"
-- Cost: "$42 today / $150 budget · $187 this week / $500 budget"
 - System: "6 agents active · 0 failures · 0 conflicts"
 
 ## Bet examples (Work)
 
-Rendered by `BetCard` (`packages/design-system/src/BetCard.tsx`); created via `WorkBetCreate` (`packages/web/src/pages/WorkBetCreate.tsx`). Appetite is money-denominated (`costAppetiteMinor` + `costAppetiteCurrency`, `packages/db/src/schema.ts:152-153`); statuses come from the [bet lifecycle](../process-layer/bets-shape-commit-change-ship.md) enum (`draft | active | completed | killed`).
+Rendered by `BetCard` (`framework/design-system/src/BetCard.tsx`); created via `WorkBetCreate` (`layers/core-ui/src/pages/WorkBetCreate.tsx`). Statuses come from the [bet lifecycle](../process-layer/bets-shape-commit-change-ship.md) enum (`draft | active | completed | killed`).
 
-- Title: "Search results relevance (ranking overhaul)". Team: Acme. Appetite: $2,000. Status: draft. Body (markdown): the shaped bet — problem statement, proposed solution sketch, rabbit holes to avoid, what "done" means.
-- Title: "Onboarding v2 — guided setup flow". Team: Ambrovia. Appetite: $1,500. Status: active.
+- Title: "Search results relevance (ranking overhaul)". Team: Acme. Status: draft. Body (markdown): the shaped bet — problem statement, proposed solution sketch, rabbit holes to avoid, what "done" means.
+- Title: "Onboarding v2 — guided setup flow". Team: Ambrovia. Status: active.
 
 ## Knowledge items
 
-Scopes and fields match the real schema: scope kinds `practice`/`product`/`factory` ∈ `SCOPE_KINDS` (`packages/shared/src/types.ts:171-179`); `status` sits on `knowledge_items` (`packages/db/src/schema.ts:595`), `kind` and `confidence` on the strategy fabric table (`packages/db/src/schema.ts:700,703`). Statuses map to the Triage (draft) and Curated (active) tabs.
+Scopes and fields match the real schema: scope kinds `practice`/`product`/`factory` ∈ `SCOPE_KINDS` (`framework/shared/src/types.ts`); `status` sits on `knowledge_items` (`framework/db/src/schema.ts`), `kind` and `confidence` on the `knowledge_app_projection` extension table (`framework/db/src/schema.ts`). Statuses map to the Triage (draft) and Curated (active) tabs.
 
 - Practice scope, building practice, topic "file-handling": Title: "Chunked upload for files >10MB". Kind: pattern. Status: active. Confidence: 0.85. Preview: "Use 2MB chunks for multipart uploads on memory-constrained hosts (Coolify free tier). 5MB chunks cause OOM — see anti-pattern."
 - Practice scope, building practice, topic "authentication": Title: "JWT rotation patterns for multi-tenant SaaS". Kind: pattern. Status: provisional. Preview: "Rotate signing keys every 90 days. Store previous key for 7 days to allow graceful token expiry."

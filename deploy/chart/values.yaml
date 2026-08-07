@@ -1,0 +1,56 @@
+# HyperIdle Shared Backend — Helm values.
+# Deployed into the `hyperidle` tenant namespace on the shared cluster.
+# See /Users/tg/Development/infra/docs/tenant-deployment-guide.md for the
+# platform contract (secrets, RBAC, ingress, PSA).
+
+replicaCount: 2
+
+image:
+  repository: ghcr.io/ambrovia/hyperidle
+  # Overridden per-deploy by CI with the commit SHA (immutable). `latest`
+  # tracks the newest tagged release for manual `helm upgrade` convenience.
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  port: 3001
+
+ingress:
+  # Disabled until a real host is added to the tenant's allowlist annotation
+  # (platform.infra/allowed-hosts) — a ValidatingAdmissionPolicy rejects any
+  # Ingress whose host isn't allowlisted, which fails the whole helm apply.
+  # The backend runs and is reachable in-cluster via the Service; flip this on
+  # once an allowlisted host (e.g. api.hyperidle.org) is provisioned.
+  enabled: false
+  host: hyperidle.org
+  rateLimit: 20
+
+# Drizzle table migrations run as an init-container on every deploy (additive
+# only — old pods keep serving during rollout). drizzle-kit reads DATABASE_URL
+# and applies framework/db/drizzle/*.sql against the tenant schema.
+migration:
+  enabled: true
+  # Custom runner (not drizzle-kit) — the schema-scoped tenant role can't
+  # CREATE SCHEMA, so the tracking table is created in the search_path schema.
+  command: ["npx", "tsx", "framework/db/src/migrate-pg.ts"]
+
+# Extra plain (non-secret) env. Profile is baked into the image but pinned here
+# too so it's visible/overridable. DATABASE_URL + HYPERIDLE_API_KEY come from
+# secrets and are wired in the deployment template, not here.
+env:
+  - name: HYPERIDLE_PROFILE
+    value: "cloud"
+
+resources:
+  requests:
+    cpu: 150m
+    memory: 384Mi
+  limits:
+    cpu: "1"
+    memory: 768Mi
+
+probes:
+  readiness:
+    path: /api/health
+  liveness:
+    path: /api/health

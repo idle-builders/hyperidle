@@ -1,79 +1,96 @@
 # Harness Coverage Enforcement
 
-Every harness-facing integration test must cover the full supported harness matrix. Two independent gates enforce this: a lint coverage rule that blocks source declaring fewer than the full set, and an attestation symmetry floor that blocks an attestation whose tagged per-harness execution counts are unequal or missing.
+Every harness-facing integration test must cover the full supported harness matrix. **One gate enforces this**: the attestation harness-symmetry floor, which blocks an attestation whose tagged per-harness execution counts are unequal or missing. There is no source-level check — see [No source-level gate](#no-source-level-gate).
+
+> **The floor is near-blind today.** `isHarnessIntegrationPath` matches **1 of the 12** files that call `requireHarness`. Read [The floor's blind spot](#the-floors-blind-spot) before treating a green attestation as coverage evidence.
 
 The completed/not-returned outcome split below rides the return-gate mechanics — see [return-gate-enforcement.md](return-gate-enforcement.md). The run-on-host execution model and sandbox capture seam live in [run-unit-model.md](../architecture/run-unit-model.md). Day-to-day test commands and the affected-slice verify flow live in [guides/developer/testing.md](../guides/developer/testing.md), which links here for mechanism depth.
 
-Harness/session error classes live in `packages/shared/src/errors.ts`. `CostCapExceededError` is Money-axis only — its payload is `(entityId, spend, cap)` with no axis field; no TokenUsage cap enforcement exists.
+Harness/session error classes live in `framework/shared/src/errors.ts`.
 
 ---
 
 ## Supported harness matrix
 
-`SUPPORTED_HARNESSES` in `scripts/lib/honest-harness-predicate.ts:37` is the single source of truth:
+`SUPPORTED_HARNESSES` in `scripts/lib/honest-harness-predicate.ts` is the single source of truth — **five** harnesses:
 
 ```ts
-export const SUPPORTED_HARNESSES = ["builtin", "claude", "codex", "opencode"] as const;
+export const SUPPORTED_HARNESSES = [
+	"builtin",
+	"claude",
+	"codex",
+	"opencode",
+	"cursor-agent",
+] as const;
 ```
 
-`gh` is a tool, not an agent harness. `cursor-agent` is inert (not spawnable). Neither is in the matrix.
+`gh` is a tool, not an agent harness, and is deliberately outside the matrix.
 
-`packages/server/src/harness/__tests__/require-harness.ts:38-47` mirrors this as a compile-time-checked literal (a bidirectional type assert — `_AssertSupportedInHarness` / `_AssertHarnessCoversSupported`). `packages/` cannot import `scripts/`; the mirror keeps both in lockstep without a package-graph cycle. Divergence is a `npm run check` error.
-
----
-
-## Gate 1 — lint coverage rule (`honest-harness-guard.ts`)
-
-`scripts/honest-harness-guard.ts --check` runs as part of `npm run lint` (package.json:30). For every harness-facing `*.integration.test.ts` it:
-
-1. Identifies harness-facing files via `isHarnessIntegrationPath` (`scripts/lib/honest-harness-predicate.ts:78-83`).
-2. Checks for stub/mock patterns (scripted/mock adapter construction, hand-rolled `implements HarnessAdapter`, adapter-returning factories, `vi.mock` of harness seams or the llm-client).
-3. **Coverage rule:** asserts every member of `SUPPORTED_HARNESSES` appears as a real `requireHarness("<name>")` call. Comments and string literals are blanked before matching — only an actual call in non-comment code counts. Missing members are named in the failure (`honest-harness-guard.ts:231`).
-4. **Model-seam rule (AR7):** bans imports of the raw model-callers (`cli-harness-adapter`, `builtin-harness-adapter`, `llm-client`) in harness-facing tests — drive the harness via the seam factories (`runThroughHarness` / `lockedHarnessAdapter`); the model is locked in `HARNESS_TEST_MODELS`.
-
-A file declaring only a subset of the harnesses fails lint — "subset coverage is still a false green" is a build error, not a code-review concern.
-
-**Staged debt:** files not yet converted to full-matrix coverage are listed in `scripts/coverage-debt.allowlist.json` (6 files remain). The stub-debt allowlist `scripts/honest-harness-guard.allowlist.json` is empty — all stub conversions are done. Adding a file to either requires a deliberate edit.
+`layers/agent-execution/harness-registry/src/__tests__/require-harness.ts` mirrors this as a compile-time-checked literal (a bidirectional type assert — `AssertSupportedInHarness` / `AssertHarnessCoversSupported`). A package cannot import `scripts/`; the mirror keeps both in lockstep without a package-graph cycle. Divergence is a `npm run check` error.
 
 ---
 
-## Gate 2 — attestation harness-symmetry floor (`agenticExecutedByHarness`)
+## The gate — attestation harness-symmetry floor
 
-`scripts/verify-attest.ts` parses `vitest --reporter=json` output and produces a signed attestation under `.verify-attestations/` (verify-attest.ts:46). The attestation writer adds:
+`scripts/verify-attest.ts` parses `vitest --reporter=json` output and produces a signed attestation under `.verify-attestations/`. The attestation writer adds:
 
-- **`agenticExecutedByHarness`** — a `Record<string, { executed: number; skipped: number }>` keyed by the `[harness:<name>]` describe-title tag (verify-attest.ts:161-200).
+- **`agenticExecutedByHarness`** — a `Record<string, { executed: number; skipped: number }>` keyed by the `[harness:<name>]` describe-title tag.
 
-`scripts/check-attestation.ts:219-231` calls **`assertHarnessSymmetry`** (`scripts/lib/attestation-floor.ts:181`; the older `assertPerHarnessFloor` is `@deprecated since AT1`). Three cases:
+`scripts/check-attestation.ts` calls **`assertHarnessSymmetry`** (`scripts/lib/attestation-floor.ts`). Three cases:
 
 1. `agenticExecuted === 0` → **pass**. The numeric count is zero — typical when no harness-facing file was in the changed set; the condition is purely numeric, not a file-change check.
 2. `agenticExecuted > 0` with no `[harness:X]` buckets → **fail** (untagged guard). A harness-facing test ran but bucketed nothing per harness; tag it before it can count as coverage.
 3. Tagged buckets present → **pass iff every supported harness has the same positive executed count**. A zero-count harness means one was silently dropped; unequal counts mean a harness-specific probe inflated a bucket. Harness-specific, transport-only, or admission-only probes must stay parity-neutral — untagged, outside the parity floor.
 
+`assertPerHarnessFloor` in the same file is the superseded AR2 form, retained only for its own tests.
+
 ### How the tag is parsed
 
-Each harness lane's describe title begins with its tag:
+Each harness lane's describe title carries its tag:
 
 ```ts
-describe(`[harness:builtin] Suite`, () => { … })
-describe(`[harness:claude] Suite`, () => { … })
-describe(`[harness:codex] Suite`, () => { … })
-describe(`[harness:opencode] Suite`, () => { … })
+describe("[harness:builtin]", () => { … })
+describe("[harness:claude]", () => { … })
+describe("[harness:codex]", () => { … })
+describe("[harness:opencode]", () => { … })
+describe("[harness:cursor-agent]", () => { … })
 ```
 
-The floor reads the `ancestorTitles` array from the vitest JSON reporter — the tag lives on the describe block, not the leaf test title. `HARNESS_TAG = /\[harness:([a-z-]+)\]/` (attestation-floor.ts:68) extracts the harness name and routes each assertion into its bucket.
-
-In `SUPPORTED_HARNESS_LANES` the `describeTag` sits co-located with `harnessName` in each lane entry, so the tag and the `requireHarness` gate name the same harness — a typo in one is visible as an inconsistency in the other.
+The floor reads the `ancestorTitles` array from the vitest JSON reporter — the tag lives on the describe block, not the leaf test title. `HARNESS_TAG = /\[harness:([a-z-]+)\]/` (`attestation-floor.ts`) extracts the harness name and routes each assertion into its bucket.
 
 ---
 
-## How the two gates interlock
+## The floor's blind spot
 
-| Gate | What it checks | When it fires |
-|---|---|---|
-| Lint coverage rule | Source declares `requireHarness` for every supported harness; no stubs; locked model seam | `npm run lint` |
-| Attestation symmetry floor | When harness tests ran, every supported harness executed the same positive tagged count | `npm run verify` → `check-attestation.ts` |
+**The floor can only see files that `isHarnessIntegrationPath` matches, and it matches almost nothing.**
 
-Lint gates the source; attestation gates execution. A subset-covered test cannot pass lint, and a full-coverage test whose lanes silently skip (or run lopsided) cannot mint a green attestation.
+The predicate has two arms:
+
+1. a directory rule — `…/harness/__tests__/<anything>.integration.test.ts`
+2. an explicit list, `EXPLICIT_HARNESS_INTEGRATION`, matched by path suffix
+
+**The directory rule matches ZERO files.** The harness code lives at `layers/agent-execution/harness-registry/src/__tests__/`, which has no `/harness/` path segment. So the predicate identifies exactly **one** of the twelve files that call `requireHarness` — `assistant-reply-live-harness.integration.test.ts`, via the explicit list.
+
+The consequence: the attestation floor can prove that one file's lanes executed, and nothing else. Every other harness-facing test is invisible to it. A supported harness could stop running in eleven of the twelve files and the attestation would still be green.
+
+This broke when the packages moved, not when the source-level guard was deleted. It is a **false-green risk, not a cosmetic defect**, and it is registered as AU27 review follow-up **N12**. It is also recorded in the code as `@lore harness-predicate-blind` in `scripts/lib/honest-harness-predicate.ts`.
+
+The fix is to re-derive the rule from something that survives a package move — not to patch the regex at a new path.
+
+---
+
+## No source-level gate
+
+Nothing checks harness-facing test *source* any more. `npm run lint` runs biome, eslint, and `scripts/governance-lint.ts` (twice — once against its fixtures, once against the live tree). No lint step reads a harness test for coverage, stubs, or model-seam imports.
+
+Concretely, none of the following exist: a coverage rule asserting every `SUPPORTED_HARNESSES` member appears as a real `requireHarness(…)` call; a stub/mock detector for harness seams; an import ban on the raw model-callers; a coverage-debt or stub-debt allowlist.
+
+So these remain true as rules and are enforced by review alone:
+
+- A harness-facing `*.integration.test.ts` drives the real installed binary — no scripted, mocked, or hand-rolled adapter.
+- It gates with `requireHarness(<name>)`, never `skipIf`-on-absent.
+- It covers every supported harness. Subset coverage is still a false green.
+- It takes its model from the locked matrix, not from a hand-written `resolvedModel` literal.
 
 ---
 
@@ -85,89 +102,82 @@ Lint gates the source; attestation gates execution. A subset-covered test cannot
 |---|---|---|
 | builtin | `deepseek/deepseek-v4-flash` | OpenRouter, `OPENROUTER_API_KEY` |
 | claude | `haiku` | Smallest claude tier; inherited keychain login |
-| codex | `gpt-5.4-mini` | ChatGPT-account floor — nano is API-key-only and rejected; enforced via `--model {{model}}` in `CLI_TOOL_CONFIGS.codex.args` (adapter-pool.ts:390) |
+| codex | `gpt-5.4-mini` | ChatGPT-account floor — nano is API-key-only and rejected; enforced via `--model {{model}}` in `CLI_TOOL_CONFIGS.codex.args` |
 | opencode | `openrouter/z-ai/glm-4.7-flash` | Provider-prefixed; `--model` requires the `openrouter/` prefix |
+| cursor-agent | `auto` | Cursor's default/cheapest routing tier |
 
-All four are argument/request-enforced. Consume via `harnessTestResolvedModel(harness)` or `lockedHarnessAdapter(harness)`; the guard's model-seam rule blocks any path around the lock.
+All five are argument/request-enforced. Consume via `harnessTestResolvedModel(harness)`, which resolves provider, model, base URL, and key from this map. `apiKeyEnv: null` entries (claude, codex, cursor-agent) authenticate through the installed CLI's own keychain login and resolve an empty `apiKey` on purpose — a non-empty placeholder would inject a garbage env var into the subprocess and risk overriding native auth.
+
+Nothing statically prevents a test from hand-writing a raw `resolvedModel` literal. That gap is accepted: catching it would need brittle model-id string-matching. An off-matrix literal is an obvious, isolated red flag in review.
 
 ---
 
-## The 4-harness matrix tests
+## The harness-facing tests
 
-`packages/server/src/harness/__tests__/real-session-provisioning.integration.test.ts` satisfies both gates for all four harnesses. It drives each through production `provisionSession()` and is the reference implementation for other matrix tests.
+Twelve files call `requireHarness`. What each covers:
 
-`packages/server/src/__tests__/bet-decomposition-real-agent.integration.test.ts` drives each harness through the production **decomposition** path — `runBetDecomposition` Branch 3 (`runRealPmTurn`) — not through `provisionSession`. A distinct seam: one proves a real session runs to completion under each harness, the other proves a real agent decomposes a bet and the tasks land in the DB. The helpers are deliberately not unified.
-
-### Reusable matrix helpers
-
-`packages/server/src/harness/__tests__/provision-real-session.ts` exports:
-
-| Export | Purpose |
+| File | Harnesses |
 |---|---|
-| `SUPPORTED_HARNESS_LANES` | Canonical four-lane table — each lane carries `harnessName`, `describeTag`, and a `prepFn` that provisions per-harness auth, adapter, and params |
-| `runThroughHarness(lane, ctx)` | Loop runner: calls `prepFn`, creates a `SandboxCapture`, assembles `ProvisionSessionDeps`, calls `provisionSession`, returns `{ result, cap }` |
-| `createSandboxCapture()` | Capture handle for the `onBeforeTeardown` seam |
-| `startMcpBridgeServer()` | Ephemeral MCP bridge server on a random port (CLI lanes need it) |
-| `provisionClaudeSandbox()` | Provisions `.mcp.json` + `.claude/settings.json` in a sandbox for the claude lane |
-| `provisionCodexHome()` | Copies `auth.json` + `config.toml` into `.codex-home/` (NOT SQLite files — they cause file-lock exits) |
-| `provisionOpencodeHome()` | Copies `auth.json` into `.opencode-data/opencode/` for XDG isolation (opencode's global SQLite DB deadlocks concurrent processes) |
-| `initGitRepo()` | Creates an empty git repo in the sandbox (`codex exec` requires a git repo cwd) |
-| `lockedHarnessAdapter(harness)` | Direct adapter locked to `HARNESS_TEST_MODELS` — the sanctioned alternative to raw adapter imports |
+| `layers/core-api/src/__tests__/assistant-reply-live-harness.integration.test.ts` | all five |
+| `layers/core-api/src/__tests__/real-harness-return-enforcement-realbinary.integration.test.ts` | all five |
+| `layers/core-api/src/__tests__/AL7-two-session-trust-first.integration.test.ts` | all five |
+| `layers/agent-execution/harness-registry/src/__tests__/AM2-real-harness-discovery.integration.test.ts` | all five |
+| `layers/agent-execution/harness-registry/src/__tests__/cli-adapter-real-binary.integration.test.ts` | claude, codex, opencode, cursor-agent |
+| `layers/agent-execution/harness-registry/src/__tests__/AM2-real-harness-session-probe.integration.test.ts` | claude, codex, opencode |
+| `layers/agent-execution/harness-registry/src/__tests__/AN1-real-harness-inherited.integration.test.ts` | claude, codex, opencode (+ `requireBinary("gh")` probe — not a harness) |
+| `layers/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts` | claude, codex, opencode (+ `requireBinary("gh")` probe — not a harness) |
+| `layers/core-api/src/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts` | builtin |
+| `layers/agent-execution/harness-registry/src/__tests__/AM2-builtin-gateway.integration.test.ts` | builtin |
+| `layers/agent-execution/harness-registry/src/__tests__/opencode-model-probe.integration.test.ts` | opencode |
+| `layers/agent-execution/harness-registry/src/__tests__/ar1-require-harness.test.ts` | none — it is the unit test *of* `requireHarness` |
 
-**Adoption pattern:**
+Four of them emit `[harness:X]` tags and so reach the parity floor: the two `core-api` five-harness files, `AL7-two-session-trust-first`, and `AU9-assistant-handoff-realbinary` (builtin only). Of those, only `assistant-reply-live-harness` is visible to the predicate — see [the blind spot](#the-floors-blind-spot).
 
-```ts
-import { SUPPORTED_HARNESS_LANES, runThroughHarness, startMcpBridgeServer } from "./provision-real-session.js";
-import { requireHarness } from "./require-harness.js";
+### Adoption pattern
 
-const bridge = await startMcpBridgeServer();
-
-for (const lane of SUPPORTED_HARNESS_LANES) {
-  describe(`${lane.describeTag} Suite name`, () => {
-    requireHarness(lane.harnessName);
-    test("real session runs", async ({ db, eventBus }) => {
-      const tmpDir = /* per-test scratch dir */;
-      await seedDomain(db, { taskId, agentId, taskDescription, doneCondition });
-      const { result, cap } = await runThroughHarness(lane, { db, eventBus, tmpDir, bridge });
-      expect(["completed", "not_returned"]).toContain(result.outcome);
-    });
-  });
-}
-```
-
-**Decomposition pattern — use `decompositionDepsForLane`, not `runThroughHarness`:**
-
-For tests that drive the real decomposition path, use `provision-real-decomposition.ts`. It builds a real `AdapterPool` per lane and deliberately omits the `runDecompositionTurn` override, forcing Branch 3 (`runRealPmTurn`).
+There is no shared lane table and no loop. A matrix test writes **one explicit tagged describe per harness**, each gating itself with `requireHarness` at describe scope, and all delegating to one shared proof function that takes the harness name:
 
 ```ts
-import { SUPPORTED_HARNESS_LANES } from "./provision-real-session.js";
-import { decompositionDepsForLane } from "./provision-real-decomposition.js";
-import { requireHarness } from "./require-harness.js";
+import { harnessTestResolvedModel, requireHarness } from "…/__tests__/require-harness.js";
 
-for (const lane of SUPPORTED_HARNESS_LANES) {
-  describe(`${lane.describeTag} Suite name`, () => {
-    requireHarness(lane.harnessName);
-    test("real agent decomposes bet", async ({ db, eventBus }) => {
-      const tmpDir = /* per-test scratch dir */;
-      await seedDomain(db, { agentId, teamId, betId });
-      const deps = await decompositionDepsForLane(lane, { db, eventBus, tmpDir });
-      await runBetDecomposition(betId, deps);
-      const bet = await db.query.bets.findFirst({ where: eq(bets.id, betId) });
-      expect(bet?.decompositionStatus).toBe("done");
-      const tasks = await db.query.tasks.findMany({ where: eq(tasks.betId, betId) });
-      expect(tasks.length).toBeGreaterThanOrEqual(1);
-    });
+async function runProof(harness: SupportedHarnessName, db: HyperIdleDb) {
+  const result = await runSession({
+    …deps,
+    resolvedModel: harnessTestResolvedModel(harness),
   });
+  expect(["completed", "not_returned"]).toContain(result.outcome);
 }
+
+describe("[harness:builtin]", () => {
+  requireHarness("builtin");
+  dbTest("… on builtin …", async ({ db }) => runProof("builtin", db), 180_000);
+});
+
+describe("[harness:claude]", () => {
+  requireHarness("claude");
+  dbTest("… on claude-code …", async ({ db }) => runProof("claude", db), 180_000);
+});
+
+// … one more each for codex, opencode, cursor-agent
 ```
 
-The assertion is fail-closed: `runRealPmTurn` returns `[]` on an empty or unparseable model response → bet marked `blocked/empty` → the `"done"` check fails.
+Spelling the lanes out is deliberate: the tag is a literal the floor can read, and `requireHarness` sits at describe scope so a collection-phase throw means that lane cannot run. Each lane needs a generous timeout — a real binary plus a real model round trip runs 30–90s.
+
+`layers/core-api/src/__tests__/assistant-reply-live-harness.integration.test.ts` is the reference implementation.
+
+---
+
+## `BUILTIN_ONLY_INTEGRATION` carve-out
+
+`BUILTIN_ONLY_INTEGRATION` in `scripts/lib/honest-harness-predicate.ts` registers files whose production path is genuinely builtin-only by construction. A file on this list is exempted from the full-matrix coverage expectation, but must still declare `requireHarness("builtin")`, carry zero stubs, and use no `skipIf`-on-absent gate.
+
+**The list is empty — keep it empty** unless a future production path structurally cannot run CLI harnesses and still must be tested as a harness-facing integration. The assistant turn is not such a case: it runs through the same durable poller as every other agent kind and is proven across all five harnesses by `assistant-reply-live-harness.integration.test.ts`.
 
 ---
 
 ## Known honest behavior differences across harnesses
 
-Findings surfaced by real matrix runs:
+Findings surfaced by real matrix runs.
 
 ### `builtin` + `claude` → `completed`; `codex` + `opencode` → `not_returned` (on file-write tasks)
 
@@ -180,60 +190,21 @@ expect(result.outcome).not.toBe("crashed"); // a crash = stub or binary failure
 
 A `"crashed"` outcome on any harness is an unconditional hard fail — a real run does not crash.
 
-### Codex cost always 0
+### Harness telemetry is token usage, not cost
 
-Codex emits `turn.completed` with a `usage` block, not the claude-stream-json `result` event with `total_cost_usd`. `CliHarnessAdapter` captures cost on `type === "result"` (cli-harness-adapter.ts:999-1004) — so `totalCostCents` is always `0` for codex; the `costField: "total_cost_usd"` in `CLI_TOOL_CONFIGS.codex` is vestigial. Never assert `totalCostCents > 0` for codex. (opencode cost IS now additionally extracted from `step_finish` events — cli-harness-adapter.ts:1021 — so the codex-only caveat does not generalize to all CLI harnesses.)
+Adapters record token counts, never a cost figure. `CliHarnessAdapter` captures claude-family metrics on the terminal `type === "result"` line and opencode metrics on `step_finish`, and both feed `recordTokenUsage`. Never assert a per-session cost from harness telemetry.
 
-### opencode `tool_use` event mapping (fixed in event normalization)
+### opencode `tool_use` event mapping
 
-opencode emits tool calls on a `tool_use` event; `packages/shared/src/harness/harness-event-normalization.ts:166-176` maps `tool_use` → `tool_call` for opencode so `isReturnAction` receives the tool name and the return gate fires.
+opencode emits tool calls on a `tool_use` event; `framework/shared/src/harness/harness-event-normalization.ts` maps `tool_use` → `tool_call` for opencode so `isReturnAction` receives the tool name and the return gate fires.
 
-### opencode completion text lives in `part.text` (fixed in event normalization)
+### opencode completion text lives in `part.text`
 
-opencode's completion events carry text in `event.part.text`, not `event.text`. The normalizer reads `event.part?.text ?? event.text` (harness-event-normalization.ts:205-216) — without this, every opencode completion normalized to an empty string.
+opencode's `text` events carry content in `event.part.text`, not `event.text`. The normalizer reads `part.text` — without this, every opencode completion normalized to an empty string. `step_finish` carries only metadata (reason, tokens), no output field.
 
 ### CLI harnesses emit multiple completion events per session
 
-Init/system lifecycle events produce empty completions, intermediate blocks carry partial text, the final `result` event carries the full response. Code that returns on the first completion event receives `""` and triggers `blocked/empty`. Always take the **last non-empty** completion — `drainForCompletion` in `packages/server/src/services/bet-decomposition.ts:706` implements this; the `runThroughHarness` session path drains the MCP return action instead and is unaffected.
-
----
-
-## `BUILTIN_ONLY_INTEGRATION` carve-out
-
-`BUILTIN_ONLY_INTEGRATION` in `scripts/lib/honest-harness-predicate.ts:68` registers files whose production path is genuinely builtin-only by construction. A file on this list:
-
-- Is **exempted** from the 4-harness coverage rule (Gate 1).
-- **Still enforced** for: (a) `requireHarness("builtin")` declared, (b) zero stubs / no `vi.mock` of harness seams, (c) no `skipIf`-on-absent gates.
-
-**The list is empty — keep it empty** unless a future production path structurally cannot run CLI harnesses and still must be tested as a harness-facing integration. The assistant turn is not such a case: it runs through the same `provisionSession`/durable poller path as every other agent kind (real sandbox, MCP bridge, all four harnesses), proven end-to-end by `assistant-reply-live-harness.integration.test.ts`.
-
-**Why not the coverage-debt allowlist?** `coverage-debt.allowlist.json` means "below 4 harnesses _temporarily_, will reach 4." A builtin-only path will _never_ reach 4 — listing it there would be a permanent lie. The carve-out states a structural truth; the allowlist states a temporary debt.
-
----
-
-## Dispatch to real agent
-
-Task-dispatcher and session-route happy paths run against real harnesses through the production dispatch pipeline:
-
-`transitionTask(db, eventBus, taskId, "accepted")` → `drainQueue` → `resolveProvisionSession()` (registry-injected `provisionSession`, `packages/fabric/src/services/task-dispatcher.ts:185`) → real `HarnessAdapter` → `endSession` teardown.
-
-**Production touch:** `TaskDispatcherDeps` carries an optional `onBeforeTeardown` field (additive, task-dispatcher.ts:120). `drainQueue` threads it into the `provisionSession` deps so the dispatched agent's sandbox is observable via `createSandboxCapture` — the capture fires after drain, before teardown deletes the sandbox.
-
-**Real trigger, not seeded `in_progress`:** dispatcher tests use `transitionTask(..., "accepted")` as the real entry — never a seeded `state:"in_progress"` row.
-
-**Honest floor (matches the real-session baseline):** `builtin` + `claude` reliably reach `outcome="completed"`; `codex` + `opencode` reach `outcome="not_returned"` (real billable work, no MCP return call). `"crashed"` on any lane is an unconditional hard fail.
-
-### Consolidated matrix tests
-
-| File | Role |
-|---|---|
-| `session-dispatch-wiring.integration.test.ts` | Accepted task → dispatcher → real session row |
-| `nonblocking-session-creation.integration.test.ts` | `POST /api/sessions` returns 202 and the real run reaches terminal state |
-| `provisioning-single-tool-execution.integration.test.ts` | Real agent tool call executes exactly once |
-| `session-cost-per-step-delta.integration.test.ts` | Real session cost delta is persisted correctly |
-| `assistant-reply-live-harness.integration.test.ts` | An assistant turn's reply reaches the calling thread via the agent's own `reply` tool call, across all harnesses |
-| `minimal-strategy-session.integration.test.ts` | Real session runs under the real minimal strategy |
-| `bet-decomposition-real-agent.integration.test.ts` | Real agent decomposes a bet and persists tasks |
+Init/system lifecycle events produce empty completions, intermediate blocks carry partial text, the final event carries the full response. Code that returns on the first completion event receives `""`. Always take the **last non-empty** completion.
 
 ---
 
@@ -241,16 +212,11 @@ Task-dispatcher and session-route happy paths run against real harnesses through
 
 | File | Role |
 |---|---|
-| `scripts/lib/honest-harness-predicate.ts` | `SUPPORTED_HARNESSES` + `isHarnessIntegrationPath` + `BUILTIN_ONLY_INTEGRATION` |
-| `scripts/honest-harness-guard.ts` | Lint rule: stub check + coverage check + model-seam import ban |
-| `scripts/coverage-debt.allowlist.json` | Files not yet converted to full-matrix coverage (6 remain) |
-| `scripts/honest-harness-guard.allowlist.json` | Stub-conversion debt — empty |
-| `scripts/lib/attestation-floor.ts` | `extractAgenticCounts` + `assertHarnessSymmetry` (live); `assertPerHarnessFloor` deprecated |
+| `scripts/lib/honest-harness-predicate.ts` | `SUPPORTED_HARNESSES` + `isHarnessIntegrationPath` + `EXPLICIT_HARNESS_INTEGRATION` + `BUILTIN_ONLY_INTEGRATION`. Carries the `@lore harness-predicate-blind` defect note. |
+| `scripts/lib/attestation-floor.ts` | `extractAgenticCounts` + `assertHarnessSymmetry` (live); `assertPerHarnessFloor` superseded |
 | `scripts/verify-attest.ts` | Writes `agenticExecutedByHarness` into a signed attestation under `.verify-attestations/` |
 | `scripts/check-attestation.ts` | Calls `assertHarnessSymmetry` on `agenticExecutedByHarness` |
-| `packages/server/src/harness/__tests__/require-harness.ts` | `requireHarness` hard-fail helper; mirrors `SUPPORTED_HARNESSES`; `HARNESS_TEST_MODELS` + `harnessTestResolvedModel` |
-| `packages/server/src/harness/__tests__/provision-real-session.ts` | `SUPPORTED_HARNESS_LANES` + `runThroughHarness` + `lockedHarnessAdapter` + provisioning helpers |
-| `packages/server/src/harness/__tests__/real-session-provisioning.integration.test.ts` | Reference four-harness matrix test |
-| `packages/server/src/harness/__tests__/provision-real-decomposition.ts` | `decompositionDepsForLane` — real `AdapterPool` per lane, forces Branch 3 by omitting the `runDecompositionTurn` override |
-| `packages/server/src/__tests__/bet-decomposition-real-agent.integration.test.ts` | 4-harness decomposition matrix test — ≥1 persisted task + `decompositionStatus=done` from a real agent |
-| `packages/fabric/src/services/task-dispatcher.ts` | `TaskDispatcherDeps.onBeforeTeardown` (additive optional field) |
+| `layers/agent-execution/harness-registry/src/__tests__/require-harness.ts` | `requireHarness` hard-fail helper; mirrors `SUPPORTED_HARNESSES`; `HARNESS_TEST_MODELS` + `harnessTestResolvedModel` |
+| `layers/core-api/src/__tests__/assistant-reply-live-harness.integration.test.ts` | Reference five-harness matrix test; the only file the predicate matches |
+| `layers/agent-execution/harness-registry/src/cli-harness-adapter.ts` | `CLI_TOOL_CONFIGS`, per-family metric extraction |
+| `framework/shared/src/harness/harness-event-normalization.ts` | Per-family event pre-maps: `tool_use` → `tool_call`, `part.text` extraction |

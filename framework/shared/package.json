@@ -1,0 +1,31 @@
+{
+	"name": "@hyperidle/shared",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./crypto": "./src/crypto/index.ts",
+		"./git": "./src/git/git-runner.ts",
+		"./http": "./src/http/index.ts",
+		"./net": "./src/net/ssrf.ts",
+		"./observability": "./src/observability/index.ts"
+	},
+	"scripts": {
+		"check": "tsc --noEmit"
+	},
+	"devDependencies": {
+		"jsdom": "^29.0.0",
+		"vitest": "^4.1.9"
+	},
+	"dependencies": {
+		"@hono/zod-validator": "^0.9.0",
+		"@noble/hashes": "^2.2.0",
+		"hono": "^4.12.27",
+		"github-slugger": "^2.0.0",
+		"remark-gfm": "^4.0.1",
+		"remark-parse": "^11.0.0",
+		"unified": "^11.0.5",
+		"zod": "^4.3.6"
+	}
+}

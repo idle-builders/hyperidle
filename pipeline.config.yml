@@ -6,17 +6,24 @@
 # The single command that must pass before a work package can ship.
 verify: "npm run verify"
 
-# Where the code lives. Monorepo: source + tests live under packages/*.
+# Where the code lives. Monorepo: source + tests live under the role roots
+# (layers/, framework/, applications/, tools/).
 paths:
-  source: ["packages/*/src/**", "packages/*/viewer/**"]
+  source:
+    - "layers/*/src/**"
+    - "layers/*/*/src/**"
+    - "framework/*/src/**"
+    - "framework/*/viewer/**"
+    - "applications/*/src/**"
+    - "tools/*/src/**"
   tests: ["**/*.test.ts", "**/*.test.tsx"]
   docs: ["docs/**"]
 
 # The design system that /design, /design-critique, /human-concept-review, and
 # /visual-polish render and score against.
 designSystem:
-  path: "packages/design-system"
-  tokens: "packages/design-system/src/tokens.css"
+  path: "framework/design-system"
+  tokens: "framework/design-system/src/tokens.css"
 
 # Version control + where /ship opens PRs and waits for CI.
 vcs: github

@@ -1,18 +1,15 @@
 /**
  * Single-sourced PATH-ONLY predicate for "is this a harness-facing
  * integration test?", plus the canonical agent-harness matrix constant.
- * SUPPORTED_HARNESSES is the single source of truth for the coverage check
- * in honest-harness-guard.ts and the per-harness floor in verify-attest.ts /
- * check-attestation.ts.)
  *
- * Two consumers share this one source of truth:
- *   1. scripts/honest-harness-guard.ts — selects which files to static-check.
- *   2. scripts/verify-attest.ts attestation floor — selects which vitest JSON
- *      file-results count toward the agentic executed/skipped tally.
+ * One consumer today: `scripts/verify-attest.ts`'s attestation floor, which uses it to
+ * select which vitest JSON file-results count toward the agentic executed/skipped tally.
+ * `SUPPORTED_HARNESSES` is additionally read by `scripts/check-attestation.ts` for the
+ * per-harness symmetry floor.
  *
  * Path-only because the floor only ever sees file PATHS from the vitest
  * `--reporter=json` output (no source). A source-import predicate cannot work
- * for the floor, so both consumers must agree on a path-only rule.
+ * for the floor, so any consumer must agree on a path-only rule.
  *
  * @lore harness-integration-path: A file is harness-facing integration iff it lives in a
  *   `harness/__tests__/` directory with the `.integration.test.ts` suffix, OR it
@@ -21,18 +18,28 @@
  *   harness dir — e.g. it needs the `{db,app}`-shaped core-api composition).
  *   The `.integration.test.ts` suffix (not `.test.ts`) is load-bearing: it excludes
  *   the legitimately-stubbing `*.test.ts` units that share the harness dir.
+ *
+ * @lore harness-predicate-blind: KNOWN DEFECT, registered as AU27 review follow-up N12.
+ *   The `harness/__tests__/` directory rule matches ZERO files in the current tree — the
+ *   harness code lives at `layers/agent-execution/harness-registry/src/__tests__/`, which
+ *   has no `/harness/` path segment. So the predicate identifies exactly ONE of the twelve
+ *   files that call `requireHarness`, via the explicit list. The attestation floor is
+ *   therefore near-blind: it can only prove that one file's lanes executed. This broke when
+ *   the packages moved (AU26), not when the guard was deleted (AU28), and it is a
+ *   FALSE-GREEN risk, not cosmetic — the fix is to re-derive the rule from something that
+ *   survives a package move, not to patch the regex at a new path.
  */
 
 /**
  * The agent-harness matrix every harness-facing integration test MUST cover.
- * Single source of truth shared by: the coverage check in honest-harness-guard.ts,
- * the SUPPORTED_HARNESS_LANES table in provision-real-session.ts, and (mirrored —
- * see require-harness.ts) requireHarness. `gh` is a TOOL not an agent harness.
+ * Single source of truth shared by the attestation floors (`verify-attest.ts`,
+ * `check-attestation.ts`) and — mirrored, see `require-harness.ts` — `requireHarness`.
+ * `gh` is a TOOL not an agent harness.
  *
- * @lore supported-harnesses-source: Defined in the predicate lib (the shared path that both the guard
- * AND the attestation floor already import without a package-graph cycle).
- * `packages/` must not import `scripts/` — require-harness.ts mirrors this as a
- * compile-time-checked literal (bidirectional type assert).
+ * @lore supported-harnesses-source: Defined in the predicate lib, the shared path the
+ * attestation floor imports without a package-graph cycle. A package may not import
+ * `scripts/` — `require-harness.ts` mirrors this as a compile-time-checked literal
+ * (bidirectional type assert), which is what keeps the two copies from drifting.
  */
 export const SUPPORTED_HARNESSES = [
 	"builtin",

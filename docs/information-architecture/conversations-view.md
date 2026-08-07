@@ -16,7 +16,7 @@ Shell structure (Sidebar | Main), badges, and the N-shortcut → RecipientPicker
 
 ## Thread list (queue)
 
-`ThreadSections` (`packages/web/src/components/ThreadSections.tsx`) renders the queue.
+`ThreadSections` (`layers/core-ui/src/components/ThreadSections.tsx`) renders the queue.
 
 - **Live mode is flat** — the `/conversations` page mounts `groupBySection={false}` (`Conversations.tsx:717`): one chronological list sorted by `lastActiveAt` DESC. Filter chips were removed (AF14 AC4) — they never matched real state; the `blocking`/`unread` fields stay on `ThreadItem` for forward-compat (AF7).
 - **Sectioned mode** (`groupBySection=true`, component default) groups into three sections — Blocking / Active / Resolved · 24h (`ThreadSections.tsx:101-108`). Classification ladder: resolved within 24h → Resolved; else blocking → Blocking; else Active (`ThreadSections.tsx:113-123`). Sorts: Active = pinned desc → hasUnresolvedReview desc → id asc (`ThreadSections.tsx:132-136`); Resolved = resolvedAt desc. Blocking gets a sticky header, danger tint, and a 3px left danger accent; Blocking and Resolved are silently absent when empty.
@@ -28,7 +28,7 @@ Header: page title + "New thread" button (opens RecipientPicker via AppShell con
 
 The populated state renders `<ConversationSurface>`: thread header · author-grouped Part column (sender, avatar, timestamp) · unified-"+" composer at the bottom. The page derives `Part[]` via `derivePartsFromMessages` (the only Message-aware seam) and routes references through `createOpenHandler` (the OpenTarget → navigate seam) — see [../human-interface-layer/open-contract.md](../human-interface-layer/open-contract.md).
 
-Part renderers (`packages/web/src/components/parts/`):
+Part renderers (`layers/core-ui/src/components/parts/`):
 
 | Part | Rendering |
 |---|---|
@@ -46,7 +46,7 @@ Part-model depth (kinds, derivation, contracts) is owned by [../human-interface-
 
 AM1 relocated the decision UI: the conversation no longer takes a verdict — no verdict POST is reachable from this surface. An unresolved review renders as a `review` Part with a single "Open review" hook → the ReviewPage at `/work/bet/:betId/review/:reviewId` (`router.tsx:88`); a resolved review echoes back as a `resolved` Part (`Conversations.tsx:16-22`). Verdict semantics (Message type, payload, decision set) are unchanged — only the UI moved; they are owned by [../human-interface-layer/thread-primitive.md](../human-interface-layer/thread-primitive.md).
 
-The 5 `ARTIFACT_VIEW_SHAPES` (`packages/shared/src/thread.ts:48-55`) — `text_diff`, `content_preview`, `visual_comparison`, `action_summary`, `data_metrics` — describe how a review-message embed previews; owned by [../process-layer/artifact-primitive.md](../process-layer/artifact-primitive.md). These are distinct from: (1) the L3 Artifact primitive kind, and (2) the 9 AL2 review canvas kinds (`web/src/pages/review/canvas-registry.ts:20-30`: `outcome_summary`, `field_change_set`, `action_operation`, `rendered_in_context`, `metrics_moved`, `visual_diff`, `code_diff`, `batch`, `browser_preview`; unknown input falls back to `ReviewUnknownCanvas`).
+The 5 `ARTIFACT_VIEW_SHAPES` (`framework/shared/src/thread.ts:48-55`) — `text_diff`, `content_preview`, `visual_comparison`, `action_summary`, `data_metrics` — describe how a review-message embed previews; owned by [../process-layer/artifact-primitive.md](../process-layer/artifact-primitive.md). These are distinct from: (1) the L3 Artifact primitive kind, and (2) the 9 AL2 review canvas kinds (`layers/core-ui/src/pages/review/canvas-registry.ts:21-29`: `outcome_summary`, `field_change_set`, `action_operation`, `rendered_in_context`, `metrics_moved`, `visual_diff`, `code_diff`, `batch`, `browser_preview`; unknown input falls back to `ReviewUnknownCanvas`).
 
 ## Session dial-in
 
@@ -54,7 +54,7 @@ A task-hosted thread with an active session shows a "Dial In" button (secondary 
 
 Dialed in, the page renders a companion split: `ConversationSurface` on the left, `SessionActivityPanel` on the right.
 
-`SessionActivityPanel` (`packages/web/src/components/SessionActivityPanel.tsx`):
+`SessionActivityPanel` (`layers/core-ui/src/components/SessionActivityPanel.tsx`):
 
 - Read-only activity stream — tool calls, reasoning excerpts, cost ticks; no input affordances; `aside` landmark.
 - Filter tabs: **All | Tools | Reasoning | Cost**.

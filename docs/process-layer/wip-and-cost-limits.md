@@ -6,15 +6,15 @@ The single cheapest way to ruin an agent factory is to spawn unbounded parallel 
 
 ## Per agent
 
-Each agent has a maximum number of in-progress sessions — WIP limit, **default 1** (`users.maxConcurrentSessions`, schema.ts:51). At the limit, new task assignments queue or get reassigned to a teammate (task-dispatcher.ts skips the agent; `ConcurrencyLimitError`, errors.ts).
+Each agent has a maximum number of in-progress sessions — WIP limit, **default 1** (`agentRunConfig.maxConcurrentSessions`, `framework/db/src/schema.ts`). At the limit, new task assignments queue or get reassigned to a teammate; the dispatcher skips the agent and raises `ConcurrencyLimitError` (`framework/shared/src/errors.ts`).
 
 ## Per team
 
-Each team has a maximum number of parallel tasks (`teamMembers.capacity`, schema.ts — no baked-in formula) and a soft preference for one active bet at a time. Multiple parallel bets are allowed but tracked as *focus on capacity*, not money.
+Each team has a maximum number of parallel tasks (`teamMembers.capacity`, `framework/db/src/schema.ts` — no baked-in formula) and a soft preference for one active bet at a time. Multiple parallel bets are allowed but tracked as *focus on capacity*, not money.
 
 ## Per factory
 
-There is no factory-level cap of any kind. (The former factory Money cap + Cost Sentinel are deleted along with the rest of the cost feature — see the notice above.)
+There is no factory-level cap of any kind.
 
 ## Rationale: why not a duration budget
 

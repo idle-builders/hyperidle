@@ -2,7 +2,7 @@
 
 **TL;DR — No mock data in runtime production code.** Mock data is only legal in tests, stories, fixtures directories, e2e specs, and DB seed scripts. Lint guards fail the build when a runtime file declares or imports mock data, and `npm run mock-inventory:check` (in the verify chain) fails when the offender inventory is stale.
 
-This doc is the canonical human statement of the policy. The machine copy — the closed sets the lint rules and inventory script actually enforce — lives in `packages/eslint-plugin-design/src/mock-data-policy.ts`, which names this doc and embeds its path in lint error messages (`POLICY_DOC_URL`, mock-data-policy.ts:93). **Do not move or rename this file without updating that constant.**
+This doc is the canonical human statement of the policy. The machine copy — the closed sets the lint rules and inventory script actually enforce — lives in `tools/eslint-plugin-design/src/mock-data-policy.ts`, which names this doc and embeds its path in lint error messages (`POLICY_DOC_URL`, mock-data-policy.ts:93). **Do not move or rename this file without updating that constant.**
 
 ---
 
@@ -24,7 +24,7 @@ If any of the three is missing, it's not mock data. See "What is NOT mock data" 
 |---|---|
 | UI vocabulary constants (`HEALTH_DOT`, `SCOPE_LABELS`, `TIME_24H_RE`, tab labels, color maps) | Presentation vocabulary — no system-of-record alternative exists. |
 | Algorithm tuning constants (`DEFAULT_WEIGHTS`, `DEFAULT_RELEVANCE_WEIGHTS`, batch sizes) | Config, not stand-ins. Numeric-literal initializers are exempt from the `DEFAULT_*` guard. |
-| DB seed scripts (`packages/db/src/seed.ts`, `packages/db/src/seed-fixtures.ts`) | Bootstrap the system of record itself. |
+| DB seed scripts (`framework/db/src/seed-fixtures.ts`) | Bootstrap the system of record itself. |
 | Test / story / fixture data | Never ships in the bundle. |
 | Empty-state UI strings (`"No bets yet"`, `"—"`) | Render-time vocabulary, not data. |
 
@@ -32,18 +32,18 @@ If any of the three is missing, it's not mock data. See "What is NOT mock data" 
 
 Mock data is legal in files matching (`mock-data-policy.ts:62-80`):
 
-- Path contains `/__fixtures__/`, `/__tests__/`, or `/e2e/`
+- Path contains `/__fixtures__/`, `/__tests__/`, or `/__e2e__/`
 - Suffix `.test.ts`, `.test.tsx`, `.spec.ts`, `.spec.tsx`, or `.stories.tsx`
 - Basename starts with `seed` (DB bootstrap only)
 
-The surface is verifiable by path alone — no content inspection. Adding a new permitted location means editing `packages/eslint-plugin-design/src/mock-data-policy.ts`, the single source of truth both the ESLint rules and the inventory script import from.
+The surface is verifiable by path alone — no content inspection. Adding a new permitted location means editing `tools/eslint-plugin-design/src/mock-data-policy.ts`, the single source of truth both the ESLint rules and the inventory script import from.
 
 ## Hard rules
 
 1. **No mock data in runtime production code paths.** Enforced by `design/no-mock-data-import` + `design/no-mock-data-symbol` (error-level in `eslint.config.ts`) and the literal-id detector in `scripts/mock-inventory.ts`.
 2. **Every surviving mock instance is tracked with its remediation plan** in `plans/mock-data-purge/follow-ups.md` — the API, table, or context it stands in for.
 3. **Removing a mock removes its fallback.** The pattern `useFoo() ?? FALLBACK_FOO` is forbidden; the UI must render an honest empty / loading / error state when the source is silent.
-4. **The guard is non-bypassable.** Per-line `eslint-disable` for these rules requires a tracking issue id in the comment (enforced by the meta-test in `packages/eslint-plugin-design/src/__tests__/eslint-disable-meta.test.ts`).
+4. **The guard is non-bypassable.** Per-line `eslint-disable` for these rules requires a tracking issue id in the comment (enforced by the meta-test in `tools/eslint-plugin-design/src/__tests__/eslint-disable-meta.test.ts`).
 5. **The inventory is machine-generated.** `scripts/mock-inventory.ts` emits `plans/mock-data-purge/inventory.json`; `npm run mock-inventory:check` (in `npm run verify`) exits non-zero when it's stale. PRs that change the offender set must commit the regenerated inventory.
 
 ## Forbidden symbol-name prefixes (in runtime production code)
@@ -62,7 +62,7 @@ The sanctioned fictional name for demo data is **`Acme`** (team id `demo-team-ac
 - Setup-cli demo mode (`--demo` flag)
 - Design mockups needing realistic example content
 
-Any other clearly-fictional placeholder (`ACME Corp`, `Test Team`, `Demo Co`) is fine too — as long as it is not `Nimmly`. Demo-fixture imports are separately guarded by `npm run demo-fixture-guard:check` (import allowlist for `packages/db/src/demo-fixture.ts`, in the verify chain).
+Any other clearly-fictional placeholder (`ACME Corp`, `Test Team`, `Demo Co`) is fine too — as long as it is not `Nimmly`.
 
 ## Forbidden literal-id strings (in runtime production code)
 
@@ -85,7 +85,7 @@ Run the check before pushing; it also runs in `npm run verify`.
 
 ## Cross-references
 
-- Machine copy of the closed sets: `packages/eslint-plugin-design/src/mock-data-policy.ts`
+- Machine copy of the closed sets: `tools/eslint-plugin-design/src/mock-data-policy.ts`
 - Offender tracking: `plans/mock-data-purge/follow-ups.md`, `plans/mock-data-purge/inventory.json`
 - Fixtures import boundary precedent: `eslint.config.ts` block tagged "L16 AC-3"
 - Testing guide: [testing.md](testing.md)

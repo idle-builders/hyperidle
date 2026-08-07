@@ -1,13 +1,13 @@
 ---
 paths:
-  - "packages/web/**/*.tsx"
-  - "packages/web/**/*.ts"
-  - "packages/design-system/src/**/*.tsx"
+  - "layers/core-ui/**/*.tsx"
+  - "layers/core-ui/**/*.ts"
+  - "framework/design-system/src/**/*.tsx"
 ---
 
 # Aesthetic Quality Rules
 
-Required reading before any UI change: `packages/design-system/AESTHETICS.md` (canonical research + recommendations tables), `PRINCIPLES.md` (the Hearth principles + seven universals), `DESIGN.md` (token reference). Values live there; this file lists hard rules only. Rule IDs map 1:1 to the U10/K6 ESLint plugin (`design/no-*`).
+Required reading before any UI change: `framework/design-system/AESTHETICS.md` (canonical research + recommendations tables), `PRINCIPLES.md` (the Hearth principles + seven universals), `DESIGN.md` (token reference). Values live there; this file lists hard rules only. Rule IDs map 1:1 to the U10/K6 ESLint plugin (`design/no-*`).
 
 ## Hard rules
 
@@ -38,7 +38,7 @@ Lints under `design/no-ai-aesthetic`. Three or more screenshot-detectable tells 
 - **AQ-101** No `rounded-3xl` (24px). `rounded-2xl` (16px) IS permitted — it maps to `--r-default` (the Hearth default card radius). `rounded-full` is always allowed for pills.
 - **AQ-102** No indigo/purple/violet/fuchsia/pink gradient backgrounds.
 - **AQ-103** No oversized padding (`p-8`/`p-10`/`p-12`/`p-14`/`p-16`) outside hero/expressive contexts. Hearth's maximum layout grid value is `--space-16` (48px); padding above 24px is for page-level section separation only.
-- **AQ-104** No hero sections in `packages/web/src/pages/work/**`.
+- **AQ-104** No hero sections in `layers/core-ui/src/pages/work/**`.
 - **AQ-105** No emoji as iconography in `Button`/`NavItem`/`StatusChip` text.
 - **AQ-106** No page-level `text-center` / `mx-auto` on body content (allow inside `EmptyState`/`Modal`/`Dialog`/`Toast`).
 - **AQ-107** No glass morphism (`backdrop-blur`, translucent card chrome) in productivity components.

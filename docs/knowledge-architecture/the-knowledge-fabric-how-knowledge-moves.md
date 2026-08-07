@@ -8,7 +8,7 @@ The right model is **projection, not collaboration**. One canonical store. Two p
 
 ## 1. The storage split at a glance
 
-One canonical store: the `knowledge_items` table (`packages/db/src/schema.ts:580`) — Postgres, via embedded PGlite locally or postgres-js on a server. Projection fields (layer, kind, scores) live on the companion `knowledge_strategy_fabric` extension table, not the kernel table; store semantics are owned by [the-canonical-store.md](the-canonical-store.md).
+One canonical store: the `knowledge_items` table (`framework/db/src/schema.ts:883`) — Postgres, via embedded PGlite locally or postgres-js on a server. Projection fields (layer, kind, scores) live on the companion `knowledge_app_projection` extension table, not the kernel table; store semantics are owned by [the-canonical-store.md](the-canonical-store.md).
 
 App-runtime projects the same rows two ways:
 
@@ -17,35 +17,36 @@ App-runtime projects the same rows two ways:
 | Agents | Plain files in the session sandbox (`context/factory`, `context/product`, `context/practices`) + one TOON pack (`context/session.toon`) |
 | Humans | Knowledge and Work views in the web UI |
 
-Scope maps to layer via `SCOPE_TO_LAYER` (`packages/shared/src/knowledge.ts:25-33`): factory→L4, product→L2, practice→L3, task→L1; bet/team/user carry no layer. The L0–L4 taxonomy is owned by [the-five-layers.md](the-five-layers.md).
+Scope maps to layer via `SCOPE_TO_LAYER` (`framework/shared/src/knowledge.ts:6-14`): factory→L4, product→L2, practice→L3, task→L1; bet/team/user carry no layer. The L0–L4 taxonomy is owned by [the-five-layers.md](the-five-layers.md).
 
 **If a file is human-readable, that means a human will actually read it.** Not "could theoretically read." Will. If no human will ever read it, it has no business being markdown — that's just token waste and version-control noise. Agent-only session state ships as TOON; human-curated knowledge ships as markdown.
 
 ### Knowledge → bet
 
-Promoting a knowledge item into a draft bet (and the forward/reverse edge distinction) is owned by [bets-shape-commit-change-ship.md §5.1](../process-layer/bets-shape-commit-change-ship.md); the forward edge is documented at the `bets.source_knowledge_item_id` schema comment (`schema.ts:186-191`).
+Promoting a knowledge item into a draft bet (and the forward/reverse edge distinction) is owned by [bets-shape-commit-change-ship.md §5.1](../process-layer/bets-shape-commit-change-ship.md); the forward edge is documented at the `bets.source_knowledge_item_id` schema comment (`framework/db/src/schema.ts:180-191`).
 
 ## 2. Projection for humans (Web UI)
 
-The API server reads `knowledge_items` and serves the Knowledge view (`packages/server/src/routes/knowledge.ts`). The kernel API is `/:id`-shaped and layer-free. The UI's scope pills are **All / Shared / Team / Private**, filtering on `scopeKind` (`packages/web/src/utils/scope-labels.ts:47-52`) — not on layer.
+The API server reads `knowledge_items` and serves the Knowledge view (`layers/core-api/src/routes/knowledge.ts`). The kernel API is `/:id`-shaped and layer-free. The UI's scope pills are **All / Shared / Team / Private**, filtering on `scopeKind` (`layers/core-ui/src/utils/scope-labels.ts:55-59`, `SCOPE_PILL_OPTIONS`) — not on layer.
 
-**Body-as-blocks.** `knowledge_items.body` stays markdown text; the Block list is derived on read (`packages/shared/src/blocks/derive-blocks.ts`) with stable derived ids, and per-block discussion anchors via `messages.block_id` (`schema.ts:477`). No `blocks` table mirrors the body; clients never compute block ids; optimistic locking stays at body granularity. The Block primitive is owned by [docs/blocks/](../blocks/index.md).
+**Body-as-blocks.** `knowledge_items.body` stays markdown text; the Block list is derived on read (`framework/shared/src/blocks/derive-blocks.ts`) with stable derived ids, and per-block discussion anchors via `messages.block_id` (`framework/db/src/schema.ts:788`). No `blocks` table mirrors the body; clients never compute block ids; optimistic locking stays at body granularity. The Block primitive is owned by [docs/blocks/](../blocks/index.md).
 
 **Write path.** Optimistic locking on the `version` column — no locks held during editing:
 
 ```
 Human edits an item in the Knowledge view
   → PATCH /:id with { body, version }
-  → version mismatch → 409 CONFLICT with { currentVersion } (knowledge.ts:612-617)
+  → version mismatch → 409 CONFLICT with { currentVersion } (`layers/core-api/src/routes/knowledge.ts`)
   → match → update, version+1, edit log entry
-  → change fans out over WebSocket via knowledge_updated (ws-broadcaster.ts:45)
 ```
+
+There is no live WebSocket push for this event today — the generic `knowledge_updated`/`item_created`/`artifact_created` broadcast forwarder was deleted (AU21 §6 Decision L4): it had zero real frontend consumers. The Knowledge view picks up the change on its next fetch, not via a live socket push.
 
 ## 3. Projection for agents (session sandbox)
 
-At session provisioning, the agent layer assembles a slice of the store into real files in the agent's sandbox (`AssembleAgentContextInput.sandboxPath`, `packages/server/src/services/agent-context/assemble-context.ts:18`).
+Selection, ranking, and budgeting are done **before** a session starts, not at provisioning time. A per-kind resolver (`@hyperidle/work`'s `task-run-resolver.ts`, `@hyperidle/knowledge`'s `knowledge-action-resolver.ts`, the routine resolver, `@hyperidle/review`'s `proposed-call-workflow.ts`) calls the shared `assembleSessionKnowledge` (`layers/core-api/knowledge/src/session-knowledge-assembler.ts`) to fetch L4/L2/L3 items and rank+budget them (`rank()`, `relevance-scoring.ts`) into a baked `contextBundle`. That bundle rides along on the session request. `assembleAgentContext` (`AssembleAgentContextInput.sandboxPath`, `layers/agent-orchestration/run-orchestration/src/context.ts`) then does zero DB reads — it only writes the already-baked bundle into files in the agent's sandbox.
 
-**Sandbox layout** (exact — `CONTEXT_ASSEMBLY_DIRS`, `context-assembly.ts:102-110`):
+**Sandbox layout** (exact — `CONTEXT_ASSEMBLY_DIRS`, `context.ts:527-536`):
 
 ```
 <sandbox>/
@@ -68,7 +69,7 @@ At session provisioning, the agent layer assembles a slice of the store into rea
     failures/
 ```
 
-Item filenames are slugified `<title>_<id8>.md` (`toFilename`, `context-assembly.ts:58-70`) — there are no fixed `BRIEF.md`-style filenames; each item is written verbatim as its body.
+Item filenames are slugified `<title>_<id8>.md` (`toFilename`, `context.ts:503-511`) — there are no fixed `BRIEF.md`-style filenames; each item is written verbatim as its body.
 
 **Three zones, three intentions:**
 
@@ -78,9 +79,9 @@ Item filenames are slugified `<title>_<id8>.md` (`toFilename`, `context-assembly
 | `work/` | read-write | Session scratch, artifacts | Captured back at session end (see [run-unit-model.md](../architecture/run-unit-model.md)) |
 | `knowledge/` | read-write | Proposed edits to the knowledge base | Diffed and written back to `knowledge_items` |
 
-The split makes agent intent unambiguous: anything written in `knowledge/` is explicitly a proposed knowledge change; working notes in `work/` never pollute the knowledge base. The watcher observes `knowledge/` and `work/` only (`writeback.ts:73-75`); writeback mechanics live in [sync-and-conflict-resolution.md](sync-and-conflict-resolution.md).
+The split makes agent intent unambiguous: anything written in `knowledge/` is explicitly a proposed knowledge change; working notes in `work/` never pollute the knowledge base. The watcher observes `knowledge/` and `work/` only (`isWatchedPath`, `file-watcher.ts:36-38`); writeback mechanics live in [sync-and-conflict-resolution.md](sync-and-conflict-resolution.md).
 
-**The manifest** (`.fabric/manifest.json`, invisible to the agent) tracks the version of every assembled item so writeback can detect conflicts (`context-assembly.ts:25-38`):
+**The manifest** (`.fabric/manifest.json`, invisible to the agent) tracks the version of every assembled item so writeback can detect conflicts (`Manifest`/`ManifestEntry`, `context.ts:488-500`):
 
 ```json
 {
@@ -98,7 +99,7 @@ The split makes agent intent unambiguous: anything written in `knowledge/` is ex
 
 Writeback matches files to items by `source_path` and checks versions against the manifest. There is no `editable_path` — assembly writes only `context/`; agents create files in `knowledge/` themselves.
 
-**Assembly selection — what gets loaded** (`context-assembly.ts:215-239`):
+**Assembly selection — what gets loaded** (`assembleSessionKnowledge`, `session-knowledge-assembler.ts:77-97`):
 
 ```
 L4 factory:    all items
@@ -106,9 +107,9 @@ L2 product:    items scoped to the team (productId kept for back-compat, U1)
 L3 practices:  items for communityForRole(agentRole)   (role-community-map.ts)
 ```
 
-Only L4/L2/L3 are assembled; L0/L1 items are never projected. The combined set is then scored against the task description and trimmed to the token budget via `rankAndBudget(…, DEFAULT_KNOWLEDGE_BUDGET)` (`context-assembly.ts:239`) — "load what you need, nothing more" is implemented, not aspirational. Scoring and budget are owned by [relevance-and-attention.md](relevance-and-attention.md).
+Only L4/L2/L3 are assembled; L0/L1 items are never projected. The combined set is then scored against the task description and trimmed to the token budget via `rank(…)` (`relevance-scoring.ts:209-216`, which defaults to `DEFAULT_KNOWLEDGE_BUDGET` from `scoring-config.ts`) — "load what you need, nothing more" is implemented, not aspirational. Scoring and budget are owned by [relevance-and-attention.md](relevance-and-attention.md).
 
-**TOON reality** (spec: [github.com/toon-format/toon](https://github.com/toon-format/toon); codec at `packages/shared/src/toon-codec.ts`): the only TOON artifact is `context/session.toon`, built by `buildSessionContext` from task, bet, team, user, and routine state. Knowledge items — including practices — are always written as markdown; per-item TOON packing was never built.
+**TOON reality** (spec: [github.com/toon-format/toon](https://github.com/toon-format/toon); codec at `framework/shared/src/toon-codec.ts`): the only TOON artifact is `context/session.toon`, built from task, bet, team, user, and routine state. Knowledge items — including practices — are always written as markdown; per-item TOON packing was never built.
 
 ## 4. Why context assembly, not FUSE
 

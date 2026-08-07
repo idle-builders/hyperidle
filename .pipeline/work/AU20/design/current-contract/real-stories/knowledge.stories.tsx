@@ -1,5 +1,5 @@
 import { MemoryRouter } from "react-router-dom";
-import { KnowledgeList } from "../../../../../../packages/web/src/pages/KnowledgeList.js";
+import { KnowledgeList } from "../../../../../../layers/core-ui/src/pages/KnowledgeList.js";
 
 const items = [
   { id:"k1",topic:"Security",title:"Passkey rollout principles",body:"Preserve active sessions.",format:"markdown",status:"needs_human",version:1,updatedBy:"agent-1",scopeKind:"team",scopeId:"team-1",createdAt:"2026-07-20T10:00:00Z",updatedAt:"2026-07-23T10:00:00Z",signals:{accessCount30d:14,citationCount:3,relevanceScore:.92,attentionScore:87} },

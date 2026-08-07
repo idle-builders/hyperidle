@@ -1,6 +1,6 @@
 # As-Implemented Domain Architecture
 
-Code-derived domain, component, and interface map. Each diagram shows domain ownership and the interfaces between domains; the component inventory below the diagrams is verified against `packages/` file-by-file.
+Code-derived domain, component, and interface map. Each diagram shows domain ownership and the interfaces between domains; the component inventory below the diagrams is verified against the source tree file-by-file.
 
 ## L0 - Domain Map
 
@@ -21,7 +21,6 @@ flowchart LR
   Interface -- "HTTP API" --> Integration
 
   Coordination -- "session request\naccepted tasks, routines" --> Session
-  Coordination -- "decomposition request" --> Harness
   Conversation -- "assistant turn request" --> Session
   Knowledge -- "context and prompt material" --> Session
   Session -- "run config and event stream" --> Harness
@@ -99,13 +98,13 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-  SessionRequest["Session Request\nagent id\nwork or conversation context\nmodel tier\nmode\ncost/concurrency inputs"]
+  SessionRequest["Session Request\nagent id\nwork or conversation context\nmodel tier\nmode\nconcurrency inputs"]
   SessionEvents["Session Events\nsession_started\nsession_ended\nsession_not_returned\ntool_call_recorded"]
   HarnessContract["HarnessAdapter\nstartSession(config)\nstreamEvents(handle)\nstopSession(handle)\ngetCapabilities()"]
-  AgentLayerContract["Agent layer provider\nassembleContext\nbeginLearningIngestion\nresolve defaults\nselectAgent\ndecomposeBet\nformAssistant"]
+  AgentLayerContract["Agent layer provider\nassembleContext\nbeginLearningIngestion\nresolve defaults\nselectAgent\nformAssistant"]
   ToolContract["Tool Invocation\nregistry.invoke(name, rawArgs)\nsession context bound at registry construction\noptional MCP exposure"]
   MountContract["Filesystem Mount\nregistered filesystems\nagent injection\nsession capture"]
-  EventContract["Domain Events\ntyped EventBus\nstate, message, knowledge,\ncost, notification events"]
+  EventContract["Domain Events\ntyped EventBus\nstate, message, knowledge,\nnotification events"]
 
   Coordination["Coordination"] -- "creates" --> SessionRequest
   Conversation["Conversation"] -- "creates" --> SessionRequest
@@ -123,10 +122,10 @@ flowchart LR
 
 Contract anchors:
 
-- `HarnessAdapter` = startSession/streamEvents/stopSession/getCapabilities — `packages/shared/src/harness/harness-adapter.ts:270`. `startSession(config: SessionConfig)`; SessionConfig carries sessionId, sandboxPath, assembledPrompt, modelTier, resolvedModel, MCP bridge info, thread messages, return hook, session workflow.
-- Agent layer provider = assembleContext/beginLearningIngestion/resolve defaults/selectAgent/decomposeBet/formAssistant. Current production ownership lives in agent-owned `packages/server/src/services/` files (context assembly, learning ingestion, agent defaults, selection, decomposition, assistant formation) — no separate app-runtime package boundary since AU11.
-- Tool invocation = `registry.invoke(name, rawArgs)` — `packages/server/src/tools/tool-registry.ts:584`; per-session context is bound when `buildToolRegistry` constructs the registry, not passed per call.
-- Session events verified in `packages/shared/src/events.ts` (session_started :34, session_ended :51, session_not_returned :72, tool_call_recorded :207).
+- `HarnessAdapter` = startSession/streamEvents/stopSession/getCapabilities — `framework/shared/src/harness/harness-adapter.ts:270`. `startSession(config: SessionConfig)`; SessionConfig carries sessionId, sandboxPath, assembledPrompt, modelTier, resolvedModel, MCP bridge info, thread messages, return hook, session workflow.
+- Agent layer provider = assembleContext/beginLearningIngestion/resolve defaults/selectAgent/formAssistant. Production ownership lives in `layers/agent-orchestration/`'s Services.
+- Tool invocation = `registry.invoke(name, rawArgs)` — `layers/agent-execution/harness-registry/src/tool-registry.ts`; per-session context is bound when `buildToolRegistry` constructs the registry, not passed per call.
+- Session events verified in `framework/shared/src/events.ts` (session_started :34, session_ended :51, session_not_returned :72, tool_call_recorded :207).
 
 ## L2 - Coordination Domain
 
@@ -150,7 +149,6 @@ flowchart TB
   BetState["Bet state machine\ndraft → active → completed | killed"] --> Bet
   TaskState["Task state machine\ntransition, handoff, dependencies"] --> Task
   RoutineScheduler["Routine scheduler"] --> Routine
-  Decomposition["Bet decomposition"] --> Task
 
   BetState -- "bet_state_changed" --> Events["EventBus"]
   TaskState -- "task_state_changed" --> Events
@@ -158,10 +156,9 @@ flowchart TB
 
   Task -- "accepted owner task" --> SessionRequest["Session request"]
   Routine -- "trigger" --> SessionRequest
-  Bet -- "active" --> DecompositionRequest["Decomposition request"]
 ```
 
-Bet lifecycle endpoints: `POST /api/bets/:id/commit` (`routes/bets.ts:739`), `/:id/ship` (:802), `/:id/kill` (:823), `/:id/outcome` (:860). Task handoff: `POST /api/tasks/:id/handoff` (`routes/tasks.ts:224`) via the handoff protocol. Lifecycle semantics live in [process-layer](../process-layer/bets-shape-commit-change-ship.md).
+Bet lifecycle endpoints: `POST /api/bets/:id/commit`, `/:id/ship`, `/:id/kill`, `/:id/outcome` (`layers/core-api/src/routes/bets.ts`). Task handoff: `POST /api/tasks/:id/handoff` (`layers/core-api/src/routes/tasks.ts`) via the handoff protocol. Lifecycle semantics live in [process-layer](../process-layer/bets-shape-commit-change-ship.md).
 
 ## L2 - Conversation Domain
 
@@ -227,19 +224,19 @@ flowchart TB
   Repository -- "knowledge_created/updated/accessed/archived" --> Events["EventBus"]
 ```
 
-Knowledge runtime internals (layer taxonomy, assembly, sync, scoring) are owned by [knowledge-architecture](../knowledge-architecture/index.md). Component-level summary: agent-owned context assembly projects the canonical store into a human-facing API and per-session agent workspaces — `assembleAgentContext` writes prompt/context artifacts with a version manifest (`packages/server/src/services/agent-context/assemble-context.ts`); agent-owned writeback (`packages/server/src/services/writeback.ts`) uses optimistic concurrency (`version` column, `knowledge_conflicts` table); Core-owned relevance and attention scoring filter what each session loads (`packages/server/src/knowledge/relevance-service.ts`, `packages/server/src/knowledge/attention-service.ts`).
+Knowledge runtime internals (layer taxonomy, assembly, sync, scoring) are owned by [knowledge-architecture](../knowledge-architecture/index.md). Component-level summary: `agent-orchestration` assembles the context a run needs and writes it into the per-session workspace; its writeback (`layers/agent-orchestration/run-orchestration/src/writeback-processor.ts`) uses optimistic concurrency (`version` column, `knowledge_conflicts` table); `core-api`'s relevance and attention scoring filter what each session loads (`layers/core-api/knowledge/src/relevance-service.ts`, `attention-service.ts`).
 
 ## L2 - Agent Session Domain
 
 ```mermaid
 flowchart TB
-  SessionRequest["Session request"] --> Admission["Admission\nagent, model, cost, concurrency"]
+  SessionRequest["Session request"] --> Admission["Admission\nagent, model, concurrency"]
   Admission --> SessionRecord["Session record\nactive"]
   SessionRecord --> Workspace["Workspace\nsandbox + mounts"]
   Workspace --> Context["Context assembly"]
   Context --> Prompt["Prompt and context files"]
   Prompt --> HarnessRun["Harness run"]
-  HarnessRun --> EventDrain["Event drain\ncost, token, tool, completion, error"]
+  HarnessRun --> EventDrain["Event drain\ntoken, tool, completion, error"]
   EventDrain --> ToolInvocation["Tool invocation"]
   EventDrain --> Completion["Completion capture"]
   EventDrain --> Terminal["End or crash"]
@@ -252,7 +249,7 @@ flowchart TB
   MountInterface["Mount/capture interface"] --> Workspace
 ```
 
-`provisionSession` (`packages/server/src/services/session-provisioning.ts`) runs admission (adapter selection, concurrency, cost cap at :622-694), spawns the sandbox, applies filesystem mounts (Phase 4.5, :237) before context assembly, then drains harness events. The run unit itself — per-session host working directory, no isolation boundary — is owned by the [run-unit model](./run-unit-model.md).
+The provisioner (`layers/agent-orchestration/run-orchestration/src/provisioner.ts`) runs admission (adapter selection, concurrency), spawns the sandbox, applies filesystem mounts before context assembly, then drains harness events. The run unit itself — per-session host working directory, no isolation boundary — is owned by the [run-unit model](./run-unit-model.md).
 
 ## L2 - Harness Domain
 
@@ -281,30 +278,29 @@ flowchart TB
   Builtin --> ToolRegistry
 ```
 
-Harness event types match `packages/shared/src/harness/harness-events.ts` exactly (token_usage, tool_call, completion, error, pre_compaction). `cost_update` was removed — harness telemetry was narrowed to token usage only (founder ruling: "very few harness can actually report cost"; see `packages/agent-execution/harness-registry/src/llm-cassette.ts`). The pool does least-loaded selection with load tracking (`packages/agent-execution/harness-registry/src/adapter-pool.ts`). Event-normalization mechanism, capability descriptor shape, discovery/session probes, and the MCP bridge are owned by the [harness capability descriptor](../agent-layer/harness-capability-descriptor.md).
+Harness event types match `framework/shared/src/harness/harness-events.ts` exactly (token_usage, tool_call, completion, error, pre_compaction). `cost_update` was removed — harness telemetry was narrowed to token usage only (founder ruling: "very few harness can actually report cost"; see `layers/agent-execution/harness-registry/src/__testing__/llm-cassette.ts`). The pool does least-loaded selection with load tracking (`layers/agent-execution/harness-registry/src/adapter-pool.ts`). Event-normalization mechanism, capability descriptor shape, discovery/session probes, and the MCP bridge are owned by the [harness capability descriptor](../agent-layer/harness-capability-descriptor.md).
 
-## L2 - Knowledge (Core) And Agent Services
+## L2 - Knowledge And Agent Services
 
-AU11 dissolved the transitional `app-runtime/` shell (see [runtime-simplification](./runtime-simplification.md)) — context assembly and learning ingestion are agent-owned services; knowledge repository, relevance, and attention scoring are Core (`packages/server/src/knowledge/`).
+Context assembly and learning ingestion belong to `agent-orchestration`; the knowledge repository, relevance, and attention scoring belong to `core-api` (`layers/core-api/knowledge/`). See [runtime-simplification](./runtime-simplification.md).
 
 ```mermaid
 flowchart TB
   AgentServices["Agent services"]
-  CoreKnowledge["Core: packages/server/src/knowledge/"]
+  CoreKnowledge["core-api: layers/core-api/knowledge/"]
 
   AgentServices --> ContextAssembly["Context assembly"]
   AgentServices --> LearningIngestion["Learning ingestion"]
   AgentServices --> AgentDefaults["Agent defaults"]
   AgentServices --> AgentSelection["Agent selection"]
-  AgentServices --> BetDecompose["Bet decomposition request"]
   AgentServices --> AssistantForm["Assistant formation"]
 
-  ContextAssembly --> KnowledgeRepo["Knowledge repository (Core)"]
+  ContextAssembly --> KnowledgeRepo["Knowledge repository (core-api)"]
   ContextAssembly --> PromptFiles["Prompt/context files"]
   LearningIngestion --> FileWatcher["File watcher"]
   FileWatcher --> Writeback["Writeback"]
-  KnowledgeRepo --> Relevance["Relevance scoring (Core)"]
-  KnowledgeRepo --> Attention["Attention scoring (Core)"]
+  KnowledgeRepo --> Relevance["Relevance scoring (core-api)"]
+  KnowledgeRepo --> Attention["Attention scoring (core-api)"]
   CoreKnowledge -.owns.-> KnowledgeRepo
   CoreKnowledge -.owns.-> Relevance
   CoreKnowledge -.owns.-> Attention
@@ -336,7 +332,7 @@ flowchart TB
   FilesystemsAPI --> Injections
 ```
 
-Tables in `packages/db/src/schema.ts`: filesystems (:871), filesystem_injections (:919), filesystem_captures (:951), server_credentials (:988), server_config (:1009), service_connections (:1313). Held/inherited Connection semantics: [connection model](./connection-model.md). Encryption: [credential model](./credential-model.md).
+Tables in `framework/db/src/schema.ts`: filesystems, filesystem_injections, filesystem_captures, server_credentials (:1319), server_config, service_connections (:1735). Held/inherited Connection semantics: [connection model](./connection-model.md). Encryption: [credential model](./credential-model.md).
 
 ## L2 - Event Interface
 
@@ -348,11 +344,9 @@ flowchart TB
   SessionEvents["Session events\nsession_started\nsession_ended\nsession_not_returned\ntool_call_recorded"] --> EventBus
   ConversationEvents["Conversation events\nthread_created\nthread_message_appended\nitem_created\nproposed_call_granted"] --> EventBus
   KnowledgeEvents["Knowledge events\nknowledge_accessed\nknowledge_updated\nknowledge_created\nknowledge_archived"] --> EventBus
-  CostEvents["Cost events\ncost_cap_warning\ncost_cap_breached"] --> EventBus
   NotificationEvents["Notification events\nnotification"] --> EventBus
 
   EventBus --> TaskDispatch["Task dispatch"]
-  EventBus --> Decomposition["Bet decomposition"]
   EventBus --> Lifecycle["Lifecycle propagation"]
   EventBus --> Dependency["Dependency unblock"]
   EventBus --> ReviewCreation["Review creation"]
@@ -363,7 +357,7 @@ flowchart TB
   EventBus --> Observability["Observability"]
 ```
 
-**Guarantees** (one line — the contract lives in the `packages/shared/src/event-bus.ts` docblock): in-process typed pub/sub, synchronous delivery, per-stream ordering, at-least-once when `emit()` is called after database write durability; one throwing handler does not abort delivery to the rest.
+**Guarantees** (one line — the contract lives in the `framework/shared/src/event-bus.ts` docblock): in-process typed pub/sub, synchronous delivery, per-stream ordering, at-least-once when `emit()` is called after database write durability; one throwing handler does not abort delivery to the rest.
 
 ## L3 - Current Agent Invocation Paths
 
@@ -378,73 +372,65 @@ flowchart TB
   Provision --> AdapterPool["AdapterPool"]
   AdapterPool --> HarnessAdapter["HarnessAdapter"]
 
-  BetActive["Bet becomes active"] --> DecompositionIntent["Durable decomposition intent"]
-  DecompositionIntent --> AgentRequest["Agent-layer session request"]
-  AgentRequest --> HarnessAdapter
-
   HarnessAdapter --> Builtin["Builtin harness"]
   HarnessAdapter --> CLI["CLI harness"]
   HarnessAdapter --> Remote["Remote harness"]
 ```
 
-All agent-run entry families persist a durable work intent. The agent layer reloads domain truth, resolves a trigger, creates an idempotent session request, and executes through `session-provisioning.ts`. Assistant preparation lives in `agent-work-assistant.ts`; decomposition no longer calls an adapter from its domain service.
+All agent-run entry families persist a durable work intent. `core-api` bakes everything the run needs onto the emitted request; `agent-orchestration` claims it, formats it and dispatches. Assistant preparation lives in `layers/core-api/conversation/src/assistant-turn-resolver.ts`.
 
 ## Component Inventory
 
-Verified against code 2026-07-07. Component-level facts only; primitive semantics live in their owning docs.
+Verified against code 2026-08-06. Component-level facts only; primitive semantics live in their owning docs.
 
 ### Primitive store
 
-Embedded Postgres: PGlite (laptop/test) or postgres-js (VPS/cloud), one unified Drizzle type (`packages/db/src/connection.ts`). Tables (all shapes owned by `packages/db/src/schema.ts`): teams, team_members, users (humans and agents, `kind` human|ai), bets, tasks, sessions, routines, routine_runs, threads, messages, items, user_skills, org_edges (:548), factory_settings, knowledge_items (:580) + app projection extension (:690, historical table name `knowledge_strategy_fabric`) + knowledge_edit_log (:609) + knowledge_access_log (:641) + knowledge_conflicts (:659), propagation_log (:808), notification_queue, artifacts, filesystems (+injections/captures), credential/config/login/invite/proposed-call tables.
+Embedded Postgres: PGlite (laptop/test) or postgres-js (VPS/cloud), one unified Drizzle type (`framework/db/src/connection.ts`). 45 tables, all shapes owned by `framework/db/src/schema.ts`: teams, team_members, users (humans and agents, `kind` human|ai), bets, tasks, sessions, routines, routine_runs, threads, messages, items, user_skills, org_edges, knowledge_items (:883) + knowledge_app_projection (:1004) + knowledge_edit_log (:912) + knowledge_access_log + knowledge_conflicts, propagation_log, notification_queue, artifacts, filesystems (+injections/captures), agent-run tables (agent_session_requests, agent_work_intents, explicit_session_starts, agent_run_config, …), credential/config/login/invite/proposed-call tables.
 
 - The `responses` table is dropped — verdicts are `verdict`-typed messages ([Thread primitive](../human-interface-layer/thread-primitive.md)).
 - Message idempotency: UNIQUE(threadId, senderId, clientKey).
-- Sessions carry no cost columns — spend accrues on users/teamMembers ([the five primitives](../process-layer/the-five-primitives.md)).
+- Sessions carry no cost columns. The cost feature was deleted with no replacement; the spend ceiling lives at the upstream LLM provider account ([WIP limits](../process-layer/wip-and-cost-limits.md)).
 - `org_edges` records org relationships per (fromUserId, mechanism, target); `propagation_log` records lifecycle-propagation applications by source level/id and status; `knowledge_access_log` records per-item knowledge reads.
 
-### Item router
+### Item routing
 
-Pure function `routeItem` at `packages/server/src/services/item-router.ts` (Core) returning a target view; `routeToFounder` at `packages/server/src/services/founder-router.ts` (Core) picks the recipient by agent role. Item shape and routing rules are owned by [items and routing](../human-interface-layer/items-and-routing.md). Notification policy is not the router's output — it lives in the notification services (`silence-policy.ts`, `notifications/dispatcher.ts`).
+`routeItem` and `routeToFounder` are deleted. An item carries no computed target view; review recipients are resolved by `resolveReviewRecipients` (`layers/core-api/org/src/org-routing.ts`), and notification policy lives in the notification Service (`layers/core-api/notifications/src/silence-policy.ts`, `install.ts`). Item shape is owned by [items and routing](../human-interface-layer/items-and-routing.md).
 
 ### Schedulers
 
-In-process `setInterval` services, no external workflow engine. Routine scheduler (`packages/server/src/services/routine-scheduler.ts`, Core) fires cron/event/heartbeat triggers, honors silent routines; task dispatcher (`packages/server/src/services/task-dispatcher.ts`, agent-owned) starts sessions; dependency watcher (`packages/server/src/services/dependency-watcher.ts`) emits `dependency_met`. The scheduler never calls models — it reads the store and emits events.
+In-process `setInterval` services, no external workflow engine. Routine scheduler (`layers/core-api/routine/src/routine-scheduler.ts`) fires cron/event/heartbeat triggers and honors silent routines; dispatch lives in `layers/agent-orchestration/dispatch/`; `checkAndUnblockDependents` (`layers/core-api/work/src/dependency-watcher.ts`) moves dependent tasks off hold. The scheduler never calls models — it reads the store and emits events.
 
-Model tier selection: explicit param → agent `modelTierPreference` → `"workhorse"` (`session-provisioning.ts:663-673`); tier→model resolution via the model gateway. Vocabulary and catalog: [model routing and cost](../agent-layer/model-routing-and-cost.md).
-
-### Cost sentinel
-
-Application code, not a routine row — extracted in AD8c and registered (agent-owned) via `registerAgentLayerServices` in `server-factory.ts` precisely so it cannot be disabled from data (`packages/server/src/services/cost-sentinel.ts`). 15-minute tick, level-based dedupe via factory_settings key `cost_sentinel_last_level`; emits `cost_cap_warning` / `cost_cap_breached`. Cap grammar and hierarchy: [WIP and cost limits](../process-layer/wip-and-cost-limits.md).
+Model tier selection: explicit param → agent `modelTierPreference` → `"workhorse"`; tier→model resolution via the model gateway. Vocabulary and catalog: [model routing and cost](../agent-layer/model-routing-and-cost.md).
 
 ### Knowledge Services
 
-See the L2 Knowledge Domain paragraph above; full design in [knowledge-architecture](../knowledge-architecture/index.md). Context assembly and writeback are agent-owned (`packages/server/src/services/`, `packages/server/src/services/agent-context/`); promotion, attention scoring, and conflict resolution are Core-owned (`packages/server/src/knowledge/`). Search is escaped case-insensitive LIKE SQL (`routes/search.ts`) — no FTS5, no pgvector.
+See the L2 Knowledge Domain paragraph above; full design in [knowledge-architecture](../knowledge-architecture/index.md). Context assembly and writeback belong to `layers/agent-orchestration/run-orchestration/`; promotion, attention scoring, and conflict resolution to `layers/core-api/knowledge/`. Search is escaped case-insensitive LIKE SQL (`layers/core-api/src/routes/search.ts`) — no FTS5, no pgvector.
 
 ### API layer
 
-Hono on Node, all routes under `/api` (`packages/server/src/app.ts`), single process hosting API + app-owned schedulers (`bootstrapAppRuntime` wired in `server-factory.ts`). Route groups: auth, users, agents, teams, team-members, bets (incl. `/:id/commit|ship|kill|outcome`), tasks (incl. `/:id/handoff`), sessions, reviews, artifacts, filesystems, knowledge (URL shape `/:id`, not `/:layer`), conversations, threads, org, recipients, status (incl. `/digest`), workers, harnesses, credentials, connections, hint-progress, dispatch-queue, search, settings, ws.
+Hono on Node. `core-api` mounts its routes under `/api` (`layers/core-api/src/app.ts`); each Layer hosts its own app, and an Application composes them (`applications/remote-server/src/create-server.ts`, `applications/desktop/src/main.ts`). Schedulers start from `layers/core-api/src/service-bootstrap.ts`. Route groups: auth, users, agents, teams, team-members, bets (incl. `/:id/commit|ship|kill|outcome`), tasks (incl. `/:id/handoff`), sessions, reviews, artifacts, filesystems, knowledge (URL shape `/:id`, not `/:layer`), conversations, threads, org, recipients, status (incl. `/digest`), workers, harnesses, credentials, hint-progress, dispatch-queue, search, settings, ws. `/connections` is served by `agent-orchestration`'s own app (`layers/agent-orchestration/src/app.ts`, `layers/agent-orchestration/src/routes/connections.ts`) — its table set (`service_connections`) is owned by that Layer (AU26 E4).
 
-Auth: single `HYPERIDLE_API_KEY` via `X-API-Key` header (constant-time compare) + Bearer login-session tokens + invite codes (`middleware/auth.ts`, `services/login-session.ts`). Boundary enforcement: [authorization model](./authorization-model.md).
+Auth: single `HYPERIDLE_API_KEY` via `X-API-Key` header (constant-time compare) + Bearer login-session tokens + invite codes (`layers/core-api/src/middleware/auth.ts`, `layers/core-api/users/src/login-session.ts`). Boundary enforcement: [authorization model](./authorization-model.md).
 
 ### Harness adapters
 
-Interface in `packages/shared/src/harness/harness-adapter.ts`; implementations in `packages/server/src/harness/`: builtin (gateway/direct-key runtime — anthropic/openrouter/openai-compatible, `builtin-harness-adapter.ts`), CLI (codex, claude-code, opencode — `cli-harness-adapter.ts`), remote worker (`remote-harness-adapter.ts`). Autodiscovery covers codex, claude-code, cursor-agent, opencode (`harness-discovery.ts`). Descriptor, probes, MCP bridge, pre-compaction contract: [harness capability descriptor](../agent-layer/harness-capability-descriptor.md).
+Interface in `framework/shared/src/harness/harness-adapter.ts`; implementations in `layers/agent-execution/harness-registry/src/`: builtin (gateway/direct-key runtime — anthropic/openrouter/openai-compatible, `builtin-harness-adapter.ts`), CLI (codex, claude-code, opencode — `cli-harness-adapter.ts`), remote worker (`remote-harness-adapter.ts`). Autodiscovery covers codex, claude-code, cursor-agent, opencode (`harness-discovery.ts`). Descriptor, probes, MCP bridge, pre-compaction contract: [harness capability descriptor](../agent-layer/harness-capability-descriptor.md).
 
 ### Sandbox (run unit)
 
-Per-session working directory under `HYPERIDLE_WORKSPACES_DIR` (`server-factory.ts:266-268`); the harness runs as a host child process with the user's environment inherited — no isolation boundary (AQ1). `SandboxAdapter` = `spawn(baseDir)` / `exec` / `destroy` (`harness/sandbox-adapter.ts:19-23`). `LocalSandboxAdapter` is the default; `DisabledSandboxAdapter` refuses agent provisioning on non-laptop server profiles. Opt-in isolation is planned (AQ2). Full model: [run-unit model](./run-unit-model.md).
+Per-session working directory under `HYPERIDLE_WORKSPACES_DIR`; the harness runs as a host child process with the user's environment inherited — no isolation boundary (AQ1). `SandboxAdapter` = `spawn(baseDir)` / `exec` / `destroy` (`layers/agent-execution/harness-registry/src/sandbox-adapter.ts`). `LocalSandboxAdapter` is the default; `DisabledSandboxAdapter` refuses agent provisioning on non-laptop server profiles. Opt-in isolation is planned (AQ2). Full model: [run-unit model](./run-unit-model.md).
 
 ### Notifications
 
-`packages/server/src/notifications/` (Core): ntfy, SMTP, and console adapters behind `adapter-factory.ts`; the dispatcher owns policy, mute, drain, redaction, and runs the daily digest on its own timer (`dispatcher.ts` -> `runDailyDigest`) — not via a routine. Primitive semantics and cadence discipline: [notification primitive](../human-interface-layer/notification-primitive.md).
+`layers/core-api/notifications/`: ntfy, SMTP, and console adapters; the dispatcher owns policy, mute, drain, redaction, and runs the daily digest on its own timer (`install.ts` → `runDailyDigestInternal`, `daily-digest.ts`) — not via a routine. Primitive semantics and cadence discipline: [notification primitive](../human-interface-layer/notification-primitive.md).
 
 ### Observability
 
-Channels `"console"` | `"noop"` (`packages/server/src/services/observability/types.ts:4`); OpenTelemetry explicitly future (`config.ts:25,110-113`); event shapes in `packages/shared/src/observability/events.ts`.
+Channels `"console"` | `"noop"` (`framework/shared/src/observability/types.ts:4`); OpenTelemetry explicitly future. Event shapes in `framework/shared/src/observability/events.ts`; the runtime wiring in `layers/core-api/src/observability-runtime.ts`.
 
 ## MCP Tool Surface
 
-Agents interact with the process layer through MCP tools served in-process (`packages/server/src/mcp/mcp-bridge.ts` + `tools/tool-registry.ts`), calling services directly — not HTTP wrappers. Tools include: read_inbox, send_message, log_task, query_practice, write_memory, handoff_to, create_item, write_session_notes, plus create-bet/task/team/routine, promote-knowledge, score-attention, route-item, submit-review, commit-file, return-status (`packages/server/src/tools/`).
+Agents interact with the process layer through MCP tools served in-process (`layers/agent-execution/harness-registry/src/mcp/mcp-bridge.ts` + `tool-registry.ts`). The tool set is declared in `layers/agent-orchestration/tool-handlers/src/tool-definitions.ts`: read_inbox, send_message, reply, log_task, query_practice, write_memory, handoff_to, create_item, create_artifact, write_session_notes, create_bet, edit_bet, create_task, create_team, add_agent, create_routine, update_routine, promote_knowledge, score_attention, create_conflict_review, submit_review, commit_file.
 
 The same nouns have real HTTP surfaces for clients: `/api/users/:id/inbox` (GET/POST, principal-self scoped), `POST /api/tasks/:id/handoff`, `/api/knowledge` (`/search`, `/`, `/triage-count`, `/:id`).
 
@@ -456,23 +442,23 @@ Triggers: routine fired, dependency cleared, or an inbox/assistant message. Then
 2. Context assembly writes TOON prompt + context files.
 3. `LocalSandboxAdapter` provisions the per-session working directory; filesystem mounts applied.
 4. Harness spawned; agent works via MCP tools.
-5. Session notes written before context compaction (`tools/write-session-notes.ts`; fallback notes file `work/task-notes.md`).
-6. Stop → `SessionResult` persisted, writeback + capture, `session_ended` emitted (`services/session-lifecycle.ts`).
+5. Session notes written before context compaction (the `write_session_notes` tool; fallback notes file `work/task-notes.md`).
+6. Stop → `SessionResult` persisted, writeback + capture, `session_ended` emitted.
 
-## Item Routing Pipeline
+## Item Pipeline
 
-Verified end-to-end: `create_item` tool → `items` row → `item_created` event → item-router/founder-router pick target view + recipient → notification dispatcher fires if push-worthy (ntfy) → WebSocket push → UI renders in the target view.
+`create_item` tool → `items` row → `item_created` event → notification dispatcher fires if push-worthy (ntfy) → WebSocket push → UI renders it.
 
 ## WebSocket Push Contract
 
 One client endpoint, topic-based:
 
-- `GET /api/ws?token=<one-shot token>`; the token is minted by authenticated `POST /api/auth/ws-token` (`routes/ws.ts:77-99`, `routes/auth.ts`). Connection acks `{type:"connected"}`.
+- `GET /api/ws?token=<one-shot token>`; the token is minted by authenticated `POST /api/auth/ws-token` (`layers/core-api/src/routes/ws.ts`, `routes/auth.ts:87`). Connection acks `{type:"connected"}`.
 - Client sends `{type:"subscribe"|"unsubscribe", topic}`; server acks `{type:"subscribed"|"unsubscribed"|"forbidden", topic}`.
 - Topics: `conversations`, `work`, `thread:<threadId>`, `session:<sessionId>` (session topics are read-only observe mode, open to any authenticated client).
-- Payloads are serialized EventBus event objects per topic (`services/ws-broadcaster.ts`) — not REST-shaped responses.
+- Payloads are serialized EventBus event objects per topic (`layers/core-api/src/ws-connection-hub.ts`) — not REST-shaped responses.
 - Subscribe authorization for per-thread topics goes through `canSubscribe` — see the [authorization model](./authorization-model.md).
 
-A separate worker channel `GET /ws/worker?token=<HYPERIDLE_WORKER_TOKEN>` (`routes/worker-ws.ts`) carries Zod-validated register/event/session_result/error/pause/resume messages for remote harness workers.
+A separate worker channel `GET /ws/worker?token=<HYPERIDLE_WORKER_TOKEN>` (`layers/agent-orchestration/run-orchestration/src/worker-ingress.ts`) carries Zod-validated register/event/session_result/error/pause/resume messages for remote harness workers.
 
-Web client: singleton `packages/web/src/services/ws-client.ts` — lazy connect on first subscriber, auto-reconnect with 1s→15s backoff.
+Web client: singleton `layers/core-ui/src/services/ws-client.ts` — lazy connect on first subscriber, auto-reconnect with 1s→15s backoff.

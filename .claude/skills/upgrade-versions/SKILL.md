@@ -66,7 +66,7 @@ npm outdated 2>&1 || true
 # Floor versions as they are now
 node --version
 npx tsc --version 2>/dev/null || true
-grep -E '"electron"|"react"|"react-dom"|"typescript"|"@electric-sql/pglite"|"drizzle-orm"' -r packages/*/package.json package.json
+grep -E '"electron"|"react"|"react-dom"|"typescript"|"@electric-sql/pglite"|"drizzle-orm"' -r layers/*/package.json layers/*/*/package.json framework/*/package.json applications/*/package.json tools/*/package.json package.json
 
 # Runtime & tooling (Homebrew-managed)
 git --version

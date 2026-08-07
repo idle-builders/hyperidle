@@ -17,13 +17,13 @@
 		"exactOptionalPropertyTypes": false,
 		"composite": true,
 		"paths": {
-			"@hyperidle/shared": ["./packages/shared/src"],
-			"@hyperidle/db": ["./packages/db/src"],
-			"@hyperidle/web": ["./packages/web/src"],
-			"@hyperidle/design-system": ["./packages/design-system/src"],
-			"@hyperidle/api-contract": ["./packages/api-contract/src"],
-			"@hyperidle/desktop": ["./packages/desktop/src"],
-			"@hyperidle/eval": ["./packages/eval/src"]
+			"@hyperidle/shared": ["./framework/shared/src"],
+			"@hyperidle/db": ["./framework/db/src"],
+			"@hyperidle/core-ui": ["./layers/core-ui/src"],
+			"@hyperidle/design-system": ["./framework/design-system/src"],
+			"@hyperidle/api-contract": ["./framework/api-contract/src"],
+			"@hyperidle/desktop": ["./applications/desktop/src"],
+			"@hyperidle/eval": ["./tools/eval/src"]
 		}
 	}
 }

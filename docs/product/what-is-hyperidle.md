@@ -28,20 +28,12 @@ HyperIdle solves the organizational problem.
 
 ---
 
-## Kernel and Strategy
-
-The meta layer splits into a stable **Kernel** (routing, persistence, events) and a pluggable **Strategy** layer (scoring, knowledge propagation, context assembly). The Fabric is the default Strategy implementation; third-party Strategies are possible.
-
-Full boundary: [Kernel/Strategy Split](../architecture/kernel-strategy-split.md).
-
----
-
 ## The app: one window for human oversight
 
 HyperIdle ships as a macOS desktop application (Electron) with three views and a sidebar:
 
 - **Conversations** — review threads and chat threads. An agent proposes deploying a landing page; the founder approves, comments, or requests changes. Same shape as a GitHub pull request.
-- **Work** — bets planned and tracked. What every agent is doing, what is blocked, and what it has cost — including team burn against its cap.
+- **Work** — bets planned and tracked. What every agent is doing and what is blocked.
 - **Knowledge** — the company wiki. Knowledge items organized by practice and scope. Founders prune stale practices, validate new patterns, and add tacit knowledge agents cannot generate.
 
 ---

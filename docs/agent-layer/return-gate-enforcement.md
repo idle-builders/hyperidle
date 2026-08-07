@@ -2,13 +2,13 @@
 
 Every agent turn that completes normally must invoke one of four return actions before stopping. A turn that doesn't is **never silently recorded as `completed`** — enforcement is provisioned per-harness at sandbox setup time, adjudicated by HyperIdle via a real HTTP route, and backstopped by a drain-end `ReturnGate` that no harness can bypass.
 
-Test-side honesty (the four-harness matrix, locked test models, lint guard) is a separate mechanism — see [harness-coverage-enforcement.md](harness-coverage-enforcement.md).
+Test-side honesty (the five-harness matrix, locked test models, the attestation floor) is a separate mechanism — see [harness-coverage-enforcement.md](harness-coverage-enforcement.md).
 
 ---
 
 ## 1. The Accepted-Return Set
 
-Four tool names form the closed accepted-return set (`RETURN_ACTION_NAMES` in `packages/shared/src/harness/return-actions.ts`):
+Four tool names form the closed accepted-return set (`RETURN_ACTION_NAMES` in `framework/shared/src/harness/return-actions.ts`):
 
 | Tool | Meaning |
 |---|---|
@@ -27,7 +27,7 @@ The set is **closed**: membership is enumerated in a `readonly` tuple; `isReturn
 
 **Internal-extraction drains** — sessions provisioned with `tools: []` — are structurally exempt. With no tools the agent cannot call any return action; enforcement is impossible, not merely waived. The exemption check is `isInternalExtractionDrain({ tools })` (same file). The `no-ungated-stream-drain` lint rule marks these loops `// return-exempt: internal-extraction drain` so the static check skips them.
 
-**Non-completed end-reasons** (`crashed`, `stopped`, `budget_exhausted`) are also exempt. `evaluateReturn(gate, endReason)` returns `"returned"` for any non-`completed` reason — the agent was prevented from finishing, not choosing to skip the return.
+**Non-completed end-reasons** (`crashed`, `stopped`) are also exempt. `evaluateReturn(gate, endReason)` returns `"returned"` for any non-`completed` reason — the agent was prevented from finishing, not choosing to skip the return.
 
 ---
 
@@ -35,9 +35,9 @@ The set is **closed**: membership is enumerated in a `readonly` tuple; `isReturn
 
 ### Overview
 
-v4 replaces the v3 outer re-prompt loop with per-harness enforcement provisioned once at sandbox setup. `provisionReturnHook` (`packages/server/src/harness/provision-return-hook.ts`) is called at Phase 8b in `session-provisioning.ts`, just after `.mcp.json` is written and **before** `startSession`. It dispatches on `HarnessCapabilities.returnEnforcement` — a non-optional `ReturnEnforcementChannel` that every adapter must declare.
+v4 replaces the v3 outer re-prompt loop with per-harness enforcement provisioned once at sandbox setup. `provisionReturnHook` (`layers/agent-execution/harness-registry/src/provision-return-hook.ts`) is called by the run provisioner (`layers/agent-orchestration/run-orchestration/src/provisioner.ts`), just after `.mcp.json` is written and **before** `startSession`. It dispatches on `HarnessCapabilities.returnEnforcement` — a non-optional `ReturnEnforcementChannel` that every adapter must declare.
 
-The channel type is defined in `packages/shared/src/harness/harness-adapter.ts` as:
+The channel type is defined in `framework/shared/src/harness/harness-adapter.ts` as:
 
 ```
 "sdk-inprocess" | "settings-claude" | "settings-codex" |
@@ -48,7 +48,7 @@ The channel type is defined in `packages/shared/src/harness/harness-adapter.ts` 
 
 ### Adjudication: `POST /api/mcp/:token/return-status`
 
-All file-provisioned hooks (claude-code, codex) reach HyperIdle via a plain-HTTP route defined in `packages/server/src/routes/mcp-route.ts`:
+All file-provisioned hooks (claude-code, codex) reach HyperIdle via a plain-HTTP route defined in `layers/agent-execution/harness-registry/src/mcp/mcp-route.ts`:
 
 ```
 POST /api/mcp/:token/return-status
@@ -62,11 +62,11 @@ Response 401                    → Authorization header missing the token
 
 401 fires only when the `Authorization` header does not contain the token (belt-and-suspenders — the token is already in the URL path). An unknown or already-ended token returns **200 with an empty body** (allow stop — the session drain already recorded the outcome).
 
-The route resolves the bearer token to a `sessionId` via `McpBridgeRegistry.lookup`, then reads the per-session `EnforcementEntry` from the `EnforcementRegistry`. It calls `shouldForceReturn(entry.gate, entry.forceCount)` and, if a force message is returned, increments `entry.forceCount` and returns the message as the response body.
+The route resolves the bearer token to a `sessionId` via the injected `McpSessionRegistry.lookup`, then reads the per-session `EnforcementEntry` from the `EnforcementRegistry`. It calls `shouldForceReturn(entry.gate, entry.forceCount)` and, if a force message is returned, increments `entry.forceCount` and returns the message as the response body.
 
 ### The Per-Session Enforcement Registry
 
-`packages/server/src/harness/return-enforcement-registry.ts` provides a `Map<sessionId, EnforcementEntry>` keyed by session UUID. Each entry holds:
+`layers/agent-execution/harness-registry/src/return-enforcement.ts` provides a `Map<sessionId, EnforcementEntry>` keyed by session UUID (`EnforcementEntry` and `EnforcementRegistry` are declared in `framework/shared/src/harness/enforcement-registry.ts`). Each entry holds:
 
 - `gate: { returned: boolean }` — live reference to the drain `ReturnGate`; mutated by the event-stream observer.
 - `forceCount: number` — how many times the hook has fired for this session.
@@ -123,15 +123,15 @@ Re-engage is bounded by `MAX_FORCE_RETURNS`. The `CliSession.reEngageCount` coun
 
 An exemption applies: if none of the session's tool defs are return actions (e.g. the `create_bet`/`edit_bet`-only chat path), the force check is skipped — forcing an agent to call a tool it doesn't have causes a hard error.
 
-### `cursor-agent` — `soft-continue` (inert)
+### `cursor-agent` — `none`
 
-Cursor Agent is not spawnable today (`cursor-agent` binary unavailable; no documented headless CLI surface). `provisionReturnHook` is a no-op for `soft-continue`. No sessions are started, so nothing to enforce. The drain-gate floor handles any future surface.
+`CURSOR_AGENT_CLI_CONFIG` declares `returnEnforcementChannel: "none"`, so `provisionReturnHook` writes no artifact. Cursor Agent runs headless via `--print --output-format stream-json` with the same event shapes as claude, so sessions do start and do need a verdict — the drain-gate floor is the only enforcement it has. Auth is inherited from the Cursor login; `--trust` + `--approve-mcps` allow headless workspace + MCP without interactive prompts.
 
 ---
 
 ## 5. Forcing Budget
 
-`MAX_FORCE_RETURNS = 2` (`packages/shared/src/harness/return-actions.ts`). The budget is enforced via `shouldForceReturn(gate, forceCount)`:
+`MAX_FORCE_RETURNS = 2` (`framework/shared/src/harness/return-actions.ts`). The budget is enforced via `shouldForceReturn(gate, forceCount)`:
 
 - Returns the `FORCE_RETURN_MESSAGE` string when `!gate.returned && forceCount < MAX_FORCE_RETURNS`.
 - Returns `null` when budget is exhausted or the agent already returned.
@@ -144,12 +144,12 @@ Each hook invocation that returns a force message increments `entry.forceCount` 
 
 On **every** harness, a no-return turn is **never recorded `completed`**:
 
-1. `evaluateReturn(gate, endReason)` (`packages/server/src/harness/return-gate.ts`) returns `"not_returned"`.
+1. `evaluateReturn(gate, endReason)` returns `"not_returned"`. It is a deps field wired to the enforcement registry's `evaluate` method in `layers/core-api/src/services/run-orchestration-composition.ts`.
 2. `runSession` emits `session_not_returned` on the event bus.
 3. `endSession` is called with `terminalOutcome: "not_returned"` — writes `"not_returned"` to `sessions.outcome` in the DB **and** to the `session_ended` bus event's `outcome` field.
 4. `provisionSession`/`runSession` returns `{ outcome: "not_returned", returnVerdict: "not_returned" }` to the caller.
 
-`SessionOutcome` (`packages/shared/src/events.ts`) is `"completed" | "crashed" | "stopped" | "not_returned"`. Every `switch(outcome)` consumer must handle all four members.
+`SessionOutcome` (`framework/shared/src/events.ts`) is `"completed" | "crashed" | "stopped" | "not_returned"`. Every `switch(outcome)` consumer must handle all four members.
 
 ### The Backstop
 
@@ -162,13 +162,13 @@ The drain-end `ReturnGate` is the un-bypassable backstop. Even if an agent strip
 | `CliHarnessAdapter` (codex) | `settings-codex` | Stop hook decision:block JSON blocks | drain-gate floor |
 | `CliHarnessAdapter` (opencode) | `process-reengage` | Process wrapper re-invokes with forcing message | drain-gate floor |
 | `RemoteHarnessAdapter` | `process-reengage` | Re-engage via forcing message | drain-gate floor |
-| cursor-agent | `soft-continue` | Inert today | drain-gate floor |
+| `CliHarnessAdapter` (cursor-agent) | `none` | None declared | drain-gate floor |
 
 ---
 
 ## 7. The `ReturnGate` Observer
 
-`packages/server/src/harness/return-gate.ts` defines a lightweight, allocation-free, harness-agnostic observer:
+`layers/agent-execution/harness-registry/src/return-enforcement.ts` defines a lightweight, allocation-free, harness-agnostic observer:
 
 ```ts
 interface ReturnGate {
@@ -185,7 +185,7 @@ The gate reference is stored in the enforcement registry entry so the `/return-s
 
 ## 8. `forceReturnCount` on `ProvisionSessionResult`
 
-`computeForceReturnCount` (session-provisioning.ts) **sums two sources** at session teardown:
+`computeForceReturnCount` (`layers/agent-orchestration/run-orchestration/src/provisioner.ts`) **sums two sources** at session teardown:
 
 ```ts
 const registryForceCount = enforcementRegistry.get(sessionId)?.forceCount ?? 0;
@@ -199,7 +199,7 @@ The registry is the primary source (incremented by the `/return-status` route); 
 
 ## 9. Static Guard: `no-ungated-stream-drain`
 
-The ESLint rule `design/no-ungated-stream-drain` (`packages/eslint-plugin-design/src/rules/no-ungated-stream-drain.ts`) classifies every `for await … of <streamEvents-iterable>` loop as one of:
+The ESLint rule `design/no-ungated-stream-drain` (`tools/eslint-plugin-design/src/rules/no-ungated-stream-drain.ts`) classifies every `for await … of <streamEvents-iterable>` loop as one of:
 
 - **TURN-DRAIN** — must call `gate.observe(event)` in the loop body.
 - **RELAY** — loop body passes events through; annotated `// return-relay`. Must NOT call `observe`.
@@ -211,10 +211,10 @@ A violation is a build error. Future drain sites cannot silently skip the gate.
 
 ## 10. Live Evals: `force-return` Feature
 
-`packages/eval/src/scenarios/force-return.ts` — behavioral proof, local-only, never CI:
+`tools/eval/src/scenarios/force-return.ts` — behavioral proof, local-only, never CI:
 
 ```
-cd packages/eval && node dist/cli.js --feature force_return
+npm run eval -- --feature force_return
 ```
 
 Four scenarios:
@@ -233,7 +233,7 @@ Together the two external scenarios form complete process-reengage coverage: for
 
 ## 11. Real-Harness Integration Tests
 
-`packages/core-api/src/__tests__/real-harness-return-enforcement-realbinary.integration.test.ts` covers the four supported harnesses in a single file (AR6 consolidation — the former scripted in-process anchor file was merged into this file).
+`layers/core-api/src/__tests__/real-harness-return-enforcement-realbinary.integration.test.ts` covers all five supported harnesses in a single file (AR6 consolidation — the former scripted in-process anchor file was merged into this file).
 
 Each real-binary lane is gated by `requireHarness(<name>)` (hard-fail, never skip) + an inner auth check. Runs locally via `test:integration`'s serial `harness` project; the signed attestation carries the result.
 
@@ -242,6 +242,7 @@ Each real-binary lane is gated by `requireHarness(<name>)` (hard-fail, never ski
 | `claude-code` | "FULL BINARY PROOF (claude)" — `buildCleanEnv` zeroes CC env vars; Stop hook fires; bridge `callCount >= 1` |
 | `codex` | "FULL BINARY PROOF (CODEX_HOME)" — per-session `.codex-home/`; `CODEX_HOME` injected; Stop hook fires; bridge `callCount >= 1` |
 | `opencode` | live process-reengage proof — `step_finish` detected; re-engage spawn fires with forcing message; both turns complete |
+| `cursor-agent` | provisioning a no-artifact channel resolves without throwing |
 | `builtin` | realbinary block covers provisioning no-op + real route forcing |
 
 Real-binary tests are local-only (require binary + auth). The deterministic builtin anchor — the force-bounded `shouldForceReturn` behavior and the gate's returned/not-returned detection — lives in `return-gate.test.ts` (unit test) and runs without any real binary or LLM call.

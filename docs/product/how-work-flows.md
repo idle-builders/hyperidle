@@ -5,12 +5,12 @@ HyperIdle has five process primitives. Everything else is mechanics on top of th
 | Primitive | What it is | Lifespan |
 |-----------|-----------|----------|
 | **Team** | Agents bound to a product | Life of the product |
-| **Bet** | Shaped work with a done condition and money appetite | Until completed or killed |
+| **Bet** | Shaped work with an explicit done condition | Until completed or killed |
 | **Task** | One agent's unit of work within a bet | Until done or killed |
 | **Session** | One bounded run of an agent on a task | One context window |
 | **Routine** | Recurring trigger with persistent memory | Until retired |
 
-All five are implemented as tables in `packages/db/src/schema.ts`. Spec depth lives in [the five primitives](../process-layer/the-five-primitives.md).
+All five are implemented as tables in `framework/db/src/schema.ts`. Spec depth lives in [the five primitives](../process-layer/the-five-primitives.md).
 
 ---
 
@@ -28,15 +28,15 @@ Depth: [Teams](../process-layer/teams.md).
 
 ---
 
-## Bets carry a money appetite, not a deadline
+## Bets carry a done condition, not a deadline
 
-Work comes in as bets. A bet is a shaped piece of work with an explicit done condition and a cost appetite in real currency (e.g., $800 USD).
+Work comes in as bets. A bet is a shaped piece of work with an explicit done condition.
 
 **Draft first.** The Product Manager writes the bet's description: the problem, what success looks like, rough scope, explicit no-gos, rabbit holes to watch for. The bet sits in `draft` on the Work view. No tasks yet.
 
 **Then activate.** A bet's lifecycle is `draft | active | completed | killed`. The founder moves a draft to active and the team begins. Vague done conditions are the most common reason bets drift.
 
-**Money is the budget axis.** No deadlines or sprint lengths. The created and completed timestamps are recorded for retros — their delta is informational. This forces honest trade-offs: if the work costs more than the appetite allows, something changes. Cap grammar and hierarchy: [WIP and cost limits](../process-layer/wip-and-cost-limits.md).
+**No deadlines or sprint lengths.** The created and completed timestamps are recorded for retros — their delta is informational, never a budget. What is bounded is concurrency: how many sessions and tasks run at once. See [WIP limits](../process-layer/wip-and-cost-limits.md).
 
 **Changes go through review.** Done conditions can be revised. Hypotheses can be updated. Every change appends to the bet's revision log, and a done-condition change surfaces as a review item for the human.
 
@@ -44,23 +44,22 @@ Depth: [Bets — shape, commit, change, ship](../process-layer/bets-shape-commit
 
 ---
 
-## Tasks: one decomposer proposes, the team refines
+## Tasks
 
-When a bet activates, one decomposer agent — the Product Manager where one exists — runs a decomposition turn and proposes the full task list (`runBetDecomposition`; `decompositionStatus` on the bet tracks it). Proposed tasks are then reviewed and refined. No human review at this stage.
+When a bet activates, the task section shows "No tasks yet." Tasks are added by agents on the team as they pick up work, or by the founder directly. No automatic breakdown happens at activation.
 
 Each task has:
 - An owner (the responsible agent)
 - A state: proposed, accepted, hold, in-progress, blocked, review, done, or killed
 - A done condition (task-level, explicit)
-- A cost cap (money)
 - An optional discussion thread
 - Artifacts it has produced
 
-**Example.** Mika (the Acme Builder) owns "Implement Stripe webhook handler." It depends on "Define payment schema," which must finish first. Done condition: "webhook endpoint returns 200 for all test events and logs to the canonical store." Cost cap: $12. When Mika completes it, the dependent task "Connect payments UI to API" moves from hold to accepted automatically.
+**Example.** Mika (the Acme Builder) owns "Implement Stripe webhook handler." It depends on "Define payment schema," which must finish first. Done condition: "webhook endpoint returns 200 for all test events and logs to the canonical store." When Mika completes it, the dependent task "Connect payments UI to API" moves from hold to accepted automatically.
 
 Tasks are the unique producers of artifacts. A task that builds the signup flow produces a code artifact. A task that writes landing page copy produces a content artifact. The bet aggregates these; it does not own them.
 
-**No central planner.** There is no orchestrator agent deciding what all agents should do. The Product Manager integrates and unblocks but does not micromanage. Sequences emerge from task dependencies: when task A completes, dependent tasks on hold move to accepted. The Dependency Watcher (`packages/server/src/services/dependency-watcher.ts`) handles this automatically.
+**No central planner.** There is no orchestrator agent deciding what all agents should do. The Product Manager integrates and unblocks but does not micromanage. Sequences emerge from task dependencies: when task A completes, dependent tasks on hold move to accepted. The Dependency Watcher (`layers/core-api/work/src/dependency-watcher.ts`) handles this automatically.
 
 Depth: [Tasks and sessions](../process-layer/tasks-and-sessions.md).
 
@@ -92,7 +91,7 @@ A routine is a recurring trigger attached to a named agent, with state that pers
 
 - **Calendar** — every Monday at 9am
 - **Event** — every time a landing page ships, run brand-voice review
-- **Heartbeat** — every hour, check cost burn
+- **Heartbeat** — every hour, check whether anything is stalled
 
 Every routine has a named owner who holds the thread of memory. Helena (the Facilitator for Growth) owns "weekly growth metrics review." Every Monday she checks what campaigns shipped, compares conversion numbers against practice benchmarks, and posts a summary. When she found Ambrovia's email open rates dropped 15% after a subject-line change, she flagged it for the founder.
 
@@ -102,4 +101,4 @@ Depth: [Routines and retros](../process-layer/routines-and-retros.md).
 
 ---
 
-Next: [Human + AI Collaboration](./human-ai-collaboration.md) — how trust is earned, how review works, and how cost stays visible.
+Next: [Human + AI Collaboration](./human-ai-collaboration.md) — how trust is earned and how review works.

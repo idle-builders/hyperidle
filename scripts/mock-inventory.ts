@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 /**
  * Mock-data inventory generator (M1).
- * Walks packages/web/src/ and packages/server/src/, detects mock-data
+ * Walks layers/core-ui/src/ and packages/server/src/, detects mock-data
  * offenders, emits inventory.json + inventory.md + queue.md.
  *
  * Usage:
@@ -25,7 +25,7 @@ import {
 	PERMITTED_SURFACE_SUFFIXES,
 	POLICY_DOC_URL,
 	SEED_FILE_BASENAME_PREFIX,
-} from "../packages/eslint-plugin-design/src/mock-data-policy.js";
+} from "../tools/eslint-plugin-design/src/mock-data-policy.js";
 
 import type {
 	InventoryCheckResult,
@@ -511,12 +511,12 @@ function collectAU19SrcDirs(repoRoot: string): string[] {
 	const applications = ["remote-server", "remote-worker"];
 
 	for (const layer of layers) {
-		const layerDir = join(repoRoot, "packages", layer);
+		const layerDir = join(repoRoot, "layers", layer);
 		if (!existsSync(layerDir)) continue;
 		// Layer's own composition-root src/ (e.g. core-api/src).
 		const layerSrc = join(layerDir, "src");
 		if (existsSync(layerSrc)) dirs.push(layerSrc);
-		// Nested Service package src/ dirs (packages/<layer>/<service>/src).
+		// Nested Service package src/ dirs (layers/<layer>/<service>/src).
 		for (const entry of readdirSync(layerDir, { withFileTypes: true })) {
 			if (!entry.isDirectory() || entry.name === "node_modules" || entry.name === "dist") {
 				continue;
@@ -527,7 +527,7 @@ function collectAU19SrcDirs(repoRoot: string): string[] {
 	}
 
 	for (const app of applications) {
-		const appSrc = join(repoRoot, "packages", app, "src");
+		const appSrc = join(repoRoot, "applications", app, "src");
 		if (existsSync(appSrc)) dirs.push(appSrc);
 	}
 
@@ -545,7 +545,7 @@ if (isEntrypoint) {
 	const scriptPath = fileURLToPath(import.meta.url);
 	// scripts/mock-inventory.ts → repo root is one level up
 	const repoRoot = join(scriptPath, "..", "..");
-	const webSrc = join(repoRoot, "packages/web/src");
+	const webSrc = join(repoRoot, "layers/core-ui/src");
 	const serverSrcDirs = collectAU19SrcDirs(repoRoot);
 	const outDir = join(repoRoot, "plans/mock-data-purge");
 	const inventoryPath = join(outDir, "inventory.json");

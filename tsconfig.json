@@ -1,19 +1,19 @@
 {
 	"extends": "./tsconfig.base.json",
 	"references": [
-		{ "path": "packages/shared" },
-		{ "path": "packages/db" },
-		{ "path": "packages/design-system" },
-		{ "path": "packages/eslint-plugin-design" },
-		{ "path": "packages/eslint-plugin-authz" },
-		{ "path": "packages/api-contract" },
-		{ "path": "packages/desktop" },
-		{ "path": "packages/eval" },
-		{ "path": "packages/core-api" },
-		{ "path": "packages/agent-orchestration" },
-		{ "path": "packages/agent-execution" },
-		{ "path": "packages/remote-server" },
-		{ "path": "packages/remote-worker" }
+		{ "path": "framework/shared" },
+		{ "path": "framework/db" },
+		{ "path": "framework/design-system" },
+		{ "path": "tools/eslint-plugin-design" },
+		{ "path": "tools/eslint-plugin-authz" },
+		{ "path": "framework/api-contract" },
+		{ "path": "applications/desktop" },
+		{ "path": "tools/eval" },
+		{ "path": "layers/core-api" },
+		{ "path": "layers/agent-orchestration" },
+		{ "path": "layers/agent-execution" },
+		{ "path": "applications/remote-server" },
+		{ "path": "applications/remote-worker" }
 	],
 	"include": [],
 	"exclude": ["node_modules", "dist"]

@@ -3,7 +3,7 @@
   "packages": [
     {
       "name": "@hyperidle/agent-execution",
-      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/agent-execution",
+      "dir": "/Users/tg/hyperidle/.worktrees/pipeline-AU28/packages/agent-execution",
       "kind": {
         "kind": "layer",
         "layer": "agent-execution"
@@ -11,7 +11,7 @@
     },
     {
       "name": "@hyperidle/harness-registry",
-      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/agent-execution/harness-registry",
+      "dir": "/Users/tg/hyperidle/.worktrees/pipeline-AU28/packages/agent-execution/harness-registry",
       "kind": {
         "kind": "layer",
         "layer": "agent-execution"
@@ -19,7 +19,7 @@
     },
     {
       "name": "@hyperidle/agent-orchestration",
-      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/agent-orchestration",
+      "dir": "/Users/tg/hyperidle/.worktrees/pipeline-AU28/packages/agent-orchestration",
       "kind": {
         "kind": "layer",
         "layer": "agent-orchestration"
@@ -27,7 +27,7 @@
     },
     {
       "name": "@hyperidle/dispatch",
-      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/agent-orchestration/dispatch",
+      "dir": "/Users/tg/hyperidle/.worktrees/pipeline-AU28/packages/agent-orchestration/dispatch",
       "kind": {
         "kind": "layer",
         "layer": "agent-orchestration"
@@ -35,7 +35,7 @@
     },
     {
       "name": "@hyperidle/run-orchestration",
-      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/agent-orchestration/run-orchestration",
+      "dir": "/Users/tg/hyperidle/.worktrees/pipeline-AU28/packages/agent-orchestration/run-orchestration",
       "kind": {
         "kind": "layer",
         "layer": "agent-orchestration"
@@ -43,7 +43,7 @@
     },
     {
       "name": "@hyperidle/session-requests",
-      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/agent-orchestration/session-requests",
+      "dir": "/Users/tg/hyperidle/.worktrees/pipeline-AU28/packages/agent-orchestration/session-requests",
       "kind": {
         "kind": "layer",
         "layer": "agent-orchestration"
@@ -51,7 +51,7 @@
     },
     {
       "name": "@hyperidle/tool-handlers",
-      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/agent-orchestration/tool-handlers",
+      "dir": "/Users/tg/hyperidle/.worktrees/pipeline-AU28/packages/agent-orchestration/tool-handlers",
       "kind": {
         "kind": "layer",
         "layer": "agent-orchestration"
@@ -59,14 +59,14 @@
     },
     {
       "name": "@hyperidle/api-contract",
-      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/api-contract",
+      "dir": "/Users/tg/hyperidle/.worktrees/pipeline-AU28/packages/api-contract",
       "kind": {
         "kind": "foundation"
       }
     },
     {
       "name": "@hyperidle/core-api",
-      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/core-api",
+      "dir": "/Users/tg/hyperidle/.worktrees/pipeline-AU28/packages/core-api",
       "kind": {
         "kind": "layer",
         "layer": "core-api"
@@ -74,7 +74,7 @@
     },
     {
       "name": "@hyperidle/connections",
-      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/core-api/connections",
+      "dir": "/Users/tg/hyperidle/.worktrees/pipeline-AU28/packages/core-api/connections",
       "kind": {
         "kind": "layer",
         "layer": "core-api"
@@ -82,7 +82,7 @@
     },
     {
       "name": "@hyperidle/conversation",
-      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/core-api/conversation",
+      "dir": "/Users/tg/hyperidle/.worktrees/pipeline-AU28/packages/core-api/conversation",
       "kind": {
         "kind": "layer",
         "layer": "core-api"
@@ -90,7 +90,7 @@
     },
     {
       "name": "@hyperidle/filesystems",
-      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/core-api/filesystems",
+      "dir": "/Users/tg/hyperidle/.worktrees/pipeline-AU28/packages/core-api/filesystems",
       "kind": {
         "kind": "layer",
         "layer": "core-api"
@@ -98,7 +98,7 @@
     },
     {
       "name": "@hyperidle/git-export",
-      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/core-api/git-export",
+      "dir": "/Users/tg/hyperidle/.worktrees/pipeline-AU28/packages/core-api/git-export",
       "kind": {
         "kind": "layer",
         "layer": "core-api"
@@ -106,7 +106,7 @@
     },
     {
       "name": "@hyperidle/knowledge",
-      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/core-api/knowledge",
+      "dir": "/Users/tg/hyperidle/.worktrees/pipeline-AU28/packages/core-api/knowledge",
       "kind": {
         "kind": "layer",
         "layer": "core-api"
@@ -114,7 +114,7 @@
     },
     {
       "name": "@hyperidle/notifications",
-      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/core-api/notifications",
+      "dir": "/Users/tg/hyperidle/.worktrees/pipeline-AU28/packages/core-api/notifications",
       "kind": {
         "kind": "layer",
         "layer": "core-api"
@@ -122,7 +122,7 @@
     },
     {
       "name": "@hyperidle/observability",
-      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/core-api/observability",
+      "dir": "/Users/tg/hyperidle/.worktrees/pipeline-AU28/packages/core-api/observability",
       "kind": {
         "kind": "layer",
         "layer": "core-api"
@@ -130,7 +130,7 @@
     },
     {
       "name": "@hyperidle/org",
-      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/core-api/org",
+      "dir": "/Users/tg/hyperidle/.worktrees/pipeline-AU28/packages/core-api/org",
       "kind": {
         "kind": "layer",
         "layer": "core-api"
@@ -138,7 +138,7 @@
     },
     {
       "name": "@hyperidle/policy",
-      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/core-api/policy",
+      "dir": "/Users/tg/hyperidle/.worktrees/pipeline-AU28/packages/core-api/policy",
       "kind": {
         "kind": "layer",
         "layer": "core-api"
@@ -146,7 +146,7 @@
     },
     {
       "name": "@hyperidle/realtime",
-      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/core-api/realtime",
+      "dir": "/Users/tg/hyperidle/.worktrees/pipeline-AU28/packages/core-api/realtime",
       "kind": {
         "kind": "layer",
         "layer": "core-api"
@@ -154,7 +154,7 @@
     },
     {
       "name": "@hyperidle/review",
-      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/core-api/review",
+      "dir": "/Users/tg/hyperidle/.worktrees/pipeline-AU28/packages/core-api/review",
       "kind": {
         "kind": "layer",
         "layer": "core-api"
@@ -162,7 +162,7 @@
     },
     {
       "name": "@hyperidle/routine",
-      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/core-api/routine",
+      "dir": "/Users/tg/hyperidle/.worktrees/pipeline-AU28/packages/core-api/routine",
       "kind": {
         "kind": "layer",
         "layer": "core-api"
@@ -170,7 +170,7 @@
     },
     {
       "name": "@hyperidle/settings",
-      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/core-api/settings",
+      "dir": "/Users/tg/hyperidle/.worktrees/pipeline-AU28/packages/core-api/settings",
       "kind": {
         "kind": "layer",
         "layer": "core-api"
@@ -178,7 +178,7 @@
     },
     {
       "name": "@hyperidle/users",
-      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/core-api/users",
+      "dir": "/Users/tg/hyperidle/.worktrees/pipeline-AU28/packages/core-api/users",
       "kind": {
         "kind": "layer",
         "layer": "core-api"
@@ -186,7 +186,7 @@
     },
     {
       "name": "@hyperidle/work",
-      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/core-api/work",
+      "dir": "/Users/tg/hyperidle/.worktrees/pipeline-AU28/packages/core-api/work",
       "kind": {
         "kind": "layer",
         "layer": "core-api"
@@ -194,70 +194,70 @@
     },
     {
       "name": "@hyperidle/db",
-      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/db",
+      "dir": "/Users/tg/hyperidle/.worktrees/pipeline-AU28/packages/db",
       "kind": {
         "kind": "foundation"
       }
     },
     {
       "name": "@hyperidle/design-system",
-      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/design-system",
+      "dir": "/Users/tg/hyperidle/.worktrees/pipeline-AU28/packages/design-system",
       "kind": {
         "kind": "foundation"
       }
     },
     {
       "name": "@hyperidle/desktop",
-      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/desktop",
+      "dir": "/Users/tg/hyperidle/.worktrees/pipeline-AU28/packages/desktop",
       "kind": {
         "kind": "application"
       }
     },
     {
       "name": "eslint-plugin-authz",
-      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/eslint-plugin-authz",
+      "dir": "/Users/tg/hyperidle/.worktrees/pipeline-AU28/packages/eslint-plugin-authz",
       "kind": {
         "kind": "tooling"
       }
     },
     {
       "name": "eslint-plugin-design",
-      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/eslint-plugin-design",
+      "dir": "/Users/tg/hyperidle/.worktrees/pipeline-AU28/packages/eslint-plugin-design",
       "kind": {
         "kind": "tooling"
       }
     },
     {
       "name": "@hyperidle/eval",
-      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/eval",
+      "dir": "/Users/tg/hyperidle/.worktrees/pipeline-AU28/packages/eval",
       "kind": {
         "kind": "tooling"
       }
     },
     {
       "name": "@hyperidle/remote-server",
-      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/remote-server",
+      "dir": "/Users/tg/hyperidle/.worktrees/pipeline-AU28/packages/remote-server",
       "kind": {
         "kind": "application"
       }
     },
     {
       "name": "@hyperidle/remote-worker",
-      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/remote-worker",
+      "dir": "/Users/tg/hyperidle/.worktrees/pipeline-AU28/packages/remote-worker",
       "kind": {
         "kind": "application"
       }
     },
     {
       "name": "@hyperidle/shared",
-      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/shared",
+      "dir": "/Users/tg/hyperidle/.worktrees/pipeline-AU28/packages/shared",
       "kind": {
         "kind": "foundation"
       }
     },
     {
       "name": "@hyperidle/web",
-      "dir": "/Users/tg/hyperidle/.worktrees/AU28-interface-architecture/packages/web",
+      "dir": "/Users/tg/hyperidle/.worktrees/pipeline-AU28/packages/web",
       "kind": {
         "kind": "layer",
         "layer": "core-ui"

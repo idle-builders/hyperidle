@@ -6,7 +6,7 @@ Five end-to-end flows, verified against live code. Each names the real mechanism
 
 ```
 1. Builder agent completes final task → session ends, task → "done"
-2. Dependency watcher (packages/server/src/services/dependency-watcher.ts):
+2. Dependency watcher (layers/core-api/work/src/dependency-watcher.ts):
    all tasks for Bet-17 are done
 3. Product Manager's routine fires: "check bet done condition"
 4. Product Manager confirms done condition met
@@ -15,7 +15,7 @@ Five end-to-end flows, verified against live code. Each names the real mechanism
 6. Router: risk_tier ≥ medium → Conversations + push notification
    (notification_queue + dispatcher)
 7. Router: product scope → route to CPO
-   (routeToFounder, packages/server/src/services/founder-router.ts)
+   (resolveReviewRecipients, layers/core-api/org/src/org-routing.ts)
 8. Notification adapter: push to CPO's phone
 9. CPO opens thread, reads summary, approves
 10. Verdict recorded → bet status → "completed"
@@ -44,17 +44,13 @@ Layer taxonomy (L0–L4) and knowledge statuses are owned by [the-five-layers](.
 ```
 1. A Builder discovers chunked upload >10MB works better
 2. Builder logs the finding to task notes at session end (before compaction)
-3. At the next weekly practice-meeting routine (facilitator role,
-   packages/server/src/services/practice-meeting.ts):
-   a. Facilitator collects findings from all Builders
-   b. Builders and facilitator discuss — is this worth keeping?
-   c. Facilitator creates knowledge item: "chunked upload for files >10MB"
-      (status: captured, attention_score computed)
+3. A facilitator collects the finding and creates a knowledge item:
+   "chunked upload for files >10MB"
+   (status: captured, attention_score computed)
 4. Score is moderate → doesn't surface to a human in the Knowledge view yet
 5. Two weeks later, a Builder on another team independently discovers
    the same thing
-6. At the next meeting, the promotion pipeline's repetition signal
-   promotes it → validated
+6. The promotion pipeline's repetition signal promotes it → validated
 7. The item is now active in L3
 8. Next time any Builder starts a task session:
    a. Context assembly queries L3 for relevant patterns
@@ -68,8 +64,8 @@ Layer taxonomy (L0–L4) and knowledge statuses are owned by [the-five-layers](.
 1. The team is two weeks into an active bet
 2. Growth agent discovers via analytics that the target audience uses
    the product differently than hypothesized
-3. Growth agent posts the finding to task notes + contributes it to the
-   next practice meeting
+3. Growth agent posts the finding to task notes, and the facilitator
+   picks it up for the practice
 4. Product Manager notices the trajectory has shifted:
    the hypothesis is no longer valid
 5. Product Manager drafts a bet revision:
@@ -99,7 +95,7 @@ Layer taxonomy (L0–L4) and knowledge statuses are owned by [the-five-layers](.
 4. Session starts, agent queries for new copy artifacts since the last run
 5. Agent summarizes patterns into its own L2 memory
    ("we shifted to a more formal tone this week")
-6. Session ends → session_ended event → cost logged
+6. Session ends → session_ended event
 7. No Item created, no thread, no notification
 8. Next time the Brand Voice agent reviews copy in a task session,
    its context pack includes the updated memory — it's current

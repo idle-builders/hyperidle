@@ -10,7 +10,7 @@ No strict component count. New components only when necessary; prefer compositio
 
 ## Tier 1 — Primitives
 
-Wrap DaisyUI classes or token CSS vars to add semantic meaning. Live in `packages/design-system/src/`.
+Wrap DaisyUI classes or token CSS vars to add semantic meaning. Live in `framework/design-system/src/`.
 
 - **StatusChip** — single source of truth for status color anywhere in the app. Six statuses: `healthy | behind | blocked | paused | done | error` (`StatusChip.tsx:4`). Also accepts `"unknown"` sentinel for call sites where absence is not an error. `status-mapping.ts` maps domain statuses into these six.
 - **Tag** — identity label (product name, object kind, knowledge category). Hand-rolled token classes — not DaisyUI badge (`Tag.tsx:13`).
@@ -24,11 +24,11 @@ Wrap DaisyUI classes or token CSS vars to add semantic meaning. Live in `package
 
 ## Tier 2 — Blocks
 
-Compose Tier-1 primitives into reusable display units. Live in `packages/design-system/src/`.
+Compose Tier-1 primitives into reusable display units. Live in `framework/design-system/src/`.
 
-> **Naming disambiguation.** "Tier 2 — Blocks" is a tier of design-system *components* (React widgets). These are **not** the `Block` content primitive — see [`docs/blocks/`](../blocks/definition.md). The Block primitive's payload renderers (`HeadingPayload`, `ParagraphPayload`, etc. in `packages/design-system/src/block/`) are Tier-2 components that happen to render the primitive; the primitive itself is data, not a component.
+> **Naming disambiguation.** "Tier 2 — Blocks" is a tier of design-system *components* (React widgets). These are **not** the `Block` content primitive — see [`docs/blocks/`](../blocks/definition.md). The Block primitive's payload renderers (`HeadingPayload`, `ParagraphPayload`, etc. in `framework/design-system/src/block/`) are Tier-2 components that happen to render the primitive; the primitive itself is data, not a component.
 
-Current shipped set (non-exhaustive — see `packages/design-system/src/index.ts` for the authoritative export list):
+Current shipped set (non-exhaustive — see `framework/design-system/src/index.ts` for the authoritative export list):
 
 - **ThreadRow** — Avatar + title + caption + StatusChip + relative timestamp.
 - **BetCard** — Tag(product) + title + StatusChip + Progress + owner Avatar.
@@ -42,13 +42,13 @@ Note: `PitchCard` was deleted. The design system ships ~70 components; the list 
 
 ## Tier 3 — Shell regions
 
-Compose Tier-2 components into major page sections. Shell regions live in `packages/web/src/shell/`.
+Compose Tier-2 components into major page sections. Shell regions live in `layers/core-ui/src/shell/`.
 
-- **Sidebar** (`packages/web/src/shell/Sidebar.tsx`) — 200px fixed-width vertical navigation with three labeled sections (Conversations / Work / Knowledge) and Settings pinned at the bottom. Structure → [`docs/information-architecture/app-shell-always-present.md`](../information-architecture/app-shell-always-present.md).
+- **Sidebar** (`layers/core-ui/src/shell/Sidebar.tsx`) — 200px fixed-width vertical navigation with three labeled sections (Conversations / Work / Knowledge) and Settings pinned at the bottom. Structure → [`docs/information-architecture/app-shell-always-present.md`](../information-architecture/app-shell-always-present.md).
 
-Other shell surfaces (AppShell, DesktopTitleBar, AssistantOverlay, TaskSheet) live in `packages/web/src/shell/`. View-specific region components live alongside their page files.
+Other shell surfaces (AppShell, DesktopTitleBar, AssistantOverlay, TaskSheet) live in `layers/core-ui/src/shell/`. View-specific region components live alongside their page files.
 
-Note: `ArtifactView`, `ReviewHeader`, `Canvas`, `Kanban`, and `PitchSelector` no longer exist as components. Review rendering is now handled by the canvas registry (`packages/web/src/pages/review/canvas-registry.ts`).
+Note: `ArtifactView`, `ReviewHeader`, `Canvas`, `Kanban`, and `PitchSelector` no longer exist as components. Review rendering is now handled by the canvas registry (`layers/core-ui/src/pages/review/canvas-registry.ts`).
 
 ---
 
@@ -64,7 +64,7 @@ Listed once here so downstream components don't redefine them. Each is used dire
 
 `btn` · `input` · `textarea` · `select` · `radio` · `range` · `skeleton` · `loading` · `toast` · `alert`
 
-Everything else the design system hand-rolls on tokens: Menu, Avatar, TabBar, Dialog, Toggle, Tag, Breadcrumb, Checkbox — see `packages/design-system/src/`.
+Everything else the design system hand-rolls on tokens: Menu, Avatar, TabBar, Dialog, Toggle, Tag, Breadcrumb, Checkbox — see `framework/design-system/src/`.
 
 **Not used:** hero, card, chat bubble, carousel, steps, timeline, rating, stat, mockup — wrong tone, redundant, or consumer-y.
 

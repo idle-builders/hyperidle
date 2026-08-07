@@ -68,20 +68,20 @@ interface BeforeTeardownContext {
 }
 ```
 
-`runSession` fires it once after the agent's turn fully drains and the sandbox is written, **before** `endSession`/`crashSession` delete the directory (`session-lifecycle.ts:341`). If the hook throws, the error is logged and swallowed — teardown always runs. Production callers omit this field entirely (no behavior change). The hook is strictly for test observation; it cannot pause, defer, or cancel teardown.
+It fires once after the agent's turn fully drains and the sandbox is written, **before** `endSession`/`crashSession` delete the directory (`layers/agent-orchestration/run-orchestration/src/provisioner.ts`). If the hook throws, the error is logged and swallowed — teardown always runs. Production callers omit this field entirely (no behavior change). The hook is strictly for test observation; it cannot pause, defer, or cancel teardown.
 
 This is the correct and only observation window: the drain has completed (`harness.stopSession` has returned, all native writes flushed, the adapter slot released), but neither `endSession` nor `crashSession` has been called yet. Any earlier hook would see an incomplete sandbox; any later hook would observe an already-deleted directory.
 
-### Harness Integration Pattern (AR2 — template for AR3–AR6)
+### Harness integration pattern
 
-Harness integration tests that need to assert on real agent output use this four-step recipe (`packages/server/src/harness/__tests__/provision-real-session.ts`):
+Harness integration tests that need to assert on real agent output:
 
-1. `requireHarness(<name>)` at `describe` scope — hard-fail if the harness is absent, never `skipIf`.
-2. Seed domain rows; `setActiveStrategy(fabricStrategy)`; register the real adapter in an `AdapterPool`; set up `LocalSandboxAdapter`; CLI harnesses also need `startMcpBridgeServer()`.
-3. `const cap = createSandboxCapture()`; pass `onBeforeTeardown: cap.onBeforeTeardown` into `ProvisionSessionDeps` alongside real deps; `await provisionSession(deps, params)`.
-4. Assert on `cap.files` (relative path → string content, populated when the seam fired) and/or DB rows the agent's tools wrote and/or `result`.
+1. `requireHarness(<name>)` at `describe` scope (`layers/agent-execution/harness-registry/src/__tests__/require-harness.ts`) — hard-fail if the harness is absent, never `skipIf`.
+2. Seed domain rows; register the real adapter in an `AdapterPool`; set up `LocalSandboxAdapter`.
+3. Pass an `onBeforeTeardown` observer into `ProvisionSessionDeps` alongside real deps, and run the session.
+4. Assert on the files the observer captured, and/or the rows the agent's tools wrote, and/or the result.
 
-The helpers `createSandboxCapture` and `startMcpBridgeServer` are exported from `packages/server/src/harness/__tests__/provision-real-session.ts`. See `.claude/rules/testing.md` §Integration tests: two archetypes for the rule-level description.
+See `.claude/rules/testing.md` §Integration tests: two archetypes for the rule-level description.
 
 ## Next steps
 

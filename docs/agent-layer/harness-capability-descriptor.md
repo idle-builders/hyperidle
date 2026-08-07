@@ -2,10 +2,10 @@
 
 A **harness capability descriptor** is the Kernel-owned, queryable declaration of what one registered harness backend can run and how downstream consumers may configure and interpret it. Descriptors are evidence-first: a field may only claim a capability backed by real source research or a passing real integration test. Unproven claims use `unknown`, `unavailable`, or are absent.
 
-The descriptor exposes models, access mode, auth action, discovery state, runtime capabilities, inherited tools, and event normalization commitments — without leaking API keys, base URLs, or provider subscription tokens (route tests assert this: `packages/server/src/routes/__tests__/AM2-harness-capabilities.integration.test.ts:144-159`).
+The descriptor exposes models, access mode, auth action, discovery state, runtime capabilities, inherited tools, and event normalization commitments — without leaking API keys, base URLs, or provider subscription tokens (route tests assert this: `layers/core-api/src/routes/__tests__/AM2-harness-capabilities.integration.test.ts`).
 
 ```ts
-// packages/shared/src/harness/harness-capability-descriptor.ts (authoritative)
+// framework/shared/src/harness/harness-capability-descriptor.ts (authoritative)
 interface HarnessCapabilityDescriptor {
   type: string;              // "builtin", "codex", "claude-code", "opencode", "cursor-agent"
   name: string;
@@ -29,7 +29,7 @@ Two additive fields postdate the original AM2 shape:
 
 ## Discovery and Readiness States
 
-`discoverLocalHarnesses()` (`packages/server/src/harness/harness-discovery.ts:645-683`) probes the five known families concurrently (`Promise.all`). Probes run version and auth-status commands, and (since AN1) read harness config files for MCP server **names** — never provider credential files, never token values.
+`discoverLocalHarnesses()` (`layers/agent-execution/harness-registry/src/harness-discovery.ts`) probes the five known families concurrently (`Promise.all`). Probes run version and auth-status commands, and (since AN1) read harness config files for MCP server **names** — never provider credential files, never token values.
 
 | State | Meaning |
 |---|---|
@@ -56,7 +56,7 @@ Discovery also enumerates tools each harness already carries — names and healt
 
 **Access mode:** `api-gateway`. Users make it ready by storing a model gateway credential in HyperIdle.
 
-**Discovery:** `probeBuiltinGateway` (`harness-discovery.ts:329-381`) checks the ordered gateway-usable credential set:
+**Discovery:** `probeBuiltinGateway` (`harness-discovery.ts`) checks the ordered gateway-usable credential set:
 1. `ANTHROPIC_API_KEY` → `anthropic_api_key`
 2. `OPENAI_API_KEY` → `openai_compatible_api_key`
 3. `OPENROUTER_API_KEY` → `openrouter_api_key`
@@ -65,17 +65,17 @@ Reports `ready` when any credential is present, with the matched credential name
 
 **Real gateway call proven:** `AM2-builtin-gateway.integration.test.ts` drives one harmless turn through `BuiltinHarnessAdapter` via the `openai-compatible` path (live OpenRouter call — no stub, no cassette) and asserts real normalized `token_usage` and `completion` events with a non-empty `completion.text` differing from the probe prompt. (`cost_update` was removed — harness telemetry is token usage only.)
 
-**Runtime caps:** `fileEditing`/`toolUse` resolve `true` via the `?? true` defaults in `runtimeFromCapabilities` (`harness-capability-descriptors.ts:39-40`) — the builtin adapter does not declare them itself, and it declares `mcpSupport: false`. Builtin does not use the session-probe gate.
+**Runtime caps:** `fileEditing`/`toolUse` resolve `true` via the `?? true` defaults in `runtimeFromCapabilities` (`harness-capability-descriptors.ts`) — the builtin adapter does not declare them itself, and it declares `mcpSupport: false`. Builtin does not use the session-probe gate.
 
 ### `codex` (OpenAI Codex CLI)
 
 **Access mode:** `provider-subscription-cli`. Auth method: `native_cli_login` → `codex login`.
 
-**Discovery probes** (`probeCodexCli`, `harness-discovery.ts:128-177`): `codex --version`; `codex login status` checked for the "Logged in using" prefix on stdout **or** stderr (codex writes it to stderr).
+**Discovery probes** (`probeCodexCli`, `harness-discovery.ts`): `codex --version`; `codex login status` checked for the "Logged in using" prefix on stdout **or** stderr (codex writes it to stderr).
 
-**Session probe:** `probeCodexSession` (`harness-session-probe.ts:126-167`) runs `codex exec "reply with the single word OK" --json` with stdin ignored (prevents blocking on "Reading additional input from stdin..."). Captures the usage-bearing `turn.completed` JSONL line. Committed fixture: `packages/server/src/harness/__tests__/fixtures/codex-exec.jsonl`.
+**Session probe:** `probeCodexSession` (`layers/agent-execution/harness-registry/src/harness-session-probe.ts`) runs `codex exec "reply with the single word OK" --json` with stdin ignored (prevents blocking on "Reading additional input from stdin..."). Captures the usage-bearing `turn.completed` JSONL line. Committed fixture: `layers/agent-execution/harness-registry/src/__tests__/fixtures/codex-exec.jsonl`.
 
-**Production headless invocation:** `codex exec --sandbox workspace-write --model {{model}} {{prompt}} --json` (`adapter-pool.ts:390`). `--sandbox workspace-write` is required — codex defaults to a read-only sandbox and refuses all file writes without it.
+**Production headless invocation:** `codex exec --sandbox workspace-write --model {{model}} {{prompt}} --json` (`adapter-pool.ts`). `--sandbox workspace-write` is required — codex defaults to a read-only sandbox and refuses all file writes without it.
 
 **MCP delivery:** per-session `writeCliMcpConfig({ dialect: "codex-toml" })` appends `[mcp_servers.hyperidle]` to `<sandbox>/.codex-home/config.toml`. The token is delivered via the `HYPERIDLE_MCP_TOKEN` env var — `bearer_token_env_var` points codex at it; the token is never inline in the TOML.
 
@@ -83,34 +83,40 @@ Reports `ready` when any credential is present, with the matched credential name
 
 **Access mode:** `provider-subscription-cli`. Auth method: `native_cli_login` → `claude auth login`.
 
-**Discovery probes** (`probeClaudeCodeCli`, `harness-discovery.ts:180-244`): `claude --version`; `claude auth status` JSON-parsed for `loggedIn: true`.
+**Discovery probes** (`probeClaudeCodeCli`, `harness-discovery.ts`): `claude --version`; `claude auth status` JSON-parsed for `loggedIn: true`.
 
-**Session probe:** `probeClaudeSession` (`harness-session-probe.ts:170-215`) runs `claude -p "say OK" --output-format stream-json --verbose --no-session-persistence`. Captures the usage-bearing `result` NDJSON event carrying `usage.{input_tokens, output_tokens}`. The line also carries `total_cost_usd`, but the adapter no longer captures it — harness telemetry is token usage only. Committed fixture: `fixtures/claude-stream.jsonl`.
+**Session probe:** `probeClaudeSession` (`harness-session-probe.ts`) runs `claude -p "say OK" --output-format stream-json --verbose --no-session-persistence`. Captures the usage-bearing `result` NDJSON event carrying `usage.{input_tokens, output_tokens}`. The line also carries `total_cost_usd`, but the adapter no longer captures it — harness telemetry is token usage only. Committed fixture: `fixtures/claude-stream.jsonl`.
 
-**Production adapter is the real `claude` CLI:** `CliHarnessAdapter(CLAUDE_CLI_CONFIG)` (`adapter-pool.ts:616-628`). The former SDK adapter (`ClaudeAgentSdkAdapter`) is deleted — CLI login IS the production auth path, so there is no SDK-vs-CLI credential mismatch.
+**Production adapter is the real `claude` CLI:** `CliHarnessAdapter(CLAUDE_CLI_CONFIG)` (`adapter-pool.ts`). The former SDK adapter (`ClaudeAgentSdkAdapter`) is deleted — CLI login IS the production auth path, so there is no SDK-vs-CLI credential mismatch.
 
-**MCP delivery:** `.mcp.json` written into the sandbox at provisioning Phase 8b (`services/session-provisioning.ts`) — `{ mcpServers: { hyperidle: { url: "${mcpBaseUrl}/api/mcp/${token}", type: "streamable-http" } } }`.
+**MCP delivery:** `.mcp.json` written into the sandbox at provisioning time (`layers/agent-orchestration/run-orchestration/src/provisioner.ts`) — `{ mcpServers: { hyperidle: { url: "${mcpBaseUrl}/api/mcp/${token}", type: "streamable-http" } } }`.
 
 ### `opencode` (OpenCode CLI)
 
 **Access mode:** `provider-subscription-cli`. Auth method: `native_cli_login` → `opencode providers login`.
 
-**Discovery probes** (`probeOpenCodeCli`, `harness-discovery.ts:247-302`): `opencode --version`; `opencode providers list` checked for `/\d+\s+credentials/` regex or `"environment variable"` string on stdout. Ready state keeps `fileEditing`/`toolUse` conservatively `false` until a session probe proves launchability.
+**Discovery probes** (`probeOpenCodeCli`, `harness-discovery.ts`): `opencode --version`; `opencode providers list` checked for `/\d+\s+credentials/` regex or `"environment variable"` string on stdout. Ready state keeps `fileEditing`/`toolUse` conservatively `false` until a session probe proves launchability.
 
-**Session probe:** `probeOpenCodeSession` (`harness-session-probe.ts:220-262`) runs `opencode run "say OK" --format json`, capturing the first parsable JSON line. Committed fixture: `fixtures/opencode-run.json`.
+**Session probe:** `probeOpenCodeSession` (`harness-session-probe.ts`) runs `opencode run "say OK" --format json`, capturing the first parsable JSON line. Committed fixture: `fixtures/opencode-run.json`.
 
-**Production headless invocation:** `opencode run {{prompt}} --dir {{sandbox}} --format json --pure --model {{model}}` (`adapter-pool.ts:433-439`). The model id must be provider-prefixed (e.g. `openrouter/...`) — a bare id fails.
+**Production headless invocation:** `opencode run {{prompt}} --dir {{sandbox}} --format json --pure --model {{model}}` (`adapter-pool.ts`). The model id must be provider-prefixed (e.g. `openrouter/...`) — a bare id fails.
 
-**MCP delivery:** `writeCliMcpConfig({ dialect: "opencode-json" })` writes `opencode.json` into the sandbox cwd; token inline in `headers.Authorization`. The config path is also injected via the `OPENCODE_CONFIG` env var so opencode loads it regardless of cwd resolution (`cli-mcp-config.ts:53,161`).
+**MCP delivery:** `writeCliMcpConfig({ dialect: "opencode-json" })` writes `opencode.json` into the sandbox cwd; token inline in `headers.Authorization`. The config path is also injected via the `OPENCODE_CONFIG` env var so opencode loads it regardless of cwd resolution (`cli-mcp-config.ts`).
 
 ### `cursor-agent` (Cursor Agent)
 
-**Status: permanently `unavailable`.** Cursor does not expose a documented headless local CLI surface HyperIdle can drive; discovery no longer probes for a binary — `probeCursorAgentCli` (`harness-discovery.ts:305-317`) hardcodes:
+**Discovery probes** (`probeCursorAgentCli`, `harness-discovery.ts`): `cursor-agent --version`; `cursor-agent status` checked for a `"Logged in"` substring on stdout or stderr. Four outcomes:
 
-- `state: "unavailable"`, reason: `"Cursor Agent is not yet supported. Cursor does not expose a headless CLI surface HyperIdle can drive."`
-- `authAction: { kind: "none" }` — the settings row is non-actionable: no auth CTA, no toggle, no login button. The descriptor carries no model claims and all-`false` runtime caps.
+- `missing` — binary not on PATH.
+- `ready` — logged in. Declares `runtime: { fileEditing: true, toolUse: true }` directly from the probe.
+- `unauthenticated` — installed but `status` reports not logged in.
+- `installed` — installed, auth state unparseable; the reason echoes the first 120 chars of the observed output.
 
-Cursor stays in the list so users know it is on the roadmap, without a false promise of auth support.
+Every non-`missing` state carries `authAction: { kind: "native_cli_login", command: ["cursor-agent", "login"] }`, so the settings row has a real login CTA.
+
+**Production headless invocation:** `cursor-agent -p {{prompt}} --print --output-format stream-json --model {{model}} --trust --approve-mcps` (`adapter-pool.ts`). Event shapes match claude's, so it reuses the `claude-stream-json` dialect. Auth is inherited from the Cursor login — no key in `envMap`. `--trust` + `--approve-mcps` allow headless workspace + MCP without interactive prompts.
+
+**MCP delivery:** `writeCliMcpConfig({ dialect: "cursor-json" })`. Its declared `returnEnforcementChannel` is `"none"` — no hook artifact is written, so the drain-gate floor is its only return enforcement (see [return-gate-enforcement](./return-gate-enforcement.md)).
 
 ---
 
@@ -124,9 +130,9 @@ research dossier → architecture decision → implementation → real integrati
 
 If any link is missing for a claimed-ready family, the descriptor must report `unknown` or `unavailable` instead.
 
-**Key rule:** `runtimeFromDiscovery` (`harness-capability-descriptors.ts:44-70`) gates `fileEditing` and `toolUse` on `sessionProbe?.ok === true`. An `auth status` probe that proves login does NOT prove launchability — only a real one-shot session execution flips these flags.
+**Key rule:** `runtimeFromDiscovery` (`harness-capability-descriptors.ts`) gates `fileEditing` and `toolUse` on `sessionProbe?.ok === true`. An `auth status` probe that proves login does NOT prove launchability — only a real one-shot session execution flips these flags.
 
-**Scope caveat:** the session-probe gate covers the **discovery path only** — unregistered/missing families. A binary on PATH gets a registered adapter (`registerCliAdaptersIfAvailable`), and a registered adapter's descriptor goes through `runtimeFromCapabilities` (`harness-capability-descriptors.ts:33-42`), where `fileEditing ?? true` / `toolUse ?? true` resolve `true` without any session probe.
+**Scope caveat:** the session-probe gate covers the **discovery path only** — unregistered/missing families. A binary on PATH gets a registered adapter (`registerCliAdaptersIfAvailable`), and a registered adapter's descriptor goes through `runtimeFromCapabilities` (`harness-capability-descriptors.ts`), where `fileEditing ?? true` / `toolUse ?? true` resolve `true` without any session probe.
 
 **Session probe wiring:** `probeHarnessSession` still has no production caller — discovery intentionally skips it for latency (adapter-pool `@lore`); its callers are integration tests. Event normalization, by contrast, IS production-wired (see below).
 
@@ -134,14 +140,14 @@ If any link is missing for a claimed-ready family, the descriptor must report `u
 
 ## Adapter Contract and Pre-Compaction
 
-`HarnessCapabilities` (`packages/shared/src/harness/harness-adapter.ts:228+`) is what every adapter declares; the descriptor's `runtime` block projects from it:
+`HarnessCapabilities` (`framework/shared/src/harness/harness-adapter.ts`) is what every adapter declares; the descriptor's `runtime` block projects from it:
 
 - `preCompactionTrigger` — whether the adapter can signal imminent context compaction
 - `subAgents`, `mcpSupport`, `modelProviders`, optional `fileEditing`/`toolUse`
 - `returnEnforcement` — non-optional per-harness channel; mechanism owned by [return-gate-enforcement](./return-gate-enforcement.md)
 - `mcpConfig` dialect — which per-session MCP config file the CLI needs (see MCP bridge below)
 
-**Pre-compaction:** adapters with `preCompactionTrigger: true` emit a `pre_compaction` event (`PreCompactionEvent { type: "pre_compaction", contextTokens, maxTokens }`, `packages/shared/src/harness/harness-events.ts:56-57`) when context pressure crosses a threshold. The correct signal is the **latest call's** `inputTokens` against the model context window — not a cumulative sum, which over-counts by the number of calls (`packages/server/src/harness/context-window.ts`). The builtin adapter emits it (`builtin-harness-adapter.ts:693`); normalization passes it through unchanged. What a session does with the trigger (final note-writing pass) is a session-boundary concern — see [tasks-and-sessions](../process-layer/tasks-and-sessions.md).
+**Pre-compaction:** adapters with `preCompactionTrigger: true` emit a `pre_compaction` event (`PreCompactionEvent { type: "pre_compaction", contextTokens, maxTokens }`, `framework/shared/src/harness/harness-events.ts`) when context pressure crosses a threshold. The correct signal is the **latest call's** `inputTokens` against the model context window — not a cumulative sum, which over-counts by the number of calls (`layers/agent-execution/harness-registry/src/context-window.ts`). The builtin adapter emits it (`layers/agent-execution/harness-registry/src/builtin-harness-adapter.ts`); normalization passes it through unchanged. What a session does with the trigger (final note-writing pass) is a session-boundary concern — see [tasks-and-sessions](../process-layer/tasks-and-sessions.md).
 
 ---
 
@@ -153,7 +159,7 @@ CLI harnesses (claude-code, codex, opencode) reach HyperIdle's tool registry via
 CLI binary → [HTTP POST /api/mcp/:token] → createMcpRoute → bridgeRegistry.handleRequest → createMcpBridge instance → registry.invoke
 ```
 
-**Bridge is stateful.** `createMcpBridge` (`packages/server/src/mcp/mcp-bridge.ts:89-126`) constructs one `WebStandardStreamableHTTPServerTransport` per session token with `sessionIdGenerator: () => crypto.randomUUID()`. Stateful mode is required because real CLI MCP clients issue separate HTTP requests for `initialize` → `tools/list` → `tools/call`; the stateless transport throws on the second request. The SDK issues an `mcp-session-id` response header on `initialize`; subsequent requests carry it. The bridge registry (`mcp-bridge-registry.ts:37`) stores one transport per session token in a `Map<token, McpBridgeInstance>`; teardown calls only `mcpServer.close()` — the transport closes transitively (an explicit second `transport.close()` would double-close).
+**Bridge is stateful.** `createMcpBridge` (`layers/agent-execution/harness-registry/src/mcp/mcp-bridge.ts`) constructs one `WebStandardStreamableHTTPServerTransport` per session token with `sessionIdGenerator: () => crypto.randomUUID()`. Stateful mode is required because real CLI MCP clients issue separate HTTP requests for `initialize` → `tools/list` → `tools/call`; the stateless transport throws on the second request. The SDK issues an `mcp-session-id` response header on `initialize`; subsequent requests carry it. The bridge registry (same file) stores one transport per session token in a `Map<token, McpBridgeInstance>`; teardown calls only `mcpServer.close()` — the transport closes transitively (an explicit second `transport.close()` would double-close).
 
 **Two routing keys coexist.** The URL-path token is HyperIdle's routing key (bridge registry lookup; 401 on unknown). The SDK's `mcp-session-id` header is the MCP-protocol session managed transparently by the transport. Both are independent; a valid `mcp-session-id` with an unknown path token still 401s.
 
@@ -167,18 +173,18 @@ Per-CLI config delivery is listed under each family above. The staged-operation 
 
 Two code paths converge on the `HarnessEvent` union — consumers cannot tell which path produced an event:
 
-**Path 1: `builtin`** — `BuiltinHarnessAdapter` emits `token_usage`, `completion` directly in union shape. No pre-normalizer. (`cost_update` was removed — harness telemetry is token usage only; see `packages/agent-execution/harness-registry/src/llm-cassette.ts` lore.)
+**Path 1: `builtin`** — `BuiltinHarnessAdapter` emits `token_usage`, `completion` directly in union shape. No pre-normalizer. (`cost_update` was removed — harness telemetry is token usage only; see `layers/agent-execution/harness-registry/src/__testing__/llm-cassette.ts` lore.)
 
-**Path 2: CLI families** — everything flows through `normalizeHarnessEvent` (`packages/shared/src/harness/harness-event-normalization.ts:286`) with per-family pre-maps:
+**Path 2: CLI families** — everything flows through `normalizeHarnessEvent` (`framework/shared/src/harness/harness-event-normalization.ts`) with per-family pre-maps:
 
 - **claude-code:** `preMapClaudeEvent` (`:79`) translates stream-json types (`assistant`/`result`/`system`) to canonical types before normalization; applied explicitly by the CLI adapter when `eventDialect === "claude-stream-json"`, not inside `normalizeHarnessEvent`. `result.usage` → `token_usage`. `result.total_cost_usd` is present on the wire but no longer captured — no `cost_update` event exists.
 - **codex:** `turn.completed.usage.{input_tokens, output_tokens}` → `token_usage`, handled inside `normalizeHarnessEvent` (`:254`).
 - **opencode:** `preMapOpencodeEvent` (`:139`) translates raw JSONL types: `step_finish` → `completion`, `tool` → `tool_call`, plus `step_start` and `text` branches (AR2). Required for the MCP-routed loop to see opencode tool calls and turn completions.
 - Unrecognized types for any family → `UnknownHarnessEvent` (an `error` event preserving the raw type string — graceful degradation).
 
-**Production caller:** `cli-harness-adapter.ts:1047` — the production event loop calls `normalizeHarnessEvent` on every parsed line.
+**Production caller:** `cli-harness-adapter.ts` — the production event loop calls `normalizeHarnessEvent` on every parsed line.
 
-**Locked in CI:** three-way field equivalence (codex ≡ claude-code ≡ builtin all produce `{ type: "token_usage", inputTokens, outputTokens }`, no native snake_case downstream) and the opencode pre-map, in `packages/shared/src/harness/__tests__/harness-event-normalization.test.ts` + `harness-event-normalization-codex.test.ts`. Harness test enforcement (locked models, symmetry, lint guard) is owned by [harness-coverage-enforcement](./harness-coverage-enforcement.md).
+**Locked in CI:** three-way field equivalence (codex ≡ claude-code ≡ builtin all produce `{ type: "token_usage", inputTokens, outputTokens }`, no native snake_case downstream) and the opencode pre-map, in `framework/shared/src/harness/__tests__/harness-event-normalization.test.ts` + `harness-event-normalization-codex.test.ts`. Harness test enforcement (locked models, symmetry, the attestation floor) is owned by [harness-coverage-enforcement](./harness-coverage-enforcement.md).
 
 ---
 
@@ -186,8 +192,8 @@ Two code paths converge on the `HarnessEvent` union — consumers cannot tell wh
 
 ### `GET /api/harnesses` → `HarnessCapabilityDescriptor[]`
 
-The route handler (`routes/harnesses.ts:80-85`):
-1. Calls `pool.listCapabilityDescriptors()` — descriptors for all registered adapters (deduped by type) plus `missingKnownHarnessDescriptors()` for unregistered first-class families (`adapter-pool.ts:288-309`).
+The route handler (`layers/core-api/src/routes/harnesses.ts`):
+1. Calls `pool.describe()` — descriptors for all registered adapters (deduped by type) plus `missingKnownHarnessDescriptors()` for unregistered first-class families (`adapter-pool.ts`).
 2. Stamps `discovery.disabled: true` from `readServerConfig(db).harnessDisabled`; `builtin` is never stamped.
 3. Returns the stamped list. The response never includes API keys, base URLs, subscription tokens, or credential file contents.
 
@@ -196,12 +202,12 @@ The route handler (`routes/harnesses.ts:80-85`):
 Re-runs `discoverLocalHarnesses()` server-side, refreshes the pool's discovery snapshot, stamps `discovery.disabled`, and returns the fresh list.
 
 - Auth boundary: `requireBoundary({ kind: "public-data" })` — same as GET.
-- Rate limit: dedicated `createRateLimiter({ limit: 1, windowMs: 5000 })` scoped to this route (`routes/harnesses.ts:77`), not the global limiter. Excess returns 429. Rationale: discovery spawns ~10 `execFile` probes each with a 15s timeout — fork-bomb amplification guard.
+- Rate limit: dedicated `createRateLimiter({ limit: 1, windowMs: 5000 })` scoped to this route (`layers/core-api/src/routes/harnesses.ts`), not the global limiter. Excess returns 429. Rationale: discovery spawns ~10 `execFile` probes each with a 15s timeout — fork-bomb amplification guard.
 - Refreshes readiness state, version, auth status. Does NOT re-run the session probe or refresh runtime capabilities.
 
 ### `POST /api/harnesses/:type/disabled`
 
-Persists per-harness disabled state to `server_config.harnessDisabled: string[]` (`routes/harnesses.ts:106-160`).
+Persists per-harness disabled state to `server_config.harnessDisabled: string[]` (`layers/core-api/src/routes/harnesses.ts`).
 
 - Body: `{ disabled: boolean }`
 - Unknown `:type` → 400 (prevents arbitrary key injection into the config blob).
@@ -215,11 +221,11 @@ Persists per-harness disabled state to `server_config.harnessDisabled: string[]`
 
 When a backend is disabled:
 
-1. **UI:** the backend row renders dimmed with the toggle off; the capabilities fold hides (`HarnessCard.tsx`, `harness-presentation.ts`).
-2. **Session selection:** `AdapterPool.select()` skips it via `SelectRequirements.disabledTypes` (`adapter-pool.ts:64-71,218-230`). The pool is DB-free and synchronous — the **caller** supplies the set: `admitSession` (`services/session-provisioning.ts:703-710`) reads `readServerConfig(db).harnessDisabled` and spreads it into the requirements.
+1. **UI:** the backend row renders dimmed with the toggle off; the capabilities fold hides (`layers/core-ui/src/settings/SettingsHarnesses.tsx`, `layers/core-ui/src/settings/harness-presentation.ts`).
+2. **Session selection:** `AdapterPool.select()` skips it via `SelectRequirements.disabledTypes` (`adapter-pool.ts`). The pool is DB-free and synchronous — the **caller** supplies the set: `admitSession` (`layers/agent-orchestration/run-orchestration/src/provisioner.ts`) reads `readServerConfig(db).harnessDisabled` and spreads it into the requirements.
 3. **Builtin hard-exemption:** `select()` HARD-EXEMPTS `type === "builtin"` from the disabled filter regardless of the persisted set — a back-stop against hand-edited or stale config stranding the fallback.
 
-The `builtin` exemption is enforced in two independent places: the `select()` filter (back-stop) and the `POST /:type/disabled` 409 (front-door) — both, not either/or. In the web UI the single allowed `harnessType` literal check is `"builtin"` in `showsToggle`, ESLint-enforced (`harness-presentation.ts:6-14,117-122`).
+The `builtin` exemption is enforced in two independent places: the `select()` filter (back-stop) and the `POST /:type/disabled` 409 (front-door) — both, not either/or. In the web UI the single allowed `harnessType` literal check is `"builtin"` in `showsToggle`, ESLint-enforced (`layers/core-ui/src/settings/harness-presentation.ts`).
 
 ---
 

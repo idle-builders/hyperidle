@@ -1,0 +1,61 @@
+{
+	"tableOwners": true,
+	"note": "Every table names the ONE service that may read and write it. A table absent from this file is a build error, never a silently skipped row — completeness is the point. Owners are package names, never paths (Ruling 5).",
+	"totals": {
+		"tables": 45,
+		"owned": 39,
+		"unowned": 6
+	},
+	"owners": {
+		"knowledgeItems": "knowledge",
+		"knowledgeEditLog": "knowledge",
+		"knowledgeAccessLog": "knowledge",
+		"knowledgeConflicts": "knowledge",
+		"knowledgeAppProjection": "knowledge",
+		"bets": "work",
+		"tasks": "work",
+		"items": "work",
+		"artifacts": "work",
+		"teamMembers": "org",
+		"orgEdges": "org",
+		"teams": "org",
+		"users": "users",
+		"loginSessions": "users",
+		"inviteCodes": "users",
+		"threads": "conversation",
+		"messages": "conversation",
+		"serverConfig": "settings",
+		"plugins": "settings",
+		"pluginConfigurationDefaults": "settings",
+		"configurationOverrides": "settings",
+		"notificationQueue": "notifications",
+		"serverCredentials": "connections",
+		"serviceConnections": "connections",
+		"routines": "routine",
+		"routineRuns": "routine",
+		"proposedCalls": "review",
+		"operationOutcomes": "review",
+		"tailoredGrants": "review",
+		"taskPlanningSignals": "work",
+		"triggerResolutionHistory": "session-requests",
+		"agentWorkIntents": "session-requests",
+		"agentSessionRequests": "session-requests",
+		"explicitSessionStarts": "session-requests",
+		"agentLifecycleInbox": "session-requests",
+		"filesystems": "filesystems",
+		"filesystemInjections": "filesystems",
+		"filesystemCaptures": "filesystems",
+		"hintProgress": "users"
+	},
+	"unowned": {
+		"note": "Ruling 6 — no unowned tables. These six are the completeness defect: 90 of the 91 production table violations are here, and exactly one is a genuine foreign access. Until an owner is named NOBODY may touch them, which is what the model already says.",
+		"tables": {
+			"sessions": "a sessions service does not exist yet — 3 packages touch the table.",
+			"propagationLog": "policy(9), core-api(3), work(2) — owner plus a door for 5 sites.",
+			"taskDispatchAttempts": "work(8), policy(3) — owner plus a door for 3 sites.",
+			"userSkills": "core-api(7), settings(2) — owner plus a move for 7 sites.",
+			"teamRunConfigDefaults": "only agent-run-config touches it — a one-line assignment.",
+			"agentRunConfig": "only agent-run-config touches it — a one-line assignment."
+		}
+	}
+}
