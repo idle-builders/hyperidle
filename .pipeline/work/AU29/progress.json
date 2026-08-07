@@ -1,0 +1,25 @@
+{
+  "id": "AU29",
+  "status": "in-progress",
+  "currentStep": "refine",
+  "startedAt": "2026-08-07",
+  "worktree": ".worktrees/pipeline-AU29",
+  "branch": "pipeline/AU29",
+  "base": "bbe82e9a4ebb1e06c17619154a3c4e93650850fb",
+  "tier": "production",
+  "approvals": {
+    "requirements": null,
+    "concept": null,
+    "final": null
+  },
+  "evaluations": {
+    "refine": 0,
+    "architecture": 0,
+    "review": 0
+  },
+  "artifacts": {},
+  "notes": [
+    "Node: worktree needs node>=24 — prefix PATH with /opt/homebrew/bin (v26). Default PATH node is v22 (hermes) and fails engines + npm ci.",
+    "Bootstrapped with `npm install` (npm ci fails: lock out of sync for react 18 types on main). package-lock.json unchanged by install."
+  ]
+}
