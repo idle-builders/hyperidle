@@ -35,7 +35,7 @@ export function QuestionnairePart({ part }: { part: QuestionnairePartValue }): J
 				<span
 					aria-label="Quick ask"
 					title="Quick ask"
-					className="mt-[1px] flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[var(--accent-primary)]"
+					className="mt-[1px] flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[var(--accent-deep)]"
 				>
 					<svg
 						viewBox="0 0 16 16"

@@ -592,7 +592,7 @@ export function SetupFlow(): JSX.Element {
 										"rounded-[var(--r-default)] text-[var(--text-primary)]",
 										"placeholder:text-[var(--text-placeholder)]",
 										"transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
-										"outline-none focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_rgba(22,118,79,0.1)]",
+										"outline-none focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_rgba(111,77,30,0.12)]",
 										window.__HYPERIDLE__?.shell?.selectFolder ? "pl-[36px]" : "",
 									].join(" ")}
 									placeholder="/Users/you/my-project"
@@ -647,7 +647,7 @@ export function SetupFlow(): JSX.Element {
 											"min-h-[44px] px-[12px] py-[9px] rounded-[var(--r-pill)] text-[13px] font-[500]",
 											"border-[1.5px] transition-[border-color,background-color] duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
 											isSelected
-												? "border-[var(--accent-primary)] bg-[var(--accent-primary)] text-white btn-primary selected"
+												? "border-[var(--accent-primary)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] btn-primary selected"
 												: "border-[var(--border-default)] bg-[var(--surface-elevated)] text-[var(--text-primary)] hover:border-[var(--border-strong)]",
 										].join(" ")}
 									>
@@ -672,7 +672,7 @@ export function SetupFlow(): JSX.Element {
 												"min-h-[44px] px-[12px] py-[9px] rounded-[var(--r-subtle)] text-[13px] capitalize",
 												"border-[1.5px] transition-[border-color,background-color] duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
 												isActive
-													? "border-[var(--accent-primary)] bg-[var(--surface-elevated)] text-[var(--accent-primary)] font-[600]"
+													? "border-[var(--accent-deep)] bg-[var(--surface-elevated)] text-[var(--accent-deep)] font-[600]"
 													: "border-[var(--border-subtle)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:border-[var(--border-default)]",
 											].join(" ")}
 										>

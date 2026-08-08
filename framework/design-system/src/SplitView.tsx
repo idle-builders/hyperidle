@@ -126,7 +126,7 @@ function ControlButton({
 			aria-label={label}
 			title={label}
 			onClick={onClick}
-			className="inline-flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[color-mix(in_oklab,var(--surface-page)_80%,transparent)] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:1px]"
+			className="inline-flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[color-mix(in_oklab,var(--surface-page)_80%,transparent)] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:[outline-offset:1px]"
 		>
 			{children}
 		</button>
@@ -214,7 +214,7 @@ export function SplitView({
 					type="button"
 					aria-label="Resize panels"
 					onPointerDown={startDrag}
-					className={`group relative -mx-[var(--space-3)] flex w-[var(--space-3)] shrink-0 cursor-col-resize items-center justify-center bg-transparent transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)]`}
+					className={`group relative -mx-[var(--space-3)] flex w-[var(--space-3)] shrink-0 cursor-col-resize items-center justify-center bg-transparent transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]`}
 				>
 					<span
 						className={`pointer-events-none h-[36px] w-[3px] rounded-[var(--r-pill)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] ${dragging ? "bg-[var(--accent-primary)]" : "bg-[var(--border-strong)] group-hover:bg-[var(--accent-primary)]"}`}

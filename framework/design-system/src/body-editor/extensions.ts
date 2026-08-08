@@ -41,7 +41,7 @@ function buildLinkExtension(): AnyExtension {
 		openOnClick: false,
 		// biome-ignore lint/style/useNamingConvention: TipTap's own API uses PascalCase for this key.
 		HTMLAttributes: {
-			class: "text-[var(--accent-primary)] underline",
+			class: "text-[var(--accent-deep)] underline",
 		},
 	}).extend({
 		addKeyboardShortcuts() {

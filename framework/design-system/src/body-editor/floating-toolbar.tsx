@@ -43,7 +43,7 @@ function ToolbarButton({
 			aria-pressed={isActive}
 			className={`w-[28px] h-[28px] flex items-center justify-center rounded-[var(--r-subtle)] text-[13px] font-medium cursor-pointer transition-colors ${
 				isActive
-					? "bg-[var(--accent-primary-dim)] text-[var(--accent-primary)]"
+					? "bg-[var(--accent-primary-dim)] text-[var(--accent-deep)]"
 					: "text-[var(--text-secondary)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)]"
 			}`}
 		>

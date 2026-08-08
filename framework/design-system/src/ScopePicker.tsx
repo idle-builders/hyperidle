@@ -5,7 +5,7 @@
  * radiogroup-of-pills primitive (AC4 "one implementation in all 4 locations").
  *
  * @lore AI5: The hand-rolled pills shipped `outline:none` (latent a11y gap)
- * and hardcoded `rgba(22,118,79,0.08)`. This primitive adds the
+ * and hardcoded `rgba(240,196,25,0.14)`. This primitive adds the
  * `focus-visible` ring (Button/`clickable.ts` convention) and uses the
  * `--accent-primary-dim` token, killing 3 tint literals.
  *
@@ -46,10 +46,10 @@ export interface ScopePickerProps {
 }
 
 const PILL_BASE =
-	"inline-flex items-center justify-center px-[12px] py-[4px] min-h-[44px] xl:min-h-[24px] rounded-[var(--r-pill)] text-[12px] font-[500] border-[1.5px] cursor-pointer transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus-visible:outline focus-visible:outline-[2px] focus-visible:outline-[var(--accent-primary)] focus-visible:outline-offset-[2px]";
+	"inline-flex items-center justify-center px-[12px] py-[4px] min-h-[44px] xl:min-h-[24px] rounded-[var(--r-pill)] text-[12px] font-[500] border-[1.5px] cursor-pointer transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus-visible:outline focus-visible:outline-[2px] focus-visible:outline-[var(--accent-deep)] focus-visible:outline-offset-[2px]";
 
 const PILL_ACTIVE =
-	"bg-[var(--accent-primary-dim)] border-[var(--accent-primary)] text-[var(--accent-primary)]";
+	"bg-[var(--accent-primary-dim)] border-[var(--accent-deep)] text-[var(--accent-deep)]";
 
 const PILL_INACTIVE =
 	"bg-transparent border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]";

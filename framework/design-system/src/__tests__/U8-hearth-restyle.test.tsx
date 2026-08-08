@@ -112,7 +112,7 @@ describe("U8 — Hearth restyle structural elements", () => {
 	});
 
 	describe("ThreadRow — selected state shadow", () => {
-		it("selected state uses Hearth accent-primary border", () => {
+		it("selected state uses Hearth accent-deep border", () => {
 			act(() => {
 				root.render(
 					createElement(ThreadRow, {
@@ -125,7 +125,7 @@ describe("U8 — Hearth restyle structural elements", () => {
 				);
 			});
 			const row = container.firstElementChild as HTMLElement;
-			expect(row.className).toContain("accent-primary");
+			expect(row.className).toContain("accent-deep");
 		});
 	});
 

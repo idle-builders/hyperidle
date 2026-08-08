@@ -181,7 +181,7 @@ export function Menu({
 					}}
 					onKeyDown={(e) => handleItemKeyDown(e, item, index)}
 					// hearth-internal-padding: py-[9px] is optically tuned item padding
-					className={`text-left text-[13px] px-[12px] py-[9px] rounded-[var(--r-subtle)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px] disabled:opacity-50 flex items-center justify-between gap-[12px] w-full${item.destructive ? " text-[var(--status-error)]" : " text-[var(--text-primary)]"}`}
+					className={`text-left text-[13px] px-[12px] py-[9px] rounded-[var(--r-subtle)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:[outline-offset:-1px] disabled:opacity-50 flex items-center justify-between gap-[12px] w-full${item.destructive ? " text-[var(--status-error)]" : " text-[var(--text-primary)]"}`}
 				>
 					<span>{item.label}</span>
 					{item.shortcut ? (

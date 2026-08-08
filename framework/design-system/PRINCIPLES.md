@@ -10,9 +10,9 @@ HyperIdle uses the **Hearth** design language. These four principles are the opi
 
 ### 1. Warmth signals trust
 
-Cream surfaces, warm shadows, and earthy tones create an inviting atmosphere. Software used all day should feel like a place you want to be, not a sterile tool. Every color is tinted warm — no cool grays, no blue-gray neutrals, no slate. The Hearth palette vocabulary: **Paper** (surface-page #f5f0e6), **Linen** (surface-container #ede7db), **Card** (surface-elevated #ffffff), **Forest** (accent-primary #16764f), **Amber** (accent-secondary #d97706), **Earth** (text-primary #2c241a).
+Crème lemon surfaces, warm shadows, and earthy tones create an inviting, energetic atmosphere. Software used all day should feel like a place you want to be, not a sterile tool. Every color is tinted warm — no cool grays, no blue-gray neutrals, no slate. The Hearth palette vocabulary: **Paper** (surface-page #fcf8e8), **Linen** (surface-container #f6f0d8), **Card** (surface-elevated #ffffff), **Lemon** (accent-primary #f0c419 — the fill accent), **Cocoa** (accent-deep #6f4d1e — the text accent), **Amber** (accent-secondary #d97706), **Earth** (text-primary #2a2415).
 
-Three variables generate the entire theme: warm cream base (#f5f0e6), forest green accent (#16764f), warm earth text (#2c241a). Everything derives from these.
+Three variables generate the entire theme: pale lemon base (#fcf8e8), lemon-drop accent (#f0c419, with cocoa #6f4d1e for text roles), warm earth text (#2a2415). Everything derives from these.
 
 ### 2. Status through content
 
@@ -53,7 +53,7 @@ Use size, font weight, contrast, and spacing to create reading order. Never rely
 Perfection is when there is nothing left to take away (Saint-Exupery, via Ant Design). Every element must earn its place. Decoration without function is noise.
 
 **Practical rules:**
-- One accent color for interaction (forest green). Amber is a secondary accent for attention-drawing elements (budget badges) — it doubles as status-warning, but its role as accent-secondary is an accent role, not a status decoration.
+- One accent family for interaction: lemon drop (`--accent-primary`) for fills, cocoa/beige (`--accent-deep`) for text and icons. Amber is a secondary accent for attention-drawing elements (budget badges) — it doubles as status-warning, but its role as accent-secondary is an accent role, not a status decoration.
 - Two typeface families maximum. Hierarchy through weight, not family switching.
 - Spacing from a closed scale. No arbitrary values.
 - Color reserved for meaning. The default state is warm-neutral; color signals "pay attention here."
@@ -112,7 +112,7 @@ Define only: base color, accent color, and contrast level. Derive all other toke
 
 ### S4. Warm Neutrals for Long Sessions — This IS Hearth (Linear)
 
-Cool blue-grays become fatiguing during extended use. Warm grays feel crisp but inviting. Too warm becomes muddy. This temperature calibration is subtle but critical for dark-mode productivity tools where users spend hours. **S4 is not just a surprise principle for HyperIdle — it is the living expression of Hearth.** The entire Hearth palette (warm cream surfaces, forest green accent, warm earth text) is the production expression of this principle. See Hearth Principle 1: Warmth signals trust.
+Cool blue-grays become fatiguing during extended use. Warm grays feel crisp but inviting. Too warm becomes muddy. This temperature calibration is subtle but critical for dark-mode productivity tools where users spend hours. **S4 is not just a surprise principle for HyperIdle — it is the living expression of Hearth.** The entire Hearth palette (crème lemon surfaces, lemon-drop + cocoa accents, warm earth text) is the production expression of this principle. See Hearth Principle 1: Warmth signals trust.
 
 ### S5. Opinionated Beats Flexible (Linear, Atlassian)
 

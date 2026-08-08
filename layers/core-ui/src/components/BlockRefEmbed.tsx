@@ -112,7 +112,7 @@ export function BlockRefEmbed({
 				type="button"
 				data-testid="block-ref-embed-resolved"
 				onClick={onOpen}
-				className="w-full text-left border border-[var(--border-subtle)] rounded-[var(--r-subtle)] px-3 py-2 bg-[var(--surface-container)] hover:bg-[var(--surface-container)] hover:border-[var(--border-default)] transition-colors duration-[var(--motion-fast)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)]"
+				className="w-full text-left border border-[var(--border-subtle)] rounded-[var(--r-subtle)] px-3 py-2 bg-[var(--surface-container)] hover:bg-[var(--surface-container)] hover:border-[var(--border-default)] transition-colors duration-[var(--motion-fast)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
 			>
 				{cardContent}
 			</button>

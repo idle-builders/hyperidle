@@ -209,7 +209,7 @@ export function ToolPart({
 							onOpen({ route: "session", sessionId: part.opensSession?.sessionId ?? "" });
 						}}
 						title={`Open the ${part.opensSession.label} session`}
-						className="inline-flex shrink-0 items-center gap-[6px] rounded-[var(--r-pill)] border border-[var(--border-subtle)] px-[9px] py-[3px] text-[11px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)]"
+						className="inline-flex shrink-0 items-center gap-[6px] rounded-[var(--r-pill)] border border-[var(--border-subtle)] px-[9px] py-[3px] text-[11px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:border-[var(--accent-deep)] hover:text-[var(--accent-deep)]"
 					>
 						<svg
 							viewBox="0 0 16 16"

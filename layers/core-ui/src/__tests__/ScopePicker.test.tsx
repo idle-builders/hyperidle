@@ -147,7 +147,7 @@ describe("ScopePicker — active state (data-active + aria-checked)", () => {
 		const active = screen.getByTestId("scope-pill-create-shared");
 		expect(active.className).toContain("bg-[var(--accent-primary-dim)]");
 		expect(active.className).not.toContain("rgba(22,118,79,0.08)");
-		expect(active.className).toContain("border-[var(--accent-primary)]");
+		expect(active.className).toContain("border-[var(--accent-deep)]");
 	});
 });
 
@@ -253,7 +253,7 @@ describe("ScopePicker — focus ring (latent a11y fix)", () => {
 			/>,
 		);
 		const pill = screen.getByTestId("scope-pill-create-shared");
-		expect(pill.className).toContain("focus-visible:outline-[var(--accent-primary)]");
+		expect(pill.className).toContain("focus-visible:outline-[var(--accent-deep)]");
 	});
 });
 

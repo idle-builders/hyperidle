@@ -172,7 +172,7 @@ function buildRichSlots(
 			header: (
 				<>
 					<div className="flex items-center gap-[6px] font-mono text-[11px] tracking-[var(--tracking-caps-sm)] uppercase text-[var(--text-tertiary)]">
-						<span className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--accent-primary)_18%,transparent)] text-[var(--accent-primary)]">
+						<span className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--accent-primary)_18%,transparent)] text-[var(--accent-deep)]">
 							REVIEW
 						</span>
 					</div>
@@ -202,7 +202,7 @@ function buildRichSlots(
 			header: (
 				<>
 					<div className="flex items-center gap-[6px] font-mono text-[11px] tracking-[var(--tracking-caps-sm)] uppercase text-[var(--text-tertiary)]">
-						<span className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--accent-primary)_18%,transparent)] text-[var(--accent-primary)]">
+						<span className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--accent-primary)_18%,transparent)] text-[var(--accent-deep)]">
 							QUESTION
 						</span>
 					</div>

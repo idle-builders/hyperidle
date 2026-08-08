@@ -10,9 +10,9 @@ Six words define Hearth: **Warm. Grounded. Tactile. Inviting. Organic. Human.**
 
 The entire Hearth palette derives from three values:
 
-1. **Cream base** -- `#f5f0e6` (Paper). Every surface is tinted warm. No cool grays.
-2. **Forest green accent** -- `#16764f`. The single interaction color. Amber (`#d97706`) is the secondary accent for attention.
-3. **Warm earth text** -- `#2c241a`. Dark but warm. Not black, not slate.
+1. **Pale lemon base** -- `#fcf8e8` (Paper). Every surface is tinted warm-lemon. No cool grays, no flat beige.
+2. **Two-role accent** -- lemon drop `#f0c419` (`--accent-primary`) for FILLS (buttons, checked states; dark content on top), cocoa `#6f4d1e` (`--accent-deep`) for TEXT/icons/focus/identity. Amber (`#d97706`) is the secondary accent for attention.
+3. **Warm earth text** -- `#2a2415`. Dark but warm. Not black, not slate.
 
 Everything else -- surfaces, borders, shadows, status colors -- is derived from these three.
 
@@ -24,13 +24,14 @@ Hearth names its surfaces after physical materials. These names appear in conver
 
 | Material | Token | Light | Dark | Role |
 |----------|-------|-------|------|------|
-| **Paper** | `--surface-page` | `#f5f0e6` | `#1a1510` | App background. The canvas. |
-| **Linen** | `--surface-container` | `#ede7db` | `#231e16` | Sidebar, nav, inset areas. |
-| **Card** | `--surface-elevated` | `#ffffff` | `#2c261c` | Cards, panels, main content. Floats above Paper. |
-| **Scrim** | `--surface-overlay` | `rgba(26,21,16,0.55)` | `rgba(0,0,0,0.65)` | Modal backdrops, drawer scrims. |
-| **Forest** | `--accent-primary` | `#16764f` | `#2eaa7a` | Buttons, links, active states. The interaction color. |
+| **Paper** | `--surface-page` | `#fcf8e8` | `#14140b` | App background. The canvas. |
+| **Linen** | `--surface-container` | `#f6f0d8` | `#242418` | Sidebar, nav, inset areas. |
+| **Card** | `--surface-elevated` | `#ffffff` | `#2f2f21` | Cards, panels, main content. Floats above Paper. |
+| **Scrim** | `--scrim` | `rgba(26,21,16,0.45)` | `rgba(20,16,12,0.62)` | Modal backdrops, drawer scrims. |
+| **Lemon** | `--accent-primary` | `#f0c419` | `#f5d33d` | Buttons, checked states, count badges. The fill accent — dark content on top. |
+| **Cocoa** | `--accent-deep` | `#6f4d1e` | `#d9c9a3` | Links, icons, focus rings, agent identity. The text accent. |
 | **Amber** | `--accent-secondary` | `#d97706` | `#d97706` | Budget badges, warnings, attention-drawing elements. |
-| **Earth** | `--text-primary` | `#2c241a` | `#ede5d8` | Primary text. The darkest value in light mode. |
+| **Earth** | `--text-primary` | `#2a2415` | `#ecead9` | Primary text. The darkest value in light mode. |
 
 ---
 

@@ -51,7 +51,7 @@ export const TAG_KIND_ICONS: Record<TagKind, TagKindMeta> = {
 				<path d="M3.75 6 L5.5 7.5 L8.25 4.75" />
 			</svg>
 		),
-		tintClass: "tag-tint-decision text-[var(--accent-primary)]",
+		tintClass: "tag-tint-decision text-[var(--accent-deep)]",
 		ariaLabel: "Decision",
 	},
 	failure: {

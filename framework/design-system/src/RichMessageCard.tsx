@@ -98,7 +98,7 @@ function toneClass(tone: VerdictButtonSpec["tone"]): string {
 }
 
 const BUTTON_CLASS_BASE =
-	"px-[18px] py-[9px] min-h-[44px] rounded-[var(--r-subtle)] text-[14px] font-semibold border focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] disabled:opacity-50 disabled:cursor-not-allowed";
+	"px-[18px] py-[9px] min-h-[44px] rounded-[var(--r-subtle)] text-[14px] font-semibold border focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] disabled:opacity-50 disabled:cursor-not-allowed";
 
 const REASONING_INLINE_THRESHOLD = 80;
 
@@ -480,7 +480,7 @@ export function RichMessageCard({
 			className={`ml-[36px] bg-[var(--surface-elevated)] border border-[var(--border-strong)] rounded-[var(--r-default)] overflow-hidden flex flex-col ${blocking ? "border-l-2 border-l-[var(--status-error)]" : ""}`}
 		>
 			<div className="flex items-center gap-[9px] px-[12px] pt-[9px] pb-[6px] text-[12px] text-[var(--text-secondary)] flex-wrap">
-				<span className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[11px] font-mono tracking-[var(--tracking-caps-sm)] bg-[color-mix(in_oklab,var(--accent-primary)_18%,transparent)] text-[var(--accent-primary)]">
+				<span className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[11px] font-mono tracking-[var(--tracking-caps-sm)] bg-[color-mix(in_oklab,var(--accent-primary)_18%,transparent)] text-[var(--accent-deep)]">
 					{tagLabel}
 				</span>
 				<span className="text-[var(--text-primary)] font-medium">{sender.name}</span>

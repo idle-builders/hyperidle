@@ -139,7 +139,7 @@ function NeedsYouChip({
 			<span className="min-w-0 flex-1 text-[13px] leading-[1.4] text-[var(--text-primary)]">
 				{item.detail}
 			</span>
-			<span className="mt-[1px] shrink-0 text-[12px] font-[500] text-[var(--text-tertiary)] transition-opacity duration-[var(--motion-fast)] group-hover:text-[var(--accent-primary)]">
+			<span className="mt-[1px] shrink-0 text-[12px] font-[500] text-[var(--text-tertiary)] transition-opacity duration-[var(--motion-fast)] group-hover:text-[var(--accent-deep)]">
 				Jump ↓
 			</span>
 		</button>
@@ -183,7 +183,7 @@ function DoneRow({
 				) : null}
 			</span>
 			{cond.met ? null : (
-				<span className="mt-[1px] shrink-0 text-[12px] font-[500] text-[var(--text-tertiary)] group-hover:text-[var(--accent-primary)]">
+				<span className="mt-[1px] shrink-0 text-[12px] font-[500] text-[var(--text-tertiary)] group-hover:text-[var(--accent-deep)]">
 					Jump ↓
 				</span>
 			)}

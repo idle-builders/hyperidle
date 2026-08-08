@@ -122,7 +122,7 @@ export function WorkBetCreate(): JSX.Element {
 				<nav aria-label="Breadcrumb" className="text-[13px] text-[var(--text-tertiary)] mb-[6px]">
 					<Link
 						to="/work"
-						className="hover:text-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)]"
+						className="hover:text-[var(--accent-deep)] transition-colors duration-[var(--motion-fast)]"
 					>
 						Work
 					</Link>{" "}
@@ -151,7 +151,7 @@ export function WorkBetCreate(): JSX.Element {
 					<div className="flex items-center gap-[9px] shrink-0">
 						<button
 							type="button"
-							className="inline-flex items-center text-[13px] font-[500] px-[12px] py-[7px] rounded-[var(--r-pill)] bg-transparent border-[1.5px] border-[var(--border-default)] text-[var(--text-secondary)] cursor-pointer hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)] transition-colors duration-[var(--motion-fast)]"
+							className="inline-flex items-center text-[13px] font-[500] px-[12px] py-[7px] rounded-[var(--r-pill)] bg-transparent border-[1.5px] border-[var(--border-default)] text-[var(--text-secondary)] cursor-pointer hover:border-[var(--accent-deep)] hover:text-[var(--text-primary)] transition-colors duration-[var(--motion-fast)]"
 							onClick={handleCancel}
 							disabled={submitting}
 						>

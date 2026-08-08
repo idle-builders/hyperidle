@@ -84,7 +84,7 @@ export function EmptyState({
 		>
 			{icon && (
 				<div
-					className="w-[48px] h-[48px] rounded-[var(--r-default)] flex items-center justify-center mb-[18px] text-[var(--accent-primary)]"
+					className="w-[48px] h-[48px] rounded-[var(--r-default)] flex items-center justify-center mb-[18px] text-[var(--accent-deep)]"
 					style={{ background: iconBg }}
 				>
 					{icon}

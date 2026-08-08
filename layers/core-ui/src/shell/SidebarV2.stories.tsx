@@ -143,7 +143,7 @@ function AssistantIconButton({
 				"border border-[var(--border-subtle)]",
 				"transition-[background,border-color,color] duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
 				open
-					? "bg-[var(--accent-primary-dim)] border-[var(--accent-primary)] text-[var(--accent-primary)]"
+					? "bg-[var(--accent-primary-dim)] border-[var(--accent-deep)] text-[var(--accent-deep)]"
 					: "bg-[var(--surface-container)] text-[var(--text-secondary)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]",
 			].join(" ")}
 		>

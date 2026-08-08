@@ -34,7 +34,7 @@ const IDENTITY =
 	"flex items-center gap-[6px] font-mono text-[11px] text-[var(--text-tertiary)] tracking-[var(--tracking-caps-sm)] uppercase";
 const VIEW = "text-[var(--text-secondary)] font-sans text-[13px] normal-case [letter-spacing:0]";
 const ARROW =
-	"ml-auto cursor-pointer px-[6px] py-[4px] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px]";
+	"ml-auto cursor-pointer px-[6px] py-[4px] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:[outline-offset:-1px]";
 
 export function ArtifactEmbed({ data, onOpen, viewSlot }: ArtifactEmbedProps): JSX.Element {
 	const summary = summarizePreview(data.preview) ?? "[ no preview ]";

@@ -218,7 +218,7 @@ export function BetCard({
 											"inline-flex w-[24px] h-[24px] items-center justify-center rounded-full text-[9px] font-[600] shrink-0",
 											i === 0 ? "" : "-ml-[6px]",
 											a.agent
-												? "bg-[var(--accent-primary-dim)] text-[var(--accent-primary)] border-[2px] border-[var(--surface-elevated)]"
+												? "bg-[var(--accent-primary-dim)] text-[var(--accent-deep)] border-[2px] border-[var(--surface-elevated)]"
 												: "bg-[var(--surface-page)] text-[var(--text-secondary)] border-[2px] border-[var(--surface-elevated)]",
 										]
 											.join(" ")
@@ -249,7 +249,7 @@ export function BetCard({
 								"inline-flex w-[24px] h-[24px] items-center justify-center rounded-full text-[9px] font-[600] shrink-0",
 								i === 0 ? "" : "-ml-[6px]",
 								a.agent
-									? "bg-[var(--accent-primary-dim)] text-[var(--accent-primary)] border-[2px] border-[var(--surface-elevated)]"
+									? "bg-[var(--accent-primary-dim)] text-[var(--accent-deep)] border-[2px] border-[var(--surface-elevated)]"
 									: "bg-[var(--surface-page)] text-[var(--text-secondary)] border-[2px] border-[var(--surface-elevated)]",
 							]
 								.join(" ")

@@ -73,7 +73,7 @@ export function initialsOf(name: string): string {
  */
 function GroupAvatar({ name, isAgent }: { name: string; isAgent: boolean }): JSX.Element {
 	const tint = isAgent
-		? "bg-[var(--accent-primary-dim)] border-[var(--accent-primary)] text-[var(--accent-primary)]"
+		? "bg-[var(--accent-primary-dim)] border-[var(--accent-deep)] text-[var(--accent-deep)]"
 		: "bg-[var(--surface-container)] border-[var(--border-default)] text-[var(--text-secondary)]";
 	return (
 		<span

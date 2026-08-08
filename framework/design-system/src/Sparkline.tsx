@@ -45,7 +45,7 @@ export function Sparkline({ values, label }: SparklineProps): JSX.Element {
 			viewBox={`0 0 ${width} ${height}`}
 			className="inline-block"
 		>
-			<polyline fill="none" stroke="var(--accent-primary)" strokeWidth="1.5" points={points} />
+			<polyline fill="none" stroke="var(--accent-deep)" strokeWidth="1.5" points={points} />
 		</svg>
 	);
 }
