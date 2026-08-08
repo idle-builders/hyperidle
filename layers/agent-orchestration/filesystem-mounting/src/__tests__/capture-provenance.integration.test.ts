@@ -20,6 +20,7 @@ import {
 	filesystemCaptures,
 	filesystems,
 	sessions,
+	teamMembers,
 	teams,
 	users,
 	type WriteExecutor,
@@ -73,6 +74,14 @@ async function seed(
 	await db
 		.insert(teams)
 		.values({ id: teamId, name: `Mounting ${suffix}`, phase: "build", createdAt: NOW });
+	// The owner writes the membership row alongside the team.
+	await db.insert(teamMembers).values({
+		id: `${teamId}-members`,
+		teamId,
+		capacity: 5,
+		activeBets: 0,
+		formedAt: NOW,
+	});
 	await db.insert(users).values({
 		id: agentId,
 		kind: "ai",
