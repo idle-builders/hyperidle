@@ -8,11 +8,6 @@
 				"applications/desktop/src/main.ts": 1
 			}
 		},
-		"application → db:unknown [import] development": {
-			"sites": {
-				"applications/desktop/__tests__/migrate.test.ts": 1
-			}
-		},
 		"application → db:util [import] production": {
 			"sites": {
 				"applications/remote-server/src/create-server.ts": 1
@@ -47,14 +42,6 @@
 				"framework/db/src/factory-bootstrap.ts": 1
 			}
 		},
-		"framework → db:table (other) [table:write] development": {
-			"sites": {
-				"framework/db/src/__tests__/foreign-keys.integration.test.ts": 4,
-				"framework/db/src/__tests__/migration.integration.test.ts": 1,
-				"framework/db/src/__tests__/schema.integration.test.ts": 4,
-				"framework/db/src/__tests__/session-requests.integration.test.ts": 1
-			}
-		},
 		"framework → db:table (other) [table:write] production": {
 			"sites": {
 				"framework/db/src/demo-fixture.ts": 9,
@@ -78,45 +65,9 @@
 				"layers/core-api/src/services/tool-provider-bindings.ts": 1
 			}
 		},
-		"layer → db:schema-ns [import] development": {
-			"sites": {
-				"layers/core-ui/__scripts__/ah1-test-server.ts": 1,
-				"layers/core-ui/__scripts__/ah5-test-server.ts": 1,
-				"layers/core-ui/__scripts__/ah6-test-server.ts": 1
-			}
-		},
 		"layer → db:table (other) [import] production": {
 			"sites": {
 				"layers/core-api/src/schemas/bet.schema.ts": 1
-			}
-		},
-		"layer → db:table (other) [table:write] development": {
-			"sites": {
-				"layers/agent-orchestration/src/services/__tests__/session-stream-hub.integration.test.ts": 1,
-				"layers/core-api/src/__tests__/app-runtime-domain-observability.integration.test.ts": 1,
-				"layers/core-api/src/__tests__/create-conflict-review.integration.test.ts": 1,
-				"layers/core-api/src/__tests__/knowledge-access.integration.test.ts": 4,
-				"layers/core-api/src/__tests__/knowledge-signals.integration.test.ts": 5,
-				"layers/core-api/src/__tests__/M3-settings-routes.integration.test.ts": 4,
-				"layers/core-api/src/__tests__/P2-auth-resolution.integration.test.ts": 1,
-				"layers/core-api/src/__tests__/P3-settings-config.integration.test.ts": 1,
-				"layers/core-api/src/__tests__/promote-knowledge.integration.test.ts": 2,
-				"layers/core-api/src/__tests__/R7-knowledge-e2e.integration.test.ts": 2,
-				"layers/core-api/src/__tests__/relevance-service.integration.test.ts": 1,
-				"layers/core-api/src/__tests__/retention-reaper.integration.test.ts": 1,
-				"layers/core-api/src/routes/__tests__/AF14-threads.integration.test.ts": 1,
-				"layers/core-api/src/routes/__tests__/bets.AK5-promote.integration.test.ts": 1,
-				"layers/core-api/src/routes/__tests__/knowledge.af13.integration.test.ts": 1,
-				"layers/core-api/src/routes/__tests__/knowledge.knowledge-action-baked-emit.integration.test.ts": 1,
-				"layers/core-api/src/routes/__tests__/knowledge.q2.integration.test.ts": 1,
-				"layers/core-api/src/routes/__tests__/knowledge.validation.integration.test.ts": 1,
-				"layers/core-api/src/services/__tests__/agent-run-admission-failed-emission.integration.test.ts": 1,
-				"layers/core-api/src/services/__tests__/agent-run-admission-failed-knowledge-action-migration.integration.test.ts": 1,
-				"layers/core-api/src/services/__tests__/agent-run-admission-failed-subscribers.integration.test.ts": 1,
-				"layers/core-api/src/services/__tests__/agent-work-intent-supersede.integration.test.ts": 1,
-				"layers/core-api/src/services/__tests__/assistant-turn-b3-coherence-trigger.integration.test.ts": 1,
-				"layers/core-api/src/services/__tests__/core-api-port-increment2-knowledge.integration.test.ts": 1,
-				"layers/core-api/src/services/__tests__/routine-scheduler-relocation.integration.test.ts": 2
 			}
 		},
 		"layer → db:table (unowned) [import] production": {
@@ -222,20 +173,6 @@
 				"layers/core-api/credentials/src/credential-store.ts": 2
 			}
 		},
-		"service → db:table (other) [table:write] development": {
-			"sites": {
-				"layers/agent-orchestration/agent-run-config/src/__tests__/agent-run-config-store.integration.test.ts": 2,
-				"layers/agent-orchestration/filesystem-mounting/src/__tests__/capture-provenance.integration.test.ts": 1,
-				"layers/agent-orchestration/filesystems/src/__tests__/filesystems-completeness-contract.integration.test.ts": 1,
-				"layers/agent-orchestration/filesystems/src/__tests__/injected-filesystems-for-provisioning.integration.test.ts": 2,
-				"layers/core-api/routine/src/__tests__/routine-run-resolver.integration.test.ts": 1,
-				"layers/core-api/routine/src/__tests__/routine-scheduler-completeness.integration.test.ts": 1,
-				"layers/core-api/routine/src/__tests__/routine-service.integration.test.ts": 2,
-				"layers/core-api/work/src/__tests__/append-task-note.integration.test.ts": 1,
-				"layers/core-api/work/src/__tests__/task-planning-signals.integration.test.ts": 1,
-				"layers/core-api/work/src/__tests__/work-completeness.integration.test.ts": 1
-			}
-		},
 		"service → db:table (other) [table:write] production": {
 			"sites": {
 				"layers/agent-orchestration/filesystem-mounting/src/mounter-registry.ts": 1,
@@ -327,16 +264,6 @@
 				"layers/core-api/src/routes/threads.ts": 1,
 				"layers/core-api/src/service-bootstrap.ts": 1,
 				"layers/core-api/src/services/agent-run-admission-reactions.ts": 1
-			}
-		},
-		"tooling → db:schema-ns [import] development": {
-			"sites": {
-				"tools/eval/src/runner.ts": 1
-			}
-		},
-		"tooling → raw runtime [capability] development": {
-			"sites": {
-				"tools/eval/src/judges.ts": 1
 			}
 		}
 	}

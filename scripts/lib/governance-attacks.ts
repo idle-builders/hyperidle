@@ -347,19 +347,15 @@ export const ATTACKS: readonly Attack[] = [
 		expect: { sort: "clean", file: `${a.serviceDir}/attack-const-spawn-control.ts` },
 	},
 	{
-		id: "raw-runtime-in-a-test",
+		id: "raw-runtime-in-a-test-is-clean",
 		detail:
-			"a DEVELOPMENT file spawning the agent CLI directly — Ruling 14 says the development relaxation does not open a door production has one of",
+			"a DEVELOPMENT file spawning the agent CLI directly is clean — the one-runtime-door requirement is production-only; a later founder ruling narrowed it because recording/pricing/replay/provider-agnosticism are shipped-product properties, not development-tooling ones",
 		rules: ["crossing-capability"],
 		overlay: {
 			[`${a.developmentDir}/attack-dev-spawn.test.ts`]:
 				`import { spawn } from "node:child_process";\n` + `export const go = () => spawn("codex", ["exec"]);\n`,
 		},
-		expect: {
-			sort: "violation",
-			file: `${a.developmentDir}/attack-dev-spawn.test.ts`,
-			groupKey: "layer → raw runtime [capability] development",
-		},
+		expect: { sort: "clean", file: `${a.developmentDir}/attack-dev-spawn.test.ts` },
 	},
 
 	// --- C1: re-export laundering -------------------------------------------------------------

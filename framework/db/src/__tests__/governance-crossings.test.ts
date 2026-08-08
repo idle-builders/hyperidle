@@ -526,7 +526,6 @@ describe("AU28 — re-export laundering", () => {
 		rawRuntime: { host: "agent-execution", why: "not used here" },
 		oneDoorSurfaces: {
 			surfaces: [],
-			rawRuntime: true,
 			foreignTableWriteMissingCompanion: true,
 			why: "not used here",
 		},
@@ -1122,7 +1121,6 @@ describe("AU28 — companion rows (Ruling 13)", () => {
 			rawRuntime: { host: "agent-execution", why: "not used here" },
 			oneDoorSurfaces: {
 				surfaces: [],
-				rawRuntime: false,
 				foreignTableWriteMissingCompanion: true,
 				why: "not used here",
 			},
