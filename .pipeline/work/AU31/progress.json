@@ -35,11 +35,48 @@
     "note": "`application → db:util [import]` may belong to AU29 (db:util is AU29's stated ANOMALY) — architecture must rule."
   },
   "artifacts": {
-    "requirements": ".pipeline/work/AU31/requirements.md"
+    "requirements": ".pipeline/work/AU31/requirements.md",
+    "refineCritique": ".pipeline/work/AU31/refine-critique.md",
+    "architecture": ".pipeline/work/AU31/architecture.md",
+    "feasibility": ".pipeline/work/AU31/feasibility.md",
+    "architectureCritiques": [
+      ".pipeline/work/AU31/architecture-critique.md",
+      ".pipeline/work/AU31/architecture-critique-r2.md",
+      ".pipeline/work/AU31/architecture-critique-r3.md"
+    ],
+    "probes": [
+      ".pipeline/work/AU31/probes/p11-composition-spelling/",
+      ".pipeline/work/AU31/probes/p12-r2-escape-predicate/"
+    ]
   },
   "evaluationAttempts": {
-    "refine": 0,
-    "architecture": 0,
+    "refine": 1,
+    "architecture": 3,
     "review": 0
-  }
+  },
+  "refineVerdict": "PASS (0 blocking) — session-requests stays in agent-orchestration; layer public face = the layer package's own export surface",
+  "architectureCritiqueHistory": [
+    { "round": 1, "verdict": "FAIL", "blocking": 3, "summary": "face-handoff claim contradicted by the enforced census; 3 DI sites unaccounted; wrapper-launder limit refutable in one line" },
+    { "round": 2, "verdict": "FAIL", "blocking": 1, "summary": "all 3 prior blockers confirmed closed; widened R2 predicate over-fires on the plan's own legal in-layer wiring" },
+    { "round": 3, "verdict": "FAIL", "blocking": 1, "summary": "B4 closed and positional exemption holds; executed model + ratified attack set never check the export surface's own direct spellings, so the limit statement is refuted in one line" }
+  ],
+  "adjudications": [
+    {
+      "n": 1,
+      "at": "2026-08-08",
+      "decision": "keep planning with a changed strategy",
+      "why": "Routine three-attempt budget spent, but the trajectory converged (3 blocking → 1 → 1) and each remaining finding was the residue of the previous fix rather than a recurrence. Round 3's own reviewer scoped the resolution as narrow and confirmed it does not reopen B4. Returning to an earlier phase would discard three rounds of confirmed-sound work for a mechanical gap.",
+      "changedStrategy": "Stop iterating the predicate against hand-picked attack lists — that is the failure pattern behind all three rounds. Require coverage proven over an ENUMERATION of TypeScript's export-surface grammar (a closed, finite set) rather than over a curated set of spellings.",
+      "resetsEvaluationCount": true
+    }
+  ],
+  "boundaryVerdict": "Holds by acquisition, not blindness — repo-census.ts:683-714 records an import edge for every acquisition spelling (static, export…from, namespace, import=require, dynamic import(), require() with destructuring). Independently verified in critique round 2.",
+  "founderGateItems": [
+    "Narrowing `application → layer [import]` (decided allowed today, 12 production instances) — a decided-rules vocabulary change",
+    "Superseding AU26 H1/H2 'the door stays read-only' to add port write ops — critique judged genuinely necessary",
+    "Superseding AU21 Decision E's SessionActivityBuffer placement — judged avoidable in principle but justified; alternative recorded",
+    "Two sites relinquish transactional atomicity (knowledge.ts:934, threads.ts:1463) with named failure windows",
+    "The R2 escape-predicate limit statement and its attack/control pair",
+    "Recommended split into two work packages at the mechanism/composition boundary"
+  ]
 }
