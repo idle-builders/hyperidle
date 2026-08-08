@@ -363,20 +363,22 @@ draft said the audit found "exactly two" cross-boundary pairs (`knowledge.ts:934
 `threads.ts:1463`) plus two run-config couplings, and five critique rounds ratified that as
 complete. It is not. There are **nine** transactions in the production tree that commit a core
 write and an agent-orchestration write together, carrying **ten** orchestration writes between
-them, and two more that read orchestration state while holding the connection. P3 found four
-because of *how it looked*, not because there are four — see the correction block in
-`feasibility.md` P3 and the sweep in `probes/p3b-transaction-threading/`.
+them — plus two orchestration *reads* that run while one of those nine holds the connection, a
+question P3 never asked and the one that stopped the first build. P3 found four because of *how it
+looked*, not because there are four — see the correction block in `feasibility.md` P3 and the sweep
+in `probes/p3b-transaction-threading/`.
 
 **Why the old method could not see them.** P3 searched for the literal spellings
 `enqueueWorkIntent(`, `createSessionRequest(`, `agentWorkIntentRecorder.record(` and
-`tx as HyperIdleDb` inside `layers/core-api/src`. Two independent reasons that misses most of the
-set:
+`tx as HyperIdleDb`, scoped to `layers/core-api/src`. Two independent reasons that misses most of
+the set (and the scope alone excludes the four core service packages where five of the nine sites
+live):
 
 1. **Most sites never write the function's name.** The orchestration write arrives as an injected
    dependency and is called as `deps.workIntents.record(tx, …)`,
    `ports.workIntents.enqueueWorkIntent(tx, …)`, `deps.runOrchestration.endRunForHandoff(tx, …)`
    or `ports.intentRecorder.record(innerTx, …)`. The file making the call does not import the
-   orchestration package at all, so no name search over core-api's imports or bodies reaches it.
+   orchestration package at all, so no search for the orchestration function's name reaches it.
 2. **The transaction is usually opened one or two frames below the innocent-looking call.**
    `routes/tasks.ts:253` calls `transitionTask(db, …)` with a pooled handle — and `transitionTask`
    opens its own transaction and records the intent inside it
