@@ -3,8 +3,12 @@
  * THE SET DERIVES FROM THE EXPORT-SURFACE ENUMERATION (architecture.md §7.2): every
  * grammar member with verdict "caught" has a case here, labelled with its member id,
  * so completeness is checkable against the grammar, not against anyone's imagination.
- * A1–A12 are the rounds-1/2 spellings (kept verbatim); X1–X17 are the export-surface
- * and module-scope-flow members rounds 1–3 proved a curated list forgets.
+ * A1–A12 are the rounds-1/2 spellings (kept verbatim); X1–X23 are the export-surface
+ * and module-scope-flow members rounds 1–3 proved a curated list forgets; HN1–HN4 are
+ * round-4 B6's four binding-form escapes (each was CLEAN under the previous model);
+ * XP1–XP11 are the flow-position and load-time-body members the fail-closed model
+ * walks structurally; XL1 executes the loud guard (F15) — an unmodeled statement kind
+ * is itself a finding.
  * (Fixture is parse-only evidence in `.pipeline/` — never compiled, never a
  * production file.)
  */
@@ -110,3 +114,97 @@ export default class {
 export import x22 = require("@hyperidle/knowledge"); // X22 [E14] — exported import= of a service module
 
 export = { flagKnowledgeItem }; // X23 [E6] — export= (tsc error under NodeNext ESM; caught anyway)
+
+// ---- round-4 B6: the binding-form grammar (group N) — each was CLEAN before ----
+
+let hn1tmp; // HN1 [N2] — uninitialized declaration: a carrier with no material …
+hn1tmp = listKnowledge; // … whose material arrives by assignment flow
+export let hn1live = null;
+hn1live = hn1tmp;
+
+function hn2helper() {} // HN2 [N4] — non-exported function declaration escaping via a bag …
+export const hn2api = { hn2helper };
+hn2helper.tool = searchKnowledge; // … then property-laundered on the escaping name
+
+export const hn3arr = [];
+for (const hn3f of [flagKnowledgeItem]) hn3arr.push(hn3f); // HN3 [N10] — for-of header binding
+
+export const hn4sink = {};
+try {
+	throw listKnowledge; // HN4 [N12] — catch parameter carries the lexically thrown value
+} catch (hn4e) {
+	hn4sink.tool = hn4e;
+}
+
+// ---- flow positions and load-time bodies, walked structurally (F2/F5/F7/F-load) ----
+
+let xp1tmp = null;
+export let xp1live = null;
+if ((xp1tmp = searchKnowledge)) {
+	// XP1 [F2] — assignment in condition position
+}
+xp1live = xp1tmp;
+
+export const xp2sink = {};
+{
+	const xp2local = listKnowledge; // XP2 [N1] — block-nested declaration at module eval
+	xp2sink.tool = xp2local;
+}
+
+export const xp3sink = {};
+(() => {
+	xp3sink.tool = flagKnowledgeItem; // XP3 [F7] — statement-position IIFE body runs at load
+})();
+
+export let xp4live = null;
+for (xp4live of [searchKnowledge]); // XP4 [F5] — for-of over an EXISTING escaping target
+
+const xp5tag = (strings, ...vals) => vals;
+export const xp5sink = {};
+xp5tag`${xp5sink} ${listKnowledge}`; // XP5 [F5] — tagged template is a call in disguise
+
+export const xp6sink = {};
+@((c) => {
+	xp6sink.tool = searchKnowledge; // XP6 [F7] — inline-arrow decorator runs at class definition
+	return c;
+})
+class Xp6Decorated {}
+
+export const xp7sink = {};
+class Xp7StaticSideEffect {
+	static {
+		xp7sink.tool = flagKnowledgeItem; // XP7 [F-load] — static block of a NON-exported class
+	}
+}
+
+export const xp8sink = {};
+class Xp8StaticInit {
+	static seeded = (xp8sink.tool = listKnowledge, true); // XP8 [F-load] — static field initializer
+}
+
+export const xp9sink = {};
+class Xp9ComputedName {
+	[(xp9sink.tool = searchKnowledge, "k")]() {} // XP9 [F-load] — computed member name
+}
+
+export const xp10sink = {};
+enum Xp10SideEnum {
+	A = (xp10sink.tool = flagKnowledgeItem, 1), // XP10 [F-load] — enum member initializer
+}
+
+export const xp11sink = {};
+namespace Xp11SideNs {
+	xp11sink.tool = listKnowledge; // XP11 [F-load] — NON-exported namespace body runs at load
+}
+
+export const xp12sink = {};
+class Xp12InstanceInit {
+	seeded = (xp12sink.tool = searchKnowledge, 1); // XP12 [F-load] — INSTANCE field initializer:
+	// not a function body; a module-scope `new` runs it at load
+}
+new Xp12InstanceInit();
+
+// XL1 [F15] — the loud guard, executed: `with` is outside the handled enumeration and
+// must be a FINDING, not a silent pass (fail-closed inversion 3)
+with (Math) {
+}

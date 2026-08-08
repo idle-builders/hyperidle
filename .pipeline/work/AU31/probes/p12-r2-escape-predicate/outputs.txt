@@ -1,52 +1,71 @@
-# P12 — R2 escape-predicate prototype (enumeration-derived model), verbatim outputs
-# Tree: backend/AU31-layer-composition-boundary @ 879b53d9, run 2026-08-08.
+# P12 — R2 escape-predicate prototype (fail-closed model: enumerated binding forms,
+# inclusive carrier universe, generic module-eval walk, loud kind guard), verbatim outputs
+# Tree: backend/AU31-layer-composition-boundary, run 2026-08-08 (post-adjudication-2 revision).
 # Prototype uses the census's own parser (ts.createSourceFile — scripts/lib/repo-census.ts:644-646).
 # Sources committed as .ts.txt (P11 convention: the census must never parse probe sources).
-# Execution: sources copied to a temporary worktree dir (`.p12-scratch/`, deleted after; git status
-# clean at finish); live production files read in place, never overlaid. Paths below normalized to
-# the committed probe locations.
+# Execution: sources copied to the session scratchpad (outside the tree; no overlay at any
+# production path; git status clean at finish); live production files read in place, never
+# overlaid. Fixture names below are the committed probe files (their sources are the
+# same-named `.ts.txt` alongside this file); live paths are worktree-relative.
 
-## Run 1 — attack + control fixtures (attack set derives from the §7.2 enumeration)
+## Run 1 — attack + control fixtures (attack set derives from the E/N/F enumerations)
 $ npx tsx r2-escape-prototype.ts fixture-attacks.ts fixture-controls.ts
-== .pipeline/work/AU31/probes/p12-r2-escape-predicate/fixture-attacks.ts
-   VIOLATION line 16 — `(re-export)` (from @hyperidle/knowledge) — export … from a service module
-   VIOLATION line 17 — `*` (from @hyperidle/session-requests) — export … from a service module
-   VIOLATION line 19 — `listKnowledge` (from @hyperidle/knowledge) — initializer of escaping binding `a3`
-   VIOLATION line 21 — `listKnowledge` (from @hyperidle/knowledge) — initializer of escaping binding `a4`
-   VIOLATION line 23 — `searchKnowledge` (from @hyperidle/knowledge) — initializer of escaping binding `aliasHop`
-   VIOLATION line 26 — `listKnowledge` (from @hyperidle/knowledge) — default export / export=
-   VIOLATION line 29 — `listKnowledge` (from @hyperidle/knowledge) — escaping class `A7` > class field initializer
-   VIOLATION line 30 — `searchKnowledge` (from @hyperidle/knowledge) — escaping class `A7` > class field initializer
-   VIOLATION line 33 — `listKnowledge` (from @hyperidle/knowledge) — initializer of escaping binding `a8` > IIFE body
-   VIOLATION line 36 — `listKnowledge` (from @hyperidle/knowledge) — initializer of escaping binding `a9` > call argument
-   VIOLATION line 38 — `listKnowledge` (from @hyperidle/knowledge) — initializer of escaping binding `a10` > callee
-   VIOLATION line 40 — `searchKnowledge` (from @hyperidle/knowledge) — initializer of escaping binding `bag`
-   VIOLATION line 43 — `knowledgeNs` (from @hyperidle/knowledge) — initializer of escaping binding `a12`
-   VIOLATION line 47 — `listKnowledge` (from @hyperidle/knowledge) — named export of `listKnowledge`
-   VIOLATION line 48 — `searchKnowledge` (from @hyperidle/knowledge) — named export of `searchKnowledge`
-   VIOLATION line 51 — `flagKnowledgeItem` (from @hyperidle/knowledge) — named export of `flagKnowledgeItem`
-   VIOLATION line 52 — `knowledgeNs` (from @hyperidle/knowledge) — named export of `knowledgeNs`
-   VIOLATION line 54 — `searchKnowledge` (from @hyperidle/knowledge) — value feeding an escaping destructured binding
-   VIOLATION line 55 — `flagKnowledgeItem` (from @hyperidle/knowledge) — value feeding an escaping destructured binding
-   VIOLATION line 56 — `listKnowledge` (from @hyperidle/knowledge) — value feeding an escaping destructured binding
-   VIOLATION line 59 — `searchKnowledge` (from @hyperidle/knowledge) — module-scope assignment to escaping binding `x7`
-   VIOLATION line 61 — `listKnowledge` (from @hyperidle/knowledge) — module-scope assignment to escaping binding `x8`
-   VIOLATION line 64 — `flagKnowledgeItem` (from @hyperidle/knowledge) — module-scope assignment to escaping binding `x9`
-   VIOLATION line 67 — `searchKnowledge` (from @hyperidle/knowledge) — destructuring assignment to escaping binding
-   VIOLATION line 70 — `listKnowledge` (from @hyperidle/knowledge) — property mutation of escaping binding `x11`
-   VIOLATION line 72 — `searchKnowledge` (from @hyperidle/knowledge) — argument of a module-scope call involving an escaping binding
-   VIOLATION line 74 — `flagKnowledgeItem` (from @hyperidle/knowledge) — argument of a module-scope call involving an escaping binding
-   VIOLATION line 78 — `listKnowledge` (from @hyperidle/knowledge) — initializer of escaping binding `x14` > getter body
-   VIOLATION line 83 — `searchKnowledge` (from @hyperidle/knowledge) — escaping class `X15` > getter body
-   VIOLATION line 88 — `listKnowledge` (from @hyperidle/knowledge) — escaping enum `X16` > enum member initializer
-   VIOLATION line 92 — `searchKnowledge` (from @hyperidle/knowledge) — exported namespace `X17`
-   VIOLATION line 95 — `listKnowledge` (from @hyperidle/knowledge) — escaping class `X18` > extends expression > call argument
-   VIOLATION line 99 — `searchKnowledge` (from @hyperidle/knowledge) — escaping class `X19` > static block
-   VIOLATION line 103 — `flagKnowledgeItem` (from @hyperidle/knowledge) — escaping class `X20` > decorator > call argument
-   VIOLATION line 107 — `searchKnowledge` (from @hyperidle/knowledge) — anonymous default-exported class > class field initializer
-   VIOLATION line 110 — `x22` (from @hyperidle/knowledge) — exported import= of a service module
-   VIOLATION line 112 — `flagKnowledgeItem` (from @hyperidle/knowledge) — default export / export=
-== .pipeline/work/AU31/probes/p12-r2-escape-predicate/fixture-controls.ts
+== fixture-attacks.ts
+   VIOLATION line 20 — `(re-export)` (from @hyperidle/knowledge) — export … from a service module
+   VIOLATION line 21 — `*` (from @hyperidle/session-requests) — export … from a service module
+   VIOLATION line 23 — `listKnowledge` (from @hyperidle/knowledge) — initializer of escaping binding `a3`
+   VIOLATION line 25 — `listKnowledge` (from @hyperidle/knowledge) — initializer of escaping binding `a4`
+   VIOLATION line 27 — `searchKnowledge` (from @hyperidle/knowledge) — initializer of escaping binding `aliasHop`
+   VIOLATION line 30 — `listKnowledge` (from @hyperidle/knowledge) — default export / export=
+   VIOLATION line 33 — `listKnowledge` (from @hyperidle/knowledge) — escaping class `A7` > class field initializer
+   VIOLATION line 34 — `searchKnowledge` (from @hyperidle/knowledge) — escaping class `A7` > class field initializer
+   VIOLATION line 37 — `listKnowledge` (from @hyperidle/knowledge) — initializer of escaping binding `a8` > IIFE body
+   VIOLATION line 40 — `listKnowledge` (from @hyperidle/knowledge) — initializer of escaping binding `a9` > call argument
+   VIOLATION line 42 — `listKnowledge` (from @hyperidle/knowledge) — initializer of escaping binding `a10` > callee
+   VIOLATION line 44 — `searchKnowledge` (from @hyperidle/knowledge) — initializer of escaping binding `bag`
+   VIOLATION line 47 — `knowledgeNs` (from @hyperidle/knowledge) — initializer of escaping binding `a12`
+   VIOLATION line 51 — `listKnowledge` (from @hyperidle/knowledge) — named export of `listKnowledge`
+   VIOLATION line 52 — `searchKnowledge` (from @hyperidle/knowledge) — named export of `searchKnowledge`
+   VIOLATION line 55 — `flagKnowledgeItem` (from @hyperidle/knowledge) — named export of `flagKnowledgeItem`
+   VIOLATION line 56 — `knowledgeNs` (from @hyperidle/knowledge) — named export of `knowledgeNs`
+   VIOLATION line 58 — `searchKnowledge` (from @hyperidle/knowledge) — value feeding an escaping destructured binding
+   VIOLATION line 59 — `flagKnowledgeItem` (from @hyperidle/knowledge) — value feeding an escaping destructured binding
+   VIOLATION line 60 — `listKnowledge` (from @hyperidle/knowledge) — value feeding an escaping destructured binding
+   VIOLATION line 63 — `searchKnowledge` (from @hyperidle/knowledge) — module-scope assignment to escaping binding `x7`
+   VIOLATION line 65 — `listKnowledge` (from @hyperidle/knowledge) — module-scope assignment to escaping binding `x8`
+   VIOLATION line 68 — `flagKnowledgeItem` (from @hyperidle/knowledge) — module-scope assignment to escaping binding `x9`
+   VIOLATION line 71 — `searchKnowledge` (from @hyperidle/knowledge) — destructuring assignment to escaping binding
+   VIOLATION line 74 — `listKnowledge` (from @hyperidle/knowledge) — property mutation of escaping binding `x11`
+   VIOLATION line 76 — `searchKnowledge` (from @hyperidle/knowledge) — argument of a module-scope call involving an escaping binding
+   VIOLATION line 78 — `flagKnowledgeItem` (from @hyperidle/knowledge) — argument of a module-scope call involving an escaping binding
+   VIOLATION line 82 — `listKnowledge` (from @hyperidle/knowledge) — initializer of escaping binding `x14` > getter body
+   VIOLATION line 87 — `searchKnowledge` (from @hyperidle/knowledge) — escaping class `X15` > getter body
+   VIOLATION line 92 — `listKnowledge` (from @hyperidle/knowledge) — escaping enum `X16` > enum member initializer
+   VIOLATION line 96 — `searchKnowledge` (from @hyperidle/knowledge) — exported namespace `X17`
+   VIOLATION line 99 — `listKnowledge` (from @hyperidle/knowledge) — escaping class `X18` > extends expression > call argument
+   VIOLATION line 103 — `searchKnowledge` (from @hyperidle/knowledge) — escaping class `X19` > static block
+   VIOLATION line 107 — `flagKnowledgeItem` (from @hyperidle/knowledge) — escaping class `X20` > decorator > call argument
+   VIOLATION line 111 — `searchKnowledge` (from @hyperidle/knowledge) — anonymous default-exported class > class field initializer
+   VIOLATION line 114 — `x22` (from @hyperidle/knowledge) — exported import= of a service module
+   VIOLATION line 116 — `flagKnowledgeItem` (from @hyperidle/knowledge) — default export / export=
+   VIOLATION line 121 — `listKnowledge` (from @hyperidle/knowledge) — module-scope assignment to escaping binding `hn1tmp`
+   VIOLATION line 127 — `searchKnowledge` (from @hyperidle/knowledge) — property mutation of escaping binding `hn2helper`
+   VIOLATION line 130 — `flagKnowledgeItem` (from @hyperidle/knowledge) — for-of iterable feeding escaping binding `hn3f`
+   VIOLATION line 134 — `listKnowledge` (from @hyperidle/knowledge) — value thrown into escaping catch binding `hn4e`
+   VIOLATION line 143 — `searchKnowledge` (from @hyperidle/knowledge) — module-scope assignment to escaping binding `xp1tmp`
+   VIOLATION line 150 — `listKnowledge` (from @hyperidle/knowledge) — initializer of escaping binding `xp2local`
+   VIOLATION line 156 — `flagKnowledgeItem` (from @hyperidle/knowledge) — property mutation of escaping binding `xp3sink`
+   VIOLATION line 160 — `searchKnowledge` (from @hyperidle/knowledge) — for-of iterable assigned to escaping binding `xp4live`
+   VIOLATION line 164 — `listKnowledge` (from @hyperidle/knowledge) — argument of a module-scope call involving an escaping binding
+   VIOLATION line 168 — `searchKnowledge` (from @hyperidle/knowledge) — property mutation of escaping binding `xp6sink`
+   VIOLATION line 176 — `flagKnowledgeItem` (from @hyperidle/knowledge) — property mutation of escaping binding `xp7sink`
+   VIOLATION line 182 — `listKnowledge` (from @hyperidle/knowledge) — property mutation of escaping binding `xp8sink`
+   VIOLATION line 187 — `searchKnowledge` (from @hyperidle/knowledge) — property mutation of escaping binding `xp9sink`
+   VIOLATION line 192 — `flagKnowledgeItem` (from @hyperidle/knowledge) — property mutation of escaping binding `xp10sink`
+   VIOLATION line 197 — `listKnowledge` (from @hyperidle/knowledge) — property mutation of escaping binding `xp11sink`
+   VIOLATION line 202 — `searchKnowledge` (from @hyperidle/knowledge) — property mutation of escaping binding `xp12sink`
+   VIOLATION line 209 — `(unhandled form)` (from (module-eval grammar)) — unhandled module-scope statement kind `WithStatement` — fail-closed guard
+== fixture-controls.ts
    CLEAN — no service binding escapes the export surface
 exit=1
 
@@ -68,12 +87,61 @@ exit=1
 
 ## Run 4 — round-3 B5's decisive case: the two-line respelling of the founding target
 $ npx tsx r2-escape-prototype.ts fixture-founding-respelling.ts
-== .pipeline/work/AU31/probes/p12-r2-escape-predicate/fixture-founding-respelling.ts
+== fixture-founding-respelling.ts
    VIOLATION line 8 — `list` (from @hyperidle/knowledge) — named export of `list`
 exit=1
 
 ## Run 5 — the declared residuals, executed: the limit statement as evidence, not prose
 $ npx tsx r2-escape-prototype.ts fixture-residuals.ts
-== .pipeline/work/AU31/probes/p12-r2-escape-predicate/fixture-residuals.ts
+== fixture-residuals.ts
    CLEAN — no service binding escapes the export surface
 exit=0
+
+## Run 6 — the planner's own adversarial pass against the restated limit (SA1-SA10 must
+## flag; SR1/SR2 are review-territory shapes the limit statement must cover — CLEAN)
+$ npx tsx r2-escape-prototype.ts fixture-self-attack.ts
+== fixture-self-attack.ts
+   VIOLATION line 8 — `listKnowledge` (from @hyperidle/knowledge) — module-scope assignment to escaping binding `sa1a`
+   VIOLATION line 15 — `searchKnowledge` (from @hyperidle/knowledge) — initializer of escaping binding `sa2v`
+   VIOLATION line 22 — `flagKnowledgeItem` (from @hyperidle/knowledge) — initializer of escaping binding `sa3api` > IIFE body
+   VIOLATION line 29 — `listKnowledge` (from @hyperidle/knowledge) — value thrown into escaping catch binding `sa4a`
+   VIOLATION line 41 — `searchKnowledge` (from @hyperidle/knowledge) — value feeding an escaping destructured binding
+   VIOLATION line 50 — `flagKnowledgeItem` (from @hyperidle/knowledge) — property mutation of escaping binding `sa6sink`
+   VIOLATION line 56 — `listKnowledge` (from @hyperidle/knowledge) — property mutation of escaping binding `sa7sink`
+   VIOLATION line 61 — `searchKnowledge` (from @hyperidle/knowledge) — property mutation of escaping binding `sa8sink`
+   VIOLATION line 66 — `flagKnowledgeItem` (from @hyperidle/knowledge) — property mutation of escaping binding `sa9sink`
+   VIOLATION line 73 — `listKnowledge` (from @hyperidle/knowledge) — module-scope assignment to escaping binding `sa10live`
+exit=1
+
+## Run 7 — deployment sweep: every production module of the three layer root packages
+## (dev-world __* excluded). 83 files: 75 CLEAN; the loud guard fires nowhere; every
+## finding sits in one of 8 files, each a pre-end-state surface the plan already
+## relocates, deletes, or reshapes (see feasibility P12).
+$ find layers/core-api/src layers/agent-orchestration/src layers/agent-execution/src -name "*.ts" ! -name "*.test.ts" ! -name "*.d.ts" ! -path "*__*" | sort | xargs npx tsx r2-escape-prototype.ts
+== layers/agent-execution/src/index.ts
+   VIOLATION line 15 — `(re-export)` (from @hyperidle/harness-registry) — export … from a service module
+== layers/core-api/src/index.ts
+   VIOLATION line 15 — `(re-export)` (from @hyperidle/knowledge) — export … from a service module
+== layers/core-api/src/routines.ts
+   VIOLATION line 20 — `(re-export)` (from @hyperidle/routine) — export … from a service module
+== layers/core-api/src/services/policy-bindings.ts
+   VIOLATION line 66 — `insertMessage` (from @hyperidle/conversation) — initializer of escaping binding `handoffDeps`
+   VIOLATION line 66 — `insertThread` (from @hyperidle/conversation) — initializer of escaping binding `handoffDeps`
+   VIOLATION line 89 — `sessionRunRegistry` (from @hyperidle/session-requests) — initializer of escaping binding `handoffDeps`
+   VIOLATION line 105 — `endRunForHandoff` (from @hyperidle/run-orchestration) — initializer of escaping binding `handoffDeps`
+== layers/core-api/src/services/routine-scheduler-bindings.ts
+   VIOLATION line 132 — `insertThread` (from @hyperidle/conversation) — initializer of escaping binding `routineSchedulerPorts`
+   VIOLATION line 151 — `enqueueWorkIntent` (from @hyperidle/session-requests) — initializer of escaping binding `routineSchedulerPorts`
+   VIOLATION line 164 — `requireRunnableAgent` (from @hyperidle/users) — initializer of escaping binding `routineSchedulerPorts`
+   VIOLATION line 170 — `assembleSessionKnowledge` (from @hyperidle/knowledge) — initializer of escaping binding `routineSchedulerPorts`
+== layers/core-api/src/services/task-run-resolver-bindings.ts
+   VIOLATION line 23 — `requireRunnableAgent` (from @hyperidle/users) — initializer of escaping binding `taskRunResolverDeps`
+   VIOLATION line 25 — `assembleSessionKnowledge` (from @hyperidle/knowledge) — initializer of escaping binding `taskRunResolverDeps`
+   VIOLATION line 26 — `readServerConfig` (from @hyperidle/settings) — initializer of escaping binding `taskRunResolverDeps`
+== layers/core-api/src/services/tool-provider-bindings.ts
+   VIOLATION line 41 — `recordProposedCall` (from @hyperidle/review) — initializer of escaping binding `proposedCallWorkflowPort`
+   VIOLATION line 68 — `returnStatusTool` (from @hyperidle/harness-registry/mcp) — named export of `returnStatusTool`
+== layers/core-api/src/session.ts
+   VIOLATION line 9 — `(re-export)` (from @hyperidle/harness-registry) — export … from a service module
+   (remaining 75 files: CLEAN — omitted for brevity; full list reproducible by the command above)
+exit=1

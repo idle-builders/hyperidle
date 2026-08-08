@@ -73,3 +73,14 @@ function register(target: unknown, name: string): void {
 	void target;
 	void name;
 }
+
+// CN1 — the inclusive carrier universe does not over-fire: an uninitialized carrier
+// assigned a service value but NEVER escaping records nothing
+let cn1tmp;
+cn1tmp = listKnowledge;
+
+// CN2 — for-in binding (N11): holds property-NAME strings; the loop and the escaping
+// keys array stay clean even though the iterated bag holds a service binding
+const cn2bag = { listKnowledge };
+export const cn2keys = [];
+for (const cn2k in cn2bag) cn2keys.push(cn2k);
