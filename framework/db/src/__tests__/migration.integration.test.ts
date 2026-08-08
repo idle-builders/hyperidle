@@ -5,7 +5,7 @@ import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 // test that calls handle.runMigrations() — the pooled fixture does not expose
 // runMigrations(). All other tests in this file use the fixture.
 import { createTestDb } from "../__testing__/test-utils.js";
-import { teams } from "../schema.js";
+import { teamMembers, teams } from "../schema.js";
 
 // @lore Phase 2: migration.test.ts now tests PGlite migrations. SQLite migration
 // tests were removed because the schema is now PG-only. The journal timestamp
@@ -62,6 +62,15 @@ describe("A2: Migration", () => {
 		await db
 			.insert(teams)
 			.values({ id: "test-prod", name: "Test", phase: "build", createdAt: now });
+		// The owner writes the membership row alongside the team; exercises a second migrated
+		// table for free.
+		await db.insert(teamMembers).values({
+			id: "test-prod-members",
+			teamId: "test-prod",
+			capacity: 5,
+			activeBets: 0,
+			formedAt: now,
+		});
 
 		const result = await db.select().from(teams);
 		expect(result).toHaveLength(1);

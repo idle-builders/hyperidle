@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import {
 	bets,
 	items,
+	knowledgeAppProjection,
 	knowledgeEditLog,
 	knowledgeItems,
 	messages,
@@ -446,6 +447,10 @@ describe("A2: Database Schema", () => {
 				createdAt: now,
 				updatedAt: now,
 			});
+			// The owner's `create` always writes the projection row alongside the item.
+			await db
+				.insert(knowledgeAppProjection)
+				.values({ id: "ki-1-projection", knowledgeItemId: "ki-1" });
 
 			const result = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-1"));
 			expect(result[0]).toMatchObject({
@@ -469,6 +474,10 @@ describe("A2: Database Schema", () => {
 				createdAt: now,
 				updatedAt: now,
 			});
+			// The owner's `create` always writes the projection row alongside the item.
+			await db
+				.insert(knowledgeAppProjection)
+				.values({ id: "ki-1-projection", knowledgeItemId: "ki-1" });
 
 			await db
 				.update(knowledgeItems)
@@ -494,6 +503,10 @@ describe("A2: Database Schema", () => {
 				createdAt: now,
 				updatedAt: now,
 			});
+			// The owner's `create` always writes the projection row alongside the item.
+			await db
+				.insert(knowledgeAppProjection)
+				.values({ id: "ki-1-projection", knowledgeItemId: "ki-1" });
 			await db.insert(knowledgeEditLog).values({
 				id: "kel-1",
 				itemId: "ki-1",
