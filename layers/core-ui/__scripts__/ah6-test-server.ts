@@ -39,17 +39,23 @@
  */
 
 import * as fs from "node:fs";
-import { dirname, resolve } from "node:path";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { PGlite } from "@electric-sql/pglite";
-import type { HyperIdleDb } from "@hyperidle/db";
-import { schema, serverCredentials, teamMembers, teams, users } from "@hyperidle/db";
+import {
+	agentRunConfig,
+	applyMigrations,
+	createPgliteDb,
+	serverCredentials,
+	teamMembers,
+	teams,
+	users,
+} from "@hyperidle/db";
 import { createLocalAdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
 import { installCassetteInterceptor } from "@hyperidle/harness-registry/testing";
 import { createServer } from "@hyperidle/remote-server/create-server";
 import { encryptCredentialValue } from "@hyperidle/shared/crypto";
-import { drizzle } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 
@@ -85,13 +91,14 @@ if (cassettMode !== "record") {
 const migrationsFolder = resolve(scriptDir, "../../../framework/db/drizzle");
 
 // ---------------------------------------------------------------------------
-// 1. Create in-memory PGlite and apply Drizzle schema migrations.
+// 1. Apply Drizzle schema migrations against a per-boot tmp dir, then open a
+//    live handle on the same dir — composes the database package's own
+//    `db:client` exports instead of hand-rolling a drizzle(client, { schema })
+//    client (D4).
 // ---------------------------------------------------------------------------
-const client = new PGlite();
-await client.waitReady;
-const rawDb = drizzle(client, { schema });
-await migrate(rawDb, { migrationsFolder });
-const db = rawDb as unknown as HyperIdleDb;
+const dataDir = await mkdtemp(join(tmpdir(), "ah6-e2e-db-"));
+await applyMigrations(dataDir, migrationsFolder);
+const { db, close: closeDb } = await createPgliteDb(dataDir);
 
 // ---------------------------------------------------------------------------
 // 2. Seed team + user required for create_bet tool (S2 scenario).
@@ -250,17 +257,28 @@ await db
 		role: "assistant",
 		agentCategory: "individual",
 		status: "active",
+		createdAt: now,
+	})
+	.onConflictDoNothing();
+// @lore AU26 G1: run-execution config (harnessType/modelId/modelProvider/
+// systemPrompt/maxConcurrentSessions) lives in `agent_run_config`, not
+// `users`, since that migration — this pre-existing seed still targeted the
+// old `users` columns (never caught because __scripts__ sits outside this
+// package's tsconfig `include`, so tsc never typechecked it). Mirrors the
+// `agentRunConfig` seed idiom in AH6-lane-gates-broken-turn.integration.test.ts.
+await db
+	.insert(agentRunConfig)
+	.values({
+		agentUserId: assistantAgentId,
 		harnessType: "builtin",
 		modelId: smokeModelId,
 		modelProvider: "openrouter",
 		systemPrompt:
 			"You are a helpful AI assistant. Be concise, direct, and thoughtful in your responses.",
 		maxConcurrentSessions: 1,
-		createdAt: now,
 	})
 	.onConflictDoUpdate({
-		target: users.id,
-		// users table has no updatedAt — only update the model fields
+		target: agentRunConfig.agentUserId,
 		set: { modelId: smokeModelId, modelProvider: "openrouter" },
 	});
 process.stdout.write(
@@ -299,7 +317,7 @@ function shutdown(): Promise<void> {
 			exitCode = 1;
 		}
 		try {
-			await client.close();
+			await closeDb();
 		} catch (error) {
 			process.stderr.write(`[ah6-test-server] database close failed: ${String(error)}\n`);
 			exitCode = 1;

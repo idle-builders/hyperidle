@@ -8,18 +8,17 @@
 
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
-import { resolve } from "node:path";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { PGlite } from "@electric-sql/pglite";
-import { type HyperIdleDb, schema } from "@hyperidle/db";
+import { applyMigrations, createPgliteDb, type HyperIdleDb } from "@hyperidle/db";
 import {
 	EventBus,
 	type ModelGatewayConfig,
 	type ResolvedModel,
 	resolveModel,
 } from "@hyperidle/shared";
-import { drizzle } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
 import { EnvCredentialResolver } from "./env-credential-resolver.js";
 import { scoreScenario } from "./scoring.js";
 import type {
@@ -55,7 +54,7 @@ function resolveMigrationsFolder(): string {
 // ---------------------------------------------------------------------------
 
 /**
- * Create a fresh in-memory PGlite instance with all migrations applied.
+ * Create a fresh PGlite instance (per-boot tmp dir) with all migrations applied.
  *
  * Each eval scenario gets its own PGlite. This provides complete isolation:
  * no cross-scenario state leakage. The ~150ms migration overhead is negligible
@@ -63,19 +62,16 @@ function resolveMigrationsFolder(): string {
  *
  * @lore X7: We do NOT use createTestDb() from @hyperidle/db/test-utils because
  * test-utils is coupled to vitest (worker pool, IPC disconnect handler). The
- * eval runs as a standalone tsx script, not inside a vitest worker.
+ * eval runs as a standalone tsx script, not inside a vitest worker. Instead we
+ * compose the database package's own `db:client` exports —
+ * applyMigrations(dataDir, migrationsFolder) against a per-boot tmp dir, then
+ * createPgliteDb(dataDir) on the same dir — rather than hand-rolling a
+ * drizzle(client, { schema }) client.
  */
 export async function createEvalDb(): Promise<{ db: HyperIdleDb; close: () => Promise<void> }> {
-	const client = new PGlite();
-	await client.waitReady;
-	const db = drizzle(client, { schema });
-	await migrate(db, { migrationsFolder: resolveMigrationsFolder() });
-	return {
-		db,
-		close: async () => {
-			await client.close();
-		},
-	};
+	const dataDir = await mkdtemp(join(tmpdir(), "eval-db-"));
+	await applyMigrations(dataDir, resolveMigrationsFolder());
+	return createPgliteDb(dataDir);
 }
 
 // ---------------------------------------------------------------------------
