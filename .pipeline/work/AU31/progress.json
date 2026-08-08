@@ -1,7 +1,10 @@
 {
   "id": "AU31",
-  "status": "in-progress",
-  "currentStep": "refine",
+  "status": "awaiting-human-review",
+  "currentStep": "concept-gate",
+  "parkedAt": "2026-08-08",
+  "parkReason": "Adjudication budget exhausted (2 of 2). Five architecture critique rounds; every part of the architecture EXCEPT the R2 launder rule is confirmed sound by independent rounds. R2's escaping-base recognizer is still shape-listed rather than structural (B7), so it fails open on seven executed spellings outside the declared residue. Founder must rule on R2's scope before further work — see founderScopeQuestion and founderGateItems.",
+  "smallestActionToResume": "Founder rules on founderScopeQuestion. If 'keep generality': one more planner pass applying B7's stated mechanical resolution (structural base-unwrapping matching the transparency scanEscaping already has, plus routing destructuring for-of heads through existing F3 machinery) — reopens nothing confirmed sound. If 'scope down': planner narrows R2 to its founding case and states the residue as review territory. Either ruling proceeds from this artifact without discarding confirmed-sound work.",
   "startedAt": "2026-08-07",
   "worktree": ".worktrees/AU31",
   "branch": "backend/AU31-layer-composition-boundary",
@@ -58,7 +61,9 @@
   "architectureCritiqueHistory": [
     { "round": 1, "verdict": "FAIL", "blocking": 3, "summary": "face-handoff claim contradicted by the enforced census; 3 DI sites unaccounted; wrapper-launder limit refutable in one line" },
     { "round": 2, "verdict": "FAIL", "blocking": 1, "summary": "all 3 prior blockers confirmed closed; widened R2 predicate over-fires on the plan's own legal in-layer wiring" },
-    { "round": 3, "verdict": "FAIL", "blocking": 1, "summary": "B4 closed and positional exemption holds; executed model + ratified attack set never check the export surface's own direct spellings, so the limit statement is refuted in one line" }
+    { "round": 3, "verdict": "FAIL", "blocking": 1, "summary": "B4 closed and positional exemption holds; executed model + ratified attack set never check the export surface's own direct spellings, so the limit statement is refuted in one line" },
+    { "round": 4, "verdict": "FAIL", "blocking": 1, "summary": "export-form axis (E1-E14) independently derived as COMPLETE and CommonJS exclusion verified sound; binding-form axis never enumerated, so 4 declared-but-untracked forms leak (B6)" },
+    { "round": 5, "verdict": "FAIL", "blocking": 1, "summary": "loud kind guard verified REAL, inclusive carrier universe holds, all 7 runs reproduce, N exclusions proven, reachability verdict honest; but the escaping-BASE recognizer is shape-listed not structural, so 7 executed spellings leak outside the declared residue (B7). Narrowest blocker of five rounds; fix is mechanical and reopens nothing." }
   ],
   "adjudications": [
     {
