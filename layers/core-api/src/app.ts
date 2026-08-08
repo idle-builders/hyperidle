@@ -9,6 +9,7 @@ import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import type { AdapterPool, McpToolBridge, SandboxAdapter } from "@hyperidle/harness-registry";
 import type { NotificationAdapter, NotificationsDeps } from "@hyperidle/notifications";
 import { getTeamMembers } from "@hyperidle/org";
+import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import { createLogger, EventBus } from "@hyperidle/shared";
 import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/shared/crypto";
@@ -48,6 +49,21 @@ import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
 import { createWorkersRoutes } from "./routes/workers.js";
 import { buildSeamBackedWorkIntentRecorder } from "./services/agent-orchestration-port-composition.js";
 import { taskRunResolverDeps } from "./services/task-run-resolver-bindings.js";
+
+/**
+ * @lore AU31 §3.1 site 5 (`threads.ts`) is NOT converted this wave —
+ * `createThreadRoutes` still opens its own `db.transaction(...)` and calls
+ * `agentWorkIntentRecorder.record(tx, …)` INSIDE it (the message insert +
+ * `assistant_turn` intent stay atomic, exactly as before AU31). Defaulting
+ * this route's recorder to the seam-backed one would issue an HTTP-style
+ * seam call from inside that open transaction — the deadlock §3.2 exists to
+ * prevent, reproduced live by this session's own AR4b test hang before this
+ * fix. `createThreadRoutes` therefore keeps the direct, pre-AU31 recorder;
+ * only the sites this wave actually restructured (task-state-machine.ts,
+ * handoff-protocol.ts, routine-scheduler.ts, proposed-call-workflow.ts, the
+ * dependency-watcher wire below) get the seam-backed one.
+ */
+const legacyAgentWorkIntentRecorder = { record: enqueueWorkIntent };
 
 /**
  * The minimal shape a route needs to push data onto the WS connection hub —
@@ -417,7 +433,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 			createThreadRoutes(
 				options.db,
 				eventBus,
-				options.agentWorkIntentRecorder ?? defaultAgentWorkIntentRecorder,
+				options.agentWorkIntentRecorder ?? legacyAgentWorkIntentRecorder,
 				options.wsHub,
 			),
 		);
