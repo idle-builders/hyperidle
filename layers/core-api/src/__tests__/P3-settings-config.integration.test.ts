@@ -14,9 +14,10 @@
  * tests only the P3-specific behavior (server_config backing, not factorySettings).
  */
 
-import { type HyperIdleDb, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, users } from "@hyperidle/db";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
+import { seedTeam } from "./_helpers.js";
 
 const TEST_API_KEY = "test-key-p3-settings-config";
 
@@ -175,9 +176,12 @@ describe("P3 AC-10 — Settings route: server_config backing", () => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			await seedFounderProfile(db);
 			const now = new Date().toISOString();
-			await db
-				.insert(teams)
-				.values({ id: "p3-prod-1", name: "P3 Test Product", phase: "build", createdAt: now });
+			await seedTeam(db, {
+				id: "p3-prod-1",
+				name: "P3 Test Product",
+				phase: "build",
+				createdAt: now,
+			});
 
 			const res = await app.request("/api/settings", { headers: authHeaders() });
 			// @lore U1: `products` renamed to `teams` in the settings response.

@@ -1,0 +1,78 @@
+.pipeline/AU.md:48:- `AU29` → `AU28`: clears baseline entries AU28 produced, using the registries, the crossing detectors and the `governance:baseline` generator AU28 built; there is no violation list and no enforcement mechanism to clear against until AU28 has landed.
+.pipeline/AU.md:52:- **Retiring the baseline is not its own work package.** It folds into `AU29`/`AU30`/`AU31`/`AU32` as an identical acceptance criterion: whichever of the four clears the last entry deletes `governance/baseline.json` and the `--adopt` escape hatch in the same commit. Since the baseline is shrink-only, each work package already promotes its own rules to error as it goes, so there is nothing to defer to a final step.
+.pipeline/work/AU29/plan.md:11:**What exists today.** `governance/architecture.json` names thirteen modules of `framework/db/src` and maps each to a surface (`db:client`, `db:bootstrap`, `db:util`); anything unmapped falls to `db:unknown` and is reported by name. The `db:util` entry is already marked `ANOMALY, pending follow-up W1` and carries its own reason: `escapeLikePattern` (`like-escape.ts`), `resolveAgentScaffoldSpecs` (`agent-scaffold.ts`) and `resolveProfile` (`profiles.ts`) contain no SQL, no schema reference and no connection — the surface exists only because the exports do. Four symbols currently fall to `db:unknown`: three from `system-prompt-templates.ts` (a module the registry deliberately does not name) and `seed` (absent from the package's re-export list). `framework/db/src/factory-bootstrap.ts` writes `users` (3 sites), `knowledgeItems`, `knowledgeAppProjection` and two unowned tables, and reads two more — it is mapped to `db:bootstrap`, whose stated audience is composition roots, so the routine is already documented as belonging outside the database package. `framework/shared/src/agent-run-admission.ts:65` emits `agent_run_admission_failed` and `framework/shared/src/observability/dispatcher.ts:473` subscribes to `*`. `governance/baseline.json` holds every one of these as a known violation tagged `W1` or `W5-W6`, and `npm run governance:baseline` regenerates the file.
+.pipeline/work/AU29/plan.md:33:- The baseline is shrink-only, so this work package promotes its own rules as it goes: clearing a group's last site deletes the entry and that rule is at error from the same commit. There is no separate promotion step to remember, and none to defer.
+.pipeline/work/AU29/plan.md:34:- Every baseline entry this work package clears is deleted from `governance/baseline.json`; none is re-keyed, re-tagged or moved to another group.
+.pipeline/work/AU29/plan.md:35:- `npm run governance:baseline` is the only way the baseline file is written.
+.pipeline/work/AU29/plan.md:50:- Every `framework → *` and `* → db:util` / `* → db:unknown` production entry is gone from `governance/baseline.json`, and the rules covering them fail the build on reappearance.
+.pipeline/work/AU29/plan.md:51:- If clearing this work package's violations leaves `governance/baseline.json` empty, the file and the `--adopt` escape hatch are deleted in the same commit, and reintroducing either — under any name — fails the build. Exactly one of the four clearing work packages will trigger this; whichever gets there last owns it.
+.pipeline/work/AU30/plan.md:35:- The baseline is shrink-only, so this work package promotes its own rules as it goes: clearing a group's last site deletes the entry and that rule is at error from the same commit. There is no separate promotion step to remember, and none to defer.
+.pipeline/work/AU30/plan.md:36:- Every baseline entry cleared is deleted from `governance/baseline.json`, never re-tagged.
+.pipeline/work/AU30/plan.md:51:- Every `db:table (unowned)` and production `db:table (other)` entry is gone from `governance/baseline.json`.
+.pipeline/work/AU30/plan.md:52:- If clearing this work package's violations leaves `governance/baseline.json` empty, the file and the `--adopt` escape hatch are deleted in the same commit, and reintroducing either — under any name — fails the build. Exactly one of the four clearing work packages will trigger this; whichever gets there last owns it.
+.pipeline/work/AU31/plan.md:35:- The baseline is shrink-only, so this work package promotes its own rules as it goes: clearing a group's last site deletes the entry and that rule is at error from the same commit. There is no separate promotion step to remember, and none to defer.
+.pipeline/work/AU31/plan.md:36:- Every baseline entry cleared is deleted from `governance/baseline.json`, never re-tagged.
+.pipeline/work/AU31/plan.md:51:- Every composition-root, cross-layer-import, cross-layer-DI, MCP and API entry is gone from `governance/baseline.json`, and those rules fail the build on reappearance.
+.pipeline/work/AU31/plan.md:52:- If clearing this work package's violations leaves `governance/baseline.json` empty, the file and the `--adopt` escape hatch are deleted in the same commit, and reintroducing either — under any name — fails the build. Exactly one of the four clearing work packages will trigger this; whichever gets there last owns it.
+docs/guides/developer/commands.md:69:Package-boundary rules live in `governance/` (`README.md`, `architecture.json`, `baseline.json`, `decided-rules.json`, `table-owners.json`). See [governance/README.md](../../../governance/README.md) for what the rules are — this guide does not restate them.
+docs/guides/developer/commands.md:75:| `npm run governance:baseline` | The only writer of `baseline.json` — shrink-only; `--adopt "<group key>"` is required to land a new rule over pre-existing violations |
+docs/guides/developer/linting-and-formatting.md:40:- **No warn/error dial.** Every rule is an error. `governance/baseline.json` lists the violations that already existed when a rule landed, and only what is on that list warns. A rule is enforced exactly when its group is absent from the baseline.
+docs/guides/developer/linting-and-formatting.md:41:- **The baseline may only shrink.** Fixing a violation without committing the shrink fails; adding one fails; swapping one for another fails. `npm run governance:baseline` is its only writer and refuses to add a group or raise a count. A new rule landing over pre-existing violations needs `--adopt "<group key>"`, which names the group so it is visible in review.
+framework/db/src/__tests__/governance-crossings.test.ts:21:	compareBaseline,
+framework/db/src/__tests__/governance-crossings.test.ts:23:	refuseGrowth,
+framework/db/src/__tests__/governance-crossings.test.ts:702:		const result = compareBaseline(baseline, [
+framework/db/src/__tests__/governance-crossings.test.ts:716:		const result = compareBaseline(baseline, [
+framework/db/src/__tests__/governance-crossings.test.ts:730:		const result = compareBaseline(baseline, [{ key, sites: new Map([["a.ts", 2]]) }]);
+framework/db/src/__tests__/governance-crossings.test.ts:736:		const result = compareBaseline(baseline, [
+framework/db/src/__tests__/governance-crossings.test.ts:747:		const result = compareBaseline(baseline, [
+framework/db/src/__tests__/governance-crossings.test.ts:761:	 * The generator half. `compareBaseline` above is what the LINT does; these are what the
+framework/db/src/__tests__/governance-crossings.test.ts:767:			expect(refuseGrowth([{ key, sites: new Map([["a.ts", 1]]) }], baseline, [])).toEqual([]);
+framework/db/src/__tests__/governance-crossings.test.ts:771:			expect(refuseGrowth([], baseline, [])).toEqual([]);
+framework/db/src/__tests__/governance-crossings.test.ts:775:			const refusals = refuseGrowth([{ key, sites: new Map([["a.ts", 3]]) }], baseline, []);
+framework/db/src/__tests__/governance-crossings.test.ts:781:			const refusals = refuseGrowth(
+framework/db/src/__tests__/governance-crossings.test.ts:800:			const refusals = refuseGrowth(
+framework/db/src/__tests__/governance-crossings.test.ts:816:				refuseGrowth([{ key: newGroup, sites: new Map([["x.ts", 1]]) }], baseline, [newGroup]),
+framework/db/src/__tests__/governance-crossings.test.ts:819:				refuseGrowth([{ key: newGroup, sites: new Map([["x.ts", 1]]) }], baseline, [
+framework/db/src/__tests__/governance-crossings.test.ts:826:		 * Adopting one group must not open the door for every other. A blanket `--adopt` would be the
+framework/db/src/__tests__/governance-crossings.test.ts:830:			const refusals = refuseGrowth(
+framework/db/src/__tests__/governance-lint.test.ts:641:describe("AU28 misplacement-ledger — shrink-only, in both directions", () => {
+governance/README.md:71:Every rule is an error. `baseline.json` is the list of violations that already existed when the rule
+governance/README.md:81:`npm run governance:baseline` is the only writer, and it refuses to add a group or raise a count.
+governance/README.md:86:`--adopt "<group key>"`, naming the group, so it shows up in the shell and in review.
+governance/README.md:93:Same shape, different subject, and the two are **disjoint**. `baseline.json` holds crossing
+governance/baseline.json:3:	"note": "Known architecture violations, and the ONLY things that warn instead of erroring. This file may only ever shrink. Generated by `npm run governance:baseline` — never edited by hand, never regenerated by CI — and the generator REFUSES to add a group or raise a count, so a new violation cannot be parked here. Clearing a group's last site deletes the entry, and from that commit the rule is at error: promotion is what fixing the violation does, not a later step. The check fails in both directions — growth is new debt, and a shrink that is not committed is how a ratchet becomes a rubber stamp.",
+governance/misplaced-files.json:3:	"note": "Files the classification rule calls PRODUCTION that are really development, and cannot move yet. Disjoint from `baseline.json`: that one records crossing violations, this one records misplaced files — a path here will not appear there. Every entry names the reason it is stuck, never the work that will clear it: an enforced artifact records debt, not a plan, so it cannot go stale when planning changes (same principle as the baseline, see the lore at the top of `scripts/lib/crossing-report.ts`). `resolvedFiles` is the number of entries that resolve to a tracked file, and the lint fails when the live count is ABOVE it (new debt parked here) or BELOW it (a file was fixed and the shrink was not committed). Growing this list is a two-line diff — the entry and the count — and review is expected to challenge it. There is no generator: unlike the baseline, nothing derives this file, because whether a production-path file is really development is a human judgement.",
+package.json:36:		"governance:baseline": "npx tsx scripts/governance-baseline.ts",
+scripts/governance-baseline.ts:3: * AU28 — regenerate `governance/baseline.json` from the violations that actually exist.
+scripts/governance-baseline.ts:25:import { refuseGrowth } from "./lib/crossing-report.js";
+scripts/governance-baseline.ts:28:const adopted = process.argv.reduce<string[]>((acc, arg, i) => (arg === "--adopt" ? [...acc, process.argv[i + 1] ?? ""] : acc), []);
+scripts/governance-baseline.ts:48:		"may only ever shrink. Generated by `npm run governance:baseline` — never edited by hand, never " +
+scripts/governance-baseline.ts:64:const refusals = refuseGrowth(groups, previous, adopted);
+scripts/governance-baseline.ts:82:	writeFileSync(path.join(REPO_ROOT, "governance/baseline.json"), `${JSON.stringify(baseline, null, "\t")}\n`);
+scripts/governance-baseline.ts:83:	console.log("  written to governance/baseline.json");
+scripts/governance-context.ts:163:export const loadBaseline = (): Baseline => readJson<Baseline>("governance/baseline.json");
+scripts/governance-lint.ts:59:import { baselineRatchet, crossingRules, violationsOf } from "./rules/crossings.js";
+scripts/governance-lint.ts:125: * `baselineRatchet` is deliberately NOT in here: the overlay is not debt and must never be judged
+scripts/governance-lint.ts:173:		alsoRegistered: ["baseline-ratchet"],
+scripts/governance-lint.ts:251:		baselineRatchet(ruleInput),
+scripts/lib/crossing-report.ts:5: * `governance/baseline.json` is the list of known violations, and only what is on that list warns.
+scripts/lib/crossing-report.ts:115: * takes it from an explicit `--adopt "<group key>"` argument, so it is visible in the shell, in the
+scripts/lib/crossing-report.ts:118:export function refuseGrowth(live: readonly LiveGroup[], previous: Baseline, adopted: readonly string[]): string[] {
+scripts/lib/crossing-report.ts:128:					`with --adopt ${JSON.stringify(group.key)}.`,
+scripts/lib/crossing-report.ts:163:export function compareBaseline(
+scripts/lib/governance-attacks.ts:48:import { type Baseline, compareBaseline } from "./crossing-report.js";
+scripts/lib/governance-attacks.ts:884: * @lore AU28: `baselineRatchet` and `refuseGrowth` are deliberately NOT run. The overlay is not debt
+scripts/lib/governance-attacks.ts:1026:		rules: ["baseline-ratchet"],
+scripts/lib/governance-attacks.ts:1031:			const grown = compareBaseline(baseline, [{ key, sites: new Map([["a.ts", 3]]) }]);
+scripts/lib/governance-attacks.ts:1034:			const swapped = compareBaseline(baseline, [{ key, sites: new Map([["c.ts", 2]]) }]);
+scripts/lib/governance-attacks.ts:1036:			const exact = compareBaseline(baseline, [{ key, sites: new Map([["a.ts", 2]]) }]);
+scripts/lib/governance-registry.ts:27: * @lore AU28: disjoint from `baseline.json` by construction. The baseline records CROSSING
+scripts/rules/crossings.ts:12:import { compareBaseline, groupKey } from "../lib/crossing-report.js";
+scripts/rules/crossings.ts:105:export function baselineRatchet(input: CrossingRuleInput): Rule {
+scripts/rules/crossings.ts:108:		id: "baseline-ratchet",
+scripts/rules/crossings.ts:115:			const { stale } = compareBaseline(baseline, liveGroups(violationsOf(architecture, crossings)));
+scripts/rules/crossings.ts:117:				ruleId: "baseline-ratchet",
+scripts/rules/crossings.ts:119:				message: `${message}. Violations were fixed without committing the shrink — run \`npm run governance:baseline\` and commit.`,
+scripts/rules/crossings.ts:120:				path: "governance/baseline.json",
+scripts/rules/misplacement-ledger.ts:10: * @lore AU28: this is the SAME SHAPE as `governance/baseline.json`, deliberately — a committed record
+scripts/rules/misplacement-ledger.ts:18: * exactly to what `governance/baseline.json` records. Four ledger rows tagged `production` would

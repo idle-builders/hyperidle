@@ -15,7 +15,7 @@
  *  - team defaults round-trip and default to all-null.
  */
 
-import { teams, users } from "@hyperidle/db";
+import { teamMembers, teams, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import {
 	DEFAULT_AGENT_RUN_CONFIG,
@@ -148,21 +148,25 @@ describe("agent run config store", () => {
 		expect(map.get("a-batch-2")).toEqual(DEFAULT_AGENT_RUN_CONFIG);
 	});
 
-	test("deleting the agent cascades the config row away", async ({ db }) => {
-		await insertAgent(db, "a-cascade");
-		await writeAgentRunConfig(db, "a-cascade", { maxConcurrentSessions: 9 });
-		expect((await readAgentRunConfig(db, "a-cascade")).maxConcurrentSessions).toBe(9);
-
-		const { eq } = await import("drizzle-orm");
-		await db.delete(users).where(eq(users.id, "a-cascade"));
-
-		expect(await readAgentRunConfig(db, "a-cascade")).toEqual(DEFAULT_AGENT_RUN_CONFIG);
-	});
+	// @lore this file used to have a test asserting the `agentRunConfig.agentId → users.id` cascade
+	// FK fires by deleting a user. Deleted: production never deletes a `users` row (the agents DELETE
+	// route soft-retires via an UPDATE) and no code path anywhere deletes one either — the cascade FK
+	// exists in the schema (untouched) but nothing production does can ever trigger it. The store
+	// itself exports no delete function at all, so there is no feature here to remove either — the
+	// safety this test protected already holds by the capability being absent.
 });
 
 describe("team run config defaults store", () => {
 	test("a team with no row resolves all-null defaults", async ({ db }) => {
 		await db.insert(teams).values({ id: "t-none", name: "T", phase: "build", createdAt: NOW });
+		// The owner writes the membership row alongside the team.
+		await db.insert(teamMembers).values({
+			id: "t-none-members",
+			teamId: "t-none",
+			capacity: 5,
+			activeBets: 0,
+			formedAt: NOW,
+		});
 
 		expect(await readTeamRunConfigDefaults(db, "t-none")).toEqual({
 			defaultHarnessType: null,
@@ -174,6 +178,10 @@ describe("team run config defaults store", () => {
 
 	test("team defaults round-trip verbatim", async ({ db }) => {
 		await db.insert(teams).values({ id: "t-set", name: "T", phase: "build", createdAt: NOW });
+		// The owner writes the membership row alongside the team.
+		await db
+			.insert(teamMembers)
+			.values({ id: "t-set-members", teamId: "t-set", capacity: 5, activeBets: 0, formedAt: NOW });
 
 		await writeTeamRunConfigDefaults(db, "t-set", {
 			defaultHarnessType: "codex",

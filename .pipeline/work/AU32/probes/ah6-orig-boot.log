@@ -1,0 +1,77 @@
+[ah6-test-server] Seeded: team=ah6-e2e-team, teamMembers=ah6-e2e-team-members, user=u-founder
+[ah6-test-server] Using default smoke model: google/gemini-2.5-flash-preview-05-20:nitro
+[ah6-test-server] OpenRouter API key seeded into server_credentials.
+/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/src/pg-core/session.ts:73
+				throw new DrizzleQueryError(queryString, params, e as Error);
+				      ^
+
+DrizzleQueryError: Failed query: insert into "users" ("id", "kind", "name", "team_id", "role", "status", "email", "avatar_url", "created_at", "agent_category") values ($1, $2, $3, default, $4, $5, default, default, $6, $7) on conflict ("id") do update set 
+params: ast-u-founder,ai,AH6 Assistant,assistant,active,2026-08-08T13:16:01.633Z,individual
+    at PglitePreparedQuery.queryWithCache (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/src/pg-core/session.ts:73:11)
+    at async <anonymous> (/Users/tg/hyperidle/.worktrees/pipeline-AU32/layers/core-ui/__scripts__/ah6-test-server.ts:244:1) {
+  query: 'insert into "users" ("id", "kind", "name", "team_id", "role", "status", "email", "avatar_url", "created_at", "agent_category") values ($1, $2, $3, default, $4, $5, default, default, $6, $7) on conflict ("id") do update set ',
+  params: [
+    'ast-u-founder',
+    'ai',
+    'AH6 Assistant',
+    'assistant',
+    'active',
+    '2026-08-08T13:16:01.633Z',
+    'individual'
+  ],
+  cause: error: syntax error at end of input
+      at pe.Le (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/@electric-sql/pg-protocol/src/parser.ts:432:11)
+      at pe.Xe (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/@electric-sql/pg-protocol/src/parser.ts:210:16)
+      at pe.parse (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/@electric-sql/pg-protocol/src/parser.ts:102:25)
+      at O.qe (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/@electric-sql/pglite/dist/index.js:5:1762)
+      at <anonymous> (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/@electric-sql/pglite/dist/index.js:5:1155)
+      at wasm://wasm/0267b22e:wasm-function[10926]:0x5a5a7a
+      at wasm://wasm/0267b22e:wasm-function[3584]:0x27ea68
+      at wasm://wasm/0267b22e:wasm-function[3626]:0x28694e
+      at wasm://wasm/0267b22e:wasm-function[3636]:0x286baa
+      at wasm://wasm/0267b22e:wasm-function[9913]:0x54fcc7 {
+    length: 92,
+    severity: 'ERROR',
+    code: '42601',
+    detail: undefined,
+    hint: undefined,
+    position: '224',
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'scan.l',
+    line: '1232',
+    routine: 'scanner_yyerror',
+    query: 'insert into "users" ("id", "kind", "name", "team_id", "role", "status", "email", "avatar_url", "created_at", "agent_category") values ($1, $2, $3, default, $4, $5, default, default, $6, $7) on conflict ("id") do update set ',
+    params: [
+      'ast-u-founder',
+      'ai',
+      'AH6 Assistant',
+      'assistant',
+      'active',
+      '2026-08-08T13:16:01.633Z',
+      'individual'
+    ],
+    queryOptions: {
+      rowMode: 'object',
+      parsers: {
+        '1082': [Function: 1082],
+        '1114': [Function: 1114],
+        '1115': [Function: 1115],
+        '1182': [Function: 1182],
+        '1184': [Function: 1184],
+        '1185': [Function: 1185],
+        '1186': [Function: 1186],
+        '1187': [Function: 1187],
+        '1231': [Function: 1231]
+      }
+    }
+  }
+}
+
+Node.js v24.18.0

@@ -13,16 +13,16 @@
  * is unaffected (it continues to run via the main playwright.config.ts).
  *
  * @lore AH1: Port layout:
- *   3099 — AH1 API test server (Hono, in-memory PGlite, credential key set)
+ *   3099 — AH1 API test server (Hono, PGlite in a per-boot tmp dir, credential key set)
  *   5180 — AH1 Vite dev server (proxies /api → 3099, VITE_HYPERIDLE_API_KEY set)
  *   (3001/5179 are the main dev and test ports — left untouched)
  *
  * @lore AH1: The API server is started with __scripts__/ah1-test-server.ts which:
- *   - Creates an in-memory PGlite DB
- *   - Applies Drizzle migrations
+ *   - mkdtemp's a fresh PGlite data dir (AU32 D4 — removed on shutdown)
+ *   - Applies Drizzle migrations against it
  *   - Boots createServer(3099, { db })
  * Passing deps.db to createServer bypasses file-path DB resolution and ensures
- * the server uses the migrated in-memory instance.
+ * the server uses the migrated tmp-dir instance.
  *
  * @lore AH1: VITE_HYPERIDLE_API_KEY must match HYPERIDLE_API_KEY in the API
  * server env. apiFetch injects it as X-API-Key on every /api/* request; the
@@ -41,7 +41,7 @@ export default defineConfig({
 	testDir: "./__e2e__",
 	// Only run AH1 specs in this config.
 	testMatch: "**/ah1-*.spec.ts",
-	fullyParallel: false, // Serial: only 1 in-memory DB, no state isolation between tests.
+	fullyParallel: false, // Serial: only 1 DB (tmp-dir PGlite), no state isolation between tests.
 	forbidOnly: !!process.env.CI,
 	retries: 0,
 	workers: 1,
@@ -63,7 +63,7 @@ export default defineConfig({
 	webServer: [
 		{
 			/**
-			 * Boot the real Hono API server with an in-memory migrated PGlite DB.
+			 * Boot the real Hono API server with a migrated PGlite DB in a per-boot tmp dir.
 			 * readyPattern matches the stdout line from ah1-test-server.ts.
 			 */
 			command: `npx tsx __scripts__/ah1-test-server.ts`,

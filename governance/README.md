@@ -29,10 +29,12 @@ Three things, and the split between them is the whole design:
 | **`scripts/lib/governance-model.ts`** | 15 clauses, checked in order, first match wins, default `forbidden` | the founder rules on the architecture |
 | **`architecture.json` · `table-owners.json`** | the registries the clauses read — roles, surfaces, endpoints, table owners | packages, surfaces or owners change |
 | **`decided-rules.json`** | 124 verdicts the founder decided one at a time | never, except by founder ruling |
+| **`rule-severity.json`** | one severity — `error` or `warn` — for every architectural rule that is not yet clean | a rule's last violation clears, or a new rule lands over existing debt |
 
-**A clause is a principle. A registry is a fact. A decided rule is a decision.** Putting a fact in a
-clause means a new package needs a code change; putting a principle in a registry means it can be
-edited without anyone noticing the architecture moved.
+**A clause is a principle. A registry is a fact. A decided rule is a decision. A severity is a dial.**
+Putting a fact in a clause means a new package needs a code change; putting a principle in a registry
+means it can be edited without anyone noticing the architecture moved; and putting a dial in any of the
+other three would mean the rule and its enforcement state could no longer be edited independently.
 
 ## Why 15 clauses and not 124 rules
 
@@ -66,46 +68,43 @@ it is production's verdict plus one relaxation:
 The doors it may not go around are listed in `architecture.json` under `oneDoorSurfaces`, with the
 reason each one is held.
 
-## There is no warn/error dial
+## The severity dial
 
-Every rule is an error. `baseline.json` is the list of violations that already existed when the rule
-landed, and **only what is on that list warns**. So a rule is enforced exactly when its group is
-absent from the baseline — no severity field to set, and nothing to remember to flip.
+A standard linter, not a bookkeeper: every architectural rule carries exactly one severity, `error` or
+`warn`, declared in `governance/rule-severity.json`. **A key absent from that file is at `error`** — the
+file lists only what is not yet clean, so it is short and it makes no claim about how many violations
+exist, where, or since when. No paths, no counts, no dates, no adoption records.
 
-**The baseline may only ever shrink**, in both directions, keyed by site:
+A rule at `warn` warns for **every** one of its violations, including new ones — nothing blocks fresh
+debt on a rule that is not yet clean. A rule clears when the last violation under its key is fixed, and
+the pull request that fixes it removes the key from `rule-severity.json` in the same commit. **That
+removal is the whole of promotion** — no generator, no escape-hatch flag, and no later step to
+remember.
 
-- Fixing a violation and not committing the shrink **fails**, so the record cannot go stale.
-- Adding one **fails**, so a rule that is clean today cannot quietly stop being clean.
-- Fixing one violation while adding another **fails**, even though the total is unchanged.
+**What the lint will never do, by design:** fail a build because a `warn` rule happens to be clean right
+now. That check has no architectural fact to report — it would only be comparing today's count to
+yesterday's, which is exactly the friction a per-file allowance record used to cost every time the last
+violation in a file was fixed. The lint instead **reports** a clean `warn` rule as a `NOTE` ("ready to
+flip to error") and never turns that observation into a failure.
 
-`npm run governance:baseline` is the only writer, and it refuses to add a group or raise a count.
-Clearing a group's last site deletes the entry, and from that commit the rule is at error —
-**promotion is what fixing the violation does, not a later step.**
-
-The one legitimate growth is a new rule landing over violations that already exist. That needs
-`--adopt "<group key>"`, naming the group, so it shows up in the shell and in review.
-
-The baseline records debt, never a plan: it does not say which work will clear a group. That mapping
-lives with the work packages, so the enforced contract never goes stale when planning changes.
+**Nothing may rebuild a per-file allowance, under any name.** `no-per-file-allowances` (registered like
+every other rule) fails the build on a new file under `governance/`, a nested value under a severity
+key, a key that is not a well-formed rule key, or an undeclared flag on a governance CLI — see that
+rule's own comments for exactly what it catches and what it does not.
 
 ## The other shrinking record: `misplaced-files.json`
 
-Same shape, different subject, and the two are **disjoint**. `baseline.json` holds crossing
-violations keyed by `(group, site)`. `misplaced-files.json` holds **files the classifier calls
-production that are really development and cannot move yet** — keyed by path. A path in one will
-never appear in the other, which is why there are two files and not one.
+`misplaced-files.json` holds **files the classifier calls production that are really development and
+cannot move yet** — keyed by path, each entry naming the reason it is stuck, never the work that will
+unstick it, so it cannot go stale when planning changes.
 
-Each entry names the reason the file is stuck, never the work that will unstick it — the same
-principle the baseline follows, for the same reason. `resolvedFiles` is the committed count of
-entries that resolve to a tracked file, and the lint fails when the live count is **above** it (new
-debt parked here) or **below** it (a file was fixed and the shrink was not committed). Every entry is
-printed as a warning on every run.
+`resolvedFiles` is the committed count of entries that resolve to a tracked file, and the lint fails
+when the live count is **above** it (new debt parked here) or **below** it (a file was fixed and the
+shrink was not committed). Every entry is printed as a warning on every run.
 
-There is no generator, and there cannot be one: the baseline is derived from live violations, so a
-generator refusing to grow it closes the laundering path, but whether a production-path file is
-"really development" is a human judgement with nothing to derive it from. What stands in its place is
-that growing the ledger is a two-line diff — the entry and the count — which review is expected to
-challenge.
+There is no generator, and there cannot be one: whether a production-path file is "really development"
+is a human judgement with nothing live to derive it from. What stands in its place is that growing the
+ledger is a two-line diff — the entry and the count — which review is expected to challenge.
 
 ## Every rule is break-tested, and that is a gate
 

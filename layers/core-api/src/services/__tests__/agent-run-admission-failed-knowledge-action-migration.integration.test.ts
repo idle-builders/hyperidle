@@ -34,7 +34,14 @@
  * baked hand-off path this test targets.
  */
 
-import { agentWorkIntents, type HyperIdleDb, items, knowledgeItems, users } from "@hyperidle/db";
+import {
+	agentWorkIntents,
+	type HyperIdleDb,
+	items,
+	knowledgeAppProjection,
+	knowledgeItems,
+	users,
+} from "@hyperidle/db";
 import { attentionReviewReasoningMarker } from "@hyperidle/review";
 import { drainIntents } from "@hyperidle/session-requests";
 import type { AgentRunAdmissionFailedEvent } from "@hyperidle/shared";
@@ -98,6 +105,11 @@ describe("agent_run_admission_failed — knowledge_action reaction fires for a R
 			updatedBy: "agent-au21-know-mig",
 			createdAt: now,
 			updatedAt: now,
+		});
+		// The owner writes the projection row alongside the item.
+		await db.insert(knowledgeAppProjection).values({
+			id: "item-au21-know-mig-projection",
+			knowledgeItemId: "item-au21-know-mig",
 		});
 
 		const res = await app.request("/api/knowledge/item-au21-know-mig/flag", {

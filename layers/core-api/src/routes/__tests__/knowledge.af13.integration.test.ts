@@ -16,7 +16,13 @@
  * - PATCH /scope with stale version → 409
  */
 
-import { type HyperIdleDb, knowledgeAccessLog, knowledgeItems, users } from "@hyperidle/db";
+import {
+	type HyperIdleDb,
+	knowledgeAccessLog,
+	knowledgeAppProjection,
+	knowledgeItems,
+	users,
+} from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 import { createTestApp } from "../../__testing__/test-utils.js";
@@ -63,6 +69,8 @@ async function seedItem(
 		createdAt: now,
 		updatedAt: now,
 	});
+	// The owner writes the projection row alongside the item.
+	await db.insert(knowledgeAppProjection).values({ id: `${id}-projection`, knowledgeItemId: id });
 }
 
 async function seedAccessLog(

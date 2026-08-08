@@ -123,7 +123,6 @@ export interface Architecture {
 	readonly rawRuntime: { readonly host: string; readonly why: string };
 	readonly oneDoorSurfaces: {
 		readonly surfaces: readonly string[];
-		readonly rawRuntime: boolean;
 		/** Hold a foreign write only when it leaves a companion row unwritten — Ruling 13. */
 		readonly foreignTableWriteMissingCompanion: boolean;
 		readonly why: string;
@@ -362,13 +361,14 @@ function relaxForDevelopment(arch: Architecture, crossing: Crossing, production:
 		};
 	}
 
-	// `raw-runtime` covers BOTH spellings of the one act since Ruling 14 — importing a vendor SDK and
-	// spawning an agent CLI. Before the collapse this predicate held only the import half, so a test
-	// could go around the runtime door by spawning instead of importing. That was not a decision: the
-	// two were different target sorts and only one of them was listed here.
+	// The one-runtime-door requirement (Ruling 14) is narrowed to the production world by a later
+	// founder ruling: calls being recorded, priced, replayable, and provider-agnostic are properties
+	// the shipped product must have, not development tooling. A development file may construct a
+	// vendor SDK or spawn an agent CLI directly to build the world it needs — `raw-runtime` targets
+	// fall through to `development-may-arrange-the-world` below like any other crossing. Production
+	// stays fully guarded: `decideProduction`'s own `hold-one-runtime-door` branch is untouched.
 	const guarded =
 		(target.sort === "surface" && arch.oneDoorSurfaces.surfaces.includes(target.surface)) ||
-		(target.sort === "raw-runtime" && arch.oneDoorSurfaces.rawRuntime) ||
 		(target.sort === "table" &&
 			kind === "table:write" &&
 			arch.oneDoorSurfaces.foreignTableWriteMissingCompanion &&

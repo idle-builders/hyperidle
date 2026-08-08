@@ -66,13 +66,12 @@ Default test commands run the **affected slice** against `origin/main` (AT1); `:
 
 ## Governance
 
-Package-boundary rules live in `governance/` (`README.md`, `architecture.json`, `baseline.json`, `decided-rules.json`, `table-owners.json`). See [governance/README.md](../../../governance/README.md) for what the rules are — this guide does not restate them.
+Package-boundary rules live in `governance/` (`README.md`, `architecture.json`, `decided-rules.json`, `table-owners.json`, `rule-severity.json`, `misplaced-files.json`). See [governance/README.md](../../../governance/README.md) for what the rules are — this guide does not restate them.
 
 | Command | Purpose |
 |---------|---------|
 | `npm run lint:governance` | Run governance-lint against the live tree |
 | `npm run lint:governance:fixtures` | Run governance-lint against the fixture set |
-| `npm run governance:baseline` | The only writer of `baseline.json` — shrink-only; `--adopt "<group key>"` is required to land a new rule over pre-existing violations |
 | `npm run governance:new-cells` | List verdicts the model produced that the founder was never explicitly asked, grouped by clause |
 
 Both `lint:governance` and `lint:governance:fixtures` also run inside `npm run lint`.

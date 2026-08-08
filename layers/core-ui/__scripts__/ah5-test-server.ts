@@ -2,7 +2,8 @@
  * AH5 E2E test server startup script.
  *
  * Boots a real Hono server on AH5_API_PORT (default 3097) with:
- *   - In-memory PGlite database (migrated)
+ *   - PGlite database migrated into a fresh per-boot tmp dir (AU32 D4 — no
+ *     longer the bare in-memory handle this once was)
  *   - OpenRouter API key seeded ENCRYPTED into server_credentials via
  *     encryptCredentialValue (production AES-256-GCM path) — so DbCredentialResolver
  *     exercises the production credential resolution path with zero mocks.
@@ -31,16 +32,14 @@
  */
 
 import * as fs from "node:fs";
-import { dirname, resolve } from "node:path";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { PGlite } from "@electric-sql/pglite";
-import type { HyperIdleDb } from "@hyperidle/db";
-import { schema, serverCredentials } from "@hyperidle/db";
+import { applyMigrations, createPgliteDb, serverCredentials } from "@hyperidle/db";
 import { createLocalAdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
 import { createServer } from "@hyperidle/remote-server/create-server";
 import { encryptCredentialValue } from "@hyperidle/shared/crypto";
-import { drizzle } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 
@@ -56,13 +55,14 @@ process.env.HYPERIDLE_PROFILE = "laptop";
 const migrationsFolder = resolve(scriptDir, "../../../framework/db/drizzle");
 
 // ---------------------------------------------------------------------------
-// 1. Create in-memory PGlite and apply Drizzle schema migrations.
+// 1. Apply Drizzle schema migrations against a per-boot tmp dir, then open a
+//    live handle on the same dir — composes the database package's own
+//    `db:client` exports instead of hand-rolling a drizzle(client, { schema })
+//    client (D4).
 // ---------------------------------------------------------------------------
-const client = new PGlite();
-await client.waitReady;
-const rawDb = drizzle(client, { schema });
-await migrate(rawDb, { migrationsFolder });
-const db = rawDb as unknown as HyperIdleDb;
+const dataDir = await mkdtemp(join(tmpdir(), "ah5-e2e-db-"));
+await applyMigrations(dataDir, migrationsFolder);
+const { db, close: closeDb } = await createPgliteDb(dataDir);
 
 // ---------------------------------------------------------------------------
 // 2. Seed the OpenRouter API key into server_credentials (encrypted).
@@ -133,7 +133,7 @@ if (resolveModelFile && fs.existsSync(resolveModelFile)) {
 }
 
 // ---------------------------------------------------------------------------
-// 4. Boot the Hono server with the already-migrated in-memory DB.
+// 4. Boot the Hono server with the already-migrated tmp-dir DB.
 //    AU19 Increment 5 (item 2): adapterPool/workspaceAdapter are now REQUIRED
 //    — inject a LocalSandboxAdapter (laptop profile, set above), mirroring
 //    applications/desktop's boot-server.ts.
@@ -160,10 +160,17 @@ function shutdown(): Promise<void> {
 			exitCode = 1;
 		}
 		try {
-			await client.close();
+			await closeDb();
 		} catch (error) {
 			process.stderr.write(`[ah5-test-server] database close failed: ${String(error)}\n`);
 			exitCode = 1;
+		}
+		// @lore AU32: D4's tmp-dir composition leaves a per-boot mkdtemp directory on disk
+		// where the old in-memory `new PGlite()` left nothing — remove it on shutdown.
+		try {
+			await rm(dataDir, { recursive: true, force: true });
+		} catch (error) {
+			process.stderr.write(`[ah5-test-server] tmp data dir cleanup failed: ${String(error)}\n`);
 		}
 		process.exit(exitCode);
 	})();

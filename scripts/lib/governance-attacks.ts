@@ -43,9 +43,9 @@ import { buildCensus, type Census, type WorkspaceRoleRule } from "./repo-census.
 import { classificationTotal } from "../rules/classification-total.js";
 import { type FloorRecord, floorVerdict } from "../rules/floors-tight.js";
 import { misplacementLedger } from "../rules/misplacement-ledger.js";
+import { noPerFileAllowances } from "../rules/no-per-file-allowances.js";
 import { noStaleBuildArtifacts } from "../rules/no-stale-build-artifacts.js";
 import { patternLive } from "../rules/pattern-live.js";
-import { type Baseline, compareBaseline } from "./crossing-report.js";
 
 // ---------------------------------------------------------------------------------------------
 // The case shape
@@ -347,19 +347,15 @@ export const ATTACKS: readonly Attack[] = [
 		expect: { sort: "clean", file: `${a.serviceDir}/attack-const-spawn-control.ts` },
 	},
 	{
-		id: "raw-runtime-in-a-test",
+		id: "raw-runtime-in-a-test-is-clean",
 		detail:
-			"a DEVELOPMENT file spawning the agent CLI directly — Ruling 14 says the development relaxation does not open a door production has one of",
+			"a DEVELOPMENT file spawning the agent CLI directly is clean — the one-runtime-door requirement is production-only; a later founder ruling narrowed it because recording/pricing/replay/provider-agnosticism are shipped-product properties, not development-tooling ones",
 		rules: ["crossing-capability"],
 		overlay: {
 			[`${a.developmentDir}/attack-dev-spawn.test.ts`]:
 				`import { spawn } from "node:child_process";\n` + `export const go = () => spawn("codex", ["exec"]);\n`,
 		},
-		expect: {
-			sort: "violation",
-			file: `${a.developmentDir}/attack-dev-spawn.test.ts`,
-			groupKey: "layer → raw runtime [capability] development",
-		},
+		expect: { sort: "clean", file: `${a.developmentDir}/attack-dev-spawn.test.ts` },
 	},
 
 	// --- C1: re-export laundering -------------------------------------------------------------
@@ -620,6 +616,28 @@ export const ATTACKS: readonly Attack[] = [
 		expect: { sort: "violation", file: a.serviceManifest, groupKey: KEY.serviceOtherLayerManifest },
 	},
 
+	// --- Ruling E / D11: the bookkeeping does not come back -----------------------------------
+	{
+		id: "governance-new-record-file",
+		detail: "a new file dropped straight into governance/ — the shape a returning per-file allowance would take",
+		rules: ["no-per-file-allowances"],
+		overlay: {
+			"governance/known-violations.json": `{"note":"looks like a record"}\n`,
+		},
+		expect: {
+			sort: "finding",
+			file: "governance/known-violations.json",
+			ruleId: "no-per-file-allowances",
+			messageContains: "closed set",
+		},
+	},
+	{
+		id: "governance-directory-control",
+		detail: "the untouched governance/ directory is clean — the control for the closed-set check",
+		rules: ["no-per-file-allowances"],
+		expect: { sort: "clean", file: "governance/architecture.json" },
+	},
+
 	// --- census-level: the misconfiguration that used to fail OPEN ----------------------------
 	{
 		id: "unclaimed-production-dir",
@@ -672,12 +690,6 @@ export interface AttackTree {
 	 * a hand-maintained copy would be one more thing to forget.
 	 */
 	readonly buildRules: (census: Census, detected: CrossingsResult, readFile: (path: string) => string) => readonly Rule[];
-	/**
-	 * Rule ids the build registers that `buildRules` does NOT return — today just the ratchet, which
-	 * is excluded because the overlay is not debt. Everything else is read off the shared pass, so the
-	 * coverage gate cannot drift from the registry it is checking.
-	 */
-	readonly alsoRegistered: readonly string[];
 	/** How violations are keyed, injected so this module does not import the rule layer. */
 	readonly violationsOf: (
 		architecture: Architecture,
@@ -829,7 +841,6 @@ function runOnePass(tree: AttackTree, attacks: readonly Attack[]): PassOutcome {
 		};
 	}
 
-	// The overlay is never debt, so the ratchet is deliberately NOT run here — see the runner's lore.
 	const violations = tree.violationsOf(tree.architecture, detected.crossings);
 
 	const results = attacks.map((attack): AttackResult => {
@@ -885,9 +896,8 @@ function frameworkSurfacesOf(architecture: Architecture, census: Census): Map<st
  * would put the break-tests outside the default gate, which is where checks go to be ignored. Cases
  * marked `isolate` cost a pass each and are kept to the two that genuinely need one.
  *
- * @lore AU28: `baselineRatchet` and `refuseGrowth` are deliberately NOT run. The overlay is not debt
- * and must never reach the baseline; running the ratchet here would report every attack as new debt
- * and make the whole harness fail for the wrong reason.
+ * @lore AU32: every crossing rule judges an overlaid tree with `severityOf: () => "error"` (Ruling E) —
+ * an overlay is never debt, so nothing here needs a severity declaration of its own.
  */
 export function runAttacks(
 	tree: AttackTree,
@@ -920,7 +930,7 @@ export function runAttacks(
 	}
 
 	// Property 4, over the registry the shared pass actually built — never a second hand-kept copy.
-	const registered = [...(sharedPass.ruleIds ?? []), ...tree.alsoRegistered];
+	const registered = sharedPass.ruleIds ?? [];
 	for (const gap of coverageGaps(attacks, standalone, registered)) {
 		results.push({ id: "coverage", detail: "every registered rule is attacked", failure: gap });
 	}
@@ -1025,24 +1035,7 @@ export const STANDALONE_ATTACKS: readonly StandaloneAttack[] = [
 		},
 	},
 	{
-		id: "baseline-growth",
-		detail: "a violation in a group the baseline does not have is new debt, and the swap across files is caught",
-		rules: ["baseline-ratchet"],
-		positive: true,
-		run: () => {
-			const key = "layer → service (other layer) [import] production";
-			const baseline: Baseline = { governanceBaseline: true, note: "", groups: { [key]: { sites: { "a.ts": 2 } } } };
-			const grown = compareBaseline(baseline, [{ key, sites: new Map([["a.ts", 3]]) }]);
-			if (grown.newDebt.length !== 1) return "a site growing past the baseline was not reported";
-			// The swap: one site cleared, another introduced, total unchanged.
-			const swapped = compareBaseline(baseline, [{ key, sites: new Map([["c.ts", 2]]) }]);
-			if (swapped.newDebt.length !== 1 || swapped.stale.length !== 1) return "the cross-file swap was not caught in both directions";
-			const exact = compareBaseline(baseline, [{ key, sites: new Map([["a.ts", 2]]) }]);
-			return exact.newDebt.length === 0 && exact.stale.length === 0 ? null : "an exact match was reported";
-		},
-	},
-	{
-		id: "misplacement-ledger-ratchet",
+		id: "misplacement-ledger-count",
 		detail:
 			"the misplacement ledger grown by one entry, and shrunk by one fix that was never committed — both fail, and the exact match does not",
 		rules: ["misplacement-ledger"],
@@ -1104,6 +1097,68 @@ export const STANDALONE_ATTACKS: readonly StandaloneAttack[] = [
 			if (dirty.length === 0) return "a stale build artifact was not reported";
 			const clean = noStaleBuildArtifacts(["scripts/lib/thing.ts"]).evaluate(census);
 			return clean.length === 0 ? null : "a source file with no artifact beside it was reported";
+		},
+	},
+	{
+		id: "no-per-file-allowances-shape",
+		detail:
+			"a nested severity value, a path-shaped severity key, and an undeclared CLI flag each fail the shape checks directly — the well-formed equivalents are silent",
+		rules: ["no-per-file-allowances"],
+		positive: true,
+		run: () => {
+			const files = [
+				"governance/README.md",
+				"governance/architecture.json",
+				"governance/decided-rules.json",
+				"governance/table-owners.json",
+				"governance/rule-severity.json",
+				"governance/misplaced-files.json",
+				"scripts/governance-lint.ts",
+				"scripts/governance-floors.ts",
+				"scripts/governance-new-cells.ts",
+			];
+			const floors: DetectorFloor[] = [
+				{ kind: "import", min: 1, floorKind: "magnitude" },
+				{ kind: "manifest", min: 1, floorKind: "magnitude" },
+				{ kind: "di", min: 1, floorKind: "magnitude" },
+				{ kind: "api", min: 1, floorKind: "magnitude" },
+				{ kind: "mcp", min: 1, floorKind: "magnitude" },
+				{ kind: "event", min: 1, floorKind: "magnitude" },
+				{ kind: "capability", min: 1, floorKind: "magnitude" },
+				{ kind: "table:read", min: 1, floorKind: "magnitude" },
+				{ kind: "table:write", min: 1, floorKind: "magnitude" },
+			];
+			const cleanKey = "layer → service (other layer) [import] production";
+			const cleanCli = 'process.argv.includes("--fixtures");\nprocess.argv.includes("--attacks");\nprocess.argv.includes("--errors-only");\n';
+			const run = (severityJson: string, cliSource: string): readonly Finding[] => {
+				const contents: Record<string, string> = {
+					"governance/rule-severity.json": severityJson,
+					"scripts/governance-lint.ts": cliSource,
+				};
+				const census = buildCensus({ files, readFile: (p) => contents[p] ?? "" });
+				return noPerFileAllowances({ floors, readFile: (p) => contents[p] ?? "" }).evaluate(census);
+			};
+			const wellFormedSeverity = JSON.stringify({ governanceRuleSeverity: true, note: "", severity: { [cleanKey]: "warn" } });
+
+			const clean = run(wellFormedSeverity, cleanCli);
+			if (clean.length !== 0) return `a well-formed severity file and CLI set were reported: ${clean.map((f) => f.message).join(" | ")}`;
+
+			const nested = run(
+				JSON.stringify({ governanceRuleSeverity: true, note: "", severity: { [cleanKey]: { warn: 1 } } }),
+				cleanCli,
+			);
+			if (!nested.some((f) => f.message.includes("not the string"))) return "a nested severity value was accepted";
+
+			const pathKey = run(
+				JSON.stringify({ governanceRuleSeverity: true, note: "", severity: { "scripts/rules/crossings.ts": "warn" } }),
+				cleanCli,
+			);
+			if (!pathKey.some((f) => f.message.includes("does not parse"))) return "a path-shaped severity key was accepted";
+
+			const undeclaredFlag = run(wellFormedSeverity, 'process.argv.includes("--grandfather");\n');
+			if (!undeclaredFlag.some((f) => f.message.includes("not one of the declared flags"))) return "an undeclared CLI flag was accepted";
+
+			return null;
 		},
 	},
 ];

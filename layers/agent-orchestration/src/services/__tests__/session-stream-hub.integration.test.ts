@@ -15,7 +15,7 @@
  * they were core tables this Layer must never touch.
  */
 
-import { bets, type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
+import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { test as dbTest } from "@hyperidle/db/test-fixtures";
 import { describe, expect } from "vitest";
 import {
@@ -39,6 +39,14 @@ const NOW = "2026-08-04T00:00:00.000Z";
 /** The FK chain a run row needs: a team, a bet, a task and two users. */
 async function seedRunHosts(db: HyperIdleDb): Promise<void> {
 	await db.insert(teams).values({ id: "team-1", name: "Team", phase: "build", createdAt: NOW });
+	// The owner writes the membership row alongside the team.
+	await db.insert(teamMembers).values({
+		id: "team-1-members",
+		teamId: "team-1",
+		capacity: 5,
+		activeBets: 0,
+		formedAt: NOW,
+	});
 	await db.insert(users).values([
 		{ id: "agent-1", kind: "ai", name: "Agent", role: "builder", status: "idle", createdAt: NOW },
 		{

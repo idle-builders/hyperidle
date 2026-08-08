@@ -1,5 +1,5 @@
 /**
- * AU28 — the measurement layer: detectors, database surfaces, and the ratchet.
+ * AU28 — the measurement layer: detectors and database surfaces.
  *
  * The model decides; these modules measure. A detector that under-detects is invisible to every
  * internal consistency check — a crossing never emitted cannot unbalance anything — so each detector
@@ -8,6 +8,7 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { readyToFlip } from "../../../../scripts/governance-context.js";
 import {
 	buildCompanionGroups,
 	buildWriteSets,
@@ -16,20 +17,16 @@ import {
 	readEventTypes,
 	UnclaimedProductionFileError,
 } from "../../../../scripts/lib/crossing-detectors.js";
-import {
-	type Baseline,
-	compareBaseline,
-	groupKey,
-	refuseGrowth,
-	targetLabel,
-} from "../../../../scripts/lib/crossing-report.js";
-import { buildPackageLocator } from "../../../../scripts/lib/crossings.js";
+import { groupKey, targetLabel } from "../../../../scripts/lib/crossing-keys.js";
+import { buildPackageLocator, type DetectedCrossing } from "../../../../scripts/lib/crossings.js";
 import {
 	buildDbSurfaceIndex,
 	type DatabasePackageConfig,
 } from "../../../../scripts/lib/db-surfaces.js";
-import type { Actor, Architecture } from "../../../../scripts/lib/governance-model.js";
+import type { Actor, Architecture, Kind } from "../../../../scripts/lib/governance-model.js";
+import type { RuleSeverity } from "../../../../scripts/lib/governance-registry.js";
 import { buildCensus } from "../../../../scripts/lib/repo-census.js";
+import { crossingRules } from "../../../../scripts/rules/crossings.js";
 import { noLaunderedReExports } from "../../../../scripts/rules/no-laundered-re-exports.js";
 
 const ROLE_RULES = [
@@ -525,7 +522,6 @@ describe("AU28 — re-export laundering", () => {
 		rawRuntime: { host: "agent-execution", why: "not used here" },
 		oneDoorSurfaces: {
 			surfaces: [],
-			rawRuntime: true,
 			foreignTableWriteMissingCompanion: true,
 			why: "not used here",
 		},
@@ -683,161 +679,6 @@ describe("AU28 — re-export laundering", () => {
 		// population.
 		expect(rule.scope(census)).toHaveLength(6);
 		expect(rule.evaluate(census)).toEqual([]);
-	});
-});
-
-describe("AU28 — the ratchet", () => {
-	const baseline: Baseline = {
-		governanceBaseline: true,
-		note: "",
-		groups: {
-			"layer → service (other layer) [import] production": {
-				sites: { "a.ts": 2, "b.ts": 1 },
-			},
-		},
-	};
-	const key = "layer → service (other layer) [import] production";
-
-	it("passes when the live violations match exactly", () => {
-		const result = compareBaseline(baseline, [
-			{
-				key,
-				sites: new Map([
-					["a.ts", 2],
-					["b.ts", 1],
-				]),
-			},
-		]);
-		expect(result.newDebt).toEqual([]);
-		expect(result.stale).toEqual([]);
-	});
-
-	it("fails when a site grows", () => {
-		const result = compareBaseline(baseline, [
-			{
-				key,
-				sites: new Map([
-					["a.ts", 3],
-					["b.ts", 1],
-				]),
-			},
-		]);
-		expect(result.newDebt).toHaveLength(1);
-		expect(result.stale).toEqual([]);
-	});
-
-	it("fails when a site is fixed but the shrink is not committed", () => {
-		const result = compareBaseline(baseline, [{ key, sites: new Map([["a.ts", 2]]) }]);
-		expect(result.newDebt).toEqual([]);
-		expect(result.stale).toHaveLength(1);
-	});
-
-	it("fails on a rule with no baseline entry at all", () => {
-		const result = compareBaseline(baseline, [
-			{ key: "service → raw runtime [capability] production", sites: new Map([["x.ts", 1]]) },
-		]);
-		expect(result.newDebt).toHaveLength(1);
-	});
-
-	/**
-	 * THE test that proves the design. A count-only ratchet passes every case above and fails this
-	 * one: fix a violation in one file, add one in another, total unchanged, build green.
-	 */
-	it("catches the swap — one site fixed, one added, total unchanged", () => {
-		const result = compareBaseline(baseline, [
-			{
-				key,
-				sites: new Map([
-					["a.ts", 2],
-					["c.ts", 1],
-				]),
-			},
-		]);
-		expect(result.newDebt, "the new site must register as new debt").toHaveLength(1);
-		expect(result.stale, "the fixed site must register as a stale baseline").toHaveLength(1);
-	});
-
-	/**
-	 * The generator half. `compareBaseline` above is what the LINT does; these are what the
-	 * REGENERATOR does. Without them the ratchet has a hole you can drive a commit through: introduce
-	 * a violation, re-run the generator, commit the bigger file, green.
-	 */
-	describe("the baseline may only shrink", () => {
-		it("accepts a shrink", () => {
-			expect(refuseGrowth([{ key, sites: new Map([["a.ts", 1]]) }], baseline, [])).toEqual([]);
-		});
-
-		it("accepts a group clearing completely", () => {
-			expect(refuseGrowth([], baseline, [])).toEqual([]);
-		});
-
-		it("refuses a site growing past what the baseline allows", () => {
-			const refusals = refuseGrowth([{ key, sites: new Map([["a.ts", 3]]) }], baseline, []);
-			expect(refusals).toHaveLength(1);
-			expect(refusals[0]).toContain("may only shrink");
-		});
-
-		it("refuses a brand-new file inside an existing group", () => {
-			const refusals = refuseGrowth(
-				[
-					{
-						key,
-						sites: new Map([
-							["a.ts", 2],
-							["b.ts", 1],
-							["new.ts", 1],
-						]),
-					},
-				],
-				baseline,
-				[],
-			);
-			expect(refusals).toHaveLength(1);
-			expect(refusals[0]).toContain("new.ts");
-		});
-
-		it("refuses a group the baseline does not have — the rule is already at error", () => {
-			const refusals = refuseGrowth(
-				[{ key: "service → raw runtime [capability] production", sites: new Map([["x.ts", 1]]) }],
-				baseline,
-				[],
-			);
-			expect(refusals).toHaveLength(1);
-			expect(refusals[0]).toContain("at error today");
-		});
-
-		/**
-		 * The one legitimate growth: a new rule landing over debt that already existed. It has to be
-		 * named explicitly, so it cannot happen as a side effect of running the generator.
-		 */
-		it("admits a new group only when it is adopted by name", () => {
-			const newGroup = "service → raw runtime [capability] production";
-			expect(
-				refuseGrowth([{ key: newGroup, sites: new Map([["x.ts", 1]]) }], baseline, [newGroup]),
-			).toEqual([]);
-			expect(
-				refuseGrowth([{ key: newGroup, sites: new Map([["x.ts", 1]]) }], baseline, [
-					"some other group",
-				]),
-			).toHaveLength(1);
-		});
-
-		/**
-		 * Adopting one group must not open the door for every other. A blanket `--adopt` would be the
-		 * exemption apparatus this whole design exists to avoid.
-		 */
-		it("adopting one group does not admit another", () => {
-			const refusals = refuseGrowth(
-				[
-					{ key: "service → raw runtime [capability] production", sites: new Map([["x.ts", 1]]) },
-					{ key: "framework → EventBus [event] production", sites: new Map([["y.ts", 1]]) },
-				],
-				baseline,
-				["service → raw runtime [capability] production"],
-			);
-			expect(refusals).toHaveLength(1);
-			expect(refusals[0]).toContain("EventBus");
-		});
 	});
 });
 
@@ -1071,5 +912,125 @@ describe("AU28 — companion rows (Ruling 13)", () => {
 			"teams",
 		]);
 		expect([...writeSetOf("layers/core-api/src/__tests__/b.test.ts")]).toEqual(["teams"]);
+	});
+
+	it("derivation direction — an owner writing only one table yields no companion group", () => {
+		// The pair only exists because an owner writes BOTH rows together. An owner with a single
+		// table in its write set has nothing to pair it with, so the group must not appear at all —
+		// not "a group of one", not "paired with itself".
+		const repo = syntheticRepo({
+			"framework/shared/events.ts": "",
+			"layers/core-api/org/package.json": JSON.stringify({ name: "@hyperidle/org" }),
+			"layers/core-api/org/src/store.ts": `
+				import { teams } from "@hyperidle/db";
+				export async function createTeam(db: any, v: any) {
+					await db.insert(teams).values(v);
+				}
+			`,
+		});
+		const census = buildCensus({
+			files: repo.files,
+			readFile: repo.readFile,
+			roleRules: ROLE_RULES,
+		});
+		const groups = buildCompanionGroups(
+			{
+				census,
+				readFile: repo.readFile,
+				locate: buildPackageLocator(census.packages),
+				tables: new Set(["teams"]),
+			},
+			() => "org",
+		);
+		expect(groups.has("teams")).toBe(false);
+		expect(groups.size).toBe(0);
+	});
+
+	it("the warn→error flip — one synthetic violation is warn under a severity declaration, error when the key is absent", () => {
+		// `crossingRules` decides severity from `severityOf` alone, not from a per-rule switch. Run the
+		// exported rules twice over the SAME violation: a `"warn"` declaration for the key must warn, and
+		// the same violation with the key absent must error — proving the flip that removing a rule's
+		// declared key is what turns it from warn to error (Ruling E), not a second code path.
+		const architecture = {
+			containment: { compositionRootRoles: ["application"], repoRootIsCompositionRoot: true },
+			surfaces: {},
+			endpoints: {
+				httpApiLayers: { layers: [], why: "not used here" },
+				mcpRouter: { host: "agent-execution", alsoDialledBy: [], why: "not used here" },
+			},
+			eventBus: { host: "framework", typesModule: "", why: "not used here" },
+			rawRuntime: { host: "agent-execution", why: "not used here" },
+			oneDoorSurfaces: {
+				surfaces: [],
+				foreignTableWriteMissingCompanion: true,
+				why: "not used here",
+			},
+		} as unknown as Architecture;
+
+		const crossing: DetectedCrossing = {
+			crossing: {
+				kind: "table:write",
+				source: { sort: "package", name: "other", role: "service" },
+				target: {
+					sort: "table",
+					table: "knowledgeItems",
+					owner: "knowledge",
+					missingCompanions: ["knowledgeAppProjection"],
+				},
+			},
+			file: "layers/core-api/other/src/__tests__/x.integration.test.ts",
+			line: 12,
+			world: "development",
+			detail: "writes knowledgeItems without knowledgeAppProjection",
+		};
+
+		const key = groupKey(crossing.crossing, crossing.world);
+		const floors = new Map<Kind, number>([["table:write", 1]]);
+
+		const declaredWarn: RuleSeverity = {
+			governanceRuleSeverity: true,
+			note: "",
+			severity: { [key]: "warn" },
+		};
+		const keyAbsent: RuleSeverity = { governanceRuleSeverity: true, note: "", severity: {} };
+		// `Rule.evaluate` is typed to take a Census — these rules never read it (the violations are
+		// already closed over), but the call site still has to pass one.
+		const unusedCensus = buildCensus({ files: [], readFile: () => "" });
+
+		const knownDebtFindings = crossingRules({
+			architecture,
+			crossings: [crossing],
+			severityOf: (ruleKey) => declaredWarn.severity[ruleKey] ?? "error",
+			floors,
+		}).flatMap((rule) => rule.evaluate(unusedCensus));
+		expect(knownDebtFindings).toHaveLength(1);
+		expect(knownDebtFindings[0]?.severity).toBe("warn");
+
+		const newDebtFindings = crossingRules({
+			architecture,
+			crossings: [crossing],
+			severityOf: (ruleKey) => keyAbsent.severity[ruleKey] ?? "error",
+			floors,
+		}).flatMap((rule) => rule.evaluate(unusedCensus));
+		expect(newDebtFindings).toHaveLength(1);
+		expect(newDebtFindings[0]?.severity).toBe("error");
+	});
+
+	it("readyToFlip — names exactly the warn key with no live violation, and none other", () => {
+		const severity: RuleSeverity = {
+			governanceRuleSeverity: true,
+			note: "",
+			severity: {
+				"layer → service (other layer) [import] production": "warn",
+				"service → db:table (other) [table:write] production": "warn",
+			},
+		};
+		const liveKeys = new Set(["service → db:table (other) [table:write] production"]);
+
+		const lines = readyToFlip(severity, liveKeys);
+
+		expect(lines).toHaveLength(1);
+		expect(lines[0]).toContain("layer → service (other layer) [import] production");
+		expect(lines[0]).not.toContain("db:table (other) [table:write]");
 	});
 });

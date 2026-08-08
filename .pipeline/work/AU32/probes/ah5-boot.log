@@ -1,0 +1,4 @@
+[ah5-test-server] WARNING: OPENROUTER_API_KEY not set. Real LLM calls will fail with MissingCredentialError. Run via `npm run smoke:ah5` which fails closed if the key is absent.
+[ah5-test-server] Using default smoke model: google/gemini-2.5-flash-preview-05-20:nitro
+[ah5-test-server] ready on http://localhost:3097
+2026-08-08T13:14:30.125Z INFO [server.routine-scheduler] routine scheduler started {"pollIntervalMs":30000,"canProvision":true,"reaperEnabled":false}

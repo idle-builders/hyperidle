@@ -32,8 +32,8 @@
 - A layer's package manifest names no other layer or another layer's service.
 - Composition roots reach a layer's public face only — never a service, never another application.
 - No production export may be added that only tests consume.
-- The baseline is shrink-only, so this work package promotes its own rules as it goes: clearing a group's last site deletes the entry and that rule is at error from the same commit. There is no separate promotion step to remember, and none to defer.
-- Every baseline entry cleared is deleted from `governance/baseline.json`, never re-tagged.
+- Promotion is a step: clearing a group key's last site removes that key from `governance/rule-severity.json` in the same pull request, and that is what makes the rule bite. Nothing is deferred to another work package, and there is no record to delete.
+- Every group key this work package clears is removed from `governance/rule-severity.json`, never re-tagged.
 
 **Out of scope.**
 - Whether `connections`, `filesystems` or any other domain sits in the right layer — AU26's axis, already shipped; reopen only if this work package's own evidence forces it, and then as a finding, not a silent fix.
@@ -48,8 +48,8 @@
 - No function crosses a layer boundary by injection; every cross-layer conversation happens through the API, MCP or the bus.
 - An application composes layers by their public faces only, and names no service and no other application.
 - The MCP router is dialled only by the layer that owns the harness relationship and by the harness, and the layer serving it hosts the API being dialled.
-- Every composition-root, cross-layer-import, cross-layer-DI, MCP and API entry is gone from `governance/baseline.json`, and those rules fail the build on reappearance.
-- If clearing this work package's violations leaves `governance/baseline.json` empty, the file and the `--adopt` escape hatch are deleted in the same commit, and reintroducing either — under any name — fails the build. Exactly one of the four clearing work packages will trigger this; whichever gets there last owns it.
+- Every composition-root, cross-layer-import, cross-layer-DI, MCP and API group key this work package owns is removed from `governance/rule-severity.json`, and those rules are at `error` from this pull request.
+- The AU28 bookkeeping mechanism is already gone (deleted unconditionally by `AU32`); reintroducing it, or any per-file allowance, under any name, fails the build via `no-per-file-allowances`.
 - `npm run verify` is green and a real agent run completes end to end — proven by executing one, not by reading the code.
 
 ## Validation scenarios

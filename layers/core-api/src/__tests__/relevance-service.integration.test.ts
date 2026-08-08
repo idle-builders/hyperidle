@@ -39,6 +39,8 @@ async function insertItem(
 		createdAt: NOW_ISO,
 		updatedAt: NOW_ISO,
 	});
+	// The owner writes the projection row alongside the item.
+	await db.insert(knowledgeAppProjection).values({ id: `${id}-projection`, knowledgeItemId: id });
 
 	return id;
 }

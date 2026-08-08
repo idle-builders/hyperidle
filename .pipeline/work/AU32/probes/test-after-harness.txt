@@ -1,0 +1,153 @@
+
+> hyperidle@0.5.0 test:integration:harness
+> vitest run --config vitest.integration.config.ts --project harness
+
+
+ RUN  v4.1.10 /Users/tg/hyperidle/.worktrees/pipeline-AU32
+
+[AN2 real-harness builtin] SCOPED OUT: builtin has mcpSupport:false, runs in-process callLlm() loop via ToolRegistry, never spawns a child, never reads mcpTokenEnv. Neither MCP-bearer nor CLI-key carrier exists. Builtin's external reach is the inbound MCP bridge (HyperIdle's own registry tools), out of AN2 scope.
+·[AN2 real-harness claude] Starting real claude session with AN2-provisioned MCP server...
+[AN2 real-harness claude] LIVE PROOF: AN2_PROBE_OK found in claude output — .mcp.json Bearer MCP connection succeeded.
+·[AN2 real-harness codex] Starting real codex session with AN2-provisioned MCP server...
+[AN2 real-harness codex] Starting real codex session with AN2-provisioned MCP server...
+[AN2 real-harness codex] Starting real codex session with AN2-provisioned MCP server...
+x[AN2 real-harness opencode] Starting real opencode session with AN2-provisioned MCP server...
+[AN2 real-harness opencode] LIVE PROOF: AN2_PROBE_OK found in opencode output — opencode.json inline Authorization MCP connection succeeded.
+·[AN2 real-harness gh] LIVE PROOF: GH_TOKEN env injection → gh auth status succeeded with injected token.
+··········-·······
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |harness| layers/agent-execution/harness-registry/src/__tests__/AM2-builtin-gateway.integration.test.ts [ layers/agent-execution/harness-registry/src/__tests__/AM2-builtin-gateway.integration.test.ts ]
+Error: requireHarness: builtin not installed/configured — harness integration test cannot complete. Install the binary (claude/codex/opencode/cursor-agent) or set OPENROUTER_API_KEY for builtin; or demote to a *.test.ts unit. (AR1: never skipIf to green.)
+ ❯ requireHarness layers/agent-execution/harness-registry/src/__tests__/require-harness.ts:90:8
+     88|  const missing = names.filter((name) => !isHarnessAvailable(name));
+     89|  if (missing.length === 0) return;
+     90|  throw new Error(
+       |        ^
+     91|   `requireHarness: ${missing.join(", ")} not installed/configured — ha…
+     92|    `integration test cannot complete. Install the binary ` +
+ ❯ layers/agent-execution/harness-registry/src/__tests__/AM2-builtin-gateway.integration.test.ts:173:2
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/9]⎯
+
+ FAIL  |harness| layers/agent-execution/harness-registry/src/__tests__/AM2-real-harness-discovery.integration.test.ts [ layers/agent-execution/harness-registry/src/__tests__/AM2-real-harness-discovery.integration.test.ts ]
+Error: requireHarness: builtin not installed/configured — harness integration test cannot complete. Install the binary (claude/codex/opencode/cursor-agent) or set OPENROUTER_API_KEY for builtin; or demote to a *.test.ts unit. (AR1: never skipIf to green.)
+ ❯ requireHarness layers/agent-execution/harness-registry/src/__tests__/require-harness.ts:90:8
+     88|  const missing = names.filter((name) => !isHarnessAvailable(name));
+     89|  if (missing.length === 0) return;
+     90|  throw new Error(
+       |        ^
+     91|   `requireHarness: ${missing.join(", ")} not installed/configured — ha…
+     92|    `integration test cannot complete. Install the binary ` +
+ ❯ layers/agent-execution/harness-registry/src/__tests__/AM2-real-harness-discovery.integration.test.ts:57:3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/9]⎯
+
+ FAIL  |harness| layers/core-api/src/__tests__/AL7-two-session-trust-first.integration.test.ts [ layers/core-api/src/__tests__/AL7-two-session-trust-first.integration.test.ts ]
+Error: requireHarness: builtin not installed/configured — harness integration test cannot complete. Install the binary (claude/codex/opencode/cursor-agent) or set OPENROUTER_API_KEY for builtin; or demote to a *.test.ts unit. (AR1: never skipIf to green.)
+ ❯ Module.requireHarness layers/agent-execution/harness-registry/src/__tests__/require-harness.ts:90:8
+     88|  const missing = names.filter((name) => !isHarnessAvailable(name));
+     89|  if (missing.length === 0) return;
+     90|  throw new Error(
+       |        ^
+     91|   `requireHarness: ${missing.join(", ")} not installed/configured — ha…
+     92|    `integration test cannot complete. Install the binary ` +
+ ❯ layers/core-api/src/__tests__/AL7-two-session-trust-first.integration.test.ts:1445:3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/9]⎯
+
+ FAIL  |harness| layers/core-api/src/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts [ layers/core-api/src/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts ]
+Error: requireHarness: builtin not installed/configured — harness integration test cannot complete. Install the binary (claude/codex/opencode/cursor-agent) or set OPENROUTER_API_KEY for builtin; or demote to a *.test.ts unit. (AR1: never skipIf to green.)
+ ❯ requireHarness layers/agent-execution/harness-registry/src/__tests__/require-harness.ts:90:8
+     88|  const missing = names.filter((name) => !isHarnessAvailable(name));
+     89|  if (missing.length === 0) return;
+     90|  throw new Error(
+       |        ^
+     91|   `requireHarness: ${missing.join(", ")} not installed/configured — ha…
+     92|    `integration test cannot complete. Install the binary ` +
+ ❯ layers/core-api/src/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts:33:2
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/9]⎯
+
+ FAIL  |harness| layers/core-api/src/__tests__/assistant-reply-live-harness.integration.test.ts [ layers/core-api/src/__tests__/assistant-reply-live-harness.integration.test.ts ]
+Error: requireHarness: builtin not installed/configured — harness integration test cannot complete. Install the binary (claude/codex/opencode/cursor-agent) or set OPENROUTER_API_KEY for builtin; or demote to a *.test.ts unit. (AR1: never skipIf to green.)
+ ❯ requireHarness layers/agent-execution/harness-registry/src/__tests__/require-harness.ts:90:8
+     88|  const missing = names.filter((name) => !isHarnessAvailable(name));
+     89|  if (missing.length === 0) return;
+     90|  throw new Error(
+       |        ^
+     91|   `requireHarness: ${missing.join(", ")} not installed/configured — ha…
+     92|    `integration test cannot complete. Install the binary ` +
+ ❯ layers/core-api/src/__tests__/assistant-reply-live-harness.integration.test.ts:365:3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/9]⎯
+
+ FAIL  |harness| layers/core-api/src/__tests__/real-harness-return-enforcement-realbinary.integration.test.ts [ layers/core-api/src/__tests__/real-harness-return-enforcement-realbinary.integration.test.ts ]
+Error: requireHarness: builtin not installed/configured — harness integration test cannot complete. Install the binary (claude/codex/opencode/cursor-agent) or set OPENROUTER_API_KEY for builtin; or demote to a *.test.ts unit. (AR1: never skipIf to green.)
+ ❯ Module.requireHarness layers/agent-execution/harness-registry/src/__tests__/require-harness.ts:90:8
+     88|  const missing = names.filter((name) => !isHarnessAvailable(name));
+     89|  if (missing.length === 0) return;
+     90|  throw new Error(
+       |        ^
+     91|   `requireHarness: ${missing.join(", ")} not installed/configured — ha…
+     92|    `integration test cannot complete. Install the binary ` +
+ ❯ layers/core-api/src/__tests__/real-harness-return-enforcement-realbinary.integration.test.ts:1244:3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/9]⎯
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |harness| layers/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts > codex: real CLI connects to AN2-provisioned MCP server via config.toml bearer > provision .codex-home/config.toml bearer → codex calls ping_test → AN2_PROBE_OK
+AssertionError: expected null not to be null
+ ❯ layers/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts:559:37
+    557|    }
+    558|    expect(allOutput).toContain("AN2_PROBE_OK");
+    559|    expect(spawnResult.exitCode).not.toBeNull();
+       |                                     ^
+    560|
+    561|    process.stdout.write(
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/9]⎯
+
+ FAIL  |harness| layers/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts > codex: real CLI connects to AN2-provisioned MCP server via config.toml bearer > provision .codex-home/config.toml bearer → codex calls ping_test → AN2_PROBE_OK
+Error: [AN2 codex FULL BINARY PROOF FAILED]: AN2_PROBE_OK not found. The provisioned config.toml bearer MCP entry was NOT authenticated or tool was NOT called. stdout: "{"type":"thread.started","thread_id":"019fe201-f5de-7983-85f0-43fc6f97dfaf"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"I’m invoking the requested `an2-test` tool now and will return its response verbatim."}}
+{"type":"item.started","item":{"id":"item_1","type":"mcp_tool_call","server":"an2-test","tool":"list_mcp_resource_templates","argume" stderr: "Reading additional input from stdin...
+2026-08-08T15:33:45.337215Z ERROR codex_core::tools::router: error=resources/templates/list failed: MCP server 'an2-test' was not ready for this step
+" exitCode: 0. MCP URL: http://127.0.0.1:50987. Check: CODEX_HOME set, AN2_TEST_MCP_TOKEN injected, config.toml has [mcp_servers.an2-test].
+ ❯ layers/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts:548:11
+    546|    // HARD ASSERTION: AN2_PROBE_OK must appear in codex output.
+    547|    if (!allOutput.includes("AN2_PROBE_OK")) {
+    548|     throw new Error(
+       |           ^
+    549|      `[AN2 codex FULL BINARY PROOF FAILED]: AN2_PROBE_OK not found. ` +
+    550|       `The provisioned config.toml bearer MCP entry was NOT authentica…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/9]⎯
+
+ FAIL  |harness| layers/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts > codex: real CLI connects to AN2-provisioned MCP server via config.toml bearer > provision .codex-home/config.toml bearer → codex calls ping_test → AN2_PROBE_OK
+Error: [AN2 codex FULL BINARY PROOF FAILED]: AN2_PROBE_OK not found. The provisioned config.toml bearer MCP entry was NOT authenticated or tool was NOT called. stdout: "{"type":"thread.started","thread_id":"019fe202-603a-79b2-80fd-a0bc2cd9224a"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"I’m locating the requested `an2-test` tool and will return its response verbatim."}}
+{"type":"item.started","item":{"id":"item_1","type":"mcp_tool_call","server":"an2-test","tool":"list_mcp_resource_templates","arguments"" stderr: "Reading additional input from stdin...
+2026-08-08T15:34:14.201289Z ERROR codex_core::tools::router: error=resources/templates/list failed: MCP server 'an2-test' was not ready for this step
+" exitCode: 0. MCP URL: http://127.0.0.1:51017. Check: CODEX_HOME set, AN2_TEST_MCP_TOKEN injected, config.toml has [mcp_servers.an2-test].
+ ❯ layers/agent-execution/harness-registry/src/__tests__/AN2-connection-provisioning.integration.test.ts:548:11
+    546|    // HARD ASSERTION: AN2_PROBE_OK must appear in codex output.
+    547|    if (!allOutput.includes("AN2_PROBE_OK")) {
+    548|     throw new Error(
+       |           ^
+    549|      `[AN2 codex FULL BINARY PROOF FAILED]: AN2_PROBE_OK not found. ` +
+    550|       `The provisioned config.toml bearer MCP entry was NOT authentica…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/9]⎯
+
+
+ Test Files  7 failed | 5 passed (12)
+      Tests  1 failed | 20 passed | 1 skipped (22)
+   Start at  17:31:45
+   Duration  350.76s (transform 1.49s, setup 21.69s, import 1.98s, tests 322.98s, environment 1ms)
+

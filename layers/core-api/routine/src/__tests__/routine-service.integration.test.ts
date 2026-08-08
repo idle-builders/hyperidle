@@ -30,18 +30,27 @@
  * `getRoutineRun`). AU21 Increment 14a: `sumRunCost` deleted along with the
  * rest of the cost feature.
  */
-import { type HyperIdleDb, routineRuns, routines, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, routineRuns, routines, teamMembers, teams, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import { describe } from "vitest";
 import * as routine from "../routine-service.js";
 
 async function seedTeamAndAgent(db: HyperIdleDb): Promise<void> {
+	const createdAt = new Date().toISOString();
 	await db.insert(teams).values({
 		id: "team-1",
 		name: "Test Team",
 		phase: "build",
-		createdAt: new Date().toISOString(),
+		createdAt,
+	});
+	// The owner writes the membership row alongside the team.
+	await db.insert(teamMembers).values({
+		id: "team-1-members",
+		teamId: "team-1",
+		capacity: 5,
+		activeBets: 0,
+		formedAt: createdAt,
 	});
 	await db.insert(users).values({
 		id: "agent-1",
@@ -334,11 +343,20 @@ describe("routine-service", () => {
 	describe("listRoutines / teamId filter", () => {
 		test("scopes to team, excludes soft-deleted, orders by id", async ({ db }) => {
 			await seedTeamAndAgent(db);
+			const team2CreatedAt = new Date().toISOString();
 			await db.insert(teams).values({
 				id: "team-2",
 				name: "Other Team",
 				phase: "build",
-				createdAt: new Date().toISOString(),
+				createdAt: team2CreatedAt,
+			});
+			// The owner writes the membership row alongside the team.
+			await db.insert(teamMembers).values({
+				id: "team-2-members",
+				teamId: "team-2",
+				capacity: 5,
+				activeBets: 0,
+				formedAt: team2CreatedAt,
 			});
 			await routine.insertRoutine(db, {
 				id: "routine-b",

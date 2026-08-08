@@ -6,9 +6,9 @@
  * package — that is what makes "one census, many rules, no rule does its own discovery" mechanical
  * rather than a house style.
  *
- * @lore AU28: this module exists because BOTH `governance-lint.ts` and `governance-baseline.ts` need
- * the same live inputs. Having the baseline generator import the lint made importing the lint *run*
- * it — a CLI whose module load has side effects cannot be composed.
+ * @lore AU28: this module exists so every governance CLI shares one set of live inputs rather than each
+ * discovering its own. A CLI whose module load has side effects cannot be composed, which is why every
+ * loader here is a plain function the caller invokes, never a script that runs on import.
  */
 
 import { execFileSync } from "node:child_process";
@@ -16,13 +16,12 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import type { Baseline } from "./lib/crossing-report.js";
 import { type CrossingsResult, type DetectorFloor, detectCrossings } from "./lib/crossings.js";
 import { buildDbSurfaceIndex, type DatabasePackageConfig } from "./lib/db-surfaces.js";
 import type { Architecture, Kind } from "./lib/governance-model.js";
 import type { FloorRecord } from "./rules/floors-tight.js";
 import { buildCensus, type Census, CLASSIFICATION_PATTERNS, type WorkspaceRoleRule } from "./lib/repo-census.js";
-import type { MisplacedFiles, TableOwners } from "./lib/governance-registry.js";
+import type { MisplacedFiles, RuleSeverity, TableOwners } from "./lib/governance-registry.js";
 
 export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -160,9 +159,25 @@ export function trackedFiles(): string[] {
 }
 
 export const loadArchitecture = (): LoadedArchitecture => readJson<LoadedArchitecture>("governance/architecture.json");
-export const loadBaseline = (): Baseline => readJson<Baseline>("governance/baseline.json");
 export const loadTableOwners = (): TableOwners => readJson<TableOwners>("governance/table-owners.json");
 export const loadMisplacedFiles = (): MisplacedFiles => readJson<MisplacedFiles>("governance/misplaced-files.json");
+export const loadRuleSeverity = (): RuleSeverity => readJson<RuleSeverity>("governance/rule-severity.json");
+
+/**
+ * Which `warn` rules are clean right now, reported so a sibling can see it — never enforced.
+ *
+ * @lore AU32 — Ruling E: a check that a `warn` rule with zero live violations is an ERROR is the
+ * stale-baseline check reborn (a red build as the reward for fixing the last violation, naming no
+ * architectural fact) and is forbidden. This returns `readonly string[]`, never `Finding[]` — a
+ * `Finding` is the only thing this lint can fail the build on, so turning this into a gate means
+ * changing the return type and routing it through `runRules`, which is a compile-visible diff in a
+ * reviewed file. That signature is the guard, not a runtime check.
+ */
+export function readyToFlip(severity: RuleSeverity, liveKeys: ReadonlySet<string>): readonly string[] {
+	return Object.entries(severity.severity)
+		.filter(([key, value]) => value === "warn" && !liveKeys.has(key))
+		.map(([key]) => `${key} — clean; this rule can go to error`);
+}
 
 export function buildLiveCensus(architecture: LoadedArchitecture, files: readonly string[]): Census {
 	return buildCensus({ files, readFile: readRepoFile, roleRules: architecture.roles.byWorkspacePattern });

@@ -1,5 +1,6 @@
 import {
 	type HyperIdleDb,
+	knowledgeAppProjection,
 	knowledgeConflicts,
 	knowledgeEditLog,
 	knowledgeItems,
@@ -37,6 +38,9 @@ const promoteKnowledgeTool = buildToolDefinitions(toolHandlersPorts).find(
 	(t) => t.name === "promote_knowledge",
 )!;
 
+// @lore this file's own positional (id, status, version) seeder predates and shapes ten call sites
+// differently from the shared `seedKnowledgeItem(db, options)` in `_helpers.ts` — kept as its own
+// function rather than switched over, with the companion inserted inline.
 async function seedKnowledgeItem(
 	db: HyperIdleDb,
 	id: string,
@@ -54,6 +58,7 @@ async function seedKnowledgeItem(
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
+	await db.insert(knowledgeAppProjection).values({ id: `${id}-projection`, knowledgeItemId: id });
 }
 
 async function seedConflict(
@@ -219,6 +224,9 @@ describe("promote_knowledge tool", () => {
 			createdAt: NOW,
 			updatedAt: NOW,
 		});
+		await db
+			.insert(knowledgeAppProjection)
+			.values({ id: "ki-bad-state-projection", knowledgeItemId: "ki-bad-state" });
 		const result = await promoteKnowledgeTool.handler(
 			{ knowledgeItemId: "ki-bad-state", toStatus: "provisional" },
 			makeContext(db),

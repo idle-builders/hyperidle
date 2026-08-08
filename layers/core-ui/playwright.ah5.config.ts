@@ -37,7 +37,7 @@ const AH5_CREDENTIAL_KEY = "ah5-e2e-cred-key-32-chars!!!!!";
 export default defineConfig({
 	testDir: "./__e2e__",
 	testMatch: "**/ah5-*.spec.ts",
-	fullyParallel: false, // Serial: 1 in-memory DB + 1 real LLM call
+	fullyParallel: false, // Serial: 1 DB (tmp-dir PGlite) + 1 real LLM call
 	forbidOnly: !!process.env.CI,
 	retries: 0, // No retries — a lane failure is a real signal, not a flake
 	workers: 1,
