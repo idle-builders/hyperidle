@@ -126,10 +126,27 @@ transaction if the handle reached it, so the handle's reach is the complete univ
 (starting after the `=>`, because a return-type annotation can contain a `{` — getting that wrong
 silently drops one of the missed sites), collects local aliases of the handle, and reports every
 call whose first argument is the handle or an alias, printing the callee **as written**. 25 bodies
-qualify; three expression-body callbacks are read by hand and are comments or
-orchestration-internal. Then each reported callee is resolved to its owning package, following an
-injected port to the composition root that wires it. Recorded run: `probes/p3b-transaction-threading/output.txt`
-at base `d96bcdcf`; `README.md` there states the method and its one manual step.
+qualify; four expression-body callbacks are read by hand — three are matches inside comments, the
+fourth (`session-requests/src/service.ts:609`) is orchestration-internal. Then each reported callee
+is resolved to its owning package, following an injected port to the composition root that wires it.
+Recorded run: `probes/p3b-transaction-threading/output.txt` at base `d96bcdcf`; `README.md` there
+states the method and its manual steps.
+
+**One caveat a reader of `output.txt` needs.** The script prints a block only for a body that has at
+least one threaded call (`find-tx-threaded-calls.mjs:97-101`). A body with zero threaded calls prints
+nothing at all, so a genuinely clean body and a body the brace-matcher failed on look identical in
+the output — the same silent-drop shape as the name-based method it replaces. Four bodies are silent
+for the clean reason and were read by hand (`knowledge-repository.ts:407,:1244`,
+`promotion-pipeline.ts:378,:602` — inline `tx.select/update/insert` only, no callee at all). Anyone
+re-running this should print a "0 threaded calls" line per body, or diff the count of `.transaction(`
+matches against the count of printed blocks, rather than trusting silence.
+
+**The second frame is recorded too.** Resolving a callee that forwards its own executor onward into a
+further call is a separate manual step, and it was previously unrecorded — which is why a reviewer
+had to redo it, and redoing it is how the two hoisted routine reads surfaced. It now has a script and
+a written verdict: `probes/p3b-transaction-threading/find-frame2-forwarding.mjs`, recorded run
+`frame2-output.txt`, write-up `frame2.md`. Result: exactly one frame-2 call reaches orchestration —
+`resolveRoutineRunRequest`'s `deps.agentSelection.isAtCapacity` — and it adds no write.
 
 **Result.** Nine transactions commit a core write together with an agent-orchestration write, ten
 writes in all (`handoff-protocol.ts:116` carries two). Four were named by P3

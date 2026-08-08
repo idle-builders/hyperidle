@@ -23,7 +23,9 @@ if the handle reached it, so enumerating the handle's reach is complete by const
    expression as written — so `deps.workIntents.record` is reported exactly as it appears.
 
 Callbacks with an expression body (no braces) are reported as needing a manual read; there are
-three, and all three are either a comment or an orchestration-internal call.
+**four** — three are matches inside comments (`work-service.ts:12`, `attention-service.ts:21`,
+`write-executor.ts:5`) and the fourth (`session-requests/src/service.ts:609`) is an
+orchestration-internal call.
 
 ## Run it
 
@@ -35,12 +37,29 @@ from the repository root. `output.txt` is the recorded run at base `d96bcdcf`.
 
 ## Reading the output
 
+**A body with zero threaded calls prints nothing** (`find-tx-threaded-calls.mjs:97-101` only emits a
+block when there is at least one hit), so in `output.txt` a genuinely clean body and a body the
+brace-matcher failed on look the same. Four bodies are silent for the clean reason and were read by
+hand: `knowledge-repository.ts:407,:1244` and `promotion-pipeline.ts:378,:602`, all inline
+`tx.select/update/insert` with no callee at all. If you re-run this, add a "0 threaded calls" line
+per body or compare the number of `.transaction(` matches against the number of printed blocks —
+do not read silence as clean.
+
 The script reports where the handle goes; it does not know which package owns the callee. That
 second step is manual and short: for each reported callee, resolve the implementation — following
 an injected port to the composition root that wires it (`policy-bindings.ts`,
 `routine-scheduler-bindings.ts`, `service-bootstrap.ts`, `threads.ts`'s inline wiring). Ten of the
 25 reported bodies reach an `agent-orchestration` write; the corrected inventory is
 `architecture.md` §3.1.
+
+## The second frame
+
+A callee can take the handle and pass it on, so a seam call can sit one frame below what this script
+reports. That frame is checked in `find-frame2-forwarding.mjs` (recorded run `frame2-output.txt`,
+write-up `frame2.md`): it lists which production core-api files can name an orchestration function at
+all, then re-applies the first-argument rule inside every callee this script reported. Exactly one
+frame-2 call reaches orchestration — `resolveRoutineRunRequest`'s
+`deps.agentSelection.isAtCapacity` — and it is a read, not a write.
 
 The same sweep also answers the read question, which P3 never asked: a seam call from inside an
 open transaction deadlocks the shared PGlite connection whether it reads or writes, so the

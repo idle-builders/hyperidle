@@ -395,7 +395,8 @@ enumerations, neither keyed on a name:
   (production files only), brace-matched to its callback body; inside each body, every call whose
   first argument is the handle or a local alias of it. A write can only be inside a transaction if
   the handle reached it, so this set is complete by construction. 25 bodies thread their handle
-  into at least one call; three expression-body callbacks are read by hand. Script and recorded
+  into at least one call; four expression-body callbacks are read by hand (three are matches inside
+  comments, the fourth is orchestration-internal). Script and recorded
   output: `probes/p3b-transaction-threading/` (one gotcha worth knowing: the callback's return-type
   annotation can contain a `{`, so the body match must start after the `=>` — getting that wrong
   silently drops `task-state-machine.ts`, one of the missed sites).
@@ -404,6 +405,13 @@ enumerations, neither keyed on a name:
   `routine-scheduler-bindings.ts:151-160`, `service-bootstrap.ts:470`, `threads.ts:1678`,
   `tasks.ts:254`, `bets.ts:684`, `app.ts:494`, `work-session-started-reactions.ts:63`). Ten of the
   25 bodies reach agent-orchestration.
+- **Check the frame below that one too**, because a callee can take the handle and pass it on again.
+  Recorded — script, run and verdict — in `probes/p3b-transaction-threading/frame2.md`: only
+  `layers/core-api/src/**` files can name an orchestration function at all (23 of them, none in a
+  core service package), and re-applying the first-argument rule inside every reported callee finds
+  exactly one frame-2 call that crosses — `resolveRoutineRunRequest`'s
+  `deps.agentSelection.isAtCapacity`, a read, which is one of the two hoisted below. No frame-2
+  write exists, so the nine-transaction inventory is closed rather than merely swept once.
 
 ### The corrected inventory
 
@@ -450,6 +458,12 @@ two-site exception, so it applies to every site above:
 > scheduler tick. The core rows stay committed and the queued job is missing. **No outbox, no
 > durable mechanism, no saga, no compensating write, no reconciler, no sweeper.** The window is
 > named at each site in code, in a comment a maintainer reads before touching the line.
+
+**One exception, ruled by the founder, and it is error handling rather than a mechanism.** Site 8's
+failed submit leaves the routine wedged rather than merely missing a job, so its failure path marks
+the run failed and lets the next scheduler tick re-fire the routine — a `catch` and one state write,
+detailed at the end of this section. It re-creates nothing and recovers no work; the eight other
+sites are plain relinquishment as stated above.
 
 **One free lever is used where it is free: the order of the two writes.** Relinquishment leaves
 two writes in sequence, and which one goes first is a choice with no cost. Where the seam write
@@ -506,28 +520,59 @@ already runs post-commit today.
   (`proposed-call-workflow.ts:585-597`), and `applyLivenessRetry`
   (`proposed-call-workflow.ts:666`) is the existing net on the same path.
 
-### The one site whose residue is worse than a lost job — stated for the founder, not worked around
+### The one site whose residue was worse than a lost job — raised to the founder, and ruled
 
 **Site 8 (`routine-scheduler.ts:599`) cannot be relinquished as cheaply as the rest, and the
 reorder lever does not reach it.** The transaction inserts the `routineRuns` row with outcome
 `running` and then bakes the request *from that row* — `resolveRoutineRunRequest` reads it back
 and requires `outcome === "running"` (`routine/src/routine-service.ts:357-360`) — so the intent
-cannot be submitted before the row exists. Relinquished in the default order, a failed submit
-leaves a `running` routine_run with no session. Consequence, concretely: `fireGenericRoutine`'s
+cannot be submitted before the row exists. Relinquished with no further handling, a failed submit
+would leave a `running` routine_run with no session. Consequence, concretely: `fireGenericRoutine`'s
 coalescing guard reads exactly that row (`routine-scheduler.ts:574-579`) and reports "previous run
-still in progress", so **that routine never fires again**; and the reaper that exists for this
+still in progress", so **that routine would never fire again**; and the reaper that exists for this
 shape keys on an `active` *session* (`run-orchestration/src/runtime-reapers.ts:170-186`), which in
-this failure never existed, so nothing clears it. The stuck run is visible in the routine's run
-history, and closing that one row restores the routine — but there is no automatic recovery.
+this failure never existed, so nothing would clear it. The stuck run is visible in the routine's run
+history and closing that one row restores the routine, but nothing does it automatically.
 
-The alternatives were considered and are all worse than the ruling allows: a compensating write
-(marking the row `timeout` on submit failure) is explicitly banned; widening the reaper to sweep
-`running` routine_runs with no session is the durable mechanism the founder rejected; and changing
-`resolveRoutineRunRequest` to bake without reading its own row would rewrite a core resolver's
-contract to dodge a failure that has not happened. So: **relinquished, in the default order, with
-the window named in code at the site** — recorded in §13.9 so the founder is ratifying this one
-with its real consequence in view rather than the "a queued job is missing" summary that fits the
-other eight.
+**The founder was asked about this one site, and ruled: add the error handling.** Verbatim intent —
+catch the failure of the seam call and mark the run failed, so the next scheduler tick picks the
+routine up normally. So site 8 is relinquished like the other eight *and* it cleans up after itself:
+
+> When the post-commit `enqueueWorkIntent` call fails, the run row is moved to a terminal failed
+> state before the failure propagates. The coalescing guard reads only `running` rows, so it clears,
+> and the routine fires again on the next tick like any other routine whose last run failed.
+
+**This is ordinary error handling, not machinery.** It is a `catch` plus one state write. No outbox,
+no saga, no background sweeper, no reconciler, no retry loop, no new table, no new infrastructure —
+and it is deliberately not a general mechanism applied to the other eight sites, which stay plain
+relinquishment with the window named in code.
+
+Concretely:
+
+- **Owning service:** `@hyperidle/routine`, the only writer of `routine_runs`. The write goes
+  through its existing entry point `updateRoutineRun`
+  (`layers/core-api/routine/src/routine-service.ts:158`) — nothing new is exported.
+- **State written:** `outcome: "error"`, `endedAt` set to now, `errorMessage` carrying the submit
+  failure, guarded with `{ onlyIfRunning: true }`. That is the exact shape this failure already has
+  a precedent for: `agent-run-admission-reactions.ts:87-95` marks the same row the same way when
+  admission rejects a `routine_run`, so the routine's run history renders it as a failed run today
+  with no UI or projection change.
+- **Who implements it:** leaf **A2** in §12, in `layers/core-api/routine/src/routine-scheduler.ts`
+  where `fireGenericRoutine` already has a `try`/`catch` around the transaction (`:628`) — the seam
+  call moves out of the transaction, and its own failure path writes the row and rethrows. Rethrow,
+  not swallow: a scheduler tick must still report the failure the way every other failure on this
+  path is reported.
+- **Why the next tick then fires it:** `fireGenericRoutine` only advances `nextRunAt` after a
+  successful submit (`:652-657`), so on failure the routine is still due. With the run row no longer
+  `running`, the coalescing guard at `:574-579` passes and the routine runs again — no scheduling
+  change of any kind is needed to make this work.
+
+Everything else about the site is unchanged, and the alternatives that were considered stay
+rejected: a compensating write that re-creates the queued job, widening the reaper to sweep
+`running` routine_runs with no session, and changing `resolveRoutineRunRequest` to bake without
+reading its own row. The first two are the durable machinery the ruling rejects; the third rewrites
+a core resolver's contract to dodge a failure that has not happened. Marking the run failed is
+none of those — it is the same one-row write the admission-failure path already performs.
 
 ### Reads are hoisted out of the transaction, not relinquished
 
@@ -553,9 +598,9 @@ certainly not left to drive the code back to the pre-ruling shape:
   (`:428` assistant message, `:450` knowledge flag, `:501` manual routine, `:518` scheduler
   routine) assert the core row is rolled back when the intent write fails. The two message/flag
   cases invert: the core row now survives and the intent is absent. The two routine cases assert
-  `routineRuns` is empty, and under site 8's default order that also inverts — the run row
-  survives, which is precisely the wedge named above, so these two become the test that pins the
-  named window rather than the old rollback.
+  `routineRuns` is empty, and that also inverts — the run row survives, now carrying
+  `outcome: "error"` from the failure handling the founder ruled for site 8. So these two become the
+  test that pins the named window and the failed-run mark, rather than the old rollback.
 - `layers/core-api/src/routes/__tests__/agent-and-team-creation-atomicity.integration.test.ts` —
   AU26 review W10's fix for sites 1/2/3. Both cases invert: the agent/team row now survives with
   default run config. The finding W10 recorded (an agent silently running on the wrong harness)
@@ -564,9 +609,24 @@ certainly not left to drive the code back to the pre-ruling shape:
   when the handoff transaction rolls back") inverts by construction under site 7's reorder: the run
   is ended before the transaction, so a rolled-back handoff leaves an ended run. The reorder's
   residue is what this test should now assert.
-- `layers/core-api/src/__tests__/handoff-protocol.integration.test.ts:664` and
-  `layers/core-api/knowledge/src/__tests__/knowledge-repository.au14-round2.integration.test.ts:208`
-  assert core-only rollback within one transaction and stay as they are.
+- `layers/core-api/src/__tests__/handoff-protocol.integration.test.ts:664` ("rolls back session,
+  task, auditTrail when messages INSERT throws") inverts the same way, on the `toAgent` branch —
+  it is `handoff-to.ts:354`'s twin, and an earlier draft of this section wrongly filed it as
+  unaffected. It forces the `messages` insert inside `handoff-protocol.ts:116`'s transaction to
+  throw and then asserts `session.state === "active"` with a falsy `endedAt` (`:727-729`) — exactly
+  the run-end guarantee the reorder gives up, since `endRunForHandoff` is step 1 and runs before
+  the `toAgent`/`toRole`/`toHuman` split. Same treatment as its twin: it asserts the named window
+  (the session is already ended when the transaction rolls back, so a rolled-back handoff leaves an
+  ended run and an unchanged task), it is not bent back to the old behavior, and it is not deleted.
+  Its task and auditTrail assertions (`:734-738`) are unaffected and stay.
+- `layers/core-api/knowledge/src/__tests__/knowledge-repository.au14-round2.integration.test.ts:208`
+  asserts core-only rollback within one transaction and stays as it is — re-read and confirmed: no
+  orchestration write shares that transaction.
+
+**Count, so nobody has to re-derive it:** five shipped suites were checked and four invert, so four
+are rewritten — `agent-work-intent-production`, `agent-and-team-creation-atomicity`, `handoff-to`
+and `handoff-protocol`. The fifth, `knowledge-repository.au14-round2`, is genuinely core-only and is
+left untouched.
 
 ## 3.2 How a caller acquires the port — one instance per composition, never an ambient one
 
@@ -600,14 +660,23 @@ exercises reactions.
    `tasks.ts:286` stop calling `getRegistered…()` per request and receive the port from the app's
    options, alongside the handles `app.ts` already threads.
 4. **The composition root owns the transport, and owns the construction cycle.** Core's app needs
-   the port; the port's in-process transport needs the app that serves the seam routes; and after
-   §5 that app is agent-orchestration's, which boots *after* core because it needs core's
-   `resolveModel`. The cycle is real in both directions and the answer is a local, not a global:
-   the root writes the transport as an arrow closing over a binding it fills once both apps exist —
-   `const transport: AgentOrchestrationTransport = (req) => orchestration.app.fetch(req);` over a
-   root-local `let`. Resolution is at call time, the binding is per composition, and a second
-   composition in the same process cannot see the first's. A call before the binding is filled
-   throws the same named error the singleton throws today, minus the cross-test bleed.
+   the port; the port's in-process transport needs an app to send the request to. Two facts make
+   that app unavailable at the moment either layer boots, and neither has anything to do with boot
+   order — agent-orchestration in fact boots *first* today (`create-server.ts:692`, before
+   `bootCoreApi` at `:712`), and `resolveModel` comes from `@hyperidle/shared`
+   (`create-server.ts:105`) wrapped application-side, so orchestration's boot consumes nothing core
+   produces. The two real reasons: (a) the transport targets the **composed** app, the one carrying
+   the `/api` prefix (`create-server.ts:812,:834`), and that app does not exist until both layers
+   have booted and been mounted; (b) in wave B the `CoreApiPort` over core's app and the
+   `AgentOrchestrationPort` over orchestration's app are mutually dependent, so no ordering of the
+   two boots can hand each its counterpart. The cycle is real in both directions and the answer is a
+   local, not a global: the root writes the transport as an arrow closing over a root-local `let`
+   that it fills once the composed app exists —
+   `const transport: AgentOrchestrationTransport = (req) => composed.fetch(req);`. It must be the
+   composed app, not orchestration's bare one, for the same prefix reason clause 6 spells out.
+   Resolution is at call time, the binding is per composition, and a second composition in the same
+   process cannot see the first's. A call before the binding is filled throws the same named error
+   the singleton throws today, minus the cross-test bleed.
 5. **The two module-level functions are deleted**, along with every `getRegistered…()` read:
    `registerAgentOrchestrationTransport` and `getRegisteredAgentOrchestrationTransport`
    (`agent-orchestration-port-composition.ts:447-462`). Nothing reads a module-level mutable value
@@ -618,6 +687,15 @@ exercises reactions.
    surface only** — agent-orchestration's own app over the same `db` — not the composed core +
    orchestration app with its middleware stack. A reaction test therefore still asserts a real
    effect on a real database through the real route, and no test needs an `app` fixture to do it.
+   **The path base is the part that will bite:** orchestration's app mounts its seam routes at
+   `/agent-orchestration/...` with **no** `/api` prefix (`layers/agent-orchestration/src/app.ts:57,
+   :60`); the prefix is added only by the application's `/api` router (`create-server.ts:814`), and
+   the port client issues `/api/agent-orchestration/...` (`SEAM_PLACEHOLDER_BASE_URL`,
+   `agent-orchestration-port-composition.ts:132`). So the fixture must mount orchestration's app
+   under `/api` in a throwaway Hono instance (or strip the prefix in the transport) — a transport
+   bound straight to the bare app answers 404. Also worth saying plainly: this fixture transport
+   deliberately skips the middleware stack the production transport goes through (auth, fail-closed),
+   so a reaction test proves the route's effect, not the door's authentication.
    `createTestApp` stops registering a transport (`__testing__/test-utils.ts:101` is deleted) and
    hands the port in like production does.
 7. **`CoreApiPort`'s twin singleton is untouched here, and no new one is added.** The same
@@ -1004,7 +1082,8 @@ preserved by §5's boot design, `app.ts:520-533`); the relocated composition kee
 behavioral suites moving with the files; **each of the nine relinquished windows gets a targeted
 test** (seam-failure → the operation fails and the core row is committed; retry → idempotent
 success), and the shipped suites that assert the pre-ruling guarantee are rewritten to assert the
-named window instead — the four files listed at the end of §3.1, none of them dropped and none of
+named window instead — the four inverted files listed at the end of §3.1 (a fifth file there,
+`knowledge-repository.au14-round2`, was re-read and is unaffected), none of them dropped and none of
 them allowed to drive the code back to the transactional shape; the reaction lane gets its port
 from the fixture, not a global (§3.2 clause 6); R1–R3 land with their attack + control cases (the
 build fails without them). No new test harness is invented.
@@ -1068,8 +1147,10 @@ the transport, which becomes a value the root passes (§3.2)**; the two developm
 - A2. Convert the conversation call sites (§2.1a, §2.2, §2.3 verbs, §2.6) — imports and injections
   die together per file; **all nine relinquishments (§3.1) land with their targeted tests, the two
   in-transaction reads are hoisted, site 7's run-end write is reordered ahead of its transaction,
-  and the four shipped suites that assert the old guarantee are rewritten in the same commits as
-  the sites they cover**; the backfill reorder + owner-stamp land here.
+  and the four shipped suites §3.1 names as inverted are rewritten in the same commits as
+  the sites they cover**; site 8's failed submit marks its run `error` through the routine service
+  (§3.1, one `catch` and one state write — no machinery); the backfill reorder + owner-stamp land
+  here.
 - A3. Manifest rows whose last import cleared; baseline shrinks ride every commit.
   Dependency: A0 → A1 → A2 → A3. After A: core-api's remaining cross-layer imports are exactly the
   composition files plus the two conversions moved to B2 below — wave B's inventory, stated so the
@@ -1126,8 +1207,11 @@ than fixed by code. (2) **Both supersessions are ratified** — items 2 and 5 be
 scaffolding. (3) **The relinquished atomicity is accepted** — items 4 and **9** below: the named failure
 windows stand, and **no outbox or other durable mechanism is built**, explicitly rejected as
 machinery for a failure that has not happened on a product with no real users. Item 9 records that
-the ruling now applies to nine sites rather than the four item 4 lists, and names the one site
-whose residue is worse than the summary the founder was given. (4) **The two-WP
+the ruling now applies to nine sites rather than the four item 4 lists. (3b) **The one site whose
+residue was worse than a missing job — the routine scheduler — was raised separately, and the
+founder ruled: add the error handling.** Catch the failed seam call, mark the run failed, let the
+next tick re-fire the routine (§3.1; item 9(b)). One `catch` and one state write through the owning
+service — still no outbox, sweeper or reconciler, and no change to the other eight sites. (4) **The two-WP
 split is accepted** as §12 states it — waves A then B, sequential, each building and verifying on
 its own. (5) **Narrowing `application → layer [import]`** to face-shaped imports is ratified as
 part of the face definition (§7.2, `allowed`, 12 production instances).
@@ -1190,18 +1274,29 @@ part of the face definition (§7.2, `allowed`, 12 production instances).
    rule need no re-ruling. Three things in it do belong on the record:
    (a) **the count and the reason it was wrong** — four named, nine real, because the audit searched
    for function names and most of these sites call an injected dependency instead;
-   (b) **one site's residue exceeds what item 4 describes.** At `routine-scheduler.ts:599` a failed
-   submit leaves a `running` routine_run with no session, which makes that routine's coalescing
-   guard report "previous run still in progress" forever and no reaper clears it — so the loss is
-   not "a queued job" but "this routine stops firing until someone clears one row". Relinquished
-   anyway, in the default order, because every alternative is machinery the ruling rejects
-   (compensating write, wider reaper) or a core resolver rewritten to dodge a failure that has not
-   happened. **This is the one item a founder may want to look at again**; the amendment does not
-   assume the answer changes;
-   (c) **four shipped test suites assert the guarantee being given up** (§3.1's last block,
-   including AU26 review W10's own fix). They are rewritten to assert the named window. Naming them
-   here so the rewrite reads as the ruling being executed, not as tests being bent to make a build
-   green.
+   (b) **one site's residue exceeded what item 4 describes — raised to the founder, and ruled.** At
+   `routine-scheduler.ts:599` a failed submit would leave a `running` routine_run with no session,
+   which makes that routine's coalescing guard report "previous run still in progress" forever and
+   no reaper clears it — so the loss would not be "a queued job" but "this routine stops firing
+   until someone clears one row". This was put to the founder as the one item worth a second look,
+   and the founder **ruled: add the error handling** — catch the failure of the seam call, mark the
+   run failed, and let the next scheduler tick pick the routine up normally. §3.1 specifies it: the
+   `routine` service writes `outcome: "error"` + `endedAt` + `errorMessage` through its existing
+   `updateRoutineRun` (`onlyIfRunning`), which is the same write the admission-failure path already
+   performs for this row, then the failure propagates. Ordinary error handling — one `catch`, one
+   state write, no outbox, saga, sweeper, reconciler, retry loop, table or other machinery. **No
+   longer an open concern.** The other eight sites are unchanged: plain relinquishment, window named
+   in code, nothing built;
+   (c) **five shipped suites were checked; four of them assert the guarantee being given up** and
+   are rewritten to assert the named window — `agent-work-intent-production`,
+   `agent-and-team-creation-atomicity` (AU26 review W10's own fix),
+   `handoff-to.integration.test.ts:354` and `handoff-protocol.integration.test.ts:664`. The last of
+   those was undercounted in an earlier draft, which filed it as unaffected: it is `handoff-to`'s
+   `toAgent` twin and asserts the same `session.state === "active"` / falsy `endedAt` that site 7's
+   reorder gives up. The fifth suite checked,
+   `knowledge-repository.au14-round2.integration.test.ts:208`, is genuinely core-only and stays as
+   it is. Naming them here so the rewrite reads as the ruling being executed, not as tests being
+   bent to make a build green.
    Also recorded: the one free lever used (site 7's run-end write moves ahead of its transaction,
    because that write has no safety net and its absence would consume an agent's only session slot
    forever), and the fact that in-transaction *reads* are hoisted rather than relinquished — a seam
