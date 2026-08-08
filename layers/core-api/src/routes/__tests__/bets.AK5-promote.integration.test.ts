@@ -11,7 +11,14 @@
  * Carry-forward: .strict() preserved — unknown extra fields → 400.
  */
 
-import { bets, type HyperIdleDb, knowledgeItems, teamMembers, teams } from "@hyperidle/db";
+import {
+	bets,
+	type HyperIdleDb,
+	knowledgeAppProjection,
+	knowledgeItems,
+	teamMembers,
+	teams,
+} from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -46,6 +53,10 @@ async function seedBase(db: HyperIdleDb, _eventBus: EventBus): Promise<void> {
 		createdAt: now,
 		updatedAt: now,
 	});
+	// The owner writes the projection row alongside the item.
+	await db
+		.insert(knowledgeAppProjection)
+		.values({ id: "ki-ak5-projection", knowledgeItemId: "ki-ak5" });
 }
 
 describe("AK5 — POST /bets with sourceKnowledgeItemId", () => {
