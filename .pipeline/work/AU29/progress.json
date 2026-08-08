@@ -1,7 +1,7 @@
 {
   "id": "AU29",
   "status": "in-progress",
-  "currentStep": "architecture",
+  "currentStep": "build",
   "startedAt": "2026-08-07",
   "worktree": ".worktrees/pipeline-AU29",
   "branch": "pipeline/AU29",
@@ -12,21 +12,35 @@
     "concept": null,
     "final": null
   },
+  "gateItemsPendingFounder": [
+    "db:bootstrap surface entry deletion — not mechanically forced; authorized by requirements 5, routed here deliberately",
+    "6 decided-rules.json row deletions + model-test literals (68->65 / 56->53 / 114->110 / 10->8) — verdict edits are founder-only",
+    "governance/decided-rules.json totals.differ is ALREADY stale (44 recorded, 46 by row-level derivation; two Ruling-13 flips never folded). Post-deletion truth is 45, not the architecture's 43. Founder instrument inconsistency, untested field, cannot fail the build."
+  ],
   "evaluations": {
-    "refine": 0,
-    "architecture": 0,
+    "refine": 1,
+    "architecture": 2,
     "review": 0
+  },
+  "verdicts": {
+    "refine-critique": "PASS — zero blocking",
+    "architecture-critique-round1": "FAIL — 1 blocking (B1: plan validation scenario 3 had no delivering mechanism; architecture asserted a non-existent error path)",
+    "architecture-critique-round2": "PASS — B1 closed, proven by re-executed probe; 1 non-blocking (D-R2, stale totals.differ)"
   },
   "artifacts": {
     "requirements": ".pipeline/work/AU29/requirements.md",
-    "refine-critique": ".pipeline/work/AU29/refine-critique.md",
+    "refineCritique": ".pipeline/work/AU29/refine-critique.md",
     "architecture": ".pipeline/work/AU29/architecture.md",
     "feasibility": ".pipeline/work/AU29/feasibility.md",
-    "first-boot-control": ".pipeline/work/AU29/probes/first-boot-control.json"
+    "architectureCritique": ".pipeline/work/AU29/architecture-critique.md",
+    "architectureCritiqueRound2": ".pipeline/work/AU29/architecture-critique-round2.md",
+    "probes": ".pipeline/work/AU29/probes/"
   },
+  "taskOrder": "A (substrate->shared) -> D (bootstrap->composition roots) -> E (seed phantom + db-symbols-all-placed rule lands here) -> F (evidence+docs); B (toolsForRole dissolution) and C (bus silence) are independent leaves",
   "notes": [
-    "Node: worktree needs node>=24 \u2014 prefix PATH with /opt/homebrew/bin (v26). Default PATH node is v22 (hermes) and fails engines + npm ci.",
-    "Bootstrapped with `npm install` (npm ci fails: lock out of sync for react 18 types on main). package-lock.json unchanged by install.",
-    "Architecture pass done 2026-08-08: agentRunConfig feasibility flag RESOLVED (writeAgentRunConfig row-identical, probe run \u2014 no plan amendment); first-boot control captured via real `npm run setup` CLI, diff-empty vs applyFactoryBootstrap; db:bootstrap surface deletion + 3 decided rows flagged for human review gate (architecture.md \u00a77)."
+    "Node: worktree needs node>=24 — prefix PATH with /opt/homebrew/bin (v26). Default PATH node is v22 (hermes) and fails engines + npm ci.",
+    "Bootstrapped with `npm install` (npm ci fails: lock out of sync for react 18 types on main).",
+    "The first worktree was wiped mid-run (only agent-written files survived); rebuilt and artifacts committed immediately. Commit artifacts as they land.",
+    "Build runs SEQUENTIAL, single builder: every task regenerates governance/baseline.json in its own commit, so parallel leaves would collide on that shared file."
   ]
 }
