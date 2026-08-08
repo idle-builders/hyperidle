@@ -19,9 +19,14 @@ and the seven-run probe ceremony — all of it built to defeat an author now exp
 scope. Round 5's standing blocker **B7** is resolved by the ruling, not by code, and is recorded
 as out of scope in §7.3 and §13.1. What is proven by execution is the bar that matters: the
 founding violation (`layers/core-api/src/index.ts:15`) still fails the build, so AC #3 cannot be
-satisfied by a rule that flags nothing ([P12], run 3). Everything five rounds confirmed sound —
-the six per-service verdicts, the 93-site arithmetic, the atomicity audit, §11's evidence run, the
-wave split, the composition-root plan — is unchanged. The other rulings the founder made at the
+satisfied by a rule that flags nothing ([P12], run 3). The six per-service verdicts, the 93-site
+arithmetic, §11's evidence run, the wave split and the composition-root plan are unchanged.
+**One thing five rounds confirmed was not sound: the atomicity audit.** A later amendment (§3.1,
+§3.2, §12, §13.9, and the correction block in `feasibility.md` P3) replaces it — the audit's method
+could not see a cross-boundary write that arrives as an injected dependency, so it counted four
+coupled sites where there are nine, and it never asked the question that actually stopped the first
+build attempt. That amendment also fixes how a caller acquires the seam's port and moves two
+conversions from wave A to wave B. Nothing else is reopened. The other rulings the founder made at the
 same gate (both supersessions, the relinquished atomicity with **no** durable mechanism, the
 two-WP split, the `application → layer` narrowing) are recorded in §13's preamble. D1–D5 remain
 absorbed at §11, §13.8, §7.2 **[D3]**, §3.1 **[D4]**, and §4 respectively.
@@ -717,7 +722,7 @@ application. Each file:
 | `service-bootstrap.ts` — `registerAgentLayerServices` (`:570`) | stays core minus the dead `dispatcherDeps` bundle [P4]: builtin-routine reactions and the routine scheduler are core's domain (AU15); the scheduler's enqueue + capacity read become port ops (`routine-scheduler-bindings.ts:39-40,:61`), `canProvision` becomes an application-passed boolean |
 | `services/tool-handlers-bindings.ts` | moves into `layers/agent-orchestration/src/` (§2.5); the review workflow port becomes `CoreApiPort` ops |
 | `services/tool-provider-bindings.ts` | **deleted** (§2.5): the dispatch it wrapped moves `harness-registry` → `tool-handlers`; role filtering becomes `buildToolDefinitions(ports, { role })`; `returnStatusTool` + the enforcement registry arrive via the execution adapters bundle |
-| `services/core-api-port-composition.ts`, `services/agent-orchestration-port-composition.ts` | port client construction splits by consumer: core's outbound `AgentOrchestrationPort` client stays core-side (it is core's door out); the `CoreApiPort` client construction the tool stack needs moves with the tool stack, typed against `@hyperidle/api-contract` only — the transport keeps being registered by the application |
+| `services/core-api-port-composition.ts`, `services/agent-orchestration-port-composition.ts` | port client construction splits by consumer: core's outbound `AgentOrchestrationPort` client stays core-side (it is core's door out); the `CoreApiPort` client construction the tool stack needs moves with the tool stack, typed against `@hyperidle/api-contract` only. **The transport is no longer registered in a module-level variable** — the composition root builds it and the port is handed to consumers as a value (§3.2); `registerAgentOrchestrationTransport`/`getRegisteredAgentOrchestrationTransport` are deleted |
 | `session.ts` | deleted; `runSession` + provisioning types surface on the orchestration face; eval repoints [P5] |
 | `ws-connection-hub.ts`, `ws-subscribe-authorizer.ts`, `routes/health.ts`, `routes/ws.ts`, `work-state-push-gateway` | stay core; their deep-import *entries* fold into what `bootCoreApi` returns (§5.2) so the application stops naming them as subpaths |
 
@@ -994,9 +999,13 @@ exactly as the db:util handoff is echoed in the other direction — requirements
 **Test strategy per lane:** every new seam op gets service-lane integration coverage
 (`*.integration.test.ts`, real DB + composed app fixture — the ~240-fixture `disposeApp` shape is
 preserved by §5's boot design, `app.ts:520-533`); the relocated composition keeps its existing
-behavioral suites moving with the files; the two relinquished windows get targeted tests
-(seam-failure → 5xx + committed core row, retry → idempotent success); R1–R3 land with their
-attack + control cases (the build fails without them). No new test harness is invented.
+behavioral suites moving with the files; **each of the nine relinquished windows gets a targeted
+test** (seam-failure → the operation fails and the core row is committed; retry → idempotent
+success), and the shipped suites that assert the pre-ruling guarantee are rewritten to assert the
+named window instead — the four files listed at the end of §3.1, none of them dropped and none of
+them allowed to drive the code back to the transactional shape; the reaction lane gets its port
+from the fixture, not a global (§3.2 clause 6); R1–R3 land with their attack + control cases (the
+build fails without them). No new test harness is invented.
 
 ## 11. The end-to-end evidence run (AC #7 — executed, not read)
 
@@ -1038,17 +1047,47 @@ and a live run, and they touch nearly disjoint file sets. The orchestrator owns 
 and the registration; if it keeps one WP, the same two waves run sequentially on one branch.
 
 **WP/Wave A — "Core converses only through the door"** (writes: `layers/core-api/src/**` routes
-+ reactors + `app.ts` + `service-bootstrap.ts`; `layers/agent-orchestration/src/**` routes +
-services; `framework/api-contract`; the two port compositions; `layers/core-api/package.json`
-row for `filesystems`; `layers/core-ui/package.json` respelling):
++ reactors + `app.ts` + `service-bootstrap.ts`; **the four core service packages that hold a
+cross-boundary write inside their own transaction — `layers/core-api/work/`,
+`layers/core-api/policy/`, `layers/core-api/routine/`, `layers/core-api/review/` (§3.1 sites 6–9)**;
+`layers/agent-orchestration/src/**` routes + services; `framework/api-contract`; the two port
+compositions; **the one line in `applications/remote-server/src/create-server.ts` that registers
+the transport, which becomes a value the root passes (§3.2)**; the two development-world fixtures
+`layers/core-api/src/__testing__/test-utils.ts` and `test-fixtures.ts`;
+`layers/core-api/package.json` row for `filesystems`; `layers/core-ui/package.json` respelling):
+- A0. **Port acquisition (§3.2)** — build one port per composition, hand it to routes and to the
+  reaction registrars, delete the two module-level transport functions and every
+  `getRegistered…()` read, and give the `{ db, eventBus }` fixture its own port over
+  agent-orchestration's app. Nothing else in A2 can land first: every reaction conversion depends
+  on it, and converting a reaction against the global is what stranded wave A.
 - A1. Port + route contracts (§3) in `api-contract` and orchestration's app, with service-lane
-  tests (red first).
-- A2. Convert the conversation call sites (§2.1a, §2.2, §2.3 verbs, §2.5 workflow ops, §2.6,
-  writeback §2.7) — imports and injections die together per file; the two relinquishments land
-  with their targeted tests; the backfill reorder + owner-stamp land here.
+  tests (red first). Includes the team-defaults pair added in §3 clause 2; excludes
+  `runs.requestTermination`, struck there.
+- A2. Convert the conversation call sites (§2.1a, §2.2, §2.3 verbs, §2.6) — imports and injections
+  die together per file; **all nine relinquishments (§3.1) land with their targeted tests, the two
+  in-transaction reads are hoisted, site 7's run-end write is reordered ahead of its transaction,
+  and the four shipped suites that assert the old guarantee are rewritten in the same commits as
+  the sites they cover**; the backfill reorder + owner-stamp land here.
 - A3. Manifest rows whose last import cleared; baseline shrinks ride every commit.
-  Dependency: A1 → A2 → A3. After A: core-api's remaining cross-layer imports are exactly the
-  composition files — wave B's inventory, stated so the reviewer can check the seam is complete.
+  Dependency: A0 → A1 → A2 → A3. After A: core-api's remaining cross-layer imports are exactly the
+  composition files plus the two conversions moved to B2 below — wave B's inventory, stated so the
+  reviewer can check the seam is complete.
+
+**Two conversions move from A to B, because an op belongs in the wave whose files consume it.**
+Neither is a deferral by judgement; both follow from §1's "no production export that only tests
+consume", and the wave-A builder was right to stop:
+- **§2.5's `CoreApiPort` workflow ops** (capture / consume-grant / record-outcome). Today
+  `services/tool-provider-bindings.ts` and `@hyperidle/review` are both inside core-api, so the
+  import is in-layer and legal — there is no crossing to remove yet. The crossing appears when B2
+  deletes that wrapper and moves the dispatch into `@hyperidle/tool-handlers`, which is also the
+  first moment anything consumes the ops. They land in **B2**.
+- **§2.7's knowledge-writeback ops.** The wire is live today
+  (`create-server.ts:545-562` injects `@hyperidle/knowledge` functions into
+  `run-orchestration/src/writeback-processor.ts`), but both ends of the change — an application
+  file and a `layers/agent-orchestration/run-orchestration/` file — sit outside wave A's write set,
+  and the processor's knowledge port is what consumes the ops. They land in **B2** with the
+  processor. (Nothing about the writeback needs §3.1's treatment: the processor calls its port with
+  a pooled handle, never inside a transaction.)
 
 **WP/Wave B — "The applications compose faces"** (writes: `layers/agent-execution/**`,
 `layers/agent-orchestration/src/boot.ts` + `layers/agent-orchestration/tool-handlers/**` +
@@ -1058,8 +1097,10 @@ relocated composition files, `layers/core-api/src/boot.ts` + deleted subpath mod
 - B1. Execution face + MCP dial relocation + `RemoteWorkerClient` + buffer relocation (§6, §2.7).
 - B2. Orchestration boot absorbs the composition (§5.1); the tool stack dissolves per §2.5
   (dispatch moves `harness-registry` → `tool-handlers`, wrapper file deleted, `returnStatusTool`
-  + enforcement registry onto the adapters bundle); core boot absorbs its own (§5.2);
-  `session.ts` deleted; eval repointed.
+  + enforcement registry onto the adapters bundle); **the `CoreApiPort` workflow ops (§2.5) and
+  knowledge-writeback ops (§2.7) land here, with their first consumers**, and the `CoreApiPort`
+  client construction that moves with the tool stack adopts §3.2's acquisition rule; core boot
+  absorbs its own (§5.2); `session.ts` deleted; eval repointed.
 - B3. Applications rewritten (§5.3); desktop root; mount helper; manifests + export maps shrink
   to faces.
 - B4. Governance: R1–R3 + attacks + README/`decided-rules` notes; the §4 attack/control pair on
@@ -1080,9 +1121,11 @@ lint is engineering guidance, not protection against a determined author: *"we d
 able to catch every exotic catch."* §7 and [P12] are rewritten to the reduced rule and the
 bypass-hunting apparatus is deleted; standing blocker **B7** is out of scope by this ruling rather
 than fixed by code. (2) **Both supersessions are ratified** — items 2 and 5 below, with no extra
-scaffolding. (3) **The relinquished atomicity is accepted** — item 4 below: the named failure
+scaffolding. (3) **The relinquished atomicity is accepted** — items 4 and **9** below: the named failure
 windows stand, and **no outbox or other durable mechanism is built**, explicitly rejected as
-machinery for a failure that has not happened on a product with no real users. (4) **The two-WP
+machinery for a failure that has not happened on a product with no real users. Item 9 records that
+the ruling now applies to nine sites rather than the four item 4 lists, and names the one site
+whose residue is worse than the summary the founder was given. (4) **The two-WP
 split is accepted** as §12 states it — waves A then B, sequential, each building and verifying on
 its own. (5) **Narrowing `application → layer [import]`** to face-shaped imports is ratified as
 part of the face definition (§7.2, `allowed`, 12 production instances).
@@ -1111,7 +1154,8 @@ part of the face definition (§7.2, `allowed`, 12 production instances).
    over an empty baseline; `decided-rules.json` carries no literal row for the group, so there
    is no row to flip and none is added. This is the reading the whole of §5/§6 stands on.
 4. **Relinquished atomicity** at `knowledge.ts:934` and `threads.ts:1463` (+ the two run-config
-   write couplings), windows as named in §3.1.
+   write couplings), windows as named in §3.1. **Superseded in scope by item 9** — the mechanism the
+   founder ruled is unchanged; the set of sites it applies to was undercounted here.
 5. **Relocations that supersede a recorded decision**: `SessionActivityBuffer` out of
    agent-execution, superseding AU21 Decision E's placement note. **The in-decision alternative
    is on the table for this ratification**: keep the buffer in agent-execution, export it on the
@@ -1133,10 +1177,40 @@ part of the face definition (§7.2, `allowed`, 12 production instances).
    production manifest rows that serve them (§2.4 core-ui, desktop devDeps reconciliation).
 8. **Provisioning-owner stamping is a behavior delta, not only a mechanism change [D2]**: today
    the owner resolves at provisioning time, application-side (`create-server.ts:201-213`);
-   stamping at submit (§3.3) means an intent emitted before onboarding and drained after it
+   stamping at submit (§3 clause 3) means an intent emitted before onboarding and drained after it
    provisions no connections where today's live resolution would. Accepted as the cost of the
    single port-side stamp — the empty-rows outcome matches today's no-owner case, but the
    *timing* of resolution does not, and the founder ratifies the delta, not only the mechanism.
+
+9. **The atomicity ruling, applied to the sites the audit missed — and the one site that deserves
+   a second look.** The founder ruled the *mechanism* (relinquish, name the window, build nothing).
+   Applying that ruling to a corrected inventory is not a new decision, so §3.1's nine sites and one
+   rule need no re-ruling. Three things in it do belong on the record:
+   (a) **the count and the reason it was wrong** — four named, nine real, because the audit searched
+   for function names and most of these sites call an injected dependency instead;
+   (b) **one site's residue exceeds what item 4 describes.** At `routine-scheduler.ts:599` a failed
+   submit leaves a `running` routine_run with no session, which makes that routine's coalescing
+   guard report "previous run still in progress" forever and no reaper clears it — so the loss is
+   not "a queued job" but "this routine stops firing until someone clears one row". Relinquished
+   anyway, in the default order, because every alternative is machinery the ruling rejects
+   (compensating write, wider reaper) or a core resolver rewritten to dodge a failure that has not
+   happened. **This is the one item a founder may want to look at again**; the amendment does not
+   assume the answer changes;
+   (c) **four shipped test suites assert the guarantee being given up** (§3.1's last block,
+   including AU26 review W10's own fix). They are rewritten to assert the named window. Naming them
+   here so the rewrite reads as the ruling being executed, not as tests being bent to make a build
+   green.
+   Also recorded: the one free lever used (site 7's run-end write moves ahead of its transaction,
+   because that write has no safety net and its absence would consume an agent's only session slot
+   forever), and the fact that in-transaction *reads* are hoisted rather than relinquished — a seam
+   call inside an open transaction deadlocks the shared connection whether it reads or writes.
+10. **The seam's port stops being acquired from an ambient global (§3.2)**, superseding the
+   module-level `registerAgentOrchestrationTransport`/`getRegisteredAgentOrchestrationTransport`
+   pattern the read side shipped with. One port per composition, handed to routes and reaction
+   registrars as a value; the construction cycle between core's app and the seam's backing app is
+   closed by a root-local binding, not a module variable. Recorded as a supersession because the
+   pattern was a deliberate in-code decision; ratifying it costs nothing new — it deletes code and
+   makes the reaction lane testable, which is what wave A needed and did not have.
 
 ## 14. Documentation made false by this change
 

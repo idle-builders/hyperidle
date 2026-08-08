@@ -85,13 +85,73 @@ excluding tests; read each hit.
 | `routes/threads.ts:1463` | yes | `insertMessage`/`updateThread` (`:1443,:1482`, core tables) + assistant-turn intent | **Cross-boundary pair** |
 | Every other write site (`bets.ts`, `tasks.ts`, `app.ts:494`, reactors `work-session-started-reactions.ts:63`, `agent-run-admission-reactions.ts:115`, `assistant-turn-coherence-trigger.ts:81`, `routine-scheduler-bindings.ts`, `policy-bindings.ts:88`, review subscriptions `service-bootstrap.ts:470`) | no (plain `db`/`exec` outside a surrounding core-write tx, or post-event reaction) | — | **Uncoupled** |
 
-**Verdict.** Exactly **two** cross-boundary atomic pairs exist (`knowledge.ts:934`,
-`threads.ts:1463`); one pair is orchestration-internal and survives intact by moving into a single
-intake operation. The two cross-boundary pairs are explicitly relinquished with named windows in
-architecture.md §3.1 — this is a decision, not a discovery left to build. (`policy-bindings.ts`'s
-`record` port takes an `exec` that CAN be a caller's tx — the builder must re-run this audit's grep
-at build time and route any tx-carrying caller through the same relinquishment decision;
-verified callers today pass plain handles. Marked as a build-step check, not UNVERIFIED.)
+**Verdict — WRONG. Superseded by P3b below; do not use this table or this method.** The claim was:
+"Exactly **two** cross-boundary atomic pairs exist (`knowledge.ts:934`, `threads.ts:1463`); one pair
+is orchestration-internal and survives intact by moving into a single intake operation." Five
+critique rounds re-swept and confirmed it. It is still wrong: there are **nine** such transactions,
+carrying ten orchestration writes. The original text is left standing above so the next reader can
+see what the method produced and why it read as complete — the parenthetical it ended with
+(`policy-bindings.ts`'s `record` port "CAN be a caller's tx", deferred to a build-time re-run of the
+same grep) was the audit noticing its own blind spot and handing it to the builder as a grep to
+repeat, which is precisely what could not work.
+
+---
+
+## P3b — the same question, asked by following the transaction handle (replaces P3)
+
+**Why P3 failed, structurally.** P3 searched for the literal spellings `enqueueWorkIntent(`,
+`createSessionRequest(`, `agentWorkIntentRecorder.record(` and `tx as HyperIdleDb`. Two independent
+reasons that cannot find the set:
+
+1. **Most of these sites never write the function's name.** The orchestration write arrives as an
+   injected dependency: `deps.workIntents.record(tx, …)`
+   (`layers/core-api/work/src/task-state-machine.ts:141`),
+   `ports.workIntents.enqueueWorkIntent(tx, …)` (`layers/core-api/routine/src/routine-scheduler.ts:619`),
+   `deps.runOrchestration.endRunForHandoff(tx, …)` and `deps.sessionRequests.record(tx, …)`
+   (`layers/core-api/policy/src/handoff-protocol.ts:128,:338`),
+   `ports.intentRecorder.record(innerTx, …)` (`layers/core-api/review/src/proposed-call-workflow.ts:578`).
+   None of those files imports an agent-orchestration package at all, so no name-based search over
+   core-api reaches them — and P3 also scoped itself to `layers/core-api/src`, excluding the four
+   service packages where five of the nine sites live.
+2. **The transaction is opened one or two frames below the site a reader inspects.**
+   `routes/tasks.ts:253` and `routes/threads.ts:1665` both pass a pooled handle; the callee opens
+   its own (in the second case *nested*) transaction and records the intent inside it. Classifying
+   by the executor visible at the call site marks both "uncoupled", which is what P3's last table
+   row did for six of the nine sites.
+
+**Method.** Key on the transaction handle instead of a name — a write can only be inside a
+transaction if the handle reached it, so the handle's reach is the complete universe.
+`probes/p3b-transaction-threading/find-tx-threaded-calls.mjs` enumerates every production
+`.transaction(` in `layers/`, `framework/`, `applications/`, brace-matches the callback body
+(starting after the `=>`, because a return-type annotation can contain a `{` — getting that wrong
+silently drops one of the missed sites), collects local aliases of the handle, and reports every
+call whose first argument is the handle or an alias, printing the callee **as written**. 25 bodies
+qualify; three expression-body callbacks are read by hand and are comments or
+orchestration-internal. Then each reported callee is resolved to its owning package, following an
+injected port to the composition root that wires it. Recorded run: `probes/p3b-transaction-threading/output.txt`
+at base `d96bcdcf`; `README.md` there states the method and its one manual step.
+
+**Result.** Nine transactions commit a core write together with an agent-orchestration write, ten
+writes in all (`handoff-protocol.ts:116` carries two). Four were named by P3
+(`agents.ts:270`, `teams-routes.ts:413`, `knowledge.ts:890`, `threads.ts:1440`); five were not
+(`teams-routes.ts:265`, `task-state-machine.ts:72`, `handoff-protocol.ts:116`,
+`routine-scheduler.ts:599`, `proposed-call-workflow.ts:523`). `sessions-routes.ts:167` remains
+orchestration-internal, as P3 said. The reverse direction is clean: no orchestration transaction
+wraps a write that becomes a `CoreApiPort` op. The full inventory, with the core writes sharing each
+transaction and the end state per site, is architecture.md §3.1.
+
+**The question P3 never asked, and the one that stopped the first build.** A seam call issued while
+a transaction holds the shared PGlite connection deadlocks whether it reads or writes, so
+in-transaction *reads* of orchestration state matter too. There are two, both reached from
+`resolveRoutineRunRequest` inside `routine-scheduler.ts:599`'s transaction: `isAgentAtCapacity` (a
+`sessions` read) and `readAgentRunConfig` inside its `concurrencyBoundReader` — wired at
+`routine-scheduler-bindings.ts:153,:159`. They are hoisted above the transaction, not relinquished:
+they read orchestration-owned tables the core transaction never writes, so the value is identical
+before it opens (architecture.md §3.1).
+
+**Verdict.** Nine relinquishments under one rule, two reads hoisted, one write reordered ahead of
+its transaction, one site whose residue is worse than "a queued job is missing" and is named as
+such. All of it decided in architecture.md §3.1 — nothing left as a grep for the builder to repeat.
 
 ---
 
@@ -213,7 +273,10 @@ face, not an application.
 The plan's premises depend only on repository state (imports, manifests, registries), which these
 probes read directly. The one deployed-state AC — a real agent run end to end — is an acceptance
 activity, not a planning assumption; its execution recipe is architecture.md §11. No load-bearing
-assumption remains UNVERIFIED except the two ⚠️ build-time re-checks named in P3 and P4.
+assumption remains UNVERIFIED except the ⚠️ build-time re-check named in P4. **P3's own deferred
+re-check is withdrawn** — a re-run of a grep that could not see the sites was never a check. P3b
+settles the question at planning time instead, and its method is a script a reviewer can run rather
+than a search a builder must remember to repeat.
 
 ---
 
