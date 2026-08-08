@@ -28,8 +28,9 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 	test("returns an array of disposer functions when called with db and eventBus", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
-		const disposers = fullServiceBootstrap({ db, eventBus });
+		const disposers = fullServiceBootstrap({ db, eventBus, agentOrchestration });
 
 		expect(Array.isArray(disposers)).toBe(true);
 		expect(disposers.length).toBeGreaterThan(0);
@@ -45,6 +46,7 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 	test("returns the exact named owners and invokes every distinct cleanup effect", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
 		type OwnedDisposer = (() => void) & {
 			readonly owner: string;
@@ -179,6 +181,7 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 		const disposers = fullServiceBootstrap({
 			db,
 			eventBus,
+			agentOrchestration,
 			dispatcherDeps: {
 				adapterPool: {},
 				workspace: {},

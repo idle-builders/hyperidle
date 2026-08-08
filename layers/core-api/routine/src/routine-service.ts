@@ -282,9 +282,16 @@ export interface BakedRoutineRunRequest {
  * (`layers/core-api/src/services/routine-scheduler-bindings.ts`), mirroring
  * every sibling family resolver's `*ResolverDeps` shape (e.g.
  * `task-run-resolver.ts`'s `TaskRunResolverDeps`).
+ *
+ * @lore AU31 §3.1: `agentSelection` is now OPTIONAL here — `resolveRoutineRunRequest`
+ * itself no longer reads it (the capacity + delegate-selection read moved to
+ * `resolveRoutineRunTargetAgent`, called BEFORE the caller's transaction
+ * opens). The field stays on this interface only so callers building a
+ * `resolveRoutineRunTargetAgent`-compatible reader can reuse
+ * `RoutineRunResolverDeps["agentSelection"]`'s type.
  */
 export interface RoutineRunResolverDeps {
-	readonly agentSelection: {
+	readonly agentSelection?: {
 		isAtCapacity(db: HyperIdleDb, agentId: string): Promise<boolean>;
 		selectAgent(input: {
 			readonly surface: "routine_delegate";
@@ -351,7 +358,7 @@ export interface RoutineRunResolverDeps {
 export async function resolveRoutineRunTargetAgent(
 	db: HyperIdleDb,
 	routine: Routine,
-	agentSelection: RoutineRunResolverDeps["agentSelection"],
+	agentSelection: NonNullable<RoutineRunResolverDeps["agentSelection"]>,
 ): Promise<string> {
 	let selectedAgentId = routine.ownerAgentId;
 	if (await agentSelection.isAtCapacity(db, routine.ownerAgentId)) {

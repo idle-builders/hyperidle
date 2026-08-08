@@ -16,7 +16,7 @@ import { AdapterPool, createHarnessAdapter } from "@hyperidle/harness-registry";
 import type { HandoffMetadata } from "@hyperidle/policy";
 import type { RunTransitionSpec } from "@hyperidle/run-orchestration";
 import { eq, inArray } from "drizzle-orm";
-import { handoff } from "../services/policy-bindings.js";
+import { buildProductionHandoff } from "../services/policy-bindings.js";
 import { runtimeDeps, startRuntime } from "../services/run-orchestration-composition.js";
 
 type SessionContext = Extract<RunTransitionSpec, { target: "session" }>["context"];
@@ -160,7 +160,9 @@ describe("Handoff Protocol", () => {
 		test("ends A's session, sets B as owner, creates thread message with metadata", async ({
 			db,
 			eventBus,
+			agentOrchestration,
 		}) => {
+		const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
@@ -204,7 +206,9 @@ describe("Handoff Protocol", () => {
 	});
 
 	describe("AC2: Handoff by role", () => {
-		test("resolves toRole to available agent on same team", async ({ db, eventBus }) => {
+		test("resolves toRole to available agent on same team", async ({ db, eventBus ,
+		agentOrchestration}) => {
+		const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "product_manager", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
@@ -227,7 +231,9 @@ describe("Handoff Protocol", () => {
 			expect(task?.ownerAgentId).toBe("agent-b");
 		});
 
-		test("creates escalation item when no agent with role available", async ({ db, eventBus }) => {
+		test("creates escalation item when no agent with role available", async ({ db, eventBus ,
+		agentOrchestration}) => {
+		const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "product_manager", "t1");
 			// No builder agents exist
@@ -252,7 +258,9 @@ describe("Handoff Protocol", () => {
 			expect(escalationItems[0]!.title).toContain("builder");
 		});
 
-		test("excludes the handing-off agent from role resolution", async ({ db, eventBus }) => {
+		test("excludes the handing-off agent from role resolution", async ({ db, eventBus ,
+		agentOrchestration}) => {
+		const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			// Agent A is also a builder -- should not hand off to itself
 			await insertAgent(db, "agent-a", "builder", "t1");
@@ -273,7 +281,9 @@ describe("Handoff Protocol", () => {
 	});
 
 	describe("AC3: Handoff to human", () => {
-		test("transitions task to blocked and creates review item", async ({ db, eventBus }) => {
+		test("transitions task to blocked and creates review item", async ({ db, eventBus ,
+		agentOrchestration}) => {
+		const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertTask(db, "task-1", "in_progress", "agent-a");
@@ -303,7 +313,9 @@ describe("Handoff Protocol", () => {
 	});
 
 	describe("AC4: Thread message contains structured handoff metadata JSON", () => {
-		test("includes all required fields in the thread message body", async ({ db, eventBus }) => {
+		test("includes all required fields in the thread message body", async ({ db, eventBus ,
+		agentOrchestration}) => {
+		const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
@@ -348,7 +360,9 @@ describe("Handoff Protocol", () => {
 		test("includes error field in thread message when status is failed", async ({
 			db,
 			eventBus,
+			agentOrchestration,
 		}) => {
+		const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
@@ -381,7 +395,9 @@ describe("Handoff Protocol", () => {
 	});
 
 	describe("AC6: Task audit trail shows full handoff history", () => {
-		test("logs handoff in task audit trail", async ({ db, eventBus }) => {
+		test("logs handoff in task audit trail", async ({ db, eventBus ,
+		agentOrchestration}) => {
+		const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
@@ -407,7 +423,9 @@ describe("Handoff Protocol", () => {
 			expect(handoffEntry.timestamp).toBeDefined();
 		});
 
-		test("preserves existing audit entries when adding handoff", async ({ db, eventBus }) => {
+		test("preserves existing audit entries when adding handoff", async ({ db, eventBus ,
+		agentOrchestration}) => {
+		const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
@@ -464,7 +482,9 @@ describe("Handoff Protocol", () => {
 			expect(task?.notes).toBe(agentProse);
 		});
 
-		test("tracks multiple handoffs in sequence", async ({ db, eventBus }) => {
+		test("tracks multiple handoffs in sequence", async ({ db, eventBus ,
+		agentOrchestration}) => {
+		const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
@@ -505,7 +525,9 @@ describe("Handoff Protocol", () => {
 		test("leaves tasks.notes prose untouched and appends handoff entry to tasks.auditTrail", async ({
 			db,
 			eventBus,
+			agentOrchestration,
 		}) => {
+		const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
@@ -563,7 +585,9 @@ describe("Handoff Protocol", () => {
 		test("never writes the handoff entry into tasks.notes even when notes starts null", async ({
 			db,
 			eventBus,
+			agentOrchestration,
 		}) => {
+		const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
@@ -615,7 +639,9 @@ describe("Handoff Protocol", () => {
 		test("concurrent handoffs claim task once without duplicate intent or audit", async ({
 			db,
 			eventBus,
+			agentOrchestration,
 		}) => {
+		const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
@@ -664,7 +690,9 @@ describe("Handoff Protocol", () => {
 		test("rolls back session, task, auditTrail when messages INSERT throws", async ({
 			db,
 			eventBus,
+			agentOrchestration,
 		}) => {
+		const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
@@ -724,10 +752,18 @@ describe("Handoff Protocol", () => {
 			// comment above, matching the original FK violation intent).
 			expect((thrown as Error).message.toLowerCase()).toContain("foreign key");
 
-			// Session unchanged: still active, no endedAt.
+			// AU31 §3.1 site 7 — INVERTED. `endRunForHandoff` now runs BEFORE the
+			// transaction the mock intercepts (the "free lever" reorder — see
+			// `handoff-protocol.ts`'s `@lore` above `deps.runOrchestration
+			// .endRunForHandoff` and `policy/src/ports.ts`'s `runOrchestration`
+			// @lore for why). So the run-end already committed by the time the
+			// `messages` INSERT throws and the rest of the transaction rolls
+			// back: this test's own twin (`handoff-to.integration.test.ts:354`)
+			// asserts the identical named window. A rolled-back handoff now
+			// leaves an ALREADY-ENDED session, not an untouched one.
 			const [session] = await db.select().from(sessions).where(eq(sessions.id, "session-atomic"));
-			expect(session?.state).toBe("active");
-			expect(session?.endedAt).toBeFalsy();
+			expect(session?.state).toBe("done");
+			expect(session?.endedAt).toBeTruthy();
 
 			// Task: ownerAgentId still agent-a (ownership update rolled back),
 			// auditTrail has no handoff entry (the tx rolled back all of its writes).
@@ -743,7 +779,9 @@ describe("Handoff Protocol", () => {
 	});
 
 	describe("edge cases", () => {
-		test("throws when task not found", async ({ db, eventBus }) => {
+		test("throws when task not found", async ({ db, eventBus ,
+		agentOrchestration}) => {
+		const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			const ctx = makeSessionContext("session-a", "agent-a", "nonexistent-task");
@@ -754,7 +792,9 @@ describe("Handoff Protocol", () => {
 			).rejects.toThrow("Task not found");
 		});
 
-		test("throws when target agent not found", async ({ db, eventBus }) => {
+		test("throws when target agent not found", async ({ db, eventBus ,
+		agentOrchestration}) => {
+		const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertTask(db, "task-1", "in_progress", "agent-a");
@@ -776,7 +816,9 @@ describe("Handoff Protocol", () => {
 		test("emits session_handoff_completed carrying requestedBy = the outgoing agent", async ({
 			db,
 			eventBus,
+			agentOrchestration,
 		}) => {
+		const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
@@ -799,7 +841,9 @@ describe("Handoff Protocol", () => {
 		test("registerHandoffTerminationRequester writes terminationRequestedBy on the correlated request", async ({
 			db,
 			eventBus,
+			agentOrchestration,
 		}) => {
+		const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");

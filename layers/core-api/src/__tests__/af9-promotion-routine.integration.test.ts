@@ -155,7 +155,8 @@ describe("AF9 AC2: builtin:knowledge-promotion routine", () => {
 	test("fireStoredRoutine promotes provisional items meeting the threshold", async ({
 		db,
 		eventBus,
-	}) => {
+		agentOrchestration,
+		}) => {
 		await seedOwners(db);
 		await seedBuiltinRoutines(db, "prod-1");
 
@@ -163,7 +164,7 @@ describe("AF9 AC2: builtin:knowledge-promotion routine", () => {
 		const subjectId = await seedPromotionCandidates(db, "promo-basic");
 
 		// Act: run the promotion routine.
-		const result = await fireStoredRoutine(db, eventBus, PROMOTION_ROUTINE_ID);
+		const result = await fireStoredRoutine(db, eventBus, agentOrchestration, PROMOTION_ROUTINE_ID);
 		expect(result.fired).toBe(true);
 
 		// Assert: the subject item is now validated.
@@ -186,7 +187,8 @@ describe("AF9 AC2: builtin:knowledge-promotion routine", () => {
 	test("fireStoredRoutine writes a routine_runs row with outcome=success", async ({
 		db,
 		eventBus,
-	}) => {
+		agentOrchestration,
+		}) => {
 		await seedOwners(db);
 		await seedBuiltinRoutines(db, "prod-1");
 		await seedPromotionCandidates(db, "promo-runs");
@@ -196,7 +198,7 @@ describe("AF9 AC2: builtin:knowledge-promotion routine", () => {
 			.from(routineRuns)
 			.where(eq(routineRuns.routineId, PROMOTION_ROUTINE_ID));
 
-		await fireStoredRoutine(db, eventBus, PROMOTION_ROUTINE_ID);
+		await fireStoredRoutine(db, eventBus, agentOrchestration, PROMOTION_ROUTINE_ID);
 
 		const runsAfter = await db
 			.select()
@@ -213,7 +215,8 @@ describe("AF9 AC2: builtin:knowledge-promotion routine", () => {
 	test("disabled routine writes NO routine_runs row (AC2 negative: disabled → no fire)", async ({
 		db,
 		eventBus,
-	}) => {
+		agentOrchestration,
+		}) => {
 		await seedOwners(db);
 		await seedBuiltinRoutines(db, "prod-1");
 
@@ -226,7 +229,7 @@ describe("AF9 AC2: builtin:knowledge-promotion routine", () => {
 			.where(eq(routineRuns.routineId, PROMOTION_ROUTINE_ID));
 
 		// Act: run while disabled.
-		const result = await fireStoredRoutine(db, eventBus, PROMOTION_ROUTINE_ID);
+		const result = await fireStoredRoutine(db, eventBus, agentOrchestration, PROMOTION_ROUTINE_ID);
 		expect(result.fired).toBe(false);
 
 		// Assert: NO new routine_runs row written (the AF6 invariant: disabled → no row).
@@ -240,7 +243,8 @@ describe("AF9 AC2: builtin:knowledge-promotion routine", () => {
 	test("exactly ONE knowledge_updated action=auto_promoted per promoted item (no double-emit)", async ({
 		db,
 		eventBus,
-	}) => {
+		agentOrchestration,
+		}) => {
 		await seedOwners(db);
 		await seedBuiltinRoutines(db, "prod-1");
 		const subjectId = await seedPromotionCandidates(db, "promo-emit");
@@ -248,7 +252,7 @@ describe("AF9 AC2: builtin:knowledge-promotion routine", () => {
 		const updatedEvents: KnowledgeUpdatedEvent[] = [];
 		eventBus.on("knowledge_updated", (e) => updatedEvents.push(e));
 
-		await fireStoredRoutine(db, eventBus, PROMOTION_ROUTINE_ID);
+		await fireStoredRoutine(db, eventBus, agentOrchestration, PROMOTION_ROUTINE_ID);
 
 		// Filter to auto_promoted events for the subject.
 		const autoPromotedForSubject = updatedEvents.filter(
@@ -263,19 +267,20 @@ describe("AF9 AC2: builtin:knowledge-promotion routine", () => {
 	test("idempotent: running again on already-validated items does not re-promote", async ({
 		db,
 		eventBus,
-	}) => {
+		agentOrchestration,
+		}) => {
 		await seedOwners(db);
 		await seedBuiltinRoutines(db, "prod-1");
 		await seedPromotionCandidates(db, "promo-idem");
 
 		// First run — promotes items.
-		await fireStoredRoutine(db, eventBus, PROMOTION_ROUTINE_ID);
+		await fireStoredRoutine(db, eventBus, agentOrchestration, PROMOTION_ROUTINE_ID);
 
 		const updatedEventsRound2: KnowledgeUpdatedEvent[] = [];
 		eventBus.on("knowledge_updated", (e) => updatedEventsRound2.push(e));
 
 		// Second run — already validated, should produce no new auto_promoted events.
-		await fireStoredRoutine(db, eventBus, PROMOTION_ROUTINE_ID);
+		await fireStoredRoutine(db, eventBus, agentOrchestration, PROMOTION_ROUTINE_ID);
 
 		const newAutoPromoted = updatedEventsRound2.filter((e) => e.action === "auto_promoted");
 		expect(newAutoPromoted.length).toBe(0);

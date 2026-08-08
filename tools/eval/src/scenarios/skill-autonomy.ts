@@ -9,6 +9,7 @@
 
 import { randomUUID } from "node:crypto";
 import { fireRoutine } from "@hyperidle/core-api/routines";
+import { buildEvalAgentOrchestrationPort } from "../agent-orchestration-fixture.js";
 import { items, routines, userSkills } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
@@ -82,7 +83,8 @@ const skaL1ReviewRequired: EvalScenario = {
 			.where(eq(routines.id, l1RoutineId))
 			.limit(1);
 		if (!routine) return makeSyntheticResult(startMs, false);
-		const result = await fireRoutine(ctx.db, eventBus, routine);
+		const agentOrchestration = buildEvalAgentOrchestrationPort(ctx.db, eventBus);
+		const result = await fireRoutine(ctx.db, eventBus, agentOrchestration, routine);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
@@ -194,7 +196,8 @@ const skaL4Silent: EvalScenario = {
 			.where(eq(routines.id, l4RoutineId))
 			.limit(1);
 		if (!routine) return makeSyntheticResult(startMs, false);
-		const result = await fireRoutine(ctx.db, eventBus, routine);
+		const agentOrchestration = buildEvalAgentOrchestrationPort(ctx.db, eventBus);
+		const result = await fireRoutine(ctx.db, eventBus, agentOrchestration, routine);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {

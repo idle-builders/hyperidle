@@ -351,15 +351,24 @@ describe("AU26 H1 — handoff's run-end write", () => {
 		expect(await db.select().from(agentSessionRequests)).toHaveLength(0);
 	});
 
-	test("leaves the run untouched when the handoff transaction rolls back", async ({
+	// AU31 §3.1 site 7 — INVERTED. `endRunForHandoff` now runs BEFORE the
+	// handoff's transaction opens (the "free lever" reorder — no safety net
+	// exists behind that write, so relinquishing it in the default post-commit
+	// order would strand the agent's session slot forever on a failure; see
+	// `handoff-protocol.ts`'s `@lore` above `deps.runOrchestration
+	// .endRunForHandoff`). So a rolled-back handoff now leaves an
+	// ALREADY-ENDED run and an untouched task — the named residue, repaired by
+	// the same `hold`/re-dispatch path site 6 already uses. This test's twin,
+	// `handoff-protocol.integration.test.ts`'s "rolls back session, task,
+	// auditTrail when messages INSERT throws", asserts the identical window.
+	test("ends the run even when the handoff transaction rolls back (AU31 §3.1 site 7)", async ({
 		db,
 		eventBus,
 	}) => {
 		await seed(db);
 		// `review -> blocked` is not a legal task transition, so the toHuman
-		// branch throws INSIDE the transaction, AFTER the run-end write. If the
-		// write were not in the caller's transaction the run would already be
-		// `done` here.
+		// branch throws INSIDE the transaction — AFTER the run-end write, which
+		// now runs before the transaction opens at all.
 		await db.update(tasks).set({ state: "review" }).where(eq(tasks.id, "task-1"));
 
 		await expect(
@@ -370,8 +379,8 @@ describe("AU26 H1 — handoff's run-end write", () => {
 		).rejects.toThrow("Invalid transition for task task-1: review -> blocked");
 
 		const [session] = await db.select().from(sessions).where(eq(sessions.id, "session-1"));
-		expect(session?.state).toBe("active");
-		expect(session?.endedAt).toBeNull();
+		expect(session?.state).toBe("done");
+		expect(session?.endedAt).toBeTruthy();
 		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 		expect(task?.state).toBe("review");
 	});

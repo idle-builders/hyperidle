@@ -211,22 +211,24 @@ describe("G4: Built-in Routines", () => {
 		test("firing builtin:practice-meeting does not fire — the kind is no longer provisioned or recognized", async ({
 			db,
 			eventBus,
+			agentOrchestration,
 		}) => {
 			await seedOwners(db);
 			await seedBuiltinRoutines(db);
 
-			const result = await fireStoredRoutine(db, eventBus, BID.practiceMeeting);
+			const result = await fireStoredRoutine(db, eventBus, agentOrchestration, BID.practiceMeeting);
 			expect(result.fired).toBe(false);
 		});
 
 		test("no practice_meeting_anchor knowledge item is created by seeding + firing the surviving builtins", async ({
 			db,
 			eventBus,
+			agentOrchestration,
 		}) => {
 			await seedOwners(db);
 			await seedBuiltinRoutines(db);
-			await fireStoredRoutine(db, eventBus, BID.knowledgeDecay);
-			await fireStoredRoutine(db, eventBus, BID.portfolioRetro);
+			await fireStoredRoutine(db, eventBus, agentOrchestration, BID.knowledgeDecay);
+			await fireStoredRoutine(db, eventBus, agentOrchestration, BID.portfolioRetro);
 
 			const anchors = await db
 				.select()
@@ -261,12 +263,13 @@ describe("G4: Built-in Routines", () => {
 		test("creates a review items row citing both hypothesis and reality", async ({
 			db,
 			eventBus,
+			agentOrchestration,
 		}) => {
 			await seedOwners(db);
 			await seedBuiltinRoutines(db);
 			await seedShippedBet(db);
 
-			const result = await fireStoredRoutine(db, eventBus, BID.postBetRetro, {
+			const result = await fireStoredRoutine(db, eventBus, agentOrchestration, BID.postBetRetro, {
 				betId: "bet-shipped-1",
 			});
 
@@ -281,14 +284,15 @@ describe("G4: Built-in Routines", () => {
 			expect((row!.body ?? "").toLowerCase()).toContain("reality");
 		});
 
-		test("emits an item_created event", async ({ db, eventBus }) => {
+		test("emits an item_created event", async ({ db, eventBus ,
+		agentOrchestration}) => {
 			await seedOwners(db);
 			const emitted: DomainEvent[] = [];
 			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
 			await seedBuiltinRoutines(db);
 			await seedShippedBet(db);
 
-			await fireStoredRoutine(db, eventBus, BID.postBetRetro, {
+			await fireStoredRoutine(db, eventBus, agentOrchestration, BID.postBetRetro, {
 				betId: "bet-shipped-1",
 			});
 
@@ -299,12 +303,13 @@ describe("G4: Built-in Routines", () => {
 		test("fires on bet_state_changed(toState=completed) event when handler is registered", async ({
 			db,
 			eventBus,
+			agentOrchestration,
 		}) => {
 			await seedOwners(db);
 			await seedBuiltinRoutines(db);
 			await seedShippedBet(db);
 
-			const unsub = registerBuiltinRoutineReactions(db, eventBus);
+			const unsub = registerBuiltinRoutineReactions(db, eventBus, agentOrchestration);
 			try {
 				const shipped: BetStateChangedEvent = {
 					type: "bet_state_changed",
@@ -329,17 +334,18 @@ describe("G4: Built-in Routines", () => {
 		test("does not create a second review when the same bet ships twice (G4 WARN-3)", async ({
 			db,
 			eventBus,
+			agentOrchestration,
 		}) => {
 			await seedOwners(db);
 			await seedBuiltinRoutines(db);
 			await seedShippedBet(db);
 
-			const first = await fireStoredRoutine(db, eventBus, BID.postBetRetro, {
+			const first = await fireStoredRoutine(db, eventBus, agentOrchestration, BID.postBetRetro, {
 				betId: "bet-shipped-1",
 			});
 			expect(first.fired).toBe(true);
 
-			const second = await fireStoredRoutine(db, eventBus, BID.postBetRetro, {
+			const second = await fireStoredRoutine(db, eventBus, agentOrchestration, BID.postBetRetro, {
 				betId: "bet-shipped-1",
 			});
 			expect(second.fired).toBe(false);
@@ -354,12 +360,13 @@ describe("G4: Built-in Routines", () => {
 		test("dedupes across consecutive bet_state_changed(toState=completed) events for same betId", async ({
 			db,
 			eventBus,
+			agentOrchestration,
 		}) => {
 			await seedOwners(db);
 			await seedBuiltinRoutines(db);
 			await seedShippedBet(db);
 
-			const unsub = registerBuiltinRoutineReactions(db, eventBus);
+			const unsub = registerBuiltinRoutineReactions(db, eventBus, agentOrchestration);
 			try {
 				const shipped: BetStateChangedEvent = {
 					type: "bet_state_changed",
@@ -384,12 +391,13 @@ describe("G4: Built-in Routines", () => {
 		test("does NOT fire on non-completed bet_state_changed transitions", async ({
 			db,
 			eventBus,
+			agentOrchestration,
 		}) => {
 			await seedOwners(db);
 			await seedBuiltinRoutines(db);
 			await seedShippedBet(db);
 
-			const unsub = registerBuiltinRoutineReactions(db, eventBus);
+			const unsub = registerBuiltinRoutineReactions(db, eventBus, agentOrchestration);
 			try {
 				// Emit a non-completed transition — should be ignored
 				const nonCompleted: BetStateChangedEvent = {
@@ -418,6 +426,7 @@ describe("G4: Built-in Routines", () => {
 		test("summarizes cross-product L3/L4 items updated within the last month", async ({
 			db,
 			eventBus,
+			agentOrchestration,
 		}) => {
 			await seedOwners(db);
 			await seedBuiltinRoutines(db);
@@ -478,7 +487,7 @@ describe("G4: Built-in Routines", () => {
 				kind: "pattern",
 			});
 
-			const result = await fireStoredRoutine(db, eventBus, BID.portfolioRetro);
+			const result = await fireStoredRoutine(db, eventBus, agentOrchestration, BID.portfolioRetro);
 			expect(result.fired).toBe(true);
 
 			const reviewRows = await db.select().from(items);
@@ -494,7 +503,8 @@ describe("G4: Built-in Routines", () => {
 	// AC5: Knowledge Decay — transitions active items unused >90d to stale
 	// ------------------------------------------------------------------
 	describe("AC5: Knowledge Decay", () => {
-		test("marks active items older than 90 days as stale", async ({ db, eventBus }) => {
+		test("marks active items older than 90 days as stale", async ({ db, eventBus ,
+		agentOrchestration}) => {
 			await seedOwners(db);
 			await seedBuiltinRoutines(db);
 
@@ -511,7 +521,7 @@ describe("G4: Built-in Routines", () => {
 				updatedAt: longAgo,
 			});
 
-			const result = await fireStoredRoutine(db, eventBus, BID.knowledgeDecay);
+			const result = await fireStoredRoutine(db, eventBus, agentOrchestration, BID.knowledgeDecay);
 			expect(result.fired).toBe(true);
 
 			const [row] = await db
@@ -526,6 +536,7 @@ describe("G4: Built-in Routines", () => {
 		test("suppresses knowledge_updated events when routine.silent=1 (G4 MAJOR-5)", async ({
 			db,
 			eventBus,
+			agentOrchestration,
 		}) => {
 			await seedOwners(db);
 			const emitted: DomainEvent[] = [];
@@ -554,7 +565,7 @@ describe("G4: Built-in Routines", () => {
 				});
 			}
 
-			await fireStoredRoutine(db, eventBus, BID.knowledgeDecay);
+			await fireStoredRoutine(db, eventBus, agentOrchestration, BID.knowledgeDecay);
 
 			// DB writes still happen — verify the transitions succeeded.
 			const markedStale = await db
@@ -568,7 +579,8 @@ describe("G4: Built-in Routines", () => {
 			expect(events).toHaveLength(0);
 		});
 
-		test("emits knowledge_updated events when routine.silent=0", async ({ db, eventBus }) => {
+		test("emits knowledge_updated events when routine.silent=0", async ({ db, eventBus ,
+		agentOrchestration}) => {
 			await seedOwners(db);
 			const emitted: DomainEvent[] = [];
 			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
@@ -589,7 +601,7 @@ describe("G4: Built-in Routines", () => {
 				updatedAt: longAgo,
 			});
 
-			await fireStoredRoutine(db, eventBus, BID.knowledgeDecay);
+			await fireStoredRoutine(db, eventBus, agentOrchestration, BID.knowledgeDecay);
 
 			const events = emitted.filter((e) => e.type === "knowledge_updated");
 			expect(events).toHaveLength(1);
@@ -604,17 +616,19 @@ describe("G4: Built-in Routines", () => {
 		test("fireStoredRoutine returns fired=false when routine active=0", async ({
 			db,
 			eventBus,
+			agentOrchestration,
 		}) => {
 			await seedOwners(db);
 			await seedBuiltinRoutines(db);
 			await db.update(routines).set({ active: false }).where(eq(routines.id, BID.knowledgeDecay));
 
-			const result = await fireStoredRoutine(db, eventBus, BID.knowledgeDecay);
+			const result = await fireStoredRoutine(db, eventBus, agentOrchestration, BID.knowledgeDecay);
 			expect(result.fired).toBe(false);
 			if (!result.fired) expect(result.reason).toContain("disabled");
 		});
 
-		test("event handler does not run when event routine active=0", async ({ db, eventBus }) => {
+		test("event handler does not run when event routine active=0", async ({ db, eventBus ,
+		agentOrchestration}) => {
 			await seedOwners(db);
 			await seedBuiltinRoutines(db);
 			await db.update(routines).set({ active: false }).where(eq(routines.id, BID.postBetRetro));
@@ -628,7 +642,7 @@ describe("G4: Built-in Routines", () => {
 				createdAt: NOW_ISO,
 			});
 
-			const unsub = registerBuiltinRoutineReactions(db, eventBus);
+			const unsub = registerBuiltinRoutineReactions(db, eventBus, agentOrchestration);
 			try {
 				const shipped: BetStateChangedEvent = {
 					type: "bet_state_changed",
@@ -663,7 +677,8 @@ describe("built-ins are structurally unaffected by the drain-time selection move
 	test("owner at WIP limit does not block a built-in fire (no fire-time selection to trip)", async ({
 		db,
 		eventBus,
-	}) => {
+		agentOrchestration,
+		}) => {
 		await seedOwners(db);
 		await seedBuiltinRoutines(db);
 
@@ -689,7 +704,7 @@ describe("built-ins are structurally unaffected by the drain-time selection move
 			updatedAt: longAgo,
 		});
 
-		const result = await fireStoredRoutine(db, eventBus, BID.knowledgeDecay);
+		const result = await fireStoredRoutine(db, eventBus, agentOrchestration, BID.knowledgeDecay);
 		expect(result.fired).toBe(true);
 
 		const runs = await db

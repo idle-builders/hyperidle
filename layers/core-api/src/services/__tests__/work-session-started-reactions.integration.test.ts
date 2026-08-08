@@ -138,12 +138,13 @@ describe("registerWorkSessionStartedReactions", () => {
 	test("session_started transitions an accepted task to in_progress (NEW event path, zero orchestration->work write)", async ({
 		db,
 		eventBus,
-	}) => {
+		agentOrchestration,
+		}) => {
 		const { taskId, agentId } = await seedTaskAndAgent(db, "wssr-accepted", {
 			taskState: "accepted",
 		});
 		await seedSession(db, "wssr-accepted-session", { agentId, taskId });
-		registerWorkSessionStartedReactions(db, eventBus);
+		registerWorkSessionStartedReactions(db, eventBus, agentOrchestration);
 
 		eventBus.emit(sessionStarted({ sessionId: "wssr-accepted-session", agentId, taskId }));
 
@@ -155,12 +156,13 @@ describe("registerWorkSessionStartedReactions", () => {
 	test("session_started transitions a blocked task to in_progress (the other valid canTransitionTaskState source)", async ({
 		db,
 		eventBus,
-	}) => {
+		agentOrchestration,
+		}) => {
 		const { taskId, agentId } = await seedTaskAndAgent(db, "wssr-blocked", {
 			taskState: "blocked",
 		});
 		await seedSession(db, "wssr-blocked-session", { agentId, taskId });
-		registerWorkSessionStartedReactions(db, eventBus);
+		registerWorkSessionStartedReactions(db, eventBus, agentOrchestration);
 
 		eventBus.emit(sessionStarted({ sessionId: "wssr-blocked-session", agentId, taskId }));
 
@@ -172,12 +174,13 @@ describe("registerWorkSessionStartedReactions", () => {
 	test("session_started for a task already in_progress (handoff re-dispatch) is a safe no-op, never an uncaught TaskInvalidTransitionError", async ({
 		db,
 		eventBus,
-	}) => {
+		agentOrchestration,
+		}) => {
 		const { taskId, agentId } = await seedTaskAndAgent(db, "wssr-handoff", {
 			taskState: "in_progress",
 		});
 		await seedSession(db, "wssr-handoff-session", { agentId, taskId });
-		registerWorkSessionStartedReactions(db, eventBus);
+		registerWorkSessionStartedReactions(db, eventBus, agentOrchestration);
 
 		eventBus.emit(sessionStarted({ sessionId: "wssr-handoff-session", agentId, taskId }));
 
@@ -190,12 +193,13 @@ describe("registerWorkSessionStartedReactions", () => {
 	test("a duplicate/redelivered session_started for the same transition is a safe no-op (idempotency)", async ({
 		db,
 		eventBus,
-	}) => {
+		agentOrchestration,
+		}) => {
 		const { taskId, agentId } = await seedTaskAndAgent(db, "wssr-idempotent", {
 			taskState: "accepted",
 		});
 		await seedSession(db, "wssr-idempotent-session", { agentId, taskId });
-		registerWorkSessionStartedReactions(db, eventBus);
+		registerWorkSessionStartedReactions(db, eventBus, agentOrchestration);
 
 		eventBus.emit(sessionStarted({ sessionId: "wssr-idempotent-session", agentId, taskId }));
 		await vi.waitFor(async () => {
@@ -216,10 +220,11 @@ describe("registerWorkSessionStartedReactions", () => {
 	test("session_started with taskId: null (task-free session) is a no-op", async ({
 		db,
 		eventBus,
-	}) => {
+		agentOrchestration,
+		}) => {
 		const { agentId } = await seedTaskAndAgent(db, "wssr-taskfree", { taskState: "accepted" });
 		await seedSession(db, "wssr-taskfree-session", { agentId });
-		registerWorkSessionStartedReactions(db, eventBus);
+		registerWorkSessionStartedReactions(db, eventBus, agentOrchestration);
 
 		// Must not throw for a null taskId.
 		expect(() =>

@@ -114,11 +114,12 @@ async function seedRoutineWorld(
 async function fireRoutineAndGetRunId(
 	db: HyperIdleDb,
 	eventBus: import("@hyperidle/shared").EventBus,
+	agentOrchestration: import("@hyperidle/api-contract").AgentOrchestrationPort,
 	routineId: string,
 ): Promise<string> {
 	const [routine] = await db.select().from(routines).where(eq(routines.id, routineId));
 	if (!routine) throw new Error(`routine ${routineId} not seeded`);
-	const result = await fireRoutine(db, eventBus, routine);
+	const result = await fireRoutine(db, eventBus, agentOrchestration, routine);
 	if (!(result.fired && result.runId)) throw new Error(`routine ${routineId} did not fire`);
 	return result.runId;
 }
@@ -134,9 +135,13 @@ async function putAgentAtWip(db: HyperIdleDb, agentId: string, sessionId: string
 }
 
 describe("routine agent-selection — resolved at emit, handed off (baked) at drain", () => {
-	test("owner not at WIP: fire bakes + drain hands off to the owner", async ({ db, eventBus }) => {
+	test("owner not at WIP: fire bakes + drain hands off to the owner", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
 		const { routineId, ownerAgentId } = await seedRoutineWorld(db);
-		const runId = await fireRoutineAndGetRunId(db, eventBus, routineId);
+		const runId = await fireRoutineAndGetRunId(db, eventBus, agentOrchestration, routineId);
 
 		await drainIntents(queueDeps(db));
 
@@ -156,10 +161,11 @@ describe("routine agent-selection — resolved at emit, handed off (baked) at dr
 	test("owner at WIP + delegate available: fire bakes + drain hands off to the delegate", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
 		const { routineId, ownerAgentId, delegateAgentId } = await seedRoutineWorld(db);
 		await putAgentAtWip(db, ownerAgentId, "au15-owner-session");
-		const runId = await fireRoutineAndGetRunId(db, eventBus, routineId);
+		const runId = await fireRoutineAndGetRunId(db, eventBus, agentOrchestration, routineId);
 
 		await drainIntents(queueDeps(db));
 
@@ -173,12 +179,13 @@ describe("routine agent-selection — resolved at emit, handed off (baked) at dr
 	test("owner at WIP + no delegate available: fire defers to the owner (not skipped)", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
 		const { routineId, ownerAgentId, delegateAgentId } = await seedRoutineWorld(db);
 		await putAgentAtWip(db, ownerAgentId, "au15-owner-session");
 		// Delegate is also at WIP — selectRoutineDelegate skips it, returns null.
 		await putAgentAtWip(db, delegateAgentId, "au15-delegate-session");
-		const runId = await fireRoutineAndGetRunId(db, eventBus, routineId);
+		const runId = await fireRoutineAndGetRunId(db, eventBus, agentOrchestration, routineId);
 
 		await drainIntents(queueDeps(db));
 
@@ -199,10 +206,11 @@ describe("routine agent-selection — resolved at emit, handed off (baked) at dr
 	test("delegation not allowed: owner at WIP still hands off to the owner (no delegate lookup)", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
 		const { routineId, ownerAgentId } = await seedRoutineWorld(db, { delegationAllowed: false });
 		await putAgentAtWip(db, ownerAgentId, "au15-owner-session");
-		const runId = await fireRoutineAndGetRunId(db, eventBus, routineId);
+		const runId = await fireRoutineAndGetRunId(db, eventBus, agentOrchestration, routineId);
 
 		await drainIntents(queueDeps(db));
 

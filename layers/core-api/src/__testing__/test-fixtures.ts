@@ -4,6 +4,7 @@ import { registerAssistantThreadPinReaction } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { type DbFixtures, test as dbTest } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/shared";
+import type { HyperIdleEnv } from "@hyperidle/shared/http";
 import { findUser } from "@hyperidle/users";
 import type { Hono } from "hono";
 import { disposeApp } from "../app.js";
@@ -29,7 +30,9 @@ import { createTestApp } from "./test-utils.js";
  * through: this fixture transport proves the route's effect, not the door's
  * authentication.
  */
-function createFixtureAgentOrchestrationTransport(app: Hono): AgentOrchestrationTransport {
+function createFixtureAgentOrchestrationTransport(
+	app: Hono<HyperIdleEnv>,
+): AgentOrchestrationTransport {
 	return async (req: Request) => {
 		const url = new URL(req.url);
 		const strippedPath = url.pathname.replace(/^\/api/, "");
@@ -43,6 +46,13 @@ function createFixtureAgentOrchestrationTransport(app: Hono): AgentOrchestration
 export interface IntegrationFixtures extends DbFixtures {
 	app: Hono;
 	eventBus: EventBus;
+	/**
+	 * AU31 §3.2 — a real `AgentOrchestrationPort` over a throwaway
+	 * `bootAgentOrchestration({db, eventBus})`, for any test that needs to call
+	 * production code requiring the seam's port WITHOUT needing the full `app`
+	 * fixture (e.g. `dispatch-test-helpers.ts`'s `fireStoredRoutine`).
+	 */
+	agentOrchestration: AgentOrchestrationPort;
 }
 
 export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
@@ -94,6 +104,17 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 		unregisterCoherence();
 		unregisterPin();
 		unregister();
+		orchestrationBoot.dispose();
+	},
+	// AU31 §3.2 — an independent throwaway boot (not shared with the
+	// `eventBus` fixture's own): cheap wiring, no I/O, and keeps this fixture
+	// usable whether or not a test also requests `eventBus`/`app`.
+	agentOrchestration: async ({ db, eventBus }, use) => {
+		const orchestrationBoot = bootAgentOrchestration({ db, eventBus });
+		const port = buildAgentOrchestrationPort(
+			createFixtureAgentOrchestrationTransport(orchestrationBoot.app),
+		);
+		await use(port);
 		orchestrationBoot.dispose();
 	},
 	// @lore AU26 B1b: the fixture is an Application — it delegates to

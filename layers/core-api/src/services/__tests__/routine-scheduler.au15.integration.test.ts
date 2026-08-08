@@ -119,7 +119,8 @@ describe("fire-time no longer evaluates owner-WIP", () => {
 	test("owner at WIP still fires (records a run + intent) — selection moved to drain", async ({
 		db,
 		eventBus,
-	}) => {
+		agentOrchestration,
+		}) => {
 		const { routineId, ownerAgentId } = await seedRoutineWorld(db, "au15-r2-routine");
 		await db.insert(sessions).values({
 			id: "au15-r2-owner-session",
@@ -130,7 +131,7 @@ describe("fire-time no longer evaluates owner-WIP", () => {
 		});
 		const [routine] = await db.select().from(routines).where(eq(routines.id, routineId));
 
-		const result = await fireGenericRoutine(db, eventBus, routine!, RUNTIME_DEPS);
+		const result = await fireGenericRoutine(db, eventBus, agentOrchestration, routine!, RUNTIME_DEPS);
 
 		expect(result.fired).toBe(true);
 		const runs = await db.select().from(routineRuns).where(eq(routineRuns.routineId, routineId));
@@ -148,15 +149,16 @@ describe("unified run-row coalescing across both fire paths", () => {
 	test("poll path: a second fireGenericRoutine coalesces against an in-flight run", async ({
 		db,
 		eventBus,
-	}) => {
+		agentOrchestration,
+		}) => {
 		const { routineId } = await seedRoutineWorld(db, "au15-r3a-routine");
 		const [routine] = await db.select().from(routines).where(eq(routines.id, routineId));
 
-		const first = await fireGenericRoutine(db, eventBus, routine!, RUNTIME_DEPS);
+		const first = await fireGenericRoutine(db, eventBus, agentOrchestration, routine!, RUNTIME_DEPS);
 		expect(first.fired).toBe(true);
 
 		const [reloaded] = await db.select().from(routines).where(eq(routines.id, routineId));
-		const second = await fireGenericRoutine(db, eventBus, reloaded!, RUNTIME_DEPS);
+		const second = await fireGenericRoutine(db, eventBus, agentOrchestration, reloaded!, RUNTIME_DEPS);
 
 		expect(second).toMatchObject({ fired: false, reason: "previous run still in progress" });
 		const runs = await db.select().from(routineRuns).where(eq(routineRuns.routineId, routineId));
@@ -172,14 +174,15 @@ describe("unified run-row coalescing across both fire paths", () => {
 		db,
 		eventBus,
 		app,
-	}) => {
+		agentOrchestration,
+		}) => {
 		const { routineId } = await seedRoutineWorld(db, "au15-r3b-routine");
 		const [routine] = await db.select().from(routines).where(eq(routines.id, routineId));
 
 		// Poll-created run: fired, but never provisioned into a session (no
 		// active session exists) — exactly the window the old session-keyed
 		// `shouldCoalesce` signal would have missed.
-		const first = await fireGenericRoutine(db, eventBus, routine!, RUNTIME_DEPS);
+		const first = await fireGenericRoutine(db, eventBus, agentOrchestration, routine!, RUNTIME_DEPS);
 		expect(first.fired).toBe(true);
 		const activeSessions = await db
 			.select()
@@ -205,10 +208,11 @@ describe("terminal-failure finalization of session-less running runs", () => {
 	test("AC-3d: pre-hand-off intent failure (routine deactivated) finalizes the run, self-healing coalescing", async ({
 		db,
 		eventBus,
-	}) => {
+		agentOrchestration,
+		}) => {
 		const { routineId } = await seedRoutineWorld(db, "au15-r4a-routine");
 		const [routine] = await db.select().from(routines).where(eq(routines.id, routineId));
-		const fireResult = await fireGenericRoutine(db, eventBus, routine!, RUNTIME_DEPS);
+		const fireResult = await fireGenericRoutine(db, eventBus, agentOrchestration, routine!, RUNTIME_DEPS);
 		expect(fireResult.fired).toBe(true);
 		const [run] = await db.select().from(routineRuns).where(eq(routineRuns.routineId, routineId));
 		expect(run?.outcome).toBe("running");
@@ -255,7 +259,7 @@ describe("terminal-failure finalization of session-less running runs", () => {
 		// Self-healed: coalescing no longer blocks a fresh fire (the failed run
 		// is no longer "running").
 		const [reloaded] = await db.select().from(routines).where(eq(routines.id, routineId));
-		const secondFire = await fireGenericRoutine(db, eventBus, reloaded!, RUNTIME_DEPS);
+		const secondFire = await fireGenericRoutine(db, eventBus, agentOrchestration, reloaded!, RUNTIME_DEPS);
 		expect(secondFire.fired).toBe(true);
 		expect(secondFire.reason).not.toBe("previous run still in progress");
 	});

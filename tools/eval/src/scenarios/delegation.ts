@@ -30,6 +30,7 @@
 
 import { randomUUID } from "node:crypto";
 import { fireRoutine } from "@hyperidle/core-api/routines";
+import { buildEvalAgentOrchestrationPort } from "../agent-orchestration-fixture.js";
 import { agentWorkIntents, routineRuns, routines } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
@@ -161,7 +162,8 @@ const delSuccessfulDelegation: EvalScenario = {
 			.where(eq(routines.id, delSuccessRoutineId))
 			.limit(1);
 		if (!routine) return makeSyntheticResult(startMs, false);
-		const result = await fireRoutine(ctx.db, eventBus, routine);
+		const agentOrchestration = buildEvalAgentOrchestrationPort(ctx.db, eventBus);
+		const result = await fireRoutine(ctx.db, eventBus, agentOrchestration, routine);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
@@ -275,7 +277,8 @@ const delNoDelegateAvailable: EvalScenario = {
 			.where(eq(routines.id, delNoDelegateRoutineId))
 			.limit(1);
 		if (!routine) return makeSyntheticResult(startMs, false);
-		const result = await fireRoutine(ctx.db, eventBus, routine);
+		const agentOrchestration = buildEvalAgentOrchestrationPort(ctx.db, eventBus);
+		const result = await fireRoutine(ctx.db, eventBus, agentOrchestration, routine);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
@@ -369,7 +372,8 @@ const delDelegationNotAllowed: EvalScenario = {
 			.where(eq(routines.id, delNotAllowedRoutineId))
 			.limit(1);
 		if (!routine) return makeSyntheticResult(startMs, false);
-		const result = await fireRoutine(ctx.db, eventBus, routine);
+		const agentOrchestration = buildEvalAgentOrchestrationPort(ctx.db, eventBus);
+		const result = await fireRoutine(ctx.db, eventBus, agentOrchestration, routine);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
