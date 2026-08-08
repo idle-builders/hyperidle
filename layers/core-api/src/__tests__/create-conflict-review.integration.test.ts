@@ -1,4 +1,9 @@
-import { type HyperIdleDb, knowledgeConflicts, knowledgeItems } from "@hyperidle/db";
+import {
+	type HyperIdleDb,
+	knowledgeAppProjection,
+	knowledgeConflicts,
+	knowledgeItems,
+} from "@hyperidle/db";
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
@@ -31,6 +36,9 @@ const createConflictReviewTool = buildToolDefinitions(toolHandlersPorts).find(
 	(t) => t.name === "create_conflict_review",
 )!;
 
+// @lore this file's own positional (id, version) seeder predates and shapes four call sites
+// differently from the shared `seedKnowledgeItem(db, options)` in `_helpers.ts` — kept as its own
+// function rather than switched over, with the companion inserted inline.
 async function seedKnowledgeItem(db: HyperIdleDb, id: string, version: number): Promise<void> {
 	await db.insert(knowledgeItems).values({
 		id,
@@ -43,6 +51,7 @@ async function seedKnowledgeItem(db: HyperIdleDb, id: string, version: number): 
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
+	await db.insert(knowledgeAppProjection).values({ id: `${id}-projection`, knowledgeItemId: id });
 }
 
 describe("create_conflict_review tool", () => {
