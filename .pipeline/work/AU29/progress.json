@@ -1,7 +1,7 @@
 {
   "id": "AU29",
   "status": "in-progress",
-  "currentStep": "refine",
+  "currentStep": "architecture",
   "startedAt": "2026-08-07",
   "worktree": ".worktrees/pipeline-AU29",
   "branch": "pipeline/AU29",
@@ -17,9 +17,16 @@
     "architecture": 0,
     "review": 0
   },
-  "artifacts": {},
+  "artifacts": {
+    "requirements": ".pipeline/work/AU29/requirements.md",
+    "refine-critique": ".pipeline/work/AU29/refine-critique.md",
+    "architecture": ".pipeline/work/AU29/architecture.md",
+    "feasibility": ".pipeline/work/AU29/feasibility.md",
+    "first-boot-control": ".pipeline/work/AU29/probes/first-boot-control.json"
+  },
   "notes": [
-    "Node: worktree needs node>=24 — prefix PATH with /opt/homebrew/bin (v26). Default PATH node is v22 (hermes) and fails engines + npm ci.",
-    "Bootstrapped with `npm install` (npm ci fails: lock out of sync for react 18 types on main). package-lock.json unchanged by install."
+    "Node: worktree needs node>=24 \u2014 prefix PATH with /opt/homebrew/bin (v26). Default PATH node is v22 (hermes) and fails engines + npm ci.",
+    "Bootstrapped with `npm install` (npm ci fails: lock out of sync for react 18 types on main). package-lock.json unchanged by install.",
+    "Architecture pass done 2026-08-08: agentRunConfig feasibility flag RESOLVED (writeAgentRunConfig row-identical, probe run \u2014 no plan amendment); first-boot control captured via real `npm run setup` CLI, diff-empty vs applyFactoryBootstrap; db:bootstrap surface deletion + 3 decided rows flagged for human review gate (architecture.md \u00a77)."
   ]
 }
