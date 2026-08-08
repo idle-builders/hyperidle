@@ -358,7 +358,7 @@ path, `scripts/governance-lint.ts --errors-only` run, output and exit code recor
 
 | Spelling | Census result |
 |---|---|
-| A — inline: `bootAgentOrchestration({ …, adapterPool: createLocalAdapterPool() })` in an application file | **FAIL, exit 1**: `ERROR [crossing-di] … layer → layer (other) [di] production — agent-orchestration receives the result of \`createLocalAdapterPool\` from agent-execution` |
+| A — inline: `bootAgentOrchestration({ …, adapterPool: createLocalAdapterPool() })` in an application file | **FAIL, exit 1**: `ERROR [crossing-di] … layer → layer (other) [di] production — agent-orchestration receives the result of `createLocalAdapterPool` from agent-execution` |
 | B — local binding: `const pool = createLocalAdapterPool(); bootAgentOrchestration({ …, adapterPool: pool })`, and the `exec.adapters` property-access form | **PASS, exit 0** — zero findings for the probe file, warnings included |
 
 **Which state holds, stated plainly.** The mediated local-binding handoff is not "ruled allowed"
@@ -709,17 +709,19 @@ row for `filesystems`; `layers/core-ui/package.json` respelling):
   composition files — wave B's inventory, stated so the reviewer can check the seam is complete.
 
 **WP/Wave B — "The applications compose faces"** (writes: `layers/agent-execution/**`,
-`layers/agent-orchestration/src/boot.ts` + relocated composition files,
-`layers/core-api/src/boot.ts` + deleted subpath modules + `package.json` export map,
-`applications/**`, `framework/shared/http` helper, `scripts/lib` + `scripts/rules` +
-`governance/*`):
+`layers/agent-orchestration/src/boot.ts` + `layers/agent-orchestration/tool-handlers/**` +
+relocated composition files, `layers/core-api/src/boot.ts` + deleted subpath modules +
+`package.json` export map, `applications/**`, `framework/shared/http` helper, `scripts/lib` +
+`scripts/rules` + `governance/*`):
 - B1. Execution face + MCP dial relocation + `RemoteWorkerClient` + buffer relocation (§6, §2.7).
-- B2. Orchestration boot absorbs the composition (§5.1); core boot absorbs its own (§5.2);
+- B2. Orchestration boot absorbs the composition (§5.1); the tool stack dissolves per §2.5
+  (dispatch moves `harness-registry` → `tool-handlers`, wrapper file deleted, `returnStatusTool`
+  + enforcement registry onto the adapters bundle); core boot absorbs its own (§5.2);
   `session.ts` deleted; eval repointed.
 - B3. Applications rewritten (§5.3); desktop root; mount helper; manifests + export maps shrink
   to faces.
-- B4. Governance: R1–R3 + attacks + README/`decided-rules` notes; conditional baseline deletion;
-  live-run evidence + full verify.
+- B4. Governance: R1–R3 + attacks + README/`decided-rules` notes; the §4 attack/control pair on
+  the `crossing-di` rule; conditional baseline deletion; live-run evidence + full verify.
   Dependency: B1 → B2 → B3 → B4. B depends on A (the relocated composition must not carry
   seam-shaped core imports with it; `service-bootstrap.ts` is the one file both waves touch).
 
