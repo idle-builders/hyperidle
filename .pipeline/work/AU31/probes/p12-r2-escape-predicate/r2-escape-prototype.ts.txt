@@ -1,151 +1,39 @@
 /**
- * P12 — prototype of the R2 predicate ("escape through the export surface"),
- * built on the same parser the live census uses (`scripts/lib/repo-census.ts:644-646`:
- * `ts.createSourceFile`, TypeScript compiler API).
+ * P12 — prototype of the R2 predicate: "a service value must not reach a layer face's
+ * export surface". Built on the parser the live census already uses
+ * (`scripts/lib/repo-census.ts:644-646`: `ts.createSourceFile`).
  *
- * COVERAGE IS DERIVED FROM ENUMERATIONS AND THE MODEL FAILS CLOSED (adjudications 1+2).
- * Three axes, each closed and finite, each enumerated whole:
+ * WHAT THE RULE READS: the module's top-level EXPORT DECLARATIONS, and what those
+ * declarations say. Not what later statements do to an already-exported object.
  *
- *   E — every top-level statement kind that creates an export edge (unchanged, verified
- *       complete in critique round 4);
- *   N — every way a module-evaluation-scope NAME can be introduced (the binding-form
- *       grammar round-4 B6 proved was never enumerated);
- *   F — every module-evaluation POSITION a value can flow through toward that surface.
+ * The whole rule, in a paragraph:
  *
- * FAIL-CLOSED, three inversions (adjudication 2 — the direction of failure is the fix):
- *   1. The carrier universe is INCLUSIVE: a module-scope name is tracked because it is
- *      DECLARED (any N member), never because its material happens to be recognized.
- *      An uninitialized `let` is a carrier whose material arrives by assignment flow.
- *   2. Flow collection is a GENERIC walk of all module-evaluation code with a single
- *      boundary — deferred function bodies — instead of an enumerated statement-shape
- *      list. Assignments and calls are found wherever they sit: statement position,
- *      conditions, loop headers, switch/case expressions, computed names, template
- *      spans, initializer subtrees, class member positions that are not function bodies
- *      (field initializers static AND instance, computed names, decorators, heritage,
- *      static blocks), enum member initializers, namespace bodies — plus the two bodies
- *      the bare parse itself proves run at load: an inline function in direct callee
- *      position (IIFE) and an inline-function class decorator.
- *   3. A module-eval statement kind the walker does not recognize is itself a LOUD
- *      finding that fails the run — an unmodeled form breaks the build instead of
- *      passing it (executed: the `with` statement, attack XL1).
+ *   In a layer root package's modules reachable from its `exports` map, an import from a
+ *   service package may not reach the module's export surface. Four export forms carry a
+ *   value: `export … from "<service>"` (named clause, `export *`, `export * as ns`),
+ *   `export { local }` with no specifier, `export default <expr>`, and an exported
+ *   `const`/`let`/`var`. The exported expression is read through object and array
+ *   literals, spreads, parens, `as`/`satisfies`, and call arguments, and through
+ *   top-level `const`/`let`/`var` aliases (transitively). A service symbol found anywhere
+ *   in that reach is a violation. One exemption, positional: a bare service identifier in
+ *   direct callee position of a call or `new` — calling a service factory PRODUCES a
+ *   value, and producing values is what composition is.
  *
- * Group E — statements that create an export edge (top-level AST kinds):
- *   E1  ExportDeclaration + specifier, NamedExports (`export { x } from "m"`, `as`, `as default`)
- *   E2  ExportDeclaration + specifier, no clause (`export * from "m"`)
- *   E3  ExportDeclaration + specifier, NamespaceExport (`export * as ns from "m"`)
- *   E4  ExportDeclaration, no specifier, NamedExports (`export { x }`, `export { x as y }`,
- *       `export { x as default }`) — the exported LOCAL is tested against the service bindings
- *   E5  ExportAssignment `export default <expr>`
- *   E6  ExportAssignment `export = <expr>` (TS; also a tsc error under NodeNext ESM — caught anyway)
- *   E7  exported VariableStatement, identifier name
- *   E8  exported VariableStatement, ObjectBindingPattern (nested, defaults, rest)
- *   E9  exported VariableStatement, ArrayBindingPattern
- *   E10 exported FunctionDeclaration (incl. `export default function`) — value escapes;
- *       BODY is review territory (F10); the exported name is a carrier so mutation flow sees it
- *   E11 exported ClassDeclaration (incl. anonymous `export default class`) — field initializers,
- *       heritage `extends` expression, decorators, getter bodies, static blocks scanned;
- *       method/setter/constructor bodies review territory (F10)
- *   E12 exported EnumDeclaration — member initializers scanned
- *   E13 exported ModuleDeclaration (`export namespace`) — body scanned whole (conservative)
- *   E14 ImportEqualsDeclaration (`[export] import x = require("m")`) — the binding is recorded;
- *       exporting it flags like E4
- *   CommonJS (`module.exports`, `exports.x`) is NOT a member: the shipping packages compile
- *   ESM/NodeNext, where `module` is undefined at module scope — the spelling cannot function
- *   as an export.
+ * WHAT IT DOES NOT READ, deliberately (founder ruling, concept gate: lint is engineering
+ * guidance, not protection against a determined author):
+ *   - function-like bodies (arrows, functions, methods, accessors, constructors) — the
+ *     sanctioned wiring style IS a bag of arrows over the layer's own services, so a body
+ *     is machine-indistinguishable from legitimate composition;
+ *   - class/enum/namespace members;
+ *   - statements that mutate an already-exported object (`api.tool = svc` and its
+ *     variants), aliases, globals, dynamic `import()`.
  *
- * Group N — the binding-form grammar: every way a module-evaluation-scope name is introduced.
- * Every member registers its names as carriers; material is per-form:
- *   N1  variable declaration, identifier, WITH initializer (`const`/`let`/`var`/`using`/
- *       `await using`), in any module-eval position — top level, module-level block, loop
- *       header — material: the initializer
- *   N2  variable declaration, identifier, WITHOUT initializer (`let`/`var`) — carrier with no
- *       registered material; material arrives via assignment flow (round-4 H1)
- *   N3  variable declaration, binding pattern (object/array, nested, defaults, rest) — pattern
- *       leaves are carriers; defaults and the initializer are their material
- *   N4  function declaration, exported or not, top level or block-nested (hoisted) — carrier;
- *       the body is review territory (F10); mutation on the name is tracked (round-4 H2)
- *   N5  class declaration — carrier; material: class members (load-time member positions also
- *       walked for flow, see F-load below)
- *   N6  enum declaration — carrier; material: member initializers
- *   N7  namespace declaration (ModuleDeclaration) — carrier; material: the body; the body's
- *       statements are also module-eval code and are walked for flow
- *   N8  import clause forms — default, namespace, named (with alias): a service import is the
- *       flag-on-contact set; a NON-service value import is a carrier (the binding is immutable,
- *       so no assignment material can exist, but property mutation on it is tracked; the
- *       imported module's own surface is judged by R2 in that module)
- *   N9  `import x = require("m")` — same treatment as N8
- *   N10 `for`/`for…of` header bindings — carriers; a `for…of` binding's material is the
- *       iterable expression, conservatively whole (round-4 H3); a plain `for` header
- *       declaration is N1/N2 in header position
- *   N11 `for…in` header binding — carrier; material PROVABLY EXCLUDED: a `for…in` binding
- *       holds property-NAME strings, which cannot hold a service value (executed control CN2)
- *   N12 catch parameter, identifier or pattern — carrier; material: every `throw` expression
- *       lexically inside the guarded try block, function bodies excluded (round-4 H4); a value
- *       thrown inside a deferred function body is F10 territory (executed residual RES6)
- *   Out of the N grammar, each with its reason:
- *   — function/class EXPRESSION names (`const x = function f() {}`): `f` is scoped to the
- *     expression's own body, not module scope
- *   — parameters: function-body scope (F10)
- *   — labels: not value bindings
- *   — type-only declarations (interface, type alias, `import type`): no value binding
- *   — assignment to an UNDECLARED name: module code is strict mode — a runtime
- *     ReferenceError, the module cannot load
- *   — names not declared at module scope resolve to globals: flowing a service value into a
- *     global is F12's side channel (review territory); a global cannot yield a service value
- *     except through F12 itself
- *
- * Group F — module-eval value flow into the export surface:
- *   F1  material flow, transitive over module-scope carriers (worklist fixpoint)
- *   F2  assignment to an escaping name, any assignment operator, in ANY module-eval expression
- *       position (statement, condition, loop header, case expression, computed name, template
- *       span, initializer subtree, load-time body)
- *   F3  destructuring assignment targeting an escaping name
- *   F4  property/element mutation whose base chain roots at an escaping binding
- *   F5  a call/new/tagged-template in any module-eval position whose callee chain or any
- *       argument roots at an escaping binding → ALL arguments scanned (conservative)
- *   F6  value positions inside an escaping expression (generic recursion): literal members,
- *       spreads, call/new arguments, property-access objects, template spans, computed names,
- *       conditional/binary/await/as/satisfies/parens, tagged templates
- *   F7  function bodies the syntax itself proves run at module load: inline
- *       function-expression/arrow in direct callee position (IIFE) — in escaping expressions
- *       AND in statement position — plus inline-function class decorators; walked as
- *       module-eval code
- *   F-load: non-function-body class/enum/namespace positions of ANY module-eval declaration,
- *       escaping or not — decorators, heritage expressions, static blocks, field initializers
- *       (static ones run at load; instance ones on any construction, incl. a module-scope
- *       `new`), computed member names, enum member initializers, namespace bodies — walked
- *       for flow
- *   F8  getter bodies (object-literal and class) of an escaping value — a getter yields its value
- *       on mere property access, so it is a data member
- *   F9  THE ONE EXEMPTION, positional, never named: a bare imported service identifier in direct
- *       callee position of a call/new — the call's result is a produced value; the symbol does
- *       not flow into it. (Runtime object graphs — `new C()` → `.constructor` — are inherent to
- *       every face-produced value; R2 governs static binding escape, not runtime reachability.)
- *   F10 function-like bodies (arrows, function expressions and declarations, methods,
- *       accessors, constructors) — WHEREVER their invocation comes from: a consumer's call,
- *       a module-scope call of a named local function, an inline callback passed to a
- *       module-scope call, a module-scope `new` reaching a constructor, a module-scope
- *       property access reaching an accessor, a service value passed as an argument into a
- *       body that stores it, a value thrown from inside a called body. The ONLY bodies
- *       walked are the two the bare parse itself proves run at load (F7): review territory
- *   F11 mutation through a module-scope alias of an escaping object: review territory — object
- *       identity is points-to semantics, not grammar
- *   F12 non-export side channels (`globalThis.leak = svc`; any global): outside R2 — not the
- *       export surface
- *   F13 dynamic `import()` of a service module: outside the binding model — the acquisition edge
- *       itself is censused (`repo-census.ts:705-712`) and its group is at error post-clear
- *   F14 non-escaping module-scope wiring (the wiring-bag style): legal composition, not a miss
- *   F15 THE LOUD GUARD: a module-eval statement kind outside the handled enumeration is a
- *       finding, so an unmodeled form fails the build instead of passing it
- *
- * Over-approximations, all in the conservative (flag) direction: for-of material is the whole
- * iterable; catch material over-attributes lexical throws of nested try blocks to the outer
- * catch; namespace-body names register at module scope; IIFE-local declarations register at
- * module scope. None of these can hide an escape; each can only surface a spurious one, which
- * is the ratified failure direction.
+ * A developer who wants to route a service symbol out through the face can. That is
+ * expected of a lint rule and is not a defect: this rule exists so the plain re-export
+ * and deps-bag spellings — the ones written by accident — fail the build.
  *
  * Usage: npx tsx r2-escape-prototype.ts <file...>
- * Output: per file, each finding as `line — <binding> (from <specifier>) — <context>`, or CLEAN.
+ * Output: per file, `VIOLATION line N — <binding> (from <specifier>) — <context>`, or CLEAN.
  */
 
 import { readFileSync } from "node:fs";
@@ -175,403 +63,138 @@ function analyze(filePath: string): Finding[] {
 	function lineOf(node: ts.Node): number {
 		return sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
 	}
-	function hasExportModifier(node: ts.Node): boolean {
+	function isExported(node: ts.Node): boolean {
 		const mods = ts.canHaveModifiers(node) ? ts.getModifiers(node) : undefined;
 		return (mods ?? []).some((m) => m.kind === ts.SyntaxKind.ExportKeyword);
 	}
-
-	/** Service value bindings: local name -> specifier (flag on contact). */
-	const serviceBindings = new Map<string, string>();
-	/**
-	 * THE INCLUSIVE CARRIER UNIVERSE (fail-closed inversion 1): every module-eval-declared
-	 * name, registered because it is DECLARED (group N), regardless of material.
-	 */
-	const moduleNames = new Set<string>();
-	/** Material feeding a carrier, per name. `function` = carrier only (F10 body). */
-	type Material =
-		| { kind: "expr"; node: ts.Node; context: string }
-		| { kind: "class"; node: ts.ClassDeclaration | ts.ClassExpression }
-		| { kind: "function" };
-	const materials = new Map<string, Material[]>();
-	/** Destructured declarations: bound names + the exprs that feed them (N3, N12 patterns). */
-	const patternGroups: Array<{
-		names: string[];
-		exprs: ts.Node[];
-		exported: boolean;
-		done: boolean;
-	}> = [];
-	/** Names known to escape the export surface. */
-	const escaping = new Set<string>();
-	const worklist: string[] = [];
-	/** Expressions that escape directly (`export default <expr>` / `export = <expr>`). */
-	const escapingExprs: ts.Expression[] = [];
-	/** Nodes to scan as escaping once all registration is complete. */
-	const deferredScans: Array<{ node: ts.Node; context: string }> = [];
-	/** Flow candidates collected from ALL module-eval expression positions (F2–F5). */
-	type ExecCandidate =
-		| { type: "assign"; node: ts.BinaryExpression; done: boolean }
-		| {
-				type: "call";
-				callee: ts.Expression | undefined;
-				args: readonly ts.Expression[];
-				done: boolean;
-		  }
-		| { type: "loop-assign"; target: ts.Expression; source: ts.Expression; done: boolean };
-	const execCandidates: ExecCandidate[] = [];
-
-	function registerName(name: string): void {
-		moduleNames.add(name);
-	}
-	function addMaterial(name: string, m: Material): void {
-		const list = materials.get(name);
-		if (list) list.push(m);
-		else materials.set(name, [m]);
-	}
-	function markEscaping(name: string): void {
-		if (escaping.has(name)) return;
-		escaping.add(name);
-		worklist.push(name);
-	}
-	/** A name reaches the export surface: flag it if it IS a service binding, else track it. */
-	function escapeName(name: string, at: ts.Node, context: string): void {
-		const spec = serviceBindings.get(name);
-		if (spec) {
-			findings.push({ line: lineOf(at), binding: name, specifier: spec, context });
-			return;
-		}
-		markEscaping(name);
-	}
-
-	function collectPattern(pattern: ts.BindingName, names: string[], exprs: ts.Node[]): void {
-		if (ts.isIdentifier(pattern)) {
-			names.push(pattern.text);
-			return;
-		}
-		for (const el of pattern.elements) {
-			if (ts.isOmittedExpression(el)) continue;
-			if (el.initializer) exprs.push(el.initializer);
-			collectPattern(el.name, names, exprs);
-		}
-	}
-
-	// ---- pass-2 scanning machinery (declared first; used by both passes) ----
-	const scanned = new Set<ts.Node>();
-
 	function unwrapParens(e: ts.Expression): ts.Expression {
 		let cur = e;
 		while (ts.isParenthesizedExpression(cur)) cur = cur.expression;
 		return cur;
 	}
 
-	function rootIdentifier(e: ts.Expression): ts.Identifier | undefined {
-		let cur: ts.Expression = unwrapParens(e);
-		while (
-			ts.isPropertyAccessExpression(cur) ||
-			ts.isElementAccessExpression(cur) ||
-			ts.isNonNullExpression(cur)
-		) {
-			cur = unwrapParens(cur.expression);
-		}
-		return ts.isIdentifier(cur) ? cur : undefined;
-	}
+	/** Service value imports: local name -> specifier. Reaching one is the violation. */
+	const serviceBindings = new Map<string, string>();
+	/** Top-level value declarations: name -> the expressions that feed it. */
+	const aliases = new Map<string, ts.Expression[]>();
 
-	function scanClassMembers(node: ts.ClassDeclaration | ts.ClassExpression, context: string): void {
-		for (const dec of ts.getDecorators(node) ?? []) {
-			scanEscaping(dec.expression, `${context} > decorator`);
+	function addAlias(name: string, expr: ts.Expression | undefined): void {
+		const list = aliases.get(name) ?? [];
+		if (expr) list.push(expr);
+		aliases.set(name, list);
+	}
+	function patternNames(pattern: ts.BindingName, out: string[]): void {
+		if (ts.isIdentifier(pattern)) {
+			out.push(pattern.text);
+			return;
 		}
-		for (const heritage of node.heritageClauses ?? []) {
-			if (heritage.token !== ts.SyntaxKind.ExtendsKeyword) continue; // implements = type-only
-			for (const t of heritage.types) scanEscaping(t.expression, `${context} > extends expression`);
-		}
-		for (const member of node.members) {
-			for (const dec of ts.getDecorators(member) ?? []) {
-				scanEscaping(dec.expression, `${context} > decorator`);
-			}
-			if (member.name && ts.isComputedPropertyName(member.name)) {
-				scanEscaping(member.name.expression, `${context} > computed member name`);
-			}
-			if (ts.isPropertyDeclaration(member) && member.initializer) {
-				scanEscaping(member.initializer, `${context} > class field initializer`);
-			} else if (ts.isGetAccessorDeclaration(member) && member.body) {
-				// F8 — a getter yields its value on property access: a data member in disguise
-				scanEscaping(member.body, `${context} > getter body`);
-			} else if (ts.isClassStaticBlockDeclaration(member)) {
-				// static blocks run at module evaluation
-				scanEscaping(member.body, `${context} > static block`);
-			}
-			// method/setter/constructor bodies: review territory (F10)
+		for (const el of pattern.elements) {
+			if (!ts.isOmittedExpression(el)) patternNames(el.name, out);
 		}
 	}
 
-	/** Scan an expression every value of which can reach the export surface. */
-	function scanEscaping(node: ts.Node, context: string): void {
-		if (scanned.has(node)) return;
-		scanned.add(node);
+	// ---- pass 1: what this module holds — service imports and top-level aliases ----
+	for (const stmt of sf.statements) {
+		if (ts.isImportDeclaration(stmt)) {
+			if (!ts.isStringLiteral(stmt.moduleSpecifier)) continue;
+			const spec = stmt.moduleSpecifier.text;
+			if (!isServiceSpecifier(spec)) continue;
+			const clause = stmt.importClause;
+			if (!clause || clause.isTypeOnly) continue; // type-only: no value escapes
+			if (clause.name) serviceBindings.set(clause.name.text, spec);
+			if (clause.namedBindings) {
+				if (ts.isNamespaceImport(clause.namedBindings)) {
+					serviceBindings.set(clause.namedBindings.name.text, spec);
+				} else {
+					for (const el of clause.namedBindings.elements) {
+						if (!el.isTypeOnly) serviceBindings.set(el.name.text, spec);
+					}
+				}
+			}
+		} else if (ts.isVariableStatement(stmt)) {
+			for (const decl of stmt.declarationList.declarations) {
+				if (ts.isIdentifier(decl.name)) {
+					addAlias(decl.name.text, decl.initializer);
+				} else {
+					const names: string[] = [];
+					patternNames(decl.name, names);
+					for (const n of names) addAlias(n, decl.initializer);
+				}
+			}
+		}
+	}
+
+	// ---- reading an escaping expression ----
+	const seenNodes = new Set<ts.Node>();
+	const seenNames = new Set<string>();
+
+	/** Every value in this expression reaches the export surface. */
+	function readEscaping(node: ts.Node, context: string): void {
+		if (seenNodes.has(node)) return;
+		seenNodes.add(node);
 
 		if (ts.isIdentifier(node)) {
-			const spec = serviceBindings.get(node.text);
-			if (spec) {
-				findings.push({ line: lineOf(node), binding: node.text, specifier: spec, context });
-			} else if (moduleNames.has(node.text)) {
-				// INCLUSIVE (fail-closed inversion 1): declared at module scope → tracked,
-				// whether or not any material is registered for it.
-				markEscaping(node.text);
-			}
-			// else: not declared at module scope → a global. Flowing a service value INTO a
-			// global is F12's side channel (review territory); a global cannot YIELD a
-			// service value except through F12 itself.
+			readEscapingName(node.text, node, context);
 			return;
 		}
 		if (ts.isCallExpression(node) || ts.isNewExpression(node)) {
 			const callee = unwrapParens(node.expression);
-			if (ts.isIdentifier(callee) && serviceBindings.has(callee.text)) {
-				// F9 — EXEMPT: bare service identifier in direct callee position — the call's
-				// RESULT is a produced value; the symbol itself does not flow out.
-			} else if (ts.isFunctionExpression(callee) || ts.isArrowFunction(callee)) {
-				// F7 — IIFE: module evaluation with extra steps — its body is part of the expression.
-				scanEscaping(callee.body, `${context} > IIFE body`);
-			} else {
-				scanEscaping(callee, `${context} > callee`);
+			// THE ONE EXEMPTION, positional: a bare service identifier in direct callee
+			// position. The call's RESULT is a produced value; the symbol does not flow into it.
+			if (!(ts.isIdentifier(callee) && serviceBindings.has(callee.text))) {
+				readEscaping(callee, `${context} > callee`);
 			}
-			for (const arg of node.arguments ?? []) scanEscaping(arg, `${context} > call argument`);
+			for (const arg of node.arguments ?? []) readEscaping(arg, `${context} > call argument`);
 			return;
 		}
 		if (ts.isObjectLiteralExpression(node)) {
 			for (const prop of node.properties) {
-				if (prop.name && ts.isComputedPropertyName(prop.name)) {
-					scanEscaping(prop.name.expression, `${context} > computed member name`);
-				}
-				if (ts.isPropertyAssignment(prop)) {
-					scanEscaping(prop.initializer, context);
-				} else if (ts.isShorthandPropertyAssignment(prop)) {
-					scanEscaping(prop.name, context);
-				} else if (ts.isSpreadAssignment(prop)) {
-					scanEscaping(prop.expression, `${context} > spread`);
-				} else if (ts.isGetAccessorDeclaration(prop) && prop.body) {
-					scanEscaping(prop.body, `${context} > getter body`); // F8
-				}
-				// object-literal method/setter bodies: review territory (F10)
+				if (ts.isPropertyAssignment(prop)) readEscaping(prop.initializer, context);
+				else if (ts.isShorthandPropertyAssignment(prop)) readEscaping(prop.name, context);
+				else if (ts.isSpreadAssignment(prop)) readEscaping(prop.expression, `${context} > spread`);
+				// methods, getters, setters: function-like bodies — not read
 			}
 			return;
 		}
-		if (ts.isArrowFunction(node) || ts.isFunctionExpression(node)) {
-			// F10 — a function VALUE escaping is own-module code; its body runs only when a
-			// consumer calls it — review territory by the ratified dichotomy.
-			return;
-		}
-		if (ts.isClassDeclaration(node) || ts.isClassExpression(node)) {
-			scanClassMembers(node, context);
-			return;
-		}
-		if (ts.isEnumDeclaration(node)) {
-			for (const member of node.members) {
-				if (member.initializer) {
-					scanEscaping(member.initializer, `${context} > enum member initializer`);
-				}
-			}
-			return;
-		}
-		if (ts.isTypeNode(node)) return;
-		if (ts.isAsExpression(node) || ts.isSatisfiesExpression(node)) {
-			scanEscaping(node.expression, context);
-			return;
-		}
-		ts.forEachChild(node, (child) => scanEscaping(child, context));
-	}
-
-	// ---- pass 1: the module-eval walk (fail-closed inversions 2 and 3) ----
-
-	/** Deferred function bodies are the ONE boundary of module-eval code (F10). */
-	function isDeferredBody(node: ts.Node): boolean {
-		return (
+		// function-like values, classes, enums, namespaces: own-module code — not read
+		if (
 			ts.isArrowFunction(node) ||
 			ts.isFunctionExpression(node) ||
 			ts.isFunctionDeclaration(node) ||
-			ts.isMethodDeclaration(node) ||
-			ts.isConstructorDeclaration(node) ||
-			ts.isGetAccessorDeclaration(node) ||
-			ts.isSetAccessorDeclaration(node)
-		);
-	}
-
-	/** All `throw` expressions lexically inside a node, function bodies excluded (N12). */
-	function collectThrows(node: ts.Node, out: ts.Expression[]): void {
-		if (isDeferredBody(node)) return;
-		if (ts.isThrowStatement(node)) out.push(node.expression);
-		ts.forEachChild(node, (child) => collectThrows(child, out));
-	}
-
-	/** An IIFE/decorator body proven to run at module load: walk it as module-eval code. */
-	function walkLoadTimeBody(body: ts.ConciseBody | ts.Block): void {
-		if (ts.isBlock(body)) {
-			for (const s of body.statements) walkStatement(s, false);
-		} else {
-			collectExprFlow(body);
-		}
-	}
-
-	/** Load-time positions of a module-eval class, escaping or not (F-load). */
-	function collectClassLoadTime(node: ts.ClassDeclaration | ts.ClassExpression): void {
-		for (const dec of ts.getDecorators(node) ?? []) {
-			const e = unwrapParens(dec.expression);
-			if (ts.isFunctionExpression(e) || ts.isArrowFunction(e)) {
-				// an inline-function decorator is invoked at class definition — module load
-				walkLoadTimeBody(e.body);
-			} else {
-				collectExprFlow(dec.expression);
-			}
-		}
-		for (const heritage of node.heritageClauses ?? []) {
-			if (heritage.token !== ts.SyntaxKind.ExtendsKeyword) continue;
-			for (const t of heritage.types) collectExprFlow(t.expression);
-		}
-		for (const member of node.members) {
-			for (const dec of ts.getDecorators(member) ?? []) collectExprFlow(dec.expression);
-			if (member.name && ts.isComputedPropertyName(member.name)) {
-				collectExprFlow(member.name.expression);
-			}
-			if (ts.isPropertyDeclaration(member) && member.initializer) {
-				// field initializers are NOT function bodies: a static one runs at module load,
-				// an instance one runs on ANY construction — incl. a module-scope `new` — so
-				// both are walked; only function-like bodies are the boundary
-				collectExprFlow(member.initializer);
-			} else if (ts.isClassStaticBlockDeclaration(member)) {
-				for (const s of member.body.statements) walkStatement(s, false);
-			}
-		}
-	}
-
-	/**
-	 * Collect flow candidates from ANY module-eval expression tree (fail-closed inversion 2).
-	 * Assignments/calls are candidates wherever they sit; the only non-descent is a deferred
-	 * function body (F10), except an inline callee body (IIFE — provably load-time, F7).
-	 */
-	function collectExprFlow(node: ts.Node): void {
-		if (ts.isBinaryExpression(node) && isAssignmentOperator(node.operatorToken.kind)) {
-			execCandidates.push({ type: "assign", node, done: false });
-			collectExprFlow(node.left);
-			collectExprFlow(node.right);
+			ts.isClassLike(node) ||
+			ts.isEnumDeclaration(node) ||
+			ts.isModuleDeclaration(node) ||
+			ts.isTypeNode(node)
+		) {
 			return;
 		}
-		if (ts.isCallExpression(node) || ts.isNewExpression(node)) {
-			execCandidates.push({
-				type: "call",
-				callee: node.expression,
-				args: node.arguments ?? [],
-				done: false,
-			});
-			const callee = unwrapParens(node.expression);
-			if (ts.isFunctionExpression(callee) || ts.isArrowFunction(callee)) {
-				walkLoadTimeBody(callee.body); // F7 — IIFE in statement/expression position
-			} else {
-				collectExprFlow(node.expression);
-			}
-			for (const arg of node.arguments ?? []) collectExprFlow(arg);
-			return;
-		}
-		if (ts.isTaggedTemplateExpression(node)) {
-			// tag`${x}` is a call in disguise: the tag receives the spans
-			const spans = ts.isTemplateExpression(node.template)
-				? node.template.templateSpans.map((s) => s.expression)
-				: [];
-			execCandidates.push({ type: "call", callee: node.tag, args: spans, done: false });
-			collectExprFlow(node.tag);
-			for (const s of spans) collectExprFlow(s);
-			return;
-		}
-		if (ts.isClassDeclaration(node) || ts.isClassExpression(node)) {
-			collectClassLoadTime(node);
-			return;
-		}
-		if (isDeferredBody(node)) return; // F10 — the single boundary
-		if (ts.isTypeNode(node)) return;
-		ts.forEachChild(node, (child) => collectExprFlow(child));
+		// array literals, spreads, template spans, conditionals, binaries, await,
+		// as/satisfies, parens, property access: read through generically
+		ts.forEachChild(node, (child) => readEscaping(child, context));
 	}
 
-	function isAssignmentOperator(kind: ts.SyntaxKind): boolean {
-		return kind >= ts.SyntaxKind.FirstAssignment && kind <= ts.SyntaxKind.LastAssignment;
-	}
-
-	/** N1/N2/N3 — register a declaration list's names + material, wherever it appears. */
-	function handleVarDeclList(list: ts.VariableDeclarationList, exported: boolean): void {
-		for (const decl of list.declarations) {
-			if (ts.isIdentifier(decl.name)) {
-				registerName(decl.name.text); // N1/N2 — registered because DECLARED
-				if (decl.initializer) {
-					addMaterial(decl.name.text, {
-						kind: "expr",
-						node: decl.initializer,
-						context: `initializer of escaping binding \`${decl.name.text}\``,
-					});
-					collectExprFlow(decl.initializer);
-				}
-				if (exported) escapeName(decl.name.text, decl.name, "exported binding");
-			} else {
-				// N3 — destructured declaration: everything feeding the pattern escapes with it
-				const names: string[] = [];
-				const exprs: ts.Node[] = [];
-				collectPattern(decl.name, names, exprs);
-				if (decl.initializer) exprs.push(decl.initializer);
-				for (const n of names) registerName(n);
-				for (const e of exprs) collectExprFlow(e);
-				patternGroups.push({ names, exprs, exported, done: false });
-				if (exported) {
-					for (const n of names) escapeName(n, decl.name, "exported destructured binding");
-				}
-			}
+	/** A name reaches the export surface: flag a service import, else follow its aliases. */
+	function readEscapingName(name: string, at: ts.Node, context: string): void {
+		const spec = serviceBindings.get(name);
+		if (spec) {
+			findings.push({ line: lineOf(at), binding: name, specifier: spec, context });
+			return;
+		}
+		if (seenNames.has(name)) return;
+		seenNames.add(name);
+		for (const expr of aliases.get(name) ?? []) {
+			readEscaping(expr, `${context} > \`${name}\``);
 		}
 	}
 
-	/**
-	 * The module-eval statement walk. `topLevel` gates export-surface marking: an `export`
-	 * modifier inside a namespace body or block is namespace-scoped, not the module surface
-	 * (the surface is reached only through the namespace's own escape, via its material).
-	 * FAIL-CLOSED (inversion 3): the default branch is a loud finding.
-	 */
-	function walkStatement(stmt: ts.Statement, topLevel: boolean): void {
-		if (ts.isImportDeclaration(stmt)) {
-			if (!ts.isStringLiteral(stmt.moduleSpecifier)) return;
-			const spec = stmt.moduleSpecifier.text;
-			const service = isServiceSpecifier(spec);
-			const clause = stmt.importClause;
-			if (!clause || clause.isTypeOnly) return;
-			if (clause.name) {
-				if (service) serviceBindings.set(clause.name.text, spec);
-				else registerName(clause.name.text); // N8 — non-service import is a carrier
-			}
-			if (clause.namedBindings) {
-				if (ts.isNamespaceImport(clause.namedBindings)) {
-					if (service) serviceBindings.set(clause.namedBindings.name.text, spec);
-					else registerName(clause.namedBindings.name.text);
-				} else {
-					for (const el of clause.namedBindings.elements) {
-						if (el.isTypeOnly) continue;
-						if (service) serviceBindings.set(el.name.text, spec);
-						else registerName(el.name.text);
-					}
-				}
-			}
-		} else if (ts.isImportEqualsDeclaration(stmt)) {
-			// N9/E14 — `[export] import x = require("m")`
-			if (ts.isExternalModuleReference(stmt.moduleReference)) {
-				const ref = stmt.moduleReference.expression;
-				if (ts.isStringLiteral(ref) && !stmt.isTypeOnly) {
-					if (isServiceSpecifier(ref.text)) {
-						serviceBindings.set(stmt.name.text, ref.text);
-						if (topLevel && hasExportModifier(stmt)) {
-							escapeName(stmt.name.text, stmt, "exported import= of a service module");
-						}
-					} else {
-						registerName(stmt.name.text);
-					}
-				}
-			}
-		} else if (ts.isExportDeclaration(stmt)) {
-			if (!topLevel) return; // namespace-inner export: surface reached via the namespace
+	// ---- pass 2: the export forms ----
+	for (const stmt of sf.statements) {
+		if (ts.isExportDeclaration(stmt)) {
+			if (stmt.isTypeOnly) continue;
 			if (stmt.moduleSpecifier && ts.isStringLiteral(stmt.moduleSpecifier)) {
-				// E1/E2/E3: export … from / export * from / export * as ns from a service module
+				// `export … from` / `export * from` / `export * as ns from` a service module
 				const spec = stmt.moduleSpecifier.text;
-				if (isServiceSpecifier(spec) && !stmt.isTypeOnly) {
+				if (isServiceSpecifier(spec)) {
 					findings.push({
 						line: lineOf(stmt),
 						binding: stmt.exportClause ? "(re-export)" : "*",
@@ -580,296 +203,22 @@ function analyze(filePath: string): Finding[] {
 					});
 				}
 			} else if (stmt.exportClause && ts.isNamedExports(stmt.exportClause)) {
-				// E4: the exported LOCAL name is itself the escape
+				// `export { local }` — the local name is the escape
 				for (const el of stmt.exportClause.elements) {
 					if (el.isTypeOnly) continue;
 					const local = el.propertyName ?? el.name;
-					escapeName(local.text, el, `named export of \`${local.text}\``);
+					readEscapingName(local.text, el, `named export of \`${local.text}\``);
 				}
 			}
 		} else if (ts.isExportAssignment(stmt)) {
-			// E5 (`export default expr`) and E6 (`export = expr`) — both escape the expression
-			escapingExprs.push(stmt.expression);
-			collectExprFlow(stmt.expression);
-		} else if (ts.isVariableStatement(stmt)) {
-			handleVarDeclList(stmt.declarationList, topLevel && hasExportModifier(stmt));
-		} else if (ts.isFunctionDeclaration(stmt)) {
-			// N4/E10 — carrier (exported or not); body review territory (F10)
-			if (stmt.name) {
-				registerName(stmt.name.text);
-				addMaterial(stmt.name.text, { kind: "function" });
-				if (topLevel && hasExportModifier(stmt)) markEscaping(stmt.name.text);
-			}
-		} else if (ts.isClassDeclaration(stmt)) {
-			// N5/E11
-			if (stmt.name) {
-				registerName(stmt.name.text);
-				addMaterial(stmt.name.text, { kind: "class", node: stmt });
-				if (topLevel && hasExportModifier(stmt)) {
-					escapeName(stmt.name.text, stmt.name, "exported class");
+			readEscaping(stmt.expression, "default export");
+		} else if (ts.isVariableStatement(stmt) && isExported(stmt)) {
+			for (const decl of stmt.declarationList.declarations) {
+				if (ts.isIdentifier(decl.name)) {
+					readEscapingName(decl.name.text, decl.name, "exported binding");
+				} else if (decl.initializer) {
+					readEscaping(decl.initializer, "exported destructured binding");
 				}
-			} else if (topLevel && hasExportModifier(stmt)) {
-				deferredScans.push({ node: stmt, context: "anonymous default-exported class" });
-			}
-			collectClassLoadTime(stmt); // F-load — decorators/static positions run at load
-		} else if (ts.isEnumDeclaration(stmt)) {
-			// N6/E12
-			registerName(stmt.name.text);
-			addMaterial(stmt.name.text, {
-				kind: "expr",
-				node: stmt,
-				context: `escaping enum \`${stmt.name.text}\``,
-			});
-			if (topLevel && hasExportModifier(stmt)) {
-				escapeName(stmt.name.text, stmt.name, "exported enum");
-			}
-			for (const member of stmt.members) {
-				if (member.initializer) collectExprFlow(member.initializer); // F-load
-			}
-		} else if (ts.isModuleDeclaration(stmt)) {
-			// N7/E13 — the body is module-eval code
-			if (ts.isIdentifier(stmt.name) && stmt.body) {
-				registerName(stmt.name.text);
-				addMaterial(stmt.name.text, {
-					kind: "expr",
-					node: stmt.body,
-					context: `escaping namespace \`${stmt.name.text}\``,
-				});
-			}
-			if (topLevel && hasExportModifier(stmt) && stmt.body) {
-				deferredScans.push({
-					node: stmt.body,
-					context: `exported namespace \`${stmt.name.getText(sf)}\``,
-				});
-			}
-			if (stmt.body && ts.isModuleBlock(stmt.body)) {
-				for (const s of stmt.body.statements) walkStatement(s, false); // F-load
-			}
-		} else if (ts.isInterfaceDeclaration(stmt) || ts.isTypeAliasDeclaration(stmt)) {
-			// type-only — no value binding
-		} else if (ts.isExpressionStatement(stmt)) {
-			collectExprFlow(stmt.expression);
-		} else if (ts.isBlock(stmt)) {
-			for (const s of stmt.statements) walkStatement(s, false);
-		} else if (ts.isIfStatement(stmt)) {
-			collectExprFlow(stmt.expression);
-			walkStatement(stmt.thenStatement, false);
-			if (stmt.elseStatement) walkStatement(stmt.elseStatement, false);
-		} else if (ts.isForStatement(stmt)) {
-			if (stmt.initializer) {
-				if (ts.isVariableDeclarationList(stmt.initializer)) {
-					handleVarDeclList(stmt.initializer, false); // N1/N2 in header position
-				} else {
-					collectExprFlow(stmt.initializer);
-				}
-			}
-			if (stmt.condition) collectExprFlow(stmt.condition);
-			if (stmt.incrementor) collectExprFlow(stmt.incrementor);
-			walkStatement(stmt.statement, false);
-		} else if (ts.isForOfStatement(stmt)) {
-			// N10 — the binding's material is the iterable, conservatively whole
-			if (ts.isVariableDeclarationList(stmt.initializer)) {
-				for (const decl of stmt.initializer.declarations) {
-					if (ts.isIdentifier(decl.name)) {
-						registerName(decl.name.text);
-						addMaterial(decl.name.text, {
-							kind: "expr",
-							node: stmt.expression,
-							context: `for-of iterable feeding escaping binding \`${decl.name.text}\``,
-						});
-					} else {
-						const names: string[] = [];
-						const exprs: ts.Node[] = [];
-						collectPattern(decl.name, names, exprs);
-						exprs.push(stmt.expression);
-						for (const n of names) registerName(n);
-						patternGroups.push({ names, exprs, exported: false, done: false });
-					}
-				}
-			} else {
-				// for-of over an EXISTING target is an assignment per iteration
-				execCandidates.push({
-					type: "loop-assign",
-					target: stmt.initializer,
-					source: stmt.expression,
-					done: false,
-				});
-			}
-			collectExprFlow(stmt.expression);
-			walkStatement(stmt.statement, false);
-		} else if (ts.isForInStatement(stmt)) {
-			// N11 — for-in binds property-NAME strings: material provably excluded
-			if (ts.isVariableDeclarationList(stmt.initializer)) {
-				for (const decl of stmt.initializer.declarations) {
-					if (ts.isIdentifier(decl.name)) registerName(decl.name.text);
-				}
-			}
-			collectExprFlow(stmt.expression);
-			walkStatement(stmt.statement, false);
-		} else if (ts.isWhileStatement(stmt) || ts.isDoStatement(stmt)) {
-			collectExprFlow(stmt.expression);
-			walkStatement(stmt.statement, false);
-		} else if (ts.isTryStatement(stmt)) {
-			walkStatement(stmt.tryBlock, false);
-			if (stmt.catchClause) {
-				const vd = stmt.catchClause.variableDeclaration;
-				if (vd) {
-					// N12 — the catch parameter's material is every lexical throw of the try
-					// block; a value thrown inside a deferred function body is F10 (RES6)
-					const throws: ts.Expression[] = [];
-					collectThrows(stmt.tryBlock, throws);
-					if (ts.isIdentifier(vd.name)) {
-						registerName(vd.name.text);
-						for (const t of throws) {
-							addMaterial(vd.name.text, {
-								kind: "expr",
-								node: t,
-								context: `value thrown into escaping catch binding \`${vd.name.text}\``,
-							});
-						}
-					} else {
-						const names: string[] = [];
-						const exprs: ts.Node[] = [];
-						collectPattern(vd.name, names, exprs);
-						for (const n of names) registerName(n);
-						patternGroups.push({
-							names,
-							exprs: [...exprs, ...throws],
-							exported: false,
-							done: false,
-						});
-					}
-				}
-				walkStatement(stmt.catchClause.block, false);
-			}
-			if (stmt.finallyBlock) walkStatement(stmt.finallyBlock, false);
-		} else if (ts.isSwitchStatement(stmt)) {
-			collectExprFlow(stmt.expression);
-			for (const clause of stmt.caseBlock.clauses) {
-				if (ts.isCaseClause(clause)) collectExprFlow(clause.expression);
-				for (const s of clause.statements) walkStatement(s, false);
-			}
-		} else if (ts.isLabeledStatement(stmt)) {
-			walkStatement(stmt.statement, false);
-		} else if (ts.isThrowStatement(stmt)) {
-			collectExprFlow(stmt.expression);
-		} else if (ts.isReturnStatement(stmt)) {
-			// legal only inside load-time bodies routed here (IIFE/static block)
-			if (stmt.expression) collectExprFlow(stmt.expression);
-		} else if (
-			ts.isEmptyStatement(stmt) ||
-			ts.isDebuggerStatement(stmt) ||
-			ts.isBreakStatement(stmt) ||
-			ts.isContinueStatement(stmt)
-		) {
-			// no expressions, no bindings
-		} else {
-			// F15 — THE LOUD GUARD (fail-closed inversion 3): an unmodeled module-eval form
-			// fails the build instead of passing it.
-			findings.push({
-				line: lineOf(stmt),
-				binding: "(unhandled form)",
-				specifier: "(module-eval grammar)",
-				context: `unhandled module-scope statement kind \`${ts.SyntaxKind[stmt.kind]}\` — fail-closed guard`,
-			});
-		}
-	}
-
-	for (const stmt of sf.statements) walkStatement(stmt, true);
-
-	/** Identifier leaves of a destructuring-assignment target literal (over-approximate, safe). */
-	function collectTargetNames(e: ts.Node, out: string[]): void {
-		if (ts.isIdentifier(e)) {
-			out.push(e.text);
-			return;
-		}
-		ts.forEachChild(e, (child) => collectTargetNames(child, out));
-	}
-
-	function argRoot(a: ts.Expression): ts.Identifier | undefined {
-		const inner = ts.isSpreadElement(a) ? a.expression : a;
-		return rootIdentifier(inner);
-	}
-
-	/** F2–F5: does this flow candidate move a value toward the export surface NOW? */
-	function tryExec(cand: ExecCandidate): boolean {
-		if (cand.type === "assign") {
-			const lhs = unwrapParens(cand.node.left);
-			if (ts.isIdentifier(lhs)) {
-				// F2 — assignment to an escaping name
-				if (!escaping.has(lhs.text)) return false;
-				scanEscaping(cand.node.right, `module-scope assignment to escaping binding \`${lhs.text}\``);
-				return true;
-			}
-			if (ts.isPropertyAccessExpression(lhs) || ts.isElementAccessExpression(lhs)) {
-				// F4 — property/element mutation of an escaping value
-				const root = rootIdentifier(lhs);
-				if (!root || !escaping.has(root.text)) return false;
-				scanEscaping(cand.node.right, `property mutation of escaping binding \`${root.text}\``);
-				return true;
-			}
-			if (ts.isObjectLiteralExpression(lhs) || ts.isArrayLiteralExpression(lhs)) {
-				// F3 — destructuring assignment targeting an escaping name
-				const targets: string[] = [];
-				collectTargetNames(lhs, targets);
-				if (!targets.some((t) => escaping.has(t))) return false;
-				scanEscaping(cand.node.right, "destructuring assignment to escaping binding");
-				return true;
-			}
-			return false;
-		}
-		if (cand.type === "call") {
-			// F5 — call/new/tagged-template involving an escaping value (conservative)
-			const calleeRoot = cand.callee ? rootIdentifier(cand.callee) : undefined;
-			const involvesEscaping =
-				(calleeRoot !== undefined && escaping.has(calleeRoot.text)) ||
-				cand.args.some((a) => {
-					const r = argRoot(a);
-					return r !== undefined && escaping.has(r.text);
-				});
-			if (!involvesEscaping) return false;
-			for (const arg of cand.args) {
-				scanEscaping(arg, "argument of a module-scope call involving an escaping binding");
-			}
-			return true;
-		}
-		// loop-assign — `for (target of iterable)` over an existing name
-		const root = rootIdentifier(cand.target);
-		if (!root || !escaping.has(root.text)) return false;
-		scanEscaping(cand.source, `for-of iterable assigned to escaping binding \`${root.text}\``);
-		return true;
-	}
-
-	// ---- pass 2: seed direct escapes, then fixpoint over carriers, patterns, and flow ----
-	for (const expr of escapingExprs) scanEscaping(expr, "default export / export=");
-	for (const d of deferredScans) scanEscaping(d.node, d.context);
-
-	let changed = true;
-	while (changed) {
-		changed = false;
-		while (worklist.length > 0) {
-			changed = true;
-			const name = worklist.pop() as string;
-			for (const m of materials.get(name) ?? []) {
-				if (m.kind === "function") continue; // F10 — carrier only, body review territory
-				if (m.kind === "class") scanClassMembers(m.node, `escaping class \`${name}\``);
-				else scanEscaping(m.node, m.context);
-			}
-		}
-		for (const group of patternGroups) {
-			if (group.done) continue;
-			if (!group.exported && !group.names.some((n) => escaping.has(n))) continue;
-			group.done = true;
-			changed = true;
-			for (const e of group.exprs) {
-				scanEscaping(e, "value feeding an escaping destructured binding");
-			}
-		}
-		for (const cand of execCandidates) {
-			if (cand.done) continue;
-			if (tryExec(cand)) {
-				cand.done = true;
-				changed = true;
 			}
 		}
 	}
@@ -882,7 +231,7 @@ for (const file of process.argv.slice(2)) {
 	const findings = analyze(file);
 	console.log(`== ${file}`);
 	if (findings.length === 0) {
-		console.log("   CLEAN — no service binding escapes the export surface");
+		console.log("   CLEAN — no service value reaches the export surface");
 	} else {
 		anyFinding = true;
 		for (const f of findings) {

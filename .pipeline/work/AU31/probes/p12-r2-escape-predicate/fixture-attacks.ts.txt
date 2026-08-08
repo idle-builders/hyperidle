@@ -1,210 +1,49 @@
 /**
- * P12 attack fixture — every spelling below must produce at least one finding.
- * THE SET DERIVES FROM THE EXPORT-SURFACE ENUMERATION (architecture.md §7.2): every
- * grammar member with verdict "caught" has a case here, labelled with its member id,
- * so completeness is checkable against the grammar, not against anyone's imagination.
- * A1–A12 are the rounds-1/2 spellings (kept verbatim); X1–X23 are the export-surface
- * and module-scope-flow members rounds 1–3 proved a curated list forgets; HN1–HN4 are
- * round-4 B6's four binding-form escapes (each was CLEAN under the previous model);
- * XP1–XP11 are the flow-position and load-time-body members the fail-closed model
- * walks structurally; XL1 executes the loud guard (F15) — an unmodeled statement kind
- * is itself a finding.
- * (Fixture is parse-only evidence in `.pipeline/` — never compiled, never a
- * production file.)
+ * R2 attack fixture — the spellings that occur in real code. Every case must flag.
+ * A1 is the rule's founding violation (`layers/core-api/src/index.ts:15`); A4 is its
+ * two-line respelling. The rest are the wrapper and aggregate shapes a developer writes
+ * by accident when a face needs "just one more thing" from a service.
  */
 
-// @ts-nocheck
-import { flagKnowledgeItem, listKnowledge, searchKnowledge } from "@hyperidle/knowledge";
-import * as knowledgeNs from "@hyperidle/knowledge";
+import { list, search } from "@hyperidle/knowledge";
+import { readPolicy, writePolicy } from "@hyperidle/agent-run-config";
+import { runOrchestration } from "@hyperidle/run-orchestration";
+import { harnessRegistry } from "@hyperidle/harness-registry";
+import * as filesystems from "@hyperidle/filesystems";
+import cipher from "@hyperidle/connections";
+import { wrapHandlers } from "@hyperidle/shared";
 
-export { flagKnowledgeItem } from "@hyperidle/knowledge"; // A1 [E1] — export … from a service module
-export * from "@hyperidle/session-requests"; // A2 [E2] — export * from a service module
+// A1 — the founding violation: re-export from a service module
+export { list as listKnowledge } from "@hyperidle/knowledge";
 
-export const a3 = listKnowledge; // A3 [E7] — exported initializer IS the symbol
+// A2 — star re-export
+export * from "@hyperidle/session-requests";
 
-export const a4 = { listKnowledge }; // A4 [E7+F6] — exported object-literal member
+// A3 — namespace re-export
+export * as sessions from "@hyperidle/session-requests";
 
-const aliasHop = searchKnowledge;
-export { aliasHop as a5 }; // A5 [E4+F1] — module-scope alias, exported under another name
+// A4 — the two-line respelling of A1
+export { list };
 
-export default { listKnowledge }; // A6 [E5+F6] — default-export aggregate
+// A5 — exported binding holding the symbol directly
+export const knowledgeSearch = search;
 
-export class A7 {
-	static tool = listKnowledge; // A7 [E11] — static class field of an exported class
-	instanceTool = searchKnowledge; // A7b [E11] — instance class field (evaluates at construction)
-}
+// A6 — exported deps bag (the shape the real tree has today)
+export const policyBindings = { read: readPolicy };
 
-export const a8 = (() => ({ listKnowledge }))(); // A8 [F7] — module-scope IIFE aggregate
+// A7 — one local alias hop, then a named export
+const bag = { write: writePolicy };
+export { bag };
 
-const wrap = (x: unknown) => x;
-export const a9 = wrap(listKnowledge); // A9 [F6] — call-mediated escape (identity-wrap launder)
+// A8 — default export of an aggregate
+export default { runOrchestration };
 
-export const a10 = listKnowledge.bind(null); // A10 [F6] — property-chain call on the binding
+// A9 — service symbol as a call argument (callee is not a service)
+export const wrapped = wrapHandlers(harnessRegistry);
 
-const bag = { searchKnowledge };
-export const a11 = bag; // A11 [F1] — two-hop reachability through a non-exported literal
+// A10 — destructured hop off a namespace import
+const { readFile } = filesystems;
+export { readFile };
 
-export const a12 = { ns: knowledgeNs }; // A12 [F6] — namespace binding escapes whole
-
-// ---- round-3 B5: the export surface's own direct spellings ----
-
-export { listKnowledge }; // X1 [E4] — named export of the imported binding itself
-export { searchKnowledge as x2renamed }; // X2 [E4] — named export under an alias (the founding
-// case `export { list as listKnowledge } from "…"` respelled as import-then-export; the
-// two-line live respelling is run 4's dedicated fixture)
-export { flagKnowledgeItem as default }; // X3 [E4] — named export as `default`
-export { knowledgeNs as x3ns }; // X3b [E4] — named export of the namespace binding
-
-export const { searchKnowledge: x4 } = { searchKnowledge }; // X4 [E8] — destructured export
-export const [x5] = [flagKnowledgeItem]; // X5 [E9] — array-destructured export
-export const { deep: { x6 = listKnowledge } = {} } = {}; // X6 [E8] — nested pattern default
-
-export let x7 = undefined;
-x7 = searchKnowledge; // X7 [F2] — assignment to an exported live binding
-export let x8 = null;
-x8 ??= listKnowledge; // X8 [F2] — compound (logical) assignment to an exported binding
-export let x9 = null;
-if (Date.now() > 0) {
-	x9 = flagKnowledgeItem; // X9 [F2] — assignment nested in module-level control flow
-}
-export let x10 = null;
-({ x10 } = { x10: searchKnowledge }); // X10 [F3] — destructuring assignment to an exported binding
-
-export const x11 = {};
-x11.tool = listKnowledge; // X11 [F4] — property mutation of an exported object
-export const x12 = {};
-Object.assign(x12, { searchKnowledge }); // X12 [F5] — mutating call on an exported object
-export const x13 = [];
-x13.push(flagKnowledgeItem); // X13 [F5] — mutating method call on an exported array
-
-export const x14 = {
-	get tool() {
-		return listKnowledge; // X14 [F8] — object-literal getter yields the symbol on access
-	},
-};
-export class X15 {
-	static get tool() {
-		return searchKnowledge; // X15 [F8] — class getter yields the symbol on access
-	}
-}
-
-export enum X16 {
-	A = listKnowledge, // X16 [E12] — enum member initializer (type-illegal, parse-real)
-}
-
-export namespace X17 {
-	export const tool = searchKnowledge; // X17 [E13] — exported namespace member
-}
-
-export class X18 extends wrap(listKnowledge) {} // X18 [E11] — heritage `extends` expression
-
-export class X19 {
-	static {
-		X19.tool = searchKnowledge; // X19 [E11] — static block runs at module evaluation
-	}
-}
-
-@wrap(flagKnowledgeItem) // X20 [E11] — class decorator expression
-export class X20 {}
-
-export default class {
-	static tool = searchKnowledge; // X21 [E11] — anonymous default-exported class field
-}
-
-export import x22 = require("@hyperidle/knowledge"); // X22 [E14] — exported import= of a service module
-
-export = { flagKnowledgeItem }; // X23 [E6] — export= (tsc error under NodeNext ESM; caught anyway)
-
-// ---- round-4 B6: the binding-form grammar (group N) — each was CLEAN before ----
-
-let hn1tmp; // HN1 [N2] — uninitialized declaration: a carrier with no material …
-hn1tmp = listKnowledge; // … whose material arrives by assignment flow
-export let hn1live = null;
-hn1live = hn1tmp;
-
-function hn2helper() {} // HN2 [N4] — non-exported function declaration escaping via a bag …
-export const hn2api = { hn2helper };
-hn2helper.tool = searchKnowledge; // … then property-laundered on the escaping name
-
-export const hn3arr = [];
-for (const hn3f of [flagKnowledgeItem]) hn3arr.push(hn3f); // HN3 [N10] — for-of header binding
-
-export const hn4sink = {};
-try {
-	throw listKnowledge; // HN4 [N12] — catch parameter carries the lexically thrown value
-} catch (hn4e) {
-	hn4sink.tool = hn4e;
-}
-
-// ---- flow positions and load-time bodies, walked structurally (F2/F5/F7/F-load) ----
-
-let xp1tmp = null;
-export let xp1live = null;
-if ((xp1tmp = searchKnowledge)) {
-	// XP1 [F2] — assignment in condition position
-}
-xp1live = xp1tmp;
-
-export const xp2sink = {};
-{
-	const xp2local = listKnowledge; // XP2 [N1] — block-nested declaration at module eval
-	xp2sink.tool = xp2local;
-}
-
-export const xp3sink = {};
-(() => {
-	xp3sink.tool = flagKnowledgeItem; // XP3 [F7] — statement-position IIFE body runs at load
-})();
-
-export let xp4live = null;
-for (xp4live of [searchKnowledge]); // XP4 [F5] — for-of over an EXISTING escaping target
-
-const xp5tag = (strings, ...vals) => vals;
-export const xp5sink = {};
-xp5tag`${xp5sink} ${listKnowledge}`; // XP5 [F5] — tagged template is a call in disguise
-
-export const xp6sink = {};
-@((c) => {
-	xp6sink.tool = searchKnowledge; // XP6 [F7] — inline-arrow decorator runs at class definition
-	return c;
-})
-class Xp6Decorated {}
-
-export const xp7sink = {};
-class Xp7StaticSideEffect {
-	static {
-		xp7sink.tool = flagKnowledgeItem; // XP7 [F-load] — static block of a NON-exported class
-	}
-}
-
-export const xp8sink = {};
-class Xp8StaticInit {
-	static seeded = (xp8sink.tool = listKnowledge, true); // XP8 [F-load] — static field initializer
-}
-
-export const xp9sink = {};
-class Xp9ComputedName {
-	[(xp9sink.tool = searchKnowledge, "k")]() {} // XP9 [F-load] — computed member name
-}
-
-export const xp10sink = {};
-enum Xp10SideEnum {
-	A = (xp10sink.tool = flagKnowledgeItem, 1), // XP10 [F-load] — enum member initializer
-}
-
-export const xp11sink = {};
-namespace Xp11SideNs {
-	xp11sink.tool = listKnowledge; // XP11 [F-load] — NON-exported namespace body runs at load
-}
-
-export const xp12sink = {};
-class Xp12InstanceInit {
-	seeded = (xp12sink.tool = searchKnowledge, 1); // XP12 [F-load] — INSTANCE field initializer:
-	// not a function body; a module-scope `new` runs it at load
-}
-new Xp12InstanceInit();
-
-// XL1 [F15] — the loud guard, executed: `with` is outside the handled enumeration and
-// must be a FINDING, not a silent pass (fail-closed inversion 3)
-with (Math) {
-}
+// A11 — exported destructuring straight off a service default import
+export const { encryptCredentialValue } = cipher;

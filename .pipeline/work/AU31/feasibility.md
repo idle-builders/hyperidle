@@ -1,7 +1,9 @@
 # AU31 — Feasibility
 
 Probes run against the live tree at `bbe82e9a` (branch `backend/AU31-layer-composition-boundary`,
-worktree `.worktrees/AU31`; P11 added in the attempt-2 revision, run 2026-08-08 on the same production tree; P12 added in the attempt-3 revision, re-executed in the attempt-4 revision with the enumeration-derived model, and **re-executed whole in the attempt-5 revision** with the fail-closed model (adjudication 2), run 2026-08-08 — same production tree, `.pipeline` additions only since). Every result below was produced by executing the stated method in this
+worktree `.worktrees/AU31`; P11 run 2026-08-08 on the same production tree; **P12 rewritten and
+re-executed 2026-08-08 after the founder's concept-gate ruling narrowed R2's scope** — the reduced
+rule, four runs, same production tree, `.pipeline` additions only since). Every result below was produced by executing the stated method in this
 session, not recalled. Scratch outputs not worth keeping are discarded; the two load-bearing
 inventories are reproduced inline.
 
@@ -238,71 +240,64 @@ assumption remains UNVERIFIED except the two ⚠️ build-time re-checks named i
 
 ---
 
-## P12 — The R2 escape predicate, executed fail-closed over three enumerated grammars
+## P12 — The R2 escape predicate, executed
 
-**Question.** (Attempt 3 / round-2 B4) Does a predicate exist that (a) still catches every
-bypass spelling that motivated attempt 2's widening, (b) does not fire on the three
-planned-legal end-state sites (`layers/core-api/src/app.ts:213`,
+**Question.** Does a rule exist that (a) catches the plain spellings by which a service symbol
+reaches a layer face — the founding re-export at `layers/core-api/src/index.ts:15`, its two-line
+respelling, and the wrapper/deps-bag shapes the real tree already contains — (b) does not fire on
+the three legal end-state sites (`layers/core-api/src/app.ts:213`,
 `layers/core-api/src/service-bootstrap.ts:175`,
 `layers/core-api/src/services/tool-handlers-bindings.ts:200`), and (c) is implementable on the
-enforcement stack's own parser? (Attempt 4 / round-3 B5) Is the predicate's coverage provable
-over an **enumeration of TypeScript's export-surface grammar** rather than a curated attack
-list? (Attempt 5 / round-4 B6, under adjudication 2's changed strategy) Is the model
-**fail-closed on both axes** — is the *binding-form grammar* (every way a module-scope name is
-introduced) enumerated the way the export forms were, is the tracked universe inclusive by
-default (a name tracked because it is declared, exclusions argued per member), and does an
-unmodeled form surface as a loud build failure instead of a silent pass? Concretely: do
-round-4 B6's four executed leaks — the uninitialized `let`, the non-exported function
-declaration, the loop-header binding, the catch parameter — now flag, without reopening B4,
-the positional exemption, F14, or the E-side?
+enforcement stack's own parser?
 
-**Method.** Three enumerations are stated in architecture §7.2 (E: export-edge statements; N:
-binding forms, with per-member verdicts and argued exclusions; F: flow positions, walked
-structurally with function-like bodies as the single boundary) and restated in the
-prototype's own header. The prototype implements the fail-closed model on the census's own
-parser (`ts.createSourceFile` — `repo-census.ts:644-646`): inclusive carrier registration
-over the whole N grammar, a generic module-eval walk (conditions, loop headers, case
-expressions, template spans, initializer subtrees, load-time class/enum/namespace positions,
-IIFE and inline-decorator bodies), and a loud default branch for any unhandled statement
-kind. Seven runs: (1) attack + control fixtures — every "caught" member labelled with its
-id, incl. HN1–HN4 (round-4 B6's leaks), XP1–XP12 (flow positions and load-time bodies), XL1
-(the loud guard, exercised with a `with` statement), and control twins CN1/CN2 pinning the
-inclusive universe and the N11 exclusion against mis-behavior in both directions; (2) the
-three live planned-legal files, read-only; (3) the founding target; (4) the two-line
-founding-case respelling; (5) the residual fixture — now eight executed review-territory
-shapes (RES1–RES8); (6) **the planner's own adversarial pass, written before the limit
-statement** (fixture-self-attack: SA1–SA10 escapes that must flag — multi-hop uninitialized
-chains, `var` hoisting, IIFE-returned locals, rethrow chains, destructured catch, class
-expressions, template-span/case-expression/do-while assignment positions, compound
-element-access — plus SR1/SR2, review-territory shapes the limit statement must own); (7) a
-**deployment sweep** over every production module of the three layer root packages.
-Sources committed as `.ts.txt` (P11 convention), verbatim outputs in
-`probes/p12-r2-escape-predicate/outputs.txt`; runs executed from the session scratchpad —
-no overlay at any production path; tree clean at finish.
+**Scope, set by the founder's ruling at the concept gate.** Earlier attempts asked a bigger
+question — whether the rule could be made *complete*, so that no spelling whatsoever could route
+a service symbol out. Five rounds of critique each found another exotic spelling, and the founder
+closed the question: *"lets avoid overengineering. we don't need to be able to catch every exotic
+catch, linting is engineering guidance not protection against malicious actors."* So P12 now asks
+only the question above. The predicate reads a module's **export declarations** and what those
+declarations say; it does not chase statements that mutate an already-exported object, aliases,
+globals, or dynamic import. A developer who wants to route a symbol out through the face can.
+That is expected of a lint rule.
+
+**Method.** The prototype (`probes/p12-r2-escape-predicate/r2-escape-prototype.ts.txt`, ~200
+lines) implements the rule on the census's own parser (`ts.createSourceFile` —
+`repo-census.ts:644-646`): collect the module's service value imports, collect its top-level
+declarations as aliases, then read the four value-carrying export forms and follow the exported
+expression through literals, spreads, call arguments, and alias hops, with one positional
+exemption (a bare service identifier in direct callee position). Four runs; sources committed as
+`.ts.txt` (P11 convention), verbatim outputs in
+`probes/p12-r2-escape-predicate/outputs.txt`; fixtures executed from the session scratchpad — no
+overlay at any production path, live files read in place, tree clean at finish.
 
 **Result.**
 
 | Run | Input | Verdict |
 |---|---|---|
-| 1 | `fixture-attacks.ts` — A1–A12 + X1–X23 (kept verbatim) + HN1–HN4 + XP1–XP12 + XL1 | **every case flags, one finding per spelling** (54 findings), exit 1; `fixture-controls.ts` — C0–C9 + CN1 (tracked uninitialized carrier that never escapes) + CN2 (for-in over a service-holding bag) | **CLEAN** |
-| 2 | `layers/core-api/src/app.ts`, `service-bootstrap.ts`, `services/tool-handlers-bindings.ts` (live files; the third is byte-identical to its §5.3-relocated content) | **CLEAN, exit 0** — all three; the inclusive universe and structural walk over-fire nowhere on the plan's own legal end-state shapes |
-| 3 | `layers/core-api/src/index.ts` (R2's founding target) | **flagged** — line 15, exit 1 |
-| 4 | `fixture-founding-respelling.ts` (round-3 B5's decisive case) | **flagged** — line 8, named export of `list`, exit 1 |
-| 5 | `fixture-residuals.ts` — RES1–RES4 (standing) + RES5 (inline callback passed to a module-scope call) + RES6 (catch of a value thrown inside a called body) + RES7 (accessor triggered by module-scope property access) + RES8 (constructor reached by a module-scope `new`; its non-body twin XP12 **is** caught) | **CLEAN, exit 0** — the limit statement's residue, executed |
-| 6 | `fixture-self-attack.ts` — the planner's pre-statement adversarial pass | **SA1–SA10 all flag; SR1/SR2 clean**, exit 1 — the restated limit was attacked before it was written, and its residue owns the two clean shapes |
-| 7 | all 83 production modules of `layers/core-api/src`, `layers/agent-orchestration/src`, `layers/agent-execution/src` (dev-world `__*` excluded) | **75 files CLEAN; zero loud-guard mis-fires**; findings confined to 8 files, every one a pre-end-state surface the plan already handles: `core-api/src/index.ts` + `routines.ts` + `session.ts` and `agent-execution/src/index.ts` (deep-entry re-export barrels §7.1/§6.1 delete or replace), `services/tool-provider-bindings.ts` (§5: deleted), and `services/policy-bindings.ts` / `routine-scheduler-bindings.ts` / `task-run-resolver-bindings.ts` (exported deps bags carrying raw service symbols — reshaped to the sanctioned port-op arrow style §2.1/§2.5/§5 already prescribe and run 2's `tool-handlers-bindings.ts` demonstrates) |
+| 1 | `fixture-attacks.ts` — A1 the founding re-export shape, A2 `export *`, A3 `export * as ns`, A4 the two-line respelling, A5 exported binding holding the symbol, A6 exported deps bag, A7 one local alias hop, A8 default-export aggregate, A9 service symbol as a call argument, A10 destructured hop off a namespace import, A11 exported destructuring off a default import | **all 11 flag, one finding per spelling**, exit 1 |
+| 1 | `fixture-controls.ts` — C1 the positional exemption (a service factory called at module scope), C2 the non-escaping wiring bag, C3 type-only re-export, C4 own-module re-export, C5 the sanctioned port-op arrow bag, C6 a framework package | **CLEAN**, exit 0 |
+| 2 | `app.ts`, `service-bootstrap.ts`, `services/tool-handlers-bindings.ts` (live files; the third byte-identical to its §5.3-relocated content) | **CLEAN, exit 0** — all three |
+| 3 | `layers/core-api/src/index.ts` (the founding violation) | **flagged — line 15**, exit 1; line 14's type-only export beside it stays clean |
 
-**Verdict.** The model fails closed. Coverage derives from three whole grammars with
-per-member executed verdicts; the tracked universe is inclusive (a name is tracked because it
-is declared — round-4's four leaks HN1–HN4 all flag, and the one-token twins that decided B6
-now sit on the caught side with their no-over-fire controls clean); an unmodeled statement
-kind is a loud build failure, exercised in run 1 and silent across all 83 real modules in
-run 7. Nothing confirmed sound reopens: the three end-state sites stay clean (B4), the
-positional exemption holds (C5/C7 clean, A10 flags), F14's wiring bag stays legal (C2), and
-the E-side reproduces verbatim. §7.3's limit statement claims exactly what runs 1–7
-executed, was adversarially attacked by its own author before being written (run 6), and
-states plainly that a fully sound static R2 — zero review residue — is **not** reachable at
-proportionate cost; the executed fail-closed model with three argued residual classes is the
-reachable version, and that judgment is the evidence frame for the founder's open R2 scope
-question. The builder implements R2 against this executed model; the founder ratifies the
-enumerations, the fixture set, and the limit statement at §13.1.
+**Verdict.** Yes. The rule catches every spelling in the attack set and stays clean on every
+legal shape, including the three end-state sites and the arrow-bag style §2.1/§2.5/§5 prescribe.
+Run 3 is the load-bearing one: the case R2 exists for still fails the build, so AC #3 cannot be
+satisfied by a rule that flags nothing.
+
+What the earlier apparatus proved, and what happened to it: the E/N/F grammar enumeration, the
+inclusive carrier universe, the structural module-evaluation walk, the loud unmodeled-statement
+guard, the 54-case attack fixture, the self-attack and residual fixtures, and the seven-run
+ceremony were all built to answer the completeness question. They are deleted. One property from
+that work survives as a fact worth keeping: the reduced predicate reads a strict subset of what
+the previous one read, so run 2's clean verdict on the three legal sites is a consequence, not
+only a re-measurement — a file clean under the wider read cannot become dirty under the narrower
+one. Standing blocker **B7** (seven escaping-base mutation spellings) named exactly the class of
+statement this rule no longer reads; it is out of scope by the ruling, not fixed by code
+(architecture §7.3, §13.1).
+
+Run 4 confirms the reduction did not cost real-code bite: the deep-entry re-export barrels
+(`core-api/src/routines.ts:20`, `session.ts:9`, `agent-execution/src/index.ts:15`) and the exported
+deps bags carrying raw service symbols (`services/policy-bindings.ts`,
+`routine-scheduler-bindings.ts`, `task-run-resolver-bindings.ts`) all still flag — every one of
+them is an export-declaration shape, which is exactly what the reduced rule reads. Each is a
+pre-end-state surface §5/§6/§7.1 already deletes, relocates, or reshapes to the arrow-bag style.

@@ -1,86 +1,32 @@
 /**
- * P12 control fixture — zero findings expected. Each control is the twin that pins one
- * deliberate narrowing of the enumeration (architecture.md §7.2) against re-widening:
- * C2 pins F14 (the `app.ts:213` / `service-bootstrap.ts:175` non-escaping wiring bag);
- * C5 pins F9 (the `tool-handlers-bindings.ts:200` exported call RESULT, bare direct
- * callee); C6 pins F10 for object-literal method bodies; C7 pins F8 against over-fire
- * (a getter returning a produced value, not the symbol); C8 pins F4's escaping-base
- * requirement; C9 pins F5's scan against flagging service-free arguments. C1/C3/C4 are
- * the standing twins; C0 is type-only.
+ * R2 control fixture — the legal end-state shapes. Every case must stay clean, or the rule
+ * flags the architecture it is meant to enforce.
  */
 
-// @ts-nocheck
-import type { KnowledgeItem } from "@hyperidle/knowledge"; // C0 — type-only import, out of scope
-import { listKnowledge, searchKnowledge } from "@hyperidle/knowledge";
-import { buildToolDefinitions } from "@hyperidle/tool-handlers";
-import { ownHelper } from "./own-module.js";
+import { createSessionRequestsPort } from "@hyperidle/session-requests";
+import { list as listKnowledge } from "@hyperidle/knowledge";
+import { readServerConfig } from "@hyperidle/settings";
+import { installNotifications } from "@hyperidle/notification";
 
-// C1 — the same value spellings over the layer's OWN src modules are legal
-export const ownApi = { ownHelper };
+// C1 — the positional exemption: calling a service factory produces a value
+export const requestsPort = createSessionRequestsPort({ pageSize: 50 });
 
-// C2 — non-escaping module-scope wiring bag (the surviving composition style)
-const serverConfigPort = { read: listKnowledge, update: searchKnowledge };
-const wiringDeps = {
-	serverConfig: serverConfigPort,
-	users: { getUserById: (db: unknown, id: string) => listKnowledge(db, id) },
-};
-export function createApp(): unknown {
-	return install(wiringDeps);
-}
-function install(deps: unknown): unknown {
-	return deps;
+// C2 — non-escaping wiring bag: module-scope composition consumed inside a body
+const notificationsDeps = { serverConfig: { read: readServerConfig } };
+export function bootNotifications(): void {
+	installNotifications(notificationsDeps);
 }
 
-// C3 — a boot function whose body CALLS service functions (composition)
-export function boot(db: unknown): unknown {
-	return { items: searchKnowledge(db, "q") };
-}
+// C3 — type-only re-export from a service module
+export type { KnowledgeScope } from "@hyperidle/knowledge";
 
-// C4 — a boot function whose body RETURNS a service-produced value (composition)
-export function boot2(db: unknown): unknown {
-	const produced = listKnowledge(db, "all");
-	return produced;
-}
+// C4 — own-module re-export
+export { bootCoreApi } from "./boot";
 
-// C5 — exported call result, service binding in bare direct-callee position
-const localPorts = { coreApi: { getTaskById: (id: string) => id } };
-export const allDefinitions = buildToolDefinitions(localPorts);
-export { localPorts };
-
-// C6 — escaping bag whose METHOD body calls a service function (body runs on a
-// consumer's call — review territory F10, same as class methods)
-export const composedApi = {
-	getItems(db: unknown) {
-		return listKnowledge(db, "all");
-	},
+// C5 — the sanctioned escaping bag: port-op arrows, never raw symbols
+export const toolPorts = {
+	listKnowledge: (scopeId: string) => listKnowledge(scopeId),
 };
 
-// C7 — getter returning a PRODUCED value (bare service callee inside the scanned body)
-export const composedApi2 = {
-	get items() {
-		return searchKnowledge(undefined, "q");
-	},
-};
-
-// C8 — property mutation of a NON-escaping local bag (never reaches the export surface)
-const localBag = {};
-localBag.helper = listKnowledge;
-
-// C9 — module-scope call involving an escaping value but no service symbol
-export const registryHandle = {};
-register(registryHandle, "handle");
-function register(target: unknown, name: string): void {
-	void target;
-	void name;
-}
-
-// CN1 — the inclusive carrier universe does not over-fire: an uninitialized carrier
-// assigned a service value but NEVER escaping records nothing
-let cn1tmp;
-cn1tmp = listKnowledge;
-
-// CN2 — for-in binding (N11): holds property-NAME strings; the loop and the escaping
-// keys array stay clean even though the iterated bag holds a service binding
-const cn2bag = { listKnowledge };
-export const cn2keys = [];
-for (const cn2k in cn2bag) cn2keys.push(cn2k);
+// C6 — framework packages are not services
+export { isDefined } from "@hyperidle/shared";

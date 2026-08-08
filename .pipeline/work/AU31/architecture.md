@@ -3,31 +3,31 @@
 Spec of record: `.pipeline/work/AU31/plan.md`. Requirements: `requirements.md` (PASSED critique;
 the five non-blocking defects D1–D5 are absorbed below at the sites marked **[D1]**…**[D5]**).
 Feasibility: `feasibility.md` (probes P1–P12, cited as **[P#]**). Tier: **production**. Every
-`file:line` re-traced on the live tree at base `bbe82e9a`. This is the attempt-5 revision
-(adjudication 2, evaluation count reset). Attempt 2 closed round-1's B1–B3; attempt 3 closed
-round-2's **B4** by restating R2 as **escape through the export surface**; attempt 4 closed
-round-3's **B5** by deriving coverage from the export-surface grammar (round 4 independently
-verified that E-axis complete). This revision closes round-4's **B6** under adjudication 2's
-fail-closed strategy: the **binding-form grammar is now enumerated as its own axis** (§7.2's N
-table — round 4's four untracked forms, the uninitialized `let`, the non-exported function
-declaration, the loop-header binding, and the catch parameter, all flag: HN1–HN4), and the
-model's direction of failure is inverted — the carrier universe is **inclusive** (a name is
-tracked because it is declared, exclusions argued per member), flow collection is a
-**structural walk** of all module-evaluation code with function-like bodies as the single
-boundary, and an unmodeled statement kind is a **loud build-failing finding** rather than a
-silent pass. The re-executed model ([P12], seven runs — now including the planner's own
-pre-statement adversarial pass and a sweep of all 83 real production modules) keeps everything
-round 4 confirmed sound: the three planned-legal end-state sites stay clean, the founding
-target `core-api/src/index.ts:15` and its respelling still flag, the residuals stay executed
-and clean, and neither B4, the positional exemption, F14, nor the E-side reopens. §7.3's limit
-statement is restated from the executed runs and now also states plainly that a fully sound
-static R2 is not reachable at proportionate cost (§7.3, the founder's scope-question frame).
-Round-4's **N8** (a wrong run-1 count) dissolves with the re-executed evidence table; the
-**F4-note** (`Object.defineProperty` descriptor getters) lands as a clarifying clause in §7.2
-F8. D1–D5 remain absorbed at §11, §13.8, §7.2 **[D3]**, §3.1 **[D4]**, and §4 respectively.
+`file:line` re-traced on the live tree at base `bbe82e9a`.
+
+**This revision applies the founder's ruling at the concept gate, and it removes work rather than
+adding it.** Five rounds of critique argued about how completely R2 — the rule that keeps a
+service symbol from being re-exported through a layer's public face — could be made to catch every
+possible spelling. The founder closed the question: *"lets avoid overengineering. we don't need to
+be able to catch every exotic catch, linting is engineering guidance not protection against
+malicious actors."* R2 is now a rule a reader can understand in a paragraph: it reads a module's
+export declarations and flags a service symbol that a value-carrying export form names, holds,
+aggregates, or reaches through a top-level alias. Deleted with the completeness ambition: the
+three-grammar (28-member) enumeration, the fail-closed carrier model, the loud
+unmodeled-statement-kind guard, the 54-case attack fixture, the self-attack and residual fixtures,
+and the seven-run probe ceremony — all of it built to defeat an author now explicitly out of
+scope. Round 5's standing blocker **B7** is resolved by the ruling, not by code, and is recorded
+as out of scope in §7.3 and §13.1. What is proven by execution is the bar that matters: the
+founding violation (`layers/core-api/src/index.ts:15`) still fails the build, so AC #3 cannot be
+satisfied by a rule that flags nothing ([P12], run 3). Everything five rounds confirmed sound —
+the six per-service verdicts, the 93-site arithmetic, the atomicity audit, §11's evidence run, the
+wave split, the composition-root plan — is unchanged. The other rulings the founder made at the
+same gate (both supersessions, the relinquished atomicity with **no** durable mechanism, the
+two-WP split, the `application → layer` narrowing) are recorded in §13's preamble. D1–D5 remain
+absorbed at §11, §13.8, §7.2 **[D3]**, §3.1 **[D4]**, and §4 respectively.
 
 This plan creates no outcome beyond the plan's seven ACs. Where it supersedes a prior in-code
-decision, the supersession is listed in §13 and rides the mandatory founder gate (`plan.md:25`).
+decision, the supersession is listed in §13 and was ruled at the founder gate (`plan.md:25`).
 
 ---
 
@@ -558,7 +558,7 @@ where it can and says honestly where it cannot:
 
 1. **The manifest export map IS the face — and it shrinks.** End state per layer:
    - `core-api`: `.` , `./boot`, `./app` (whatever `bootCoreApi`'s contract genuinely needs —
-     final entry list is the founder-gate exhibit). Deleted: `./service-bootstrap`,
+     the final entry list lands with the build). Deleted: `./service-bootstrap`,
      `./services/*`, `./ws-connection-hub`, `./ws-subscribe-authorizer`, `./routes/*`,
      `./session`, `./routines`, **`./test-utils`** (development content on a production face —
      requirements §3.5; zero external consumers [P5]).
@@ -572,127 +572,51 @@ where it can and says honestly where it cannot:
      resolve into a nested service package. *Attack:* mutate `layers/core-api/package.json` to add
      an entry pointing into `layers/core-api/knowledge/src/…` → expect finding. *Control:* the
      surviving face entries.
-   - **R2 `service-values-do-not-escape-the-face`** (restated after critique round-2 B4;
-     replaces both the first draft's spelling and attempt 2's "anywhere outside a runtime
-     function body" widening, which flagged this plan's own end state): in the layer root
-     package's own modules reachable from its `exports` map (reachability stops at a package
-     boundary — service packages are judged by the other rules), matching specifiers **by
-     resolved module** exactly as R1/R3 do — so a relative path into a service directory is the
-     same violation as the package specifier **[D3]** — it is a violation for a **value binding
-     imported from a service module to escape the module's export surface as a value**. R2
-     exists to catch a service symbol being laundered through the face (refine-critique D3;
-     AU28's round-2 precedent); escape is what laundering *is*, so escape is what the predicate
-     measures. **Coverage is derived from enumerations, and the model fails closed**
-     (adjudications 1 and 2). Four rounds each found a spelling the tracked universe forgot,
-     because the model enumerated what IS tracked — so every omission was a silent pass. The
-     executed model inverts the direction of failure. Three axes, each a closed, finite
-     grammar over the AST the census's own parser produces (`ts.createSourceFile`,
-     `repo-census.ts:644-646`), each enumerated whole with a per-member verdict: **E** —
-     every top-level statement kind that creates an export edge (verified complete by
-     round 4's independent derivation); **N** — every way a module-evaluation-scope name can
-     be introduced (the axis round-4 B6 proved was never enumerated); **F** — every
-     module-evaluation position a value can flow through toward that surface. Three
-     fail-closed properties replace curation:
-     1. **The carrier universe is inclusive.** Every module-eval-declared name is tracked
-        *because it is declared* (any N member), never because its material is recognized —
-        an uninitialized `let` is a carrier whose material arrives by assignment flow. A
-        mis-handled binding form therefore surfaces as flow against a tracked carrier, not
-        as an invisible non-entity, and an over-tracked one is a loud false positive that
-        fails the build (the safe direction), pinned against over-fire by executed controls.
-     2. **Flow collection is structural, not shape-listed.** All module-evaluation code is
-        walked generically with a **single boundary — function-like bodies** — so
-        assignments and calls are found wherever they sit: statement position, conditions,
-        loop headers, case expressions, computed names, template spans, initializer
-        subtrees, non-function-body class/enum/namespace positions, and the two bodies the
-        bare parse itself proves run at load (an inline function in direct callee position;
-        an inline-function class decorator).
-     3. **The loud guard.** A module-eval statement kind outside the handled enumeration is
-        itself a build-failing finding (executed: the `with` statement, attack XL1) — an
-        unmodeled future form fails loud instead of passing silent.
-     The predicate's verdict is stated **per grammar member**; every "caught" row has an
-     executed attack case (labelled with its member id in the fixture), every deliberate
-     narrowing an executed control twin, every review-territory row an executed residual
-     case — so a future reviewer checks completeness against the grammars, not against
-     anyone's imagination. The [P12] prototype **is the executed model** (seven runs,
-     verbatim in `probes/p12-r2-escape-predicate/outputs.txt`; the enumerations are restated
-     in the prototype's own header).
+   - **R2 `service-values-do-not-escape-the-face`**: in the layer root package's own modules
+     reachable from its `exports` map (reachability stops at a package boundary — service
+     packages are judged by the other two rules), matching specifiers **by resolved module**
+     exactly as R1/R3 do, so a relative path into a service directory is the same violation as
+     the package specifier **[D3]** — a value imported from a service module may not reach the
+     module's export surface.
 
-     **The export-surface statements** (every top-level AST kind that creates an export edge):
+     **The whole rule, in a paragraph.** Four export forms carry a value out: `export … from
+     "<service>"` (named clause, `export *`, `export * as ns`), `export { local }` with no
+     specifier, `export default <expr>`, and an exported `const`/`let`/`var`. The rule reads the
+     exported expression through object and array literals, spreads, parens, `as`/`satisfies`
+     and call arguments, and through top-level declarations used as aliases, transitively. A
+     service symbol found anywhere in that reach is a violation, reported at the symbol's line
+     with the binding name and the service specifier. **One exemption, positional, never
+     named:** a bare service identifier in direct callee position of a call or `new` — calling a
+     service function *produces* a value, and a produced value escaping is composition (the §4
+     law's own shape); a property-chain callee is not exempt.
 
-     | # | Grammar member | Verdict |
-     |---|---|---|
-     | E1–E3 | `ExportDeclaration` with a module specifier — named clause with/without `as` (incl. `as default`), `export *`, `export * as ns` | caught by resolved specifier (A1, A2) |
-     | E4 | `ExportDeclaration` without a specifier — `export { x }`, `export { x as y }`, `export { x as default }` | caught — the exported **local** is tested against the service bindings and marked escaping (X1–X3b; round 3's B5 hole, closed) |
-     | E5/E6 | `ExportAssignment` — `export default <expr>` / `export = <expr>` | caught — the expression is scanned as escaping (A6, X23; `export =` is also a tsc error under these packages' NodeNext ESM, caught anyway so a module-format change cannot silently open it) |
-     | E7 | exported `const`/`let`/`var`, identifier name | caught (A3, A4) |
-     | E8/E9 | exported destructuring declarations — object and array patterns, nested, with defaults and rest | caught — pattern defaults and the initializer scanned whole; bound names escape (X4–X6) |
-     | E10 | exported function declarations, incl. `export default function` | the function **value** is own-module code; its body is review territory (F10); the exported name is a tracked carrier so mutation flow (F2–F5) sees it |
-     | E11 | exported class declarations, incl. anonymous `export default class` | caught for every module-evaluation position — field initializers (static and instance), heritage `extends` expressions, decorators, static blocks, getter bodies (A7, X15, X18–X21); method/setter/constructor bodies are F10 |
-     | E12 | exported enums | caught — member initializers scanned (X16) |
-     | E13 | exported namespaces (`export namespace`) | caught conservatively — the body is scanned whole (X17; zero instances in the production tree today) |
-     | E14 | `[export] import x = require("m")` | caught — the binding is recorded and exporting it flags (X22) |
-     | — | CommonJS (`module.exports`, `exports.x`) | not a member of the grammar: the shipping packages compile ESM/NodeNext, where `module` is undefined at module scope — the spelling cannot function as an export |
+     **What R2 deliberately does not read.** The founder's ruling at the concept gate, verbatim:
+     *"lets avoid overengineering. we don't need to be able to catch every exotic catch, linting
+     is engineering guidance not protection against malicious actors."* So R2 does not read
+     function-like bodies (the sanctioned face content **is** a bag of port-op arrows over the
+     layer's own services, so a body that calls a service is what a correct face looks like —
+     separating a launder body from a boot body would take an allowlist, which is banned),
+     class/enum/namespace members, or statements that mutate an already-exported object
+     (`api.tool = svc` and its variants), aliases of such objects, globals, or dynamic
+     `import()`. R2 exists so the plain re-export and deps-bag spellings — the ones a developer
+     writes by accident when a face needs "just one more thing" from a service — fail the build.
+     The boundary itself does not depend on R2: it holds by acquisition ([P11]).
 
-     **The binding-form grammar** (round-4 B6's missing axis: every way a
-     module-evaluation-scope name is introduced; every member's names register as carriers):
-
-     | # | Grammar member | Verdict |
-     |---|---|---|
-     | N1 | variable declaration, identifier, **with** initializer (`const`/`let`/`var`/`using`/`await using`) — top level, module-level block, or loop header | carrier + initializer material (A3–A5; block-nested: XP2; `var` hoisted from a block: run 6 SA2) |
-     | N2 | variable declaration, identifier, **without** initializer (`let`/`var`) | carrier; material arrives via assignment flow (HN1 — round 4's one-token flip `let tmp;` vs `let tmp = null;` is closed; multi-hop uninitialized chains: run 6 SA1; control CN1 pins no over-fire) |
-     | N3 | binding patterns — object/array, nested, defaults, rest | pattern leaves are carriers; defaults and the initializer are their material (X4–X6; destructured catch parameter: run 6 SA5) |
-     | N4 | function declarations, exported or not, top level or block-nested (hoisted) | carrier; the body is F10; mutation on the name is tracked (HN2 — round 4's `function helper` vs arrow-`const` flip is closed) |
-     | N5/N6/N7 | class / enum / namespace declarations | carriers with member material (A7, X16, X17); their non-function-body positions are walked for flow whether or not the declaration escapes (XP7–XP12) |
-     | N8/N9 | import clause forms — default, namespace, named — and `import x = require("m")` | a service import is the flag-on-contact set; a **non-service** value import is a carrier — the binding is immutable so no assignment material can exist, property mutation on it is tracked, and the imported module's own surface is R2-judged in that module (control C1) |
-     | N10 | `for`/`for…of` header bindings | carriers; a `for…of` binding's material is the iterable expression, conservatively whole (HN3); a `for…of` over an **existing** target is an assignment per iteration (XP4); a plain `for` header declaration is N1/N2 in header position |
-     | N11 | `for…in` header binding | carrier; material **provably excluded** — a `for…in` binding holds property-NAME strings, which cannot hold a service value (control CN2 pins the exclusion against re-widening) |
-     | N12 | catch parameters, identifier or pattern | carriers; material = every `throw` expression lexically inside the guarded try block (HN4; rethrow chains: run 6 SA4); a value thrown inside a **called function's body** is F10 territory (residual RES6) |
-     | — | function/class expression names (`const x = function f() {}`) | out of grammar: `f` is scoped to the expression's own body, not module scope |
-     | — | parameters | function-body scope (F10) |
-     | — | labels | not value bindings |
-     | — | assignment to an undeclared name | module code is strict mode — a runtime `ReferenceError`; the module cannot load |
-     | — | names not declared at module scope | globals: flowing a service value into one is F12's side channel (review territory); a global cannot yield a service value except through F12 itself |
-
-     **Module-eval value flow into that surface** (positions walked structurally —
-     fail-closed property 2):
-
-     | # | Grammar member | Verdict |
-     |---|---|---|
-     | F1 | material flow, transitive over module-scope carriers (worklist fixpoint) | caught (A5, A11) |
-     | F2 | assignment to an escaping name, any assignment operator, in **any** module-eval expression position — statement, module-level control flow, condition, template span, case expression | caught (X7–X9, HN1, XP1; run 6 SA7/SA9/SA10) |
-     | F3 | destructuring assignment targeting an escaping name | caught (X10) |
-     | F4 | property/element mutation whose base chain roots at an escaping binding, incl. computed keys and compound operators | caught (X11, HN2; run 6 SA8) |
-     | F5 | a call/`new`/tagged-template in any module-eval position whose callee chain or any argument roots at an escaping binding — all arguments scanned (conservative); a tagged template is a call in disguise | caught (X12, X13, XP5) |
-     | F6 | value positions inside an escaping expression (generic recursion): literal members, spreads, call/`new` arguments, property-access objects, template spans, computed names, conditional/binary/`await`/`as`/`satisfies`/parens, tagged templates | caught (A4, A9, A10, A12) |
-     | F7 | the two bodies the bare parse itself proves run at load: an inline function in direct callee position (IIFE) — in escaping expressions **and** in statement position — and an inline-function class decorator | caught — walked as module-eval code (A8, XP3, XP6; IIFE returning a body-local carrier: run 6 SA3) |
-     | F-load | non-function-body class/enum/namespace positions of **any** module-eval declaration, escaping or not: decorators, heritage expressions, static blocks, field initializers (a static one runs at load; an instance one on any construction, incl. a module-scope `new`), computed member names, enum member initializers, namespace bodies | caught — walked for flow (XP7–XP12; class expressions ride the same walk: run 6 SA6) |
-     | F8 | getter bodies of an escaping value, object-literal and class | caught — a getter yields its value on **property access**, so it is a data member in disguise (X14, X15); a getter returning a *produced* value stays clean (control C7). An `Object.defineProperty` descriptor is scanned when the installing call involves an escaping binding (F5, executed): a `value:` member carrying the symbol is **caught**; a `get:` arrow's body is F10 review territory like any deferred body — one clarifying clause rides the rule's `why` alongside F9's runtime-graph clause |
-     | F9 | **exactly one exemption, positional, never named**: the bare imported identifier in direct callee position of a call or `new` | exempt — calling a service function produces a value, and a produced value escaping is composition (the §4 law's own shape); the symbol does not flow into its own call's result (controls C5, C7). A property-chain callee is not exempt (A10). Runtime object graphs (`new C()` → `.constructor`; produced values closing over service internals) are inherent to **every** face-produced composition value, not a defect of the exemption: R2 governs static binding escape, not runtime reachability — one clause in the rule's `why` |
-     | F10 | function-like bodies — methods, accessors, setters, constructors, arrows, function expressions and declarations — **wherever their invocation comes from**: a consumer's call, a module-scope call of a named local function, an inline callback passed to a module-scope call, a module-scope `new` reaching a constructor, a module-scope property access reaching an accessor, a service value passed as an argument into a body that stores it, a value thrown from inside a called body | **review territory**, executed as residuals (run 5: RES1, RES2, RES5–RES8; run 6: SR1, SR2): machine-indistinguishable from boot composition (§7.3) |
-     | F11 | mutation through a module-scope alias of an escaping object | **review territory**, executed as residual (run 5, RES3): object identity is points-to semantics, not grammar (§7.3) |
-     | F12 | non-export side channels (`globalThis.leak = svc`; any name not declared at module scope) | outside R2 — not the export surface (run 5, RES4; §7.3) |
-     | F13 | dynamic `import()` of a service module | outside the binding model — the acquisition edge itself is censused (`repo-census.ts:705-712`) and its group is at error post-clear, so the spelling fails the build as an import crossing |
-     | F14 | non-escaping module-scope wiring — the wiring-bag style (`app.ts:213`, `service-bootstrap.ts:175`: a non-exported literal over the layer's own services, consumed only inside the module's functions) | **legal composition, not a miss** — no face consumer can obtain the symbol except through a function body (F10's territory); firing here would flag this WP's own end state (round-2 B4); pinned by its control twin (C2). The sanctioned **escaping**-bag shape is port-op arrows, never raw symbols (`tool-handlers-bindings.ts`, clean in run 2) |
-     | F15 | **the loud guard**: a module-eval statement kind outside the handled enumeration | a build-failing finding, executed (XL1, the `with` statement); run 7 proves it fires nowhere across the 83 real production modules |
-
-     Type-only spellings (`import type`, `export type … from`) are outside R2 — no value
-     escapes; the face's type surface is governed by the ratified export map and the §4 law's
-     type-home clause. **Executed ([P12], seven runs, verbatim results in `outputs.txt`):**
-     every attack case flags, one finding per spelling — 54 findings incl. round-4 B6's four
-     binding-form escapes (HN1–HN4), the eleven flow-position/load-time spellings (XP1–XP11),
-     the instance-field case (XP12), and the loud-guard case (XL1) — and the control fixture
-     incl. the two new twins is clean (run 1); the three planned-legal end-state sites B4
-     named — `app.ts`, `service-bootstrap.ts`, and `tool-handlers-bindings.ts` (whose
-     §5.3-relocated content is byte-identical) — are clean (run 2); the rule's founding
-     target (`core-api/src/index.ts:15`) still flags (run 3); the two-line respelling of the
-     founding case flags (run 4); the declared residual classes record nothing (run 5); the
-     planner's own ten-spelling adversarial pass against the restated limit — written
-     *before* the limit statement, per adjudication 2 — flags all ten with its two
-     review-territory shapes clean (run 6); and a deployment sweep over all 83 production
-     modules of the three layer root packages yields 75 clean files, zero loud-guard
-     mis-fires, and findings confined to 8 files, each a pre-end-state surface §5/§6/§7.1
-     already deletes, relocates, or reshapes to the sanctioned port-op style (run 7; the
-     per-file inventory and its §5 mapping are in feasibility P12).
+     **Executed** ([P12], four runs, verbatim in
+     `probes/p12-r2-escape-predicate/outputs.txt`; the prototype runs on the census's own parser):
+     eleven attack spellings each flag exactly once — the founding re-export shape, `export *`,
+     `export * as ns`, the two-line respelling, an exported binding holding the symbol, an
+     exported deps bag, one local alias hop, a default-export aggregate, the symbol as a call
+     argument, a destructured hop off a namespace import, and exported destructuring off a
+     default import (run 1); the six controls are clean — the positional exemption, the
+     non-escaping wiring bag, a type-only re-export, an own-module re-export, the port-op arrow
+     bag, and a framework package (run 1); the three planned-legal end-state sites (`app.ts`,
+     `service-bootstrap.ts`, `tool-handlers-bindings.ts`, whose §5.3-relocated content is
+     byte-identical) are clean (run 2); the rule's founding target
+     (`layers/core-api/src/index.ts:15`) flags while the type-only export on the line above it
+     stays clean (run 3); and the real pre-end-state surfaces still flag — the deep-entry barrels
+     §7.1/§6.1 delete or replace and the three exported deps bags §2.1/§2.5/§5 reshape to the
+     arrow style (run 4).
    - **R3 `deep-imports-die-with-their-entries`**: an import specifier of a layer package that
      resolves to a module absent from its `exports` map is a violation with the file and
      specifier named (satisfies validation scenario 2's error shape even where the TS resolver
@@ -702,86 +626,48 @@ where it can and says honestly where it cannot:
    - `decided-rules.json`: **no verdict flips.** `application → layer [import]` stays allowed —
      the face split lands as the three rules above plus the shrunken export maps, so the 12
      instances D4 counted (10 deep + 2 already-face-shaped boots, **[D4]**) converge on
-     face-shaped without a row change. The instance counts move; the founder ratifies the rule
-     texts, the final export maps, and the attack set at the human gate.
+     face-shaped without a row change. The instance counts move; the founder ratified the rule
+     texts, the narrowing, and the attack/control set at the gate (§13.1).
    - **Naming hygiene for every attack/control case this WP adds** (R1–R3's and §4/§13.3's
      `crossing-di` pair alike) **[N4]**: case ids, overlay paths, and `detail` strings name the
      spelling under test, never the work package — work-package identifiers live in
      `.pipeline/**` only, never in rule ids, JSON keys, filenames, or any field of an enforced
      artifact under `governance/` or `scripts/` (founder ruling).
-3. **The honest limit — fail-closed on both enumerated axes, executed, and attacked by its
-   own author before being written.** Its four predecessors were each refuted by a one-line
-   spelling because they enumerated what IS tracked, leaving every omission a silent pass;
-   round 4 refuted the fourth using its own positive claims. This one was written *after*
-   running a ten-spelling adversarial pass against the executed model (run 6) and a sweep of
-   all 83 real production modules (run 7). The statement the founder ratifies at §13.1 is,
-   verbatim:
+3. **What R2 catches and what it does not — stated plainly, because a lint rule is guidance,
+   not a wall.** Four earlier versions of this section each claimed a form of completeness and
+   each was refuted by a one-line spelling. The founder closed that pursuit at the concept gate,
+   and this is the statement the founder ratifies at §13.1:
 
-   > **R2's mechanical territory is module-evaluation code, held fail-closed on both
-   > enumerated axes. Every way a module-evaluation-scope name can be introduced (N1–N12 —
-   > including uninitialized declarations, non-exported function names, block-nested and
-   > loop-header declarations, and catch parameters) registers the name as a tracked
-   > carrier because it is declared, not because its material is recognized. Every
-   > module-evaluation expression position (statement, condition, loop header, case
-   > expression, computed name, template span, initializer subtree, non-function-body
-   > class/enum/namespace positions, and the two bodies the bare parse itself proves run at
-   > load — inline direct-callee functions and inline-function class decorators) is walked
-   > for assignment and call flow, with function-like bodies as the single boundary. A
-   > module-evaluation statement kind outside the handled enumeration is itself a
-   > build-failing finding, so a form the model does not know fails loud instead of passing
-   > silent. The review territory is exactly three executed classes, the first deliberately
-   > wider than every previous statement of it: (1) function-like bodies, wherever their
-   > invocation comes from — a consumer's call, a module-scope call of a named local
-   > function, an inline callback passed to a module-scope call, a module-scope `new`
-   > reaching a constructor, a module-scope property access reaching an accessor, a service
-   > value passed as an argument into a body that stores it, and values thrown to a catch
-   > from inside a called body; (2) mutation through a module-scope alias of an escaping
-   > object; (3) non-export side channels — globals and any name not declared at module
-   > scope. Runtime object graphs are outside any static rule: R2 governs static binding
-   > escape, not runtime reachability.**
+   > R2 reads a module's export declarations. Every service symbol that a value-carrying export
+   > form names, holds, aggregates, or reaches through a top-level alias is a violation, with the
+   > single positional exemption for a service identifier in direct callee position. R2 does not
+   > read function-like bodies, class/enum/namespace members, statements that mutate an
+   > already-exported object, aliases of such objects, globals, or dynamic `import()`. A
+   > developer determined to route a service symbol out through the face can, and that is
+   > expected of a lint rule: R2's job is to stop the accident; judging the deliberate is
+   > review's job.
 
-   The three residual classes, each named with its reason and each **executed** so the limit
-   is evidence, not prose (runs 5 and 6 record nothing on any of them):
-   - **Function-like bodies (F10) — the true residual, and honestly larger than round 3's
-     version.** Round 3 said "bodies that run on a consumer's call"; that was too narrow —
-     run 6's SR1/SR2 and residuals RES2/RES5–RES8 show bodies that run *at load* (a named
-     local function invoked at module scope; an inline callback a module-scope `.forEach`
-     happens to invoke; a constructor reached by a module-scope `new`; an accessor triggered
-     by a module-scope property access; a called body that stores an argument or throws a
-     value) and are still review territory, because the bare parse cannot prove their
-     invocation and their content is machine-indistinguishable from legitimate boot
-     composition — a boot's body calls service functions by design. Separating them would
-     take an allowlist, which is banned. The only bodies inside the mechanical territory are
-     the two whose invocation the parse itself proves (F7). Getter bodies of an **escaping**
-     value are not in this class — they are scanned (F8).
-   - **Mutation through a module-scope alias of an escaping object (F11).** `const alias =
-     api; alias.tool = svc;` (RES3) records nothing: the direct mutation spellings are
-     caught (F2–F5), but object identity is points-to semantics, not grammar — a rule
-     chasing aliases has no finite syntactic enumeration and would end in heuristics or an
-     allowlist.
-   - **Non-export side channels (F12).** `globalThis.leak = svc` (RES4) is not the export
-     surface; R2 governs the face. A determined author writing this is review's business,
-     like any other deliberate subversion.
+   Three consequences worth naming, none of them a defect:
+   - **Function-like bodies are the largest thing R2 does not read, and that is by design.** The
+     end state's own sanctioned face content is a bag of port-op arrows over the layer's
+     services, so a body that calls a service is exactly what a correct face looks like.
+     Distinguishing a launder body from a boot body would take an allowlist, which is banned.
+   - **Non-escaping module-scope wiring is legal, not missed** (`app.ts:213`,
+     `service-bootstrap.ts:175`): no face consumer can obtain those symbols except through a
+     function body, and firing there would flag this WP's own end state — round-2 **B4**'s
+     finding, accepted in full and pinned by control C2.
+   - **Standing critique blocker B7 is out of scope by the ruling, not fixed by code.** Round 5
+     found seven spellings that attach a service symbol to an already-exported object. Every one
+     of them sits in the class R2 no longer reads. The founder's reason, verbatim: *"keep it
+     simple and focused no overengineering for things that don't matter in reality. hyperidle is
+     a productivity tool without real users and we are currently cleaning up the architecture."*
+     Nothing is built for it, and no new completeness claim replaces it.
 
-   **Is a fully sound static R2 reachable? No — and this plan says so rather than claiming
-   it.** Zero-residue soundness would require distinguishing launder-bodies from
-   boot-composition bodies (an allowlist, banned), pointer analysis for aliases, and a
-   closed model of every global side channel — each disproportionate to a rule whose
-   founding case is a one-line re-export. What IS reachable, and what this plan ships, is
-   the executed fail-closed model: sound over the whole module-evaluation grammar with three
-   argued residual classes, loud on anything it does not model. The boundary itself holds by
-   acquisition ([P11], round-2 verification) and does not depend on R2; the founder's open
-   scope question on R2's generality (`progress.json.founderScopeQuestion`) rides the gate
-   with this exact statement of what is enforceable and what stays review territory.
-
-   Non-escaping module-scope wiring (F14) is legal, not missed — firing on it would measure
-   module-scope-ness instead of laundering and would flag this WP's own end state (round-2
-   B4's finding, accepted in full). The residual is held by three real things, recorded in
-   the rule's `why`: (a) the export map is small, enumerated, founder-ratified, and changes
-   only through review of a manifest diff; (b) `knip`/`knip:production` deletes any face
-   export without a composition-root consumer (no production export only tests consume); (c)
-   the reviewer lens judges the face content list. No allowlist, no suppression path exists
-   in any of the three holds.
+   Besides R2, three real things hold what sits on a face, and they are recorded in the rule's
+   `why`: (a) the export map is small, enumerated, founder-ratified, and changes only through
+   review of a manifest diff; (b) `knip`/`knip:production` deletes any face export without a
+   composition-root consumer (no production export only tests consume); (c) the reviewer lens
+   judges the face content list. No allowlist and no suppression path exists in any of them.
 
 ---
 
@@ -923,24 +809,36 @@ relocated composition files, `layers/core-api/src/boot.ts` + deleted subpath mod
   Dependency: B1 → B2 → B3 → B4. B depends on A (the relocated composition must not carry
   seam-shaped core imports with it; `service-bootstrap.ts` is the one file both waves touch).
 
-**Human gate:** after this architecture and its independent critique, before any code — the
-founder ratifies the §13 list. High-stakes; in an autonomous run this parks at the gate.
+**Human gate — held, and the founder has ruled.** The founder reviewed the §13 list at the
+concept gate and decided every open item; the rulings are recorded in §13's preamble, and the
+R2-scope ruling is applied throughout §7 and [P12]. Nothing on the list is still open.
 
 ---
 
 ## 13. Founder-gate register: supersessions, ratifications, and handoffs
 
-1. **The face rule** (§7): rule texts, per-layer final export maps, the three
-   enumerations (E/N/F) with their attack/control/residual set, and the limit statement
-   **verbatim as blockquoted in §7.3** — module-evaluation code held fail-closed on both
-   axes (inclusive carrier universe over the whole binding-form grammar; structural flow
-   walk with function-like bodies as the single boundary; the loud guard on unmodeled
-   statement kinds), with review territory exactly three executed classes (function-like
-   bodies wherever their invocation comes from; alias-mediated mutation; non-export side
-   channels) and runtime object graphs outside any static rule — plus §7.3's explicit
-   finding that a fully sound static R2 is NOT reachable at proportionate cost, which is the
-   evidence frame for the open `founderScopeQuestion`. The `decided-rules.json`/vocabulary
-   change only a founder ruling may make (`governance/README.md:138-141`).
+**The founder's rulings at the concept gate, applied above.** (1) **R2's scope is narrowed** —
+lint is engineering guidance, not protection against a determined author: *"we don't need to be
+able to catch every exotic catch."* §7 and [P12] are rewritten to the reduced rule and the
+bypass-hunting apparatus is deleted; standing blocker **B7** is out of scope by this ruling rather
+than fixed by code. (2) **Both supersessions are ratified** — items 2 and 5 below, with no extra
+scaffolding. (3) **The relinquished atomicity is accepted** — item 4 below: the named failure
+windows stand, and **no outbox or other durable mechanism is built**, explicitly rejected as
+machinery for a failure that has not happened on a product with no real users. (4) **The two-WP
+split is accepted** as §12 states it — waves A then B, sequential, each building and verifying on
+its own. (5) **Narrowing `application → layer [import]`** to face-shaped imports is ratified as
+part of the face definition (§7.2, `allowed`, 12 production instances).
+
+1. **The face rule** (§7): the three rule texts, the per-layer final export maps, R2's
+   attack/control set (eleven attacks, six controls — §7.2, executed [P12]), and the plain
+   statement of R2's reach **verbatim as blockquoted in §7.3**: R2 reads export declarations;
+   it does not read function-like bodies, class/enum/namespace members, mutation of an
+   already-exported object, aliases, globals, or dynamic `import()`, and a developer determined
+   to route a symbol out through the face can. Also ratified here: round-5 blocker **B7** (seven
+   spellings that attach a symbol to an already-exported object) is **out of scope by the
+   founder's ruling, not fixed by code** — nothing is built for it. The
+   `decided-rules.json`/vocabulary change only a founder ruling may make
+   (`governance/README.md:138-141`).
 2. **`AgentOrchestrationPort` gains a write side**, superseding AU26 H1/H2's "downward call, the
    door stays read-only" (`policy-bindings.ts:100-105`). Rationale: the downward call is now the
    forbidden crossing; one door both directions is the smaller system.

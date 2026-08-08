@@ -1,10 +1,8 @@
 {
   "id": "AU31",
-  "status": "awaiting-human-review",
-  "currentStep": "concept-gate",
-  "parkedAt": "2026-08-08",
-  "parkReason": "Adjudication budget exhausted (2 of 2). Five architecture critique rounds; every part of the architecture EXCEPT the R2 launder rule is confirmed sound by independent rounds. R2's escaping-base recognizer is still shape-listed rather than structural (B7), so it fails open on seven executed spellings outside the declared residue. Founder must rule on R2's scope before further work — see founderScopeQuestion and founderGateItems.",
-  "smallestActionToResume": "Founder rules on founderScopeQuestion. If 'keep generality': one more planner pass applying B7's stated mechanical resolution (structural base-unwrapping matching the transparency scanEscaping already has, plus routing destructuring for-of heads through existing F3 machinery) — reopens nothing confirmed sound. If 'scope down': planner narrows R2 to its founding case and states the residue as review territory. Either ruling proceeds from this artifact without discarding confirmed-sound work.",
+  "status": "in-progress",
+  "currentStep": "architecture-critique",
+  "smallestActionToResume": "Reviewer critiques the revised architecture (§7.2, §7.3, §13, [P12] changed; everything else unchanged and confirmed sound across five rounds). Scope the critique to the reduced R2 and the recorded rulings — re-deriving §2–§6 or §8–§12 re-litigates settled work.",
   "startedAt": "2026-08-07",
   "worktree": ".worktrees/AU31",
   "branch": "backend/AU31-layer-composition-boundary",
@@ -12,7 +10,7 @@
   "tier": "production",
   "approvals": {
     "requirements": null,
-    "concept": null,
+    "concept": "ruled 2026-08-08 — founder decided every §13 gate item; R2 scope narrowed",
     "final": null
   },
   "baselineScope": {
@@ -45,7 +43,9 @@
     "architectureCritiques": [
       ".pipeline/work/AU31/architecture-critique.md",
       ".pipeline/work/AU31/architecture-critique-r2.md",
-      ".pipeline/work/AU31/architecture-critique-r3.md"
+      ".pipeline/work/AU31/architecture-critique-r3.md",
+      ".pipeline/work/AU31/architecture-critique-r4.md",
+      ".pipeline/work/AU31/architecture-critique-r5.md"
     ],
     "probes": [
       ".pipeline/work/AU31/probes/p11-composition-spelling/",
@@ -59,11 +59,37 @@
   },
   "refineVerdict": "PASS (0 blocking) — session-requests stays in agent-orchestration; layer public face = the layer package's own export surface",
   "architectureCritiqueHistory": [
-    { "round": 1, "verdict": "FAIL", "blocking": 3, "summary": "face-handoff claim contradicted by the enforced census; 3 DI sites unaccounted; wrapper-launder limit refutable in one line" },
-    { "round": 2, "verdict": "FAIL", "blocking": 1, "summary": "all 3 prior blockers confirmed closed; widened R2 predicate over-fires on the plan's own legal in-layer wiring" },
-    { "round": 3, "verdict": "FAIL", "blocking": 1, "summary": "B4 closed and positional exemption holds; executed model + ratified attack set never check the export surface's own direct spellings, so the limit statement is refuted in one line" },
-    { "round": 4, "verdict": "FAIL", "blocking": 1, "summary": "export-form axis (E1-E14) independently derived as COMPLETE and CommonJS exclusion verified sound; binding-form axis never enumerated, so 4 declared-but-untracked forms leak (B6)" },
-    { "round": 5, "verdict": "FAIL", "blocking": 1, "summary": "loud kind guard verified REAL, inclusive carrier universe holds, all 7 runs reproduce, N exclusions proven, reachability verdict honest; but the escaping-BASE recognizer is shape-listed not structural, so 7 executed spellings leak outside the declared residue (B7). Narrowest blocker of five rounds; fix is mechanical and reopens nothing." }
+    {
+      "round": 1,
+      "verdict": "FAIL",
+      "blocking": 3,
+      "summary": "face-handoff claim contradicted by the enforced census; 3 DI sites unaccounted; wrapper-launder limit refutable in one line"
+    },
+    {
+      "round": 2,
+      "verdict": "FAIL",
+      "blocking": 1,
+      "summary": "all 3 prior blockers confirmed closed; widened R2 predicate over-fires on the plan's own legal in-layer wiring"
+    },
+    {
+      "round": 3,
+      "verdict": "FAIL",
+      "blocking": 1,
+      "summary": "B4 closed and positional exemption holds; executed model + ratified attack set never check the export surface's own direct spellings, so the limit statement is refuted in one line"
+    },
+    {
+      "round": 4,
+      "verdict": "FAIL",
+      "blocking": 1,
+      "summary": "export-form axis (E1-E14) independently derived as COMPLETE and CommonJS exclusion verified sound; binding-form axis never enumerated, so 4 declared-but-untracked forms leak (B6)"
+    },
+    {
+      "round": 5,
+      "verdict": "FAIL",
+      "blocking": 1,
+      "summary": "loud kind guard verified REAL, inclusive carrier universe holds, all 7 runs reproduce, N exclusions proven, reachability verdict honest; but the escaping-BASE recognizer is shape-listed not structural, so 7 executed spellings leak outside the declared residue (B7). Narrowest blocker of five rounds; fix is mechanical and reopens nothing.",
+      "resolution": "B7 closed by founder ruling (out of scope), not by code. Planner pass narrowed R2 and deleted the completeness apparatus; founding violation still proven caught by execution (P12 run 3, core-api/src/index.ts:15)."
+    }
   ],
   "adjudications": [
     {
@@ -88,7 +114,7 @@
     "raised": "2026-08-08",
     "question": "R2 (the launder rule) has now absorbed four critique rounds — every other part of this architecture passed. Is R2's full generality worth its cost, or should it be scoped to its founding case with the residue left as review territory?",
     "context": "R2 is a hardening beyond AC #3's literal text. refine-critique D3 established that WITHOUT some launder rule, AC #3 is vacuously satisfiable — today's core-api/src/index.ts:15 already satisfies it on paper. So a launder rule is load-bearing; the open question is how complete it must be to be worth shipping, given that the boundary itself holds by acquisition (independently verified) and does not depend on R2.",
-    "status": "open — surfaced to founder alongside the concept gate, not blocking the adjudicated pass"
+    "status": "RULED 2026-08-08 — scope down. Verbatim: \"lets avoid overengineering. we don't need to be able to catch every exotic catch, linting is engineering guidance not protection against malicious actors.\" and \"keep it simple and focused no overengineering for things that don't matter in reality. hyperidle is a productivity tool without real users and we are currently cleaning up the architecture.\""
   },
   "boundaryVerdict": "Holds by acquisition, not blindness — repo-census.ts:683-714 records an import edge for every acquisition spelling (static, export…from, namespace, import=require, dynamic import(), require() with destructuring). Independently verified in critique round 2.",
   "founderGateItems": [
@@ -98,5 +124,14 @@
     "Two sites relinquish transactional atomicity (knowledge.ts:934, threads.ts:1463) with named failure windows",
     "The R2 escape-predicate limit statement and its attack/control pair",
     "Recommended split into two work packages at the mechanism/composition boundary"
-  ]
+  ],
+  "founderRulings": {
+    "at": "2026-08-08",
+    "r2Scope": "Reduced to the plain export-declaration shapes. R2 reads a module's export declarations; it does not read function-like bodies, class/enum/namespace members, mutation of an already-exported object, aliases, globals, or dynamic import(). Bypass-hunting apparatus deleted (E/N/F enumeration, fail-closed carrier model, loud kind guard, 54-case attack fixture, self-attack + residual fixtures, seven-run ceremony). No completeness claim is made. Applied in architecture §7.2/§7.3/§13.1 and feasibility P12; probe set reduced to 11 attacks + 6 controls, 4 runs.",
+    "b7": "OUT OF SCOPE by the ruling, not fixed by code. Round 5's seven escaping-base mutation spellings all sit in the class R2 no longer reads. Nothing built for it.",
+    "supersessions": "Both ratified — AU26 H1/H2's read-only door opens to port write ops; AU21 Decision E's SessionActivityBuffer relocates. No extra scaffolding.",
+    "atomicity": "Relinquishment accepted at knowledge.ts:934 and threads.ts:1463; named failure windows stand; NO outbox or other durable mechanism — explicitly rejected as machinery for a failure that has not happened on a product with no real users.",
+    "split": "Accepted — two work packages, sequential: wave A (core converses only through the door) then wave B (the applications compose faces). Each builds and verifies on its own.",
+    "applicationToLayerImport": "Narrowing to face-shaped imports ratified as part of the face definition."
+  }
 }
