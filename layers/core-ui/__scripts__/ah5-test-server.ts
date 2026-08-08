@@ -2,7 +2,8 @@
  * AH5 E2E test server startup script.
  *
  * Boots a real Hono server on AH5_API_PORT (default 3097) with:
- *   - In-memory PGlite database (migrated)
+ *   - PGlite database migrated into a fresh per-boot tmp dir (AU32 D4 — no
+ *     longer the bare in-memory handle this once was)
  *   - OpenRouter API key seeded ENCRYPTED into server_credentials via
  *     encryptCredentialValue (production AES-256-GCM path) — so DbCredentialResolver
  *     exercises the production credential resolution path with zero mocks.
@@ -132,7 +133,7 @@ if (resolveModelFile && fs.existsSync(resolveModelFile)) {
 }
 
 // ---------------------------------------------------------------------------
-// 4. Boot the Hono server with the already-migrated in-memory DB.
+// 4. Boot the Hono server with the already-migrated tmp-dir DB.
 //    AU19 Increment 5 (item 2): adapterPool/workspaceAdapter are now REQUIRED
 //    — inject a LocalSandboxAdapter (laptop profile, set above), mirroring
 //    applications/desktop's boot-server.ts.

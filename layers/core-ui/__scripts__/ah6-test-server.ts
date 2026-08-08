@@ -2,7 +2,8 @@
  * AH6 E2E test server startup script.
  *
  * Boots a real Hono server on AH6_API_PORT (default 3098) with:
- *   - In-memory PGlite database (migrated)
+ *   - PGlite database migrated into a fresh per-boot tmp dir (AU32 D4 — no
+ *     longer the bare in-memory handle this once was)
  *   - Cassette-intercepted LLM calls (LLM_CASSETTE_MODE from env)
  *   - In REPLAY mode (everyday lane): fake ANTHROPIC_API_KEY, no real network call.
  *   - In RECORD mode (smoke:ah6): OpenRouter API key encrypted into server_credentials

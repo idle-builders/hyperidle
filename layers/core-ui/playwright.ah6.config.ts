@@ -60,7 +60,7 @@ const COST_REPORT_PATH = "/tmp/ah6-cost.json";
 export default defineConfig({
 	testDir: "./__e2e__",
 	testMatch: "**/AH6-*.spec.ts",
-	fullyParallel: false, // Serial: 1 in-memory DB, deterministic cassette replay
+	fullyParallel: false, // Serial: 1 DB (tmp-dir PGlite), deterministic cassette replay
 	forbidOnly: !!process.env.CI,
 	retries: 0, // No retries — a lane failure is a real signal, not a flake
 	workers: 1,

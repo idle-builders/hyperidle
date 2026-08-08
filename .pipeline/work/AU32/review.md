@@ -137,3 +137,102 @@ The architecture's live-proof list requires "boot each modified script and obser
 | **6.** `test:all` green and the integration pass count unchanged or higher, netting exactly the named deletions | **PASS** | 6193/0 unit and 2826/0 service integration, both matching the projected numbers exactly; harness failures all pre-existing and untouched |
 | Validation scenario 3 (companion groups derived from the owners' code) | **PASS** | `governance-crossings.test.ts:917-945` — an owner writing one table yields no group at all; live derivation confirmed to produce exactly `{teams ↔ teamMembers}` and `{knowledgeItems ↔ knowledgeAppProjection}` |
 | Project gate: `npm run verify` green | **FAIL** | `knip` (**B2**) and `deps:check` (**B3**) both exit 1 on dependency declarations this change orphaned |
+
+---
+
+# AU32 — implementation review, ROUND 2 (focused re-review of the three blocking findings)
+
+**Reviewed:** `git diff 84a5ae5f..HEAD` (HEAD `8d0599f7`, branch `pipeline/AU32`, base `origin/main`) — one commit, 20 files.
+**Scope:** B1, B2, B3 and the two non-blocking fixes (D1, D2) only. Round 1's confirmations are not re-derived.
+**Method:** all eight companion sites read in place; the builder's checker executed and then attacked with an independent, strictly stronger AST audit (per-function balance, whole-file totals, count-based rather than presence-based, plus every non-touched local module the touched files import); both dependency removals traced to zero importers in both worlds; lockfile consistency dry-run; `ah1` boot + graceful and non-graceful termination reproduced live; the eval cleanup probe re-executed; all seven gates run in the foreground.
+
+**Verdict: DONE.** No blocking findings. Three residual non-blocking items, all record- or hygiene-level.
+
+## The three blocking findings are closed
+
+**B1 — all eight `teams` entities now carry a companion.** `framework/db/src/__tests__/schema.integration.test.ts` — every one read in place:
+
+| entity (`insert(teams)`) | companion (`insert(teamMembers)`) | test |
+|---|---|---|
+| `:73` | `:79-85` | inserts and reads teams (formerly products) |
+| `:143` | `:144-150` | inserts and reads bets |
+| `:173` | `:174-180` | inserts and reads tasks |
+| `:211` | `:212-218` | updates tasks correctly |
+| `:249` | `:250-256` | inserts and reads sessions |
+| `:303` | `:304-310` | inserts and reads routines |
+| `:624` | `:625-631` | rejects task with invalid bet_id |
+| `:649` | `:650-656` | rejects session with invalid agent_id |
+
+The pre-existing pair (`:121` teams / `:122` teamMembers, the round-1 `:114`/`:115`) is **not** duplicated — that test still holds exactly one companion insert, and its id stays `team-1` because it is the subject of its own assertion.
+
+The rows mirror the owner faithfully: `id: "<teamId>-members"`, `capacity: 5`, `activeBets: 0`, `formedAt: now`, identical to `_helpers.ts:126-132`'s `seedTeam`, which itself documents (`:108-109`) matching `createTeam` (`team-lookup.ts:230-259`).
+
+**No test now passes for a different reason.** Zero `expect`/`test(`/`describe(` lines in the file changed (the diff is eight pure arrange blocks). The file contains **no** `.delete(` and **no** raw `DELETE FROM` (scanned), and no assertion in it counts rows — every `select` is `.where(eq(<table>.id, …))` on `teams`/`bets`/`tasks`/`sessions`/`routines`/`teamMembers`, so a membership row is invisible to all eight. The two `rejects.toThrow()` tests reject on a deliberately absent `bet_id`/`agent_id`; the added companion inserts succeed before the act (its `teamId` FK resolves to the team just written) and add no second cause. `teamMembers.id` is unique inside each test and the fixture truncates per test. C6's post-change delete-rejection re-scan over the touched set returns exactly the two `teams` deletes in `foreign-keys.integration.test.ts:44,72` — the expected answer set, both in the file round 1 verified — so no added row is a non-cascade child of a deleted parent at act time.
+
+**B2/B3 — both gates green, both removals genuinely orphaned.**
+- `layers/core-ui`: zero `@electric-sql/pglite` imports and zero `drizzle-orm` references of any kind anywhere in the package, production or development — the only surviving hits are prose in comments/config docstrings. Both `devDependencies` entries correctly dropped.
+- `tools/eval`: zero `@electric-sql/pglite` imports (prose only); `drizzle-orm` is imported by 26 files (`judges.ts:28`, `runner.ts:182`, 24 scenarios) — **keeping it is right**, and dropping it would have broken the package.
+- Lockfile: the diff is exactly the three declaration lines, with no version, resolution or package-entry change — correct, since both packages remain in the tree for other workspaces. `npm install --dry-run` reports "up to date", so manifests, lockfile and installed tree agree, and `npm install` dragged in nothing unrelated. Working tree clean (`git status --porcelain` empty).
+
+## Gates, all run in the foreground by me
+
+| gate | result |
+|---|---|
+| `npm run check` | PASS — 34/34 packages, 0 errors |
+| `npm run lint` | exit 0 — `governance-lint: PASS — 3326 tracked files (789 production, 2537 development), 33 packages, 8125 crossings, 18 rules, **221 production + 0 development** known violation(s) at warn` |
+| `npm run knip` | **exit 0** (was 1 — B2 closed) |
+| `npm run knip:production` | exit 0 |
+| `npm run deps:check` | **exit 0** — `33 packages, imports and manifests agree (1 justified exception)` (was 1 — B3 closed) |
+| `npm run test:full` | 562 files, **6193 passed / 0 failed** |
+| `npm run test:integration:service` | 320 passed + 1 skipped files, **2826 passed / 4 skipped / 0 failed** |
+
+Scope: no production-world source file changed. Every source path in the branch is `__tests__`/`__scripts__`, or under `scripts/`, `governance/`, `tools/`, `docs/`, `.pipeline/`. `framework/db/src/schema.ts` and `framework/db/drizzle/` untouched — no migration, no FK, no `onDelete`. The one production-path file in this commit is `layers/core-ui/package.json`, and the edit removes two **unused devDependencies** (never shipped, required for the two gates to pass) — not a production code change.
+
+## The mechanical check, attacked
+
+I executed it: `npx tsx .pipeline/work/AU32/probes/per-entity-companion-check.mts` → **48 files, 361 test scopes, PASS, exit 0**. The committed output says 46 files; the same commit added the two `package.json` manifests to the diff after the probe ran. Immaterial (a manifest has no test scope) and the load-bearing number, 361 scopes / 0 findings, reproduces exactly.
+
+**What the checker is blind to** (reported, not asked to be closed — it is evidence, not a guard):
+
+1. **Anything arranged outside a `test()`/`it()` body.** `visitTop` only matches a `CallExpression` whose callee is the bare identifier `test`/`it`. The touched set contains **31 owner inserts in exactly that position** — 30 inside named file-local seed helpers (e.g. `work-completeness.integration.test.ts:14 seedWork()`, `routine-scheduler-relocation.integration.test.ts:186 seedManualRoutine()`, `retention-reaper.integration.test.ts:67 seedTaskDispatchAttempt()`, `_helpers.ts:68,118,171`) and one at **module top level** (`layers/core-ui/__scripts__/ah6-test-server.ts:115`). None is examined.
+2. **A call into a helper that is not literally `seedTeam`/`seedKnowledgeItem`/`seedBase`.** A scope calling a file-local `seedTask()` that inserts a bare team records *neither* owner nor companion, so it passes silently — a false green, not a false alarm.
+3. **Presence, not count.** `written` is a `Set`. A scope with three `insert(teams)` and one `insert(teamMembers)` passes. The same hole covers the seeder credit exactly as you suspected: one `seedBase()` plus three further bare `insert(teams)` in the same scope passes.
+4. **Modifier and table-generator forms.** `test.each(...)`, `test.skip`, `it.only`, `test.for` are `PropertyAccessExpression` callees and invisible; `insert(<non-identifier>)` (`insert(schema.teams)`, a variable table) is skipped by the `isIdentifier` guard.
+
+**None of those blind spots hides an actual violation.** My independent audit over the same touched set, strictly stronger on every axis above, finds **zero**:
+- per-**function** balance (every named function/arrow, not just test bodies), **count**-based: 30 owner-writing functions, **0 unbalanced**;
+- **whole-file** owner-vs-companion totals: **0 unbalanced files** (this is what covers the module-level `ah6-test-server.ts:115` site and any `beforeEach`);
+- per-scope **count** balance with helper credits counted per call rather than as a set: **0 imbalances** — the `seedBase`-plus-extra-teams hole is not exercised anywhere;
+- `insert(<non-identifier>)` occurrences in the touched set: **0**; `test.each`/`.skip`/`.only`/`.for` occurrences: **0**;
+- the 34 non-touched local modules the touched files import contain **zero** `insert(teams)`/`insert(knowledgeItems)` — no laundering through an untouched helper.
+
+Its sanity-break also holds independently: the committed FAIL run names the same eight sites at the same pre-fix lines the round-1 review derived by hand, so the checker is not vacuously green.
+
+## NON-BLOCKING DEFECTS
+
+### R2-D1 — `progress.json` overclaims the checker's coverage
+`progress.json` (B1 entry): "*Result: 46 files, 361 test scopes, PASS — zero unbalanced entities anywhere in the diff.*" The checker cannot establish "anywhere in the diff": 31 owner inserts in the diff sit outside every scope it walks (see blind spot 1). The **conclusion happens to be true** — I proved it by the three independent passes above — but the cited evidence does not reach it. The probe's own header and PASS line are correctly hedged ("inside one `test(...)`/`it(...)` scope", "in every checked scope"); only the progress record generalises past them. Fix is one clause in the record, not code. Also stale-by-two: the recorded "46 file(s)" predates the manifest fix in its own commit (live: 48).
+
+### R2-D2 — the tmp-dir cleanup covers the graceful path only (residual of D1/D2)
+In all three servers the `rm` sits inside `shutdown()`, which is reachable only from `process.once("SIGTERM")` / `("SIGINT")` (`ah1-test-server.ts:89-93` + `:98-99`, and the identical shape in `ah5`/`ah6`). There is no `try/finally` around boot and no `exit`/`uncaughtException`/`unhandledRejection` hook, so a throw between `mkdtemp` (`ah1:50`) and signal registration (`ah1:98`) leaks the directory, as does any non-catchable termination. Reproduced live: `SIGTERM` → directory gone; `SIGKILL` → `…/T/ah1-e2e-db-CXalWK` left behind (unavoidable for `SIGKILL`; the boot-throw window is not). `tools/eval` is the better shape — `runner.ts:311-314`'s `finally { await close() }` covers the scenario-failure path, leaving only a throw inside `createEvalDb` itself (between `mkdtemp` at `:72` and the return) uncovered. Development tooling, no AC governs it; D2 was non-blocking and remains so at a smaller size.
+
+### R2-D3 — the ah\* headers still describe an in-memory database
+`ah1-test-server.ts:4-8` ("in-memory PGlite database", "Flow: create in-memory PGlite → …") and `:13`, plus the `ah5`/`ah6` headers and `playwright.ah1/ah5/ah6.config.ts`, contradict the same files' new `@lore` at `ah1:86-88` ("*replaced the in-memory `new PGlite()` … with a per-boot `mkdtemp` directory*"). Drift introduced by this change's own reroute; a reader of the header now learns something false about where the data lives.
+
+## Record accuracy — spot-checks
+
+The corrected `progress.json` entry now matches reality: it names the false claim, says plainly it was never measured, and records `knip` exit 0 / `knip:production` exit 0 / `deps:check` exit 0 — all three of which I reproduced independently. Every probe backing a claim in this commit is non-empty and carries a measured artefact; there are no zero-byte files left in `probes/`:
+- `probes/knip-after-fix.txt`, `knip-production-after-fix.txt`, `deps-check-after-fix.txt` — real command output ending in `EXIT=0 (measured)`; my own runs match line for line.
+- `probes/ah1-boot.log` — 916 bytes, real: ready line, scheduler start with a live timestamp, a genuine `401 {"error":"Missing or invalid API key","code":"UNAUTHORIZED"}` with server headers, the tmp dir named while up and absent after `SIGTERM`. I reproduced the ready line and the `SIGTERM` cleanup myself.
+- `probes/eval-db-cleanup-check.mts` — re-executed: `before: []` → `during: ['eval-db-onQhGG']` → `after: []`, no leftovers. It imports and calls the real `createEvalDb`, so it is a genuine behavioural check.
+- `probes/per-entity-companion-check-output.txt` — both the PASS run and the revert-and-rerun FAIL run reproduce (modulo the 46/48 staleness noted above).
+- `createPgliteDb` (`framework/db/src/connection.ts`, production) is untouched by the branch — confirmed against the full changed-file list.
+
+## AC table — deltas from round 1 only
+
+| AC | Round 1 | Round 2 |
+|---|---|---|
+| **1.** No fixture writes one row of a pair; no exception | **FAIL** (B1) | **PASS** — all eight entities completed; per-entity completeness independently re-derived three ways over the whole touched set, plus its imported helpers; 0 development violations at lint level |
+| Project gate: `npm run verify` green | **FAIL** (B2/B3) | **PASS** — `check`, `lint`, `knip`, `knip:production`, `deps:check` all exit 0 |
+| **3.** / **6.** | PASS | Unchanged and re-confirmed: zero `expect` lines touched by this commit; 6193/0 and 2826/0, identical to round 1 — the eight added rows move no count |
+| **2.** / **4′.** / **5′.** | PASS | Not re-derived (out of this round's scope); nothing in this commit touches their evidence |
