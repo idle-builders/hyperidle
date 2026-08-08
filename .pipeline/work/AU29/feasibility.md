@@ -95,7 +95,31 @@ Node v26.4.0 (`export PATH=/opt/homebrew/bin:$PATH`). Scratch scripts live in
 | guards + dispatcher types keep production consumers after the moves | `rg` for `isAgentWorkIntent*` and `@hyperidle/shared/observability` | guards: both services; observability sub-barrel: only `core-api/src/observability-runtime.ts` (which becomes co-located with the dispatcher). |
 | `agent_run_config.agentUserId` FK → `users.id` | `schema.ts:110-113` | ordering constraint: core-state face before run-config face. |
 
-## 5. Environment notes for the builder
+## 5. B1 — plan validation scenario 3: premise and mechanism, both executed (revision 2)
+
+- **Question:** does a deliberately added no-database export in `framework/db` fail `npm run lint`
+  today (the architecture critique's B1 says no), and does the chosen escalation
+  (`architecture.md` §4.5) make it fail naming the symbol?
+- **Method:** `bash .pipeline/work/AU29/probes/unplaced-escalation-probe.sh` from the repo root
+  (self-restoring — reverts every touched file on exit; refuses a dirty tree). Phase 1 adds
+  `framework/db/src/no-db-probe.ts` (`probeNoDb`, pure string function) plus its barrel re-export
+  and runs the **unmodified** lint. Phase 2 registers the unplaced-symbol map as an error rule —
+  a prototype of §4.5's registered-rule shape — and re-runs.
+- **Result** (executed 2026-08-08 at `6a56a570`):
+  - Phase 1: `governance-lint: PASS — … 18 rules …`, **exit 0**, while the NOTE names
+    `probeNoDb — re-exported from ./no-db-probe.ts, a module governance/architecture.json does not
+    name` (5 symbols listed). B1's premise reproduces exactly: the detection names the symbol; the
+    PASS/FAIL verdict never sees it, and the `db:unknown` reach-`[]` rule stays silent because a
+    consumer-less export creates no import crossing.
+  - Phase 2: `governance-lint: FAIL — 5 error(s) … 19 rules`, **exit 1**, with
+    `ERROR  [db-symbols-all-placed] framework/db/src/index.ts: probeNoDb — re-exported from
+    ./no-db-probe.ts, …` — the scenario's letter ("the build fails naming that symbol") delivered.
+  - The same run shows the ordering constraint: the four pre-existing unplaced symbols error too,
+    so the rule can only register in the commit that empties the list (task E).
+- **Verdict:** scenario 3 has **no** delivering mechanism on the live tree; the §4.5 escalation
+  delivers it by name. No other error path is asserted for the export leg.
+
+## 6. Environment notes for the builder
 
 - Default `node` on PATH is v22; the repo requires ≥24 — prefix every command with
   `export PATH=/opt/homebrew/bin:$PATH` (v26.4.0 verified).

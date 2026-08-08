@@ -6,8 +6,15 @@ outcome. Tier: production. Everything below was verified against this worktree (
 `pipeline/AU29` @ `f9b0dbe1`, code identical to `origin/main` @ `bbe82e9a`); feasibility probes ran
 live — results in `feasibility.md` alongside this file.
 
-Three factual slips in requirements.md, re-derived per the refine critique — the corrected facts
-govern here:
+**Revision 2** (post-critique, grounded at `6a56a570`): closes blocking finding B1 — the claim that
+an "existing unplaced-symbol error path" covers plan validation scenario 3 was false and is
+retracted; §4.5 adds the delivering mechanism, proven live (`feasibility.md` §5). Also folds
+critique defects D1–D3 and notes N1–N5. Everything the critique verified as holding — the
+`agentRunConfig` resolution, the one-source-of-truth shape, the `toolsForRole` census, the knip
+analysis, the registry instruments, the AC 7 harness — is unchanged.
+
+Four factual slips in requirements.md, re-derived (1-3 per the refine critique, 4 per the
+architecture critique's B1) — the corrected facts govern here:
 
 1. **Five** (not three) service files hold legal `db:util` imports today:
    `layers/core-api/knowledge/src/knowledge-repository.ts`, `layers/core-api/users/src/user-store.ts`,
@@ -22,6 +29,10 @@ govern here:
    `layers/agent-execution/harness-registry/src/tool-registry.ts:70`, **and a third the requirements
    missed**: `layers/agent-orchestration/tool-handlers/src/tool-definitions.ts:1646`
    (import at `:47`). `mcp/mcp-bridge.ts:141` is a comment, not a call. All three inline (§2.7).
+4. Requirements §8's "existing unplaced-symbol error path" does not exist: the unplaced-symbol
+   report is a non-fatal NOTE (`scripts/governance-lint.ts:282-284`) the verdict never sees, and
+   the `db:unknown` reach-`[]` rule fires only on import crossings. Plan validation scenario 3
+   therefore needs the mechanism §4.5 adds — proven by executing it (`feasibility.md` §5).
 
 ---
 
@@ -108,7 +119,16 @@ Barrel exports and their production consumers (knip-safe, every one):
 | `SYSTEM_PROMPT_TEMPLATE_FILES` | the agent-orchestration face (§2.5.3 iterates it for the prompt backfill — exactly what `factory-bootstrap.ts:191` does today) |
 | `readSystemPromptTemplate` | **none** — becomes module-internal (un-exported). Its only callers today are `factory-bootstrap.ts:192` (whose successor, the face, calls `readSystemPromptTemplateForRole` — see §2.5.3 equivalence note) and one governance attack overlay (re-anchored, §4.4). This closes the knip risk requirements §8 names. |
 
-`framework/db/src/__tests__/agent-scaffold.test.ts` moves to `framework/shared/src/__tests__/`.
+**Interim export state (between tasks A and D):** `readSystemPromptTemplate` stays
+**barrel-exported from `@hyperidle/shared`** while `factory-bootstrap.ts` remains in `framework/db`
+— its call at `factory-bootstrap.ts:192` must import it from the shared barrel (cross-package
+relative imports are forbidden, `.claude/rules/typescript.md`). The un-export in the table above is
+the end state and lands in task D, the commit that deletes the last db-side caller.
+
+`framework/db/src/__tests__/agent-scaffold.test.ts` and
+`framework/db/src/__tests__/system-prompt-template-resolution.test.ts` (imports
+`../system-prompt-templates.js` relatively, lines 9-14 — left behind it dangles and breaks
+`npm run check`) move to `framework/shared/src/__tests__/`.
 The templates half of `X3-agent-config.integration.test.ts` moves with it; the bootstrap half moves
 with the factory suites (§5, task D).
 
@@ -221,8 +241,17 @@ Semantics — `factory-bootstrap.ts`'s run-config half:
 2. Prompt backfill: iterate `SYSTEM_PROMPT_TEMPLATE_FILES` entries; for each `(role, filename)`
    read the template via `readSystemPromptTemplateForRole(role)` (equivalent to today's
    `readSystemPromptTemplate(path.resolve(cwd,"docs"), filename)` — `ForRole` resolves the same
-   `docsRoot` and indexes the same map, `system-prompt-templates.ts:80-85`); for each passed
-   `rosterAgents` entry with matching `role`, `writeAgentRunConfig(db, id, { systemPrompt })`.
+   `docsRoot` and indexes the same map, `system-prompt-templates.ts:80-85`); **skip the role when
+   the read returns `null`** — a missing docs file preserves any existing prompt, exactly the
+   `content !== null` guard at `factory-bootstrap.ts:193`. Writing `systemPrompt: null` on a
+   missing file would be a divergence the AC 7 harness cannot catch (every template file exists
+   in-repo; it surfaces only on an upgrade with a missing/renamed docs file) — the guard is part of
+   the contract, not an implementation detail. For each passed `rosterAgents` entry with matching
+   `role` and a non-null template, `writeAgentRunConfig(db, id, { systemPrompt })`.
+
+   Dependency fact: `layers/agent-orchestration/package.json` does **not** yet declare
+   `@hyperidle/agent-run-config` (verified — absent from its dependencies today). Task D adds it,
+   alongside desktop's two new layer deps; legal under `reach-your-own-contents`.
 
 **Feasibility flag resolved — no plan amendment needed.** `writeAgentRunConfig` accepts
 `WriteExecutor`, a union that includes `HyperIdleDb` (`write-executor.ts:29`), so the boot handle
@@ -343,17 +372,21 @@ fourth `db:unknown` symbol and the `application → db:unknown [import] developm
 
 | Plan AC | Obligations (sections) |
 |---|---|
-| 1 — zero `db:unknown` | §2.1 (barrel), §2.3 (templates module leaves), §2.8 (`seed` mock). Lint NOTE disappears. |
-| 2 — no non-database function reachable through `db` | §2.1–2.3, §2.6: the five modules leave; no shim. Regression guard: the unplaced-symbol error path + promoted rules (§4). |
+| 1 — zero `db:unknown` | §2.1 (barrel), §2.3 (templates module leaves), §2.8 (`seed` mock). The lint NOTE disappears — cleared by A/E, and the NOTE block itself is deleted in task E, subsumed by §4.5's rule. |
+| 2 — no non-database function reachable through `db` | §2.1–2.3, §2.6: the five modules leave; no shim. Regression guard, import leg: the `db:unknown` reach-`[]` crossing rule; export leg: the new `db-symbols-all-placed` rule (§4.5) + promoted rules (§4). |
 | 3 — first boot from composition roots; `db` writes no service-owned table | §2.5, §2.6. Zero `table:*` crossings originate in `framework/db` production files. |
 | 4 — framework off the bus | §2.4. Zero `framework → EventBus` in either world; `events.ts` declarations stay. |
 | 5 — baseline groups gone, rules at error | §4.2 (the ~30+1 sites), each group deleted by `npm run governance:baseline` as its last site clears — promotion is automatic (shrink-only). Includes `framework → layer [di]` (§2.7). |
 | 6 — baseline-empty contingency | Will not trigger: 38 groups today, this WP clears 10 (§4.2). Carried anyway: if the regenerated file ends empty, delete `governance/baseline.json` + the `--adopt` path in `scripts/governance-baseline.ts` in that same commit. |
 | 7 — verify green + identical first boot, executed | §6 evidence plan; control captured at architecture time (`feasibility.md` §3). |
 
-Validation scenarios 3 and 4 (new non-database `db` export; new `emit` in shared) are covered by
-the existing unplaced-symbol error (`db:unknown` reach `[]`) and the promoted
-`framework → EventBus` rule, both break-tested through the attack table (§4.4) — no new mechanism.
+Validation scenario 4 (new `emit` in shared) is covered by the promoted `framework → EventBus`
+rule, break-tested through the attack table (§4.4). Validation scenario 3 (new non-database `db`
+export) has **no existing delivering mechanism**: the unplaced-symbol report is a non-fatal NOTE
+printed after findings (`scripts/governance-lint.ts:282-284`) that `hasErrors` never sees, and the
+`db:unknown` reach-`[]` rule fires only on an *import* crossing — a consumer-less export lints
+green today (proven by executing it: `feasibility.md` §5, phase 1). §4.5 adds the one small
+mechanism that delivers the scenario.
 
 ---
 
@@ -416,7 +449,12 @@ sites) is AU32's and must be untouched — the relocations in §2.6 do not touch
   No verdict on any *surviving* row changes — this is row deletion following surface deletion,
   not a verdict edit.
 - `framework/db/src/__tests__/governance-model.test.ts` reproduction counts move: 124 → 118 rows,
-  248 → 236 verdicts (lines 167-219 carry the literals).
+  248 → 236 verdicts, **and the four verdict-split literals at `:173-178`**: production allowed
+  68 → 65, forbidden 56 → 53; development allowed 114 → 110, forbidden 10 → 8 (the six deleted rows
+  split 3/3 in production and 4/2 in development — re-verified against `decided-rules.json`).
+  `decided-rules.json`'s own `totals` block moves identically, including `differ` 44 → 43
+  (`layer → db:bootstrap` is the only deleted row whose worlds differ). The failing test names each
+  literal; this is the complete set — lines 167-219 carry them all.
 - `scripts/lib/governance-attacks.ts`: the `db:util` narrow-surface attack + control
   (`:428-431`, `:456`) lose their target surface — re-anchor the laundered-re-export attack to a
   surviving narrow surface; the `db:unknown` deep-import attack (`:605`) overlays
@@ -428,6 +466,55 @@ sites) is AU32's and must be untouched — the relocations in §2.6 do not touch
   that name moved modules re-anchor the same way.
 - `scripts/rules/no-laundered-re-exports.ts:49` names `escapeLikePattern` in a comment — update
   the comment; the rule itself is symbol-agnostic and keeps firing on any moved-symbol shim.
+
+### 4.5 Scenario-3 guard: unplaced db symbols become a registered error rule (closes critique B1)
+
+**Decision (planner).** Between the two resolutions B1 allows — deliver plan validation scenario
+3's letter, or renegotiate it at the human gate — this plan **delivers the letter**. The detection
+already exists and already names the symbol (the barrel scan places any re-export from an unmapped
+module into `unplaced` with no consumer needed, `scripts/lib/db-surfaces.ts:165-168`); only its
+severity is wrong. Escalating it is end-state-consistent: post-AU29 there are zero legitimate
+unplaced symbols (AC 1), so the rule needs no baseline entry, no phased warn, and parks no debt.
+Renegotiating an approved validation scenario to avoid one small rule would trade an AC-level
+regression guard for nothing — and Ruling 12 is intact, because this is the end state's severity
+for an existing detection, landing in the commit that makes it satisfiable, not a migration shape.
+
+**Shape (locked):**
+
+- A registered rule, id `db-symbols-all-placed` (final — the id appears in attack-case `rules`
+  arrays), living in `scripts/rules/` beside its peers and taking `detected.unplacedDbSymbols`
+  (plus the db source root for scoping) via closure — the same constructor-injection shape as
+  `noLaunderedReExports`. One **error** finding per map entry; message is the map's own
+  `symbol — reason` text (which names the symbol, as the scenario requires); path is the db barrel.
+- Registered in **both** rule lists — `buildRules` (shared with `--attacks`) and `runLive`'s
+  `RULES` — like every other rule; present in one list only, it would either skip the live gate or
+  skip attack coverage.
+- `scope` is the population, not the violations (`governance-rules.ts:43-54`): the census files
+  under `framework/db/src` (~20 post-move; `minScope` 5). The rule stays alive on a clean tree —
+  `DeadRuleError` gates population, never finding-count.
+- The NOTE block (`scripts/governance-lint.ts:282-284`) is **deleted in the same commit** — the
+  rule's findings carry symbol + reason, and two reporters of one fact drift.
+- **Attack case + control twin** — property 4 makes this mandatory
+  (`governance-attacks.ts:25-29`): positive — mutate the db barrel to append a re-export from a
+  module `moduleSurface` does not name (overlaying that module file), expect
+  `{ sort: "finding", ruleId: "db-symbols-all-placed", messageContains: <the symbol> }`; control —
+  the same mutation shape re-exporting from a *mapped* module (`connection.ts`), expect `clean`.
+  The re-anchored deep-import attack (§4.4) exercises the map's deep-import leg; its `rules` array
+  may list both ids.
+- **Ordering is load-bearing:** the rule can only register once the unplaced list is empty — with
+  it registered today the four live symbols error (demonstrated, `feasibility.md` §5 phase 2). It
+  lands in **task E's commit**, which clears the last symbol (`seed`), after task A cleared the
+  three template symbols — same-commit promotion, mirroring the plan's baseline discipline
+  ("that rule is at error from the same commit").
+
+**Coverage, stated honestly.** The rule fires on every leg of the unplaced map: barrel re-exports
+from unmapped modules (`db-surfaces.ts:165-168` — the scenario's literal case, no consumer
+needed), schema/zod exports that are neither table nor row type, deep imports of unmapped modules
+(`:209-212`), and imports of symbols absent from the barrel (`:198-204`). One residual is real and
+not claimed: a non-database function smuggled into an already-*mapped* `db:client` module (e.g.
+`connection.ts`) inherits that module's surface — "performs no database access" is semantic, and
+no static classifier decides it. That path is guarded by the one-door surface discipline and diff
+review; this plan asserts no second mechanical error path there.
 
 ---
 
@@ -442,8 +529,11 @@ tests) and, where it fixes baselined sites, `npm run governance:baseline` in the
   imports, which now cross into shared legally); prune the db barrel of the moved blocks;
   `moduleSurface` prunes for the three `db:util` modules; delete the `db:util` surface +
   `oneDoorSurfaces` entry + 3 decided rows + model-test count (124→121 interim); re-anchor the two
-  attacks; move the two unit tests; baseline regen (clears `application → db:util`,
-  `layer → db:util`, `layer → db:unknown`).
+  attacks; move the three test files (`profiles.test.ts`, `agent-scaffold.test.ts`,
+  `system-prompt-template-resolution.test.ts` — §2.2/§2.3); update the stale
+  `framework/db/src/agent-scaffold.ts` path in `eslint.config.ts:566,611` (a comment and a
+  restricted-import rule *message* — text only, the rule itself is untouched); baseline regen
+  (clears `application → db:util`, `layer → db:util`, `layer → db:unknown`).
 - **B — `toolsForRole` dissolution** (§2.7): three inlines, delete from `tool.ts` + barrel;
   baseline regen (clears `framework → layer [di]`). *Parallel leaf — touches no file A touches.*
 - **C — bus silence** (§2.4): inline the two emits, remove `reportAdmissionFailure`; move
@@ -451,22 +541,26 @@ tests) and, where it fixes baselined sites, `npm run governance:baseline` in the
   (clears `framework → EventBus`). *Parallel leaf.*
 - **D — bootstrap to composition roots** (§2.5, §2.6): owner writers; two faces + barrel exports +
   `FactoryAgentRef`; `tools/setup` package (workspaces entry, deps, four CLIs + runner helper);
-  desktop `main.ts` + `package.json`; delete `factory-bootstrap.ts`, `demo-fixture.ts`,
+  desktop `main.ts` + `package.json`; add `@hyperidle/agent-run-config` to
+  `layers/agent-orchestration/package.json` (§2.5.3); delete `factory-bootstrap.ts`, `demo-fixture.ts`,
   `setup-cli.ts`, `bootstrap-pg.ts`, `seed-pg-cli.ts` from db; npm scripts + `deploy/bin/setup`;
   `moduleSurface` prune (four modules) + delete `db:bootstrap` surface + 3 decided rows +
   model-test count (121→118); relocate the factory suites; repoint
   `AF17-propagation-bootstrap`; `knip.json` + vitest projects; baseline regen (clears the three
   `framework → db:table` production groups). **Sequential: requires A** (shared homes for
   `COMMUNITY_DISPLAY_NAMES`, templates, `resolveProfile`).
-- **E — seed phantom** (§2.8): fix `migrate.test.ts`; baseline regen (clears
-  `application → db:unknown` development). *Parallel leaf, but its mock re-derivation must land
-  after A and D settle the final barrel — run it last or re-check the mock then.*
+- **E — seed phantom + scenario-3 promotion** (§2.8, §4.5): fix `migrate.test.ts`; baseline
+  regen (clears `application → db:unknown` development). In the **same commit** — the unplaced
+  list is now empty — register `db-symbols-all-placed` in both rule lists, delete the NOTE block,
+  and add its attack case + control twin. *Must land after A and D settle the final barrel and
+  clear the other unplaced symbols — run it after D.*
 - **F — evidence + docs**: run the §6 equivalence protocol on both paths; update the doc paths
   (§8); full `npm run verify`; `npm run test:all` for the relocated suites.
 
-Order: A → D → F, with B and C free to land anywhere before F, and E after the barrel is final
-(practically: A ∥ B ∥ C, then D, then E, then F). One builder can do A–F sequentially; if the
-orchestrator parallelises, B and C are the safe leaves.
+Order: A → D → E → F, with B and C free to land anywhere before F (practically: A ∥ B ∥ C, then
+D, then E, then F). E is sequential after A and D — it promotes §4.5's rule, which registers only
+on an empty unplaced list. One builder can do A–F sequentially; if the orchestrator parallelises,
+B and C are the safe leaves.
 
 ---
 
@@ -491,15 +585,20 @@ must be byte-identical). Control output: `.pipeline/work/AU29/probes/first-boot-
    capture script's `--bootstrap` mode to the two face calls (the switch point is marked inline in
    the script) → diff must be empty. (This executes the identical statements `main.ts` runs;
    launching the Electron shell adds no additional database writes on this path —
-   `main.ts:449-458` is the only bootstrap call — and stays available as a manual smoke check.)
+   `main.ts:449-458` is the only bootstrap call — and stays available as a manual smoke check.
+   The PR evidence must state explicitly that Electron itself was not launched for the diff.)
 3. Record both diffs (empty) in the PR body / progress notes so review can re-run; the capture
-   script's header documents both modes and the exact control/branch commands. The harness is
+   script's header documents both modes and the exact control/branch commands. The branch-run
+   script is deliberately **not** byte-identical to the one that produced the control (the marked
+   switch is edited) — reviewers diff that script edit alongside the dumps; the shared
+   dump/normalise logic is what carries the comparison. The harness is
    already proven end-to-end: at architecture time the real `npm run setup` CLI dump diffed empty
    against the control (`feasibility.md` §3).
 
 Plus the standing lanes: the relocated factory suites (~117 assertions) green under
 `npm run test:integration:service`; `npm run verify` green; the governance lint reporting zero
-`db:unknown` symbols and none of the §4.2 groups.
+unplaced db symbols — now enforced at error by `db-symbols-all-placed` (§4.5), not read off a
+NOTE — and none of the §4.2 groups.
 
 ---
 
@@ -511,6 +610,10 @@ Plus the standing lanes: the relocated factory suites (~117 assertions) green un
    duplication boundary, §2.5.4).
 3. `readSystemPromptTemplate` and the profile-type exports becoming module-internal (knip-driven
    narrowing of what shared publishes, §2.2/§2.3).
+4. The scenario-3 promotion: `db-symbols-all-placed`, a new registered governance rule (§4.5) —
+   a severity escalation of the existing unplaced-symbol report, registering only once the list is
+   empty. Not a verdict edit (no `decided-rules.json` row changes), but a new permanent gate the
+   founder should see.
 
 ---
 
@@ -521,8 +624,10 @@ Path-accuracy updates (DOC-CLASS: update, requirements §9 + critique follow-up)
 `docs/deployment/laptop.md:8`, `docs/guides/developer/commands.md:10`,
 `docs/guides/developer/getting-started.md:50`, `docs/agent-layer/agent-model.md:53` — every
 `framework/db/src/{setup-cli,bootstrap-pg,factory-bootstrap,demo-fixture}.ts` citation repoints to
-the `tools/setup` / face homes. Command names and behaviour are unchanged. Sweep with
-`rg -n "framework/db/src/(setup-cli|bootstrap-pg|factory-bootstrap|demo-fixture|seed-fixtures|like-escape|profiles|agent-scaffold|system-prompt-templates)" docs/`
+the `tools/setup` / face homes. Command names and behaviour are unchanged. Two stale references
+sit **outside** `docs/` and are handled in task A: `eslint.config.ts:566,611` (comment + rule
+message naming `framework/db/src/agent-scaffold.ts`). Sweep the whole repo, not only `docs/`:
+`rg -n "framework/db/src/(setup-cli|bootstrap-pg|factory-bootstrap|demo-fixture|seed-fixtures|like-escape|profiles|agent-scaffold|system-prompt-templates)"`
 rather than trusting this list.
 
 ---
@@ -540,5 +645,8 @@ rather than trusting this list.
   regression and a review-blocker. `escapeLikePattern` likewise moves verbatim with its
   `ESCAPE '\\'` caller contract. No endpoint, credential, or outbound-request surface changes; no
   new input crosses a trust boundary (the roster and template map are compile-time constants).
-- **No new mechanism:** no rollback layer, no compatibility shim, no transitional export, no new
-  observability — Ruling 12 and the tier both forbid inventing them.
+- **One new mechanism, authorized:** the `db-symbols-all-placed` rule (§4.5), demanded by plan
+  validation scenario 3 (an approved outcome that previously had no owner in the task tree).
+  Everything else adds none: no rollback layer, no compatibility shim, no transitional export, no
+  new observability — Ruling 12 and the tier both forbid inventing them, and the rule itself is
+  end-state severity for an existing detection, not a migration shape.
