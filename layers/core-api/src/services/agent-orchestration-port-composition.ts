@@ -33,8 +33,6 @@ import type {
 	AgentOrchestrationWorkIntentKind,
 	AgentOrchestrationWorkIntentReceipt,
 } from "@hyperidle/api-contract";
-import type { HyperIdleDb } from "@hyperidle/db";
-import type { AgentWorkIntentRecorder } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { hc } from "hono/client";
 import type { AppType } from "../schemas/index.js";
@@ -260,23 +258,31 @@ export function buildAgentOrchestrationPort(
 			async findExplicitStartById(
 				startId: string,
 			): Promise<AgentOrchestrationExplicitStartView | null> {
-				const res = await client["agent-orchestration"].requests["explicit-start"][
-					":startId"
-				].$get({ param: { startId } });
+				const res = await client["agent-orchestration"].requests["explicit-start"][":startId"].$get(
+					{ param: { startId } },
+				);
 				if (res.status === 404) return null;
 				if (!res.ok) return throwSeamError("requests.findExplicitStartById", res);
 				const body = (await res.json()) as { readonly start: AgentOrchestrationExplicitStartView };
 				return body.start;
 			},
-			async listPendingIntentsByKind(
-				kind: AgentOrchestrationWorkIntentKind,
-			): Promise<ReadonlyArray<{ readonly id: string; readonly sourceId: string }>> {
+			async listPendingIntentsByKind(kind: AgentOrchestrationWorkIntentKind): Promise<
+				ReadonlyArray<{
+					readonly id: string;
+					readonly sourceId: string;
+					readonly requestedBy: string | null;
+				}>
+			> {
 				const res = await client["agent-orchestration"].requests["pending-intents"].$get({
 					query: { kind },
 				});
 				if (!res.ok) return throwSeamError("requests.listPendingIntentsByKind", res);
 				const body = (await res.json()) as {
-					readonly entries: ReadonlyArray<{ readonly id: string; readonly sourceId: string }>;
+					readonly entries: ReadonlyArray<{
+						readonly id: string;
+						readonly sourceId: string;
+						readonly requestedBy: string | null;
+					}>;
 				};
 				return body.entries;
 			},
@@ -290,7 +296,9 @@ export function buildAgentOrchestrationPort(
 					json: { taskIds, reason },
 				});
 				if (!res.ok) return throwSeamError("runs.stopForTasks", res);
-				const body = (await res.json()) as { readonly stopped: ReadonlyArray<AgentOrchestrationStoppedRun> };
+				const body = (await res.json()) as {
+					readonly stopped: ReadonlyArray<AgentOrchestrationStoppedRun>;
+				};
 				return body.stopped;
 			},
 			async endForHandoff(sessionId: string, endedAt: string): Promise<void> {
@@ -349,13 +357,22 @@ export function buildAgentOrchestrationPort(
 		},
 		filesystems: {
 			async persistInjection(filesystemId: string, agentUserId: string) {
-				const res = await client["agent-orchestration"].filesystems[":id"].injections.persist.$post({
-					param: { id: filesystemId },
-					json: { agentUserId },
-				});
+				const res = await client["agent-orchestration"].filesystems[":id"].injections.persist.$post(
+					{
+						param: { id: filesystemId },
+						json: { agentUserId },
+					},
+				);
 				if (!res.ok) return throwSeamError("filesystems.persistInjection", res);
 				return (await res.json()) as
-					| { readonly ok: true; readonly injection: { readonly agentUserId: string; readonly filesystemId: string; readonly createdAt: string } }
+					| {
+							readonly ok: true;
+							readonly injection: {
+								readonly agentUserId: string;
+								readonly filesystemId: string;
+								readonly createdAt: string;
+							};
+					  }
 					| { readonly ok: false; readonly code: "NOT_FOUND" | "CONFLICT" };
 			},
 		},
@@ -363,24 +380,35 @@ export function buildAgentOrchestrationPort(
 }
 
 /**
- * AU31 §2.1a — the seam-backed `AgentWorkIntentRecorder`: the SAME Mechanism-C
- * port shape every real call site already injects (`{ record }`), now backed
- * by `AgentOrchestrationPort.intents.submit` instead of a direct
- * `@hyperidle/session-requests` import. `record`'s `tx` parameter is accepted
- * for shape-compatibility but never dereferenced — a seam call cannot
- * participate in the caller's transaction; the two sites that used to write
- * `enqueueWorkIntent` inside their own `tx` (`knowledge.ts`, `threads.ts`)
- * are restructured to call this AFTER their transaction commits instead
- * (architecture.md §3.1's named, accepted relinquishment). Reads the
- * registered transport at CALL time, not at module-eval time — same idiom as
- * `getRegisteredCoreApiTransport()`'s callers.
+ * AU31 §2.1a/§2.3 — call-site conversion NOT landed in this wave, on purpose.
+ *
+ * @lore AU31 builder session finding, recorded for the next attempt: a naive
+ * `{ record: enqueueWorkIntent } → seam-backed AgentWorkIntentRecorder` swap
+ * at `routes/tasks.ts`/`routes/bets.ts`/`work-session-started-reactions.ts`
+ * DEADLOCKS the shared PGlite connection under test — `@hyperidle/work`'s
+ * `transitionTask` (`task-state-machine.ts`) wraps `deps.workIntents.record`
+ * INSIDE its own `db.transaction(...)`, a real cross-boundary atomic coupling
+ * feasibility.md P3's audit did not catch (P3's grep only matched
+ * `enqueueWorkIntent(`/`createSessionRequest(`/`agentWorkIntentRecorder.record(`/
+ * `tx as HyperIdleDb` literally, not `deps.workIntents.record(tx, …)`'s
+ * generic-port spelling). Converting these sites needs the SAME kind of
+ * decision architecture.md §3.1 already made for `knowledge.ts:934`/
+ * `threads.ts:1463` (relinquish the atomicity, name the window) — applied to
+ * `transitionTask` itself, not silently at the call site.
+ *
+ * Separately: `agent-run-admission-reactions.ts`'s `session_start`/
+ * `reengagement` cases and `assistant-turn-coherence-trigger.ts` fire off an
+ * `EventBus` reaction that tests exercise via a bare `{ db, eventBus }`
+ * fixture with NO `app` — so `getRegisteredAgentOrchestrationTransport()`
+ * resolves to some OTHER test's stale registration (or throws), not this
+ * test's own db. A seam call from inside a reaction handler needs the port
+ * handed in at registration time (an explicit dependency), not read from the
+ * module-level transport singleton the request-path composition uses.
+ *
+ * Both findings are reported to the orchestrator rather than resolved here;
+ * this file keeps only the port additions the service-lane tests
+ * (`agent-orchestration-port-writes.integration.test.ts`) exercise directly.
  */
-export const seamBackedWorkIntentRecorder: AgentWorkIntentRecorder<HyperIdleDb> = {
-	async record(_tx, input) {
-		const port = buildAgentOrchestrationPort(getRegisteredAgentOrchestrationTransport());
-		return port.intents.submit(input as AgentOrchestrationWorkIntentInput);
-	},
-};
 
 /**
  * The in-process transport: core-api's own Hono app dispatches the request

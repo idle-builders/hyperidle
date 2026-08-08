@@ -18,6 +18,12 @@
  * layer, both directions.
  */
 
+import {
+	type DEFAULT_AGENT_RUN_CONFIG,
+	readAgentRunConfig,
+	readAgentRunConfigs,
+	writeAgentRunConfig,
+} from "@hyperidle/agent-run-config";
 import type {
 	AgentOrchestrationCreateBareRunRequest,
 	AgentOrchestrationExplicitStartRequest,
@@ -26,18 +32,13 @@ import type {
 	AgentOrchestrationWorkIntentInput,
 	AgentOrchestrationWorkIntentKind,
 } from "@hyperidle/api-contract";
+import type { ExplicitSessionStart, HyperIdleDb } from "@hyperidle/db";
+import { getFilesystem, saveInjection as saveFilesystemInjection } from "@hyperidle/filesystems";
 import {
-	DEFAULT_AGENT_RUN_CONFIG,
-	readAgentRunConfig,
-	readAgentRunConfigs,
-	writeAgentRunConfig,
-} from "@hyperidle/agent-run-config";
-import { type ExplicitSessionStart, type HyperIdleDb, sessions } from "@hyperidle/db";
-import {
-	getFilesystem,
-	saveInjection as saveFilesystemInjection,
-} from "@hyperidle/filesystems";
-import { createBareRun, endRunForHandoff, requestRunStopForTasks } from "@hyperidle/run-orchestration";
+	createBareRun,
+	endRunForHandoff,
+	requestRunStopForTasks,
+} from "@hyperidle/run-orchestration";
 import {
 	createSessionRequest,
 	enqueueWorkIntent,
@@ -161,30 +162,26 @@ export function createAgentOrchestrationIntakeRoutes(
 	);
 
 	// ── requests.findExplicitStartByIdempotencyKey — GET /agent-orchestration/requests/explicit-start ──
-	router.get(
-		"/requests/explicit-start",
-		requireBoundary({ kind: "public-data" }),
-		async (c) => {
-			const requestedBy = c.req.query("requestedBy");
-			const idempotencyKey = c.req.query("idempotencyKey");
-			if (!requestedBy || !idempotencyKey) {
-				return c.json(
-					{
-						error: "requestedBy and idempotencyKey are required",
-						code: API_ERROR_CODES.VALIDATION_ERROR,
-					},
-					400,
-				);
-			}
-			const start = await findSessionRequest(db, {
-				by: "explicitStart",
-				requestedBy,
-				idempotencyKey,
-			});
-			if (!start) return c.json({ start: null }, 404);
-			return c.json({ start: rowToExplicitStartView(start) });
-		},
-	);
+	router.get("/requests/explicit-start", requireBoundary({ kind: "public-data" }), async (c) => {
+		const requestedBy = c.req.query("requestedBy");
+		const idempotencyKey = c.req.query("idempotencyKey");
+		if (!(requestedBy && idempotencyKey)) {
+			return c.json(
+				{
+					error: "requestedBy and idempotencyKey are required",
+					code: API_ERROR_CODES.VALIDATION_ERROR,
+				},
+				400,
+			);
+		}
+		const start = await findSessionRequest(db, {
+			by: "explicitStart",
+			requestedBy,
+			idempotencyKey,
+		});
+		if (!start) return c.json({ start: null }, 404);
+		return c.json({ start: rowToExplicitStartView(start) });
+	});
 
 	// ── requests.findExplicitStartById — GET /agent-orchestration/requests/explicit-start/:startId ──
 	router.get(
@@ -201,23 +198,22 @@ export function createAgentOrchestrationIntakeRoutes(
 	);
 
 	// ── requests.listPendingIntentsByKind — GET /agent-orchestration/requests/pending-intents?kind= ──
-	router.get(
-		"/requests/pending-intents",
-		requireBoundary({ kind: "public-data" }),
-		async (c) => {
-			const kind = c.req.query("kind");
-			if (!kind || !isWorkIntentKind(kind)) {
-				return c.json(
-					{ error: "kind is required and must be a known intent kind", code: API_ERROR_CODES.VALIDATION_ERROR },
-					400,
-				);
-			}
-			const pending = await listPendingIntentsByKind(db, kind);
-			return c.json({
-				entries: pending.map((p) => ({ id: p.id, sourceId: p.sourceId })),
-			});
-		},
-	);
+	router.get("/requests/pending-intents", requireBoundary({ kind: "public-data" }), async (c) => {
+		const kind = c.req.query("kind");
+		if (!(kind && isWorkIntentKind(kind))) {
+			return c.json(
+				{
+					error: "kind is required and must be a known intent kind",
+					code: API_ERROR_CODES.VALIDATION_ERROR,
+				},
+				400,
+			);
+		}
+		const pending = await listPendingIntentsByKind(db, kind);
+		return c.json({
+			entries: pending.map((p) => ({ id: p.id, sourceId: p.sourceId, requestedBy: p.requestedBy })),
+		});
+	});
 
 	// ── runs.abort — POST /agent-orchestration/runs/abort ────────────────────
 	router.post(
@@ -263,9 +259,7 @@ export function createAgentOrchestrationIntakeRoutes(
 	router.post(
 		"/runs/end-for-handoff",
 		requireBoundary({ kind: "public-data" }),
-		validateBody(
-			z.object({ sessionId: z.string().min(1), endedAt: z.string().min(1) }),
-		),
+		validateBody(z.object({ sessionId: z.string().min(1), endedAt: z.string().min(1) })),
 		async (c) => {
 			const body = c.req.valid("json");
 			await endRunForHandoff(db, body.sessionId, body.endedAt);
@@ -287,7 +281,7 @@ export function createAgentOrchestrationIntakeRoutes(
 		async (c) => {
 			const body = c.req.valid("json");
 			const created = await createBareRun(db, eventBus, body);
-			return c.json({ session: created satisfies typeof sessions.$inferSelect }, 201);
+			return c.json({ session: created }, 201);
 		},
 	);
 
@@ -295,9 +289,7 @@ export function createAgentOrchestrationIntakeRoutes(
 	router.post(
 		"/runs/explicit-start/fail",
 		requireBoundary({ kind: "public-data" }),
-		validateBody(
-			z.object({ startId: z.string().min(1), failureCode: z.string().min(1) }),
-		),
+		validateBody(z.object({ startId: z.string().min(1), failureCode: z.string().min(1) })),
 		async (c) => {
 			const body = c.req.valid("json");
 			await transitionSessionRequest(db, {
@@ -311,14 +303,10 @@ export function createAgentOrchestrationIntakeRoutes(
 	);
 
 	// ── runConfig.read — GET /agent-orchestration/run-config/:agentId ────────
-	router.get(
-		"/run-config/:agentId",
-		requireBoundary({ kind: "public-data" }),
-		async (c) => {
-			const config = await readAgentRunConfig(db, c.req.param("agentId"));
-			return c.json({ config });
-		},
-	);
+	router.get("/run-config/:agentId", requireBoundary({ kind: "public-data" }), async (c) => {
+		const config = await readAgentRunConfig(db, c.req.param("agentId"));
+		return c.json({ config });
+	});
 
 	// ── runConfig.readBatch — POST /agent-orchestration/run-config/batch ─────
 	// (POST, not GET+query-list: an agent roster can exceed a safe query-string length.)
@@ -331,7 +319,7 @@ export function createAgentOrchestrationIntakeRoutes(
 			const configs =
 				agentIds.length > 0
 					? await readAgentRunConfigs(db, agentIds)
-					: new Map<string, (typeof DEFAULT_AGENT_RUN_CONFIG)>();
+					: new Map<string, typeof DEFAULT_AGENT_RUN_CONFIG>();
 			return c.json({ configs: Object.fromEntries(configs) });
 		},
 	);

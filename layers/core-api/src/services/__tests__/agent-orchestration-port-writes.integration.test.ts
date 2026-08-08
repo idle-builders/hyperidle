@@ -31,12 +31,25 @@ import {
 const NOW = "2026-08-08T00:00:00.000Z";
 
 async function seedTeamAndTask(db: HyperIdleDb, prefix: string): Promise<void> {
-	await db.insert(teams).values({ id: `${prefix}-team-parent`, name: prefix, phase: "build", createdAt: NOW });
 	await db
-		.insert(teamMembers)
-		.values({ id: `${prefix}-team`, teamId: `${prefix}-team-parent`, capacity: 3, activeBets: 0, formedAt: NOW });
+		.insert(teams)
+		.values({ id: `${prefix}-team-parent`, name: prefix, phase: "build", createdAt: NOW });
+	await db.insert(teamMembers).values({
+		id: `${prefix}-team`,
+		teamId: `${prefix}-team-parent`,
+		capacity: 3,
+		activeBets: 0,
+		formedAt: NOW,
+	});
 	await db.insert(users).values([
-		{ id: `${prefix}-human`, kind: "human", name: "Founder", role: "founder", status: "active", createdAt: NOW },
+		{
+			id: `${prefix}-human`,
+			kind: "human",
+			name: "Founder",
+			role: "founder",
+			status: "active",
+			createdAt: NOW,
+		},
 		{
 			id: `${prefix}-agent`,
 			kind: "ai",
@@ -91,7 +104,9 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 		expect(row?.status).toBe("pending");
 	});
 
-	test("intents.submit is idempotent — the same idempotencyKey resolves the SAME row", async ({ app }) => {
+	test("intents.submit is idempotent — the same idempotencyKey resolves the SAME row", async ({
+		app,
+	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-idem");
 		const port = buildAgentOrchestrationPort(createInProcessAgentOrchestrationTransport(app));
 
@@ -197,7 +212,10 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 		expect(pending.some((p) => p.sourceId === "aopw-pending-msg-1")).toBe(true);
 	});
 
-	test("runConfig.write then runConfig.read round-trips through the real route", async ({ db, app }) => {
+	test("runConfig.write then runConfig.read round-trips through the real route", async ({
+		db,
+		app,
+	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-runconfig");
 		await db.insert(users).values({
 			id: "aopw-rc-agent",
@@ -209,7 +227,10 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 		});
 		const port = buildAgentOrchestrationPort(createInProcessAgentOrchestrationTransport(app));
 
-		await port.runConfig.write("aopw-rc-agent", { harnessType: "claude-code", maxConcurrentSessions: 2 });
+		await port.runConfig.write("aopw-rc-agent", {
+			harnessType: "claude-code",
+			maxConcurrentSessions: 2,
+		});
 		const config = await port.runConfig.read("aopw-rc-agent");
 
 		expect(config.harnessType).toBe("claude-code");
@@ -292,12 +313,18 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 			expect(row).toBeTruthy();
 		}
 
-		const notFound = await port.filesystems.persistInjection("aopw-fs-does-not-exist", "aopw-fs-agent");
+		const notFound = await port.filesystems.persistInjection(
+			"aopw-fs-does-not-exist",
+			"aopw-fs-agent",
+		);
 		expect(notFound.ok).toBe(false);
 		if (!notFound.ok) expect(notFound.code).toBe("NOT_FOUND");
 	});
 
-	test("runs.createBareRun inserts an active session row through the real route", async ({ db, app }) => {
+	test("runs.createBareRun inserts an active session row through the real route", async ({
+		db,
+		app,
+	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-bare-run");
 		await seedTeamAndTask(db, "aopw-bare");
 		const port = buildAgentOrchestrationPort(createInProcessAgentOrchestrationTransport(app));
@@ -313,7 +340,10 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 		expect(row?.agentId).toBe("aopw-bare-agent");
 	});
 
-	test("runs.stopForTasks stops the active session for a task and returns it", async ({ db, app }) => {
+	test("runs.stopForTasks stops the active session for a task and returns it", async ({
+		db,
+		app,
+	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-stop");
 		await seedTeamAndTask(db, "aopw-stop");
 		await db.insert(sessions).values({
@@ -337,7 +367,10 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 		expect(row?.state).toBe("stopped");
 	});
 
-	test("runs.endForHandoff marks the session done without emitting session_ended", async ({ db, app }) => {
+	test("runs.endForHandoff marks the session done without emitting session_ended", async ({
+		db,
+		app,
+	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-handoff");
 		await seedTeamAndTask(db, "aopw-handoff");
 		await db.insert(sessions).values({
@@ -390,7 +423,9 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 	test("auth/boundary middleware genuinely ran — a raw call with no credentials is rejected", async ({
 		app,
 	}) => {
-		const res = await app.request("/api/agent-orchestration/requests/pending-intents?kind=assistant_turn");
+		const res = await app.request(
+			"/api/agent-orchestration/requests/pending-intents?kind=assistant_turn",
+		);
 		expect(res.status).not.toBe(200);
 	});
 });

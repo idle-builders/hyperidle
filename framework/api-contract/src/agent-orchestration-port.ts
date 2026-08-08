@@ -211,9 +211,13 @@ export interface AgentOrchestrationRequestsPort {
 	/** The status poll (`sessions-routes.ts`'s freshness re-check while the projection promise waits). */
 	findExplicitStartById(startId: string): Promise<AgentOrchestrationExplicitStartView | null>;
 	/** `listPendingIntentsByKind` — the B‴ coherence trigger's outstanding-work reader. */
-	listPendingIntentsByKind(
-		kind: AgentOrchestrationWorkIntentKind,
-	): Promise<ReadonlyArray<{ readonly id: string; readonly sourceId: string }>>;
+	listPendingIntentsByKind(kind: AgentOrchestrationWorkIntentKind): Promise<
+		ReadonlyArray<{
+			readonly id: string;
+			readonly sourceId: string;
+			readonly requestedBy: string | null;
+		}>
+	>;
 }
 
 /** One run actually stopped by `runs.stopForTasks` — mirrors `StoppedRun`. */
@@ -275,7 +279,9 @@ export type AgentOrchestrationRunConfigPatch = {
 /** §2.2 — the persistence spelling for `agent_run_config`; admin routes stay core-hosted, only the store access crosses the seam. */
 export interface AgentOrchestrationRunConfigPort {
 	read(agentId: string): Promise<AgentOrchestrationRunConfigView>;
-	readBatch(agentIds: readonly string[]): Promise<ReadonlyMap<string, AgentOrchestrationRunConfigView>>;
+	readBatch(
+		agentIds: readonly string[],
+	): Promise<ReadonlyMap<string, AgentOrchestrationRunConfigView>>;
 	write(agentId: string, patch: AgentOrchestrationRunConfigPatch): Promise<void>;
 }
 
