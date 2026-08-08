@@ -475,22 +475,26 @@ in-memory handle eviction, tiptap `destroy()`, or prose (`dissolvedAt` on `teamM
 production consumer is `POST /:id/archive` (`routes/knowledge.ts:28,839`). Not a deletion mechanism;
 not dead; not removed.
 
-**Sweep 5 — HTTP DELETE routes.** Every `router.delete("` registration in shipping roots — six —
+**Sweep 5 — HTTP DELETE routes.** Every `router.delete("` registration in shipping roots — seven —
 each handler read end to end for deletes of anything other than its named subject:
 `agents.ts:481-497` (soft-retire: `updateUser(db, id, { status: "retired" })` at :495 — no row
 delete of any table), `routines-routes.ts:186-203` (soft delete: `updateRoutine … deletedAt`),
 `org.ts:206-215` → `orgEdges` only, `credentials.ts:242` → `serverCredentials` only,
 `filesystems.ts:325-337` → `filesystems` + DB-level injection cascade only,
+`filesystems.ts:340-354` (`/:id/injections/:agentUserId` → `deleteInjection` →
+`filesystem-registry.ts:80`) → `filesystemInjections` only,
 `connections.ts:339-355` → `serviceConnections` only. No handler deletes a row of the six tables.
 
 **Sweep 6 — agent/MCP tool surface.** The complete tool catalog is
 `layers/agent-orchestration/tool-handlers/src/tool-definitions.ts` (`buildToolDefinitions`, :1617);
-its 21 tool names enumerated (:70-:1527): `read_inbox, send_message, reply, query_practice,
+its 22 tool names enumerated (:70-:1527): `read_inbox, send_message, reply, query_practice,
 write_memory, handoff_to, create_item, write_session_notes, create_task, submit_review,
 score_attention, promote_knowledge, create_conflict_review, create_team, add_agent, create_bet,
 edit_bet, create_routine, update_routine, commit_file, log_task, create_artifact` — zero
 deletion-shaped tools; knowledge lifecycle "archived" appears only as a status-transition value.
-`harness-registry/src/mcp/*` contains no delete-named tool either.
+`harness-registry/src/mcp/*` contains no delete-named tool either. One further tool is registered
+outside `tool-definitions.ts`: `return_status` (`harness-registry/src/return-status-tool.ts:110`) —
+status-reporting only, no DB access, not deletion-shaped.
 
 **Sweep 7 — scheduled jobs/event handlers.** The retention reaper (`service-bootstrap.ts:513-539`)
 calls `reapExpiredCredentials`/`reap` (notificationQueue)/`reapAccessLog`/`reapPropagationLog`/

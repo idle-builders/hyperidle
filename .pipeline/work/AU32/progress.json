@@ -1,70 +1,134 @@
 {
   "id": "AU32",
   "status": "in-progress",
-  "currentPhase": "architecture-critique",
+  "currentPhase": "build",
   "startedAt": "2026-08-07",
   "worktree": ".worktrees/pipeline-AU32",
   "branch": "pipeline/AU32",
   "baseCommit": "bbe82e9a4ebb1e06c17619154a3c4e93650850fb",
   "tier": "production",
   "dependency": {
-    "AU28": "merged on origin/main (PR #461) — crossing model + baseline present"
+    "AU28": "merged on origin/main (PR #461) \u2014 crossing model + baseline present"
   },
   "phasesSkipped": {
-    "refine": "plan.md: not required — rule locked by Rulings 13/13a, sites enumerated",
-    "design": "plan.md: not required — no UI surface"
+    "refine": "plan.md: not required \u2014 rule locked by Rulings 13/13a, sites enumerated",
+    "design": "plan.md: not required \u2014 no UI surface"
   },
   "liveGrounding": {
     "measuredAt": "2026-08-07",
-    "command": "npx tsx scripts/governance-lint.ts",
     "developmentViolations": 67,
     "developmentFiles": 45,
     "developmentRuleGroups": 7,
-    "tableWriteSites": { "total": 61, "knowledgePair": 34, "teamsPair": 26, "orphanProjection": 1 },
+    "productionViolations": 221,
+    "tableWriteSites": {
+      "total": 61,
+      "knowledgePair": 34,
+      "teamsPair": 26,
+      "orphanProjection": 1
+    },
     "oneDoorSites": 6,
-    "note": "plan.md says 69/46; live tree says 67/45. Live numbers authoritative. Critique independently confirmed the census exactly."
+    "note": "plan.md says 69/46; live tree 67/45. Confirmed exactly by two independent critique rounds."
   },
-  "architectureCritique": {
-    "round": 1,
-    "verdict": "REVISE",
-    "blocking": [
-      "B1 — C6 (per-entity completion) collides with foreign-keys.integration.test.ts:102-115: adding a teamMembers companion to the p1 team over-determines a RESTRICT delete-rejection assertion (teamMembers.teamId is onDelete restrict), so the test would pass even without the bets FK under probe. Entity invisible to the lint (file-grained write set). schema-test-decision.md's universal 'masking fear is empty' claim is false for the teams pair in the file it analyses."
-    ],
-    "nonBlocking": [
-      "N1 — scenario-3 evidence command targets a .test.ts through the integration config (include is *.integration.test.* only); matches zero tests.",
-      "N2 — warn→error flip evidence rests on a one-off manual probe; the standing missing-companion attack passed at base with the group still baselined.",
-      "N3 — D4's createTestDb() alternative is unavailable to runner.ts (@lore X7: vitest-coupled).",
-      "N4 — D2's inline escape can degenerate to all-inline; helper adoption not checkable."
-    ],
-    "verifiedCorrect": [
-      "census 67/45/7 and its decomposition",
-      "cascade fact (schema.ts:1008-1011) sufficient for every lint-flagged assertion",
-      "seed-then-migrate already clean",
-      "session-requests:59 teams row genuinely unreferenced",
-      "seed is a ghost symbol — desktop migrate test vacuously green today",
-      "seedBase teams-only / package-local / 24-of-39, promote-knowledge as direct disproof",
-      "D9 pins derivation at the function the live lint consumes",
-      "AC-5 vacuous (38 groups: 7 dev / 31 prod, 221 prod sites)",
-      "D3/D4/D6 mechanics incl. zero db.query.* repo-wide and callLlm's ResolvedModel signature",
-      "probe baselines exact: 6203 unit / 2835 service; harness failures pre-existing at base",
-      "contracts C1-C7 carry plan.md's constraints; single-builder-leaf justified"
-    ]
+  "founderRulings": {
+    "recordedAt": "2026-08-08",
+    "file": ".pipeline/work/AU32/founder-rulings.md",
+    "A": "AI one-seam requirement is production-only \u2014 judges.ts untouched, capability rule relaxed in the development world (rule change, not exception). Amends AC-2. Does NOT relax the database door.",
+    "B": "A dead test is deleted, never repointed \u2014 plus a sweep for other tests that cannot fail.",
+    "C": "Tests arrange only producible states; NO per-file exceptions ever. Draft Ruling 16 rejected. Amends AC-3 and withdraws plan.md's own carve-out clause.",
+    "D": "An unreachable operation is dead code \u2014 delete the feature, not just the test. Overrules round-3 blocking finding. Schema untouched (no FK dropped, no onDelete changed). Amends plan.md scope to allow removing a dead production deletion feature; does NOT open the 221 production violations."
+  },
+  "critiqueRounds": [
+    {
+      "round": 1,
+      "verdict": "REVISE",
+      "blocking": "B1 \u2014 per-entity completion would over-determine a RESTRICT delete-rejection assertion at foreign-keys.integration.test.ts:104; founder-facing doc's universal 'masking fear is empty' claim false for the teams pair.",
+      "closed": "planner derived the exclusion criterion from schema delete behaviour and swept exhaustively; N1-N4 also closed"
+    },
+    {
+      "round": 2,
+      "verdict": "APPROVED",
+      "note": "Sweep re-run adversarially with wider patterns; criterion confirmed a real derivation, not a carve-out. Four non-blocking notes."
+    },
+    {
+      "round": 3,
+      "verdict": "BLOCKED",
+      "blocking": "B1 \u2014 the rework's deletion chain conflated 'production never performs this operation' with Ruling B's 'test cannot fail'. Nine live constraint tests would be deleted, removing the only executable guard on seven shipped schema properties; six of the nine clear zero lint sites.",
+      "resolution": "Escalated to founder rather than adjudicated. Founder recorded Ruling D, which OVERRULES this finding and extends operation-reachability to the probed action \u2014 and goes further: remove the dead mechanism too."
+    },
+    {
+      "round": 4,
+      "verdict": "APPROVED",
+      "scope": "narrow \u2014 the negative claims Ruling D rests on",
+      "note": "Absence of the deletion capability proven twice: code-primitive enumeration and schema structure (the five tables have only RESTRICT FKs or none, so no cascade chain of any depth reaches their rows). Two non-blocking undercounts in P18 inventories (DELETE routes six->seven, tool catalog 21->22); conclusion unmoved."
+    }
+  ],
+  "rulingDOutcome": {
+    "removalBranch": "EMPTY \u2014 no deletion mechanism exists for any of the five row shapes; nothing to remove",
+    "reachableCase": "teamMembers via deleteTeam (team-lookup.ts:305) from the POST /teams rollback (teams-routes.ts:303) \u2014 mechanism kept, its two team tests kept",
+    "productionFilesChanged": 0,
+    "migrationGenerated": false,
+    "testsDeleted": "migrate.test.ts seed test; foreign-keys tests at :86, :117, :130, :163, :186, :207, :245, :284; agent-run-config-store cascade test; plus one dead assertion line in knowledge-access.integration.test.ts:172",
+    "projectedCounts": {
+      "unit": 6204,
+      "serviceIntegration": 2826,
+      "baseUnit": 6203,
+      "baseService": 2835
+    }
   },
   "approvals": {
-    "concept": null,
+    "concept": "approved 2026-08-08 (founder, in-session) \u2014 Rulings A-D; Ruling D authorized the nine test deletions conditional on unreachability, condition met and independently verified in critique round 4",
     "final": null
   },
   "sessionStarts": [
-    { "phase": "architecture", "at": "2026-08-07" },
-    { "phase": "architecture-critique", "at": "2026-08-08", "note": "first attempt died on weekly usage limit before writing; re-spawned fresh after reset" },
-    { "phase": "architecture-revision", "at": "2026-08-08", "attempt": 1, "of": 3 }
+    {
+      "phase": "architecture",
+      "at": "2026-08-07"
+    },
+    {
+      "phase": "architecture-critique",
+      "at": "2026-08-08",
+      "note": "first attempt died on weekly usage limit before writing; re-spawned after reset"
+    },
+    {
+      "phase": "architecture-revision",
+      "at": "2026-08-08",
+      "attempt": 1
+    },
+    {
+      "phase": "architecture-critique-round2",
+      "at": "2026-08-08"
+    },
+    {
+      "phase": "architecture-rework-on-rulings-ABC",
+      "at": "2026-08-08"
+    },
+    {
+      "phase": "architecture-critique-round3",
+      "at": "2026-08-08"
+    },
+    {
+      "phase": "architecture-rework-on-ruling-D",
+      "at": "2026-08-08"
+    },
+    {
+      "phase": "architecture-critique-round4",
+      "at": "2026-08-08"
+    },
+    {
+      "phase": "build",
+      "at": "2026-08-08"
+    }
   ],
   "artifacts": [
     ".pipeline/work/AU32/architecture.md",
     ".pipeline/work/AU32/feasibility.md",
     ".pipeline/work/AU32/schema-test-decision.md",
+    ".pipeline/work/AU32/founder-rulings.md",
     ".pipeline/work/AU32/architecture-critique.md",
-    ".pipeline/work/AU32/probes/"
+    ".pipeline/work/AU32/architecture-critique-round2.md",
+    ".pipeline/work/AU32/architecture-critique-round3.md",
+    ".pipeline/work/AU32/probes/",
+    ".pipeline/work/AU32/architecture-critique-round4.md"
   ],
   "verdicts": []
 }
