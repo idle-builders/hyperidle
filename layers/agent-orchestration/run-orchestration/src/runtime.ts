@@ -13,7 +13,6 @@ import {
 	isAgentWorkIntentKind,
 	isAgentWorkIntentSourceKind,
 	type RunContextBundle,
-	reportAdmissionFailure,
 	TargetAgentNotRunnableError,
 } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
@@ -282,7 +281,15 @@ async function reportPreAdmissionProvisioningFailure(
 	) {
 		return;
 	}
-	reportAdmissionFailure(deps.eventBus, {
+	// @lore AU29 §2.4: inlined from `@hyperidle/shared`'s (now-deleted)
+	// `reportAdmissionFailure` — the typed construction+emit of the
+	// pre-handoff `agent_run_admission_failed` channel, at both real call
+	// sites (this one and `session-requests`'s `failOrRelease`). The two
+	// services deliberately do not import each other; they now share the
+	// event *type* (`events.ts`, which stays in shared), not an emit helper.
+	deps.eventBus.emit({
+		type: "agent_run_admission_failed",
+		streamId: `${correlatedIntent.kind}:${correlatedIntent.sourceId}`,
 		intentId: correlatedIntent.id,
 		kind: correlatedIntent.kind,
 		sourceKind: correlatedIntent.sourceKind,
@@ -292,6 +299,7 @@ async function reportPreAdmissionProvisioningFailure(
 				? "TARGET_AGENT_NOT_RUNNABLE"
 				: "PROVISIONING_FAILED",
 		terminal: true,
+		timestamp: Date.now(),
 	});
 }
 

@@ -1,20 +1,20 @@
 {
 	"decidedRules": true,
-	"note": "The 124 verdicts the founder decided, role pair x crossing kind x world. This file is the ACCEPTANCE TEST for scripts/lib/governance-model.ts, not the implementation — the model must reproduce every row exactly. It is frozen: a row changes only by founder ruling.",
+	"note": "The 118 verdicts the founder decided, role pair x crossing kind x world. This file is the ACCEPTANCE TEST for scripts/lib/governance-model.ts, not the implementation — the model must reproduce every row exactly. It is frozen: a row changes only by founder ruling. AU29 deleted the three `db:util` rows and the three `db:bootstrap` rows (Ruling 12.3 — both surfaces' exports moved out of `framework/db`, so neither surface exists any more); no surviving row's verdict changed. AU32's Ruling A (ruling14narrowing below) separately flipped two `raw runtime [capability]` rows' development verdict from forbidden to allowed; the two changes are independent and both land here.",
 	"decidedAt": "2026-08-05",
 	"census": "4af3c0e6",
 	"instancesNote": "The `instances` counts are a snapshot at census 4af3c0e6 and are not asserted by anything. The verdicts are.",
+	"differNote": "AU29 founder ruling: a hand-maintained `totals.differ` count is exactly the staleness trap this file's own instructions warn against — nothing derives or asserts it, so it silently drifted (recorded 44, row-level derivation gave 46) and nobody caught it until a critique counted by hand. Removed rather than re-chased; a production-vs-development split that differs is discoverable by filtering `rows` directly, and the governance lint (not this literal) is the source of truth for the live tree.",
 	"totals": {
-		"rows": 124,
+		"rows": 118,
 		"production": {
-			"allowed": 68,
-			"forbidden": 56
+			"allowed": 65,
+			"forbidden": 53
 		},
 		"development": {
-			"allowed": 114,
-			"forbidden": 10
-		},
-		"differ": 44
+			"allowed": 112,
+			"forbidden": 6
+		}
 	},
 	"rows": [
 		{
@@ -567,78 +567,6 @@
 			"instances": {
 				"production": 84,
 				"development": 48
-			}
-		},
-		{
-			"source": "application",
-			"target": "db:bootstrap",
-			"kind": "import",
-			"scope": "general",
-			"production": "allowed",
-			"development": "allowed",
-			"instances": {
-				"production": 2,
-				"development": 0
-			}
-		},
-		{
-			"source": "tooling",
-			"target": "db:bootstrap",
-			"kind": "import",
-			"scope": "general",
-			"production": "allowed",
-			"development": "allowed",
-			"instances": {
-				"production": 0,
-				"development": 0
-			}
-		},
-		{
-			"source": "layer",
-			"target": "db:bootstrap",
-			"kind": "import",
-			"scope": "general",
-			"production": "forbidden",
-			"development": "allowed",
-			"instances": {
-				"production": 0,
-				"development": 1
-			}
-		},
-		{
-			"source": "layer",
-			"target": "db:util",
-			"kind": "import",
-			"scope": "general",
-			"production": "forbidden",
-			"development": "forbidden",
-			"instances": {
-				"production": 5,
-				"development": 0
-			}
-		},
-		{
-			"source": "service",
-			"target": "db:util",
-			"kind": "import",
-			"scope": "general",
-			"production": "allowed",
-			"development": "allowed",
-			"instances": {
-				"production": 4,
-				"development": 0
-			}
-		},
-		{
-			"source": "application",
-			"target": "db:util",
-			"kind": "import",
-			"scope": "general",
-			"production": "forbidden",
-			"development": "forbidden",
-			"instances": {
-				"production": 1,
-				"development": 0
 			}
 		},
 		{

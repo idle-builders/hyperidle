@@ -13,3 +13,7 @@
 
 export type { KnowledgeScope } from "@hyperidle/knowledge";
 export { list as listKnowledge } from "@hyperidle/knowledge";
+// AU29 §2.5.2: the first-boot core-state face — the composition roots (desktop,
+// tools/setup) call this + agent-orchestration's applyFactoryRunConfigDefaults,
+// in that order, instead of a database package writing service-owned tables.
+export { applyFactoryCoreState } from "./bootstrap/factory-state.js";

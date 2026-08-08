@@ -4,22 +4,18 @@
  * After bootstrap only (no demo data), drive a bet into review state and assert
  * that the review thread authored by system:propagation is created without FK error.
  *
- * RED PHASE: Fails until applyFactoryBootstrap correctly seeds system:propagation
- * before any review-thread creation path runs.
+ * @lore AU29: repoints `applyFactoryBootstrap` (framework/db, deleted this task)
+ * to `applyFactoryCoreState` (this layer's own first-boot face) — it asserts the
+ * propagation user, which is core-api-face state. core-api must not devDepend on
+ * `tools/setup` (that would be a workspace cycle with `tools/setup → @hyperidle/core-api`),
+ * so this stays a relative, in-package import.
  */
 
-import {
-	applyFactoryBootstrap,
-	bets,
-	type HyperIdleDb,
-	teamMembers,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { bets, type HyperIdleDb, teamMembers, teams, threads, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
+import { applyFactoryCoreState } from "../bootstrap/factory-state.js";
 
 const TEST_API_KEY = "test-key-AF17-ac5";
 const NOW = new Date().toISOString();
@@ -78,8 +74,8 @@ async function seedMinimalWorld(
 }
 
 describe("AF17 AC5: system:propagation is present after bootstrap; review thread succeeds", () => {
-	test("system:propagation user exists after applyFactoryBootstrap", async ({ db }) => {
-		await applyFactoryBootstrap(db);
+	test("system:propagation user exists after applyFactoryCoreState", async ({ db }) => {
+		await applyFactoryCoreState(db);
 
 		const [row] = await db
 			.select({ id: users.id })
@@ -93,7 +89,7 @@ describe("AF17 AC5: system:propagation is present after bootstrap; review thread
 	test("can create a review thread authored by system:propagation without FK error", async ({
 		db,
 	}) => {
-		await applyFactoryBootstrap(db);
+		await applyFactoryCoreState(db);
 		await seedMinimalWorld(db);
 
 		// Directly insert a review thread attributed to system:propagation to prove the FK holds.
@@ -129,7 +125,7 @@ describe("AF17 AC5: system:propagation is present after bootstrap; review thread
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		// Bootstrap factory layer (plants system:propagation)
-		await applyFactoryBootstrap(db);
+		await applyFactoryCoreState(db);
 		await seedMinimalWorld(db);
 
 		// Transition bet to review — this should trigger review thread creation via

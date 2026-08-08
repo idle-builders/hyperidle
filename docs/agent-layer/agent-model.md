@@ -50,7 +50,7 @@ One row per agent, primary-keyed on `agent_user_id`.
 
 System prompts stay short — ideally under 500 tokens (guidance, not enforced) — because they load into every session.
 
-Templates for standard roles are read straight from `docs/system-prompts/*.md` at setup, via the shared `SYSTEM_PROMPT_TEMPLATE_FILES` map + `readSystemPromptTemplate` (`framework/db/src/factory-bootstrap.ts`). One role-to-filename source, consumed by bootstrap and at request time alike. The template is only a starting point; `agent_run_config.system_prompt` is the single runtime source of truth, and founders can edit it after creation. Template content lives in [system-prompts](../system-prompts/index.md).
+Templates for standard roles are read straight from `docs/system-prompts/*.md` at setup, via the shared `SYSTEM_PROMPT_TEMPLATE_FILES` map + `readSystemPromptTemplateForRole` (`framework/shared/src/system-prompt-templates.ts`, called from the agent-orchestration first-boot face at `layers/agent-orchestration/src/factory-run-config.ts`). One role-to-filename source, consumed by bootstrap and at request time alike. The template is only a starting point; `agent_run_config.system_prompt` is the single runtime source of truth, and founders can edit it after creation. Template content lives in [system-prompts](../system-prompts/index.md).
 
 At session start the run orchestrator loads the system prompt, queries the knowledge layers, and packs the result into TOON. The agent doesn't know about layers; it gets a context pack.
 
@@ -72,7 +72,7 @@ The visible workforce — prominent in the Work view, session activity, and revi
 
 ### 3.2 Strategy agents
 
-Knowledge-scoped; users rarely interact with them directly. They curate knowledge, surface cross-domain patterns, and maintain taxonomy health — they facilitate, never build. Facilitators are seeded one per practice community (`PRACTICE_COMMUNITIES` — `build`, `product`, `growth`, `ops`, `facilitation` — `framework/db/src/seed-fixtures.ts`); their duties are detailed in [facilitators](../knowledge-architecture/facilitators.md). Strategy agents are never part of a team roster — they are provisioned at factory setup from `defaultFactoryRoster` (`framework/shared/src/factory-roster.ts`, consumed by `applyFactoryBootstrap`) and serve all teams.
+Knowledge-scoped; users rarely interact with them directly. They curate knowledge, surface cross-domain patterns, and maintain taxonomy health — they facilitate, never build. Facilitators are seeded one per practice community (`PRACTICE_COMMUNITIES` — `build`, `product`, `growth`, `ops`, `facilitation` — `framework/shared/src/factory-roster.ts`); their duties are detailed in [facilitators](../knowledge-architecture/facilitators.md). Strategy agents are never part of a team roster — they are provisioned at factory setup from `defaultFactoryRoster` (`framework/shared/src/factory-roster.ts`, consumed by the two first-boot layer faces — `applyFactoryCoreState` + `applyFactoryRunConfigDefaults`) and serve all teams.
 
 ### 3.3 Individual agents — the Assistant
 

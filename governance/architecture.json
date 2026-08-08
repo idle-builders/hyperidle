@@ -57,10 +57,6 @@
 			"reach": "everyone",
 			"why": "a row type is a shape, not an access path"
 		},
-		"db:bootstrap": {
-			"reach": "composition roots",
-			"why": "putting the database into a known first-boot state is the job of whatever boots the system"
-		},
 		"db:schema-ns": {
 			"reach": [],
 			"why": "one import that hands over every table at once. The database's own client factory does the same job for the one legitimate use."
@@ -72,10 +68,6 @@
 		"db:testing": {
 			"reach": [],
 			"why": "development code. A production file naming it is already an error under the production-may-not-name-development clause; this entry keeps the two answers from disagreeing."
-		},
-		"db:util": {
-			"reach": ["service"],
-			"why": "ANOMALY. escapeLikePattern, resolveAgentScaffoldSpecs and resolveProfile touch no database — no SQL, no schema, no connection. The surface should not exist. Ruling 12.3 moves them out; until then the founder's round-1 verdict stands for services and the researched verdict stands for everyone else."
 		}
 	},
 	"databasePackage": {
@@ -90,15 +82,7 @@
 			"migrate.ts": "db:client",
 			"write-executor.ts": "db:client",
 			"migrate-pg.ts": "db:client",
-			"bootstrap-pg.ts": "db:client",
-			"pg-ssl.ts": "db:client",
-			"factory-bootstrap.ts": "db:bootstrap",
-			"demo-fixture.ts": "db:bootstrap",
-			"setup-cli.ts": "db:bootstrap",
-			"seed-fixtures.ts": "db:bootstrap",
-			"like-escape.ts": "db:util",
-			"agent-scaffold.ts": "db:util",
-			"profiles.ts": "db:util"
+			"pg-ssl.ts": "db:client"
 		}
 	},
 	"endpoints": {
@@ -127,7 +111,9 @@
 	},
 	"oneDoorSurfaces": {
 		"note": "The development world relaxes every production rule EXCEPT these. Each names a surface where production has exactly one door — going around it builds a world production cannot produce, which is the one thing a test may not do.",
-		"surfaces": ["db:schema-ns", "db:util", "db:unknown", "framework/design-system"],
+		"surfaces": ["db:schema-ns", "db:unknown", "framework/design-system"],
+		"rawRuntime": true,
+		"rawRuntimeNote": "Ruling 14 — this holds BOTH spellings of the one act, the SDK import and the CLI spawn, because they are one target. Going around a door production has only one of is the one thing a test may not do, and a test spawning `claude` directly is doing exactly that.",
 		"why": "a test may cross any boundary to arrange the world; it may not go around a door production has only one of",
 		"foreignTableWriteMissingCompanion": true,
 		"foreignTableWriteNote": "Ruling 13. A test may write any foreign table directly — 63% of those writes would otherwise route through a function that is literally `insert(X).values(v)`. What is held is narrower and real: where the owner writes two rows in ONE call it has a cross-row invariant, and writing one without the other builds a state production cannot produce. The companion groups are derived from the owners' own writers, never listed."

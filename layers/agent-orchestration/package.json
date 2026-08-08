@@ -12,6 +12,7 @@
 	},
 	"dependencies": {
 		"@hyperidle/agent-execution": "*",
+		"@hyperidle/agent-run-config": "*",
 		"@hyperidle/api-contract": "*",
 		"@hyperidle/connections": "*",
 		"@hyperidle/db": "*",

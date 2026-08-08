@@ -563,7 +563,7 @@ export default [
 	// Two orthogonal mechanisms, neither substituting for the other:
 	//
 	// (a) no-restricted-imports bans `defaultRoster` from @hyperidle/shared in these
-	//     surfaces. Roster composition belongs to `framework/db/src/agent-scaffold.ts`,
+	//     surfaces. Roster composition belongs to `framework/shared/src/agent-scaffold.ts`,
 	//     its one legitimate caller. Not vacuous: `teams-routes.ts` and `create-team.ts`
 	//     genuinely imported it before the ban landed.
 	//
@@ -608,7 +608,7 @@ export default [
 							name: "@hyperidle/shared",
 							importNames: ["defaultRoster"],
 							message:
-								"A route or tool handler must not compose a roster. Roster composition belongs to the agent-scaffolding path (framework/db/src/agent-scaffold.ts) and to team setup (layers/core-ui/src/pages/SetupFlow.tsx) — the two legitimate callers of defaultRoster().",
+								"A route or tool handler must not compose a roster. Roster composition belongs to the agent-scaffolding path (framework/shared/src/agent-scaffold.ts) and to team setup (layers/core-ui/src/pages/SetupFlow.tsx) — the two legitimate callers of defaultRoster().",
 						},
 					],
 				},
