@@ -7,26 +7,55 @@ rule, four runs, same production tree, `.pipeline` additions only since). Every 
 session, not recalled. Scratch outputs not worth keeping are discarded; the two load-bearing
 inventories are reproduced inline.
 
+**Re-grounded onto base `59b9299a` (AU32, PR #464), which replaced the governance promotion
+mechanism.** Three probes are affected and each is handled in place rather than left standing:
+**P1** asked a question that no longer exists (whether AU31 would be the sibling that empties
+`governance/baseline.json`) and is rewritten as the rule-key inventory; **P11**'s two load-bearing
+runs were re-executed unchanged on the rebased tree and **one changed verdict** — probe A still
+fails the build, probe C1 now warns and passes — with the consequence written into that probe's
+verdict and into architecture.md §2.5; **P2b**'s mechanism wording is corrected. Every other
+probe's subject is production code AU32 did not touch, so its result stands exactly as recorded.
+The site arithmetic is unchanged: AU31 owns 92 sites, 93 including the contested one.
+
 ---
 
-## P1 — The baseline arithmetic: 288 total, AU31 owns 92 (+1 contested), AU31 does NOT structurally empty the file
+## P1 — The rule-key inventory: 221 production sites, AU31 owns 14 keys / 92 sites; AC #6's question no longer exists
 
-**Question.** Is AU31 the work package whose clearing empties `governance/baseline.json` (AC #6's
-conditional)?
+**Re-executed at base `59b9299a`. The question this probe originally asked is gone.** As first run,
+P1 asked whether AU31 would be the work package whose clearing empties `governance/baseline.json`,
+because AC #6 made the last of four siblings responsible for deleting that file and the `--adopt`
+escape hatch. **AU32 deleted both unconditionally** (PR #464), so there is no "last sibling"
+contingency left to plan for and no end-of-work conditional check to give the builder. AC #6's
+disposition is recorded in architecture.md §13.11 and §10's row 6. What remains useful from this
+probe is the inventory, so that is what it now reports.
 
-**Method.** Parse `governance/baseline.json`, sum `sites` counts per group, partition groups by
-owning WP per `.pipeline/AU.md` rows 28–32.
+**Question.** Which rule keys does AU31 own, how many live sites sit under each, and does the scope
+match the plan's recorded arithmetic after the rebase?
 
-**Result.** 38 groups, **288 sites** total. AU31's 14 groups sum to **92**; the contested
-`application → db:util [import]` (1 site, `applications/remote-server/src/create-server.ts`) makes
-the 93 `progress.json.baselineScope` names. Every non-AU31 group has an owner: the `db:table`
-groups (production) → AU30; `framework → EventBus`, `framework → db:table` writes,
-`layer → db:util`, `db:unknown`, `db:schema-ns` → AU29; every `development`-world group → AU32
-(companions) or AU29 (`tooling → raw runtime`, `application → db:unknown` dev).
+**Method.** Run the live linter — `npx tsx scripts/governance-lint.ts` — on the rebased tree and
+read its per-rule-group table; cross-check the owned set against `governance/rule-severity.json`'s
+`severity` keys and the per-work-package ownership in `.pipeline/AU.md:48-52`.
 
-**Verdict.** Whether AU31 clears last is a **schedule fact, not a plan fact** — AU29/AU30/AU32 are
-registered but unshipped. The architecture therefore gives the builder a mechanical end-of-work
-check (architecture.md §10) rather than a prediction. Both outcomes are planned.
+**Result.** `governance/rule-severity.json` lists **31 keys, all production, all `warn`**; every
+development key is gone, because AU32 cleared the development world outright. The linter reports
+**221 production + 0 development** known violations across 65 files and 31 rule groups.
+
+- **AU31 owns 14 of the 31 keys, summing to exactly 92 sites** — enumerated with their per-wave
+  split in architecture.md §12.1. Largest: `layer → service (other layer) [import]` 36,
+  `application → service [import]` 15, `application → service [manifest]` 12,
+  `service → service (other layer) [di]` 9, `layer → service (other layer) [manifest]` 7.
+- The contested `application → db:util [import]` (1 site,
+  `applications/remote-server/src/create-server.ts`) makes the 93 that `progress.json` names, and
+  remains **AU29's** per architecture.md §8.
+- Every non-AU31 key still has an owner: the `db:table` groups → AU30; `framework → EventBus`,
+  `framework → db:table` writes, `layer → db:util`, `db:unknown` → AU29.
+
+**Verdict.** **The scope did not change across the rebase.** 92 + 1 contested = 93, exactly the
+arithmetic the architecture was written on, so no verdict, wave boundary or file assignment moves.
+What changed is the promotion act: instead of a generator shrinking a ledger, AU31 deletes 14 lines
+from `governance/rule-severity.json`, each in the pull request that clears that key's last site.
+Because every one of the 14 still has a live site after wave A, **wave A deletes no key and wave B
+deletes all fourteen** (architecture.md §12.1).
 
 ---
 
@@ -63,7 +92,7 @@ must ride the adapter/composition contract and the MCP dial must relocate INTO `
 **Result.** DI verdict = both ends of the injected port in one layer, or the provider is the
 framework. The wiring file's own role is irrelevant — which is why
 `applications/remote-server/src/create-server.ts` carries a `service → service (other layer) [di]`
-baseline site (`readAgentRunConfigs` wired into `settings`' backfill port, `create-server.ts:510`)
+site (`readAgentRunConfigs` wired into `settings`' backfill port, `create-server.ts:510`)
 even though an application wrote the wire. Consequence: relocating a wiring file never legalizes a
 cross-layer wire; the wire itself must dissolve (seam call, in-layer relocation, or a
 framework/shared-typed capability).
@@ -308,15 +337,18 @@ than a search a builder must remember to repeat.
 | Run | Spelling | Census verdict |
 |---|---|---|
 | 0 | clean tree | PASS, exit 0 (221 production known violations at warn) |
+| **0′** | clean tree, **re-run at base `59b9299a`** | PASS, exit 0 — `221 production + 0 development known violation(s) at warn` (the development world is now empty; production is unchanged) |
 | A | inline handoff — `bootAgentOrchestration({ …, adapterPool: createLocalAdapterPool() })` in an application file | **FAIL, exit 1**: `ERROR [crossing-di] … layer → layer (other) [di] production — agent-orchestration receives the result of `createLocalAdapterPool` from agent-execution` |
 | B | local-binding handoff — `const pool = createLocalAdapterPool(); bootAgentOrchestration({ …, adapterPool: pool })`, plus the `exec.adapters` property-access form | **PASS, exit 0** — zero findings for the probe file, warnings included |
 | C1 | a `@hyperidle/shared` helper receiving a cross-module-imported layer tool list, spelled inside `layers/agent-orchestration/src/` (the shape a naive §2.5 relocation of `tool-provider-bindings.ts` would produce; list is a call-initialized `export const`, exactly `tool-handlers-bindings.ts:200`'s shape — NOT suppressed by `buildConstantExports`, `crossing-detectors.ts:316-325`) | **FAIL, exit 1**: `ERROR [crossing-di] … framework → layer [di] production — shared receives `probeToolDefinitions` from agent-orchestration` |
 | C2 | the end-state tool-stack spelling — `buildToolDefinitions(ports, { role })` called in `layers/agent-orchestration/src/` with function-local values (`@hyperidle/tool-handlers` is the layer's own service) | **PASS, exit 0** — zero findings, warnings included |
+| **A′** | probe A re-executed unchanged at base `59b9299a` | **FAIL, exit 1** — same finding, `ERROR [crossing-di] applications/remote-server/src/au31-probe.ts:7: layer → layer (other) [di] production`. **Unchanged**, and now for a legible reason: that group has no key in `governance/rule-severity.json`, so it is at `error` |
+| **C1′** | probe C1 re-executed unchanged at base `59b9299a` | **PASS, exit 0** — `WARN [crossing-di] layers/agent-orchestration/src/au31-probe.ts:6: framework → layer [di] production … [known debt]`, total `222 production`. **Verdict changed** from ERROR/exit 1: the group still has a `warn` key, and under AU32's dial a `warn` rule warns for every violation including brand-new ones |
 
 **Verdict.** Three load-bearing facts, now executed rather than argued:
-1. The **inline** cross-face spelling is forbidden and fatal today — the DI heuristic fires on a call-expression argument via its callee's import provenance (`crossing-detectors.ts:991-993`), the group has zero baseline headroom, and the shrink-only ratchet cannot absorb it. The spelling law in architecture §4 is therefore self-enforcing on its visible side.
+1. The **inline** cross-face spelling is forbidden and fatal today — the DI heuristic fires on a call-expression argument via its callee's import provenance (`crossing-detectors.ts:991-993`), and the group it hits, `layer → layer (other) [di] production`, has **no key in `governance/rule-severity.json`**, so it is at `error`. Re-confirmed at base `59b9299a` (run A′). The spelling law in architecture §4 is therefore self-enforcing on its visible side. Stated narrowly on purpose: this holds because *that* group is clean and keyless, not because any DI group is fatal — see fact 3.
 2. The **local-binding** handoff records nothing — not because a clause allows it, but because the DI predicate is import-provenance-based by design (`crossing-detectors.ts:931-934`: the crossing is between the called factory's package and "the package the injected value came from"; a face-produced runtime value held in a local has no foreign import provenance). Architecture §4 states this honestly and gives the reading an enforced home (attack + control-twin pair on the `crossing-di` rule, clause-6 `why`/README sentence) at the founder gate.
-3. The two `tool-provider-bindings.ts` DI wires **cannot relocate** — C1 proves the framework-consumer wire re-fails at any new site — and the §2.5 dissolution (dispatch moved into `@hyperidle/tool-handlers`, role filter via `buildToolDefinitions(ports, { role })`) reports nothing (C2) while being legal by clause 6's own text (both ends agent-orchestration, `governance-model.ts:282-288`), not by invisibility.
+3. The two `tool-provider-bindings.ts` DI wires **cannot relocate**, and the reason is weaker than first recorded but still decisive. C1 proves the framework-consumer wire is **reported** at any new site, naming the file and the symbol — but at base `59b9299a` it is reported as a `WARN` and the build **passes** (run C1′), because `framework → layer [di] production` still carries a `warn` key. The original claim that it "re-fails" the build is **corrected**: it fails *the work package*, not the commit. `framework → layer [di] production` is one of the 14 keys AU31 must delete (architecture.md §12.1 row 11), and deleting it while a relocated site is live puts the rule at `error` over a live violation. The §2.5 dissolution (dispatch moved into `@hyperidle/tool-handlers`, role filter via `buildToolDefinitions(ports, { role })`) reports nothing (C2) while being legal by clause 6's own text (both ends agent-orchestration, `governance-model.ts:282-288`), not by invisibility — so the dissolution, not a relocation, is what lets the key be deleted at all.
 
 ---
 

@@ -3,7 +3,8 @@
 Spec of record: `.pipeline/work/AU31/plan.md`. Requirements: `requirements.md` (PASSED critique;
 the five non-blocking defects D1–D5 are absorbed below at the sites marked **[D1]**…**[D5]**).
 Feasibility: `feasibility.md` (probes P1–P12, cited as **[P#]**). Tier: **production**. Every
-`file:line` re-traced on the live tree at base `bbe82e9a`.
+`file:line` re-traced on the live tree; the site inventory and the two composition probes were
+re-executed at base `59b9299a` — see **"Re-grounded onto the severity dial"** below.
 
 **This revision applies the founder's ruling at the concept gate, and it removes work rather than
 adding it.** Five rounds of critique argued about how completely R2 — the rule that keeps a
@@ -31,6 +32,28 @@ same gate (both supersessions, the relinquished atomicity with **no** durable me
 two-WP split, the `application → layer` narrowing) are recorded in §13's preamble. D1–D5 remain
 absorbed at §11, §13.8, §7.2 **[D3]**, §3.1 **[D4]**, and §4 respectively.
 
+**Re-grounded onto the severity dial (base `59b9299a`, PR #464).** AU32 replaced the governance
+promotion mechanism while this plan sat between phases. `governance/baseline.json`, its generator
+(`npm run governance:baseline`) and the `--adopt` escape hatch are **deleted from the repository**.
+In their place `governance/rule-severity.json` carries one severity per architectural rule, `error`
+or `warn`, and nothing else — no paths, no counts, no dates, no adoption records. **A key absent
+from that file is at `error`;** the file lists only what is not yet clean. **Promotion is now a
+single act: delete your rule's key from `rule-severity.json` in the same pull request that clears
+its last violation.** There is no generator to run and no later step.
+
+Three consequences this revision writes through the plan, and nothing else changes — no verdict, no
+mechanism, no wave boundary, no file assignment moves:
+
+1. **Every mechanism sentence that named the old bookkeeping is rewritten** (§1, §2.5, §4, §6, §8,
+   §10, §12, §13 and `feasibility.md` P1/P2b/P11). The rule *verdicts* those sentences justified are
+   unchanged; only the description of what makes a rule bite is.
+2. **AC #6 is satisfied upstream and this plan builds nothing for it** — see §13.11 and §10's row 6.
+3. **One probe justification flipped and is corrected rather than left standing** (§2.5, and P11
+   fact 3): a rule at `warn` now warns for *every* violation including brand-new ones, so a
+   relocated wire in a still-`warn` group is reported but **no longer fails the build**. Re-executed
+   on the rebased tree: probe A still ERROR + exit 1, probe C1 now WARN + exit 0. The §2.5 decision
+   is unaffected — see there for why.
+
 This plan creates no outcome beyond the plan's seven ACs. Where it supersedes a prior in-code
 decision, the supersession is listed in §13 and was ruled at the founder gate (`plan.md:25`).
 
@@ -56,11 +79,16 @@ exceptions — no allowlist, no stateless-provider carve-out, no named-method ex
 state is the end state — no transitional facade, no temporary cross-layer import, no "phase 1"; a
 layer's manifest names no other layer or another layer's service; composition roots reach a
 layer's public face only, never a service, never another application; no production export that
-only tests consume; the baseline is shrink-only — clearing a group's last site deletes the entry
-and that rule is at error from the same commit, with no separate or deferred promotion step; every
-cleared entry is deleted, never re-tagged; if clearing empties `governance/baseline.json`, the
-file and the `--adopt` escape hatch are deleted in the same commit and reintroducing either under
-any name fails the build.
+only tests consume; **promotion is one act — clearing a rule's last site deletes that rule's key
+from `governance/rule-severity.json` in the same pull request, and the rule is at `error` from that
+commit** (an absent key is at `error`), with no separate or deferred promotion step and nothing to
+regenerate; a cleared key is deleted, never re-tagged and never re-added at a lower severity;
+**nothing may rebuild a per-file allowance record under any name** — `no-per-file-allowances`
+already fails the build on a new file under `governance/`, a nested value under a severity key, a
+malformed rule key, or an undeclared flag on a governance CLI, and this plan designs nothing that
+would trip it. One more constraint arrives with the same base: **AU32 cleared the whole development
+world (0 development violations), so every development rule is at `error` with no `warn` key to fall
+back on** — see §10's development-world clause.
 
 ---
 
@@ -200,10 +228,23 @@ is ruled **forbidden** [P2], so the execution relationship must ride the composi
 ### 2.5 `tool-handlers` and the tool stack — the wrapper file dies; the dispatch moves to the definitions; API for the one core-owned port
 
 `tool-provider-bindings.ts` is **deleted, not relocated**. The first draft's "moves in-layer"
-would re-create two cleared DI groups at new sites — probe C1 [P11] shows the framework-consumer
-wire failing live at exactly the relocated spelling, and the shrink-only generator hard-fails a
-cleared group's reappearance (`governance/README.md:79`). Each of the file's wires gets its own
-mechanism:
+would re-create two DI groups this work package is on the hook to clear — probe C1 [P11] shows the
+framework-consumer wire being reported live at exactly the relocated spelling, naming the file and
+the symbol.
+
+**The strength of that argument changed with the base, and the honest version is weaker but still
+decisive.** Under AU32's severity dial a rule at `warn` warns for every violation including
+brand-new ones, so C1's relocated wire is now reported and the build still **passes** — re-executed
+on the rebased tree: `WARN [crossing-di] … framework → layer [di] production`, 222 production
+violations, exit 0 (it was ERROR + exit 1 under the deleted baseline ratchet). So the relocation is
+no longer *mid-build fatal*. It is still forbidden, still detected, and still fatal to this work
+package: `framework → layer [di] production` is a key AU31 must delete from
+`governance/rule-severity.json` (§12's key map), and deleting it with a relocated site alive puts
+the rule at `error` over a live violation and breaks the build at that commit. The decision is
+therefore unchanged — dissolve the wires, do not move them — but the reason is "the key cannot be
+deleted while the wire exists", not "the linter stops you the moment you write it".
+`governance/README.md:78-88` states the dial; `no-per-file-allowances` forecloses any per-file
+carve-out that could hold such a site open. Each of the file's wires gets its own mechanism:
 
 - **The dispatch relocates from `harness-registry` into `tool-handlers`.** `buildToolRegistry`
   (`harness-registry/src/tool-registry.ts:62`) imports only `@hyperidle/shared`
@@ -250,7 +291,7 @@ mechanism:
   orchestration service; the tool implementations already reach core exclusively through the
   `CoreApiPort` seam (`tool-handlers-bindings.ts:49-52`), so the move changes no conversation.
 
-Net effect on AC #5: both remaining DI baseline sites in this file — `framework → layer [di]` and
+Net effect on AC #5: both remaining DI sites in this file — `framework → layer [di]` and
 `service → layer (other) [di]` site 2 — dissolve **in principle, not by hiding**: after this, no
 framework factory receives a cross-module layer list and no execution factory receives an
 orchestration value anywhere in the production tree; execution receives only finished,
@@ -702,7 +743,7 @@ exercises reactions.
    acquisition rule applies to it, and wave B applies it when §2.5 moves that construction with the
    tool stack; its current readers are all on the request path with no reaction lane, so nothing in
    wave A depends on it. This is not a carve-out from a boundary rule — the `CoreApiPort` singleton
-   is not a cross-layer import, and no baseline entry or AC covers it.
+   is not a cross-layer import, and no rule key or AC covers it.
 
 **Owning leaf:** the new **A0** in §12, ahead of A1 and A2, because every reaction conversion in
 A2 depends on it. Wave B changes nothing about the contract: §5.2's `bootCoreApi` absorbs the same
@@ -716,8 +757,9 @@ another face: the execution adapter bundle into `bootAgentOrchestration` (§2.4,
 first draft asserted this was "the face's declared composition contract (clause 3)" with "the
 census's DI rule unchanged" — an assertion the enforced code contradicts:
 `governance-model.ts:265-290` has no face-content carve-out, and `layer → layer (other) [di]` is
-forbidden **generatively** — clause 6 (`governance-model.ts:266-290`) over an empty baseline;
-`decided-rules.json` carries no literal row for the group **[N5]**. This section replaces the assertion with what the census
+forbidden **generatively** — clause 6 (`governance-model.ts:266-290`) decides it; `decided-rules.json`
+carries no literal row for the group **[N5]**, and the group has no key in
+`governance/rule-severity.json`, so it is already at `error`. This section replaces the assertion with what the census
 actually does — proven by executing it, not arguing it — and gives the surviving reading an
 enforced home.
 
@@ -746,9 +788,13 @@ namespace respelling it cannot see is named in rule 2, not claimed away).**
 1. A composition root binds each face boot result to a local binding before any part of it enters
    another face's options.
 2. No identifier imported from a layer or service package — and no inline call of one — may appear
-   in another layer's boot argument list. Probe A shows this side needs no new rule: every DI
-   group the spelling could hit is forbidden with zero baseline headroom, so the forbidden
-   spelling fails the build today, mid-build, with both packages named. **[N2]** One respelling
+   in another layer's boot argument list. Probe A shows this side needs no new rule: the DI group
+   the spelling actually hits — `layer → layer (other) [di]` — has **no key in
+   `governance/rule-severity.json`**, so it is at `error` and the forbidden spelling fails the build
+   today, mid-build, with both packages named. Re-executed on the rebased tree at `59b9299a`:
+   still `ERROR [crossing-di]`, exit 1. **[N2]** Stated precisely, because it does not generalise:
+   a DI group that still *has* a `warn` key (e.g. `framework → layer [di]`, §2.5) is reported but
+   not build-fatal until this work package deletes its key. One respelling
    on this side is census-invisible, stated honestly: the namespace-mediated inline call —
    `import * as exec from "@hyperidle/agent-execution"; bootAgentOrchestration({ …,
    adapterPool: exec.createLocalAdapterPool() })` — records nothing, because the DI heuristic's
@@ -764,17 +810,17 @@ namespace respelling it cannot see is named in rule 2, not claimed away).**
 **Why detector-invisibility is not a hole.** The blindness covers only values with no foreign
 import provenance, and the import rules close the acquisition path for everything else: for an
 application to hand a raw service symbol across, it must first import it, and
-`application → service [import|manifest|di]` is at error the moment this WP clears those groups
-(AC #3), while R1–R3 (§7) plus the shrunken export maps stop the faces laundering service symbols
+`application → service [import|manifest|di]` is at `error` the moment this WP deletes those three
+keys from `governance/rule-severity.json` (AC #3), while R1–R3 (§7) plus the shrunken export maps stop the faces laundering service symbols
 outward. After this WP the only values a composition root *can* pass are face-produced or
 environmental — exactly the set the reading declares to be composition.
 
 **The enforced home (founder-gate item §13.3; replaces the first draft's "clause 3 reading").**
 Two artifacts, both landing in wave B4, both ratified at the gate per
-`governance/README.md:138-141`:
+`governance/README.md:137-139`:
 
 1. **An attack/control pair on the existing `crossing-di` rule** in
-   `scripts/lib/governance-attacks.ts` (property 2, `governance/README.md:110-125`): probe A's
+   `scripts/lib/governance-attacks.ts` (property 2, `governance/README.md:109-124`): probe A's
    spelling as the attack (expected finding: `layer → layer (other) [di]`), probe B's spelling as
    the control twin (expected: nothing reported). From that commit the ratified reading is
    break-tested on every lint run — if the detector ever stops flagging the inline spelling, or
@@ -883,7 +929,7 @@ who *dials* it, not where the router code lives.
    hooks (`shared`'s harness types). End state matches the decided rows exactly:
    `harness-registry → MCP router` (allowed) does the dialling, `harness → MCP router` (allowed)
    keeps dialling over HTTP, and the `service → MCP router [mcp]` + `service → agent-execution
-   [api]` + `application → MCP router [mcp]` baseline entries clear.
+   [api]` + `application → MCP router [mcp]` keys leave `governance/rule-severity.json`.
 3. **Consistency check that holds** (requirements §4): the router needs no DB; agent-execution
    has no DB credentials; a remote-worker deployment of the face carries the router with the
    harness relationship. `httpApiLayers` stays `["core-api","agent-orchestration"]` — the MCP
@@ -910,7 +956,7 @@ where it can and says honestly where it cannot:
    Node's exports encapsulation then makes a deep service-path import fail to resolve at all —
    the cheapest, least-gameable teeth.
 2. **Three new governance-lint rules** (census rules over the existing graph; each with a
-   positive attack + control twin, per `governance/README.md:110-125` property 4):
+   positive attack + control twin, per `governance/README.md:109-124` property 4):
    - **R1 `layer-exports-resolve-inside-the-layer`**: a layer manifest `exports` entry may not
      resolve into a nested service package. *Attack:* mutate `layers/core-api/package.json` to add
      an entry pointing into `layers/core-api/knowledge/src/…` → expect finding. *Control:* the
@@ -1020,21 +1066,22 @@ where it can and says honestly where it cannot:
 the util functions out of `db`, and their **destination is AU29's own refine question** — AU31
 choosing a home would decide another WP's noun. Therefore: **AU29 owns clearing this group.**
 AU31's create-server rewrite keeps the file path (`applications/remote-server/src/create-server.ts`)
-and the `resolveProfile` import exactly as they are, so the baseline entry is neither cleared nor
-grown here (the generator forbids both silently anyway). If AU29 lands first, the site dissolves
-under whatever home AU29 ratifies and AU31 rebases onto it. Recorded for AU29's planner in §13.
-Consequence for AC #5: AU31's "every entry gone" claim covers its **14 groups**, explicitly minus
+and the `resolveProfile` import exactly as they are, so **AU31 leaves the
+`application → db:util [import] production` key in `governance/rule-severity.json` untouched** — it
+neither deletes it nor adds a site under it. If AU29 lands first, the site dissolves under whatever
+home AU29 ratifies and AU31 rebases onto it. Recorded for AU29's planner in §13.
+Consequence for AC #5: AU31's "every key gone" claim covers its **14 keys**, explicitly minus
 this one — matching the plan's own footnote that the group is subject to this ruling
 (`requirements.md:182`).
 
 **Overlap 2 — `framework → layer [di]`: AU31's, and AU29 must not claim it.** AU29's AC reads
 "Every `framework → *` … production entry is gone" (`work/AU29/plan.md:50`), which literally
-covers this group; AU31's `progress.json.baselineScope` claims it too. Ruling: **AU31 clears
+covers this group; AU31's `progress.json` rule-key scope claims it too. Ruling: **AU31 clears
 it.** The single site is `tool-provider-bindings.ts:64-66` — a file AU31 deletes as part of the
 §2.5 tool-stack rework — and the wire has no db- or EventBus-shape that AU29's mechanisms could
 dissolve: AU29's genuine `framework → *` groups are the `framework → EventBus` and
 `framework → db:table` ones [P1]. AU29's planner must read its AC's `framework → *` quantifier as
-excluding this group: if AU31 lands first the entry is already gone; if AU29 lands first it
+excluding this group: if AU31 lands first the key is already gone; if AU29 lands first it
 leaves the site untouched. Recorded for the orchestrator to echo into AU29's artifacts in §13.6,
 exactly as the db:util handoff is echoed in the other direction — requirements §8.1's bar,
 "neither silently claiming nor silently dropping", applied to both overlaps.
@@ -1068,12 +1115,12 @@ exactly as the db:util handoff is echoed in the other direction — requirements
 
 | AC (`plan.md:47-53`) | Obligation here | Verified by |
 |---|---|---|
-| 1 — no layer names another layer/its services (imports + manifest) | §2 verdicts + §5 relocation + §2.7 buffer + §2.4 core-ui row | `npm run lint` governance pass: the 4 groups' baseline entries deleted → rules at error; validation scenario 2 covered by R3 + existing crossing rules |
-| 2 — no cross-layer DI; API/MCP/bus only | all 14 DI baseline sites have named mechanisms: the 9 `service → service (other layer)` sites (8 files: `app.ts:494`, `bets.ts:684` — 2 sites, `tasks.ts:254`, `threads.ts:1678`, `org.ts:306`, `service-bootstrap.ts:470`, `agent-run-admission-reactions.ts:115`, `create-server.ts:510`) convert with their imports (W2=W7); the 2 `application → service` adapter-pool wires become §4-law face handoffs (§5.3, §6); `service → layer (other)` site 1 (`service-bootstrap.ts:330`) relocates in-layer (§5); the two `tool-provider-bindings.ts` wires — `framework → layer` and `service → layer (other)` site 2 — dissolve per §2.5, probe-proven [P11] | 4 DI groups' entries deleted → `wire-within-one-layer` at error; §4's attack/control pair pins the handoff reading; validation scenario 3 |
-| 3 — applications compose faces only; no service, no other application | §5.3 + §6 + §2.7 relocations; manifest end states | `application → service [import|manifest|di]` + `application → application [import]` entries deleted; R1–R3 at error |
-| 4 — MCP dialled only by harness-owning layer + harness; serving layer hosts the door | §6 | `service → MCP router`, `application → MCP router`, `service → agent-execution [api]` entries deleted; attack case for the dial rule already exists in the harness table |
-| 5 — every named baseline entry gone, rules fail on reappearance | 14 groups (§8 carve-out recorded) | `governance/baseline.json` diff per commit; shrink-only generator enforces promotion |
-| 6 — baseline-empty conditional | mechanical end-of-build check: if `groups` is empty after this WP's clears, delete `governance/baseline.json` + the `--adopt` path in `scripts/` in the same commit; [P1] says this is schedule-dependent, so the check runs unconditionally and acts only if true | the commit itself + `npm run lint` green with no baseline file |
+| 1 — no layer names another layer/its services (imports + manifest) | §2 verdicts + §5 relocation + §2.7 buffer + §2.4 core-ui row | `npm run lint` governance pass: the 4 keys deleted from `governance/rule-severity.json` → rules at `error`; validation scenario 2 covered by R3 + existing crossing rules |
+| 2 — no cross-layer DI; API/MCP/bus only | all 14 DI sites have named mechanisms: the 9 `service → service (other layer)` sites (8 files: `app.ts:494`, `bets.ts:684` — 2 sites, `tasks.ts:254`, `threads.ts:1678`, `org.ts:306`, `service-bootstrap.ts:470`, `agent-run-admission-reactions.ts:115`, `create-server.ts:510`) convert with their imports (W2=W7); the 2 `application → service` adapter-pool wires become §4-law face handoffs (§5.3, §6); `service → layer (other)` site 1 (`service-bootstrap.ts:330`) relocates in-layer (§5); the two `tool-provider-bindings.ts` wires — `framework → layer` and `service → layer (other)` site 2 — dissolve per §2.5, probe-proven [P11] | the 4 DI keys deleted → `wire-within-one-layer` at `error` for those groups; §4's attack/control pair pins the handoff reading; validation scenario 3 |
+| 3 — applications compose faces only; no service, no other application | §5.3 + §6 + §2.7 relocations; manifest end states | the `application → service [import|manifest|di]` + `application → application [import]` keys deleted; R1–R3 at `error` |
+| 4 — MCP dialled only by harness-owning layer + harness; serving layer hosts the door | §6 | the `service → MCP router`, `application → MCP router`, `service → agent-execution [api]` keys deleted; attack case for the dial rule already exists in the harness table |
+| 5 — every owned key gone, rules fail on reappearance | the **14 keys enumerated in §12.1** (§8 carve-out recorded) | the `governance/rule-severity.json` diff in the pull request that clears each key's last site; from that commit the key is absent, so the rule is at `error` and a reappearance fails the build |
+| 6 — **MOOT: satisfied upstream, nothing built here** | AU32 (PR #464, base `59b9299a`) already deleted `governance/baseline.json`, `scripts/governance-baseline.ts` and the `--adopt` path, unconditionally rather than as a last-sibling contingency; the successor obligation — "and it never comes back" — is discharged by the registered `no-per-file-allowances` rule. AU31 builds **no** mechanism for this AC and performs no end-of-build check | `git log -1 --format=%H -- governance/baseline.json` shows the deleting commit; the file is absent on the live tree; `no-per-file-allowances` is registered and break-tested, so reintroduction under any name fails the build. Full disposition: §13.11 |
 | 7 — verify green + one real agent run end to end | §11 | executed, recorded output |
 
 **Test strategy per lane:** every new seam op gets service-lane integration coverage
@@ -1087,6 +1134,39 @@ named window instead — the four inverted files listed at the end of §3.1 (a f
 them allowed to drive the code back to the transactional shape; the reaction lane gets its port
 from the fixture, not a global (§3.2 clause 6); R1–R3 land with their attack + control cases (the
 build fails without them). No new test harness is invented.
+
+**Development-world constraint — AU31 may not introduce a single development violation, and there
+is no `warn` key to absorb one.** AU32 cleared the development world to **zero** (live linter on the
+rebased tree: `221 production + 0 development known violation(s) at warn`), and every development
+rule is now at `error` because no development key remains in `governance/rule-severity.json`. So a
+development-world crossing this work package writes fails the build *at that commit* — unlike a
+production one, which merely warns. Two clauses follow, and they bind every test wave A and wave B
+write:
+
+1. **Arrange only states production can actually produce.** This is the criterion AU32 enforced, and
+   the rule is `write-the-whole-row-set` (`scripts/lib/governance-model.ts:377-389`): a fixture that
+   writes a table directly and leaves a **companion row** unwritten — the row the owning service
+   always writes alongside it — is forbidden, with the message "writing X without Y builds a state
+   production cannot produce". The companion groups are derived from the owning services' own
+   writers (`buildCompanionGroups`, `scripts/lib/crossing-detectors.ts:366`), so the fixture is
+   judged against what the owner really does, not against a list. Concretely, in AU32's own closure:
+   an arranged `teams` row needs its `teamMembers` companion; an arranged `knowledgeItems` row needs
+   its `knowledgeAppProjection` companion. The three ways out, in order of preference, all used by
+   AU32: **(a)** write the arrangement through the owner's public route or service call (AU32 routed
+   one fixture's projection through `POST /api/knowledge` instead of a second raw write); **(b)** use
+   or add a parametrized seeder that mirrors the owner's writer (AU32 added `seedTeam` /
+   `seedKnowledgeItem` to core-api's `_helpers.ts`); **(c)** complete the companion write inline,
+   immediately after the row it belongs to. Never a suppression, never a carve-out — there is no
+   mechanism for one.
+2. **Do not test a mechanism production does not have.** AU32 deleted nine tests that probed
+   deletions no production code path performs, on the ground that a test arranging an unreachable
+   state proves nothing. The same bar applies to every test this work package writes for a
+   relinquished window (§3.1): the failure must be one the production path can really reach.
+
+The AU32 companion rule has one blind spot worth knowing before writing a fixture: the write set is
+credited **per file**, so one companion write anywhere in a file can mask a sibling arrangement in
+the same file that lacks one (AU32's own review round 1 found eight such sites in one file). Balance
+per arranged entity, not per file.
 
 ## 11. The end-to-end evidence run (AC #7 — executed, not read)
 
@@ -1116,7 +1196,9 @@ rather than via `provisionSession`" (its own words,
 and constructs its own bridge and URL (`:168-169, :380`), so its green proves nothing about the
 relocation. The recipe above carries AC #7 alone — step 4 already observes the relocated dial
 live, because terminal-with-return is impossible without the bridge. `npm run verify` must be
-green on the same tree (governance lint at error for every cleared group).
+green on the same tree, with every key this work package cleared already deleted from
+`governance/rule-severity.json` (so those rules run at `error` in that same run) and every detector
+floor recomputed per §12.2.
 
 ---
 
@@ -1151,7 +1233,9 @@ the transport, which becomes a value the root passes (§3.2)**; the two developm
   the sites they cover**; site 8's failed submit marks its run `error` through the routine service
   (§3.1, one `catch` and one state write — no machinery); the backfill reorder + owner-stamp land
   here.
-- A3. Manifest rows whose last import cleared; baseline shrinks ride every commit.
+- A3. Manifest rows whose last import cleared. **Wave A deletes no key from
+  `governance/rule-severity.json`** — §12.1 shows why: every one of AU31's 14 keys still has a live
+  site after wave A. Wave A's governance obligation is only the recomputed floors (§12.2).
   Dependency: A0 → A1 → A2 → A3. After A: core-api's remaining cross-layer imports are exactly the
   composition files plus the two conversions moved to B2 below — wave B's inventory, stated so the
   reviewer can check the seam is complete.
@@ -1187,9 +1271,95 @@ relocated composition files, `layers/core-api/src/boot.ts` + deleted subpath mod
 - B3. Applications rewritten (§5.3); desktop root; mount helper; manifests + export maps shrink
   to faces.
 - B4. Governance: R1–R3 + attacks + README/`decided-rules` notes; the §4 attack/control pair on
-  the `crossing-di` rule; conditional baseline deletion; live-run evidence + full verify.
+  the `crossing-di` rule; **the deletion of all 14 keys from `governance/rule-severity.json`
+  (§12.1)**; the recomputed detector floors (§12.2); live-run evidence + full verify. Nothing here
+  is conditional and nothing is deferred — AC #6's old conditional branch is moot (§13.11).
   Dependency: B1 → B2 → B3 → B4. B depends on A (the relocated composition must not carry
   seam-shaped core imports with it; `service-bootstrap.ts` is the one file both waves touch).
+
+### 12.1 The 14 keys AU31 deletes from `governance/rule-severity.json`, and which wave deletes each
+
+This is the exact set of lines AU31 removes. Each is a key in the `severity` object of
+`governance/rule-severity.json`, spelled with its `production` suffix — the whole line, including
+its `: "warn"` value, is deleted. Site counts are the live linter on the rebased tree
+(`npx tsx scripts/governance-lint.ts`, base `59b9299a`: 221 production + 0 development at warn;
+AU31's share is 92 sites, matching this plan's existing "92 + 1 contested = 93" arithmetic
+unchanged — **the scope did not move**).
+
+**The load-bearing result first: wave A deletes nothing; wave B deletes all fourteen.** Every key
+still has at least one live site after wave A, so there is no key wave A could legally delete.
+Deleting a key early puts its rule at `error` while violations remain and breaks the build at that
+commit — that is the failure mode to avoid, and here it applies to the whole set.
+
+| # | line to delete from `governance/rule-severity.json` | sites | cleared in wave A | cleared in wave B | key deleted in |
+|---|---|---|---|---|---|
+| 1 | `"layer → service (other layer) [import] production"` | 36 | **26** — `app.ts:8,11`; the 14 route sites (`agent-profile`, `agents`, `assistant`, `bets`×2, `filesystems`, `knowledge`, `org`, `sessions-routes`×2, `tasks`, `teams-routes`, `threads`, `users`); `service-bootstrap.ts:37`; the 9 reactor/binding sites (`agent-run-admission-reactions:41`, `assistant-turn-coherence-trigger:50`, `durable-agent-queue:83`, `policy-bindings:38,39`, `routine-scheduler-bindings:18,39,40`, `work-session-started-reactions:49`) | **10** — `run-orchestration-composition.ts:3,5,11,22`; `tool-handlers-bindings.ts:31,32`; `tool-provider-bindings.ts:20,21`; `session.ts:9,15` | **B** (spans both) |
+| 2 | `"application → service [import] production"` | 15 | 0 | 15 — `create-server.ts` ×13, `remote-server/index.ts:23`, `desktop/boot-server.ts:5` | **B** |
+| 3 | `"application → service [manifest] production"` | 12 | 0 | 12 — `applications/remote-server/package.json` | **B** |
+| 4 | `"service → service (other layer) [di] production"` | 9 | **8** — `app.ts:494`, `bets.ts:684,688`, `org.ts:306`, `tasks.ts:254`, `threads.ts:1678`, `service-bootstrap.ts:470`, `agent-run-admission-reactions.ts:115` | **1** — `create-server.ts:510` | **B** (spans both) |
+| 5 | `"layer → service (other layer) [manifest] production"` | 7 | **2** — `core-ui`'s `harness-registry` row (§2.4 respelling), `core-api`'s `filesystems` row | **5** — `core-api`'s `agent-run-config`, `harness-registry`, `run-orchestration`, `session-requests`, `tool-handlers` rows, each held open by a wave-B import in row 1 | **B** (spans both) |
+| 6 | `"application → application [import] production"` | 2 | 0 | 2 — `desktop/boot-server.ts:16`, `desktop/main.ts:20` | **B** |
+| 7 | `"layer → layer (other) [manifest] production"` | 2 | 0 | 2 — `agent-orchestration/package.json` (declares `agent-execution`), `core-api/package.json` (declares `agent-orchestration`) | **B** |
+| 8 | `"application → service [di] production"` | 2 | 0 | 2 — `desktop/boot-server.ts:45`, `remote-server/index.ts:39` | **B** |
+| 9 | `"service → layer (other) [di] production"` | 2 | 0 | 2 — `service-bootstrap.ts:330` (relocates in-layer with §5.2's `bootCoreApi`, B2), `tool-provider-bindings.ts:60` (§2.5, B2) | **B** |
+| 10 | `"layer → layer (other) [import] production"` | 1 | 0 | 1 — `agent-orchestration/src/boot.ts:29` (buffer relocation, B1) | **B** |
+| 11 | `"framework → layer [di] production"` | 1 | 0 | 1 — `tool-provider-bindings.ts:65` (§2.5, B2) | **B** |
+| 12 | `"service → agent-execution [api] production"` | 1 | 0 | 1 — `provisioner.ts:1349` (B1) | **B** |
+| 13 | `"application → MCP router [mcp] production"` | 1 | 0 | 1 — `create-server.ts:566` (§6) | **B** |
+| 14 | `"service → MCP router [mcp] production"` | 1 | 0 | 1 — `provisioner.ts:1327` (B1) | **B** |
+
+**Three keys span both waves — rows 1, 4 and 5** (the only rows with a non-zero wave-A column).
+They are called out because they are the ones a builder is tempted to delete when wave A's linter
+output stops mentioning most of their sites. Do not: read the count off the live linter, and delete
+a key only when that key reports **zero** sites.
+
+**One key AU31 must NOT touch, already ruled (§8):** `application → db:util [import] production`
+stays in the file — it is AU29's, and its single site (`create-server.ts:77`, called `:418`) is one
+AU31's rewrite preserves byte-for-byte. The mirror-image ruling: AU31 *does* own
+`framework → layer [di] production` (row 11) and deletes it, despite AU29's literal
+`framework → *` AC quantifier appearing to cover it.
+
+**Wave-B ordering inside B4.** Delete the keys in the same commit as the last site each covers,
+or — if several land together — in one commit at the end of B4 with the linter reporting zero for
+all fourteen first. Either satisfies the mechanism; what is forbidden is a commit where a key is
+absent and a site under it is live.
+
+### 12.2 Detector floors — recompute, never hand-edit, never lower
+
+The detector floors in `scripts/governance-context.ts` (`DETECTOR_FLOORS`) survive AU32 untouched:
+they are **magnitude tripwires on the census as a whole** — "did the crossing count for this kind
+collapse, meaning the detector stopped measuring?" — not per-file counts, so
+`no-per-file-allowances` has nothing to say about them and AU32's deletion did not reach them.
+`floors-tight` fails the build when a floor drifts too far below live.
+
+AU31 moves these counts a lot: converting cross-layer DI and imports into seam calls raises `api`
+and lowers `di`/`import`. Wave A's builder already raised the `api` floor once, from 126 to 144
+(`9f03c74a`, for wave A1's 15 new production routes). **Trust neither number.** The instruction for
+both waves is mechanical:
+
+1. Run `npm run governance:floors`. It prints, for every floor, the live count, the slack, the
+   allowed slack, the band verdict, and **the value to write**.
+2. Write exactly the value that command prints, in the same commit as the change that moved the
+   count.
+3. **A floor is never lowered to make a build pass** — the prohibition is written into the file's
+   own header (`scripts/governance-context.ts:51`), and the reason is on the record: a stale floor
+   once sat far enough below live that a deleted directory printed PASS over zero files for months.
+   If a floor genuinely must come down because AU31 legitimately removed crossings, the command's
+   printed value is the authority and the drop belongs in its own reviewable commit with the reason
+   stated.
+
+On the rebased tree as it stands, `npm run governance:floors` reports **20 floors, zero drift**
+(`api`: live 161, declared 144) — so nothing needs writing *yet*. Re-run it at the end of each wave;
+that "yet" is the whole point.
+
+### 12.3 One more standing constraint for both waves
+
+Zero development-world violations exist on this base and every development rule is at `error`
+(§10's development-world clause). Any development file wave A or wave B writes — fixture, seeder,
+integration test — that arranges a state production cannot produce fails the build immediately.
+There is no `warn` key to fall back on and no per-file allowance to open one.
+
+---
 
 **Human gate — held, and the founder has ruled.** The founder reviewed the §13 list at the
 concept gate and decided every open item; the rulings are recorded in §13's preamble, and the
@@ -1225,7 +1395,7 @@ part of the face definition (§7.2, `allowed`, 12 production instances).
    spellings that attach a symbol to an already-exported object) is **out of scope by the
    founder's ruling, not fixed by code** — nothing is built for it. The
    `decided-rules.json`/vocabulary change only a founder ruling may make
-   (`governance/README.md:138-141`).
+   (`governance/README.md:137-139`).
 2. **`AgentOrchestrationPort` gains a write side**, superseding AU26 H1/H2's "downward call, the
    door stays read-only" (`policy-bindings.ts:100-105`). Rationale: the downward call is now the
    forbidden crossing; one door both directions is the smaller system.
@@ -1237,8 +1407,10 @@ part of the face definition (§7.2, `allowed`, 12 production instances).
    B the control twin — and (b) the provenance sentence in clause 6's `why` and the governance
    README. **No verdict flips** — stated precisely **[N5]**: the
    `layer → layer (other) [di]` verdict is generative, clause 6 (`governance-model.ts:266-290`)
-   over an empty baseline; `decided-rules.json` carries no literal row for the group, so there
-   is no row to flip and none is added. This is the reading the whole of §5/§6 stands on.
+   decides it; `decided-rules.json` carries no literal row for the group, so there
+   is no row to flip and none is added. The group also has no key in
+   `governance/rule-severity.json`, so it is already at `error` — which is why probe A fails the
+   build today and still did when re-executed at base `59b9299a`. This is the reading the whole of §5/§6 stands on.
 4. **Relinquished atomicity** at `knowledge.ts:934` and `threads.ts:1463` (+ the two run-config
    write couplings), windows as named in §3.1. **Superseded in scope by item 9** — the mechanism the
    founder ruled is unchanged; the set of sites it applies to was undercounted here.
@@ -1308,6 +1480,45 @@ part of the face definition (§7.2, `allowed`, 12 production instances).
    closed by a root-local binding, not a module variable. Recorded as a supersession because the
    pattern was a deliberate in-code decision; ratifying it costs nothing new — it deletes code and
    makes the reaction lane testable, which is what wave A needed and did not have.
+
+11. **AC #6 is MOOT — satisfied upstream by AU32, and AU31 builds nothing for it.** The plan's
+   sixth acceptance criterion, as originally written, made whichever of the four clearing work
+   packages finished last responsible for deleting `governance/baseline.json` and the `--adopt`
+   escape hatch in the same commit, and for making reintroduction under any name fail the build.
+   **AU32 did all of it, and did it unconditionally rather than as a last-sibling contingency** —
+   PR #464, merged as base commit `59b9299a`, which deletes `governance/baseline.json`,
+   `scripts/governance-baseline.ts`, the `baseline-ratchet` rule, the `refuseGrowth` /
+   `compareBaseline` / `liveGroups` machinery and the `governance:baseline` npm script, and replaces
+   the whole mechanism with `governance/rule-severity.json`. The **successor obligation** — the
+   "never comes back" half — is now discharged by a different artifact than this AC imagined: the
+   registered rule **`no-per-file-allowances`**, which fails the build on a new file under
+   `governance/`, a nested value under a severity key, a malformed rule key, or an undeclared flag
+   on a governance CLI. It is registered in both `buildRules()` and `runLive()`, and carries an
+   overlay attack pair plus a standalone shape-check attack, so property 4 of the break-test harness
+   keeps it honest.
+
+   **Disposition, stated so it is recorded rather than silently dropped:** AU31 designs, builds and
+   verifies **nothing** for AC #6. There is no end-of-build conditional check, no deletion step, and
+   no artifact of AU31's that references the deleted mechanism. Verification is a statement of fact
+   about the base, not a build output: `governance/baseline.json` is absent from the tree, and
+   `no-per-file-allowances` is registered and break-tested. `plan.md` — which is the authority here
+   and is amended only by a maintainer — already carries this at `plan.md:52`; PR #464 rewrote that
+   line and the AU29/AU30/AU31 operating instructions in `.pipeline/AU.md:48-52` at the same time.
+   Nothing in this architecture asks for a plan amendment.
+
+12. **Two stale mechanism references survive in `requirements.md`, and this architecture supersedes
+   them on the mechanism only.** `requirements.md:15` describes AU31 as clearing "baseline entries,
+   which per the shrink-only mechanism promotes each rule to error in the same commit
+   (`governance/README.md:69-89`)", and `requirements.md:100` cites
+   `governance/README.md:29-33,138-141` and `:110-124` for the founder-ruling and attack-case
+   requirements. The *requirements* those sentences state are unchanged and still hold — a rule
+   bites in the pull request that clears it; a verdict change needs a founder ruling; a new rule
+   needs an attack case or the build fails. Only the named mechanism and the line numbers are stale
+   (current anchors: the severity dial at `governance/README.md:71-93`, the shape table at `:27-32`,
+   the break-test properties at `:109-124`, the founder-ruling clause at `:137-139`). A builder
+   reading `requirements.md` should take §1, §10 and §12 of this document as the mechanism of
+   record. Requirements is an approved upstream artifact and is left as it is rather than
+   back-edited; recorded here so the discrepancy is visible instead of a trap.
 
 ## 14. Documentation made false by this change
 
