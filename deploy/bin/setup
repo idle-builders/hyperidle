@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # HyperIdle setup CLI (H4).
-# Delegates to framework/db/src/setup-cli.ts.
+# Delegates to tools/setup/src/setup-cli.ts.
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)" || exit 1
-exec npx tsx framework/db/src/setup-cli.ts "$@"
+exec npx tsx tools/setup/src/setup-cli.ts "$@"

@@ -28,13 +28,13 @@
  */
 
 import {
-	escapeLikePattern,
 	type HyperIdleDb,
 	type NewUser,
 	type User,
 	users,
 	type WriteExecutor,
 } from "@hyperidle/db";
+import { escapeLikePattern } from "@hyperidle/shared";
 import { and, eq, inArray, ne, type SQL, sql } from "drizzle-orm";
 
 /** Per-column patch that also admits SQL expressions (e.g. cost coalesce). */

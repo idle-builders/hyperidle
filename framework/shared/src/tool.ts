@@ -115,6 +115,18 @@ export interface RegisteredTool<TDb = unknown> {
 	readonly description: string;
 	readonly inputSchema: z.ZodType;
 	readonly handler: ToolHandler<unknown, TDb>;
+	/**
+	 * `undefined` = every role; otherwise the tool is visible only to a role in
+	 * this list.
+	 *
+	 * @lore AU29 §2.7: the one-line predicate over this field
+	 * (`d.roles === undefined || d.roles.includes(role)`) used to live once, as
+	 * `@hyperidle/shared`'s `toolsForRole`, and was called from three places
+	 * across two layers. A framework function receiving layer-sourced values
+	 * (the DI-wired tool lists) is the exact shape `framework/shared` must never
+	 * be — three inlined copies of the filter beat one shared function that
+	 * structurally invites it. This comment is the filter's one remaining home.
+	 */
 	readonly roles?: readonly UserRole[];
 	readonly reversibility?: Reversibility;
 	readonly annotations?: {
@@ -388,16 +400,4 @@ export function composeWorkflowAllowDeny(
 	}
 
 	return { allow, routeToReview };
-}
-
-/**
- * Return the subset of tool definitions accessible to a given agent role.
- * A tool with `roles === undefined` is available to all roles; otherwise the
- * role must appear in the tool's `roles` array.
- */
-export function toolsForRole<TDb = unknown>(
-	allToolDefinitions: readonly RegisteredTool<TDb>[],
-	role: UserRole,
-): readonly RegisteredTool<TDb>[] {
-	return allToolDefinitions.filter((d) => d.roles === undefined || d.roles.includes(role));
 }

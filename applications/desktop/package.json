@@ -17,6 +17,8 @@
 		"@electric-sql/pglite": "^0.5.4"
 	},
 	"devDependencies": {
+		"@hyperidle/agent-orchestration": "*",
+		"@hyperidle/core-api": "*",
 		"@hyperidle/db": "*",
 		"@hyperidle/harness-registry": "*",
 		"@hyperidle/remote-server": "*",

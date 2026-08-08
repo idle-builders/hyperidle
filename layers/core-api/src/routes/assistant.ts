@@ -22,7 +22,7 @@ import {
 	writeAgentRunConfig,
 } from "@hyperidle/agent-run-config";
 import { findThread, insertThread, listMessages } from "@hyperidle/conversation";
-import { type HyperIdleDb, resolveAgentScaffoldSpecs } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import { persistScaffoldedAgents } from "@hyperidle/org";
 import {
 	API_ERROR_CODES,
@@ -33,6 +33,7 @@ import {
 	type MessageType,
 	type PlainPayload,
 	type RedactedPayload,
+	resolveAgentScaffoldSpecs,
 	type Thread,
 } from "@hyperidle/shared";
 // AK6 T8: BUILTIN_ASSISTANT_SYSTEM_PROMPT removed — persona comes from app defaults.

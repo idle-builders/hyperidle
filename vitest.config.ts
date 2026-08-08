@@ -19,6 +19,7 @@ export default defineConfig({
 			"framework/db",
 			"applications/desktop",
 			"tools/eval",
+			"tools/setup",
 			"applications/remote-server",
 			"applications/remote-worker",
 			"framework/shared",

@@ -6,6 +6,12 @@
  *  - runMigrations() throws when isDowngrade() returns true
  *  - runMigrations() succeeds on a fresh database
  *  - resolveMigrationsFolder() returns a path ending with drizzle
+ *
+ * @lore AU28 Ruling 9 / AU29 §2.8: `framework/db` has never exported a `seed`
+ * symbol under this name — this mock used to invent one and assert the
+ * migration path never calls it, guarding a function that cannot exist. The
+ * mock surface is re-derived from the real post-AU29 barrel (`applyMigrations`
+ * / `isDowngrade` only) so it cannot invent a symbol the barrel does not have.
  */
 
 import { describe, expect, it, vi } from "vitest";

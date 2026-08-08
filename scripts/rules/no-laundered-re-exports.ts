@@ -12,7 +12,10 @@
  * `governance-lint: PASS`, and a layer now writes a table owned by another service. The owning
  * barrel already carried a hand-written comment forbidding exactly this — the codebase knew, and the
  * only enforcement was the comment. The same hop nullifies audiences generally: re-export a
- * `db:util` symbol from a service barrel and its `reach: ["service"]` is void.
+ * narrow-reach `framework/api-contract` symbol (reach `[layer]`) from a service barrel and its
+ * audience is void — AU29: the previous illustrative example, `db:util`'s `escapeLikePattern`, no
+ * longer exists as a narrow surface — its exports moved to `framework/shared` (reach `everyone`),
+ * so `framework/db` carries no narrow-reach surface at all today.
  *
  * @lore AU28 — why a STANDALONE rule and not a new crossing kind. A new `Kind` would force an edit to
  * the frozen kind union and to the hardcoded kind list in the decided-verdict test, and it would
@@ -46,8 +49,9 @@
  * nothing, so it is not a hole. What this rule genuinely cannot see is a package re-exporting a
  * symbol it legitimately CONTAINS, which a foreign consumer then reaches — but that is the designed
  * layer-public-face mechanism, not an evasion. Nor does the VALUE check extend to narrow non-table
- * surfaces (`export const esc = escapeLikePattern`): that needs a symbol→surface resolver on the
- * publication side, where the table check reuses `buildTableRefs` wholesale. The deeper fix for both
+ * surfaces (`export const authMe = AuthMeResponse`, a `framework/api-contract` re-export by value):
+ * that needs a symbol→surface resolver on the publication side, where the table check reuses
+ * `buildTableRefs` wholesale. The deeper fix for both
  * is to follow re-export edges to the defining module in the census itself and re-key the consumer's
  * import against the true target; that was deferred deliberately because it re-keys every live
  * crossing's group key and touches the substrate every other rule stands on — a change of that size

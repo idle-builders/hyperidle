@@ -42,7 +42,6 @@
 import {
 	artifacts,
 	bets,
-	escapeLikePattern,
 	items,
 	type NewBet,
 	type NewItem,
@@ -51,6 +50,7 @@ import {
 	tasks,
 	type WriteExecutor,
 } from "@hyperidle/db";
+import { escapeLikePattern } from "@hyperidle/shared";
 import type { SQL } from "drizzle-orm";
 import { and, desc, eq, inArray, isNull, like, lt, or, sql } from "drizzle-orm";
 

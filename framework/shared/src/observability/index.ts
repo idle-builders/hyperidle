@@ -1,28 +1,24 @@
 /**
- * `@hyperidle/shared/observability` — the bus-adjacent telemetry plumbing.
+ * `@hyperidle/shared/observability` — the bus-adjacent telemetry TYPES + the
+ * console sink.
  *
- * @lore AU26 C2: `layers/core-api/observability` DISSOLVED. It owned no
- * table, issued zero DB queries (all three `@hyperidle/db` imports were
- * `import type`, and `createDbTraceIdResolver` literally did `void db;`), and
- * its four HTTP routes had zero requesters repo-wide. What is left is what it
- * always actually was: a pure `DomainEvent → ObservabilityEvent` translator, a
- * ring buffer, and a console sink — bus-adjacent primitives that belong beside
- * `event-bus.ts`, not behind a Service boundary. Precedent: `summarizeToolArgs`
- * made the same trip to `shared/src/redact.ts` in AU20.
+ * @lore AU29 §2.4: the dispatcher (`createObservabilityDispatcher` +
+ * `registerObservabilityDispatcher` — the `bus.on("*")` subscription) moved to
+ * `layers/core-api/src/observability/dispatcher.ts`, its only wiring site
+ * (`observability-runtime.ts`). `framework/shared` is the event bus HOST —
+ * a framework package that also subscribes to it is both the pipe and the
+ * water. What stays here is genuinely bus-adjacent but not bus-touching: the
+ * event/adapter/status TYPES (referenced across the repo) and the console
+ * adapter (a plain sink, no bus dependency).
  *
- * NOT relocated here: the config read/write pair (it is a `server_config`
- * section, so it went to `@hyperidle/settings`) and `startObservability` (it is
- * composition — adapter + subscription + disposer — so it went to the
- * application's boot wiring).
- *
- * A separate subpath rather than the main barrel: this is server-side runtime
- * plumbing with a background timer, and the web bundle has no use for it. The
- * `ObservabilityEvent` type itself stays on the main barrel — producers across
- * the repo reference it.
+ * @lore AU26 C2 (superseded by AU29 for the dispatcher half, kept for
+ * context): `layers/core-api/observability` DISSOLVED here first. It owned no
+ * table, issued zero DB queries, and its four HTTP routes had zero requesters
+ * repo-wide. NOT relocated back with the dispatcher: the config read/write
+ * pair (`@hyperidle/settings`, a `server_config` section) and
+ * `startObservability` (composition — stays in the application's boot wiring).
  */
 export { createConsoleObservabilityAdapter } from "./console-adapter.js";
-export type { DispatcherDeps, DispatcherRingConfig } from "./dispatcher.js";
-export { createObservabilityDispatcher, registerObservabilityDispatcher } from "./dispatcher.js";
 export type {
 	FlushOutcome,
 	ObservabilityAdapter,

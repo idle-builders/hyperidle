@@ -26,7 +26,6 @@ import type {
 	ToolContext,
 	ToolRegistry,
 } from "@hyperidle/shared";
-import { toolsForRole as toolsForRoleShared } from "@hyperidle/shared";
 import { allToolDefinitions } from "./tool-handlers-bindings.js";
 
 /**
@@ -60,9 +59,17 @@ export function buildToolRegistry(
 	return buildToolRegistryInternal(allToolDefinitions, ctx, options, proposedCallWorkflowPort);
 }
 
-/** Production-wired `toolsForRole` — filters the real DI-wired `allToolDefinitions`. */
+/**
+ * Production-wired `toolsForRole` — filters the real DI-wired `allToolDefinitions`.
+ *
+ * @lore AU29 §2.7: inlined from `@hyperidle/shared`'s (now-deleted) `toolsForRole`
+ * — three copies of this one-line predicate beat a shared behavioural function
+ * that structurally invites layer values into the framework. See the `roles`
+ * doc comment on `RegisteredTool` (framework/shared/src/tool.ts) for the
+ * single place this filter's intent stays documented.
+ */
 export function toolsForRole(role: string) {
-	return toolsForRoleShared(allToolDefinitions, role);
+	return allToolDefinitions.filter((d) => d.roles === undefined || d.roles.includes(role));
 }
 
 export { returnStatusTool };

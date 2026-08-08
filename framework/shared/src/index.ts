@@ -1,11 +1,7 @@
 // ── AV3: Scope bucket label helper (SSOT — used by server + web) ──
 
-// ── AU21 §6 Decision B4/§12: shared pre-handoff failure emission ──
-export {
-	isAgentWorkIntentKind,
-	isAgentWorkIntentSourceKind,
-	reportAdmissionFailure,
-} from "./agent-run-admission.js";
+// ── AU21 §6 Decision B4/§12: shared pre-handoff work-intent kind guards ──
+export { isAgentWorkIntentKind, isAgentWorkIntentSourceKind } from "./agent-run-admission.js";
 // ── AU19 §11 (AC-9): cross-Layer AgentWorkIntentRecorder/Reader seam ──
 export type {
 	AgentWorkIntentReader,
@@ -86,6 +82,9 @@ export {
 	deriveHealthDetail,
 	deriveHealthLevel,
 } from "./agent-run-view.js";
+// ── AU29: agent-scaffold resolution (moved from `framework/db` — no database access) ──
+export type { AgentScaffoldRequest, AgentScaffoldSpec } from "./agent-scaffold.js";
+export { resolveAgentScaffoldSpecs } from "./agent-scaffold.js";
 export type { ApiErrorCode, ApiErrorResponse } from "./api-types.js";
 export { API_ERROR_CODES } from "./api-types.js";
 // ── AU19 Increment 4: artifactPreviewSchema (reclassified from
@@ -239,11 +238,12 @@ export type {
 export { AGENT_WORK_INTENT_KINDS } from "./events.js";
 // ── AK6: Factory-roster injection seam ──
 export type {
+	FactoryAgentRef,
 	FactoryFacilitatorSpec,
 	FactoryRosterSpec,
 	FactorySystemAssistantSpec,
 } from "./factory-roster.js";
-export { defaultFactoryRoster } from "./factory-roster.js";
+export { COMMUNITY_DISPLAY_NAMES, defaultFactoryRoster } from "./factory-roster.js";
 // ── AO1: Filesystem primitive ──
 export type {
 	CaptureResult,
@@ -414,6 +414,8 @@ export {
 	SCOPE_TO_LAYER,
 	scopeToLayer,
 } from "./knowledge.js";
+// ── AU29: LIKE-pattern escaping (moved from `framework/db` — no database access) ──
+export { escapeLikePattern } from "./like-escape.js";
 export { createLogger, type Logger } from "./logger.js";
 // ── AE5: Mention parsing utilities ──
 export type {
@@ -489,6 +491,9 @@ export {
 	PART_KINDS,
 	TOOL_KINDS,
 } from "./part.js";
+// ── AU29: deployment profile resolution (moved from `framework/db` — no database access) ──
+export type { DeploymentProfile } from "./profiles.js";
+export { resolveProfile } from "./profiles.js";
 // ── AL7: Proposed Call constants + types (trust-first redo) ──
 export type {
 	ProposedCall,
@@ -555,6 +560,14 @@ export {
 	routineSessionRequestInputSchema,
 	taskSessionRequestInputSchema,
 } from "./session-request.js";
+// ── AU29: system-prompt template resolution (moved from `framework/db` — no
+// database access). `readSystemPromptTemplate` is module-internal — its only
+// caller was `factory-bootstrap.ts` (deleted, task D); everything else calls
+// `readSystemPromptTemplateForRole`. ──
+export {
+	readSystemPromptTemplateForRole,
+	SYSTEM_PROMPT_TEMPLATE_FILES,
+} from "./system-prompt-templates.js";
 export {
 	canTransitionTaskState,
 	TASK_STATE_TRANSITIONS,
@@ -647,7 +660,6 @@ export {
 	identityHash,
 	ok,
 	toClaudeToolSpec,
-	toolsForRole,
 	toRegistered,
 	wrapForRegistry,
 } from "./tool.js";

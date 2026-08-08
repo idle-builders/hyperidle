@@ -1,0 +1,88 @@
+{
+  "id": "AU29",
+  "status": "shipped",
+  "currentStep": "ship",
+  "startedAt": "2026-08-07",
+  "worktree": ".worktrees/pipeline-AU29",
+  "branch": "pipeline/AU29",
+  "base": "bbe82e9a4ebb1e06c17619154a3c4e93650850fb",
+  "tier": "production",
+  "approvals": {
+    "requirements": null,
+    "concept": "approved 2026-08-08 (founder, in-session) — the three registry/verdict items ruled on; see gateItemsRuled",
+    "final": "DONE at review round 3 (.pipeline/work/AU29/review-round3.md) — all seven plan ACs re-verified by execution, zero blocking findings"
+  },
+  "gateItemsRuled": [
+    "db:bootstrap surface entry — DELETE if genuinely unused once the bootstrap routine leaves the db package (founder 2026-08-08: 'yeah delete if possible and not used anymore').",
+    "6 decided-rules.json rows targeting db:util + db:bootstrap — DELETE if genuinely unused (founder 2026-08-08: 'yeah delete if possible').",
+    "totals.differ literal — do NOT chase the exact count. Founder 2026-08-08 verbatim: 'that exact count doesn't matter what the linter outputs matter.' The recorded 44 was already stale (row-level derivation = 46; post-deletion truth 45, not the architecture's 43). Let the derived value / linter be the source of truth rather than a hand-maintained literal; deleting the literal is a legitimate end state. No scope invented to preserve it."
+  ],
+  "evaluations": {
+    "refine": 1,
+    "architecture": 2,
+    "review": 3
+  },
+  "verdicts": {
+    "refine-critique": "PASS — zero blocking",
+    "architecture-critique-round1": "FAIL — 1 blocking (B1: plan validation scenario 3 had no delivering mechanism; architecture asserted a non-existent error path)",
+    "architecture-critique-round2": "PASS — B1 closed, proven by re-executed probe; 1 non-blocking (D-R2, stale totals.differ)",
+    "review-round1": "BLOCKED — 1 blocking (B1: relocated setup CLI's --root flag regressed the migrations-folder lookup, hard-failing the laptop profile)",
+    "review-round2": "BLOCKED — 1 blocking (B2: committed attestation carried dirty:true, rejected unconditionally by check-attestation.ts; B1 itself closed and proven, code fully green)",
+    "review-round3": "DONE — zero blocking. B2 closed (single clean attestation, dirty:false), N7 guard shown red-then-green, N6 attribution correct. One non-blocking defect (N8, factory-roster.ts:72 false factorySettings claim) fixed before ship."
+  },
+  "artifacts": {
+    "requirements": ".pipeline/work/AU29/requirements.md",
+    "refineCritique": ".pipeline/work/AU29/refine-critique.md",
+    "architecture": ".pipeline/work/AU29/architecture.md",
+    "feasibility": ".pipeline/work/AU29/feasibility.md",
+    "architectureCritique": ".pipeline/work/AU29/architecture-critique.md",
+    "architectureCritiqueRound2": ".pipeline/work/AU29/architecture-critique-round2.md",
+    "probes": ".pipeline/work/AU29/probes/",
+    "review": ".pipeline/work/AU29/review.md",
+    "reviewRound2": ".pipeline/work/AU29/review-round2.md",
+    "reviewRound3": ".pipeline/work/AU29/review-round3.md",
+    "retro": ".pipeline/retro-log/AU29.jsonl"
+  },
+  "taskOrder": "A (substrate->shared) -> D (bootstrap->composition roots) -> E (seed phantom + db-symbols-all-placed rule lands here) -> F (evidence+docs); B (toolsForRole dissolution) and C (bus silence) are independent leaves",
+  "notes": [
+    "Node: worktree needs node>=24 — prefix PATH with /opt/homebrew/bin (v26). Default PATH node is v22 (hermes) and fails engines + npm ci.",
+    "Bootstrapped with `npm install` (npm ci fails: lock out of sync for react 18 types on main).",
+    "The first worktree was wiped mid-run (only agent-written files survived); rebuilt and artifacts committed immediately. Commit artifacts as they land.",
+    "Build runs SEQUENTIAL, single builder: every task regenerates governance/baseline.json in its own commit, so parallel leaves would collide on that shared file.",
+    "Retro relocated from the new-shape default `.pipeline/work/AU29/retro.jsonl` to the repo's actual convention `.pipeline/retro-log/AU29.jsonl` (CLAUDE.md + .gitattributes merge=union + ~128 prior work packages) before ship — moved, not copied, so /compound's clustering never sees duplicate lines."
+  ],
+  "tasksLanded": {
+    "A": "6eeb9348 — non-database exports moved to framework/shared",
+    "B+C": "c85f622a — toolsForRole dissolved; framework off the event bus",
+    "D": "21082a04 — first-boot composition moved to composition roots; db-symbols-all-placed rule registered",
+    "docs-sweep": "8e6c9959 — stale framework/db paths repointed; readSystemPromptTemplate export gap closed",
+    "formatting": "d4094e02",
+    "F-docs-followup": "2fb23990 — re-anchored no-laundered-re-exports.ts lore off the deleted db:util surface (architecture.md §4.4 obligation the prior session left undone)",
+    "F-attestation": "4da35ff9 — signed verify attestation committed",
+    "review-round1-fix": "22fd4886 — fixed --root regression in setup-cli migrations lookup (B1)",
+    "review-round2-fix": "ddab0fa3 — N6 stale factory-roster prose fix (introduced N8), N7 laptop+--root regression guard",
+    "ship-cleanup": "N8 fix (drop false factorySettings bullet, factory-roster.ts:72), retro moved to .pipeline/retro-log/AU29.jsonl, review-round3.md + progress.json committed, re-verify + re-attest on clean tree"
+  },
+  "postRebaseReconciliation": {
+    "trigger": "origin/main moved to 59b9299a (AU32, PR #464, merged after AU29's ship) — AU32 replaced the shrink-only baseline.json ratchet this WP was built and shipped against with a per-rule governance/rule-severity.json dial (absent key = error). scripts/governance-baseline.ts and scripts/lib/crossing-report.ts were deleted with it.",
+    "action": "rebased pipeline/AU29 onto origin/main@59b9299a. governance/baseline.json and every AU29 edit to it dropped outright (file no longer exists). AU29's architectural outcome (db:util + db:bootstrap surfaces and their six decided-rules.json rows deleted, db-symbols-all-placed rule registered and kept in main's current rule list) preserved through the new mechanism instead. governance/decided-rules.json's totals re-derived from the merged rows array at each conflicted commit rather than hand-copied — the founder's 2026-08-08 ruling ('that exact count doesn't matter what the linter outputs matter') already covers a hand-maintained literal disagreeing with reality.",
+    "promotion": "ran governance-lint on the rebased tree: all 8 keys AU29's own work cleared (application -> db:util [import], framework -> EventBus [event], framework -> db:table (other) [table:read]/[table:write], framework -> db:table (unowned) [table:write], framework -> layer [di], layer -> db:unknown [import], layer -> db:util [import]) had zero live violations, matching the lint's own 'ready to flip to error' NOTE list exactly — removed from governance/rule-severity.json in the same commit as the rebase's promotion step. Proven live: re-injected an eventBus.emit() in framework/shared and an unmapped framework/db export imported by a core-api layer file — both failed the build as errors post-promotion, both reverted, tree clean before committing.",
+    "notTouched": "checked rather than re-touched: no `framework -> db:table` key of any world exists in rule-severity.json post-rebase, and governance-lint reports zero live findings with a `framework` source at all — the development-world debt AU29 explicitly left alone belongs to AU32, and this rebase confirms AU32 already cleared it rather than leaving it for AU29 to inherit."
+  },
+  "finalVerification": {
+    "npm run check": "PASS — 35/35 packages, 0 errors",
+    "npm run lint": "PASS — governance-lint 3312 tracked files, 191 production + 66 development known violations at warn (baseline shrunk from 221+67; zero db:unknown, zero db:util, zero production framework→* group)",
+    "npm run test": "PASS — 352 files / 3343 tests",
+    "npm run test:integration:service": "PASS — 323 files / 2822 tests (4 skipped, pre-existing)",
+    "relocated factory suites (tools/setup/src/__tests__/* + AF17-propagation-bootstrap)": "PASS — 7 files / 86 tests, run in isolation",
+    "npm run knip / knip:production": "PASS — no new dead-code findings",
+    "npm run deps:check": "PASS",
+    "npm run mock-inventory:check": "PASS",
+    "npm run verify (full)": "PASS — check, lint, knip, knip:production, deps:check, mock-inventory:check, core-ui build, desktop build, then verify-attest.ts — attestation status=passed, dirty=false, scope=affected, re-minted on the ship commit",
+    "db-symbols-all-placed live-fire": "appended a no-db export (probeNoDb) to framework/db barrel — governance-lint FAIL naming the symbol by name; reverted — governance-lint PASS, git status clean. Confirmed the guard names an architectural fact (the unplaced symbol), never a ledger count.",
+    "AC7 first-boot equivalence": "re-run at review round 3, both legs diff empty against the committed control (probes/first-boot-control.json): (1) the two composition-root faces (applyFactoryCoreState + applyFactoryRunConfigDefaults), the exact statements applications/desktop/src/main.ts:455-460 executes — Electron itself was not launched; (2) npm run setup -- --db-path <scratch>, the relocated CLI path, end to end; (3) npm run setup -- --root <fakeroot> leaves fakeroot empty by design (--root cannot reach the migrations lookup)",
+    "baseline-emptiness AC": "does not trigger — 29 groups / 191+66 violations remain after AU29's clearing (out of 38 groups pre-WP), so governance/baseline.json and --adopt stay as-is, per architecture.md §3 AC6",
+    "review": "3 rounds. Round 1 BLOCKED (B1, --root regression) fixed in 22fd4886. Round 2 BLOCKED (B2, dirty attestation) fixed by re-mint in 39cba533; N6/N7 addressed in ddab0fa3. Round 3 DONE, zero blocking; N8 non-blocking comment defect (review-round3.md) fixed pre-ship.",
+    "residual (named, not chased)": "a non-database function smuggled into an already-mapped db:client module (e.g. framework/db/src/connection.ts) is not statically decidable by the governance-lint rule and is not claimed as covered — architecture.md §4.4's deliberately-unchased residual, guarded by one-door surface discipline + diff review instead"
+  }
+}

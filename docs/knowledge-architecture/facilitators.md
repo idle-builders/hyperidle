@@ -16,7 +16,7 @@ In code: role `facilitator`, category `strategy` (`framework/shared/src/agent-ro
 
 Facilitators don't do the work itself — no code, no copy, no deploys. Worker agents (builder, growth, ops, …) do that. Facilitators coordinate, organize, score, and route: the factory's nervous system.
 
-Worker agents sit in a **matrix**: each reports vertically to its Product Manager and belongs horizontally to a community of practice led by a facilitator — implemented as the `community` field per catalog role plus `communityForRole()` (`agent-roles.ts:242`); communities are `build/product/growth/ops/facilitation` (`framework/db/src/seed-fixtures.ts:15`).
+Worker agents sit in a **matrix**: each reports vertically to its Product Manager and belongs horizontally to a community of practice led by a facilitator — implemented as the `community` field per catalog role plus `communityForRole()` (`agent-roles.ts:242`); communities are `build/product/growth/ops/facilitation` (`framework/shared/src/factory-roster.ts`).
 
 The fifth facilitator — for **facilitation itself** — means the facilitators form their own community of practice (`seed-agent-pf-facilitation`). Turtles stop there.
 

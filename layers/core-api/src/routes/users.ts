@@ -1,16 +1,13 @@
 import { writeAgentRunConfig } from "@hyperidle/agent-run-config";
-import {
-	escapeLikePattern,
-	type HyperIdleDb,
-	resolveAgentScaffoldSpecs,
-	userSkills,
-} from "@hyperidle/db";
+import { type HyperIdleDb, userSkills } from "@hyperidle/db";
 import { persistScaffoldedAgents } from "@hyperidle/org";
 import {
 	API_ERROR_CODES,
 	type EventBus,
+	escapeLikePattern,
 	type HarnessCapabilityReader,
 	type ItemCreatedEvent,
+	resolveAgentScaffoldSpecs,
 } from "@hyperidle/shared";
 
 // AK6: BUILTIN_ASSISTANT_SYSTEM_PROMPT REMOVED — persona comes from app defaults (T8).

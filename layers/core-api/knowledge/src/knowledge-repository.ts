@@ -17,7 +17,6 @@
  * and the extended search(). Callers use the general entry points only.
  */
 import {
-	escapeLikePattern,
 	type HyperIdleDb,
 	type KnowledgeItem,
 	knowledgeAccessLog,
@@ -27,7 +26,12 @@ import {
 	knowledgeItems,
 } from "@hyperidle/db";
 
-import { type KernelKnowledgeStatus, type SCOPE_KINDS, scopeToLayer } from "@hyperidle/shared";
+import {
+	escapeLikePattern,
+	type KernelKnowledgeStatus,
+	type SCOPE_KINDS,
+	scopeToLayer,
+} from "@hyperidle/shared";
 import { and, desc, eq, gte, inArray, isNull, ne, or, type SQL, sql } from "drizzle-orm";
 import { ItemDeletedError, VersionConflictError } from "./errors.js";
 import { executeTextSearch } from "./fts.js";

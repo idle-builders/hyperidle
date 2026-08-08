@@ -34,7 +34,6 @@ import {
 	type ToolRegistry,
 	type ToolResult,
 	toClaudeToolSpec,
-	toolsForRole,
 } from "@hyperidle/shared";
 
 /**
@@ -67,7 +66,7 @@ export function buildToolRegistry<TDb = unknown>(
 ): ToolRegistry<TDb> {
 	const roleFiltered = options.useOnlyExtraTools
 		? []
-		: toolsForRole(allToolDefinitions, options.role);
+		: allToolDefinitions.filter((d) => d.roles === undefined || d.roles.includes(options.role));
 	const definitions: readonly RegisteredTool<TDb>[] = options.extraTools?.length
 		? [...roleFiltered, ...options.extraTools]
 		: roleFiltered;
