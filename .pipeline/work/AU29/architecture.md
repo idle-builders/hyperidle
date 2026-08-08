@@ -1,5 +1,16 @@
 # AU29 — Architecture: the framework stops acting
 
+> **Post-rebase note (2026-08-08):** everything below describes and depends on the enforcement
+> mechanism this WP was built against — `governance/baseline.json`'s shrink-only ratchet,
+> `scripts/governance-baseline.ts`, the `--adopt` flag, and every count/total quoted from it (e.g.
+> "221→191"). AU32 (merged after AU29 shipped) replaced that mechanism with
+> `governance/rule-severity.json` — see `governance/README.md`, not restated here. `baseline.json`,
+> `governance-baseline.ts`, and `--adopt` no longer exist. AU29's architectural outcome (surfaces and
+> rows deleted, `db-symbols-all-placed` registered) still stands; it was reconciled onto the new
+> mechanism during the rebase (see `.pipeline/work/AU29/progress.json` → `postRebaseReconciliation`)
+> rather than re-derived here. Nothing below is rewritten to erase the old mechanism — it is what
+> actually shipped and is left as the historical record.
+
 Authority: `.pipeline/work/AU29/plan.md` (outcomes, ACs, scope) and
 `.pipeline/work/AU29/requirements.md` (settled nouns; §4 legality lattice binding). This plan adds no
 outcome. Tier: production. Everything below was verified against this worktree (branch
