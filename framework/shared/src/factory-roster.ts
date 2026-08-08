@@ -69,7 +69,6 @@ export interface FactorySystemAssistantSpec {
  *
  * Does NOT determine:
  *   - `system:propagation` (always written unconditionally by `applyFactoryCoreState`)
- *   - `factorySettings` cost/cycle/template rows (always written by `applyFactoryCoreState`)
  *   - `seed-ki-1` knowledge item (always written by `applyFactoryCoreState`)
  *   - Facilitator display names (derived from `community` via `COMMUNITY_DISPLAY_NAMES`, below)
  */
