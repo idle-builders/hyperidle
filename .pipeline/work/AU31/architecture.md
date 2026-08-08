@@ -2,8 +2,11 @@
 
 Spec of record: `.pipeline/work/AU31/plan.md`. Requirements: `requirements.md` (PASSED critique;
 the five non-blocking defects D1–D5 are absorbed below at the sites marked **[D1]**…**[D5]**).
-Feasibility: `feasibility.md` (probes P1–P10, cited as **[P#]**). Tier: **production**. Every
-`file:line` re-traced on the live tree at base `bbe82e9a`.
+Feasibility: `feasibility.md` (probes P1–P11, cited as **[P#]**). Tier: **production**. Every
+`file:line` re-traced on the live tree at base `bbe82e9a`. This is the attempt-2 revision against
+`architecture-critique.md`: B1 is closed by the new §4 (probe-proven, [P11]) and the rewritten
+§13.3; B2 by §2.5 and §8; B3 by §7's widened R2 and restated limit; D1–D5 are absorbed at §11,
+§13.8, §7.2 **[D3]**, §3.1 **[D4]**, and the new §4 (which fills the numbering gap) respectively.
 
 This plan creates no outcome beyond the plan's seven ACs. Where it supersedes a prior in-code
 decision, the supersession is listed in §13 and rides the mandatory founder gate (`plan.md:25`).
@@ -159,28 +162,69 @@ is ruled **forbidden** [P2], so the execution relationship must ride the composi
   **agent-execution's new face** (§6): the enforcement registry, adapter construction (local and
   remote/WS), and harness-environment provisioning become face-owned; orchestration receives them
   as opaque, shared-typed runtime adapters supplied by the application through
-  `bootAgentOrchestration`'s options — the exact shape face clause 3 defines and
-  `AgentOrchestrationBootOptions.adapterPool` already models (`agent-orchestration/src/boot.ts:77`).
-- `tool-provider-bindings.ts:20-21` (`buildToolRegistry`, `returnStatusTool`): the tool wiring
-  moves to agent-orchestration (§5.3) where `tool-handlers` is in-layer; its harness-registry
-  half rides the execution face's tool-registry contract, typed in `@hyperidle/shared`
-  (`BuildToolRegistryOptions`/`ToolRegistry` already live there, `tool-provider-bindings.ts:23-29`).
+  `bootAgentOrchestration`'s options — the exact shape face clause 3 defines,
+  `AgentOrchestrationBootOptions.adapterPool` already models (`agent-orchestration/src/boot.ts:77`),
+  and §4 locks and proves against the live census [P11].
+- `tool-provider-bindings.ts:20-21` (`buildToolRegistry`, `returnStatusTool`): resolved in §2.5 —
+  the dispatch itself leaves `harness-registry` for `tool-handlers` (it is shared-typed
+  composition with zero execution content), and `returnStatusTool` plus the enforcement registry
+  ride the execution adapters bundle as opaque shared-typed values. No orchestration file imports
+  `@hyperidle/harness-registry` or its `/mcp` subpath afterwards.
 - `layers/core-ui/package.json`'s production row: **manifest respelling** to `devDependencies` —
   [P6] proved only `__scripts__` development files import it. One-line diff, clears 1 manifest
   site.
 
-### 2.5 `tool-handlers` — **relocate the binding; API for its one core-owned port**
+### 2.5 `tool-handlers` and the tool stack — the wrapper file dies; the dispatch moves to the definitions; API for the one core-owned port
 
-`tool-handlers-bindings.ts:31-32` is composition of an orchestration service and moves in-layer
-(§5.3) — the tool implementations already reach core exclusively through the `CoreApiPort` seam
-(`tool-handlers-bindings.ts:49-52`), so the move changes no conversation. The one remaining direct
-core coupling in the tool stack is `tool-provider-bindings.ts:22`'s import of
-`@hyperidle/review`'s `recordProposedCall`/`transitionProposedCall` (the proposed-call workflow
-port): after the move that would be orchestration → core-api service import, so it becomes
-**API** — `CoreApiPort` gains the three workflow operations (capture / consume-grant /
-record-outcome), backed by core-hosted routes on `review`'s surface. Same seam, opposite door,
-already-allowed row (`layer → core-api [api]`) — and these are agent-caused writes, which is
-exactly what that door exists for.
+`tool-provider-bindings.ts` is **deleted, not relocated**. The first draft's "moves in-layer"
+would re-create two cleared DI groups at new sites — probe C1 [P11] shows the framework-consumer
+wire failing live at exactly the relocated spelling, and the shrink-only generator hard-fails a
+cleared group's reappearance (`governance/README.md:79`). Each of the file's wires gets its own
+mechanism:
+
+- **The dispatch relocates from `harness-registry` into `tool-handlers`.** `buildToolRegistry`
+  (`harness-registry/src/tool-registry.ts:62`) imports only `@hyperidle/shared`
+  (`tool-registry.ts:25-38`) and holds zero execution content — it is the role-filter +
+  zod-validate + workflow-route closure over shared types. Nothing inside `harness-registry`
+  calls it: the MCP bridge *receives* a built registry as a value (`mcp-bridge.ts:60,:122`), and
+  its only production caller is the dying core wrapper (grep-verified). Moved into
+  `@hyperidle/tool-handlers` — the orchestration service that owns the definitions it
+  dispatches — the wire `buildToolRegistry(allToolDefinitions, …)` has both ends in
+  agent-orchestration: **legal by clause 6's own text (`governance-model.ts:282-288`), not by
+  invisibility**; probe C2 [P11] confirms the census reports nothing for the end-state spelling.
+  The `TDb = unknown` erasure that justified the execution-side placement (the file's own AU19
+  §7.5 C1 @lore) is vestigial once the owning layer can name `HyperIdleDb`. `harness-registry`'s
+  `export { buildToolRegistry }` row (`index.ts:30`) is deleted; the behavioral suites move with
+  the file.
+- **The role filter: the core wrapper `toolsForRole` is replaced by tool-handlers' own
+  `buildToolDefinitions(ports, { role })`** (`tool-definitions.ts:1617-1649` — the AU20 Am10
+  entry that already collapses build + role filter, and already calls the shared helper only with
+  a list local to the function that built it). The forbidden shape — a `@hyperidle/shared`
+  function receiving a cross-module-imported layer list — is fatal at any site, old or new
+  (probe C1), so the end state cannot silently regress into it.
+- **The workflow port becomes API.** `tool-provider-bindings.ts:22`'s import of
+  `@hyperidle/review`'s `recordProposedCall`/`transitionProposedCall` would be an
+  orchestration → core-api service import after the move, so it becomes `CoreApiPort`'s three
+  workflow operations (capture / consume-grant / record-outcome), backed by core-hosted routes on
+  `review`'s surface; the moved dispatch's injected `ProposedCallWorkflowPort` is implemented
+  over the `CoreApiPort` client. Same seam, opposite door, already-allowed row
+  (`layer → core-api [api]`) — agent-caused writes, exactly what that door exists for.
+- **`returnStatusTool` and the return-enforcement registry are execution content and ride the
+  execution adapters bundle (§6).** The provisioner port already types the factory opaque —
+  "opaque `RegisteredTool`, never inspected here" (`provisioner.ts:291-292`) — and already feeds
+  it the same bundle's enforcement registry (`provisioner.ts:1209`). Post-state both arrive from
+  `bootAgentExecution`'s bundle under the §4 handoff; orchestration composes them into
+  `extraTools`. No orchestration file imports `@hyperidle/harness-registry` or
+  `@hyperidle/harness-registry/mcp`.
+- `tool-handlers-bindings.ts:31-32` moves in-layer as before (§5.3) — composition of an
+  orchestration service; the tool implementations already reach core exclusively through the
+  `CoreApiPort` seam (`tool-handlers-bindings.ts:49-52`), so the move changes no conversation.
+
+Net effect on AC #5: both remaining DI baseline sites in this file — `framework → layer [di]` and
+`service → layer (other) [di]` site 2 — dissolve **in principle, not by hiding**: after this, no
+framework factory receives a cross-module layer list and no execution factory receives an
+orchestration value anywhere in the production tree; execution receives only finished,
+shared-typed values across the boot/adapter contract.
 
 ### 2.6 `filesystems` — **API**
 
@@ -283,13 +327,86 @@ requirements §2.4:
   transaction commits, then `intents.submit`. **Window:** a committed message with no turn
   intent; the route returns 5xx, the user re-sends, and the B‴ coherence trigger
   (`assistant-turn-coherence-trigger.ts`) re-bakes on the next thread append anyway. Named,
-  accepted.
+  accepted. **[D4]** One nuance belongs on the record: a re-send inserts a **second visible
+  message** unless the client reuses its `clientKey` — the dedupe path exists
+  (`threads.ts:1071-1081`) — so the window's worst observable outcome is one duplicated message,
+  never a lost one.
 - Everything else either has no coupling or keeps it whole (the explicit-start pair moves inside
   one orchestration op). Two write sites carry a `writeAgentRunConfig(tx,…)` coupling with a user
   insert (`agents.ts:281`, `teams-routes.ts:422`): relinquished the same way — user row commits,
   then `runConfig.write`; on failure the agent exists with `DEFAULT_AGENT_RUN_CONFIG` semantics
   (the read path already defaults, `agent-run-config/src/index.ts`) and the admin edit path
   repairs it. Named, accepted.
+
+---
+
+## 4. The composition handoff — the spelling law, the census's actual state, and its enforced home
+
+The whole of §5/§6 rests on capabilities produced by one face being passed by the application into
+another face: the execution adapter bundle into `bootAgentOrchestration` (§2.4, §6);
+`resolveModel`, `upgradeTokenStore`, middleware and registrars out of `bootCoreApi` (§5.2). The
+first draft asserted this was "the face's declared composition contract (clause 3)" with "the
+census's DI rule unchanged" — an assertion the enforced code contradicts:
+`governance-model.ts:265-290` has no face-content carve-out, and `layer → layer (other) [di]` is
+decided **forbidden** at zero baseline. This section replaces the assertion with what the census
+actually does — proven by executing it, not arguing it — and gives the surviving reading an
+enforced home.
+
+**What the census actually reports — executed [P11]** (probe sources and verbatim outputs:
+`probes/p11-composition-spelling/`; each probe overlaid on the live tree at a real production
+path, `scripts/governance-lint.ts --errors-only` run, output and exit code recorded):
+
+| Spelling | Census result |
+|---|---|
+| A — inline: `bootAgentOrchestration({ …, adapterPool: createLocalAdapterPool() })` in an application file | **FAIL, exit 1**: `ERROR [crossing-di] … layer → layer (other) [di] production — agent-orchestration receives the result of \`createLocalAdapterPool\` from agent-execution` |
+| B — local binding: `const pool = createLocalAdapterPool(); bootAgentOrchestration({ …, adapterPool: pool })`, and the `exec.adapters` property-access form | **PASS, exit 0** — zero findings for the probe file, warnings included |
+
+**Which state holds, stated plainly.** The mediated local-binding handoff is not "ruled allowed"
+by any clause — it is **outside the DI predicate by that predicate's own design**. The detector
+defines the crossing as "between the package whose factory is CALLED and the package the injected
+value came from" (`crossing-detectors.ts:931-934`), where "came from" is **import provenance**: an
+argument records a crossing only when its identifier, or its inline callee, was imported from a
+foreign package (`crossing-detectors.ts:949-999`). A value produced at runtime by a face boot and
+held in a local carries no foreign import provenance, so nothing is recorded. That is deliberate
+provenance semantics, not an accident — the same design already suppresses imported literal
+constants as "an ordinary import, not an injected port" (`crossing-detectors.ts:294-298`).
+
+**The spelling law (locked; self-enforcing on its visible side).**
+
+1. A composition root binds each face boot result to a local binding before any part of it enters
+   another face's options.
+2. No identifier imported from a layer or service package — and no inline call of one — may appear
+   in another layer's boot argument list. Probe A shows this side needs no new rule: every DI
+   group the spelling could hit is forbidden with zero baseline headroom, so the forbidden
+   spelling fails the build today, mid-build, with both packages named.
+3. Everything a composition root hands across is either an environment fact (port, path, flag, db
+   handle, bus) or a value some face boot returned, and its type lives in `@hyperidle/shared` or
+   `@hyperidle/api-contract` — never in a service package.
+
+**Why detector-invisibility is not a hole.** The blindness covers only values with no foreign
+import provenance, and the import rules close the acquisition path for everything else: for an
+application to hand a raw service symbol across, it must first import it, and
+`application → service [import|manifest|di]` is at error the moment this WP clears those groups
+(AC #3), while R1–R3 (§7) plus the shrunken export maps stop the faces laundering service symbols
+outward. After this WP the only values a composition root *can* pass are face-produced or
+environmental — exactly the set the reading declares to be composition.
+
+**The enforced home (founder-gate item §13.3; replaces the first draft's "clause 3 reading").**
+Two artifacts, both landing in wave B4, both ratified at the gate per
+`governance/README.md:138-141`:
+
+1. **An attack/control pair on the existing `crossing-di` rule** in
+   `scripts/lib/governance-attacks.ts` (property 2, `governance/README.md:110-125`): probe A's
+   spelling as the attack (expected finding: `layer → layer (other) [di]`), probe B's spelling as
+   the control twin (expected: nothing reported). From that commit the ratified reading is
+   break-tested on every lint run — if the detector ever stops flagging the inline spelling, or
+   ever starts flagging the mediated handoff, the build fails.
+2. **The clause text.** Clause 6's `why` and the governance README's DI paragraph gain the
+   provenance sentence: a DI crossing is a *named symbol imported from another package's inside*
+   handed into a foreign factory; a face-boot-produced value passed onward by the composition
+   root is composition, not injection. **No verdict flips** — `layer → layer (other) [di]` stays
+   forbidden; the sentence records what the predicate already means, so the ratified reading
+   lives in the enforced model's own documentation instead of only in this plan.
 
 ---
 
@@ -305,7 +422,8 @@ application. Each file:
 | `service-bootstrap.ts` — `startLifecycleProjectionDrain` (`:330`) | moves into `bootAgentOrchestration` |
 | `service-bootstrap.ts` — everything else in `registerCoreDomainServices` | **stays core** (core's own domain reactions and reapers); its two cross-layer wires (`:470` intent recorder, admission reactions) become port ops per §2.1 |
 | `service-bootstrap.ts` — `registerAgentLayerServices` (`:570`) | stays core minus the dead `dispatcherDeps` bundle [P4]: builtin-routine reactions and the routine scheduler are core's domain (AU15); the scheduler's enqueue + capacity read become port ops (`routine-scheduler-bindings.ts:39-40,:61`), `canProvision` becomes an application-passed boolean |
-| `services/tool-handlers-bindings.ts`, `services/tool-provider-bindings.ts` | move into `layers/agent-orchestration/src/` (§2.5); the review workflow port becomes `CoreApiPort` ops |
+| `services/tool-handlers-bindings.ts` | moves into `layers/agent-orchestration/src/` (§2.5); the review workflow port becomes `CoreApiPort` ops |
+| `services/tool-provider-bindings.ts` | **deleted** (§2.5): the dispatch it wrapped moves `harness-registry` → `tool-handlers`; role filtering becomes `buildToolDefinitions(ports, { role })`; `returnStatusTool` + the enforcement registry arrive via the execution adapters bundle |
 | `services/core-api-port-composition.ts`, `services/agent-orchestration-port-composition.ts` | port client construction splits by consumer: core's outbound `AgentOrchestrationPort` client stays core-side (it is core's door out); the `CoreApiPort` client construction the tool stack needs moves with the tool stack, typed against `@hyperidle/api-contract` only — the transport keeps being registered by the application |
 | `session.ts` | deleted; `runSession` + provisioning types surface on the orchestration face; eval repoints [P5] |
 | `ws-connection-hub.ts`, `ws-subscribe-authorizer.ts`, `routes/health.ts`, `routes/ws.ts`, `work-state-push-gateway` | stay core; their deep-import *entries* fold into what `bootCoreApi` returns (§5.2) so the application stops naming them as subpaths |
@@ -333,10 +451,9 @@ authorizer construction (`:676-680` — `conversation`'s `findThread` wire is co
 `resolveModel` capability built from its own `settings`/`credentials` services replacing the
 application's `makeResolveModel` (`create-server.ts:151-181`). The boot RESULT exposes what the
 application must pass onward (`upgradeTokenStore`, `resolveModel`, middleware, apps, pre-auth
-registrars) — **the application mediates every cross-face handoff; no layer imports another**.
-The census's DI rule is unchanged by this: a capability produced by one face and passed by the
-composition root into another face is the face's declared composition contract (clause 3), not an
-injected foreign symbol — this reading is on the founder-gate list (§13).
+registrars) — **the application mediates every cross-face handoff; no layer imports another**. Every one of
+these handoffs follows the §4 spelling law, whose census state is proven by [P11] and whose
+enforced home rides the founder gate (§13.3).
 
 ### 5.3 The applications
 
@@ -420,13 +537,24 @@ where it can and says honestly where it cannot:
      resolve into a nested service package. *Attack:* mutate `layers/core-api/package.json` to add
      an entry pointing into `layers/core-api/knowledge/src/…` → expect finding. *Control:* the
      surviving face entries.
-   - **R2 `face-never-reexports-a-service`**: a module reachable from a layer's `exports` may not
-     contain (a) `export … from "<service>"`, (b) `export * from "<service>"`, or (c) an exported
-     binding whose initializer is an imported service symbol — the **value re-export /
-     named-constant spelling AU28's round-2 bypasses used**. *Attacks:* all three spellings
-     overlaid onto a core-api face module → expect findings. *Control twins:* the same export
-     shapes re-exporting the layer's **own src** module (legal), and a boot function whose body
-     *calls* service functions (legal composition — this twin is what keeps the detector from
+   - **R2 `face-references-no-service-at-module-scope`** (widened after critique B3): in the
+     layer root package's own modules reachable from its `exports` map (reachability stops at a
+     package boundary — service packages are judged by the other rules), matching specifiers **by
+     resolved module** exactly as R1/R3 do — so a relative path into a service directory is the
+     same violation as the package specifier **[D3]** — it is a violation to (a) `export … from`
+     a module resolving inside a service package, (b) `export * from` one, or (c) **reference a
+     binding imported from a service module anywhere outside a runtime function body**: an
+     exported initializer that is the symbol, an object- or array-literal member, a module-scope
+     alias (`const l = list;` — exported or merely reachable from an export), a `default` export,
+     a class property initializer (static or instance — both evaluate without a consumer call),
+     or the body of a function expression **immediately invoked at module scope** (an IIFE is
+     module evaluation with extra steps). *Attacks:* the three original spellings, plus the
+     critique's three one-line launders (`export const api = { listKnowledge: list };` ·
+     `const l = list; export { l as listKnowledge };` · `export default { list };`), plus a class
+     static field and a module-scope IIFE aggregate — each expecting its finding. *Control
+     twins:* the same value spellings over the layer's **own src** modules (legal), a boot
+     function whose body *calls* service functions, and a boot function whose body *returns* a
+     service-produced value (legal composition — these twins are what keep the detector from
      flagging every boot).
    - **R3 `deep-imports-die-with-their-entries`**: an import specifier of a layer package that
      resolves to a module absent from its `exports` map is a violation with the file and
@@ -439,21 +567,29 @@ where it can and says honestly where it cannot:
      instances D4 counted (10 deep + 2 already-face-shaped boots, **[D4]**) converge on
      face-shaped without a row change. The instance counts move; the founder ratifies the rule
      texts, the final export maps, and the attack set at the human gate.
-3. **The honest limit — the wrapper-launder.** `export const listKnowledge = (db) => list(db);`
-   in a face module is machine-indistinguishable from legitimate boot composition (D3's case 1).
-   It is NOT left to hope; it is held by three real things, recorded in the rule's `why`: (a) the
-   export map is small, enumerated, and changes only through review of a manifest diff; (b)
+3. **The honest limit — the wrapper-launder, stated so it survives a counterexample hunt.**
+   R2's widened predicate catches every spelling whose service reference is **evaluated at module
+   load** — direct re-exports, aliases, aggregates, defaults, class field initializers,
+   module-scope IIFEs. What no predicate can catch — the true residual — is a reference that
+   sits inside a function or accessor body that runs only when a consumer uses the face: a
+   call-wrapping function (`export const listKnowledge = (db) => list(db);`), a value-returning
+   function (`export const getApi = () => ({ list });`), a getter on an exported object. That
+   shape is machine-indistinguishable from legitimate boot composition — a boot's body calls
+   service functions by design — and separating them would take an allowlist, which is banned.
+   The residual is held by three real things, recorded in the rule's `why`: (a) the export map is
+   small, enumerated, founder-ratified, and changes only through review of a manifest diff; (b)
    `knip`/`knip:production` deletes any face export without a composition-root consumer (no
-   production export only tests consume); (c) R2(c) catches the one-hop value spelling, so a
-   launder must be a *call-wrapping function*, which is exactly what the reviewer lens and the
-   founder-ratified face content list exist to judge. No allowlist, no suppression path exists in
-   any of the three.
+   production export only tests consume); (c) the reviewer lens judges the face content list.
+   The limit statement the founder ratifies at §13.1 is exactly this line — **module-load
+   spellings are caught mechanically; function-body spellings are review territory** — not the
+   first draft's narrower "a launder must be a call-wrapping function", which the critique
+   refuted in one line. No allowlist, no suppression path exists in any of the three holds.
 
 ---
 
-## 8. The `application → db:util [import]` site — **ruled: AU29's, and AU31 must not disturb it**
+## 8. Ownership overlaps with AU29 — both ruled explicitly, in opposite directions
 
-One site: `create-server.ts` imports `resolveProfile` (`:77`, called `:418`). Ruling 12.3 moves
+**Overlap 1 — `application → db:util [import]`: AU29's, and AU31 must not disturb it.** One site: `create-server.ts` imports `resolveProfile` (`:77`, called `:418`). Ruling 12.3 moves
 the util functions out of `db`, and their **destination is AU29's own refine question** — AU31
 choosing a home would decide another WP's noun. Therefore: **AU29 owns clearing this group.**
 AU31's create-server rewrite keeps the file path (`applications/remote-server/src/create-server.ts`)
@@ -463,6 +599,18 @@ under whatever home AU29 ratifies and AU31 rebases onto it. Recorded for AU29's 
 Consequence for AC #5: AU31's "every entry gone" claim covers its **14 groups**, explicitly minus
 this one — matching the plan's own footnote that the group is subject to this ruling
 (`requirements.md:182`).
+
+**Overlap 2 — `framework → layer [di]`: AU31's, and AU29 must not claim it.** AU29's AC reads
+"Every `framework → *` … production entry is gone" (`work/AU29/plan.md:50`), which literally
+covers this group; AU31's `progress.json.baselineScope` claims it too. Ruling: **AU31 clears
+it.** The single site is `tool-provider-bindings.ts:64-66` — a file AU31 deletes as part of the
+§2.5 tool-stack rework — and the wire has no db- or EventBus-shape that AU29's mechanisms could
+dissolve: AU29's genuine `framework → *` groups are the `framework → EventBus` and
+`framework → db:table` ones [P1]. AU29's planner must read its AC's `framework → *` quantifier as
+excluding this group: if AU31 lands first the entry is already gone; if AU29 lands first it
+leaves the site untouched. Recorded for the orchestrator to echo into AU29's artifacts in §13.6,
+exactly as the db:util handoff is echoed in the other direction — requirements §8.1's bar,
+"neither silently claiming nor silently dropping", applied to both overlaps.
 
 ---
 
@@ -494,7 +642,7 @@ this one — matching the plan's own footnote that the group is subject to this 
 | AC (`plan.md:47-53`) | Obligation here | Verified by |
 |---|---|---|
 | 1 — no layer names another layer/its services (imports + manifest) | §2 verdicts + §5 relocation + §2.7 buffer + §2.4 core-ui row | `npm run lint` governance pass: the 4 groups' baseline entries deleted → rules at error; validation scenario 2 covered by R3 + existing crossing rules |
-| 2 — no cross-layer DI; API/MCP/bus only | every DI site converts with its import (W2=W7, same files: `app.ts:494`, `bets.ts:684`, `tasks.ts:254`, `threads.ts:1678`, `org.ts:306`, `service-bootstrap.ts:470`, `agent-run-admission-reactions.ts:115`, `create-server.ts:510`, `tool-provider-bindings.ts`) | 4 DI groups' entries deleted → `wire-within-one-layer` at error; validation scenario 3 |
+| 2 — no cross-layer DI; API/MCP/bus only | all 14 DI baseline sites have named mechanisms: the 9 `service → service (other layer)` sites (8 files: `app.ts:494`, `bets.ts:684` — 2 sites, `tasks.ts:254`, `threads.ts:1678`, `org.ts:306`, `service-bootstrap.ts:470`, `agent-run-admission-reactions.ts:115`, `create-server.ts:510`) convert with their imports (W2=W7); the 2 `application → service` adapter-pool wires become §4-law face handoffs (§5.3, §6); `service → layer (other)` site 1 (`service-bootstrap.ts:330`) relocates in-layer (§5); the two `tool-provider-bindings.ts` wires — `framework → layer` and `service → layer (other)` site 2 — dissolve per §2.5, probe-proven [P11] | 4 DI groups' entries deleted → `wire-within-one-layer` at error; §4's attack/control pair pins the handoff reading; validation scenario 3 |
 | 3 — applications compose faces only; no service, no other application | §5.3 + §6 + §2.7 relocations; manifest end states | `application → service [import|manifest|di]` + `application → application [import]` entries deleted; R1–R3 at error |
 | 4 — MCP dialled only by harness-owning layer + harness; serving layer hosts the door | §6 | `service → MCP router`, `application → MCP router`, `service → agent-execution [api]` entries deleted; attack case for the dial rule already exists in the harness table |
 | 5 — every named baseline entry gone, rules fail on reappearance | 14 groups (§8 carve-out recorded) | `governance/baseline.json` diff per commit; shrink-only generator enforces promotion |
@@ -528,11 +676,15 @@ installed and authed per project law):
 5. **Proof of landing:** the task's state transition and the calling-thread reply message exist
    via core's own API.
 Record the three observations (request id → terminal state → landed result) in
-`.pipeline/work/AU31/probes/e2e-run.md`. Additionally run the existing harness-lane test that
-exercises `provisionSession` against the real binary (`npm run test:integration:harness`
-selection) — it now rides the relocated MCP dial, so its green is a second, independent proof.
-`npm run verify` must be green on the same tree (governance lint at error for every cleared
-group).
+`.pipeline/work/AU31/probes/e2e-run.md`. **[D1]** The first draft claimed the existing
+real-binary harness-lane test as a second, independent proof of the relocated dial; that claim
+was false and is withdrawn: that test wires the enforcement pieces "directly from the registries
+rather than via `provisionSession`" (its own words,
+`layers/core-api/src/__tests__/real-harness-return-enforcement-realbinary.integration.test.ts:141`)
+and constructs its own bridge and URL (`:168-169, :380`), so its green proves nothing about the
+relocation. The recipe above carries AC #7 alone — step 4 already observes the relocated dial
+live, because terminal-with-return is impossible without the bridge. `npm run verify` must be
+green on the same tree (governance lint at error for every cleared group).
 
 ---
 
@@ -579,26 +731,47 @@ founder ratifies the §13 list. High-stakes; in an autonomous run this parks at 
 ## 13. Founder-gate register: supersessions, ratifications, and handoffs
 
 1. **The face rule** (§7): rule texts, per-layer final export maps, attack set, and the
-   wrapper-launder limit statement — the `decided-rules.json`/vocabulary change only a founder
-   ruling may make (`governance/README.md:138-141`).
+   wrapper-launder limit statement **as restated in §7.3** — module-load spellings caught
+   mechanically, function-body spellings review territory — the `decided-rules.json`/vocabulary
+   change only a founder ruling may make (`governance/README.md:138-141`).
 2. **`AgentOrchestrationPort` gains a write side**, superseding AU26 H1/H2's "downward call, the
    door stays read-only" (`policy-bindings.ts:100-105`). Rationale: the downward call is now the
    forbidden crossing; one door both directions is the smaller system.
-3. **Composition-contract reading**: capabilities and adapters produced by one face and passed by
-   the application into another face are face content (clause 3), not cross-layer DI; the
-   census's symbol-provenance DI rule is unchanged. This is the reading the whole of §5/§6
-   stands on.
+3. **The composition-handoff reading and its enforced home (§4)**: the DI predicate is import
+   provenance, so a face-boot-produced value passed onward by the composition root is
+   composition, not injection — proven against the live census, not asserted ([P11]: the inline
+   spelling fails the build; the mediated spelling records nothing, by the predicate's design).
+   Ratified as (a) the attack/control pair on the `crossing-di` rule — probe A the attack, probe
+   B the control twin — and (b) the provenance sentence in clause 6's `why` and the governance
+   README. **No verdict flips**; `layer → layer (other) [di]` stays forbidden. This is the
+   reading the whole of §5/§6 stands on.
 4. **Relinquished atomicity** at `knowledge.ts:934` and `threads.ts:1463` (+ the two run-config
    write couplings), windows as named in §3.1.
 5. **Relocations that supersede a recorded decision**: `SessionActivityBuffer` out of
-   agent-execution (supersedes AU21 Decision E's placement note); `RemoteWorkerClient` into
-   agent-execution (fulfils that package's own recorded intent).
-6. **AU29 handoff** (§8): `application → db:util [import]` is AU29's group; AU31 leaves the site
-   untouched. To be echoed into AU29's planning artifacts by the orchestrator.
+   agent-execution, superseding AU21 Decision E's placement note. **The in-decision alternative
+   is on the table for this ratification**: keep the buffer in agent-execution, export it on the
+   new execution face, and have the application construct it and pass it into
+   `bootAgentOrchestration` — that clears the crossing without superseding Decision E ([P8]:
+   `boot.ts:29` is the sole production site). Rejected because it preserves a placement AU26's
+   own domain-served test rejects ([P8]: zero execution coupling; the buffer's only consumers are
+   orchestration's boot and routes) and adds a cross-face wire to avoid a one-directory move of a
+   pure bus fold — but the founder ratifies with the alternative in view, not only the rejection.
+   Also here: `RemoteWorkerClient` into agent-execution (fulfils that package's own recorded
+   intent).
+6. **AU29 handoffs** (§8), both directions: `application → db:util [import]` is AU29's group and
+   AU31 leaves the site untouched; `framework → layer [di]` is AU31's group and AU29's literal
+   "Every `framework → *`" AC quantifier (`work/AU29/plan.md:50`) must be read as excluding it.
+   Both to be echoed into AU29's planning artifacts by the orchestrator.
 7. **Findings, not designs** (out-of-scope axes respected): no route changes host (§2.2, §2.6
    evidence); no domain moves layers; `connections`/`filesystems` placement untouched (AU26's
    axis); table ownership untouched (AU30); development-world crossings untouched except the two
    production manifest rows that serve them (§2.4 core-ui, desktop devDeps reconciliation).
+8. **Provisioning-owner stamping is a behavior delta, not only a mechanism change [D2]**: today
+   the owner resolves at provisioning time, application-side (`create-server.ts:201-213`);
+   stamping at submit (§3.3) means an intent emitted before onboarding and drained after it
+   provisions no connections where today's live resolution would. Accepted as the cost of the
+   single port-side stamp — the empty-rows outcome matches today's no-owner case, but the
+   *timing* of resolution does not, and the founder ratifies the delta, not only the mechanism.
 
 ## 14. Documentation made false by this change
 
