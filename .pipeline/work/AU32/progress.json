@@ -1,0 +1,70 @@
+{
+  "id": "AU32",
+  "status": "in-progress",
+  "currentPhase": "architecture-critique",
+  "startedAt": "2026-08-07",
+  "worktree": ".worktrees/pipeline-AU32",
+  "branch": "pipeline/AU32",
+  "baseCommit": "bbe82e9a4ebb1e06c17619154a3c4e93650850fb",
+  "tier": "production",
+  "dependency": {
+    "AU28": "merged on origin/main (PR #461) — crossing model + baseline present"
+  },
+  "phasesSkipped": {
+    "refine": "plan.md: not required — rule locked by Rulings 13/13a, sites enumerated",
+    "design": "plan.md: not required — no UI surface"
+  },
+  "liveGrounding": {
+    "measuredAt": "2026-08-07",
+    "command": "npx tsx scripts/governance-lint.ts",
+    "developmentViolations": 67,
+    "developmentFiles": 45,
+    "developmentRuleGroups": 7,
+    "tableWriteSites": { "total": 61, "knowledgePair": 34, "teamsPair": 26, "orphanProjection": 1 },
+    "oneDoorSites": 6,
+    "note": "plan.md says 69/46; live tree says 67/45. Live numbers authoritative. Critique independently confirmed the census exactly."
+  },
+  "architectureCritique": {
+    "round": 1,
+    "verdict": "REVISE",
+    "blocking": [
+      "B1 — C6 (per-entity completion) collides with foreign-keys.integration.test.ts:102-115: adding a teamMembers companion to the p1 team over-determines a RESTRICT delete-rejection assertion (teamMembers.teamId is onDelete restrict), so the test would pass even without the bets FK under probe. Entity invisible to the lint (file-grained write set). schema-test-decision.md's universal 'masking fear is empty' claim is false for the teams pair in the file it analyses."
+    ],
+    "nonBlocking": [
+      "N1 — scenario-3 evidence command targets a .test.ts through the integration config (include is *.integration.test.* only); matches zero tests.",
+      "N2 — warn→error flip evidence rests on a one-off manual probe; the standing missing-companion attack passed at base with the group still baselined.",
+      "N3 — D4's createTestDb() alternative is unavailable to runner.ts (@lore X7: vitest-coupled).",
+      "N4 — D2's inline escape can degenerate to all-inline; helper adoption not checkable."
+    ],
+    "verifiedCorrect": [
+      "census 67/45/7 and its decomposition",
+      "cascade fact (schema.ts:1008-1011) sufficient for every lint-flagged assertion",
+      "seed-then-migrate already clean",
+      "session-requests:59 teams row genuinely unreferenced",
+      "seed is a ghost symbol — desktop migrate test vacuously green today",
+      "seedBase teams-only / package-local / 24-of-39, promote-knowledge as direct disproof",
+      "D9 pins derivation at the function the live lint consumes",
+      "AC-5 vacuous (38 groups: 7 dev / 31 prod, 221 prod sites)",
+      "D3/D4/D6 mechanics incl. zero db.query.* repo-wide and callLlm's ResolvedModel signature",
+      "probe baselines exact: 6203 unit / 2835 service; harness failures pre-existing at base",
+      "contracts C1-C7 carry plan.md's constraints; single-builder-leaf justified"
+    ]
+  },
+  "approvals": {
+    "concept": null,
+    "final": null
+  },
+  "sessionStarts": [
+    { "phase": "architecture", "at": "2026-08-07" },
+    { "phase": "architecture-critique", "at": "2026-08-08", "note": "first attempt died on weekly usage limit before writing; re-spawned fresh after reset" },
+    { "phase": "architecture-revision", "at": "2026-08-08", "attempt": 1, "of": 3 }
+  ],
+  "artifacts": [
+    ".pipeline/work/AU32/architecture.md",
+    ".pipeline/work/AU32/feasibility.md",
+    ".pipeline/work/AU32/schema-test-decision.md",
+    ".pipeline/work/AU32/architecture-critique.md",
+    ".pipeline/work/AU32/probes/"
+  ],
+  "verdicts": []
+}
