@@ -7,19 +7,19 @@
 // @ts-nocheck
 import { flagKnowledgeItem, listKnowledge, searchKnowledge } from "@hyperidle/knowledge";
 
-// R1 [F10] — call-wrapping function (round-1 B3's adjudicated residual)
+// RES1 [F10] — call-wrapping function (round-1 B3's adjudicated residual)
 export const listKnowledgeWrapped = (db: unknown) => listKnowledge(db);
 
-// R2 [F10] — named local function invoked at module scope (round-2 N1's `make()` spelling)
+// RES2 [F10] — named local function invoked at module scope (round-2 N1's `make()` spelling)
 function make(): unknown {
 	return { listKnowledge };
 }
 export const api = make();
 
-// R3 [F11] — mutation through a module-scope alias of an escaping object
+// RES3 [F11] — mutation through a module-scope alias of an escaping object
 export const api2 = {};
 const alias = api2;
 alias.tool = searchKnowledge;
 
-// R4 [F12] — non-export side channel
+// RES4 [F12] — non-export side channel
 globalThis.leak = flagKnowledgeItem;

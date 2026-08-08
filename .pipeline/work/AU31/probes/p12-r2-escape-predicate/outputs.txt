@@ -1,5 +1,5 @@
 # P12 — R2 escape-predicate prototype (enumeration-derived model), verbatim outputs
-# Tree: backend/AU31-layer-composition-boundary @ 05ebffc4, run 2026-08-08.
+# Tree: backend/AU31-layer-composition-boundary @ 879b53d9, run 2026-08-08.
 # Prototype uses the census's own parser (ts.createSourceFile — scripts/lib/repo-census.ts:644-646).
 # Sources committed as .ts.txt (P11 convention: the census must never parse probe sources).
 # Execution: sources copied to a temporary worktree dir (`.p12-scratch/`, deleted after; git status

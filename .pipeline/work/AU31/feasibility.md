@@ -1,7 +1,7 @@
 # AU31 — Feasibility
 
 Probes run against the live tree at `bbe82e9a` (branch `backend/AU31-layer-composition-boundary`,
-worktree `.worktrees/AU31`; P11 added in the attempt-2 revision, run 2026-08-08 on the same production tree; P12 added in the attempt-3 revision, run 2026-08-08 at HEAD `1a4607bf` — same production tree, `.pipeline` additions only since). Every result below was produced by executing the stated method in this
+worktree `.worktrees/AU31`; P11 added in the attempt-2 revision, run 2026-08-08 on the same production tree; P12 added in the attempt-3 revision and **re-executed whole in the attempt-4 revision** with the enumeration-derived model, run 2026-08-08 at HEAD `05ebffc4` — same production tree, `.pipeline` additions only since). Every result below was produced by executing the stated method in this
 session, not recalled. Scratch outputs not worth keeping are discarded; the two load-bearing
 inventories are reproduced inline.
 
@@ -238,40 +238,51 @@ assumption remains UNVERIFIED except the two ⚠️ build-time re-checks named i
 
 ---
 
-## P12 — The narrowed R2 predicate ("escape through the export surface"), executed
+## P12 — The R2 escape predicate, executed against the export-surface grammar enumerated whole
 
-**Question.** Critique round-2 B4: attempt 2's R2(c) — "reference a binding imported from a
-service module anywhere outside a runtime function body" — flags the architecture's own
-end-state tree at three surviving, planned-legal sites (`layers/core-api/src/app.ts:213`,
-`layers/core-api/src/service-bootstrap.ts:175`, `layers/core-api/src/services/
-tool-handlers-bindings.ts:200`). Does a predicate exist that (a) still catches every bypass
-spelling that motivated the widening, (b) does not fire on those sites, and (c) is
-implementable on the enforcement stack's own parser?
+**Question.** (Attempt 3 / round-2 B4) Does a predicate exist that (a) still catches every
+bypass spelling that motivated attempt 2's widening, (b) does not fire on the three
+planned-legal end-state sites (`layers/core-api/src/app.ts:213`,
+`layers/core-api/src/service-bootstrap.ts:175`,
+`layers/core-api/src/services/tool-handlers-bindings.ts:200`), and (c) is implementable on the
+enforcement stack's own parser? (Attempt 4 / round-3 B5 under adjudication 1's changed
+strategy) Is the predicate's coverage provable over an **enumeration of TypeScript's
+export-surface grammar** — a closed, finite set of AST shapes — rather than a curated attack
+list, including the export surface's own direct spellings round 3 proved missing
+(`export { listKnowledge };`, both destructured-export forms, assignment to an exported live
+binding, and the two-line respelling of the founding case that recorded CLEAN under the
+previous model)?
 
-**Method.** Prototype the restated predicate — *a service value binding may not escape the
-module's export surface as a value* (architecture §7.2 R2, full spelling there) — as a
-standalone script on the census's own parser (`ts.createSourceFile`, the same API
-`scripts/lib/repo-census.ts:19,646` uses), then execute it against (i) a fixture holding all
-thirteen attack spellings, (ii) a fixture holding the six control spellings including the two
-new twins (the non-escaping wiring bag; the exported call result with a bare service callee),
-(iii) the three live production files B4 named, read-only — no overlay at any production path —
-and (iv) the rule's founding target `layers/core-api/src/index.ts`. Sources committed as
-`.ts.txt` (P11 convention — the census must never parse probe sources) and verbatim outputs in
-`probes/p12-r2-escape-predicate/`.
+**Method.** The enumeration is stated in architecture §7.2's two tables (E: every top-level
+AST statement kind that creates an export edge; F: every module-scope flow of a value into
+that surface; out-of-grammar members each carry a one-line reason) and restated in the
+prototype's own header. The prototype implements the model on the census's own parser
+(`ts.createSourceFile` — `repo-census.ts:644-646`) and is executed against: (1) an attack
+fixture with an executable case per "caught" member — each labelled with its member id —
+plus a control fixture with a twin per deliberate narrowing; (2) the three live production
+files B4 named, read-only — no overlay at any production path; (3) the founding target
+`layers/core-api/src/index.ts`; (4) the two-line founding-case respelling; (5) a residual
+fixture holding the declared review-territory classes, executed so the limit statement is
+evidence rather than prose. Sources committed as `.ts.txt` (P11 convention — the census must
+never parse probe sources), verbatim outputs in `probes/p12-r2-escape-predicate/outputs.txt`;
+run from a temporary worktree dir (`.p12-scratch/`, deleted; tree clean at finish).
 
 **Result.**
 
 | Run | Input | Verdict |
 |---|---|---|
-| 1 | `fixture-attacks.ts` — re-export, `export *`, exported initializer, exported literal member, alias hop, default aggregate, static + instance class field, IIFE aggregate, identity-wrap call launder (`wrap(list)`), property-chain call (`list.bind(null)`), two-hop alias (`const bag = { list }; export const api = bag;`), namespace escape | **13/13 flagged**, one finding per spelling, exit 1 |
-| 1 | `fixture-controls.ts` — own-src spellings, boot-body call, boot-body return, non-escaping wiring bag, exported call result with bare service callee, type-only import | **CLEAN** |
+| 1 | `fixture-attacks.ts` — A1–A12 (rounds 1–2, kept verbatim) + X1–X23, the export-surface and module-scope-flow members: named exports of the binding itself incl. `as default` and the namespace binding, destructured exports incl. nested pattern defaults, live-binding and compound assignment incl. control-flow-nested, destructuring assignment, property mutation, mutating calls (`Object.assign`, `.push`), object-literal and class getter bodies, enum members, namespace members, heritage expressions, static blocks, decorators, anonymous default class, `export import … = require`, `export =` | **every case flags, one finding per spelling** (39 findings), exit 1 |
+| 1 | `fixture-controls.ts` — C0–C9: type-only import, own-src spellings, the non-escaping wiring bag, boot-body call, boot-body return, the bare-callee exported call result, the method-body composition bag, a getter returning a produced value, mutation of a non-escaping local, a module-scope call with an escaping value but no service symbol | **CLEAN** |
 | 2 | `layers/core-api/src/app.ts`, `service-bootstrap.ts`, `services/tool-handlers-bindings.ts` (live files; the third is byte-identical to its §5.3-relocated content) | **CLEAN, exit 0** — all three |
 | 3 | `layers/core-api/src/index.ts` (R2's founding target) | **flagged** — line 15, `export … from "@hyperidle/knowledge"`, exit 1 |
+| 4 | `fixture-founding-respelling.ts` — `import { list } from "@hyperidle/knowledge"; export { list as listKnowledge };` (round-3 B5's decisive case, CLEAN under the previous model) | **flagged** — line 8, named export of `list`, exit 1 |
+| 5 | `fixture-residuals.ts` — the declared review-territory classes: the call-wrapping function (RES1), the `make()` named-local-function spelling (RES2), alias-mediated mutation (RES3), the `globalThis` side channel (RES4) | **CLEAN, exit 0** — the limit statement, executed |
 
-**Verdict.** The B4 dilemma is false once the predicate measures what R2 is *for*: escape is
-laundering; non-escaping module-scope wiring launders nothing. The narrowed predicate keeps
-every widening-motivated attack fatal (including the identity-wrap and `.bind` spellings the
-one-exemption design must survive), reports nothing at the three end-state sites no wave
-converts, still catches the founding target, and is implementable on the enforcement stack's
-own parser with no allowlist, no carve-out, and one positional (never named) exemption. The
-builder implements R2 against this executed model; the founder ratifies its text at §13.1.
+**Verdict.** Coverage now derives from the grammar, not a list. Every member of §7.2's
+enumeration carries an executed verdict — caught (attack case), exempt/legal (control twin),
+or review territory (executed residual with a stated reason) — so a future reviewer checks
+the set's completeness against the grammar itself. Round 3's four one-line escapes and the
+founding-case respelling all flag; the three end-state sites stay clean; the founding target
+still flags; the residual runs record nothing, so §7.3's limit statement claims exactly what
+runs 1–5 executed. The builder implements R2 against this executed model; the founder
+ratifies the enumeration, the fixture set, and the limit statement at §13.1.
