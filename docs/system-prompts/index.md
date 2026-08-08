@@ -1,6 +1,6 @@
 # System Prompts
 
-Runtime templates are read directly from these files at boot time — there is no cache table. The map of role → filename lives in one place, `SYSTEM_PROMPT_TEMPLATE_FILES` (`framework/db/src/system-prompt-templates.ts`), read by both `factory-bootstrap.ts`'s boot-time backfill and by `agents.ts` at request time. The live prompt for each agent is stored in `agent_run_config.systemPrompt` (moved off `users` in AU26), assembled at session time. **Paths are frozen** — `SYSTEM_PROMPT_TEMPLATE_FILES` references these files by literal path (the allowlist that closes path traversal by construction); never rename or move them without updating that map.
+Runtime templates are read directly from these files at boot time — there is no cache table. The map of role → filename lives in one place, `SYSTEM_PROMPT_TEMPLATE_FILES` (`framework/shared/src/system-prompt-templates.ts`), read by both the agent-orchestration first-boot face's (`layers/agent-orchestration/src/factory-run-config.ts`) boot-time backfill and by `agents.ts` at request time. The live prompt for each agent is stored in `agent_run_config.systemPrompt` (moved off `users` in AU26), assembled at session time. **Paths are frozen** — `SYSTEM_PROMPT_TEMPLATE_FILES` references these files by literal path (the allowlist that closes path traversal by construction); never rename or move them without updating that map.
 
 Seven roles are wired (seeded on boot); `assistant.md` is an unwired draft (template declared in `agent-roles.ts` but not yet seeded — see the status note in that file).
 

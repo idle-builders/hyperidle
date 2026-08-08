@@ -24,7 +24,7 @@ If any of the three is missing, it's not mock data. See "What is NOT mock data" 
 |---|---|
 | UI vocabulary constants (`HEALTH_DOT`, `SCOPE_LABELS`, `TIME_24H_RE`, tab labels, color maps) | Presentation vocabulary — no system-of-record alternative exists. |
 | Algorithm tuning constants (`DEFAULT_WEIGHTS`, `DEFAULT_RELEVANCE_WEIGHTS`, batch sizes) | Config, not stand-ins. Numeric-literal initializers are exempt from the `DEFAULT_*` guard. |
-| DB seed scripts (`framework/db/src/seed-fixtures.ts`) | Bootstrap the system of record itself. |
+| DB seed scripts (`framework/shared/src/factory-roster.ts`, `tools/setup/src/demo-fixture.ts`) | Bootstrap the system of record itself. |
 | Test / story / fixture data | Never ships in the bundle. |
 | Empty-state UI strings (`"No bets yet"`, `"—"`) | Render-time vocabulary, not data. |
 

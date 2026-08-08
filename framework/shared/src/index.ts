@@ -561,12 +561,10 @@ export {
 	taskSessionRequestInputSchema,
 } from "./session-request.js";
 // ── AU29: system-prompt template resolution (moved from `framework/db` — no
-// database access; `readSystemPromptTemplate` is an interim export, task D removes it) ──
-export {
-	readSystemPromptTemplate,
-	readSystemPromptTemplateForRole,
-	SYSTEM_PROMPT_TEMPLATE_FILES,
-} from "./system-prompt-templates.js";
+// database access). `readSystemPromptTemplate` is module-internal — its only
+// caller was `factory-bootstrap.ts` (deleted, task D); everything else calls
+// `readSystemPromptTemplateForRole`. ──
+export { readSystemPromptTemplateForRole, SYSTEM_PROMPT_TEMPLATE_FILES } from "./system-prompt-templates.js";
 export {
 	canTransitionTaskState,
 	TASK_STATE_TRANSITIONS,

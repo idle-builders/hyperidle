@@ -58,16 +58,19 @@ to make a deploy easier.
 
 ## Factory bootstrap (AF17)
 
-The **factory bootstrap** (`applyFactoryBootstrap`,
-`framework/db/src/factory-bootstrap.ts`) is the team-agnostic baseline row-set
-every HyperIdle instance needs to function: the `system:propagation` identity,
-the system-assistant singleton, the roster-driven **facilitator** agents, the
-`system_template:<role>` settings, and the
-`scope_kind="factory"` principle. It is **idempotent** (safe to re-run) and
-**carries no user-facing `team_id`**. It runs on every desktop launch after the
-desktop migrate step (`applications/desktop/src/main.ts`).
+The **factory bootstrap** (`applyFactoryCoreState` +
+`applyFactoryRunConfigDefaults`, two layer faces —
+`layers/core-api/src/bootstrap/factory-state.ts` and
+`layers/agent-orchestration/src/factory-run-config.ts`) is the team-agnostic
+baseline row-set every HyperIdle instance needs to function: the
+`system:propagation` identity, the system-assistant singleton, the
+roster-driven **facilitator** agents, the AH2 runnable defaults + system-prompt
+backfill, and the `scope_kind="factory"` principle. It is **idempotent** (safe
+to re-run) and **carries no user-facing `team_id`**. It runs on every desktop
+launch after the desktop migrate step (`applications/desktop/src/main.ts`),
+which calls the two faces directly, in order.
 
-**Gap:** `framework/db/src/bootstrap-pg.ts` (the deploy-time bootstrap CLI,
+**Gap:** `tools/setup/src/bootstrap-pg.ts` (the deploy-time bootstrap CLI,
 meant to run as a second init-container after migrate) is **not wired into the
 Helm chart** — cloud deploys currently skip factory bootstrap.
 

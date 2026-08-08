@@ -46,8 +46,8 @@ Vite proxies `/api/*` to `localhost:3001` with **no path rewrite** — the serve
 
 ## Database
 
-- **Laptop profile is PGlite** — a data directory (default `./hyperidle-pg`), not a database file (`framework/db/src/profiles.ts:19-26`).
-- **vps/cloud use real Postgres** via `DATABASE_URL`. Bootstrap with `npm run db:bootstrap:pg` (`framework/db/src/bootstrap-pg.ts`); seed with `npm run db:seed:pg`. PG migration file: `framework/db/src/migrate-pg.ts` (requires `DATABASE_URL`; run directly via `npx tsx`).
+- **Laptop profile is PGlite** — a data directory (default `./hyperidle-pg`), not a database file (`framework/shared/src/profiles.ts:33-40`).
+- **vps/cloud use real Postgres** via `DATABASE_URL`. Bootstrap with `npm run db:bootstrap:pg` (`tools/setup/src/bootstrap-pg.ts`); seed with `npm run db:seed:pg`. PG migration file: `framework/db/src/migrate-pg.ts` (requires `DATABASE_URL`; run directly via `npx tsx`).
 - **One schema file for both drivers**: `framework/db/src/schema.ts` (`pgTable`). Generate and apply migrations with `npm run db:generate` + `npm run db:migrate`.
 
 ## Project Structure

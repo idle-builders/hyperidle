@@ -2,7 +2,7 @@
 
 Most users run HyperIdle as the desktop app — a signed Electron build distributed as a versioned DMG (also via Homebrew cask). See [releases](../../deployment/releases.md).
 
-For running HyperIdle yourself, there are three profiles (`framework/db/src/profiles.ts`):
+For running HyperIdle yourself, there are three profiles (`framework/shared/src/profiles.ts`):
 
 | Profile | Database | Best for |
 |---------|----------|----------|

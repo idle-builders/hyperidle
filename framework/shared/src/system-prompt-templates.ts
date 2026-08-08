@@ -60,15 +60,15 @@ function stripFrontmatter(content: string): string {
  * degradation — moved verbatim from `factory-bootstrap.ts`, name + signature
  * unchanged).
  *
- * @lore AU29 interim (architecture.md §2.3): stays barrel-exported from
- * `@hyperidle/shared` ONLY until task D — `framework/db/src/factory-bootstrap.ts:192`
- * still calls it (a cross-package import, so it cannot use the module-internal
- * relative form) until task D dissolves that file into the two layer faces.
- * Task D's successor calls `readSystemPromptTemplateForRole` instead and this
- * export is removed then — its only OTHER caller is
- * `readSystemPromptTemplateForRole` below (in-module-family, relative import).
+ * @lore AU29 end state (architecture.md §2.3): module-internal, not
+ * barrel-exported. It was barrel-exported only as an interim state between
+ * tasks A and D, while `framework/db/src/factory-bootstrap.ts:192` still
+ * called it cross-package; task D deleted that file (its successor, the
+ * agent-orchestration first-boot face, calls `readSystemPromptTemplateForRole`
+ * instead). Its only remaining caller is `readSystemPromptTemplateForRole`
+ * below, in-module.
  */
-export function readSystemPromptTemplate(docsRoot: string, filename: string): string | null {
+function readSystemPromptTemplate(docsRoot: string, filename: string): string | null {
 	const filePath = path.join(docsRoot, "system-prompts", filename);
 	try {
 		const content = fs.readFileSync(filePath, "utf8");
