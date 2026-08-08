@@ -1,0 +1,10 @@
+$ npm run test:integration:service
+(tail of real run, foreground, 2026-08-08)
+
+ Test Files  320 passed | 1 skipped (321)
+      Tests  2826 passed | 4 skipped (2830)
+   Start at  17:19:54
+   Duration  221.50s (transform 5.59s, setup 488.31s, import 92.10s, tests 277.64s, environment 19ms)
+
+Matches architecture.md's AC-6 projection exactly: 2835 (base) - 9 (8 foreign-keys.integration.test.ts
+deletions + 1 agent-run-config-store deletion, Ruling D) = 2826. Zero failures.

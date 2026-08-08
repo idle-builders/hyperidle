@@ -1,0 +1,2615 @@
+
+> hyperidle@0.5.0 test:full
+> vitest run
+
+
+ RUN  v4.1.10 /Users/tg/hyperidle/.worktrees/pipeline-AU32
+
+···················································································································stdout | src/__tests__/server-factory.resolver.test.ts > AH1 — single-(production-)resolver invariant > createServer production wiring: DB key resolved, env key ignored (functional invariant)
+2026-08-08T15:14:50.383Z INFO [server.routine-scheduler] routine scheduler started {"pollIntervalMs":30000,"canProvision":true,"reaperEnabled":false}
+
+stdout | src/__tests__/server-factory.resolver.test.ts > AH1 — single-(production-)resolver invariant > createServer production wiring: DB key resolved, env key ignored (functional invariant)
+2026-08-08T15:14:50.441Z INFO [server.routine-scheduler] routine scheduler started {"pollIntervalMs":30000,"canProvision":true,"reaperEnabled":false}
+
+········································stderr | src/__tests__/error-handler.test.ts > errorHandler middleware > maps generic errors to 500 INTERNAL_ERROR without stack traces
+2026-08-08T15:15:00.929Z ERROR [server] Unhandled error: Something unexpected happened
+
+·····stderr | src/middleware/__tests__/auth.timing-safe.test.ts > I2 A1 — authMiddleware uses crypto.timingSafeEqual > calls crypto.timingSafeEqual on the invalid-key path
+2026-08-08T15:15:01.083Z WARN [server.auth] rejected request: invalid or missing API key {"path":"/probe","method":"GET","sourceIp":null}
+
+stderr | src/middleware/__tests__/auth.timing-safe.test.ts > I2 A1 — authMiddleware uses crypto.timingSafeEqual > rejects different-length keys without throwing (constraint l.110)
+2026-08-08T15:15:01.084Z WARN [server.auth] rejected request: invalid or missing API key {"path":"/probe","method":"GET","sourceIp":null}
+
+·······································································································································································································································································stderr | src/__tests__/AppShell.test.tsx > AppShell > opens settings panel when settings button is clicked
+TypeError: Cannot read properties of undefined (reading 'filter')
+    at SettingsOrgChart (/Users/tg/hyperidle/.worktrees/pipeline-AU32/layers/core-ui/src/settings/SettingsOrgChart.tsx:191:27)
+    at Object.react_stack_bottom_frame (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:25904:20)
+    at renderWithHooks (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:7662:22)
+    at updateFunctionComponent (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:10166:19)
+    at beginWork (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:11778:18)
+    at runWithFiberInDEV (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+    at performUnitOfWork (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:17641:22)
+    at workLoopSync (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:17469:41)
+    at renderRootSync (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:17450:11)
+    at performWorkOnRoot (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:16583:35) {
+  [stack]: [Getter/Setter],
+  [message]: "Cannot read properties of undefined (reading 'filter')"
+}
+
+The above error occurred in the <SettingsOrgChart> component.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary.
+
+[ErrorBoundary] caught render error {
+  message: "Cannot read properties of undefined (reading 'filter')",
+  componentStack: '\n' +
+    '    at SettingsOrgChart (/Users/tg/hyperidle/.worktrees/pipeline-AU32/layers/core-ui/src/settings/SettingsOrgChart.tsx:52:58)\n' +
+    '    at section (<anonymous>)\n' +
+    '    at div (<anonymous>)\n' +
+    '    at div (<anonymous>)\n' +
+    '    at div (<anonymous>)\n' +
+    '    at SettingsPage (<anonymous>)\n' +
+    '    at ErrorBoundary (/Users/tg/hyperidle/.worktrees/pipeline-AU32/layers/core-ui/src/components/ErrorBoundary.tsx:10:3)\n' +
+    '    at main (<anonymous>)\n' +
+    '    at div (<anonymous>)\n' +
+    '    at ToastRegion (/Users/tg/hyperidle/.worktrees/pipeline-AU32/layers/core-ui/src/shell/ToastRegion.tsx:33:24)\n' +
+    '    at AppShell (/Users/tg/hyperidle/.worktrees/pipeline-AU32/layers/core-ui/src/layouts/AppShell.tsx:93:56)\n' +
+    '    at RenderedRoute (file:///Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-router/dist/development/chunk-KS7C4IRE.mjs:6218:26)\n' +
+    '    at RenderErrorBoundary (file:///Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-router/dist/development/chunk-KS7C4IRE.mjs:6130:5)\n' +
+    '    at DataRoutes2 (file:///Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-router/dist/development/chunk-KS7C4IRE.mjs:6936:3)\n' +
+    '    at Router (file:///Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-router/dist/development/chunk-KS7C4IRE.mjs:7036:13)\n' +
+    '    at RouterProvider (file:///Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-router/dist/development/chunk-KS7C4IRE.mjs:6703:3)\n' +
+    '    at RouterProvider2 (<anonymous>)'
+}
+
+···································································································Warning: A vi.mock("../hooks/useNotifications") call in "/Users/tg/hyperidle/.worktrees/pipeline-AU32/layers/core-ui/src/__tests__/AF8-NotificationPopover.test.tsx" is not at the top level of the module. Although it appears nested, it will be hoisted and executed before any tests run. Move it to the top level to reflect its actual execution order. This will become an error in a future version.
+See: https://vitest.dev/guide/mocking/modules#how-it-works
+·································································································································································································································································································································································································stderr | src/__tests__/AppShell.settings-overlay.test.tsx > AppShell — Settings overlay + Command-K priority (J3) > there is no Rail component in the layout (U6: Rail deleted)
+TypeError: Cannot read properties of undefined (reading 'filter')
+    at SettingsOrgChart (/Users/tg/hyperidle/.worktrees/pipeline-AU32/layers/core-ui/src/settings/SettingsOrgChart.tsx:191:27)
+    at Object.react_stack_bottom_frame (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:25904:20)
+    at renderWithHooks (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:7662:22)
+    at updateFunctionComponent (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:10166:19)
+    at beginWork (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:11778:18)
+    at runWithFiberInDEV (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+    at performUnitOfWork (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:17641:22)
+    at workLoopSync (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:17469:41)
+    at renderRootSync (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:17450:11)
+    at performWorkOnRoot (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:16583:35) {
+  [stack]: [Getter/Setter],
+  [message]: "Cannot read properties of undefined (reading 'filter')"
+}
+
+The above error occurred in the <SettingsOrgChart> component.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary.
+
+[ErrorBoundary] caught render error {
+  message: "Cannot read properties of undefined (reading 'filter')",
+  componentStack: '\n' +
+    '    at SettingsOrgChart (/Users/tg/hyperidle/.worktrees/pipeline-AU32/layers/core-ui/src/settings/SettingsOrgChart.tsx:52:58)\n' +
+    '    at section (<anonymous>)\n' +
+    '    at div (<anonymous>)\n' +
+    '    at div (<anonymous>)\n' +
+    '    at div (<anonymous>)\n' +
+    '    at SettingsPage (<anonymous>)\n' +
+    '    at ErrorBoundary (/Users/tg/hyperidle/.worktrees/pipeline-AU32/layers/core-ui/src/components/ErrorBoundary.tsx:10:3)\n' +
+    '    at main (<anonymous>)\n' +
+    '    at div (<anonymous>)\n' +
+    '    at ToastRegion (/Users/tg/hyperidle/.worktrees/pipeline-AU32/layers/core-ui/src/shell/ToastRegion.tsx:33:24)\n' +
+    '    at AppShell (/Users/tg/hyperidle/.worktrees/pipeline-AU32/layers/core-ui/src/layouts/AppShell.tsx:93:56)\n' +
+    '    at RenderedRoute (file:///Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-router/dist/development/chunk-KS7C4IRE.mjs:6218:26)\n' +
+    '    at RenderErrorBoundary (file:///Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-router/dist/development/chunk-KS7C4IRE.mjs:6130:5)\n' +
+    '    at DataRoutes2 (file:///Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-router/dist/development/chunk-KS7C4IRE.mjs:6936:3)\n' +
+    '    at Router (file:///Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-router/dist/development/chunk-KS7C4IRE.mjs:7036:13)\n' +
+    '    at RouterProvider (file:///Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-router/dist/development/chunk-KS7C4IRE.mjs:6703:3)\n' +
+    '    at RouterProvider2 (<anonymous>)'
+}
+
+stderr | src/__tests__/AppShell.settings-overlay.test.tsx > AppShell — Settings overlay + Command-K priority (J3) > main-content is NOT aria-hidden when Settings is open (it shows settings content)
+TypeError: Cannot read properties of undefined (reading 'filter')
+    at SettingsOrgChart (/Users/tg/hyperidle/.worktrees/pipeline-AU32/layers/core-ui/src/settings/SettingsOrgChart.tsx:191:27)
+    at Object.react_stack_bottom_frame (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:25904:20)
+    at renderWithHooks (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:7662:22)
+    at updateFunctionComponent (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:10166:19)
+    at beginWork (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:11778:18)
+    at runWithFiberInDEV (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+    at performUnitOfWork (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:17641:22)
+    at workLoopSync (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:17469:41)
+    at renderRootSync (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:17450:11)
+    at performWorkOnRoot (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:16583:35) {
+  [stack]: [Getter/Setter],
+  [message]: "Cannot read properties of undefined (reading 'filter')"
+}
+
+The above error occurred in the <SettingsOrgChart> component.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary.
+
+[ErrorBoundary] caught render error {
+  message: "Cannot read properties of undefined (reading 'filter')",
+  componentStack: '\n' +
+    '    at SettingsOrgChart (/Users/tg/hyperidle/.worktrees/pipeline-AU32/layers/core-ui/src/settings/SettingsOrgChart.tsx:52:58)\n' +
+    '    at section (<anonymous>)\n' +
+    '    at div (<anonymous>)\n' +
+    '    at div (<anonymous>)\n' +
+    '    at div (<anonymous>)\n' +
+    '    at SettingsPage (<anonymous>)\n' +
+    '    at ErrorBoundary (/Users/tg/hyperidle/.worktrees/pipeline-AU32/layers/core-ui/src/components/ErrorBoundary.tsx:10:3)\n' +
+    '    at main (<anonymous>)\n' +
+    '    at div (<anonymous>)\n' +
+    '    at ToastRegion (/Users/tg/hyperidle/.worktrees/pipeline-AU32/layers/core-ui/src/shell/ToastRegion.tsx:33:24)\n' +
+    '    at AppShell (/Users/tg/hyperidle/.worktrees/pipeline-AU32/layers/core-ui/src/layouts/AppShell.tsx:93:56)\n' +
+    '    at RenderedRoute (file:///Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-router/dist/development/chunk-KS7C4IRE.mjs:6218:26)\n' +
+    '    at RenderErrorBoundary (file:///Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-router/dist/development/chunk-KS7C4IRE.mjs:6130:5)\n' +
+    '    at DataRoutes2 (file:///Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-router/dist/development/chunk-KS7C4IRE.mjs:6936:3)\n' +
+    '    at Router (file:///Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-router/dist/development/chunk-KS7C4IRE.mjs:7036:13)\n' +
+    '    at RouterProvider (file:///Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-router/dist/development/chunk-KS7C4IRE.mjs:6703:3)\n' +
+    '    at RouterProvider2 (<anonymous>)'
+}
+
+··stderr | src/__tests__/AppShell.settings-overlay.test.tsx > AppShell — Settings overlay + Command-K priority (J3) > Command-K pressed while Settings is open closes Settings and opens search
+TypeError: Cannot read properties of undefined (reading 'filter')
+    at SettingsOrgChart (/Users/tg/hyperidle/.worktrees/pipeline-AU32/layers/core-ui/src/settings/SettingsOrgChart.tsx:191:27)
+    at Object.react_stack_bottom_frame (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:25904:20)
+    at renderWithHooks (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:7662:22)
+    at updateFunctionComponent (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:10166:19)
+    at beginWork (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:11778:18)
+    at runWithFiberInDEV (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+    at performUnitOfWork (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:17641:22)
+    at workLoopSync (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:17469:41)
+    at renderRootSync (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:17450:11)
+    at performWorkOnRoot (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:16583:35) {
+  [stack]: [Getter/Setter],
+  [message]: "Cannot read properties of undefined (reading 'filter')"
+}
+
+The above error occurred in the <SettingsOrgChart> component.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary.
+
+[ErrorBoundary] caught render error {
+  message: "Cannot read properties of undefined (reading 'filter')",
+  componentStack: '\n' +
+    '    at SettingsOrgChart (/Users/tg/hyperidle/.worktrees/pipeline-AU32/layers/core-ui/src/settings/SettingsOrgChart.tsx:52:58)\n' +
+    '    at section (<anonymous>)\n' +
+    '    at div (<anonymous>)\n' +
+    '    at div (<anonymous>)\n' +
+    '    at div (<anonymous>)\n' +
+    '    at SettingsPage (<anonymous>)\n' +
+    '    at ErrorBoundary (/Users/tg/hyperidle/.worktrees/pipeline-AU32/layers/core-ui/src/components/ErrorBoundary.tsx:10:3)\n' +
+    '    at main (<anonymous>)\n' +
+    '    at div (<anonymous>)\n' +
+    '    at ToastRegion (/Users/tg/hyperidle/.worktrees/pipeline-AU32/layers/core-ui/src/shell/ToastRegion.tsx:33:24)\n' +
+    '    at AppShell (/Users/tg/hyperidle/.worktrees/pipeline-AU32/layers/core-ui/src/layouts/AppShell.tsx:93:56)\n' +
+    '    at RenderedRoute (file:///Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-router/dist/development/chunk-KS7C4IRE.mjs:6218:26)\n' +
+    '    at RenderErrorBoundary (file:///Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-router/dist/development/chunk-KS7C4IRE.mjs:6130:5)\n' +
+    '    at DataRoutes2 (file:///Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-router/dist/development/chunk-KS7C4IRE.mjs:6936:3)\n' +
+    '    at Router (file:///Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-router/dist/development/chunk-KS7C4IRE.mjs:7036:13)\n' +
+    '    at RouterProvider (file:///Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-router/dist/development/chunk-KS7C4IRE.mjs:6703:3)\n' +
+    '    at RouterProvider2 (<anonymous>)'
+}
+
+·····································································stderr | src/__tests__/router.test.tsx > Router (L9) > renders WorkBet page at /work/bet/:betId
+TypeError: Cannot read properties of undefined (reading 'trim')
+    at deriveInitials (/Users/tg/hyperidle/.worktrees/pipeline-AU32/layers/core-ui/src/utils/initials.ts:17:23)
+    at WorkBet (/Users/tg/hyperidle/.worktrees/pipeline-AU32/layers/core-ui/src/pages/WorkBet.tsx:986:27)
+    at Object.react_stack_bottom_frame (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:25904:20)
+    at renderWithHooks (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:7662:22)
+    at updateFunctionComponent (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:10166:19)
+    at beginWork (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:11778:18)
+    at runWithFiberInDEV (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+    at performUnitOfWork (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:17641:22)
+    at workLoopSync (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:17469:41)
+    at renderRootSync (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:17450:11) {
+  [stack]: [Getter/Setter],
+  [message]: "Cannot read properties of undefined (reading 'trim')"
+}
+
+The above error occurred in the <WorkBet> component.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary.
+
+[ErrorBoundary] caught render error {
+  message: "Cannot read properties of undefined (reading 'trim')",
+  componentStack: '\n' +
+    '    at WorkBet (/Users/tg/hyperidle/.worktrees/pipeline-AU32/layers/core-ui/src/pages/WorkBet.tsx:371:67)\n' +
+    '    at RenderedRoute (file:///Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-router/dist/development/chunk-KS7C4IRE.mjs:6218:26)\n' +
+    '    at Outlet (file:///Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-router/dist/development/chunk-KS7C4IRE.mjs:7027:26)\n' +
+    '    at div (<anonymous>)\n' +
+    '    at ErrorBoundary (/Users/tg/hyperidle/.worktrees/pipeline-AU32/layers/core-ui/src/components/ErrorBoundary.tsx:10:3)\n' +
+    '    at main (<anonymous>)\n' +
+    '    at div (<anonymous>)\n' +
+    '    at ToastRegion (/Users/tg/hyperidle/.worktrees/pipeline-AU32/layers/core-ui/src/shell/ToastRegion.tsx:33:24)\n' +
+    '    at AppShell (/Users/tg/hyperidle/.worktrees/pipeline-AU32/layers/core-ui/src/layouts/AppShell.tsx:93:56)\n' +
+    '    at RenderedRoute (file:///Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-router/dist/development/chunk-KS7C4IRE.mjs:6218:26)\n' +
+    '    at RenderErrorBoundary (file:///Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-router/dist/development/chunk-KS7C4IRE.mjs:6130:5)\n' +
+    '    at DataRoutes2 (file:///Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-router/dist/development/chunk-KS7C4IRE.mjs:6936:3)\n' +
+    '    at Router (file:///Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-router/dist/development/chunk-KS7C4IRE.mjs:7036:13)\n' +
+    '    at RouterProvider (file:///Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-router/dist/development/chunk-KS7C4IRE.mjs:6703:3)\n' +
+    '    at RouterProvider2 (<anonymous>)'
+}
+
+·································································································································································································································································································································stderr | src/__tests__/AE2-onboarding-autoopen.test.tsx > AE2 — AppShell ?onboarding=true auto-open > ?settings=open still triggers the settings overlay (not broken by AE2 changes)
+TypeError: Cannot read properties of undefined (reading 'filter')
+    at SettingsOrgChart (/Users/tg/hyperidle/.worktrees/pipeline-AU32/layers/core-ui/src/settings/SettingsOrgChart.tsx:191:27)
+    at Object.react_stack_bottom_frame (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:25904:20)
+    at renderWithHooks (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:7662:22)
+    at updateFunctionComponent (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:10166:19)
+    at beginWork (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:11778:18)
+    at runWithFiberInDEV (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:874:13)
+    at performUnitOfWork (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:17641:22)
+    at workLoopSync (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:17469:41)
+    at renderRootSync (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:17450:11)
+    at performWorkOnRoot (/Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-dom/cjs/react-dom-client.development.js:16583:35) {
+  [stack]: [Getter/Setter],
+  [message]: "Cannot read properties of undefined (reading 'filter')"
+}
+
+The above error occurred in the <SettingsOrgChart> component.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary.
+
+[ErrorBoundary] caught render error {
+  message: "Cannot read properties of undefined (reading 'filter')",
+  componentStack: '\n' +
+    '    at SettingsOrgChart (/Users/tg/hyperidle/.worktrees/pipeline-AU32/layers/core-ui/src/settings/SettingsOrgChart.tsx:52:58)\n' +
+    '    at section (<anonymous>)\n' +
+    '    at div (<anonymous>)\n' +
+    '    at div (<anonymous>)\n' +
+    '    at div (<anonymous>)\n' +
+    '    at SettingsPage (<anonymous>)\n' +
+    '    at ErrorBoundary (/Users/tg/hyperidle/.worktrees/pipeline-AU32/layers/core-ui/src/components/ErrorBoundary.tsx:10:3)\n' +
+    '    at main (<anonymous>)\n' +
+    '    at div (<anonymous>)\n' +
+    '    at ToastRegion (/Users/tg/hyperidle/.worktrees/pipeline-AU32/layers/core-ui/src/shell/ToastRegion.tsx:33:24)\n' +
+    '    at AppShell (/Users/tg/hyperidle/.worktrees/pipeline-AU32/layers/core-ui/src/layouts/AppShell.tsx:93:56)\n' +
+    '    at RenderedRoute (file:///Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-router/dist/development/chunk-KS7C4IRE.mjs:6218:26)\n' +
+    '    at RenderErrorBoundary (file:///Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-router/dist/development/chunk-KS7C4IRE.mjs:6130:5)\n' +
+    '    at DataRoutes2 (file:///Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-router/dist/development/chunk-KS7C4IRE.mjs:6936:3)\n' +
+    '    at Router (file:///Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-router/dist/development/chunk-KS7C4IRE.mjs:7036:13)\n' +
+    '    at RouterProvider (file:///Users/tg/hyperidle/.worktrees/pipeline-AU32/node_modules/react-router/dist/development/chunk-KS7C4IRE.mjs:6703:3)\n' +
+    '    at RouterProvider2 (<anonymous>)'
+}
+
+········································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································································x···································································································································································································································································································································································································································································stderr | src/__tests__/Dialog.test.tsx > AI2 — Dialog chrome (AC-1) > renders nothing when open=false
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+··········stderr | src/__tests__/Dialog.test.tsx > AI2 — Dialog chrome (AC-1) > renders a dialog element with role='dialog' when open=true
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Dialog.test.tsx > AI2 — Dialog chrome (AC-1) > renders the title text in the dialog header
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Dialog.test.tsx > AI2 — Dialog chrome (AC-1) > renders the children inside the dialog
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Dialog.test.tsx > AI2 — Dialog chrome (AC-1) > renders a close button (✕) in the header
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+············stderr | src/__tests__/Dialog.test.tsx > AI2 — Dialog chrome (AC-1) > clicking the close button calls onClose
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Dialog.test.tsx > AI2 — Dialog chrome (AC-1) > renders footer slot when footer prop is provided
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Dialog.test.tsx > AI2 — Dialog dismissal guard (AC-1) > dirty dialog: pressing Escape does NOT call onClose immediately (raises guard)
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Dialog.test.tsx > AI2 — Dialog dismissal guard (AC-1) > dirty dialog: after Escape the DiscardConfirmStrip is visible
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Dialog.test.tsx > AI2 — Dialog dismissal guard (AC-1) > clean dialog (isDirty=false): pressing Escape calls onClose immediately (confirmation rule §1.1)
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+·································stderr | src/__tests__/Dialog.test.tsx > AI2 — Dialog dismissal guard (AC-1) > guard strip: Keep editing button restores footer (cancelDiscard)
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Dialog.test.tsx > AI2 — Dialog dismissal guard (AC-1) > guard strip: Discard button calls onClose (confirmDiscard)
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Dialog.test.tsx > AI2 — Dialog portal mount (AC-1, D3) > Dialog portals into #overlay-root, not into its React host container
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Dialog.test.tsx > AI2 — Dialog portal mount (AC-1, D3) > #overlay-root is created as a sibling of #root under body (D3)
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Dialog.test.tsx > AI2 — Dialog focus behavior (AC-2) > focus moves into the dialog when open=true
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Dialog.test.tsx > AI2 — Dialog focus behavior (AC-2) > focus returns to the trigger element after dialog closes (AC-2 return-focus)
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Dialog.test.tsx > AI2 — Dialog mobile adaptation (AC-4) > dialog box carries a mobile-sheet indicator class or data attribute for CSS targeting
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Dialog.test.tsx > AI2 — Dialog guard strip keyboard discard path (§1.2) > guard strip: Keep editing button is the first focusable button in the strip
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Dialog.test.tsx > AI2 — Dialog guard strip keyboard discard path (§1.2) > guard strip: Discard is the second button (reachable via Tab)
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+············stderr | src/__tests__/block/payloads.test.tsx > Per-kind payload renderers > HeadingPayload renders the matching h-tag
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/block/payloads.test.tsx > Per-kind payload renderers > ParagraphPayload renders <p>
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+··stderr | src/__tests__/block/payloads.test.tsx > Per-kind payload renderers > ListPayload renders <ul> when ordered=false
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/block/payloads.test.tsx > Per-kind payload renderers > ListPayload renders <ol> when ordered=true
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/block/payloads.test.tsx > Per-kind payload renderers > QuotePayload renders <blockquote>
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/block/payloads.test.tsx > Per-kind payload renderers > CodePayload renders <pre><code> and is collapsible beyond 20 lines
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/block/payloads.test.tsx > Per-kind payload renderers > TablePayload renders <table> with sticky header markup
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/block/payloads.test.tsx > Per-kind payload renderers > DividerPayload renders <hr>
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/block/payloads.test.tsx > Per-kind payload renderers > ImagePayload renders <figure><img> with zoom indicator
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/block/payloads.test.tsx > Per-kind payload renderers > HtmlPayload renders sanitised HTML through the sanitizeHtml prop
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/block/payloads.test.tsx > Per-kind payload renderers > inline link XSS: post-derive+render DOM has no <a href='javascript:'>
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/block/payloads.test.tsx > Per-kind payload renderers > UnknownPayload renders the warn-stripe shell with reason text
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+··········stderr | src/__tests__/Menu.test.tsx > AG5 — Menu: rendering > renders null when open=false
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Menu.test.tsx > AG5 — Menu: rendering > renders role=menu container when open=true
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Menu.test.tsx > AG5 — Menu: rendering > role=menu container carries data-ds-component='Menu'
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Menu.test.tsx > AG5 — Menu: rendering > each item has role=menuitem
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Menu.test.tsx > AG5 — Menu: rendering > aria-label on the menu container matches the label prop
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Menu.test.tsx > AG5 — Menu: rendering > disabled item has aria-disabled='true'
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Menu.test.tsx > AG5 — Menu: rendering > clicking an item invokes its onSelect
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Menu.test.tsx > AG5 — Menu: rendering > clicking an item invokes onClose
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Menu.test.tsx > AG5 — Menu: Escape closes the menu > Escape key dispatched on document calls onClose
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Menu.test.tsx > AG5 — Menu: click-outside closes the menu > mousedown outside the menu container calls onClose
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Menu.test.tsx > AG5 — Menu: click-outside closes the menu > mousedown INSIDE the menu does NOT call onClose
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Menu.test.tsx > AG5 — Menu: keyboard navigation > ArrowDown moves focus to next item
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Menu.test.tsx > AG5 — Menu: keyboard navigation > ArrowUp moves focus to previous item
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Menu.test.tsx > AG5 — Menu: keyboard navigation > Home key moves focus to first item
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Menu.test.tsx > AG5 — Menu: keyboard navigation > End key moves focus to last item
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Menu.test.tsx > AG5 — Menu: keyboard navigation > Enter key invokes the focused item's onSelect
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Menu.test.tsx > AG5 — Menu: keyboard navigation > Space key invokes the focused item's onSelect
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Menu.test.tsx > AG5 — Menu: keyboard navigation > Tab key calls onClose
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Menu.test.tsx > AG5 — Menu: dataAttrs passthrough (C4) > bet item with dataAttrs emits literal data-bet-action attribute
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Menu.test.tsx > AG5 — Menu: dataAttrs passthrough (C4) > knowledge item with dataAttrs emits literal data-testid attribute
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Menu.test.tsx > AG5 — Menu: dataAttrs passthrough (C4) > multiple dataAttrs keys are all spread onto the item button
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Menu.test.tsx > AG5 — Menu: focus management (WARNING-A) > opening the menu focuses the first enabled menuitem
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+······················stderr | src/__tests__/Menu.test.tsx > AG5 — Menu: focus management (WARNING-A) > opening the menu skips disabled items and focuses the first enabled one
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Menu.test.tsx > AG5 — Menu: focus management (WARNING-A) > closing the menu restores focus to the previously-focused element
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Menu.test.tsx > AG5 — Menu: align prop > align="end" renders (default)
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Menu.test.tsx > AG5 — Menu: align prop > align="start" renders
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+··························································································stderr | src/__tests__/Block.test.tsx > <Block /> > DS markers (AC-32) > Block shell carries lowercase data-ds-component='block', data-ds-tier='2', data-ds-source='design-system'
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Block.test.tsx > <Block /> > DS markers (AC-32) > Block shell carries data-ds-kind matching payload.kind
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Block.test.tsx > <Block /> > DS markers (AC-32) > Block shell carries data-block-id matching the id prop
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Block.test.tsx > <Block /> > DS markers (AC-32) > PascalCase 'Block' MUST NOT appear in data-ds-component
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Block.test.tsx > <Block /> > Semantic HTML per kind (AC-29) > heading renders a <h2>
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+·····stderr | src/__tests__/Block.test.tsx > <Block /> > Semantic HTML per kind (AC-29) > paragraph renders a <p>
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Block.test.tsx > <Block /> > Semantic HTML per kind (AC-29) > list renders a <ul>
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Block.test.tsx > <Block /> > Semantic HTML per kind (AC-29) > quote renders a <blockquote>
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Block.test.tsx > <Block /> > Semantic HTML per kind (AC-29) > code renders a <pre>
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Block.test.tsx > <Block /> > Semantic HTML per kind (AC-29) > table renders a <table>
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Block.test.tsx > <Block /> > Semantic HTML per kind (AC-29) > divider renders a <hr>
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Block.test.tsx > <Block /> > Semantic HTML per kind (AC-29) > image renders a <figure>
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Block.test.tsx > <Block /> > Semantic HTML per kind (AC-29) > heading levels map to the right h1-h6 tag
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Block.test.tsx > <Block /> > Semantic HTML per kind (AC-29) > unknown renders the warn-stripe shell with reason text
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Block.test.tsx > <Block /> > Image alt text (AC-41) > preserves alt text
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Block.test.tsx > <Block /> > Image alt text (AC-41) > empty alt renders alt=''
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Block.test.tsx > <Block /> > HTML kind security (AC-49, AC-49a) > without sanitizeHtml, falls through to UnknownPayload — no dangerouslySetInnerHTML
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Block.test.tsx > <Block /> > HTML kind security (AC-49, AC-49a) > with a sanitizer that returns empty string, renders the unknown shell with reason 'sanitiser-stripped'
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Block.test.tsx > <Block /> > HTML kind security (AC-49, AC-49a) > with a sanitizer, calls it and renders the sanitised result
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Block.test.tsx > <Block /> > HTML kind security (AC-49, AC-49a) > malicious onerror attribute is not present in the rendered DOM when sanitizer strips it
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Block.test.tsx > <Block /> > Rejected list (AC-43, AC-44, AC-45, AC-46) > BlockHandle has no draggable / aria-grabbed / cursor-grab markers
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Block.test.tsx > <Block /> > Rejected list (AC-43, AC-44, AC-45, AC-46) > no J or K vim-style keyboard handlers move focus
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Block.test.tsx > <Block /> > Focus ring (AC-39) > Block shell is tabbable (tabindex='0')
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+··················stderr | src/__tests__/W2-primitives.test.tsx > W2 — Tier 0 primitive DOM markers (AC-3, AC-4) > Avatar renders with data-ds-component="Avatar"
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Tier 0 primitive DOM markers (AC-3, AC-4) > Avatar renders with data-ds-source="design-system"
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Tier 0 primitive DOM markers (AC-3, AC-4) > AvatarGroup renders with data-ds-component="AvatarGroup"
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Tier 0 primitive DOM markers (AC-3, AC-4) > AvatarGroup renders with data-ds-source="design-system"
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Tier 0 primitive DOM markers (AC-3, AC-4) > Button renders with data-ds-component="Button"
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Tier 0 primitive DOM markers (AC-3, AC-4) > Button renders with data-ds-source="design-system"
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Tier 0 primitive DOM markers (AC-3, AC-4) > Input renders with data-ds-component="Input"
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Tier 0 primitive DOM markers (AC-3, AC-4) > Input renders with data-ds-source="design-system"
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Tier 0 primitive DOM markers (AC-3, AC-4) > Select renders with data-ds-component="Select"
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Tier 0 primitive DOM markers (AC-3, AC-4) > Select renders with data-ds-source="design-system"
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Tier 0 primitive DOM markers (AC-3, AC-4) > Toggle renders with data-ds-component="Toggle"
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Tier 0 primitive DOM markers (AC-3, AC-4) > Toggle renders with data-ds-source="design-system"
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Tier 0 primitive DOM markers (AC-3, AC-4) > Checkbox renders with data-ds-component="Checkbox"
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Tier 0 primitive DOM markers (AC-3, AC-4) > Checkbox renders with data-ds-source="design-system"
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Tier 0 primitive DOM markers (AC-3, AC-4) > TabBar renders with data-ds-component="TabBar"
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Tier 0 primitive DOM markers (AC-3, AC-4) > TabBar renders with data-ds-source="design-system"
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Tier 0 primitive DOM markers (AC-3, AC-4) > Toast renders with data-ds-component="Toast"
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Tier 0 primitive DOM markers (AC-3, AC-4) > Toast renders with data-ds-source="design-system"
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+··················stderr | src/__tests__/W2-primitives.test.tsx > W2 — Tier 0 primitive DOM markers (AC-3, AC-4) > Progress renders with data-ds-component="Progress"
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Tier 0 primitive DOM markers (AC-3, AC-4) > Progress renders with data-ds-source="design-system"
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Avatar sizes (AC-3) > Avatar renders default size (md)
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Avatar sizes (AC-3) > Avatar renders sm size
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Avatar sizes (AC-3) > Avatar renders lg size
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Avatar sizes (AC-3) > Avatar agent variant renders
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — AvatarGroup small variant uses cloneElement (AC-3) > AvatarGroup with small=true renders all children avatars as smaller size
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Button variants (AC-3) > Button variant="primary" renders
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Button variants (AC-3) > Button variant="secondary" renders
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Button variants (AC-3) > Button variant="ghost" renders
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Button variants (AC-3) > Button variant="destructive" renders
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Button variants (AC-3) > Button variant="amber" renders
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Button variants (AC-3) > Button is a button element with type attribute
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Toast variants (AC-3) > Toast variant="success" renders
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Toast variants (AC-3) > Toast variant="error" renders
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Toast variants (AC-3) > Toast variant="warning" renders
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Toast variants (AC-3) > Toast variant="info" renders
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Progress variants (AC-3) > Progress renders with value=0
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Progress variants (AC-3) > Progress renders with value=100
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — Progress variants (AC-3) > Progress amber variant renders
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — TabBar variants (AC-3) > TabBar pill variant renders
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/W2-primitives.test.tsx > W2 — TabBar variants (AC-3) > TabBar underline variant renders
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+···························································stderr | src/__tests__/Select.ag5.test.tsx > AG5 — Select: native element assertion (C2 by-construction) > renders a native <select> element (keyboard parity by construction)
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Select.ag5.test.tsx > AG5 — Select: size prop > size="md" renders without error (default)
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Select.ag5.test.tsx > AG5 — Select: size prop > size="sm" renders without error
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Select.ag5.test.tsx > AG5 — Select: size prop > size="sm" and size="md" produce different class strings on the inner select
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Select.ag5.test.tsx > AG5 — Select: size prop > size="sm" and size="md" produce different class strings on the inner select
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Select.ag5.test.tsx > AG5 — Select: placeholder prop > renders a leading disabled option with value='' when placeholder is set
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Select.ag5.test.tsx > AG5 — Select: placeholder prop > does not render a placeholder option when placeholder is not set
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Select.ag5.test.tsx > AG5 — Select: options[].disabled > renders a disabled option when options[].disabled is true
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Select.ag5.test.tsx > AG5 — Select: options[].disabled > renders normal (non-disabled) options without disabled attribute
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Select.ag5.test.tsx > AG5 — Select: className forwarded to inner <select> (C3 width fix) > className='w-[88px]' is present on the inner <select>, not just the wrapper
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Select.ag5.test.tsx > AG5 — Select: className forwarded to inner <select> (C3 width fix) > className='w-[88px]' is NOT present on the wrapper div
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Select.ag5.test.tsx > AG5 — Select: className forwarded to inner <select> (C3 width fix) > className='w-full' is present on the inner <select>
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Select.ag5.test.tsx > AG5 — Select: className forwarded to inner <select> (C3 width fix) > without className, the inner <select> still has a width class (default full-width)
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Select.ag5.test.tsx > AG5 — Select: className forwarded to inner <select> (C3 width fix) > className='max-w-md' does NOT suppress the default w-full (WARNING-B regex fix)
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Select.ag5.test.tsx > AG5 — Select: className forwarded to inner <select> (C3 width fix) > className='min-w-[100px]' does NOT suppress the default w-full (WARNING-B regex fix)
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/Select.ag5.test.tsx > AG5 — Select: className forwarded to inner <select> (C3 width fix) > className='w-[88px]' DOES suppress the default w-full (caller width token wins)
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+···············stderr | src/__tests__/BlockActionsPopover.test.tsx > <BlockActionsPopover /> > AC-31: outermost element carries data-ds-component='block-actions-popover'
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/BlockActionsPopover.test.tsx > <BlockActionsPopover /> > AC-31: role='menu' on the popover and role='menuitem' on items
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/BlockActionsPopover.test.tsx > <BlockActionsPopover /> > AC-31: Esc closes the popover
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/BlockActionsPopover.test.tsx > <BlockActionsPopover /> > AC-31: clicking an item invokes onSelect
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/BlockActionsPopover.test.tsx > <BlockActionsPopover /> > AC-42: aria-live='polite' region exists for copy-success announcement
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+············stderr | src/__tests__/BlockActionsPopover.test.tsx > <BlockActionsPopover /> > AC-31: disabled items carry aria-disabled='true'
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+·······················stderr | src/__tests__/BlockActionsPopover.ag5.test.tsx > AG5 — BlockActionsPopover renders through Menu (C1) > the role=menu container carries data-ds-component='Menu' (Menu-owned)
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/BlockActionsPopover.ag5.test.tsx > AG5 — BlockActionsPopover renders through Menu (C1) > there is exactly one role=menu (no duplicate anatomy)
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/BlockActionsPopover.ag5.test.tsx > AG5 — BlockActionsPopover renders through Menu (C1) > block-actions-popover DS marker still present (wrapper identity preserved)
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/BlockActionsPopover.ag5.test.tsx > AG5 — BlockActionsPopover renders through Menu (C1) > aria-live polite region still present after refactor (copy-feedback preserved)
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/BlockActionsPopover.ag5.test.tsx > AG5 — BlockActionsPopover renders through Menu (C1) > items still render as role=menuitem through Menu
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+·····stderr | src/__tests__/BlockHandle.test.tsx > <BlockHandle /> > AC-30: carries data-ds-component='block-handle' (lowercase)
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/BlockHandle.test.tsx > <BlockHandle /> > AC-30: aria-expanded reflects open prop
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/BlockHandle.test.tsx > <BlockHandle /> > AC-30: aria-controls references the popover id
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/BlockHandle.test.tsx > <BlockHandle /> > AC-30: rendering includes a chevron-right SVG
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+···stderr | src/__tests__/BlockHandle.test.tsx > <BlockHandle /> > AC-30: clicking the handle invokes onOpen when closed
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/BlockHandle.test.tsx > <BlockHandle /> > AC-30: pressing Enter or Space opens the popover when closed
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/BlockHandle.test.tsx > <BlockHandle /> > AC-30: thread-count chip renders when threadCount > 0
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/BlockHandle.test.tsx > <BlockHandle /> > AC-46: no J/K vim handlers
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/BlockHandle.test.tsx > <BlockHandle /> > AC-45: no draggable / aria-grabbed / cursor-grab markers
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+········································stderr | src/__tests__/ds-attrs.test.ts > K2 — design-system DOM markers > KeyValue exposes data-ds-component / data-ds-tier="1" / data-ds-source="design-system"
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/ds-attrs.test.ts > K2 — design-system DOM markers > NavItem exposes data-ds-component / data-ds-tier="1" / data-ds-source="design-system"
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/ds-attrs.test.ts > K2 — design-system DOM markers > SearchField exposes data-ds-component / data-ds-tier="1" / data-ds-source="design-system"
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/ds-attrs.test.ts > K2 — design-system DOM markers > StatusChip exposes data-ds-component / data-ds-tier="1" / data-ds-source="design-system"
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/ds-attrs.test.ts > K2 — design-system DOM markers > Tag exposes data-ds-component / data-ds-tier="1" / data-ds-source="design-system"
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/ds-attrs.test.ts > K2 — design-system DOM markers > BetCard exposes data-ds-component / data-ds-tier="2" / data-ds-source="design-system"
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/ds-attrs.test.ts > K2 — design-system DOM markers > EmptyState exposes data-ds-component / data-ds-tier="2" / data-ds-source="design-system"
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/ds-attrs.test.ts > K2 — design-system DOM markers > ErrorState exposes data-ds-component / data-ds-tier="2" / data-ds-source="design-system"
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/ds-attrs.test.ts > K2 — design-system DOM markers > KnowledgeRow exposes data-ds-component / data-ds-tier="2" / data-ds-source="design-system"
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/ds-attrs.test.ts > K2 — design-system DOM markers > NotificationRow exposes data-ds-component / data-ds-tier="2" / data-ds-source="design-system"
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/ds-attrs.test.ts > K2 — design-system DOM markers > SkeletonCard exposes data-ds-component / data-ds-tier="2" / data-ds-source="design-system"
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/ds-attrs.test.ts > K2 — design-system DOM markers > SkeletonList exposes data-ds-component / data-ds-tier="2" / data-ds-source="design-system"
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/ds-attrs.test.ts > K2 — design-system DOM markers > TaskCard exposes data-ds-component / data-ds-tier="2" / data-ds-source="design-system"
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/ds-attrs.test.ts > K2 — design-system DOM markers > ThreadRow exposes data-ds-component / data-ds-tier="2" / data-ds-source="design-system"
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+··································stderr | src/__tests__/useDialogBehavior.test.tsx > AI2 — useDialogBehavior dismissal rule (AC-1) > clean dialog: requestDismiss calls onClose immediately
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/useDialogBehavior.test.tsx > AI2 — useDialogBehavior dismissal rule (AC-1) > clean dialog (isDirty omitted — defaults false): requestDismiss calls onClose
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/useDialogBehavior.test.tsx > AI2 — useDialogBehavior dismissal rule (AC-1) > dirty dialog: first requestDismiss does NOT call onClose; sets guarding=true
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/useDialogBehavior.test.tsx > AI2 — useDialogBehavior dismissal rule (AC-1) > dirty dialog: second requestDismiss while guarding calls cancelDiscard (Keep editing)
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/useDialogBehavior.test.tsx > AI2 — useDialogBehavior dismissal rule (AC-1) > confirmation dialog (isDirty=false always): requestDismiss always calls onClose (scenario 2)
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/useDialogBehavior.test.tsx > AI2 — useDialogBehavior dismissal rule (AC-1) > confirmDiscard: closes and calls onClose; clears guarding
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/useDialogBehavior.test.tsx > AI2 — useDialogBehavior dismissal rule (AC-1) > cancelDiscard: closes strip; does NOT call onClose
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/useDialogBehavior.test.tsx > AI2 — useDialogBehavior layer → zIndex (AC-3) > layer='dialog' (default) resolves zIndex to var(--z-dialog)
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/useDialogBehavior.test.tsx > AI2 — useDialogBehavior layer → zIndex (AC-3) > layer='drawer' resolves zIndex to var(--z-drawer)
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/useDialogBehavior.test.tsx > AI2 — useDialogBehavior layer → zIndex (AC-3) > layer='overlay' resolves zIndex to var(--z-overlay)
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/useDialogBehavior.test.tsx > AI2 — useDialogBehavior layer → zIndex (AC-3) > layer omitted (defaults to 'dialog'): zIndex is var(--z-dialog)
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/useDialogBehavior.test.tsx > AI2 — useDialogBehavior layer → zIndex (AC-3) > getOverlayProps returns role='dialog'
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/useDialogBehavior.test.tsx > AI2 — useDialogBehavior layer → zIndex (AC-3) > getOverlayProps returns aria-modal=true for modal (default)
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/useDialogBehavior.test.tsx > AI2 — useDialogBehavior layer → zIndex (AC-3) > getOverlayProps returns aria-modal=false for non-modal
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/useDialogBehavior.test.tsx > AI2 — useDialogBehavior layer → zIndex (AC-3) > getOverlayProps returns data-dialog-layer attribute matching the layer prop
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/useDialogBehavior.test.tsx > AI2 — useDialogBehavior layer → zIndex (AC-3) > data-dialog-layer='overlay' for layer='overlay'
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/useDialogBehavior.test.tsx > AI2 — useDialogBehavior modal=false (non-modal surfaces) > modal=false: getScrimProps returns null (no backdrop)
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/useDialogBehavior.test.tsx > AI2 — useDialogBehavior modal=false (non-modal surfaces) > modal=true (default): getScrimProps returns an object (not null)
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/useDialogBehavior.test.tsx > AI2 — useDialogBehavior modal=false (non-modal surfaces) > modal=true scrim has zIndex=var(--z-scrim)
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/__tests__/useDialogBehavior.test.tsx > AI2 — useDialogBehavior modal=false (non-modal surfaces) > modal=true scrim background uses var(--scrim) token
+An update to Root inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+····································································································································································teed-output
+after-detach
+·························································································································································································································································································································································································································································································[AH6] Cassette written: /var/folders/sr/wnvq_y611f9dvjf3tk9n389r0000gn/T/ah6-usage-test-IFJmPV/test.json (1 entries)
+[AH6] Usage report written: /var/folders/sr/wnvq_y611f9dvjf3tk9n389r0000gn/T/ah6-usage-test-IFJmPV/ah6-cost.json (150 tokens, model=deepseek/deepseek-v4-flash)
+[AH6] Cassette written: /var/folders/sr/wnvq_y611f9dvjf3tk9n389r0000gn/T/ah6-usage-test-MVimic/test.json (1 entries)
+[AH6] Usage report written: /var/folders/sr/wnvq_y611f9dvjf3tk9n389r0000gn/T/ah6-usage-test-MVimic/ah6-cost.json (150 tokens, model=deepseek/deepseek-v4-flash)
+[AH6] Cassette written: /var/folders/sr/wnvq_y611f9dvjf3tk9n389r0000gn/T/ah6-usage-test-MVimic/test.json (2 entries)
+[AH6] Usage report written: /var/folders/sr/wnvq_y611f9dvjf3tk9n389r0000gn/T/ah6-usage-test-MVimic/ah6-cost.json (300 tokens, model=deepseek/deepseek-v4-flash)
+[AH6] Cassette written: /var/folders/sr/wnvq_y611f9dvjf3tk9n389r0000gn/T/ah6-usage-test-q3u7o2/test.json (1 entries)
+[AH6] Usage report written: /var/folders/sr/wnvq_y611f9dvjf3tk9n389r0000gn/T/ah6-usage-test-q3u7o2/ah6-cost.json (15 tokens, model=deepseek/deepseek-v4-flash)
+[AH6] Cassette written: /var/folders/sr/wnvq_y611f9dvjf3tk9n389r0000gn/T/ah6-usage-test-whOKnV/test.json (1 entries)
+[AH6] Usage report written: /var/folders/sr/wnvq_y611f9dvjf3tk9n389r0000gn/T/ah6-usage-test-whOKnV/ah6-cost.json (8 tokens, model=deepseek/deepseek-v4-flash)
+[AH6] Cassette written: /var/folders/sr/wnvq_y611f9dvjf3tk9n389r0000gn/T/ah6-usage-test-kDKpyf/test.json (1 entries)
+[AH6] Usage report written: /var/folders/sr/wnvq_y611f9dvjf3tk9n389r0000gn/T/ah6-usage-test-kDKpyf/ah6-cost.json (8 tokens, model=deepseek/deepseek-v4-flash)
+[AH6] Cassette written: /var/folders/sr/wnvq_y611f9dvjf3tk9n389r0000gn/T/ah6-usage-test-dhRa9I/test.json (1 entries)
+[AH6] Usage report written: /var/folders/sr/wnvq_y611f9dvjf3tk9n389r0000gn/T/ah6-usage-test-dhRa9I/ah6-cost.json (150 tokens, model=deepseek/deepseek-v4-flash)
+[AH6] ABORT: Budget cap exceeded mid-run: 150 tokens > cap 10 tokens. Increase AH6_MAX_TOKENS or optimize the smoke prompt.
+··············································································································································································································stderr | src/__tests__/return-status-tool.test.ts > return_status tool > returns an error (not forceMessage) for an unknown sessionId
+[return-status-tool] unknown sessionId: unknown-session-xyz
+
+············································································································································································································································································stderr | src/__tests__/filesystem-provisioning.test.ts > mountFilesystemsForAgent reads the injected filesystems live at spawn > a failed mount is excluded from the result (degrade-to-today), not thrown
+[session-provisioning] AO2 mount failed for filesystem fs-inc12-fail: mount failed
+
+···························stderr | src/__tests__/context-assembly-prompt.test.ts > assemblePrompt > truncates the persona when persona + tools exceed the token budget
+2026-08-08T15:17:53.965Z WARN [server.agent-context-prompt] Persona + tools section exceeds 4000 tokens (6268). Truncating persona.
+
+·······································································stderr | src/__tests__/http-access-boundary.test.ts > failClosedAssertion > in production it does not throw — lint is the real gate
+2026-08-08T15:17:57.408Z ERROR [server.authz.assertion] [AF11] undeclared route boundary: GET /undeclared — add requireBoundary(...) to this route (Hard Rule 6) {"path":"/undeclared","method":"GET"}
+
+··········································································································································································································································································································································································································stderr | src/__tests__/observability-dispatcher.test.ts > ObservabilityDispatcher — enqueue / drain > records lastError when adapter throws and counts dropped batch
+2026-08-08T15:17:58.832Z WARN [observability.dispatcher] adapter record failed; dropping batch {"error":"network down","batchSize":1}
+
+········································································································································································································································································································································································································································································································································································································································································································································································
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |db| src/__tests__/governance-model.test.ts > AU28 — the decided rule set is intact > holds exactly the 124 decided rows with the decided totals
+AssertionError: expected 116 to be 114 // Object.is equality
+
+- Expected
++ Received
+
+- 114
++ 116
+
+ ❯ src/__tests__/governance-model.test.ts:178:43
+    176|   // Ruling 13 moved the two `db:table (other) [table:write]` rows fro…
+    177|   // the flat rule is replaced by the companion clause, which no row c…
+    178|   expect(count("development", "allowed")).toBe(114);
+       |                                           ^
+    179|   expect(count("development", "forbidden")).toBe(10);
+    180|  });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 561 passed (562)
+      Tests  1 failed | 6192 passed (6193)
+   Start at  17:14:42
+   Duration  265.18s (transform 27.69s, setup 158.98s, import 142.92s, tests 360.80s, environment 129.92s)
+

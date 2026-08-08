@@ -693,3 +693,271 @@ Governance: production **221 → 221** (untouched, and no production-world file 
 Test counts: unit 6203 − 1 (migrate seed test) + 3 (D9′) − 12 (the ratchet block: five top-level cases
 plus the seven-case `the baseline may only shrink` describe) = **6193**; service integration 2835 − 9 =
 **2826**. Supersedes the 6204 figure above.
+
+
+---
+
+## P20 — `decided-rules.json` does not decide 9 of the 31 live keys (round-5 N6, claim withdrawn)
+
+Round 4's §1e claimed the group key is "what `governance/decided-rules.json` already decides one row at a
+time", concluding that the unit of severity is the unit of decision. **False, measured:**
+
+```
+git grep -ci unowned governance/decided-rules.json     → 0 (no hits at all)
+rows: 124
+distinct targets (30): development file | layer (other) | service (same layer) | service (other layer)
+  | layer (own) | framework/shared | framework/api-contract | framework/design-system | db:row-type
+  | db:schema-ns | db:client | db:bootstrap | db:util | db:testing | db:unknown | framework/db
+  | db:table (own) | db:table (other) | layer | service | EventBus | framework | MCP router
+  | raw runtime | application | tooling | repo root | agent-orchestration | core-api | agent-execution
+```
+
+`db:table (unowned)` is **not a target in the decided set at all**, so the seven `db:table (unowned)` keys
+(91 violations) have no row; nor do `framework → db:table (other) [table:write]` and `[table:read]`
+(28 more). **9 of 31 keys, 119 of 221 violations, decided by model clauses rather than by decided rows.**
+The claim is dropped from §1e. The load-bearing half — the key is exactly `groupKey`'s output
+(`crossing-report.ts:72-73`) and exactly what each warn line prints (`crossings.ts:88`) — is verified and
+sufficient on its own. **The granularity choice and the flip set are unchanged.**
+
+## P21 — the NUL byte: where it is, whether it survives, and what else in the repo carries one
+
+`scripts/rules/crossings.ts:64` writes the site separator as a raw NUL inside a template literal
+(`` const siteKey = `${key}<NUL>${file}` ``). Consequence: `file scripts/rules/crossings.ts` → `data`, and
+ripgrep treats it as binary and skips it silently.
+
+Byte-level sweep of every tracked file under `scripts/`:
+
+```
+git ls-files scripts/ | while read f; do
+  n=$(LC_ALL=C tr -dc '\000' < "$f" | wc -c | tr -d ' ')
+  [ "$n" != "0" ] && echo "$f: $n NUL byte(s)"
+done
+→ scripts/rules/crossings.ts: 1 NUL byte(s)
+```
+
+**Exactly one NUL byte in the whole `scripts/` tree, and it is inside the `seenPerSite`/`isNewDebt` block
+(`crossings.ts:62-71`) that D7′ deletes outright.** So it does **not** survive the deletion: after T8/T9 no
+file under `scripts/` is ungreppable, the hazard is gone by construction, and **no delimiter replacement is
+needed or planned.**
+
+Repo-wide sweep of tracked files (perl, exact byte scan; image/binary extensions excluded from the report).
+Non-image tracked files carrying a NUL byte:
+
+| file | NUL bytes | in this work package's search list or edit set? |
+|---|---|---|
+| `scripts/rules/crossings.ts` | 1 | yes — removed by this change |
+| `framework/shared/src/blocks/block-id.ts` | 3 | no |
+| `framework/shared/src/__tests__/blocks/derive-blocks.test.ts` | 1 | no |
+| `layers/core-ui/src/layouts/AppShell.tsx` | 1 | no |
+
+(`.DS_Store` is also tracked and full of NULs — a separate hygiene finding.) The three files outside this
+work package are **reported, not fixed here**: a file no tool can search is a trap for every future agent,
+and the next agent should know which files ripgrep will lie about.
+
+## P22 — the residue search: measured blindness, and the form that is not blind
+
+Over AC-5′'s own file list (`scripts/ governance/ package.json docs/guides/developer/
+framework/db/src/__tests__/`), tokens `baselineRatchet|compareBaseline|refuseGrowth|--adopt|governance:baseline`:
+
+| form | hits | reports `scripts/rules/crossings.ts`? |
+|---|---|---|
+| `rg -n …` (as AC-5′ was written) | **39** | **no** |
+| `rg -na …` | 43 | yes |
+| `git grep -na …` | 43 | yes — output byte-identical to `rg -na` (diff empty) |
+
+The four invisible hits: `crossings.ts:12` (`import { compareBaseline, groupKey }`), `:105`
+(`export function baselineRatchet`), `:115` (`compareBaseline(baseline, liveGroups(…))`), `:119`
+(`npm run governance:baseline` in the failure message). **So the AC as written would have reported a clean
+closure today, with the ratchet fully intact.**
+
+Two further measured facts behind the fix:
+
+- **`governance/` was omitted from AC-5′'s second search**, and the `misplaced-files.json` note contains none
+  of the five original tokens. Both greps returned **zero hits on that file**. Adding `baseline.json` to the
+  token set is what reaches it (`git grep -na 'baseline\.json' -- governance/` → `misplaced-files.json:3`).
+- **`knip` does not gate the leaving exports.** `knip.json`'s root workspace: `entry: ["scripts/*.ts!",
+  "scripts/lib/**/*.ts!", "scripts/rules/**/*.ts!"]`, no `includeEntryExports`. Live proof: `RatchetVerdict`
+  (`crossing-report.ts:90-96`) is exported, read by nothing, and knip is green. A leftover
+  `refuseGrowth`/`compareBaseline` left defined-but-unused would pass knip **and** typecheck.
+
+## P23 — the bite proof's precondition, measured (round-5 N7)
+
+The companion clause credits the **whole file's** write set, so a `teams` insert in a file that already
+writes `teamMembers` produces nothing.
+
+**Round 5's measurement of this was wrong and the error made an unreachable branch look viable (round-6 N1).**
+It reported "all five development files that insert `teams`" — that was `framework/db/src/__tests__/` alone,
+one directory read as the whole development world. Re-measured across every development file:
+
+```
+git grep -l 'insert(teams)' -- '*__tests__*' | wc -l                        → 178
+git grep -l 'insert(teams)' | wc -l                                         → 192   (14 production)
+for f in $(git grep -l 'insert(teams)' -- '*__tests__*'); do
+  grep -q teamMembers "$f" || echo "NONE: $f"
+done                                                                        → (no output)
+```
+
+**178 development files insert `teams`, and zero of them fail to name `teamMembers`.** The five originally
+listed are the subset in `framework/db/src/__tests__/`
+(`artifacts.integration`, `foreign-keys.integration`, `governance-crossings`, `migration.integration`,
+`schema.integration` — 4, 11, 22, 2 and 6 `teamMembers` hits respectively).
+
+**Two consequences, in opposite directions.** (a) The conclusion is *stronger* than round 5 stated: the trap
+is universal, not confined to five files this work package happened to complete. (b) D12 item 3's "append to
+an existing fixture" fallback is **not a live option** — and the emptiness is provable rather than sampled.
+The eligible set is the files whose *write set* (own writes plus every development helper they import, per
+`buildWriteSets`) contains no `teamMembers`; that set is a **subset** of the files whose own text lacks
+`teamMembers`, because an imported helper can only add to a write set. The cheap grep-clean set is empty
+across all 178, so the eligible set is empty too. D12 now says so, and retains the branch only as the
+diagnosis for a builder who tries it and reads the resulting green lint as a failed flip.
+
+Grepping a candidate is insufficient on its own even where the set is non-empty: `writeSetOf` includes writes made
+through imported development helpers (`buildWriteSets`, `crossing-detectors.ts:484+`), which is how a
+`seedBase`-importing fixture launders a bare insert — e.g.
+`layers/core-api/knowledge/src/__tests__/knowledge-reader.integration.test.ts` inserts `knowledgeItems` and
+names `knowledgeAppProjection` **zero** times, yet is not a violation today.
+
+**Therefore the probe is a new file**, write set `{teams}` by construction. Verified that an untracked new
+file enters the census: `trackedFiles()` runs
+`git ls-files -z --cached --others --exclude-standard` (`scripts/governance-context.ts:152-159`), so no
+`git add` is needed. Detection is purely syntactic — `WRITE_OPS` on a property-access call with a resolvable
+table argument (`crossing-detectors.ts:798-810`) — so the probe needs no database handle and never runs.
+
+## P24 — D11's population, floor and flag set, measured (round-5 N3/N4)
+
+**Population** (tracked files under `governance/` plus the surviving governance CLI entry points):
+
+```
+git ls-files governance/  → README.md, architecture.json, baseline.json, decided-rules.json,
+                            misplaced-files.json, table-owners.json          (6 today)
+after the change          → the same minus baseline.json plus rule-severity.json (6)
+package.json governance CLI scripts → governance:baseline (deleted), governance:floors,
+                            governance:new-cells, plus governance-lint.ts via lint/lint:governance
+```
+
+→ **9 inputs after the change** (6 record files + 3 CLIs). `governance-context.ts` is a shared loader, not a
+CLI. `minScope: 8` (one below live; also survives the D13 branch, which would give 8). The earlier draft's
+"`minScope: 4`, against a live 5" is corrected: a floor of 4 against 9 permits losing five of nine inputs
+silently, the `au6` failure mode `minScope` exists to prevent (`governance-rules.ts:9-15`).
+
+**Flags.** `git grep -na -e '--' -- scripts/governance-floors.ts scripts/governance-new-cells.ts` → **zero
+lines in either file**; neither parses a flag. `governance-lint.ts` compares argv against exactly three:
+`--fixtures`, `--attacks`, `--errors-only` (`:303-307`). A **textual** `--…` scan of that file additionally
+matches `--quiet` in a comment about ESLint (`:30`) and the three usage-banner lines (`:23-25`) — so clause 4
+must read argv comparisons, not `--` text, or it fails on a sentence. Expected argv-comparison count today:
+**3**; a scan finding zero hard-fails.
+
+## P25 — the attack pass's severity, measured (round-5 N2, corrected)
+
+`buildRules` passes `severityOf: () => "error"` — but not for the reason round 5 gave. The `clean` control
+judgement (`governance-attacks.ts:851-857`) builds its report from **two** spreads: the first lists raw
+crossing violations for the control file **irrespective of severity** (`:853-854`), the second filters
+`f.severity === "error"` (`:855`). So a `warn`-keyed crossing on a clean control is **still** reported, and
+the specific weakening round 5 warned about is already blocked. The real reason to pin `() => "error"` is
+independence: wiring `loadRuleSeverity()` would make 47 break-test verdicts depend on a record file that
+three sibling work packages will edit. It is also the honest analogue of the deleted `EMPTY_BASELINE`'s own
+comment, "an overlaid tree has no debt, so the crossing rules judge it against nothing"
+(`governance-lint.ts:158-159`).
+
+## P26 — the live tree at the time of this revision
+
+```
+npx tsx scripts/governance-lint.ts
+governance-lint: PASS — 3311 tracked files (789 production, 2522 development), 33 packages,
+  8114 crossings, 18 rules, 221 production + 0 development known violation(s) at warn
+```
+
+Tracked-file count has moved three times across critique rounds (3309 → 3310 → 3311) with no change in
+substance, which is why D8′ now states the census effect as arithmetic — −2 deleted, +1
+`rule-severity.json`, +1 `no-per-file-allowances.ts`, rename net 0 → **net zero** — rather than as a
+transcribed pair of numbers. `MIN_TRACKED_FILES = 2976`.
+
+### P22a — the positive control, actually run
+
+The exact command D8′ specifies, on the live tree before any deletion. Both forms were run, because round 6
+added the eighth token and the AC publishes both numbers:
+
+```
+# round-5 seven-token form, re-run to confirm it still reproduces
+git grep -na -e baselineRatchet -e compareBaseline -e refuseGrowth -e 'governance:baseline' \
+  -e '\-\-adopt' -e 'baseline\.json' -e 'baseline-ratchet' \
+  -- scripts governance package.json docs/guides/developer framework/db/src/__tests__ \
+     .pipeline/AU.md .pipeline/work/AU29/plan.md .pipeline/work/AU30/plan.md .pipeline/work/AU31/plan.md
+→ 74 lines, 19 files   (siblings at AU29 5 / AU30 3 / AU31 3)
+
+# the canonical eight-token form the AC now specifies (+ shrink-only)
+… -e 'baseline-ratchet' -e 'shrink-only' -- <the same list>
+→ 78 lines, 20 files   (siblings at AU29 6 / AU30 4 / AU31 4)
+```
+
+The four lines the eighth token adds, and nothing else: `.pipeline/work/AU29/plan.md:33`,
+`AU30/plan.md:35`, `AU31/plan.md:35` (the promotion bullet, round-6 B4) and
+`framework/db/src/__tests__/governance-lint.test.ts:641` (the 20th file — the second record's own `describe`
+title, not baseline residue; see P26).
+
+The 20 files, each mapped to the closure row that removes or rewrites it — this mapping is the completeness
+check on D8′, and it closes:
+
+| file reported | closure row |
+|---|---|
+| `governance/baseline.json` | deleted outright |
+| `scripts/governance-baseline.ts` | deleted outright |
+| `scripts/governance-context.ts` | `loadBaseline`, the `Baseline` import, the `@lore` at `:9-11` |
+| `scripts/governance-lint.ts` | nine sites (imports, `EMPTY_BASELINE`, `alsoRegistered`, `ruleInput`, the call) |
+| `scripts/lib/crossing-report.ts` | six symbols, three `@lore` blocks, the banner, `:20` + `:71` doc comments, renamed |
+| `scripts/lib/governance-attacks.ts` | the import, `baseline-growth`, `alsoRegistered`, two comments, the ledger attack id |
+| `scripts/lib/governance-registry.ts` | the `@lore` at `:27-34` |
+| `scripts/rules/crossings.ts` | `baselineRatchet`, `liveGroups`, `input.baseline`, the `isNewDebt` block, the header |
+| `scripts/rules/misplacement-ledger.ts` | the three `@lore` blocks at `:10-27` **and** the `:85-86` comment |
+| `governance/misplaced-files.json` | the `note` (B1) — reached only because `baseline.json` joined the token set |
+| `governance/README.md` | `:27-31`, `:69-89`, `:91-108`, `:135-137` |
+| `package.json` | `:36` script entry |
+| `docs/guides/developer/commands.md` | `:69`, `:75` |
+| `docs/guides/developer/linting-and-formatting.md` | `:40`, `:41` |
+| `framework/db/src/__tests__/governance-crossings.test.ts` | `:2` header, the imports, `:689-842` |
+| `.pipeline/AU.md` | `:48`, `:50`, `:51`, `:52` |
+| `.pipeline/work/AU29/plan.md` | `:11` (one sentence), `:33` (the promotion bullet), `:34`, `:35`, `:50`, `:51` |
+| `.pipeline/work/AU30/plan.md` | `:35` (the promotion bullet), `:36`, `:51`, `:52` — plus `:28`, which **no token reaches** (P26) |
+| `.pipeline/work/AU31/plan.md` | `:35` (the promotion bullet), `:36`, `:51`, `:52` |
+| `framework/db/src/__tests__/governance-lint.test.ts` | `:641` `describe` title — **not baseline residue**; rewritten only if the founder approves D13, otherwise permitted residue named in the report |
+
+Nothing is reported that the closure does not cover, and nothing the closure covers is unreported — which is
+the property the AC needs and did not have.
+
+### P26 — which residue the search can reach, and which it provably cannot (round-6 B4)
+
+B4 and B1 are the same failure twice: a token set keyed to identifiers and filenames, over prose that names
+the mechanism by its *property*. The three sibling bullets say "The baseline is shrink-only" — no identifier,
+no filename, no npm script. So the honest question is which token would have caught them and whether it can
+still reach zero afterwards. Measured over AC-5′'s own file list:
+
+| candidate token | reaches the 3 bullets? | reaches `AU30:28`? | can "zero hits after" hold? |
+|---|---|---|---|
+| `shrink-only` (`-i`) | **yes** — `AU29:33`, `AU30:35`, `AU31:35` | no | **yes**, with one named D13-dependent exception |
+| `promot` (`-i`) | yes | **yes** | **no** — `.pipeline/AU.md:29` and `AU30/plan.md:7` state `AU30`'s rule aggregation correctly and must survive |
+| `ratchet` (`-i`) | no | yes | **no** — `scripts/typecheck-gate.ts` (unrelated debt ratchet) and `scripts/rules/misplacement-ledger.ts` (the second record, D13's) |
+| `no separate` | yes | no | **no** — `governance-model.test.ts:113` (Ruling 14 comment), `scripts/lib/typecheck-verdict.ts:75` |
+
+```
+git grep -nai 'shrink.only' -- <AC-5′ list>
+→ 6 lines / 6 files: AU.md:52 · AU29:33 · AU30:35 · AU31:35 · commands.md:75
+  · framework/db/src/__tests__/governance-lint.test.ts:641
+git grep -lai ratchet  -- <AC-5′ list>  → 10 files, incl. typecheck-gate.ts and misplacement-ledger.ts
+git grep -nai promot   -- <AC-5′ list>  → 11 lines, incl. AU.md:29 and AU30/plan.md:7
+```
+
+**Decision: `shrink-only` is added; `ratchet`, `promot` and `no separate` are not.** Five of the six
+`shrink-only` hits are already enumerated closure sites or go with a deleted file; the sixth
+(`governance-lint.test.ts:641`) is the second record's own `describe` title, true of it today, false only if
+D13 is approved — so it is either rewritten by D13's task or reported as permitted residue. Adding the other
+three tokens would require carving out **true** statements to reach zero, which is weaker evidence than a
+stated limit.
+
+**The stated limit: `.pipeline/work/AU30/plan.md:28` is reachable by no token in this set and by no addable
+one.** Its false clause is "so the ratchet records progress", and every token that finds the word `ratchet`
+also finds two live non-residue owners of it. That line is closed by enumeration (a row of D8′'s residue
+table) and by review (a step of T9b) — not by search, and the plan says so rather than implying the search
+covers it. Same for its second clause, which is **not** false: the group key carries no table name (verified —
+all seven live `db:table (unowned)` keys aggregate all six unowned tables), so "no rule promotes until the
+last one lands" is true of `AU30`'s table rules under the group-key grain, for the reason `AU30/plan.md:7`
+and `.pipeline/AU.md:29` already give. It is re-grounded, not deleted, and those two lines stay verbatim.

@@ -154,17 +154,26 @@
 			"T5 — ah1/ah5/ah6 test servers + eval runner through the db client factory (23eb1658)",
 			"T6 — dead seed test deleted, Ruling B (ec1b933b)",
 			"T7 — Ruling A relaxation: AI seam is production-only (27ccc8b8)",
-			"all 61 table-write sites clear; all 7 development rule groups clear"
+			"all 61 table-write sites clear; all 7 development rule groups clear",
+			"T8 — governance/rule-severity.json (31 production keys, all warn); RuleSeverity + loadRuleSeverity + readyToFlip; crossingRules onto severityOf(ruleKey) (D7′)",
+			"T9 — deletion closure: baseline.json + governance-baseline.ts deleted; baseline-ratchet/refuseGrowth/compareBaseline/liveGroups/Baseline/RatchetVerdict gone; crossing-report.ts -> crossing-keys.ts renamed, 5 importers updated; AttackTree.alsoRegistered removed; package.json script removed; 12 ratchet tests deleted from governance-crossings.test.ts; every @lore/comment naming the mechanism rewritten",
+			"T9b — residue sweep: misplaced-files.json note (4 baseline refs removed, resolvedFiles untouched — D13 still open), misplacement-ledger.ts:85-86 + header lore, attack id misplacement-ledger-ratchet -> misplacement-ledger-count, .pipeline/AU.md:48/50/51/52, AU29/AU30/AU31 plan.md lines per D8′'s exhaustive table (incl. AU30:28 re-grounded, not deleted)",
+			"T10 — no-per-file-allowances rule (closed governance/ set, severity-value shape, rule-key parse, argv-flag allowlist) + overlay attack pair + standalone shape-check attack; registered in both buildRules() and runLive()'s RULES (F1)",
+			"T11 — D9′ case 1 unchanged, case 2 rewritten onto severityOf, case 3 replaced with readyToFlip (observed red before T8's real impl, then green — evidence in probes/)",
+			"T12 — governance/README.md (shape table + severity dial section + misplaced-files section rewritten), linting-and-formatting.md, commands.md; full gate sweep green (see verdicts)",
+			"residue search: positive control 78/20 (crossings.ts 7, misplaced-files.json 1) before deletion; after closure = exactly 1 hit (governance-lint.test.ts:641, D13's, permitted) — both saved to probes/",
+			"bite proof: new layers/core-api/src/__tests__/au32-bite.probe.ts, insert(teams) only -> governance-lint exits 1 naming file:line, group ending development; probe deleted after — saved to probes/bite-proof.txt",
+			"test:full 6192 passed/1 failed (6193 total, matches plan's 6193 projection exactly); the 1 failure is framework/db/src/__tests__/governance-model.test.ts's decided-row count assertion (114 vs 116), confirmed pre-existing via git stash against the committed base — untouched by this strand",
+			"test:integration:service 2826 passed/4 skipped/0 failed — matches plan's 2826 projection exactly",
+			"test:integration:harness — same 7 pre-existing env-dependent files fail as P10's baseline (AL7-two-session-trust-first, AU9-assistant-handoff-realbinary, assistant-reply-live-harness, real-harness-return-enforcement-realbinary, AM2-builtin-gateway, AM2-real-harness-discovery, AN2-connection-provisioning); none touches a file this strand changed",
+			"npm run check clean (34/34 packages); npm run lint clean (biome + eslint + 3 governance passes, 49 attacks, 63 fixtures); knip and knip:production unaffected (byte-identical to pre-change baseline)"
 		],
 		"remaining": [
-			"T8 — declare severity: governance/rule-severity.json (31 production group keys at warn), RuleSeverity + loadRuleSeverity, crossingRules onto severityOf(ruleKey) (D7′)",
-			"T9 — the deletion closure: baseline.json, governance-baseline.ts, baseline-ratchet, --adopt, refuseGrowth/compareBaseline/liveGroups/Baseline types, alsoRegistered, the package.json script, 12 ratchet tests, the crossing-report.ts -> crossing-keys.ts rename and its 5 importers, every @lore/comment describing the mechanism (D8′)",
-			"T10 — the reintroduction guard: no-per-file-allowances rule + overlay break-test + standalone shape case (D11)",
-			"T11 — D9′'s three cases, including the anti-stale pin that fails if the stale-record check is rebuilt",
-			"T12 — docs (governance/README.md, linting-and-formatting.md:40-41, commands.md:69/75) + final gates: check, lint, test:all, the mandatory end-to-end bite proof, AC-5′ residue greps, count reconciliation against 6193/2826, production-unchanged proof",
 			"T13 — NOT AUTHORIZED: the misplaced-files.json count deletion, pending the founder decision in misplacement-ledger-decision.md"
 		],
-		"openFounderDecision": "governance/misplaced-files.json — its rule can emit a bookkeeping-only build failure (misplacement-ledger.ts:94-98). Recommendation: keep the four rows, delete resolvedFiles and both count branches, fold into this work package. See .pipeline/work/AU32/misplacement-ledger-decision.md",
-		"severityGranularity": "per architectural rule = the existing group key '<source> -> <target> [<kind>] <world>'; 31 warn entries, all production; absent = error. Per-rule-name alone rejected (8 of 9 crossing kinds dirty in production, 0 of 9 in development, so world-qualification is forced); per-(rule,world) rejected (4 of 8 production warn cells span 2-3 sibling work packages and hold 195 of 221 violations, so no sibling could flip anything until the last one landed)"
+		"openFounderDecision": "governance/misplaced-files.json — its rule can emit a bookkeeping-only build failure (misplacement-ledger.ts:94-98). Recommendation: keep the four rows, delete resolvedFiles and both count branches, fold into this work package. See .pipeline/work/AU32/misplacement-ledger-decision.md. NOT actioned this strand — D13 stays open.",
+		"severityGranularity": "per architectural rule = the existing group key '<source> -> <target> [<kind>] <world>'; 31 warn entries, all production; absent = error. Per-rule-name alone rejected (8 of 9 crossing kinds dirty in production, 0 of 9 in development, so world-qualification is forced); per-(rule,world) rejected (4 of 8 production warn cells span 2-3 sibling work packages and hold 195 of 221 violations, so no sibling could flip anything until the last one landed).",
+		"strandComplete": true,
+		"finalLint": "PASS — 221 production + 0 development known violation(s) at warn; six development rule groups confirmed at error (no severity entry); production rule-severity.json unchanged at 31 warn keys"
 	}
 }
