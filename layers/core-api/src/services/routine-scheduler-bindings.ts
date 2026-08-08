@@ -212,7 +212,12 @@ export function startRoutineScheduler(
 	agentOrchestration: AgentOrchestrationPort,
 	config: RoutineSchedulerConfig,
 ): ReturnType<typeof startRoutineSchedulerInternal> {
-	return startRoutineSchedulerInternal(db, eventBus, buildRoutineSchedulerPorts(agentOrchestration), config);
+	return startRoutineSchedulerInternal(
+		db,
+		eventBus,
+		buildRoutineSchedulerPorts(agentOrchestration),
+		config,
+	);
 }
 
 /** Bound wrapper — registers the `bet_state_changed` → post-bet-retro reaction. */
@@ -221,7 +226,11 @@ export function registerBuiltinRoutineReactions(
 	eventBus: EventBus,
 	agentOrchestration: AgentOrchestrationPort,
 ): () => void {
-	return registerBuiltinRoutineHandlers(db, eventBus, buildRoutineSchedulerPorts(agentOrchestration));
+	return registerBuiltinRoutineHandlers(
+		db,
+		eventBus,
+		buildRoutineSchedulerPorts(agentOrchestration),
+	);
 }
 
 export interface FireRoutineResult {

@@ -284,8 +284,7 @@ describe("G4: Built-in Routines", () => {
 			expect((row!.body ?? "").toLowerCase()).toContain("reality");
 		});
 
-		test("emits an item_created event", async ({ db, eventBus ,
-		agentOrchestration}) => {
+		test("emits an item_created event", async ({ db, eventBus, agentOrchestration }) => {
 			await seedOwners(db);
 			const emitted: DomainEvent[] = [];
 			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
@@ -503,8 +502,11 @@ describe("G4: Built-in Routines", () => {
 	// AC5: Knowledge Decay — transitions active items unused >90d to stale
 	// ------------------------------------------------------------------
 	describe("AC5: Knowledge Decay", () => {
-		test("marks active items older than 90 days as stale", async ({ db, eventBus ,
-		agentOrchestration}) => {
+		test("marks active items older than 90 days as stale", async ({
+			db,
+			eventBus,
+			agentOrchestration,
+		}) => {
 			await seedOwners(db);
 			await seedBuiltinRoutines(db);
 
@@ -579,8 +581,11 @@ describe("G4: Built-in Routines", () => {
 			expect(events).toHaveLength(0);
 		});
 
-		test("emits knowledge_updated events when routine.silent=0", async ({ db, eventBus ,
-		agentOrchestration}) => {
+		test("emits knowledge_updated events when routine.silent=0", async ({
+			db,
+			eventBus,
+			agentOrchestration,
+		}) => {
 			await seedOwners(db);
 			const emitted: DomainEvent[] = [];
 			eventBus.on("*", (e: DomainEvent) => emitted.push(e));
@@ -627,8 +632,11 @@ describe("G4: Built-in Routines", () => {
 			if (!result.fired) expect(result.reason).toContain("disabled");
 		});
 
-		test("event handler does not run when event routine active=0", async ({ db, eventBus ,
-		agentOrchestration}) => {
+		test("event handler does not run when event routine active=0", async ({
+			db,
+			eventBus,
+			agentOrchestration,
+		}) => {
 			await seedOwners(db);
 			await seedBuiltinRoutines(db);
 			await db.update(routines).set({ active: false }).where(eq(routines.id, BID.postBetRetro));
@@ -678,7 +686,7 @@ describe("built-ins are structurally unaffected by the drain-time selection move
 		db,
 		eventBus,
 		agentOrchestration,
-		}) => {
+	}) => {
 		await seedOwners(db);
 		await seedBuiltinRoutines(db);
 

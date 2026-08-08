@@ -156,7 +156,7 @@ describe("AF9 AC2: builtin:knowledge-promotion routine", () => {
 		db,
 		eventBus,
 		agentOrchestration,
-		}) => {
+	}) => {
 		await seedOwners(db);
 		await seedBuiltinRoutines(db, "prod-1");
 
@@ -188,7 +188,7 @@ describe("AF9 AC2: builtin:knowledge-promotion routine", () => {
 		db,
 		eventBus,
 		agentOrchestration,
-		}) => {
+	}) => {
 		await seedOwners(db);
 		await seedBuiltinRoutines(db, "prod-1");
 		await seedPromotionCandidates(db, "promo-runs");
@@ -216,7 +216,7 @@ describe("AF9 AC2: builtin:knowledge-promotion routine", () => {
 		db,
 		eventBus,
 		agentOrchestration,
-		}) => {
+	}) => {
 		await seedOwners(db);
 		await seedBuiltinRoutines(db, "prod-1");
 
@@ -244,7 +244,7 @@ describe("AF9 AC2: builtin:knowledge-promotion routine", () => {
 		db,
 		eventBus,
 		agentOrchestration,
-		}) => {
+	}) => {
 		await seedOwners(db);
 		await seedBuiltinRoutines(db, "prod-1");
 		const subjectId = await seedPromotionCandidates(db, "promo-emit");
@@ -268,7 +268,7 @@ describe("AF9 AC2: builtin:knowledge-promotion routine", () => {
 		db,
 		eventBus,
 		agentOrchestration,
-		}) => {
+	}) => {
 		await seedOwners(db);
 		await seedBuiltinRoutines(db, "prod-1");
 		await seedPromotionCandidates(db, "promo-idem");

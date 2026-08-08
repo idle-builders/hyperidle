@@ -152,13 +152,15 @@ export function registerAgentRunAdmissionReactions(
 		"agent_run_admission_failed",
 		(event: AgentRunAdmissionFailedEvent) => {
 			if (!event.terminal) return;
-			void reactToAdmissionFailure(db, eventBus, event, agentOrchestration).catch((error: unknown) => {
-				logger.error("agent_run_admission_failed reaction failed", {
-					kind: event.kind,
-					intentId: event.intentId,
-					error: error instanceof Error ? error.message : String(error),
-				});
-			});
+			void reactToAdmissionFailure(db, eventBus, event, agentOrchestration).catch(
+				(error: unknown) => {
+					logger.error("agent_run_admission_failed reaction failed", {
+						kind: event.kind,
+						intentId: event.intentId,
+						error: error instanceof Error ? error.message : String(error),
+					});
+				},
+			);
 		},
 	);
 

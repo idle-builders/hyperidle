@@ -22,7 +22,9 @@ import type { EventBus } from "@hyperidle/shared";
 import type { HyperIdleEnv } from "@hyperidle/shared/http";
 import type { Hono } from "hono";
 
-function createEvalAgentOrchestrationTransport(app: Hono<HyperIdleEnv>): AgentOrchestrationTransport {
+function createEvalAgentOrchestrationTransport(
+	app: Hono<HyperIdleEnv>,
+): AgentOrchestrationTransport {
 	return async (req: Request) => {
 		const url = new URL(req.url);
 		const target = new URL(`${url.pathname.replace(/^\/api/, "")}${url.search}`, url.origin);

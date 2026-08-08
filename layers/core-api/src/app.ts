@@ -388,9 +388,8 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 					"buildAgentOrchestrationPort(transport) and pass it explicitly (AU31 §3.2: no ambient transport).",
 			);
 		}
-		const defaultAgentWorkIntentRecorder = buildSeamBackedWorkIntentRecorder<HyperIdleDb>(
-			agentOrchestration,
-		);
+		const defaultAgentWorkIntentRecorder =
+			buildSeamBackedWorkIntentRecorder<HyperIdleDb>(agentOrchestration);
 
 		// @lore U2: `/products` URL renamed to `/teams` (domain rename: Product → Team).
 		// The old `createTeamsRoutes` (knowledge team_members listing) relocated to `/team-members`.
@@ -407,10 +406,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// `ServiceConnectionResolver`, which core-api no longer constructs) lives
 		// on agent-orchestration's app at byte-identical paths. See
 		// `routes/filesystems.ts`'s own top-of-file `@lore`.
-		api.route(
-			"/filesystems",
-			createFilesystemInjectionRoutes(options.db, agentOrchestration),
-		);
+		api.route("/filesystems", createFilesystemInjectionRoutes(options.db, agentOrchestration));
 		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus, agentOrchestration));
 		api.route("/team-members", createTeamMembersRoutes(options.db));
 		api.route("/settings", createSettingsRoutes(options.db, eventBus));
@@ -447,12 +443,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 			// boolean gate (see routes/sessions-routes.ts's removal note) — the
 			// composition root now computes that boolean directly instead of
 			// threading the whole harness-typed deps object into the route.
-			createSessionRoutes(
-				options.db,
-				eventBus,
-				Boolean(options.adapterPool),
-				agentOrchestration,
-			),
+			createSessionRoutes(options.db, eventBus, Boolean(options.adapterPool), agentOrchestration),
 		);
 		api.route("/status", createStatusRoutes(options.db));
 
@@ -500,8 +491,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 
 		const disposers: Array<() => void> = [];
 
-		const serviceDisposers =
-			options.serviceBootstrap?.({ db, eventBus, agentOrchestration }) ?? [];
+		const serviceDisposers = options.serviceBootstrap?.({ db, eventBus, agentOrchestration }) ?? [];
 		disposers.push(...serviceDisposers);
 
 		// AD5 AC-2: Auto-unblock dependent tasks when a task transitions to "done".

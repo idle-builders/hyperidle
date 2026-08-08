@@ -294,9 +294,7 @@ export function createAgentOrchestrationIntakeRoutes(
 	router.post(
 		"/runs/is-at-capacity",
 		requireBoundary({ kind: "public-data" }),
-		validateBody(
-			z.object({ agentId: z.string().min(1), maxConcurrentSessions: z.number() }),
-		),
+		validateBody(z.object({ agentId: z.string().min(1), maxConcurrentSessions: z.number() })),
 		async (c) => {
 			const { agentId, maxConcurrentSessions } = c.req.valid("json");
 			const atCapacity = await isAgentAtCapacity(db, agentId, {

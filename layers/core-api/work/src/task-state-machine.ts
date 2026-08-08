@@ -80,7 +80,11 @@ export async function transitionTask(
 	dispatchOccasion?: "accepted" | "retry",
 ): Promise<void> {
 	let pendingDispatch:
-		| { readonly attemptId: string; readonly bakedRequest: BakedWorkIntentRequest; readonly ownerAgentId: string }
+		| {
+				readonly attemptId: string;
+				readonly bakedRequest: BakedWorkIntentRequest;
+				readonly ownerAgentId: string;
+		  }
 		| undefined;
 	const transitioned = await db.transaction(
 		async (tx): Promise<{ fromState: TaskState } | null> => {

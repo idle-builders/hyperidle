@@ -126,7 +126,7 @@ describe("AF9 AC4: attention population on promotion sweep", () => {
 		db,
 		eventBus,
 		agentOrchestration,
-		}) => {
+	}) => {
 		await seedOwners(db);
 		await seedBuiltinRoutines(db, "prod-1");
 
@@ -165,7 +165,7 @@ describe("AF9 AC4: attention population on promotion sweep", () => {
 		db,
 		eventBus,
 		agentOrchestration,
-		}) => {
+	}) => {
 		await seedOwners(db);
 		await seedBuiltinRoutines(db, "prod-1");
 
@@ -216,7 +216,7 @@ describe("AF9 AC4: attention population on promotion sweep", () => {
 		db,
 		eventBus,
 		agentOrchestration,
-		}) => {
+	}) => {
 		await seedOwners(db);
 		await seedBuiltinRoutines(db, "prod-1");
 
@@ -261,7 +261,7 @@ describe("AF9 AC4: attention population on promotion sweep", () => {
 		db,
 		eventBus,
 		agentOrchestration,
-		}) => {
+	}) => {
 		await seedOwners(db);
 		await seedBuiltinRoutines(db, "prod-1");
 

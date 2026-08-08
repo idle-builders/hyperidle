@@ -700,9 +700,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	let realAgentOrchestrationTransport: AgentOrchestrationTransport | undefined;
 	const agentOrchestrationTransport: AgentOrchestrationTransport = async (req) => {
 		if (!realAgentOrchestrationTransport) {
-			throw new Error(
-				"AgentOrchestrationPort transport called before the composed app was built.",
-			);
+			throw new Error("AgentOrchestrationPort transport called before the composed app was built.");
 		}
 		return realAgentOrchestrationTransport(req);
 	};

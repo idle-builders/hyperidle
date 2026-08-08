@@ -1,4 +1,7 @@
-import type { AgentOrchestrationExplicitStartView, AgentOrchestrationPort } from "@hyperidle/api-contract";
+import type {
+	AgentOrchestrationExplicitStartView,
+	AgentOrchestrationPort,
+} from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { readServerConfig } from "@hyperidle/settings";
 import { type AgentWorkIntentEvent, API_ERROR_CODES, type EventBus } from "@hyperidle/shared";
@@ -51,7 +54,10 @@ async function projectExplicitStart(
 	agentOrchestration: AgentOrchestrationPort,
 ) {
 	if (start.status === "admitted" && start.sessionId) {
-		return projectExplicitStartOutcome(start, await agentOrchestration.sessions.getById(start.sessionId));
+		return projectExplicitStartOutcome(
+			start,
+			await agentOrchestration.sessions.getById(start.sessionId),
+		);
 	}
 	return projectExplicitStartOutcome(start, null);
 }
@@ -150,10 +156,7 @@ export function createSessionRoutes(
 						},
 						409,
 					);
-				let intent:
-					| { readonly id: string; readonly idempotencyKey: string }
-					| null
-					| undefined;
+				let intent: { readonly id: string; readonly idempotencyKey: string } | null | undefined;
 				if (!start) {
 					const startId = crypto.randomUUID();
 					// AU21 §6 Decision B: resolve + validate the session_start run AT

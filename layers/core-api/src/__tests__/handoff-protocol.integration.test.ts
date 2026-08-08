@@ -162,7 +162,7 @@ describe("Handoff Protocol", () => {
 			eventBus,
 			agentOrchestration,
 		}) => {
-		const handoff = buildProductionHandoff(agentOrchestration);
+			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
@@ -206,9 +206,12 @@ describe("Handoff Protocol", () => {
 	});
 
 	describe("AC2: Handoff by role", () => {
-		test("resolves toRole to available agent on same team", async ({ db, eventBus ,
-		agentOrchestration}) => {
-		const handoff = buildProductionHandoff(agentOrchestration);
+		test("resolves toRole to available agent on same team", async ({
+			db,
+			eventBus,
+			agentOrchestration,
+		}) => {
+			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "product_manager", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
@@ -231,9 +234,12 @@ describe("Handoff Protocol", () => {
 			expect(task?.ownerAgentId).toBe("agent-b");
 		});
 
-		test("creates escalation item when no agent with role available", async ({ db, eventBus ,
-		agentOrchestration}) => {
-		const handoff = buildProductionHandoff(agentOrchestration);
+		test("creates escalation item when no agent with role available", async ({
+			db,
+			eventBus,
+			agentOrchestration,
+		}) => {
+			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "product_manager", "t1");
 			// No builder agents exist
@@ -258,9 +264,12 @@ describe("Handoff Protocol", () => {
 			expect(escalationItems[0]!.title).toContain("builder");
 		});
 
-		test("excludes the handing-off agent from role resolution", async ({ db, eventBus ,
-		agentOrchestration}) => {
-		const handoff = buildProductionHandoff(agentOrchestration);
+		test("excludes the handing-off agent from role resolution", async ({
+			db,
+			eventBus,
+			agentOrchestration,
+		}) => {
+			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			// Agent A is also a builder -- should not hand off to itself
 			await insertAgent(db, "agent-a", "builder", "t1");
@@ -281,9 +290,12 @@ describe("Handoff Protocol", () => {
 	});
 
 	describe("AC3: Handoff to human", () => {
-		test("transitions task to blocked and creates review item", async ({ db, eventBus ,
-		agentOrchestration}) => {
-		const handoff = buildProductionHandoff(agentOrchestration);
+		test("transitions task to blocked and creates review item", async ({
+			db,
+			eventBus,
+			agentOrchestration,
+		}) => {
+			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertTask(db, "task-1", "in_progress", "agent-a");
@@ -313,9 +325,12 @@ describe("Handoff Protocol", () => {
 	});
 
 	describe("AC4: Thread message contains structured handoff metadata JSON", () => {
-		test("includes all required fields in the thread message body", async ({ db, eventBus ,
-		agentOrchestration}) => {
-		const handoff = buildProductionHandoff(agentOrchestration);
+		test("includes all required fields in the thread message body", async ({
+			db,
+			eventBus,
+			agentOrchestration,
+		}) => {
+			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
@@ -362,7 +377,7 @@ describe("Handoff Protocol", () => {
 			eventBus,
 			agentOrchestration,
 		}) => {
-		const handoff = buildProductionHandoff(agentOrchestration);
+			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
@@ -395,9 +410,8 @@ describe("Handoff Protocol", () => {
 	});
 
 	describe("AC6: Task audit trail shows full handoff history", () => {
-		test("logs handoff in task audit trail", async ({ db, eventBus ,
-		agentOrchestration}) => {
-		const handoff = buildProductionHandoff(agentOrchestration);
+		test("logs handoff in task audit trail", async ({ db, eventBus, agentOrchestration }) => {
+			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
@@ -423,9 +437,12 @@ describe("Handoff Protocol", () => {
 			expect(handoffEntry.timestamp).toBeDefined();
 		});
 
-		test("preserves existing audit entries when adding handoff", async ({ db, eventBus ,
-		agentOrchestration}) => {
-		const handoff = buildProductionHandoff(agentOrchestration);
+		test("preserves existing audit entries when adding handoff", async ({
+			db,
+			eventBus,
+			agentOrchestration,
+		}) => {
+			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
@@ -482,9 +499,8 @@ describe("Handoff Protocol", () => {
 			expect(task?.notes).toBe(agentProse);
 		});
 
-		test("tracks multiple handoffs in sequence", async ({ db, eventBus ,
-		agentOrchestration}) => {
-		const handoff = buildProductionHandoff(agentOrchestration);
+		test("tracks multiple handoffs in sequence", async ({ db, eventBus, agentOrchestration }) => {
+			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
@@ -527,7 +543,7 @@ describe("Handoff Protocol", () => {
 			eventBus,
 			agentOrchestration,
 		}) => {
-		const handoff = buildProductionHandoff(agentOrchestration);
+			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
@@ -587,7 +603,7 @@ describe("Handoff Protocol", () => {
 			eventBus,
 			agentOrchestration,
 		}) => {
-		const handoff = buildProductionHandoff(agentOrchestration);
+			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
@@ -641,7 +657,7 @@ describe("Handoff Protocol", () => {
 			eventBus,
 			agentOrchestration,
 		}) => {
-		const handoff = buildProductionHandoff(agentOrchestration);
+			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
@@ -692,7 +708,7 @@ describe("Handoff Protocol", () => {
 			eventBus,
 			agentOrchestration,
 		}) => {
-		const handoff = buildProductionHandoff(agentOrchestration);
+			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
@@ -779,9 +795,8 @@ describe("Handoff Protocol", () => {
 	});
 
 	describe("edge cases", () => {
-		test("throws when task not found", async ({ db, eventBus ,
-		agentOrchestration}) => {
-		const handoff = buildProductionHandoff(agentOrchestration);
+		test("throws when task not found", async ({ db, eventBus, agentOrchestration }) => {
+			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			const ctx = makeSessionContext("session-a", "agent-a", "nonexistent-task");
@@ -792,9 +807,8 @@ describe("Handoff Protocol", () => {
 			).rejects.toThrow("Task not found");
 		});
 
-		test("throws when target agent not found", async ({ db, eventBus ,
-		agentOrchestration}) => {
-		const handoff = buildProductionHandoff(agentOrchestration);
+		test("throws when target agent not found", async ({ db, eventBus, agentOrchestration }) => {
+			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertTask(db, "task-1", "in_progress", "agent-a");
@@ -818,7 +832,7 @@ describe("Handoff Protocol", () => {
 			eventBus,
 			agentOrchestration,
 		}) => {
-		const handoff = buildProductionHandoff(agentOrchestration);
+			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");
@@ -843,7 +857,7 @@ describe("Handoff Protocol", () => {
 			eventBus,
 			agentOrchestration,
 		}) => {
-		const handoff = buildProductionHandoff(agentOrchestration);
+			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			await insertAgent(db, "agent-a", "builder", "t1");
 			await insertAgent(db, "agent-b", "builder", "t1");

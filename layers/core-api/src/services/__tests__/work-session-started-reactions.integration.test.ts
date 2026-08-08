@@ -139,7 +139,7 @@ describe("registerWorkSessionStartedReactions", () => {
 		db,
 		eventBus,
 		agentOrchestration,
-		}) => {
+	}) => {
 		const { taskId, agentId } = await seedTaskAndAgent(db, "wssr-accepted", {
 			taskState: "accepted",
 		});
@@ -157,7 +157,7 @@ describe("registerWorkSessionStartedReactions", () => {
 		db,
 		eventBus,
 		agentOrchestration,
-		}) => {
+	}) => {
 		const { taskId, agentId } = await seedTaskAndAgent(db, "wssr-blocked", {
 			taskState: "blocked",
 		});
@@ -175,7 +175,7 @@ describe("registerWorkSessionStartedReactions", () => {
 		db,
 		eventBus,
 		agentOrchestration,
-		}) => {
+	}) => {
 		const { taskId, agentId } = await seedTaskAndAgent(db, "wssr-handoff", {
 			taskState: "in_progress",
 		});
@@ -194,7 +194,7 @@ describe("registerWorkSessionStartedReactions", () => {
 		db,
 		eventBus,
 		agentOrchestration,
-		}) => {
+	}) => {
 		const { taskId, agentId } = await seedTaskAndAgent(db, "wssr-idempotent", {
 			taskState: "accepted",
 		});
@@ -221,7 +221,7 @@ describe("registerWorkSessionStartedReactions", () => {
 		db,
 		eventBus,
 		agentOrchestration,
-		}) => {
+	}) => {
 		const { agentId } = await seedTaskAndAgent(db, "wssr-taskfree", { taskState: "accepted" });
 		await seedSession(db, "wssr-taskfree-session", { agentId });
 		registerWorkSessionStartedReactions(db, eventBus, agentOrchestration);

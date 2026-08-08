@@ -1,4 +1,12 @@
-import type { Bet, HyperIdleDb, NewItem, NewThread, Team, User, WriteExecutor } from "@hyperidle/db";
+import type {
+	Bet,
+	HyperIdleDb,
+	NewItem,
+	NewThread,
+	Team,
+	User,
+	WriteExecutor,
+} from "@hyperidle/db";
 import type {
 	BakedWorkIntentRequest,
 	EventBus,
