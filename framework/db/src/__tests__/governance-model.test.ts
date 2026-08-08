@@ -164,23 +164,27 @@ const label = (row: DecidedRow): string => `${row.source} → ${row.target} [${r
 // -------------------------------------------------------------------------------------------
 
 describe("AU28 — the decided rule set is intact", () => {
-	it("holds exactly the 124 decided rows with the decided totals", () => {
-		expect(decided.rows).toHaveLength(124);
-		expect(decided.totals.rows).toBe(124);
+	it("holds exactly the 121 decided rows with the decided totals", () => {
+		expect(decided.rows).toHaveLength(121);
+		expect(decided.totals.rows).toBe(121);
 		const count = (world: "production" | "development", verdict: string): number =>
 			decided.rows.filter((r) => r[world] === verdict).length;
 		// These four numbers are the founder's decisions. A regeneration that moves any of them has
 		// re-derived what was decided instead of reading it — that happened once and cost hours.
-		expect(count("production", "allowed")).toBe(68);
-		expect(count("production", "forbidden")).toBe(56);
+		expect(count("production", "allowed")).toBe(67);
+		expect(count("production", "forbidden")).toBe(54);
 		// Ruling 13 moved the two `db:table (other) [table:write]` rows from forbidden to allowed:
 		// the flat rule is replaced by the companion clause, which no row can express.
-		// AU32 Ruling A moved two more, `service -> raw runtime [capability]` and
+		// AU32 Ruling A (ruling14narrowing) moved two more, `service -> raw runtime [capability]` and
 		// `tooling -> raw runtime [capability]`, from development forbidden to allowed (the AI
-		// one-seam requirement narrows to production-only; production stays untouched) — that is
-		// the +2/-2 between this number and the one Ruling 13 left.
-		expect(count("development", "allowed")).toBe(116);
-		expect(count("development", "forbidden")).toBe(8);
+		// one-seam requirement narrows to production-only; production stays untouched): +2 allowed,
+		// -2 forbidden. AU29 (Ruling 12.3) separately deleted the three `db:util` rows — one
+		// development-allowed (`service -> db:util [import]`) and two development-forbidden
+		// (`layer`/`application -> db:util [import]`): -1 allowed, -2 forbidden. Combined against the
+		// pre-AU29/AU32 baseline (114 allowed / 10 forbidden): 114 + 2 - 1 = 115 allowed;
+		// 10 - 2 - 2 = 6 forbidden.
+		expect(count("development", "allowed")).toBe(115);
+		expect(count("development", "forbidden")).toBe(6);
 	});
 
 	it("has no duplicate rows", () => {
@@ -205,7 +209,7 @@ describe("AU28 — fifteen clauses derive all 248 decided verdicts", () => {
 				return `${label(row)} — decided ${row.production}, model says ${got.verdict} via ${got.clause}`;
 			});
 		expect(wrong).toEqual([]);
-		expect(checked, "the loop must actually iterate every decided row").toBe(124);
+		expect(checked, "the loop must actually iterate every decided row").toBe(121);
 	});
 
 	it("reproduces every development verdict", () => {
@@ -220,7 +224,7 @@ describe("AU28 — fifteen clauses derive all 248 decided verdicts", () => {
 				return `${label(row)} — decided ${row.development}, model says ${got.verdict} via ${got.clause}`;
 			});
 		expect(wrong).toEqual([]);
-		expect(checked, "the loop must actually iterate every decided row").toBe(124);
+		expect(checked, "the loop must actually iterate every decided row").toBe(121);
 	});
 
 	it("names a clause and a reason for every decision — no unexplained verdict", () => {

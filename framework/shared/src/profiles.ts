@@ -1,3 +1,17 @@
+/**
+ * @lore AU29: moved verbatim from `framework/db/src/profiles.ts`. This module
+ * resolves a deployment profile from a string/env var — no SQL, no schema, no
+ * connection — so it never belonged to the database package's surface (the
+ * `db:util` ANOMALY `governance/architecture.json` flagged since AU28).
+ *
+ * Only `resolveProfile` and `DeploymentProfile` are barrel-exported from
+ * `@hyperidle/shared` — the only symbols named outside this module
+ * (`applications/remote-server/src/create-server.ts`, `tools/setup/src/setup-cli.ts`).
+ * `PROFILE_DEFAULTS`, `ProfileDefaults`, `DbDriver`, `SandboxAdapterKind` and
+ * `ResolveOptions` stay module-level exports, reachable only by a relative
+ * import within this package — their only consumers are this module's own
+ * unit test and nothing else (repo-grep verified at architecture time).
+ */
 export type DeploymentProfile = "laptop" | "vps" | "cloud";
 
 export type DbDriver = "pglite" | "postgres";

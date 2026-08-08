@@ -22,11 +22,11 @@
  */
 
 import { listMessages, listThreads, searchConversations } from "@hyperidle/conversation";
-import { escapeLikePattern, type HyperIdleDb } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import { search as searchKnowledge } from "@hyperidle/knowledge";
 import { listTeams } from "@hyperidle/org";
 import type { ApiErrorResponse, EventBus } from "@hyperidle/shared";
-import { API_ERROR_CODES, deriveTitle } from "@hyperidle/shared";
+import { API_ERROR_CODES, deriveTitle, escapeLikePattern } from "@hyperidle/shared";
 import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";

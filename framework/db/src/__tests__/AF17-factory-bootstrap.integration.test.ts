@@ -12,10 +12,10 @@
  */
 
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
+import { readSystemPromptTemplateForRole } from "@hyperidle/shared";
 import { sql } from "drizzle-orm";
 import type { HyperIdleDb } from "../connection.js";
 import { applyFactoryBootstrap } from "../factory-bootstrap.js";
-import { readSystemPromptTemplateForRole } from "../system-prompt-templates.js";
 
 async function queryRows<T extends Record<string, unknown>>(
 	db: HyperIdleDb,

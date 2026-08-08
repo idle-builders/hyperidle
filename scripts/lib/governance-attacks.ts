@@ -124,6 +124,8 @@ export const ATTACK_ANCHORS = {
 	developmentDir: "layers/core-api/src/__tests__",
 	/** The database schema, for the unowned-table case. */
 	schemaModule: "framework/db/src/schema.ts",
+	/** The database package's own barrel, for the unmapped-module case. */
+	dbBarrel: "framework/db/src/index.ts",
 	/** A FRAMEWORK package's source root — the one role the bus host clause forbids from publishing. */
 	frameworkDir: "framework/db/src",
 	/** A manifest a cross-layer dependency can be added to. */
@@ -421,14 +423,17 @@ export const ATTACKS: readonly Attack[] = [
 	},
 	{
 		id: "reexport-narrow-surface",
-		detail: "a service barrel re-exporting a `db:util` symbol, whose audience is narrower than everyone",
+		detail:
+			"a layer barrel re-exporting a `framework/api-contract` symbol (reach: [layer]), whose audience is narrower than everyone" +
+			" — AU29 re-anchor: `db:util` (the previous anchor, `escapeLikePattern`) no longer exists, its exports having moved to " +
+			"`framework/shared` (reach: everyone), so the DB package has no narrow-reach surface left at all",
 		rules: ["no-laundered-re-exports"],
 		overlay: {
-			[`${a.serviceDir}/attack-reexport-util.ts`]: `export { escapeLikePattern } from "@hyperidle/db";\n`,
+			[`${a.layerDir}/attack-reexport-contract.ts`]: `export type { AuthMeResponse } from "@hyperidle/api-contract";\n`,
 		},
 		expect: {
 			sort: "finding",
-			file: `${a.serviceDir}/attack-reexport-util.ts`,
+			file: `${a.layerDir}/attack-reexport-contract.ts`,
 			ruleId: "no-laundered-re-exports",
 			messageContains: "reachable by a named audience",
 		},
@@ -448,10 +453,11 @@ export const ATTACKS: readonly Attack[] = [
 		detail: "the same narrow symbol IMPORTED and used, rather than re-exported, is not laundering",
 		rules: ["no-laundered-re-exports"],
 		overlay: {
-			[`${a.serviceDir}/attack-import-util.ts`]:
-				`import { escapeLikePattern } from "@hyperidle/db";\n` + `export const use = (s: string) => escapeLikePattern(s);\n`,
+			[`${a.layerDir}/attack-import-contract.ts`]:
+				`import type { AuthMeResponse } from "@hyperidle/api-contract";\n` +
+				`export type Wrapped = { readonly value: AuthMeResponse };\n`,
 		},
-		expect: { sort: "clean", file: `${a.serviceDir}/attack-import-util.ts` },
+		expect: { sort: "clean", file: `${a.layerDir}/attack-import-contract.ts` },
 	},
 
 	// --- regression locks on what already worked ----------------------------------------------
@@ -594,11 +600,18 @@ export const ATTACKS: readonly Attack[] = [
 	},
 	{
 		id: "undeclared-db-surface",
-		detail: "a deep import of a database module `architecture.json` does not name resolves to db:unknown, not to a guess",
+		detail:
+			"a barrel export of a database module `architecture.json` does not name resolves to db:unknown, not to a guess" +
+			" — AU29 re-anchor: the previous anchor (`readSystemPromptTemplate`, a real live unplaced symbol) was placed by " +
+			"AU29 itself, so this fabricates the same shape — a new module the registry does not name — on the post-AU29 tree",
 		rules: ["crossing-import"],
 		overlay: {
+			[`${a.frameworkDir}/attack-unmapped-module.ts`]: `export function attackUnmapped(): string {\n\treturn "unmapped";\n}\n`,
 			[`${a.serviceDir}/attack-deep-db-import.ts`]:
-				`import { readSystemPromptTemplate } from "@hyperidle/db";\nexport const read = readSystemPromptTemplate;\n`,
+				`import { attackUnmapped } from "@hyperidle/db";\nexport const read = attackUnmapped;\n`,
+		},
+		mutate: {
+			[a.dbBarrel]: (existing) => `${existing}export { attackUnmapped } from "./attack-unmapped-module.js";\n`,
 		},
 		expect: { sort: "violation", file: `${a.serviceDir}/attack-deep-db-import.ts`, groupKey: KEY.serviceUnknownSurface },
 	},

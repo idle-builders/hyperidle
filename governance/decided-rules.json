@@ -1,18 +1,18 @@
 {
 	"decidedRules": true,
-	"note": "The 124 verdicts the founder decided, role pair x crossing kind x world. This file is the ACCEPTANCE TEST for scripts/lib/governance-model.ts, not the implementation — the model must reproduce every row exactly. It is frozen: a row changes only by founder ruling.",
+	"note": "The 121 verdicts the founder decided, role pair x crossing kind x world. This file is the ACCEPTANCE TEST for scripts/lib/governance-model.ts, not the implementation — the model must reproduce every row exactly. It is frozen: a row changes only by founder ruling. AU29 deleted the three `db:util` rows (Ruling 12.3 — the surface's exports moved out of `framework/db`, so the surface itself no longer exists); no surviving row's verdict changed. AU32's Ruling A (ruling14narrowing below) separately flipped two `raw runtime [capability]` rows' development verdict from forbidden to allowed; the two changes are independent and both land here.",
 	"decidedAt": "2026-08-05",
 	"census": "4af3c0e6",
 	"instancesNote": "The `instances` counts are a snapshot at census 4af3c0e6 and are not asserted by anything. The verdicts are.",
 	"totals": {
-		"rows": 124,
+		"rows": 121,
 		"production": {
-			"allowed": 68,
-			"forbidden": 56
+			"allowed": 67,
+			"forbidden": 54
 		},
 		"development": {
-			"allowed": 114,
-			"forbidden": 10
+			"allowed": 115,
+			"forbidden": 6
 		},
 		"differ": 44
 	},
@@ -603,42 +603,6 @@
 			"instances": {
 				"production": 0,
 				"development": 1
-			}
-		},
-		{
-			"source": "layer",
-			"target": "db:util",
-			"kind": "import",
-			"scope": "general",
-			"production": "forbidden",
-			"development": "forbidden",
-			"instances": {
-				"production": 5,
-				"development": 0
-			}
-		},
-		{
-			"source": "service",
-			"target": "db:util",
-			"kind": "import",
-			"scope": "general",
-			"production": "allowed",
-			"development": "allowed",
-			"instances": {
-				"production": 4,
-				"development": 0
-			}
-		},
-		{
-			"source": "application",
-			"target": "db:util",
-			"kind": "import",
-			"scope": "general",
-			"production": "forbidden",
-			"development": "forbidden",
-			"instances": {
-				"production": 1,
-				"development": 0
 			}
 		},
 		{

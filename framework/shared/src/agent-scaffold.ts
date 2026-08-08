@@ -1,5 +1,6 @@
-import { AGENT_ROLE_CATALOG, defaultRoster, type UserRole } from "@hyperidle/shared";
+import { AGENT_ROLE_CATALOG, defaultRoster } from "./agent-roles.js";
 import { readSystemPromptTemplateForRole } from "./system-prompt-templates.js";
+import type { UserRole } from "./types.js";
 
 /**
  * AU21 §6 Decision F1 fold — `agent-selection`'s `resolveScaffoldSpecs` /
@@ -9,10 +10,17 @@ import { readSystemPromptTemplateForRole } from "./system-prompt-templates.js";
  * is selection but it seems this is similar to the task trigger — its a
  * very simple configuration part. Not sure if that's a service but if so
  * its a light one"): it is not a Service capability at all, just a plain
- * function. It folds into `@hyperidle/db` (which already owns
- * `system-prompt-templates.ts` and already depends on `@hyperidle/shared`
- * for the role catalog) rather than `@hyperidle/shared` itself (dependency
- * direction: `db` depends on `shared`, not the reverse).
+ * function.
+ *
+ * @lore AU29: moved from `framework/db/src/agent-scaffold.ts` into
+ * `framework/shared`. It folded into `@hyperidle/db` originally because that
+ * package already owned `system-prompt-templates.ts` and already depended on
+ * `@hyperidle/shared` — but this function touches no database (no SQL, no
+ * schema, no connection), which is exactly the `db:util` ANOMALY
+ * `governance/architecture.json` flagged since AU28. Now that
+ * `system-prompt-templates.ts` has moved to `framework/shared` too (same
+ * commit), this function's only import moves with it and both land in the
+ * package that actually describes them: pure string/config substrate.
  *
  * The unused `db`/`teamId`/`teamMembersId` fields are dropped from this
  * request shape — a genuine simplification (the old function never read

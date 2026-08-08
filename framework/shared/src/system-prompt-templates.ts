@@ -21,6 +21,13 @@ import * as path from "node:path";
  * disk but the catalog entry's `hasTemplate:true` was never backed by a
  * bootstrap seed), so `GET /api/agents/templates/assistant` has always been
  * a 404. Excluding it from the map preserves that 404 exactly.
+ *
+ * @lore AU29: moved verbatim from `framework/db/src/system-prompt-templates.ts`
+ * into `framework/shared` — this module performs no database access (it never
+ * had a `db:*` surface; `governance/architecture.json` deliberately did not
+ * name it, and it was one of the four symbols that fell to `db:unknown`). The
+ * cwd-relative `docs/` resolution and the closed allowlist map are unchanged
+ * — this IS the traversal defense; "improving" it is a regression, not a move.
  */
 export const SYSTEM_PROMPT_TEMPLATE_FILES: Readonly<Record<string, string>> = {
 	product_manager: "product-manager.md",
@@ -52,6 +59,14 @@ function stripFrontmatter(content: string): string {
  * and strip frontmatter. Returns null if the file does not exist (graceful
  * degradation — moved verbatim from `factory-bootstrap.ts`, name + signature
  * unchanged).
+ *
+ * @lore AU29 interim (architecture.md §2.3): stays barrel-exported from
+ * `@hyperidle/shared` ONLY until task D — `framework/db/src/factory-bootstrap.ts:192`
+ * still calls it (a cross-package import, so it cannot use the module-internal
+ * relative form) until task D dissolves that file into the two layer faces.
+ * Task D's successor calls `readSystemPromptTemplateForRole` instead and this
+ * export is removed then — its only OTHER caller is
+ * `readSystemPromptTemplateForRole` below (in-module-family, relative import).
  */
 export function readSystemPromptTemplate(docsRoot: string, filename: string): string | null {
 	const filePath = path.join(docsRoot, "system-prompts", filename);

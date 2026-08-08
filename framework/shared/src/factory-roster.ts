@@ -88,6 +88,34 @@ export interface FactoryRosterSpec {
  * the *initial state*
  * placed in the DB by bootstrap; post-creation evolution is out of AK6 scope.
  */
+/**
+ * @lore AU29: folded in from `framework/db/src/seed-fixtures.ts` (verbatim
+ * content) — this module already documents the display-name derivation
+ * above (`FactoryFacilitatorSpec`'s NOTE), and `factory-bootstrap.ts`'s only
+ * consumer of these constants was already a cross-package import into
+ * `@hyperidle/shared`'s roster vocabulary. `PRACTICE_COMMUNITIES` /
+ * `PracticeCommunity` stay module-internal (not barrel-exported) — their
+ * only use is typing this record; repo-grep at architecture time found zero
+ * external consumers.
+ *
+ * @lore AU26 G1: `FACILITATOR_TOOLS` was deleted with the `users.skills`
+ * column it was the only writer of. That column had zero production readers
+ * repo-wide (this seeder wrote it and nothing ever read it back), so it was
+ * DROPPED, not relocated — see migration 0055. If per-agent tool scoping is
+ * wanted again it is a new design, not a resurrection of this list.
+ */
+const PRACTICE_COMMUNITIES = ["build", "product", "growth", "ops", "facilitation"] as const;
+type PracticeCommunity = (typeof PRACTICE_COMMUNITIES)[number];
+
+/** Facilitator display name, by community of practice. */
+export const COMMUNITY_DISPLAY_NAMES: Record<PracticeCommunity, string> = {
+	build: "Build",
+	product: "Product",
+	growth: "Growth",
+	ops: "Ops",
+	facilitation: "Facilitation",
+};
+
 export const defaultFactoryRoster: FactoryRosterSpec = {
 	facilitators: [
 		{

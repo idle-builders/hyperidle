@@ -19,7 +19,7 @@ import * as crypto from "node:crypto";
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { type HyperIdleDb, resolveAgentScaffoldSpecs, sessions } from "@hyperidle/db";
+import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import {
 	ARTIFACT_KINDS,
 	ARTIFACT_VIEW_SHAPES,
@@ -39,6 +39,7 @@ import {
 	parseCron,
 	type RegisteredTool,
 	type ReviewPayload,
+	resolveAgentScaffoldSpecs,
 	SCOPE_KINDS,
 	SCOPES_REQUIRING_ID,
 	type ScopeKind,

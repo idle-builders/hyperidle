@@ -15,10 +15,10 @@
  * All ids use "demo-*" or "seed-product-1" prefixes to clearly identify them as fixtures.
  */
 
+import { readSystemPromptTemplateForRole } from "@hyperidle/shared";
 import { and, eq, inArray } from "drizzle-orm";
 import type { HyperIdleDb } from "./connection.js";
 import { agentRunConfig, bets, routines, tasks, teamMembers, teams, users } from "./schema.js";
-import { readSystemPromptTemplateForRole } from "./system-prompt-templates.js";
 
 /**
  * Seed a demo world for onboarding / development mode.

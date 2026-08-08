@@ -1,13 +1,13 @@
 import * as path from "node:path";
-import { defaultFactoryRoster } from "@hyperidle/shared";
+import {
+	COMMUNITY_DISPLAY_NAMES,
+	defaultFactoryRoster,
+	readSystemPromptTemplate,
+	SYSTEM_PROMPT_TEMPLATE_FILES,
+} from "@hyperidle/shared";
 import { and, eq, inArray } from "drizzle-orm";
 import type { HyperIdleDb } from "./connection.js";
 import { agentRunConfig, knowledgeAppProjection, knowledgeItems, users } from "./schema.js";
-import { COMMUNITY_DISPLAY_NAMES } from "./seed-fixtures.js";
-import {
-	readSystemPromptTemplate,
-	SYSTEM_PROMPT_TEMPLATE_FILES,
-} from "./system-prompt-templates.js";
 
 /**
  * AU26 G1 — write an agent's run config from a seeder.

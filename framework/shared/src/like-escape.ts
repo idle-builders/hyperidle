@@ -16,6 +16,12 @@
  * @lore I2 V4: previously `routes/knowledge.ts` built `\`%${q}%\`` from raw
  * input. A query of `_` matched every row (single-char wildcard) and `%`
  * matched every row (any sequence).
+ *
+ * @lore AU29: moved verbatim from `framework/db/src/like-escape.ts`. This
+ * function touches no database — no SQL, no schema, no connection — so it
+ * never belonged to the database package's surface (the `db:util` ANOMALY
+ * `governance/architecture.json` flagged since AU28). It is pure string
+ * substrate, which is exactly what `framework/shared` is for.
  */
 export function escapeLikePattern(s: string): string {
 	return s.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");

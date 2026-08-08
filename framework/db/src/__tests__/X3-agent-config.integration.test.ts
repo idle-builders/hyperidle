@@ -25,14 +25,11 @@
  */
 
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
+import { readSystemPromptTemplateForRole, SYSTEM_PROMPT_TEMPLATE_FILES } from "@hyperidle/shared";
 import { sql } from "drizzle-orm";
 import type { HyperIdleDb } from "../connection.js";
 import { seedDemoWorld } from "../demo-fixture.js";
 import { applyFactoryBootstrap } from "../factory-bootstrap.js";
-import {
-	readSystemPromptTemplateForRole,
-	SYSTEM_PROMPT_TEMPLATE_FILES,
-} from "../system-prompt-templates.js";
 
 async function queryRows<T extends Record<string, unknown>>(
 	db: HyperIdleDb,

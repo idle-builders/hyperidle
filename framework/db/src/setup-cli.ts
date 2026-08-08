@@ -1,10 +1,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { redactDbUrl } from "@hyperidle/shared";
+import { type DeploymentProfile, redactDbUrl, resolveProfile } from "@hyperidle/shared";
 import { seedDemoWorld } from "./demo-fixture.js";
 import { applyFactoryBootstrap } from "./factory-bootstrap.js";
-import { type DeploymentProfile, resolveProfile } from "./profiles.js";
 
 const Filename = typeof __filename === "string" ? __filename : fileURLToPath(import.meta.url);
 const Dirname = path.dirname(Filename);

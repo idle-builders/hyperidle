@@ -1,9 +1,4 @@
 export {
-	type AgentScaffoldRequest,
-	type AgentScaffoldSpec,
-	resolveAgentScaffoldSpecs,
-} from "./agent-scaffold.js";
-export {
 	createPgDb,
 	createPgliteDb,
 	createPostgresDb,
@@ -18,17 +13,7 @@ export {
 } from "./connection.js";
 export { seedDemoWorld } from "./demo-fixture.js";
 export { applyFactoryBootstrap } from "./factory-bootstrap.js";
-export { escapeLikePattern } from "./like-escape.js";
 export { applyMigrations, isDowngrade, type MigrationResult } from "./migrate.js";
-export {
-	type DbDriver,
-	type DeploymentProfile,
-	PROFILE_DEFAULTS,
-	type ProfileDefaults,
-	type ResolveOptions,
-	resolveProfile,
-	type SandboxAdapterKind,
-} from "./profiles.js";
 export * as schema from "./schema.js";
 export {
 	type AgentLifecycleInboxRow,
@@ -172,11 +157,6 @@ export {
 	users,
 } from "./schema.js";
 export { type RunSetupContext, type RunSetupIo, runSetup } from "./setup-cli.js";
-export {
-	readSystemPromptTemplate,
-	readSystemPromptTemplateForRole,
-	SYSTEM_PROMPT_TEMPLATE_FILES,
-} from "./system-prompt-templates.js";
 // @lore AU28 Ruling 9: `createTestDb` / `warmPool` / `closeAllInstances` /
 // `TestDbHandle` used to be exported from this production barrel. That is one of the
 // breaches the founder named which "no folder convention would have caught" — a
