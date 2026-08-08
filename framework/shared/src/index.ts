@@ -564,7 +564,10 @@ export {
 // database access). `readSystemPromptTemplate` is module-internal — its only
 // caller was `factory-bootstrap.ts` (deleted, task D); everything else calls
 // `readSystemPromptTemplateForRole`. ──
-export { readSystemPromptTemplateForRole, SYSTEM_PROMPT_TEMPLATE_FILES } from "./system-prompt-templates.js";
+export {
+	readSystemPromptTemplateForRole,
+	SYSTEM_PROMPT_TEMPLATE_FILES,
+} from "./system-prompt-templates.js";
 export {
 	canTransitionTaskState,
 	TASK_STATE_TRANSITIONS,
