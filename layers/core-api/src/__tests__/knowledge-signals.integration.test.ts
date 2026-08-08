@@ -4,8 +4,8 @@
  * @lore O2: Knowledge routes rewritten — layer-based URLs removed.
  * GET /api/knowledge returns all items with computed signals from access log.
  */
-import { knowledgeItems } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
+import { seedKnowledgeItem } from "./_helpers.js";
 
 const TEST_API_KEY = "test-key-l22-signals";
 
@@ -33,14 +33,12 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 		app,
 	}) => {
 		// @lore O2: knowledgeItems no longer has layer/scopeId/kind/meta columns.
-		await db.insert(knowledgeItems).values({
+		await seedKnowledgeItem(db, {
 			id: "item-l22-1",
 			topic: "testing",
 			title: "Item item-l22-1",
 			body: "Test body",
-			format: "markdown",
 			status: "active",
-			version: 1,
 			updatedBy: "human",
 			createdAt: NOW_ISO,
 			updatedAt: NOW_ISO,
@@ -64,14 +62,12 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 		db,
 		app,
 	}) => {
-		await db.insert(knowledgeItems).values({
+		await seedKnowledgeItem(db, {
 			id: "item-l22-2",
 			topic: "testing",
 			title: "Item item-l22-2",
 			body: "Test body",
-			format: "markdown",
 			status: "active",
-			version: 1,
 			updatedBy: "human",
 			createdAt: NOW_ISO,
 			updatedAt: NOW_ISO,
@@ -109,14 +105,12 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 		db,
 		app,
 	}) => {
-		await db.insert(knowledgeItems).values({
+		await seedKnowledgeItem(db, {
 			id: "item-l22-3",
 			topic: "testing",
 			title: "Item item-l22-3",
 			body: "Test body",
-			format: "markdown",
 			status: "active",
-			version: 1,
 			updatedBy: "human",
 			createdAt: NOW_ISO,
 			updatedAt: NOW_ISO,
@@ -142,14 +136,12 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 
 	// citationCount is always null in L22 (staged) — AC-3
 	test("citationCount is always null on signals (citation staged — AC-3)", async ({ db, app }) => {
-		await db.insert(knowledgeItems).values({
+		await seedKnowledgeItem(db, {
 			id: "item-l22-4",
 			topic: "testing",
 			title: "Item item-l22-4",
 			body: "Test body",
-			format: "markdown",
 			status: "active",
-			version: 1,
 			updatedBy: "human",
 			createdAt: NOW_ISO,
 			updatedAt: NOW_ISO,
@@ -175,14 +167,12 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 
 	// Items with access data have non-null accessCount30d
 	test("items with access data have non-null accessCount30d", async ({ db, app }) => {
-		await db.insert(knowledgeItems).values({
+		await seedKnowledgeItem(db, {
 			id: "item-l22-5",
 			topic: "testing",
 			title: "Item item-l22-5",
 			body: "Test body",
-			format: "markdown",
 			status: "active",
-			version: 1,
 			updatedBy: "human",
 			createdAt: NOW_ISO,
 			updatedAt: NOW_ISO,

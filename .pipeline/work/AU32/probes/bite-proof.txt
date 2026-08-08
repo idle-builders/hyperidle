@@ -1,0 +1,46 @@
+
+  ── development · 1 finding(s)
+  ERROR  [crossing-table-write] layers/core-api/src/__tests__/au32-bite.probe.ts:3: layer → db:table (other) [table:write] development — `insert(teams)` — writes the table. writing teams without teamMembers builds a state production cannot produce — org always writes them together
+  (225 warning(s) hidden by --errors-only)
+
+  known violations — the migration surface, by world
+
+  PRODUCTION — 221 violation(s) across 65 file(s), 31 rule group(s)
+       36   24 file(s)  layer → service (other layer) [import]
+       25   18 file(s)  service → db:table (unowned) [table:write]
+       20   20 file(s)  service → db:table (unowned) [import]
+       18   14 file(s)  service → db:table (unowned) [table:read]
+       16    5 file(s)  layer → db:table (unowned) [table:read]
+       15    3 file(s)  application → service [import]
+       15    2 file(s)  framework → db:table (other) [table:write]
+       12    1 file(s)  application → service [manifest]
+        9    8 file(s)  service → service (other layer) [di]
+        7    2 file(s)  layer → service (other layer) [manifest]
+        6    6 file(s)  layer → db:table (unowned) [import]
+        6    5 file(s)  layer → db:util [import]
+        4    2 file(s)  service → db:table (other) [table:write]
+        4    3 file(s)  layer → db:table (unowned) [table:write]
+        3    3 file(s)  service → db:table (other) [import]
+        3    2 file(s)  service → db:table (other) [table:read]
+        2    2 file(s)  application → application [import]
+        2    2 file(s)  layer → layer (other) [manifest]
+        2    2 file(s)  application → service [di]
+        2    2 file(s)  service → layer (other) [di]
+        2    2 file(s)  framework → EventBus [event]
+        2    2 file(s)  framework → db:table (other) [table:read]
+        2    2 file(s)  framework → db:table (unowned) [table:write]
+        1    1 file(s)  application → db:util [import]
+        1    1 file(s)  layer → layer (other) [import]
+        1    1 file(s)  layer → db:unknown [import]
+        1    1 file(s)  layer → db:table (other) [import]
+        1    1 file(s)  framework → layer [di]
+        1    1 file(s)  service → agent-execution [api]
+        1    1 file(s)  application → MCP router [mcp]
+        1    1 file(s)  service → MCP router [mcp]
+
+  NOTE  3 database symbol(s) fall to db:unknown:
+          readSystemPromptTemplate — re-exported from ./system-prompt-templates.ts, a module governance/architecture.json does not name
+          readSystemPromptTemplateForRole — re-exported from ./system-prompt-templates.ts, a module governance/architecture.json does not name
+          SYSTEM_PROMPT_TEMPLATE_FILES — re-exported from ./system-prompt-templates.ts, a module governance/architecture.json does not name
+
+governance-lint: FAIL — 1 error(s). 3315 tracked files (789 production, 2526 development), 33 packages, 8118 crossings, 18 rules, 221 production + 0 development known violation(s) at warn.

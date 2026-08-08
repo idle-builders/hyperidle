@@ -1057,7 +1057,7 @@
 			"kind": "capability",
 			"scope": "general",
 			"production": "forbidden",
-			"development": "forbidden",
+			"development": "allowed",
 			"instances": {
 				"production": 0,
 				"development": 0
@@ -1069,7 +1069,7 @@
 			"kind": "capability",
 			"scope": "general",
 			"production": "forbidden",
-			"development": "forbidden",
+			"development": "allowed",
 			"instances": {
 				"production": 0,
 				"development": 1
@@ -1509,5 +1509,6 @@
 		}
 	],
 	"ruling13": "2026-08-05 — the flat `no foreign table writes in tests` rule is replaced by the companion rule. Measured: 63% of its 2,016 sites would have routed through a function that is literally `insert(X).values(v)`; 6% had no owner at all. The 31% that mattered were owners writing two rows in one call. Development violations: 2,022 -> 125.",
-	"ruling14": "2026-08-06 — `raw runtime` and `harness` were two targets for one act: a model or agent call that does not go through agent-execution. The split was a detector detail (an import vs a process spawn) that leaked into the rule vocabulary, and it had already produced a contradiction — production forbade both under the same rationale while the development relaxation held only `raw runtime`, so a test importing the OpenAI SDK was blocked and a test spawning `claude` was waved through the same door. There was no `service -> harness` row at all, so the founder was never asked. They collapse into ONE target, `raw runtime`, forbidden in BOTH worlds outside the owner. Rows 125 -> 124: `harness-registry -> harness [capability]` and `harness-registry -> raw runtime [capability]` were the same allowed/allowed verdict and merged into one row. NO OTHER VERDICT MOVES."
+	"ruling14": "2026-08-06 — `raw runtime` and `harness` were two targets for one act: a model or agent call that does not go through agent-execution. The split was a detector detail (an import vs a process spawn) that leaked into the rule vocabulary, and it had already produced a contradiction — production forbade both under the same rationale while the development relaxation held only `raw runtime`, so a test importing the OpenAI SDK was blocked and a test spawning `claude` was waved through the same door. There was no `service -> harness` row at all, so the founder was never asked. They collapse into ONE target, `raw runtime`, forbidden in BOTH worlds outside the owner. Rows 125 -> 124: `harness-registry -> harness [capability]` and `harness-registry -> raw runtime [capability]` were the same allowed/allowed verdict and merged into one row. NO OTHER VERDICT MOVES.",
+	"ruling14narrowing": "2026-08-08 — the one-runtime-door requirement is narrowed to the production world: calls being recorded, priced, replayable and provider-agnostic are properties the shipped product must have, not development tooling. `service -> raw runtime [capability]` and `tooling -> raw runtime [capability]` flip development from forbidden to allowed; production is untouched (still forbidden, still guarded by `hold-one-runtime-door`). Row count stays 124 — no rows added, removed, or merged."
 }

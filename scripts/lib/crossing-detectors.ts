@@ -32,8 +32,8 @@ import type { Census, WorkspacePackage } from "./repo-census.js";
  * `package.json`). The second resolved to the repo-root actor, which `architecture.json` declares a
  * COMPOSITION ROOT, so `layers/rogue/src/backdoor.ts` could import across every layer and be
  * adjudicated allowed, while the AST detectors skipped it entirely and it could write any table it
- * liked. A baseline entry for that would be nonsense — the census would be forgiving a hole in
- * itself — so it throws, like every sibling census misconfiguration already does.
+ * liked. Recording that as a known violation would be nonsense — the census would be forgiving a hole
+ * in itself — so it throws, like every sibling census misconfiguration already does.
  */
 export class UnclaimedProductionFileError extends Error {
 	constructor(readonly file: string) {

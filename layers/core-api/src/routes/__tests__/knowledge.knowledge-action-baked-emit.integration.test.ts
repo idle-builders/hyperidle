@@ -24,6 +24,7 @@ import * as path from "node:path";
 import {
 	agentWorkIntents,
 	type HyperIdleDb,
+	knowledgeAppProjection,
 	knowledgeItems,
 	messages,
 	threads,
@@ -89,6 +90,10 @@ async function seedKnowledgeItem(
 		createdAt: now,
 		updatedAt: now,
 	});
+	// The owner writes the projection row alongside the item.
+	await db
+		.insert(knowledgeAppProjection)
+		.values({ id: `${options.id}-projection`, knowledgeItemId: options.id });
 }
 
 describe("knowledge_action is resolved and baked at emit time (POST /api/knowledge/:id/flag)", () => {

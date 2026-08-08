@@ -11,6 +11,7 @@
 import {
 	bets,
 	type HyperIdleDb,
+	knowledgeAppProjection,
 	knowledgeItems,
 	messages,
 	tasks,
@@ -96,6 +97,10 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		createdAt: now,
 		updatedAt: now,
 	});
+	// The owner writes the projection row alongside the item.
+	await db
+		.insert(knowledgeAppProjection)
+		.values({ id: "ki-1-projection", knowledgeItemId: "ki-1" });
 }
 
 // ─── AC1: human-readable titles ───────────────────────────────────────────────

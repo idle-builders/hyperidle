@@ -5,8 +5,8 @@
  * 1. framework/db schema has knowledge_access_log table (T1)
  * 2. packages/server/src/routes/knowledge.ts inserts access-log rows (T5)
  */
-import { knowledgeItems } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
+import { seedKnowledgeItem } from "./_helpers.js";
 
 const TEST_API_KEY = "test-key-l22-access";
 
@@ -30,14 +30,12 @@ describe("Knowledge access-log creation (L22 AC-1)", () => {
 		// @lore O2: knowledgeItems no longer has layer/scopeId/kind/meta columns.
 		// The kernel row holds identity+content only.
 		const id = crypto.randomUUID();
-		await db.insert(knowledgeItems).values({
+		await seedKnowledgeItem(db, {
 			id,
 			topic: "testing",
 			title: "Test Item",
 			body: "Test body",
-			format: "markdown",
 			status: "active",
-			version: 1,
 			updatedBy: "human",
 			createdAt: NOW_ISO,
 			updatedAt: NOW_ISO,
@@ -58,14 +56,12 @@ describe("Knowledge access-log creation (L22 AC-1)", () => {
 	// AC-1: multiple fetches create multiple rows
 	test("multiple GET /:layer/:id fetches create multiple access-log rows", async ({ db, app }) => {
 		const id = crypto.randomUUID();
-		await db.insert(knowledgeItems).values({
+		await seedKnowledgeItem(db, {
 			id,
 			topic: "testing",
 			title: "Test Item",
 			body: "Test body",
-			format: "markdown",
 			status: "active",
-			version: 1,
 			updatedBy: "human",
 			createdAt: NOW_ISO,
 			updatedAt: NOW_ISO,
@@ -112,14 +108,12 @@ describe("Knowledge access-log creation (L22 AC-1)", () => {
 		// we assert the structural requirement: the response status is 200 and
 		// the response body contains the item.
 		const id = crypto.randomUUID();
-		await db.insert(knowledgeItems).values({
+		await seedKnowledgeItem(db, {
 			id,
 			topic: "testing",
 			title: "Test Item",
 			body: "Test body",
-			format: "markdown",
 			status: "active",
-			version: 1,
 			updatedBy: "human",
 			createdAt: NOW_ISO,
 			updatedAt: NOW_ISO,
@@ -142,14 +136,12 @@ describe("Knowledge access-log creation (L22 AC-1)", () => {
 	// Access-log row has correct fields
 	test("access-log row has correct itemId, accessorKind, and accessedAt", async ({ db, app }) => {
 		const id = crypto.randomUUID();
-		await db.insert(knowledgeItems).values({
+		await seedKnowledgeItem(db, {
 			id,
 			topic: "testing",
 			title: "Test Item",
 			body: "Test body",
-			format: "markdown",
 			status: "active",
-			version: 1,
 			updatedBy: "human",
 			createdAt: NOW_ISO,
 			updatedAt: NOW_ISO,
@@ -169,6 +161,9 @@ describe("Knowledge access-log creation (L22 AC-1)", () => {
 		expect(row?.accessorKind).toBe("human"); // default when auth context not wired
 		// accessedAt is a valid ISO string
 		expect(typeof row?.accessedAt).toBe("string");
-		expect(() => new Date(row?.accessedAt as string)).not.toThrow();
+		// @lore the `expect(() => new Date(...)).not.toThrow()` line that used to close this test is
+		// deleted (Ruling B): the `Date` constructor never throws for any input string — an invalid
+		// one yields `Invalid Date`, not a throw — so the assertion was guaranteed to pass by
+		// construction and could never fail. The four assertions above are the test's live coverage.
 	});
 });

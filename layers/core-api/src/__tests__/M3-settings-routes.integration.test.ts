@@ -7,9 +7,10 @@
  *  - factorySettings are seeded with founder profile keys
  */
 
-import { type HyperIdleDb, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, users } from "@hyperidle/db";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
+import { seedTeam } from "./_helpers.js";
 
 const TEST_API_KEY = "test-key-m3-settings";
 
@@ -44,13 +45,8 @@ describe("M3 — GET /api/settings (B1)", () => {
 		await seedFounderProfile(db);
 
 		// Seed 2 products
-		await db
-			.insert(teams)
-			.values({ id: "prod-1", name: "Product Alpha", phase: "build", createdAt: now });
-
-		await db
-			.insert(teams)
-			.values({ id: "prod-2", name: "Product Beta", phase: "archived", createdAt: now });
+		await seedTeam(db, { id: "prod-1", name: "Product Alpha", phase: "build", createdAt: now });
+		await seedTeam(db, { id: "prod-2", name: "Product Beta", phase: "archived", createdAt: now });
 
 		// Seed 2 AI users (formerly agents)
 		await db.insert(users).values({
@@ -109,12 +105,8 @@ describe("M3 — GET /api/settings (B1)", () => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		const now = new Date().toISOString();
 		await seedFounderProfile(db);
-		await db
-			.insert(teams)
-			.values({ id: "prod-1", name: "Product Alpha", phase: "build", createdAt: now });
-		await db
-			.insert(teams)
-			.values({ id: "prod-2", name: "Product Beta", phase: "archived", createdAt: now });
+		await seedTeam(db, { id: "prod-1", name: "Product Alpha", phase: "build", createdAt: now });
+		await seedTeam(db, { id: "prod-2", name: "Product Beta", phase: "archived", createdAt: now });
 
 		const res = await app.request("/api/settings", { headers: authHeaders() });
 		// @lore U1: `products` renamed to `teams` in the settings response.

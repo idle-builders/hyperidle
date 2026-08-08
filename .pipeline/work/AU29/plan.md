@@ -8,7 +8,7 @@
 
 **Type.** framework / infra. No UI surface.
 
-**What exists today.** `governance/architecture.json` names thirteen modules of `framework/db/src` and maps each to a surface (`db:client`, `db:bootstrap`, `db:util`); anything unmapped falls to `db:unknown` and is reported by name. The `db:util` entry is already marked `ANOMALY, pending follow-up W1` and carries its own reason: `escapeLikePattern` (`like-escape.ts`), `resolveAgentScaffoldSpecs` (`agent-scaffold.ts`) and `resolveProfile` (`profiles.ts`) contain no SQL, no schema reference and no connection — the surface exists only because the exports do. Four symbols currently fall to `db:unknown`: three from `system-prompt-templates.ts` (a module the registry deliberately does not name) and `seed` (absent from the package's re-export list). `framework/db/src/factory-bootstrap.ts` writes `users` (3 sites), `knowledgeItems`, `knowledgeAppProjection` and two unowned tables, and reads two more — it is mapped to `db:bootstrap`, whose stated audience is composition roots, so the routine is already documented as belonging outside the database package. `framework/shared/src/agent-run-admission.ts:65` emits `agent_run_admission_failed` and `framework/shared/src/observability/dispatcher.ts:473` subscribes to `*`. `governance/baseline.json` holds every one of these as a known violation tagged `W1` or `W5-W6`, and `npm run governance:baseline` regenerates the file.
+**What exists today.** `governance/architecture.json` names thirteen modules of `framework/db/src` and maps each to a surface (`db:client`, `db:bootstrap`, `db:util`); anything unmapped falls to `db:unknown` and is reported by name. The `db:util` entry is already marked `ANOMALY, pending follow-up W1` and carries its own reason: `escapeLikePattern` (`like-escape.ts`), `resolveAgentScaffoldSpecs` (`agent-scaffold.ts`) and `resolveProfile` (`profiles.ts`) contain no SQL, no schema reference and no connection — the surface exists only because the exports do. Four symbols currently fall to `db:unknown`: three from `system-prompt-templates.ts` (a module the registry deliberately does not name) and `seed` (absent from the package's re-export list). `framework/db/src/factory-bootstrap.ts` writes `users` (3 sites), `knowledgeItems`, `knowledgeAppProjection` and two unowned tables, and reads two more — it is mapped to `db:bootstrap`, whose stated audience is composition roots, so the routine is already documented as belonging outside the database package. `framework/shared/src/agent-run-admission.ts:65` emits `agent_run_admission_failed` and `framework/shared/src/observability/dispatcher.ts:473` subscribes to `*`. These sites are the violations under `AU29`'s group keys, and those keys carry `"warn"` in `governance/rule-severity.json` until `AU29` clears them and removes them.
 
 **What's genuinely missing.** Nothing here is undiscovered — the gap is that the three misplaced utilities have no agreed destination, `system-prompt-templates.ts` has never been given a surface or a home, and first-boot composition has never been separated from the database package that happens to host it. The event-bus rows need the observability dispatcher and the admission emitter to live somewhere that is allowed to speak.
 
@@ -30,9 +30,9 @@
 - The end state is stated as the end state, never as a migration (Ruling 12). No transitional re-export, no deprecation alias, no "temporary" surface entry.
 - No production export may be added that only tests consume — `knip:production` deletes it as dead code.
 - The `db:util` surface entry is deleted from `governance/architecture.json`, not emptied or relaxed.
-- The baseline is shrink-only, so this work package promotes its own rules as it goes: clearing a group's last site deletes the entry and that rule is at error from the same commit. There is no separate promotion step to remember, and none to defer.
-- Every baseline entry this work package clears is deleted from `governance/baseline.json`; none is re-keyed, re-tagged or moved to another group.
-- `npm run governance:baseline` is the only way the baseline file is written.
+- Promotion is a step: clearing a group key's last site removes that key from `governance/rule-severity.json` in the same pull request, and that is what makes the rule bite. Nothing is deferred to another work package, and there is no record to delete.
+- Every group key this work package clears is removed from `governance/rule-severity.json`; none is re-keyed, re-tagged or moved to another key.
+- `governance/rule-severity.json` is hand-edited and hand-read: no generator writes it, and no code path derives it from live violations.
 
 **Out of scope.**
 - Splitting `framework/shared` as a whole (568 exports, the markdown toolchain in every layer's closure) — that is its own work package; this one touches only the two bus sites and whatever moving them requires.
@@ -47,8 +47,8 @@
 - No package outside `framework/db` can reach a function that performs no database access through the database package.
 - First-boot database state is established by a composition root, and the database package writes no table owned by a service.
 - The framework neither publishes to nor subscribes to the event bus.
-- Every `framework → *` and `* → db:util` / `* → db:unknown` production entry is gone from `governance/baseline.json`, and the rules covering them fail the build on reappearance.
-- If clearing this work package's violations leaves `governance/baseline.json` empty, the file and the `--adopt` escape hatch are deleted in the same commit, and reintroducing either — under any name — fails the build. Exactly one of the four clearing work packages will trigger this; whichever gets there last owns it.
+- Every `framework → *` and `* → db:util` / `* → db:unknown` production group key this work package owns is removed from `governance/rule-severity.json`, and those rules are at `error` from this pull request.
+- The AU28 bookkeeping mechanism is already gone (deleted unconditionally by `AU32`); reintroducing it, or any per-file allowance, under any name, fails the build via `no-per-file-allowances`.
 - `npm run verify` is green, and first boot on a clean database produces the same state it produces today — verified by running it, not by reading the code.
 
 ## Validation scenarios

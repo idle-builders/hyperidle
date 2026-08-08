@@ -1,0 +1,39 @@
+$ npm run test:full
+(tail of real run, foreground, 2026-08-08 — re-run after review.md's B1/B2/B3 fixes: the 8
+schema.integration.test.ts companions, the layers/core-ui + tools/eval manifest drops, npm install)
+
+ Test Files  562 passed (562)
+      Tests  6193 passed (6193)
+   Start at  18:31:55
+   Duration  251.20s (transform 14.94s, setup 145.67s, import 110.64s, tests 351.09s, environment 117.93s)
+
+Matches architecture.md's AC-6 projection exactly: 6193 total, zero failures. schema.integration.test.ts's
+8 added companion inserts change no test count (still 22 tests in that file) and no assertion.
+
+Correction to an earlier claim in this file/report: an intermediate run of this suite showed
+"6192 passed | 1 failed (6193)", with the failure in
+framework/db/src/__tests__/governance-model.test.ts:178
+(`expect(count("development", "allowed")).toBe(114)`). That was reported as "pre-existing" —
+WRONG. The coordinator caught it: the base used for the `git stash` comparison was this
+worktree's own HEAD (736dfa9e), which already contains commit 27ccc8b8 — this work package's own
+Ruling A commit, not yet on origin/main. `git log --oneline origin/main..HEAD --
+framework/db/src/__tests__/governance-model.test.ts` shows 27ccc8b8 touched this exact file.
+
+Root cause, verified against governance/decided-rules.json: Ruling A (T7, commit 27ccc8b8) flips
+exactly two rows from development "forbidden" to "allowed" — `service -> raw runtime
+[capability]` and `tooling -> raw runtime [capability]` (production untouched, row count stays
+124) — moving the census pin from 114/10 to 116/8. `governance-model.test.ts:178` still asserted
+114/10. This is a census pin over a founder-ruled change, so updating the number is correct
+(not a weakening) — fixed with a comment explaining why the number moved.
+
+Live-data check: `jq` over governance/decided-rules.json confirms development allowed=116,
+forbidden=8, production allowed=68, forbidden=56, rows=124 — matching the corrected assertion
+exactly.
+
+Sweep for other stale counts caused by the same two flips or this strand's other edits: swept
+governance-model.test.ts in full (every toBe/toHaveLength on decided.rows/decided.totals/count()
+— only :178/:179 depended on the development split; :168/:169/:208/:223 assert on the row COUNT,
+124, which the flip does not change; :174/:175 assert production counts, unaffected) and
+governance-lint.test.ts + governance-crossings.test.ts (every numeric assertion in both files
+builds its own tiny synthetic census/architecture literal, independent of the live
+decided-rules.json — none references the live decided-row split). No other stale counts found.

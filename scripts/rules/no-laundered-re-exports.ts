@@ -49,8 +49,9 @@
  * surfaces (`export const esc = escapeLikePattern`): that needs a symbol→surface resolver on the
  * publication side, where the table check reuses `buildTableRefs` wholesale. The deeper fix for both
  * is to follow re-export edges to the defining module in the census itself and re-key the consumer's
- * import against the true target; that was deferred deliberately because it re-keys live baselined
- * violations and touches the substrate every other rule stands on.
+ * import against the true target; that was deferred deliberately because it re-keys every live
+ * crossing's group key and touches the substrate every other rule stands on — a change of that size
+ * belongs in its own reviewed work, not folded into this rule's fix.
  */
 
 import ts from "typescript";

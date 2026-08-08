@@ -28,7 +28,7 @@
  *     CODE is unchanged (relocated verbatim, same shape) — flagged as a
  *     residual coverage gap, not a behavior change.
  */
-import { type HyperIdleDb, routines, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, routines, teamMembers, teams, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/shared";
 import { describe, vi } from "vitest";
@@ -82,6 +82,14 @@ async function seedEventRoutine(db: HyperIdleDb, id: string, triggerConfig: stri
 	await db
 		.insert(teams)
 		.values({ id: teamId, name: "Completeness team", phase: "build", createdAt: NOW });
+	// The owner writes the membership row alongside the team.
+	await db.insert(teamMembers).values({
+		id: `${teamId}-members`,
+		teamId,
+		capacity: 5,
+		activeBets: 0,
+		formedAt: NOW,
+	});
 	await db.insert(users).values({
 		id: ownerAgentId,
 		kind: "ai",

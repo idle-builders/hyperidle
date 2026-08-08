@@ -175,8 +175,12 @@ describe("AU28 — the decided rule set is intact", () => {
 		expect(count("production", "forbidden")).toBe(56);
 		// Ruling 13 moved the two `db:table (other) [table:write]` rows from forbidden to allowed:
 		// the flat rule is replaced by the companion clause, which no row can express.
-		expect(count("development", "allowed")).toBe(114);
-		expect(count("development", "forbidden")).toBe(10);
+		// AU32 Ruling A moved two more, `service -> raw runtime [capability]` and
+		// `tooling -> raw runtime [capability]`, from development forbidden to allowed (the AI
+		// one-seam requirement narrows to production-only; production stays untouched) — that is
+		// the +2/-2 between this number and the one Ruling 13 left.
+		expect(count("development", "allowed")).toBe(116);
+		expect(count("development", "forbidden")).toBe(8);
 	});
 
 	it("has no duplicate rows", () => {
@@ -397,27 +401,35 @@ describe("AU28 — the clauses hold beyond the decided rows", () => {
 		).toBe("forbidden");
 	});
 
-	it("holds the one runtime door in BOTH worlds, whichever way the call is spelled — Ruling 14", () => {
+	it("holds the one runtime door in production only — the door relaxes for development", () => {
 		const outsider = servicePkg("work", "core-api");
 		const owner = servicePkg("harness-registry", "agent-execution");
 		const door = { sort: "raw-runtime" } as const;
 
-		for (const world of ["production", "development"] as const) {
-			expect(
-				decide(architecture, { kind: "capability", source: outsider, target: door }, world).verdict,
-				world,
-			).toBe("forbidden");
-			expect(
-				decide(architecture, { kind: "capability", source: owner, target: door }, world).verdict,
-				world,
-			).toBe("allowed");
-		}
-
-		// The development world says WHY it did not relax: this is a door production has one of.
+		// Production: the door still has exactly one owner.
 		expect(
-			decide(architecture, { kind: "capability", source: outsider, target: door }, "development")
-				.clause,
-		).toContain("held: one door");
+			decide(architecture, { kind: "capability", source: outsider, target: door }, "production")
+				.verdict,
+		).toBe("forbidden");
+		expect(
+			decide(architecture, { kind: "capability", source: owner, target: door }, "production")
+				.verdict,
+		).toBe("allowed");
+
+		// Development: calls being recorded, priced, replayed and provider-agnostic are properties
+		// the shipped product must have, not development tooling — a development file may construct
+		// a vendor SDK or spawn an agent CLI directly to build the world it needs.
+		const outsiderDev = decide(
+			architecture,
+			{ kind: "capability", source: outsider, target: door },
+			"development",
+		);
+		expect(outsiderDev.verdict).toBe("allowed");
+		expect(outsiderDev.clause).toBe("development-may-arrange-the-world");
+		expect(
+			decide(architecture, { kind: "capability", source: owner, target: door }, "development")
+				.verdict,
+		).toBe("allowed");
 	});
 
 	it("an undeclared surface is forbidden rather than silently permitted", () => {

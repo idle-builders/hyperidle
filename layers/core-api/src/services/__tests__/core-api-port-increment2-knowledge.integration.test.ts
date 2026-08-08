@@ -217,6 +217,10 @@ async function seedKnowledgeItem(
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
+	// The owner writes the projection row alongside the item.
+	await db
+		.insert(knowledgeAppProjection)
+		.values({ id: `${opts.id}-projection`, knowledgeItemId: opts.id });
 }
 
 describe("CoreApiPort.knowledge.search — Increment 2 knowledge wave (RED)", () => {

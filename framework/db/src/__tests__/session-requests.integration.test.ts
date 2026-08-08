@@ -1,6 +1,6 @@
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
-import { agentSessionRequests, sessions, teams, users } from "../schema.js";
+import { agentSessionRequests, sessions, users } from "../schema.js";
 
 describe("session request schema", () => {
 	test("creates durable request rows with source-scoped idempotency", async ({ db }) => {
@@ -56,7 +56,8 @@ describe("session request schema", () => {
 
 	test("sessions can be task-free while retaining request/source correlation", async ({ db }) => {
 		const now = new Date().toISOString();
-		await db.insert(teams).values({ id: "team-1", name: "Team", phase: "build", createdAt: now });
+		// @lore the `teams` row this test used to arrange (`team-1`) was referenced by nothing in the
+		// file — a proven-unreferenced vestige, removed rather than completed with its companion.
 		await db.insert(users).values({
 			id: "agent-1",
 			kind: "ai",

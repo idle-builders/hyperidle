@@ -35,6 +35,7 @@ import {
 } from "../services/core-api-port-composition.js";
 import { runSession } from "../services/run-orchestration-composition.js";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
+import { seedKnowledgeItem } from "./_helpers.js";
 
 /**
  * @lore AU21 §9 Increment 2: this file's tool handler(s) now reach
@@ -280,13 +281,11 @@ describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 		// Arrange: create a draft item directly in the DB
 		const { randomUUID } = await import("node:crypto");
 		const itemId = randomUUID();
-		await db.insert(knowledgeItems).values({
+		await seedKnowledgeItem(db, {
 			id: itemId,
 			title: "Draft item for promotion",
 			body: "To be promoted from draft to active.",
-			format: "markdown",
 			status: "draft",
-			version: 1,
 			updatedBy: "agent:agent-fac-r7",
 			createdAt: NOW,
 			updatedAt: NOW,
@@ -347,13 +346,11 @@ describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 
 		const { randomUUID } = await import("node:crypto");
 		const itemId = randomUUID();
-		await db.insert(knowledgeItems).values({
+		await seedKnowledgeItem(db, {
 			id: itemId,
 			title: "Draft item — post-fix behavior check",
 			body: "Testing post-fix behavior: draft is now a valid status.",
-			format: "markdown",
 			status: "draft",
-			version: 1,
 			updatedBy: "agent:agent-fac-r7",
 			createdAt: NOW,
 			updatedAt: NOW,

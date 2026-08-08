@@ -111,6 +111,10 @@ describe("Q2 AC-1: scope_kind + scope_id columns on knowledgeItems", () => {
 			createdAt: now,
 			updatedAt: now,
 		});
+		// The owner writes the projection row alongside the item.
+		await db
+			.insert(knowledgeAppProjection)
+			.values({ id: "ki-scope-1-projection", knowledgeItemId: "ki-scope-1" });
 
 		const [result] = await db
 			.select()

@@ -1,0 +1,6 @@
+
+> hyperidle@0.5.0 deps:check
+> npx tsx scripts/dep-manifest-lint.ts
+
+dep-manifest-lint: 33 packages, imports and manifests agree (1 justified exception).
+deps:check EXIT=0 (measured)

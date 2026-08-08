@@ -32,6 +32,7 @@ import {
 	agentSessionRequests,
 	agentWorkIntents,
 	type HyperIdleDb,
+	knowledgeAppProjection,
 	knowledgeItems,
 	users,
 } from "@hyperidle/db";
@@ -70,6 +71,11 @@ describe("agent_work_intents — Decision B‴ supersede (not-yet-started)", () 
 				updatedAt: now,
 			})
 			.returning();
+		// The owner writes the projection row alongside the item.
+		await db.insert(knowledgeAppProjection).values({
+			id: "wave0-supersede-item-projection",
+			knowledgeItemId: "wave0-supersede-item",
+		});
 
 		// @lore this test's identity/session-request assertions were written
 		// (Wave 0) against a bare item id, not the real emit site's

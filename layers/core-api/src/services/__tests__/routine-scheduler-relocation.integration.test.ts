@@ -45,6 +45,7 @@ import {
 	items,
 	routineRuns,
 	routines,
+	teamMembers,
 	teams,
 	userSkills,
 	users,
@@ -183,6 +184,14 @@ async function seedManualRoutine(
 	const teamId = `${id}-team`;
 	const ownerAgentId = `${id}-owner`;
 	await db.insert(teams).values({ id: teamId, name: "Inc4 team", phase: "build", createdAt: NOW });
+	// The owner writes the membership row alongside the team.
+	await db.insert(teamMembers).values({
+		id: `${teamId}-members`,
+		teamId,
+		capacity: 5,
+		activeBets: 0,
+		formedAt: NOW,
+	});
 	await db.insert(users).values({
 		id: ownerAgentId,
 		kind: "ai",
@@ -212,6 +221,14 @@ async function seedBuiltinOwner(
 	await db
 		.insert(teams)
 		.values({ id: teamId, name: "Inc4 builtin team", phase: "build", createdAt: NOW });
+	// The owner writes the membership row alongside the team.
+	await db.insert(teamMembers).values({
+		id: `${teamId}-members`,
+		teamId,
+		capacity: 5,
+		activeBets: 0,
+		formedAt: NOW,
+	});
 	await db.insert(users).values({
 		id: agentId,
 		kind: "ai",

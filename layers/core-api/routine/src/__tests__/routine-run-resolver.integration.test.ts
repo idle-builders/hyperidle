@@ -41,6 +41,7 @@ import {
 	knowledgeItems,
 	routineRuns,
 	routines,
+	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -50,9 +51,12 @@ import { getTeam } from "@hyperidle/org";
 import { requireRunnableAgent } from "@hyperidle/users";
 
 async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
+	const createdAt = new Date().toISOString();
+	await db.insert(teams).values({ id: teamId, name: teamId, phase: "build", createdAt });
+	// The owner writes the membership row alongside the team.
 	await db
-		.insert(teams)
-		.values({ id: teamId, name: teamId, phase: "build", createdAt: new Date().toISOString() });
+		.insert(teamMembers)
+		.values({ id: `${teamId}-members`, teamId, capacity: 5, activeBets: 0, formedAt: createdAt });
 }
 
 async function seedAgent(

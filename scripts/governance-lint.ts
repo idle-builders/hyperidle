@@ -38,15 +38,15 @@ import {
 	declaredFloors,
 	DETECTOR_FLOORS,
 	loadArchitecture,
-	loadBaseline,
 	loadMisplacedFiles,
+	loadRuleSeverity,
 	loadTableOwners,
 	MIN_TRACKED_FILES,
 	presentGovernanceFiles,
 	readRepoFile,
+	readyToFlip,
 	trackedFiles,
 } from "./governance-context.js";
-import type { Baseline } from "./lib/crossing-report.js";
 import { UnclaimedProductionFileError } from "./lib/crossing-detectors.js";
 import { buildPackageLocator, type CrossingsResult } from "./lib/crossings.js";
 import { runAttacks } from "./lib/governance-attacks.js";
@@ -56,9 +56,10 @@ import { DeadRuleError, type Finding, formatFinding, hasErrors, type Rule, runRu
 import type { Census } from "./lib/repo-census.js";
 import { classificationTotal } from "./rules/classification-total.js";
 import { floorsTight } from "./rules/floors-tight.js";
-import { baselineRatchet, crossingRules, violationsOf } from "./rules/crossings.js";
+import { crossingRules, violationsOf } from "./rules/crossings.js";
 import { misplacementLedger } from "./rules/misplacement-ledger.js";
 import { noLaunderedReExports } from "./rules/no-laundered-re-exports.js";
+import { noPerFileAllowances } from "./rules/no-per-file-allowances.js";
 import { noProductionImportsDevelopment } from "./rules/no-production-imports-development.js";
 import { noStaleBuildArtifacts } from "./rules/no-stale-build-artifacts.js";
 import { patternLive } from "./rules/pattern-live.js";
@@ -122,8 +123,6 @@ function runFixtures(): number {
  * @lore AU28: shared by `runLive` and `--attacks` ON PURPOSE. The break-test harness cross-checks
  * that every registered rule has an attack case, and a hand-maintained second list of rule ids would
  * be the one thing everybody forgets to update — which would turn the coverage gate into decoration.
- * `baselineRatchet` is deliberately NOT in here: the overlay is not debt and must never be judged
- * against the baseline.
  */
 function buildRules(
 	architecture: ReturnType<typeof loadArchitecture>,
@@ -146,17 +145,17 @@ function buildRules(
 			locate: buildPackageLocator(census.packages),
 			readFile,
 		}),
+		noPerFileAllowances({ floors: DETECTOR_FLOORS, readFile }),
+		// An overlaid tree has no debt, so the crossing rules judge it against nothing — every crossing
+		// on an attack overlay is an error, whatever a live severity declaration would say.
 		...crossingRules({
 			architecture,
 			crossings: detected.crossings,
-			baseline: EMPTY_BASELINE,
+			severityOf: () => "error",
 			floors: new Map<Kind, number>(DETECTOR_FLOORS.map((f) => [f.kind, f.min])),
 		}),
 	];
 }
-
-/** An overlaid tree has no debt, so the crossing rules judge it against nothing. */
-const EMPTY_BASELINE: Baseline = { governanceBaseline: true, note: "the attack overlay is never debt", groups: {} };
 
 function runAttackSuite(): number {
 	const architecture = loadArchitecture();
@@ -168,9 +167,6 @@ function runAttackSuite(): number {
 		floors: DETECTOR_FLOORS,
 		buildRules: (overlaidCensus, overlaidDetected, overlaidReadFile) =>
 			buildRules(architecture, overlaidCensus, overlaidDetected, overlaidReadFile),
-		// The ratchet is registered by the live run but never by an attack pass — the overlay is not
-		// debt. It still needs a break-test, which `baseline-growth` provides.
-		alsoRegistered: ["baseline-ratchet"],
 		violationsOf,
 	});
 
@@ -224,11 +220,12 @@ function runLive(errorsOnly: boolean): number {
 		console.error("\ngovernance-lint: FAIL — 1 error(s). The census refused a verdict, so no rule ran.");
 		return 1;
 	}
-	const baseline = loadBaseline();
+	const severity = loadRuleSeverity();
+	const severityOf = (ruleKey: string) => severity.severity[ruleKey] ?? "error";
 	const ruleInput = {
 		architecture,
 		crossings: detected.crossings,
-		baseline,
+		severityOf,
 		floors: new Map<Kind, number>(DETECTOR_FLOORS.map((f) => [f.kind, f.min])),
 	};
 
@@ -247,8 +244,8 @@ function runLive(errorsOnly: boolean): number {
 			locate: buildPackageLocator(census.packages),
 			readFile: readRepoFile,
 		}),
+		noPerFileAllowances({ floors: DETECTOR_FLOORS, readFile: readRepoFile }),
 		...crossingRules(ruleInput),
-		baselineRatchet(ruleInput),
 	];
 
 	let result: ReturnType<typeof runRules>;
@@ -282,6 +279,15 @@ function runLive(errorsOnly: boolean): number {
 	if (detected.unplacedDbSymbols.size > 0) {
 		console.error(`  NOTE  ${detected.unplacedDbSymbols.size} database symbol(s) fall to db:unknown:`);
 		for (const [symbol, why] of detected.unplacedDbSymbols) console.error(`          ${symbol} — ${why}`);
+	}
+
+	// Reported, never enforced (D7′): a `warn` rule with zero live violations is READY to flip, not an
+	// error. Turning this into a gate would be the stale-baseline check reborn.
+	const liveKeys = new Set(violationsOf(architecture, detected.crossings).map((v) => v.key));
+	const ready = readyToFlip(severity, liveKeys);
+	if (ready.length > 0) {
+		console.error(`  NOTE  ${ready.length} rule(s) ready to flip to error:`);
+		for (const line of ready) console.error(`          ${line}`);
 	}
 
 	const production = census.files.filter((f) => f.kind === "production").length;

@@ -25,15 +25,15 @@
 
 **Human review gates.** Yes — mandatory for every work package. Load-bearing here: naming an owner for a table is a durable domain decision, and creating a sessions service adds a package to the tree.
 
-**Plan calls.** Standard architecture pass, with one exception: the `sessions` owner needs design-it-twice on what the service is *for* before any code moves — apply AU26's own test (does anyone operationally consume this for their own purpose, or only administer it?) rather than defaulting to "whoever touches it most". Sequence the five cheap assignments first so the ratchet records progress while the sessions question is still open; the plan should say explicitly that no rule promotes until the last one lands, so nobody reads the intermediate state as stalled.
+**Plan calls.** Standard architecture pass, with one exception: the `sessions` owner needs design-it-twice on what the service is *for* before any code moves — apply AU26's own test (does anyone operationally consume this for their own purpose, or only administer it?) rather than defaulting to "whoever touches it most". Sequence the five cheap assignments first while the sessions question is still open; the plan should say explicitly that no rule promotes until the last one lands — the group key carries no table name, so a table rule cannot leave `governance/rule-severity.json` until every unowned table under it is owned (see `AU30/plan.md:7` and `.pipeline/AU.md:29`) — so nobody reads the intermediate state as stalled.
 
 **Contracts / constraints.**
 - Zero exceptions in the ownership rule. No allowlist, no "foreign-import ceiling", no named carve-out, however small — a cross-owned-table join decomposes into one call per owning service.
 - An owning service's exclusivity covers **reads as well as writes**.
 - No production export may be added that only tests consume.
 - If assigning an owner creates new development-world companion violations (the companion groups are derived from the owners' own writers), this work package clears them rather than leaving them for AU32.
-- The baseline is shrink-only, so this work package promotes its own rules as it goes: clearing a group's last site deletes the entry and that rule is at error from the same commit. There is no separate promotion step to remember, and none to defer.
-- Every baseline entry cleared is deleted from `governance/baseline.json`, never re-tagged.
+- Promotion is a step: clearing a group key's last site removes that key from `governance/rule-severity.json` in the same pull request, and that is what makes the rule bite. Nothing is deferred to another work package, and there is no record to delete.
+- Every group key this work package clears is removed from `governance/rule-severity.json`, never re-tagged.
 
 **Out of scope.**
 - `framework/db`'s own production table writes — AU29.
@@ -48,8 +48,8 @@
 - Every production read and write of a table reaches it through the owning service — no package other than the owner names the table.
 - A service that needs data from a table it does not own obtains it by asking the owner, with no cross-owned-table query anywhere in production.
 - The four table rules and the two table-symbol import rules fail the build in both directions on any new violation, with no baseline entry backing them.
-- Every `db:table (unowned)` and production `db:table (other)` entry is gone from `governance/baseline.json`.
-- If clearing this work package's violations leaves `governance/baseline.json` empty, the file and the `--adopt` escape hatch are deleted in the same commit, and reintroducing either — under any name — fails the build. Exactly one of the four clearing work packages will trigger this; whichever gets there last owns it.
+- Every `db:table (unowned)` and production `db:table (other)` group key this work package owns is removed from `governance/rule-severity.json`.
+- The AU28 bookkeeping mechanism is already gone (deleted unconditionally by `AU32`); reintroducing it, or any per-file allowance, under any name, fails the build via `no-per-file-allowances`.
 - `npm run verify` is green, and the behaviour of every relocated accessor is proven unchanged by tests that exercise it through the owner.
 
 ## Validation scenarios

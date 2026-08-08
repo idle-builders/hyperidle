@@ -12,7 +12,7 @@
  * Red phase: all assertions fail against the current implementation.
  */
 
-import { type HyperIdleDb, knowledgeItems } from "@hyperidle/db";
+import { type HyperIdleDb, knowledgeAppProjection, knowledgeItems } from "@hyperidle/db";
 import { API_ERROR_CODES } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -36,6 +36,8 @@ async function seedKi(db: HyperIdleDb, id: string, title: string, body = "body")
 		createdAt: now,
 		updatedAt: now,
 	});
+	// The owner writes the projection row alongside the item.
+	await db.insert(knowledgeAppProjection).values({ id: `${id}-projection`, knowledgeItemId: id });
 }
 
 // @lore O2: V3 layer validation tests removed — /:layer URL pattern no longer exists.

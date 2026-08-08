@@ -25,6 +25,7 @@ import {
 	type HyperIdleDb,
 	inviteCodes,
 	knowledgeAccessLog,
+	knowledgeAppProjection,
 	knowledgeItems,
 	loginSessions,
 	propagationLog,
@@ -132,6 +133,8 @@ async function seedKnowledgeItem(db: HyperIdleDb, id: string): Promise<void> {
 		createdAt: now.toISOString(),
 		updatedAt: now.toISOString(),
 	});
+	// The owner writes the projection row alongside the item.
+	await db.insert(knowledgeAppProjection).values({ id: `${id}-projection`, knowledgeItemId: id });
 }
 
 describe("retention reaper — individual owning-service sweeps", () => {
