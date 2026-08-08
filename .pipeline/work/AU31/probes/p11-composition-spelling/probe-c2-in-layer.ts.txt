@@ -1,0 +1,8 @@
+// Overlaid at layers/agent-orchestration/src/au31-probe.ts (production world, layer role)
+/** AU31 feasibility probe C2 — end-state tool-stack spelling: in-layer wiring, local values into the shared helper. */
+import { buildToolDefinitions, type ToolHandlersPorts } from "@hyperidle/tool-handlers";
+import type { UserRole } from "@hyperidle/shared";
+
+export function probeInLayerToolStack(ports: ToolHandlersPorts, role: UserRole): readonly { readonly name: string }[] {
+	return buildToolDefinitions(ports, { role });
+}

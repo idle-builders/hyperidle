@@ -1,0 +1,10 @@
+// Overlaid at applications/remote-server/src/au31-probe.ts (production world, application role)
+/** AU31 feasibility probe A — inline face-handoff spelling. DO NOT COMMIT. */
+import { createLocalAdapterPool } from "@hyperidle/agent-execution";
+import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";
+import type { HyperIdleDb } from "@hyperidle/db";
+import type { EventBus } from "@hyperidle/shared";
+
+export function probeInlineHandoff(db: HyperIdleDb, eventBus: EventBus): void {
+	bootAgentOrchestration({ db, eventBus, adapterPool: createLocalAdapterPool() });
+}

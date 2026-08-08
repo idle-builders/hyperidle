@@ -1,0 +1,20 @@
+// Overlaid at applications/remote-server/src/au31-probe.ts (production world, application role)
+/** AU31 feasibility probe B — application-mediated local-binding handoff. DO NOT COMMIT. */
+import { createLocalAdapterPool } from "@hyperidle/agent-execution";
+import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";
+import type { HyperIdleDb } from "@hyperidle/db";
+import type { EventBus } from "@hyperidle/shared";
+
+export function probeLocalBindingHandoff(db: HyperIdleDb, eventBus: EventBus): void {
+	const pool = createLocalAdapterPool();
+	bootAgentOrchestration({ db, eventBus, adapterPool: pool });
+}
+
+interface FakeBoot {
+	readonly adapters: ReturnType<typeof createLocalAdapterPool>;
+}
+
+export function probePropertyAccessHandoff(db: HyperIdleDb, eventBus: EventBus): void {
+	const exec: FakeBoot = { adapters: createLocalAdapterPool() };
+	bootAgentOrchestration({ db, eventBus, adapterPool: exec.adapters });
+}

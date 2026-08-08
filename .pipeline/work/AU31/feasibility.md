@@ -1,7 +1,7 @@
 # AU31 — Feasibility
 
 Probes run against the live tree at `bbe82e9a` (branch `backend/AU31-layer-composition-boundary`,
-worktree `.worktrees/AU31`). Every result below was produced by executing the stated method in this
+worktree `.worktrees/AU31`; P11 added in the attempt-2 revision, run 2026-08-08 on the same production tree). Every result below was produced by executing the stated method in this
 session, not recalled. Scratch outputs not worth keeping are discarded; the two load-bearing
 inventories are reproduced inline.
 
@@ -212,3 +212,27 @@ The plan's premises depend only on repository state (imports, manifests, registr
 probes read directly. The one deployed-state AC — a real agent run end to end — is an acceptance
 activity, not a planning assumption; its execution recipe is architecture.md §11. No load-bearing
 assumption remains UNVERIFIED except the two ⚠️ build-time re-checks named in P3 and P4.
+
+---
+
+## P11 — The composition-handoff and tool-stack spellings, executed against the real census
+
+**Question.** What does the enforced census (`scripts/governance-lint.ts` → `scripts/lib/crossing-detectors.ts` + `governance-model.ts` clause 6) actually report for (i) the face-boot handoff spellings §4/§5/§6 depend on, and (ii) the tool-stack spellings §2.5 depends on? The first draft asserted a "clause 3" reading the critique showed exists in no enforced artifact (critique B1); this probe replaces the assertion with executed evidence.
+
+**Method.** Overlay one probe file at a time onto the live tree (real paths, production world), run `npx tsx scripts/governance-lint.ts --errors-only` (plus a full run grepped for the probe path, so warnings are covered too), record output and exit code, delete the probe. Sources and verbatim outputs: `probes/p11-composition-spelling/`.
+
+**Result.**
+
+| Run | Spelling | Census verdict |
+|---|---|---|
+| 0 | clean tree | PASS, exit 0 (221 production known violations at warn) |
+| A | inline handoff — `bootAgentOrchestration({ …, adapterPool: createLocalAdapterPool() })` in an application file | **FAIL, exit 1**: `ERROR [crossing-di] … layer → layer (other) [di] production — agent-orchestration receives the result of \`createLocalAdapterPool\` from agent-execution` |
+| B | local-binding handoff — `const pool = createLocalAdapterPool(); bootAgentOrchestration({ …, adapterPool: pool })`, plus the `exec.adapters` property-access form | **PASS, exit 0** — zero findings for the probe file, warnings included |
+| C1 | a `@hyperidle/shared` helper receiving a cross-module-imported layer tool list, spelled inside `layers/agent-orchestration/src/` (the shape a naive §2.5 relocation of `tool-provider-bindings.ts` would produce; list is a call-initialized `export const`, exactly `tool-handlers-bindings.ts:200`'s shape — NOT suppressed by `buildConstantExports`, `crossing-detectors.ts:316-325`) | **FAIL, exit 1**: `ERROR [crossing-di] … framework → layer [di] production — shared receives \`probeToolDefinitions\` from agent-orchestration` |
+| C2 | the end-state tool-stack spelling — `buildToolDefinitions(ports, { role })` called in `layers/agent-orchestration/src/` with function-local values (`@hyperidle/tool-handlers` is the layer's own service) | **PASS, exit 0** — zero findings, warnings included |
+
+**Verdict.** Three load-bearing facts, now executed rather than argued:
+1. The **inline** cross-face spelling is forbidden and fatal today — the DI heuristic fires on a call-expression argument via its callee's import provenance (`crossing-detectors.ts:991-993`), the group has zero baseline headroom, and the shrink-only ratchet cannot absorb it. The spelling law in architecture §4 is therefore self-enforcing on its visible side.
+2. The **local-binding** handoff records nothing — not because a clause allows it, but because the DI predicate is import-provenance-based by design (`crossing-detectors.ts:931-934`: the crossing is between the called factory's package and "the package the injected value came from"; a face-produced runtime value held in a local has no foreign import provenance). Architecture §4 states this honestly and gives the reading an enforced home (attack + control-twin pair on the `crossing-di` rule, clause-6 `why`/README sentence) at the founder gate.
+3. The two `tool-provider-bindings.ts` DI wires **cannot relocate** — C1 proves the framework-consumer wire re-fails at any new site — and the §2.5 dissolution (dispatch moved into `@hyperidle/tool-handlers`, role filter via `buildToolDefinitions(ports, { role })`) reports nothing (C2) while being legal by clause 6's own text (both ends agent-orchestration, `governance-model.ts:282-288`), not by invisibility.
+

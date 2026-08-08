@@ -1,0 +1,24 @@
+AU31 P11 — verbatim governance-lint outputs (2026-08-08, worktree .worktrees/AU31 @ 0d3be7a9, tree state = base bbe82e9a for all production files)
+Command per run: npx tsx scripts/governance-lint.ts --errors-only   (probe file written to the stated path, run, then deleted)
+
+Run 0 — clean tree, no probe:
+governance-lint: PASS — 3293 tracked files (789 production, 2504 development), 33 packages, 8100 crossings, 18 rules, 221 production + 67 development known violation(s) at warn.
+exit=0
+
+Run A — probe-a-inline.ts.txt at applications/remote-server/src/au31-probe.ts:
+  ERROR  [crossing-di] applications/remote-server/src/au31-probe.ts:8: layer → layer (other) [di] production — agent-orchestration receives the result of `createLocalAdapterPool` from agent-execution. dependency injection is legal only within a layer; cross-layer conversation goes through the API, MCP or the bus — Ruling 1
+governance-lint: FAIL — 1 error(s). [...] 8105 crossings [...]
+exit=1
+
+Run B — probe-b-local-binding.ts.txt at the same path:
+governance-lint: PASS — 3294 tracked files (790 production, 2504 development), 33 packages, 8104 crossings, 18 rules, 221 production + 67 development known violation(s) at warn.
+Full (non---errors-only) output grepped for "au31-probe": zero findings, warnings included.
+exit=0
+
+Run C1 — probe-c1-framework-consumer.ts.txt at layers/agent-orchestration/src/{au31-probe.ts,au31-probe-defs.ts}:
+  ERROR  [crossing-di] layers/agent-orchestration/src/au31-probe.ts:7: framework → layer [di] production — shared receives `probeToolDefinitions` from agent-orchestration. dependency injection is legal only within a layer, and this package lives in none — Ruling 1
+exit=1
+
+Run C2 — probe-c2-in-layer.ts.txt at layers/agent-orchestration/src/au31-probe.ts (defs file removed):
+Full output grepped for "au31-probe": zero findings, warnings included.
+exit=0
