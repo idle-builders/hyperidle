@@ -47,6 +47,7 @@ import {
 	explicitSessionStarts,
 	type HyperIdleDb,
 	items,
+	knowledgeAppProjection,
 	knowledgeItems,
 	messages,
 	proposedCalls,
@@ -281,6 +282,11 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 				updatedAt: NOW,
 			})
 			.returning();
+		// The owner writes the projection row alongside the item.
+		await db.insert(knowledgeAppProjection).values({
+			id: "w0-sub-knowledge-item-projection",
+			knowledgeItemId: "w0-sub-knowledge-item",
+		});
 
 		const deps = { ...queueDeps(db), eventBus };
 		await enqueueWorkIntent(db, {
