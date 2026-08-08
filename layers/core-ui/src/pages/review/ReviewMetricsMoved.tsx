@@ -265,7 +265,7 @@ function Headline({
 			<button
 				type="button"
 				onClick={onToggle}
-				className="mt-[9px] inline-flex items-center gap-[6px] text-[12px] font-[500] text-[var(--accent-primary)] [transition:opacity_var(--motion-fast)_var(--motion-ease)] hover:opacity-70"
+				className="mt-[9px] inline-flex items-center gap-[6px] text-[12px] font-[500] text-[var(--accent-deep)] [transition:opacity_var(--motion-fast)_var(--motion-ease)] hover:opacity-70"
 				aria-expanded={expanded}
 			>
 				<span

@@ -40,7 +40,7 @@ function ToggleMenu({
 				type="button"
 				aria-haspopup="menu"
 				aria-expanded={open}
-				className="inline-flex items-center justify-center w-[32px] h-[32px] rounded-[var(--r-pill)] border-[1.5px] border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] text-[16px] cursor-pointer hover:border-[var(--accent-primary)]"
+				className="inline-flex items-center justify-center w-[32px] h-[32px] rounded-[var(--r-pill)] border-[1.5px] border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] text-[16px] cursor-pointer hover:border-[var(--accent-deep)]"
 				onClick={() => setOpen((v) => !v)}
 			>
 				···

@@ -20,12 +20,12 @@ const STATUS_DOT_COLORS: Record<NonNullable<NavItemProps["statusDot"]>, string> 
 
 /**
  * @lore visual-parity-audit: count badge matches HTML nav-item__count — 12px font,
- * accent-primary color, accent-primary-dim bg (rgba(22,118,79,0.08)), 3px/6px padding
+ * accent-primary color, accent-primary-dim bg (rgba(240,196,25,0.14)), 3px/6px padding
  * (HTML spec is 2px but 3px is on the Hearth 6px grid; AQ-001 exempts badge sub-elements),
  * pill radius, min-w 18px. Previously used text-secondary color + mono font + 11px size.
  */
 const COUNT_BADGE_CLASSES =
-	"inline-flex items-center justify-center min-w-[18px] px-[6px] py-[3px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[12px] font-[500] text-[var(--accent-primary)] text-center";
+	"inline-flex items-center justify-center min-w-[18px] px-[6px] py-[3px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[12px] font-[500] text-[var(--accent-deep)] text-center";
 
 export function NavItem({
 	label,
@@ -69,7 +69,7 @@ export function NavItem({
 			<button type="button" className={`${baseClasses} ${stateClasses}`} onClick={onClick}>
 				{icon && (
 					<span
-						className={`inline-flex items-center shrink-0 ${selected ? "text-[var(--accent-primary)]" : "text-[var(--text-tertiary)]"}`}
+						className={`inline-flex items-center shrink-0 ${selected ? "text-[var(--accent-deep)]" : "text-[var(--text-tertiary)]"}`}
 					>
 						{icon}
 					</span>

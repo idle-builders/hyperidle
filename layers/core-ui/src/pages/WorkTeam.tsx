@@ -451,8 +451,8 @@ function WorkTeamLoaded({
 										{
 											content: (
 												<span
-													className="w-[24px] h-[24px] rounded-full shrink-0 flex items-center justify-center text-[9px] font-semibold text-[var(--accent-primary)]"
-													style={{ background: "rgba(22,118,79,0.08)" }}
+													className="w-[24px] h-[24px] rounded-full shrink-0 flex items-center justify-center text-[9px] font-semibold text-[var(--accent-deep)]"
+													style={{ background: "var(--accent-deep-dim)" }}
 													aria-label={routine.agentName}
 													title={routine.agentName}
 												>
@@ -498,7 +498,7 @@ function WorkTeamLoaded({
 							role="status"
 							data-testid={hintReviewAgents.testId}
 							className="rounded-[var(--r-subtle)] p-[18px] flex flex-col gap-[6px] mb-[6px]"
-							style={{ background: "rgba(22,118,79,0.03)" }}
+							style={{ background: "color-mix(in oklab, var(--accent-deep) 4%, transparent)" }}
 						>
 							<p className="text-[13px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
 								{hintReviewAgents.copy}
@@ -585,9 +585,7 @@ function WorkTeamLoaded({
 										<>
 											{member.name}
 											{member.isLead && (
-												<span className="ml-1 text-[var(--accent-primary)] text-[10px]">
-													— Lead
-												</span>
+												<span className="ml-1 text-[var(--accent-deep)] text-[10px]">— Lead</span>
 											)}
 										</>
 									}

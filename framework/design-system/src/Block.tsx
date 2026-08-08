@@ -111,7 +111,7 @@ export function Block({
 			// biome-ignore lint/a11y/noNoninteractiveTabindex: Block shells are explicitly tabbable for ↑/↓ block stepping per AC-39.
 			tabIndex={0}
 			onKeyDown={onKeyDown}
-			className={`group relative grid grid-cols-[32px_1fr] gap-[9px] py-[6px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] ${className ?? ""}`}
+			className={`group relative grid grid-cols-[32px_1fr] gap-[9px] py-[6px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:[outline-offset:-1px] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] ${className ?? ""}`}
 		>
 			<div
 				data-block-gutter

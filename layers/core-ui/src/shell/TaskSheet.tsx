@@ -441,7 +441,7 @@ export function TaskSheet({
 									href={task.latestSessionHarnessUrl}
 									target="_blank"
 									rel="noopener noreferrer"
-									className="text-[var(--accent-primary)] hover:underline"
+									className="text-[var(--accent-deep)] hover:underline"
 									aria-label="Open session in harness (opens in new tab)"
 								>
 									Open in harness

@@ -1,24 +1,43 @@
 /**
- * HyperIdle Design System — Hearth Token System
+ * HyperIdle Design System — Crème Lemon Token System
  *
- * Warm-earth light/dark theme. Light-first default. Shared geometry (radii,
+ * Warm-lemon light/dark theme. Light-first default. Shared geometry (radii,
  * motion, fonts, spacing) with per-mode color tokens.
  *
- *   data-theme="hearth-light"  → explicit light (warm cream)
- *   data-theme="hearth-dark"   → explicit dark (warm earth)
+ *   data-theme="hearth-light"  → explicit light (pale lemon cream)
+ *   data-theme="hearth-dark"   → explicit dark (deep warm with a lemon whisper)
  *   (no data-theme)            → follows prefers-color-scheme (light default)
+ *
+ * @lore CL1 — Crème Lemon replaces the Hearth cream/beige + forest-green
+ * palette (founder: beige reads boring; lemon carries energy). Shape of the
+ * system unchanged; every token keeps its role. The accent split in two:
+ *   --accent-primary  = LEMON DROP (#f0c419 light / #f5d33d dark) — the FILL
+ *                       role: primary buttons, checkboxes, toggles, count
+ *                       badges. Bright yellow fails with white text, so
+ *                       --text-on-accent flipped dark (#2a2415 / #221f0a),
+ *                       which also passes BETTER on the error/amber fills it
+ *                       shares (dark on #d97706 ≈ 4.8:1 vs white 3.2:1).
+ *   --accent-deep     = COCOA (#6f4d1e light) / LIGHT BEIGE (#d9c9a3 dark) —
+ *                       the TEXT role: links, icons, focus rings, agent-avatar
+ *                       identity (AQ-012, was forest green), ghost buttons.
+ *                       Text-safe contrast on every surface (~7:1 light page,
+ *                       ~10:1 dark page).
+ * --status-success STAYS GREEN (#16764f / #2eaa7a) — deliberately decoupled
+ * from the accent so lemon never eats the success semantic. Warning/error/info
+ * unchanged. Theme names stay hearth-light/hearth-dark (localStorage +
+ * data-theme contract is stable); only the colors moved.
  *
  * @lore U3 — Hearth replaces Lucid. Key structural change: default mode is
  * now LIGHT (hearth-light), not dark. The prefers-color-scheme media query
  * now detects `dark` to override the light default, the opposite of Lucid
  * which was dark-default and detected `light` to override.
  *
- * @lore U3 / CP1 — light mode --text-tertiary (#958e85 after CP1, was #9a8d7e)
- * achieves ~2.85:1 on surface-page. This token is intentionally decorative/
+ * @lore U3 / CP1 — light mode --text-tertiary (#938b70 after CL1) achieves
+ * ~2.9:1 on surface-page. This token is intentionally decorative/
  * hint-only in light mode — used only for large labels, timestamps, and
  * icon-only contexts that are WCAG exempt from AA normal-text contrast. It is
- * NOT used for body text on warm surfaces. Dark mode text-tertiary (#938c87
- * after CP1) achieves 5.73:1 on page, passing AA everywhere.
+ * NOT used for body text on warm surfaces. Dark mode text-tertiary (#a8a58c
+ * after CL1) achieves ~7:1 on page, passing AA everywhere.
  *
  * @lore U3 — status-warning (#d97706), status-error (#dc4a3a), and
  * status-info (#2e7dba) in LIGHT MODE fail WCAG AA for normal text on warm
@@ -27,11 +46,10 @@
  * text on warm surfaces. They are exempt from AA normal text contrast. Dark
  * mode status tokens pass AA on all surfaces.
  *
- * @lore U3 — dark mode --text-on-accent (#fff) on --accent-primary (#2eaa7a)
- * achieves 2.94:1, below AA-Large (3:1). Dark mode buttons should use the
- * light-mode accent value (#16764f) as background (5.62:1 with white), not
- * the dark-mode --accent-primary which is optimized for text contrast on dark
- * surfaces. U7 should add --accent-primary-bg for this purpose.
+ * @lore CL1 — --text-on-accent is DARK (#2a2415 light / #221f0a dark) since
+ * the accent fill is bright lemon: white on #f0c419 is ~1.6:1 (fails), dark
+ * is ~9:1 (AAA). The dark text also holds on status-error and accent-secondary
+ * fills (≥3.7:1 light, ≥5:1 dark), which share this token.
  */
 
 @layer base {
@@ -145,75 +163,49 @@
 		}
 	}
 
-	/* ── Hearth Light (default) ── */
+	/* ── Hearth Light (default) — Crème Lemon ── */
 	:root,
 	[data-theme="hearth-light"] {
-		/* Surfaces — bright warm off-white ladder */
-		/*
-		 * @lore CP1 round-2 — light surface ladder LIFTED for an airier read.
-		 * Round-1 kept the cream page (#f5f0e6, L0.956) and only softened the
-		 * container; the founder still read page AND container as too dark/heavy.
-		 * Round-2 raises the whole ladder while keeping three clearly-visible
-		 * steps (no collapse into indistinguishable near-whites):
-		 *   page      #f5f0e6 → #fbf7f2  (L0.956→0.978, H~74°, C0.008)
-		 *   container #f0ece5 → #f5f0eb  (L0.944→0.958, H~68°, C0.009)
-		 *   elevated  #ffffff (unchanged white card on top)
-		 * Steps: page→container ΔL 0.020, container→white ΔL 0.022 — even and
-		 * legible. Warm hue stays in the AQ-018 40–80° band; chroma low so it
-		 * reads bright-warm, never cool-gray. The cream is no longer sacred (the
-		 * founder asked for lighter); identity is preserved by the warm hue.
+		/* Surfaces — pale lemon cream ladder
+		 * @lore CL1 — beige cream → pale lemon. Hue moves from ~68–74° (beige)
+		 * to ~95–100° (lemon) with slightly more chroma for energy; lightness
+		 * ladder and step sizes preserved from CP1 round-2 (page L0.978,
+		 * container L0.958, elevated white).
 		 */
-		--surface-page: #fbf7f2;
-		--surface-container: #f5f0eb;
+		--surface-page: #fcf8e8;
+		--surface-container: #f6f0d8;
 		--surface-elevated: #ffffff;
 		--surface-overlay: #ffffff;
 
-		/* Text — warm dark tones (unchanged in round-2; ratios rose on the lifted ladder) */
-		--text-primary: #2c241a; /* 14.33:1 page, 13.49:1 container, 15.28:1 elevated */
-		/*
-		 * @lore CP1 — text-secondary de-browned from #6b5d4d (OKLCH C0.031) to
-		 * #675f56 (C0.017). Founder: mid text reads "poopy"/over-browned. Chroma
-		 * cut ~45% toward refined warm-neutral; lightness held (L0.49) so AA is
-		 * preserved. Round-2 lifted the page/container so contrast actually rose:
-		 * 5.88:1 on page, 5.54:1 on container, 6.27:1 on elevated.
-		 */
-		--text-secondary: #675f56; /* 5.88:1 page, 5.54:1 container, 6.27:1 elevated */
-		/*
-		 * @lore U3 — text-tertiary is decorative/hint-only in light mode (large
-		 * labels, timestamps, icons; NOT body text; WCAG AA-exempt in this role).
-		 * @lore CP1 — de-browned #9a8d7e (C0.027) → #958e85 (C0.016), holding
-		 * L0.65. Round-2 lifted the page so it reads ~3.04:1 — still decorative/
-		 * hint-only (large labels, timestamps, icons), cleaner tone.
-		 */
-		--text-tertiary: #958e85; /* ~3.04:1 on lifted page — decorative/hint only */
-		/* @lore CP1 — placeholder de-browned #bfb5a5 (C0.025) → #bcb7ae (C0.014). */
-		--text-placeholder: #bcb7ae; /* placeholder-only, exempt from AA */
-		--text-on-accent: #ffffff; /* 5.62:1 on accent-primary */
+		/* Text — warm dark tones with a faint olive cast (CL1) */
+		--text-primary: #2a2415; /* ~14.5:1 page, ~13.7:1 container, 15.4:1 elevated */
+		--text-secondary: #645c46; /* ~6.2:1 page, ~5.8:1 container, ~6.6:1 elevated */
+		/* Tertiary stays decorative/hint-only in light mode (WCAG-exempt role). */
+		--text-tertiary: #938b70; /* ~3.0:1 on page — decorative/hint only */
+		--text-placeholder: #b8b09a; /* placeholder-only, exempt from AA */
+		/* @lore CL1 — flipped DARK: lemon-drop fills need dark content (~9:1). */
+		--text-on-accent: #2a2415;
 
-		/* Accents — forest green */
-		--accent-primary: #16764f;
-		--accent-primary-dim: rgba(22, 118, 79, 0.08);
-		--accent-primary-hover: #105e3f;
+		/* Accents — lemon drop (fill) + cocoa (text) — see file-header @lore CL1 */
+		--accent-primary: #f0c419;
+		--accent-primary-dim: rgba(240, 196, 25, 0.14);
+		--accent-primary-hover: #d9ad0f;
+		--accent-deep: #6f4d1e; /* ~7:1 on page — links, icons, focus, identity */
+		--accent-deep-dim: rgba(111, 77, 30, 0.09);
 		--accent-secondary: #d97706;
 
-		/* Status — see @lore: light mode values are icon/badge only */
+		/* Status — see @lore: light mode values are icon/badge only.
+		 * @lore CL1 — success intentionally STAYS green, decoupled from the
+		 * lemon accent so the success semantic survives the palette shift. */
 		--status-success: #16764f;
 		--status-warning: #d97706;
 		--status-error: #dc4a3a;
 		--status-info: #2e7dba;
 
-		/* Borders — solid warm tones */
-		/*
-		 * @lore CP1 — light borders softened + de-chromatized; the "too dark from
-		 * the cream" weight is mostly the edges, not the fill. Round-2 re-derived
-		 * them against the lifted page (L0.978) so they stay just-visible without
-		 * reading heavy: subtle #e8e0d0→#ece7e2 (L0.930 C0.009), default
-		 * #d5cbb8→#ddd6cf (L0.880 C0.012), strong #b5a890→#c1b9b0 (L0.790 C0.016).
-		 * Lighter + ~half the warm chroma = gentle separation, not brown rules.
-		 */
-		--border-subtle: #ece7e2;
-		--border-default: #ddd6cf;
-		--border-strong: #c1b9b0;
+		/* Borders — lemon-tinted warm neutrals (CL1) */
+		--border-subtle: #ede6c8;
+		--border-default: #ded3a9;
+		--border-strong: #c0b483;
 
 		/* Shadows — warm-tinted (active on cards, not just overlays) */
 		--shadow-subtle: 0 1px 4px rgba(44, 36, 26, 0.06);
@@ -236,101 +228,47 @@
 		color-scheme: light;
 	}
 
-	/* ── Hearth Dark ── */
+	/* ── Hearth Dark — Crème Lemon ── */
 	[data-theme="hearth-dark"] {
-		/*
-		 * @lore CP1 — Dark palette re-tuned (founder: "brown tint is horrible,
-		 * looks like poop" + "not dark enough"). Diagnosis in OKLCH: the old
-		 * surfaces sat at chroma 0.013→0.021 (rising as they lightened) at hue
-		 * ~67–80°, which reads as muddy brown — the lighter the surface, the
-		 * more brown it got. Fix: (1) go DEEPER — page L0.200→0.175; (2) pull
-		 * chroma WAY down and FLATTEN the rise — all surfaces now C≈0.005–0.008
-		 * (3–4x cleaner) at a locked warm hue ~60° (amber side), so they read as
-		 * a clean deep near-neutral with only a whisper of warmth, not brown mud.
-		 * Text ramp de-browned the same way: text-secondary C0.039→0.015 was the
-		 * worst offender. Every body pair still passes WCAG AA (see below).
+		/* Surfaces — deep near-neutral with a WHISPER OF LEMON (CL1).
+		 * CP1's de-browning holds: chroma stays low (~0.01–0.02); only the hue
+		 * nudges from amber ~60° toward lemon ~100°, and the ladder keeps CP1
+		 * round-2's step sizes (ΔL 0.076 / 0.049 / 0.051).
 		 */
-		/* Surfaces — deep, near-neutral warm; a whisper of amber, no brown mud */
-		/*
-		 * @lore CP1 round-2 — WIDER page→container step. Founder R1: container was
-		 * "hard to tell from page" (#12100e L0.175 vs #1c1917 L0.216 = ΔL 0.041,
-		 * too tight). Round-2 keeps the deep page (the founder likes it) and lifts
-		 * the upper rungs to nearly double the first step and keep the ladder
-		 * climbing cleanly:
-		 *   page      #12100e (unchanged, L0.175)
-		 *   container #1c1917 → #24211f  (L0.216→0.250, ΔL from page now 0.076)
-		 *   elevated  #25221f → #302d2a  (L0.254→0.300)
-		 *   overlay   #312d2a → #3d3a37  (L0.300→0.350)
-		 * Steps ΔL: 0.076 / 0.049 / 0.051 — clearly readable separation at every
-		 * rung. De-browning from round-1 held: chroma stays ~0.005–0.008 at hue
-		 * ~56–68° (warm-neutral, AQ-018), no chroma/mud reintroduced.
-		 */
-		--surface-page: #12100e; /* deepest — page bg (L0.175 C0.005 H67) */
-		--surface-container: #24211f; /* app chrome (L0.250 C0.006) — widened step */
-		--surface-elevated: #302d2a; /* cards (L0.300 C0.007) */
-		--surface-overlay: #3d3a37; /* modals, popovers (L0.350 C0.007) */
+		--surface-page: #14140b; /* deepest — page bg (L0.188 C0.017 H108) */
+		--surface-container: #242418; /* app chrome (L0.25) — widened step */
+		--surface-elevated: #2f2f21; /* cards (L0.30) */
+		--surface-overlay: #3b3a2c; /* modals, popovers (L0.35) */
 
-		/* Text — lightened warm-neutral tones, WCAG AA/AAA validated */
-		/*
-		 * @lore CP1 round-2 — dark secondary + tertiary RAISED for legibility.
-		 * Founder R1: round-1 secondary #a79e97 (L0.705) and tertiary #938c87
-		 * (L0.645) were "hard to read" on the dark surfaces. Round-2 pushes both
-		 * lighter (de-browned, chroma held low ~0.012) so they clear AAA where the
-		 * palette allows:
-		 *   secondary #a79e97 → #bcb4ae  (L0.705→0.775)  9.29:1 page (AAA), 7.83 container (AAA), 6.70 elevated, 5.53 overlay
-		 *   tertiary  #938c87 → #ada6a0  (L0.645→0.730)  7.90:1 page (AAA), 6.66 container, 5.70 elevated, 4.70 overlay
-		 *   primary   #ebe5e0 → #ece7e2  (tiny lift, 15.45:1 page)
-		 * No weight bump needed: at these ratios the default 400/500 ramp reads
-		 * comfortably (the round-1 issue was contrast, not stroke weight). Hues
-		 * 59–68° — warm-neutral, no brown reintroduced.
-		 */
-		--text-primary: #ece7e2; /* 15.45:1 page, 13.03 container, 11.14 elevated */
-		--text-secondary: #bcb4ae; /* 9.29:1 page (AAA), 7.83 container (AAA), 6.70 elevated, 5.53 overlay */
-		--text-tertiary: #ada6a0; /* 7.90:1 page (AAA), 6.66 container, 5.70 elevated, 4.70 overlay — AA+ everywhere */
-		--text-placeholder: #46413d; /* placeholder-only, exempt from AA */
-		--text-on-accent: #ffffff;
+		/* Text — lightened warm tones with a faint olive cast, WCAG AA/AAA kept */
+		--text-primary: #ecead9; /* ~15:1 page, ~12.7:1 container, ~10.9:1 elevated */
+		--text-secondary: #bdb9a2; /* ~9:1 page (AAA), ~7.6:1 container (AAA) */
+		--text-tertiary: #a8a58c; /* ~7:1 page (AAA) — AA+ everywhere */
+		--text-placeholder: #4a4735; /* placeholder-only, exempt from AA */
+		/* @lore CL1 — dark content on lemon fills (~9:1 on #f5d33d). */
+		--text-on-accent: #221f0a;
 
-		/* Accents — lightened for dark surfaces */
-		/*
-		 * @lore U3 — accent-primary adjusted from #16764f to #2eaa7a for dark
-		 * mode. Light value only achieved 3.23:1 on dark page surface (fails AA).
-		 * #2eaa7a is a lighter, more saturated forest green at 6.17:1 on page.
-		 * Hue stays in the green family (~155 deg). For button backgrounds in dark
-		 * mode, use the light-mode value (#16764f) which gives white text 5.62:1.
-		 * See file-level @lore for full context.
-		 */
-		--accent-primary: #2eaa7a; /* 6.17:1 on page, 5.10:1 on elevated */
-		--accent-primary-dim: rgba(46, 170, 122, 0.1);
-		--accent-primary-hover: #20a070;
-		--accent-secondary: #d97706; /* 5.69:1 on page */
+		/* Accents — lemon drop (fill) + light beige (text) — see file-header @lore CL1.
+		 * @lore CL1 — the dark secondary is LIGHT BEIGE, not lime: a lime green
+		 * next to the yellow primary read as clashing; beige is the crème family
+		 * inverted onto the deep base (~10:1 on page). */
+		--accent-primary: #f5d33d;
+		--accent-primary-dim: rgba(245, 211, 61, 0.14);
+		--accent-primary-hover: #e3c22e;
+		--accent-deep: #d9c9a3;
+		--accent-deep-dim: rgba(217, 201, 163, 0.14);
+		--accent-secondary: #d97706; /* ~5.7:1 on page */
 
-		/* Status — lightened for dark surfaces, all pass AA */
-		--status-success: #2eaa7a; /* same as accent-primary dark */
+		/* Status — unchanged by CL1 (already AA on dark surfaces) */
+		--status-success: #2eaa7a; /* decoupled from the lemon accent (CL1) */
 		--status-warning: #d97706; /* 5.69:1 on page */
-		/*
-		 * @lore U3 — status-error adjusted from #dc4a3a to #ee6a5a for dark mode.
-		 * Light value was 4.39:1 on page (AA-Large only). #ee6a5a achieves 5.91:1
-		 * on page, 4.89:1 on elevated — AA pass. Stays warm-red.
-		 */
-		--status-error: #ee6a5a; /* 5.91:1 on page, 4.89:1 on elevated */
-		/*
-		 * @lore U3 — status-info adjusted from #2e7dba to #4498d4 for dark mode.
-		 * Light value was 4.11:1 on page. #4498d4 achieves 5.77:1 on page.
-		 */
-		--status-info: #4498d4; /* 5.77:1 on page, 4.77:1 on elevated */
+		--status-error: #ee6a5a; /* 5.91:1 on page, 4.89:1 elevated */
+		--status-info: #4498d4; /* 5.77:1 on page, 4.77:1 elevated */
 
-		/* Borders — solid warm-neutral tones */
-		/*
-		 * @lore CP1 — dark borders de-browned (old #3d342a/#554a3c/#756850 were
-		 * chroma 0.02–0.03 hue ~75°, visible brown rules). Round-2 re-derived them
-		 * to sit between the lifted surface rungs so edges stay legible against the
-		 * raised container/elevated: subtle #312d2a (L0.300 C0.008), default
-		 * #433f3b (L0.370 C0.009), strong #5f5a55 (L0.470 C0.010) — clean
-		 * warm-neutral at hue ~60–68°, no brown reintroduced.
-		 */
-		--border-subtle: #312d2a;
-		--border-default: #433f3b;
-		--border-strong: #5f5a55;
+		/* Borders — warm-neutral with the same lemon whisper (CL1) */
+		--border-subtle: #33332a;
+		--border-default: #46453a;
+		--border-strong: #626050;
 
 		/* Shadows — black-based for dark mode */
 		--shadow-subtle: 0 1px 4px rgba(0, 0, 0, 0.3);
@@ -361,23 +299,25 @@
 	 */
 	@media (prefers-color-scheme: dark) {
 		:root:not([data-theme]) {
-			/* Surfaces — @lore CP1 round-2: mirrors [data-theme="hearth-dark"] exactly (widened ladder) */
-			--surface-page: #12100e;
-			--surface-container: #24211f;
-			--surface-elevated: #302d2a;
-			--surface-overlay: #3d3a37;
+			/* Surfaces — mirrors [data-theme="hearth-dark"] exactly (CL1) */
+			--surface-page: #14140b;
+			--surface-container: #242418;
+			--surface-elevated: #2f2f21;
+			--surface-overlay: #3b3a2c;
 
-			/* Text — @lore CP1 round-2: mirrors hearth-dark exactly (raised sec/tertiary) */
-			--text-primary: #ece7e2;
-			--text-secondary: #bcb4ae;
-			--text-tertiary: #ada6a0;
-			--text-placeholder: #46413d;
-			--text-on-accent: #ffffff;
+			/* Text — mirrors hearth-dark exactly */
+			--text-primary: #ecead9;
+			--text-secondary: #bdb9a2;
+			--text-tertiary: #a8a58c;
+			--text-placeholder: #4a4735;
+			--text-on-accent: #221f0a;
 
 			/* Accents */
-			--accent-primary: #2eaa7a;
-			--accent-primary-dim: rgba(46, 170, 122, 0.1);
-			--accent-primary-hover: #20a070;
+			--accent-primary: #f5d33d;
+			--accent-primary-dim: rgba(245, 211, 61, 0.14);
+			--accent-primary-hover: #e3c22e;
+			--accent-deep: #d9c9a3;
+			--accent-deep-dim: rgba(217, 201, 163, 0.14);
 			--accent-secondary: #d97706;
 
 			/* Status */
@@ -386,10 +326,10 @@
 			--status-error: #ee6a5a;
 			--status-info: #4498d4;
 
-			/* Borders — @lore CP1 round-2: mirrors hearth-dark exactly */
-			--border-subtle: #312d2a;
-			--border-default: #433f3b;
-			--border-strong: #5f5a55;
+			/* Borders — mirrors hearth-dark exactly */
+			--border-subtle: #33332a;
+			--border-default: #46453a;
+			--border-strong: #626050;
 
 			/* Shadows */
 			--shadow-subtle: 0 1px 4px rgba(0, 0, 0, 0.3);

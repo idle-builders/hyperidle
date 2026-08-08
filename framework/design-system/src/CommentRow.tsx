@@ -88,7 +88,7 @@ export interface CommentRowProps extends CommentRowRichSlots {
 function MentionToken({ displayName }: { displayName: string }): JSX.Element {
 	return (
 		<span
-			className="inline-flex items-center px-[3px] py-[3px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--accent-primary)_8%,transparent)] text-[var(--accent-primary)]"
+			className="inline-flex items-center px-[3px] py-[3px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--accent-primary)_8%,transparent)] text-[var(--accent-deep)]"
 			data-testid="mention-token"
 		>
 			@{displayName}
@@ -244,7 +244,7 @@ export function CommentRow({
 	const timeString = timeRaw === TIME_PLACEHOLDER ? null : timeRaw;
 
 	const avatarClass = isAgent
-		? "inline-flex items-center justify-center w-[36px] h-[36px] rounded-full bg-[var(--accent-primary-dim)] text-[var(--accent-primary)] text-[13px] font-[600] border-[1.5px] border-[var(--accent-primary)] shrink-0"
+		? "inline-flex items-center justify-center w-[36px] h-[36px] rounded-full bg-[var(--accent-primary-dim)] text-[var(--accent-deep)] text-[13px] font-[600] border-[1.5px] border-[var(--accent-deep)] shrink-0"
 		: "inline-flex items-center justify-center w-[36px] h-[36px] rounded-full bg-[var(--surface-page)] text-[var(--text-secondary)] text-[13px] font-[600] border-[1.5px] border-[var(--border-subtle)] shrink-0";
 
 	// @lore AH6: data-sender-kind="ai"|"human" is the stable Playwright selector
@@ -267,7 +267,7 @@ export function CommentRow({
 					<div className="flex items-baseline gap-[6px] mb-[3px]">
 						<span className="text-[13px] font-[600] text-[var(--text-primary)]">{sender.name}</span>
 						{isAgent ? (
-							<span className="inline-flex items-center px-[6px] py-[3px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[var(--accent-primary)] text-[10px] font-[600] tracking-[var(--tracking-caps-sm)]">
+							<span className="inline-flex items-center px-[6px] py-[3px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[var(--accent-deep)] text-[10px] font-[600] tracking-[var(--tracking-caps-sm)]">
 								Agent
 							</span>
 						) : null}

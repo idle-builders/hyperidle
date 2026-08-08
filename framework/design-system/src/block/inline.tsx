@@ -36,7 +36,7 @@ function renderNode(node: InlineNode, key: number): JSX.Element | string {
 				<a
 					key={key}
 					href={node.href}
-					className="text-[var(--accent-primary)] underline underline-offset-2"
+					className="text-[var(--accent-deep)] underline underline-offset-2"
 					rel="noopener noreferrer"
 				>
 					{renderInline(node.children)}

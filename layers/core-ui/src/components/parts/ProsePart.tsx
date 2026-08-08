@@ -32,7 +32,7 @@ function renderText(text: string, mentions: ReadonlyArray<{ displayName: string 
 					// biome-ignore lint/suspicious/noArrayIndexKey: stable positional segments
 					<span
 						key={i}
-						className="rounded-[var(--r-subtle)] bg-[var(--accent-primary-dim)] px-[3px] font-[500] text-[var(--accent-primary)]"
+						className="rounded-[var(--r-subtle)] bg-[var(--accent-primary-dim)] px-[3px] font-[500] text-[var(--accent-deep)]"
 					>
 						{seg}
 					</span>

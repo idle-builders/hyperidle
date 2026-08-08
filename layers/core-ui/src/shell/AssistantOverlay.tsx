@@ -265,7 +265,7 @@ function ThinkingRow(): JSX.Element {
 				gap: "9px",
 				padding: "9px 12px",
 				borderRadius: "var(--r-subtle)",
-				background: "var(--accent-primary-dim, rgba(22,118,79,0.06))",
+				background: "var(--accent-primary-dim, rgba(240,196,25,0.14))",
 			}}
 		>
 			<span className="loading loading-spinner loading-sm text-[var(--text-tertiary)]" />
@@ -554,7 +554,7 @@ export function AssistantOverlay({
 					type="button"
 					aria-label="Close assistant"
 					/* AI5 AQ-015: 44px touch floor ≤1024px, dense 24px ≥1280px. */
-					className="flex items-center justify-center w-[24px] h-[24px] min-h-[44px] min-w-[44px] xl:min-h-[24px] xl:min-w-[24px] rounded-[var(--r-pill)] bg-transparent border-none text-[var(--text-secondary)] cursor-pointer hover:text-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)]"
+					className="flex items-center justify-center w-[24px] h-[24px] min-h-[44px] min-w-[44px] xl:min-h-[24px] xl:min-w-[24px] rounded-[var(--r-pill)] bg-transparent border-none text-[var(--text-secondary)] cursor-pointer hover:text-[var(--accent-deep)] transition-colors duration-[var(--motion-fast)]"
 					onClick={behavior.requestDismiss}
 				>
 					<svg

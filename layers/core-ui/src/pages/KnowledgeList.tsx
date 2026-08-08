@@ -409,7 +409,7 @@ function KnowledgeListContent({
 							onClick={() => onSortChange(option)}
 							className={
 								isActive
-									? "text-[12px] text-[var(--accent-primary)] font-[600] cursor-pointer bg-transparent border-none capitalize"
+									? "text-[12px] text-[var(--accent-deep)] font-[600] cursor-pointer bg-transparent border-none capitalize"
 									: "text-[12px] text-[var(--text-tertiary)] cursor-pointer bg-transparent border-none capitalize"
 							}
 						>
@@ -973,7 +973,7 @@ export function KnowledgeList({
 									aria-selected={tab === "curated"}
 									className={
 										tab === "curated"
-											? "px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px] font-[600] bg-[var(--surface-elevated)] text-[var(--accent-primary)] shadow-[var(--shadow-subtle)] cursor-pointer border-none"
+											? "px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px] font-[600] bg-[var(--surface-elevated)] text-[var(--accent-deep)] shadow-[var(--shadow-subtle)] cursor-pointer border-none"
 											: "px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px] font-[500] text-[var(--text-secondary)] cursor-pointer border-none bg-transparent"
 									}
 									onClick={() => {
@@ -989,7 +989,7 @@ export function KnowledgeList({
 									aria-selected={tab === "triage"}
 									className={
 										tab === "triage"
-											? "px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px] font-[600] bg-[var(--surface-elevated)] text-[var(--accent-primary)] shadow-[var(--shadow-subtle)] cursor-pointer border-none"
+											? "px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px] font-[600] bg-[var(--surface-elevated)] text-[var(--accent-deep)] shadow-[var(--shadow-subtle)] cursor-pointer border-none"
 											: "px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px] font-[500] text-[var(--text-secondary)] cursor-pointer border-none bg-transparent"
 									}
 									onClick={() => {

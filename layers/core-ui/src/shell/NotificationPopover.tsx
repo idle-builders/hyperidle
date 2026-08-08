@@ -156,7 +156,7 @@ export function NotificationPopover({
 					type="button"
 					onClick={onClose}
 					aria-label="Close notifications"
-					className="flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--accent-primary)]"
+					className="flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--accent-deep)]"
 					style={{
 						background: "none",
 						border: "none",

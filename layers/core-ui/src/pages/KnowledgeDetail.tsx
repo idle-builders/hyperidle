@@ -367,7 +367,7 @@ function BacklinksCard({
 						<li key={ri.id} data-testid="related-item">
 							<RRLink
 								to={`/knowledge/${ri.id}`}
-								className="flex items-center gap-[9px] py-[6px] text-[13px] text-[var(--accent-primary)] hover:underline cursor-pointer"
+								className="flex items-center gap-[9px] py-[6px] text-[13px] text-[var(--accent-deep)] hover:underline cursor-pointer"
 							>
 								{ri.title}
 							</RRLink>
@@ -457,7 +457,7 @@ function KnowledgeOverflowMenu({
 				aria-expanded={overflowOpen}
 				aria-haspopup="menu"
 				/* AI5 AQ-015: hit-area expansion only (AG5 menu trigger stays a button). */
-				className="inline-flex items-center justify-center w-[32px] h-[32px] min-h-[44px] min-w-[44px] xl:min-h-[32px] xl:min-w-[32px] rounded-[var(--r-pill)] border-[1.5px] border-[var(--border-default)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] text-[16px] cursor-pointer hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)]"
+				className="inline-flex items-center justify-center w-[32px] h-[32px] min-h-[44px] min-w-[44px] xl:min-h-[32px] xl:min-w-[32px] rounded-[var(--r-pill)] border-[1.5px] border-[var(--border-default)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] text-[16px] cursor-pointer hover:border-[var(--accent-deep)] hover:text-[var(--text-primary)]"
 				onClick={onToggle}
 			>
 				···

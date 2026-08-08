@@ -99,7 +99,7 @@ export interface SessionViewProps {
 
 function SessionAvatar({ who, size = 26 }: { who: PartAuthor; size?: number }): JSX.Element {
 	const tint = who.isAgent
-		? "bg-[var(--accent-primary-dim)] border-[var(--accent-primary)] text-[var(--accent-primary)]"
+		? "bg-[var(--accent-primary-dim)] border-[var(--accent-deep)] text-[var(--accent-deep)]"
 		: "bg-[var(--surface-container)] border-[var(--border-default)] text-[var(--text-secondary)]";
 	return (
 		<div
@@ -685,7 +685,7 @@ function SessionComposer({
 										onClick={() => {
 											setOptionValues((prev) => ({ ...prev, [opt.key]: !prev[opt.key] }));
 										}}
-										className={`inline-flex items-center gap-[6px] rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[500] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)] ${on ? "text-[var(--accent-primary)]" : "text-[var(--text-secondary)]"}`}
+										className={`inline-flex items-center gap-[6px] rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[500] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)] ${on ? "text-[var(--accent-deep)]" : "text-[var(--text-secondary)]"}`}
 									>
 										{opt.label}
 									</button>
@@ -773,7 +773,7 @@ export function SessionView({
 				<div className="mx-auto flex w-full max-w-[760px] items-center gap-[12px]">
 					<div className="min-w-0 flex-1">
 						<div className="flex items-center gap-[6px] text-[12px] text-[var(--text-secondary)]">
-							<span className="inline-flex items-center gap-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[9px] py-[1px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-primary)]">
+							<span className="inline-flex items-center gap-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[9px] py-[1px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-deep)]">
 								{running && (
 									<span className="inline-block h-[6px] w-[6px] rounded-full bg-[var(--accent-secondary)] motion-safe:animate-[skeleton-pulse_1.4s_ease-in-out_infinite]" />
 								)}

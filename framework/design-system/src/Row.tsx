@@ -162,7 +162,7 @@ export function Row({
 				"bg-[var(--surface-elevated)]",
 				"shadow-[var(--shadow-subtle)]",
 				"border-l-[var(--bw-strong)]",
-				"border-[var(--accent-primary)]",
+				"border-[var(--accent-deep)]",
 				"rounded-[var(--r-subtle)]",
 			].join(" ")
 		: "";

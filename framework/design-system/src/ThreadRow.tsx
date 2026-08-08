@@ -107,7 +107,7 @@ export function ThreadRow({
 }: ThreadRowProps): JSX.Element {
 	// Selected border wins over blocking border when both flags are true.
 	const borderLeftClass = selected
-		? "border-l-[var(--bw-strong)] border-[var(--accent-primary)]"
+		? "border-l-[var(--bw-strong)] border-[var(--accent-deep)]"
 		: blocking
 			? "border-l-[var(--bw-strong)] border-[var(--status-error)]"
 			: "";
@@ -116,7 +116,7 @@ export function ThreadRow({
 		"flex items-center gap-[12px] px-[24px] py-[12px]",
 		"border-b border-[var(--border-subtle)] last:border-b-0",
 		"hover:bg-[color-mix(in_oklab,var(--text-secondary)_2%,transparent)] transition-colors duration-[var(--motion-default)]",
-		"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:-outline-offset-1",
+		"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:-outline-offset-1",
 		onClick ? "cursor-pointer" : "",
 		// selected state: elevated bg + subtle shadow per design spec
 		selected ? "bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]" : "",
@@ -217,7 +217,7 @@ export function ThreadRow({
 									"border-[2px] border-[var(--surface-elevated)]",
 									i > 0 ? "ml-[-6px]" : "",
 									a.agent
-										? "bg-[var(--accent-primary-dim)] border-[var(--accent-primary)] text-[var(--accent-primary)]"
+										? "bg-[var(--accent-primary-dim)] border-[var(--accent-deep)] text-[var(--accent-deep)]"
 										: "bg-[var(--surface-page)] border-[var(--border-default)] text-[var(--text-secondary)]",
 								].join(" ")}
 							>
@@ -239,7 +239,7 @@ export function ThreadRow({
 							"text-[12px] font-[500] px-[6px] py-[3px] rounded-[var(--r-pill)]",
 							"min-w-[20px] text-center whitespace-nowrap",
 							unread
-								? "bg-[var(--accent-primary-dim)] text-[var(--accent-primary)]"
+								? "bg-[var(--accent-primary-dim)] text-[var(--accent-deep)]"
 								: "bg-[var(--surface-container)] text-[var(--text-secondary)]",
 						].join(" ")}
 					>

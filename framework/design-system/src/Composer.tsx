@@ -71,7 +71,7 @@ export function Composer({ threadId, onSubmit, unresolvedReviewLink }: ComposerP
 					// L1 step9 (Design-C4): minimum 44px touch target at viewport
 					// ≤1024px (AQ-015). The `min-h-[44px]` floor honors the rule
 					// without inflating the visual padding.
-					className="text-left text-[12px] text-[var(--accent-primary)] hover:underline min-h-[44px] flex items-center focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)]"
+					className="text-left text-[12px] text-[var(--accent-deep)] hover:underline min-h-[44px] flex items-center focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
 				>
 					Unresolved review · acting required ↑
 				</button>
@@ -86,7 +86,7 @@ export function Composer({ threadId, onSubmit, unresolvedReviewLink }: ComposerP
 				<textarea
 					data-testid="composer-textarea"
 					rows={1}
-					className="flex-1 min-h-[44px] resize-none bg-[var(--surface-page)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] px-[12px] py-[9px] text-[15px] focus:outline-hidden focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus:border-[var(--accent-primary)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)]"
+					className="flex-1 min-h-[44px] resize-none bg-[var(--surface-page)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] px-[12px] py-[9px] text-[15px] focus:outline-hidden focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)]"
 					placeholder="Reply to thread…"
 					value={text}
 					onChange={(e): void => setText(e.target.value)}
@@ -101,7 +101,7 @@ export function Composer({ threadId, onSubmit, unresolvedReviewLink }: ComposerP
 					disabled={submitting || !text.trim()}
 					// L1 step9 (Design-C4): 44px minimum touch target.
 					// U8: pill shape (r-pill) per Hearth send button spec; accent-primary background.
-					className="px-[12px] min-h-[44px] rounded-[var(--r-pill)] text-[12px] font-[500] bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)] active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] self-stretch transition-all duration-[var(--motion-default)]"
+					className="px-[12px] min-h-[44px] rounded-[var(--r-pill)] text-[12px] font-[500] bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)] active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] self-stretch transition-all duration-[var(--motion-default)]"
 				>
 					{submitting ? "Sending…" : "Send"}
 				</button>

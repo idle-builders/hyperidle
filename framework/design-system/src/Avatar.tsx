@@ -40,7 +40,7 @@ export function Avatar({
 }: AvatarProps): JSX.Element {
 	const sizeClass = SIZE_CLASSES[size];
 	const colorClass = agent
-		? "bg-[var(--accent-primary-dim)] border-[var(--accent-primary)] text-[var(--accent-primary)]"
+		? "bg-[var(--accent-primary-dim)] border-[var(--accent-deep)] text-[var(--accent-deep)]"
 		: "bg-[var(--surface-page)] border-[var(--border-default)] text-[var(--text-secondary)]";
 
 	return (

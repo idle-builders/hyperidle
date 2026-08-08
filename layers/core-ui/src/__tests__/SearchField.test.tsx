@@ -31,7 +31,7 @@ describe("SearchField", () => {
 	it("has focus border using --accent-primary token", () => {
 		render(<SearchField placeholder="Search..." />);
 		const input = screen.getByPlaceholderText("Search...");
-		expect(input.className).toContain("focus:border-[var(--accent-primary)]");
+		expect(input.className).toContain("focus:border-[var(--accent-deep)]");
 	});
 
 	it("has focus shadow using accent-primary-dim token", () => {

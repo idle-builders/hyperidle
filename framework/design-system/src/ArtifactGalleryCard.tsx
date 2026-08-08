@@ -13,7 +13,7 @@ export interface ArtifactGalleryCardProps {
 }
 
 const CARD_BASE =
-	"bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[12px] flex flex-col gap-[8px] cursor-pointer shadow-[var(--shadow-default)] border border-[var(--border-subtle)] hover:translate-y-[-2px] hover:shadow-[var(--shadow-elevated)] transition-all duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)]";
+	"bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[12px] flex flex-col gap-[8px] cursor-pointer shadow-[var(--shadow-default)] border border-[var(--border-subtle)] hover:translate-y-[-2px] hover:shadow-[var(--shadow-elevated)] transition-all duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]";
 const HEADER =
 	"flex items-center gap-[6px] font-mono text-[11px] tracking-[var(--tracking-caps-sm)] uppercase text-[var(--text-secondary)]";
 // @lore L3 review fix D-B2: derived title row per approved.md §2 + HTML ref line 29.

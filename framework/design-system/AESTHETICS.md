@@ -14,9 +14,9 @@ Shadows in light mode use `rgba(44, 36, 26, ...)` -- warm earth tones. Never `rg
 
 ## AQ-002: No cool grays
 
-Every neutral in the system is warm-tinted. Surface-page is cream (`#f5f0e6`), not white. Text-primary is earth brown (`#2c241a`), not black. Borders are warm stone (`#d5cbb8`), not steel gray.
+Every neutral in the system is warm-tinted. Surface-page is pale lemon cream (`#fcf8e8`), not white. Text-primary is warm olive-brown (`#2a2415`), not black. Borders are lemon-tinted stone (`#ded3a9`), not steel gray.
 
-**Test:** Open any component in light mode. Does every element feel warm? If any element looks like it belongs in a Material Design template, the color is wrong.
+**Test:** Open any component in light mode. Does every element feel warm-lemon? If any element looks like it belongs in a Material Design template, the color is wrong.
 
 ---
 
@@ -107,11 +107,13 @@ Count badges (message counts) are narrower: `3px 6px` padding with `min-width: 2
 ## AQ-012: Agent avatar distinction
 
 Agent avatars are visually distinct from human avatars:
-- **Background:** `rgba(22, 118, 79, 0.08)` (green tint)
-- **Border:** `var(--accent-primary)` (forest green)
-- **Text:** `var(--accent-primary)` (forest green)
+- **Background:** `var(--accent-deep-dim)` tint
+- **Border:** `var(--accent-deep)` (cocoa in light, light beige in dark)
+- **Text:** `var(--accent-deep)`
 
 This distinction persists across all sizes (sm, md, lg) and contexts (message avatars, thread row avatars, bet card team groups).
+
+<!-- @lore CL1: agent identity color moved forest-green -> cocoa/beige (--accent-deep) with the creme lemon palette; the distinction mechanism is unchanged. -->
 
 **Why:** In an agentic OS, the human needs to instantly distinguish "who said this -- a person or an agent?" at a glance.
 
@@ -153,10 +155,10 @@ The thread composer is an input + pill send button, not a bordered textarea + te
 ## AQ-016: Action blocks are tinted rows
 
 Agent action blocks in thread messages (deployment plans, migration strategies) use:
-- `rgba(22, 118, 79, 0.03)` background tint
+- `color-mix(in oklab, var(--accent-deep) 4%, transparent)` background tint
 - `--r-subtle` (10px) border radius
 - 9px 12px padding
-- A 6px green dot before the label
+- A 6px `--accent-deep` dot before the label
 - Status text on the right (success/warning color)
 
 They feel like inline cards, not banners.

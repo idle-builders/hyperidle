@@ -510,7 +510,7 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 	// Design: 28px draggable inset (h-[28px]) at the top of the sidebar column only — not
 	// a full-width strip. The traffic-lights float over the sidebar; main content reaches
 	// the window top unaffected. trafficLightPosition:{x:12,y:11} centers the lights within
-	// that 28px inset. backgroundColor must stay in sync with --surface-container (#24211f);
+	// that 28px inset. backgroundColor must stay in sync with --surface-container (#242418);
 	// the cool "#1a1a2e" violated AQ-018. Windows/Linux titleBarOverlay is a deliberate follow-up.
 	const mainWindow = new BrowserWindow({
 		x: windowState.x,
@@ -519,7 +519,7 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 		height: windowState.height,
 		titleBarStyle: "hiddenInset",
 		trafficLightPosition: { x: 12, y: 11 },
-		backgroundColor: "#24211f",
+		backgroundColor: "#242418",
 		webPreferences: {
 			preload: preloadPath,
 			contextIsolation: true,
@@ -624,7 +624,7 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 		height: windowState.height,
 		titleBarStyle: "hiddenInset",
 		trafficLightPosition: { x: 12, y: 11 },
-		backgroundColor: "#24211f",
+		backgroundColor: "#242418",
 		webPreferences: {
 			preload: preloadPath,
 			contextIsolation: true,

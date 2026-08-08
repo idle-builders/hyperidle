@@ -49,7 +49,7 @@ export function ReviewResolvedPart({
 			<button
 				type="button"
 				onClick={() => onOpen({ route: "review", ...part.reviewTarget })}
-				className="inline-flex shrink-0 items-center gap-[3px] text-[12px] font-[500] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:text-[var(--accent-primary)]"
+				className="inline-flex shrink-0 items-center gap-[3px] text-[12px] font-[500] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:text-[var(--accent-deep)]"
 			>
 				View review
 				<svg

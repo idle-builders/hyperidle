@@ -334,7 +334,7 @@ export function HostThreadSection({
 					ref={composerRef}
 					type="text"
 					data-testid="composer-textarea"
-					className="flex-1 text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] bg-[var(--surface-page)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] outline-none focus:border-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)]"
+					className="flex-1 text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] bg-[var(--surface-page)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] outline-none focus:border-[var(--accent-deep)] transition-colors duration-[var(--motion-fast)]"
 					style={{ padding: "9px 12px" }}
 					placeholder="Write a message…"
 					value={composerText}
