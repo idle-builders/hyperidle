@@ -1,6 +1,6 @@
 {
   "id": "AU29",
-  "status": "in-progress",
+  "status": "build-complete",
   "currentStep": "build",
   "startedAt": "2026-08-07",
   "worktree": ".worktrees/pipeline-AU29",
@@ -42,5 +42,28 @@
     "Bootstrapped with `npm install` (npm ci fails: lock out of sync for react 18 types on main).",
     "The first worktree was wiped mid-run (only agent-written files survived); rebuilt and artifacts committed immediately. Commit artifacts as they land.",
     "Build runs SEQUENTIAL, single builder: every task regenerates governance/baseline.json in its own commit, so parallel leaves would collide on that shared file."
-  ]
+  ],
+  "tasksLanded": {
+    "A": "6eeb9348 — non-database exports moved to framework/shared",
+    "B+C": "c85f622a — toolsForRole dissolved; framework off the event bus",
+    "D": "21082a04 — first-boot composition moved to composition roots; db-symbols-all-placed rule registered",
+    "docs-sweep": "8e6c9959 — stale framework/db paths repointed; readSystemPromptTemplate export gap closed",
+    "formatting": "d4094e02",
+    "F-docs-followup": "2fb23990 — re-anchored no-laundered-re-exports.ts lore off the deleted db:util surface (architecture.md §4.4 obligation the prior session left undone)",
+    "F-attestation": "4da35ff9 — signed verify attestation committed"
+  },
+  "finalVerification": {
+    "npm run check": "PASS — 35/35 packages, 0 errors",
+    "npm run lint": "PASS — governance-lint 3310 tracked files, 191 production + 66 development known violations at warn (baseline shrunk from 221+67; zero db:unknown, zero db:util, zero production framework→* group)",
+    "npm run test": "PASS — 351 files / 3275 tests (352/3343 inside the full verify run, one extra commit in scope)",
+    "npm run test:integration:service": "PASS — 323 files / 2822 tests (4 skipped, pre-existing)",
+    "relocated factory suites (tools/setup/src/__tests__/* + AF17-propagation-bootstrap)": "PASS — 7 files / 86 tests, run in isolation",
+    "npm run knip / knip:production": "PASS — no new dead-code findings",
+    "npm run deps:check": "PASS",
+    "npm run mock-inventory:check": "PASS",
+    "npm run verify (full, backgrounded ~13min)": "PASS — check, lint, knip, knip:production, deps:check, mock-inventory:check, core-ui build, desktop build, then verify-attest.ts (unit 352/3343, integration 307/308 files 2685/2688 tests scope=affected, e2e --only-changed=origin/main pass-with-no-tests) — attestation status=passed, dirty=false, sha=2fb23990",
+    "db-symbols-all-placed live-fire": "appended a no-db export (probeNoDb) to framework/db barrel — governance-lint FAIL naming the symbol by name; reverted — governance-lint PASS, git status clean. Confirmed the guard names an architectural fact (the unplaced symbol), never a ledger count.",
+    "AC7 first-boot equivalence": "both legs diffed empty against the committed control (probes/first-boot-control.json): (1) the two composition-root faces (applyFactoryCoreState + applyFactoryRunConfigDefaults), the exact statements applications/desktop/src/main.ts:455-460 executes — Electron itself was not launched; (2) npm run setup -- --db-path <scratch>, the relocated CLI path, end to end",
+    "baseline-emptiness AC": "does not trigger — 29 groups / 191+66 violations remain after AU29's clearing (out of 38 groups pre-WP), so governance/baseline.json and --adopt stay as-is, per architecture.md §3 AC6"
+  }
 }
