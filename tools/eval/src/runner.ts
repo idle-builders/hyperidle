@@ -8,7 +8,7 @@
 
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -71,7 +71,17 @@ function resolveMigrationsFolder(): string {
 export async function createEvalDb(): Promise<{ db: HyperIdleDb; close: () => Promise<void> }> {
 	const dataDir = await mkdtemp(join(tmpdir(), "eval-db-"));
 	await applyMigrations(dataDir, resolveMigrationsFolder());
-	return createPgliteDb(dataDir);
+	const { db, close } = await createPgliteDb(dataDir);
+	// @lore AU32: `createPgliteDb`'s own `close()` only closes the client handle — it does not
+	// know it was handed a per-boot `mkdtemp` directory rather than an in-memory database, so it
+	// cannot remove one. The caller that composed the tmp dir is the one that has to clean it up.
+	return {
+		db,
+		close: async () => {
+			await close();
+			await rm(dataDir, { recursive: true, force: true });
+		},
+	};
 }
 
 // ---------------------------------------------------------------------------

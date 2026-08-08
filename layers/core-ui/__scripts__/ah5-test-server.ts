@@ -31,7 +31,7 @@
  */
 
 import * as fs from "node:fs";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -163,6 +163,13 @@ function shutdown(): Promise<void> {
 		} catch (error) {
 			process.stderr.write(`[ah5-test-server] database close failed: ${String(error)}\n`);
 			exitCode = 1;
+		}
+		// @lore AU32: D4's tmp-dir composition leaves a per-boot mkdtemp directory on disk
+		// where the old in-memory `new PGlite()` left nothing — remove it on shutdown.
+		try {
+			await rm(dataDir, { recursive: true, force: true });
+		} catch (error) {
+			process.stderr.write(`[ah5-test-server] tmp data dir cleanup failed: ${String(error)}\n`);
 		}
 		process.exit(exitCode);
 	})();

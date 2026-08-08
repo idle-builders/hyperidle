@@ -1,12 +1,14 @@
 $ npm run test:full
-(tail of real run, foreground, 2026-08-08, after fixing governance-model.test.ts:178-183)
+(tail of real run, foreground, 2026-08-08 — re-run after review.md's B1/B2/B3 fixes: the 8
+schema.integration.test.ts companions, the layers/core-ui + tools/eval manifest drops, npm install)
 
  Test Files  562 passed (562)
       Tests  6193 passed (6193)
-   Start at  17:44:18
-   Duration  249.31s (transform 16.10s, setup 147.98s, import 113.07s, tests 347.25s, environment 118.72s)
+   Start at  18:31:55
+   Duration  251.20s (transform 14.94s, setup 145.67s, import 110.64s, tests 351.09s, environment 117.93s)
 
-Matches architecture.md's AC-6 projection exactly: 6193 total, zero failures.
+Matches architecture.md's AC-6 projection exactly: 6193 total, zero failures. schema.integration.test.ts's
+8 added companion inserts change no test count (still 22 tests in that file) and no assertion.
 
 Correction to an earlier claim in this file/report: an intermediate run of this suite showed
 "6192 passed | 1 failed (6193)", with the failure in

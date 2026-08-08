@@ -21,7 +21,7 @@
  * avoid collision with sibling worktree dev servers. Not 5179/5180 (those are
  * Vite ports). The playwright.ah1.config.ts and vite.ah1.config.ts agree on 3099.
  */
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -82,6 +82,14 @@ function shutdown(): Promise<void> {
 		} catch (error) {
 			process.stderr.write(`[ah1-test-server] database close failed: ${String(error)}\n`);
 			exitCode = 1;
+		}
+		// @lore AU32: the tmp-dir composition (D4) replaced the in-memory `new PGlite()` this
+		// script used to hand-roll with a per-boot `mkdtemp` directory, so there is now
+		// something on disk to remove — the old in-memory handle left nothing behind.
+		try {
+			await rm(dataDir, { recursive: true, force: true });
+		} catch (error) {
+			process.stderr.write(`[ah1-test-server] tmp data dir cleanup failed: ${String(error)}\n`);
 		}
 		process.exit(exitCode);
 	})();

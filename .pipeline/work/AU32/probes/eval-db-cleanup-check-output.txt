@@ -1,0 +1,8 @@
+$ npx tsx probes/eval-db-cleanup-check.mts
+(D2 — proves tools/eval/src/runner.ts's createEvalDb() now removes its per-boot mkdtemp dir on close())
+
+before: []
+during: [ 'eval-db-kezDb0' ]
+after: []
+
+Final filesystem check (find os.tmpdir() -maxdepth 1 -name "eval-db-*"): empty.
