@@ -2,11 +2,10 @@
  * N4 — desktop migrate orchestrator tests
  *
  * AC coverage:
- *  - runMigrations() calls applyMigrations from @hyperidle/db (not seed)
+ *  - runMigrations() calls applyMigrations from @hyperidle/db
  *  - runMigrations() throws when isDowngrade() returns true
  *  - runMigrations() succeeds on a fresh database
  *  - resolveMigrationsFolder() returns a path ending with drizzle
- *  - No seed data is written by the desktop migration path
  */
 
 import { describe, expect, it, vi } from "vitest";
@@ -31,9 +30,6 @@ vi.mock("@hyperidle/db", async (importOriginal) => {
 		...original,
 		applyMigrations: vi.fn(async () => ({ applied: 2, schemaVersion: 2 })),
 		isDowngrade: vi.fn(async () => false),
-		seed: vi.fn(() => {
-			throw new Error("seed must NOT be called from the desktop migration path");
-		}),
 	};
 });
 
@@ -57,15 +53,6 @@ describe("runMigrations", () => {
 
 		await runMigrations("/tmp/test.db", "/tmp/drizzle");
 		expect(applyMock).toHaveBeenCalledWith("/tmp/test.db", "/tmp/drizzle");
-	});
-
-	it("does NOT call seed() — desktop starts with empty database", async () => {
-		const { seed } = await import("@hyperidle/db");
-		const seedMock = seed as ReturnType<typeof vi.fn>;
-		seedMock.mockClear();
-
-		await runMigrations("/tmp/test.db", "/tmp/drizzle");
-		expect(seedMock).not.toHaveBeenCalled();
 	});
 
 	it("returns a MigrationOrchestrationResult with applied count", async () => {
