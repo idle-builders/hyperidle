@@ -1,42 +1,112 @@
 /**
  * P12 attack fixture — every spelling below must produce at least one finding.
- * A1/A2 are the original clause (a)/(b) re-exports; A3–A6 are the round-1 critique's
- * one-line launders; A7 the class-field pair; A8 the IIFE aggregate; A9–A12 are the
- * bypasses that motivated widening R2 in the first place, restated against the
- * NARROWED predicate: call-mediated escape, property-chain call, two-hop alias,
- * namespace escape. (Fixture is parse-only evidence in `.pipeline/` — never compiled,
- * never a production file.)
+ * THE SET DERIVES FROM THE EXPORT-SURFACE ENUMERATION (architecture.md §7.2): every
+ * grammar member with verdict "caught" has a case here, labelled with its member id,
+ * so completeness is checkable against the grammar, not against anyone's imagination.
+ * A1–A12 are the rounds-1/2 spellings (kept verbatim); X1–X17 are the export-surface
+ * and module-scope-flow members rounds 1–3 proved a curated list forgets.
+ * (Fixture is parse-only evidence in `.pipeline/` — never compiled, never a
+ * production file.)
  */
 
 // @ts-nocheck
 import { flagKnowledgeItem, listKnowledge, searchKnowledge } from "@hyperidle/knowledge";
 import * as knowledgeNs from "@hyperidle/knowledge";
 
-export { flagKnowledgeItem } from "@hyperidle/knowledge"; // A1 — export … from a service module
-export * from "@hyperidle/session-requests"; // A2 — export * from a service module
+export { flagKnowledgeItem } from "@hyperidle/knowledge"; // A1 [E1] — export … from a service module
+export * from "@hyperidle/session-requests"; // A2 [E2] — export * from a service module
 
-export const a3 = listKnowledge; // A3 — exported initializer IS the symbol
+export const a3 = listKnowledge; // A3 [E7] — exported initializer IS the symbol
 
-export const a4 = { listKnowledge }; // A4 — exported object-literal member
+export const a4 = { listKnowledge }; // A4 [E7+F6] — exported object-literal member
 
 const aliasHop = searchKnowledge;
-export { aliasHop as a5 }; // A5 — module-scope alias, exported under another name
+export { aliasHop as a5 }; // A5 [E4+F1] — module-scope alias, exported under another name
 
-export default { listKnowledge }; // A6 — default-export aggregate
+export default { listKnowledge }; // A6 [E5+F6] — default-export aggregate
 
 export class A7 {
-	static tool = listKnowledge; // A7 — static class field of an exported class
-	instanceTool = searchKnowledge; // A7b — instance class field (evaluates at construction)
+	static tool = listKnowledge; // A7 [E11] — static class field of an exported class
+	instanceTool = searchKnowledge; // A7b [E11] — instance class field (evaluates at construction)
 }
 
-export const a8 = (() => ({ listKnowledge }))(); // A8 — module-scope IIFE aggregate
+export const a8 = (() => ({ listKnowledge }))(); // A8 [F7] — module-scope IIFE aggregate
 
 const wrap = (x: unknown) => x;
-export const a9 = wrap(listKnowledge); // A9 — call-mediated escape (identity-wrap launder)
+export const a9 = wrap(listKnowledge); // A9 [F6] — call-mediated escape (identity-wrap launder)
 
-export const a10 = listKnowledge.bind(null); // A10 — property-chain call on the binding
+export const a10 = listKnowledge.bind(null); // A10 [F6] — property-chain call on the binding
 
 const bag = { searchKnowledge };
-export const a11 = bag; // A11 — two-hop reachability through a non-exported literal
+export const a11 = bag; // A11 [F1] — two-hop reachability through a non-exported literal
 
-export const a12 = { ns: knowledgeNs }; // A12 — namespace binding escapes whole
+export const a12 = { ns: knowledgeNs }; // A12 [F6] — namespace binding escapes whole
+
+// ---- round-3 B5: the export surface's own direct spellings ----
+
+export { listKnowledge }; // X1 [E4] — named export of the imported binding itself
+export { searchKnowledge as x2renamed }; // X2 [E4] — named export under an alias (the founding
+// case `export { list as listKnowledge } from "…"` respelled as import-then-export; the
+// two-line live respelling is run 4's dedicated fixture)
+export { flagKnowledgeItem as default }; // X3 [E4] — named export as `default`
+export { knowledgeNs as x3ns }; // X3b [E4] — named export of the namespace binding
+
+export const { searchKnowledge: x4 } = { searchKnowledge }; // X4 [E8] — destructured export
+export const [x5] = [flagKnowledgeItem]; // X5 [E9] — array-destructured export
+export const { deep: { x6 = listKnowledge } = {} } = {}; // X6 [E8] — nested pattern default
+
+export let x7 = undefined;
+x7 = searchKnowledge; // X7 [F2] — assignment to an exported live binding
+export let x8 = null;
+x8 ??= listKnowledge; // X8 [F2] — compound (logical) assignment to an exported binding
+export let x9 = null;
+if (Date.now() > 0) {
+	x9 = flagKnowledgeItem; // X9 [F2] — assignment nested in module-level control flow
+}
+export let x10 = null;
+({ x10 } = { x10: searchKnowledge }); // X10 [F3] — destructuring assignment to an exported binding
+
+export const x11 = {};
+x11.tool = listKnowledge; // X11 [F4] — property mutation of an exported object
+export const x12 = {};
+Object.assign(x12, { searchKnowledge }); // X12 [F5] — mutating call on an exported object
+export const x13 = [];
+x13.push(flagKnowledgeItem); // X13 [F5] — mutating method call on an exported array
+
+export const x14 = {
+	get tool() {
+		return listKnowledge; // X14 [F8] — object-literal getter yields the symbol on access
+	},
+};
+export class X15 {
+	static get tool() {
+		return searchKnowledge; // X15 [F8] — class getter yields the symbol on access
+	}
+}
+
+export enum X16 {
+	A = listKnowledge, // X16 [E12] — enum member initializer (type-illegal, parse-real)
+}
+
+export namespace X17 {
+	export const tool = searchKnowledge; // X17 [E13] — exported namespace member
+}
+
+export class X18 extends wrap(listKnowledge) {} // X18 [E11] — heritage `extends` expression
+
+export class X19 {
+	static {
+		X19.tool = searchKnowledge; // X19 [E11] — static block runs at module evaluation
+	}
+}
+
+@wrap(flagKnowledgeItem) // X20 [E11] — class decorator expression
+export class X20 {}
+
+export default class {
+	static tool = searchKnowledge; // X21 [E11] — anonymous default-exported class field
+}
+
+export import x22 = require("@hyperidle/knowledge"); // X22 [E14] — exported import= of a service module
+
+export = { flagKnowledgeItem }; // X23 [E6] — export= (tsc error under NodeNext ESM; caught anyway)

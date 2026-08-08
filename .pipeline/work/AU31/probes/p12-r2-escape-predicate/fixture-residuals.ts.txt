@@ -1,0 +1,25 @@
+/**
+ * P12 residual fixture — the review-territory classes the §7.3 limit statement names,
+ * EXECUTED so the limit statement is evidence, not prose. Expected: CLEAN — the model
+ * deliberately records nothing here; these shapes are held by the three non-mechanical
+ * holds (small ratified export map, knip/knip:production, reviewer lens).
+ */
+// @ts-nocheck
+import { flagKnowledgeItem, listKnowledge, searchKnowledge } from "@hyperidle/knowledge";
+
+// R1 [F10] — call-wrapping function (round-1 B3's adjudicated residual)
+export const listKnowledgeWrapped = (db: unknown) => listKnowledge(db);
+
+// R2 [F10] — named local function invoked at module scope (round-2 N1's `make()` spelling)
+function make(): unknown {
+	return { listKnowledge };
+}
+export const api = make();
+
+// R3 [F11] — mutation through a module-scope alias of an escaping object
+export const api2 = {};
+const alias = api2;
+alias.tool = searchKnowledge;
+
+// R4 [F12] — non-export side channel
+globalThis.leak = flagKnowledgeItem;

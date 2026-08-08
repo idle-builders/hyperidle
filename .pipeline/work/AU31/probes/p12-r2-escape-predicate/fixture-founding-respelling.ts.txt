@@ -1,0 +1,8 @@
+/**
+ * P12 run-4 fixture — the two-line respelling of `layers/core-api/src/index.ts:15`
+ * (`export { list as listKnowledge } from "@hyperidle/knowledge"`) that round-3 B5
+ * proved records NOTHING under the previous executed model. Must flag.
+ */
+// @ts-nocheck
+import { list } from "@hyperidle/knowledge";
+export { list as listKnowledge };

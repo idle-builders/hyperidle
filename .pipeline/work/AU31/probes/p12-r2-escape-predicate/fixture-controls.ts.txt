@@ -1,10 +1,12 @@
 /**
- * P12 control fixture — zero findings expected. C2 is the `app.ts:213` /
- * `service-bootstrap.ts:175` shape (non-escaping module-scope wiring bag over
- * service bindings, consumed only by module functions); C5 is the
- * `tool-handlers-bindings.ts:200` shape (exported call RESULT with the service
- * binding in bare direct-callee position). C1/C3/C4 are the standing §7.2
- * control twins; C0 is type-only.
+ * P12 control fixture — zero findings expected. Each control is the twin that pins one
+ * deliberate narrowing of the enumeration (architecture.md §7.2) against re-widening:
+ * C2 pins F14 (the `app.ts:213` / `service-bootstrap.ts:175` non-escaping wiring bag);
+ * C5 pins F9 (the `tool-handlers-bindings.ts:200` exported call RESULT, bare direct
+ * callee); C6 pins F10 for object-literal method bodies; C7 pins F8 against over-fire
+ * (a getter returning a produced value, not the symbol); C8 pins F4's escaping-base
+ * requirement; C9 pins F5's scan against flagging service-free arguments. C1/C3/C4 are
+ * the standing twins; C0 is type-only.
  */
 
 // @ts-nocheck
@@ -44,3 +46,30 @@ export function boot2(db: unknown): unknown {
 const localPorts = { coreApi: { getTaskById: (id: string) => id } };
 export const allDefinitions = buildToolDefinitions(localPorts);
 export { localPorts };
+
+// C6 — escaping bag whose METHOD body calls a service function (body runs on a
+// consumer's call — review territory F10, same as class methods)
+export const composedApi = {
+	getItems(db: unknown) {
+		return listKnowledge(db, "all");
+	},
+};
+
+// C7 — getter returning a PRODUCED value (bare service callee inside the scanned body)
+export const composedApi2 = {
+	get items() {
+		return searchKnowledge(undefined, "q");
+	},
+};
+
+// C8 — property mutation of a NON-escaping local bag (never reaches the export surface)
+const localBag = {};
+localBag.helper = listKnowledge;
+
+// C9 — module-scope call involving an escaping value but no service symbol
+export const registryHandle = {};
+register(registryHandle, "handle");
+function register(target: unknown, name: string): void {
+	void target;
+	void name;
+}

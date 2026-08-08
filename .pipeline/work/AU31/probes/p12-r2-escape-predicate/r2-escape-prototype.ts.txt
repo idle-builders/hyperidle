@@ -1,22 +1,65 @@
 /**
- * P12 — prototype of the NARROWED R2 predicate ("escape through the export surface"),
- * built on the same parser the live census uses (`scripts/lib/repo-census.ts:19,646`:
+ * P12 — prototype of the R2 predicate ("escape through the export surface"),
+ * built on the same parser the live census uses (`scripts/lib/repo-census.ts:644-646`:
  * `ts.createSourceFile`, TypeScript compiler API).
  *
- * Predicate under test — R2(c) as restated after critique round-2 B4:
- * a value binding imported from a service module is a violation iff it can flow OUT of
- * the module's export surface AS A VALUE. Escaping positions, computed transitively over
- * module-scope bindings:
- *   - the binding is exported (directly, via alias, via `export default`);
- *   - it appears anywhere inside an ESCAPING module-scope expression — object/array literal
- *     member, spread, template span, argument of a call/new whose result escapes, object of a
- *     property access, class field initializer (static or instance) of an escaping class,
- *     or the body of a function expression IMMEDIATELY INVOKED inside an escaping expression;
- *   - with exactly ONE exemption: the bare imported identifier in direct callee position of a
- *     call/new expression (calling a service function produces a value; the symbol does not
- *     flow into the result). A property-chain callee (`x.bind(null)`, `ns.fn()`) is NOT exempt.
- * Function bodies other than module-scope-invoked function expressions are NOT scanned
- * (review territory, per the ratified §7.3 dichotomy). Type-only imports are out of scope.
+ * COVERAGE IS DERIVED FROM AN ENUMERATION, NOT A CURATED LIST (adjudication 1).
+ * TypeScript's export surface is a closed, finite grammar. The model handles every
+ * member of that grammar; the enumeration and the per-member verdicts are the table
+ * in architecture.md §7.2, and every "caught" row has an executable case in the
+ * attack fixture, every deliberate narrowing a control twin.
+ *
+ * Group E — statements that create an export edge (top-level AST kinds):
+ *   E1  ExportDeclaration + specifier, NamedExports (`export { x } from "m"`, `as`, `as default`)
+ *   E2  ExportDeclaration + specifier, no clause (`export * from "m"`)
+ *   E3  ExportDeclaration + specifier, NamespaceExport (`export * as ns from "m"`)
+ *   E4  ExportDeclaration, no specifier, NamedExports (`export { x }`, `export { x as y }`,
+ *       `export { x as default }`) — the exported LOCAL is tested against the service bindings
+ *   E5  ExportAssignment `export default <expr>`
+ *   E6  ExportAssignment `export = <expr>` (TS; also a tsc error under NodeNext ESM — caught anyway)
+ *   E7  exported VariableStatement, identifier name
+ *   E8  exported VariableStatement, ObjectBindingPattern (nested, defaults, rest)
+ *   E9  exported VariableStatement, ArrayBindingPattern
+ *   E10 exported FunctionDeclaration (incl. `export default function`) — value escapes;
+ *       BODY is review territory (F10); the exported name is escape-tracked for mutation flow
+ *   E11 exported ClassDeclaration (incl. anonymous `export default class`) — field initializers,
+ *       heritage `extends` expression, decorators, getter bodies, static blocks scanned;
+ *       method/setter/constructor bodies review territory (F10)
+ *   E12 exported EnumDeclaration — member initializers scanned
+ *   E13 exported ModuleDeclaration (`export namespace`) — body scanned whole (conservative)
+ *   E14 ImportEqualsDeclaration (`[export] import x = require("m")`) — the binding is recorded;
+ *       exporting it flags like E4
+ *   CommonJS (`module.exports`, `exports.x`) is NOT a member: the shipping packages compile
+ *   ESM/NodeNext, where `module` is undefined at module scope — the spelling cannot function
+ *   as an export.
+ *
+ * Group F — module-scope value flow into the export surface:
+ *   F1  initializer flow, transitive over module-scope bindings (worklist)
+ *   F2  assignment to an escaping name at module scope, any assignment operator, including
+ *       statements nested in module-level control flow (function bodies are the boundary)
+ *   F3  destructuring assignment at module scope targeting an escaping name
+ *   F4  property/element mutation whose base chain roots at an escaping binding
+ *   F5  mutating call at module scope: callee chain roots at an escaping binding, or an escaping
+ *       binding appears among the arguments → ALL arguments scanned (conservative)
+ *   F6  value positions inside an escaping expression (generic recursion): literal members,
+ *       spreads, call/new arguments, property-access objects, template spans, computed names,
+ *       conditional/binary/await/as/satisfies/parens, tagged templates
+ *   F7  inline function-expression body immediately invoked inside an escaping expression (IIFE)
+ *   F8  getter bodies (object-literal and class) of an escaping value — a getter yields its value
+ *       on mere property access, so it is a data member
+ *   F9  THE ONE EXEMPTION, positional, never named: a bare imported service identifier in direct
+ *       callee position of a call/new — the call's result is a produced value; the symbol does
+ *       not flow into it. (Runtime object graphs — `new C()` → `.constructor` — are inherent to
+ *       every face-produced value; R2 governs static binding escape, not runtime reachability.)
+ *   F10 function-like bodies that run on a consumer's call (arrows, function expressions and
+ *       declarations, methods — class and object-literal — setters, constructors): review
+ *       territory — machine-indistinguishable from boot composition
+ *   F11 mutation through a module-scope alias of an escaping object: review territory — object
+ *       identity is points-to semantics, not grammar
+ *   F12 non-export side channels (`globalThis.leak = svc`): outside R2 — not the export surface
+ *   F13 dynamic `import()` of a service module: outside the binding model — the acquisition edge
+ *       itself is censused (`repo-census.ts:705-712`) and its group is at error post-clear
+ *   F14 non-escaping module-scope wiring (the wiring-bag style): legal composition, not a miss
  *
  * Usage: npx tsx r2-escape-prototype.ts <file...>
  * Output: per file, each finding as `line — <binding> (from <specifier>) — <context>`, or CLEAN.
@@ -61,15 +104,206 @@ function analyze(filePath: string): Finding[] {
 	const topLevelInits = new Map<string, ts.Expression>();
 	/** Module-scope class declarations by name. */
 	const topLevelClasses = new Map<string, ts.ClassDeclaration>();
-	/** Module-scope function declarations (opaque — review territory). */
+	/** Module-scope enum declarations by name. */
+	const topLevelEnums = new Map<string, ts.EnumDeclaration>();
+	/** Module-scope namespace declarations by name. */
+	const topLevelNamespaces = new Map<string, ts.ModuleDeclaration>();
+	/** Module-scope function declarations (bodies opaque — review territory F10). */
 	const topLevelFunctions = new Set<string>();
+	/** Destructured module-scope declarations: bound names + the exprs that feed them (E8/E9). */
+	const patternGroups: Array<{
+		names: string[];
+		exprs: ts.Expression[];
+		exported: boolean;
+		done: boolean;
+	}> = [];
 	/** Names known to escape the export surface. */
 	const escaping = new Set<string>();
 	const worklist: string[] = [];
-	/** Expressions that escape directly (`export default <expr>`). */
+	/** Expressions that escape directly (`export default <expr>` / `export = <expr>`). */
 	const escapingExprs: ts.Expression[] = [];
+	/** Nodes to scan as escaping once all top-level bindings are collected. */
+	const deferredScans: Array<{ node: ts.Node; context: string }> = [];
+	/** Module-scope executable expression statements, incl. control-flow-nested (F2–F5). */
+	const execStatements: Array<{ stmt: ts.ExpressionStatement; done: boolean }> = [];
 
-	// ---- pass 1: collect imports, top-level bindings, export marks, clause (a)/(b) ----
+	function markEscaping(name: string): void {
+		if (escaping.has(name)) return;
+		escaping.add(name);
+		worklist.push(name);
+	}
+
+	/** A name reaches the export surface: flag it if it IS a service binding, else track it. */
+	function escapeName(name: string, at: ts.Node, context: string): void {
+		const spec = serviceBindings.get(name);
+		if (spec) {
+			findings.push({ line: lineOf(sf, at), binding: name, specifier: spec, context });
+			return;
+		}
+		markEscaping(name);
+	}
+
+	function collectPattern(pattern: ts.BindingName, names: string[], exprs: ts.Expression[]): void {
+		if (ts.isIdentifier(pattern)) {
+			names.push(pattern.text);
+			return;
+		}
+		for (const el of pattern.elements) {
+			if (ts.isOmittedExpression(el)) continue;
+			if (el.initializer) exprs.push(el.initializer);
+			collectPattern(el.name, names, exprs);
+		}
+	}
+
+	/** ExpressionStatements at module scope, walking module-level control flow, never functions. */
+	function collectExec(stmt: ts.Statement): void {
+		if (ts.isExpressionStatement(stmt)) {
+			execStatements.push({ stmt, done: false });
+		} else if (ts.isBlock(stmt)) {
+			for (const s of stmt.statements) collectExec(s);
+		} else if (ts.isIfStatement(stmt)) {
+			collectExec(stmt.thenStatement);
+			if (stmt.elseStatement) collectExec(stmt.elseStatement);
+		} else if (ts.isIterationStatement(stmt, false)) {
+			collectExec(stmt.statement);
+		} else if (ts.isTryStatement(stmt)) {
+			collectExec(stmt.tryBlock);
+			if (stmt.catchClause) collectExec(stmt.catchClause.block);
+			if (stmt.finallyBlock) collectExec(stmt.finallyBlock);
+		} else if (ts.isSwitchStatement(stmt)) {
+			for (const clause of stmt.caseBlock.clauses) for (const s of clause.statements) collectExec(s);
+		} else if (ts.isLabeledStatement(stmt)) {
+			collectExec(stmt.statement);
+		}
+	}
+
+	// ---- pass 2 machinery declared before pass 1 uses it for anonymous default classes ----
+	const scanned = new Set<ts.Node>();
+
+	function unwrapParens(e: ts.Expression): ts.Expression {
+		let cur = e;
+		while (ts.isParenthesizedExpression(cur)) cur = cur.expression;
+		return cur;
+	}
+
+	function rootIdentifier(e: ts.Expression): ts.Identifier | undefined {
+		let cur: ts.Expression = unwrapParens(e);
+		while (
+			ts.isPropertyAccessExpression(cur) ||
+			ts.isElementAccessExpression(cur) ||
+			ts.isNonNullExpression(cur)
+		) {
+			cur = unwrapParens(cur.expression);
+		}
+		return ts.isIdentifier(cur) ? cur : undefined;
+	}
+
+	function scanClassMembers(node: ts.ClassDeclaration | ts.ClassExpression, context: string): void {
+		for (const dec of ts.getDecorators(node) ?? []) {
+			scanEscaping(dec.expression, `${context} > decorator`);
+		}
+		for (const heritage of node.heritageClauses ?? []) {
+			if (heritage.token !== ts.SyntaxKind.ExtendsKeyword) continue; // implements = type-only
+			for (const t of heritage.types) scanEscaping(t.expression, `${context} > extends expression`);
+		}
+		for (const member of node.members) {
+			for (const dec of ts.getDecorators(member) ?? []) {
+				scanEscaping(dec.expression, `${context} > decorator`);
+			}
+			if (member.name && ts.isComputedPropertyName(member.name)) {
+				scanEscaping(member.name.expression, `${context} > computed member name`);
+			}
+			if (ts.isPropertyDeclaration(member) && member.initializer) {
+				scanEscaping(member.initializer, `${context} > class field initializer`);
+			} else if (ts.isGetAccessorDeclaration(member) && member.body) {
+				// F8 — a getter yields its value on property access: a data member in disguise
+				scanEscaping(member.body, `${context} > getter body`);
+			} else if (ts.isClassStaticBlockDeclaration(member)) {
+				// static blocks run at module evaluation
+				scanEscaping(member.body, `${context} > static block`);
+			}
+			// method/setter/constructor bodies: review territory (F10)
+		}
+	}
+
+	/** Scan an expression every value of which can reach the export surface. */
+	function scanEscaping(node: ts.Node, context: string): void {
+		if (scanned.has(node)) return;
+		scanned.add(node);
+
+		if (ts.isIdentifier(node)) {
+			const spec = serviceBindings.get(node.text);
+			if (spec) {
+				findings.push({ line: lineOf(sf, node), binding: node.text, specifier: spec, context });
+			} else if (
+				topLevelInits.has(node.text) ||
+				topLevelClasses.has(node.text) ||
+				topLevelEnums.has(node.text) ||
+				topLevelNamespaces.has(node.text)
+			) {
+				markEscaping(node.text);
+			}
+			// top-level function names: bodies opaque (F10)
+			return;
+		}
+		if (ts.isCallExpression(node) || ts.isNewExpression(node)) {
+			const callee = unwrapParens(node.expression);
+			if (ts.isIdentifier(callee) && serviceBindings.has(callee.text)) {
+				// F9 — EXEMPT: bare service identifier in direct callee position — the call's
+				// RESULT is a produced value; the symbol itself does not flow out.
+			} else if (ts.isFunctionExpression(callee) || ts.isArrowFunction(callee)) {
+				// F7 — IIFE: module evaluation with extra steps — its body is part of the expression.
+				scanEscaping(callee.body, `${context} > IIFE body`);
+			} else {
+				scanEscaping(callee, `${context} > callee`);
+			}
+			for (const arg of node.arguments ?? []) scanEscaping(arg, `${context} > call argument`);
+			return;
+		}
+		if (ts.isObjectLiteralExpression(node)) {
+			for (const prop of node.properties) {
+				if (prop.name && ts.isComputedPropertyName(prop.name)) {
+					scanEscaping(prop.name.expression, `${context} > computed member name`);
+				}
+				if (ts.isPropertyAssignment(prop)) {
+					scanEscaping(prop.initializer, context);
+				} else if (ts.isShorthandPropertyAssignment(prop)) {
+					scanEscaping(prop.name, context);
+				} else if (ts.isSpreadAssignment(prop)) {
+					scanEscaping(prop.expression, `${context} > spread`);
+				} else if (ts.isGetAccessorDeclaration(prop) && prop.body) {
+					scanEscaping(prop.body, `${context} > getter body`); // F8
+				}
+				// object-literal method/setter bodies: review territory (F10)
+			}
+			return;
+		}
+		if (ts.isArrowFunction(node) || ts.isFunctionExpression(node)) {
+			// F10 — a function VALUE escaping is own-module code; its body runs only when a
+			// consumer calls it — review territory by the ratified dichotomy.
+			return;
+		}
+		if (ts.isClassDeclaration(node) || ts.isClassExpression(node)) {
+			scanClassMembers(node, context);
+			return;
+		}
+		if (ts.isEnumDeclaration(node)) {
+			for (const member of node.members) {
+				if (member.initializer) {
+					scanEscaping(member.initializer, `${context} > enum member initializer`);
+				}
+			}
+			return;
+		}
+		if (ts.isTypeNode(node)) return;
+		if (ts.isAsExpression(node) || ts.isSatisfiesExpression(node)) {
+			scanEscaping(node.expression, context);
+			return;
+		}
+		ts.forEachChild(node, (child) => scanEscaping(child, context));
+	}
+
+	// ---- pass 1: collect imports, top-level bindings, export marks, E1–E14 ----
 	for (const stmt of sf.statements) {
 		if (ts.isImportDeclaration(stmt) && ts.isStringLiteral(stmt.moduleSpecifier)) {
 			const spec = stmt.moduleSpecifier.text;
@@ -87,9 +321,20 @@ function analyze(filePath: string): Finding[] {
 					}
 				}
 			}
+		} else if (ts.isImportEqualsDeclaration(stmt)) {
+			// E14 — `[export] import x = require("m")`
+			if (ts.isExternalModuleReference(stmt.moduleReference)) {
+				const ref = stmt.moduleReference.expression;
+				if (ts.isStringLiteral(ref) && isServiceSpecifier(ref.text) && !stmt.isTypeOnly) {
+					serviceBindings.set(stmt.name.text, ref.text);
+					if (hasExportModifier(stmt)) {
+						escapeName(stmt.name.text, stmt, "exported import= of a service module");
+					}
+				}
+			}
 		} else if (ts.isExportDeclaration(stmt)) {
 			if (stmt.moduleSpecifier && ts.isStringLiteral(stmt.moduleSpecifier)) {
-				// clause (a)/(b): export ... from / export * from a service module
+				// E1/E2/E3: export … from / export * from / export * as ns from a service module
 				const spec = stmt.moduleSpecifier.text;
 				if (isServiceSpecifier(spec) && !stmt.isTypeOnly) {
 					findings.push({
@@ -100,112 +345,166 @@ function analyze(filePath: string): Finding[] {
 					});
 				}
 			} else if (stmt.exportClause && ts.isNamedExports(stmt.exportClause)) {
+				// E4: the exported LOCAL name is itself the escape (X1-class)
 				for (const el of stmt.exportClause.elements) {
 					if (el.isTypeOnly) continue;
-					const local = (el.propertyName ?? el.name).text;
-					escaping.add(local);
-					worklist.push(local);
+					const local = el.propertyName ?? el.name;
+					escapeName(local.text, el, `named export of \`${local.text}\``);
 				}
 			}
 		} else if (ts.isVariableStatement(stmt)) {
 			const exported = hasExportModifier(stmt);
 			for (const decl of stmt.declarationList.declarations) {
-				if (!ts.isIdentifier(decl.name)) continue; // destructuring: out of prototype scope
-				if (decl.initializer) topLevelInits.set(decl.name.text, decl.initializer);
-				if (exported) {
-					escaping.add(decl.name.text);
-					worklist.push(decl.name.text);
+				if (ts.isIdentifier(decl.name)) {
+					// E7
+					if (decl.initializer) topLevelInits.set(decl.name.text, decl.initializer);
+					if (exported) escapeName(decl.name.text, decl.name, "exported binding");
+				} else {
+					// E8/E9 — destructured declaration: everything feeding the pattern escapes with it
+					const names: string[] = [];
+					const exprs: ts.Expression[] = [];
+					collectPattern(decl.name, names, exprs);
+					if (decl.initializer) exprs.push(decl.initializer);
+					patternGroups.push({ names, exprs, exported, done: false });
+					if (exported) {
+						for (const n of names) escapeName(n, decl.name, "exported destructured binding");
+					}
 				}
 			}
-		} else if (ts.isFunctionDeclaration(stmt) && stmt.name) {
-			topLevelFunctions.add(stmt.name.text);
-		} else if (ts.isClassDeclaration(stmt) && stmt.name) {
-			topLevelClasses.set(stmt.name.text, stmt);
-			if (hasExportModifier(stmt)) {
-				escaping.add(stmt.name.text);
-				worklist.push(stmt.name.text);
+		} else if (ts.isFunctionDeclaration(stmt)) {
+			// E10 — body review territory (F10); name tracked so mutation flow (F4/F5) sees it
+			if (stmt.name) {
+				topLevelFunctions.add(stmt.name.text);
+				if (hasExportModifier(stmt)) markEscaping(stmt.name.text);
 			}
-		} else if (ts.isExportAssignment(stmt) && !stmt.isExportEquals) {
+		} else if (ts.isClassDeclaration(stmt)) {
+			// E11
+			if (stmt.name) {
+				topLevelClasses.set(stmt.name.text, stmt);
+				if (hasExportModifier(stmt)) escapeName(stmt.name.text, stmt.name, "exported class");
+			} else if (hasExportModifier(stmt)) {
+				deferredScans.push({ node: stmt, context: "anonymous default-exported class" });
+			}
+		} else if (ts.isEnumDeclaration(stmt)) {
+			// E12
+			topLevelEnums.set(stmt.name.text, stmt);
+			if (hasExportModifier(stmt)) escapeName(stmt.name.text, stmt.name, "exported enum");
+		} else if (ts.isModuleDeclaration(stmt)) {
+			// E13
+			if (ts.isIdentifier(stmt.name)) topLevelNamespaces.set(stmt.name.text, stmt);
+			if (hasExportModifier(stmt) && stmt.body) {
+				deferredScans.push({ node: stmt.body, context: `exported namespace \`${stmt.name.getText(sf)}\`` });
+			}
+		} else if (ts.isExportAssignment(stmt)) {
+			// E5 (`export default expr`) and E6 (`export = expr`) — both escape the expression
 			escapingExprs.push(stmt.expression);
+		} else {
+			collectExec(stmt);
 		}
 	}
 
-	// ---- pass 2: transitive escape scan ----
-	const scanned = new Set<ts.Node>();
-
-	function markEscaping(name: string): void {
-		if (escaping.has(name)) return;
-		escaping.add(name);
-		worklist.push(name);
+	function isAssignmentOperator(kind: ts.SyntaxKind): boolean {
+		return kind >= ts.SyntaxKind.FirstAssignment && kind <= ts.SyntaxKind.LastAssignment;
 	}
 
-	function unwrapParens(e: ts.Expression): ts.Expression {
-		let cur = e;
-		while (ts.isParenthesizedExpression(cur)) cur = cur.expression;
-		return cur;
+	/** Identifier leaves of a destructuring-assignment target literal (over-approximate, safe). */
+	function collectTargetNames(e: ts.Node, out: string[]): void {
+		if (ts.isIdentifier(e)) {
+			out.push(e.text);
+			return;
+		}
+		ts.forEachChild(e, (child) => collectTargetNames(child, out));
 	}
 
-	/** Scan an expression every value of which can reach the export surface. */
-	function scanEscaping(node: ts.Node, context: string): void {
-		if (scanned.has(node)) return;
-		scanned.add(node);
+	/** F2–F5: does this module-scope statement move a value toward the export surface NOW? */
+	function tryExecStatement(entry: { stmt: ts.ExpressionStatement; done: boolean }): boolean {
+		let expr = unwrapParens(entry.stmt.expression);
+		while (ts.isAwaitExpression(expr) || ts.isVoidExpression(expr)) {
+			expr = unwrapParens(expr.expression);
+		}
 
-		if (ts.isIdentifier(node)) {
-			const spec = serviceBindings.get(node.text);
-			if (spec) {
-				findings.push({ line: lineOf(sf, node), binding: node.text, specifier: spec, context });
-			} else if (topLevelInits.has(node.text) || topLevelClasses.has(node.text)) {
-				markEscaping(node.text);
+		if (ts.isBinaryExpression(expr) && isAssignmentOperator(expr.operatorToken.kind)) {
+			const lhs = unwrapParens(expr.left);
+			if (ts.isIdentifier(lhs)) {
+				// F2 — assignment to an escaping name
+				if (!escaping.has(lhs.text)) return false;
+				scanEscaping(expr.right, `module-scope assignment to escaping binding \`${lhs.text}\``);
+				return true;
 			}
-			// top-level function names: opaque (function-body review territory)
-			return;
-		}
-		if (ts.isCallExpression(node) || ts.isNewExpression(node)) {
-			const callee = unwrapParens(node.expression);
-			if (ts.isIdentifier(callee) && serviceBindings.has(callee.text)) {
-				// EXEMPT: bare service identifier in direct callee position — the call's
-				// RESULT is a produced value; the symbol itself does not flow out.
-			} else if (ts.isFunctionExpression(callee) || ts.isArrowFunction(callee)) {
-				// IIFE: module evaluation with extra steps — its body is part of the expression.
-				scanEscaping(callee.body, `${context} > IIFE body`);
-			} else {
-				scanEscaping(callee, `${context} > callee`);
+			if (ts.isPropertyAccessExpression(lhs) || ts.isElementAccessExpression(lhs)) {
+				// F4 — property/element mutation of an escaping value
+				const root = rootIdentifier(lhs);
+				if (!root || !escaping.has(root.text)) return false;
+				scanEscaping(expr.right, `property mutation of escaping binding \`${root.text}\``);
+				return true;
 			}
-			for (const arg of node.arguments ?? []) scanEscaping(arg, `${context} > call argument`);
-			return;
-		}
-		if (ts.isArrowFunction(node) || ts.isFunctionExpression(node)) {
-			// A function VALUE escaping is own-module code; its body runs only when a
-			// consumer calls it — review territory by the ratified dichotomy.
-			return;
-		}
-		if (ts.isClassDeclaration(node) || ts.isClassExpression(node)) {
-			for (const member of node.members) {
-				if (ts.isPropertyDeclaration(member) && member.initializer) {
-					scanEscaping(member.initializer, `${context} > class field initializer`);
-				}
-				// method/accessor bodies: review territory
+			if (ts.isObjectLiteralExpression(lhs) || ts.isArrayLiteralExpression(lhs)) {
+				// F3 — destructuring assignment targeting an escaping name
+				const targets: string[] = [];
+				collectTargetNames(lhs, targets);
+				if (!targets.some((t) => escaping.has(t))) return false;
+				scanEscaping(expr.right, "destructuring assignment to escaping binding");
+				return true;
 			}
-			return;
+			return false;
 		}
-		if (ts.isTypeNode(node)) return;
-		if (ts.isAsExpression(node) || ts.isSatisfiesExpression(node)) {
-			scanEscaping(node.expression, context);
-			return;
+		if (ts.isCallExpression(expr) || ts.isNewExpression(expr)) {
+			// F5 — mutating call involving an escaping value (conservative: scan all arguments)
+			const calleeRoot = rootIdentifier(expr.expression);
+			const involvesEscaping =
+				(calleeRoot !== undefined && escaping.has(calleeRoot.text)) ||
+				(expr.arguments ?? []).some((a) => {
+					const id = unwrapParens(a);
+					return ts.isIdentifier(id) && escaping.has(id.text);
+				});
+			if (!involvesEscaping) return false;
+			for (const arg of expr.arguments ?? []) {
+				scanEscaping(arg, "argument of a module-scope call involving an escaping binding");
+			}
+			return true;
 		}
-		ts.forEachChild(node, (child) => scanEscaping(child, context));
+		return false;
 	}
 
-	while (worklist.length > 0) {
-		const name = worklist.pop() as string;
-		const init = topLevelInits.get(name);
-		if (init) scanEscaping(init, `initializer of escaping binding \`${name}\``);
-		const cls = topLevelClasses.get(name);
-		if (cls) scanEscaping(cls, `escaping class \`${name}\``);
-		// escaping top-level FUNCTIONS: body not scanned — review territory.
-		void topLevelFunctions;
+	// ---- seed direct escapes, then fixpoint over the worklist and flow statements ----
+	for (const expr of escapingExprs) scanEscaping(expr, "default export / export=");
+	for (const d of deferredScans) scanEscaping(d.node, d.context);
+
+	// ---- fixpoint: worklist (F1) + destructured groups (E8/E9) + flow statements (F2–F5) ----
+	let changed = true;
+	while (changed) {
+		changed = false;
+		while (worklist.length > 0) {
+			changed = true;
+			const name = worklist.pop() as string;
+			const init = topLevelInits.get(name);
+			if (init) scanEscaping(init, `initializer of escaping binding \`${name}\``);
+			const cls = topLevelClasses.get(name);
+			if (cls) scanClassMembers(cls, `escaping class \`${name}\``);
+			const en = topLevelEnums.get(name);
+			if (en) scanEscaping(en, `escaping enum \`${name}\``);
+			const nsDecl = topLevelNamespaces.get(name);
+			if (nsDecl?.body) scanEscaping(nsDecl.body, `escaping namespace \`${name}\``);
+			// escaping top-level FUNCTIONS: body not scanned — review territory (F10).
+			void topLevelFunctions;
+		}
+		for (const group of patternGroups) {
+			if (group.done) continue;
+			if (!group.exported && !group.names.some((n) => escaping.has(n))) continue;
+			group.done = true;
+			changed = true;
+			for (const e of group.exprs) {
+				scanEscaping(e, "value feeding an escaping destructured binding");
+			}
+		}
+		for (const entry of execStatements) {
+			if (entry.done) continue;
+			if (tryExecStatement(entry)) {
+				entry.done = true;
+				changed = true;
+			}
+		}
 	}
-	for (const expr of escapingExprs) scanEscaping(expr, "default export");
 
 	return findings.sort((a, b) => a.line - b.line);
 }
