@@ -24,12 +24,9 @@ import {
 	type TaskStateChangedEvent,
 	type ToolCallRecordedEvent,
 } from "@hyperidle/shared";
+import type { ObservabilityAdapter, ObservabilityChannel } from "@hyperidle/shared/observability";
 import { afterEach, describe, expect, test } from "vitest";
-import {
-	createObservabilityDispatcher,
-	registerObservabilityDispatcher,
-} from "../observability/dispatcher.js";
-import type { ObservabilityAdapter, ObservabilityChannel } from "../observability/types.js";
+import { createObservabilityDispatcher, registerObservabilityDispatcher } from "../dispatcher.js";
 
 function fakeAdapter(
 	name: ObservabilityChannel = "console",

@@ -35,14 +35,14 @@ import {
 	type SessionStartedEvent,
 	type TaskStateChangedEvent,
 	type ToolCallRecordedEvent,
-} from "../index.js";
+} from "@hyperidle/shared";
 import type {
 	FlushOutcome,
 	ObservabilityAdapter,
 	ObservabilityChannel,
 	ObservabilityDispatcher,
 	ObservabilityDispatcherStatus,
-} from "./types.js";
+} from "@hyperidle/shared/observability";
 
 /**
  * The three ring-buffer knobs the dispatcher needs.

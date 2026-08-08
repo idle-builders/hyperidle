@@ -45,7 +45,6 @@ import {
 	type ScopeKind,
 	type TaskStateChangedEvent,
 	type ToolDefinition,
-	toolsForRole,
 	toRegistered,
 	type UserRole,
 	wrapForRegistry,
@@ -1644,7 +1643,8 @@ export function buildToolDefinitions(
 		toRegistered(makeCommitFileTool<HyperIdleDb>()),
 	];
 	if (opts?.role !== undefined) {
-		return toolsForRole(all, opts.role);
+		const role = opts.role;
+		return all.filter((d) => d.roles === undefined || d.roles.includes(role));
 	}
 	return all;
 }

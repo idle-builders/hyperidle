@@ -24,7 +24,6 @@ import {
 	agentSessionRequestInputSchema,
 	isAgentWorkIntentKind,
 	isAgentWorkIntentSourceKind,
-	reportAdmissionFailure,
 } from "@hyperidle/shared";
 import { and, asc, eq, gt, inArray, isNotNull, isNull, lt, lte, or, sql } from "drizzle-orm";
 
@@ -738,15 +737,20 @@ async function failOrRelease(
 	// core-api subscriber (`registerAgentRunAdmissionReactions`), for EVERY
 	// kind, not just `routine_run`. `deps.eventBus` is optional (back-compat
 	// with every pre-existing `queueDeps(db)` call site that never wired one).
-	// `reportAdmissionFailure` (the shared `@hyperidle/shared` construction+
-	// emission point) is also called by `run-orchestration`'s
-	// `runClaimedRequest` for the provisioning-time failure site (§12).
+	// @lore AU29 §2.4: the typed construction+emit used to be
+	// `@hyperidle/shared`'s `reportAdmissionFailure`, also called by
+	// `run-orchestration`'s `runClaimedRequest` for the provisioning-time
+	// failure site (§12). Now inlined at both sites — the two services
+	// deliberately do not import each other, and now share the event *type*
+	// (`events.ts`, which stays in shared), not an emit helper.
 	if (
 		deps.eventBus &&
 		isAgentWorkIntentKind(intent.kind) &&
 		isAgentWorkIntentSourceKind(intent.sourceKind)
 	) {
-		reportAdmissionFailure(deps.eventBus, {
+		deps.eventBus.emit({
+			type: "agent_run_admission_failed",
+			streamId: `${intent.kind}:${intent.sourceId}`,
 			intentId: intent.id,
 			kind: intent.kind,
 			sourceKind: intent.sourceKind,
@@ -997,10 +1001,10 @@ async function findIntentRequestInternal(db: HyperIdleDb, requestId: string) {
 	// already TYPED this Pick shape — `id`/`idempotencyKey` were declared but
 	// never actually selected, a latent pre-existing mismatch nothing had
 	// tripped since no caller read those fields). Now genuinely needed:
-	// `reportAdmissionFailure`'s provisioning-time call site correlates a
-	// post-handoff `AgentSessionRequest` failure back to the ORIGINAL intent's
-	// identity (`id`/`kind`/`sourceId`/`sourceKind`) to emit
-	// `agent_run_admission_failed` with the right shape.
+	// `run-orchestration`'s provisioning-time `agent_run_admission_failed`
+	// emit site correlates a post-handoff `AgentSessionRequest` failure back
+	// to the ORIGINAL intent's identity (`id`/`kind`/`sourceId`/`sourceKind`)
+	// to emit with the right shape.
 	const [row] = await db
 		.select({
 			id: agentWorkIntents.id,

@@ -1,11 +1,7 @@
 // ── AV3: Scope bucket label helper (SSOT — used by server + web) ──
 
-// ── AU21 §6 Decision B4/§12: shared pre-handoff failure emission ──
-export {
-	isAgentWorkIntentKind,
-	isAgentWorkIntentSourceKind,
-	reportAdmissionFailure,
-} from "./agent-run-admission.js";
+// ── AU21 §6 Decision B4/§12: shared pre-handoff work-intent kind guards ──
+export { isAgentWorkIntentKind, isAgentWorkIntentSourceKind } from "./agent-run-admission.js";
 // ── AU19 §11 (AC-9): cross-Layer AgentWorkIntentRecorder/Reader seam ──
 export type {
 	AgentWorkIntentReader,
@@ -663,7 +659,6 @@ export {
 	identityHash,
 	ok,
 	toClaudeToolSpec,
-	toolsForRole,
 	toRegistered,
 	wrapForRegistry,
 } from "./tool.js";
