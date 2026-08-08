@@ -175,8 +175,12 @@ describe("AU28 — the decided rule set is intact", () => {
 		expect(count("production", "forbidden")).toBe(56);
 		// Ruling 13 moved the two `db:table (other) [table:write]` rows from forbidden to allowed:
 		// the flat rule is replaced by the companion clause, which no row can express.
-		expect(count("development", "allowed")).toBe(114);
-		expect(count("development", "forbidden")).toBe(10);
+		// AU32 Ruling A moved two more, `service -> raw runtime [capability]` and
+		// `tooling -> raw runtime [capability]`, from development forbidden to allowed (the AI
+		// one-seam requirement narrows to production-only; production stays untouched) — that is
+		// the +2/-2 between this number and the one Ruling 13 left.
+		expect(count("development", "allowed")).toBe(116);
+		expect(count("development", "forbidden")).toBe(8);
 	});
 
 	it("has no duplicate rows", () => {
