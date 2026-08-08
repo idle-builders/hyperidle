@@ -694,12 +694,20 @@ describe("Handoff Protocol", () => {
 			expect(audit.filter((entry) => entry.type === "handoff")).toHaveLength(1);
 			const intents = await db.select().from(agentWorkIntents);
 			expect(intents).toHaveLength(1);
+			// AU31 §3.1 site 7 — INVERTED. `endRunForHandoff` runs per-session,
+			// BEFORE either handoff's transaction opens (the "free lever" reorder),
+			// so it is no longer part of the task-claim CAS race: it ends its own
+			// designated session unconditionally, independent of whether that
+			// handoff's task claim goes on to win or lose the race. Both
+			// concurrent calls target DIFFERENT sessions (session-concurrent-1,
+			// session-concurrent-2), so both end — only the LATER stage (the task
+			// claim + audit/intent) is still exclusive to the winner.
 			const competingSessions = await db
 				.select()
 				.from(sessions)
 				.where(inArray(sessions.id, ["session-concurrent-1", "session-concurrent-2"]));
-			expect(competingSessions.filter((session) => session.state === "done")).toHaveLength(1);
-			expect(competingSessions.filter((session) => session.state === "active")).toHaveLength(1);
+			expect(competingSessions.filter((session) => session.state === "done")).toHaveLength(2);
+			expect(competingSessions.filter((session) => session.state === "active")).toHaveLength(0);
 			expect(emitted.filter((event) => event.type === "session_handoff_completed")).toHaveLength(1);
 		});
 
