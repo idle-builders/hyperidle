@@ -293,7 +293,7 @@ requirements §2.4:
 
 ---
 
-## 4. Where composition lives — the per-file map (`requirements.md` §8.3)
+## 5. Where composition lives — the per-file map (`requirements.md` §8.3)
 
 No third neutral composition package (AU26 ruling, upheld); no application imports another
 application. Each file:

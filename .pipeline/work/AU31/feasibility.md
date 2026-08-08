@@ -86,7 +86,7 @@ excluding tests; read each hit.
 **Verdict.** Exactly **two** cross-boundary atomic pairs exist (`knowledge.ts:934`,
 `threads.ts:1463`); one pair is orchestration-internal and survives intact by moving into a single
 intake operation. The two cross-boundary pairs are explicitly relinquished with named windows in
-architecture.md §4.1 — this is a decision, not a discovery left to build. (`policy-bindings.ts`'s
+architecture.md §3.1 — this is a decision, not a discovery left to build. (`policy-bindings.ts`'s
 `record` port takes an `exec` that CAN be a caller's tx — the builder must re-run this audit's grep
 at build time and route any tx-carrying caller through the same relinquishment decision;
 verified callers today pass plain handles. Marked as a build-step check, not UNVERIFIED.)
