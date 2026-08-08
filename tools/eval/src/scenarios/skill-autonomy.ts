@@ -9,10 +9,10 @@
 
 import { randomUUID } from "node:crypto";
 import { fireRoutine } from "@hyperidle/core-api/routines";
-import { buildEvalAgentOrchestrationPort } from "../agent-orchestration-fixture.js";
 import { items, routines, userSkills } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/shared";
 import { and, eq } from "drizzle-orm";
+import { buildEvalAgentOrchestrationPort } from "../agent-orchestration-fixture.js";
 import { seedMinimalWorld, seedRoutine, seedUserSkill } from "../seeding.js";
 import type {
 	DimensionScore,

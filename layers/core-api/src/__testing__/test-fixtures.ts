@@ -1,5 +1,5 @@
-import type { AgentOrchestrationPort, AgentOrchestrationTransport } from "@hyperidle/api-contract";
 import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";
+import type { AgentOrchestrationPort, AgentOrchestrationTransport } from "@hyperidle/api-contract";
 import { registerAssistantThreadPinReaction } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { type DbFixtures, test as dbTest } from "@hyperidle/db/test-fixtures";
@@ -8,8 +8,8 @@ import type { HyperIdleEnv } from "@hyperidle/shared/http";
 import { findUser } from "@hyperidle/users";
 import type { Hono } from "hono";
 import { disposeApp } from "../app.js";
-import { registerAgentRunAdmissionReactions } from "../services/agent-run-admission-reactions.js";
 import { buildAgentOrchestrationPort } from "../services/agent-orchestration-port-composition.js";
+import { registerAgentRunAdmissionReactions } from "../services/agent-run-admission-reactions.js";
 import { registerAssistantTurnCoherenceTrigger } from "../services/assistant-turn-coherence-trigger.js";
 import { registerTestRoutes } from "./test-routes.js";
 import { createTestApp } from "./test-utils.js";

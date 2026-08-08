@@ -86,9 +86,9 @@ export {
 	insertRoutineRun,
 	listRoutineRuns,
 	listRoutines,
-	resolveRoutineRunTargetAgent,
 	RoutineRunSourceUnavailableError,
 	resolveRoutineRunRequest,
+	resolveRoutineRunTargetAgent,
 	updateRoutine,
 	updateRoutineRun,
 } from "./routine-service.js";

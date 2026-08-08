@@ -22,6 +22,7 @@
  * visible to the caller — this is a pragmatic boundary compromise per the Q2 lore.
  */
 
+import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { insertThread } from "@hyperidle/conversation";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import {
@@ -42,7 +43,6 @@ import {
 	update as updateKnowledgeItem,
 	VersionConflictError,
 } from "@hyperidle/knowledge";
-import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { getTeam, getTeamMembers, listTeamMembers } from "@hyperidle/org";
 import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
 import { readServerConfig } from "@hyperidle/settings";

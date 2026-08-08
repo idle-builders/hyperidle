@@ -50,8 +50,8 @@ import { getTaskRiskTierByTaskId } from "@hyperidle/work";
 import { and, inArray, lt } from "drizzle-orm";
 import { attachRelevanceListener } from "../knowledge/src/relevance-listener.js";
 import { registerAgentHealthSessionEndReactions } from "./services/agent-health-session-end-reactions.js";
-import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
 import { buildSeamBackedWorkIntentRecorder } from "./services/agent-orchestration-port-composition.js";
+import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
 import { registerAssistantTurnCoherenceTrigger } from "./services/assistant-turn-coherence-trigger.js";
 import { resolveOrCreateCallingThread } from "./services/calling-thread-bindings.js";
 // @lore AU21 Increment 14a: cost sentinel + `costOps`/`cost-bindings.ts` are

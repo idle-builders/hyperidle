@@ -1,10 +1,10 @@
 import { appendFileSync } from "node:fs";
 import { performance } from "node:perf_hooks";
-import type { AgentOrchestrationTransport } from "@hyperidle/api-contract";
 import {
 	type AgentOrchestrationBoot,
 	bootAgentOrchestration,
 } from "@hyperidle/agent-orchestration";
+import type { AgentOrchestrationTransport } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { API_ERROR_CODES, EventBus } from "@hyperidle/shared";
 import { Hono } from "hono";
