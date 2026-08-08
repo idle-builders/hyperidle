@@ -23,13 +23,14 @@ import {
 	refuseGrowth,
 	targetLabel,
 } from "../../../../scripts/lib/crossing-report.js";
-import { buildPackageLocator } from "../../../../scripts/lib/crossings.js";
+import { buildPackageLocator, type DetectedCrossing } from "../../../../scripts/lib/crossings.js";
 import {
 	buildDbSurfaceIndex,
 	type DatabasePackageConfig,
 } from "../../../../scripts/lib/db-surfaces.js";
-import type { Actor, Architecture } from "../../../../scripts/lib/governance-model.js";
+import type { Actor, Architecture, Kind } from "../../../../scripts/lib/governance-model.js";
 import { buildCensus } from "../../../../scripts/lib/repo-census.js";
+import { crossingRules } from "../../../../scripts/rules/crossings.js";
 import { noLaunderedReExports } from "../../../../scripts/rules/no-laundered-re-exports.js";
 
 const ROLE_RULES = [
@@ -1071,5 +1072,108 @@ describe("AU28 — companion rows (Ruling 13)", () => {
 			"teams",
 		]);
 		expect([...writeSetOf("layers/core-api/src/__tests__/b.test.ts")]).toEqual(["teams"]);
+	});
+
+	it("derivation direction — an owner writing only one table yields no companion group", () => {
+		// The pair only exists because an owner writes BOTH rows together. An owner with a single
+		// table in its write set has nothing to pair it with, so the group must not appear at all —
+		// not "a group of one", not "paired with itself".
+		const repo = syntheticRepo({
+			"framework/shared/events.ts": "",
+			"layers/core-api/org/package.json": JSON.stringify({ name: "@hyperidle/org" }),
+			"layers/core-api/org/src/store.ts": `
+				import { teams } from "@hyperidle/db";
+				export async function createTeam(db: any, v: any) {
+					await db.insert(teams).values(v);
+				}
+			`,
+		});
+		const census = buildCensus({
+			files: repo.files,
+			readFile: repo.readFile,
+			roleRules: ROLE_RULES,
+		});
+		const groups = buildCompanionGroups(
+			{
+				census,
+				readFile: repo.readFile,
+				locate: buildPackageLocator(census.packages),
+				tables: new Set(["teams"]),
+			},
+			() => "org",
+		);
+		expect(groups.has("teams")).toBe(false);
+		expect(groups.size).toBe(0);
+	});
+
+	it("the warn→error flip — one synthetic violation is known debt with an allowance, new debt without one", () => {
+		// `crossingRules` decides severity from the baseline alone, not from a per-rule switch. Run the
+		// exported rules twice over the SAME violation: an allowance present must warn, and the same
+		// violation with the allowance withdrawn must error — proving the flip that clearing the last
+		// baselined site is what turns a rule from warn to error, not a second code path.
+		const architecture = {
+			containment: { compositionRootRoles: ["application"], repoRootIsCompositionRoot: true },
+			surfaces: {},
+			endpoints: {
+				httpApiLayers: { layers: [], why: "not used here" },
+				mcpRouter: { host: "agent-execution", alsoDialledBy: [], why: "not used here" },
+			},
+			eventBus: { host: "framework", typesModule: "", why: "not used here" },
+			rawRuntime: { host: "agent-execution", why: "not used here" },
+			oneDoorSurfaces: {
+				surfaces: [],
+				rawRuntime: false,
+				foreignTableWriteMissingCompanion: true,
+				why: "not used here",
+			},
+		} as unknown as Architecture;
+
+		const crossing: DetectedCrossing = {
+			crossing: {
+				kind: "table:write",
+				source: { sort: "package", name: "other", role: "service" },
+				target: {
+					sort: "table",
+					table: "knowledgeItems",
+					owner: "knowledge",
+					missingCompanions: ["knowledgeAppProjection"],
+				},
+			},
+			file: "layers/core-api/other/src/__tests__/x.integration.test.ts",
+			line: 12,
+			world: "development",
+			detail: "writes knowledgeItems without knowledgeAppProjection",
+		};
+
+		const key = groupKey(crossing.crossing, crossing.world);
+		const floors = new Map<Kind, number>([["table:write", 1]]);
+
+		const withAllowance: Baseline = {
+			governanceBaseline: true,
+			note: "",
+			groups: { [key]: { sites: { [crossing.file]: 1 } } },
+		};
+		const withoutAllowance: Baseline = { governanceBaseline: true, note: "", groups: {} };
+		// `Rule.evaluate` is typed to take a Census — these rules never read it (the violations are
+		// already closed over), but the call site still has to pass one.
+		const unusedCensus = buildCensus({ files: [], readFile: () => "" });
+
+		const knownDebtFindings = crossingRules({
+			architecture,
+			crossings: [crossing],
+			baseline: withAllowance,
+			floors,
+		}).flatMap((rule) => rule.evaluate(unusedCensus));
+		expect(knownDebtFindings).toHaveLength(1);
+		expect(knownDebtFindings[0]?.severity).toBe("warn");
+
+		const newDebtFindings = crossingRules({
+			architecture,
+			crossings: [crossing],
+			baseline: withoutAllowance,
+			floors,
+		}).flatMap((rule) => rule.evaluate(unusedCensus));
+		expect(newDebtFindings).toHaveLength(1);
+		expect(newDebtFindings[0]?.severity).toBe("error");
 	});
 });
