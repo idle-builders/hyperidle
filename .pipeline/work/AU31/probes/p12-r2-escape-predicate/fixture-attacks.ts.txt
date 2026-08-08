@@ -1,0 +1,42 @@
+/**
+ * P12 attack fixture — every spelling below must produce at least one finding.
+ * A1/A2 are the original clause (a)/(b) re-exports; A3–A6 are the round-1 critique's
+ * one-line launders; A7 the class-field pair; A8 the IIFE aggregate; A9–A12 are the
+ * bypasses that motivated widening R2 in the first place, restated against the
+ * NARROWED predicate: call-mediated escape, property-chain call, two-hop alias,
+ * namespace escape. (Fixture is parse-only evidence in `.pipeline/` — never compiled,
+ * never a production file.)
+ */
+
+// @ts-nocheck
+import { flagKnowledgeItem, listKnowledge, searchKnowledge } from "@hyperidle/knowledge";
+import * as knowledgeNs from "@hyperidle/knowledge";
+
+export { flagKnowledgeItem } from "@hyperidle/knowledge"; // A1 — export … from a service module
+export * from "@hyperidle/session-requests"; // A2 — export * from a service module
+
+export const a3 = listKnowledge; // A3 — exported initializer IS the symbol
+
+export const a4 = { listKnowledge }; // A4 — exported object-literal member
+
+const aliasHop = searchKnowledge;
+export { aliasHop as a5 }; // A5 — module-scope alias, exported under another name
+
+export default { listKnowledge }; // A6 — default-export aggregate
+
+export class A7 {
+	static tool = listKnowledge; // A7 — static class field of an exported class
+	instanceTool = searchKnowledge; // A7b — instance class field (evaluates at construction)
+}
+
+export const a8 = (() => ({ listKnowledge }))(); // A8 — module-scope IIFE aggregate
+
+const wrap = (x: unknown) => x;
+export const a9 = wrap(listKnowledge); // A9 — call-mediated escape (identity-wrap launder)
+
+export const a10 = listKnowledge.bind(null); // A10 — property-chain call on the binding
+
+const bag = { searchKnowledge };
+export const a11 = bag; // A11 — two-hop reachability through a non-exported literal
+
+export const a12 = { ns: knowledgeNs }; // A12 — namespace binding escapes whole

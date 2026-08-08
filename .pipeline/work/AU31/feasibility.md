@@ -1,7 +1,7 @@
 # AU31 — Feasibility
 
 Probes run against the live tree at `bbe82e9a` (branch `backend/AU31-layer-composition-boundary`,
-worktree `.worktrees/AU31`; P11 added in the attempt-2 revision, run 2026-08-08 on the same production tree). Every result below was produced by executing the stated method in this
+worktree `.worktrees/AU31`; P11 added in the attempt-2 revision, run 2026-08-08 on the same production tree; P12 added in the attempt-3 revision, run 2026-08-08 at HEAD `1a4607bf` — same production tree, `.pipeline` additions only since). Every result below was produced by executing the stated method in this
 session, not recalled. Scratch outputs not worth keeping are discarded; the two load-bearing
 inventories are reproduced inline.
 
@@ -236,3 +236,42 @@ assumption remains UNVERIFIED except the two ⚠️ build-time re-checks named i
 2. The **local-binding** handoff records nothing — not because a clause allows it, but because the DI predicate is import-provenance-based by design (`crossing-detectors.ts:931-934`: the crossing is between the called factory's package and "the package the injected value came from"; a face-produced runtime value held in a local has no foreign import provenance). Architecture §4 states this honestly and gives the reading an enforced home (attack + control-twin pair on the `crossing-di` rule, clause-6 `why`/README sentence) at the founder gate.
 3. The two `tool-provider-bindings.ts` DI wires **cannot relocate** — C1 proves the framework-consumer wire re-fails at any new site — and the §2.5 dissolution (dispatch moved into `@hyperidle/tool-handlers`, role filter via `buildToolDefinitions(ports, { role })`) reports nothing (C2) while being legal by clause 6's own text (both ends agent-orchestration, `governance-model.ts:282-288`), not by invisibility.
 
+---
+
+## P12 — The narrowed R2 predicate ("escape through the export surface"), executed
+
+**Question.** Critique round-2 B4: attempt 2's R2(c) — "reference a binding imported from a
+service module anywhere outside a runtime function body" — flags the architecture's own
+end-state tree at three surviving, planned-legal sites (`layers/core-api/src/app.ts:213`,
+`layers/core-api/src/service-bootstrap.ts:175`, `layers/core-api/src/services/
+tool-handlers-bindings.ts:200`). Does a predicate exist that (a) still catches every bypass
+spelling that motivated the widening, (b) does not fire on those sites, and (c) is
+implementable on the enforcement stack's own parser?
+
+**Method.** Prototype the restated predicate — *a service value binding may not escape the
+module's export surface as a value* (architecture §7.2 R2, full spelling there) — as a
+standalone script on the census's own parser (`ts.createSourceFile`, the same API
+`scripts/lib/repo-census.ts:19,646` uses), then execute it against (i) a fixture holding all
+thirteen attack spellings, (ii) a fixture holding the six control spellings including the two
+new twins (the non-escaping wiring bag; the exported call result with a bare service callee),
+(iii) the three live production files B4 named, read-only — no overlay at any production path —
+and (iv) the rule's founding target `layers/core-api/src/index.ts`. Sources committed as
+`.ts.txt` (P11 convention — the census must never parse probe sources) and verbatim outputs in
+`probes/p12-r2-escape-predicate/`.
+
+**Result.**
+
+| Run | Input | Verdict |
+|---|---|---|
+| 1 | `fixture-attacks.ts` — re-export, `export *`, exported initializer, exported literal member, alias hop, default aggregate, static + instance class field, IIFE aggregate, identity-wrap call launder (`wrap(list)`), property-chain call (`list.bind(null)`), two-hop alias (`const bag = { list }; export const api = bag;`), namespace escape | **13/13 flagged**, one finding per spelling, exit 1 |
+| 1 | `fixture-controls.ts` — own-src spellings, boot-body call, boot-body return, non-escaping wiring bag, exported call result with bare service callee, type-only import | **CLEAN** |
+| 2 | `layers/core-api/src/app.ts`, `service-bootstrap.ts`, `services/tool-handlers-bindings.ts` (live files; the third is byte-identical to its §5.3-relocated content) | **CLEAN, exit 0** — all three |
+| 3 | `layers/core-api/src/index.ts` (R2's founding target) | **flagged** — line 15, `export … from "@hyperidle/knowledge"`, exit 1 |
+
+**Verdict.** The B4 dilemma is false once the predicate measures what R2 is *for*: escape is
+laundering; non-escaping module-scope wiring launders nothing. The narrowed predicate keeps
+every widening-motivated attack fatal (including the identity-wrap and `.bind` spellings the
+one-exemption design must survive), reports nothing at the three end-state sites no wave
+converts, still catches the founding target, and is implementable on the enforcement stack's
+own parser with no allowlist, no carve-out, and one positional (never named) exemption. The
+builder implements R2 against this executed model; the founder ratifies its text at §13.1.

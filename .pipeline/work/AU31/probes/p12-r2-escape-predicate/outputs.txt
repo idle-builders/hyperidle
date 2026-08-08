@@ -1,0 +1,40 @@
+# P12 — R2 escape-predicate prototype, verbatim outputs
+# Tree: backend/AU31-layer-composition-boundary @ 1a4607bf, run 2026-08-08.
+# Prototype uses the census's own parser (ts.createSourceFile — scripts/lib/repo-census.ts:19,646).
+# Sources committed as .ts.txt (P11 convention: the census must never parse probe sources).
+
+## Run 1 — attack + control fixtures
+$ npx tsx r2-escape-prototype.ts fixture-attacks.ts fixture-controls.ts
+== .pipeline/work/AU31/probes/p12-r2-escape-predicate/fixture-attacks.ts
+   VIOLATION line 15 — `(re-export)` (from @hyperidle/knowledge) — export … from a service module
+   VIOLATION line 16 — `*` (from @hyperidle/session-requests) — export … from a service module
+   VIOLATION line 18 — `listKnowledge` (from @hyperidle/knowledge) — initializer of escaping binding `a3`
+   VIOLATION line 20 — `listKnowledge` (from @hyperidle/knowledge) — initializer of escaping binding `a4`
+   VIOLATION line 22 — `searchKnowledge` (from @hyperidle/knowledge) — initializer of escaping binding `aliasHop`
+   VIOLATION line 25 — `listKnowledge` (from @hyperidle/knowledge) — default export
+   VIOLATION line 28 — `listKnowledge` (from @hyperidle/knowledge) — escaping class `A7` > class field initializer
+   VIOLATION line 29 — `searchKnowledge` (from @hyperidle/knowledge) — escaping class `A7` > class field initializer
+   VIOLATION line 32 — `listKnowledge` (from @hyperidle/knowledge) — initializer of escaping binding `a8` > IIFE body
+   VIOLATION line 35 — `listKnowledge` (from @hyperidle/knowledge) — initializer of escaping binding `a9` > call argument
+   VIOLATION line 37 — `listKnowledge` (from @hyperidle/knowledge) — initializer of escaping binding `a10` > callee
+   VIOLATION line 39 — `searchKnowledge` (from @hyperidle/knowledge) — initializer of escaping binding `bag`
+   VIOLATION line 42 — `knowledgeNs` (from @hyperidle/knowledge) — initializer of escaping binding `a12`
+== .pipeline/work/AU31/probes/p12-r2-escape-predicate/fixture-controls.ts
+   CLEAN — no service binding escapes the export surface
+exit=1
+
+## Run 2 — the three planned-legal end-state sites (live production files, read-only)
+$ npx tsx r2-escape-prototype.ts layers/core-api/src/app.ts layers/core-api/src/service-bootstrap.ts layers/core-api/src/services/tool-handlers-bindings.ts
+== layers/core-api/src/app.ts
+   CLEAN — no service binding escapes the export surface
+== layers/core-api/src/service-bootstrap.ts
+   CLEAN — no service binding escapes the export surface
+== layers/core-api/src/services/tool-handlers-bindings.ts
+   CLEAN — no service binding escapes the export surface
+exit=0
+
+## Run 3 — R2's founding target must still flag
+$ npx tsx r2-escape-prototype.ts layers/core-api/src/index.ts
+== layers/core-api/src/index.ts
+   VIOLATION line 15 — `(re-export)` (from @hyperidle/knowledge) — export … from a service module
+exit=1

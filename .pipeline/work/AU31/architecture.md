@@ -2,11 +2,15 @@
 
 Spec of record: `.pipeline/work/AU31/plan.md`. Requirements: `requirements.md` (PASSED critique;
 the five non-blocking defects D1–D5 are absorbed below at the sites marked **[D1]**…**[D5]**).
-Feasibility: `feasibility.md` (probes P1–P11, cited as **[P#]**). Tier: **production**. Every
-`file:line` re-traced on the live tree at base `bbe82e9a`. This is the attempt-2 revision against
-`architecture-critique.md`: B1 is closed by the new §4 (probe-proven, [P11]) and the rewritten
-§13.3; B2 by §2.5 and §8; B3 by §7's widened R2 and restated limit; D1–D5 are absorbed at §11,
-§13.8, §7.2 **[D3]**, §3.1 **[D4]**, and the new §4 (which fills the numbering gap) respectively.
+Feasibility: `feasibility.md` (probes P1–P12, cited as **[P#]**). Tier: **production**. Every
+`file:line` re-traced on the live tree at base `bbe82e9a`. This is the attempt-3 revision. Attempt 2 closed round-1's B1–B3 (round 2 re-executed and
+confirmed all three); this revision closes round-2's one blocker **B4** — R2's predicate is
+restated from "any module-scope reference" to **escape through the export surface**, proven by
+executing a prototype on the census's own parser ([P12]: all thirteen attack spellings flag;
+`app.ts`, `service-bootstrap.ts`, and `tool-handlers-bindings.ts` — the three planned-legal
+end-state sites B4 named — are clean; the founding target `core-api/src/index.ts:15` still
+flags) — and absorbs round-2's N1–N5 at the sites marked **[N1]**…**[N5]**. D1–D5 remain
+absorbed at §11, §13.8, §7.2 **[D3]**, §3.1 **[D4]**, and §4 respectively.
 
 This plan creates no outcome beyond the plan's seven ACs. Where it supersedes a prior in-code
 decision, the supersession is listed in §13 and rides the mandatory founder gate (`plan.md:25`).
@@ -194,8 +198,15 @@ mechanism:
   invisibility**; probe C2 [P11] confirms the census reports nothing for the end-state spelling.
   The `TDb = unknown` erasure that justified the execution-side placement (the file's own AU19
   §7.5 C1 @lore) is vestigial once the owning layer can name `HyperIdleDb`. `harness-registry`'s
-  `export { buildToolRegistry }` row (`index.ts:30`) is deleted; the behavioral suites move with
-  the file.
+  `export { buildToolRegistry }` row (`index.ts:30`) is deleted. The behavioral suites split by
+  subject **[N3]**: the dispatch-mechanics suites (role filter, zod validation, workflow routing)
+  move with the file into `tool-handlers`; `harness-registry`'s
+  `src/__tests__/return-status-tool.test.ts` — which asserts `returnStatusTool`'s wiring
+  *through* `buildToolRegistry` (`:211-225`), spanning both post-move homes — decomposes: the
+  tool's own behavior assertions stay in `harness-registry` exercising the tool directly, and
+  the through-the-registry wiring assertion re-lands in the §10 service-lane composed-app
+  coverage, where the end state genuinely wires the moved dispatch to the bundle's tools. No
+  development-world cross-layer import is left behind and no wiring assertion is dropped.
 - **The role filter: the core wrapper `toolsForRole` is replaced by tool-handlers' own
   `buildToolDefinitions(ports, { role })`** (`tool-definitions.ts:1617-1649` — the AU20 Am10
   entry that already collapses build + role filter, and already calls the shared helper only with
@@ -348,7 +359,8 @@ another face: the execution adapter bundle into `bootAgentOrchestration` (§2.4,
 first draft asserted this was "the face's declared composition contract (clause 3)" with "the
 census's DI rule unchanged" — an assertion the enforced code contradicts:
 `governance-model.ts:265-290` has no face-content carve-out, and `layer → layer (other) [di]` is
-decided **forbidden** at zero baseline. This section replaces the assertion with what the census
+forbidden **generatively** — clause 6 (`governance-model.ts:266-290`) over an empty baseline;
+`decided-rules.json` carries no literal row for the group **[N5]**. This section replaces the assertion with what the census
 actually does — proven by executing it, not arguing it — and gives the surviving reading an
 enforced home.
 
@@ -371,14 +383,23 @@ held in a local carries no foreign import provenance, so nothing is recorded. Th
 provenance semantics, not an accident — the same design already suppresses imported literal
 constants as "an ordinary import, not an injected port" (`crossing-detectors.ts:294-298`).
 
-**The spelling law (locked; self-enforcing on its visible side).**
+**The spelling law (locked; self-enforcing on its identifier-spelled visible side — the one
+namespace respelling it cannot see is named in rule 2, not claimed away).**
 
 1. A composition root binds each face boot result to a local binding before any part of it enters
    another face's options.
 2. No identifier imported from a layer or service package — and no inline call of one — may appear
    in another layer's boot argument list. Probe A shows this side needs no new rule: every DI
    group the spelling could hit is forbidden with zero baseline headroom, so the forbidden
-   spelling fails the build today, mid-build, with both packages named.
+   spelling fails the build today, mid-build, with both packages named. **[N2]** One respelling
+   on this side is census-invisible, stated honestly: the namespace-mediated inline call —
+   `import * as exec from "@hyperidle/agent-execution"; bootAgentOrchestration({ …,
+   adapterPool: exec.createLocalAdapterPool() })` — records nothing, because the DI heuristic's
+   inline-call branch requires an identifier callee (`crossing-detectors.ts:991-993`) and a
+   namespace import of a layer face is an allowed import edge. It opens no conversation channel
+   — the value is face-produced either way, and service-symbol acquisition stays censused
+   (`repo-census.ts:683-714`) — but the law's mechanical teeth cover identifier spellings only;
+   the namespace respelling is review territory, the same class as §7.3's function-body residue.
 3. Everything a composition root hands across is either an environment fact (port, path, flag, db
    handle, bus) or a value some face boot returned, and its type lives in `@hyperidle/shared` or
    `@hyperidle/api-contract` — never in a service package.
@@ -537,25 +558,58 @@ where it can and says honestly where it cannot:
      resolve into a nested service package. *Attack:* mutate `layers/core-api/package.json` to add
      an entry pointing into `layers/core-api/knowledge/src/…` → expect finding. *Control:* the
      surviving face entries.
-   - **R2 `face-references-no-service-at-module-scope`** (widened after critique B3): in the
-     layer root package's own modules reachable from its `exports` map (reachability stops at a
-     package boundary — service packages are judged by the other rules), matching specifiers **by
+   - **R2 `service-values-do-not-escape-the-face`** (restated after critique round-2 B4;
+     replaces both the first draft's spelling and attempt 2's "anywhere outside a runtime
+     function body" widening, which flagged this plan's own end state): in the layer root
+     package's own modules reachable from its `exports` map (reachability stops at a package
+     boundary — service packages are judged by the other rules), matching specifiers **by
      resolved module** exactly as R1/R3 do — so a relative path into a service directory is the
-     same violation as the package specifier **[D3]** — it is a violation to (a) `export … from`
-     a module resolving inside a service package, (b) `export * from` one, or (c) **reference a
-     binding imported from a service module anywhere outside a runtime function body**: an
-     exported initializer that is the symbol, an object- or array-literal member, a module-scope
-     alias (`const l = list;` — exported or merely reachable from an export), a `default` export,
-     a class property initializer (static or instance — both evaluate without a consumer call),
-     or the body of a function expression **immediately invoked at module scope** (an IIFE is
-     module evaluation with extra steps). *Attacks:* the three original spellings, plus the
-     critique's three one-line launders (`export const api = { listKnowledge: list };` ·
-     `const l = list; export { l as listKnowledge };` · `export default { list };`), plus a class
-     static field and a module-scope IIFE aggregate — each expecting its finding. *Control
-     twins:* the same value spellings over the layer's **own src** modules (legal), a boot
-     function whose body *calls* service functions, and a boot function whose body *returns* a
-     service-produced value (legal composition — these twins are what keep the detector from
-     flagging every boot).
+     same violation as the package specifier **[D3]** — it is a violation for a **value binding
+     imported from a service module to escape the module's export surface as a value**. R2
+     exists to catch a service symbol being laundered through the face (refine-critique D3;
+     AU28's round-2 precedent); escape is what laundering *is*, so escape is what the predicate
+     measures. Concretely — the [P12] prototype, built on the census's own parser
+     (`ts.createSourceFile`, `repo-census.ts:19,646`), is the executed model — a violation is:
+     (a) `export … from` a module resolving inside a service package; (b) `export * from` one;
+     (c) the binding escaping through module-scope value flow: exported directly (an initializer
+     that is the symbol, a named export, an alias hop, a `default` export) or appearing anywhere
+     inside an **escaping module-scope expression** — an object- or array-literal member or
+     spread, an argument of a call or `new` whose result escapes, the object of a property
+     access (`list.bind(null)` is not a call *of* `list`), a class field initializer (static or
+     instance) of an escaping class, or the body of a function expression **immediately invoked
+     inside an escaping expression** — where "escaping" is transitive over module-scope
+     bindings: a binding escapes if it is exported or referenced in an escaping position of
+     another escaping initializer. **Exactly one exemption, positional, never named:** the bare
+     imported identifier in **direct callee position** of a call or `new` — calling a service
+     function at module scope produces a value, and a produced value escaping is composition
+     (the §4 law's own shape); the symbol does not flow into its own call's result. A
+     property-chain callee is not exempt. **What the predicate deliberately ignores:** a
+     module-scope reference whose value never reaches the export surface — the wiring-bag style
+     (`app.ts:213`, `service-bootstrap.ts:175`: a non-exported literal over the layer's own
+     services, consumed only inside the module's functions) — launders nothing: no face consumer
+     can obtain the symbol except through a function body, which is §7.3's review territory.
+     Type-only spellings (`import type`, `export type … from`) are outside R2 — no value
+     escapes; the face's type surface is governed by the ratified export map and the §4 law's
+     type-home clause. **Executed against the [P12] prototype:** all thirteen attack spellings
+     flag; the control fixture and the three planned-legal end-state sites B4 named —
+     `app.ts`, `service-bootstrap.ts`, and `tool-handlers-bindings.ts` (whose §5.3-relocated
+     content is byte-identical) — are clean; the rule's founding target
+     (`core-api/src/index.ts:15`) still flags. *Attacks* (each expecting its finding;
+     verbatim results in `probes/p12-r2-escape-predicate/outputs.txt`): the two re-export
+     clauses, the exported initializer, the exported literal member, the alias hop
+     (`const l = list; export { l as listKnowledge };`), the default aggregate
+     (`export default { list };`), a static and an instance class field of an exported class,
+     the module-scope IIFE aggregate, **the identity-wrap call launder**
+     (`export const api = wrap(list);` — argument position, escaping result), **the
+     property-chain call** (`export const f = list.bind(null);`), **the two-hop alias**
+     (`const bag = { list }; export const api = bag;`), and **the namespace escape**
+     (`export const api = { ns };`). *Control twins* (each expecting silence — [P12]: all
+     clean): the same value spellings over the layer's **own src** modules; a boot function
+     whose body *calls* service functions; a boot function whose body *returns* a
+     service-produced value; **the non-escaping wiring bag** (the `app.ts:213` shape — the twin
+     that pins the narrowing against ever re-widening); and **the exported call result with the
+     service binding as bare callee** (the `tool-handlers-bindings.ts:200` shape). The last two
+     twins are what keep R2 from flagging the end-state tree the way attempt 2's predicate did.
    - **R3 `deep-imports-die-with-their-entries`**: an import specifier of a layer package that
      resolves to a module absent from its `exports` map is a violation with the file and
      specifier named (satisfies validation scenario 2's error shape even where the TS resolver
@@ -567,23 +621,50 @@ where it can and says honestly where it cannot:
      instances D4 counted (10 deep + 2 already-face-shaped boots, **[D4]**) converge on
      face-shaped without a row change. The instance counts move; the founder ratifies the rule
      texts, the final export maps, and the attack set at the human gate.
-3. **The honest limit — the wrapper-launder, stated so it survives a counterexample hunt.**
-   R2's widened predicate catches every spelling whose service reference is **evaluated at module
-   load** — direct re-exports, aliases, aggregates, defaults, class field initializers,
-   module-scope IIFEs. What no predicate can catch — the true residual — is a reference that
-   sits inside a function or accessor body that runs only when a consumer uses the face: a
-   call-wrapping function (`export const listKnowledge = (db) => list(db);`), a value-returning
-   function (`export const getApi = () => ({ list });`), a getter on an exported object. That
-   shape is machine-indistinguishable from legitimate boot composition — a boot's body calls
-   service functions by design — and separating them would take an allowlist, which is banned.
+   - **Naming hygiene for every attack/control case this WP adds** (R1–R3's and §4/§13.3's
+     `crossing-di` pair alike) **[N4]**: case ids, overlay paths, and `detail` strings name the
+     spelling under test, never the work package — work-package identifiers live in
+     `.pipeline/**` only, never in rule ids, JSON keys, filenames, or any field of an enforced
+     artifact under `governance/` or `scripts/` (founder ruling).
+3. **The honest limit — the launder, stated so it survives a counterexample hunt.** R2 catches
+   every spelling in which a service value binding reaches the export surface through
+   module-scope value flow — every reference that appears **syntactically inside an escaping
+   module-scope expression** ([P12] executed the full set): re-exports, exported initializers,
+   alias hops, literal members and spreads, defaults, class field initializers of escaping
+   classes, escaping call arguments, property-chain accesses, and inline function-expression
+   bodies invoked inside an escaping expression. **[N1]** Two shapes sit outside the predicate,
+   for two different reasons, both stated rather than papered over:
+   - **Non-escaping module-scope wiring is legal, not missed.** A module-scope reference whose
+     value never reaches the export surface — the settled wiring-bag composition style of
+     `app.ts:213` and `service-bootstrap.ts:175` — launders nothing; a face consumer can obtain
+     the symbol only through a function body, which is the next bullet's territory. Firing on
+     it would measure module-scope-ness instead of laundering, and would flag this WP's own end
+     state (round-2 B4's finding, accepted in full).
+   - **Function-body spellings are review territory — the true residual.** A reference inside a
+     function or accessor body, whenever that body runs: a call-wrapping function
+     (`export const listKnowledge = (db) => list(db);`), a value-returning function
+     (`export const getApi = () => ({ list });`), a getter or method body (their *initializer*
+     expressions are caught — R2's attack set includes both class fields — but their bodies run
+     on a consumer's call), an exported function returning a non-escaping wiring bag — or a
+     **named**
+     local function invoked from an escaping initializer (`function make() { return { list };
+     } export const api = make();` — it evaluates during module load, yet the reference sits in
+     a function body, so R2 records nothing; only the *inline* immediately-invoked function
+     expression is scanned, because its body is part of the escaping expression itself). These
+     shapes are machine-indistinguishable from legitimate boot composition — a boot's body
+     calls service functions by design — and separating them would take an allowlist, which is
+     banned.
    The residual is held by three real things, recorded in the rule's `why`: (a) the export map is
    small, enumerated, founder-ratified, and changes only through review of a manifest diff; (b)
    `knip`/`knip:production` deletes any face export without a composition-root consumer (no
    production export only tests consume); (c) the reviewer lens judges the face content list.
-   The limit statement the founder ratifies at §13.1 is exactly this line — **module-load
-   spellings are caught mechanically; function-body spellings are review territory** — not the
-   first draft's narrower "a launder must be a call-wrapping function", which the critique
-   refuted in one line. No allowlist, no suppression path exists in any of the three holds.
+   The limit statement the founder ratifies at §13.1 is exactly this line — **escaping
+   module-scope spellings are caught mechanically; non-escaping module-scope wiring is legal
+   composition; function-body spellings, including a named local function invoked at module
+   scope, are review territory** — replacing both the first draft's "a launder must be a
+   call-wrapping function" (refuted in round 1) and attempt 2's "caught if evaluated at module
+   load" (refuted by the `make()` spelling, round-2 N1). No allowlist, no suppression path
+   exists in any of the three holds.
 
 ---
 
@@ -733,9 +814,11 @@ founder ratifies the §13 list. High-stakes; in an autonomous run this parks at 
 ## 13. Founder-gate register: supersessions, ratifications, and handoffs
 
 1. **The face rule** (§7): rule texts, per-layer final export maps, attack set, and the
-   wrapper-launder limit statement **as restated in §7.3** — module-load spellings caught
-   mechanically, function-body spellings review territory — the `decided-rules.json`/vocabulary
-   change only a founder ruling may make (`governance/README.md:138-141`).
+   launder limit statement **as restated in §7.3** — escaping module-scope spellings caught
+   mechanically; non-escaping module-scope wiring legal composition; function-body spellings,
+   including a named local function invoked at module scope, review territory — the
+   `decided-rules.json`/vocabulary change only a founder ruling may make
+   (`governance/README.md:138-141`).
 2. **`AgentOrchestrationPort` gains a write side**, superseding AU26 H1/H2's "downward call, the
    door stays read-only" (`policy-bindings.ts:100-105`). Rationale: the downward call is now the
    forbidden crossing; one door both directions is the smaller system.
@@ -745,8 +828,10 @@ founder ratifies the §13 list. High-stakes; in an autonomous run this parks at 
    spelling fails the build; the mediated spelling records nothing, by the predicate's design).
    Ratified as (a) the attack/control pair on the `crossing-di` rule — probe A the attack, probe
    B the control twin — and (b) the provenance sentence in clause 6's `why` and the governance
-   README. **No verdict flips**; `layer → layer (other) [di]` stays forbidden. This is the
-   reading the whole of §5/§6 stands on.
+   README. **No verdict flips** — stated precisely **[N5]**: the
+   `layer → layer (other) [di]` verdict is generative, clause 6 (`governance-model.ts:266-290`)
+   over an empty baseline; `decided-rules.json` carries no literal row for the group, so there
+   is no row to flip and none is added. This is the reading the whole of §5/§6 stands on.
 4. **Relinquished atomicity** at `knowledge.ts:934` and `threads.ts:1463` (+ the two run-config
    write couplings), windows as named in §3.1.
 5. **Relocations that supersede a recorded decision**: `SessionActivityBuffer` out of

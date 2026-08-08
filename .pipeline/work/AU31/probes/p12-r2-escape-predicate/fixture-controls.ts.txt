@@ -1,0 +1,46 @@
+/**
+ * P12 control fixture — zero findings expected. C2 is the `app.ts:213` /
+ * `service-bootstrap.ts:175` shape (non-escaping module-scope wiring bag over
+ * service bindings, consumed only by module functions); C5 is the
+ * `tool-handlers-bindings.ts:200` shape (exported call RESULT with the service
+ * binding in bare direct-callee position). C1/C3/C4 are the standing §7.2
+ * control twins; C0 is type-only.
+ */
+
+// @ts-nocheck
+import type { KnowledgeItem } from "@hyperidle/knowledge"; // C0 — type-only import, out of scope
+import { listKnowledge, searchKnowledge } from "@hyperidle/knowledge";
+import { buildToolDefinitions } from "@hyperidle/tool-handlers";
+import { ownHelper } from "./own-module.js";
+
+// C1 — the same value spellings over the layer's OWN src modules are legal
+export const ownApi = { ownHelper };
+
+// C2 — non-escaping module-scope wiring bag (the surviving composition style)
+const serverConfigPort = { read: listKnowledge, update: searchKnowledge };
+const wiringDeps = {
+	serverConfig: serverConfigPort,
+	users: { getUserById: (db: unknown, id: string) => listKnowledge(db, id) },
+};
+export function createApp(): unknown {
+	return install(wiringDeps);
+}
+function install(deps: unknown): unknown {
+	return deps;
+}
+
+// C3 — a boot function whose body CALLS service functions (composition)
+export function boot(db: unknown): unknown {
+	return { items: searchKnowledge(db, "q") };
+}
+
+// C4 — a boot function whose body RETURNS a service-produced value (composition)
+export function boot2(db: unknown): unknown {
+	const produced = listKnowledge(db, "all");
+	return produced;
+}
+
+// C5 — exported call result, service binding in bare direct-callee position
+const localPorts = { coreApi: { getTaskById: (id: string) => id } };
+export const allDefinitions = buildToolDefinitions(localPorts);
+export { localPorts };
