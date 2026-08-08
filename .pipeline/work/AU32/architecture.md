@@ -2,7 +2,9 @@
 
 Authority: `.pipeline/work/AU32/plan.md` **as amended by `.pipeline/work/AU32/founder-rulings.md`
 (Rulings A/B/C recorded at the concept gate 2026-08-08; Ruling D recorded 2026-08-08 after the
-round-3 critique, overruling its blocking finding B1)** — those rulings supersede this file's
+round-3 critique, overruling its blocking finding B1; **Ruling E recorded 2026-08-08 after the
+build reached `27ccc8b8`**, revising AU28 Ruling 2 and replacing the baseline ratchet with plain
+per-rule severity)** — those rulings supersede this file's
 earlier revision, `schema-test-decision.md`'s earlier recommendation, and plan.md's AC-2/AC-3
 wording and production-out-of-scope clause wherever they conflict. Also binding: `.pipeline/work/AU28/founder-rulings.md` Rulings
 13/13a (companion rule), 14 (one runtime door — **narrowed to production-only for AI requests by
@@ -34,14 +36,25 @@ Ruling A**), 8 (two worlds). Rule mechanics: `governance/README.md`,
   `deleteTeam` (teams+teamMembers) and the knowledge soft-archive — are live production paths and
   stay. Zero features are removed, zero production files change, and no migration is generated.**
   The scope amendment exercises to zero (D10).
+- **Ruling E** withdrew **D7** and **D8** entirely. The lint stops keeping books: `governance/baseline.json`,
+  the `baseline-ratchet` rule, the `governance:baseline` generator, the `--adopt` flag and every code
+  path that reads a per-file allowance to compute severity are deleted **unconditionally**, and this
+  work package owns the deletion rather than deferring it to whichever sibling finishes last. In their
+  place: one severity — `error` or `warn` — per architectural rule (D7′), a closure that leaves no
+  half-removed bookkeeping behind (D8′), a proportionate guard against rebuilding the mechanism (D11),
+  and the development-world flip to `error` in this PR (D12). **AC-4 and AC-5 are rewritten**; AC-2 and
+  AC-3 keep the amendments Rulings A and C already gave them. The second shrink-only record,
+  `governance/misplaced-files.json`, is **surfaced for a founder decision, not folded in** (D13).
 
 Everything the round-2 and round-3 critiques verified and no ruling touches is carried unchanged:
 the census, the cascade fact, Ruling A's rule relaxation and its complete pin list (round-3 N3),
 `seed-then-migrate` clean, `session-requests:59` unreferenced, the `seedBase` correction, D2's
-mechanics, D3, D4, D7, D8, D9, the three sound dead-test deletions (round-3 N5), the :114 rework
+mechanics, D3, D4, the three sound dead-test deletions (round-3 N5), the :114 rework
 (round-3 N2 — strengthened below with the non-transactionality fact it found), and the round-2
 N1–N4 closures. Round-3's non-blocking N1 (P15's false "type-breaks" claim about the crossings
-literal) is fixed in P15 and noted in D6′.
+literal) is fixed in P15 and noted in D6′. **D9 survives in substance and changes only in
+mechanism** — its second case still pins the warn→error flip, now against the severity declaration
+instead of a baseline allowance (D9′).
 
 ---
 
@@ -144,6 +157,87 @@ table-write files; the other 15 are separate packages — the helper is unexport
 "Converge on seedBase" is honoured as intent with corrected mechanics (D2);
 `promote-knowledge.integration.test.ts` — a `seedBase` caller still flagged for the knowledge pair
 — is the direct disproof of the literal claim.
+
+### 1e. Severity grounding — where severity lives, and the granularity the live data forces
+
+Measured on the worktree at `27ccc8b8`, 2026-08-08. **The build has moved past the state
+`progress.json` recorded**: everything `buildState.remaining` listed has landed.
+
+```
+npx tsx scripts/governance-lint.ts
+governance-lint: PASS — 3309 tracked files (789 production, 2520 development), 33 packages,
+  8114 crossings, 18 rules, 221 production + 0 development known violation(s) at warn
+npx tsx scripts/governance-lint.ts --attacks   → PASS, 47 break-tests
+npx tsx scripts/governance-lint.ts --fixtures  → PASS, 63 synthetic cases
+```
+
+- **The development world is already at zero.** T5 landed in `23eb1658` (the three `ah` test servers
+  and the eval runner routed through the database package's own client factory), Ruling B's deletion in
+  `ec1b933b`, T7's relaxation in `27ccc8b8`.
+- `governance/baseline.json` at `27ccc8b8`: **31 groups, all production, 221 violations, 65 files.**
+  `main` (`bbe82e9a`) held **38 groups — 221 production + 67 development**. The seven development
+  groups are the difference, and they are the rules D12 flips.
+- Production is unchanged from `main` at 221 across 31 group keys. This work package does not touch it.
+
+**Where severity lives today: nowhere as a declaration.** `scripts/rules/crossings.ts:62-71` derives it
+per violation — a `(group key, file)` pair with a recorded count in `governance/baseline.json` warns for
+the first N occurrences and errors beyond them; `scripts/lib/crossing-report.ts:79-88` is the record's
+shape and `:163-198` (`compareBaseline`) is what fails the build in **both** directions when the record
+and reality disagree. So the dial is a 270-line file naming 65 file paths and 221 counts, and fixing the
+last violation in a file turns the build red until the record is regenerated. That is the friction
+Ruling E removes.
+
+#### The granularity, settled from the data
+
+Three candidate grains, each tested against the two things Ruling E requires: a clean rule at `error`
+and a dirty one at `warn`; and **a work package that can clear its own set of rules and flip them in
+its own pull request**.
+
+1. **Per registered rule name** (`crossing-import`, `crossing-table-write`, … — nine crossing rules).
+   **Rejected by the numbers.** Eight of the nine crossing kinds carry production violations; all nine
+   carry zero development ones. Those eight would have to sit at `warn`, and then a fresh development
+   violation of any of them would *warn* instead of failing the build — which is precisely what AC-2 and
+   AC-4 exist to prevent. World-qualification is forced; per-rule-name alone does not work.
+2. **Per (rule name, world)** — 18 cells, 8 of them at `warn`. Works for this work package. **Rejected
+   for the track:** four of the eight production `warn` cells each contain violations owned by two or
+   three different sibling work packages, and those four hold **195 of the 221 violations — 88%**. Under
+   this grain no sibling can flip anything until the last one lands, which reinstates exactly the
+   "promotion step to remember" Ruling E item 3 abolishes.
+3. **Per architectural rule, keyed by the existing group key** — `<source> → <target> [<kind>] <world>`.
+   31 cells at `warn` today, zero of them development. **Chosen.**
+
+| registered crossing rule (production) | group keys inside it | violations | sibling work packages spanned |
+|---|---|---|---|
+| `crossing-import` | 11 | 92 | **3** (AU29 8, AU30 26, AU31 54) + 4 violations no sibling claims |
+| `crossing-table-write` | 5 | 50 | **2** (AU29 17, AU30 29) + 4 unclaimed |
+| `crossing-table-read` | 4 | 39 | **2** (AU29 2, AU30 34) + 3 unclaimed |
+| `crossing-di` | 4 | 14 | **2** (AU29 1, AU31 13) |
+| `crossing-manifest` | 3 | 21 | 1 (AU31) |
+| `crossing-mcp` | 2 | 2 | 1 (AU31) |
+| `crossing-event` | 1 | 2 | 1 (AU29) |
+| `crossing-api` | 1 | 1 | 1 (AU31) |
+| `crossing-capability` | 0 | 0 | — already at `error` |
+
+Sibling scopes read off `.pipeline/AU.md:28-30` and its dependency notes at `:49-52`, not inferred:
+AU29 is "the framework stops acting" plus the `db:util` anomaly and the unnamed `db` exports; AU30 is
+the six unowned tables; AU31 is cross-layer reach. Per-key attribution: **AU29 8 keys / 30 violations,
+AU30 6 keys / 89, AU31 13 keys / 91, unclaimed 4 keys / 11 — 31 keys, 221 violations.** The unclaimed
+four are genuine foreign access to owned tables from `credentials` and `filesystem-mounting`; no
+registered sibling names them, so they stay at `warn` until one does. That is an honest outcome of the
+grain, not a gap in it.
+
+**Exactly one key is shared between two siblings:** `framework → db:table (unowned) [table:write]
+production` (2 violations, `framework/db/src/demo-fixture.ts` and `factory-bootstrap.ts`). AU29 moves
+the file out of the framework role; AU30 gives the tables owners. `.pipeline/AU.md:49` already sequences
+AU30 after AU29 for that exact file, so the flip lands in AU30. Every other key belongs to one sibling
+or to none.
+
+**The chosen grain introduces no new vocabulary — which is why it is also the smaller change.** The group
+key is what `groupKey` already produces (`scripts/lib/crossing-report.ts:72-73`), what the lint already
+prints as a "rule group", and — the same tuple before label rendering — what `governance/decided-rules.json`
+already decides one row at a time **per world** (124 rows of `source`/`target`/`kind` ×
+`production`/`development`). Grain 2 would have required inventing a key that does not exist anywhere
+today. The unit of severity is the unit of decision.
 
 ---
 
@@ -333,19 +427,100 @@ development` entry clears by a rule change, derived from the world, not a listed
 - **Scope discipline:** this relaxation covers AI requests only. The `db:schema-ns` /
   `db:unknown` door work (D4, D5′) is untouched by it — those clear by fixes, not rule changes.
 
-**D7 — Baseline mechanics: regenerate, never edit.** (Unchanged.) `npm run governance:baseline` is
-the only legal writer; each commit that clears sites carries its shrink; clearing a group's last
-site deletes the group and that rule is at error from the same commit.
+**D7′ — Severity is one value per architectural rule, declared in `governance/rule-severity.json`,
+default `error` (Ruling E; replaces the withdrawn D7).**
 
-**D8 — AC-5 (delete the baseline file + `--adopt`) is dormant for this work package.** (Unchanged.)
-31 production groups / 221 sites remain (AU29/30/31 all `planned`); clearing every development
-group cannot empty the file. Ship-time `jq '.groups | length'` check; if 0, deletion happens here.
+- **The file.** `{ "governanceRuleSeverity": true, "note": "…", "severity": { "<rule key>": "warn", … } }`.
+  Keys are group keys — `<source> → <target> [<kind>] <world>`, the strings `groupKey` already produces
+  and the lint already prints. Values are `"error"` or `"warn"`, nothing else. **An absent key is at
+  `error`**, so the file lists only what is not yet clean: **31 entries, every one `"warn"`, every one
+  ending ` production`.** No file paths, no counts, no adoption dates, no notes about who will fix what.
+  It is roughly 35 lines against the deleted file's 270, and — the difference that matters — it makes
+  **no claim about reality**, so it can never disagree with reality and nothing ever regenerates it.
+- **How it is read.** `loadRuleSeverity()` joins the other loaders in `scripts/governance-context.ts:162-165`;
+  the `RuleSeverity` type joins `TableOwners` and `MisplacedFiles` in `scripts/lib/governance-registry.ts`.
+  `crossingRules` (`scripts/rules/crossings.ts:51`) takes **`severityOf: (ruleKey: string) => Severity`**
+  where it took `baseline: Baseline`, and its per-violation body becomes `severity: severityOf(violation.key)`.
+  The `seenPerSite` / `isNewDebt` / `newness` block (`:56-71`) is deleted outright.
+- **That signature is half the reintroduction guard, and it is the honest half.** `severityOf` can see the
+  rule key and nothing else — no path, no line, no count, no census. Restoring a per-file allowance means
+  widening it, which fails to compile at every call site and lands as a visible diff in a reviewed file.
+  D11 covers the other half (the record files and the CLI).
+- **What stays exactly as it is.** A `warn` finding still prints **one line per site** — AU28's founder
+  ruling on that is untouched, because the sibling that clears a rule needs the sites — and still carries
+  `world` and `group`, so `printKnownDebt`'s per-world totals and the summary line's
+  "… production + … development known violation(s) at warn" keep working with no change. `--errors-only`
+  keeps meaning "the gate without the debt".
+- **What must NOT be built, because it is the likeliest way this regresses.** A check that a rule sitting
+  at `warn` with **zero** live violations is an *error* is the stale-baseline check reborn: a red build as
+  the reward for fixing the last violation, naming no architectural fact. **It is forbidden.** The lint
+  *reports* such a rule as a `warn` line — "clean; this rule can go to `error`" — which is information,
+  not a gate. Symmetrically, nothing anywhere compares a live count to a stored one.
+- **Accepted cost, restated from the ruling so the next reader does not rediscover it as a bug:** a rule at
+  `warn` warns for **all** its violations, new ones included. Nothing blocks new debt on a rule that is not
+  yet clean. That is the trade the founder made for a lint that never fails on bookkeeping.
 
-**D9 — Two unit cases are added** to `framework/db/src/__tests__/governance-crossings.test.ts`
-(unchanged): (1) derivation negative — an owner inserting only `teams` yields no group; (2)
-baseline severity flip — `crossingRules` over one synthetic development companion violation:
-allowance present ⇒ `warn`, group absent ⇒ `error` (`scripts/rules/crossings.ts:59-87`). Test names
-domain-worded.
+**D8′ — The deletion closure: what goes, and everything that names it (Ruling E; replaces the withdrawn
+D8, which deferred the deletion and is now unconditional and owned here).**
+
+Enumerated so that a half-removal shows up as an omission rather than as a lint that still reads as if it
+keeps books. Every line below was located by reading the file, not by recalling the design.
+
+**Deleted outright — 2 files**
+
+| path | what it is |
+|---|---|
+| `governance/baseline.json` | 270 lines, 31 groups, 221 counted sites. Unconditionally, not "if it empties". |
+| `scripts/governance-baseline.ts` | 86 lines — the generator, and the only writer of the above. |
+
+**Code deleted — by file**
+
+| file | what goes |
+|---|---|
+| `scripts/lib/crossing-report.ts` | `BaselineGroup` (`:79-82`), `Baseline` (`:84-88`), `RatchetVerdict` (`:90-96` — already dead, nothing reads it), `LiveGroup` (`:98-101`), `refuseGrowth` (`:104-140`), `compareBaseline` (`:142-198`), the “the baseline” banner (`:75-77`), and the three `@lore` blocks that document the mechanism (`:2-15`, `:106-117`, `:148-162`). What survives is `targetLabel`, `sourceLabel`, `groupKey`. **The file is renamed `scripts/lib/crossing-keys.ts`** and its header rewritten: a module called `crossing-report` that only builds keys is exactly the residue Ruling E's closure is about. Importers to update: `scripts/rules/crossings.ts`, `scripts/governance-lint.ts`, `scripts/governance-context.ts`, `scripts/lib/governance-attacks.ts`, `framework/db/src/__tests__/governance-crossings.test.ts`. |
+| `scripts/rules/crossings.ts` | `baselineRatchet` (`:99-124`), `liveGroups` (`:40-49` — its only consumers were the generator and the ratchet), `CrossingRuleInput.baseline` (`:21`), the `seenPerSite`/`isNewDebt`/`newness` block (`:56-71`), and the module header's severity paragraph (`:7-8`), rewritten to state the new dial. `violationsOf` stays (the lint and the attack harness both use it). |
+| `scripts/governance-context.ts` | `loadBaseline` (`:163`), the `Baseline` type import (`:19`), and the `@lore` at `:9-10` whose whole subject is that the lint and the generator share this module. Add `loadRuleSeverity`. |
+| `scripts/governance-lint.ts` | the `loadBaseline` import (`:41`), the `Baseline` type import (`:49`), the `baselineRatchet` import (`:59`), `EMPTY_BASELINE` (`:158-159`), `baseline: EMPTY_BASELINE` in `buildRules` (`:152`), the `buildRules` `@lore`'s ratchet sentence (`:125-126`), `alsoRegistered: ["baseline-ratchet"]` and its comment (`:171-173`), `const baseline = loadBaseline()` and `baseline` in `ruleInput` (`:227-231`), `baselineRatchet(ruleInput)` (`:251`). |
+| `scripts/lib/governance-attacks.ts` | the `Baseline`/`compareBaseline` import (`:48`), the `baseline-growth` standalone case (`:1023-1039`), **the `AttackTree.alsoRegistered` field itself** (`:663-676`) and its use at `:919` — an escape hatch whose doc says "today just the ratchet" invites refilling, and with the ratchet gone the list is empty; the runner `@lore` at `:884-886` and the comment at `:828`. |
+| `scripts/lib/crossing-detectors.ts` | the comment at `:35` ("a baseline entry for that would be nonsense") — rewritten to say the same thing about the census refusing a verdict, without naming a mechanism that no longer exists. |
+| `scripts/rules/no-laundered-re-exports.ts` | the comment at `:52` justifying a deferral by "it re-keys live baselined imports". The justification evaporates. Rewrite it to state the deferral's real remaining reason, or say plainly that the reason is now weaker — **do not silently keep a stale justification**. |
+| `scripts/rules/misplacement-ledger.ts` · `scripts/lib/governance-registry.ts` | the `@lore` blocks that describe the baseline as this record's sibling mechanism (ledger `:10-27`, three blocks; registry `:27-34`). These are rewritten **whatever the founder decides in D13** — they describe a mechanism that will not exist. |
+
+**Registration, scripts, tests, docs**
+
+| where | what goes |
+|---|---|
+| `package.json:36` | the `"governance:baseline"` script entry. **Verified safe to delete:** nothing invokes it — not `lint`, not `verify`, not `.github/`. It was manual-only by design. |
+| `framework/db/src/__tests__/governance-crossings.test.ts` | the whole `describe("AU28 — the ratchet")` block, `:689-842` — five top-level cases plus the seven-case `describe("the baseline may only shrink")`, which is where `--adopt` is exercised (`:813-840`); **12 tests**. The `Baseline`, `compareBaseline` and `refuseGrowth` imports (`:20-23`; `groupKey` and `targetLabel` stay). The file header's "and the ratchet" (`:2`). The warn→error flip case at `:1108-1176` is **rewritten, not deleted** — see D9′. |
+| `governance/README.md` | the section "There is no warn/error dial" (`:69-89`) — replaced by the severity dial; the shape table (`:27-31`) gains `rule-severity.json`; the `misplaced-files.json` section (`:91-108`) and the "Changing something" bullet at `:135-137` describe the baseline as their sibling and must be rewritten under either D13 outcome. |
+| `docs/guides/developer/commands.md` | `:69` lists `baseline.json` among the governance files; `:75` is the `governance:baseline` table row naming `--adopt`. Both go; the file list gains `rule-severity.json`. |
+| `docs/guides/developer/linting-and-formatting.md` | `:40` ("No warn/error dial") and `:41` ("The baseline may only shrink", naming `--adopt`) — two bullets, both false after this change, both rewritten. |
+| `CLAUDE.md` | one sentence in the production/development section states that `misplaced-files.json` "warns on every lint run, and the count only shrinks". Touched **only if** the founder approves D13. The other `baseline` occurrence in that file ("don't drain a pre-existing baseline you didn't cause") is about lint debt generally and is not this mechanism. |
+
+**Mechanical consequences of the deletion, checked rather than assumed**
+
+- **Rule count is unchanged at 18.** 8 non-crossing + 9 crossing + `baseline-ratchet` today; 9 non-crossing
+  (the new D11 rule) + 9 crossing after. `runRules` refuses an empty rule set and duplicate ids; neither
+  is at risk.
+- **Attack coverage (property 4) still closes.** Deleting the ratchet removes the one rule that needed
+  `alsoRegistered`; the new D11 rule is a normal registered rule and gets its cases the normal way. Live
+  count today is 47; the builder reports the new number.
+- **The census floor is not at risk.** Deleting two tracked files takes `trackedFiles()` from 3309 to 3307
+  against `MIN_TRACKED_FILES = 2976` (`scripts/governance-context.ts:45`) — 331 of slack, and `floors-tight`
+  judges that floor by band, not by equality. No floor is rewritten.
+- **`knip` and `knip:production` are a gate on this task, not an afterthought.** Six exported symbols leave
+  `crossing-report.ts` and one module leaves `scripts/`; run both and fix what they surface rather than
+  discovering it in CI.
+
+**D9′ — Three unit cases in `framework/db/src/__tests__/governance-crossings.test.ts` (D9's second
+case re-pointed at the severity declaration; Ruling E).** (1) derivation negative — an owner inserting
+only `teams` yields no companion group (unchanged, already committed in `7c6839e5`). (2) **the
+warn→error flip, rewritten**: `crossingRules` over one synthetic development companion violation — with
+a `"warn"` entry for that rule key the finding is `warn`; **with the key absent it is `error`**. Same
+property the old case proved, one input instead of a keyed-by-file allowance, and it is the standing
+proof that absent means `error`. (3) **new, the anti-stale pin**: a `"warn"` entry whose rule key has
+**zero** live violations produces **no error** — the case that fails if anyone rebuilds the stale-record
+check D7′ forbids. Test names domain-worded, no work-package ids.
 
 **D10 — No deletion feature is removed: the Ruling-D investigation returned empty (P18).**
 Per operation the deleted tests probe:
@@ -377,6 +552,123 @@ Consequences, locked:
 - **Entanglement: none to report.** The one reachable mechanism (`deleteTeam`) is live and stays;
   no removal shares code with anything because no removal exists.
 
+**D11 — Reintroducing the mechanism fails the build: one registered rule, four shape checks, and a
+stated blind spot (Ruling E).**
+
+Ruling E requires that bringing back a baseline, an adopt flag, or any per-file allowance — under any
+name — fails. This is designed as a guard against an honest engineer or agent rebuilding the mechanism,
+and **not** as a defence against someone deliberately disguising one: the standing project rule is that a
+governance rule is guidance for honest mistakes, never a security boundary, and a prior work package
+burned five critique rounds learning that. No exotic spellings are chased.
+
+**One new registered rule, `no-per-file-allowances`** — in `scripts/rules/`, taking its inputs injected
+like every other rule (no `node:fs`, no globbing; population from the census, sources through the
+injected `readFile`). Population: the tracked files under `governance/` plus the surviving governance
+CLIs. `minScope: 4`, against a live 5.
+
+What it checks, plainly:
+
+1. **`governance/` is a closed set of record files.** Declared: `README.md`, `architecture.json`,
+   `decided-rules.json`, `table-owners.json`, `rule-severity.json`, and `misplaced-files.json` while it
+   survives. **Any other file under `governance/` is an error**, naming the closed set. This is an
+   allowlist of what may exist, not a denylist of names, which is what makes it catch a returning
+   record whatever it is called — `baseline.json`, `known-violations.json`, `allowances.json`, `debt.json`.
+2. **Every value in `rule-severity.json`'s `severity` map is the string `"error"` or `"warn"`.** A nested
+   object, an array, a number, or a value carrying `sites`/`files`/`count` is an error. This is where a
+   per-file allowance would most naturally grow back — as a second level under a rule key — and the shape
+   check refuses the shape rather than the word.
+3. **Every key in that map is a well-formed rule key** — it must parse as
+   `<source> → <target> [<kind>] <world>` with `<kind>` drawn from the `Kind` union and `<world>` from
+   `World`, both read from the model rather than re-spelled. A path-shaped key fails because it has no
+   arrow, no bracketed kind and no world. **Note for the builder: a rule key may legitimately contain
+   `/`** — surface targets are named `framework/db`, `framework/design-system` — so "contains a slash" is
+   *not* a usable test for a path, and the positive parse is why this check is written as a parse.
+4. **The governance CLIs carry no undeclared flag.** The rule reads the surviving governance scripts and
+   fails on any `--flag` outside a declared set (`--fixtures`, `--attacks`, `--errors-only`, plus whatever
+   the surviving `governance:floors` / `governance:new-cells` CLIs legitimately take — the builder reads
+   them and populates the set, and **hard-fails if the scan finds zero flags**, because a scan that
+   matches nothing reads as passing forever). Again an allowlist: it catches `--adopt`, `--allow`,
+   `--accept`, `--grandfather` without naming any of them. A genuinely new flag costs a one-line
+   declaration, which is the right amount of friction for adding an escape hatch to a governance CLI.
+
+Plus the type-level half already stated in D7′: `severityOf: (ruleKey: string) => Severity` cannot be
+handed a file, so a per-file allowance does not compile.
+
+**Break-tests** (property 4 requires them): one overlay case adding `governance/known-violations.json`
+and expecting a `no-per-file-allowances` finding, with the untouched `governance/` directory as its clean
+control; one standalone case driving checks 2-4 directly — a nested value, a path-shaped key, an
+undeclared flag — each expected to fail and the well-formed equivalents expected to be silent.
+
+**What this does not catch, stated so nobody trusts it further than it goes:**
+
+- An allowance written into `architecture.json` or `decided-rules.json` under an innocuous key. Those
+  files are inside the closed set and only `rule-severity.json`'s shape is checked.
+- **A file path hardcoded into a clause in `governance-model.ts`** to make one file's verdict `allowed`.
+  Nothing detects that. The 248-verdict reproduction suite would not either — a path-specific carve-out
+  changes no decided row. Ruling C bans it outright and **review is the only gate.** This is the largest
+  blind spot and it is deliberate: detecting it would mean a rule that reasons about the shape of the
+  model's own source.
+- A shrink-only record placed outside `governance/`.
+- Deliberate disguise of any of the above. Out of scope by standing project rule.
+
+**D12 — The development-world flip: six rules go to `error`, one rule ceases to exist in that world
+(Ruling E scope).**
+
+The seven rules that stood at `warn` on `main` (`bbe82e9a`), with the evidence that each is clean at flip
+time. None of them appears in `rule-severity.json`, so each is at `error` from this pull request.
+
+| rule (group key) | on `main` | why it is clean now | landed in |
+|---|---|---|---|
+| `layer → db:table (other) [table:write] development` | 38 in 25 files | companion rows completed at every arranged entity (D1/D2/D3) | `70e78761`, `a9a77083`, `2a8b7291`, `60e8135d`, `1e11e657`, `68cfbdd4` |
+| `service → db:table (other) [table:write] development` | 13 in 10 | same | same |
+| `framework → db:table (other) [table:write] development` | 10 in 4 | same, in `framework/db`'s own fixtures | same |
+| `layer → db:schema-ns [import] development` | 3 in 3 | the three `ah` test servers route through the database package's own client factory (D4) | `23eb1658` |
+| `tooling → db:schema-ns [import] development` | 1 in 1 | the eval runner routes through the same factory (D4) | `23eb1658` |
+| `application → db:unknown [import] development` | 1 in 1 | the dead `seed` test deleted, which removed the `seed` import (D5′, Ruling B) | `ec1b933b` |
+| `tooling → raw runtime [capability] development` | 1 in 1 | **not fixed — withdrawn.** Ruling A made this crossing `allowed` in the development world, so the rule does not exist there and has no severity at all (D6′) | `27ccc8b8` |
+
+**That last row is a real distinction and the founder should see it as one:** six rules flip from `warn`
+to `error` because the violations are gone; the seventh is not a rule in the development world any more.
+Its evidence is the decided-rules rows and `governance-model.test.ts`, not a cleared file.
+
+**Production-world rules stay at `warn`** — all 31 keys, all 221 violations, untouched, for AU29/AU30/AU31
+to clear and flip the same way.
+
+**The flip must be shown to bite, not asserted.** Three proofs, all required (AC-4′):
+
+1. `npx tsx scripts/governance-lint.ts` — exit 0, summary `221 production + 0 development known
+   violation(s) at warn`, and no line whose group ends ` development`.
+2. `jq '[.severity | keys[] | select(endswith("development"))] | length' governance/rule-severity.json`
+   → `0`; `jq '[.severity[] | select(. != "warn")] | length'` → `0`; `jq '.severity | length'` → `31`.
+3. **The end-to-end bite, run once and recorded:** append a bare `teams` insert to a development fixture
+   → `npx tsx scripts/governance-lint.ts` exits **non-zero** with a line reading
+   `ERROR  [crossing-table-write] <file>:<line> …` — file and line both present → revert. This was
+   optional corroboration under the old AC-4; with the ratchet gone it is the **only** end-to-end
+   evidence that absent-means-error holds over the live tree, so it is mandatory and its output is
+   committed to `probes/`.
+
+**D13 — The second shrinking record (`governance/misplaced-files.json`) is surfaced for a founder
+decision and is NOT folded in.**
+
+Ruling E names the baseline. Its *principle* — a guard failure must name an architectural fact, nothing
+keeps books — reaches this record too, and the reading is not the planner's to make unilaterally. The
+facts, the options and a recommendation are in
+**`.pipeline/work/AU32/misplacement-ledger-decision.md`** (founder-facing, one page).
+
+The finding in one line: **`misplacement-ledger` can emit a bookkeeping-only build failure.**
+`scripts/rules/misplacement-ledger.ts:94-98` errors when the live entry count falls **below** the committed
+`resolvedFiles` — fixing a misplaced file turns the build red until a number is lowered, which is verbatim
+the friction Ruling E removed. The recommendation is to **keep the record and delete the count**; the
+architectural facts it reports (four production-path files that are really development, each with its
+reason) survive as warnings and are not derivable any other way.
+
+**Consequence for this plan:** no task below implements it. If the founder approves, it adds one task —
+drop `resolvedFiles` and the two count branches, restate the three fact-naming errors without their
+"lower `resolvedFiles`" instruction, trim the attack case's two count assertions, and edit
+`governance/README.md` plus one sentence of `CLAUDE.md`. That last file is outside the `scripts/` +
+`governance/` bounds these rulings authorize, which is itself a reason the founder decides rather than
+the planner.
+
 ---
 
 ## 3. Contracts (carried from plan.md as amended, made operational)
@@ -399,14 +691,22 @@ Consequences, locked:
   **except the D6′ edit set, which Ruling A explicitly authorizes**: the development-relaxation arm
   removal, the dead `oneDoorSurfaces.rawRuntime` field, the two development verdict flips for
   target `raw runtime`, and the standing tests/attacks that pin them. Nothing else. In particular:
-  no table-rule edit, no baseline hand-edit, no per-file allowance anywhere — the exception
-  *mechanism* is refused outright (Ruling C: "no one time manual exceptions").
+  no table-rule edit, no per-file allowance anywhere — the exception
+  *mechanism* is refused outright (Ruling C: "no one time manual exceptions"), and under Ruling E it is
+  now also refused *mechanically* (D11). **Ruling E authorizes one further edit set, and only it**: the
+  severity path under `scripts/` and `governance/` enumerated in D8′. The 15 clauses, the detectors and
+  every decided verdict except D6′'s two rows stay exactly as they are — Ruling E's own words, "the
+  architectural rules themselves stay exactly as they are. Only the bookkeeping goes."
 - **C3 — no production export that only tests consume.** Every new helper lives in a development
   file (`_helpers.ts`) or inline in the test. `framework/db`'s barrel and subpaths unchanged.
 - **C4 — companion groups stay derived.** No hand-maintained pair list anywhere; helpers name the
   owners' writers as the thing they mirror.
-- **C5 — baseline shrink-only, entries deleted never re-tagged.** Only `npm run
-  governance:baseline` writes it (D7).
+- **C5 — severity is declared, never derived, and nothing keeps books (replaces the baseline
+  contract; Ruling E).** `governance/rule-severity.json` is hand-edited and hand-read: no generator, no
+  npm script writes it, no code path derives it from live violations, and no check compares it to a
+  count. A rule leaves the file when its violations are gone, in the pull request that removes them.
+  Adding a rule to it is a severity downgrade and a one-line diff review is expected to challenge —
+  that is the whole of the protection, deliberately (D7′).
 - **C6 — honest completion, per arranged entity, no exclusions.** Because the detector credits a
   file, not an entity (§1b), the builder completes the pair **for every arranged entity** — a file
   inserting five items seeds five projections; the entity at `foreign-keys` test 3 receives its
@@ -420,10 +720,12 @@ Consequences, locked:
   ruling-note keys in governance data: domain vocabulary only.
 - **Out of scope.** The 221 production violations (AU29/30/31); consolidating the ~135 hand-rolled
   base worlds beyond files this package touches; the three `readSystemPromptTemplate*` `db:unknown`
-  production sites; `misplaced-files.json`; and **test files outside the touched set** — e.g.
+  production sites; and **test files outside the touched set** — e.g.
   `hint-progress.integration.test.ts:99` and `P2-org-edges.integration.test.ts:248` also delete
   `users` rows, but those files have no violation and are not touched by this package; applying
-  Ruling C's sweep there is future work, not silent scope growth here.
+  Ruling C's sweep there is future work, not silent scope growth here. **`misplaced-files.json` is no
+  longer simply out of scope** — Ruling E's principle reaches it, so it is surfaced as a founder decision
+  (D13) rather than silently excluded; it stays out of the task list until the founder rules.
 
 ---
 
@@ -434,10 +736,10 @@ Consequences, locked:
 | 1. No fixture writes one row of a pair — **carve-out clause withdrawn; no ruling, no exception** | D1/D2/D3 clear all 61 table-write sites (some by companion, four by test deletion, one by vestigial-row deletion, one by owner-path rewrite); every arranged entity complete | `npx tsx scripts/governance-lint.ts` prints no `crossing-table-write … development` line; summary reads `… 0 development known violation(s) at warn` (production stays whatever the rebase base carries, 221 today). **No founder ruling is cited and none exists** — AC-1's evidence no longer depends on the withdrawn clause. Per-entity review per C6 |
 | 2. No development file past a single-door surface — **amended by Ruling A: no longer covers the AI-runtime door; still covers the database door** | D4 clears the 4 `db:schema-ns` sites; D5′ clears `db:unknown`; D6′ clears `raw runtime` by rule relaxation | Same run: no `db:schema-ns` or `db:unknown` development line; the `db:unknown` NOTE no longer lists `seed`; no `raw runtime` development line **because the rule no longer holds it in development** (P15 before/after: 67 → 66, production `+0`); the three production raw-runtime attacks still PASS (the door stands where the AC still points) |
 | 3. Every changed test still proves what it proved — **amended by Ruling C**: an assertion that depended on an unreachable arrangement may change and its test may be deleted; nothing may become easier to satisfy; no test may pass by proving less | C1; C6; D1's per-test verdicts; D5′'s deletions | Diff review in three named categories the diff must keep visible: **(i) arrange-only diffs** — companion rows added, zero `expect` lines touched; **(ii) deletions** — each deleted test named with its justification (dead under Ruling B: `migrate` seed test, `foreign-keys:86-100`; unreachable operation under **Ruling D**: the six probes of user/thread/knowledge-item/item deletion in `foreign-keys` + the user-deletion cascade test in `agent-run-config-store`, each backed by a P16 citation and P18's no-mechanism finding) — the reviewer checks each against P16/P18, not against trust; **(iii) the one rework** — `foreign-keys` test 3: assertion line byte-identical, arrange completes the pair then removes the membership row in the owner's order with the `team-lookup.ts:304-307` citation in a comment. Plus the post-change delete-rejection re-scan (C6) and AC-6's count reconciliation. Anything outside these three categories is a review finding |
-| 4. Baseline holds zero development entries; rules fail the build on reappearance | D7; all 7 development groups deleted by the generator (6 by fixes, 1 by D6′'s relaxation); D9 case 2 pins the flip | `jq '[.groups | keys[] | select(endswith("development"))] | length' governance/baseline.json` → `0`. Reappearance: (i) standing break-tests — `npx tsx scripts/governance-lint.ts --attacks` PASS includes `missing-companion` and its control (`governance-attacks.ts:506-533`), plus the flipped development raw-runtime control and the three untouched production raw-runtime attacks; (ii) the warn→error flip pinned standing by D9 case 2 in `test:full`; (iii) optional one-off corroboration: append a bare `teams` insert to a development file → lint exits non-zero naming file/line → revert |
-| 5. If the baseline empties, delete file + `--adopt` same commit | D8 — dormant, ship-time check | `jq '.groups | length' governance/baseline.json` after final regen: expected `> 0` (31 production groups) → recorded as vacuous; if `0`, the deletion commit happens here |
-| 6. `test:all` green; integration pass count unchanged or higher — **amended by founder authority, not derivation**: Rulings B and D mandate the named test deletions (the round-3 objection that no ruling covered the nine is closed by Ruling D), so the comparison nets out exactly those; nothing else may drop | C1; before/after capture; the deletion ledger of AC-3(ii) | **Before** (committed probes, base bbe82e9a): unit `test:full` 6203 passed / 0 failed; integration service 2835 passed / 0 failed; 7 pre-existing env-dependent harness-lane failures (P10 — not this package's baseline). **After**: `npm run test:full` and `npm run test:integration:service` captured to `probes/`. **Projection the builder must reconcile against the actual diff:** unit = 6203 − 1 (migrate seed test) + 2 (D9) = **6204**; service integration = 2835 − 9 (8 `foreign-keys` deletions + 1 `agent-run-config-store` deletion) = **2826**; zero failures in either lane; zero deltas outside the named deletions; harness lane shows no NEW failure in touched paths. If the builder's counts differ, each difference must map to a named deletion or addition in the diff — unexplained drift is a stop |
-| Validation scenario 3 (derived groups) | D9 case 1 | `npx vitest run framework/db/src/__tests__/governance-crossings.test.ts` (unit lane; verified at base: 68 passed, 2.2s) — new case green |
+| 4′. **No development-world rule is at `warn`, and a development-world violation fails the build naming file and line** (rewritten by Ruling E — there is no baseline to hold zero entries) | D7′; D12; D9′ cases 2 and 3 | Three proofs, all required, exactly as listed in D12: (i) `npx tsx scripts/governance-lint.ts` exits 0 with `221 production + 0 development known violation(s) at warn` and no group ending ` development`; (ii) `jq` over `governance/rule-severity.json` — 31 keys, all `"warn"`, none ending ` development`; (iii) **the end-to-end bite, now mandatory rather than optional**: a bare `teams` insert appended to a development fixture makes the lint exit non-zero with `ERROR  [crossing-table-write] <file>:<line>`, output committed to `probes/`, then reverted. Plus the standing break-tests: `--attacks` PASS including `missing-companion` and its control, and D9′ case 2 in `test:full` |
+| 5′. **The bookkeeping mechanism is gone, unconditionally, and cannot come back by accident** (rewritten by Ruling E: no longer conditional on the baseline emptying, and no longer deferred to whichever sibling finishes last — this work package owns it) | D8′ (the closure); D11 (the guard) | `git ls-files governance/` → 5 paths, no `baseline.json`; `test ! -f scripts/governance-baseline.ts`; `npm run governance:baseline` → npm exits non-zero, "Missing script"; `rg -n 'baselineRatchet|compareBaseline|refuseGrowth|--adopt|governance:baseline' scripts/ governance/ package.json docs/guides/developer/ framework/db/src/__tests__/` → **zero hits** (if the founder declines D13, `resolvedFiles` remains and is the one permitted residue, named in the report); `rg -ni 'baseline' governance/README.md docs/guides/developer/linting-and-formatting.md docs/guides/developer/commands.md` → zero hits. Guard proven by break-test, not by inspection: `npx tsx scripts/governance-lint.ts --attacks` PASS with the `no-per-file-allowances` overlay case and its standalone shape case, and property 4 satisfied at 18 registered rules |
+| 6. `test:all` green; integration pass count unchanged or higher — **amended by founder authority, not derivation**: Rulings B and D mandate the named test deletions (the round-3 objection that no ruling covered the nine is closed by Ruling D), so the comparison nets out exactly those; nothing else may drop | C1; before/after capture; the deletion ledger of AC-3(ii) | **Before** (committed probes, base bbe82e9a): unit `test:full` 6203 passed / 0 failed; integration service 2835 passed / 0 failed; 7 pre-existing env-dependent harness-lane failures (P10 — not this package's baseline). **After**: `npm run test:full` and `npm run test:integration:service` captured to `probes/`. **Projection the builder must reconcile against the actual diff:** unit = 6203 − 1 (migrate seed test) + 3 (D9′) − 12 (the deleted ratchet block: five top-level cases plus the seven `the baseline may only shrink` cases) = **6193**; service integration = 2835 − 9 (8 `foreign-keys` deletions + 1 `agent-run-config-store` deletion) = **2826**; zero failures in either lane; zero deltas outside the named deletions; harness lane shows no NEW failure in touched paths. If the builder's counts differ, each difference must map to a named deletion or addition in the diff — unexplained drift is a stop |
+| Validation scenario 3 (derived groups) | D9′ case 1 (already committed, `7c6839e5`) | `npx vitest run framework/db/src/__tests__/governance-crossings.test.ts` (unit lane; verified at base: 68 passed, 2.2s) — new case green |
 
 **Real-path executions this change must not break (live-proof lanes):**
 - ah servers (D4): boot each modified script and observe the ready line plus one authenticated HTTP
@@ -449,6 +751,10 @@ Consequences, locked:
   `--fixtures` PASS, `npx vitest run framework/db/src/__tests__/governance-model.test.ts` green
   after the verdict-row edits.
 - (The judge live-proof lane is withdrawn with D6 — `judges.ts` does not change.)
+- severity path (D7′, D8′, D11): `npx tsx scripts/governance-lint.ts` PASS, `--attacks` PASS with the
+  new cases, `--fixtures` PASS, `npx vitest run framework/db/src/__tests__/governance-crossings.test.ts`
+  green after the ratchet block is removed and D9′'s three cases land, `npm run knip` and
+  `npm run knip:production` green after six exports and one module leave `scripts/`.
 - Ruling D scope amendment, proven exercised-to-zero (D10): ship-time check that
   `git diff --name-only origin/main` lists zero production-world files and nothing under
   `framework/db/drizzle/`; `npm run verify` green (knip, knip:production, web + desktop builds run
@@ -458,51 +764,59 @@ Consequences, locked:
 
 ## 5. Tasks — one builder leaf, ordered
 
-**One leaf, sequential — unchanged by the rulings.** The work trees (fixtures, one-door db fixes,
-the rule relaxation, dead-test deletions) still all funnel through `governance/baseline.json`
-regeneration and one final verification; the rulings removed work (D5, D6, the founder gate) and
-added strictly less than they removed. **Ruling D adds no tasks**: the mandated investigation ran at
-plan time (P18) and its removal branch is empty — there is no T for feature removal because there is
-no feature to remove (D10). Splitting still buys no schedule and still creates a merge
-seam on the baseline. **The concept gate is done — nothing below is blocked on anything.**
+**Resume point: `27ccc8b8` on `pipeline/AU32`, working tree clean of code changes.** The build has moved
+past what `progress.json` recorded — **T1 through T7 are all committed and the development world measures
+zero** (§1e). What remains is the Ruling E work plus the final sweep. `T8` as originally written (regenerate
+the baseline) **no longer exists**; the tasks that replace it are T8-T12.
 
-- **T0 — evidence baseline (done at plan time, keep committed).** `probes/` test baselines and
-  per-site lint list; spike measurements in P15. Builder re-captures only on rebase.
-- **T1 — derivation + severity-flip tests (D9).** Two cases in `governance-crossings.test.ts`;
-  green immediately; independent of everything else.
-- **T2 — schema-test files per the recorded verdicts (D1).** `foreign-keys`: delete the eight
-  tests named in D1 with their per-test justifications in the commit message (the six
-  unreachable-operation deletions cite Ruling D's criterion + the P16/P18 evidence; the dead test
-  cites Ruling B); simplify test 1's
-  arrange to the bare pair; rework test 3 (companion + owner-order removal + unchanged assertion +
-  citation comment + `@lore`); trim dead imports and the seeder. `schema` (+ minimal projection
-  rows), `migration` (+ `teamMembers` row), `session-requests` (delete the vestigial `teams`
-  insert; prove the file green).
-- **T3 — core-api package fixtures (D2).** `seedTeam`/`seedKnowledgeItem` in `_helpers.ts`; clear
-  the 24 files (37 sites) including D3's owner-path fix. Per-entity completion; helper-or-comment
-  rule per site.
-- **T4 — other-package fixtures (D2 inline) + the swept deletions in those files.** 11 files:
-  `core-api/work` ×3, `core-api/routine` ×3, `agent-orchestration/agent-run-config` ×1 (also
-  **deletes the "deleting the agent cascades the config row away" test** — Ruling D: production
-  never deletes users (P16), no user-deletion mechanism exists (P18), and the store exports no
-  delete function at all — the cascade can never fire), `filesystems` ×2, `filesystem-mounting` ×1,
-  `layers/agent-orchestration/src` ×1. Inline companion inserts.
-- **T5 — one-door database fixes (D4).** `ah1/ah5/ah6-test-server.ts`, `eval/src/runner.ts`.
-  Boot-prove each.
-- **T6 — dead-test deletions outside T2/T4 (D5′).** `migrate.test.ts`: delete the seed test + mock
-  entry + import; `knowledge-access.integration.test.ts:172`: delete the guaranteed-by-construction
-  assertion line.
-- **T7 — the AI-door development relaxation (D6′).** The model edit, the architecture.json field
-  deletion, the two decided-rules verdict flips + dated ruling note, the `governance-model.test.ts`
-  rewrite, the `governance-crossings.test.ts` literal fix, the attack flip. Run the governance
-  lanes (evidence table). `judges.ts` is not touched.
-- **T8 — baseline regeneration + gates (D7, D8).** `npm run governance:baseline`; AC-4/AC-5
-  evidence; `npm run check && npm run lint && npm run test:all`; after-capture and AC-6
-  reconciliation against the deletion ledger. Intermediate regenerations during T2–T7 are fine and
-  encouraged; T8 is the final sweep.
+Done, verified by measurement rather than by commit message (§1e):
 
-Dependency notes: T1–T7 are mutually independent; T3 before T4 only because the helpers land in
-T3; each site-clearing commit carries its baseline shrink (D7).
+- **T0-T4** — evidence baselines, the derivation + flip cases, the schema-test files per the recorded
+  verdicts, the core-api seeders and every companion completion. `7c6839e5` · `70e78761` · `a9a77083` ·
+  `2a8b7291` · `60e8135d` · `1e11e657` · `68cfbdd4`. All 61 table-write sites clear.
+- **T5** — the four hand-rolled database clients (`ah1`/`ah5`/`ah6` test servers, `tools/eval/src/runner.ts`)
+  route through the database package's own factory. `23eb1658`.
+- **T6** — the dead `seed` test deleted with its mock entry and import; the guaranteed-by-construction
+  assertion line removed. `ec1b933b`.
+- **T7** — Ruling A's relaxation: the raw-runtime arm out of `relaxForDevelopment`, the dead
+  `oneDoorSurfaces.rawRuntime` field out of the interface and `architecture.json`, the two decided-rules
+  development verdicts flipped with a dated note, `governance-model.test.ts` rewritten, the hand-edit at
+  the cast synthetic literal, the attack flipped to a clean control. `27ccc8b8`.
+  **Re-checked against Ruling E:** T7 was expressed partly as "the entry clears by relaxing the rule", and
+  it did clear it — but the *entry* was a baseline row, and D8′ deletes the file that held it. T7's substance
+  survives intact (the rule change, the verdict rows, the tests, the attack); only its accounting changes,
+  and D12's last table row records the consequence: that rule has no severity entry because it is not a rule
+  in the development world.
+
+Remaining, ordered. T8 and T9 are one commit if the builder prefers — they cannot be split cleanly, because
+the lint does not run between them.
+
+- **T8 — declare severity (D7′).** Write `governance/rule-severity.json` from the 31 group keys the lint
+  reports today, every value `"warn"`. **Derive the keys from the live lint output, never by transcribing
+  `baseline.json`** — the two agree today and transcription is how a stale key would arrive. Add
+  `RuleSeverity` to `scripts/lib/governance-registry.ts` and `loadRuleSeverity` to
+  `scripts/governance-context.ts`. Re-point `crossingRules` onto `severityOf: (ruleKey: string) => Severity`
+  and delete the `seenPerSite`/`isNewDebt`/`newness` block.
+- **T9 — the deletion closure (D8′).** Every row of both D8′ tables, including the rename to
+  `scripts/lib/crossing-keys.ts` and its five importers, the `package.json` script entry, the 12 ratchet
+  tests, and every `@lore`/comment that describes the mechanism. Then `npm run knip` +
+  `npm run knip:production`.
+- **T10 — the reintroduction guard (D11).** The `no-per-file-allowances` rule, its declared closed set, its
+  flag allowlist (read off the surviving CLIs; hard-fail on a zero-match scan), the overlay break-test with
+  its control, and the standalone shape case.
+- **T11 — D9′'s three cases.** Case 1 already exists; rewrite case 2 onto the severity declaration; add
+  case 3, the anti-stale pin.
+- **T12 — docs and final gates.** `governance/README.md` (the dial section, the shape table, the sibling-record
+  paragraphs), `docs/guides/developer/linting-and-formatting.md:40-41`, `docs/guides/developer/commands.md:69,75`.
+  Then `npm run check && npm run lint && npm run test:all`, the AC-4′ three-part proof including the
+  recorded bite, the AC-5′ residue greps, the AC-6 count reconciliation against the 6193 projection, and the
+  production-unchanged proof (`221 production + 0 development`, `git diff --name-only origin/main` listing
+  zero production-world files and nothing under `framework/db/drizzle/`).
+- **T13 — the second ledger. NOT STARTED, NOT AUTHORIZED.** Exists only if the founder approves D13.
+  Contents in `misplacement-ledger-decision.md`.
+
+Dependency notes: T8 before T9 (the lint has no dial in between); T10 and T11 after T8; T12 last. Nothing
+here depends on T1-T7, which are done.
 
 ---
 
@@ -537,14 +851,24 @@ the founder, and the ruling chose deletion).
 development world may now construct vendor SDKs directly (Ruling A — the recorded/priced/replayable
 properties are shipped-product properties); production's one door is unchanged and attack-pinned.
 
-**Documentation made false.** None found: `governance/README.md` states mechanics, not per-world
-raw-runtime verdicts in prose the change would falsify — builder greps it for "raw runtime"
-one-door claims during T7 and updates the sentence if one names both worlds (UNVERIFIED which
-exact sentence, checked at build time); `CLAUDE.md` states the world rule; no doc enumerates the
-development baseline.
+**Documentation made false — and now there is a lot of it, because Ruling E deletes a documented
+mechanism.** Every location is enumerated in D8′'s third table and each is a task in T12, not a grep at
+build time: `governance/README.md` (the "There is no warn/error dial" section, the shape table, and both
+paragraphs that describe `misplaced-files.json` as the baseline's sibling),
+`docs/guides/developer/linting-and-formatting.md:40-41`, `docs/guides/developer/commands.md:69` and `:75`.
+`CLAUDE.md`'s one `misplaced-files.json` sentence moves only if D13 is approved. The instruction in
+`governance/README.md:5-6` — do not restate a rule anywhere else — means the severity dial gets **one**
+description, there, and the two `docs/guides/` files point at it rather than paraphrasing it; the current
+`linting-and-formatting.md` bullets are a second copy that already drifted, which is the argument.
+For the earlier rulings: `governance/README.md` states mechanics rather than per-world raw-runtime
+verdicts, so Ruling A falsified nothing there (checked, T7).
 
 **Lore.** Three `@lore` captures: the owner-order removal in `foreign-keys` test 3 (why the
 membership row must be removed before the act, citing `team-lookup.ts:304-307`); a note on
 `_helpers.ts`'s new seeders naming the owners' writers they mirror (C4); a note at the flipped
 development raw-runtime attack recording the production-only ruling so the next agent does not
-"restore" the development ban.
+"restore" the development ban. Ruling E adds two: one at `severityOf` in `scripts/rules/crossings.ts`
+recording that severity is per rule and deliberately cannot see a file, count or census — with the reason
+(a red build as the reward for fixing the last violation names no architectural fact); and one at the
+`no-per-file-allowances` rule recording what it catches, what it does not, and that it is guidance for an
+honest mistake rather than a boundary against a determined one.

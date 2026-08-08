@@ -1,134 +1,170 @@
 {
-  "id": "AU32",
-  "status": "in-progress",
-  "currentPhase": "build",
-  "startedAt": "2026-08-07",
-  "worktree": ".worktrees/pipeline-AU32",
-  "branch": "pipeline/AU32",
-  "baseCommit": "bbe82e9a4ebb1e06c17619154a3c4e93650850fb",
-  "tier": "production",
-  "dependency": {
-    "AU28": "merged on origin/main (PR #461) \u2014 crossing model + baseline present"
-  },
-  "phasesSkipped": {
-    "refine": "plan.md: not required \u2014 rule locked by Rulings 13/13a, sites enumerated",
-    "design": "plan.md: not required \u2014 no UI surface"
-  },
-  "liveGrounding": {
-    "measuredAt": "2026-08-07",
-    "developmentViolations": 67,
-    "developmentFiles": 45,
-    "developmentRuleGroups": 7,
-    "productionViolations": 221,
-    "tableWriteSites": {
-      "total": 61,
-      "knowledgePair": 34,
-      "teamsPair": 26,
-      "orphanProjection": 1
-    },
-    "oneDoorSites": 6,
-    "note": "plan.md says 69/46; live tree 67/45. Confirmed exactly by two independent critique rounds."
-  },
-  "founderRulings": {
-    "recordedAt": "2026-08-08",
-    "file": ".pipeline/work/AU32/founder-rulings.md",
-    "A": "AI one-seam requirement is production-only \u2014 judges.ts untouched, capability rule relaxed in the development world (rule change, not exception). Amends AC-2. Does NOT relax the database door.",
-    "B": "A dead test is deleted, never repointed \u2014 plus a sweep for other tests that cannot fail.",
-    "C": "Tests arrange only producible states; NO per-file exceptions ever. Draft Ruling 16 rejected. Amends AC-3 and withdraws plan.md's own carve-out clause.",
-    "D": "An unreachable operation is dead code \u2014 delete the feature, not just the test. Overrules round-3 blocking finding. Schema untouched (no FK dropped, no onDelete changed). Amends plan.md scope to allow removing a dead production deletion feature; does NOT open the 221 production violations."
-  },
-  "critiqueRounds": [
-    {
-      "round": 1,
-      "verdict": "REVISE",
-      "blocking": "B1 \u2014 per-entity completion would over-determine a RESTRICT delete-rejection assertion at foreign-keys.integration.test.ts:104; founder-facing doc's universal 'masking fear is empty' claim false for the teams pair.",
-      "closed": "planner derived the exclusion criterion from schema delete behaviour and swept exhaustively; N1-N4 also closed"
-    },
-    {
-      "round": 2,
-      "verdict": "APPROVED",
-      "note": "Sweep re-run adversarially with wider patterns; criterion confirmed a real derivation, not a carve-out. Four non-blocking notes."
-    },
-    {
-      "round": 3,
-      "verdict": "BLOCKED",
-      "blocking": "B1 \u2014 the rework's deletion chain conflated 'production never performs this operation' with Ruling B's 'test cannot fail'. Nine live constraint tests would be deleted, removing the only executable guard on seven shipped schema properties; six of the nine clear zero lint sites.",
-      "resolution": "Escalated to founder rather than adjudicated. Founder recorded Ruling D, which OVERRULES this finding and extends operation-reachability to the probed action \u2014 and goes further: remove the dead mechanism too."
-    },
-    {
-      "round": 4,
-      "verdict": "APPROVED",
-      "scope": "narrow \u2014 the negative claims Ruling D rests on",
-      "note": "Absence of the deletion capability proven twice: code-primitive enumeration and schema structure (the five tables have only RESTRICT FKs or none, so no cascade chain of any depth reaches their rows). Two non-blocking undercounts in P18 inventories (DELETE routes six->seven, tool catalog 21->22); conclusion unmoved."
-    }
-  ],
-  "rulingDOutcome": {
-    "removalBranch": "EMPTY \u2014 no deletion mechanism exists for any of the five row shapes; nothing to remove",
-    "reachableCase": "teamMembers via deleteTeam (team-lookup.ts:305) from the POST /teams rollback (teams-routes.ts:303) \u2014 mechanism kept, its two team tests kept",
-    "productionFilesChanged": 0,
-    "migrationGenerated": false,
-    "testsDeleted": "migrate.test.ts seed test; foreign-keys tests at :86, :117, :130, :163, :186, :207, :245, :284; agent-run-config-store cascade test; plus one dead assertion line in knowledge-access.integration.test.ts:172",
-    "projectedCounts": {
-      "unit": 6204,
-      "serviceIntegration": 2826,
-      "baseUnit": 6203,
-      "baseService": 2835
-    }
-  },
-  "approvals": {
-    "concept": "approved 2026-08-08 (founder, in-session) \u2014 Rulings A-D; Ruling D authorized the nine test deletions conditional on unreachability, condition met and independently verified in critique round 4",
-    "final": null
-  },
-  "sessionStarts": [
-    {
-      "phase": "architecture",
-      "at": "2026-08-07"
-    },
-    {
-      "phase": "architecture-critique",
-      "at": "2026-08-08",
-      "note": "first attempt died on weekly usage limit before writing; re-spawned after reset"
-    },
-    {
-      "phase": "architecture-revision",
-      "at": "2026-08-08",
-      "attempt": 1
-    },
-    {
-      "phase": "architecture-critique-round2",
-      "at": "2026-08-08"
-    },
-    {
-      "phase": "architecture-rework-on-rulings-ABC",
-      "at": "2026-08-08"
-    },
-    {
-      "phase": "architecture-critique-round3",
-      "at": "2026-08-08"
-    },
-    {
-      "phase": "architecture-rework-on-ruling-D",
-      "at": "2026-08-08"
-    },
-    {
-      "phase": "architecture-critique-round4",
-      "at": "2026-08-08"
-    },
-    {
-      "phase": "build",
-      "at": "2026-08-08"
-    }
-  ],
-  "artifacts": [
-    ".pipeline/work/AU32/architecture.md",
-    ".pipeline/work/AU32/feasibility.md",
-    ".pipeline/work/AU32/schema-test-decision.md",
-    ".pipeline/work/AU32/founder-rulings.md",
-    ".pipeline/work/AU32/architecture-critique.md",
-    ".pipeline/work/AU32/architecture-critique-round2.md",
-    ".pipeline/work/AU32/architecture-critique-round3.md",
-    ".pipeline/work/AU32/probes/",
-    ".pipeline/work/AU32/architecture-critique-round4.md"
-  ],
-  "verdicts": []
+	"id": "AU32",
+	"status": "in-progress",
+	"currentPhase": "build",
+	"startedAt": "2026-08-07",
+	"worktree": ".worktrees/pipeline-AU32",
+	"branch": "pipeline/AU32",
+	"baseCommit": "bbe82e9a4ebb1e06c17619154a3c4e93650850fb",
+	"tier": "production",
+	"dependency": {
+		"AU28": "merged on origin/main (PR #461) — crossing model + baseline present"
+	},
+	"phasesSkipped": {
+		"refine": "plan.md: not required — rule locked by Rulings 13/13a, sites enumerated",
+		"design": "plan.md: not required — no UI surface"
+	},
+	"liveGrounding": {
+		"measuredAt": "2026-08-07",
+		"developmentViolations": 67,
+		"developmentFiles": 45,
+		"developmentRuleGroups": 7,
+		"productionViolations": 221,
+		"tableWriteSites": {
+			"total": 61,
+			"knowledgePair": 34,
+			"teamsPair": 26,
+			"orphanProjection": 1
+		},
+		"oneDoorSites": 6,
+		"note": "plan.md says 69/46; live tree 67/45. Confirmed exactly by two independent critique rounds."
+	},
+	"founderRulings": {
+		"recordedAt": "2026-08-08 (A-D), 2026-08-08 (E, after the build reached 27ccc8b8)",
+		"file": ".pipeline/work/AU32/founder-rulings.md",
+		"A": "AI one-seam requirement is production-only — judges.ts untouched, capability rule relaxed in the development world (rule change, not exception). Amends AC-2. Does NOT relax the database door.",
+		"B": "A dead test is deleted, never repointed — plus a sweep for other tests that cannot fail.",
+		"C": "Tests arrange only producible states; NO per-file exceptions ever. Draft Ruling 16 rejected. Amends AC-3 and withdraws plan.md's own carve-out clause.",
+		"D": "An unreachable operation is dead code — delete the feature, not just the test. Overrules round-3 blocking finding. Schema untouched (no FK dropped, no onDelete changed). Amends plan.md scope to allow removing a dead production deletion feature; does NOT open the 221 production violations.",
+		"E": "The lint is a standard linter: one severity (error|warn) per architectural rule, nothing keeps books. Revises AU28 Ruling 2. Deletes governance/baseline.json, the baseline-ratchet rule, the governance:baseline generator, the --adopt flag and every per-file-allowance severity path, UNCONDITIONALLY and owned by this work package. Rewrites AC-4 and AC-5. Reintroduction under any name must fail the build. Development-world rules flip to error in this PR; production stays at warn for AU29/AU30/AU31."
+	},
+	"critiqueRounds": [
+		{
+			"round": 1,
+			"verdict": "REVISE",
+			"blocking": "B1 — per-entity completion would over-determine a RESTRICT delete-rejection assertion at foreign-keys.integration.test.ts:104; founder-facing doc's universal 'masking fear is empty' claim false for the teams pair.",
+			"closed": "planner derived the exclusion criterion from schema delete behaviour and swept exhaustively; N1-N4 also closed"
+		},
+		{
+			"round": 2,
+			"verdict": "APPROVED",
+			"note": "Sweep re-run adversarially with wider patterns; criterion confirmed a real derivation, not a carve-out. Four non-blocking notes."
+		},
+		{
+			"round": 3,
+			"verdict": "BLOCKED",
+			"blocking": "B1 — the rework's deletion chain conflated 'production never performs this operation' with Ruling B's 'test cannot fail'. Nine live constraint tests would be deleted, removing the only executable guard on seven shipped schema properties; six of the nine clear zero lint sites.",
+			"resolution": "Escalated to founder rather than adjudicated. Founder recorded Ruling D, which OVERRULES this finding and extends operation-reachability to the probed action — and goes further: remove the dead mechanism too."
+		},
+		{
+			"round": 4,
+			"verdict": "APPROVED",
+			"scope": "narrow — the negative claims Ruling D rests on",
+			"note": "Absence of the deletion capability proven twice: code-primitive enumeration and schema structure (the five tables have only RESTRICT FKs or none, so no cascade chain of any depth reaches their rows). Two non-blocking undercounts in P18 inventories (DELETE routes six->seven, tool catalog 21->22); conclusion unmoved."
+		}
+	],
+	"rulingDOutcome": {
+		"removalBranch": "EMPTY — no deletion mechanism exists for any of the five row shapes; nothing to remove",
+		"reachableCase": "teamMembers via deleteTeam (team-lookup.ts:305) from the POST /teams rollback (teams-routes.ts:303) — mechanism kept, its two team tests kept",
+		"productionFilesChanged": 0,
+		"migrationGenerated": false,
+		"testsDeleted": "migrate.test.ts seed test; foreign-keys tests at :86, :117, :130, :163, :186, :207, :245, :284; agent-run-config-store cascade test; plus one dead assertion line in knowledge-access.integration.test.ts:172",
+		"projectedCounts": {
+			"unit": 6204,
+			"serviceIntegration": 2826,
+			"baseUnit": 6203,
+			"baseService": 2835
+		}
+	},
+	"approvals": {
+		"concept": "approved 2026-08-08 (founder, in-session) — Rulings A-D; Ruling D authorized the nine test deletions conditional on unreachability, condition met and independently verified in critique round 4",
+		"final": null
+	},
+	"sessionStarts": [
+		{
+			"phase": "architecture",
+			"at": "2026-08-07"
+		},
+		{
+			"phase": "architecture-critique",
+			"at": "2026-08-08",
+			"note": "first attempt died on weekly usage limit before writing; re-spawned after reset"
+		},
+		{
+			"phase": "architecture-revision",
+			"at": "2026-08-08",
+			"attempt": 1
+		},
+		{
+			"phase": "architecture-critique-round2",
+			"at": "2026-08-08"
+		},
+		{
+			"phase": "architecture-rework-on-rulings-ABC",
+			"at": "2026-08-08"
+		},
+		{
+			"phase": "architecture-critique-round3",
+			"at": "2026-08-08"
+		},
+		{
+			"phase": "architecture-rework-on-ruling-D",
+			"at": "2026-08-08"
+		},
+		{
+			"phase": "architecture-critique-round4",
+			"at": "2026-08-08"
+		},
+		{
+			"phase": "build",
+			"at": "2026-08-08"
+		},
+		{
+			"phase": "architecture-amendment-on-ruling-E",
+			"at": "2026-08-08",
+			"note": "planner re-grounded against the live tree: the build had advanced three commits past the recorded buildState and the development world already measured zero"
+		}
+	],
+	"artifacts": [
+		".pipeline/work/AU32/architecture.md",
+		".pipeline/work/AU32/feasibility.md",
+		".pipeline/work/AU32/schema-test-decision.md",
+		".pipeline/work/AU32/founder-rulings.md",
+		".pipeline/work/AU32/architecture-critique.md",
+		".pipeline/work/AU32/architecture-critique-round2.md",
+		".pipeline/work/AU32/architecture-critique-round3.md",
+		".pipeline/work/AU32/probes/",
+		".pipeline/work/AU32/architecture-critique-round4.md",
+		".pipeline/work/AU32/misplacement-ledger-decision.md"
+	],
+	"verdicts": [],
+	"buildState": {
+		"assessedAt": "2026-08-08 (re-measured by the planner at Ruling E)",
+		"builderSession": 1,
+		"lastCommit": "27ccc8b8",
+		"measuredDevelopmentViolations": 0,
+		"measuredProductionViolations": 221,
+		"lintStatus": "PASS — governance-lint PASS (221 production + 0 development at warn), --attacks PASS 47, --fixtures PASS 63. Measured at 27ccc8b8, not inferred.",
+		"supersedes": "the previous buildState recorded lastCommit 68cfbdd4, 5 development violations and a FAIL lint; three commits landed after it (23eb1658, ec1b933b, 27ccc8b8) and the development world is now clear",
+		"done": [
+			"T1 — companion-group derivation + severity-flip cases (7c6839e5)",
+			"T2 — schema-test files per the rulings (70e78761)",
+			"T3 — core-api seeders applied across fixtures (a9a77083, 2a8b7291, 60e8135d, 1e11e657)",
+			"T4 — companions completed in filesystems/routine/work fixtures (68cfbdd4)",
+			"T5 — ah1/ah5/ah6 test servers + eval runner through the db client factory (23eb1658)",
+			"T6 — dead seed test deleted, Ruling B (ec1b933b)",
+			"T7 — Ruling A relaxation: AI seam is production-only (27ccc8b8)",
+			"all 61 table-write sites clear; all 7 development rule groups clear"
+		],
+		"remaining": [
+			"T8 — declare severity: governance/rule-severity.json (31 production group keys at warn), RuleSeverity + loadRuleSeverity, crossingRules onto severityOf(ruleKey) (D7′)",
+			"T9 — the deletion closure: baseline.json, governance-baseline.ts, baseline-ratchet, --adopt, refuseGrowth/compareBaseline/liveGroups/Baseline types, alsoRegistered, the package.json script, 12 ratchet tests, the crossing-report.ts -> crossing-keys.ts rename and its 5 importers, every @lore/comment describing the mechanism (D8′)",
+			"T10 — the reintroduction guard: no-per-file-allowances rule + overlay break-test + standalone shape case (D11)",
+			"T11 — D9′'s three cases, including the anti-stale pin that fails if the stale-record check is rebuilt",
+			"T12 — docs (governance/README.md, linting-and-formatting.md:40-41, commands.md:69/75) + final gates: check, lint, test:all, the mandatory end-to-end bite proof, AC-5′ residue greps, count reconciliation against 6193/2826, production-unchanged proof",
+			"T13 — NOT AUTHORIZED: the misplaced-files.json count deletion, pending the founder decision in misplacement-ledger-decision.md"
+		],
+		"openFounderDecision": "governance/misplaced-files.json — its rule can emit a bookkeeping-only build failure (misplacement-ledger.ts:94-98). Recommendation: keep the four rows, delete resolvedFiles and both count branches, fold into this work package. See .pipeline/work/AU32/misplacement-ledger-decision.md",
+		"severityGranularity": "per architectural rule = the existing group key '<source> -> <target> [<kind>] <world>'; 31 warn entries, all production; absent = error. Per-rule-name alone rejected (8 of 9 crossing kinds dirty in production, 0 of 9 in development, so world-qualification is forced); per-(rule,world) rejected (4 of 8 production warn cells span 2-3 sibling work packages and hold 195 of 221 violations, so no sibling could flip anything until the last one landed)"
+	}
 }

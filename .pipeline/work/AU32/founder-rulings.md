@@ -146,3 +146,68 @@ Consequences — and these must be established by investigation, not assumed:
 - If removal turns out to be entangled — the mechanism is reachable, or shares code with a live path,
   or removal cascades further than this work package can hold — report that precisely and stop at the
   boundary rather than half-removing a feature.
+
+---
+
+## Ruling E — the lint is a standard linter: a rule is error or warn, and nothing keeps books (2026-08-08)
+
+> "what weird linter is this that checks against a record? makes no sense our architectural guards
+> should check if something follow an architectural governance rule not if it compares to a count in
+> some document"
+>
+> "ok thats not how those rules should work the rules should be warngins then we remove all the
+> warnings and then set the rule to error, so after a one time fix which this workpackage is about the
+> rule can be adjusted and not be broken anymore. please adjust the linter. the architectural rules
+> should stay in place but the book keeping rule should be removed. it should be a standard linter
+> that does not book keep or similar all it should do is that a specific architectual rule is either
+> error or warning. All those that are clean should already be set to error, those that still have
+> violations should be set to warnings and than this workpackaage is about solving all warnings for a
+> specific set of rules and then setting the rule to error. at the end. So with the PR the rule starts
+> biting."
+
+### What this settles
+
+This **revises AU28 Ruling 2**, which asked for a mechanical shrink-only ratchet because convention had
+failed at that spot. Having seen it run, the founder is removing it. The friction — a red build as the
+reward for fixing violations, naming no architectural fact — costs more than the protection.
+
+The model, complete:
+
+1. **Every architectural rule carries one severity: `error` or `warn`.** That is the whole of the
+   configuration. No per-file allowances, no counts, no recorded violation sets, no adoption dates.
+2. **A rule with zero violations is at `error`.** A rule with remaining violations is at `warn`.
+3. **A work package clears every warning for its set of rules, then flips those rules to `error` in
+   the same pull request.** With the PR, the rule starts biting. There is no promotion step to
+   remember and no ledger to regenerate.
+4. **The architectural rules themselves stay exactly as they are.** Only the bookkeeping goes.
+
+### What is deleted
+
+- `governance/baseline.json`, unconditionally — not "if it happens to empty".
+- The `baseline-ratchet` rule. It can only ever report a disagreement with a stored number, which is
+  not an architectural fact, so it is not a guard.
+- The `governance:baseline` generator script and the `--adopt` escape hatch, under any name.
+- Every code path that reads a per-file allowance to compute severity.
+
+**`plan.md` AC-5 is amended accordingly**: the deletion is unconditional and this work package owns it,
+rather than falling to whichever of the four clearing work packages finishes last. Reintroducing a
+baseline, an adopt flag, or any per-file allowance — under any name — must fail the build.
+
+### Accepted cost, stated plainly
+
+A rule at `warn` warns for **all** its violations, including new ones. Nothing blocks new debt on a
+rule that is not yet clean. That is the trade the founder is making for a lint that never fails on
+bookkeeping, and it is consistent with trusting engineers rather than building walls first.
+
+### Open granularity question — settle from live data, do not assume
+
+This work package clears the **development world** while production keeps 221 violations across the
+sibling work packages. So severity cannot be per-rule-name alone if a rule is clean in one world and
+dirty in the other; the existing verdict data is already decided per world. Establish the real
+granularity from the live rule and verdict data, state it, and keep it the smallest thing that works.
+
+### Scope for this work package
+
+`AU32` clears the development world and flips the development-world rules to `error` in its PR.
+Production-world rules stay at `warn` for `AU29`/`AU30`/`AU31` to clear and flip the same way. Do not
+touch the 221 production violations.
