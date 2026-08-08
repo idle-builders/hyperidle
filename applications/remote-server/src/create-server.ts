@@ -32,7 +32,6 @@ import * as path from "node:path";
 import { type ServerType, serve, upgradeWebSocket } from "@hono/node-server";
 import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";
 import { readAgentRunConfigs } from "@hyperidle/agent-run-config";
-import type { AgentOrchestrationTransport } from "@hyperidle/api-contract";
 import {
 	listConnections,
 	listHeldConnectionsForProvisioning,
@@ -697,8 +696,15 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// `composedApp`, filled once the composed app exists near the bottom of
 	// this function. No route handler calls the port before then (they only
 	// read it when a real request arrives), so this is safe.
-	let realAgentOrchestrationTransport: AgentOrchestrationTransport | undefined;
-	const agentOrchestrationTransport: AgentOrchestrationTransport = async (req) => {
+	// @lore AU31 §3.2: `AgentOrchestrationTransport` is `@hyperidle/api-contract`'s
+	// own type — an application must not import a framework contract package
+	// directly (governance `crossing-import`); it reaches the type through the
+	// LAYER export it already legally imports (`buildAgentOrchestrationPort`'s
+	// own parameter type), never `@hyperidle/api-contract` itself.
+	let realAgentOrchestrationTransport: Parameters<typeof buildAgentOrchestrationPort>[0] | undefined;
+	const agentOrchestrationTransport: Parameters<typeof buildAgentOrchestrationPort>[0] = async (
+		req,
+	) => {
 		if (!realAgentOrchestrationTransport) {
 			throw new Error("AgentOrchestrationPort transport called before the composed app was built.");
 		}
