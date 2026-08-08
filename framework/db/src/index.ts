@@ -11,8 +11,6 @@ export {
 	parsePgPoolSize,
 	resolvePgPoolSize,
 } from "./connection.js";
-export { seedDemoWorld } from "./demo-fixture.js";
-export { applyFactoryBootstrap } from "./factory-bootstrap.js";
 export { applyMigrations, isDowngrade, type MigrationResult } from "./migrate.js";
 export * as schema from "./schema.js";
 export {
@@ -156,7 +154,6 @@ export {
 	userSkills,
 	users,
 } from "./schema.js";
-export { type RunSetupContext, type RunSetupIo, runSetup } from "./setup-cli.js";
 // @lore AU28 Ruling 9: `createTestDb` / `warmPool` / `closeAllInstances` /
 // `TestDbHandle` used to be exported from this production barrel. That is one of the
 // breaches the founder named which "no folder convention would have caught" — a

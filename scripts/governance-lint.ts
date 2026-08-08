@@ -55,6 +55,7 @@ import type { Kind } from "./lib/governance-model.js";
 import { DeadRuleError, type Finding, formatFinding, hasErrors, type Rule, runRules } from "./lib/governance-rules.js";
 import type { Census } from "./lib/repo-census.js";
 import { classificationTotal } from "./rules/classification-total.js";
+import { dbSymbolsAllPlaced } from "./rules/db-symbols-all-placed.js";
 import { floorsTight } from "./rules/floors-tight.js";
 import { crossingRules, violationsOf } from "./rules/crossings.js";
 import { misplacementLedger } from "./rules/misplacement-ledger.js";
@@ -146,6 +147,11 @@ function buildRules(
 			readFile,
 		}),
 		noPerFileAllowances({ floors: DETECTOR_FLOORS, readFile }),
+		dbSymbolsAllPlaced({
+			unplacedDbSymbols: detected.unplacedDbSymbols,
+			dbSourceRoot: architecture.databasePackage.sourceRoot,
+			dbBarrel: architecture.databasePackage.barrel,
+		}),
 		// An overlaid tree has no debt, so the crossing rules judge it against nothing — every crossing
 		// on an attack overlay is an error, whatever a live severity declaration would say.
 		...crossingRules({
@@ -245,6 +251,11 @@ function runLive(errorsOnly: boolean): number {
 			readFile: readRepoFile,
 		}),
 		noPerFileAllowances({ floors: DETECTOR_FLOORS, readFile: readRepoFile }),
+		dbSymbolsAllPlaced({
+			unplacedDbSymbols: detected.unplacedDbSymbols,
+			dbSourceRoot: architecture.databasePackage.sourceRoot,
+			dbBarrel: architecture.databasePackage.barrel,
+		}),
 		...crossingRules(ruleInput),
 	];
 
@@ -276,10 +287,8 @@ function runLive(errorsOnly: boolean): number {
 
 	printKnownDebt(result.findings);
 
-	if (detected.unplacedDbSymbols.size > 0) {
-		console.error(`  NOTE  ${detected.unplacedDbSymbols.size} database symbol(s) fall to db:unknown:`);
-		for (const [symbol, why] of detected.unplacedDbSymbols) console.error(`          ${symbol} — ${why}`);
-	}
+	// AU29: the unplaced-db-symbol NOTE that used to print here is gone — `db-symbols-all-placed`
+	// (registered above) escalates the same condition to a hard error naming the symbol.
 
 	// Reported, never enforced (D7′): a `warn` rule with zero live violations is READY to flip, not an
 	// error. Turning this into a gate would be the stale-baseline check reborn.

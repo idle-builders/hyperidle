@@ -1,9 +1,9 @@
-import { createPgDb } from "./connection.js";
-import { applyFactoryBootstrap } from "./factory-bootstrap.js";
+import { createPgDb } from "@hyperidle/db";
+import { runFactoryBootstrap } from "./factory-bootstrap-runner.js";
 
 /**
  * Bootstrap CLI for the shared PG backend.
- * Connects via DATABASE_URL, calls applyFactoryBootstrap (idempotent),
+ * Connects via DATABASE_URL, calls runFactoryBootstrap (idempotent),
  * and exits. Mirrors migrate-pg.ts — run as a second init-container after migrate.
  *
  * @lore AF17: This is the deploy-time factory bootstrap. It is separate from the
@@ -18,7 +18,7 @@ async function main(): Promise<number> {
 	}
 	const { db, close } = createPgDb({ url });
 	try {
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 		process.stdout.write("[bootstrap:pg] Factory bootstrap complete.\n");
 		return 0;
 	} finally {

@@ -41,8 +41,6 @@
 		"framework/db": {
 			"entry": [
 				"src/migrate-pg.ts!",
-				"src/bootstrap-pg.ts!",
-				"src/__testing__/seed-pg-cli.ts!",
 				"src/__testing__/pg-test-runner.ts!",
 				"__scripts__/strip-public-schema.ts!"
 			],
@@ -82,6 +80,9 @@
 		"tools/eslint-plugin-design": {},
 		"tools/eval": {
 			"entry": ["src/judges.ts!", "src/cli.ts!"]
+		},
+		"tools/setup": {
+			"entry": ["src/setup-cli.ts!", "src/bootstrap-pg.ts!", "src/seed-pg-cli.ts!"]
 		}
 	}
 }

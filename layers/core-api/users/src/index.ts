@@ -28,6 +28,12 @@ export type {
 	ReapExpiredCredentialsResult,
 } from "./credentials-reaper.js";
 export { reapExpiredCredentials } from "./credentials-reaper.js";
+// -- factory writers (AU29 §2.5.2 — idempotent first-boot users writes) --
+export {
+	insertUserIfAbsent,
+	listFactoryAgents,
+	setAgentCategoryForRole,
+} from "./factory-writers.js";
 // -- hint progress (P5 — first-time hint dismissal tracking) --
 export type { DismissedHint } from "./hint-progress.js";
 export { dismissHint, listDismissedHints } from "./hint-progress.js";

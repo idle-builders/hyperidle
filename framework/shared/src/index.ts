@@ -242,6 +242,7 @@ export type {
 export { AGENT_WORK_INTENT_KINDS } from "./events.js";
 // ── AK6: Factory-roster injection seam ──
 export type {
+	FactoryAgentRef,
 	FactoryFacilitatorSpec,
 	FactoryRosterSpec,
 	FactorySystemAssistantSpec,

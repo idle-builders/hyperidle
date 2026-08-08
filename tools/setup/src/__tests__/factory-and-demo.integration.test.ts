@@ -1,11 +1,11 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import type { HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { readSystemPromptTemplateForRole, SYSTEM_PROMPT_TEMPLATE_FILES } from "@hyperidle/shared";
 import { sql } from "drizzle-orm";
-import type { HyperIdleDb } from "../connection.js";
 import { seedDemoWorld } from "../demo-fixture.js";
-import { applyFactoryBootstrap } from "../factory-bootstrap.js";
+import { runFactoryBootstrap } from "../factory-bootstrap-runner.js";
 
 // @lore AD8a: chief_of_staff system prompt file deleted (docs/system-prompts/chief-of-staff.md removed).
 // @lore AD8b: chief_of_staff role renamed to assistant.
@@ -34,12 +34,12 @@ async function queryRows<T extends Record<string, unknown>>(
 describe("A2: Seed script", () => {
 	// --- AC4: Seed populates ≥1 row per major table ---
 	test("populates at least 1 row per major table", async ({ db }) => {
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
 
 		// @lore U1: `products` renamed to `teams`; old `teams` renamed to `team_members`.
 		// @lore P2: agents → users table
-		// @lore AF17: seed() now calls applyFactoryBootstrap + seedDemoWorld.
+		// @lore AF17: seed() now calls runFactoryBootstrap + seedDemoWorld.
 		// factory_bootstrap inserts users/knowledge_items/knowledge_app_projection;
 		// demo_fixture inserts teams/team_members.
 		// @lore AU18: `factory_settings` dropped from this list — factory-bootstrap no
@@ -59,7 +59,7 @@ describe("A2: Seed script", () => {
 	});
 
 	test("seed data is well-formed (queryable without errors)", async ({ db }) => {
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
 
 		// Verify we can read back with all fields.
@@ -107,10 +107,10 @@ describe("A2: Seed script", () => {
 	});
 
 	test("is idempotent (running twice does not error)", async ({ db }) => {
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
 		// Second run should not throw (uses onConflictDoNothing)
-		await expect(applyFactoryBootstrap(db).then(() => seedDemoWorld(db))).resolves.not.toThrow();
+		await expect(runFactoryBootstrap(db).then(() => seedDemoWorld(db))).resolves.not.toThrow();
 	});
 
 	// --- G1 AC1: facilitator agent archetypes are seeded ---
@@ -120,7 +120,7 @@ describe("A2: Seed script", () => {
 	test("seeds one System Agent (assistant), ≥5 Facilitators, ≥1 Product Manager (AC1)", async ({
 		db,
 	}) => {
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
 
 		// @lore P2: agents → users table
@@ -163,7 +163,7 @@ describe("A2: Seed script", () => {
 	// facts survive: the content now lives in `agent_run_config.system_prompt`, and the
 	// on-disk file is asserted through the role→template resolver that produced it.
 	test("seeded facilitator and product_manager carry a non-empty system prompt", async ({ db }) => {
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
 
 		const rolesList = SYSTEM_PROMPT_FILE_ROLES.map((r) => `'${r}'`).join(", ");
@@ -183,7 +183,7 @@ describe("A2: Seed script", () => {
 	// @lore AD8a: chief_of_staff excluded — its system prompt file was deleted.
 	// @lore AD8c: facilitator.md replaces practice-facilitator.md.
 	test("the docs file backing each seeded role's system prompt exists on disk", async ({ db }) => {
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
 
 		const root = repoRoot();
@@ -204,7 +204,7 @@ describe("A2: Seed script", () => {
 	test("facilitator template resolves and practice_facilitator does not (AD8c AC2)", async ({
 		db,
 	}) => {
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
 
 		const content = readSystemPromptTemplateForRole("facilitator");
@@ -220,9 +220,9 @@ describe("A2: Seed script", () => {
 // After the seed split, the server's team-creation flow provisions builtins per team,
 // not the seed function. Per-team coverage lives in AF17-team-routines.integration.test.ts.
 
-describe("AF17: seed() = applyFactoryBootstrap + seedDemoWorld", () => {
+describe("AF17: seed() = runFactoryBootstrap + seedDemoWorld", () => {
 	test("seed() produces factory layer (bootstrap) + demo world (Acme team)", async ({ db }) => {
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
 
 		// Factory layer: system:propagation exists
@@ -241,8 +241,8 @@ describe("AF17: seed() = applyFactoryBootstrap + seedDemoWorld", () => {
 		expect(acme[0]?.name).toBe("Acme");
 	});
 
-	test("applyFactoryBootstrap alone produces 0 teams (factory isolation)", async ({ db }) => {
-		await applyFactoryBootstrap(db);
+	test("runFactoryBootstrap alone produces 0 teams (factory isolation)", async ({ db }) => {
+		await runFactoryBootstrap(db);
 
 		const teamRows = await queryRows<{ count: string }>(db, "SELECT COUNT(*) AS count FROM teams");
 		expect(Number(teamRows[0]?.count)).toBe(0);
@@ -256,7 +256,7 @@ describe("AF17: seed() = applyFactoryBootstrap + seedDemoWorld", () => {
 
 	test("seedDemoWorld alone produces Acme team + demo founder + demo agents", async ({ db }) => {
 		// seedDemoWorld requires factory agents (seed-agent-cos) to exist for task.ownerAgentId
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 		const { teamId, founderId } = await seedDemoWorld(db);
 
 		expect(teamId).toBe("demo-team-acme");

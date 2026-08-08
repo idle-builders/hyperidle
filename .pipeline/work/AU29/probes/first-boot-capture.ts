@@ -9,10 +9,11 @@
  *
  * Modes:
  *   --bootstrap            clean db + migrations + the current bootstrap path, then dump.
- *                          On origin/main that path is `applyFactoryBootstrap` (the control);
- *                          on the AU29 branch the builder switches this mode to the two layer
- *                          faces (`applyFactoryCoreState` + `applyFactoryRunConfigDefaults`) —
- *                          the same statements applications/desktop/src/main.ts executes.
+ *                          The control (`first-boot-control.json`) was captured at architecture
+ *                          time via `applyFactoryBootstrap` (origin/main). This mode now runs the
+ *                          AU29 branch's two layer faces (`applyFactoryCoreState` +
+ *                          `applyFactoryRunConfigDefaults`) — the same statements
+ *                          applications/desktop/src/main.ts executes.
  *   --data-dir <path>      dump an existing PGlite data dir (e.g. one produced by
  *                          `npm run setup -- --db-path <path>` — the CLI path).
  *   --out <file>           write the dump JSON to a file (default: stdout).
@@ -65,14 +66,13 @@ async function main(): Promise<void> {
 		await applyMigrations(dataDir, path.resolve("framework/db/drizzle"));
 		const handle = await createPgliteDb(dataDir);
 		try {
-			// Current bootstrap path. Control (origin/main): applyFactoryBootstrap.
-			// AU29 branch: replace with the two faces —
-			//   const { applyFactoryCoreState } = await import("@hyperidle/core-api");
-			//   const { applyFactoryRunConfigDefaults } = await import("@hyperidle/agent-orchestration");
-			//   const agents = await applyFactoryCoreState(handle.db);
-			//   await applyFactoryRunConfigDefaults(handle.db, agents);
-			const { applyFactoryBootstrap } = await import("@hyperidle/db");
-			await applyFactoryBootstrap(handle.db);
+			// AU29 branch: the two layer faces, in order — the same statements
+			// applications/desktop/src/main.ts executes. Control (origin/main) ran
+			// applyFactoryBootstrap; that path no longer exists on this branch.
+			const { applyFactoryCoreState } = await import("@hyperidle/core-api");
+			const { applyFactoryRunConfigDefaults } = await import("@hyperidle/agent-orchestration");
+			const agents = await applyFactoryCoreState(handle.db);
+			await applyFactoryRunConfigDefaults(handle.db, agents);
 		} finally {
 			await handle.close();
 		}

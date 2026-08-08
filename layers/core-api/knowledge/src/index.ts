@@ -45,6 +45,8 @@
 export { recomputeAttention } from "./attention-service.js";
 // -- errors --
 export { ItemDeletedError, VersionConflictError } from "./errors.js";
+// -- factory seed writer (AU29 §2.5.2 — idempotent first-boot knowledge write, no edit-log) --
+export { ensureFactoryKnowledgeSeed } from "./factory-seed.js";
 // -- knowledge_action resolver (AU21 §6 Decision B — emit-time resolve+bake) --
 export type {
 	BakedKnowledgeActionRequest,

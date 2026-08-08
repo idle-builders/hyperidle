@@ -9,16 +9,26 @@
  * replaced with `await db.execute(sql.raw(...))` and PGLite-specific queries
  * (pg_tables, information_schema.columns, pg_indexes instead of sqlite_master,
  * PRAGMA table_info).
+ *
+ * @lore AU29: relocated verbatim from `framework/db/src/__tests__/` (task D) —
+ * it is a seed-then-migrate suite, and its arrangement is the seeds
+ * (`runFactoryBootstrap` + `seedDemoWorld`, both now living in this package).
+ * AC6 (Zod schema exports) and AC7 (schema table exports) needed the WHOLE
+ * `schema`/`zod-schemas` namespace object (including checking symbols are
+ * ABSENT) — a same-package deep import inside `framework/db` before the move,
+ * but a `db:schema-ns` crossing (the one-door surface `governance/README.md`
+ * forbids even for tests) once cross-package. Those two describe blocks never
+ * touched a database, so they stayed behind as
+ * `framework/db/src/__tests__/U1-schema-exports.test.ts`, a plain unit test
+ * with same-package relative imports.
  */
 
+import type { HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { BET_STATUSES } from "@hyperidle/shared";
-import { getTableName, sql } from "drizzle-orm";
-import type { HyperIdleDb } from "../connection.js";
+import { sql } from "drizzle-orm";
 import { seedDemoWorld } from "../demo-fixture.js";
-import { applyFactoryBootstrap } from "../factory-bootstrap.js";
-import * as schema from "../schema.js";
-import * as zodSchemas from "../zod-schemas.js";
+import { runFactoryBootstrap } from "../factory-bootstrap-runner.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -101,7 +111,7 @@ describe("U1 AC1+AC2: Table renames — products→teams, teams→team_members",
 	});
 
 	test("AC1+AC2: seed data round-trips — `teams` table holds the demo team row", async ({ db }) => {
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
 
 		// @lore AF17: demo team id is now "demo-team-acme" (split from seed-product-1).
@@ -362,162 +372,16 @@ describe("U1 AC5: at_risk column on bets", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC6: Zod schemas updated — selectTeamMemberSchema, insertTeamMemberSchema exist;
-//      selectTeamSchema now maps to the teams (former products) table
-// ---------------------------------------------------------------------------
-
-describe("U1 AC6: Zod schemas updated", () => {
-	test("selectTeamMemberSchema exists and is a valid Zod schema (replaces old selectTeamSchema)", () => {
-		const schemas = zodSchemas as Record<string, unknown>;
-		const selectTeamMemberSchema = schemas["selectTeamMemberSchema"] as
-			| { parse: unknown; safeParse: unknown }
-			| undefined;
-		expect(selectTeamMemberSchema).toBeDefined();
-		expect(typeof selectTeamMemberSchema?.parse).toBe("function");
-	});
-
-	test("insertTeamMemberSchema exists and is a valid Zod schema", () => {
-		const schemas = zodSchemas as Record<string, unknown>;
-		const insertTeamMemberSchema = schemas["insertTeamMemberSchema"] as
-			| { parse: unknown }
-			| undefined;
-		expect(insertTeamMemberSchema).toBeDefined();
-		expect(typeof insertTeamMemberSchema?.parse).toBe("function");
-	});
-
-	test("selectTeamSchema now reflects the new teams table (formerly products) shape", () => {
-		const { selectTeamSchema } = zodSchemas;
-		expect(selectTeamSchema).toBeDefined();
-
-		// The new teams schema should parse a team (formerly product) row
-		const valid = selectTeamSchema.safeParse({
-			id: "team-1",
-			name: "My Team",
-			phase: "build",
-			briefPath: null,
-			architecturePath: null,
-			brandPath: null,
-			principlesPath: null,
-			factoryDbPath: null,
-			createdAt: "2025-01-01T00:00:00.000Z",
-			// AB0: functions column added to teams table
-			functions: null,
-			// AV1: primary harness default columns (nullable)
-			defaultHarnessType: null,
-			defaultModelId: null,
-			defaultModelProvider: null,
-		});
-		expect(valid.success).toBe(true);
-	});
-
-	test("insertProductSchema no longer exists (replaced by insertTeamSchema for the domain entity)", () => {
-		const schemas = zodSchemas as Record<string, unknown>;
-		expect(schemas["insertProductSchema"]).toBeUndefined();
-	});
-
-	test("selectProductSchema no longer exists (replaced by selectTeamSchema for the domain entity)", () => {
-		const schemas = zodSchemas as Record<string, unknown>;
-		expect(schemas["selectProductSchema"]).toBeUndefined();
-	});
-
-	test("selectBetSchema reflects new bet columns: description (not pitch), team_id (not product_id)", () => {
-		const { selectBetSchema } = zodSchemas;
-		expect(selectBetSchema).toBeDefined();
-
-		// Should parse the new bet shape
-		const validNewBet = selectBetSchema.safeParse({
-			id: "bet-1",
-			teamId: "team-1",
-			description: "Build feature X",
-			appetite: null,
-			doneCondition: null,
-			hypothesis: null,
-			status: "draft",
-			revisionLog: null,
-			createdAt: "2025-01-01T00:00:00.000Z",
-			completedAt: null,
-			// atRisk is stored as integer in the DB (0/1), not boolean
-			atRisk: 0,
-			costAppetiteMinor: null,
-			costAppetiteCurrency: null,
-			costActualMinor: null,
-			costActualCurrency: null,
-			tokensActualJson: null,
-			// AC1: outcome fields — nullable, default null
-			outcomeVerdict: null,
-			outcomeSummary: null,
-			outcomeRecordedAt: null,
-			outcomeRecordedBy: null,
-		});
-		expect(validNewBet.success).toBe(true);
-	});
-
-	test("selectBetSchema rejects old bet shape with pitch and productId", () => {
-		const { selectBetSchema } = zodSchemas;
-
-		const oldBetShape = selectBetSchema.safeParse({
-			id: "bet-1",
-			productId: "prod-1",
-			teamId: "team-1",
-			pitch: "Build feature X",
-			appetite: null,
-			doneCondition: null,
-			hypothesis: null,
-			status: "shaped",
-			revisionLog: null,
-			createdAt: "2025-01-01T00:00:00.000Z",
-			shippedAt: null,
-			costAppetiteMinor: null,
-			costAppetiteCurrency: null,
-			costActualMinor: null,
-			costActualCurrency: null,
-			tokensActualJson: null,
-		});
-		// Old shape must fail: no pitch/productId in new schema
-		expect(oldBetShape.success).toBe(false);
-	});
-});
-
-// ---------------------------------------------------------------------------
-// AC7: TypeScript types — Team (formerly Product), TeamMember (formerly Team)
-// ---------------------------------------------------------------------------
-
-describe("U1 AC7: TypeScript type exports updated", () => {
-	test("schema exports Team type (the domain entity, formerly Product)", () => {
-		expect(schema.teams).toBeDefined();
-
-		// The teams table should have "teams" as its backing SQL table name
-		// @lore U1: In Drizzle 0.39+, the `_` property is a TypeScript-only type
-		// accessor (not a runtime property). The SQL table name is stored as
-		// Symbol(drizzle:Name). Use getTableName from drizzle-orm to access it.
-		expect(getTableName(schema.teams)).toBe("teams");
-	});
-
-	test("schema exports teamMembers table (formerly teams)", () => {
-		expect((schema as Record<string, unknown>)["teamMembers"]).toBeDefined();
-	});
-
-	test("schema does NOT export 'products' table", () => {
-		expect((schema as Record<string, unknown>)["products"]).toBeUndefined();
-	});
-
-	test("TeamMember type is exported from schema (formerly Team)", () => {
-		const teamsTable = (schema as Record<string, unknown>)["teamMembers"];
-		expect(teamsTable).toBeDefined();
-	});
-});
-
-// ---------------------------------------------------------------------------
 // AC8: Seed data — uses new names and produces valid records
 // ---------------------------------------------------------------------------
 
 describe("U1 AC8: Seed data uses new table/column names", () => {
 	test("seed does not reference the products table (it was renamed to teams)", async ({ db }) => {
-		await expect(applyFactoryBootstrap(db).then(() => seedDemoWorld(db))).resolves.not.toThrow();
+		await expect(runFactoryBootstrap(db).then(() => seedDemoWorld(db))).resolves.not.toThrow();
 	});
 
 	test("after seeding, teams table has at least 1 row (formerly products)", async ({ db }) => {
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
 
 		const result = await db.execute(sql.raw(`SELECT COUNT(*) as count FROM teams`));
@@ -526,7 +390,7 @@ describe("U1 AC8: Seed data uses new table/column names", () => {
 	});
 
 	test("after seeding, team_members table has at least 1 row (formerly teams)", async ({ db }) => {
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
 
 		const result = await db.execute(sql.raw(`SELECT COUNT(*) as count FROM team_members`));
@@ -535,7 +399,7 @@ describe("U1 AC8: Seed data uses new table/column names", () => {
 	});
 
 	test("after seeding, bet uses 'description' column (not pitch)", async ({ db }) => {
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
 
 		// @lore AF17: daily digest bet id updated to demo-bet-daily-digest (demo-fixture split)
@@ -548,7 +412,7 @@ describe("U1 AC8: Seed data uses new table/column names", () => {
 	});
 
 	test("after seeding, bet status is 'draft' (not 'shaped')", async ({ db }) => {
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
 
 		// @lore AF17: daily digest bet id updated to demo-bet-daily-digest (demo-fixture split)
@@ -560,7 +424,7 @@ describe("U1 AC8: Seed data uses new table/column names", () => {
 	});
 
 	test("after seeding, demo bet uses team_id (not product_id)", async ({ db }) => {
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
 
 		// @lore AF17: team_id now points to 'demo-team-acme' (split from seed-product-1)
@@ -573,7 +437,7 @@ describe("U1 AC8: Seed data uses new table/column names", () => {
 	});
 
 	test("after seeding, demo task uses team_id (not product_id)", async ({ db }) => {
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
 
 		// @lore AF17: task id updated to demo-task-daily-digest; team_id points to demo-team-acme
@@ -586,9 +450,9 @@ describe("U1 AC8: Seed data uses new table/column names", () => {
 	});
 
 	test("seed is idempotent after migration (running twice does not error)", async ({ db }) => {
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
-		await expect(applyFactoryBootstrap(db).then(() => seedDemoWorld(db))).resolves.not.toThrow();
+		await expect(runFactoryBootstrap(db).then(() => seedDemoWorld(db))).resolves.not.toThrow();
 	});
 });
 

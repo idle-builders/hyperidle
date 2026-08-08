@@ -3,22 +3,37 @@
  *
  * @lore AF17: This file is the ONLY place the "Acme" demo world lives.
  * It must NEVER be imported from production paths:
- *   - framework/db/src/__testing__/seed-pg-cli.ts
- *   - framework/db/src/bootstrap-pg.ts
- *   - framework/db/src/factory-bootstrap.ts
+ *   - tools/setup/src/seed-pg-cli.ts
+ *   - tools/setup/src/bootstrap-pg.ts
+ *   - tools/setup/src/factory-bootstrap-runner.ts
  *   - framework/db/src/migrate-pg.ts
  *
  * Permitted importers: setup-cli.ts (behind --demo flag) and test files.
- * The import-allowlist guard (scripts/demo-fixture-guard.ts) enforces this statically.
+ *
+ * @lore AU29 §2.6: this file (and the whole `tools/setup` package it now
+ * lives in) is `tooling` — `store-tooling-measures-everything` (Ruling 7)
+ * makes any table write here legal by role, so the import-allowlist guard
+ * this comment used to name (`scripts/demo-fixture-guard.ts`, retired under
+ * AU28) is no longer the mechanism; the constraint above is still real (no
+ * demo data on a production boot path) but is enforced by which CLIs choose
+ * to call this file, not by a static import guard.
  *
  * Use neutral fictional name "Acme" — no real-product collision.
  * All ids use "demo-*" or "seed-product-1" prefixes to clearly identify them as fixtures.
  */
 
+import {
+	agentRunConfig,
+	bets,
+	type HyperIdleDb,
+	routines,
+	tasks,
+	teamMembers,
+	teams,
+	users,
+} from "@hyperidle/db";
 import { readSystemPromptTemplateForRole } from "@hyperidle/shared";
 import { and, eq, inArray } from "drizzle-orm";
-import type { HyperIdleDb } from "./connection.js";
-import { agentRunConfig, bets, routines, tasks, teamMembers, teams, users } from "./schema.js";
 
 /**
  * Seed a demo world for onboarding / development mode.
@@ -33,10 +48,12 @@ import { agentRunConfig, bets, routines, tasks, teamMembers, teams, users } from
 /**
  * AU26 G1 — write a demo agent's run config.
  *
- * @lore AU26 G1: same temporary direct-table exception as
- * `factory-bootstrap.ts`'s `upsertRunConfig` — see that function's `@lore` for
- * why `framework/db` cannot call `@hyperidle/agent-run-config` yet and which
- * increment (D2a) closes it.
+ * @lore AU29 §2.6: a direct `agent_run_config` write, same as the rest of this
+ * file's direct table writes — legal here because `tools/setup` is tooling
+ * (`store-tooling-measures-everything`, Ruling 7), not because of the
+ * AU26/AU29-era db-package exception this comment used to cite (that
+ * exception is gone: `framework/db` no longer hosts any first-boot writer at
+ * all, see `factory-bootstrap-runner.ts`).
  */
 async function upsertDemoRunConfig(
 	db: HyperIdleDb,

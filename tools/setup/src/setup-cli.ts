@@ -3,7 +3,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { type DeploymentProfile, redactDbUrl, resolveProfile } from "@hyperidle/shared";
 import { seedDemoWorld } from "./demo-fixture.js";
-import { applyFactoryBootstrap } from "./factory-bootstrap.js";
+import { runFactoryBootstrap } from "./factory-bootstrap-runner.js";
 
 const Filename = typeof __filename === "string" ? __filename : fileURLToPath(import.meta.url);
 const Dirname = path.dirname(Filename);
@@ -88,7 +88,8 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
 }
 
 function defaultRoot(cwd: string | undefined): string {
-	// framework/db/src → repo root is ../../..
+	// tools/setup/src → repo root is ../../.. (same depth as the pre-AU29
+	// framework/db/src home — re-verified at move time).
 	if (cwd) return cwd;
 	return path.resolve(Dirname, "..", "..", "..");
 }
@@ -149,14 +150,13 @@ async function applyLaptopMigrations(
 	migrationsFolder: string,
 	demo = false,
 ): Promise<void> {
-	const { applyMigrations } = await import("./migrate.js");
+	const { applyMigrations, createPgliteDb } = await import("@hyperidle/db");
 	await applyMigrations(dataDir, migrationsFolder);
 
 	// Apply factory bootstrap — always; idempotent.
-	const { createPgliteDb } = await import("./connection.js");
 	const handle = await createPgliteDb(dataDir);
 	try {
-		await applyFactoryBootstrap(handle.db);
+		await runFactoryBootstrap(handle.db);
 		// @lore AF17: demo mode seeds the Acme demo team — opt-in only.
 		// Without --demo, factory bootstrap only (no demo data in production DBs).
 		if (demo) {
@@ -193,7 +193,10 @@ async function runLaptop(
 		return 0;
 	}
 
-	const migrationsFolder = path.resolve(Dirname, "..", "drizzle");
+	// @lore AU29: migrations live in framework/db/drizzle regardless of which
+	// package's CLI runs them — resolve against `root` (the repo root this
+	// function already computed), not against this file's own directory.
+	const migrationsFolder = path.resolve(root, "framework", "db", "drizzle");
 	await applyLaptopMigrations(dataDir, migrationsFolder, args.demo);
 
 	if (args.demo) {
@@ -278,7 +281,7 @@ export async function runSetup(
 }
 
 /**
- * Module-level invocation. Running `npx tsx framework/db/src/setup-cli.ts …`
+ * Module-level invocation. Running `npx tsx tools/setup/src/setup-cli.ts …`
  * dispatches here.
  */
 /* c8 ignore start */

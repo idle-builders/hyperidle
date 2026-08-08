@@ -1,0 +1,22 @@
+{
+	"name": "@hyperidle/setup",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"check": "tsc --noEmit",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"@hyperidle/agent-orchestration": "*",
+		"@hyperidle/core-api": "*",
+		"@hyperidle/db": "*",
+		"@hyperidle/shared": "*",
+		"drizzle-orm": "^0.45.2"
+	},
+	"devDependencies": {
+		"@types/node": "^24",
+		"tsx": "^4.22.4",
+		"vitest": "^4.1.9"
+	}
+}

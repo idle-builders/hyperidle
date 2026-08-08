@@ -7,11 +7,11 @@
  * accepted and 'personal' must no longer exist in the database.
  */
 
+import { users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import { seedDemoWorld } from "../demo-fixture.js";
-import { applyFactoryBootstrap } from "../factory-bootstrap.js";
-import { users } from "../schema.js";
+import { runFactoryBootstrap } from "../factory-bootstrap-runner.js";
 
 describe("AD8a — agentCategory 'individual' rename", () => {
 	test("insert and read back a user with agentCategory 'individual'", async ({ db }) => {
@@ -33,7 +33,7 @@ describe("AD8a — agentCategory 'individual' rename", () => {
 		// Seed the database with all seed data. Before AD8a code changes are applied,
 		// seed.ts inserts agentCategory: "personal" for the system agent. This test
 		// verifies that after the migration + code changes, 'personal' is gone.
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
 
 		// @lore AD8a: The cast is intentional — asserting that no row with the OLD value exists.
@@ -44,7 +44,7 @@ describe("AD8a — agentCategory 'individual' rename", () => {
 	});
 
 	test("after seeding, seed-agent-cos has agentCategory 'individual'", async ({ db }) => {
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
 
 		const [cosRow] = await db.select().from(users).where(eq(users.id, "seed-agent-cos"));

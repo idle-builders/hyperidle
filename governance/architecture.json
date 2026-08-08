@@ -57,10 +57,6 @@
 			"reach": "everyone",
 			"why": "a row type is a shape, not an access path"
 		},
-		"db:bootstrap": {
-			"reach": "composition roots",
-			"why": "putting the database into a known first-boot state is the job of whatever boots the system"
-		},
 		"db:schema-ns": {
 			"reach": [],
 			"why": "one import that hands over every table at once. The database's own client factory does the same job for the one legitimate use."
@@ -86,12 +82,7 @@
 			"migrate.ts": "db:client",
 			"write-executor.ts": "db:client",
 			"migrate-pg.ts": "db:client",
-			"bootstrap-pg.ts": "db:client",
-			"pg-ssl.ts": "db:client",
-			"factory-bootstrap.ts": "db:bootstrap",
-			"demo-fixture.ts": "db:bootstrap",
-			"setup-cli.ts": "db:bootstrap",
-			"seed-fixtures.ts": "db:bootstrap"
+			"pg-ssl.ts": "db:client"
 		}
 	},
 	"endpoints": {

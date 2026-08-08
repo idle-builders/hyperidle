@@ -616,6 +616,40 @@ export const ATTACKS: readonly Attack[] = [
 		expect: { sort: "violation", file: `${a.serviceDir}/attack-deep-db-import.ts`, groupKey: KEY.serviceUnknownSurface },
 	},
 	{
+		id: "db-symbols-all-placed-scenario3",
+		detail:
+			"AU29 §4.5 / plan validation scenario 3 — a new no-database export appended to the db barrel, re-exported " +
+			"from a module `architecture.json` does not name, must fail the build naming the symbol",
+		rules: ["db-symbols-all-placed"],
+		overlay: {
+			[`${a.frameworkDir}/attack-unplaced-symbol.ts`]: `export function attackUnplacedSymbol(): string {\n\treturn "unplaced";\n}\n`,
+		},
+		mutate: {
+			[a.dbBarrel]: (existing) =>
+				`${existing}export { attackUnplacedSymbol } from "./attack-unplaced-symbol.js";\n`,
+		},
+		expect: {
+			sort: "finding",
+			file: a.dbBarrel,
+			ruleId: "db-symbols-all-placed",
+			messageContains: "attackUnplacedSymbol",
+		},
+	},
+	{
+		id: "db-symbols-all-placed-control",
+		detail: "re-exporting a NEW binding from a module `architecture.json` DOES name places cleanly — no finding",
+		rules: ["db-symbols-all-placed"],
+		// Isolated: the positive case above also mutates `a.dbBarrel`, and this control's whole point is
+		// that a barrel with ONLY a mapped-module re-export added is clean — sharing a pass with the
+		// positive case's own error at the same path would make this control fail for the wrong reason.
+		isolate: true,
+		mutate: {
+			[a.dbBarrel]: (existing) =>
+				`${existing}export { DEFAULT_PG_POOL_SIZE as attackMappedAlias } from "./connection.js";\n`,
+		},
+		expect: { sort: "clean", file: a.dbBarrel },
+	},
+	{
 		id: "manifest-cross-layer-dependency",
 		detail: "a service declaring another layer as a dependency in its manifest",
 		rules: ["crossing-manifest"],

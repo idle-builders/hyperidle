@@ -7,15 +7,16 @@
  * AC2: Re-applying factory bootstrap is idempotent — row counts and values are
  *      identical after the second call.
  *
- * RED PHASE: These tests fail until `applyFactoryBootstrap` is created in
- * `framework/db/src/factory-bootstrap.ts`.
+ * @lore AU29: relocated verbatim from `framework/db/src/__tests__/` (task D)
+ * — `applyFactoryBootstrap` dissolved into the two layer faces, and the
+ * composed sequence now lives in this package's `factory-bootstrap-runner.ts`.
  */
 
+import type { HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { readSystemPromptTemplateForRole } from "@hyperidle/shared";
 import { sql } from "drizzle-orm";
-import type { HyperIdleDb } from "../connection.js";
-import { applyFactoryBootstrap } from "../factory-bootstrap.js";
+import { runFactoryBootstrap } from "../factory-bootstrap-runner.js";
 
 async function queryRows<T extends Record<string, unknown>>(
 	db: HyperIdleDb,
@@ -26,12 +27,12 @@ async function queryRows<T extends Record<string, unknown>>(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AC1: Factory layer is complete after a single applyFactoryBootstrap call
+// AC1: Factory layer is complete after a single runFactoryBootstrap call
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("AF17 AC1: applyFactoryBootstrap creates the complete factory layer", () => {
+describe("AF17 AC1: runFactoryBootstrap creates the complete factory layer", () => {
 	test("system:propagation user exists after bootstrap", async ({ db }) => {
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 
 		const rows = await queryRows<{ id: string }>(
 			db,
@@ -43,7 +44,7 @@ describe("AF17 AC1: applyFactoryBootstrap creates the complete factory layer", (
 	test("System Agent singleton (seed-agent-cos) exists with individual category", async ({
 		db,
 	}) => {
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 
 		const rows = await queryRows<{ id: string; agent_category: string | null }>(
 			db,
@@ -54,7 +55,7 @@ describe("AF17 AC1: applyFactoryBootstrap creates the complete factory layer", (
 	});
 
 	test("one facilitator agent per community of practice (5 communities)", async ({ db }) => {
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 
 		const rows = await queryRows<{ id: string; role: string }>(
 			db,
@@ -73,7 +74,7 @@ describe("AF17 AC1: applyFactoryBootstrap creates the complete factory layer", (
 	// no longer needs to have run first (the resolver reads docs directly), but
 	// we still call it here to prove it doesn't error/interfere.
 	test("product_manager system prompt template resolves (docs-backed)", async ({ db }) => {
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 
 		const content = readSystemPromptTemplateForRole("product_manager");
 		expect(content).toBeTruthy();
@@ -81,7 +82,7 @@ describe("AF17 AC1: applyFactoryBootstrap creates the complete factory layer", (
 	});
 
 	test("facilitator system prompt template resolves (docs-backed)", async ({ db }) => {
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 
 		const content = readSystemPromptTemplateForRole("facilitator");
 		expect(content).toBeTruthy();
@@ -95,7 +96,7 @@ describe("AF17 AC1: applyFactoryBootstrap creates the complete factory layer", (
 	test("bootstrap writes no server_config row (cost_cap default now lives server-side)", async ({
 		db,
 	}) => {
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 
 		const rows = await queryRows<{ id: string }>(db, "SELECT id FROM server_config");
 		expect(rows).toHaveLength(0);
@@ -104,7 +105,7 @@ describe("AF17 AC1: applyFactoryBootstrap creates the complete factory layer", (
 	test("factory principle knowledge item (seed-ki-1) exists with scope_kind=factory", async ({
 		db,
 	}) => {
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 
 		const rows = await queryRows<{ id: string; scope_kind: string }>(
 			db,
@@ -115,7 +116,7 @@ describe("AF17 AC1: applyFactoryBootstrap creates the complete factory layer", (
 	});
 
 	test("factory principle has a strategy fabric row", async ({ db }) => {
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 
 		const rows = await queryRows<{ knowledge_item_id: string; layer: string; kind: string }>(
 			db,
@@ -127,14 +128,14 @@ describe("AF17 AC1: applyFactoryBootstrap creates the complete factory layer", (
 	});
 
 	test("no teams row is created by bootstrap (team_id null constraint)", async ({ db }) => {
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 
 		const rows = await queryRows<{ count: string }>(db, "SELECT COUNT(*) AS count FROM teams");
 		expect(Number(rows[0]?.count)).toBe(0);
 	});
 
 	test("no team_members row is created by bootstrap", async ({ db }) => {
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 
 		const rows = await queryRows<{ count: string }>(
 			db,
@@ -144,14 +145,14 @@ describe("AF17 AC1: applyFactoryBootstrap creates the complete factory layer", (
 	});
 
 	test("no routines row is created by bootstrap (routines require a team)", async ({ db }) => {
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 
 		const rows = await queryRows<{ count: string }>(db, "SELECT COUNT(*) AS count FROM routines");
 		expect(Number(rows[0]?.count)).toBe(0);
 	});
 
 	test("no human user (kind=human) is created by bootstrap", async ({ db }) => {
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 
 		const rows = await queryRows<{ count: string }>(
 			db,
@@ -161,7 +162,7 @@ describe("AF17 AC1: applyFactoryBootstrap creates the complete factory layer", (
 	});
 
 	test("facilitator agents have null team_id (factory-scoped, not team-scoped)", async ({ db }) => {
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 
 		const rows = await queryRows<{ id: string; team_id: string | null }>(
 			db,
@@ -178,13 +179,13 @@ describe("AF17 AC1: applyFactoryBootstrap creates the complete factory layer", (
 // AC2: Bootstrap is idempotent — second call produces identical state
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("AF17 AC2: applyFactoryBootstrap is idempotent", () => {
+describe("AF17 AC2: runFactoryBootstrap is idempotent", () => {
 	test("running bootstrap twice produces the same users count", async ({ db }) => {
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 		const rows1 = await queryRows<{ count: string }>(db, "SELECT COUNT(*) AS count FROM users");
 		const count1 = Number(rows1[0]?.count);
 
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 		const rows2 = await queryRows<{ count: string }>(db, "SELECT COUNT(*) AS count FROM users");
 		const count2 = Number(rows2[0]?.count);
 
@@ -198,28 +199,28 @@ describe("AF17 AC2: applyFactoryBootstrap is idempotent", () => {
 	// template resolver instead (calling bootstrap twice must not change what
 	// it resolves).
 	test("running bootstrap twice produces identical resolved templates", async ({ db }) => {
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 		const first = readSystemPromptTemplateForRole("product_manager");
 
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 		const second = readSystemPromptTemplateForRole("product_manager");
 
 		expect(second).toEqual(first);
 	});
 
 	test("running bootstrap twice does not throw", async ({ db }) => {
-		await applyFactoryBootstrap(db);
-		await expect(applyFactoryBootstrap(db)).resolves.not.toThrow();
+		await runFactoryBootstrap(db);
+		await expect(runFactoryBootstrap(db)).resolves.not.toThrow();
 	});
 
 	test("system:propagation row is identical after second run", async ({ db }) => {
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 		const rows1 = await queryRows<{ id: string; kind: string; role: string }>(
 			db,
 			"SELECT id, kind, role FROM users WHERE id = 'system:propagation'",
 		);
 
-		await applyFactoryBootstrap(db);
+		await runFactoryBootstrap(db);
 		const rows2 = await queryRows<{ id: string; kind: string; role: string }>(
 			db,
 			"SELECT id, kind, role FROM users WHERE id = 'system:propagation'",

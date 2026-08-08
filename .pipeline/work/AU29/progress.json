@@ -9,13 +9,13 @@
   "tier": "production",
   "approvals": {
     "requirements": null,
-    "concept": null,
+    "concept": "approved 2026-08-08 (founder, in-session) — the three registry/verdict items ruled on; see gateItemsRuled",
     "final": null
   },
-  "gateItemsPendingFounder": [
-    "db:bootstrap surface entry deletion — not mechanically forced; authorized by requirements 5, routed here deliberately",
-    "6 decided-rules.json row deletions + model-test literals (68->65 / 56->53 / 114->110 / 10->8) — verdict edits are founder-only",
-    "governance/decided-rules.json totals.differ is ALREADY stale (44 recorded, 46 by row-level derivation; two Ruling-13 flips never folded). Post-deletion truth is 45, not the architecture's 43. Founder instrument inconsistency, untested field, cannot fail the build."
+  "gateItemsRuled": [
+    "db:bootstrap surface entry — DELETE if genuinely unused once the bootstrap routine leaves the db package (founder 2026-08-08: 'yeah delete if possible and not used anymore').",
+    "6 decided-rules.json rows targeting db:util + db:bootstrap — DELETE if genuinely unused (founder 2026-08-08: 'yeah delete if possible').",
+    "totals.differ literal — do NOT chase the exact count. Founder 2026-08-08 verbatim: 'that exact count doesn't matter what the linter outputs matter.' The recorded 44 was already stale (row-level derivation = 46; post-deletion truth 45, not the architecture's 43). Let the derived value / linter be the source of truth rather than a hand-maintained literal; deleting the literal is a legitimate end state. No scope invented to preserve it."
   ],
   "evaluations": {
     "refine": 1,
