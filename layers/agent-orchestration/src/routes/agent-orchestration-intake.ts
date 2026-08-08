@@ -37,6 +37,7 @@ import { getFilesystem, saveInjection as saveFilesystemInjection } from "@hyperi
 import {
 	createBareRun,
 	endRunForHandoff,
+	isAgentAtCapacity,
 	requestRunStopForTasks,
 } from "@hyperidle/run-orchestration";
 import {
@@ -76,6 +77,7 @@ function rowToExplicitStartView(row: ExplicitSessionStart): AgentOrchestrationEx
 		requestedBy: row.requestedBy,
 		idempotencyKey: row.idempotencyKey,
 		sessionId: row.sessionId,
+		failureCode: row.failureCode,
 	};
 }
 
@@ -285,6 +287,25 @@ export function createAgentOrchestrationIntakeRoutes(
 		},
 	);
 
+	// ── runs.isAtCapacity — POST /agent-orchestration/runs/is-at-capacity ────
+	// AU31 §3.1: the routine-scheduler's hoisted capacity read — the caller
+	// resolves `maxConcurrentSessions` (`runConfig.read`) and passes it in, so
+	// this door does no run-config resolution of its own.
+	router.post(
+		"/runs/is-at-capacity",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(
+			z.object({ agentId: z.string().min(1), maxConcurrentSessions: z.number() }),
+		),
+		async (c) => {
+			const { agentId, maxConcurrentSessions } = c.req.valid("json");
+			const atCapacity = await isAgentAtCapacity(db, agentId, {
+				getConcurrencyBound: async () => ({ maxConcurrentSessions }),
+			});
+			return c.json({ atCapacity });
+		},
+	);
+
 	// ── runs.failExplicitStart — POST /agent-orchestration/runs/explicit-start/fail ──
 	router.post(
 		"/runs/explicit-start/fail",
@@ -344,6 +365,14 @@ export function createAgentOrchestrationIntakeRoutes(
 			return c.json({ ok: true });
 		},
 	);
+
+	// ── filesystems.getTeamId — GET /agent-orchestration/filesystems/:id/team ──
+	// The team-consistency gate's pre-write read — see the port's own doc.
+	router.get("/filesystems/:id/team", requireBoundary({ kind: "public-data" }), async (c) => {
+		const filesystemId = c.req.param("id");
+		const fs = await getFilesystem(db, filesystemId);
+		return c.json({ teamId: fs?.teamId ?? null });
+	});
 
 	// ── filesystems.persistInjection — POST /agent-orchestration/filesystems/:id/injections/persist ──
 	// §2.6: the existence check + insert core's `POST /api/filesystems/:id/injections`

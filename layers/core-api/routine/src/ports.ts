@@ -1,13 +1,4 @@
-import type {
-	AgentWorkIntent,
-	Bet,
-	HyperIdleDb,
-	NewItem,
-	NewThread,
-	Team,
-	User,
-	WriteExecutor,
-} from "@hyperidle/db";
+import type { Bet, HyperIdleDb, NewItem, NewThread, Team, User, WriteExecutor } from "@hyperidle/db";
 import type {
 	BakedWorkIntentRequest,
 	EventBus,
@@ -101,6 +92,15 @@ export interface RoutineSchedulerPorts {
 			readonly harnessDisabled: readonly string[];
 		}>;
 	};
+	/**
+	 * AU31 §3.1 site 8 / §3.2: seam-backed, and called AFTER the emit
+	 * transaction commits — cross-layer atomicity with `agent-orchestration`
+	 * is relinquished (see `routine-scheduler.ts`'s `fireGenericRoutine`
+	 * `@lore`). `exec` is accepted for shape symmetry with every other port
+	 * method but a seam call ignores it (it can never join a caller's
+	 * transaction); narrowed to the receipt shape the seam actually returns —
+	 * nothing here ever read a fuller `AgentWorkIntent` row.
+	 */
 	readonly workIntents: {
 		enqueueWorkIntent(
 			exec: WriteExecutor,
@@ -113,7 +113,7 @@ export interface RoutineSchedulerPorts {
 				/** See `BakedWorkIntentRequest`. Populated at emit time by `routine-service.ts`'s `resolveRoutineRunRequest` (AU21 Increment 4). */
 				readonly bakedRequest?: BakedWorkIntentRequest;
 			},
-		): Promise<AgentWorkIntent>;
+		): Promise<{ readonly id: string; readonly idempotencyKey: string }>;
 	};
 	/**
 	 * AU21 §9 Increment 4, Wave B — the `routine_run` emit-time resolver's own
@@ -123,6 +123,11 @@ export interface RoutineSchedulerPorts {
 	 * interface — `agentSelection` (capacity + delegate selection) and
 	 * `requireRunnableAgent` (the shared ast-`<userId>` invariant) are both
 	 * cross-Service from this package's point of view.
+	 *
+	 * @lore AU31 §3.1: `isAtCapacity` is now called BEFORE the emit
+	 * transaction opens (`resolveRoutineRunTargetAgent`, hoisted) — its real
+	 * implementation is a seam call, and a seam call inside an open
+	 * transaction deadlocks the shared connection.
 	 */
 	readonly agentSelection: {
 		isAtCapacity(db: HyperIdleDb, agentId: string): Promise<boolean>;

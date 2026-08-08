@@ -69,9 +69,11 @@ import {
 	insertRoutineRun,
 	listRoutineRuns,
 	listRoutines,
+	resolveRoutineRunTargetAgent,
 	RoutineRunSourceUnavailableError,
 	resolveRoutineRunRequest,
 	updateRoutine,
+	updateRoutineRun,
 } from "./routine-service.js";
 
 const BUILTIN_ROUTINE_IDS = [
@@ -553,15 +555,32 @@ function safeNextRunAt(routine: Routine, now: Date): string | null {
  * `fireGenericRoutineInternal` — the routine_run emit site. AU21 §9
  * Increment 4, Wave B: `resolveRoutineRunRequest` (Decision B step 1) is now
  * folded into the SAME transaction that inserts the `routineRuns` "running"
- * row and enqueues the `routine_run` work intent — the literal
- * "same-package, same-transaction call, not a cross-layer edge left to
- * collapse at all" Decision B″ item 1 describes. A resolver rejection (routine
- * no longer eligible, or the resolved target agent is not runnable) rolls the
- * whole transaction back — no run row, no intent persists — and this
- * function reports `fired: false` instead of throwing. The dead
+ * row — the literal "same-package, same-transaction call, not a cross-layer
+ * edge left to collapse at all" Decision B″ item 1 describes. A resolver
+ * rejection (routine no longer eligible, or the resolved target agent is not
+ * runnable) rolls the whole transaction back — no run row persists — and
+ * this function reports `fired: false` instead of throwing. The dead
  * `_runtimeDeps` parameter the original threaded through (never consumed —
  * `fireGenericRoutineInternal`'s own signature already prefixed it `_`) is
  * dropped, not relocated: it carried no behavior.
+ *
+ * @lore AU31 §3.1 site 8 — the `routine_run` work-intent submit is NO LONGER
+ * inside this transaction. Cross-layer atomicity with `agent-orchestration`
+ * is relinquished (founder ruling, architecture.md §3.1/§13 item 9): the
+ * transaction commits `routineRuns` alone, THEN the seam call runs. Unlike
+ * the other eight relinquished sites, a bare miss here would wedge the
+ * routine forever — `fireGenericRoutine`'s own coalescing guard above reads
+ * exactly this row and reports "previous run still in progress" for as long
+ * as it stays `outcome:"running"`, and the stale-session reaper never
+ * touches it (it keys on an `active` session, which never existed for a
+ * submit that failed before a session could be admitted). So a failed submit
+ * is caught here and the run is marked `error` (guarded `onlyIfRunning`,
+ * same one-row write `agent-run-admission-reactions.ts` already performs for
+ * an admission rejection) before the failure is rethrown — ordinary error
+ * handling, not a durable mechanism: no outbox, no saga, no sweeper, no
+ * retry loop. With the row no longer `running`, the coalescing guard clears
+ * and the routine fires again on the next scheduler tick like any other
+ * routine whose last run failed.
  */
 export async function fireGenericRoutine(
 	db: HyperIdleDb,
@@ -591,9 +610,11 @@ export async function fireGenericRoutine(
 		return { fired: false, reason: "previous run still in progress" };
 	}
 	const runId = crypto.randomUUID();
-	let intent:
-		| Awaited<ReturnType<RoutineSchedulerPorts["workIntents"]["enqueueWorkIntent"]>>
-		| undefined;
+	// AU31 §3.1 — hoisted, not relinquished: the capacity + delegate-selection
+	// read(s) run BEFORE the transaction opens, against the already-loaded
+	// `routine` — a seam call inside an open transaction deadlocks the shared
+	// connection the same way a write does, regardless of read vs. write.
+	const selectedAgentId = await resolveRoutineRunTargetAgent(db, routine, ports.agentSelection);
 	let bakedRequest: BakedRoutineRunRequest | undefined;
 	try {
 		await db.transaction(async (tx) => {
@@ -603,8 +624,7 @@ export async function fireGenericRoutine(
 				startedAt: now.toISOString(),
 				outcome: "running",
 			});
-			bakedRequest = await resolveRoutineRunRequest(tx as HyperIdleDb, runId, {
-				agentSelection: ports.agentSelection,
+			bakedRequest = await resolveRoutineRunRequest(tx as HyperIdleDb, runId, selectedAgentId, {
 				requireRunnableAgent: ports.requireRunnableAgent,
 				// AU21 §9 Increment 12 (Decision H3): forward the optional
 				// contextBundle deps (present once the composition root wires
@@ -616,30 +636,42 @@ export async function fireGenericRoutine(
 				// second `settings` read.
 				readServerConfig: (db) => ports.settings.readServerConfig(db),
 			});
-			intent = await ports.workIntents.enqueueWorkIntent(tx, {
-				kind: "routine_run",
-				sourceKind: "routine_run",
-				sourceId: runId,
-				requestedBy: bakedRequest.defaultAgentId,
-				idempotencyKey: `routine:${runId}`,
-				bakedRequest,
-			});
 		});
 	} catch (error) {
 		// Only a resolver-originated rejection (routine no longer eligible, or
 		// the resolved target agent is not runnable) is an expected outcome to
 		// report as `fired:false` — a genuine downstream infra failure on the
-		// SAME transaction's writes (`insertRoutineRun`/`enqueueWorkIntent`)
-		// must propagate, exactly like every other failure in this transaction
-		// always has (`agent-work-intent-production.integration.test.ts`'s
-		// "rolls back its run when the intent write fails" pair depends on
-		// this).
+		// SAME transaction's write (`insertRoutineRun`) must propagate, exactly
+		// like every other failure in this transaction always has.
 		if (error instanceof RoutineRunSourceUnavailableError) {
 			return { fired: false, reason: error.message };
 		}
 		throw error;
 	}
-	if (!(intent && bakedRequest)) throw new Error("Routine work intent was not persisted");
+	if (!bakedRequest) throw new Error("Routine run was not resolved");
+	let intent: Awaited<ReturnType<RoutineSchedulerPorts["workIntents"]["enqueueWorkIntent"]>>;
+	try {
+		intent = await ports.workIntents.enqueueWorkIntent(db, {
+			kind: "routine_run",
+			sourceKind: "routine_run",
+			sourceId: runId,
+			requestedBy: bakedRequest.defaultAgentId,
+			idempotencyKey: `routine:${runId}`,
+			bakedRequest,
+		});
+	} catch (error) {
+		await updateRoutineRun(
+			db,
+			runId,
+			{
+				outcome: "error",
+				endedAt: new Date().toISOString(),
+				errorMessage: error instanceof Error ? error.message : String(error),
+			},
+			{ onlyIfRunning: true },
+		);
+		throw error;
+	}
 	eventBus.emit({
 		type: "agent_work_intent_recorded",
 		streamId: `routine:${routine.id}`,

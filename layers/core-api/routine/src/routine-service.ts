@@ -338,34 +338,25 @@ export interface RoutineRunResolverDeps {
 }
 
 /**
- * Resolve + validate a `routine_run` run at emit time: load the run
- * (rejecting if missing / not `"running"`), load its routine (rejecting if
- * soft-deleted / inactive / not in `state:"active"`), resolve the target
- * agent (the owner, delegating to a capacity-eligible skilled agent only when
- * the owner is at capacity AND delegation is allowed AND a skill is set AND a
- * candidate is actually found), validate the resolved target's runnability,
- * and bake the full request. Does exactly what
- * `resolveIntentInputInternal`'s "routine_run" case did at drain time
- * (`session-requests/src/service.ts`, deleted by this same wave) — now at
- * emit time, in the same package that owns `routines`/`routine_runs`.
+ * AU31 §3.1 — split out of `resolveRoutineRunRequest` (which this function
+ * used to open with) so the caller can run it BEFORE opening the transaction
+ * that inserts the `routineRuns` row. `isAtCapacity`'s real implementation
+ * is a seam call (`AgentOrchestrationPort.runs.isAtCapacity`) once wired at
+ * the composition root, and a seam call issued while a transaction holds the
+ * shared connection deadlocks the same way a write does — so this capacity +
+ * delegate-selection read runs against the ALREADY-loaded `routine` (the
+ * scheduler always has it before it ever calls `fireGenericRoutine`), with no
+ * dependency on the run row that has not been inserted yet.
  */
-export async function resolveRoutineRunRequest(
+export async function resolveRoutineRunTargetAgent(
 	db: HyperIdleDb,
-	runId: string,
-	deps: RoutineRunResolverDeps,
-): Promise<BakedRoutineRunRequest> {
-	const run = await getRoutineRun(db, runId);
-	if (run?.outcome !== "running") {
-		throw new RoutineRunSourceUnavailableError("Routine run is unavailable");
-	}
-	const routine = await getRoutine(db, run.routineId);
-	if (!routine || routine.deletedAt || !routine.active || routine.state !== "active") {
-		throw new RoutineRunSourceUnavailableError("Routine is not eligible to run");
-	}
+	routine: Routine,
+	agentSelection: RoutineRunResolverDeps["agentSelection"],
+): Promise<string> {
 	let selectedAgentId = routine.ownerAgentId;
-	if (await deps.agentSelection.isAtCapacity(db, routine.ownerAgentId)) {
+	if (await agentSelection.isAtCapacity(db, routine.ownerAgentId)) {
 		if (routine.delegationAllowed && routine.skillId) {
-			const { agentId } = await deps.agentSelection.selectAgent({
+			const { agentId } = await agentSelection.selectAgent({
 				surface: "routine_delegate",
 				db,
 				teamId: null,
@@ -375,6 +366,33 @@ export async function resolveRoutineRunRequest(
 			});
 			if (agentId) selectedAgentId = agentId;
 		}
+	}
+	return selectedAgentId;
+}
+
+/**
+ * Resolve + validate a `routine_run` run at emit time: load the run
+ * (rejecting if missing / not `"running"`), load its routine (rejecting if
+ * soft-deleted / inactive / not in `state:"active"`), validate the target
+ * agent's (already resolved — see `resolveRoutineRunTargetAgent` above)
+ * runnability, and bake the full request. Does exactly what
+ * `resolveIntentInputInternal`'s "routine_run" case did at drain time
+ * (`session-requests/src/service.ts`, deleted by this same wave) — now at
+ * emit time, in the same package that owns `routines`/`routine_runs`.
+ */
+export async function resolveRoutineRunRequest(
+	db: HyperIdleDb,
+	runId: string,
+	selectedAgentId: string,
+	deps: RoutineRunResolverDeps,
+): Promise<BakedRoutineRunRequest> {
+	const run = await getRoutineRun(db, runId);
+	if (run?.outcome !== "running") {
+		throw new RoutineRunSourceUnavailableError("Routine run is unavailable");
+	}
+	const routine = await getRoutine(db, run.routineId);
+	if (!routine || routine.deletedAt || !routine.active || routine.state !== "active") {
+		throw new RoutineRunSourceUnavailableError("Routine is not eligible to run");
 	}
 	let agent: User;
 	try {

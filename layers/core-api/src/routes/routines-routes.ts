@@ -1,3 +1,4 @@
+import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { getTeam } from "@hyperidle/org";
 import * as routineService from "@hyperidle/routine";
@@ -89,7 +90,11 @@ function stateToActive(state: string): boolean {
  * `routine-scheduler-bindings.ts`'s `fireRoutine` — dispatch itself no
  * longer knows about routines.
  */
-export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
+export function createRoutineRoutes(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	agentOrchestration: AgentOrchestrationPort,
+): Hono {
 	const router = new Hono();
 
 	// POST / — Create routine (AA2 AC-1)
@@ -383,14 +388,14 @@ export function createRoutineRoutes(db: HyperIdleDb, eventBus: EventBus): Hono {
 				}
 				args = { betId: body.betId };
 			}
-			const result = await fireRoutine(db, eventBus, routine, { args });
+			const result = await fireRoutine(db, eventBus, agentOrchestration, routine, { args });
 			if (!result.fired) {
 				return c.json({ routineId, fired: false, reason: result.reason }, 200);
 			}
 			return c.json({ routineId, fired: true, ...(result.extra ?? {}) }, 200);
 		}
 
-		const result = await fireRoutine(db, eventBus, routine, {
+		const result = await fireRoutine(db, eventBus, agentOrchestration, routine, {
 			recordSkippedRun: true,
 		});
 		const reason = result.reason === "previous run still in progress" ? "coalesced" : result.reason;

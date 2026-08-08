@@ -9,6 +9,7 @@
  * retention reapers they schedule.
  */
 
+import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import {
 	findThread,
 	insertMessage,
@@ -34,7 +35,7 @@ import { getTeam, getTeamMembers, resolveReviewRecipients } from "@hyperidle/org
 import type { PolicyDeps } from "@hyperidle/policy";
 import { registerPolicy } from "@hyperidle/policy";
 import { registerReviewSubscriptions } from "@hyperidle/review";
-import { enqueueWorkIntent, startLifecycleProjectionDrain } from "@hyperidle/session-requests";
+import { startLifecycleProjectionDrain } from "@hyperidle/session-requests";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import { createLogger, type EventBus, type ResolvedModel } from "@hyperidle/shared";
 import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/shared/crypto";
@@ -50,6 +51,7 @@ import { and, inArray, lt } from "drizzle-orm";
 import { attachRelevanceListener } from "../knowledge/src/relevance-listener.js";
 import { registerAgentHealthSessionEndReactions } from "./services/agent-health-session-end-reactions.js";
 import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
+import { buildSeamBackedWorkIntentRecorder } from "./services/agent-orchestration-port-composition.js";
 import { registerAssistantTurnCoherenceTrigger } from "./services/assistant-turn-coherence-trigger.js";
 import { resolveOrCreateCallingThread } from "./services/calling-thread-bindings.js";
 // @lore AU21 Increment 14a: cost sentinel + `costOps`/`cost-bindings.ts` are
@@ -296,6 +298,13 @@ export function registerCoreDomainServices(ctx: {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
 	/**
+	 * AU31 §3.2 — the seam's one port for this composition, required (not
+	 * optional): every reaction that used to reach `@hyperidle/session-requests`
+	 * directly now goes through it, handed in as a value by the caller
+	 * (`app.ts`'s `serviceBootstrap` invocation) — never an ambient global.
+	 */
+	readonly agentOrchestration: AgentOrchestrationPort;
+	/**
 	 * Inject alert preferences reader for the notification dispatcher.
 	 * Uses an inline structural type so `AlertPreferences` (delivery-chain
 	 * internal) stays out of the public server-factory surface.
@@ -323,7 +332,7 @@ export function registerCoreDomainServices(ctx: {
 	 */
 	readonly dispatcherDeps?: Omit<TaskDispatcherDeps, "db" | "eventBus">;
 }): Array<() => void> {
-	const { db, eventBus } = ctx;
+	const { db, eventBus, agentOrchestration } = ctx;
 	const disposers: Array<() => void> = [];
 	disposers.push(
 		identifyBootstrapOwner(
@@ -336,7 +345,7 @@ export function registerCoreDomainServices(ctx: {
 
 	disposers.push(
 		identifyBootstrapOwner(
-			registerAgentRunAdmissionReactions(db, eventBus),
+			registerAgentRunAdmissionReactions(db, eventBus, agentOrchestration),
 			"agent-run-admission reactions",
 			"unsubscribe",
 			["agent_run_admission_failed subscription"],
@@ -386,7 +395,7 @@ export function registerCoreDomainServices(ctx: {
 	// provisioner.ts`'s deleted direct `ports.work.transitionTask` write.
 	disposers.push(
 		identifyBootstrapOwner(
-			registerWorkSessionStartedReactions(db, eventBus),
+			registerWorkSessionStartedReactions(db, eventBus, agentOrchestration),
 			"work session-started reactions",
 			"unsubscribe",
 			["session_started subscription"],
@@ -413,7 +422,7 @@ export function registerCoreDomainServices(ctx: {
 	// the now-current transcript, reusing the Increment 3 supersede machinery.
 	disposers.push(
 		identifyBootstrapOwner(
-			registerAssistantTurnCoherenceTrigger(db, eventBus),
+			registerAssistantTurnCoherenceTrigger(db, eventBus, agentOrchestration),
 			"assistant-turn B‴ coherence trigger",
 			"unsubscribe",
 			["thread_message_appended subscription"],
@@ -467,7 +476,10 @@ export function registerCoreDomainServices(ctx: {
 					listUsersByKind: (db, kind) => listUsers(db, { kind }),
 				},
 				org: { resolveReviewRecipients },
-				intentRecorder: { record: enqueueWorkIntent },
+				// AU31 §3.1 site 9 / §3.2: seam-backed — `proposed-call-workflow.ts`'s
+				// own transaction is restructured to relinquish atomicity with this
+				// write (grant commits, the reengagement intent follows post-commit).
+				intentRecorder: buildSeamBackedWorkIntentRecorder<WriteExecutor>(agentOrchestration),
 				requireRunnableAgent,
 				// AU21 §9 Increment 12 (Decision H3): the liveness-net reengagement
 				// re-provision (`applyLivenessRetry`) also bakes a contextBundle now.
@@ -570,6 +582,8 @@ export function registerCoreDomainServices(ctx: {
 export function registerAgentLayerServices(ctx: {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
+	/** AU31 §3.2 — required, same shape as `registerCoreDomainServices`'s ctx. */
+	readonly agentOrchestration: AgentOrchestrationPort;
 	readonly dispatcherDeps?: Omit<TaskDispatcherDeps, "db" | "eventBus">;
 	readonly reaperStaleAfterMs?: number;
 	/** AF6 §1: routine scheduler poll cadence (ms). Optional; defaults to 30s. */
@@ -579,7 +593,7 @@ export function registerAgentLayerServices(ctx: {
 	/** AF6 §4: in-process periodic reaper cadence (ms). 0 = every poll (tests). */
 	readonly reaperCadenceMs?: number;
 }): Array<() => void> {
-	const { db, eventBus } = ctx;
+	const { db, eventBus, agentOrchestration } = ctx;
 	const disposers: Array<() => void> = [];
 	const reaperStaleAfterMs = ctx.reaperStaleAfterMs ?? DEFAULT_REAPER_STALE_AFTER_MS;
 
@@ -590,14 +604,14 @@ export function registerAgentLayerServices(ctx: {
 
 	disposers.push(
 		identifyBootstrapOwner(
-			registerBuiltinRoutineReactions(db, eventBus),
+			registerBuiltinRoutineReactions(db, eventBus, agentOrchestration),
 			"builtin routine reactions",
 			"bet_state_changed subscription stop",
 			["builtin routine reactions"],
 		),
 	);
 
-	const schedulerPromise = startRoutineScheduler(db, eventBus, {
+	const schedulerPromise = startRoutineScheduler(db, eventBus, agentOrchestration, {
 		pollIntervalMs,
 		canProvision: ctx.canProvision ?? Boolean(ctx.dispatcherDeps),
 		reaperCadenceMs: ctx.reaperCadenceMs,

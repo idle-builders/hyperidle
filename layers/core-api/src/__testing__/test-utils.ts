@@ -1,5 +1,6 @@
 import { appendFileSync } from "node:fs";
 import { performance } from "node:perf_hooks";
+import type { AgentOrchestrationTransport } from "@hyperidle/api-contract";
 import {
 	type AgentOrchestrationBoot,
 	bootAgentOrchestration,
@@ -12,8 +13,8 @@ import { registerAppDisposers } from "../app.js";
 import { bootCoreApi } from "../boot.js";
 import { health } from "../routes/health.js";
 import {
+	buildAgentOrchestrationPort,
 	createInProcessAgentOrchestrationTransport,
-	registerAgentOrchestrationTransport,
 } from "../services/agent-orchestration-port-composition.js";
 
 const TRACE_FILE = process.env.VITEST_TRACE_FILE;
@@ -22,8 +23,13 @@ export interface TestAppOptions extends AppOptions {
 	/**
 	 * A pre-booted orchestration Layer. Omitted → this harness boots one itself
 	 * (when a `db` is present), exactly as production does.
+	 *
+	 * @lore AU31 §3.2: renamed from `agentOrchestration` (now `AppOptions`'s
+	 * own field name for the SEAM'S PORT, a different thing entirely — the
+	 * Layer boot handle vs. the port a caller dials it through) to avoid the
+	 * collision.
 	 */
-	agentOrchestration?: AgentOrchestrationBoot;
+	agentOrchestrationBoot?: AgentOrchestrationBoot;
 	/**
 	 * Mount extra routes on the `/api` router at the exact point production's
 	 * Application mounts the MCP bridge: after both Layers' pre-auth
@@ -60,12 +66,34 @@ export async function createTestApp(options?: TestAppOptions): Promise<Hono> {
 	// The two Layers MUST share one EventBus instance — the activity buffer and
 	// the gateway subscribe to the same stream the core routes emit on.
 	const eventBus = options?.eventBus ?? new EventBus();
+
+	// AU31 §3.2 clause 4 — the construction cycle: the port's transport must
+	// dial the COMPOSED app (the one carrying the `/api` prefix), which does
+	// not exist until both Layers have booted and been mounted below. Closed
+	// by a root-local binding, not a module variable: the arrow closes over
+	// `composedApp`, filled once the composed app exists at the end of this
+	// function. Any real HTTP call happens strictly after that (route
+	// handlers only READ the port's methods when a request arrives, never at
+	// construction time), so this is safe.
+	let realTransport: AgentOrchestrationTransport | undefined;
+	const transport: AgentOrchestrationTransport = async (req) => {
+		if (!realTransport) {
+			throw new Error(
+				"AgentOrchestrationPort transport called before the composed app was built " +
+					"(createTestApp's construction cycle is not yet closed).",
+			);
+		}
+		return realTransport(req);
+	};
+	const agentOrchestrationPort = buildAgentOrchestrationPort(transport);
+
 	const layerOptions: AppOptions = {
 		...options,
+		agentOrchestration: agentOrchestrationPort,
 		...(options?.db ? { eventBus } : {}),
 	};
 	const agentOrchestration =
-		options?.agentOrchestration ??
+		options?.agentOrchestrationBoot ??
 		(options?.db ? bootAgentOrchestration({ db: options.db, eventBus }) : undefined);
 	const coreApi = await bootCoreApi(layerOptions);
 
@@ -98,7 +126,8 @@ export async function createTestApp(options?: TestAppOptions): Promise<Hono> {
 		...coreApi.disposers,
 		...(agentOrchestration ? [agentOrchestration.dispose] : []),
 	]);
-	registerAgentOrchestrationTransport(createInProcessAgentOrchestrationTransport(app));
+	// Close the construction cycle — every request from here on resolves.
+	realTransport = createInProcessAgentOrchestrationTransport(app);
 
 	if (TRACE_FILE) {
 		const ms = Math.round((performance.now() - t0) * 10) / 10;

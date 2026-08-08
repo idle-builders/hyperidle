@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { type HyperIdleDb, taskDispatchAttempts } from "@hyperidle/db";
 import {
+	type BakedWorkIntentRequest,
 	canTransitionTaskState,
 	type EventBus,
 	TASK_STATE_TRANSITIONS,
@@ -60,6 +61,15 @@ export {
  * `UPDATE ... WHERE id AND state = fromState` matches 0 rows → InvalidTransitionError
  * → tx rolls back (no partial write). `task_state_changed` emits AFTER commit so
  * only the winner emits exactly once.
+ *
+ * @lore AU31 §3.1 site 6 — `deps.workIntents.record` is called AFTER this
+ * transaction commits, not inside it. Cross-layer atomicity with
+ * `agent-orchestration` is relinquished (founder ruling, architecture.md
+ * §3.1/§13 item 9): on a failed record, the task sits in its new state with a
+ * `requested` dispatch-attempt row and no session ever starts — visible in
+ * the task view (state changed, nothing running), repaired by moving the
+ * task to `hold` and back (the existing `"retry"` occasion path below,
+ * reachable from the tasks route).
  */
 export async function transitionTask(
 	db: HyperIdleDb,
@@ -69,6 +79,9 @@ export async function transitionTask(
 	deps: TaskStateMachineDeps,
 	dispatchOccasion?: "accepted" | "retry",
 ): Promise<void> {
+	let pendingDispatch:
+		| { readonly attemptId: string; readonly bakedRequest: BakedWorkIntentRequest; readonly ownerAgentId: string }
+		| undefined;
 	const transitioned = await db.transaction(
 		async (tx): Promise<{ fromState: TaskState } | null> => {
 			// Re-read INSIDE the tx so the audit read and the CAS write serialize together.
@@ -138,14 +151,11 @@ export async function transitionTask(
 					attemptId,
 					deps.taskRunResolver,
 				);
-				await deps.workIntents.record(tx, {
-					kind: "task_run",
-					sourceKind: "task_dispatch_attempt",
-					sourceId: attemptId,
-					requestedBy: task.ownerAgentId,
-					idempotencyKey: `task-dispatch:${attemptId}`,
-					bakedRequest,
-				});
+				// AU31 §3.1 site 6: the bake reads the dispatch-attempt row just
+				// inserted above, so it stays IN this transaction; only the seam
+				// WRITE (`workIntents.record`) moves out, post-commit (see this
+				// function's top `@lore`).
+				pendingDispatch = { attemptId, bakedRequest, ownerAgentId: task.ownerAgentId };
 			}
 
 			return { fromState };
@@ -153,6 +163,17 @@ export async function transitionTask(
 	);
 
 	if (!transitioned) return;
+
+	if (pendingDispatch) {
+		await deps.workIntents.record(db, {
+			kind: "task_run",
+			sourceKind: "task_dispatch_attempt",
+			sourceId: pendingDispatch.attemptId,
+			requestedBy: pendingDispatch.ownerAgentId,
+			idempotencyKey: `task-dispatch:${pendingDispatch.attemptId}`,
+			bakedRequest: pendingDispatch.bakedRequest,
+		});
+	}
 
 	eventBus.emit({
 		type: "task_state_changed",

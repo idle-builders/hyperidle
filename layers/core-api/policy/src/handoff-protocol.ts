@@ -112,7 +112,22 @@ export function buildHandoff(
 		let taskStateChangedEvent: TaskStateChangedEvent | null = null;
 		let itemCreatedEvent: Extract<DomainEvent, { type: "item_created" }> | null = null;
 
+		// AU31 §3.1 site 7 — moved AHEAD of the transaction (the "free lever":
+		// see `ports.ts`'s `runOrchestration` @lore for why this one site
+		// reorders instead of taking the default post-commit order). Cross-layer
+		// atomicity with `agent-orchestration` is relinquished either way; a
+		// rolled-back handoff below now leaves an already-ended run + an
+		// untouched task — the named residue.
+		await deps.runOrchestration.endRunForHandoff(db, sessionContext.sessionId, now);
+
 		// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: same transactional logic as pre-migration (toAgent/toRole/toHuman branches, escalation vs review-item paths, audit-trail append) — the `buildHandoff(deps)` factory-curry wrapper (Mechanism C) this migration introduced adds one nesting level around the whole function, pushing an already-complex-but-unchanged CAS transaction over the threshold.
+		let dispatchIntent:
+			| {
+					readonly attemptId: string;
+					readonly targetAgentId: string;
+					readonly bakedRequest: Awaited<ReturnType<HandoffDeps["taskRunResolver"]["resolve"]>>;
+			  }
+			| undefined;
 		const result: HandoffResult = await db.transaction(async (tx): Promise<HandoffResult> => {
 			const claim = await deps.work.claimTaskHandoff(tx, {
 				taskId: task.id,
@@ -121,13 +136,7 @@ export function buildHandoff(
 			});
 			if (!claim.applied) throw new Error(`Task handoff conflict: ${task.id}`);
 
-			// 1. End the current run (state + endedAt) — a downward call into
-			// `agent-orchestration`, with THIS transaction's handle so the run is
-			// terminal at the same commit as the task claim above. Unconditional:
-			// it runs whether or not a matching `agentSessionRequests` row exists.
-			await deps.runOrchestration.endRunForHandoff(tx, sessionContext.sessionId, now);
-
-			// 2. Perform the handoff-type-specific mutations + capture the
+			// Perform the handoff-type-specific mutations + capture the
 			// post-commit event shapes.
 			let txResult: HandoffResult;
 			if (params.toHuman) {
@@ -333,16 +342,13 @@ export function buildHandoff(
 				// AU21 §6 Decision B: resolve + validate the task_run run AT EMIT
 				// TIME (via the injected `work` resolver, since `policy` cannot
 				// import `@hyperidle/work` directly — Mechanism C) and bake the
-				// full request onto the intent.
+				// full request onto the intent. The bake reads the dispatch-attempt
+				// row just inserted above, so it stays IN this transaction; only the
+				// seam WRITE (`sessionRequests.record`) moves out — AU31 §3.1 site 7's
+				// second orchestration write, plain relinquishment (default order,
+				// unlike `endRunForHandoff` above): see `dispatchIntent`'s use below.
 				const bakedRequest = await deps.taskRunResolver.resolve(tx, attemptId);
-				await deps.sessionRequests.record(tx, {
-					kind: "task_run",
-					sourceKind: "task_dispatch_attempt",
-					sourceId: attemptId,
-					requestedBy: txResult.targetAgentId,
-					idempotencyKey: `task-dispatch:${attemptId}`,
-					bakedRequest,
-				});
+				dispatchIntent = { attemptId, targetAgentId: txResult.targetAgentId, bakedRequest };
 			}
 
 			return txResult;
@@ -354,6 +360,22 @@ export function buildHandoff(
 		}
 		if (itemCreatedEvent) {
 			eventBus.emit(itemCreatedEvent);
+		}
+
+		// AU31 §3.1 site 7 — the dispatch intent's seam write, relinquished in
+		// the default (post-commit) order: the grant/claim already committed;
+		// on failure the task sits handed-off with a `requested` dispatch-attempt
+		// row and no session queued — the SAME residue `hold`/re-dispatch already
+		// repairs for site 6.
+		if (dispatchIntent) {
+			await deps.sessionRequests.record(db, {
+				kind: "task_run",
+				sourceKind: "task_dispatch_attempt",
+				sourceId: dispatchIntent.attemptId,
+				requestedBy: dispatchIntent.targetAgentId,
+				idempotencyKey: `task-dispatch:${dispatchIntent.attemptId}`,
+				bakedRequest: dispatchIntent.bakedRequest,
+			});
 		}
 
 		eventBus.emit({

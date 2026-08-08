@@ -1,3 +1,5 @@
+import type { AgentOrchestrationPort, AgentOrchestrationTransport } from "@hyperidle/api-contract";
+import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";
 import { registerAssistantThreadPinReaction } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { type DbFixtures, test as dbTest } from "@hyperidle/db/test-fixtures";
@@ -6,9 +8,37 @@ import { findUser } from "@hyperidle/users";
 import type { Hono } from "hono";
 import { disposeApp } from "../app.js";
 import { registerAgentRunAdmissionReactions } from "../services/agent-run-admission-reactions.js";
+import { buildAgentOrchestrationPort } from "../services/agent-orchestration-port-composition.js";
 import { registerAssistantTurnCoherenceTrigger } from "../services/assistant-turn-coherence-trigger.js";
 import { registerTestRoutes } from "./test-routes.js";
 import { createTestApp } from "./test-utils.js";
+
+/**
+ * AU31 §3.2 clause 6 — the service-lane fixture's transport: dials
+ * agent-orchestration's OWN bare app directly (never the composed core +
+ * orchestration `/api` app with its middleware stack), so a reaction test
+ * asserts a real effect on a real database through the real route, with no
+ * `app` fixture needed. The part that bites: this app mounts its seam routes
+ * at `/agent-orchestration/...` with NO `/api` prefix
+ * (`layers/agent-orchestration/src/app.ts`) — the prefix is added only by the
+ * application's `/api` router, and the port client always issues
+ * `/api/agent-orchestration/...` (`SEAM_PLACEHOLDER_BASE_URL`). A transport
+ * bound straight to the bare app therefore 404s unless the `/api` prefix is
+ * stripped first — which is what this does. Deliberately skips the
+ * middleware stack (auth, fail-closed) the production transport goes
+ * through: this fixture transport proves the route's effect, not the door's
+ * authentication.
+ */
+function createFixtureAgentOrchestrationTransport(app: Hono): AgentOrchestrationTransport {
+	return async (req: Request) => {
+		const url = new URL(req.url);
+		const strippedPath = url.pathname.replace(/^\/api/, "");
+		const target = new URL(`${strippedPath}${url.search}`, url.origin);
+		const hasBody = req.method !== "GET" && req.method !== "HEAD";
+		const body = hasBody ? await req.text() : undefined;
+		return app.fetch(new Request(target, { method: req.method, headers: req.headers, body }));
+	};
+}
 
 export interface IntegrationFixtures extends DbFixtures {
 	app: Hono;
@@ -35,17 +65,36 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 	// and the B‴ coherence re-bake trigger (`assistant-turn-coherence-trigger.ts`)
 	// are wired here for the SAME reason — production wires the SAME two
 	// registrations inside `registerCoreDomainServices` (`server-factory.ts`).
+	//
+	// @lore AU31 §3.2 clause 6: this fixture builds its OWN `AgentOrchestrationPort`
+	// over a throwaway `bootAgentOrchestration({db, eventBus})` — the seam's
+	// backing surface only, never the composed core+orchestration `/api` app —
+	// so a reaction test asserts a real effect through the real route without
+	// needing an `app` fixture. This is what makes wave A's reaction lane
+	// testable at all: the module-level transport singleton it replaces could
+	// not be reached from a bare `{db, eventBus}` fixture (a reaction test
+	// requesting no `app` would resolve some OTHER test's stale registration,
+	// or throw).
 	eventBus: async ({ db }, use) => {
 		const eventBus = new EventBus();
-		const unregister = registerAgentRunAdmissionReactions(db, eventBus);
+		const orchestrationBoot = bootAgentOrchestration({ db, eventBus });
+		const agentOrchestration: AgentOrchestrationPort = buildAgentOrchestrationPort(
+			createFixtureAgentOrchestrationTransport(orchestrationBoot.app),
+		);
+		const unregister = registerAgentRunAdmissionReactions(db, eventBus, agentOrchestration);
 		const unregisterPin = registerAssistantThreadPinReaction(db, eventBus, {
 			findUserById: (execDb: HyperIdleDb, id: string) => findUser(execDb, { id }),
 		});
-		const unregisterCoherence = registerAssistantTurnCoherenceTrigger(db, eventBus);
+		const unregisterCoherence = registerAssistantTurnCoherenceTrigger(
+			db,
+			eventBus,
+			agentOrchestration,
+		);
 		await use(eventBus);
 		unregisterCoherence();
 		unregisterPin();
 		unregister();
+		orchestrationBoot.dispose();
 	},
 	// @lore AU26 B1b: the fixture is an Application — it delegates to
 	// `createTestApp`, the single test-harness composition site, which boots BOTH

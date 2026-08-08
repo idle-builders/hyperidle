@@ -520,6 +520,19 @@ export async function transitionProposedCall(
 				typeof transition.approvedArgs === "string"
 					? transition.approvedArgs
 					: JSON.stringify(transition.approvedArgs);
+			// AU31 §3.1 site 9 — the intent SUBMIT (`ports.intentRecorder.record`)
+			// is captured here and called AFTER this transaction commits, never
+			// inside it: a seam call issued while a transaction holds the shared
+			// connection deadlocks it. The bake itself (`resolveReengagementRequest`)
+			// stays IN the transaction — it reads the grant row just inserted
+			// below. Cross-layer atomicity with `agent-orchestration` is
+			// relinquished (founder ruling, architecture.md §3.1/§13 item 9): on a
+			// failed submit, the human's approval is recorded and the grant is
+			// minted, but no reengagement session is queued — the grant row stays
+			// `consumed:false`, so the agent's next attempt at the same tool call
+			// consumes it, and `applyLivenessRetry` is the existing net on the
+			// same path.
+			let pendingIntent: ReviewAgentWorkIntentInput | undefined;
 			await tx.transaction(async (innerTx) => {
 				await innerTx.insert(tailoredGrants).values({
 					proposedCallId: transition.id,
@@ -567,7 +580,7 @@ export async function transitionProposedCall(
 							bakedRequest = undefined;
 						}
 					}
-					const input: ReviewAgentWorkIntentInput = {
+					pendingIntent = {
 						kind: "reengagement",
 						sourceKind: "proposed_call",
 						sourceId: transition.id,
@@ -575,9 +588,11 @@ export async function transitionProposedCall(
 						idempotencyKey: `grant:${transition.id}`,
 						bakedRequest,
 					};
-					await ports.intentRecorder.record(innerTx, input);
 				}
 			});
+			if (pendingIntent && ports?.intentRecorder) {
+				await ports.intentRecorder.record(tx, pendingIntent);
+			}
 			return;
 		}
 

@@ -32,6 +32,7 @@ import * as path from "node:path";
 import { type ServerType, serve, upgradeWebSocket } from "@hono/node-server";
 import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";
 import { readAgentRunConfigs } from "@hyperidle/agent-run-config";
+import type { AgentOrchestrationTransport } from "@hyperidle/api-contract";
 import {
 	listConnections,
 	listHeldConnectionsForProvisioning,
@@ -48,8 +49,8 @@ import {
 	registerCoreDomainServices,
 } from "@hyperidle/core-api/service-bootstrap";
 import {
+	buildAgentOrchestrationPort,
 	createInProcessAgentOrchestrationTransport,
-	registerAgentOrchestrationTransport,
 } from "@hyperidle/core-api/services/agent-orchestration-port-composition";
 import {
 	createInProcessCoreApiTransport,
@@ -689,6 +690,24 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// string without a user API key. It rides `bootAgentOrchestration`'s
 	// `registerPreAuthRoutes` now — the socket is `run-orchestration`'s, so the
 	// hook belongs to that Layer's boot rather than to core-api's `AppOptions`.
+	// AU31 §3.2 clause 4 — the construction cycle: the port's transport must
+	// dial the COMPOSED app (the one carrying the `/api` prefix), which does
+	// not exist until both Layers have booted and been mounted below. Closed
+	// by a root-local binding, not a module variable — the arrow closes over
+	// `composedApp`, filled once the composed app exists near the bottom of
+	// this function. No route handler calls the port before then (they only
+	// read it when a real request arrives), so this is safe.
+	let realAgentOrchestrationTransport: AgentOrchestrationTransport | undefined;
+	const agentOrchestrationTransport: AgentOrchestrationTransport = async (req) => {
+		if (!realAgentOrchestrationTransport) {
+			throw new Error(
+				"AgentOrchestrationPort transport called before the composed app was built.",
+			);
+		}
+		return realAgentOrchestrationTransport(req);
+	};
+	const agentOrchestrationPort = buildAgentOrchestrationPort(agentOrchestrationTransport);
+
 	const agentOrchestration = bootAgentOrchestration({
 		db,
 		eventBus,
@@ -714,6 +733,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		eventBus,
 		wsHub,
 		upgradeTokenStore,
+		agentOrchestration: agentOrchestrationPort,
 		serviceBootstrap: (ctx) => {
 			// AF6/AU1: production boots the routine scheduler at the default
 			// 30s cadence. Runtime deps are present, so generic routine fires
@@ -827,11 +847,12 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// `disposeApp(app)` tears the whole composition down.
 	registerAppDisposers(app, [...coreApi.disposers, agentOrchestration.dispose]);
 
-	// AU21 §9 Increment 6 (Decision D): the in-process `AgentOrchestrationPort`
-	// transport is registered against the COMPOSED app — its seam URLs are
-	// `/api/agent-orchestration/...`, so it needs the instance that carries the
-	// `/api` prefix, not either Layer's bare route table.
-	registerAgentOrchestrationTransport(createInProcessAgentOrchestrationTransport(app));
+	// AU31 §3.2 clause 4: close the construction cycle — the in-process
+	// transport (needs the COMPOSED app, since its seam URLs carry the `/api`
+	// prefix) can only be built now that `app` exists. The port built above
+	// (before either Layer booted) already resolves every subsequent request
+	// through it.
+	realAgentOrchestrationTransport = createInProcessAgentOrchestrationTransport(app);
 
 	// AU21 §9 Increment 1: register the boot-time in-process CoreApiPort
 	// transport — `tool-handlers-bindings.ts`'s `coreApi` accessor (currently

@@ -173,16 +173,25 @@ export interface AgentOrchestrationExplicitStartRequest {
 	readonly bakedRequest?: unknown;
 }
 
-/** Mirrors `explicitSessionStarts`' wire-relevant columns. */
+/**
+ * Mirrors `explicitSessionStarts`' wire-relevant columns.
+ *
+ * @lore AU31 §3: `failureCode` was missing from A1's landed shape —
+ * `projectExplicitStartOutcome`'s 422/429/500 failure-code mapping needs it
+ * (`ExplicitStartRow`, `framework/shared/src/http/explicit-start-projection.ts`),
+ * and `sessions-routes.ts`'s restructuring onto this view surfaced the gap.
+ * `requestedModelTier` corrected to non-null (`.notNull()` in the schema).
+ */
 export interface AgentOrchestrationExplicitStartView {
 	readonly id: string;
 	readonly status: string;
 	readonly taskId: string;
 	readonly requestedAgentId: string;
-	readonly requestedModelTier: string | null;
+	readonly requestedModelTier: string;
 	readonly requestedBy: string;
 	readonly idempotencyKey: string;
 	readonly sessionId: string | null;
+	readonly failureCode: string | null;
 }
 
 export interface AgentOrchestrationExplicitStartResult {
@@ -259,6 +268,17 @@ export interface AgentOrchestrationRunsPort {
 	abort(sessionId: string): Promise<void>;
 	/** `session_start`'s admission-failure reaction — the one non-`request`-target transition core drives (`agent-run-admission-reactions.ts`). */
 	failExplicitStart(startId: string, failureCode: string): Promise<void>;
+	/**
+	 * AU31 §3.1 — the routine-scheduler's own capacity read
+	 * (`@hyperidle/run-orchestration`'s `isAgentAtCapacity`, an active-`sessions`
+	 * count against the caller-resolved bound). One of the two reads §3.1 names
+	 * as hoisted (not relinquished) above `routine-scheduler.ts`'s transaction —
+	 * a seam call inside an open transaction deadlocks the shared connection the
+	 * same way a write does, so the caller resolves `maxConcurrentSessions`
+	 * (`runConfig.read`) and calls this BEFORE opening its transaction, passing
+	 * the bound in rather than letting this door re-resolve it.
+	 */
+	isAtCapacity(agentId: string, maxConcurrentSessions: number): Promise<boolean>;
 }
 
 /** Mirrors `AgentRunConfig` (`@hyperidle/agent-run-config`). */
@@ -298,6 +318,14 @@ export type AgentOrchestrationPersistInjectionResult =
 
 /** §2.6 — the one core-hosted injection route's persist step, seam-backed instead of a direct `@hyperidle/filesystems` import. */
 export interface AgentOrchestrationFilesystemsPort {
+	/**
+	 * The team-consistency gate's own pre-write read: the filesystem's owning
+	 * team, or `null` when the filesystem does not exist. Read BEFORE
+	 * `persistInjection` — the gate must reject a team mismatch without
+	 * writing, and `persistInjection`'s own existence check runs too late
+	 * for that ordering.
+	 */
+	getTeamId(filesystemId: string): Promise<string | null>;
 	persistInjection(
 		filesystemId: string,
 		agentUserId: string,

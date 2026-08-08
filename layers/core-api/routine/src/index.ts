@@ -86,6 +86,7 @@ export {
 	insertRoutineRun,
 	listRoutineRuns,
 	listRoutines,
+	resolveRoutineRunTargetAgent,
 	RoutineRunSourceUnavailableError,
 	resolveRoutineRunRequest,
 	updateRoutine,

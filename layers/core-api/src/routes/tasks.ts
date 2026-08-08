@@ -1,6 +1,6 @@
+import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { PolicySessionContext } from "@hyperidle/policy";
-import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import type { EventBus } from "@hyperidle/shared";
 import { API_ERROR_CODES, TASK_OUTCOME_VERDICTS, TASK_STATES } from "@hyperidle/shared";
 import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/shared/http";
@@ -9,11 +9,8 @@ import { transitionTask } from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";
 import { enumValues } from "../schemas/common.schema.js";
-import {
-	buildAgentOrchestrationPort,
-	getRegisteredAgentOrchestrationTransport,
-} from "../services/agent-orchestration-port-composition.js";
-import { handoff } from "../services/policy-bindings.js";
+import { buildSeamBackedWorkIntentRecorder } from "../services/agent-orchestration-port-composition.js";
+import { buildProductionHandoff } from "../services/policy-bindings.js";
 import { taskRunResolverDeps } from "../services/task-run-resolver-bindings.js";
 
 /**
@@ -88,8 +85,13 @@ const handoffSchema = z.object({
  * Create Hono routes for task endpoints.
  * Requires db and eventBus injected.
  */
-export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<HyperIdleEnv> {
+export function createTaskRoutes(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	agentOrchestration: AgentOrchestrationPort,
+): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
+	const handoff = buildProductionHandoff(agentOrchestration);
 
 	// POST /tasks — create a new task (agent-driven decomposition)
 	router.post(
@@ -251,7 +253,7 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 			const body = c.req.valid("json" as never) as z.infer<typeof transitionTaskSchema>;
 
 			await transitionTask(db, eventBus, taskId, body.state, {
-				workIntents: { record: enqueueWorkIntent },
+				workIntents: buildSeamBackedWorkIntentRecorder(agentOrchestration),
 				taskRunResolver: taskRunResolverDeps,
 			});
 
@@ -283,10 +285,7 @@ export function createTaskRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hype
 			// (handing off a non-existent run must fail) and `agentId` (the author of
 			// every thread, message and item the handoff creates), which is a
 			// property of the run and cannot be derived from anything core owns.
-			const orchestrationPort = buildAgentOrchestrationPort(
-				getRegisteredAgentOrchestrationTransport(),
-			);
-			const session = await orchestrationPort.sessions.getById(body.sessionId);
+			const session = await agentOrchestration.sessions.getById(body.sessionId);
 			if (!session) {
 				return c.json({ error: "Session not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 			}

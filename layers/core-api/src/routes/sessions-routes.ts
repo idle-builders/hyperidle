@@ -1,14 +1,7 @@
-import type { ExplicitSessionStart, HyperIdleDb } from "@hyperidle/db";
-import { createBareRun } from "@hyperidle/run-orchestration";
-import { createSessionRequest, findSessionRequest } from "@hyperidle/session-requests";
+import type { AgentOrchestrationExplicitStartView, AgentOrchestrationPort } from "@hyperidle/api-contract";
+import type { HyperIdleDb } from "@hyperidle/db";
 import { readServerConfig } from "@hyperidle/settings";
-import {
-	type AgentWorkIntentEvent,
-	type AgentWorkIntentReader,
-	type AgentWorkIntentRecorder,
-	API_ERROR_CODES,
-	type EventBus,
-} from "@hyperidle/shared";
+import { type AgentWorkIntentEvent, API_ERROR_CODES, type EventBus } from "@hyperidle/shared";
 import {
 	type HyperIdleEnv,
 	projectExplicitStartOutcome,
@@ -21,10 +14,6 @@ import * as work from "@hyperidle/work";
 import { resolveSessionStartRequest } from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";
-import {
-	buildAgentOrchestrationPort,
-	getRegisteredAgentOrchestrationTransport,
-} from "../services/agent-orchestration-port-composition.js";
 import { resolveOrCreateCallingThread } from "../services/calling-thread-bindings.js";
 
 // @lore O2: harnessUrl, tokensInput, tokensOutput fields removed from session
@@ -57,10 +46,12 @@ const IDEMPOTENCY_KEY_PATTERN = /^[\x21-\x7e]{1,200}$/;
  * purpose: the 202 branch returns it verbatim, so a narrowing here would silently
  * drop 11 fields from a shipped response.
  */
-async function projectExplicitStart(start: ExplicitSessionStart) {
+async function projectExplicitStart(
+	start: AgentOrchestrationExplicitStartView,
+	agentOrchestration: AgentOrchestrationPort,
+) {
 	if (start.status === "admitted" && start.sessionId) {
-		const port = buildAgentOrchestrationPort(getRegisteredAgentOrchestrationTransport());
-		return projectExplicitStartOutcome(start, await port.sessions.getById(start.sessionId));
+		return projectExplicitStartOutcome(start, await agentOrchestration.sessions.getById(start.sessionId));
 	}
 	return projectExplicitStartOutcome(start, null);
 }
@@ -111,8 +102,7 @@ export function createSessionRoutes(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	durableStartEnabled: boolean | undefined,
-	agentWorkIntentRecorder: AgentWorkIntentRecorder<HyperIdleDb>,
-	agentWorkIntentReader: AgentWorkIntentReader<HyperIdleDb>,
+	agentOrchestration: AgentOrchestrationPort,
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
@@ -143,11 +133,10 @@ export function createSessionRoutes(
 					);
 				const idempotencyKey = suppliedKey ?? `session-start:${crypto.randomUUID()}`;
 				const requestedBy = c.get("userId");
-				let start = await findSessionRequest(db, {
-					by: "explicitStart",
+				let start = await agentOrchestration.requests.findExplicitStartByIdempotencyKey(
 					requestedBy,
 					idempotencyKey,
-				});
+				);
 				if (
 					start &&
 					(start.taskId !== body.taskId ||
@@ -161,54 +150,51 @@ export function createSessionRoutes(
 						},
 						409,
 					);
-				let intent: Awaited<ReturnType<AgentWorkIntentRecorder<HyperIdleDb>["record"]>> | undefined;
+				let intent:
+					| { readonly id: string; readonly idempotencyKey: string }
+					| null
+					| undefined;
 				if (!start) {
 					const startId = crypto.randomUUID();
-					await db.transaction(async (tx) => {
-						start = await createSessionRequest(tx as HyperIdleDb, {
-							kind: "explicitStart",
-							start: {
-								id: startId,
-								taskId: body.taskId,
-								requestedAgentId: body.agentId,
-								requestedModelTier: body.modelTier,
-								requestedBy,
-								idempotencyKey,
-							},
-						});
-						// AU21 §6 Decision B: resolve + validate the session_start run AT
-						// EMIT TIME (this Service's own domain state, plus the shared
-						// ast-<userId> runnability invariant) and bake the full request
-						// onto the intent — the drain dispatches it directly, with zero
-						// domain reads.
-						const bakedRequest = await resolveSessionStartRequest(
-							tx as HyperIdleDb,
-							{ taskId: body.taskId, requestedAgentId: body.agentId },
-							{
-								requireRunnableAgent,
-								readServerConfig,
-								// AU27 Increment 1 (Decision 0): also bake callingThreadId.
-								resolveOrCreateCallingThread,
-							},
-						);
-						intent = await agentWorkIntentRecorder.record(tx as HyperIdleDb, {
-							kind: "session_start",
-							sourceKind: "explicit_session_start",
-							sourceId: startId,
-							requestedBy,
-							idempotencyKey: `explicit-session-start:${startId}`,
-							bakedRequest,
-						});
+					// AU21 §6 Decision B: resolve + validate the session_start run AT
+					// EMIT TIME (this Service's own domain state, plus the shared
+					// ast-<userId> runnability invariant) and bake the full request
+					// onto the intent — the drain dispatches it directly, with zero
+					// domain reads. Resolved BEFORE the seam call, per §3 clause 2 —
+					// core resolves the baked request from its own domain, the seam
+					// never reaches back into core state.
+					const bakedRequest = await resolveSessionStartRequest(
+						db,
+						{ taskId: body.taskId, requestedAgentId: body.agentId },
+						{
+							requireRunnableAgent,
+							readServerConfig,
+							// AU27 Increment 1 (Decision 0): also bake callingThreadId.
+							resolveOrCreateCallingThread,
+						},
+					);
+					// AU31 §3.2 — the atomic pair op: ONE orchestration-side
+					// transaction creates the explicit start AND records the baked
+					// `session_start` intent, preserving the atomicity this route had
+					// before the seam existed.
+					const result = await agentOrchestration.intents.createExplicitStart({
+						startId,
+						taskId: body.taskId,
+						requestedAgentId: body.agentId,
+						requestedModelTier: body.modelTier,
+						requestedBy,
+						idempotencyKey,
+						intentIdempotencyKey: `explicit-session-start:${startId}`,
+						bakedRequest,
 					});
+					start = result.start;
+					intent = result.intent;
 				}
-				if (!(start && intent)) {
-					if (!start) throw new Error("Explicit session start was not persisted");
-					intent = await agentWorkIntentReader.findByKindAndSource(db, "session_start", start.id);
-				}
+				if (!start) throw new Error("Explicit session start was not persisted");
 				c.header("Idempotency-Key", idempotencyKey);
 				c.header("Location", `/api/sessions/starts/${start.id}`);
 				if (start.status !== "requested") {
-					const projection = await projectExplicitStart(start);
+					const projection = await projectExplicitStart(start, agentOrchestration);
 					return sendStartProjection(c, projection);
 				}
 				const committedStart = start;
@@ -224,15 +210,15 @@ export function createSessionRoutes(
 							}
 						};
 						const check = async () => {
-							const fresh = await findSessionRequest(db, {
-								by: "explicitStart",
-								startId: committedStart.id,
-							});
-							if (fresh && fresh.status !== "requested") finish(await projectExplicitStart(fresh));
+							const fresh = await agentOrchestration.requests.findExplicitStartById(
+								committedStart.id,
+							);
+							if (fresh && fresh.status !== "requested")
+								finish(await projectExplicitStart(fresh, agentOrchestration));
 						};
 						const unsubscribe = eventBus.on("*", () => void check());
 						const timer = setTimeout(
-							() => void projectExplicitStart(committedStart).then(finish),
+							() => void projectExplicitStart(committedStart, agentOrchestration).then(finish),
 							EXPLICIT_SESSION_ADMISSION_WAIT_MS,
 						);
 						void check();
@@ -254,13 +240,12 @@ export function createSessionRoutes(
 			}
 
 			// ── Legacy bare-insert path (no adapters) ─────────────────────────────
-			// @lore AU26 B1a (§D-A's `sessions-routes.ts` split): the insert AND the `session_started` emit
-			// are `run-orchestration`'s `createBareRun` now — core asking the owning
-			// Layer to create its own record is a downward command (§D-A rule 3), not
-			// a Port method. `@hyperidle/run-orchestration` was already a core-api
-			// dependency, so no package edge is added. The 201 body is unchanged: the
-			// whole persisted `sessions` row.
-			const created = await createBareRun(db, eventBus, {
+			// @lore AU26 B1a (§D-A's `sessions-routes.ts` split) / AU31 §2.3: the
+			// insert AND the `session_started` emit are seam-backed
+			// (`runs.createBareRun`) — `@hyperidle/run-orchestration` is no longer a
+			// core-api dependency. The 201 body is unchanged: the whole persisted
+			// `sessions` row.
+			const created = await agentOrchestration.runs.createBareRun({
 				agentId: body.agentId,
 				taskId: body.taskId,
 				modelTier: body.modelTier,

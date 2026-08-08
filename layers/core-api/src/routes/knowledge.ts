@@ -42,9 +42,9 @@ import {
 	update as updateKnowledgeItem,
 	VersionConflictError,
 } from "@hyperidle/knowledge";
+import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { getTeam, getTeamMembers, listTeamMembers } from "@hyperidle/org";
 import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
-import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import type { ApiErrorResponse } from "@hyperidle/shared";
 import {
@@ -332,7 +332,11 @@ const changeScopeSchema = z.object({
  * Create Hono routes for knowledge endpoints.
  * Q2: upgraded to Hono<HyperIdleEnv> to read userId from auth middleware.
  */
-export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<HyperIdleEnv> {
+export function createKnowledgeRoutes(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	agentOrchestration: AgentOrchestrationPort,
+): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
 	// I2 review M-4 / HIGH-5: cap query length so an attacker cannot
@@ -886,61 +890,62 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			// @lore AU20 K2-writes: flagItem folded into transition({target:"flag"}).
 			// transition() fetches the item internally by id — no need to pass `item`.
 			const editId = crypto.randomUUID();
-			let intent: Awaited<ReturnType<typeof enqueueWorkIntent>> | undefined;
-			await db.transaction(async (tx) => {
-				await knowledgeTransition(tx as HyperIdleDb, item.id, {
-					target: "flag",
-					reason: body.reason,
-					editId,
-				});
-				if (body.agentId) {
-					// AU21 §6 Decision B: resolve + validate the knowledge_action run
-					// AT EMIT TIME (this Service's own domain state, plus the shared
-					// ast-<userId> runnability invariant) and bake the full request
-					// onto the intent — the drain dispatches it directly, with zero
-					// domain reads.
-					//
-					// @lore AU21 knowledge_action wave: the resolved target is the
-					// item's own `updatedBy` (whoever last touched it), NOT the
-					// flagging `agentId` — it can be a non-agent id (e.g. a human
-					// editor). Under the pre-migration drain-time model this never
-					// blocked the flag itself (resolution ran later, async, and a
-					// failure there was silent — only the eventual
-					// `agent_run_admission_failed` reaction fired). Resolving earlier
-					// must not newly gate the flag write on that outcome, so a
-					// resolution failure here is caught: the flag still commits, the
-					// intent is still recorded (unbaked, exactly the pre-migration
-					// shape), and it fails at drain immediately (zero domain reads,
-					// `default` case) — routing to the same knowledge_action
-					// admission-failure reaction (a review-flagged item) the
-					// pre-migration path already produced for this case.
-					let bakedRequest: Awaited<ReturnType<typeof resolveKnowledgeActionRequest>> | undefined;
-					try {
-						bakedRequest = await resolveKnowledgeActionRequest(
-							tx as HyperIdleDb,
-							`knowledge:${id}`,
-							{
-								requireRunnableAgent,
-								readServerConfig,
-								// AU27: also bake callingThreadId — the knowledge item's own
-								// hostKind:"knowledge_item" thread, so a knowledge_action
-								// session's `reply` tool has somewhere real to post.
-								resolveOrCreateCallingThread: resolveOrCreateKnowledgeCallingThread,
-							},
-						);
-					} catch {
-						bakedRequest = undefined;
-					}
-					intent = await enqueueWorkIntent(tx as HyperIdleDb, {
-						kind: "knowledge_action",
-						sourceKind: "knowledge_action",
-						sourceId: `knowledge:${id}`,
-						requestedBy: body.agentId,
-						idempotencyKey: `knowledge:${id}:review:${editId}`,
-						bakedRequest,
-					});
-				}
+			await knowledgeTransition(db, item.id, {
+				target: "flag",
+				reason: body.reason,
+				editId,
 			});
+			// AU31 §3.1 site 4 — the `knowledge_action` intent submit runs AFTER
+			// the flag transition commits, not inside its transaction. Cross-layer
+			// atomicity with `agent-orchestration` is relinquished (founder ruling,
+			// architecture.md §3.1/§13 item 9): on a failed submit, the item is
+			// flagged with no queued review action; the route below returns 5xx,
+			// and a retry re-runs the idempotent flag path and re-submits under
+			// the same `knowledge:${id}:review:${editId}` key.
+			let intent: Awaited<ReturnType<typeof agentOrchestration.intents.submit>> | undefined;
+			if (body.agentId) {
+				// AU21 §6 Decision B: resolve + validate the knowledge_action run
+				// AT EMIT TIME (this Service's own domain state, plus the shared
+				// ast-<userId> runnability invariant) and bake the full request
+				// onto the intent — the drain dispatches it directly, with zero
+				// domain reads.
+				//
+				// @lore AU21 knowledge_action wave: the resolved target is the
+				// item's own `updatedBy` (whoever last touched it), NOT the
+				// flagging `agentId` — it can be a non-agent id (e.g. a human
+				// editor). Under the pre-migration drain-time model this never
+				// blocked the flag itself (resolution ran later, async, and a
+				// failure there was silent — only the eventual
+				// `agent_run_admission_failed` reaction fired). Resolving earlier
+				// must not newly gate the flag write on that outcome, so a
+				// resolution failure here is caught: the flag still commits, the
+				// intent is still recorded (unbaked, exactly the pre-migration
+				// shape), and it fails at drain immediately (zero domain reads,
+				// `default` case) — routing to the same knowledge_action
+				// admission-failure reaction (a review-flagged item) the
+				// pre-migration path already produced for this case.
+				let bakedRequest: Awaited<ReturnType<typeof resolveKnowledgeActionRequest>> | undefined;
+				try {
+					bakedRequest = await resolveKnowledgeActionRequest(db, `knowledge:${id}`, {
+						requireRunnableAgent,
+						readServerConfig,
+						// AU27: also bake callingThreadId — the knowledge item's own
+						// hostKind:"knowledge_item" thread, so a knowledge_action
+						// session's `reply` tool has somewhere real to post.
+						resolveOrCreateCallingThread: resolveOrCreateKnowledgeCallingThread,
+					});
+				} catch {
+					bakedRequest = undefined;
+				}
+				intent = await agentOrchestration.intents.submit({
+					kind: "knowledge_action",
+					sourceKind: "knowledge_action",
+					sourceId: `knowledge:${id}`,
+					requestedBy: body.agentId,
+					idempotencyKey: `knowledge:${id}:review:${editId}`,
+					bakedRequest,
+				});
+			}
 
 			const updated = await getKnowledgeItem(db, id);
 

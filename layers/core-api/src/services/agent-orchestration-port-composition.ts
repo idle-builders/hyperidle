@@ -14,6 +14,19 @@
  * `X-API-Key` credential is injected internally by `buildAgentOrchestrationPort`
  * itself, read at call-time from `process.env.HYPERIDLE_API_KEY` (same
  * env var the route's own auth middleware checks).
+ *
+ * @lore AU31 §3.2 — acquisition changed. There is no module-level transport
+ * singleton anymore (`registerAgentOrchestrationTransport`/
+ * `getRegisteredAgentOrchestrationTransport` are DELETED). Every composition
+ * root builds exactly ONE `AgentOrchestrationPort` with
+ * `buildAgentOrchestrationPort(transport)` and hands it to every consumer —
+ * routes, reaction registrars, the `{ db, eventBus }` service-lane fixture —
+ * as an ordinary value, the same way `adapterPool` already threads through
+ * `AppOptions`. Production builds the transport as an arrow closing over a
+ * root-local `let` filled once the composed app exists
+ * (`applications/remote-server/src/create-server.ts`); a call before that
+ * binding is filled throws the same named error the singleton used to throw,
+ * minus the cross-test bleed an ambient global caused.
  */
 
 import type {
@@ -33,6 +46,7 @@ import type {
 	AgentOrchestrationWorkIntentKind,
 	AgentOrchestrationWorkIntentReceipt,
 } from "@hyperidle/api-contract";
+import type { AgentWorkIntentRecorder, AgentWorkIntentRecorderInput } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { hc } from "hono/client";
 import type { AppType } from "../schemas/index.js";
@@ -100,6 +114,11 @@ interface AgentOrchestrationHcClient {
 					}): Promise<Response>;
 				};
 			};
+			readonly "is-at-capacity": {
+				$post(args: {
+					readonly json: { readonly agentId: string; readonly maxConcurrentSessions: number };
+				}): Promise<Response>;
+			};
 		};
 		readonly "run-config": {
 			readonly ":agentId": {
@@ -115,6 +134,9 @@ interface AgentOrchestrationHcClient {
 		};
 		readonly filesystems: {
 			readonly ":id": {
+				readonly team: {
+					$get(args: { readonly param: { readonly id: string } }): Promise<Response>;
+				};
 				readonly injections: {
 					readonly persist: {
 						$post(args: {
@@ -325,6 +347,14 @@ export function buildAgentOrchestrationPort(
 				});
 				if (!res.ok) return throwSeamError("runs.failExplicitStart", res);
 			},
+			async isAtCapacity(agentId: string, maxConcurrentSessions: number): Promise<boolean> {
+				const res = await client["agent-orchestration"].runs["is-at-capacity"].$post({
+					json: { agentId, maxConcurrentSessions },
+				});
+				if (!res.ok) return throwSeamError("runs.isAtCapacity", res);
+				const body = (await res.json()) as { readonly atCapacity: boolean };
+				return body.atCapacity;
+			},
 		},
 		runConfig: {
 			async read(agentId: string): Promise<AgentOrchestrationRunConfigView> {
@@ -356,6 +386,14 @@ export function buildAgentOrchestrationPort(
 			},
 		},
 		filesystems: {
+			async getTeamId(filesystemId: string): Promise<string | null> {
+				const res = await client["agent-orchestration"].filesystems[":id"].team.$get({
+					param: { id: filesystemId },
+				});
+				if (!res.ok) return throwSeamError("filesystems.getTeamId", res);
+				const body = (await res.json()) as { readonly teamId: string | null };
+				return body.teamId;
+			},
 			async persistInjection(filesystemId: string, agentUserId: string) {
 				const res = await client["agent-orchestration"].filesystems[":id"].injections.persist.$post(
 					{
@@ -380,35 +418,33 @@ export function buildAgentOrchestrationPort(
 }
 
 /**
- * AU31 §2.1a/§2.3 — call-site conversion NOT landed in this wave, on purpose.
+ * AU31 §3.2 — the seam-backed `AgentWorkIntentRecorder` factory: the
+ * composition-root adapter that lets `@hyperidle/work`'s `transitionTask`
+ * (site 6), `@hyperidle/policy`'s `handoff` (site 7), `@hyperidle/routine`'s
+ * scheduler (site 8) and `@hyperidle/review`'s proposed-call workflow
+ * (site 9) — plus every route that records a work intent directly — go
+ * through the port instead of importing `@hyperidle/session-requests`.
  *
- * @lore AU31 builder session finding, recorded for the next attempt: a naive
- * `{ record: enqueueWorkIntent } → seam-backed AgentWorkIntentRecorder` swap
- * at `routes/tasks.ts`/`routes/bets.ts`/`work-session-started-reactions.ts`
- * DEADLOCKS the shared PGlite connection under test — `@hyperidle/work`'s
- * `transitionTask` (`task-state-machine.ts`) wraps `deps.workIntents.record`
- * INSIDE its own `db.transaction(...)`, a real cross-boundary atomic coupling
- * feasibility.md P3's audit did not catch (P3's grep only matched
- * `enqueueWorkIntent(`/`createSessionRequest(`/`agentWorkIntentRecorder.record(`/
- * `tx as HyperIdleDb` literally, not `deps.workIntents.record(tx, …)`'s
- * generic-port spelling). Converting these sites needs the SAME kind of
- * decision architecture.md §3.1 already made for `knowledge.ts:934`/
- * `threads.ts:1463` (relinquish the atomicity, name the window) — applied to
- * `transitionTask` itself, not silently at the call site.
- *
- * Separately: `agent-run-admission-reactions.ts`'s `session_start`/
- * `reengagement` cases and `assistant-turn-coherence-trigger.ts` fire off an
- * `EventBus` reaction that tests exercise via a bare `{ db, eventBus }`
- * fixture with NO `app` — so `getRegisteredAgentOrchestrationTransport()`
- * resolves to some OTHER test's stale registration (or throws), not this
- * test's own db. A seam call from inside a reaction handler needs the port
- * handed in at registration time (an explicit dependency), not read from the
- * module-level transport singleton the request-path composition uses.
- *
- * Both findings are reported to the orchestrator rather than resolved here;
- * this file keeps only the port additions the service-lane tests
- * (`agent-orchestration-port-writes.integration.test.ts`) exercise directly.
+ * `record` deliberately IGNORES the executor it is handed: a seam call is an
+ * HTTP round trip through the composed app's own connection, so it can never
+ * join a caller's transaction. That is exactly §3.1's ruling — cross-layer
+ * atomicity is relinquished, not preserved by a clever executor
+ * thread-through. Every call site that used to open a `db.transaction(...)`
+ * around `.record(tx, …)` is restructured so the transaction commits the
+ * core write(s) alone and this call runs AFTER, post-commit — never inside
+ * one. Generic over `TTx` so one factory serves every call site's own
+ * `AgentWorkIntentRecorder<TTx>` instantiation (`HyperIdleDb` at the route
+ * layer, `WriteExecutor` inside `@hyperidle/work`/`@hyperidle/policy`).
  */
+export function buildSeamBackedWorkIntentRecorder<TTx>(
+	port: AgentOrchestrationPort,
+): AgentWorkIntentRecorder<TTx> {
+	return {
+		record: async (_tx: TTx, input: AgentWorkIntentRecorderInput) => {
+			return port.intents.submit(input as unknown as AgentOrchestrationWorkIntentInput);
+		},
+	};
+}
 
 /**
  * The in-process transport: core-api's own Hono app dispatches the request
@@ -437,26 +473,3 @@ export function createNetworkAgentOrchestrationTransport(
 	};
 }
 
-/**
- * Module-level registration point for the boot-time transport, mirroring
- * `core-api-port-composition.ts`'s `registerCoreApiTransport`/
- * `getRegisteredCoreApiTransport`. Registered once in production
- * (`server-factory.ts`'s `createServer`); `tasks.ts`'s sessions route reads
- * it via `getRegisteredAgentOrchestrationTransport()` on each request.
- */
-let registeredTransport: AgentOrchestrationTransport | undefined;
-
-export function registerAgentOrchestrationTransport(transport: AgentOrchestrationTransport): void {
-	registeredTransport = transport;
-}
-
-export function getRegisteredAgentOrchestrationTransport(): AgentOrchestrationTransport {
-	if (!registeredTransport) {
-		throw new Error(
-			"AgentOrchestrationPort transport not registered — call " +
-				"registerAgentOrchestrationTransport(...) during application boot (or in a test, " +
-				"before a route reads session data through the seam).",
-		);
-	}
-	return registeredTransport;
-}
