@@ -27,6 +27,7 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import type { ActivityEntry, EventBus, HarnessCapabilityReader } from "@hyperidle/shared";
 import type { HyperIdleEnv } from "@hyperidle/shared/http";
 import { Hono } from "hono";
+import { createAgentOrchestrationIntakeRoutes } from "./routes/agent-orchestration-intake.js";
 import { createAgentOrchestrationSessionsRoutes } from "./routes/agent-orchestration-sessions.js";
 import { createConnectionRoutes } from "./routes/connections.js";
 import { createFilesystemRoutes } from "./routes/filesystems.js";
@@ -54,6 +55,9 @@ export function createAgentOrchestrationApp(
 
 	app.route("/sessions", createOrchestrationSessionRoutes(db, eventBus, getRecentActivity));
 	app.route("/agent-orchestration", createAgentOrchestrationSessionsRoutes(db, getRecentActivity));
+	// AU31 §3: the write side of `AgentOrchestrationPort`, mounted beside the
+	// read routes above — same internal `/agent-orchestration` seam prefix.
+	app.route("/agent-orchestration", createAgentOrchestrationIntakeRoutes(db, eventBus));
 	// AU26 E4: `/api/connections` — the path is unchanged; only the host app is.
 	app.route("/connections", createConnectionRoutes(db, adapterPool));
 	// AU26 F2: `/api/filesystems` — same story. The reachability probe needs the

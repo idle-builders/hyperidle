@@ -7,12 +7,29 @@
  */
 
 export type {
+	AgentOrchestrationCreateBareRunRequest,
+	AgentOrchestrationExplicitStartRequest,
+	AgentOrchestrationExplicitStartResult,
+	AgentOrchestrationExplicitStartView,
+	AgentOrchestrationFilesystemInjectionView,
+	AgentOrchestrationFilesystemsPort,
+	AgentOrchestrationIntentsPort,
+	AgentOrchestrationPersistInjectionResult,
 	AgentOrchestrationPort,
+	AgentOrchestrationRequestsPort,
+	AgentOrchestrationRunConfigPatch,
+	AgentOrchestrationRunConfigPort,
+	AgentOrchestrationRunConfigView,
+	AgentOrchestrationRunsPort,
 	AgentOrchestrationSessionActivityEntry,
 	AgentOrchestrationSessionHistoryEntry,
 	AgentOrchestrationSessionsPort,
 	AgentOrchestrationSessionWireRow,
+	AgentOrchestrationStoppedRun,
 	AgentOrchestrationTransport,
+	AgentOrchestrationWorkIntentInput,
+	AgentOrchestrationWorkIntentKind,
+	AgentOrchestrationWorkIntentReceipt,
 } from "./agent-orchestration-port.js";
 export type { AuthMeResponse } from "./auth.js";
 export type {

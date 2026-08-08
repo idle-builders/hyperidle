@@ -17,12 +17,24 @@
  */
 
 import type {
+	AgentOrchestrationCreateBareRunRequest,
+	AgentOrchestrationExplicitStartRequest,
+	AgentOrchestrationExplicitStartResult,
+	AgentOrchestrationExplicitStartView,
 	AgentOrchestrationPort,
+	AgentOrchestrationRunConfigPatch,
+	AgentOrchestrationRunConfigView,
 	AgentOrchestrationSessionActivityEntry,
 	AgentOrchestrationSessionHistoryEntry,
 	AgentOrchestrationSessionWireRow,
+	AgentOrchestrationStoppedRun,
 	AgentOrchestrationTransport,
+	AgentOrchestrationWorkIntentInput,
+	AgentOrchestrationWorkIntentKind,
+	AgentOrchestrationWorkIntentReceipt,
 } from "@hyperidle/api-contract";
+import type { HyperIdleDb } from "@hyperidle/db";
+import type { AgentWorkIntentRecorder } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { hc } from "hono/client";
 import type { AppType } from "../schemas/index.js";
@@ -42,6 +54,76 @@ interface AgentOrchestrationHcClient {
 				$get(args: { readonly param: { readonly sessionId: string } }): Promise<Response>;
 				readonly activity: {
 					$get(args: { readonly param: { readonly sessionId: string } }): Promise<Response>;
+				};
+			};
+		};
+		readonly intents: {
+			$post(args: { readonly json: AgentOrchestrationWorkIntentInput }): Promise<Response>;
+			readonly "explicit-start": {
+				$post(args: { readonly json: AgentOrchestrationExplicitStartRequest }): Promise<Response>;
+			};
+		};
+		readonly requests: {
+			readonly "explicit-start": {
+				$get(args: {
+					readonly query: { readonly requestedBy: string; readonly idempotencyKey: string };
+				}): Promise<Response>;
+				readonly ":startId": {
+					$get(args: { readonly param: { readonly startId: string } }): Promise<Response>;
+				};
+			};
+			readonly "pending-intents": {
+				$get(args: {
+					readonly query: { readonly kind: AgentOrchestrationWorkIntentKind };
+				}): Promise<Response>;
+			};
+		};
+		readonly runs: {
+			readonly abort: {
+				$post(args: { readonly json: { readonly sessionId: string } }): Promise<Response>;
+			};
+			readonly "stop-for-tasks": {
+				$post(args: {
+					readonly json: { readonly taskIds: readonly string[]; readonly reason: "bet_killed" };
+				}): Promise<Response>;
+			};
+			readonly "end-for-handoff": {
+				$post(args: {
+					readonly json: { readonly sessionId: string; readonly endedAt: string };
+				}): Promise<Response>;
+			};
+			readonly bare: {
+				$post(args: { readonly json: AgentOrchestrationCreateBareRunRequest }): Promise<Response>;
+			};
+			readonly "explicit-start": {
+				readonly fail: {
+					$post(args: {
+						readonly json: { readonly startId: string; readonly failureCode: string };
+					}): Promise<Response>;
+				};
+			};
+		};
+		readonly "run-config": {
+			readonly ":agentId": {
+				$get(args: { readonly param: { readonly agentId: string } }): Promise<Response>;
+				$patch(args: {
+					readonly param: { readonly agentId: string };
+					readonly json: AgentOrchestrationRunConfigPatch;
+				}): Promise<Response>;
+			};
+			readonly batch: {
+				$post(args: { readonly json: { readonly agentIds: readonly string[] } }): Promise<Response>;
+			};
+		};
+		readonly filesystems: {
+			readonly ":id": {
+				readonly injections: {
+					readonly persist: {
+						$post(args: {
+							readonly param: { readonly id: string };
+							readonly json: { readonly agentUserId: string };
+						}): Promise<Response>;
+					};
 				};
 			};
 		};
@@ -144,8 +226,161 @@ export function buildAgentOrchestrationPort(
 				return body.entries;
 			},
 		},
+		intents: {
+			async submit(
+				input: AgentOrchestrationWorkIntentInput,
+			): Promise<AgentOrchestrationWorkIntentReceipt> {
+				const res = await client["agent-orchestration"].intents.$post({ json: input });
+				if (!res.ok) return throwSeamError("intents.submit", res);
+				return (await res.json()) as AgentOrchestrationWorkIntentReceipt;
+			},
+			async createExplicitStart(
+				input: AgentOrchestrationExplicitStartRequest,
+			): Promise<AgentOrchestrationExplicitStartResult> {
+				const res = await client["agent-orchestration"].intents["explicit-start"].$post({
+					json: input,
+				});
+				if (!res.ok) return throwSeamError("intents.createExplicitStart", res);
+				return (await res.json()) as AgentOrchestrationExplicitStartResult;
+			},
+		},
+		requests: {
+			async findExplicitStartByIdempotencyKey(
+				requestedBy: string,
+				idempotencyKey: string,
+			): Promise<AgentOrchestrationExplicitStartView | null> {
+				const res = await client["agent-orchestration"].requests["explicit-start"].$get({
+					query: { requestedBy, idempotencyKey },
+				});
+				if (res.status === 404) return null;
+				if (!res.ok) return throwSeamError("requests.findExplicitStartByIdempotencyKey", res);
+				const body = (await res.json()) as { readonly start: AgentOrchestrationExplicitStartView };
+				return body.start;
+			},
+			async findExplicitStartById(
+				startId: string,
+			): Promise<AgentOrchestrationExplicitStartView | null> {
+				const res = await client["agent-orchestration"].requests["explicit-start"][
+					":startId"
+				].$get({ param: { startId } });
+				if (res.status === 404) return null;
+				if (!res.ok) return throwSeamError("requests.findExplicitStartById", res);
+				const body = (await res.json()) as { readonly start: AgentOrchestrationExplicitStartView };
+				return body.start;
+			},
+			async listPendingIntentsByKind(
+				kind: AgentOrchestrationWorkIntentKind,
+			): Promise<ReadonlyArray<{ readonly id: string; readonly sourceId: string }>> {
+				const res = await client["agent-orchestration"].requests["pending-intents"].$get({
+					query: { kind },
+				});
+				if (!res.ok) return throwSeamError("requests.listPendingIntentsByKind", res);
+				const body = (await res.json()) as {
+					readonly entries: ReadonlyArray<{ readonly id: string; readonly sourceId: string }>;
+				};
+				return body.entries;
+			},
+		},
+		runs: {
+			async stopForTasks(
+				taskIds: readonly string[],
+				reason: "bet_killed",
+			): Promise<ReadonlyArray<AgentOrchestrationStoppedRun>> {
+				const res = await client["agent-orchestration"].runs["stop-for-tasks"].$post({
+					json: { taskIds, reason },
+				});
+				if (!res.ok) return throwSeamError("runs.stopForTasks", res);
+				const body = (await res.json()) as { readonly stopped: ReadonlyArray<AgentOrchestrationStoppedRun> };
+				return body.stopped;
+			},
+			async endForHandoff(sessionId: string, endedAt: string): Promise<void> {
+				const res = await client["agent-orchestration"].runs["end-for-handoff"].$post({
+					json: { sessionId, endedAt },
+				});
+				if (!res.ok) return throwSeamError("runs.endForHandoff", res);
+			},
+			async createBareRun(
+				input: AgentOrchestrationCreateBareRunRequest,
+			): Promise<AgentOrchestrationSessionWireRow> {
+				const res = await client["agent-orchestration"].runs.bare.$post({ json: input });
+				if (!res.ok) return throwSeamError("runs.createBareRun", res);
+				const body = (await res.json()) as { readonly session: AgentOrchestrationSessionWireRow };
+				return body.session;
+			},
+			async abort(sessionId: string): Promise<void> {
+				const res = await client["agent-orchestration"].runs.abort.$post({ json: { sessionId } });
+				if (!res.ok) return throwSeamError("runs.abort", res);
+			},
+			async failExplicitStart(startId: string, failureCode: string): Promise<void> {
+				const res = await client["agent-orchestration"].runs["explicit-start"].fail.$post({
+					json: { startId, failureCode },
+				});
+				if (!res.ok) return throwSeamError("runs.failExplicitStart", res);
+			},
+		},
+		runConfig: {
+			async read(agentId: string): Promise<AgentOrchestrationRunConfigView> {
+				const res = await client["agent-orchestration"]["run-config"][":agentId"].$get({
+					param: { agentId },
+				});
+				if (!res.ok) return throwSeamError("runConfig.read", res);
+				const body = (await res.json()) as { readonly config: AgentOrchestrationRunConfigView };
+				return body.config;
+			},
+			async readBatch(
+				agentIds: readonly string[],
+			): Promise<ReadonlyMap<string, AgentOrchestrationRunConfigView>> {
+				const res = await client["agent-orchestration"]["run-config"].batch.$post({
+					json: { agentIds: [...agentIds] },
+				});
+				if (!res.ok) return throwSeamError("runConfig.readBatch", res);
+				const body = (await res.json()) as {
+					readonly configs: Record<string, AgentOrchestrationRunConfigView>;
+				};
+				return new Map(Object.entries(body.configs));
+			},
+			async write(agentId: string, patch: AgentOrchestrationRunConfigPatch): Promise<void> {
+				const res = await client["agent-orchestration"]["run-config"][":agentId"].$patch({
+					param: { agentId },
+					json: patch,
+				});
+				if (!res.ok) return throwSeamError("runConfig.write", res);
+			},
+		},
+		filesystems: {
+			async persistInjection(filesystemId: string, agentUserId: string) {
+				const res = await client["agent-orchestration"].filesystems[":id"].injections.persist.$post({
+					param: { id: filesystemId },
+					json: { agentUserId },
+				});
+				if (!res.ok) return throwSeamError("filesystems.persistInjection", res);
+				return (await res.json()) as
+					| { readonly ok: true; readonly injection: { readonly agentUserId: string; readonly filesystemId: string; readonly createdAt: string } }
+					| { readonly ok: false; readonly code: "NOT_FOUND" | "CONFLICT" };
+			},
+		},
 	};
 }
+
+/**
+ * AU31 §2.1a — the seam-backed `AgentWorkIntentRecorder`: the SAME Mechanism-C
+ * port shape every real call site already injects (`{ record }`), now backed
+ * by `AgentOrchestrationPort.intents.submit` instead of a direct
+ * `@hyperidle/session-requests` import. `record`'s `tx` parameter is accepted
+ * for shape-compatibility but never dereferenced — a seam call cannot
+ * participate in the caller's transaction; the two sites that used to write
+ * `enqueueWorkIntent` inside their own `tx` (`knowledge.ts`, `threads.ts`)
+ * are restructured to call this AFTER their transaction commits instead
+ * (architecture.md §3.1's named, accepted relinquishment). Reads the
+ * registered transport at CALL time, not at module-eval time — same idiom as
+ * `getRegisteredCoreApiTransport()`'s callers.
+ */
+export const seamBackedWorkIntentRecorder: AgentWorkIntentRecorder<HyperIdleDb> = {
+	async record(_tx, input) {
+		const port = buildAgentOrchestrationPort(getRegisteredAgentOrchestrationTransport());
+		return port.intents.submit(input as AgentOrchestrationWorkIntentInput);
+	},
+};
 
 /**
  * The in-process transport: core-api's own Hono app dispatches the request
