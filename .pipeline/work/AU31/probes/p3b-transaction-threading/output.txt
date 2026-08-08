@@ -1,0 +1,141 @@
+
+layers/core-api/src/routes/bets.ts:924  tx="tx" aliases=[tx,knowledgeDb]
+    926: listKnowledgeItems(tx, …)
+    930: work.update(tx, …)
+    939: getKnowledgeItem(tx, …)
+    946: updateKnowledgeItem(tx, …)
+    963: createKnowledgeItem(tx, …)
+
+layers/core-api/src/routes/sessions-routes.ts:167  tx="tx" aliases=[tx]
+    168: createSessionRequest(tx, …)
+    184: resolveSessionStartRequest(tx, …)
+    194: agentWorkIntentRecorder.record(tx, …)
+
+layers/core-api/src/routes/teams-routes.ts:265  tx="tx" aliases=[tx]
+    266: createTeam(tx, …)
+    280: writeTeamRunConfigDefaults(tx, …)
+
+layers/core-api/src/routes/teams-routes.ts:413  tx="tx" aliases=[tx]
+    414: insertUser(tx, …)
+    422: writeAgentRunConfig(tx, …)
+
+layers/core-api/src/routes/agents.ts:270  tx="tx" aliases=[tx]
+    271: insertUser(tx, …)
+    281: writeAgentRunConfig(tx, …)
+
+layers/core-api/src/routes/threads.ts:1070  tx="tx" aliases=[tx]
+    1071: insertMessage(tx, …)
+    1081: updateThread(tx, …)
+
+layers/core-api/src/routes/threads.ts:1155  tx="tx" aliases=[tx]
+    1156: insertThread(tx, …)
+    1175: insertMessage(tx, …)
+
+layers/core-api/src/routes/threads.ts:1213  tx="tx" aliases=[tx]
+    1214: insertMessage(tx, …)
+    1224: updateThread(tx, …)
+
+layers/core-api/src/routes/threads.ts:1440  tx="tx" aliases=[tx]
+    1443: insertMessage(tx, …)
+    1459: resolveAssistantTurnRequest(tx, …)
+    1463: agentWorkIntentRecorder.record(tx, …)
+    1482: updateThread(tx, …)
+    1488: resolveMessageIfUnresolved(tx, …)
+    1496: updateThread(tx, …)
+    1498: updateThread(tx, …)
+    1503: updateThread(tx, …)
+
+layers/core-api/src/routes/knowledge.ts:890  tx="tx" aliases=[tx]
+    891: knowledgeTransition(tx, …)
+    919: resolveKnowledgeActionRequest(tx, …)
+    934: enqueueWorkIntent(tx, …)
+
+layers/core-api/review/src/proposed-call-workflow.ts:523  tx="innerTx" aliases=[innerTx]
+    550: resolveReengagementRequest(innerTx, …)
+    578: ports.intentRecorder.record(innerTx, …)
+
+layers/core-api/policy/src/handoff-protocol.ts:116  tx="tx" aliases=[tx]
+    117: deps.work.claimTaskHandoff(tx, …)
+    128: deps.runOrchestration.endRunForHandoff(tx, …)
+    144: deps.work.updateTaskById(tx, …)
+    160: deps.conversation.insertThread(tx, …)
+    170: deps.work.createItem(tx, …)
+    189: deps.work.updateTaskById(tx, …)
+    205: deps.org.getByTeamId(tx, …)
+    209: deps.users.findActiveTeammateByRole(tx, …)
+    218: deps.work.updateTaskById(tx, …)
+    225: deps.conversation.insertThread(tx, …)
+    236: deps.work.createItem(tx, …)
+    284: deps.conversation.insertMessage(tx, …)
+    299: deps.work.getTaskById(tx, …)
+    311: deps.work.updateTaskById(tx, …)
+    337: deps.taskRunResolver.resolve(tx, …)
+    338: deps.sessionRequests.record(tx, …)
+
+layers/core-api/policy/src/lifecycle-propagation.ts:44  tx="tx" aliases=[tx]
+    49: deps.work.getTaskById(tx, …)
+    69: deps.work.transitionTaskState(tx, …)
+
+layers/core-api/routine/src/routine-scheduler.ts:284  tx="tx" aliases=[tx]
+    285: ports.conversation.insertThread(tx, …)
+    295: ports.work.createItem(tx, …)
+
+layers/core-api/routine/src/routine-scheduler.ts:348  tx="tx" aliases=[tx]
+    349: ports.conversation.insertThread(tx, …)
+    359: ports.work.createItem(tx, …)
+
+layers/core-api/routine/src/routine-scheduler.ts:599  tx="tx" aliases=[tx]
+    600: insertRoutineRun(tx, …)
+    606: resolveRoutineRunRequest(tx, …)
+    619: ports.workIntents.enqueueWorkIntent(tx, …)
+
+layers/core-api/users/src/invite-code.ts:104  tx="tx" aliases=[tx]
+    110: getOrCreateUser(tx, …)
+    128: createLoginSession(tx, …)
+
+layers/core-api/settings/src/server-config.ts:280  tx="tx" aliases=[tx]
+    293: patchServerConfig(tx, …)
+
+layers/core-api/work/src/work-service.ts:12  EXPRESSION-BODY callback — manual read required
+
+layers/core-api/knowledge/src/attention-service.ts:21  EXPRESSION-BODY callback — manual read required
+
+layers/core-api/knowledge/src/attention-service.ts:251  tx="tx" aliases=[tx]
+    300: work.findItemByReasoningMarker(tx, …)
+    302: hasOpenConflict(tx, …)
+    306: review.createReviewItemForKnowledge(tx, …)
+
+layers/core-api/work/src/bet-state-machine.ts:167  tx="tx" aliases=[tx]
+    170: teamCapacity.getByTeamId(tx, …)
+    181: work.transition(tx, …)
+    195: teamCapacity.setActiveBets(tx, …)
+    203: teamCapacity.setActiveBets(tx, …)
+    216: teamCapacity.setActiveBets(tx, …)
+
+layers/core-api/work/src/task-state-machine.ts:72  tx="tx" aliases=[tx]
+    77: work.get(tx, …)
+    98: work.transition(tx, …)
+    136: resolveTaskRunRequest(tx, …)
+    141: deps.workIntents.record(tx, …)
+
+framework/db/src/write-executor.ts:5  EXPRESSION-BODY callback — manual read required
+
+layers/agent-orchestration/src/routes/agent-orchestration-intake.ts:135  tx="tx" aliases=[tx]
+    136: createSessionRequest(tx, …)
+    147: enqueueWorkIntent(tx, …)
+
+layers/agent-orchestration/session-requests/src/service.ts:609  EXPRESSION-BODY callback — manual read required
+
+layers/agent-orchestration/session-requests/src/service.ts:874  tx="tx" aliases=[tx]
+    875: createRequest(tx, …)
+
+layers/agent-orchestration/session-requests/src/service.ts:1022  tx="tx" aliases=[tx]
+    1023: listReapableLifecycleInternal(tx, …)
+    1025: deleteLifecycleFactsInternal(tx, …)
+
+layers/agent-orchestration/run-orchestration/src/transition-run.ts:67  tx="tx" aliases=[tx,txDb]
+    69: ports.sessionRequests.findSessionRequest(tx, …)
+    81: ports.sessionRequests.transitionSessionRequest(tx, …)
+    97: ports.sessionRequests.transitionSessionRequest(tx, …)
+
+-- 24 files scanned, 25 transaction bodies with tx-threaded calls --

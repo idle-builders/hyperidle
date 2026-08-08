@@ -295,10 +295,15 @@ gate's placement, not a security boundary (ETHOS: no preemptive wall), stated in
 The port surface is the load-bearing public contract of this WP. Locked here; spelling of route
 paths and zod schemas is the builder's.
 
+The five numbered clauses in this section are cited elsewhere as *§3 clause N*; the numbered
+subsections that follow it are §3.1 and §3.2.
+
 1. **One door, both directions.** `AgentOrchestrationPort` (types in `@hyperidle/api-contract`,
    reach `["layer"]`) gains a write side; `CoreApiPort` gains the proposed-call workflow and
    knowledge-writeback ops. Both keep their existing transport duality (in-process `app.fetch` /
-   network) and registration points at the application (`create-server.ts:834,:842` pattern).
+   network). **How a caller gets hold of the port changes** — the module-level transport
+   registration (`create-server.ts:834`'s `registerAgentOrchestrationTransport`) is deleted, and
+   §3.2 states what replaces it.
 2. **`AgentOrchestrationPort` operation families** (names indicative, shapes locked by the
    call-site inventory):
    - `intents.submit(input)` → the durable enqueue; input = today's `enqueueWorkIntent` payload
@@ -308,15 +313,26 @@ paths and zod schemas is the builder's.
      records the baked `session_start` intent in one orchestration-side transaction, preserving
      the atomicity `sessions-routes.ts:167-201` has today [P3]. Core resolves the baked request
      from its own domain *before* the call and passes it in.
-   - `intents.transition(...)` / `runs.requestTermination(...)` / `runs.stopForTasks(taskIds)` /
-     `runs.endForHandoff(...)` / `runs.createBareRun(...)` → the request-about-request family
+   - `intents.transition(...)` / `runs.stopForTasks(taskIds)` / `runs.endForHandoff(...)` /
+     `runs.createBareRun(...)` / `runs.abort(sessionId)` /
+     `runs.failExplicitStart(startId, code)` → the request-about-request family
      (`agent-run-admission-reactions.ts:41`'s `transitionSessionRequest`, `policy-bindings.ts`'s
      abort+`endRunForHandoff`, `bets.ts`'s stop, `sessions-routes.ts`'s bare run). In-process
      registry aborts happen inside the handlers.
+     **`runs.requestTermination` is struck from this list, not deferred.** The draft listed it, and
+     nothing in the production tree drives a termination-by-reason request across the boundary:
+     the only core-side occurrence is `run-orchestration-composition.ts:184`'s
+     `requestAgentTermination`, which is composition plumbing in a file §5 relocates into
+     agent-orchestration, where the call is in-layer and needs no op at all. Building it would
+     leave a production export only tests consume, which §1 forbids.
    - `requests.find(query)` — the full `findSessionRequest` query family including the
      idempotency probe and the by-intent-source read (`app.ts:52-55`), and
      `requests.listPendingIntentsByKind(kind)` **[D1]**.
-   - `runConfig.read / readBatch / write` (§2.2).
+   - `runConfig.read / readBatch / write` (§2.2), **plus the team defaults pair**
+     `runConfig.readTeamDefaults(teamId)` / `runConfig.writeTeamDefaults(teamId, defaults)`. The
+     draft's inventory omitted them; both have real wave-A consumers
+     (`teams-routes.ts:540` reads, `teams-routes.ts:280` writes) and the write is one of the
+     couplings §3.1 now names. Same verdict as the rest of §2.2, one more operation pair.
    - `filesystems.persistInjection(...)` (§2.6).
 3. **Provisioning-owner stamping.** `resolveProvisioningOwnerUserId`
    (`create-server.ts:201-213`) is deleted from the application. Core's port composition stamps
@@ -335,35 +351,277 @@ paths and zod schemas is the builder's.
    return today (`accepted | idempotent | conflict | terminal` etc.) as response bodies, so no
    call site's branching semantics change.
 
-## 3.1 The two relinquished atomic couplings — decided, not discovered [P3]
+## 3.1 Writes that cross the boundary from inside a caller's transaction — corrected inventory
 
-The audit found exactly two cross-boundary pairs. For both, the mechanism **relinquishes**
-cross-layer atomicity, and the window is named — silently downgrading was ruled out by
-requirements §2.4:
+**The earlier count in this section was wrong, and the method behind it cannot be trusted.** The
+draft said the audit found "exactly two" cross-boundary pairs (`knowledge.ts:934`,
+`threads.ts:1463`) plus two run-config couplings, and five critique rounds ratified that as
+complete. It is not. There are **nine** transactions in the production tree that commit a core
+write and an agent-orchestration write together, carrying **ten** orchestration writes between
+them, and two more that read orchestration state while holding the connection. P3 found four
+because of *how it looked*, not because there are four — see the correction block in
+`feasibility.md` P3 and the sweep in `probes/p3b-transaction-threading/`.
 
-- **`routes/knowledge.ts:934`** — flag transition + `knowledge_action` intent. End state: the
-  flag's transaction commits, then the route calls `intents.submit`. **Window:** process death or
-  seam failure between commit and submit leaves a flagged item with no queued review action. The
-  route then returns 5xx, so the caller sees the failure; a retry re-runs the idempotent flag
-  path and re-submits under the same `knowledge:${id}:review:${editId}` key. No reconciler is
-  built — the failure is visible, retryable, and bounded to one flag (tier-proportionate; a
-  sweeper would be an un-asked-for mechanism).
-- **`routes/threads.ts:1463`** — message insert + `assistant_turn` intent. End state: the message
-  transaction commits, then `intents.submit`. **Window:** a committed message with no turn
-  intent; the route returns 5xx, the user re-sends, and the B‴ coherence trigger
-  (`assistant-turn-coherence-trigger.ts`) re-bakes on the next thread append anyway. Named,
-  accepted. **[D4]** One nuance belongs on the record: a re-send inserts a **second visible
-  message** unless the client reuses its `clientKey` — the dedupe path exists
-  (`threads.ts:1071-1081`) — so the window's worst observable outcome is one duplicated message,
-  never a lost one.
-- Everything else either has no coupling or keeps it whole (the explicit-start pair moves inside
-  one orchestration op). Two write sites carry a `writeAgentRunConfig(tx,…)` coupling with a user
-  insert (`agents.ts:281`, `teams-routes.ts:422`): relinquished the same way — user row commits,
-  then `runConfig.write`; on failure the agent exists with `DEFAULT_AGENT_RUN_CONFIG` semantics
-  (the read path already defaults, `agent-run-config/src/index.ts`) and the admin edit path
-  repairs it. Named, accepted.
+**Why the old method could not see them.** P3 searched for the literal spellings
+`enqueueWorkIntent(`, `createSessionRequest(`, `agentWorkIntentRecorder.record(` and
+`tx as HyperIdleDb` inside `layers/core-api/src`. Two independent reasons that misses most of the
+set:
 
----
+1. **Most sites never write the function's name.** The orchestration write arrives as an injected
+   dependency and is called as `deps.workIntents.record(tx, …)`,
+   `ports.workIntents.enqueueWorkIntent(tx, …)`, `deps.runOrchestration.endRunForHandoff(tx, …)`
+   or `ports.intentRecorder.record(innerTx, …)`. The file making the call does not import the
+   orchestration package at all, so no name search over core-api's imports or bodies reaches it.
+2. **The transaction is usually opened one or two frames below the innocent-looking call.**
+   `routes/tasks.ts:253` calls `transitionTask(db, …)` with a pooled handle — and `transitionTask`
+   opens its own transaction and records the intent inside it
+   (`work/src/task-state-machine.ts:72,:141`). `routes/threads.ts:1665` calls
+   `transitionProposedCall(db, …)` with a pooled handle — and that function opens a *nested*
+   transaction and records the intent inside it (`review/src/proposed-call-workflow.ts:523,:578`).
+   Classifying by the executor visible at the call site marks both "uncoupled", which is exactly
+   what P3's table did.
+
+**The method that does see them, so a reviewer can check the method rather than the list.** Two
+enumerations, neither keyed on a name:
+
+- **Follow the transaction handle, not the callee.** Every `.transaction(` in the shipping roots
+  (production files only), brace-matched to its callback body; inside each body, every call whose
+  first argument is the handle or a local alias of it. A write can only be inside a transaction if
+  the handle reached it, so this set is complete by construction. 25 bodies thread their handle
+  into at least one call; three expression-body callbacks are read by hand. Script and recorded
+  output: `probes/p3b-transaction-threading/` (one gotcha worth knowing: the callback's return-type
+  annotation can contain a `{`, so the body match must start after the `=>` — getting that wrong
+  silently drops `task-state-machine.ts`, one of the missed sites).
+- **Resolve each reported callee to its owning package**, following an injected port to the
+  composition root that wires it (`policy-bindings.ts:88,:105`,
+  `routine-scheduler-bindings.ts:151-160`, `service-bootstrap.ts:470`, `threads.ts:1678`,
+  `tasks.ts:254`, `bets.ts:684`, `app.ts:494`, `work-session-started-reactions.ts:63`). Ten of the
+  25 bodies reach agent-orchestration.
+
+### The corrected inventory
+
+| # | Transaction | The orchestration write inside it | Core writes committing with it |
+|---|---|---|---|
+| 1 | `routes/agents.ts:270` | `writeAgentRunConfig(tx, …)` `:281` | `insertUser` `:271` |
+| 2 | `routes/teams-routes.ts:265` | `writeTeamRunConfigDefaults(tx, …)` `:280` | `createTeam` `:266` |
+| 3 | `routes/teams-routes.ts:413` | `writeAgentRunConfig(tx, …)` `:422` | `insertUser` `:414` |
+| 4 | `routes/knowledge.ts:890` | `enqueueWorkIntent(tx, …)` `:934` | knowledge flag transition `:891` |
+| 5 | `routes/threads.ts:1440` | `agentWorkIntentRecorder.record(tx, …)` `:1463` | `insertMessage` `:1443`, `updateThread` `:1482,:1496-1503` |
+| 6 | `work/src/task-state-machine.ts:72` | `deps.workIntents.record(tx, …)` `:141` | task CAS `:98`, dispatch-attempt insert `:120` |
+| 7 | `policy/src/handoff-protocol.ts:116` | **two:** `deps.runOrchestration.endRunForHandoff(tx, …)` `:128` and `deps.sessionRequests.record(tx, …)` `:338` | task handoff claim `:117`, task patches `:144,:189,:218,:311`, thread/item/message writes `:160,:170,:225,:236,:284`, dispatch-attempt insert `:322` |
+| 8 | `routine/src/routine-scheduler.ts:599` | `ports.workIntents.enqueueWorkIntent(tx, …)` `:619` | `insertRoutineRun` (outcome `running`) `:600` |
+| 9 | `review/src/proposed-call-workflow.ts:523` (nested inside the caller's handle) | `ports.intentRecorder.record(innerTx, …)` `:578` | `tailoredGrants` insert `:524`, `proposedCalls` → `granted` `:537-540` |
+| — | `routes/sessions-routes.ts:167` | `createSessionRequest` `:168` + `agentWorkIntentRecorder.record` `:194` | **none** — both writes are orchestration-owned |
+
+Sites 1, 3, 4 and 5 are the four the draft named. Sites 2, 6, 7, 8 and 9 are new; site 7 carries
+two orchestration writes, not one. The `sessions-routes.ts:167` row is unchanged and still
+correct: no core write shares that transaction, so it survives whole as the single
+`intents.createExplicitStart` operation (§3 clause 2).
+
+Every other transaction the sweep found is core-only (`threads.ts:1070,:1155,:1213`,
+`bets.ts:924`, `teams-routes.ts` is above, `users/src/invite-code.ts:104`,
+`settings/src/server-config.ts:280`, `work/src/bet-state-machine.ts:167`,
+`policy/src/lifecycle-propagation.ts:44`, `routine/src/routine-scheduler.ts:284,:348`,
+`knowledge/src/attention-service.ts:251`) or orchestration-only
+(`session-requests/src/service.ts:609,:874,:1022`, `run-orchestration/src/transition-run.ts:67`,
+`src/routes/agent-orchestration-intake.ts:135`). The **reverse** direction is clean and worth
+stating so nobody re-derives it: no orchestration-owned transaction wraps a write that becomes a
+`CoreApiPort` op — the writeback processor calls its knowledge port with a pooled handle
+(`run-orchestration/src/writeback-processor.ts:234,:268,:290,:320`) and `tool-handlers` opens no
+transaction at all.
+
+### One rule, applied to all nine
+
+**The founder has already ruled the mechanism** (`progress.json.founderRulings.atomicity`,
+verbatim): *"keep it simple and focused no overengineering for things that don't matter in
+reality. hyperidle is a productivity tool without real users."* That is a principle, not a
+two-site exception, so it applies to every site above:
+
+> Cross-layer atomicity is **relinquished**. The core transaction commits; the seam call follows;
+> the post-commit events that exist today emit in the order they emit today. A seam failure
+> surfaces as the operation's own failure — 5xx on a route, a thrown error in a reaction or a
+> scheduler tick. The core rows stay committed and the queued job is missing. **No outbox, no
+> durable mechanism, no saga, no compensating write, no reconciler, no sweeper.** The window is
+> named at each site in code, in a comment a maintainer reads before touching the line.
+
+**One free lever is used where it is free: the order of the two writes.** Relinquishment leaves
+two writes in sequence, and which one goes first is a choice with no cost. Where the seam write
+needs nothing the core transaction produces, and its *absence* would strand a resource that
+nothing ever cleans up, it goes **before** the core transaction instead of after. Exactly one site
+qualifies:
+
+- **Site 7's `endRunForHandoff` moves ahead of the transaction.** Its own header is the evidence:
+  *"there is NO safety net behind this write. `runtime-reapers.ts`'s stale sweep selects
+  `routineId is not null` — routine sessions only — so a handed-off run left `active` stays
+  `active` forever"* (`run-orchestration/src/end-run-for-handoff.ts:25-29`). Relinquished in the
+  default order, a failure would leave a permanently `active` run row that no reaper touches, and
+  admission would count that phantom against the agent's `maxConcurrentSessions` forever — for a
+  one-session agent, that agent never runs again. Ordered first, the residue instead is a run
+  marked `done` whose task was not handed off: the write takes no CAS
+  (`end-run-for-handoff.ts:40`), so it is idempotent and a retried handoff re-applies it; the
+  in-process run's own `endSession` CASes on `active` and no-ops; the task is untouched and
+  retryable. Named cost of the reorder: for the moment between the two, admission may over-admit
+  that agent by one.
+
+Site 7's second orchestration write (`deps.sessionRequests.record` at `:338`, the successor's
+dispatch intent) follows the default order, as does the in-process `abort` at `:367`, which
+already runs post-commit today.
+
+### What is lost at each site, and how it is repaired
+
+- **Sites 1 and 3** (`writeAgentRunConfig` beside `insertUser`): the agent exists with
+  `DEFAULT_AGENT_RUN_CONFIG` semantics — the read path already defaults
+  (`agent-run-config/src/index.ts`) — so it runs on builtin instead of the harness the caller
+  asked for. The admin edit path repairs it.
+- **Site 2** (`writeTeamRunConfigDefaults` beside `createTeam`): the team exists with no harness
+  defaults, so agents scaffolded onto it later fall back to builtin
+  (`org/src/scaffold-agents.ts:194-202`). The team settings edit repairs it.
+- **Site 4** (knowledge flag + `knowledge_action` intent): a flagged item with no queued review
+  action; the route returns 5xx, and a retry re-runs the idempotent flag path and re-submits under
+  the same `knowledge:${id}:review:${editId}` key.
+- **Site 5** (message insert + `assistant_turn` intent): a committed message with no turn intent;
+  the route returns 5xx, the user re-sends, and the coherence trigger
+  (`assistant-turn-coherence-trigger.ts`) re-bakes on the next thread append anyway. **[D4]** A
+  re-send inserts a second *visible* message unless the client reuses its `clientKey` — the dedupe
+  path exists (`threads.ts:1071-1081`) — so the worst observable outcome is one duplicated
+  message, never a lost one.
+- **Site 6** (task CAS + dispatch attempt + `task_run` intent): the task sits in its new state
+  with a `requested` dispatch-attempt row and no session ever starts. Visible in the task view
+  (state changed, nothing running). Repaired by moving the task to `hold` and back, which is the
+  existing retry occasion (`task-state-machine.ts:123`'s `"retry"` path) reachable from the tasks
+  route.
+- **Site 7** (see the reorder above): after `endRunForHandoff` succeeds, a failed
+  `sessionRequests.record` leaves the task handed off to the target agent with no session queued —
+  the dispatch-attempt row exists, so the same `hold`/re-dispatch repair applies.
+- **Site 9** (grant + `reengagement` intent): the human's approval is recorded and the grant is
+  minted, but no reengagement session is queued. The grant row stays `consumed:false`, so the
+  agent's next attempt at the same tool call consumes it
+  (`proposed-call-workflow.ts:585-597`), and `applyLivenessRetry`
+  (`proposed-call-workflow.ts:666`) is the existing net on the same path.
+
+### The one site whose residue is worse than a lost job — stated for the founder, not worked around
+
+**Site 8 (`routine-scheduler.ts:599`) cannot be relinquished as cheaply as the rest, and the
+reorder lever does not reach it.** The transaction inserts the `routineRuns` row with outcome
+`running` and then bakes the request *from that row* — `resolveRoutineRunRequest` reads it back
+and requires `outcome === "running"` (`routine/src/routine-service.ts:357-360`) — so the intent
+cannot be submitted before the row exists. Relinquished in the default order, a failed submit
+leaves a `running` routine_run with no session. Consequence, concretely: `fireGenericRoutine`'s
+coalescing guard reads exactly that row (`routine-scheduler.ts:574-579`) and reports "previous run
+still in progress", so **that routine never fires again**; and the reaper that exists for this
+shape keys on an `active` *session* (`run-orchestration/src/runtime-reapers.ts:170-186`), which in
+this failure never existed, so nothing clears it. The stuck run is visible in the routine's run
+history, and closing that one row restores the routine — but there is no automatic recovery.
+
+The alternatives were considered and are all worse than the ruling allows: a compensating write
+(marking the row `timeout` on submit failure) is explicitly banned; widening the reaper to sweep
+`running` routine_runs with no session is the durable mechanism the founder rejected; and changing
+`resolveRoutineRunRequest` to bake without reading its own row would rewrite a core resolver's
+contract to dodge a failure that has not happened. So: **relinquished, in the default order, with
+the window named in code at the site** — recorded in §13.9 so the founder is ratifying this one
+with its real consequence in view rather than the "a queued job is missing" summary that fits the
+other eight.
+
+### Reads are hoisted out of the transaction, not relinquished
+
+The deadlock the wave-A builder hit is not specific to writes: an in-process seam call issued
+while a transaction holds the shared PGlite connection deadlocks whether it reads or writes. Two
+orchestration **reads** run inside a core transaction today, both on the routine path and both
+reached from `resolveRoutineRunRequest` at `routine-scheduler.ts:606`: `isAgentAtCapacity` (a
+`sessions` read) and, inside its `concurrencyBoundReader`, `readAgentRunConfig` — wired at
+`routine-scheduler-bindings.ts:153,:159`. They have no atomicity to give up: they read
+orchestration-owned tables that the core transaction never writes, so the value is identical
+before the transaction opens. **Both are hoisted above the transaction and their results passed
+in.** No window, no behavior change, and the same treatment applies to any further seam read a
+builder finds inside a transaction — the rule is "a seam call never runs while this process holds
+a transaction", which is also the rule that keeps the deadlock from coming back.
+
+### Shipped tests that assert the guarantee being relinquished
+
+These exist, they are green today, and they were written deliberately by earlier reviews. They
+assert the *old* design, so they are rewritten to assert the named window — not worked around, and
+certainly not left to drive the code back to the pre-ruling shape:
+
+- `layers/core-api/src/__tests__/agent-work-intent-production.integration.test.ts` — four cases
+  (`:428` assistant message, `:450` knowledge flag, `:501` manual routine, `:518` scheduler
+  routine) assert the core row is rolled back when the intent write fails. The two message/flag
+  cases invert: the core row now survives and the intent is absent. The two routine cases assert
+  `routineRuns` is empty, and under site 8's default order that also inverts — the run row
+  survives, which is precisely the wedge named above, so these two become the test that pins the
+  named window rather than the old rollback.
+- `layers/core-api/src/routes/__tests__/agent-and-team-creation-atomicity.integration.test.ts` —
+  AU26 review W10's fix for sites 1/2/3. Both cases invert: the agent/team row now survives with
+  default run config. The finding W10 recorded (an agent silently running on the wrong harness)
+  becomes the named, repairable window above.
+- `layers/core-api/src/__tests__/handoff-to.integration.test.ts:354` ("leaves the run untouched
+  when the handoff transaction rolls back") inverts by construction under site 7's reorder: the run
+  is ended before the transaction, so a rolled-back handoff leaves an ended run. The reorder's
+  residue is what this test should now assert.
+- `layers/core-api/src/__tests__/handoff-protocol.integration.test.ts:664` and
+  `layers/core-api/knowledge/src/__tests__/knowledge-repository.au14-round2.integration.test.ts:208`
+  assert core-only rollback within one transaction and stay as they are.
+
+## 3.2 How a caller acquires the port — one instance per composition, never an ambient one
+
+Today a caller resolves the transport from a module-level mutable variable
+(`getRegisteredAgentOrchestrationTransport()`, `agent-orchestration-port-composition.ts:447-462`),
+filled once at boot by `create-server.ts:834` and once per test app by
+`__testing__/test-utils.ts:101`. That predates AU31 (it arrived with the seam's read side) and
+with two request-path readers it was survivable. AU31 makes it untenable, and the wave-A builder
+proved it: `agent-run-admission-reactions.ts` and `assistant-turn-coherence-trigger.ts` fire from
+`EventBus` reactions, and the service-lane fixture registers those reactions on the bare
+`{ db, eventBus }` shape *before* any app exists (`__testing__/test-fixtures.ts:38-45`), so the
+handler resolves whatever app some other test registered last, or throws. That is not a test
+artifact — an ambient mutable global as the seam's acquisition path is the same class of coupling
+this work package exists to delete, and it makes the seam untestable in the one lane that
+exercises reactions.
+
+**The contract (locked).**
+
+1. **The port is a value, passed in.** Core builds exactly one `AgentOrchestrationPort` per
+   composition with `buildAgentOrchestrationPort(transport)` and hands it to every consumer as an
+   ordinary argument. One instance is enough because the port holds no per-call state and its
+   credential is read at call time, not at construction
+   (`agent-orchestration-port-composition.ts:151-163`); attribution rides the payload, not the
+   transport (§3 clause 4), so there is no per-actor variant to build.
+2. **Reaction registrars take it in the context they already take.** `registerCoreDomainServices`'s
+   ctx (`service-bootstrap.ts:295`) gains a **required** `agentOrchestration: AgentOrchestrationPort`
+   field, and `registerAgentRunAdmissionReactions` / `registerAssistantTurnCoherenceTrigger`
+   (`service-bootstrap.ts:339,:416`) receive it. Required, not optional — an optional field is the
+   ambient path with extra steps.
+3. **Routes take it the way they already take `adapterPool`.** `sessions-routes.ts:62` and
+   `tasks.ts:286` stop calling `getRegistered…()` per request and receive the port from the app's
+   options, alongside the handles `app.ts` already threads.
+4. **The composition root owns the transport, and owns the construction cycle.** Core's app needs
+   the port; the port's in-process transport needs the app that serves the seam routes; and after
+   §5 that app is agent-orchestration's, which boots *after* core because it needs core's
+   `resolveModel`. The cycle is real in both directions and the answer is a local, not a global:
+   the root writes the transport as an arrow closing over a binding it fills once both apps exist —
+   `const transport: AgentOrchestrationTransport = (req) => orchestration.app.fetch(req);` over a
+   root-local `let`. Resolution is at call time, the binding is per composition, and a second
+   composition in the same process cannot see the first's. A call before the binding is filled
+   throws the same named error the singleton throws today, minus the cross-test bleed.
+5. **The two module-level functions are deleted**, along with every `getRegistered…()` read:
+   `registerAgentOrchestrationTransport` and `getRegisteredAgentOrchestrationTransport`
+   (`agent-orchestration-port-composition.ts:447-462`). Nothing reads a module-level mutable value
+   for the seam afterwards, and reintroducing one under any name is a review failure, not a
+   suppression.
+6. **The service lane gets the same value, built the same way.** The `{ db, eventBus }` fixture
+   gains an `agentOrchestration` port built over an in-process transport onto **the seam's backing
+   surface only** — agent-orchestration's own app over the same `db` — not the composed core +
+   orchestration app with its middleware stack. A reaction test therefore still asserts a real
+   effect on a real database through the real route, and no test needs an `app` fixture to do it.
+   `createTestApp` stops registering a transport (`__testing__/test-utils.ts:101` is deleted) and
+   hands the port in like production does.
+7. **`CoreApiPort`'s twin singleton is untouched here, and no new one is added.** The same
+   acquisition rule applies to it, and wave B applies it when §2.5 moves that construction with the
+   tool stack; its current readers are all on the request path with no reaction lane, so nothing in
+   wave A depends on it. This is not a carve-out from a boundary rule — the `CoreApiPort` singleton
+   is not a cross-layer import, and no baseline entry or AC covers it.
+
+**Owning leaf:** the new **A0** in §12, ahead of A1 and A2, because every reaction conversion in
+A2 depends on it. Wave B changes nothing about the contract: §5.2's `bootCoreApi` absorbs the same
+construction in the same shape.
 
 ## 4. The composition handoff — the spelling law, the census's actual state, and its enforced home
 
