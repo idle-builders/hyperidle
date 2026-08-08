@@ -13,6 +13,7 @@
  */
 
 import type { Architecture, Role } from "./governance-model.js";
+import type { Severity } from "./governance-rules.js";
 
 export interface TableOwners {
 	readonly tableOwners: true;
@@ -24,15 +25,12 @@ export interface TableOwners {
 /**
  * The misplacement ledger: production-path files that are really development and cannot move yet.
  *
- * @lore AU28: disjoint from `baseline.json` by construction. The baseline records CROSSING
- * violations, keyed by rule group and site; this records MISPLACED FILES, keyed by path. Neither can
- * hold the other's rows, which is why two artifacts exist rather than one — grep the baseline for
- * `router.tsx` and there is nothing to find.
+ * @lore AU28: this records MISPLACED FILES, keyed by path — not a crossing violation and not
+ * expressible as one, which is why it is its own record rather than a row somewhere else.
  *
- * @lore AU28: an entry names its REASON, never a successor work package. The plan's wording asked for
- * the work-package number; `scripts/lib/crossing-report.ts` had already settled the opposite for the
- * baseline — an enforced artifact records debt, not a plan — and the numbers that were written into
- * the other two registries had already gone stale. The reason survives a replan; the number does not.
+ * @lore AU28: an entry names its REASON, never a successor work package. The other two registries in
+ * this file once carried a work-package number in an entry and it had already gone stale by the time
+ * anyone read it again. The reason survives a replan; the number does not.
  */
 export interface MisplacedFiles {
 	readonly misplacedFiles: true;
@@ -41,6 +39,20 @@ export interface MisplacedFiles {
 	readonly resolvedFiles: number;
 	/** Repo-relative path → why it is stuck in a production path. */
 	readonly files: Readonly<Record<string, string>>;
+}
+
+/**
+ * One severity — `error` or `warn` — per architectural rule (Ruling E).
+ *
+ * A key absent from `severity` is at `error`; the file lists only what is not yet clean. Values are
+ * exactly `Severity`, never a nested shape — a per-file allowance would have to widen this type, which
+ * fails to compile at every call site and is a visible diff in a reviewed file (D11 checks the shape at
+ * runtime too, for the JSON this type describes).
+ */
+export interface RuleSeverity {
+	readonly governanceRuleSeverity: true;
+	readonly note: string;
+	readonly severity: Readonly<Record<string, Severity>>;
 }
 
 export class RegistryError extends Error {

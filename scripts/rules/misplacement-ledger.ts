@@ -7,23 +7,19 @@
  * importer of a development file, which the crossing rule forbids outright. Left unrecorded they
  * simply look like production, forever.
  *
- * @lore AU28: this is the SAME SHAPE as `governance/baseline.json`, deliberately — a committed record
- * that only shrinks, every row carrying its reason, checked in both directions. The two artifacts are
- * disjoint: the baseline holds crossing violations keyed by (group, site); this holds misplaced files
- * keyed by path. A second mechanism would have been the wrong answer, but so would folding these rows
- * into the baseline, where they would be indistinguishable from a crossing nobody has fixed.
+ * @lore AU28: a committed record that only shrinks, every row carrying its reason, checked in both
+ * directions — the shape earns its keep because whether a production-path file is "really development"
+ * is a human judgement with no live source to check it against.
  *
  * @lore AU28: the ledger's warnings deliberately carry NO `world` and NO `group`. `governance-lint`'s
- * summary line counts world-tagged warnings as the crossing debt total, and it must keep corresponding
- * exactly to what `governance/baseline.json` records. Four ledger rows tagged `production` would
- * inflate the goal metric with a different kind of debt, which is the same error as reporting one
- * total for production and development.
+ * summary line counts world-tagged warnings as the crossing debt total, and a ledger row tagged
+ * `production` would inflate that goal metric with a different kind of debt, which is the same error
+ * as reporting one total for production and development.
  *
- * @lore AU28: unlike the baseline there is NO generator, and there cannot be one. The baseline is
- * derived from live violations, so a generator that refuses to grow it closes the laundering path.
- * Whether a production-path file is "really development" is a human judgement with no live source to
- * derive from. What is left is the both-directions count check below, plus the fact that growing the
- * ledger is a two-line diff — the entry and `resolvedFiles` — that review is expected to challenge.
+ * @lore AU28: there is NO generator, and there cannot be one — whether a production-path file is
+ * "really development" is a human judgement with nothing live to derive it from. What is left is the
+ * both-directions count check below, plus the fact that growing the ledger is a two-line diff — the
+ * entry and `resolvedFiles` — that review is expected to challenge.
  */
 
 import type { MisplacedFiles } from "../lib/governance-registry.js";
@@ -82,8 +78,8 @@ export function misplacementLedger(ledger: MisplacedFiles): Rule {
 				});
 			}
 
-			// The ratchet. Both directions: above is new debt parked here, below is a fix whose shrink was
-			// never committed — the second is what turns a ratchet into a rubber stamp.
+			// Checked in both directions: above is new debt parked here, below is a fix whose shrink was
+			// never committed — the second is what stops this from becoming a rubber stamp.
 			const live = resolved(census).length;
 			if (live > ledger.resolvedFiles) {
 				error(

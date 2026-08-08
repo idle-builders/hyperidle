@@ -1,5 +1,5 @@
 /**
- * AU28 — the measurement layer: detectors, database surfaces, and the ratchet.
+ * AU28 — the measurement layer: detectors and database surfaces.
  *
  * The model decides; these modules measure. A detector that under-detects is invisible to every
  * internal consistency check — a crossing never emitted cannot unbalance anything — so each detector
@@ -8,6 +8,7 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { readyToFlip } from "../../../../scripts/governance-context.js";
 import {
 	buildCompanionGroups,
 	buildWriteSets,
@@ -16,19 +17,14 @@ import {
 	readEventTypes,
 	UnclaimedProductionFileError,
 } from "../../../../scripts/lib/crossing-detectors.js";
-import {
-	type Baseline,
-	compareBaseline,
-	groupKey,
-	refuseGrowth,
-	targetLabel,
-} from "../../../../scripts/lib/crossing-report.js";
+import { groupKey, targetLabel } from "../../../../scripts/lib/crossing-keys.js";
 import { buildPackageLocator, type DetectedCrossing } from "../../../../scripts/lib/crossings.js";
 import {
 	buildDbSurfaceIndex,
 	type DatabasePackageConfig,
 } from "../../../../scripts/lib/db-surfaces.js";
 import type { Actor, Architecture, Kind } from "../../../../scripts/lib/governance-model.js";
+import type { RuleSeverity } from "../../../../scripts/lib/governance-registry.js";
 import { buildCensus } from "../../../../scripts/lib/repo-census.js";
 import { crossingRules } from "../../../../scripts/rules/crossings.js";
 import { noLaunderedReExports } from "../../../../scripts/rules/no-laundered-re-exports.js";
@@ -686,161 +682,6 @@ describe("AU28 — re-export laundering", () => {
 	});
 });
 
-describe("AU28 — the ratchet", () => {
-	const baseline: Baseline = {
-		governanceBaseline: true,
-		note: "",
-		groups: {
-			"layer → service (other layer) [import] production": {
-				sites: { "a.ts": 2, "b.ts": 1 },
-			},
-		},
-	};
-	const key = "layer → service (other layer) [import] production";
-
-	it("passes when the live violations match exactly", () => {
-		const result = compareBaseline(baseline, [
-			{
-				key,
-				sites: new Map([
-					["a.ts", 2],
-					["b.ts", 1],
-				]),
-			},
-		]);
-		expect(result.newDebt).toEqual([]);
-		expect(result.stale).toEqual([]);
-	});
-
-	it("fails when a site grows", () => {
-		const result = compareBaseline(baseline, [
-			{
-				key,
-				sites: new Map([
-					["a.ts", 3],
-					["b.ts", 1],
-				]),
-			},
-		]);
-		expect(result.newDebt).toHaveLength(1);
-		expect(result.stale).toEqual([]);
-	});
-
-	it("fails when a site is fixed but the shrink is not committed", () => {
-		const result = compareBaseline(baseline, [{ key, sites: new Map([["a.ts", 2]]) }]);
-		expect(result.newDebt).toEqual([]);
-		expect(result.stale).toHaveLength(1);
-	});
-
-	it("fails on a rule with no baseline entry at all", () => {
-		const result = compareBaseline(baseline, [
-			{ key: "service → raw runtime [capability] production", sites: new Map([["x.ts", 1]]) },
-		]);
-		expect(result.newDebt).toHaveLength(1);
-	});
-
-	/**
-	 * THE test that proves the design. A count-only ratchet passes every case above and fails this
-	 * one: fix a violation in one file, add one in another, total unchanged, build green.
-	 */
-	it("catches the swap — one site fixed, one added, total unchanged", () => {
-		const result = compareBaseline(baseline, [
-			{
-				key,
-				sites: new Map([
-					["a.ts", 2],
-					["c.ts", 1],
-				]),
-			},
-		]);
-		expect(result.newDebt, "the new site must register as new debt").toHaveLength(1);
-		expect(result.stale, "the fixed site must register as a stale baseline").toHaveLength(1);
-	});
-
-	/**
-	 * The generator half. `compareBaseline` above is what the LINT does; these are what the
-	 * REGENERATOR does. Without them the ratchet has a hole you can drive a commit through: introduce
-	 * a violation, re-run the generator, commit the bigger file, green.
-	 */
-	describe("the baseline may only shrink", () => {
-		it("accepts a shrink", () => {
-			expect(refuseGrowth([{ key, sites: new Map([["a.ts", 1]]) }], baseline, [])).toEqual([]);
-		});
-
-		it("accepts a group clearing completely", () => {
-			expect(refuseGrowth([], baseline, [])).toEqual([]);
-		});
-
-		it("refuses a site growing past what the baseline allows", () => {
-			const refusals = refuseGrowth([{ key, sites: new Map([["a.ts", 3]]) }], baseline, []);
-			expect(refusals).toHaveLength(1);
-			expect(refusals[0]).toContain("may only shrink");
-		});
-
-		it("refuses a brand-new file inside an existing group", () => {
-			const refusals = refuseGrowth(
-				[
-					{
-						key,
-						sites: new Map([
-							["a.ts", 2],
-							["b.ts", 1],
-							["new.ts", 1],
-						]),
-					},
-				],
-				baseline,
-				[],
-			);
-			expect(refusals).toHaveLength(1);
-			expect(refusals[0]).toContain("new.ts");
-		});
-
-		it("refuses a group the baseline does not have — the rule is already at error", () => {
-			const refusals = refuseGrowth(
-				[{ key: "service → raw runtime [capability] production", sites: new Map([["x.ts", 1]]) }],
-				baseline,
-				[],
-			);
-			expect(refusals).toHaveLength(1);
-			expect(refusals[0]).toContain("at error today");
-		});
-
-		/**
-		 * The one legitimate growth: a new rule landing over debt that already existed. It has to be
-		 * named explicitly, so it cannot happen as a side effect of running the generator.
-		 */
-		it("admits a new group only when it is adopted by name", () => {
-			const newGroup = "service → raw runtime [capability] production";
-			expect(
-				refuseGrowth([{ key: newGroup, sites: new Map([["x.ts", 1]]) }], baseline, [newGroup]),
-			).toEqual([]);
-			expect(
-				refuseGrowth([{ key: newGroup, sites: new Map([["x.ts", 1]]) }], baseline, [
-					"some other group",
-				]),
-			).toHaveLength(1);
-		});
-
-		/**
-		 * Adopting one group must not open the door for every other. A blanket `--adopt` would be the
-		 * exemption apparatus this whole design exists to avoid.
-		 */
-		it("adopting one group does not admit another", () => {
-			const refusals = refuseGrowth(
-				[
-					{ key: "service → raw runtime [capability] production", sites: new Map([["x.ts", 1]]) },
-					{ key: "framework → EventBus [event] production", sites: new Map([["y.ts", 1]]) },
-				],
-				baseline,
-				["service → raw runtime [capability] production"],
-			);
-			expect(refusals).toHaveLength(1);
-			expect(refusals[0]).toContain("EventBus");
-		});
-	});
-});
-
 describe("AU28 — how a crossing is named", () => {
 	const service: Actor = { sort: "package", name: "work", role: "service", layer: "core-api" };
 	const application: Actor = { sort: "package", name: "desktop", role: "application" };
@@ -1105,11 +946,11 @@ describe("AU28 — companion rows (Ruling 13)", () => {
 		expect(groups.size).toBe(0);
 	});
 
-	it("the warn→error flip — one synthetic violation is known debt with an allowance, new debt without one", () => {
-		// `crossingRules` decides severity from the baseline alone, not from a per-rule switch. Run the
-		// exported rules twice over the SAME violation: an allowance present must warn, and the same
-		// violation with the allowance withdrawn must error — proving the flip that clearing the last
-		// baselined site is what turns a rule from warn to error, not a second code path.
+	it("the warn→error flip — one synthetic violation is warn under a severity declaration, error when the key is absent", () => {
+		// `crossingRules` decides severity from `severityOf` alone, not from a per-rule switch. Run the
+		// exported rules twice over the SAME violation: a `"warn"` declaration for the key must warn, and
+		// the same violation with the key absent must error — proving the flip that removing a rule's
+		// declared key is what turns it from warn to error (Ruling E), not a second code path.
 		const architecture = {
 			containment: { compositionRootRoles: ["application"], repoRootIsCompositionRoot: true },
 			surfaces: {},
@@ -1146,12 +987,12 @@ describe("AU28 — companion rows (Ruling 13)", () => {
 		const key = groupKey(crossing.crossing, crossing.world);
 		const floors = new Map<Kind, number>([["table:write", 1]]);
 
-		const withAllowance: Baseline = {
-			governanceBaseline: true,
+		const declaredWarn: RuleSeverity = {
+			governanceRuleSeverity: true,
 			note: "",
-			groups: { [key]: { sites: { [crossing.file]: 1 } } },
+			severity: { [key]: "warn" },
 		};
-		const withoutAllowance: Baseline = { governanceBaseline: true, note: "", groups: {} };
+		const keyAbsent: RuleSeverity = { governanceRuleSeverity: true, note: "", severity: {} };
 		// `Rule.evaluate` is typed to take a Census — these rules never read it (the violations are
 		// already closed over), but the call site still has to pass one.
 		const unusedCensus = buildCensus({ files: [], readFile: () => "" });
@@ -1159,7 +1000,7 @@ describe("AU28 — companion rows (Ruling 13)", () => {
 		const knownDebtFindings = crossingRules({
 			architecture,
 			crossings: [crossing],
-			baseline: withAllowance,
+			severityOf: (ruleKey) => declaredWarn.severity[ruleKey] ?? "error",
 			floors,
 		}).flatMap((rule) => rule.evaluate(unusedCensus));
 		expect(knownDebtFindings).toHaveLength(1);
@@ -1168,10 +1009,28 @@ describe("AU28 — companion rows (Ruling 13)", () => {
 		const newDebtFindings = crossingRules({
 			architecture,
 			crossings: [crossing],
-			baseline: withoutAllowance,
+			severityOf: (ruleKey) => keyAbsent.severity[ruleKey] ?? "error",
 			floors,
 		}).flatMap((rule) => rule.evaluate(unusedCensus));
 		expect(newDebtFindings).toHaveLength(1);
 		expect(newDebtFindings[0]?.severity).toBe("error");
+	});
+
+	it("readyToFlip — names exactly the warn key with no live violation, and none other", () => {
+		const severity: RuleSeverity = {
+			governanceRuleSeverity: true,
+			note: "",
+			severity: {
+				"layer → service (other layer) [import] production": "warn",
+				"service → db:table (other) [table:write] production": "warn",
+			},
+		};
+		const liveKeys = new Set(["service → db:table (other) [table:write] production"]);
+
+		const lines = readyToFlip(severity, liveKeys);
+
+		expect(lines).toHaveLength(1);
+		expect(lines[0]).toContain("layer → service (other layer) [import] production");
+		expect(lines[0]).not.toContain("db:table (other) [table:write]");
 	});
 });
