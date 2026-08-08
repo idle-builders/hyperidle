@@ -441,7 +441,7 @@ export function buildSeamBackedWorkIntentRecorder<TTx>(
 ): AgentWorkIntentRecorder<TTx> {
 	return {
 		record: async (_tx: TTx, input: AgentWorkIntentRecorderInput) => {
-			return port.intents.submit(input as unknown as AgentOrchestrationWorkIntentInput);
+			return port.intents.submit(input);
 		},
 	};
 }
