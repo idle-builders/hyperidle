@@ -30,10 +30,12 @@ import type { UserRole } from "./types.js";
 /**
  * One facilitator entry in the factory roster.
  *
- * NOTE (architecture-critique NIT-1): the facilitator's display name and skills
- * are DERIVED from `community` by the db-bootstrap (it keeps `COMMUNITY_DISPLAY_NAMES`
- * / `FACILITATOR_TOOLS` as db-owned infra). DO NOT add `name` or `skills` here —
- * the db-writer derives them. The spec carries only the roster COMPOSITION.
+ * NOTE (architecture-critique NIT-1): the facilitator's display name is
+ * DERIVED from `community` by `applyFactoryCoreState`
+ * (`layers/core-api/src/bootstrap/factory-state.ts`) via `COMMUNITY_DISPLAY_NAMES`,
+ * defined below in this file. DO NOT add `name` here — the consumer derives
+ * it. The spec carries only the roster COMPOSITION. (`skills` /
+ * `FACILITATOR_TOOLS` no longer exist — see the AU26 G1 lore below.)
  */
 export interface FactoryFacilitatorSpec {
 	/** community of practice key (e.g. "build", "product", "growth", "ops", "facilitation") */
@@ -66,10 +68,10 @@ export interface FactorySystemAssistantSpec {
  *   - Whether a system-assistant singleton exists (`systemAssistant`)
  *
  * Does NOT determine:
- *   - `system:propagation` (db infra — always written unconditionally)
- *   - `factorySettings` cost/cycle/template rows (db infra — always written)
- *   - `seed-ki-1` knowledge item (db infra — always written)
- *   - Facilitator display names or skills (derived from community by db-bootstrap)
+ *   - `system:propagation` (always written unconditionally by `applyFactoryCoreState`)
+ *   - `factorySettings` cost/cycle/template rows (always written by `applyFactoryCoreState`)
+ *   - `seed-ki-1` knowledge item (always written by `applyFactoryCoreState`)
+ *   - Facilitator display names (derived from `community` via `COMMUNITY_DISPLAY_NAMES`, below)
  */
 export interface FactoryRosterSpec {
 	/** One facilitator per community of practice. Empty under Minimal. */

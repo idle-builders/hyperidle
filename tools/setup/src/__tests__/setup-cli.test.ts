@@ -38,7 +38,20 @@ describe("H4 AC1: `bun run setup --profile laptop`", () => {
 		const dataDir = path.join(tmpdir, "hyperidle-pg");
 		const { io, captured } = makeIo();
 
-		const exit = await runSetup(["--profile", "laptop", "--db-path", dataDir], io, { env: {} });
+		// @lore AU29 N7: `--root` is a repo-root override consumed by the vps
+		// docker-compose lookup and the `--db-path` default — it must NOT reach
+		// the migrations lookup (that resolves off this file's own directory,
+		// not `root`). An arbitrary, non-repo root here proves the laptop path
+		// stays correct even when `--root` points somewhere migrations don't
+		// exist; this is the exact combination that regressed (B1).
+		const fakeRoot = path.join(tmpdir, "not-a-repo-root");
+		fs.mkdirSync(fakeRoot);
+
+		const exit = await runSetup(
+			["--profile", "laptop", "--db-path", dataDir, "--root", fakeRoot],
+			io,
+			{ env: {} },
+		);
 		expect(exit).toBe(0);
 
 		// Data directory exists
