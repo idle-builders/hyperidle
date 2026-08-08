@@ -276,3 +276,268 @@ schema-ns files?
 disconnect handler) and the eval runs as a standalone tsx script.
 **Verdict.** D4's alternative is scoped to the three ah scripts only; `runner.ts` takes the tmp-dir
 composition, the only shape that works for it.
+
+---
+
+Probes P15–P17 below were run on 2026-08-08 during the post-gate rework (same tree, same base
+bbe82e9a), applying founder Rulings A/B/C (`founder-rulings.md`).
+
+## P15 — Ruling A rule-relaxation spike: before/after lint, measured then reverted
+
+**Question.** Does removing the raw-runtime arm from the development relaxation clear the
+`tooling → raw runtime [capability] development` entry without touching any production verdict —
+and what else pins the old behavior?
+
+**Method.** Temporary one-line edit to `scripts/lib/governance-model.ts` — removed
+`(target.sort === "raw-runtime" && arch.oneDoorSurfaces.rawRuntime) ||` from the `guarded`
+predicate in `relaxForDevelopment` (:369-375) — then `npx tsx scripts/governance-lint.ts`,
+`npm run governance:baseline` (dry run), and `--attacks`; then `git checkout` reverted the edit and
+a final lint confirmed the tree back at baseline.
+
+**Result.**
+- **Before:** `PASS — … 221 production + 67 development known violation(s) at warn` (7 development
+  groups, incl. `1 tooling → raw runtime [capability]`).
+- **After the one-line edit:** `221 production + 66 development` — the `tooling → raw runtime`
+  development group is gone from the summary; every other group byte-identical. The run FAILs with
+  exactly one error, and it is the scheduled one:
+  `[baseline-ratchet] … tooling → raw runtime [capability] development — tools/eval/src/judges.ts:
+  0 violation(s) now, baseline still records 1 … run npm run governance:baseline`.
+- **Baseline generator dry run:** `production 221 … delta +0; development 66 … delta -1` — the
+  production world is provably untouched by the relaxation (the raw-runtime rule has zero
+  production known-debt sites; its 4 production instances live inside the owner,
+  `harness-registry`, allowed by `hold-one-runtime-door`, which reads `architecture.json`'s
+  `rawRuntime.host`, not the relaxation data).
+- **Attack lane under the spike:** `46/47` — the only failure is `raw-runtime-in-a-test`
+  (`governance-attacks.ts:349-363`), which expects a development violation the relaxed rule no
+  longer emits; the three production raw-runtime attacks (`:303/:313/:335`, all
+  `service → raw runtime [capability] production`) and the clean spawn control (`:338-348`) still
+  PASS — the production door demonstrably stands.
+- **Revert confirmed:** final lint `PASS … 221 production + 67 development`.
+
+**Other pins found (builder edits these with the rule, per architecture D6′):**
+`governance/decided-rules.json:1055-1076` — `service → raw runtime` and `tooling → raw runtime`
+both carry development `"forbidden"` (the only two; the owner rows :1367-1390 are allowed/allowed);
+`framework/db/src/__tests__/governance-model.test.ts:400-421` — asserts the door holds "in BOTH
+worlds" and that the development clause contains `held: one door`;
+`framework/db/src/__tests__/governance-crossings.test.ts:525-531` — synthetic architecture literal
+sets `oneDoorSurfaces.rawRuntime: true` (correction, round-3 N1: the literal is cast
+`as unknown as Architecture` at :532, so deleting the interface field does **not** type-break it —
+the builder edits this pin by hand in T7; relying on the compiler to surface it would miss it);
+`governance/architecture.json:131-132` — the `rawRuntime` boolean + note inside `oneDoorSurfaces`
+(unread once the arm goes); `governance/baseline.json:337` — the development group (regenerated
+away, D7).
+
+**Verdict.** The relaxation is exactly one predicate arm plus its data/test/attack pins; production
+verdicts cannot move (different code path, measured `+0`); the lint before/after is the AC-2
+evidence shape.
+
+## P16 — production deletion paths, per delete operation the sweep found
+
+**Question.** Ruling C: for every delete operation a touched test performs or probes, does any
+production path perform that operation at all?
+
+**Method.** Full census of the production world (shipping roots `layers/ framework/ applications/`,
+excluding all development-named files): (1) every Drizzle `.delete(` call, read in context;
+(2) raw SQL — case-insensitive `delete from` over `.ts` and `.sql` (includes
+`framework/db/drizzle/` migrations): zero hits outside tests; (3) every `onDelete: "cascade"` FK in
+`framework/db/src/schema.ts`, attributed to its owning table by `awk` against the `pgTable`
+definitions; (4) soft-delete routes read in full (`agents.ts`, `routines-routes.ts`);
+(5) reapers/cleanup (`credentials-reaper.ts`, `relevance-service.ts:246`, `notification-queue.ts`,
+`work-service.ts:105`, `service-bootstrap.ts:136`).
+
+**Result — the complete production delete surface:** `teamMembers`+`teams`
+(`team-lookup.ts:305-306`, sole caller `teams-routes.ts:303`, the POST /teams rollback), `orgEdges`
+(`org-edges.ts:57`), `serverCredentials` (`credential-store.ts:119`), `notificationQueue`,
+`knowledgeAccessLog`, `taskDispatchAttempts`, `propagationLog`, `loginSessions`, `inviteCodes`,
+`agentLifecycleInbox`, `agentWorkIntents`, `explicitSessionStarts`, `serviceConnections`,
+`filesystems`+`filesystemInjections` (`filesystem-registry.ts:64,80`). **Not on the list, by any
+mechanism (direct, raw SQL, migration, cascade): `users` (agents DELETE route soft-retires,
+`agents.ts:495`), `threads`, `knowledgeItems`, `items`, `bets`, `tasks`.** Cascade attribution: the
+12 cascade FKs live on `teamRunConfigDefaults:54`, `agentRunConfig:113`, `orgEdges:865`,
+`knowledgeAppProjection:1011`, `taskPlanningSignals:1052`, `filesystemInjections:1255/1258`,
+`filesystemCaptures:1288/1291`, `hintProgress:1437`, `loginSessions:1461`,
+`serviceConnections:1742` — no cascade can remove a `users`/`threads`/`knowledgeItems`/`items`
+row.
+
+**Per-op resolutions** (the op inventory = P11's five grouped-table deletes + everything the wider
+sweep surfaced in touched files): recorded in full in `schema-test-decision.md`. Summary: teams
+deletes (:83, :114) production-performed → tests stay (:114 reworked for sole cause);
+teamMembers delete (:96) sits in an assertion-free test → deleted under Ruling B; user deletes
+(foreign-keys :127/:198, agent-run-config-store:157), thread deletes (:160/:183), knowledgeItems
+deletes (:233/:270), items delete (:334) → no production path → tests deleted (label updated:
+these deletions now ride **Ruling D**, recorded after this probe — see P18);
+`capture-provenance:149` deletes `filesystems` — production-performed (`filesystem-registry.ts:64`),
+no change. Out-of-set note: `hint-progress:99` and `P2-org-edges:248` also delete `users` but are
+not touched files — named as future work, not swept here.
+
+## P17 — dead-test sweep over the touched set (Ruling B as a principle)
+
+**Question.** Which tests in the files this work package touches cannot fail?
+
+**Method.** Touched set = the 49 files from the per-site lint probe (39 table-write + 6 one-door +
+overlap-adjusted) — list derived mechanically from `probes/lint-development-sites.txt`. Four
+sweeps, every hit read in context: (1) `vi.mock`/`vi.doMock` in any touched file, each mocked
+symbol checked against the live barrel exports; (2) multiline empty-`catch` blocks
+(`rg -U 'catch(\s*\([^)]*\))?\s*\{\s*(//[^\n]*)?\s*\}'`); (3) literal-subject assertions
+(`expect(true|false|<number>|"literal")`); (4) `not.toThrow()` / `resolves.*` / `toBeDefined()`
+occurrences, read for whether the subject can actually throw/reject/be undefined.
+
+**Result.**
+- `vi.mock` exists in exactly one touched file, `applications/desktop/__tests__/migrate.test.ts`.
+  Its `electron`, `applyMigrations`, `isDowngrade` mocks target live symbols; its `seed` mock
+  targets a symbol `framework/db/src/index.ts` does not export — **the "does NOT call seed()" test
+  (:62-69) cannot fail. Delete** (test + mock entry :34-37 + import :63). The file's other eight
+  tests can all fail and stay.
+- Empty catches: two. `foreign-keys.integration.test.ts:97` — inside the assertion-free test
+  :86-100 whose probe tolerates both outcomes: **cannot fail, delete** (the file's only
+  assertion-free test). `migrate.test.ts:98` — a legitimate expected-throw guard followed by a live
+  assertion (:101); not dead.
+- Literal-subject assertions: zero.
+- Guaranteed-by-construction: one — `knowledge-access.integration.test.ts:172`,
+  `expect(() => new Date(row?.accessedAt as string)).not.toThrow()`: the `Date` constructor never
+  throws for any input (invalid input yields `Invalid Date`). **The assertion line is deleted**;
+  the test keeps its four live assertions (row defined, itemId, accessorKind, typeof string) and
+  can still fail. The other `not.toThrow`/`resolves` hits (`relevance-service:214`,
+  `agent-run-admission-failed-subscribers:464`) await real async functions that can reject — they
+  can fail; the ~25 `toBeDefined()` hits assert on query results that can genuinely be undefined —
+  they can fail and were not itemized further.
+
+**Verdict.** Three findings total: one dead test in `migrate.test.ts`, one dead test in
+`foreign-keys` (also independently condemned by its lack of assertions), one dead assertion line in
+`knowledge-access`. The sweep found nothing else; the credibility of "nothing else" rests on the
+four named searches being re-runnable verbatim over the same file list.
+
+---
+
+Probe P18 below was run on 2026-08-08 after founder Ruling D (`founder-rulings.md`), which overruled
+the round-3 blocking finding and mandated a deletion-mechanism investigation per probed operation.
+
+## P18 — deletion-mechanism census per probed operation (Ruling D)
+
+**Question.** For each operation the contested tests probe — delete a `users` row, a `threads` row, a
+`knowledgeItems` row, an `items` row, a `teamMembers` row, and the `agentRunConfig` cascade fired by
+deleting an agent — does a deletion mechanism exist **in code at all** (any shape: repository/service
+function, HTTP route including soft-delete routes and handlers deleting other than their named
+subject, agent/MCP tool, event handler, scheduled job/reaper, CLI or script path, migration-time
+cleanup, cascade side effect of a parent production does delete, raw SQL)? Is it reachable from
+production? If dead, what is the whole-feature removal and its orphan closure?
+
+**Why these searches would have found a mechanism if one existed.** In this stack every hard row
+delete bottoms out in exactly two primitives: a Drizzle `db.delete(<table>)` call or raw SQL
+`DELETE FROM`. Any wrapper — service function, route handler, tool handler, reaper, CLI — must
+contain or transitively call one of the two. Sweeps 1–2 enumerate both primitives exhaustively across
+**all worlds** (production and development, `layers/ framework/ applications/ tools/ scripts/
+governance/`); sweeps 3–8 then attack the wrapper layer by name and by surface so that a mechanism
+whose primitive sits behind an import is still surfaced at its entry point. Grep-binary hazard
+handled: `rg` over typed globs with positive controls (below) proving each search reaches the
+relevant file population.
+
+**Sweep 1 — Drizzle deletes of the six tables, all worlds.**
+`rg -n "delete\((users|threads|knowledgeItems|items|teamMembers|agentRunConfig)\b"` over
+`layers framework applications tools scripts`: **13 hits.** Twelve are development test files
+(`foreign-keys.integration.test.ts` :81/:96/:127/:160/:183/:198/:233/:270/:334,
+`hint-progress.integration.test.ts:99`, `P2-org-edges.integration.test.ts:248`,
+`agent-run-config-store.integration.test.ts:157`) — a test's own arrange/probe is not a mechanism
+and not a consumer. Exactly **one** production hit: `layers/core-api/org/src/team-lookup.ts:305`
+(`teamMembers`, inside `deleteTeam`). Zero hits in `tools/` or `scripts/` (no CLI/script path).
+
+**Sweep 2 — raw SQL, all worlds including migrations.**
+`rg -in "delete\s+from" -g '*.ts' -g '*.sql'` over the same roots plus `governance/`: hits are one
+detector doc comment (`crossing-detectors.ts:244`), one synthetic fixture string
+(`governance-crossings.test.ts:192`), and two development-test raw deletes
+(`layers/core-api/src/__tests__/O2-schema-migration.integration.test.ts:923` `knowledge_items`,
+`:977` `tasks`). Zero production hits. **Positive control:** the same glob set reaches all 56
+migration files under `framework/db/drizzle/*.sql` — 4 of them match `DROP TABLE` (the retired-table
+drops round-3 N4 attributed), 0 match `DELETE FROM` — so the search demonstrably reads the migration
+population and migration-time row cleanup is excluded by evidence, not silence.
+
+**Sweep 3 — full production `.delete(` enumeration, every table.** All `.delete(` in shipping roots
+minus development-named files, each hit read and attributed: Drizzle deletes exist only on
+`propagationLog` (`service-bootstrap.ts:136`), `serverCredentials` (`credential-store.ts:119`),
+`notificationQueue` (`notification-queue.ts:201`), `loginSessions` (`credentials-reaper.ts:39`),
+`inviteCodes` (`credentials-reaper.ts:65`), `teamMembers`+`teams` (`team-lookup.ts:305-306`),
+`orgEdges` (`org-edges.ts:57`), `taskDispatchAttempts` (`work-service.ts:105`),
+`knowledgeAccessLog` (`relevance-service.ts:246`), `filesystems`+`filesystemInjections`
+(`filesystem-registry.ts:64,80`), `agentLifecycleInbox`/`agentWorkIntents`/`explicitSessionStarts`
+(`session-requests/service.ts:271,1042,1045`), `serviceConnections`
+(`service-connection-store.ts:108`). Every other `.delete(` hit is an in-memory `Map`/`Set`/
+searchParams delete. Identical to P16's census (independently re-verified by the round-3 critique,
+N4). Also re-checked for the referencing children: zero production `delete(sessions|routines|
+messages|bets|tasks)` anywhere.
+
+**Sweep 4 — name-based wrapper hunt.** (a) `dissolve|purge|prune|reap|forget|discard|hardDelete|
+destroy` over production files: every hit is a retention reaper of the tables in sweep 3, an
+in-memory handle eviction, tiptap `destroy()`, or prose (`dissolvedAt` on `teamMembers`
+(`schema.ts:135`) is a soft timestamp — set by nothing that deletes rows). (b)
+`(delete|remove|archive)(User|Thread|Item|Knowledge|Agent|Member)`: the only production hit is
+`remove` in `knowledge-repository.ts:1496-1527` (renamed from `archiveItem`) — read in full: an
+**UPDATE** to `status:"archived"` plus a `knowledgeEditLog` INSERT, never a row delete; its live
+production consumer is `POST /:id/archive` (`routes/knowledge.ts:28,839`). Not a deletion mechanism;
+not dead; not removed.
+
+**Sweep 5 — HTTP DELETE routes.** Every `router.delete("` registration in shipping roots — six —
+each handler read end to end for deletes of anything other than its named subject:
+`agents.ts:481-497` (soft-retire: `updateUser(db, id, { status: "retired" })` at :495 — no row
+delete of any table), `routines-routes.ts:186-203` (soft delete: `updateRoutine … deletedAt`),
+`org.ts:206-215` → `orgEdges` only, `credentials.ts:242` → `serverCredentials` only,
+`filesystems.ts:325-337` → `filesystems` + DB-level injection cascade only,
+`connections.ts:339-355` → `serviceConnections` only. No handler deletes a row of the six tables.
+
+**Sweep 6 — agent/MCP tool surface.** The complete tool catalog is
+`layers/agent-orchestration/tool-handlers/src/tool-definitions.ts` (`buildToolDefinitions`, :1617);
+its 21 tool names enumerated (:70-:1527): `read_inbox, send_message, reply, query_practice,
+write_memory, handoff_to, create_item, write_session_notes, create_task, submit_review,
+score_attention, promote_knowledge, create_conflict_review, create_team, add_agent, create_bet,
+edit_bet, create_routine, update_routine, commit_file, log_task, create_artifact` — zero
+deletion-shaped tools; knowledge lifecycle "archived" appears only as a status-transition value.
+`harness-registry/src/mcp/*` contains no delete-named tool either.
+
+**Sweep 7 — scheduled jobs/event handlers.** The retention reaper (`service-bootstrap.ts:513-539`)
+calls `reapExpiredCredentials`/`reap` (notificationQueue)/`reapAccessLog`/`reapPropagationLog`/
+`reapTerminalTaskDispatchAttempts`; the credentials reaper covers `loginSessions`/`inviteCodes`.
+All targets are sweep-3 tables; none is one of the six. Event-reaction files (`*-reactions.ts`)
+contain only in-memory `registeredBuses.delete(...)`.
+
+**Sweep 8 — cascade side effects of parents production DOES delete.** All 12 `onDelete: "cascade"`
+FKs enumerated from `schema.ts` (attribution per P16, re-read): none sits ON `users`, `threads`,
+`knowledgeItems`, `items`, or `teamMembers` — so no production-performed parent delete (teams,
+teamMembers, orgEdges, filesystems, …) can remove a row of those five. The only cascade on a
+contested subject is `agentRunConfig.agentId → users.id` (`schema.ts:113`), and its parent has no
+deletion mechanism (this probe). `users.teamId → teamMembers.id` is `onDelete: "restrict"`
+(`schema.ts:69`) — a rejection, never a removal.
+
+**knip check.** `knip.json` read in full: the `ignore` list is test infra/fixtures, `ignoreIssues`
+covers one component's exports — no exemption names any deletion symbol. The question "does knip
+hide a dead deletion export" is **vacuous**: no deletion export for the six operations exists to
+hide. The deletion-adjacent exports that do exist are all live: `deleteTeam`
+(`org/src/index.ts:48`, consumed by `teams-routes.ts:31,303`), knowledge `remove`
+(consumed by `routes/knowledge.ts:28`); `agent-run-config-store.ts` exports **no delete function
+at all** (`DEFAULT_AGENT_RUN_CONFIG`:44, `readAgentRunConfig`:75, `readAgentRunConfigs`:94,
+`writeAgentRunConfig`:121 — the full export surface).
+
+**Per-operation verdicts.**
+
+| Operation | Mechanism in code? | Production-reachable? | Verdict | Orphan closure |
+|---|---|---|---|---|
+| delete `users` row | **NO** — no primitive anywhere in production; agents DELETE soft-retires (update) | n/a | nothing to remove; tests deleted (Ruling D) | none |
+| delete `threads` row | **NO** — no primitive; `messages` has soft-delete (`deletedAt`), threads not even that | n/a | nothing to remove; tests deleted (Ruling D) | none |
+| delete `knowledgeItems` row | **NO** hard delete — `remove` is a soft archive (UPDATE + log INSERT), live via `POST /:id/archive` | n/a (the soft archive IS reachable and is not a deletion) | nothing to remove; tests deleted (Ruling D) | none |
+| delete `items` row | **NO** — no primitive | n/a | nothing to remove; test deleted (Ruling D) | none |
+| delete `teamMembers` row | **YES** — `deleteTeam` (`team-lookup.ts:305`) | **YES** — `teams-routes.ts:303` (POST /teams rollback) | operation reachable → a live test would STAY under Ruling D; the only test probing it (`foreign-keys:86-100`) asserts nothing and cannot fail → deleted under Ruling B (independent criterion; Ruling B forbids rewriting) | none — the mechanism is live and untouched |
+| `agentRunConfig` cascade on agent deletion | the only "mechanism" is the FK itself (`schema.ts:113`); no code deletes `agentRunConfig` rows and no code deletes its parent | **NO** — unreachable (parent never deleted) | schema untouched per Ruling D (no FK dropped, no `onDelete` changed, **no migration generated**); nothing else exists to remove; test deleted | none |
+
+**Net finding.** The Ruling-D "dead deletion feature" branch is **empty**: for the four
+never-deleted tables no mechanism exists in any shape, and both mechanisms that do exist
+(`deleteTeam`, knowledge soft-archive) are live production paths that stay. **Zero features are
+removed; zero production files change; no migration is generated.** The codebase is already in the
+state the ruling's second sentence describes — the capability is absent, which is the safety. The
+scope amendment Ruling D makes to plan.md (production world newly in-bounds for removing a dead
+deletion feature) is noted and exercises to zero; the 221 production governance violations remain
+AU29/AU30/AU31's, untouched. Entanglement to report back: **none** — no removal was planned, so no
+removal is entangled.
+
+**Effect on counts.** Governance: production 221 → 221 (this package changes no production-world
+file; the D6′ rule edits live in `scripts/`/`governance/`, development world); development 67 → 0
+by the already-planned fixes — no removal moves either number. AC-6 projection unchanged and now
+fully ruling-backed: unit 6203 − 1 + 2 = **6204**; service integration 2835 − 9 (8 `foreign-keys` +
+1 `agent-run-config-store`) = **2826**.
