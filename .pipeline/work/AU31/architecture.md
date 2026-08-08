@@ -316,7 +316,7 @@ subsections that follow it are §3.1 and §3.2.
      intent row (id + idempotencyKey — `knowledge.ts:955` needs it).
    - `intents.createExplicitStart(input)` → the **atomic pair** op: creates the explicit start and
      records the baked `session_start` intent in one orchestration-side transaction, preserving
-     the atomicity `sessions-routes.ts:167-201` has today [P3]. Core resolves the baked request
+     the atomicity `sessions-routes.ts:167-201` has today [P3b]. Core resolves the baked request
      from its own domain *before* the call and passes it in.
    - `intents.transition(...)` / `runs.stopForTasks(taskIds)` / `runs.endForHandoff(...)` /
      `runs.createBareRun(...)` / `runs.abort(sessionId)` /
