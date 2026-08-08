@@ -35,7 +35,7 @@ For gating of irreversible actions, see
 [`docs/process-layer/staged-operation.md`](../process-layer/staged-operation.md).
 Tool availability is registry-generated, not declared here — see
 `layers/agent-orchestration/tool-handlers/src/tool-definitions.ts` and the
-`toolsForRole("assistant")` call (`framework/shared/src/tool.ts`).
+`toolsForRole("assistant")` call (`layers/core-api/src/services/tool-provider-bindings.ts`).
 
 ## Tone
 

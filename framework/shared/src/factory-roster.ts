@@ -1,23 +1,25 @@
 /**
  * AK6 — Factory-roster injection seam (registry-free).
  *
- * `FactoryRosterSpec` is a PURE VALUE (not a port call) injected into
- * `applyFactoryBootstrap` so the db leaf + desktop can seed facilitators
- * without the server roster registry. The default preserves the app roster
- * (preservation).
+ * `FactoryRosterSpec` is a PURE VALUE (not a port call) consumed by
+ * `applyFactoryCoreState` (`layers/core-api/src/bootstrap/factory-state.ts`)
+ * so the composition roots (desktop + the `tools/setup` CLIs) can seed
+ * facilitators without the server roster registry. The default preserves the
+ * app roster (preservation).
  *
- * @lore AK6: This is the "registry-free roster injection" seam. The db leaf
- * (`framework/db`) cannot import server-owned runtime services (inverts
- * `db→server`). Instead, `applyFactoryBootstrap(db, roster?)` takes
- * this value as an optional param, defaulting to `defaultFactoryRoster`.
+ * @lore AK6: This is the "registry-free roster injection" seam, originally for
+ * `framework/db` (which could not import server-owned runtime services).
+ * AU29 relocated the bootstrap writer out of `framework/db` entirely, into a
+ * layer face that routes every write through the owning services
+ * (`insertUserIfAbsent` / `setAgentCategoryForRole` / `listFactoryAgents`)
+ * instead of writing tables directly — `defaultFactoryRoster` remains its
+ * default roster value.
  *
  * @lore AK6: `defaultFactoryRoster` lives in `@hyperidle/shared` (the contract
- * layer) so both `framework/db` (the bootstrap writer) and server-owned
- * app defaults can reference the same canonical seed.
- * The `db→shared` import direction is valid (`framework/db/package.json`
- * already depends on `@hyperidle/shared`).
+ * layer) so both the bootstrap writer and server-owned app defaults can
+ * reference the same canonical seed.
  *
- * @lore AK6: Concept hard-rule #1: `db/factory-bootstrap.ts` must NOT contain
+ * @lore AK6: Concept hard-rule #1: the bootstrap writer must NOT contain
  * a hard-coded persona constant or roster. The roster *composition* comes from
  * this injected value; the persona *text* still comes from
  * `docs/system-prompts/*.md` read at bootstrap (unchanged).
@@ -56,8 +58,8 @@ export interface FactorySystemAssistantSpec {
 }
 
 /**
- * The factory-bootstrap roster spec — a PURE VALUE injected into
- * `applyFactoryBootstrap(db, roster?)`.
+ * The factory-bootstrap roster spec — a PURE VALUE consumed by
+ * `applyFactoryCoreState(db)`.
  *
  * Determines:
  *   - Which facilitator agents exist (one per entry in `facilitators`)
@@ -80,7 +82,7 @@ export interface FactoryRosterSpec {
  * The default factory roster — reproduces today's pre-AK6 seed rows byte-for-byte.
  *
  * 5 communities × 1 facilitator + 1 system assistant.
- * This is the value `applyFactoryBootstrap(db)` uses when called with no second arg.
+ * This is the value `applyFactoryCoreState(db)` uses.
  *
  * All four registry-less boot paths (desktop + 3 leaf CLIs) rely on this default.
  *

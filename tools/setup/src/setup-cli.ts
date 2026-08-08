@@ -193,10 +193,12 @@ async function runLaptop(
 		return 0;
 	}
 
-	// @lore AU29: migrations live in framework/db/drizzle regardless of which
-	// package's CLI runs them — resolve against `root` (the repo root this
-	// function already computed), not against this file's own directory.
-	const migrationsFolder = path.resolve(root, "framework", "db", "drizzle");
+	// @lore AU29: anchor on this file's own location (tools/setup/src →
+	// repo root is ../../..), not on `root` — `root` is the `--root` override
+	// used only to locate docker-compose.yml (vps profile) and must not be able
+	// to redirect the migrations lookup. Matches the pre-AU29 behavior where
+	// framework/db/src/setup-cli.ts anchored on its own Dirname.
+	const migrationsFolder = path.resolve(Dirname, "..", "..", "..", "framework", "db", "drizzle");
 	await applyLaptopMigrations(dataDir, migrationsFolder, args.demo);
 
 	if (args.demo) {
