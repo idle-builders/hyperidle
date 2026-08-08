@@ -17,13 +17,10 @@
  * value stored in the role column.
  */
 
-import {
-	// P2: import new symbol — compile error until implementation done
-	teams,
-	users,
-} from "@hyperidle/db";
+import { users } from "@hyperidle/db";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
+import { seedTeam } from "./_helpers.js";
 
 const TEST_API_KEY = "test-key-p2-auth";
 
@@ -216,9 +213,7 @@ describe("P2 — Auth middleware resolves user from users table (AC7)", () => {
 			});
 
 			// Also seed a product so settings works
-			await db
-				.insert(teams)
-				.values({ id: "prod-auth", name: "Auth Product", phase: "build", createdAt: NOW });
+			await seedTeam(db, { id: "prod-auth", name: "Auth Product", phase: "build", createdAt: NOW });
 
 			const res = await app.request("/api/settings", { headers: authHeaders() });
 			expect(res.status).toBe(200);
