@@ -67,6 +67,28 @@ function isWorkIntentKind(value: string): value is AgentOrchestrationWorkIntentK
 	return (WORK_INTENT_KINDS as readonly string[]).includes(value);
 }
 
+/**
+ * The ONE audited cast: `AgentOrchestrationWorkIntentInput.sourceKind` is
+ * wire-loose (`string`) at the port boundary, and `bakedRequest` is carried
+ * opaque (`unknown`) — neither is inspected here, both are only forwarded.
+ * `enqueueWorkIntent` treats them the same way (`insertIntentInternal` writes
+ * `sourceKind` straight through and `JSON.stringify`s `bakedRequest` without
+ * narrowing either), so asserting them onto `WorkIntentInput`'s narrower
+ * wire-mirror types here is a single audited cast per field, not a
+ * type-defeating `as unknown as T` launder — `kind`/`sourceId`/`requestedBy`/
+ * `idempotencyKey` all type-check structurally with no cast at all.
+ */
+function toWorkIntentInput(body: AgentOrchestrationWorkIntentInput): WorkIntentInput {
+	return {
+		kind: body.kind,
+		sourceKind: body.sourceKind as WorkIntentInput["sourceKind"],
+		sourceId: body.sourceId,
+		requestedBy: body.requestedBy,
+		idempotencyKey: body.idempotencyKey,
+		bakedRequest: body.bakedRequest as WorkIntentInput["bakedRequest"],
+	};
+}
+
 function rowToExplicitStartView(row: ExplicitSessionStart): AgentOrchestrationExplicitStartView {
 	return {
 		id: row.id,
@@ -114,12 +136,7 @@ export function createAgentOrchestrationIntakeRoutes(
 		validateBody(workIntentInputSchema),
 		async (c) => {
 			const body = c.req.valid("json");
-			// One audited cast: the wire body is zod-validated against the same
-			// kind enum `WorkIntentInput` declares; `sourceKind`/`bakedRequest`
-			// stay wire-loose at the port boundary (never inspected here, only
-			// forwarded) and are the real function's problem to validate, same
-			// as `enqueueWorkIntent` already does internally.
-			const intent = await enqueueWorkIntent(db, body as unknown as WorkIntentInput);
+			const intent = await enqueueWorkIntent(db, toWorkIntentInput(body));
 			return c.json({ id: intent.id, idempotencyKey: intent.idempotencyKey });
 		},
 	);
