@@ -18,6 +18,7 @@ sync-reports/
 !.pipeline/progress/
 !.pipeline/retro-log/
 !.pipeline/audits/
+!.pipeline/research/
 !.pipeline/work/
 !.pipeline/[A-Z].md
 !.pipeline/[A-Z][A-Z].md
