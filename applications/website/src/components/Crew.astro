@@ -1,0 +1,139 @@
+---
+interface Card {
+	code: string;
+	name: string;
+	dossier: string;
+	tag: string;
+	wide?: boolean;
+}
+const cards: Card[] = [
+	{
+		code: "TEAM/PM",
+		name: "Product Manager",
+		dossier:
+			"Team lead. Shapes bets, coordinates handoffs, runs the retros. Integrates and unblocks — does not micromanage.",
+		tag: "Team",
+		wide: true,
+	},
+	{
+		code: "TEAM/BLD",
+		name: "Builder",
+		dossier: "Shipped auth in January, ships payments in March. Keeps every lesson.",
+		tag: "Team",
+	},
+	{
+		code: "TEAM/DSN",
+		name: "Designer",
+		dossier: "Owns what the product looks like — inside the system, not around it.",
+		tag: "Team",
+	},
+	{
+		code: "TEAM/QA",
+		name: "QA Engineer",
+		dossier: "Holds the done condition honest. Tests what the team ships.",
+		tag: "Team",
+	},
+	{
+		code: "TEAM/GRW",
+		name: "Growth",
+		dossier: "Watches the numbers weekly. Flags the 15% drop before it becomes a quarter.",
+		tag: "Team",
+	},
+	{
+		code: "TEAM/BRV",
+		name: "Brand Voice",
+		dossier: "Reviews everything that ships publicly against the brand voice.",
+		tag: "Team",
+	},
+	{
+		code: "TEAM/OPS",
+		name: "Ops",
+		dossier: "Keeps the infrastructure and the process running.",
+		tag: "Team",
+	},
+	{
+		code: "TEAM/SUP",
+		name: "Support",
+		dossier: "Answers when users hit a wall. Feeds what breaks back to the team.",
+		tag: "Team",
+	},
+	{
+		code: "TEAM/SLS",
+		name: "Sales",
+		dossier: "Talks to the people who might buy. Brings the signal home.",
+		tag: "Team",
+	},
+	{
+		code: "TEAM/CNT",
+		name: "Content Writer",
+		dossier: "Writes what the product needs to say.",
+		tag: "Team",
+	},
+	{
+		code: "TEAM/DAT",
+		name: "Data Analyst",
+		dossier: "Reads the data the product produces. Turns it into decisions.",
+		tag: "Team",
+	},
+	{
+		code: "STRATEGY/FAC",
+		name: "Facilitators",
+		dossier:
+			"Five, one per community — build, product, growth, ops, facilitation. They merge what agents learn into knowledge and surface what needs your eyes.",
+		tag: "Strategy",
+		wide: true,
+	},
+	{
+		code: "STRATEGY",
+		name: "Scout · Infra · Platform",
+		dossier: "Market analysis, shared infrastructure, shared tooling. The background detachment.",
+		tag: "Strategy",
+		wide: true,
+	},
+	{
+		code: "INDIVIDUAL",
+		name: "Assistant",
+		dossier:
+			"One per human. A persistent thread scoped to you — sees what you see, acts on your behalf.",
+		tag: "Individual",
+	},
+];
+const base = import.meta.env.BASE_URL;
+---
+
+<section id="crew" aria-labelledby="crew-h">
+	<div class="container">
+		<div class="sec-head reveal">
+			<div>
+				<span class="eyebrow">[ // Character Select ]</span>
+				<h2 id="crew-h">Pick your crew.</h2>
+				<p class="lead">
+					A team is agents bound to a product — not to a task. The roster flexes with what you're
+					building, and every member keeps what it learns across sessions.
+				</p>
+			</div>
+			<span class="sec-idx" aria-hidden="true">SEC.01</span>
+		</div>
+
+		<div class="crew-grid" data-stagger>
+			{
+				cards.map((card) => (
+					<article class:list={["crew", "lift", "reveal", { wide: card.wide }]}>
+						<div class="crew-in corners">
+							<span class="crew-code">{card.code}</span>
+							<h3 class="crew-name">{card.name}</h3>
+							<p class="crew-dossier">{card.dossier}</p>
+							<span class="crew-tag">{card.tag}</span>
+						</div>
+					</article>
+				))
+			}
+			<a class="crew wide crew-cta lift reveal" href={`${base}#self-host`}>
+				<div class="crew-in corners">
+					<span class="cta-line">Assemble your crew <span class="cta-arrow">→</span></span>
+					<span class="cta-sub">git clone · npm install · npm run dev</span>
+				</div>
+			</a>
+		</div>
+	</div>
+</section>

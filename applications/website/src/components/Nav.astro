@@ -1,0 +1,90 @@
+---
+const base = import.meta.env.BASE_URL;
+const links = [
+	{ href: `${base}#crew`, label: "Crew" },
+	{ href: `${base}#loop`, label: "Loop" },
+	{ href: `${base}#views`, label: "Views" },
+	{ href: `${base}#ethos`, label: "Ethos" },
+	{ href: `${base}#knowledge`, label: "Knowledge" },
+	{ href: `${base}#docs`, label: "Docs" },
+];
+---
+
+<header class="nav">
+	<div class="container nav-in">
+		<a class="wordmark" href={base} aria-label="HyperIdle home"
+			>HYPERIDLE<span class="block" aria-hidden="true">▮</span></a
+		>
+		<nav class="nav-links" aria-label="Primary">
+			{links.map((link) => <a href={link.href}>{link.label}</a>)}
+		</nav>
+		<a class="btn btn-ghost" href={`${base}#self-host`}>Self-host</a>
+		<button class="burger" id="burger" aria-label="Open menu" aria-expanded="false" aria-controls="menu">
+			<span></span><span></span>
+		</button>
+	</div>
+</header>
+
+<div class="menu" id="menu" aria-hidden="true">
+	<div class="menu-top">
+		<span class="wordmark">HYPERIDLE<span class="block" aria-hidden="true">▮</span></span>
+		<button class="menu-close" id="menuClose" aria-label="Close menu">✕</button>
+	</div>
+	<nav class="menu-links" aria-label="Mobile">
+		{links.map((link) => <a href={link.href}>{link.label}</a>)}
+	</nav>
+	<a class="btn btn-primary" href={`${base}#self-host`}>Self-host quickstart</a>
+</div>
+
+<script>
+	// Mobile menu with focus containment: open focuses the close button, Tab
+	// cycles inside the overlay only, Esc/link-tap/close return focus to the
+	// burger, and body scroll locks while open.
+	const menu = document.getElementById("menu");
+	const burger = document.getElementById("burger");
+	const closeBtn = document.getElementById("menuClose");
+
+	if (menu && burger && closeBtn) {
+		const focusables = () =>
+			Array.from(
+				menu.querySelectorAll<HTMLElement>("a[href], button:not([disabled])"),
+			);
+
+		const setMenu = (open: boolean) => {
+			menu.classList.toggle("open", open);
+			menu.setAttribute("aria-hidden", open ? "false" : "true");
+			burger.setAttribute("aria-expanded", open ? "true" : "false");
+			document.body.style.overflow = open ? "hidden" : "";
+			if (open) closeBtn.focus();
+			else burger.focus();
+		};
+
+		burger.addEventListener("click", () => setMenu(true));
+		closeBtn.addEventListener("click", () => setMenu(false));
+		menu.addEventListener("click", (e) => {
+			if ((e.target as HTMLElement).closest("a")) setMenu(false);
+		});
+		document.addEventListener("keydown", (e) => {
+			if (!menu.classList.contains("open")) return;
+			if (e.key === "Escape") {
+				setMenu(false);
+				return;
+			}
+			if (e.key !== "Tab") return;
+			const items = focusables();
+			const first = items[0];
+			const last = items[items.length - 1];
+			if (!first || !last) return;
+			if (e.shiftKey && document.activeElement === first) {
+				e.preventDefault();
+				last.focus();
+			} else if (!e.shiftKey && document.activeElement === last) {
+				e.preventDefault();
+				first.focus();
+			} else if (!menu.contains(document.activeElement)) {
+				e.preventDefault();
+				first.focus();
+			}
+		});
+	}
+</script>

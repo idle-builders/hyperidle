@@ -1,0 +1,64 @@
+---
+import Nav from "../components/Nav.astro";
+import Footer from "../components/Footer.astro";
+import "../styles/tokens.css";
+import "../styles/fonts.css";
+import "../styles/site.css";
+
+interface Props {
+	title: string;
+	description?: string;
+}
+const { title, description } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>{title}</title>
+		{description && <meta name="description" content={description} />}
+		<meta name="theme-color" content="#0A0A0F" />
+		<link
+			rel="icon"
+			href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23FCEE0A'/%3E%3Ctext x='16' y='24' font-family='monospace' font-size='20' font-weight='700' text-anchor='middle' fill='%230A0A0F'%3EH%3C/text%3E%3C/svg%3E"
+		/>
+	</head>
+	<body>
+		<a class="skip" href="#main">SKIP TO CONTENT</a>
+		<div class="scanlines" aria-hidden="true"></div>
+		<Nav />
+		<main id="main">
+			<slot />
+		</main>
+		<Footer />
+	</body>
+</html>
+
+<script>
+	// Visible-first reveals: content is visible by default in CSS. Only when JS
+	// runs AND motion is allowed does the page opt into hidden-then-reveal —
+	// no-JS and reduced-motion users see everything immediately (AC).
+	const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+	if (!reduce && "IntersectionObserver" in window) {
+		document.documentElement.classList.add("js-reveal");
+		document.querySelectorAll("[data-stagger]").forEach((parent) => {
+			Array.prototype.forEach.call(parent.children, (child: HTMLElement, i: number) => {
+				child.style.transitionDelay = `${Math.min(i, 4) * 70}ms`;
+			});
+		});
+		const io = new IntersectionObserver(
+			(entries) => {
+				entries.forEach((en) => {
+					if (en.isIntersecting) {
+						en.target.classList.add("in");
+						io.unobserve(en.target);
+					}
+				});
+			},
+			{ threshold: 0.12 },
+		);
+		document.querySelectorAll(".reveal").forEach((el) => io.observe(el));
+	}
+</script>

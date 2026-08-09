@@ -1,0 +1,33 @@
+/* ============================================================
+   HYPERIDLE MARKETING LANGUAGE — WP-owned tokens.
+   Deliberately NOT the Hearth app design system (plan constraint):
+   these custom properties live in the site source only and must
+   never move into framework/design-system.
+   ============================================================ */
+:root {
+	--bg-page: #0a0a0f;
+	--bg-raised: #0e0f15;
+	--bg-panel: #12141c;
+	--bg-inset: #07070b;
+	--border-hairline: #1c1f2b;
+	--border-strong: #2b3040;
+	--text-primary: #e9ebf2;
+	--text-secondary: #a0a5b8;
+	/* Raised from the prototype's #767C94: that value sat at ~4.4:1 on
+	   --bg-panel, under the 4.5:1 floor the accessibility contract sets
+	   for every text token on every surface it is used on. */
+	--text-dim: #7b8199;
+	--accent: #fcee0a;
+	--accent-ink: #0a0a0f;
+	--accent-tint: rgba(252, 238, 10, 0.08);
+	--accent-border: rgba(252, 238, 10, 0.45);
+	--glow: rgba(252, 238, 10, 0.3);
+	--font-sans: "Space Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+	--font-mono: "Space Mono", ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+	--ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+	--dur-hover: 150ms;
+	--dur-entry: 540ms;
+	--notch: 14px;
+	--notch-sm: 8px;
+	--shadow-hard-accent: 4px 4px 0 0 var(--accent);
+}
