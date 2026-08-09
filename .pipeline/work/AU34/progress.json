@@ -1,0 +1,62 @@
+{
+  "workPackage": "AU34",
+  "title": "Split `shared` into named framework packages, each with a decided audience",
+  "phase": "refine",
+  "status": "in-progress",
+  "worktree": ".worktrees/AU34",
+  "branch": "framework/AU34-shared-split",
+  "base": "origin/main @ 0791c4fd (AU29 merged — dependency satisfied)",
+  "sessions": [
+    { "started": "2026-08-09", "phase": "preflight", "note": "worktree created off fresh origin/main; AU29 dependency confirmed merged in #463; lockfile libc churn from npm install reverted" },
+    { "started": "2026-08-09", "phase": "refine", "note": "planner produced requirements.md — 17 new framework packages + framework/db, all 95 modules placed, 9 cut disagreements reconciled" },
+    { "started": "2026-08-09", "phase": "refine-critique", "note": "fresh reviewer; 6 blocking + 7 non-blocking findings" }
+  ],
+  "evaluations": [
+    {
+      "phase": "refine-critique",
+      "attempt": 1,
+      "verdict": "blocking-findings",
+      "confirmed": [
+        "placement complete: 95 modules, zero double-placed, zero missed",
+        "unreached inventory exact; format/money.ts genuinely dead (1 of 11, not 11)",
+        "package graph acyclic after the two named edge rewrites",
+        "all browser-bundle claims reproduce (hono absent; markdown toolchain present via real core-ui calls)",
+        "AC-4 / validation scenario 3 read literally and correctly, not reinterpreted",
+        "scripts/governance-context.ts frameworkSurfacesOf defect is real; validation scenario 4 depends on it",
+        "decided-rules.json arithmetic (12 rows) and AU29 Ruling 12.3 precedent correct"
+      ],
+      "blocking": [
+        "B1 harness-protocol reach omits agent-run-config (real production consumer) — red build on a legal import",
+        "B2 eleven package names granted reach with no measured consumer in either world",
+        "B3 CredentialResolver and EventBusAdapter ports left inside the everyone package, against the artifact's own stated rule",
+        "B4 Cut B (group by who reaches it) does not reproduce from its own definitions — plan.md:28 requires two real cuts",
+        "B5 D7 reverses AU29 founder Ruling 12.3 (db:util) under an authority the artifact does not hold",
+        "B6 scope omits 31 consumer manifests + 29 tsconfigs + vitest projects — AC-4 unachievable as scoped"
+      ]
+    }
+  ],
+  "artifacts": {
+    "plan": ".pipeline/work/AU34/plan.md",
+    "requirements": ".pipeline/work/AU34/requirements.md"
+  },
+  "approvals": [
+    {
+      "ruling": 1,
+      "date": "2026-08-09",
+      "decision": "a framework package may name another framework package — adapt the model rather than thread sibling names through audience lists",
+      "effect": "a framework surface's reach describes who OUTSIDE the framework role may name it; no sibling entries; 36 decided-rules rows saved; widens api-contract/design-system/db reach as a side effect (flagged, not actioned)",
+      "record": ".pipeline/work/AU34/founder-rulings.md"
+    },
+    {
+      "ruling": 2,
+      "date": "2026-08-09",
+      "decision": "AC-5 is literal — a module reached only from inside its own package is deleted or folded into a real consumer; the co-location reading is withdrawn",
+      "effect": "nine modules fold (seven kinds/* into kinds/registry.ts, blocks/slug.ts into blocks/normalise.ts, toon-errors.ts into toon-codec.ts), none deleted; computed to a fixpoint",
+      "record": ".pipeline/work/AU34/founder-rulings.md"
+    }
+  ],
+  "verdicts": [],
+  "pendingFounderApproval": [
+    "the audience table itself — 18 new framework surfaces and their reach lists, ~60-80 rows in the founder-owned governance/decided-rules.json. Goes to the concept gate with the architecture, not before it."
+  ]
+}
