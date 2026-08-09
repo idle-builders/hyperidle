@@ -183,13 +183,20 @@ export function buildLiveCensus(architecture: LoadedArchitecture, files: readonl
 	return buildCensus({ files, readFile: readRepoFile, roleRules: architecture.roles.byWorkspacePattern });
 }
 
-/** Framework package name → the surface label it is named by. Derived from the packages that exist. */
-function frameworkSurfacesOf(architecture: Architecture, census: Census): Map<string, string> {
+/**
+ * Framework package name → the surface label it is named by. Derived from the packages that exist.
+ *
+ * @lore AU34: the label is mapped whether or not `architecture.surfaces` declares it. It used to be
+ * mapped only when the entry already existed, so a framework package with no decided audience never
+ * became a `surface` target at all: the crossing fell through to the generic package clauses and the
+ * build failed with "only a composition root reaches across" — which sends a reader to the wrong file.
+ * An undeclared surface is forbidden, and it has to say so.
+ */
+function frameworkSurfacesOf(census: Census): Map<string, string> {
 	const out = new Map<string, string>();
 	for (const pkg of census.packages) {
 		if (pkg.role !== "framework") continue;
-		const label = `framework/${pkg.name}`;
-		if (label in architecture.surfaces) out.set(pkg.name, label);
+		out.set(pkg.name, `framework/${pkg.name}`);
 	}
 	return out;
 }
@@ -203,7 +210,7 @@ export function buildCrossings(census: Census, architecture: LoadedArchitecture)
 			eventTypesModule: architecture.eventBus.typesModule,
 			db: buildDbSurfaceIndex(architecture.databasePackage, readRepoFile),
 			tableOwners: loadTableOwners(),
-			frameworkSurfaces: frameworkSurfacesOf(architecture, census),
+			frameworkSurfaces: frameworkSurfacesOf(census),
 		},
 		DETECTOR_FLOORS,
 	);

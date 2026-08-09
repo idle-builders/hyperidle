@@ -864,7 +864,7 @@ function runOnePass(tree: AttackTree, attacks: readonly Attack[]): PassOutcome {
 				eventTypesModule: tree.architecture.eventBus.typesModule,
 				db: buildDbSurfaceIndex(tree.architecture.databasePackage, overlaid.readFile),
 				tableOwners: tree.tableOwners,
-				frameworkSurfaces: frameworkSurfacesOf(tree.architecture, census),
+				frameworkSurfaces: frameworkSurfacesOf(census),
 			},
 			tree.floors,
 		);
@@ -924,13 +924,18 @@ function runOnePass(tree: AttackTree, attacks: readonly Attack[]): PassOutcome {
 	return { results, ruleIds };
 }
 
-/** Framework package name → its surface label. Mirrors the live loader, over the overlaid census. */
-function frameworkSurfacesOf(architecture: Architecture, census: Census): Map<string, string> {
+/**
+ * Framework package name → its surface label. Mirrors the live loader, over the overlaid census.
+ *
+ * Unconditional, exactly like the live one: a framework package with no declared audience must still
+ * become a `surface` target, so the crossing fails as an undeclared surface rather than as a sideways
+ * reach. A copy that filtered on the registry would make the attack case pass against the wrong twin.
+ */
+function frameworkSurfacesOf(census: Census): Map<string, string> {
 	const out = new Map<string, string>();
 	for (const pkg of census.packages) {
 		if (pkg.role !== "framework") continue;
-		const label = `framework/${pkg.name}`;
-		if (label in architecture.surfaces) out.set(pkg.name, label);
+		out.set(pkg.name, `framework/${pkg.name}`);
 	}
 	return out;
 }

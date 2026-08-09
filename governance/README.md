@@ -68,6 +68,16 @@ it is production's verdict plus one relaxation:
 The doors it may not go around are listed in `architecture.json` under `oneDoorSurfaces`, with the
 reason each one is held.
 
+## Framework packages and each other
+
+A framework package may name another framework package. That is a property of the model, not a
+sibling entry threaded through every target's audience — so **a `reach` list says who *outside* the
+framework role may name the surface**, and no list carries a framework package's own name.
+
+It reaches `framework/<name>` surfaces and those only. `db:schema-ns`, `db:unknown` and `db:testing`
+are surface targets too; they keep the audiences they declare, because the whole-schema door and the
+undecided-surface catch-all are not something the framework role gets by being framework.
+
 ## The severity dial
 
 A standard linter, not a bookkeeper: every architectural rule carries exactly one severity, `error` or
