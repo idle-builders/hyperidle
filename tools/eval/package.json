@@ -12,13 +12,16 @@
 	},
 	"dependencies": {
 		"@anthropic-ai/sdk": "^0.112.1",
+		"@hyperidle/agent-orchestration": "*",
+		"@hyperidle/api-contract": "*",
 		"@hyperidle/db": "*",
 		"@hyperidle/harness-registry": "*",
 		"@hyperidle/core-api": "*",
 		"@hyperidle/settings": "*",
 		"@hyperidle/shared": "*",
 		"@hyperidle/users": "*",
-		"drizzle-orm": "^0.45.2"
+		"drizzle-orm": "^0.45.2",
+		"hono": "^4.12.27"
 	},
 	"devDependencies": {
 		"tsx": "^4.22.4",
