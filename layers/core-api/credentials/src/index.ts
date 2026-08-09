@@ -34,13 +34,13 @@
  * competing source of truth for it.
  */
 
-// -- CredentialResolver family (2) — resolver interface + DB implementation --
+// -- CredentialResolver family (1) — the DB implementation --
 // @lore AU20 R-connections: EnvCredentialResolver relocated to tools/eval (eval-only
 // fixture, AH1 §3). Production barrel exports only DbCredentialResolver.
-export {
-	type CredentialResolver,
-	DbCredentialResolver,
-} from "./credential-resolver.js";
+// @lore AU34: the `CredentialResolver` interface itself is no longer republished here. This service
+// implements the port; it does not own it, and republishing it handed a narrow-audience name to
+// anyone who could name this service. Its two production readers name the declaring package.
+export { DbCredentialResolver } from "./credential-resolver.js";
 
 // -- CredentialStore (4) — server_credentials read/write/delete + patch type --
 export {

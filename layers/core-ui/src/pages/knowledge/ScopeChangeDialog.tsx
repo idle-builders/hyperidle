@@ -19,15 +19,11 @@
  */
 
 import { Dialog, ScopePicker } from "@hyperidle/design-system";
-import { SCOPES_REQUIRING_ID, type ScopeKind } from "@hyperidle/shared";
+import { SCOPES_REQUIRING_ID, type ScopeKind, scopeKindToLabel } from "@hyperidle/shared";
 import { type JSX, useState } from "react";
 import { useCurrentUser } from "../../hooks/useCurrentUser.js";
 import { apiFetch } from "../../services/api-fetch.js";
-import {
-	SCOPE_CREATE_OPTIONS,
-	type ScopeCreateOption,
-	scopeKindToLabel,
-} from "../../utils/scope-labels.js";
+import { SCOPE_CREATE_OPTIONS, type ScopeCreateOption } from "../../utils/scope-labels.js";
 
 export interface ScopeChangeDialogProps {
 	open: boolean;

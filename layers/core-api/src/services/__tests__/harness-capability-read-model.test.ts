@@ -14,9 +14,9 @@
  * is created.
  */
 
-import type { AdapterMeta } from "@hyperidle/harness-registry";
 import { AdapterPool } from "@hyperidle/harness-registry";
 import type {
+	AdapterMeta,
 	HarnessAdapter,
 	HarnessCapabilities,
 	HarnessEvent,

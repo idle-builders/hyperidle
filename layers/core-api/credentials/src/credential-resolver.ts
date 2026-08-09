@@ -20,17 +20,6 @@ import { decryptCredentialValue } from "@hyperidle/shared/crypto";
 import { eq } from "drizzle-orm";
 
 /**
- * Resolves a credential value by name.
- *
- * @lore AU19 Increment 4: reclassified to `@hyperidle/shared` (re-exported
- * here unchanged) — `harness-registry` (agent-execution) needs the interface
- * type to accept an injected resolver, and Mechanism B forbids it depending
- * on `@hyperidle/connections`. This Service stays the sole owner of the
- * concrete `EnvCredentialResolver`/`DbCredentialResolver` implementations.
- */
-export type { CredentialResolver } from "@hyperidle/shared";
-
-/**
  * Reads from the encrypted server_credentials table.
  * Decrypts using the server secret sourced from the cipher (env vars).
  *

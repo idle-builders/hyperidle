@@ -1,15 +1,11 @@
-import {
-	type CredentialResolver,
-	deleteCredential,
-	readCredentials,
-	writeCredential,
-} from "@hyperidle/credentials";
+import { deleteCredential, readCredentials, writeCredential } from "@hyperidle/credentials";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import type { AdapterPool, McpToolBridge, SandboxAdapter } from "@hyperidle/harness-registry";
 import type { NotificationAdapter, NotificationsDeps } from "@hyperidle/notifications";
 import { getTeamMembers } from "@hyperidle/org";
 import { enqueueWorkIntent, findSessionRequest } from "@hyperidle/session-requests";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
+import type { CredentialResolver } from "@hyperidle/shared";
 import { createLogger, EventBus } from "@hyperidle/shared";
 import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/shared/crypto";
 import { createRateLimiter } from "@hyperidle/shared/http";

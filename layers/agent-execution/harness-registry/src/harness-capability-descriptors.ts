@@ -1,3 +1,4 @@
+import type { AdapterMeta } from "@hyperidle/shared";
 import {
 	type HarnessCapabilities,
 	type HarnessCapabilityDescriptor,
@@ -5,7 +6,6 @@ import {
 	type HarnessRuntimeCapabilities,
 	MODEL_CATALOG,
 } from "@hyperidle/shared";
-import type { AdapterMeta } from "./adapter-pool.js";
 import type { HarnessDiscoveryInput } from "./harness-discovery.js";
 
 const KNOWN_HARNESS_FAMILIES = ["codex", "claude-code", "cursor-agent", "opencode"] as const;

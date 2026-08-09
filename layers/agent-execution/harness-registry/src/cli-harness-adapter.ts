@@ -40,19 +40,6 @@ import {
 import { createReturnEnforcement } from "./return-enforcement.js";
 
 /**
- * S4: Re-export CredentialResolver for this module's own consumers.
- *
- * @lore AU19 Increment 4: was `export type { CredentialResolver } from
- * "@hyperidle/connections"` — `harness-registry` (agent-execution) may not
- * import `@hyperidle/connections` (a core-api domain Service), even
- * type-only (Mechanism B). `CredentialResolver` is now sourced from
- * `@hyperidle/shared` (the db-free cross-boundary type home, §7.3);
- * `@hyperidle/connections` re-exports the same interface unchanged for its
- * own `EnvCredentialResolver`/`DbCredentialResolver` implementations.
- */
-export type { CredentialResolver } from "@hyperidle/shared";
-
-/**
  * @lore claude-cli-adapter: Claude return enforcement is the `settings-claude`
  * Stop hook (writes .claude/settings.json + return-check.sh) — NOT stream
  * return-detection. The process does not emit a sentinel line that signals
