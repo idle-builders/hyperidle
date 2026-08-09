@@ -1,8 +1,8 @@
 {
 	"id": "AU31",
-	"status": "wave-A shipped — PR open, awaiting CI + human merge",
+	"status": "wave A + wave B both shipped on PR #467 — CI green, OPEN, awaiting human merge",
 	"currentStep": "ship",
-	"smallestActionToResume": "Wave A is done: reviewed DONE (0 blocking, review-r2.md), founder approved the build result and approved shipping, verify green on the merged tree, PR open against main. Nothing left to resume on wave A. Wave B starts fresh off main once wave A merges: build applications-compose-faces-only (AC 3), the MCP router relocation (AC 4), and promote this work package's 14 rules from warn to error in governance/rule-severity.json as each rule's last site clears (AC 5) — read architecture.md in full (it is the approved plan wave B builds against, not re-litigated), feasibility.md's P3/P3b atomicity audit and probes/p3b-transaction-threading/ (the corrected audit method, kept next to P3's first wrong attempt so wave B does not repeat it), and this file's adjudications/founderRulings/amendments before starting.",
+	"smallestActionToResume": "Both waves are done. All 92 sites cleared (34 wave A + 58 wave B), all 13 rule-severity.json keys deleted (governance/rule-severity.json severity:{} — kept as an empty map, not deleted, per its own file contract), governance-lint reports 0 production + 0 development violations at 23 rules (up from 20 pre-B4: R1/R2/R3 face rules landed in B4). Contrary to plan.md's Status section (which still describes wave B as a separate later PR), wave B's four leaves (B1-B4) landed as further commits on the SAME branch/PR (#467) that carried wave A — a scope decision made by the orchestrator running this work, not re-litigated here. PR #467 title/body still read as wave-A-only; not rewritten (out of this session's scope — a ship-phase task, not a builder task). Nothing left to resume: npm run verify is green, CI is green on both required checks, both governance bite-proofs (cross-layer import, cross-layer DI) were reproduced live and reverted clean, the real-boot proof (AU9-assistant-handoff-realbinary) passed, and the harness lane was run to completion in the foreground with its result recorded below (bite-tested-evidence-2026-08-10, harnessLaneResult).",
 	"startedAt": "2026-08-07",
 	"worktree": ".worktrees/AU31",
 	"branch": "backend/AU31-layer-composition-boundary",
@@ -164,7 +164,14 @@
 		},
 		"waveB": {
 			"sites": 58,
-			"state": "open"
+			"state": "shipped — all cleared on branch, same PR as wave A",
+			"leaves": {
+				"B1": "31a9ff51 fold MCP dial into harness-registry's own session provisioning (§2.7, §3.1 sites 12+14); 67f337ec relocate SessionActivityBuffer into agent-orchestration (§2.7); cedfe23c/810e497e drop dead @hyperidle/shared dep + formatting fix; dc27ee00 build bootAgentExecution (§6, AC #4)",
+				"B2": "9c6d2161 relocate tool-stack composition into agent-orchestration, kill the CoreApiPort ambient global (§2.5/§3.2/§5); 8e6badd2/252dda02 make tool-definitions factory take a CoreApiTransport value + fix cross-test-bleed it surfaced; 082295fb relocate lifecycle-drain cluster into bootAgentOrchestration (§5, §12); 76f313a1 relocate RemoteWorkerClient into agent-execution (§2.7/§5.3); b7d0eeee settings backfill's run-config read crosses the seam; a099039c/298ff4ab/7eca6a03 deps:check + mock-inventory + package-lock fixes",
+				"B3": "e6775f56 applications compose layer faces only (§5.3) — create-server.ts (remote-server + desktop) calls only bootAgentExecution -> bootCoreApi -> bootAgentOrchestration + composeApiApplication; desktop gets its own composition root, no more application->application import of @hyperidle/remote-server; verified booting for real (AU9-assistant-handoff-realbinary + boot-provisioning-wiring) at ship time; 71d515a1 declare newly-real dependencies",
+				"B4": "0d1a45bc promote all 13 rule keys to error, build R1-R3 face rules (layer-exports-resolve-inside-the-layer, service-values-do-not-escape-the-face, deep-imports-die-with-their-entries) + their attack/control pairs, add the §4 composition-handoff attack/control pair on crossing-di, shrink core-api's export map to `.`/`./boot`/`./app`; e44b0686/e303da7c retire two stale test artifacts the relocations left dead",
+				"interveningMerge": "8c387a31 merged origin/main (AU34's eighteen-package framework split, #469) into the branch after B3; a460aaef/c91f10d7/4707e048/864eb3e4 repoint the crossings and drop a devDependency AU34's split changed underneath this branch"
+			}
 		},
 		"linterSnapshot": {
 			"atReviewR2": { "head": "09768755", "base": "59b9299a", "productionViolations": 187, "baseProductionViolations": 221 },
@@ -176,8 +183,54 @@
 				"productionViolations": 157,
 				"developmentViolations": 0,
 				"check": "191 - 157 = 34, matching wave A's clearedOnBranch count exactly; AU31's own diff makes zero change to governance/rule-severity.json (verified identical to origin/main tip)"
+			},
+			"atWaveBFinish": {
+				"head": "daab9c5a",
+				"productionViolations": 0,
+				"developmentViolations": 0,
+				"rules": 23,
+				"ruleSeverityFile": "governance/rule-severity.json severity:{} — empty map, all 13 keys this work package owned deleted (kept as a file per its own contract: absent key = error, file only lists what is not yet clean)",
+				"check": "governance-lint: PASS — 3441 tracked files (825 production, 2616 development), 51 packages, 8710 crossings, 23 rules, 0 production + 0 development known violation(s) at warn — reproduced verbatim by the B4-finishing session, 2026-08-10"
 			}
 		},
 		"correction2026-08-09": "lifecycle-drain cluster (service-bootstrap.ts:38 + :339, durable-agent-queue.ts:83) moved wave A -> wave B2; relocation target layers/agent-orchestration/src/boot.ts is wave B's file. Total work unchanged."
+	},
+	"b4Finish2026-08-10": {
+		"note": "A prior session's B4 build (promote 13 rules to error, build R1-R3, shrink core-api's export map — commits 0d1a45bc/e44b0686/e303da7c/daab9c5a) was committed and clean but unpushed, with the bite-proofs, harness lane, and progress bookkeeping still outstanding. This entry records that closing work.",
+		"ci": "Pushed the four commits (fdb40ba2..daab9c5a) to origin/backend/AU31-layer-composition-boundary. gh pr checks 467: `npm run verify` PASS (6m31s), `release-guard` PASS (17s) — both required checks green on daab9c5a. PR stayed OPEN, not merged, not rebased, per instruction.",
+		"biteProof1CrossLayerImport": {
+			"scenario": "import { enqueueWorkIntent } from \"@hyperidle/session-requests\" added to layers/core-api/src/scratch-au31-bite-proof.ts (a real scratch file, reverted after the run)",
+			"verbatimOutput": "ERROR  [crossing-import] layers/core-api/src/scratch-au31-bite-proof.ts:1: layer -> service (other layer) [import] production — imports @hyperidle/session-requests. only a composition root reaches across, and only as far as a layer's public face — never sideways, never upward, never into another layer's insides",
+			"outcome": "governance-lint: FAIL — 1 error(s) (of npm run lint's final pass). Names the file, the line, and the import. Scratch file deleted afterward; governance-lint back to PASS / 0 production violations, tree confirmed clean by git status."
+		},
+		"biteProof2CrossLayerDi": {
+			"scenario": "applications/remote-server/src/scratch-di-bite-proof.ts (a real scratch file, reverted after the run) imports bootAgentExecution from @hyperidle/agent-execution and bootAgentOrchestration from @hyperidle/agent-orchestration, then calls bootAgentOrchestration({ ..., runtime: { adapterPool: bootAgentExecution(...) } }) — the exact §4 composition-handoff-inline attack shape, reproduced live rather than only as an overlay fixture",
+			"verbatimOutput": "ERROR  [crossing-di] applications/remote-server/src/scratch-di-bite-proof.ts:8: layer -> layer (other) [di] production — agent-orchestration receives the result of `bootAgentExecution` from agent-execution. dependency injection is legal only within a layer; cross-layer conversation goes through the API, MCP or the bus — Ruling 1",
+			"outcome": "Names both packages (agent-orchestration, agent-execution) and the symbol (bootAgentExecution), as plan.md's validation scenario requires. Scratch file deleted afterward; governance-lint back to PASS."
+		},
+		"r1R2R3AndCrossingDiAttackControlPairs": {
+			"method": "npx tsx scripts/governance-lint.ts --attacks — the automated break-test suite the build itself runs as part of npm run lint, which already includes the R1/R2/R3 attack+control fixtures (layer-exports-resolve-inside-the-layer, service-values-do-not-escape-the-face, deep-imports-die-with-their-entries) and the crossing-di composition-handoff-inline/composition-handoff-mediated-control pair from AU31 B4's own commit (0d1a45bc)",
+			"result": "governance-lint --attacks: PASS — 68 break-tests against the live tree. governance-lint --fixtures: PASS — 63 synthetic cases (classification + evasion). Both reproduced by this session."
+		},
+		"realBootProof": {
+			"test": "layers/core-api/src/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts, run via npx vitest run --config vitest.integration.config.ts --project harness with OPENROUTER_API_KEY sourced from .env",
+			"result": "1 passed (1). Real builtin harness call, real LLM turn, real `reply` tool call (argsSummary {\"text\":\"durable handoff works\"}), real session_started/tool_call observability events. Duration 22.86s."
+		},
+		"harnessLaneResult": {
+			"command": "npm run test:integration:harness, run in the FOREGROUND (not backgrounded) with OPENROUTER_API_KEY sourced from .env; all four harness binaries present (claude, codex, opencode, cursor-agent)",
+			"result": "Test Files 3 failed | 9 passed (12). Tests 4 failed | 63 passed (67). Duration ~1303s.",
+			"failures": [
+				"AL7-two-session-trust-first.integration.test.ts [harness:codex] — real codex binary never called the commit_file MCP tool (captured.length=0) across all 3 retry attempts; codex's own AN2 MCP-connectivity probe passed earlier in the same run (config.toml bearer MCP connection succeeded), so the transport works — the model itself did not discover/call the specific tool.",
+				"assistant-reply-live-harness.integration.test.ts [harness:cursor-agent] — one attempt returned outcome 'not_returned' instead of 'completed', the next attempt hit the 180s test timeout. The IDENTICAL wiring in the same test/file passed for builtin, claude, codex, and opencode — only cursor-agent failed, pointing at harness-specific flakiness in that binary/run rather than the shared composition code under test.",
+				"real-harness-return-enforcement-realbinary.integration.test.ts [harness:codex] — spawned codex exited with a null exit code across 3 retries; same codex-MCP-readiness class as the AL7 failure."
+			],
+			"assessment": "Not attempted as a fix — out of this session's scope per the ABSOLUTE RULES (fix only failures caused by the change) and per project memory `project_harness_lane_red_on_main_codex_opencode.md`, which already documents the harness lane as red on origin/main for this exact codex-MCP-readiness / cursor-agent class of nondeterministic real-LLM/real-CLI failure, unrelated to any specific branch. AU31 B1-B4's changes to this area are structural relocations of composition code (the same MCP bridge registry, base URL, and session-provisioning values, threaded through a different helper) — not a change to harness binary invocation, tool registration, or model prompting — and 4 of 5 harnesses passed the exact same wiring in assistant-reply-live-harness.integration.test.ts, which is evidence against a boundary-composition regression. Did not rerun the full lane against origin/main to produce a byte-for-byte comparison (a second ~22-minute serial real-LLM run) given this strong existing signal; flagged here rather than silently treated as a pass, per instruction.",
+			"note": "The harness lane is release-gated (verify:release), not part of npm run verify or per-merge CI verify — its 4 failures do not block npm run verify (which is green) or the two required CI checks (both green)."
+		},
+		"verify": {
+			"checks": "npm run check (52/52 packages PASS, 0 errors), npm run lint (biome + eslint + governance-lint fixtures/attacks/live all PASS, exit 0), npm run test:full (565 files / 6200 tests passed), npm run test:integration:service (325 files / 2813 tests passed, 1 skipped/4 skipped), npm run governance:floors (20 floors, zero drift), npm run verify (exit 0 — check+lint+knip+knip:production+deps:check+mock-inventory:check+web build+desktop build+attestation; attestation's own affected-scope integration run: 273 files / 2526 tests passed, 1 skipped/3 skipped; e2e leg pass-with-no-tests)",
+			"attestationHandling": "npm run verify's own attestation write left the tree dirty (a fresh .verify-attestations/<HEAD-sha>.json plus deletion of the stale one committed inside daab9c5a). No source changed this session, so this re-verification's attestation diff was discarded (git checkout) rather than committed as a redundant no-op commit — CI's own independent `npm run verify` PASS on daab9c5a (see ci above) is the attestation of record for this SHA."
+		},
+		"treeState": "Clean and pushed. `git status --short` empty; HEAD daab9c5a == origin/backend/AU31-layer-composition-boundary; no scratch files, no new commits needed beyond the four already pushed."
 	}
 }
