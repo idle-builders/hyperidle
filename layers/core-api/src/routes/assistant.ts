@@ -15,7 +15,6 @@
  * hostId=userId + participants includes the assistant agent.
  */
 
-import { validateAgentConfig } from "@hyperidle/agent-run-config";
 import type {
 	AgentOrchestrationPort,
 	AgentOrchestrationRunConfigPatch,
@@ -44,6 +43,7 @@ import { Hono } from "hono";
 import z from "zod";
 import { buildSeamBackedAgentRunConfigWriter } from "../services/agent-orchestration-port-composition.js";
 import { messageRowSchema, threadParticipantsSchema } from "./threads-schema.js";
+import { validateAgentConfig } from "./validate-agent-config.js";
 
 // @lore AF11-IDOR: SENDER_HEADER and readSenderId removed. Authorization paths
 // (thread scoping, participant checks) MUST derive identity from c.get("userId")

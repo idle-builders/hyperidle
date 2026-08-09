@@ -2,12 +2,23 @@
  * AH2 — validate the (harnessType, modelProvider, modelId) triple an agent's
  * run config carries, against the adapter pool + the model catalog.
  *
- * @lore AU26 G1: moved here from `layers/core-api/src/routes/agents.ts`
- * with the columns it validates (architecture §D-L cost item 4). It never had
- * a core dependency — it reads a structural `HarnessCapabilityReader` and
- * `@hyperidle/shared`'s catalog — so it moves cleanly. The write routes stay
- * core-hosted (§D-A rule 3: they gate on `users`, a core table) and call this
- * validator plus `writeAgentRunConfig` downward.
+ * @lore AU31 §2.8: moved here from `@hyperidle/agent-run-config` (which itself
+ * had it via AU26 G1, "moved with the columns it validates"). That rationale
+ * held only while a same-layer import was free; under AU31's boundary rule a
+ * `layer → service (other layer) [import]` crossing costs something and buys
+ * nothing here, so the function returns to the layer that owns its only
+ * callers. It is pure computation over `@hyperidle/shared` types (no
+ * database, no service call, no `await`) — reach `everyone`, so core-api
+ * hosting it costs no new dependency either call site did not already carry
+ * (`routes/agents.ts`, `routes/assistant.ts` both already import
+ * `HarnessCapabilityReader` and already hold the pool instance). It is NOT a
+ * seam op: both call sites need the verdict before doing something else (a
+ * 422 with no side effect), so routing it through `AgentOrchestrationPort`
+ * would either delay validation past the point it must gate, or spend a round
+ * trip to learn a request was malformed — see architecture.md §2.8 for the
+ * full per-call-site accounting. Deliberately NOT exported from this layer's
+ * package export map — a core-api-internal request-admission check, not a
+ * face op.
  *
  * Validation order (per plan + reviewer NEW-1):
  *  1. UNSUPPORTED_PROVIDER — openai-compatible cannot be used for per-agent model

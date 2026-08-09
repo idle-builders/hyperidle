@@ -10,17 +10,13 @@
  * — no compatibility check". Use registration meta (not live capabilities) because
  * select() already uses meta.modelProviders and that is the authoritative source.
  *
- * @lore AU26 G1: this file moved from `layers/core-api/src/__tests__/` with
- * `validateAgentConfig` itself (architecture §D-L: the validator moves with the
- * columns it validates). It used to build its fixture from a REAL `AdapterPool`;
- * an `agent-orchestration` package may not import `@hyperidle/harness-registry`
- * (Mechanism B, `execution-boundary-guard`), so the fixture is now a structural
- * `HarnessCapabilityReader`. This is the SAME resolution AU26 A2 already applied
- * when it moved `harness-capability-read-model.ts` into `shared`: the
- * reader-vs-real-pool anti-drift link lives in the surviving
- * `const reader: HarnessCapabilityReader = pool` assertion in
- * `core-api/src/services/__tests__/harness-capability-read-model.test.ts`, not in
- * every consumer's fixture. What this file asserts is unchanged: that
+ * @lore AU31 §2.8: this file moved from `@hyperidle/agent-run-config`'s
+ * `__tests__/` (itself moved there from `layers/core-api/src/__tests__/` under
+ * AU26 G1) back into core-api with `validateAgentConfig` itself — see that
+ * function's own `@lore` for why the crossing it existed to avoid was never
+ * free under AU31's boundary rule. The fixture stays a structural
+ * `HarnessCapabilityReader` (unchanged from the AU26 G1 move — this file never
+ * needed a real `AdapterPool`). What this file asserts is unchanged: that
  * `validateAgentConfig` reads REGISTRATION metadata (`describe().modelProviders`)
  * and not live capabilities, and that an empty list means provider-agnostic.
  */

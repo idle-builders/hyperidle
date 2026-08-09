@@ -21,7 +21,6 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { validateAgentConfig } from "@hyperidle/agent-run-config";
 import type {
 	AgentOrchestrationPort,
 	AgentOrchestrationRunConfigPatch,
@@ -43,6 +42,7 @@ import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
 import { handleAgentProfile } from "./agent-profile.js";
+import { validateAgentConfig } from "./validate-agent-config.js";
 
 // ---------------------------------------------------------------------------
 // Zod schemas
