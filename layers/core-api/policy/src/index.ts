@@ -25,6 +25,9 @@ export { computeApprovalRate } from "./approval-rate.js";
 // -- handoff protocol --
 export type { HandoffMetadata, HandoffParams, HandoffResult } from "./handoff-protocol.js";
 export { buildHandoff } from "./handoff-protocol.js";
+// -- propagation_log: this Service owns the table, so these are its only doors --
+export type { LogPropagationEntry } from "./lifecycle-propagation.js";
+export { reapTerminalPropagationLog, recordPropagationHop } from "./lifecycle-propagation.js";
 // -- aggregate injection contract + cross-boundary types --
 export type { PolicyDeps, PolicySessionContext } from "./ports.js";
 // -- unified policy registration --

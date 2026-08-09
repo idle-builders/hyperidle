@@ -1,4 +1,4 @@
-import { type HyperIdleDb, propagationLog, type WriteExecutor } from "@hyperidle/db";
+import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/shared";
 import { type TaskStateMachineDeps, transitionTask } from "./task-state-machine.js";
 import * as work from "./work-service.js";
@@ -20,6 +20,27 @@ export interface BetKillCascadeDeps extends TaskStateMachineDeps {
 			taskIds: readonly string[],
 			opts: { reason: "bet_killed" },
 		): Promise<readonly { readonly taskId: string; readonly sessionId: string }[]>;
+	};
+	/**
+	 * `policy` owns `propagation_log`. Same Mechanism C as `runOrchestration`
+	 * above — a nested Service asks, it does not import a sibling — and wired at
+	 * the same site, `routes/bets.ts`.
+	 */
+	readonly policy: {
+		recordPropagationHop(
+			db: HyperIdleDb,
+			entry: {
+				readonly sourceLevel: string;
+				readonly sourceId: string;
+				readonly sourceEvent: string;
+				readonly targetLevel: string;
+				readonly targetId: string;
+				readonly targetTransition: string | null;
+				readonly status: string;
+				readonly failureReason?: string;
+				readonly attempts?: number;
+			},
+		): Promise<void>;
 	};
 }
 
@@ -45,10 +66,11 @@ const TERMINAL_TASK_STATES: string[] = ["done", "killed"];
  * both the CAS write and that suppression down into `run-orchestration`; what
  * stays here is the `propagation_log` hop, which is core's own row.
  *
- * @lore AF12 propagation_log dual-writer: the kernel cascade writes downward rows
- * directly (fabric owns the upward log helper; kernel cannot import fabric). The
- * row shape is kept identical to fabric's `logPropagation`. Cascade rows carry
- * `sourceEvent:'bet_killed'`; the async upward skip rows the engine writes carry
+ * @lore AF12 propagation_log: there is no longer a second writer. The cascade's
+ * downward rows and the engine's upward rows go through the same builder in
+ * `policy`, which owns the table; the cascade reaches it through the injected
+ * port rather than importing a sibling Service. Cascade rows carry
+ * `sourceEvent:'bet_killed'`; the async upward skip rows carry
  * `sourceEvent:'task_state_changed'` — disambiguated so AC6 can query deterministically.
  *
  * @lore AF12 idempotency: all writes are CAS / `NOT IN terminal`-guarded. A 0-row
@@ -85,11 +107,11 @@ export async function cascadeBetKill(
 	);
 
 	for (const task of nonTerminalTasks) {
-		// 3. One `propagation_log` hop per run actually stopped. The row is
-		// core's (`policy` owns the concept, `work` writes it) and stays here.
+		// 3. One `propagation_log` hop per run actually stopped, recorded by the
+		// service that owns the table.
 		for (const run of stoppedRuns.filter((r) => r.taskId === task.id)) {
 			sessionsStopped.push(run.sessionId);
-			await writeCascadeRow(db, {
+			await writeCascadeRow(db, deps, {
 				sourceLevel: "task",
 				sourceId: task.id,
 				targetLevel: "session",
@@ -103,7 +125,7 @@ export async function cascadeBetKill(
 		const fromState = task.state;
 		await transitionTask(db, eventBus, task.id, "killed", deps);
 		tasksKilled.push(task.id);
-		await writeCascadeRow(db, {
+		await writeCascadeRow(db, deps, {
 			sourceLevel: "bet",
 			sourceId: betId,
 			targetLevel: "task",
@@ -116,12 +138,18 @@ export async function cascadeBetKill(
 }
 
 /**
- * Write a single downward-cascade `propagation_log` row. Mirrors fabric's
- * `logPropagation` field-for-field (every NOT-NULL column present, same id
- * strategy, `appliedAt = now` because status is always 'applied' here).
+ * Write a single downward-cascade `propagation_log` row through the service
+ * that owns the table.
+ *
+ * @lore This used to be a local row builder whose own comment said it "mirrors
+ * fabric's `logPropagation` field-for-field". It did — by hand, and only for as
+ * long as someone kept reading both. `policy` owns `propagation_log` and now
+ * exposes the real builder, so the cascade fills in what is genuinely its own
+ * (the hop, and `sourceEvent: "bet_killed"`) and nothing else.
  */
 async function writeCascadeRow(
 	db: HyperIdleDb,
+	deps: BetKillCascadeDeps,
 	hop: {
 		sourceLevel: string;
 		sourceId: string;
@@ -130,9 +158,7 @@ async function writeCascadeRow(
 		targetTransition: string;
 	},
 ): Promise<void> {
-	const now = new Date().toISOString();
-	await db.insert(propagationLog).values({
-		id: crypto.randomUUID(),
+	await deps.policy.recordPropagationHop(db, {
 		sourceLevel: hop.sourceLevel,
 		sourceId: hop.sourceId,
 		sourceEvent: "bet_killed",
@@ -140,9 +166,5 @@ async function writeCascadeRow(
 		targetId: hop.targetId,
 		targetTransition: hop.targetTransition,
 		status: "applied",
-		failureReason: null,
-		attempts: 1,
-		createdAt: now,
-		appliedAt: now,
 	});
 }

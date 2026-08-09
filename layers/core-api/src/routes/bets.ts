@@ -7,6 +7,7 @@ import {
 	update as updateKnowledgeItem,
 } from "@hyperidle/knowledge";
 import { getTeam, getTeamMembers, listTeamMembers, listTeams, updateTeam } from "@hyperidle/org";
+import { recordPropagationHop } from "@hyperidle/policy";
 import { requestRunStopForTasks } from "@hyperidle/run-orchestration";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import type { ArtifactThreadSummary, EventBus } from "@hyperidle/shared";
@@ -686,6 +687,9 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 				// AU26 H2 (§D-M.2): stopping a run is `agent-orchestration`'s
 				// state transition — a downward call, not a Port method.
 				runOrchestration: { requestRunStopForTasks },
+				// `policy` owns `propagation_log`, so the cascade's hop rows go
+				// through its builder — same Mechanism C shape as the line above.
+				policy: { recordPropagationHop },
 			});
 			const updated = await work.get(db, "bet", betId);
 			if (!updated) {

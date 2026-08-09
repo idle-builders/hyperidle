@@ -3,8 +3,8 @@
 	"note": "Every table names the ONE service that may read and write it. A table absent from this file is a build error, never a silently skipped row — completeness is the point. Owners are package names, never paths (Ruling 5).",
 	"totals": {
 		"tables": 44,
-		"owned": 42,
-		"unowned": 2
+		"owned": 43,
+		"unowned": 1
 	},
 	"owners": {
 		"knowledgeItems": "knowledge",
@@ -48,13 +48,13 @@
 		"hintProgress": "users",
 		"agentRunConfig": "agent-run-config",
 		"taskDispatchAttempts": "work",
+		"propagationLog": "policy",
 		"teamRunConfigDefaults": "agent-run-config"
 	},
 	"unowned": {
 		"note": "Ruling 6 — no unowned tables. These three are what remains of the completeness defect. Until an owner is named NOBODY may touch them, which is what the model already says.",
 		"tables": {
-			"sessions": "run-orchestration is the owner — 3 packages touch the table; the layer-side accessors move behind it.",
-			"propagationLog": "policy(9), core-api(3), work(2) — owner plus a door for 5 sites."
+			"sessions": "run-orchestration is the owner — 3 packages touch the table; the layer-side accessors move behind it."
 		}
 	}
 }
