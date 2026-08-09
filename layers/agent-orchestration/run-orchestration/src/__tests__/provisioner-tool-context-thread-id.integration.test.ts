@@ -78,6 +78,8 @@ function buildHarnessPorts(captured: {
 			evaluateReturn: () => "returned" as const,
 			provisionReturnHook: async () => undefined,
 			writeCliMcpConfig: neverCalled("harnessRuntime.writeCliMcpConfig"),
+			openMcpBridge: neverCalled("harnessRuntime.openMcpBridge"),
+			closeMcpBridge: neverCalled("harnessRuntime.closeMcpBridge"),
 		},
 		agentRunConfig: {
 			// AU26 G1: `admitSession` reads the six run-config fields live from

@@ -9,6 +9,11 @@ import {
 	provisionHarnessEnvironment,
 } from "@hyperidle/harness-registry";
 import {
+	closeMcpBridgeSession,
+	type McpToolBridge,
+	openMcpBridgeSession,
+} from "@hyperidle/harness-registry/mcp";
+import {
 	type RunOptions,
 	type RunResult,
 	type RunTransitionSpec,
@@ -30,7 +35,7 @@ import {
 	sessionRunRegistry,
 	transitionSessionRequest,
 } from "@hyperidle/session-requests";
-import type { ToolContext, WorkerRegisterMessage } from "@hyperidle/shared";
+import type { ToolContext, ToolRegistry, WorkerRegisterMessage } from "@hyperidle/shared";
 import { EventBus, summarizeToolArgs } from "@hyperidle/shared";
 import { queueDeps } from "./durable-agent-queue.js";
 import { buildToolRegistry, returnStatusTool, toolsForRole } from "./tool-provider-bindings.js";
@@ -132,6 +137,21 @@ const harnessRuntime: SessionLifecyclePorts["harnessRuntime"] = {
 		await provisionHarnessEnvironment({ ...options, token: options.bridgeToken });
 	},
 	writeCliMcpConfig: (options) => provisionHarnessEnvironment(options),
+	// AU31 §2.7/§3.1 sites 12,14 (B1): the session-scoped MCP dial —
+	// bridge-open, the `/api/mcp/` URL spelling, close — folded into
+	// `harness-registry`'s own session provisioning
+	// (`@hyperidle/harness-registry/mcp`'s `openMcpBridgeSession`/
+	// `closeMcpBridgeSession`). `registry`/`baseUrl` are per-call data the
+	// caller already holds (`ProvisionSessionDeps.mcpBridgeRegistry`/
+	// `mcpBaseUrl`, unchanged), never a value this composition root stores —
+	// same shape as `provisionReturnHook`/`writeCliMcpConfig` above.
+	openMcpBridge: (options) =>
+		openMcpBridgeSession(options.registry as McpToolBridge, options.baseUrl, {
+			sessionId: options.sessionId,
+			registry: options.toolRegistry as ToolRegistry,
+			onToolCall: options.onToolCall,
+		}),
+	closeMcpBridge: (registry, token) => closeMcpBridgeSession(registry as McpToolBridge, token),
 };
 
 function widenToToolContext(ctx: SessionLifecycleToolContext): ToolContext<HyperIdleDb> {

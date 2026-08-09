@@ -231,6 +231,27 @@ interface SessionLifecycleHarnessRuntime {
 		readonly mcpUrl: string;
 		readonly token: string;
 	}): Promise<{ readonly tokenEnv?: Record<string, string> }>;
+	/**
+	 * AU31 §2.7/§3.1 sites 12,14 (B1): the session-scoped MCP dial —
+	 * bridge-open plus the `/api/mcp/` URL spelling — folded into
+	 * `harness-registry`'s own session provisioning (`openMcpBridgeSession`,
+	 * `layers/agent-execution/harness-registry/src/mcp/index.ts`); this
+	 * package no longer calls `.open()` on the registry or builds the URL
+	 * itself. `registry`/`baseUrl` are the caller's own already-received
+	 * `mcpBridgeRegistry`/`mcpBaseUrl` values (`ProvisionSessionDeps`,
+	 * unchanged), threaded through as call-time data — not a stored
+	 * reference — same Mechanism C shape as `provisionReturnHook`/
+	 * `writeCliMcpConfig` above.
+	 */
+	openMcpBridge(options: {
+		readonly registry: SessionLifecycleMcpBridgeRegistry;
+		readonly baseUrl: string;
+		readonly sessionId: string;
+		readonly toolRegistry: unknown;
+		readonly onToolCall?: (call: { toolName: string; args: unknown }) => void;
+	}): Promise<{ readonly token: string; readonly url: string }>;
+	/** The dial's close half — see `openMcpBridge`'s `@lore`. */
+	closeMcpBridge(registry: SessionLifecycleMcpBridgeRegistry, token: string): Promise<void>;
 }
 
 interface SessionLifecycleMcpBridgeRegistry {
@@ -1320,13 +1341,16 @@ async function runSession(
 	// call streams in (well after this synchronous assignment completes).
 	const returnGate = ports.harnessRuntime.createReturnGate(requiredReturnActions);
 	let mcpBridgeToken: string | undefined;
+	let mcpUrl: string | undefined;
 	/** AL7 delta: per-session MCP token env for CLI harnesses (codex: HYPERIDLE_MCP_TOKEN). */
 	let mcpTokenEnv: Record<string, string> | undefined;
 	if (mcpBridgeRegistry && mcpBaseUrl) {
 		try {
-			const bridge = await mcpBridgeRegistry.open({
+			const bridge = await ports.harnessRuntime.openMcpBridge({
+				registry: mcpBridgeRegistry,
+				baseUrl: mcpBaseUrl,
 				sessionId,
-				registry,
+				toolRegistry: registry,
 				onToolCall: ({ toolName, args }) => {
 					if (!isReturnAction(toolName, args as Record<string, unknown>)) return;
 
@@ -1346,7 +1370,7 @@ async function runSession(
 				},
 			});
 			mcpBridgeToken = bridge.token;
-			const mcpUrl = `${mcpBaseUrl}/api/mcp/${bridge.token}`;
+			mcpUrl = bridge.url;
 
 			const mcpJsonConfig = {
 				mcpServers: {
@@ -1416,7 +1440,7 @@ async function runSession(
 		sandboxPath,
 		channel: adapterCapabilities.returnEnforcement,
 		bridgeToken: mcpBridgeToken ?? "",
-		mcpUrl: mcpBridgeToken && mcpBaseUrl ? `${mcpBaseUrl}/api/mcp/${mcpBridgeToken}` : "",
+		mcpUrl: mcpUrl ?? "",
 		forceBudget: MAX_FORCE_RETURNS,
 	});
 
@@ -1443,10 +1467,10 @@ async function runSession(
 	// Shared session config fields across runs.
 	const allowedToolNames = ports.toolProvider.toolsForRole(agentRole).map((d) => d.name);
 	const returnHookConfig =
-		mcpBridgeToken && mcpBaseUrl
+		mcpBridgeToken && mcpUrl
 			? {
 					bridgeToken: mcpBridgeToken,
-					mcpUrl: `${mcpBaseUrl}/api/mcp/${mcpBridgeToken}`,
+					mcpUrl,
 					forceBudget: MAX_FORCE_RETURNS,
 				}
 			: undefined;
@@ -1458,9 +1482,8 @@ async function runSession(
 		modelTier,
 		tools: allowedToolNames,
 		resolvedModel: params.resolvedModel as ResolvedModel | undefined,
-		mcpConnectionInfo: mcpBridgeToken
-			? { url: `${mcpBaseUrl}/api/mcp/${mcpBridgeToken}`, token: mcpBridgeToken }
-			: undefined,
+		mcpConnectionInfo:
+			mcpBridgeToken && mcpUrl ? { url: mcpUrl, token: mcpBridgeToken } : undefined,
 		returnHook: returnHookConfig,
 		...(params.sessionWorkflow ? { sessionWorkflow: params.sessionWorkflow } : {}),
 		...(mcpTokenEnv ? { mcpTokenEnv } : {}),
@@ -1568,7 +1591,7 @@ async function runSession(
 
 	// X2: Unregister the MCP bridge BEFORE calling endSession/crashSession.
 	if (mcpBridgeRegistry && mcpBridgeToken) {
-		await mcpBridgeRegistry.close(mcpBridgeToken);
+		await ports.harnessRuntime.closeMcpBridge(mcpBridgeRegistry, mcpBridgeToken);
 	}
 
 	function computeForceReturnCount(): number {

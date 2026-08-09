@@ -116,6 +116,8 @@ function buildDefenseInDepthOnlyPorts(
 			evaluateReturn: neverCalled("harnessRuntime.evaluateReturn"),
 			provisionReturnHook: neverCalled("harnessRuntime.provisionReturnHook"),
 			writeCliMcpConfig: neverCalled("harnessRuntime.writeCliMcpConfig"),
+			openMcpBridge: neverCalled("harnessRuntime.openMcpBridge"),
+			closeMcpBridge: neverCalled("harnessRuntime.closeMcpBridge"),
 		},
 		agentRunConfig: {
 			// AU26 G1: `admitSession` reads the six run-config fields live from
