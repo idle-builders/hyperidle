@@ -1,4 +1,5 @@
-import { createLogger, type Logger, type ObservabilityEvent } from "../index.js";
+import { createLogger, type Logger } from "../logger.js";
+import type { ObservabilityEvent } from "./events.js";
 import type { ObservabilityAdapter } from "./types.js";
 
 /**

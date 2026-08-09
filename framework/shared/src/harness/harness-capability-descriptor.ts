@@ -1,6 +1,39 @@
 import type { ConnectionHealth } from "../connection.js";
 import type { ModelProvider } from "../model-gateway.js";
-import type { HarnessCapabilities } from "./harness-adapter.js";
+
+/**
+ * @lore AU34: this type is declared HERE, beside the descriptor, and imported back by the adapter —
+ * the reverse of where it used to sit. The descriptor's `returnEnforcement` field was the single edge
+ * that made the harness protocol and the harness capability import each other, and the split puts
+ * them in different packages. Moving the closed set to the side a screen legitimately reads, and
+ * naming it directly instead of indexing `HarnessCapabilities`, is what makes the graph acyclic.
+ *
+ * The per-harness return-enforcement provisioning channel.
+ * Declares HOW HyperIdle provisions return enforcement for this adapter.
+ * Non-optional — TypeScript strict forces every adapter to declare a channel,
+ * making "uniform across harnesses" un-skippable.
+ *
+ * Channels:
+ *   "sdk-inprocess"   — dead since claude moved to settings-claude; no adapter declares this
+ *   "settings-claude" — HyperIdle writes .claude/settings.json Stop hook (BLOCKING)
+ *   "settings-codex"  — HyperIdle writes .codex/hooks.json Stop hook (BLOCKING)
+ *   "builtin-loop"    — in-process loop owns turn-end (BLOCKING)
+ *   "process-reengage"— no native block — HyperIdle re-invokes the CLI in its sandbox (opencode, remote default)
+ *   "soft-continue"   — native soft re-prompt (cursor — inert until spawnable)
+ *   "none"            — no enforcement artifact — drain-gate floor only (last-resort remote)
+ *
+ * @lore The non-optional field is the forcing function: npm run check fails any adapter
+ * that doesn't declare a channel. The drain-end ReturnGate is the un-bypassable backstop
+ * on ALL.
+ */
+export type ReturnEnforcementChannel =
+	| "sdk-inprocess"
+	| "settings-claude"
+	| "settings-codex"
+	| "builtin-loop"
+	| "process-reengage"
+	| "soft-continue"
+	| "none";
 
 export const HARNESS_OPTION_CONTROL_KINDS = ["select", "boolean", "number", "text"] as const;
 export type HarnessOptionControlKind = (typeof HARNESS_OPTION_CONTROL_KINDS)[number];
@@ -108,7 +141,7 @@ export interface HarnessCapabilityDescriptor {
 	readonly discovery: HarnessDiscoveryStatus;
 	readonly models: readonly HarnessModelDescriptor[];
 	readonly runtime: HarnessRuntimeCapabilities;
-	readonly returnEnforcement?: HarnessCapabilities["returnEnforcement"];
+	readonly returnEnforcement?: ReturnEnforcementChannel;
 	/** Legacy compatibility for existing SettingsAgents selector. */
 	readonly modelProviders: readonly string[];
 	/**

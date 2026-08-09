@@ -9,6 +9,7 @@ import type {
 	HarnessAuthActionDescriptor,
 	HarnessDiscoveryStatus,
 	HarnessModelDescriptor,
+	ReturnEnforcementChannel,
 } from "./harness-capability-descriptor.js";
 import type { HarnessEvent } from "./harness-events.js";
 
@@ -200,34 +201,6 @@ export interface SessionResult {
 	readonly tokenUsage: TokenUsage;
 	readonly metrics?: SessionMetrics;
 }
-
-/**
- * The per-harness return-enforcement provisioning channel.
- * Declares HOW HyperIdle provisions return enforcement for this adapter.
- * Non-optional — TypeScript strict forces every adapter to declare a channel,
- * making "uniform across harnesses" un-skippable.
- *
- * Channels:
- *   "sdk-inprocess"   — dead since claude moved to settings-claude; no adapter declares this
- *   "settings-claude" — HyperIdle writes .claude/settings.json Stop hook (BLOCKING)
- *   "settings-codex"  — HyperIdle writes .codex/hooks.json Stop hook (BLOCKING)
- *   "builtin-loop"    — in-process loop owns turn-end (BLOCKING)
- *   "process-reengage"— no native block — HyperIdle re-invokes the CLI in its sandbox (opencode, remote default)
- *   "soft-continue"   — native soft re-prompt (cursor — inert until spawnable)
- *   "none"            — no enforcement artifact — drain-gate floor only (last-resort remote)
- *
- * @lore The non-optional field is the forcing function: npm run check fails any adapter
- * that doesn't declare a channel. The drain-end ReturnGate is the un-bypassable backstop
- * on ALL.
- */
-export type ReturnEnforcementChannel =
-	| "sdk-inprocess"
-	| "settings-claude"
-	| "settings-codex"
-	| "builtin-loop"
-	| "process-reengage"
-	| "soft-continue"
-	| "none";
 
 /**
  * Per-session return-hook configuration.

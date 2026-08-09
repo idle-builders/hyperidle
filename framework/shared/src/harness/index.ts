@@ -6,7 +6,6 @@ export type {
 	HarnessAdapter,
 	HarnessCapabilities,
 	McpConnectionInfo,
-	ReturnEnforcementChannel,
 	ReturnHookConfig,
 	SessionConfig,
 	SessionHandle,
@@ -28,6 +27,7 @@ export type {
 	HarnessReadinessState,
 	HarnessRuntimeCapabilities,
 	InheritedToolDescriptor,
+	ReturnEnforcementChannel,
 } from "./harness-capability-descriptor.js";
 export { HARNESS_OPTION_CONTROL_KINDS } from "./harness-capability-descriptor.js";
 export type {

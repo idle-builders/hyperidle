@@ -3,11 +3,11 @@
 import type {
 	HarnessAdapter,
 	HarnessCapabilities,
-	ReturnEnforcementChannel,
 	SessionConfig,
 	SessionHandle,
 	SessionResult,
 } from "../harness-adapter.js";
+import type { ReturnEnforcementChannel } from "../harness-capability-descriptor.js";
 import type { HarnessEvent } from "../harness-events.js";
 
 let nextId = 1;
