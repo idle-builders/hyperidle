@@ -742,7 +742,7 @@ async function failOrRelease(
 	// `run-orchestration`'s `runClaimedRequest` for the provisioning-time
 	// failure site (§12). Now inlined at both sites — the two services
 	// deliberately do not import each other, and now share the event *type*
-	// (`events.ts`, which stays in shared), not an emit helper.
+	// (`events.ts`, now in `@hyperidle/domain-model`), not an emit helper.
 	if (
 		deps.eventBus &&
 		isAgentWorkIntentKind(intent.kind) &&

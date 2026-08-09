@@ -2,7 +2,7 @@
  * Settings section IDs, constants, and shared settings types.
  *
  * @lore P4 Decision 1: Types live in layers/core-ui/src/settings/settings-types.ts
- * (not in shared, because these are web-only). This is a separate file from
+ * (not in a framework package, because these are web-only). This is a separate file from
  * SettingsPanel.tsx so the overlay pattern can import section ids without
  * importing the old modal component.
  *

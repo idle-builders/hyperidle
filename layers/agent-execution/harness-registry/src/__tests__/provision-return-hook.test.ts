@@ -11,7 +11,7 @@
  *
  * Tests FAIL (red) until:
  *   - packages/server/src/harness/provision-return-hook.ts is created (green phase Task 4)
- *   - ReturnEnforcementChannel type exists in shared (green phase Task 1)
+ *   - ReturnEnforcementChannel type exists in @hyperidle/harness-capability (green phase Task 1)
  */
 
 import * as fs from "node:fs";

@@ -158,7 +158,7 @@ async function buildSenderIdentityForPush(
 
 /**
  * The inline-ref shape as carried by the message zod schema (the wire/persisted
- * form). Distinct from shared `InlineRef` while Z8-166 drift stands (mentionRef
+ * form). Distinct from the domain model's `InlineRef` while Z8-166 drift stands (mentionRef
  * `sourceText` optional here, required in the domain type). Used for the
  * internal mention-resolution mapping below.
  */

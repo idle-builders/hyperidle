@@ -309,7 +309,7 @@ describe("L21 — GET /api/threads/coach", () => {
 			});
 			const body = (await res.json()) as { thread: { hostKind: string; pinned: boolean } };
 
-			// Use the pre-imported classifier from shared.
+			// Use the pre-imported classifier from @hyperidle/domain-model.
 			// @lore AD8b: "coach" renamed to "assistant" in ThreadConfiguration.
 			const configuration = classifyThreadConfiguration({
 				id: "test",

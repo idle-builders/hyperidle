@@ -3,7 +3,7 @@
  *
  * These tests verify:
  * - App-owned knowledge vocabulary is exported from @hyperidle/domain-model after AU3
- * - Kernel types (KERNEL_KNOWLEDGE_STATUSES, agent role split) DO exist in shared
+ * - Kernel types (KERNEL_KNOWLEDGE_STATUSES, agent role split) DO exist in @hyperidle/domain-model
  *
  * These tests FAIL until the O1 implementation is applied.
  */
@@ -16,7 +16,7 @@ import * as sharedIndex from "../index.js";
 
 describe("O1 kernel type additions to @hyperidle/domain-model", () => {
 	describe("KERNEL_KNOWLEDGE_STATUSES", () => {
-		it("is exported from shared (index.ts)", () => {
+		it("is exported from @hyperidle/domain-model (index.ts)", () => {
 			expect("KERNEL_KNOWLEDGE_STATUSES" in sharedIndex).toBe(true);
 		});
 

@@ -96,7 +96,7 @@ async function projectExplicitStart(start: ExplicitSessionStart) {
  */
 /**
  * @lore AU19 §11 (AC-9): `agentWorkIntentRecorder`/`agentWorkIntentReader`
- * are the Application-injected cross-Layer ports (`@hyperidle/harness-protocol`,
+ * are the Application-injected cross-Layer ports (`@hyperidle/work-intent-port`,
  * Mechanism C) — this route (core-api) must not import
  * `@hyperidle/session-requests` (agent-orchestration) directly for the raw
  * `agent_work_intents` write/read below. `createApp` defaults them to the

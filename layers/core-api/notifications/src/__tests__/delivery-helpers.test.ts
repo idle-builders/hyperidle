@@ -54,7 +54,7 @@ describe("scrubErrorMessage", () => {
 	});
 
 	test("scrubs ERROR_TOKEN_PATTERNS (e.g. bearer tokens in error text)", () => {
-		// bearer token pattern from shared ERROR_TOKEN_PATTERNS
+		// bearer token pattern from @hyperidle/diagnostics ERROR_TOKEN_PATTERNS
 		const result = scrubErrorMessage("error: Authorization: Bearer abc123token");
 		expect(result).not.toContain("abc123token");
 	});

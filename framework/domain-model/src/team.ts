@@ -23,7 +23,7 @@ import type { BetStatus } from "./types.js";
  *
  * @lore L13: "Status" from @hyperidle/design-system cannot be imported in
  * framework/domain-model (it must not depend on design-system). We redeclare the
- * relevant subset here to keep the wire contract in shared without a circular
+ * relevant subset here to keep the wire contract in the domain model without a circular
  * dep. Both must stay in sync if the StatusChip type ever widens.
  *
  * @lore AU21 Increment 14a: this status used to also flip to "behind" on

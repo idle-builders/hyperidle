@@ -287,7 +287,7 @@ async function reportPreAdmissionProvisioningFailure(
 	// pre-handoff `agent_run_admission_failed` channel, at both real call
 	// sites (this one and `session-requests`'s `failOrRelease`). The two
 	// services deliberately do not import each other; they now share the
-	// event *type* (`events.ts`, which stays in shared), not an emit helper.
+	// event *type* (`events.ts`, now in `@hyperidle/domain-model`), not an emit helper.
 	deps.eventBus.emit({
 		type: "agent_run_admission_failed",
 		streamId: `${correlatedIntent.kind}:${correlatedIntent.sourceId}`,

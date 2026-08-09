@@ -16,7 +16,7 @@
 
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 
-// Status type mirrors StatusChip Status — imported from shared to avoid coupling
+// Status type mirrors StatusChip Status — redeclared here to avoid coupling
 type Status = "healthy" | "behind" | "paused" | "blocked" | "done" | "error";
 
 // Extended discovery type — AM4 additive field (disabled? is optional in HarnessDiscoveryStatus)
