@@ -11,8 +11,10 @@
  * rather than a bare `Hono`.
  *
  * What this boot owns that core-api's used to:
- *   - the `SessionActivityBuffer` (`@hyperidle/agent-execution`) — the buffer's
- *     one REST reader and its one gateway reader are both on this side now, so
+ *   - the `SessionActivityBuffer` (AU31 §2.7: relocated in-Layer, this
+ *     package's own `session-activity-buffer.js` — supersedes AU21 Decision
+ *     E's `@hyperidle/agent-execution` placement) — the buffer's one REST
+ *     reader and its one gateway reader are both on this side now, so
  *     core-api has no reason to instantiate it;
  *   - the session-activity gateway, which tees `session_started` /
  *     `session_ended` / `tool_call_recorded` onto the `session:<id>` WS topic;
@@ -26,7 +28,6 @@
  *     dependency. Core's socket keeps only core's own topics.
  */
 
-import { SessionActivityBuffer } from "@hyperidle/agent-execution";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { EventBus, HarnessCapabilityReader } from "@hyperidle/shared";
 import type { HyperIdleEnv } from "@hyperidle/shared/http";
@@ -37,6 +38,7 @@ import {
 	registerSessionStreamRoute,
 	type SessionStreamTokenStore,
 } from "./routes/session-stream-ws.js";
+import { SessionActivityBuffer } from "./session-activity-buffer.js";
 import { registerSessionActivityGateway } from "./services/session-activity-gateway.js";
 import {
 	createRunStreamSubscribeAuthorizer,

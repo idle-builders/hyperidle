@@ -48,9 +48,9 @@ function isAgentSessionSourceKind(value: string): value is AgentSessionSourceKin
 }
 
 /**
- * @param getRecentActivity - reads the `SessionActivityBuffer`
- *   (`@hyperidle/agent-execution`) this Layer's own boot owns and starts — an
- *   in-process call, the same shape as this file's direct calls into
+ * @param getRecentActivity - reads the `SessionActivityBuffer` (AU31 §2.7:
+ *   this Layer's own `session-activity-buffer.js`) this Layer's own boot owns
+ *   and starts — an in-process call, the same shape as this file's direct calls into
  *   `@hyperidle/session-requests`' query functions. No DB-existence check here
  *   (mirrors the buffer's own `unknown session → []` semantics); the REST
  *   consumer (`routes/sessions.ts`'s `GET /:id/activity`) keeps its own 404.

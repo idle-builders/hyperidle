@@ -18,4 +18,3 @@ export {
 	createLocalAdapterPool,
 	createSandboxAdapter,
 } from "@hyperidle/harness-registry";
-export { SessionActivityBuffer } from "./session-activity-buffer.js";

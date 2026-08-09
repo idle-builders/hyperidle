@@ -12,19 +12,26 @@
  * @lore AU20 B2c: folded from `@hyperidle/capture-writeback` into
  * `@hyperidle/run-orchestration`.
  *
- * @lore AU21 §6 Decision E / §9 Increment 7: relocated from
+ * @lore AU21 §6 Decision E / §9 Increment 7: previously relocated from
  * `@hyperidle/run-orchestration` (agent-orchestration) into
- * `@hyperidle/agent-execution` — the buffer's real architectural home, since
- * tokens/tool-calls originate in the execution Layer, not orchestration. The
- * move violates no data-access rule: the buffer imports only
- * `@hyperidle/shared` types/`EventBus` and touches no DB/Drizzle, carrying no
- * persistence concern into a Layer that must stay thin (Mechanism B). Served
- * to core-ui via `AgentOrchestrationPort.sessions.getRecentActivity`, which
- * gateways this same instance from agent-orchestration (see
+ * `@hyperidle/agent-execution` on the rationale that tokens/tool-calls
+ * originate in the execution Layer, not orchestration.
+ *
+ * @lore AU31 §2.7 (B1): relocated back into `layers/agent-orchestration/src/`
+ * — this SUPERSEDES AU21 Decision E's placement rationale (founder-ratified).
+ * [P8] proved zero execution coupling: the class imports only
+ * `@hyperidle/shared` types/`EventBus`, touches no DB/Drizzle, and its only
+ * production consumers were always agent-orchestration's own boot and routes
+ * — the buffer is judged by the domain it serves, not by where its raw event
+ * data originates. Deletes the tree's single `layer → layer (other) [import]`
+ * (`boot.ts:29`) and `agent-orchestration/package.json`'s
+ * `@hyperidle/agent-execution` row. Served to core-ui via
+ * `AgentOrchestrationPort.sessions.getRecentActivity` (see
  * `layers/core-api/src/services/agent-orchestration-port-composition.ts`
- * and `agent-orchestration-sessions-routes.ts`). Behavior is unchanged from
- * the pre-relocation class — see `__tests__/session-activity-buffer.test.ts`
- * for the ported behavioral suite.
+ * and `agent-orchestration-sessions-routes.ts`) — unchanged. Behavior is
+ * unchanged from the pre-relocation class — see
+ * `__tests__/session-activity-buffer.test.ts` for the ported behavioral
+ * suite.
  */
 
 import type {

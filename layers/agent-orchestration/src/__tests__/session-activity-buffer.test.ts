@@ -1,22 +1,17 @@
 /**
- * Increment 7, Wave B (Decision E) — RED phase.
+ * AU31 §2.7 (B1): `SessionActivityBuffer` relocated from
+ * `@hyperidle/agent-execution` back into this Layer — supersedes AU21 §6
+ * Decision E's placement (founder-ratified). [P8] proved zero execution
+ * coupling: the class imports only `@hyperidle/shared` types/`EventBus`,
+ * touches no DB/Drizzle, and its only production consumers were always this
+ * Layer's own boot and routes — the buffer is judged by the domain it
+ * serves, not by where its raw event data originates.
  *
- * architecture.md §6 Decision E / §9 Increment 7: "Today's `SessionActivityBuffer`
- * lives in `agent-orchestration/run-orchestration/src/session-activity-buffer.ts`
- * — the wrong home for the buffer under this model... exposed to the UI via
- * `AgentOrchestrationPort` as the gateway door." The buffer itself belongs to
- * `agent-execution` (where tokens/tool-calls originate) — it imports only
- * `@hyperidle/shared` types and touches no DB/Drizzle, so it carries no
- * persistence concern into a Layer that must stay thin (Mechanism B).
- *
- * `../session-activity-buffer.js` does not exist yet in this package — the
- * module resolution failure below is this file's primary RED signal, mirroring
- * `agent-orchestration-port.integration.test.ts`'s own RED-phase framing.
- * This suite is a straight behavioral port of the existing
- * `layers/agent-orchestration/run-orchestration/src/__tests__/session-activity-buffer.test.ts`
- * — same assertions, new home — proving the relocation changes ownership, not
- * behavior. The old file is deleted in the GREEN phase that physically moves
- * the class.
+ * This suite is a straight behavioral port of
+ * `layers/agent-execution/src/__tests__/session-activity-buffer.test.ts`
+ * (itself a port of the pre-AU21 `agent-orchestration/run-orchestration`
+ * suite) — same assertions, new home — proving the relocation changes
+ * ownership, not behavior.
  */
 
 import type { ActivityEntry, ToolCallRecordedEvent } from "@hyperidle/shared";

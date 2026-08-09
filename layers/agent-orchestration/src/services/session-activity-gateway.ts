@@ -16,7 +16,8 @@
  * CONFUSION (flagged for reviewer sign-off, carried from the RED phase): the
  * forward stays EventBus-driven — the SAME `session_started`/`session_ended`/
  * `tool_call_recorded` events that also feed the relocated
- * `SessionActivityBuffer` (`@hyperidle/agent-execution`) — rather than
+ * `SessionActivityBuffer` (AU31 §2.7: this Layer's own
+ * `session-activity-buffer.js`) — rather than
  * literally re-reading through the buffer's stored entries per event. The
  * buffer's job is serving a point-in-time REST snapshot for a late-joining
  * client (`AgentOrchestrationPort.sessions.getRecentActivity`); this gateway
