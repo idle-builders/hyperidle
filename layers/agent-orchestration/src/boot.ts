@@ -38,12 +38,12 @@ import {
 	registerSessionStreamRoute,
 	type SessionStreamTokenStore,
 } from "./routes/session-stream-ws.js";
-import { SessionActivityBuffer } from "./session-activity-buffer.js";
 import { registerSessionActivityGateway } from "./services/session-activity-gateway.js";
 import {
 	createRunStreamSubscribeAuthorizer,
 	SessionStreamHub,
 } from "./services/session-stream-hub.js";
+import { SessionActivityBuffer } from "./session-activity-buffer.js";
 
 export interface AgentOrchestrationBootOptions {
 	readonly db: HyperIdleDb;
