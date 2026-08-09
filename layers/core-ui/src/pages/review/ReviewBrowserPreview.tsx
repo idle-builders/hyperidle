@@ -400,7 +400,7 @@ function ReviewBrowserPreviewView({
 							rel="noopener noreferrer"
 							onClick={(e) => e.preventDefault()}
 							aria-label="Open preview in a new tab"
-							className="shrink-0 inline-flex items-center gap-[3px] rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[500] text-[var(--accent-primary)] transition-colors"
+							className="shrink-0 inline-flex items-center gap-[3px] rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[500] text-[var(--accent-deep)] transition-colors"
 							style={{ transitionDuration: "var(--motion-fast)" }}
 						>
 							Open

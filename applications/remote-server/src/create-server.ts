@@ -69,13 +69,7 @@ import {
 	readCredentials,
 	writeCredential,
 } from "@hyperidle/credentials";
-import {
-	createPgliteDb,
-	createPostgresDb,
-	type DbHandle,
-	type HyperIdleDb,
-	resolveProfile,
-} from "@hyperidle/db";
+import { createPgliteDb, createPostgresDb, type DbHandle, type HyperIdleDb } from "@hyperidle/db";
 import { RegistryFilesystemMounter } from "@hyperidle/filesystem-mounting";
 import { listInjectedFilesystemsForProvisioning } from "@hyperidle/filesystems";
 import {
@@ -103,6 +97,7 @@ import {
 	type ModelTier,
 	type ResolvedModel,
 	resolveModel,
+	resolveProfile,
 } from "@hyperidle/shared";
 import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/shared/crypto";
 import { createGitRunner } from "@hyperidle/shared/git";

@@ -50,7 +50,7 @@ export function CanvasSourceHeader({
 					href={href}
 					target="_blank"
 					rel="noopener noreferrer"
-					className="shrink-0 inline-flex items-center gap-[3px] rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[500] text-[var(--accent-primary)] hover:bg-[var(--accent-primary-dim)] transition-colors duration-[var(--motion-fast)]"
+					className="shrink-0 inline-flex items-center gap-[3px] rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[500] text-[var(--accent-deep)] hover:bg-[var(--accent-primary-dim)] transition-colors duration-[var(--motion-fast)]"
 				>
 					{linkContent}
 				</a>

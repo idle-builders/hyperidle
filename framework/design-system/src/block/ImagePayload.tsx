@@ -43,7 +43,7 @@ export function ImagePayload({ alt, url, title }: ImagePayloadProps): JSX.Elemen
 			<button
 				type="button"
 				aria-label="Zoom image"
-				className="absolute top-[8px] right-[8px] w-[28px] h-[28px] rounded-[var(--r-default)] bg-[color-mix(in_oklab,var(--surface-page)_75%,transparent)] text-[var(--text-secondary)] flex items-center justify-center focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:-1px]"
+				className="absolute top-[8px] right-[8px] w-[28px] h-[28px] rounded-[var(--r-default)] bg-[color-mix(in_oklab,var(--surface-page)_75%,transparent)] text-[var(--text-secondary)] flex items-center justify-center focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:[outline-offset:-1px]"
 			>
 				<svg
 					width="14"

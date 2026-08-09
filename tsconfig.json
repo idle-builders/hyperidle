@@ -9,6 +9,7 @@
 		{ "path": "framework/api-contract" },
 		{ "path": "applications/desktop" },
 		{ "path": "tools/eval" },
+		{ "path": "tools/setup" },
 		{ "path": "layers/core-api" },
 		{ "path": "layers/agent-orchestration" },
 		{ "path": "layers/agent-execution" },

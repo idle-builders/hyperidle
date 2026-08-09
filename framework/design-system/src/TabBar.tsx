@@ -37,9 +37,9 @@ export function TabBar({ tabs, activeId, onChange, variant = "pill" }: TabBarPro
 							className={[
 								"pb-[6px] px-[9px] text-[13px] border-b-[2px] -mb-[1px]",
 								"transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
-								"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)]",
+								"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]",
 								isActive
-									? "text-[var(--accent-primary)] font-semibold border-[var(--accent-primary)] bg-[var(--accent-primary-dim)]"
+									? "text-[var(--accent-deep)] font-semibold border-[var(--accent-deep)] bg-[var(--accent-primary-dim)]"
 									: "text-[var(--text-tertiary)] font-medium border-transparent hover:text-[var(--text-secondary)]",
 							].join(" ")}
 						>
@@ -70,9 +70,9 @@ export function TabBar({ tabs, activeId, onChange, variant = "pill" }: TabBarPro
 						className={[
 							"px-[12px] py-[6px] rounded-full text-[13px]",
 							"transition-all duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
-							"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)]",
+							"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]",
 							isActive
-								? "bg-[var(--surface-elevated)] text-[var(--accent-primary)] font-semibold shadow-[var(--shadow-subtle)]"
+								? "bg-[var(--surface-elevated)] text-[var(--accent-deep)] font-semibold shadow-[var(--shadow-subtle)]"
 								: "text-[var(--text-secondary)] font-medium hover:text-[var(--text-primary)]",
 						].join(" ")}
 					>

@@ -201,7 +201,7 @@ export function RoleCombobox({
 				className={`flex h-[36px] items-center justify-between gap-[9px] rounded-[var(--r-subtle)] border border-[var(--border-default)] bg-[var(--surface-page)] px-[9px] text-left text-[13px] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] ${
 					disabled
 						? "cursor-not-allowed text-[var(--text-tertiary)] opacity-70"
-						: "text-[var(--text-primary)] hover:border-[var(--border-strong)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)]"
+						: "text-[var(--text-primary)] hover:border-[var(--border-strong)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
 				}`}
 			>
 				<span className="truncate">{displayLabel(value, options)}</span>
@@ -267,7 +267,7 @@ export function RoleCombobox({
 									highlight === filtered.length ? "bg-[var(--surface-container)]" : ""
 								}`}
 							>
-								<span className="text-[13px] text-[var(--accent-primary)]">＋</span>
+								<span className="text-[13px] text-[var(--accent-deep)]">＋</span>
 								<span className="text-[13px] text-[var(--text-primary)]">
 									Use new role: <span className="font-[600]">{trimmed}</span>
 								</span>

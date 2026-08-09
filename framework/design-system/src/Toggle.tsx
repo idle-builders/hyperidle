@@ -64,7 +64,7 @@ export function Toggle({
 					className={[
 						"relative inline-flex shrink-0 h-[24px] w-[44px] items-center rounded-full",
 						"border-[1.5px] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
-						"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)]",
+						"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]",
 						on
 							? "bg-[var(--accent-primary)] border-[var(--accent-primary)]"
 							: "bg-[var(--border-default)] border-[var(--border-default)]",
@@ -106,7 +106,7 @@ export function Toggle({
 				className={[
 					"relative inline-flex shrink-0 h-[24px] w-[44px] items-center rounded-full",
 					"border-[1.5px] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
-					"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)]",
+					"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]",
 					on
 						? "bg-[var(--accent-primary)] border-[var(--accent-primary)]"
 						: "bg-[var(--border-default)] border-[var(--border-default)]",

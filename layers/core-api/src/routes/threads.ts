@@ -24,12 +24,7 @@ import {
 	resolveMessageIfUnresolved,
 	updateThread,
 } from "@hyperidle/conversation";
-import {
-	type Message as DbMessage,
-	type Thread as DbThread,
-	escapeLikePattern,
-	type HyperIdleDb,
-} from "@hyperidle/db";
+import type { Message as DbMessage, Thread as DbThread, HyperIdleDb } from "@hyperidle/db";
 import {
 	assembleSessionKnowledge,
 	get as getKnowledgeItem,
@@ -58,6 +53,7 @@ import type {
 import {
 	API_ERROR_CODES,
 	deriveTitle,
+	escapeLikePattern,
 	extractMentionCandidates,
 	headCollapsePredicate,
 	resolveMentions,

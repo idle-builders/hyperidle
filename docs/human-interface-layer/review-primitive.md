@@ -81,7 +81,7 @@ The `action_operation` canvas (`ReviewActionOperation`) renders a persistent **O
 | **Execution failed** (red) | `status = "failed"`, `outcome.status = "failed"` | `--status-error` / `--status-error-dim` fill; ✕ icon; **verbatim, un-truncated** error text (`whitespace-pre-wrap break-words`) + humanized `executedAt` |
 
 **Design rules:**
-- The success band uses `--accent-primary-dim` (forest green), **not** `--accent-secondary-dim` (the warning/money amber used on the amount block). A completed op is history — it must not continue reading in the danger color family (`ReviewActionOperation.tsx`).
+- The success band uses a `--status-success` tint, **not** `--accent-secondary-dim` (the warning/money amber used on the amount block). A completed op is history — it must not continue reading in the danger color family (`ReviewActionOperation.tsx`).
 - The failure error is **never truncated** — a reviewer cannot be forced to miss the exact tool error. `whitespace-pre-wrap break-words` preserves the tool's own newlines and keeps long tokens inside the band.
 - `executedAt` is a pre-humanized relative string ("2 min ago") — the reviews loader formats it at the response boundary; the component never parses time.
 - There is **no HyperIdle-held `executing` state** — HyperIdle never holds an in-flight execution; the agent's own session does. If that session ends without the approved op executing (crash/no-show), the liveness net re-provisions once, then surfaces a `failed` Outcome (`layers/core-api/review/src/proposed-call-workflow.ts,66-82`) — a reviewer never sits on a permanent spinner.

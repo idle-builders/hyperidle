@@ -315,7 +315,7 @@ function AgentProfileLoaded({
 									<div className="mt-[6px]" data-testid="agent-active-session">
 										<RRLink
 											to={`/work/bet/${encodeURIComponent(activeSession.betId)}/task/${encodeURIComponent(activeSession.taskId)}`}
-											className="text-[12px] text-[var(--accent-primary)] hover:underline"
+											className="text-[12px] text-[var(--accent-deep)] hover:underline"
 										>
 											↗ Active session: {activeSession.sessionId}
 										</RRLink>

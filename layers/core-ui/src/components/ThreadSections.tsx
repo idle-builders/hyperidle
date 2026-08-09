@@ -321,7 +321,7 @@ export function ThreadSections({
 						// (color: var(--accent-primary); background: transparent; border: 0; padding: 0).
 						<button
 							type="button"
-							className="bg-transparent border-0 p-0 text-[12px] text-[var(--accent-primary)] hover:underline cursor-pointer"
+							className="bg-transparent border-0 p-0 text-[12px] text-[var(--accent-deep)] hover:underline cursor-pointer"
 							aria-label="Clear filter"
 							onClick={onClearFilter}
 						>

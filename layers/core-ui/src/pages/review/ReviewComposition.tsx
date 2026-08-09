@@ -265,7 +265,7 @@ function TaskSection({ subject }: { readonly subject: ComposedReviewSubject }): 
 					onClick={() => {
 						/* no-op */
 					}}
-					className="mt-[9px] inline-flex items-center gap-[6px] text-[12px] font-[500] text-[var(--accent-primary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:brightness-95"
+					className="mt-[9px] inline-flex items-center gap-[6px] text-[12px] font-[500] text-[var(--accent-deep)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:brightness-95"
 				>
 					<span className="text-[var(--text-tertiary)]">{s.betTitle}</span>
 					<span aria-hidden="true" className="text-[var(--text-tertiary)]">
@@ -462,7 +462,7 @@ function NeedsSection({
 								</span>
 							</span>
 							{target ? (
-								<span className="mt-[1px] shrink-0 whitespace-nowrap text-[12px] font-[500] text-[var(--accent-primary)]">
+								<span className="mt-[1px] shrink-0 whitespace-nowrap text-[12px] font-[500] text-[var(--accent-deep)]">
 									Jump →
 								</span>
 							) : null}
@@ -491,7 +491,7 @@ function ArtifactRow({ artifact, active, onOpen }: ArtifactRowProps): JSX.Elemen
 			className={[
 				"group flex w-full items-center gap-[12px] rounded-[var(--r-subtle)] border bg-[var(--surface-elevated)] px-[12px] py-[9px] text-left transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
 				active
-					? "border-[var(--accent-primary)] bg-[var(--accent-primary-dim)]"
+					? "border-[var(--accent-deep)] bg-[var(--accent-primary-dim)]"
 					: "border-[var(--border-subtle)] hover:border-[var(--border-default)]",
 			].join(" ")}
 		>
@@ -510,7 +510,7 @@ function ArtifactRow({ artifact, active, onOpen }: ArtifactRowProps): JSX.Elemen
 			<span className="shrink-0 font-mono text-[12px] tabular-nums text-[var(--text-tertiary)]">
 				{artifact.badge ?? ""}
 			</span>
-			<span className="shrink-0 text-[12px] font-[500] text-[var(--accent-primary)] transition-transform duration-[var(--motion-fast)] ease-[var(--motion-ease)] group-hover:translate-x-[3px]">
+			<span className="shrink-0 text-[12px] font-[500] text-[var(--accent-deep)] transition-transform duration-[var(--motion-fast)] ease-[var(--motion-ease)] group-hover:translate-x-[3px]">
 				Open →
 			</span>
 		</button>
@@ -563,7 +563,7 @@ function CommentItem({ comment }: { comment: ReviewComment }): JSX.Element {
 						{comment.author}
 					</span>
 					{comment.authorIsAgent ? (
-						<span className="rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[6px] py-[1px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-primary)]">
+						<span className="rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[6px] py-[1px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-deep)]">
 							agent
 						</span>
 					) : null}

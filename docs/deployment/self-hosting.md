@@ -1,6 +1,6 @@
 # Self-Hosting
 
-Two server-hosted profiles run HyperIdle against real Postgres: **VPS** (single-machine Docker Compose) and **cloud** (managed Postgres). Both use the postgres-js driver (`framework/db/src/profiles.ts`). The implemented, operated server deployment is the shared K8s backend — see [shared-backend](shared-backend.md). The VPS compose stack runs dev-mode processes (`npm run dev` inside the containers) — it is not hardened production.
+Two server-hosted profiles run HyperIdle against real Postgres: **VPS** (single-machine Docker Compose) and **cloud** (managed Postgres). Both use the postgres-js driver (`framework/shared/src/profiles.ts`). The implemented, operated server deployment is the shared K8s backend — see [shared-backend](shared-backend.md). The VPS compose stack runs dev-mode processes (`npm run dev` inside the containers) — it is not hardened production.
 
 Agents run on the host in every profile — see [run-unit-model](../architecture/run-unit-model.md).
 
@@ -27,7 +27,7 @@ npm run db:seed:pg
 
 Notes:
 
-- `npm run setup` needs `--` before flags to forward them (`npm run setup --profile vps` silently drops the flag). The vps profile verifies `docker-compose.yml` exists (`framework/db/src/setup-cli.ts`, `requiresDockerCompose` in `profiles.ts`).
+- `npm run setup` needs `--` before flags to forward them (`npm run setup --profile vps` silently drops the flag). The vps profile verifies `docker-compose.yml` exists (`tools/setup/src/setup-cli.ts`, `requiresDockerCompose` in `framework/shared/src/profiles.ts`).
 - `DATABASE_URL` inside the server container is interpolated from `POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_DB` (see `@lore` in `docker-compose.yml`). Override with an explicit `DATABASE_URL` in `.env` if needed.
 
 ### Verify
@@ -39,7 +39,7 @@ curl http://localhost:3001/health
 
 ## Cloud (managed Postgres)
 
-`HYPERIDLE_PROFILE=cloud` runs against a managed Postgres instance (Neon, Supabase, RDS, …). The cloud profile has no default URL — `DATABASE_URL` (or `--db-url`) is mandatory; setup errors with `Cloud profile requires DATABASE_URL env var or --db-url.` (`framework/db/src/setup-cli.ts:231`).
+`HYPERIDLE_PROFILE=cloud` runs against a managed Postgres instance (Neon, Supabase, RDS, …). The cloud profile has no default URL — `DATABASE_URL` (or `--db-url`) is mandatory; setup errors with `Cloud profile requires DATABASE_URL env var or --db-url.` (`tools/setup/src/setup-cli.ts:233`).
 
 ```bash
 export DATABASE_URL=postgres://user:pass@host:5432/hyperidle

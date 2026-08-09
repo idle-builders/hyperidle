@@ -30,7 +30,7 @@ export function CodePayload({ lang, text }: CodePayloadProps): JSX.Element {
 					type="button"
 					onClick={() => setExpanded((v) => !v)}
 					aria-expanded={expanded}
-					className="self-start text-[12px] text-[var(--text-secondary)] underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:[outline-offset:2px] rounded-[var(--r-subtle)]"
+					className="self-start text-[12px] text-[var(--text-secondary)] underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:[outline-offset:2px] rounded-[var(--r-subtle)]"
 				>
 					{expanded ? "Collapse" : `Expand ${hidden} more lines`}
 				</button>

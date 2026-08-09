@@ -47,7 +47,7 @@ export function Fold({ label, cta = "Show", onShow }: FoldProps): JSX.Element {
 					<span className="text-[var(--text-tertiary)]">·</span>
 				</>
 			)}
-			<span className="text-[var(--accent-primary)]">{cta}</span>
+			<span className="text-[var(--accent-deep)]">{cta}</span>
 		</button>
 	);
 }

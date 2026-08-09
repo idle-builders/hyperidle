@@ -54,7 +54,7 @@ export function Checkbox({
 				>
 					{checked && (
 						/* CSS checkmark: rotated L-shape */
-						<span className="block h-[10px] w-[6px] border-b-[2px] border-r-[2px] border-white rotate-45 translate-y-[-1px]" />
+						<span className="block h-[10px] w-[6px] border-b-[2px] border-r-[2px] border-[var(--text-on-accent)] rotate-45 translate-y-[-1px]" />
 					)}
 				</div>
 			</div>

@@ -20,7 +20,7 @@
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { findThread, insertMessage, insertThread } from "@hyperidle/conversation";
-import { type HyperIdleDb, resolveAgentScaffoldSpecs } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	createTeam,
 	deleteTeam,
@@ -51,6 +51,7 @@ import {
 	deriveTitle,
 	findRoleCatalogEntry,
 	type HarnessCapabilityReader,
+	resolveAgentScaffoldSpecs,
 } from "@hyperidle/shared";
 import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
 import { findUser, insertUser, listUsers } from "@hyperidle/users";

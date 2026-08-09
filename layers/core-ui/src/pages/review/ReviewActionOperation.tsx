@@ -303,9 +303,9 @@ function ExecutingBand(): JSX.Element {
 	);
 }
 
-// AL7: the outcome band. Success is calm (forest-green success family — a done
+// AL7: the outcome band. Success is calm (green success family — a done
 // refund is now history); failure is loud (status-error). Success uses the
-// success/primary fill (`--accent-primary-dim`), NOT the warning fill the amount
+// success tint (status-success color-mix), NOT the warning fill the amount
 // block + IrreversibleBadge use (`--accent-secondary-dim`) — a succeeded op must
 // not read in the danger/money color family. The surfaced error renders verbatim
 // AND un-truncated (rule #8: failure must be impossible to miss — never clipped).
@@ -321,14 +321,16 @@ function OutcomeBand({
 			className="mx-[18px] mt-[12px] flex gap-[9px] border px-[12px] py-[9px]"
 			style={{
 				borderRadius: "var(--r-subtle)",
-				borderColor: ok ? "var(--accent-primary)" : "var(--status-error)",
-				background: ok ? "var(--accent-primary-dim)" : "var(--status-error-dim)",
+				borderColor: ok ? "var(--status-success)" : "var(--status-error)",
+				background: ok
+					? "color-mix(in oklab, var(--status-success) 10%, transparent)"
+					: "var(--status-error-dim)",
 			}}
 		>
 			<span
 				aria-hidden="true"
 				className="mt-[2px] flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-full"
-				style={{ background: ok ? "var(--accent-primary)" : "var(--status-error)" }}
+				style={{ background: ok ? "var(--status-success)" : "var(--status-error)" }}
 			>
 				<svg width="9" height="9" viewBox="0 0 12 12" fill="none">
 					<title>{ok ? "executed" : "failed"}</title>
@@ -354,7 +356,7 @@ function OutcomeBand({
 				<div className="flex items-baseline justify-between gap-[9px]">
 					<span
 						className="text-[12px] font-[600] uppercase tracking-[var(--tracking-caps-sm)]"
-						style={{ color: ok ? "var(--accent-primary)" : "var(--status-error)" }}
+						style={{ color: ok ? "var(--status-success)" : "var(--status-error)" }}
 					>
 						{ok ? "Executed" : "Execution failed"}
 					</span>

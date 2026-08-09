@@ -291,7 +291,7 @@ function ReviewedBox({
 				"inline-flex h-[18px] w-[18px] items-center justify-center rounded-[6px] border-[1.5px] shrink-0",
 				"transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
 				reviewed
-					? "bg-[var(--accent-primary)] border-[var(--accent-primary)] text-white"
+					? "bg-[var(--accent-primary)] border-[var(--accent-primary)] text-[var(--text-on-accent)]"
 					: "bg-[var(--surface-elevated)] border-[var(--border-default)] text-transparent",
 			].join(" ")}
 		>
@@ -449,7 +449,7 @@ function FileDiff({
 				aria-label="Add inline comment"
 				title="Add inline comment"
 				onClick={() => setComposerBlockId(info.blockId)}
-				className="absolute left-[68px] top-1/2 hidden h-[16px] w-[16px] -translate-y-1/2 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] text-[12px] leading-none group-hover/line:flex focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)]"
+				className="absolute left-[68px] top-1/2 hidden h-[16px] w-[16px] -translate-y-1/2 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] text-[12px] leading-none group-hover/line:flex focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
 			>
 				+
 			</button>

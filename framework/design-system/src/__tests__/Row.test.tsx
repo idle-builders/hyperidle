@@ -373,12 +373,12 @@ describe("Row (AG6 T2)", () => {
 			expect(el?.className ?? "").toContain("surface-elevated");
 		});
 
-		it("selected=true adds accent-primary border-l (design §6)", () => {
+		it("selected=true adds accent-deep border-l (design §6)", () => {
 			act(() => {
 				root.render(createElement(Row, { title: "Hello", selected: true }));
 			});
 			const el = container.firstElementChild as HTMLElement;
-			expect(el?.className ?? "").toContain("accent-primary");
+			expect(el?.className ?? "").toContain("accent-deep");
 		});
 	});
 

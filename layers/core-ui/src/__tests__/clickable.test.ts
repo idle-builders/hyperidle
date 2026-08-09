@@ -63,7 +63,7 @@ describe("clickableProps", () => {
 			const result = clickableProps(() => {});
 			const cls = result.className ?? "";
 			expect(cls).toContain("focus-visible:outline");
-			expect(cls).toContain("focus-visible:outline-[var(--accent-primary)]");
+			expect(cls).toContain("focus-visible:outline-[var(--accent-deep)]");
 		});
 
 		it("merges caller-provided className with the default focus utilities", () => {
@@ -74,7 +74,7 @@ describe("clickableProps", () => {
 			expect(cls).toContain("p-2");
 			expect(cls).toContain("cursor-pointer");
 			expect(cls).toContain("focus-visible:outline");
-			expect(cls).toContain("focus-visible:outline-[var(--accent-primary)]");
+			expect(cls).toContain("focus-visible:outline-[var(--accent-deep)]");
 		});
 
 		it("empty-result branch (no onClick) does NOT emit the focus utilities", () => {

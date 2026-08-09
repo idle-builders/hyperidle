@@ -76,7 +76,7 @@ export function KnowledgeRow({
 }: KnowledgeRowProps): JSX.Element {
 	// U8: font-heading removed (Hearth uses system-ui everywhere); factoryMode uses font-bold with default sans
 	const titleClass = factoryMode ? "text-[15px] font-bold truncate" : "text-[15px] truncate";
-	const baseClassName = `flex items-center gap-[12px] px-[24px] py-[12px] rounded-[var(--r-subtle)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)] focus-visible:-outline-offset-1 transition-colors duration-[var(--motion-fast)]`;
+	const baseClassName = `flex items-center gap-[12px] px-[24px] py-[12px] rounded-[var(--r-subtle)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:-outline-offset-1 transition-colors duration-[var(--motion-fast)]`;
 	/* clickableProps is spread without className — visual styles (hover, focus-
 	   visible) live in baseClassName unconditionally, matching the HTML reference. */
 	const { className: _clickableCls, ...interactiveProps } = clickableProps(onClick, baseClassName);

@@ -446,12 +446,18 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 	// @lore AF17: factory bootstrap must run before the server starts so system:propagation
 	// and facilitator agents are present when the first request arrives. The call is
 	// idempotent (onConflictDoNothing) so repeated launches are safe.
+	// @lore AU29 §2.5.4: `applyFactoryBootstrap` (framework/db) dissolved into two layer
+	// faces — `framework/db` may not import a layer, so first-boot composition moved to
+	// this composition root. Ordering is load-bearing: `agent_run_config.agentUserId` has
+	// an FK to `users.id`, so the core-state face must complete before the run-config face.
 	try {
 		const { createPgliteDb } = await import("@hyperidle/db");
-		const { applyFactoryBootstrap } = await import("@hyperidle/db");
+		const { applyFactoryCoreState } = await import("@hyperidle/core-api");
+		const { applyFactoryRunConfigDefaults } = await import("@hyperidle/agent-orchestration");
 		const handle = await createPgliteDb(dbPath);
 		try {
-			await applyFactoryBootstrap(handle.db);
+			const rosterAgents = await applyFactoryCoreState(handle.db);
+			await applyFactoryRunConfigDefaults(handle.db, rosterAgents);
 			log("boot:local factory bootstrap complete");
 		} finally {
 			await handle.close();
@@ -510,7 +516,7 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 	// Design: 28px draggable inset (h-[28px]) at the top of the sidebar column only — not
 	// a full-width strip. The traffic-lights float over the sidebar; main content reaches
 	// the window top unaffected. trafficLightPosition:{x:12,y:11} centers the lights within
-	// that 28px inset. backgroundColor must stay in sync with --surface-container (#24211f);
+	// that 28px inset. backgroundColor must stay in sync with --surface-container (#242418);
 	// the cool "#1a1a2e" violated AQ-018. Windows/Linux titleBarOverlay is a deliberate follow-up.
 	const mainWindow = new BrowserWindow({
 		x: windowState.x,
@@ -519,7 +525,7 @@ async function bootLocalMode(ctx: BootContext, apiKey: string): Promise<void> {
 		height: windowState.height,
 		titleBarStyle: "hiddenInset",
 		trafficLightPosition: { x: 12, y: 11 },
-		backgroundColor: "#24211f",
+		backgroundColor: "#242418",
 		webPreferences: {
 			preload: preloadPath,
 			contextIsolation: true,
@@ -624,7 +630,7 @@ async function bootSharedMode(ctx: BootContext, serverUrl: string): Promise<void
 		height: windowState.height,
 		titleBarStyle: "hiddenInset",
 		trafficLightPosition: { x: 12, y: 11 },
-		backgroundColor: "#24211f",
+		backgroundColor: "#242418",
 		webPreferences: {
 			preload: preloadPath,
 			contextIsolation: true,

@@ -8,11 +8,13 @@ Hearth is **light-first**: the default mode is `hearth-light`, matching most pro
 
 ## Design Philosophy
 
-**Warm earth aesthetic.** Surfaces use warm cream and earth tones rather than cool grays. The palette evokes natural materials: parchment, leather, aged wood.
+**Crème lemon aesthetic.** Surfaces use pale lemon cream rather than cool grays or flat beige — warm, bright, and energetic. The palette evokes lemon curd, cream, and caramelized sugar.
 
-**Forest green as the single accent.** The primary accent is `#16764f` (forest green, lightened to `#2eaa7a` in dark mode for contrast). Amber (`#d97706`) serves as the secondary accent for attention-drawing elements.
+**Two-role accent.** The accent splits by role, not by decoration:
+- **Lemon drop** (`#f0c419`, dark mode `#f5d33d`) is the FILL accent — primary buttons, checkboxes, toggles, count badges. It is bright yellow, so content on it is DARK (`--text-on-accent`), never white.
+- **Cocoa** (`#6f4d1e`, dark mode light beige `#d9c9a3`) is the TEXT accent — links, icons, focus rings, ghost buttons, and agent-avatar identity. Text-safe contrast on every surface.
 
-**Semantic status signals.** Status colors communicate meaning clearly: green for success, amber for warning, red for error, blue for info. Colors are context-appropriate rather than decorative.
+**Semantic status signals.** Status colors communicate meaning clearly: green for success, amber for warning, red for error, blue for info. Success stays green — deliberately decoupled from the lemon accent so the success semantic survives the palette.
 
 **No external font dependencies.** Hearth uses system-ui and ui-monospace — the native UI fonts on each platform. This eliminates flash-of-incorrect-font, reduces load time, and respects the user's OS font preferences.
 
@@ -37,29 +39,18 @@ Hearth is **light-first**: the default mode is `hearth-light`, matching most pro
 
 ## Hearth Light
 
-**Mood:** Warm, open, daylight-clear. A well-lit workspace with natural materials.
+**Mood:** Bright, energetic, daylight-clear. A well-lit workspace with lemon and cream.
 **References:** Notion (light), Linear (light), Bear app.
 
-Warm cream base (`#f5f0e6`), white elevated surfaces, forest green accent that reads as confident without being aggressive.
+Pale lemon base, white elevated surfaces, lemon-drop buttons with dark content, cocoa text accents.
 
-| Token | Value |
-|-------|-------|
-| `--surface-page` | `#f5f0e6` |
-| `--surface-container` | `#ede7db` |
-| `--surface-elevated` | `#ffffff` |
-| `--surface-overlay` | `#ffffff` |
-| `--text-primary` | `#2c241a` |
-| `--text-secondary` | `#6b5d4d` |
-| `--text-tertiary` | `#9a8d7e` |
-| `--accent-primary` | `#16764f` |
-| `--accent-secondary` | `#d97706` |
-| `--status-success` | `#16764f` |
-| `--status-warning` | `#d97706` |
-| `--status-error` | `#dc4a3a` |
-| `--status-info` | `#2e7dba` |
-| `--border-default` | `#d5cbb8` |
+**Token source:** `framework/design-system/src/tokens.css` (Hearth Light section) — values live in code, never duplicated here.
 
-**Token source:** `framework/design-system/src/tokens.css` (Hearth Light section)
+Key facts:
+- Surfaces: pale lemon ladder (`page → container → white`), even ΔL steps.
+- `--accent-primary` = lemon drop (fill role); `--accent-deep` = cocoa (text role).
+- `--text-on-accent` is DARK — white fails on lemon (~1.6:1).
+- Status: green success, amber warning, red error, blue info (light-mode values are icon/badge only where noted in tokens.css lore).
 
 ---
 
@@ -68,26 +59,15 @@ Warm cream base (`#f5f0e6`), white elevated surfaces, forest green accent that r
 **Mood:** Warm, focused, evening-ready. A candlelit workspace with depth.
 **References:** Obsidian (dark), Bear (dark), Craft (dark).
 
-Deep warm earth base (`#1a1510`), no cool grays anywhere. Dark mode accent (`#2eaa7a`) is lightened relative to light mode (`#16764f`) for contrast on dark surfaces.
+Deep near-neutral base with a whisper of lemon — no cool grays, no brown mud. Dark mode accent is a lighter lemon drop for fills; the text accent is light beige (the crème family inverted onto the deep base — NOT lime, which clashes with the yellow primary).
 
-| Token | Value |
-|-------|-------|
-| `--surface-page` | `#1a1510` |
-| `--surface-container` | `#231e16` |
-| `--surface-elevated` | `#2c261c` |
-| `--surface-overlay` | `#352e23` |
-| `--text-primary` | `#ede5d8` |
-| `--text-secondary` | `#a89880` |
-| `--text-tertiary` | `#9a8e7e` |
-| `--accent-primary` | `#2eaa7a` |
-| `--accent-secondary` | `#d97706` |
-| `--status-success` | `#2eaa7a` |
-| `--status-warning` | `#d97706` |
-| `--status-error` | `#ee6a5a` |
-| `--status-info` | `#4498d4` |
-| `--border-default` | `#554a3c` |
+**Token source:** `framework/design-system/src/tokens.css` (Hearth Dark section) — values live in code, never duplicated here.
 
-**Token source:** `framework/design-system/src/tokens.css` (Hearth Dark section)
+Key facts:
+- Surfaces keep CP1's de-browned depth; hue nudged amber→lemon at the same low chroma.
+- `--accent-primary` = lighter lemon drop; `--accent-deep` = light beige.
+- `--text-on-accent` is DARK on lemon fills here too.
+- Status tokens pass AA on all dark surfaces.
 
 ---
 
@@ -109,14 +89,6 @@ Users toggle between Hearth Light and Hearth Dark in the app settings. The prefe
 
 When no user preference is set, the app respects `prefers-color-scheme: dark` / `prefers-color-scheme: light`. The default (no data-theme set) is `hearth-light`.
 
-### In the design system viewer
-
-```bash
-npm run ds:serve
-# Open http://localhost:8098/BetCard.html
-# Use the theme picker in the top-right corner to switch between Hearth Light and Hearth Dark
-```
-
 ### Apply a theme mode to the full app
 
 The TSX components use `var(--token-name)` throughout. To switch modes:
@@ -129,8 +101,9 @@ The TSX components use `var(--token-name)` throughout. To switch modes:
 
 All components must work in both Hearth Light and Hearth Dark. Rules:
 
-1. **Use semantic tokens only.** `var(--surface-elevated)`, never `#ffffff` or `#2c261c`.
-2. **Use solid-value borders.** `var(--border-default)` is a warm solid tone that reads clearly in both modes.
-3. **Test in both modes.** Every component must be visually verified in Hearth Light and Hearth Dark before shipping.
-4. **Shadows are active in both modes.** Light mode shadows are warm-tinted; dark mode shadows are black-based.
-5. **Status colors are semantic.** Do not use accent-primary for status — use `--status-*` tokens.
+1. **Use semantic tokens only.** `var(--surface-elevated)`, never raw hex values.
+2. **Accent by role.** Fills (buttons, checked states, badges) use `--accent-primary` + `--text-on-accent` (dark content). Text/icons/focus/identity use `--accent-deep`. Never use lemon as a text color on pale surfaces — it fails contrast.
+3. **Use solid-value borders.** `var(--border-default)` is a warm solid tone that reads clearly in both modes.
+4. **Test in both modes.** Every component must be visually verified in Hearth Light and Hearth Dark before shipping.
+5. **Shadows are active in both modes.** Light mode shadows are warm-tinted; dark mode shadows are black-based.
+6. **Status colors are semantic.** Do not use accent-primary for status — use `--status-*` tokens.

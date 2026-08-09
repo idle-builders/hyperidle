@@ -813,7 +813,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 								aria-haspopup="menu"
 								aria-expanded={betOverflowOpen}
 								/* AI5 AQ-015: hit-area expansion only (AG5 menu trigger stays a button). */
-								className="inline-flex items-center justify-center w-[32px] h-[32px] min-h-[44px] min-w-[44px] xl:min-h-[32px] xl:min-w-[32px] rounded-[var(--r-pill)] border-[1.5px] border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] text-[16px] cursor-pointer hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)] transition-colors duration-[var(--motion-fast)]"
+								className="inline-flex items-center justify-center w-[32px] h-[32px] min-h-[44px] min-w-[44px] xl:min-h-[32px] xl:min-w-[32px] rounded-[var(--r-pill)] border-[1.5px] border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] text-[16px] cursor-pointer hover:border-[var(--accent-deep)] hover:text-[var(--text-primary)] transition-colors duration-[var(--motion-fast)]"
 								onClick={() => setBetOverflowOpen((v) => !v)}
 							>
 								&#xB7;&#xB7;&#xB7;
@@ -904,7 +904,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 						<RRLink
 							to={`/knowledge/${bet.sourceKnowledge.id}`}
 							data-testid="bet-provenance-link"
-							className="text-[13px] text-[var(--accent-primary)] hover:underline"
+							className="text-[13px] text-[var(--accent-deep)] hover:underline"
 						>
 							From knowledge: {bet.sourceKnowledge.title}
 						</RRLink>
@@ -1046,7 +1046,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 													</span>
 													<button
 														type="button"
-														className="text-[13px] text-[var(--accent-primary)] hover:underline cursor-pointer"
+														className="text-[13px] text-[var(--accent-deep)] hover:underline cursor-pointer"
 														onClick={() => {
 															setOutcomeVerdictForm(bet.outcomeVerdict ?? "");
 															setOutcomeSummaryForm(bet.outcomeSummary ?? "");
@@ -1070,7 +1070,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 											<span className="text-[13px] text-[var(--text-tertiary)]">Not evaluated</span>
 											<button
 												type="button"
-												className="text-[13px] text-[var(--accent-primary)] hover:underline cursor-pointer"
+												className="text-[13px] text-[var(--accent-deep)] hover:underline cursor-pointer"
 												onClick={() => {
 													setOutcomeVerdictForm("");
 													setOutcomeSummaryForm("");

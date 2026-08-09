@@ -41,14 +41,14 @@ const THEME_OPTIONS: ThemeSwatch[] = [
 function swatchStyle(value: ThemeOption): CSSProperties {
 	switch (value) {
 		case "light":
-			// Hearth light canvas: warm cream
-			return { background: "#faf8f5" };
+			// Hearth light canvas: pale lemon cream
+			return { background: "#fcf8e8" };
 		case "dark":
-			// Hearth dark canvas: warm near-black
-			return { background: "#1c1a17" };
+			// Hearth dark canvas: deep warm near-black with a lemon whisper
+			return { background: "#14140b" };
 		case "system":
 			// Diagonal split of light + dark to represent "follows OS"
-			return { background: "linear-gradient(135deg, #faf8f5 50%, #1c1a17 50%)" };
+			return { background: "linear-gradient(135deg, #fcf8e8 50%, #14140b 50%)" };
 	}
 }
 
@@ -82,7 +82,7 @@ export function SettingsAppearance(): JSX.Element {
 								"border-[1.5px] transition-colors duration-[var(--motion-fast)]",
 								"w-[120px] text-left cursor-pointer",
 								isActive
-									? "border-[var(--accent-primary)]"
+									? "border-[var(--accent-deep)]"
 									: "border-[var(--border-default)] hover:border-[var(--border-strong)]",
 							].join(" ")}
 							style={isActive ? { boxShadow: "0 0 0 3px var(--accent-primary-dim)" } : undefined}

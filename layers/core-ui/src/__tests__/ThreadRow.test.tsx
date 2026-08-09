@@ -178,7 +178,7 @@ describe("ThreadRow", () => {
 		const root = container.firstElementChild;
 		// Selected applies an accent-primary border-left; blocking applies a status-error border-left.
 		// When both are true, the selected accent-primary border must win.
-		expect(root?.className).toContain("border-[var(--accent-primary)]");
+		expect(root?.className).toContain("border-[var(--accent-deep)]");
 	});
 
 	it("has border-bottom divider between rows", () => {

@@ -25,7 +25,7 @@ import type {
 	AgentOrchestrationPort,
 	AgentOrchestrationRunConfigPatch,
 } from "@hyperidle/api-contract";
-import { type HyperIdleDb, readSystemPromptTemplateForRole } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import { getTeamMembers } from "@hyperidle/org";
 import {
 	AGENT_CATEGORIES,
@@ -36,6 +36,7 @@ import {
 	findRoleCatalogEntry,
 	type HarnessCapabilityReader,
 	MODEL_TIERS,
+	readSystemPromptTemplateForRole,
 } from "@hyperidle/shared";
 import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
 import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";

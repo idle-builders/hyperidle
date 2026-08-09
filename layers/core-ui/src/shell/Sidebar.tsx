@@ -249,7 +249,7 @@ function AssistantIconButton({
 				"border border-[var(--border-subtle)]",
 				"transition-[background,border-color,color] duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
 				open
-					? "bg-[var(--accent-primary-dim)] border-[var(--accent-primary)] text-[var(--accent-primary)]"
+					? "bg-[var(--accent-primary-dim)] border-[var(--accent-deep)] text-[var(--accent-deep)]"
 					: "bg-[var(--surface-container)] text-[var(--text-secondary)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]",
 			].join(" ")}
 		>
@@ -424,7 +424,7 @@ function FastNavItem({
 					"flex items-center w-full px-[24px] min-h-[44px]",
 					"text-[13px] font-[500] text-[var(--text-primary)] truncate",
 					"transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
-					"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)]",
+					"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]",
 					!selected
 						? "hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]"
 						: "",

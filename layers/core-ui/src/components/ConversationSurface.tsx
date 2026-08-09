@@ -130,7 +130,7 @@ function Avatar({
 	size?: number;
 }): JSX.Element {
 	const color = who.isAgent
-		? "bg-[var(--accent-primary-dim)] border-[var(--accent-primary)] text-[var(--accent-primary)]"
+		? "bg-[var(--accent-primary-dim)] border-[var(--accent-deep)] text-[var(--accent-deep)]"
 		: "bg-[var(--surface-container)] border-[var(--border-default)] text-[var(--text-secondary)]";
 	return (
 		<div
@@ -177,14 +177,14 @@ function ConversationHeader({
 			<div className="mx-auto flex w-full max-w-[760px] items-center gap-[12px]">
 				<div className="min-w-0 flex-1">
 					<div className="flex items-center gap-[6px] text-[12px] text-[var(--text-secondary)]">
-						<span className="inline-flex items-center rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[9px] py-[1px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-primary)]">
+						<span className="inline-flex items-center rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[9px] py-[1px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-deep)]">
 							{header.hostKind}
 						</span>
 						<span className="text-[var(--text-tertiary)]">·</span>
 						{header.hostRoute ? (
 							<Link
 								to={header.hostRoute}
-								className="truncate font-[500] text-[var(--text-primary)] hover:text-[var(--accent-primary)] hover:underline"
+								className="truncate font-[500] text-[var(--text-primary)] hover:text-[var(--accent-deep)] hover:underline"
 							>
 								{header.hostTitle}
 							</Link>
@@ -269,7 +269,7 @@ function InsertMenu({ onPick }: { onPick: () => void }): JSX.Element {
 					</span>
 					<span className="min-w-0 leading-[1.2]">
 						<span
-							className={`block text-[13px] font-[600] ${it.key ? "text-[var(--accent-primary)]" : "text-[var(--text-primary)]"}`}
+							className={`block text-[13px] font-[600] ${it.key ? "text-[var(--accent-deep)]" : "text-[var(--text-primary)]"}`}
 						>
 							{it.label}
 						</span>
@@ -286,10 +286,10 @@ function InsertMenu({ onPick }: { onPick: () => void }): JSX.Element {
 function ComposerReplyBanner({ onCancel }: { onCancel: () => void }): JSX.Element {
 	return (
 		<div className="flex items-center gap-[9px] border-b border-[var(--border-subtle)] px-[12px] py-[6px]">
-			<span className="flex shrink-0 items-center text-[var(--accent-primary)]">
+			<span className="flex shrink-0 items-center text-[var(--accent-deep)]">
 				<Glyph d={ICON_REPLY} size={12} />
 			</span>
-			<div className="flex min-w-0 flex-1 items-baseline gap-[6px] border-l-[2px] border-[var(--accent-primary)] pl-[9px] text-[12px] leading-[1.4]">
+			<div className="flex min-w-0 flex-1 items-baseline gap-[6px] border-l-[2px] border-[var(--accent-deep)] pl-[9px] text-[12px] leading-[1.4]">
 				<span className="shrink-0 text-[var(--text-secondary)]">
 					Replying to <span className="font-[600] text-[var(--text-primary)]">Atlas</span>
 				</span>
@@ -363,7 +363,7 @@ function ComposerInputRow({
 					onClick={onToggleMenu}
 					className={
 						insertMenuOpen
-							? "flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] border border-[var(--accent-primary)] bg-[var(--accent-primary-dim)] text-[var(--accent-primary)]"
+							? "flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] border border-[var(--accent-deep)] bg-[var(--accent-primary-dim)] text-[var(--accent-deep)]"
 							: "flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] border border-[var(--border-default)] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]"
 					}
 				>

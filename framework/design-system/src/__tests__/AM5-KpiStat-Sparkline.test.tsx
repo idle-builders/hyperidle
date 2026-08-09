@@ -48,7 +48,7 @@ describe("Sparkline (base primitive)", () => {
 		const polyline = container.querySelector("polyline");
 		expect(polyline).toBeTruthy();
 		// stroke is the accent token (not a hardcoded color)
-		expect(polyline?.getAttribute("stroke")).toBe("var(--accent-primary)");
+		expect(polyline?.getAttribute("stroke")).toBe("var(--accent-deep)");
 	});
 
 	it("renders 80×24 viewBox (the canonical small-sparkline size)", () => {

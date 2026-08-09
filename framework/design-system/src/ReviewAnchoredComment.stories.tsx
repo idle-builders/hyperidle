@@ -80,7 +80,7 @@ function CodeLineWithComposer(): JSX.Element {
 						aria-label="Add inline comment"
 						title="Add inline comment"
 						onClick={() => setOpen((v) => !v)}
-						className="absolute left-[68px] top-1/2 flex h-[16px] w-[16px] -translate-y-1/2 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] text-[12px] leading-none group-hover/line:flex focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-primary)]"
+						className="absolute left-[68px] top-1/2 flex h-[16px] w-[16px] -translate-y-1/2 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] text-[12px] leading-none group-hover/line:flex focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
 					>
 						+
 					</button>
