@@ -20,8 +20,7 @@ import remarkParse from "remark-parse";
 import { unified } from "unified";
 
 import { blockId } from "./block-id.js";
-import { normalisedPayload } from "./normalise.js";
-import { ROOT_OUTLINE_SENTINEL, slug } from "./slug.js";
+import { normalisedPayload, ROOT_OUTLINE_SENTINEL, slug } from "./normalise.js";
 import {
 	type Block,
 	type BlockDerivationResult,

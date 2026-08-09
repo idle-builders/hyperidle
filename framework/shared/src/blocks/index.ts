@@ -1,8 +1,12 @@
 export { blockId } from "./block-id.js";
 export { assertNoCollisions, deriveBlocks } from "./derive-blocks.js";
 export { derivePayloads } from "./derive-payloads.js";
-export { normalisedPayload } from "./normalise.js";
-export { EMPTY_SLUG_SENTINEL, ROOT_OUTLINE_SENTINEL, slug } from "./slug.js";
+export {
+	EMPTY_SLUG_SENTINEL,
+	normalisedPayload,
+	ROOT_OUTLINE_SENTINEL,
+	slug,
+} from "./normalise.js";
 export type {
 	Block,
 	BlockAnchor,

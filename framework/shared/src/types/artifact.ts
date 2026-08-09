@@ -4,22 +4,28 @@
 
 import { getKindDefinition } from "../kinds/registry.js";
 
-// Per-kind preview types re-exported for consumers.
-export type { CodePreview } from "../kinds/code.js";
-export type { DataPreview } from "../kinds/data.js";
-export type { HtmlPreview } from "../kinds/html.js";
-export type { ImagePreview } from "../kinds/image.js";
-// Re-export fundamental kinds from registry — the canonical source of truth.
-export { ARTIFACT_KINDS, type ArtifactKind, isRegisteredKind } from "../kinds/registry.js";
-export type { TextPreview } from "../kinds/text.js";
-export type { UrlPreview } from "../kinds/url.js";
+// Per-kind preview types and the fundamental kinds, re-exported from the registry — the canonical
+// source of truth, and since AU34 the one module that declares them.
+export {
+	ARTIFACT_KINDS,
+	type ArtifactKind,
+	type CodePreview,
+	type DataPreview,
+	type HtmlPreview,
+	type ImagePreview,
+	isRegisteredKind,
+	type TextPreview,
+	type UrlPreview,
+} from "../kinds/registry.js";
 
-import type { CodePreview } from "../kinds/code.js";
-import type { DataPreview } from "../kinds/data.js";
-import type { HtmlPreview } from "../kinds/html.js";
-import type { ImagePreview } from "../kinds/image.js";
-import type { TextPreview } from "../kinds/text.js";
-import type { UrlPreview } from "../kinds/url.js";
+import type {
+	CodePreview,
+	DataPreview,
+	HtmlPreview,
+	ImagePreview,
+	TextPreview,
+	UrlPreview,
+} from "../kinds/registry.js";
 
 /**
  * Union of all registered preview types.

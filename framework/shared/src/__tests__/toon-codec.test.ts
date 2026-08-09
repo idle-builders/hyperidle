@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decode, encode } from "../toon-codec.js";
-import { ToonParseError } from "../toon-errors.js";
+import { decode, encode, ToonParseError } from "../toon-codec.js";
 
 describe("TOON Codec", () => {
 	describe("round-trip encode/decode (AC1: 10+ test cases)", () => {

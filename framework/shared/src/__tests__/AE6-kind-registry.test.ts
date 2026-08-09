@@ -4,15 +4,19 @@
 // These tests will FAIL until the green phase creates the implementation.
 
 import { describe, expect, it } from "vitest";
-import { codeKind } from "../kinds/code.js";
-import { dataKind } from "../kinds/data.js";
-import { htmlKind } from "../kinds/html.js";
-import { imageKind } from "../kinds/image.js";
-import type { KindDefinition } from "../kinds/kind-definition.js";
 // These imports will fail until the implementation exists.
-import { ARTIFACT_KINDS, getKindDefinition, isRegisteredKind } from "../kinds/registry.js";
-import { textKind } from "../kinds/text.js";
-import { urlKind } from "../kinds/url.js";
+import {
+	ARTIFACT_KINDS,
+	codeKind,
+	dataKind,
+	getKindDefinition,
+	htmlKind,
+	imageKind,
+	isRegisteredKind,
+	type KindDefinition,
+	textKind,
+	urlKind,
+} from "../kinds/registry.js";
 
 // -------------------------------------------------------------------
 // AC-1: Kind registry functions work for registered / unregistered kinds

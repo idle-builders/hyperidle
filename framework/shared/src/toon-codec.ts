@@ -1,5 +1,3 @@
-import { ToonParseError } from "./toon-errors.js";
-
 /**
  * Type-safe wrappers around `encode`/`decode` for callers that work with
  * typed structs. The single unavoidable widening cast lives here — callers
@@ -13,6 +11,26 @@ import { ToonParseError } from "./toon-errors.js";
  * `as unknown as`. Both `encodeTyped` and `decodeTyped` are the only places
  * this boundary is crossed.
  */
+
+/**
+ * The one error this codec throws.
+ *
+ * @lore AU34: declared in a module of its own until nothing outside this package reached it and its
+ * only reader was this file. Folded in rather than carried across the split as a module with no
+ * consumer outside its package.
+ */
+export class ToonParseError extends Error {
+	readonly line: number;
+	readonly detail: string;
+
+	constructor(message: string, line: number, detail: string) {
+		super(`TOON parse error at line ${line}: ${message} (${detail})`);
+		this.name = "ToonParseError";
+		this.line = line;
+		this.detail = detail;
+	}
+}
+
 export function encodeTyped<T extends object>(value: T): string {
 	// `encode` accepts any object and only reads it — no cast needed.
 	return encode(value);
