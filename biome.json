@@ -137,6 +137,8 @@
 			"**",
 			"!**/node_modules",
 			"!**/dist",
+			"!**/.astro",
+			"!**/*.astro",
 			"!**/*.db",
 			"!**/coverage",
 			"!**/playwright-report",

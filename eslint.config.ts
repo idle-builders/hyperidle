@@ -22,6 +22,7 @@ export default [
 			"**/.worktrees/**",
 			"**/.claude/**",
 			"**/coverage/**",
+			"**/.astro/**",
 		],
 	},
 

@@ -1,9 +1,14 @@
 {
+<<<<<<<< HEAD:.verify-attestations/fd59bf879a1cbec4564027af97a5ec8e2f1d1d4f.json
 	"sha": "fd59bf879a1cbec4564027af97a5ec8e2f1d1d4f",
 	"srcHash": "e56fcc5125d5d45c9e37e1ee696bbae0085a5e0a1e563b37ca3bc8c455698142",
+========
+	"sha": "2b63ceb5e08abc1f008308fdd5eba9e24a9ca4b8",
+	"srcHash": "a024170d265504f69cbaf79af2e66c30286590174f8fb4371efceb135e758c27",
+>>>>>>>> 7952c2ef (Add static website package skeleton with Astro build seam):.verify-attestations/2b63ceb5e08abc1f008308fdd5eba9e24a9ca4b8.json
 	"scope": "affected",
 	"status": "passed",
-	"dirty": false,
+	"dirty": true,
 	"tools": [
 		"test",
 		"test:integration",
@@ -40,6 +45,11 @@
 			"skipped": 0
 		}
 	},
+<<<<<<<< HEAD:.verify-attestations/fd59bf879a1cbec4564027af97a5ec8e2f1d1d4f.json
 	"timestamp": "2026-08-10T08:38:00.178Z",
 	"hmac": "b1d2cbcbe164d554ac4d128ccad5c0fed42a8285be252464526a250f941ba8d5"
+========
+	"timestamp": "2026-08-09T13:52:11.373Z",
+	"hmac": "48214de58cbc1a9a3d17c996254da0c028d4a4dd983c558a1459da7a511c2d54"
+>>>>>>>> 7952c2ef (Add static website package skeleton with Astro build seam):.verify-attestations/2b63ceb5e08abc1f008308fdd5eba9e24a9ca4b8.json
 }

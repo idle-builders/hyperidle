@@ -1,0 +1,20 @@
+---
+import "../styles/fonts.css";
+const base = import.meta.env.BASE_URL;
+---
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>HyperIdle — The operating system for AI-first companies</title>
+	</head>
+	<body>
+		<h1>Probe scaffold — replaced by the landing page port.</h1>
+		<a href={`${base}docs/`}>Docs</a>
+		<script>
+			// probe: inline scripts bundle to static files, no framework runtime
+			const el = document.querySelector("h1");
+			if (el) el.dataset.js = "on";
+		</script>
+	</body>
+</html>

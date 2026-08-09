@@ -82,6 +82,12 @@ export const JUSTIFIED_UNUSED: ReadonlyArray<{
 		reason:
 			"AU31 §5/§12: services/core-api-port-composition.ts reads process.env.HYPERIDLE_API_KEY (a global, not an explicit `node:` import), so usesNodeBuiltins never sees it — the same reason tsconfig.json's own `types: [\"node\"]` had to be declared explicitly for this package.",
 	},
+	{
+		pkg: "@hyperidle/website",
+		dependency: "cookie",
+		reason:
+			"Astro's emitted prerender entry imports { parseCookie } from cookie (a cookie@2 API), but Node resolves it upward from dist/.prerender/ and would hit the cookie@0.7.2 the monorepo hoists for express@5. Declaring cookie@^2 here nests it at applications/website/node_modules where the upward resolution finds it first; nothing in this package imports it directly.",
+	},
 ];
 
 const TYPES_PREFIX = "@types/";

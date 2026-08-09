@@ -46,6 +46,8 @@ framework/design-system/inspiration/
 hyperidle-pg/
 eval-results*.json
 docs/product/.vitepress/cache
+# Astro generated types + content sync cache (applications/website)
+applications/website/.astro/
 .vitepress/cache
 # @lore AU28: `scripts/` runs via tsx and is never compiled deliberately, but tsc emits
 # declaration + map siblings there transitively (root tsconfig has `include: []`, so

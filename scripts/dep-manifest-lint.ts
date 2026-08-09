@@ -113,8 +113,12 @@ function collectOwnedFiles(dir: string, ownedBy: ReadonlySet<string>, out: strin
 function barePackageName(specifier: string): string | null {
 	if (!specifier || specifier.startsWith(".") || specifier.startsWith("/")) return null;
 	if (specifier.startsWith("#") || specifier.startsWith("node:")) return null;
-	const segments = specifier.split("/");
-	const name = specifier.startsWith("@") ? segments.slice(0, 2).join("/") : segments[0];
+	// Bundler virtual modules (`astro:content`, `astro:assets`) are served by the
+	// package before the colon. URL imports (`https://…`, matched by "//") are not
+	// packages and pass through untouched.
+	const bare = specifier.includes("//") ? specifier : (specifier.split(":")[0] ?? specifier);
+	const segments = bare.split("/");
+	const name = bare.startsWith("@") ? segments.slice(0, 2).join("/") : segments[0];
 	if (!name || BUILTINS.has(name)) return null;
 	return name;
 }
