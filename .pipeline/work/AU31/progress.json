@@ -2,7 +2,7 @@
 	"id": "AU31",
 	"status": "in-progress",
 	"currentStep": "architecture-amendment-review",
-	"smallestActionToResume": "Reviewer checks the confined amendment only: architecture.md §3.1 (corrected cross-boundary transaction inventory + one relinquishment rule), §3.2 (port acquisition, no ambient singleton), §3 clauses 1-2 (team-defaults pair added, runs.requestTermination struck), §5 map row, §10 test strategy, §12 waves (A0 added; §2.5 and §2.7 ops moved to B2), §13.9/§13.10, feasibility P3 correction + new P3b, and probes/p3b-transaction-threading/. Everything else is settled — do not reopen the six verdicts, the 93-site accounting, R2, the face definition, the db:util/AU29 rulings, or §11.",
+	"smallestActionToResume": "Reviewer checks the confined amendment only: architecture.md §3.1 (corrected cross-boundary transaction inventory + one relinquishment rule), §3.2 (port acquisition, no ambient singleton), §3 clauses 1-2 (team-defaults pair added, runs.requestTermination struck), §5 map row, §10 test strategy, §12 waves (A0 added; §2.5 and §2.7 ops moved to B2), §13.9/§13.10, feasibility P3 correction + new P3b, and probes/p3b-transaction-threading/. Also recorded 2026-08-09: the wave-boundary correction — the lifecycle-drain cluster (service-bootstrap.ts:38, durable-agent-queue.ts:83, service-bootstrap.ts:339) moved from wave A to wave B2, because it relocates into wave-B-owned layers/agent-orchestration/src/boot.ts; wave A total 36 -> 34 sites, wave B 58. Everything else is settled — do not reopen the six verdicts, the 93-site accounting, R2, the face definition, the db:util/AU29 rulings, or §11.",
 	"startedAt": "2026-08-07",
 	"worktree": ".worktrees/AU31",
 	"branch": "backend/AU31-layer-composition-boundary",
@@ -156,5 +156,26 @@
 				"§11 evidence run"
 			]
 		}
-	]
+	],
+	"waveSplit": {
+		"totalSites": 92,
+		"clearedOnBranch": 34,
+		"remaining": 58,
+		"waveA": {
+			"sites": 34,
+			"breakdown": "24 import + 8 DI + 2 manifest",
+			"state": "all cleared on branch"
+		},
+		"waveB": {
+			"sites": 58,
+			"state": "open"
+		},
+		"linterSnapshot": {
+			"head": "78996283",
+			"productionViolations": 187,
+			"base": "59b9299a",
+			"baseProductionViolations": 221
+		},
+		"correction2026-08-09": "lifecycle-drain cluster (service-bootstrap.ts:38 + :339, durable-agent-queue.ts:83) moved wave A -> wave B2; relocation target layers/agent-orchestration/src/boot.ts is wave B's file. Total work unchanged."
+	}
 }

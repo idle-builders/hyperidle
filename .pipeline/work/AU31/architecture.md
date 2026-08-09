@@ -128,8 +128,9 @@ start). **Why not relocate:** rejected with four grounds in requirements §2.3; 
 (relocation reopens AU21 Decision L's zero-read end state) is decisive alone.
 
 **(b) The wiring — orchestration's own runtime composed from inside core**
-(`run-orchestration-composition.ts:32`, `durable-agent-queue.ts:83`, `service-bootstrap.ts:37`'s
-`startLifecycleProjectionDrain`): **relocate.** Under AU26's wiring rule (a unit touched only at
+(`run-orchestration-composition.ts:32`, `durable-agent-queue.ts:83`, `service-bootstrap.ts:38`'s
+`startLifecycleProjectionDrain` and the `queueDeps(db)` it receives at `:339`): **relocate** — and
+because the file it relocates into is wave B's, all of it ships in **wave B** (§12). Under AU26's wiring rule (a unit touched only at
 boot is judged by the domain it wires), this is agent-orchestration wiring — claim, drain, lease,
 lifecycle projection are exercised inside the agent layer's run loop
 (`run-orchestration-composition.ts:234-246`). It moves behind `bootAgentOrchestration` (§5),
@@ -928,7 +929,7 @@ application. Each file:
 |---|---|
 | `services/run-orchestration-composition.ts` | moves into `layers/agent-orchestration/src/` (boot-internal); its harness-registry imports dissolve into execution-face adapters (§2.4); its `agentRunConfig`/session-requests imports become in-layer |
 | `services/durable-agent-queue.ts` | moves with it (pure session-requests wiring) |
-| `service-bootstrap.ts` — `startLifecycleProjectionDrain` (`:330`) | moves into `bootAgentOrchestration` |
+| `service-bootstrap.ts` — `startLifecycleProjectionDrain` (import `:38`, call `:339`) | moves into `bootAgentOrchestration`, taking its `queueDeps(db)` argument with it — **wave B**, because `boot.ts` is wave B's file (§12) |
 | `service-bootstrap.ts` — everything else in `registerCoreDomainServices` | **stays core** (core's own domain reactions and reapers); its two cross-layer wires (`:470` intent recorder, admission reactions) become port ops per §2.1 |
 | `service-bootstrap.ts` — `registerAgentLayerServices` (`:570`) | stays core minus the dead `dispatcherDeps` bundle [P4]: builtin-routine reactions and the routine scheduler are core's domain (AU15); the scheduler's enqueue + capacity read become port ops (`routine-scheduler-bindings.ts:39-40,:61`), `canProvision` becomes an application-passed boolean |
 | `services/tool-handlers-bindings.ts` | moves into `layers/agent-orchestration/src/` (§2.5); the review workflow port becomes `CoreApiPort` ops |
@@ -1201,7 +1202,7 @@ exactly as the db:util handoff is echoed in the other direction — requirements
 | AC (`plan.md:47-53`) | Obligation here | Verified by |
 |---|---|---|
 | 1 — no layer names another layer/its services (imports + manifest) | §2 verdicts + §5 relocation + §2.7 buffer + §2.4 core-ui row | `npm run lint` governance pass: the 4 keys deleted from `governance/rule-severity.json` → rules at `error`; validation scenario 2 covered by R3 + existing crossing rules |
-| 2 — no cross-layer DI; API/MCP/bus only | all 14 DI sites have named mechanisms: the 9 `service → service (other layer)` sites (8 files: `app.ts:494`, `bets.ts:684` — 2 sites, `tasks.ts:254`, `threads.ts:1678`, `org.ts:306`, `service-bootstrap.ts:470`, `agent-run-admission-reactions.ts:115`, `create-server.ts:510`) convert with their imports (W2=W7); the 2 `application → service` adapter-pool wires become §4-law face handoffs (§5.3, §6); `service → layer (other)` site 1 (`service-bootstrap.ts:330`) relocates in-layer (§5); the two `tool-provider-bindings.ts` wires — `framework → layer` and `service → layer (other)` site 2 — dissolve per §2.5, probe-proven [P11] | the 4 DI keys deleted → `wire-within-one-layer` at `error` for those groups; §4's attack/control pair pins the handoff reading; validation scenario 3 |
+| 2 — no cross-layer DI; API/MCP/bus only | all 14 DI sites have named mechanisms: the 9 `service → service (other layer)` sites (8 files: `app.ts:494`, `bets.ts:684` — 2 sites, `tasks.ts:254`, `threads.ts:1678`, `org.ts:306`, `service-bootstrap.ts:470`, `agent-run-admission-reactions.ts:115`, `create-server.ts:510`) convert with their imports (W2=W7); the 2 `application → service` adapter-pool wires become §4-law face handoffs (§5.3, §6); `service → layer (other)` site 1 (`service-bootstrap.ts:339`) relocates in-layer (§5, wave B); the two `tool-provider-bindings.ts` wires — `framework → layer` and `service → layer (other)` site 2 — dissolve per §2.5, probe-proven [P11] | the 4 DI keys deleted → `wire-within-one-layer` at `error` for those groups; §4's attack/control pair pins the handoff reading; validation scenario 3 |
 | 3 — applications compose faces only; no service, no other application | §5.3 + §6 + §2.7 relocations; manifest end states | the `application → service [import|manifest|di]` + `application → application [import]` keys deleted; R1–R3 at `error` |
 | 4 — MCP dialled only by harness-owning layer + harness; serving layer hosts the door | §6 | the `service → MCP router`, `application → MCP router`, `service → agent-execution [api]` keys deleted; attack case for the dial rule already exists in the harness table |
 | 5 — every owned key gone, rules fail on reappearance | the **14 keys enumerated in §12.1** (§8 carve-out recorded) | the `governance/rule-severity.json` diff in the pull request that clears each key's last site; from that commit the key is absent, so the rule is at `error` and a reappearance fails the build |
@@ -1302,7 +1303,9 @@ cross-boundary write inside their own transaction — `layers/core-api/work/`,
 compositions; **the one line in `applications/remote-server/src/create-server.ts` that registers
 the transport, which becomes a value the root passes (§3.2)**; the two development-world fixtures
 `layers/core-api/src/__testing__/test-utils.ts` and `test-fixtures.ts`;
-`layers/core-api/package.json` row for `filesystems`; `layers/core-ui/package.json` respelling):
+`layers/core-api/package.json` row for `filesystems`; `layers/core-ui/package.json` respelling —
+**excluding the lifecycle-drain wiring inside `service-bootstrap.ts`, which moved to wave B; see the
+three-site cluster below**):
 - A0. **Port acquisition (§3.2)** — build one port per composition, hand it to routes and to the
   reaction registrars, delete the two module-level transport functions and every
   `getRegistered…()` read, and give the `{ db, eventBus }` fixture its own port over
@@ -1322,12 +1325,29 @@ the transport, which becomes a value the root passes (§3.2)**; the two developm
   `governance/rule-severity.json`** — §12.1 shows why: every one of AU31's 14 keys still has a live
   site after wave A. Wave A's governance obligation is only the recomputed floors (§12.2).
   Dependency: A0 → A1 → A2 → A3. After A: core-api's remaining cross-layer imports are exactly the
-  composition files plus the two conversions moved to B2 below — wave B's inventory, stated so the
+  composition files plus the three items moved to B2 below — wave B's inventory, stated so the
   reviewer can check the seam is complete.
 
-**Two conversions move from A to B, because an op belongs in the wave whose files consume it.**
-Neither is a deferral by judgement; both follow from §1's "no production export that only tests
-consume", and the wave-A builder was right to stop:
+**Three items move from A to B, because the work belongs in the wave that owns the file it lands
+in.** None is a deferral by judgement; each follows from a rule already written here, and in each
+case the wave-A builder was right to stop rather than improvise:
+
+- **The lifecycle-drain cluster — three sites, one mechanism.** `service-bootstrap.ts:38`
+  (imports `@hyperidle/session-requests`), `services/durable-agent-queue.ts:83` (same import), and
+  `service-bootstrap.ts:339` (`startLifecycleProjectionDrain(queueDeps(db))`, the
+  `service → layer (other) [di]` wire) are one piece of wiring, not three sites, and they move
+  together. The drain is an interval poller that claims and processes rows in
+  `agentLifecycleInbox` — session-requests' own table — straight off the shared `db` handle. It
+  cannot become a per-call seam op the way a request-scoped read or write does, so §2.1(b) and §5
+  both give it the same verdict: **relocate into `bootAgentOrchestration`**. That file,
+  `layers/agent-orchestration/src/boot.ts`, is in **wave B's** write set. Closing the cluster in
+  wave A would mean wave A writing a wave-B-owned file — breaking the disjoint ownership that makes
+  the two waves safe to ship one after the other — or inventing an op the frozen list in §3 clause 2
+  does not have. So the cluster lands in **B2**, next to the boot file it relocates into. Wave A
+  ships green without it: all three sites are `warn`, and wave A deletes no rule key, so nothing is
+  promoted to `error` while they are live. The total work is unchanged — only which pull request
+  does it. **The wave-A total drops from 36 sites to 34** (24 import + 8 DI + 2 manifest); §12.1's
+  rows 1 and 9 carry the change.
 - **§2.5's `CoreApiPort` workflow ops** (capture / consume-grant / record-outcome). Today
   `services/tool-provider-bindings.ts` and `@hyperidle/review` are both inside core-api, so the
   import is in-layer and legal — there is no crossing to remove yet. The crossing appears when B2
@@ -1347,7 +1367,14 @@ relocated composition files, `layers/core-api/src/boot.ts` + deleted subpath mod
 `package.json` export map, `applications/**`, `framework/shared/http` helper, `scripts/lib` +
 `scripts/rules` + `governance/*`):
 - B1. Execution face + MCP dial relocation + `RemoteWorkerClient` + buffer relocation (§6, §2.7).
-- B2. Orchestration boot absorbs the composition (§5.1); the tool stack dissolves per §2.5
+- B2. Orchestration boot absorbs the composition (§5.1) — **and with it the lifecycle-drain
+  cluster moved from wave A: delete the `@hyperidle/session-requests` imports at
+  `layers/core-api/src/service-bootstrap.ts:38` and
+  `layers/core-api/src/services/durable-agent-queue.ts:83`, and move the
+  `startLifecycleProjectionDrain(queueDeps(db))` call at `service-bootstrap.ts:339` into
+  `bootAgentOrchestration` (`layers/agent-orchestration/src/boot.ts`), where all three become
+  in-layer. `durable-agent-queue.ts` relocates with `run-orchestration-composition.ts` per §5's
+  table. B2 is not complete while any of the three still reports.** The tool stack dissolves per §2.5
   (dispatch moves `harness-registry` → `tool-handlers`, wrapper file deleted, `returnStatusTool`
   + enforcement registry onto the adapters bundle); **the `CoreApiPort` workflow ops (§2.5) and
   knowledge-writeback ops (§2.7) land here, with their first consumers**, and the `CoreApiPort`
@@ -1378,7 +1405,7 @@ commit — that is the failure mode to avoid, and here it applies to the whole s
 
 | # | line to delete from `governance/rule-severity.json` | sites | cleared in wave A | cleared in wave B | key deleted in |
 |---|---|---|---|---|---|
-| 1 | `"layer → service (other layer) [import] production"` | 36 | **26** — `app.ts:8,11`; the 14 route sites (`agent-profile`, `agents`, `assistant`, `bets`×2, `filesystems`, `knowledge`, `org`, `sessions-routes`×2, `tasks`, `teams-routes`, `threads`, `users`); `service-bootstrap.ts:37`; the 9 reactor/binding sites (`agent-run-admission-reactions:41`, `assistant-turn-coherence-trigger:50`, `durable-agent-queue:83`, `policy-bindings:38,39`, `routine-scheduler-bindings:18,39,40`, `work-session-started-reactions:49`) | **10** — `run-orchestration-composition.ts:3,5,11,22`; `tool-handlers-bindings.ts:31,32`; `tool-provider-bindings.ts:20,21`; `session.ts:9,15` | **B** (spans both) |
+| 1 | `"layer → service (other layer) [import] production"` | 36 | **24** — `app.ts:8,11`; the 14 route sites (`agent-profile`, `agents`, `assistant`, `bets`×2, `filesystems`, `knowledge`, `org`, `sessions-routes`×2, `tasks`, `teams-routes`, `threads`, `users`); the 8 reactor/binding sites (`agent-run-admission-reactions:41`, `assistant-turn-coherence-trigger:50`, `policy-bindings:38,39`, `routine-scheduler-bindings:18,39,40`, `work-session-started-reactions:49`) | **12** — `run-orchestration-composition.ts:3,5,11,22`; `tool-handlers-bindings.ts:31,32`; `tool-provider-bindings.ts:20,21`; `session.ts:9,15`; **plus the lifecycle-drain pair moved here from wave A — `service-bootstrap.ts:38` and `durable-agent-queue.ts:83`** | **B** (spans both) |
 | 2 | `"application → service [import] production"` | 15 | 0 | 15 — `create-server.ts` ×13, `remote-server/index.ts:23`, `desktop/boot-server.ts:5` | **B** |
 | 3 | `"application → service [manifest] production"` | 12 | 0 | 12 — `applications/remote-server/package.json` | **B** |
 | 4 | `"service → service (other layer) [di] production"` | 9 | **8** — `app.ts:494`, `bets.ts:684,688`, `org.ts:306`, `tasks.ts:254`, `threads.ts:1678`, `service-bootstrap.ts:470`, `agent-run-admission-reactions.ts:115` | **1** — `create-server.ts:510` | **B** (spans both) |
@@ -1386,7 +1413,7 @@ commit — that is the failure mode to avoid, and here it applies to the whole s
 | 6 | `"application → application [import] production"` | 2 | 0 | 2 — `desktop/boot-server.ts:16`, `desktop/main.ts:20` | **B** |
 | 7 | `"layer → layer (other) [manifest] production"` | 2 | 0 | 2 — `agent-orchestration/package.json` (declares `agent-execution`), `core-api/package.json` (declares `agent-orchestration`) | **B** |
 | 8 | `"application → service [di] production"` | 2 | 0 | 2 — `desktop/boot-server.ts:45`, `remote-server/index.ts:39` | **B** |
-| 9 | `"service → layer (other) [di] production"` | 2 | 0 | 2 — `service-bootstrap.ts:330` (relocates in-layer with §5.2's `bootCoreApi`, B2), `tool-provider-bindings.ts:60` (§2.5, B2) | **B** |
+| 9 | `"service → layer (other) [di] production"` | 2 | 0 | 2 — `service-bootstrap.ts:339` (the `queueDeps(db)` handed to `startLifecycleProjectionDrain`; relocates in-layer with §5.1's `bootAgentOrchestration`, B2 — the third member of the lifecycle-drain cluster in row 1), `tool-provider-bindings.ts:60` (§2.5, B2) | **B** |
 | 10 | `"layer → layer (other) [import] production"` | 1 | 0 | 1 — `agent-orchestration/src/boot.ts:29` (buffer relocation, B1) | **B** |
 | 11 | `"framework → layer [di] production"` | 1 | 0 | 1 — `tool-provider-bindings.ts:65` (§2.5, B2) | **B** |
 | 12 | `"service → agent-execution [api] production"` | 1 | 0 | 1 — `provisioner.ts:1349` (B1) | **B** |
@@ -1409,51 +1436,46 @@ or — if several land together — in one commit at the end of B4 with the lint
 all fourteen first. Either satisfies the mechanism; what is forbidden is a commit where a key is
 absent and a site under it is live.
 
-**The wave-A residual — the wave-A column against the live tree, item by item.** The table above
-promises wave A **36 sites** (26 import + 8 DI + 2 manifest). The live linter on this branch
-reports **27 cleared** (20 import, 7 DI, 0 manifest) and nine still open. Nothing in the table is
-wrong: the arithmetic holds, no site changed wave, and no key deletion moves. The gap is unfinished
-work plus one decision the wave-A builder correctly refused to improvise (§2.8). It is recorded
-here so nobody later reads "36" as achieved.
+**The wave-A residual — the wave-A column against the live tree.** After the lifecycle-drain
+cluster moved to wave B (the three sites above), the table promises wave A **34 sites**
+(24 import + 8 DI + 2 manifest). The live linter reports **all 34 cleared and nothing left in wave
+A's column**. Every AU31 site still reporting belongs to wave B.
 
 Snapshot: `npx tsx scripts/governance-lint.ts`, branch `backend/AU31-layer-composition-boundary`,
-`a8227d34` — PASS, 194 production + 0 development violations;
-`layer → service (other layer) [import]` **16** across 10 files;
-`service → service (other layer) [di]` **2**; `layer → service (other layer) [manifest]` **7**.
-Ten of the 16 imports and one of the 2 DI wires are the table's wave-B column and are supposed to
-be live. The other nine are these. Line numbers below are the **live** ones; wave A's edits shifted
-several off the table's pre-wave-A spellings (`app.ts:8` is now `:9`, `service-bootstrap.ts:37` is
-now `:38`).
+`78996283` — PASS, **187 production** + 0 development violations. Base `59b9299a` had **221**, and
+nothing but AU31 work has landed on this branch, so **34 of AU31's 92 sites are cleared and 58
+remain**. The four rule groups AU31 touches inside `layers/core-api/`, base → live:
 
-| open site | row | owner |
-|---|---|---|
-| `routes/threads.ts:40` — `enqueueWorkIntent` from `session-requests` | 1 | **wave A** — site 5 only half converted: the intent-recording use went through the port, this import did not |
-| `routes/threads.ts:1697` — `intentRecorder: { record: enqueueWorkIntent }` | 4 | **wave A** — dies with the line above; §12's A2 requires the import and the injection to die together, in one file |
-| `service-bootstrap.ts:38` — `startLifecycleProjectionDrain` from `session-requests` | 1 | **wave A** — the file both waves touch, so this must not be left for B |
-| `services/durable-agent-queue.ts:83` — `session-requests` | 1 | **wave A** — named in row 1's own wave-A list |
-| `src/app.ts:9` — type-only `AdapterPool` / `McpToolBridge` / `SandboxAdapter` | 1 | **wave A** — §2.4's first bullet, the `AppOptions` retype-and-delete. Already fully specified there; it was simply absent from the builder's task list, not undecided |
-| `routes/agents.ts:24` + `routes/assistant.ts:18` — `validateAgentConfig` | 1 | **wave A** — **§2.8**, the decision this block was written alongside |
-| `layers/core-api/package.json` — `@hyperidle/filesystems` row | 5 | **wave A**, now unblocked: no production file under `layers/core-api/` imports `@hyperidle/filesystems` any more — only two integration tests do |
-| `layers/core-ui/package.json` — `@hyperidle/harness-registry` row | 5 | **wave A** — §2.4's last bullet, still open; only `core-ui/__scripts__/*` import it |
+| row | rule group | base | live | cleared | the live ones |
+|---|---|---|---|---|---|
+| 1 | `layer → service (other layer) [import]` | 36 | **12** | 24 | `run-orchestration-composition.ts:3,5,11,22`, `tool-handlers-bindings.ts:31,32`, `tool-provider-bindings.ts:20,21`, `session.ts:9,15` — plus the cluster's two imports, `service-bootstrap.ts:38` and `durable-agent-queue.ts:83` |
+| 4 | `service → service (other layer) [di]` | 9 | **1** | 8 | `create-server.ts:510` |
+| 5 | `layer → service (other layer) [manifest]` | 7 | **5** | 2 | core-api's `agent-run-config`, `harness-registry`, `run-orchestration`, `session-requests`, `tool-handlers` rows |
+| 9 | `service → layer (other) [di]` | 2 | **2** | 0 | `service-bootstrap.ts:339` (the cluster's DI wire) and `tool-provider-bindings.ts:60` |
 
-**How a manifest row "clears".** Both open manifest rows respell `dependencies` →
-`devDependencies`; neither row is deleted, because development files still import the package. The
-dependency **block** decides the world (`scripts/lib/repo-census.ts:445-450`,
-`scripts/lib/crossings.ts:199-201`), and `layer → service (other layer) [manifest]` is forbidden in
-production and allowed in development (`governance/decided-rules.json`). §2.4 already spells this
-for core-ui; core-api's `filesystems` row takes the identical one-line diff. The same mechanism
-applies to core-api's five wave-B rows when each one's last production import goes — including
-`agent-run-config`, whose tests keep it resolvable.
+**The arithmetic reconciles three ways, all checkable with one linter run.** 34 + 58 = 92, AU31's
+share. Summing the wave-B column down all fourteen rows of the table above gives
+12 + 15 + 12 + 1 + 5 + 2 + 2 + 2 + 2 + 1 + 1 + 1 + 1 + 1 = **58**. And the whole tree:
+221 at base − 34 cleared = 187 live, of which 58 are AU31's and 129 belong to other work packages.
 
-**After these nine close**, row 1 has exactly 10 sites left and row 4 exactly 1, all in the wave-B
-column: `run-orchestration-composition.ts:3,5,11,22`, `tool-handlers-bindings.ts:31,32`,
-`tool-provider-bindings.ts:20,21`, `session.ts:9,15`, and `create-server.ts:510`. That is the
-"After A" inventory §12 promised, stated as a number a reviewer can check with one linter run.
+Two line numbers in the table are pre-wave-A spellings that the edits shifted: `app.ts:8` is now
+`:9`, and `service-bootstrap.ts:37` is now `:38`. The DI site row 9 spelled `:330` is now `:339`.
+The sites are the same sites.
+
+**How a manifest row "clears".** Wave A's two rows — `core-ui`'s `harness-registry` and
+`core-api`'s `filesystems` — respelled `dependencies` → `devDependencies` rather than being
+deleted, because development files still import both packages. The dependency **block** decides the
+world (`scripts/lib/repo-census.ts:445-450`, `scripts/lib/crossings.ts:199-201`), and
+`layer → service (other layer) [manifest]` is forbidden in production and allowed in development
+(`governance/decided-rules.json`). The same one-line diff clears each of core-api's five wave-B rows
+when that row's last production import goes — including `agent-run-config`, whose tests keep it
+resolvable.
 
 **Nothing here changes a key deletion.** Wave A still deletes zero keys from
-`governance/rule-severity.json` — rows 1, 4 and 5 all keep live sites after wave A by design, and
-rows 2, 3 and 6–14 are untouched by this correction. The instruction is unchanged: read the count
-off the live linter, and delete a key only when that key reports zero.
+`governance/rule-severity.json` — rows 1, 4, 5 and 9 all keep live sites after wave A by design
+(the cluster's move adds to that, it does not subtract from it), and rows 2, 3, 6–8 and 10–14 are
+untouched. The instruction is unchanged: read the count off the live linter, and delete a key only
+when that key reports zero.
 
 ### 12.2 Detector floors — recompute, never hand-edit, never lower
 
