@@ -53,13 +53,11 @@ export { runSession } from "./runtime.js";
 // -- `sessions`: this Service owns the table, so these are its only doors --
 export {
 	countActiveRunsByAgent,
-	type EndSessionByCasInput,
 	endSessionByCas,
 	findSessionById,
 	listLatestOutcomeByTask,
 	listRunSummaries,
 	listSessions,
-	type RunSummary,
 	recordSessionMetadata,
 	writeSessionNotes,
 } from "./session-store.js";

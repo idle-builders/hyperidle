@@ -7,18 +7,21 @@
  * `dispatchOps.fireRoutine` does not evaluate WIP/delegation — it
  * always fires (records a run + intent) once the coalescing guard clears
  * (AU21 Increment 14a: the cost-cap guard this comment used to also cite is
- * HARD-DELETED, no replacement), regardless of owner WIP. The actual
- * delegate/owner selection is
- * proven by the real service-integration suite
- * (`agent-work-intent-worker.routine-selection.integration.test.ts`), not
- * this eval — `@hyperidle/core-api/routines` exposes only the cohesive
- * `dispatchOps` surface, so `drainAgentWorkIntents` is not reachable from
- * here. These scenarios instead honestly assert what
- * IS observable at this fire-time-only layer: the routine fires and records
- * a durable `routine_run` intent every time (never a fire-time WIP skip),
- * and the intent's `requestedBy` is only ever the owner-hint (never a
- * fire-time-resolved delegate) — proving the fire-time selection channel is
- * genuinely closed.
+ * HARD-DELETED, no replacement), regardless of owner WIP.
+ *
+ * @lore AU30: routine DELEGATION no longer exists anywhere. `user_skills` — the
+ * only input to the delegate lookup — is dropped, and with it the lookup and
+ * the selection: `resolveRoutineRunRequest` now always targets
+ * `routine.ownerAgentId`. The suite this header used to point at for the "real"
+ * delegate/owner selection proof
+ * (`agent-work-intent-worker.routine-selection.integration.test.ts`) is deleted
+ * with its subject; there is no successor because there is no selection left to
+ * prove. The scenarios below are UNCHANGED and still valid — they never
+ * asserted that delegation occurs. They assert what remains observable at this
+ * fire-time layer: the routine fires and records a durable `routine_run` intent
+ * every time (never a fire-time WIP skip), and the intent's `requestedBy` is
+ * only ever the owner — now by construction rather than by a closed channel.
+ * The names below (`del-successful-delegation`, "Delegate Agent") are historical.
  *
  * Old semantics (pre-AU15, no longer true): owner-at-WIP-no-delegate /
  * delegation-not-allowed used to SKIP the occurrence at fire-time. AU15

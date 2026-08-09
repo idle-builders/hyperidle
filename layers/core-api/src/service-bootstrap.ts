@@ -487,8 +487,9 @@ export function registerCoreDomainServices(ctx: {
 	// AF16 T17: in-process 6h TTL retention reaper. Runs unconditionally.
 	// @lore AU20 C1: retention package dissolved — sweep logic and scheduler
 	// live here at the composition root; per-table deletes delegate to their
-	// owning services (users/notifications/knowledge). propagation_log is
-	// UNOWNED_SHARED_TABLES so its delete stays a direct @hyperidle/db call.
+	// owning services. Every table swept below now has one — propagation_log
+	// included (owned by `policy`, reaped through `reapTerminalPropagationLog`),
+	// so this root performs no table access of its own.
 	// No behavior change: same predicates, same TTLs, same cadence.
 	const runRetentionSweep = async (): Promise<void> => {
 		const nowMs = Date.now();
