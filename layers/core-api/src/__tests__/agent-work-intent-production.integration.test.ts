@@ -425,7 +425,15 @@ describe("atomic production handoffs", () => {
 		expect(attempts[0]?.occasion).toBe("accepted");
 	});
 
-	test("real assistant message command rolls back its message when the intent write fails", async ({
+	// AU31 §3.1 site 5 — INVERTED. The message insert is no longer inside the
+	// same transaction as the intent submit (relinquished, founder ruling
+	// architecture.md §3.1/§13 item 9): a seam call from inside this route's
+	// own open `db.transaction()` reproduced a real deadlock (§3.2), so the
+	// two writes can no longer share one transaction. This test used to prove
+	// they rolled back together; it now proves the named window — a committed
+	// message with no queued turn intent, repaired by a re-send (the
+	// coherence trigger re-bakes on the next thread append anyway).
+	test("real assistant message command: the message survives even when the intent write fails (AU31 §3.1 site 5)", async ({
 		db,
 		app,
 	}) => {
@@ -442,8 +450,10 @@ describe("atomic production handoffs", () => {
 			}),
 		});
 
+		// The seam's intent submit fails (uncaught) — the route still 500s —
+		// but the message insert already committed before that call ran.
 		expect(response.status).toBe(500);
-		expect(await db.select().from(messages)).toHaveLength(0);
+		expect(await db.select().from(messages)).toHaveLength(1);
 		expect(await db.select().from(agentWorkIntents)).toHaveLength(0);
 	});
 
