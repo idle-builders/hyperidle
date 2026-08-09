@@ -13,10 +13,11 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { fireRoutine, provisionTeamRoutines } from "@hyperidle/core-api/routines";
+import { fireRoutine } from "@hyperidle/core-api";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { items, routines } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
+import { provisionTeamRoutines } from "@hyperidle/routine";
 import { and, eq, like } from "drizzle-orm";
 import { buildEvalAgentOrchestrationPort } from "../agent-orchestration-fixture.js";
 import { judgeReviewItemCreated, judgeRoutineFired, judgeStaleItemsMarked } from "../judges.js";

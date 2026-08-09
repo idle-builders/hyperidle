@@ -41,18 +41,16 @@ import {
 	type RunOrchestrationHarnessRuntimeAdapter,
 	type RunOrchestrationReturnStatusToolAdapter,
 } from "@hyperidle/agent-orchestration";
-import { disposeApp, registerAppDisposers } from "@hyperidle/core-api/app";
-import { bootCoreApi } from "@hyperidle/core-api/boot";
-import { health } from "@hyperidle/core-api/routes/health";
-import {
-	DEFAULT_REAPER_STALE_AFTER_MS,
-	registerAgentLayerServices,
-	registerCoreDomainServices,
-} from "@hyperidle/core-api/service-bootstrap";
 import {
 	buildAgentOrchestrationPort,
 	createInProcessAgentOrchestrationTransport,
-} from "@hyperidle/core-api/services/agent-orchestration-port-composition";
+	DEFAULT_REAPER_STALE_AFTER_MS,
+	health,
+	registerAgentLayerServices,
+	registerCoreDomainServices,
+} from "@hyperidle/core-api";
+import { disposeApp, registerAppDisposers } from "@hyperidle/core-api/app";
+import { bootCoreApi } from "@hyperidle/core-api/boot";
 import type { CredentialResolver } from "@hyperidle/credential-access";
 import { createPgliteDb, createPostgresDb, type DbHandle, type HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";

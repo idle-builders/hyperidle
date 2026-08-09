@@ -56,9 +56,11 @@ import { DeadRuleError, type Finding, formatFinding, hasErrors, type Rule, runRu
 import type { Census } from "./lib/repo-census.js";
 import { classificationTotal } from "./rules/classification-total.js";
 import { dbSymbolsAllPlaced } from "./rules/db-symbols-all-placed.js";
+import { deepImportsDieWithTheirEntries } from "./rules/deep-imports-die-with-their-entries.js";
 import { floorsTight } from "./rules/floors-tight.js";
 import { frameworkSurfacesDeclared } from "./rules/framework-surfaces-declared.js";
 import { crossingRules, violationsOf } from "./rules/crossings.js";
+import { layerExportsResolveInsideTheLayer } from "./rules/layer-exports-resolve-inside-the-layer.js";
 import { misplacementLedger } from "./rules/misplacement-ledger.js";
 import { noLaunderedReExports } from "./rules/no-laundered-re-exports.js";
 import { noPerFileAllowances } from "./rules/no-per-file-allowances.js";
@@ -66,6 +68,7 @@ import { noProductionImportsDevelopment } from "./rules/no-production-imports-de
 import { noStaleBuildArtifacts } from "./rules/no-stale-build-artifacts.js";
 import { patternLive } from "./rules/pattern-live.js";
 import { registriesHonest } from "./rules/registries-honest.js";
+import { serviceValuesDoNotEscapeTheFace } from "./rules/service-values-do-not-escape-the-face.js";
 
 /**
  * The known-violation summary: one line per rule group, split by world.
@@ -154,6 +157,9 @@ function buildRules(
 			dbSourceRoot: architecture.databasePackage.sourceRoot,
 			dbBarrel: architecture.databasePackage.barrel,
 		}),
+		layerExportsResolveInsideTheLayer({ locate: buildPackageLocator(census.packages), readFile }),
+		serviceValuesDoNotEscapeTheFace({ locate: buildPackageLocator(census.packages), readFile }),
+		deepImportsDieWithTheirEntries({ readFile }),
 		// An overlaid tree has no debt, so the crossing rules judge it against nothing — every crossing
 		// on an attack overlay is an error, whatever a live severity declaration would say.
 		...crossingRules({
@@ -259,6 +265,9 @@ function runLive(errorsOnly: boolean): number {
 			dbSourceRoot: architecture.databasePackage.sourceRoot,
 			dbBarrel: architecture.databasePackage.barrel,
 		}),
+		layerExportsResolveInsideTheLayer({ locate: buildPackageLocator(census.packages), readFile: readRepoFile }),
+		serviceValuesDoNotEscapeTheFace({ locate: buildPackageLocator(census.packages), readFile: readRepoFile }),
+		deepImportsDieWithTheirEntries({ readFile: readRepoFile }),
 		...crossingRules(ruleInput),
 	];
 

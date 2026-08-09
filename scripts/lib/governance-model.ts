@@ -270,6 +270,17 @@ function decideProduction(arch: Architecture, crossing: Crossing): Decision {
 
 	// 6. Wiring: both ends of an injected port live in the same layer, or the provider is the
 	//    framework. Ruling 1 — dependency injection is legal only within a layer.
+	//
+	// @lore AU31 §4/§13.3: a DI crossing is a NAMED SYMBOL IMPORTED FROM ANOTHER PACKAGE'S INSIDE,
+	// handed into a foreign factory — the detector's own provenance rule (`crossing-detectors.ts`'s
+	// `di` branch: "the crossing is between the package whose factory is CALLED and the package the
+	// injected value came from"). A face-boot-produced value a composition root binds to a local and
+	// passes onward is composition, not injection: it carries no foreign import provenance, so this
+	// clause never sees it. No verdict flips by this note — `layer → layer (other) [di]` stays
+	// forbidden either way — it records what the predicate already means, proven against the live
+	// census (`probes/p11-composition-spelling/`, retired at ship; recover with
+	// `git log --all -- '*p11*'`) and break-tested by the `crossing-di` attack/control pair
+	// (`composition-handoff-inline` / `composition-handoff-mediated-control`).
 	if (kind === "di") {
 		const home = layerOf(source);
 		if (home === undefined) {

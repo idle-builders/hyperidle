@@ -142,6 +142,14 @@ export const ATTACK_ANCHORS = {
 	harnessAudienceDir: "layers/agent-orchestration/run-orchestration/src",
 	/** A manifest a cross-layer dependency can be added to. */
 	serviceManifest: "layers/core-api/work/package.json",
+	/** A layer's own manifest — R1's `exports` field is mutated against this. */
+	layerManifest: "layers/core-api/package.json",
+	/** One of the layer's own entry files, reachable from its `exports` map — R2's face-population root. */
+	layerEntry: "layers/core-api/src/index.ts",
+	/** A second layer entry file, for a control that must not collide with the attack's own mutation. */
+	layerEntryControl: "layers/core-api/src/app.ts",
+	/** An application's composition root — where the §4 composition-handoff spelling is written. */
+	applicationDir: "applications/remote-server/src",
 } as const;
 
 /**
@@ -160,6 +168,7 @@ const KEY = {
 	layerOtherLayer: "layer → layer (other) [import] production",
 	serviceOtherLayerManifest: "service → layer (other) [manifest] production",
 	serviceOtherLayerDi: "service → layer (other) [di] production",
+	layerOtherLayerDi: "layer → layer (other) [di] production",
 	serviceMcpRouter: "service → MCP router [mcp] production",
 	serviceUnknownSurface: "service → db:unknown [import] production",
 	frameworkEventBus: "framework → EventBus [event] production",
@@ -561,6 +570,151 @@ export const ATTACKS: readonly Attack[] = [
 		},
 		expect: { sort: "violation", file: `${a.serviceDir}/attack-di-wiring.ts`, groupKey: KEY.serviceOtherLayerDi },
 	},
+
+	// --- AU31 §4 / §13.3: the composition-handoff spelling law, on the `crossing-di` rule ------
+	{
+		id: "composition-handoff-inline",
+		detail:
+			"a composition root calling one layer's boot INLINE, as an argument into another layer's boot — the identifier-spelled crossing the census's DI provenance model catches",
+		rules: ["crossing-di"],
+		overlay: {
+			[`${a.applicationDir}/attack-composition-inline.ts`]:
+				`import { bootAgentExecution } from "@hyperidle/agent-execution";\n` +
+				`import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";\n` +
+				`export const composeInline = () =>\n` +
+				`\tbootAgentOrchestration({\n` +
+				`\t\tdb: undefined as never,\n` +
+				`\t\teventBus: undefined as never,\n` +
+				`\t\truntime: { adapterPool: bootAgentExecution(undefined as never) } as never,\n` +
+				`\t});\n`,
+		},
+		expect: {
+			sort: "violation",
+			file: `${a.applicationDir}/attack-composition-inline.ts`,
+			groupKey: KEY.layerOtherLayerDi,
+		},
+	},
+	{
+		id: "composition-handoff-mediated-control",
+		detail:
+			"the SAME handoff, bound to a local first — a face-boot-produced value passed onward by the composition root is composition, not injection (§4); the control this predicate's own design says must stay clean",
+		rules: ["crossing-di"],
+		overlay: {
+			[`${a.applicationDir}/attack-composition-mediated.ts`]:
+				`import { bootAgentExecution } from "@hyperidle/agent-execution";\n` +
+				`import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";\n` +
+				`export const composeMediated = async () => {\n` +
+				`\tconst execution = await bootAgentExecution(undefined as never);\n` +
+				`\treturn bootAgentOrchestration({\n` +
+				`\t\tdb: undefined as never,\n` +
+				`\t\teventBus: undefined as never,\n` +
+				`\t\truntime: { adapterPool: execution } as never,\n` +
+				`\t});\n` +
+				`};\n`,
+		},
+		expect: { sort: "clean", file: `${a.applicationDir}/attack-composition-mediated.ts` },
+	},
+
+	// --- AU31 §7, R1: layer-exports-resolve-inside-the-layer -----------------------------------
+	{
+		id: "layer-export-into-nested-service",
+		detail: "a layer manifest gains an `exports` entry that resolves straight into one of its own nested Service packages",
+		rules: ["layer-exports-resolve-inside-the-layer"],
+		mutate: {
+			[a.layerManifest]: (existing) => {
+				const parsed = JSON.parse(existing) as { exports?: Record<string, string> };
+				parsed.exports = { ...parsed.exports, "./attack-r1-nested-service": "./work/src/index.ts" };
+				return JSON.stringify(parsed, null, "\t");
+			},
+		},
+		expect: {
+			sort: "finding",
+			file: a.layerManifest,
+			ruleId: "layer-exports-resolve-inside-the-layer",
+			messageContains: "nested service package",
+		},
+	},
+	{
+		id: "layer-export-into-own-src-control",
+		detail: "a layer manifest entry that resolves into the layer's OWN `src/` is legal — the control for R1's boundary",
+		rules: ["layer-exports-resolve-inside-the-layer"],
+		// Isolated: the positive case above also mutates `a.layerManifest`, and this control's whole
+		// point is that an entry landing back inside the layer's own source is clean on its own.
+		isolate: true,
+		mutate: {
+			[a.layerManifest]: (existing) => {
+				const parsed = JSON.parse(existing) as { exports?: Record<string, string> };
+				parsed.exports = { ...parsed.exports, "./attack-r1-own-src": "./src/app.ts" };
+				return JSON.stringify(parsed, null, "\t");
+			},
+		},
+		expect: { sort: "clean", file: a.layerManifest },
+	},
+
+	// --- AU31 §7.2, R2: service-values-do-not-escape-the-face ----------------------------------
+	{
+		id: "service-value-escapes-the-face",
+		detail: "a layer's own module, reachable from its `exports` map, plainly re-exports a Service-imported value — the founding shape this rule exists to catch",
+		rules: ["service-values-do-not-escape-the-face"],
+		overlay: {
+			[`${a.layerDir}/attack-r2-escape.ts`]:
+				`import { list } from "@hyperidle/knowledge";\n` + `export { list as attackEscapedList };\n`,
+		},
+		mutate: {
+			// Reachable from the `.` entry via an own-module re-export — R2 does not flag THIS line
+			// (the specifier names no Service), it makes the overlaid file part of the face population.
+			[a.layerEntry]: (existing) => `${existing}\nexport * from "./attack-r2-escape.js";\n`,
+		},
+		expect: {
+			sort: "finding",
+			file: `${a.layerDir}/attack-r2-escape.ts`,
+			ruleId: "service-values-do-not-escape-the-face",
+			messageContains: "@hyperidle/knowledge",
+		},
+	},
+	{
+		id: "service-value-produced-by-a-call-control",
+		detail: "the positional exemption: a bare Service identifier in direct CALLEE position produces a value — calling a Service factory is composition, not laundering",
+		rules: ["service-values-do-not-escape-the-face"],
+		overlay: {
+			[`${a.layerDir}/attack-r2-control.ts`]:
+				`import { list } from "@hyperidle/knowledge";\n` + `export const attackR2ControlResult = list();\n`,
+		},
+		mutate: {
+			[a.layerEntryControl]: (existing) => `${existing}\nexport * from "./attack-r2-control.js";\n`,
+		},
+		expect: { sort: "clean", file: `${a.layerDir}/attack-r2-control.ts` },
+	},
+
+	// --- AU31 §7, R3: deep-imports-die-with-their-entries ---------------------------------------
+	{
+		id: "deep-import-of-a-deleted-entry",
+		detail: "the deep path that used to resolve before the face shrank — `@hyperidle/core-api/service-bootstrap` is no longer a declared `exports` entry",
+		rules: ["deep-imports-die-with-their-entries"],
+		overlay: {
+			[`${a.serviceDir}/attack-r3-deep-import.ts`]:
+				`import { registerCoreDomainServices } from "@hyperidle/core-api/service-bootstrap";\n` +
+				`export const attackR3 = registerCoreDomainServices;\n`,
+		},
+		expect: {
+			sort: "finding",
+			file: `${a.serviceDir}/attack-r3-deep-import.ts`,
+			ruleId: "deep-imports-die-with-their-entries",
+			messageContains: "service-bootstrap",
+		},
+	},
+	{
+		id: "declared-entry-import-control",
+		detail:
+			"importing a DECLARED entry (`@hyperidle/core-api/boot`) resolves cleanly — the control for R3, written from a composition root (an application), the one role legally allowed to name a layer's face at all",
+		rules: ["deep-imports-die-with-their-entries"],
+		overlay: {
+			[`${a.applicationDir}/attack-r3-declared-import.ts`]:
+				`import { bootCoreApi } from "@hyperidle/core-api/boot";\n` + `export const attackR3Control = bootCoreApi;\n`,
+		},
+		expect: { sort: "clean", file: `${a.applicationDir}/attack-r3-declared-import.ts` },
+	},
+
 	{
 		id: "mcp-register",
 		detail: "a tool registered on the MCP router from outside the layer that hosts it",

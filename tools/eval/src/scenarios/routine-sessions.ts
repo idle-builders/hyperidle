@@ -10,7 +10,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { fireRoutine } from "@hyperidle/core-api/routines";
+import { fireRoutine } from "@hyperidle/core-api";
 import { items, routines, sessions } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import { and, eq } from "drizzle-orm";

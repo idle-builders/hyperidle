@@ -147,3 +147,34 @@ Property 4 is the one that matters when you add a rule: it will not ship without
 - **A verdict the founder changed** → edit `decided-rules.json`, then make the model reproduce it.
   If a clause has to grow an exception to get there, that is the signal to re-read the principle
   rather than bolt on the exception.
+
+## A layer's face
+
+A layer package's `exports` field IS its public face — a composition root reaches it and nothing
+deeper. Three rules hold that mechanically, each with its own attack/control pair:
+
+- **`layer-exports-resolve-inside-the-layer`** — a layer manifest's own `exports` entry may never
+  resolve into a nested Service package. A face that "shortens" a deep path into a Service without
+  actually closing the crossing would make the other two rules worthless.
+- **`service-values-do-not-escape-the-face`** — in a layer's own modules reachable from that
+  `exports` map, a Service-imported value may not reach the module's export surface. It reads
+  export DECLARATIONS — what an `export … from`, a bare `export { local }`, a default export or an
+  exported `const`/`let`/`var` names, holds, aggregates, or reaches through a top-level alias — with
+  one positional exemption: a bare Service identifier in direct callee position, because calling a
+  Service factory PRODUCES a value and producing values is composition. It does not read
+  function-like bodies, class/enum/namespace members, mutation of an already-exported object,
+  aliases of such an object, globals, or dynamic `import()` — the sanctioned face content is a bag
+  of arrows over the layer's own Services, and a body that calls one is what a correct face looks
+  like. A developer determined to route a Service symbol out through the face can; this rule stops
+  the accident, not the deliberate act — judging the deliberate is a reviewer's job, not a linter's.
+- **`deep-imports-die-with-their-entries`** — an import specifier of a layer package that resolves
+  to a module absent from its `exports` map is a violation, file and specifier named, independent of
+  whatever the census's own crossing detection would otherwise report — a specifier the manifest
+  does not declare carries no crossing at all once the entry that used to carry it is gone, so this
+  rule reads raw import specifiers directly rather than relying on resolved crossings.
+
+The same "a face-produced value passed onward by its composition root is composition, not
+injection" reading is proven on the existing `crossing-di` rule rather than a new one: an inline
+call whose callee is imported from a foreign layer is a named crossing; the identical value bound to
+a local first and passed on is not, because nothing about it carries foreign import provenance. See
+`wire-within-one-layer`'s own `why` in `scripts/lib/governance-model.ts` for the exact reading.

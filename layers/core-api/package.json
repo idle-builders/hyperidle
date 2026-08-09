@@ -6,17 +6,7 @@
 	"exports": {
 		".": "./src/index.ts",
 		"./app": "./src/app.ts",
-		"./boot": "./src/boot.ts",
-		"./service-bootstrap": "./src/service-bootstrap.ts",
-		"./routes/health": "./src/routes/health.ts",
-		"./routes/ws": "./src/routes/ws.ts",
-		"./services/agent-orchestration-port-composition": "./src/services/agent-orchestration-port-composition.ts",
-		"./services/work-state-push-gateway": "./src/services/work-state-push-gateway.ts",
-		"./ws-connection-hub": "./src/ws-connection-hub.ts",
-		"./ws-subscribe-authorizer": "./src/ws-subscribe-authorizer.ts",
-		"./routines": "./src/routines.ts",
-		"./test-utils": "./src/__testing__/test-utils.ts",
-		"./schemas": "./src/schemas/index.ts"
+		"./boot": "./src/boot.ts"
 	},
 	"scripts": {
 		"check": "tsc --noEmit",

@@ -21,6 +21,7 @@
 		"@hyperidle/event-bus": "*",
 		"@hyperidle/harness-registry": "*",
 		"@hyperidle/http-middleware": "*",
+		"@hyperidle/routine": "*",
 		"@hyperidle/settings": "*",
 		"@hyperidle/users": "*",
 		"@hyperidle/work-intent-port": "*",

@@ -1,19 +1,5 @@
 {
 	"governanceRuleSeverity": true,
 	"note": "Every architectural rule carries one severity: error or warn. An absent key is at error — this file lists only what is not yet clean. A rule leaves this file when its last violation is gone, in the pull request that clears it: that removal is the whole of promotion, and there is nothing else to do. This file makes no claim about how many violations exist or where — no paths, no counts, no dates — so it can never disagree with reality and nothing ever regenerates it.",
-	"severity": {
-		"application → MCP router [mcp] production": "warn",
-		"application → application [import] production": "warn",
-		"application → service [di] production": "warn",
-		"application → service [import] production": "warn",
-		"application → service [manifest] production": "warn",
-		"layer → layer (other) [import] production": "warn",
-		"layer → layer (other) [manifest] production": "warn",
-		"layer → service (other layer) [import] production": "warn",
-		"layer → service (other layer) [manifest] production": "warn",
-		"service → MCP router [mcp] production": "warn",
-		"service → agent-execution [api] production": "warn",
-		"service → layer (other) [di] production": "warn",
-		"service → service (other layer) [di] production": "warn"
-	}
+	"severity": {}
 }

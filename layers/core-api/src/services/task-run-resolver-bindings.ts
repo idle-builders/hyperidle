@@ -19,13 +19,19 @@ import { requireRunnableAgent } from "@hyperidle/users";
 import type { TaskRunResolverDeps } from "@hyperidle/work";
 import { resolveOrCreateCallingThread } from "./calling-thread-bindings.js";
 
+// AU31 §7.2 (R2): each dependency is a wrapping arrow, never the raw service
+// symbol — a bag of arrows over the layer's own services IS a face's
+// sanctioned content; the raw symbol itself must never be the thing that
+// escapes through an exported binding.
 export const taskRunResolverDeps: TaskRunResolverDeps = {
-	requireRunnableAgent,
+	requireRunnableAgent: (db, agentId) => requireRunnableAgent(db, agentId),
 	getTeamById: (db, id) => getTeam(db, { id }),
-	assembleSessionKnowledge,
-	readServerConfig,
+	assembleSessionKnowledge: (...args: Parameters<typeof assembleSessionKnowledge>) =>
+		assembleSessionKnowledge(...args),
+	readServerConfig: (...args: Parameters<typeof readServerConfig>) => readServerConfig(...args),
 	// AU27 Increment 1 (Decision 0): also bake callingThreadId — every real
 	// task_run emit site (`task-state-machine.ts`, `bet-decomposition.ts`,
 	// `handoff-protocol.ts`) reaches this ONE shared binding.
-	resolveOrCreateCallingThread,
+	resolveOrCreateCallingThread: (...args: Parameters<typeof resolveOrCreateCallingThread>) =>
+		resolveOrCreateCallingThread(...args),
 };

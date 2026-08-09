@@ -222,7 +222,7 @@
 		"mcpRouter": {
 			"host": "agent-execution",
 			"alsoDialledBy": ["harness"],
-			"why": "the router exists to serve the harness. Only the layer that owns the harness relationship, and the harness itself, dial it. It is mounted in the wrong place today."
+			"why": "the router exists to serve the harness. Only the layer that owns the harness relationship, and the harness itself, dial it."
 		}
 	},
 	"eventBus": {
