@@ -398,7 +398,10 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// The old `createTeamsRoutes` (knowledge team_members listing) relocated to `/team-members`.
 		api.route("/agents", createAgentRoutes(options.db, agentOrchestration, options.adapterPool));
 		api.route("/model-gateway", createModelGatewayRoutes(options.db));
-		api.route("/teams", createTeamRoutes(options.db, eventBus, options.adapterPool));
+		api.route(
+			"/teams",
+			createTeamRoutes(options.db, eventBus, agentOrchestration, options.adapterPool),
+		);
 		api.route("/bets", createBetRoutes(options.db, eventBus, agentOrchestration));
 		api.route("/tasks", createTaskRoutes(options.db, eventBus, agentOrchestration));
 		api.route("/reviews", createReviewRoutes(options.db));
@@ -428,7 +431,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 			"/users",
 			createUserRoutes(options.db, eventBus, agentOrchestration, options.adapterPool),
 		);
-		api.route("/org", createOrgRoutes(options.db));
+		api.route("/org", createOrgRoutes(options.db, agentOrchestration));
 		api.route("/routines", createRoutineRoutes(options.db, eventBus, agentOrchestration));
 		api.route("/recipients", createRecipientRoutes(options.db, eventBus));
 

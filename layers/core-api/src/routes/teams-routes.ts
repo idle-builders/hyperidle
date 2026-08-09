@@ -18,12 +18,7 @@
  * from `product-` to `team-` for consistency with the domain rename.
  */
 
-import {
-	readAgentRunConfigs,
-	readTeamRunConfigDefaults,
-	writeAgentRunConfig,
-	writeTeamRunConfigDefaults,
-} from "@hyperidle/agent-run-config";
+import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { findThread, insertMessage, insertThread } from "@hyperidle/conversation";
 import { type HyperIdleDb, resolveAgentScaffoldSpecs } from "@hyperidle/db";
 import {
@@ -61,18 +56,8 @@ import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
 import { findUser, insertUser, listUsers } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
+import { buildSeamBackedAgentRunConfigWriter } from "../services/agent-orchestration-port-composition.js";
 import { resolveHarnessAvailable } from "./agent-profile.js";
-
-// AU19 Increment 1c: `org`'s `OrgUserDirectory` port (Mechanism C), wired to
-// the real `user-store.ts` function references unchanged (no behavior change).
-// AU26 G1 (§D-L): `persistScaffoldedAgents` also stamps the run config, which
-// left `users` for `agent_run_config`. The Layer wires the writer down the same
-// Mechanism-C way it wires the user directory.
-const orgUsers = {
-	getUserById: (db: HyperIdleDb, id: string) => findUser(db, { id }),
-	insertUser,
-	writeAgentRunConfig,
-};
 
 /**
  * Derive team status from team_members and active bet states.
@@ -125,10 +110,22 @@ async function resolveFounderId(
 export function createTeamRoutes(
 	db: HyperIdleDb,
 	eventBus: EventBus,
+	agentOrchestration: AgentOrchestrationPort,
 	/** AB2: adapter pool for resolving harness availability per agent. */
 	adapterPool?: HarnessCapabilityReader,
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
+
+	// AU19 Increment 1c: `org`'s `OrgUserDirectory` port (Mechanism C), wired to
+	// the real `user-store.ts` function references unchanged (no behavior change).
+	// AU26 G1 (§D-L) / AU31 §2.2: `persistScaffoldedAgents` also stamps the run
+	// config, reached through the seam (`buildSeamBackedAgentRunConfigWriter`)
+	// instead of a direct `@hyperidle/agent-run-config` import.
+	const orgUsers = {
+		getUserById: (db2: HyperIdleDb, id: string) => findUser(db2, { id }),
+		insertUser,
+		...buildSeamBackedAgentRunConfigWriter(agentOrchestration),
+	};
 
 	// GET / — list all teams with portfolio counters
 	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
@@ -259,29 +256,31 @@ export function createTeamRoutes(
 		// `team_run_config_defaults`, so the write is a second call to their owner.
 		// The route stays core-hosted and delegates the persist down (§D-A rule 3).
 		//
-		// @lore AU26 review W10: both calls are ONE transaction — a team that
-		// exists without its run-config defaults hands every agent scaffolded into
-		// it the all-null default instead of the harness the founder just chose.
-		await db.transaction(async (tx) => {
-			await createTeam(tx, {
-				id: teamId,
-				name: name.trim(),
-				phase: "build",
-				factoryDbPath: typeof repoPath === "string" ? repoPath.trim() || null : null,
-				// AE2: store chosen functions as JSON for future reads.
-				functions: JSON.stringify(teamFunctions),
-				createdAt: now,
-				// teamMembers companion (1:1)
-				teamMembersId,
-				capacity: 5,
-				activeBets: 0,
-				formedAt: now,
-			});
-			await writeTeamRunConfigDefaults(tx, teamId, {
-				defaultHarnessType: primaryHarness?.harnessType ?? null,
-				defaultModelId: primaryHarness?.modelId ?? null,
-				defaultModelProvider: primaryHarness?.modelProvider ?? null,
-			});
+		// AU31 §3.1 site 2 — RELINQUISHED (founder ruling, architecture.md
+		// §3.1/§13 item 9): the two writes used to be one transaction; now the
+		// seam write can never join a caller's transaction (§3.2), so `createTeam`
+		// commits alone and `runConfig.writeTeamDefaults` follows. On a failed
+		// write, the team exists with no harness defaults, so agents scaffolded
+		// onto it later fall back to builtin (`org/src/scaffold-agents.ts:194-202`)
+		// — the team settings edit repairs it.
+		await createTeam(db, {
+			id: teamId,
+			name: name.trim(),
+			phase: "build",
+			factoryDbPath: typeof repoPath === "string" ? repoPath.trim() || null : null,
+			// AE2: store chosen functions as JSON for future reads.
+			functions: JSON.stringify(teamFunctions),
+			createdAt: now,
+			// teamMembers companion (1:1)
+			teamMembersId,
+			capacity: 5,
+			activeBets: 0,
+			formedAt: now,
+		});
+		await agentOrchestration.runConfig.writeTeamDefaults(teamId, {
+			defaultHarnessType: primaryHarness?.harnessType ?? null,
+			defaultModelId: primaryHarness?.modelId ?? null,
+			defaultModelProvider: primaryHarness?.modelProvider ?? null,
 		});
 
 		// AU3: route through app-owned scaffolding for the default roster.
@@ -408,27 +407,29 @@ export function createTeamRoutes(
 
 					// @lore AU26 G1 (§D-L): the harness triple left `users`, so the
 					// stub's identity row and its run config are two writes now.
-					// @lore AU26 review W10: in one transaction — an assistant stub with
-					// no run config resolves the all-null default, not the team harness.
-					await db.transaction(async (tx) => {
-						await insertUser(tx, {
-							id: assistantId,
-							kind: "ai",
-							name: assistantName,
-							role: "assistant",
-							status: "active",
-							createdAt: now,
-						});
-						await writeAgentRunConfig(tx, assistantId, {
-							harnessType: stubHarness?.harnessType ?? "builtin",
-							modelId: stubHarness?.modelId ?? "claude-sonnet-4-6",
-							modelProvider: stubHarness?.modelProvider ?? "anthropic",
-						});
+					// AU31 §3.1 site 3 — RELINQUISHED (founder ruling, architecture.md
+					// §3.1/§13 item 9): the seam write can never join a caller's
+					// transaction (§3.2), so `insertUser` commits alone and
+					// `runConfig.write` follows. This whole block already sits inside
+					// the caller's best-effort try/catch (welcome-message seeding), so
+					// a failure here was always non-fatal to team creation.
+					await insertUser(db, {
+						id: assistantId,
+						kind: "ai",
+						name: assistantName,
+						role: "assistant",
+						status: "active",
+						createdAt: now,
+					});
+					await agentOrchestration.runConfig.write(assistantId, {
+						harnessType: stubHarness?.harnessType ?? "builtin",
+						modelId: stubHarness?.modelId ?? "claude-sonnet-4-6",
+						modelProvider: stubHarness?.modelProvider ?? "anthropic",
 					});
 				} else if (stubHarness !== undefined) {
 					// Assistant already exists (created at user registration with no harness).
 					// Update it with the team's harness so the overlay opens ready.
-					await writeAgentRunConfig(db, assistantId, {
+					await agentOrchestration.runConfig.write(assistantId, {
 						harnessType: stubHarness.harnessType,
 						modelId: stubHarness.modelId,
 						modelProvider: stubHarness.modelProvider,
@@ -537,7 +538,7 @@ export function createTeamRoutes(
 		// @lore AU26 G1 (§D-L): those three columns left `teams`, so the defaults come
 		// from `team_run_config_defaults` instead of off the team row. An absent row is
 		// an all-null row, so a team created before the move still resolves builtin.
-		const teamDefaults = await readTeamRunConfigDefaults(db, teamId);
+		const teamDefaults = await agentOrchestration.runConfig.readTeamDefaults(teamId);
 		const { agentIds } = await persistScaffoldedAgents(
 			db,
 			orgUsers,
@@ -676,8 +677,9 @@ export function createTeamRoutes(
 			// the read had nothing left to justify it.
 			const agentIds = agentRows.map((a) => a.id);
 			if (agentIds.length > 0) {
-				// @lore AU26 G1 (§D-L): harness type reads from `agent_run_config`.
-				const rosterRunConfigs = await readAgentRunConfigs(db, agentIds);
+				// @lore AU26 G1 (§D-L) / AU31 §2.2: harness type reads from `agent_run_config`
+				// through the seam.
+				const rosterRunConfigs = await agentOrchestration.runConfig.readBatch(agentIds);
 				for (const member of roster) {
 					const memberHarnessType = rosterRunConfigs.get(member.agentId)?.harnessType ?? null;
 					member.harnessAvailable = resolveHarnessAvailable(memberHarnessType, adapterPool);
