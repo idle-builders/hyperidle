@@ -90,7 +90,7 @@ let delSuccessOwnerAgentId = "";
 const delSuccessfulDelegation: EvalScenario = {
 	id: "del-successful-delegation",
 	description:
-		"AU15: owner at WIP limit still fires at fire-time (records a run + intent); delegate resolution moved to drain-time (not observable from this eval — see the real integration suite).",
+		"Owner at WIP limit still fires at fire-time (records a run + intent), and the recorded intent names the owner. There is no delegate resolution left anywhere: run resolution always targets the routine's owner.",
 	feature: "delegation",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
@@ -174,12 +174,12 @@ const delSuccessfulDelegation: EvalScenario = {
 			},
 			{
 				id: "intent_recorded_owner_hint",
-				label: "Intent Recorded With Owner Hint (delegate resolution deferred to drain)",
+				label: "Intent Recorded With Owner (no delegate selection exists)",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 					const requestedBy = await recordedIntentRequestedBy(ctx, delSuccessRoutineId);
-					// The fire-time hint is always the owner now — the drain resolver
-					// (agent-work-intent-worker.ts) is the only place that ever picks
-					// the delegate. This proves the fire-time selection channel is closed.
+					// requestedBy is always the owner: fire-time records the owner, and
+					// drain-time resolution (`resolveRoutineRunRequest`) also targets
+					// `routine.ownerAgentId` unconditionally. No code path picks a delegate.
 					const correct = requestedBy === delSuccessOwnerAgentId;
 					return {
 						score: correct ? 1.0 : 0.0,
@@ -374,7 +374,7 @@ const delDelegationNotAllowed: EvalScenario = {
 						score: fired ? 1.0 : 0.0,
 						note: fired
 							? undefined
-							: "Routine did not fire (expected fire — delegationAllowed is drain-time only now)",
+							: "Routine did not fire (expected fire — delegationAllowed is no longer read anywhere)",
 					};
 				},
 			},
