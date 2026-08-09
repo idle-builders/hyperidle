@@ -8,7 +8,7 @@ import { remarkDocLinks } from "./src/lib/doc-links.js";
 // Hosting-agnostic base path: set HYPERIDLE_SITE_BASE at build time
 // (e.g. HYPERIDLE_SITE_BASE=/hyperidle/ npm run build). Default "/".
 //
-// @lore Z9: astro's emitted prerender entry (dist/.prerender/*.mjs) imports
+// @lore astro's emitted prerender entry (dist/.prerender/*.mjs) imports
 // { parseCookie } from "cookie" (a cookie@2 API). The monorepo hoists
 // cookie@0.7.2 (express@5 via the MCP SDK) to the root node_modules, so Node
 // resolving from dist/.prerender/ would hit the CJS 0.7.x and crash the build.

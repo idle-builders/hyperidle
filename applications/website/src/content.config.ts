@@ -8,7 +8,7 @@ import { docEntryId } from "./lib/docs-loader.js";
  * truth), never copied into this package. The glob loader's `base` points at
  * the repo root (two levels up from this package), so the same loader
  * shape extends to docs/guides/** in the follow-up docs WP by widening the
- * pattern. This WP ingests docs/product/*.md (the Z1 product story).
+ * pattern. This WP ingests docs/product/*.md (the product story).
  */
 const docs = defineCollection({
 	schema: z.object({
