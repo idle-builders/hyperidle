@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { type HyperIdleDb, taskDispatchAttempts } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	canTransitionTaskState,
 	type DomainEvent,
@@ -8,12 +8,14 @@ import {
 	type TaskState,
 	type TaskStateChangedEvent,
 } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
 import type { PolicyDeps, PolicySessionContext } from "./ports.js";
 
 type HandoffDeps = {
 	work: Required<
-		Pick<PolicyDeps["work"], "getTaskById" | "updateTaskById" | "claimTaskHandoff" | "createItem">
+		Pick<
+			PolicyDeps["work"],
+			"getTaskById" | "updateTaskById" | "claimTaskHandoff" | "createItem" | "insertDispatchAttempt"
+		>
 	>;
 	conversation: Pick<PolicyDeps["conversation"], "insertMessage" | "insertThread">;
 	users: Required<Pick<PolicyDeps["users"], "getUserById" | "findActiveTeammateByRole">>;
@@ -314,21 +316,16 @@ export function buildHandoff(
 			});
 
 			if (txResult.targetAgentId) {
-				const existing = await tx
-					.select({ id: taskDispatchAttempts.id })
-					.from(taskDispatchAttempts)
-					.where(eq(taskDispatchAttempts.taskId, task.id));
-				const attemptId = randomUUID();
-				await tx.insert(taskDispatchAttempts).values({
-					id: attemptId,
+				// The ordinal used to be computed here from a read of `work`'s own
+				// table. Both went to the owner: `insertAttempt` counts and inserts
+				// on this same `tx`, so the attempt is still atomic with the audit
+				// update above and the request record below.
+				const { id: attemptId } = await deps.work.insertDispatchAttempt(tx, {
 					taskId: task.id,
 					occasion: "owner_handoff",
 					agentId: txResult.targetAgentId,
 					predecessorSessionId: sessionContext.sessionId,
-					ordinal: existing.length + 1,
-					status: "requested",
-					createdAt: now,
-					updatedAt: now,
+					now,
 				});
 				// AU21 §6 Decision B: resolve + validate the task_run run AT EMIT
 				// TIME (via the injected `work` resolver, since `policy` cannot
