@@ -249,29 +249,12 @@ sessions: { writeNotes(db: TDb, sessionId: string, notes: string): Promise<void>
 **exactly one** `layer → service (other layer) [import]` production warning — measured, 107 → 108
 (feasibility F4). See §6 item 4 for the alternative and why this is the recommendation.
 
-### 3.7 The `bets` zod-schema import
+### 3.7 The `bets` zod-schema import — **REFUTED, superseded by §12**
 
-`layers/core-api/src/schemas/bet.schema.ts:15` imports `selectBetSchema` from `@hyperidle/db/zod-schemas`.
-`scripts/lib/db-surfaces.ts:118-133` resolves a `createSelectSchema(bets)` export to a `db:table` reach on
-`bets` — deliberately, because "allowing the generated schema while forbidding the table would be a hole
-straight around the ownership rule". It is the **only** site in `layer → db:table (other) [import]` at
-baseline, and that key cannot be deleted while it stands.
-
-**Means:** `@hyperidle/work` — the owner of `bets` — re-exports the schema under its own name from
-`layers/core-api/work/src/index.ts`:
-
-```
-export { selectBetSchema as betRowSchema } from "@hyperidle/db/zod-schemas";
-```
-
-`bet.schema.ts` then imports `betRowSchema` from `@hyperidle/work`: a core-api layer file naming a
-core-api service, `reach-your-own-contents`, silent (the same crossing `service-bootstrap.ts:47` already
-makes without a finding). The owner naming its own table's schema is legal by definition.
-
-This is not the transitive-table hole the `users` barrel warns against: a zod schema carries no Drizzle
-table reference and cannot be handed to `db.select().from(…)`. Leave `selectBetSchema` in place in
-`framework/db/src/zod-schemas.ts` — it sits among sibling `select*Schema` exports with no production
-consumer and deleting it is not this work package's business.
+The means this section named — `@hyperidle/work` re-exporting `selectBetSchema as betRowSchema` — is a
+hard build error under `no-laundered-re-exports`, and the rule names the owner case as deliberate. The
+builder hit it and reverted, correctly. **The site, the evidence and the decided form are now [§12](#12-the-bets-wire-schema--the-decided-form).**
+Nothing in this section is to be implemented.
 
 ---
 
@@ -1613,3 +1596,175 @@ is *not* a per-skill dial — still true); `docs/product/product-decisions.md:13
 
 **Code comments the deletion falsifies** are covered in §9. Every one of them lives in a file or block
 this commit deletes outright, which is the cheapest possible resolution.
+
+---
+
+## 12. The `bets` wire schema — the decided form
+
+This section replaces the refuted [§3.7](#37-the-bets-zod-schema-import--refuted-superseded-by-12). It is
+the last production violation in the work package, and it blocks AC #2 and AC #5.
+
+### 12.1 The site, and why §3.7's means is illegal
+
+`layers/core-api/src/schemas/bet.schema.ts:15` imports `selectBetSchema` from `@hyperidle/db/zod-schemas`.
+`scripts/lib/db-surfaces.ts:118-133` resolves a `createSelectSchema(bets)` export to a `db:table` reach on
+`bets`, deliberately — *"allowing the generated schema while forbidding the table would be a hole straight
+around the ownership rule."* `bets` is owned by `work` (`governance/table-owners.json:15`), so this is a
+`layer → db:table (other) [import] production` violation. It is the **only** one:
+
+```
+WARN [crossing-import] layers/core-api/src/schemas/bet.schema.ts:15: layer → db:table (other) [import]
+production — imports the table symbol `bets` from @hyperidle/db/zod-schemas. bets is owned by work
+…
+     1    1 file(s)  layer → db:table (other) [import]
+```
+
+§3.7 planned for `work` to re-export the schema. That is forbidden by design, not by accident.
+`scripts/rules/no-laundered-re-exports.ts:28-35` states narrowing (1) in its own words: *"A TABLE symbol
+may never cross a package boundary in an `export … from`, not even from its owner: owner-ship is exactly
+the laundering vector, since the owner re-exporting its own table is what lets its layer obtain it."*
+The rule reaches `selectBetSchema` through the same `db.resolve` the crossing detector uses
+(`no-laundered-re-exports.ts:219-227`), so the zod alias is the table symbol as far as it is concerned.
+
+**The value spelling is closed too.** `import { selectBetSchema } …; export const betRowSchema =
+selectBetSchema` is caught by the VALUE half at `:176-197`, and the two-file spelling by `@lore AU28`
+at `:37-46`. There is no legal shape of "`work` republishes the generated schema."
+
+### 12.2 What the site is actually worth — measured, not assumed
+
+Four facts, each established by running the code rather than reading it. Full transcripts in
+`feasibility.md` §7.
+
+1. **No production code consumes it.** `betListItemSchema` is used only by `betListResponseSchema`
+   (`bet.schema.ts:115-118`). `betListResponseSchema`'s only consumers are two tests —
+   `schemas/__tests__/bet.schema.test.ts` (B2) and `routes/__tests__/typed-routes.integration.test.ts`
+   (D2). `routes/bets.ts` never imports it; the route returns `c.json(grouped)` unvalidated
+   (`bets.ts:285-306`).
+2. **The type-level precision is already gone.** `:104` is
+   `export const betListItemSchema = selectBetSchema as unknown as z.ZodTypeAny` — every consumer sees
+   `ZodTypeAny`.
+3. **The runtime precision is real but was never exercised.** `betListResponseSchema.safeParse` does
+   reject a malformed row across the zod-3.25/zod-4.4 boundary. But D2 inserts a team and a team member
+   and **no bet**, so every group it validates is `[]`. B2's one populated case is a hand-written literal.
+   No live payload has ever been checked against this schema.
+4. **And the schema is wrong.** `bets.atRisk` is `integer("at_risk")` (`framework/db/src/schema.ts:170`),
+   so `selectBetSchema` requires a **number**. The route normalizes it —
+   `normalizeBet = (b) => ({ ...b, atRisk: b.atRisk === 1 })` (`bets.ts:295-299`, `@lore U2`) — so the
+   wire carries a **boolean**. Feeding the row the route actually emits to the current schema:
+
+   ```
+   Does the CURRENT table-derived schema accept the shape the route emits? false
+   issues: [{"expected":"number","path":["draft",0,"atRisk"],
+             "message":"Invalid input: expected number, received boolean"}]
+   ```
+
+**So the coupling is not a contract that must be preserved by another route — it is a stale copy of the
+DB row that contradicts the endpoint it claims to describe, and the doc comment at `:90` ("A raw bet list
+item — the DB row shape used in the grouped list response") is false.** Any option that keeps the
+table-derived schema, by whatever legal mechanism, preserves a known-wrong schema. That decides the
+section.
+
+### 12.3 The candidates
+
+| | shape | legal? | cost | risk |
+|---|---|---|---|---|
+| **1** | `work` generates its own bet wire schema (`createSelectSchema(bets, …)` inside `work`, exported) | **Yes.** `buildTableRefs.resolve` (`scripts/lib/crossing-detectors.ts:166-174`) resolves only identifiers and namespace member access; a `CallExpression` returns `null`, so the derived value is not a republication — the same reasoning as the rule's own `reexport-table-value-control` case. | Adds `zod` **and** `drizzle-zod` to `layers/core-api/work/package.json` (it has `drizzle-orm`, neither of the other two). Grows `work`'s public surface by a symbol. | **Preserves fact 4** — a wrong schema, relocated. Creates a new production export in `work` whose only transitive consumers are two tests, which the project forbids. Two new manifest dependencies for zero production behaviour. |
+| **2** | `core-api` writes the bet list-item **wire** shape by hand and drops the table import | **Yes** — no db-table symbol is named at all. | 17 field lines in a file that already hand-writes its sibling. | Drift between wire schema and table. Addressed below; net protection is *stronger* than today's, which is nil. |
+| **3** | Delete `betListItemSchema` + `betListResponseSchema` — the consumer never needed a schema object | **Yes.** | Deletes D2's and B2's assertions and the only named description of the list wire shape, and leaves the identically-shaped `betDetailResponseSchema` behind — an inconsistency where there is now a pattern. | Widens into "production exports only tests consume", which is a real issue in this file but is **not AU30's axis** and would have to take `betDetailResponseSchema` with it to be coherent. Loses coverage rather than fixing it. |
+| **4** | Keep the import, carve out the rule | **No.** Zero exceptions in the ownership rule; `no-per-file-allowances` fails the build on any attempt to reconstruct one. | — | — |
+
+### 12.4 Decision — candidate 2
+
+`bet.schema.ts` describes **wire** shapes. The bet list item is a wire shape. It has been getting the DB
+row's shape by accident, and getting it wrong. Write it by hand, exactly as the sibling
+`betDetailResponseSchema` at `:70-87` already is, and whose `@lore` at `:8-12` already states the
+principle: *the response "is NOT the raw DB row."* This is the only candidate that removes the crossing
+**and** fixes the schema, and it is the smallest diff of the three legal ones — one import out, no new
+package dependency, no new export, no manifest change.
+
+**Drift is caught in two places, both of which go red on a break (proven, `feasibility.md` §7.4):**
+
+- **Compile time.** The `Bet` row type is imported into the layer and the schema is pinned to it. This is
+  legal and already common: `db:row-type` has `reach: "everyone"` — *"a row type is a shape, not an access
+  path"* (`governance/architecture.json:56-59`) — and `layer → db:row-type [import] production` is
+  `allowed` with 6 live production instances (`governance/decided-rules.json`). Running
+  `governance-lint` over the probe produced no finding.
+- **Test time.** D2 gains a real bet row, so the endpoint's actual output is parsed. A column renamed or
+  dropped makes a required key absent from the live payload and D2 goes red.
+
+**Pin form — use exactly this.** `satisfies z.ZodType<…>` does **not** work in zod 4: the third
+`Internals` parameter blocks it (`TS1360`, verified both with and without the input type argument). The
+form below typechecks clean, is Biome-clean with no rename warning and no unused binding, and is red on
+a break:
+
+```ts
+type BetListItem = Omit<Bet, "atRisk"> & { atRisk: boolean };
+type Wire = z.infer<typeof betListItemSchema>;
+type Pin = Wire extends BetListItem ? (BetListItem extends Wire ? true : false) : false;
+true satisfies Pin;
+```
+
+### 12.5 The edits
+
+**`layers/core-api/src/schemas/bet.schema.ts`** — the only production file.
+
+1. Delete the import at `:15`. Add `import type { Bet } from "@hyperidle/db";`.
+2. Replace `:89-104` (the doc comment, both `@lore` blocks, the `eslint-disable-next-line
+   design/no-unknown-cast`, and the cast) with the hand-written schema. **Seventeen fields**, matching
+   `framework/db/src/schema.ts:140-194`:
+   - required `z.string()`: `id`, `teamId`, `description`, `status`, `createdAt`
+   - `z.string().nullable()`: `appetite`, `doneCondition`, `hypothesis`, `revisionLog`, `completedAt`,
+     `tokensActualJson`, `outcomeVerdict`, `outcomeSummary`, `outcomeRecordedAt`, `outcomeRecordedBy`,
+     `sourceKnowledgeItemId`
+   - `atRisk: z.boolean()` — the wire value, not the column
+3. Add the `BetListItem` / `Wire` / `Pin` block from §12.4.
+4. New `@lore` in place of the deleted ones, recording: the schema is hand-written because the generated
+   one is a reach into a table `work` owns; `atRisk` is a boolean because the route normalizes it; the
+   pin is what keeps the two honest.
+
+**Three things the builder must not do.**
+- **Do not** narrow `status` to `z.enum(enumValues(BET_STATUSES))`. `Bet["status"]` is `string`, so an
+  enum breaks the pin — and `selectBetSchema` did not narrow it either, so this is not a regression.
+  Narrowing it is a separate decision about the endpoint, not this fix.
+- **Do not** mark `sourceKnowledgeItemId` optional. `selectBetSchema` marks it `.optional()` for a
+  fixture-compatibility reason (`zod-schemas.ts:44-47`, `@lore AK5`), but the route returns whole rows
+  from `work.list(db, "bet")`, so the field is always present on the wire. Required-nullable is what the
+  endpoint emits, and it is what the pin requires.
+- **Do not** delete `selectBetSchema` from `framework/db/src/zod-schemas.ts`. It joins its sibling
+  `select*Schema` exports in having no production consumer — a pre-existing condition across that whole
+  module, not this work package's axis.
+
+**`governance/rule-severity.json`** — delete `"layer → db:table (other) [import] production"`. 14 keys → 13.
+
+**`layers/core-api/src/schemas/__tests__/bet.schema.test.ts`** (B2) — the populated fixture at `:117-142`
+carries `atRisk: 0` and omits `sourceKnowledgeItemId`; both were only ever valid against the DB row.
+Set `atRisk: true`, add `sourceKnowledgeItemId: null`. Add one case asserting a row with `atRisk: 0` is
+**rejected** — that is the assertion that the schema now pins the wire shape and not the column.
+
+**`layers/core-api/src/routes/__tests__/typed-routes.integration.test.ts`** (D2) — insert one bet
+alongside the existing team and team member, and assert the group is non-empty **before** asserting
+`safeParse` succeeds. Without the non-empty assertion the test passes on `[]` and proves nothing, which
+is exactly how the wrong schema survived.
+
+### 12.6 Proof, and AC closure
+
+| claim | proof |
+|---|---|
+| the crossing is gone | `governance-lint` reports zero findings in `layer → db:table (other) [import]`; the key's removal from `rule-severity.json` puts it at `error`, so a reintroduction fails the build |
+| the schema matches the endpoint | D2 parses a real `GET /api/bets` payload containing a bet |
+| the schema is pinned to the table | `npm run check`; sanity-break by retyping `atRisk` or deleting a field → `TS2322` / `TS1360` |
+| the fix is not cosmetic | B2's new case: the old DB-shaped row (`atRisk: 0`) is now rejected |
+| nothing else moved | `npm run verify` exit 0 |
+
+**AC #2** — *no package other than the owner names the table* — closes: `bet.schema.ts` names no db-table
+symbol in any spelling after the edit, and it was the last site.
+
+**AC #5** — *every production `db:table (other)` key this work package owns is removed from
+`rule-severity.json`* — closes: the tenth key is deleted, 14 → 13. Production violations 91 → 90, which is
+the `finalArithmetic` figure in §7.
+
+One item for the builder's verify, not a blocker: after this edit no **production** file outside
+`framework/db` imports `@hyperidle/db/zod-schemas`. `framework/db/package.json:8` declares
+`"./zod-schemas"` in its `exports` map and knip treats `exports` entries as entry points, so
+`drizzle-zod` should stay accounted for — confirm with `npm run verify`, which runs both `knip` and
+`knip:production`.

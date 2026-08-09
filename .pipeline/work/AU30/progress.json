@@ -12,8 +12,21 @@
       "5 — propagationLog (registry + relocation INSEPARABLE — layer-world sites flip to error)",
       "6 — sessions (registry + relocation INSEPARABLE; over half the work; includes the terminal CAS + session_ended transition)",
       "7 — bets zod re-export",
-      "8 — promotion: delete the ten table keys from governance/rule-severity.json (23 -> 13 keys)"
+      "8 — DONE 52f71e67 promotion: NINE keys deleted (23 -> 14), not ten — see blockedItem",
+      "attestation — eab4f414",
+      "2 DONE f6dbd8c8 (171) · 3 DONE 71626d89 (161) · 4 DONE 582b54dd (150) · 5 DONE 21e48339 (137) · 6 DONE cd5b222f (91)",
+      "7 — bets zod re-export: REVERTED, not in the branch. Superseded by the hand-written wire schema (architecture §12); the tenth key went with it, 14 -> 13."
     ],
+    "blockedItem": {
+      "site": "layers/core-api/src/schemas/bet.schema.ts:15 imports selectBetSchema from @hyperidle/db/zod-schemas; `bets` is owned by `work`. Last `layer -> db:table (other) [import] production` violation.",
+      "whyPlanFailed": "architecture.md §3.7 planned for @hyperidle/work to re-export `selectBetSchema as betRowSchema`. HARD BUILD ERROR: no-laundered-re-exports — 'A table may never be republished across a package boundary — not even by its owner'. The rule's own @lore names this exact case as deliberate: owner-ship IS the laundering vector. It catches the value-alias spelling too. Builder reverted rather than force it — correct.",
+      "impact": "AC #2 and AC #5 unmet for this ONE site. Production ends at 91, not 90. Nine keys deleted, not ten — `layer -> db:table (other) [import] production` stays at warn; deleting it would have made the tree red on a live violation.",
+      "orchestratorObservation": "bet.schema.ts:104 is `export const betListItemSchema = selectBetSchema as unknown as z.ZodTypeAny` — the table-derived precision is cast away on the line that consumes it, and the sibling betDetailResponseSchema in the same file is hand-written zod whose @lore says the response is NOT the raw DB row. The table coupling here may be illusory. Planner dispatched to decide the legal form.",
+      "resolution": "APPROVED FIX (architecture.md §12): core-api hand-writes the bet list-item WIRE shape, dropping the table import entirely — consistent with the sibling betDetailResponseSchema, already hand-written, whose @lore says the response is NOT the raw DB row. Drift caught twice: a compile-time conditional-type pin against the `Bet` row type (db:row-type has reach: everyone, so the import is allowed), and D2 gaining a real bet row.",
+      "latentBugFound": "The table-derived schema was WRONG, not merely misplaced. bets.atRisk is integer (schema.ts:170) but the route normalizes it before responding (routes/bets.ts:295-299, atRisk: b.atRisk === 1). Fed the row the endpoint actually emits, the CURRENT schema REJECTS it: expected number, received boolean. It survived only because typed-routes.integration.test.ts:61-76 inserts a team and a team member but NO bet — it has only ever validated []. No production code consumes the schema; the route returns c.json(grouped) unvalidated.",
+      "zodGotcha": "`satisfies z.ZodType<...>` fails in zod 4 (TS1360, both spellings — the Internals param blocks it). Use a conditional-type pin instead.",
+      "status": "RESOLVED. core-api hand-writes the bet list-item wire shape; the table import is gone and the tenth key is deleted (14 -> 13). Production 90, development 0, `layer -> db:table (other) [import]` absent from the report. AC #2 and AC #5 closed. Red proven first, both ways: the conditional-type pin failed TS1360 on `atRisk: z.number()` and again on a deleted `hypothesis` field; the new B2 case asserting a DB-shaped `atRisk: 0` row is rejected failed against the old schema, and D2 with a real bet inserted failed its safeParse — the live proof that the table-derived schema contradicted its own endpoint."
+    },
     "schedule": "One builder, sequential. Every leaf edits governance/table-owners.json; commit 8 is a strict join point; commit 6 cannot split. Tree PASS at every boundary.",
     "finalArithmetic": "191 -> 90 warnings (89 non-table + Ruling 5's one). Table crossings -> 0. `layer -> service (other layer) [import]` ends at 35, BELOW its 36 baseline, so Ruling 5's net-new entry is more than absorbed.",
     "newTests": [

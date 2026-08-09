@@ -852,3 +852,197 @@ No tracked file is modified. `governance/table-owners.json` and
 revision 2's probes and have not been touched since. `founder-rulings.md` is the founder's file and was
 read only. Nothing was committed. **No production code, no test, no migration and no eval scenario was
 written in this phase** — every artefact of the deletion is a plan, not a diff.
+
+---
+
+## 7. The `bets` wire schema — evidence for architecture §12
+
+Run in the worktree at `eab4f414`, after commits 1-8. Every probe file was written outside the repo or
+deleted immediately after; the tracked tree was left as found.
+
+### 7.1 The site is singular, and §3.7's means is a build error
+
+`npx tsx scripts/governance-lint.ts`:
+
+```
+WARN [crossing-import] layers/core-api/src/schemas/bet.schema.ts:15: layer → db:table (other) [import]
+production — imports the table symbol `bets` from @hyperidle/db/zod-schemas. bets is owned by work —
+go through it [known debt]
+…
+     1    1 file(s)  layer → db:table (other) [import]
+```
+
+One file, one line. `governance/rule-severity.json` still carries
+`"layer → db:table (other) [import] production": "warn"` — 14 keys, the tenth undeleted.
+
+Why the re-export is refused, read from the rule rather than inferred:
+
+- `scripts/rules/no-laundered-re-exports.ts:28-35`, narrowing (1): a table symbol may never cross a
+  package boundary in an `export … from`, **"not even from its owner: owner-ship is exactly the
+  laundering vector."**
+- `:219-227` resolves each re-exported symbol through `db.resolve`, and
+  `scripts/lib/db-surfaces.ts:121-133, 182-188` maps every `create(Select|Insert)Schema(<table>)` export
+  in the zod module to `{ surface: "db:table", table }`. So `selectBetSchema` **is** the table symbol to
+  this rule.
+- The value spelling is closed at `:176-197` via `buildTableRefs`, and the two-file spelling is called
+  out explicitly in the `@lore` at `:37-46`.
+
+There is no legal shape of candidate 1-as-re-export. **UNVERIFIED by me:** I did not re-run the builder's
+failing build; I read the rule that produced it and the message quoted in `progress.json` matches
+`:223-225` verbatim.
+
+### 7.2 Nothing in production consumes the schema
+
+`rg -n "betListItemSchema|betListResponseSchema"` over the tree, excluding `node_modules`:
+
+- `bet.schema.ts:104` (definition), `:115-118` (the only use)
+- `schemas/index.ts:15` — `export * from "./bet.schema.js"`, a within-package barrel
+- `schemas/__tests__/bet.schema.test.ts` — B2
+- `routes/__tests__/typed-routes.integration.test.ts:18,75` — D2
+
+`layers/core-api/src/routes/bets.ts` does not import it. The `GET /` handler
+(`bets.ts:285-306`) ends `return c.json(grouped)` — no validation on the response path. No web or
+application file names it.
+
+### 7.3 The schema rejects the payload the endpoint emits
+
+Two probes, run with `npx tsx` against the live source.
+
+**Probe A — does the zod-3.25 / zod-4.4 nesting validate at all?** (It does; the cast at `:104` erases the
+*type*, not the runtime behaviour.)
+
+```
+A. selectBetSchema alone rejects garbage: true
+B. betListItemSchema alone rejects garbage: true
+C. betListResponseSchema rejects a garbage ROW: true
+D. rejects a bare string row: true
+E. accepts empty groups: true
+```
+
+**Probe B — feed it the row the route actually emits.** `bets.ts:295-299`:
+`normalizeBet = <T extends { atRisk: number | null }>(b: T) => ({ ...b, atRisk: b.atRisk === 1 })`, applied
+to all four groups at `:300-304`. The column is `integer("at_risk").notNull().default(0)`
+(`framework/db/src/schema.ts:170`), so the generated schema requires a number:
+
+```
+Does the CURRENT table-derived schema accept the shape the route emits? false
+issues: [{"expected":"number","code":"invalid_type","path":["draft",0,"atRisk"],
+          "message":"Invalid input: expected number, received boolean"}]
+```
+
+**Why this was never caught.** D2 (`typed-routes.integration.test.ts:61-76`) inserts a `teams` row and a
+`teamMembers` row and no bet, so `safeParse` only ever sees `{draft:[],active:[],completed:[],killed:[]}`.
+B2's populated case (`bet.schema.test.ts:117-142`) is a hand-written literal carrying `atRisk: 0` — the
+column value, not the wire value — and omits `sourceKnowledgeItemId`, which passes only because
+`zod-schemas.ts:44-47` marks that field `.optional()` for fixture compatibility (`@lore AK5`).
+
+This is the load-bearing finding: the table coupling is not a contract to be preserved. Preserving it by
+any means preserves a schema that contradicts its own endpoint.
+
+### 7.4 The replacement, typechecked and sanity-broken
+
+Probe written to `layers/core-api/src/schemas/au30-probe.ts`, run through
+`npx tsc --noEmit -p layers/core-api/tsconfig.json`, then deleted.
+
+**`satisfies z.ZodType<…>` does not work in zod 4** — both spellings fail:
+
+```
+satisfies z.ZodType<BetListItem>
+  TS1360: Type 'ZodObject<…, $strip>' does not satisfy the expected type
+          'ZodType<BetListItem, unknown, $ZodTypeInternals<BetListItem, unknown>>'.
+satisfies z.ZodType<BetListItem, BetListItem>
+  TS1360: … 'ZodType<BetListItem, BetListItem, $ZodTypeInternals<BetListItem, BetListItem>>'.
+```
+
+The third `Internals` type parameter blocks it. The existing repo precedent
+(`layers/core-api/settings/src/plugin-configuration.ts:237`,
+`satisfies Record<ConfigurationKind, z.ZodType<unknown>>`) works only because its output type is
+`unknown`, which pins nothing.
+
+**The `z.infer` equality pin works, in both directions.** First run, with the schema written from the
+column list alone, went red — it had missed `sourceKnowledgeItemId`:
+
+```
+au30-probe.ts(27,7): error TS2322: Type 'true' is not assignable to type 'false'.
+```
+
+Adding the field made it clean. Then two sanity breaks, each re-running from the clean state:
+
+| break | result |
+|---|---|
+| `atRisk: z.boolean()` → `z.number()` (i.e. reverting to the table's shape) | `TS2322: Type 'true' is not assignable to type 'false'` |
+| delete `hypothesis` from the schema | `TS2322: Type 'true' is not assignable to type 'false'` |
+
+**Final form, clean under both tools:**
+
+```ts
+type BetListItem = Omit<Bet, "atRisk"> & { atRisk: boolean };
+type Wire = z.infer<typeof betListItemSchema>;
+type Pin = Wire extends BetListItem ? (BetListItem extends Wire ? true : false) : false;
+true satisfies Pin;
+```
+
+- `npx tsc --noEmit -p layers/core-api/tsconfig.json` — silent on the probe file.
+- `npx biome check <probe>` — `Checked 1 file. No fixes applied.` (The earlier
+  `const _betListItemMatchesBetRow: Pin = true;` spelling drew a `camelCase` rename warning; the bare
+  `satisfies` statement draws nothing and binds no unused name.)
+- `npx tsx scripts/governance-lint.ts` with the probe in the tree — **no finding**, confirming
+  `import type { Bet } from "@hyperidle/db"` is silent. Backed by `governance/architecture.json:56-59`
+  (`db:row-type`, `reach: "everyone"`, *"a row type is a shape, not an access path"*) and
+  `governance/decided-rules.json` (`layer → db:row-type [import]`, general, production `allowed`, 6 live
+  production instances). `buildTableRefs` skips type-only import elements outright
+  (`crossing-detectors.ts:128`).
+- `npx eslint <file>` on a single file throws `getParserServices` for the **existing**
+  `bet.schema.ts` too, so it is an invocation artifact, not a signal. **UNVERIFIED:** the ESLint pass over
+  the final edit — the builder gets it from `npm run lint`.
+
+### 7.5 The 17 fields, and the two traps
+
+From `framework/db/src/schema.ts:140-194`, confirmed by the pin typechecking clean:
+
+| nullability | fields |
+|---|---|
+| required `z.string()` | `id`, `teamId`, `description`, `status`, `createdAt` |
+| `z.string().nullable()` | `appetite`, `doneCondition`, `hypothesis`, `revisionLog`, `completedAt`, `tokensActualJson`, `outcomeVerdict`, `outcomeSummary`, `outcomeRecordedAt`, `outcomeRecordedBy`, `sourceKnowledgeItemId` |
+| `z.boolean()` | `atRisk` |
+
+- **`status` stays `z.string()`.** `Bet["status"]` is `string`, so `z.enum(enumValues(BET_STATUSES))`
+  breaks the pin. `selectBetSchema` did not narrow it either — a `text()` column generates a plain string
+  — so leaving it wide is not a regression, and narrowing it is a decision about the endpoint rather than
+  about this crossing.
+- **`sourceKnowledgeItemId` stays required-nullable.** `work.list(db, "bet")` returns
+  `WorkEntityRowMap["bet"] = Bet` (`layers/core-api/work/src/work-service.ts:195-203, 322-327`), i.e. whole
+  rows, so the field is always present on the wire. The `.optional()` in `zod-schemas.ts` is a
+  fixture-compatibility affordance, not a statement about the endpoint.
+
+### 7.6 Candidate 1's real cost, since it is legal
+
+Recorded because it is a genuine alternative, not to be built.
+
+`buildTableRefs.resolve` (`crossing-detectors.ts:166-174`) handles only `Identifier` and
+`PropertyAccessExpression`; a `CallExpression` returns `null`. So `export const betRowSchema =
+createSelectSchema(bets, …)` inside `work` is not a republication — the same reasoning the rule's own
+`reexport-table-value-control` case encodes (`governance-attacks.ts:410-423`: importing the own table and
+*using* it is not publication). It is legal.
+
+It costs two new manifest dependencies. `layers/core-api/work/package.json` declares `@hyperidle/db`,
+`@hyperidle/shared`, `drizzle-orm` — **neither `zod` nor `drizzle-zod`** — so both would be added for a
+symbol with no production consumer. And it creates a production export in `work` whose only transitive
+consumers are two tests, which the project forbids. Worst, it relocates §7.3's wrong schema instead of
+fixing it. Legal, and still the wrong answer.
+
+### 7.7 What would invalidate §12
+
+- A production consumer of `betListResponseSchema` appearing before the builder starts — then the wire
+  shape is load-bearing at runtime and the change needs its own contract test, not just D2.
+- `bets` gaining a column between now and the edit — the 17-field list in §12.5 goes stale. The pin makes
+  that a red typecheck rather than a silent miss, which is the point of having it.
+- A founder ruling that `db:row-type` should stop reaching `everyone`. §12's compile-time pin rests
+  entirely on that reach.
+
+### 7.8 Worktree state after this phase
+
+`git status --short` reports one modified tracked file, `.pipeline/work/AU30/progress.json`, carrying the
+orchestrator's `blockedItem` record of this dispatch. It is not mine and was not reverted. No probe file
+survives; `layers/core-api/src/schemas/au30-probe.ts` and its `.bak` were deleted, and no production or
+test file was edited in this phase.

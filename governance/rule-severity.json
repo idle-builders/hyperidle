@@ -7,7 +7,6 @@
 		"application → service [di] production": "warn",
 		"application → service [import] production": "warn",
 		"application → service [manifest] production": "warn",
-		"layer → db:table (other) [import] production": "warn",
 		"layer → layer (other) [import] production": "warn",
 		"layer → layer (other) [manifest] production": "warn",
 		"layer → service (other layer) [import] production": "warn",

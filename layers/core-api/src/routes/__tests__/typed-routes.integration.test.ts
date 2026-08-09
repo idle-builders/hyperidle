@@ -58,7 +58,12 @@ describe("D2. GET /api/bets returns betListResponseSchema-conforming response", 
 		vi.unstubAllEnvs();
 	});
 
-	test("returns 200 with a grouped bet list", async ({ db, app }) => {
+	// @lore AU30: this case must parse a NON-EMPTY group. It previously inserted no
+	// bet, so safeParse only ever saw four empty arrays — which is how a list-item
+	// schema that contradicted the endpoint (integer atRisk vs the boolean the route
+	// emits) survived. The non-empty assertion is what makes the safeParse mean
+	// something.
+	test("returns 200 with a grouped bet list carrying a real bet", async ({ db, app }) => {
 		const now = new Date().toISOString();
 		await db
 			.insert(teams)
@@ -66,11 +71,21 @@ describe("D2. GET /api/bets returns betListResponseSchema-conforming response", 
 		await db
 			.insert(teamMembers)
 			.values({ id: "team-d2", teamId: "prod-d2", capacity: 3, activeBets: 0, formedAt: now });
+		await db.insert(bets).values({
+			id: "bet-d2",
+			teamId: "prod-d2",
+			description: "A real bet so the list is not empty",
+			status: "draft",
+			createdAt: now,
+			atRisk: 0,
+		});
 
 		const res = await app.request("/api/bets", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 
-		const body = await res.json();
+		const body = (await res.json()) as { draft: unknown[] };
+		expect(body.draft).toHaveLength(1);
+
 		// Must conform to the grouped structure
 		const validation = betListResponseSchema.safeParse(body);
 		expect(validation.success).toBe(true);
