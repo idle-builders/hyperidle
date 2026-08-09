@@ -493,22 +493,22 @@ export type ProposedCallTransition =
 type TransitionProposedCallPorts = Pick<ReviewPorts, "intentRecorder"> &
 	Partial<ReengagementResolverDeps>;
 export function transitionProposedCall(
-	tx: HyperIdleDb,
+	exec: HyperIdleDb,
 	transition: Extract<ProposedCallTransition, { to: "consumed" }>,
 ): Promise<{ readonly proposedCallId: string } | null>;
 export function transitionProposedCall(
-	tx: HyperIdleDb,
+	exec: HyperIdleDb,
 	transition: Exclude<ProposedCallTransition, { to: "consumed" }>,
 	ports?: TransitionProposedCallPorts,
 ): Promise<void>;
 export async function transitionProposedCall(
-	tx: HyperIdleDb,
+	exec: HyperIdleDb,
 	transition: ProposedCallTransition,
 	ports?: TransitionProposedCallPorts,
 ): Promise<{ readonly proposedCallId: string } | null | void> {
 	switch (transition.to) {
 		case "held": {
-			await tx
+			await exec
 				.update(proposedCalls)
 				.set({ status: "held" })
 				.where(eq(proposedCalls.id, transition.id));
@@ -533,7 +533,7 @@ export async function transitionProposedCall(
 			// consumes it, and `applyLivenessRetry` is the existing net on the
 			// same path.
 			let pendingIntent: ReviewAgentWorkIntentInput | undefined;
-			await tx.transaction(async (innerTx) => {
+			await exec.transaction(async (innerTx) => {
 				await innerTx.insert(tailoredGrants).values({
 					proposedCallId: transition.id,
 					taskScope: transition.taskScope,
@@ -591,13 +591,13 @@ export async function transitionProposedCall(
 				}
 			});
 			if (pendingIntent && ports?.intentRecorder) {
-				await ports.intentRecorder.record(tx, pendingIntent);
+				await ports.intentRecorder.record(exec, pendingIntent);
 			}
 			return;
 		}
 
 		case "consumed": {
-			const [claimed] = await tx
+			const [claimed] = await exec
 				.update(tailoredGrants)
 				.set({ consumed: true, consumedAt: nowIso() })
 				.where(
@@ -617,14 +617,14 @@ export async function transitionProposedCall(
 			const executedAt = nowIso();
 			if (result.success) {
 				const receipt = typeof result.data === "string" ? result.data : JSON.stringify(result.data);
-				await tx.insert(operationOutcomes).values({
+				await exec.insert(operationOutcomes).values({
 					proposedCallId: id,
 					status: "ok",
 					receipt,
 					executedAt,
 				});
 			} else {
-				await tx.insert(operationOutcomes).values({
+				await exec.insert(operationOutcomes).values({
 					proposedCallId: id,
 					status: "failed",
 					error: result.error,
@@ -632,7 +632,7 @@ export async function transitionProposedCall(
 				});
 			}
 			const newStatus = result.success ? "executed" : "failed";
-			await tx.update(proposedCalls).set({ status: newStatus }).where(eq(proposedCalls.id, id));
+			await exec.update(proposedCalls).set({ status: newStatus }).where(eq(proposedCalls.id, id));
 			return;
 		}
 	}
