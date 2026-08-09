@@ -61,3 +61,51 @@
 **Given** a developer passes a function from one layer into a constructor in another, **when** `npm run lint` runs, **then** the build fails naming both packages and the symbol.
 
 **Given** the application boots and a task-backed agent run is dispatched, **when** the run completes, **then** the work intent reached `session-requests`, the harness executed, and the result landed — with no cross-layer import anywhere in the path.
+
+## Status — wave A shipped, wave B open
+
+The 93-site inventory this work package found splits into two sequential waves, each its own PR
+(founder-ruled 2026-08-08, `progress.json.founderRulings.split`): **wave A** — core converses with
+agent-orchestration only through the door (`AgentOrchestrationPort`), and every write that used to
+be one all-or-nothing transaction is corrected to name its failure window explicitly; **wave B** —
+the applications compose layers by their public faces only, the MCP router moves behind the layer
+that owns the harness, and every rule this work package owns is promoted from `warn` to `error` in
+`governance/rule-severity.json`. Wave A is this PR; wave B follows separately off `main`, reading
+this folder — especially `architecture.md` (the approved plan wave B builds against, not
+re-litigated), `feasibility.md` (the corrected transactional-atomicity audit, kept next to the
+audit method's first, wrong attempt so wave B does not repeat it), and the adjudications and
+founder rulings in `progress.json`.
+
+**What wave A actually built**, beyond the four failure-window fixes the founder ruled on:
+- **A0 — the transport contract.** One `AgentOrchestrationPort` per composition, handed to routes
+  and to reaction registrars as a value. `registerAgentOrchestrationTransport` /
+  `getRegisteredAgentOrchestrationTransport` (a module-variable registry) deleted; the
+  core-app / seam-app construction cycle closes with a root-local binding instead. Not in the
+  original architecture — the builder hit it as a real gap (reaction handlers had no legal way to
+  reach the transport) and it was added ahead of A1/A2 rather than worked around.
+- **Nine cross-boundary transactions corrected, not four.** The architecture's own atomicity audit
+  (P3) searched by function name and found 4; the true count, found by following the transaction
+  handle instead (P3b, `probes/p3b-transaction-threading/`), is 9 (10 writes — one site carries
+  two). Five sites were missing from the ruled inventory entirely. All nine now commit the core
+  write and let the seam call follow, per §3.1's one rule, with the failure window named in code at
+  each site. One of the five newly-found sites — `routine-scheduler.ts:599` — leaves a routine with
+  no session if the seam call fails, wedging it permanently with no reaper; relinquished anyway (any
+  alternative is durable-write machinery the founder already rejected for this product), but it is
+  the one item worth a second look if routines ever misbehave in the wild.
+- **Two sites where review caught a correctness regression, not a boundary miss.** The first build
+  of two of the nine sites (`teams-routes.ts`'s `createTeam`, `knowledge-repository.ts`'s `flagItem`
+  `"flag"` transition) split apart writes that had nothing to do with the boundary — each function's
+  own two writes stopped being atomic with each other, which no requirement asked for. Code review
+  round 1 (`review.md`) caught it; the fix (`review-r2.md`) re-wraps each function's own writes and
+  adds a test per site that fails if the fix is reverted (proven by reverse-applying the fix and
+  watching exactly those two tests fail, nothing else).
+
+**What did not move in wave A:** `governance/rule-severity.json` — untouched, verified by empty
+diff against `origin/main`. None of this work package's fourteen rules can be promoted yet; every
+one still has a live site in wave B.
+
+**Verified at ship time:** `npm run verify` exit 0; typecheck 34/34 packages; governance lint 187
+production + 0 development known violations (unchanged from wave A's start — no new violation
+introduced); full affected unit + service-integration slice green (12 files / 167 unit tests, 252
+files / 2419 service-integration tests); full `test:integration:service` also run green (2844
+tests); `deps:check` and `knip`/`knip:production` pass with no gate widened to reach green.
