@@ -14,7 +14,6 @@ import {
 	teamMembers,
 	teams,
 	threads,
-	userSkills,
 	users,
 } from "@hyperidle/db";
 import { isSilenced } from "@hyperidle/notifications";
@@ -235,18 +234,6 @@ describe("Policy Engine (E7)", () => {
 		}
 	}
 
-	/** @deprecated AD4: userSkills no longer drive policy decisions. Kept only for
-	 * tests that verify userSkills rows are still accepted by the DB schema. */
-	async function seedAgentSkill(db: HyperIdleDb, autonomyLevel: number): Promise<void> {
-		await db.insert(userSkills).values({
-			userId: "agent-1",
-			skillId: "skill-1",
-			autonomyLevel,
-			successCount: 0,
-			failureCount: 0,
-		});
-	}
-
 	async function createItem(
 		db: HyperIdleDb,
 		overrides: Partial<{
@@ -338,7 +325,6 @@ describe("Policy Engine (E7)", () => {
 
 	test("AC3: L2 + low risk -> push notification", async ({ db, eventBus }) => {
 		await seedBase(db);
-		await seedAgentSkill(db, 2);
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
@@ -352,7 +338,6 @@ describe("Policy Engine (E7)", () => {
 
 	test("AC4: L1 -> push for every action", async ({ db, eventBus }) => {
 		await seedBase(db);
-		await seedAgentSkill(db, 1);
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
@@ -364,9 +349,8 @@ describe("Policy Engine (E7)", () => {
 		expect(notifications[0]!.targetId).toBe(itemId);
 	});
 
-	test("AC4: no agentSkills defaults to L1 -> push", async ({ db, eventBus }) => {
+	test("AC4: an item with no trust history pushes", async ({ db, eventBus }) => {
 		await seedBase(db);
-		// No seedAgentSkill call — defaults to L1
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
@@ -379,7 +363,6 @@ describe("Policy Engine (E7)", () => {
 
 	test("AC7: high risk + L4 -> NEVER auto-resolve, always push", async ({ db, eventBus }) => {
 		await seedBase(db);
-		await seedAgentSkill(db, 4);
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
@@ -398,7 +381,6 @@ describe("Policy Engine (E7)", () => {
 		eventBus,
 	}) => {
 		await seedBase(db);
-		await seedAgentSkill(db, 4);
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
@@ -413,7 +395,6 @@ describe("Policy Engine (E7)", () => {
 
 	test("AC5: silence mode active + non-blocking -> queue all items", async ({ db, eventBus }) => {
 		await seedBase(db);
-		await seedAgentSkill(db, 2); // Would normally push
 		await updateServerConfig(db, { notifications: { silence: { mode: true } } });
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
@@ -433,7 +414,6 @@ describe("Policy Engine (E7)", () => {
 
 	test("AC5: silence mode active + blocking -> push (not queued)", async ({ db, eventBus }) => {
 		await seedBase(db);
-		await seedAgentSkill(db, 2);
 		await updateServerConfig(db, { notifications: { silence: { mode: true } } });
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
@@ -473,7 +453,6 @@ describe("Policy Engine (E7)", () => {
 
 	test("AC10: per-product silence -> items from that product queued", async ({ db, eventBus }) => {
 		await seedBase(db);
-		await seedAgentSkill(db, 2); // Would normally push
 		await updateServerConfig(db, { notifications: { silence: { silencedTeamIds: ["prod-1"] } } });
 
 		const notifications: NotificationEvent[] = [];
@@ -494,7 +473,6 @@ describe("Policy Engine (E7)", () => {
 
 	test("AC11: silence window - current time in window -> queue", async ({ db, eventBus }) => {
 		await seedBase(db);
-		await seedAgentSkill(db, 2); // Would normally push
 		// Set silence window to cover 00:00–23:59 (always active)
 		await updateServerConfig(db, {
 			notifications: { silence: { windowStart: "00:00", windowEnd: "23:59" } },
@@ -524,7 +502,6 @@ describe("Policy Engine (E7)", () => {
 		eventBus,
 	}) => {
 		await seedBase(db);
-		await seedAgentSkill(db, 2); // L2 should push
 		// Set window 22:00–07:00 (overnight)
 		await updateServerConfig(db, {
 			notifications: { silence: { windowStart: "22:00", windowEnd: "07:00" } },
@@ -549,7 +526,6 @@ describe("Policy Engine (E7)", () => {
 		eventBus,
 	}) => {
 		await seedBase(db);
-		await seedAgentSkill(db, 2);
 		await updateServerConfig(db, {
 			notifications: { silence: { windowStart: "22:00", windowEnd: "07:00" } },
 		});
@@ -574,7 +550,6 @@ describe("Policy Engine (E7)", () => {
 
 	test("high risk items always push even in silence mode", async ({ db, eventBus }) => {
 		await seedBase(db);
-		await seedAgentSkill(db, 4);
 		await updateServerConfig(db, { notifications: { silence: { mode: true } } });
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));

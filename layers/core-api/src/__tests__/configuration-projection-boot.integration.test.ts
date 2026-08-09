@@ -2,14 +2,7 @@ import type { AddressInfo } from "node:net";
 import * as os from "node:os";
 import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
-import {
-	agentRunConfig,
-	serviceConnections,
-	teamMembers,
-	teams,
-	userSkills,
-	users,
-} from "@hyperidle/db";
+import { agentRunConfig, serviceConnections, teamMembers, teams, users } from "@hyperidle/db";
 import {
 	AdapterPool,
 	createHarnessAdapter,
@@ -56,14 +49,6 @@ describe("configuration projection boot wiring", () => {
 						pluginId: "builtin",
 						pluginState: "enabled",
 					}),
-				}),
-			);
-			expect(entries).toContainEqual(
-				expect.objectContaining({
-					kind: "skill",
-					key: "skill.au2-agent-1.review",
-					activeValue: expect.objectContaining({ userId: "au2-agent-1", skillId: "review" }),
-					origin: expect.objectContaining({ type: "builtin" }),
 				}),
 			);
 			expect(entries).toContainEqual(
@@ -175,11 +160,6 @@ async function seedLegacyRows(db: HyperIdleDb): Promise<void> {
 		modelTierPreference: "workhorse",
 		modelId: "claude-sonnet-4-6",
 		modelProvider: "anthropic",
-	});
-	await db.insert(userSkills).values({
-		userId: "au2-agent-1",
-		skillId: "review",
-		autonomyLevel: 3,
 	});
 	await db.insert(serviceConnections).values({
 		id: "au2-connection-1",

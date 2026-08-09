@@ -15,9 +15,8 @@
  * wired here needs `createPracticeMeeting`.
  */
 
-import { readAgentRunConfig } from "@hyperidle/agent-run-config";
 import { insertThread, listThreads } from "@hyperidle/conversation";
-import { type HyperIdleDb, type Routine, userSkills, type WriteExecutor } from "@hyperidle/db";
+import type { HyperIdleDb, Routine, WriteExecutor } from "@hyperidle/db";
 import {
 	assembleSessionKnowledge,
 	list as listKnowledgeItems,
@@ -33,50 +32,13 @@ import {
 	type RoutineSchedulerConfig,
 	type RoutineSchedulerPorts,
 	registerBuiltinRoutineHandlers,
-	selectRoutineDelegate,
 	startRoutineScheduler as startRoutineSchedulerInternal,
 } from "@hyperidle/routine";
-import { isAgentAtCapacity } from "@hyperidle/run-orchestration";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import type { EventBus } from "@hyperidle/shared";
-import { findUser, requireRunnableAgent } from "@hyperidle/users";
+import { requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-import { eq } from "drizzle-orm";
-
-/**
- * AU26 G1 (architecture §D-L) — `isAgentAtCapacity`'s bound reader, composed
- * from the two Services that now own the two halves: `users` answers "does this
- * agent exist at all" (fail closed if not) and `agent-run-config` answers "what
- * is its `maxConcurrentSessions`" (1 when never configured). Before the column
- * move a single `findUser` answered both.
- */
-const concurrencyBoundReader = {
-	async getConcurrencyBound(
-		execDb: HyperIdleDb,
-		agentId: string,
-	): Promise<{ readonly maxConcurrentSessions: number } | undefined> {
-		const user = await findUser(execDb, { id: agentId });
-		if (!user) return undefined;
-		const { maxConcurrentSessions } = await readAgentRunConfig(execDb, agentId);
-		return { maxConcurrentSessions };
-	},
-};
-
-/**
- * AU21 §6 Decision F1 fold — the `userSkills` read `routine`'s own
- * `agent-delegation.ts` needs (`userSkills` is an `UNOWNED_SHARED_TABLES`
- * table — any Service may query it, but this composition root keeps the
- * read here so `selectRoutineDelegate`'s `listAgentIdsBySkill` port stays an
- * injected Mechanism-C capability, symmetric with `isAtCapacity`).
- */
-function listAgentIdsBySkill(db: HyperIdleDb, skillId: string): Promise<readonly string[]> {
-	return db
-		.select({ agentId: userSkills.userId })
-		.from(userSkills)
-		.where(eq(userSkills.skillId, skillId))
-		.then((rows) => rows.map((row) => row.agentId));
-}
 
 /**
  * @lore AU19 Increment 3h (relocated from `dispatch-bindings.ts`, AU21 §9
@@ -149,18 +111,6 @@ export const routineSchedulerPorts: RoutineSchedulerPorts = {
 		},
 	},
 	workIntents: { enqueueWorkIntent },
-	agentSelection: {
-		isAtCapacity: (db, agentId) => isAgentAtCapacity(db, agentId, concurrencyBoundReader),
-		selectAgent: (input) =>
-			selectRoutineDelegate(
-				input.db,
-				{
-					listAgentIdsBySkill,
-					isAtCapacity: (db, agentId) => isAgentAtCapacity(db, agentId, concurrencyBoundReader),
-				},
-				input,
-			),
-	},
 	requireRunnableAgent,
 	// AU21 §9 Increment 12 (Decision H3): wire the contextBundle bake deps
 	// `resolveRoutineRunRequest` needs — a routine_run session's sandbox now

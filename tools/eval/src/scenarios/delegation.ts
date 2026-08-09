@@ -39,7 +39,6 @@ import {
 	seedMinimalWorld,
 	seedRoutine,
 	seedTask,
-	seedUserSkill,
 } from "../seeding.js";
 import type {
 	DimensionScore,
@@ -107,23 +106,11 @@ const delSuccessfulDelegation: EvalScenario = {
 		});
 
 		// Seed delegate agent on the same team
-		const { agentId: delegateId } = await seedAgent(ctx.db, {
+		await seedAgent(ctx.db, {
 			name: "Delegate Agent",
 			role: "assistant",
 			teamMembersId: world.teamMembersId,
 			systemPrompt: "You are a delegate system agent.",
-		});
-
-		// Both owner and delegate have the same skill
-		await seedUserSkill(ctx.db, {
-			userId: world.agentId,
-			skillId: "portfolio_review",
-			autonomyLevel: 3,
-		});
-		await seedUserSkill(ctx.db, {
-			userId: delegateId,
-			skillId: "portfolio_review",
-			autonomyLevel: 3,
 		});
 
 		// Put owner at WIP limit (max 1 concurrent session by default)
@@ -239,10 +226,6 @@ const delNoDelegateAvailable: EvalScenario = {
 			ownerAgentId: candidateId,
 			title: "Candidate blocking task",
 		});
-
-		// Both have the skill
-		await seedUserSkill(ctx.db, { userId: world.agentId, skillId: "analytics", autonomyLevel: 2 });
-		await seedUserSkill(ctx.db, { userId: candidateId, skillId: "analytics", autonomyLevel: 2 });
 
 		// Both at WIP limit
 		await seedActiveSession(ctx.db, { taskId: ownerBlockingTaskId, agentId: world.agentId });

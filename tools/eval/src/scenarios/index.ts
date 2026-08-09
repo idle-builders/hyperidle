@@ -32,7 +32,6 @@ export { routineSessionsScenarios } from "./routine-sessions.js";
 export { scoreAttentionScenarios } from "./score-attention.js";
 export { sendMessageScenarios } from "./send-message.js";
 export { sessionScenarios } from "./session.js";
-export { skillAutonomyScenarios } from "./skill-autonomy.js";
 export { submitReviewScenarios } from "./submit-review.js";
 export { toolAuthorizationScenarios } from "./tool-authorization.js";
 export { writeMemoryScenarios } from "./write-memory.js";

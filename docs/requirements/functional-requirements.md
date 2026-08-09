@@ -8,7 +8,7 @@ Testable, outcome-level statements of what HyperIdle does. Field lists, schemas,
 
 Depth: [agent-layer/agent-model.md](../agent-layer/agent-model.md).
 
-**F-1.1** An agent is defined by three composable parts: system prompt (`users.systemPrompt`), context (assembled just-in-time from the knowledge layers at session start), and skills (`users.skills`). All three are independently swappable.
+**F-1.1** An agent is defined by three composable parts: system prompt (`users.systemPrompt`), context (assembled just-in-time from the knowledge layers at session start), and skills. All three are independently swappable.
 
 **F-1.2** Agents belong to exactly one of three categories — `team` (does the work, team-scoped), `strategy` (knowledge-scoped, behind the scenes), `individual` (user-scoped operator). Closed enum `AGENT_CATEGORIES` (`framework/shared/src/types.ts`).
 

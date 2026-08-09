@@ -100,7 +100,6 @@ export {
 	type NewThread,
 	type NewTriggerResolutionHistoryRow,
 	type NewUser,
-	type NewUserSkill,
 	type NotificationQueueRow,
 	notificationQueue,
 	type OperationOutcome,
@@ -150,8 +149,6 @@ export {
 	threads,
 	triggerResolutionHistory,
 	type User,
-	type UserSkill,
-	userSkills,
 	users,
 } from "./schema.js";
 // @lore AU28 Ruling 9: `createTestDb` / `warmPool` / `closeAllInstances` /

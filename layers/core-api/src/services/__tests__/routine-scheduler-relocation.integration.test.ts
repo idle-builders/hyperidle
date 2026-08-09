@@ -37,7 +37,6 @@
  * it; the post-bet-retro coverage above is unaffected.
  */
 
-import { readAgentRunConfig } from "@hyperidle/agent-run-config";
 import { insertThread, listThreads } from "@hyperidle/conversation";
 import {
 	bets,
@@ -47,52 +46,22 @@ import {
 	routines,
 	teamMembers,
 	teams,
-	userSkills,
 	users,
 	type WriteExecutor,
 } from "@hyperidle/db";
 import { list as listKnowledgeItems, recomputeAttention, sweep } from "@hyperidle/knowledge";
 import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
 import type { RoutineSchedulerPorts } from "@hyperidle/routine";
-import { fireBuiltinRoutine, fireGenericRoutine, selectRoutineDelegate } from "@hyperidle/routine";
-import { isAgentAtCapacity } from "@hyperidle/run-orchestration";
+import { fireBuiltinRoutine, fireGenericRoutine } from "@hyperidle/routine";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import type { EventBus } from "@hyperidle/shared";
-import { findUser, requireRunnableAgent } from "@hyperidle/users";
+import { requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";
 
-/**
- * @lore AU26 G1 (architecture §D-L): `isAgentAtCapacity` takes a
- * `ConcurrencyBoundReader` now, not a user reader — `maxConcurrentSessions`
- * moved off `users` into `agent_run_config`. This mirrors the production
- * wiring in `routine-scheduler-bindings.ts` exactly: `users` answers existence
- * (fail closed when absent) and `agent-run-config` answers the bound.
- */
-const testConcurrencyBoundReader = {
-	async getConcurrencyBound(
-		execDb: HyperIdleDb,
-		agentId: string,
-	): Promise<{ readonly maxConcurrentSessions: number } | undefined> {
-		const user = await findUser(execDb, { id: agentId });
-		if (!user) return undefined;
-		const { maxConcurrentSessions } = await readAgentRunConfig(execDb, agentId);
-		return { maxConcurrentSessions };
-	},
-};
-
 const NOW = "2026-07-28T00:00:00.000Z";
-
-/** Real production-mirroring `listAgentIdsBySkill` — see `routine-scheduler-bindings.ts`. */
-function listAgentIdsBySkill(db: HyperIdleDb, skillId: string): Promise<readonly string[]> {
-	return db
-		.select({ agentId: userSkills.userId })
-		.from(userSkills)
-		.where(eq(userSkills.skillId, skillId))
-		.then((rows) => rows.map((row) => row.agentId));
-}
 
 /**
  * Builds the SAME real ports `routine-scheduler-bindings.ts` composes — a
@@ -160,19 +129,6 @@ function makePorts(): RoutineSchedulerPorts {
 			},
 		},
 		workIntents: { enqueueWorkIntent },
-		agentSelection: {
-			isAtCapacity: (db, agentId) => isAgentAtCapacity(db, agentId, testConcurrencyBoundReader),
-			selectAgent: (input) =>
-				selectRoutineDelegate(
-					input.db,
-					{
-						listAgentIdsBySkill,
-						isAtCapacity: (db, agentId) =>
-							isAgentAtCapacity(db, agentId, testConcurrencyBoundReader),
-					},
-					input,
-				),
-		},
 		requireRunnableAgent,
 	};
 }

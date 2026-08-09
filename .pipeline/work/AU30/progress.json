@@ -1,0 +1,162 @@
+{
+  "id": "AU30",
+  "title": "Every table has an owner, and only its owner touches it",
+  "phase": "build",
+  "status": "in-progress",
+  "buildPlan": {
+    "commits": [
+      "1 — delete user_skills (191 -> 178). INDIVISIBLE: schema drop + registry line + every call site together, or totals.tables !== liveTables.size fails the build. IN FLIGHT.",
+      "2 — free fills (-> 171)",
+      "3 — free registry corrections (-> 161)",
+      "4 — taskDispatchAttempts",
+      "5 — propagationLog (registry + relocation INSEPARABLE — layer-world sites flip to error)",
+      "6 — sessions (registry + relocation INSEPARABLE; over half the work; includes the terminal CAS + session_ended transition)",
+      "7 — bets zod re-export",
+      "8 — promotion: delete the ten table keys from governance/rule-severity.json (23 -> 13 keys)"
+    ],
+    "schedule": "One builder, sequential. Every leaf edits governance/table-owners.json; commit 8 is a strict join point; commit 6 cannot split. Tree PASS at every boundary.",
+    "finalArithmetic": "191 -> 90 warnings (89 non-table + Ruling 5's one). Table crossings -> 0. `layer -> service (other layer) [import]` ends at 35, BELOW its 36 baseline, so Ruling 5's net-new entry is more than absorbed.",
+    "newTests": [
+      "layers/agent-orchestration/run-orchestration/src/__tests__/session-store.integration.test.ts (4 assertions, commit 6)",
+      "layers/core-api/work/src/__tests__/task-dispatch-attempt-store.integration.test.ts (5 assertions, commit 4)"
+    ],
+    "criticalRedEvidence": "expect(tableNames).not.toContain('user_skills') in migration.integration / pg-migration.integration / schema.integration. The ONLY assertion in the repo reading the real post-migration database. Existing table-list assertions use expect.arrayContaining (inclusion), so removing a name proves nothing; a missing or mis-tagged _journal.json entry makes the migrator silently skip the SQL while check, lint and every other test stay green."
+    },
+  "decisionRecord": "3 independent critique rounds on the plan (refine-critique, architecture-critique, architecture-critique-amendment). All blocking findings closed. Proceeding to build rather than a 4th planning critique — remaining risk is execution, which implementation review covers. B1-B4 closure to be confirmed at implementation review.",
+  "tier": "production",
+  "worktree": ".worktrees/AU30",
+  "branch": "backend/AU30-table-ownership",
+  "base": "origin/main @ 0791c4fd (AU29 #463 merged)",
+  "dependencies": {
+    "AU29": "satisfied — PR #463 merged 2026-08-08"
+  },
+  "sessions": [
+    { "phase": "preflight", "startedAt": "2026-08-09", "note": "cold start; worktree cut from origin/main, deps bootstrapped" },
+    { "phase": "refine", "startedAt": "2026-08-09", "note": "planner dispatched on the `sessions` noun per plan.md pre-build gate" }
+  ],
+  "baseline": {
+    "measuredAt": "2026-08-09 on origin/main @ 0791c4fd",
+    "productionViolations": 191,
+    "developmentViolations": 0,
+    "tableGroups": {
+      "service -> db:table (unowned) [table:write]": 25,
+      "service -> db:table (unowned) [import]": 20,
+      "service -> db:table (unowned) [table:read]": 18,
+      "layer -> db:table (unowned) [table:read]": 16,
+      "layer -> db:table (unowned) [import]": 6,
+      "layer -> db:table (unowned) [table:write]": 4,
+      "service -> db:table (other) [table:write]": 4,
+      "service -> db:table (other) [import]": 3,
+      "service -> db:table (other) [table:read]": 3,
+      "layer -> db:table (other) [import]": 1
+    },
+    "tableTotal": 100,
+    "note": "plan.md said 91 table violations pre-AU29; live count after AU29 merged is 100. The `(other)` groups total 11, not the 1 genuine foreign access plan.md predicted — the planner must reconcile this."
+  },
+  "artifacts": {
+    "requirements.md": "written 2026-08-09 by planner (refine phase)",
+    "requirements-critique.md": "written 2026-08-09 — all 8 load-bearing claims VERIFIED, incl. independent reproduction of the 191->117/147 measurement; verdict BLOCKED on 3 findings"
+  },
+  "evaluations": [
+    {
+      "phase": "refine-critique",
+      "attempt": 1,
+      "verdict": "BLOCKED",
+      "blocking": [
+        "B1 — AC #4's stated proof cannot fail: governance-lint --attacks hardcodes severityOf: () => 'error' (scripts/governance-lint.ts:155-160), so it is blind to severity and passes today with all ten keys at warn. Absence from rule-severity.json IS the enforcement.",
+        "B2 — 'sole terminal-state writer' quoted without its qualifier (sole writer FOR A RUNNING SESSION). The layer holds a real terminal CAS + session_ended emit for the no-live-runtime path (routes/sessions.ts:150-212, write at :192-196). The invariant is already split, so what moves is a state transition and its event, not just read accessors — architecture would otherwise be handed an undersized owner surface.",
+        "B3 — §7 pre-applies an amendment §8 says is unadopted; §9 omits serverCredentials, the one item with NO legal alternative (core-api/credentials -> agent-orchestration/connections is cross-layer where DI is forbidden, governance-model.ts:265-289)."
+      ],
+      "resolution": "returned to planner, revision attempt 1 of 3"
+    },
+    {
+      "phase": "refine-revision",
+      "attempt": 1,
+      "verdict": "BLOCKING FINDINGS CLOSED",
+      "detail": [
+        "B1 closed — AC #4 now names absence from rule-severity.json as the whole enforcement (governance-lint.ts:229-230). Replacement probe DEMONSTRATED RED: keys present -> both crossings WARN, exit 0; two keys deleted -> ERROR, FAIL 8 errors, exit 1.",
+        "B2 closed — terminal-writer claim corrected to 'sole terminal writer FOR A RUNNING SESSION'. New §3.4 sizes the owner surface: 6 read shapes, 1 non-terminal metadata write, 1 terminal state transition that owns its event (needs an event bus, not just a db handle), 1 tool-handlers notes write.",
+        "B3 closed — §7 states one delta with its condition labelled: six owners only = 46 table crossings (117 warn + 20 error, exit 1); +serverCredentials = 38; +filesystemCaptures = 36. serverCredentials is §9 item 1, framed as 'no legal form exists'.",
+        "Planner also corrected TWO of its own revision-0 claims that the critique had passed over: plan.md's userSkills 'core-api 7 / settings 2' and propagationLog 'policy 9' are EXACT; revision 0 miscounted both."
+      ],
+      "note": "Closure of B1/B2/B3 folded into the architecture-critique brief for independent confirmation rather than a redundant full refine-critique round-trip."
+    },
+    {
+      "phase": "architecture-critique",
+      "attempt": 1,
+      "verdict": "BLOCKED",
+      "verified": "Claims 1,2,3,5,6,8,9,10 VERIFIED. Reviewer independently reproduced the eight-owner probe (FAIL — 20 errors, 107 production + 0 development at warn, 36 table crossings) file-for-file, and re-derived the zero-cross-owned-reads claim by a different method (per-file table-symbol import extraction). Refinement blocking findings B1/B2/B3 confirmed closed; --attacks confirmed severity-blind.",
+      "blocking": [
+        "B1 — the named evidence for insertAttempt does not test the ordinal, and nothing else does. handoff-to.integration.test.ts never names taskDispatchAttempts or ordinal (rg -a: zero hits). Repo-wide, `ordinal` appears in 3 test files only as seeded fixture values, never asserted; no production code reads it. insertAttempt is the plan's ONLY non-verbatim relocation (caller-side select deleted, ordinal re-derived inside the owner). The unique index on (task_id, ordinal) does not rescue it — the test seeds no prior attempt, so an off-by-one collides with nothing and passes green."
+      ],
+      "nonBlocking": [
+        "§4.3 says 'two other terminal-write paths' — there are three; runtime-reapers.ts:193-209 writes terminal WITHOUT the active predicate and emits WITHOUT a rowcount gate (pre-existing, in-owner, out of scope — but the text implies the invariant becomes universal).",
+        "outcome asymmetry (DB takes override, event takes derived value) has no evidence that would go red.",
+        "recordPropagationHop's declared signature contradicts the real function.",
+        "AF12 asserts less than 'the row'.",
+        "UserSkillRow/SessionRow do not exist — real types are UserSkill/Session.",
+        "run-orchestration has 30 sessions sites, not 31."
+      ],
+      "resolution": "returned to planner, architecture revision attempt 1 of 3"
+    },
+    {
+      "phase": "architecture-critique-amendment",
+      "attempt": 2,
+      "verdict": "BLOCKED — 4 findings, all additive; deletion decision CONFIRMED sound, no redesign needed",
+      "verified": "Claims 1,2,3,4,5,8,9,10,11 VERIFIED — reviewer additionally checked migrations/seeds/admin routes for delegation reachability and independently reproduced the arithmetic incl. `layer -> service (other layer) [import]` ending at 35, BELOW its 36 baseline. Planner's correction that skill_change is NOT dead was confirmed; the orchestrator's brief was wrong on that point.",
+      "blocking": [
+        "B1 — the migration's red demonstration cannot go red. All three table-list assertions use expect.arrayContaining (inclusion, not exact), so removing 'user_skills' from the expected array is a no-op both ways. REAL RISK: if the _journal.json entry is omitted or mis-tagged the migrator silently skips the file, integration tests pass, check passes, and governance passes because liveTables is parsed from schema.ts SOURCE (db-surfaces.ts:88), never from a database — the table would survive in every real database while verify stays green. Repo already has the assertion that bites, from the last whole-table drop: expect(tableNames).not.toContain('factory_settings').",
+        "B2 — §11.9's 'exact list' omits three cascade-reached test files while §11.2 asserts 'Nothing outside this list changes': routine-run-resolver.integration.test.ts (6 cases + shared helpers), routine-scheduler-completeness.integration.test.ts:71-74, zod-schemas.test.ts:44,144-146. Counts wrong: 16 files touch userSkills (not 13), 4 cascade-reached (not 2).",
+        "B3 — seedAgentSkill has ELEVEN callers, not zero as architecture.md:1335 claims (policy-engine.integration.test.ts:341,355,382,401,416,436,476,497,527,552,577). A builder following the plan would delete the helper and land on 11 broken tests with no instruction.",
+        "B4 — eslint.config.ts:813 becomes a zero-match block when agent-delegation.ts is deleted. The @lore at :798-806 documents this repo hitting exactly this failure once before. eslint.config.ts is in neither the file list nor the scope tables."
+      ],
+      "nonBlocking": [
+        "N1 — §11.6's coupling argument is false: agent-behavior-config-impl.ts:55-57 is already Partial<Record<...>>, not total. Conclusion (keep 'skill', delete only the seed) survives on CHECK-constraint + ruling grounds.",
+        "N3 — §11.7's 'no way to be partially done' over-claims; buildDeps(...) is a call expression so no excess-property check, and those failures surface only in the integration lane.",
+        "N4 — the validator checks only totals.tables, not owned/unowned."
+      ],
+      "resolution": "returned to planner, architecture revision attempt 2 of 3"
+    }
+  ],
+  "openQuestionsForMaintainer": [
+    "sessions owner: requirements.md recommends the EXISTING run-orchestration service and NO new package, contradicting plan.md:13 ('a sessions service does not exist and has to be created — that is the one piece of new construction here'). Measured 191->117 vs 191->147 for any other owner.",
+    "Stale registry entries: serverCredentials registered to `connections` (which never touches it; real owner core-api/credentials, renamed in AU26); filesystemCaptures registered to `filesystems` (touched only by filesystem-mounting). Correcting these clears 10 sites but is arguably new scope.",
+    "AC #5 reachability: the `(other)` group keys are all-or-nothing too, so 11 pre-existing (other) sites — incl. bet.schema.ts:15, unrelated to the six unowned tables — must clear for AC #5 to be met.",
+    "userSkills owner: lowest-confidence assignment; no production insert exists anywhere (only tests + tools/eval/src/seeding.ts:609)."
+  ],
+  "approvals": {
+    "conceptGate": {
+      "presentedAt": "2026-08-09",
+      "status": "partial — 2 of 4 decisions approved, 2 returned as questions",
+      "approved": {
+        "sessionsOwner": "run-orchestration owns `sessions`. NO new package is created. plan.md:5,13 ('the one piece of new construction here') is AMENDED by founder decision.",
+        "filesystemCaptures": "Correct the registry to filesystem-mounting."
+      },
+      "assumed": {
+        "serverCredentials": "Registry corrected to core-api/credentials — presented as forced, not a choice: routing through the registered owner is cross-layer where DI is forbidden, so AC #2/#3 would be unsatisfiable for 8 sites. Founder did not object."
+      },
+      "resolvedAfterResearch": {
+        "userSkills": "RULING 4 — DELETE the table. Founder rejected 'which service owns it' as the wrong question. Research: user_skills IS agent_skills renamed (drizzle/0013_P2_rename_agents_to_users.sql:11-15); columns are the dead per-skill autonomy dial killed by ruling (product-decisions.md:13); NO production insert exists anywhere, so the table is permanently empty in production; AL9 registered to delete it, never started. Executes AL9's charter inside this WP. Scope change granted deliberately.",
+        "toolHandlersWiring": "RULING 5 — accept the one net-new warning for now. AU31 is far along (47 commits ahead of origin/main, mid wave A) and will likely merge first; the warning lands in `layer -> service (other layer) [import]` which AU31 clears entirely. STANDING INSTRUCTION: on rebase onto AU31, resolve it by COPYING AU31's pattern, never by inventing a second one. Do not build the zero-crossing alternative here."
+      },
+      "rulingsFile": ".pipeline/work/AU30/founder-rulings.md — 5 binding rulings"
+    }
+  },
+  "residueAccounting": {
+    "measuredAt": "2026-08-09",
+    "finding": "All 23 production rule groups have a chartered owner. This WP clears 10 groups / 100 violations; AU31 owns all 13 residual groups (92 warnings) — its validation scenario names every residual family. AU34/AU35/AU36 clear nothing and say so in their own plans. Path to zero = AU29 + AU30 + AU31 (AU32 already took development to 0).",
+    "orphan": "The 4 `misplacement-ledger` findings — outside the 191, named by NO work package. Three are core-ui product gaps (a real Knowledge API response, real artifact routes), one is harness-lane detection. AU32 left this open for the founder deliberately.",
+    "staleState": [
+      "`enforcement-plan.md` is cited as live in .pipeline/AU.md:49 and the AU31 registry row, but was DELETED at 547583da. Its W1-W7 wave mapping survives only in git history.",
+      "AU.md status prose is stale for AU28, AU29 and AU32 — all three are merged.",
+      "AU29's registry row claims it clears ~31 production; measured delta is 221 -> 191 = 30."
+    ],
+    "correction": "An earlier research pass reported AU31 as unstarted, inferred from a missing progress.json. WRONG — AU31 is live on backend/AU31-layer-composition-boundary, 47 commits ahead of origin/main, mid wave A. Absence of pipeline state is not absence of work."
+  },
+  "verdicts": {},
+  "notes": [
+    "Pre-build gates from plan.md: /refine REQUIRED (specifically on the `sessions` noun). /design NOT required (backend, no UI).",
+    "Human review gate: mandatory. Concept gate before any build.",
+    "AU32 interaction: companion-group violations created by naming a new owner must be cleared in THIS pull request (development rules are at error with no warn entry)."
+  ]
+}

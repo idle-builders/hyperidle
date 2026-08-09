@@ -8,7 +8,6 @@ import {
 	pluginConfigurationDefaults,
 	plugins,
 	type ServiceConnectionRow,
-	userSkills,
 } from "@hyperidle/db";
 import {
 	BUILTIN_PLUGIN_ID,
@@ -738,23 +737,6 @@ export async function backfillConfigurationDefaults(
 					teamId: routine.teamId,
 				},
 				agentId: routine.ownerAgentId,
-			},
-		});
-	}
-
-	const skillRows = await db.select().from(userSkills);
-	for (const skill of skillRows) {
-		seeds.push({
-			kind: "skill",
-			key: `skill.${skill.userId}.${skill.skillId}`,
-			value: {
-				userId: skill.userId,
-				skillId: skill.skillId,
-				autonomyLevel: skill.autonomyLevel,
-				successCount: skill.successCount,
-				failureCount: skill.failureCount,
-				lastUsedAt: skill.lastUsedAt,
-				promotedAt: skill.promotedAt,
 			},
 		});
 	}

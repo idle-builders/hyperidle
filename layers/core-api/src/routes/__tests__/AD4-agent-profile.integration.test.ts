@@ -5,8 +5,7 @@
  * AC1: AgentProfile API response does NOT include a `skills` field
  * AC4: Agent profile route returns `reviewTrackRecord` with approvalRate,
  *      totalVerdicts, recentVerdicts, windowDays
- * AC5: userSkills table is not surfaced in any UI — profile route no longer
- *      returns skills
+ * AC5: the profile route does not return skills
  *
  * These tests FAIL until:
  * - packages/server/src/app-runtime/services/approval-rate.ts is created
@@ -24,7 +23,6 @@ import {
 	teamMembers,
 	teams,
 	threads,
-	userSkills,
 	users,
 } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -263,29 +261,6 @@ describe("AD4 AC1/AC5: GET /api/agents/:id/profile does NOT return skills", () =
 
 	test("response does NOT have a skills field", async ({ db, app }) => {
 		await seedPrereqs(db);
-		const res = await app.request("/api/agents/ad4-profile-agent/profile", {
-			headers: authHeaders(),
-		});
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as Record<string, unknown>;
-		expect(body).not.toHaveProperty("skills");
-	});
-
-	test("response does NOT expose skills even when userSkills rows exist in the DB", async ({
-		db,
-		app,
-	}) => {
-		await seedPrereqs(db);
-		// Seed a userSkills row — it should not appear in the profile response
-		await db.insert(userSkills).values({
-			userId: "ad4-profile-agent",
-			skillId: "write-code",
-			autonomyLevel: 2,
-			successCount: 5,
-			failureCount: 1,
-			lastUsedAt: NOW,
-		});
-
 		const res = await app.request("/api/agents/ad4-profile-agent/profile", {
 			headers: authHeaders(),
 		});

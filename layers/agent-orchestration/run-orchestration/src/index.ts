@@ -18,7 +18,6 @@
 // shape and same reasoning. NOTHING about connections or filesystems rides an
 // emitted request any more.
 
-export { isAgentAtCapacity } from "./concurrency.js";
 export {
 	applyProvisioningPlan,
 	buildProvisioningPlan,

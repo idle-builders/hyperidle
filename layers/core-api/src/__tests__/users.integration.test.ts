@@ -2,20 +2,10 @@
  * P2: Users endpoint tests (renamed from agents.test.ts).
  *
  * @lore P2: /api/agents → /api/users. agents table → users table.
- * agentSkills table → userSkills table. All endpoint behaviors preserved.
+ * All endpoint behaviors preserved.
  */
 
-import {
-	type HyperIdleDb,
-	items,
-	messages,
-	teamMembers,
-	teams,
-	threads,
-	userSkills,
-	users,
-} from "@hyperidle/db";
-import type { DomainEvent } from "@hyperidle/shared";
+import { type HyperIdleDb, messages, teamMembers, teams, threads, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
@@ -67,12 +57,6 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 			createdAt: NOW,
 		},
 	]);
-
-	// Seed user skills (formerly agent skills)
-	await db.insert(userSkills).values([
-		{ userId: "agent-1", skillId: "coding", autonomyLevel: 2 },
-		{ userId: "agent-1", skillId: "testing", autonomyLevel: 3 },
-	]);
 }
 
 describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
@@ -107,9 +91,9 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 		});
 	});
 
-	// AC2: GET /api/users/:id — detail with skills, autonomy levels, cost
+	// AC2: GET /api/users/:id — user detail
 	describe("AC2: GET /api/users/:id — user detail", () => {
-		test("returns user with skills", async ({ db, app }) => {
+		test("returns the user identity", async ({ db, app }) => {
 			await seedBase(db);
 			const res = await app.request("/api/users/agent-1", { headers: authHeaders() });
 			expect(res.status).toBe(200);
@@ -117,11 +101,6 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 			const body = (await res.json()) as Record<string, unknown>;
 			expect(body.id).toBe("agent-1");
 			expect(body.name).toBe("Builder Bot");
-			expect(body).toHaveProperty("skills");
-
-			const skills = body.skills as Array<Record<string, unknown>>;
-			expect(skills).toHaveLength(2);
-			expect(skills[0]).toHaveProperty("autonomyLevel");
 		});
 
 		test("returns 404 for unknown user", async ({ db, app }) => {
@@ -131,86 +110,6 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 
 			const body = (await res.json()) as Record<string, unknown>;
 			expect(body.code).toBe("NOT_FOUND");
-		});
-	});
-
-	// AC3 + AC15: PATCH /api/users/:id/skills/:skillId — update autonomy level
-	describe("AC3/AC15: PATCH /api/users/:id/skills/:skillId — update autonomy", () => {
-		test("updates autonomy level", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/users/agent-1/skills/coding", {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({ autonomyLevel: 4 }),
-			});
-			expect(res.status).toBe(200);
-
-			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.autonomyLevel).toBe(4);
-		});
-
-		test("creates review thread when autonomy changes", async ({ db, app, eventBus }) => {
-			await seedBase(db);
-			const emitted: DomainEvent[] = [];
-			eventBus.on("item_created", (e) => emitted.push(e));
-
-			await app.request("/api/users/agent-1/skills/coding", {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({ autonomyLevel: 4 }),
-			});
-
-			// @lore L1a: legacy `kind='review'` projects to host_kind='agent' for an
-			// agent-scoped autonomy review (plan §5.3). Find the thread by
-			// the agent host and the linked autonomy_change item.
-			const allThreads = await db.select().from(threads);
-			const reviewThread = allThreads.find((t) => t.hostKind === "agent" && t.hostId === "agent-1");
-			expect(reviewThread).toBeDefined();
-
-			// Verify item was created
-			const allItems = await db.select().from(items);
-			expect(allItems).toHaveLength(1);
-			expect(allItems[0]!.kind).toBe("autonomy_change");
-
-			// Verify event was emitted
-			expect(emitted).toHaveLength(1);
-			expect(emitted[0]!.type).toBe("item_created");
-		});
-
-		test("does NOT create review thread when level unchanged", async ({ db, app, eventBus }) => {
-			await seedBase(db);
-			const emitted: DomainEvent[] = [];
-			eventBus.on("item_created", (e) => emitted.push(e));
-
-			await app.request("/api/users/agent-1/skills/coding", {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({ autonomyLevel: 2 }), // same as current
-			});
-
-			const allItems = await db.select().from(items);
-			expect(allItems).toHaveLength(0);
-			expect(emitted).toHaveLength(0);
-		});
-
-		test("returns 404 for unknown skill", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/users/agent-1/skills/nonexistent", {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({ autonomyLevel: 3 }),
-			});
-			expect(res.status).toBe(404);
-		});
-
-		test("returns 400 for invalid autonomy level", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/users/agent-1/skills/coding", {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({ autonomyLevel: 5 }),
-			});
-			expect(res.status).toBe(400);
 		});
 	});
 

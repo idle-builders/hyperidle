@@ -120,21 +120,9 @@ export interface RoutineSchedulerPorts {
 	 * deps (`resolveRoutineRunRequest`'s `RoutineRunResolverDeps`), injected
 	 * here so `fireGenericRoutine` can fold resolution into its own emit
 	 * transaction. Same Mechanism C shape as every other field on this
-	 * interface — `agentSelection` (capacity + delegate selection) and
-	 * `requireRunnableAgent` (the shared ast-`<userId>` invariant) are both
-	 * cross-Service from this package's point of view.
+	 * interface — `requireRunnableAgent` (the shared ast-`<userId>` invariant)
+	 * is cross-Service from this package's point of view.
 	 */
-	readonly agentSelection: {
-		isAtCapacity(db: HyperIdleDb, agentId: string): Promise<boolean>;
-		selectAgent(input: {
-			readonly surface: "routine_delegate";
-			readonly db: HyperIdleDb;
-			readonly teamId: string | null;
-			readonly workKey: string;
-			readonly excludeAgentId: string;
-			readonly skillId: string;
-		}): Promise<{ readonly agentId: string | null }>;
-	};
 	/**
 	 * Widened `Promise<unknown>` → `Promise<User>` in Increment 12 Wave B (H2
 	 * precedent, matching `RoutineRunResolverDeps`'s own widening) — the real

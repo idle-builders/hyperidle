@@ -401,7 +401,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 				options.wsHub,
 			),
 		);
-		api.route("/users", createUserRoutes(options.db, eventBus, options.adapterPool));
+		api.route("/users", createUserRoutes(options.db, options.adapterPool));
 		api.route("/org", createOrgRoutes(options.db));
 		api.route("/routines", createRoutineRoutes(options.db, eventBus));
 		api.route("/recipients", createRecipientRoutes(options.db, eventBus));

@@ -16,7 +16,7 @@ Roster creation today (AK6): the Strategy proposes `AgentScaffoldSpec`s (persona
 
 Formation criteria:
 
-- **Skill match** — does the team have agents with the skills the product will need? (`users.skills`, schema.ts)
+- **Skill match** — does the team have agents with the skills the product will need?
 - **Capacity** — is this agent already on another team? **An agent belongs to exactly one team**, enforced by the single FK `users.teamId → teamMembers.id` (schema.ts, `onDelete: "restrict"`). If the agent is needed here, it must leave its current team first — only when its work there is done.
 - **Practice diversity** — does the team draw from enough practices that no single discipline is missing?
 - **Lead fit** — the Product Manager should match the product's stage (early-shaping vs. mature-iteration is a different muscle).
