@@ -34,7 +34,6 @@ import { getTeam, getTeamMembers, resolveReviewRecipients } from "@hyperidle/org
 import type { PolicyDeps } from "@hyperidle/policy";
 import { reapTerminalPropagationLog, registerPolicy } from "@hyperidle/policy";
 import { registerReviewSubscriptions } from "@hyperidle/review";
-import { startLifecycleProjectionDrain } from "@hyperidle/session-requests";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import { createLogger, type EventBus, type ResolvedModel } from "@hyperidle/shared";
 import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/shared/crypto";
@@ -54,7 +53,6 @@ import { registerAssistantTurnCoherenceTrigger } from "./services/assistant-turn
 import { resolveOrCreateCallingThread } from "./services/calling-thread-bindings.js";
 // @lore AU21 Increment 14a: cost sentinel + `costOps`/`cost-bindings.ts` are
 // HARD-DELETED along with the rest of the cost feature — no replacement.
-import { queueDeps } from "./services/durable-agent-queue.js";
 import { registerRoutineRunSessionEndReactions } from "./services/routine-run-session-end-reactions.js";
 import {
 	registerBuiltinRoutineReactions,
@@ -308,14 +306,12 @@ export function registerCoreDomainServices(ctx: {
 }): Array<() => void> {
 	const { db, eventBus, agentOrchestration } = ctx;
 	const disposers: Array<() => void> = [];
-	disposers.push(
-		identifyBootstrapOwner(
-			startLifecycleProjectionDrain(queueDeps(db)),
-			"lifecycle-projection drain",
-			"stops drain",
-			["drain interval"],
-		),
-	);
+
+	// AU31 B2 (§5, §12 lifecycle-drain cluster): the lifecycle-projection drain
+	// relocated into `bootAgentOrchestration` (`layers/agent-orchestration/src/
+	// boot.ts`) — it claims/processes rows straight off `agentLifecycleInbox`,
+	// `session-requests`'s own table, so it is that Layer's own boot wiring now,
+	// not core's.
 
 	disposers.push(
 		identifyBootstrapOwner(

@@ -35,12 +35,12 @@ import { EventBus, type ToolContext } from "@hyperidle/shared";
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
 import { test as baseTest } from "../../__testing__/test-fixtures.js";
 import {
 	createInProcessCoreApiTransport,
 	registerCoreApiTransport,
 } from "../../services/core-api-port-composition.js";
-import { queueDeps } from "../../services/durable-agent-queue.js";
 import { toolHandlersPorts } from "../../services/tool-handlers-bindings.js";
 
 const TEST_API_KEY = "test-key-au21-knowledge-action-emit";

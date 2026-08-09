@@ -40,8 +40,8 @@ import {
 import { drainIntents } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
+import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
 import { test } from "../../__testing__/test-fixtures.js";
-import { queueDeps } from "../../services/durable-agent-queue.js";
 
 const NOW = new Date().toISOString();
 

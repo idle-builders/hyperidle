@@ -32,6 +32,7 @@ import { applyProvisioningPlan, buildProvisioningPlan } from "@hyperidle/run-orc
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { encryptCredentialValue } from "@hyperidle/shared/crypto";
 import { eq } from "drizzle-orm";
+import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
 import {
 	afterEach,
 	beforeEach,
@@ -40,7 +41,6 @@ import {
 	test,
 	vi,
 } from "../../__testing__/test-fixtures.js";
-import { queueDeps } from "../durable-agent-queue.js";
 
 const NOW = "2026-08-04T00:00:00.000Z";
 const SERVER_SECRET = "au26-e3-add-after-emit-secret";

@@ -1,7 +1,7 @@
 /** Core API composition root for the run-orchestration service. */
 
 import { readAgentRunConfig } from "@hyperidle/agent-run-config";
-import type { HyperIdleDb } from "@hyperidle/db";
+import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import {
 	AdapterPool,
 	createHarnessAdapter,
@@ -26,6 +26,7 @@ import {
 } from "@hyperidle/run-orchestration";
 import {
 	claimSessionRequest,
+	type DurableAgentQueueDeps,
 	drainIntents,
 	findSessionRequest,
 	listSessionRequests,
@@ -37,8 +38,52 @@ import {
 } from "@hyperidle/session-requests";
 import type { ToolContext, ToolRegistry, WorkerRegisterMessage } from "@hyperidle/shared";
 import { EventBus, summarizeToolArgs } from "@hyperidle/shared";
-import { queueDeps } from "./durable-agent-queue.js";
 import { buildToolRegistry, returnStatusTool, toolsForRole } from "./tool-provider-bindings.js";
+
+/**
+ * @lore AU31 B2 (§5, §12 lifecycle-drain cluster): `queueDeps`'s production
+ * home relocated into `@hyperidle/agent-orchestration`
+ * (`services/durable-agent-queue.ts`, boot-internal to `bootAgentOrchestration`
+ * now) alongside `startLifecycleProjectionDrain`'s own wiring. This file
+ * still needs the SAME `DurableAgentQueueDeps` shape for `runtimeDeps`'s
+ * `durableQueue` field below (the durable-queue deps `startRuntime`'s poller
+ * consumes, a DIFFERENT consumer from the lifecycle-inbox drain) — this
+ * composition root does not itself relocate in this leaf (§5's table assigns
+ * that to `bootAgentOrchestration` absorbing `startRuntime`, which needs
+ * `applications/remote-server/src/create-server.ts` rewritten in the same
+ * breath — `create-server.ts` calls `startRuntime(runtimeDeps(...))` directly
+ * today, so the file move is out of reach without touching an Application,
+ * which this leaf does not do). Rebuilt here from `@hyperidle/session-
+ * requests`'s own public `transitionSessionRequest` — the exact wiring the
+ * relocated copy uses, not a fake.
+ */
+function queueDeps(db: HyperIdleDb): DurableAgentQueueDeps {
+	return {
+		db,
+		lifecycleProjection: {
+			explicitSessionStarts: {
+				projectTerminalState: async (
+					exec: WriteExecutor,
+					requestId: string,
+					patch: {
+						readonly status: "completed" | "failed" | "cancelled";
+						readonly sessionId: string | null;
+						readonly failureCode: string | null;
+					},
+				) => {
+					await transitionSessionRequest(exec, {
+						target: "explicitStart",
+						transaction: "existing",
+						requestId,
+						to: patch.status,
+						sessionId: patch.sessionId,
+						failureCode: patch.failureCode,
+					});
+				},
+			},
+		},
+	};
+}
 
 // AU21 §9 Increment 12 follow-up part 2 (F2 gap closure): this composition
 // root's own `seamPortForActor` helper (a fresh in-process `CoreApiPort` per

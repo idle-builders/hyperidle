@@ -28,8 +28,8 @@ import {
 import type { SessionEndedEvent } from "@hyperidle/shared";
 import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, vi } from "vitest";
+import { queueDeps } from "../__testing__/durable-agent-queue-test-deps.js";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
-import { queueDeps } from "../services/durable-agent-queue.js";
 import { registerRoutineRunSessionEndReactions } from "../services/routine-run-session-end-reactions.js";
 import { startTestRuntime } from "./run-orchestration-test-runtime.js";
 

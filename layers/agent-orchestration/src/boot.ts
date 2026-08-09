@@ -29,6 +29,7 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
+import { startLifecycleProjectionDrain } from "@hyperidle/session-requests";
 import type { EventBus, HarnessCapabilityReader } from "@hyperidle/shared";
 import type { HyperIdleEnv } from "@hyperidle/shared/http";
 import type { Hono } from "hono";
@@ -38,6 +39,7 @@ import {
 	registerSessionStreamRoute,
 	type SessionStreamTokenStore,
 } from "./routes/session-stream-ws.js";
+import { queueDeps } from "./services/durable-agent-queue.js";
 import { registerSessionActivityGateway } from "./services/session-activity-gateway.js";
 import {
 	createRunStreamSubscribeAuthorizer,
@@ -106,6 +108,13 @@ export function bootAgentOrchestration(
 	const disposeGateway = registerSessionActivityGateway(eventBus, sessionStreamHub);
 	let disposeSocket: () => void = () => {};
 
+	// AU31 B2 (§5, §12 lifecycle-drain cluster): relocated from `core-api`'s
+	// `service-bootstrap.ts` — `startLifecycleProjectionDrain` claims/processes
+	// rows straight off `agentLifecycleInbox`, this Layer's own table
+	// (`session-requests`'s), so it belongs to this Layer's own boot, not
+	// core's. `queueDeps` moved alongside it (same relocation).
+	const disposeDrain = startLifecycleProjectionDrain(queueDeps(db));
+
 	const app = createAgentOrchestrationApp({
 		db,
 		eventBus,
@@ -130,6 +139,7 @@ export function bootAgentOrchestration(
 		dispose: () => {
 			disposeSocket();
 			disposeGateway();
+			disposeDrain();
 			activityBuffer.stop();
 		},
 	};

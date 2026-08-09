@@ -43,8 +43,8 @@ import type { RuntimePorts } from "@hyperidle/run-orchestration";
 import { drainIntents } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
+import { queueDeps } from "../__testing__/durable-agent-queue-test-deps.js";
 import { afterEach, beforeEach, describe, expect, test } from "../__testing__/test-fixtures.js";
-import { queueDeps } from "../services/durable-agent-queue.js";
 import { startTestRuntime } from "./run-orchestration-test-runtime.js";
 
 const TEST_API_KEY = "test-key-au21-inc10a";

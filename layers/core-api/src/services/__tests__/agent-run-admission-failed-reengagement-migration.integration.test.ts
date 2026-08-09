@@ -201,7 +201,7 @@ describe("agent_run_admission_failed — reengagement reaction fires for a REAL 
 		const emitted: AgentRunAdmissionFailedEvent[] = [];
 		eventBus.on("agent_run_admission_failed", (event) => emitted.push(event));
 
-		const { queueDeps } = await import("../durable-agent-queue.js");
+		const { queueDeps } = await import("../../__testing__/durable-agent-queue-test-deps.js");
 		const deps = { ...queueDeps(db), eventBus };
 		await drainIntents(deps, { maxAttempts: 1 });
 

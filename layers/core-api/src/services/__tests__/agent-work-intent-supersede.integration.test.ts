@@ -40,8 +40,8 @@ import { resolveKnowledgeActionRequest } from "@hyperidle/knowledge";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { and, eq } from "drizzle-orm";
+import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";
-import { queueDeps } from "../durable-agent-queue.js";
 
 describe("agent_work_intents — Decision B‴ supersede (not-yet-started)", () => {
 	test("a newer pending intent for the same (kind, sourceId) supersedes the older one", async ({

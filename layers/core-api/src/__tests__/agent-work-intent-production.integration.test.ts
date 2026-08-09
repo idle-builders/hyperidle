@@ -25,8 +25,8 @@ import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { checkAndUnblockDependents } from "@hyperidle/work";
 import { eq, sql } from "drizzle-orm";
+import { queueDeps } from "../__testing__/durable-agent-queue-test-deps.js";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
-import { queueDeps } from "../services/durable-agent-queue.js";
 import { fireGenericRoutine } from "./dispatch-test-helpers.js";
 
 /** AU20 Ag2: `checkAndUnblockDependents` relocated to work; `work:` sub-object removed. */
@@ -229,7 +229,7 @@ describe("atomic production handoffs", () => {
 	});
 
 	test("composition module exports dependencies only", async () => {
-		const worker = await import("../services/durable-agent-queue.js");
+		const worker = await import("../__testing__/durable-agent-queue-test-deps.js");
 		expect(worker.queueDeps).toBeTypeOf("function");
 		expect("drainIntents" in worker).toBe(false);
 		// @lore AU9 R1: handOffIntent was a zero-production-caller duplicate of the

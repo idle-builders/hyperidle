@@ -81,13 +81,13 @@ import {
 import { drainIntents } from "@hyperidle/session-requests";
 import { and, eq } from "drizzle-orm";
 import type { Hono } from "hono";
+import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
 import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 import {
 	buildCoreApiPort,
 	createInProcessCoreApiTransport,
 	withActorTransport,
 } from "../core-api-port-composition.js";
-import { queueDeps } from "../durable-agent-queue.js";
 
 const NOW = "2026-07-31T00:00:00.000Z";
 

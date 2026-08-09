@@ -70,12 +70,12 @@ import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect } from "vitest";
+import { queueDeps } from "../__testing__/durable-agent-queue-test-deps.js";
 import { createTestApp } from "../__testing__/test-utils.js";
 import {
 	createInProcessCoreApiTransport,
 	registerCoreApiTransport,
 } from "../services/core-api-port-composition.js";
-import { queueDeps } from "../services/durable-agent-queue.js";
 import { runSession } from "../services/run-orchestration-composition.js";
 
 const NOW = "2026-08-04T00:00:00.000Z";

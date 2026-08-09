@@ -1,4 +1,15 @@
 /**
+ * @lore AU31 B2 (§5, §12 lifecycle-drain cluster): relocated from
+ * `layers/core-api/src/services/durable-agent-queue.ts` — `@hyperidle/session-
+ * requests` is this Layer's own Service now that `agent-orchestration` owns
+ * its own boot, so this composition root's `@hyperidle/session-requests`
+ * import is in-layer, not a crossing. `bootAgentOrchestration` is the sole
+ * production caller (the lifecycle-projection drain, `boot.ts`); every other
+ * call site named below is `core-api`-side test-support wiring that rebuilds
+ * the same deps shape from `@hyperidle/session-requests`'s own public
+ * `transitionSessionRequest` (`core-api/src/__testing__/
+ * durable-agent-queue-test-deps.ts`), not a leftover production caller.
+ *
  * @lore AU19 Increment 3b: `@hyperidle/session-requests`'s
  * Composition root for the durable agent queue.
  * Durable queue transitions need the `work` port (Mechanism C —
