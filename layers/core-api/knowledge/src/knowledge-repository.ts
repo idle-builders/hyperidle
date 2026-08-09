@@ -1292,19 +1292,26 @@ export async function transition(
 			const timestamp = now();
 			// Fetch the item so we know its current status for the edit-log old-value.
 			const item = await getItemForTransition(db, id);
-			await db
-				.update(knowledgeItems)
-				.set({ status: "draft", updatedAt: timestamp })
-				.where(eq(knowledgeItems.id, id));
-			await db.insert(knowledgeEditLog).values({
-				id: editId,
-				itemId: id,
-				editor: item?.updatedBy ?? "system",
-				field: "status",
-				oldValue: item?.status ?? null,
-				newValue: `flagged (reason: ${reason})`,
-				editType: "flag",
-				createdAt: timestamp,
+			// AU31 §3.1 B2 fix: the item-status UPDATE and the edit-log INSERT are
+			// both core writes (`knowledgeItems`, `knowledgeEditLog`) — the
+			// relinquishment ruled in §3.1 covers only the seam call
+			// (`agentOrchestration.intents.submit` in `routes/knowledge.ts`), not
+			// these two writes against each other. They stay atomic.
+			await db.transaction(async (tx) => {
+				await tx
+					.update(knowledgeItems)
+					.set({ status: "draft", updatedAt: timestamp })
+					.where(eq(knowledgeItems.id, id));
+				await tx.insert(knowledgeEditLog).values({
+					id: editId,
+					itemId: id,
+					editor: item?.updatedBy ?? "system",
+					field: "status",
+					oldValue: item?.status ?? null,
+					newValue: `flagged (reason: ${reason})`,
+					editType: "flag",
+					createdAt: timestamp,
+				});
 			});
 			return;
 		}

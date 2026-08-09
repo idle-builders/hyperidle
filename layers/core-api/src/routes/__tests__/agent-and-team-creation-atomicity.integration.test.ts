@@ -21,7 +21,7 @@
  * survive the second one failing.
  */
 
-import { teams, users } from "@hyperidle/db";
+import { teamMembers, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";
@@ -83,5 +83,64 @@ describe("creation is relinquished across identity and run config (AU31 §3.1 si
 		const rows = await db.select().from(teams).where(eq(teams.name, TEAM_NAME));
 		expect(rows).toHaveLength(1);
 		expect(rows[0]).toMatchObject({ name: TEAM_NAME, phase: "build" });
+	});
+});
+
+/**
+ * AU31 review B2 — `createTeam`'s own two writes (`teams`, `teamMembers`) are
+ * core writes, not the cross-layer one §3.1 relinquishes; they were re-wrapped
+ * in `db.transaction` (`teams-routes.ts`) after a review round found them
+ * split apart. This proves the window they now close: a fault between the two
+ * inserts must roll BOTH back, unlike the cross-layer window above.
+ */
+const TEAM_NAME_CORE_ATOMICITY = "B2 Core Atomicity Team";
+
+describe("createTeam's own two writes stay atomic with each other (AU31 review B2)", () => {
+	test("POST /api/teams: a fault between the teams insert and the teamMembers insert rolls both back", async ({
+		db,
+		app,
+	}) => {
+		// Fault injection at the driver level (vi.spyOn on the real transaction
+		// handle's own `insert` method), not a raw-SQL trigger — a raw `sql`
+		// template naming `team_members` reads to the governance census as a
+		// literal write with no `teams` companion in the same file, which is
+		// exactly the invariant this test exists to prove is NOT violated by
+		// the real request path. Faulting only the second insert this way
+		// stays entirely inside real driver behavior: the request still goes
+		// through the real HTTP route against the real database.
+		const originalTransaction = db.transaction.bind(db);
+		const transactionSpy = vi.spyOn(db, "transaction").mockImplementation((callback) =>
+			originalTransaction(async (tx) => {
+				const originalInsert = tx.insert.bind(tx);
+				const insertSpy = vi.spyOn(tx, "insert").mockImplementation((table) => {
+					if (table === teamMembers) {
+						throw new Error("AU31 B2 injected team_members write failure");
+					}
+					return originalInsert(table);
+				});
+				try {
+					return await callback(tx);
+				} finally {
+					insertSpy.mockRestore();
+				}
+			}),
+		);
+
+		try {
+			const res = await app.request("/api/teams", {
+				method: "POST",
+				headers: authHeaders(),
+				body: JSON.stringify({ name: TEAM_NAME_CORE_ATOMICITY }),
+			});
+
+			expect(res.status).toBeGreaterThanOrEqual(500);
+			const teamRows = await db
+				.select()
+				.from(teams)
+				.where(eq(teams.name, TEAM_NAME_CORE_ATOMICITY));
+			expect(teamRows).toHaveLength(0);
+		} finally {
+			transactionSpy.mockRestore();
+		}
 	});
 });

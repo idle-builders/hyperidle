@@ -257,25 +257,30 @@ export function createTeamRoutes(
 		// The route stays core-hosted and delegates the persist down (§D-A rule 3).
 		//
 		// AU31 §3.1 site 2 — RELINQUISHED (founder ruling, architecture.md
-		// §3.1/§13 item 9): the two writes used to be one transaction; now the
-		// seam write can never join a caller's transaction (§3.2), so `createTeam`
-		// commits alone and `runConfig.writeTeamDefaults` follows. On a failed
-		// write, the team exists with no harness defaults, so agents scaffolded
-		// onto it later fall back to builtin (`org/src/scaffold-agents.ts:194-202`)
-		// — the team settings edit repairs it.
-		await createTeam(db, {
-			id: teamId,
-			name: name.trim(),
-			phase: "build",
-			factoryDbPath: typeof repoPath === "string" ? repoPath.trim() || null : null,
-			// AE2: store chosen functions as JSON for future reads.
-			functions: JSON.stringify(teamFunctions),
-			createdAt: now,
-			// teamMembers companion (1:1)
-			teamMembersId,
-			capacity: 5,
-			activeBets: 0,
-			formedAt: now,
+		// §3.1/§13 item 9): the seam write can never join a caller's transaction
+		// (§3.2), so `runConfig.writeTeamDefaults` follows after `createTeam`
+		// commits rather than sharing its transaction. On a failed write, the
+		// team exists with no harness defaults, so agents scaffolded onto it
+		// later fall back to builtin (`org/src/scaffold-agents.ts:194-202`) —
+		// the team settings edit repairs it.
+		//
+		// `createTeam`'s own two writes (`teams`, `teamMembers`) are core writes,
+		// not the cross-layer one, so they stay atomic with each other.
+		await db.transaction(async (tx) => {
+			await createTeam(tx, {
+				id: teamId,
+				name: name.trim(),
+				phase: "build",
+				factoryDbPath: typeof repoPath === "string" ? repoPath.trim() || null : null,
+				// AE2: store chosen functions as JSON for future reads.
+				functions: JSON.stringify(teamFunctions),
+				createdAt: now,
+				// teamMembers companion (1:1)
+				teamMembersId,
+				capacity: 5,
+				activeBets: 0,
+				formedAt: now,
+			});
 		});
 		await agentOrchestration.runConfig.writeTeamDefaults(teamId, {
 			defaultHarnessType: primaryHarness?.harnessType ?? null,

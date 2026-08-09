@@ -19,7 +19,7 @@ import {
 } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import type { KernelKnowledgeStatus } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { create as createKnowledgeItem, remove, transition } from "../knowledge-repository.js";
 import type { KnowledgeStatus } from "../types.js";
 
@@ -231,6 +231,55 @@ describe("flagItem rollback lock", () => {
 			.from(knowledgeEditLog)
 			.where(eq(knowledgeEditLog.editType, "flag"));
 		expect(logs).toHaveLength(0);
+	});
+});
+
+describe("flagItem's own two writes stay atomic with each other (AU31 review B2)", () => {
+	test("a fault on the edit-log insert rolls back the status change too, called on a plain pooled handle", async ({
+		db,
+	}) => {
+		const item = await seedItem(db, { status: "active" });
+		const editId = crypto.randomUUID();
+
+		await db.execute(
+			sql`drop trigger if exists au31_b2_reject_knowledge_edit_log on knowledge_edit_log`,
+		);
+		await db.execute(sql`
+			create or replace function au31_b2_reject_knowledge_edit_log() returns trigger as $$
+			begin raise exception 'AU31 B2 injected knowledge_edit_log write failure'; end;
+			$$ language plpgsql
+		`);
+		await db.execute(sql`
+			create trigger au31_b2_reject_knowledge_edit_log
+			before insert on knowledge_edit_log
+			for each row execute function au31_b2_reject_knowledge_edit_log()
+		`);
+
+		try {
+			// `db` here is the plain pooled handle `routes/knowledge.ts` passes —
+			// not a caller-opened transaction — so this proves `transition`'s
+			// "flag" case wraps its own two writes rather than relying on a
+			// caller to.
+			await expect(
+				transition(db, item.id, { target: "flag", reason: "will roll back", editId }),
+			).rejects.toThrow();
+
+			const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, item.id));
+			expect(row?.status).toBe("active");
+			expect(row?.status).not.toBe("draft");
+
+			const logs = await db
+				.select()
+				.from(knowledgeEditLog)
+				.where(eq(knowledgeEditLog.editType, "flag"));
+			expect(logs).toHaveLength(0);
+		} finally {
+			// The pool reuses one PGlite instance across test files (truncate,
+			// not drop), so the injected trigger must not outlive this test.
+			await db.execute(
+				sql`drop trigger if exists au31_b2_reject_knowledge_edit_log on knowledge_edit_log`,
+			);
+		}
 	});
 });
 
