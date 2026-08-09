@@ -50,14 +50,13 @@ import {
 	openMcpBridgeSession,
 	returnStatusTool,
 } from "@hyperidle/harness-registry/mcp";
+import type { ReturnEnforcementChannel } from "@hyperidle/harness-capability";
 import type {
 	EnforcementRegistry as BaseEnforcementRegistry,
 	HarnessAdapter,
-	RegisteredTool,
-	ReturnEnforcementChannel,
-	ToolRegistry,
 	WorkerRegisterMessage,
-} from "@hyperidle/shared";
+} from "@hyperidle/harness-protocol";
+import type { RegisteredTool, ToolRegistry } from "@hyperidle/tool-protocol";
 import type { Hono } from "hono";
 
 /** The concrete registry `createReturnEnforcement()` builds — never exported by name from `@hyperidle/harness-registry`, so derived from the factory's own return type instead of duplicating its shape by hand. */
@@ -138,7 +137,7 @@ export interface AgentExecutionAdapters {
 	 */
 	readonly returnStatusTool: {
 		/**
-		 * `@hyperidle/shared`'s narrow `EnforcementRegistry` (register/get/
+		 * `@hyperidle/harness-protocol`'s narrow `EnforcementRegistry` (register/get/
 		 * incrementForce/unregister) — `harness-registry/mcp`'s own
 		 * `returnStatusTool.forRegistry` genuinely only reads that subset, even
 		 * though every registry this boot hands out (including

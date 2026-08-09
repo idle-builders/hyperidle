@@ -51,8 +51,9 @@ import {
 	transitionSessionRequest,
 	type WorkIntentInput,
 } from "@hyperidle/session-requests";
-import { API_ERROR_CODES, type EventBus } from "@hyperidle/shared";
-import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/shared/http";
+import { API_ERROR_CODES } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
+import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/http-middleware";
 import { Hono } from "hono";
 import { z } from "zod";
 

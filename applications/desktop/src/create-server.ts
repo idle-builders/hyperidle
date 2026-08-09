@@ -8,7 +8,7 @@
  * either (AU26 ruling, upheld), so this file duplicates
  * `applications/remote-server/src/create-server.ts`'s recipe rather than
  * sharing it: same three layer-face boots (`bootAgentExecution` →
- * `bootCoreApi` → `bootAgentOrchestration`), same `@hyperidle/shared/http`
+ * `bootCoreApi` → `bootAgentOrchestration`), same `@hyperidle/http-middleware`
  * `composeApiApplication` mount helper (the ONE piece that genuinely is
  * shared — it names no layer), same disposal ordering. Only the environment
  * facts differ: `topology: "local"` (in-process CLI harness discovery, a real
@@ -45,14 +45,12 @@ import {
 	buildAgentOrchestrationPort,
 	createInProcessAgentOrchestrationTransport,
 } from "@hyperidle/core-api/services/agent-orchestration-port-composition";
+import type { CredentialResolver } from "@hyperidle/credential-access";
 import { createPgliteDb, createPostgresDb, type DbHandle, type HyperIdleDb } from "@hyperidle/db";
-import {
-	type CredentialResolver,
-	EventBus,
-	resolveProfile,
-	type WorkerRegisterMessage,
-} from "@hyperidle/shared";
-import { composeApiApplication } from "@hyperidle/shared/http";
+import { EventBus } from "@hyperidle/event-bus";
+import type { WorkerRegisterMessage } from "@hyperidle/harness-protocol";
+import { resolveProfile } from "@hyperidle/host-process";
+import { composeApiApplication } from "@hyperidle/http-middleware";
 import { WebSocketServer } from "ws";
 // @lore AU26: `ws` ships NO type declarations of its own — see
 // `applications/remote-server/src/create-server.ts`'s twin `@lore` for the
@@ -69,7 +67,7 @@ export interface CreateServerDeps {
 /**
  * @lore AH1 §3 / N1: same shape as `remote-server`'s own `ServerHandle` — see
  * that file's doc comment for why `credentialResolver` rides the handle, and
- * why its type comes from `@hyperidle/shared` rather than
+ * why its type comes from `@hyperidle/credential-access` rather than
  * `@hyperidle/credentials`.
  */
 export interface ServerHandle {
