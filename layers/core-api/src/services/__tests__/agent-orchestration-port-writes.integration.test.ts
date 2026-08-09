@@ -428,4 +428,89 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 		);
 		expect(res.status).not.toBe(200);
 	});
+
+	// AU31 §3.1: the routine-scheduler's hoisted capacity read — RED-phase gap
+	// closed. `runs.isAtCapacity` had no standalone written-first test; its
+	// green phase was compile/test-failure-driven only.
+	test("runs.isAtCapacity reaches the real route and compares live session count to the passed bound", async ({
+		db,
+		app,
+	}) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-capacity");
+		await seedTeamAndTask(db, "aopw-cap");
+		await db.insert(sessions).values({
+			id: "aopw-cap-session",
+			agentId: "aopw-cap-agent",
+			taskId: "aopw-cap-task",
+			modelTier: "workhorse",
+			startedAt: NOW,
+			state: "active",
+		});
+		const port = buildAgentOrchestrationPort(createInProcessAgentOrchestrationTransport(app));
+
+		expect(await port.runs.isAtCapacity("aopw-cap-agent", 1)).toBe(true);
+		expect(await port.runs.isAtCapacity("aopw-cap-agent", 2)).toBe(false);
+		// An agent with zero sessions is never at capacity, whatever the bound.
+		expect(await port.runs.isAtCapacity("aopw-cap-agent-idle", 1)).toBe(false);
+	});
+
+	// AU31 §2.6: the team-consistency gate's pre-write read — RED-phase gap
+	// closed. `filesystems.getTeamId` had no standalone written-first test.
+	test("filesystems.getTeamId reaches the real route and returns null for an unknown filesystem", async ({
+		db,
+		app,
+	}) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-fs-team");
+		await db
+			.insert(teams)
+			.values({ id: "aopw-fst-team-parent", name: "aopw-fst", phase: "build", createdAt: NOW });
+		await db.insert(filesystems).values({
+			id: "aopw-fst-1",
+			teamId: "aopw-fst-team-parent",
+			source: "local",
+			kind: "code",
+			resourceRef: JSON.stringify({ kind: "code", repo: "x", branch: "main" }),
+			writeback: "none",
+			state: "attached",
+			createdAt: NOW,
+		});
+		const port = buildAgentOrchestrationPort(createInProcessAgentOrchestrationTransport(app));
+
+		expect(await port.filesystems.getTeamId("aopw-fst-1")).toBe("aopw-fst-team-parent");
+		expect(await port.filesystems.getTeamId("aopw-fst-does-not-exist")).toBeNull();
+	});
+
+	// AU31 §3 clause 2 — the team-defaults pair `teams-routes.ts` needs
+	// (:540 reads, :280 writes, site 2's relinquished write).
+	test("runConfig.writeTeamDefaults then readTeamDefaults round-trips through the real route", async ({
+		db,
+		app,
+	}) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-team-defaults");
+		await db
+			.insert(teams)
+			.values({ id: "aopw-td-team", name: "aopw-td", phase: "build", createdAt: NOW });
+		const port = buildAgentOrchestrationPort(createInProcessAgentOrchestrationTransport(app));
+
+		// Absent row ≡ all-null row.
+		const before = await port.runConfig.readTeamDefaults("aopw-td-team");
+		expect(before).toEqual({
+			defaultHarnessType: null,
+			defaultModelId: null,
+			defaultModelProvider: null,
+		});
+
+		await port.runConfig.writeTeamDefaults("aopw-td-team", {
+			defaultHarnessType: "claude-code",
+			defaultModelId: "claude-sonnet-4-6",
+			defaultModelProvider: "anthropic",
+		});
+		const after = await port.runConfig.readTeamDefaults("aopw-td-team");
+
+		expect(after).toEqual({
+			defaultHarnessType: "claude-code",
+			defaultModelId: "claude-sonnet-4-6",
+			defaultModelProvider: "anthropic",
+		});
+	});
 });
