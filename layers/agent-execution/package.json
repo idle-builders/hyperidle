@@ -11,7 +11,8 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"@hyperidle/harness-registry": "*"
+		"@hyperidle/harness-registry": "*",
+		"@hyperidle/shared": "*"
 	},
 	"devDependencies": {
 		"vitest": "^4.1.9"

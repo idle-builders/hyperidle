@@ -509,6 +509,11 @@ function buildLeafDeclarations(root: string): void {
     // @lore AU20 B3b: agent-execution/mcp-provider folded into harness-registry.
     "layers/agent-execution/tool-provider",
     "layers/agent-orchestration/tool-handlers",
+    // @lore AU31 §2.7/[P9]: the Layer barrel itself now has a real consumer —
+    // `RemoteWorkerClient` relocated here, and `applications/desktop`/
+    // `applications/remote-worker` import the face directly. Same TS6305
+    // cascade as every other leaf without a pre-built dist.
+    "layers/agent-execution",
     "applications/remote-server",
     "applications/remote-worker",
   ]) {

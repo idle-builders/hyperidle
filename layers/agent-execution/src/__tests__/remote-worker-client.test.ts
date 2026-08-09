@@ -108,7 +108,7 @@ afterEach(() => {
 
 // We dynamically import to allow vi.mock hoisting
 const getClient = async () => {
-	const mod = await import("../src/remote-worker-client.js");
+	const mod = await import("../remote-worker-client.js");
 	return mod;
 };
 
@@ -488,7 +488,11 @@ describe("S4 AC-8 — RemoteWorkerClient graceful shutdown", () => {
 		});
 
 		// Session that blocks until we manually resolve it
-		let resolveStream: (() => void) | null = null;
+		// @lore AU31: `| undefined` not `| null` — TS 6.0's control-flow analysis
+		// of a `let` reassigned inside a synchronously-invoked Promise executor
+		// narrows a `null`-initialized variable to `never` at the later read
+		// (reproduced in isolation, TS 6.0.3); `undefined` does not trip it.
+		let resolveStream: (() => void) | undefined;
 		const streamPromise = new Promise<void>((resolve) => {
 			resolveStream = resolve;
 		});

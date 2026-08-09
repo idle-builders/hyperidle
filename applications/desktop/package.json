@@ -17,12 +17,12 @@
 		"@electric-sql/pglite": "^0.5.4"
 	},
 	"devDependencies": {
+		"@hyperidle/agent-execution": "*",
 		"@hyperidle/agent-orchestration": "*",
 		"@hyperidle/core-api": "*",
 		"@hyperidle/db": "*",
 		"@hyperidle/harness-registry": "*",
 		"@hyperidle/remote-server": "*",
-		"@hyperidle/remote-worker": "*",
 		"@hyperidle/shared": "*",
 		"electron": "^43.1.1",
 		"electron-builder": "^26.15.3",

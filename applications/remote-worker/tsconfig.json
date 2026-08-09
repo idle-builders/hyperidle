@@ -10,5 +10,5 @@
 		"types": ["node"]
 	},
 	"include": ["src"],
-	"references": [{ "path": "../../framework/shared" }]
+	"references": [{ "path": "../../framework/shared" }, { "path": "../../layers/agent-execution" }]
 }

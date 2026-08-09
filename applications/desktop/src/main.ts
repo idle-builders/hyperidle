@@ -17,7 +17,7 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, safeStorage, shell } from "e
 const Dirname =
 	typeof __dirname === "string" ? __dirname : path.dirname(fileURLToPath(import.meta.url));
 
-import { RemoteWorkerClient } from "@hyperidle/remote-worker";
+import { RemoteWorkerClient } from "@hyperidle/agent-execution";
 import { buildAppMenuTemplate } from "./app-menu.js";
 import { getPort, startServer, waitForHealth } from "./boot-server.js";
 import { loadClientConfig, migrateWindowState, saveClientConfig } from "./client-config.js";
