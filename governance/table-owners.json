@@ -29,7 +29,7 @@
 		"pluginConfigurationDefaults": "settings",
 		"configurationOverrides": "settings",
 		"notificationQueue": "notifications",
-		"serverCredentials": "connections",
+		"serverCredentials": "credentials",
 		"serviceConnections": "connections",
 		"routines": "routine",
 		"routineRuns": "routine",
@@ -44,7 +44,7 @@
 		"agentLifecycleInbox": "session-requests",
 		"filesystems": "filesystems",
 		"filesystemInjections": "filesystems",
-		"filesystemCaptures": "filesystems",
+		"filesystemCaptures": "filesystem-mounting",
 		"hintProgress": "users",
 		"agentRunConfig": "agent-run-config",
 		"teamRunConfigDefaults": "agent-run-config"
