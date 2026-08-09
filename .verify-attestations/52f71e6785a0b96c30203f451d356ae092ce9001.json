@@ -1,6 +1,11 @@
 {
+<<<<<<<< HEAD:.verify-attestations/4e02512d5f27fe97c15e843ff1f392567bea3324.json
 	"sha": "4e02512d5f27fe97c15e843ff1f392567bea3324",
 	"srcHash": "113aa2a86061634208ca6ba8e046026ea601bd4800540e5b7f46c4d9abfe83a4",
+========
+	"sha": "52f71e6785a0b96c30203f451d356ae092ce9001",
+	"srcHash": "31a2890f3057e00f16dba826416930e419e53e477e101b347ee5e611cdcb9821",
+>>>>>>>> eab4f414 (Record the verify attestation for the table-ownership work):.verify-attestations/52f71e6785a0b96c30203f451d356ae092ce9001.json
 	"scope": "affected",
 	"status": "passed",
 	"dirty": false,
@@ -40,6 +45,11 @@
 			"skipped": 0
 		}
 	},
+<<<<<<<< HEAD:.verify-attestations/4e02512d5f27fe97c15e843ff1f392567bea3324.json
 	"timestamp": "2026-08-08T22:36:41.405Z",
 	"hmac": "ab6e41e00da00f8c5b827e661414ac212742466418dba1a87d2c2c2cd271c224"
+========
+	"timestamp": "2026-08-09T03:43:46.246Z",
+	"hmac": "ad27c2cc9509f9535a850d2c7fef08b488168c1a3a7c777056053e5b9588257b"
+>>>>>>>> eab4f414 (Record the verify attestation for the table-ownership work):.verify-attestations/52f71e6785a0b96c30203f451d356ae092ce9001.json
 }
