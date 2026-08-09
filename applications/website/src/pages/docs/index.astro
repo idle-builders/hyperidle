@@ -1,17 +1,35 @@
 ---
+import Marketing from "../../layouts/Marketing.astro";
+import "../../styles/docs.css";
+
 const base = import.meta.env.BASE_URL;
 ---
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<title>Documentation — HyperIdle</title>
-	</head>
-	<body>
-		<h1>Documentation</h1>
-		<p>
-			<a href={`${base}docs/product/`}>The product story</a> — what HyperIdle is and how it
-			works, from the source docs.
-		</p>
-	</body>
-</html>
+
+<Marketing
+	title="Documentation — HyperIdle"
+	description="The HyperIdle product story, rendered from the source docs — what it is, how work flows, how humans and agents collaborate, and how knowledge compounds."
+>
+	<div class="container doc-page">
+		<p class="doc-crumb"><span class="here">Documentation</span></p>
+		<div class="prose">
+			<h1>Documentation</h1>
+			<p>
+				The product story, rendered from the source docs — what HyperIdle is, how work flows,
+				how humans and agents collaborate, and how knowledge compounds. Written as ground truth,
+				not brochureware.
+			</p>
+			<h2>Read now</h2>
+			<ul>
+				<li>
+					<a href={`${base}docs/product/`}>The product story</a> — what HyperIdle is and how it
+					works, from the source docs. Start here.
+				</li>
+			</ul>
+			<h2>Coming next</h2>
+			<p>
+				The user guide and the developer guide render on this foundation in a follow-up — the
+				seam is in place, the guides are next.
+			</p>
+		</div>
+	</div>
+</Marketing>
