@@ -5,7 +5,7 @@
   "status": "in-progress",
   "buildPlan": {
     "commits": [
-      "1 — delete user_skills (191 -> 178). INDIVISIBLE: schema drop + registry line + every call site together, or totals.tables !== liveTables.size fails the build. IN FLIGHT.",
+      "1 — DONE f3d43fa6 'Delete the dead per-agent skill autonomy table and its unreachable delegation path'. 57 files. 191 -> 178 production, 0 development. check PASS 35 pkgs, lint exit 0, test:integration:service 2785 passed, test:full 6207 passed. Red demonstrated FIRST on all three not.toContain assertions (quoted failures), green after the migration+journal entry while the schema still declared the table — so the green is the migrator's, not the compiler's.",
       "2 — free fills (-> 171)",
       "3 — free registry corrections (-> 161)",
       "4 — taskDispatchAttempts",
@@ -22,6 +22,11 @@
     ],
     "criticalRedEvidence": "expect(tableNames).not.toContain('user_skills') in migration.integration / pg-migration.integration / schema.integration. The ONLY assertion in the repo reading the real post-migration database. Existing table-list assertions use expect.arrayContaining (inclusion), so removing a name proves nothing; a missing or mis-tagged _journal.json entry makes the migrator silently skip the SQL while check, lint and every other test stay green."
     },
+  "planRepoContradictionsFoundAtBuild": [
+    "§11.2 said `eventBus` stays in routes/users.ts — true of the MODULE, false of createUserRoutes. Deleting the skills PATCH removed the only use of that function's own eventBus parameter; noUnusedParameters made it a hard type error. Parameter removed + its single call site layers/core-api/src/app.ts:404 updated — ONE file outside the 47-file list. The alternative (_eventBus) would preserve a dead parameter, the exact orphan pattern Ruling 4 exists to correct.",
+    "§11.9's test list was 20 files; it is 21. api-e2e.integration.test.ts:597-599 asserts Array.isArray(body.skills) on GET /api/users/:id. It never names userSkills/user_skills and the response was cast at the call site, so the type system had nothing to reject — it compiled clean, passed check and lint, and failed only in the integration lane. Same blind-spot class as the buildDeps trap but on a RESPONSE SHAPE; a symbol sweep cannot find it.",
+    "§11.9's post-commit sweep as written cannot be true — it claims the rg returns nothing while §11.7 REQUIRES three not.toContain('user_skills') assertions in that same tree. It returns exactly those three lines plus their @lore notes."
+  ],
   "decisionRecord": "3 independent critique rounds on the plan (refine-critique, architecture-critique, architecture-critique-amendment). All blocking findings closed. Proceeding to build rather than a 4th planning critique — remaining risk is execution, which implementation review covers. B1-B4 closure to be confirmed at implementation review.",
   "tier": "production",
   "worktree": ".worktrees/AU30",
