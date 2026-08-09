@@ -359,14 +359,6 @@ export function buildAgentOrchestrationPort(
 				});
 				if (!res.ok) return throwSeamError("runs.failExplicitStart", res);
 			},
-			async isAtCapacity(agentId: string, maxConcurrentSessions: number): Promise<boolean> {
-				const res = await client["agent-orchestration"].runs["is-at-capacity"].$post({
-					json: { agentId, maxConcurrentSessions },
-				});
-				if (!res.ok) return throwSeamError("runs.isAtCapacity", res);
-				const body = (await res.json()) as { readonly atCapacity: boolean };
-				return body.atCapacity;
-			},
 		},
 		runConfig: {
 			async read(agentId: string): Promise<AgentOrchestrationRunConfigView> {

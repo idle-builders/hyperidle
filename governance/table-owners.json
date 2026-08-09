@@ -2,9 +2,9 @@
 	"tableOwners": true,
 	"note": "Every table names the ONE service that may read and write it. A table absent from this file is a build error, never a silently skipped row — completeness is the point. Owners are package names, never paths (Ruling 5).",
 	"totals": {
-		"tables": 45,
-		"owned": 39,
-		"unowned": 6
+		"tables": 44,
+		"owned": 44,
+		"unowned": 0
 	},
 	"owners": {
 		"knowledgeItems": "knowledge",
@@ -29,7 +29,7 @@
 		"pluginConfigurationDefaults": "settings",
 		"configurationOverrides": "settings",
 		"notificationQueue": "notifications",
-		"serverCredentials": "connections",
+		"serverCredentials": "credentials",
 		"serviceConnections": "connections",
 		"routines": "routine",
 		"routineRuns": "routine",
@@ -44,18 +44,16 @@
 		"agentLifecycleInbox": "session-requests",
 		"filesystems": "filesystems",
 		"filesystemInjections": "filesystems",
-		"filesystemCaptures": "filesystems",
-		"hintProgress": "users"
+		"filesystemCaptures": "filesystem-mounting",
+		"hintProgress": "users",
+		"agentRunConfig": "agent-run-config",
+		"taskDispatchAttempts": "work",
+		"propagationLog": "policy",
+		"sessions": "run-orchestration",
+		"teamRunConfigDefaults": "agent-run-config"
 	},
 	"unowned": {
-		"note": "Ruling 6 — no unowned tables. These six are the completeness defect: 90 of the 91 production table violations are here, and exactly one is a genuine foreign access. Until an owner is named NOBODY may touch them, which is what the model already says.",
-		"tables": {
-			"sessions": "a sessions service does not exist yet — 3 packages touch the table.",
-			"propagationLog": "policy(9), core-api(3), work(2) — owner plus a door for 5 sites.",
-			"taskDispatchAttempts": "work(8), policy(3) — owner plus a door for 3 sites.",
-			"userSkills": "core-api(7), settings(2) — owner plus a move for 7 sites.",
-			"teamRunConfigDefaults": "only agent-run-config touches it — a one-line assignment.",
-			"agentRunConfig": "only agent-run-config touches it — a one-line assignment."
-		}
+		"note": "Ruling 6 — no unowned tables, and now there are none. This block stays because the registry's shape declares it and the loader reads it unconditionally; an entry here is a defect, not a category. A table with no owner is a table any package may invent invariants for and none is responsible for keeping.",
+		"tables": {}
 	}
 }

@@ -32,7 +32,6 @@ import {
 	teamMembers,
 	teams,
 	threads,
-	userSkills,
 	users,
 } from "./schema.js";
 
@@ -55,7 +54,6 @@ export const selectRoutineSchema = createSelectSchema(routines);
 export const selectThreadSchema = createSelectSchema(threads);
 export const selectMessageSchema = createSelectSchema(messages);
 export const selectItemSchema = createSelectSchema(items);
-export const selectUserSkillSchema = createSelectSchema(userSkills);
 export const selectKnowledgeItemSchema = createSelectSchema(knowledgeItems);
 export const selectKnowledgeEditLogSchema = createSelectSchema(knowledgeEditLog);
 export const selectKnowledgeAccessLogSchema = createSelectSchema(knowledgeAccessLog);

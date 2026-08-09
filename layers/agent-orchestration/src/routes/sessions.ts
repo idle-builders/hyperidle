@@ -24,15 +24,15 @@
  * `useSessionActivity.test.tsx` stays green.
  */
 
-import { type HyperIdleDb, sessions } from "@hyperidle/db";
-import { findSessionRequest, sessionRunRegistry } from "@hyperidle/session-requests";
+import type { HyperIdleDb, Session } from "@hyperidle/db";
 import {
-	type ActivityEntry,
-	API_ERROR_CODES,
-	type EventBus,
-	type SessionEndedEvent,
-	type SessionOutcome,
-} from "@hyperidle/shared";
+	endSessionByCas,
+	findSessionById,
+	listSessions,
+	recordSessionMetadata,
+} from "@hyperidle/run-orchestration";
+import { findSessionRequest, sessionRunRegistry } from "@hyperidle/session-requests";
+import { type ActivityEntry, API_ERROR_CODES, type EventBus } from "@hyperidle/shared";
 import {
 	type HyperIdleEnv,
 	projectExplicitStartOutcome,
@@ -40,7 +40,6 @@ import {
 	sendStartProjection,
 	validateBody,
 } from "@hyperidle/shared/http";
-import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { transitionRun } from "../services/run-transition.js";
@@ -66,7 +65,7 @@ const updateSessionSchema = z.object({
 /** Input for a state-changing PATCH (§4 abort-or-guarded-write). */
 interface StateChangePatchInput {
 	readonly sessionId: string;
-	readonly existing: typeof sessions.$inferSelect;
+	readonly existing: Session;
 	readonly state: "done" | "crashed";
 	readonly outcome?: string;
 	readonly notes?: string;
@@ -76,14 +75,16 @@ interface StateChangePatchInput {
 }
 
 /**
- * AF7 §4: apply a state-changing PATCH. The runtime is the sole terminal-state
- * writer for a running session, so this:
+ * AF7 §4: apply a state-changing PATCH. `run-orchestration` is the sole
+ * terminal-state writer, full stop — this route performs no `sessions` write of
+ * any kind. So this:
  *   - rejects (409) a PATCH on an already-terminal session (no desync, no double
  *     session_ended);
  *   - if a live runtime entry exists, ABORTS it and lets the runtime teardown do
  *     the terminal write + single session_ended emit;
- *   - otherwise does a CAS-guarded direct write (active→terminal only) and emits
- *     session_ended IFF the CAS affected a row (§4.3 rowcount invariant).
+ *   - otherwise hands the transition to the owner's `endSessionByCas`, which
+ *     carries the CAS and the rowcount-gated emit together (§4.3 rowcount
+ *     invariant).
  * Returns a `{ status, body }` so the caller emits the response.
  */
 async function applyStateChangePatch(
@@ -175,41 +176,23 @@ async function applyStateChangePatch(
 		});
 	}
 
-	// Fallback: no running loop. CAS-guarded direct write (active → terminal only).
-	const outcome: SessionOutcome = state === "crashed" ? "crashed" : "completed";
-	// W-1: a combined PATCH may carry effectivenessScore alongside state.
-	const stateUpdates: Record<string, unknown> = {
-		state,
-		outcome: input.outcome ?? outcome,
-		notes: input.notes,
-		endedAt: now,
-	};
-	if (input.effectivenessScore !== undefined) {
-		stateUpdates.effectivenessScore = input.effectivenessScore.toString();
-		stateUpdates.effectivenessRecordedAt = now;
-		stateUpdates.effectivenessRecordedBy = actor ?? existing.agentId;
-	}
-	const transitioned = await db
-		.update(sessions)
-		.set(stateUpdates)
-		.where(and(eq(sessions.id, sessionId), eq(sessions.state, "active")))
-		.returning({ id: sessions.id });
-
-	// Emit session_ended IFF we actually transitioned a row (CAS, §4.3).
-	if (transitioned.length > 0) {
-		eventBus.emit<"session_ended">({
-			type: "session_ended",
-			streamId: sessionId,
+	// Fallback: no running loop. The CAS-guarded write, the rowcount-gated
+	// `session_ended` emit and the read-back are one indivisible transition, and
+	// they belong to the Service that owns `sessions`.
+	return {
+		status: 200,
+		body: await endSessionByCas(db, eventBus, {
 			sessionId,
 			agentId: existing.agentId,
 			taskId: existing.taskId,
-			timestamp: Date.now(),
-			outcome,
-		} satisfies SessionEndedEvent);
-	}
-
-	const [updated] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
-	return { status: 200, body: updated };
+			state,
+			outcome: input.outcome,
+			notes: input.notes,
+			effectivenessScore: input.effectivenessScore,
+			actor,
+			now,
+		}),
+	};
 }
 
 /**
@@ -234,22 +217,17 @@ export function createOrchestrationSessionRoutes(
 		const limit = Math.min(Number.parseInt(c.req.query("limit") ?? "50", 10) || 50, 200);
 		const offset = Number.parseInt(c.req.query("offset") ?? "0", 10) || 0;
 
-		const conditions = [];
-		if (taskId) conditions.push(eq(sessions.taskId, taskId));
-		if (agentId) conditions.push(eq(sessions.agentId, agentId));
-		if (state) conditions.push(eq(sessions.state, state));
-
-		const result =
-			conditions.length > 0
-				? await db
-						.select()
-						.from(sessions)
-						.where(and(...conditions))
-						.limit(limit)
-						.offset(offset)
-				: await db.select().from(sessions).limit(limit).offset(offset);
-
-		return c.json(result);
+		return c.json(
+			await listSessions(
+				db,
+				{
+					...(taskId ? { taskId } : {}),
+					...(agentId ? { agentId } : {}),
+					...(state ? { state } : {}),
+				},
+				{ limit, offset },
+			),
+		);
 	});
 
 	// GET /starts/:startId — the explicit-start projection for the caller's own
@@ -266,14 +244,9 @@ export function createOrchestrationSessionRoutes(
 			return c.json({ error: "Session start not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		c.header("Idempotency-Key", start.idempotencyKey);
 		c.header("Location", `/api/sessions/starts/${start.id}`);
-		let session: typeof sessions.$inferSelect | null = null;
+		let session: Session | null = null;
 		if (start.status === "admitted" && start.sessionId) {
-			const [row] = await db
-				.select()
-				.from(sessions)
-				.where(eq(sessions.id, start.sessionId))
-				.limit(1);
-			session = row ?? null;
+			session = (await findSessionById(db, start.sessionId)) ?? null;
 		}
 		return sendStartProjection(c, projectExplicitStartOutcome(start, session));
 	});
@@ -282,7 +255,7 @@ export function createOrchestrationSessionRoutes(
 	// recent activity entries, capped at the 50 most recent to bound the response.
 	router.get("/:id/activity", requireBoundary({ kind: "public-data" }), async (c) => {
 		const sessionId = c.req.param("id");
-		const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
+		const session = await findSessionById(db, sessionId);
 		if (!session) {
 			return c.json({ error: "Session not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
@@ -311,11 +284,7 @@ export function createOrchestrationSessionRoutes(
 			const sessionId = c.req.param("id");
 			const body = c.req.valid("json" as never) as z.infer<typeof updateSessionSchema>;
 
-			const [existing] = await db
-				.select()
-				.from(sessions)
-				.where(eq(sessions.id, sessionId))
-				.limit(1);
+			const existing = await findSessionById(db, sessionId);
 			if (!existing) {
 				return c.json({ error: "Session not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 			}
@@ -324,8 +293,8 @@ export function createOrchestrationSessionRoutes(
 			const actor = c.get("userId");
 
 			// AF7 §4 (Z8-094/095): a state-changing PATCH must REQUEST termination, not
-			// assert it. The runtime is the sole terminal-state writer for a session it
-			// is actively running. Delegated to a helper to keep this handler simple.
+			// assert it. `run-orchestration` is the sole terminal-state writer, whether
+			// or not a runtime is live. Delegated to a helper to keep this handler simple.
 			if (body.state !== undefined) {
 				const result = await applyStateChangePatch(db, eventBus, {
 					sessionId,
@@ -340,27 +309,27 @@ export function createOrchestrationSessionRoutes(
 				return c.json(result.body, result.status);
 			}
 
-			// Effectiveness-only PATCH (no state) — never ends a session.
-			const updates: Record<string, unknown> = {};
-			if (body.outcome !== undefined) updates.outcome = body.outcome;
-			if (body.notes !== undefined) updates.notes = body.notes;
-
+			// Effectiveness-only PATCH (no state) — never ends a session, and the
+			// accessor's patch type carries no `state`/`endedAt` so it cannot.
+			//
 			// AC1: Record effectiveness score when present.
 			// @lore AC1 S-1: stored as text, validated as number[0,1] at API boundary.
 			// Use .toString() on write, parseFloat() + Number.isNaN() guard on read.
-			if (body.effectivenessScore !== undefined) {
-				updates.effectivenessScore = body.effectivenessScore.toString();
-				updates.effectivenessRecordedAt = now;
-				// Use actor from auth context; fall back to session's agentId (for agent-authored writes)
-				updates.effectivenessRecordedBy = actor ?? existing.agentId;
-			}
+			await recordSessionMetadata(db, sessionId, {
+				...(body.outcome !== undefined ? { outcome: body.outcome } : {}),
+				...(body.notes !== undefined ? { notes: body.notes } : {}),
+				...(body.effectivenessScore !== undefined
+					? {
+							effectivenessScore: body.effectivenessScore.toString(),
+							effectivenessRecordedAt: now,
+							// Actor from auth context; fall back to the session's agentId
+							// (for agent-authored writes).
+							effectivenessRecordedBy: actor ?? existing.agentId,
+						}
+					: {}),
+			});
 
-			if (Object.keys(updates).length > 0) {
-				await db.update(sessions).set(updates).where(eq(sessions.id, sessionId));
-			}
-
-			const [updated] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
-			return c.json(updated);
+			return c.json(await findSessionById(db, sessionId));
 		},
 	);
 

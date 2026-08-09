@@ -55,4 +55,5 @@ export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts = {
 		upsertKnowledgeAppProjectionAttentionScore: notImplemented,
 		recomputeAttentionScoreForItem: notImplemented,
 	},
+	sessions: { writeNotes: notImplemented },
 };

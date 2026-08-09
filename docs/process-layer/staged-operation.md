@@ -69,7 +69,7 @@ Session 2 is never permitted by matching a hash of the captured bytes. Re-derivi
 
 The trust signal is **earned**: an agent's approval rate over its recent verdict history, computed by the policy engine (`layers/core-api/policy/src/policy-engine.ts`, AD4). Cold-start-safe: too few verdicts → everything surfaced. There is no per-tool risk table or allowlist matrix. More autonomy is the goal. Trust surfaces in the UI are owned by the [review primitive](../human-interface-layer/review-primitive.md).
 
-> **Implementation status.** AL7 shipped only the gated arm — an attached checkpoint routes every irreversible Proposed Call to an explicit human approve; staged ops bypass the policy engine today. Wiring the trust signal so reversible calls auto-flow and the lane widens is **AL8** (not built). Removing vestigial per-skill autonomy data is **AL9** (not built).
+> **Implementation status.** AL7 shipped only the gated arm — an attached checkpoint routes every irreversible Proposed Call to an explicit human approve; staged ops bypass the policy engine today. Wiring the trust signal so reversible calls auto-flow and the lane widens is **AL8** (not built). The vestigial per-skill autonomy data is gone — the `user_skills` table was dropped.
 
 ## What it is not
 

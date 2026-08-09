@@ -28,7 +28,6 @@ import {
 	teamMembers,
 	teams,
 	threads,
-	userSkills,
 	users,
 } from "@hyperidle/db";
 import type {
@@ -591,30 +590,6 @@ export async function seedRoutine(
 	});
 
 	return { routineId };
-}
-
-/** Create a user skill record. Used by skill autonomy and delegation scenarios. */
-export async function seedUserSkill(
-	db: HyperIdleDb,
-	opts: {
-		userId: string;
-		skillId: string;
-		autonomyLevel: number;
-		successCount?: number;
-		failureCount?: number;
-		lastUsedAt?: string;
-		promotedAt?: string;
-	},
-): Promise<void> {
-	await db.insert(userSkills).values({
-		userId: opts.userId,
-		skillId: opts.skillId,
-		autonomyLevel: opts.autonomyLevel,
-		successCount: opts.successCount ?? 0,
-		failureCount: opts.failureCount ?? 0,
-		lastUsedAt: opts.lastUsedAt ?? null,
-		promotedAt: opts.promotedAt ?? null,
-	});
 }
 
 /** Create an active session (for WIP-limit testing in delegation scenarios). */

@@ -112,36 +112,54 @@ describe("B2. betListResponseSchema", () => {
 		expect(result.success).toBe(true);
 	});
 
+	// @lore AU30: the wire item, not the DB row — `atRisk` is the boolean the route
+	// emits (normalizeBet in routes/bets.ts) and `sourceKnowledgeItemId` is always
+	// present because the route returns whole rows.
+	const validListItem = {
+		id: "bet-2",
+		teamId: "prod-1",
+		description: "Description",
+		appetite: null,
+		doneCondition: null,
+		hypothesis: null,
+		// @lore U1: status is "draft" (formerly "shaped")
+		status: "draft",
+		revisionLog: null,
+		createdAt: "2025-01-01T00:00:00.000Z",
+		completedAt: null,
+		atRisk: true,
+		tokensActualJson: null,
+		// AC1: outcome fields — nullable, default null
+		outcomeVerdict: null,
+		outcomeSummary: null,
+		outcomeRecordedAt: null,
+		outcomeRecordedBy: null,
+		// AK5: provenance backlink — present on every wire row, nullable
+		sourceKnowledgeItemId: null,
+	};
+
 	it("accepts a list with bets in each group", () => {
 		const result = betListResponseSchema.safeParse({
-			draft: [
-				{
-					id: "bet-2",
-					teamId: "prod-1",
-					description: "Description",
-					appetite: null,
-					doneCondition: null,
-					hypothesis: null,
-					// @lore U1: status is "draft" (formerly "shaped")
-					status: "draft",
-					revisionLog: null,
-					createdAt: "2025-01-01T00:00:00.000Z",
-					completedAt: null,
-					// @lore U1: atRisk is notNull().default(0) — use 0 not null
-					atRisk: 0,
-					tokensActualJson: null,
-					// AC1: outcome fields — nullable, default null
-					outcomeVerdict: null,
-					outcomeSummary: null,
-					outcomeRecordedAt: null,
-					outcomeRecordedBy: null,
-				},
-			],
+			draft: [validListItem],
 			active: [],
 			completed: [],
 			killed: [],
 		});
 		expect(result.success).toBe(true);
+	});
+
+	// @lore AU30: the schema describes the WIRE shape, not the `bets` row. The column
+	// is integer 0/1; the route normalizes it to a boolean before responding. A raw
+	// DB-shaped row must therefore be rejected — that is what distinguishes this
+	// hand-written schema from the drizzle-zod generated one it replaced.
+	it("rejects a raw DB-shaped row whose atRisk is the integer column value", () => {
+		const result = betListResponseSchema.safeParse({
+			draft: [{ ...validListItem, atRisk: 0 }],
+			active: [],
+			completed: [],
+			killed: [],
+		});
+		expect(result.success).toBe(false);
 	});
 
 	it("rejects payload missing a group", () => {

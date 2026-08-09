@@ -429,31 +429,6 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 		expect(res.status).not.toBe(200);
 	});
 
-	// AU31 §3.1: the routine-scheduler's hoisted capacity read — RED-phase gap
-	// closed. `runs.isAtCapacity` had no standalone written-first test; its
-	// green phase was compile/test-failure-driven only.
-	test("runs.isAtCapacity reaches the real route and compares live session count to the passed bound", async ({
-		db,
-		app,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-capacity");
-		await seedTeamAndTask(db, "aopw-cap");
-		await db.insert(sessions).values({
-			id: "aopw-cap-session",
-			agentId: "aopw-cap-agent",
-			taskId: "aopw-cap-task",
-			modelTier: "workhorse",
-			startedAt: NOW,
-			state: "active",
-		});
-		const port = buildAgentOrchestrationPort(createInProcessAgentOrchestrationTransport(app));
-
-		expect(await port.runs.isAtCapacity("aopw-cap-agent", 1)).toBe(true);
-		expect(await port.runs.isAtCapacity("aopw-cap-agent", 2)).toBe(false);
-		// An agent with zero sessions is never at capacity, whatever the bound.
-		expect(await port.runs.isAtCapacity("aopw-cap-agent-idle", 1)).toBe(false);
-	});
-
 	// AU31 §2.6: the team-consistency gate's pre-write read — RED-phase gap
 	// closed. `filesystems.getTeamId` had no standalone written-first test.
 	test("filesystems.getTeamId reaches the real route and returns null for an unknown filesystem", async ({

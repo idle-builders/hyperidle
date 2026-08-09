@@ -35,7 +35,6 @@ import {
 	teamMembers,
 	teams,
 	threads,
-	userSkills,
 	users,
 } from "@hyperidle/db";
 import { AdapterPool } from "@hyperidle/harness-registry";
@@ -418,32 +417,6 @@ describe("AB1 AC-11 (AD4): reviewTrackRecord — approval rate from verdict hist
 		expect(typeof trackRecord.totalVerdicts).toBe("number");
 		expect(Array.isArray(trackRecord.recentVerdicts)).toBe(true);
 		expect(typeof trackRecord.windowDays).toBe("number");
-	});
-
-	test("userSkills rows in DB do NOT appear in profile response (AC5: table stays but not surfaced)", async ({
-		db,
-		app,
-	}) => {
-		await seedPrereqs(db);
-		// Seed a userSkill — it should not appear in the response
-		await db.insert(userSkills).values({
-			userId: "ab1-agent-builder",
-			skillId: "write-code",
-			autonomyLevel: 2,
-			successCount: 5,
-			failureCount: 1,
-			lastUsedAt: NOW,
-		});
-
-		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
-			headers: authHeaders(),
-		});
-		const body = (await res.json()) as Record<string, unknown>;
-
-		// skills field should not exist
-		expect(body).not.toHaveProperty("skills");
-		// reviewTrackRecord should exist
-		expect(body).toHaveProperty("reviewTrackRecord");
 	});
 
 	test("reviewTrackRecord entry has decision, threadId, createdAt shape when verdicts exist", async ({

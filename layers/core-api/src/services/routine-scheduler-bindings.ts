@@ -15,17 +15,16 @@
  *
  * @lore AU31 §3.1/§3.2: the against-grain edge is now the seam
  * (`AgentOrchestrationPort`), not a direct `@hyperidle/session-requests`/
- * `@hyperidle/run-orchestration`/`@hyperidle/agent-run-config` import — and
- * the port is a per-composition VALUE, not an ambient global, so
- * `routineSchedulerPorts` can no longer be a module-level constant built at
- * import time. `buildRoutineSchedulerPorts(port)` is the factory; every
- * export below takes the port (or the built ports bag) as an explicit
- * parameter instead of closing over a module singleton.
+ * `@hyperidle/run-orchestration` import — and the port is a per-composition
+ * VALUE, not an ambient global, so `routineSchedulerPorts` can no longer be a
+ * module-level constant built at import time. `buildRoutineSchedulerPorts(port)`
+ * is the factory; every export below takes the port (or the built ports bag)
+ * as an explicit parameter instead of closing over a module singleton.
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { insertThread, listThreads } from "@hyperidle/conversation";
-import { type HyperIdleDb, type Routine, userSkills, type WriteExecutor } from "@hyperidle/db";
+import type { HyperIdleDb, Routine, WriteExecutor } from "@hyperidle/db";
 import {
 	assembleSessionKnowledge,
 	list as listKnowledgeItems,
@@ -41,56 +40,12 @@ import {
 	type RoutineSchedulerConfig,
 	type RoutineSchedulerPorts,
 	registerBuiltinRoutineHandlers,
-	selectRoutineDelegate,
 	startRoutineScheduler as startRoutineSchedulerInternal,
 } from "@hyperidle/routine";
 import { readServerConfig } from "@hyperidle/settings";
 import type { EventBus } from "@hyperidle/shared";
-import { findUser, requireRunnableAgent } from "@hyperidle/users";
+import { requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-import { eq } from "drizzle-orm";
-
-/**
- * AU26 G1 (architecture §D-L) / AU31 §3.1: `isAgentAtCapacity`'s bound
- * reader used to be composed from two DIRECT Service reads (`users` +
- * `agent-run-config`); the `agent-run-config` half is now
- * `AgentOrchestrationPort.runConfig.read`, so this reader is built per-port
- * inside `buildRoutineSchedulerPorts`, not at module scope. `users` stays a
- * direct read — `users` is core-api's own Service.
- */
-function buildConcurrencyBoundReader(port: AgentOrchestrationPort): {
-	getConcurrencyBound(
-		execDb: HyperIdleDb,
-		agentId: string,
-	): Promise<{ readonly maxConcurrentSessions: number } | undefined>;
-} {
-	return {
-		async getConcurrencyBound(execDb, agentId) {
-			// AU26 G1: `users` answers "does this agent exist at all" (fail closed
-			// if not); the seam answers "what is its `maxConcurrentSessions`" (the
-			// port's own default when never configured).
-			const user = await findUser(execDb, { id: agentId });
-			if (!user) return undefined;
-			const { maxConcurrentSessions } = await port.runConfig.read(agentId);
-			return { maxConcurrentSessions };
-		},
-	};
-}
-
-/**
- * AU21 §6 Decision F1 fold — the `userSkills` read `routine`'s own
- * `agent-delegation.ts` needs (`userSkills` is an `UNOWNED_SHARED_TABLES`
- * table — any Service may query it, but this composition root keeps the
- * read here so `selectRoutineDelegate`'s `listAgentIdsBySkill` port stays an
- * injected Mechanism-C capability, symmetric with `isAtCapacity`).
- */
-function listAgentIdsBySkill(db: HyperIdleDb, skillId: string): Promise<readonly string[]> {
-	return db
-		.select({ agentId: userSkills.userId })
-		.from(userSkills)
-		.where(eq(userSkills.skillId, skillId))
-		.then((rows) => rows.map((row) => row.agentId));
-}
 
 /**
  * @lore AU19 Increment 3h (relocated from `dispatch-bindings.ts`, AU21 §9
@@ -123,22 +78,6 @@ async function recomputeAttentionForCandidates(
 	);
 	if (!("ok" in result)) throw new Error("unexpected attention result");
 	return result;
-}
-
-/**
- * AU31 §3.1: the seam-backed capacity check — resolves the bound (fail
- * closed, `true`, when the agent does not exist — same semantics
- * `@hyperidle/run-orchestration`'s `isAgentAtCapacity` always had) then asks
- * the door for the active-session count comparison.
- */
-async function isAtCapacityViaSeam(
-	db: HyperIdleDb,
-	agentId: string,
-	port: AgentOrchestrationPort,
-): Promise<boolean> {
-	const bound = await buildConcurrencyBoundReader(port).getConcurrencyBound(db, agentId);
-	if (!bound) return true;
-	return port.runs.isAtCapacity(agentId, bound.maxConcurrentSessions);
 }
 
 /**
@@ -183,18 +122,6 @@ export function buildRoutineSchedulerPorts(port: AgentOrchestrationPort): Routin
 		// `AgentOrchestrationPort`'s builder), and this is called AFTER
 		// `fireGenericRoutine`'s emit transaction commits, never inside it.
 		workIntents: { enqueueWorkIntent: (_exec, input) => port.intents.submit(input) },
-		agentSelection: {
-			isAtCapacity: (db, agentId) => isAtCapacityViaSeam(db, agentId, port),
-			selectAgent: (input) =>
-				selectRoutineDelegate(
-					input.db,
-					{
-						listAgentIdsBySkill,
-						isAtCapacity: (db, agentId) => isAtCapacityViaSeam(db, agentId, port),
-					},
-					input,
-				),
-		},
 		requireRunnableAgent,
 		// AU21 §9 Increment 12 (Decision H3): wire the contextBundle bake deps
 		// `resolveRoutineRunRequest` needs — a routine_run session's sandbox now

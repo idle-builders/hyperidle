@@ -12,7 +12,7 @@
  * that enriched shape.
  */
 
-import { selectBetSchema } from "@hyperidle/db/zod-schemas";
+import type { Bet } from "@hyperidle/db";
 import { BET_STATUSES, TASK_STATES } from "@hyperidle/shared";
 import { z } from "zod";
 import { enumValues, progressSchema } from "./common.schema.js";
@@ -87,21 +87,57 @@ export const betDetailResponseSchema = z.object({
 });
 
 /**
- * A raw bet list item — the DB row shape used in the grouped list response.
- * Uses the drizzle-zod generated select schema.
+ * A bet list item — the wire shape of one entry in the grouped list response
+ * from GET /api/bets.
+ *
+ * @lore AU30: hand-written, not derived from the `bets` table. Two reasons, and
+ * the second is the load-bearing one:
+ *
+ * 1. Deriving it meant importing drizzle-zod's `selectBetSchema`, which is the
+ *    `bets` table symbol as far as ownership is concerned — a reach past the
+ *    service that owns the table. The generated schema is not a legal shortcut
+ *    into a table this layer does not own.
+ * 2. The derived schema was simply wrong. The `at_risk` column is an integer,
+ *    but the route normalizes it (`normalizeBet` in routes/bets.ts) so the wire
+ *    carries a boolean — the derived schema rejected the very payload the
+ *    endpoint emits. It survived because the only test that parsed a live
+ *    response inserted no bet and so validated four empty arrays.
+ *
+ * This file describes wire shapes, exactly as the sibling
+ * `betDetailResponseSchema` above already does by hand. The `Pin` below is what
+ * keeps the wire shape honest about the row it derives from: add, drop or retype
+ * a `bets` column and the pin fails to typecheck.
  */
-// @lore AF4/§4c: drizzle-zod 0.8.3 dedupes to zod 3.25.76, so selectBetSchema
-// carries a zod-3.25 `$ZodType` brand that is nominally distinct from server's
-// zod 4.4.3 `SomeType` (the z.array() arg). Bridge the internal schema type
-// (NON-boundary, not a request/response payload cast) so z.array() accepts it.
-// Same parsed shape; version-alignment is out of AF4 scope (§9).
-// @lore no-unknown-cast exception: this is a cross-zod-VERSION brand bridge
-// (drizzle-zod's zod-3.25 `$ZodType` vs server's zod-4.4.3 `SomeType`), not a
-// shape assertion — the two types are structurally identical but nominally
-// distinct, so TS requires the `unknown` hop. The real fix is aligning zod
-// versions (out of scope). Disabled here, not weakened globally.
-// eslint-disable-next-line design/no-unknown-cast
-export const betListItemSchema = selectBetSchema as unknown as z.ZodTypeAny;
+export const betListItemSchema = z.object({
+	id: z.string(),
+	teamId: z.string(),
+	description: z.string(),
+	appetite: z.string().nullable(),
+	doneCondition: z.string().nullable(),
+	hypothesis: z.string().nullable(),
+	// @lore AU30: deliberately not narrowed to BET_STATUSES — the column is plain
+	// `text`, so `Bet["status"]` is `string` and an enum would break the pin below.
+	// The generated schema did not narrow it either. Narrowing is a decision about
+	// the endpoint, not about this schema's placement.
+	status: z.string(),
+	revisionLog: z.string().nullable(),
+	createdAt: z.string(),
+	completedAt: z.string().nullable(),
+	// @lore U2: the wire value is a boolean; the column is integer 0/1.
+	atRisk: z.boolean(),
+	tokensActualJson: z.string().nullable(),
+	outcomeVerdict: z.string().nullable(),
+	outcomeSummary: z.string().nullable(),
+	outcomeRecordedAt: z.string().nullable(),
+	outcomeRecordedBy: z.string().nullable(),
+	sourceKnowledgeItemId: z.string().nullable(),
+});
+
+/** The `bets` row as it appears on the wire: every column, `atRisk` normalized. */
+type BetListItem = Omit<Bet, "atRisk"> & { atRisk: boolean };
+type Wire = z.infer<typeof betListItemSchema>;
+type Pin = Wire extends BetListItem ? (BetListItem extends Wire ? true : false) : false;
+true satisfies Pin;
 
 /**
  * Grouped bet list response from GET /api/bets.

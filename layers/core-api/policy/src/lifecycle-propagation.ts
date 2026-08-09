@@ -15,7 +15,7 @@ import {
 	type TaskState,
 	type TaskStateChangedEvent,
 } from "@hyperidle/shared";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, lt } from "drizzle-orm";
 import type { PolicyDeps } from "./ports.js";
 
 type LifecyclePropagationDeps = Pick<
@@ -182,9 +182,9 @@ const SYSTEM_PROPAGATION_AGENT_ID = "system:propagation";
 /** Terminal task states — tasks in these states are "done" for bet completion purposes. */
 const TERMINAL_TASK_STATES = new Set(["done", "killed"]);
 
-// ─── logPropagation helper ─────────────────────────────────────────────────────
+// ─── propagation_log accessors ───────────────────────────────────────────────
 
-interface LogPropagationEntry {
+export interface LogPropagationEntry {
 	sourceLevel: string;
 	sourceId: string;
 	sourceEvent: string;
@@ -196,7 +196,21 @@ interface LogPropagationEntry {
 	attempts?: number;
 }
 
-async function logPropagation(db: HyperIdleDb, entry: LogPropagationEntry): Promise<void> {
+/**
+ * Write one propagation hop. `policy` owns `propagation_log`, so this is the
+ * only door onto it — for this module's own hops and for the bet-kill cascade,
+ * which reaches it through a port.
+ *
+ * @lore The cascade used to hand-maintain its own row builder and say so: its
+ * comment read "mirrors fabric's `logPropagation` field-for-field". A duplicate
+ * that has to be kept identical by reading is a duplicate that drifts, and the
+ * two only agreed because the cascade's inputs happened to hit the same
+ * branches. There is one builder now.
+ */
+export async function recordPropagationHop(
+	db: HyperIdleDb,
+	entry: LogPropagationEntry,
+): Promise<void> {
 	const now = new Date().toISOString();
 	const row: NewPropagationLogRow = {
 		id: crypto.randomUUID(),
@@ -213,6 +227,26 @@ async function logPropagation(db: HyperIdleDb, entry: LogPropagationEntry): Prom
 		appliedAt: entry.status === "applied" ? now : null,
 	};
 	await db.insert(propagationLog).values(row);
+}
+
+/**
+ * Delete settled propagation rows older than `termCutoff` — the retention
+ * sweep's predicate. `applied` and `skipped` are the settled statuses;
+ * `pending_retry` rows are still live work and survive the sweep regardless of
+ * age.
+ */
+export async function reapTerminalPropagationLog(
+	db: HyperIdleDb,
+	termCutoff: string,
+): Promise<void> {
+	await db
+		.delete(propagationLog)
+		.where(
+			and(
+				lt(propagationLog.createdAt, termCutoff),
+				inArray(propagationLog.status, ["applied", "skipped"]),
+			),
+		);
 }
 
 // ─── Session -> Task propagation ─────────────────────────────────────────────
@@ -239,7 +273,7 @@ async function propagateSessionToTask(
 			await onResolve(entry.status, entry.failureReason);
 			return;
 		}
-		await logPropagation(db, {
+		await recordPropagationHop(db, {
 			sourceLevel: "session",
 			sourceId: sessionId,
 			sourceEvent: "session_ended",
@@ -379,7 +413,7 @@ async function propagateTaskToBet(
 			await onResolve(entry.status, entry.failureReason);
 			return;
 		}
-		await logPropagation(db, {
+		await recordPropagationHop(db, {
 			sourceLevel: "task",
 			sourceId: taskId,
 			sourceEvent: "task_state_changed",
@@ -545,7 +579,7 @@ async function logBetToTeamPropagation(
 
 	// Team status is derived on read — no write-time propagation needed.
 	// We log the event for audit and emit propagation_applied.
-	await logPropagation(db, {
+	await recordPropagationHop(db, {
 		sourceLevel: "bet",
 		sourceId: betId,
 		sourceEvent: "bet_state_changed",
@@ -714,7 +748,7 @@ function registerLifecyclePropagation(
 				deps,
 			);
 		})().catch(async (error: unknown) => {
-			await logPropagation(db, {
+			await recordPropagationHop(db, {
 				sourceLevel: "session",
 				sourceId: event.sessionId,
 				sourceEvent: "session_ended",
@@ -733,7 +767,7 @@ function registerLifecyclePropagation(
 			void (async () => {
 				await propagateTaskToBet(db, eventBus, event.taskId, deps);
 			})().catch(async (error: unknown) => {
-				await logPropagation(db, {
+				await recordPropagationHop(db, {
 					sourceLevel: "task",
 					sourceId: event.taskId,
 					sourceEvent: "task_state_changed",
@@ -753,7 +787,7 @@ function registerLifecyclePropagation(
 		if (event.toState === "completed" || event.toState === "killed") {
 			void logBetToTeamPropagation(db, eventBus, event.betId, event.toState, deps).catch(
 				async (error: unknown) => {
-					await logPropagation(db, {
+					await recordPropagationHop(db, {
 						sourceLevel: "bet",
 						sourceId: event.betId,
 						sourceEvent: "bet_state_changed",

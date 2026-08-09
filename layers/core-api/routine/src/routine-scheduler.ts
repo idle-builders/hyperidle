@@ -71,7 +71,6 @@ import {
 	listRoutines,
 	RoutineRunSourceUnavailableError,
 	resolveRoutineRunRequest,
-	resolveRoutineRunTargetAgent,
 	updateRoutine,
 	updateRoutineRun,
 } from "./routine-service.js";
@@ -610,11 +609,6 @@ export async function fireGenericRoutine(
 		return { fired: false, reason: "previous run still in progress" };
 	}
 	const runId = crypto.randomUUID();
-	// AU31 §3.1 — hoisted, not relinquished: the capacity + delegate-selection
-	// read(s) run BEFORE the transaction opens, against the already-loaded
-	// `routine` — a seam call inside an open transaction deadlocks the shared
-	// connection the same way a write does, regardless of read vs. write.
-	const selectedAgentId = await resolveRoutineRunTargetAgent(db, routine, ports.agentSelection);
 	let bakedRequest: BakedRoutineRunRequest | undefined;
 	try {
 		await db.transaction(async (tx) => {
@@ -624,7 +618,7 @@ export async function fireGenericRoutine(
 				startedAt: now.toISOString(),
 				outcome: "running",
 			});
-			bakedRequest = await resolveRoutineRunRequest(tx as HyperIdleDb, runId, selectedAgentId, {
+			bakedRequest = await resolveRoutineRunRequest(tx as HyperIdleDb, runId, {
 				requireRunnableAgent: ports.requireRunnableAgent,
 				// AU21 §9 Increment 12 (Decision H3): forward the optional
 				// contextBundle deps (present once the composition root wires

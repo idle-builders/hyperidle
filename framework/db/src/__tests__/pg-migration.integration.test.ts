@@ -33,11 +33,10 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 			// are migration artifacts.
 			expect(tableNames).toEqual(
 				expect.arrayContaining([
-					// @lore P2: agents → users, agent_skills → user_skills
+					// @lore P2: agents → users
 					// @lore U1: `products` → `teams`; old `teams` → `team_members`
 					// @lore: `file_leases` was dropped in older migrations
 					"users",
-					"user_skills",
 					"bets",
 					"hint_progress",
 					"invite_codes",
@@ -61,6 +60,10 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 			expect(tableNames).not.toContain("products");
 			// @lore AU18: factory_settings dropped — must not reappear.
 			expect(tableNames).not.toContain("factory_settings");
+			// @lore AU30: `user_skills` dropped. Exact-absence, because the expected
+			// list above is `arrayContaining` and tolerates extras — see the longer
+			// note in migration.integration.test.ts.
+			expect(tableNames).not.toContain("user_skills");
 			expect(tableNames.length).toBeGreaterThanOrEqual(19);
 		} finally {
 			await close();

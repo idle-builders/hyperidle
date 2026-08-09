@@ -5,7 +5,7 @@
  *  - routes/users.ts exports createUserRoutes(db)
  *  - app.ts mounts createUserRoutes at /api/users
  *  - /api/agents route is removed or returns 404
- *  - schema.ts exports users, userSkills tables
+ *  - schema.ts exports the users table
  *
  * @lore P2: The /api/agents route is renamed to /api/users. All existing
  * endpoint behaviors are preserved — only the path changes.
@@ -14,7 +14,6 @@
 import {
 	teamMembers,
 	teams,
-	userSkills,
 	// P2: import new symbols — compile error until implementation done
 	users,
 } from "@hyperidle/db";
@@ -163,7 +162,7 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 	// AC10: user detail endpoint
 	// -------------------------------------------------------------------------
 	describe("AC10: GET /api/users/:id — user detail", () => {
-		test("returns 200 with user details including skills", async ({ app, db }) => {
+		test("returns 200 with user details", async ({ app, db }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			await db
 				.insert(teams)
@@ -184,17 +183,11 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 				teamId: "team-p2",
 				createdAt: NOW,
 			});
-			await db.insert(userSkills).values([
-				{ userId: "user-p2-1", skillId: "coding", autonomyLevel: 2 },
-				{ userId: "user-p2-1", skillId: "testing", autonomyLevel: 3 },
-			]);
-
 			const res = await app.request("/api/users/user-p2-1", { headers: authHeaders() });
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as Record<string, unknown>;
 			expect(body.id).toBe("user-p2-1");
-			expect(body).toHaveProperty("skills");
 			vi.unstubAllEnvs();
 		});
 
@@ -204,79 +197,6 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 				headers: authHeaders(),
 			});
 			expect(res.status).toBe(404);
-			vi.unstubAllEnvs();
-		});
-	});
-
-	// -------------------------------------------------------------------------
-	// AC10: user skill update endpoint
-	// -------------------------------------------------------------------------
-	describe("AC10: PATCH /api/users/:id/skills/:skillId — update autonomy level", () => {
-		test("returns 200 after updating skill autonomy level", async ({ app, db }) => {
-			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			await db
-				.insert(teams)
-				.values({ id: "prod-p2", name: "P2 Product", phase: "build", createdAt: NOW });
-			await db.insert(teamMembers).values({
-				id: "team-p2",
-				teamId: "prod-p2",
-				capacity: 5,
-				activeBets: 0,
-				formedAt: NOW,
-			});
-			await db.insert(users).values({
-				id: "user-p2-1",
-				kind: "ai",
-				name: "Builder Bot",
-				role: "builder",
-				status: "active",
-				teamId: "team-p2",
-				createdAt: NOW,
-			});
-			await db
-				.insert(userSkills)
-				.values({ userId: "user-p2-1", skillId: "coding", autonomyLevel: 2 });
-
-			const res = await app.request("/api/users/user-p2-1/skills/coding", {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({ autonomyLevel: 4 }),
-			});
-			expect(res.status).toBe(200);
-			vi.unstubAllEnvs();
-		});
-
-		test("returns 400 for invalid autonomy level", async ({ app, db }) => {
-			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			await db
-				.insert(teams)
-				.values({ id: "prod-p2", name: "P2 Product", phase: "build", createdAt: NOW });
-			await db.insert(teamMembers).values({
-				id: "team-p2",
-				teamId: "prod-p2",
-				capacity: 5,
-				activeBets: 0,
-				formedAt: NOW,
-			});
-			await db.insert(users).values({
-				id: "user-p2-1",
-				kind: "ai",
-				name: "Builder Bot",
-				role: "builder",
-				status: "active",
-				teamId: "team-p2",
-				createdAt: NOW,
-			});
-			await db
-				.insert(userSkills)
-				.values({ userId: "user-p2-1", skillId: "coding", autonomyLevel: 2 });
-
-			const res = await app.request("/api/users/user-p2-1/skills/coding", {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({ autonomyLevel: 999 }),
-			});
-			expect(res.status).toBe(400);
 			vi.unstubAllEnvs();
 		});
 	});

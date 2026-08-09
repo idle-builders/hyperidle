@@ -12,11 +12,7 @@
  *      not `"running"`.
  *   2. Load the routine; reject if it is soft-deleted (`deletedAt`), not
  *      `active`, or its `state` is not `"active"`.
- *   3. Resolve the target agent: default to the routine's `ownerAgentId`.
- *      If the owner `isAtCapacity`, AND `delegationAllowed` AND a `skillId`
- *      is set, delegate via `agentSelection.selectAgent({surface:
- *      "routine_delegate", ...})` — overriding the target ONLY if a
- *      candidate was actually found (a `null` result keeps the owner).
+ *   3. Resolve the target agent: the routine's `ownerAgentId`.
  *   4. Validate the resolved target's runnability via the shared ast-`<userId>`
  *      invariant (`requireRunnableAgent`, `@hyperidle/users`).
  *   5. Bake: `defaultAgentId`, `sourceKind:"routine"`, `sourceId` (the RUN
@@ -48,7 +44,6 @@ import {
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { assembleSessionKnowledge } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
-import type { RoutineRunResolverDeps } from "@hyperidle/routine";
 import { requireRunnableAgent } from "@hyperidle/users";
 
 async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
@@ -114,51 +109,25 @@ async function seedRun(
 	});
 }
 
-/** A controllable `agentSelection` fake — deterministic per test, not the real service. */
-function fakeAgentSelection(options: {
-	readonly atCapacity: boolean;
-	readonly delegateAgentId?: string | null;
-}) {
-	return {
-		isAtCapacity: async () => options.atCapacity,
-		selectAgent: async () => ({ agentId: options.delegateAgentId ?? null }),
-	};
-}
-
-function buildDeps(agentSelection: ReturnType<typeof fakeAgentSelection>) {
-	return { agentSelection, requireRunnableAgent };
-}
-
 /**
- * AU31 §3.1 — `resolveRoutineRunRequest` no longer does its own agent
- * selection (split into `resolveRoutineRunTargetAgent`, called BEFORE the
- * caller's transaction opens — see `routine-scheduler.ts`'s `fireGenericRoutine`).
- * This test file's fixtures build a single `deps` bag carrying `agentSelection`,
- * so this helper reproduces the pre-split combined call exactly:
- * resolve the target agent from the routine the run belongs to, then resolve
- * the rest. A run/routine that does not exist or is ineligible degrades to a
- * placeholder agent id — `resolveRoutineRunRequest`'s own re-validation is
- * still what throws in that case, unchanged.
+ * @lore AU30: every case here except the `contextBundle` one passes its deps
+ * through this helper rather than a fresh object literal — and a call
+ * expression gets NO excess-property check. When `agentSelection` was dropped
+ * from `RoutineRunResolverDeps`, `npm run check` flagged exactly one line in
+ * this file (the `contextBundle` case's literal) while the helper-fed cases
+ * compiled clean and would have failed only at runtime, in the integration
+ * lane that `npm run test` excludes. If you remove a dep from that interface,
+ * enumerate this file's cases by hand; the compiler will not do it for you.
  */
-async function resolveRoutineRunRequestForTest(
-	db: HyperIdleDb,
-	runId: string,
-	deps: RoutineRunResolverDeps & { readonly agentSelection: ReturnType<typeof fakeAgentSelection> },
-) {
-	const { getRoutine, getRoutineRun, resolveRoutineRunTargetAgent, resolveRoutineRunRequest } =
-		await import("../routine-service.js");
-	const run = await getRoutineRun(db, runId);
-	const routine = run ? await getRoutine(db, run.routineId) : undefined;
-	const selectedAgentId = routine
-		? await resolveRoutineRunTargetAgent(db, routine, deps.agentSelection)
-		: "unresolved-agent";
-	return resolveRoutineRunRequest(db, runId, selectedAgentId, deps);
+function buildDeps() {
+	return { requireRunnableAgent };
 }
 
 describe("resolveRoutineRunRequest — emit-time routine_run resolver (routine)", () => {
 	test("bakes the full request for a valid running run + eligible routine + owner not at capacity", async ({
 		db,
 	}) => {
+		const { resolveRoutineRunRequest } = await import("../routine-service.js");
 		await seedTeam(db, "team-rrun-1");
 		await seedAgent(db, "owner-rrun-1");
 		await seedRoutine(db, {
@@ -168,11 +137,7 @@ describe("resolveRoutineRunRequest — emit-time routine_run resolver (routine)"
 		});
 		await seedRun(db, { runId: "run-rrun-1", routineId: "routine-rrun-1" });
 
-		const baked = await resolveRoutineRunRequestForTest(
-			db,
-			"run-rrun-1",
-			buildDeps(fakeAgentSelection({ atCapacity: false })),
-		);
+		const baked = await resolveRoutineRunRequest(db, "run-rrun-1", buildDeps());
 
 		expect(baked).toMatchObject({
 			defaultAgentId: "owner-rrun-1",
@@ -190,16 +155,12 @@ describe("resolveRoutineRunRequest — emit-time routine_run resolver (routine)"
 	});
 
 	test("rejects when the routine run does not exist", async ({ db }) => {
-		await expect(
-			resolveRoutineRunRequestForTest(
-				db,
-				"run-does-not-exist",
-				buildDeps(fakeAgentSelection({ atCapacity: false })),
-			),
-		).rejects.toThrow();
+		const { resolveRoutineRunRequest } = await import("../routine-service.js");
+		await expect(resolveRoutineRunRequest(db, "run-does-not-exist", buildDeps())).rejects.toThrow();
 	});
 
 	test("rejects when the routine run's outcome is not 'running'", async ({ db }) => {
+		const { resolveRoutineRunRequest } = await import("../routine-service.js");
 		await seedTeam(db, "team-rrun-2");
 		await seedAgent(db, "owner-rrun-2");
 		await seedRoutine(db, {
@@ -209,16 +170,11 @@ describe("resolveRoutineRunRequest — emit-time routine_run resolver (routine)"
 		});
 		await seedRun(db, { runId: "run-rrun-2", routineId: "routine-rrun-2", outcome: "success" });
 
-		await expect(
-			resolveRoutineRunRequestForTest(
-				db,
-				"run-rrun-2",
-				buildDeps(fakeAgentSelection({ atCapacity: false })),
-			),
-		).rejects.toThrow();
+		await expect(resolveRoutineRunRequest(db, "run-rrun-2", buildDeps())).rejects.toThrow();
 	});
 
 	test("rejects when the routine is soft-deleted", async ({ db }) => {
+		const { resolveRoutineRunRequest } = await import("../routine-service.js");
 		await seedTeam(db, "team-rrun-3");
 		await seedAgent(db, "owner-rrun-3");
 		await seedRoutine(db, {
@@ -229,16 +185,11 @@ describe("resolveRoutineRunRequest — emit-time routine_run resolver (routine)"
 		});
 		await seedRun(db, { runId: "run-rrun-3", routineId: "routine-rrun-3" });
 
-		await expect(
-			resolveRoutineRunRequestForTest(
-				db,
-				"run-rrun-3",
-				buildDeps(fakeAgentSelection({ atCapacity: false })),
-			),
-		).rejects.toThrow();
+		await expect(resolveRoutineRunRequest(db, "run-rrun-3", buildDeps())).rejects.toThrow();
 	});
 
 	test("rejects when the routine is inactive (active=false)", async ({ db }) => {
+		const { resolveRoutineRunRequest } = await import("../routine-service.js");
 		await seedTeam(db, "team-rrun-4");
 		await seedAgent(db, "owner-rrun-4");
 		await seedRoutine(db, {
@@ -249,16 +200,11 @@ describe("resolveRoutineRunRequest — emit-time routine_run resolver (routine)"
 		});
 		await seedRun(db, { runId: "run-rrun-4", routineId: "routine-rrun-4" });
 
-		await expect(
-			resolveRoutineRunRequestForTest(
-				db,
-				"run-rrun-4",
-				buildDeps(fakeAgentSelection({ atCapacity: false })),
-			),
-		).rejects.toThrow();
+		await expect(resolveRoutineRunRequest(db, "run-rrun-4", buildDeps())).rejects.toThrow();
 	});
 
 	test("rejects when the routine's state is not 'active' (e.g. 'paused')", async ({ db }) => {
+		const { resolveRoutineRunRequest } = await import("../routine-service.js");
 		await seedTeam(db, "team-rrun-5");
 		await seedAgent(db, "owner-rrun-5");
 		await seedRoutine(db, {
@@ -269,131 +215,11 @@ describe("resolveRoutineRunRequest — emit-time routine_run resolver (routine)"
 		});
 		await seedRun(db, { runId: "run-rrun-5", routineId: "routine-rrun-5" });
 
-		await expect(
-			resolveRoutineRunRequestForTest(
-				db,
-				"run-rrun-5",
-				buildDeps(fakeAgentSelection({ atCapacity: false })),
-			),
-		).rejects.toThrow();
-	});
-
-	test("delegates to a fallback agent when the owner is at capacity, delegation is allowed, and a skillId is set", async ({
-		db,
-	}) => {
-		await seedTeam(db, "team-rrun-6");
-		await seedAgent(db, "owner-rrun-6");
-		await seedAgent(db, "delegate-rrun-6");
-		await seedRoutine(db, {
-			routineId: "routine-rrun-6",
-			teamId: "team-rrun-6",
-			ownerAgentId: "owner-rrun-6",
-			delegationAllowed: true,
-			skillId: "skill-x",
-		});
-		await seedRun(db, { runId: "run-rrun-6", routineId: "routine-rrun-6" });
-
-		const baked = await resolveRoutineRunRequestForTest(
-			db,
-			"run-rrun-6",
-			buildDeps(fakeAgentSelection({ atCapacity: true, delegateAgentId: "delegate-rrun-6" })),
-		);
-
-		expect(baked.defaultAgentId).toBe("delegate-rrun-6");
-	});
-
-	test("keeps the owner when at capacity but delegationAllowed is false", async ({ db }) => {
-		await seedTeam(db, "team-rrun-7");
-		await seedAgent(db, "owner-rrun-7");
-		await seedAgent(db, "delegate-rrun-7");
-		await seedRoutine(db, {
-			routineId: "routine-rrun-7",
-			teamId: "team-rrun-7",
-			ownerAgentId: "owner-rrun-7",
-			delegationAllowed: false,
-			skillId: "skill-x",
-		});
-		await seedRun(db, { runId: "run-rrun-7", routineId: "routine-rrun-7" });
-
-		const baked = await resolveRoutineRunRequestForTest(
-			db,
-			"run-rrun-7",
-			buildDeps(fakeAgentSelection({ atCapacity: true, delegateAgentId: "delegate-rrun-7" })),
-		);
-
-		expect(baked.defaultAgentId).toBe("owner-rrun-7");
-	});
-
-	test("keeps the owner when at capacity but no skillId is set", async ({ db }) => {
-		await seedTeam(db, "team-rrun-8");
-		await seedAgent(db, "owner-rrun-8");
-		await seedAgent(db, "delegate-rrun-8");
-		await seedRoutine(db, {
-			routineId: "routine-rrun-8",
-			teamId: "team-rrun-8",
-			ownerAgentId: "owner-rrun-8",
-			delegationAllowed: true,
-			skillId: null,
-		});
-		await seedRun(db, { runId: "run-rrun-8", routineId: "routine-rrun-8" });
-
-		const baked = await resolveRoutineRunRequestForTest(
-			db,
-			"run-rrun-8",
-			buildDeps(fakeAgentSelection({ atCapacity: true, delegateAgentId: "delegate-rrun-8" })),
-		);
-
-		expect(baked.defaultAgentId).toBe("owner-rrun-8");
-	});
-
-	test("keeps the owner when NOT at capacity, even if delegationAllowed + skillId are set", async ({
-		db,
-	}) => {
-		await seedTeam(db, "team-rrun-9");
-		await seedAgent(db, "owner-rrun-9");
-		await seedAgent(db, "delegate-rrun-9");
-		await seedRoutine(db, {
-			routineId: "routine-rrun-9",
-			teamId: "team-rrun-9",
-			ownerAgentId: "owner-rrun-9",
-			delegationAllowed: true,
-			skillId: "skill-x",
-		});
-		await seedRun(db, { runId: "run-rrun-9", routineId: "routine-rrun-9" });
-
-		const baked = await resolveRoutineRunRequestForTest(
-			db,
-			"run-rrun-9",
-			buildDeps(fakeAgentSelection({ atCapacity: false, delegateAgentId: "delegate-rrun-9" })),
-		);
-
-		expect(baked.defaultAgentId).toBe("owner-rrun-9");
-	});
-
-	test("keeps the owner when at capacity + delegation eligible but selectAgent finds no candidate", async ({
-		db,
-	}) => {
-		await seedTeam(db, "team-rrun-10");
-		await seedAgent(db, "owner-rrun-10");
-		await seedRoutine(db, {
-			routineId: "routine-rrun-10",
-			teamId: "team-rrun-10",
-			ownerAgentId: "owner-rrun-10",
-			delegationAllowed: true,
-			skillId: "skill-x",
-		});
-		await seedRun(db, { runId: "run-rrun-10", routineId: "routine-rrun-10" });
-
-		const baked = await resolveRoutineRunRequestForTest(
-			db,
-			"run-rrun-10",
-			buildDeps(fakeAgentSelection({ atCapacity: true, delegateAgentId: null })),
-		);
-
-		expect(baked.defaultAgentId).toBe("owner-rrun-10");
+		await expect(resolveRoutineRunRequest(db, "run-rrun-5", buildDeps())).rejects.toThrow();
 	});
 
 	test("rejects when the resolved owner is not a runnable AI agent", async ({ db }) => {
+		const { resolveRoutineRunRequest } = await import("../routine-service.js");
 		await seedTeam(db, "team-rrun-11");
 		await seedAgent(db, "owner-rrun-11", { status: "retired" });
 		await seedRoutine(db, {
@@ -403,35 +229,7 @@ describe("resolveRoutineRunRequest — emit-time routine_run resolver (routine)"
 		});
 		await seedRun(db, { runId: "run-rrun-11", routineId: "routine-rrun-11" });
 
-		await expect(
-			resolveRoutineRunRequestForTest(
-				db,
-				"run-rrun-11",
-				buildDeps(fakeAgentSelection({ atCapacity: false })),
-			),
-		).rejects.toThrow();
-	});
-
-	test("rejects when the delegated fallback agent is not a runnable AI agent", async ({ db }) => {
-		await seedTeam(db, "team-rrun-12");
-		await seedAgent(db, "owner-rrun-12");
-		await seedAgent(db, "delegate-rrun-12", { status: "paused" });
-		await seedRoutine(db, {
-			routineId: "routine-rrun-12",
-			teamId: "team-rrun-12",
-			ownerAgentId: "owner-rrun-12",
-			delegationAllowed: true,
-			skillId: "skill-x",
-		});
-		await seedRun(db, { runId: "run-rrun-12", routineId: "routine-rrun-12" });
-
-		await expect(
-			resolveRoutineRunRequestForTest(
-				db,
-				"run-rrun-12",
-				buildDeps(fakeAgentSelection({ atCapacity: true, delegateAgentId: "delegate-rrun-12" })),
-			),
-		).rejects.toThrow();
+		await expect(resolveRoutineRunRequest(db, "run-rrun-11", buildDeps())).rejects.toThrow();
 	});
 });
 
@@ -476,6 +274,7 @@ describe("resolveRoutineRunRequest — contextBundle baking (Increment 12 Wave B
 	test("bakes a contextBundle (kind:'routine') with routine/agent/team content + ranked knowledge", async ({
 		db,
 	}) => {
+		const { resolveRoutineRunRequest } = await import("../routine-service.js");
 		await seedTeam(db, "team-rrun-ctx-1");
 		await seedAgent(db, "owner-rrun-ctx-1");
 		await seedRoutine(db, {
@@ -506,8 +305,7 @@ describe("resolveRoutineRunRequest — contextBundle baking (Increment 12 Wave B
 			scopeId: null,
 		});
 
-		const baked = await resolveRoutineRunRequestForTest(db, "run-rrun-ctx-1", {
-			agentSelection: fakeAgentSelection({ atCapacity: false }),
+		const baked = await resolveRoutineRunRequest(db, "run-rrun-ctx-1", {
 			requireRunnableAgent,
 			getTeamById: (d: HyperIdleDb, id: string) => getTeam(d, { id }),
 			assembleSessionKnowledge,

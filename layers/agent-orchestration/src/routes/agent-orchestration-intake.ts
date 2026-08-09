@@ -40,7 +40,6 @@ import { getFilesystem, saveInjection as saveFilesystemInjection } from "@hyperi
 import {
 	createBareRun,
 	endRunForHandoff,
-	isAgentAtCapacity,
 	requestRunStopForTasks,
 } from "@hyperidle/run-orchestration";
 import {
@@ -304,23 +303,6 @@ export function createAgentOrchestrationIntakeRoutes(
 			const body = c.req.valid("json");
 			const created = await createBareRun(db, eventBus, body);
 			return c.json({ session: created }, 201);
-		},
-	);
-
-	// ── runs.isAtCapacity — POST /agent-orchestration/runs/is-at-capacity ────
-	// AU31 §3.1: the routine-scheduler's hoisted capacity read — the caller
-	// resolves `maxConcurrentSessions` (`runConfig.read`) and passes it in, so
-	// this door does no run-config resolution of its own.
-	router.post(
-		"/runs/is-at-capacity",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(z.object({ agentId: z.string().min(1), maxConcurrentSessions: z.number() })),
-		async (c) => {
-			const { agentId, maxConcurrentSessions } = c.req.valid("json");
-			const atCapacity = await isAgentAtCapacity(db, agentId, {
-				getConcurrencyBound: async () => ({ maxConcurrentSessions }),
-			});
-			return c.json({ atCapacity });
 		},
 	);
 

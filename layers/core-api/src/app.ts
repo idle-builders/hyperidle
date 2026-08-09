@@ -418,7 +418,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		);
 		api.route(
 			"/users",
-			createUserRoutes(options.db, eventBus, agentOrchestration, options.adapterPool),
+			createUserRoutes(options.db, agentOrchestration, options.adapterPool),
 		);
 		api.route("/org", createOrgRoutes(options.db, agentOrchestration));
 		api.route("/routines", createRoutineRoutes(options.db, eventBus, agentOrchestration));

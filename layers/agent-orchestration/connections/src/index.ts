@@ -5,8 +5,10 @@
  * Typed functions and classes only. This barrel MUST NOT re-export the raw
  * `serviceConnections` pgTable object — that would let a consumer obtain the
  * table transitively and defeat Table ACL (Mechanism A). This package is the
- * sole importer of that table; `scripts/table-ownership-guard.ts`'s
- * `TABLE_OWNER` names it.
+ * sole importer of that table, and `governance/table-owners.json` names it the
+ * owner. It does NOT own `server_credentials` — that table belongs to
+ * `@hyperidle/credentials`, as the next paragraph's consumer-locus argument
+ * already said and the registry now agrees.
  *
  * @lore AU26 E2 (AU21 Decision J2/J3): this package is the destination half of
  * the connections relocation. `service_connections` is agent-session-

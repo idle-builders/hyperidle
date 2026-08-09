@@ -788,50 +788,6 @@ export default [
 	// `layers/core-ui/src/**` blocks set `no-restricted-imports` (fixtures ban,
 	// api-typesafety server ban, format-time dead-import ban) — being last makes
 	// THIS block authoritative for preview/**, so it must re-state the full
-	// AK7 — Selection seam static guard ("no persona inspection in selection").
-	//
-	// Bans `systemPrompt` and `AGENTS.md` string literals in the selection
-	// modules. Enforces the §2a Execution rule: "the Kernel never inspects the
-	// AGENTS.md". Selection attaches to a user-id; persona content is
-	// Strategy-owned.
-	//
-	// @lore The AC1 half of this guard — a ban on the round-robin expression
-	// `% <candidates>.length` — is GONE, deliberately. Its sole target was
-	// `layers/core-api/work/src/bet-decomposition.ts`, and bet decomposition was
-	// deleted outright (AU21 Decision I; migration 0053 dropped the columns).
-	// The block survived the deletion pointing at a file that no longer exists,
-	// which in ESLint is a silent no-op: it reported clean forever and read as
-	// coverage. Deleted rather than repointed — there is no successor file
-	// performing that selection, so there is nothing left to police.
-	{
-		// @lore AU21 §6 Decision F1 (Increment 8): `agent-selection`'s
-		// `select-agent.ts` dissolved. Its `routine_delegate` half moved to
-		// `@hyperidle/routine`'s own `agent-delegation.ts` — the one live target
-		// below. The `bet_task`/`bet_decomposer` half moved to `work`'s
-		// `agent-assignment.ts`, which has since gone with bet decomposition
-		// itself; that dead entry is removed rather than left to no-op.
-		files: ["layers/core-api/routine/src/agent-delegation.ts"],
-		languageOptions: {
-			parser: tsParser,
-		},
-		rules: {
-			"no-restricted-syntax": [
-				"error",
-				{
-					// Bans: 'systemPrompt' or 'AGENTS.md' as string literals
-					selector: "Literal[value='systemPrompt']",
-					message:
-						"AK7 AC2: agent-assignment.ts/agent-delegation.ts must not read persona fields (systemPrompt). Selection attaches to a user-id only; AGENTS.md is Strategy-owned (§2a Execution rule).",
-				},
-				{
-					selector: "Literal[value='AGENTS.md']",
-					message:
-						"AK7 AC2: agent-assignment.ts/agent-delegation.ts must not read AGENTS.md. Selection attaches to a user-id only; persona content is Strategy-owned (§2a Execution rule).",
-				},
-			],
-		},
-	},
-
 	// server+db ban itself rather than relying on any earlier block.
 	{
 		files: ["layers/core-ui/src/__preview__/**/*.{ts,tsx}"],

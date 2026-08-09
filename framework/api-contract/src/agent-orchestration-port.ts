@@ -268,17 +268,6 @@ export interface AgentOrchestrationRunsPort {
 	abort(sessionId: string): Promise<void>;
 	/** `session_start`'s admission-failure reaction — the one non-`request`-target transition core drives (`agent-run-admission-reactions.ts`). */
 	failExplicitStart(startId: string, failureCode: string): Promise<void>;
-	/**
-	 * AU31 §3.1 — the routine-scheduler's own capacity read
-	 * (`@hyperidle/run-orchestration`'s `isAgentAtCapacity`, an active-`sessions`
-	 * count against the caller-resolved bound). One of the two reads §3.1 names
-	 * as hoisted (not relinquished) above `routine-scheduler.ts`'s transaction —
-	 * a seam call inside an open transaction deadlocks the shared connection the
-	 * same way a write does, so the caller resolves `maxConcurrentSessions`
-	 * (`runConfig.read`) and calls this BEFORE opening its transaction, passing
-	 * the bound in rather than letting this door re-resolve it.
-	 */
-	isAtCapacity(agentId: string, maxConcurrentSessions: number): Promise<boolean>;
 }
 
 /** Mirrors `AgentRunConfig` (`@hyperidle/agent-run-config`). */

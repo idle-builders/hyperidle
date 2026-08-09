@@ -16,7 +16,6 @@ import {
 	teamMembers,
 	teams,
 	threads,
-	userSkills,
 	users,
 } from "../schema.js";
 
@@ -36,10 +35,9 @@ describe("A2: Database Schema", () => {
 
 			expect(tableNames).toEqual(
 				expect.arrayContaining([
-					// @lore P2: agents → users, agent_skills → user_skills
+					// @lore P2: agents → users
 					// @lore U1: `products` → `teams`; old `teams` → `team_members`
 					"users",
-					"user_skills",
 					"bets",
 					// @lore AU18: `factory_settings` retired — `server_config` is its
 					// typed singleton-row successor.
@@ -61,6 +59,10 @@ describe("A2: Database Schema", () => {
 			expect(tableNames).not.toContain("products");
 			// @lore AU18: factory_settings dropped — must not reappear.
 			expect(tableNames).not.toContain("factory_settings");
+			// @lore AU30: `user_skills` dropped. Exact-absence, because the expected
+			// list above is `arrayContaining` and tolerates extras — see the longer
+			// note in migration.integration.test.ts.
+			expect(tableNames).not.toContain("user_skills");
 			expect(tableNames.length).toBeGreaterThanOrEqual(15);
 		});
 	});
@@ -446,33 +448,6 @@ describe("A2: Database Schema", () => {
 			expect(resp[0]).toMatchObject({ id: "resp-1", type: "verdict", legacyItemId: "item-1" });
 			const verdict = JSON.parse(resp[0]?.payload ?? "{}") as { decision: string };
 			expect(verdict.decision).toBe("approve");
-		});
-
-		test("inserts and reads user_skills", async ({ db }) => {
-			const now = new Date().toISOString();
-			await db.insert(users).values({
-				id: "agent-1",
-				kind: "ai",
-				name: "A",
-				role: "builder",
-				status: "active",
-				createdAt: now,
-			});
-			await db.insert(userSkills).values({
-				userId: "agent-1",
-				skillId: "code_review",
-				autonomyLevel: 3,
-				successCount: 10,
-				failureCount: 1,
-			});
-
-			const result = await db.select().from(userSkills).where(eq(userSkills.userId, "agent-1"));
-
-			expect(result[0]).toMatchObject({
-				userId: "agent-1",
-				skillId: "code_review",
-				autonomyLevel: 3,
-			});
 		});
 
 		test("inserts and reads knowledge_items", async ({ db }) => {
