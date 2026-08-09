@@ -51,6 +51,7 @@ import {
 	returnStatusTool,
 } from "@hyperidle/harness-registry/mcp";
 import type {
+	EnforcementRegistry as BaseEnforcementRegistry,
 	HarnessAdapter,
 	RegisteredTool,
 	ReturnEnforcementChannel,
@@ -136,7 +137,18 @@ export interface AgentExecutionAdapters {
 	 * `extraTools` via `forRegistry(harnessRuntime.enforcementRegistry)`.
 	 */
 	readonly returnStatusTool: {
-		forRegistry(registry: EnforcementRegistry): RegisteredTool;
+		/**
+		 * `@hyperidle/shared`'s narrow `EnforcementRegistry` (register/get/
+		 * incrementForce/unregister) — `harness-registry/mcp`'s own
+		 * `returnStatusTool.forRegistry` genuinely only reads that subset, even
+		 * though every registry this boot hands out (including
+		 * `harnessRuntime.enforcementRegistry`, the wider `ReturnEnforcement`)
+		 * satisfies it too. Typing this field against the wider local alias
+		 * would reject the caller's narrower, honest registry type
+		 * (`agent-orchestration`'s own `SessionLifecycleEnforcementRegistry`)
+		 * for methods it never calls.
+		 */
+		forRegistry(registry: BaseEnforcementRegistry): RegisteredTool;
 	};
 }
 

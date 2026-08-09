@@ -53,7 +53,6 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { createLocalAdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
 import { installCassetteInterceptor } from "@hyperidle/harness-registry/testing";
 import { createServer } from "@hyperidle/remote-server/create-server";
 import { encryptCredentialValue } from "@hyperidle/shared/crypto";
@@ -297,10 +296,10 @@ const handle = await createServer(AH6_API_PORT, {
 	// No assistantTurnDeps override: createServer builds them from adapterPool + credentialResolver.
 	// In record mode credentialResolver resolves the seeded openrouter_api_key (production path).
 	// In replay mode the cassette intercepts before any real network call.
-	// AU19 Increment 5 (item 2): adapterPool/workspaceAdapter are now REQUIRED —
-	// inject a LocalSandboxAdapter (laptop profile, set above).
-	adapterPool: await createLocalAdapterPool(),
-	workspaceAdapter: createSandboxAdapter("local"),
+	// AU31 §6: `topology: "local"` replaces the concrete `AdapterPool`/
+	// `SandboxAdapter` this script used to construct itself (laptop profile,
+	// set above, still governs the in-process CLI discovery).
+	topology: "local",
 });
 
 // 5. Signal readiness — playwright.ah6.config.ts waits for this line.

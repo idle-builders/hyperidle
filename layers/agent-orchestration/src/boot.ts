@@ -40,9 +40,19 @@
  *     route surface and the session-stream socket need no poller.
  */
 
+import * as path from "node:path";
 import type { CoreApiTransport } from "@hyperidle/api-contract";
-import type { HyperIdleDb } from "@hyperidle/db";
+import {
+	listConnections,
+	listHeldConnectionsForProvisioning,
+	ServiceConnectionResolver,
+} from "@hyperidle/connections";
+import type { HyperIdleDb, ServiceConnectionRow } from "@hyperidle/db";
+import { RegistryFilesystemMounter } from "@hyperidle/filesystem-mounting";
+import { listInjectedFilesystemsForProvisioning } from "@hyperidle/filesystems";
 import type {
+	HeldConnectionsReaderPort,
+	InjectedFilesystemsReaderPort,
 	RunOptions,
 	RunResult,
 	RuntimeDeps,
@@ -51,12 +61,14 @@ import type {
 import { startLifecycleProjectionDrain } from "@hyperidle/session-requests";
 import type {
 	EventBus,
+	FilesystemMounter,
 	HarnessAdapter,
 	HarnessCapabilityReader,
 	ModelTier,
 	ResolvedModel,
 	WorkerRegisterMessage,
 } from "@hyperidle/shared";
+import { createGitRunner } from "@hyperidle/shared/git";
 import type { HyperIdleEnv } from "@hyperidle/shared/http";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket } from "hono/ws";
@@ -90,12 +102,24 @@ import { SessionActivityBuffer } from "./session-activity-buffer.js";
  * absent (a test fixture with no seam-backed tool under test) falls back to
  * the composition's own `unconfiguredCoreApiTransport()`.
  */
+/**
+ * AU31 §5.1: the four provisioning reads `bootAgentExecution`'s twin never
+ * owned — `mounter`, `heldConnections`, `injectedFilesystems`,
+ * `serviceConnectionResolver` — are built INSIDE this boot now (`connections`,
+ * `filesystems`, `filesystem-mounting` are all this Layer's own services), so
+ * the Application-supplied session slice no longer carries them.
+ */
+export type ApplicationProvisionSessionDeps = Omit<
+	ProvisionSessionDeps,
+	"mounter" | "heldConnections" | "injectedFilesystems" | "serviceConnectionResolver"
+>;
+
 export interface AgentOrchestrationRuntimeOptions {
 	readonly harnessRuntime: RunOrchestrationHarnessRuntimeAdapter;
 	readonly returnStatusTool: RunOrchestrationReturnStatusToolAdapter;
 	readonly coreApiTransport?: CoreApiTransport;
-	/** The session-provisioning deps `startRuntime`'s poller threads to every admitted session — same shape the Application built for the deleted direct `startRuntime` call. */
-	readonly session: ProvisionSessionDeps;
+	/** The session-provisioning deps `startRuntime`'s poller threads to every admitted session — same shape the Application built for the deleted direct `startRuntime` call, minus the four provisioning reads this boot now builds itself (§5.1). */
+	readonly session: ApplicationProvisionSessionDeps;
 	readonly sandboxBasePath?: string;
 	readonly resolveModel?: (
 		tier: ModelTier,
@@ -109,8 +133,24 @@ export interface AgentOrchestrationRuntimeOptions {
 			registration: WorkerRegisterMessage,
 		) => HarnessAdapter;
 	};
+	/**
+	 * AU31 §2.7: no longer built by the Application — `run-orchestration-
+	 * composition.ts`'s `runtimeDeps` defaults `writeback.knowledge` to a
+	 * `CoreApiPort`-backed port over `coreApiTransport` above. This field
+	 * survives only as a test override (a fixture that wants to intercept the
+	 * writeback write without a real seam).
+	 */
 	readonly writeback?: RuntimeDeps["composition"]["writeback"];
 	readonly reapers?: RuntimeDeps["composition"]["reapers"];
+	/**
+	 * AU26 review C2 / AU31 §5.1/§5.2: the Application's `bootCoreApi`-sourced
+	 * capability resolving the single human whose held connections a spawn
+	 * provisions — this Layer reads zero core-api state, so it can never
+	 * resolve an owner itself (`@hyperidle/users` is core-api's own service).
+	 * Absent means no held connections are ever provisioned (the same
+	 * observable outcome as today's empty-rows case).
+	 */
+	readonly resolveProvisioningOwnerUserId?: () => Promise<string | null>;
 }
 
 export interface AgentOrchestrationBootOptions {
@@ -163,6 +203,33 @@ export interface AgentOrchestrationBoot {
 	readonly disposeRuntime?: () => Promise<void>;
 	/** Stops the activity buffer, unsubscribes the gateway, drops WS adapters. Does NOT dispose the run runtime — call `disposeRuntime()` first, same ordering as before this boot absorbed `startRuntime`. */
 	readonly dispose: () => void;
+	/**
+	 * AU31 §5.1/§5.2: this Layer's own `service_connections` read, by auth
+	 * source — the second, display-only consumer of the connections record
+	 * (`settings`' boot-time MCP plugin seed). Stateless (takes its own `db`
+	 * argument, same shape `settings`' `BackfillLegacyConfigurationDeps.
+	 * serviceConnections` already expects) so the Application can hand it
+	 * straight to `bootCoreApi`'s deferred configuration backfill without
+	 * importing `@hyperidle/connections` itself.
+	 */
+	readonly serviceConnectionsReader: {
+		readonly listByAuthSource: (
+			db: HyperIdleDb,
+			authSource: string,
+		) => Promise<ServiceConnectionRow[]>;
+	};
+	/**
+	 * AU26 review C1/C2 / AU31 §5.1: the three session-provisioning ports this
+	 * boot now builds itself, exposed for the same reason the Application used
+	 * to expose them on `ServerHandle` — so the production wiring is
+	 * assertable functionally, against a real DB, without an indirect
+	 * observable effect (`server-factory.provisioning-wiring.integration.test.ts`'s
+	 * whole reason for existing: a wrong-arity resolver silently provisioned
+	 * nothing in production for months, and no test caught it because every
+	 * provisioning test hand-built its own port). Present only when
+	 * `options.runtime` was supplied.
+	 */
+	readonly provisioning?: OrchestrationProvisioningReads;
 }
 
 /** The ONE audited cast recovering `WorkerRegisterMessage` from `createWorkerIngress`'s own Mechanism-C-narrowed registration type — same idiom as the deleted `run-orchestration-composition.ts`'s own `widenWorkerRegistration` (`design/no-unknown-cast` bans the `X as unknown as T` double-assertion, not an audited single cast inside a named helper). */
@@ -192,6 +259,63 @@ function buildRuntimeComposition(
 	} as RuntimeDeps["composition"];
 }
 
+/**
+ * AU31 §5.1: builds this Layer's own provisioning reads — `mounter` (via
+ * `filesystem-mounting`), `heldConnections` (via `connections`),
+ * `injectedFilesystems` (via `filesystems`), `serviceConnectionResolver`
+ * (via `connections`) — all in-layer now, off the same `db` handle this boot
+ * already holds. Merged UNDER the Application-supplied session slice so a
+ * test fixture can still override any of the four explicitly.
+ *
+ * `mounter` is built only when `sandboxBasePath` is present (the same
+ * graceful no-op `ProvisionSessionDeps.mounter` already gives when absent);
+ * `capturesDir` derives from it exactly as the deleted
+ * `create-server.ts:493` did. `heldConnections` is built only when
+ * `resolveProvisioningOwnerUserId` is supplied — absent means no held
+ * connections are ever provisioned, matching today's empty-rows outcome for
+ * a request emitted before onboarding.
+ */
+interface OrchestrationProvisioningReads {
+	readonly mounter?: FilesystemMounter;
+	readonly heldConnections?: HeldConnectionsReaderPort;
+	readonly injectedFilesystems: InjectedFilesystemsReaderPort;
+	readonly serviceConnectionResolver: ServiceConnectionResolver;
+}
+
+function buildProvisioningReads(
+	db: HyperIdleDb,
+	sandboxBasePath: string | undefined,
+	resolveProvisioningOwnerUserId: (() => Promise<string | null>) | undefined,
+): OrchestrationProvisioningReads {
+	return {
+		...(sandboxBasePath
+			? {
+					mounter: new RegistryFilesystemMounter({
+						gitRunnerFactory: (repoPath: string) => createGitRunner(repoPath),
+						capturesDir: path.join(sandboxBasePath, ".ao2-captures"),
+						db,
+					}),
+				}
+			: {}),
+		...(resolveProvisioningOwnerUserId
+			? {
+					heldConnections: {
+						listHeldForProvisioning: async () => {
+							const ownerUserId = await resolveProvisioningOwnerUserId();
+							if (!ownerUserId) return [];
+							return listHeldConnectionsForProvisioning(db, ownerUserId);
+						},
+					},
+				}
+			: {}),
+		injectedFilesystems: {
+			listInjectedForProvisioning: (agentId: string) =>
+				listInjectedFilesystemsForProvisioning(db, agentId),
+		},
+		serviceConnectionResolver: new ServiceConnectionResolver(db),
+	};
+}
+
 export async function bootAgentOrchestration(
 	options: AgentOrchestrationBootOptions,
 ): Promise<AgentOrchestrationBoot> {
@@ -219,6 +343,7 @@ export async function bootAgentOrchestration(
 	let runSession:
 		| ((deps: ProvisionSessionDeps, spec: RunOptions) => Promise<RunResult>)
 		| undefined;
+	let provisioningReads: OrchestrationProvisioningReads | undefined;
 	if (runtime) {
 		const composition = buildRunOrchestrationComposition({
 			harnessRuntime: runtime.harnessRuntime,
@@ -226,9 +351,14 @@ export async function bootAgentOrchestration(
 			coreApiTransport: runtime.coreApiTransport,
 		});
 		runSession = composition.runSession;
+		provisioningReads = buildProvisioningReads(
+			db,
+			runtime.sandboxBasePath,
+			runtime.resolveProvisioningOwnerUserId,
+		);
 		runRuntime = await composition.startRuntime(
 			composition.runtimeDeps(db, eventBus, {
-				runtime: runtime.session,
+				runtime: { ...provisioningReads, ...runtime.session } as ProvisionSessionDeps,
 				sandboxBasePath: runtime.sandboxBasePath,
 				resolveModel: runtime.resolveModel,
 				composition: buildRuntimeComposition(runtime),
@@ -267,5 +397,9 @@ export async function bootAgentOrchestration(
 			disposeDrain();
 			activityBuffer.stop();
 		},
+		serviceConnectionsReader: {
+			listByAuthSource: (execDb, authSource) => listConnections(execDb, { authSource }),
+		},
+		...(provisioningReads ? { provisioning: provisioningReads } : {}),
 	};
 }

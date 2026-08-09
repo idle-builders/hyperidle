@@ -29,7 +29,6 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { applyMigrations, createPgliteDb } from "@hyperidle/db";
-import { createLocalAdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
 import { createServer } from "@hyperidle/remote-server/create-server";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
@@ -56,14 +55,14 @@ const { db, close: closeDb } = await createPgliteDb(dataDir);
 
 // 2. Boot the Hono server with the already-migrated tmp-dir DB.
 //    Passing deps.db skips createServer's own DB construction (file-path branch).
-//    AU19 Increment 5 (item 2): adapterPool/workspaceAdapter are now REQUIRED —
-//    this test-server bootstrap is Application-shaped (mirrors applications/desktop's
-//    boot-server.ts), injecting its own LocalSandboxAdapter (laptop profile, set above).
+//    AU31 §6: `topology: "local"` replaces the concrete `AdapterPool`/
+//    `SandboxAdapter` this script used to construct itself — `createServer`
+//    calls `bootAgentExecution({topology, ...})` internally now (laptop
+//    profile, set above, still governs the in-process CLI discovery).
 const handle = await createServer(AH1_API_PORT, {
 	db,
 	sandboxBasePath: "/tmp/ah1-e2e-workspaces",
-	adapterPool: await createLocalAdapterPool(),
-	workspaceAdapter: createSandboxAdapter("local"),
+	topology: "local",
 });
 
 // 3. Signal readiness — playwright.ah1.config.ts waits for this line.

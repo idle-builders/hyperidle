@@ -37,7 +37,6 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { AdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
 import { createServer, type ServerHandle } from "@hyperidle/remote-server/create-server";
 import type { RuntimePorts } from "@hyperidle/run-orchestration";
 import { drainIntents } from "@hyperidle/session-requests";
@@ -56,8 +55,7 @@ function authHeaders(): Record<string, string> {
 async function bootRealServer(db: HyperIdleDb): Promise<{ handle: ServerHandle; baseUrl: string }> {
 	const handle = await createServer(0, {
 		db,
-		adapterPool: new AdapterPool(),
-		workspaceAdapter: createSandboxAdapter("disabled"),
+		topology: "disabled",
 		sandboxBasePath: "/tmp/au21-inc10a-workspaces",
 	});
 	const address = handle.httpServer.address();

@@ -1,5 +1,4 @@
 import type { HyperIdleDb } from "@hyperidle/db";
-import { AdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
 import { createServer, type ServerHandle } from "@hyperidle/remote-server/create-server";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test as fixtureTest } from "../__testing__/test-fixtures.js";
@@ -13,8 +12,7 @@ function authHeaders(): Record<string, string> {
 async function boot(db: HyperIdleDb): Promise<{ handle: ServerHandle; baseUrl: string }> {
 	const handle = await createServer(0, {
 		db,
-		adapterPool: new AdapterPool(),
-		workspaceAdapter: createSandboxAdapter("disabled"),
+		topology: "disabled",
 		sandboxBasePath: "/tmp/au3-boot-workspaces",
 	});
 	const address = handle.httpServer.address();

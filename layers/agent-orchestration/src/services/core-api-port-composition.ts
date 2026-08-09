@@ -83,6 +83,9 @@ import {
 	type TaskView,
 	type UpdateBetRequest,
 	type UpdateItemRequest,
+	type UpdateKnowledgeItemContentRequest,
+	type UpdateKnowledgeItemContentResponse,
+	type UpdateKnowledgeItemContentResult,
 	type UpdateOrgTeamRequest,
 	type UpdateRoutineRequest,
 	type UpdateThreadRequest,
@@ -255,6 +258,15 @@ interface CoreApiHcClient {
 		$post(args: { readonly json: CreateKnowledgeItemRequest }): Promise<Response>;
 		readonly ":id": {
 			$get(args: { readonly param: { readonly id: string } }): Promise<Response>;
+			/** AU31 §2.7 — the writeback processor's optimistic-lock update; same route `PATCH /knowledge/:id` the human-facing UI patches through. */
+			$patch(args: {
+				readonly param: { readonly id: string };
+				readonly json: {
+					readonly version: number;
+					readonly updatedBy: string;
+					readonly body: string;
+				};
+			}): Promise<Response>;
 			readonly conflicts: {
 				$get(args: {
 					readonly param: { readonly id: string };
@@ -670,6 +682,28 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				const res = await client.knowledge.$post({ json: input });
 				if (!res.ok) return throwSeamError("knowledge.create", res);
 				return (await res.json()) as CreateKnowledgeItemResponse;
+			},
+
+			async updateKnowledgeItemContent(
+				id: string,
+				input: UpdateKnowledgeItemContentRequest,
+			): Promise<UpdateKnowledgeItemContentResult> {
+				const res = await client.knowledge[":id"].$patch({
+					param: { id },
+					json: { version: input.expectedVersion, updatedBy: input.updatedBy, body: input.body },
+				});
+				if (res.status === 409) {
+					const body = (await res.json()) as {
+						readonly details?: { readonly currentVersion?: number };
+					};
+					return {
+						ok: false,
+						currentVersion: body.details?.currentVersion ?? input.expectedVersion,
+					};
+				}
+				if (!res.ok) return throwSeamError("knowledge.updateKnowledgeItemContent", res);
+				const item = (await res.json()) as UpdateKnowledgeItemContentResponse;
+				return { ok: true, item };
 			},
 
 			async findKnowledgeItemVersionById(

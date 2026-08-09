@@ -14,6 +14,7 @@
 		{ "path": "../../framework/shared" },
 		{ "path": "../../framework/db" },
 		{ "path": "../../layers/core-api" },
-		{ "path": "../../layers/agent-execution/harness-registry" }
+		{ "path": "../../layers/agent-execution" },
+		{ "path": "../../layers/agent-orchestration" }
 	]
 }

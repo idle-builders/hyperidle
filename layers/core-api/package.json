@@ -24,7 +24,6 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"@hyperidle/agent-orchestration": "*",
 		"@hyperidle/api-contract": "*",
 		"@hyperidle/conversation": "*",
 		"@hyperidle/credentials": "*",
@@ -44,6 +43,7 @@
 	},
 	"devDependencies": {
 		"@hono/node-server": "^2.0.6",
+		"@hyperidle/agent-orchestration": "*",
 		"@hyperidle/agent-run-config": "*",
 		"@hyperidle/connections": "*",
 		"@hyperidle/filesystem-mounting": "*",

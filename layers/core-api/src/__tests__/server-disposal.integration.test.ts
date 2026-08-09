@@ -1,5 +1,4 @@
 import type { HyperIdleDb } from "@hyperidle/db";
-import { AdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
 import { sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -122,8 +121,7 @@ const expectedPhases = ["run-runtime", "app-domain", "websocket", "http", "owned
 async function bootOwnedServer(db: HyperIdleDb): Promise<AsyncServerHandle> {
 	shutdown.state.nextOwnedDb = db;
 	return createServer(0, {
-		adapterPool: new AdapterPool(),
-		workspaceAdapter: createSandboxAdapter("disabled"),
+		topology: "disabled",
 		sandboxBasePath: "/tmp/au20-server-disposal",
 	}) as Promise<AsyncServerHandle>;
 }
@@ -190,8 +188,7 @@ describe("ordered asynchronous server disposal", () => {
 		shutdown.state.events.length = 0;
 		const server = (await createServer(0, {
 			db,
-			adapterPool: new AdapterPool(),
-			workspaceAdapter: createSandboxAdapter("disabled"),
+			topology: "disabled",
 			sandboxBasePath: "/tmp/au20-server-disposal-injected",
 		})) as AsyncServerHandle;
 

@@ -15,6 +15,7 @@
 		"@hyperidle/api-contract": "*",
 		"@hyperidle/connections": "*",
 		"@hyperidle/db": "*",
+		"@hyperidle/filesystem-mounting": "*",
 		"@hyperidle/filesystems": "*",
 		"@hyperidle/run-orchestration": "*",
 		"@hyperidle/session-requests": "*",
@@ -24,6 +25,7 @@
 		"zod": "^4.3.6"
 	},
 	"devDependencies": {
+		"@hyperidle/agent-execution": "*",
 		"@types/node": "^24",
 		"drizzle-orm": "^0.45.2",
 		"vitest": "^4.1.9"

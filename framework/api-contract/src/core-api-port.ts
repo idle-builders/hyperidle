@@ -527,6 +527,38 @@ export interface CreateKnowledgeItemResponse {
 	readonly version: number;
 }
 
+/**
+ * AU31 §2.7 — mirrors `PATCH /knowledge/:id`'s validated request body,
+ * narrowed to the fields the agent-orchestration writeback processor needs
+ * (`body` content + optimistic-lock version) — the route's other optional
+ * fields (`title`/`topic`/`format`/`status`) are left unset, unchanged from
+ * today's byte-identical PATCH behavior.
+ */
+export interface UpdateKnowledgeItemContentRequest {
+	readonly body: string;
+	readonly updatedBy: string;
+	readonly expectedVersion: number;
+}
+
+/** Mirrors `PATCH /knowledge/:id`'s 200 response body — only the fields the writeback processor reads. */
+export interface UpdateKnowledgeItemContentResponse {
+	readonly id: string;
+	readonly version: number;
+	readonly format: string;
+}
+
+/**
+ * AU31 §2.7 — the writeback processor's own optimistic-lock outcome, crossing
+ * the seam as a discriminated result instead of a thrown error: `PATCH
+ * /knowledge/:id`'s 409 response (`details.currentVersion`) becomes `{ok:
+ * false, currentVersion}`, its 200 response becomes `{ok: true, item}` — same
+ * shape `@hyperidle/knowledge`'s `update()` + `VersionConflictError` gave the
+ * Application before this leaf moved the wire onto the port.
+ */
+export type UpdateKnowledgeItemContentResult =
+	| { readonly ok: true; readonly item: UpdateKnowledgeItemContentResponse }
+	| { readonly ok: false; readonly currentVersion: number };
+
 /** Mirrors `GET /knowledge/:id`'s response — only `id`/`version` (used by the version-lookup reuse of this route). */
 export interface KnowledgeItemVersionView {
 	readonly id: string;
@@ -593,6 +625,11 @@ export interface CoreApiKnowledgePort {
 		opts: { readonly limit: number },
 	): Promise<ReadonlyArray<Record<string, unknown> & { readonly layer?: string | null }>>;
 	create(input: CreateKnowledgeItemRequest): Promise<CreateKnowledgeItemResponse>;
+	/** AU31 §2.7 — the writeback processor's optimistic-lock update, backed by the same `PATCH /knowledge/:id` route `create`'s sibling routes ride. */
+	updateKnowledgeItemContent(
+		id: string,
+		input: UpdateKnowledgeItemContentRequest,
+	): Promise<UpdateKnowledgeItemContentResult>;
 	findKnowledgeItemVersionById(id: string): Promise<KnowledgeItemVersionView | undefined>;
 	findKnowledgeItemStatusById(id: string): Promise<KnowledgeItemStatusView | undefined>;
 	findOpenConflictByItemAndProposer(

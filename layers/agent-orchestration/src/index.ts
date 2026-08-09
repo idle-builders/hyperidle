@@ -19,6 +19,7 @@ export type {
 	AgentOrchestrationBoot,
 	AgentOrchestrationBootOptions,
 	AgentOrchestrationRuntimeOptions,
+	ApplicationProvisionSessionDeps,
 } from "./boot.js";
 export { bootAgentOrchestration } from "./boot.js";
 // AU29 §2.5.3: the first-boot run-config face — the composition roots call this

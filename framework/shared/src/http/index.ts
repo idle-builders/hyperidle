@@ -33,6 +33,11 @@
 export type { BoundaryDeclaration, BoundaryKind } from "./access-boundary.js";
 export { failClosedAssertion, requireBoundary } from "./access-boundary.js";
 export { createBodyLimit } from "./body-limit.js";
+export type {
+	ComposeApiApplicationOptions,
+	ComposedApiMiddleware,
+} from "./compose-api-application.js";
+export { composeApiApplication } from "./compose-api-application.js";
 export type { HyperIdleEnv } from "./env.js";
 export type {
 	ExplicitStartProjection,

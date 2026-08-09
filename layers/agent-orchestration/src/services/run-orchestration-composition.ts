@@ -22,6 +22,7 @@
  * execution adapters bundle as `harnessRuntime`.
  */
 
+import { randomUUID } from "node:crypto";
 import { readAgentRunConfig } from "@hyperidle/agent-run-config";
 import type { CoreApiTransport } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
@@ -232,6 +233,88 @@ export function buildProposedCallWorkflowPort(
 	};
 }
 
+/**
+ * AU31 §2.7 — the writeback processor's `knowledge` port, rebuilt over the
+ * `CoreApiPort` seam instead of the Application injecting
+ * `@hyperidle/knowledge` functions directly (`create-server.ts:545-562`
+ * before this leaf) — an application → service crossing that hosting could
+ * not legalize. `db` is accepted and ignored on every method (same idiom as
+ * `buildProposedCallWorkflowPort`): the seam's server side reads/writes
+ * through its OWN `db`, not this argument, which exists only so the object
+ * satisfies the writeback processor's pre-existing pooled-handle-shaped port.
+ */
+function buildKnowledgeWritebackPort(transport: CoreApiTransport): {
+	create(
+		_db: HyperIdleDb,
+		input: {
+			readonly layer: "L1" | "L2" | "L3";
+			readonly kind: "pattern" | "decision" | "failure" | "reflection";
+			readonly title: string;
+			readonly body: string;
+			readonly format: string;
+			readonly status: "captured";
+			readonly updatedBy: string;
+		},
+	): Promise<{ readonly id: string; readonly version: number; readonly format: string }>;
+	update(
+		_db: HyperIdleDb,
+		id: string,
+		patch: { readonly body: string; readonly updatedBy: string },
+		expectedVersion: number,
+	): Promise<
+		| {
+				readonly ok: true;
+				readonly item: { readonly id: string; readonly version: number; readonly format: string };
+		  }
+		| { readonly ok: false; readonly currentVersion: number }
+	>;
+	recordConflict(
+		_db: HyperIdleDb,
+		input: {
+			readonly itemId: string;
+			readonly versionBase: number;
+			readonly versionCurrent: number;
+			readonly proposedBody: string;
+			readonly proposedBy: string;
+		},
+	): Promise<void>;
+} {
+	const port = buildCoreApiPort(transport);
+	return {
+		async create(_db, input) {
+			const created = await port.knowledge.create({
+				layer: input.layer,
+				kind: input.kind,
+				title: input.title,
+				body: input.body,
+				format: input.format,
+				status: input.status,
+				updatedBy: input.updatedBy,
+			});
+			return { id: created.id, version: created.version, format: input.format };
+		},
+		async update(_db, id, patch, expectedVersion) {
+			return port.knowledge.updateKnowledgeItemContent(id, {
+				body: patch.body,
+				updatedBy: patch.updatedBy,
+				expectedVersion,
+			});
+		},
+		async recordConflict(_db, input) {
+			await port.knowledge.createKnowledgeConflict({
+				id: randomUUID(),
+				itemId: input.itemId,
+				versionBase: input.versionBase,
+				versionCurrent: input.versionCurrent,
+				proposedBody: input.proposedBody,
+				proposedMeta: null,
+				proposedBy: input.proposedBy,
+				createdAt: new Date().toISOString(),
+			});
+		},
+	};
+}
+
 function buildToolProvider(
 	coreApiTransport: CoreApiTransport,
 	returnStatusToolAdapter: RunOrchestrationReturnStatusToolAdapter,
@@ -405,6 +488,16 @@ export function buildRunOrchestrationComposition(config: {
 		config.coreApiTransport ?? unconfiguredCoreApiTransport(),
 	);
 
+	// AU31 §2.7: the writeback processor's `knowledge` port, seam-backed by
+	// default — no Application supplies it any more (`create-server.ts`'s
+	// direct `@hyperidle/knowledge` wiring is deleted). Absent only when this
+	// composition itself has no `coreApiTransport` (a bare-app test fixture /
+	// `tools/eval`'s standalone use), matching the "no writeback" no-op every
+	// other absent-provisioning-read already gives.
+	const defaultKnowledgeWritebackPort = config.coreApiTransport
+		? buildKnowledgeWritebackPort(config.coreApiTransport)
+		: undefined;
+
 	function runtimeDeps(
 		db: HyperIdleDb,
 		eventBus: EventBus,
@@ -427,6 +520,9 @@ export function buildRunOrchestrationComposition(config: {
 			composition: {
 				context: contextPorts,
 				provisioner: sessionLifecyclePorts,
+				...(defaultKnowledgeWritebackPort
+					? { writeback: { db, knowledge: defaultKnowledgeWritebackPort } }
+					: {}),
 				...rest.composition,
 			},
 		};

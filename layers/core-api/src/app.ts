@@ -76,6 +76,21 @@ interface AppOptions {
 		db: HyperIdleDb;
 		eventBus: EventBus;
 		agentOrchestration: AgentOrchestrationPort;
+		/**
+		 * AU31 §5.2: built by `bootCoreApi` from this Layer's own `settings`
+		 * service and merged onto `ctx` before the caller's `serviceBootstrap`
+		 * runs — the Application used to build this closure itself
+		 * (`create-server.ts`'s deleted `readAlertPreferences`), which meant
+		 * importing `@hyperidle/settings` directly. Optional so a caller that
+		 * doesn't register the routine scheduler (most tests) can ignore it.
+		 */
+		readAlertPreferences?: () => Promise<{
+			readonly blockerAlerts: boolean;
+			readonly reviewAlerts: boolean;
+			readonly quietHoursEnabled: boolean;
+			readonly quietHoursStart: string;
+			readonly quietHoursEnd: string;
+		}>;
 	}) => Array<() => void>;
 	/**
 	 * Optional override for the notification adapter used by the HTTP
