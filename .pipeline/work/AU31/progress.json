@@ -1,17 +1,17 @@
 {
 	"id": "AU31",
-	"status": "in-progress",
-	"currentStep": "architecture-amendment-review",
-	"smallestActionToResume": "Reviewer checks the confined amendment only: architecture.md §3.1 (corrected cross-boundary transaction inventory + one relinquishment rule), §3.2 (port acquisition, no ambient singleton), §3 clauses 1-2 (team-defaults pair added, runs.requestTermination struck), §5 map row, §10 test strategy, §12 waves (A0 added; §2.5 and §2.7 ops moved to B2), §13.9/§13.10, feasibility P3 correction + new P3b, and probes/p3b-transaction-threading/. Also recorded 2026-08-09: the wave-boundary correction — the lifecycle-drain cluster (service-bootstrap.ts:38, durable-agent-queue.ts:83, service-bootstrap.ts:339) moved from wave A to wave B2, because it relocates into wave-B-owned layers/agent-orchestration/src/boot.ts; wave A total 36 -> 34 sites, wave B 58. Everything else is settled — do not reopen the six verdicts, the 93-site accounting, R2, the face definition, the db:util/AU29 rulings, or §11.",
+	"status": "wave-A shipped — PR open, awaiting CI + human merge",
+	"currentStep": "ship",
+	"smallestActionToResume": "Wave A is done: reviewed DONE (0 blocking, review-r2.md), founder approved the build result and approved shipping, verify green on the merged tree, PR open against main. Nothing left to resume on wave A. Wave B starts fresh off main once wave A merges: build applications-compose-faces-only (AC 3), the MCP router relocation (AC 4), and promote this work package's 14 rules from warn to error in governance/rule-severity.json as each rule's last site clears (AC 5) — read architecture.md in full (it is the approved plan wave B builds against, not re-litigated), feasibility.md's P3/P3b atomicity audit and probes/p3b-transaction-threading/ (the corrected audit method, kept next to P3's first wrong attempt so wave B does not repeat it), and this file's adjudications/founderRulings/amendments before starting.",
 	"startedAt": "2026-08-07",
 	"worktree": ".worktrees/AU31",
 	"branch": "backend/AU31-layer-composition-boundary",
-	"base": "bbe82e9a",
+	"base": "59b9299a at branch-cut; merged forward to origin/main @ f2552361 (AU29 db/shared boundary cleanup + CL1 palette) before ship — merge commit 21a60428, zero conflicts outside two import-order collisions in agents.ts/users.ts, resolved by keeping AU31's port-based imports and applying AU29's db→shared moves",
 	"tier": "production",
 	"approvals": {
 		"requirements": null,
 		"concept": "ruled 2026-08-08 — founder decided every §13 gate item; R2 scope narrowed",
-		"final": null
+		"final": "founder approved the wave-A build result and approved shipping, 2026-08-09 — see review-r2.md verdict DONE"
 	},
 	"baselineScope": {
 		"totalSitesAtStart": 93,
@@ -36,20 +36,16 @@
 		"note": "`application → db:util [import]` may belong to AU29 (db:util is AU29's stated ANOMALY) — architecture must rule."
 	},
 	"artifacts": {
-		"requirements": ".pipeline/work/AU31/requirements.md",
-		"refineCritique": ".pipeline/work/AU31/refine-critique.md",
+		"note": "Consolidated at ship: the requirements/refine-critique/five architecture-critique rounds/rescope-verification and the p11/p12 probes (superseded R2 bypass-hunting apparatus, founder-ruled out of scope) were folded into plan.md and progress.json (architectureCritiqueHistory, adjudications, founderRulings), then deleted. What remains is load-bearing for wave B.",
+		"plan": ".pipeline/work/AU31/plan.md",
 		"architecture": ".pipeline/work/AU31/architecture.md",
 		"feasibility": ".pipeline/work/AU31/feasibility.md",
-		"architectureCritiques": [
-			".pipeline/work/AU31/architecture-critique.md",
-			".pipeline/work/AU31/architecture-critique-r2.md",
-			".pipeline/work/AU31/architecture-critique-r3.md",
-			".pipeline/work/AU31/architecture-critique-r4.md",
-			".pipeline/work/AU31/architecture-critique-r5.md"
+		"amendmentCritique": ".pipeline/work/AU31/amendment-critique.md",
+		"review": [
+			".pipeline/work/AU31/review.md",
+			".pipeline/work/AU31/review-r2.md"
 		],
 		"probes": [
-			".pipeline/work/AU31/probes/p11-composition-spelling/",
-			".pipeline/work/AU31/probes/p12-r2-escape-predicate/",
 			".pipeline/work/AU31/probes/p3b-transaction-threading/"
 		]
 	},
@@ -171,10 +167,16 @@
 			"state": "open"
 		},
 		"linterSnapshot": {
-			"head": "78996283",
-			"productionViolations": 187,
-			"base": "59b9299a",
-			"baseProductionViolations": 221
+			"atReviewR2": { "head": "09768755", "base": "59b9299a", "productionViolations": 187, "baseProductionViolations": 221 },
+			"atShip": {
+				"head": "21a60428",
+				"note": "branch merged forward onto origin/main @ f2552361 before ship (AU29 landed independently and cleared its own share of production violations, dropping main's own count from 221 to 191)",
+				"base": "f2552361",
+				"baseProductionViolations": 191,
+				"productionViolations": 157,
+				"developmentViolations": 0,
+				"check": "191 - 157 = 34, matching wave A's clearedOnBranch count exactly; AU31's own diff makes zero change to governance/rule-severity.json (verified identical to origin/main tip)"
+			}
 		},
 		"correction2026-08-09": "lifecycle-drain cluster (service-bootstrap.ts:38 + :339, durable-agent-queue.ts:83) moved wave A -> wave B2; relocation target layers/agent-orchestration/src/boot.ts is wave B's file. Total work unchanged."
 	}
