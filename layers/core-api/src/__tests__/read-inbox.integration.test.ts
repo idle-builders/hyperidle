@@ -2,33 +2,17 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { type HyperIdleDb, messages, teamMembers, teams, threads, users } from "@hyperidle/db";
 import { EventBus, type ToolContext } from "@hyperidle/shared";
-import { buildToolDefinitions } from "@hyperidle/tool-handlers";
+import type { Hono } from "hono";
 import { describe, expect } from "vitest";
-import { test as baseTest } from "../__testing__/test-fixtures.js";
-import {
-	createInProcessCoreApiTransport,
-	registerCoreApiTransport,
-} from "../services/core-api-port-composition.js";
-import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
+import { test } from "../__testing__/test-fixtures.js";
+import { createInProcessCoreApiTransport } from "../services/core-api-port-composition.js";
+import { buildToolDefinitions } from "../services/tool-handlers-bindings.js";
 
-/**
- * @lore AU21 §9 Increment 2 (conversation wave): `read_inbox` now reaches
- * `ports.coreApi.listInboxBySenderExclusion` (the seam) — same file-scoped
- * `auto:true` fixture idiom as `create-item.integration.test.ts` (registers
- * a real in-process `CoreApiPort` transport off THIS test's own `app`,
- * confined to this file).
- */
-const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
-	coreApiSeamRegistration: [
-		async ({ app }, use) => {
-			registerCoreApiTransport(createInProcessCoreApiTransport(app));
-			await use(undefined);
-		},
-		{ auto: true },
-	],
-});
-
-const readInboxTool = buildToolDefinitions(toolHandlersPorts).find((t) => t.name === "read_inbox")!;
+function buildReadInboxTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
+	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+		(t) => t.name === "read_inbox",
+	)!;
+}
 
 async function seedFactory(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
@@ -118,7 +102,8 @@ async function insertMessage(
 
 describe("read_inbox tool", () => {
 	describe("AC1: agent with 3 messages returns all 3", () => {
-		test("returns all messages addressed to the agent", async ({ db }) => {
+		test("returns all messages addressed to the agent", async ({ db, app }) => {
+			const readInboxTool = buildReadInboxTool(app);
 			await seedFactory(db);
 			await insertMessage(db, "m1", "agent-b", "agent-a", "Hello 1", "2026-01-01T00:00:01Z");
 			await insertMessage(db, "m2", "agent-b", "agent-a", "Hello 2", "2026-01-01T00:00:02Z");
@@ -134,7 +119,8 @@ describe("read_inbox tool", () => {
 			expect(ids).toEqual(["m1", "m2", "m3"]);
 		});
 
-		test("orders messages newest first by createdAt DESC", async ({ db }) => {
+		test("orders messages newest first by createdAt DESC", async ({ db, app }) => {
+			const readInboxTool = buildReadInboxTool(app);
 			await seedFactory(db);
 			await insertMessage(db, "m-old", "agent-b", "agent-a", "Old", "2026-01-01T00:00:01Z");
 			await insertMessage(db, "m-mid", "agent-b", "agent-a", "Mid", "2026-01-01T00:00:02Z");
@@ -147,7 +133,8 @@ describe("read_inbox tool", () => {
 			expect(data.messages.map((m) => m.id)).toEqual(["m-new", "m-mid", "m-old"]);
 		});
 
-		test("excludes messages addressed to other agents", async ({ db }) => {
+		test("excludes messages addressed to other agents", async ({ db, app }) => {
+			const readInboxTool = buildReadInboxTool(app);
 			await seedFactory(db);
 			await insertMessage(db, "m1", "agent-b", "agent-a", "For A", "2026-01-01T00:00:01Z");
 			await insertMessage(db, "m2", "agent-a", "agent-b", "For B", "2026-01-01T00:00:02Z");
@@ -160,7 +147,8 @@ describe("read_inbox tool", () => {
 			expect(data!.messages[0]!.id).toBe("m1");
 		});
 
-		test("returns empty array when inbox is empty", async ({ db }) => {
+		test("returns empty array when inbox is empty", async ({ db, app }) => {
+			const readInboxTool = buildReadInboxTool(app);
 			await seedFactory(db);
 			const result = await readInboxTool.handler({}, makeContext(db));
 			expect(result.success).toBe(true);
@@ -171,7 +159,8 @@ describe("read_inbox tool", () => {
 	});
 
 	describe("limit parameter", () => {
-		test("caps the number of messages returned", async ({ db }) => {
+		test("caps the number of messages returned", async ({ db, app }) => {
+			const readInboxTool = buildReadInboxTool(app);
 			await seedFactory(db);
 			for (let i = 0; i < 5; i++) {
 				await insertMessage(
@@ -192,7 +181,8 @@ describe("read_inbox tool", () => {
 	});
 
 	describe("AC9: invalid input returns structured error", () => {
-		test("rejects non-numeric limit with INVALID_INPUT", async ({ db }) => {
+		test("rejects non-numeric limit with INVALID_INPUT", async ({ db, app }) => {
+			const readInboxTool = buildReadInboxTool(app);
 			await seedFactory(db);
 			const result = await readInboxTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
@@ -204,7 +194,8 @@ describe("read_inbox tool", () => {
 			expect(result.code).toBe("INVALID_INPUT");
 		});
 
-		test("rejects negative limit with INVALID_INPUT", async ({ db }) => {
+		test("rejects negative limit with INVALID_INPUT", async ({ db, app }) => {
+			const readInboxTool = buildReadInboxTool(app);
 			await seedFactory(db);
 			const result = await readInboxTool.handler({ limit: -5 }, makeContext(db));
 			expect(result.success).toBe(false);

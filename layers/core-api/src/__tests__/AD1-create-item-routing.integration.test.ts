@@ -27,21 +27,13 @@ import {
 } from "@hyperidle/db";
 import { createTestDb, type TestDbHandle } from "@hyperidle/db/testing";
 import { EventBus, type ToolContext } from "@hyperidle/shared";
-import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createTestApp } from "../__testing__/test-utils.js";
 import { disposeApp } from "../app.js";
-import {
-	createInProcessCoreApiTransport,
-	registerCoreApiTransport,
-} from "../services/core-api-port-composition.js";
-import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
-
-const createItemTool = buildToolDefinitions(toolHandlersPorts).find(
-	(t) => t.name === "create_item",
-)!;
+import { createInProcessCoreApiTransport } from "../services/core-api-port-composition.js";
+import { buildToolDefinitions } from "../services/tool-handlers-bindings.js";
 
 const NOW = new Date().toISOString();
 const TEST_TEAM_ID = "team-ad1";
@@ -126,19 +118,22 @@ describe("AD1 — create-item: review routing wires human participants", () => {
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
 	let app: Hono;
+	let createItemTool: ReturnType<typeof buildToolDefinitions>[number];
 
 	// @lore AU21 §9 Increment 2: `create_item`'s review-item branch now reaches
 	// `ports.coreApi.getUserById` (the seam) — this file predates the fixture
 	// `test`'s auto-registering `coreApiSeamRegistration` (it uses raw
-	// `createTestDb()` + `it`/`describe`, not `../test-fixtures.js`), so the
-	// transport is registered by hand here, same idiom as
-	// `create-bet-coreapiport-migration.integration.test.ts`.
+	// `createTestDb()` + `it`/`describe`, not `../test-fixtures.js`).
+	// @lore AU31 §3.2/B2: the tool is built fresh off THIS suite's own `app`
+	// here in `beforeEach`, never an ambient transport global.
 	beforeEach(async () => {
 		handle = await createTestDb();
 		db = handle.db;
 		eventBus = new EventBus();
 		app = await createTestApp({ db, eventBus });
-		registerCoreApiTransport(createInProcessCoreApiTransport(app));
+		createItemTool = buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+			(t) => t.name === "create_item",
+		)!;
 		await seedBase(db);
 	});
 

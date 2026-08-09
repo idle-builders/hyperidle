@@ -4,37 +4,19 @@ import {
 	knowledgeConflicts,
 	knowledgeItems,
 } from "@hyperidle/db";
-import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
+import type { Hono } from "hono";
 import { describe, expect } from "vitest";
-import { test as baseTest } from "../__testing__/test-fixtures.js";
-import {
-	createInProcessCoreApiTransport,
-	registerCoreApiTransport,
-} from "../services/core-api-port-composition.js";
-import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
+import { test } from "../__testing__/test-fixtures.js";
+import { createInProcessCoreApiTransport } from "../services/core-api-port-composition.js";
+import { buildToolDefinitions } from "../services/tool-handlers-bindings.js";
 import { makeContext, NOW, seedBase } from "./_helpers.js";
 
-/**
- * @lore AU21 §9 Increment 2: this file's tool handler(s) now reach
- * `ports.coreApi.*` (the seam) — this file-scoped `auto:true` fixture
- * registers a real in-process `CoreApiPort` transport off THIS test's own
- * `app` for every test in this file, same idiom as
- * `write-memory.integration.test.ts`.
- */
-const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
-	coreApiSeamRegistration: [
-		async ({ app }, use) => {
-			registerCoreApiTransport(createInProcessCoreApiTransport(app));
-			await use(undefined);
-		},
-		{ auto: true },
-	],
-});
-
-const createConflictReviewTool = buildToolDefinitions(toolHandlersPorts).find(
-	(t) => t.name === "create_conflict_review",
-)!;
+function buildCreateConflictReviewTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
+	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+		(t) => t.name === "create_conflict_review",
+	)!;
+}
 
 // @lore this file's own positional (id, version) seeder predates and shapes four call sites
 // differently from the shared `seedKnowledgeItem(db, options)` in `_helpers.ts` — kept as its own
@@ -55,7 +37,8 @@ async function seedKnowledgeItem(db: HyperIdleDb, id: string, version: number): 
 }
 
 describe("create_conflict_review tool", () => {
-	test("inserts an open knowledge_conflicts row referencing the item", async ({ db }) => {
+	test("inserts an open knowledge_conflicts row referencing the item", async ({ db, app }) => {
+		const createConflictReviewTool = buildCreateConflictReviewTool(app);
 		await seedBase(db);
 		await seedKnowledgeItem(db, "ki-1", 3);
 		const result = await createConflictReviewTool.handler(
@@ -84,7 +67,8 @@ describe("create_conflict_review tool", () => {
 		expect(data.conflictId).toBe(rows[0]!.id);
 	});
 
-	test("NOT_FOUND for unknown knowledgeItemId", async ({ db }) => {
+	test("NOT_FOUND for unknown knowledgeItemId", async ({ db, app }) => {
+		const createConflictReviewTool = buildCreateConflictReviewTool(app);
 		await seedBase(db);
 		const result = await createConflictReviewTool.handler(
 			{
@@ -99,7 +83,8 @@ describe("create_conflict_review tool", () => {
 		expect(result.code).toBe("NOT_FOUND");
 	});
 
-	test("INVALID_INPUT when versionBase > item.version", async ({ db }) => {
+	test("INVALID_INPUT when versionBase > item.version", async ({ db, app }) => {
+		const createConflictReviewTool = buildCreateConflictReviewTool(app);
 		await seedBase(db);
 		await seedKnowledgeItem(db, "ki-2", 2);
 		const result = await createConflictReviewTool.handler(
@@ -115,7 +100,11 @@ describe("create_conflict_review tool", () => {
 		expect(result.code).toBe("INVALID_INPUT");
 	});
 
-	test("always derives proposedBy from ctx.agentId (no spoofing via payload)", async ({ db }) => {
+	test("always derives proposedBy from ctx.agentId (no spoofing via payload)", async ({
+		db,
+		app,
+	}) => {
+		const createConflictReviewTool = buildCreateConflictReviewTool(app);
 		await seedBase(db);
 		await seedKnowledgeItem(db, "ki-3", 1);
 		const result = await createConflictReviewTool.handler(
@@ -140,7 +129,9 @@ describe("create_conflict_review tool", () => {
 
 	test("returns DUPLICATE on a second open conflict from the same agent on the same item", async ({
 		db,
+		app,
 	}) => {
+		const createConflictReviewTool = buildCreateConflictReviewTool(app);
 		await seedBase(db);
 		await seedKnowledgeItem(db, "ki-dup", 1);
 		const first = await createConflictReviewTool.handler(

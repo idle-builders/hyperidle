@@ -13,6 +13,7 @@
  *         Task 4 (classifier + composer + live-proof tool registration).
  */
 
+import type { CoreApiTransport } from "@hyperidle/api-contract";
 import {
 	classifyReversibility,
 	composeWorkflowAllowDeny,
@@ -20,7 +21,18 @@ import {
 	type SessionWorkflow,
 } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
-import { allToolDefinitions as ALL_TOOL_DEFINITIONS } from "../services/tool-handlers-bindings.js";
+import { buildToolDefinitions } from "../services/tool-handlers-bindings.js";
+
+/**
+ * @lore AU31 §3.2/B2: this file only reads tool METADATA (name, reversibility,
+ * schema shape) — never invokes a handler — so a transport that throws if
+ * called is more honest than wiring a real `app`.
+ */
+const neverCalledTransport: CoreApiTransport = () => {
+	throw new Error("AL7-classifier never invokes a tool handler");
+};
+
+const ALL_TOOL_DEFINITIONS = buildToolDefinitions(neverCalledTransport);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // T1 — classifyReversibility: fail-closed (no signal → irreversible)

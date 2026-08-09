@@ -69,7 +69,7 @@ export const MIN_TRACKED_FILES = 2976;
 export const DETECTOR_FLOORS: readonly DetectorFloor[] = [
 	{ kind: "import", min: 3307, floorKind: "magnitude" },
 	{ kind: "manifest", min: 111, floorKind: "magnitude" },
-	{ kind: "di", min: 220, floorKind: "magnitude" },
+	{ kind: "di", min: 188, floorKind: "magnitude" },
 	{ kind: "api", min: 184, floorKind: "magnitude" },
 	{ kind: "mcp", min: 22, floorKind: "magnitude" },
 	{ kind: "event", min: 216, floorKind: "magnitude" },

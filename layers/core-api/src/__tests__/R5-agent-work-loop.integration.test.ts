@@ -29,44 +29,33 @@ import {
 	users,
 } from "@hyperidle/db";
 import type { EventBus, ToolContext } from "@hyperidle/shared";
-import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
+import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { test as baseTest } from "../__testing__/test-fixtures.js";
-import {
-	createInProcessCoreApiTransport,
-	registerCoreApiTransport,
-} from "../services/core-api-port-composition.js";
-import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
+import { test } from "../__testing__/test-fixtures.js";
+import { createInProcessCoreApiTransport } from "../services/core-api-port-composition.js";
+import { buildToolDefinitions } from "../services/tool-handlers-bindings.js";
 
 /**
- * @lore AU21 §9 Increment 2: this file's tool handler(s) now reach
- * `ports.coreApi.*` (the seam) — this file-scoped `auto:true` fixture
- * registers a real in-process `CoreApiPort` transport off THIS test's own
- * `app` for every test in this file, without forcing `app`'s full
- * subscriber wiring onto every OTHER test file that imports the bare
- * `test` from `test-fixtures.ts` (that fixture's `app` stays lazy — a
- * global auto-fixture there double-fired `app.ts`'s task-`done`
- * dep-watcher against tests that manually drive the same transition,
- * an AU21 Increment 2 GREEN-phase finding).
+ * @lore AU31 §3.2/B2: this file's tool handler(s) reach `ports.coreApi.*`
+ * (the seam) — each tool is built fresh per test off THIS test's own `app`
+ * (`createInProcessCoreApiTransport`), never an ambient transport global.
  */
-const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
-	coreApiSeamRegistration: [
-		async ({ app }, use) => {
-			registerCoreApiTransport(createInProcessCoreApiTransport(app));
-			await use(undefined);
-		},
-		{ auto: true },
-	],
-});
-
-const createTaskTool = buildToolDefinitions(toolHandlersPorts).find(
-	(t) => t.name === "create_task",
-)!;
-const readInboxTool = buildToolDefinitions(toolHandlersPorts).find((t) => t.name === "read_inbox")!;
-const submitReviewTool = buildToolDefinitions(toolHandlersPorts).find(
-	(t) => t.name === "submit_review",
-)!;
+function buildCreateTaskTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
+	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+		(t) => t.name === "create_task",
+	)!;
+}
+function buildReadInboxTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
+	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+		(t) => t.name === "read_inbox",
+	)!;
+}
+function buildSubmitReviewTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
+	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+		(t) => t.name === "submit_review",
+	)!;
+}
 
 const TEST_API_KEY = "test-key-r5-agent-loop";
 const NOW = new Date().toISOString();
@@ -153,6 +142,7 @@ describe("R5: Agent Work Loop integration", () => {
 		test("created task appears in GET /api/bets/:id tasks array", async ({ db, app, eventBus }) => {
 			await seedBase(db);
 			const ctx = makeContext(db, eventBus);
+			const createTaskTool = buildCreateTaskTool(app);
 
 			// Agent calls create_task
 			const createResult = await createTaskTool.handler({ title: "Subtask 1" }, ctx);
@@ -207,9 +197,10 @@ describe("R5: Agent Work Loop integration", () => {
 
 	// AC2: submit_review tool posts a review message visible in the bet's thread
 	describe("AC2: submit_review tool — review message in bet host thread", () => {
-		test("submitted review message appears in bet host thread", async ({ db, eventBus }) => {
+		test("submitted review message appears in bet host thread", async ({ db, eventBus, app }) => {
 			await seedBase(db);
 			const ctx = makeContext(db, eventBus);
+			const submitReviewTool = buildSubmitReviewTool(app);
 
 			// Agent submits review (fallback path — no artifactRef)
 			const reviewResult = await submitReviewTool.handler(
@@ -245,9 +236,11 @@ describe("R5: Agent Work Loop integration", () => {
 		test("submitted review with artifactRef creates review-type message", async ({
 			db,
 			eventBus,
+			app,
 		}) => {
 			await seedBase(db);
 			const ctx = makeContext(db, eventBus);
+			const submitReviewTool = buildSubmitReviewTool(app);
 
 			const reviewResult = await submitReviewTool.handler(
 				{
@@ -275,6 +268,8 @@ describe("R5: Agent Work Loop integration", () => {
 		}) => {
 			await seedBase(db);
 			const ctx = makeContext(db, eventBus);
+			const submitReviewTool = buildSubmitReviewTool(app);
+			const readInboxTool = buildReadInboxTool(app);
 
 			// Step 1: Agent submits review — establishes bet thread
 			const reviewResult = await submitReviewTool.handler(

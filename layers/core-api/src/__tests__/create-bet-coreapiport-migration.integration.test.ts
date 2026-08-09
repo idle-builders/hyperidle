@@ -32,14 +32,13 @@
  */
 
 import { bets, teamMembers, teams, users } from "@hyperidle/db";
-import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "../__testing__/test-fixtures.js";
+import { createInProcessCoreApiTransport } from "../services/core-api-port-composition.js";
 import {
-	createInProcessCoreApiTransport,
-	registerCoreApiTransport,
-} from "../services/core-api-port-composition.js";
-import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
+	buildToolDefinitions,
+	buildToolHandlersPorts,
+} from "../services/tool-handlers-bindings.js";
 import { makeContext, NOW } from "./_helpers.js";
 
 async function seedTeam(db: Parameters<typeof makeContext>[0]): Promise<{ teamId: string }> {
@@ -59,10 +58,13 @@ async function seedTeam(db: Parameters<typeof makeContext>[0]): Promise<{ teamId
 }
 
 describe("create_bet tool — CoreApiPort migration", () => {
-	test("the raw createBet DI port no longer exists — ToolHandlersPorts has no `work` accessor at all", () => {
+	test("the raw createBet DI port no longer exists — ToolHandlersPorts has no `work` accessor at all", ({
+		app,
+	}) => {
 		// @lore AU21 §6 Decision L3: `work.routeItem` (the last standalone
 		// same-process `work` DI capability) was deleted outright as vestigial —
 		// there is no longer a `work` field on `ToolHandlersPorts` to check.
+		const toolHandlersPorts = buildToolHandlersPorts(createInProcessCoreApiTransport(app));
 		expect(Object.hasOwn(toolHandlersPorts, "work")).toBe(false);
 	});
 
@@ -83,12 +85,10 @@ describe("create_bet tool — CoreApiPort migration", () => {
 			createdAt: NOW,
 		});
 
-		// Wire the module-level toolHandlersPorts.coreApi factory to THIS test's
-		// real app instance — the production equivalent of server-factory.ts
-		// registering the boot-time app once.
-		registerCoreApiTransport(createInProcessCoreApiTransport(app));
-
-		const createBetTool = buildToolDefinitions(toolHandlersPorts).find(
+		// Build the tool fresh off THIS test's own `app` — the production
+		// equivalent of the composition root building one `CoreApiPort` per
+		// composition (architecture.md §3.2), no ambient transport global.
+		const createBetTool = buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
 			(t) => t.name === "create_bet",
 		)!;
 

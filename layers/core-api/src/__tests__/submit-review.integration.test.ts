@@ -21,40 +21,23 @@ import {
 	users,
 } from "@hyperidle/db";
 import { EventBus, type ToolContext } from "@hyperidle/shared";
-import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
+import type { Hono } from "hono";
 import { describe, expect } from "vitest";
-import { test as baseTest } from "../__testing__/test-fixtures.js";
-import {
-	createInProcessCoreApiTransport,
-	registerCoreApiTransport,
-} from "../services/core-api-port-composition.js";
-import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
+import { test } from "../__testing__/test-fixtures.js";
+import { createInProcessCoreApiTransport } from "../services/core-api-port-composition.js";
+import { buildToolDefinitions } from "../services/tool-handlers-bindings.js";
 
 /**
- * @lore AU21 §9 Increment 2: this file's tool handler(s) now reach
- * `ports.coreApi.*` (the seam) — this file-scoped `auto:true` fixture
- * registers a real in-process `CoreApiPort` transport off THIS test's own
- * `app` for every test in this file, without forcing `app`'s full
- * subscriber wiring onto every OTHER test file that imports the bare
- * `test` from `test-fixtures.ts` (that fixture's `app` stays lazy — a
- * global auto-fixture there double-fired `app.ts`'s task-`done`
- * dep-watcher against tests that manually drive the same transition,
- * an AU21 Increment 2 GREEN-phase finding).
+ * @lore AU31 §3.2/B2: this file's tool handler(s) reach `ports.coreApi.*`
+ * (the seam) — the tool is built fresh per test off THIS test's own `app`
+ * (`createInProcessCoreApiTransport`), never an ambient transport global.
  */
-const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
-	coreApiSeamRegistration: [
-		async ({ app }, use) => {
-			registerCoreApiTransport(createInProcessCoreApiTransport(app));
-			await use(undefined);
-		},
-		{ auto: true },
-	],
-});
-
-const submitReviewTool = buildToolDefinitions(toolHandlersPorts).find(
-	(t) => t.name === "submit_review",
-)!;
+function buildSubmitReviewTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
+	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+		(t) => t.name === "submit_review",
+	)!;
+}
 
 const NOW = new Date().toISOString();
 
@@ -108,7 +91,8 @@ function makeContext(db: HyperIdleDb): ToolContext<HyperIdleDb> {
 describe("submit_review tool", () => {
 	// AC2 happy path: full ReviewPayload with artifactRef
 	describe("AC2: review message with artifactRef", () => {
-		test("creates review-type message on bet host thread", async ({ db }) => {
+		test("creates review-type message on bet host thread", async ({ db, app }) => {
+			const submitReviewTool = buildSubmitReviewTool(app);
 			await seed(db);
 			const result = await submitReviewTool.handler(
 				{
@@ -159,7 +143,11 @@ describe("submit_review tool", () => {
 
 	// AC2 fallback: plain message when no artifactRef
 	describe("AC2: fallback plain message without artifactRef", () => {
-		test("creates plain-type fallback message when no artifactRef provided", async ({ db }) => {
+		test("creates plain-type fallback message when no artifactRef provided", async ({
+			db,
+			app,
+		}) => {
+			const submitReviewTool = buildSubmitReviewTool(app);
 			await seed(db);
 			const result = await submitReviewTool.handler(
 				{
@@ -185,7 +173,11 @@ describe("submit_review tool", () => {
 
 	// Thread reuse: second call reuses existing bet thread
 	describe("thread reuse", () => {
-		test("second call reuses existing bet thread (idempotent thread creation)", async ({ db }) => {
+		test("second call reuses existing bet thread (idempotent thread creation)", async ({
+			db,
+			app,
+		}) => {
+			const submitReviewTool = buildSubmitReviewTool(app);
 			await seed(db);
 			const first = await submitReviewTool.handler(
 				{ title: "First review", reasoning: ["Reason A"] },
@@ -207,7 +199,9 @@ describe("submit_review tool", () => {
 
 		test("adds agent to participants when existing bet thread does not include agent", async ({
 			db,
+			app,
 		}) => {
+			const submitReviewTool = buildSubmitReviewTool(app);
 			await seed(db);
 			// Create a bet thread that does NOT include agent-a
 			await db.insert(threads).values({
@@ -239,7 +233,8 @@ describe("submit_review tool", () => {
 
 	// Error cases
 	describe("error cases", () => {
-		test("returns NOT_FOUND when ctx.taskId does not exist", async ({ db }) => {
+		test("returns NOT_FOUND when ctx.taskId does not exist", async ({ db, app }) => {
+			const submitReviewTool = buildSubmitReviewTool(app);
 			await seed(db);
 			const ctx: ToolContext<HyperIdleDb> = {
 				...makeContext(db),
@@ -256,7 +251,8 @@ describe("submit_review tool", () => {
 			expect(result.code).toBe("NOT_FOUND");
 		});
 
-		test("returns INVALID_INPUT when reasoning array is empty", async ({ db }) => {
+		test("returns INVALID_INPUT when reasoning array is empty", async ({ db, app }) => {
+			const submitReviewTool = buildSubmitReviewTool(app);
 			await seed(db);
 			const result = await submitReviewTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid

@@ -12,8 +12,17 @@
  * The concrete implementation is `@hyperidle/review`'s owned
  * `captureProposedCall`/`consumeTailoredGrant`/`recordOutcome`
  * (`proposedCalls`/`tailoredGrants`/`operationOutcomes` are `review`'s
- * `TABLE_OWNER`). `allToolDefinitions` comes from `tool-handlers-bindings.ts`
- * (the DI-wired 21-tool + `write_session_notes` + `commit_file` master list).
+ * `TABLE_OWNER`). The tool definitions come from `tool-handlers-bindings.ts`'s
+ * `buildToolDefinitions` (the DI-wired 21-tool + `write_session_notes` +
+ * `commit_file` master list, built fresh per `CoreApiTransport` value).
+ *
+ * @lore AU31 B2 step 1: `tool-handlers-bindings.ts`'s tool-definitions
+ * factory now takes a `CoreApiTransport` value instead of exposing a
+ * module-level array (§3.2 clause 7 prep). This file still resolves that
+ * value from the `CoreApiPort` ambient global at call time
+ * (`getRegisteredCoreApiTransport()`) — this file itself, and the ambient
+ * global, are deleted together in the leaf that kills the global outright
+ * (§2.5, §3.2). Mechanical intermediate step, not the end state.
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
@@ -26,7 +35,8 @@ import type {
 	ToolContext,
 	ToolRegistry,
 } from "@hyperidle/shared";
-import { allToolDefinitions } from "./tool-handlers-bindings.js";
+import { getRegisteredCoreApiTransport } from "./core-api-port-composition.js";
+import { buildToolDefinitions } from "./tool-handlers-bindings.js";
 
 /**
  * @lore AU20 Am9: `ProposedCallWorkflowPort<TDb>` in `@hyperidle/shared` keeps the
@@ -56,11 +66,12 @@ export function buildToolRegistry(
 	ctx: ToolContext<HyperIdleDb>,
 	options: BuildToolRegistryOptions<HyperIdleDb>,
 ): ToolRegistry<HyperIdleDb> {
-	return buildToolRegistryInternal(allToolDefinitions, ctx, options, proposedCallWorkflowPort);
+	const definitions = buildToolDefinitions(getRegisteredCoreApiTransport());
+	return buildToolRegistryInternal(definitions, ctx, options, proposedCallWorkflowPort);
 }
 
 /**
- * Production-wired `toolsForRole` — filters the real DI-wired `allToolDefinitions`.
+ * Production-wired `toolsForRole` — filters the real DI-wired tool definitions.
  *
  * @lore AU29 §2.7: inlined from `@hyperidle/shared`'s (now-deleted) `toolsForRole`
  * — three copies of this one-line predicate beat a shared behavioural function
@@ -69,7 +80,9 @@ export function buildToolRegistry(
  * single place this filter's intent stays documented.
  */
 export function toolsForRole(role: string) {
-	return allToolDefinitions.filter((d) => d.roles === undefined || d.roles.includes(role));
+	return buildToolDefinitions(getRegisteredCoreApiTransport()).filter(
+		(d) => d.roles === undefined || d.roles.includes(role),
+	);
 }
 
 export { returnStatusTool };

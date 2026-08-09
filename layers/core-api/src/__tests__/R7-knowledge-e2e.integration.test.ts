@@ -25,45 +25,30 @@ import {
 import { assembleSessionKnowledge } from "@hyperidle/knowledge";
 import type { BakedContextBundle } from "@hyperidle/shared";
 import { EventBus, type ToolContext, toBakedContextKnowledgeItems } from "@hyperidle/shared";
-import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
+import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { test as baseTest } from "../__testing__/test-fixtures.js";
-import {
-	createInProcessCoreApiTransport,
-	registerCoreApiTransport,
-} from "../services/core-api-port-composition.js";
+import { test } from "../__testing__/test-fixtures.js";
+import { createInProcessCoreApiTransport } from "../services/core-api-port-composition.js";
 import { runSession } from "../services/run-orchestration-composition.js";
-import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
+import { buildToolDefinitions } from "../services/tool-handlers-bindings.js";
 import { seedKnowledgeItem } from "./_helpers.js";
 
 /**
- * @lore AU21 §9 Increment 2: this file's tool handler(s) now reach
- * `ports.coreApi.*` (the seam) — this file-scoped `auto:true` fixture
- * registers a real in-process `CoreApiPort` transport off THIS test's own
- * `app` for every test in this file, without forcing `app`'s full
- * subscriber wiring onto every OTHER test file that imports the bare
- * `test` from `test-fixtures.ts` (that fixture's `app` stays lazy — a
- * global auto-fixture there double-fired `app.ts`'s task-`done`
- * dep-watcher against tests that manually drive the same transition,
- * an AU21 Increment 2 GREEN-phase finding).
+ * @lore AU31 §3.2/B2: this file's tool handler(s) reach `ports.coreApi.*`
+ * (the seam) — each tool is built fresh per test off THIS test's own `app`
+ * (`createInProcessCoreApiTransport`), never an ambient transport global.
  */
-const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
-	coreApiSeamRegistration: [
-		async ({ app }, use) => {
-			registerCoreApiTransport(createInProcessCoreApiTransport(app));
-			await use(undefined);
-		},
-		{ auto: true },
-	],
-});
-
-const promoteKnowledgeTool = buildToolDefinitions(toolHandlersPorts).find(
-	(t) => t.name === "promote_knowledge",
-)!;
-const writeMemoryTool = buildToolDefinitions(toolHandlersPorts).find(
-	(t) => t.name === "write_memory",
-)!;
+function buildPromoteKnowledgeTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
+	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+		(t) => t.name === "promote_knowledge",
+	)!;
+}
+function buildWriteMemoryTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
+	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+		(t) => t.name === "write_memory",
+	)!;
+}
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -119,7 +104,9 @@ function makeContext(db: HyperIdleDb, sandboxPath: string): ToolContext<HyperIdl
 describe("R7 AC-1: write_memory creates items with status=draft", () => {
 	test("write_memory creates a knowledge item with status='draft' by default (not 'active')", async ({
 		db,
+		app,
 	}) => {
+		const writeMemoryTool = buildWriteMemoryTool(app);
 		await seedBase(db);
 		const sandboxPath = path.join(os.tmpdir(), `r7-ac1-${Date.now()}`);
 		const ctx = makeContext(db, sandboxPath);
@@ -150,7 +137,9 @@ describe("R7 AC-1: write_memory creates items with status=draft", () => {
 
 	test("write_memory sets scopeKind='product' and scopeId=teamId on the kernel table", async ({
 		db,
+		app,
 	}) => {
+		const writeMemoryTool = buildWriteMemoryTool(app);
 		await seedBase(db);
 		const sandboxPath = path.join(os.tmpdir(), `r7-ac1b-${Date.now()}`);
 		const ctx = makeContext(db, sandboxPath);
@@ -183,7 +172,11 @@ describe("R7 AC-1: write_memory creates items with status=draft", () => {
 		expect(kernelRow?.scopeId).toBe(TEAM_ID);
 	});
 
-	test("write_memory correctly writes scopeId to the fabric extension table", async ({ db }) => {
+	test("write_memory correctly writes scopeId to the fabric extension table", async ({
+		db,
+		app,
+	}) => {
+		const writeMemoryTool = buildWriteMemoryTool(app);
 		// R7 fix: the fabric extension table (knowledgeAppProjection.scopeId) must
 		// match the team ID for fetchAllForLayer(db, "L2", productId) to find the item.
 		await seedBase(db);
@@ -219,7 +212,9 @@ describe("R7 AC-1: write_memory creates items with status=draft", () => {
 
 	test("GET /api/knowledge returns the draft item in the response (triage-visible)", async ({
 		db,
+		app,
 	}) => {
+		const writeMemoryTool = buildWriteMemoryTool(app);
 		// Verify that items created by write_memory appear in the knowledge list endpoint
 		// with status="draft" — the KnowledgeList triage tab filters on status === "draft"
 		await seedBase(db);
@@ -254,7 +249,8 @@ describe("R7 AC-1: write_memory creates items with status=draft", () => {
 // ── AC-2: promote_knowledge moves draft → active ───────────────────────────
 
 describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
-	test("promote_knowledge transitions a draft item to active status", async ({ db }) => {
+	test("promote_knowledge transitions a draft item to active status", async ({ db, app }) => {
+		const promoteKnowledgeTool = buildPromoteKnowledgeTool(app);
 		await seedBase(db);
 		const sandboxPath = path.join(os.tmpdir(), `r7-ac2a-${Date.now()}`);
 		const eventBus = new EventBus();
@@ -318,7 +314,9 @@ describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 
 	test("promote_knowledge succeeds for 'draft' now that ALLOWED_TRANSITIONS includes 'draft' key", async ({
 		db,
+		app,
 	}) => {
+		const promoteKnowledgeTool = buildPromoteKnowledgeTool(app);
 		// R7 fix applied: "draft" is now in KNOWLEDGE_STATUSES and ALLOWED_TRANSITIONS
 		// so isKnowledgeStatus("draft") returns true and draft → active succeeds.
 		// Previously documented the INVALID_STATE failure mode; updated in write-code phase.
@@ -369,7 +367,9 @@ describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 		expect(result.success).toBe(true);
 	});
 
-	test("full triage-to-curated flow: write_memory then promote_knowledge", async ({ db }) => {
+	test("full triage-to-curated flow: write_memory then promote_knowledge", async ({ db, app }) => {
+		const writeMemoryTool = buildWriteMemoryTool(app);
+		const promoteKnowledgeTool = buildPromoteKnowledgeTool(app);
 		// End-to-end: agent writes item (lands in triage as "draft"), facilitator promotes to "active" (curated)
 		await seedBase(db);
 		const sandboxPath = path.join(os.tmpdir(), `r7-ac2c-${Date.now()}`);
@@ -458,7 +458,9 @@ describe("R7 AC-5: write_memory items appear in subsequent sessions", () => {
 
 	test("an item written by write_memory with layer=L2 appears in assembleContext() output for the same productId", async ({
 		db,
+		app,
 	}) => {
+		const writeMemoryTool = buildWriteMemoryTool(app);
 		await seedBase(db);
 		const ctx = makeContext(db, sandboxPath);
 
@@ -553,7 +555,9 @@ describe("R7 AC-5: write_memory items appear in subsequent sessions", () => {
 
 	test("write_memory items ARE assembled even without explicit teamId in ToolContext (R7 fix verified)", async ({
 		db,
+		app,
 	}) => {
+		const writeMemoryTool = buildWriteMemoryTool(app);
 		// R7 fix: write_memory now derives teamId from the task when ctx.teamId
 		// is absent, ensuring scopeId is always set for items tied to a team task.
 		// Previously documented the null-scopeId broken state; updated in write-code phase.

@@ -2,40 +2,18 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { type HyperIdleDb, messages, teamMembers, teams, threads, users } from "@hyperidle/db";
 import { EventBus, type ToolContext } from "@hyperidle/shared";
-import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
+import type { Hono } from "hono";
 import { describe, expect } from "vitest";
-import { test as baseTest } from "../__testing__/test-fixtures.js";
-import {
-	createInProcessCoreApiTransport,
-	registerCoreApiTransport,
-} from "../services/core-api-port-composition.js";
-import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
+import { test } from "../__testing__/test-fixtures.js";
+import { createInProcessCoreApiTransport } from "../services/core-api-port-composition.js";
+import { buildToolDefinitions } from "../services/tool-handlers-bindings.js";
 
-/**
- * @lore AU21 §9 Increment 2: this file's tool handler(s) now reach
- * `ports.coreApi.*` (the seam) — this file-scoped `auto:true` fixture
- * registers a real in-process `CoreApiPort` transport off THIS test's own
- * `app` for every test in this file, without forcing `app`'s full
- * subscriber wiring onto every OTHER test file that imports the bare
- * `test` from `test-fixtures.ts` (that fixture's `app` stays lazy — a
- * global auto-fixture there double-fired `app.ts`'s task-`done`
- * dep-watcher against tests that manually drive the same transition,
- * an AU21 Increment 2 GREEN-phase finding).
- */
-const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
-	coreApiSeamRegistration: [
-		async ({ app }, use) => {
-			registerCoreApiTransport(createInProcessCoreApiTransport(app));
-			await use(undefined);
-		},
-		{ auto: true },
-	],
-});
-
-const sendMessageTool = buildToolDefinitions(toolHandlersPorts).find(
-	(t) => t.name === "send_message",
-)!;
+function buildSendMessageTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
+	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+		(t) => t.name === "send_message",
+	)!;
+}
 
 async function seedFactory(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
@@ -78,7 +56,8 @@ function makeContext(db: HyperIdleDb, agentId = "agent-a"): ToolContext<HyperIdl
 
 describe("send_message tool", () => {
 	describe("AC2: sends to agent B appears in B's inbox", () => {
-		test("creates a message row with correct sender and recipient", async ({ db }) => {
+		test("creates a message row with correct sender and recipient", async ({ db, app }) => {
+			const sendMessageTool = buildSendMessageTool(app);
 			await seedFactory(db);
 			const result = await sendMessageTool.handler(
 				{ to: "agent-b", body: "Hello from A" },
@@ -99,7 +78,8 @@ describe("send_message tool", () => {
 			expect(thread?.hostId).toBe("agent-b");
 		});
 
-		test("creates a new direct thread when none exists", async ({ db }) => {
+		test("creates a new direct thread when none exists", async ({ db, app }) => {
+			const sendMessageTool = buildSendMessageTool(app);
 			await seedFactory(db);
 			const result = await sendMessageTool.handler(
 				{ to: "agent-b", body: "First message" },
@@ -118,7 +98,8 @@ describe("send_message tool", () => {
 			expect(participants.sort()).toEqual(["agent-a", "agent-b"]);
 		});
 
-		test("reuses existing direct thread between the same two agents", async ({ db }) => {
+		test("reuses existing direct thread between the same two agents", async ({ db, app }) => {
+			const sendMessageTool = buildSendMessageTool(app);
 			await seedFactory(db);
 			const first = await sendMessageTool.handler(
 				{ to: "agent-b", body: "Message 1" },
@@ -139,7 +120,8 @@ describe("send_message tool", () => {
 			expect(threadMsgs).toHaveLength(2);
 		});
 
-		test("persists optional subject when provided", async ({ db }) => {
+		test("persists optional subject when provided", async ({ db, app }) => {
+			const sendMessageTool = buildSendMessageTool(app);
 			await seedFactory(db);
 			const result = await sendMessageTool.handler(
 				{ to: "agent-b", subject: "Urgent", body: "Hi" },
@@ -157,7 +139,8 @@ describe("send_message tool", () => {
 	});
 
 	describe("AC9: invalid input returns structured error", () => {
-		test("returns INVALID_INPUT when body is empty", async ({ db }) => {
+		test("returns INVALID_INPUT when body is empty", async ({ db, app }) => {
+			const sendMessageTool = buildSendMessageTool(app);
 			await seedFactory(db);
 			const result = await sendMessageTool.handler(
 				{ to: "agent-b", body: "" },
@@ -168,7 +151,8 @@ describe("send_message tool", () => {
 			expect(result.code).toBe("INVALID_INPUT");
 		});
 
-		test("returns INVALID_INPUT when `to` is missing", async ({ db }) => {
+		test("returns INVALID_INPUT when `to` is missing", async ({ db, app }) => {
+			const sendMessageTool = buildSendMessageTool(app);
 			await seedFactory(db);
 			const result = await sendMessageTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
@@ -180,7 +164,8 @@ describe("send_message tool", () => {
 			expect(result.code).toBe("INVALID_INPUT");
 		});
 
-		test("returns NOT_FOUND when recipient agent does not exist", async ({ db }) => {
+		test("returns NOT_FOUND when recipient agent does not exist", async ({ db, app }) => {
+			const sendMessageTool = buildSendMessageTool(app);
 			await seedFactory(db);
 			const result = await sendMessageTool.handler(
 				{ to: "ghost", body: "anyone?" },

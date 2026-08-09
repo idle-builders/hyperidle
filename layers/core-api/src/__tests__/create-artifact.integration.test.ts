@@ -21,39 +21,17 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
 import type { ArtifactPreview, EventBus, ToolContext } from "@hyperidle/shared";
-import { buildToolDefinitions } from "@hyperidle/tool-handlers";
+import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { test as baseTest } from "../__testing__/test-fixtures.js";
-import {
-	createInProcessCoreApiTransport,
-	registerCoreApiTransport,
-} from "../services/core-api-port-composition.js";
-import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
+import { test } from "../__testing__/test-fixtures.js";
+import { createInProcessCoreApiTransport } from "../services/core-api-port-composition.js";
+import { buildToolDefinitions } from "../services/tool-handlers-bindings.js";
 
-/**
- * @lore AU21 §9 Increment 2: this file's tool handler(s) now reach
- * `ports.coreApi.*` (the seam) — this file-scoped `auto:true` fixture
- * registers a real in-process `CoreApiPort` transport off THIS test's own
- * `app` for every test in this file, without forcing `app`'s full
- * subscriber wiring onto every OTHER test file that imports the bare
- * `test` from `test-fixtures.ts` (that fixture's `app` stays lazy — a
- * global auto-fixture there double-fired `app.ts`'s task-`done`
- * dep-watcher against tests that manually drive the same transition,
- * an AU21 Increment 2 GREEN-phase finding).
- */
-const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
-	coreApiSeamRegistration: [
-		async ({ app }, use) => {
-			registerCoreApiTransport(createInProcessCoreApiTransport(app));
-			await use(undefined);
-		},
-		{ auto: true },
-	],
-});
-
-const createArtifactTool = buildToolDefinitions(toolHandlersPorts).find(
-	(t) => t.name === "create_artifact",
-)!;
+function buildCreateArtifactTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
+	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+		(t) => t.name === "create_artifact",
+	)!;
+}
 
 const TEST_API_KEY = "test-key-r6-integration";
 const NOW = "2026-05-30T00:00:00.000Z";
@@ -131,6 +109,7 @@ describe("R6: create_artifact integration — end-to-end flow", () => {
 		app,
 		eventBus,
 	}) => {
+		const createArtifactTool = buildCreateArtifactTool(app);
 		const { taskId, betId } = await seed(db);
 		const ctx = makeContext(db, eventBus, taskId);
 
@@ -164,6 +143,7 @@ describe("R6: create_artifact integration — end-to-end flow", () => {
 		app,
 		eventBus,
 	}) => {
+		const createArtifactTool = buildCreateArtifactTool(app);
 		const { taskId } = await seed(db, "_portfolio");
 		const ctx = makeContext(db, eventBus, taskId);
 
@@ -194,6 +174,7 @@ describe("R6: create_artifact integration — end-to-end flow", () => {
 		app,
 		eventBus,
 	}) => {
+		const createArtifactTool = buildCreateArtifactTool(app);
 		const { taskId } = await seed(db, "_shape");
 		const ctx = makeContext(db, eventBus, taskId);
 
@@ -254,6 +235,7 @@ describe("R6: create_artifact integration — end-to-end flow", () => {
 		app,
 		eventBus,
 	}) => {
+		const createArtifactTool = buildCreateArtifactTool(app);
 		const { taskId } = await seed(db, "_task");
 		const ctx = makeContext(db, eventBus, taskId);
 
@@ -287,6 +269,7 @@ describe("R6: create_artifact integration — end-to-end flow", () => {
 		app,
 		eventBus,
 	}) => {
+		const createArtifactTool = buildCreateArtifactTool(app);
 		const scopeA = await seed(db, "_iso-a");
 		const scopeB = await seed(db, "_iso-b");
 

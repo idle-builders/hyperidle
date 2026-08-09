@@ -2,38 +2,18 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
 import { EventBus, type ToolContext } from "@hyperidle/shared";
-import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
+import type { Hono } from "hono";
 import { describe, expect } from "vitest";
-import { test as baseTest } from "../__testing__/test-fixtures.js";
-import {
-	createInProcessCoreApiTransport,
-	registerCoreApiTransport,
-} from "../services/core-api-port-composition.js";
-import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
+import { test } from "../__testing__/test-fixtures.js";
+import { createInProcessCoreApiTransport } from "../services/core-api-port-composition.js";
+import { buildToolDefinitions } from "../services/tool-handlers-bindings.js";
 
-/**
- * @lore AU21 §9 Increment 2: this file's tool handler(s) now reach
- * `ports.coreApi.*` (the seam) — this file-scoped `auto:true` fixture
- * registers a real in-process `CoreApiPort` transport off THIS test's own
- * `app` for every test in this file, without forcing `app`'s full
- * subscriber wiring onto every OTHER test file that imports the bare
- * `test` from `test-fixtures.ts` (that fixture's `app` stays lazy — a
- * global auto-fixture there double-fired `app.ts`'s task-`done`
- * dep-watcher against tests that manually drive the same transition,
- * an AU21 Increment 2 GREEN-phase finding).
- */
-const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
-	coreApiSeamRegistration: [
-		async ({ app }, use) => {
-			registerCoreApiTransport(createInProcessCoreApiTransport(app));
-			await use(undefined);
-		},
-		{ auto: true },
-	],
-});
-
-const logTaskTool = buildToolDefinitions(toolHandlersPorts).find((t) => t.name === "log_task")!;
+function buildLogTaskTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
+	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+		(t) => t.name === "log_task",
+	)!;
+}
 
 async function seed(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
@@ -97,7 +77,8 @@ function makeContext(db: HyperIdleDb): ToolContext<HyperIdleDb> {
 
 describe("log_task tool", () => {
 	describe("AC3: appends 'Discovered X' to task.notes", () => {
-		test("appends note prose to task.notes", async ({ db }) => {
+		test("appends note prose to task.notes", async ({ db, app }) => {
+			const logTaskTool = buildLogTaskTool(app);
 			await seed(db);
 			// I1 C2 decision: log_task writes agent-authored prose (not
 			// audit entries) to tasks.notes. The storage representation is
@@ -113,7 +94,8 @@ describe("log_task tool", () => {
 			expect(task?.notes ?? "").toContain("Discovered X");
 		});
 
-		test("preserves pre-existing notes content when appending", async ({ db }) => {
+		test("preserves pre-existing notes content when appending", async ({ db, app }) => {
+			const logTaskTool = buildLogTaskTool(app);
 			await seed(db);
 			// Seed notes with prior agent prose; log_task must preserve it
 			// and append the new note. We use prose (not JSON) to reflect
@@ -131,7 +113,8 @@ describe("log_task tool", () => {
 			expect(notesText).toContain("Another note");
 		});
 
-		test("appends multiple notes in order", async ({ db }) => {
+		test("appends multiple notes in order", async ({ db, app }) => {
+			const logTaskTool = buildLogTaskTool(app);
 			await seed(db);
 			await logTaskTool.handler({ note: "First" }, makeContext(db));
 			await logTaskTool.handler({ note: "Second" }, makeContext(db));
@@ -151,7 +134,8 @@ describe("log_task tool", () => {
 
 	// ---------------- I1 C2/C3: log_task must never touch auditTrail ----------------
 	describe("I1 C2/C3: log_task never writes to tasks.auditTrail", () => {
-		test("leaves auditTrail untouched when appending a note", async ({ db }) => {
+		test("leaves auditTrail untouched when appending a note", async ({ db, app }) => {
+			const logTaskTool = buildLogTaskTool(app);
 			await seed(db);
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 			const auditBefore = task?.auditTrail ?? null;
@@ -163,7 +147,11 @@ describe("log_task tool", () => {
 			expect(after?.auditTrail ?? null).toBe(auditBefore);
 		});
 
-		test("does not corrupt a pre-existing auditTrail entry (state transition)", async ({ db }) => {
+		test("does not corrupt a pre-existing auditTrail entry (state transition)", async ({
+			db,
+			app,
+		}) => {
+			const logTaskTool = buildLogTaskTool(app);
 			await seed(db);
 			const now = new Date().toISOString();
 			const existing = [{ from: "accepted", to: "in_progress", timestamp: now }];
@@ -187,7 +175,8 @@ describe("log_task tool", () => {
 	});
 
 	describe("AC9: invalid input returns structured error", () => {
-		test("returns INVALID_INPUT when note is empty", async ({ db }) => {
+		test("returns INVALID_INPUT when note is empty", async ({ db, app }) => {
+			const logTaskTool = buildLogTaskTool(app);
 			await seed(db);
 			const result = await logTaskTool.handler({ note: "" }, makeContext(db));
 			expect(result.success).toBe(false);
@@ -195,7 +184,8 @@ describe("log_task tool", () => {
 			expect(result.code).toBe("INVALID_INPUT");
 		});
 
-		test("returns INVALID_INPUT when note is missing", async ({ db }) => {
+		test("returns INVALID_INPUT when note is missing", async ({ db, app }) => {
+			const logTaskTool = buildLogTaskTool(app);
 			await seed(db);
 			const result = await logTaskTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
@@ -207,7 +197,8 @@ describe("log_task tool", () => {
 			expect(result.code).toBe("INVALID_INPUT");
 		});
 
-		test("returns NOT_FOUND when ctx.taskId does not exist", async ({ db }) => {
+		test("returns NOT_FOUND when ctx.taskId does not exist", async ({ db, app }) => {
+			const logTaskTool = buildLogTaskTool(app);
 			await seed(db);
 			const ctx = { ...makeContext(db), taskId: "ghost-task" };
 			const result = await logTaskTool.handler({ note: "x" }, ctx);

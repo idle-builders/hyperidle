@@ -2,6 +2,10 @@ import { createReturnEnforcement } from "@hyperidle/harness-registry";
 import { createMcpToolBridge } from "@hyperidle/harness-registry/mcp";
 import { EventBus, type ToolContext, type ToolRegistry } from "@hyperidle/shared";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
+import {
+	createInProcessCoreApiTransport,
+	registerCoreApiTransport,
+} from "../services/core-api-port-composition.js";
 import { buildToolRegistry } from "../services/tool-provider-bindings.js";
 
 const registry: ToolRegistry = {
@@ -13,7 +17,15 @@ const registry: ToolRegistry = {
 describe("X2 MCP session custody", () => {
 	test("opens a role-filtered production tool registry and preserves result codes", async ({
 		db,
+		app,
 	}) => {
+		// @lore AU31 §3.2/B2 step 1: `buildToolRegistry` still resolves its tool
+		// definitions via the CoreApiPort ambient global (tool-provider-bindings.ts,
+		// converted in B2) — register THIS test's transport explicitly. Was
+		// previously riding a leftover registration from another test file in
+		// the same worker, exactly the cross-test bleed architecture.md §3.2
+		// names as the reason the global is deleted in B2.
+		registerCoreApiTransport(createInProcessCoreApiTransport(app));
 		const context: ToolContext<typeof db> = {
 			db,
 			eventBus: new EventBus(),

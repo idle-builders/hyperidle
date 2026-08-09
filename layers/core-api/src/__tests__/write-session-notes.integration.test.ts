@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import type { CoreApiTransport } from "@hyperidle/api-contract";
 import {
 	agentRunConfig,
 	bets,
@@ -13,13 +14,23 @@ import {
 	users,
 } from "@hyperidle/db";
 import { EventBus, type ToolContext } from "@hyperidle/shared";
-import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
-import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
+import { buildToolDefinitions } from "../services/tool-handlers-bindings.js";
 
-const writeSessionNotesTool = buildToolDefinitions(toolHandlersPorts).find(
+/**
+ * @lore AU31 §3.2/B2: `write_session_notes` never reaches `ports.coreApi.*`
+ * (it writes the sandbox file + `sessions.notes` directly) — the factory
+ * still needs A transport value to build the full tool list, but this one
+ * is provably never invoked, so a transport that throws if called is more
+ * honest than wiring a real `app` this tool never touches.
+ */
+const neverCalledTransport: CoreApiTransport = () => {
+	throw new Error("write_session_notes does not reach the CoreApiPort seam");
+};
+
+const writeSessionNotesTool = buildToolDefinitions(neverCalledTransport).find(
 	(t) => t.name === "write_session_notes",
 )!;
 

@@ -32,30 +32,26 @@ import {
 } from "@hyperidle/db";
 import { drainIntents } from "@hyperidle/session-requests";
 import { EventBus, type ToolContext } from "@hyperidle/shared";
-import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
+import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
-import { test as baseTest } from "../../__testing__/test-fixtures.js";
-import {
-	createInProcessCoreApiTransport,
-	registerCoreApiTransport,
-} from "../../services/core-api-port-composition.js";
-import { toolHandlersPorts } from "../../services/tool-handlers-bindings.js";
+import { test } from "../../__testing__/test-fixtures.js";
+import { createInProcessCoreApiTransport } from "../../services/core-api-port-composition.js";
+import { buildToolDefinitions } from "../../services/tool-handlers-bindings.js";
 
 const TEST_API_KEY = "test-key-au21-knowledge-action-emit";
 
-const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
-	coreApiSeamRegistration: [
-		async ({ app }, use) => {
-			registerCoreApiTransport(createInProcessCoreApiTransport(app));
-			await use(undefined);
-		},
-		{ auto: true },
-	],
-});
-
-const replyTool = buildToolDefinitions(toolHandlersPorts).find((t) => t.name === "reply")!;
+/**
+ * @lore AU31 §3.2/B2: `reply` reaches `ports.coreApi.*` (the seam) — the
+ * tool is built fresh per test off THIS test's own `app`
+ * (`createInProcessCoreApiTransport`), never an ambient transport global.
+ */
+function buildReplyTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
+	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+		(t) => t.name === "reply",
+	)!;
+}
 
 function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json" };
@@ -228,6 +224,7 @@ describe("knowledge_action is resolved and baked at emit time (POST /api/knowled
 			sandboxPath: path.join(os.tmpdir(), `hi-au27-knowledge-reply-${Date.now()}`),
 			ingestion: { dispose: (): void => {} },
 		};
+		const replyTool = buildReplyTool(app);
 		const replyResult = await replyTool.handler({ text: "Reviewed and updated." }, ctx);
 		expect(replyResult.success).toBe(true);
 		if (!replyResult.success) return;

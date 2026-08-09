@@ -1,41 +1,22 @@
 import { type HyperIdleDb, items, knowledgeAppProjection, knowledgeItems } from "@hyperidle/db";
-import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
+import type { Hono } from "hono";
 import { describe, expect } from "vitest";
-import { test as baseTest } from "../__testing__/test-fixtures.js";
+import { test } from "../__testing__/test-fixtures.js";
 import {
 	createInProcessCoreApiTransport,
 	registerCoreApiTransport,
 } from "../services/core-api-port-composition.js";
-import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
+import { buildToolDefinitions } from "../services/tool-handlers-bindings.js";
 import { buildToolRegistry } from "../services/tool-provider-bindings.js";
-
-/**
- * @lore AU21 §9 Increment 2: this file's tool handler(s) now reach
- * `ports.coreApi.*` (the seam) — this file-scoped `auto:true` fixture
- * registers a real in-process `CoreApiPort` transport off THIS test's own
- * `app` for every test in this file, without forcing `app`'s full
- * subscriber wiring onto every OTHER test file that imports the bare
- * `test` from `test-fixtures.ts` (that fixture's `app` stays lazy — a
- * global auto-fixture there double-fired `app.ts`'s task-`done`
- * dep-watcher against tests that manually drive the same transition,
- * an AU21 Increment 2 GREEN-phase finding).
- */
-const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
-	coreApiSeamRegistration: [
-		async ({ app }, use) => {
-			registerCoreApiTransport(createInProcessCoreApiTransport(app));
-			await use(undefined);
-		},
-		{ auto: true },
-	],
-});
 
 import { makeContext, NOW, seedBase } from "./_helpers.js";
 
-const scoreAttentionTool = buildToolDefinitions(toolHandlersPorts).find(
-	(t) => t.name === "score_attention",
-)!;
+function buildScoreAttentionTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
+	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+		(t) => t.name === "score_attention",
+	)!;
+}
 
 async function seedKnowledgeItemWithScore(
 	db: HyperIdleDb,
@@ -89,7 +70,8 @@ async function seedItem(db: HyperIdleDb, id: string): Promise<void> {
 }
 
 describe("score_attention tool", () => {
-	test("sets attention_score on a knowledge_item (target=knowledge_item)", async ({ db }) => {
+	test("sets attention_score on a knowledge_item (target=knowledge_item)", async ({ db, app }) => {
+		const scoreAttentionTool = buildScoreAttentionTool(app);
 		await seedBase(db);
 		await seedKnowledgeItem(db, "ki-1");
 		const result = await scoreAttentionTool.handler(
@@ -105,7 +87,8 @@ describe("score_attention tool", () => {
 		expect(Number(fabricRow?.attentionScore)).toBeCloseTo(0.42, 5);
 	});
 
-	test("score on items row is a no-op after O2 (attentionScore stripped)", async ({ db }) => {
+	test("score on items row is a no-op after O2 (attentionScore stripped)", async ({ db, app }) => {
+		const scoreAttentionTool = buildScoreAttentionTool(app);
 		await seedBase(db);
 		// O2: items.attentionScore stripped from kernel. Score writes are no-op.
 		await seedItem(db, "it-1");
@@ -116,7 +99,8 @@ describe("score_attention tool", () => {
 		expect(result.success).toBe(true);
 	});
 
-	test("does NOT bump knowledge_items.version", async ({ db }) => {
+	test("does NOT bump knowledge_items.version", async ({ db, app }) => {
+		const scoreAttentionTool = buildScoreAttentionTool(app);
 		await seedBase(db);
 		await seedKnowledgeItem(db, "ki-2");
 		const [before] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-2"));
@@ -135,7 +119,8 @@ describe("score_attention tool", () => {
 		expect(Number(fabricRow?.attentionScore)).toBeCloseTo(0.7, 5);
 	});
 
-	test("returns NOT_FOUND for unknown id (both targets)", async ({ db }) => {
+	test("returns NOT_FOUND for unknown id (both targets)", async ({ db, app }) => {
+		const scoreAttentionTool = buildScoreAttentionTool(app);
 		await seedBase(db);
 		const kiResult = await scoreAttentionTool.handler(
 			{ target: "knowledge_item", id: "nope", score: 0.1 },
@@ -154,7 +139,12 @@ describe("score_attention tool", () => {
 		expect(itResult.code).toBe("NOT_FOUND");
 	});
 
-	test("returns INVALID_INPUT for score < 0 or > 1 via registry dispatch", async ({ db }) => {
+	test("returns INVALID_INPUT for score < 0 or > 1 via registry dispatch", async ({ db, app }) => {
+		// @lore AU31 §3.2/B2 step 1: `buildToolRegistry` still resolves its
+		// tool definitions via the CoreApiPort ambient global (tool-provider-bindings.ts,
+		// converted in B2) — register THIS test's transport explicitly since the
+		// old file-scoped auto-fixture is gone.
+		registerCoreApiTransport(createInProcessCoreApiTransport(app));
 		await seedBase(db);
 		await seedKnowledgeItem(db, "ki-3");
 		// I2 B1-B4: registry now requires explicit role. score_attention is
@@ -182,7 +172,9 @@ describe("score_attention tool", () => {
 
 	test("mode: 'override' (default) keeps G1 behavior (uses provided score verbatim)", async ({
 		db,
+		app,
 	}) => {
+		const scoreAttentionTool = buildScoreAttentionTool(app);
 		await seedBase(db);
 		await seedKnowledgeItem(db, "ki-override");
 		const result = await scoreAttentionTool.handler(
@@ -199,7 +191,9 @@ describe("score_attention tool", () => {
 
 	test("mode: 'recompute' with target=knowledge_item invokes the engine (score arg omitted)", async ({
 		db,
+		app,
 	}) => {
+		registerCoreApiTransport(createInProcessCoreApiTransport(app));
 		await seedBase(db);
 		await seedKnowledgeItemWithScore(db, "ki-recompute", 0.05);
 		const registry = buildToolRegistry(makeContext(db), { role: "assistant" });
@@ -218,7 +212,9 @@ describe("score_attention tool", () => {
 
 	test("mode: 'recompute' rejects a provided `score` via registry-level validation", async ({
 		db,
+		app,
 	}) => {
+		registerCoreApiTransport(createInProcessCoreApiTransport(app));
 		await seedBase(db);
 		await seedKnowledgeItemWithScore(db, "ki-reject", 0.05);
 		// I2 B1-B4: registry now requires explicit role. score_attention is
@@ -237,7 +233,9 @@ describe("score_attention tool", () => {
 
 	test("mode: 'override' requires `score` — rejects missing score via registry validation", async ({
 		db,
+		app,
 	}) => {
+		registerCoreApiTransport(createInProcessCoreApiTransport(app));
 		await seedBase(db);
 		await seedKnowledgeItem(db, "ki-need-score");
 		// I2 B1-B4: registry now requires explicit role. score_attention is
@@ -253,7 +251,8 @@ describe("score_attention tool", () => {
 		expect(result.code).toBe("INVALID_INPUT");
 	});
 
-	test("mode: 'recompute' with target=item returns INVALID_INPUT", async ({ db }) => {
+	test("mode: 'recompute' with target=item returns INVALID_INPUT", async ({ db, app }) => {
+		const scoreAttentionTool = buildScoreAttentionTool(app);
 		await seedBase(db);
 		await seedItem(db, "it-recompute");
 		const result = await scoreAttentionTool.handler(

@@ -10,13 +10,24 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import type { CoreApiTransport } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ToolContext } from "@hyperidle/shared";
-import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { afterAll, describe, expect, it } from "vitest";
-import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
+import { buildToolDefinitions } from "../services/tool-handlers-bindings.js";
 
-const commitFileTool = buildToolDefinitions(toolHandlersPorts).find(
+/**
+ * @lore AU31 §3.2/B2: `commit_file` never reaches `ports.coreApi.*` (it only
+ * touches the sandbox filesystem) — the factory still needs A transport
+ * value to build the full tool list, but this one is provably never
+ * invoked, so a transport that throws if called is more honest than wiring
+ * a real `app` this tool never touches.
+ */
+const neverCalledTransport: CoreApiTransport = () => {
+	throw new Error("commit_file does not reach the CoreApiPort seam");
+};
+
+const commitFileTool = buildToolDefinitions(neverCalledTransport).find(
 	(t) => t.name === "commit_file",
 )!;
 

@@ -8,40 +8,18 @@ import {
 	users,
 } from "@hyperidle/db";
 import { EventBus, type ToolContext } from "@hyperidle/shared";
-import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
+import type { Hono } from "hono";
 import { describe, expect } from "vitest";
-import { test as baseTest } from "../__testing__/test-fixtures.js";
-import {
-	createInProcessCoreApiTransport,
-	registerCoreApiTransport,
-} from "../services/core-api-port-composition.js";
-import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
+import { test } from "../__testing__/test-fixtures.js";
+import { createInProcessCoreApiTransport } from "../services/core-api-port-composition.js";
+import { buildToolDefinitions } from "../services/tool-handlers-bindings.js";
 
-/**
- * @lore AU21 §9 Increment 2: this file's tool handler(s) now reach
- * `ports.coreApi.*` (the seam) — this file-scoped `auto:true` fixture
- * registers a real in-process `CoreApiPort` transport off THIS test's own
- * `app` for every test in this file, without forcing `app`'s full
- * subscriber wiring onto every OTHER test file that imports the bare
- * `test` from `test-fixtures.ts` (that fixture's `app` stays lazy — a
- * global auto-fixture there double-fired `app.ts`'s task-`done`
- * dep-watcher against tests that manually drive the same transition,
- * an AU21 Increment 2 GREEN-phase finding).
- */
-const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
-	coreApiSeamRegistration: [
-		async ({ app }, use) => {
-			registerCoreApiTransport(createInProcessCoreApiTransport(app));
-			await use(undefined);
-		},
-		{ auto: true },
-	],
-});
-
-const writeMemoryTool = buildToolDefinitions(toolHandlersPorts).find(
-	(t) => t.name === "write_memory",
-)!;
+function buildWriteMemoryTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
+	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+		(t) => t.name === "write_memory",
+	)!;
+}
 
 const NOW = new Date().toISOString();
 
@@ -80,7 +58,8 @@ function makeContext(db: HyperIdleDb, agentId = "agent-a"): ToolContext<HyperIdl
 
 describe("write_memory tool", () => {
 	describe("creates a knowledge item via fabric.create", () => {
-		test("inserts a knowledge_items row with version 1", async ({ db }) => {
+		test("inserts a knowledge_items row with version 1", async ({ db, app }) => {
+			const writeMemoryTool = buildWriteMemoryTool(app);
 			await seedFacilitator(db);
 			const result = await writeMemoryTool.handler(
 				{
@@ -112,7 +91,8 @@ describe("write_memory tool", () => {
 			expect(fabricRow?.kind).toBe("pattern");
 		});
 
-		test("attributes updatedBy to `agent:<agentId>`", async ({ db }) => {
+		test("attributes updatedBy to `agent:<agentId>`", async ({ db, app }) => {
+			const writeMemoryTool = buildWriteMemoryTool(app);
 			await seedFacilitator(db);
 			const result = await writeMemoryTool.handler(
 				{
@@ -133,7 +113,8 @@ describe("write_memory tool", () => {
 			expect(row?.updatedBy).toBe("agent:agent-a");
 		});
 
-		test("creates an edit log entry with editType=create", async ({ db }) => {
+		test("creates an edit log entry with editType=create", async ({ db, app }) => {
+			const writeMemoryTool = buildWriteMemoryTool(app);
 			await seedFacilitator(db);
 			const result = await writeMemoryTool.handler(
 				{
@@ -156,7 +137,8 @@ describe("write_memory tool", () => {
 			expect(log[0]!.editor).toBe("agent:agent-a");
 		});
 
-		test("accepts optional topic and format/status defaults", async ({ db }) => {
+		test("accepts optional topic and format/status defaults", async ({ db, app }) => {
+			const writeMemoryTool = buildWriteMemoryTool(app);
 			await seedFacilitator(db);
 			const result = await writeMemoryTool.handler(
 				{
@@ -180,7 +162,8 @@ describe("write_memory tool", () => {
 			expect(row?.status).toBeDefined();
 		});
 
-		test("accepts explicit practice scope with role id", async ({ db }) => {
+		test("accepts explicit practice scope with role id", async ({ db, app }) => {
+			const writeMemoryTool = buildWriteMemoryTool(app);
 			await seedFacilitator(db);
 			const result = await writeMemoryTool.handler(
 				{
@@ -206,7 +189,8 @@ describe("write_memory tool", () => {
 
 		// AU26 F2 (founder ruling): `filesystem` is no longer a scope kind, so
 		// the tool's `z.enum(SCOPE_KINDS)` rejects it at the input boundary.
-		test("rejects a filesystem scope — the scope kind is gone", async ({ db }) => {
+		test("rejects a filesystem scope — the scope kind is gone", async ({ db, app }) => {
+			const writeMemoryTool = buildWriteMemoryTool(app);
 			await seedFacilitator(db);
 			const result = await writeMemoryTool.handler(
 				{
@@ -225,7 +209,8 @@ describe("write_memory tool", () => {
 			expect(await db.select().from(knowledgeItems)).toEqual([]);
 		});
 
-		test("rejects explicit scoped writes without required scopeId", async ({ db }) => {
+		test("rejects explicit scoped writes without required scopeId", async ({ db, app }) => {
+			const writeMemoryTool = buildWriteMemoryTool(app);
 			await seedFacilitator(db);
 			const result = await writeMemoryTool.handler(
 				{
@@ -245,7 +230,8 @@ describe("write_memory tool", () => {
 	});
 
 	describe("I6: non-facilitator agents restricted to L0-L2", () => {
-		test("builder agent writing L3 gets FORBIDDEN", async ({ db }) => {
+		test("builder agent writing L3 gets FORBIDDEN", async ({ db, app }) => {
+			const writeMemoryTool = buildWriteMemoryTool(app);
 			await seedFacilitator(db);
 			await seedBuilder(db);
 			const result = await writeMemoryTool.handler(
@@ -263,7 +249,8 @@ describe("write_memory tool", () => {
 			expect(result.error).toContain("insufficient role for L3");
 		});
 
-		test("builder agent writing L4 gets FORBIDDEN", async ({ db }) => {
+		test("builder agent writing L4 gets FORBIDDEN", async ({ db, app }) => {
+			const writeMemoryTool = buildWriteMemoryTool(app);
 			await seedFacilitator(db);
 			await seedBuilder(db);
 			const result = await writeMemoryTool.handler(
@@ -281,7 +268,8 @@ describe("write_memory tool", () => {
 			expect(result.error).toContain("insufficient role for L4");
 		});
 
-		test("builder agent can write to L0", async ({ db }) => {
+		test("builder agent can write to L0", async ({ db, app }) => {
+			const writeMemoryTool = buildWriteMemoryTool(app);
 			await seedFacilitator(db);
 			await seedBuilder(db);
 			const result = await writeMemoryTool.handler(
@@ -296,7 +284,8 @@ describe("write_memory tool", () => {
 			expect(result.success).toBe(true);
 		});
 
-		test("builder agent can write to L2", async ({ db }) => {
+		test("builder agent can write to L2", async ({ db, app }) => {
+			const writeMemoryTool = buildWriteMemoryTool(app);
 			await seedFacilitator(db);
 			await seedBuilder(db);
 			const result = await writeMemoryTool.handler(
@@ -311,7 +300,8 @@ describe("write_memory tool", () => {
 			expect(result.success).toBe(true);
 		});
 
-		test("facilitator agent can write to L3", async ({ db }) => {
+		test("facilitator agent can write to L3", async ({ db, app }) => {
+			const writeMemoryTool = buildWriteMemoryTool(app);
 			await seedFacilitator(db);
 			const result = await writeMemoryTool.handler(
 				{
@@ -325,7 +315,8 @@ describe("write_memory tool", () => {
 			expect(result.success).toBe(true);
 		});
 
-		test("facilitator agent can write to L4", async ({ db }) => {
+		test("facilitator agent can write to L4", async ({ db, app }) => {
+			const writeMemoryTool = buildWriteMemoryTool(app);
 			await seedFacilitator(db);
 			const result = await writeMemoryTool.handler(
 				{
@@ -341,7 +332,8 @@ describe("write_memory tool", () => {
 	});
 
 	describe("AC9: invalid input returns structured error", () => {
-		test("returns INVALID_INPUT for unknown layer", async ({ db }) => {
+		test("returns INVALID_INPUT for unknown layer", async ({ db, app }) => {
+			const writeMemoryTool = buildWriteMemoryTool(app);
 			await seedFacilitator(db);
 			const result = await writeMemoryTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
@@ -353,7 +345,8 @@ describe("write_memory tool", () => {
 			expect(result.code).toBe("INVALID_INPUT");
 		});
 
-		test("returns INVALID_INPUT for missing title", async ({ db }) => {
+		test("returns INVALID_INPUT for missing title", async ({ db, app }) => {
+			const writeMemoryTool = buildWriteMemoryTool(app);
 			await seedFacilitator(db);
 			const result = await writeMemoryTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
@@ -365,7 +358,8 @@ describe("write_memory tool", () => {
 			expect(result.code).toBe("INVALID_INPUT");
 		});
 
-		test("returns INVALID_INPUT for unknown kind", async ({ db }) => {
+		test("returns INVALID_INPUT for unknown kind", async ({ db, app }) => {
+			const writeMemoryTool = buildWriteMemoryTool(app);
 			await seedFacilitator(db);
 			const result = await writeMemoryTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid

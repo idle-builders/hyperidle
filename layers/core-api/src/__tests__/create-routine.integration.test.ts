@@ -5,42 +5,20 @@
  */
 
 import { routines, tasks, teamMembers, teams, users } from "@hyperidle/db";
-import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
+import type { Hono } from "hono";
 import { describe, expect } from "vitest";
-import { test as baseTest } from "../__testing__/test-fixtures.js";
-import {
-	createInProcessCoreApiTransport,
-	registerCoreApiTransport,
-} from "../services/core-api-port-composition.js";
-import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
-
-/**
- * @lore AU21 §9 Increment 2: this file's tool handler(s) now reach
- * `ports.coreApi.*` (the seam) — this file-scoped `auto:true` fixture
- * registers a real in-process `CoreApiPort` transport off THIS test's own
- * `app` for every test in this file, without forcing `app`'s full
- * subscriber wiring onto every OTHER test file that imports the bare
- * `test` from `test-fixtures.ts` (that fixture's `app` stays lazy — a
- * global auto-fixture there double-fired `app.ts`'s task-`done`
- * dep-watcher against tests that manually drive the same transition,
- * an AU21 Increment 2 GREEN-phase finding).
- */
-const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
-	coreApiSeamRegistration: [
-		async ({ app }, use) => {
-			registerCoreApiTransport(createInProcessCoreApiTransport(app));
-			await use(undefined);
-		},
-		{ auto: true },
-	],
-});
+import { test } from "../__testing__/test-fixtures.js";
+import { createInProcessCoreApiTransport } from "../services/core-api-port-composition.js";
+import { buildToolDefinitions } from "../services/tool-handlers-bindings.js";
 
 import { makeContext, NOW } from "./_helpers.js";
 
-const createRoutineTool = buildToolDefinitions(toolHandlersPorts).find(
-	(t) => t.name === "create_routine",
-)!;
+function buildCreateRoutineTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
+	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+		(t) => t.name === "create_routine",
+	)!;
+}
 
 async function seedTeamAndAgent(db: Parameters<typeof makeContext>[0]): Promise<{
 	teamId: string;
@@ -70,7 +48,8 @@ async function seedTeamAndAgent(db: Parameters<typeof makeContext>[0]): Promise<
 }
 
 describe("create_routine tool", () => {
-	test("inserts a task-free routines row", async ({ db }) => {
+	test("inserts a task-free routines row", async ({ db, app }) => {
+		const createRoutineTool = buildCreateRoutineTool(app);
 		const { teamId, agentId } = await seedTeamAndAgent(db);
 
 		const result = await createRoutineTool.handler(
@@ -102,7 +81,8 @@ describe("create_routine tool", () => {
 		expect(await db.select().from(tasks)).toHaveLength(0);
 	});
 
-	test("returns ok({ routineId, name, nextRunAt })", async ({ db }) => {
+	test("returns ok({ routineId, name, nextRunAt })", async ({ db, app }) => {
+		const createRoutineTool = buildCreateRoutineTool(app);
 		const { teamId, agentId } = await seedTeamAndAgent(db);
 
 		const result = await createRoutineTool.handler(
@@ -125,7 +105,8 @@ describe("create_routine tool", () => {
 		expect(data).not.toHaveProperty("stubTaskId");
 	});
 
-	test("NOT_FOUND for nonexistent teamId", async ({ db }) => {
+	test("NOT_FOUND for nonexistent teamId", async ({ db, app }) => {
+		const createRoutineTool = buildCreateRoutineTool(app);
 		const { agentId } = await seedTeamAndAgent(db);
 
 		const result = await createRoutineTool.handler(
@@ -143,7 +124,8 @@ describe("create_routine tool", () => {
 		expect(result.code).toBe("NOT_FOUND");
 	});
 
-	test("NOT_FOUND for nonexistent ownerAgentId", async ({ db }) => {
+	test("NOT_FOUND for nonexistent ownerAgentId", async ({ db, app }) => {
+		const createRoutineTool = buildCreateRoutineTool(app);
 		const { teamId } = await seedTeamAndAgent(db);
 
 		const result = await createRoutineTool.handler(
@@ -161,7 +143,8 @@ describe("create_routine tool", () => {
 		expect(result.code).toBe("NOT_FOUND");
 	});
 
-	test("INVALID_INPUT for invalid cron expression", async ({ db }) => {
+	test("INVALID_INPUT for invalid cron expression", async ({ db, app }) => {
+		const createRoutineTool = buildCreateRoutineTool(app);
 		const { teamId, agentId } = await seedTeamAndAgent(db);
 
 		const result = await createRoutineTool.handler(
@@ -179,7 +162,8 @@ describe("create_routine tool", () => {
 		expect(result.code).toBe("INVALID_INPUT");
 	});
 
-	test("INVALID_INPUT for invalid JSON in triggerConfig", async ({ db }) => {
+	test("INVALID_INPUT for invalid JSON in triggerConfig", async ({ db, app }) => {
+		const createRoutineTool = buildCreateRoutineTool(app);
 		const { teamId, agentId } = await seedTeamAndAgent(db);
 
 		const result = await createRoutineTool.handler(
@@ -197,7 +181,8 @@ describe("create_routine tool", () => {
 		expect(result.code).toBe("INVALID_INPUT");
 	});
 
-	test("INVALID_INPUT for valid JSON but missing cron field", async ({ db }) => {
+	test("INVALID_INPUT for valid JSON but missing cron field", async ({ db, app }) => {
+		const createRoutineTool = buildCreateRoutineTool(app);
 		const { teamId, agentId } = await seedTeamAndAgent(db);
 
 		const result = await createRoutineTool.handler(
@@ -216,7 +201,8 @@ describe("create_routine tool", () => {
 	});
 
 	// @lore AD8b: role "chief_of_staff" renamed to "assistant".
-	test("tool is restricted to assistant role", () => {
+	test("tool is restricted to assistant role", ({ app }) => {
+		const createRoutineTool = buildCreateRoutineTool(app);
 		expect(createRoutineTool.roles).toBeDefined();
 		expect(createRoutineTool.roles).toContain("assistant");
 	});
