@@ -1,12 +1,12 @@
+import {
+	buildToolDefinitions,
+	createInProcessCoreApiTransport,
+} from "@hyperidle/agent-orchestration";
 import { createReturnEnforcement } from "@hyperidle/harness-registry";
 import { createMcpToolBridge } from "@hyperidle/harness-registry/mcp";
 import { EventBus, type ToolContext, type ToolRegistry } from "@hyperidle/shared";
+import { buildToolRegistry } from "@hyperidle/tool-handlers";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
-import {
-	createInProcessCoreApiTransport,
-	registerCoreApiTransport,
-} from "../services/core-api-port-composition.js";
-import { buildToolRegistry } from "../services/tool-provider-bindings.js";
 
 const registry: ToolRegistry = {
 	definitions: [],
@@ -19,13 +19,10 @@ describe("X2 MCP session custody", () => {
 		db,
 		app,
 	}) => {
-		// @lore AU31 §3.2/B2 step 1: `buildToolRegistry` still resolves its tool
-		// definitions via the CoreApiPort ambient global (tool-provider-bindings.ts,
-		// converted in B2) — register THIS test's transport explicitly. Was
-		// previously riding a leftover registration from another test file in
-		// the same worker, exactly the cross-test bleed architecture.md §3.2
-		// names as the reason the global is deleted in B2.
-		registerCoreApiTransport(createInProcessCoreApiTransport(app));
+		// @lore AU31 §3.2/§5: the tool definitions are built fresh off THIS
+		// test's own `app` — no ambient global to register (the cross-test
+		// bleed architecture.md §3.2 names as the reason it's deleted).
+		const definitions = buildToolDefinitions(createInProcessCoreApiTransport(app));
 		const context: ToolContext<typeof db> = {
 			db,
 			eventBus: new EventBus(),
@@ -35,8 +32,8 @@ describe("X2 MCP session custody", () => {
 			sandboxPath: "/tmp/mcp-role-session",
 			ingestion: { dispose() {} },
 		};
-		const builderRegistry = buildToolRegistry(context, { role: "builder" });
-		const assistantRegistry = buildToolRegistry(context, { role: "assistant" });
+		const builderRegistry = buildToolRegistry(definitions, context, { role: "builder" });
+		const assistantRegistry = buildToolRegistry(definitions, context, { role: "assistant" });
 		expect(builderRegistry.definitions.some(({ name }) => name === "create_team")).toBe(false);
 		expect(assistantRegistry.definitions.some(({ name }) => name === "create_team")).toBe(true);
 		await expect(builderRegistry.invoke("create_team", {})).resolves.toMatchObject({

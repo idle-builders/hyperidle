@@ -120,7 +120,7 @@ describe("bootAgentOrchestration — lifecycle-projection drain (relocated from 
 			occurredAt: now,
 		});
 
-		const boot = bootAgentOrchestration({ db, eventBus: new EventBus() });
+		const boot = await bootAgentOrchestration({ db, eventBus: new EventBus() });
 		try {
 			const deadline = Date.now() + 5_000;
 			for (;;) {

@@ -94,7 +94,7 @@ export async function createTestApp(options?: TestAppOptions): Promise<Hono> {
 	};
 	const agentOrchestration =
 		options?.agentOrchestrationBoot ??
-		(options?.db ? bootAgentOrchestration({ db: options.db, eventBus }) : undefined);
+		(options?.db ? await bootAgentOrchestration({ db: options.db, eventBus }) : undefined);
 	const coreApi = await bootCoreApi(layerOptions);
 
 	const app = new Hono();

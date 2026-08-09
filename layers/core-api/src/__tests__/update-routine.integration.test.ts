@@ -4,14 +4,15 @@
  * RED phase: these tests will fail until update-routine.ts is implemented.
  */
 
+import {
+	buildToolDefinitions,
+	createInProcessCoreApiTransport,
+} from "@hyperidle/agent-orchestration";
 import { bets, routines, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
-import { createInProcessCoreApiTransport } from "../services/core-api-port-composition.js";
-import { buildToolDefinitions } from "../services/tool-handlers-bindings.js";
-
 import { makeContext, NOW } from "./_helpers.js";
 
 function buildUpdateRoutineTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {

@@ -25,18 +25,31 @@ const shutdown = vi.hoisted(() => {
 	return { state, phase, phaseSync };
 });
 
-vi.mock("../services/run-orchestration-composition.js", async (importOriginal) => {
-	const actual =
-		await importOriginal<typeof import("../services/run-orchestration-composition.js")>();
+/**
+ * @lore AU31 §5.1: `startRuntime` is no longer a module-level export this
+ * test can override directly — `bootAgentOrchestration` (`@hyperidle/agent-
+ * orchestration`) now starts the runtime internally and exposes its
+ * disposer separately as `disposeRuntime`. Wrap the REAL
+ * `bootAgentOrchestration` and override only `disposeRuntime`'s behavior —
+ * everything else (the app, the session-stream socket, the lifecycle drain)
+ * stays real, same as before this boot absorbed the runtime.
+ */
+vi.mock("@hyperidle/agent-orchestration", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("@hyperidle/agent-orchestration")>();
 	return {
 		...actual,
-		startRuntime: async () => ({
-			registerWorkerWebSocket: () => () => {},
-			dispose: async () => {
-				await shutdown.phase("run-runtime");
-				await shutdown.state.recordDurableShutdown?.();
-			},
-		}),
+		bootAgentOrchestration: async (
+			options: Parameters<typeof actual.bootAgentOrchestration>[0],
+		) => {
+			const boot = await actual.bootAgentOrchestration(options);
+			return {
+				...boot,
+				disposeRuntime: async () => {
+					await shutdown.phase("run-runtime");
+					await shutdown.state.recordDurableShutdown?.();
+				},
+			};
+		},
 	};
 });
 

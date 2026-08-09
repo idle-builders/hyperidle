@@ -13,14 +13,17 @@
  * orchestration-side write — crosses the seam under its own `ast-<userId>`
  * identity.
  */
+
+import {
+	buildToolDefinitions,
+	createInProcessCoreApiTransport,
+} from "@hyperidle/agent-orchestration";
 import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
 import { EventBus, type ThreadMessageAppendedEvent, type ToolContext } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
-import { createInProcessCoreApiTransport } from "../core-api-port-composition.js";
-import { buildToolDefinitions } from "../tool-handlers-bindings.js";
 
 /**
  * @lore AU31 §3.2/B2: `reply` reaches `ports.coreApi.*` (the seam) — the

@@ -13,6 +13,7 @@
  *         Task 4 (classifier + composer + live-proof tool registration).
  */
 
+import { buildToolDefinitions } from "@hyperidle/agent-orchestration";
 import type { CoreApiTransport } from "@hyperidle/api-contract";
 import {
 	classifyReversibility,
@@ -21,7 +22,6 @@ import {
 	type SessionWorkflow,
 } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
-import { buildToolDefinitions } from "../services/tool-handlers-bindings.js";
 
 /**
  * @lore AU31 §3.2/B2: this file only reads tool METADATA (name, reversibility,

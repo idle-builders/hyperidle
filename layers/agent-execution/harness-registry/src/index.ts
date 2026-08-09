@@ -1,3 +1,11 @@
+/**
+ * @lore AU31 §2.5: `buildToolRegistry` (the dispatch — role-filter +
+ * zod-validate + workflow-route closure over shared types, zero execution
+ * content) moved to `@hyperidle/tool-handlers` — the agent-orchestration
+ * Service that owns the definitions it dispatches. Its only production
+ * caller was the core wrapper AU31 deleted (`services/tool-provider-
+ * bindings.ts`); nothing inside this package called it.
+ */
 export type {
 	AdapterInfo,
 	AdapterMeta,
@@ -27,4 +35,3 @@ export {
 	type SandboxAdapter,
 	type SandboxHandle,
 } from "./sandbox-adapter.js";
-export { buildToolRegistry } from "./tool-registry.js";

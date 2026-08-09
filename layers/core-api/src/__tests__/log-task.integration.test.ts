@@ -1,13 +1,15 @@
 import * as os from "node:os";
 import * as path from "node:path";
+import {
+	buildToolDefinitions,
+	createInProcessCoreApiTransport,
+} from "@hyperidle/agent-orchestration";
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
 import { EventBus, type ToolContext } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
-import { createInProcessCoreApiTransport } from "../services/core-api-port-composition.js";
-import { buildToolDefinitions } from "../services/tool-handlers-bindings.js";
 
 function buildLogTaskTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
 	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(

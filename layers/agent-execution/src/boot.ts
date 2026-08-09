@@ -48,9 +48,11 @@ import {
 	closeMcpBridgeSession,
 	createMcpToolBridge,
 	openMcpBridgeSession,
+	returnStatusTool,
 } from "@hyperidle/harness-registry/mcp";
 import type {
 	HarnessAdapter,
+	RegisteredTool,
 	ReturnEnforcementChannel,
 	ToolRegistry,
 	WorkerRegisterMessage,
@@ -127,6 +129,15 @@ export interface AgentExecutionAdapters {
 	readonly harnessRuntime: AgentExecutionHarnessRuntime;
 	/** Builds a `HarnessAdapter` for a worker's WebSocket registration (the "remote" kind — `AdapterPool.select()`'s worker-side counterpart to the local adapters this boot pre-registers). */
 	createWorkerAdapter(ws: unknown, registration: WorkerRegisterMessage): HarnessAdapter;
+	/**
+	 * AU31 §2.5: `returnStatusTool` is execution content (it reads the
+	 * enforcement registry this same boot owns) — it rides this bundle rather
+	 * than being imported by `agent-orchestration`, which composes it into
+	 * `extraTools` via `forRegistry(harnessRuntime.enforcementRegistry)`.
+	 */
+	readonly returnStatusTool: {
+		forRegistry(registry: EnforcementRegistry): RegisteredTool;
+	};
 }
 
 export interface AgentExecutionBoot {
@@ -172,6 +183,7 @@ export async function bootAgentExecution(
 			harnessRuntime,
 			createWorkerAdapter: (ws, registration) =>
 				createHarnessAdapter({ kind: "remote", ws, registration }),
+			returnStatusTool,
 		},
 		dispose: () => {
 			// Nothing here owns a timer, an interval, or an open handle: the pool

@@ -1,77 +1,95 @@
 /**
- * AU21 Increment 1 — `CoreApiPort` write seam: Application-layer composition
- * root (architecture.md §6 Decision A/C, §9 Increment 1, §10).
+ * AU21 Increment 1 — `CoreApiPort` write seam: composition-root construction
+ * for the seam's outbound-from-agent-orchestration client (architecture.md
+ * §6 Decision A/C, §9 Increment 1, §10).
  *
- * This is the ONE place that adapts the seam's location-transparent
- * `CoreApiTransport` (a single-`Request` fetch-handler, `===` Hono's own
- * `app.fetch` shape) onto the real `hc<AppType>` Hono-RPC client — the exact
- * literal pattern already proven at `layers/core-ui/src/api/client.ts`
- * (`hc<AppType>(baseUrl, {fetch})`), reused here Application-side instead of
- * client-side.
+ * @lore AU31 §2.5/§5/§12: relocated from `layers/core-api/src/services/
+ * core-api-port-composition.ts`. Its client half has no real core-api-
+ * specific dependency — the only thing that tied it to core-api was `hc`'s
+ * generic type parameter (`AppType`, core-api's own bare-`Hono` route table,
+ * whose per-route schema doesn't survive `app.route(path, sub)` mutation
+ * anyway), and that generic was cast away immediately (`buildCoreApiHcClient`
+ * below). `@hyperidle/tool-handlers` — the tool stack that is this file's
+ * only consumer — is agent-orchestration's own Service now, so this
+ * composition root moves with it; `core-api-port-composition.ts` no longer
+ * exists on the core-api side (AU31 §5's table: "the `CoreApiPort` client
+ * construction the tool stack needs moves with the tool stack, typed against
+ * `@hyperidle/api-contract` only"). Fidelity between `CoreApiHcClient` and
+ * the real routes it dials is a TESTED obligation (service-lane integration
+ * coverage), never a compiler guarantee — `hc`'s route-table generic bought
+ * no real safety here even before the move.
  *
- * `AppType` is bare `Hono` (`app.ts:673` — no per-route schema survives
- * `app.route(path, sub)` mutation), so `hc<AppType>(...)` resolves to an
- * opaque type at the TS level. `buildBetsHcClient` below performs the ONE
- * audited cast recovering a usable shape — contained in a named helper via
- * an intermediate `unknown`-typed variable (NOT a `X as unknown as T`
- * double-assertion, which `design/no-unknown-cast` bans; same idiom as
- * `run-orchestration-composition.ts`'s `widenWorkerRegistration`). Fidelity
- * between `CoreApiHcClient` and the real `POST /bets` route is a TESTED
- * obligation (§11 contract tests, `__tests__/core-api-port.integration.test.ts`),
- * never a compiler guarantee.
+ * @lore AU31 §3.2 clause 5/7: `registerCoreApiTransport`/
+ * `getRegisteredCoreApiTransport` — the module-level ambient global this file
+ * used to carry — are DELETED. The transport is a value now: a composition
+ * root builds it once (`createInProcessCoreApiTransport`/
+ * `createNetworkCoreApiTransport`) and hands it to every consumer that needs
+ * a `CoreApiPort` as an ordinary argument, same shape as
+ * `AgentOrchestrationPort`'s own client (`agent-orchestration-port-
+ * composition.ts`, core-api-side, whose twin singleton wave A already
+ * deleted). A caller with no transport supplied (e.g. `tools/eval`'s
+ * standalone `runSession` use, which never reaches a `CoreApiPort`-backed
+ * tool) gets `unconfiguredCoreApiTransport()` — a transport that throws only
+ * when actually dialled, the same failure mode the deleted global produced
+ * when nothing had registered yet, minus the cross-test/cross-composition
+ * bleed a shared mutable module variable caused.
  */
 
-import type {
-	BetView,
-	ConversationInboxRowView,
-	ConversationMessageType,
-	ConversationThreadView,
-	CoreApiPort,
-	CoreApiTransport,
-	CreateArtifactRequest,
-	CreateArtifactResponse,
-	CreateBetRequest,
-	CreateBetResponse,
-	CreateItemRequest,
-	CreateItemResponse,
-	CreateKnowledgeConflictRequest,
-	CreateKnowledgeItemRequest,
-	CreateKnowledgeItemResponse,
-	CreateOrgTeamRequest,
-	CreateTaskRequest,
-	CreateTaskResponse,
-	DirectThreadResponse,
-	HandoffTaskRequest,
-	HandoffTaskResponse,
-	InsertMessageRequest,
-	InsertMessageResponse,
-	InsertRoutineRequest,
-	InsertThreadRequest,
-	InsertThreadResponse,
-	ItemView,
-	KnowledgeConflictView,
-	KnowledgeItemStatusView,
-	KnowledgeItemVersionView,
-	OrgTeamMembersByIdView,
-	OrgTeamMembershipView,
-	OrgTeamView,
-	PersistScaffoldedAgentsResponse,
-	PromoteKnowledgeItemRequest,
-	PromoteKnowledgeItemResult,
-	ProvisionTeamRoutinesRequest,
-	RoutineView,
-	TaskView,
-	UpdateBetRequest,
-	UpdateItemRequest,
-	UpdateOrgTeamRequest,
-	UpdateRoutineRequest,
-	UpdateThreadRequest,
-	UserView,
+import {
+	type BetView,
+	type CaptureProposedCallRequest,
+	type CaptureProposedCallResponse,
+	CORE_API_ACTOR_OVERRIDE_HEADER,
+	type ConsumeTailoredGrantRequest,
+	type ConsumeTailoredGrantResponse,
+	type ConversationInboxRowView,
+	type ConversationMessageType,
+	type ConversationThreadView,
+	type CoreApiPort,
+	type CoreApiTransport,
+	type CreateArtifactRequest,
+	type CreateArtifactResponse,
+	type CreateBetRequest,
+	type CreateBetResponse,
+	type CreateItemRequest,
+	type CreateItemResponse,
+	type CreateKnowledgeConflictRequest,
+	type CreateKnowledgeItemRequest,
+	type CreateKnowledgeItemResponse,
+	type CreateOrgTeamRequest,
+	type CreateTaskRequest,
+	type CreateTaskResponse,
+	type DirectThreadResponse,
+	type HandoffTaskRequest,
+	type HandoffTaskResponse,
+	type InsertMessageRequest,
+	type InsertMessageResponse,
+	type InsertRoutineRequest,
+	type InsertThreadRequest,
+	type InsertThreadResponse,
+	type ItemView,
+	type KnowledgeConflictView,
+	type KnowledgeItemStatusView,
+	type KnowledgeItemVersionView,
+	type OrgTeamMembersByIdView,
+	type OrgTeamMembershipView,
+	type OrgTeamView,
+	type PersistScaffoldedAgentsResponse,
+	type PromoteKnowledgeItemRequest,
+	type PromoteKnowledgeItemResult,
+	type ProposedCallOutcomeResult,
+	type ProvisionTeamRoutinesRequest,
+	type RoutineView,
+	type TaskView,
+	type UpdateBetRequest,
+	type UpdateItemRequest,
+	type UpdateOrgTeamRequest,
+	type UpdateRoutineRequest,
+	type UpdateThreadRequest,
+	type UserView,
 } from "@hyperidle/api-contract";
 import type { Hono } from "hono";
 import { hc } from "hono/client";
-import type { AppType } from "../schemas/index.js";
-import { CORE_API_ACTOR_OVERRIDE_HEADER } from "./actor-transport-header.js";
 
 /** Wire shape `PATCH /bets/:id` accepts — one field per call (`routes/bets.ts`'s discriminated union). */
 interface BetPatchFieldBody {
@@ -269,13 +287,40 @@ interface CoreApiHcClient {
 			};
 		};
 	};
+	readonly reviews: {
+		readonly "proposed-calls": {
+			$post(args: { readonly json: CaptureProposedCallRequest }): Promise<Response>;
+			readonly consume: {
+				$post(args: { readonly json: ConsumeTailoredGrantRequest }): Promise<Response>;
+			};
+			readonly ":id": {
+				readonly outcome: {
+					$post(args: {
+						readonly param: { readonly id: string };
+						readonly json: { readonly result: ProposedCallOutcomeResult };
+					}): Promise<Response>;
+				};
+			};
+		};
+	};
 }
 
 /** Placeholder origin for hc's internal URL construction — see this file's top `@lore`. */
 const SEAM_PLACEHOLDER_BASE_URL = "http://core-api.internal/api";
 
+/**
+ * @lore AU31 §5/§12: `hc<AppType>`'s generic core-api route-table type is
+ * GONE — this file no longer imports core-api's `schemas/index.js` at all
+ * (it moved out of core-api). `hc()` with no generic resolves to an untyped
+ * client the same way `hc<AppType>` effectively did (bare `Hono`, no
+ * per-route schema survives `app.route(path, sub)` mutation — this file's
+ * top `@lore`), so the cast below recovers exactly the same amount of type
+ * safety as before: none from the generic, all of it from
+ * `CoreApiHcClient`'s hand-typed shape plus the service-lane tests that
+ * exercise it against the real routes.
+ */
 function buildCoreApiHcClient(fetchAdapter: typeof fetch): CoreApiHcClient {
-	const client: unknown = hc<AppType>(SEAM_PLACEHOLDER_BASE_URL, { fetch: fetchAdapter });
+	const client: unknown = hc(SEAM_PLACEHOLDER_BASE_URL, { fetch: fetchAdapter });
 	return client as CoreApiHcClient;
 }
 
@@ -712,6 +757,37 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				return (await res.json()) as { readonly current: number };
 			},
 		},
+		// AU31 §2.5 — the AL7 trust-first workflow's three ops, backed by
+		// `routes/reviews.ts`'s new write routes. The moved tool dispatch
+		// (`@hyperidle/tool-handlers`) is this port's only caller.
+		review: {
+			async captureProposedCall(
+				input: CaptureProposedCallRequest,
+			): Promise<CaptureProposedCallResponse> {
+				const res = await client.reviews["proposed-calls"].$post({ json: input });
+				if (!res.ok) return throwSeamError("review.captureProposedCall", res);
+				return (await res.json()) as CaptureProposedCallResponse;
+			},
+
+			async consumeTailoredGrant(
+				input: ConsumeTailoredGrantRequest,
+			): Promise<ConsumeTailoredGrantResponse | null> {
+				const res = await client.reviews["proposed-calls"].consume.$post({ json: input });
+				if (!res.ok) return throwSeamError("review.consumeTailoredGrant", res);
+				return (await res.json()) as ConsumeTailoredGrantResponse | null;
+			},
+
+			async recordOutcome(
+				proposedCallId: string,
+				result: ProposedCallOutcomeResult,
+			): Promise<void> {
+				const res = await client.reviews["proposed-calls"][":id"].outcome.$post({
+					param: { id: proposedCallId },
+					json: { result },
+				});
+				if (!res.ok) return throwSeamError("review.recordOutcome", res);
+			},
+		},
 	};
 }
 
@@ -772,49 +848,28 @@ export function withActorTransport(
 }
 
 /**
- * Module-level registration point for the boot-time transport, mirroring
- * how `server-factory.ts` builds `app` exactly once and hands it to every
- * other composition root. Registered once in production
- * (`server-factory.ts`'s `createServer`) right after `createApp` resolves.
+ * AU31 §3.2 — the ambient global this file used to carry
+ * (`registerCoreApiTransport`/`getRegisteredCoreApiTransport`, a
+ * module-level mutable `let`) is DELETED. Every consumer now receives the
+ * `CoreApiTransport` value as an ordinary argument, built once per
+ * composition by the root that owns the composed app
+ * (`bootAgentOrchestration`'s `coreApiTransport` option — a root-local
+ * binding closing over the composed app, the same construction-cycle
+ * pattern §3.2 clause 4 already uses for `AgentOrchestrationTransport`).
  *
- * @lore AU21 §9 Increment 2: once `resolveDraftTeamId`/`log_task`/
- * `write_memory`/etc.'s reads+writes moved onto this seam, EVERY existing
- * `*.integration.test.ts` that calls a tool handler directly (not just the
- * seam's own §11 contract tests) needs a registered transport — not only
- * the handful of tests that explicitly exercise the seam. A GLOBAL
- * `{auto:true}` fixture on `test-fixtures.ts`'s shared `test` was tried and
- * REJECTED: forcing `createApp` for every test also activates `app.ts`'s
- * own production event subscribers (e.g. the AD5 task-`done` dep-watcher,
- * `app.ts:577`) against tests that manually drive the exact same
- * transition themselves for their own assertions — a double-fire, not a
- * fixture problem. Each test file whose tool handler(s) actually reach the
- * seam instead carries a FILE-SCOPED `{auto:true}` fixture (`test =
- * baseTest.extend({coreApiSeamRegistration: [...,{auto:true}]})`, e.g.
- * `write-memory.integration.test.ts`) that registers the transport off
- * that same test's own `app` — confined to files that need it, invisible
- * to every other file that imports the bare `test-fixtures.ts` export. A
- * file using raw `createTestDb()` instead of the fixture (no `test`/`app`
- * available at all, e.g. `AD1-create-item-routing.integration.test.ts`)
- * builds + registers its own app by hand in `beforeEach`, same idiom as
- * `create-bet-coreapiport-migration.integration.test.ts`.
+ * A composition with no real transport to supply (a bare-app test fixture,
+ * or `tools/eval`'s standalone `runSession` use, neither of which exercises
+ * a `CoreApiPort`-backed tool) gets this placeholder instead of a thrown
+ * construction error — deferring the failure to the moment something
+ * actually tries to dial the seam, which is the same moment the deleted
+ * global's `getRegisteredCoreApiTransport()` would have thrown.
  */
-let registeredTransport: CoreApiTransport | undefined;
-
-export function registerCoreApiTransport(transport: CoreApiTransport): void {
-	registeredTransport = transport;
-}
-
-/**
- * Read by `tool-handlers-bindings.ts`'s `coreApi` accessor at call-time
- * (never cached across calls — each tool call may carry a different
- * calling agent's actor identity via `withActorTransport`).
- */
-export function getRegisteredCoreApiTransport(): CoreApiTransport {
-	if (!registeredTransport) {
+export function unconfiguredCoreApiTransport(): CoreApiTransport {
+	return () => {
 		throw new Error(
-			"CoreApiPort transport not registered — call registerCoreApiTransport(...) during " +
-				"application boot (or in a test, before invoking a tool that writes through the seam).",
+			"CoreApiPort transport not configured for this composition — pass a real " +
+				"CoreApiTransport (built via createInProcessCoreApiTransport/createNetworkCoreApiTransport) " +
+				"into the composition root instead of the unconfigured default.",
 		);
-	}
-	return registeredTransport;
+	};
 }

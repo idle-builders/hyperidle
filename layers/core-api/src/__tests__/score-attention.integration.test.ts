@@ -1,15 +1,13 @@
+import {
+	buildToolDefinitions,
+	createInProcessCoreApiTransport,
+} from "@hyperidle/agent-orchestration";
 import { type HyperIdleDb, items, knowledgeAppProjection, knowledgeItems } from "@hyperidle/db";
+import { buildToolRegistry as buildToolRegistryFromDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
-import {
-	createInProcessCoreApiTransport,
-	registerCoreApiTransport,
-} from "../services/core-api-port-composition.js";
-import { buildToolDefinitions } from "../services/tool-handlers-bindings.js";
-import { buildToolRegistry } from "../services/tool-provider-bindings.js";
-
 import { makeContext, NOW, seedBase } from "./_helpers.js";
 
 function buildScoreAttentionTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
@@ -140,16 +138,15 @@ describe("score_attention tool", () => {
 	});
 
 	test("returns INVALID_INPUT for score < 0 or > 1 via registry dispatch", async ({ db, app }) => {
-		// @lore AU31 §3.2/B2 step 1: `buildToolRegistry` still resolves its
-		// tool definitions via the CoreApiPort ambient global (tool-provider-bindings.ts,
-		// converted in B2) — register THIS test's transport explicitly since the
-		// old file-scoped auto-fixture is gone.
-		registerCoreApiTransport(createInProcessCoreApiTransport(app));
 		await seedBase(db);
 		await seedKnowledgeItem(db, "ki-3");
 		// I2 B1-B4: registry now requires explicit role. score_attention is
 		// facilitator-only — use chief_of_staff so it stays visible. // @lore AD8a: role string renamed in AD8b
-		const registry = buildToolRegistry(makeContext(db), { role: "assistant" }); // @lore AD8a: role string renamed to "assistant" in AD8b
+		const registry = buildToolRegistryFromDefinitions(
+			buildToolDefinitions(createInProcessCoreApiTransport(app)),
+			makeContext(db),
+			{ role: "assistant" },
+		); // @lore AD8a: role string renamed to "assistant" in AD8b
 
 		const neg = await registry.invoke("score_attention", {
 			target: "knowledge_item",
@@ -193,10 +190,13 @@ describe("score_attention tool", () => {
 		db,
 		app,
 	}) => {
-		registerCoreApiTransport(createInProcessCoreApiTransport(app));
 		await seedBase(db);
 		await seedKnowledgeItemWithScore(db, "ki-recompute", 0.05);
-		const registry = buildToolRegistry(makeContext(db), { role: "assistant" });
+		const registry = buildToolRegistryFromDefinitions(
+			buildToolDefinitions(createInProcessCoreApiTransport(app)),
+			makeContext(db),
+			{ role: "assistant" },
+		);
 		const result = await registry.invoke("score_attention", {
 			target: "knowledge_item",
 			id: "ki-recompute",
@@ -214,12 +214,15 @@ describe("score_attention tool", () => {
 		db,
 		app,
 	}) => {
-		registerCoreApiTransport(createInProcessCoreApiTransport(app));
 		await seedBase(db);
 		await seedKnowledgeItemWithScore(db, "ki-reject", 0.05);
 		// I2 B1-B4: registry now requires explicit role. score_attention is
 		// facilitator-only — use chief_of_staff so it stays visible. // @lore AD8a: role string renamed in AD8b
-		const registry = buildToolRegistry(makeContext(db), { role: "assistant" }); // @lore AD8a: role string renamed in AD8b
+		const registry = buildToolRegistryFromDefinitions(
+			buildToolDefinitions(createInProcessCoreApiTransport(app)),
+			makeContext(db),
+			{ role: "assistant" },
+		); // @lore AD8a: role string renamed in AD8b
 		const result = await registry.invoke("score_attention", {
 			target: "knowledge_item",
 			id: "ki-reject",
@@ -235,12 +238,15 @@ describe("score_attention tool", () => {
 		db,
 		app,
 	}) => {
-		registerCoreApiTransport(createInProcessCoreApiTransport(app));
 		await seedBase(db);
 		await seedKnowledgeItem(db, "ki-need-score");
 		// I2 B1-B4: registry now requires explicit role. score_attention is
 		// facilitator-only — use chief_of_staff so it stays visible. // @lore AD8a: role string renamed in AD8b
-		const registry = buildToolRegistry(makeContext(db), { role: "assistant" }); // @lore AD8a: role string renamed in AD8b
+		const registry = buildToolRegistryFromDefinitions(
+			buildToolDefinitions(createInProcessCoreApiTransport(app)),
+			makeContext(db),
+			{ role: "assistant" },
+		); // @lore AD8a: role string renamed in AD8b
 		const result = await registry.invoke("score_attention", {
 			target: "knowledge_item",
 			id: "ki-need-score",

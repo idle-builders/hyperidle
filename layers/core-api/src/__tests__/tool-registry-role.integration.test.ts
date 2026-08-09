@@ -17,16 +17,16 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
+import {
+	buildToolDefinitions,
+	createInProcessCoreApiTransport,
+} from "@hyperidle/agent-orchestration";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ToolContext } from "@hyperidle/shared";
 import { EventBus } from "@hyperidle/shared";
+import { buildToolRegistry } from "@hyperidle/tool-handlers";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
-import {
-	createInProcessCoreApiTransport,
-	registerCoreApiTransport,
-} from "../services/core-api-port-composition.js";
-import { buildToolRegistry } from "../services/tool-provider-bindings.js";
 
 const FACILITATOR_ONLY = [
 	"promote_knowledge",
@@ -48,9 +48,12 @@ function makeContext(db: HyperIdleDb): ToolContext<HyperIdleDb> {
 
 describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 	test("B1: builder registry excludes all three facilitator tools", ({ db, app }) => {
-		registerCoreApiTransport(createInProcessCoreApiTransport(app));
 		// I2 contract: second-arg options object with `role`.
-		const registry = buildToolRegistry(makeContext(db), { role: "builder" });
+		const registry = buildToolRegistry(
+			buildToolDefinitions(createInProcessCoreApiTransport(app)),
+			makeContext(db),
+			{ role: "builder" },
+		);
 		const names = new Set(registry.definitions.map((d) => d.name));
 		for (const t of FACILITATOR_ONLY) {
 			expect(names.has(t), `builder must not see ${t}`).toBe(false);
@@ -58,8 +61,11 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 	});
 
 	test("B1: builder registry still contains the 8 base tools", ({ db, app }) => {
-		registerCoreApiTransport(createInProcessCoreApiTransport(app));
-		const registry = buildToolRegistry(makeContext(db), { role: "builder" });
+		const registry = buildToolRegistry(
+			buildToolDefinitions(createInProcessCoreApiTransport(app)),
+			makeContext(db),
+			{ role: "builder" },
+		);
 		const names = new Set(registry.definitions.map((d) => d.name));
 		expect(names.has("read_inbox")).toBe(true);
 		expect(names.has("send_message")).toBe(true);
@@ -76,8 +82,11 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		db,
 		app,
 	}) => {
-		registerCoreApiTransport(createInProcessCoreApiTransport(app));
-		const registry = buildToolRegistry(makeContext(db), { role: "builder" });
+		const registry = buildToolRegistry(
+			buildToolDefinitions(createInProcessCoreApiTransport(app)),
+			makeContext(db),
+			{ role: "builder" },
+		);
 		const result = await registry.invoke("promote_knowledge", {});
 		expect(result.success).toBe(false);
 		if (result.success) return;
@@ -90,8 +99,11 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		db,
 		app,
 	}) => {
-		registerCoreApiTransport(createInProcessCoreApiTransport(app));
-		const registry = buildToolRegistry(makeContext(db), { role: "builder" });
+		const registry = buildToolRegistry(
+			buildToolDefinitions(createInProcessCoreApiTransport(app)),
+			makeContext(db),
+			{ role: "builder" },
+		);
 		const result = await registry.invoke("there_is_no_such_tool", {});
 		expect(result.success).toBe(false);
 		if (result.success) return;
@@ -103,8 +115,11 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		db,
 		app,
 	}) => {
-		registerCoreApiTransport(createInProcessCoreApiTransport(app));
-		const registry = buildToolRegistry(makeContext(db), { role: "assistant" });
+		const registry = buildToolRegistry(
+			buildToolDefinitions(createInProcessCoreApiTransport(app)),
+			makeContext(db),
+			{ role: "assistant" },
+		);
 		const names = registry.definitions.map((d) => d.name).sort();
 		// 12 base + create_task (R5) + submit_review (R5) + create_artifact (R6) = 15
 		// + 5 AE3 management tools: create_team, add_agent, create_bet, create_routine, update_routine = 20
@@ -120,8 +135,11 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 
 	// @lore AD8c: role renamed from practice_facilitator to facilitator
 	test("B3: facilitator registry includes the facilitator tools", ({ db, app }) => {
-		registerCoreApiTransport(createInProcessCoreApiTransport(app));
-		const registry = buildToolRegistry(makeContext(db), { role: "facilitator" });
+		const registry = buildToolRegistry(
+			buildToolDefinitions(createInProcessCoreApiTransport(app)),
+			makeContext(db),
+			{ role: "facilitator" },
+		);
 		const names = new Set(registry.definitions.map((d) => d.name));
 		for (const t of FACILITATOR_ONLY) {
 			expect(names.has(t), `facilitator must see ${t}`).toBe(true);
@@ -139,8 +157,11 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 
 	// @lore AD8b: role string "chief_of_staff" renamed to "assistant".
 	test("AE3 AC-5: assistant registry includes all 5 management tools", ({ db, app }) => {
-		registerCoreApiTransport(createInProcessCoreApiTransport(app));
-		const registry = buildToolRegistry(makeContext(db), { role: "assistant" });
+		const registry = buildToolRegistry(
+			buildToolDefinitions(createInProcessCoreApiTransport(app)),
+			makeContext(db),
+			{ role: "assistant" },
+		);
 		const names = new Set(registry.definitions.map((d) => d.name));
 		for (const t of MANAGEMENT_TOOLS) {
 			expect(names.has(t), `assistant must see management tool ${t}`).toBe(true);
@@ -148,8 +169,11 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 	});
 
 	test("AE3 AC-5: builder registry excludes all 5 management tools", ({ db, app }) => {
-		registerCoreApiTransport(createInProcessCoreApiTransport(app));
-		const registry = buildToolRegistry(makeContext(db), { role: "builder" });
+		const registry = buildToolRegistry(
+			buildToolDefinitions(createInProcessCoreApiTransport(app)),
+			makeContext(db),
+			{ role: "builder" },
+		);
 		const names = new Set(registry.definitions.map((d) => d.name));
 		for (const t of MANAGEMENT_TOOLS) {
 			expect(names.has(t), `builder must NOT see management tool ${t}`).toBe(false);
@@ -157,8 +181,11 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 	});
 
 	test("AE3 AC-5: facilitator registry excludes all 5 management tools", ({ db, app }) => {
-		registerCoreApiTransport(createInProcessCoreApiTransport(app));
-		const registry = buildToolRegistry(makeContext(db), { role: "facilitator" });
+		const registry = buildToolRegistry(
+			buildToolDefinitions(createInProcessCoreApiTransport(app)),
+			makeContext(db),
+			{ role: "facilitator" },
+		);
 		const names = new Set(registry.definitions.map((d) => d.name));
 		for (const t of MANAGEMENT_TOOLS) {
 			expect(names.has(t), `practice_facilitator must NOT see management tool ${t}`).toBe(false);
@@ -166,8 +193,11 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 	});
 
 	test("AE3 AC-5: builder invoke of create_team returns FORBIDDEN", async ({ db, app }) => {
-		registerCoreApiTransport(createInProcessCoreApiTransport(app));
-		const registry = buildToolRegistry(makeContext(db), { role: "builder" });
+		const registry = buildToolRegistry(
+			buildToolDefinitions(createInProcessCoreApiTransport(app)),
+			makeContext(db),
+			{ role: "builder" },
+		);
 		const result = await registry.invoke("create_team", {
 			name: "Test",
 			functions: ["development"],

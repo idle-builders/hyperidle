@@ -87,7 +87,7 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 	// or throw).
 	eventBus: async ({ db }, use) => {
 		const eventBus = new EventBus();
-		const orchestrationBoot = bootAgentOrchestration({ db, eventBus });
+		const orchestrationBoot = await bootAgentOrchestration({ db, eventBus });
 		const agentOrchestration: AgentOrchestrationPort = buildAgentOrchestrationPort(
 			createFixtureAgentOrchestrationTransport(orchestrationBoot.app),
 		);
@@ -110,7 +110,7 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 	// `eventBus` fixture's own): cheap wiring, no I/O, and keeps this fixture
 	// usable whether or not a test also requests `eventBus`/`app`.
 	agentOrchestration: async ({ db, eventBus }, use) => {
-		const orchestrationBoot = bootAgentOrchestration({ db, eventBus });
+		const orchestrationBoot = await bootAgentOrchestration({ db, eventBus });
 		const port = buildAgentOrchestrationPort(
 			createFixtureAgentOrchestrationTransport(orchestrationBoot.app),
 		);

@@ -14,13 +14,15 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
+import {
+	buildToolDefinitions,
+	createInProcessCoreApiTransport,
+} from "@hyperidle/agent-orchestration";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { create as createKnowledgeItem } from "@hyperidle/knowledge";
 import { EventBus, type ToolContext } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
-import { createInProcessCoreApiTransport } from "../services/core-api-port-composition.js";
-import { buildToolDefinitions } from "../services/tool-handlers-bindings.js";
 
 /**
  * @lore AU31 §3.2/B2: `query_practice` reaches `ports.coreApi.search` (the

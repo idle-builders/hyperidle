@@ -30,7 +30,13 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { type ServerType, serve, upgradeWebSocket } from "@hono/node-server";
-import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";
+import {
+	bootAgentOrchestration,
+	createInProcessCoreApiTransport,
+	type ProvisionSessionDeps,
+	type RunOrchestrationHarnessRuntimeAdapter,
+	type RunOrchestrationReturnStatusToolAdapter,
+} from "@hyperidle/agent-orchestration";
 import {
 	listConnections,
 	listHeldConnectionsForProvisioning,
@@ -50,15 +56,6 @@ import {
 	buildAgentOrchestrationPort,
 	createInProcessAgentOrchestrationTransport,
 } from "@hyperidle/core-api/services/agent-orchestration-port-composition";
-import {
-	createInProcessCoreApiTransport,
-	registerCoreApiTransport,
-} from "@hyperidle/core-api/services/core-api-port-composition";
-import {
-	runtimeDeps as buildRunRuntimeDeps,
-	type ProvisionSessionDeps,
-	startRuntime,
-} from "@hyperidle/core-api/services/run-orchestration-composition";
 import { registerWorkStatePushGateway } from "@hyperidle/core-api/services/work-state-push-gateway";
 import { WsConnectionHub } from "@hyperidle/core-api/ws-connection-hub";
 import { createDbSubscribeAuthorizer } from "@hyperidle/core-api/ws-subscribe-authorizer";
@@ -73,10 +70,17 @@ import { RegistryFilesystemMounter } from "@hyperidle/filesystem-mounting";
 import { listInjectedFilesystemsForProvisioning } from "@hyperidle/filesystems";
 import {
 	type AdapterPool,
+	createHarnessAdapter,
 	createReturnEnforcement,
+	provisionHarnessEnvironment,
 	type SandboxAdapter,
 } from "@hyperidle/harness-registry";
-import { createMcpToolBridge } from "@hyperidle/harness-registry/mcp";
+import {
+	closeMcpBridgeSession,
+	createMcpToolBridge,
+	openMcpBridgeSession,
+	returnStatusTool,
+} from "@hyperidle/harness-registry/mcp";
 import {
 	create as createKnowledgeItem,
 	recordConflict as recordWritebackConflict,
@@ -97,6 +101,7 @@ import {
 	type ResolvedModel,
 	resolveModel,
 	resolveProfile,
+	type WorkerRegisterMessage,
 } from "@hyperidle/shared";
 import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/shared/crypto";
 import { createGitRunner } from "@hyperidle/shared/git";
@@ -575,7 +580,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 				listInjectedFilesystemsForProvisioning(db, agentId),
 		},
 	};
-	const runtimeDeps = {
+	const runtimeSessionDeps = {
 		db,
 		eventBus,
 		adapterPool,
@@ -585,28 +590,65 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		...provisioning,
 		mounter,
 		// The cast is narrowed to what it always really meant: this literal is the
-		// PARTIAL runtime slice `buildRunRuntimeDeps` deep-merges with the
-		// production provisioner/context ports. It no longer erases the shape of
-		// the provisioning ports — `provisioning` is checked before it is spread.
+		// PARTIAL runtime slice `bootAgentOrchestration`'s composition deep-merges
+		// with the production provisioner/context ports. It no longer erases the
+		// shape of the provisioning ports — `provisioning` is checked before it is
+		// spread.
 	} as ProvisionSessionDeps;
-	const runRuntime = await startRuntime(
-		buildRunRuntimeDeps(db, eventBus, {
-			runtime: runtimeDeps,
-			sandboxBasePath,
-			resolveModel: makeResolveModel(db, credentialResolver),
-			// The assistant flows through this same durable poller like every
-			// other kind — no second execution entry.
-			// runtimeDeps deep-merges this partial override with its production
-			// context/provisioner ports; do not replace context with a fake object.
-			composition: {
-				writeback: writebackDeps,
-				reapers: {
-					sandboxes: { sandboxBasePath },
-					routines: { staleAfterMs: DEFAULT_REAPER_STALE_AFTER_MS },
-				},
-			} as RuntimeDeps["composition"],
-		}),
-	);
+
+	// @lore AU31 §2.4/§6: the execution content `bootAgentOrchestration`'s
+	// runtime composition needs, built HERE from the SAME `enforcementRegistry`/
+	// `mcpBridgeRegistry`/`mcpBaseUrl` this file already constructs (X2, above)
+	// — the exact pieces `bootAgentExecution` would build internally, this
+	// Application just hasn't switched to calling that boot yet (§5.3's
+	// application rewrite is a later leaf; this leaf only moves WHERE the
+	// runtime starts, not who constructs its adapters).
+	const harnessRuntimeAdapter: RunOrchestrationHarnessRuntimeAdapter = {
+		enforcementRegistry,
+		createReturnGate: (requiredReturnActions) =>
+			enforcementRegistry.createGate(requiredReturnActions),
+		evaluateReturn: (gate, endReason) => enforcementRegistry.evaluate(gate, endReason),
+		provisionReturnHook: async (options) => {
+			await provisionHarnessEnvironment({ ...options, token: options.bridgeToken });
+		},
+		writeCliMcpConfig: (options) => provisionHarnessEnvironment(options),
+		openMcpBridge: (session) =>
+			openMcpBridgeSession(mcpBridgeRegistry, mcpBaseUrl, {
+				sessionId: session.sessionId,
+				registry: session.toolRegistry,
+				onToolCall: session.onToolCall,
+			}),
+		closeMcpBridge: (token) => closeMcpBridgeSession(mcpBridgeRegistry, token),
+	};
+	const returnStatusToolAdapter: RunOrchestrationReturnStatusToolAdapter = {
+		forRegistry: (registry) => returnStatusTool.forRegistry(registry),
+	};
+	/** A remote worker's WebSocket registration, adapted to a `HarnessAdapter` — same construction the deleted `run-orchestration-composition.ts`'s `remoteHarnessAdapterFactory` used. */
+	function createWorkerAdapterForRegistration(ws: unknown, registration: WorkerRegisterMessage) {
+		return createHarnessAdapter({ kind: "remote", ws, registration });
+	}
+
+	// @lore AU31 §3.2 clause 4: the construction cycle — the seam's transport
+	// must dial the COMPOSED app (the one carrying the `/api` prefix), which
+	// does not exist until both Layers have booted and been mounted below.
+	// Closed by a root-local binding, not a module variable — same pattern as
+	// `agentOrchestrationTransport` further down. No route handler calls the
+	// port before then (they only read it when a real request arrives, and
+	// `buildCoreApiPort`'s methods are lazy — nothing dials at construction
+	// time), so this is safe.
+	// @lore AU31 §3.2: `CoreApiTransport` is `@hyperidle/api-contract`'s own
+	// type — an application must not import a framework contract package
+	// directly (governance `crossing-import`, api-contract's reach is
+	// `["layer"]`); it reaches the type through the LAYER export it already
+	// legally imports (`createInProcessCoreApiTransport`'s own return type),
+	// same idiom as `agentOrchestrationTransport` below.
+	let realCoreApiTransport: ReturnType<typeof createInProcessCoreApiTransport> | undefined;
+	const coreApiTransport: ReturnType<typeof createInProcessCoreApiTransport> = async (req) => {
+		if (!realCoreApiTransport) {
+			throw new Error("CoreApiPort transport called before the composed app was built.");
+		}
+		return realCoreApiTransport(req);
+	};
 
 	// Posting a message records the `assistant_turn` intent
 	// (`routes/threads.ts`), and this same `startRuntime` poller (wired
@@ -675,7 +717,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	};
 	const agentOrchestrationPort = buildAgentOrchestrationPort(agentOrchestrationTransport);
 
-	const agentOrchestration = bootAgentOrchestration({
+	const agentOrchestration = await bootAgentOrchestration({
 		db,
 		eventBus,
 		// AU26 J3: the Layer serves its own `session:<id>` socket at
@@ -690,8 +732,24 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		// cached descriptors. Same pool core-api already holds; the Layer only
 		// gets the read.
 		adapterPool,
-		registerWorkerWebSocket: (apiRouter) => {
-			runRuntime.registerWorkerWebSocket(apiRouter, upgradeWebSocket);
+		// AU31 §5.1: the run runtime (poller/drain/watcher) starts INSIDE this
+		// boot now — this Application no longer calls `startRuntime` itself.
+		// `worker` replaces the old `registerWorkerWebSocket` callback: the
+		// boot registers the worker WS route internally once it has both the
+		// runtime and the session-stream's `upgradeWebSocket` adapter.
+		runtime: {
+			harnessRuntime: harnessRuntimeAdapter,
+			returnStatusTool: returnStatusToolAdapter,
+			coreApiTransport,
+			session: runtimeSessionDeps,
+			sandboxBasePath,
+			resolveModel: makeResolveModel(db, credentialResolver),
+			worker: { pool: adapterPool, createWorkerAdapter: createWorkerAdapterForRegistration },
+			writeback: writebackDeps,
+			reapers: {
+				sandboxes: { sandboxBasePath },
+				routines: { staleAfterMs: DEFAULT_REAPER_STALE_AFTER_MS },
+			},
 		},
 	});
 
@@ -821,13 +879,12 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// through it.
 	realAgentOrchestrationTransport = createInProcessAgentOrchestrationTransport(app);
 
-	// AU21 §9 Increment 1: register the boot-time in-process CoreApiPort
-	// transport — `tool-handlers-bindings.ts`'s `coreApi` accessor (currently
-	// only `create_bet`) reads it via `getRegisteredCoreApiTransport()` on
-	// every call. Colocated boot uses `app.fetch` directly; a split/remote
-	// topology would register `createNetworkCoreApiTransport(baseUrl)`
-	// instead — same call site, per architecture.md §6 Decision A.
-	registerCoreApiTransport(createInProcessCoreApiTransport(app));
+	// AU31 §3.2 clause 4/5: close the CoreApiPort seam's own construction
+	// cycle — the value, not an ambient global registration. Colocated boot
+	// uses `app.fetch` directly; a split/remote topology would build
+	// `createNetworkCoreApiTransport(baseUrl)` instead — same binding site,
+	// per architecture.md §6 Decision A.
+	realCoreApiTransport = createInProcessCoreApiTransport(app);
 
 	// AU2: Project existing first-party behavior into the editable configuration
 	// model on production boot. This keeps registered tools, builtin harness
@@ -945,7 +1002,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 				}
 			};
 
-			await runPhase("run-runtime", () => runRuntime.dispose());
+			await runPhase("run-runtime", () => agentOrchestration.disposeRuntime?.());
 			await runPhase("app-domain", () => disposeApp(app));
 			await runPhase("websocket", () => {
 				const disposeWebSocket = wsDispose;

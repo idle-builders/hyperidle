@@ -80,7 +80,7 @@ const rsHeartbeatFire: EvalScenario = {
 			.limit(1);
 
 		if (!routine) return makeSyntheticResult(startMs, false);
-		const agentOrchestration = buildEvalAgentOrchestrationPort(ctx.db, eventBus);
+		const agentOrchestration = await buildEvalAgentOrchestrationPort(ctx.db, eventBus);
 		const result = await fireRoutine(ctx.db, eventBus, agentOrchestration, routine);
 		return makeSyntheticResult(startMs, result.fired);
 	},
@@ -191,7 +191,7 @@ const rsCalendarFire: EvalScenario = {
 			.limit(1);
 
 		if (!routine) return makeSyntheticResult(startMs, false);
-		const agentOrchestration = buildEvalAgentOrchestrationPort(ctx.db, eventBus);
+		const agentOrchestration = await buildEvalAgentOrchestrationPort(ctx.db, eventBus);
 		const result = await fireRoutine(ctx.db, eventBus, agentOrchestration, routine);
 		return makeSyntheticResult(startMs, result.fired);
 	},
@@ -275,7 +275,7 @@ const rsHumanReviewFlag: EvalScenario = {
 			.limit(1);
 
 		if (!routine) return makeSyntheticResult(startMs, false);
-		const agentOrchestration = buildEvalAgentOrchestrationPort(ctx.db, eventBus);
+		const agentOrchestration = await buildEvalAgentOrchestrationPort(ctx.db, eventBus);
 		const result = await fireRoutine(ctx.db, eventBus, agentOrchestration, routine);
 		return makeSyntheticResult(startMs, result.fired);
 	},
@@ -368,7 +368,7 @@ const rsSilentNoReviewItem: EvalScenario = {
 			.limit(1);
 
 		if (!routine) return makeSyntheticResult(startMs, false);
-		const agentOrchestration = buildEvalAgentOrchestrationPort(ctx.db, eventBus);
+		const agentOrchestration = await buildEvalAgentOrchestrationPort(ctx.db, eventBus);
 		const result = await fireRoutine(ctx.db, eventBus, agentOrchestration, routine);
 		return makeSyntheticResult(startMs, result.fired);
 	},

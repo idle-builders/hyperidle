@@ -16,6 +16,10 @@
 import * as os from "node:os";
 import * as path from "node:path";
 import {
+	buildToolDefinitions,
+	createInProcessCoreApiTransport,
+} from "@hyperidle/agent-orchestration";
+import {
 	bets,
 	type HyperIdleDb,
 	orgEdges,
@@ -32,8 +36,6 @@ import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createTestApp } from "../__testing__/test-utils.js";
 import { disposeApp } from "../app.js";
-import { createInProcessCoreApiTransport } from "../services/core-api-port-composition.js";
-import { buildToolDefinitions } from "../services/tool-handlers-bindings.js";
 
 const NOW = new Date().toISOString();
 const TEST_TEAM_ID = "team-ad1";

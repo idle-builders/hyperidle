@@ -1,5 +1,9 @@
 import * as os from "node:os";
 import * as path from "node:path";
+import {
+	buildToolDefinitions,
+	createInProcessCoreApiTransport,
+} from "@hyperidle/agent-orchestration";
 import { findThread, insertThread, updateThread } from "@hyperidle/conversation";
 import {
 	agentSessionRequests,
@@ -25,8 +29,6 @@ import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
-import { createInProcessCoreApiTransport } from "../services/core-api-port-composition.js";
-import { buildToolDefinitions } from "../services/tool-handlers-bindings.js";
 
 function buildHandoffToTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
 	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(

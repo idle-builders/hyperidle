@@ -10,11 +10,11 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { buildToolDefinitions } from "@hyperidle/agent-orchestration";
 import type { CoreApiTransport } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ToolContext } from "@hyperidle/shared";
 import { afterAll, describe, expect, it } from "vitest";
-import { buildToolDefinitions } from "../services/tool-handlers-bindings.js";
 
 /**
  * @lore AU31 §3.2/B2: `commit_file` never reaches `ports.coreApi.*` (it only

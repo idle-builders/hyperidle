@@ -1,20 +1,19 @@
 import {
+	buildToolDefinitions,
+	createInProcessCoreApiTransport,
+} from "@hyperidle/agent-orchestration";
+import {
 	type HyperIdleDb,
 	knowledgeAppProjection,
 	knowledgeConflicts,
 	knowledgeEditLog,
 	knowledgeItems,
 } from "@hyperidle/db";
+import { buildToolRegistry as buildToolRegistryFromDefinitions } from "@hyperidle/tool-handlers";
 import { and, eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
-import {
-	createInProcessCoreApiTransport,
-	registerCoreApiTransport,
-} from "../services/core-api-port-composition.js";
-import { buildToolDefinitions } from "../services/tool-handlers-bindings.js";
-import { buildToolRegistry } from "../services/tool-provider-bindings.js";
 import { makeContext, NOW, seedBase } from "./_helpers.js";
 
 function buildPromoteKnowledgeTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
@@ -259,16 +258,15 @@ describe("promote_knowledge tool", () => {
 	});
 
 	test("INVALID_INPUT surfaces via registry dispatch on missing toStatus", async ({ db, app }) => {
-		// @lore AU31 §3.2/B2 step 1: `buildToolRegistry` still resolves its tool
-		// definitions via the CoreApiPort ambient global (tool-provider-bindings.ts,
-		// converted in B2) — register THIS test's transport explicitly since the
-		// old file-scoped auto-fixture is gone.
-		registerCoreApiTransport(createInProcessCoreApiTransport(app));
 		await seedBase(db);
 		await seedKnowledgeItem(db, "ki-bad", "captured");
 		// I2 B1-B4: registry requires explicit role; promote_knowledge is
 		// facilitator-only.
-		const registry = buildToolRegistry(makeContext(db), { role: "assistant" }); // @lore AD8a: role string renamed to "assistant" in AD8b
+		const registry = buildToolRegistryFromDefinitions(
+			buildToolDefinitions(createInProcessCoreApiTransport(app)),
+			makeContext(db),
+			{ role: "assistant" },
+		); // @lore AD8a: role string renamed to "assistant" in AD8b
 		const result = await registry.invoke("promote_knowledge", {
 			knowledgeItemId: "ki-bad",
 		});

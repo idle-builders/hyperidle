@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { buildToolDefinitions } from "@hyperidle/agent-orchestration";
 import type { CoreApiTransport } from "@hyperidle/api-contract";
 import {
 	agentRunConfig,
@@ -17,7 +18,6 @@ import { EventBus, type ToolContext } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
-import { buildToolDefinitions } from "../services/tool-handlers-bindings.js";
 
 /**
  * @lore AU31 §3.2/B2: `write_session_notes` never reaches `ports.coreApi.*`

@@ -11,17 +11,61 @@
  * The field name is kept for backward compat (see @lore U1 in session-provisioning.ts).
  */
 
-import { runSession } from "@hyperidle/core-api/session";
+import {
+	buildRunOrchestrationComposition,
+	type RunOrchestrationHarnessRuntimeAdapter,
+	type RunOrchestrationReturnStatusToolAdapter,
+} from "@hyperidle/agent-orchestration";
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	AdapterPool,
 	createHarnessAdapter,
+	createReturnEnforcement,
 	createSandboxAdapter,
+	provisionHarnessEnvironment,
 } from "@hyperidle/harness-registry";
+import { returnStatusTool } from "@hyperidle/harness-registry/mcp";
 import { readServerConfig } from "@hyperidle/settings";
 import { bakeAgentRunnableConfig, type EventBus, type ResolvedModel } from "@hyperidle/shared";
 import { requireRunnableAgent } from "@hyperidle/users";
 import type { TriggerResult } from "./types.js";
+
+/**
+ * @lore AU31 §2.3/§5: `@hyperidle/core-api/session` is DELETED — `runSession`
+ * moved to the orchestration face (`buildRunOrchestrationComposition`). Eval
+ * builds its OWN execution adapters (real `createReturnEnforcement`/
+ * `provisionHarnessEnvironment`/`returnStatusTool`, the same pieces
+ * `bootAgentExecution` wires production-side) because it drives a session
+ * with no server or composed app in the picture — no `mcpBridgeRegistry`/
+ * `mcpBaseUrl` is ever supplied below (unchanged from before this move), so
+ * `openMcpBridge`/`closeMcpBridge` are never actually dialled (`provisioner.
+ * ts`'s own `if (mcpBridgeRegistry && mcpBaseUrl)` guard). No `CoreApiTransport`
+ * is supplied either — an eval scenario invoking a `CoreApiPort`-backed
+ * domain tool would throw the same "not configured" error the deleted
+ * ambient global threw when nothing had registered, which was already true
+ * before this move (eval never registered one).
+ */
+function buildEvalHarnessRuntimeAdapter(): RunOrchestrationHarnessRuntimeAdapter {
+	const enforcementRegistry = createReturnEnforcement();
+	return {
+		enforcementRegistry,
+		createReturnGate: (requiredReturnActions) =>
+			enforcementRegistry.createGate(requiredReturnActions),
+		evaluateReturn: (gate, endReason) => enforcementRegistry.evaluate(gate, endReason),
+		provisionReturnHook: async (options) => {
+			await provisionHarnessEnvironment({ ...options, token: options.bridgeToken });
+		},
+		writeCliMcpConfig: (options) => provisionHarnessEnvironment(options),
+		openMcpBridge: () => {
+			throw new Error("eval sessions never supply an MCP bridge — this should be unreachable.");
+		},
+		closeMcpBridge: async () => {},
+	};
+}
+
+const evalReturnStatusToolAdapter: RunOrchestrationReturnStatusToolAdapter = {
+	forRegistry: (registry) => returnStatusTool.forRegistry(registry),
+};
 
 /** @internal The eval-builtin adapter name. */
 const EVAL_BUILTIN_NAME = "eval-builtin";
@@ -132,7 +176,11 @@ export async function runEvalSession(
 	const agent = await requireRunnableAgent(deps.db, params.agentId);
 	const { harnessDisabled } = await readServerConfig(deps.db);
 
-	const result = await runSession(
+	const composition = buildRunOrchestrationComposition({
+		harnessRuntime: buildEvalHarnessRuntimeAdapter(),
+		returnStatusTool: evalReturnStatusToolAdapter,
+	});
+	const result = await composition.runSession(
 		{
 			db: deps.db,
 			eventBus: deps.eventBus,

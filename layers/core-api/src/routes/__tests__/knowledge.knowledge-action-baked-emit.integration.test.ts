@@ -22,6 +22,10 @@
 import * as os from "node:os";
 import * as path from "node:path";
 import {
+	buildToolDefinitions,
+	createInProcessCoreApiTransport,
+} from "@hyperidle/agent-orchestration";
+import {
 	agentWorkIntents,
 	type HyperIdleDb,
 	knowledgeAppProjection,
@@ -37,8 +41,6 @@ import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
 import { test } from "../../__testing__/test-fixtures.js";
-import { createInProcessCoreApiTransport } from "../../services/core-api-port-composition.js";
-import { buildToolDefinitions } from "../../services/tool-handlers-bindings.js";
 
 const TEST_API_KEY = "test-key-au21-knowledge-action-emit";
 

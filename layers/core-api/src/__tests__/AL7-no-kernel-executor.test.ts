@@ -62,7 +62,7 @@ describe("AC12: no kernel-executor surface in the trust-first model", () => {
 	});
 
 	it("stage_operation tool is NOT in ALL_TOOL_DEFINITIONS (v1 tool retired)", async () => {
-		const { buildToolDefinitions } = await import("../services/tool-handlers-bindings.js");
+		const { buildToolDefinitions } = await import("@hyperidle/agent-orchestration");
 		// @lore AU31 §3.2/B2: this test only reads tool NAMES — never invokes a
 		// handler — so a transport that throws if called is more honest than
 		// wiring a real `app`.

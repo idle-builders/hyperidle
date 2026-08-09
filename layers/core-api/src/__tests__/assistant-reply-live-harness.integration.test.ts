@@ -40,6 +40,11 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { serve } from "@hono/node-server";
 import {
+	buildRunOrchestrationComposition,
+	createInProcessCoreApiTransport,
+	type RunOrchestrationHarnessRuntimeAdapter,
+} from "@hyperidle/agent-orchestration";
+import {
 	registerSessionNotReturnedNotice,
 	SESSION_NOT_RETURNED_NOTICE_TEXT,
 } from "@hyperidle/conversation";
@@ -58,8 +63,15 @@ import {
 	createLocalAdapterPool,
 	createReturnEnforcement,
 	createSandboxAdapter,
+	provisionHarnessEnvironment,
 } from "@hyperidle/harness-registry";
-import { createMcpToolBridge, type McpToolBridge } from "@hyperidle/harness-registry/mcp";
+import {
+	closeMcpBridgeSession,
+	createMcpToolBridge,
+	type McpToolBridge,
+	openMcpBridgeSession,
+	returnStatusTool,
+} from "@hyperidle/harness-registry/mcp";
 import {
 	harnessTestResolvedModel,
 	requireHarness,
@@ -72,11 +84,39 @@ import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import { queueDeps } from "../__testing__/durable-agent-queue-test-deps.js";
 import { createTestApp } from "../__testing__/test-utils.js";
-import {
-	createInProcessCoreApiTransport,
-	registerCoreApiTransport,
-} from "../services/core-api-port-composition.js";
-import { runSession } from "../services/run-orchestration-composition.js";
+
+/**
+ * @lore AU31 §2.1(b)/§3.2/§5: `runSession`/`registerCoreApiTransport` are no
+ * longer module-level singletons. This harness-lane test dials a REAL,
+ * mounted MCP bridge (unlike the throwaway-adapter test compositions
+ * elsewhere), so it builds its OWN `harnessRuntime` adapter wired to the
+ * SAME `mcpBridgeRegistry`/server URL `startLiveServer` mounts — the exact
+ * `openMcpBridgeSession`/`closeMcpBridgeSession` pieces `bootAgentExecution`
+ * wires production-side, aimed at this test's own bridge instance.
+ */
+function buildLiveHarnessRuntimeAdapter(
+	mcpBridgeRegistry: McpToolBridge,
+	mcpBaseUrl: string,
+): RunOrchestrationHarnessRuntimeAdapter {
+	const enforcementRegistry = createReturnEnforcement();
+	return {
+		enforcementRegistry,
+		createReturnGate: (requiredReturnActions) =>
+			enforcementRegistry.createGate(requiredReturnActions),
+		evaluateReturn: (gate, endReason) => enforcementRegistry.evaluate(gate, endReason),
+		provisionReturnHook: async (options) => {
+			await provisionHarnessEnvironment({ ...options, token: options.bridgeToken });
+		},
+		writeCliMcpConfig: (options) => provisionHarnessEnvironment(options),
+		openMcpBridge: (session) =>
+			openMcpBridgeSession(mcpBridgeRegistry, mcpBaseUrl, {
+				sessionId: session.sessionId,
+				registry: session.toolRegistry,
+				onToolCall: session.onToolCall,
+			}),
+		closeMcpBridge: (token) => closeMcpBridgeSession(mcpBridgeRegistry, token),
+	};
+}
 
 const NOW = "2026-08-04T00:00:00.000Z";
 const TEST_API_KEY = "au27-inc8-live-harness-key";
@@ -98,6 +138,8 @@ interface LiveServer {
 	 * deps must reuse this exact instance so the session token it registers is the
 	 * one the mounted route can resolve. */
 	readonly mcpBridgeRegistry: McpToolBridge;
+	/** The seam's transport, bound to this server's own composed app (§3.2) — the `reply` tool call's real door to `POST /threads/:id/messages`. */
+	readonly coreApiTransport: ReturnType<typeof createInProcessCoreApiTransport>;
 	readonly close: () => Promise<void>;
 }
 
@@ -123,7 +165,7 @@ async function startLiveServer(db: HyperIdleDb): Promise<LiveServer> {
 			apiRouter.route("/", mcpBridgeRegistry.router);
 		},
 	});
-	registerCoreApiTransport(createInProcessCoreApiTransport(app));
+	const coreApiTransport = createInProcessCoreApiTransport(app);
 
 	let resolvePort!: (port: number) => void;
 	const portPromise = new Promise<number>((resolve) => {
@@ -146,6 +188,7 @@ async function startLiveServer(db: HyperIdleDb): Promise<LiveServer> {
 		db,
 		eventBus,
 		mcpBridgeRegistry,
+		coreApiTransport,
 		close: () =>
 			new Promise<void>((resolve, reject) => {
 				httpServer.close((err) => (err ? reject(err) : resolve()));
@@ -317,7 +360,12 @@ describe("the assistant reply reaches the calling thread via a real harness's ow
 				mcpBaseUrl: server.url,
 			};
 
-			const result = await runSession(deps, {
+			const composition = buildRunOrchestrationComposition({
+				harnessRuntime: buildLiveHarnessRuntimeAdapter(server.mcpBridgeRegistry, server.url),
+				returnStatusTool: { forRegistry: (registry) => returnStatusTool.forRegistry(registry) },
+				coreApiTransport: server.coreApiTransport,
+			});
+			const result = await composition.runSession(deps, {
 				mode: "durable",
 				request,
 				sandboxBasePath,

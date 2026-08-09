@@ -12,13 +12,15 @@
  * exactly as they were.
  */
 
+import {
+	buildToolDefinitions,
+	createInProcessCoreApiTransport,
+} from "@hyperidle/agent-orchestration";
 import { bets, teamMembers, teams } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { describe, expect } from "vitest";
 import { test, vi } from "../__testing__/test-fixtures.js";
-import { createInProcessCoreApiTransport } from "../services/core-api-port-composition.js";
-import { buildToolDefinitions } from "../services/tool-handlers-bindings.js";
 import { makeContext, NOW } from "./_helpers.js";
 
 /**

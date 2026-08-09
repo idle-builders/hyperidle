@@ -276,7 +276,7 @@ describe("agent-orchestration's own app, mounted beside core-api's", () => {
 		db,
 		eventBus,
 	}) => {
-		const orchestration = bootAgentOrchestration({ db, eventBus });
+		const orchestration = await bootAgentOrchestration({ db, eventBus });
 		const coreOnly = await createCoreApiApp({
 			db,
 			eventBus,

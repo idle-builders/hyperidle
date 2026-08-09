@@ -152,7 +152,7 @@ const delSuccessfulDelegation: EvalScenario = {
 			.where(eq(routines.id, delSuccessRoutineId))
 			.limit(1);
 		if (!routine) return makeSyntheticResult(startMs, false);
-		const agentOrchestration = buildEvalAgentOrchestrationPort(ctx.db, eventBus);
+		const agentOrchestration = await buildEvalAgentOrchestrationPort(ctx.db, eventBus);
 		const result = await fireRoutine(ctx.db, eventBus, agentOrchestration, routine);
 		return makeSyntheticResult(startMs, result.fired);
 	},
@@ -263,7 +263,7 @@ const delNoDelegateAvailable: EvalScenario = {
 			.where(eq(routines.id, delNoDelegateRoutineId))
 			.limit(1);
 		if (!routine) return makeSyntheticResult(startMs, false);
-		const agentOrchestration = buildEvalAgentOrchestrationPort(ctx.db, eventBus);
+		const agentOrchestration = await buildEvalAgentOrchestrationPort(ctx.db, eventBus);
 		const result = await fireRoutine(ctx.db, eventBus, agentOrchestration, routine);
 		return makeSyntheticResult(startMs, result.fired);
 	},
@@ -358,7 +358,7 @@ const delDelegationNotAllowed: EvalScenario = {
 			.where(eq(routines.id, delNotAllowedRoutineId))
 			.limit(1);
 		if (!routine) return makeSyntheticResult(startMs, false);
-		const agentOrchestration = buildEvalAgentOrchestrationPort(ctx.db, eventBus);
+		const agentOrchestration = await buildEvalAgentOrchestrationPort(ctx.db, eventBus);
 		const result = await fireRoutine(ctx.db, eventBus, agentOrchestration, routine);
 		return makeSyntheticResult(startMs, result.fired);
 	},

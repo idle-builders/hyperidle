@@ -29,11 +29,7 @@ import {
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect } from "vitest";
 import { test as fixtureTest } from "../../__testing__/test-fixtures.js";
-import {
-	createInProcessCoreApiTransport,
-	registerCoreApiTransport,
-} from "../core-api-port-composition.js";
-import { runSession } from "../run-orchestration-composition.js";
+import { buildTestRunOrchestrationComposition } from "../../__tests__/run-orchestration-test-runtime.js";
 
 class RecordingHarnessAdapter implements HarnessAdapter {
 	readonly configs: SessionConfig[] = [];
@@ -153,12 +149,13 @@ describe("agent session request sources", () => {
 		}
 	});
 
-	fixtureTest("all execution sources enter real session provisioning", async ({ db, app }) => {
-		// @lore AU31 §3.2/B2 step 1: `runSession`'s tool-registry construction
-		// still resolves the CoreApiPort ambient global at call time
-		// (tool-provider-bindings.ts, converted in B2) — register THIS test's
-		// own transport explicitly, no ambient bleed from another test file.
-		registerCoreApiTransport(createInProcessCoreApiTransport(app));
+	fixtureTest("all execution sources enter real session provisioning", async ({ db }) => {
+		// @lore AU31 §3.2/§5: the "recording" harness kind never invokes a
+		// domain tool, so the composition's own default (unconfigured
+		// transport, throws only if actually dialled) is honest here — each
+		// test builds its own composition, so there is no ambient bleed to
+		// guard against either.
+		const composition = buildTestRunOrchestrationComposition();
 		await seedWork(db);
 		const eventBus = new EventBus();
 		const events: DomainEvent[] = [];
@@ -274,7 +271,7 @@ describe("agent session request sources", () => {
 
 		for (const source of sources) {
 			const request = await createSessionRequest(db, { kind: "direct", request: source });
-			await runSession(deps, {
+			await composition.runSession(deps, {
 				mode: "durable",
 				request,
 				completion: "await",

@@ -1,3 +1,7 @@
+import {
+	buildToolHandlersPorts,
+	createInProcessCoreApiTransport,
+} from "@hyperidle/agent-orchestration";
 import { insertThread } from "@hyperidle/conversation";
 import {
 	type HyperIdleDb,
@@ -14,8 +18,6 @@ import * as work from "@hyperidle/work";
 import { eq, like } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
-import { createInProcessCoreApiTransport } from "../services/core-api-port-composition.js";
-import { buildToolHandlersPorts } from "../services/tool-handlers-bindings.js";
 
 const NOW = "2026-04-18T00:00:00.000Z";
 const NOW_MS = new Date(NOW).getTime();

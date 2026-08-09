@@ -31,14 +31,14 @@
  * for the right reason (missing implementation, not a typo).
  */
 
-import { bets, teamMembers, teams, users } from "@hyperidle/db";
-import { eq } from "drizzle-orm";
-import { describe, expect, test, vi } from "../__testing__/test-fixtures.js";
-import { createInProcessCoreApiTransport } from "../services/core-api-port-composition.js";
 import {
 	buildToolDefinitions,
 	buildToolHandlersPorts,
-} from "../services/tool-handlers-bindings.js";
+	createInProcessCoreApiTransport,
+} from "@hyperidle/agent-orchestration";
+import { bets, teamMembers, teams, users } from "@hyperidle/db";
+import { eq } from "drizzle-orm";
+import { describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 import { makeContext, NOW } from "./_helpers.js";
 
 async function seedTeam(db: Parameters<typeof makeContext>[0]): Promise<{ teamId: string }> {

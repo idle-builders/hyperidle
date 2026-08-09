@@ -1,3 +1,4 @@
+import { buildRunOrchestrationComposition } from "@hyperidle/agent-orchestration";
 import {
 	agentSessionRequests,
 	agentWorkIntents,
@@ -17,9 +18,21 @@ import type { HandoffMetadata } from "@hyperidle/policy";
 import type { RunTransitionSpec } from "@hyperidle/run-orchestration";
 import { eq, inArray } from "drizzle-orm";
 import { buildProductionHandoff } from "../services/policy-bindings.js";
-import { runtimeDeps, startRuntime } from "../services/run-orchestration-composition.js";
 
 type SessionContext = Extract<RunTransitionSpec, { target: "session" }>["context"];
+
+/**
+ * @lore AU31 §2.1(b)/§5: `runtimeDeps`/`startRuntime` are no longer module-
+ * level exports — this test overrides `composition.provisioner` with a fake
+ * (`{} as never`, below) anyway, so the real `harnessRuntime`/
+ * `returnStatusTool` this composition wants never actually run; both are
+ * throwaway placeholders (never called — the override replaces them before
+ * `startRuntime` reaches them).
+ */
+const { runtimeDeps, startRuntime } = buildRunOrchestrationComposition({
+	harnessRuntime: {} as never,
+	returnStatusTool: {} as never,
+});
 
 import { describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 

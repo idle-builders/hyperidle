@@ -34,15 +34,15 @@
  * reaction per Mechanism C, composed in at `app.ts`/`server-factory.ts`).
  */
 
-import { threads, users } from "@hyperidle/db";
-import { eq } from "drizzle-orm";
-import type { Hono } from "hono";
-import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 import {
 	buildCoreApiPort,
 	createInProcessCoreApiTransport,
 	withActorTransport,
-} from "../core-api-port-composition.js";
+} from "@hyperidle/agent-orchestration";
+import { threads, users } from "@hyperidle/db";
+import { eq } from "drizzle-orm";
+import type { Hono } from "hono";
+import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 
 const NOW = "2026-07-31T00:00:00.000Z";
 

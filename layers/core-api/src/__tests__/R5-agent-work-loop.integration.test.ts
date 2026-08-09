@@ -19,6 +19,10 @@
 import * as os from "node:os";
 import * as path from "node:path";
 import {
+	buildToolDefinitions,
+	createInProcessCoreApiTransport,
+} from "@hyperidle/agent-orchestration";
+import {
 	bets,
 	type HyperIdleDb,
 	messages,
@@ -33,8 +37,6 @@ import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
-import { createInProcessCoreApiTransport } from "../services/core-api-port-composition.js";
-import { buildToolDefinitions } from "../services/tool-handlers-bindings.js";
 
 /**
  * @lore AU31 §3.2/B2: this file's tool handler(s) reach `ports.coreApi.*`

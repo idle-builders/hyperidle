@@ -640,10 +640,66 @@ export interface CoreApiKnowledgePort {
  */
 
 /**
+ * AU31 §2.5 — the AL7 trust-first proposed-call workflow, crossing the seam.
+ * `@hyperidle/review` (core-api's owned Service for `proposedCalls`/
+ * `tailoredGrants`/`operationOutcomes`) backs these three ops; the caller is
+ * `tool-handlers`' relocated dispatch (`@hyperidle/tool-handlers`'s
+ * `buildToolRegistry`, agent-orchestration's own Service now) reaching a
+ * core-owned table through the seam's one legal door — the workflow's own
+ * "held"/"granted" transitions stay core-side (core's `threads.ts` verdict
+ * handler), never crossing.
+ *
+ * `ProposedCallOutcomeResult` mirrors `@hyperidle/shared`'s `ToolResult`
+ * shape without importing it — `api-contract` declares no dependencies
+ * (deliberately: see `core-api-port.ts`'s own architecture note,
+ * `.pipeline/work/AU31/architecture.md` §2.8), so a wire type it exposes is
+ * a structural mirror, never an import of the layer-side type.
+ */
+export interface CaptureProposedCallRequest {
+	readonly originSessionId: string;
+	readonly taskId: string;
+	readonly agentId: string;
+	readonly toolId: string;
+	readonly args: Record<string, unknown>;
+	readonly hash: string;
+	readonly reviewMessageId: string;
+	readonly subjectThreadId: string;
+	readonly artifactId: string;
+}
+
+export interface CaptureProposedCallResponse {
+	readonly firstCapture: boolean;
+}
+
+export interface ConsumeTailoredGrantRequest {
+	readonly taskId: string;
+	readonly agentId: string;
+	readonly toolId: string;
+}
+
+export interface ConsumeTailoredGrantResponse {
+	readonly proposedCallId: string;
+}
+
+export type ProposedCallOutcomeResult =
+	| { readonly success: true; readonly data: unknown }
+	| { readonly success: false; readonly error: string; readonly code: string };
+
+export interface CoreApiReviewPort {
+	captureProposedCall(input: CaptureProposedCallRequest): Promise<CaptureProposedCallResponse>;
+	consumeTailoredGrant(
+		input: ConsumeTailoredGrantRequest,
+	): Promise<ConsumeTailoredGrantResponse | null>;
+	recordOutcome(proposedCallId: string, result: ProposedCallOutcomeResult): Promise<void>;
+}
+
+/**
  * `CoreApiPort` — a per-core-Service family of narrow hand-typed method
  * groups, each Application-adapted onto the `hc<AppType>` client
- * (`buildCoreApiPort`, `layers/core-api/src/services/
- * core-api-port-composition.ts`).
+ * (`buildCoreApiPort`, `layers/agent-orchestration/src/services/
+ * core-api-port-composition.ts` — AU31 §2.5/§5: the client construction
+ * moved here from `core-api` with the tool stack that is its only
+ * consumer).
  */
 export interface CoreApiPort {
 	readonly work: CoreApiWorkPort;
@@ -652,7 +708,19 @@ export interface CoreApiPort {
 	readonly org: CoreApiOrgPort;
 	readonly routine: CoreApiRoutinePort;
 	readonly knowledge: CoreApiKnowledgePort;
+	readonly review: CoreApiReviewPort;
 }
+
+/**
+ * AU31 §12: the actor-override header name for the `CoreApiPort` write seam
+ * — moved here from core-api's `services/actor-transport-header.ts` because
+ * BOTH sides of the seam need it (core-api's `middleware/auth.ts` consults
+ * it server-side; agent-orchestration's `core-api-port-composition.ts` sets
+ * it client-side via `withActorTransport`), and a wire-protocol constant
+ * both layers must agree on belongs in the contract package, not inside
+ * either layer.
+ */
+export const CORE_API_ACTOR_OVERRIDE_HEADER = "x-hyperidle-actor-id";
 
 /**
  * The seam's injectable transport. Deliberately the single-`Request`

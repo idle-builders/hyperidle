@@ -1,4 +1,8 @@
 import {
+	buildToolDefinitions,
+	createInProcessCoreApiTransport,
+} from "@hyperidle/agent-orchestration";
+import {
 	type HyperIdleDb,
 	knowledgeAppProjection,
 	knowledgeConflicts,
@@ -8,8 +12,6 @@ import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
-import { createInProcessCoreApiTransport } from "../services/core-api-port-composition.js";
-import { buildToolDefinitions } from "../services/tool-handlers-bindings.js";
 import { makeContext, NOW, seedBase } from "./_helpers.js";
 
 function buildCreateConflictReviewTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {

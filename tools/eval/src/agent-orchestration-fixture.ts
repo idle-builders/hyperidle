@@ -34,10 +34,10 @@ function createEvalAgentOrchestrationTransport(
 	};
 }
 
-export function buildEvalAgentOrchestrationPort(
+export async function buildEvalAgentOrchestrationPort(
 	db: HyperIdleDb,
 	eventBus: EventBus,
-): AgentOrchestrationPort {
-	const orchestrationBoot = bootAgentOrchestration({ db, eventBus });
+): Promise<AgentOrchestrationPort> {
+	const orchestrationBoot = await bootAgentOrchestration({ db, eventBus });
 	return buildAgentOrchestrationPort(createEvalAgentOrchestrationTransport(orchestrationBoot.app));
 }

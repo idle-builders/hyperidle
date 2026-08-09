@@ -13,13 +13,20 @@
  * The control flow (classify reversibility → capture-if-irreversible →
  * CAS-consume-if-approved → call handler → record outcome) is unchanged —
  * every DB touch (`captureProposedCall`/`consumeTailoredGrant`/
- * `recordOutcome`, previously raw `@hyperidle/db` queries against
- * `proposedCalls`/`tailoredGrants`/`operationOutcomes`) now goes through the
- * injected `ProposedCallWorkflowPort<TDb>` (`@hyperidle/shared`), concretely
- * wired by the composition root to `@hyperidle/review`'s owned exports
- * (`review` owns those three tables — Table ACL, Mechanism A). Zero domain
- * Service or `@hyperidle/db` import here (Mechanism B, enforced literally
- * for agent-execution).
+ * `recordOutcome`) now goes through the injected `ProposedCallWorkflowPort<TDb>`
+ * (`@hyperidle/shared`), concretely wired by the composition root over the
+ * `CoreApiPort.review` seam ops (AU31 §2.5 — `review` owns those three
+ * tables, and this dispatch's new home, `agent-orchestration`, reaches them
+ * only through the seam, never a direct import). Zero domain Service or
+ * `@hyperidle/db` import here.
+ *
+ * @lore AU31 §2.5: relocated from `@hyperidle/harness-registry` (agent-
+ * execution) into `@hyperidle/tool-handlers` (agent-orchestration) — this
+ * file imports only `@hyperidle/shared` and holds zero execution content,
+ * so it belongs with the layer that owns the definitions it dispatches, not
+ * the layer that owns harness adapters. `probes/p11-composition-spelling/`
+ * (architecture.md §2.5, probe C2) confirms the end-state spelling is legal
+ * by the census's own DI clause, not by invisibility.
  */
 
 import {

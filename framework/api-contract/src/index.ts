@@ -35,6 +35,10 @@ export type {
 export type { AuthMeResponse } from "./auth.js";
 export type {
 	BetView,
+	CaptureProposedCallRequest,
+	CaptureProposedCallResponse,
+	ConsumeTailoredGrantRequest,
+	ConsumeTailoredGrantResponse,
 	ConversationInboxMessageView,
 	ConversationInboxRowView,
 	ConversationMessageType,
@@ -43,6 +47,7 @@ export type {
 	CoreApiKnowledgePort,
 	CoreApiOrgPort,
 	CoreApiPort,
+	CoreApiReviewPort,
 	CoreApiRoutinePort,
 	CoreApiTransport,
 	CoreApiUsersPort,
@@ -77,6 +82,7 @@ export type {
 	PersistScaffoldedAgentsResponse,
 	PromoteKnowledgeItemRequest,
 	PromoteKnowledgeItemResult,
+	ProposedCallOutcomeResult,
 	ProvisionTeamRoutinesRequest,
 	ReviewRecipientsQuery,
 	RoutineView,
@@ -88,6 +94,7 @@ export type {
 	UpdateThreadRequest,
 	UserView,
 } from "./core-api-port.js";
+export { CORE_API_ACTOR_OVERRIDE_HEADER } from "./core-api-port.js";
 export type { CreateSessionAcceptedResponse, PendingSessionStart } from "./session.js";
 export { isPendingSessionStart } from "./session.js";
 export type {

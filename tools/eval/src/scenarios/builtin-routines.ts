@@ -29,7 +29,7 @@ async function fireStoredRoutine(
 ) {
 	const [routine] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
 	if (!routine) return { fired: false as const, reason: "routine not found" };
-	const agentOrchestration = buildEvalAgentOrchestrationPort(db, eventBus);
+	const agentOrchestration = await buildEvalAgentOrchestrationPort(db, eventBus);
 	return fireRoutine(db, eventBus, agentOrchestration, routine, { args });
 }
 

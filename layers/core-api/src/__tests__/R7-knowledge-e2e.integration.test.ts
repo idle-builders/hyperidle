@@ -13,6 +13,10 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import {
+	buildToolDefinitions,
+	createInProcessCoreApiTransport,
+} from "@hyperidle/agent-orchestration";
+import {
 	bets,
 	type HyperIdleDb,
 	knowledgeAppProjection,
@@ -29,10 +33,8 @@ import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
-import { createInProcessCoreApiTransport } from "../services/core-api-port-composition.js";
-import { runSession } from "../services/run-orchestration-composition.js";
-import { buildToolDefinitions } from "../services/tool-handlers-bindings.js";
 import { seedKnowledgeItem } from "./_helpers.js";
+import { buildTestRunOrchestrationComposition } from "./run-orchestration-test-runtime.js";
 
 /**
  * @lore AU31 §3.2/B2: this file's tool handler(s) reach `ports.coreApi.*`
@@ -513,7 +515,7 @@ describe("R7 AC-5: write_memory items appear in subsequent sessions", () => {
 		};
 
 		// Act: assemble context for a new session for the same team
-		const assembled = await runSession(
+		const assembled = await buildTestRunOrchestrationComposition().runSession(
 			{ db, eventBus: new EventBus() },
 			{
 				mode: "assemble",

@@ -206,30 +206,14 @@ describe("return_status tool", () => {
 		}
 	});
 
-	// ── buildToolRegistry extraTools wiring ─────────────────────────────
-
-	it("returnStatusTool is injectable via buildToolRegistry extraTools", async () => {
-		// The tool must be injectable into the per-session registry via extraTools.
-		const { buildToolRegistry } = await import("../tool-registry.js");
-
-		// Construct a minimal ToolContext for testing.
-		const registry = createEnforcementRegistry();
-		const gate = { returned: false };
-		const sessionId = "test-session-extra-tools";
-		registry.register(sessionId, { gate, forceCount: 0, exempt: false });
-
-		// biome-ignore lint/suspicious/noExplicitAny: minimal ctx for testing
-		const ctx = makeCtx(sessionId) as any;
-
-		// buildToolRegistry with extraTools should include return_status
-		const toolRegistry = buildToolRegistry([], ctx, {
-			role: "builder",
-			extraTools: [returnStatusTool.forRegistry(registry)],
-		});
-
-		const hasReturnStatusTool = toolRegistry.definitions.some((d) => d.name === "return_status");
-		expect(hasReturnStatusTool).toBe(true);
-	});
+	// ── AU31 §2.5: the "injectable via buildToolRegistry extraTools" case
+	// decomposed OUT of this file. `buildToolRegistry` relocated to
+	// `@hyperidle/tool-handlers` (agent-orchestration), so the wiring
+	// assertion moved with it — `tool-handlers/src/__tests__/tool-registry.
+	// test.ts`'s "extraTools" case proves the same mechanism (a
+	// `RegisteredTool` shaped exactly like `returnStatusTool.forRegistry`'s
+	// output merges into the built registry) without a harness-registry
+	// import. This file keeps every assertion about the tool's own behavior.
 
 	// ── AU27 Increment 3 (Decision 3): requiredReturnActions-aware self-check ──
 

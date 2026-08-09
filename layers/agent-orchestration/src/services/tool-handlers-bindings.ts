@@ -8,10 +8,11 @@
  * `@lore` below).
  *
  * @lore AU19 Increment 4: this module builds each bound singleton ONCE, at
- * the composition root, so every real call site (`session-lifecycle-bindings.ts`
- * via `tool-provider-bindings.ts`, `dispatch-bindings.ts`'s own `toolHandlers`
- * accessor) imports the already-wired result — same factory-curry idiom as
- * every other `*-bindings.ts` file in this directory.
+ * the composition root, so every real call site (AU31 §2.5: the relocated
+ * `run-orchestration-composition.ts`'s tool-provider composition, formerly
+ * `tool-provider-bindings.ts`, now dissolved) imports the already-wired
+ * result — same factory-curry idiom as every other `*-bindings.ts` file in
+ * this directory.
  *
  * @lore AU21 §9 Increment 9 (forensic-triage wave, second pass): the
  * standalone `routine: { provisionTeamRoutines }` same-process DI field is
@@ -33,6 +34,14 @@
  * composition (§3.2 clause 1); a test builds it once per test off that
  * test's own `app` (§3.2 clause 6's fixture shape, mirrored per-file here
  * since this factory has no shared fixture of its own).
+ *
+ * @lore AU31 §2.5/§5: relocated from `layers/core-api/src/services/
+ * tool-handlers-bindings.ts` — `@hyperidle/tool-handlers`/
+ * `@hyperidle/run-orchestration` are agent-orchestration's own Services, so
+ * this composition of an orchestration Service's ports is in-layer here,
+ * closing the crossing the file's old home had. The tool implementations
+ * already reach core exclusively through the `CoreApiPort` seam below, so
+ * the move changes no conversation, only which layer hosts the wiring.
  */
 
 import type {
