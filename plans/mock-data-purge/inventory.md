@@ -10,8 +10,8 @@ Total offenders: **10**
 |---|---|---|---|---|
 | `layers/core-api/policy/src/lifecycle-propagation.ts` | 517 | `u-founder` | literal-id | string |
 | `layers/core-api/policy/src/lifecycle-propagation.ts` | 519 | `u-founder` | literal-id | string |
-| `layers/core-api/src/middleware/auth.ts` | 144 | `u-founder` | literal-id | string |
-| `layers/core-api/src/middleware/auth.ts` | 164 | `u-founder` | literal-id | string |
+| `layers/core-api/src/middleware/auth.ts` | 146 | `u-founder` | literal-id | string |
+| `layers/core-api/src/middleware/auth.ts` | 166 | `u-founder` | literal-id | string |
 | `layers/core-api/src/routes/auth.ts` | 63 | `u-founder` | literal-id | string |
 
 ## borderline (5)
