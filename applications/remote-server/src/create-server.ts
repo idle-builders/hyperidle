@@ -53,10 +53,9 @@ import {
 	buildAgentOrchestrationPort,
 	createInProcessAgentOrchestrationTransport,
 } from "@hyperidle/core-api/services/agent-orchestration-port-composition";
-import { createPgliteDb, createPostgresDb, type DbHandle, type HyperIdleDb } from "@hyperidle/db";
 import type { CredentialResolver } from "@hyperidle/credential-access";
+import { createPgliteDb, createPostgresDb, type DbHandle, type HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
-import type { WorkerRegisterMessage } from "@hyperidle/harness-protocol";
 import { resolveProfile } from "@hyperidle/host-process";
 import { composeApiApplication } from "@hyperidle/http-middleware";
 import { WebSocketServer } from "ws";
@@ -373,8 +372,12 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			resolveModel: coreApi.resolveModel,
 			worker: {
 				pool: agentExecution.adapters.pool,
-				createWorkerAdapter: (ws: unknown, registration: WorkerRegisterMessage) =>
-					agentExecution.adapters.createWorkerAdapter(ws, registration),
+				// @lore AU31/AU34: passed straight through (not re-wrapped with a
+				// named `WorkerRegisterMessage` parameter annotation) — an
+				// Application has no declared reach to `@hyperidle/harness-protocol`
+				// (governance `crossing-import`); the function value already carries
+				// that type, so forwarding it structurally needs no import.
+				createWorkerAdapter: agentExecution.adapters.createWorkerAdapter,
 			},
 			reapers: {
 				sandboxes: { sandboxBasePath },

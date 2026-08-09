@@ -50,10 +50,14 @@ import {
 import type { HyperIdleDb, ServiceConnectionRow } from "@hyperidle/db";
 import type { ModelTier, ResolvedModel } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { RegistryFilesystemMounter } from "@hyperidle/filesystem-mounting";
 import type { FilesystemMounter } from "@hyperidle/filesystem-contract";
+import { RegistryFilesystemMounter } from "@hyperidle/filesystem-mounting";
 import { listInjectedFilesystemsForProvisioning } from "@hyperidle/filesystems";
-import type { HarnessAdapter, HarnessCapabilityReader, WorkerRegisterMessage } from "@hyperidle/harness-protocol";
+import type {
+	HarnessAdapter,
+	HarnessCapabilityReader,
+	WorkerRegisterMessage,
+} from "@hyperidle/harness-protocol";
 import { createGitRunner } from "@hyperidle/host-process";
 import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import type {

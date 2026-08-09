@@ -78,7 +78,7 @@ export const DETECTOR_FLOORS: readonly DetectorFloor[] = [
 	{ kind: "import", min: 3637, floorKind: "magnitude" },
 	{ kind: "manifest", min: 223, floorKind: "magnitude" },
 	{ kind: "di", min: 220, floorKind: "magnitude" },
-	{ kind: "api", min: 126, floorKind: "magnitude" },
+	{ kind: "api", min: 184, floorKind: "magnitude" },
 	{ kind: "mcp", min: 22, floorKind: "magnitude" },
 	{ kind: "event", min: 216, floorKind: "magnitude" },
 	// The thinnest detector in the set, and the one most able to lose half its coverage without

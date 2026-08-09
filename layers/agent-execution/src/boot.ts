@@ -35,6 +35,12 @@
  * keeps one knob instead of two that could drift out of sync.
  */
 
+import type { ReturnEnforcementChannel } from "@hyperidle/harness-capability";
+import type {
+	EnforcementRegistry as BaseEnforcementRegistry,
+	HarnessAdapter,
+	WorkerRegisterMessage,
+} from "@hyperidle/harness-protocol";
 import {
 	AdapterPool,
 	createHarnessAdapter,
@@ -50,12 +56,6 @@ import {
 	openMcpBridgeSession,
 	returnStatusTool,
 } from "@hyperidle/harness-registry/mcp";
-import type { ReturnEnforcementChannel } from "@hyperidle/harness-capability";
-import type {
-	EnforcementRegistry as BaseEnforcementRegistry,
-	HarnessAdapter,
-	WorkerRegisterMessage,
-} from "@hyperidle/harness-protocol";
 import type { RegisteredTool, ToolRegistry } from "@hyperidle/tool-protocol";
 import type { Hono } from "hono";
 

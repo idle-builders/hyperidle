@@ -15,7 +15,6 @@
 		{ "path": "../../framework/db" },
 		{ "path": "../../framework/domain-model" },
 		{ "path": "../../framework/event-bus" },
-		{ "path": "../../framework/harness-protocol" },
 		{ "path": "../../framework/host-process" },
 		{ "path": "../../framework/http-middleware" },
 		{ "path": "../../layers/agent-execution" },

@@ -23,7 +23,6 @@
 		"@hyperidle/db": "*",
 		"@hyperidle/diagnostics": "*",
 		"@hyperidle/event-bus": "*",
-		"@hyperidle/harness-protocol": "*",
 		"@hyperidle/host-process": "*",
 		"@hyperidle/http-middleware": "*",
 		"hono": "^4.12.27",

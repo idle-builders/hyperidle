@@ -36,7 +36,10 @@ import type {
 	AgentOrchestrationWorkIntentKind,
 } from "@hyperidle/api-contract";
 import type { ExplicitSessionStart, HyperIdleDb } from "@hyperidle/db";
+import { API_ERROR_CODES } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import { getFilesystem, saveInjection as saveFilesystemInjection } from "@hyperidle/filesystems";
+import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/http-middleware";
 import {
 	createBareRun,
 	endRunForHandoff,
@@ -51,9 +54,6 @@ import {
 	transitionSessionRequest,
 	type WorkIntentInput,
 } from "@hyperidle/session-requests";
-import { API_ERROR_CODES } from "@hyperidle/domain-model";
-import type { EventBus } from "@hyperidle/event-bus";
-import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/http-middleware";
 import { Hono } from "hono";
 import { z } from "zod";
 

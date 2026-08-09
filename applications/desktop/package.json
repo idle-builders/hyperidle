@@ -25,7 +25,6 @@
 		"@hyperidle/credential-access": "*",
 		"@hyperidle/db": "*",
 		"@hyperidle/event-bus": "*",
-		"@hyperidle/harness-protocol": "*",
 		"@hyperidle/host-process": "*",
 		"@hyperidle/http-middleware": "*",
 		"@types/ws": "^8.18.1",
