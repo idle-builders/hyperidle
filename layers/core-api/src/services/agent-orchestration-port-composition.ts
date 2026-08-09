@@ -396,12 +396,10 @@ export function buildAgentOrchestrationPort(
 				});
 				if (!res.ok) return throwSeamError("runConfig.write", res);
 			},
-			async readTeamDefaults(
-				teamId: string,
-			): Promise<AgentOrchestrationTeamRunConfigDefaultsView> {
-				const res = await client["agent-orchestration"]["team-run-config-defaults"][
-					":teamId"
-				].$get({ param: { teamId } });
+			async readTeamDefaults(teamId: string): Promise<AgentOrchestrationTeamRunConfigDefaultsView> {
+				const res = await client["agent-orchestration"]["team-run-config-defaults"][":teamId"].$get(
+					{ param: { teamId } },
+				);
 				if (!res.ok) return throwSeamError("runConfig.readTeamDefaults", res);
 				const body = (await res.json()) as {
 					readonly defaults: AgentOrchestrationTeamRunConfigDefaultsView;

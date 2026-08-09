@@ -22,7 +22,10 @@
 
 import { randomUUID } from "node:crypto";
 import { validateAgentConfig } from "@hyperidle/agent-run-config";
-import type { AgentOrchestrationPort, AgentOrchestrationRunConfigPatch } from "@hyperidle/api-contract";
+import type {
+	AgentOrchestrationPort,
+	AgentOrchestrationRunConfigPatch,
+} from "@hyperidle/api-contract";
 import { type HyperIdleDb, readSystemPromptTemplateForRole } from "@hyperidle/db";
 import { getTeamMembers } from "@hyperidle/org";
 import {

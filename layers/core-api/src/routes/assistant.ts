@@ -16,7 +16,10 @@
  */
 
 import { validateAgentConfig } from "@hyperidle/agent-run-config";
-import type { AgentOrchestrationPort, AgentOrchestrationRunConfigPatch } from "@hyperidle/api-contract";
+import type {
+	AgentOrchestrationPort,
+	AgentOrchestrationRunConfigPatch,
+} from "@hyperidle/api-contract";
 import { findThread, insertThread, listMessages } from "@hyperidle/conversation";
 import { type HyperIdleDb, resolveAgentScaffoldSpecs } from "@hyperidle/db";
 import { persistScaffoldedAgents } from "@hyperidle/org";

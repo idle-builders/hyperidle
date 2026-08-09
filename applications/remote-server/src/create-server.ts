@@ -701,7 +701,9 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// directly (governance `crossing-import`); it reaches the type through the
 	// LAYER export it already legally imports (`buildAgentOrchestrationPort`'s
 	// own parameter type), never `@hyperidle/api-contract` itself.
-	let realAgentOrchestrationTransport: Parameters<typeof buildAgentOrchestrationPort>[0] | undefined;
+	let realAgentOrchestrationTransport:
+		| Parameters<typeof buildAgentOrchestrationPort>[0]
+		| undefined;
 	const agentOrchestrationTransport: Parameters<typeof buildAgentOrchestrationPort>[0] = async (
 		req,
 	) => {
