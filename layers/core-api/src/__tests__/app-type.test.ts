@@ -106,4 +106,3 @@ describe("E3. Client paths match expected route structure", () => {
 		expect(client.api?.knowledge).toBeDefined();
 	});
 });
-

@@ -5,7 +5,6 @@ import {
 	bootAgentOrchestration,
 } from "@hyperidle/agent-orchestration";
 import type { AgentOrchestrationTransport } from "@hyperidle/api-contract";
-import type { HyperIdleDb } from "@hyperidle/db";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import { Hono } from "hono";
@@ -140,10 +139,4 @@ export async function createTestApp(options?: TestAppOptions): Promise<Hono> {
 		} catch {}
 	}
 	return app;
-}
-
-export interface TestAppWithDeps {
-	app: Hono;
-	db: HyperIdleDb;
-	eventBus: EventBus;
 }
