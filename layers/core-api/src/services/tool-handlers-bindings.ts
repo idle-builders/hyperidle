@@ -28,6 +28,7 @@ import type {
 	InsertRoutineRequest,
 	UpdateRoutineRequest,
 } from "@hyperidle/api-contract";
+import { writeSessionNotes } from "@hyperidle/run-orchestration";
 import type { ToolHandlersPorts } from "@hyperidle/tool-handlers";
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import {
@@ -194,6 +195,11 @@ const toolHandlersPorts: ToolHandlersPorts = {
 		recomputeAttentionScoreForItem: (knowledgeItemId, actorId) =>
 			seamPortForActor(actorId).knowledge.recomputeAttentionScoreForItem(knowledgeItemId),
 	},
+	// Ruling 5: `run-orchestration` owns `sessions`, and this composition root
+	// is where the tool's notes write meets its owner. Reaching a Service in
+	// the other Layer from here is a known crossing; it is carried
+	// deliberately and resolves with the layer-composition work package.
+	sessions: { writeNotes: writeSessionNotes },
 };
 
 /** Production-wired tool definitions — every real call site imports this. */

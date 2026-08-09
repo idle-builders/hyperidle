@@ -19,7 +19,7 @@ import * as crypto from "node:crypto";
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { type HyperIdleDb, sessions } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	ARTIFACT_KINDS,
 	ARTIFACT_VIEW_SHAPES,
@@ -49,7 +49,6 @@ import {
 	type UserRole,
 	wrapForRegistry,
 } from "@hyperidle/shared";
-import { eq } from "drizzle-orm";
 import z from "zod";
 import type { ToolHandlersPorts } from "./ports.js";
 
@@ -552,8 +551,8 @@ function makeCreateItemTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Creat
 
 // ─────────────────────────────────────────────────────────────────────────────
 // write_session_notes
-// @lore AU19 Increment 4: `sessions` is `UNOWNED_SHARED_TABLES` — direct
-// `@hyperidle/db` access is legal here; typed concretely as HyperIdleDb.
+// The disk write is this tool's own; the `sessions.notes` write belongs to
+// `run-orchestration`, which owns the table, and crosses as a port.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const writeSessionNotesInputSchema = z.object({
@@ -563,7 +562,10 @@ const writeSessionNotesInputSchema = z.object({
 
 type WriteSessionNotesInput = z.infer<typeof writeSessionNotesInputSchema>;
 
-function makeWriteSessionNotesTool(): ToolDefinition<WriteSessionNotesInput, HyperIdleDb> & {
+function makeWriteSessionNotesTool(ports: ToolHandlersPorts): ToolDefinition<
+	WriteSessionNotesInput,
+	HyperIdleDb
+> & {
 	readonly reversibility: "reversible";
 } {
 	return {
@@ -588,10 +590,7 @@ function makeWriteSessionNotesTool(): ToolDefinition<WriteSessionNotesInput, Hyp
 			}
 			fs.writeFileSync(filePath, bodyOnDisk, "utf-8");
 
-			await ctx.db
-				.update(sessions)
-				.set({ notes: bodyOnDisk })
-				.where(eq(sessions.id, ctx.sessionId));
+			await ports.sessions.writeNotes(ctx.db, ctx.sessionId, bodyOnDisk);
 
 			const bytesWritten = Buffer.byteLength(bodyOnDisk, "utf-8");
 			return ok({ sessionId: ctx.sessionId, bytesWritten });
@@ -1627,7 +1626,7 @@ export function buildToolDefinitions(
 		toRegistered(makeWriteMemoryTool(ports)),
 		toRegistered(makeHandoffToTool(ports)),
 		toRegistered(makeCreateItemTool(ports)),
-		toRegistered(makeWriteSessionNotesTool()),
+		toRegistered(makeWriteSessionNotesTool(ports)),
 		toRegistered(makeCreateTaskTool(ports)),
 		toRegistered(makeSubmitReviewTool(ports)),
 		toRegistered(makeCreateArtifactTool(ports)),

@@ -22,7 +22,13 @@
  */
 
 import type { AgentOrchestrationSessionWireRow } from "@hyperidle/api-contract";
-import { type HyperIdleDb, sessions } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
+import {
+	countActiveRunsByAgent,
+	findSessionById,
+	listLatestOutcomeByTask,
+	listRunSummaries,
+} from "@hyperidle/run-orchestration";
 import { listSessionRequests } from "@hyperidle/session-requests";
 import {
 	type ActivityEntry,
@@ -34,7 +40,6 @@ import {
 	API_ERROR_CODES,
 } from "@hyperidle/shared";
 import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
-import { and, count, desc, eq, inArray } from "drizzle-orm";
 import type { Context } from "hono";
 import { Hono } from "hono";
 
@@ -93,11 +98,7 @@ export function createAgentOrchestrationSessionsRoutes(
 	// has 18 columns — a narrowing here would silently drop 11 fields from a
 	// shipped response with no route test catching it.
 	router.get("/sessions/:sessionId", requireBoundary({ kind: "public-data" }), async (c) => {
-		const [row] = await db
-			.select()
-			.from(sessions)
-			.where(eq(sessions.id, c.req.param("sessionId")))
-			.limit(1);
+		const row = await findSessionById(db, c.req.param("sessionId"));
 		if (!row) {
 			return c.json({ error: "Session not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
@@ -144,19 +145,7 @@ export function createAgentOrchestrationSessionsRoutes(
 		if (agentIds !== undefined && agentIds.length > MAX_ID_LIST) {
 			return tooManyIds(c, "agent_ids");
 		}
-		const rows = await db
-			.select({ agentId: sessions.agentId, count: count() })
-			.from(sessions)
-			.where(
-				agentIds === undefined
-					? eq(sessions.state, "active")
-					: and(eq(sessions.state, "active"), inArray(sessions.agentId, agentIds)),
-			)
-			.groupBy(sessions.agentId);
-		const counts: Record<string, number> = {};
-		for (const row of rows) {
-			if (row.agentId) counts[row.agentId] = row.count;
-		}
+		const counts = await countActiveRunsByAgent(db, agentIds);
 		return c.json({ counts } satisfies AgentRunActiveCountsResponse);
 	});
 
@@ -174,16 +163,7 @@ export function createAgentOrchestrationSessionsRoutes(
 		if (taskIds.length > MAX_ID_LIST) {
 			return tooManyIds(c, "task_ids");
 		}
-		const rows = await db
-			.select({ taskId: sessions.taskId, outcome: sessions.outcome })
-			.from(sessions)
-			.where(inArray(sessions.taskId, taskIds))
-			.orderBy(desc(sessions.startedAt));
-		const outcomes: Record<string, string | null> = {};
-		for (const row of rows) {
-			// Ordered newest-first, so the first row seen per task is the latest.
-			if (row.taskId !== null && !(row.taskId in outcomes)) outcomes[row.taskId] = row.outcome;
-		}
+		const outcomes = await listLatestOutcomeByTask(db, taskIds);
 		return c.json({ outcomes } satisfies AgentRunLatestOutcomesResponse);
 	});
 
@@ -201,39 +181,15 @@ export function createAgentOrchestrationSessionsRoutes(
 		if (agentIds !== undefined && agentIds.length > MAX_ID_LIST) {
 			return tooManyIds(c, "agent_ids");
 		}
-		const rows = await db
-			.select(RUN_SUMMARY_COLUMNS)
-			.from(sessions)
-			.where(
-				taskId !== undefined
-					? eq(sessions.taskId, taskId)
-					: inArray(sessions.agentId, agentIds ?? []),
-			)
-			.orderBy(desc(sessions.startedAt));
+		const rows = await listRunSummaries(
+			db,
+			taskId !== undefined ? { taskId } : { agentIds: agentIds ?? [] },
+		);
 		return c.json({ runs: rows } satisfies AgentRunsResponse);
 	});
 
 	return router;
 }
-
-/**
- * The eight fields every run-state render in the app actually consumes.
- *
- * @lore AU26 J4: deliberately NOT `AgentOrchestrationSessionWireRow`'s 18
- * columns. `sandboxSnapshot`, `notes`, `requestId`, `routineId`, `modelTier`,
- * the source triple and the two remaining `effectivenessRecorded*` columns are
- * consumed by no screen and are not on this wire.
- */
-const RUN_SUMMARY_COLUMNS = {
-	id: sessions.id,
-	agentId: sessions.agentId,
-	taskId: sessions.taskId,
-	startedAt: sessions.startedAt,
-	endedAt: sessions.endedAt,
-	state: sessions.state,
-	outcome: sessions.outcome,
-	effectivenessScore: sessions.effectivenessScore,
-};
 
 /**
  * Guard against an unbounded URL from a large roster. A team roster or a bet's

@@ -43,6 +43,10 @@
  * a specific field of) are typed `Record<string, unknown>` rather than
  * mirrored field-by-field.
  *
+ * The one import below is `@hyperidle/db`, which is a framework leaf rather
+ * than a Service — the rule above forbids importing another SERVICE's types,
+ * and the db handle is the one type both sides of every port already name.
+ *
  * @lore AU20 Stage 2: All 16 sub-interface type exports removed — they are
  * now structurally internal under `ToolHandlersPorts`. External code that
  * holds a `ToolHandlersPorts` accesses each sub-port structurally
@@ -58,6 +62,8 @@
  * Service now imports directly (Mechanism C: `@hyperidle/db` is a leaf every
  * Service may import).
  */
+
+import type { HyperIdleDb } from "@hyperidle/db";
 
 /**
  * @lore AU21 §6 Decision L3: `ToolHandlersWorkAccessor`/`routeItem` — the
@@ -464,6 +470,22 @@ interface ToolHandlersCoreApiAccessor {
 }
 
 /** Every real outbound port this Service's source files need. */
+/**
+ * The one `sessions` write a tool performs. `run-orchestration` owns the table,
+ * and this package may not import a sibling Service, so the write crosses as a
+ * port like every other cross-Service reach here.
+ */
+export interface ToolHandlersSessionsAccessor {
+	/**
+	 * `db` is named concretely rather than as a `TDb`: `@hyperidle/db` is the
+	 * leaf every Service may import (see the header note above), this package
+	 * already imports the type for the tool context, and a generic here would
+	 * force the composition root to cast its real handle back.
+	 */
+	writeNotes(db: HyperIdleDb, sessionId: string, notes: string): Promise<void>;
+}
+
 export interface ToolHandlersPorts {
 	readonly coreApi: ToolHandlersCoreApiAccessor;
+	readonly sessions: ToolHandlersSessionsAccessor;
 }

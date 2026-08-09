@@ -33,8 +33,8 @@
  * tool-name-and-scrubbed-summary stream of someone else's assistant run.
  */
 
-import { type HyperIdleDb, sessions } from "@hyperidle/db";
-import { eq } from "drizzle-orm";
+import type { HyperIdleDb } from "@hyperidle/db";
+import { findSessionById } from "@hyperidle/run-orchestration";
 
 /** The minimal socket surface the hub writes to. */
 export interface SessionStreamClient {
@@ -56,8 +56,9 @@ const SESSION_TOPIC_PREFIX = "session:";
 
 /**
  * Build the production authorizer: the topic must be `session:<id>`, the caller
- * must be an authenticated identity, and the run must exist in this Layer's own
- * `sessions` table. Fail-closed — an unknown run denies.
+ * must be an authenticated identity, and the run must exist — asked of
+ * `run-orchestration`, which owns `sessions`. Fail-closed: the accessor returns
+ * `undefined` for an unknown run rather than throwing, so a miss denies.
  */
 export function createRunStreamSubscribeAuthorizer(db: HyperIdleDb): SessionStreamAuthorizer {
 	return {
@@ -68,12 +69,7 @@ export function createRunStreamSubscribeAuthorizer(db: HyperIdleDb): SessionStre
 			const sessionId = topic.slice(SESSION_TOPIC_PREFIX.length);
 			if (!sessionId) return false;
 			if (!senderId) return false;
-			const [row] = await db
-				.select({ id: sessions.id })
-				.from(sessions)
-				.where(eq(sessions.id, sessionId))
-				.limit(1);
-			return row !== undefined;
+			return (await findSessionById(db, sessionId)) !== undefined;
 		},
 	};
 }
