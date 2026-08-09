@@ -296,13 +296,38 @@ export type AgentOrchestrationRunConfigPatch = {
 	-readonly [K in keyof AgentOrchestrationRunConfigView]?: AgentOrchestrationRunConfigView[K];
 };
 
-/** §2.2 — the persistence spelling for `agent_run_config`; admin routes stay core-hosted, only the store access crosses the seam. */
+/** Mirrors `TeamRunConfigDefaults` (`@hyperidle/agent-run-config`) — absent row ≡ all-null row. */
+export interface AgentOrchestrationTeamRunConfigDefaultsView {
+	readonly defaultHarnessType: string | null;
+	readonly defaultModelId: string | null;
+	readonly defaultModelProvider: string | null;
+}
+
+/** §2.2/§3 clause 2 — the persistence spelling for `agent_run_config`; admin routes stay core-hosted, only the store access crosses the seam. */
 export interface AgentOrchestrationRunConfigPort {
 	read(agentId: string): Promise<AgentOrchestrationRunConfigView>;
 	readBatch(
 		agentIds: readonly string[],
 	): Promise<ReadonlyMap<string, AgentOrchestrationRunConfigView>>;
 	write(agentId: string, patch: AgentOrchestrationRunConfigPatch): Promise<void>;
+	/**
+	 * AU31 §3 clause 2 — `teams-routes.ts:540`'s add-agent-later read: a
+	 * team's default run config for newly scaffolded agents. All three fields
+	 * come back together — they are one setting, never a partial patch.
+	 */
+	readTeamDefaults(teamId: string): Promise<AgentOrchestrationTeamRunConfigDefaultsView>;
+	/**
+	 * AU31 §3 clause 2 / §3.1 site 2 — `teams-routes.ts:280`'s team-creation
+	 * write, relinquished from `createTeam`'s transaction (founder ruling,
+	 * architecture.md §3.1/§13 item 9): on a failed write, the team exists
+	 * with no harness defaults, so agents scaffolded onto it later fall back
+	 * to builtin (`org/src/scaffold-agents.ts:194-202`) — the team settings
+	 * edit repairs it.
+	 */
+	writeTeamDefaults(
+		teamId: string,
+		defaults: AgentOrchestrationTeamRunConfigDefaultsView,
+	): Promise<void>;
 }
 
 /** Mirrors `filesystem_injections`' wire-relevant columns. */

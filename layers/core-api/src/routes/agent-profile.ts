@@ -35,7 +35,7 @@
  * pool) and the browser cannot compute.
  */
 
-import { readAgentRunConfig } from "@hyperidle/agent-run-config";
+import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { getTeam, getTeamMembers } from "@hyperidle/org";
 import type {
 	AgentHarnessCapabilities,
@@ -72,6 +72,7 @@ export async function handleAgentProfile(
 	c: Context<HyperIdleEnv>,
 	db: import("@hyperidle/db").HyperIdleDb,
 	adapterPool: HarnessCapabilityReader | undefined,
+	agentOrchestration: AgentOrchestrationPort,
 ): Promise<Response> {
 	const agentId = c.req.param("id");
 	if (!agentId) {
@@ -89,7 +90,10 @@ export async function handleAgentProfile(
 	// The six fields left `users`, so the render reads them from their owner.
 	// Existence is still a `users` question — an agent with no `agent_run_config`
 	// row renders the defaults, it does not 404.
-	const runConfig = await readAgentRunConfig(db, agentId);
+	// @lore AU31 §2.2: the read crosses the seam (AgentOrchestrationPort.runConfig.read)
+	// instead of importing `@hyperidle/agent-run-config` directly — this route stays
+	// core-hosted (it gates on `users`), only the persistence spelling changed.
+	const runConfig = await agentOrchestration.runConfig.read(agentId);
 
 	// 2. Resolve team name and team ID via teamMembers→teams join
 	// @lore AB1 S4: teamId is included in the response so the frontend breadcrumb

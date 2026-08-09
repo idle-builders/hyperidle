@@ -1,4 +1,4 @@
-import { writeAgentRunConfig } from "@hyperidle/agent-run-config";
+import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import {
 	escapeLikePattern,
 	type HyperIdleDb,
@@ -35,19 +35,8 @@ import * as work from "@hyperidle/work";
 import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
+import { buildSeamBackedAgentRunConfigWriter } from "../services/agent-orchestration-port-composition.js";
 import { createAssistantSoulRoutes } from "./assistant.js";
-
-// AU19 Increment 1c: `org`'s `OrgUserDirectory` port (Mechanism C), wired to
-// the real `user-store.ts` function references unchanged (no behavior change).
-// AU19 Increment 1c / AU20 Am11: adapter so `findUser({id})` satisfies `getUserById`.
-// AU26 G1 (§D-L): `persistScaffoldedAgents` also stamps the run config, which
-// left `users` for `agent_run_config`. The Layer wires the writer down the same
-// Mechanism-C way it wires the user directory.
-const orgUsers = {
-	getUserById: (db: HyperIdleDb, id: string) => findUser(db, { id }),
-	insertUser,
-	writeAgentRunConfig,
-};
 
 const updateSkillSchema = z.object({
 	autonomyLevel: z.number().int().min(1).max(4),
@@ -99,8 +88,22 @@ const createHumanUserSchema = z.object({
  *
  * AK6 T8: eventBus added so user_created event can be emitted after persist.
  */
-export function createUserSetupRoute(db: HyperIdleDb, eventBus: EventBus): Hono {
+export function createUserSetupRoute(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	agentOrchestration: AgentOrchestrationPort,
+): Hono {
 	const router = new Hono();
+	// AU19 Increment 1c: `org`'s `OrgUserDirectory` port (Mechanism C), wired to
+	// the real `user-store.ts` function references unchanged (no behavior change).
+	// AU26 G1 (§D-L) / AU31 §2.2: `persistScaffoldedAgents` also stamps the run
+	// config, reached through the seam (`buildSeamBackedAgentRunConfigWriter`)
+	// instead of a direct `@hyperidle/agent-run-config` import.
+	const orgUsers = {
+		getUserById: (db2: HyperIdleDb, id: string) => findUser(db2, { id }),
+		insertUser,
+		...buildSeamBackedAgentRunConfigWriter(agentOrchestration),
+	};
 
 	router.post("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		let rawBody: unknown;
@@ -203,6 +206,7 @@ export function createUserSetupRoute(db: HyperIdleDb, eventBus: EventBus): Hono 
 export function createUserRoutes(
 	db: HyperIdleDb,
 	eventBus: EventBus,
+	agentOrchestration: AgentOrchestrationPort,
 	adapterPool?: HarnessCapabilityReader | null,
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
@@ -459,7 +463,10 @@ export function createUserRoutes(
 	// In this router the /:id handler is a GET, so we mount /:userId/assistant
 	// explicitly. Hono routes by registration order — the more specific path
 	// /:id/assistant is registered before /:id to avoid swallowing.
-	router.route("/:userId/assistant", createAssistantSoulRoutes(db, adapterPool ?? null));
+	router.route(
+		"/:userId/assistant",
+		createAssistantSoulRoutes(db, adapterPool ?? null, agentOrchestration),
+	);
 
 	return router;
 }

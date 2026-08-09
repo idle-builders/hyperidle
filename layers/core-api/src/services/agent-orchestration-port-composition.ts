@@ -41,11 +41,14 @@ import type {
 	AgentOrchestrationSessionHistoryEntry,
 	AgentOrchestrationSessionWireRow,
 	AgentOrchestrationStoppedRun,
+	AgentOrchestrationTeamRunConfigDefaultsView,
 	AgentOrchestrationTransport,
 	AgentOrchestrationWorkIntentInput,
 	AgentOrchestrationWorkIntentKind,
 	AgentOrchestrationWorkIntentReceipt,
 } from "@hyperidle/api-contract";
+import type { WriteExecutor } from "@hyperidle/db";
+import type { OrgAgentRunConfigWriter } from "@hyperidle/org";
 import type { AgentWorkIntentRecorder, AgentWorkIntentRecorderInput } from "@hyperidle/shared";
 import type { Hono } from "hono";
 import { hc } from "hono/client";
@@ -130,6 +133,15 @@ interface AgentOrchestrationHcClient {
 			};
 			readonly batch: {
 				$post(args: { readonly json: { readonly agentIds: readonly string[] } }): Promise<Response>;
+			};
+		};
+		readonly "team-run-config-defaults": {
+			readonly ":teamId": {
+				$get(args: { readonly param: { readonly teamId: string } }): Promise<Response>;
+				$patch(args: {
+					readonly param: { readonly teamId: string };
+					readonly json: AgentOrchestrationTeamRunConfigDefaultsView;
+				}): Promise<Response>;
 			};
 		};
 		readonly filesystems: {
@@ -384,6 +396,27 @@ export function buildAgentOrchestrationPort(
 				});
 				if (!res.ok) return throwSeamError("runConfig.write", res);
 			},
+			async readTeamDefaults(
+				teamId: string,
+			): Promise<AgentOrchestrationTeamRunConfigDefaultsView> {
+				const res = await client["agent-orchestration"]["team-run-config-defaults"][
+					":teamId"
+				].$get({ param: { teamId } });
+				if (!res.ok) return throwSeamError("runConfig.readTeamDefaults", res);
+				const body = (await res.json()) as {
+					readonly defaults: AgentOrchestrationTeamRunConfigDefaultsView;
+				};
+				return body.defaults;
+			},
+			async writeTeamDefaults(
+				teamId: string,
+				defaults: AgentOrchestrationTeamRunConfigDefaultsView,
+			): Promise<void> {
+				const res = await client["agent-orchestration"]["team-run-config-defaults"][
+					":teamId"
+				].$patch({ param: { teamId }, json: defaults });
+				if (!res.ok) return throwSeamError("runConfig.writeTeamDefaults", res);
+			},
 		},
 		filesystems: {
 			async getTeamId(filesystemId: string): Promise<string | null> {
@@ -442,6 +475,28 @@ export function buildSeamBackedWorkIntentRecorder<TTx>(
 	return {
 		record: async (_tx: TTx, input: AgentWorkIntentRecorderInput) => {
 			return port.intents.submit(input);
+		},
+	};
+}
+
+/**
+ * AU31 §2.2/§3 clause 2 — the seam-backed `OrgAgentRunConfigWriter` factory:
+ * the composition-root adapter that lets `@hyperidle/org`'s
+ * `persistScaffoldedAgents` (org.ts, teams-routes.ts, users.ts's setup route)
+ * go through the port instead of importing `@hyperidle/agent-run-config`
+ * directly. Same shape as `buildSeamBackedWorkIntentRecorder` above:
+ * `writeAgentRunConfig` deliberately IGNORES the executor it is handed — a
+ * seam call is an HTTP round trip through the composed app's own connection,
+ * so it can never join a caller's transaction, which is why
+ * `persistScaffoldedAgents` is never itself called from inside a
+ * `db.transaction(...)` at any of its three call sites.
+ */
+export function buildSeamBackedAgentRunConfigWriter(
+	port: AgentOrchestrationPort,
+): OrgAgentRunConfigWriter {
+	return {
+		writeAgentRunConfig: async (_db: WriteExecutor, agentUserId: string, patch) => {
+			await port.runConfig.write(agentUserId, patch);
 		},
 	};
 }

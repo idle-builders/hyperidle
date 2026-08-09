@@ -21,14 +21,8 @@
  */
 
 import { randomUUID } from "node:crypto";
-import {
-	type AgentRunConfigPatch,
-	DEFAULT_AGENT_RUN_CONFIG,
-	readAgentRunConfig,
-	readAgentRunConfigs,
-	validateAgentConfig,
-	writeAgentRunConfig,
-} from "@hyperidle/agent-run-config";
+import { validateAgentConfig } from "@hyperidle/agent-run-config";
+import type { AgentOrchestrationPort, AgentOrchestrationRunConfigPatch } from "@hyperidle/api-contract";
 import { type HyperIdleDb, readSystemPromptTemplateForRole } from "@hyperidle/db";
 import { getTeamMembers } from "@hyperidle/org";
 import {
@@ -82,6 +76,23 @@ const patchAgentSchema = z.object({
 type PatchAgentData = z.infer<typeof patchAgentSchema>;
 
 /**
+ * Mirrors `@hyperidle/agent-run-config`'s `DEFAULT_AGENT_RUN_CONFIG` — a
+ * defensive fallback for a `readBatch` entry, even though
+ * `AgentOrchestrationPort.runConfig.readBatch` (like the direct function it
+ * backs) already fills every requested id. AU31 §2.2: this route no longer
+ * imports `@hyperidle/agent-run-config` directly, so the value is a local
+ * mirror, not an import.
+ */
+const EMPTY_RUN_CONFIG_VIEW = {
+	systemPrompt: null,
+	harnessType: null,
+	modelTierPreference: null,
+	modelId: null,
+	modelProvider: null,
+	maxConcurrentSessions: 1,
+} as const;
+
+/**
  * Build the `users` (identity) half of a PATCH. Only fields present in the
  * request are included.
  *
@@ -90,9 +101,9 @@ type PatchAgentData = z.infer<typeof patchAgentSchema>;
  * `agent_run_config`, so the patch splits in two — identity here, run config in
  * {@link buildRunConfigPatch}. The route STAYS core-hosted (§D-A rule 3: it
  * gates on `users`, a core table, and a two-sided route has exactly one legal
- * host) and delegates the run-config persist DOWN into
- * `@hyperidle/agent-run-config`. The wire shape is unchanged — the client still
- * sends and receives one flat agent object.
+ * host) and delegates the run-config persist DOWN via
+ * `AgentOrchestrationPort.runConfig` (AU31 §2.2) — the wire shape is unchanged,
+ * the client still sends and receives one flat agent object.
  */
 function buildIdentityUpdateSet(data: PatchAgentData): Record<string, unknown> {
 	const updateSet: Record<string, unknown> = {};
@@ -102,8 +113,8 @@ function buildIdentityUpdateSet(data: PatchAgentData): Record<string, unknown> {
 }
 
 /** Build the `agent_run_config` half of a PATCH — same "present key wins, explicit null clears" semantics. */
-function buildRunConfigPatch(data: PatchAgentData): AgentRunConfigPatch {
-	const patch: AgentRunConfigPatch = {};
+function buildRunConfigPatch(data: PatchAgentData): AgentOrchestrationRunConfigPatch {
+	const patch: AgentOrchestrationRunConfigPatch = {};
 	if ("systemPrompt" in data) patch.systemPrompt = data.systemPrompt ?? null;
 	if ("harnessType" in data) patch.harnessType = data.harnessType ?? null;
 	if ("modelTierPreference" in data) patch.modelTierPreference = data.modelTierPreference ?? null;
@@ -127,6 +138,7 @@ function buildRunConfigPatch(data: PatchAgentData): AgentRunConfigPatch {
  */
 export function createAgentRoutes(
 	db: HyperIdleDb,
+	agentOrchestration: AgentOrchestrationPort,
 	adapterPool?: HarnessCapabilityReader,
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
@@ -136,7 +148,7 @@ export function createAgentRoutes(
 	// as the id param when the URL is /api/agents/someId/profile.
 	// Hono matches routes by registration order within the same method.
 	router.get("/:id/profile", requireBoundary({ kind: "public-data" }), async (c) => {
-		return handleAgentProfile(c, db, adapterPool);
+		return handleAgentProfile(c, db, adapterPool, agentOrchestration);
 	});
 
 	// ── GET /templates/:role — MUST come before /:id to avoid route collision ──
@@ -181,15 +193,12 @@ export function createAgentRoutes(
 		// PATCH responses used to re-serve the count purely so the client could
 		// splice it back into the list row.
 
-		// AU26 G1: the run-config half of each agent comes from
-		// `agent_run_config` in ONE batched read — the wire shape stays flat.
-		const runConfigs = await readAgentRunConfigs(
-			db,
-			agentRows.map((a) => a.id),
-		);
+		// AU26 G1 / AU31 §2.2: the run-config half of each agent comes from
+		// `agent_run_config` in ONE batched seam read — the wire shape stays flat.
+		const runConfigs = await agentOrchestration.runConfig.readBatch(agentRows.map((a) => a.id));
 
 		const result = agentRows.map((agent) => {
-			const runConfig = runConfigs.get(agent.id) ?? DEFAULT_AGENT_RUN_CONFIG;
+			const runConfig = runConfigs.get(agent.id) ?? EMPTY_RUN_CONFIG_VIEW;
 			return {
 				id: agent.id,
 				name: agent.name,
@@ -261,31 +270,30 @@ export function createAgentRoutes(
 
 		// AU26 G1: the run config is a second write, delegated down to its owner.
 		//
-		// @lore AU26 review W10: the two writes are ONE transaction. Before the G1
-		// column move this was a single insert; splitting it without a transaction
-		// meant a failure in between left an agent whose config silently resolves
-		// the all-null default (builtin, one concurrent session) instead of the
-		// harness the caller asked for — no error, no repair path, wrong harness
-		// forever.
-		await db.transaction(async (tx) => {
-			await insertUser(tx, {
-				id,
-				kind: "ai",
-				name: data.name,
-				role: data.role,
-				agentCategory,
-				status: "active",
-				teamId: data.teamId ?? null,
-				createdAt: now,
-			});
-			await writeAgentRunConfig(tx, id, {
-				systemPrompt: data.systemPrompt ?? null,
-				harnessType: effectiveHarnessType,
-				modelTierPreference: data.modelTierPreference ?? null,
-				modelId: effectiveModelId,
-				modelProvider: effectiveProvider,
-				maxConcurrentSessions: data.maxConcurrentSessions,
-			});
+		// AU31 §3.1 site 1 — RELINQUISHED (founder ruling, architecture.md
+		// §3.1/§13 item 9): the two writes used to be one transaction; now the
+		// seam write can never join a caller's transaction (§3.2), so `insertUser`
+		// commits alone and `runConfig.write` follows. On a failed write, the
+		// agent exists with `DEFAULT_AGENT_RUN_CONFIG` semantics (the read path
+		// already defaults) — it runs on builtin instead of the harness the
+		// caller asked for. The admin edit path repairs it.
+		await insertUser(db, {
+			id,
+			kind: "ai",
+			name: data.name,
+			role: data.role,
+			agentCategory,
+			status: "active",
+			teamId: data.teamId ?? null,
+			createdAt: now,
+		});
+		await agentOrchestration.runConfig.write(id, {
+			systemPrompt: data.systemPrompt ?? null,
+			harnessType: effectiveHarnessType,
+			modelTierPreference: data.modelTierPreference ?? null,
+			modelId: effectiveModelId,
+			modelProvider: effectiveProvider,
+			maxConcurrentSessions: data.maxConcurrentSessions,
 		});
 
 		return c.json(
@@ -358,7 +366,7 @@ export function createAgentRoutes(
 			const data = parsed.data;
 			// AU26 G1: the "?? existing" half of the effective triple now comes
 			// from `agent_run_config`, not the `users` row.
-			const existingRunConfig = await readAgentRunConfig(db, id);
+			const existingRunConfig = await agentOrchestration.runConfig.read(id);
 			const effectiveHarnessType =
 				"harnessType" in data ? (data.harnessType ?? null) : existingRunConfig.harnessType;
 			const effectiveProvider =
@@ -382,14 +390,14 @@ export function createAgentRoutes(
 			}
 			const runConfigPatch = buildRunConfigPatch(data);
 			if (Object.keys(runConfigPatch).length > 0) {
-				await writeAgentRunConfig(db, id, runConfigPatch);
+				await agentOrchestration.runConfig.write(id, runConfigPatch);
 			}
 
 			const updated = await findUser(db, { id });
 			if (!updated) {
 				return c.json({ error: "Agent not found after update", code: "NOT_FOUND" }, 404);
 			}
-			const updatedRunConfig = await readAgentRunConfig(db, id);
+			const updatedRunConfig = await agentOrchestration.runConfig.read(id);
 
 			return c.json({
 				id: updated.id,
@@ -427,7 +435,7 @@ export function createAgentRoutes(
 		// AH2 reviewer NEW-1: derive effective pair from data fields ?? existing fields
 		// so a single-field PATCH still validates the full cross-axis pair.
 		// AU26 G1: the "?? existing" half now comes from `agent_run_config`.
-		const existingRunConfig = await readAgentRunConfig(db, id);
+		const existingRunConfig = await agentOrchestration.runConfig.read(id);
 		const effectiveHarnessType =
 			"harnessType" in data ? (data.harnessType ?? null) : existingRunConfig.harnessType;
 		const effectiveProvider =
@@ -452,7 +460,7 @@ export function createAgentRoutes(
 		}
 		const runConfigPatch = buildRunConfigPatch(data);
 		if (Object.keys(runConfigPatch).length > 0) {
-			await writeAgentRunConfig(db, id, runConfigPatch);
+			await agentOrchestration.runConfig.write(id, runConfigPatch);
 		}
 
 		const updated = await findUser(db, { id });
@@ -460,7 +468,7 @@ export function createAgentRoutes(
 			return c.json({ error: "Agent not found after update", code: "NOT_FOUND" }, 404);
 		}
 
-		const updatedRunConfig = await readAgentRunConfig(db, id);
+		const updatedRunConfig = await agentOrchestration.runConfig.read(id);
 
 		return c.json({
 			id: updated.id,

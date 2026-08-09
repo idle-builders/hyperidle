@@ -26,6 +26,7 @@ export type {
 	AgentOrchestrationSessionsPort,
 	AgentOrchestrationSessionWireRow,
 	AgentOrchestrationStoppedRun,
+	AgentOrchestrationTeamRunConfigDefaultsView,
 	AgentOrchestrationTransport,
 	AgentOrchestrationWorkIntentInput,
 	AgentOrchestrationWorkIntentKind,

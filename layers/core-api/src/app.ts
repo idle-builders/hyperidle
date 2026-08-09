@@ -293,10 +293,13 @@ export function registerCoreApiPreAuthRoutes(
 	// P4: Public: POST /api/users (setup — no auth required on first run).
 	// The route itself enforces auth once a human user already exists
 	// (setup-complete guard).
-	if (options?.db) {
+	if (options?.db && options.agentOrchestration) {
 		// AK6 T8: eventBus passed so user_created event is emitted after assistant persist.
 		const earlyEventBus = options.eventBus ?? new EventBus();
-		api.route("/users", createUserSetupRoute(options.db, earlyEventBus));
+		api.route(
+			"/users",
+			createUserSetupRoute(options.db, earlyEventBus, options.agentOrchestration),
+		);
 	}
 
 	// S1: Public: POST /api/auth/claim (invite claim — no auth required).
@@ -393,7 +396,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 
 		// @lore U2: `/products` URL renamed to `/teams` (domain rename: Product → Team).
 		// The old `createTeamsRoutes` (knowledge team_members listing) relocated to `/team-members`.
-		api.route("/agents", createAgentRoutes(options.db, options.adapterPool));
+		api.route("/agents", createAgentRoutes(options.db, agentOrchestration, options.adapterPool));
 		api.route("/model-gateway", createModelGatewayRoutes(options.db));
 		api.route("/teams", createTeamRoutes(options.db, eventBus, options.adapterPool));
 		api.route("/bets", createBetRoutes(options.db, eventBus, agentOrchestration));
@@ -421,7 +424,10 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 				options.wsHub,
 			),
 		);
-		api.route("/users", createUserRoutes(options.db, eventBus, options.adapterPool));
+		api.route(
+			"/users",
+			createUserRoutes(options.db, eventBus, agentOrchestration, options.adapterPool),
+		);
 		api.route("/org", createOrgRoutes(options.db));
 		api.route("/routines", createRoutineRoutes(options.db, eventBus, agentOrchestration));
 		api.route("/recipients", createRecipientRoutes(options.db, eventBus));

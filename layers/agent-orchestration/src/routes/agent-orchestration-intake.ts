@@ -22,13 +22,16 @@ import {
 	type DEFAULT_AGENT_RUN_CONFIG,
 	readAgentRunConfig,
 	readAgentRunConfigs,
+	readTeamRunConfigDefaults,
 	writeAgentRunConfig,
+	writeTeamRunConfigDefaults,
 } from "@hyperidle/agent-run-config";
 import type {
 	AgentOrchestrationCreateBareRunRequest,
 	AgentOrchestrationExplicitStartRequest,
 	AgentOrchestrationExplicitStartView,
 	AgentOrchestrationRunConfigPatch,
+	AgentOrchestrationTeamRunConfigDefaultsView,
 	AgentOrchestrationWorkIntentInput,
 	AgentOrchestrationWorkIntentKind,
 } from "@hyperidle/api-contract";
@@ -377,6 +380,37 @@ export function createAgentOrchestrationIntakeRoutes(
 		async (c) => {
 			const patch = c.req.valid("json");
 			await writeAgentRunConfig(db, c.req.param("agentId"), patch);
+			return c.json({ ok: true });
+		},
+	);
+
+	// ── runConfig.readTeamDefaults — GET /agent-orchestration/team-run-config-defaults/:teamId ──
+	// AU31 §3 clause 2: `teams-routes.ts:540`'s add-agent-later read.
+	router.get(
+		"/team-run-config-defaults/:teamId",
+		requireBoundary({ kind: "public-data" }),
+		async (c) => {
+			const defaults = await readTeamRunConfigDefaults(db, c.req.param("teamId"));
+			return c.json({ defaults });
+		},
+	);
+
+	// ── runConfig.writeTeamDefaults — PATCH /agent-orchestration/team-run-config-defaults/:teamId ──
+	// AU31 §3 clause 2 / §3.1 site 2: `teams-routes.ts:280`'s team-creation write,
+	// relinquished from `createTeam`'s transaction (architecture.md §3.1/§13 item 9).
+	router.patch(
+		"/team-run-config-defaults/:teamId",
+		requireBoundary({ kind: "public-data" }),
+		validateBody(
+			z.object({
+				defaultHarnessType: z.string().nullable(),
+				defaultModelId: z.string().nullable(),
+				defaultModelProvider: z.string().nullable(),
+			}) satisfies z.ZodType<AgentOrchestrationTeamRunConfigDefaultsView>,
+		),
+		async (c) => {
+			const defaults = c.req.valid("json");
+			await writeTeamRunConfigDefaults(db, c.req.param("teamId"), defaults);
 			return c.json({ ok: true });
 		},
 	);
