@@ -1,8 +1,18 @@
 {
   "id": "AU30",
   "title": "Every table has an owner, and only its owner touches it",
-  "phase": "build",
-  "status": "in-progress",
+  "phase": "ship",
+  "status": "shipped — founder approved, pull request opened against main, awaiting human merge",
+  "reviewOutcome": {
+    "round1": "NOT DONE — all 7 ACs PASS, one blocking: a formally protected test (AU21 §14) deleted whose subject survives. architecture.md:1451 said the file held 4 tests; it held 5. The uncounted fifth asserts enqueueWorkIntent idempotency — the guarantee that stops one routine run becoming two agent sessions. Nothing anywhere still asserted it; verify was green BECAUSE the test that would notice was gone.",
+    "round2": "DONE — no blocking findings. Re-homed assertions diffed byte-identical against git history; rebase proven to cost nothing (94-file changeset byte-identical pre/post replay, 649,591 bytes each); attestation srcHash recomputed by hand and matches; governance re-measured exact.",
+    "openNonBlocking": "NBD-A fixed in 300b04e9. Remaining, filed not assigned: schema.ts:626-630 @lore O2 says delegationAllowed 'governs whether the routine can hand off' — nothing reads it (same defect class, different file, outside the assigned four); routine-scheduler.au15.integration.test.ts:8 cross-references the deleted suite (this branch does not edit that file); session-stream-hub.ts:72 answers an existence question via an 18-column select."
+  },
+  "shipRecord": {
+    "ordering": "srcHash covers every tracked file except .verify-attestations/**, so pipeline state (review-2.md, the retro log, this file, the AU registry row) was committed FIRST, the tree confirmed clean, then `npm run verify` re-run and the regenerated attestation committed last and alone. No commit follows the attestation — one would invalidate it and CI would reject the branch.",
+    "prNumberNotRecorded": "The pull request number is deliberately absent from this file and from .pipeline/AU.md. The PR can only be opened after the final attestation is pushed, and writing the number back would require a post-attestation commit. The number lives in the PR and in the ship report.",
+    "artifacts": ".pipeline/work/AU30/review.md (round 1), review-2.md (round 2, DONE), founder-rulings.md (5 binding rulings), .pipeline/retro-log/AU30.jsonl (28 observations)."
+  },
   "buildPlan": {
     "commits": [
       "1 — DONE f3d43fa6 'Delete the dead per-agent skill autonomy table and its unreachable delegation path'. 57 files. 191 -> 178 production, 0 development. check PASS 35 pkgs, lint exit 0, test:integration:service 2785 passed, test:full 6207 passed. Red demonstrated FIRST on all three not.toContain assertions (quoted failures), green after the migration+journal entry while the schema still declared the table — so the green is the migrator's, not the compiler's.",
