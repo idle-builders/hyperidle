@@ -14,6 +14,9 @@ export function mapDocHref(href: string, base: string, section: string): string 
 	if (!match) return null;
 	const id = match[1];
 	if (!id) return null;
+	// index.md collapses onto the directory URL itself — the same contract
+	// docEntryId applies to entry ids (docs/product/index.md → /docs/product/).
+	if (id === "index") return `${base}${section}/`;
 	return `${base}${section}/${id}/`;
 }
 

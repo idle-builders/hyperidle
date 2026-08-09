@@ -15,9 +15,13 @@ describe("mapDocHref", () => {
 		);
 	});
 
+	test("collapses index.md onto the directory URL, matching docEntryId", () => {
+		expect(mapDocHref("index.md", "/", "docs/product")).toBe("/docs/product/");
+	});
+
 	test("honours a subpath base", () => {
-		expect(mapDocHref("index.md", "/hyperidle/", "docs/product")).toBe(
-			"/hyperidle/docs/product/index/",
+		expect(mapDocHref("./index.md", "/hyperidle/", "docs/product")).toBe(
+			"/hyperidle/docs/product/",
 		);
 	});
 

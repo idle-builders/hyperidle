@@ -11,11 +11,11 @@
  */
 
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { builtinModules } from "node:module";
 import { dirname, extname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 
+import { barePackageName, BUILTINS } from "./lib/bare-package-name.js";
 import {
 	computeDependencyVerdict,
 	type DependencyField,
@@ -25,7 +25,6 @@ import {
 } from "./lib/dep-manifest-verdict.js";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const BUILTINS = new Set(builtinModules);
 
 /** Directories that never hold first-party source. */
 const SKIP_DIRS = new Set([
@@ -107,20 +106,6 @@ function collectOwnedFiles(dir: string, ownedBy: ReadonlySet<string>, out: strin
 		}
 	}
 	return out;
-}
-
-/** `@scope/name/sub` -> `@scope/name`; `name/sub` -> `name`; builtins/relative -> null. */
-function barePackageName(specifier: string): string | null {
-	if (!specifier || specifier.startsWith(".") || specifier.startsWith("/")) return null;
-	if (specifier.startsWith("#") || specifier.startsWith("node:")) return null;
-	// Bundler virtual modules (`astro:content`, `astro:assets`) are served by the
-	// package before the colon. URL imports (`https://…`, matched by "//") are not
-	// packages and pass through untouched.
-	const bare = specifier.includes("//") ? specifier : (specifier.split(":")[0] ?? specifier);
-	const segments = bare.split("/");
-	const name = bare.startsWith("@") ? segments.slice(0, 2).join("/") : segments[0];
-	if (!name || BUILTINS.has(name)) return null;
-	return name;
 }
 
 const CSS_REFERENCE = /@(?:import|plugin)\s+["']([^"']+)["']/g;
