@@ -4,9 +4,9 @@ Probes for the architecture phase. `requirements.md`'s measurements were verifie
 and are **not** re-derived; each probe answers a question only this phase asks. Method is stated so each is
 reproducible.
 
-**Verdict: deliverable in one PR.** No probe found a blocker. Six risks are real; each has a named
-mitigation, and two of them (R1, R2) are cases where the obvious safety net does not exist and a different
-mechanism had to be found.
+**Verdict: deliverable in one PR.** No probe found a blocker. Eight risks are real; each has a named
+mitigation. Three (R1, R2, R7) are cases where the obvious safety net does not exist and a different
+mechanism had to be found — twice for the *same* reason, which is recorded as a pattern in R7.
 
 ---
 
@@ -136,6 +136,50 @@ resolve to more than one declaring file.
 
 ---
 
+## P7 — Does property 4 force an attack case for a new *check* on an existing rule?
+
+**Question.** `architecture.md`'s previous draft added the framework-surface check to `registries-honest` and
+claimed property 4 forced its positive case and control twin. Same shape as the claim P4 already demolished
+one level up — is it true one level down?
+
+**Method.** Read `coverageGaps` (`governance-attacks.ts:804-831`); enumerate the cases naming
+`registries-honest`.
+
+**Result.** **False, for the same reason.** `coverageGaps` demands, per **registered rule id**, (a) ≥1 case
+naming it and (b) ≥1 case whose `expect.sort !== "clean"`. `registries-honest` already satisfies both via
+`unowned-new-table` (`governance-attacks.ts:701-715`, `expect: { sort: "finding", … }`). Adding a *check* to
+an existing rule therefore forces nothing at all. Separately, **control twins are not mechanically enforced
+anywhere**: property 2 is prose at `governance-attacks.ts:20-21` and nothing in `coverageGaps` reads it.
+
+**Verdict.** The check must ship as a **new registered rule** (`framework-surfaces-declared`) for property 4
+to bite on its positive case — `architecture.md` §6.3. The control twin remains convention-backed, and that is
+stated rather than claimed. See R7.
+
+---
+
+## P8 — Does the audience lint constrain where a test file lives?
+
+**Question.** `architecture.md`'s test-split criterion said a cross-package test import is rejected by
+`reach-declared-surfaces-only`. Is it?
+
+**Method.** Read `relaxForDevelopment` (`governance-model.ts:350-398`); check `oneDoorSurfaces` membership
+for the eighteen; probe a `framework` source against `db:testing`.
+
+**Result.** **No.** A test file is a development file, and `relaxForDevelopment` allows every crossing whose
+production verdict is `forbidden` **except** the three `oneDoorSurfaces` (`db:schema-ns`, `db:unknown`,
+`framework/design-system`) and the raw-runtime door. None of the eighteen is a one-door surface. Probed
+directly: `framework → db:testing [import]` is `forbidden` in production and `allowed` in development.
+
+**Verdict.** The audience lint does **not** gate test placement. What does is `deps:check`: a cross-package
+test import obliges the owning package to declare a dependency it has no production reason for.
+`architecture.md` §3.6 criterion 2 is corrected to say so, and the earlier claim is withdrawn.
+
+The same probe shows a third `decided-rules.json` row is expressible and reproduces today, so
+`architecture.md` §6.2 adds `framework → db:testing [import]` alongside the other two — `founder-rulings.md`
+names three `reach: []` surfaces and §7.5 already argues a further twin costs nothing.
+
+---
+
 ## Risks
 
 ### R1 — Ruling 1's scoped predicate has no automatic gate, and the one named does not exist. **Highest.**
@@ -147,8 +191,9 @@ packages production reach to the schema namespace and the undecided-surface catc
 P4 shows **both** named gates fail: property 4 keys on registered rule ids and the clause is not one; and
 `decided-rules.json` reproduces identically under either reading.
 
-**Mitigation — replace the hand-list with a real gate.** Add two rows to `decided-rules.json`:
-`framework → db:schema-ns [import]` and `framework → db:unknown [import]`, both `forbidden` in both worlds.
+**Mitigation — replace the hand-list with a real gate.** Add **three** rows to `decided-rules.json`:
+`framework → db:schema-ns`, `db:unknown` and `db:testing` (`[import]`), all `forbidden` in both worlds — the
+third because `founder-rulings.md` names three `reach: []` surfaces and P8 confirms it reproduces today.
 The frozen reproduction loop at `governance-model.test.ts:200-232` then fails loudly if anyone widens the
 clause, permanently and without anyone remembering to. The attack twins stay as belt. `architecture.md`
 §6.2 and T2 carry it, sequenced in Phase A because they gate T1.
@@ -171,35 +216,50 @@ lands ~210–250 against a floor of 111: slack ~100–140 where ~42–50 is allo
 since the codemod emits one statement per destination against 726 today. Neither artifact previously
 mentioned `governance:floors` or a floor rewrite.
 
-**Mitigation.** The *decision* moves to Phase A (A10) with its justification stated — the population grew, no
-violation was absorbed: one package with 30 declarers becomes eighteen with the same consumers declaring a
-subset each. The *act* is B8, mechanical, using the value `governance:floors` prints, with before/after
-recorded. Only the floors that argument covers are raised; any other floor going red is a finding. This
-respects `floors-tight`'s own lore that reflexive bumping is the rot floors exist to prevent.
+**Mitigation.** The *decision* and its justification move to Phase A (`architecture.md` §3.3) — the population
+grew, no violation was absorbed: floors are magnitude trackers and violations are reported separately by the
+`crossing-<kind>` rules, so a raise cannot hide one. The *act* is **B7**, mechanical.
+
+**Two corrections to an earlier draft.** The value written is `suggestedFloor` — the **middle** of the band,
+which is what `governance:floors` prints — not the live count: `floors-tight.ts:66-72` states that a floor at
+the edge is one removed crossing from red, "which is how the whole floor set came to sit on the edge at
+once". And the raise must precede the green gate, because `verify` → `lint` → `floors-tight`; the earlier
+ordering (green, then raise) was unachievable.
+
+Only the floors the argument covers are raised — checkable from the tool's own verdict column; any other
+floor going red is a finding, not a bump.
 
 ### R3 — The `governance-model.test.ts` fixtures gate everything downstream.
 
 `makeActor` (`:79-101`) knows three package names and its `default` branch returns
 `{ role: <package-name> as Role }`, not a valid role. The eighteen reach lists name **25 distinct packages**.
-The row count is hardcoded at `:171` and twice at `:214`/`:229`, and four further totals at `:176-189`
-(`65`, `53`, `112`, `6`) plus `totals.production`/`totals.development` in the JSON.
+The row count is hardcoded **four** times — `:170`, `:171`, `:214`, `:229` — plus the test title at `:169`
+and the doc comment at `:4`/`:7` ("236 answers (118 rows × 2 worlds)"). `:170` was named in no earlier
+artifact. Four further totals sit at `:176-189` (`65`, `53`, `112`, `6`) with
+`totals.production`/`totals.development` in the JSON. **`makeTarget:150-151` is stale too** — it returns
+`name: "shared"` for a bare `framework` target and three live rows use it; earlier drafts named only
+`makeActor`.
 
 **Consequence.** If T2 is incomplete the model test fails and nothing after it verifies — this file gates L3
-entirely. **Mitigation:** T2 sits immediately after T1 in L1, and it owns the 118→120 move that R1's two rows
-force. T15 moves the counts again for the AU34 surface rows; the two edits are sequenced, not competing.
+entirely. **Mitigation:** T2 sits immediately after T1 in L1 and owns the 118→121 move R1's three rows force.
+**B6 owns a further −12**: the twelve `framework/shared` rows must retire with the surface, or
+`governance-model.ts:294-299` returns `forbidden` for all twelve and both loops go red — and since `verify`
+runs no tests, B could otherwise be declared green with the frozen gate red. `architecture.md` B8 therefore
+defines green as `verify` **plus** the model test. T15 moves the counts a third time for the AU34 surface
+rows.
 
-Related, and named rather than papered over: `governance/README.md:31` says **124** verdicts while
-`totals.rows` is **118** — a six-row drift predating AU34 (AU29 deleted six rows without touching the prose).
-T15 corrects the README to the true count.
+Related, named rather than papered over: `governance/README.md` says **124** at **six** sites (`:31`, `:39`,
+`:42`, `:44`, `:46`, and "248 verdicts (124 rows × 2 worlds)") while `totals.rows` is **118** — a six-row
+drift predating AU34 (AU29 deleted six rows without touching the prose). T15 corrects all six.
 
 ### R4 — The atomic step has no coherent intermediate state, by construction.
 
 `plan.md:34` forbids a shim, so between deleting `framework/shared` and finishing the rewrite the tree does
 not typecheck.
 
-**Mitigation.** Make it one commit and put every decision outside it. `architecture.md` §3 now has **ten**
-Phase-A steps — the test split (A6) and the floor decision (A10) moved out of the window in this revision —
-so B contains only moves, generated rewrites, and a printed value. Local `npm run check` is the feedback
+**Mitigation.** Make it one commit and put every decision outside it. `architecture.md` §3 now carries **ten** Phase-A
+steps plus two code-free decisions (the layout convention and the floor justification), so B contains only
+moves, generated rewrites, and a printed value. Local `npm run check` is the feedback
 loop; nothing is pushed until green.
 
 ### R5 — The harness lane will not run itself.
@@ -219,8 +279,44 @@ the tree. So a stale entry produces no error at all.
 
 **Consequence.** If the list is not updated, `npm run check` — the gate B7 drives to green — measures the
 eighteen against absent declarations and may report noise or a false clean, without saying so.
-**Mitigation:** `architecture.md` §6.5 puts the file in scope and in T12, and requires the builder to verify
-the **effect** (declarations emitted for each of the eighteen) rather than the exit code.
+**Mitigation:** `architecture.md` §6.5 puts the file in scope and in T12, requires the builder to verify the
+**effect** (declarations emitted for each of the eighteen) rather than the exit code, and notes that the list
+is **topologically sorted, not appended** — `:292-298` builds leaves in dependency order, and the eighteen
+carry nine sibling edges plus `credential-access → domain-model`, with `db` and `design-system` depending on
+several.
+
+### R7 — "property 4 forces the break-test" was claimed twice and was false both times. **Pattern, not incident.**
+
+P4 found it for a **clause** change (clause ids are not registered rule ids). P7 found the same claim one
+level down for a **check added to an existing rule** (`registries-honest` already satisfies `coverageGaps`
+via `unowned-new-table`). The shape recurs because the harness's four properties read as stronger than they
+are: only property 4 is mechanical, it keys solely on registered rule ids, and **property 2 — the control
+twin — is prose that nothing evaluates**.
+
+**Mitigation, applied twice.** For the clause: the three `decided-rules.json` rows (R1), which the frozen
+loop enforces. For AC-2's check: ship it as a **new registered rule**, `framework-surfaces-declared`, so
+property 4 bites on its positive case (`architecture.md` §6.3).
+
+**Residual, stated rather than claimed:** control twins remain convention-backed everywhere. No mechanism in
+this repo enforces them, and inventing one is not in AU34's scope.
+
+### R8 — two rewrite classes sit outside the codemod's original node shape.
+
+The first draft scoped the codemod to `import`/`export … from` naming `@hyperidle/shared`. Two populations
+fall outside it and each would have landed as hand work inside the window:
+
+- **239 relative import statements under `framework/shared/src`**, of which `requirements.md` §4.8 puts **47**
+  across a destination boundary. A relative specifier is never `@hyperidle/shared`-shaped, so both the codemod
+  and the residual-grep completeness check were structurally blind to them.
+- **45 `import("@hyperidle/shared")` sites** — 29 `ImportTypeNode` type positions and 16 runtime
+  `CallExpression`s — which are neither import nor export declarations.
+
+**Mitigation.** `architecture.md` §4.1 makes the codemod **two passes over four node shapes**, and §3.2 fixes
+the in-package layout so pass 2's population collapses from 239 to 47 (preserving `src`-relative paths leaves
+every same-package relative import byte-identical). §4.3 adds pass 2's own completeness check — after the
+move, no file under `framework/*/src` may hold a relative specifier resolving outside its package root —
+because the residual grep cannot see it. The three sites that take the barrel as an *object* are resolved in
+Phase A (`architecture.md` §3.5): two are mechanical, one is deleted.
 
 ---
 
@@ -231,8 +327,10 @@ intermediate state to ship, so this is not a preference.
 
 What makes it tractable:
 
-- **Every decision is now outside the irreversible window.** Ten Phase-A steps; B is moves, generated
-  rewrites, and one printed value.
+- **Every decision is now outside the irreversible window.** Ten Phase-A steps plus two code-free decisions
+  — the in-package layout convention and the floor justification — both of which B consumes as inputs.
+- **Every rewrite class is mechanized.** Two codemod passes over four node shapes cover the external sites,
+  the intra-package relative imports and the dynamic-import forms (R8).
 - **The bulk of B is machine-generated**, and its correctness is checked by two independent derivations that
   would have to fail identically to be silent (`architecture.md` §4.3) — plus the inline-`type` count check
   P5 showed `tsc` cannot provide.

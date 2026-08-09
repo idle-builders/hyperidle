@@ -1,22 +1,23 @@
 # AU34 — Architecture
 
-**Authority.** `plan.md` (outcomes, ACs, constraints) > `founder-rulings.md` (Ruling 1 and its scoped
-predicate, Ruling 2) > `requirements.md` (the package set, the audience table, the fold set, the scope
-inventory). This document adds no outcome and no scope. It decides **order, mechanism, ownership and
+**Authority.** `plan.md` > `founder-rulings.md` (Ruling 1 and its scoped predicate, Ruling 2) >
+`requirements.md`. This document adds no outcome and no scope. It decides **order, mechanism, ownership and
 evidence**.
 
 `requirements.md`'s measurements were verified independently four times and are **not** re-derived here.
-Measurements taken for this phase are in `feasibility.md` (P1–P6).
-
-**Two design rules govern this revision, and every decision below is checked against them:**
+Measurements for this phase are in `feasibility.md` (P1–P8).
 
 > **R-A. The atomic window contains no judgement.** Every decision lands in Phase A, where a wrong one is a
 > revert. Phase B contains moves, generated rewrites, and values printed by an existing tool.
 >
 > **R-B. A guarantee is enforced by something that fails a build, not by a hand-list entry.** Where the only
-> available enforcement is a hand-list, say so and prefer a mechanism that is already a gate.
+> available enforcement is convention, say so plainly rather than claiming a gate.
 
-**Tier: production.** Every package in the repo depends on the thing being split.
+**Naming caution for every task below.** Attack-case ids, rule ids, file names and lint messages are
+behavioural (`unowned-new-table`, `alias-import-control`). **The work-package identifier must not appear in
+any of them** — only in `@lore` comments and under `.pipeline/**`.
+
+**Tier: production.**
 
 ---
 
@@ -24,432 +25,449 @@ Measurements taken for this phase are in `feasibility.md` (P1–P6).
 
 | AC (`plan.md:47-52`) | what discharges it | where |
 |---|---|---|
-| `framework/shared` no longer exists; what it held lives in framework packages named for what they contain | Phase B's atomic move; 18 packages per `requirements.md` §4 | §3, §4 |
-| every package has a decided audience, and the build fails on a package with no audience decided | 18 `surfaces` entries + the new framework-surface check in `registries-honest` | §6.3 |
-| only justified `everyone`; the rest reachable only by their stated audience, enforced by the lint | `reach-declared-surfaces-only`; Ruling 1's clause under its scoped predicate, **gated by two `decided-rules.json` rows** | §6.1, §6.2 |
-| no package's dependency closure carries a toolchain it does not use | `deps:check` — already a two-directional gate | §5 |
-| no module survives that nothing outside its own package reaches | Ruling 2's nine folds (`requirements.md` §4.9) | §3 A4, §7 |
-| `npm run verify` green **and** the application behaves identically, proven by running it | §7 | §7 |
+| `framework/shared` no longer exists; what it held lives in packages named for what they contain | Phase B; 18 packages per `requirements.md` §4 | §3, §4 |
+| every package has a decided audience; the build fails on one without | a **new registered rule**, `framework-surfaces-declared` | §6.3 |
+| only justified `everyone`; the rest enforced by the lint | `reach-declared-surfaces-only`; Ruling 1 scoped, **gated by three `decided-rules.json` rows** | §6.1, §6.2 |
+| no closure carries an unused toolchain | `deps:check` | §5 |
+| no module survives that nothing outside its own package reaches | Ruling 2's nine folds | §3 A5, §7 |
+| `verify` green **and** the application behaves identically, proven by running it | §7 | §7 |
 
 ---
 
-## 2. What is reused, and the change boundary
+## 2. What is reused
 
-**Reused, not built.** Four existing mechanisms carry work this WP would otherwise invent:
+- **`scripts/dep-manifest-lint.ts` (`deps:check`)** — two-directional import-vs-manifest gate; the AC-4
+  mechanism and the manifest-derivation engine (§5).
+- **`scripts/typecheck-gate.ts`** — discovers packages by scanning; `typecheck-debt.json` is `{}`, so the
+  eighteen are clean from first commit.
+- **`framework/db/src/__tests__/governance-model.test.ts`** — the frozen row-reproduction loop (`:205-214`,
+  `:220-229`). §6.2 makes it the gate for Ruling 1's predicate.
+- **`npm run governance:floors`** — prints live/declared/slack/allowed and the value to write (§3.3).
 
-- **`scripts/dep-manifest-lint.ts` (`deps:check`)** — "every workspace package must declare exactly what it
-  imports: no more, no less", failing in both directions with per-package sites. The AC-4 mechanism and the
-  manifest-derivation engine (§5).
-- **`scripts/typecheck-gate.ts`** — discovers packages by scanning role roots for `tsconfig.json`.
-  `typecheck-debt.json` is `{ packages: {} }`: **zero debt**, so the eighteen are clean from first commit.
-- **`framework/db/src/__tests__/governance-model.test.ts`** — the frozen row-reproduction loop
-  (`:200-232`). §6.2 turns this into the gate for Ruling 1's predicate, because the attack harness cannot be.
-- **`npm run governance:floors`** (`scripts/governance-floors.ts`) — prints each floor's live count, slack,
-  allowance and the value to write. §3 B8 uses it rather than hand-computing.
-
-**The change boundary.** Placement only. No function's behaviour changes (`plan.md:36`). The folds, the four
-edge rewrites, the two module splits and the test splits are all moves of declarations between files.
+**Change boundary:** placement only (`plan.md:36`).
 
 ---
 
 ## 3. Order of operations
 
-`plan.md:34` forbids a shim, so the split is atomic — there is no state in which both `@hyperidle/shared`
-and the eighteen resolve. The architecture's job is to make the atomic window contain **nothing but
-mechanism**.
-
 ### Phase A — every decision, each step green on its own
 
-`verify:quick` runs **no tests** (`package.json`), so the verification column names the actual command.
+`verify:quick` runs **no tests**, so each row names the real command.
 
-| # | step | kind | verified by |
-|---|---|---|---|
-| A1 | **Ruling 1's clause** under the scoped predicate (§6.1); `scripts/governance-context.ts:187-195` `frameworkSurfacesOf` fix + its twin at `governance-attacks.ts:928` (§6.4); `governance/README.md` | judgement | `npm run lint` |
-| A2 | **The predicate's gate**: two `forbidden` rows in `decided-rules.json` (§6.2) + `governance-model.test.ts` fixture work — `makeActor`'s 25 packages, `totals.rows` 118→120 and the six hardcoded totals | judgement | `npx vitest run framework/db/src/__tests__/governance-model.test.ts` |
-| A3 | **Framework-surface check** in `registries-honest`, both directions, subset floor (§6.3), attack + control twin | judgement | `npm run lint` |
-| A4 | **Delete `format/money.ts`** + the ten dead exports; fix the ten test consequences (`requirements.md` §1.3 four + §4.6 six) — including the two namespace imports at `harness-registry/src/__tests__/{return-gate,return-status-tool}.test.ts:14,23` | mechanical | `npm run check`, `npm run test:full` |
-| A5 | **The nine folds** (Ruling 2, `requirements.md` §4.9) | judgement on the 7-way collapse | `npm run check`, `npm run test:full` |
-| A6 | **Split the cross-destination tests** (§3.1) | **judgement — this is BL-1's fix** | `npm run test:full` |
-| A7 | **The four edge rewrites**, pre-split spelling — D1's two acts, plus `console-adapter.ts:1` and the two `http/*` self-imports as **relative** imports (`../logger.js`, `../api-types.js`) | judgement | `npm run check` |
-| A8 | **The six republication removals + two repoints** (§3.2) | judgement | `npm run check`, `npm run lint` |
-| A9 | **Split `model-gateway.ts` and `credential.ts`** in place, inside `framework/shared`, using **relative** imports between the halves | judgement | `npm run check` |
-| A10 | **Decide the floor raise** (§3.3) — the justification, not the numbers | judgement | recorded, executed in B8 |
+| # | step | verified by |
+|---|---|---|
+| A1 | **Ruling 1's clause**, scoped (§6.1); `frameworkSurfacesOf` fix (`scripts/governance-context.ts:187-195`) + twin (`governance-attacks.ts:928`); `governance/README.md` | `npm run lint` — but see §3.4: A1's effect on the live tree is nil, so its real verification is A3 |
+| A2 | **The predicate's gate**: three `forbidden` rows (§6.2); `governance-model.test.ts` fixture work — `makeActor`'s 25 packages, **`makeTarget`'s bare-`framework` case**, and the row bookkeeping (§6.6) | `npx vitest run framework/db/src/__tests__/governance-model.test.ts` |
+| A3 | **Attack cases**: Ruling 1's positive case; the three `db:*` control twins; **the `frameworkSurfacesOf` case** — an undeclared-but-imported framework package expecting "is not a declared surface", not the composition-root message | `npm run lint` |
+| A4 | **Delete `format/money.ts`** + ten dead exports; **and every construct with no successor**: the two namespace imports (`harness-registry/src/__tests__/{return-gate,return-status-tool}.test.ts:14,23`) and the barrel-namespace assertion at `core-api/src/__tests__/AL7-no-kernel-executor.test.ts:73-76` (§3.5); the ten test consequences | `npm run check`, `npm run test:full` |
+| A5 | **The nine folds** (Ruling 2) | `npm run check`, `npm run test:full` |
+| A6 | **Split the cross-destination tests** (§3.6) | `npm run test:full` |
+| A7 | **The four edge rewrites**, pre-split spelling — D1's two acts, plus `console-adapter.ts:1` and the two `http/*` self-imports as **relative** imports | `npm run check` |
+| A8 | **Six republication removals + two repoints** (§3.7) | `npm run check`, `npm run lint` |
+| A9 | **Split `model-gateway.ts` and `credential.ts`** in place, relative imports between halves | `npm run check` |
+| A10 | **Fix the in-package layout convention** (§3.2) — a written decision, no code | it is B1's input; see §3.2 |
 
-Order: A4 → A5 → A6 (deleting an export the fold would carry; folding before splitting tests that import the
-folded modules). A7 → A9. A1 → A2. A3 and A8 are independent.
+Order: A1 → A2 → A3. A4 → A5 → A6. A7 → A9. A8 and A10 independent.
 
-### 3.1 A6 — the test split, and the criterion that decides it
+**Two Phase-A decisions have no code and therefore no per-step command**: A10 (§3.2) and the floor
+justification (§3.3). Both are recorded here, executed mechanically in B, and verified at B8's green gate. Calling them
+"steps" would overstate; they are inputs.
 
-`requirements.md` §6 says distributing the tests is a decision, not a move, and names three files that span
-destinations. Verified live:
+### 3.2 A10 — the in-package file layout, decided
 
-- **`__tests__/o1-event-split.test.ts:17-18`** imports `../events.js` *and* `import * as sharedIndex from
-  "../index.js"` — the barrel B3 deletes.
-- **`__tests__/AE6-kind-registry.test.ts:7-15`** imports eight `kinds/*` modules that A5 folds into
-  `kinds/registry.ts`.
-- **`__tests__/types.test.ts`** — spans destinations.
+`framework/domain-model` receives `types.ts`, `blocks/types.ts`, `types/money.ts`, `types/artifact.ts` and
+`observability/types.ts` is elsewhere — **flattening collides three ways**. And any layout change alters the
+depth of every surviving relative import — the population the codemod's second pass owns (§4.1).
 
-**The criterion, so the builder does not re-decide it per file:**
+> **Decision: every module keeps its path relative to `src/`.** `harness/harness-adapter.ts` becomes
+> `framework/harness-protocol/src/harness/harness-adapter.ts`; `blocks/derive-blocks.ts` becomes
+> `framework/block-derivation/src/blocks/derive-blocks.ts`; `types.ts` and `types/money.ts` land side by side
+> in `domain-model/src/` exactly as they sit today.
 
-1. A test whose imports resolve to **one** destination moves whole, into that package's `src/__tests__/`.
-2. A test spanning **two or more** splits along the destination boundary — one file per destination, each
-   asserting only what that package owns. It does not "pick a home and import across": a cross-package test
-   import is a production→? crossing `reach-declared-surfaces-only` judges, and a test asserting on a package
-   outside its own audience is a red build B3 cannot roll back cheaply.
-3. An assertion **on the barrel itself** (`o1-event-split.test.ts`'s `sharedIndex` namespace) has no
-   successor — the object it asserts on will not exist. Re-express it against the destination package's own
-   `src/index.ts` where the assertion is about that package's surface; delete it where it was asserting the
-   union of a package that is being dissolved.
-4. A test of a **folded** module (A5) asserts through the module it was folded into.
+**Why, and it is the reason this is not a style preference:** preserving the `src/`-relative path makes every
+*same-package* relative import **byte-identical after the move**. The ~192 intra-package imports that do not
+cross a destination need no edit, and pass 2's rewrite population collapses to exactly the 47 that do.
+Flattening would require re-deriving all 239.
 
-The split happens **inside `framework/shared/src/__tests__/`**, in Phase A, for the same reason the folds
-do: it is self-contained and independently verifiable, and it turns B1 into a `git mv` of whole files.
+The cost is accepted deliberately: `block-derivation/src/blocks/…` and `harness-protocol/src/harness/…`
+carry a redundant directory. Nothing in `.claude/rules/typescript.md` forbids it (the file-name rule is about
+exports, and no sub-barrel survives), and the alternative trades a cosmetic redundancy for 192 avoidable
+edits inside the irreversible window.
 
-### 3.2 A8 — the repoints, corrected
+### 3.3 The floor raise, decided here and executed mechanically
 
-`layers/core-api/credentials/src/credential-resolver.ts:31` is `export type { CredentialResolver } from
-"@hyperidle/shared"` — a **pure re-export**; `@hyperidle/credentials` declares nothing of the sort. So the
-two production importers repoint **at the declaring package**: `@hyperidle/shared` in Phase A, and
-`@hyperidle/credential-access` when the codemod runs in B. The sites are
-`layers/core-api/src/app.ts:2` and `applications/remote-server/src/create-server.ts:67`, plus the two tests
-that follow them (`core-api/src/services/__tests__/AH2-resolve-agent-model.integration.test.ts:13`,
-`core-api/src/routes/__tests__/X4-model-gateway.integration.test.ts:24`).
-
-### 3.3 A10 — the floor raise, decided before it is needed
-
-`floors-tight` errors when slack exceeds `max(ceil(live × 0.2), 5)` (`scripts/rules/floors-tight.ts:57`).
-Measured now with `npm run governance:floors`:
+`floors-tight.ts:57` errors when slack exceeds `max(ceil(live × 0.2), 5)`. Measured with
+`npm run governance:floors`:
 
 | floor | live | declared | slack | allowed | headroom |
 |---|---|---|---|---|---|
-| `detector:manifest` | 131 | 111 | 20 | 27 | **7 crossings** |
+| `detector:manifest` | 131 | 111 | 20 | 27 | **7** |
 | `detector:import` | 3776 | 3307 | 469 | 756 | 287 |
-| `pattern:test-runner-config:vitest.config.ts` | 30 | 1 | — | existence | n/a |
-| `census:tracked-files` | 3360 | 2976 | 384 | 672 | 288 |
 
-A `manifest` crossing is emitted per declared workspace dependency. The 30 `@hyperidle/shared` declarations
-become each consumer's subset — ~107 from `requirements.md` §4.7's production lists alone, before dev-only
-declarers and the eighteen packages' own sibling declarations. `detector:manifest` therefore lands around
-210–250 against a floor of 111. **It goes red inside the window unless the raise is planned.**
+A `manifest` crossing is emitted per declared workspace dependency; 30 `@hyperidle/shared` declarations
+become each consumer's subset — ~107 from `requirements.md` §4.7's production lists alone. `detector:manifest`
+lands ~210–250 against a floor of 111.
 
-**The decision, made here so B8 is mechanical:** the floors for `detector:manifest` and `detector:import`
-are raised to the post-split live counts. The justification — which `floors-tight`'s own lore demands,
-because reflexive bumping is the rot floors exist to prevent — is that **the population grew, no violation
-was absorbed**: one package with 30 declarers becomes eighteen packages with the same consumers declaring a
-subset each, so the crossing count rises while the number of *distinct dependency relationships a human
-would recognise* is unchanged. The builder records the before/after live counts so the raise is auditable,
-and raises **only** the floors whose growth this argument covers. Any other floor going red is a finding,
-not a bump.
+**Justification (the thing that has to be honest):** the population grew and no violation was absorbed. Floors
+are magnitude trackers; violations are reported separately by the `crossing-<kind>` rules, so raising a floor
+cannot hide one. One package with 30 declarers becomes eighteen with the same consumers declaring a subset
+each. **Only the floors that argument covers are raised** — checkable from `governance:floors`' own verdict
+column; any other floor going red is a finding, not a bump.
 
-### Phase B — the atomic step, mechanism only
+**The value written is `suggestedFloor` — the middle of the band, which is what the tool prints.** Not the
+live count: `floors-tight.ts:66-72` says in terms that a floor at the edge is one removed crossing from red,
+"which is how the whole floor set came to sit on the edge at once". An earlier draft said "raise to the live
+counts"; that was wrong and is withdrawn.
 
-One commit. Every item is a move, a generated rewrite, or a value printed by an existing tool.
+### 3.4 What A1 can and cannot verify
 
-1. `git mv` the 79 surviving modules, the (post-A6) development files and the 15 non-`.ts` fixtures into
-   eighteen `framework/<name>/src/` trees.
-2. Write eighteen × `package.json`, `tsconfig.json` (service shape: `extends ../../tsconfig.base.json`,
-   `composite: true`, explicit `references`), `src/index.ts`, `vitest.config.ts`.
+Ruling 1's clause has **nil effect on the live tree** (`framework/db → framework/shared` is already allowed
+because `shared` is `everyone`), and the `frameworkSurfacesOf` fix is a no-op today because all four framework
+packages have surface entries. So `npm run lint` is green with or without A1, and **A1's verification is A3's
+attack cases, not the lint run**. Stated rather than implied.
+
+### 3.5 The barrel-namespace constructs that have no successor
+
+Three sites take the barrel as an object rather than named imports. Two are mechanical, one is a decision,
+and the decision is made here so it does not recur inside the window:
+
+| site | disposition |
+|---|---|
+| `explicit-session-start.production.integration.test.ts:195,234` — `new (await import("@hyperidle/shared")).EventBus()` | **mechanical** — `@hyperidle/event-bus`; the codemod handles it (§4.1) |
+| `AL7-no-kernel-executor.test.ts:73-76` — `expect("StagedOperationSpec" in shared).toBe(false)` | **delete, in A4.** It asserts a symbol's absence from a package that will not exist. The nearest successor ("absent from `@hyperidle/domain-model`") is a different and weaker claim about a symbol retired long ago |
+| `harness-registry/src/__tests__/{return-gate,return-status-tool}.test.ts:14,23` — `import * as sharedAll` | **rewrite to named imports, in A4** — the names they actually use resolve normally |
+
+A4 therefore owns *every* construct with no successor, repo-wide — not only the dead exports.
+
+### 3.6 A6 — the test split, criterion corrected
+
+Three files span destinations (verified live): `o1-event-split.test.ts:17-18` (`../events.js` **and**
+`import * as sharedIndex from "../index.js"`), `AE6-kind-registry.test.ts:7-15` (eight `kinds/*` A5 folds),
+`types.test.ts`.
+
+1. Imports resolving to **one** destination → move whole.
+2. Spanning **two or more** → split along the destination boundary, one file per destination.
+   **What backs this is `deps:check`, not the audience lint.** A test is a development file, and
+   `relaxForDevelopment` (`governance-model.ts:350-398`) allows every crossing except the three
+   `oneDoorSurfaces` — none of the eighteen is one. So a cross-package test import is *not* an audience
+   violation; it is a manifest obligation, and `deps:check` will demand the declaring package take a
+   dependency it has no production reason for. An earlier draft claimed the audience lint rejects it. It does
+   not, and the claim is withdrawn.
+3. An assertion **on the barrel object** has no successor. The one instance is
+   `o1-event-split.test.ts:74` — `expect(sharedIndex).toBeDefined()`, vacuous, and
+   `.claude/rules/testing.md:58` forbids that shape anyway. **Delete it**; no pre-split package name is
+   needed, which also removes the naming problem an earlier draft introduced here.
+4. A folded module's test asserts through the module it was folded into.
+
+The split happens inside `framework/shared/src/__tests__/` so B1 moves whole files.
+
+### 3.7 A8 — the repoints
+
+`credential-resolver.ts:31` is a **pure re-export**; `@hyperidle/credentials` declares nothing. So
+`layers/core-api/src/app.ts:2` and `applications/remote-server/src/create-server.ts:67` repoint at the
+**declaring** package — `@hyperidle/shared` in A, `@hyperidle/credential-access` when the codemod runs — with
+the two follower tests.
+
+### Phase B — mechanism only
+
+1. `git mv` the 79 surviving modules, the post-A6 development files and the 15 fixtures into eighteen
+   `framework/<name>/src/` trees, **preserving `src/`-relative paths** (§3.2).
+2. Write eighteen × `package.json`, `tsconfig.json` (service shape), `src/index.ts`, `vitest.config.ts`.
 3. **Delete `framework/shared`.** ← **point of no return**
-4. Run the codemod over all 771 sites (§4).
-5. Manifests: **30 rewritten + 1 deleted + 18 new** (the 31 includes `shared`'s own). Tsconfigs: **28
-   package files + root `tsconfig.json` `references` = 29**, plus `tsconfig.base.json` `paths` (one alias
-   out, eighteen in).
-6. Registries: `governance/architecture.json` (18 surfaces in, `framework/shared` out, `eventBus.typesModule`
-   repointed), `knip.json` workspaces, `vitest.config.ts` projects, root `workspaces`,
-   `scripts/typecheck-gate.ts`'s leaf list (§6.5), `package-lock.json` regeneration.
-7. `npm run verify` until green.
-8. **Raise the two floors** to the printed values, per A10's decision, recording before/after.
+4. Run the codemod: pass 1 over the 771 external sites, pass 2 over the moved trees (§4.1).
+5. Manifests: **30 rewritten + 1 deleted + 18 new**. Tsconfigs: **28 package files + root = 29**, plus
+   `tsconfig.base.json` `paths`.
+6. Registries and configs: `governance/architecture.json` (18 surfaces in, `framework/shared` out,
+   `eventBus.typesModule` repointed); **`decided-rules.json` — retire the twelve `framework/shared` rows**
+   (§6.2); `knip.json`; `vitest.config.ts` projects; root `workspaces`;
+   **`framework/design-system/vitest.config.ts:14`** (`server.deps.inline`); `scripts/typecheck-gate.ts` leaf
+   list **in dependency order** (§6.5); `package-lock.json` **and `bun.lock`** regeneration.
+7. **Raise the two floors** to the printed `suggestedFloor`, recording before/after (§3.3).
+8. **Green** = `npm run verify` **and** `npx vitest run framework/db/src/__tests__/governance-model.test.ts`.
+   The second is not optional: `verify` runs no tests, so B could otherwise be declared green with the
+   frozen row gate red (§6.2).
 
-**Point of no return: B3.** From B3 until B7 is green the tree does not typecheck — there is no shim, so
-nothing resolves between the delete and the last rewrite. `plan.md:34` and "coherent at each step" cannot
-both hold for this one step. **Every other step preserves coherence, and B now contains no decision.**
+The floor raise precedes the green gate because `verify` → `lint` → `floors-tight`, and both floors are red
+until it lands. An earlier draft ordered these the other way; that sequence is unachievable.
 
-### Phase C — what is genuinely trailing
+**Point of no return: B3.** From B3 until B8 the tree does not typecheck — `plan.md:34` forbids a shim.
+**Every other step preserves coherence, and B now contains no decision.**
 
-Only **C3** lands after `verify` is green. C1 and C2 are inside the window's tail: `lint` demands C1 to go
-green at all, and C2 is blocked on the concept gate.
+### Phase C
 
 | # | step | when |
 |---|---|---|
-| C1 | `eslint.config.ts` ×16, `governance-attacks.ts:429` prose, `.claude/rules/design-system.md:17`, `docker-compose.yml:46`, and the four other `scripts/` sites in §6.5 | **required for B7 to be green** |
-| C2 | `decided-rules.json` AU34 surface rows + the totals + `governance/README.md` (§6.6) | **after the concept gate** — the row policy is a founder decision (`requirements.md` §7.2) |
+| C1 | `eslint.config.ts` ×16, `governance-attacks.ts:429` prose, `.claude/rules/design-system.md:17`, `docker-compose.yml:46`, the four `scripts/` sites (§6.5) | **required for B8 to be green** |
+| C2 | `decided-rules.json` **AU34 surface rows** + totals + `governance/README.md`'s six `124` sites (§6.6) | **after the concept gate** |
 | C3 | 58 docs files | after green |
+
+Only C3 is genuinely trailing.
 
 ---
 
-## 4. The import rewrite
+## 4. The rewrite
 
-### 4.1 Mechanism
+### 4.1 Mechanism — two passes, four node shapes
 
-A **name-driven codemod** over the TypeScript AST (compiler API + `tsx`, both already devDependencies),
-driven by the post-split symbol→package map in `requirements.md` §4.4/§4.7. For each `import`/`export … from`
-naming `@hyperidle/shared` or a subpath: resolve **each imported name** to its destination, group by
-destination, emit one statement per destination.
+A **name-driven codemod** over the TypeScript AST (compiler API + `tsx`), driven by the symbol→package map in
+`requirements.md` §4.4/§4.7. Not committed — under `scripts/` it would be a knip entry dead on arrival.
 
-**Type-only imports have two spellings and the second is the larger population** (P5): 383 statement-level
-`import type` versus **128 statements carrying inline `type` specifiers inside a value import** — 87 of them
-production, 291 specifiers in total, with `run-orchestration/src/provisioner.ts:6` carrying 19 alone. The
-codemod preserves **per-specifier** `isTypeOnly` when regrouping, and a statement whose specifiers split
-across destinations may yield a value import to one and a type import to another.
+**Pass 1 — the 771 external sites.** Four node shapes, not one; an earlier draft named only the first two and
+was therefore blind to the third and fourth:
 
-**The codemod is not committed** — under `scripts/` it would be a knip entry dead from the moment it runs.
+| shape | population | handling |
+|---|---|---|
+| `ImportDeclaration` naming `@hyperidle/shared` or a subpath | 718 | resolve each name, group by destination, one statement per destination |
+| `ExportDeclaration … from` | 8 statements / 13 bindings | same |
+| `ImportTypeNode` — `import("@hyperidle/shared").X` in a type slot | 29 | rewrite the specifier to `X`'s destination |
+| `CallExpression` with `ImportKeyword` — `await import("@hyperidle/shared")` | 16, all in development files | rewrite to the destination of the property accessed on the result; §3.5 removes the one site where no single destination exists |
+
+**Pass 2 — inside the moved trees.** Every cross-destination edge inside `framework/shared` is a **relative**
+specifier, so pass 1 never sees one. 239 cross-file relative import statements exist under
+`framework/shared/src`; `requirements.md` §4.8 puts **47** across a destination boundary. Pass 2 re-resolves
+each relative specifier against the destination map:
+
+- **same destination** → unchanged. Because §3.2 preserves `src/`-relative paths, this is byte-identical for
+  all ~192 of them; the pass asserts that rather than rewriting.
+- **different destination** → replaced with `@hyperidle/<dest>` (e.g. `event-bus.ts:8` `./logger.js` →
+  `@hyperidle/diagnostics`; `tool.ts:27,28`; `harness-port.ts:45,46`;
+  `harness/harness-capability-read-model.ts:40`; `git/git-runner.ts:16`; `http/access-boundary.ts:31`).
+
+**Type-onlyness has two spellings** (P5): 383 statement-level `import type` and **128 statements carrying
+inline `type` specifiers** (87 production, 291 specifiers; `run-orchestration/src/provisioner.ts:6` carries
+19). The codemod preserves **per-specifier** `isTypeOnly` when regrouping.
 
 ### 4.2 Why name-driven (P2)
 
-Seven of the 640 names collide with exports of packages **outside** the eighteen — `Message`,
-`ProposedCall`, `Thread` (`@hyperidle/db`, Drizzle row types), `AutonomyLevel` (`api-contract`),
-`AgentOperationalStatus`, `ArtifactPreview`, `Block` (`design-system`, the latter two React components).
-Six are different symbols sharing a name. A human resolving `Thread` from memory, or a regex keyed on the
-old specifier, lands on `@hyperidle/db` and compiles. The codemod's target is a pure function of the
-imported name over a closed map whose range is the eighteen; it cannot.
+Seven of the 640 names collide with exports outside the eighteen — `Message`, `ProposedCall`, `Thread`
+(`@hyperidle/db`, Drizzle row types), `AutonomyLevel` (`api-contract`), `AgentOperationalStatus`,
+`ArtifactPreview`, `Block` (`design-system`). Six are different symbols sharing a name. A human resolving
+`Thread` from memory lands on `@hyperidle/db` and compiles.
 
-### 4.3 How completeness and correctness are proven
+### 4.3 Completeness and correctness
 
-**Completeness — dead specifiers.** A missed site keeps a `@hyperidle/shared` specifier that no longer
-resolves; `npm run check` fails on every one, and a residual grep for the specifier across tracked files must
-return zero. That is a build check, not a test.
+**Dead specifiers.** A missed pass-1 site keeps a `@hyperidle/shared` specifier; `check` fails on each, and a
+residual grep must return zero. **That grep is blind to pass 2** — a missed relative import is not
+`@hyperidle/shared`-shaped. Pass 2's own check is the assertion above: after the move, **no file under
+`framework/*/src` may hold a relative specifier that resolves outside its own package root**. That is
+checkable from the tree and is what `check` would otherwise only catch by accident.
 
-**Completeness — the abort guard, widened.** A name-keyed guard is blind to a **namespace import**, which
-carries no names: it neither maps nor aborts. Two live sites exist
-(`harness-registry/src/__tests__/{return-gate,return-status-tool}.test.ts:14,23`) and A4 removes them, but
-nothing checks A4 was complete. **The guard therefore aborts on any surviving `@hyperidle/shared` specifier
-it cannot decompose into names** — namespace import, default import, bare side-effect import — not only on an
-unmapped name.
+**The abort guard, in explicit terms.** The codemod aborts on: an unmapped name; **any `@hyperidle/shared`
+specifier in any of the four node shapes that it cannot decompose into names** (namespace import, default
+import, bare side-effect import, a dynamic import whose result is not property-accessed); and any relative
+specifier in pass 2 that resolves to no module under the map.
 
-**Correctness within the range (P6).** Taking the module-level export set of every module under the §4 map
-gives **656 names with zero cross-package collisions among the eighteen**. So a wrong destination is always a
-name the target does not export, and `tsc` fails. This is the claim the whole argument rests on and it is
-measured in `feasibility.md` P6 — not, as an earlier draft said, in `requirements.md` §1.2, which does not
-state it.
+**Correctness within the range (P6).** The module-level export sets of the eighteen give **656 names with
+zero cross-package collisions**. A wrong destination is a name the target does not export and `tsc` fails.
+Measured in `feasibility.md` P6 — not in `requirements.md` §1.2, which does not state it.
 
-**The hole `tsc` does not close.** `tsconfig.base.json` sets neither `verbatimModuleSyntax` nor
-`isolatedModules`, so **dropping an inline `type` specifier is not a type error**. The completeness argument
-at §4.3 does not cover it. The check that does: the codemod counts inline type specifiers per file before
-and after, and the totals must match (291 across 128 statements). A mismatch aborts.
+**The hole `tsc` does not close, and the check that does.** `tsconfig.base.json` sets neither
+`verbatimModuleSyntax` nor `isolatedModules`, so dropping an inline `type` is not a type error. A per-file
+*cardinality* check is defeatable — `import { type A, B }` split into `import { A }` (type dropped) plus
+`import { type B }` (type added) preserves the count. **The codemod therefore asserts the set of
+`(name → isTypeOnly)` pairs is preserved per file**, not a count. It already reads `isTypeOnly` per specifier.
 
-**Cross-check.** The codemod's per-consumer output and `deps:check`'s independent scan of the tree derive
-the same fact from different inputs; a codemod bug invisible to `tsc` would have to be invisible to
-`deps:check` too, and `deps:check` reads imports, not the map.
+**Cross-check.** The codemod's per-consumer output and `deps:check`'s independent scan derive the same fact
+from different inputs.
 
 ---
 
 ## 5. Manifest and tsconfig derivation
 
-Derived twice and reconciled: (1) the codemod's emitted destinations per consumer, unioned per package —
-the proposed `dependencies` block; (2) `deps:check`, which scans each package's own files and reports every
-divergence in both directions with sites. Write (1), drive (2) to zero.
-
-**AC-4's named failure mode is closed by construction** (P1): copying `shared`'s block into eighteen
-manifests declares packages nothing reaches, and each is reported `direction: "unused"`.
-`requirements.md` §5.2's table is this loop's output.
-
-`tsconfig` `references` are the same derivation on a different file, over the 29 sites in B5.
+Derived twice and reconciled: (1) the codemod's emitted destinations per consumer; (2) `deps:check`, which
+scans each package's files and reports divergences in both directions with sites. Write (1), drive (2) to
+zero. AC-4's named failure mode is closed by construction (P1). `tsconfig` `references` are the same
+derivation over the 29 sites in B5.
 
 ---
 
-## 6. The model and tooling changes
+## 6. Model and tooling changes
 
 ### 6.1 Ruling 1 — the clause, scoped
 
-The surface clause (`governance-model.ts:292-302`) decides **every** `sort: "surface"` target.
-`founder-rulings.md` scopes it:
-
 > The clause admits a `framework`-role source **only when the target surface label is `framework/<name>`**.
-> `db:*` surfaces keep their declared audiences unchanged.
+> `db:*` surfaces keep their declared audiences.
 
-**Contract.** In clause 7, before `inAudience` decides, a `framework`-role source whose target label matches
-`framework/<name>` is `allowed`. `db:client`, `db:row-type`, `db:schema-ns`, `db:unknown`, `db:testing` fall
-through to `inAudience` unchanged. The clause id stays `reach-declared-surfaces-only` and `CLAUSES` does not
+In clause 7 (`governance-model.ts:292-302`), before `inAudience`, a `framework` source whose target label
+matches `framework/<name>` is `allowed`; `db:client`, `db:row-type`, `db:schema-ns`, `db:unknown`,
+`db:testing` fall through unchanged. The clause id stays `reach-declared-surfaces-only`; `CLAUSES` does not
 grow.
 
-**Effect on the live tree is nil** — `framework/db` imports `framework/shared` today and is allowed because
-`shared` is `everyone`.
+### 6.2 What gates the predicate — and the twelve rows that must retire
 
-### 6.2 What actually gates the predicate — and what does not
+**Property 4 does not force the clause's attack case** (P4): `coverageGaps`
+(`governance-attacks.ts:804-831`) keys on **registered rule ids**, and `reach-declared-surfaces-only` is a
+*clause* id.
 
-**Correction to an earlier claim.** Property 4 does **not** make the attack case mandatory here.
-`governance-attacks.ts:804-831` keys coverage on **registered rule ids**, and the registered set is the ten
-rule ids in `scripts/rules/` — `reach-declared-surfaces-only` is a *clause* id and is not among them. So
-nothing forces the positive case or the `db:*` twins; as hand-list entries a later edit deletes them on a
-green build, which is precisely what they exist to prevent.
+**The gate is `decided-rules.json`.** Three rows, all `forbidden` in both worlds — the third added because
+`founder-rulings.md` names three `reach: []` surfaces and a further row costs nothing:
 
-**The gate is `decided-rules.json`.** Add two rows:
+| source | target | kind |
+|---|---|---|
+| `framework` | `db:schema-ns` | `import` |
+| `framework` | `db:unknown` | `import` |
+| `framework` | `db:testing` | `import` |
 
-| source | target | kind | production | development |
-|---|---|---|---|---|
-| `framework` | `db:schema-ns` | `import` | `forbidden` | `forbidden` |
-| `framework` | `db:unknown` | `import` | `forbidden` | `forbidden` |
+All three reproduce today (probed) and would return `allowed` under a broadly-written clause, failing the
+frozen loop loudly. They land in **A2**, because they gate A1.
 
-The file today holds **no** `source: "framework"` row for any `db:*` target, which is exactly why it cannot
-currently tell the broad reading from the scoped one. With these rows the frozen reproduction loop at
-`governance-model.test.ts:200-232` enforces the predicate permanently: a broad implementation returns
-`allowed` and the loop fails loudly. `development` is `forbidden` too because both are `oneDoorSurfaces` —
-the development relaxation does not cross them.
+**The twelve `framework/shared` rows retire in B6, not C2.** Six sources × two kinds, all `allowed`. Once
+B6 removes the surface, `governance-model.ts:294-299` returns `forbidden` ("is not a declared surface") for
+every one, and both loops (`:205-214`, `:220-229`) go red. Leaving them to C2 — which is gated behind the
+concept gate — would mean B cannot go green. **Bookkeeping: 118 → 121 at A2 (+3), → 109 at B6 (−12),
+then C2 adds the AU34 surface rows.** Both moves touch the four assertions, the test title and the doc
+comment listed in §6.6. What matters here is that **B6 owns a −12 no earlier draft stated**.
 
-Rows land in **A2**, not C2, because they gate A1. `totals.rows` 118→120 and the forbidden counts move with
-them, in A2. C2 moves them again for the AU34 surface rows — the two edits are sequenced, not competing.
+### 6.3 AC-2's delivery — a new registered rule, so property 4 bites
 
-**Keep the attack cases as well.** The positive case (a framework package naming a `framework/<name>`
-surface → allowed) and the two `db:*` control twins remain, because they run against the live tree and
-report at the right altitude. They are belt; the rows are the load-bearing gate.
+An earlier draft added the framework-surface check to `registries-honest` and claimed property 4 forced its
+attack case and control twin. **False** (P7): `coverageGaps` demands ≥1 case naming the rule id and ≥1
+non-control case, and `registries-honest` already satisfies both via `unowned-new-table`
+(`governance-attacks.ts:701-715`). Adding a *check* to an existing rule forces nothing.
 
-### 6.3 The framework-surface check — AC-2's delivery
+**Decision: ship it as a new registered rule, `framework-surfaces-declared`.** Then property 4 does bite — a
+registered id with no positive attack case is a build error, so `plan.md:62`'s scenario cannot ship as a
+deletable hand-list entry. Two directions:
 
-An addition to `registries-honest`, whose population is already `census.packages` and whose role comes from
-the `framework/*` workspace glob — so a new `framework/foo` is in scope from its first lint with no importer.
-That is `plan.md:62`, which §6.4 provably cannot deliver.
+1. every `framework`-role package resolves to a declared `framework/<name>` surface;
+2. every declared `framework/<name>` surface resolves to a package that exists — without which the retired
+   `framework/shared` entry lints clean.
 
-Two directions: (1) every `framework`-role package resolves to a declared `framework/<name>` surface;
-(2) every declared `framework/<name>` surface resolves to a package that exists — without (2), leaving the
-retired `framework/shared` entry lints clean.
+Its floor is its own explicit non-zero subset assertion (4 today, 21 after), **not** `minScope`, which floors
+the whole 34-directory scope and would read clean over an empty framework subset.
 
-**Its floor cannot be `minScope`**: that floors the rule's whole 34-directory scope, so a framework subset
-matching zero would still read clean — the `au6` shape one level down. The subset needs its own explicit
-non-zero assertion (4 today, 21 after). This is a *registered rule*, so property 4 **does** apply: attack +
-control twin are forced.
+**Stated plainly, per R-B: the control twin is convention-backed, not gate-backed.** Property 2 is prose
+(`governance-attacks.ts:20-21`); nothing in `coverageGaps` reads it. The positive case is forced; the twin is
+not. That is the honest position and it is why the rule is new rather than a check.
 
-### 6.4 `frameworkSurfacesOf` — in scope, and now owned
+### 6.4 `frameworkSurfacesOf`
 
-`scripts/governance-context.ts:187-195` maps a framework package to its label **only when the label already
-exists in `architecture.surfaces`**, so an undeclared package never becomes a `surface` target and the
-failure reports the wrong clause (`requirements.md` §7.1). The fix — map every framework package
-unconditionally — plus its twin at `governance-attacks.ts:928`, lands in **A1**. An earlier draft depended on
-this and gave it no task.
+`scripts/governance-context.ts:187-195` maps a framework package to its label only when the label already
+exists, so an undeclared package never becomes a `surface` target and the failure reports the wrong clause.
+Fixed in A1, with its attack case in A3 (§3.4 — without that case nothing exercises the fix).
 
-### 6.5 Four `scripts/` sites an inventory called "measured" had missed
+### 6.5 `scripts/` sites
 
-- **`scripts/typecheck-gate.ts:472-514`** hardcodes a leaf list containing `"framework/shared"`, used to
-  pre-build composite declarations so reference-consumers measure against real `.d.ts` (`:279-292`, `:584`).
-  Its `execSync` is wrapped in `catch {}` (`:516-521`), and the list already carries two entries that are
-  **not packages** — `layers/core-api/realtime` and `layers/agent-execution/tool-provider`, both verified
-  absent. **A stale entry degrades silently rather than going red**, so the builder verifies the *effect*
-  (declarations emitted for each of the eighteen) and not the exit code.
-- `scripts/governance-new-cells.ts:49,74` — `TARGETS_BY_KIND` hardcodes `framework/shared` for both kinds.
-- `scripts/rules/no-laundered-re-exports.ts:17,32` — the `@lore` whose reasoning AU34 invalidates.
-- `scripts/lib/crossings.ts:55` — the doc comment's example.
+- **`scripts/typecheck-gate.ts:472-514`** hardcodes a leaf list containing `"framework/shared"`, pre-building
+  composite declarations (`:279-292`, `:584`). Its `execSync` is wrapped in `catch {}` (`:516-521`) and the
+  list already carries two entries that are **not packages** (`layers/core-api/realtime`,
+  `layers/agent-execution/tool-provider`, both verified absent) — **a stale entry degrades silently**. The
+  builder verifies the *effect* (declarations emitted for each of the eighteen), not the exit code. **Order
+  matters**: `:292-298` builds leaves in dependency order, and the eighteen carry nine sibling edges plus
+  `credential-access → domain-model`, with `db` and `design-system` depending on several — the list is
+  topologically sorted, not appended.
+- `scripts/governance-new-cells.ts:49,74` — `TARGETS_BY_KIND` hardcodes `framework/shared`.
+- `scripts/rules/no-laundered-re-exports.ts:17,32` — its `@lore` reasons from `shared` being `everyone`.
+- `scripts/lib/crossings.ts:55` — doc-comment example.
 
-### 6.6 A pre-existing drift to name, not paper over
+### 6.6 Row and count bookkeeping, exactly
 
-`governance/README.md:31` says **124** verdicts; `decided-rules.json` `totals.rows` is **118** and three
-assertions say 118. That six-row drift predates AU34 (AU29 deleted six rows without updating the prose).
-C2 corrects the README to the true count rather than silently carrying the error forward; it is not
-AU34's defect and is not presented as one.
+`governance-model.test.ts` carries `118` at **`:169` (the test title), `:170`, `:171`, `:214`, `:229`** —
+four assertions plus the title — and again in the doc comment at `:4` and `:7` ("236 answers (118 rows × 2
+worlds)"). `:170` was named in no earlier artifact. Four further totals are hardcoded at `:176-189` (`65`,
+`53`, `112`, `6`), mirrored by `totals.production`/`totals.development` in the JSON.
+**`makeTarget:150-151` is stale too** — it returns `name: "shared"` for a bare `framework` target, and three
+live rows use it; an earlier draft named only `makeActor`.
+
+`governance/README.md` says **124** at six sites (`:31`, `:39`, `:42`, `:44`, `:46`, plus "248 verdicts
+(124 rows × 2 worlds)") against a live `totals.rows` of 118 — a six-row drift predating AU34 (AU29 deleted
+six rows without touching the prose). C2 corrects all six to the true count; it is not AU34's defect and is
+not presented as one.
 
 ---
 
 ## 7. Evidence plan
 
-Per CLAUDE.md and `.claude/rules/testing.md`: runtime behaviour → test; static property → lint rule or type
-system; a script reading the filesystem is a build check, never a test.
-
 | AC | kind | evidence |
 |---|---|---|
-| **AC-1** | static | `npm run check` — the gate discovers by scanning, so the eighteen appear with zero errors against an empty `typecheck-debt.json`; plus `registries-honest` direction 2 (§6.3), which fails if the retired surface entry survives |
-| **AC-2** | lint rule + attack | §6.3's check; **`plan.md:62` scenario** is its positive attack case with a control twin — forced by property 4 |
-| **AC-3** | lint rule + rows + attack | `reach-declared-surfaces-only` over the live tree; **the two `decided-rules.json` rows** (§6.2) as the permanent gate; **`plan.md:58` scenario** as an attack case with a control twin — owner in §8 |
-| **AC-4** | lint rule | `deps:check` green; and the manifests: `domain-model` declares `zod` only, `hono` only in `http-middleware`, `remark-*`/`unified`/`github-slugger`/`@noble/hashes` only in `block-derivation` |
-| **AC-5** | build check | Ruling 2's folds in A5; the §4.9 fixpoint re-run against the shipped tree reports zero. One-time — `plan.md:51` scopes it to the split |
+| **AC-1** | static | `npm run check` — the eighteen appear with zero errors against an empty `typecheck-debt.json`; plus `framework-surfaces-declared` direction 2, which fails if the retired surface entry survives |
+| **AC-2** | lint rule + forced attack | `framework-surfaces-declared`; **`plan.md:62` scenario** is its positive case, forced by property 4 because the rule id is registered (§6.3). Its control twin is convention-backed |
+| **AC-3** | lint rule + rows + attack | `reach-declared-surfaces-only`; **the three `decided-rules.json` rows** as the permanent gate; **`plan.md:58` scenario** as an attack case, owned by T14 |
+| **AC-4** | lint rule | `deps:check` green; `domain-model` declares `zod` only; `hono` only in `http-middleware`; `remark-*`/`unified`/`github-slugger`/`@noble/hashes` only in `block-derivation` |
+| **AC-5** | build check | the folds in A5; the §4.9 fixpoint re-run reports zero. One-time — `plan.md:51` scopes it to the split |
 | **AC-6** | mixed | below |
 
-### `plan.md:58` needs the message extended, not just asserted
-
-The scenario asks the build to name **"the audience it is not in"**. It does not today: `crossings.ts:69-77`
-builds `groupKey — detail. why`, and `governance-model.ts:302` returns the surface's prose reason. The
-message names the file and the target surface, never the `reach` list. **Decision: extend the finding to
-append the declared audience** — a small change in the surface clause's `why`, owned by T14. Without it the
-scenario is not met and should not be claimed.
+**`plan.md:58` needs the message extended.** The scenario asks the build to name "the audience it is not
+in". It does not: the message is built at **`scripts/rules/crossings.ts:70`** as
+`` `${violation.key} — ${violation.found.detail}. ${violation.why}` `` and `governance-model.ts:302` supplies
+the surface's prose reason — file and surface, never the `reach` list. T14 extends the surface clause's `why`
+to append the declared audience. (An earlier draft cited `scripts/lib/crossings.ts:69-77`; the message lives
+in `scripts/rules/crossings.ts`.)
 
 ### AC-6, concretely
 
-`verify` covers check + lint + knip ×2 + **deps:check** + mock-inventory + web build + desktop build +
-attestation. It runs **no tests**. So:
+`verify` runs **no tests**. So, in addition:
 
-1. **`npm run test:all`** — the affected-slice default is meaningless here (every package changed).
+1. **`npm run test:all`** — the affected-slice default is meaningless (every package changed).
 2. **`npm run test:integration:harness`** — obligatory. This WP moves `harness-adapter.ts`,
-   `worker-protocol.ts`, `return-actions.ts` and the event normalizer into a new package; that is harness
-   plumbing under `.claude/rules/testing.md:71`, and per-merge verify runs only the `service` project.
-3. **`npm run test:e2e`** — committed to, not hedged. For a change that rewrites imports in every `core-ui`
-   file it is the cheapest broad UI net.
-4. **All three applications booted, not one.** `plan.md:52` says the application behaves identically, proven
-   by running it:
-   - **`remote-server`** — boot and drive one real agent session from the browser: `core-ui` → `core-api` →
-     `agent-orchestration` → `agent-execution` → harness → back through the event bus. That path crosses
-     exactly the boundaries this WP redraws. Expected: the session starts, streams, completes, and appears
-     in the UI with its outcome.
-   - **`remote-worker`** — boot it and let it register. It is explicitly in `harness-protocol`'s audience
-     (`requirements.md` §4.2) and hosts the worker wire protocol being moved; an earlier draft only built it.
-     Expected: it connects to `/api/workers` and appears as a registered worker.
-   - **`desktop`** — `npm run -w @hyperidle/desktop build` is in `verify`; boot it once and confirm the app
-     window loads and reaches its local server.
+   `worker-protocol.ts`, `return-actions.ts` and the event normalizer; that is harness plumbing under
+   `.claude/rules/testing.md:71`, and per-merge verify runs only the `service` project.
+3. **`npm run test:e2e`** — committed to. Cheapest broad net for a change rewriting imports in every
+   `core-ui` file.
+4. **All three applications booted:**
+   - **`remote-server`** — drive one real agent session from the browser: `core-ui` → `core-api` →
+     `agent-orchestration` → `agent-execution` → harness → back through the event bus. Expected: the session
+     starts, streams, completes, and appears in the UI with its outcome.
+   - **`remote-worker`** — boot it and let it register. It is in `harness-protocol`'s audience and hosts the
+     worker wire protocol being moved. Expected: it connects to `/api/workers` and appears registered.
+   - **`desktop`** — built by `verify`; boot once and confirm the window loads and reaches its local server.
+5. **`npx vitest run framework/db/src/__tests__/governance-model.test.ts`** — the frozen gate, which `verify`
+   does not run (§6.2).
 
 ### The bundle scenario (`plan.md:60`)
 
-Satisfiable only under `requirements.md` §1.4's reading: the markdown toolchain stays because `core-ui`
-production code genuinely calls `deriveBlocks`. Evidence is a `vite build --sourcemap` of `layers/core-ui`,
-reading the sourcemap `sources`:
-
-- **`hono` absent** — already true; now also true of every manifest but one.
-- **the three `node:*` externalization warnings gone** — no `node:fs`/`node:path` from
-  `system-prompt-templates.ts`, no `node:crypto` from `tool.ts`. New, and the cheapest proof the substrate
-  stopped over-reaching.
-- **`harness-event-normalization.ts` absent** from the module list — it ships today with zero interface
-  consumers, purely as a barrel re-export.
-- **`remark-*`, `unified`, `github-slugger`, `@noble/hashes` still present**, for the named reason. **The
-  bundle does not get smaller and is not expected to.**
+`vite build --sourcemap` of `layers/core-ui`, reading the sourcemap `sources`: **`hono` absent**; **the three
+`node:*` externalization warnings gone**; **`harness-event-normalization.ts` absent** from the module list;
+**`remark-*`, `unified`, `github-slugger`, `@noble/hashes` still present** because `core-ui` calls
+`deriveBlocks`. **The bundle does not get smaller and is not expected to.**
 
 ---
 
 ## 8. Leaves and write ownership
 
-| leaf | owns (write) | may run |
-|---|---|---|
-| **L1 — governance model & rules** | `scripts/lib/governance-model.ts`, `scripts/lib/governance-attacks.ts`, `scripts/governance-context.ts`, `scripts/rules/registries-honest.ts`, `governance/README.md`, `governance/decided-rules.json`, `framework/db/src/__tests__/governance-model.test.ts` | ∥ L2 |
-| **L2 — pre-split source hygiene** | `framework/shared/**` (src, `__tests__`, `__testing__`, fixtures); and the consumer files A4/A7/A8 touch: `layers/agent-execution/harness-registry/src/{index,adapter-pool,cli-harness-adapter,provision-return-hook}.ts` + its six `__tests__/adapter-pool*.ts` + `__tests__/{return-gate,return-status-tool}.test.ts`; `layers/core-api/credentials/src/credential-resolver.ts`; `layers/core-api/src/app.ts`; `applications/remote-server/src/create-server.ts`; `layers/core-api/src/services/__tests__/{AH2-resolve-agent-model.integration,model-gateway-package-dissolved}.test.ts`; `layers/core-api/src/routes/__tests__/X4-model-gateway.integration.test.ts`; `layers/core-ui/src/utils/scope-labels.ts` + `src/pages/KnowledgeDetail.tsx`; `framework/design-system/src/__tests__/AM5-compose-artifact-body.test.tsx` | ∥ L1 |
-| **L3 — the split** | everything else | **after both, alone** |
+Ownership is **exclusive within a phase**. L1 and L2 are Phase A and write disjoint sets. L3 is Phase B+C and
+inherits everything once A is complete — so T14/T15 writing files L1 touched is sequential, not contended.
 
-L1 and L2 write disjoint file sets. **L3 is one sequential leaf and must not be split**: between B3 and B7
-no sub-leaf can run `check`, so two builders would both be unable to verify. Saying so is the honest answer.
+| leaf | owns (write) during its phase |
+|---|---|
+| **L1 — governance model & rules** (Phase A) | `scripts/lib/governance-model.ts`, `scripts/lib/governance-attacks.ts`, `scripts/governance-context.ts`, `scripts/rules/` (the new rule), `governance/README.md`, `governance/decided-rules.json`, `framework/db/src/__tests__/governance-model.test.ts` |
+| **L2 — pre-split source hygiene** (Phase A) | `framework/shared/**`; `harness-registry/src/{index,adapter-pool,cli-harness-adapter,provision-return-hook}.ts` + `src/__tests__/{adapter-pool.test.ts,adapter-pool-ab1.test.ts,adapter-pool-s4.test.ts,AM2-harness-capability-descriptors.test.ts,AM4-adapter-pool-disabled.test.ts,X3-adapter-pool-type.test.ts,return-gate.test.ts,return-status-tool.test.ts}`; `core-api/credentials/src/credential-resolver.ts`; `core-api/src/app.ts`; `remote-server/src/create-server.ts`; `core-api/src/__tests__/AL7-no-kernel-executor.test.ts`; `core-api/src/services/__tests__/{AH2-resolve-agent-model.integration,model-gateway-package-dissolved}.test.ts`; `core-api/src/routes/__tests__/X4-model-gateway.integration.test.ts`; `core-ui/src/utils/scope-labels.ts` + `src/pages/KnowledgeDetail.tsx`; `design-system/src/__tests__/AM5-compose-artifact-body.test.tsx` |
+| **L3 — the split** (Phase B+C) | everything |
 
-**Seam:** L3 consumes L1's clause and rows (its manifests and imports are legal only once Ruling 1 lands)
-and L2's tree (it moves files L2 has folded and split).
+**L3 must not be split.** Between B3 and B8 no sub-leaf can run `check`.
 
 ---
 
 ## 9. Failure behaviour and security
 
-**Changed failure behaviour.** One class, intended: an import legal today becomes a lint error because the
-target's audience no longer includes the importer. That is AC-3 working, and §7 extends the message to name
-the audience.
+**Changed failure behaviour:** an import legal today becomes a lint error because the target's audience no
+longer includes the importer — AC-3 working; T14 makes the message name the audience.
 
-**Security, from the surfaces actually reached.** No behaviour changes, so no new abuse case; what changes is
-*who may name* four security-relevant surfaces, and the abuse case is **accidental widening**:
+**Security, from the surfaces reached.** No behaviour changes; what changes is *who may name* four
+security-relevant surfaces, so the abuse case is **accidental widening**:
 
-- **a credential** — `crypto/credential-encryption.ts` + the `CredentialResolver` port move into
-  `credential-access`, six named packages. Abuse: a nineteenth package quietly decrypting credentials.
-  Closed by the audience; before this WP the same import was unconditionally legal.
+- **a credential** — `crypto/credential-encryption.ts` + `CredentialResolver` into `credential-access`, six
+  named packages. Before this WP the same import was unconditionally legal.
 - **an outbound request** — `net/ssrf.ts` into `host-process`, four named packages.
-- **a path / subprocess** — `git/git-runner.ts` (spawns `git`) and `system-prompt-templates.ts` (reads disk)
-  leave the universal barrel; today both are reachable from the browser's module graph.
+- **a path / subprocess** — `git/git-runner.ts` and `system-prompt-templates.ts` leave the universal barrel;
+  today both are reachable from the browser's module graph.
 - **untrusted input** — `http/validate.ts`, `body-limit.ts`, `rate-limit.ts`, `timing-safe.ts` into
   `http-middleware`, four named packages.
 
 **Not touched:** no endpoint added, moved or reshaped; no table read or written differently (`plan.md:40`);
-no agent-authored field; no authn/authz decision moves. Per ETHOS nothing here is preemptive — every
-audience is the measured consumer set written down.
+no agent-authored field; no authn/authz decision moves.
 
-**The one genuine risk of the model change is the opposite of a wall.** Ruling 1 read broadly *grants*
-eighteen packages reach to `db:schema-ns` and `db:unknown`. §6.2's two rows are what close it, permanently.
+**The one genuine risk of the model change is the opposite of a wall** — Ruling 1 read broadly *grants*
+eighteen packages reach to `db:schema-ns`, `db:unknown` and `db:testing`. §6.2's three rows close it.
 
 ---
 
 ## 10. Documentation made false
 
-- **58 files under `docs/`** (57 `framework/shared`, 2 `@hyperidle/shared`) — `DOC-CLASS: update`.
-- **`governance/README.md`** — Ruling 1's clause and predicate; and the 124→118 drift (§6.6).
-- **`.claude/rules/design-system.md:17`** — names `@hyperidle/shared` as the registry to check.
-- **`eslint.config.ts:963-964`** — restricts `@hyperidle/shared/harness`, a specifier that **never
-  resolved**; pre-existing dead configuration the rewrite surfaces.
-- **`scripts/rules/no-laundered-re-exports.ts:17,32`** — its `@lore` reasons from `shared` being `everyone`.
+58 files under `docs/`; `governance/README.md` (Ruling 1's clause, and the six `124` sites);
+`.claude/rules/design-system.md:17`; `eslint.config.ts:963-964` (restricts `@hyperidle/shared/harness`, a
+specifier that **never resolved** — pre-existing dead config the rewrite surfaces);
+`scripts/rules/no-laundered-re-exports.ts:17,32`.
 
 ---
 
@@ -457,20 +475,20 @@ eighteen packages reach to `db:schema-ns` and `db:unknown`. §6.2's two rows are
 
 | id | task | leaf | depends on |
 |---|---|---|---|
-| T1 | Ruling 1's clause, scoped; `frameworkSurfacesOf` + twin; `governance/README.md` | L1 | — |
-| T2 | The two `forbidden` rows; `makeActor`'s 25 packages; `totals.rows`→120 + the six hardcoded totals | L1 | T1 |
-| T3 | Ruling 1's attack case + the two `db:*` control twins | L1 | T1 |
-| T4 | `registries-honest` framework-surface check, both directions, subset floor, attack + twin | L1 | — |
-| T5 | Delete `format/money.ts` + ten dead exports; ten test consequences incl. the two namespace imports | L2 | — |
+| T1 | Ruling 1's clause, scoped; `frameworkSurfacesOf` + twin; `README` clause text | L1 | — |
+| T2 | Three `forbidden` rows; `makeActor`'s 25 packages; **`makeTarget`'s bare-`framework` case**; the row bookkeeping (§6.6) | L1 | T1 |
+| T3 | Attack cases: Ruling 1 positive; three `db:*` twins; **the `frameworkSurfacesOf` case** | L1 | T1 |
+| T4 | New registered rule `framework-surfaces-declared`, both directions, subset floor, forced positive case + twin | L1 | — |
+| T5 | Delete `format/money.ts` + ten dead exports; **every no-successor construct** (§3.5); ten test consequences | L2 | — |
 | T6 | The nine folds | L2 | T5 |
-| T7 | **Split the cross-destination tests** per §3.1's criterion | L2 | T6 |
-| T8 | The four edge rewrites, pre-split spelling | L2 | — |
-| T9 | Six republication removals + two repoints (§3.2) | L2 | — |
+| T7 | Split the cross-destination tests (§3.6) | L2 | T6 |
+| T8 | Four edge rewrites, pre-split spelling | L2 | — |
+| T9 | Six republication removals + two repoints | L2 | — |
 | T10 | Split `model-gateway.ts` / `credential.ts` in place | L2 | T8 |
-| T11 | Build the codemod (incl. the widened abort guard and the inline-`type` count check); dry-run; reconcile its map against `requirements.md` §4.4/§4.7 | L3 | T1–T10 |
-| T12 | **Atomic:** eighteen packages, delete `shared`, codemod, manifests + tsconfigs, registries, `typecheck-gate` leaf list, `verify` green, floor raise per A10 | L3 | T11 |
+| T11 | Build the codemod — **four node shapes, two passes**, the explicit abort guard, the `(name → isTypeOnly)` set check; dry-run; reconcile its map | L3 | T1–T10 |
+| T12 | **Atomic:** eighteen packages (layout per §3.2), delete `shared`, both codemod passes, manifests + tsconfigs, registries incl. **the −12 rows**, `design-system/vitest.config.ts`, `typecheck-gate` leaf list in dependency order, both lockfiles, floor raise, then green = `verify` **+** the frozen model test | L3 | T11 |
 | T13 | `eslint.config.ts` + the four `scripts/` sites + remaining prose | L3 | T12 |
-| T14 | **Extend the surface finding to name the declared audience**, and write `plan.md:58`'s attack case + control twin against the shipped eighteen | L3 | T12 |
-| T15 | `decided-rules.json` AU34 surface rows + totals + README count | L3 | concept gate |
+| T14 | Extend the surface finding to name the declared audience (`scripts/rules/crossings.ts:70` / `governance-model.ts:302`); write `plan.md:58`'s attack case + twin | L3 | T12 |
+| T15 | `decided-rules.json` AU34 surface rows + totals + README's six `124` sites | L3 | concept gate |
 | T16 | 58 docs files | L3 | T12 |
-| T17 | Evidence: `test:all`, `test:integration:harness`, `test:e2e`, all three applications booted, the bundle sourcemap read, the AC-5 fixpoint re-run | L3 | T12 |
+| T17 | Evidence: `test:all`, `test:integration:harness`, `test:e2e`, three applications booted, bundle sourcemap read, AC-5 fixpoint re-run, frozen model test | L3 | T12 |
