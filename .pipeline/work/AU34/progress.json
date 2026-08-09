@@ -1,8 +1,13 @@
 {
   "workPackage": "AU34",
   "title": "Split `shared` into named framework packages, each with a decided audience",
-  "phase": "refine",
+  "phase": "build",
   "status": "in-progress",
+  "conceptGate": {
+    "date": "2026-08-09",
+    "verdict": "approved",
+    "scope": "the eighteen packages and their audiences per requirements.md §4.1/§4.2; rule rows recorded minimally (Ruling 3)"
+  },
   "worktree": ".worktrees/AU34",
   "branch": "framework/AU34-shared-split",
   "base": "origin/main @ 0791c4fd (AU29 merged — dependency satisfied)",

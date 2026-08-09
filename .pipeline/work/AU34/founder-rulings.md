@@ -81,6 +81,21 @@ consumer outside its own package is deleted or folded before the split lands —
 the folding itself. The end state is checkable: no module in any new package is reached only from
 inside it.
 
+## Ruling 3 — the audience table is approved; rule rows are recorded minimally (2026-08-09)
+
+**Concept gate passed.** The founder approved the eighteen packages and their audiences as stated in
+`requirements.md` §4.1/§4.2, with the derivation audit in §4.7. Build authorised.
+
+**Row policy: minimal.** `governance/decided-rules.json` records the new audiences in the shape
+`framework/api-contract` and `framework/design-system` already use — a row per named source plus one
+general contrast row per surface, rather than a row for every named source→target pair. Roughly 40–70
+new rows against the exhaustive alternative's ~180; the file goes from 118 to roughly 160–190.
+
+The decisions are recorded either way — the minimal shape does not weaken enforcement, because the
+audience itself lives in `architecture.json` `surfaces` and the rows record verdicts the model must
+reproduce. What the minimal shape gives up is an explicit written row for every pair; what it buys is a
+file that stays readable.
+
 ## Open — none
 
 Both rulings requested at refinement are given. The audience table itself (`decided-rules.json` rows)

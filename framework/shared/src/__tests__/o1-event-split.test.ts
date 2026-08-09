@@ -15,7 +15,6 @@
  */
 import { describe, expect, it } from "vitest";
 import type { DomainEvent, KnowledgeUpdatedEvent, SessionEndedEvent } from "../events.js";
-import * as sharedIndex from "../index.js";
 
 describe("O1 event split", () => {
 	describe("New knowledge events in DomainEvent", () => {
@@ -63,15 +62,6 @@ describe("O1 event split", () => {
 			};
 			const _domainEvent: DomainEvent = event as DomainEvent;
 			expect(_domainEvent.type).toBe("knowledge_accessed");
-		});
-	});
-
-	describe("New knowledge events exported from shared", () => {
-		it("KernelEvent type is exported from shared (type-only, compile-time check)", () => {
-			// KernelEvent and StrategyEvent are type exports.
-			// Their existence is verified by the exhaustiveness test below.
-			// At runtime we verify the containing module is importable.
-			expect(sharedIndex).toBeDefined();
 		});
 	});
 
