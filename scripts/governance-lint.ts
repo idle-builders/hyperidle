@@ -57,6 +57,7 @@ import type { Census } from "./lib/repo-census.js";
 import { classificationTotal } from "./rules/classification-total.js";
 import { dbSymbolsAllPlaced } from "./rules/db-symbols-all-placed.js";
 import { floorsTight } from "./rules/floors-tight.js";
+import { frameworkSurfacesDeclared } from "./rules/framework-surfaces-declared.js";
 import { crossingRules, violationsOf } from "./rules/crossings.js";
 import { misplacementLedger } from "./rules/misplacement-ledger.js";
 import { noLaunderedReExports } from "./rules/no-laundered-re-exports.js";
@@ -136,6 +137,7 @@ function buildRules(
 		patternLive,
 		noProductionImportsDevelopment,
 		registriesHonest(architecture, loadTableOwners(), detected.db.tables),
+		frameworkSurfacesDeclared(architecture),
 		misplacementLedger(loadMisplacedFiles()),
 		noStaleBuildArtifacts(presentGovernanceFiles()),
 		floorsTight({ floors: declaredFloors(census, detected.countsByKind) }),
@@ -240,6 +242,7 @@ function runLive(errorsOnly: boolean): number {
 		patternLive,
 		noProductionImportsDevelopment,
 		registriesHonest(architecture, loadTableOwners(), detected.db.tables),
+		frameworkSurfacesDeclared(architecture),
 		misplacementLedger(loadMisplacedFiles()),
 		noStaleBuildArtifacts(presentGovernanceFiles()),
 		floorsTight({ floors: declaredFloors(census, detected.countsByKind) }),

@@ -42,6 +42,7 @@ import type { Finding, Rule } from "./governance-rules.js";
 import { buildCensus, type Census, type WorkspaceRoleRule } from "./repo-census.js";
 import { classificationTotal } from "../rules/classification-total.js";
 import { type FloorRecord, floorVerdict } from "../rules/floors-tight.js";
+import { frameworkSurfacesDeclared } from "../rules/framework-surfaces-declared.js";
 import { misplacementLedger } from "../rules/misplacement-ledger.js";
 import { noPerFileAllowances } from "../rules/no-per-file-allowances.js";
 import { noStaleBuildArtifacts } from "../rules/no-stale-build-artifacts.js";
@@ -788,6 +789,26 @@ export const ATTACKS: readonly Attack[] = [
 			messageContains: "not a declared surface",
 		},
 	},
+	{
+		id: "framework-package-with-no-decided-audience",
+		detail:
+			"a new framework package added with no `reach` entry — nothing imports it, so no crossing exists to judge, and the build must still fail naming the package",
+		rules: ["framework-surfaces-declared"],
+		overlay: {
+			"framework/attack-unaudienced/package.json": `${JSON.stringify(
+				{ name: "@hyperidle/attack-unaudienced", private: true, type: "module", exports: { ".": "./src/index.ts" } },
+				null,
+				"\t",
+			)}\n`,
+			"framework/attack-unaudienced/src/index.ts": "export const attackUnaudienced = 1;\n",
+		},
+		expect: {
+			sort: "finding",
+			file: "framework/attack-unaudienced/package.json",
+			ruleId: "framework-surfaces-declared",
+			messageContains: "attack-unaudienced",
+		},
+	},
 ];
 
 // ---------------------------------------------------------------------------------------------
@@ -1146,6 +1167,45 @@ export const STANDALONE_ATTACKS: readonly StandaloneAttack[] = [
 			return verdict("db:testing", "development", "framework") === "allowed"
 				? null
 				: "the development world held db:testing, which is not a door production has only one of";
+		},
+	},
+	{
+		id: "declared-audience-with-no-package",
+		detail:
+			"a `framework/<name>` audience left behind after the package is gone, and the package that HAS one reported nothing — the second direction, which no tree overlay can reach because the rules read the real architecture registry",
+		rules: ["framework-surfaces-declared"],
+		positive: true,
+		run: () => {
+			const architecture = {
+				...SURFACE_CLAUSE_ARCHITECTURE,
+				surfaces: {
+					"framework/present": { reach: ["core-ui"], why: "one named consumer, written down" },
+					"framework/retired": { reach: "everyone" as const, why: "an audience nobody withdrew" },
+				},
+			};
+			const census = buildCensus({
+				files: [
+					"framework/present/package.json",
+					"framework/present/src/index.ts",
+					"framework/undecided/package.json",
+					"framework/undecided/src/index.ts",
+				],
+				readFile: (path) => (path.endsWith("package.json") ? JSON.stringify({ name: `@hyperidle/${path.split("/")[1]}` }) : ""),
+				roleRules: [{ pattern: "framework/*", role: "framework" }],
+			});
+			const messages = frameworkSurfacesDeclared(architecture).evaluate(census).map((f) => `${f.path}: ${f.message}`);
+
+			if (!messages.some((m) => m.includes("framework/undecided/package.json") && m.includes("no decided audience"))) {
+				return `a framework package with no surface entry was not reported: ${messages.join(" | ")}`;
+			}
+			if (!messages.some((m) => m.includes("governance/architecture.json") && m.includes("framework/retired"))) {
+				return `an audience left behind after its package was retired was not reported: ${messages.join(" | ")}`;
+			}
+			// The control: the package that HAS a decided audience is not reported, or the rule is just
+			// flagging every framework package it can see.
+			return messages.some((m) => m.includes("framework/present/package.json"))
+				? `the package with a decided audience was reported: ${messages.join(" | ")}`
+				: null;
 		},
 	},
 	{
