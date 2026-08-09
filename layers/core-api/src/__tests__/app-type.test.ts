@@ -5,14 +5,25 @@
  * 1. `AppType` is exported from the server package (via app.ts)
  * 2. `hc<AppType>` can construct a typed client
  * 3. The client paths match expected route structure
- * 4. AppType is accessible via @hyperidle/server/schemas subpath
  *
  * @lore api-typesafety RED phase: AppType is not yet exported from app.ts.
  * The architecture requires `export type AppType = typeof apiRoutes` from
- * app.ts and re-exported via `@hyperidle/server/schemas` subpath export.
+ * app.ts.
  *
  * The `hc` tests use hono/client which IS available. The AppType export
  * is a type-level check — the runtime tests verify the module structure.
+ *
+ * @lore AU31 §7.1: the former "E4. AppType subpath re-export" describe block
+ * asserted `package.json`'s `exports` field carries a `./schemas` subpath —
+ * a config-shape check, not application behavior (`.claude/rules/testing.md`:
+ * "Validating config files… that's CI"). The face shrink deletes that entry
+ * deliberately (core-api's public face is `.`/`./boot`/`./app`; `AppType`'s
+ * only real consumer, `agent-orchestration-port-composition.ts`, already
+ * reaches it by a same-package relative import, never the subpath), so the
+ * block pinned a superseded decision rather than a live capability. Deleted
+ * rather than repointed — E1–E3 already cover the real behavior (`AppType`
+ * loads, `hc<AppType>` builds a typed client, the client's paths match the
+ * route shape).
  */
 
 import type { Hono } from "hono";
@@ -96,39 +107,3 @@ describe("E3. Client paths match expected route structure", () => {
 	});
 });
 
-describe("E4. AppType subpath re-export", () => {
-	it("@hyperidle/server package.json includes schemas subpath export", async () => {
-		// The architecture specifies @hyperidle/server/schemas exports AppType.
-		// We verify this by checking the package.json exports field directly —
-		// avoiding a dynamic import that Vite would try to resolve at transform time.
-		const { readFileSync } = await import("node:fs");
-		const { resolve } = await import("node:path");
-
-		// import.meta.dirname = packages/server/src/__tests__
-		// ../.. = packages/server
-		const pkgPath = resolve(import.meta.dirname, "../../package.json");
-		const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as {
-			exports?: Record<string, unknown>;
-		};
-
-		// RED phase: the exports field does not contain "./schemas" yet.
-		// GREEN phase: package.json exports includes "./schemas" mapped to schemas/index.ts
-		expect(pkg.exports).toBeDefined();
-		expect(pkg.exports?.["./schemas"]).toBeDefined();
-	});
-
-	it("packages/server/src/schemas/index.ts exports AppType", async () => {
-		// RED phase: this file doesn't exist yet.
-		// GREEN phase: the schemas index exports AppType.
-		// We check via file system since dynamic import of a non-existent
-		// package subpath fails at Vite transform time, not runtime.
-		const { existsSync } = await import("node:fs");
-		const { resolve } = await import("node:path");
-
-		// import.meta.dirname = packages/server/src/__tests__
-		// ../schemas/index.ts = packages/server/src/schemas/index.ts
-		const schemasIndex = resolve(import.meta.dirname, "../schemas/index.ts");
-		// RED: file doesn't exist
-		expect(existsSync(schemasIndex)).toBe(true);
-	});
-});
