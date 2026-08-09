@@ -18,7 +18,7 @@ Thread columns: `framework/db/src/schema.ts`. Message columns: `schema.ts`. `blo
 
 ## Host kinds (closed)
 
-`HOST_KINDS` (`framework/shared/src/thread.ts`): `bet | task | knowledge_item | artifact | agent | user | team | factory`.
+`HOST_KINDS` (`framework/domain-model/src/thread.ts`): `bet | task | knowledge_item | artifact | agent | user | team | factory`.
 
 - Host = the entity the thread is *about* — not the creator (that is `initiator_id`); no thread has an owner.
 - No orphan threads. An assistant-style thread with no domain object attaches to the user themselves.
@@ -34,7 +34,7 @@ Thread columns: `framework/db/src/schema.ts`. Message columns: `schema.ts`. `blo
 
 ## Verdict grammar (five decisions)
 
-`VERDICT_DECISIONS` (`thread.ts`): `approve`, `approve-with-comments`, `request-changes`, `edit`, `reject`. These are the only verdict decisions; the set is locked by `framework/shared/src/__tests__/message-types.test.ts`.
+`VERDICT_DECISIONS` (`thread.ts`): `approve`, `approve-with-comments`, `request-changes`, `edit`, `reject`. These are the only verdict decisions; the set is locked by `framework/domain-model/src/__tests__/message-types.test.ts`.
 
 - A `verdict` message carries `decision` plus `resolvesMessageId` (`thread.ts`) pointing at the review or questionnaire message it terminates. A binding verdict resolves the review.
 - Non-binding discussion — replies, comments — is `plain` messages in the same thread; they never terminate the review.
@@ -77,7 +77,7 @@ An unanswered review whose agent finished and walked away is *not* blocking. Blo
 
 ## Authority
 
-- Server is the source of truth; every write emits an event (`layers/core-api/src/routes/threads.ts`; delivery guarantees documented in the `framework/shared/src/event-bus.ts` docblock).
+- Server is the source of truth; every write emits an event (`layers/core-api/src/routes/threads.ts`; delivery guarantees documented in the `framework/event-bus/src/event-bus.ts` docblock).
 - Agents and humans are equal participants: either can initiate a thread to the other, and any participant can post.
 - Views never own threads. Conversations is one renderer of threads; bet detail, task detail, knowledge-item detail, artifact detail, and the assistant overlay are others. Threads exist whether or not any view is open.
 

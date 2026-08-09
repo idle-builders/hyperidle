@@ -5,7 +5,7 @@ A **harness capability descriptor** is the Kernel-owned, queryable declaration o
 The descriptor exposes models, access mode, auth action, discovery state, runtime capabilities, inherited tools, and event normalization commitments — without leaking API keys, base URLs, or provider subscription tokens (route tests assert this: `layers/core-api/src/routes/__tests__/AM2-harness-capabilities.integration.test.ts`).
 
 ```ts
-// framework/shared/src/harness/harness-capability-descriptor.ts (authoritative)
+// framework/harness-capability/src/harness/harness-capability-descriptor.ts (authoritative)
 interface HarnessCapabilityDescriptor {
   type: string;              // "builtin", "codex", "claude-code", "opencode", "cursor-agent"
   name: string;
@@ -140,14 +140,14 @@ If any link is missing for a claimed-ready family, the descriptor must report `u
 
 ## Adapter Contract and Pre-Compaction
 
-`HarnessCapabilities` (`framework/shared/src/harness/harness-adapter.ts`) is what every adapter declares; the descriptor's `runtime` block projects from it:
+`HarnessCapabilities` (`framework/harness-protocol/src/harness/harness-adapter.ts`) is what every adapter declares; the descriptor's `runtime` block projects from it:
 
 - `preCompactionTrigger` — whether the adapter can signal imminent context compaction
 - `subAgents`, `mcpSupport`, `modelProviders`, optional `fileEditing`/`toolUse`
 - `returnEnforcement` — non-optional per-harness channel; mechanism owned by [return-gate-enforcement](./return-gate-enforcement.md)
 - `mcpConfig` dialect — which per-session MCP config file the CLI needs (see MCP bridge below)
 
-**Pre-compaction:** adapters with `preCompactionTrigger: true` emit a `pre_compaction` event (`PreCompactionEvent { type: "pre_compaction", contextTokens, maxTokens }`, `framework/shared/src/harness/harness-events.ts`) when context pressure crosses a threshold. The correct signal is the **latest call's** `inputTokens` against the model context window — not a cumulative sum, which over-counts by the number of calls (`layers/agent-execution/harness-registry/src/context-window.ts`). The builtin adapter emits it (`layers/agent-execution/harness-registry/src/builtin-harness-adapter.ts`); normalization passes it through unchanged. What a session does with the trigger (final note-writing pass) is a session-boundary concern — see [tasks-and-sessions](../process-layer/tasks-and-sessions.md).
+**Pre-compaction:** adapters with `preCompactionTrigger: true` emit a `pre_compaction` event (`PreCompactionEvent { type: "pre_compaction", contextTokens, maxTokens }`, `framework/harness-protocol/src/harness/harness-events.ts`) when context pressure crosses a threshold. The correct signal is the **latest call's** `inputTokens` against the model context window — not a cumulative sum, which over-counts by the number of calls (`layers/agent-execution/harness-registry/src/context-window.ts`). The builtin adapter emits it (`layers/agent-execution/harness-registry/src/builtin-harness-adapter.ts`); normalization passes it through unchanged. What a session does with the trigger (final note-writing pass) is a session-boundary concern — see [tasks-and-sessions](../process-layer/tasks-and-sessions.md).
 
 ---
 
@@ -175,7 +175,7 @@ Two code paths converge on the `HarnessEvent` union — consumers cannot tell wh
 
 **Path 1: `builtin`** — `BuiltinHarnessAdapter` emits `token_usage`, `completion` directly in union shape. No pre-normalizer. (`cost_update` was removed — harness telemetry is token usage only; see `layers/agent-execution/harness-registry/src/__testing__/llm-cassette.ts` lore.)
 
-**Path 2: CLI families** — everything flows through `normalizeHarnessEvent` (`framework/shared/src/harness/harness-event-normalization.ts`) with per-family pre-maps:
+**Path 2: CLI families** — everything flows through `normalizeHarnessEvent` (`framework/harness-protocol/src/harness/harness-event-normalization.ts`) with per-family pre-maps:
 
 - **claude-code:** `preMapClaudeEvent` (`:79`) translates stream-json types (`assistant`/`result`/`system`) to canonical types before normalization; applied explicitly by the CLI adapter when `eventDialect === "claude-stream-json"`, not inside `normalizeHarnessEvent`. `result.usage` → `token_usage`. `result.total_cost_usd` is present on the wire but no longer captured — no `cost_update` event exists.
 - **codex:** `turn.completed.usage.{input_tokens, output_tokens}` → `token_usage`, handled inside `normalizeHarnessEvent` (`:254`).
@@ -184,7 +184,7 @@ Two code paths converge on the `HarnessEvent` union — consumers cannot tell wh
 
 **Production caller:** `cli-harness-adapter.ts` — the production event loop calls `normalizeHarnessEvent` on every parsed line.
 
-**Locked in CI:** three-way field equivalence (codex ≡ claude-code ≡ builtin all produce `{ type: "token_usage", inputTokens, outputTokens }`, no native snake_case downstream) and the opencode pre-map, in `framework/shared/src/harness/__tests__/harness-event-normalization.test.ts` + `harness-event-normalization-codex.test.ts`. Harness test enforcement (locked models, symmetry, the attestation floor) is owned by [harness-coverage-enforcement](./harness-coverage-enforcement.md).
+**Locked in CI:** three-way field equivalence (codex ≡ claude-code ≡ builtin all produce `{ type: "token_usage", inputTokens, outputTokens }`, no native snake_case downstream) and the opencode pre-map, in `framework/harness-protocol/src/harness/__tests__/harness-event-normalization.test.ts` + `harness-event-normalization-codex.test.ts`. Harness test enforcement (locked models, symmetry, the attestation floor) is owned by [harness-coverage-enforcement](./harness-coverage-enforcement.md).
 
 ---
 

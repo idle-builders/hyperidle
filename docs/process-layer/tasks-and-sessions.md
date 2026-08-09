@@ -5,7 +5,7 @@
 
 ## 1. Task lifecycle
 
-Tasks move through a small state machine — the eight states of `TASK_STATES` (`framework/shared/src/types.ts`):
+Tasks move through a small state machine — the eight states of `TASK_STATES` (`framework/domain-model/src/types.ts`):
 
 - `proposed` — a team member has drafted this task. Not yet picked up.
 - `accepted` — the team lead has accepted it. The owner is committed.

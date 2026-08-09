@@ -2,7 +2,7 @@
 
 The function-agnostic, task-rooted record of something the team has produced. An Artifact roots on exactly one producing Task; Bet/Team/Portfolio surfaces aggregate Artifacts, they never own them.
 
-This path is frozen — code cites it directly (`framework/shared/src/thread.ts`, `framework/shared/src/part.ts`).
+This path is frozen — code cites it directly (`framework/domain-model/src/thread.ts`, `framework/conversation-parts/src/part.ts`).
 
 ## Canonical shape
 
@@ -30,7 +30,7 @@ Artifact {
 
 **Preview is write-once.** `PATCH /:id/preview` succeeds only while `preview_json IS NULL` (race-safe conditional UPDATE); otherwise 409 `IMMUTABLE` (`layers/core-api/src/routes/artifacts.ts`). A null preview renders an explicit `NoPreviewText` placeholder — never a fake thumbnail (`ArtifactPreviewSurface.tsx`).
 
-**Preview content is pure (AM5).** Per-kind preview schemas carry content only — the `code` preview is `{path, text, lang}` (`framework/shared/src/kinds/code.ts`), just code, no diff. The diff belongs to the Review composition, built from two pure-`code` instances (see §Compositions).
+**Preview content is pure (AM5).** Per-kind preview schemas carry content only — the `code` preview is `{path, text, lang}` (`framework/domain-model/src/kinds/registry.ts`), just code, no diff. The diff belongs to the Review composition, built from two pure-`code` instances (see §Compositions).
 
 ## The fundamental kinds (AE6) and the base primitives they compose (AM5)
 
@@ -51,13 +51,13 @@ Kind answers "what format did the agent produce?" — not "what business domain 
 
 ## ArtifactView — the five review-embed shapes
 
-`ARTIFACT_VIEW_SHAPES` (`framework/shared/src/thread.ts`) is a closed enum of five renderer shapes:
+`ARTIFACT_VIEW_SHAPES` (`framework/domain-model/src/thread.ts`) is a closed enum of five renderer shapes:
 
 ```
 text_diff | content_preview | visual_comparison | action_summary | data_metrics
 ```
 
-**ArtifactView is not the Artifact.** The five shapes describe HOW a review-message embed renders its preview — a sub-vocabulary inside the `review_message_embed` placement — never a synonym for the primitive itself. `framework/shared/src/part.ts` maps `ArtifactRef`s to embeds against these shapes (`text_diff` → diff embed).
+**ArtifactView is not the Artifact.** The five shapes describe HOW a review-message embed renders its preview — a sub-vocabulary inside the `review_message_embed` placement — never a synonym for the primitive itself. `framework/conversation-parts/src/part.ts` maps `ArtifactRef`s to embeds against these shapes (`text_diff` → diff embed).
 
 ## Base primitives × compositions × placements (AM5)
 
@@ -84,7 +84,7 @@ The kind vocabulary is **open at the data layer** (any `lowercase_snake_case` st
 
 This contrasts with BlockKind, which is closed — blocks decompose prose into renderable regions (the kind set IS the AST vocabulary), while artifact kinds classify output format. Both compose the same base primitives; BlockKind is owned by [docs/blocks/canonical-shapes.md](../blocks/canonical-shapes.md).
 
-**Kind Definition** — a static config module in `framework/shared/src/kinds/` binding a kind string to (`kind-definition.ts`):
+**Kind Definition** — a static config module in `framework/domain-model/src/kinds/` binding a kind string to (`kind-definition.ts`):
 - a Zod preview schema (pure content only — no diff, no comparison, no state field)
 - a display-title extractor
 - a summary function
@@ -95,11 +95,11 @@ A Kind Definition does NOT bind a renderer or base primitive — rendering dispa
 
 **Unregistered kinds** render a generic *content* fallback — kind label + raw content via `UnknownPayload` — never crash, never blank. This fallback is not an empty/error/loading state; those belong to the composition. The old `unknown_kind` sentinel is retired.
 
-**Legacy kind normalization is LIVE.** `rowToArtifact` applies `OLD_KIND_MAP` at read time — 13 legacy kinds (e.g. `code_diff` → `code`) map to a new kind+label pair (`routes/artifacts.ts`, `shared/src/kinds/old-kind-map.ts`). Only the legacy `{file,hunks}` *preview-shape* normalization was deleted (AM5, pre-alpha clean rewrite — no migration); old code previews read as null.
+**Legacy kind normalization is LIVE.** `rowToArtifact` applies `OLD_KIND_MAP` at read time — 13 legacy kinds (e.g. `code_diff` → `code`) map to a new kind+label pair (`routes/artifacts.ts`, `framework/domain-model/src/kinds/old-kind-map.ts`). Only the legacy `{file,hunks}` *preview-shape* normalization was deleted (AM5, pre-alpha clean rewrite — no migration); old code previews read as null.
 
 ## Fetching contract
 
-`GET /api/artifacts?axis=task|bet|product|portfolio` (`routes/artifacts.ts`; `ArtifactFilterAxis` in `shared/src/types/artifact.ts`). Bet/Product/Portfolio aggregate via task-id fan-out (capped at 1000). The product axis resolves `teamId` (U1 productId→teamId rename; both query params accepted).
+`GET /api/artifacts?axis=task|bet|product|portfolio` (`routes/artifacts.ts`; `ArtifactFilterAxis` in `framework/domain-model/src/types/artifact.ts`). Bet/Product/Portfolio aggregate via task-id fan-out (capped at 1000). The product axis resolves `teamId` (U1 productId→teamId rename; both query params accepted).
 
 ## Permalinks
 

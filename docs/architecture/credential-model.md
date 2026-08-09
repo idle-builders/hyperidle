@@ -6,8 +6,8 @@ How a provider credential is stored, encrypted, read by the runtime, and shown t
 
 A **Credential** is a named, provider-scoped secret value (ciphertext at rest) plus its non-secret validation state — the durable record of "the user gave us the key for provider P." Every Credential value is a Managed secret; not every Managed secret is a Credential. A Credential whose value is plaintext anywhere is a defect, not a Credential.
 
-- **Name** — from a closed, non-user-extensible catalog (`framework/shared/src/credential.ts:11`): `anthropic_api_key`, `openrouter_api_key`, `shared_backend_key`, `openai_compatible_api_key` (AH1 promoted it from a `server_config` field to a catalog credential).
-- **Provider** — closed set `{anthropic, openrouter, openai-compatible}` (`MODEL_PROVIDERS`, `framework/shared/src/model-gateway.ts`).
+- **Name** — from a closed, non-user-extensible catalog (`framework/domain-model/src/credential.ts:11`): `anthropic_api_key`, `openrouter_api_key`, `shared_backend_key`, `openai_compatible_api_key` (AH1 promoted it from a `server_config` field to a catalog credential).
+- **Provider** — closed set `{anthropic, openrouter, openai-compatible}` (`MODEL_PROVIDERS`, `framework/domain-model/src/model-gateway.ts`).
 - **Value** — AES-256-GCM ciphertext at rest; never persisted, logged, or returned in plaintext.
 - **Validation state** — `absent | present_untested | valid | invalid` (`CREDENTIAL_STATES`, `credential.ts:21`).
 
@@ -23,7 +23,7 @@ Legacy plaintext (env-sourced values, `server_config` blob keys) is migrated to 
 
 ## Encryption
 
-Values are AES-256-GCM encrypted with a key derived from the Root-of-trust secret (`HYPERIDLE_API_KEY`) via HKDF-SHA256 with a fixed application salt (`framework/shared/src/crypto/credential-encryption.ts`). Stored format: `base64(iv[12] + ciphertext + authTag[16])`; every encrypt call uses a fresh random IV. The API key is the root of trust — an attacker who has it already has full API access, so no separate file-stored key exists.
+Values are AES-256-GCM encrypted with a key derived from the Root-of-trust secret (`HYPERIDLE_API_KEY`) via HKDF-SHA256 with a fixed application salt (`framework/credential-access/src/crypto/credential-encryption.ts`). Stored format: `base64(iv[12] + ciphertext + authTag[16])`; every encrypt call uses a fresh random IV. The API key is the root of trust — an attacker who has it already has full API access, so no separate file-stored key exists.
 
 Two access levels: `getServerSecret()` is nullable and non-fatal (boot path); `requireServerSecret()` throws `MISSING_ROOT_SECRET` (write/validate boundaries).
 
@@ -32,7 +32,7 @@ Two access levels: `getServerSecret()` is nullable and non-fatal (boot path); `r
 There is **exactly one production Credential resolver** wired into the Application composition root (`applications/remote-server/src/create-server.ts`): `DbCredentialResolver` (`layers/core-api/credentials/src/credential-resolver.ts`), `resolve(name) → plaintext | null`, reading the one store. The LLM client obtains keys only through it.
 
 - No second read path (`resolveTierApiKey` is removed — zero matches in the repo).
-- No fallback chain that masks absence. `null` ⇒ a surfaced `MissingCredentialError` (`framework/shared/src/errors.ts:42`), never a silent dead call.
+- No fallback chain that masks absence. `null` ⇒ a surfaced `MissingCredentialError` (`framework/domain-model/src/errors.ts:42`), never a silent dead call.
 - `EnvCredentialResolver` survives for the eval lane only (`tools/eval/src/env-credential-resolver.ts` — CI-secret env var, no DB); no production code path instantiates it (AH1 §3).
 - `ServerHandle` exposes `credentialResolver` so integration tests assert the production wiring is `instanceof DbCredentialResolver` (`applications/remote-server/src/create-server.ts`).
 
@@ -63,4 +63,4 @@ A credential write with no Root-of-trust secret available is **rejected** with a
 - **openai-compatible keying** — settled: a single global catalog slot, `openai_compatible_api_key` (`credential.ts:16`), not composite by endpoint/baseUrl. Invariant held either way: ciphertext in the one store, never in `server_config`.
 - **Migration + resolver rewiring** — shipped: `migrateCredentialsToStore` (`server-config.ts:368`) plus exclusive `DbCredentialResolver` wiring in `applications/remote-server/src/create-server.ts`.
 
-See also: [authorization-model.md](authorization-model.md) (Secrets, Hard Rule 4), [connection-model.md](connection-model.md) (held/inherited Connections). `MissingCredentialError` is defined in `framework/shared/src/errors.ts`.
+See also: [authorization-model.md](authorization-model.md) (Secrets, Hard Rule 4), [connection-model.md](connection-model.md) (held/inherited Connections). `MissingCredentialError` is defined in `framework/domain-model/src/errors.ts`.

@@ -33,7 +33,7 @@ ReviewComposition
 └─ Right pane      (selected artifact rendered by its AL2 family canvas)
 ```
 
-Clicking an artifact opens it at full size in a right pane without leaving the review. Press `Esc` or click ✕ to close the pane and return to the whole Subject. One verdict resolves the whole Subject; there are no per-artifact verdicts. The five verdict decisions are `VERDICT_DECISIONS` (`framework/shared/src/thread.ts`) — see [Thread primitive](./thread-primitive.md).
+Clicking an artifact opens it at full size in a right pane without leaving the review. Press `Esc` or click ✕ to close the pane and return to the whole Subject. One verdict resolves the whole Subject; there are no per-artifact verdicts. The five verdict decisions are `VERDICT_DECISIONS` (`framework/domain-model/src/thread.ts`) — see [Thread primitive](./thread-primitive.md).
 
 ## Anchored comments (AL4)
 
@@ -63,7 +63,7 @@ All thresholds live in factory settings with safe defaults. The effect the user 
 
 ## Execution on approve (AL7)
 
-Approving a review fires its **consequences** — a review that changes nothing should not exist. The `approve` verdict is the collaboration checkpoint on the Subject's **Proposed Call**: the irreversible call (a refund, a merge, a send) the agent attempted and the gate routed to a human. The review shows the **concrete proposed call** — tool id + verbatim args — so judgment is grounded in the real action. On approve, HyperIdle grants the call and re-engages the agent's own session; the agent re-does the approved work through its own tools and continues. Non-approving verdicts hold the call un-executed. Proposed Call statuses: `captured | granted | executed | failed | held` (`framework/shared/src/proposed-call.ts`).
+Approving a review fires its **consequences** — a review that changes nothing should not exist. The `approve` verdict is the collaboration checkpoint on the Subject's **Proposed Call**: the irreversible call (a refund, a merge, a send) the agent attempted and the gate routed to a human. The review shows the **concrete proposed call** — tool id + verbatim args — so judgment is grounded in the real action. On approve, HyperIdle grants the call and re-engages the agent's own session; the agent re-does the approved work through its own tools and continues. Non-approving verdicts hold the call un-executed. Proposed Call statuses: `captured | granted | executed | failed | held` (`framework/domain-model/src/proposed-call.ts`).
 
 HyperIdle itself executes nothing — see [system boundary](../architecture/system-boundary.md). Full gate mechanics (grant CAS, session re-engagement, reversibility classification, auto-flow AL8): [Staged operation / Proposed Call](../process-layer/staged-operation.md).
 

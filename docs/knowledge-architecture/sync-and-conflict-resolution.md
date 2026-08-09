@@ -17,7 +17,7 @@ This doc owns the write flow: watcher, writeback rules, conflict resolution, lay
 - **500ms debounce** — writes settle before a flush (`file-watcher.ts`, `DEFAULT_DEBOUNCE_MS`).
 - Watches only `knowledge/` and `work/` (`isWatchedPath`, `file-watcher.ts:36-38`); `context/` is read-only reference material.
 
-The watcher doesn't process changes itself — it debounces filesystem events and emits one `sandbox_writeback_changes_detected` event per flush (`framework/shared/src/events.ts:342-348`) onto the shared EventBus.
+The watcher doesn't process changes itself — it debounces filesystem events and emits one `sandbox_writeback_changes_detected` event per flush (`framework/domain-model/src/events.ts:342-348`) onto the shared EventBus.
 
 ## 3. Writeback rules
 

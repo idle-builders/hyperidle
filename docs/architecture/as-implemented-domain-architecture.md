@@ -122,10 +122,10 @@ flowchart LR
 
 Contract anchors:
 
-- `HarnessAdapter` = startSession/streamEvents/stopSession/getCapabilities — `framework/shared/src/harness/harness-adapter.ts:270`. `startSession(config: SessionConfig)`; SessionConfig carries sessionId, sandboxPath, assembledPrompt, modelTier, resolvedModel, MCP bridge info, thread messages, return hook, session workflow.
+- `HarnessAdapter` = startSession/streamEvents/stopSession/getCapabilities — `framework/harness-protocol/src/harness/harness-adapter.ts:270`. `startSession(config: SessionConfig)`; SessionConfig carries sessionId, sandboxPath, assembledPrompt, modelTier, resolvedModel, MCP bridge info, thread messages, return hook, session workflow.
 - Agent layer provider = assembleContext/beginLearningIngestion/resolve defaults/selectAgent/formAssistant. Production ownership lives in `layers/agent-orchestration/`'s Services.
 - Tool invocation = `registry.invoke(name, rawArgs)` — `layers/agent-execution/harness-registry/src/tool-registry.ts`; per-session context is bound when `buildToolRegistry` constructs the registry, not passed per call.
-- Session events verified in `framework/shared/src/events.ts` (session_started :34, session_ended :51, session_not_returned :72, tool_call_recorded :207).
+- Session events verified in `framework/domain-model/src/events.ts` (session_started :34, session_ended :51, session_not_returned :72, tool_call_recorded :207).
 
 ## L2 - Coordination Domain
 
@@ -278,7 +278,7 @@ flowchart TB
   Builtin --> ToolRegistry
 ```
 
-Harness event types match `framework/shared/src/harness/harness-events.ts` exactly (token_usage, tool_call, completion, error, pre_compaction). `cost_update` was removed — harness telemetry was narrowed to token usage only (founder ruling: "very few harness can actually report cost"; see `layers/agent-execution/harness-registry/src/__testing__/llm-cassette.ts`). The pool does least-loaded selection with load tracking (`layers/agent-execution/harness-registry/src/adapter-pool.ts`). Event-normalization mechanism, capability descriptor shape, discovery/session probes, and the MCP bridge are owned by the [harness capability descriptor](../agent-layer/harness-capability-descriptor.md).
+Harness event types match `framework/harness-protocol/src/harness/harness-events.ts` exactly (token_usage, tool_call, completion, error, pre_compaction). `cost_update` was removed — harness telemetry was narrowed to token usage only (founder ruling: "very few harness can actually report cost"; see `layers/agent-execution/harness-registry/src/__testing__/llm-cassette.ts`). The pool does least-loaded selection with load tracking (`layers/agent-execution/harness-registry/src/adapter-pool.ts`). Event-normalization mechanism, capability descriptor shape, discovery/session probes, and the MCP bridge are owned by the [harness capability descriptor](../agent-layer/harness-capability-descriptor.md).
 
 ## L2 - Knowledge And Agent Services
 
@@ -357,7 +357,7 @@ flowchart TB
   EventBus --> Observability["Observability"]
 ```
 
-**Guarantees** (one line — the contract lives in the `framework/shared/src/event-bus.ts` docblock): in-process typed pub/sub, synchronous delivery, per-stream ordering, at-least-once when `emit()` is called after database write durability; one throwing handler does not abort delivery to the rest.
+**Guarantees** (one line — the contract lives in the `framework/event-bus/src/event-bus.ts` docblock): in-process typed pub/sub, synchronous delivery, per-stream ordering, at-least-once when `emit()` is called after database write durability; one throwing handler does not abort delivery to the rest.
 
 ## L3 - Current Agent Invocation Paths
 
@@ -414,7 +414,7 @@ Auth: single `HYPERIDLE_API_KEY` via `X-API-Key` header (constant-time compare) 
 
 ### Harness adapters
 
-Interface in `framework/shared/src/harness/harness-adapter.ts`; implementations in `layers/agent-execution/harness-registry/src/`: builtin (gateway/direct-key runtime — anthropic/openrouter/openai-compatible, `builtin-harness-adapter.ts`), CLI (codex, claude-code, opencode — `cli-harness-adapter.ts`), remote worker (`remote-harness-adapter.ts`). Autodiscovery covers codex, claude-code, cursor-agent, opencode (`harness-discovery.ts`). Descriptor, probes, MCP bridge, pre-compaction contract: [harness capability descriptor](../agent-layer/harness-capability-descriptor.md).
+Interface in `framework/harness-protocol/src/harness/harness-adapter.ts`; implementations in `layers/agent-execution/harness-registry/src/`: builtin (gateway/direct-key runtime — anthropic/openrouter/openai-compatible, `builtin-harness-adapter.ts`), CLI (codex, claude-code, opencode — `cli-harness-adapter.ts`), remote worker (`remote-harness-adapter.ts`). Autodiscovery covers codex, claude-code, cursor-agent, opencode (`harness-discovery.ts`). Descriptor, probes, MCP bridge, pre-compaction contract: [harness capability descriptor](../agent-layer/harness-capability-descriptor.md).
 
 ### Sandbox (run unit)
 
@@ -426,7 +426,7 @@ Per-session working directory under `HYPERIDLE_WORKSPACES_DIR`; the harness runs
 
 ### Observability
 
-Channels `"console"` | `"noop"` (`framework/shared/src/observability/types.ts:4`); OpenTelemetry explicitly future. Event shapes in `framework/shared/src/observability/events.ts`; the runtime wiring in `layers/core-api/src/observability-runtime.ts`.
+Channels `"console"` | `"noop"` (`framework/diagnostics/src/observability/types.ts:4`); OpenTelemetry explicitly future. Event shapes in `framework/diagnostics/src/observability/events.ts`; the runtime wiring in `layers/core-api/src/observability-runtime.ts`.
 
 ## MCP Tool Surface
 

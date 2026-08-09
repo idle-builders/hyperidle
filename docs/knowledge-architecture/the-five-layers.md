@@ -1,6 +1,6 @@
 # The Five Layers
 
-Knowledge in HyperIdle lives on a five-layer maturity ladder. The layers are live in code: `KNOWLEDGE_LAYERS` (`framework/shared/src/knowledge.ts:3-4`).
+Knowledge in HyperIdle lives on a five-layer maturity ladder. The layers are live in code: `KNOWLEDGE_LAYERS` (`framework/domain-model/src/knowledge.ts:3-4`).
 
 ```
 L4  FACTORY        monthly        humans write & read, agents propose
@@ -14,7 +14,7 @@ The lower you go, the more agent-native. The higher you go, the more human-nativ
 
 ## Scope determines layer
 
-Layer is assigned from an item's scope — `SCOPE_TO_LAYER` (`framework/shared/src/knowledge.ts:6-14`):
+Layer is assigned from an item's scope — `SCOPE_TO_LAYER` (`framework/domain-model/src/knowledge.ts:6-14`):
 
 | Scope kind | Layer |
 |---|---|
@@ -40,7 +40,7 @@ An agent spinning up for a specific task. Minutes to hours.
 A task is a tiny experiment with an expected outcome. When reality differs, that is the signal worth capturing.
 
 - **Outcome capture**: on the task row itself — `tasks.outcomeVerdict` is a closed enum `met | met_with_rework | partially_met | not_met`, plus `notes` and `auditTrail` (`framework/db/src/schema.ts:202-236`).
-- **Failures are first-class** — as knowledge items of kind `failure` (`framework/shared/src/knowledge.ts:41-49`), written back from the sandbox's `failures/` directory (`handleCreate`, `layers/agent-orchestration/run-orchestration/src/writeback-processor.ts:216-250`). There is no separate failures table.
+- **Failures are first-class** — as knowledge items of kind `failure` (`framework/domain-model/src/knowledge.ts:41-49`), written back from the sandbox's `failures/` directory (`handleCreate`, `layers/agent-orchestration/run-orchestration/src/writeback-processor.ts:216-250`). There is no separate failures table.
 - **How agents write**: the `write_memory` tool (`layers/agent-orchestration/tool-handlers/src/tool-definitions.ts`) and sandbox writeback — there is no task-logging CLI.
 - **Human touch**: sampling only, through the Work view. Humans never read raw task rows. Task and session mechanics live in [tasks and sessions](../process-layer/tasks-and-sessions.md).
 
@@ -58,16 +58,16 @@ A product runs for months. Its knowledge splits by artifact type.
 
 **The highest-leverage layer.** Most agent systems skip this entirely. The core behavior: before solving a problem from scratch, check whether someone already solved it — *reuse before create*.
 
-- **Storage**: knowledge items at `practice` scope, one community per discipline: `building`, `product`, `growth`, `ops` (`framework/shared/src/agent-roles.ts`, `communityForRole` with fallback `ops`). All builders across all products share the `building` community — knowledge that emerges in one product is available to every other immediately.
+- **Storage**: knowledge items at `practice` scope, one community per discipline: `building`, `product`, `growth`, `ops` (`framework/domain-model/src/agent-roles.ts`, `communityForRole` with fallback `ops`). All builders across all products share the `building` community — knowledge that emerges in one product is available to every other immediately.
 - **Grouping**: `topic` is a first-class column (`framework/db/src/schema.ts:894`); tags and evidence live in the app projection extension's `meta` JSON (`framework/db/src/schema.ts:1020`).
-- **Anti-patterns are first-class**: `anti_pattern` is its own knowledge kind (`framework/shared/src/knowledge.ts:41-49`), searchable alongside patterns. Promotion itself is generic, not kind-specific: the same `(layer, topic, kind)` signature repeated across 5+ distinct scopes auto-promotes an item's status regardless of kind (`layers/core-api/knowledge/src/promotion-pipeline.ts`).
+- **Anti-patterns are first-class**: `anti_pattern` is its own knowledge kind (`framework/domain-model/src/knowledge.ts:41-49`), searchable alongside patterns. Promotion itself is generic, not kind-specific: the same `(layer, topic, kind)` signature repeated across 5+ distinct scopes auto-promotes an item's status regardless of kind (`layers/core-api/knowledge/src/promotion-pipeline.ts`).
 - **Human touch**: curation through the [Knowledge view](../information-architecture/knowledge-view.md). Sharpen wording, retire stale items, add the tacit knowledge agents can't generate — customer taste, market intuition. Two unattended calendar routines run alongside it: `builtin:knowledge-promotion` (daily, promotes provisional items past the repetition threshold) and `builtin:knowledge-decay` (daily, silent, retires stale items). There is no meeting and no synchronous ritual.
 
 ## L4: Factory — the meta
 
 The company's own brain. What we believe, what we're aiming at, which products get energy now.
 
-- **Storage**: knowledge items at `factory` scope — kinds include `principle`, `focus`, `reflection` (`framework/shared/src/knowledge.ts:41-49`). There is no git export today — the database is the only store (see [facilitators](facilitators.md) for the sketched, not-implemented export shape).
+- **Storage**: knowledge items at `factory` scope — kinds include `principle`, `focus`, `reflection` (`framework/domain-model/src/knowledge.ts:41-49`). There is no git export today — the database is the only store (see [facilitators](facilitators.md) for the sketched, not-implemented export shape).
 - **Human touch**: humans write and read; agents propose changes for human approval. If an L4 item is hard to read, the architecture is wrong.
 
 ## How knowledge moves

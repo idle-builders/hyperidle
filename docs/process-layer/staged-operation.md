@@ -38,7 +38,7 @@ Per-harness capabilities, probes, and MCP wiring are owned by the [harness capab
 HyperIdle sessions are detached one-shots — not pausable — so the review spans **two sessions**:
 
 1. **Session 1 — capture + end.** With the workflow attached, the agent works with its own tools + creds; reversible calls flow. When an irreversible call is attempted, the capturing router records `{toolId, args}` verbatim as a **Proposed Call** (status `captured`) anchored to a review message + subject thread — idempotently per `(originSessionId, identityHash)` (`framework/db/src/schema.ts`) so a retry mints no duplicate — returns `AWAITING_REVIEW`, and HyperIdle ends session 1 via the abort rail (`onAbortSession` → `sessionRunRegistry.abort`).
-2. **Review — verdict.** `threads.ts` resolves the verdict (first-verdict-wins, 409 on race, re-open); grammar owned by the [thread primitive](../human-interface-layer/thread-primitive.md). On `approve`/`approve-with-comments`, HyperIdle composes the **tailored grant** — do the approved op (plus reversible work); route any *other* irreversible op back to review — scoped to task id + agent id (session 2's id doesn't exist yet), and emits `proposed_call_granted` (`framework/shared/src/events.ts`), which explicitly re-engages the agent (the task dispatcher). A non-approving verdict leaves the Proposed Call `held`.
+2. **Review — verdict.** `threads.ts` resolves the verdict (first-verdict-wins, 409 on race, re-open); grammar owned by the [thread primitive](../human-interface-layer/thread-primitive.md). On `approve`/`approve-with-comments`, HyperIdle composes the **tailored grant** — do the approved op (plus reversible work); route any *other* irreversible op back to review — scoped to task id + agent id (session 2's id doesn't exist yet), and emits `proposed_call_granted` (`framework/domain-model/src/events.ts`), which explicitly re-engages the agent (the task dispatcher). A non-approving verdict leaves the Proposed Call `held`.
 3. **Session 2 — resume under the grant + continue.** The task-dispatcher re-provisions session 2 (same task + same agent) with the grant-bearing `sessionWorkflow` (`sessionRole:"grant-bearing"`). The agent **re-does the approved work with its own tools — re-deriving the call is fine** (we trust it intends the approved thing). The grant is consumed once via a single-statement atomic CAS; the real tool return is recorded as the **Outcome**; the agent keeps working — closes the story, updates docs, proceeds.
 
 **Liveness net** (`layers/core-api/review/src/proposed-call-workflow.ts`): if session 2 ends with the grant unconsumed (crash / no-show — never re-derivation or arg drift), HyperIdle re-provisions once; a second miss writes a `failed` Outcome and holds the call. Never a silent hang.
@@ -47,7 +47,7 @@ HyperIdle sessions are detached one-shots — not pausable — so the review spa
 
 ## Definition
 
-A **Proposed Call** is the exact, fully-bound tool call (tool id + verbatim arguments) that an agent **attempted** and HyperIdle **routed to review**, captured verbatim as the subject a human reviews. A record/snapshot — not an event, not a command HyperIdle will run, not the act of executing. Types: `framework/shared/src/proposed-call.ts`; tables: `proposed_calls` (`schema.ts`), `tailored_grants` (`schema.ts`), Outcome (`schema.ts`).
+A **Proposed Call** is the exact, fully-bound tool call (tool id + verbatim arguments) that an agent **attempted** and HyperIdle **routed to review**, captured verbatim as the subject a human reviews. A record/snapshot — not an event, not a command HyperIdle will run, not the act of executing. Types: `framework/domain-model/src/proposed-call.ts`; tables: `proposed_calls` (`schema.ts`), `tailored_grants` (`schema.ts`), Outcome (`schema.ts`).
 
 ## Essential properties
 
@@ -81,7 +81,7 @@ The trust signal is **earned**: an agent's approval rate over its recent verdict
 - **Not a live session pause.** Sessions are detached one-shots; the review spans two sessions.
 - **Not an agent-authored spec.** There is no `stage_operation` tool; the subject is the *real attempted call*.
 - **Not a verdict.** The verdict authorizes; the Proposed Call is authorized.
-- **Not a `ToolCallSummary`.** That records a reversible action the assistant *already ran* (AD8b, `framework/shared/src/thread.ts`). A Proposed Call is the not-yet-run irreversible call routed to review.
+- **Not a `ToolCallSummary`.** That records a reversible action the assistant *already ran* (AD8b, `framework/domain-model/src/thread.ts`). A Proposed Call is the not-yet-run irreversible call routed to review.
 - **Not the `action_operation` canvas.** The canvas (`ReviewActionOperation.tsx`) renders a *view*; the Proposed Call is the backing captured call.
 - **Not a permanent brake.** The checkpoint fades as trust is earned (AD4).
 

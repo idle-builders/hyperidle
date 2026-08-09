@@ -8,7 +8,7 @@ Behavioral UX requirements for the human interface. Shell structure and page lay
 
 **UX-1.2** Ambient state is embedded within each view — filter chips, health indicators, badges. Notification inbox is a Sidebar-anchored popover (`layers/core-ui/src/shell/NotificationPopover.tsx`: unseen dots clear on open, per-type mute, dismiss); there is no top-bar bell or global toast stream. Ambient indicators may change color, count, or animate — they cannot demand attention. Anything that needs attention routes to Conversations.
 
-**UX-1.3** First run: the SetupFlow page guides profile creation and setup (`layers/core-ui/src/pages/SetupFlow.tsx`, `FirstRunRedirect.tsx`); contextual hints (`framework/shared/src/hint.ts`) appear at key first-time moments.
+**UX-1.3** First run: the SetupFlow page guides profile creation and setup (`layers/core-ui/src/pages/SetupFlow.tsx`, `FirstRunRedirect.tsx`); contextual hints (`framework/domain-model/src/hint.ts`) appear at key first-time moments.
 
 **UX-1.4** Delivery posture (desktop-first, no native mobile, no offline): see [architecture/system-overview](../architecture/system-overview.md).
 
@@ -16,7 +16,7 @@ Behavioral UX requirements for the human interface. Shell structure and page lay
 
 **UX-2.1** The threading UI is built once and reused across every host — review items, chat items, the assistant thread, agent-to-agent threads the human is copied on (`layers/core-ui/src/components/ConversationSurface.tsx`).
 
-**UX-2.2** Review verdicts use the five-decision grammar — approve, approve-with-comments, request-changes, edit, reject (`framework/shared/src/thread.ts`). Full grammar: [thread-primitive](../human-interface-layer/thread-primitive.md).
+**UX-2.2** Review verdicts use the five-decision grammar — approve, approve-with-comments, request-changes, edit, reject (`framework/domain-model/src/thread.ts`). Full grammar: [thread-primitive](../human-interface-layer/thread-primitive.md).
 
 **UX-2.3** The assistant is just another agent — communicated with through normal threads, no special UI surface beyond the overlay entry point.
 
@@ -36,7 +36,7 @@ Primitive semantics: [notification-primitive](../human-interface-layer/notificat
 
 **UX-4.1** The Work view drills down: Work Overview (portfolio) → Team → Bet Detail → Task → session jump-out with outcome and token chips (`WorkOverview.tsx` → `WorkTeam.tsx` → `WorkBet.tsx` → `WorkTask.tsx`; TaskSheet session section). Breadcrumbs navigate back up.
 
-**UX-4.2** Bet statuses are `draft | active | completed | killed` (`framework/shared/src/types.ts`; `at_risk` boolean replaces the old behind sub-state). Lifecycle semantics: [bets-shape-commit-change-ship](../process-layer/bets-shape-commit-change-ship.md).
+**UX-4.2** Bet statuses are `draft | active | completed | killed` (`framework/domain-model/src/types.ts`; `at_risk` boolean replaces the old behind sub-state). Lifecycle semantics: [bets-shape-commit-change-ship](../process-layer/bets-shape-commit-change-ship.md).
 
 **UX-4.3** Bet creation is a page (`layers/core-ui/src/pages/WorkBetCreate.tsx`).
 

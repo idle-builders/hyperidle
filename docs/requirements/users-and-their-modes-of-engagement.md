@@ -14,7 +14,7 @@ Humans engage through six interaction modes, each with a distinct rhythm and cog
 
 **Create (minutes, proactive).** Humans are not just reviewers — they actively create:
 - **Bets** — author a markdown `description` and create bets from the Work view (`WorkBetCreate.tsx`).
-- **Knowledge** — write knowledge items at any of the 7 scopes: `factory | product | practice | team | bet | task | user` (`framework/shared/src/types.ts`; `user` = user-private).
+- **Knowledge** — write knowledge items at any of the 7 scopes: `factory | product | practice | team | bet | task | user` (`framework/domain-model/src/types.ts`; `user` = user-private).
 - **Conversations** — initiate threads with specific agents via the RecipientPicker, opened from the UI.
 - **Session dial-in** — observe a running agent session's live activity stream (**D** key, `Conversations.tsx`). Read-only, with filter tabs All | Tools | Reasoning.
 

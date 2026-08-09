@@ -8,8 +8,8 @@ Seeded in [`part-model.md`](part-model.md) (the conversation-only wiring) and un
 
 | Noun | What it is | Code |
 |---|---|---|
-| **Openable reference** | An inline pointer to an openable thing (artifact, block, review, session, entity). Renders inline as a compact embed/chip, never a bare link. | `InlineRef`, `ArtifactRef` (`framework/shared/src/thread.ts`) |
-| **Open target** | The typed routing *intent* a reference carries — a route discriminant + ids. Not a path; an intent the contract resolves. | `OpenTarget` (`framework/shared/src/part.ts`) |
+| **Openable reference** | An inline pointer to an openable thing (artifact, block, review, session, entity). Renders inline as a compact embed/chip, never a bare link. | `InlineRef`, `ArtifactRef` (`framework/domain-model/src/thread.ts`) |
+| **Open target** | The typed routing *intent* a reference carries — a route discriminant + ids. Not a path; an intent the contract resolves. | `OpenTarget` (`framework/conversation-parts/src/part.ts`) |
 | **Open contract** | The pure, stateless seam resolving an open target to one destination (a `navigate` path or a page-supplied callback) — or a documented no-op — and committing it to present via the fold. | `OpenHandler` (`part.ts`), `createOpenHandler` (`layers/core-ui/src/services/open-handler.ts`), `resolveHostRoute` (`layers/core-ui/src/services/host-route.ts`) |
 | **Open presentation (the fold)** | *How* a resolved destination presents: an origin-preserving, resizable, in-place split of the current surface (see below). Its destination half renders the resolved composition. | `SplitView` (`framework/design-system/src/SplitView.tsx`, barrel-exported) |
 

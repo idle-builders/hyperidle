@@ -25,7 +25,7 @@ A filesystem is **deliberately narrow** — **only** a file-bearing corpus the a
 | CRM (Salesforce/HubSpot) | **Tool** (AN) | live SoR; PATCH via API |
 | Cloud drive (lookup) | **Knowledge** (read) / **Tool** (write) | read via index; write via discrete create-file; no edit-and-syncback |
 
-The rule is enforced, not just documented: SoR kinds (inbox, crm, ticket_queue) are rejected at the Zod boundary on POST (`framework/shared/src/filesystem.ts`; create-route enum in `layers/core-api/src/routes/filesystems.ts`). No Drive/Dropbox two-way sync engine exists.
+The rule is enforced, not just documented: SoR kinds (inbox, crm, ticket_queue) are rejected at the Zod boundary on POST (`framework/filesystem-contract/src/filesystem.ts`; create-route enum in `layers/core-api/src/routes/filesystems.ts`). No Drive/Dropbox two-way sync engine exists.
 
 ## How it connects — registry + per-bot injection (two surfaces)
 
@@ -38,7 +38,7 @@ The Connection supplies the auth (and the `source`); the Filesystem is the file-
 
 ## Shape
 
-The `Filesystem`, `FilesystemInjection`, and `FilesystemCapture` shapes are owned by code: `framework/db/src/schema.ts` (tables + @lore) and `framework/shared/src/filesystem.ts` (wire types, `FILESYSTEM_KINDS`, `WRITEBACK_MODES`, states, `ResourceRef`). Not restated here. Two facts worth locking:
+The `Filesystem`, `FilesystemInjection`, and `FilesystemCapture` shapes are owned by code: `framework/db/src/schema.ts` (tables + @lore) and `framework/filesystem-contract/src/filesystem.ts` (wire types, `FILESYSTEM_KINDS`, `WRITEBACK_MODES`, states, `ResourceRef`). Not restated here. Two facts worth locking:
 
 - `connection_id` is a **reference by id, deliberately not a DB FK** (AO1 ⟂ AN; AN may add the FK in its own migration).
 - There is **no `agent_user_id` column on the filesystem** — single-owner was replaced by the injection mapping. Mount resolves `sessions.agentId → filesystem_injections → filesystems`, never a global path.

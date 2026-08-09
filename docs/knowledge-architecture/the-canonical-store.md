@@ -8,11 +8,11 @@ Knowledge has a core row plus app-owned projection data on a separate extension 
 
 The core row carries identity, content, scope, and concurrency control: `id`, `scope_kind` (default `factory`), `scope_id`, `topic`, `title`, `body` (markdown), `format` (`markdown` | `toon`), `status`, `version` (optimistic concurrency), `updated_by`, `created_at`, `updated_at`. Derived signals live on the projection extension table below. The authoritative shape is `framework/db/src/schema.ts`; this doc never mirrors it.
 
-`status` is the 7-value taxonomy `captured` / `provisional` / `validated` / `active` / `stale` / `archived` / **`needs_human`** (`framework/shared/src/knowledge.ts` `KNOWLEDGE_STATUSES`). `needs_human` marks items a human must resolve before they can progress — it is a pre-validation state, never exported.
+`status` is the 7-value taxonomy `captured` / `provisional` / `validated` / `active` / `stale` / `archived` / **`needs_human`** (`framework/domain-model/src/knowledge.ts` `KNOWLEDGE_STATUSES`). `needs_human` marks items a human must resolve before they can progress — it is a pre-validation state, never exported.
 
 ### Scope (kernel)
 
-Every knowledge item attaches to exactly one entity via `scope_kind + scope_id`. Scope determines where the item lives and who naturally sees it. `SCOPE_KINDS` is a closed 7-value enum (`framework/shared/src/types.ts:181-191`):
+Every knowledge item attaches to exactly one entity via `scope_kind + scope_id`. Scope determines where the item lives and who naturally sees it. `SCOPE_KINDS` is a closed 7-value enum (`framework/domain-model/src/types.ts:181-191`):
 
 - `factory` — strategic decisions, principles, constraints across all products. No `scope_id`.
 - `product` — product-specific context and architecture decisions. `scope_id` = product id.
@@ -22,7 +22,7 @@ Every knowledge item attaches to exactly one entity via `scope_kind + scope_id`.
 - `task` — notes, findings, failures for a specific task. `scope_id` = task id.
 - `user` — personal notes, private scratch. No `scope_id`.
 
-`factory` and `user` are the two scopes that never need an id (`SCOPES_REQUIRING_ID`). Adding a scope kind requires a concept-doc update first — the enum is closed by contract (@lore Q2, `framework/shared/src/types.ts:166-180`).
+`factory` and `user` are the two scopes that never need an id (`SCOPES_REQUIRING_ID`). Adding a scope kind requires a concept-doc update first — the enum is closed by contract (@lore Q2, `framework/domain-model/src/types.ts:166-180`).
 
 Scope is mutable — a user can change an item's scope (e.g., `user` → `product` to share a private note) via the scope-change dialog. Every field edit, including scope changes, lands in `knowledge_edit_log` (`framework/db/src/schema.ts:912-922`), which deliberately outlives its subject (RESTRICT, not cascade — an agent can never wipe its own authored history).
 
@@ -32,7 +32,7 @@ Derived signals live in a separate table, 1:1 with the core row by `knowledge_it
 
 ### Layer
 
-App-runtime assigns a layer to items that participate in the maturity flow — layer definitions live in [the-five-layers](the-five-layers.md). Layer is **optional**; the mapping is `SCOPE_TO_LAYER` (`framework/shared/src/knowledge.ts:6-14`):
+App-runtime assigns a layer to items that participate in the maturity flow — layer definitions live in [the-five-layers](the-five-layers.md). Layer is **optional**; the mapping is `SCOPE_TO_LAYER` (`framework/domain-model/src/knowledge.ts:6-14`):
 
 | Scope kind | Layer |
 |---|---|
