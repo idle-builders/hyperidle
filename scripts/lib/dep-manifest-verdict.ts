@@ -76,6 +76,12 @@ export const JUSTIFIED_UNUSED: ReadonlyArray<{
 		reason:
 			"Marked external in __scripts__/bundle.ts and shipped verbatim by electron-builder.yml; the WASM bundle is loaded from node_modules at runtime, never imported.",
 	},
+	{
+		pkg: "@hyperidle/agent-orchestration",
+		dependency: "@types/node",
+		reason:
+			"AU31 §5/§12: services/core-api-port-composition.ts reads process.env.HYPERIDLE_API_KEY (a global, not an explicit `node:` import), so usesNodeBuiltins never sees it — the same reason tsconfig.json's own `types: [\"node\"]` had to be declared explicitly for this package.",
+	},
 ];
 
 const TYPES_PREFIX = "@types/";
