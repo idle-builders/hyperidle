@@ -18,16 +18,16 @@ import type { ChildProcess } from "node:child_process";
 import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import type { ReturnEnforcementChannel } from "@hyperidle/harness-capability";
 import type {
 	HarnessAdapter,
 	HarnessCapabilities,
 	HarnessEvent,
-	ReturnEnforcementChannel,
 	SessionConfig,
 	SessionHandle,
 	SessionMetrics,
 	SessionResult,
-} from "@hyperidle/shared";
+} from "@hyperidle/harness-protocol";
 import {
 	isRequiredReturnAction,
 	MAX_FORCE_RETURNS,
@@ -35,22 +35,9 @@ import {
 	opencodeToolName,
 	preMapClaudeEvent,
 	shouldForceReturn,
-} from "@hyperidle/shared";
+} from "@hyperidle/harness-protocol";
 
 import { createReturnEnforcement } from "./return-enforcement.js";
-
-/**
- * S4: Re-export CredentialResolver for this module's own consumers.
- *
- * @lore AU19 Increment 4: was `export type { CredentialResolver } from
- * "@hyperidle/connections"` — `harness-registry` (agent-execution) may not
- * import `@hyperidle/connections` (a core-api domain Service), even
- * type-only (Mechanism B). `CredentialResolver` is now sourced from
- * `@hyperidle/shared` (the db-free cross-boundary type home, §7.3);
- * `@hyperidle/connections` re-exports the same interface unchanged for its
- * own `EnvCredentialResolver`/`DbCredentialResolver` implementations.
- */
-export type { CredentialResolver } from "@hyperidle/shared";
 
 /**
  * @lore claude-cli-adapter: Claude return enforcement is the `settings-claude`

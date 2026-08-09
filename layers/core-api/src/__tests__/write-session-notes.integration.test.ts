@@ -14,7 +14,8 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { EventBus, type ToolContext } from "@hyperidle/shared";
+import { EventBus } from "@hyperidle/event-bus";
+import type { ToolContext } from "@hyperidle/tool-protocol";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";

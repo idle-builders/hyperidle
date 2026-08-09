@@ -6,27 +6,13 @@
  * release() decrements the count when a session ends.
  */
 
-import type {
-	AdapterInfo,
-	AdapterMeta,
-	HarnessAdapter,
-	HarnessCapabilityDescriptor,
-} from "@hyperidle/shared";
+import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
+import type { AdapterInfo, AdapterMeta, HarnessAdapter } from "@hyperidle/harness-protocol";
 import { BuiltinHarnessAdapter } from "./builtin-harness-adapter.js";
 import { type CliAdapterConfig, CliHarnessAdapter } from "./cli-harness-adapter.js";
 import { createCapabilityCatalog } from "./harness-capability-descriptors.js";
 import type { HarnessDiscoveryInput } from "./harness-discovery.js";
 import { discoverLocalHarnesses, type HarnessDiscoveryResult } from "./harness-discovery.js";
-
-/**
- * @lore AU19 Increment 4: `AdapterMeta`/`AdapterInfo` reclassified to
- * `@hyperidle/shared` (re-exported here unchanged) — `packages/server`'s
- * (pre-Layer-split, core-api-side) `harness-capability-read-model.ts` needs
- * these types to describe its own `HarnessCapabilityReader` port without
- * depending on this execution Service (Mechanism B). This Service stays the
- * sole constructor of these values.
- */
-export type { AdapterInfo, AdapterMeta } from "@hyperidle/shared";
 
 /** Internal pool entry. */
 interface PoolEntry {

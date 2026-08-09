@@ -59,6 +59,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import { test as dbTest } from "@hyperidle/db/test-fixtures";
+import { EventBus } from "@hyperidle/event-bus";
 import {
 	createLocalAdapterPool,
 	createReturnEnforcement,
@@ -78,7 +79,6 @@ import {
 	type SupportedHarnessName,
 } from "@hyperidle/harness-registry/test-utils";
 import { drainIntents } from "@hyperidle/session-requests";
-import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect } from "vitest";

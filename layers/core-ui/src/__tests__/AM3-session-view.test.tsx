@@ -9,8 +9,9 @@
  * renderer, no fixture fork (AM3 hard-rule: one message renderer).
  */
 
-import type { ActivityEntry, OpenHandler, Part, PartAuthor } from "@hyperidle/shared";
-import { derivePartsFromSession } from "@hyperidle/shared";
+import type { OpenHandler, Part, PartAuthor } from "@hyperidle/conversation-parts";
+import { derivePartsFromSession } from "@hyperidle/conversation-parts";
+import type { ActivityEntry } from "@hyperidle/domain-model";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ReasoningPart } from "../components/parts/ReasoningPart.js";
@@ -346,7 +347,7 @@ describe("SessionView — ChangedFilesPanel", () => {
 
 describe("SessionView — composer pills", () => {
 	it("renders effort pill when descriptor has effort option", () => {
-		const descriptor: import("@hyperidle/shared").HarnessCapabilityDescriptor = {
+		const descriptor: import("@hyperidle/harness-capability").HarnessCapabilityDescriptor = {
 			type: "claude-code",
 			name: "Claude Code",
 			kind: "local",

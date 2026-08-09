@@ -8,7 +8,7 @@
  *  - renders +N more affordance when truncated
  */
 
-import type { ArtifactThreadSummaryResponse } from "@hyperidle/shared";
+import type { ArtifactThreadSummaryResponse } from "@hyperidle/domain-model";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";

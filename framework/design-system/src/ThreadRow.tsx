@@ -1,5 +1,5 @@
 // hearth-internal-padding
-import type { AgentOperationalStatus, HostKind } from "@hyperidle/shared";
+import type { AgentOperationalStatus, HostKind } from "@hyperidle/domain-model";
 import type { JSX, ReactNode } from "react";
 import { clickableProps } from "./clickable";
 import { dsProps } from "./ds-attrs";

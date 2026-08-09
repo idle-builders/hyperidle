@@ -38,8 +38,8 @@
 
 import type { ChildProcess, spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
-import type { HarnessEvent, SessionConfig } from "@hyperidle/shared";
-import { FORCE_RETURN_MESSAGE, MAX_FORCE_RETURNS } from "@hyperidle/shared";
+import type { HarnessEvent, SessionConfig } from "@hyperidle/harness-protocol";
+import { FORCE_RETURN_MESSAGE, MAX_FORCE_RETURNS } from "@hyperidle/harness-protocol";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CliAdapterConfig } from "../cli-harness-adapter.js";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";

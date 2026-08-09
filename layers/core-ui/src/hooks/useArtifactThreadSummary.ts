@@ -11,7 +11,7 @@
  * refresh the summary until the next navigation (acceptable for v1).
  */
 
-import type { ArtifactThreadSummaryResponse } from "@hyperidle/shared";
+import type { ArtifactThreadSummaryResponse } from "@hyperidle/domain-model";
 import { useCallback, useMemo, useState } from "react";
 import { useFetch } from "./useFetch.js";
 

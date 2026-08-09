@@ -21,6 +21,8 @@
  * call the new unified API; the `{state}` field in its callers becomes `{to}`.
  */
 import type { AgentSessionRequest, HyperIdleDb } from "@hyperidle/db";
+import type { AgentSessionSourceKind } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import {
 	claimSessionRequest,
 	drainIntents,
@@ -31,7 +33,6 @@ import {
 	renewClaim,
 	transitionSessionRequest,
 } from "@hyperidle/session-requests";
-import type { AgentSessionSourceKind, EventBus } from "@hyperidle/shared";
 import { vi } from "vitest";
 import type { RuntimePorts } from "../contracts.js";
 

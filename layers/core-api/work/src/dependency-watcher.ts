@@ -1,5 +1,6 @@
 import type { WriteExecutor } from "@hyperidle/db";
-import { createLogger, type EventBus } from "@hyperidle/shared";
+import { createLogger } from "@hyperidle/diagnostics";
+import type { EventBus } from "@hyperidle/event-bus";
 import type { AgentWorkIntentRecorder } from "./ports.js";
 import type { TaskRunResolverDeps } from "./task-run-resolver.js";
 import { transitionTask } from "./task-state-machine.js";

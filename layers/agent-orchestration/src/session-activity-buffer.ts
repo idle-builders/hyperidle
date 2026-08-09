@@ -20,7 +20,7 @@
  * @lore AU31 §2.7 (B1): relocated back into `layers/agent-orchestration/src/`
  * — this SUPERSEDES AU21 Decision E's placement rationale (founder-ratified).
  * [P8] proved zero execution coupling: the class imports only
- * `@hyperidle/shared` types/`EventBus`, touches no DB/Drizzle, and its only
+ * framework types/`EventBus`, touches no DB/Drizzle, and its only
  * production consumers were always agent-orchestration's own boot and routes
  * — the buffer is judged by the domain it serves, not by where its raw event
  * data originates. Deletes the tree's single `layer → layer (other) [import]`
@@ -36,14 +36,14 @@
 
 import type {
 	ActivityEntry,
-	EventBus,
 	SessionEndedEvent,
 	ToolCallRecordedEvent,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 
 const MAX_PER_SESSION = 100;
 
-// AM3: ActivityEntry is now the canonical type from @hyperidle/shared/session-activity.
+// AM3: ActivityEntry is now the canonical type from @hyperidle/domain-model.
 // ToolCallData is preserved as a re-export for the server-side test that imports it.
 
 // Eviction delay after session ends (ms). Entries are cleaned up after this window

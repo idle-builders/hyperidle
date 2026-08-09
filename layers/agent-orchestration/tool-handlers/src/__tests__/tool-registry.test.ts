@@ -13,8 +13,9 @@
  * cross-layer import this relocation exists to remove).
  */
 
-import type { RegisteredTool, ToolContext } from "@hyperidle/shared";
-import { EventBus, ok } from "@hyperidle/shared";
+import { EventBus } from "@hyperidle/event-bus";
+import { ok } from "@hyperidle/tool-protocol";
+import type { RegisteredTool, ToolContext } from "@hyperidle/tool-protocol";
 import { describe, expect, it } from "vitest";
 import z from "zod";
 import { buildToolRegistry } from "../tool-registry.js";

@@ -15,7 +15,7 @@
  * messagesByBlockId recomputes; the Block re-renders the anchored slot.
  */
 
-import type { AnchorRef, HostKind, InlineRef, VerdictDecision } from "@hyperidle/shared";
+import type { AnchorRef, HostKind, InlineRef, VerdictDecision } from "@hyperidle/domain-model";
 import { apiFetch } from "./api-fetch.js";
 
 /**

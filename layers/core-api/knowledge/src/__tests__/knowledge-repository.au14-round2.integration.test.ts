@@ -18,8 +18,8 @@ import {
 	knowledgeItems,
 } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import type { KernelKnowledgeStatus } from "@hyperidle/shared";
-import { eq, sql } from "drizzle-orm";
+import type { KernelKnowledgeStatus } from "@hyperidle/domain-model";
+import { eq } from "drizzle-orm";
 import { create as createKnowledgeItem, remove, transition } from "../knowledge-repository.js";
 import type { KnowledgeStatus } from "../types.js";
 

@@ -5,7 +5,7 @@
  * VPS/cloud profiles fail fast when the key is unset.
  */
 
-import { LAPTOP_DEV_API_KEY, validateStartupEnv } from "@hyperidle/shared";
+import { LAPTOP_DEV_API_KEY, validateStartupEnv } from "@hyperidle/host-process";
 import { afterEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 
 describe("I2 A6 — validateStartupEnv", () => {

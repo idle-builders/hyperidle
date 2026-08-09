@@ -5,7 +5,7 @@
  * has MentionRef entries in refs[]. Messages without mentions render unchanged.
  */
 
-import type { Message } from "@hyperidle/shared";
+import type { Message } from "@hyperidle/domain-model";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { CommentRow } from "../../../../framework/design-system/src/CommentRow.js";

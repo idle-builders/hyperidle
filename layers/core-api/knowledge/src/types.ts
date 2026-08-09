@@ -1,9 +1,9 @@
 /**
  * App runtime knowledge taxonomy, scoring, and propagation types.
  *
- * @lore O1: these types were moved from @hyperidle/shared as part of the
+ * @lore O1: these types were moved from @hyperidle/domain-model as part of the
  * runtime split. Shared UI code imports public app vocabulary from
- * @hyperidle/shared; server app runtime keeps its local compatibility types here.
+ * @hyperidle/domain-model; server app runtime keeps its local compatibility types here.
  */
 
 // --- Knowledge taxonomy ---

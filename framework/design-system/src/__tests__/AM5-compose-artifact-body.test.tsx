@@ -173,32 +173,3 @@ describe("AC-COLLAPSE: getRenderer / kind renderers removed from barrel", () => 
 		expect(DesignSystem.composeArtifactBody).toBeDefined();
 	});
 });
-
-describe("code.ts purified schema (K0/K4)", () => {
-	it("codePreviewSchema accepts pure {path,lang,text} shape", async () => {
-		const { codePreviewSchema } = await import("@hyperidle/shared");
-		const result = codePreviewSchema.safeParse({
-			kind: "code",
-			path: "src/index.ts",
-			lang: "typescript",
-			text: "const x = 1;",
-		});
-		expect(result.success).toBe(true);
-	});
-
-	it("codePreviewSchema rejects old {file,hunks} shape (K0 violation removed)", async () => {
-		const { codePreviewSchema } = await import("@hyperidle/shared");
-		const result = codePreviewSchema.safeParse({
-			kind: "code",
-			file: "src/index.ts",
-			hunks: [],
-		});
-		expect(result.success).toBe(false);
-	});
-
-	it("code.ts displayTitle returns path (not file)", async () => {
-		const { codeKind } = await import("@hyperidle/shared");
-		const preview = { kind: "code", path: "src/hello.ts", lang: "ts", text: "const x = 1;" };
-		expect(codeKind.displayTitle(preview)).toBe("src/hello.ts");
-	});
-});

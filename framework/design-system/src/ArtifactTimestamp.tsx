@@ -1,4 +1,4 @@
-import { absoluteDate, relativeLong } from "@hyperidle/shared";
+import { absoluteDate, relativeLong } from "@hyperidle/presentation-format";
 import type { JSX } from "react";
 import { dsProps } from "./ds-attrs.js";
 

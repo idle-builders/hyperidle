@@ -14,7 +14,11 @@ import {
 	users,
 } from "@hyperidle/db";
 import { createTestDb, type TestDbHandle } from "@hyperidle/db/testing";
-import { BUILTIN_PLUGIN_ID, CONFIGURATION_KINDS, type ConfigurationKind } from "@hyperidle/shared";
+import {
+	BUILTIN_PLUGIN_ID,
+	CONFIGURATION_KINDS,
+	type ConfigurationKind,
+} from "@hyperidle/domain-model";
 import { eq, inArray, isNull } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import {

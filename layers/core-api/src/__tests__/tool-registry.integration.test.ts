@@ -5,13 +5,9 @@ import {
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
 import type { HyperIdleDb } from "@hyperidle/db";
-import type {
-	BuildToolRegistryOptions,
-	EventBus,
-	ToolContext,
-	ToolRegistry,
-} from "@hyperidle/shared";
+import type { EventBus } from "@hyperidle/event-bus";
 import { buildToolRegistry as buildToolRegistryFromDefinitions } from "@hyperidle/tool-handlers";
+import type { BuildToolRegistryOptions, ToolContext, ToolRegistry } from "@hyperidle/tool-protocol";
 import { describe, expect } from "vitest";
 import { test as baseTest } from "../__testing__/test-fixtures.js";
 

@@ -46,7 +46,6 @@ const TARGETS_BY_KIND: Readonly<Record<Kind, readonly string[]>> = {
 		"service",
 		"application",
 		"tooling",
-		"framework/shared",
 		"framework/api-contract",
 		"framework/design-system",
 		"framework/db",
@@ -71,7 +70,6 @@ const TARGETS_BY_KIND: Readonly<Record<Kind, readonly string[]>> = {
 		"service",
 		"application",
 		"tooling",
-		"framework/shared",
 		"framework/api-contract",
 		"framework/design-system",
 		"framework/db",
@@ -148,7 +146,7 @@ function makeTarget(labelText: string, source: Crossing["source"], kind: Kind): 
 		case "tooling":
 			return { sort: "package", name: "eval", role: "tooling" };
 		case "framework":
-			return { sort: "package", name: "shared", role: "framework" };
+			return { sort: "package", name: "another-framework", role: "framework" };
 		default:
 			return { sort: "surface", surface: labelText };
 	}

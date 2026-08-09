@@ -58,11 +58,11 @@ Rules, in match order:
 | 5 | `kind` chat | Conversations |
 | 6 | everything else | Conversations (default) |
 
-Strategic / rule-shaped items — about how the factory *operates*, not what it's doing — belong in the assistant's thread: the pinned user-hosted thread classifies as "assistant" (`framework/shared/src/thread.ts`).
+Strategic / rule-shaped items — about how the factory *operates*, not what it's doing — belong in the assistant's thread: the pinned user-hosted thread classifies as "assistant" (`framework/domain-model/src/thread.ts`).
 
 ## 3. The less-interruptive-view principle
 
-When in doubt, facilitators err toward the less interruptive view. Conversations is the most expensive surface — it can interrupt a human's day. Items that don't earn a push notification shouldn't push there: only review items with `risk_tier` ≥ medium or `blocking` earn a `review_request` push; low-risk, non-blocking reviews demote to ambient (`framework/shared/src/notifications.ts`). Notification cadence and queue mechanics live in [notification-primitive.md](notification-primitive.md).
+When in doubt, facilitators err toward the less interruptive view. Conversations is the most expensive surface — it can interrupt a human's day. Items that don't earn a push notification shouldn't push there: only review items with `risk_tier` ≥ medium or `blocking` earn a `review_request` push; low-risk, non-blocking reviews demote to ambient (`framework/domain-model/src/notifications.ts`). Notification cadence and queue mechanics live in [notification-primitive.md](notification-primitive.md).
 
 ## 4. Routing is not a gate
 

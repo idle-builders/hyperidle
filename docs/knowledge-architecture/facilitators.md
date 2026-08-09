@@ -8,15 +8,15 @@ Most agent systems have workers (agents that do things) and maybe an orchestrato
 
 | Layer | Agent | What they organize |
 |-------|-------|--------------------|
-| L4 Factory | **System assistant** (factory-level singleton, `framework/shared/src/factory-roster.ts:124-127`) | Factory-level knowledge above the per-product teams |
+| L4 Factory | **System assistant** (factory-level singleton, `framework/factory-defaults/src/factory-roster.ts:124-127`) | Factory-level knowledge above the per-product teams |
 | L3 Practice | **Facilitator** (one per community: build/product/growth/ops, plus facilitation itself) | Role-specific practices, anti-patterns, conflicts, community-wide learnings |
 | L2 Product | **Product Manager** (one per product) | Product cycles, team coordination, bet shaping, cross-function handoffs — and its own facilitation quality |
 
-In code: role `facilitator`, category `strategy` (`framework/shared/src/agent-roles.ts:150` — renamed from `practice_facilitator`, @lore AD8c). The default factory roster seeds five facilitators plus the system-assistant singleton (`factory-roster.ts:92-128`); the minimal strategy roster concept no longer exists — the roster is a fixed constant (AU28 step 6: the swappable-roster injection seam was removed as dead, zero-production-caller code). The Product Manager is a `team`-category agent ("Team lead", `agent-roles.ts:65-72`) — its facilitator hat is a conceptual framing, not a code category. The assistant is a per-user individual agent with guardrails (`agent-roles.ts:187-197`, @lore AD8b). Role identity and the full taxonomy live in [agent-model](../agent-layer/agent-model.md).
+In code: role `facilitator`, category `strategy` (`framework/domain-model/src/agent-roles.ts:150` — renamed from `practice_facilitator`, @lore AD8c). The default factory roster seeds five facilitators plus the system-assistant singleton (`factory-roster.ts:92-128`); the minimal strategy roster concept no longer exists — the roster is a fixed constant (AU28 step 6: the swappable-roster injection seam was removed as dead, zero-production-caller code). The Product Manager is a `team`-category agent ("Team lead", `agent-roles.ts:65-72`) — its facilitator hat is a conceptual framing, not a code category. The assistant is a per-user individual agent with guardrails (`agent-roles.ts:187-197`, @lore AD8b). Role identity and the full taxonomy live in [agent-model](../agent-layer/agent-model.md).
 
 Facilitators don't do the work itself — no code, no copy, no deploys. Worker agents (builder, growth, ops, …) do that. Facilitators coordinate, organize, score, and route: the factory's nervous system.
 
-Worker agents sit in a **matrix**: each reports vertically to its Product Manager and belongs horizontally to a community of practice led by a facilitator — implemented as the `community` field per catalog role plus `communityForRole()` (`agent-roles.ts:242`); communities are `build/product/growth/ops/facilitation` (`framework/shared/src/factory-roster.ts`).
+Worker agents sit in a **matrix**: each reports vertically to its Product Manager and belongs horizontally to a community of practice led by a facilitator — implemented as the `community` field per catalog role plus `communityForRole()` (`agent-roles.ts:242`); communities are `build/product/growth/ops/facilitation` (`framework/factory-defaults/src/factory-roster.ts`).
 
 The fifth facilitator — for **facilitation itself** — means the facilitators form their own community of practice (`seed-agent-pf-facilitation`). Turtles stop there.
 
@@ -54,7 +54,7 @@ STALE          ─┐
 ARCHIVED
 ```
 
-Implemented as `KNOWLEDGE_STATUSES` (`framework/shared/src/knowledge.ts:20-28`) — the full 7-value lifecycle is the single kernel-owned status set; there is no separate, narrower kernel enum anymore (the old kernel/strategy split on status was retired along with the fabric package). `captured`, `provisional`, and `needs_human` are **pre-validation drafts**.
+Implemented as `KNOWLEDGE_STATUSES` (`framework/domain-model/src/knowledge.ts:20-28`) — the full 7-value lifecycle is the single kernel-owned status set; there is no separate, narrower kernel enum anymore (the old kernel/strategy split on status was retired along with the fabric package). `captured`, `provisional`, and `needs_human` are **pre-validation drafts**.
 
 ### Auto-promotion
 
@@ -70,7 +70,7 @@ The self-improvement loop is the critical move. Without it, the Product Manager 
 
 ## The org stays flat
 
-The agent side is **always flat**: one layer of product teams, each with its own Product Manager, under one factory-level system assistant. There is never a business-facilitator or any middle-management agent layer — `AGENT_ROLE_CATALOG` has no such role (`agent-roles.ts:44-198`), and scope kinds include `product` but no `business` (`SCOPE_KINDS`, `framework/shared/src/types.ts:181-189`).
+The agent side is **always flat**: one layer of product teams, each with its own Product Manager, under one factory-level system assistant. There is never a business-facilitator or any middle-management agent layer — `AGENT_ROLE_CATALOG` has no such role (`agent-roles.ts:44-198`), and scope kinds include `product` but no `business` (`SCOPE_KINDS`, `framework/domain-model/src/types.ts:181-189`).
 
 A product team owns *a unit of value* — standalone product or part of a larger multi-product business — but the business dimension lives as human-maintained metadata, never as a nested agent hierarchy. **Business leaders are always the humans:** suite-level strategy, pricing, positioning, bundling.
 

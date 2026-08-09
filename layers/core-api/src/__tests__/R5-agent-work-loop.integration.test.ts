@@ -32,7 +32,8 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import type { EventBus, ToolContext } from "@hyperidle/shared";
+import type { EventBus } from "@hyperidle/event-bus";
+import type { ToolContext } from "@hyperidle/tool-protocol";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect } from "vitest";

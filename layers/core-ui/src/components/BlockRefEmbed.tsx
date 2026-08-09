@@ -16,7 +16,7 @@
  */
 
 import { ErrorState, renderPayload, Skeleton } from "@hyperidle/design-system";
-import type { BlockHostKind } from "@hyperidle/shared";
+import type { BlockHostKind } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { useBlockResolution } from "../hooks/useBlockResolution.js";
 

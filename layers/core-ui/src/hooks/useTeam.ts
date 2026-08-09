@@ -11,7 +11,7 @@
  * The fetchCount trick is an intentional trigger pattern — biome suppressed below.
  */
 
-import type { TeamDetail } from "@hyperidle/shared";
+import type { TeamDetail } from "@hyperidle/domain-model";
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 

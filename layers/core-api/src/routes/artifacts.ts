@@ -9,12 +9,12 @@ import {
 	type Artifact,
 	type ArtifactPage,
 	artifactPreviewSchema,
-	type EventBus,
 	fallbackPreviewSchema,
 	isRegisteredKind,
 	OLD_KIND_MAP,
-} from "@hyperidle/shared";
-import { createBodyLimit, requireBoundary, validateBody } from "@hyperidle/shared/http";
+} from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
+import { createBodyLimit, requireBoundary, validateBody } from "@hyperidle/http-middleware";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";

@@ -18,10 +18,12 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import type { SessionEndedEvent } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import { resolveReviewRecipients } from "@hyperidle/org";
 import { type ReviewPorts, registerReviewSubscriptions } from "@hyperidle/review";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
-import type { EventBus, SessionEndedEvent, ToolContext } from "@hyperidle/shared";
+import type { ToolContext } from "@hyperidle/tool-protocol";
 import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { getTaskRiskTierByTaskId } from "@hyperidle/work";

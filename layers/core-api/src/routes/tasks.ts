@@ -1,9 +1,9 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
+import { API_ERROR_CODES, TASK_OUTCOME_VERDICTS, TASK_STATES } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
+import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/http-middleware";
 import type { PolicySessionContext } from "@hyperidle/policy";
-import type { EventBus } from "@hyperidle/shared";
-import { API_ERROR_CODES, TASK_OUTCOME_VERDICTS, TASK_STATES } from "@hyperidle/shared";
-import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/shared/http";
 import * as work from "@hyperidle/work";
 import { transitionTask } from "@hyperidle/work";
 import { Hono } from "hono";

@@ -11,9 +11,9 @@ import {
 	knowledgeEditLog,
 	knowledgeItems,
 } from "@hyperidle/db";
+import type { ItemCreatedEvent, KnowledgeUpdatedEvent } from "@hyperidle/domain-model";
 import { recomputeAttention } from "@hyperidle/knowledge";
 import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
-import type { ItemCreatedEvent, KnowledgeUpdatedEvent } from "@hyperidle/shared";
 import * as work from "@hyperidle/work";
 import { eq, like } from "drizzle-orm";
 import { describe, expect } from "vitest";

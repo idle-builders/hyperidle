@@ -34,8 +34,9 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import { EventBus } from "@hyperidle/event-bus";
 import { drainIntents } from "@hyperidle/session-requests";
-import { EventBus, type ToolContext } from "@hyperidle/shared";
+import type { ToolContext } from "@hyperidle/tool-protocol";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";

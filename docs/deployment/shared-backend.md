@@ -15,7 +15,7 @@ the desktop connects to a `serverUrl` and starts no embedded server.
 
 - **Profile:** runs `HYPERIDLE_PROFILE=cloud` (Postgres via `DATABASE_URL`,
   network-exposed, mandatory `HYPERIDLE_API_KEY` —
-  `framework/shared/src/validate-env.ts`). No new profile is introduced. Cloud
+  `framework/host-process/src/validate-env.ts`). No new profile is introduced. Cloud
   profile internals: [self-hosting.md](./self-hosting.md).
 - **Stateless compute:** all durable state in the shared Postgres schema; pod
   rootfs read-only, writes go only to the `/tmp` and `/data` emptyDir mounts

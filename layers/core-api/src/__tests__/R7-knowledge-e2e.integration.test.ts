@@ -26,9 +26,11 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import { EventBus } from "@hyperidle/event-bus";
 import { assembleSessionKnowledge } from "@hyperidle/knowledge";
-import type { BakedContextBundle } from "@hyperidle/shared";
-import { EventBus, type ToolContext, toBakedContextKnowledgeItems } from "@hyperidle/shared";
+import type { ToolContext } from "@hyperidle/tool-protocol";
+import type { BakedContextBundle } from "@hyperidle/work-intent-port";
+import { toBakedContextKnowledgeItems } from "@hyperidle/work-intent-port";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect } from "vitest";

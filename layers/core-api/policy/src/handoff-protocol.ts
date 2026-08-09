@@ -3,11 +3,11 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	canTransitionTaskState,
 	type DomainEvent,
-	type EventBus,
 	TaskInvalidTransitionError,
 	type TaskState,
 	type TaskStateChangedEvent,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import type { PolicyDeps, PolicySessionContext } from "./ports.js";
 
 type HandoffDeps = {

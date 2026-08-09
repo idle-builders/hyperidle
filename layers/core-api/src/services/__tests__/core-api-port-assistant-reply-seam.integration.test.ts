@@ -19,7 +19,9 @@ import {
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
 import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
-import { EventBus, type ThreadMessageAppendedEvent, type ToolContext } from "@hyperidle/shared";
+import type { ThreadMessageAppendedEvent } from "@hyperidle/domain-model";
+import { EventBus } from "@hyperidle/event-bus";
+import type { ToolContext } from "@hyperidle/tool-protocol";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { describe, expect, vi } from "vitest";

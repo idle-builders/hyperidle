@@ -10,16 +10,13 @@
  * displays under the Team label). "Private" maps to user scope (only visible to
  * the creator).
  *
- * @lore AV3: scopeKindToLabel promoted to @hyperidle/shared as SSOT. This file
- * re-exports it so all 4 existing web callers (KnowledgeDetail.tsx,
- * ScopeChangeDialog.tsx, AE1-scope-labels.test.ts, KnowledgeDetail.af13.test.tsx)
- * continue to import from this path with no churn.
+ * @lore AV3: scopeKindToLabel lives in the substrate as SSOT. @lore AU34: this file used to
+ * re-export it so web callers could keep one import path; that republication put a narrow-audience
+ * name back on a wider surface, so the four callers name the substrate directly. What is left here
+ * is what this file actually owns — the pill and picker option lists.
  */
 
-import type { ScopeKind } from "@hyperidle/shared";
-
-// AV3: Re-export from shared SSOT — web callers import from here, function lives in shared.
-export { scopeKindToLabel } from "@hyperidle/shared";
+import type { ScopeKind } from "@hyperidle/domain-model";
 
 /** One entry in the knowledge list filter pill row. */
 export interface ScopePillOption {

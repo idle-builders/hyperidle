@@ -34,9 +34,9 @@ import {
 	listHeldConnectionsForProvisioning,
 	ServiceConnectionResolver,
 } from "@hyperidle/connections";
+import { encryptCredentialValue } from "@hyperidle/credential-access";
 import { serviceConnections, users } from "@hyperidle/db";
 import { applyProvisioningPlan, buildProvisioningPlan } from "@hyperidle/run-orchestration";
-import { encryptCredentialValue } from "@hyperidle/shared/crypto";
 import { eq } from "drizzle-orm";
 import {
 	afterEach,

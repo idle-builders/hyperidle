@@ -1,4 +1,4 @@
-import type { AnchorRef, ProposedCallStatus, VerdictDecision } from "@hyperidle/shared";
+import type { AnchorRef, ProposedCallStatus, VerdictDecision } from "@hyperidle/domain-model";
 import type { ReviewArtifact, ReviewSubject } from "./review-artifact.js";
 
 export interface ReviewCommentRef {

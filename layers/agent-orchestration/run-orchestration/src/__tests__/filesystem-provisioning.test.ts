@@ -20,7 +20,8 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { EventBus, Filesystem, FilesystemMounter } from "@hyperidle/shared";
+import type { EventBus } from "@hyperidle/event-bus";
+import type { Filesystem, FilesystemMounter } from "@hyperidle/filesystem-contract";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 // biome-ignore lint/correctness/noUnresolvedImports: RED phase — relocated module does not exist yet in this pass.
 import { startWatcher } from "../file-watcher.js";

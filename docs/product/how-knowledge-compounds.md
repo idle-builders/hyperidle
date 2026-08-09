@@ -32,7 +32,7 @@ Both projections read and write the same store. The web Knowledge pages hit the 
 | Dimension | Typical agent memory | HyperIdle knowledge |
 |-----------|---------------------|-------------------|
 | **Structure** | Strings in a vector index | Scope, status, topic, lifecycle in the canonical table; layer, confidence, scores in the app projection |
-| **Cross-product** | Per-agent or per-project silo | L3 practice layer shared across all products by design (`SCOPE_KINDS`, `framework/shared/src/types.ts:181`) |
+| **Cross-product** | Per-agent or per-project silo | L3 practice layer shared across all products by design (`SCOPE_KINDS`, `framework/domain-model/src/types.ts:181`) |
 | **Curation** | Raw captures accumulate | Facilitators organize, score, and promote continuously |
 | **Human oversight** | AI-generated and trusted automatically | AI-generated, facilitator-organized, human-curated |
 

@@ -7,17 +7,16 @@
  * (greyed body, "Redacted by X — reason"), grouped vs ungrouped variant.
  */
 
-import type { BlockPayload, InlineRef, MentionSegment, Message } from "@hyperidle/shared";
+import { derivePayloads } from "@hyperidle/block-derivation";
+import type { BlockPayload, InlineRef, MentionSegment, Message } from "@hyperidle/domain-model";
 import {
-	clockTime,
-	derivePayloads,
 	exhaustiveAssert,
 	isRedactedPayload,
 	segmentMentions,
-	TIME_PLACEHOLDER,
 	verdictDecisionLabel,
 	verdictDecisionToStatus,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
+import { clockTime, TIME_PLACEHOLDER } from "@hyperidle/presentation-format";
 import type { JSX, ReactNode } from "react";
 import { useMemo } from "react";
 import { renderPayload } from "./block/render-payload.js";

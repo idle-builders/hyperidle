@@ -13,7 +13,7 @@ import * as path from "node:path";
 import { buildToolDefinitions } from "@hyperidle/agent-orchestration";
 import type { CoreApiTransport } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { ToolContext } from "@hyperidle/shared";
+import type { ToolContext } from "@hyperidle/tool-protocol";
 import { afterAll, describe, expect, it } from "vitest";
 
 /**

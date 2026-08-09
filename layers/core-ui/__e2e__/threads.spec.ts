@@ -4,7 +4,7 @@
  * Strategy: hermetic page.route() mocks. Each case intercepts the
  * `GET /api/threads/:id` (and any `POST /api/threads/:id/messages` follow-up)
  * the page issues and returns realistic Thread/Message payloads matching the
- * `@hyperidle/shared` discriminated union. No DB seeding, no server
+ * `@hyperidle/domain-model` discriminated union. No DB seeding, no server
  * dependency — the dev server only serves the SPA bundle. A future contract
  * drift (e.g. renaming `payload.text`) breaks these mocks the same way it
  * breaks production: the page fails to render the expected shape.
@@ -33,7 +33,7 @@
 
 import { expect, test } from "./fixtures";
 
-// --- canonical fixture builders (shape-mirrored from @hyperidle/shared) ----
+// --- canonical fixture builders (shape-mirrored from @hyperidle/domain-model) ----
 
 const NOW = "2026-04-28T10:00:00.000Z";
 const LATER = "2026-04-28T10:05:00.000Z";

@@ -64,7 +64,7 @@ async function makeIsolatedApp(userId: string): Promise<{
 		status: "active",
 		createdAt: NOW,
 	});
-	const { EventBus } = await import("@hyperidle/shared");
+	const { EventBus } = await import("@hyperidle/event-bus");
 	const app = await createTestApp({ db, eventBus: new EventBus() });
 	return { app, db, close: handle.close.bind(handle) };
 }

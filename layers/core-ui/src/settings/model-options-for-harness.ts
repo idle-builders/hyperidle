@@ -14,7 +14,7 @@
  * on-switch modelProvider reconcile — but it is not the option source.
  */
 
-import type { HarnessCapabilityDescriptor } from "@hyperidle/shared";
+import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 
 export interface ModelOption {
 	value: string;

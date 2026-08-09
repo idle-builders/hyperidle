@@ -26,6 +26,8 @@ import { randomUUID } from "node:crypto";
 import { readAgentRunConfig } from "@hyperidle/agent-run-config";
 import type { CoreApiTransport } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
+import { summarizeToolArgs } from "@hyperidle/diagnostics";
+import { EventBus } from "@hyperidle/event-bus";
 import {
 	type RunOptions,
 	type RunResult,
@@ -48,9 +50,8 @@ import {
 	sessionRunRegistry,
 	transitionSessionRequest,
 } from "@hyperidle/session-requests";
-import type { ProposedCallWorkflowPort, ToolContext, ToolRegistry } from "@hyperidle/shared";
-import { EventBus, summarizeToolArgs } from "@hyperidle/shared";
 import { buildToolRegistry as buildToolRegistryFromDefinitions } from "@hyperidle/tool-handlers";
+import type { ProposedCallWorkflowPort, ToolContext, ToolRegistry } from "@hyperidle/tool-protocol";
 import { buildCoreApiPort, unconfiguredCoreApiTransport } from "./core-api-port-composition.js";
 import { queueDeps } from "./durable-agent-queue.js";
 import { buildToolDefinitions } from "./tool-handlers-bindings.js";
@@ -218,7 +219,7 @@ function widenToToolContext(ctx: SessionLifecycleToolContext): ToolContext<Hyper
  * Same bridge-adapter idiom as the deleted `tool-provider-bindings.ts`'s own
  * `proposedCallWorkflowPort` — old method names
  * (`captureProposedCall`/`consumeTailoredGrant`/`recordOutcome`) because
- * `ProposedCallWorkflowPort<TDb>` is `@hyperidle/shared`'s own type; `db` is
+ * `ProposedCallWorkflowPort<TDb>` is `@hyperidle/tool-protocol`'s own type; `db` is
  * accepted and ignored (the seam's server side has its own `db`, from the
  * request that reaches its route, not this argument).
  */
@@ -439,7 +440,7 @@ const sessionLifecyclePort: SessionLifecycleRuntime = {
 
 // ---------------------------------------------------------------------------
 // session-lifecycle's admission/execution surface — REAL since AU19
-// Increment 3i, `@hyperidle/shared`'s `HarnessPort` (§7.4) satisfied by
+// Increment 3i, `@hyperidle/harness-protocol`'s `HarnessPort` (§7.4) satisfied by
 // `session-lifecycle-bindings.ts`'s `harnessPort` export.
 // ---------------------------------------------------------------------------
 

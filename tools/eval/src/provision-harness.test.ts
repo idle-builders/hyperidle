@@ -1,6 +1,6 @@
 import type { HyperIdleDb, User } from "@hyperidle/db";
+import type { EventBus } from "@hyperidle/event-bus";
 import type { AdapterPool } from "@hyperidle/harness-registry";
-import type { EventBus } from "@hyperidle/shared";
 import { describe, expect, it, vi } from "vitest";
 import { runEvalSession } from "./provision-harness.js";
 

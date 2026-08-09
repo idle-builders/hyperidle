@@ -18,7 +18,7 @@
  * - RosterMember.agentCategory field is added
  */
 
-import type { TeamDetail } from "@hyperidle/shared";
+import type { TeamDetail } from "@hyperidle/domain-model";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";

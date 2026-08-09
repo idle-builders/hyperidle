@@ -20,7 +20,7 @@ import { startTestRuntime } from "./run-orchestration-test-runtime.js";
 const sessionProvisioner: NonNullable<RuntimePorts["sessionProvisioner"]> = {
 	admitSession: vi.fn(async (deps, params) => {
 		if (params.taskId === "au9-fail-task") {
-			const { MissingCredentialError } = await import("@hyperidle/shared");
+			const { MissingCredentialError } = await import("@hyperidle/domain-model");
 			throw new MissingCredentialError("openrouter_api_key");
 		}
 		const requestId = params.requestContext?.requestId;
@@ -192,7 +192,7 @@ describe("explicit session production contract", () => {
 		});
 		const { startId } = (await created.json()) as { startId: string };
 		await drainIntents(queueDeps(db));
-		const eventBus = new (await import("@hyperidle/shared")).EventBus();
+		const eventBus = new (await import("@hyperidle/event-bus")).EventBus();
 		const runtime = await startTestRuntime(db, eventBus, { db, eventBus }, sessionProvisioner);
 		await runtime.dispose();
 		const poll = await app.request(`/api/sessions/starts/${startId}`, { headers });
@@ -231,7 +231,7 @@ describe("explicit session production contract", () => {
 		});
 		const { startId } = (await created.json()) as { startId: string };
 		await drainIntents(queueDeps(db));
-		const eventBus = new (await import("@hyperidle/shared")).EventBus();
+		const eventBus = new (await import("@hyperidle/event-bus")).EventBus();
 		const runtime = await startTestRuntime(db, eventBus, { db, eventBus }, sessionProvisioner);
 		await runtime.dispose();
 		const poll = await app.request(`/api/sessions/starts/${startId}`, { headers });

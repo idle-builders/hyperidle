@@ -5,14 +5,15 @@
  * Service that owns the definitions it dispatches. Its only production
  * caller was the core wrapper AU31 deleted (`services/tool-provider-
  * bindings.ts`); nothing inside this package called it.
+ *
+ * @lore AU34: the `AdapterInfo`/`AdapterMeta`/`HarnessAdapter`/
+ * `HarnessCapabilityDescriptor`/`ToolRegistry` re-export from the (now-
+ * deleted) `@hyperidle/shared` barrel had zero consumers importing them
+ * through this package — every real caller already reached them via
+ * `@hyperidle/harness-protocol`/`@hyperidle/harness-capability`/
+ * `@hyperidle/tool-protocol` directly, so the re-export is dropped rather
+ * than repointed.
  */
-export type {
-	AdapterInfo,
-	AdapterMeta,
-	HarnessAdapter,
-	HarnessCapabilityDescriptor,
-	ToolRegistry,
-} from "@hyperidle/shared";
 export {
 	type AdapterFilter,
 	AdapterPool,

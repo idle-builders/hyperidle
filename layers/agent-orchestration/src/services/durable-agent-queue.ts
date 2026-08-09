@@ -37,7 +37,7 @@
  * needed injected.
  *
  * The AC-9 (§11) cross-Layer `agentWorkIntentRecorder`/`agentWorkIntentReader`
- * singletons at the bottom are the concrete `@hyperidle/shared`-typed ports
+ * singletons at the bottom are the concrete framework-typed ports
  * `createApp`/`createServer` inject into `routes/threads.ts`/
  * `routes/sessions-routes.ts` — the only two accessors that needed the
  * Application-injection treatment (raw table access bypassing the canonical

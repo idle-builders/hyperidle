@@ -20,15 +20,15 @@
 import { findThread, insertThread, listMessages } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type {
-	EventBus,
 	HostKind,
 	Message,
 	MessageType,
 	PlainPayload,
 	RedactedPayload,
 	Thread,
-} from "@hyperidle/shared";
-import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
+} from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
+import { type HyperIdleEnv, requireBoundary } from "@hyperidle/http-middleware";
 import { findUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import { messageRowSchema, threadParticipantsSchema } from "./threads-schema.js";

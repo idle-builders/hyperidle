@@ -10,7 +10,7 @@
  * tears down both subscriptions and the interval.
  */
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { EventBus } from "@hyperidle/shared";
+import type { EventBus } from "@hyperidle/event-bus";
 import { registerLifecyclePropagation } from "./lifecycle-propagation.js";
 import { registerPolicyEngine } from "./policy-engine.js";
 import type { PolicyDeps } from "./ports.js";

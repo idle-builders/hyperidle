@@ -18,7 +18,7 @@
 
 import type { ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
-import type { HarnessEvent, SessionConfig } from "@hyperidle/shared";
+import type { HarnessEvent, SessionConfig } from "@hyperidle/harness-protocol";
 import { describe, expect, it, vi } from "vitest";
 import type { CliAdapterConfig } from "../cli-harness-adapter.js";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";

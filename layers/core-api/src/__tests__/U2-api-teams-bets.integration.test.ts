@@ -19,7 +19,7 @@
  */
 
 import { bets, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
-import { MUTABLE_BET_FIELDS } from "@hyperidle/shared";
+import { MUTABLE_BET_FIELDS } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";

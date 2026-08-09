@@ -37,7 +37,7 @@
  * All per-caller internal types, DI-port types, promotion-pipeline
  * internals, relevance/scoring internals, FTS internals, practice-meeting
  * types, and vocabulary types removed from barrel — callers use structural
- * typing or import from @hyperidle/shared directly. Target surface: ~39 exports
+ * typing or import from @hyperidle/domain-model directly. Target surface: ~39 exports
  * (functions + the two types needed for inline-typed call sites).
  */
 

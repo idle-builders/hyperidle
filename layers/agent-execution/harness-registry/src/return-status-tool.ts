@@ -26,12 +26,14 @@
 import {
 	type EnforcementRegistry,
 	MAX_FORCE_RETURNS,
+	shouldForceReturn,
+} from "@hyperidle/harness-protocol";
+import {
 	ok,
 	type RegisteredTool,
-	shouldForceReturn,
 	type ToolContext,
 	type ToolResult,
-} from "@hyperidle/shared";
+} from "@hyperidle/tool-protocol";
 import z from "zod";
 
 /** Input schema: the tool accepts an empty object (no required args). */

@@ -61,7 +61,7 @@ Shipped shape:
 - `teamId` — the owning team (Product merged into Team, U1)
 - `description` — the shaped write-up (renamed from the pre-U1 field in migration 0021)
 - `doneCondition`, `hypothesis` — explicit, revisable under review
-- `status` — **`draft | active | completed | killed`** (`BET_STATUSES`, `framework/shared/src/types.ts`); `atRisk` is a boolean sub-state, not a status
+- `status` — **`draft | active | completed | killed`** (`BET_STATUSES`, `framework/domain-model/src/types.ts`); `atRisk` is a boolean sub-state, not a status
 - `revisionLog` — every change to done condition or hypothesis, with reasoning
 - `tokensActualJson` — accumulated TokenUsage actuals
 - `outcomeVerdict` — `validated | refuted | partial | inconclusive` (AC1), null until evaluated
@@ -77,7 +77,7 @@ Shipped shape:
 
 - `betId`, `teamId`, `ownerAgentId` — owner changes via handoff
 - `title`, `description`, `doneCondition`
-- `state` — **`proposed | accepted | hold | in_progress | blocked | review | done | killed`** (`TASK_STATES`, `framework/shared/src/types.ts`)
+- `state` — **`proposed | accepted | hold | in_progress | blocked | review | done | killed`** (`TASK_STATES`, `framework/domain-model/src/types.ts`)
 - `dependencies` — Task IDs that must reach `done` first; sequences emerge from these, not from a graph
 - `artifacts` — Artifact references (Tasks are the unique producers)
 - `threadId` — **nullable**; `notes`, `auditTrail`
@@ -97,8 +97,8 @@ Shipped shape:
 - `taskId` — nullable; task-free sessions carry source correlation instead of a fabricated task
 - `agentId`
 - `modelTier` — required; tier vocabulary owned by [../agent-layer/model-routing-and-cost.md](../agent-layer/model-routing-and-cost.md)
-- `state` — **`active | paused | done | crashed`** (`SessionState`, `framework/shared/src/types.ts`)
-- `outcome` — **`completed | crashed | stopped | not_returned`** (`SessionOutcome`, `framework/shared/src/events.ts`)
+- `state` — **`active | paused | done | crashed`** (`SessionState`, `framework/domain-model/src/types.ts`)
+- `outcome` — **`completed | crashed | stopped | not_returned`** (`SessionOutcome`, `framework/domain-model/src/events.ts`)
 - `sandboxSnapshot` — pointer to sandbox state at session start
 - `notes` — what the agent did, in its own words
 - `routineId` — set when the routine scheduler created the session; routine request/run correlation is also recorded in `agent_session_requests`
@@ -120,7 +120,7 @@ A recurring trigger attached to a named agent, with persistent state across runs
 Shipped shape:
 
 - `ownerAgentId` — a named agent; `teamId` NOT NULL (every routine is team-scoped)
-- `triggerType` — **`heartbeat | calendar | event | continuous`** (`TriggerType`, `framework/shared/src/types.ts`) + `triggerConfig`
+- `triggerType` — **`heartbeat | calendar | event | continuous`** (`TriggerType`, `framework/domain-model/src/types.ts`) + `triggerConfig`
 - `skillId`, `doneCondition`
 - `stateKey` — how the routine remembers what it did last time
 - `delegationAllowed`, `humanReview`, `silent` booleans

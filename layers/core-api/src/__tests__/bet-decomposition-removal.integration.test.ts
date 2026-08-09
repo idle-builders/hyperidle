@@ -282,7 +282,7 @@ describe("the generic explicit-session-start mechanism against a bet's task stil
 		const { startId } = (await created.json()) as { startId: string };
 
 		await drainIntents(queueDeps(db));
-		const eventBus = new (await import("@hyperidle/shared")).EventBus();
+		const eventBus = new (await import("@hyperidle/event-bus")).EventBus();
 		const runtime = await startTestRuntime(db, eventBus, { db, eventBus }, sessionProvisioner);
 		await runtime.dispose();
 

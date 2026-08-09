@@ -1,6 +1,27 @@
 {
 	"extends": "../../../tsconfig.base.json",
-	"compilerOptions": { "composite": true, "outDir": "dist", "rootDir": "src", "types": ["node"] },
+	"compilerOptions": {
+		"composite": true,
+		"outDir": "dist",
+		"rootDir": "src",
+		"types": ["node"]
+	},
 	"include": ["src"],
-	"references": [{ "path": "../../../framework/shared" }]
+	"references": [
+		{
+			"path": "../../../framework/domain-model"
+		},
+		{
+			"path": "../../../framework/harness-capability"
+		},
+		{
+			"path": "../../../framework/harness-protocol"
+		},
+		{
+			"path": "../../../framework/http-middleware"
+		},
+		{
+			"path": "../../../framework/tool-protocol"
+		}
+	]
 }

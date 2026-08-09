@@ -159,7 +159,7 @@ function makeCompletedBetsGroupedResponse() {
 }
 
 function makeTeamDetailResponse() {
-	// Must match TeamDetail shape from @hyperidle/shared/team.ts
+	// Must match TeamDetail shape from @hyperidle/domain-model's team.ts
 	return {
 		team: {
 			id: TEAM_ID,

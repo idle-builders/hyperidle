@@ -1,15 +1,24 @@
 /**
  * AU28 — the compact architecture model reproduces every decided verdict.
  *
- * `governance/decided-rules.json` holds 118 verdicts the founder decided one at a time: every role
+ * `governance/decided-rules.json` holds 195 verdicts the founder decided one at a time: every role
  * pair × crossing kind, with a separate answer for the production and development worlds. They are
  * the decision artifact. `scripts/lib/governance-model.ts` is fifteen clauses that must *derive* all
- * 236 answers (118 rows × 2 worlds).
+ * 390 answers (195 rows × 2 worlds).
  *
- * The row count moved twice, by founder ruling: AU28 Ruling 14 collapsed `raw runtime` and `harness`
- * into one target, merging the two `harness-registry` capability rows that had the same verdict.
- * AU29 deleted the `db:util` and `db:bootstrap` surfaces (Ruling 12.3) along with their six rows —
- * their exports left `framework/db` entirely, so the surfaces no longer exist to have a verdict.
+ * The row count moved four times, by founder ruling: AU28 Ruling 14 collapsed `raw runtime` and
+ * `harness` into one target, merging the two `harness-registry` capability rows that had the same
+ * verdict. AU29 deleted the `db:util` and `db:bootstrap` surfaces (Ruling 12.3) along with their six
+ * rows — their exports left `framework/db` entirely, so the surfaces no longer exist to have a
+ * verdict. The substrate split added the three `framework → db:*` rows that bound the framework-to-
+ * framework widening: they are the only rows whose verdict differs between the scoped reading of that
+ * ruling and the literal one, so they are what stops a later edit widening it back by accident. The
+ * same change retired the twelve `framework/shared` rows with the surface itself — the substrate split into
+ * eighteen packages, each with its own decided audience, so the blanket those twelve recorded has no
+ * target left to name — and recorded eighty-six in their place, one set per new surface: the roles it
+ * grants, the first package it names, and a `tooling` contrast that no surface admits. That contrast
+ * is the row that discriminates; without it a surface's audience could be widened to everyone and
+ * every remaining row would still reproduce.
  *
  * That is the whole point of this file. Without it, a clause tuned to fix one crossing can silently
  * flip another, and the compact model quietly stops meaning what the founder decided.
@@ -67,38 +76,107 @@ const decided = readJson("governance/decided-rules.json") as {
 // Turning a decided row back into a concrete crossing
 //
 // A row names roles and relationships ("service (other layer)"); the model takes actual packages.
-// This builds one representative crossing per row. The named packages below are the real ones the
-// founder ruled on by name — core-ui, harness-registry, agent-execution.
+// This builds one representative crossing per row. `NAMED_PACKAGES` below carries every package a
+// row may name by name, with the role and home layer the workspace declares for it.
 // -------------------------------------------------------------------------------------------
 
 const SOURCE_LAYER = "core-api";
 const OTHER_LAYER = "agent-orchestration";
 
+const ROLES: readonly Role[] = [
+	"layer",
+	"service",
+	"framework",
+	"application",
+	"tooling",
+	"deployment",
+];
+
+/**
+ * Every package a decided row may name as a source, with the role and home layer the workspace
+ * declares for it.
+ *
+ * Kept as data rather than switch arms because a `scope: "named"` row is only as good as the actor it
+ * builds: `{ role: "harness-registry" }` is not a role, and a crossing built from it is decided by
+ * whichever clause happens to catch it first. That is what the `default` arm used to produce for
+ * every package name it did not know.
+ */
+const NAMED_PACKAGES: Readonly<Record<string, { readonly role: Role; readonly layer?: string }>> = {
+	"agent-execution": { role: "layer" },
+	"agent-orchestration": { role: "layer" },
+	"agent-run-config": { role: "service", layer: "agent-orchestration" },
+	connections: { role: "service", layer: "agent-orchestration" },
+	conversation: { role: "service", layer: "core-api" },
+	"core-api": { role: "layer" },
+	"core-ui": { role: "layer" },
+	credentials: { role: "service", layer: "core-api" },
+	"design-system": { role: "framework" },
+	"filesystem-mounting": { role: "service", layer: "agent-orchestration" },
+	filesystems: { role: "service", layer: "agent-orchestration" },
+	"harness-registry": { role: "service", layer: "agent-execution" },
+	knowledge: { role: "service", layer: "core-api" },
+	notifications: { role: "service", layer: "core-api" },
+	policy: { role: "service", layer: "core-api" },
+	"remote-server": { role: "application" },
+	"remote-worker": { role: "application" },
+	review: { role: "service", layer: "core-api" },
+	routine: { role: "service", layer: "core-api" },
+	"run-orchestration": { role: "service", layer: "agent-orchestration" },
+	"session-requests": { role: "service", layer: "agent-orchestration" },
+	settings: { role: "service", layer: "core-api" },
+	"tool-handlers": { role: "service", layer: "agent-orchestration" },
+	users: { role: "service", layer: "core-api" },
+	work: { role: "service", layer: "core-api" },
+};
+
+/**
+ * The workspace path a named package's manifest sits at, from the role the fixture declares for it.
+ * The role globs in `governance/architecture.json` are what decide it, so this is the same derivation
+ * `readWorkspacePackages` runs, in reverse.
+ */
+function manifestPathOf(name: string): string {
+	const named = NAMED_PACKAGES[name];
+	if (named === undefined) {
+		throw new Error(
+			`governance/architecture.json grants reach to "${name}", which this fixture does not know. ` +
+				"Add it to NAMED_PACKAGES with its declared role and home layer.",
+		);
+	}
+	switch (named.role) {
+		case "layer":
+			return `layers/${name}/package.json`;
+		case "service":
+			return `layers/${named.layer}/${name}/package.json`;
+		case "framework":
+			return `framework/${name}/package.json`;
+		case "application":
+			return `applications/${name}/package.json`;
+		default:
+			return `tools/${name}/package.json`;
+	}
+}
+
 /** Named packages carry their real role and home layer; a bare role gets a stand-in package. */
 function makeActor(name: string): Crossing["source"] {
-	switch (name) {
-		case "harness":
-			return { sort: "harness" };
-		case "repo root":
-			return { sort: "repo-root" };
-		case "core-ui":
-			return { sort: "package", name: "core-ui", role: "layer" };
-		case "agent-execution":
-			return { sort: "package", name: "agent-execution", role: "layer" };
-		case "harness-registry":
-			return {
-				sort: "package",
-				name: "harness-registry",
-				role: "service",
-				layer: "agent-execution",
-			};
-		case "layer":
-			return { sort: "package", name: SOURCE_LAYER, role: "layer" };
-		case "service":
-			return { sort: "package", name: "work", role: "service", layer: SOURCE_LAYER };
-		default:
-			return { sort: "package", name: `a-${name}`, role: name as Role };
-	}
+	if (name === "harness") return { sort: "harness" };
+	if (name === "repo root") return { sort: "repo-root" };
+
+	const named = NAMED_PACKAGES[name];
+	if (named !== undefined) return { sort: "package", name, role: named.role, layer: named.layer };
+
+	// A bare ROLE gets a stand-in package of that role. The layer and service stand-ins are named
+	// because other rows relate to them — `layer (own)` and `service (same layer)` need a home.
+	if (name === "layer") return { sort: "package", name: SOURCE_LAYER, role: "layer" };
+	if (name === "service")
+		return { sort: "package", name: "work", role: "service", layer: SOURCE_LAYER };
+	if (ROLES.includes(name as Role))
+		return { sort: "package", name: `a-${name}`, role: name as Role };
+
+	throw new Error(
+		`decided-rules.json names "${name}" as a source, which is neither a role nor a package this fixture ` +
+			"knows. Add it to NAMED_PACKAGES with its declared role and home layer — a stand-in with an " +
+			"invented role decides the row under whichever clause catches it first, which is not a test.",
+	);
 }
 
 function makeTarget(label: string, source: Crossing["source"], kind: Kind): Target {
@@ -147,8 +225,10 @@ function makeTarget(label: string, source: Crossing["source"], kind: Kind): Targ
 			return { sort: "package", name: "another-application", role: "application" };
 		case "tooling":
 			return { sort: "package", name: "eval", role: "tooling" };
+		// A bare `framework` TARGET is a framework package that is not the source — never a real one.
+		// It used to be spelled `shared`, which tied a row about the role to a package that exists.
 		case "framework":
-			return { sort: "package", name: "shared", role: "framework" };
+			return { sort: "package", name: "another-framework", role: "framework" };
 
 		default:
 			// Everything else is a declared surface: framework/* and db:*.
@@ -166,15 +246,15 @@ const label = (row: DecidedRow): string => `${row.source} → ${row.target} [${r
 // -------------------------------------------------------------------------------------------
 
 describe("AU28 — the decided rule set is intact", () => {
-	it("holds exactly the 118 decided rows with the decided totals", () => {
-		expect(decided.rows).toHaveLength(118);
-		expect(decided.totals.rows).toBe(118);
+	it("holds exactly the 195 decided rows with the decided totals", () => {
+		expect(decided.rows).toHaveLength(195);
+		expect(decided.totals.rows).toBe(195);
 		const count = (world: "production" | "development", verdict: string): number =>
 			decided.rows.filter((r) => r[world] === verdict).length;
 		// These four numbers are the founder's decisions. A regeneration that moves any of them has
 		// re-derived what was decided instead of reading it — that happened once and cost hours.
-		expect(count("production", "allowed")).toBe(65);
-		expect(count("production", "forbidden")).toBe(53);
+		expect(count("production", "allowed")).toBe(105);
+		expect(count("production", "forbidden")).toBe(90);
 		// Ruling 13 moved the two `db:table (other) [table:write]` rows from forbidden to allowed:
 		// the flat rule is replaced by the companion clause, which no row can express.
 		// AU32 Ruling A (ruling14narrowing) moved two more, `service -> raw runtime [capability]` and
@@ -185,8 +265,13 @@ describe("AU28 — the decided rule set is intact", () => {
 		// `db:bootstrap` rows development-allowed: -4 allowed, -2 forbidden. Combined against the
 		// pre-AU29/AU32 baseline (114 allowed / 10 forbidden): 114 + 2 - 4 = 112 allowed;
 		// 10 - 2 - 2 = 6 forbidden.
-		expect(count("development", "allowed")).toBe(112);
-		expect(count("development", "forbidden")).toBe(6);
+		// The substrate split's three `framework → db:*` rows are all production-forbidden (53 + 3 = 56)
+		// and split in development: `db:schema-ns` and `db:unknown` are one-door surfaces and stay
+		// forbidden (6 + 2 = 8), `db:testing` is not one and relaxes (112 + 1 = 113). It then retired the
+		// twelve `framework/shared` rows, every one of them allowed in both worlds: 65 - 12 = 53
+		// production allowed, 113 - 12 = 101 development allowed; neither forbidden count moves.
+		expect(count("development", "allowed")).toBe(187);
+		expect(count("development", "forbidden")).toBe(8);
 	});
 
 	it("has no duplicate rows", () => {
@@ -195,7 +280,7 @@ describe("AU28 — the decided rule set is intact", () => {
 	});
 });
 
-describe("AU28 — fifteen clauses derive all 236 decided verdicts", () => {
+describe("AU28 — fifteen clauses derive all 390 decided verdicts", () => {
 	// W-TEST-2: `expect(wrong).toEqual([])` over a `.filter()` passes vacuously when `rows` is empty
 	// — a mis-parsed or emptied decided-rules.json would read as a total green. The counter is what
 	// makes the loop assert that it RAN, and it is the reason the row count is stated twice.
@@ -211,7 +296,7 @@ describe("AU28 — fifteen clauses derive all 236 decided verdicts", () => {
 				return `${label(row)} — decided ${row.production}, model says ${got.verdict} via ${got.clause}`;
 			});
 		expect(wrong).toEqual([]);
-		expect(checked, "the loop must actually iterate every decided row").toBe(118);
+		expect(checked, "the loop must actually iterate every decided row").toBe(195);
 	});
 
 	it("reproduces every development verdict", () => {
@@ -226,7 +311,7 @@ describe("AU28 — fifteen clauses derive all 236 decided verdicts", () => {
 				return `${label(row)} — decided ${row.development}, model says ${got.verdict} via ${got.clause}`;
 			});
 		expect(wrong).toEqual([]);
-		expect(checked, "the loop must actually iterate every decided row").toBe(118);
+		expect(checked, "the loop must actually iterate every decided row").toBe(195);
 	});
 
 	it("names a clause and a reason for every decision — no unexplained verdict", () => {
@@ -466,7 +551,7 @@ describe("AU28 — the clauses hold beyond the decided rows", () => {
 		];
 		const targets: readonly Target[] = [
 			{ sort: "package", name: "other", role: "layer" },
-			{ sort: "surface", surface: "framework/shared" },
+			{ sort: "surface", surface: "framework/domain-model" },
 			{ sort: "table", table: "bets", owner: "work" },
 			{ sort: "http-api", layer: "core-api" },
 			{ sort: "mcp-router" },
@@ -515,9 +600,21 @@ const syntheticTree = [
 		`layers/${architecture.endpoints.mcpRouter.host}/package.json`,
 		`layers/${architecture.rawRuntime.host}/package.json`,
 		"layers/core-ui/package.json",
-		"framework/shared/package.json",
+		// Every package a `reach` list names has to exist here, or `validateArchitecture` reports the
+		// audience as naming nobody. Derived from the registry rather than listed by hand, so a new
+		// surface cannot be declared with an audience this tree happens not to cover.
+		...Object.values(architecture.surfaces)
+			.flatMap((entry) =>
+				typeof entry !== "string" && Array.isArray(entry.reach) ? entry.reach : [],
+			)
+			.filter((name) => !ROLES.includes(name as Role))
+			.map(manifestPathOf),
 		// One of every role: `readWorkspacePackages` refuses a role rule that claims nothing.
+		// `framework/*` is listed here rather than arriving through a `reach` list, because a reach
+		// list names who may reach a surface from OUTSIDE the framework role — so no reach list
+		// carries a framework package's name, and this tree cannot borrow one from them.
 		"applications/desktop/package.json",
+		"framework/db/package.json",
 		"tools/eval/package.json",
 	]),
 ];

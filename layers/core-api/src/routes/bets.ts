@@ -1,6 +1,10 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { getArtifactThreadSummaries } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
+import type { ArtifactThreadSummary } from "@hyperidle/domain-model";
+import { BET_OUTCOME_VERDICTS, InvalidTransitionError } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
+import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/http-middleware";
 import {
 	create as createKnowledgeItem,
 	get as getKnowledgeItem,
@@ -9,9 +13,7 @@ import {
 } from "@hyperidle/knowledge";
 import { getTeam, getTeamMembers, listTeamMembers, listTeams, updateTeam } from "@hyperidle/org";
 import { recordPropagationHop } from "@hyperidle/policy";
-import type { ArtifactThreadSummary, EventBus } from "@hyperidle/shared";
-import { BET_OUTCOME_VERDICTS, deriveTitle, InvalidTransitionError } from "@hyperidle/shared";
-import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/shared/http";
+import { deriveTitle } from "@hyperidle/presentation-format";
 import * as work from "@hyperidle/work";
 import { cascadeBetKill, transitionBet, updateBetField } from "@hyperidle/work";
 import { Hono } from "hono";

@@ -8,8 +8,8 @@
  */
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
+import { EventBus } from "@hyperidle/event-bus";
 import { createSessionRequest } from "@hyperidle/session-requests";
-import { EventBus } from "@hyperidle/shared";
 import { describe, vi } from "vitest";
 import { runSession } from "../runtime.js";
 import { buildTestPorts } from "./test-ports.js";

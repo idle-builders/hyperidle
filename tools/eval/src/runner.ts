@@ -12,13 +12,10 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveModel } from "@hyperidle/credential-access";
 import { applyMigrations, createPgliteDb, type HyperIdleDb } from "@hyperidle/db";
-import {
-	EventBus,
-	type ModelGatewayConfig,
-	type ResolvedModel,
-	resolveModel,
-} from "@hyperidle/shared";
+import type { ModelGatewayConfig, ResolvedModel } from "@hyperidle/domain-model";
+import { EventBus } from "@hyperidle/event-bus";
 import { EnvCredentialResolver } from "./env-credential-resolver.js";
 import { scoreScenario } from "./scoring.js";
 import type {

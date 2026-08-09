@@ -1,11 +1,11 @@
-import type { ApiErrorResponse } from "@hyperidle/shared";
+import { createLogger } from "@hyperidle/diagnostics";
+import type { ApiErrorResponse } from "@hyperidle/domain-model";
 import {
 	API_ERROR_CODES,
 	CapacityExceededError,
-	createLogger,
 	InvalidTransitionError,
 	VersionConflictError,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
 import type { ErrorHandler } from "hono";
 
 const log = createLogger({ pkg: "server" });

@@ -14,7 +14,7 @@
  * CAS-consume-if-approved → call handler → record outcome) is unchanged —
  * every DB touch (`captureProposedCall`/`consumeTailoredGrant`/
  * `recordOutcome`) now goes through the injected `ProposedCallWorkflowPort<TDb>`
- * (`@hyperidle/shared`), concretely wired by the composition root over the
+ * (`@hyperidle/tool-protocol`), concretely wired by the composition root over the
  * `CoreApiPort.review` seam ops (AU31 §2.5 — `review` owns those three
  * tables, and this dispatch's new home, `agent-orchestration`, reaches them
  * only through the seam, never a direct import). Zero domain Service or
@@ -22,7 +22,7 @@
  *
  * @lore AU31 §2.5: relocated from `@hyperidle/harness-registry` (agent-
  * execution) into `@hyperidle/tool-handlers` (agent-orchestration) — this
- * file imports only `@hyperidle/shared` and holds zero execution content,
+ * file imports only `@hyperidle/tool-protocol` and holds zero execution content,
  * so it belongs with the layer that owns the definitions it dispatches, not
  * the layer that owns harness adapters. `probes/p11-composition-spelling/`
  * (architecture.md §2.5, probe C2) confirms the end-state spelling is legal
@@ -41,7 +41,7 @@ import {
 	type ToolRegistry,
 	type ToolResult,
 	toClaudeToolSpec,
-} from "@hyperidle/shared";
+} from "@hyperidle/tool-protocol";
 
 /**
  * Build a fresh registry bound to the given context, filtered to the agent's

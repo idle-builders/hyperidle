@@ -1,5 +1,5 @@
 import type { HyperIdleDb } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
+import { EventBus } from "@hyperidle/event-bus";
 import { describe, expect, test, vi } from "vitest";
 import { runSession } from "../runtime.js";
 import { buildTestPorts } from "./test-ports.js";

@@ -5,7 +5,7 @@
  *  - thread renders below the artifact preview on the artifact detail page
  */
 
-import type { Artifact } from "@hyperidle/shared";
+import type { Artifact } from "@hyperidle/domain-model";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";

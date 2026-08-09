@@ -32,7 +32,7 @@
  *
  * The middleware stack — cors, body limit, auth, fail-closed, `onError` — is
  * Application-applied to that shared router and reaches this module unchanged.
- * This file declares its own boundaries with `@hyperidle/shared/http`'s
+ * This file declares its own boundaries with `@hyperidle/http-middleware`'s
  * `requireBoundary` and imports nothing from core-api.
  */
 
@@ -43,12 +43,15 @@ import {
 	projectInheritedConnections,
 	updateConnection,
 } from "@hyperidle/connections";
+import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credential-access";
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { ConnectionHealth, ServiceConnectionView } from "@hyperidle/shared";
-import { type HarnessCapabilityReader, harnessCapabilityDescriptors } from "@hyperidle/shared";
-import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/shared/crypto";
-import { createRateLimiter, type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
-import { isPrivateHostLiteral, resolveUrlForSSRF } from "@hyperidle/shared/net";
+import type { ConnectionHealth, ServiceConnectionView } from "@hyperidle/domain-model";
+import {
+	type HarnessCapabilityReader,
+	harnessCapabilityDescriptors,
+} from "@hyperidle/harness-protocol";
+import { isPrivateHostLiteral, resolveUrlForSSRF } from "@hyperidle/host-process";
+import { createRateLimiter, type HyperIdleEnv, requireBoundary } from "@hyperidle/http-middleware";
 import { Hono } from "hono";
 import { z } from "zod";
 

@@ -11,8 +11,10 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
+		"@hyperidle/harness-capability": "*",
+		"@hyperidle/harness-protocol": "*",
 		"@hyperidle/harness-registry": "*",
-		"@hyperidle/shared": "*",
+		"@hyperidle/tool-protocol": "*",
 		"hono": "^4.12.27"
 	},
 	"devDependencies": {

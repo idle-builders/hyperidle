@@ -15,7 +15,8 @@ import {
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
-import type { TaskStateChangedEvent, ToolContext } from "@hyperidle/shared";
+import type { TaskStateChangedEvent } from "@hyperidle/domain-model";
+import type { ToolContext } from "@hyperidle/tool-protocol";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { describe, expect } from "vitest";
@@ -66,7 +67,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 
 function makeContext(
 	db: HyperIdleDb,
-	eventBus: import("@hyperidle/shared").EventBus,
+	eventBus: import("@hyperidle/event-bus").EventBus,
 ): ToolContext<HyperIdleDb> {
 	return {
 		db,

@@ -7,7 +7,7 @@
  * AC-5: POST /api/agents creates agent with teamId (teamMembers.id), returns 201.
  *
  * These tests FAIL until:
- * - RosterMember interface in @hyperidle/shared includes `agentCategory`
+ * - RosterMember interface in @hyperidle/domain-model includes `agentCategory`
  * - GET /api/teams/:id includes agentCategory in the roster assembly
  */
 

@@ -13,7 +13,7 @@
  */
 
 import { type HyperIdleDb, knowledgeAppProjection, knowledgeItems } from "@hyperidle/db";
-import { API_ERROR_CODES } from "@hyperidle/shared";
+import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 

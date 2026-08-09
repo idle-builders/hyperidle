@@ -2,7 +2,7 @@
  * AA1 — WorkRoutine page stories. Renders key states for visual verification.
  */
 
-import type { RoutineDetail } from "@hyperidle/shared";
+import type { RoutineDetail } from "@hyperidle/domain-model";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { WorkRoutine } from "./WorkRoutine";
 

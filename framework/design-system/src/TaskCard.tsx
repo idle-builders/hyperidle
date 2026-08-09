@@ -1,4 +1,4 @@
-import type { TaskState } from "@hyperidle/shared";
+import type { TaskState } from "@hyperidle/domain-model";
 import type { JSX, ReactNode } from "react";
 import { clickableProps } from "./clickable";
 import { dsProps } from "./ds-attrs";

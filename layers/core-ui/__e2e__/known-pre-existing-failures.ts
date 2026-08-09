@@ -65,7 +65,7 @@ export const AU21_PRE_EXISTING_E2E_FAILURES: readonly string[] = [
 	"prescriptive bet-shaping message → tool-call-summaries row visible → create_bet effect",
 	"thinking row appears while replay is in-flight (LLM_REPLAY_DELAY_MS=80), then disappears once reply lands",
 	// AU21 follow-up (harness-telemetry narrowing, 2026-08-03): same mechanism
-	// as above — this commit touches @hyperidle/shared's harness types, which
+	// as above — this commit touches @hyperidle/harness-protocol's types, which
 	// nothing in knowledge-edit.spec.ts's own feature area depends on. Neither
 	// this commit nor the preceding cost-mock-cleanup commit touches any
 	// knowledge-related file (verified: `git show <commit> --stat | grep -i

@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { Filesystem } from "@hyperidle/shared";
+import type { Filesystem } from "@hyperidle/filesystem-contract";
 import { describe, expect, it } from "vitest";
 import { type AdapterDeps, RegistryFilesystemMounter } from "../index.js";
 

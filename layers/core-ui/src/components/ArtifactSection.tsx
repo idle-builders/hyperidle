@@ -36,7 +36,7 @@ import {
 	SkeletonCard,
 	SkeletonList,
 } from "@hyperidle/design-system";
-import type { ArtifactFilterAxis, ArtifactQuery } from "@hyperidle/shared";
+import type { ArtifactFilterAxis, ArtifactQuery } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { useNavigate } from "react-router-dom";
 import { useArtifacts } from "../hooks/useArtifacts.js";

@@ -24,7 +24,8 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { EventBus, type ToolContext } from "@hyperidle/shared";
+import { EventBus } from "@hyperidle/event-bus";
+import type { ToolContext } from "@hyperidle/tool-protocol";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { describe, expect } from "vitest";

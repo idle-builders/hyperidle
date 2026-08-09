@@ -50,7 +50,7 @@
  */
 
 import { type HyperIdleDb, serviceConnections } from "@hyperidle/db";
-import { HELD_AUTH_SOURCES, type HeldAuthSource } from "@hyperidle/shared";
+import { HELD_AUTH_SOURCES, type HeldAuthSource } from "@hyperidle/domain-model";
 import { and, eq, inArray } from "drizzle-orm";
 
 /**

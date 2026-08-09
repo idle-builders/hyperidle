@@ -24,7 +24,7 @@
 
 import { readAgentRunConfig } from "@hyperidle/agent-run-config";
 import { agentRunConfig, agentWorkIntents, type HyperIdleDb, threads, users } from "@hyperidle/db";
-import type { BakedAgentRunnableConfig } from "@hyperidle/shared";
+import type { BakedAgentRunnableConfig } from "@hyperidle/work-intent-port";
 import { and, eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { beforeEach, describe, expect, vi } from "vitest";

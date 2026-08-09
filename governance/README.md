@@ -28,7 +28,7 @@ Three things, and the split between them is the whole design:
 |---|---|---|
 | **`scripts/lib/governance-model.ts`** | 15 clauses, checked in order, first match wins, default `forbidden` | the founder rules on the architecture |
 | **`architecture.json` · `table-owners.json`** | the registries the clauses read — roles, surfaces, endpoints, table owners | packages, surfaces or owners change |
-| **`decided-rules.json`** | 124 verdicts the founder decided one at a time | never, except by founder ruling |
+| **`decided-rules.json`** | 195 verdicts the founder decided one at a time | never, except by founder ruling |
 | **`rule-severity.json`** | one severity — `error` or `warn` — for every architectural rule that is not yet clean | a rule's last violation clears, or a new rule lands over existing debt |
 
 **A clause is a principle. A registry is a fact. A decided rule is a decision. A severity is a dial.**
@@ -36,15 +36,15 @@ Putting a fact in a clause means a new package needs a code change; putting a pr
 means it can be edited without anyone noticing the architecture moved; and putting a dial in any of the
 other three would mean the rule and its enforcement state could no longer be edited independently.
 
-## Why 15 clauses and not 124 rules
+## Why 15 clauses and not 195 rules
 
 `decided-rules.json` is the **decision artifact** — every role pair × crossing kind, ruled on
-separately for the production and development worlds. It is not the implementation. 124 hand-written
+separately for the production and development worlds. It is not the implementation. 195 hand-written
 rules would each be free to disagree with their neighbours, and a single founder ruling would land as
-a 124-way diff.
+a 195-way diff.
 
-Instead the 124 rows are the **acceptance test**: the model is correct if and only if it reproduces
-all 248 verdicts (124 rows × 2 worlds) exactly. `framework/db/src/__tests__/governance-model.test.ts`
+Instead the 195 rows are the **acceptance test**: the model is correct if and only if it reproduces
+all 390 verdicts (195 rows × 2 worlds) exactly. `framework/db/src/__tests__/governance-model.test.ts`
 asserts that, so a clause tuned to fix one crossing and silently breaking another cannot land.
 
 ## Totality, and its price
@@ -67,6 +67,16 @@ it is production's verdict plus one relaxation:
 
 The doors it may not go around are listed in `architecture.json` under `oneDoorSurfaces`, with the
 reason each one is held.
+
+## Framework packages and each other
+
+A framework package may name another framework package. That is a property of the model, not a
+sibling entry threaded through every target's audience — so **a `reach` list says who *outside* the
+framework role may name the surface**, and no list carries a framework package's own name.
+
+It reaches `framework/<name>` surfaces and those only. `db:schema-ns`, `db:unknown` and `db:testing`
+are surface targets too; they keep the audiences they declare, because the whole-schema door and the
+undecided-surface catch-all are not something the framework role gets by being framework.
 
 ## The severity dial
 

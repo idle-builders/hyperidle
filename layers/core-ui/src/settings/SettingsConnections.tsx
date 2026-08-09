@@ -39,7 +39,7 @@ import type {
 	ConnectionAuthSource,
 	ConnectionHealth,
 	ServiceConnectionView,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 

@@ -3,7 +3,12 @@
 //
 // L12: optional `query` parameter adds limit to the URL.
 
-import type { Artifact, ArtifactFilterAxis, ArtifactPage, ArtifactQuery } from "@hyperidle/shared";
+import type {
+	Artifact,
+	ArtifactFilterAxis,
+	ArtifactPage,
+	ArtifactQuery,
+} from "@hyperidle/domain-model";
 import { type FetchState, useFetch } from "./useFetch.js";
 
 function buildUrl(filter: ArtifactFilterAxis, query?: Pick<ArtifactQuery, "limit">): string {

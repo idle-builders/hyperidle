@@ -46,22 +46,22 @@
  */
 
 import { findThread } from "@hyperidle/conversation";
+import type { CredentialResolver } from "@hyperidle/credential-access";
 import {
-	type CredentialResolver,
-	DbCredentialResolver,
-	readCredentials,
-	writeCredential,
-} from "@hyperidle/credentials";
+	decryptCredentialValue,
+	encryptCredentialValue,
+	resolveModel as resolveModelAgainstGateway,
+} from "@hyperidle/credential-access";
+import { DbCredentialResolver, readCredentials, writeCredential } from "@hyperidle/credentials";
 import type { HyperIdleDb, ServiceConnectionRow } from "@hyperidle/db";
+import type { ModelTier, ResolvedModel } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import { listRoutines } from "@hyperidle/routine";
 import {
 	backfillConfigurationDefaults,
 	migrateCredentialsToStore,
 	readServerConfig,
 } from "@hyperidle/settings";
-import type { EventBus, ModelTier, ResolvedModel } from "@hyperidle/shared";
-import { resolveModel as resolveModelAgainstGateway } from "@hyperidle/shared";
-import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/shared/crypto";
 import { createUpgradeTokenStore, listUsers, type UpgradeTokenStore } from "@hyperidle/users";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket } from "hono/ws";

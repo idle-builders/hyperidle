@@ -6,7 +6,8 @@ import {
 } from "@hyperidle/agent-orchestration";
 import type { AgentOrchestrationTransport } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { API_ERROR_CODES, EventBus } from "@hyperidle/shared";
+import { API_ERROR_CODES } from "@hyperidle/domain-model";
+import { EventBus } from "@hyperidle/event-bus";
 import { Hono } from "hono";
 import type { AppOptions } from "../app.js";
 import { registerAppDisposers } from "../app.js";

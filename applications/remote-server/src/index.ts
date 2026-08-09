@@ -17,7 +17,8 @@
  * injection needed here).
  */
 
-import { createLogger, validateStartupEnv } from "@hyperidle/shared";
+import { createLogger } from "@hyperidle/diagnostics";
+import { validateStartupEnv } from "@hyperidle/host-process";
 import { createServer } from "./create-server.js";
 
 const log = createLogger({ pkg: "remote-server" });

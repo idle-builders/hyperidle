@@ -12,7 +12,9 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"@hyperidle/shared": "*",
+		"@hyperidle/block-derivation": "*",
+		"@hyperidle/domain-model": "*",
+		"@hyperidle/presentation-format": "*",
 		"focus-trap-react": "^12.0.3"
 	},
 	"peerDependencies": {

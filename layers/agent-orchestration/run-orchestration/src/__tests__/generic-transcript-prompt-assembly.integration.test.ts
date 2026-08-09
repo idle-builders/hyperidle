@@ -18,8 +18,8 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
-import type { SessionConfig } from "@hyperidle/shared";
-import { EventBus } from "@hyperidle/shared";
+import { EventBus } from "@hyperidle/event-bus";
+import type { SessionConfig } from "@hyperidle/harness-protocol";
 import { afterEach, describe, vi } from "vitest";
 import { createProvisioner } from "../provisioner.js";
 

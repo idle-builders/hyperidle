@@ -12,7 +12,7 @@
  * browser story renderer), no component prop surgery.
  */
 
-import type { Artifact, ArtifactPage } from "@hyperidle/shared";
+import type { Artifact, ArtifactPage } from "@hyperidle/domain-model";
 import { useEffect, useState } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { ArtifactSection } from "./ArtifactSection.js";

@@ -1,4 +1,4 @@
-import type { ApiErrorResponse } from "@hyperidle/shared";
+import type { ApiErrorResponse } from "@hyperidle/domain-model";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 

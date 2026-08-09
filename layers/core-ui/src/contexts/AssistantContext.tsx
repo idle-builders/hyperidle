@@ -10,7 +10,7 @@
  * purged (AD8a AC-10). All symbols and file references updated atomically.
  */
 
-import type { BlockHostKind } from "@hyperidle/shared";
+import type { BlockHostKind } from "@hyperidle/domain-model";
 import { createContext } from "react";
 
 /**

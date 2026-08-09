@@ -22,7 +22,7 @@
  */
 
 import { BodyEditor, Dialog, ScopePicker } from "@hyperidle/design-system";
-import { SCOPES_REQUIRING_ID, type ScopeKind } from "@hyperidle/shared";
+import { SCOPES_REQUIRING_ID, type ScopeKind } from "@hyperidle/domain-model";
 import { type JSX, useState } from "react";
 import { useCurrentUser } from "../../hooks/useCurrentUser.js";
 

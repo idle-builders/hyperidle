@@ -6,8 +6,9 @@ import {
 	unconfiguredCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { EventBus, type ToolContext, toClaudeToolSpec } from "@hyperidle/shared";
+import { EventBus } from "@hyperidle/event-bus";
 import { buildToolRegistry } from "@hyperidle/tool-handlers";
+import { type ToolContext, toClaudeToolSpec } from "@hyperidle/tool-protocol";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 

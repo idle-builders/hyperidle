@@ -13,19 +13,18 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import type { AgentSessionRequestInput, DomainEvent } from "@hyperidle/domain-model";
+import { EventBus } from "@hyperidle/event-bus";
+import type {
+	HarnessAdapter,
+	HarnessCapabilities,
+	HarnessEvent,
+	SessionConfig,
+	SessionHandle,
+	SessionResult,
+} from "@hyperidle/harness-protocol";
 import { AdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
 import { createSessionRequest } from "@hyperidle/session-requests";
-import {
-	type AgentSessionRequestInput,
-	type DomainEvent,
-	EventBus,
-	type HarnessAdapter,
-	type HarnessCapabilities,
-	type HarnessEvent,
-	type SessionConfig,
-	type SessionHandle,
-	type SessionResult,
-} from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect } from "vitest";
 import { test as fixtureTest } from "../../__testing__/test-fixtures.js";

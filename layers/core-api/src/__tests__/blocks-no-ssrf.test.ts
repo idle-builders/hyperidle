@@ -4,7 +4,7 @@
  * Stubs global fetch and asserts zero invocations during derivation.
  */
 
-import { deriveBlocks } from "@hyperidle/shared";
+import { deriveBlocks } from "@hyperidle/block-derivation";
 import { describe, expect, it, vi } from "vitest";
 
 describe("AC-50 — image kind never triggers server-side fetch", () => {

@@ -22,9 +22,9 @@
  *   then restored → GREEN.
  */
 
+import { encryptCredentialValue } from "@hyperidle/credential-access";
 import { type HyperIdleDb, serviceConnections, users } from "@hyperidle/db";
 import { test } from "@hyperidle/db/test-fixtures";
-import { encryptCredentialValue } from "@hyperidle/shared/crypto";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { ServiceConnectionResolver } from "../service-connection-resolver.js";
 

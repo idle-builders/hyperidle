@@ -12,8 +12,8 @@
  * with the canonical error envelope).
  */
 
-import { API_ERROR_CODES } from "@hyperidle/shared";
-import { createBodyLimit } from "@hyperidle/shared/http";
+import { API_ERROR_CODES } from "@hyperidle/domain-model";
+import { createBodyLimit } from "@hyperidle/http-middleware";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";

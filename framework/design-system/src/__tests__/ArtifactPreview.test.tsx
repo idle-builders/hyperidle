@@ -3,8 +3,8 @@
 // Protected: AC-9 — placeholder "PREVIEW NOT YET RENDERED" + no fake thumbnail.
 // @lore AE6: kind widened to string; fixture now uses 6 fundamental kinds.
 
-import type { Artifact } from "@hyperidle/shared";
-import { ARTIFACT_KINDS } from "@hyperidle/shared";
+import type { Artifact } from "@hyperidle/domain-model";
+import { ARTIFACT_KINDS } from "@hyperidle/domain-model";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";

@@ -9,9 +9,17 @@ export default defineProject({
 		// Vitest project-level `exclude` replaces the root's value rather
 		// than extending it.
 		exclude: ["**/node_modules/**", "**/dist/**", "**/*.integration.test.{ts,tsx}"],
-		// Inline shared so its transitive `zod` import resolves under the
-		// project's node resolver.
-		server: { deps: { inline: ["@hyperidle/shared"] } },
+		// Inline the framework packages this one imports so their transitive `zod` import
+		// resolves under the project's node resolver.
+		server: {
+			deps: {
+				inline: [
+					"@hyperidle/block-derivation",
+					"@hyperidle/domain-model",
+					"@hyperidle/presentation-format",
+				],
+			},
+		},
 		// @lore R4: pool:'forks' required for design-system React tests.
 		// Multiple test files mutate globalThis.IS_REACT_ACT_ENVIRONMENT and use
 		// React.createRoot() in the same jsdom environment. With the default

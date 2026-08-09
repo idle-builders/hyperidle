@@ -1,17 +1,19 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
+import type { CredentialResolver } from "@hyperidle/credential-access";
+import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credential-access";
 import {
-	type CredentialResolver,
 	deleteCredential,
 	readCredentials,
 	writeCredential,
 } from "@hyperidle/credentials";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
+import { createLogger } from "@hyperidle/diagnostics";
+import { EventBus } from "@hyperidle/event-bus";
+import type { HarnessCapabilityReader } from "@hyperidle/harness-protocol";
+import { createRateLimiter } from "@hyperidle/http-middleware";
 import type { NotificationAdapter, NotificationsDeps } from "@hyperidle/notifications";
 import { getTeamMembers } from "@hyperidle/org";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
-import { createLogger, EventBus, type HarnessCapabilityReader } from "@hyperidle/shared";
-import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/shared/crypto";
-import { createRateLimiter } from "@hyperidle/shared/http";
 import { createUpgradeTokenStore, findUser, type UpgradeTokenStore } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { checkAndUnblockDependents } from "@hyperidle/work";
@@ -158,7 +160,7 @@ interface AppOptions {
 	 * mounting and answer descriptor reads (`agents.ts`, `teams-routes.ts`,
 	 * `users.ts`, `workers.ts`, `harnesses.ts`).
 	 *
-	 * @lore AU31 §2.4/[P4]: typed against `@hyperidle/shared`'s
+	 * @lore AU31 §2.4/[P4]: typed against `@hyperidle/harness-protocol`'s
 	 * `HarnessCapabilityReader` rather than `@hyperidle/harness-registry`'s
 	 * `AdapterPool` — this route layer never provisions or executes a session
 	 * (that is `run-orchestration-composition.ts`'s job, agent-orchestration
@@ -192,13 +194,13 @@ interface AppOptions {
 	sharedMode?: boolean;
 	/**
 	 * AU19 §11 (AC-9) / AU31 §3.2: Application-injected cross-Layer
-	 * `agent_work_intents` recorder (`@hyperidle/shared`-typed, Mechanism C) —
-	 * `routes/threads.ts` must not cross by importing
+	 * `agent_work_intents` recorder (`@hyperidle/work-intent-port`-typed,
+	 * Mechanism C) — `routes/threads.ts` must not cross by importing
 	 * `@hyperidle/session-requests` directly. Defaults to the seam-backed
 	 * recorder built over `agentOrchestration` (`buildSeamBackedWorkIntentRecorder`);
 	 * tests may override for isolation.
 	 */
-	agentWorkIntentRecorder?: import("@hyperidle/shared").AgentWorkIntentRecorder<HyperIdleDb>;
+	agentWorkIntentRecorder?: import("@hyperidle/work-intent-port").AgentWorkIntentRecorder<HyperIdleDb>;
 }
 
 /**

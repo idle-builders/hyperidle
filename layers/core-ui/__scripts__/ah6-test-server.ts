@@ -44,6 +44,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { encryptCredentialValue } from "@hyperidle/credential-access";
 import {
 	agentRunConfig,
 	applyMigrations,
@@ -55,7 +56,6 @@ import {
 } from "@hyperidle/db";
 import { installCassetteInterceptor } from "@hyperidle/harness-registry/testing";
 import { createServer } from "@hyperidle/remote-server/create-server";
-import { encryptCredentialValue } from "@hyperidle/shared/crypto";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 

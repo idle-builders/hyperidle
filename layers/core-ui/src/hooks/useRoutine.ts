@@ -4,7 +4,7 @@
  * Returns RoutineDetail (routine info + run history) for the WorkRoutine page.
  */
 
-import type { RoutineDetail } from "@hyperidle/shared";
+import type { RoutineDetail } from "@hyperidle/domain-model";
 import { useEffect, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 

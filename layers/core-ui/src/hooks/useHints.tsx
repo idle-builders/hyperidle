@@ -27,8 +27,8 @@
  * See graceful degradation in the catch block.
  */
 
-import type { HintId } from "@hyperidle/shared";
-import { HINT_CATALOG } from "@hyperidle/shared";
+import type { HintId } from "@hyperidle/domain-model";
+import { HINT_CATALOG } from "@hyperidle/domain-model";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 

@@ -17,7 +17,7 @@ import type {
 	KnowledgeScope,
 	KnowledgeStatus,
 	KnowledgeTopicHealth,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
 
 export interface MockKnowledgeItem {
 	id: string;

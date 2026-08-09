@@ -19,7 +19,7 @@ import type {
 	AgentBehaviorConfigPatchResponse,
 	AgentBehaviorConfigView,
 	AgentBehaviorEditableField,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
 import { useUiPreference } from "../hooks/useUiPreference.js";
 import { apiFetch } from "../services/api-fetch.js";

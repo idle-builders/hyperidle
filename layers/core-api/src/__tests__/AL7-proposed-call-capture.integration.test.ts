@@ -39,13 +39,13 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import type { EventBus } from "@hyperidle/event-bus";
+import { buildToolRegistry as buildToolRegistryFromDefinitions } from "@hyperidle/tool-handlers";
 import type {
 	BuildToolRegistryOptions,
-	EventBus,
 	ToolContext,
 	ToolRegistry,
-} from "@hyperidle/shared";
-import { buildToolRegistry as buildToolRegistryFromDefinitions } from "@hyperidle/tool-handlers";
+} from "@hyperidle/tool-protocol";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test as baseTest } from "../__testing__/test-fixtures.js";

@@ -1,4 +1,9 @@
 import type { HyperIdleDb } from "@hyperidle/db";
+import type { Logger } from "@hyperidle/diagnostics";
+import { createLogger } from "@hyperidle/diagnostics";
+import type { ApiErrorResponse, NotificationTypeKey } from "@hyperidle/domain-model";
+import { API_ERROR_CODES, NOTIFICATION_TYPES } from "@hyperidle/domain-model";
+import { requireBoundary, validateBody } from "@hyperidle/http-middleware";
 import {
 	deliver,
 	listNotifications,
@@ -13,9 +18,6 @@ import {
 	updateConfig,
 	updatePreferences,
 } from "@hyperidle/notifications";
-import type { ApiErrorResponse, Logger, NotificationTypeKey } from "@hyperidle/shared";
-import { API_ERROR_CODES, createLogger, NOTIFICATION_TYPES } from "@hyperidle/shared";
-import { requireBoundary, validateBody } from "@hyperidle/shared/http";
 import { Hono } from "hono";
 import z from "zod";
 

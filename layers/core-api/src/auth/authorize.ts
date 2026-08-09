@@ -13,7 +13,7 @@
  * already loaded the resource to build its response.
  */
 
-import type { HyperIdleEnv } from "@hyperidle/shared/http";
+import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import type { Context } from "hono";
 import { type AuthorizableResource, canRead, canWrite } from "./access-boundary.js";
 

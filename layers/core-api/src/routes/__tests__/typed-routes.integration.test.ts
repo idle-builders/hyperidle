@@ -12,7 +12,8 @@
  */
 
 import { bets, teamMembers, teams } from "@hyperidle/db";
-import { API_ERROR_CODES, EventBus } from "@hyperidle/shared";
+import { API_ERROR_CODES } from "@hyperidle/domain-model";
+import { EventBus } from "@hyperidle/event-bus";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 import { betDetailResponseSchema, betListResponseSchema } from "../../schemas/bet.schema.js";

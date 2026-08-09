@@ -47,8 +47,9 @@ import type {
 	KnowledgeSortOption,
 	KnowledgeStatus,
 	KnowledgeTopicHealth,
-} from "@hyperidle/shared";
-import { KNOWLEDGE_SORT_OPTIONS, KNOWLEDGE_STATUS_LABEL, relativeShort } from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
+import { KNOWLEDGE_SORT_OPTIONS, KNOWLEDGE_STATUS_LABEL } from "@hyperidle/domain-model";
+import { relativeShort } from "@hyperidle/presentation-format";
 import { type JSX, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { KnowledgeTopicGroup } from "../components/KnowledgeTopicGroup";

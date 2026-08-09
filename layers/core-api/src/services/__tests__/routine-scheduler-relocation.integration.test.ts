@@ -49,13 +49,13 @@ import {
 	users,
 	type WriteExecutor,
 } from "@hyperidle/db";
+import type { EventBus } from "@hyperidle/event-bus";
 import { list as listKnowledgeItems, recomputeAttention, sweep } from "@hyperidle/knowledge";
 import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
 import type { RoutineSchedulerPorts } from "@hyperidle/routine";
 import { fireBuiltinRoutine, fireGenericRoutine } from "@hyperidle/routine";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
-import type { EventBus } from "@hyperidle/shared";
 import { requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";

@@ -22,7 +22,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { EventBus } from "@hyperidle/shared";
+import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { bootAgentOrchestration } from "../boot.js";
 

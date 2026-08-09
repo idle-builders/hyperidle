@@ -4,7 +4,7 @@ The invariants of the Block primitive: cardinality, closure, mutability, the Blo
 
 ## Cardinality
 
-- One markdown body produces N Blocks (N ≥ 0). Empty or whitespace-only body → `[]`; oversize body (> 256 KB UTF-8, `MAX_BODY_BYTES`) → a single `unknown` block (`framework/shared/src/blocks/derive-blocks.ts`).
+- One markdown body produces N Blocks (N ≥ 0). Empty or whitespace-only body → `[]`; oversize body (> 256 KB UTF-8, `MAX_BODY_BYTES`) → a single `unknown` block (`framework/block-derivation/src/blocks/derive-blocks.ts`).
 - One Block belongs to exactly one body. Cross-body reference happens through inline `BlockRef`s and message block anchors (rules 3–4 below), never by sharing block instances across bodies.
 - One Block hosts exactly one BlockAnchor — its own `{ blockId }`. The anchor is a derived property on the Block (`derive-blocks.ts:414`), not a row; no anchors table exists.
 - One Block is referenced by 0..N messages (via the optional message `blockId` anchor) and 0..N inline `BlockRef`s.
@@ -18,7 +18,7 @@ The invariants of the Block primitive: cardinality, closure, mutability, the Blo
 ## Mutability
 
 - A Block has **no mutable identity**. Blocks are values, not entities. The source markdown is the only mutable thing.
-- A Block's `id` is a **pure function** of its (normalised) content and its outline path (`framework/shared/src/blocks/block-id.ts`). It is not assigned, not generated, not stored. Recomputation must produce the same id given the same input.
+- A Block's `id` is a **pure function** of its (normalised) content and its outline path (`framework/block-derivation/src/blocks/block-id.ts`). It is not assigned, not generated, not stored. Recomputation must produce the same id given the same input.
 - A Block's `payload` is mutable across re-derivation runs (different body → different payload), but within a single derivation it is frozen.
 - Caches are mutable, the Blocks inside them are not. The web-side cache stores bodies, not blocks (`layers/core-ui/src/hooks/useBlockResolution.ts`).
 
@@ -31,7 +31,7 @@ The BlockId algorithm is a **structure-aware content hash**. Stability requireme
 - Re-ordering blocks at the same outline level changes the affected blocks' ids only as far as the outline-position component differs.
 - Two blocks with byte-identical content under different outline parents get *different* ids (a `## Approach` paragraph under "Bet A" is not the same block as a `## Approach` paragraph under "Bet B").
 
-The output is **128 bits** — blake2s with `dkLen` 16, hex-encoded to a 32-char string (`block-id.ts:19-23`). The `BLOCK_ID_VERSION` constant `blk:v1` (`framework/shared/src/blocks/types.ts`) covers any future migration. Fields are joined with **single spaces**:
+The output is **128 bits** — blake2s with `dkLen` 16, hex-encoded to a 32-char string (`block-id.ts:19-23`). The `BLOCK_ID_VERSION` constant `blk:v1` (`framework/domain-model/src/blocks/types.ts`) covers any future migration. Fields are joined with **single spaces**:
 
 ```
 blockId = hex( blake2s_128(
@@ -58,7 +58,7 @@ outlinePath(block, body) =
 
 **slug** — pinned to `github-slugger` ^2.0.0 (`slug.ts`), with an emoji pre-strip and a hyphen-run collapse (github-slugger preserves `---` verbatim) plus leading/trailing-hyphen trim. If the result is empty (heading text was `!!!` or all-emoji), the literal sentinel `"<empty>"` is returned. The angle brackets in `"<root>"` and `"<empty>"` are stripped by the slugger, so neither sentinel can ever collide with a real slugged heading.
 
-**normalisedPayload** — per-kind, `framework/shared/src/blocks/normalise.ts` is the sole source:
+**normalisedPayload** — per-kind, `framework/block-derivation/src/blocks/normalise.ts` is the sole source:
 
 | kind | normalisation |
 |---|---|
@@ -92,7 +92,7 @@ Violated only by code that has misunderstood the primitive.
 
 1. **GFM only on disk.** The on-disk format is GitHub-flavoured markdown. No HyperIdle-specific dialect, no fenced JSON, no id annotations, no MDX. The knowledge sync watcher and writeback path treat bodies as opaque markdown text — neither imports `deriveBlocks`. Rationale in [definition.md](definition.md); watcher/writeback mechanics in [sync-and-conflict-resolution.md](../knowledge-architecture/sync-and-conflict-resolution.md).
 2. **Derivation is deterministic and pure.** `deriveBlocks(body, host)` has no I/O, no clock access, no DB calls. Same input → same output, byte-for-byte, including ids (enforced by `purity.test.ts` + `golden-ids.test.ts`). There is no parser-version parameter — the version is the baked `BLOCK_ID_VERSION` constant. This is what makes caching safe and the identity contract hold.
-3. **Inline block references are `BlockRef`.** `{ kind: "block", blockId, hostKind, hostId }` is one entry in the closed `InlineRefKind` vocabulary (`framework/shared/src/thread.ts:116-121`, validated by `blockRefSchema`, `layers/core-api/src/routes/threads-schema.ts:42-47`). Shipped (T4). Anchor-vs-reference composition in [derivation-and-rendering.md](derivation-and-rendering.md).
+3. **Inline block references are `BlockRef`.** `{ kind: "block", blockId, hostKind, hostId }` is one entry in the closed `InlineRefKind` vocabulary (`framework/domain-model/src/thread.ts:116-121`, validated by `blockRefSchema`, `layers/core-api/src/routes/threads-schema.ts:42-47`). Shipped (T4). Anchor-vs-reference composition in [derivation-and-rendering.md](derivation-and-rendering.md).
 4. **Per-block discussion is a plain message with a block anchor.** A "comment on a block" is an ordinary message on the host's thread carrying an optional, server-opaque `blockId` (`threads-schema.ts:107`), dual-written to the structured `messages.block_id` column + index (`framework/db/src/schema.ts:787-794`, migration `0020_T5`). There is no `block_comments` table, no parallel comment primitive, no special-case message shape — and no block-level thread attachment: `"block"` is **not** a thread host kind (the Thread host vocabulary is owned by [thread-primitive.md](../human-interface-layer/thread-primitive.md)).
 
    **Why `BlockRef` carries the host pair.** Bodies move and clone — a knowledge item is duplicated to bootstrap a new product; a bet's body is forked into a sibling bet. The duplicated body has identical content, so its derived blocks have *identical* `blockId`s. A bare blockId would silently resolve against both copies, bleeding two discussion streams together. `(hostKind, hostId)` on the `BlockRef` scopes the reference to its specific host — same `blockId` under a different host pair is a different reference. (Message block anchors need no pair: the host's thread already scopes them.)

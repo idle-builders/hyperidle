@@ -17,7 +17,7 @@
  * filesystem-mounting/knowledge-writeback-over-the-seam) — this file now
  * composes three layer FACES and nothing deeper. The Hono mount recipe
  * (middleware ordering, the `notFound` trap, pre-auth vs auth ordering) is
- * `@hyperidle/shared/http`'s `composeApiApplication` — a layer-blind helper,
+ * `@hyperidle/http-middleware`'s `composeApiApplication` — a layer-blind helper,
  * not a fourth composition package (AU26 ruling, upheld).
  *
  * @lore AU26 B1b (AC9/AC10, the Hono `notFound` trap): the two Layer apps mount
@@ -54,13 +54,11 @@ import {
 	createInProcessAgentOrchestrationTransport,
 } from "@hyperidle/core-api/services/agent-orchestration-port-composition";
 import { createPgliteDb, createPostgresDb, type DbHandle, type HyperIdleDb } from "@hyperidle/db";
-import {
-	type CredentialResolver,
-	EventBus,
-	resolveProfile,
-	type WorkerRegisterMessage,
-} from "@hyperidle/shared";
-import { composeApiApplication } from "@hyperidle/shared/http";
+import type { CredentialResolver } from "@hyperidle/credential-access";
+import { EventBus } from "@hyperidle/event-bus";
+import type { WorkerRegisterMessage } from "@hyperidle/harness-protocol";
+import { resolveProfile } from "@hyperidle/host-process";
+import { composeApiApplication } from "@hyperidle/http-middleware";
 import { WebSocketServer } from "ws";
 // @lore AU26: `ws` ships NO type declarations of its own, so `@types/ws` is a
 // hard requirement wherever `ws` is imported — it lives in this package's
@@ -133,9 +131,10 @@ export interface CreateServerDeps {
  * invariant test can assert `instanceof DbCredentialResolver` without relying
  * on indirect observable effects. This is the correct scope: the test must
  * fail if someone reverts the wiring to EnvCredentialResolver.
- * @lore AU31 §5.3: `CredentialResolver` is `@hyperidle/shared`'s own type
- * (`credentials` re-exports it unchanged for convenience) — this Application
- * reaches it through the universally-reachable framework package, never
+ * @lore AU31 §5.3 (AU34 update): `CredentialResolver` is `@hyperidle/
+ * credential-access`'s own type (`credentials` re-exports it unchanged for
+ * convenience) — this Application reaches it through the framework package
+ * whose declared reach names `remote-server` directly, never
  * `@hyperidle/credentials` (a Service) directly. The runtime VALUE is still
  * the real `DbCredentialResolver`, so `instanceof DbCredentialResolver` in a
  * test (a development file, free to import the Service) works unchanged.
@@ -389,7 +388,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	//
 	// ONE Hono instance, ONE `/api` router, ONE listener, every Layer face
 	// mounted behind the SAME auth boundary — built by the layer-blind
-	// `composeApiApplication` helper (`@hyperidle/shared/http`) so this
+	// `composeApiApplication` helper (`@hyperidle/http-middleware`) so this
 	// Application and `desktop`'s own composition root cannot silently drift
 	// apart on the ordering that makes the boundary real.
 	const app = composeApiApplication({

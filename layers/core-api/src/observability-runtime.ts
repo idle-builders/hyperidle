@@ -10,11 +10,11 @@
  * it lives in the composition layer.
  *
  * @lore AU29 §2.4: the dispatcher itself relocated here (from
- * `@hyperidle/shared/observability`) — this file is its only wiring site, and
- * `framework/shared` is the event bus host, so a framework package importing
+ * `@hyperidle/diagnostics`) — this file is its only wiring site, and
+ * the framework hosts the event bus, so a framework package importing
  * its `bus.on("*")` subscription back into itself would be the pipe hearing
  * its own water. The event/adapter TYPES and the console sink stay in
- * `@hyperidle/shared/observability`.
+ * `@hyperidle/diagnostics`.
  *
  * @lore AU26 C2: the handle collapsed to `dispose()`. `status()`, `flush()` and
  * `reconfigure()` existed for the four `/api/observability*` routes — which had
@@ -30,12 +30,13 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import { type ObservabilityConfig, readObservabilityConfig } from "@hyperidle/settings";
-import { createLogger, type EventBus } from "@hyperidle/shared";
 import {
 	createConsoleObservabilityAdapter,
+	createLogger,
 	type ObservabilityAdapter,
-} from "@hyperidle/shared/observability";
+} from "@hyperidle/diagnostics";
+import type { EventBus } from "@hyperidle/event-bus";
+import { type ObservabilityConfig, readObservabilityConfig } from "@hyperidle/settings";
 import {
 	createObservabilityDispatcher,
 	registerObservabilityDispatcher,

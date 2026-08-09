@@ -10,7 +10,7 @@ Depth: [agent-layer/agent-model.md](../agent-layer/agent-model.md).
 
 **F-1.1** An agent is defined by three composable parts: system prompt (`users.systemPrompt`), context (assembled just-in-time from the knowledge layers at session start), and skills. All three are independently swappable.
 
-**F-1.2** Agents belong to exactly one of three categories — `team` (does the work, team-scoped), `strategy` (knowledge-scoped, behind the scenes), `individual` (user-scoped operator). Closed enum `AGENT_CATEGORIES` (`framework/shared/src/types.ts`).
+**F-1.2** Agents belong to exactly one of three categories — `team` (does the work, team-scoped), `strategy` (knowledge-scoped, behind the scenes), `individual` (user-scoped operator). Closed enum `AGENT_CATEGORIES` (`framework/domain-model/src/types.ts`).
 
 **F-1.3** Every human user gets exactly one assistant (individual agent) at registration. Strategy roles include facilitator, scout, infra, and platform.
 
@@ -26,9 +26,9 @@ Depth: [agent-layer/agent-model.md](../agent-layer/agent-model.md).
 
 Shapes and semantics: [process-layer/the-five-primitives.md](../process-layer/the-five-primitives.md).
 
-**F-2.1 Bet.** A committed unit of work owned by a team. Status is `draft | active | completed | killed` with an `atRisk` boolean (`framework/shared/src/types.ts`). Every change to a mutable field (done condition, hypothesis, token appetite, description, at_risk) is recorded in the bet's `revisionLog`; done-condition changes emit a review item to the responsible human. Bets carry an `outcomeVerdict` (validated / refuted / partial / inconclusive). Lifecycle depth: [process-layer/bets-shape-commit-change-ship.md](../process-layer/bets-shape-commit-change-ship.md).
+**F-2.1 Bet.** A committed unit of work owned by a team. Status is `draft | active | completed | killed` with an `atRisk` boolean (`framework/domain-model/src/types.ts`). Every change to a mutable field (done condition, hypothesis, token appetite, description, at_risk) is recorded in the bet's `revisionLog`; done-condition changes emit a review item to the responsible human. Bets carry an `outcomeVerdict` (validated / refuted / partial / inconclusive). Lifecycle depth: [process-layer/bets-shape-commit-change-ship.md](../process-layer/bets-shape-commit-change-ship.md).
 
-**F-2.2 Task.** A unit of work picked up by one agent. Eight states: `proposed | accepted | hold | in_progress | blocked | review | done | killed` (`framework/shared/src/types.ts`). `hold` means unmet upstream dependencies — the Dependency Watcher auto-transitions hold → accepted when all upstream tasks reach `done`. `blocked` is distinct: a runtime block discovered during execution. Tasks carry an `outcomeVerdict` (met / met_with_rework / partially_met / not_met) and an optional thread. Depth: [process-layer/tasks-and-sessions.md](../process-layer/tasks-and-sessions.md).
+**F-2.2 Task.** A unit of work picked up by one agent. Eight states: `proposed | accepted | hold | in_progress | blocked | review | done | killed` (`framework/domain-model/src/types.ts`). `hold` means unmet upstream dependencies — the Dependency Watcher auto-transitions hold → accepted when all upstream tasks reach `done`. `blocked` is distinct: a runtime block discovered during execution. Tasks carry an `outcomeVerdict` (met / met_with_rework / partially_met / not_met) and an optional thread. Depth: [process-layer/tasks-and-sessions.md](../process-layer/tasks-and-sessions.md).
 
 **F-2.3 Session.** A single agent's bounded run on a task, states `active | paused | done | crashed`. The session ends before context compaction, and the agent writes session notes back to the task before ending — notes are the bridge between sessions on the same task. Shape owned by [process-layer/the-five-primitives.md](../process-layer/the-five-primitives.md) §Sessions.
 

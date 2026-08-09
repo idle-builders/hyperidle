@@ -11,10 +11,15 @@
 	},
 	"include": ["src"],
 	"references": [
-		{ "path": "../../framework/shared" },
+		{ "path": "../../framework/credential-access" },
 		{ "path": "../../framework/db" },
-		{ "path": "../../layers/core-api" },
+		{ "path": "../../framework/diagnostics" },
+		{ "path": "../../framework/event-bus" },
+		{ "path": "../../framework/harness-protocol" },
+		{ "path": "../../framework/host-process" },
+		{ "path": "../../framework/http-middleware" },
 		{ "path": "../../layers/agent-execution" },
-		{ "path": "../../layers/agent-orchestration" }
+		{ "path": "../../layers/agent-orchestration" },
+		{ "path": "../../layers/core-api" }
 	]
 }

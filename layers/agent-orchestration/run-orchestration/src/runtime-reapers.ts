@@ -2,7 +2,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
-import { createLogger, type EventBus } from "@hyperidle/shared";
+import { createLogger } from "@hyperidle/diagnostics";
+import type { EventBus } from "@hyperidle/event-bus";
 import { and, eq, lt, sql } from "drizzle-orm";
 import type { createProvisioner } from "./provisioner.js";
 

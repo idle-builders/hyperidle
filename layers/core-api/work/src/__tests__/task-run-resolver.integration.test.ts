@@ -293,7 +293,7 @@ describe("resolveTaskRunRequest — emit-time task_run resolver (work)", () => {
  *
  * @lore Mechanism C: `getTeamById`/`assembleSessionKnowledge` must be
  * INJECTED (not statically imported) — `@hyperidle/work`'s package.json
- * declares only `@hyperidle/db` + `@hyperidle/shared` as dependencies
+ * declares only `@hyperidle/db` + framework packages as dependencies
  * (composition-boundary-guard's Mechanism C), matching every sibling
  * resolver's `requireRunnableAgent` injection precedent. The real emit sites
  * (`task-state-machine.ts`, `bet-decomposition.ts`, `handoff-protocol.ts`) are

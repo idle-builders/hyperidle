@@ -1,5 +1,10 @@
-import type { BetStatus, KnowledgeKind, KnowledgeLayer, KnowledgeStatus } from "@hyperidle/shared";
-import { BET_STATUSES, KNOWLEDGE_STATUSES } from "@hyperidle/shared";
+import type {
+	BetStatus,
+	KnowledgeKind,
+	KnowledgeLayer,
+	KnowledgeStatus,
+} from "@hyperidle/domain-model";
+import { BET_STATUSES, KNOWLEDGE_STATUSES } from "@hyperidle/domain-model";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 

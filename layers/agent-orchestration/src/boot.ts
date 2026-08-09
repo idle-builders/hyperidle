@@ -48,8 +48,14 @@ import {
 	ServiceConnectionResolver,
 } from "@hyperidle/connections";
 import type { HyperIdleDb, ServiceConnectionRow } from "@hyperidle/db";
+import type { ModelTier, ResolvedModel } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import { RegistryFilesystemMounter } from "@hyperidle/filesystem-mounting";
+import type { FilesystemMounter } from "@hyperidle/filesystem-contract";
 import { listInjectedFilesystemsForProvisioning } from "@hyperidle/filesystems";
+import type { HarnessAdapter, HarnessCapabilityReader, WorkerRegisterMessage } from "@hyperidle/harness-protocol";
+import { createGitRunner } from "@hyperidle/host-process";
+import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import type {
 	HeldConnectionsReaderPort,
 	InjectedFilesystemsReaderPort,
@@ -59,17 +65,6 @@ import type {
 	RuntimeHandle,
 } from "@hyperidle/run-orchestration";
 import { startLifecycleProjectionDrain } from "@hyperidle/session-requests";
-import type {
-	EventBus,
-	FilesystemMounter,
-	HarnessAdapter,
-	HarnessCapabilityReader,
-	ModelTier,
-	ResolvedModel,
-	WorkerRegisterMessage,
-} from "@hyperidle/shared";
-import { createGitRunner } from "@hyperidle/shared/git";
-import type { HyperIdleEnv } from "@hyperidle/shared/http";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket } from "hono/ws";
 import { createAgentOrchestrationApp } from "./app.js";

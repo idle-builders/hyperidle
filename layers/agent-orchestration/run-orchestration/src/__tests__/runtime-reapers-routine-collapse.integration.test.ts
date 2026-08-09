@@ -35,7 +35,8 @@ import {
 	users,
 } from "@hyperidle/db";
 import { describe, expect, test, vi } from "@hyperidle/db/test-fixtures";
-import { EventBus, type SessionEndedEvent } from "@hyperidle/shared";
+import type { SessionEndedEvent } from "@hyperidle/domain-model";
+import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { createRuntimeReapers } from "../runtime-reapers.js";
 

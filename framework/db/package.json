@@ -17,13 +17,14 @@
 	},
 	"dependencies": {
 		"@electric-sql/pglite": "^0.5.4",
-		"@hyperidle/shared": "*",
+		"@hyperidle/domain-model": "*",
 		"drizzle-orm": "^0.45.2",
 		"drizzle-zod": "^0.8.3",
 		"postgres": "^3.4.9",
 		"zod": "^4.3.6"
 	},
 	"devDependencies": {
+		"@hyperidle/diagnostics": "*",
 		"drizzle-kit": "^0.31.10",
 		"vitest": "^4.1.9"
 	}

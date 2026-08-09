@@ -24,8 +24,8 @@
  *    open Insert menu · Send) — the composer's killer feature.
  */
 
+import type { OpenTarget, Part } from "@hyperidle/conversation-parts";
 import { Fold } from "@hyperidle/design-system";
-import type { OpenTarget, Part } from "@hyperidle/shared";
 import type { JSX } from "react";
 import { MemoryRouter } from "react-router-dom";
 import ConversationSurface, {

@@ -1,4 +1,4 @@
-import type { ReturnEnforcementChannel } from "@hyperidle/shared";
+import type { ReturnEnforcementChannel } from "@hyperidle/harness-capability";
 import { writeHarnessMcpConfig } from "./cli-mcp-config.js";
 import { installReturnHook } from "./provision-return-hook.js";
 

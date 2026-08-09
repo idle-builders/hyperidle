@@ -1,5 +1,5 @@
-import type { HealthResponse } from "@hyperidle/shared";
-import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
+import type { HealthResponse } from "@hyperidle/domain-model";
+import { type HyperIdleEnv, requireBoundary } from "@hyperidle/http-middleware";
 import { Hono } from "hono";
 
 const health = new Hono();

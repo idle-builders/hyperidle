@@ -42,9 +42,9 @@ import {
 	knowledgeItems,
 	users,
 } from "@hyperidle/db";
+import type { AgentRunAdmissionFailedEvent } from "@hyperidle/domain-model";
 import { attentionReviewReasoningMarker } from "@hyperidle/review";
 import { drainIntents } from "@hyperidle/session-requests";
-import type { AgentRunAdmissionFailedEvent } from "@hyperidle/shared";
 import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";

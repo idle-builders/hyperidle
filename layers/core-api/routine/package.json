@@ -11,8 +11,12 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
+		"@hyperidle/cron": "*",
 		"@hyperidle/db": "*",
-		"@hyperidle/shared": "*",
+		"@hyperidle/diagnostics": "*",
+		"@hyperidle/domain-model": "*",
+		"@hyperidle/event-bus": "*",
+		"@hyperidle/work-intent-port": "*",
 		"drizzle-orm": "^0.45.2"
 	},
 	"devDependencies": {

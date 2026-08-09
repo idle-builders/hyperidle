@@ -13,7 +13,7 @@
  * because the discriminant is exhaustive.
  */
 
-import type { ArtifactRef, Message, Thread } from "@hyperidle/shared";
+import type { ArtifactRef, Message, Thread } from "@hyperidle/domain-model";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 import { getWsClient } from "../services/ws-client.js";

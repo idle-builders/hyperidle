@@ -27,7 +27,7 @@
  * agent run state from the orchestration directly and combine this information
  * in the ui instead of in the core api service."* `AgentProfile.tsx` now fetches
  * `GET /api/agent-orchestration/runs?agent_ids=<id>` and derives all four —
- * using `computeHealthSignals`, which moved to `@hyperidle/shared` unchanged, so
+ * using `computeHealthSignals`, which moved to `@hyperidle/domain-model` unchanged, so
  * the health banner, the recent-runs list, the success rate and the live/idle/
  * error chip show exactly what they showed before. What core keeps serving is
  * what core owns: identity, run CONFIG, team, review track record — plus
@@ -36,25 +36,25 @@
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
-import { getTeam, getTeamMembers } from "@hyperidle/org";
 import type {
 	AgentHarnessCapabilities,
 	AgentProfileResponse,
 	AgentReviewTrackRecord,
-	HarnessCapabilities,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
+import type { HarnessCapabilities } from "@hyperidle/harness-protocol";
 import {
 	type HarnessCapabilityReader,
 	harnessCapabilitiesForType,
 	registeredHarnessCount,
-} from "@hyperidle/shared";
-import type { HyperIdleEnv } from "@hyperidle/shared/http";
+} from "@hyperidle/harness-protocol";
+import type { HyperIdleEnv } from "@hyperidle/http-middleware";
+import { getTeam, getTeamMembers } from "@hyperidle/org";
 import { findUser } from "@hyperidle/users";
 import type { Context } from "hono";
 import { computeApprovalRate } from "../services/policy-bindings.js";
 
 // @lore AU26 J4: `computeHealthSignals`, `deriveHealthLevel` and
-// `deriveHealthDetail` moved to `@hyperidle/shared` (`agent-run-view.ts`),
+// `deriveHealthDetail` moved to `@hyperidle/domain-model` (`agent-run-view.ts`),
 // unchanged. They were always pure functions over run rows; they only lived here
 // because this route was where the run rows were read. The browser reads them
 // now, so the browser runs the functions.

@@ -4,6 +4,8 @@ import {
 	type RunOrchestrationHarnessRuntimeAdapter,
 } from "@hyperidle/agent-orchestration";
 import type { HyperIdleDb } from "@hyperidle/db";
+import type { EventBus } from "@hyperidle/event-bus";
+import type { WorkerRegisterMessage } from "@hyperidle/harness-protocol";
 import {
 	AdapterPool,
 	createHarnessAdapter,
@@ -13,7 +15,6 @@ import {
 import { returnStatusTool } from "@hyperidle/harness-registry/mcp";
 import { create, recordConflict, update } from "@hyperidle/knowledge";
 import type { RuntimePorts } from "@hyperidle/run-orchestration";
-import type { EventBus, WorkerRegisterMessage } from "@hyperidle/shared";
 
 /**
  * @lore AU31 §2.1(b)/§5: `runtimeDeps`/`startRuntime` are no longer module-

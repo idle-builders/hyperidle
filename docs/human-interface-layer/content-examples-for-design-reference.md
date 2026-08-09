@@ -4,7 +4,7 @@ Fictional-but-grounded sample content for populating designs with realistic dens
 
 ## Review threads
 
-Each example uses one of the real artifact embed layouts (`text_diff`, `action_summary`, `content_preview`, `visual_comparison`, `data_metrics` — `framework/shared/src/thread.ts`). Layout semantics live in the [artifact primitive](../process-layer/artifact-primitive.md).
+Each example uses one of the real artifact embed layouts (`text_diff`, `action_summary`, `content_preview`, `visual_comparison`, `data_metrics` — `framework/domain-model/src/thread.ts`). Layout semantics live in the [artifact primitive](../process-layer/artifact-primitive.md).
 
 - **Text diff:** Subject: "Deploy Acme pricing-engine v1.4.2 to staging". Author: Acme Backend Builder. Artifact: a 40-line diff in `pricing-engine/src/calculate.ts` — changes to margin calculation logic. Inline comment example: "Line 23: this rounds down to the nearest cent, but our contracts specify rounding to four decimal places. Intentional?"
 - **Action summary:** Subject: "Enable Stripe live mode for Ambrovia Pro tier". Author: Ambrovia Growth Agent. Artifact: structured summary — what's changing (test→live keys), why (Pro launch next Monday), impact (real charges begin), rollback plan (revert to test keys via env var), checks passed (webhook signature verified, idempotency tested).
@@ -34,7 +34,7 @@ Rendered by `BetCard` (`framework/design-system/src/BetCard.tsx`); created via `
 
 ## Knowledge items
 
-Scopes and fields match the real schema: scope kinds `practice`/`product`/`factory` ∈ `SCOPE_KINDS` (`framework/shared/src/types.ts`); `status` sits on `knowledge_items` (`framework/db/src/schema.ts`), `kind` and `confidence` on the `knowledge_app_projection` extension table (`framework/db/src/schema.ts`). Statuses map to the Triage (draft) and Curated (active) tabs.
+Scopes and fields match the real schema: scope kinds `practice`/`product`/`factory` ∈ `SCOPE_KINDS` (`framework/domain-model/src/types.ts`); `status` sits on `knowledge_items` (`framework/db/src/schema.ts`), `kind` and `confidence` on the `knowledge_app_projection` extension table (`framework/db/src/schema.ts`). Statuses map to the Triage (draft) and Curated (active) tabs.
 
 - Practice scope, building practice, topic "file-handling": Title: "Chunked upload for files >10MB". Kind: pattern. Status: active. Confidence: 0.85. Preview: "Use 2MB chunks for multipart uploads on memory-constrained hosts (Coolify free tier). 5MB chunks cause OOM — see anti-pattern."
 - Practice scope, building practice, topic "authentication": Title: "JWT rotation patterns for multi-tenant SaaS". Kind: pattern. Status: provisional. Preview: "Rotate signing keys every 90 days. Store previous key for 7 days to allow graceful token expiry."

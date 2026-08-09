@@ -6,7 +6,7 @@
  * is still stored whether valid or not.
  */
 
-import type { CredentialName } from "@hyperidle/shared";
+import type { CredentialName } from "@hyperidle/domain-model";
 
 export interface ValidationResult {
 	valid: boolean;

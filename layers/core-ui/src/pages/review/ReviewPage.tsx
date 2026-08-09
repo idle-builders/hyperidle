@@ -5,8 +5,9 @@ import type {
 	Message,
 	PlainPayload,
 	VerdictDecision,
-} from "@hyperidle/shared";
-import { isRedactedPayload, relativeShort } from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
+import { isRedactedPayload } from "@hyperidle/domain-model";
+import { relativeShort } from "@hyperidle/presentation-format";
 import type { JSX } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";

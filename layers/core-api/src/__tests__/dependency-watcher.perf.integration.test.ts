@@ -1,6 +1,6 @@
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
+import type { TaskState } from "@hyperidle/domain-model";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
-import type { TaskState } from "@hyperidle/shared";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { checkAndUnblockDependents } from "@hyperidle/work";
 import { eq } from "drizzle-orm";

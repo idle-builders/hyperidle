@@ -17,6 +17,8 @@ import {
 	type RunOrchestrationReturnStatusToolAdapter,
 } from "@hyperidle/agent-orchestration";
 import type { HyperIdleDb } from "@hyperidle/db";
+import type { ResolvedModel } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import {
 	AdapterPool,
 	createHarnessAdapter,
@@ -26,8 +28,8 @@ import {
 } from "@hyperidle/harness-registry";
 import { returnStatusTool } from "@hyperidle/harness-registry/mcp";
 import { readServerConfig } from "@hyperidle/settings";
-import { bakeAgentRunnableConfig, type EventBus, type ResolvedModel } from "@hyperidle/shared";
 import { requireRunnableAgent } from "@hyperidle/users";
+import { bakeAgentRunnableConfig } from "@hyperidle/work-intent-port";
 import type { TriggerResult } from "./types.js";
 
 /**

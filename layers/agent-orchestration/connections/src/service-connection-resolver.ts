@@ -17,8 +17,8 @@
  * reads the root secret from env internally. Callers construct new ServiceConnectionResolver(db).
  */
 
+import { decryptCredentialValue } from "@hyperidle/credential-access";
 import { type HyperIdleDb, serviceConnections } from "@hyperidle/db";
-import { decryptCredentialValue } from "@hyperidle/shared/crypto";
 import { and, eq } from "drizzle-orm";
 
 export class ServiceConnectionResolver {

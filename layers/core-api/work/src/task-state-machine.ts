@@ -3,11 +3,11 @@ import { type HyperIdleDb, taskDispatchAttempts } from "@hyperidle/db";
 import {
 	type BakedWorkIntentRequest,
 	canTransitionTaskState,
-	type EventBus,
 	TASK_STATE_TRANSITIONS,
 	TaskInvalidTransitionError,
 	type TaskState,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import type { AgentWorkIntentRecorder } from "./ports.js";
 import type { StateTransitionAuditEntry, TaskAuditEntry } from "./task-audit.js";
@@ -27,7 +27,7 @@ import * as work from "./work-service.js";
  * `@hyperidle/users`) — injected rather than statically imported, same
  * Mechanism C shape as `assistant-turn-resolver.ts`'s
  * `AssistantTurnResolverDeps` (a nested Service may depend only on
- * `@hyperidle/db` + `@hyperidle/shared`, never another Service directly).
+ * `@hyperidle/db` + framework packages, never another Service directly).
  */
 export interface TaskStateMachineDeps {
 	readonly workIntents: AgentWorkIntentRecorder;

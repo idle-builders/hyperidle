@@ -5,8 +5,9 @@ import {
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
 import type { HyperIdleDb } from "@hyperidle/db";
+import { EventBus } from "@hyperidle/event-bus";
 import { create as createKnowledgeItem } from "@hyperidle/knowledge";
-import { EventBus, type ToolContext } from "@hyperidle/shared";
+import type { ToolContext } from "@hyperidle/tool-protocol";
 import type { Hono } from "hono";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";

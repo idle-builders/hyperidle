@@ -2,10 +2,11 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
+import { EventBus } from "@hyperidle/event-bus";
 import { createReturnEnforcement } from "@hyperidle/harness-registry";
 import { createMcpToolBridge } from "@hyperidle/harness-registry/mcp";
-import { EventBus, type ToolContext, type ToolRegistry } from "@hyperidle/shared";
 import { buildToolRegistry } from "@hyperidle/tool-handlers";
+import type { ToolContext, ToolRegistry } from "@hyperidle/tool-protocol";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
 
 const registry: ToolRegistry = {

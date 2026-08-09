@@ -45,7 +45,7 @@
  * subscription — `session_ended` — reacting to a task-sourced session's
  * accumulated per-tier token counts (`SessionEndedEvent.tokensByTier`,
  * additive payload growth — see the companion RED test in
- * `framework/shared/src/__tests__/session-ended-event-tokens-by-tier-payload.test.ts`)
+ * `framework/domain-model/src/__tests__/session-ended-event-tokens-by-tier-payload.test.ts`)
  * by merging them into the owning bet's `bets.tokensActualJson`. This is the
  * literal replacement for `run-orchestration/provisioner.ts`'s deleted direct
  * `ports.work.updateBetById` write (`accumulateSessionTokensOnBet`,
@@ -70,7 +70,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import type { AgentRunLifecycleChangedEvent, SessionEndedEvent } from "@hyperidle/shared";
+import type { AgentRunLifecycleChangedEvent, SessionEndedEvent } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 // NOT YET CREATED — this import failing to resolve is this file's primary RED signal.

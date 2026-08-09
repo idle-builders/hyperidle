@@ -1,6 +1,6 @@
+import { blockId, deriveBlocks, normalisedPayload } from "@hyperidle/block-derivation";
 import { CommentRow, Composer } from "@hyperidle/design-system";
-import type { AnchorRef, Block, BlockId, Message } from "@hyperidle/shared";
-import { blockId, deriveBlocks, normalisedPayload } from "@hyperidle/shared";
+import type { AnchorRef, Block, BlockId, Message } from "@hyperidle/domain-model";
 import type { ComponentType, JSX, ReactNode } from "react";
 import { createContext, useCallback, useContext, useState } from "react";
 import type { ReviewComment } from "./review-composition.js";

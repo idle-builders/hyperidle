@@ -52,8 +52,9 @@
  */
 
 import type { Bet, HyperIdleDb } from "@hyperidle/db";
-import type { AgentRunLifecycleChangedEvent, EventBus, SessionEndedEvent } from "@hyperidle/shared";
-import { createLogger } from "@hyperidle/shared";
+import { createLogger } from "@hyperidle/diagnostics";
+import type { AgentRunLifecycleChangedEvent, SessionEndedEvent } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import { get, taskDispatchAttemptStore, update } from "@hyperidle/work";
 
 const logger = createLogger({ pkg: "core-api.work-session-end-reactions" });

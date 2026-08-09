@@ -12,10 +12,10 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import type { ItemCreatedEvent, SessionEndedEvent } from "@hyperidle/domain-model";
 import { resolveReviewRecipients } from "@hyperidle/org";
 import { type ReviewPorts, registerReviewSubscriptions } from "@hyperidle/review";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
-import type { ItemCreatedEvent, SessionEndedEvent } from "@hyperidle/shared";
 import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { getTaskRiskTierByTaskId } from "@hyperidle/work";

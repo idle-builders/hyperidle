@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { EventBus, ItemCreatedEvent } from "@hyperidle/shared";
+import type { ItemCreatedEvent } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import type { ReviewPorts } from "./ports.js";
 
 /**

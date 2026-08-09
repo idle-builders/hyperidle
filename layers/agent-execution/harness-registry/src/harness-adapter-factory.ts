@@ -1,15 +1,15 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import type { ResolvedModel } from "@hyperidle/domain-model";
 import type {
 	HarnessAdapter,
 	HarnessCapabilities,
 	HarnessEvent,
-	ResolvedModel,
 	SessionConfig,
 	SessionHandle,
 	SessionResult,
 	WorkerRegisterMessage,
-} from "@hyperidle/shared";
+} from "@hyperidle/harness-protocol";
 import type { BuiltinHarnessOptions } from "./builtin-harness-adapter.js";
 import { BuiltinHarnessAdapter } from "./builtin-harness-adapter.js";
 import type { CliAdapterConfig, CliAdapterDeps } from "./cli-harness-adapter.js";

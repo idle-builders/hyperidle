@@ -7,7 +7,7 @@
  * re-declared STRUCTURALLY rather than imported from the package it came from
  * — a Service never imports another Service's type, and the two now sit on
  * opposite sides of the Layer boundary. The concrete implementation both sides
- * use is the same one: `createGitRunner` from `@hyperidle/shared/git` (AU26
+ * use is the same one: `createGitRunner` from `@hyperidle/host-process` (AU26
  * A2), injected by the Application.
  */
 

@@ -9,7 +9,7 @@
  * via data-block-id attributes emitted by Block.tsx:108).
  */
 
-import { deriveBlocks } from "@hyperidle/shared";
+import { deriveBlocks } from "@hyperidle/block-derivation";
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { KnowledgeBody } from "../KnowledgeBody";

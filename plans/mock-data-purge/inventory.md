@@ -10,8 +10,8 @@ Total offenders: **10**
 |---|---|---|---|---|
 | `layers/core-api/policy/src/lifecycle-propagation.ts` | 517 | `u-founder` | literal-id | string |
 | `layers/core-api/policy/src/lifecycle-propagation.ts` | 519 | `u-founder` | literal-id | string |
-| `layers/core-api/src/middleware/auth.ts` | 146 | `u-founder` | literal-id | string |
-| `layers/core-api/src/middleware/auth.ts` | 166 | `u-founder` | literal-id | string |
+| `layers/core-api/src/middleware/auth.ts` | 147 | `u-founder` | literal-id | string |
+| `layers/core-api/src/middleware/auth.ts` | 167 | `u-founder` | literal-id | string |
 | `layers/core-api/src/routes/auth.ts` | 63 | `u-founder` | literal-id | string |
 
 ## borderline (5)
@@ -19,7 +19,7 @@ Total offenders: **10**
 | path | line | symbol | kind | shape |
 |---|---|---|---|---|
 | `layers/core-ui/src/fixtures/knowledge-data.ts` | 72 | `MOCK_KNOWLEDGE_ITEMS` | symbol | array |
-| `layers/core-ui/src/pages/KnowledgeDetail.tsx` | 67 | `../fixtures/knowledge-data` | import | import |
-| `layers/core-ui/src/pages/KnowledgeDetail.tsx` | 127 | `LEGACY_DETAILS` | symbol | object |
-| `layers/core-ui/src/pages/KnowledgeDetail.tsx` | 205 | `LEGACY_SOURCES` | symbol | object |
-| `layers/core-ui/src/pages/KnowledgeDetail.tsx` | 211 | `FALLBACK_DETAIL` | symbol | object |
+| `layers/core-ui/src/pages/KnowledgeDetail.tsx` | 68 | `../fixtures/knowledge-data` | import | import |
+| `layers/core-ui/src/pages/KnowledgeDetail.tsx` | 128 | `LEGACY_DETAILS` | symbol | object |
+| `layers/core-ui/src/pages/KnowledgeDetail.tsx` | 206 | `LEGACY_SOURCES` | symbol | object |
+| `layers/core-ui/src/pages/KnowledgeDetail.tsx` | 212 | `FALLBACK_DETAIL` | symbol | object |

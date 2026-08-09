@@ -41,13 +41,13 @@ import {
 	tailoredGrants,
 	type User,
 } from "@hyperidle/db";
+import type { ToolResult } from "@hyperidle/tool-protocol";
 import type {
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
 	SessionKnowledgeItemLike,
-	ToolResult,
-} from "@hyperidle/shared";
-import { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "@hyperidle/shared";
+} from "@hyperidle/work-intent-port";
+import { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "@hyperidle/work-intent-port";
 import { and, eq } from "drizzle-orm";
 import type { ReviewAgentWorkIntentInput, ReviewPorts } from "./ports.js";
 
@@ -161,7 +161,7 @@ export async function findProposedCall(
  * `findProposedCall`) plus the two injected cross-Service reads.
  *
  * @lore Mechanism C (composition-boundary-guard): `@hyperidle/review`
- * depends ONLY on `@hyperidle/db` + `@hyperidle/shared` (`package.json`) —
+ * depends ONLY on `@hyperidle/db` + framework packages (`package.json`) —
  * never on `@hyperidle/users`/`@hyperidle/work` directly. This resolver
  * therefore takes `requireRunnableAgent` + `getTaskById` as INJECTED
  * dependencies (`ReengagementResolverDeps`), same shape as the sibling

@@ -9,7 +9,7 @@
  * apiFetch is used for all environments. Tests mock fetch (global.fetch).
  */
 
-import { CREDENTIAL_CATALOG } from "@hyperidle/shared";
+import { CREDENTIAL_CATALOG } from "@hyperidle/domain-model";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

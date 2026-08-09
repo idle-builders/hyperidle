@@ -16,7 +16,7 @@
 // Tokens by NAME only (Hearth + CP1). Money + irreversibility lean on
 // --status-warning / --status-error per the brief. Brand color lives only in ToolLogo.
 
-import type { ProposedCallStatus } from "@hyperidle/shared";
+import type { ProposedCallStatus } from "@hyperidle/domain-model";
 import { type JSX, useState } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { isPlainObject, isString } from "./payload-guard";
@@ -82,7 +82,7 @@ const REFUND: RefundOperation = {
 // outcome, never a toast. The band is a persistent part of the card so a
 // re-opened review shows the terminal state instead of re-prompting.
 //
-// @lore AL7 N2: ProposedCallStatus is imported from @hyperidle/shared (the
+// @lore AL7 N2: ProposedCallStatus is imported from @hyperidle/domain-model (the
 // shared PROPOSED_CALL_STATUSES const tuple), NOT defined inline here.
 // This ensures the canvas cannot drift from the router's status values.
 // ProposedCallOutcomeView is imported from review-composition — the loader

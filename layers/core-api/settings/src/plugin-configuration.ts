@@ -11,14 +11,14 @@ import {
 } from "@hyperidle/db";
 import {
 	BUILTIN_PLUGIN_ID,
-	BUILTIN_TOOL_CATALOG,
 	CONFIGURATION_KINDS,
 	type ConfigurationKind,
 	type ConfigurationOrigin,
 	type PluginState,
 	type ResolvedConfigurationItem,
 	TriggerRuleValueSchema,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
+import { BUILTIN_TOOL_CATALOG } from "@hyperidle/tool-protocol";
 import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
 import type { RoutineReader, SettingsUserDirectory } from "./ports.js";

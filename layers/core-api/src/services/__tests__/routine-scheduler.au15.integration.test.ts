@@ -28,9 +28,9 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import type { AgentRunLifecycleChangedEvent } from "@hyperidle/domain-model";
 import * as routineService from "@hyperidle/routine";
 import { drainIntents, startLifecycleProjectionDrain } from "@hyperidle/session-requests";
-import type { AgentRunLifecycleChangedEvent } from "@hyperidle/shared";
 import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, vi } from "vitest";
 import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";

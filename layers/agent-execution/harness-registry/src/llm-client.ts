@@ -2,7 +2,7 @@
  * X6: callLlm() — single LLM API call with Anthropic and OpenAI-compatible format support.
  */
 
-import { HttpError, type ResolvedModel } from "@hyperidle/shared";
+import { HttpError, type ResolvedModel } from "@hyperidle/domain-model";
 import type {
 	LlmMessage,
 	LlmResponse,
@@ -493,7 +493,7 @@ async function callLlmDirect(options: CallLlmOptions): Promise<LlmResponse> {
 }
 
 /**
- * POLISH-060 B2: `HttpError` moved to `@hyperidle/shared` (AU19 Increment
+ * POLISH-060 B2: `HttpError` moved to `@hyperidle/domain-model` (AU19 Increment
  * 3h) — `dispatch`'s `mapErrorToNotice` needs `instanceof HttpError` across
  * the agent-orchestration → agent-execution seam, and Mechanism C forbids a
  * Service importing another Service's class. Re-exported here unchanged so

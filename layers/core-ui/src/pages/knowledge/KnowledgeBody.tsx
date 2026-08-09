@@ -22,9 +22,10 @@
  * at the bottom (same pattern as BetPitch/WorkBet).
  */
 
+import { deriveBlocks } from "@hyperidle/block-derivation";
 import { Block } from "@hyperidle/design-system";
-import type { Message } from "@hyperidle/shared";
-import { deriveBlocks, isRedactedPayload } from "@hyperidle/shared";
+import type { Message } from "@hyperidle/domain-model";
+import { isRedactedPayload } from "@hyperidle/domain-model";
 import DOMPurify from "dompurify";
 import { type JSX, useMemo } from "react";
 import { AssistantAttachButton } from "../../components/AssistantAttachButton.js";

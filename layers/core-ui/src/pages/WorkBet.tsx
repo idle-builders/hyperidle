@@ -16,6 +16,7 @@
  * a shared fetch surface requires a global cache layer (out of scope).
  */
 
+import { deriveBlocks } from "@hyperidle/block-derivation";
 import type { MenuItem } from "@hyperidle/design-system";
 import {
 	Avatar,
@@ -40,17 +41,21 @@ import {
 	taskOutcomeVerdictToStatus,
 	taskStateToStatus,
 } from "@hyperidle/design-system";
-import type { BetOutcomeVerdict, BetStatus, Message, SessionOutcome } from "@hyperidle/shared";
+import type {
+	BetOutcomeVerdict,
+	BetStatus,
+	Message,
+	SessionOutcome,
+} from "@hyperidle/domain-model";
 import {
 	BET_OUTCOME_VERDICT_LABEL,
 	BET_OUTCOME_VERDICTS,
 	BET_STATUS_LABEL,
-	deriveBlocks,
 	isRedactedPayload,
-	relativeLong,
 	TASK_OUTCOME_VERDICT_LABEL,
 	TASK_STATE_LABEL,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
+import { relativeLong } from "@hyperidle/presentation-format";
 import { type JSX, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
@@ -79,7 +84,7 @@ type SortColumn = "title" | "status" | "owner" | "outcome";
 type SortDirection = "asc" | "desc";
 
 // AI4: TASK_VERDICT_LABEL, BET_VERDICT_LABEL, TASK_STATE_LABEL, taskStateBadgeClass
-// deleted — now sourced from @hyperidle/shared (TASK_OUTCOME_VERDICT_LABEL,
+// deleted — now sourced from @hyperidle/domain-model (TASK_OUTCOME_VERDICT_LABEL,
 // BET_OUTCOME_VERDICT_LABEL, TASK_STATE_LABEL) and @hyperidle/design-system (StatusChip).
 
 /**

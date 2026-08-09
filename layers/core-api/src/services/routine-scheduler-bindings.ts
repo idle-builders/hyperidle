@@ -25,6 +25,7 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { insertThread, listThreads } from "@hyperidle/conversation";
 import type { HyperIdleDb, Routine, WriteExecutor } from "@hyperidle/db";
+import type { EventBus } from "@hyperidle/event-bus";
 import {
 	assembleSessionKnowledge,
 	list as listKnowledgeItems,
@@ -43,7 +44,6 @@ import {
 	startRoutineScheduler as startRoutineSchedulerInternal,
 } from "@hyperidle/routine";
 import { readServerConfig } from "@hyperidle/settings";
-import type { EventBus } from "@hyperidle/shared";
 import { requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 

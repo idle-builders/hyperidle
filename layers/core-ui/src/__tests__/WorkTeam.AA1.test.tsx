@@ -7,7 +7,7 @@
  * AC-3: Status chip reflects state (active/paused/error)
  */
 
-import type { TeamDetail } from "@hyperidle/shared";
+import type { TeamDetail } from "@hyperidle/domain-model";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";

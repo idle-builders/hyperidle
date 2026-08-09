@@ -1,4 +1,4 @@
-import type { Message, PlainPayload, ReviewPayload } from "@hyperidle/shared";
+import type { Message, PlainPayload, ReviewPayload } from "@hyperidle/domain-model";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";

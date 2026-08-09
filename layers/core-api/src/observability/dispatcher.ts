@@ -23,33 +23,31 @@
  * bursts when the buffer stayed at cap (adversary review H3 #2).
  */
 
-import {
-	type BetStateChangedEvent,
-	createLogger,
-	type DomainEvent,
-	type EventBus,
-	type KnowledgeUpdatedEvent,
-	type Logger,
-	type ObservabilityEvent,
-	type SessionEndedEvent,
-	type SessionStartedEvent,
-	type TaskStateChangedEvent,
-	type ToolCallRecordedEvent,
-} from "@hyperidle/shared";
 import type {
 	FlushOutcome,
 	ObservabilityAdapter,
 	ObservabilityChannel,
 	ObservabilityDispatcher,
 	ObservabilityDispatcherStatus,
-} from "@hyperidle/shared/observability";
+} from "@hyperidle/diagnostics";
+import { createLogger, type Logger, type ObservabilityEvent } from "@hyperidle/diagnostics";
+import type {
+	BetStateChangedEvent,
+	DomainEvent,
+	KnowledgeUpdatedEvent,
+	SessionEndedEvent,
+	SessionStartedEvent,
+	TaskStateChangedEvent,
+	ToolCallRecordedEvent,
+} from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 
 /**
  * The three ring-buffer knobs the dispatcher needs.
  *
  * @lore AU26 C2: this used to be `Pick<ObservabilityConfig, ...>`. The config
  * value now lives in `@hyperidle/settings` (it is a `server_config` section),
- * and `@hyperidle/shared` may not import a Service — so the dispatcher states
+ * and a framework package may not import a Service — so the dispatcher states
  * its own requirement structurally. `ObservabilityConfig` satisfies it.
  */
 export interface DispatcherRingConfig {
@@ -479,5 +477,5 @@ export function registerObservabilityDispatcher(
 	};
 }
 
-// AU20 Ab3: `summarizeToolArgs` relocated to `@hyperidle/shared` (redact.ts).
+// AU20 Ab3: `summarizeToolArgs` relocated to `@hyperidle/diagnostics` (redact.ts).
 // Import it from there; the copy here was dead after the move.

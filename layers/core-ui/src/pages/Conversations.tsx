@@ -27,6 +27,9 @@
  * shows a "Dial In" button; clicking it opens the companion split: the
  * ConversationSurface on the left, SessionActivityPanel on the right.
  */
+
+import type { PartAuthor } from "@hyperidle/conversation-parts";
+import { derivePartsFromMessages } from "@hyperidle/conversation-parts";
 import {
 	Button,
 	EmptyState,
@@ -35,8 +38,6 @@ import {
 	SkeletonList,
 	SplitView,
 } from "@hyperidle/design-system";
-import type { PartAuthor } from "@hyperidle/shared";
-import { derivePartsFromMessages } from "@hyperidle/shared";
 import { type JSX, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom";
 import ConversationSurface, {
@@ -177,7 +178,7 @@ interface SessionViewPanelProps {
 	viewerId: string;
 	viewerName: string;
 	onClose: () => void;
-	onOpen: import("@hyperidle/shared").OpenHandler;
+	onOpen: import("@hyperidle/conversation-parts").OpenHandler;
 }
 
 function SessionViewPanel({
@@ -193,13 +194,13 @@ function SessionViewPanel({
 }: SessionViewPanelProps): JSX.Element {
 	const { entries, status } = useSessionActivity(sessionId);
 
-	const agent: import("@hyperidle/shared").PartAuthor = {
+	const agent: import("@hyperidle/conversation-parts").PartAuthor = {
 		id: agentId,
 		name: agentName,
 		isAgent: true,
 		isMe: false,
 	};
-	const viewer: import("@hyperidle/shared").PartAuthor = {
+	const viewer: import("@hyperidle/conversation-parts").PartAuthor = {
 		id: viewerId,
 		name: viewerName,
 		isAgent: false,

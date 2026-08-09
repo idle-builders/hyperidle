@@ -20,7 +20,7 @@
  * `npm run lint`) hard-fails a Service package (`packages/<layer>/<service>/`)
  * that imports another Service directly, with NO allowlist; this file (and
  * its `package.json`) must depend on nothing but `@hyperidle/db` +
- * `@hyperidle/shared`. `session-requests` (agent-orchestration-owned,
+ * framework packages. `session-requests` (agent-orchestration-owned,
  * genuinely against-grain) is a port for the same reason, one level further
  * against the grain. @lore AU21 Increment 14a: `cost` (the factory cost-cap
  * gate this file used to also read through) is DELETED — no replacement.
@@ -50,17 +50,11 @@
  * sole caller of (`ports.ts`). The other four builtins are unaffected.
  */
 import * as crypto from "node:crypto";
+import { computeNextRunAt, nextCronMatch, parseCron } from "@hyperidle/cron";
 import type { HyperIdleDb, Routine } from "@hyperidle/db";
-import {
-	type BetStateChangedEvent,
-	computeNextRunAt,
-	createLogger,
-	type EventBus,
-	type EventType,
-	type ItemCreatedEvent,
-	nextCronMatch,
-	parseCron,
-} from "@hyperidle/shared";
+import { createLogger } from "@hyperidle/diagnostics";
+import type { BetStateChangedEvent, EventType, ItemCreatedEvent } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import type { RoutineSchedulerPorts } from "./ports.js";
 import {
 	type BakedRoutineRunRequest,

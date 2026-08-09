@@ -24,7 +24,7 @@
  * route's `rowToFilesystem`) — this function must NOT re-`JSON.parse` it.
  */
 
-import type { Filesystem, FilesystemMounter } from "@hyperidle/shared";
+import type { Filesystem, FilesystemMounter } from "@hyperidle/filesystem-contract";
 
 /**
  * One filesystem's provisioning-relevant fields (`resourceRef` already parsed).

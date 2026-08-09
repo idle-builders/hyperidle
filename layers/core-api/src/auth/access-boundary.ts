@@ -15,7 +15,7 @@
  * error (exhaustive Record<HostKind, AccessScope>).
  */
 
-import type { HostKind } from "@hyperidle/shared";
+import type { HostKind } from "@hyperidle/domain-model";
 
 /** Two scopes: participant-scope (user/agent hosts) vs host-scope (everything else). */
 export type AccessScope = "participant" | "host";

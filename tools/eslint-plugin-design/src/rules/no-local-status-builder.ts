@@ -11,13 +11,13 @@
  *      /.*(STATE|STATUS|VERDICT|TYPE)_LABEL(S)?$/ (e.g. TASK_STATE_LABEL, TYPE_LABELS)
  *
  * Does NOT flag:
- *   - Files outside `layers/core-ui/src` (shared/server/design-system are legitimate homes)
+ *   - Files outside `layers/core-ui/src` (domain-model/server/design-system are legitimate homes)
  *   - Non-status helpers (e.g. panelClass, statusText)
  *   - Consuming a label from a registry (import + variable read is fine)
  *
  * @lore AI4 Decision 7: Static codebase property → lint rule, not a test.
  * The heuristic is scoped to layers/core-ui/src so the legitimate registry
- * homes (@hyperidle/shared, @hyperidle/server) never trigger.
+ * homes (@hyperidle/domain-model, @hyperidle/core-api) never trigger.
  */
 
 import type { Rule } from "eslint";
@@ -43,14 +43,14 @@ export const noLocalStatusBuilder: Rule.RuleModule = createRule({
 		docs: {
 			description:
 				"Forbid page-local status→color or status→label builders in layers/core-ui/src. " +
-				"Use @hyperidle/shared label registries and @hyperidle/design-system status-mapping instead.",
+				"Use @hyperidle/domain-model label registries and @hyperidle/design-system status-mapping instead.",
 			recommended: true,
 		},
 		schema: [],
 		messages: {
 			localStatusBuilder:
 				"Page-local status builder '{{name}}' is not allowed in layers/core-ui/src. " +
-				"Use the shared label registries (TASK_STATE_LABEL etc.) from @hyperidle/shared " +
+				"Use the one label registry (TASK_STATE_LABEL etc.) from @hyperidle/domain-model " +
 				"or the status-mapping functions from @hyperidle/design-system.",
 		},
 	},

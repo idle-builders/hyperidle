@@ -6,7 +6,7 @@
  * @lore L13: No caching, no retry — same pattern as useBet and useTeam.
  */
 
-import type { TeamListResponse } from "@hyperidle/shared";
+import type { TeamListResponse } from "@hyperidle/domain-model";
 import { useEffect, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 

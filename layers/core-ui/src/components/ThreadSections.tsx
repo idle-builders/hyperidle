@@ -5,7 +5,7 @@ import {
 	type Status,
 	ThreadRow,
 } from "@hyperidle/design-system";
-import type { HostKind } from "@hyperidle/shared";
+import type { HostKind } from "@hyperidle/domain-model";
 import type { CSSProperties, JSX } from "react";
 
 /**

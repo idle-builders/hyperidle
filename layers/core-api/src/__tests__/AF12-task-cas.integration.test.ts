@@ -14,8 +14,8 @@
  */
 
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
+import type { DomainEvent } from "@hyperidle/domain-model";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
-import type { DomainEvent } from "@hyperidle/shared";
 import { requireRunnableAgent } from "@hyperidle/users";
 import type { TaskStateMachineDeps } from "@hyperidle/work";
 import { InvalidTransitionError, transitionTask } from "@hyperidle/work";

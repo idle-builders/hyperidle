@@ -13,7 +13,7 @@
  * FAILS until packages/server/src/services/service-connection-projection.ts is created.
  */
 
-import type { HarnessCapabilityDescriptor } from "@hyperidle/shared";
+import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import { describe, expect, it } from "vitest";
 import { projectInheritedConnections } from "../service-connection-projection.js";
 

@@ -10,8 +10,8 @@
  *   Story: SettingsConnections.stories.tsx Populated story exists and renders
  *
  * FAILS until:
- *   - framework/shared/src/connection.ts exports ServiceConnectionView
- *   - SettingsConnections.tsx imports from @hyperidle/shared (not local type alias)
+ *   - framework/domain-model/src/connection.ts exports ServiceConnectionView
+ *   - SettingsConnections.tsx imports from @hyperidle/domain-model (not local type alias)
  */
 
 import { render, screen } from "@testing-library/react";

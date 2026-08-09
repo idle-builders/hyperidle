@@ -17,7 +17,7 @@
  * RED until `../services/open-handler` exists (green-phase task 8).
  */
 
-import type { OpenHandler, OpenTarget } from "@hyperidle/shared";
+import type { OpenHandler, OpenTarget } from "@hyperidle/conversation-parts";
 import { describe, expect, it, vi } from "vitest";
 import { createOpenHandler } from "../services/open-handler";
 

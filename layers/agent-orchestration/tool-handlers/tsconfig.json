@@ -9,10 +9,25 @@
 	"include": ["src"],
 	"references": [
 		{
+			"path": "../../../framework/cron"
+		},
+		{
 			"path": "../../../framework/db"
 		},
 		{
-			"path": "../../../framework/shared"
+			"path": "../../../framework/domain-model"
+		},
+		{
+			"path": "../../../framework/event-bus"
+		},
+		{
+			"path": "../../../framework/factory-defaults"
+		},
+		{
+			"path": "../../../framework/harness-protocol"
+		},
+		{
+			"path": "../../../framework/tool-protocol"
 		}
 	]
 }

@@ -32,6 +32,7 @@
 
 import { bootAgentExecution } from "@hyperidle/agent-execution";
 import { ServiceConnectionResolver } from "@hyperidle/connections";
+import { encryptCredentialValue } from "@hyperidle/credential-access";
 import {
 	filesystemInjections,
 	filesystems,
@@ -42,8 +43,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { EventBus } from "@hyperidle/shared";
-import { encryptCredentialValue } from "@hyperidle/shared/crypto";
+import { EventBus } from "@hyperidle/event-bus";
 import { afterEach, beforeEach, vi } from "vitest";
 import { bootAgentOrchestration } from "../boot.js";
 

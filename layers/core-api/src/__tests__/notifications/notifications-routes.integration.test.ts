@@ -14,6 +14,7 @@
  * to inline types + `updateConfig`; old three-dep exports replaced by `notificationsDeps`.
  */
 
+import type { ApiErrorResponse } from "@hyperidle/domain-model";
 import {
 	enqueue,
 	listNotifications,
@@ -22,7 +23,6 @@ import {
 	type SafeNotificationConfig,
 	updateConfig,
 } from "@hyperidle/notifications";
-import type { ApiErrorResponse } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { expect, test } from "../../__testing__/test-fixtures.js";
 import { createTestApp } from "../../__testing__/test-utils.js";

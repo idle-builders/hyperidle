@@ -6,7 +6,7 @@
  * uses Link and useParams internally.
  */
 
-import type { AgentProfileResponse } from "@hyperidle/shared";
+import type { AgentProfileResponse } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type { AgentRunState } from "../hooks/useAgentRunState.js";

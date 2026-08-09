@@ -10,7 +10,7 @@
  * B1a removes that premise on both halves — this Layer has its own app, and the
  * middleware stack is applied by the **Application** to the `/api` router both
  * apps mount on, so a route here sits behind the same auth without importing
- * core-api (`HyperIdleEnv` + `requireBoundary` come from `@hyperidle/shared/http`).
+ * core-api (`HyperIdleEnv` + `requireBoundary` come from `@hyperidle/http-middleware`).
  * The "door" is now literal: the data, the query and the HTTP host are all on
  * the owning side.
  *
@@ -24,13 +24,6 @@
 import type { AgentOrchestrationSessionWireRow } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
-	countActiveRunsByAgent,
-	findSessionById,
-	listLatestOutcomeByTask,
-	listRunSummaries,
-} from "@hyperidle/run-orchestration";
-import { listSessionRequests } from "@hyperidle/session-requests";
-import {
 	type ActivityEntry,
 	AGENT_SESSION_SOURCE_KINDS,
 	type AgentRunActiveCountsResponse,
@@ -38,8 +31,15 @@ import {
 	type AgentRunsResponse,
 	type AgentSessionSourceKind,
 	API_ERROR_CODES,
-} from "@hyperidle/shared";
-import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
+} from "@hyperidle/domain-model";
+import { type HyperIdleEnv, requireBoundary } from "@hyperidle/http-middleware";
+import {
+	countActiveRunsByAgent,
+	findSessionById,
+	listLatestOutcomeByTask,
+	listRunSummaries,
+} from "@hyperidle/run-orchestration";
+import { listSessionRequests } from "@hyperidle/session-requests";
 import type { Context } from "hono";
 import { Hono } from "hono";
 

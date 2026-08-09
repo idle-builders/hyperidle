@@ -1,0 +1,20 @@
+{
+	"name": "@hyperidle/event-bus",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"check": "tsc --noEmit"
+	},
+	"devDependencies": {
+		"@hyperidle/harness-protocol": "*",
+		"vitest": "^4.1.9"
+	},
+	"dependencies": {
+		"@hyperidle/diagnostics": "*",
+		"@hyperidle/domain-model": "*"
+	}
+}

@@ -1,7 +1,7 @@
 // @hyperidle/design-system — barrel export
 
 // ── AI4: Re-export AgentOperationalStatus type (lives in shared, needed by ds consumers) ──
-export type { AgentOperationalStatus } from "@hyperidle/shared";
+export type { AgentOperationalStatus } from "@hyperidle/domain-model";
 // ── Artifact view family (closed: 3 sub-primitives + 4 layouts; L3) ──
 // @lore AU21 Increment 14a: ArtifactCostChip deleted along with the rest of
 // the cost feature — no replacement.

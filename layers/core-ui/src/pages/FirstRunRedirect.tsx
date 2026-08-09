@@ -1,5 +1,5 @@
 // @lore U1: `ProductListResponse` → `TeamListResponse`.
-import type { TeamListResponse } from "@hyperidle/shared";
+import type { TeamListResponse } from "@hyperidle/domain-model";
 import { type JSX, useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { apiFetch } from "../services/api-fetch.js";

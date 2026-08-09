@@ -1,20 +1,21 @@
 import { randomUUID } from "node:crypto";
 import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle/db";
 import {
-	type AdmittedRun,
 	type AgentSessionSourceCorrelation,
 	type AgentSessionSourceKind,
 	agentSessionRequestInputSchema,
-	type BakedAgentRunnableConfig,
-	type BakedContextBundle,
 	ConcurrencyLimitError,
-	type ConversationMessage,
-	type HarnessPortDeps,
 	isAgentWorkIntentKind,
 	isAgentWorkIntentSourceKind,
-	type RunContextBundle,
 	TargetAgentNotRunnableError,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
+import type {
+	AdmittedRun,
+	ConversationMessage,
+	HarnessPortDeps,
+	RunContextBundle,
+} from "@hyperidle/harness-protocol";
+import type { BakedAgentRunnableConfig, BakedContextBundle } from "@hyperidle/work-intent-port";
 import { eq } from "drizzle-orm";
 import { createContextAssembler } from "./context.js";
 import type { RunOptions, RunResult, RuntimeDeps, RuntimePorts } from "./contracts.js";
@@ -281,12 +282,12 @@ async function reportPreAdmissionProvisioningFailure(
 	) {
 		return;
 	}
-	// @lore AU29 §2.4: inlined from `@hyperidle/shared`'s (now-deleted)
+	// @lore AU29 §2.4: inlined from the framework's (now-deleted)
 	// `reportAdmissionFailure` — the typed construction+emit of the
 	// pre-handoff `agent_run_admission_failed` channel, at both real call
 	// sites (this one and `session-requests`'s `failOrRelease`). The two
 	// services deliberately do not import each other; they now share the
-	// event *type* (`events.ts`, which stays in shared), not an emit helper.
+	// event *type* (`events.ts`, now in `@hyperidle/domain-model`), not an emit helper.
 	deps.eventBus.emit({
 		type: "agent_run_admission_failed",
 		streamId: `${correlatedIntent.kind}:${correlatedIntent.sourceId}`,

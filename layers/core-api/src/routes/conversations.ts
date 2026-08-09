@@ -1,8 +1,9 @@
 import { countThreads, findThread, listThreads } from "@hyperidle/conversation";
 import type { HyperIdleDb, Item } from "@hyperidle/db";
-import type { ApiErrorResponse, EventBus, HostKind, ItemCreatedEvent } from "@hyperidle/shared";
-import { API_ERROR_CODES } from "@hyperidle/shared";
-import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/shared/http";
+import type { ApiErrorResponse, HostKind, ItemCreatedEvent } from "@hyperidle/domain-model";
+import { API_ERROR_CODES } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
+import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/http-middleware";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";

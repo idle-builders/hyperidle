@@ -18,7 +18,11 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import { createBodyLimit, createRateLimiter, failClosedAssertion } from "@hyperidle/shared/http";
+import {
+	createBodyLimit,
+	createRateLimiter,
+	failClosedAssertion,
+} from "@hyperidle/http-middleware";
 import type { ErrorHandler, MiddlewareHandler } from "hono";
 import { authMiddleware, createAuthMiddleware } from "./middleware/auth.js";
 import { corsMiddleware } from "./middleware/cors.js";

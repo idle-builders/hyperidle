@@ -9,8 +9,8 @@
  * These tests FAIL until RoutineDetailPane is implemented.
  */
 
-import type { RoutineDetail } from "@hyperidle/shared";
-import { SCHEDULE_PRESETS } from "@hyperidle/shared";
+import type { RoutineDetail } from "@hyperidle/domain-model";
+import { SCHEDULE_PRESETS } from "@hyperidle/domain-model";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";

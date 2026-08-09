@@ -22,6 +22,7 @@
  */
 
 import { type HyperIdleDb, items as itemsTable, threads } from "@hyperidle/db";
+import type { ItemCreatedEvent, TaskStateChangedEvent } from "@hyperidle/domain-model";
 import {
 	installNotifications,
 	listNotifications,
@@ -31,7 +32,6 @@ import {
 	updateConfig,
 } from "@hyperidle/notifications";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
-import type { ItemCreatedEvent, TaskStateChangedEvent } from "@hyperidle/shared";
 import { afterEach, describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 import { notificationsDeps } from "../notifications-test-deps.js";
 
@@ -115,7 +115,7 @@ async function createItem(
 }
 
 function emitTaskStateChanged(
-	bus: import("@hyperidle/shared").EventBus,
+	bus: import("@hyperidle/event-bus").EventBus,
 	fromState: "proposed" | "in_progress",
 	toState: "in_progress" | "done",
 	taskId = "task-r8",
@@ -148,7 +148,7 @@ function emitTaskStateChanged(
  */
 function registerWithPrefs(
 	db: HyperIdleDb,
-	bus: import("@hyperidle/shared").EventBus,
+	bus: import("@hyperidle/event-bus").EventBus,
 	adapter: NotificationAdapter,
 	extraDeps: Partial<{ now: () => Date }> = {},
 ): () => void {

@@ -12,7 +12,7 @@
  */
 const MODEL_CONTEXT_WINDOWS: Record<string, number> = {
 	// Anthropic — AH2 catalog (current model IDs)
-	// @lore AH2: These must stay in sync with MODEL_CATALOG in @hyperidle/shared.
+	// @lore AH2: These must stay in sync with MODEL_CATALOG in @hyperidle/domain-model.
 	// Re-key both here and in COST_PER_MILLION_TOKENS in builtin-harness-adapter.ts
 	// whenever the catalog changes.
 	"claude-opus-4-8": 1_000_000,

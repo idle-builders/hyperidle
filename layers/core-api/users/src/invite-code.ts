@@ -13,8 +13,8 @@
 import { randomBytes } from "node:crypto";
 import type { HyperIdleDb, InviteCode, User } from "@hyperidle/db";
 import { inviteCodes } from "@hyperidle/db";
-import type { InviteRole } from "@hyperidle/shared";
-import { INVITE_CODE_TTL_MS } from "@hyperidle/shared";
+import type { InviteRole } from "@hyperidle/domain-model";
+import { INVITE_CODE_TTL_MS } from "@hyperidle/domain-model";
 import { and, eq, isNull } from "drizzle-orm";
 import { createLoginSession } from "./login-session.js";
 import { getOrCreateUser } from "./user-store.js";

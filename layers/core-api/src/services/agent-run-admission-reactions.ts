@@ -33,6 +33,9 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { insertThread } from "@hyperidle/conversation";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
+import { createLogger } from "@hyperidle/diagnostics";
+import type { AgentRunAdmissionFailedEvent } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import {
 	type CreateReviewItemResult,
 	createReviewItem,
@@ -40,7 +43,6 @@ import {
 } from "@hyperidle/review";
 import * as routineService from "@hyperidle/routine";
 import { readServerConfig } from "@hyperidle/settings";
-import { type AgentRunAdmissionFailedEvent, createLogger, type EventBus } from "@hyperidle/shared";
 import { requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { buildSeamBackedWorkIntentRecorder } from "./agent-orchestration-port-composition.js";

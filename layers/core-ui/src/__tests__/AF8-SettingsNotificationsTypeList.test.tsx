@@ -7,7 +7,7 @@
  *           registry-driven toggles render
  */
 
-import { NOTIFICATION_TYPES } from "@hyperidle/shared";
+import { NOTIFICATION_TYPES } from "@hyperidle/domain-model";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

@@ -1,4 +1,4 @@
-import { blockId, deriveBlocks, normalisedPayload } from "@hyperidle/shared";
+import { blockId, deriveBlocks, normalisedPayload } from "@hyperidle/block-derivation";
 import { describe, expect, it } from "vitest";
 import { MOCK_REVIEW_SUBJECT } from "../__fixtures__/review-subject.fixture.js";
 import type { CodeDiffPayload, ReviewArtifact } from "../review-artifact.js";

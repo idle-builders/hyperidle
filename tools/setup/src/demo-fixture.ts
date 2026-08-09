@@ -32,7 +32,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { readSystemPromptTemplateForRole } from "@hyperidle/shared";
+import { readSystemPromptTemplateForRole } from "@hyperidle/factory-defaults";
 import { and, eq, inArray } from "drizzle-orm";
 
 /**

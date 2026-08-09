@@ -1,4 +1,4 @@
-import type { AnchorRef } from "@hyperidle/shared";
+import type { AnchorRef } from "@hyperidle/domain-model";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Mock } from "vitest";

@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { FilesystemAuthResolver, FilesystemState } from "@hyperidle/shared";
+import type { FilesystemAuthResolver, FilesystemState } from "@hyperidle/filesystem-contract";
 import type { FilesystemsGitRunnerFactory } from "./ports.js";
 
 interface ProbeResult {

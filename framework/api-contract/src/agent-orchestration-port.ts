@@ -35,7 +35,7 @@ export interface AgentOrchestrationSessionHistoryEntry {
 
 /**
  * One session-activity entry — a hand-typed, structural mirror of
- * `@hyperidle/shared`'s `ActivityEntry` discriminated union (AM3). `api-
+ * `@hyperidle/domain-model`'s `ActivityEntry` discriminated union (AM3). `api-
  * contract` stays zero-runtime-deps (header note above), so this is a
  * deliberate type-only duplication, not an import — same idiom as
  * `AgentOrchestrationSessionHistoryEntry`. `data`'s shape varies by `type`

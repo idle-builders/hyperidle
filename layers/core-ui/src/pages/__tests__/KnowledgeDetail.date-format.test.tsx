@@ -5,7 +5,7 @@
  * AC: formatted date shown, not raw ISO / relative string.
  */
 
-import { absoluteDateTime, TIME_PLACEHOLDER } from "@hyperidle/shared";
+import { absoluteDateTime, TIME_PLACEHOLDER } from "@hyperidle/presentation-format";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";

@@ -17,7 +17,7 @@
 
 // hearth-internal-padding
 import { BodyEditor, Select } from "@hyperidle/design-system";
-import { deriveTitleFromPitch } from "@hyperidle/shared";
+import { deriveTitleFromPitch } from "@hyperidle/presentation-format";
 import { type JSX, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useKnowledgeItem } from "../hooks/useKnowledgeItem.js";

@@ -20,12 +20,12 @@
  * that takes the collapsed type.
  */
 
+import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credential-access";
 import { deleteCredential, readCredentials, writeCredential } from "@hyperidle/credentials";
 import type { WriteExecutor } from "@hyperidle/db";
 import type { NotificationsDeps } from "@hyperidle/notifications";
 import { getTeamMembers } from "@hyperidle/org";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
-import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/shared/crypto";
 import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 

@@ -26,8 +26,8 @@ import type {
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
 	SessionKnowledgeItemLike,
-} from "@hyperidle/shared";
-import { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "@hyperidle/shared";
+} from "@hyperidle/work-intent-port";
+import { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "@hyperidle/work-intent-port";
 import * as work from "./work-service.js";
 import { taskDispatchAttemptStore } from "./work-service.js";
 
@@ -37,7 +37,7 @@ export interface TaskRunResolverDeps {
 	/**
 	 * AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/org`'s
 	 * `getTeam`, injected (Mechanism C — `@hyperidle/work`'s `package.json`
-	 * depends only on `@hyperidle/db` + `@hyperidle/shared`, never
+	 * depends only on `@hyperidle/db` + framework packages, never
 	 * `@hyperidle/org`). Absent at a call site not yet wired to bake context
 	 * (composition-root wiring is a later wave) — the resolver falls back to
 	 * baking no `contextBundle` rather than throwing, matching every existing
@@ -103,7 +103,7 @@ export interface BakedTaskRunRequest {
 	/**
 	 * AU21 §9 Increment 12 (Decision H3), Wave E — the target agent's
 	 * runnable-config snapshot, baked from the SAME already-`requireRunnableAgent`
-	 * -validated `agent: User` row (`BakedAgentRunnableConfig`, `@hyperidle/shared`).
+	 * -validated `agent: User` row (`BakedAgentRunnableConfig`, `@hyperidle/work-intent-port`).
 	 * Always present (no optional-deps gate) — `admitSession`'s Phase 1/3 need
 	 * it for every `task_run` session, not just the ones with a `contextBundle`.
 	 */

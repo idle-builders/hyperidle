@@ -8,7 +8,7 @@ Test-side honesty (the five-harness matrix, locked test models, the attestation 
 
 ## 1. The Accepted-Return Set
 
-Four tool names form the closed accepted-return set (`RETURN_ACTION_NAMES` in `framework/shared/src/harness/return-actions.ts`):
+Four tool names form the closed accepted-return set (`RETURN_ACTION_NAMES` in `framework/harness-protocol/src/harness/return-actions.ts`):
 
 | Tool | Meaning |
 |---|---|
@@ -37,7 +37,7 @@ The set is **closed**: membership is enumerated in a `readonly` tuple; `isReturn
 
 v4 replaces the v3 outer re-prompt loop with per-harness enforcement provisioned once at sandbox setup. `provisionReturnHook` (`layers/agent-execution/harness-registry/src/provision-return-hook.ts`) is called by the run provisioner (`layers/agent-orchestration/run-orchestration/src/provisioner.ts`), just after `.mcp.json` is written and **before** `startSession`. It dispatches on `HarnessCapabilities.returnEnforcement` — a non-optional `ReturnEnforcementChannel` that every adapter must declare.
 
-The channel type is defined in `framework/shared/src/harness/harness-adapter.ts` as:
+The channel type is defined in `framework/harness-protocol/src/harness/harness-adapter.ts` as:
 
 ```
 "sdk-inprocess" | "settings-claude" | "settings-codex" |
@@ -66,7 +66,7 @@ The route resolves the bearer token to a `sessionId` via the injected `McpSessio
 
 ### The Per-Session Enforcement Registry
 
-`layers/agent-execution/harness-registry/src/return-enforcement.ts` provides a `Map<sessionId, EnforcementEntry>` keyed by session UUID (`EnforcementEntry` and `EnforcementRegistry` are declared in `framework/shared/src/harness/enforcement-registry.ts`). Each entry holds:
+`layers/agent-execution/harness-registry/src/return-enforcement.ts` provides a `Map<sessionId, EnforcementEntry>` keyed by session UUID (`EnforcementEntry` and `EnforcementRegistry` are declared in `framework/harness-protocol/src/harness/enforcement-registry.ts`). Each entry holds:
 
 - `gate: { returned: boolean }` — live reference to the drain `ReturnGate`; mutated by the event-stream observer.
 - `forceCount: number` — how many times the hook has fired for this session.
@@ -131,7 +131,7 @@ An exemption applies: if none of the session's tool defs are return actions (e.g
 
 ## 5. Forcing Budget
 
-`MAX_FORCE_RETURNS = 2` (`framework/shared/src/harness/return-actions.ts`). The budget is enforced via `shouldForceReturn(gate, forceCount)`:
+`MAX_FORCE_RETURNS = 2` (`framework/harness-protocol/src/harness/return-actions.ts`). The budget is enforced via `shouldForceReturn(gate, forceCount)`:
 
 - Returns the `FORCE_RETURN_MESSAGE` string when `!gate.returned && forceCount < MAX_FORCE_RETURNS`.
 - Returns `null` when budget is exhausted or the agent already returned.
@@ -149,7 +149,7 @@ On **every** harness, a no-return turn is **never recorded `completed`**:
 3. `endSession` is called with `terminalOutcome: "not_returned"` — writes `"not_returned"` to `sessions.outcome` in the DB **and** to the `session_ended` bus event's `outcome` field.
 4. `provisionSession`/`runSession` returns `{ outcome: "not_returned", returnVerdict: "not_returned" }` to the caller.
 
-`SessionOutcome` (`framework/shared/src/events.ts`) is `"completed" | "crashed" | "stopped" | "not_returned"`. Every `switch(outcome)` consumer must handle all four members.
+`SessionOutcome` (`framework/domain-model/src/events.ts`) is `"completed" | "crashed" | "stopped" | "not_returned"`. Every `switch(outcome)` consumer must handle all four members.
 
 ### The Backstop
 

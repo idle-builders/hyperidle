@@ -24,7 +24,9 @@ import {
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
-import type { ArtifactPreview, EventBus, ToolContext } from "@hyperidle/shared";
+import type { ArtifactPreview } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
+import type { ToolContext } from "@hyperidle/tool-protocol";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";

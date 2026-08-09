@@ -7,7 +7,7 @@
  * table purely to render the team page, and the page now fetches the runs from
  * that Layer's own API and derives them itself. AC-2 and AC-4's coverage of the
  * derivations lives with the derivations, in
- * `framework/shared/src/__tests__/health-signals.test.ts`.
+ * `framework/domain-model/src/__tests__/health-signals.test.ts`.
  *
  * One thing stays here, and this file covers exactly that:
  *   - `harnessAvailable` per roster member — NOT run state; a fact about the

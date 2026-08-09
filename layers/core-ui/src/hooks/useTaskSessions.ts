@@ -17,7 +17,7 @@
  * feature. `harnessUrl`/`tokens` remain genuinely unserved (no source anywhere).
  */
 
-import type { AgentRunSummary } from "@hyperidle/shared";
+import type { AgentRunSummary } from "@hyperidle/domain-model";
 import { useEffect, useState } from "react";
 import { fetchRunsByTaskId } from "../services/agent-runs.js";
 import type { FetchState } from "./useFetch.js";

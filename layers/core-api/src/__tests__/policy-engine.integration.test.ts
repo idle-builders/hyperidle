@@ -16,11 +16,11 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import type { NotificationEvent } from "@hyperidle/domain-model";
 import { isSilenced } from "@hyperidle/notifications";
 import { getTeamMembers } from "@hyperidle/org";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
-import type { NotificationEvent } from "@hyperidle/shared";
 import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
@@ -259,7 +259,10 @@ describe("Policy Engine (E7)", () => {
 		return itemId;
 	}
 
-	function emitItemCreated(eventBus: import("@hyperidle/shared").EventBus, itemId: string): void {
+	function emitItemCreated(
+		eventBus: import("@hyperidle/event-bus").EventBus,
+		itemId: string,
+	): void {
 		eventBus.emit({
 			type: "item_created",
 			streamId: crypto.randomUUID(),

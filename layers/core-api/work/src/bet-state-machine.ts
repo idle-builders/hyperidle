@@ -2,9 +2,9 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	type BetStatus,
 	CapacityExceededError,
-	type EventBus,
 	InvalidTransitionError,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import type { TeamCapacityReader } from "./ports.js";
 import * as work from "./work-service.js";
 

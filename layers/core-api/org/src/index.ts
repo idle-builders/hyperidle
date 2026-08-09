@@ -16,7 +16,7 @@
  * with filter). `resolveTeamAgentHarness` folded into `persistScaffoldedAgents`.
  * @lore AU21 Increment 14a: `applyTeamCost` deleted along with the rest of
  * the cost feature — no replacement.
- * `PrimaryHarnessConfig` re-export dropped (callers import from @hyperidle/shared).
+ * `PrimaryHarnessConfig` re-export dropped (callers import from @hyperidle/domain-model).
  * `CreateTeamMembersGroupInput` dropped (merged into `CreateTeamInput`).
  * `deleteOrgEdgeById` renamed to `deleteOrgEdge`. `getOrgEdgeById` folded into
  * `listOrgEdges(filter)`.

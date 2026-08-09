@@ -68,10 +68,10 @@ import * as path from "node:path";
 import { promisify } from "node:util";
 
 import { serve } from "@hono/node-server";
+import type { EnforcementRegistry } from "@hyperidle/harness-protocol";
 import { createReturnEnforcement, provisionHarnessEnvironment } from "@hyperidle/harness-registry";
 import { createMcpToolBridge, type McpToolBridge } from "@hyperidle/harness-registry/mcp";
 import { harnessTestResolvedModel, requireHarness } from "@hyperidle/harness-registry/test-utils";
-import type { EnforcementRegistry } from "@hyperidle/shared";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 

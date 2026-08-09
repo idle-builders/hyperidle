@@ -6,7 +6,7 @@
  * undefined when both unset so builtin fallback in persistScaffoldedAgents applies).
  */
 
-import type { PrimaryHarnessConfig } from "@hyperidle/shared";
+import type { PrimaryHarnessConfig } from "@hyperidle/domain-model";
 import { describe, expect, it } from "vitest";
 import { resolveTeamAgentHarness } from "../team-default-harness.js";
 

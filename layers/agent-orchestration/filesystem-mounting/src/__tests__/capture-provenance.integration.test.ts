@@ -26,7 +26,7 @@ import {
 	type WriteExecutor,
 } from "@hyperidle/db";
 import { test } from "@hyperidle/db/test-fixtures";
-import type { Filesystem } from "@hyperidle/shared";
+import type { Filesystem } from "@hyperidle/filesystem-contract";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect } from "vitest";
 import { RegistryFilesystemMounter } from "../index.js";

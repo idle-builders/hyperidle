@@ -15,12 +15,12 @@
 
 import { buildToolDefinitions } from "@hyperidle/agent-orchestration";
 import type { CoreApiTransport } from "@hyperidle/api-contract";
+import type { SessionWorkflow } from "@hyperidle/harness-protocol";
 import {
 	classifyReversibility,
 	composeWorkflowAllowDeny,
 	identityHash,
-	type SessionWorkflow,
-} from "@hyperidle/shared";
+} from "@hyperidle/tool-protocol";
 import { describe, expect, it } from "vitest";
 
 /**

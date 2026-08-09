@@ -18,7 +18,7 @@
  * (green-phase tasks 5-6).
  */
 
-import type { Embed, Part } from "@hyperidle/shared";
+import type { Embed, Part } from "@hyperidle/conversation-parts";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { PartList } from "../components/PartList";

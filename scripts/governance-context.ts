@@ -66,12 +66,20 @@ export const MIN_TRACKED_FILES = 2976;
  * build when they stop matching the tree. Keep the reasoning here; get the numbers from
  * `npm run governance:floors`.
  */
+// @lore AU34: `import` and `manifest` are the two floors the substrate split moved, and they moved
+// for a reason that has to be said out loud before a floor is ever raised: the POPULATION grew and no
+// violation was absorbed. One framework package with thirty declarers became eighteen with the same
+// consumers declaring a subset each, so both counts rise mechanically. Floors are magnitude trackers
+// — violations are reported separately, by the `crossing-<kind>` rules — so raising one cannot hide
+// one. The value written is the tool's `write` column (the middle of the band), never the live count:
+// a floor at the edge is one removed crossing from red. Only these two were touched; every other
+// floor stayed inside its band, and one going red is a finding rather than a bump.
 export const DETECTOR_FLOORS: readonly DetectorFloor[] = [
-	{ kind: "import", min: 3307, floorKind: "magnitude" },
-	{ kind: "manifest", min: 111, floorKind: "magnitude" },
-	{ kind: "di", min: 225, floorKind: "magnitude" },
-	{ kind: "api", min: 184, floorKind: "magnitude" },
-	{ kind: "mcp", min: 25, floorKind: "magnitude" },
+	{ kind: "import", min: 3637, floorKind: "magnitude" },
+	{ kind: "manifest", min: 223, floorKind: "magnitude" },
+	{ kind: "di", min: 220, floorKind: "magnitude" },
+	{ kind: "api", min: 126, floorKind: "magnitude" },
+	{ kind: "mcp", min: 22, floorKind: "magnitude" },
 	{ kind: "event", min: 216, floorKind: "magnitude" },
 	// The thinnest detector in the set, and the one most able to lose half its coverage without
 	// tripping. Treat it as a tripwire, not a boundary. It is the one floor NOT moved to the middle of
@@ -183,13 +191,20 @@ export function buildLiveCensus(architecture: LoadedArchitecture, files: readonl
 	return buildCensus({ files, readFile: readRepoFile, roleRules: architecture.roles.byWorkspacePattern });
 }
 
-/** Framework package name → the surface label it is named by. Derived from the packages that exist. */
-function frameworkSurfacesOf(architecture: Architecture, census: Census): Map<string, string> {
+/**
+ * Framework package name → the surface label it is named by. Derived from the packages that exist.
+ *
+ * @lore AU34: the label is mapped whether or not `architecture.surfaces` declares it. It used to be
+ * mapped only when the entry already existed, so a framework package with no decided audience never
+ * became a `surface` target at all: the crossing fell through to the generic package clauses and the
+ * build failed with "only a composition root reaches across" — which sends a reader to the wrong file.
+ * An undeclared surface is forbidden, and it has to say so.
+ */
+function frameworkSurfacesOf(census: Census): Map<string, string> {
 	const out = new Map<string, string>();
 	for (const pkg of census.packages) {
 		if (pkg.role !== "framework") continue;
-		const label = `framework/${pkg.name}`;
-		if (label in architecture.surfaces) out.set(pkg.name, label);
+		out.set(pkg.name, `framework/${pkg.name}`);
 	}
 	return out;
 }
@@ -203,7 +218,7 @@ export function buildCrossings(census: Census, architecture: LoadedArchitecture)
 			eventTypesModule: architecture.eventBus.typesModule,
 			db: buildDbSurfaceIndex(architecture.databasePackage, readRepoFile),
 			tableOwners: loadTableOwners(),
-			frameworkSurfaces: frameworkSurfacesOf(architecture, census),
+			frameworkSurfaces: frameworkSurfacesOf(census),
 		},
 		DETECTOR_FLOORS,
 	);

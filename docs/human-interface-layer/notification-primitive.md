@@ -38,7 +38,7 @@ One per-type on/off state, shown in two surfaces:
 | Mute one | Popover row → "mute notifications like this" → writes `type → off` |
 | See / re-enable everything | Settings → flat list of **all** notification types, each an on/off toggle (`SettingsNotifications.tsx` renders the registry, no hardcoded array) |
 | The mutable unit | The notification **type** (stable `key`, e.g. `review_request`) |
-| The registry | A **code-defined const list** `{ key, label, shortLabel, description, defaultUrgency }` (`framework/shared/src/notifications.ts`); a new kind = one entry, auto-listed in Settings |
+| The registry | A **code-defined const list** `{ key, label, shortLabel, description, defaultUrgency }` (`framework/domain-model/src/notifications.ts`); a new kind = one entry, auto-listed in Settings |
 | Persistence | Muted type keys in `server_config` (`notifications.mutedTypes`) |
 
 **Dismiss ≠ mute:** dismissing clears *this instance* (seen/read); muting suppresses *future instances of the type*.
@@ -47,7 +47,7 @@ One per-type on/off state, shown in two surfaces:
 
 ## Types & sources
 
-The registry (`NOTIFICATION_TYPES`, `framework/shared/src/notifications.ts`) is the complete set — types are never derived from string keys elsewhere:
+The registry (`NOTIFICATION_TYPES`, `framework/domain-model/src/notifications.ts`) is the complete set — types are never derived from string keys elsewhere:
 
 | Event source | Type (key) | Source link | Default urgency |
 |---|---|---|---|

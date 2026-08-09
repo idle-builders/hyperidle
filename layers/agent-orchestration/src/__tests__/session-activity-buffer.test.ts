@@ -2,7 +2,7 @@
  * AU31 §2.7 (B1): `SessionActivityBuffer` relocated from
  * `@hyperidle/agent-execution` back into this Layer — supersedes AU21 §6
  * Decision E's placement (founder-ratified). [P8] proved zero execution
- * coupling: the class imports only `@hyperidle/shared` types/`EventBus`,
+ * coupling: the class imports only framework types/`EventBus`,
  * touches no DB/Drizzle, and its only production consumers were always this
  * Layer's own boot and routes — the buffer is judged by the domain it
  * serves, not by where its raw event data originates.
@@ -14,8 +14,8 @@
  * ownership, not behavior.
  */
 
-import type { ActivityEntry, ToolCallRecordedEvent } from "@hyperidle/shared";
-import { EventBus } from "@hyperidle/shared";
+import type { ActivityEntry, ToolCallRecordedEvent } from "@hyperidle/domain-model";
+import { EventBus } from "@hyperidle/event-bus";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // NOT YET CREATED — this import failing to resolve is this file's primary RED signal.
 import { SessionActivityBuffer } from "../session-activity-buffer.js";

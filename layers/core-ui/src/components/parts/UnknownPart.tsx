@@ -6,7 +6,7 @@
  * exhaustive `assertNeverPart` in PartList also renders this at runtime.
  */
 
-import type { Part } from "@hyperidle/shared";
+import type { Part } from "@hyperidle/conversation-parts";
 import type { JSX } from "react";
 
 type UnknownPartValue = Extract<Part, { kind: "unknown" }>;
