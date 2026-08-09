@@ -1,19 +1,24 @@
 /**
- * AU26 review W10 — identity and run config are created together, or not at all.
+ * AU26 review W10 — identity and run config used to be created together, or
+ * not at all, inside one `db.transaction`.
  *
- * The G1 column move turned one insert into two unwrapped writes on three
- * paths: `POST /api/agents` (`insertUser` then `writeAgentRunConfig`),
- * `POST /api/teams` (`createTeam` then `writeTeamRunConfigDefaults`) and the
- * assistant stub in the same handler. A failure between them leaves an agent
- * whose run config silently resolves the all-null default — builtin, one
- * concurrent session — instead of the harness the caller asked for. Nothing
- * fails loudly; the agent simply runs on the wrong harness forever.
+ * AU31 §3.1 sites 1-3 — INVERTED (founder ruling, architecture.md §3.1/§13
+ * item 9). The seam write (`AgentOrchestrationPort.runConfig.write` /
+ * `.writeTeamDefaults`) can never join a caller's transaction — it is an
+ * HTTP round trip through the composed app's own connection (§3.2) — so the
+ * two writes on each of `POST /api/agents` (site 1: `insertUser` then
+ * `runConfig.write`) and `POST /api/teams` (site 2: `createTeam` then
+ * `runConfig.writeTeamDefaults`) are no longer atomic. This suite used to
+ * prove they rolled back together; it now proves the named window each
+ * site's `@lore` documents: the identity row survives a failed run-config
+ * write, resolving `DEFAULT_AGENT_RUN_CONFIG`/`EMPTY_TEAM_RUN_CONFIG_DEFAULTS`
+ * semantics (builtin, one concurrent session / no team default) until the
+ * admin edit path repairs it.
  *
- * The fault is injected at the SECOND write only: the run-config store throws,
- * the identity insert is untouched. What is asserted is the real HTTP path's
- * effect on the real database — that the first write does not survive the
- * second one failing. Both stores already take a `WriteExecutor`, so the fix is
- * one `db.transaction`.
+ * The fault is injected at the SECOND write only: the run-config store
+ * throws, the identity insert is untouched. What is asserted is the real
+ * HTTP path's effect on the real database — that the first write DOES
+ * survive the second one failing.
  */
 
 import { teams, users } from "@hyperidle/db";
@@ -43,8 +48,8 @@ function authHeaders(): Record<string, string> {
 	return { "Content-Type": "application/json" };
 }
 
-describe("creation is atomic across identity and run config", () => {
-	test("POST /api/agents leaves no agent behind when the run-config write fails", async ({
+describe("creation is relinquished across identity and run config (AU31 §3.1 sites 1-3)", () => {
+	test("POST /api/agents: the agent survives even when the run-config write fails", async ({
 		db,
 		app,
 	}) => {
@@ -54,13 +59,15 @@ describe("creation is atomic across identity and run config", () => {
 			body: JSON.stringify({ name: AGENT_NAME, role: "builder", harnessType: "claude-code" }),
 		});
 
+		// The seam's runConfig.write fails (uncaught) — the route still 500s —
+		// but insertUser already committed before that call ran.
 		expect(res.status).toBeGreaterThanOrEqual(500);
-		// No half-created agent: an identity row with no run config resolves the
-		// all-null default (builtin, 1 session), not the claude-code that was asked for.
-		expect(await db.select().from(users).where(eq(users.name, AGENT_NAME))).toEqual([]);
+		const rows = await db.select().from(users).where(eq(users.name, AGENT_NAME));
+		expect(rows).toHaveLength(1);
+		expect(rows[0]).toMatchObject({ name: AGENT_NAME, role: "builder", kind: "ai" });
 	});
 
-	test("POST /api/teams leaves no team behind when the run-config defaults write fails", async ({
+	test("POST /api/teams: the team survives even when the run-config defaults write fails", async ({
 		db,
 		app,
 	}) => {
@@ -70,7 +77,11 @@ describe("creation is atomic across identity and run config", () => {
 			body: JSON.stringify({ name: TEAM_NAME }),
 		});
 
+		// The seam's runConfig.writeTeamDefaults fails (uncaught) — the route
+		// still 500s — but createTeam already committed before that call ran.
 		expect(res.status).toBeGreaterThanOrEqual(500);
-		expect(await db.select().from(teams).where(eq(teams.name, TEAM_NAME))).toEqual([]);
+		const rows = await db.select().from(teams).where(eq(teams.name, TEAM_NAME));
+		expect(rows).toHaveLength(1);
+		expect(rows[0]).toMatchObject({ name: TEAM_NAME, phase: "build" });
 	});
 });
