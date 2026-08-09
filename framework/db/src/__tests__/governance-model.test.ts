@@ -1,10 +1,10 @@
 /**
  * AU28 — the compact architecture model reproduces every decided verdict.
  *
- * `governance/decided-rules.json` holds 109 verdicts the founder decided one at a time: every role
+ * `governance/decided-rules.json` holds 195 verdicts the founder decided one at a time: every role
  * pair × crossing kind, with a separate answer for the production and development worlds. They are
  * the decision artifact. `scripts/lib/governance-model.ts` is fifteen clauses that must *derive* all
- * 218 answers (109 rows × 2 worlds).
+ * 390 answers (195 rows × 2 worlds).
  *
  * The row count moved four times, by founder ruling: AU28 Ruling 14 collapsed `raw runtime` and
  * `harness` into one target, merging the two `harness-registry` capability rows that had the same
@@ -15,7 +15,10 @@
  * and the literal one, so they are what stops a later edit widening it back by accident. AU34 then
  * retired the twelve `framework/shared` rows with the surface itself — the substrate was split into
  * eighteen packages, each with its own decided audience, so the blanket those twelve recorded has no
- * target left to name.
+ * target left to name — and recorded eighty-six in their place, one set per new surface: the roles it
+ * grants, the first package it names, and a `tooling` contrast that no surface admits. That contrast
+ * is the row that discriminates; without it a surface's audience could be widened to everyone and
+ * every remaining row would still reproduce.
  *
  * That is the whole point of this file. Without it, a clause tuned to fix one crossing can silently
  * flip another, and the compact model quietly stops meaning what the founder decided.
@@ -243,15 +246,15 @@ const label = (row: DecidedRow): string => `${row.source} → ${row.target} [${r
 // -------------------------------------------------------------------------------------------
 
 describe("AU28 — the decided rule set is intact", () => {
-	it("holds exactly the 109 decided rows with the decided totals", () => {
-		expect(decided.rows).toHaveLength(109);
-		expect(decided.totals.rows).toBe(109);
+	it("holds exactly the 195 decided rows with the decided totals", () => {
+		expect(decided.rows).toHaveLength(195);
+		expect(decided.totals.rows).toBe(195);
 		const count = (world: "production" | "development", verdict: string): number =>
 			decided.rows.filter((r) => r[world] === verdict).length;
 		// These four numbers are the founder's decisions. A regeneration that moves any of them has
 		// re-derived what was decided instead of reading it — that happened once and cost hours.
-		expect(count("production", "allowed")).toBe(53);
-		expect(count("production", "forbidden")).toBe(56);
+		expect(count("production", "allowed")).toBe(105);
+		expect(count("production", "forbidden")).toBe(90);
 		// Ruling 13 moved the two `db:table (other) [table:write]` rows from forbidden to allowed:
 		// the flat rule is replaced by the companion clause, which no row can express.
 		// AU32 Ruling A (ruling14narrowing) moved two more, `service -> raw runtime [capability]` and
@@ -267,7 +270,7 @@ describe("AU28 — the decided rule set is intact", () => {
 		// (6 + 2 = 8), `db:testing` is not one and relaxes (112 + 1 = 113). AU34 then retired the
 		// twelve `framework/shared` rows, every one of them allowed in both worlds: 65 - 12 = 53
 		// production allowed, 113 - 12 = 101 development allowed; neither forbidden count moves.
-		expect(count("development", "allowed")).toBe(101);
+		expect(count("development", "allowed")).toBe(187);
 		expect(count("development", "forbidden")).toBe(8);
 	});
 
@@ -277,7 +280,7 @@ describe("AU28 — the decided rule set is intact", () => {
 	});
 });
 
-describe("AU28 — fifteen clauses derive all 218 decided verdicts", () => {
+describe("AU28 — fifteen clauses derive all 390 decided verdicts", () => {
 	// W-TEST-2: `expect(wrong).toEqual([])` over a `.filter()` passes vacuously when `rows` is empty
 	// — a mis-parsed or emptied decided-rules.json would read as a total green. The counter is what
 	// makes the loop assert that it RAN, and it is the reason the row count is stated twice.
@@ -293,7 +296,7 @@ describe("AU28 — fifteen clauses derive all 218 decided verdicts", () => {
 				return `${label(row)} — decided ${row.production}, model says ${got.verdict} via ${got.clause}`;
 			});
 		expect(wrong).toEqual([]);
-		expect(checked, "the loop must actually iterate every decided row").toBe(109);
+		expect(checked, "the loop must actually iterate every decided row").toBe(195);
 	});
 
 	it("reproduces every development verdict", () => {
@@ -308,7 +311,7 @@ describe("AU28 — fifteen clauses derive all 218 decided verdicts", () => {
 				return `${label(row)} — decided ${row.development}, model says ${got.verdict} via ${got.clause}`;
 			});
 		expect(wrong).toEqual([]);
-		expect(checked, "the loop must actually iterate every decided row").toBe(109);
+		expect(checked, "the loop must actually iterate every decided row").toBe(195);
 	});
 
 	it("names a clause and a reason for every decision — no unexplained verdict", () => {
