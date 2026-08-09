@@ -16,6 +16,10 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus, type ToolContext } from "@hyperidle/shared";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
+import {
+	createInProcessCoreApiTransport,
+	registerCoreApiTransport,
+} from "../services/core-api-port-composition.js";
 import { buildToolRegistry } from "../services/tool-provider-bindings.js";
 
 function makeContext(db: HyperIdleDb): ToolContext<HyperIdleDb> {
@@ -31,26 +35,30 @@ function makeContext(db: HyperIdleDb): ToolContext<HyperIdleDb> {
 }
 
 describe("R6 AC5: create_artifact availability across agent roles", () => {
-	test("create_artifact is available to builder role", async ({ db }) => {
+	test("create_artifact is available to builder role", async ({ db, app }) => {
+		registerCoreApiTransport(createInProcessCoreApiTransport(app));
 		const registry = buildToolRegistry(makeContext(db), { role: "builder" });
 		const names = new Set(registry.definitions.map((d) => d.name));
 		expect(names.has("create_artifact")).toBe(true);
 	});
 
 	// @lore AD8c: role renamed from practice_facilitator to facilitator
-	test("create_artifact is available to facilitator role", async ({ db }) => {
+	test("create_artifact is available to facilitator role", async ({ db, app }) => {
+		registerCoreApiTransport(createInProcessCoreApiTransport(app));
 		const registry = buildToolRegistry(makeContext(db), { role: "facilitator" });
 		const names = new Set(registry.definitions.map((d) => d.name));
 		expect(names.has("create_artifact")).toBe(true);
 	});
 
-	test("create_artifact is available to assistant role", async ({ db }) => {
+	test("create_artifact is available to assistant role", async ({ db, app }) => {
+		registerCoreApiTransport(createInProcessCoreApiTransport(app));
 		const registry = buildToolRegistry(makeContext(db), { role: "assistant" });
 		const names = new Set(registry.definitions.map((d) => d.name));
 		expect(names.has("create_artifact")).toBe(true);
 	});
 
-	test("create_artifact is available to growth role", async ({ db }) => {
+	test("create_artifact is available to growth role", async ({ db, app }) => {
+		registerCoreApiTransport(createInProcessCoreApiTransport(app));
 		const registry = buildToolRegistry(makeContext(db), { role: "growth" });
 		const names = new Set(registry.definitions.map((d) => d.name));
 		expect(names.has("create_artifact")).toBe(true);
@@ -58,7 +66,9 @@ describe("R6 AC5: create_artifact availability across agent roles", () => {
 
 	test("create_artifact Claude tool spec has correct name and input_schema type", async ({
 		db,
+		app,
 	}) => {
+		registerCoreApiTransport(createInProcessCoreApiTransport(app));
 		const registry = buildToolRegistry(makeContext(db), { role: "builder" });
 		const specs = registry.toClaudeToolSpecs();
 		const spec = specs.find((s) => s.name === "create_artifact");
@@ -73,7 +83,9 @@ describe("R6 AC5: create_artifact availability across agent roles", () => {
 
 	test("invoking create_artifact with role=builder returns FORBIDDEN if filtered, or succeeds if registered", async ({
 		db,
+		app,
 	}) => {
+		registerCoreApiTransport(createInProcessCoreApiTransport(app));
 		// This test proves the tool is NOT filtered out for builders.
 		// A FORBIDDEN result would mean it's in ALL_TOOL_DEFINITIONS with role restriction.
 		// We just verify the registry can find it (no FORBIDDEN or NOT_FOUND).

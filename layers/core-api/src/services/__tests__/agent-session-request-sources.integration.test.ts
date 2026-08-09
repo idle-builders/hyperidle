@@ -29,6 +29,10 @@ import {
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect } from "vitest";
 import { test as fixtureTest } from "../../__testing__/test-fixtures.js";
+import {
+	createInProcessCoreApiTransport,
+	registerCoreApiTransport,
+} from "../core-api-port-composition.js";
 import { runSession } from "../run-orchestration-composition.js";
 
 class RecordingHarnessAdapter implements HarnessAdapter {
@@ -149,7 +153,12 @@ describe("agent session request sources", () => {
 		}
 	});
 
-	fixtureTest("all execution sources enter real session provisioning", async ({ db }) => {
+	fixtureTest("all execution sources enter real session provisioning", async ({ db, app }) => {
+		// @lore AU31 §3.2/B2 step 1: `runSession`'s tool-registry construction
+		// still resolves the CoreApiPort ambient global at call time
+		// (tool-provider-bindings.ts, converted in B2) — register THIS test's
+		// own transport explicitly, no ambient bleed from another test file.
+		registerCoreApiTransport(createInProcessCoreApiTransport(app));
 		await seedWork(db);
 		const eventBus = new EventBus();
 		const events: DomainEvent[] = [];

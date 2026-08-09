@@ -4,6 +4,10 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus, type ToolContext, toClaudeToolSpec } from "@hyperidle/shared";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
+import {
+	createInProcessCoreApiTransport,
+	registerCoreApiTransport,
+} from "../services/core-api-port-composition.js";
 import { buildToolRegistry } from "../services/tool-provider-bindings.js";
 
 const EXPECTED_TOOL_NAMES = [
@@ -51,7 +55,8 @@ function makeContext(db: HyperIdleDb): ToolContext<HyperIdleDb> {
 }
 
 describe("AC8: every tool has a valid Claude tool_use JSON schema", () => {
-	test("registry produces one spec per expected tool name", ({ db }) => {
+	test("registry produces one spec per expected tool name", ({ db, app }) => {
+		registerCoreApiTransport(createInProcessCoreApiTransport(app));
 		const specs = buildToolRegistry(makeContext(db), {
 			role: "assistant",
 		}).toClaudeToolSpecs();
@@ -67,6 +72,12 @@ describe("AC8: every tool has a valid Claude tool_use JSON schema", () => {
 		// @lore tool-schemas: test.each doesn't compose with fixture injection in vitest;
 		// buildToolRegistry here only inspects Zod schemas (no DB calls), so a dummy
 		// context object satisfies the type without a real connection.
+		// @lore AU31 §3.2/B2 step 1: no `app` fixture reachable from `test.each`, and
+		// this whole describe block never actually calls a tool handler (schema
+		// introspection only) — a transport that throws if invoked is honest here.
+		registerCoreApiTransport(() => {
+			throw new Error("tool-schemas test.each never reaches the CoreApiPort seam");
+		});
 		const registry = buildToolRegistry(
 			{
 				db: null as unknown as HyperIdleDb,
@@ -97,7 +108,8 @@ describe("AC8: every tool has a valid Claude tool_use JSON schema", () => {
 		expect(Array.isArray(spec.input_schema.properties)).toBe(false);
 	});
 
-	test("each spec is JSON-serializable (no circular references)", ({ db }) => {
+	test("each spec is JSON-serializable (no circular references)", ({ db, app }) => {
+		registerCoreApiTransport(createInProcessCoreApiTransport(app));
 		const specs = buildToolRegistry(makeContext(db), {
 			role: "assistant",
 		}).toClaudeToolSpecs();
