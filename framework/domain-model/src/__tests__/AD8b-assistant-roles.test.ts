@@ -4,7 +4,7 @@
  * AC-11: AGENT_ROLE_CATALOG entry updated: role="assistant", hasTemplate=true.
  *        findRoleCatalogEntry("assistant") returns entry with correct fields.
  *        findRoleCatalogEntry("chief_of_staff") returns undefined (renamed).
- * AC-2 (shared types): ToolCallSummary interface is exported from @hyperidle/shared.
+ * AC-2 (shared types): ToolCallSummary interface is exported from @hyperidle/domain-model.
  * ThreadConfiguration: "coach" renamed to "assistant".
  */
 

@@ -194,7 +194,7 @@ export type ScopeKind = (typeof SCOPE_KINDS)[number];
  * Scope kinds that require an external scopeId.
  * "factory" and "user" are self-referential/global — they never need an id.
  *
- * @lore Q2: Extracted to @hyperidle/shared so the web dialogs (KnowledgeCreateDialog,
+ * @lore Q2: Extracted to @hyperidle/domain-model so the web dialogs (KnowledgeCreateDialog,
  * ScopeChangeDialog) and the server route (knowledge.ts) share a single source of truth.
  * @lore AV3 A2: "filesystem" added — references filesystems.id.
  * @lore AU26 F2: "filesystem" removed again with the scope kind itself.
@@ -260,7 +260,7 @@ export const TASK_OUTCOME_VERDICT_LABEL: Record<TaskOutcomeVerdict, string> = {
 
 /**
  * AI4: Human-readable labels for each AgentOperationalStatus (Decision 3a, AC2).
- * AgentOperationalStatus type lives in @hyperidle/shared/team.ts (pre-existing).
+ * AgentOperationalStatus type lives in `team.ts` (pre-existing).
  */
 export const AGENT_OPERATIONAL_STATUS_LABEL: Record<"active" | "error" | "idle", string> = {
 	active: "Active",

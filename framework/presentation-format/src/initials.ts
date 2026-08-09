@@ -5,7 +5,7 @@
  * Single-word names: first two characters, uppercased.
  *
  * @lore AU20 Ab4: moved from `@hyperidle/agent-selection`'s `agent-utils.ts`
- * to `@hyperidle/shared` — display-name formatting carries no selection policy
+ * to `@hyperidle/presentation-format` — display-name formatting carries no selection policy
  * and should live with other display utilities. Web already implements the same
  * logic in `layers/core-ui/src/utils/initials.ts` (slightly different slice
  * semantics — the shared version is the server-side canonical form).

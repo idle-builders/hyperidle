@@ -869,7 +869,7 @@ export const knowledgeItems = pgTable(
 		/**
 		 * @lore Q2: scope_kind + scope_id added to the kernel table so every item
 		 * knows where it belongs. The 7-value closed enum mirrors ScopeKind in
-		 * @hyperidle/shared. Default "factory" preserves existing rows.
+		 * @hyperidle/domain-model. Default "factory" preserves existing rows.
 		 */
 		scopeKind: text("scope_kind").notNull().default("factory"),
 		scopeId: text("scope_id"),
@@ -1251,7 +1251,7 @@ export type FilesystemRow = typeof filesystems.$inferSelect; // DB row (resource
 export type NewFilesystem = typeof filesystems.$inferInsert;
 export type FilesystemInjectionRow = typeof filesystemInjections.$inferSelect;
 export type NewFilesystemInjection = typeof filesystemInjections.$inferInsert;
-// The wire types `Filesystem`/`FilesystemInjection` (parsed) live in @hyperidle/shared — see §1.
+// The wire types `Filesystem`/`FilesystemInjection` (parsed) live in @hyperidle/filesystem-contract — see §1.
 
 /**
  * AO2 — Per-capture provenance. One row per captureBack call; source-agnostic.
@@ -1408,7 +1408,7 @@ export const configurationOverrides = pgTable(
  * Cascade delete ensures rows are cleaned up when the user is deleted.
  *
  * @lore P5: hint progress is kernel-level CRUD, not strategy logic.
- * The hint catalog lives in @hyperidle/shared; this table only stores
+ * The hint catalog lives in @hyperidle/domain-model; this table only stores
  * the userId + hintId + seenAt dismissal record.
  */
 export const hintProgress = pgTable(

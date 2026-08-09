@@ -2,7 +2,7 @@
  * AE5 — mention parsing utilities tests (Task 2 acceptance).
  *
  * Tests for extractMentionCandidates, resolveMentions, and segmentMentions
- * from framework/shared/src/mention.ts.
+ * from framework/domain-model/src/mention.ts.
  */
 
 import { describe, expect, it } from "vitest";

@@ -5,7 +5,7 @@
 import { getKindDefinition } from "../kinds/registry.js";
 
 // Per-kind preview types and the fundamental kinds, re-exported from the registry — the canonical
-// source of truth, and since AU34 the one module that declares them.
+// source of truth, and now the one module that declares them.
 export {
 	ARTIFACT_KINDS,
 	type ArtifactKind,

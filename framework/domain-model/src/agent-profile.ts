@@ -2,7 +2,7 @@
  * AB1 — Agent Profile wire types.
  *
  * 7 types that describe the GET /api/agents/:id/profile response shape.
- * These live in @hyperidle/shared so both server (response construction)
+ * These live in @hyperidle/domain-model so both server (response construction)
  * and web (hook/component consumption) share the same contract.
  *
  * @lore AU21 Increment 14a: `AgentSessionSummary.cost` (always-null
@@ -165,7 +165,7 @@ export interface AgentProfileResponse {
 	 * `healthSignals` were REMOVED from this response — every one of them was
 	 * derived in core-api from `agent-orchestration`'s `sessions` table. The
 	 * profile page fetches the runs from that Layer's own API and derives all
-	 * four itself with `computeHealthSignals` (`@hyperidle/shared`). This one
+	 * four itself with `computeHealthSignals` (`@hyperidle/domain-model`). This one
 	 * field stays because it is NOT run state: it is a fact about the adapter
 	 * pool the server process holds, which the browser cannot see.
 	 */

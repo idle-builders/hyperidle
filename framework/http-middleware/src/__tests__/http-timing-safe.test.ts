@@ -1,5 +1,5 @@
 /**
- * The constant-time API-key comparator, in its new home: `@hyperidle/shared/http`.
+ * The constant-time API-key comparator, in its new home: `@hyperidle/http-middleware`.
  * Both applications' auth paths need it, so it may not live behind core-api.
  */
 import { describe, expect, test } from "vitest";

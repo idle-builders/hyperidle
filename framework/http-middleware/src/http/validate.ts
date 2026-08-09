@@ -18,8 +18,8 @@ import type { z } from "zod";
  * FAILS. The reference-noise filter only hides TS6305/6307/6059, NOT this
  * cascade. Proof: removing every leaf dist then `npm run check` → server 3428
  * FAIL; rebuild dist → server 0 PASS. `dist` is gitignored so a "clean" tree can
- * silently still have it — always `ls framework/shared/dist` before trusting a
- * gate count. To populate dist: `tsc -b framework/shared framework/db`
+ * silently still have it — always `ls framework/http-middleware/dist` before trusting a
+ * gate count. To populate dist: `tsc -b framework/http-middleware framework/db`
  * (ignore its TS6059 rootDir notices — it still emits), THEN delete the
  * generated `.d.ts/.js/.map` it scatters into the packages' `src` dirs (biome
  * lints src and would report ~714 phantom noBannedTypes errors from them).

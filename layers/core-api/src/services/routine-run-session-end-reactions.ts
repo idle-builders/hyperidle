@@ -8,7 +8,7 @@
  *
  * Both former call sites now finalize by EMITTING an event instead of
  * writing `routineRuns` directly:
- *   - `session_ended` (`@hyperidle/shared`), additive `routineRunOutcome`
+ *   - `session_ended` (`@hyperidle/domain-model`), additive `routineRunOutcome`
  *     field, for a routine-sourced session that reached a terminal
  *     disposition (success / crash / stale-session-reaper timeout).
  *   - `agent_run_lifecycle_changed` with `state:"failed"`/`"cancelled"`, for

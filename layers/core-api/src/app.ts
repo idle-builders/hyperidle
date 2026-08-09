@@ -176,7 +176,7 @@ interface AppOptions {
 	mounter?: import("@hyperidle/filesystem-contract").FilesystemMounter;
 	/**
 	 * AU19 §11 (AC-9): Application-injected cross-Layer `agent_work_intents`
-	 * recorder/reader (`@hyperidle/shared`-typed, Mechanism C) — the
+	 * recorder/reader (`@hyperidle/work-intent-port`-typed, Mechanism C) — the
 	 * `agent-orchestration`/`session-requests` Layer boundary
 	 * `routes/threads.ts`/`routes/sessions-routes.ts` (core-api routes) must
 	 * not cross by importing `@hyperidle/session-requests` directly. Defaults

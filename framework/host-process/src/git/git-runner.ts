@@ -1,16 +1,16 @@
 /**
  * The git subprocess runner.
  *
- * @lore AU26 A2: moved out of `layers/core-api/git-export` and published as the
- * NODE-ONLY subpath `@hyperidle/shared/git` — deliberately absent from the main
- * barrel (it imports `node:child_process`, which would break the browser bundle).
- * Same idiom as the shipped `@hyperidle/shared/net`.
+ * @lore AU26 A2: moved out of `layers/core-api/git-export`. It imports
+ * `node:child_process`, so it may never reach the browser bundle — which is why it
+ * lives in `@hyperidle/host-process`, the package for the host as a server process
+ * sees it, and why no interface package is in that package's audience.
  *
  * Why it had to leave: `git-export` was two things in one package — a dead exporter
  * (deleted in C1, package and all) and this live runner, whose consumers end up on BOTH sides of the
  * Layer boundary after this WP. The mount engine moves to `agent-orchestration`
  * while the reachability/branch probe stays in `core-api/filesystems`, and neither
- * may import the other's Layer. `shared` is the one package both may import.
+ * may import the other's Layer. A framework package is what both may import.
  */
 import { spawn } from "node:child_process";
 import { createLogger, type Logger } from "@hyperidle/diagnostics";
@@ -157,7 +157,7 @@ export interface CreateGitRunnerOptions {
 		localMs?: number;
 		pushMs?: number;
 	};
-	/** Inject a logger — defaults to the @hyperidle/shared logger. */
+	/** Inject a logger — defaults to the @hyperidle/diagnostics logger. */
 	logger?: Logger;
 }
 

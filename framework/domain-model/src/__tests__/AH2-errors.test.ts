@@ -2,8 +2,8 @@
  * AH2 RED — NoEligibleHarnessError unit tests
  *
  * These tests FAIL until:
- *  - framework/shared/src/errors.ts adds NoEligibleHarnessError
- *  - framework/shared/src/index.ts exports NoEligibleHarnessError
+ *  - framework/domain-model/src/errors.ts adds NoEligibleHarnessError
+ *  - framework/domain-model/src/index.ts exports NoEligibleHarnessError
  */
 
 import { describe, expect, it } from "vitest";

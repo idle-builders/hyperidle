@@ -262,7 +262,7 @@ function WorkTeamLoaded({
 	// Founder ruling: *"orchestration now has an api so that the ui can get the
 	// agent run state from the orchestration directly and combine this information
 	// in the ui instead of in the core api service."* Same derivations
-	// (`computeHealthSignals` et al., now in `@hyperidle/shared`), same inputs,
+	// (`computeHealthSignals` et al., now in `@hyperidle/domain-model`), same inputs,
 	// same render — one layer over.
 	const { byAgent: rosterRunState, status: rosterRunStatus } = useRosterRunState(roster);
 	// @lore AU26 review W5/W6: when the run read fails — or has not landed yet —

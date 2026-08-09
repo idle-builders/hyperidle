@@ -11,7 +11,7 @@
  * runnability invariant + `work`'s own `getTaskById` (injected — Mechanism C,
  * `@hyperidle/review` cannot statically import `@hyperidle/work` or
  * `@hyperidle/users`, per its `package.json`: `@hyperidle/db` +
- * `@hyperidle/shared` only):
+ * framework packages only):
  *   1. Load the proposed call (by id) WITH its tailored grant.
  *   2. Reject if no grant exists, or the call's `status !== "granted"`.
  *   3. Validate the grant's `agentScope` is a runnable AI agent (never trust

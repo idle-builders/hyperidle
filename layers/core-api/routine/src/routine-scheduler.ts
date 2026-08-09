@@ -20,7 +20,7 @@
  * `npm run lint`) hard-fails a Service package (`packages/<layer>/<service>/`)
  * that imports another Service directly, with NO allowlist; this file (and
  * its `package.json`) must depend on nothing but `@hyperidle/db` +
- * `@hyperidle/shared`. `session-requests` (agent-orchestration-owned,
+ * framework packages. `session-requests` (agent-orchestration-owned,
  * genuinely against-grain) is a port for the same reason, one level further
  * against the grain. @lore AU21 Increment 14a: `cost` (the factory cost-cap
  * gate this file used to also read through) is DELETED — no replacement.

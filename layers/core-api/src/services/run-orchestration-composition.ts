@@ -229,7 +229,7 @@ const sessionLifecyclePort: SessionLifecycleRuntime = {
 
 // ---------------------------------------------------------------------------
 // session-lifecycle's admission/execution surface — REAL since AU19
-// Increment 3i, `@hyperidle/shared`'s `HarnessPort` (§7.4) satisfied by
+// Increment 3i, `@hyperidle/harness-protocol`'s `HarnessPort` (§7.4) satisfied by
 // `session-lifecycle-bindings.ts`'s `harnessPort` export.
 // ---------------------------------------------------------------------------
 

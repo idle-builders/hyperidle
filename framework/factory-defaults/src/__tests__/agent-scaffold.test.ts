@@ -10,12 +10,12 @@
  * PURE — it never touches its own injected `AgentSelectionDeps`
  * (`users`/`teams`), and its own `ScaffoldRequest.db`/`teamId`/`teamMembersId`
  * fields are declared but never read either. It only needs
- * `@hyperidle/shared`'s role catalog (`AGENT_ROLE_CATALOG`/`defaultRoster`/
+ * `@hyperidle/domain-model`'s role catalog (`AGENT_ROLE_CATALOG`/`defaultRoster`/
  * `findRoleCatalogEntry`) and `@hyperidle/db`'s
  * `readSystemPromptTemplateForRole` — both leaves every Service may import
  * directly (Mechanism C). So this is not a Service capability at all: it
  * folds into `@hyperidle/db` (which already owns `system-prompt-templates.ts`
- * and already depends on `@hyperidle/shared` for exactly this kind of role
+ * and already depends on `@hyperidle/domain-model` for exactly this kind of role
  * lookup), as a plain exported pure function, eliminating the need for a
  * Service/DI-port indirection at its three real call sites
  * (`tool-handlers/tool-definitions.ts`'s `create_team`/`add_agent` tool

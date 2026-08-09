@@ -47,7 +47,7 @@ export interface CredentialResolver {
  * tables and its one dependency (`CredentialResolver`) is injected by the caller
  * (the composition root binds a real `DbCredentialResolver` reading
  * `server_credentials`; `resolveModel` itself never touches the DB). Living in
- * `@hyperidle/shared` (a leaf every layer already depends on) means both
+ * `@hyperidle/credential-access` (a leaf its audience already depends on) means both
  * `dispatch` and `run-orchestration` import it directly with no cross-layer
  * edge — the same shape `BUILT_IN_GATEWAY_CONFIG` already had. See
  * `.pipeline/work/AU21/architecture.md` Decision L2.

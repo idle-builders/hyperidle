@@ -24,8 +24,8 @@ export function isAgentWorkIntentSourceKind(value: string): value is AgentWorkIn
 }
 
 // @lore AU29 §2.4: `reportAdmissionFailure` (the pre-handoff `agent_run_admission_failed`
-// construction+emit point, AU21 §6 Decision B4/§12) is gone — `framework/shared` is the
-// event bus HOST, and a framework package that also publishes on it is both the pipe and
+// construction+emit point, AU21 §6 Decision B4/§12) is gone — the framework hosts the
+// event bus, and a framework package that also publishes on it is both the pipe and
 // the water. Its two real callers (`session-requests`'s `failOrRelease` and
 // `run-orchestration`'s `runClaimedRequest`) now each build the event literal and call
 // `eventBus.emit(...)` themselves; they still share the event *type* below (`events.ts`),

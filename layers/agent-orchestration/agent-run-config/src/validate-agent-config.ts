@@ -5,7 +5,7 @@
  * @lore AU26 G1: moved here from `layers/core-api/src/routes/agents.ts`
  * with the columns it validates (architecture §D-L cost item 4). It never had
  * a core dependency — it reads a structural `HarnessCapabilityReader` and
- * `@hyperidle/shared`'s catalog — so it moves cleanly. The write routes stay
+ * `@hyperidle/domain-model`'s catalog — so it moves cleanly. The write routes stay
  * core-hosted (§D-A rule 3: they gate on `users`, a core table) and call this
  * validator plus `writeAgentRunConfig` downward.
  *

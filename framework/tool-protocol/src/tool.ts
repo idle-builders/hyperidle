@@ -5,12 +5,12 @@
  * descriptors + the dispatch that calls an injected handler port.
  * `tool-handlers` (agent-orchestration, keeps db) holds the DB-/domain-
  * touching handler bodies. Both halves reference these types from
- * `@hyperidle/shared` so neither depends on the other (Mechanism C).
+ * `@hyperidle/tool-protocol` so neither depends on the other (Mechanism C).
  *
  * @lore AU19 Increment 4: reclassified from `packages/server/src/tools/
  * {tool-registry,tool-result,assistant-tool-result}.ts`. `TDb` is generic
  * (same pattern as `HarnessPort`'s `TDb` / `AgentWorkIntentRecorder`'s
- * `TTx`/`TDb`) because `@hyperidle/shared` has zero `@hyperidle/db`
+ * `TTx`/`TDb`) because `@hyperidle/tool-protocol` has zero `@hyperidle/db`
  * dependency — `tool-provider`'s own code never inspects `ctx.db`, it only
  * forwards the opaque value into an injected handler; `tool-handlers`
  * (which keeps db) instantiates this generic with the real `HyperIdleDb`
@@ -124,9 +124,9 @@ export interface RegisteredTool<TDb = unknown> {
 	 *
 	 * @lore AU29 §2.7: the one-line predicate over this field
 	 * (`d.roles === undefined || d.roles.includes(role)`) used to live once, as
-	 * `@hyperidle/shared`'s `toolsForRole`, and was called from three places
+	 * `@hyperidle/domain-model`'s `toolsForRole`, and was called from three places
 	 * across two layers. A framework function receiving layer-sourced values
-	 * (the DI-wired tool lists) is the exact shape `framework/shared` must never
+	 * (the DI-wired tool lists) is the exact shape a framework package must never
 	 * be — three inlined copies of the filter beat one shared function that
 	 * structurally invites it. This comment is the filter's one remaining home.
 	 */
@@ -225,7 +225,7 @@ export interface AssistantToolShape<Input = unknown, TDb = unknown> {
 // `packages/server/src/tools/tool-registry.ts`). BOTH `tool-provider`
 // (agent-execution, assembling the dispatch) AND `tool-handlers`
 // (agent-orchestration, assembling `ALL_TOOL_DEFINITIONS` from the 26 real
-// tool bodies) need these — living in `@hyperidle/shared` (a leaf both
+// tool bodies) need these — living in `@hyperidle/tool-protocol` (a leaf both
 // already depend on) avoids duplicating them, since Mechanism B forbids
 // `tool-handlers` from depending on `@hyperidle/tool-provider` even though
 // the direction would otherwise look "downward" (execution-boundary-guard's

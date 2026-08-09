@@ -1,5 +1,5 @@
 /**
- * Q2 — AC-2: ScopeKind type + SCOPE_KINDS const in @hyperidle/shared.
+ * Q2 — AC-2: ScopeKind type + SCOPE_KINDS const in @hyperidle/domain-model.
  *
  * AV3 amendment: "filesystem" added as the 8th scope kind.
  * AU26 F2 amendment (founder ruling, 2026-08-04): "filesystem" REMOVED again.

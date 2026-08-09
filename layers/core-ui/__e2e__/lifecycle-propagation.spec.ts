@@ -62,7 +62,7 @@ function makeBetResponse(betStatus: string, taskState: string) {
 }
 
 function makeProductResponse(betStatus: string) {
-	// Shape matches ProductDetail from @hyperidle/shared:
+	// Shape matches ProductDetail from @hyperidle/domain-model:
 	// activeBets is BetCardSummary[] with pitchTitle, progressDone, progressTotal fields.
 	return {
 		product: {

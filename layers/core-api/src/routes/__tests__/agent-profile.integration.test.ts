@@ -19,7 +19,7 @@
  * all, no replacement.
  *
  * These tests FAIL until:
- * - framework/shared/src/agent-profile.ts is created with 7 wire types
+ * - framework/domain-model/src/agent-profile.ts is created with 7 wire types
  * - packages/server/src/routes/agent-profile.ts is created with the handler
  * - packages/server/src/routes/agents.ts mounts the profile route
  * - packages/server/src/app.ts passes adapterPool to agent routes
@@ -173,7 +173,7 @@ describe("AB1 AC-1: GET /api/agents/:id/profile returns 200 with correct shape",
 		// `healthSignals` are GONE — every one was derived here from
 		// `agent-orchestration`'s `sessions` table, and the profile page fetches
 		// the runs from that Layer and derives them itself. Their derivation is
-		// covered by `framework/shared/src/__tests__/health-signals.test.ts`; the
+		// covered by `framework/domain-model/src/__tests__/health-signals.test.ts`; the
 		// run rows they derive from by
 		// `agent-orchestration-run-reads.integration.test.ts`.
 		for (const gone of ["activeSession", "recentSessions", "performance", "healthSignals"]) {

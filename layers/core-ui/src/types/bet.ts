@@ -4,7 +4,7 @@
  * diverges, this type is the page-side normalisation surface.
  *
  * @lore L16: BetDetail lives here (not in __fixtures__, not in WorkBet.tsx,
- * not in framework/shared) because it is a page-shape type, not a wire type.
+ * not in framework/domain-model) because it is a page-shape type, not a wire type.
  * The fixtures file imports the type from here. The runtime page imports it
  * from here. The hook imports it from here. All non-fixture imports are clean.
  */

@@ -16,7 +16,7 @@
  *     this in `GET /api/agents/:id/profile`.
  *
  * Both derive with the SAME `computeHealthSignals` / `deriveHealthLevel` /
- * `deriveHealthDetail` the routes used, now in `@hyperidle/shared`, over the
+ * `deriveHealthDetail` the routes used, now in `@hyperidle/domain-model`, over the
  * same run rows — so both screens render exactly what they rendered before.
  * `harnessAvailable` still comes from core-api (it is a fact about the server's
  * adapter pool, not run state) and is fed straight back in as the one input the

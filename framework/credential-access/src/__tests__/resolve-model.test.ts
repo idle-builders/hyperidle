@@ -1,6 +1,6 @@
 /**
  * AU21 Increment 14b (Decision L2) — `resolveModel` moved into
- * `@hyperidle/shared` unchanged (behavior-preserving).
+ * `@hyperidle/credential-access` unchanged (behavior-preserving).
  *
  * Proves the moved function still resolves tier + per-agent requests
  * identically to the deleted `@hyperidle/model-gateway` package: same
@@ -12,7 +12,7 @@
  * is the direct-import proof that the underlying function they close over is
  * unchanged; `X4-model-gateway.integration.test.ts` and
  * `AH2-resolve-agent-model.integration.test.ts` (re-pointed to
- * `@hyperidle/shared`) prove the composition-root wiring end to end.
+ * `@hyperidle/credential-access`) prove the composition-root wiring end to end.
  */
 
 import { BUILT_IN_GATEWAY_CONFIG, MissingCredentialError } from "@hyperidle/domain-model";

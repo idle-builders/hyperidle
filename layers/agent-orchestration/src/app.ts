@@ -9,7 +9,7 @@
  * router both apps mount on. `createAuthMiddleware` legitimately reads
  * `@hyperidle/users` (a core-api Service), and only an Application may choose to
  * put another Layer's routes behind it — so this app declares boundaries with
- * `@hyperidle/shared/http`'s `requireBoundary` and never imports core-api.
+ * `@hyperidle/http-middleware`'s `requireBoundary` and never imports core-api.
  *
  * Mounted at `/` on the Application's `/api` router, so every path string here
  * keeps its byte-identical public URL (§D-A rule 7).

@@ -8,7 +8,7 @@ import {
  * @lore AU26 B1a: the local `requireBoundary` re-implementation this file used
  * to declare (with its own `@lore` saying it existed only to avoid importing
  * core-api's copy) is DELETED. A1 moved the AF11 declaration into
- * `@hyperidle/shared/http`, a package `harness-registry` already depends on, so
+ * `@hyperidle/http-middleware`, a package `harness-registry` already depends on, so
  * the reason is gone and the duplicate goes with it.
  */
 import { requireBoundary } from "@hyperidle/http-middleware";

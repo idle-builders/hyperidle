@@ -17,7 +17,7 @@ import type { BakedWorkIntentRequest, SessionKnowledgeItemLike } from "@hyperidl
  * `@hyperidle/dispatch`, see `routine-scheduler.ts`) is a `@hyperidle/routine`
  * Service; per Mechanism C (`composition-boundary-guard`, mechanically
  * enforced, no allowlist) a Service package may depend on nothing but
- * `@hyperidle/db`/`@hyperidle/shared` — every OTHER Service it needs
+ * `@hyperidle/db`/framework packages — every OTHER Service it needs
  * (`work`/`conversation`/`knowledge`/`settings`, all core-api same-layer) is
  * an injected port here, exactly like `DispatchPorts` used to carry them.
  * `workIntents` is the one genuinely against-grain

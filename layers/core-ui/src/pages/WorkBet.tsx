@@ -84,7 +84,7 @@ type SortColumn = "title" | "status" | "owner" | "outcome";
 type SortDirection = "asc" | "desc";
 
 // AI4: TASK_VERDICT_LABEL, BET_VERDICT_LABEL, TASK_STATE_LABEL, taskStateBadgeClass
-// deleted — now sourced from @hyperidle/shared (TASK_OUTCOME_VERDICT_LABEL,
+// deleted — now sourced from @hyperidle/domain-model (TASK_OUTCOME_VERDICT_LABEL,
 // BET_OUTCOME_VERDICT_LABEL, TASK_STATE_LABEL) and @hyperidle/design-system (StatusChip).
 
 /**

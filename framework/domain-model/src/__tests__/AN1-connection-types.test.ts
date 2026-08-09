@@ -8,7 +8,7 @@
  *   AC5: per-user isolation reflected in type (no cross-user field)
  *   Concept Phase 4: closed sets enforced at runtime via type guards
  *
- * FAILS until framework/shared/src/connection.ts is created.
+ * FAILS until framework/domain-model/src/connection.ts is created.
  */
 
 import { describe, expect, it } from "vitest";

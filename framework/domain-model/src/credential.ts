@@ -1,7 +1,7 @@
 /**
  * Credential catalog — shared types for desktop and server packages.
  *
- * @lore P3: The fixed credential catalog lives in @hyperidle/shared so both
+ * @lore P3: The fixed credential catalog lives in @hyperidle/domain-model so both
  * the desktop (safeStorage) and server (encrypted DB table) can reference the
  * same three canonical credential names. The catalog is intentionally not
  * user-extensible — HyperIdle knows exactly which credentials it needs.

@@ -3,7 +3,7 @@ import * as crypto from "node:crypto";
 // `../tools/tool-result.js` (now `@hyperidle/tool-provider`) — Mechanism C
 // forbids `mcp-provider` depending on a sibling agent-execution Service;
 // these are the db-free cross-boundary types (§7.3 W4), sourced from
-// `@hyperidle/shared` same as every other execution-boundary type.
+// `@hyperidle/harness-protocol` same as every other execution-boundary type.
 import type { ToolRegistry, ToolResult } from "@hyperidle/tool-protocol";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";

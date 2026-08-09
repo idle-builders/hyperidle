@@ -6,7 +6,7 @@
  *   - stage-operation.ts (tool) is DELETED
  *   - KERNEL_DISPATCHABLE_CAPABILITIES / buildExecuteCapability / resolveStagedOperations
  *     / sweepStrandedOperations are NOT importable from the server package
- *   - StagedOperationSpec is NOT in @hyperidle/shared index
+ *   - StagedOperationSpec is NOT in @hyperidle/domain-model index
  *
  * AC12: HyperIdle executes nothing of its own — the v1 kernel-executor is gone.
  * The loop is:  agent proposes → review → agent executes with its own tools.

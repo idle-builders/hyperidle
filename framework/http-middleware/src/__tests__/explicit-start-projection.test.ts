@@ -1,6 +1,6 @@
 /**
  * The explicit-session-start wire projection, in its new home:
- * `@hyperidle/shared/http`.
+ * `@hyperidle/http-middleware`.
  *
  * `POST /api/sessions` (core-hosted) and `GET /api/sessions/starts/:startId`
  * (orchestration-hosted) both render this projection. One implementation, or the

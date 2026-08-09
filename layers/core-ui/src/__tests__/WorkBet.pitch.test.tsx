@@ -10,7 +10,7 @@
  *   AC-3 (positive path): useBet is the runtime data source.
  *
  * Note on round-trip structural coverage (case 2):
- *   framework/shared/src/__tests__/blocks/round-trip.test.ts already proves per-kind
+ *   framework/block-derivation/src/__tests__/blocks/round-trip.test.ts already proves per-kind
  *   structural losslessness (L2 AC-28). Case 2 extends to the consumer surface and
  *   asserts that ALL supported non-unknown kinds appear in the output of a pitch that
  *   exercises all of them, without duplicating the L2 suite's per-case coverage.

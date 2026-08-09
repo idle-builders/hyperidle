@@ -47,7 +47,7 @@ import type { EventBus } from "@hyperidle/event-bus";
  *
  * @lore AU26 C2: this used to be `Pick<ObservabilityConfig, ...>`. The config
  * value now lives in `@hyperidle/settings` (it is a `server_config` section),
- * and `@hyperidle/shared` may not import a Service — so the dispatcher states
+ * and a framework package may not import a Service — so the dispatcher states
  * its own requirement structurally. `ObservabilityConfig` satisfies it.
  */
 export interface DispatcherRingConfig {
@@ -477,5 +477,5 @@ export function registerObservabilityDispatcher(
 	};
 }
 
-// AU20 Ab3: `summarizeToolArgs` relocated to `@hyperidle/shared` (redact.ts).
+// AU20 Ab3: `summarizeToolArgs` relocated to `@hyperidle/diagnostics` (redact.ts).
 // Import it from there; the copy here was dead after the move.

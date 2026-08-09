@@ -165,7 +165,7 @@ describe("isReturnAction — MCP namespace stripping (AR2)", () => {
 
 describe("isInternalExtractionDrain — AC4: exemption predicate", () => {
 	// The exemption helper is also in return-actions (or return-gate — architecture §2.3).
-	// Import it from @hyperidle/shared once it exists. For now reference the planned export.
+	// Import it from @hyperidle/harness-protocol once it exists. For now reference the planned export.
 	it("returns true for a config with tools:[] (extraction drain)", async () => {
 		const { isInternalExtractionDrain } = await import("@hyperidle/harness-protocol");
 		expect(isInternalExtractionDrain({ tools: [] })).toBe(true);

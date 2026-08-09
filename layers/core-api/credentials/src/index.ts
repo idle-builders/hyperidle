@@ -29,7 +29,7 @@
  * @lore AU26 E1 (AU21 J1): `encryptCredentialValue`/`decryptCredentialValue`
  * are NOT here. The AES-256-GCM cipher is a primitive, not a Service member: it
  * reads no table, holds no db handle, and both Layers need it. It lives at
- * `@hyperidle/shared/crypto` and every caller imports it from there —
+ * `@hyperidle/credential-access` and every caller imports it from there —
  * deliberately NOT re-exported here, so this Service does not become a second,
  * competing source of truth for it.
  */

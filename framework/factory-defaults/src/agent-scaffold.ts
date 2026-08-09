@@ -13,12 +13,12 @@ import { readSystemPromptTemplateForRole } from "./system-prompt-templates.js";
  * function.
  *
  * @lore AU29: moved from `framework/db/src/agent-scaffold.ts` into
- * `framework/shared`. It folded into `@hyperidle/db` originally because that
+ * `framework/factory-defaults`. It folded into `@hyperidle/db` originally because that
  * package already owned `system-prompt-templates.ts` and already depended on
- * `@hyperidle/shared` — but this function touches no database (no SQL, no
+ * `@hyperidle/factory-defaults` — but this function touches no database (no SQL, no
  * schema, no connection), which is exactly the `db:util` ANOMALY
  * `governance/architecture.json` flagged since AU28. Now that
- * `system-prompt-templates.ts` has moved to `framework/shared` too (same
+ * `system-prompt-templates.ts` has moved to `framework/factory-defaults` too (same
  * commit), this function's only import moves with it and both land in the
  * package that actually describes them: pure string/config substrate.
  *

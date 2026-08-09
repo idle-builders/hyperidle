@@ -4,7 +4,7 @@
  * AC2 (data model): PlainPayload is extended with an optional notice field
  * { kind: "missing_key" | "missing_harness" | "provider_error"; code?: string }
  *
- * These tests FAIL until framework/shared/src/thread.ts adds the notice? field.
+ * These tests FAIL until framework/domain-model/src/thread.ts adds the notice? field.
  *
  * @lore AH3: Testing type-level contracts at runtime: we construct a value that
  * matches the interface and verify the shape round-trips through JSON. The type

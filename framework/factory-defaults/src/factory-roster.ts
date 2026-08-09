@@ -15,7 +15,7 @@
  * instead of writing tables directly — `defaultFactoryRoster` remains its
  * default roster value.
  *
- * @lore AK6: `defaultFactoryRoster` lives in `@hyperidle/shared` (the contract
+ * @lore AK6: `defaultFactoryRoster` lives in `@hyperidle/factory-defaults` (the contract
  * layer) so both the bootstrap writer and server-owned app defaults can
  * reference the same canonical seed.
  *
@@ -96,7 +96,7 @@ export interface FactoryRosterSpec {
  * content) — this module already documents the display-name derivation
  * above (`FactoryFacilitatorSpec`'s NOTE), and `factory-bootstrap.ts`'s only
  * consumer of these constants was already a cross-package import into
- * `@hyperidle/shared`'s roster vocabulary. `PRACTICE_COMMUNITIES` /
+ * `@hyperidle/domain-model`'s roster vocabulary. `PRACTICE_COMMUNITIES` /
  * `PracticeCommunity` stay module-internal (not barrel-exported) — their
  * only use is typing this record; repo-grep at architecture time found zero
  * external consumers.

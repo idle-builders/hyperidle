@@ -6,7 +6,7 @@
  *
  * @lore AU19 Increment 5 (item 2): relocated from `packages/server/src/__tests__/
  * index.startup.integration.test.ts` alongside `validate-env.ts` itself (§5
- * classification: "Application bootstrap (shared boot util → @hyperidle/shared)").
+ * classification: "Application bootstrap (shared boot util → @hyperidle/host-process)").
  * Pure function, zero db/app dependency — was mislabeled `.integration.test.ts`
  * only because it lived under the fixture-providing `test-fixtures.js` import;
  * converted to a plain `.test.ts` unit test with the ordinary vitest imports.

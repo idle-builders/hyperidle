@@ -1,7 +1,7 @@
 /**
  * AI3 — One clock — unit tests for the shared time formatter.
  *
- * RED phase: all tests fail until framework/shared/src/format/time.ts is
+ * RED phase: all tests fail until framework/presentation-format/src/format/time.ts is
  * implemented (task #2, green phase).
  *
  * Migrates and extends the ladder cases from the deleted

@@ -10,7 +10,7 @@
  *
  * `threads.ts`'s AC-9 accessor needs the write to stay atomic with its own
  * message insert (`tx`-carrying) — hence the generic `TTx` type param rather
- * than a fixed db type: `@hyperidle/shared` has zero `@hyperidle/db`
+ * than a fixed db type: `@hyperidle/work-intent-port` has zero `@hyperidle/db`
  * dependency (a leaf package), so it cannot name `HyperIdleDb`/`WriteExecutor`
  * directly. The composition root (`packages/server`) instantiates this
  * generic with its own concrete `HyperIdleDb` type; the real concrete
@@ -138,7 +138,7 @@ export interface BakedAgentRunnableConfig {
 
 /**
  * Map a resolver's already-loaded `agent: User` row (or any object structurally
- * satisfying `BakedAgentRunnableConfig`'s fields — `@hyperidle/shared` has zero
+ * satisfying `BakedAgentRunnableConfig`'s fields — `@hyperidle/work-intent-port` has zero
  * `@hyperidle/db` dependency, so this stays duck-typed, same idiom as
  * `SessionKnowledgeItemLike`) onto the exact whitelisted `BakedAgentRunnableConfig`
  * shape. A deliberate whitelist pick, not a spread — `User` carries other

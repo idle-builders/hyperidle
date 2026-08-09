@@ -16,7 +16,7 @@ import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 
 // ---------------------------------------------------------------------------
-// Wire types from the API (mirrors @hyperidle/shared Filesystem)
+// Wire types from the API (mirrors @hyperidle/filesystem-contract Filesystem)
 // ---------------------------------------------------------------------------
 
 interface FilesystemApiItem {

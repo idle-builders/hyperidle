@@ -23,7 +23,7 @@ import type {
 } from "@hyperidle/harness-protocol";
 import { isRequiredReturnAction, shouldForceReturn } from "@hyperidle/harness-protocol";
 import type { ToolRegistry } from "@hyperidle/tool-protocol";
-// @lore X6: ModelTier is exported twice from @hyperidle/shared — once as ModelTier from types.ts
+// @lore X6: ModelTier is exported twice from @hyperidle/domain-model — once as ModelTier from types.ts
 // and once as MoneyModelTier from types/money.ts (same type, different alias). We import
 // ModelTier (not MoneyModelTier) for consistency with the rest of the codebase.
 import { isAboveThreshold, modelContextWindow } from "./context-window.js";

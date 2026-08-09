@@ -2,7 +2,7 @@
  * AL7 RED — Proposed Call types + event union
  *
  * Tests FAIL until:
- *   - framework/shared/src/proposed-call.ts exports ProposedCall, ProposedCallStatus,
+ *   - framework/domain-model/src/proposed-call.ts exports ProposedCall, ProposedCallStatus,
  *     PROPOSED_CALL_STATUSES, Reversibility, REVERSIBILITY
  *   - SessionWorkflow + SessionConfig.sessionWorkflow added to harness-adapter.ts
  *   - ProposedCallGrantedEvent added to events.ts + KernelEvent union

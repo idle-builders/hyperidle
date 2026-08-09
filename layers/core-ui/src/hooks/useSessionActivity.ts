@@ -24,7 +24,7 @@ import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 import { getSessionStreamClient } from "../services/ws-client.js";
 
-// AM3: ActivityEntry is now the canonical type from @hyperidle/shared.
+// AM3: ActivityEntry is now the canonical type from @hyperidle/domain-model.
 // Re-export for existing callers.
 export type { ActivityEntry } from "@hyperidle/domain-model";
 export type ToolCallData = Extract<ActivityEntry, { type: "tool_call" }>["data"];

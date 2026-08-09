@@ -656,7 +656,7 @@ export function createTeamRoutes(
 			// `WorkTeam.tsx` fetches
 			// `GET /api/agent-orchestration/runs?agent_ids=…` for the roster and
 			// derives all six with the same `computeHealthSignals`/`deriveHealthLevel`/
-			// `deriveHealthDetail` (now in `@hyperidle/shared`), so the page renders
+			// `deriveHealthDetail` (now in `@hyperidle/domain-model`), so the page renders
 			// identically. `harnessAvailable` stays server-side: it is a fact about
 			// this process's adapter pool, not run state, and the browser cannot see it.
 			//

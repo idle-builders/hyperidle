@@ -658,7 +658,7 @@ function err(
 
 /**
  * @lore AU19 §11 (AC-9): `agentWorkIntentRecorder` is the Application-injected
- * cross-Layer port (`@hyperidle/shared`, Mechanism C) — this route (core-api)
+ * cross-Layer port (`@hyperidle/work-intent-port`, Mechanism C) — this route (core-api)
  * must not import `@hyperidle/session-requests` (agent-orchestration)
  * directly for its raw `agent_work_intents` write below. `createApp`
  * defaults it to the real production binding

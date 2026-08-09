@@ -1,8 +1,8 @@
 /**
- * scope-labels — AV3: Promoted from web utils to @hyperidle/shared as SSOT.
+ * scope-labels — AV3: Promoted from web utils to @hyperidle/presentation-format as SSOT.
  *
  * @lore AV3: scopeKindToLabel was previously web-only (layers/core-ui/src/utils/scope-labels.ts).
- * Moved to @hyperidle/shared so the server fallback and web fallback are the same function,
+ * Moved to @hyperidle/presentation-format so the server fallback and web fallback are the same function,
  * preventing drift between the two. The web file is kept as a thin re-export.
  *
  * @lore AD6: Scope vocabulary was collapsed from 7 SCOPE_KINDS to 3 user-facing

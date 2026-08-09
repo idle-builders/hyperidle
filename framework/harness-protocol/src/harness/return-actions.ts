@@ -5,7 +5,7 @@
  * member is a deliberate edit here. (AC2: HyperIdle enumerates valid turn endings
  * by reading RETURN_ACTION_NAMES.)
  *
- * @lore Lives in @hyperidle/shared so the tool layer, every adapter, and
+ * @lore Lives in @hyperidle/harness-protocol so the tool layer, every adapter, and
  * the enforcement observer import one definition — no per-package copy that can
  * drift. The "closed, not open-ended" guarantee is enforced at the type level
  * (ReturnActionName is a finite union from an `as const` readonly tuple) and at

@@ -22,7 +22,7 @@ import type { BetStatus } from "./types.js";
  * the design system (healthy | behind | blocked).
  *
  * @lore L13: "Status" from @hyperidle/design-system cannot be imported in
- * framework/shared (shared must not depend on design-system). We redeclare the
+ * framework/domain-model (it must not depend on design-system). We redeclare the
  * relevant subset here to keep the wire contract in shared without a circular
  * dep. Both must stay in sync if the StatusChip type ever widens.
  *

@@ -43,7 +43,7 @@ import type {
  * AU21 §6 Decision G (recorder unification) — `review` used to re-declare its
  * own single-kind local mirror (`ReviewAgentWorkIntentInput`, narrowed to
  * `reengagement`/`proposed_call` only) instead of importing
- * `@hyperidle/shared`'s canonical seven-kind `AgentWorkIntentRecorderInput`
+ * `@hyperidle/work-intent-port`'s canonical seven-kind `AgentWorkIntentRecorderInput`
  * union — a redundant re-declaration now deleted. `review` only ever
  * constructs the `reengagement` member of the shared union (narrowed here via
  * `Extract`), but the CONTRACT callers depend on is the one shared type, so

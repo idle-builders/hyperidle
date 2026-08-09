@@ -63,7 +63,7 @@ type GatewayEditState = Record<ModelTier, TierEditState>;
 const ALL_TIERS: ModelTier[] = ["reasoning", "workhorse", "fast"];
 
 // AH2: Updated to current catalog IDs. These power the system-level tier config
-// (not per-agent model selection — that uses MODEL_CATALOG from @hyperidle/shared).
+// (not per-agent model selection — that uses MODEL_CATALOG from @hyperidle/domain-model).
 const KNOWN_ANTHROPIC_MODELS = [
 	"claude-opus-4-8",
 	"claude-sonnet-4-6",

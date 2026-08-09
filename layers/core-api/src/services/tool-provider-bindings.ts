@@ -29,7 +29,7 @@ import type {
 import { allToolDefinitions } from "./tool-handlers-bindings.js";
 
 /**
- * @lore AU20 Am9: `ProposedCallWorkflowPort<TDb>` in `@hyperidle/shared` keeps the
+ * @lore AU20 Am9: `ProposedCallWorkflowPort<TDb>` in `@hyperidle/tool-protocol` keeps the
  * OLD method names (`captureProposedCall`/`consumeTailoredGrant`/`recordOutcome`)
  * because the port is defined in the shared layer and changing it would cascade
  * across `@hyperidle/tool-provider`. These bridge adapters translate to the new
@@ -62,10 +62,10 @@ export function buildToolRegistry(
 /**
  * Production-wired `toolsForRole` — filters the real DI-wired `allToolDefinitions`.
  *
- * @lore AU29 §2.7: inlined from `@hyperidle/shared`'s (now-deleted) `toolsForRole`
+ * @lore AU29 §2.7: inlined from the framework's (now-deleted) `toolsForRole`
  * — three copies of this one-line predicate beat a shared behavioural function
  * that structurally invites layer values into the framework. See the `roles`
- * doc comment on `RegisteredTool` (framework/shared/src/tool.ts) for the
+ * doc comment on `RegisteredTool` (framework/tool-protocol/src/tool.ts) for the
  * single place this filter's intent stays documented.
  */
 export function toolsForRole(role: string) {

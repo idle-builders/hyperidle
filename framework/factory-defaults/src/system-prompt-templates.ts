@@ -23,7 +23,7 @@ import * as path from "node:path";
  * a 404. Excluding it from the map preserves that 404 exactly.
  *
  * @lore AU29: moved verbatim from `framework/db/src/system-prompt-templates.ts`
- * into `framework/shared` — this module performs no database access (it never
+ * into `framework/factory-defaults` — this module performs no database access (it never
  * had a `db:*` surface; `governance/architecture.json` deliberately did not
  * name it, and it was one of the four symbols that fell to `db:unknown`). The
  * cwd-relative `docs/` resolution and the closed allowlist map are unchanged

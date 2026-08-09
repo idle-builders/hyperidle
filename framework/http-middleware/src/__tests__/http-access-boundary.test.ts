@@ -1,5 +1,5 @@
 /**
- * The AF11 access-boundary primitives, in their new home: `@hyperidle/shared/http`.
+ * The AF11 access-boundary primitives, in their new home: `@hyperidle/http-middleware`.
  *
  * They live in `shared` because both HTTP applications need them and neither may
  * import the other's route module. Behaviour is unchanged from the core-api

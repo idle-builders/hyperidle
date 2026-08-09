@@ -3,7 +3,7 @@
  *
  * The execution Layer composes harness/LLM/MCP/tool Service packages. It holds
  * ZERO domain-Service or DB reference (Mechanism B): it receives an assembled
- * context bundle and returns raw output. Its dependencies are `@hyperidle/shared`
+ * context bundle and returns raw output. Its dependencies are framework packages
  * plus its own execution Services — never `@hyperidle/db`.
  *
  * @lore AU19 Increment 4: re-exports `harness-registry`'s real Service

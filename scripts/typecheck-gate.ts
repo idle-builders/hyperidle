@@ -378,12 +378,12 @@ function buildLeafDeclarations(root: string): void {
   //
   // @lore AU26 C1: `core-api/git-export` REMOVED — the exporter is deleted by
   // founder verdict and the package with it. The live half, `createGitRunner`,
-  // moved to `@hyperidle/shared/git` in A2, so `filesystems`' Increment-2b
+  // moved to `@hyperidle/host-process` in A2, so `filesystems`' Increment-2b
   // `FilesystemsGitRunner` forward-reference is still closed, just from
   // `shared` rather than from a core-api Service.
   //
   // @lore AU26 C2: `core-api/observability` REMOVED — the package dissolved
-  // (translator + adapter → `@hyperidle/shared/observability`, config pair →
+  // (translator + adapter → `@hyperidle/diagnostics`, config pair →
   // `@hyperidle/settings`, runtime → the composition layer, routes deleted).
   //
   // @lore AU19 Increment 2e: `core-api/model-gateway` added — same TS6305

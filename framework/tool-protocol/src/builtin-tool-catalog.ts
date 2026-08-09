@@ -12,7 +12,7 @@ import type { Reversibility, UserRole } from "@hyperidle/domain-model";
  * `settings` (core-api) and `tool-provider` (execution); keeping it in
  * execution would make `settings → execution` an against-grain edge (§10.2).
  * Zero behavior change — only the import path for `Reversibility`/`UserRole`
- * changed (relative, since this file now lives inside `@hyperidle/shared`
+ * changed (relative, since this file now lives inside `@hyperidle/tool-protocol`
  * itself rather than importing its own package).
  */
 export interface ToolCatalogEntry {

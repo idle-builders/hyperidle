@@ -9,10 +9,10 @@
  *   - the MCP bridge's /return-status route (mcp-provider)
  *
  * @lore AU19 Increment 4: reclassified from `packages/server/src/harness/
- * return-enforcement-registry.ts` to `@hyperidle/shared` — `harness-registry`
+ * return-enforcement-registry.ts` to `@hyperidle/harness-protocol` — `harness-registry`
  * (owner, agent-execution) and `mcp-provider` (consumer, agent-execution) are
  * SIBLING Services; Mechanism C forbids a Service importing another Service
- * even within the same Layer, so the TYPE crosses via `@hyperidle/shared`
+ * even within the same Layer, so the TYPE crosses via `@hyperidle/harness-protocol`
  * (§7.3 W4) while the concrete `createEnforcementRegistry()` factory stays
  * owned by `harness-registry` and is injected into `mcp-provider`'s
  * `createMcpRoute(bridgeRegistry, enforcementRegistry?)` by the composition

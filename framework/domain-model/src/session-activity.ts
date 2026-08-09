@@ -8,7 +8,7 @@
  *
  * The union is the NORMALIZED, backend-agnostic boundary: the server
  * normalizes raw harness events into `ActivityEntry[]`; the web hook
- * consumes the same shape; `derivePartsFromSession` (framework/shared/src/part.ts)
+ * consumes the same shape; `derivePartsFromSession` (framework/conversation-parts/src/part.ts)
  * adapts ActivityEntry[] → Part[] through this type only — no harness-type
  * parameter, no per-backend branch (AM3 AC3/AC4 uniformity proof).
  *

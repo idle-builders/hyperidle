@@ -9,7 +9,7 @@
  * disambiguate. User-facing copy says "connection" / "connected service".
  *
  * @lore AN1: This file MUST remain dependency-free of server imports so
- * `@hyperidle/shared` stays a leaf package. No server, no DB, no Node builtins.
+ * `@hyperidle/domain-model` stays a leaf package. No server, no DB, no Node builtins.
  */
 
 /** Where a connection's authority lives. CLOSED set (concept Phase 4). */

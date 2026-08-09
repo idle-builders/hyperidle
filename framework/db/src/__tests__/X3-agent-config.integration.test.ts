@@ -11,7 +11,7 @@
  * requires its `users` row; `max_concurrent_sessions` defaults to 1).
  *
  * @lore AU29: this file used to also carry AC-2 (system-prompt template
- * resolution — moved to `framework/shared/src/__tests__/X3-templates.test.ts`,
+ * resolution — moved to `framework/factory-defaults/src/__tests__/X3-templates.test.ts`,
  * task A, alongside `system-prompt-templates.ts` itself) and AC-3 (existing
  * agents backfilled with systemPrompt — moved to
  * `tools/setup/src/__tests__/X3-agent-config-bootstrap.integration.test.ts`,

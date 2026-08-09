@@ -41,7 +41,7 @@ import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
 /**
  * @lore AI3: relativeLong replaces local formatRelativeTime.
  * AI4: Local LiveDot, TASK_STATUS_LABEL, getTaskStatusLabel removed.
- * LiveDot promoted to @hyperidle/design-system; TASK_STATE_LABEL is from @hyperidle/shared.
+ * LiveDot promoted to @hyperidle/design-system; TASK_STATE_LABEL is from @hyperidle/domain-model.
  */
 
 export interface WorkTaskProps {

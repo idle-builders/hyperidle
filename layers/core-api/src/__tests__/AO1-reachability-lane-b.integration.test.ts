@@ -172,7 +172,7 @@ describe("AO1 Lane B: real GitHub PAT → real git ls-remote (local-only, networ
 			// @lore AU20 Am4: ServiceConnectionResolver no longer takes serverSecret;
 			// decryptCredentialValue reads HYPERIDLE_CREDENTIAL_KEY from env internally.
 			// @lore AU20 R-filesystems: ServiceConnectionResolverAdapter class deleted from barrel.
-			// Inline structural object satisfies FilesystemAuthResolver from @hyperidle/shared.
+			// Inline structural object satisfies FilesystemAuthResolver from @hyperidle/filesystem-contract.
 			const resolver = new ServiceConnectionResolver(db);
 
 			function makeAdapter(boundUserId: string): FilesystemAuthResolver {

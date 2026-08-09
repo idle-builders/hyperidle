@@ -45,7 +45,7 @@ export interface CreateKnowledgeItemInput {
 	/**
 	 * @lore AU14: widened to accept `null` alongside the existing symmetric `kind`
 	 * widening. The HTTP route passes `scopeToLayer(scopeKind)` (returns `null` for
-	 * team/bet/user/filesystem scopes — see @hyperidle/shared SCOPE_TO_LAYER), which
+	 * team/bet/user/filesystem scopes — see @hyperidle/domain-model SCOPE_TO_LAYER), which
 	 * is exactly what the pre-AU14 route's `upsertProjectionLayer` wrote into the
 	 * (nullable) `knowledgeAppProjection.layer` column for those scopes. Existing
 	 * callers (`write-memory.ts`, `writeback.ts`) always pass a concrete layer, so

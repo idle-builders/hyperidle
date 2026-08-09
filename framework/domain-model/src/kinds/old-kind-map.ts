@@ -4,7 +4,7 @@
 //
 // @lore AE6: This map is ONLY used at read-time; it never mutates the DB.
 // The canonical migration is in framework/db/drizzle/0027_AE6_artifact_extensibility.sql.
-// Keeping this in framework/shared means both the server routes and any future
+// Keeping this in framework/domain-model means both the server routes and any future
 // consumers can normalize old kinds without duplicating the mapping.
 
 /** A mapping entry for a legacy artifact kind. */

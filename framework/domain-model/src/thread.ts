@@ -429,7 +429,7 @@ export function verdictDecisionToStatus(
 // ── Zod schemas (boundary validation) ───────────────────────────
 
 // The Zod schemas live in `packages/server/src/routes/threads-schema.ts`.
-// `@hyperidle/shared` stays free of the runtime `zod` dependency on the
+// `@hyperidle/domain-model` stays free of the runtime `zod` dependency on the
 // type-only path.
 
 // ── L18: Artifact thread summary types ──────────────────────────

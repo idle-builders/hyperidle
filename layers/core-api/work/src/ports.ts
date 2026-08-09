@@ -103,7 +103,7 @@ import type { AgentWorkIntentRecorder as SharedAgentWorkIntentRecorder } from "@
  * own narrower local mirror (`WorkAgentWorkIntentInput`/
  * `WorkAgentWorkIntentRecord`/a local `AgentWorkIntentRecorder` interface,
  * scoped to only the two kinds `work` itself writes) instead of importing
- * `@hyperidle/shared`'s canonical `AgentWorkIntentRecorder<TTx>` — a
+ * `@hyperidle/work-intent-port`'s canonical `AgentWorkIntentRecorder<TTx>` — a
  * redundant re-declaration now deleted; every caller in this package
  * (`bet-decomposition.ts`, `task-state-machine.ts`, `dependency-watcher.ts`)
  * imports this ONE type instantiated with `WriteExecutor`, so `tsc` enforces

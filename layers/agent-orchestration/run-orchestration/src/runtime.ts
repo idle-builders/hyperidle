@@ -282,7 +282,7 @@ async function reportPreAdmissionProvisioningFailure(
 	) {
 		return;
 	}
-	// @lore AU29 §2.4: inlined from `@hyperidle/shared`'s (now-deleted)
+	// @lore AU29 §2.4: inlined from the framework's (now-deleted)
 	// `reportAdmissionFailure` — the typed construction+emit of the
 	// pre-handoff `agent_run_admission_failed` channel, at both real call
 	// sites (this one and `session-requests`'s `failOrRelease`). The two

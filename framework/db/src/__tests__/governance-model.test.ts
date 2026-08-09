@@ -10,10 +10,10 @@
  * `harness` into one target, merging the two `harness-registry` capability rows that had the same
  * verdict. AU29 deleted the `db:util` and `db:bootstrap` surfaces (Ruling 12.3) along with their six
  * rows — their exports left `framework/db` entirely, so the surfaces no longer exist to have a
- * verdict. AU34 added the three `framework → db:*` rows that bound the framework-to-framework
- * widening: they are the only rows whose verdict differs between the scoped reading of that ruling
- * and the literal one, so they are what stops a later edit widening it back by accident. AU34 then
- * retired the twelve `framework/shared` rows with the surface itself — the substrate was split into
+ * verdict. The substrate split added the three `framework → db:*` rows that bound the framework-to-
+ * framework widening: they are the only rows whose verdict differs between the scoped reading of that
+ * ruling and the literal one, so they are what stops a later edit widening it back by accident. The
+ * same change retired the twelve `framework/shared` rows with the surface itself — the substrate split into
  * eighteen packages, each with its own decided audience, so the blanket those twelve recorded has no
  * target left to name — and recorded eighty-six in their place, one set per new surface: the roles it
  * grants, the first package it names, and a `tooling` contrast that no surface admits. That contrast
@@ -265,9 +265,9 @@ describe("AU28 — the decided rule set is intact", () => {
 		// `db:bootstrap` rows development-allowed: -4 allowed, -2 forbidden. Combined against the
 		// pre-AU29/AU32 baseline (114 allowed / 10 forbidden): 114 + 2 - 4 = 112 allowed;
 		// 10 - 2 - 2 = 6 forbidden.
-		// AU34's three `framework → db:*` rows are all production-forbidden (53 + 3 = 56) and split in
-		// development: `db:schema-ns` and `db:unknown` are one-door surfaces and stay forbidden
-		// (6 + 2 = 8), `db:testing` is not one and relaxes (112 + 1 = 113). AU34 then retired the
+		// The substrate split's three `framework → db:*` rows are all production-forbidden (53 + 3 = 56)
+		// and split in development: `db:schema-ns` and `db:unknown` are one-door surfaces and stay
+		// forbidden (6 + 2 = 8), `db:testing` is not one and relaxes (112 + 1 = 113). It then retired the
 		// twelve `framework/shared` rows, every one of them allowed in both worlds: 65 - 12 = 53
 		// production allowed, 113 - 12 = 101 development allowed; neither forbidden count moves.
 		expect(count("development", "allowed")).toBe(187);
@@ -551,7 +551,7 @@ describe("AU28 — the clauses hold beyond the decided rows", () => {
 		];
 		const targets: readonly Target[] = [
 			{ sort: "package", name: "other", role: "layer" },
-			{ sort: "surface", surface: "framework/shared" },
+			{ sort: "surface", surface: "framework/domain-model" },
 			{ sort: "table", table: "bets", owner: "work" },
 			{ sort: "http-api", layer: "core-api" },
 			{ sort: "mcp-router" },

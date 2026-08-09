@@ -9,7 +9,7 @@
  * resolve later.
  *
  * @lore Mechanism C (composition-boundary-guard): a nested Service package
- * (`conversation`) may depend ONLY on `@hyperidle/db` + `@hyperidle/shared` —
+ * (`conversation`) may depend ONLY on `@hyperidle/db` + framework packages —
  * never on another Service (`@hyperidle/users`) directly, even for the one
  * genuinely cross-cutting invariant §6 Decision B carves out. This resolver
  * therefore takes `requireRunnableAgent` as an INJECTED dependency

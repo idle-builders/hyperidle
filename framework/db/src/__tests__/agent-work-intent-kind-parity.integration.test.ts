@@ -5,7 +5,7 @@
  *
  * Complements (does not duplicate) `agent-work-intent-schema.integration.test.ts`'s
  * "accepts every closed kind/source pairing" test (which hardcodes its own
- * pairs list): THIS test derives its accept-list from `@hyperidle/shared`'s
+ * pairs list): THIS test derives its accept-list from `@hyperidle/domain-model`'s
  * `AGENT_WORK_INTENT_KINDS` — the same canonical list
  * `AgentWorkIntentRecorderInput` (the widened recorder contract `work`/
  * `review` now import instead of their deleted local mirrors) discriminates
@@ -56,7 +56,7 @@ function baseIntent(
 	};
 }
 
-describe("agent_work_intents kind CHECK == @hyperidle/shared AGENT_WORK_INTENT_KINDS", () => {
+describe("agent_work_intents kind CHECK == @hyperidle/domain-model AGENT_WORK_INTENT_KINDS", () => {
 	test("the DB accepts every kind AGENT_WORK_INTENT_KINDS declares (shared ⊆ schema CHECK)", async ({
 		db,
 	}: {

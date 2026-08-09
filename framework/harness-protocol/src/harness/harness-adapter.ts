@@ -256,7 +256,7 @@ export interface HarnessCapabilities {
  * Descriptor for a registered adapter-pool entry.
  *
  * @lore AU19 Increment 4: reclassified from `packages/server/src/harness/
- * adapter-pool.ts` to `@hyperidle/shared` — `harness-registry`'s `AdapterPool`
+ * adapter-pool.ts` to `@hyperidle/harness-protocol` — `harness-registry`'s `AdapterPool`
  * (agent-execution) is the sole owner/constructor of these values, but
  * `packages/server`'s (pre-Layer-split) `services/harness-capability-read-model.ts`
  * (core-api-side read model) needs the TYPE to describe its own

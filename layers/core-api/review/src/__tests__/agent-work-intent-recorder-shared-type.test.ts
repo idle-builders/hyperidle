@@ -1,7 +1,7 @@
 // AU21 §6 Decision G (recorder unification) — `review`'s local
 // `ReviewAgentWorkIntentRecorder`/`ReviewAgentWorkIntentRecord` mirror is
 // deleted from `ports.ts`; `ReviewPorts.intentRecorder` now types directly
-// off `@hyperidle/shared`'s canonical `AgentWorkIntentRecorder<WriteExecutor>`,
+// off `@hyperidle/work-intent-port`'s canonical `AgentWorkIntentRecorder<WriteExecutor>`,
 // and the exported `ReviewAgentWorkIntentInput` contract narrows the shared
 // `AgentWorkIntentRecorderInput` union to `reengagement` via `Extract`
 // (rather than re-declaring its own shape). Compile-time equality check
@@ -17,7 +17,7 @@ import { describe, expectTypeOf, it } from "vitest";
 import type { ReviewAgentWorkIntentInput, ReviewPorts } from "../ports.js";
 
 describe("review's AgentWorkIntentRecorder port equals the shared canonical recorder type", () => {
-	it("ReviewPorts.intentRecorder is exactly @hyperidle/shared's AgentWorkIntentRecorder<WriteExecutor>", () => {
+	it("ReviewPorts.intentRecorder is exactly @hyperidle/work-intent-port's AgentWorkIntentRecorder<WriteExecutor>", () => {
 		expectTypeOf<ReviewPorts["intentRecorder"]>().toEqualTypeOf<
 			SharedAgentWorkIntentRecorder<WriteExecutor>
 		>();

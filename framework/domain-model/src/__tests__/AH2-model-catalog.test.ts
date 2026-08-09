@@ -7,8 +7,8 @@
  * - DEFAULT_AGENT_MODEL_ID / DEFAULT_AGENT_MODEL_PROVIDER / DEFAULT_AGENT_HARNESS
  *
  * These tests FAIL until:
- *  - framework/shared/src/model-gateway.ts adds MODEL_CATALOG, isCatalogModel, catalogEntry, DEFAULT_AGENT_*
- *  - framework/shared/src/index.ts exports the new symbols
+ *  - framework/domain-model/src/model-gateway.ts adds MODEL_CATALOG, isCatalogModel, catalogEntry, DEFAULT_AGENT_*
+ *  - framework/domain-model/src/index.ts exports the new symbols
  */
 
 import { describe, expect, it } from "vitest";

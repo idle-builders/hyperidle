@@ -1,5 +1,5 @@
 /**
- * The AES-256-GCM credential cipher, in its new home: `@hyperidle/shared/crypto`.
+ * The AES-256-GCM credential cipher, in its new home: `@hyperidle/credential-access`.
  *
  * @lore AU26 E1 (J1): the move's proof obligation is that the *format* did not
  * change. A round-trip alone cannot prove that — a cipher that silently changed

@@ -40,7 +40,7 @@ const IDEMPOTENCY_KEY_PATTERN = /^[\x21-\x7e]{1,200}$/;
  * Resolve the session row an admitted start points at, then hand both to the
  * shared wire projection.
  *
- * @lore AU26 A1: the projection itself moved to `@hyperidle/shared/http`
+ * @lore AU26 A1: the projection itself moved to `@hyperidle/http-middleware`
  * (`projectExplicitStartOutcome`) because `GET /api/sessions/starts/:startId` moved
  * to the orchestration app while `POST /api/sessions` stays here — both render the
  * same 202/422/429/500 contract and neither app may import the other's routes. Only
@@ -96,7 +96,7 @@ async function projectExplicitStart(start: ExplicitSessionStart) {
  */
 /**
  * @lore AU19 §11 (AC-9): `agentWorkIntentRecorder`/`agentWorkIntentReader`
- * are the Application-injected cross-Layer ports (`@hyperidle/shared`,
+ * are the Application-injected cross-Layer ports (`@hyperidle/harness-protocol`,
  * Mechanism C) — this route (core-api) must not import
  * `@hyperidle/session-requests` (agent-orchestration) directly for the raw
  * `agent_work_intents` write/read below. `createApp` defaults them to the

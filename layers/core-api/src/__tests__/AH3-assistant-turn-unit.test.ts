@@ -2,15 +2,15 @@
  * AH3 RED — Assistant turn unit tests (pure logic, no DB).
  *
  * - ASSISTANT_TURN_TIMEOUT_MS is a positive constant exported from assistant-turn.ts
- * - ProviderTimeoutError is exported from @hyperidle/shared
+ * - ProviderTimeoutError is exported from @hyperidle/domain-model
  *
  * These tests FAIL until:
  *   - packages/server/src/services/assistant-turn.ts exports ASSISTANT_TURN_TIMEOUT_MS
- *   - framework/shared/src/errors.ts exports ProviderTimeoutError
+ *   - framework/domain-model/src/errors.ts exports ProviderTimeoutError
  */
 
 // These imports fail until the green phase creates them:
-// ASSISTANT_TURN_TIMEOUT_MS lives in @hyperidle/shared (shared client/server boundary per §1.7)
+// ASSISTANT_TURN_TIMEOUT_MS lives in @hyperidle/domain-model (shared client/server boundary per §1.7)
 import { ASSISTANT_TURN_TIMEOUT_MS, ProviderTimeoutError } from "@hyperidle/domain-model";
 import { describe, expect, test } from "vitest";
 

@@ -5,7 +5,7 @@
  * `db:util` ANOMALY `governance/architecture.json` flagged since AU28).
  *
  * Only `resolveProfile` and `DeploymentProfile` are barrel-exported from
- * `@hyperidle/shared` — the only symbols named outside this module
+ * `@hyperidle/host-process` — the only symbols named outside this module
  * (`applications/remote-server/src/create-server.ts`, `tools/setup/src/setup-cli.ts`).
  * `PROFILE_DEFAULTS`, `ProfileDefaults`, `DbDriver`, `SandboxAdapterKind` and
  * `ResolveOptions` stay module-level exports, reachable only by a relative

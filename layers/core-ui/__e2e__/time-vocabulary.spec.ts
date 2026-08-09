@@ -2,7 +2,7 @@
  * AI3 — One clock — E2E tests for the shared time vocabulary.
  *
  * RED phase: tests fail until green phase migrates all 17 call sites to the
- * shared time formatter (framework/shared/src/format/time.ts).
+ * shared time formatter (framework/presentation-format/src/format/time.ts).
  *
  * Acceptance criteria verified:
  *   AC-1: Same age → same label across ≥ 4 surfaces within each register

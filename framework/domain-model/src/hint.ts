@@ -1,7 +1,7 @@
 /**
  * P5 FirstTimeHints — hint catalog definitions.
  *
- * The catalog lives in @hyperidle/shared so both the server (for ID
+ * The catalog lives in @hyperidle/domain-model so both the server (for ID
  * validation at the API boundary) and the client (for rendering copy)
  * import from a single source of truth.
  *

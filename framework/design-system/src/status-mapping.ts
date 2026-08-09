@@ -152,7 +152,7 @@ export function taskOutcomeVerdictToStatus(v: TaskOutcomeVerdict): Status {
 /**
  * AI4 Decision 3a: Agent operational status → presentation Status.
  * Closed 3-value set; lives in design-system (mapping presentation).
- * The AgentOperationalStatus type + label registry live in @hyperidle/shared.
+ * The AgentOperationalStatus type + label registry live in @hyperidle/domain-model.
  */
 export const AGENT_OPERATIONAL_STATUS_MAP: Record<AgentOperationalStatus, Status> = {
 	active: "healthy",

@@ -15,7 +15,7 @@
  * narrow-reach `framework/api-contract` symbol (reach `[layer]`) from a service barrel and its
  * audience is void — AU29: the previous illustrative example, `db:util`'s `escapeLikePattern`, no
  * longer exists as a narrow surface — its exports left `framework/db` entirely, so the database
- * package carries no narrow-reach surface at all today. (AU34 gave `escapeLikePattern` a narrow home
+ * package carries no narrow-reach surface at all today. (`escapeLikePattern` has a narrow home
  * again, `framework/query-escaping`, but on the framework side of the line, not the db one.)
  *
  * @lore AU28 — why a STANDALONE rule and not a new crossing kind. A new `Kind` would force an edit to

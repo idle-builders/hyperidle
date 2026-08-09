@@ -1,7 +1,7 @@
 /**
  * L2 AC-27b: golden-ids snapshot enforces BLOCK_ID_VERSION.
  *
- * Loads framework/shared/src/__tests__/blocks/golden-ids.json (frozen corpus)
+ * Loads framework/block-derivation/src/__tests__/blocks/golden-ids.json (frozen corpus)
  * and asserts deriveBlocks() reproduces the expected ids byte-for-byte. Any
  * algorithm drift requires updating BOTH the snapshot AND the version tag.
  */

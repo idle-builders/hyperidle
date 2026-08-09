@@ -30,7 +30,7 @@
  * contract, not `provisionAndRun`. §7.4's original text is now corrected to
  * match — this is not an open deviation.
  *
- * `TDb` is generic because `@hyperidle/shared` has zero `@hyperidle/db`
+ * `TDb` is generic because `@hyperidle/harness-protocol` has zero `@hyperidle/db`
  * dependency (a leaf package) — same pattern as `AgentWorkIntentRecorder`'s
  * `TTx`/`TDb` (`agent-work-intent-recorder.ts`). The composition root
  * instantiates this generic with the real `HyperIdleDb` type; the concrete
@@ -129,7 +129,7 @@ export interface AdmittedRun {
 }
 
 /**
- * Full mirror of `@hyperidle/session-lifecycle`'s `ProvisionSessionResult` — every field is already `@hyperidle/shared`-typed, so this is a complete (non-opaque) structural equivalent.
+ * Full mirror of `@hyperidle/session-lifecycle`'s `ProvisionSessionResult` — every field is already framework-typed, so this is a complete (non-opaque) structural equivalent.
  *
  * @lore AU21 (harness-telemetry narrowing): `totalCostCents` REMOVED — the
  * harness-adapter $-cost estimate machinery is narrowed to token usage only

@@ -10,8 +10,8 @@
  *   AC3 (inherited health): health is ConnectionHealth | "unknown" on InheritedToolDescriptor
  *
  * FAILS until:
- *   - framework/shared/src/connection.ts exports ConnectionHealth
- *   - framework/shared/src/harness/harness-capability-descriptor.ts adds
+ *   - framework/domain-model/src/connection.ts exports ConnectionHealth
+ *   - framework/harness-capability/src/harness/harness-capability-descriptor.ts adds
  *     InheritedToolDescriptor + inheritedTools field
  */
 

@@ -3,7 +3,7 @@
  *
  * AC coverage:
  *  - plain payload round-trips with blockId (optional field)
- *  - ArtifactThreadSummary type is exported from @hyperidle/shared
+ *  - ArtifactThreadSummary type is exported from @hyperidle/domain-model
  *  - ArtifactThreadSummaryResponse type is exported
  */
 

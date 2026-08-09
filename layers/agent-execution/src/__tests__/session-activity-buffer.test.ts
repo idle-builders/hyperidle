@@ -6,7 +6,7 @@
  * — the wrong home for the buffer under this model... exposed to the UI via
  * `AgentOrchestrationPort` as the gateway door." The buffer itself belongs to
  * `agent-execution` (where tokens/tool-calls originate) — it imports only
- * `@hyperidle/shared` types and touches no DB/Drizzle, so it carries no
+ * framework types and touches no DB/Drizzle, so it carries no
  * persistence concern into a Layer that must stay thin (Mechanism B).
  *
  * `../session-activity-buffer.js` does not exist yet in this package — the

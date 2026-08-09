@@ -1,6 +1,6 @@
 // AE6 — the Kind Definition contract, the six fundamental kinds, and the registry that binds them.
 //
-// framework/shared holds schema + display logic (no React dependency); the renderer components live
+// framework/domain-model holds schema + display logic (no React dependency); the renderer components live
 // in layers/core-ui/src/kinds/.
 //
 // @lore AU34: the contract and the six definitions used to be seven modules beside this one. Nothing

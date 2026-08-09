@@ -11,7 +11,7 @@
  * tests to drive `buildToolDefinitions`, completing the collapse.
  *
  * @lore AU20 Stage 2: `parseCron`/`nextCronMatch` removed from the dispatch
- * port — they are pure utilities now in `@hyperidle/shared`; `create_routine`
+ * port — they are pure utilities now in `@hyperidle/cron`; `create_routine`
  * imports them directly, no dispatch back-edge needed.
  */
 
@@ -1267,7 +1267,7 @@ function makeEditBetTool<TDb>(ports: ToolHandlersPorts): AssistantToolShape<Edit
 
 // ─────────────────────────────────────────────────────────────────────────────
 // create_routine
-// @lore AU20 Stage 2: parseCron/nextCronMatch imported from @hyperidle/shared
+// @lore AU20 Stage 2: parseCron/nextCronMatch imported from @hyperidle/cron
 // (relocated from dispatch port) — no longer a dispatch back-edge.
 // ─────────────────────────────────────────────────────────────────────────────
 

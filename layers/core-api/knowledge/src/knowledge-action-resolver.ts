@@ -10,7 +10,7 @@
  * it for the drain to resolve later.
  *
  * @lore Mechanism C (composition-boundary-guard): `@hyperidle/knowledge`
- * depends ONLY on `@hyperidle/db` + `@hyperidle/shared` (`package.json`) —
+ * depends ONLY on `@hyperidle/db` + framework packages (`package.json`) —
  * never on another Service (`@hyperidle/users`) directly, even for the one
  * genuinely cross-cutting invariant §6 Decision B carves out. This resolver
  * therefore takes `requireRunnableAgent` as an INJECTED dependency

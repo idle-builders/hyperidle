@@ -433,7 +433,7 @@ function renderBlock(block: ToolRunBlock, onOpen: OpenHandler): JSX.Element {
  * through `aggregateToolRun` (the shared canonical function, `aggregateAt = 2`).
  *
  * This is the "aggregation grouping BESIDE `groupParts`" from architecture §c.
- * Using `aggregateToolRun` from `@hyperidle/shared` keeps the aggregation rule
+ * Using `aggregateToolRun` from `@hyperidle/conversation-parts` keeps the aggregation rule
  * (ALL completed fold, running stays standalone) in one place.
  */
 function buildGroupBlocks(parts: ReadonlyArray<Part>): ToolRunBlock[] {

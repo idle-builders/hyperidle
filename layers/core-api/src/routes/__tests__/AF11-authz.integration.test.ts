@@ -540,7 +540,7 @@ describe("AC4: openai-compatible key in server_credentials, not server_config bl
 		// Run the AH1 migration — relocates blob apiKey to server_credentials.
 		const { migrateCredentialsToStore } = await import("@hyperidle/settings");
 		// @lore AU20 Am4: getServerSecret removed from barrel; cipher is now no-arg.
-		// @lore AU26 E1: the cipher itself now lives in @hyperidle/shared/crypto.
+		// @lore AU26 E1: the cipher itself now lives in @hyperidle/credential-access.
 		const { decryptCredentialValue: decryptCipher, encryptCredentialValue: encryptCipher } =
 			await import("@hyperidle/credential-access");
 		const cipher = {

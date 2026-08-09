@@ -292,7 +292,7 @@ export interface RoutineRunResolverDeps {
 	/**
 	 * AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/org`'s
 	 * `getTeam`, injected (Mechanism C — `@hyperidle/routine`'s `package.json`
-	 * depends only on `@hyperidle/db` + `@hyperidle/shared`, never
+	 * depends only on `@hyperidle/db` + framework packages, never
 	 * `@hyperidle/org`). Absent at a call site not yet wired to bake context
 	 * (composition-root wiring is a later wave) — the resolver falls back to
 	 * baking no `contextBundle`, matching every existing caller's current

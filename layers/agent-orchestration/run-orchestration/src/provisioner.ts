@@ -266,7 +266,7 @@ interface SessionLifecycleToolContext {
 	readonly threadId?: string;
 }
 
-/** `RegistrySessionWorkflow` (`tool-registry.ts`) — extends `@hyperidle/shared`'s `SessionWorkflow` with server-side capture anchors. This Service's own public `ProvisionSessionParams.sessionWorkflow` field type. */
+/** `RegistrySessionWorkflow` (`tool-registry.ts`) — extends `@hyperidle/harness-protocol`'s `SessionWorkflow` with server-side capture anchors. This Service's own public `ProvisionSessionParams.sessionWorkflow` field type. */
 interface SessionLifecycleRegistrySessionWorkflow extends SessionWorkflow {
 	readonly reviewMessageId: string;
 	readonly subjectThreadId: string;

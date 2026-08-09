@@ -5,7 +5,7 @@
  * type error until every rendering path handles it.
  *
  * These tests will FAIL until the label registries are added to
- * `framework/shared/src/types.ts` and exported from `index.ts`.
+ * `framework/domain-model/src/types.ts` and exported from `index.ts`.
  */
 
 import { describe, expect, it } from "vitest";

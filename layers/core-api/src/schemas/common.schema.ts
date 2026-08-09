@@ -41,7 +41,7 @@ export const progressSchema = z.object({
 
 /**
  * Standard API error response shape.
- * Matches the ApiErrorResponse type from @hyperidle/shared.
+ * Matches the ApiErrorResponse type from @hyperidle/domain-model.
  */
 export const errorResponseSchema = z.object({
 	error: z.string(),

@@ -3,7 +3,7 @@
  *
  * These tests prove that the discriminated unions for WorkerToServerMessage
  * and ServerToWorkerMessage narrow correctly. They compile-fail (red phase)
- * until `framework/shared/src/harness/worker-protocol.ts` is created.
+ * until `framework/harness-protocol/src/harness/worker-protocol.ts` is created.
  */
 
 import { describe, expect, it } from "vitest";
