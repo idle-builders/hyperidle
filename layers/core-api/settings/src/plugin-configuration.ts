@@ -78,7 +78,7 @@ export interface BackfillLegacyConfigurationDeps {
 			db: HyperIdleDb,
 			agentUserIds: readonly string[],
 		): Promise<
-			Map<
+			ReadonlyMap<
 				string,
 				{
 					readonly systemPrompt: string | null;

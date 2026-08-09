@@ -31,7 +31,6 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { type ServerType, serve, upgradeWebSocket } from "@hono/node-server";
 import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";
-import { readAgentRunConfigs } from "@hyperidle/agent-run-config";
 import {
 	listConnections,
 	listHeldConnectionsForProvisioning,
@@ -471,39 +470,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 				}),
 		},
 	);
-	// AU2: Project existing first-party behavior into the editable configuration
-	// model on production boot. This keeps registered tools, builtin harness
-	// metadata, and legacy rows queryable through the new resolver without moving
-	// runtime ownership away from existing services.
-	// @lore AU19 Increment 1f/1i + Increment 5 item 4 (connections sub-item):
-	// `settings`' `RoutineReader`/`SettingsUserDirectory`/
-	// `ServiceConnectionsReader` ports (Mechanism C) wired here — `users` to
-	// the real `@hyperidle/users` exports (already migrated), `routine` to
-	// `@hyperidle/routine`'s real `listRoutines` export (closed Increment 1i —
-	// no more interim `routine-service.ts` indirection), `serviceConnections`
-	// to `@hyperidle/connections`' real `listServiceConnectionsByAuthSource`
-	// export (closes the Increment 1h `ServiceConnectionsReader` interim —
-	// see `@hyperidle/settings`' `ports.ts`). All ordinary downward
-	// core-api→core-api edges, zero behavior change.
-	// @lore AU20 Am4: listServiceConnectionsByAuthSource removed from barrel; adapt
-	// to listConnections(db, { authSource }) to satisfy ServiceConnectionsReader port.
-	// @lore AU26 E2/E4: `settings`' `ServiceConnectionsReader` is the SECOND
-	// consumer of the connections record, and it is a display-only boot-time
-	// projection (the MCP plugin seed) with no operational dependence — so the
-	// port stays and only its implementation moved Layer, wired here by the
-	// Application. It does not cost `service_connections` its "exactly one
-	// Service importer" property: a port is a structural interface, not an
-	// import, and `settings` never sees the table.
-	await backfillConfigurationDefaults(db, {
-		users: { listUsersByKind: (db, kind) => listUsers(db, { kind }) },
-		routines: { listRoutines },
-		serviceConnections: {
-			listByAuthSource: (execDb, authSource) => listConnections(execDb, { authSource }),
-		},
-		// AU26 G1 (§D-L): the six run-config fields the projection carries now
-		// live in `agent_run_config`; the Layer wires their owner's batched read.
-		agentRunConfig: { readAgentRunConfigs },
-	});
 	// @lore AU19 Increment 5 (item 2): `adapterPool`/`workspaceAdapter` are now
 	// REQUIRED, Application-supplied deps (see `CreateServerDeps`'s top `@lore`)
 	// — this Layer no longer constructs a concrete `SandboxAdapter`/`AdapterPool`
@@ -862,6 +828,49 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// topology would register `createNetworkCoreApiTransport(baseUrl)`
 	// instead — same call site, per architecture.md §6 Decision A.
 	registerCoreApiTransport(createInProcessCoreApiTransport(app));
+
+	// AU2: Project existing first-party behavior into the editable configuration
+	// model on production boot. This keeps registered tools, builtin harness
+	// metadata, and legacy rows queryable through the new resolver without moving
+	// runtime ownership away from existing services.
+	// @lore AU19 Increment 1f/1i + Increment 5 item 4 (connections sub-item):
+	// `settings`' `RoutineReader`/`SettingsUserDirectory`/
+	// `ServiceConnectionsReader` ports (Mechanism C) wired here — `users` to
+	// the real `@hyperidle/users` exports (already migrated), `routine` to
+	// `@hyperidle/routine`'s real `listRoutines` export (closed Increment 1i —
+	// no more interim `routine-service.ts` indirection), `serviceConnections`
+	// to `@hyperidle/connections`' real `listServiceConnectionsByAuthSource`
+	// export (closes the Increment 1h `ServiceConnectionsReader` interim —
+	// see `@hyperidle/settings`' `ports.ts`). All ordinary downward
+	// core-api→core-api edges, zero behavior change.
+	// @lore AU20 Am4: listServiceConnectionsByAuthSource removed from barrel; adapt
+	// to listConnections(db, { authSource }) to satisfy ServiceConnectionsReader port.
+	// @lore AU26 E2/E4: `settings`' `ServiceConnectionsReader` is the SECOND
+	// consumer of the connections record, and it is a display-only boot-time
+	// projection (the MCP plugin seed) with no operational dependence — so the
+	// port stays and only its implementation moved Layer, wired here by the
+	// Application. It does not cost `service_connections` its "exactly one
+	// Service importer" property: a port is a structural interface, not an
+	// import, and `settings` never sees the table.
+	// @lore AU31 §2.2/§3 clause 2: the run-config half of the projection now
+	// crosses the seam (`AgentOrchestrationPort.runConfig.readBatch`) instead
+	// of a direct `service → service (other layer) [di]` wire into
+	// `@hyperidle/agent-run-config` — the same batched shape, so the
+	// agents/teams list pages this feeds stay one call, not N. This is why the
+	// backfill moved here, after `realAgentOrchestrationTransport` is filled:
+	// a seam call before the composed app exists throws the same named error
+	// the singleton it replaced threw (§3.2 clause 4).
+	await backfillConfigurationDefaults(db, {
+		users: { listUsersByKind: (db, kind) => listUsers(db, { kind }) },
+		routines: { listRoutines },
+		serviceConnections: {
+			listByAuthSource: (execDb, authSource) => listConnections(execDb, { authSource }),
+		},
+		agentRunConfig: {
+			readAgentRunConfigs: (_db, agentUserIds) =>
+				agentOrchestrationPort.runConfig.readBatch(agentUserIds),
+		},
+	});
 
 	// Serve built frontend when HYPERIDLE_STATIC_DIR is set.
 	// The SPA falls back to index.html for client-side routing.
