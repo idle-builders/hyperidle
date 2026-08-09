@@ -7,18 +7,21 @@
  * `dispatchOps.fireRoutine` does not evaluate WIP/delegation — it
  * always fires (records a run + intent) once the coalescing guard clears
  * (AU21 Increment 14a: the cost-cap guard this comment used to also cite is
- * HARD-DELETED, no replacement), regardless of owner WIP. The actual
- * delegate/owner selection is
- * proven by the real service-integration suite
- * (`agent-work-intent-worker.routine-selection.integration.test.ts`), not
- * this eval — `@hyperidle/core-api/routines` exposes only the cohesive
- * `dispatchOps` surface, so `drainAgentWorkIntents` is not reachable from
- * here. These scenarios instead honestly assert what
- * IS observable at this fire-time-only layer: the routine fires and records
- * a durable `routine_run` intent every time (never a fire-time WIP skip),
- * and the intent's `requestedBy` is only ever the owner-hint (never a
- * fire-time-resolved delegate) — proving the fire-time selection channel is
- * genuinely closed.
+ * HARD-DELETED, no replacement), regardless of owner WIP.
+ *
+ * @lore AU30: routine DELEGATION no longer exists anywhere. `user_skills` — the
+ * only input to the delegate lookup — is dropped, and with it the lookup and
+ * the selection: `resolveRoutineRunRequest` now always targets
+ * `routine.ownerAgentId`. The suite this header used to point at for the "real"
+ * delegate/owner selection proof
+ * (`agent-work-intent-worker.routine-selection.integration.test.ts`) is deleted
+ * with its subject; there is no successor because there is no selection left to
+ * prove. The scenarios below are UNCHANGED and still valid — they never
+ * asserted that delegation occurs. They assert what remains observable at this
+ * fire-time layer: the routine fires and records a durable `routine_run` intent
+ * every time (never a fire-time WIP skip), and the intent's `requestedBy` is
+ * only ever the owner — now by construction rather than by a closed channel.
+ * The names below (`del-successful-delegation`, "Delegate Agent") are historical.
  *
  * Old semantics (pre-AU15, no longer true): owner-at-WIP-no-delegate /
  * delegation-not-allowed used to SKIP the occurrence at fire-time. AU15
@@ -39,7 +42,6 @@ import {
 	seedMinimalWorld,
 	seedRoutine,
 	seedTask,
-	seedUserSkill,
 } from "../seeding.js";
 import type {
 	DimensionScore,
@@ -88,7 +90,7 @@ let delSuccessOwnerAgentId = "";
 const delSuccessfulDelegation: EvalScenario = {
 	id: "del-successful-delegation",
 	description:
-		"AU15: owner at WIP limit still fires at fire-time (records a run + intent); delegate resolution moved to drain-time (not observable from this eval — see the real integration suite).",
+		"Owner at WIP limit still fires at fire-time (records a run + intent), and the recorded intent names the owner. There is no delegate resolution left anywhere: run resolution always targets the routine's owner.",
 	feature: "delegation",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
@@ -107,23 +109,11 @@ const delSuccessfulDelegation: EvalScenario = {
 		});
 
 		// Seed delegate agent on the same team
-		const { agentId: delegateId } = await seedAgent(ctx.db, {
+		await seedAgent(ctx.db, {
 			name: "Delegate Agent",
 			role: "assistant",
 			teamMembersId: world.teamMembersId,
 			systemPrompt: "You are a delegate system agent.",
-		});
-
-		// Both owner and delegate have the same skill
-		await seedUserSkill(ctx.db, {
-			userId: world.agentId,
-			skillId: "portfolio_review",
-			autonomyLevel: 3,
-		});
-		await seedUserSkill(ctx.db, {
-			userId: delegateId,
-			skillId: "portfolio_review",
-			autonomyLevel: 3,
 		});
 
 		// Put owner at WIP limit (max 1 concurrent session by default)
@@ -184,12 +174,12 @@ const delSuccessfulDelegation: EvalScenario = {
 			},
 			{
 				id: "intent_recorded_owner_hint",
-				label: "Intent Recorded With Owner Hint (delegate resolution deferred to drain)",
+				label: "Intent Recorded With Owner (no delegate selection exists)",
 				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
 					const requestedBy = await recordedIntentRequestedBy(ctx, delSuccessRoutineId);
-					// The fire-time hint is always the owner now — the drain resolver
-					// (agent-work-intent-worker.ts) is the only place that ever picks
-					// the delegate. This proves the fire-time selection channel is closed.
+					// requestedBy is always the owner: fire-time records the owner, and
+					// drain-time resolution (`resolveRoutineRunRequest`) also targets
+					// `routine.ownerAgentId` unconditionally. No code path picks a delegate.
 					const correct = requestedBy === delSuccessOwnerAgentId;
 					return {
 						score: correct ? 1.0 : 0.0,
@@ -239,10 +229,6 @@ const delNoDelegateAvailable: EvalScenario = {
 			ownerAgentId: candidateId,
 			title: "Candidate blocking task",
 		});
-
-		// Both have the skill
-		await seedUserSkill(ctx.db, { userId: world.agentId, skillId: "analytics", autonomyLevel: 2 });
-		await seedUserSkill(ctx.db, { userId: candidateId, skillId: "analytics", autonomyLevel: 2 });
 
 		// Both at WIP limit
 		await seedActiveSession(ctx.db, { taskId: ownerBlockingTaskId, agentId: world.agentId });
@@ -388,7 +374,7 @@ const delDelegationNotAllowed: EvalScenario = {
 						score: fired ? 1.0 : 0.0,
 						note: fired
 							? undefined
-							: "Routine did not fire (expected fire — delegationAllowed is drain-time only now)",
+							: "Routine did not fire (expected fire — delegationAllowed is no longer read anywhere)",
 					};
 				},
 			},

@@ -43,6 +43,20 @@ export interface PolicyDeps {
 			args: { taskId: string; fromState: string; patch: Partial<NewTask> },
 		): Promise<{ applied: boolean }>;
 		listTasks(db: WriteExecutor, opts?: { betId?: string }): Promise<Task[]>;
+		/**
+		 * Record a dispatch attempt. The ordinal is the owner's business, so it
+		 * is not in the input — see `taskDispatchAttemptStore.insertAttempt`.
+		 */
+		insertDispatchAttempt?(
+			db: WriteExecutor,
+			input: {
+				readonly taskId: string;
+				readonly occasion: string;
+				readonly agentId: string;
+				readonly predecessorSessionId: string;
+				readonly now: string;
+			},
+		): Promise<{ id: string }>;
 	};
 	readonly conversation: {
 		insertMessage(

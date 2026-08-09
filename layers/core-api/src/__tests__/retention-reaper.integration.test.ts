@@ -1,8 +1,8 @@
 /**
  * AU20 C1 — retention package dissolved. Each TTL sweep is now exercised
  * through its owning service directly (users / notifications / knowledge).
- * The propagation_log reaper calls the exported `reapPropagationLog` from the
- * composition root — UNOWNED_SHARED_TABLES, so direct DB access is sanctioned.
+ * The propagation_log reaper calls `reapTerminalPropagationLog` from
+ * `@hyperidle/policy`, the service that owns the table.
  *
  * Exact-behavior lock against the former `reapRetentionOnce` integration
  * test (AU19 Increment 2g): same predicates, same cutoffs, same per-table
@@ -12,9 +12,9 @@
  * is relocated OUT of `session-requests`'s `reapExpired` single atomic
  * transaction (`service.ts`, bundled with the intent/start deletes) and INTO
  * this composition root's generic retention reaper (the same sweep that
- * already runs `reapPropagationLog`/`reapAccessLog`/`reapExpiredCredentials`
+ * already runs `reapTerminalPropagationLog`/`reapAccessLog`/`reapExpiredCredentials`
  * above), calling `taskDispatchAttemptStore.reapTerminal` directly. Exported
- * from `server-factory.ts` for the SAME reason `reapPropagationLog` is
+ * from `server-factory.ts` for the SAME reason `reapTerminalPropagationLog` is
  * exported (see that function's own doc comment) — so the predicate is
  * directly testable without waiting on the real 6h `setInterval`. Does NOT
  * yet exist — this import failing to resolve is this file's primary RED
@@ -37,16 +37,13 @@ import {
 } from "@hyperidle/db";
 import { reapAccessLog } from "@hyperidle/knowledge";
 import { enqueue, listNotifications, reap } from "@hyperidle/notifications";
+import { reapTerminalPropagationLog } from "@hyperidle/policy";
 import { reapExpiredCredentials } from "@hyperidle/users";
 import { and, lt } from "drizzle-orm";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
 // NOT YET CREATED — this import failing to resolve is this file's primary RED
 // signal for the "task-dispatch-attempt reaper — relocated home" describe block.
-import {
-	reapPropagationLog,
-	reapTerminalTaskDispatchAttempts,
-	TERMINAL_LOG_TTL_MS,
-} from "../service-bootstrap.js";
+import { reapTerminalTaskDispatchAttempts, TERMINAL_LOG_TTL_MS } from "../service-bootstrap.js";
 
 const now = new Date("2026-07-13T12:00:00.000Z");
 const DAY = 86_400_000;
@@ -291,7 +288,7 @@ describe("retention reaper — individual owning-service sweeps", () => {
 		expect(survivors.map((s) => s.id)).toEqual(["kal-recent"]);
 	});
 
-	test("prunes terminal propagation_log rows older than the TTL via reapPropagationLog (UNOWNED_SHARED_TABLES)", async ({
+	test("prunes terminal propagation_log rows older than the TTL via the owner's reapTerminalPropagationLog", async ({
 		db,
 	}) => {
 		await db.insert(propagationLog).values([
@@ -319,7 +316,7 @@ describe("retention reaper — individual owning-service sweeps", () => {
 
 		const termCutoff = new Date(now.getTime() - TERMINAL_LOG_TTL_MS).toISOString();
 		// Call the real composition-root function — exercises the predicate directly.
-		await reapPropagationLog(db, termCutoff);
+		await reapTerminalPropagationLog(db, termCutoff);
 
 		const survivors = await db
 			.select()
@@ -333,7 +330,7 @@ describe("retention reaper — individual owning-service sweeps", () => {
  * AU21 §9 Increment 10 (Decision H1) — RED. `reapTerminalTaskDispatchAttempts`
  * is relocated out of `session-requests`'s `reapExpired` atomic transaction
  * into this composition root's generic retention reaper — same pattern as
- * `reapPropagationLog` above (an owning-service predicate, exported from
+ * `reapTerminalPropagationLog` above (an owning-service predicate, exported from
  * `server-factory.ts` purely so the composition-root wiring is directly
  * testable without waiting on the real 6h interval).
  */

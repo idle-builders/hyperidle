@@ -274,27 +274,15 @@ export interface BakedRoutineRunRequest {
 }
 
 /**
- * Injected deps — Mechanism C. `agentSelection` (capacity check + delegate
- * selection) and the shared ast-`<userId>` runnability invariant
- * (`requireRunnableAgent`, `@hyperidle/users`) are both cross-Service from
- * this package's point of view, so this Service cannot import them directly;
- * the real implementations are wired at the composition root
+ * Injected deps — Mechanism C. The shared ast-`<userId>` runnability invariant
+ * (`requireRunnableAgent`, `@hyperidle/users`) is cross-Service from this
+ * package's point of view, so this Service cannot import it directly; the real
+ * implementation is wired at the composition root
  * (`layers/core-api/src/services/routine-scheduler-bindings.ts`), mirroring
  * every sibling family resolver's `*ResolverDeps` shape (e.g.
  * `task-run-resolver.ts`'s `TaskRunResolverDeps`).
  */
 export interface RoutineRunResolverDeps {
-	readonly agentSelection: {
-		isAtCapacity(db: HyperIdleDb, agentId: string): Promise<boolean>;
-		selectAgent(input: {
-			readonly surface: "routine_delegate";
-			readonly db: HyperIdleDb;
-			readonly teamId: string | null;
-			readonly workKey: string;
-			readonly excludeAgentId: string;
-			readonly skillId: string;
-		}): Promise<{ readonly agentId: string | null }>;
-	};
 	/**
 	 * Widened `Promise<unknown>` → `Promise<User>` in Increment 12 Wave B (H2
 	 * precedent) — the contextBundle bake reuses `agent.name`/`agent.role`
@@ -341,9 +329,7 @@ export interface RoutineRunResolverDeps {
  * Resolve + validate a `routine_run` run at emit time: load the run
  * (rejecting if missing / not `"running"`), load its routine (rejecting if
  * soft-deleted / inactive / not in `state:"active"`), resolve the target
- * agent (the owner, delegating to a capacity-eligible skilled agent only when
- * the owner is at capacity AND delegation is allowed AND a skill is set AND a
- * candidate is actually found), validate the resolved target's runnability,
+ * agent (the routine's owner), validate the resolved target's runnability,
  * and bake the full request. Does exactly what
  * `resolveIntentInputInternal`'s "routine_run" case did at drain time
  * (`session-requests/src/service.ts`, deleted by this same wave) — now at
@@ -362,20 +348,7 @@ export async function resolveRoutineRunRequest(
 	if (!routine || routine.deletedAt || !routine.active || routine.state !== "active") {
 		throw new RoutineRunSourceUnavailableError("Routine is not eligible to run");
 	}
-	let selectedAgentId = routine.ownerAgentId;
-	if (await deps.agentSelection.isAtCapacity(db, routine.ownerAgentId)) {
-		if (routine.delegationAllowed && routine.skillId) {
-			const { agentId } = await deps.agentSelection.selectAgent({
-				surface: "routine_delegate",
-				db,
-				teamId: null,
-				workKey: routine.id,
-				excludeAgentId: routine.ownerAgentId,
-				skillId: routine.skillId,
-			});
-			if (agentId) selectedAgentId = agentId;
-		}
-	}
+	const selectedAgentId = routine.ownerAgentId;
 	let agent: User;
 	try {
 		agent = await deps.requireRunnableAgent(db, selectedAgentId);

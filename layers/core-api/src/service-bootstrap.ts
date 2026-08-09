@@ -20,8 +20,7 @@ import {
 	updateThread,
 } from "@hyperidle/conversation";
 import { deleteCredential, readCredentials, writeCredential } from "@hyperidle/credentials";
-import type { WriteExecutor } from "@hyperidle/db";
-import { type HyperIdleDb, propagationLog } from "@hyperidle/db";
+import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import { assembleSessionKnowledge, reapAccessLog } from "@hyperidle/knowledge";
 import {
 	enqueue,
@@ -32,7 +31,7 @@ import {
 } from "@hyperidle/notifications";
 import { getTeam, getTeamMembers, resolveReviewRecipients } from "@hyperidle/org";
 import type { PolicyDeps } from "@hyperidle/policy";
-import { registerPolicy } from "@hyperidle/policy";
+import { reapTerminalPropagationLog, registerPolicy } from "@hyperidle/policy";
 import { registerReviewSubscriptions } from "@hyperidle/review";
 import { enqueueWorkIntent, startLifecycleProjectionDrain } from "@hyperidle/session-requests";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
@@ -46,7 +45,6 @@ import {
 } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { getTaskRiskTierByTaskId } from "@hyperidle/work";
-import { and, inArray, lt } from "drizzle-orm";
 import { attachRelevanceListener } from "../knowledge/src/relevance-listener.js";
 import { registerAgentHealthSessionEndReactions } from "./services/agent-health-session-end-reactions.js";
 import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
@@ -119,41 +117,17 @@ const CONSUMED_INVITE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30-day audit window
 const TASK_DISPATCH_ATTEMPT_REAP_BATCH_SIZE = 500;
 
 /**
- * Reaps terminal propagation_log rows older than `termCutoff`.
- *
- * Extracted from the composition-root `runRetentionSweep` closure so the
- * predicate is directly testable: the `propagation_log` table is
- * UNOWNED_SHARED_TABLES, so a direct `@hyperidle/db` delete is sanctioned
- * both here and in the integration test.
- *
- * @lore AU20 C1: exported for test coverage — previously the predicate was
- * exercised via `reapRetentionOnce`; dissolving the retention package silently
- * dropped that coverage. Exporting the function restores it without changing
- * the predicate or the calling contract.
- */
-export async function reapPropagationLog(db: HyperIdleDb, termCutoff: string): Promise<void> {
-	await db
-		.delete(propagationLog)
-		.where(
-			and(
-				lt(propagationLog.createdAt, termCutoff),
-				inArray(propagationLog.status, ["applied", "skipped"]),
-			),
-		);
-}
-
-/**
  * @lore AU21 §9 Increment 10 (Decision H1): reaps terminal
  * `task_dispatch_attempts` rows older than `termCutoff`, relocated OUT of
  * `session-requests`'s `reapExpired` single atomic transaction (a harmless
  * atomicity split — pure terminal-row GC, no cross-table invariant depends on
  * it sharing that transaction) and INTO this composition root's generic
- * retention reaper, alongside `reapPropagationLog`/`reapAccessLog`/
- * `reapExpiredCredentials` above. Calls `taskDispatchAttemptStore.reapTerminal`
+ * retention reaper, alongside `reapTerminalPropagationLog`/`reapAccessLog`/
+ * `reapExpiredCredentials`. Calls `taskDispatchAttemptStore.reapTerminal`
  * directly — `work` owns this table, so a direct same-layer call (not a
- * cross-layer write) is sanctioned, same precedent as `reapPropagationLog`'s
- * own doc comment. Exported for the same reason: directly testable without
- * waiting on the real 6h `setInterval`.
+ * cross-layer write) is how the sweep reaches every table it settles.
+ * Exported so the predicate is directly testable without waiting on the real
+ * 6h `setInterval`.
  */
 export async function reapTerminalTaskDispatchAttempts(
 	db: HyperIdleDb,
@@ -513,8 +487,9 @@ export function registerCoreDomainServices(ctx: {
 	// AF16 T17: in-process 6h TTL retention reaper. Runs unconditionally.
 	// @lore AU20 C1: retention package dissolved — sweep logic and scheduler
 	// live here at the composition root; per-table deletes delegate to their
-	// owning services (users/notifications/knowledge). propagation_log is
-	// UNOWNED_SHARED_TABLES so its delete stays a direct @hyperidle/db call.
+	// owning services. Every table swept below now has one — propagation_log
+	// included (owned by `policy`, reaped through `reapTerminalPropagationLog`),
+	// so this root performs no table access of its own.
 	// No behavior change: same predicates, same TTLs, same cadence.
 	const runRetentionSweep = async (): Promise<void> => {
 		const nowMs = Date.now();
@@ -531,9 +506,8 @@ export function registerCoreDomainServices(ctx: {
 		await reap(db, termCutoff, ["sent", "failed", "dropped"]);
 		// knowledge_access_log (owned by `knowledge`)
 		await reapAccessLog(db, termCutoff);
-		// propagation_log — UNOWNED_SHARED_TABLES; delegate to the exported
-		// reapPropagationLog so the predicate is covered by integration tests.
-		await reapPropagationLog(db, termCutoff);
+		// propagation_log (owned by `policy`)
+		await reapTerminalPropagationLog(db, termCutoff);
 		// task_dispatch_attempts (owned by `work`) — AU21 §9 Increment 10
 		// (Decision H1): relocated out of session-requests's reapExpired.
 		await reapTerminalTaskDispatchAttempts(db, termCutoff, TASK_DISPATCH_ATTEMPT_REAP_BATCH_SIZE);

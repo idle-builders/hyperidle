@@ -62,6 +62,16 @@ const handoffDeps = {
 				patch: { updatedAt: claimedAt },
 			}),
 		createItem: (exec: WriteExecutor, values: NewItem) => work.create(exec, "item", values),
+		insertDispatchAttempt: (
+			exec: WriteExecutor,
+			input: {
+				readonly taskId: string;
+				readonly occasion: string;
+				readonly agentId: string;
+				readonly predecessorSessionId: string;
+				readonly now: string;
+			},
+		) => work.taskDispatchAttemptStore.insertAttempt(exec, input),
 	},
 	conversation: { insertMessage, insertThread },
 	users: {

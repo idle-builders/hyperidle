@@ -41,7 +41,6 @@ import {
 	selectTeamSchema,
 	selectThreadSchema,
 	selectUserSchema,
-	selectUserSkillSchema,
 } from "../zod-schemas.js";
 
 describe("A. drizzle-zod base schemas", () => {
@@ -139,11 +138,6 @@ describe("A. drizzle-zod base schemas", () => {
 		it("selectItemSchema is a valid Zod schema", () => {
 			expect(selectItemSchema).toBeDefined();
 			expect(typeof selectItemSchema.parse).toBe("function");
-		});
-
-		it("selectUserSkillSchema is a valid Zod schema", () => {
-			expect(selectUserSkillSchema).toBeDefined();
-			expect(typeof selectUserSkillSchema.parse).toBe("function");
 		});
 
 		it("selectKnowledgeItemSchema is a valid Zod schema", () => {

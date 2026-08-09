@@ -27,11 +27,10 @@ describe("A2: Migration", () => {
 
 		expect(tableNames).toEqual(
 			expect.arrayContaining([
-				// @lore P2: agents → users, agent_skills → user_skills
+				// @lore P2: agents → users
 				// @lore U1: `products` → `teams`; old `teams` → `team_members`
 				// @lore: file_leases was dropped in earlier migrations
 				"users",
-				"user_skills",
 				"bets",
 				// @lore AU18: `factory_settings` retired — `server_config` is its
 				// typed singleton-row successor.
@@ -53,6 +52,15 @@ describe("A2: Migration", () => {
 		expect(tableNames).not.toContain("products");
 		// @lore AU18: factory_settings dropped — must not reappear.
 		expect(tableNames).not.toContain("factory_settings");
+		// @lore AU30: `user_skills` dropped — the per-skill autonomy score sheet the
+		// product removed. This exact-absence assertion is load-bearing: the expected
+		// list above is `arrayContaining` (inclusion), so removing a name from it is a
+		// no-op in both directions. A `0056_drop_user_skills.sql` with a missing or
+		// mis-tagged `meta/_journal.json` entry is silently skipped by the migrator,
+		// and check/lint/every other test stays green. This is the only assertion in
+		// the repo that reads the real post-migration database and can say the drop
+		// happened.
+		expect(tableNames).not.toContain("user_skills");
 		expect(tableNames.length).toBeGreaterThanOrEqual(15);
 	});
 

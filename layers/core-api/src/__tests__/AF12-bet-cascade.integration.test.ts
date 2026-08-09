@@ -39,7 +39,7 @@ import {
 } from "@hyperidle/db";
 import { enqueue } from "@hyperidle/notifications";
 import { getTeamMembers, updateTeam } from "@hyperidle/org";
-import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
+import { type PolicyDeps, recordPropagationHop, registerPolicy } from "@hyperidle/policy";
 import { requestRunStopForTasks } from "@hyperidle/run-orchestration";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { findUser, requireRunnableAgent } from "@hyperidle/users";
@@ -123,6 +123,9 @@ const testDeps: BetKillCascadeDeps = {
 	workIntents: { record: enqueueWorkIntent },
 	taskRunResolver: { requireRunnableAgent },
 	runOrchestration: { requestRunStopForTasks },
+	// The real owner's builder, exactly as `routes/bets.ts` wires it — the
+	// AC3/AC6 row assertions below only mean something against the real one.
+	policy: { recordPropagationHop },
 };
 // AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
 // to the real migrated `org` Service.

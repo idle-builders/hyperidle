@@ -393,6 +393,13 @@
 			"when": 1785632400000,
 			"tag": "0055_AU26_agent_run_config",
 			"breakpoints": true
+		},
+		{
+			"idx": 56,
+			"version": "7",
+			"when": 1785636000000,
+			"tag": "0056_drop_user_skills",
+			"breakpoints": true
 		}
 	]
 }

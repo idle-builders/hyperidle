@@ -315,6 +315,97 @@ const rsHumanReviewFlag: EvalScenario = {
 	},
 };
 
+// ---------------------------------------------------------------------------
+// rs-silent-no-review-item
+// ---------------------------------------------------------------------------
+
+let silentRoutineId = "";
+let silentRoutineOwnerId = "";
+
+/**
+ * The de-skilled survivor of the retired `ska-l4-silent` skill-autonomy
+ * scenario. Its `routine_fired` + `no_review_item` pair is the only assertion
+ * in the eval set that a `humanReview: false` routine produces NO review item;
+ * the third judge it used to carry read the per-skill autonomy score sheet,
+ * which the product removed along with its storage.
+ */
+const rsSilentNoReviewItem: EvalScenario = {
+	id: "rs-silent-no-review-item",
+	description: "humanReview=false: routine fires silently, no review item created",
+	feature: "routine_sessions",
+	tags: [],
+	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
+		const world = await seedMinimalWorld(ctx.db, {
+			agentRole: "assistant",
+			taskTitle: "Silent execution monitoring task",
+		});
+
+		const { routineId } = await seedRoutine(ctx.db, {
+			teamId: world.teamId,
+			ownerAgentId: world.agentId,
+			triggerType: "heartbeat",
+			triggerConfig: { intervalSeconds: 3600, taskId: world.taskId },
+			skillId: "portfolio_analysis",
+			humanReview: false,
+			silent: true,
+			active: true,
+		});
+		silentRoutineId = routineId;
+		silentRoutineOwnerId = world.agentId;
+		return world;
+	},
+	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
+		const startMs = Date.now();
+		const eventBus = new EventBus();
+		const [routine] = await ctx.db
+			.select()
+			.from(routines)
+			.where(eq(routines.id, silentRoutineId))
+			.limit(1);
+
+		if (!routine) return makeSyntheticResult(startMs, false);
+		const result = await fireRoutine(ctx.db, eventBus, routine);
+		return makeSyntheticResult(startMs, result.fired);
+	},
+	rubric: {
+		dimensions: [
+			{
+				id: "routine_fired",
+				label: "Silent Routine Fired",
+				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
+					const [routine] = await ctx.db
+						.select({ lastRunAt: routines.lastRunAt })
+						.from(routines)
+						.where(eq(routines.id, silentRoutineId))
+						.limit(1);
+					const fired = routine?.lastRunAt !== null && routine?.lastRunAt !== undefined;
+					return {
+						score: fired ? 1.0 : 0.0,
+						note: fired ? undefined : "Silent routine did not fire",
+					};
+				},
+			},
+			{
+				id: "no_review_item",
+				label: "No Review Item for Silent Routine",
+				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
+					const reviewItems = await ctx.db
+						.select({ id: items.id })
+						.from(items)
+						.where(and(eq(items.kind, "review"), eq(items.sourceAgentId, silentRoutineOwnerId)));
+					const noReview = reviewItems.length === 0;
+					return {
+						score: noReview ? 1.0 : 0.0,
+						note: noReview
+							? "No review item (correct — the routine is silent)"
+							: `${reviewItems.length} review item(s) created despite silent mode`,
+					};
+				},
+			},
+		],
+	},
+};
+
 // @lore AU21 Increment 14a: `rs-cost-cap-blocked` (asserted a routine is
 // correctly NOT fired when a cost cap is reached) is deleted — the cap gate
 // it exercised is gone, no replacement, and a launch that would have
@@ -328,4 +419,5 @@ export const routineSessionsScenarios: EvalScenario[] = [
 	rsHeartbeatFire,
 	rsCalendarFire,
 	rsHumanReviewFlag,
+	rsSilentNoReviewItem,
 ];

@@ -594,9 +594,8 @@ describe("E2E API Integration (I5)", () => {
 			await seedBase(db);
 			const res = await app.request("/api/users/agent-1", { headers: auth() });
 			expect(res.status).toBe(200);
-			const body = (await res.json()) as { id: string; skills: unknown[] };
+			const body = (await res.json()) as { id: string };
 			expect(body.id).toBe("agent-1");
-			expect(Array.isArray(body.skills)).toBe(true);
 		});
 
 		test("GET /api/users/:id returns 404 for unknown agent", async ({ db, app }) => {

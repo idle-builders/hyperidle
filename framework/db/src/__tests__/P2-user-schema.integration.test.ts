@@ -1,6 +1,5 @@
 /**
- * P2 — User schema: users table shape, kind column, email/avatarUrl nullable,
- * user_skills table has user_id column.
+ * P2 — User schema: users table shape, kind column, email/avatarUrl nullable.
  *
  * @lore P2: "founder" role is NOT in the USER_ROLES union — it is valid text
  * stored in the role column of a human user. Tests must not assert that "founder"
@@ -10,14 +9,7 @@
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 // P2: import new symbols — these will fail to compile until implementation is done
-import {
-	type NewUser,
-	type NewUserSkill,
-	type User,
-	type UserSkill,
-	userSkills,
-	users,
-} from "../schema.js";
+import { type NewUser, type User, users } from "../schema.js";
 
 const NOW = new Date().toISOString();
 
@@ -177,67 +169,9 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 	});
 
 	// -------------------------------------------------------------------------
-	// AC1 + critique: user_skills table has user_id column (not agent_id)
-	// -------------------------------------------------------------------------
-	describe("AC1 (critique): user_skills table has user_id column", () => {
-		test("user_skills table exists and does NOT have agent_id column", async ({ db }) => {
-			const result = await db.execute(
-				`SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename` as Parameters<
-					typeof db.execute
-				>[0],
-			);
-			const tableNames = (result as { rows: Array<{ tablename: string }> }).rows.map(
-				(r) => r.tablename,
-			);
-
-			expect(tableNames).toContain("user_skills");
-			expect(tableNames).not.toContain("agent_skills");
-		});
-
-		test("user_skills table has user_id column, not agent_id", async ({ db }) => {
-			const result = await db.execute(
-				`SELECT column_name FROM information_schema.columns WHERE table_name = 'user_skills' AND table_schema = 'public'` as Parameters<
-					typeof db.execute
-				>[0],
-			);
-			// biome-ignore lint/style/useNamingConvention: SQL column names from information_schema use snake_case
-			const colNames = (result as { rows: Array<{ column_name: string }> }).rows.map(
-				(r) => r.column_name,
-			);
-
-			expect(colNames).toContain("user_id");
-			expect(colNames).not.toContain("agent_id");
-		});
-
-		test("inserts a user_skill row with userId field", async ({ db }) => {
-			// Seed a user first (FK constraint)
-			await db.insert(users).values({
-				id: "u-skill-test",
-				kind: "ai",
-				name: "Skill Bot",
-				role: "builder",
-				status: "active",
-				createdAt: NOW,
-			});
-
-			const skill: NewUserSkill = {
-				userId: "u-skill-test",
-				skillId: "coding",
-				autonomyLevel: 2,
-			};
-
-			await db.insert(userSkills).values(skill);
-
-			const rows = await db.select().from(userSkills).where(eq(userSkills.userId, "u-skill-test"));
-			expect(rows[0]).toBeDefined();
-			expect((rows[0] as UserSkill).userId).toBe("u-skill-test");
-		});
-	});
-
-	// -------------------------------------------------------------------------
 	// AC9: migrations include 0017 with expected schema
 	// -------------------------------------------------------------------------
-	describe("AC9: migration 0017 creates users and user_skills tables", () => {
+	describe("AC9: migration 0017 creates the org_edges table", () => {
 		test("migration creates org_edges table", async ({ db }) => {
 			const result = await db.execute(
 				`SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename` as Parameters<

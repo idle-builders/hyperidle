@@ -604,7 +604,6 @@ export async function fireGenericRoutine(
 				outcome: "running",
 			});
 			bakedRequest = await resolveRoutineRunRequest(tx as HyperIdleDb, runId, {
-				agentSelection: ports.agentSelection,
 				requireRunnableAgent: ports.requireRunnableAgent,
 				// AU21 §9 Increment 12 (Decision H3): forward the optional
 				// contextBundle deps (present once the composition root wires

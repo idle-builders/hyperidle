@@ -1,0 +1,25 @@
+-- Drop the `user_skills` table: the per-skill autonomy score sheet.
+--
+-- Hand-authored incremental migration (this repo's migrations are additive SQL
+-- files tracked only by meta/_journal.json — see 0043-0055 — not by a
+-- regenerated drizzle-kit snapshot chain past 0042). `drizzle-kit generate`
+-- against the stale 0042 snapshot re-detects every 0043+ change as new, so its
+-- output is NOT usable verbatim here.
+--
+-- WHY: the table is `agent_skills` renamed by the mechanical agents → users
+-- sweep in 0013, never re-scoped. Its columns — autonomy_level, success_count,
+-- failure_count, last_used_at, promoted_at — are the per-skill autonomy score
+-- sheet the product removed: "No per-skill autonomy controls, ever"
+-- (docs/product/product-decisions.md:13). The removal shipped and left the
+-- storage behind; this is that remainder.
+--
+-- DATA: no production insert path has ever existed — no bootstrap seed, no
+-- endpoint, no scaffolding hook; only tests and the eval seeder wrote rows. A
+-- production database therefore has this table permanently empty and the drop
+-- destroys nothing.
+--
+-- FOREIGN KEYS: user_skills.user_id references users.id ON DELETE RESTRICT —
+-- an OUTBOUND edge owned by the table being dropped and destroyed with it.
+-- Nothing references user_skills, so no CASCADE is needed and `users` is not
+-- modified.
+DROP TABLE "user_skills";

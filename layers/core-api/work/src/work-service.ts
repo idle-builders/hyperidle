@@ -39,6 +39,8 @@
  *
  * Event emission stays at call sites (out of scope — see plan §3).
  */
+
+import { randomUUID } from "node:crypto";
 import {
 	artifacts,
 	bets,
@@ -59,6 +61,46 @@ export type Task = typeof tasks.$inferSelect;
 
 /** Queue-facing operations for the work-owned dispatch-attempt table. */
 export const taskDispatchAttemptStore = {
+	/**
+	 * Record a dispatch attempt for a task and return its generated id.
+	 *
+	 * The ordinal is NOT a parameter: it is the count of the task's existing
+	 * attempts plus one, and that rule belongs to whoever owns the table. The
+	 * count and the insert run on the executor the caller passes, so a caller
+	 * inside `db.transaction` sees its own uncommitted attempts in the count and
+	 * its rows roll back with the rest of the handoff.
+	 *
+	 * `occasion` is the caller's word for why the dispatch happened, constrained
+	 * only by the table's own CHECK.
+	 */
+	insertAttempt: async (
+		exec: WriteExecutor,
+		input: {
+			readonly taskId: string;
+			readonly occasion: string;
+			readonly agentId: string;
+			readonly predecessorSessionId: string;
+			readonly now: string;
+		},
+	): Promise<{ id: string }> => {
+		const existing = await exec
+			.select({ id: taskDispatchAttempts.id })
+			.from(taskDispatchAttempts)
+			.where(eq(taskDispatchAttempts.taskId, input.taskId));
+		const id = randomUUID();
+		await exec.insert(taskDispatchAttempts).values({
+			id,
+			taskId: input.taskId,
+			occasion: input.occasion,
+			agentId: input.agentId,
+			predecessorSessionId: input.predecessorSessionId,
+			ordinal: existing.length + 1,
+			status: "requested",
+			createdAt: input.now,
+			updatedAt: input.now,
+		});
+		return { id };
+	},
 	get: async (exec: WriteExecutor, id: string) => {
 		const [row] = await exec
 			.select()

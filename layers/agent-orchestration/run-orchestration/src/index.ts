@@ -18,7 +18,6 @@
 // shape and same reasoning. NOTHING about connections or filesystems rides an
 // emitted request any more.
 
-export { isAgentAtCapacity } from "./concurrency.js";
 export {
 	applyProvisioningPlan,
 	buildProvisioningPlan,
@@ -51,5 +50,16 @@ export {
 	type StoppedRun,
 } from "./request-run-stop-for-tasks.js";
 export { runSession } from "./runtime.js";
+// -- `sessions`: this Service owns the table, so these are its only doors --
+export {
+	countActiveRunsByAgent,
+	endSessionByCas,
+	findSessionById,
+	listLatestOutcomeByTask,
+	listRunSummaries,
+	listSessions,
+	recordSessionMetadata,
+	writeSessionNotes,
+} from "./session-store.js";
 export { startRuntime } from "./start-runtime.js";
 export { transitionRun } from "./transition-run.js";

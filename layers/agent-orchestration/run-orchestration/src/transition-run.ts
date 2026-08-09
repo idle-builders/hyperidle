@@ -353,11 +353,13 @@ export function transitionRun(
 }
 
 // ---------------------------------------------------------------------------
-// `sessions` table access — UNOWNED_SHARED_TABLES (table-ownership-guard.ts
-// exemption, unaffected by this migration, same as `handoff-protocol.ts`'s
-// own direct `sessions` access). Kept as a tiny local helper (not a port —
-// no Service owns this table) so `endSession`/`crashSession` stay
-// import-clean of `@hyperidle/db`'s table object in their own bodies.
+// `sessions` table access. This Service OWNS the table, so naming it here is
+// the point rather than an exemption. Kept as a tiny local helper so
+// `endSession`/`crashSession` stay import-clean of `@hyperidle/db`'s table
+// object in their own bodies. Deliberately NOT merged with `session-store.ts`'s
+// `endSessionByCas`: the two share a CAS shape but not a field set, and both
+// now live inside the owner — which is the whole point. Consolidating them is a
+// separate judgement.
 // ---------------------------------------------------------------------------
 
 async function updateSessionRow(

@@ -11,7 +11,6 @@ import {
 	teamMembers,
 	teams,
 	type User,
-	userSkills,
 	users,
 } from "@hyperidle/db";
 import { createTestDb, type TestDbHandle } from "@hyperidle/db/testing";
@@ -265,7 +264,7 @@ describe("plugin configuration service", () => {
 		);
 	});
 
-	test("legacy users, routines, skills, tools, MCP, and harness data are visible after backfill", async () => {
+	test("legacy users, routines, tools, MCP, and harness data are visible after backfill", async () => {
 		await seedLegacyData(handle);
 
 		await backfillConfigurationDefaults(handle.db, settingsDeps, NOW);
@@ -288,13 +287,6 @@ describe("plugin configuration service", () => {
 				kind: "routine",
 				key: "routine.routine-1",
 				activeValue: expect.objectContaining({ id: "routine-1", name: "Daily digest" }),
-			}),
-		);
-		expect(entries).toContainEqual(
-			expect.objectContaining({
-				kind: "skill",
-				key: "skill.agent-1.review",
-				activeValue: expect.objectContaining({ userId: "agent-1", skillId: "review" }),
 			}),
 		);
 		expect(entries).toContainEqual(
@@ -507,11 +499,6 @@ async function seedLegacyData(handle: TestDbHandle): Promise<void> {
 		state: "active",
 		active: true,
 		createdAt: NOW,
-	});
-	await handle.db.insert(userSkills).values({
-		userId: "agent-1",
-		skillId: "review",
-		autonomyLevel: 3,
 	});
 	await handle.db.insert(serviceConnections).values({
 		id: "connection-1",

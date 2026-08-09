@@ -825,24 +825,6 @@ export const items = pgTable(
 // L1a: `responses` table dropped — verdicts now project as `verdict`-typed
 // `messages` rows. See plan §5.2 + §5.3.
 
-// --- User skills ---
-
-export const userSkills = pgTable(
-	"user_skills",
-	{
-		userId: text("user_id")
-			.notNull()
-			.references(() => users.id, { onDelete: "restrict" }),
-		skillId: text("skill_id").notNull(),
-		autonomyLevel: integer("autonomy_level").notNull(),
-		successCount: integer("success_count").notNull().default(0),
-		failureCount: integer("failure_count").notNull().default(0),
-		lastUsedAt: text("last_used_at"),
-		promotedAt: text("promoted_at"),
-	},
-	(table) => [primaryKey({ columns: [table.userId, table.skillId] })],
-);
-
 // --- Org chart edges (P2) ---
 
 /**
@@ -1654,9 +1636,6 @@ export type NewMessage = typeof messages.$inferInsert;
 
 export type Item = typeof items.$inferSelect;
 export type NewItem = typeof items.$inferInsert;
-
-export type UserSkill = typeof userSkills.$inferSelect;
-export type NewUserSkill = typeof userSkills.$inferInsert;
 
 export type OrgEdge = typeof orgEdges.$inferSelect;
 export type NewOrgEdge = typeof orgEdges.$inferInsert;

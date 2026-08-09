@@ -1,12 +1,11 @@
 import { writeAgentRunConfig } from "@hyperidle/agent-run-config";
-import { type HyperIdleDb, userSkills } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import { persistScaffoldedAgents } from "@hyperidle/org";
 import {
 	API_ERROR_CODES,
 	type EventBus,
 	escapeLikePattern,
 	type HarnessCapabilityReader,
-	type ItemCreatedEvent,
 	resolveAgentScaffoldSpecs,
 } from "@hyperidle/shared";
 
@@ -18,7 +17,6 @@ import {
 	findMessage,
 	findOrCreateDirectThread,
 	insertMessage,
-	insertThread,
 	listInbox,
 } from "@hyperidle/conversation";
 import {
@@ -28,8 +26,6 @@ import {
 	validateBody,
 } from "@hyperidle/shared/http";
 import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
-import * as work from "@hyperidle/work";
-import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import z from "zod";
 import { createAssistantSoulRoutes } from "./assistant.js";
@@ -45,10 +41,6 @@ const orgUsers = {
 	insertUser,
 	writeAgentRunConfig,
 };
-
-const updateSkillSchema = z.object({
-	autonomyLevel: z.number().int().min(1).max(4),
-});
 
 // L1 step9 (Adv-C2): senderId is NOT accepted from the request body; it is
 // derived from the authenticated identity via `X-Identity` header.
@@ -199,7 +191,6 @@ export function createUserSetupRoute(db: HyperIdleDb, eventBus: EventBus): Hono 
  */
 export function createUserRoutes(
 	db: HyperIdleDb,
-	eventBus: EventBus,
 	adapterPool?: HarnessCapabilityReader | null,
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
@@ -229,7 +220,7 @@ export function createUserRoutes(
 		return c.json(allUsers);
 	});
 
-	// GET /:id — User detail with skills
+	// GET /:id — User detail
 	router.get("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
 		const userId = c.req.param("id");
 		const user = await findUser(db, { id: userId });
@@ -238,9 +229,7 @@ export function createUserRoutes(
 			return c.json({ error: "User not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
-		const skills = await db.select().from(userSkills).where(eq(userSkills.userId, userId));
-
-		return c.json({ ...user, skills });
+		return c.json(user);
 	});
 
 	// PATCH /:id — Update human user profile (name + email)
@@ -293,81 +282,6 @@ export function createUserRoutes(
 		const updated = await findUser(db, { id: targetId });
 		return c.json(updated, 200);
 	});
-
-	// PATCH /:id/skills/:skillId — Update autonomy level
-	router.patch(
-		"/:id/skills/:skillId",
-		requireBoundary({ kind: "principal-self" }),
-		validateBody(updateSkillSchema),
-		async (c) => {
-			const userId = c.req.param("id");
-			const skillId = c.req.param("skillId");
-			const body = c.req.valid("json" as never) as z.infer<typeof updateSkillSchema>;
-
-			const [existing] = await db
-				.select()
-				.from(userSkills)
-				.where(and(eq(userSkills.userId, userId), eq(userSkills.skillId, skillId)))
-				.limit(1);
-
-			if (!existing) {
-				return c.json({ error: "User skill not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
-			}
-
-			const oldLevel = existing.autonomyLevel;
-			const newLevel = body.autonomyLevel;
-
-			await db
-				.update(userSkills)
-				.set({ autonomyLevel: newLevel })
-				.where(and(eq(userSkills.userId, userId), eq(userSkills.skillId, skillId)));
-
-			const [updated] = await db
-				.select()
-				.from(userSkills)
-				.where(and(eq(userSkills.userId, userId), eq(userSkills.skillId, skillId)))
-				.limit(1);
-
-			if (oldLevel !== newLevel) {
-				const threadId = crypto.randomUUID();
-				const now = new Date().toISOString();
-
-				await insertThread(db, {
-					id: threadId,
-					hostKind: "agent",
-					hostId: userId,
-					initiatorId: userId,
-					participants: JSON.stringify([userId]),
-					lastActiveAt: now,
-					createdAt: now,
-				});
-
-				const itemId = crypto.randomUUID();
-				await work.create(db, "item", {
-					id: itemId,
-					sourceAgentId: userId,
-					layer: "meta",
-					verb: "review",
-					kind: "autonomy_change",
-					title: `Autonomy level changed for skill ${skillId}`,
-					body: `Autonomy level changed from ${oldLevel} to ${newLevel} for user ${userId}, skill ${skillId}`,
-					threadId,
-					createdAt: now,
-				});
-
-				eventBus.emit<"item_created">({
-					type: "item_created",
-					streamId: threadId,
-					itemId,
-					conversationId: threadId,
-					kind: "autonomy_change",
-					timestamp: Date.now(),
-				} satisfies ItemCreatedEvent);
-			}
-
-			return c.json(updated);
-		},
-	);
 
 	// GET /:id/inbox — User's inbox with pagination
 	// AC5 AF11: inbox is participant-scope (principal-self). Only the authenticated

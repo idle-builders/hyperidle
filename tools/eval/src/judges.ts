@@ -22,7 +22,6 @@ import {
 	routines,
 	sessions,
 	tasks,
-	userSkills,
 } from "@hyperidle/db";
 import type { TaskState } from "@hyperidle/shared";
 import { and, eq, isNotNull, like, ne } from "drizzle-orm";
@@ -600,37 +599,6 @@ export function judgeKnowledgeStatusChanged(
 			return {
 				score: correct ? 1.0 : 0.0,
 				note: correct ? undefined : `Status: ${item.status} (expected: ${expectedStatus})`,
-			};
-		},
-	};
-}
-
-/** Judge: userSkills.autonomyLevel for a specific user/skill pair. */
-export function judgeUserSkillLevel(
-	userId: string,
-	skillId: string,
-	expectedLevel: number,
-): RubricDimension {
-	return {
-		id: "autonomy_level_correct",
-		label: `User Skill Level Correct (expected: L${expectedLevel})`,
-		judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-			const [skill] = await ctx.db
-				.select({ autonomyLevel: userSkills.autonomyLevel })
-				.from(userSkills)
-				.where(and(eq(userSkills.userId, userId), eq(userSkills.skillId, skillId)))
-				.limit(1);
-
-			if (!skill) {
-				return { score: 0.0, note: `No userSkill for user=${userId} skill=${skillId}` };
-			}
-
-			const correct = skill.autonomyLevel === expectedLevel;
-			return {
-				score: correct ? 1.0 : 0.0,
-				note: correct
-					? `Autonomy level: L${skill.autonomyLevel}`
-					: `Autonomy level: L${skill.autonomyLevel} (expected: L${expectedLevel})`,
 			};
 		},
 	};
