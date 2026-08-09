@@ -20,14 +20,10 @@
  */
 
 import { createReturnEnforcement } from "@hyperidle/harness-registry";
-import * as sharedAll from "@hyperidle/shared";
+import { FORCE_RETURN_MESSAGE, MAX_FORCE_RETURNS } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
 import { returnStatusTool } from "../return-status-tool.js";
 
-// biome-ignore lint/suspicious/noExplicitAny: accessing shared constants in red phase
-const sharedNs = sharedAll as Record<string, any>;
-const FORCE_RETURN_MESSAGE: string = sharedNs.FORCE_RETURN_MESSAGE;
-const MAX_FORCE_RETURNS: number = sharedNs.MAX_FORCE_RETURNS;
 const createEnforcementRegistry = () => createReturnEnforcement({ isolated: true });
 
 // ── Helpers ────────────────────────────────────────────────────────────────

@@ -655,10 +655,3 @@ export type EventHandler<T extends EventType> = (event: EventByType<T>) => void;
 
 /** Handler function for wildcard subscriptions. */
 export type WildcardHandler = (event: DomainEvent) => void;
-
-/** Redis adapter interface (implementation deferred). */
-export interface EventBusAdapter {
-	publish(event: DomainEvent): Promise<void>;
-	subscribe(type: EventType | WildcardType, handler: (event: DomainEvent) => void): Promise<void>;
-	unsubscribe(type: EventType | WildcardType, handler: (event: DomainEvent) => void): Promise<void>;
-}

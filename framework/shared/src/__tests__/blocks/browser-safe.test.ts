@@ -26,6 +26,5 @@ describe("@hyperidle/shared/blocks browser safety", () => {
 		expect(mod.MAX_BODY_BYTES).toBeDefined();
 		expect(mod.BLOCK_ID_VERSION).toBeDefined();
 		expect(mod.blockId).toBeDefined();
-		expect(mod.slug).toBeDefined();
 	});
 });

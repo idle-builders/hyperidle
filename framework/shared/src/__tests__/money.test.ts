@@ -5,16 +5,15 @@
  *      moneyFromWire, moneyToWire)
  * AC2: WireMoney type for JSON transport
  * AC3: TokenUsage with per-tier breakdown
- * AC4: formatMoney(null) → "--"; formatMoney({minor:1240,currency:'USD'}) → "$12.40"
- * AC5: formatTokenCount(42300) → "42.3k"; formatTokenCount(null) → "--"
  * (AC9/AC10 are asserted in money-harness.test.ts. AC11/CostUpdateEvent no
- * longer exists — @lore AU21 harness-telemetry narrowing.)
+ * longer exists — @lore AU21 harness-telemetry narrowing. AC4/AC5 covered
+ * `formatMoney`/`formatTokenCount`, which had no importer anywhere outside
+ * this file — the module was deleted rather than given a package to live in.)
  *
  * These tests will FAIL until Task 1 implementation ships.
  */
 
 import { describe, expect, expectTypeOf, it } from "vitest";
-import { formatMoney, formatTokenCount } from "../format/money.js";
 import type { CurrencyCode, Money, TierTokenCount, TokenUsage, WireMoney } from "../types/money.js";
 import {
 	addMoney,
@@ -212,79 +211,6 @@ describe("TokenUsage type contract (AC3)", () => {
 		const usage: TokenUsage = { byTier: { reasoning: { prompt: 1, completion: 2 } } };
 		const keys = Object.keys(usage.byTier);
 		expect(keys).toContain("reasoning");
-	});
-});
-
-// ── AC4: formatMoney ──────────────────────────────────────────────────────────
-
-describe("formatMoney (AC4)", () => {
-	it("returns '--' for null", () => {
-		expect(formatMoney(null)).toBe("--");
-	});
-
-	it("formats USD 1240 minor as '$12.40'", () => {
-		const wire: WireMoney = { minor: 1240, currency: "USD" };
-		expect(formatMoney(wire)).toBe("$12.40");
-	});
-
-	it("formats USD 0 minor as '$0.00'", () => {
-		const wire: WireMoney = { minor: 0, currency: "USD" };
-		expect(formatMoney(wire)).toBe("$0.00");
-	});
-
-	it("formats USD 100 minor as '$1.00'", () => {
-		const wire: WireMoney = { minor: 100, currency: "USD" };
-		expect(formatMoney(wire)).toBe("$1.00");
-	});
-
-	it("formats USD 1 minor as '$0.01'", () => {
-		const wire: WireMoney = { minor: 1, currency: "USD" };
-		expect(formatMoney(wire)).toBe("$0.01");
-	});
-
-	it("accepts canonical Money type (bigint minor)", () => {
-		const m: Money = { minor: 1240n, currency: "USD" };
-		expect(formatMoney(m)).toBe("$12.40");
-	});
-
-	it("formats JPY (scale=0, no decimal)", () => {
-		const wire: WireMoney = { minor: 1200, currency: "JPY" };
-		// JPY has no sub-unit — 1200 JPY renders as "1,200 JPY" or similar integer
-		const result = formatMoney(wire);
-		expect(result).toContain("1");
-		expect(result).not.toMatch(/\.\d\d$/); // no cents notation for JPY
-	});
-});
-
-// ── AC5: formatTokenCount ─────────────────────────────────────────────────────
-
-describe("formatTokenCount (AC5)", () => {
-	it("returns '--' for null", () => {
-		expect(formatTokenCount(null)).toBe("--");
-	});
-
-	it("returns '42.3k' for 42300", () => {
-		expect(formatTokenCount(42300)).toBe("42.3k");
-	});
-
-	it("returns '800' for 800 (under 1k)", () => {
-		expect(formatTokenCount(800)).toBe("800");
-	});
-
-	it("returns '1.0k' for 1000", () => {
-		expect(formatTokenCount(1000)).toBe("1.0k");
-	});
-
-	it("returns '1.2M' for 1200000", () => {
-		expect(formatTokenCount(1200000)).toBe("1.2M");
-	});
-
-	it("returns '0' for 0", () => {
-		expect(formatTokenCount(0)).toBe("0");
-	});
-
-	it("returns '--' for null (edge case recheck)", () => {
-		expect(formatTokenCount(null)).toBe("--");
 	});
 });
 

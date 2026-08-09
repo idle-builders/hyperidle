@@ -69,10 +69,4 @@ describe("AC12: no kernel-executor surface in the trust-first model", () => {
 		// The stage_operation tool was the v1 agent-authored staging tool — retired per concept rejection #8
 		expect(names).not.toContain("stage_operation");
 	});
-
-	it("StagedOperationSpec is NOT exported from @hyperidle/shared", async () => {
-		const shared = await import("@hyperidle/shared");
-		// StagedOperationSpec was the v1 kernel-executor spec — retired
-		expect("StagedOperationSpec" in shared).toBe(false);
-	});
 });

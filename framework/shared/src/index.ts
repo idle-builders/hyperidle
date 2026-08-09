@@ -119,7 +119,6 @@ export {
 	LINK_URL_SAFE_SCHEMES,
 	MAX_BODY_BYTES,
 	normalisedPayload,
-	slug,
 } from "./blocks/index.js";
 // ── AU19 Increment 1f: built-in tool catalog (moved from packages/server/src/config) ──
 export type { ToolCatalogEntry } from "./builtin-tool-catalog.js";
@@ -196,7 +195,6 @@ export type {
 	BetStateChangedEvent,
 	DependencyMetEvent,
 	DomainEvent,
-	EventBusAdapter,
 	EventByType,
 	EventHandler,
 	EventType,
@@ -266,7 +264,6 @@ export {
 	WRITEBACK_MODES,
 } from "./filesystem.js";
 export { deriveTitle, deriveTitleFromPitch } from "./format/bet.js";
-export { formatMoney, formatTokenCount } from "./format/money.js";
 export type { TimestampInput } from "./format/time.js";
 export {
 	absoluteDate,
@@ -380,12 +377,7 @@ export type {
 export type { HintCatalogEntry, HintId } from "./hint.js";
 export { HINT_CATALOG, HINT_IDS, isHintId } from "./hint.js";
 export { deriveInitials } from "./initials.js";
-// AM5 K4b: code kind schema + definition (purified to {path,lang,text})
-// CodePreview type already exported below via types/artifact.ts
-export { codeKind, codePreviewSchema } from "./kinds/code.js";
 // AE6: Kind registry exports (new)
-export type { KindDefinition } from "./kinds/kind-definition.js";
-export type { OldKindMapping } from "./kinds/old-kind-map.js";
 export { OLD_KIND_MAP } from "./kinds/old-kind-map.js";
 // getKindDefinition and isRegisteredKind exported via types/artifact.ts re-export from registry
 export { getKindDefinition, isRegisteredKind } from "./kinds/registry.js";
@@ -430,10 +422,10 @@ export {
 	segmentMentions,
 } from "./mention.js";
 // ── X4: Model Gateway ──
-// @lore AU21 Increment 14b (Decision L2): `resolveModel`/`UnsupportedAgentProviderError`/
-// `ModelRequest` moved here from the dissolved `@hyperidle/model-gateway`
-// core-api package — a pure, stateless fn now lives beside the types it
-// already shared this module with.
+// @lore AU21 Increment 14b (Decision L2): `resolveModel` and `ModelRequest` moved here from the
+// dissolved `@hyperidle/model-gateway` core-api package — a pure, stateless fn now lives beside the
+// types it already shared this module with. `UnsupportedAgentProviderError` is thrown by that fn and
+// caught by nobody: it left this surface because no production file outside the package names it.
 export type {
 	ModelCatalogEntry,
 	ModelGatewayConfig,
@@ -452,7 +444,6 @@ export {
 	MODEL_CATALOG,
 	MODEL_PROVIDERS,
 	resolveModel,
-	UnsupportedAgentProviderError,
 } from "./model-gateway.js";
 // SSRF utilities use node:dns/net/util and cannot be imported in the browser.
 // Server code imports them via "@hyperidle/shared/net" subpath export instead.
@@ -664,7 +655,6 @@ export {
 	wrapForRegistry,
 } from "./tool.js";
 export { decode, decodeTyped, encode, encodeTyped } from "./toon-codec.js";
-export { ToonParseError } from "./toon-errors.js";
 export type {
 	TriggerEventType,
 	TriggerResolutionResult,
