@@ -134,6 +134,12 @@ export const ATTACK_ANCHORS = {
 	 * so an import of `@hyperidle/db` from it is a real crossing rather than a package naming itself.
 	 */
 	otherFrameworkDir: "framework/api-contract/src",
+	/**
+	 * A service that IS in `framework/harness-protocol`'s declared audience — the control twin for the
+	 * narrow-audience refusal, which is only a test of the audience if the same import from inside the
+	 * audience is clean.
+	 */
+	harnessAudienceDir: "layers/agent-orchestration/run-orchestration/src",
 	/** A manifest a cross-layer dependency can be added to. */
 	serviceManifest: "layers/core-api/work/package.json",
 } as const;
@@ -766,6 +772,35 @@ export const ATTACKS: readonly Attack[] = [
 			file: `${a.otherFrameworkDir}/attack-framework-db-unknown.ts`,
 			groupKey: KEY.frameworkUnknownSurface,
 		},
+	},
+	{
+		id: "harness-protocol-named-from-outside-its-audience",
+		detail:
+			"a package outside `framework/harness-protocol`'s stated audience importing the adapter interface — the refusal must name the file AND the audience it is not in, or the reader cannot tell whether to move the import or ask for the audience to be widened",
+		rules: ["crossing-import"],
+		overlay: {
+			[`${a.serviceDir}/attack-outside-harness-audience.ts`]:
+				`import type { HarnessAdapter } from "@hyperidle/harness-protocol";\n` +
+				`export type AttackAdapter = { readonly adapter: HarnessAdapter };\n`,
+		},
+		expect: {
+			sort: "finding",
+			file: `${a.serviceDir}/attack-outside-harness-audience.ts`,
+			ruleId: "crossing-import",
+			messageContains: "reachable only by harness-registry",
+		},
+	},
+	{
+		id: "harness-protocol-named-from-inside-its-audience",
+		detail:
+			"the identical import from a service the audience DOES name — the twin that makes the case above a test of the audience rather than of the package's name",
+		rules: ["crossing-import"],
+		overlay: {
+			[`${a.harnessAudienceDir}/attack-inside-harness-audience.ts`]:
+				`import type { HarnessAdapter } from "@hyperidle/harness-protocol";\n` +
+				`export type AttackAdapter = { readonly adapter: HarnessAdapter };\n`,
+		},
+		expect: { sort: "clean", file: `${a.harnessAudienceDir}/attack-inside-harness-audience.ts` },
 	},
 	{
 		id: "import-of-a-framework-package-with-no-declared-audience",

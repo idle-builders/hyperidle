@@ -163,6 +163,14 @@ const isInside = (source: Actor, target: Target): boolean => {
 	return source.role === "layer" && layerOf(target) === source.name;
 };
 
+/** The declared audience, spelled out for a refusal message. */
+const audienceOf = (audience: Audience): string => {
+	if (audience === "everyone") return "reachable by everyone";
+	if (audience === "composition roots") return "reachable only from a composition root";
+	if (audience.length === 0) return "reachable by nobody";
+	return `reachable only by ${[...audience].join(", ")}`;
+};
+
 const inAudience = (arch: Architecture, audience: Audience, actor: Actor): boolean => {
 	if (audience === "everyone") return true;
 	if (audience === "composition roots") return isCompositionRoot(arch, actor);
@@ -317,7 +325,15 @@ function decideProduction(arch: Architecture, crossing: Crossing): Decision {
 			};
 		}
 		const permitted = inAudience(arch, entry.reach, source);
-		return { verdict: permitted ? "allowed" : "forbidden", clause: "reach-declared-surfaces-only", why: entry.why };
+		return {
+			verdict: permitted ? "allowed" : "forbidden",
+			clause: "reach-declared-surfaces-only",
+			// A refusal names the audience it is not in. Without this the finding says only which file
+			// and which surface, and the reader has to open architecture.json to learn who IS allowed —
+			// which is the one thing they need in order to decide between moving the import and asking
+			// for the audience to be widened.
+			why: permitted ? entry.why : `${entry.why}. ${audienceOf(entry.reach)}`,
+		};
 	}
 
 	// 8. Nothing names the repo root.
