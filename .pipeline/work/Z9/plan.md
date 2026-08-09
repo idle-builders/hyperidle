@@ -47,3 +47,26 @@
 - Given the built landing page HTML, when inspected, then it requires no server-side rendering or runtime API calls to display.
 - Given a visual review of the built page, when compared against the Hearth app theme, then the page reads as the cyberpunk marketing identity (dark, neon-yellow accent, hard borders/shadows), not Hearth.
 - Given a maintainer pointing the build output at a different static host (different base path), when rebuilt with the configured base path, then all internal links and assets resolve.
+
+## Shipped — as-built decisions (consolidated from design + architecture + feasibility, 2026-08-09)
+
+**Stack & placement.** Astro 7 in `applications/website` (`@hyperidle/website`). Zero-runtime-JS static output by default; markdown via content collections with an external-base glob loader over the repo tree (markdown read in place, never copied). Rejected: VitePress (Vue runtime, docs-shaped), custom vite+markdown-it, plain scripts — they reinvent what a maintained primitive provides.
+
+**Base path.** `HYPERIDLE_SITE_BASE` env → fail-fast `normalizeBase` validation → astro `base`; template hrefs via `import.meta.env.BASE_URL`, markdown cross-links via a remark plugin, assets through the Vite pipeline (nothing URL-referenced lives in `public/`). Proven for `/` and `/hyperidle/`; invalid values fail the build.
+
+**Content seam.** This WP ingests `docs/product/*.md` (6 pages at `/docs/product/**`) as the markdown-proof + hub. The follow-up docs WP widens the glob pattern to `docs/guides/**` — no new machinery. `docEntryId` collapses `index.md` onto directory URLs; `mapDocHref` rewrites sibling `.md` links to route URLs.
+
+**Fonts.** Space Grotesk 400/500/700 + Space Mono 400/700 latin woff2 committed under `src/assets/fonts/` (OFL shipped), `font-display: swap`, no hotlinking.
+
+**Marketing identity.** WP-owned token set in `applications/website/src/styles/` — page `#0A0A0F`, 4-step surface ladder, hairline `#1C1F2B` / strong `#2B3040` borders, text `#E9EBF2 / #A0A5B8 / #7B8199` (all ≥4.5:1 on their surfaces), single accent `#FCEE0A` (+ink/tint/border variants). Depth: hairline → double frame → hard offset shadow `4px 4px 0 #FCEE0A` on hover only (transform/opacity animation); glow restricted to focus rings + hero accent. Radius 0 (2px chips), clip-path notches, HUD brackets. Nothing touches `framework/design-system`; enforcement is the package-boundary governance plus convention.
+
+**Motion & JS.** Four guarded plain-JS behaviors, no islands: hero terminal typing (full transcript in DOM without JS; click-to-skip), visible-first reveals (`html.js-reveal` opt-in — content fully visible with JS disabled), mobile menu with focus containment + Esc + scroll lock, copy button. All motion disabled under `prefers-reduced-motion`.
+
+**Evidence.** 17 unit tests (normalizeBase/mapDocHref/docEntryId/barePackageName) + scripted build checks (static dist, serve+curl 200s for both base paths, zero runtime fetch/XHR) + visual captures at 3 viewports + reduced-motion + no-JS under `.pipeline/work/Z9/evidence/`. Review verdict DONE, all 6 ACs pass (see review record / git history).
+
+**Deferrals & known limitations (outlive this run):**
+- `/docs/user/` and `/docs/developer/` teaser + footer links are accepted placeholders — they 404 until the follow-up docs-rendering WP (registered in `.pipeline/Z.md` dependency graph).
+- `npm run verify` / CI deliberately do NOT build the site in this WP; the site builds via its own package scripts. Wiring a CI build leg is a later decision.
+- Hosting remains open (GitHub Pages / Cloudflare Pages / own infra); deploy wiring is separate work.
+- Two non-blocking biome `!important` warnings in the reduced-motion block (intentional universal disable).
+- The e2e snapshot net rewrites stale `plans/AI3|AI4/proof/*.png` during verify runs (pre-existing behavior, unrelated to this WP) — revert before committing.

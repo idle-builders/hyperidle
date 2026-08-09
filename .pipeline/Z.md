@@ -14,7 +14,7 @@ Tell the HyperIdle story. Produce external-facing surfaces and documentation tha
 
 | ID | Title | Type | Complexity | Depends | Status |
 |---|---|---|---|---|---|
-| Z9 | Marketing landing page on a static-site foundation (cyberpunk marketing identity, `#FCEE0A` accent; static HTML generated at build time from sources incl. markdown; hosting-agnostic) | frontend/site | M | — | planned |
+| Z9 | Marketing landing page on a static-site foundation (cyberpunk marketing identity, `#FCEE0A` accent; static HTML generated at build time from sources incl. markdown; hosting-agnostic) | frontend/site | M | — | implemented — Astro 7 in `applications/website`; all 6 ACs pass review; PR pending CI |
 
 Legacy-registered (specs in `.pipeline/work-packages/TRACK-Z.md`): Z0 (superseded per migration note), Z1 (product story — shipped as `docs/product/`), Z2–Z8.
 
