@@ -111,6 +111,7 @@ const NAMED_PACKAGES: Readonly<Record<string, { readonly role: Role; readonly la
 	"core-ui": { role: "layer" },
 	credentials: { role: "service", layer: "core-api" },
 	"design-system": { role: "framework" },
+	desktop: { role: "application" },
 	"filesystem-mounting": { role: "service", layer: "agent-orchestration" },
 	filesystems: { role: "service", layer: "agent-orchestration" },
 	"harness-registry": { role: "service", layer: "agent-execution" },
