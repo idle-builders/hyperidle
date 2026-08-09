@@ -9,10 +9,22 @@
 	"include": ["src"],
 	"references": [
 		{
+			"path": "../../../framework/cron"
+		},
+		{
 			"path": "../../../framework/db"
 		},
 		{
-			"path": "../../../framework/shared"
+			"path": "../../../framework/diagnostics"
+		},
+		{
+			"path": "../../../framework/domain-model"
+		},
+		{
+			"path": "../../../framework/event-bus"
+		},
+		{
+			"path": "../../../framework/work-intent-port"
 		}
 	]
 }

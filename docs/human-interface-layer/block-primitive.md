@@ -19,7 +19,7 @@ Conversations does **not** use Blocks — chat, review, and questionnaire messag
 
 ## Anchors and discussion
 
-Each Block exposes a `BlockAnchor` — `{ blockId }` (`framework/shared/src/blocks/types.ts`) — as the sole attachment key other primitives use to reference it. Per-block discussion attaches a Thread to a Block via this anchor; there is no separate "block comment" entity. What happens when an anchored block disappears is a consumer contract owned by [`docs/blocks/contracts.md`](../blocks/contracts.md).
+Each Block exposes a `BlockAnchor` — `{ blockId }` (`framework/domain-model/src/blocks/types.ts`) — as the sole attachment key other primitives use to reference it. Per-block discussion attaches a Thread to a Block via this anchor; there is no separate "block comment" entity. What happens when an anchored block disappears is a consumer contract owned by [`docs/blocks/contracts.md`](../blocks/contracts.md).
 
 ## Naming disambiguation
 

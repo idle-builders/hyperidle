@@ -19,7 +19,7 @@
   },
   {
     "path": "layers/core-api/src/middleware/auth.ts",
-    "line": 144,
+    "line": 145,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",
@@ -28,7 +28,7 @@
   },
   {
     "path": "layers/core-api/src/middleware/auth.ts",
-    "line": 164,
+    "line": 165,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",

@@ -36,12 +36,13 @@
 
 import { type CrossingsResult, type DetectorFloor, detectCrossings } from "./crossings.js";
 import { buildDbSurfaceIndex, type DatabasePackageConfig } from "./db-surfaces.js";
-import type { Architecture } from "./governance-model.js";
+import { type Architecture, decide, type World } from "./governance-model.js";
 import type { MisplacedFiles, TableOwners } from "./governance-registry.js";
 import type { Finding, Rule } from "./governance-rules.js";
 import { buildCensus, type Census, type WorkspaceRoleRule } from "./repo-census.js";
 import { classificationTotal } from "../rules/classification-total.js";
 import { type FloorRecord, floorVerdict } from "../rules/floors-tight.js";
+import { frameworkSurfacesDeclared } from "../rules/framework-surfaces-declared.js";
 import { misplacementLedger } from "../rules/misplacement-ledger.js";
 import { noPerFileAllowances } from "../rules/no-per-file-allowances.js";
 import { noStaleBuildArtifacts } from "../rules/no-stale-build-artifacts.js";
@@ -128,6 +129,17 @@ export const ATTACK_ANCHORS = {
 	dbBarrel: "framework/db/src/index.ts",
 	/** A FRAMEWORK package's source root — the one role the bus host clause forbids from publishing. */
 	frameworkDir: "framework/db/src",
+	/**
+	 * A SECOND framework package's source root — a framework source that is NOT the database package,
+	 * so an import of `@hyperidle/db` from it is a real crossing rather than a package naming itself.
+	 */
+	otherFrameworkDir: "framework/api-contract/src",
+	/**
+	 * A service that IS in `framework/harness-protocol`'s declared audience — the control twin for the
+	 * narrow-audience refusal, which is only a test of the audience if the same import from inside the
+	 * audience is clean.
+	 */
+	harnessAudienceDir: "layers/agent-orchestration/run-orchestration/src",
 	/** A manifest a cross-layer dependency can be added to. */
 	serviceManifest: "layers/core-api/work/package.json",
 } as const;
@@ -151,6 +163,8 @@ const KEY = {
 	serviceMcpRouter: "service → MCP router [mcp] production",
 	serviceUnknownSurface: "service → db:unknown [import] production",
 	frameworkEventBus: "framework → EventBus [event] production",
+	frameworkSchemaNamespace: "framework → db:schema-ns [import] production",
+	frameworkUnknownSurface: "framework → db:unknown [import] production",
 } as const;
 
 // ---------------------------------------------------------------------------------------------
@@ -425,8 +439,8 @@ export const ATTACKS: readonly Attack[] = [
 		id: "reexport-narrow-surface",
 		detail:
 			"a layer barrel re-exporting a `framework/api-contract` symbol (reach: [layer]), whose audience is narrower than everyone" +
-			" — AU29 re-anchor: `db:util` (the previous anchor, `escapeLikePattern`) no longer exists, its exports having moved to " +
-			"`framework/shared` (reach: everyone), so the DB package has no narrow-reach surface left at all",
+			" — AU29 re-anchor: `db:util` (the previous anchor, `escapeLikePattern`) no longer exists, its exports having left " +
+			"`framework/db` altogether, so the DB package has no narrow-reach surface left at all",
 		rules: ["no-laundered-re-exports"],
 		overlay: {
 			[`${a.layerDir}/attack-reexport-contract.ts`]: `export type { AuthMeResponse } from "@hyperidle/api-contract";\n`,
@@ -714,6 +728,122 @@ export const ATTACKS: readonly Attack[] = [
 			messageContains: "claimed by nobody",
 		},
 	},
+
+	// --- a framework package may name another framework package, and nothing else it could not ----
+	{
+		id: "framework-names-another-framework-package",
+		detail:
+			"a framework package importing a NARROW-audience framework surface — legal as a property of the model: a reach list says who OUTSIDE the framework role may name the surface",
+		rules: ["crossing-import"],
+		overlay: {
+			[`${a.frameworkDir}/attack-framework-names-framework.ts`]:
+				`import type { AuthMeResponse } from "@hyperidle/api-contract";\n` +
+				`export type AttackWrapped = { readonly value: AuthMeResponse };\n`,
+		},
+		expect: { sort: "clean", file: `${a.frameworkDir}/attack-framework-names-framework.ts` },
+	},
+	{
+		id: "framework-names-schema-namespace",
+		detail:
+			"the same framework role reaching the whole-schema door — the case that tells the scoped clause from the broad one: `framework/<name>` opened, `db:*` audiences untouched",
+		rules: ["crossing-import"],
+		overlay: {
+			[`${a.otherFrameworkDir}/attack-framework-schema-ns.ts`]:
+				`import * as db from "@hyperidle/db";\n` + `export const everyTable = db;\n`,
+		},
+		expect: {
+			sort: "violation",
+			file: `${a.otherFrameworkDir}/attack-framework-schema-ns.ts`,
+			groupKey: KEY.frameworkSchemaNamespace,
+		},
+	},
+	{
+		id: "framework-names-undecided-db-surface",
+		detail:
+			"the same framework role reaching a database export that belongs to no named surface — the catch-all twin, so widening cannot arrive through an undecided door",
+		rules: ["crossing-import"],
+		overlay: {
+			[`${a.otherFrameworkDir}/attack-framework-db-unknown.ts`]:
+				`import { attackSymbolTheBarrelNeverPublished } from "@hyperidle/db";\n` +
+				`export const reach = attackSymbolTheBarrelNeverPublished;\n`,
+		},
+		expect: {
+			sort: "violation",
+			file: `${a.otherFrameworkDir}/attack-framework-db-unknown.ts`,
+			groupKey: KEY.frameworkUnknownSurface,
+		},
+	},
+	{
+		id: "harness-protocol-named-from-outside-its-audience",
+		detail:
+			"a package outside `framework/harness-protocol`'s stated audience importing the adapter interface — the refusal must name the file AND the audience it is not in, or the reader cannot tell whether to move the import or ask for the audience to be widened",
+		rules: ["crossing-import"],
+		overlay: {
+			[`${a.serviceDir}/attack-outside-harness-audience.ts`]:
+				`import type { HarnessAdapter } from "@hyperidle/harness-protocol";\n` +
+				`export type AttackAdapter = { readonly adapter: HarnessAdapter };\n`,
+		},
+		expect: {
+			sort: "finding",
+			file: `${a.serviceDir}/attack-outside-harness-audience.ts`,
+			ruleId: "crossing-import",
+			messageContains: "reachable only by harness-registry",
+		},
+	},
+	{
+		id: "harness-protocol-named-from-inside-its-audience",
+		detail:
+			"the identical import from a service the audience DOES name — the twin that makes the case above a test of the audience rather than of the package's name",
+		rules: ["crossing-import"],
+		overlay: {
+			[`${a.harnessAudienceDir}/attack-inside-harness-audience.ts`]:
+				`import type { HarnessAdapter } from "@hyperidle/harness-protocol";\n` +
+				`export type AttackAdapter = { readonly adapter: HarnessAdapter };\n`,
+		},
+		expect: { sort: "clean", file: `${a.harnessAudienceDir}/attack-inside-harness-audience.ts` },
+	},
+	{
+		id: "import-of-a-framework-package-with-no-declared-audience",
+		detail:
+			"importing a framework package that `architecture.json` declares no surface for must fail as an UNDECLARED SURFACE, not as a sideways reach — the two failures send a reader to different files",
+		rules: ["crossing-import"],
+		overlay: {
+			"framework/attack-nameless/package.json": `${JSON.stringify(
+				{ name: "@hyperidle/attack-nameless", private: true, type: "module", exports: { ".": "./src/index.ts" } },
+				null,
+				"\t",
+			)}\n`,
+			"framework/attack-nameless/src/index.ts": "export const attackNameless = 1;\n",
+			[`${a.layerDir}/attack-names-nameless.ts`]:
+				`import { attackNameless } from "@hyperidle/attack-nameless";\n` + `export const reach = attackNameless;\n`,
+		},
+		expect: {
+			sort: "finding",
+			file: `${a.layerDir}/attack-names-nameless.ts`,
+			ruleId: "crossing-import",
+			messageContains: "not a declared surface",
+		},
+	},
+	{
+		id: "framework-package-with-no-decided-audience",
+		detail:
+			"a new framework package added with no `reach` entry — nothing imports it, so no crossing exists to judge, and the build must still fail naming the package",
+		rules: ["framework-surfaces-declared"],
+		overlay: {
+			"framework/attack-unaudienced/package.json": `${JSON.stringify(
+				{ name: "@hyperidle/attack-unaudienced", private: true, type: "module", exports: { ".": "./src/index.ts" } },
+				null,
+				"\t",
+			)}\n`,
+			"framework/attack-unaudienced/src/index.ts": "export const attackUnaudienced = 1;\n",
+		},
+		expect: {
+			sort: "finding",
+			file: "framework/attack-unaudienced/package.json",
+			ruleId: "framework-surfaces-declared",
+			messageContains: "attack-unaudienced",
+		},
+	},
 ];
 
 // ---------------------------------------------------------------------------------------------
@@ -864,7 +994,7 @@ function runOnePass(tree: AttackTree, attacks: readonly Attack[]): PassOutcome {
 				eventTypesModule: tree.architecture.eventBus.typesModule,
 				db: buildDbSurfaceIndex(tree.architecture.databasePackage, overlaid.readFile),
 				tableOwners: tree.tableOwners,
-				frameworkSurfaces: frameworkSurfacesOf(tree.architecture, census),
+				frameworkSurfaces: frameworkSurfacesOf(census),
 			},
 			tree.floors,
 		);
@@ -924,13 +1054,18 @@ function runOnePass(tree: AttackTree, attacks: readonly Attack[]): PassOutcome {
 	return { results, ruleIds };
 }
 
-/** Framework package name → its surface label. Mirrors the live loader, over the overlaid census. */
-function frameworkSurfacesOf(architecture: Architecture, census: Census): Map<string, string> {
+/**
+ * Framework package name → its surface label. Mirrors the live loader, over the overlaid census.
+ *
+ * Unconditional, exactly like the live one: a framework package with no declared audience must still
+ * become a `surface` target, so the crossing fails as an undeclared surface rather than as a sideways
+ * reach. A copy that filtered on the registry would make the attack case pass against the wrong twin.
+ */
+function frameworkSurfacesOf(census: Census): Map<string, string> {
 	const out = new Map<string, string>();
 	for (const pkg of census.packages) {
 		if (pkg.role !== "framework") continue;
-		const label = `framework/${pkg.name}`;
-		if (label in architecture.surfaces) out.set(pkg.name, label);
+		out.set(pkg.name, `framework/${pkg.name}`);
 	}
 	return out;
 }
@@ -989,6 +1124,35 @@ export function runAttacks(
 // Cases that need no tree
 // ---------------------------------------------------------------------------------------------
 
+/**
+ * A tree-free architecture for the surface clause: one framework surface with a named audience the
+ * framework role is NOT in, and the three database surfaces that are also `sort: "surface"` targets.
+ *
+ * Synthetic on purpose. The live registries hold no `db:testing` crossing a production file can make —
+ * `production-never-names-development` claims that edge first — so the only way to state the verdict
+ * the decided rules record for it is to drive the model directly.
+ */
+const SURFACE_CLAUSE_ARCHITECTURE: Architecture = {
+	containment: { compositionRootRoles: ["application", "tooling", "deployment"], repoRootIsCompositionRoot: true },
+	surfaces: {
+		"framework/pretend": { reach: ["core-ui"], why: "one named consumer, and the framework role is not it" },
+		"db:schema-ns": { reach: [], why: "one import that hands over every table at once" },
+		"db:unknown": { reach: [], why: "an export of the database package that belongs to no named surface" },
+		"db:testing": { reach: [], why: "development code, and production naming it is already an error" },
+	},
+	endpoints: {
+		httpApiLayers: { layers: ["core-api"], why: "a layer that publishes an API publishes it to everyone" },
+		mcpRouter: { host: "agent-execution", alsoDialledBy: ["harness"], why: "the router exists to serve the harness" },
+	},
+	eventBus: { host: "framework", typesModule: "pretend/events.ts", why: "the framework provides the bus" },
+	rawRuntime: { host: "agent-execution", why: "every model call goes through one door" },
+	oneDoorSurfaces: {
+		surfaces: ["db:schema-ns", "db:unknown"],
+		foreignTableWriteMissingCompanion: true,
+		why: "a test may cross any boundary; it may not go around a door production has only one of",
+	},
+};
+
 /** A floor set the band rule can be driven with, without touching the tree. */
 const floorCase = (
 	id: string,
@@ -998,6 +1162,87 @@ const floorCase = (
 ): FloorRecord => ({ id, live, floor, floorKind });
 
 export const STANDALONE_ATTACKS: readonly StandaloneAttack[] = [
+	{
+		id: "framework-role-opens-framework-surfaces-and-nothing-else",
+		detail:
+			"the framework role may name a `framework/<name>` surface whatever its audience, and is still refused at every `db:*` surface — the two readings of the clause differ only here",
+		rules: ["crossing-import"],
+		// Positive: three of its five assertions are that the model REFUSES a crossing, which is exactly
+		// what the crossing rules report.
+		positive: true,
+		run: () => {
+			const verdict = (surface: string, world: World, source: "framework" | "layer"): string =>
+				decide(
+					SURFACE_CLAUSE_ARCHITECTURE,
+					{
+						kind: "import",
+						source:
+							source === "framework"
+								? { sort: "package", name: "pretend-framework", role: "framework" }
+								: { sort: "package", name: "core-api", role: "layer" },
+						target: { sort: "surface", surface },
+					},
+					world,
+				).verdict;
+
+			if (verdict("framework/pretend", "production", "framework") !== "allowed") {
+				return "a framework package was refused at another framework package's surface";
+			}
+			// The control: opening the door for the framework role is not the same as opening it.
+			if (verdict("framework/pretend", "production", "layer") !== "forbidden") {
+				return "a layer outside the surface's audience was admitted — the clause widened the surface, not the role";
+			}
+			for (const surface of ["db:schema-ns", "db:unknown", "db:testing"]) {
+				if (verdict(surface, "production", "framework") !== "forbidden") {
+					return `a framework package was admitted at ${surface}, whose declared audience is nobody`;
+				}
+			}
+			// `db:testing` is not a one-door surface, so the development world still relaxes it — the one
+			// place the three database surfaces do not answer alike.
+			return verdict("db:testing", "development", "framework") === "allowed"
+				? null
+				: "the development world held db:testing, which is not a door production has only one of";
+		},
+	},
+	{
+		id: "declared-audience-with-no-package",
+		detail:
+			"a `framework/<name>` audience left behind after the package is gone, and the package that HAS one reported nothing — the second direction, which no tree overlay can reach because the rules read the real architecture registry",
+		rules: ["framework-surfaces-declared"],
+		positive: true,
+		run: () => {
+			const architecture = {
+				...SURFACE_CLAUSE_ARCHITECTURE,
+				surfaces: {
+					"framework/present": { reach: ["core-ui"], why: "one named consumer, written down" },
+					"framework/retired": { reach: "everyone" as const, why: "an audience nobody withdrew" },
+				},
+			};
+			const census = buildCensus({
+				files: [
+					"framework/present/package.json",
+					"framework/present/src/index.ts",
+					"framework/undecided/package.json",
+					"framework/undecided/src/index.ts",
+				],
+				readFile: (path) => (path.endsWith("package.json") ? JSON.stringify({ name: `@hyperidle/${path.split("/")[1]}` }) : ""),
+				roleRules: [{ pattern: "framework/*", role: "framework" }],
+			});
+			const messages = frameworkSurfacesDeclared(architecture).evaluate(census).map((f) => `${f.path}: ${f.message}`);
+
+			if (!messages.some((m) => m.includes("framework/undecided/package.json") && m.includes("no decided audience"))) {
+				return `a framework package with no surface entry was not reported: ${messages.join(" | ")}`;
+			}
+			if (!messages.some((m) => m.includes("governance/architecture.json") && m.includes("framework/retired"))) {
+				return `an audience left behind after its package was retired was not reported: ${messages.join(" | ")}`;
+			}
+			// The control: the package that HAS a decided audience is not reported, or the rule is just
+			// flagging every framework package it can see.
+			return messages.some((m) => m.includes("framework/present/package.json"))
+				? `the package with a decided audience was reported: ${messages.join(" | ")}`
+				: null;
+		},
+	},
 	{
 		id: "slack-floor",
 		detail: "a magnitude floor sitting at half its live count no longer measures anything",

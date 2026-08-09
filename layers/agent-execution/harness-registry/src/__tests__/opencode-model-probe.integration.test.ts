@@ -5,7 +5,7 @@ import type {
 	SessionConfig,
 	SessionHandle,
 	SessionResult,
-} from "@hyperidle/shared";
+} from "@hyperidle/harness-protocol";
 import { describe, expect, test } from "vitest";
 import { AdapterPool } from "../adapter-pool.js";
 import { discoverLocalHarnesses } from "../harness-discovery.js";

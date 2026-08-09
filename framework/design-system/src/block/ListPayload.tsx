@@ -1,5 +1,5 @@
 // design-lint-disable require-stories-sibling
-import type { BlockPayload, ListItem } from "@hyperidle/shared";
+import type { BlockPayload, ListItem } from "@hyperidle/domain-model";
 import { createElement, type JSX } from "react";
 
 import { renderPayload } from "./render-payload.js";

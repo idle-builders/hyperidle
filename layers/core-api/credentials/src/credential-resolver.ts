@@ -12,23 +12,13 @@
  * new DbCredentialResolver(db) and the decrypt step reads from env internally.
  */
 
+import type { CredentialResolver } from "@hyperidle/credential-access";
+import { decryptCredentialValue } from "@hyperidle/credential-access";
 import { type HyperIdleDb, serverCredentials } from "@hyperidle/db";
-import type { CredentialName, CredentialResolver } from "@hyperidle/shared";
-import { decryptCredentialValue } from "@hyperidle/shared/crypto";
+import type { CredentialName } from "@hyperidle/domain-model";
 // @lore AU20 R-connections: EnvCredentialResolver relocated to tools/eval (eval-only fixture).
 // Production vault exports only DbCredentialResolver.
 import { eq } from "drizzle-orm";
-
-/**
- * Resolves a credential value by name.
- *
- * @lore AU19 Increment 4: reclassified to `@hyperidle/shared` (re-exported
- * here unchanged) — `harness-registry` (agent-execution) needs the interface
- * type to accept an injected resolver, and Mechanism B forbids it depending
- * on `@hyperidle/connections`. This Service stays the sole owner of the
- * concrete `EnvCredentialResolver`/`DbCredentialResolver` implementations.
- */
-export type { CredentialResolver } from "@hyperidle/shared";
 
 /**
  * Reads from the encrypted server_credentials table.

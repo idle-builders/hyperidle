@@ -2,7 +2,7 @@ import {
 	CapacityExceededError,
 	InvalidTransitionError,
 	VersionConflictError,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import { errorHandler } from "../middleware/error-handler.js";

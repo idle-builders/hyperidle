@@ -20,8 +20,10 @@
 import * as os from "node:os";
 import * as path from "node:path";
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
-import type { ArtifactPreview, EventBus, ToolContext } from "@hyperidle/shared";
+import type { ArtifactPreview } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
+import type { ToolContext } from "@hyperidle/tool-protocol";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test as baseTest } from "../__testing__/test-fixtures.js";
 import {

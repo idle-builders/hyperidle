@@ -56,7 +56,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { promisify } from "node:util";
-import type { HarnessEvent, SessionConfig } from "@hyperidle/shared";
+import type { HarnessEvent, SessionConfig } from "@hyperidle/harness-protocol";
 import { describe, expect, test } from "vitest";
 import { cliAdapterFixture } from "./cli-adapter-fixtures.js";
 

@@ -28,8 +28,8 @@ import type {
 	InlineRef,
 	Message,
 	PlainPayload,
-} from "@hyperidle/shared";
-import { ASSISTANT_TURN_TIMEOUT_MS } from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
+import { ASSISTANT_TURN_TIMEOUT_MS } from "@hyperidle/domain-model";
 import { type JSX, type ReactNode, type RefObject, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { BlockRefEmbed } from "../components/BlockRefEmbed.js";

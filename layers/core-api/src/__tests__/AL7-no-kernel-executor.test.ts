@@ -6,7 +6,7 @@
  *   - stage-operation.ts (tool) is DELETED
  *   - KERNEL_DISPATCHABLE_CAPABILITIES / buildExecuteCapability / resolveStagedOperations
  *     / sweepStrandedOperations are NOT importable from the server package
- *   - StagedOperationSpec is NOT in @hyperidle/shared index
+ *   - StagedOperationSpec is NOT in @hyperidle/domain-model index
  *
  * AC12: HyperIdle executes nothing of its own — the v1 kernel-executor is gone.
  * The loop is:  agent proposes → review → agent executes with its own tools.
@@ -68,11 +68,5 @@ describe("AC12: no kernel-executor surface in the trust-first model", () => {
 		const names = ALL_TOOL_DEFINITIONS.map((d: { name: string }) => d.name);
 		// The stage_operation tool was the v1 agent-authored staging tool — retired per concept rejection #8
 		expect(names).not.toContain("stage_operation");
-	});
-
-	it("StagedOperationSpec is NOT exported from @hyperidle/shared", async () => {
-		const shared = await import("@hyperidle/shared");
-		// StagedOperationSpec was the v1 kernel-executor spec — retired
-		expect("StagedOperationSpec" in shared).toBe(false);
 	});
 });

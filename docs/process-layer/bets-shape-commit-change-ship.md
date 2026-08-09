@@ -4,7 +4,7 @@ The bet lifecycle, the assistant's drafting authority, and the promote-from-know
 
 ## 1. Lifecycle
 
-`BET_STATUSES = draft | active | completed | killed` (`framework/shared/src/types.ts`). Transitions: `draft → active` on commit (`POST /bets/:id/commit`, `layers/core-api/src/routes/bets.ts`); `active → completed | killed`; `completed` and `killed` are terminal (`layers/core-api/work/src/bet-state-machine.ts`).
+`BET_STATUSES = draft | active | completed | killed` (`framework/domain-model/src/types.ts`). Transitions: `draft → active` on commit (`POST /bets/:id/commit`, `layers/core-api/src/routes/bets.ts`); `active → completed | killed`; `completed` and `killed` are terminal (`layers/core-api/work/src/bet-state-machine.ts`).
 
 There are no `shaped`, `committed`, `review`, or `shipped` statuses and no human ship gate — U1 simplified the old nine-status set to these four (`bet-state-machine.ts`).
 
@@ -38,7 +38,7 @@ The founder opens the bet's overflow menu (···) and chooses **Activate bet**.
 
 The `done_condition` (`schema.ts`) guides what the team works toward. It is revisable during the bet (§5) but must be set before committing.
 
-**Replanning is normal:** as work progresses, new tasks are added and stale ones retired as `killed` (`framework/shared/src/types.ts`). The plan is the current state of the task list, not a separate document.
+**Replanning is normal:** as work progresses, new tasks are added and stale ones retired as `killed` (`framework/domain-model/src/types.ts`). The plan is the current state of the task list, not a separate document.
 
 ## 5. Change (bets are allowed to evolve)
 

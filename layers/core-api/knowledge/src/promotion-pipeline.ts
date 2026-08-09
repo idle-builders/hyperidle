@@ -7,7 +7,8 @@ import {
 	knowledgeEditLog,
 	knowledgeItems,
 } from "@hyperidle/db";
-import type { EventBus, KnowledgeUpdatedEvent } from "@hyperidle/shared";
+import type { KnowledgeUpdatedEvent } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import { and, eq, isNotNull, isNull, lt, ne, sql } from "drizzle-orm";
 import type { KnowledgeItemWithProjection } from "./knowledge-repository.js";
 

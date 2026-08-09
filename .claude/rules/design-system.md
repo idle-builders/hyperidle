@@ -14,7 +14,7 @@ Components live in `framework/design-system` (Foundation / Primitives / Blocks).
 
 ## Reuse before build (CRITICAL)
 
-Before adding any component, hook, or helper, read `framework/design-system/src/index.ts` (and the `@hyperidle/shared` registry + `utils/`). If an existing export already does the job, **adopt or extend it — never fork a polished parallel copy.** A new thing whose job an existing design-system export, shared registry, or util already does is a CRITICAL review finding; the fix is adoption or extension, not a nicer fork. A deliberate exception needs a `@lore` comment naming the reason.
+Before adding any component, hook, or helper, read `framework/design-system/src/index.ts` (and the `@hyperidle/domain-model` registry + `utils/`). If an existing export already does the job, **adopt or extend it — never fork a polished parallel copy.** A new thing whose job an existing design-system export, shared registry, or util already does is a CRITICAL review finding; the fix is adoption or extension, not a nicer fork. A deliberate exception needs a `@lore` comment naming the reason.
 
 ## Component budget & promotion
 

@@ -17,7 +17,9 @@
  */
 
 import type { HyperIdleDb, User } from "@hyperidle/db";
-import { createLogger, type EventBus, type ThreadMessageAppendedEvent } from "@hyperidle/shared";
+import { createLogger } from "@hyperidle/diagnostics";
+import type { ThreadMessageAppendedEvent } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import { findThread, updateThread } from "./conversation-store.js";
 
 const logger = createLogger({ pkg: "core-api.assistant-thread-pin-reaction" });

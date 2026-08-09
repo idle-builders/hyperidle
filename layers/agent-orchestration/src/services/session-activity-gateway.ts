@@ -26,7 +26,7 @@
  * independently useful reads.
  */
 
-import type { EventBus } from "@hyperidle/shared";
+import type { EventBus } from "@hyperidle/event-bus";
 
 /**
  * The minimal shape this gateway needs from a broadcast sink.

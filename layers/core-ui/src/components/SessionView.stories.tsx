@@ -23,7 +23,9 @@
  * no other consumers).
  */
 
-import type { ActivityEntry, HarnessCapabilityDescriptor, PartAuthor } from "@hyperidle/shared";
+import type { PartAuthor } from "@hyperidle/conversation-parts";
+import type { ActivityEntry } from "@hyperidle/domain-model";
+import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import { type JSX, useState } from "react";
 import type { SessionViewIdentity } from "./SessionView.js";
 import { SessionView } from "./SessionView.js";
@@ -334,7 +336,7 @@ export default { title: "Session View", group: "Conversations" as const };
  */
 // biome-ignore lint/style/useNamingConvention: story exports use Snake_Case to show variant hierarchy in the viewer (established pattern across all stories)
 export function SessionView_Streaming(): JSX.Element {
-	const [entries, setEntries] = useState<import("@hyperidle/shared").ActivityEntry[]>([
+	const [entries, setEntries] = useState<import("@hyperidle/domain-model").ActivityEntry[]>([
 		...SESSION_ENTRIES,
 	]);
 

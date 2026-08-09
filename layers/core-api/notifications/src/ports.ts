@@ -13,7 +13,7 @@
  * @lore AU19 Increment 1g — unlike `settings`' Inc-1f precedent, every edge
  * MUST route through a port here: `composition-boundary-guard` bans a nested
  * Service's `src/**` from importing ANY `@hyperidle/*` other than
- * `@hyperidle/db`/`@hyperidle/shared`.
+ * `@hyperidle/db`/framework packages.
  *
  * @lore AU19 Increment 1h — CLOSED: `connections` migrated this Increment.
  */

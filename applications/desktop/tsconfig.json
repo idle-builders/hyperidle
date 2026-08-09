@@ -11,10 +11,20 @@
 	},
 	"include": ["src"],
 	"references": [
-		{ "path": "../../framework/shared" },
-		{ "path": "../../framework/db" },
-		{ "path": "../../layers/agent-execution/harness-registry" },
-		{ "path": "../remote-server" },
-		{ "path": "../remote-worker" }
+		{
+			"path": "../../framework/db"
+		},
+		{
+			"path": "../../framework/domain-model"
+		},
+		{
+			"path": "../../layers/agent-execution/harness-registry"
+		},
+		{
+			"path": "../remote-server"
+		},
+		{
+			"path": "../remote-worker"
+		}
 	]
 }

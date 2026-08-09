@@ -1,6 +1,6 @@
 # Canonical Shapes — Process Primitives
 
-Cross-primitive conventions and closed vocabularies for the process layer. The shapes themselves live in code — `framework/db/src/schema.ts`, `framework/shared/src/types/money.ts`, `framework/shared/src/types.ts` — and each primitive's semantics live in its own deep doc. This doc never carries Block shapes (see [../blocks/canonical-shapes.md](../blocks/canonical-shapes.md)) or knowledge shapes (schema.ts owns them).
+Cross-primitive conventions and closed vocabularies for the process layer. The shapes themselves live in code — `framework/db/src/schema.ts`, `framework/domain-model/src/types/money.ts`, `framework/domain-model/src/types.ts` — and each primitive's semantics live in its own deep doc. This doc never carries Block shapes (see [../blocks/canonical-shapes.md](../blocks/canonical-shapes.md)) or knowledge shapes (schema.ts owns them).
 
 ## RevisionLogEntry (bets)
 
@@ -12,7 +12,7 @@ Appended as a JSON array in the `bets.revision_log` text column (`layers/core-ap
 
 ## Money and TokenUsage — as shipped
 
-The `Money` and `TokenUsage` types still ship as shared vocabulary even though nothing caps or enforces spend. ModelTier vocabulary is owned by [../agent-layer/model-routing-and-cost.md](../agent-layer/model-routing-and-cost.md). Shipped conventions (`framework/shared/src/types/money.ts`):
+The `Money` and `TokenUsage` types still ship as shared vocabulary even though nothing caps or enforces spend. ModelTier vocabulary is owned by [../agent-layer/model-routing-and-cost.md](../agent-layer/model-routing-and-cost.md). Shipped conventions (`framework/domain-model/src/types/money.ts`):
 
 - **`Money = { minor: bigint, currency: CurrencyCode }`** — no scale field. Scale is derived per currency via `CURRENCY_SCALE` (USD/EUR/GBP = 2, JPY = 0; `scaleForCurrency()`), never stored on the type. `CURRENCY_CODES` is a closed enum: `USD | EUR | GBP | JPY`.
 - **`WireMoney` (`minor: number`)** is the JSON transport form — JSON has no bigint. DB stores integer minor units plus a currency text column.
@@ -23,15 +23,15 @@ The `Money` and `TokenUsage` types still ship as shared vocabulary even though n
 
 ## ModelTier — unknown-tier handling
 
-`ModelTier = 'reasoning' | 'workhorse' | 'fast'` — closed vocabulary, defined in [../agent-layer/model-routing-and-cost.md](../agent-layer/model-routing-and-cost.md); runtime tuple `MODEL_TIERS` (`framework/shared/src/types.ts`). A session's reported token spend lines up with the routing decision that produced it.
+`ModelTier = 'reasoning' | 'workhorse' | 'fast'` — closed vocabulary, defined in [../agent-layer/model-routing-and-cost.md](../agent-layer/model-routing-and-cost.md); runtime tuple `MODEL_TIERS` (`framework/domain-model/src/types.ts`). A session's reported token spend lines up with the routing decision that produced it.
 
 **Contract: coerce-and-flag.** When a harness reports tokens against a tier name outside the closed enum, the adapter must bucket the spend into the closest known tier (provider-specific mapping owned by the adapter) and emit a `ModelTierUnknownWarning` event so the deployer can update the mapping. It must not silently drop the tokens and must not widen the closed enum at runtime.
 
-**Gap:** shipped normalization silently drops unknown tiers instead — `isModelTier(n.tier) ? { tier: n.tier } : {}` (`framework/shared/src/harness/harness-event-normalization.ts`); `ModelTierUnknownWarning` is unimplemented. The contract above is the spec to build toward.
+**Gap:** shipped normalization silently drops unknown tiers instead — `isModelTier(n.tier) ? { tier: n.tier } : {}` (`framework/harness-protocol/src/harness/harness-event-normalization.ts`); `ModelTierUnknownWarning` is unimplemented. The contract above is the spec to build toward.
 
 ## Outcome verdicts (AC1)
 
-Enums shipped in `framework/shared/src/types.ts` (`BET_OUTCOME_VERDICTS`, `TASK_OUTCOME_VERDICTS`). The semantics below are the canonical meanings; code carries only labels.
+Enums shipped in `framework/domain-model/src/types.ts` (`BET_OUTCOME_VERDICTS`, `TASK_OUTCOME_VERDICTS`). The semantics below are the canonical meanings; code carries only labels.
 
 ### BetOutcomeVerdict
 

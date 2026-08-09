@@ -2,7 +2,10 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { readSystemPromptTemplateForRole, SYSTEM_PROMPT_TEMPLATE_FILES } from "@hyperidle/shared";
+import {
+	readSystemPromptTemplateForRole,
+	SYSTEM_PROMPT_TEMPLATE_FILES,
+} from "@hyperidle/factory-defaults";
 import { sql } from "drizzle-orm";
 import { seedDemoWorld } from "../demo-fixture.js";
 import { runFactoryBootstrap } from "../factory-bootstrap-runner.js";

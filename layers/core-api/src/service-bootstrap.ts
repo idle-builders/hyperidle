@@ -19,8 +19,12 @@ import {
 	updateMessage,
 	updateThread,
 } from "@hyperidle/conversation";
+import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credential-access";
 import { deleteCredential, readCredentials, writeCredential } from "@hyperidle/credentials";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
+import { createLogger } from "@hyperidle/diagnostics";
+import type { ResolvedModel } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import { assembleSessionKnowledge, reapAccessLog } from "@hyperidle/knowledge";
 import {
 	enqueue,
@@ -35,8 +39,6 @@ import { reapTerminalPropagationLog, registerPolicy } from "@hyperidle/policy";
 import { registerReviewSubscriptions } from "@hyperidle/review";
 import { enqueueWorkIntent, startLifecycleProjectionDrain } from "@hyperidle/session-requests";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
-import { createLogger, type EventBus, type ResolvedModel } from "@hyperidle/shared";
-import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/shared/crypto";
 import {
 	findUser,
 	listUsers,

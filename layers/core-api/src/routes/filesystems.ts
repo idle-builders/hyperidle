@@ -31,15 +31,15 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
+import type { FilesystemInjection } from "@hyperidle/filesystem-contract";
 import { getFilesystem, saveInjection } from "@hyperidle/filesystems";
-import { getTeamMembers } from "@hyperidle/org";
-import type { FilesystemInjection } from "@hyperidle/shared";
 import {
 	createBodyLimit,
 	type HyperIdleEnv,
 	requireBoundary,
 	validateBody,
-} from "@hyperidle/shared/http";
+} from "@hyperidle/http-middleware";
+import { getTeamMembers } from "@hyperidle/org";
 import { findUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import { z } from "zod";

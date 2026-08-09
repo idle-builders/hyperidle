@@ -7,7 +7,7 @@
  * `createReturnEnforcement()` singleton `return-gate.test.ts` exercises,
  * isolated per test so the two files never share mutable state.
  */
-import type { HarnessEvent } from "@hyperidle/shared";
+import type { HarnessEvent } from "@hyperidle/harness-protocol";
 import { describe, expect, it } from "vitest";
 import { createReturnEnforcement } from "../return-enforcement.js";
 

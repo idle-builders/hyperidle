@@ -17,7 +17,7 @@ import {
 	type FactoryAgentRef,
 	readSystemPromptTemplateForRole,
 	SYSTEM_PROMPT_TEMPLATE_FILES,
-} from "@hyperidle/shared";
+} from "@hyperidle/factory-defaults";
 
 const AH2_DEFAULTS = {
 	harnessType: "builtin",

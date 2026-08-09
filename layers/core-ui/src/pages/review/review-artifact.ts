@@ -4,7 +4,7 @@ import type { ComponentType } from "react";
  * AL2 — Review canvas vocabulary and contracts.
  *
  * These shapes are intentionally separate from the primitive `Artifact` type in
- * `framework/shared/src/types/artifact.ts`. The review experience maps proof
+ * `framework/domain-model/src/types/artifact.ts`. The review experience maps proof
  * families (code, field-change, action, render, metrics, visual, batch) onto
  * dedicated canvases, plus two utility canvases (outcome_summary frame lead and
  * browser_preview escape hatch) approved in AL1.

@@ -8,19 +8,16 @@ import type {
 	User,
 	WriteExecutor,
 } from "@hyperidle/db";
-import type {
-	BakedWorkIntentRequest,
-	EventBus,
-	ModelGatewayConfig,
-	SessionKnowledgeItemLike,
-} from "@hyperidle/shared";
+import type { ModelGatewayConfig } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
+import type { BakedWorkIntentRequest, SessionKnowledgeItemLike } from "@hyperidle/work-intent-port";
 
 /**
  * AU21 §9 Increment 4 — the routine scheduler (relocated from
  * `@hyperidle/dispatch`, see `routine-scheduler.ts`) is a `@hyperidle/routine`
  * Service; per Mechanism C (`composition-boundary-guard`, mechanically
  * enforced, no allowlist) a Service package may depend on nothing but
- * `@hyperidle/db`/`@hyperidle/shared` — every OTHER Service it needs
+ * `@hyperidle/db`/framework packages — every OTHER Service it needs
  * (`work`/`conversation`/`knowledge`/`settings`, all core-api same-layer) is
  * an injected port here, exactly like `DispatchPorts` used to carry them.
  * `workIntents` is the one genuinely against-grain

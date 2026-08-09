@@ -25,11 +25,8 @@
  * and not live capabilities, and that an empty list means provider-agnostic.
  */
 
-import type {
-	HarnessCapabilityDescriptor,
-	HarnessCapabilityFilter,
-	HarnessCapabilityReader,
-} from "@hyperidle/shared";
+import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
+import type { HarnessCapabilityFilter, HarnessCapabilityReader } from "@hyperidle/harness-protocol";
 import { describe, expect, it } from "vitest";
 import { validateAgentConfig } from "../validate-agent-config.js";
 

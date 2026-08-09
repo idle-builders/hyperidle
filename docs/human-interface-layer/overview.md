@@ -13,7 +13,7 @@ Two alternatives were rejected:
 - **A single mega-dashboard** that conflates inbox, planner, diff reviewer, audit log, and strategy doc — it becomes none of them.
 - **Four separate applications**, where the human decides which app to open based on what they want to do — a notification-tray zoo, exhausting.
 
-As built: a single app shell with three views (`layers/core-ui/src/layouts/AppShell.tsx`, `layers/core-ui/src/shell/Sidebar.tsx` — Conversations / Work / Knowledge), one shared schema (`framework/db/src/schema.ts` — threads, messages, and items serve all views), and one thread/verdict grammar (`framework/shared/src/thread.ts`). One threading renderer serves every thread type — see [part-model.md](part-model.md). Mode discipline (what belongs where) is enforced by view routing inside the app, not by shipping separate products; if a view should ever collapse into another, that's a route change, not a product change.
+As built: a single app shell with three views (`layers/core-ui/src/layouts/AppShell.tsx`, `layers/core-ui/src/shell/Sidebar.tsx` — Conversations / Work / Knowledge), one shared schema (`framework/db/src/schema.ts` — threads, messages, and items serve all views), and one thread/verdict grammar (`framework/domain-model/src/thread.ts`). One threading renderer serves every thread type — see [part-model.md](part-model.md). Mode discipline (what belongs where) is enforced by view routing inside the app, not by shipping separate products; if a view should ever collapse into another, that's a route change, not a product change.
 
 The app is meant to sit open on a side screen during the workday. One door — not "check the inbox, then the HUD, then the assistant."
 
@@ -31,7 +31,7 @@ Shell layout structure (Sidebar, routes, sections, shortcuts) is owned by [infor
 
 Five parts, as built:
 
-1. **The Thread/Message data model.** PGlite-backed (embedded Postgres); typed messages `plain | review | questionnaire | verdict` (`framework/shared/src/thread.ts` MESSAGE_TYPES). Owned by [thread-primitive.md](thread-primitive.md).
+1. **The Thread/Message data model.** PGlite-backed (embedded Postgres); typed messages `plain | review | questionnaire | verdict` (`framework/domain-model/src/thread.ts` MESSAGE_TYPES). Owned by [thread-primitive.md](thread-primitive.md).
 2. **An item router.** Pure `routeItem({ riskTier, kind, verb })` → conversations / work / knowledge (`routeItem`, `framework/api-contract/src/core-api-port.ts`); default is conversations. Owned by [items-and-routing.md](items-and-routing.md).
 3. **One reference application.** The Electron desktop app above — Sidebar + Main pane, server in-process.
 4. **Notification dispatch.** Channels are exactly console / ntfy / smtp (`layers/core-api/notifications/src/install.ts`); blocking or medium/high-risk items fire immediately, low-risk items go ambient. Owned by [notification-primitive.md](notification-primitive.md).
@@ -53,7 +53,7 @@ Negative scope — code matching any bullet has crossed a layer boundary and sho
 
 The trust engine itself is owned by [review-primitive.md](review-primitive.md); this is what the user sees:
 
-1. **Reasoning visible by default.** Every item shows *why* — `items.reasoning` (`framework/db/src/schema.ts`) and `reasoning[]` on thread messages (`framework/shared/src/thread.ts`).
+1. **Reasoning visible by default.** Every item shows *why* — `items.reasoning` (`framework/db/src/schema.ts`) and `reasoning[]` on thread messages (`framework/domain-model/src/thread.ts`).
 2. **Team transparency.** The WorkTeam summary strip (`layers/core-ui/src/pages/WorkTeam.tsx`) shows capacity and status.
 3. **Reversibility rides Proposed Calls, not items.** Staged operations carry `reversibility` (`schema.ts`); irreversible calls route to review where a human or learning chose it, reversible calls flow without review. Mechanics: [process-layer/staged-operation.md](../process-layer/staged-operation.md).
 4. **The trust dial is earned, not hand-set.** Approval rate from verdict history × riskTier (AD4, `policy-engine.ts`): rate ≥ 0.9 and low risk → auto-resolve; ≥ 0.7 and low risk → queue; high risk or skill_change → always push; fewer than 10 verdicts → always push (cold-start). Thresholds live in factory settings.

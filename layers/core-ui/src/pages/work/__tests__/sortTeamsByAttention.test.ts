@@ -6,7 +6,7 @@
  * deleted the `agentHealthWarning` field from the wire type outright).
  */
 
-import type { TeamListItem } from "@hyperidle/shared";
+import type { TeamListItem } from "@hyperidle/domain-model";
 import { describe, expect, it } from "vitest";
 import { sortTeamsByAttention } from "../sortTeamsByAttention.js";
 

@@ -11,26 +11,19 @@
  * the provisioning orchestrator.
  */
 
+import type { ModelTier, TierTokenCount, TokenUsage } from "@hyperidle/domain-model";
 import type {
 	ConversationMessage,
 	HarnessAdapter,
 	HarnessCapabilities,
 	HarnessEvent,
-	ModelTier,
 	SessionConfig,
 	SessionHandle,
 	SessionResult,
-	TierTokenCount,
-	TokenUsage,
-	// @lore AU19 Increment 4: reclassified from `../tools/tool-registry.js`
-	// (now `@hyperidle/tool-provider`) — Mechanism B forbids `harness-registry`
-	// depending on another execution Service; `ToolRegistry` is the db-free
-	// cross-boundary type (§7.3 W4), sourced from `@hyperidle/shared` same as
-	// every other execution-boundary type.
-	ToolRegistry,
-} from "@hyperidle/shared";
-import { isRequiredReturnAction, shouldForceReturn } from "@hyperidle/shared";
-// @lore X6: ModelTier is exported twice from @hyperidle/shared — once as ModelTier from types.ts
+} from "@hyperidle/harness-protocol";
+import { isRequiredReturnAction, shouldForceReturn } from "@hyperidle/harness-protocol";
+import type { ToolRegistry } from "@hyperidle/tool-protocol";
+// @lore X6: ModelTier is exported twice from @hyperidle/domain-model — once as ModelTier from types.ts
 // and once as MoneyModelTier from types/money.ts (same type, different alias). We import
 // ModelTier (not MoneyModelTier) for consistency with the rest of the codebase.
 import { isAboveThreshold, modelContextWindow } from "./context-window.js";

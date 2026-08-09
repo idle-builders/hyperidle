@@ -13,12 +13,12 @@
  *         Task 4 (classifier + composer + live-proof tool registration).
  */
 
+import type { SessionWorkflow } from "@hyperidle/harness-protocol";
 import {
 	classifyReversibility,
 	composeWorkflowAllowDeny,
 	identityHash,
-	type SessionWorkflow,
-} from "@hyperidle/shared";
+} from "@hyperidle/tool-protocol";
 import { describe, expect, it } from "vitest";
 import { allToolDefinitions as ALL_TOOL_DEFINITIONS } from "../services/tool-handlers-bindings.js";
 

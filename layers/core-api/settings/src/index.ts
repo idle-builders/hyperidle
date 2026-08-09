@@ -11,10 +11,10 @@
  * `packages/server/src/services/` unchanged (behavior-preserving move, aside
  * from the DI-port signature additions documented in `ports.ts`). Four real
  * outbound edges (`routine`, `users`, `connections`, plus `model-gateway`'s
- * `BUILT_IN_GATEWAY_CONFIG`) became injected DI ports / a `@hyperidle/shared`
+ * `BUILT_IN_GATEWAY_CONFIG`) became injected DI ports / a `@hyperidle/domain-model`
  * reclassification (Mechanism C, see `ports.ts`); the fifth
  * (`builtin-tool-catalog`) dissolved via reclassification to
- * `@hyperidle/shared` per architecture §5/§10.3.
+ * `@hyperidle/domain-model` per architecture §5/§10.3.
  *
  * @lore AU20 Am6: surface collapsed from 36 → ~18 exports. Per-method input
  * wrapper types (SetConfigurationOverrideInput, ClearConfigurationOverrideInput,

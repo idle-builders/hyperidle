@@ -18,13 +18,13 @@ import type {
 	AgentSessionRequestInput,
 	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
-	EventBus,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
 import {
 	agentSessionRequestInputSchema,
 	isAgentWorkIntentKind,
 	isAgentWorkIntentSourceKind,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import { and, asc, eq, gt, inArray, isNotNull, isNull, lt, lte, or, sql } from "drizzle-orm";
 
 type LifecycleProjectionDeps = DurableAgentQueueDeps["lifecycleProjection"];
@@ -738,11 +738,11 @@ async function failOrRelease(
 	// kind, not just `routine_run`. `deps.eventBus` is optional (back-compat
 	// with every pre-existing `queueDeps(db)` call site that never wired one).
 	// @lore AU29 §2.4: the typed construction+emit used to be
-	// `@hyperidle/shared`'s `reportAdmissionFailure`, also called by
+	// the framework's `reportAdmissionFailure`, also called by
 	// `run-orchestration`'s `runClaimedRequest` for the provisioning-time
 	// failure site (§12). Now inlined at both sites — the two services
 	// deliberately do not import each other, and now share the event *type*
-	// (`events.ts`, which stays in shared), not an emit helper.
+	// (`events.ts`, now in `@hyperidle/domain-model`), not an emit helper.
 	if (
 		deps.eventBus &&
 		isAgentWorkIntentKind(intent.kind) &&
@@ -1300,13 +1300,13 @@ export type BakedWorkIntentRequest = {
 	 * agent/team, or routine/agent/team) plus the ranked+budgeted knowledge
 	 * items `@hyperidle/knowledge`'s `assembleSessionKnowledge` produces.
 	 * Absent for `assistant_turn` (bakes `transcript` instead) — see
-	 * `BakedWorkIntentRequest` in `@hyperidle/shared` for the full `@lore`.
+	 * `BakedWorkIntentRequest` in `@hyperidle/work-intent-port` for the full `@lore`.
 	 */
 	readonly contextBundle?: BakedContextBundle;
 	/**
 	 * AU21 §9 Increment 12 (Decision H3), Wave E — every kind's baked
 	 * agent-runnability snapshot / disabled-harness-types list. See
-	 * `BakedWorkIntentRequest` in `@hyperidle/shared` for the full `@lore`.
+	 * `BakedWorkIntentRequest` in `@hyperidle/work-intent-port` for the full `@lore`.
 	 */
 	readonly agentConfig?: {
 		readonly kind: string;
@@ -1318,12 +1318,12 @@ export type BakedWorkIntentRequest = {
 	/**
 	 * AU27 Increment 1 (Decision 1) — the session's calling thread id. Absent
 	 * for `routine_run`/`knowledge_action` — see `BakedWorkIntentRequest` in
-	 * `@hyperidle/shared` for the full `@lore`.
+	 * `@hyperidle/work-intent-port` for the full `@lore`.
 	 */
 	readonly callingThreadId?: string;
 };
 
-/** One ranked+budgeted knowledge item as baked onto a `BakedContextBundle` (local mirror — see `@hyperidle/shared`). */
+/** One ranked+budgeted knowledge item as baked onto a `BakedContextBundle` (local mirror — see `@hyperidle/work-intent-port`). */
 export interface BakedContextKnowledgeItem {
 	readonly id: string;
 	readonly title: string;
@@ -1333,7 +1333,7 @@ export interface BakedContextKnowledgeItem {
 	readonly layer: string | null;
 }
 
-/** Local mirror of `@hyperidle/shared`'s `BakedContextBundle` — see there for the full `@lore`. */
+/** Local mirror of `@hyperidle/work-intent-port`'s `BakedContextBundle` — see there for the full `@lore`. */
 export type BakedContextBundle =
 	| {
 			readonly kind: "task";

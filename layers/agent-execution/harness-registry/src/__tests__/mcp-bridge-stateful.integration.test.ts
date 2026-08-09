@@ -31,15 +31,15 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { serve } from "@hono/node-server";
+import type { EnforcementRegistry } from "@hyperidle/harness-protocol";
 import {
-	type EnforcementRegistry,
 	err,
 	ok,
 	type RegisteredTool,
 	type ToolRegistry,
 	toClaudeToolSpec,
 	toRegistered,
-} from "@hyperidle/shared";
+} from "@hyperidle/tool-protocol";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { Hono } from "hono";

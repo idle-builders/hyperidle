@@ -68,13 +68,12 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { serve } from "@hono/node-server";
+import { type EnforcementRegistry, normalizeHarnessEvent } from "@hyperidle/harness-protocol";
 import { createReturnEnforcement, provisionHarnessEnvironment } from "@hyperidle/harness-registry";
 import { createMcpToolBridge, type McpToolBridge } from "@hyperidle/harness-registry/mcp";
 import { harnessTestResolvedModel, requireHarness } from "@hyperidle/harness-registry/test-utils";
 import {
-	type EnforcementRegistry,
 	err,
-	normalizeHarnessEvent,
 	ok,
 	type RegisteredTool,
 	type ToolContext,
@@ -82,7 +81,7 @@ import {
 	type ToolResult,
 	toClaudeToolSpec,
 	toRegistered,
-} from "@hyperidle/shared";
+} from "@hyperidle/tool-protocol";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import z from "zod";

@@ -8,8 +8,8 @@
  */
 
 import * as fs from "node:fs";
-import type { CredentialName, CredentialState } from "@hyperidle/shared";
-import { CREDENTIAL_NAMES, isCredentialName } from "@hyperidle/shared";
+import type { CredentialName, CredentialState } from "@hyperidle/domain-model";
+import { CREDENTIAL_NAMES, isCredentialName } from "@hyperidle/domain-model";
 import { ipcMain, safeStorage } from "electron";
 import { validateCredential } from "./credential-validator.js";
 

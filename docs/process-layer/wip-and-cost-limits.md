@@ -6,7 +6,7 @@ The single cheapest way to ruin an agent factory is to spawn unbounded parallel 
 
 ## Per agent
 
-Each agent has a maximum number of in-progress sessions — WIP limit, **default 1** (`agentRunConfig.maxConcurrentSessions`, `framework/db/src/schema.ts`). At the limit, new task assignments queue or get reassigned to a teammate; the dispatcher skips the agent and raises `ConcurrencyLimitError` (`framework/shared/src/errors.ts`).
+Each agent has a maximum number of in-progress sessions — WIP limit, **default 1** (`agentRunConfig.maxConcurrentSessions`, `framework/db/src/schema.ts`). At the limit, new task assignments queue or get reassigned to a teammate; the dispatcher skips the agent and raises `ConcurrencyLimitError` (`framework/domain-model/src/errors.ts`).
 
 ## Per team
 

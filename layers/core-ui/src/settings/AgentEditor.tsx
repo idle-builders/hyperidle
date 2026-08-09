@@ -31,8 +31,8 @@
 // hearth-internal-padding
 
 import { Button, Input, RoleCombobox, Select } from "@hyperidle/design-system";
-import type { HarnessCapabilityDescriptor } from "@hyperidle/shared";
-import { AGENT_ROLE_CATALOG } from "@hyperidle/shared";
+import { AGENT_ROLE_CATALOG } from "@hyperidle/domain-model";
+import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import { type JSX, useEffect, useRef } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 import { modelOptionsForHarness } from "./model-options-for-harness.js";

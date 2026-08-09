@@ -32,12 +32,12 @@
 
 import { insertMessage, insertThread, listMessages } from "@hyperidle/conversation";
 import type { HyperIdleDb, NewItem, NewTask, WriteExecutor } from "@hyperidle/db";
+import type { EventBus } from "@hyperidle/event-bus";
 import { getTeamMembers } from "@hyperidle/org";
 import type { HandoffParams, HandoffResult } from "@hyperidle/policy";
 import { buildHandoff, computeApprovalRate as policyComputeApprovalRate } from "@hyperidle/policy";
 import { endRunForHandoff } from "@hyperidle/run-orchestration";
 import { enqueueWorkIntent, sessionRunRegistry } from "@hyperidle/session-requests";
-import type { EventBus } from "@hyperidle/shared";
 import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { resolveTaskRunRequest } from "@hyperidle/work";
@@ -93,7 +93,7 @@ const handoffDeps = {
 				readonly sourceId: string;
 				readonly requestedBy?: string;
 				readonly idempotencyKey: string;
-				readonly bakedRequest?: import("@hyperidle/shared").BakedWorkIntentRequest;
+				readonly bakedRequest?: import("@hyperidle/work-intent-port").BakedWorkIntentRequest;
 			},
 		) => enqueueWorkIntent(exec, input as Parameters<typeof enqueueWorkIntent>[1]),
 		abort: sessionRunRegistry.abort,

@@ -30,7 +30,6 @@ import {
 	writeAgentRunConfig,
 } from "@hyperidle/agent-run-config";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { getTeamMembers } from "@hyperidle/org";
 import {
 	AGENT_CATEGORIES,
 	catalogEntry,
@@ -38,11 +37,12 @@ import {
 	DEFAULT_AGENT_MODEL_ID,
 	DEFAULT_AGENT_MODEL_PROVIDER,
 	findRoleCatalogEntry,
-	type HarnessCapabilityReader,
 	MODEL_TIERS,
-	readSystemPromptTemplateForRole,
-} from "@hyperidle/shared";
-import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
+} from "@hyperidle/domain-model";
+import { readSystemPromptTemplateForRole } from "@hyperidle/factory-defaults";
+import type { HarnessCapabilityReader } from "@hyperidle/harness-protocol";
+import { type HyperIdleEnv, requireBoundary } from "@hyperidle/http-middleware";
+import { getTeamMembers } from "@hyperidle/org";
 import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";

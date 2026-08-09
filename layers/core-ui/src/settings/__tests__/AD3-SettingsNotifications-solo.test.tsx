@@ -11,7 +11,7 @@
  * regardless of humanCount.
  */
 
-import { NOTIFICATION_TYPES } from "@hyperidle/shared";
+import { NOTIFICATION_TYPES } from "@hyperidle/domain-model";
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 

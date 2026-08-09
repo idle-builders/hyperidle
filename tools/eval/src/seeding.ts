@@ -37,8 +37,8 @@ import type {
 	ScopeKind,
 	TaskState,
 	UserRole,
-} from "@hyperidle/shared";
-import { findRoleCatalogEntry } from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
+import { findRoleCatalogEntry } from "@hyperidle/domain-model";
 import type { ScenarioSeedResult } from "./types.js";
 
 // ---------------------------------------------------------------------------

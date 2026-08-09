@@ -1,4 +1,4 @@
-import type { Message } from "@hyperidle/shared";
+import type { Message } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { useState } from "react";
 import { CommentRow, Composer } from "./index.js";

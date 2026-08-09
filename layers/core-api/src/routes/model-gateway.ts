@@ -21,9 +21,13 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
+import {
+	MODEL_PROVIDERS,
+	type ModelGatewayConfig,
+	type ModelTierConfig,
+} from "@hyperidle/domain-model";
+import { requireBoundary, validateBody } from "@hyperidle/http-middleware";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
-import { MODEL_PROVIDERS, type ModelGatewayConfig, type ModelTierConfig } from "@hyperidle/shared";
-import { requireBoundary, validateBody } from "@hyperidle/shared/http";
 import { Hono } from "hono";
 import { z } from "zod";
 

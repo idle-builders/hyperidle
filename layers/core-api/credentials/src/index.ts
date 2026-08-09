@@ -29,18 +29,18 @@
  * @lore AU26 E1 (AU21 J1): `encryptCredentialValue`/`decryptCredentialValue`
  * are NOT here. The AES-256-GCM cipher is a primitive, not a Service member: it
  * reads no table, holds no db handle, and both Layers need it. It lives at
- * `@hyperidle/shared/crypto` and every caller imports it from there —
+ * `@hyperidle/credential-access` and every caller imports it from there —
  * deliberately NOT re-exported here, so this Service does not become a second,
  * competing source of truth for it.
  */
 
-// -- CredentialResolver family (2) — resolver interface + DB implementation --
+// -- CredentialResolver family (1) — the DB implementation --
 // @lore AU20 R-connections: EnvCredentialResolver relocated to tools/eval (eval-only
 // fixture, AH1 §3). Production barrel exports only DbCredentialResolver.
-export {
-	type CredentialResolver,
-	DbCredentialResolver,
-} from "./credential-resolver.js";
+// @lore AU34: the `CredentialResolver` interface itself is no longer republished here. This service
+// implements the port; it does not own it, and republishing it handed a narrow-audience name to
+// anyone who could name this service. Its two production readers name the declaring package.
+export { DbCredentialResolver } from "./credential-resolver.js";
 
 // -- CredentialStore (4) — server_credentials read/write/delete + patch type --
 export {

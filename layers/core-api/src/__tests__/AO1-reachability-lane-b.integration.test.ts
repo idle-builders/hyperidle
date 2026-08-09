@@ -24,11 +24,11 @@
 
 import * as crypto from "node:crypto";
 import { ServiceConnectionResolver } from "@hyperidle/connections";
+import { encryptCredentialValue } from "@hyperidle/credential-access";
 import { serviceConnections, teamMembers, teams, users } from "@hyperidle/db";
+import type { FilesystemAuthResolver } from "@hyperidle/filesystem-contract";
 import { resolveFilesystemState } from "@hyperidle/filesystems";
-import type { FilesystemAuthResolver } from "@hyperidle/shared";
-import { encryptCredentialValue } from "@hyperidle/shared/crypto";
-import { createGitRunner } from "@hyperidle/shared/git";
+import { createGitRunner } from "@hyperidle/host-process";
 import { describe, expect, it } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
@@ -172,7 +172,7 @@ describe("AO1 Lane B: real GitHub PAT → real git ls-remote (local-only, networ
 			// @lore AU20 Am4: ServiceConnectionResolver no longer takes serverSecret;
 			// decryptCredentialValue reads HYPERIDLE_CREDENTIAL_KEY from env internally.
 			// @lore AU20 R-filesystems: ServiceConnectionResolverAdapter class deleted from barrel.
-			// Inline structural object satisfies FilesystemAuthResolver from @hyperidle/shared.
+			// Inline structural object satisfies FilesystemAuthResolver from @hyperidle/filesystem-contract.
 			const resolver = new ServiceConnectionResolver(db);
 
 			function makeAdapter(boundUserId: string): FilesystemAuthResolver {

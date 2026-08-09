@@ -5,13 +5,9 @@ import type {
 	HyperIdleDb,
 	WriteExecutor,
 } from "@hyperidle/db";
-import type {
-	AgentSessionSourceKind,
-	EventBus,
-	HarnessPort,
-	HarnessRunOutput,
-	RunContextBundle,
-} from "@hyperidle/shared";
+import type { AgentSessionSourceKind } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
+import type { HarnessPort, HarnessRunOutput, RunContextBundle } from "@hyperidle/harness-protocol";
 
 interface DurableQueueDeps {
 	readonly db: HyperIdleDb;
@@ -249,12 +245,12 @@ export interface RuntimeDeps {
 	 * pre-AU27 signature's own behaviour exactly.
 	 */
 	readonly resolveModel?: (
-		tier: import("@hyperidle/shared").ModelTier,
+		tier: import("@hyperidle/domain-model").ModelTier,
 		modelOverride?: {
 			readonly modelId: string | null;
 			readonly modelProvider: string | null;
 		},
-	) => Promise<import("@hyperidle/shared").ResolvedModel | undefined>;
+	) => Promise<import("@hyperidle/domain-model").ResolvedModel | undefined>;
 	readonly ports?: RuntimePorts;
 	readonly durableQueue?: Parameters<RuntimePorts["sessionRequests"]["drainIntents"]>[0];
 	readonly composition: {

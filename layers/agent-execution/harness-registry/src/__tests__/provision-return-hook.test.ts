@@ -11,14 +11,14 @@
  *
  * Tests FAIL (red) until:
  *   - packages/server/src/harness/provision-return-hook.ts is created (green phase Task 4)
- *   - ReturnEnforcementChannel type exists in shared (green phase Task 1)
+ *   - ReturnEnforcementChannel type exists in @hyperidle/harness-capability (green phase Task 1)
  */
 
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 // FAILS red: module does not exist yet
-import type { ReturnEnforcementChannel } from "@hyperidle/shared";
+import type { ReturnEnforcementChannel } from "@hyperidle/harness-capability";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { provisionHarnessEnvironment } from "../provision-harness-environment.js";
 

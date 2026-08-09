@@ -10,7 +10,7 @@
  * asserted as fact.
  */
 
-import type { AgentProfileResponse } from "@hyperidle/shared";
+import type { AgentProfileResponse } from "@hyperidle/domain-model";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";

@@ -163,6 +163,14 @@ const isInside = (source: Actor, target: Target): boolean => {
 	return source.role === "layer" && layerOf(target) === source.name;
 };
 
+/** The declared audience, spelled out for a refusal message. */
+const audienceOf = (audience: Audience): string => {
+	if (audience === "everyone") return "reachable by everyone";
+	if (audience === "composition roots") return "reachable only from a composition root";
+	if (audience.length === 0) return "reachable by nobody";
+	return `reachable only by ${[...audience].join(", ")}`;
+};
+
 const inAudience = (arch: Architecture, audience: Audience, actor: Actor): boolean => {
 	if (audience === "everyone") return true;
 	if (audience === "composition roots") return isCompositionRoot(arch, actor);
@@ -298,8 +306,34 @@ function decideProduction(arch: Architecture, crossing: Crossing): Decision {
 				why: `${target.surface} is not a declared surface — declare it in governance/architecture.json before anything names it`,
 			};
 		}
+		/**
+		 * A framework package naming another framework package is a property of the model, not a
+		 * sibling name threaded through every target's reach list. So a `reach` list says who OUTSIDE
+		 * the framework role may name the surface.
+		 *
+		 * @lore AU34 — scoped to `framework/<name>` labels deliberately. `db:schema-ns`, `db:unknown`
+		 * and `db:testing` are `sort: "surface"` targets too, and the first two are the doors production
+		 * has only one of. Written as "admit the framework role at clause 7" the ruling would hand every
+		 * framework package the whole-schema door and the undecided-surface catch-all, which is a table
+		 * and boundary decision nobody made. Those surfaces keep the audiences they declare.
+		 */
+		if (source.sort === "package" && source.role === "framework" && target.surface.startsWith("framework/")) {
+			return {
+				verdict: "allowed",
+				clause: "reach-declared-surfaces-only",
+				why: "a framework package may name another framework package — a reach list says who outside the framework role may name the surface",
+			};
+		}
 		const permitted = inAudience(arch, entry.reach, source);
-		return { verdict: permitted ? "allowed" : "forbidden", clause: "reach-declared-surfaces-only", why: entry.why };
+		return {
+			verdict: permitted ? "allowed" : "forbidden",
+			clause: "reach-declared-surfaces-only",
+			// A refusal names the audience it is not in. Without this the finding says only which file
+			// and which surface, and the reader has to open architecture.json to learn who IS allowed —
+			// which is the one thing they need in order to decide between moving the import and asking
+			// for the audience to be widened.
+			why: permitted ? entry.why : `${entry.why}. ${audienceOf(entry.reach)}`,
+		};
 	}
 
 	// 8. Nothing names the repo root.

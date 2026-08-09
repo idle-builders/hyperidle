@@ -27,7 +27,8 @@ import {
 	StatusChip,
 	taskStateToStatus,
 } from "@hyperidle/design-system";
-import { relativeLong, TASK_STATE_LABEL } from "@hyperidle/shared";
+import { TASK_STATE_LABEL } from "@hyperidle/domain-model";
+import { relativeLong } from "@hyperidle/presentation-format";
 import type { JSX } from "react";
 import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
@@ -40,7 +41,7 @@ import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
 /**
  * @lore AI3: relativeLong replaces local formatRelativeTime.
  * AI4: Local LiveDot, TASK_STATUS_LABEL, getTaskStatusLabel removed.
- * LiveDot promoted to @hyperidle/design-system; TASK_STATE_LABEL is from @hyperidle/shared.
+ * LiveDot promoted to @hyperidle/design-system; TASK_STATE_LABEL is from @hyperidle/domain-model.
  */
 
 export interface WorkTaskProps {

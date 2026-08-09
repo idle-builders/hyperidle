@@ -25,7 +25,7 @@ layers/           the four Layers; each decomposes into Service packages
   agent-execution   the only Layer that invokes a model, an agent CLI or an MCP server
                     harness-registry
 
-framework/        shared, db, api-contract, design-system
+framework/        db, api-contract, design-system + eighteen packages the substrate split into
 tools/            eval, eslint-plugin-authz, eslint-plugin-design
 ```
 
@@ -41,7 +41,7 @@ yet.
 admission, provisioning, context assembly, capture and writeback, lifecycle events.
 `agent-execution` owns the harness itself and holds no database access.
 
-Knowledge moves through five maturity layers L0–L4 (`framework/shared/src/knowledge.ts`); L0 is per-session context serialized as TOON. The taxonomy is owned by [The Five Layers](../knowledge-architecture/the-five-layers.md).
+Knowledge moves through five maturity layers L0–L4 (`framework/domain-model/src/knowledge.ts`); L0 is per-session context serialized as TOON. The taxonomy is owned by [The Five Layers](../knowledge-architecture/the-five-layers.md).
 
 Agents run as host processes in a local working directory — there is no isolation layer by default; opt-in sandboxing is a planned follow-up (AQ2). See [Run-Unit Model](./run-unit-model.md).
 
@@ -52,7 +52,7 @@ Agents run as host processes in a local working directory — there is no isolat
 | Primitive Store | PGlite (embedded Postgres, `@electric-sql/pglite`) via Drizzle `pgTable` | Real Postgres (`bootstrap-pg.ts`, `pg-ssl.ts`) |
 | Knowledge full-text search | Postgres tsvector + GIN on `knowledge_items` (`layers/core-api/knowledge/src/fts.ts`) | Same |
 | Knowledge exports (human-readable) | Git repo (markdown exports) | Same |
-| Session context | TOON format (`framework/shared/src/toon-codec.ts`) | Same |
+| Session context | TOON format (`framework/toon-codec/src/toon-codec.ts`) | Same |
 | API Layer | Hono on `@hono/node-server` | Same + load balancer |
 | Event Bus | In-process EventBus (TypeScript) | _Future candidate:_ Redis pub/sub or NATS (cloud profile only) |
 | Scheduler | `setInterval` services inside the owning Service, e.g. `layers/core-api/routine/src/routine-scheduler.ts` | _Future candidate:_ external queue (cloud profile only) |
@@ -61,7 +61,7 @@ Agents run as host processes in a local working directory — there is no isolat
 | Human Interface | React + TypeScript (Electron renderer) | Same |
 | Desktop shell | Electron (macOS, arm64, DMG) | — |
 | Notifications | ntfy.sh / SMTP adapters (`layers/core-api/notifications/`) | APNs, Firebase |
-| Observability | `console` \| `noop` channels (`framework/shared/src/observability/`) — OpenTelemetry explicitly future | — |
+| Observability | `console` \| `noop` channels (`framework/diagnostics/src/observability/`) — OpenTelemetry explicitly future | — |
 | Auth | Auto-generated API key (`X-API-Key` header) | OAuth / passkeys |
 | Credentials | Electron safeStorage (desktop) / AES-256-GCM server-side — see [Credential Model](./credential-model.md) | — |
 | Version control | Git (for markdown artifacts) | Same |
@@ -80,7 +80,7 @@ The tiers:
 | Tier | Packages | Purpose |
 |---|---|---|
 | `layers/` | `core-ui`, `core-api`, `agent-orchestration`, `agent-execution`, plus a nested package per Service | The four Layers and their Services |
-| `framework/` | `shared`, `db`, `api-contract`, `design-system` | Types/constants/TOON codec, Drizzle schema + migrations, Zod response schemas, React components + stories |
+| `framework/` | `db`, `api-contract`, `design-system`, and the eighteen the old `shared` substrate became — `domain-model`, `presentation-format`, `harness-capability`, `harness-protocol`, `tool-protocol`, `work-intent-port`, `filesystem-contract`, `conversation-parts`, `block-derivation`, `event-bus`, `http-middleware`, `diagnostics`, `host-process`, `factory-defaults`, `credential-access`, `cron`, `toon-codec`, `query-escaping` | Drizzle schema + migrations, Zod response schemas, React components + stories, and one package per thing the substrate held. Each declares who may name it in `governance/architecture.json`; only `domain-model`, the product's nouns, is reachable by everyone |
 | `applications/` | `desktop`, `remote-server`, `remote-worker` | Deployment units — wiring and bootstrap only |
 | `tools/` | `eval`, `eslint-plugin-design`, `eslint-plugin-authz` | LLM-judged evals; design-system and authorization lint rules |
 

@@ -17,7 +17,7 @@
  * `@hyperidle/agent-execution` — the buffer's real architectural home, since
  * tokens/tool-calls originate in the execution Layer, not orchestration. The
  * move violates no data-access rule: the buffer imports only
- * `@hyperidle/shared` types/`EventBus` and touches no DB/Drizzle, carrying no
+ * framework types/`EventBus` and touches no DB/Drizzle, carrying no
  * persistence concern into a Layer that must stay thin (Mechanism B). Served
  * to core-ui via `AgentOrchestrationPort.sessions.getRecentActivity`, which
  * gateways this same instance from agent-orchestration (see
@@ -29,14 +29,14 @@
 
 import type {
 	ActivityEntry,
-	EventBus,
 	SessionEndedEvent,
 	ToolCallRecordedEvent,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 
 const MAX_PER_SESSION = 100;
 
-// AM3: ActivityEntry is now the canonical type from @hyperidle/shared/session-activity.
+// AM3: ActivityEntry is now the canonical type from @hyperidle/domain-model.
 // ToolCallData is preserved as a re-export for the server-side test that imports it.
 
 // Eviction delay after session ends (ms). Entries are cleaned up after this window

@@ -40,13 +40,9 @@ import {
 	sessionOutcomeToStatus,
 	Tag,
 } from "@hyperidle/design-system";
-import type { AgentProfileResponse, SessionOutcome } from "@hyperidle/shared";
-import {
-	AGENT_OPERATIONAL_STATUS_LABEL,
-	absoluteDate,
-	findRoleCatalogEntry,
-	relativeLong,
-} from "@hyperidle/shared";
+import type { AgentProfileResponse, SessionOutcome } from "@hyperidle/domain-model";
+import { AGENT_OPERATIONAL_STATUS_LABEL, findRoleCatalogEntry } from "@hyperidle/domain-model";
+import { absoluteDate, relativeLong } from "@hyperidle/presentation-format";
 import type { JSX } from "react";
 import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
 import { useAgentProfile } from "../hooks/useAgentProfile.js";

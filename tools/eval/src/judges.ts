@@ -23,7 +23,7 @@ import {
 	sessions,
 	tasks,
 } from "@hyperidle/db";
-import type { TaskState } from "@hyperidle/shared";
+import type { TaskState } from "@hyperidle/domain-model";
 import { and, eq, isNotNull, like, ne } from "drizzle-orm";
 import type { DimensionScore, JudgeContext, RubricDimension } from "./types.js";
 

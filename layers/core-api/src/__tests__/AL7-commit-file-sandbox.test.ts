@@ -11,8 +11,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { ToolContext } from "@hyperidle/shared";
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
+import type { ToolContext } from "@hyperidle/tool-protocol";
 import { afterAll, describe, expect, it } from "vitest";
 import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
 

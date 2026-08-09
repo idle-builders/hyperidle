@@ -10,7 +10,7 @@
  * it for the drain to resolve later.
  *
  * @lore Mechanism C (composition-boundary-guard): `@hyperidle/knowledge`
- * depends ONLY on `@hyperidle/db` + `@hyperidle/shared` (`package.json`) —
+ * depends ONLY on `@hyperidle/db` + framework packages (`package.json`) —
  * never on another Service (`@hyperidle/users`) directly, even for the one
  * genuinely cross-cutting invariant §6 Decision B carves out. This resolver
  * therefore takes `requireRunnableAgent` as an INJECTED dependency
@@ -35,8 +35,8 @@
  */
 
 import type { HyperIdleDb, User } from "@hyperidle/db";
-import type { BakedAgentRunnableConfig, BakedContextBundle } from "@hyperidle/shared";
-import { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "@hyperidle/shared";
+import type { BakedAgentRunnableConfig, BakedContextBundle } from "@hyperidle/work-intent-port";
+import { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "@hyperidle/work-intent-port";
 import { get } from "./knowledge-repository.js";
 import { assembleSessionKnowledge } from "./session-knowledge-assembler.js";
 

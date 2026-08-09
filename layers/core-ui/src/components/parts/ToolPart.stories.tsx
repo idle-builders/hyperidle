@@ -5,7 +5,7 @@
  * Populates real states only (no loading/error variants — see approved.md).
  */
 
-import type { Part, PartAuthor } from "@hyperidle/shared";
+import type { Part, PartAuthor } from "@hyperidle/conversation-parts";
 import type { JSX } from "react";
 import { ToolPart } from "./ToolPart.js";
 

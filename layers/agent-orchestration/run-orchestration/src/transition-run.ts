@@ -2,10 +2,10 @@ import * as fs from "node:fs";
 import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle/db";
 import type {
 	AgentSessionSourceKind,
-	EventBus,
 	ModelTier,
 	SessionLifecycleCorrelation,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import { and, eq } from "drizzle-orm";
 import type { createProvisioner } from "./provisioner.js";
 
@@ -17,7 +17,7 @@ type SessionLifecyclePorts = Parameters<typeof createProvisioner>[0];
  * AU21 §9 Increment 4 (Decision B″ item 3): `routine` dropped from this Pick.
  * `endSession`/`crashSession` no longer write `routineRuns` directly — the
  * finalize payload rides the existing `session_ended` emit (additive
- * `routineRunOutcome` field, `@hyperidle/shared`'s
+ * `routineRunOutcome` field, `@hyperidle/domain-model`'s
  * `SessionEndedEvent`) and a NEW core-api subscriber
  * (`routine-run-session-end-reactions.ts`) performs the write from inside
  * core-api. `TransitionPorts` now carries only the own-state

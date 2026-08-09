@@ -8,7 +8,7 @@
  * useNavigate (for delete), so a Router ancestor is required.
  */
 
-import type { RoutineDetail } from "@hyperidle/shared";
+import type { RoutineDetail } from "@hyperidle/domain-model";
 import type { JSX, ReactNode } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { ToastRegion } from "../../shell/ToastRegion.js";

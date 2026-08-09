@@ -6,33 +6,33 @@ import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle
 import {
 	type AgentSessionSourceCorrelation,
 	type AgentSessionSourceKind,
-	type BakedAgentRunnableConfig,
-	type BakedContextBundle,
 	ConcurrencyLimitError,
-	type ConversationMessage,
-	type EventBus,
-	type Filesystem,
-	type FilesystemMounter,
-	type HarnessEvent,
-	isInternalExtractionDrain,
-	isReturnAction,
-	literalToolNamerForAdapterType,
-	MAX_FORCE_RETURNS,
 	MissingCredentialError,
 	MODEL_TIERS,
 	type ModelTier,
 	NoEligibleHarnessError,
 	type ResolvedModel,
-	type ReturnEnforcementChannel,
+	type SessionOutcome,
+	TargetAgentNotRunnableError,
+	type UserRole,
+} from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
+import type { Filesystem, FilesystemMounter } from "@hyperidle/filesystem-contract";
+import type { ReturnEnforcementChannel } from "@hyperidle/harness-capability";
+import {
+	type ConversationMessage,
+	type HarnessEvent,
+	isInternalExtractionDrain,
+	isReturnAction,
+	literalToolNamerForAdapterType,
+	MAX_FORCE_RETURNS,
 	type SessionConfig,
 	type SessionHandle,
 	type SessionMetrics,
-	type SessionOutcome,
 	type SessionResult,
 	type SessionWorkflow,
-	TargetAgentNotRunnableError,
-	type UserRole,
-} from "@hyperidle/shared";
+} from "@hyperidle/harness-protocol";
+import type { BakedAgentRunnableConfig, BakedContextBundle } from "@hyperidle/work-intent-port";
 import { and, eq, isNull, ne, or, sql } from "drizzle-orm";
 import {
 	applyProvisioningPlan,
@@ -266,7 +266,7 @@ interface SessionLifecycleToolContext {
 	readonly threadId?: string;
 }
 
-/** `RegistrySessionWorkflow` (`tool-registry.ts`) — extends `@hyperidle/shared`'s `SessionWorkflow` with server-side capture anchors. This Service's own public `ProvisionSessionParams.sessionWorkflow` field type. */
+/** `RegistrySessionWorkflow` (`tool-registry.ts`) — extends `@hyperidle/harness-protocol`'s `SessionWorkflow` with server-side capture anchors. This Service's own public `ProvisionSessionParams.sessionWorkflow` field type. */
 interface SessionLifecycleRegistrySessionWorkflow extends SessionWorkflow {
 	readonly reviewMessageId: string;
 	readonly subjectThreadId: string;

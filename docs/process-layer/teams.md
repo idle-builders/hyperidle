@@ -23,7 +23,7 @@ Formation criteria:
 
 ## 2. Persistence and muscle memory
 
-The team persists for the life of the product. Successive bets pass through the same team. The team's shared knowledge lives in the **team scope** — its own scope kind, read by every member. Team scope is *not* a knowledge layer: `scopeToLayer` maps task→L1, product→L2, practice→L3, factory→L4, and **team→null** (`scopeToLayer`, `framework/shared/src/knowledge.ts`). For the layer taxonomy, see [The five layers](../knowledge-architecture/the-five-layers.md).
+The team persists for the life of the product. Successive bets pass through the same team. The team's shared knowledge lives in the **team scope** — its own scope kind, read by every member. Team scope is *not* a knowledge layer: `scopeToLayer` maps task→L1, product→L2, practice→L3, factory→L4, and **team→null** (`scopeToLayer`, `framework/domain-model/src/knowledge.ts`). For the layer taxonomy, see [The five layers](../knowledge-architecture/the-five-layers.md).
 
 This is what makes the second bet faster than the first, and the tenth faster than the second. Every shipped bet adds to the team's muscle memory: which assumptions held, which broke, which failure modes are common in this product, which artifacts are reusable.
 

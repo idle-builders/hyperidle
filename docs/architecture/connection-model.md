@@ -26,7 +26,7 @@ This is the concrete meaning of "ride the harness": OAuth-protected services arr
 
 ## Connection properties
 
-The view shape and its closed sets live in `framework/shared/src/connection.ts` (`ServiceConnectionView`, `CONNECTION_AUTH_SOURCES`, `CONNECTION_HEALTH`). The semantics:
+The view shape and its closed sets live in `framework/domain-model/src/connection.ts` (`ServiceConnectionView`, `CONNECTION_AUTH_SOURCES`, `CONNECTION_HEALTH`). The semantics:
 
 - **id** — `sc-<uuid>` for held rows; `inherited:<harness>:<name>` for projections.
 - **authSource** — closed set `token | mcp | inherited`.

@@ -2,7 +2,7 @@
  * L1a — `CommentRow` stories (stub).
  */
 
-import type { Message } from "@hyperidle/shared";
+import type { Message } from "@hyperidle/domain-model";
 import { CommentRow } from "./CommentRow.js";
 
 export default {

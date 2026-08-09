@@ -6,7 +6,7 @@
  * These tests FAIL until AgentDetailPane is implemented.
  */
 
-import type { RosterMember } from "@hyperidle/shared";
+import type { RosterMember } from "@hyperidle/domain-model";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";

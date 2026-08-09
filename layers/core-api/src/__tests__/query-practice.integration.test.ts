@@ -1,9 +1,10 @@
 import * as os from "node:os";
 import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
+import { EventBus } from "@hyperidle/event-bus";
 import { create as createKnowledgeItem } from "@hyperidle/knowledge";
-import { EventBus, type ToolContext } from "@hyperidle/shared";
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
+import type { ToolContext } from "@hyperidle/tool-protocol";
 import { describe, expect } from "vitest";
 import { test as baseTest } from "../__testing__/test-fixtures.js";
 import {

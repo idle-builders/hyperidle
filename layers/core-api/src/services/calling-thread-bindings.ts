@@ -34,7 +34,7 @@
  */
 import { findThread, insertThread } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { HostKind } from "@hyperidle/shared";
+import type { HostKind } from "@hyperidle/domain-model";
 import { findUser } from "@hyperidle/users";
 
 /**

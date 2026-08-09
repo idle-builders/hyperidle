@@ -14,17 +14,16 @@
  *  - Subscribe-once + clean unsubscribe on dispose.
  */
 
-import {
-	type BetStateChangedEvent,
-	EventBus,
-	type KnowledgeUpdatedEvent,
-	type ObservabilityEvent,
-	type SessionStartedEvent,
-	summarizeToolArgs,
-	type TaskStateChangedEvent,
-	type ToolCallRecordedEvent,
-} from "@hyperidle/shared";
-import type { ObservabilityAdapter, ObservabilityChannel } from "@hyperidle/shared/observability";
+import type { ObservabilityAdapter, ObservabilityChannel } from "@hyperidle/diagnostics";
+import { type ObservabilityEvent, summarizeToolArgs } from "@hyperidle/diagnostics";
+import type {
+	BetStateChangedEvent,
+	KnowledgeUpdatedEvent,
+	SessionStartedEvent,
+	TaskStateChangedEvent,
+	ToolCallRecordedEvent,
+} from "@hyperidle/domain-model";
+import { EventBus } from "@hyperidle/event-bus";
 import { afterEach, describe, expect, test } from "vitest";
 import { createObservabilityDispatcher, registerObservabilityDispatcher } from "../dispatcher.js";
 

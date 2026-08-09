@@ -1,7 +1,8 @@
 import * as os from "node:os";
 import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { EventBus, ToolContext } from "@hyperidle/shared";
+import type { EventBus } from "@hyperidle/event-bus";
+import type { ToolContext } from "@hyperidle/tool-protocol";
 import { describe, expect } from "vitest";
 import { test as baseTest } from "../__testing__/test-fixtures.js";
 import {

@@ -11,8 +11,9 @@
 import * as os from "node:os";
 import * as path from "node:path";
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
-import type { TaskStateChangedEvent, ToolContext } from "@hyperidle/shared";
+import type { TaskStateChangedEvent } from "@hyperidle/domain-model";
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
+import type { ToolContext } from "@hyperidle/tool-protocol";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test as baseTest } from "../__testing__/test-fixtures.js";
@@ -86,7 +87,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 
 function makeContext(
 	db: HyperIdleDb,
-	eventBus: import("@hyperidle/shared").EventBus,
+	eventBus: import("@hyperidle/event-bus").EventBus,
 ): ToolContext<HyperIdleDb> {
 	return {
 		db,

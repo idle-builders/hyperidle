@@ -28,8 +28,9 @@
 
 import { SessionActivityBuffer } from "@hyperidle/agent-execution";
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { EventBus, HarnessCapabilityReader } from "@hyperidle/shared";
-import type { HyperIdleEnv } from "@hyperidle/shared/http";
+import type { EventBus } from "@hyperidle/event-bus";
+import type { HarnessCapabilityReader } from "@hyperidle/harness-protocol";
+import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket } from "hono/ws";
 import { createAgentOrchestrationApp } from "./app.js";

@@ -52,7 +52,7 @@
  * holds a `ToolHandlersPorts` accesses each sub-port structurally
  * without needing to import the named interface. `parseCron`/`nextCronMatch`
  * removed from `ToolHandlersDispatchAccessor` — relocated to
- * `@hyperidle/shared` so tool implementations import them directly (2 of 3
+ * `@hyperidle/cron` so tool implementations import them directly (2 of 3
  * dispatch back-edges deleted; only `provisionTeamRoutines` remains).
  *
  * @lore AU21 §6 Decision F1: the `agentSelection` port

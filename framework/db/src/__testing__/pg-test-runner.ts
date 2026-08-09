@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { redactDbUrl } from "@hyperidle/shared";
+import { redactDbUrl } from "@hyperidle/diagnostics";
 
 // @lore Real-Postgres smoke runner. When `DATABASE_URL` is unset we exit 0
 // with a message — the pg-migration + pg-connection tests in the default

@@ -43,7 +43,7 @@ services:
       # longer branching on it for adapter selection (AU19 Increment 5 item 2
       # made CreateServerDeps.adapterPool/workspaceAdapter required, injected
       # by remote-server's own bootstrap instead). It is still load-bearing:
-      # @hyperidle/shared's validateStartupEnv (called by remote-server's
+      # @hyperidle/host-process's validateStartupEnv (called by remote-server's
       # src/index.ts) branches on it to REQUIRE an explicit HYPERIDLE_API_KEY
       # on vps/cloud profiles rather than silently falling back to the
       # laptop-dev default key — a real security behavior for a

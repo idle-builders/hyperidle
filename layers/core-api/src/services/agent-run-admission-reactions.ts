@@ -32,6 +32,9 @@
 
 import { insertThread } from "@hyperidle/conversation";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
+import { createLogger } from "@hyperidle/diagnostics";
+import type { AgentRunAdmissionFailedEvent } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import {
 	type CreateReviewItemResult,
 	createReviewItem,
@@ -40,7 +43,6 @@ import {
 import * as routineService from "@hyperidle/routine";
 import { enqueueWorkIntent, transitionSessionRequest } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
-import { type AgentRunAdmissionFailedEvent, createLogger, type EventBus } from "@hyperidle/shared";
 import { requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { resolveOrCreateCallingThread } from "./calling-thread-bindings.js";

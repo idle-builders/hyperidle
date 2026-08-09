@@ -28,17 +28,17 @@ import * as dns from "node:dns";
 import * as net from "node:net";
 import { promisify } from "node:util";
 import type { HyperIdleDb, Item, NewNotificationQueueRow } from "@hyperidle/db";
+import type { Logger } from "@hyperidle/diagnostics";
+import { createLogger, ERROR_TOKEN_PATTERNS, REDACTED_TAG } from "@hyperidle/diagnostics";
 import type {
-	EventBus,
 	ItemCreatedEvent,
-	Logger,
 	NotificationEvent,
 	NotificationTypeKey,
 	NotificationUrgency,
 	RoutineFiredEvent,
-	SanitizeResult,
-} from "@hyperidle/shared";
-import { createLogger, ERROR_TOKEN_PATTERNS, REDACTED_TAG } from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
+import type { SanitizeResult } from "@hyperidle/host-process";
 import type { Transporter } from "nodemailer";
 import nodemailer from "nodemailer";
 import { enqueue, listNotifications, markNotifications } from "./notification-queue.js";

@@ -5,4 +5,4 @@
  * exhaustive keys for the closed UserRole union. With open role strings,
  * it is now a re-export of communityForRole() from the catalog.
  */
-export { communityForRole } from "@hyperidle/shared";
+export { communityForRole } from "@hyperidle/domain-model";

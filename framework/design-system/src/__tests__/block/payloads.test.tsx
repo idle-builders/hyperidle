@@ -15,8 +15,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 // @lore R3: dynamic imports under jsdom take 10-30s due to remark/unified
-// (via @hyperidle/shared) cold module loading. All tests in this file use
-// { timeout: 60_000 } to match the pattern in framework/shared and framework/db.
+// (via @hyperidle/block-derivation) cold module loading. All tests in this file use
+// { timeout: 60_000 } to match the pattern in framework/block-derivation and framework/db.
 const TEST_TIMEOUT = { timeout: 60_000 };
 
 describe("Per-kind payload renderers", () => {
@@ -165,7 +165,7 @@ describe("Per-kind payload renderers", () => {
 		"inline link XSS: post-derive+render DOM has no <a href='javascript:'>",
 		TEST_TIMEOUT,
 		async () => {
-			const { deriveBlocks } = await import("@hyperidle/shared");
+			const { deriveBlocks } = await import("@hyperidle/block-derivation");
 			const { Block } = await import("../../Block.js");
 			const md = "see [click](javascript:alert(1)) and [ok](https://example.com)";
 			const { blocks } = deriveBlocks(md, { kind: "bet", id: "x" });

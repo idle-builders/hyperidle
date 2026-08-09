@@ -9,13 +9,13 @@
  * credentials live in safeStorage on the desktop.
  */
 
+import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credential-access";
 import { deleteCredential, readCredentials, writeCredential } from "@hyperidle/credentials";
 import type { HyperIdleDb } from "@hyperidle/db";
+import type { CredentialName, CredentialState } from "@hyperidle/domain-model";
+import { CREDENTIAL_CATALOG, CREDENTIAL_STATES, isCredentialName } from "@hyperidle/domain-model";
+import { createRateLimiter, type HyperIdleEnv, requireBoundary } from "@hyperidle/http-middleware";
 import { readServerConfig } from "@hyperidle/settings";
-import type { CredentialName, CredentialState } from "@hyperidle/shared";
-import { CREDENTIAL_CATALOG, CREDENTIAL_STATES, isCredentialName } from "@hyperidle/shared";
-import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/shared/crypto";
-import { createRateLimiter, type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
 import { Hono } from "hono";
 import { z } from "zod";
 

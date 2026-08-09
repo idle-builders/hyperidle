@@ -25,7 +25,7 @@
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { BET_STATUSES } from "@hyperidle/shared";
+import { BET_STATUSES } from "@hyperidle/domain-model";
 import { sql } from "drizzle-orm";
 import { seedDemoWorld } from "../demo-fixture.js";
 import { runFactoryBootstrap } from "../factory-bootstrap-runner.js";

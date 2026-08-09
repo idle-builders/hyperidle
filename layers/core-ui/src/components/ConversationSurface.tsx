@@ -41,8 +41,8 @@
  * affordances are visible but inert).
  */
 
+import type { OpenHandler, OpenTarget, Part } from "@hyperidle/conversation-parts";
 import { ReferenceChip } from "@hyperidle/design-system";
-import type { OpenHandler, OpenTarget, Part } from "@hyperidle/shared";
 import { type JSX, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { PartList } from "./PartList.js";

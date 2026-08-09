@@ -1,7 +1,7 @@
 import { listMessages } from "@hyperidle/conversation";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
+import { requireBoundary } from "@hyperidle/http-middleware";
 import { getDailyDigest } from "@hyperidle/notifications";
-import { requireBoundary } from "@hyperidle/shared/http";
 import { listUsers } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";

@@ -1,5 +1,5 @@
-import type { Artifact } from "@hyperidle/shared";
-import { artifactDisplayTitle } from "@hyperidle/shared";
+import type { Artifact } from "@hyperidle/domain-model";
+import { artifactDisplayTitle } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { ArtifactKindBadge } from "./ArtifactKindBadge.js";
 import { ArtifactTimestamp } from "./ArtifactTimestamp.js";

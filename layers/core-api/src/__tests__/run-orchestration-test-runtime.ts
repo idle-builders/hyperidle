@@ -1,8 +1,9 @@
 import type { HyperIdleDb } from "@hyperidle/db";
+import type { EventBus } from "@hyperidle/event-bus";
+import type { WorkerRegisterMessage } from "@hyperidle/harness-protocol";
 import { AdapterPool, createHarnessAdapter } from "@hyperidle/harness-registry";
 import { create, recordConflict, update } from "@hyperidle/knowledge";
 import type { RuntimePorts } from "@hyperidle/run-orchestration";
-import type { EventBus, WorkerRegisterMessage } from "@hyperidle/shared";
 import {
 	type ProvisionSessionDeps,
 	runtimeDeps,

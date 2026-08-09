@@ -1,6 +1,6 @@
 # Runtime Simplification Frame
 
-> **Superseded on boundary rules.** This document's dependency rule — "a Layer may depend on the Layers below it" — and its cross-Layer dependency-injection pattern are both overturned. Dependency injection is legal only *within* a Layer; a Layer imports only from `shared` or from within itself; cross-Layer conversation goes through the API, MCP or the event bus. What may cross which boundary is machine-enforced and documented once, in [`governance/README.md`](../../governance/README.md) — read that, not this. The rest of this document (the Application / Layer / Service vocabulary, the behavioral split between core app and agent layer) still holds.
+> **Superseded on boundary rules.** This document's dependency rule — "a Layer may depend on the Layers below it" — and its cross-Layer dependency-injection pattern are both overturned. Dependency injection is legal only *within* a Layer; a Layer imports only from the framework packages whose audience admits it, or from within itself; cross-Layer conversation goes through the API, MCP or the event bus. What may cross which boundary is machine-enforced and documented once, in [`governance/README.md`](../../governance/README.md) — read that, not this. The rest of this document (the Application / Layer / Service vocabulary, the behavioral split between core app and agent layer) still holds.
 
 This is the strategic frame for Track AU. It replaces the older Kernel/Strategy/Fabric framing with two runtime boundaries and one configuration surface.
 
@@ -29,8 +29,9 @@ into a running process. An Application contains only wiring/bootstrap code, neve
   `agent-orchestration` layer over the existing worker-ws/remote-harness-adapter channel (already
   built, zero DB coupling — confirmed by AU17's own topology research).
 
-**Layers** — communication-pattern boundaries. A Layer is isolated: it imports only from `shared` or
-from within itself, and reaches another Layer through the API, MCP or the event bus. The enforced
+**Layers** — communication-pattern boundaries. A Layer is isolated: it imports only from the
+framework packages whose audience admits it, or from within itself, and reaches another Layer through
+the API, MCP or the event bus. The enforced
 rule set is [`governance/README.md`](../../governance/README.md). This refines the old two-tier
 "core app / agent layer" split into four:
 

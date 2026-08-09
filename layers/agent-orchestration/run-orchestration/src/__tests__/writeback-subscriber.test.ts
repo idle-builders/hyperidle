@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
+import { EventBus } from "@hyperidle/event-bus";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createWritebackProcessor } from "../writeback-processor.js";
 

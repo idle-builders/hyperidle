@@ -1,4 +1,4 @@
-import type { TaskState } from "@hyperidle/shared";
+import type { TaskState } from "@hyperidle/domain-model";
 
 /**
  * Audit entry shapes for `tasks.auditTrail`.

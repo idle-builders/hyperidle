@@ -13,8 +13,8 @@ import {
 	serverConfig,
 	type WriteExecutor,
 } from "@hyperidle/db";
-import type { ModelGatewayConfig, ModelTierConfig } from "@hyperidle/shared";
-import { BUILT_IN_GATEWAY_CONFIG, MODEL_PROVIDERS } from "@hyperidle/shared";
+import type { ModelGatewayConfig, ModelTierConfig } from "@hyperidle/domain-model";
+import { BUILT_IN_GATEWAY_CONFIG, MODEL_PROVIDERS } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import type { SettingsCredentialCipher } from "./ports.js";

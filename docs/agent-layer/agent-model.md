@@ -6,7 +6,7 @@ Who agents are: composition principles, identity, the categories, lifecycle, and
 
 1. **Agent = system prompt + context + skills.** The system prompt defines who they are (`agent_run_config.system_prompt`, injected as the first section of every session prompt — `layers/agent-orchestration/run-orchestration/src/context.ts`). Context is what they know, assembled just-in-time by the knowledge fabric. Skills are what they can do (tools injected separately at session start). All three are composable and independently swappable.
 
-2. **Process first, agents second.** Design how work flows, then staff it. An agent exists because a role exists in the process — rosters derive from team functions (`defaultFactoryRoster`, `framework/shared/src/factory-roster.ts`), agents are never free-floating creations.
+2. **Process first, agents second.** Design how work flows, then staff it. An agent exists because a role exists in the process — rosters derive from team functions (`defaultFactoryRoster`, `framework/factory-defaults/src/factory-roster.ts`), agents are never free-floating creations.
 
 3. **Context is the product.** Agents are disposable; context survives. The company's real asset is its accumulated context — product knowledge, practice patterns, brand, decisions, customer insights. Replace every agent tomorrow and the new ones are productive within one session, because persona is data (`agent_run_config.system_prompt`, seeded from the `docs/system-prompts/*.md` templates) and identity survives replacement.
 
@@ -30,7 +30,7 @@ Agents are created from an `AgentScaffoldSpec`. `persistScaffoldedAgents` is the
 | Field | Column | Purpose |
 |---|---|---|
 | Role | `role` (text, not null) | Functional role — open string (`builder`, `product_manager`, `facilitator`, `assistant`, …). |
-| Status | `status` (text, not null) | Lifecycle state: `active` \| `paused` \| `retired` (`UserStatus`, `framework/shared/src/types.ts`). |
+| Status | `status` (text, not null) | Lifecycle state: `active` \| `paused` \| `retired` (`UserStatus`, `framework/domain-model/src/types.ts`). |
 | Category | `agent_category` (text, nullable) | `team` \| `strategy` \| `individual`. Null for humans and system rows. |
 | Team | `team_id` (text, nullable) | Single nullable FK; null means factory-wide. |
 
@@ -50,13 +50,13 @@ One row per agent, primary-keyed on `agent_user_id`.
 
 System prompts stay short — ideally under 500 tokens (guidance, not enforced) — because they load into every session.
 
-Templates for standard roles are read straight from `docs/system-prompts/*.md` at setup, via the shared `SYSTEM_PROMPT_TEMPLATE_FILES` map + `readSystemPromptTemplateForRole` (`framework/shared/src/system-prompt-templates.ts`, called from the agent-orchestration first-boot face at `layers/agent-orchestration/src/factory-run-config.ts`). One role-to-filename source, consumed by bootstrap and at request time alike. The template is only a starting point; `agent_run_config.system_prompt` is the single runtime source of truth, and founders can edit it after creation. Template content lives in [system-prompts](../system-prompts/index.md).
+Templates for standard roles are read straight from `docs/system-prompts/*.md` at setup, via the shared `SYSTEM_PROMPT_TEMPLATE_FILES` map + `readSystemPromptTemplateForRole` (`framework/factory-defaults/src/system-prompt-templates.ts`, called from the agent-orchestration first-boot face at `layers/agent-orchestration/src/factory-run-config.ts`). One role-to-filename source, consumed by bootstrap and at request time alike. The template is only a starting point; `agent_run_config.system_prompt` is the single runtime source of truth, and founders can edit it after creation. Template content lives in [system-prompts](../system-prompts/index.md).
 
 At session start the run orchestrator loads the system prompt, queries the knowledge layers, and packs the result into TOON. The agent doesn't know about layers; it gets a context pack.
 
 ## 3. The Three Categories
 
-Every AI agent belongs to exactly one structural category. Category determines scope, visibility, binding, and provisioning. The enum is closed — `team | strategy | individual` (`AGENT_CATEGORIES`, `framework/shared/src/types.ts`); adding a fourth requires a concept-doc update first. Stored in `users.agentCategory` (`framework/db/src/schema.ts`); human and system rows carry null.
+Every AI agent belongs to exactly one structural category. Category determines scope, visibility, binding, and provisioning. The enum is closed — `team | strategy | individual` (`AGENT_CATEGORIES`, `framework/domain-model/src/types.ts`); adding a fourth requires a concept-doc update first. Stored in `users.agentCategory` (`framework/db/src/schema.ts`); human and system rows carry null.
 
 > **`strategy` is a retired category.** It is still in the enum, still a column value, and four factory roles still write it on first boot, so it is described below as it exists in code. It is not a concept to build on — removing it is a schema migration against live rows and is tracked as its own work package.
 
@@ -72,7 +72,7 @@ The visible workforce — prominent in the Work view, session activity, and revi
 
 ### 3.2 Strategy agents
 
-Knowledge-scoped; users rarely interact with them directly. They curate knowledge, surface cross-domain patterns, and maintain taxonomy health — they facilitate, never build. Facilitators are seeded one per practice community (`PRACTICE_COMMUNITIES` — `build`, `product`, `growth`, `ops`, `facilitation` — `framework/shared/src/factory-roster.ts`); their duties are detailed in [facilitators](../knowledge-architecture/facilitators.md). Strategy agents are never part of a team roster — they are provisioned at factory setup from `defaultFactoryRoster` (`framework/shared/src/factory-roster.ts`, consumed by the two first-boot layer faces — `applyFactoryCoreState` + `applyFactoryRunConfigDefaults`) and serve all teams.
+Knowledge-scoped; users rarely interact with them directly. They curate knowledge, surface cross-domain patterns, and maintain taxonomy health — they facilitate, never build. Facilitators are seeded one per practice community (`PRACTICE_COMMUNITIES` — `build`, `product`, `growth`, `ops`, `facilitation` — `framework/factory-defaults/src/factory-roster.ts`); their duties are detailed in [facilitators](../knowledge-architecture/facilitators.md). Strategy agents are never part of a team roster — they are provisioned at factory setup from `defaultFactoryRoster` (`framework/factory-defaults/src/factory-roster.ts`, consumed by the two first-boot layer faces — `applyFactoryCoreState` + `applyFactoryRunConfigDefaults`) and serve all teams.
 
 ### 3.3 Individual agents — the Assistant
 
@@ -86,7 +86,7 @@ Each human gets exactly one assistant: a personal operator scoped to that user. 
 
 ### 3.4 Category is not role
 
-Category is structural: scope + visibility. Role is functional: what the agent does within its category. Role is an **open string** (`UserRole = string`); `AGENT_ROLE_CATALOG` (`framework/shared/src/agent-roles.ts`) supplies metadata for known roles (label, category, template flag, team-function mapping). Unknown roles are valid — they get base tools, no template, and default to category `team`.
+Category is structural: scope + visibility. Role is functional: what the agent does within its category. Role is an **open string** (`UserRole = string`); `AGENT_ROLE_CATALOG` (`framework/domain-model/src/agent-roles.ts`) supplies metadata for known roles (label, category, template flag, team-function mapping). Unknown roles are valid — they get base tools, no template, and default to category `team`.
 
 Category is not a permission system — tool authorization is role-based filtering, never a category check. Category is not a UI grouping either: team agents are prominent in Work, strategy agents are mostly invisible, the assistant surfaces through its overlay. Whether category is immutable after creation is unverified in code (`users.ts` update route).
 

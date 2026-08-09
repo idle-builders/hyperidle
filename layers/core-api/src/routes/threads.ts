@@ -25,19 +25,8 @@ import {
 	updateThread,
 } from "@hyperidle/conversation";
 import type { Message as DbMessage, Thread as DbThread, HyperIdleDb } from "@hyperidle/db";
-import {
-	assembleSessionKnowledge,
-	get as getKnowledgeItem,
-	list as listKnowledgeItems,
-} from "@hyperidle/knowledge";
-import { getTeam } from "@hyperidle/org";
-import { findProposedCall, transitionProposedCall } from "@hyperidle/review";
-import { enqueueWorkIntent } from "@hyperidle/session-requests";
-import { readServerConfig } from "@hyperidle/settings";
 import type {
-	AgentWorkIntentRecorder,
 	ApiErrorResponse,
-	EventBus,
 	EventType,
 	HostKind,
 	Message,
@@ -50,18 +39,29 @@ import type {
 	ThreadMessageAppendedEvent,
 	ThreadReopenedEvent,
 	ThreadResolvedEvent,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
 import {
 	API_ERROR_CODES,
-	deriveTitle,
-	escapeLikePattern,
 	extractMentionCandidates,
 	headCollapsePredicate,
 	resolveMentions,
-} from "@hyperidle/shared";
-import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
+} from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
+import { type HyperIdleEnv, requireBoundary } from "@hyperidle/http-middleware";
+import {
+	assembleSessionKnowledge,
+	get as getKnowledgeItem,
+	list as listKnowledgeItems,
+} from "@hyperidle/knowledge";
+import { getTeam } from "@hyperidle/org";
+import { deriveTitle } from "@hyperidle/presentation-format";
+import { escapeLikePattern } from "@hyperidle/query-escaping";
+import { findProposedCall, transitionProposedCall } from "@hyperidle/review";
+import { enqueueWorkIntent } from "@hyperidle/session-requests";
+import { readServerConfig } from "@hyperidle/settings";
 import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
+import type { AgentWorkIntentRecorder } from "@hyperidle/work-intent-port";
 import { Hono } from "hono";
 import type { ZodError, z } from "zod";
 import { z as zod } from "zod";
@@ -158,7 +158,7 @@ async function buildSenderIdentityForPush(
 
 /**
  * The inline-ref shape as carried by the message zod schema (the wire/persisted
- * form). Distinct from shared `InlineRef` while Z8-166 drift stands (mentionRef
+ * form). Distinct from the domain model's `InlineRef` while Z8-166 drift stands (mentionRef
  * `sourceText` optional here, required in the domain type). Used for the
  * internal mention-resolution mapping below.
  */
@@ -658,7 +658,7 @@ function err(
 
 /**
  * @lore AU19 §11 (AC-9): `agentWorkIntentRecorder` is the Application-injected
- * cross-Layer port (`@hyperidle/shared`, Mechanism C) — this route (core-api)
+ * cross-Layer port (`@hyperidle/work-intent-port`, Mechanism C) — this route (core-api)
  * must not import `@hyperidle/session-requests` (agent-orchestration)
  * directly for its raw `agent_work_intents` write below. `createApp`
  * defaults it to the real production binding
@@ -943,7 +943,7 @@ export function createThreadRoutes(
 				}
 			})();
 			const deny = authorizeRead(c, {
-				hostKind: row.hostKind as import("@hyperidle/shared").HostKind,
+				hostKind: row.hostKind as import("@hyperidle/domain-model").HostKind,
 				hostId: row.hostId,
 				participants,
 			});
@@ -1350,7 +1350,7 @@ export function createThreadRoutes(
 			// Authz: sender (authenticated principal) must be a participant.
 			// authorizeWrite uses c.get("userId") internally — matches senderId above.
 			const writedenial = authorizeWrite(c, {
-				hostKind: threadRow.hostKind as import("@hyperidle/shared").HostKind,
+				hostKind: threadRow.hostKind as import("@hyperidle/domain-model").HostKind,
 				hostId: threadRow.hostId,
 				participants,
 			});

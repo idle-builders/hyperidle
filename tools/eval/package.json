@@ -12,12 +12,15 @@
 	},
 	"dependencies": {
 		"@anthropic-ai/sdk": "^0.112.1",
-		"@hyperidle/db": "*",
-		"@hyperidle/harness-registry": "*",
 		"@hyperidle/core-api": "*",
+		"@hyperidle/credential-access": "*",
+		"@hyperidle/db": "*",
+		"@hyperidle/domain-model": "*",
+		"@hyperidle/event-bus": "*",
+		"@hyperidle/harness-registry": "*",
 		"@hyperidle/settings": "*",
-		"@hyperidle/shared": "*",
 		"@hyperidle/users": "*",
+		"@hyperidle/work-intent-port": "*",
 		"drizzle-orm": "^0.45.2"
 	},
 	"devDependencies": {

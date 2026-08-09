@@ -1,4 +1,5 @@
 import { SESSION_NOT_RETURNED_NOTICE_TEXT } from "@hyperidle/conversation";
+import { encryptCredentialValue } from "@hyperidle/credential-access";
 import {
 	agentRunConfig,
 	agentSessionRequests,
@@ -15,7 +16,6 @@ import {
 } from "@hyperidle/harness-registry";
 import { requireHarness } from "@hyperidle/harness-registry/test-utils";
 import { createServer } from "@hyperidle/remote-server/create-server";
-import { encryptCredentialValue } from "@hyperidle/shared/crypto";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
 

@@ -46,13 +46,10 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
+import { createLogger } from "@hyperidle/diagnostics";
+import { type SessionStartedEvent, TaskInvalidTransitionError } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
-import {
-	createLogger,
-	type EventBus,
-	type SessionStartedEvent,
-	TaskInvalidTransitionError,
-} from "@hyperidle/shared";
 import { type TaskStateMachineDeps, transitionTask } from "@hyperidle/work";
 import { taskRunResolverDeps } from "./task-run-resolver-bindings.js";
 

@@ -39,9 +39,9 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { ApiErrorResponse } from "@hyperidle/shared";
-import { API_ERROR_CODES, INVITE_ROLES } from "@hyperidle/shared";
-import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
+import type { ApiErrorResponse } from "@hyperidle/domain-model";
+import { API_ERROR_CODES, INVITE_ROLES } from "@hyperidle/domain-model";
+import { type HyperIdleEnv, requireBoundary } from "@hyperidle/http-middleware";
 import {
 	createInvite,
 	findUser,

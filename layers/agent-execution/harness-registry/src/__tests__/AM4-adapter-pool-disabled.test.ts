@@ -17,15 +17,16 @@
  */
 
 import type {
+	AdapterMeta,
 	HarnessAdapter,
 	HarnessCapabilities,
 	HarnessEvent,
 	SessionConfig,
 	SessionHandle,
 	SessionResult,
-} from "@hyperidle/shared";
+} from "@hyperidle/harness-protocol";
 import { describe, expect, it, vi } from "vitest";
-import type { AdapterMeta, SelectRequirements } from "../adapter-pool.js";
+import type { SelectRequirements } from "../adapter-pool.js";
 import { AdapterPool } from "../adapter-pool.js";
 import type { HarnessDiscoveryInput } from "../harness-discovery.js";
 import * as harnessDiscovery from "../harness-discovery.js";

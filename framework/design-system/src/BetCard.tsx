@@ -1,6 +1,6 @@
 // hearth-internal-padding
-import type { BetOutcomeVerdict, BetStatus } from "@hyperidle/shared";
-import { BET_OUTCOME_VERDICT_LABEL, BET_STATUS_LABEL } from "@hyperidle/shared";
+import type { BetOutcomeVerdict, BetStatus } from "@hyperidle/domain-model";
+import { BET_OUTCOME_VERDICT_LABEL, BET_STATUS_LABEL } from "@hyperidle/domain-model";
 import type { JSX, ReactNode } from "react";
 import { clickableProps } from "./clickable";
 import { dsProps } from "./ds-attrs";

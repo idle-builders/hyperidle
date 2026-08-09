@@ -9,6 +9,7 @@
  */
 
 import { type HyperIdleDb, items as itemsTable, threads } from "@hyperidle/db";
+import type { RoutineFiredEvent } from "@hyperidle/domain-model";
 import {
 	enqueue,
 	installNotifications,
@@ -17,7 +18,6 @@ import {
 	type NotificationAdapter,
 	updateConfig,
 } from "@hyperidle/notifications";
-import type { RoutineFiredEvent } from "@hyperidle/shared";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { expect, test } from "../../__testing__/test-fixtures.js";
 import { createTestApp } from "../../__testing__/test-utils.js";

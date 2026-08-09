@@ -2,6 +2,9 @@
 
 import { readAgentRunConfig } from "@hyperidle/agent-run-config";
 import type { HyperIdleDb } from "@hyperidle/db";
+import { summarizeToolArgs } from "@hyperidle/diagnostics";
+import { EventBus } from "@hyperidle/event-bus";
+import type { WorkerRegisterMessage } from "@hyperidle/harness-protocol";
 import {
 	AdapterPool,
 	createHarnessAdapter,
@@ -30,8 +33,7 @@ import {
 	sessionRunRegistry,
 	transitionSessionRequest,
 } from "@hyperidle/session-requests";
-import type { ToolContext, WorkerRegisterMessage } from "@hyperidle/shared";
-import { EventBus, summarizeToolArgs } from "@hyperidle/shared";
+import type { ToolContext } from "@hyperidle/tool-protocol";
 import { queueDeps } from "./durable-agent-queue.js";
 import { buildToolRegistry, returnStatusTool, toolsForRole } from "./tool-provider-bindings.js";
 
@@ -227,7 +229,7 @@ const sessionLifecyclePort: SessionLifecycleRuntime = {
 
 // ---------------------------------------------------------------------------
 // session-lifecycle's admission/execution surface — REAL since AU19
-// Increment 3i, `@hyperidle/shared`'s `HarnessPort` (§7.4) satisfied by
+// Increment 3i, `@hyperidle/harness-protocol`'s `HarnessPort` (§7.4) satisfied by
 // `session-lifecycle-bindings.ts`'s `harnessPort` export.
 // ---------------------------------------------------------------------------
 

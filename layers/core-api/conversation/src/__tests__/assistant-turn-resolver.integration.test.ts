@@ -33,7 +33,7 @@
  * (`composition-boundary-guard`) forbids a nested Service (`conversation`)
  * from depending on another Service (`@hyperidle/users`) directly, even for
  * this one cross-cutting invariant — every other Service in the repo depends
- * ONLY on `@hyperidle/db` + `@hyperidle/shared` (verified from source). The
+ * ONLY on `@hyperidle/db` + framework packages (verified from source). The
  * resolver therefore takes `requireRunnableAgent` as an injected 3rd-arg
  * `deps` parameter instead of importing it statically; test files live under
  * `__tests__/` (guard-exempt, matching `connections`' own precedent of

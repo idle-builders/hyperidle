@@ -11,7 +11,7 @@
  * (architecture.md §2.5.3 step 2) — a missing template read must preserve the agent's existing
  * `systemPrompt` rather than nulling it.
  *
- * The `@hyperidle/shared` mock below stubs only the pure template-file reader for one test, not the
+ * The `@hyperidle/factory-defaults` mock below stubs only the pure template-file reader for one test, not the
  * database — the integration point under test throughout is the real `agent_run_config` write,
  * exercised via the `@hyperidle/db` fixture db (this layer's own fixtures carry no `db`; per its
  * `__testing__/test-fixtures.ts` lore, a test needing a real db uses `@hyperidle/db/test-fixtures`
@@ -26,8 +26,8 @@ import { vi } from "vitest";
  */
 let nullTemplateRole: string | null = null;
 
-vi.mock("@hyperidle/shared", async (importOriginal) => {
-	const original = await importOriginal<typeof import("@hyperidle/shared")>();
+vi.mock("@hyperidle/factory-defaults", async (importOriginal) => {
+	const original = await importOriginal<typeof import("@hyperidle/factory-defaults")>();
 	return {
 		...original,
 		readSystemPromptTemplateForRole: (role: string) =>

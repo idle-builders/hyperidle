@@ -9,7 +9,7 @@
  * endpoint implementation without changing this hook's contract.
  */
 
-import type { NotificationTypeKey } from "@hyperidle/shared";
+import type { NotificationTypeKey } from "@hyperidle/domain-model";
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 

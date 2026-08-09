@@ -11,7 +11,7 @@
  * - packages/server/src/app-runtime/services/approval-rate.ts is created
  * - packages/server/src/routes/agent-profile.ts replaces skills query with
  *   computeApprovalRate call and removes `skills` from the response
- * - framework/shared/src/agent-profile.ts adds AgentReviewTrackRecord type
+ * - framework/domain-model/src/agent-profile.ts adds AgentReviewTrackRecord type
  *   and replaces skills field with reviewTrackRecord in AgentProfileResponse
  */
 

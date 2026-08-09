@@ -1,4 +1,4 @@
-import type { BlockPayload } from "@hyperidle/shared";
+import type { BlockPayload } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 
 import { CodePayload } from "./CodePayload.js";

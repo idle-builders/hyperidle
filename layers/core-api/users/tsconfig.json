@@ -12,7 +12,10 @@
 			"path": "../../../framework/db"
 		},
 		{
-			"path": "../../../framework/shared"
+			"path": "../../../framework/domain-model"
+		},
+		{
+			"path": "../../../framework/query-escaping"
 		}
 	]
 }

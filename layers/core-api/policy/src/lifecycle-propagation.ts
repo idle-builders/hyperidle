@@ -5,7 +5,6 @@ import {
 	type BetStateChangedEvent,
 	type BetStatus,
 	canTransitionTaskState,
-	type EventBus,
 	type PropagationAppliedEvent,
 	type PropagationFailedEvent,
 	type PropagationLevel,
@@ -14,7 +13,8 @@ import {
 	TaskInvalidTransitionError,
 	type TaskState,
 	type TaskStateChangedEvent,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import { and, eq, inArray, lt } from "drizzle-orm";
 import type { PolicyDeps } from "./ports.js";
 

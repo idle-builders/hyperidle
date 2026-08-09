@@ -8,7 +8,7 @@
  *  - refresh() triggers a re-fetch
  */
 
-import type { ArtifactThreadSummaryResponse } from "@hyperidle/shared";
+import type { ArtifactThreadSummaryResponse } from "@hyperidle/domain-model";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useArtifactThreadSummary } from "../../hooks/useArtifactThreadSummary";

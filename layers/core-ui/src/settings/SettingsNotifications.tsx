@@ -22,7 +22,7 @@
  */
 
 import { Toggle } from "@hyperidle/design-system";
-import { NOTIFICATION_TYPES } from "@hyperidle/shared";
+import { NOTIFICATION_TYPES } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { useNotificationMute } from "../hooks/useNotificationMute.js";
 

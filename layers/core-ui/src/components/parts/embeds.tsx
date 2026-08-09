@@ -14,8 +14,8 @@
  * agnostic Part vocabulary — never `Message`/`InlineRef` (W1 lint boundary).
  */
 
+import type { Embed, OpenHandler } from "@hyperidle/conversation-parts";
 import { Fold, ReferenceChip } from "@hyperidle/design-system";
-import type { Embed, OpenHandler } from "@hyperidle/shared";
 import type { JSX } from "react";
 
 /** Render a single Embed. Returns null for embeds with no inline render (mention is rendered inline by prose). */

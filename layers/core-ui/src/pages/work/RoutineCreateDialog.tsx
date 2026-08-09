@@ -4,7 +4,7 @@
  * Opens as a Dialog primitive. Fields: name, description, schedule picker
  * (presets + custom cron), agent select.
  *
- * @lore AA2: SCHEDULE_PRESETS are imported from @hyperidle/shared so the
+ * @lore AA2: SCHEDULE_PRESETS are imported from @hyperidle/domain-model so the
  * same cron expressions are used across frontend and backend validation.
  *
  * @lore AI2: Migrated from native <dialog> + showModal() to Dialog primitive.
@@ -18,7 +18,7 @@
  */
 
 import { Dialog, Select } from "@hyperidle/design-system";
-import { SCHEDULE_PRESETS } from "@hyperidle/shared";
+import { SCHEDULE_PRESETS } from "@hyperidle/domain-model";
 import { type JSX, useEffect, useState } from "react";
 import { apiFetch } from "../../services/api-fetch.js";
 

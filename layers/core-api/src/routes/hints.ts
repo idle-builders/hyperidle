@@ -17,8 +17,8 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import { isHintId } from "@hyperidle/shared";
-import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
+import { isHintId } from "@hyperidle/domain-model";
+import { type HyperIdleEnv, requireBoundary } from "@hyperidle/http-middleware";
 import { dismissHint, listDismissedHints } from "@hyperidle/users";
 import { Hono } from "hono";
 

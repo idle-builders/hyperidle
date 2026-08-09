@@ -14,7 +14,8 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"@electric-sql/pglite": "^0.5.4"
+		"@electric-sql/pglite": "^0.5.4",
+		"@hyperidle/domain-model": "*"
 	},
 	"devDependencies": {
 		"@hyperidle/agent-orchestration": "*",
@@ -23,7 +24,6 @@
 		"@hyperidle/harness-registry": "*",
 		"@hyperidle/remote-server": "*",
 		"@hyperidle/remote-worker": "*",
-		"@hyperidle/shared": "*",
 		"electron": "^43.1.1",
 		"electron-builder": "^26.15.3",
 		"esbuild": "^0.28.1",

@@ -11,11 +11,16 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
+		"@hyperidle/cron": "*",
 		"@hyperidle/db": "*",
-		"@hyperidle/shared": "*",
+		"@hyperidle/domain-model": "*",
+		"@hyperidle/factory-defaults": "*",
+		"@hyperidle/tool-protocol": "*",
 		"zod": "^4.3.6"
 	},
 	"devDependencies": {
+		"@hyperidle/event-bus": "*",
+		"@hyperidle/harness-protocol": "*",
 		"@hyperidle/settings": "*",
 		"@hyperidle/work": "*",
 		"drizzle-orm": "^0.45.2",

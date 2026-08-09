@@ -60,7 +60,7 @@ Draft and `needs_human` items sorted by `attentionScore` descending (unscored it
 
 ## 4. Data semantics (pointers)
 
-- **Statuses:** `draft | active | archived | needs_human` (`KERNEL_KNOWLEDGE_STATUSES`, `shared/src/types.ts:77`). Lifecycle and promotion → [facilitators](../knowledge-architecture/facilitators.md).
+- **Statuses:** `draft | active | archived | needs_human` (`KERNEL_KNOWLEDGE_STATUSES`, `framework/domain-model/src/types.ts:77`). Lifecycle and promotion → [facilitators](../knowledge-architecture/facilitators.md).
 - **Scope:** `scopeKind` (7-value closed enum) + `scopeId` on the kernel table; enum and store semantics → [the-canonical-store](../knowledge-architecture/the-canonical-store.md).
 - **No kind/layer columns** on `knowledge_items` — strategy fields (layer, kind, scoring) live on the fabric extension table (O2); taxonomy → [the-five-layers](../knowledge-architecture/the-five-layers.md).
 - **Shape:** owned by `framework/db/src/schema.ts` (id, scopeKind/scopeId, topic, title, body, format, status, version, updatedBy, timestamps).

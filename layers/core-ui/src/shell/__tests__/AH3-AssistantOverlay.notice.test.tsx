@@ -14,13 +14,12 @@
  * These tests FAIL until:
  *   - AssistantOverlay.tsx branches on payload.notice?.kind
  *   - useAssistantThread adds WS subscription (live-update support)
- *   - ASSISTANT_TURN_TIMEOUT_MS exported from @hyperidle/shared/constants
- *     (or framework/shared directly)
+ *   - ASSISTANT_TURN_TIMEOUT_MS exported from @hyperidle/domain-model
  */
 
-import type { Message } from "@hyperidle/shared";
-// AH3 RED: ASSISTANT_TURN_TIMEOUT_MS added to @hyperidle/shared in the green phase (plan §1.7b)
-import { ASSISTANT_TURN_TIMEOUT_MS } from "@hyperidle/shared";
+import type { Message } from "@hyperidle/domain-model";
+// AH3 RED: ASSISTANT_TURN_TIMEOUT_MS added to @hyperidle/domain-model in the green phase (plan §1.7b)
+import { ASSISTANT_TURN_TIMEOUT_MS } from "@hyperidle/domain-model";
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AssistantThreadState } from "../../hooks/useAssistantThread.js";

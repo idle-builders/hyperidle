@@ -1,6 +1,6 @@
 import type { HyperIdleDb, Routine } from "@hyperidle/db";
+import type { EventBus } from "@hyperidle/event-bus";
 import { getRoutine, provisionTeamRoutines } from "@hyperidle/routine";
-import type { EventBus } from "@hyperidle/shared";
 import { fireRoutine } from "../services/routine-scheduler-bindings.js";
 
 export async function fireStoredRoutine(

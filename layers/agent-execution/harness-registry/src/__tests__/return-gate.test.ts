@@ -10,8 +10,12 @@
  *   — the type system forces this, `npm run check` fails any omission).
  */
 
-import type { HarnessEvent } from "@hyperidle/shared";
-import * as sharedAll from "@hyperidle/shared";
+import {
+	FORCE_RETURN_MESSAGE,
+	type HarnessEvent,
+	MAX_FORCE_RETURNS,
+	shouldForceReturn,
+} from "@hyperidle/harness-protocol";
 import { describe, expect, it } from "vitest";
 import { BuiltinHarnessAdapter } from "../builtin-harness-adapter.js";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
@@ -25,16 +29,6 @@ const evaluateReturn = (
 	reason: "completed" | "crashed" | "stopped",
 ) => enforcement.evaluate(gate, reason);
 type ReturnVerdict = ReturnType<typeof evaluateReturn>;
-
-// biome-ignore lint/suspicious/noExplicitAny: accessing not-yet-exported members in red phase
-const sharedNs = sharedAll as Record<string, any>;
-
-const FORCE_RETURN_MESSAGE: string = sharedNs.FORCE_RETURN_MESSAGE;
-const MAX_FORCE_RETURNS: number = sharedNs.MAX_FORCE_RETURNS;
-const shouldForceReturn: (
-	gate: ReturnType<typeof createReturnGate>,
-	forceCount: number,
-) => string | null = sharedNs.shouldForceReturn;
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 

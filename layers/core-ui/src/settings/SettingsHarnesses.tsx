@@ -31,7 +31,7 @@ import {
 	SplitView,
 	StatusChip,
 } from "@hyperidle/design-system";
-import type { HarnessCapabilityDescriptor } from "@hyperidle/shared";
+import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import { type JSX, useCallback, useEffect, useState } from "react";
 import { CredentialsTab } from "../components/CredentialsTab.js";
 import { useUiPreference } from "../hooks/useUiPreference.js";

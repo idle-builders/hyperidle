@@ -7,7 +7,7 @@
  */
 
 import { CommentRow } from "@hyperidle/design-system";
-import type { Message } from "@hyperidle/shared";
+import type { Message } from "@hyperidle/domain-model";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 

@@ -2,7 +2,7 @@
  * AO1 RED — Integration tests for the Filesystem registry + per-bot injection primitive.
  *
  * These tests FAIL until the implementation ships:
- *   - `framework/shared/src/filesystem.ts` (FILESYSTEM_KINDS, types, FilesystemAuthResolver seam)
+ *   - `framework/filesystem-contract/src/filesystem.ts` (FILESYSTEM_KINDS, types, FilesystemAuthResolver seam)
  *   - `framework/db/src/schema.ts` (filesystems + filesystemInjections tables)
  *   - migration 0039_AO1_filesystems.sql applied
  *   - `packages/server/src/routes/filesystems.ts` (createFilesystemRoutes)

@@ -22,8 +22,8 @@
 
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
-import type { Filesystem, FilesystemMounter } from "@hyperidle/shared";
-import { EventBus } from "@hyperidle/shared";
+import { EventBus } from "@hyperidle/event-bus";
+import type { Filesystem, FilesystemMounter } from "@hyperidle/filesystem-contract";
 import { describe, vi } from "vitest";
 import { createProvisioner } from "../provisioner.js";
 

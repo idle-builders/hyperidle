@@ -12,8 +12,7 @@
  * so the ring-buffer's drop-oldest path is actually hit.
  */
 
-import type { ObservabilityEvent } from "@hyperidle/shared";
-import type { ObservabilityAdapter } from "@hyperidle/shared/observability";
+import type { ObservabilityAdapter, ObservabilityEvent } from "@hyperidle/diagnostics";
 import { describe, expect, it } from "vitest";
 import { createObservabilityDispatcher } from "../dispatcher.js";
 

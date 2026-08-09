@@ -1,5 +1,5 @@
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
-import type { EventBus } from "@hyperidle/shared";
+import type { EventBus } from "@hyperidle/event-bus";
 import { type TaskStateMachineDeps, transitionTask } from "./task-state-machine.js";
 import * as work from "./work-service.js";
 
@@ -9,7 +9,7 @@ import * as work from "./work-service.js";
  *
  * @lore AU26 H2 (§D-M.2): stopping a run is `agent-orchestration`'s state
  * transition, so `work` asks for it (Mechanism C — a nested Service may depend
- * only on `@hyperidle/db` + `@hyperidle/shared`, never on another Service
+ * only on `@hyperidle/db` + framework packages, never on another Service
  * directly). Wired at `routes/bets.ts` to `@hyperidle/run-orchestration`'s
  * `requestRunStopForTasks`.
  */

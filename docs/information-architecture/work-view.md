@@ -52,7 +52,7 @@ Stacked single column (L13, `layers/core-ui/src/pages/WorkTeam.tsx`), top to bot
 | **Team agents** (`team-agents`) | Flat `AgentRow` roster (AB2) | Add an agent |
 | **Artifacts** | `ArtifactSection` | Open artifact |
 
-The Capacity/Status stat strip lives here — not in the sidebar. It carries the WIP capacity tile only (`TeamBurn`, `framework/shared/src/team.ts`), backed by the `team_members.capacity` column (`framework/db/src/schema.ts`), not a per-team column. The rationale for bounding concurrency is owned by [wip-and-cost-limits](../process-layer/wip-and-cost-limits.md).
+The Capacity/Status stat strip lives here — not in the sidebar. It carries the WIP capacity tile only (`TeamBurn`, `framework/domain-model/src/team.ts`), backed by the `team_members.capacity` column (`framework/db/src/schema.ts`), not a per-team column. The rationale for bounding concurrency is owned by [wip-and-cost-limits](../process-layer/wip-and-cost-limits.md).
 
 ## 4. Bet create (`/work/bet/new`)
 
@@ -77,6 +77,6 @@ Reached from a bet row in Team View (`layers/core-ui/src/pages/WorkBet.tsx`).
 | **Artifacts** | `ArtifactSection` (bet axis, before the thread) | Open artifact |
 | **Discussion** | `HostThreadSection` chronological thread, "Write a message…" composer | Reply |
 
-**Statuses:** `draft | active | completed | killed` (`framework/shared/src/types.ts`), plus separate outcome verdicts mapped via `betOutcomeVerdictToStatus`. Lifecycle authority: [bets-shape-commit-change-ship](../process-layer/bets-shape-commit-change-ship.md).
+**Statuses:** `draft | active | completed | killed` (`framework/domain-model/src/types.ts`), plus separate outcome verdicts mapped via `betOutcomeVerdictToStatus`. Lifecycle authority: [bets-shape-commit-change-ship](../process-layer/bets-shape-commit-change-ship.md).
 
 **Kill:** `ConsequencePreviewDialog` — the reason field is required; empty reason disables the confirm button (`WorkBet.tsx:271-342`). Pause/resume were removed (AD5) — kill is the only terminal action.

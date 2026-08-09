@@ -1,5 +1,5 @@
 import type { HyperIdleDb } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
+import { EventBus } from "@hyperidle/event-bus";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RuntimeDeps, RuntimeHandle, RuntimePorts } from "../contracts.js";
 

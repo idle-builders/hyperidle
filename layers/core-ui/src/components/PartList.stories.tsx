@@ -1,4 +1,4 @@
-import type { Part } from "@hyperidle/shared";
+import type { Part } from "@hyperidle/conversation-parts";
 import type { JSX } from "react";
 import { PartList } from "./PartList.js";
 

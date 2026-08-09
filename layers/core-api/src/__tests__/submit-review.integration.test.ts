@@ -20,8 +20,9 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { EventBus, type ToolContext } from "@hyperidle/shared";
+import { EventBus } from "@hyperidle/event-bus";
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
+import type { ToolContext } from "@hyperidle/tool-protocol";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test as baseTest } from "../__testing__/test-fixtures.js";

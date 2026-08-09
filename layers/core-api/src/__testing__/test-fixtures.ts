@@ -1,7 +1,7 @@
 import { registerAssistantThreadPinReaction } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { type DbFixtures, test as dbTest } from "@hyperidle/db/test-fixtures";
-import { EventBus } from "@hyperidle/shared";
+import { EventBus } from "@hyperidle/event-bus";
 import { findUser } from "@hyperidle/users";
 import type { Hono } from "hono";
 import { disposeApp } from "../app.js";

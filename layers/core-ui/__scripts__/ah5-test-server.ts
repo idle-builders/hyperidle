@@ -36,10 +36,10 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { encryptCredentialValue } from "@hyperidle/credential-access";
 import { applyMigrations, createPgliteDb, serverCredentials } from "@hyperidle/db";
 import { createLocalAdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
 import { createServer } from "@hyperidle/remote-server/create-server";
-import { encryptCredentialValue } from "@hyperidle/shared/crypto";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 

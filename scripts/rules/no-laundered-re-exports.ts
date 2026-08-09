@@ -14,8 +14,9 @@
  * only enforcement was the comment. The same hop nullifies audiences generally: re-export a
  * narrow-reach `framework/api-contract` symbol (reach `[layer]`) from a service barrel and its
  * audience is void — AU29: the previous illustrative example, `db:util`'s `escapeLikePattern`, no
- * longer exists as a narrow surface — its exports moved to `framework/shared` (reach `everyone`),
- * so `framework/db` carries no narrow-reach surface at all today.
+ * longer exists as a narrow surface — its exports left `framework/db` entirely, so the database
+ * package carries no narrow-reach surface at all today. (`escapeLikePattern` has a narrow home
+ * again, `framework/query-escaping`, but on the framework side of the line, not the db one.)
  *
  * @lore AU28 — why a STANDALONE rule and not a new crossing kind. A new `Kind` would force an edit to
  * the frozen kind union and to the hardcoded kind list in the decided-verdict test, and it would
@@ -29,8 +30,8 @@
  * boundary in an `export … from`, not even from its owner: owner-ship is exactly the laundering
  * vector, since the owner re-exporting its own table is what lets its layer obtain it. (2) Everything
  * else is forbidden only when the surface's audience is narrower than `everyone` — re-exporting
- * `framework/shared` launders nothing, any consumer could import it directly, and most of the live
- * cross-package re-exports are exactly that. Without (2) the rule dies of noise on its first day.
+ * `framework/domain-model` launders nothing, any consumer could import it directly, and every live
+ * cross-package re-export is exactly that. Without (2) the rule dies of noise on its first day.
  * (3) A WITHIN-package re-export is out of scope: a package's own barrel re-exporting its own module
  * IS the surface's publication.
  *

@@ -143,7 +143,7 @@ export interface CreateItemResponse {
 /**
  * Mirrors `POST /artifacts`'s validated request body (`createArtifactSchema`,
  * `routes/artifacts.ts`). `preview` is opaque (Mechanism C: `tool-handlers`
- * never imports `@hyperidle/shared`'s `ArtifactPreview` union here) — the
+ * never imports `@hyperidle/domain-model`'s `ArtifactPreview` union here) — the
  * route validates/serializes it; this seam only forwards it.
  */
 export interface CreateArtifactRequest {

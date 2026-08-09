@@ -22,13 +22,13 @@ The founder replies in the thread. Mika starts a new session with the answer and
 
 ## Three agent categories
 
-Agents come in three categories — `team | strategy | individual` (`AGENT_CATEGORIES`, `framework/shared/src/types.ts:134`; `users.agent_category` in `framework/db/src/schema.ts`). Full taxonomy, identity, and lifecycle: [agent model](../agent-layer/agent-model.md).
+Agents come in three categories — `team | strategy | individual` (`AGENT_CATEGORIES`, `framework/domain-model/src/types.ts:134`; `users.agent_category` in `framework/db/src/schema.ts`). Full taxonomy, identity, and lifecycle: [agent model](../agent-layer/agent-model.md).
 
 - **Assistant** — individual, one per human user, created at registration. Holds a persistent thread with its user. Proposes changes to factory-level documents (`PRINCIPLES.md`, `FOCUS.md`). Drafts the monthly portfolio retro (`builtin:portfolio-retro`).
 - **Facilitators** — strategy agents, one per community of practice (build, product, growth, ops, facilitation). Each watches what all agents in its community learn, merges duplicates, resolves conflicts, surfaces items for human review.
 - **Product Managers** — team agents, one per team. The team lead: coordinates handoffs, runs retros.
 
-The matrix is explicit: each agent reports vertically to their Product Manager and belongs horizontally to a community (`communityForRole`, `framework/shared/src/agent-roles.ts`). A Builder on Ambrovia reports to the Ambrovia PM and belongs to the Build community. When the Build community learns something from a different product, the Ambrovia Builder gets it at the next session.
+The matrix is explicit: each agent reports vertically to their Product Manager and belongs horizontally to a community (`communityForRole`, `framework/domain-model/src/agent-roles.ts`). A Builder on Ambrovia reports to the Ambrovia PM and belongs to the Build community. When the Build community learns something from a different product, the Ambrovia Builder gets it at the next session.
 
 ---
 

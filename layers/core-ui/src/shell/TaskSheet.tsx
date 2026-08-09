@@ -44,10 +44,10 @@ export interface KanbanTask {
 	id: string;
 	title: string;
 	owner: string;
-	state: import("@hyperidle/shared").TaskState;
+	state: import("@hyperidle/domain-model").TaskState;
 	betTag?: string;
 	// L19: latest session metadata (all optional — callers that don't have session data don't break)
-	latestSessionOutcome?: import("@hyperidle/shared").SessionOutcome | null;
+	latestSessionOutcome?: import("@hyperidle/domain-model").SessionOutcome | null;
 	latestSessionTokensInput?: number | null;
 	latestSessionTokensOutput?: number | null;
 	latestSessionHarnessUrl?: string | null;

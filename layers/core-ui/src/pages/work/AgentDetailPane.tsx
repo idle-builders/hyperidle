@@ -13,8 +13,8 @@
 
 // hearth-internal-padding
 import { Avatar, Button, Select } from "@hyperidle/design-system";
-import type { RosterMember } from "@hyperidle/shared";
-import { findRoleCatalogEntry, MODEL_TIERS } from "@hyperidle/shared";
+import type { RosterMember } from "@hyperidle/domain-model";
+import { findRoleCatalogEntry, MODEL_TIERS } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../../services/api-fetch.js";
 import type { AgentConfig } from "../../settings/settings-types.js";

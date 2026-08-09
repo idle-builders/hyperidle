@@ -22,7 +22,7 @@
  * ## The rule changed, deliberately
  *
  * The old trigger was a RATIO — `failureRate7d > 0.5 || lastSessionCrashed`
- * (`deriveHealthLevel`, `framework/shared/src/agent-run-view.ts`), computed from
+ * (`deriveHealthLevel`, `framework/domain-model/src/agent-run-view.ts`), computed from
  * the agent's raw run rows. A ratio is structurally unexpressible here: the
  * notification system is told when a run CRASHES and is never told when one
  * succeeds, so it has no denominator and must never invent one. With founder
@@ -32,7 +32,7 @@
  *     inside AGENT_FAILURE_WINDOW_DAYS.
  *
  * `deriveHealthLevel` / `computeHealthSignals` / `deriveHealthDetail` stay in
- * `@hyperidle/shared` untouched — the team page still uses them for its own
+ * `@hyperidle/domain-model` untouched — the team page still uses them for its own
  * health dots, computed browser-side from `agent-orchestration`'s own API. What
  * changed is what drives the NOTIFICATION, not what drives the screens.
  *
@@ -66,10 +66,11 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
+import { createLogger } from "@hyperidle/diagnostics";
+import type { SessionEndedEvent } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import { enqueue, listNotifications } from "@hyperidle/notifications";
 import { getTeam, getTeamMembers } from "@hyperidle/org";
-import type { EventBus, SessionEndedEvent } from "@hyperidle/shared";
-import { createLogger } from "@hyperidle/shared";
 import { findUser } from "@hyperidle/users";
 
 const logger = createLogger({ pkg: "core-api.agent-health-session-end-reactions" });

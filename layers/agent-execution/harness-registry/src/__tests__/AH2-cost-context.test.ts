@@ -9,7 +9,7 @@
  *  - context-window.ts MODEL_CONTEXT_WINDOWS is re-keyed to catalog ids
  */
 
-import { MODEL_CATALOG } from "@hyperidle/shared";
+import { MODEL_CATALOG } from "@hyperidle/domain-model";
 import { describe, expect, it } from "vitest";
 import { MODEL_CONTEXT_WINDOWS, modelContextWindow } from "../context-window.js";
 

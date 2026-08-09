@@ -28,13 +28,11 @@
  */
 
 import { Button, Input } from "@hyperidle/design-system";
+import { AGENT_ROLE_CATALOG, defaultRoster, TEAM_FUNCTIONS } from "@hyperidle/domain-model";
 import {
-	AGENT_ROLE_CATALOG,
-	defaultRoster,
 	derivePrimaryHarness,
 	type HarnessCapabilityDescriptor,
-	TEAM_FUNCTIONS,
-} from "@hyperidle/shared";
+} from "@hyperidle/harness-capability";
 import {
 	type ChangeEvent,
 	type FormEvent,

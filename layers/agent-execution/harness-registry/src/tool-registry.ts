@@ -15,7 +15,7 @@
  * every DB touch (`captureProposedCall`/`consumeTailoredGrant`/
  * `recordOutcome`, previously raw `@hyperidle/db` queries against
  * `proposedCalls`/`tailoredGrants`/`operationOutcomes`) now goes through the
- * injected `ProposedCallWorkflowPort<TDb>` (`@hyperidle/shared`), concretely
+ * injected `ProposedCallWorkflowPort<TDb>` (`@hyperidle/tool-protocol`), concretely
  * wired by the composition root to `@hyperidle/review`'s owned exports
  * (`review` owns those three tables — Table ACL, Mechanism A). Zero domain
  * Service or `@hyperidle/db` import here (Mechanism B, enforced literally
@@ -34,7 +34,7 @@ import {
 	type ToolRegistry,
 	type ToolResult,
 	toClaudeToolSpec,
-} from "@hyperidle/shared";
+} from "@hyperidle/tool-protocol";
 
 /**
  * Build a fresh registry bound to the given context, filtered to the agent's

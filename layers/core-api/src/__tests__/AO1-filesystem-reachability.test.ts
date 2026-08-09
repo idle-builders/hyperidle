@@ -22,7 +22,7 @@
  * `@hyperidle/filesystems`; imports repointed there. This test file itself
  * STAYS in `packages/server` — `probeGitRemote`/`resolveFilesystemState` now
  * take a REQUIRED `gitRunnerFactory` port (`FilesystemsGitRunnerFactory`).
- * AU26 A2/C1: `createGitRunner` now comes from `@hyperidle/shared/git` (the
+ * AU26 A2/C1: `createGitRunner` now comes from `@hyperidle/host-process` (the
  * `git-export` package that used to host it is deleted), closing this
  * forward-reference (same "closing" idiom as `work`'s `UserStoreReader` → `users`).
  */
@@ -31,10 +31,10 @@ import * as cp from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import type { FilesystemAuthResolver } from "@hyperidle/filesystem-contract";
+import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/filesystem-contract";
 import { resolveFilesystemState } from "@hyperidle/filesystems";
-import type { FilesystemAuthResolver } from "@hyperidle/shared";
-import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/shared";
-import { createGitRunner } from "@hyperidle/shared/git";
+import { createGitRunner } from "@hyperidle/host-process";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 // ─── Lane A: Hermetic temp-repo setup ────────────────────────────────────────

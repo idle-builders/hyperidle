@@ -1,4 +1,4 @@
-import type { InlineNode } from "@hyperidle/shared";
+import type { InlineNode } from "@hyperidle/domain-model";
 import type { JSX, ReactNode } from "react";
 
 /** Render an inline tree to React nodes. Pure, no sanitisation needed (text only). */

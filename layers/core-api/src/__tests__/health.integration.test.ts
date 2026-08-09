@@ -1,4 +1,4 @@
-import type { HealthResponse } from "@hyperidle/shared";
+import type { HealthResponse } from "@hyperidle/domain-model";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
 
 describe("GET /health", () => {

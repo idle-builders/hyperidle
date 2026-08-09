@@ -12,7 +12,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import type { BetStateChangedEvent, DomainEvent } from "@hyperidle/shared";
+import type { BetStateChangedEvent, DomainEvent } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import { registerBuiltinRoutineReactions } from "../services/routine-scheduler-bindings.js";

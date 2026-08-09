@@ -11,15 +11,15 @@
  */
 
 import type {
+	AdapterMeta,
 	HarnessAdapter,
 	HarnessCapabilities,
 	HarnessEvent,
 	SessionConfig,
 	SessionHandle,
 	SessionResult,
-} from "@hyperidle/shared";
+} from "@hyperidle/harness-protocol";
 import { describe, expect, it } from "vitest";
-import type { AdapterMeta } from "../adapter-pool.js";
 import { AdapterPool } from "../adapter-pool.js";
 
 // ── Minimal stub adapter ─────────────────────────────────────────────────────

@@ -6,7 +6,7 @@
  * Short-reasoning inline.
  */
 
-import type { Message } from "@hyperidle/shared";
+import type { Message } from "@hyperidle/domain-model";
 import type React from "react";
 import { useState } from "react";
 import { RichMessageCard } from "./RichMessageCard.js";

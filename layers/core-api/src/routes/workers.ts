@@ -5,8 +5,8 @@
  * Returns AdapterInfo[] — one entry per registered adapter.
  */
 
-import { type HarnessCapabilityReader, workerConnections } from "@hyperidle/shared";
-import { constantTimeStringEqual, requireBoundary } from "@hyperidle/shared/http";
+import { type HarnessCapabilityReader, workerConnections } from "@hyperidle/harness-protocol";
+import { constantTimeStringEqual, requireBoundary } from "@hyperidle/http-middleware";
 import { Hono } from "hono";
 
 /**

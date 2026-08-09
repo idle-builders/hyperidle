@@ -1,6 +1,6 @@
 /**
  * L1a — Zod schemas for the `/api/threads` route. Lives in the server
- * package (not `@hyperidle/shared`) per plan §13 Risk 2: shared stays
+ * package (not `@hyperidle/domain-model`) per plan §13 Risk 2: the domain model stays
  * type-only and free of the runtime `zod` dependency.
  */
 
@@ -10,7 +10,7 @@ import {
 	HOST_KINDS,
 	type MESSAGE_TYPES,
 	VERDICT_DECISIONS,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
 import z from "zod";
 
 // `clientKey` URL-safe regex: [A-Za-z0-9_\-:.], length 8-128 chars (plan
@@ -79,7 +79,7 @@ const artifactRefSchema = z.object({
 });
 
 /**
- * AH3: Assistant notice schema — mirrors AssistantNotice in @hyperidle/shared.
+ * AH3: Assistant notice schema — mirrors AssistantNotice in @hyperidle/domain-model.
  *
  * @lore AH3 H2: This schema MUST be present on the READ path (plainPayloadSchemaWithToolCalls).
  * Zod strips unknown keys by default; without this field the `notice` written by
@@ -118,7 +118,7 @@ const plainPayloadSchema = z.object({
 
 /**
  * AD8b: ToolCallSummary schema — validates a single tool-call record.
- * Mirrors the ToolCallSummary type in @hyperidle/shared.
+ * Mirrors the ToolCallSummary type in @hyperidle/domain-model.
  */
 const toolCallSummarySchema = z.object({
 	name: z.string().min(1),

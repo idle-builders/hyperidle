@@ -17,13 +17,29 @@
  *
  * @lore Q2: scope_kind lives on the kernel knowledgeItems table so every item
  * knows where it belongs, regardless of which strategy app projection is used.
- * scopeToLayer() from @hyperidle/shared maps scope_kind to projection layer.
+ * scopeToLayer() from @hyperidle/domain-model maps scope_kind to projection layer.
  * The assignment is done inline (not via event) so the projection row is immediately
  * visible to the caller — this is a pragmatic boundary compromise per the Q2 lore.
  */
 
 import { insertThread } from "@hyperidle/conversation";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
+import type { ApiErrorResponse } from "@hyperidle/domain-model";
+import {
+	type AgentWorkIntentEvent,
+	API_ERROR_CODES,
+	KNOWLEDGE_LAYERS,
+	type KnowledgeAccessedEvent,
+	type KnowledgeArchivedEvent,
+	type KnowledgeCreatedEvent,
+	type KnowledgeUpdatedEvent,
+	roleLabel,
+	SCOPE_KINDS,
+	SCOPES_REQUIRING_ID,
+	scopeToLayer,
+} from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
+import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/http-middleware";
 import {
 	remove as archiveKnowledgeItem,
 	countAccesses,
@@ -43,26 +59,10 @@ import {
 	VersionConflictError,
 } from "@hyperidle/knowledge";
 import { getTeam, getTeamMembers, listTeamMembers } from "@hyperidle/org";
+import { scopeKindToLabel } from "@hyperidle/presentation-format";
 import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
-import type { ApiErrorResponse } from "@hyperidle/shared";
-import {
-	type AgentWorkIntentEvent,
-	API_ERROR_CODES,
-	type EventBus,
-	KNOWLEDGE_LAYERS,
-	type KnowledgeAccessedEvent,
-	type KnowledgeArchivedEvent,
-	type KnowledgeCreatedEvent,
-	type KnowledgeUpdatedEvent,
-	roleLabel,
-	SCOPE_KINDS,
-	SCOPES_REQUIRING_ID,
-	scopeKindToLabel,
-	scopeToLayer,
-} from "@hyperidle/shared";
-import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/shared/http";
 import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
@@ -106,7 +106,7 @@ const KNOWLEDGE_STATUSES = ["draft", "active", "archived", "needs_human"] as con
  * - product → no entity table → scopeKindToLabel("product")
  * - practice → roleLabel(scopeId) for agent role ids; empty → scopeKindToLabel("practice")
  *
- * Every fallback is scopeKindToLabel(kind) from @hyperidle/shared — single source of truth.
+ * Every fallback is scopeKindToLabel(kind) from @hyperidle/presentation-format — single source of truth.
  * Never returns a raw UUID.
  *
  * @lore AU26 F2 (founder ruling): the `filesystem` branch — the one that read
@@ -115,7 +115,7 @@ const KNOWLEDGE_STATUSES = ["draft", "active", "archived", "needs_human"] as con
  * core-side use of the record; removing it is what let the record follow its
  * mounting engine into agent-orchestration.
  *
- * @lore AV3: Promoted scopeKindToLabel to @hyperidle/shared so server fallback === web fallback.
+ * @lore AV3: Promoted scopeKindToLabel to @hyperidle/presentation-format so server fallback === web fallback.
  * @lore AV3 U1: team scopeId may be teams.id OR team_members.id (two-hop join). Resolve by
  * querying teams first; on miss query teamMembers then teams on that teamId; on final miss fallback.
  */
@@ -187,7 +187,7 @@ export async function resolveScopeName(
 /**
  * Q2: Scope kinds that require a scopeId from the caller.
  * factory and user auto-assign their scope from context — no external id needed.
- * Defined once in @hyperidle/shared; imported here for the server-side guard.
+ * Defined once in @hyperidle/domain-model; imported here for the server-side guard.
  */
 function requiresScopeId(kind: string): boolean {
 	return SCOPES_REQUIRING_ID.has(kind as Parameters<typeof SCOPES_REQUIRING_ID.has>[0]);

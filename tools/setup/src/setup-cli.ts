@@ -1,7 +1,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { type DeploymentProfile, redactDbUrl, resolveProfile } from "@hyperidle/shared";
+import { redactDbUrl } from "@hyperidle/diagnostics";
+import { type DeploymentProfile, resolveProfile } from "@hyperidle/host-process";
 import { seedDemoWorld } from "./demo-fixture.js";
 import { runFactoryBootstrap } from "./factory-bootstrap-runner.js";
 

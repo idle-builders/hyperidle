@@ -6,7 +6,7 @@
  * — the wrong home for the buffer under this model... exposed to the UI via
  * `AgentOrchestrationPort` as the gateway door." The buffer itself belongs to
  * `agent-execution` (where tokens/tool-calls originate) — it imports only
- * `@hyperidle/shared` types and touches no DB/Drizzle, so it carries no
+ * framework types and touches no DB/Drizzle, so it carries no
  * persistence concern into a Layer that must stay thin (Mechanism B).
  *
  * `../session-activity-buffer.js` does not exist yet in this package — the
@@ -19,8 +19,8 @@
  * the class.
  */
 
-import type { ActivityEntry, ToolCallRecordedEvent } from "@hyperidle/shared";
-import { EventBus } from "@hyperidle/shared";
+import type { ActivityEntry, ToolCallRecordedEvent } from "@hyperidle/domain-model";
+import { EventBus } from "@hyperidle/event-bus";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // NOT YET CREATED — this import failing to resolve is this file's primary RED signal.
 import { SessionActivityBuffer } from "../session-activity-buffer.js";

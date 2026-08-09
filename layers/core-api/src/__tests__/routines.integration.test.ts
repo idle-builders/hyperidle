@@ -8,7 +8,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import type { DomainEvent } from "@hyperidle/shared";
+import type { DomainEvent } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";

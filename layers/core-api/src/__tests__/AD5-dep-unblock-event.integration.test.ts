@@ -11,7 +11,7 @@
  */
 
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
-import type { TaskStateChangedEvent } from "@hyperidle/shared";
+import type { TaskStateChangedEvent } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";

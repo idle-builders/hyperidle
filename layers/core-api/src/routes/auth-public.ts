@@ -10,9 +10,9 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { ApiErrorResponse } from "@hyperidle/shared";
-import { API_ERROR_CODES } from "@hyperidle/shared";
-import { requireBoundary } from "@hyperidle/shared/http";
+import type { ApiErrorResponse } from "@hyperidle/domain-model";
+import { API_ERROR_CODES } from "@hyperidle/domain-model";
+import { requireBoundary } from "@hyperidle/http-middleware";
 import { claimInvite } from "@hyperidle/users";
 import { Hono } from "hono";
 

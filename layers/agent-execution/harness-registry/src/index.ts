@@ -1,10 +1,3 @@
-export type {
-	AdapterInfo,
-	AdapterMeta,
-	HarnessAdapter,
-	HarnessCapabilityDescriptor,
-	ToolRegistry,
-} from "@hyperidle/shared";
 export {
 	type AdapterFilter,
 	AdapterPool,

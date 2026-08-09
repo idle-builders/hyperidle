@@ -1,0 +1,23 @@
+{
+	"name": "@hyperidle/domain-model",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"check": "tsc --noEmit"
+	},
+	"devDependencies": {
+		"@hyperidle/block-derivation": "*",
+		"@hyperidle/harness-capability": "*",
+		"@hyperidle/http-middleware": "*",
+		"@hyperidle/work-intent-port": "*",
+		"hono": "^4.12.27",
+		"vitest": "^4.1.9"
+	},
+	"dependencies": {
+		"zod": "^4.3.6"
+	}
+}

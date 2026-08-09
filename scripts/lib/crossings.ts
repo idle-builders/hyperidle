@@ -52,7 +52,7 @@ export interface CrossingsInput {
 	readonly eventTypesModule: string;
 	readonly db: DbSurfaceIndex;
 	readonly tableOwners: TableOwners;
-	/** Framework package name → the surface label it is named by, e.g. `shared` → `framework/shared`. */
+	/** Framework package name → the surface label it is named by, e.g. `db` → `framework/db`. */
 	readonly frameworkSurfaces: ReadonlyMap<string, string>;
 }
 

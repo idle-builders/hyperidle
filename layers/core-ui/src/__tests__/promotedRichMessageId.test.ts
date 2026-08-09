@@ -10,11 +10,11 @@
  *
  * @lore L11 step5: tests fail with "promotedRichMessageId is not a
  * function" / unresolved import until plan T1 lands the helper in
- * framework/shared/src/thread.ts and exports it from index.ts.
+ * framework/domain-model/src/thread.ts and exports it from index.ts.
  */
 
-import type { Message, Thread } from "@hyperidle/shared";
-import { promotedRichMessageId } from "@hyperidle/shared";
+import type { Message, Thread } from "@hyperidle/domain-model";
+import { promotedRichMessageId } from "@hyperidle/domain-model";
 import { describe, expect, it } from "vitest";
 
 const THREAD_ID = "t-1";

@@ -15,7 +15,7 @@ import {
 	EmptyState,
 	ErrorState,
 } from "@hyperidle/design-system";
-import type { Artifact } from "@hyperidle/shared";
+import type { Artifact } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { useArtifacts } from "../../hooks/useArtifacts.js";
 

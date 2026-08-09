@@ -14,8 +14,9 @@
  * `assertNeverPart` gives compile-time exhaustiveness AND a runtime UnknownPart.
  */
 
-import type { OpenHandler, Part } from "@hyperidle/shared";
-import { clockTime, groupParts } from "@hyperidle/shared";
+import type { OpenHandler, Part } from "@hyperidle/conversation-parts";
+import { groupParts } from "@hyperidle/conversation-parts";
+import { clockTime } from "@hyperidle/presentation-format";
 import type { JSX } from "react";
 import { ProsePart } from "./parts/ProsePart.js";
 import { QuestionnairePart } from "./parts/QuestionnairePart.js";

@@ -17,7 +17,7 @@ App-runtime projects the same rows two ways:
 | Agents | Plain files in the session sandbox (`context/factory`, `context/product`, `context/practices`) + one TOON pack (`context/session.toon`) |
 | Humans | Knowledge and Work views in the web UI |
 
-Scope maps to layer via `SCOPE_TO_LAYER` (`framework/shared/src/knowledge.ts:6-14`): factory→L4, product→L2, practice→L3, task→L1; bet/team/user carry no layer. The L0–L4 taxonomy is owned by [the-five-layers.md](the-five-layers.md).
+Scope maps to layer via `SCOPE_TO_LAYER` (`framework/domain-model/src/knowledge.ts:6-14`): factory→L4, product→L2, practice→L3, task→L1; bet/team/user carry no layer. The L0–L4 taxonomy is owned by [the-five-layers.md](the-five-layers.md).
 
 **If a file is human-readable, that means a human will actually read it.** Not "could theoretically read." Will. If no human will ever read it, it has no business being markdown — that's just token waste and version-control noise. Agent-only session state ships as TOON; human-curated knowledge ships as markdown.
 
@@ -29,7 +29,7 @@ Promoting a knowledge item into a draft bet (and the forward/reverse edge distin
 
 The API server reads `knowledge_items` and serves the Knowledge view (`layers/core-api/src/routes/knowledge.ts`). The kernel API is `/:id`-shaped and layer-free. The UI's scope pills are **All / Shared / Team / Private**, filtering on `scopeKind` (`layers/core-ui/src/utils/scope-labels.ts:55-59`, `SCOPE_PILL_OPTIONS`) — not on layer.
 
-**Body-as-blocks.** `knowledge_items.body` stays markdown text; the Block list is derived on read (`framework/shared/src/blocks/derive-blocks.ts`) with stable derived ids, and per-block discussion anchors via `messages.block_id` (`framework/db/src/schema.ts:788`). No `blocks` table mirrors the body; clients never compute block ids; optimistic locking stays at body granularity. The Block primitive is owned by [docs/blocks/](../blocks/index.md).
+**Body-as-blocks.** `knowledge_items.body` stays markdown text; the Block list is derived on read (`framework/block-derivation/src/blocks/derive-blocks.ts`) with stable derived ids, and per-block discussion anchors via `messages.block_id` (`framework/db/src/schema.ts:788`). No `blocks` table mirrors the body; clients never compute block ids; optimistic locking stays at body granularity. The Block primitive is owned by [docs/blocks/](../blocks/index.md).
 
 **Write path.** Optimistic locking on the `version` column — no locks held during editing:
 
@@ -109,7 +109,7 @@ L3 practices:  items for communityForRole(agentRole)   (role-community-map.ts)
 
 Only L4/L2/L3 are assembled; L0/L1 items are never projected. The combined set is then scored against the task description and trimmed to the token budget via `rank(…)` (`relevance-scoring.ts:209-216`, which defaults to `DEFAULT_KNOWLEDGE_BUDGET` from `scoring-config.ts`) — "load what you need, nothing more" is implemented, not aspirational. Scoring and budget are owned by [relevance-and-attention.md](relevance-and-attention.md).
 
-**TOON reality** (spec: [github.com/toon-format/toon](https://github.com/toon-format/toon); codec at `framework/shared/src/toon-codec.ts`): the only TOON artifact is `context/session.toon`, built from task, bet, team, user, and routine state. Knowledge items — including practices — are always written as markdown; per-item TOON packing was never built.
+**TOON reality** (spec: [github.com/toon-format/toon](https://github.com/toon-format/toon); codec at `framework/toon-codec/src/toon-codec.ts`): the only TOON artifact is `context/session.toon`, built from task, bet, team, user, and routine state. Knowledge items — including practices — are always written as markdown; per-item TOON packing was never built.
 
 ## 4. Why context assembly, not FUSE
 

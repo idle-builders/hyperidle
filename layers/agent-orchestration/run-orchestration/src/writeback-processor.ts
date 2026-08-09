@@ -2,7 +2,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
-import type { EventBus } from "@hyperidle/shared";
+import type { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 
 // ---- capture-writeback-ports ----

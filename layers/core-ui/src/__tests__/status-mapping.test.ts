@@ -10,7 +10,7 @@ import {
 	type KnowledgeStatus,
 	TASK_STATES,
 	type TaskState,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
 import { describe, expect, it } from "vitest";
 
 /** All legal presentation Status values, used to assert exhaustive coverage. */

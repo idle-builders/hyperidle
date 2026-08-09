@@ -25,6 +25,15 @@
  */
 
 import type { HyperIdleDb, Session } from "@hyperidle/db";
+import { type ActivityEntry, API_ERROR_CODES } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
+import {
+	type HyperIdleEnv,
+	projectExplicitStartOutcome,
+	requireBoundary,
+	sendStartProjection,
+	validateBody,
+} from "@hyperidle/http-middleware";
 import {
 	endSessionByCas,
 	findSessionById,
@@ -32,14 +41,6 @@ import {
 	recordSessionMetadata,
 } from "@hyperidle/run-orchestration";
 import { findSessionRequest, sessionRunRegistry } from "@hyperidle/session-requests";
-import { type ActivityEntry, API_ERROR_CODES, type EventBus } from "@hyperidle/shared";
-import {
-	type HyperIdleEnv,
-	projectExplicitStartOutcome,
-	requireBoundary,
-	sendStartProjection,
-	validateBody,
-} from "@hyperidle/shared/http";
 import { Hono } from "hono";
 import z from "zod";
 import { transitionRun } from "../services/run-transition.js";
@@ -231,7 +232,7 @@ export function createOrchestrationSessionRoutes(
 	});
 
 	// GET /starts/:startId — the explicit-start projection for the caller's own
-	// start. The projection itself is `@hyperidle/shared/http`'s pure
+	// start. The projection itself is `@hyperidle/http-middleware`'s pure
 	// `projectExplicitStartOutcome` (A1), shared with core-hosted `POST /` so one
 	// wire shape has exactly one implementation; only the `sessions` row READ is
 	// per-caller — this side reads it in-layer, core's side goes through the port.

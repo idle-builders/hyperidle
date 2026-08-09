@@ -1,8 +1,9 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { agentSessionRequests, bets, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
+import type { AgentSessionRequestInput } from "@hyperidle/domain-model";
+import { EventBus } from "@hyperidle/event-bus";
 import { createSessionRequest } from "@hyperidle/session-requests";
-import { type AgentSessionRequestInput, EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, vi } from "vitest";
 import { runSession as executeAgentRunRequest } from "../runtime.js";

@@ -9,7 +9,7 @@
  * `@hyperidle/db/test-fixtures` directly.
  */
 
-import { EventBus } from "@hyperidle/shared";
+import { EventBus } from "@hyperidle/event-bus";
 import { test as base } from "vitest";
 
 export interface OrchestrationFixtures {

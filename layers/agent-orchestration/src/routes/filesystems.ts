@@ -27,6 +27,8 @@
 // Application-applied to that shared router and reaches this module unchanged.
 
 import type { HyperIdleDb } from "@hyperidle/db";
+import type { Filesystem, FilesystemAuthResolver } from "@hyperidle/filesystem-contract";
+import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/filesystem-contract";
 import {
 	deleteFilesystem,
 	deleteInjection,
@@ -39,15 +41,13 @@ import {
 	saveFilesystem,
 	updateFilesystemState,
 } from "@hyperidle/filesystems";
-import type { Filesystem, FilesystemAuthResolver } from "@hyperidle/shared";
-import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/shared";
-import { createGitRunner } from "@hyperidle/shared/git";
+import { createGitRunner } from "@hyperidle/host-process";
 import {
 	createBodyLimit,
 	type HyperIdleEnv,
 	requireBoundary,
 	validateBody,
-} from "@hyperidle/shared/http";
+} from "@hyperidle/http-middleware";
 import { Hono } from "hono";
 import { z } from "zod";
 
@@ -116,7 +116,7 @@ function rowToFilesystem(row: FilesystemRow): Filesystem {
  *
  * @lore AU20 R-filesystems: NoopAuthResolver and ServiceConnectionResolverAdapter
  * classes deleted from @hyperidle/filesystems barrel — caller-site inline objects
- * satisfy the structural FilesystemAuthResolver interface from @hyperidle/shared.
+ * satisfy the structural FilesystemAuthResolver interface from @hyperidle/filesystem-contract.
  * ServiceConnectionResolver.resolve(userId, connectionId) is the only plaintext
  * path; sourceOf always returns null (service name derivation not needed here —
  * falls through to body.sourceHint ?? "unknown").
@@ -159,7 +159,7 @@ async function checkAndPersistState(
 ): Promise<FilesystemRow> {
 	const newState = await resolveFilesystemState(row, {
 		authResolver,
-		// AU26 A2/C1: `createGitRunner` comes from `@hyperidle/shared/git`; the
+		// AU26 A2/C1: `createGitRunner` comes from `@hyperidle/host-process`; the
 		// `git-export` package it used to live in is deleted. Closes `filesystems`' Increment 2b
 		// `FilesystemsGitRunnerFactory` forward-reference. See
 		// `@hyperidle/filesystems`' `ports.ts` top `@lore`.
@@ -266,7 +266,7 @@ export function createFilesystemRoutes(
 		validateBody(z.object({ path: z.string().min(1) })),
 		async (c) => {
 			const { path } = c.req.valid("json");
-			// AU26 A2/C1: `createGitRunner` comes from `@hyperidle/shared/git`; the
+			// AU26 A2/C1: `createGitRunner` comes from `@hyperidle/host-process`; the
 			// `git-export` package it used to live in is deleted. See `@hyperidle/filesystems`'
 			// `ports.ts` top `@lore`.
 			const info = await inspectLocalPath(path, { gitRunnerFactory: createGitRunner });

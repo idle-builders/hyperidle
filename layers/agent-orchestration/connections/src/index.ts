@@ -27,10 +27,10 @@
  * a spawn calls; nothing about connections rides an emitted intent any more, so
  * there is no snapshot left to go stale between emit and drain (AC1(c)).
  *
- * Mechanism C: this Service depends on `@hyperidle/db` + `@hyperidle/shared`
+ * Mechanism C: this Service depends on `@hyperidle/db` + framework packages
  * only. It never imports another Service, in either Layer — which is why the
  * AES-GCM cipher it decrypts held tokens with lives at
- * `@hyperidle/shared/crypto` (AU26 E1 / AU21 J1), not in a core Service, and
+ * `@hyperidle/credential-access` (AU26 E1 / AU21 J1), not in a core Service, and
  * why the spawn-time read resolves each row against the owner the row itself
  * carries rather than reading core-api's `users`.
  */

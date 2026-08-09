@@ -10,7 +10,7 @@
  */
 
 import { RichMessageCard } from "@hyperidle/design-system";
-import type { Message } from "@hyperidle/shared";
+import type { Message } from "@hyperidle/domain-model";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 

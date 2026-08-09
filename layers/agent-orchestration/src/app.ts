@@ -9,7 +9,7 @@
  * router both apps mount on. `createAuthMiddleware` legitimately reads
  * `@hyperidle/users` (a core-api Service), and only an Application may choose to
  * put another Layer's routes behind it — so this app declares boundaries with
- * `@hyperidle/shared/http`'s `requireBoundary` and never imports core-api.
+ * `@hyperidle/http-middleware`'s `requireBoundary` and never imports core-api.
  *
  * Mounted at `/` on the Application's `/api` router, so every path string here
  * keeps its byte-identical public URL (§D-A rule 7).
@@ -24,8 +24,10 @@
 
 import { ServiceConnectionResolver } from "@hyperidle/connections";
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { ActivityEntry, EventBus, HarnessCapabilityReader } from "@hyperidle/shared";
-import type { HyperIdleEnv } from "@hyperidle/shared/http";
+import type { ActivityEntry } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
+import type { HarnessCapabilityReader } from "@hyperidle/harness-protocol";
+import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import { Hono } from "hono";
 import { createAgentOrchestrationSessionsRoutes } from "./routes/agent-orchestration-sessions.js";
 import { createConnectionRoutes } from "./routes/connections.js";

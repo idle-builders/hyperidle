@@ -13,7 +13,7 @@
  * type (ReturnActionName) at check-time — not a separate test here.
  */
 
-import { isReturnAction, RETURN_ACTION_NAMES } from "@hyperidle/shared";
+import { isReturnAction, RETURN_ACTION_NAMES } from "@hyperidle/harness-protocol";
 import { describe, expect, it } from "vitest";
 import { buildToolDefinitions } from "../tool-definitions.js";
 import { STUB_TOOL_HANDLERS_PORTS } from "./stub-ports.js";
@@ -165,19 +165,19 @@ describe("isReturnAction — MCP namespace stripping (AR2)", () => {
 
 describe("isInternalExtractionDrain — AC4: exemption predicate", () => {
 	// The exemption helper is also in return-actions (or return-gate — architecture §2.3).
-	// Import it from @hyperidle/shared once it exists. For now reference the planned export.
+	// Import it from @hyperidle/harness-protocol once it exists. For now reference the planned export.
 	it("returns true for a config with tools:[] (extraction drain)", async () => {
-		const { isInternalExtractionDrain } = await import("@hyperidle/shared");
+		const { isInternalExtractionDrain } = await import("@hyperidle/harness-protocol");
 		expect(isInternalExtractionDrain({ tools: [] })).toBe(true);
 	});
 
 	it("returns false for a config with tools:['read_inbox', ...] (real agent turn)", async () => {
-		const { isInternalExtractionDrain } = await import("@hyperidle/shared");
+		const { isInternalExtractionDrain } = await import("@hyperidle/harness-protocol");
 		expect(isInternalExtractionDrain({ tools: ["read_inbox", "submit_review"] })).toBe(false);
 	});
 
 	it("returns false for a config with a single tool (not an extraction drain)", async () => {
-		const { isInternalExtractionDrain } = await import("@hyperidle/shared");
+		const { isInternalExtractionDrain } = await import("@hyperidle/harness-protocol");
 		expect(isInternalExtractionDrain({ tools: ["write_memory"] })).toBe(false);
 	});
 });

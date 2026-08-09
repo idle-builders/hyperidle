@@ -21,8 +21,8 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import { EventBus } from "@hyperidle/event-bus";
 import type { RuntimePorts } from "@hyperidle/run-orchestration";
-import { EventBus } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, vi } from "vitest";
 import { expect, test } from "../__testing__/test-fixtures.js";

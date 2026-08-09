@@ -6,7 +6,7 @@ Every harness-facing integration test must cover the full supported harness matr
 
 The completed/not-returned outcome split below rides the return-gate mechanics — see [return-gate-enforcement.md](return-gate-enforcement.md). The run-on-host execution model and sandbox capture seam live in [run-unit-model.md](../architecture/run-unit-model.md). Day-to-day test commands and the affected-slice verify flow live in [guides/developer/testing.md](../guides/developer/testing.md), which links here for mechanism depth.
 
-Harness/session error classes live in `framework/shared/src/errors.ts`.
+Harness/session error classes live in `framework/domain-model/src/errors.ts`.
 
 ---
 
@@ -196,7 +196,7 @@ Adapters record token counts, never a cost figure. `CliHarnessAdapter` captures 
 
 ### opencode `tool_use` event mapping
 
-opencode emits tool calls on a `tool_use` event; `framework/shared/src/harness/harness-event-normalization.ts` maps `tool_use` → `tool_call` for opencode so `isReturnAction` receives the tool name and the return gate fires.
+opencode emits tool calls on a `tool_use` event; `framework/harness-protocol/src/harness/harness-event-normalization.ts` maps `tool_use` → `tool_call` for opencode so `isReturnAction` receives the tool name and the return gate fires.
 
 ### opencode completion text lives in `part.text`
 
@@ -219,4 +219,4 @@ Init/system lifecycle events produce empty completions, intermediate blocks carr
 | `layers/agent-execution/harness-registry/src/__tests__/require-harness.ts` | `requireHarness` hard-fail helper; mirrors `SUPPORTED_HARNESSES`; `HARNESS_TEST_MODELS` + `harnessTestResolvedModel` |
 | `layers/core-api/src/__tests__/assistant-reply-live-harness.integration.test.ts` | Reference five-harness matrix test; the only file the predicate matches |
 | `layers/agent-execution/harness-registry/src/cli-harness-adapter.ts` | `CLI_TOOL_CONFIGS`, per-family metric extraction |
-| `framework/shared/src/harness/harness-event-normalization.ts` | Per-family event pre-maps: `tool_use` → `tool_call`, `part.text` extraction |
+| `framework/harness-protocol/src/harness/harness-event-normalization.ts` | Per-family event pre-maps: `tool_use` → `tool_call`, `part.text` extraction |

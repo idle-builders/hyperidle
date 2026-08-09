@@ -27,11 +27,11 @@ import {
 } from "@hyperidle/db";
 
 import {
-	escapeLikePattern,
 	type KernelKnowledgeStatus,
 	type SCOPE_KINDS,
 	scopeToLayer,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
+import { escapeLikePattern } from "@hyperidle/query-escaping";
 import { and, desc, eq, gte, inArray, isNull, ne, or, type SQL, sql } from "drizzle-orm";
 import { ItemDeletedError, VersionConflictError } from "./errors.js";
 import { executeTextSearch } from "./fts.js";
@@ -45,7 +45,7 @@ export interface CreateKnowledgeItemInput {
 	/**
 	 * @lore AU14: widened to accept `null` alongside the existing symmetric `kind`
 	 * widening. The HTTP route passes `scopeToLayer(scopeKind)` (returns `null` for
-	 * team/bet/user/filesystem scopes — see @hyperidle/shared SCOPE_TO_LAYER), which
+	 * team/bet/user/filesystem scopes — see @hyperidle/domain-model SCOPE_TO_LAYER), which
 	 * is exactly what the pre-AU14 route's `upsertProjectionLayer` wrote into the
 	 * (nullable) `knowledgeAppProjection.layer` column for those scopes. Existing
 	 * callers (`write-memory.ts`, `writeback.ts`) always pass a concrete layer, so

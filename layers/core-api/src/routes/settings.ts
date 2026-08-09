@@ -21,10 +21,10 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
+import type { EventBus } from "@hyperidle/event-bus";
+import { type HyperIdleEnv, requireBoundary } from "@hyperidle/http-middleware";
 import { listTeams } from "@hyperidle/org";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
-import type { EventBus } from "@hyperidle/shared";
-import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
 import { findUser, listUsers } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";

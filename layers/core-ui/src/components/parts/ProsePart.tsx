@@ -6,7 +6,7 @@
  * source type — W1 boundary). Other embeds render as a ReferenceChip / Fold row.
  */
 
-import type { Embed, OpenHandler, Part } from "@hyperidle/shared";
+import type { Embed, OpenHandler, Part } from "@hyperidle/conversation-parts";
 import type { JSX } from "react";
 import { EmbedRow } from "./embeds.js";
 

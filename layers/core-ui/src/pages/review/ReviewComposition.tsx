@@ -1,5 +1,9 @@
 import { Composer, SplitView } from "@hyperidle/design-system";
-import { type AnchorRef, type VerdictDecision, verdictDecisionLabel } from "@hyperidle/shared";
+import {
+	type AnchorRef,
+	type VerdictDecision,
+	verdictDecisionLabel,
+} from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
 import { useUiPreference } from "../../hooks/useUiPreference.js";
 import { getReviewCanvas } from "./canvas-registry.js";

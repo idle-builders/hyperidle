@@ -43,8 +43,8 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import type { AgentRunAdmissionFailedEvent } from "@hyperidle/domain-model";
 import { drainIntents } from "@hyperidle/session-requests";
-import type { AgentRunAdmissionFailedEvent } from "@hyperidle/shared";
 import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";

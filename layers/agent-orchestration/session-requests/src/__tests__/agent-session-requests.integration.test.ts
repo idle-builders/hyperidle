@@ -29,7 +29,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
-import type { HarnessAdapter, SessionHandle } from "@hyperidle/shared";
+import type { HarnessAdapter, SessionHandle } from "@hyperidle/harness-protocol";
 import { eq } from "drizzle-orm";
 import { describe, vi } from "vitest";
 import {

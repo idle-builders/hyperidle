@@ -25,7 +25,8 @@
  * real bug → FAIL, not skip.
  */
 
-import type { HarnessEvent, ResolvedModel } from "@hyperidle/shared";
+import type { ResolvedModel } from "@hyperidle/domain-model";
+import type { HarnessEvent } from "@hyperidle/harness-protocol";
 import { describe, expect, test } from "vitest";
 import { BuiltinHarnessAdapter } from "../builtin-harness-adapter.js";
 import { requireHarness } from "./require-harness.js";
