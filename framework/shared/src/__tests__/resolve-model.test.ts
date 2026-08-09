@@ -16,13 +16,13 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { CredentialResolver } from "../credential.js";
 import { MissingCredentialError } from "../errors.js";
+import { BUILT_IN_GATEWAY_CONFIG } from "../model-gateway.js";
 import {
-	BUILT_IN_GATEWAY_CONFIG,
+	type CredentialResolver,
 	resolveModel,
 	UnsupportedAgentProviderError,
-} from "../model-gateway.js";
+} from "../resolve-model.js";
 
 function credentialResolverWith(keys: Record<string, string | null>): CredentialResolver {
 	return {

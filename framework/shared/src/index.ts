@@ -156,7 +156,6 @@ export {
 export type {
 	CredentialCatalogEntry,
 	CredentialName,
-	CredentialResolver,
 	CredentialState,
 } from "./credential.js";
 export {
@@ -443,7 +442,6 @@ export {
 	isCatalogModel,
 	MODEL_CATALOG,
 	MODEL_PROVIDERS,
-	resolveModel,
 } from "./model-gateway.js";
 // SSRF utilities use node:dns/net/util and cannot be imported in the browser.
 // Server code imports them via "@hyperidle/shared/net" subpath export instead.
@@ -511,6 +509,9 @@ export {
 	summarizeToolArgs,
 	TK_TOKEN_RE,
 } from "./redact.js";
+// The port and the resolution that needs it — everything that reaches a live secret.
+export type { CredentialResolver } from "./resolve-model.js";
+export { resolveModel } from "./resolve-model.js";
 // ── Routine primitive (AA1 + AA2 + AA3) ──
 export type {
 	RoutineCardSummary,
