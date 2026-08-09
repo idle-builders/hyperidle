@@ -610,7 +610,11 @@ const syntheticTree = [
 			.filter((name) => !ROLES.includes(name as Role))
 			.map(manifestPathOf),
 		// One of every role: `readWorkspacePackages` refuses a role rule that claims nothing.
+		// `framework/*` is listed here rather than arriving through a `reach` list, because a reach
+		// list names who may reach a surface from OUTSIDE the framework role — so no reach list
+		// carries a framework package's name, and this tree cannot borrow one from them.
 		"applications/desktop/package.json",
+		"framework/db/package.json",
 		"tools/eval/package.json",
 	]),
 ];

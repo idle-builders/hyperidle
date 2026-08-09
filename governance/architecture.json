@@ -63,12 +63,12 @@
 			"why": "the in-process publish/subscribe object. Every server layer publishes on it, any service may publish, and an application composes it at boot — so those are granted by role. A browser has no in-process bus; it has HTTP and SSE, and it reaches the event types in framework/domain-model."
 		},
 		"framework/presentation-format": {
-			"reach": ["core-ui", "design-system", "core-api"],
-			"why": "a value turned into the string a human reads. Three packages format anything: the interface, the design system, and the one layer that composes a user-visible string on the server. A future service formatting something is a prediction, not a rule about the role."
+			"reach": ["core-ui", "core-api"],
+			"why": "a value turned into the string a human reads. Outside the framework role, two packages format anything: the interface, and the one layer that composes a user-visible string on the server. The design system formats too, and reaches this as one framework package naming another. A future service formatting something is a prediction, not a rule about the role."
 		},
 		"framework/block-derivation": {
-			"reach": ["core-ui", "design-system"],
-			"why": "markdown text turned into the block tree the renderer walks, and the content-addressed id that keeps a block stable across edits. Deriving blocks means running a markdown parser and a hash; exactly two packages render block content, and this is the only manifest that carries the parser."
+			"reach": ["core-ui"],
+			"why": "markdown text turned into the block tree the renderer walks, and the content-addressed id that keeps a block stable across edits. Deriving blocks means running a markdown parser and a hash; the interface is the only package outside the framework role that renders block content, and this is the only manifest that carries the parser. The design system renders it too and reaches this as one framework package naming another."
 		},
 		"framework/conversation-parts": {
 			"reach": ["core-ui"],
@@ -109,15 +109,8 @@
 			"why": "the primitives a route file on either application's Hono app needs. Only the two layers that publish an HTTP API and the two services that mount a route or compare a key. This is the package that carries hono, and the reason thirty other manifests stop carrying it."
 		},
 		"framework/credential-access": {
-			"reach": [
-				"core-api",
-				"credentials",
-				"agent-orchestration",
-				"connections",
-				"harness-registry",
-				"remote-server"
-			],
-			"why": "everything that needs a live secret: the port that resolves a credential's value, the AES-256-GCM cipher that decrypts a stored one, and the model resolution that cannot produce a ResolvedModel without one. Not a preemptive wall — the observation that nothing else has ever held a secret, written down so nothing else starts by accident."
+			"reach": ["core-api", "credentials", "agent-orchestration", "connections", "remote-server"],
+			"why": "everything that needs a live secret: the port that resolves a credential's value, the AES-256-GCM cipher that decrypts a stored one, and the model resolution that cannot produce a ResolvedModel without one. The five that hold one: credentials implements the resolver, core-api and agent-orchestration route the store, connections resolves a service credential, and the remote server composes the resolver at boot. Not a preemptive wall — the observation that nothing else has ever held a secret, written down so nothing else starts by accident."
 		},
 		"framework/harness-protocol": {
 			"reach": [

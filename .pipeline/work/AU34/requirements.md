@@ -505,11 +505,12 @@ over them. 39 source modules (two of them split — §4.4). Manifest: `zod`.
 ### 4.2 The seventeen packages with a named audience
 
 **`framework/presentation-format`** — a value turned into the string a human reads. 4 modules. No dependencies.
-`reach: ["core-ui", "design-system", "core-api"]`
+`reach: ["core-ui", "core-api"]`
 > **Measured, exactly.** Three packages format anything: the interface, the design system, and the one layer
-> that composes a user-visible string on the server. **Not `everyone`** — the `eslint.config.ts:642-699`
-> evidence covers only two of them. **No `service` grant** — exactly one service formats, which fails the
-> test in §4.5 (D11).
+> that composes a user-visible string on the server. `design-system` is a framework package, so under Ruling 1
+> it reaches this without an entry — a `reach` list names who may reach from outside the framework role.
+> **Not `everyone`** — the `eslint.config.ts:642-699` evidence covers only two of them. **No `service`
+> grant** — exactly one service formats, which fails the test in §4.5 (D11).
 
 `format/bet.ts` · `format/time.ts` · `initials.ts` · `scope-labels.ts`
 
@@ -581,10 +582,12 @@ session activity. 1 module. No dependencies.
 **`framework/block-derivation`** — markdown text turned into the block tree the renderer walks, and the
 content-addressed id that keeps a block stable across edits. 5 modules.
 Manifest: `remark-parse`, `remark-gfm`, `unified`, `github-slugger`, `@noble/hashes`.
-`reach: ["core-ui", "design-system"]`
+`reach: ["core-ui"]`
 > **Measured, exactly.** Deriving blocks means running a markdown parser and a hash. Exactly two packages
-> render block content. **This is the package whose manifest holds `remark-*`, `unified`, `github-slugger`
-> and `@noble/hashes` — and the reason no other manifest does.** `core-api` reaches it in development only.
+> render block content — the interface, and `design-system`, which is a framework package and reaches this
+> under Ruling 1 without an entry. **This is the package whose manifest holds `remark-*`, `unified`,
+> `github-slugger` and `@noble/hashes` — and the reason no other manifest does.** `core-api` reaches it in
+> development only.
 
 `blocks/block-id.ts` · `blocks/derive-blocks.ts` · `blocks/derive-payloads.ts` · `blocks/normalise.ts` ·
 `blocks/slug.ts`
@@ -643,10 +646,13 @@ with. 3 modules. Imports `node:fs`, `node:path`.
 **`framework/credential-access`** — everything that needs a live secret: the port that resolves a credential's
 value, the AES-256-GCM cipher that decrypts a stored one, and the model resolution that cannot produce a
 `ResolvedModel` without one. 1 module + the relocations in §4.4. Imports `node:crypto`.
-`reach: ["core-api", "credentials", "agent-orchestration", "connections", "harness-registry", "remote-server"]`
+`reach: ["core-api", "credentials", "agent-orchestration", "connections", "remote-server"]`
 > **Measured at the symbol level, exactly:** the cipher is reached by `core-api`, `credentials`,
 > `agent-orchestration`, `connections` and `remote-server`; `CredentialResolver` by `credentials` (which
-> implements it) and `harness-registry` (which receives it); `resolveModel` by `remote-server`. Six names.
+> implements it) and `remote-server` (which composes it at boot); `resolveModel` by `remote-server`. Five
+> names. `harness-registry` was a sixth in the first draft, on the strength of `cli-harness-adapter.ts`
+> re-exporting the port — a re-export this change deletes, leaving it importing nothing from here in
+> either world, so it is not in the audience.
 > Not a preemptive wall — the observation that nothing else has ever held a secret, written down so nothing
 > else starts by accident.
 
@@ -836,14 +842,14 @@ recorded and **not** granted.
 | package | production consumers → the list | dev-only, not granted | role grants (§4.5) |
 |---|---|---|---|
 | `domain-model` | 25 packages, every production role represented | `eval`, `setup` | `everyone` |
-| `presentation-format` | `core-api`, `core-ui`, `design-system` | — | — |
+| `presentation-format` | `core-api`, `core-ui` (`design-system` reaches it as framework→framework) | — | — |
 | `harness-capability` | `connections`, `core-api`, `core-ui`, `harness-registry`, **`run-orchestration`** | `agent-run-config` | — |
 | `harness-protocol` | `agent-orchestration`, `agent-run-config`, `core-api`, `harness-registry`, `remote-worker`, `run-orchestration`, `session-requests` | `tool-handlers` | — |
 | `tool-protocol` | `core-api`, `harness-registry`, `review`, `settings`, `tool-handlers` | — | — |
 | `work-intent-port` | `conversation`, `core-api`, `knowledge`, `policy`, `review`, `routine`, `run-orchestration`, `work` | `eval` | — |
 | `filesystem-contract` | `agent-orchestration`, `core-api`, `filesystem-mounting`, `filesystems`, `run-orchestration` | — | — |
 | `conversation-parts` | `core-ui` | — | — |
-| `block-derivation` | `core-ui`, `design-system` | `core-api` | — |
+| `block-derivation` | `core-ui` (`design-system` reaches it as framework→framework) | `core-api` | — |
 | `event-bus` | 13 packages (3 layers + 9 services + 1 application) | `eval`, `tool-handlers` | `service`, `application` |
 | `http-middleware` | `agent-orchestration`, `core-api`, `harness-registry`, `run-orchestration` | — | — |
 | `diagnostics` | `conversation`, `core-api`, `knowledge`, `notifications`, `remote-server`, `routine`, `run-orchestration`, `work` | `db`, `setup` | `service`, `application` |
@@ -1249,7 +1255,7 @@ substrate, and "it used to be in `shared`" is not an argument for joining it.
 else's behalf, supplied across a package boundary by someone other than its owner. Ports go with their
 protocol, never in the universal package (D3) — a port in an `everyone` package advertises that capability to
 the whole repo. The test is measured, not eyeballed: `CredentialResolver` is a port (it fetches a secret;
-`credentials` implements it, `harness-registry` receives it); `EventBusAdapter` is one too and is dead;
+`credentials` implements it, `remote-server` composes it); `EventBusAdapter` is one too and is dead;
 `EventHandler`/`WildcardHandler` are callbacks the bus invokes, not capabilities they hold; `KindDefinition`
 is a record nothing outside its package has ever held.
 
