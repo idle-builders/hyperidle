@@ -6,11 +6,10 @@ import {
 	writeCredential,
 } from "@hyperidle/credentials";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
-import type { AdapterPool, McpToolBridge, SandboxAdapter } from "@hyperidle/harness-registry";
 import type { NotificationAdapter, NotificationsDeps } from "@hyperidle/notifications";
 import { getTeamMembers } from "@hyperidle/org";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
-import { createLogger, EventBus } from "@hyperidle/shared";
+import { createLogger, EventBus, type HarnessCapabilityReader } from "@hyperidle/shared";
 import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/shared/crypto";
 import { createRateLimiter } from "@hyperidle/shared/http";
 import { createUpgradeTokenStore, findUser, type UpgradeTokenStore } from "@hyperidle/users";
@@ -139,36 +138,31 @@ interface AppOptions {
 	 */
 	upgradeTokenStore?: UpgradeTokenStore;
 	/**
-	 * Adapter pool for running agent sessions. When provided alongside
-	 * `workspaceAdapter`, POST /api/sessions routes through `provisionSession`
-	 * instead of a bare DB insert (R1).
+	 * Adapter pool for running agent sessions — read-only capability probe
+	 * (which harnesses are registered/discovered), used only to gate route
+	 * mounting and answer descriptor reads (`agents.ts`, `teams-routes.ts`,
+	 * `users.ts`, `workers.ts`, `harnesses.ts`).
+	 *
+	 * @lore AU31 §2.4/[P4]: typed against `@hyperidle/shared`'s
+	 * `HarnessCapabilityReader` rather than `@hyperidle/harness-registry`'s
+	 * `AdapterPool` — this route layer never provisions or executes a session
+	 * (that is `run-orchestration-composition.ts`'s job, agent-orchestration
+	 * wiring), it only reads capability descriptors, so the narrower shared
+	 * type is both sufficient and the one every consuming route factory
+	 * already declares its own parameter as. `workspaceAdapter`/
+	 * `sandboxBasePath`/`mcpBridgeRegistry`/`mcpBaseUrl`/`mounter` were
+	 * forward-only threading with zero readers anywhere in this file (every
+	 * real consumer resolved them via a separately-built `dispatcherDeps`
+	 * bundle in `create-server.ts` instead — `service-bootstrap.ts`'s
+	 * `canProvision: boolean` already carries the one bit those five fields
+	 * existed to signal) — deleted rather than retyped.
 	 * @lore S2: renamed from harnessAdapter to adapterPool.
 	 */
-	adapterPool?: AdapterPool;
-	/**
-	 * Sandbox adapter for provisioning/destroying agent sandboxes (R1).
-	 */
-	workspaceAdapter?: SandboxAdapter;
-	/**
-	 * Base path where workspaces are created. Defaults to a tmp directory in
-	 * production (R1).
-	 */
-	sandboxBasePath?: string;
+	adapterPool?: HarnessCapabilityReader;
 	/**
 	 * Credential resolver for pre-flight API key checks (R1).
 	 */
 	credentialResolver?: CredentialResolver;
-	/**
-	 * X2: MCP bridge registry for routing MCP requests to session transports.
-	 * When provided alongside `mcpBaseUrl`, the session provisioner creates a
-	 * per-session bridge and writes `.mcp.json` for harness auto-discovery.
-	 */
-	mcpBridgeRegistry?: McpToolBridge;
-	/**
-	 * X2: Base URL for MCP bridge (e.g., "http://localhost:3001").
-	 * Used when writing `.mcp.json` to the workspace during session provisioning.
-	 */
-	mcpBaseUrl?: string;
 	/**
 	 * Enable shared-mode authentication (S1). When true, the auth middleware
 	 * accepts Bearer tokens from LoginSessions in addition to X-API-Key.
@@ -181,11 +175,6 @@ interface AppOptions {
 	 * setting environment variables.
 	 */
 	sharedMode?: boolean;
-	/**
-	 * AO2: Optional filesystem mounter. When present, mount + captureBack hooks
-	 * run around each session. When absent, sessions run without filesystem mount.
-	 */
-	mounter?: import("@hyperidle/shared").FilesystemMounter;
 	/**
 	 * AU19 §11 (AC-9) / AU31 §3.2: Application-injected cross-Layer
 	 * `agent_work_intents` recorder (`@hyperidle/shared`-typed, Mechanism C) —

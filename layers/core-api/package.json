@@ -33,7 +33,6 @@
 		"@hyperidle/conversation": "*",
 		"@hyperidle/credentials": "*",
 		"@hyperidle/db": "*",
-		"@hyperidle/filesystems": "*",
 		"@hyperidle/harness-registry": "*",
 		"@hyperidle/knowledge": "*",
 		"@hyperidle/notifications": "*",
@@ -56,6 +55,7 @@
 		"@hono/node-server": "^2.0.6",
 		"@hyperidle/connections": "*",
 		"@hyperidle/filesystem-mounting": "*",
+		"@hyperidle/filesystems": "*",
 		"@hyperidle/remote-server": "*",
 		"@types/node": "^24",
 		"vitest": "^4.1.9"

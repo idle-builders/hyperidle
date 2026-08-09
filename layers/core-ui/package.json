@@ -15,7 +15,6 @@
 	},
 	"dependencies": {
 		"@hyperidle/design-system": "*",
-		"@hyperidle/harness-registry": "*",
 		"@hyperidle/shared": "*",
 		"dompurify": "^3.4.11",
 		"focus-trap-react": "^12.0.3",
@@ -27,6 +26,7 @@
 		"@axe-core/playwright": "^4.12.1",
 		"@hyperidle/db": "*",
 		"@hyperidle/eval": "*",
+		"@hyperidle/harness-registry": "*",
 		"@hyperidle/remote-server": "*",
 		"@playwright/test": "^1.61.1",
 		"@tailwindcss/vite": "^4.3.1",

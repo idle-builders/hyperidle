@@ -775,14 +775,14 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 				...registerAgentLayerServices({ ...ctx, dispatcherDeps }),
 			];
 		},
+		// AU31 §2.4/[P4]: `workspaceAdapter`/`sandboxBasePath`/`mcpBridgeRegistry`/
+		// `mcpBaseUrl`/`mounter` are NOT passed to `bootCoreApi` — `AppOptions`
+		// never read them (forward-only threading with zero readers), so core-api
+		// carries no harness-registry/execution type dependency. They still feed
+		// `dispatcherDeps` above (agent-orchestration wiring) and the MCP route
+		// mount below (this file's own composition-root job).
 		adapterPool,
-		workspaceAdapter,
-		sandboxBasePath,
 		credentialResolver,
-		mcpBridgeRegistry,
-		mcpBaseUrl,
-		// AO2: wire the production mounter so session-route and routine-route sessions mount.
-		mounter,
 		registerWebSocket: (apiRouter, tokenStore) => {
 			// L1 step9 (Adv-C1): production WS subscribe must enforce participant
 			// authz on `thread:<id>` topics — already baked into `wsHub` above.
