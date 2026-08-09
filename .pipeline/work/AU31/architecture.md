@@ -334,6 +334,91 @@ gate's placement, not a security boundary (ETHOS: no preemptive wall), stated in
   agent-caused capture landing through core's API door is AU21's own design for agent writes; the
   version-conflict discriminated result crosses as the op's response shape.
 
+### 2.8 `validateAgentConfig` — the one `agent-run-config` symbol §2.2 does not name
+
+Wave A's builder converted every read and write in `routes/agents.ts` and `routes/assistant.ts` to
+port operations and stopped at this one import, flagging it instead of improvising. Correct call:
+the function is pure computation that needs a local, non-serializable adapter-pool reader, so it
+cannot become an ordinary remote op — and the boundary rule takes no exceptions, so "it's pure"
+does not make the crossing legal either. §2.2 never named it. This is the decision.
+
+**Verdict: it moves into core-api and stays a plain function call. No port op, no new framework
+module, no exception, no facade.**
+
+New home: `layers/core-api/src/routes/validate-agent-config.ts` — layer-world, not exported from
+the package's `index.ts` or any subpath in its export map — with `AgentConfigValidationError`
+moving alongside it. Its unit suite moves with it, unchanged, to
+`layers/core-api/src/routes/__tests__/validate-agent-config-provider-agnostic.test.ts` (it keeps
+its POLISH-060 header, which is still the reason the function reads registration metadata rather
+than capabilities). `agent-run-config/src/index.ts:39-40` loses both exports and
+`agent-run-config/src/validate-agent-config.ts` is deleted, not left behind: repo-wide, the only
+production callers are the four sites below and the only other reference is that one suite, so no
+export survives that only a test consumes.
+
+**Why core-api is the honest home, not just the convenient one.** Read the function
+(`layers/agent-orchestration/agent-run-config/src/validate-agent-config.ts:39-100`): four checks,
+no database, no service call, no `await`. Its entire world is `framework/shared` — `isCatalogModel`
+for the model catalog, and `harnessRegistrationMeta` over the structural
+`HarnessCapabilityReader` for what this process has actually registered. `framework/shared` has
+reach `everyone` (`governance/architecture.json:36-39`), and both call sites already import that
+exact reader type from it directly (`routes/agents.ts:36`, `routes/assistant.ts:29`) and already
+hold the pool instance (`routes/agents.ts:145`, `routes/assistant.ts:269`). Core loses one import
+line and gains nothing it did not already have.
+
+What the function answers is a question about the **request**, not about the stored row: does this
+body name a harness this process registered, and a model the catalog knows? That is the same
+category as the zod schema a few lines above each call. The proof that this is the shipped model
+and not a convenient reading: **the writer has never validated.** `writeAgentRunConfig` is called
+from `layers/core-api/org/src/scaffold-agents.ts:194`,
+`layers/agent-orchestration/src/routes/agent-orchestration-intake.ts:382`, and
+`routes/teams-routes.ts:424,:432`, and none of those paths validates anything. Validation is
+admission control on four HTTP handlers; the service that stores the columns has never used it, and
+nothing anywhere in `agent-orchestration` calls it.
+
+**Why not behind the port — "core sends, the owner validates".** Both call sites need the verdict
+*before* they do something else, so the port cannot carry it:
+
+- `routes/assistant.ts:405-421` validates before creating or loading the agent row, and its own
+  `@lore` (AR4c) says why: a bad triple must never contaminate the row — 422, no side effect.
+- `routes/agents.ts:248-256` (POST) validates before the `teamId` FK probe and before
+  `insertUser`; the `runConfig.write` seam call happens *after* that users insert. §3.1 and §13
+  item 9 already accept that those two writes are not atomic. Validating at the writer converts
+  today's clean "422 and nothing happened" into a half-created agent, and spends a seam round trip
+  to learn a request was malformed. That is a behavior regression AU31 does not own.
+- `routes/agents.ts:380-388` and `:449-457` (PATCH) validate a triple derived from
+  `data.field ?? existing`, where `existing` already arrived through a port read. The verdict is
+  core's own composition of two facts, one of which it fetched — not a fact the owner holds.
+
+**Why not a framework package.**
+
+- `@hyperidle/shared` — mechanically legal, rejected. Its reach is already `everyone` and AU34
+  exists to split it for exactly that reason. A symbol with four callers in one layer is the
+  weakest possible case for growing it.
+- `framework/api-contract` — the more tempting option, and still wrong. It declares itself
+  type-only with no runtime code (`framework/api-contract/src/index.ts:1-7`) and its manifest
+  declares **no dependencies at all**. Hosting this validator makes `@hyperidle/shared` the
+  contract package's first runtime dependency, so every consumer of a wire type starts pulling the
+  model catalog and the harness capability reader. It also buys no reuse: api-contract's reach is
+  `["layer"]` (`governance/architecture.json:44-47`), so a service could never call the validator
+  through it. A far larger architectural claim than this problem justifies.
+
+**Which wave: A.** Both files are already in wave A's write set (`layers/core-api/src/routes/**`);
+the move needs nothing wave B produces — no face, no boot relocation, no new port op, no contract
+change; and leaving it stranded leaves two live sites under §12.1 row 1 that no later leaf claims.
+It lands in **A2**, in the same commits as the rest of those two files.
+
+**What it does and does not do to the manifest.** It clears row 1's last two route sites. It does
+**not** clear core-api's `@hyperidle/agent-run-config` row: `services/run-orchestration-composition.ts:3`
+still imports `readAgentRunConfig`, and that file relocates in wave B (§2.2's drain-read bullet,
+§5). §12.1 row 5 already assigns the `agent-run-config` row to wave B, and that stays correct
+exactly as written — this decision changes no key's wave and no key deletion.
+
+**One lore correction rides along.** `agent-run-config/src/index.ts:11` and the moved file's own
+header both say the validator "moved here with the columns it validates" (AU26 G1). That rationale
+was that it *could* move cleanly, not that it had to; under the boundary rule the placement costs a
+crossing and buys nothing. The moved file records the correction in place of the old claim.
+`docs/agent-layer/model-routing-and-cost.md:36` names the old path and is added to §14.
+
 ---
 
 ## 3. The seam, extended — contract decisions (locked)
@@ -1324,6 +1409,52 @@ or — if several land together — in one commit at the end of B4 with the lint
 all fourteen first. Either satisfies the mechanism; what is forbidden is a commit where a key is
 absent and a site under it is live.
 
+**The wave-A residual — the wave-A column against the live tree, item by item.** The table above
+promises wave A **36 sites** (26 import + 8 DI + 2 manifest). The live linter on this branch
+reports **27 cleared** (20 import, 7 DI, 0 manifest) and nine still open. Nothing in the table is
+wrong: the arithmetic holds, no site changed wave, and no key deletion moves. The gap is unfinished
+work plus one decision the wave-A builder correctly refused to improvise (§2.8). It is recorded
+here so nobody later reads "36" as achieved.
+
+Snapshot: `npx tsx scripts/governance-lint.ts`, branch `backend/AU31-layer-composition-boundary`,
+`a8227d34` — PASS, 194 production + 0 development violations;
+`layer → service (other layer) [import]` **16** across 10 files;
+`service → service (other layer) [di]` **2**; `layer → service (other layer) [manifest]` **7**.
+Ten of the 16 imports and one of the 2 DI wires are the table's wave-B column and are supposed to
+be live. The other nine are these. Line numbers below are the **live** ones; wave A's edits shifted
+several off the table's pre-wave-A spellings (`app.ts:8` is now `:9`, `service-bootstrap.ts:37` is
+now `:38`).
+
+| open site | row | owner |
+|---|---|---|
+| `routes/threads.ts:40` — `enqueueWorkIntent` from `session-requests` | 1 | **wave A** — site 5 only half converted: the intent-recording use went through the port, this import did not |
+| `routes/threads.ts:1697` — `intentRecorder: { record: enqueueWorkIntent }` | 4 | **wave A** — dies with the line above; §12's A2 requires the import and the injection to die together, in one file |
+| `service-bootstrap.ts:38` — `startLifecycleProjectionDrain` from `session-requests` | 1 | **wave A** — the file both waves touch, so this must not be left for B |
+| `services/durable-agent-queue.ts:83` — `session-requests` | 1 | **wave A** — named in row 1's own wave-A list |
+| `src/app.ts:9` — type-only `AdapterPool` / `McpToolBridge` / `SandboxAdapter` | 1 | **wave A** — §2.4's first bullet, the `AppOptions` retype-and-delete. Already fully specified there; it was simply absent from the builder's task list, not undecided |
+| `routes/agents.ts:24` + `routes/assistant.ts:18` — `validateAgentConfig` | 1 | **wave A** — **§2.8**, the decision this block was written alongside |
+| `layers/core-api/package.json` — `@hyperidle/filesystems` row | 5 | **wave A**, now unblocked: no production file under `layers/core-api/` imports `@hyperidle/filesystems` any more — only two integration tests do |
+| `layers/core-ui/package.json` — `@hyperidle/harness-registry` row | 5 | **wave A** — §2.4's last bullet, still open; only `core-ui/__scripts__/*` import it |
+
+**How a manifest row "clears".** Both open manifest rows respell `dependencies` →
+`devDependencies`; neither row is deleted, because development files still import the package. The
+dependency **block** decides the world (`scripts/lib/repo-census.ts:445-450`,
+`scripts/lib/crossings.ts:199-201`), and `layer → service (other layer) [manifest]` is forbidden in
+production and allowed in development (`governance/decided-rules.json`). §2.4 already spells this
+for core-ui; core-api's `filesystems` row takes the identical one-line diff. The same mechanism
+applies to core-api's five wave-B rows when each one's last production import goes — including
+`agent-run-config`, whose tests keep it resolvable.
+
+**After these nine close**, row 1 has exactly 10 sites left and row 4 exactly 1, all in the wave-B
+column: `run-orchestration-composition.ts:3,5,11,22`, `tool-handlers-bindings.ts:31,32`,
+`tool-provider-bindings.ts:20,21`, `session.ts:9,15`, and `create-server.ts:510`. That is the
+"After A" inventory §12 promised, stated as a number a reviewer can check with one linter run.
+
+**Nothing here changes a key deletion.** Wave A still deletes zero keys from
+`governance/rule-severity.json` — rows 1, 4 and 5 all keep live sites after wave A by design, and
+rows 2, 3 and 6–14 are untouched by this correction. The instruction is unchanged: read the count
+off the live linter, and delete a key only when that key reports zero.
+
 ### 12.2 Detector floors — recompute, never hand-edit, never lower
 
 The detector floors in `scripts/governance-context.ts` (`DETECTOR_FLOORS`) survive AU32 untouched:
@@ -1528,4 +1659,8 @@ For `/write-docs`: `docs/architecture/runtime-simplification.md` (composition-ro
 `governance/README.md` gains the face-rule paragraph (the one legal home of the rule text), and
 `governance/architecture.json`'s mcpRouter `why` drops "It is mounted in the wrong place today."
 The two settled nouns (session-requests' identity; the public face) land in `docs/architecture/`
-per requirements' DOC-CLASS.
+per requirements' DOC-CLASS. One more line, from §2.8:
+`docs/agent-layer/model-routing-and-cost.md:36` cites
+`layers/agent-orchestration/agent-run-config/src/validate-agent-config.ts` as where an
+out-of-catalog `modelId` is rejected — after wave A that path is
+`layers/core-api/src/routes/validate-agent-config.ts`. The behavior it documents is unchanged.
