@@ -414,6 +414,45 @@ describe("agent session request repository", () => {
 		expect(stored).toMatchObject({ status: "failed", attempts: 1 });
 	});
 
+	/**
+	 * @lore AU30: re-homed verbatim (assertions unchanged) from the deleted
+	 * `layers/core-api/src/services/__tests__/agent-work-intent-worker.routine-selection.integration.test.ts`.
+	 * That file's other four cases were routine delegate-selection, whose subject
+	 * is gone; this one's subject is `insertIntentInternal`'s dedup early-return
+	 * and is very much alive — it is the case AU21 architecture §14 lists as
+	 * "Idempotency/dedup — STAY GREEN UNCHANGED". It belongs here because
+	 * `enqueueWorkIntent` lives in this package. Only the ARRANGEMENT changed:
+	 * the old routine world (teams/users/`user_skills`/routine + a real routine
+	 * run) existed to serve the four delegate-selection cases in that file —
+	 * `agent_work_intents` carries no foreign key on `source_id` or
+	 * `requested_by`, so dedup on (kind, sourceId, idempotencyKey) needs none of
+	 * it, and `user_skills` no longer exists to seed.
+	 */
+	test("enqueueWorkIntent is idempotent on (kind, sourceId, idempotencyKey)", async ({ db }) => {
+		const runId = "au15-routine-idem-run";
+		const ownerAgentId = "au15-owner";
+		const first = await enqueueWorkIntent(db, {
+			kind: "routine_run",
+			sourceKind: "routine_run",
+			sourceId: runId,
+			requestedBy: ownerAgentId,
+			idempotencyKey: `routine:${runId}`,
+		});
+		const second = await enqueueWorkIntent(db, {
+			kind: "routine_run",
+			sourceKind: "routine_run",
+			sourceId: runId,
+			requestedBy: ownerAgentId,
+			idempotencyKey: `routine:${runId}`,
+		});
+		expect(second.id).toBe(first.id);
+		const rows = await db
+			.select()
+			.from(agentWorkIntents)
+			.where(eq(agentWorkIntents.sourceId, runId));
+		expect(rows).toHaveLength(1);
+	});
+
 	test("parameterized reads preserve payloads and source/running filters", async ({ db }) => {
 		const request = await createAssistantRequest(db, "reads", '{"mode":"deep"}');
 		expect((await findSessionRequest(db, { by: "id", requestId: request.id }))?.payloadJson).toBe(
