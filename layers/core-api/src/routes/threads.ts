@@ -37,7 +37,6 @@ import {
 } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import { findProposedCall, transitionProposedCall } from "@hyperidle/review";
-import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import type {
 	AgentWorkIntentRecorder,
@@ -1694,7 +1693,14 @@ export function createThreadRoutes(
 						identityHash: pcView.call.identityHash,
 					},
 					{
-						intentRecorder: { record: enqueueWorkIntent },
+						// AU31 §3.1 site 9 (caller side) — reuse the same seam-backed
+						// recorder site 5 uses above, instead of importing
+						// `@hyperidle/session-requests`' `enqueueWorkIntent` directly.
+						// `transitionProposedCall` already runs the record call AFTER
+						// its own inner transaction commits (see that function's
+						// `@lore`), so no additional relinquishment is needed here —
+						// this call site was never itself inside an open transaction.
+						intentRecorder: agentWorkIntentRecorder,
 						// AU21 §6 Decision B: resolve + validate the reengagement run AT
 						// EMIT TIME (this Service's own domain state, plus the shared
 						// ast-<userId> runnability invariant) and bake the full request
