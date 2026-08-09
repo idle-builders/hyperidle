@@ -152,6 +152,11 @@
 	border-top: 1px solid var(--border-hairline);
 	margin: 2.4em 0;
 }
+/* source docs separate sections with a --- before each h2; the h2 carries its
+   own top rule, so a rule directly followed by a heading would double up */
+.prose hr:has(+ h2) {
+	display: none;
+}
 .prose table {
 	width: 100%;
 	border-collapse: collapse;
