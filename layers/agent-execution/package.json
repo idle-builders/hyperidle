@@ -12,7 +12,8 @@
 	},
 	"dependencies": {
 		"@hyperidle/harness-registry": "*",
-		"@hyperidle/shared": "*"
+		"@hyperidle/shared": "*",
+		"hono": "^4.12.27"
 	},
 	"devDependencies": {
 		"vitest": "^4.1.9"

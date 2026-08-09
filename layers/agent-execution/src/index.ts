@@ -6,8 +6,18 @@
  * context bundle and returns raw output. Its dependencies are `@hyperidle/shared`
  * plus its own execution Services — never `@hyperidle/db`.
  *
- * @lore AU19 Increment 4: re-exports `harness-registry`'s real Service
- * surface now that it is finalized (was the Increment-0 single-file proof).
+ * @lore AU31 §6/AC #4: the Increment-4-era re-export barrel (`AdapterPool`,
+ * `createHarnessAdapter`, `createLocalAdapterPool`, `createSandboxAdapter`
+ * re-exported straight from `@hyperidle/harness-registry`) is replaced by a
+ * genuine boot, `bootAgentExecution` (`./boot.js`) — the face clause-2
+ * violation `requirements.md` §3.5 named. Those four symbols had zero
+ * consumers through this face (every real call site imported
+ * `@hyperidle/harness-registry` directly instead — `applications/remote-server/
+ * src/index.ts`, `applications/desktop/src/boot-server.ts`,
+ * `applications/remote-server/src/create-server.ts`,
+ * `layers/core-api/src/services/run-orchestration-composition.ts`), so
+ * dropping the re-export strands nothing; those call sites move onto this
+ * boot as architecture §5/§5.3 relocate them (wave B, later leaves).
  *
  * @lore AU31 §2.7/[P9]: `RemoteWorkerClient` relocated here from
  * `applications/remote-worker` — the class self-describes as this Layer's
@@ -18,12 +28,13 @@
  * thins to a re-export of this face (§5.3).
  */
 
-export {
-	AdapterPool,
-	createHarnessAdapter,
-	createLocalAdapterPool,
-	createSandboxAdapter,
-} from "@hyperidle/harness-registry";
+export type {
+	AgentExecutionAdapters,
+	AgentExecutionBoot,
+	AgentExecutionBootOptions,
+	AgentExecutionHarnessRuntime,
+} from "./boot.js";
+export { bootAgentExecution } from "./boot.js";
 export {
 	RemoteWorkerClient,
 	type RemoteWorkerClientOptions,
