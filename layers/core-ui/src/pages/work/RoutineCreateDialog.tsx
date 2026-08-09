@@ -18,7 +18,7 @@
  */
 
 import { Dialog, Select } from "@hyperidle/design-system";
-import { SCHEDULE_PRESETS } from "@hyperidle/shared";
+import { SCHEDULE_PRESETS } from "@hyperidle/domain-model";
 import { type JSX, useEffect, useState } from "react";
 import { apiFetch } from "../../services/api-fetch.js";
 

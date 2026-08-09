@@ -51,16 +51,15 @@ import {
  * content matches editContent to prevent spurious saves on BodyEditor mount
  * (TipTap fires onChange with initial content on mount).
  */
-import type { Message, PlainPayloadWithBlockId, ScopeKind } from "@hyperidle/shared";
+import type { Message, PlainPayloadWithBlockId, ScopeKind } from "@hyperidle/domain-model";
 import {
-	absoluteDateTime,
 	isRedactedPayload,
 	KNOWLEDGE_STATUSES,
 	type KnowledgeScope,
 	type KnowledgeStatus,
 	SCOPE_KINDS,
-	scopeKindToLabel,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
+import { absoluteDateTime, scopeKindToLabel } from "@hyperidle/presentation-format";
 import { type JSX, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Link as RRLink, useLocation, useNavigate, useParams } from "react-router-dom";
 import { AssistantContext } from "../contexts/AssistantContext.js";

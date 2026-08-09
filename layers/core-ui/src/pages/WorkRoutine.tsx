@@ -22,7 +22,7 @@ import {
 	PageHeader,
 	SkeletonCard,
 } from "@hyperidle/design-system";
-import type { RoutineDetail } from "@hyperidle/shared";
+import type { RoutineDetail } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
 import { useRoutine } from "../hooks/useRoutine.js";

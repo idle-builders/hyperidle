@@ -1,6 +1,6 @@
 import { createTestDb, type TestDbHandle } from "@hyperidle/db/testing";
 import { seedConfigurationDefaults } from "@hyperidle/settings";
-import { BUILTIN_TOOL_CATALOG } from "@hyperidle/shared";
+import { BUILTIN_TOOL_CATALOG } from "@hyperidle/tool-protocol";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { buildToolDefinitions } from "../tool-definitions.js";
 import { STUB_TOOL_HANDLERS_PORTS } from "./stub-ports.js";

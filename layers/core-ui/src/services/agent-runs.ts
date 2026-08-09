@@ -19,7 +19,7 @@ import type {
 	AgentRunLatestOutcomesResponse,
 	AgentRunSummary,
 	AgentRunsResponse,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
 import { apiFetch } from "./api-fetch.js";
 
 const BASE = "/api/agent-orchestration";

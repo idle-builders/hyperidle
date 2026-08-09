@@ -31,8 +31,12 @@ import type {
 	AgentPerformanceStats,
 	AgentRunSummary,
 	AgentSessionSummary,
-} from "@hyperidle/shared";
-import { computeHealthSignals, deriveHealthDetail, deriveHealthLevel } from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
+import {
+	computeHealthSignals,
+	deriveHealthDetail,
+	deriveHealthLevel,
+} from "@hyperidle/domain-model";
 import { useEffect, useMemo, useState } from "react";
 import { fetchLatestRunOutcomes, fetchRunsByAgentIds } from "../services/agent-runs.js";
 import { apiFetch } from "../services/api-fetch.js";

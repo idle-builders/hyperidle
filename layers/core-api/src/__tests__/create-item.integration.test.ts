@@ -1,8 +1,10 @@
 import * as os from "node:os";
 import * as path from "node:path";
 import { type HyperIdleDb, items, teamMembers, teams, threads, users } from "@hyperidle/db";
-import type { EventBus, ItemCreatedEvent, ToolContext } from "@hyperidle/shared";
+import type { ItemCreatedEvent } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import { buildToolDefinitions } from "@hyperidle/tool-handlers";
+import type { ToolContext } from "@hyperidle/tool-protocol";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test as baseTest } from "../__testing__/test-fixtures.js";

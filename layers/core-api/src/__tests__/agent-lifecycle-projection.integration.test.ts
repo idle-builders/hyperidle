@@ -20,12 +20,12 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import type { SessionEndedEvent } from "@hyperidle/domain-model";
 import {
 	drainLifecycleProjections,
 	sessionRunRegistry,
 	startLifecycleProjectionDrain,
 } from "@hyperidle/session-requests";
-import type { SessionEndedEvent } from "@hyperidle/shared";
 import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, vi } from "vitest";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";

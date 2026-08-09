@@ -40,7 +40,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
-import { DEFAULT_AGENT_HARNESS, isCatalogModel } from "@hyperidle/shared";
+import { DEFAULT_AGENT_HARNESS, isCatalogModel } from "@hyperidle/domain-model";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";

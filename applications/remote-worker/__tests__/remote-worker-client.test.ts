@@ -22,7 +22,7 @@ import type {
 	SessionConfig,
 	SessionHandle,
 	SessionResult,
-} from "@hyperidle/shared";
+} from "@hyperidle/harness-protocol";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock electron (needed transitively through safe-credential-resolver if imported)

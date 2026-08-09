@@ -1,7 +1,7 @@
 // AM5 — base-primitive foundation story: List (pure content).
 // Thin wrapper over block/ListPayload. Items hold nested BlockPayload children
 // (paragraphs), matching the shipped recursion.
-import type { BlockPayload } from "@hyperidle/shared";
+import type { BlockPayload } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { ListPayload } from "./block/ListPayload.js";
 

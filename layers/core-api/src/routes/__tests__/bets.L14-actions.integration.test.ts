@@ -18,8 +18,8 @@
  */
 
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
+import type { EventBus } from "@hyperidle/event-bus";
 import { getTeamMembers, updateTeam } from "@hyperidle/org";
-import type { EventBus } from "@hyperidle/shared";
 import type { RevisionLogEntry, WorkDeps } from "@hyperidle/work";
 import { transitionBet } from "@hyperidle/work";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";

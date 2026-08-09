@@ -30,12 +30,13 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import { type ObservabilityConfig, readObservabilityConfig } from "@hyperidle/settings";
-import { createLogger, type EventBus } from "@hyperidle/shared";
 import {
 	createConsoleObservabilityAdapter,
+	createLogger,
 	type ObservabilityAdapter,
-} from "@hyperidle/shared/observability";
+} from "@hyperidle/diagnostics";
+import type { EventBus } from "@hyperidle/event-bus";
+import { type ObservabilityConfig, readObservabilityConfig } from "@hyperidle/settings";
 import {
 	createObservabilityDispatcher,
 	registerObservabilityDispatcher,

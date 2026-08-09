@@ -666,28 +666,28 @@ describe("AD6 — scope-labels utility", () => {
 	});
 
 	it("scopeKindToLabel returns Shared for factory", async () => {
-		const { scopeKindToLabel } = await import("@hyperidle/shared");
+		const { scopeKindToLabel } = await import("@hyperidle/presentation-format");
 		expect(scopeKindToLabel("factory")).toBe("Shared");
 	});
 
 	it("scopeKindToLabel returns Team for product", async () => {
 		// @lore AE1: Changed from "Shared" to "Team" — product scope renamed in U1.
-		const { scopeKindToLabel } = await import("@hyperidle/shared");
+		const { scopeKindToLabel } = await import("@hyperidle/presentation-format");
 		expect(scopeKindToLabel("product")).toBe("Team");
 	});
 
 	it("scopeKindToLabel returns Shared for practice", async () => {
-		const { scopeKindToLabel } = await import("@hyperidle/shared");
+		const { scopeKindToLabel } = await import("@hyperidle/presentation-format");
 		expect(scopeKindToLabel("practice")).toBe("Shared");
 	});
 
 	it("scopeKindToLabel returns Team for team", async () => {
-		const { scopeKindToLabel } = await import("@hyperidle/shared");
+		const { scopeKindToLabel } = await import("@hyperidle/presentation-format");
 		expect(scopeKindToLabel("team")).toBe("Team");
 	});
 
 	it("scopeKindToLabel returns Private for user", async () => {
-		const { scopeKindToLabel } = await import("@hyperidle/shared");
+		const { scopeKindToLabel } = await import("@hyperidle/presentation-format");
 		expect(scopeKindToLabel("user")).toBe("Private");
 	});
 });

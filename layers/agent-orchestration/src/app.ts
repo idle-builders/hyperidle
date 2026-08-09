@@ -24,8 +24,10 @@
 
 import { ServiceConnectionResolver } from "@hyperidle/connections";
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { ActivityEntry, EventBus, HarnessCapabilityReader } from "@hyperidle/shared";
-import type { HyperIdleEnv } from "@hyperidle/shared/http";
+import type { ActivityEntry } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
+import type { HarnessCapabilityReader } from "@hyperidle/harness-protocol";
+import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import { Hono } from "hono";
 import { createAgentOrchestrationSessionsRoutes } from "./routes/agent-orchestration-sessions.js";
 import { createConnectionRoutes } from "./routes/connections.js";

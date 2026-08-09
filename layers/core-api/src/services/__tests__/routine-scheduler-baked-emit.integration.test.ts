@@ -43,7 +43,7 @@ import type { RoutineSchedulerPorts } from "@hyperidle/routine";
 import { fireGenericRoutine } from "@hyperidle/routine";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
-import type { EventBus } from "@hyperidle/shared";
+import type { EventBus } from "@hyperidle/event-bus";
 import { requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";

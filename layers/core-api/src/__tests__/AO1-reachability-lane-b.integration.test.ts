@@ -24,11 +24,11 @@
 
 import * as crypto from "node:crypto";
 import { ServiceConnectionResolver } from "@hyperidle/connections";
+import { encryptCredentialValue } from "@hyperidle/credential-access";
 import { serviceConnections, teamMembers, teams, users } from "@hyperidle/db";
+import type { FilesystemAuthResolver } from "@hyperidle/filesystem-contract";
 import { resolveFilesystemState } from "@hyperidle/filesystems";
-import type { FilesystemAuthResolver } from "@hyperidle/shared";
-import { encryptCredentialValue } from "@hyperidle/shared/crypto";
-import { createGitRunner } from "@hyperidle/shared/git";
+import { createGitRunner } from "@hyperidle/host-process";
 import { describe, expect, it } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 

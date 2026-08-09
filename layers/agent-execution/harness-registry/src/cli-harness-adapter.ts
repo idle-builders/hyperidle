@@ -18,16 +18,16 @@ import type { ChildProcess } from "node:child_process";
 import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import type { ReturnEnforcementChannel } from "@hyperidle/harness-capability";
 import type {
 	HarnessAdapter,
 	HarnessCapabilities,
 	HarnessEvent,
-	ReturnEnforcementChannel,
 	SessionConfig,
 	SessionHandle,
 	SessionMetrics,
 	SessionResult,
-} from "@hyperidle/shared";
+} from "@hyperidle/harness-protocol";
 import {
 	isRequiredReturnAction,
 	MAX_FORCE_RETURNS,
@@ -35,7 +35,7 @@ import {
 	opencodeToolName,
 	preMapClaudeEvent,
 	shouldForceReturn,
-} from "@hyperidle/shared";
+} from "@hyperidle/harness-protocol";
 
 import { createReturnEnforcement } from "./return-enforcement.js";
 

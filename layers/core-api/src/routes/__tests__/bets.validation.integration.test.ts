@@ -9,8 +9,9 @@
  */
 
 import { bets, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
+import { API_ERROR_CODES } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import { getTeamMembers, updateTeam } from "@hyperidle/org";
-import { API_ERROR_CODES, type EventBus } from "@hyperidle/shared";
 import { transitionBet, type WorkDeps } from "@hyperidle/work";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";

@@ -37,7 +37,7 @@
  * loop). The stopSession call below is load-bearing.
  */
 
-import type { HarnessAdapter, SessionHandle } from "@hyperidle/shared";
+import type { HarnessAdapter, SessionHandle } from "@hyperidle/harness-protocol";
 
 /** One live session's abort affordances. */
 interface SessionRunEntry {

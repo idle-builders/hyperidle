@@ -24,7 +24,8 @@
  */
 
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
-import type { EventBus, SessionStartedEvent } from "@hyperidle/shared";
+import type { SessionStartedEvent } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 
 export interface CreateBareRunInput {

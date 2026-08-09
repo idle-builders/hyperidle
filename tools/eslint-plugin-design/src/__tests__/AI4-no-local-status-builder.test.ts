@@ -11,11 +11,11 @@
  *  - INVALID: *_LABEL object literals (STATE_LABEL, STATUS_LABEL, etc.) in
  *    layers/core-ui/src are flagged.
  *  - INVALID: const returning bg-[rgba(... keyed on a status/state param.
- *  - VALID (negative): a *_LABEL constant defined in framework/shared is NOT flagged
+ *  - VALID (negative): a *_LABEL constant defined in framework/domain-model is NOT flagged
  *    (the heuristic scopes to layers/core-ui/src only).
  *  - VALID (negative): a presentational local const named `panelClass` is NOT flagged
  *    (name doesn't match the status-builder patterns).
- *  - VALID (negative): a const named STATUS_LABEL inside framework/shared/src is NOT flagged.
+ *  - VALID (negative): a const named STATUS_LABEL inside framework/domain-model/src is NOT flagged.
  *
  * These tests FAIL until the rule is created at
  * `tools/eslint-plugin-design/src/rules/no-local-status-builder.ts`
@@ -39,8 +39,8 @@ const tester = new RuleTester({
 
 // The web package path that triggers the rule
 const WEB_FILENAME = "/repo/layers/core-ui/src/pages/WorkBet.tsx";
-// A shared package path that should NOT trigger the rule
-const SHARED_FILENAME = "/repo/framework/shared/src/types.ts";
+// The substrate package path that should NOT trigger the rule
+const SHARED_FILENAME = "/repo/framework/domain-model/src/types.ts";
 // A design-system path that should NOT trigger the rule
 const DS_FILENAME = "/repo/framework/design-system/src/status-mapping.ts";
 
@@ -165,11 +165,11 @@ const TASK_STATE_LABEL: Record<string, string> = {
 		});
 	});
 
-	it("does NOT report *_LABEL defined in framework/shared (negative case — legitimate home)", () => {
+	it("does NOT report *_LABEL defined in framework/domain-model (negative case — legitimate home)", () => {
 		tester.run("no-local-status-builder", noLocalStatusBuilder, {
 			valid: [
 				{
-					// TASK_STATE_LABEL in shared is the LEGITIMATE registry — must not flag
+					// TASK_STATE_LABEL in domain-model is the LEGITIMATE registry — must not flag
 					filename: SHARED_FILENAME,
 					code: `export const TASK_STATE_LABEL: Record<string, string> = { proposed: "Planned" };`,
 				},
@@ -201,7 +201,7 @@ export function taskStateBadgeClass(state: string): string {
 					filename: WEB_FILENAME,
 					// Consuming a label from a registry is fine; building the map is not
 					code: `
-import { TASK_STATE_LABEL } from "@hyperidle/shared";
+import { TASK_STATE_LABEL } from "@hyperidle/domain-model";
 const statusText = TASK_STATE_LABEL[task.state];
 `,
 				},

@@ -5,7 +5,7 @@
  * When agentId is undefined, returns idle state (no fetch).
  */
 
-import type { AgentProfileResponse } from "@hyperidle/shared";
+import type { AgentProfileResponse } from "@hyperidle/domain-model";
 import { useEffect, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 

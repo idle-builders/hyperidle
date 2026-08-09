@@ -14,8 +14,8 @@
  * because deriveBlocks is pure and fast (<1ms for typical bodies).
  */
 
-import type { BlockHostKind, BlockPayload } from "@hyperidle/shared";
-import { deriveBlocks } from "@hyperidle/shared";
+import { deriveBlocks } from "@hyperidle/block-derivation";
+import type { BlockHostKind, BlockPayload } from "@hyperidle/domain-model";
 import { useEffect, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 

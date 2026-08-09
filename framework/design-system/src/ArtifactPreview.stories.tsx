@@ -1,4 +1,4 @@
-import type { Artifact } from "@hyperidle/shared";
+import type { Artifact } from "@hyperidle/domain-model";
 import { ArtifactPreview } from "./ArtifactPreview.js";
 
 export default {

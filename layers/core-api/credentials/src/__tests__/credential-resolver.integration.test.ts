@@ -13,8 +13,8 @@
  * Its behavior tests follow it there.
  */
 
+import { encryptCredentialValue } from "@hyperidle/credential-access";
 import { test } from "@hyperidle/db/test-fixtures";
-import { encryptCredentialValue } from "@hyperidle/shared/crypto";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { DbCredentialResolver } from "../credential-resolver.js";
 

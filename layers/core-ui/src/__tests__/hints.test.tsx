@@ -15,8 +15,8 @@
  * @lore U5: Updated from WorkProduct/ProductDetail → WorkTeam/TeamDetail.
  */
 
-import type { TeamDetail } from "@hyperidle/shared";
-import { HINT_CATALOG } from "@hyperidle/shared";
+import type { TeamDetail } from "@hyperidle/domain-model";
+import { HINT_CATALOG } from "@hyperidle/domain-model";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";

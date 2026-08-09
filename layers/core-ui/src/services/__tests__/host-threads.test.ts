@@ -8,7 +8,7 @@
  *  - postPlainHostMessage works without blockId (plain message)
  */
 
-import type { AnchorRef, BlockId } from "@hyperidle/shared";
+import type { AnchorRef, BlockId } from "@hyperidle/domain-model";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	postPlainHostMessage,

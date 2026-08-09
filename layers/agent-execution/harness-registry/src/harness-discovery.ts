@@ -8,7 +8,7 @@ import type {
 	HarnessReadinessState,
 	HarnessRuntimeCapabilities,
 	InheritedToolDescriptor,
-} from "@hyperidle/shared";
+} from "@hyperidle/harness-capability";
 
 const execFileAsync = promisify(execFile);
 

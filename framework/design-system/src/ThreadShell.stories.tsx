@@ -2,7 +2,7 @@
  * L1a — `ThreadShell` stories (stub).
  */
 
-import type { Message, Thread } from "@hyperidle/shared";
+import type { Message, Thread } from "@hyperidle/domain-model";
 import { ThreadShell } from "./ThreadShell.js";
 
 export default {

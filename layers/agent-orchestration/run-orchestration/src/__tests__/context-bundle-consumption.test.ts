@@ -29,7 +29,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { BakedContextBundle } from "@hyperidle/shared";
+import type { BakedContextBundle } from "@hyperidle/work-intent-port";
 import { afterEach, describe, expect, test } from "vitest";
 import { createContextAssembler } from "../context.js";
 

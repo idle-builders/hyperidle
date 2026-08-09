@@ -9,7 +9,11 @@
  * - Provisioner conditional tool_call interception based on mcpSupport + mcpConnectionInfo
  */
 
-import type { HarnessCapabilities, McpConnectionInfo, SessionConfig } from "@hyperidle/shared";
+import type {
+	HarnessCapabilities,
+	McpConnectionInfo,
+	SessionConfig,
+} from "@hyperidle/harness-protocol";
 import { describe, expect, it, vi } from "vitest";
 import { BuiltinHarnessAdapter } from "../builtin-harness-adapter.js";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";

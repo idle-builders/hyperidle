@@ -10,13 +10,13 @@ import {
 	users,
 } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
-import { createSessionRequest } from "@hyperidle/session-requests";
 import {
 	type AgentRunAdmissionFailedEvent,
 	type AgentSessionRequestInput,
-	EventBus,
 	TargetAgentNotRunnableError,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
+import { EventBus } from "@hyperidle/event-bus";
+import { createSessionRequest } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
 import { describe, vi } from "vitest";
 import { runSession } from "../runtime.js";

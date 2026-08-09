@@ -19,14 +19,14 @@
  * Record<string, unknown> so callers get precise types without unsafe casts.
  */
 
-import type { ActivityEntry } from "@hyperidle/shared";
+import type { ActivityEntry } from "@hyperidle/domain-model";
 import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 import { getSessionStreamClient } from "../services/ws-client.js";
 
 // AM3: ActivityEntry is now the canonical type from @hyperidle/shared.
 // Re-export for existing callers.
-export type { ActivityEntry } from "@hyperidle/shared";
+export type { ActivityEntry } from "@hyperidle/domain-model";
 export type ToolCallData = Extract<ActivityEntry, { type: "tool_call" }>["data"];
 export type ReasoningData = Extract<ActivityEntry, { type: "reasoning" }>["data"];
 

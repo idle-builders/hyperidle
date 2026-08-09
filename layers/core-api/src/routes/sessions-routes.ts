@@ -1,24 +1,20 @@
 import type { ExplicitSessionStart, HyperIdleDb } from "@hyperidle/db";
-import { createBareRun } from "@hyperidle/run-orchestration";
-import { createSessionRequest, findSessionRequest } from "@hyperidle/session-requests";
-import { readServerConfig } from "@hyperidle/settings";
-import {
-	type AgentWorkIntentEvent,
-	type AgentWorkIntentReader,
-	type AgentWorkIntentRecorder,
-	API_ERROR_CODES,
-	type EventBus,
-} from "@hyperidle/shared";
+import { type AgentWorkIntentEvent, API_ERROR_CODES } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import {
 	type HyperIdleEnv,
 	projectExplicitStartOutcome,
 	requireBoundary,
 	sendStartProjection,
 	validateBody,
-} from "@hyperidle/shared/http";
+} from "@hyperidle/http-middleware";
+import { createBareRun } from "@hyperidle/run-orchestration";
+import { createSessionRequest, findSessionRequest } from "@hyperidle/session-requests";
+import { readServerConfig } from "@hyperidle/settings";
 import { requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { resolveSessionStartRequest } from "@hyperidle/work";
+import type { AgentWorkIntentReader, AgentWorkIntentRecorder } from "@hyperidle/work-intent-port";
 import { Hono } from "hono";
 import z from "zod";
 import {

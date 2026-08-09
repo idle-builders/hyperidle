@@ -1,5 +1,5 @@
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
-import type { EventBus } from "@hyperidle/shared";
+import type { EventBus } from "@hyperidle/event-bus";
 import { type TaskStateMachineDeps, transitionTask } from "./task-state-machine.js";
 import * as work from "./work-service.js";
 

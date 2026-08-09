@@ -18,7 +18,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 // FAILS red: module does not exist yet
-import type { ReturnEnforcementChannel } from "@hyperidle/shared";
+import type { ReturnEnforcementChannel } from "@hyperidle/harness-capability";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { provisionHarnessEnvironment } from "../provision-harness-environment.js";
 

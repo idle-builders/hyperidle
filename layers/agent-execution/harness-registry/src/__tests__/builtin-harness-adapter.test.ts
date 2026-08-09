@@ -17,7 +17,7 @@ import type {
 	HarnessEvent,
 	SessionConfig,
 	SessionHandle,
-} from "@hyperidle/shared";
+} from "@hyperidle/harness-protocol";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BuiltinHarnessAdapter } from "../builtin-harness-adapter.js";
 import type { LlmResponse } from "../llm-types.js";

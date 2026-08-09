@@ -16,12 +16,12 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import { ensureFactoryKnowledgeSeed } from "@hyperidle/knowledge";
 import {
 	COMMUNITY_DISPLAY_NAMES,
 	defaultFactoryRoster,
 	type FactoryAgentRef,
-} from "@hyperidle/shared";
+} from "@hyperidle/factory-defaults";
+import { ensureFactoryKnowledgeSeed } from "@hyperidle/knowledge";
 import { insertUserIfAbsent, listFactoryAgents, setAgentCategoryForRole } from "@hyperidle/users";
 
 /**

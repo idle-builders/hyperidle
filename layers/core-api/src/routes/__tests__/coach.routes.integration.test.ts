@@ -15,7 +15,7 @@
  */
 
 import { type HyperIdleDb, teamMembers, teams, threads, users } from "@hyperidle/db";
-import { classifyThreadConfiguration } from "@hyperidle/shared";
+import { classifyThreadConfiguration } from "@hyperidle/domain-model";
 import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";

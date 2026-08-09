@@ -2,6 +2,9 @@
 
 import { readAgentRunConfig } from "@hyperidle/agent-run-config";
 import type { HyperIdleDb } from "@hyperidle/db";
+import { summarizeToolArgs } from "@hyperidle/diagnostics";
+import { EventBus } from "@hyperidle/event-bus";
+import type { WorkerRegisterMessage } from "@hyperidle/harness-protocol";
 import {
 	AdapterPool,
 	createHarnessAdapter,
@@ -30,8 +33,7 @@ import {
 	sessionRunRegistry,
 	transitionSessionRequest,
 } from "@hyperidle/session-requests";
-import type { ToolContext, WorkerRegisterMessage } from "@hyperidle/shared";
-import { EventBus, summarizeToolArgs } from "@hyperidle/shared";
+import type { ToolContext } from "@hyperidle/tool-protocol";
 import { queueDeps } from "./durable-agent-queue.js";
 import { buildToolRegistry, returnStatusTool, toolsForRole } from "./tool-provider-bindings.js";
 

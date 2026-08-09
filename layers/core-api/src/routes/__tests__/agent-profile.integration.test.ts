@@ -495,7 +495,7 @@ import type {
 	SessionConfig,
 	SessionHandle,
 	SessionResult,
-} from "@hyperidle/shared";
+} from "@hyperidle/harness-protocol";
 
 function makeMockAdapter(): HarnessAdapter {
 	return {

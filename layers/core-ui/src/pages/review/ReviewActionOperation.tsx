@@ -16,7 +16,7 @@
 // Tokens by NAME only (Hearth + CP1). Money + irreversibility lean on
 // --status-warning / --status-error per the brief. Brand color lives only in ToolLogo.
 
-import type { ProposedCallStatus } from "@hyperidle/shared";
+import type { ProposedCallStatus } from "@hyperidle/domain-model";
 import { type JSX, useState } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { isPlainObject, isString } from "./payload-guard";

@@ -1,7 +1,7 @@
 import { chmod, mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { HarnessAdapter, HarnessCapabilities } from "@hyperidle/shared";
+import type { HarnessAdapter, HarnessCapabilities } from "@hyperidle/harness-protocol";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AdapterPool } from "../adapter-pool.js";
 import { discoverLocalHarnesses } from "../harness-discovery.js";

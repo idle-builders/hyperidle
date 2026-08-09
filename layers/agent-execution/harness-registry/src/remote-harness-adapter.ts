@@ -17,7 +17,7 @@ import type {
 	SessionHandle,
 	SessionResult,
 	WorkerRegisterMessage,
-} from "@hyperidle/shared";
+} from "@hyperidle/harness-protocol";
 
 // Re-export so tests can import WorkerRegisterMessage from this module
 export type { WorkerRegisterMessage };

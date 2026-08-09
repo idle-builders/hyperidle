@@ -16,7 +16,7 @@
  */
 
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { AGENT_WORK_INTENT_KINDS, type AgentWorkIntentKind } from "@hyperidle/shared";
+import { AGENT_WORK_INTENT_KINDS, type AgentWorkIntentKind } from "@hyperidle/domain-model";
 import type { HyperIdleDb } from "../connection.js";
 import { agentWorkIntents } from "../schema.js";
 

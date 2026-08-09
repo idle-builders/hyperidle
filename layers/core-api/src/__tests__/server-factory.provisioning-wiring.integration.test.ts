@@ -31,6 +31,7 @@
 import * as os from "node:os";
 import * as path from "node:path";
 import { ServiceConnectionResolver } from "@hyperidle/connections";
+import { encryptCredentialValue } from "@hyperidle/credential-access";
 import {
 	filesystemInjections,
 	filesystems,
@@ -42,7 +43,6 @@ import {
 } from "@hyperidle/db";
 import { AdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
 import { createServer } from "@hyperidle/remote-server/create-server";
-import { encryptCredentialValue } from "@hyperidle/shared/crypto";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 
 const SERVER_SECRET = "au26-c1-provisioning-wiring-secret";

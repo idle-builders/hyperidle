@@ -12,10 +12,12 @@
 	},
 	"dependencies": {
 		"@hyperidle/db": "*",
-		"@hyperidle/shared": "*",
+		"@hyperidle/domain-model": "*",
+		"@hyperidle/harness-protocol": "*",
 		"drizzle-orm": "^0.45.2"
 	},
 	"devDependencies": {
+		"@hyperidle/harness-capability": "*",
 		"vitest": "^4.1.9"
 	}
 }

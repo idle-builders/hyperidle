@@ -13,7 +13,7 @@
  * pushed `data` IS the changed state, not an invalidate ping.
  */
 
-import type { EventBus } from "@hyperidle/shared";
+import type { EventBus } from "@hyperidle/event-bus";
 
 /**
  * The minimal shape this gateway needs from a broadcast sink — satisfied by

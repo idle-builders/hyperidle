@@ -46,8 +46,9 @@ import {
 	SkeletonCard,
 	StatusChip,
 } from "@hyperidle/design-system";
-import type { RoutineDetail, RoutineRunSummary } from "@hyperidle/shared";
-import { absoluteDate, absoluteDateTime, SCHEDULE_PRESETS } from "@hyperidle/shared";
+import type { RoutineDetail, RoutineRunSummary } from "@hyperidle/domain-model";
+import { SCHEDULE_PRESETS } from "@hyperidle/domain-model";
+import { absoluteDate, absoluteDateTime } from "@hyperidle/presentation-format";
 import { type JSX, useCallback, useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useRoutine } from "../../hooks/useRoutine.js";

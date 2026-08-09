@@ -14,9 +14,13 @@
 		"test:e2e:ah6": "playwright test --config playwright.ah6.config.ts"
 	},
 	"dependencies": {
+		"@hyperidle/block-derivation": "*",
+		"@hyperidle/conversation-parts": "*",
 		"@hyperidle/design-system": "*",
+		"@hyperidle/domain-model": "*",
+		"@hyperidle/harness-capability": "*",
 		"@hyperidle/harness-registry": "*",
-		"@hyperidle/shared": "*",
+		"@hyperidle/presentation-format": "*",
 		"dompurify": "^3.4.11",
 		"focus-trap-react": "^12.0.3",
 		"react": "^19.2.7",
@@ -25,6 +29,7 @@
 	},
 	"devDependencies": {
 		"@axe-core/playwright": "^4.12.1",
+		"@hyperidle/credential-access": "*",
 		"@hyperidle/db": "*",
 		"@hyperidle/eval": "*",
 		"@hyperidle/remote-server": "*",

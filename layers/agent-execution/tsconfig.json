@@ -8,7 +8,10 @@
 	"include": ["src"],
 	"references": [
 		{
-			"path": "../../framework/shared"
+			"path": "../../framework/domain-model"
+		},
+		{
+			"path": "../../framework/event-bus"
 		},
 		{
 			"path": "harness-registry"

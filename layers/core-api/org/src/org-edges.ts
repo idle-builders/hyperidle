@@ -21,7 +21,7 @@
  */
 
 import { type HyperIdleDb, orgEdges } from "@hyperidle/db";
-import type { OrgEdgeMechanism } from "@hyperidle/shared";
+import type { OrgEdgeMechanism } from "@hyperidle/domain-model";
 import { and, eq } from "drizzle-orm";
 
 /**

@@ -1,5 +1,6 @@
 import type { HyperIdleDb } from "@hyperidle/db";
-import { createLogger, type EventBus } from "@hyperidle/shared";
+import { createLogger } from "@hyperidle/diagnostics";
+import type { EventBus } from "@hyperidle/event-bus";
 import { recomputeRelevance } from "./relevance-service.js";
 
 const listenerLog = createLogger({ pkg: "server.knowledge-relevance" });

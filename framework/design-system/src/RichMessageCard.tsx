@@ -32,7 +32,7 @@ import {
 	type RedactedPayload,
 	type VerdictDecision,
 	verdictDecisionLabel,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
 import { type JSX, type ReactNode, useId, useState } from "react";
 import { dsProps } from "./ds-attrs.js";
 import { StatusChip } from "./StatusChip.js";

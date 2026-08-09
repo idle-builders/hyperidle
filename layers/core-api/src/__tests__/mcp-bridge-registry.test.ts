@@ -1,6 +1,7 @@
+import { EventBus } from "@hyperidle/event-bus";
 import { createReturnEnforcement } from "@hyperidle/harness-registry";
 import { createMcpToolBridge } from "@hyperidle/harness-registry/mcp";
-import { EventBus, type ToolContext, type ToolRegistry } from "@hyperidle/shared";
+import type { ToolContext, ToolRegistry } from "@hyperidle/tool-protocol";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import { buildToolRegistry } from "../services/tool-provider-bindings.js";
 

@@ -1,0 +1,21 @@
+{
+	"name": "@hyperidle/tool-protocol",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"check": "tsc --noEmit"
+	},
+	"devDependencies": {
+		"vitest": "^4.1.9"
+	},
+	"dependencies": {
+		"@hyperidle/domain-model": "*",
+		"@hyperidle/event-bus": "*",
+		"@hyperidle/harness-protocol": "*",
+		"zod": "^4.3.6"
+	}
+}

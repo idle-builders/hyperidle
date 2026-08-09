@@ -2,7 +2,7 @@
  * X6: callLlm() — single LLM API call with Anthropic and OpenAI-compatible format support.
  */
 
-import { HttpError, type ResolvedModel } from "@hyperidle/shared";
+import { HttpError, type ResolvedModel } from "@hyperidle/domain-model";
 import type {
 	LlmMessage,
 	LlmResponse,

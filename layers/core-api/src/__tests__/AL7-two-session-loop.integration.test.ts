@@ -32,13 +32,10 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import type { SessionEndedEvent } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import { type ReviewPorts, registerReviewSubscriptions } from "@hyperidle/review";
-import type {
-	BuildToolRegistryOptions,
-	EventBus,
-	SessionEndedEvent,
-	ToolContext,
-} from "@hyperidle/shared";
+import type { BuildToolRegistryOptions, ToolContext } from "@hyperidle/tool-protocol";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { test as baseTest } from "../__testing__/test-fixtures.js";

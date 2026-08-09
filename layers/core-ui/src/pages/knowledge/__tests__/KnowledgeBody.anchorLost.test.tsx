@@ -11,8 +11,8 @@
  * `AnchoredMessages` inside KnowledgeBody.tsx.
  */
 
-import type { Message, PlainPayload } from "@hyperidle/shared";
-import { deriveBlocks } from "@hyperidle/shared";
+import { deriveBlocks } from "@hyperidle/block-derivation";
+import type { Message, PlainPayload } from "@hyperidle/domain-model";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { KnowledgeBody } from "../KnowledgeBody";

@@ -5,7 +5,7 @@
  * AC-5: Clicking routine shows run history + config
  */
 
-import type { RoutineDetail } from "@hyperidle/shared";
+import type { RoutineDetail } from "@hyperidle/domain-model";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";

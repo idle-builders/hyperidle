@@ -1,5 +1,6 @@
 import { type HyperIdleDb, propagationLog } from "@hyperidle/db";
-import type { EventBus, ItemCreatedEvent, NotificationEvent } from "@hyperidle/shared";
+import type { ItemCreatedEvent, NotificationEvent } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import { computeApprovalRate } from "./approval-rate.js";
 import type { PolicyDeps } from "./ports.js";
 

@@ -12,7 +12,7 @@
  */
 
 import { type HyperIdleDb, knowledgeAppProjection, knowledgeItems, users } from "@hyperidle/db";
-import { KERNEL_KNOWLEDGE_STATUSES } from "@hyperidle/shared";
+import { KERNEL_KNOWLEDGE_STATUSES } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";

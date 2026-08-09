@@ -34,7 +34,7 @@ import {
 	type ToolRegistry,
 	type ToolResult,
 	toClaudeToolSpec,
-} from "@hyperidle/shared";
+} from "@hyperidle/tool-protocol";
 
 /**
  * Build a fresh registry bound to the given context, filtered to the agent's

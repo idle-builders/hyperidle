@@ -5,7 +5,7 @@
  *  - block-anchored messages render inline after the block payload in the knowledge body
  */
 
-import type { PlainPayload } from "@hyperidle/shared";
+import type { PlainPayload } from "@hyperidle/domain-model";
 import { cleanup, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";

@@ -30,7 +30,7 @@
  */
 import { type HyperIdleDb, routines, teamMembers, teams, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
-import { EventBus } from "@hyperidle/shared";
+import { EventBus } from "@hyperidle/event-bus";
 import { describe, vi } from "vitest";
 import type { RoutineSchedulerPorts } from "../ports.js";
 import { startRoutineScheduler } from "../routine-scheduler.js";

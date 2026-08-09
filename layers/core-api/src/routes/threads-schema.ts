@@ -10,7 +10,7 @@ import {
 	HOST_KINDS,
 	type MESSAGE_TYPES,
 	VERDICT_DECISIONS,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
 import z from "zod";
 
 // `clientKey` URL-safe regex: [A-Za-z0-9_\-:.], length 8-128 chars (plan

@@ -1,4 +1,4 @@
-import type { ConfigurationKind, PluginState } from "@hyperidle/shared";
+import type { ConfigurationKind, PluginState } from "@hyperidle/domain-model";
 import { sql } from "drizzle-orm";
 import {
 	boolean,

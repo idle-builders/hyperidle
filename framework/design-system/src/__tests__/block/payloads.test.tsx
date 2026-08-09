@@ -165,7 +165,7 @@ describe("Per-kind payload renderers", () => {
 		"inline link XSS: post-derive+render DOM has no <a href='javascript:'>",
 		TEST_TIMEOUT,
 		async () => {
-			const { deriveBlocks } = await import("@hyperidle/shared");
+			const { deriveBlocks } = await import("@hyperidle/block-derivation");
 			const { Block } = await import("../../Block.js");
 			const md = "see [click](javascript:alert(1)) and [ok](https://example.com)";
 			const { blocks } = deriveBlocks(md, { kind: "bet", id: "x" });

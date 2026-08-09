@@ -3,7 +3,7 @@ import {
 	type EnforcementRegistry,
 	type HarnessEvent,
 	isRequiredReturnAction,
-} from "@hyperidle/shared";
+} from "@hyperidle/harness-protocol";
 
 export interface ReturnEnforcementSpec {
 	readonly isolated?: boolean;

@@ -1,8 +1,8 @@
 // L3 — ArtifactEmbed: chrome-less. The host (review message, etc.) owns
 // background/border/radius. Only the arrow is interactive.
 
-import type { Artifact } from "@hyperidle/shared";
-import { summarizePreview } from "@hyperidle/shared";
+import type { Artifact } from "@hyperidle/domain-model";
+import { summarizePreview } from "@hyperidle/domain-model";
 import type { JSX, ReactNode } from "react";
 import { ArtifactKindBadge } from "./ArtifactKindBadge.js";
 import { ArtifactTimestamp } from "./ArtifactTimestamp.js";

@@ -19,8 +19,8 @@
  * `upgradeWebSocket` is injected for the same runtime-agnostic reason core's is.
  */
 
-import type { ApiErrorResponse } from "@hyperidle/shared";
-import { API_ERROR_CODES } from "@hyperidle/shared";
+import type { ApiErrorResponse } from "@hyperidle/domain-model";
+import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket, WSContext } from "hono/ws";
 import type { SessionStreamClient, SessionStreamHub } from "../services/session-stream-hub.js";

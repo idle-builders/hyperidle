@@ -43,7 +43,7 @@
  */
 
 import type { WriteExecutor } from "@hyperidle/db";
-import type { PrimaryHarnessConfig } from "@hyperidle/shared";
+import type { PrimaryHarnessConfig } from "@hyperidle/domain-model";
 import type { OrgAgentRunConfigWriter, OrgUserDirectory } from "./ports.js";
 import { resolveTeamAgentHarness } from "./team-default-harness.js";
 

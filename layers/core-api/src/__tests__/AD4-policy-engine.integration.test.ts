@@ -41,11 +41,11 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import type { NotificationEvent } from "@hyperidle/domain-model";
 import { isSilenced } from "@hyperidle/notifications";
 import { getTeamMembers } from "@hyperidle/org";
 import { computeApprovalRate, type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
-import type { NotificationEvent } from "@hyperidle/shared";
 import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { and, eq } from "drizzle-orm";
@@ -237,7 +237,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 	// -------------------------------------------------------------------------
 	async function createItem(
 		db: HyperIdleDb,
-		_eventBus: import("@hyperidle/shared").EventBus,
+		_eventBus: import("@hyperidle/event-bus").EventBus,
 		overrides: Partial<{
 			id: string;
 			kind: string;
@@ -260,7 +260,10 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 		return itemId;
 	}
 
-	function emitItemCreated(eventBus: import("@hyperidle/shared").EventBus, itemId: string): void {
+	function emitItemCreated(
+		eventBus: import("@hyperidle/event-bus").EventBus,
+		itemId: string,
+	): void {
 		eventBus.emit({
 			type: "item_created",
 			streamId: crypto.randomUUID(),

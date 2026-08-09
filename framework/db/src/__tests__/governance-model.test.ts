@@ -1,18 +1,21 @@
 /**
  * AU28 — the compact architecture model reproduces every decided verdict.
  *
- * `governance/decided-rules.json` holds 121 verdicts the founder decided one at a time: every role
+ * `governance/decided-rules.json` holds 109 verdicts the founder decided one at a time: every role
  * pair × crossing kind, with a separate answer for the production and development worlds. They are
  * the decision artifact. `scripts/lib/governance-model.ts` is fifteen clauses that must *derive* all
- * 242 answers (121 rows × 2 worlds).
+ * 218 answers (109 rows × 2 worlds).
  *
- * The row count moved three times, by founder ruling: AU28 Ruling 14 collapsed `raw runtime` and
+ * The row count moved four times, by founder ruling: AU28 Ruling 14 collapsed `raw runtime` and
  * `harness` into one target, merging the two `harness-registry` capability rows that had the same
  * verdict. AU29 deleted the `db:util` and `db:bootstrap` surfaces (Ruling 12.3) along with their six
  * rows — their exports left `framework/db` entirely, so the surfaces no longer exist to have a
  * verdict. AU34 added the three `framework → db:*` rows that bound the framework-to-framework
  * widening: they are the only rows whose verdict differs between the scoped reading of that ruling
- * and the literal one, so they are what stops a later edit widening it back by accident.
+ * and the literal one, so they are what stops a later edit widening it back by accident. AU34 then
+ * retired the twelve `framework/shared` rows with the surface itself — the substrate was split into
+ * eighteen packages, each with its own decided audience, so the blanket those twelve recorded has no
+ * target left to name.
  *
  * That is the whole point of this file. Without it, a clause tuned to fix one crossing can silently
  * flip another, and the compact model quietly stops meaning what the founder decided.
@@ -123,6 +126,33 @@ const NAMED_PACKAGES: Readonly<Record<string, { readonly role: Role; readonly la
 	work: { role: "service", layer: "core-api" },
 };
 
+/**
+ * The workspace path a named package's manifest sits at, from the role the fixture declares for it.
+ * The role globs in `governance/architecture.json` are what decide it, so this is the same derivation
+ * `readWorkspacePackages` runs, in reverse.
+ */
+function manifestPathOf(name: string): string {
+	const named = NAMED_PACKAGES[name];
+	if (named === undefined) {
+		throw new Error(
+			`governance/architecture.json grants reach to "${name}", which this fixture does not know. ` +
+				"Add it to NAMED_PACKAGES with its declared role and home layer.",
+		);
+	}
+	switch (named.role) {
+		case "layer":
+			return `layers/${name}/package.json`;
+		case "service":
+			return `layers/${named.layer}/${name}/package.json`;
+		case "framework":
+			return `framework/${name}/package.json`;
+		case "application":
+			return `applications/${name}/package.json`;
+		default:
+			return `tools/${name}/package.json`;
+	}
+}
+
 /** Named packages carry their real role and home layer; a bare role gets a stand-in package. */
 function makeActor(name: string): Crossing["source"] {
 	if (name === "harness") return { sort: "harness" };
@@ -213,14 +243,14 @@ const label = (row: DecidedRow): string => `${row.source} → ${row.target} [${r
 // -------------------------------------------------------------------------------------------
 
 describe("AU28 — the decided rule set is intact", () => {
-	it("holds exactly the 121 decided rows with the decided totals", () => {
-		expect(decided.rows).toHaveLength(121);
-		expect(decided.totals.rows).toBe(121);
+	it("holds exactly the 109 decided rows with the decided totals", () => {
+		expect(decided.rows).toHaveLength(109);
+		expect(decided.totals.rows).toBe(109);
 		const count = (world: "production" | "development", verdict: string): number =>
 			decided.rows.filter((r) => r[world] === verdict).length;
 		// These four numbers are the founder's decisions. A regeneration that moves any of them has
 		// re-derived what was decided instead of reading it — that happened once and cost hours.
-		expect(count("production", "allowed")).toBe(65);
+		expect(count("production", "allowed")).toBe(53);
 		expect(count("production", "forbidden")).toBe(56);
 		// Ruling 13 moved the two `db:table (other) [table:write]` rows from forbidden to allowed:
 		// the flat rule is replaced by the companion clause, which no row can express.
@@ -234,8 +264,10 @@ describe("AU28 — the decided rule set is intact", () => {
 		// 10 - 2 - 2 = 6 forbidden.
 		// AU34's three `framework → db:*` rows are all production-forbidden (53 + 3 = 56) and split in
 		// development: `db:schema-ns` and `db:unknown` are one-door surfaces and stay forbidden
-		// (6 + 2 = 8), `db:testing` is not one and relaxes (112 + 1 = 113).
-		expect(count("development", "allowed")).toBe(113);
+		// (6 + 2 = 8), `db:testing` is not one and relaxes (112 + 1 = 113). AU34 then retired the
+		// twelve `framework/shared` rows, every one of them allowed in both worlds: 65 - 12 = 53
+		// production allowed, 113 - 12 = 101 development allowed; neither forbidden count moves.
+		expect(count("development", "allowed")).toBe(101);
 		expect(count("development", "forbidden")).toBe(8);
 	});
 
@@ -245,7 +277,7 @@ describe("AU28 — the decided rule set is intact", () => {
 	});
 });
 
-describe("AU28 — fifteen clauses derive all 242 decided verdicts", () => {
+describe("AU28 — fifteen clauses derive all 218 decided verdicts", () => {
 	// W-TEST-2: `expect(wrong).toEqual([])` over a `.filter()` passes vacuously when `rows` is empty
 	// — a mis-parsed or emptied decided-rules.json would read as a total green. The counter is what
 	// makes the loop assert that it RAN, and it is the reason the row count is stated twice.
@@ -261,7 +293,7 @@ describe("AU28 — fifteen clauses derive all 242 decided verdicts", () => {
 				return `${label(row)} — decided ${row.production}, model says ${got.verdict} via ${got.clause}`;
 			});
 		expect(wrong).toEqual([]);
-		expect(checked, "the loop must actually iterate every decided row").toBe(121);
+		expect(checked, "the loop must actually iterate every decided row").toBe(109);
 	});
 
 	it("reproduces every development verdict", () => {
@@ -276,7 +308,7 @@ describe("AU28 — fifteen clauses derive all 242 decided verdicts", () => {
 				return `${label(row)} — decided ${row.development}, model says ${got.verdict} via ${got.clause}`;
 			});
 		expect(wrong).toEqual([]);
-		expect(checked, "the loop must actually iterate every decided row").toBe(121);
+		expect(checked, "the loop must actually iterate every decided row").toBe(109);
 	});
 
 	it("names a clause and a reason for every decision — no unexplained verdict", () => {
@@ -565,7 +597,15 @@ const syntheticTree = [
 		`layers/${architecture.endpoints.mcpRouter.host}/package.json`,
 		`layers/${architecture.rawRuntime.host}/package.json`,
 		"layers/core-ui/package.json",
-		"framework/shared/package.json",
+		// Every package a `reach` list names has to exist here, or `validateArchitecture` reports the
+		// audience as naming nobody. Derived from the registry rather than listed by hand, so a new
+		// surface cannot be declared with an audience this tree happens not to cover.
+		...Object.values(architecture.surfaces)
+			.flatMap((entry) =>
+				typeof entry !== "string" && Array.isArray(entry.reach) ? entry.reach : [],
+			)
+			.filter((name) => !ROLES.includes(name as Role))
+			.map(manifestPathOf),
 		// One of every role: `readWorkspacePackages` refuses a role rule that claims nothing.
 		"applications/desktop/package.json",
 		"tools/eval/package.json",

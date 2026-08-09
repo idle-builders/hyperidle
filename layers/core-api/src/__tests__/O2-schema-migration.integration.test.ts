@@ -14,7 +14,7 @@
  * 7. Status simplified to draft | active | archived
  */
 
-import type { DomainEvent } from "@hyperidle/shared";
+import type { DomainEvent } from "@hyperidle/domain-model";
 import { sql } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";

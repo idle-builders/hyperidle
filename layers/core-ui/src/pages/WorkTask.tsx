@@ -27,7 +27,8 @@ import {
 	StatusChip,
 	taskStateToStatus,
 } from "@hyperidle/design-system";
-import { relativeLong, TASK_STATE_LABEL } from "@hyperidle/shared";
+import { TASK_STATE_LABEL } from "@hyperidle/domain-model";
+import { relativeLong } from "@hyperidle/presentation-format";
 import type { JSX } from "react";
 import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";

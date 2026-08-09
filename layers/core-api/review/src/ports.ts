@@ -33,7 +33,7 @@ import type {
 	AgentWorkIntentRecorderInput,
 	SessionKnowledgeItemLike,
 	AgentWorkIntentRecorder as SharedAgentWorkIntentRecorder,
-} from "@hyperidle/shared";
+} from "@hyperidle/work-intent-port";
 
 // ---------------------------------------------------------------------------
 // ReviewAgentWorkIntentInput — exported (the recorder's contract)

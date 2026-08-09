@@ -9,7 +9,6 @@
  * These fail (red phase) until `routes/workers.ts` is created and wired.
  */
 
-import { AdapterPool } from "@hyperidle/harness-registry";
 import type {
 	HarnessAdapter,
 	HarnessCapabilities,
@@ -17,7 +16,8 @@ import type {
 	SessionConfig,
 	SessionHandle,
 	SessionResult,
-} from "@hyperidle/shared";
+} from "@hyperidle/harness-protocol";
+import { AdapterPool } from "@hyperidle/harness-registry";
 import { describe, expect, it } from "vitest";
 import { createWorkersRoutes } from "../../routes/workers.js";
 

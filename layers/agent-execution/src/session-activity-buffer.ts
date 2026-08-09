@@ -29,10 +29,10 @@
 
 import type {
 	ActivityEntry,
-	EventBus,
 	SessionEndedEvent,
 	ToolCallRecordedEvent,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 
 const MAX_PER_SESSION = 100;
 

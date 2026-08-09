@@ -12,9 +12,10 @@
 	},
 	"dependencies": {
 		"@hyperidle/db": "*",
-		"@hyperidle/shared": "*"
+		"@hyperidle/filesystem-contract": "*"
 	},
 	"devDependencies": {
+		"@hyperidle/host-process": "*",
 		"drizzle-orm": "^0.45.2",
 		"vitest": "^4.1.9"
 	}

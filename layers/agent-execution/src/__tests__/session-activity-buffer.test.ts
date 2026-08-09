@@ -19,8 +19,8 @@
  * the class.
  */
 
-import type { ActivityEntry, ToolCallRecordedEvent } from "@hyperidle/shared";
-import { EventBus } from "@hyperidle/shared";
+import type { ActivityEntry, ToolCallRecordedEvent } from "@hyperidle/domain-model";
+import { EventBus } from "@hyperidle/event-bus";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // NOT YET CREATED — this import failing to resolve is this file's primary RED signal.
 import { SessionActivityBuffer } from "../session-activity-buffer.js";

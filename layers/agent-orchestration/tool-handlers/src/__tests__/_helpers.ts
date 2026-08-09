@@ -8,7 +8,8 @@ import * as os from "node:os";
 import * as path from "node:path";
 // @lore U1: `products` renamed to `teams`; old `teams` (membership) renamed to `teamMembers`.
 import { type HyperIdleDb, teamMembers, teams, threads, users } from "@hyperidle/db";
-import { EventBus, type ToolContext } from "@hyperidle/shared";
+import { EventBus } from "@hyperidle/event-bus";
+import type { ToolContext } from "@hyperidle/tool-protocol";
 
 export const NOW = "2026-04-18T00:00:00.000Z";
 

@@ -34,14 +34,14 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
-import type { HarnessCapabilityDescriptor } from "@hyperidle/shared";
+import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import {
 	type HarnessCapabilityReader,
 	harnessCapabilityDescriptors,
 	refreshHarnessDiscoveries,
-} from "@hyperidle/shared";
-import { createRateLimiter, requireBoundary } from "@hyperidle/shared/http";
+} from "@hyperidle/harness-protocol";
+import { createRateLimiter, requireBoundary } from "@hyperidle/http-middleware";
+import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import { Hono } from "hono";
 
 /**

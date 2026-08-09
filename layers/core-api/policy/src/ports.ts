@@ -12,7 +12,7 @@ import type {
 	User,
 	WriteExecutor,
 } from "@hyperidle/db";
-import type { BakedWorkIntentRequest } from "@hyperidle/shared";
+import type { BakedWorkIntentRequest } from "@hyperidle/work-intent-port";
 
 export interface PolicySessionContext {
 	readonly sessionId: string;

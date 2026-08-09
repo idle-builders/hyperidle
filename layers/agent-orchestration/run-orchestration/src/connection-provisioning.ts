@@ -74,8 +74,8 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { HELD_AUTH_SOURCES, type HeldAuthSource } from "@hyperidle/shared";
-import { resolveUrlForSSRF } from "@hyperidle/shared/net";
+import { HELD_AUTH_SOURCES, type HeldAuthSource } from "@hyperidle/domain-model";
+import { resolveUrlForSSRF } from "@hyperidle/host-process";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

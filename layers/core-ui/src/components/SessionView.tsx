@@ -34,21 +34,16 @@
  * serves as a stable handle. A precise follow-up: `diffEmbed` in part.ts line ~440.
  */
 
-import type {
-	ActivityEntry,
-	HarnessCapabilityDescriptor,
-	OpenHandler,
-	Part,
-	PartAuthor,
-	ToolRunBlock,
-} from "@hyperidle/shared";
+import type { OpenHandler, Part, PartAuthor, ToolRunBlock } from "@hyperidle/conversation-parts";
 import {
 	aggregateToolRun,
-	clockTime,
 	deriveComposerPills,
 	derivePartsFromSession,
 	groupParts,
-} from "@hyperidle/shared";
+} from "@hyperidle/conversation-parts";
+import type { ActivityEntry } from "@hyperidle/domain-model";
+import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
+import { clockTime } from "@hyperidle/presentation-format";
 import { type JSX, useRef, useState } from "react";
 import { initialsOf } from "./PartList.js";
 import { ProsePart } from "./parts/ProsePart.js";

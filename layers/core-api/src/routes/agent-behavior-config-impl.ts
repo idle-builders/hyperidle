@@ -11,8 +11,7 @@
  * the §B resolution engine, not a config primitive itself.
  */
 import type { HyperIdleDb } from "@hyperidle/db";
-import { listConfiguration, writeConfigurationOverride } from "@hyperidle/settings";
-import type { ConfigurationKind, ResolvedConfigurationItem } from "@hyperidle/shared";
+import type { ConfigurationKind, ResolvedConfigurationItem } from "@hyperidle/domain-model";
 import {
 	type AgentBehaviorConfigKind,
 	type AgentBehaviorConfigLink,
@@ -24,7 +23,8 @@ import {
 	type AgentBehaviorValueSource,
 	isAgentBehaviorConfigKind,
 	TriggerRuleValueSchema,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
+import { listConfiguration, writeConfigurationOverride } from "@hyperidle/settings";
 
 export interface ListAgentBehaviorConfigOptions {
 	readonly kind?: AgentBehaviorConfigKind;

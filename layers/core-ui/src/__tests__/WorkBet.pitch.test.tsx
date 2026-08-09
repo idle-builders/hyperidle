@@ -20,7 +20,8 @@
  * "api-bet" shaped bet. The mock is reset per test via vi.restoreAllMocks().
  */
 
-import { deriveBlocks, MAX_BODY_BYTES } from "@hyperidle/shared";
+import { deriveBlocks } from "@hyperidle/block-derivation";
+import { MAX_BODY_BYTES } from "@hyperidle/domain-model";
 import { cleanup, render } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";

@@ -35,8 +35,8 @@
  */
 
 import type { HyperIdleDb, User } from "@hyperidle/db";
-import type { BakedAgentRunnableConfig, BakedContextBundle } from "@hyperidle/shared";
-import { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "@hyperidle/shared";
+import type { BakedAgentRunnableConfig, BakedContextBundle } from "@hyperidle/work-intent-port";
+import { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "@hyperidle/work-intent-port";
 import { get } from "./knowledge-repository.js";
 import { assembleSessionKnowledge } from "./session-knowledge-assembler.js";
 

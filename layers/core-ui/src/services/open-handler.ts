@@ -30,7 +30,7 @@
  * source-agnostic; betId resolution lives entirely at this page/handler seam.
  */
 
-import type { OpenHandler, OpenTarget } from "@hyperidle/shared";
+import type { OpenHandler, OpenTarget } from "@hyperidle/conversation-parts";
 import { resolveHostRoute } from "./host-route.js";
 
 export type NavigateFn = (path: string) => void;

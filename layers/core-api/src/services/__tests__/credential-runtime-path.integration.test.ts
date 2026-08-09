@@ -16,10 +16,11 @@
  * When AH5 lands, the same PUT-then-resolve seam is what the live lane drives.
  */
 
+import { resolveModel } from "@hyperidle/credential-access";
 import { DbCredentialResolver } from "@hyperidle/credentials";
 import { serverCredentials } from "@hyperidle/db";
+import { MissingCredentialError } from "@hyperidle/domain-model";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
-import { MissingCredentialError, resolveModel } from "@hyperidle/shared";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";

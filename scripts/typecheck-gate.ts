@@ -470,7 +470,24 @@ function buildLeafDeclarations(root: string): void {
   // here keeps its own measurement (below) deterministic the same way every
   // other leaf's does; `remote-worker` is consumed by `applications/desktop`.
   for (const leaf of [
-    "framework/shared",
+    "framework/domain-model",
+    "framework/diagnostics",
+    "framework/harness-capability",
+    "framework/work-intent-port",
+    "framework/event-bus",
+    "framework/presentation-format",
+    "framework/block-derivation",
+    "framework/conversation-parts",
+    "framework/filesystem-contract",
+    "framework/cron",
+    "framework/toon-codec",
+    "framework/query-escaping",
+    "framework/factory-defaults",
+    "framework/host-process",
+    "framework/http-middleware",
+    "framework/credential-access",
+    "framework/harness-protocol",
+    "framework/tool-protocol",
     "framework/db",
     "framework/design-system",
     "layers/core-api",
@@ -523,7 +540,7 @@ function buildLeafDeclarations(root: string): void {
 }
 
 /**
- * Remove compiled copies this build emitted beside their own sources under `scripts/`.
+ * Remove compiled copies this build emitted beside their own sources.
  *
  * @lore AU28: the governance tests in `framework/db` import `scripts/lib/*.js`, which pulls those
  * files into a composite build whose rootDir they sit outside. tsc emits `.js`/`.d.ts` next to the
@@ -531,6 +548,14 @@ function buildLeafDeclarations(root: string): void {
  * tsx and vitest ALL resolve the compiled copy first. The guard runs stale logic while the source on
  * disk says something else, and the only symptom is a failure that makes no sense. This build makes
  * them, so this build cleans them; `no-stale-build-artifacts` catches any that survive.
+ *
+ * @lore AU34: the sweep covers the four package roots as well as `scripts/`, because the same
+ * out-of-rootDir emit now happens between framework packages: one package's development files import
+ * a sibling by workspace name, the sibling's sources enter a composite program whose rootDir they sit
+ * outside, and tsc drops the compiled copy in the sibling's own `src/`. It was invisible while the
+ * framework was one package that imported nothing. Deleting is safe by construction — a file is only
+ * removed when a `.ts` of the same name sits beside it, so a hand-written declaration like
+ * `vite-env.d.ts` is never touched.
  */
 function cleanEmittedGovernanceArtifacts(root: string): void {
   const suffixes = [".d.ts.map", ".js.map", ".d.ts", ".js"];
@@ -538,6 +563,9 @@ function cleanEmittedGovernanceArtifacts(root: string): void {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const full = resolve(dir, entry.name);
       if (entry.isDirectory()) {
+        // `dist/` is where the emit is SUPPOSED to land, and a dependency shipping both `.ts` and
+        // `.js` inside node_modules is none of this sweep's business.
+        if (entry.name === "node_modules" || entry.name === "dist") continue;
         walk(full);
         continue;
       }
@@ -546,8 +574,10 @@ function cleanEmittedGovernanceArtifacts(root: string): void {
       if (existsSync(`${full.slice(0, -suffix.length)}.ts`)) rmSync(full, { force: true });
     }
   };
-  const scripts = resolve(root, "scripts");
-  if (existsSync(scripts)) walk(scripts);
+  for (const dir of [...EXTRA_PROJECTS, ...PACKAGE_ROOTS]) {
+    const full = resolve(root, dir);
+    if (existsSync(full)) walk(full);
+  }
 }
 
 // -- Main --

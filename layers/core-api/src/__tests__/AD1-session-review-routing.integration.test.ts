@@ -27,11 +27,11 @@ import {
 	users,
 } from "@hyperidle/db";
 import { createTestDb, type TestDbHandle } from "@hyperidle/db/testing";
+import type { SessionEndedEvent } from "@hyperidle/domain-model";
+import { EventBus } from "@hyperidle/event-bus";
 import { resolveReviewRecipients } from "@hyperidle/org";
 import { type ReviewPorts, registerReviewSubscriptions } from "@hyperidle/review";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
-import type { SessionEndedEvent } from "@hyperidle/shared";
-import { EventBus } from "@hyperidle/shared";
 import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { getTaskRiskTierByTaskId } from "@hyperidle/work";

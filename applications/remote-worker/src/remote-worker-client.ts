@@ -27,7 +27,7 @@ import type {
 	WorkerErrorMessage,
 	WorkerEventMessage,
 	WorkerSessionResultMessage,
-} from "@hyperidle/shared";
+} from "@hyperidle/harness-protocol";
 
 export interface RemoteWorkerClientOptions {
 	serverUrl: string;

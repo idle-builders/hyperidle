@@ -1,20 +1,99 @@
 {
 	"extends": "./tsconfig.base.json",
 	"references": [
-		{ "path": "framework/shared" },
-		{ "path": "framework/db" },
-		{ "path": "framework/design-system" },
-		{ "path": "tools/eslint-plugin-design" },
-		{ "path": "tools/eslint-plugin-authz" },
-		{ "path": "framework/api-contract" },
-		{ "path": "applications/desktop" },
-		{ "path": "tools/eval" },
-		{ "path": "tools/setup" },
-		{ "path": "layers/core-api" },
-		{ "path": "layers/agent-orchestration" },
-		{ "path": "layers/agent-execution" },
-		{ "path": "applications/remote-server" },
-		{ "path": "applications/remote-worker" }
+		{
+			"path": "framework/domain-model"
+		},
+		{
+			"path": "framework/diagnostics"
+		},
+		{
+			"path": "framework/harness-capability"
+		},
+		{
+			"path": "framework/work-intent-port"
+		},
+		{
+			"path": "framework/event-bus"
+		},
+		{
+			"path": "framework/presentation-format"
+		},
+		{
+			"path": "framework/block-derivation"
+		},
+		{
+			"path": "framework/conversation-parts"
+		},
+		{
+			"path": "framework/filesystem-contract"
+		},
+		{
+			"path": "framework/cron"
+		},
+		{
+			"path": "framework/toon-codec"
+		},
+		{
+			"path": "framework/query-escaping"
+		},
+		{
+			"path": "framework/factory-defaults"
+		},
+		{
+			"path": "framework/host-process"
+		},
+		{
+			"path": "framework/http-middleware"
+		},
+		{
+			"path": "framework/credential-access"
+		},
+		{
+			"path": "framework/harness-protocol"
+		},
+		{
+			"path": "framework/tool-protocol"
+		},
+		{
+			"path": "framework/db"
+		},
+		{
+			"path": "framework/design-system"
+		},
+		{
+			"path": "tools/eslint-plugin-design"
+		},
+		{
+			"path": "tools/eslint-plugin-authz"
+		},
+		{
+			"path": "framework/api-contract"
+		},
+		{
+			"path": "applications/desktop"
+		},
+		{
+			"path": "tools/eval"
+		},
+		{
+			"path": "tools/setup"
+		},
+		{
+			"path": "layers/core-api"
+		},
+		{
+			"path": "layers/agent-orchestration"
+		},
+		{
+			"path": "layers/agent-execution"
+		},
+		{
+			"path": "applications/remote-server"
+		},
+		{
+			"path": "applications/remote-worker"
+		}
 	],
 	"include": [],
 	"exclude": ["node_modules", "dist"]

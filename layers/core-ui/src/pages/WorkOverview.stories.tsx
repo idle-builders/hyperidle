@@ -18,7 +18,7 @@
  * (hook + router) — so each state renders with no backend and no fetch stubbing.
  */
 
-import type { TeamListItem } from "@hyperidle/shared";
+import type { TeamListItem } from "@hyperidle/domain-model";
 import { WorkOverviewView } from "./WorkOverview";
 
 export default { title: "Page: Work/Overview", tier: "3" as const };

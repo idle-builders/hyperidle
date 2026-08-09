@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { InheritedToolDescriptor } from "@hyperidle/shared";
+import type { InheritedToolDescriptor } from "@hyperidle/harness-capability";
 import { afterEach, describe, expect, test } from "vitest";
 import { discoverLocalHarnesses } from "../harness-discovery.js";
 import { requireBinary } from "./require-binary.js";

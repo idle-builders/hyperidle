@@ -17,6 +17,7 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
+import type { EventBus } from "@hyperidle/event-bus";
 import { transitionRun as transitionRunInternal } from "@hyperidle/run-orchestration";
 import {
 	findSessionRequest,
@@ -24,7 +25,6 @@ import {
 	sessionRunRegistry,
 	transitionSessionRequest,
 } from "@hyperidle/session-requests";
-import type { EventBus } from "@hyperidle/shared";
 
 type TransitionPorts = Parameters<typeof transitionRunInternal>[0]["ports"];
 

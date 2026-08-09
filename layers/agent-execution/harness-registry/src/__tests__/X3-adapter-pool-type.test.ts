@@ -22,7 +22,7 @@ import type {
 	SessionConfig,
 	SessionHandle,
 	SessionResult,
-} from "@hyperidle/shared";
+} from "@hyperidle/harness-protocol";
 import { describe, expect, it } from "vitest";
 import { AdapterPool } from "../adapter-pool.js";
 

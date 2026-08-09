@@ -5,7 +5,7 @@
  * status flags (blocking, resolved, pinned), and participant avatars.
  */
 
-import type { AgentOperationalStatus, HostKind } from "@hyperidle/shared";
+import type { AgentOperationalStatus, HostKind } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { dsProps } from "./ds-attrs.js";
 import { StatusChip } from "./StatusChip.js";

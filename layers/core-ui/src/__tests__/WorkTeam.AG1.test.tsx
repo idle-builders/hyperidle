@@ -23,7 +23,7 @@
  * replacement. Only Capacity/Status remain.
  */
 
-import type { RosterMember, TeamDetail } from "@hyperidle/shared";
+import type { RosterMember, TeamDetail } from "@hyperidle/domain-model";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";

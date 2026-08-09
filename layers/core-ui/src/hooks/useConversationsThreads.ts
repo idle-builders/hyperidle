@@ -9,8 +9,8 @@
  * agent-session-state plumbing that drives true blocking lands later. The
  * classifier already keys off `?? false` so this is forwards-compatible.
  */
-import type { HostKind } from "@hyperidle/shared";
-import { relativeShort } from "@hyperidle/shared";
+import type { HostKind } from "@hyperidle/domain-model";
+import { relativeShort } from "@hyperidle/presentation-format";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ThreadItem } from "../components/ThreadSections";
 import { apiFetch } from "../services/api-fetch.js";

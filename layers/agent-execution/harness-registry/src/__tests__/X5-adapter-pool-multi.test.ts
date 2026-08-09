@@ -16,7 +16,7 @@ import type {
 	SessionConfig,
 	SessionHandle,
 	SessionResult,
-} from "@hyperidle/shared";
+} from "@hyperidle/harness-protocol";
 import { describe, expect, it, vi } from "vitest";
 import { AdapterPool, createLocalAdapterPool } from "../adapter-pool.js";
 import { BuiltinHarnessAdapter } from "../builtin-harness-adapter.js";

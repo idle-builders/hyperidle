@@ -28,9 +28,9 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import type { AgentRunLifecycleChangedEvent } from "@hyperidle/domain-model";
 import * as routineService from "@hyperidle/routine";
 import { drainIntents, startLifecycleProjectionDrain } from "@hyperidle/session-requests";
-import type { AgentRunLifecycleChangedEvent } from "@hyperidle/shared";
 import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, vi } from "vitest";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";

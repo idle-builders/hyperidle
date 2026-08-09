@@ -19,36 +19,36 @@ import * as crypto from "node:crypto";
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { type CronFields, nextCronMatch, parseCron } from "@hyperidle/cron";
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	ARTIFACT_KINDS,
 	ARTIFACT_VIEW_SHAPES,
 	type ArtifactCreatedEvent,
-	type AssistantToolShape,
 	artifactPreviewSchema,
-	type CronFields,
-	err,
 	KERNEL_KNOWLEDGE_STATUSES,
 	type KernelKnowledgeStatus,
 	KNOWLEDGE_LAYERS,
 	KNOWLEDGE_STATUSES,
 	type KnowledgeLayer,
 	type KnowledgeStatus,
-	nextCronMatch,
-	ok,
-	parseCron,
-	type RegisteredTool,
 	type ReviewPayload,
-	resolveAgentScaffoldSpecs,
 	SCOPE_KINDS,
 	SCOPES_REQUIRING_ID,
 	type ScopeKind,
 	type TaskStateChangedEvent,
+	type UserRole,
+} from "@hyperidle/domain-model";
+import { resolveAgentScaffoldSpecs } from "@hyperidle/factory-defaults";
+import {
+	type AssistantToolShape,
+	err,
+	ok,
+	type RegisteredTool,
 	type ToolDefinition,
 	toRegistered,
-	type UserRole,
 	wrapForRegistry,
-} from "@hyperidle/shared";
+} from "@hyperidle/tool-protocol";
 import z from "zod";
 import type { ToolHandlersPorts } from "./ports.js";
 

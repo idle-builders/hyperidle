@@ -49,9 +49,9 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import type { SessionEndedEvent } from "@hyperidle/domain-model";
 import { registerReviewSubscriptions } from "@hyperidle/review";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
-import type { SessionEndedEvent } from "@hyperidle/shared";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { and, eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";

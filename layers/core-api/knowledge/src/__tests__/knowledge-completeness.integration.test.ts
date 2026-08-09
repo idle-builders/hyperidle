@@ -32,8 +32,8 @@ import {
 	knowledgeItems,
 } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import type { KernelKnowledgeStatus } from "@hyperidle/shared";
-import { EventBus } from "@hyperidle/shared";
+import type { KernelKnowledgeStatus } from "@hyperidle/domain-model";
+import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { VersionConflictError } from "../errors.js";
 import { findOpenConflict, recordConflict } from "../knowledge-conflicts.js";

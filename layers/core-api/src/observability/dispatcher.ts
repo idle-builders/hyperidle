@@ -23,26 +23,24 @@
  * bursts when the buffer stayed at cap (adversary review H3 #2).
  */
 
-import {
-	type BetStateChangedEvent,
-	createLogger,
-	type DomainEvent,
-	type EventBus,
-	type KnowledgeUpdatedEvent,
-	type Logger,
-	type ObservabilityEvent,
-	type SessionEndedEvent,
-	type SessionStartedEvent,
-	type TaskStateChangedEvent,
-	type ToolCallRecordedEvent,
-} from "@hyperidle/shared";
 import type {
 	FlushOutcome,
 	ObservabilityAdapter,
 	ObservabilityChannel,
 	ObservabilityDispatcher,
 	ObservabilityDispatcherStatus,
-} from "@hyperidle/shared/observability";
+} from "@hyperidle/diagnostics";
+import { createLogger, type Logger, type ObservabilityEvent } from "@hyperidle/diagnostics";
+import type {
+	BetStateChangedEvent,
+	DomainEvent,
+	KnowledgeUpdatedEvent,
+	SessionEndedEvent,
+	SessionStartedEvent,
+	TaskStateChangedEvent,
+	ToolCallRecordedEvent,
+} from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 
 /**
  * The three ring-buffer knobs the dispatcher needs.

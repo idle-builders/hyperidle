@@ -47,9 +47,11 @@
 
 import { findMessage, resolveAssistantTurnRequest } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
+import { createLogger } from "@hyperidle/diagnostics";
+import type { ThreadMessageAppendedEvent } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import { enqueueWorkIntent, listPendingIntentsByKind } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
-import { createLogger, type EventBus, type ThreadMessageAppendedEvent } from "@hyperidle/shared";
 import { requireRunnableAgent } from "@hyperidle/users";
 
 const logger = createLogger({ pkg: "core-api.assistant-turn-coherence-trigger" });

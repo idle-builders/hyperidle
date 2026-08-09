@@ -31,10 +31,10 @@ import * as cp from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import type { FilesystemAuthResolver } from "@hyperidle/filesystem-contract";
+import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/filesystem-contract";
 import { resolveFilesystemState } from "@hyperidle/filesystems";
-import type { FilesystemAuthResolver } from "@hyperidle/shared";
-import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/shared";
-import { createGitRunner } from "@hyperidle/shared/git";
+import { createGitRunner } from "@hyperidle/host-process";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 // ─── Lane A: Hermetic temp-repo setup ────────────────────────────────────────

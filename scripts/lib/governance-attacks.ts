@@ -433,8 +433,8 @@ export const ATTACKS: readonly Attack[] = [
 		id: "reexport-narrow-surface",
 		detail:
 			"a layer barrel re-exporting a `framework/api-contract` symbol (reach: [layer]), whose audience is narrower than everyone" +
-			" — AU29 re-anchor: `db:util` (the previous anchor, `escapeLikePattern`) no longer exists, its exports having moved to " +
-			"`framework/shared` (reach: everyone), so the DB package has no narrow-reach surface left at all",
+			" — AU29 re-anchor: `db:util` (the previous anchor, `escapeLikePattern`) no longer exists, its exports having left " +
+			"`framework/db` altogether, so the DB package has no narrow-reach surface left at all",
 		rules: ["no-laundered-re-exports"],
 		overlay: {
 			[`${a.layerDir}/attack-reexport-contract.ts`]: `export type { AuthMeResponse } from "@hyperidle/api-contract";\n`,

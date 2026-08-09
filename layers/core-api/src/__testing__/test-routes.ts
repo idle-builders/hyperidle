@@ -1,4 +1,4 @@
-import { requireBoundary, validateBody } from "@hyperidle/shared/http";
+import { requireBoundary, validateBody } from "@hyperidle/http-middleware";
 import type { Hono } from "hono";
 import z from "zod";
 

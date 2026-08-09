@@ -92,7 +92,7 @@
  */
 
 import type { TeamMember, WriteExecutor } from "@hyperidle/db";
-import type { AgentWorkIntentRecorder as SharedAgentWorkIntentRecorder } from "@hyperidle/shared";
+import type { AgentWorkIntentRecorder as SharedAgentWorkIntentRecorder } from "@hyperidle/work-intent-port";
 
 // ---------------------------------------------------------------------------
 // session-requests — AgentWorkIntentRecorder (§10.3 against-grain — RULED PERMANENT, see top @lore)

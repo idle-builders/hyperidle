@@ -9,7 +9,7 @@
  * Tie-break is name asc only.
  */
 
-import type { TeamListItem } from "@hyperidle/shared";
+import type { TeamListItem } from "@hyperidle/domain-model";
 
 const RANK: Record<string, number> = {
 	blocked: 0,

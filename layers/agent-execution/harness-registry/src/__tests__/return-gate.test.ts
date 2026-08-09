@@ -15,7 +15,7 @@ import {
 	type HarnessEvent,
 	MAX_FORCE_RETURNS,
 	shouldForceReturn,
-} from "@hyperidle/shared";
+} from "@hyperidle/harness-protocol";
 import { describe, expect, it } from "vitest";
 import { BuiltinHarnessAdapter } from "../builtin-harness-adapter.js";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";

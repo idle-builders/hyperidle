@@ -16,7 +16,7 @@
  * is what this file actually owns — the pill and picker option lists.
  */
 
-import type { ScopeKind } from "@hyperidle/shared";
+import type { ScopeKind } from "@hyperidle/domain-model";
 
 /** One entry in the knowledge list filter pill row. */
 export interface ScopePillOption {

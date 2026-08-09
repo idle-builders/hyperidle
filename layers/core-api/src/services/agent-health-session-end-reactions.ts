@@ -66,10 +66,11 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
+import { createLogger } from "@hyperidle/diagnostics";
+import type { SessionEndedEvent } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import { enqueue, listNotifications } from "@hyperidle/notifications";
 import { getTeam, getTeamMembers } from "@hyperidle/org";
-import type { EventBus, SessionEndedEvent } from "@hyperidle/shared";
-import { createLogger } from "@hyperidle/shared";
 import { findUser } from "@hyperidle/users";
 
 const logger = createLogger({ pkg: "core-api.agent-health-session-end-reactions" });

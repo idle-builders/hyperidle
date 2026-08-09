@@ -1,14 +1,15 @@
+import type { CredentialResolver } from "@hyperidle/credential-access";
+import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credential-access";
 import { deleteCredential, readCredentials, writeCredential } from "@hyperidle/credentials";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
+import { createLogger } from "@hyperidle/diagnostics";
+import { EventBus } from "@hyperidle/event-bus";
 import type { AdapterPool, McpToolBridge, SandboxAdapter } from "@hyperidle/harness-registry";
+import { createRateLimiter } from "@hyperidle/http-middleware";
 import type { NotificationAdapter, NotificationsDeps } from "@hyperidle/notifications";
 import { getTeamMembers } from "@hyperidle/org";
 import { enqueueWorkIntent, findSessionRequest } from "@hyperidle/session-requests";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
-import type { CredentialResolver } from "@hyperidle/shared";
-import { createLogger, EventBus } from "@hyperidle/shared";
-import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/shared/crypto";
-import { createRateLimiter } from "@hyperidle/shared/http";
 import { createUpgradeTokenStore, findUser, type UpgradeTokenStore } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { checkAndUnblockDependents } from "@hyperidle/work";
@@ -45,10 +46,11 @@ import { createWorkersRoutes } from "./routes/workers.js";
 import { taskRunResolverDeps } from "./services/task-run-resolver-bindings.js";
 
 const agentWorkIntentRecorder = { record: enqueueWorkIntent };
-const agentWorkIntentReader: import("@hyperidle/shared").AgentWorkIntentReader<HyperIdleDb> = {
-	findByKindAndSource: (db, kind, sourceId) =>
-		findSessionRequest(db, { by: "intentSource", kind, sourceId }),
-};
+const agentWorkIntentReader: import("@hyperidle/work-intent-port").AgentWorkIntentReader<HyperIdleDb> =
+	{
+		findByKindAndSource: (db, kind, sourceId) =>
+			findSessionRequest(db, { by: "intentSource", kind, sourceId }),
+	};
 
 /**
  * The minimal shape a route needs to push data onto the WS connection hub —
@@ -171,7 +173,7 @@ interface AppOptions {
 	 * AO2: Optional filesystem mounter. When present, mount + captureBack hooks
 	 * run around each session. When absent, sessions run without filesystem mount.
 	 */
-	mounter?: import("@hyperidle/shared").FilesystemMounter;
+	mounter?: import("@hyperidle/filesystem-contract").FilesystemMounter;
 	/**
 	 * AU19 §11 (AC-9): Application-injected cross-Layer `agent_work_intents`
 	 * recorder/reader (`@hyperidle/shared`-typed, Mechanism C) — the
@@ -181,8 +183,8 @@ interface AppOptions {
 	 * to the real production binding (`durable-agent-queue.ts`); tests
 	 * may override for isolation.
 	 */
-	agentWorkIntentRecorder?: import("@hyperidle/shared").AgentWorkIntentRecorder<HyperIdleDb>;
-	agentWorkIntentReader?: import("@hyperidle/shared").AgentWorkIntentReader<HyperIdleDb>;
+	agentWorkIntentRecorder?: import("@hyperidle/work-intent-port").AgentWorkIntentRecorder<HyperIdleDb>;
+	agentWorkIntentReader?: import("@hyperidle/work-intent-port").AgentWorkIntentReader<HyperIdleDb>;
 }
 
 /**

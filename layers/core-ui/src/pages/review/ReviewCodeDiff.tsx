@@ -14,7 +14,7 @@
 
 import type { CodeDelta, DiffLineRef } from "@hyperidle/design-system";
 import { CodeDeltaRenderer } from "@hyperidle/design-system";
-import type { AnchorRef } from "@hyperidle/shared";
+import type { AnchorRef } from "@hyperidle/domain-model";
 import type { JSX, ReactNode } from "react";
 import { Fragment, useMemo, useState } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
@@ -38,7 +38,7 @@ interface DiffLine {
 	readonly newNo: number | null;
 	readonly text: string;
 	/** AL4: deterministic block id for this line (computed if omitted). */
-	readonly blockId?: import("@hyperidle/shared").BlockId;
+	readonly blockId?: import("@hyperidle/domain-model").BlockId;
 	/** AL4: human-readable spot label, e.g. `PromoField.tsx:118`. */
 	readonly spotLabel?: string;
 }
@@ -382,14 +382,14 @@ function FileDiff({
 	readonly onAddAnchor: (input: { anchor: AnchorRef; text: string }) => Promise<void>;
 }): JSX.Element {
 	const [composerBlockId, setComposerBlockId] = useState<
-		import("@hyperidle/shared").BlockId | null
+		import("@hyperidle/domain-model").BlockId | null
 	>(null);
 
 	// ── pre-compute anchor info per (hunkIndex, lineIndex) ────────────────────
 	// This avoids re-deriving block ids inside every slot call (which would
 	// recompute inside render-time callbacks with no stable reference).
 	type LineInfo = {
-		readonly blockId: import("@hyperidle/shared").BlockId;
+		readonly blockId: import("@hyperidle/domain-model").BlockId;
 		readonly anchor: AnchorRef;
 	};
 	const lineInfoMap = useMemo(() => {

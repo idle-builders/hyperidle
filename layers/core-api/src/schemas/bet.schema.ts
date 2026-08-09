@@ -13,7 +13,7 @@
  */
 
 import type { Bet } from "@hyperidle/db";
-import { BET_STATUSES, TASK_STATES } from "@hyperidle/shared";
+import { BET_STATUSES, TASK_STATES } from "@hyperidle/domain-model";
 import { z } from "zod";
 import { enumValues, progressSchema } from "./common.schema.js";
 

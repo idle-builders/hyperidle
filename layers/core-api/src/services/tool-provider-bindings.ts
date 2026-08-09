@@ -25,7 +25,7 @@ import type {
 	ProposedCallWorkflowPort,
 	ToolContext,
 	ToolRegistry,
-} from "@hyperidle/shared";
+} from "@hyperidle/tool-protocol";
 import { allToolDefinitions } from "./tool-handlers-bindings.js";
 
 /**

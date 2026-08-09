@@ -542,7 +542,7 @@ describe("AC4: openai-compatible key in server_credentials, not server_config bl
 		// @lore AU20 Am4: getServerSecret removed from barrel; cipher is now no-arg.
 		// @lore AU26 E1: the cipher itself now lives in @hyperidle/shared/crypto.
 		const { decryptCredentialValue: decryptCipher, encryptCredentialValue: encryptCipher } =
-			await import("@hyperidle/shared/crypto");
+			await import("@hyperidle/credential-access");
 		const cipher = {
 			encryptCredentialValue: encryptCipher,
 			decryptCredentialValue: decryptCipher,
@@ -600,7 +600,7 @@ describe("AC4: openai-compatible key in server_credentials, not server_config bl
 		expect(encryptedValue).not.toBe(plaintextApiKey);
 
 		// It must decrypt back to the original plaintext.
-		const { decryptCredentialValue } = await import("@hyperidle/shared/crypto");
+		const { decryptCredentialValue } = await import("@hyperidle/credential-access");
 		// @lore AU20 Am4: decryptCredentialValue is no-arg; reads HYPERIDLE_CREDENTIAL_KEY from env.
 		// TEST_SERVER_SECRET is already stubbed in beforeEach for this test suite.
 		const decrypted = decryptCredentialValue(encryptedValue);

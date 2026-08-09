@@ -12,7 +12,7 @@
  * - No useSettings or save() calls in SettingsNotifications
  */
 
-import { NOTIFICATION_TYPES } from "@hyperidle/shared";
+import { NOTIFICATION_TYPES } from "@hyperidle/domain-model";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -37,7 +37,7 @@ describe("AD5 — AC-3: SettingsNotifications persists via useNotificationMute (
 		vi.mocked(useNotificationMute).mockReturnValue({
 			mutedKeys: ["review_request"], // review_request is muted (OFF)
 			setMuted: setMutedMock as unknown as (
-				key: import("@hyperidle/shared").NotificationTypeKey,
+				key: import("@hyperidle/domain-model").NotificationTypeKey,
 				muted: boolean,
 			) => Promise<void>,
 			status: "ready",

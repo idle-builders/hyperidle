@@ -4,7 +4,7 @@
  * Collapsed by default to "Thought for Ns". Expand to see quiet prose.
  */
 
-import type { Part, PartAuthor } from "@hyperidle/shared";
+import type { Part, PartAuthor } from "@hyperidle/conversation-parts";
 import type { JSX } from "react";
 import { ReasoningPart } from "./ReasoningPart.js";
 

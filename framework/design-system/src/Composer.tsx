@@ -5,7 +5,7 @@
  * Cmd/Ctrl+Enter submits. No optimistic UI — disable on submit.
  */
 
-import type { InlineRef } from "@hyperidle/shared";
+import type { InlineRef } from "@hyperidle/domain-model";
 import type { JSX, KeyboardEvent } from "react";
 import { useCallback, useState } from "react";
 import { dsProps } from "./ds-attrs.js";

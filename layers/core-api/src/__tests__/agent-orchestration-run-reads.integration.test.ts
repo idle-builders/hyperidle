@@ -21,7 +21,7 @@ import type {
 	AgentRunActiveCountsResponse,
 	AgentRunLatestOutcomesResponse,
 	AgentRunsResponse,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { expect, test } from "../__testing__/test-fixtures.js";
 

@@ -38,7 +38,7 @@ import {
 	SkeletonList,
 	StatusChip,
 } from "@hyperidle/design-system";
-import type { TeamListItem } from "@hyperidle/shared";
+import type { TeamListItem } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useTeams } from "../hooks/useTeams.js";

@@ -5,7 +5,7 @@
  */
 
 import { routineStateToStatus } from "@hyperidle/design-system";
-import type { RoutineState } from "@hyperidle/shared";
+import type { RoutineState } from "@hyperidle/domain-model";
 import { describe, expect, it } from "vitest";
 
 describe("routineStateToStatus (AA1)", () => {

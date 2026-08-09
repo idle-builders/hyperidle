@@ -16,7 +16,7 @@ import type {
 	TaskOutcomeVerdict,
 	TaskState,
 	TokenUsage,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
 
 /**
  * @lore AU21 Increment 14a: `costAppetite`/`costActual` (bet-level, WireMoney|null)

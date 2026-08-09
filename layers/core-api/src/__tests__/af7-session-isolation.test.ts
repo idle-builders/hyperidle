@@ -33,8 +33,8 @@
  * for B's.
  */
 
+import type { HarnessAdapter, SessionConfig } from "@hyperidle/harness-protocol";
 import { createHarnessAdapter } from "@hyperidle/harness-registry";
-import type { HarnessAdapter, SessionConfig } from "@hyperidle/shared";
 import type { LlmResponse } from "../../../agent-execution/harness-registry/src/llm-client.js";
 
 /** setSessionToolRegistry is a builtin-only duck-typed method (not on HarnessAdapter). */

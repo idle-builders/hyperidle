@@ -1,4 +1,4 @@
-import type { AdapterMeta, HarnessCapabilities } from "@hyperidle/shared";
+import type { AdapterMeta, HarnessCapabilities } from "@hyperidle/harness-protocol";
 import { describe, expect, it } from "vitest";
 import { createCapabilityCatalog } from "../harness-capability-descriptors.js";
 import type { HarnessDiscoveryInput } from "../harness-discovery.js";

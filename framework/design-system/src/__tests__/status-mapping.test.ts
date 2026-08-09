@@ -5,7 +5,7 @@
  */
 
 import { type Status, sessionOutcomeToStatus } from "@hyperidle/design-system";
-import type { SessionOutcome } from "@hyperidle/shared";
+import type { SessionOutcome } from "@hyperidle/domain-model";
 import { describe, expect, it } from "vitest";
 
 /** All legal presentation Status values. */

@@ -12,7 +12,7 @@
 // The kind-renderer layer is removed; Artifact (single) composes base primitives directly.
 // @lore AM5 K5: getRenderer + renderer-registry.ts + kinds/*-renderer.tsx DELETED.
 // composeArtifactBody is the single-home Artifact composition over block payloads.
-import { getKindDefinition } from "@hyperidle/shared";
+import { getKindDefinition } from "@hyperidle/domain-model";
 import { Component, type JSX, type ReactNode } from "react";
 import { dsProps } from "./ds-attrs.js";
 import { composeArtifactBody } from "./kinds/compose-artifact-body.js";

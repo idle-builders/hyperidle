@@ -5,7 +5,7 @@
  * AC-6: New KV fields render (createdAt, lastRunSummary section).
  */
 
-import type { RoutineDetail } from "@hyperidle/shared";
+import type { RoutineDetail } from "@hyperidle/domain-model";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";

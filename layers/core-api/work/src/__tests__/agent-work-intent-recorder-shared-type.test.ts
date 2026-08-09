@@ -8,7 +8,7 @@
 // run) if `ports.ts` ever reintroduces a narrower local shape.
 
 import type { WriteExecutor } from "@hyperidle/db";
-import type { AgentWorkIntentRecorder as SharedAgentWorkIntentRecorder } from "@hyperidle/shared";
+import type { AgentWorkIntentRecorder as SharedAgentWorkIntentRecorder } from "@hyperidle/work-intent-port";
 import { describe, expectTypeOf, it } from "vitest";
 import type { WorkDeps } from "../ports.js";
 import type { TaskStateMachineDeps } from "../task-state-machine.js";

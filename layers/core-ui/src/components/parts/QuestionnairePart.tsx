@@ -17,7 +17,7 @@
  * in a later WP that wires the surface; that WP turns these into real controls.
  */
 
-import type { Part } from "@hyperidle/shared";
+import type { Part } from "@hyperidle/conversation-parts";
 import type { JSX } from "react";
 
 type QuestionnairePartValue = Extract<Part, { kind: "questionnaire" }>;

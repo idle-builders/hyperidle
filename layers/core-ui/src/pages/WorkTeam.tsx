@@ -40,8 +40,9 @@ import {
 	Tag,
 } from "@hyperidle/design-system";
 // @lore U1: `ProductDetail` → `TeamDetail`, `BetCardSummary.pitchTitle` → `descriptionTitle`.
-import type { BetCardSummary, TeamDetail } from "@hyperidle/shared";
-import { BET_STATUS_LABEL, findRoleCatalogEntry, relativeShort } from "@hyperidle/shared";
+import type { BetCardSummary, TeamDetail } from "@hyperidle/domain-model";
+import { BET_STATUS_LABEL, findRoleCatalogEntry } from "@hyperidle/domain-model";
+import { relativeShort } from "@hyperidle/presentation-format";
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
 import { Link as RRLink, useNavigate, useParams, useSearchParams } from "react-router-dom";

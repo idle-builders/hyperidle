@@ -1,6 +1,6 @@
 import { bets, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
+import { CapacityExceededError, InvalidTransitionError } from "@hyperidle/domain-model";
 import { getTeamMembers, updateTeam } from "@hyperidle/org";
-import { CapacityExceededError, InvalidTransitionError } from "@hyperidle/shared";
 import {
 	type RevisionLogEntry,
 	transitionBet,

@@ -12,7 +12,8 @@
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { EventBus, SandboxWritebackChange } from "@hyperidle/shared";
+import type { SandboxWritebackChange } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 
 export interface FileWatcherConfig {
 	sandboxPath: string;

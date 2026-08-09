@@ -2,10 +2,10 @@ import * as fs from "node:fs";
 import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle/db";
 import type {
 	AgentSessionSourceKind,
-	EventBus,
 	ModelTier,
 	SessionLifecycleCorrelation,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import { and, eq } from "drizzle-orm";
 import type { createProvisioner } from "./provisioner.js";
 

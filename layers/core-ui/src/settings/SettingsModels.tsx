@@ -29,9 +29,9 @@
  */
 
 import { ErrorState, Input, Select, SkeletonList, StatusChip } from "@hyperidle/design-system";
-import type { ModelProvider } from "@hyperidle/shared";
+import type { ModelProvider } from "@hyperidle/domain-model";
 // hearth-internal-padding
-import { MODEL_PROVIDERS } from "@hyperidle/shared";
+import { MODEL_PROVIDERS } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 import { useToast } from "../shell/ToastRegion.js";

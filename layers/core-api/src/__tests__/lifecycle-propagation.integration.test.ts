@@ -29,9 +29,10 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import type { PropagationAppliedEvent } from "@hyperidle/domain-model";
+import { EventBus } from "@hyperidle/event-bus";
 import { enqueue, listNotifications } from "@hyperidle/notifications";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
-import { EventBus, type PropagationAppliedEvent } from "@hyperidle/shared";
 import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { and, eq } from "drizzle-orm";

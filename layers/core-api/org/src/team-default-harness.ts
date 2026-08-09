@@ -14,7 +14,7 @@
  * its package home changed.
  */
 
-import type { PrimaryHarnessConfig } from "@hyperidle/shared";
+import type { PrimaryHarnessConfig } from "@hyperidle/domain-model";
 
 type TeamDefaultCols = {
 	defaultHarnessType: string | null;

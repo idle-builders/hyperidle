@@ -1,13 +1,11 @@
 import { writeAgentRunConfig } from "@hyperidle/agent-run-config";
 import type { HyperIdleDb } from "@hyperidle/db";
+import { API_ERROR_CODES } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
+import { resolveAgentScaffoldSpecs } from "@hyperidle/factory-defaults";
+import type { HarnessCapabilityReader } from "@hyperidle/harness-protocol";
 import { persistScaffoldedAgents } from "@hyperidle/org";
-import {
-	API_ERROR_CODES,
-	type EventBus,
-	escapeLikePattern,
-	type HarnessCapabilityReader,
-	resolveAgentScaffoldSpecs,
-} from "@hyperidle/shared";
+import { escapeLikePattern } from "@hyperidle/query-escaping";
 
 // AK6: BUILTIN_ASSISTANT_SYSTEM_PROMPT REMOVED — persona comes from app defaults (T8).
 // The Kernel no longer hard-codes any assistant persona constant.
@@ -24,7 +22,7 @@ import {
 	type HyperIdleEnv,
 	requireBoundary,
 	validateBody,
-} from "@hyperidle/shared/http";
+} from "@hyperidle/http-middleware";
 import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";

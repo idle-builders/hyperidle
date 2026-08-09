@@ -38,7 +38,8 @@
 
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
-import { EventBus, TargetAgentNotRunnableError } from "@hyperidle/shared";
+import { TargetAgentNotRunnableError } from "@hyperidle/domain-model";
+import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { describe, vi } from "vitest";
 import { createProvisioner } from "../provisioner.js";

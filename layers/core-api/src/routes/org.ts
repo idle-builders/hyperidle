@@ -18,6 +18,8 @@
 // `mechanism: "team"` targets the agent membership group → check `teamMembers`.
 import { writeAgentRunConfig } from "@hyperidle/agent-run-config";
 import type { HyperIdleDb } from "@hyperidle/db";
+import { API_ERROR_CODES, ORG_EDGE_MECHANISMS } from "@hyperidle/domain-model";
+import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/http-middleware";
 import {
 	createTeam,
 	deleteOrgEdge,
@@ -30,8 +32,6 @@ import {
 	upsertOrgEdge,
 } from "@hyperidle/org";
 import { provisionTeamRoutines } from "@hyperidle/routine";
-import { API_ERROR_CODES, ORG_EDGE_MECHANISMS } from "@hyperidle/shared";
-import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/shared/http";
 import { findUser, insertUser, listUsers } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";

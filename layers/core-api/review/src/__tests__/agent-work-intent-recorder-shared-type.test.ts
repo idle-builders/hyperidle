@@ -12,7 +12,7 @@ import type { WriteExecutor } from "@hyperidle/db";
 import type {
 	AgentWorkIntentRecorderInput,
 	AgentWorkIntentRecorder as SharedAgentWorkIntentRecorder,
-} from "@hyperidle/shared";
+} from "@hyperidle/work-intent-port";
 import { describe, expectTypeOf, it } from "vitest";
 import type { ReviewAgentWorkIntentInput, ReviewPorts } from "../ports.js";
 

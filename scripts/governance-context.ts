@@ -66,9 +66,17 @@ export const MIN_TRACKED_FILES = 2976;
  * build when they stop matching the tree. Keep the reasoning here; get the numbers from
  * `npm run governance:floors`.
  */
+// @lore AU34: `import` and `manifest` are the two floors the substrate split moved, and they moved
+// for a reason that has to be said out loud before a floor is ever raised: the POPULATION grew and no
+// violation was absorbed. One framework package with thirty declarers became eighteen with the same
+// consumers declaring a subset each, so both counts rise mechanically. Floors are magnitude trackers
+// — violations are reported separately, by the `crossing-<kind>` rules — so raising one cannot hide
+// one. The value written is the tool's `write` column (the middle of the band), never the live count:
+// a floor at the edge is one removed crossing from red. Only these two were touched; every other
+// floor stayed inside its band, and one going red is a finding rather than a bump.
 export const DETECTOR_FLOORS: readonly DetectorFloor[] = [
-	{ kind: "import", min: 3307, floorKind: "magnitude" },
-	{ kind: "manifest", min: 111, floorKind: "magnitude" },
+	{ kind: "import", min: 3637, floorKind: "magnitude" },
+	{ kind: "manifest", min: 223, floorKind: "magnitude" },
 	{ kind: "di", min: 220, floorKind: "magnitude" },
 	{ kind: "api", min: 126, floorKind: "magnitude" },
 	{ kind: "mcp", min: 22, floorKind: "magnitude" },

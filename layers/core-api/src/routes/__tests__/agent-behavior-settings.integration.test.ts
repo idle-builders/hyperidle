@@ -1,10 +1,10 @@
 import type { HyperIdleDb } from "@hyperidle/db";
+import { failClosedAssertion } from "@hyperidle/http-middleware";
 import {
 	seedConfigurationDefaults,
 	setPluginState,
 	writeConfigurationOverride,
 } from "@hyperidle/settings";
-import { failClosedAssertion } from "@hyperidle/shared/http";
 import { Hono } from "hono";
 import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 import { authMiddleware } from "../../middleware/auth.js";

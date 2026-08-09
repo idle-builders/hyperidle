@@ -22,7 +22,7 @@
  *     accessModeLabel, showsEnabledIndication)
  */
 
-import type { HarnessCapabilityDescriptor } from "@hyperidle/shared";
+import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import { describe, expect, it } from "vitest";
 import {
 	capabilitySummary,

@@ -63,8 +63,16 @@ import {
 import { registerWorkStatePushGateway } from "@hyperidle/core-api/services/work-state-push-gateway";
 import { WsConnectionHub } from "@hyperidle/core-api/ws-connection-hub";
 import { createDbSubscribeAuthorizer } from "@hyperidle/core-api/ws-subscribe-authorizer";
+import {
+	type CredentialResolver,
+	decryptCredentialValue,
+	encryptCredentialValue,
+	resolveModel,
+} from "@hyperidle/credential-access";
 import { DbCredentialResolver, readCredentials, writeCredential } from "@hyperidle/credentials";
 import { createPgliteDb, createPostgresDb, type DbHandle, type HyperIdleDb } from "@hyperidle/db";
+import { API_ERROR_CODES, type ModelTier, type ResolvedModel } from "@hyperidle/domain-model";
+import { EventBus } from "@hyperidle/event-bus";
 import { RegistryFilesystemMounter } from "@hyperidle/filesystem-mounting";
 import { listInjectedFilesystemsForProvisioning } from "@hyperidle/filesystems";
 import {
@@ -73,6 +81,7 @@ import {
 	type SandboxAdapter,
 } from "@hyperidle/harness-registry";
 import { createMcpToolBridge } from "@hyperidle/harness-registry/mcp";
+import { createGitRunner, resolveProfile } from "@hyperidle/host-process";
 import {
 	create as createKnowledgeItem,
 	recordConflict as recordWritebackConflict,
@@ -86,17 +95,6 @@ import {
 	migrateCredentialsToStore,
 	readServerConfig,
 } from "@hyperidle/settings";
-import {
-	API_ERROR_CODES,
-	type CredentialResolver,
-	EventBus,
-	type ModelTier,
-	type ResolvedModel,
-	resolveModel,
-	resolveProfile,
-} from "@hyperidle/shared";
-import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/shared/crypto";
-import { createGitRunner } from "@hyperidle/shared/git";
 import { createUpgradeTokenStore, listUsers } from "@hyperidle/users";
 import { Hono } from "hono";
 // @lore AU26: `ws` ships NO type declarations of its own, so `@types/ws` is a

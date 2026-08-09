@@ -500,7 +500,7 @@ export default [
 	//   authz/no-raw-db-in-route-bypassing-policy — Hard Rule 6: enforced routes need authorizeRead/Write
 	// @lore AU26 A1: the glob covers BOTH applications' route directories. AF11 is a
 	// property of a route, not of a package — once `requireBoundary` lives in
-	// `@hyperidle/shared/http` an `agent-orchestration` route can declare a boundary,
+	// `@hyperidle/http-middleware` an `agent-orchestration` route can declare a boundary,
 	// so it must be held to the same rule. `layers/agent-orchestration/**/routes/`
 	// is matched at HEAD (it is where B1a's route files land) rather than added later,
 	// so the first orchestration route is governed the moment it is written.
@@ -562,8 +562,8 @@ export default [
 	//
 	// Two orthogonal mechanisms, neither substituting for the other:
 	//
-	// (a) no-restricted-imports bans `defaultRoster` from @hyperidle/shared in these
-	//     surfaces. Roster composition belongs to `framework/shared/src/agent-scaffold.ts`,
+	// (a) no-restricted-imports bans `defaultRoster` from @hyperidle/factory-defaults in these
+	//     surfaces. Roster composition belongs to `framework/factory-defaults/src/agent-scaffold.ts`,
 	//     its one legitimate caller. Not vacuous: `teams-routes.ts` and `create-team.ts`
 	//     genuinely imported it before the ban landed.
 	//
@@ -605,10 +605,10 @@ export default [
 				{
 					paths: [
 						{
-							name: "@hyperidle/shared",
+							name: "@hyperidle/factory-defaults",
 							importNames: ["defaultRoster"],
 							message:
-								"A route or tool handler must not compose a roster. Roster composition belongs to the agent-scaffolding path (framework/shared/src/agent-scaffold.ts) and to team setup (layers/core-ui/src/pages/SetupFlow.tsx) — the two legitimate callers of defaultRoster().",
+								"A route or tool handler must not compose a roster. Roster composition belongs to the agent-scaffolding path (framework/factory-defaults/src/agent-scaffold.ts) and to team setup (layers/core-ui/src/pages/SetupFlow.tsx) — the two legitimate callers of defaultRoster().",
 						},
 					],
 				},
@@ -639,7 +639,7 @@ export default [
 	//    six exempt ms-arithmetic sites (sort comparators, window checks, UI timers, ID gen).
 	//    The six exempt sites use Date.now()/getTime() for computation, not for rendering via
 	//    toLocale* — they are NOT in scope of this rule.
-	//    Allow-list: framework/shared/src/format/time.ts is the one permitted formatting module.
+	//    Allow-list: framework/presentation-format/src/format/time.ts is the one permitted formatting module.
 	//
 	// 2. Imports of the deleted utils/format-time or utils/relative-time paths (dead-import ban).
 	//    Prevents resurrection of the deleted files under any import depth.
@@ -652,7 +652,7 @@ export default [
 		files: ["layers/core-ui/src/**/*.{ts,tsx}", "framework/design-system/src/**/*.{ts,tsx}"],
 		ignores: [
 			// The one module permitted to call toLocale* for formatting
-			"framework/shared/src/format/time.ts",
+			"framework/presentation-format/src/format/time.ts",
 			// Stories and tests are exempt from the display-formatting gate
 			"layers/core-ui/src/**/*.stories.tsx",
 			"layers/core-ui/src/**/__tests__/**",
@@ -676,12 +676,12 @@ export default [
 						{
 							group: ["**/utils/format-time", "**/utils/format-time/**"],
 							message:
-								"AI3: utils/format-time is deleted. Use relativeShort/relativeLong/absoluteDate/absoluteDateTime/clockTime from @hyperidle/shared.",
+								"AI3: utils/format-time is deleted. Use relativeShort/relativeLong/absoluteDate/absoluteDateTime/clockTime from @hyperidle/presentation-format.",
 						},
 						{
 							group: ["**/utils/relative-time", "**/utils/relative-time/**"],
 							message:
-								"AI3: utils/relative-time is deleted. Use relativeShort/relativeLong from @hyperidle/shared.",
+								"AI3: utils/relative-time is deleted. Use relativeShort/relativeLong from @hyperidle/presentation-format.",
 						},
 					],
 				},
@@ -696,7 +696,7 @@ export default [
 					selector:
 						"CallExpression[callee.type='MemberExpression'][callee.property.name=/^(toLocaleDateString|toLocaleTimeString|toLocaleString)$/][callee.object.type='NewExpression'][callee.object.callee.name='Date']",
 					message:
-						"AI3: Use the shared time formatter (relativeShort/relativeLong/absoluteDate/absoluteDateTime/clockTime from @hyperidle/shared) instead of new Date(...).toLocale*(). AC-2 one-clock gate.",
+						"AI3: Use the one time formatter (relativeShort/relativeLong/absoluteDate/absoluteDateTime/clockTime from @hyperidle/presentation-format) instead of new Date(...).toLocale*(). AC-2 one-clock gate.",
 				},
 			],
 		},
@@ -874,11 +874,11 @@ export default [
 
 	// AM1 W1 — the source-agnostic Part renderer boundary (AC5).
 	// PartList.tsx + parts/** render ONLY the source-agnostic `Part`/`Embed`/
-	// `OpenTarget` vocabulary (@hyperidle/shared). They must NEVER import a
+	// `OpenTarget` vocabulary (@hyperidle/conversation-parts). They must NEVER import a
 	// SOURCE type — `Message`/`InlineRef`/`thread*` or any `harness` path — so a
 	// second adapter (AM3's session adapter) can feed the SAME renderer with zero
 	// change. A static "must not import X" property is a lint rule, not a test
-	// (CLAUDE.md). The adapter (`framework/shared/src/part.ts`) is the ONLY place
+	// (CLAUDE.md). The adapter (`framework/conversation-parts/src/part.ts`) is the ONLY place
 	// permitted to import `Message`/`InlineRef`.
 	//
 	// @lore AM1: placed LAST so this block is authoritative for these paths —
@@ -902,10 +902,10 @@ export default [
 				{
 					paths: [
 						{
-							name: "@hyperidle/shared",
+							name: "@hyperidle/domain-model",
 							importNames: ["Message", "InlineRef", "EntityRef", "BlockRef", "MentionRef"],
 							message:
-								"AM1 W1: the source-agnostic Part renderer must NOT import source types (Message/InlineRef/…). Render the `Part`/`Embed` vocabulary only — the adapter (framework/shared/src/part.ts) owns all knowledge of Message. This is the AM1↔AM3 reuse boundary (AC5).",
+								"AM1 W1: the source-agnostic Part renderer must NOT import source types (Message/InlineRef/…). Render the `Part`/`Embed` vocabulary only — the adapter (framework/conversation-parts/src/part.ts) owns all knowledge of Message. This is the AM1↔AM3 reuse boundary (AC5).",
 						},
 					],
 					patterns: [
@@ -916,8 +916,8 @@ export default [
 								"**/thread.ts",
 								"**/harness",
 								"**/harness/**",
-								"@hyperidle/shared/harness",
-								"@hyperidle/shared/harness/**",
+								"@hyperidle/harness-protocol",
+								"@hyperidle/harness-capability",
 							],
 							message:
 								"AM1 W1: the Part renderer must NOT import a source type (thread*/harness). Render the source-agnostic `Part`/`Embed` vocabulary only (AC5).",

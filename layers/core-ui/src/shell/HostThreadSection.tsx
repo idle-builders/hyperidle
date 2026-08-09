@@ -30,8 +30,8 @@
 
 import type { CommentRowSender } from "@hyperidle/design-system";
 import { CommentRow, ErrorState, SkeletonList } from "@hyperidle/design-system";
-import type { HostKind, Message, PlainPayload } from "@hyperidle/shared";
-import { isRedactedPayload } from "@hyperidle/shared";
+import type { HostKind, Message, PlainPayload } from "@hyperidle/domain-model";
+import { isRedactedPayload } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { type HostThreadIdentity, useHostThread } from "../hooks/useHostThread.js";

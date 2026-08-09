@@ -15,7 +15,7 @@
 
 // hearth-internal-padding
 import { Button, Dialog, KeyValue, Select } from "@hyperidle/design-system";
-import { AGENT_ROLE_CATALOG, findRoleCatalogEntry, MODEL_TIERS } from "@hyperidle/shared";
+import { AGENT_ROLE_CATALOG, findRoleCatalogEntry, MODEL_TIERS } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 import { useToast } from "../shell/ToastRegion.js";

@@ -1,6 +1,6 @@
 // AM5 — base-primitive foundation story: Quote (pure content).
 // Thin wrapper over block/QuotePayload (children = nested BlockPayload[]).
-import type { BlockPayload } from "@hyperidle/shared";
+import type { BlockPayload } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { QuotePayload } from "./block/QuotePayload.js";
 

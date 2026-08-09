@@ -17,7 +17,7 @@
  */
 
 import { EmptyState, ErrorState, Skeleton } from "@hyperidle/design-system";
-import { relativeShort } from "@hyperidle/shared";
+import { relativeShort } from "@hyperidle/presentation-format";
 import type { JSX } from "react";
 import { Link } from "react-router-dom";
 import { useArtifactThreadSummary } from "../hooks/useArtifactThreadSummary.js";

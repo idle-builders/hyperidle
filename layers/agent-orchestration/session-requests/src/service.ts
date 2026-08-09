@@ -18,13 +18,13 @@ import type {
 	AgentSessionRequestInput,
 	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
-	EventBus,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
 import {
 	agentSessionRequestInputSchema,
 	isAgentWorkIntentKind,
 	isAgentWorkIntentSourceKind,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import { and, asc, eq, gt, inArray, isNotNull, isNull, lt, lte, or, sql } from "drizzle-orm";
 
 type LifecycleProjectionDeps = DurableAgentQueueDeps["lifecycleProjection"];

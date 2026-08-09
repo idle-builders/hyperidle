@@ -14,7 +14,6 @@
  * is created.
  */
 
-import { AdapterPool } from "@hyperidle/harness-registry";
 import type {
 	AdapterMeta,
 	HarnessAdapter,
@@ -23,7 +22,7 @@ import type {
 	SessionConfig,
 	SessionHandle,
 	SessionResult,
-} from "@hyperidle/shared";
+} from "@hyperidle/harness-protocol";
 import {
 	type HarnessCapabilityReader,
 	harnessCapabilitiesForType,
@@ -32,7 +31,8 @@ import {
 	refreshHarnessDiscoveries,
 	registeredHarnessCount,
 	workerConnections,
-} from "@hyperidle/shared";
+} from "@hyperidle/harness-protocol";
+import { AdapterPool } from "@hyperidle/harness-registry";
 import { describe, expect, it } from "vitest";
 
 function makeAdapter(caps?: Partial<HarnessCapabilities>): HarnessAdapter {

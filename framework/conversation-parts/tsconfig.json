@@ -1,0 +1,17 @@
+{
+	"extends": "../../tsconfig.json",
+	"compilerOptions": {
+		"outDir": "dist",
+		"rootDir": "src",
+		"types": ["node"]
+	},
+	"include": ["src"],
+	"references": [
+		{
+			"path": "../../framework/domain-model"
+		},
+		{
+			"path": "../../framework/harness-capability"
+		}
+	]
+}

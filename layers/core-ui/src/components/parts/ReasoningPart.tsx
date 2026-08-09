@@ -11,7 +11,7 @@
  * belongs in dispatch, not in ad-hoc wrapping (concept Phase 4 decision).
  */
 
-import type { Part } from "@hyperidle/shared";
+import type { Part } from "@hyperidle/conversation-parts";
 import { type JSX, useState } from "react";
 
 type ReasoningPartShape = Extract<Part, { kind: "reasoning" }>;

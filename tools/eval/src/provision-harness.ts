@@ -13,14 +13,16 @@
 
 import { runSession } from "@hyperidle/core-api/session";
 import type { HyperIdleDb } from "@hyperidle/db";
+import type { ResolvedModel } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
 import {
 	AdapterPool,
 	createHarnessAdapter,
 	createSandboxAdapter,
 } from "@hyperidle/harness-registry";
 import { readServerConfig } from "@hyperidle/settings";
-import { bakeAgentRunnableConfig, type EventBus, type ResolvedModel } from "@hyperidle/shared";
 import { requireRunnableAgent } from "@hyperidle/users";
+import { bakeAgentRunnableConfig } from "@hyperidle/work-intent-port";
 import type { TriggerResult } from "./types.js";
 
 /** @internal The eval-builtin adapter name. */

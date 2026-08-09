@@ -44,8 +44,8 @@ import type {
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
 	SessionKnowledgeItemLike,
-} from "@hyperidle/shared";
-import { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "@hyperidle/shared";
+} from "@hyperidle/work-intent-port";
+import { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "@hyperidle/work-intent-port";
 import type { SQL } from "drizzle-orm";
 import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 

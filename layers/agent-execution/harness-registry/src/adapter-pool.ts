@@ -6,12 +6,8 @@
  * release() decrements the count when a session ends.
  */
 
-import type {
-	AdapterInfo,
-	AdapterMeta,
-	HarnessAdapter,
-	HarnessCapabilityDescriptor,
-} from "@hyperidle/shared";
+import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
+import type { AdapterInfo, AdapterMeta, HarnessAdapter } from "@hyperidle/harness-protocol";
 import { BuiltinHarnessAdapter } from "./builtin-harness-adapter.js";
 import { type CliAdapterConfig, CliHarnessAdapter } from "./cli-harness-adapter.js";
 import { createCapabilityCatalog } from "./harness-capability-descriptors.js";

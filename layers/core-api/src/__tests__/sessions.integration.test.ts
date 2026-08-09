@@ -1,5 +1,5 @@
 import { bets, tasks, teamMembers, teams, users } from "@hyperidle/db";
-import type { DomainEvent } from "@hyperidle/shared";
+import type { DomainEvent } from "@hyperidle/domain-model";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { expect, test } from "../__testing__/test-fixtures.js";
 import { createTestApp } from "../__testing__/test-utils.js";

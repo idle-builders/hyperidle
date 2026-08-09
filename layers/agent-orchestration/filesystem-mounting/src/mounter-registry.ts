@@ -21,7 +21,7 @@ import type {
 	FilesystemAuth,
 	FilesystemMounter,
 	MountResult,
-} from "@hyperidle/shared";
+} from "@hyperidle/filesystem-contract";
 import type { MountingGitRunnerFactory } from "./ports.js";
 import { SANDBOX_SCAFFOLDING_PATHS } from "./scaffolding-paths.js";
 
@@ -293,7 +293,7 @@ export class RegistryFilesystemMounter implements FilesystemMounter {
 	async mount(input: {
 		filesystem: Filesystem;
 		sandboxPath: string;
-		auth: import("@hyperidle/shared").FilesystemAuth | null;
+		auth: import("@hyperidle/filesystem-contract").FilesystemAuth | null;
 	}): Promise<MountResult> {
 		const adapter = selectMountAdapter(input.filesystem, this.deps);
 		const ctx: MountContext = {

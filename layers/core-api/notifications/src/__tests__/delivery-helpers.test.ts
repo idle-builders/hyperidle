@@ -10,7 +10,7 @@
  * All three are pure (no DB/network), so pure unit tests suffice.
  */
 
-import { REDACTED_TAG } from "@hyperidle/shared";
+import { REDACTED_TAG } from "@hyperidle/diagnostics";
 import { describe, expect, test } from "vitest";
 import { classifySmtpRetriable, priorityForSeverity, scrubErrorMessage } from "../install.js";
 

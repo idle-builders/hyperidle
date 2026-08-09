@@ -11,7 +11,7 @@
 
 // These imports fail until the green phase creates them:
 // ASSISTANT_TURN_TIMEOUT_MS lives in @hyperidle/shared (shared client/server boundary per §1.7)
-import { ASSISTANT_TURN_TIMEOUT_MS, ProviderTimeoutError } from "@hyperidle/shared";
+import { ASSISTANT_TURN_TIMEOUT_MS, ProviderTimeoutError } from "@hyperidle/domain-model";
 import { describe, expect, test } from "vitest";
 
 describe("AH3: ASSISTANT_TURN_TIMEOUT_MS constant", () => {

@@ -9,8 +9,8 @@ import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { Filesystem } from "@hyperidle/shared";
-import { createGitRunner } from "@hyperidle/shared/git";
+import type { Filesystem } from "@hyperidle/filesystem-contract";
+import { createGitRunner } from "@hyperidle/host-process";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type AdapterDeps, RegistryFilesystemMounter } from "../index.js";
 

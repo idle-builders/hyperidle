@@ -36,7 +36,7 @@ import {
 	SplitView,
 	StatusChip,
 } from "@hyperidle/design-system";
-import type { HarnessCapabilityDescriptor } from "@hyperidle/shared";
+import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { useUiPreference } from "../hooks/useUiPreference.js";
 import { fetchActiveRunCounts } from "../services/agent-runs.js";

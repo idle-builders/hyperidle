@@ -34,7 +34,7 @@
 import { randomUUID } from "node:crypto";
 import { fireRoutine } from "@hyperidle/core-api/routines";
 import { agentWorkIntents, routineRuns, routines } from "@hyperidle/db";
-import { EventBus } from "@hyperidle/shared";
+import { EventBus } from "@hyperidle/event-bus";
 import { and, eq } from "drizzle-orm";
 import {
 	seedActiveSession,

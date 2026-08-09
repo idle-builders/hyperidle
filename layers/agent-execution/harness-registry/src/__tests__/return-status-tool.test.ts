@@ -19,8 +19,8 @@
  *   - buildToolRegistry gains extraTools option (Task 3 wiring)
  */
 
+import { FORCE_RETURN_MESSAGE, MAX_FORCE_RETURNS } from "@hyperidle/harness-protocol";
 import { createReturnEnforcement } from "@hyperidle/harness-registry";
-import { FORCE_RETURN_MESSAGE, MAX_FORCE_RETURNS } from "@hyperidle/shared";
 import { describe, expect, it } from "vitest";
 import { returnStatusTool } from "../return-status-tool.js";
 

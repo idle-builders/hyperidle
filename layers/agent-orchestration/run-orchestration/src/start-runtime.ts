@@ -1,5 +1,6 @@
 import { type HyperIdleDb, sessions } from "@hyperidle/db";
-import { EventBus, type ModelTier } from "@hyperidle/shared";
+import type { ModelTier } from "@hyperidle/domain-model";
+import { EventBus } from "@hyperidle/event-bus";
 import { and, eq } from "drizzle-orm";
 import { createContextAssembler } from "./context.js";
 import type { RuntimeDeps, RuntimeHandle, RuntimePorts } from "./contracts.js";

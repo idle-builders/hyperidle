@@ -37,7 +37,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { ReturnEnforcementChannel } from "@hyperidle/shared";
+import type { ReturnEnforcementChannel } from "@hyperidle/harness-capability";
 
 interface ReturnHookOptions {
 	readonly sandboxPath: string;

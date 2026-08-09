@@ -12,9 +12,10 @@
  * new DbCredentialResolver(db) and the decrypt step reads from env internally.
  */
 
+import type { CredentialResolver } from "@hyperidle/credential-access";
+import { decryptCredentialValue } from "@hyperidle/credential-access";
 import { type HyperIdleDb, serverCredentials } from "@hyperidle/db";
-import type { CredentialName, CredentialResolver } from "@hyperidle/shared";
-import { decryptCredentialValue } from "@hyperidle/shared/crypto";
+import type { CredentialName } from "@hyperidle/domain-model";
 // @lore AU20 R-connections: EnvCredentialResolver relocated to tools/eval (eval-only fixture).
 // Production vault exports only DbCredentialResolver.
 import { eq } from "drizzle-orm";

@@ -7,7 +7,7 @@ import type {
 	SessionOutcome,
 	TaskOutcomeVerdict,
 	TaskState,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
 import type { Status } from "./StatusChip";
 
 /**

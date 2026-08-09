@@ -5,7 +5,7 @@
  * Returns null for host kinds that don't have navigable pages (user, factory).
  */
 
-import type { HostKind } from "@hyperidle/shared";
+import type { HostKind } from "@hyperidle/domain-model";
 
 /**
  * Resolve a (hostKind, hostId) pair to a client-side route path.

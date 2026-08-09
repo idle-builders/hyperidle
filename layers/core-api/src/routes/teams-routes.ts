@@ -26,6 +26,22 @@ import {
 } from "@hyperidle/agent-run-config";
 import { findThread, insertMessage, insertThread } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
+import { createLogger } from "@hyperidle/diagnostics";
+import type {
+	BetCardSummary,
+	CreateTeamRequest,
+	CreateTeamResponse,
+	RosterMember,
+	RoutineCardSummary,
+	RoutineRunOutcome,
+	TeamDetail,
+	TeamListItem,
+} from "@hyperidle/domain-model";
+import { AGENT_ROLE_CATALOG, findRoleCatalogEntry } from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
+import { resolveAgentScaffoldSpecs } from "@hyperidle/factory-defaults";
+import type { HarnessCapabilityReader } from "@hyperidle/harness-protocol";
+import { type HyperIdleEnv, requireBoundary } from "@hyperidle/http-middleware";
 import {
 	createTeam,
 	deleteTeam,
@@ -36,29 +52,9 @@ import {
 	updateTeam,
 	upsertOrgEdge,
 } from "@hyperidle/org";
+import { deriveInitials, deriveTitle } from "@hyperidle/presentation-format";
 import * as routineService from "@hyperidle/routine";
 import { humanizeSchedule } from "@hyperidle/routine";
-import type {
-	BetCardSummary,
-	CreateTeamRequest,
-	CreateTeamResponse,
-	EventBus,
-	RosterMember,
-	RoutineCardSummary,
-	RoutineRunOutcome,
-	TeamDetail,
-	TeamListItem,
-} from "@hyperidle/shared";
-import {
-	AGENT_ROLE_CATALOG,
-	createLogger,
-	deriveInitials,
-	deriveTitle,
-	findRoleCatalogEntry,
-	type HarnessCapabilityReader,
-	resolveAgentScaffoldSpecs,
-} from "@hyperidle/shared";
-import { type HyperIdleEnv, requireBoundary } from "@hyperidle/shared/http";
 import { findUser, insertUser, listUsers } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";

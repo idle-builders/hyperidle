@@ -21,8 +21,8 @@
 // block-payload layer already owns. The block-payload layer is canonical (K2);
 // this is Artifact composing it standalone (one instance, pure of states).
 
-import type { Block as BlockData } from "@hyperidle/shared";
-import { deriveBlocks } from "@hyperidle/shared";
+import { deriveBlocks } from "@hyperidle/block-derivation";
+import type { Block as BlockData } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { Block } from "../Block.js";
 import { CodePayload } from "../block/CodePayload.js";

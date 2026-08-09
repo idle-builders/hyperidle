@@ -1,6 +1,6 @@
+import { EventBus } from "@hyperidle/event-bus";
 import { type AdapterPool, createHarnessAdapter } from "@hyperidle/harness-registry";
 import { type RuntimeDeps, type RuntimeHandle, startRuntime } from "@hyperidle/run-orchestration";
-import { EventBus } from "@hyperidle/shared";
 
 /** Exercise worker ingress only through the owned public runtime handle. */
 export async function startWorkerTestRuntime(pool: AdapterPool): Promise<RuntimeHandle> {

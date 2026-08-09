@@ -24,6 +24,22 @@
 
 import { insertThread } from "@hyperidle/conversation";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
+import type { ApiErrorResponse } from "@hyperidle/domain-model";
+import {
+	type AgentWorkIntentEvent,
+	API_ERROR_CODES,
+	KNOWLEDGE_LAYERS,
+	type KnowledgeAccessedEvent,
+	type KnowledgeArchivedEvent,
+	type KnowledgeCreatedEvent,
+	type KnowledgeUpdatedEvent,
+	roleLabel,
+	SCOPE_KINDS,
+	SCOPES_REQUIRING_ID,
+	scopeToLayer,
+} from "@hyperidle/domain-model";
+import type { EventBus } from "@hyperidle/event-bus";
+import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/http-middleware";
 import {
 	remove as archiveKnowledgeItem,
 	countAccesses,
@@ -43,26 +59,10 @@ import {
 	VersionConflictError,
 } from "@hyperidle/knowledge";
 import { getTeam, getTeamMembers, listTeamMembers } from "@hyperidle/org";
+import { scopeKindToLabel } from "@hyperidle/presentation-format";
 import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
-import type { ApiErrorResponse } from "@hyperidle/shared";
-import {
-	type AgentWorkIntentEvent,
-	API_ERROR_CODES,
-	type EventBus,
-	KNOWLEDGE_LAYERS,
-	type KnowledgeAccessedEvent,
-	type KnowledgeArchivedEvent,
-	type KnowledgeCreatedEvent,
-	type KnowledgeUpdatedEvent,
-	roleLabel,
-	SCOPE_KINDS,
-	SCOPES_REQUIRING_ID,
-	scopeKindToLabel,
-	scopeToLayer,
-} from "@hyperidle/shared";
-import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/shared/http";
 import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";

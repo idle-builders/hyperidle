@@ -12,7 +12,8 @@
 	},
 	"dependencies": {
 		"@hyperidle/db": "*",
-		"@hyperidle/shared": "*",
+		"@hyperidle/domain-model": "*",
+		"@hyperidle/query-escaping": "*",
 		"drizzle-orm": "^0.45.2"
 	},
 	"devDependencies": {

@@ -31,8 +31,8 @@
  */
 
 import type { HyperIdleDb, User } from "@hyperidle/db";
-import type { BakedAgentRunnableConfig } from "@hyperidle/shared";
-import { bakeAgentRunnableConfig } from "@hyperidle/shared";
+import type { BakedAgentRunnableConfig } from "@hyperidle/work-intent-port";
+import { bakeAgentRunnableConfig } from "@hyperidle/work-intent-port";
 import * as work from "./work-service.js";
 
 /** Injected dependency — see the Mechanism C `@lore` above. */

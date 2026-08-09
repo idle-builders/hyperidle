@@ -7,7 +7,7 @@
  * standalone in the component viewer.)
  */
 
-import type { RosterMember } from "@hyperidle/shared";
+import type { RosterMember } from "@hyperidle/domain-model";
 import type { JSX, ReactNode } from "react";
 import type { AgentConfig } from "../../settings/settings-types.js";
 import { ToastRegion } from "../../shell/ToastRegion.js";

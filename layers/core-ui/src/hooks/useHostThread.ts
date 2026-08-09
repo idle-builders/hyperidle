@@ -14,7 +14,7 @@
  * No React Query in this codebase; this is a deliberate v1 choice.
  */
 
-import type { HostKind, Message, Thread } from "@hyperidle/shared";
+import type { HostKind, Message, Thread } from "@hyperidle/domain-model";
 import { useCallback, useMemo, useState } from "react";
 import { useFetch } from "./useFetch.js";
 

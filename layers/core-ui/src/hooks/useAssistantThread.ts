@@ -9,7 +9,7 @@
  * Fetch path changed from /api/threads/coach → /api/threads/assistant.
  */
 
-import type { Message, Thread } from "@hyperidle/shared";
+import type { Message, Thread } from "@hyperidle/domain-model";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 import { getWsClient } from "../services/ws-client.js";

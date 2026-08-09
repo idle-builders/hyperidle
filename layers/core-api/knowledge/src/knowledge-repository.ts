@@ -27,11 +27,11 @@ import {
 } from "@hyperidle/db";
 
 import {
-	escapeLikePattern,
 	type KernelKnowledgeStatus,
 	type SCOPE_KINDS,
 	scopeToLayer,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
+import { escapeLikePattern } from "@hyperidle/query-escaping";
 import { and, desc, eq, gte, inArray, isNull, ne, or, type SQL, sql } from "drizzle-orm";
 import { ItemDeletedError, VersionConflictError } from "./errors.js";
 import { executeTextSearch } from "./fts.js";

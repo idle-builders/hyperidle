@@ -36,19 +36,19 @@
  */
 
 import { readAgentRunConfig } from "@hyperidle/agent-run-config";
-import { getTeam, getTeamMembers } from "@hyperidle/org";
 import type {
 	AgentHarnessCapabilities,
 	AgentProfileResponse,
 	AgentReviewTrackRecord,
-	HarnessCapabilities,
-} from "@hyperidle/shared";
+} from "@hyperidle/domain-model";
+import type { HarnessCapabilities } from "@hyperidle/harness-protocol";
 import {
 	type HarnessCapabilityReader,
 	harnessCapabilitiesForType,
 	registeredHarnessCount,
-} from "@hyperidle/shared";
-import type { HyperIdleEnv } from "@hyperidle/shared/http";
+} from "@hyperidle/harness-protocol";
+import type { HyperIdleEnv } from "@hyperidle/http-middleware";
+import { getTeam, getTeamMembers } from "@hyperidle/org";
 import { findUser } from "@hyperidle/users";
 import type { Context } from "hono";
 import { computeApprovalRate } from "../services/policy-bindings.js";

@@ -7,7 +7,7 @@
  *  - NEVER returns MODEL_CATALOG
  */
 
-import type { HarnessCapabilityDescriptor } from "@hyperidle/shared";
+import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import { describe, expect, it } from "vitest";
 import { modelOptionsForHarness } from "../model-options-for-harness.js";
 

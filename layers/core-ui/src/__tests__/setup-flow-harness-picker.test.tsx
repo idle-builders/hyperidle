@@ -6,7 +6,7 @@
  * AC5: graceful degrade — builtin-only when discovery fails.
  */
 
-import type { HarnessCapabilityDescriptor } from "@hyperidle/shared";
+import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";

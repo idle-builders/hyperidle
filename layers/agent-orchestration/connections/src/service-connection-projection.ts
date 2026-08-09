@@ -13,7 +13,8 @@
  * shown only when the probe returned it explicitly.
  */
 
-import type { HarnessCapabilityDescriptor, ServiceConnectionView } from "@hyperidle/shared";
+import type { ServiceConnectionView } from "@hyperidle/domain-model";
+import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 
 /**
  * Project inherited connections from the given harness descriptors.
