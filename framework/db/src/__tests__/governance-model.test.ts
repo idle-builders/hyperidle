@@ -557,9 +557,25 @@ describe("AU28 — the registries are honest", () => {
 	});
 
 	it("reports an unowned table as unowned rather than throwing, and an unknown table as an error", () => {
-		expect(ownerOf(tableOwners, "sessions")).toBeNull();
+		// The live registry has no unowned tables any more, so the unowned branch
+		// is exercised against a registry that does. Pinning it to whichever real
+		// table happened to be unowned is what made this case go stale the moment
+		// that table got an owner.
+		const withUnowned: TableOwners = {
+			...tableOwners,
+			unowned: { ...tableOwners.unowned, tables: { aTableNobodyClaimed: "example" } },
+		};
+		expect(ownerOf(withUnowned, "aTableNobodyClaimed")).toBeNull();
 		expect(ownerOf(tableOwners, "bets")).toBe("work");
 		expect(() => ownerOf(tableOwners, "notATable")).toThrow(RegistryError);
+	});
+
+	it("has no unowned tables left — every live table names an owner", () => {
+		expect(Object.keys(tableOwners.unowned.tables)).toEqual([]);
+		expect(tableOwners.totals.unowned).toBe(0);
+		for (const table of liveTables) {
+			expect(ownerOf(tableOwners, table)).not.toBeNull();
+		}
 	});
 
 	it("accepts the architecture registry and rejects a surface reachable by a non-existent package", () => {
