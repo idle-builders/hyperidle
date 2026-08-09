@@ -9,7 +9,12 @@ const warnMock = vi.fn();
 const infoMock = vi.fn();
 const debugMock = vi.fn();
 
-vi.mock("../logger.js", () => ({
+// @lore AU34: the specifier is the PACKAGE, not a relative path. `logger.ts` left this package for
+// `@hyperidle/diagnostics`, and a `vi.mock` of a path that no longer resolves is silently a no-op —
+// vitest does not complain, the bus logs for real, and the assertion below is the only thing that
+// notices. A relative `vi.mock` crossing a package boundary is the one rewrite the split's codemod
+// could not see, because the string is an argument rather than an import.
+vi.mock("@hyperidle/diagnostics", () => ({
 	createLogger: vi.fn(() => ({
 		debug: debugMock,
 		info: infoMock,

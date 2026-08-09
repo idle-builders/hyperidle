@@ -9,7 +9,7 @@ import type {
 
 /**
  * Module-scoped logger used to surface handler failures. Captured via
- * `vi.mock("../logger.js", ...)` in tests so the mock assertions can verify
+ * `vi.mock("@hyperidle/diagnostics", ...)` in tests so the mock assertions can verify
  * that handler exceptions are observable. Instantiated lazily so that a
  * `vi.mock` factory referencing hoisted test-scoped vars (e.g. `errorMock`)
  * does not run before those vars are initialized.
@@ -17,7 +17,7 @@ import type {
 let logger: Logger | null = null;
 function getLogger(): Logger {
 	if (!logger) {
-		logger = createLogger({ pkg: "shared.event-bus" });
+		logger = createLogger({ pkg: "event-bus" });
 	}
 	return logger;
 }
