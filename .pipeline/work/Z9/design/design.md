@@ -54,7 +54,7 @@ Base canvas is near-black with a slight blue tint; a four-step surface ladder ab
 | `--border-strong` | `#2B3040` | emphasized borders, frame wrappers, connectors |
 | `--text-primary` | `#E9EBF2` | headings, key content (~17:1 on page) |
 | `--text-secondary` | `#A0A5B8` | body copy (~7.9:1) |
-| `--text-dim` | `#767C94` | mono labels, meta, system lines (~4.8:1 — floor kept ≥ 4.5:1) |
+| `--text-dim` | `#7B8199` | mono labels, meta, system lines (≥ 4.7:1 on every surface it renders on — incl. `--bg-panel`; the prototype's `#767C94` measured ~4.4:1 on panels and was raised at build) |
 | `--accent` | `#FCEE0A` | the single accent (Cyberpunk 2077 canonical yellow) |
 | `--accent-ink` | `#0A0A0F` | text on accent fills (~17:1) |
 | `--accent-tint` | `rgba(252,238,10,0.08)` | rare accent surface fills (L3 layer row, active pill) |
@@ -127,15 +127,15 @@ No `box-shadow` blur for elevation. Depth vocabulary, in order of use:
 1. **Hairline border** — every panel gets 1px `--border-hairline`. This is the default depth.
 2. **Double frame** — hero terminal + knowledge ladder: 1px `--border-strong` border +
    `outline: 1px solid var(--border-hairline); outline-offset: 5px`. The "deep border" look.
-3. **Hard offset shadow** — interactive hover only:
-   `--shadow-hard: 5px 5px 0 0 #040409` and `--shadow-hard-accent: 4px 4px 0 0 var(--accent)`.
-   The shadow lives on a `::after` pseudo-element; hover animates the pseudo's **opacity** 0→1
-   while the element translates `(-2px, -2px)` — only transform/opacity animate (research rule).
-   Primary CTA, ghost CTA, crew cards, docs cards get it; static panels don't.
-4. **Glow** — accent elements only: focus ring and primary-button hover
-   `box-shadow: 0 0 0 1px var(--accent), 0 0 16px var(--glow)`; text-shadow
-   `0 0 18px var(--glow)` on the hero's accent phrase and ethos numerals. Static (not animated),
-   ≤ 2 elements per viewport.
+3. **Hard offset shadow** — interactive hover only: `--shadow-hard-accent: 4px 4px 0 0 var(--accent)`.
+   (The prototype defines only the accent shadow; a separate non-accent `--shadow-hard` never
+   shipped.) The shadow lives on a `::after` pseudo-element; hover animates the pseudo's
+   **opacity** 0→1 while the element translates `(-2px, -2px)` — only transform/opacity animate
+   (research rule). Primary CTA, ghost CTA, crew cards, docs cards get it; static panels don't.
+4. **Glow** — accent elements only, static (never animated): focus ring and primary-button hover
+   `box-shadow: 0 0 16px var(--glow)`; text-shadow `0 0 18px var(--glow)` on the hero's accent
+   phrase, the ethos numerals, and the closing line. Budgeted to emphasis text + focus, not used
+   for elevation.
 
 ### 2.6 Motion
 
@@ -144,11 +144,16 @@ No `box-shadow` blur for elevation. Depth vocabulary, in order of use:
 | `--ease-out` | `cubic-bezier(0.16, 1, 0.3, 1)` | entries, hovers |
 | `--dur-hover` | 150ms | hover translate/shadow-in |
 | `--dur-entry` | 540ms | section/card reveal (research: ~540ms fade+translateY) |
-| `--dur-sweep` | 700ms | scan-sweep hover line |
 | caret blink | 1.06s `steps(1)` infinite | terminal cursor |
 
-- **Entry reveal**: `.reveal` starts `opacity: 0; translateY(14px)`; IntersectionObserver adds
-  `.in` → animates to rest. Stagger max 4 items, 70ms apart (inline `transition-delay`).
+(The prototype's `--dur-sweep` scan-sweep hover never shipped — the implemented page has no
+scan-sweep; removed here for accuracy.)
+
+- **Entry reveal — VISIBLE-FIRST**: content is visible by default in CSS; only when JS runs AND
+  motion is allowed does JS add `html.js-reveal`, which opts `.reveal` elements into
+  `opacity: 0; translateY(14px)` until an IntersectionObserver adds `.in` → animates to rest.
+  No-JS and reduced-motion users see everything immediately. Stagger max 4 items, 70ms apart
+  (inline `transition-delay`).
 - **Hero typing**: transcript is real text in the DOM (renders fully with JS off — AC: no runtime
   calls needed to display). With JS + motion allowed, lines re-play sequentially (per-line type-on
   with a trailing block caret), ~6s total; clicking the terminal completes it instantly.
@@ -337,9 +342,9 @@ HyperIdle self-hosts from a laptop to a cluster."*
   `git clone … && cd hyperidle / npm install / npm run setup -- --profile laptop / npm run dev`
   with COPY affordance. (Note: README's local-dev variant is 4 commands without clone; the
   clone-to-run 5-command block is the canonical first-run path — flagged in open questions.)
-- Deployment profiles, three rows: **LAPTOP** — embedded PGlite, zero infrastructure; **VPS** —
-  Postgres + Docker Compose on your own box; **CLOUD** — managed Postgres, same code path.
-  (Source: `docs/deployment/index.md`.)
+- Deployment profiles, three equal columns (stacking to one column ≤1024px, per the prototype):
+  **LAPTOP** — embedded PGlite, zero infrastructure; **VPS** — Postgres + Docker Compose on your
+  own box; **CLOUD** — managed Postgres, same code path. (Source: `docs/deployment/index.md`.)
 - Side note: desktop app exists — signed macOS build via DMG or
   `brew tap ambrovia/homebrew-tap && brew install --cask hyperidle` (same source).
 - Closing line above footer: **"Agents execute. Humans validate. Knowledge compounds."**
