@@ -180,6 +180,61 @@ names three `reach: []` surfaces and §7.5 already argues a further twin costs n
 
 ---
 
+## P9 — Where do the 86 development files go, and how many span destinations?
+
+**Question.** `architecture.md`'s first draft named three spanning files and moved "the post-A6 development
+files" in B1. Is three the number, and does A6 in fact assign every file a destination?
+
+**Method.** AST scan of all 86 development files under `framework/shared/src`, resolving each relative
+specifier against the §4 destination map and resolving the six dissolving barrels **by symbol** through the
+same map pass 1 uses.
+
+**Result.**
+
+| | count |
+|---|---|
+| development files reaching **two or more** destinations | **17** — 16 tests + `harness/__testing__/mock-harness-adapter.ts` |
+| relative import statements in development files | **115** |
+| …resolving to a dissolving barrel | **27**, in 27 files |
+
+Both files the draft named are wrong: `__tests__/types.test.ts` and `__tests__/AE6-kind-registry.test.ts`
+each reach **one** destination. Unnamed and real: `AL7-proposed-call-types.test.ts` and
+`AM3-session-adapter.test.ts` (three destinations each), five `__tests__/blocks/*.test.ts`,
+`event-bus.test.ts`, `resolve-model.test.ts`, `agent-work-intent-recorder.test.ts`, and five more.
+
+**Verdict.** Three consequences, all now carried. The 47 in `requirements.md` §4.8 is the **production**
+half of pass 2's population; the 115 development statements are the other half. The 27 barrel statements have
+no destination in the map and would have fired the abort guard on every one — they are resolved by symbol
+instead. And a *split* rule shreds coherent tests (`derive-blocks.test.ts` would lose its `BlockPayload`
+import), so `architecture.md` §3.6 replaces it with a **placement** rule whose subject function is computed:
+the destination supplying the most value bindings, ties broken by first import.
+
+---
+
+## P10 — Does anything decide or check the dependency block?
+
+**Question.** §5 derives each manifest's dependency *set* from the codemod and `deps:check`. Neither carries
+a world. Does the block matter, and does anything catch a wrong one?
+
+**Method.** Read `scripts/lib/crossings.ts:187-200` and `scripts/lib/dep-manifest-verdict.ts:35-37`;
+cross-reference `requirements.md` §4.7's dev-only column.
+
+**Result.** **The block decides the world**: on a shipping package, `dependencies` is a production manifest
+crossing and `devDependencies` a development one. **`deps:check` is block-agnostic** — it compares declared
+against imported and nothing else — so it neither guides nor catches the choice. And §4.7 records **eight**
+destinations reached only from development files on shipping packages, every consumer deliberately absent
+from the target's `reach` because §4.7 refuses dev-only evidence, and every one declaring
+`@hyperidle/shared` in `dependencies` today.
+
+**Verdict.** A block-preserving rewrite emits eight production manifest crossings that
+`reach-declared-surfaces-only` forbids — red lint after B3, on a decision no artifact had made.
+`architecture.md` §5.1 states the rule (a destination reached only from development files is declared in
+`devDependencies`), shows it is mechanical (the codemod already classifies every consumer file by
+`CLAUDE.md`'s rule — that classification produced §4.7's two columns), and makes it checkable: the resulting
+dev-only edges must be exactly those eight plus the eighteen packages' own, and a ninth is a finding.
+
+---
+
 ## Risks
 
 ### R1 — Ruling 1's scoped predicate has no automatic gate, and the one named does not exist. **Highest.**
@@ -192,15 +247,16 @@ P4 shows **both** named gates fail: property 4 keys on registered rule ids and t
 `decided-rules.json` reproduces identically under either reading.
 
 **Mitigation — replace the hand-list with a real gate.** Add **three** rows to `decided-rules.json`:
-`framework → db:schema-ns`, `db:unknown` and `db:testing` (`[import]`), all `forbidden` in both worlds — the
-third because `founder-rulings.md` names three `reach: []` surfaces and P8 confirms it reproduces today.
+`framework → db:schema-ns`, `db:unknown` and `db:testing` (`[import]`). The first two are `forbidden` in
+both worlds; **`db:testing` is forbidden in production and allowed in development**, because it is not a
+`oneDoorSurface` — P8 measured exactly that, and `architecture.md` §6.2 now carries the split verdicts.
 The frozen reproduction loop at `governance-model.test.ts:200-232` then fails loudly if anyone widens the
 clause, permanently and without anyone remembering to. The attack twins stay as belt. `architecture.md`
 §6.2 and T2 carry it, sequenced in Phase A because they gate T1.
 
 ### R2 — `floors-tight` goes red inside the irreversible window, and a floor raise is a judgement.
 
-`floors-tight.ts:57` errors when slack exceeds `max(ceil(live × 0.2), 5)`. Measured with
+`floors-tight.ts` errors when slack exceeds `allowedSlack` (`:65`) = `max(ceil(live × 0.2), 5)`. Measured with
 `npm run governance:floors`:
 
 | floor | live | declared | slack | allowed | headroom |
@@ -257,9 +313,9 @@ drift predating AU34 (AU29 deleted six rows without touching the prose). T15 cor
 `plan.md:34` forbids a shim, so between deleting `framework/shared` and finishing the rewrite the tree does
 not typecheck.
 
-**Mitigation.** Make it one commit and put every decision outside it. `architecture.md` §3 now carries **ten** Phase-A
-steps plus two code-free decisions (the layout convention and the floor justification), so B contains only
-moves, generated rewrites, and a printed value. Local `npm run check` is the feedback
+**Mitigation.** Make it one commit and put every decision outside it. `architecture.md` §3 now carries **ten** Phase-A steps
+(A1–A10), two of which produce a written decision rather than code — the layout convention (A10) and the
+floor justification. B contains only moves, generated rewrites, and a printed value. Local `npm run check` is the feedback
 loop; nothing is pushed until green.
 
 ### R5 — The harness lane will not run itself.
@@ -305,18 +361,24 @@ this repo enforces them, and inventing one is not in AU34's scope.
 The first draft scoped the codemod to `import`/`export … from` naming `@hyperidle/shared`. Two populations
 fall outside it and each would have landed as hand work inside the window:
 
-- **239 relative import statements under `framework/shared/src`**, of which `requirements.md` §4.8 puts **47**
-  across a destination boundary. A relative specifier is never `@hyperidle/shared`-shaped, so both the codemod
-  and the residual-grep completeness check were structurally blind to them.
+- **Relative imports inside the package.** 239 statements in the production modules, 47 of them crossing a
+  destination (`requirements.md` §4.8) — **plus 115 more in development files**, 27 of which resolve to a
+  dissolving barrel (P9). A relative specifier is never `@hyperidle/shared`-shaped, so both the codemod and
+  the residual-grep check were structurally blind to all of them.
 - **45 `import("@hyperidle/shared")` sites** — 29 `ImportTypeNode` type positions and 16 runtime
   `CallExpression`s — which are neither import nor export declarations.
 
 **Mitigation.** `architecture.md` §4.1 makes the codemod **two passes over four node shapes**, and §3.2 fixes
 the in-package layout so pass 2's population collapses from 239 to 47 (preserving `src`-relative paths leaves
-every same-package relative import byte-identical). §4.3 adds pass 2's own completeness check — after the
-move, no file under `framework/*/src` may hold a relative specifier resolving outside its package root —
-because the residual grep cannot see it. The three sites that take the barrel as an *object* are resolved in
-Phase A (`architecture.md` §3.5): two are mechanical, one is deleted.
+every same-package relative import byte-identical). §4.3 now names **`npm run check` (TS2307)** as pass 2's
+real and total gate, rather than the outside-the-package-root assertion an earlier draft offered — that
+predicate does not fire on pass 2's own failure mode, since a missed rewrite leaves a specifier resolving
+*inside* its own root to a file that is gone. The assertion is kept as a cheap secondary for a different
+mistake. The sites that take the barrel as an *object* are resolved in Phase A
+(`architecture.md` §3.5): three `EventBus()` constructions are mechanical, one namespace assertion is
+deleted, and the **identifier-bound** site at `model-gateway-package-dissolved.test.ts:24-27` — which the
+codemod's property-access rule does not reach and the guard rejects — takes the whole file with it, its
+premise having been falsified by this work package.
 
 ---
 
@@ -327,8 +389,9 @@ intermediate state to ship, so this is not a preference.
 
 What makes it tractable:
 
-- **Every decision is now outside the irreversible window.** Ten Phase-A steps plus two code-free decisions
-  — the in-package layout convention and the floor justification — both of which B consumes as inputs.
+- **Every decision is now outside the irreversible window.** Ten Phase-A steps (A1–A10), two of which — the
+  layout convention (A10) and the floor justification — produce a written decision rather than code, and both
+  of which B consumes as inputs.
 - **Every rewrite class is mechanized.** Two codemod passes over four node shapes cover the external sites,
   the intra-package relative imports and the dynamic-import forms (R8).
 - **The bulk of B is machine-generated**, and its correctness is checked by two independent derivations that

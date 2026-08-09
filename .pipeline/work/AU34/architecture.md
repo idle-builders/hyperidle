@@ -69,8 +69,9 @@ any of them** — only in `@lore` comments and under `.pipeline/**`.
 
 Order: A1 → A2 → A3. A4 → A5 → A6. A7 → A9. A8 and A10 independent.
 
-**Two Phase-A decisions have no code and therefore no per-step command**: A10 (§3.2) and the floor
-justification (§3.3). Both are recorded here, executed mechanically in B, and verified at B8's green gate. Calling them
+**Ten steps, A1–A10. Two of them produce a written decision rather than code, and therefore have no per-step
+command**: A10 itself (§3.2, the layout convention) and the floor justification recorded in §3.3. Both are
+inputs B consumes, and both are verified at B8's green gate. Calling them
 "steps" would overstate; they are inputs.
 
 ### 3.2 A10 — the in-package file layout, decided
@@ -84,6 +85,12 @@ depth of every surviving relative import — the population the codemod's second
 > `framework/block-derivation/src/blocks/derive-blocks.ts`; `types.ts` and `types/money.ts` land side by side
 > in `domain-model/src/` exactly as they sit today.
 
+**One exception, and it is a decided rename, not a layout choice.** `requirements.md` §4.1 renames
+`agent-run-admission.ts` → `agent-work-intent-kinds.ts` (D9: the old name describes admission, which the
+module does not do). It lands in `domain-model/src/agent-work-intent-kinds.ts`. Only `index.ts:4` imports it,
+and that barrel dissolves — so the rename costs one line in `domain-model`'s new `src/index.ts`. B1 performs
+it; no other module is renamed.
+
 **Why, and it is the reason this is not a style preference:** preserving the `src/`-relative path makes every
 *same-package* relative import **byte-identical after the move**. The ~192 intra-package imports that do not
 cross a destination need no edit, and pass 2's rewrite population collapses to exactly the 47 that do.
@@ -96,7 +103,7 @@ edits inside the irreversible window.
 
 ### 3.3 The floor raise, decided here and executed mechanically
 
-`floors-tight.ts:57` errors when slack exceeds `max(ceil(live × 0.2), 5)`. Measured with
+`floors-tight.ts` errors when slack exceeds `allowedSlack` (`:65`) = `max(ceil(live × 0.2), 5)`. Measured with
 `npm run governance:floors`:
 
 | floor | live | declared | slack | allowed | headroom |
@@ -114,8 +121,8 @@ cannot hide one. One package with 30 declarers becomes eighteen with the same co
 each. **Only the floors that argument covers are raised** — checkable from `governance:floors`' own verdict
 column; any other floor going red is a finding, not a bump.
 
-**The value written is `suggestedFloor` — the middle of the band, which is what the tool prints.** Not the
-live count: `floors-tight.ts:66-72` says in terms that a floor at the edge is one removed crossing from red,
+**The value written is `suggestedFloor` (`:73`) — the middle of the band, which is what the tool prints.**
+Not the live count: `floors-tight.ts:67-72` says in terms that a floor at the edge is one removed crossing from red,
 "which is how the whole floor set came to sit on the edge at once". An earlier draft said "raise to the live
 counts"; that was wrong and is withdrawn.
 
@@ -135,31 +142,78 @@ and the decision is made here so it does not recur inside the window:
 |---|---|
 | `explicit-session-start.production.integration.test.ts:195,234` — `new (await import("@hyperidle/shared")).EventBus()` | **mechanical** — `@hyperidle/event-bus`; the codemod handles it (§4.1) |
 | `AL7-no-kernel-executor.test.ts:73-76` — `expect("StagedOperationSpec" in shared).toBe(false)` | **delete, in A4.** It asserts a symbol's absence from a package that will not exist. The nearest successor ("absent from `@hyperidle/domain-model`") is a different and weaker claim about a symbol retired long ago |
+| `bet-decomposition-removal.integration.test.ts:287` — same `EventBus()` shape | **mechanical**, same as above; an earlier draft listed two of these three |
 | `harness-registry/src/__tests__/{return-gate,return-status-tool}.test.ts:14,23` — `import * as sharedAll` | **rewrite to named imports, in A4** — the names they actually use resolve normally |
+| `model-gateway-package-dissolved.test.ts:24-27` — `const shared = await import(…)` bound to an identifier, then `shared.resolveModel` / `shared.UnsupportedAgentProviderError` | **delete the file, in A4** (see below) |
 
-A4 therefore owns *every* construct with no successor, repo-wide — not only the dead exports.
+**The identifier-bound site is the one an earlier draft's "A4 owns every no-successor construct" claim
+missed.** The 16 dynamic sites are 11 destructuring, 3 property-access-at-call-site, 2 identifier-bound.
+§4.1's rule for this shape — "the destination of the property accessed on the result" — does not reach a
+binding accessed on a later line, and the abort guard rejects it, so the codemod would stop at T11 on a
+disposition no artifact had made. **Decided: delete the file.** Its subject is that
+`@hyperidle/model-gateway` dissolved *into* `@hyperidle/shared`, a premise this work package falsifies —
+`resolveModel` moves to `credential-access` and `UnsupportedAgentProviderError` leaves the public surface
+entirely (`requirements.md` §1.3). `requirements.md` §1.3 sends A4 only to line 28 of this file; the whole
+file goes.
 
-### 3.6 A6 — the test split, criterion corrected
+A4 therefore owns *every* construct with no successor, repo-wide — the dead exports, the two namespace
+imports, the barrel-namespace assertion, and this file.
 
-Three files span destinations (verified live): `o1-event-split.test.ts:17-18` (`../events.js` **and**
-`import * as sharedIndex from "../index.js"`), `AE6-kind-registry.test.ts:7-15` (eight `kinds/*` A5 folds),
-`types.test.ts`.
+### 3.6 A6 — placing the 86 development files
 
-1. Imports resolving to **one** destination → move whole.
-2. Spanning **two or more** → split along the destination boundary, one file per destination.
-   **What backs this is `deps:check`, not the audience lint.** A test is a development file, and
-   `relaxForDevelopment` (`governance-model.ts:350-398`) allows every crossing except the three
-   `oneDoorSurfaces` — none of the eighteen is one. So a cross-package test import is *not* an audience
-   violation; it is a manifest obligation, and `deps:check` will demand the declaring package take a
-   dependency it has no production reason for. An earlier draft claimed the audience lint rejects it. It does
-   not, and the claim is withdrawn.
-3. An assertion **on the barrel object** has no successor. The one instance is
-   `o1-event-split.test.ts:74` — `expect(sharedIndex).toBeDefined()`, vacuous, and
-   `.claude/rules/testing.md:58` forbids that shape anyway. **Delete it**; no pre-split package name is
-   needed, which also removes the naming problem an earlier draft introduced here.
-4. A folded module's test asserts through the module it was folded into.
+**Corrected enumeration — and this contradicts `requirements.md`, so it is stated rather than edited.**
+`requirements.md` §6 names `__tests__/types.test.ts`, `__tests__/o1-event-split.test.ts` and
+`__tests__/AE6-kind-registry.test.ts` as the files that "span more than one destination". Measured against
+the §4 map, **none of the three does**: `types.test.ts` imports only `../types.js`;
+`AE6-kind-registry.test.ts` imports only `kinds/*`, one destination, affected by A5's folds rather than by
+spanning; and `o1-event-split.test.ts` reaches one destination (`../events.js`) plus a namespace import of
+the barrel, whose sole assertion A4 deletes as vacuous (§3.5). The requirement's *point* — that distributing
+the tests is a decision and not a move — is correct and is what §3.6 discharges; its three examples are not.
+`requirements.md` remains the authority on the package set and the audience table; this is the one place
+architecture found a factual claim in it false, and no edit was made there.
+Measured over all 86 development files under `framework/shared/src`, resolving barrel imports by symbol:
 
-The split happens inside `framework/shared/src/__tests__/` so B1 moves whole files.
+| | count |
+|---|---|
+| development files whose imports resolve to **two or more** destinations | **17** — 16 tests plus the fixture `harness/__testing__/mock-harness-adapter.ts` (harness-capability + harness-protocol) |
+| relative import statements in development files | **115** |
+| …of those, statements resolving to one of the six **dissolving barrels** (`../index.js`, `../../blocks/index.js`, `../http/index.js`, `../harness/index.js`, `../crypto/index.js`) | **27**, in 27 files |
+
+Unnamed before, and real: `AL7-proposed-call-types.test.ts` (three destinations),
+`AM3-session-adapter.test.ts` (three), `AM1-part.test.ts`, `AM1-source-agnostic.test.ts`,
+`AN1-descriptor-inherited-tools.test.ts`, `agent-work-intent-recorder.test.ts`, `event-bus.test.ts`,
+`thread-events.test.ts`, `money-harness.test.ts`, `money.test.ts`, `resolve-model.test.ts`, and five
+`__tests__/blocks/*.test.ts`.
+
+**A split rule is the wrong instrument.** Applied literally to `__tests__/blocks/derive-blocks.test.ts` it
+would separate a `deriveBlocks` test from the `BlockPayload` type it asserts against — shredding a coherent
+test to satisfy a boundary that `relaxForDevelopment` does not even enforce on development files (P8). What
+is needed is a **placement** rule.
+
+> **The placement rule.** A development file lands in the package that owns its **subject**, and every other
+> destination it reaches becomes an `@hyperidle/<dest>` specifier.
+>
+> **Subject is computed, not chosen:** the destination supplying the most **value** (non-`type`) bindings;
+> ties broken by the destination of the file's first import statement.
+
+Checked against the hard cases: `derive-blocks.test.ts` → `block-derivation` (`deriveBlocks` is the value
+binding; `BlockPayload` is a type); `event-bus.test.ts` → `event-bus`; `resolve-model.test.ts` →
+`credential-access`; `AM1-part.test.ts` → `conversation-parts`; `mock-harness-adapter.ts` →
+`harness-protocol` (it implements `HarnessAdapter`); `money.test.ts` → `domain-model`, since A4 has already
+deleted its other destination. The function is deterministic, so B1 moves files rather than deciding them.
+
+**The 27 barrel imports are resolved, not aborted.** `../index.js` and the four sub-barrels have no entry in
+the destination map because they dissolve. Pass 2 resolves each **by symbol** through the same map pass 1
+uses, exactly as an external consumer's `@hyperidle/shared` import is resolved. Treating them as unmapped
+would fire the abort guard on all 27.
+
+**Cross-package development imports are legal and carry a manifest obligation.** `relaxForDevelopment`
+(`governance-model.ts:350-398`) allows every development crossing except the three `oneDoorSurfaces`, none of
+which is among the eighteen (P8) — so this is not an audience question. It is a `deps:check` question, and
+§5's world rule answers it: those destinations land in `devDependencies`.
+
+**A6 therefore assigns every one of the 86 files a destination**, so B1 moves whole files with nothing left
+to decide.
 
 ### 3.7 A8 — the repoints
 
@@ -173,6 +227,10 @@ the two follower tests.
 1. `git mv` the 79 surviving modules, the post-A6 development files and the 15 fixtures into eighteen
    `framework/<name>/src/` trees, **preserving `src/`-relative paths** (§3.2).
 2. Write eighteen × `package.json`, `tsconfig.json` (service shape), `src/index.ts`, `vitest.config.ts`.
+   **What each `src/index.ts` publishes is derived, not composed:** every name the old barrel or one of the
+   five subpaths published that resolves to this package, **minus** the ten dead exports (`requirements.md`
+   §1.3) and minus `UnsupportedAgentProviderError`, which moves to `credential-access` but stays off its
+   surface (§4.4). Pass 1's rewrites do not compile without this, so it is an input to B4, not a follow-up.
 3. **Delete `framework/shared`.** ← **point of no return**
 4. Run the codemod: pass 1 over the 771 external sites, pass 2 over the moved trees (§4.1).
 5. Manifests: **30 rewritten + 1 deleted + 18 new**. Tsconfigs: **28 package files + root = 29**, plus
@@ -197,7 +255,7 @@ until it lands. An earlier draft ordered these the other way; that sequence is u
 
 | # | step | when |
 |---|---|---|
-| C1 | `eslint.config.ts` ×16, `governance-attacks.ts:429` prose, `.claude/rules/design-system.md:17`, `docker-compose.yml:46`, the four `scripts/` sites (§6.5) | **required for B8 to be green** |
+| C1 | `eslint.config.ts` — **16 sites** (10 naming `@hyperidle/shared`, 6 naming `framework/shared`), `governance-attacks.ts:429` prose, `.claude/rules/design-system.md:17`, `docker-compose.yml:46`, the four `scripts/` sites (§6.5) | **required for B8 to be green** |
 | C2 | `decided-rules.json` **AU34 surface rows** + totals + `governance/README.md`'s six `124` sites (§6.6) | **after the concept gate** |
 | C3 | 58 docs files | after green |
 
@@ -223,10 +281,14 @@ was therefore blind to the third and fourth:
 | `CallExpression` with `ImportKeyword` — `await import("@hyperidle/shared")` | 16, all in development files | rewrite to the destination of the property accessed on the result; §3.5 removes the one site where no single destination exists |
 
 **Pass 2 — inside the moved trees.** Every cross-destination edge inside `framework/shared` is a **relative**
-specifier, so pass 1 never sees one. 239 cross-file relative import statements exist under
-`framework/shared/src`; `requirements.md` §4.8 puts **47** across a destination boundary. Pass 2 re-resolves
+specifier, so pass 1 never sees one. 239 cross-file relative import statements exist in the **production** modules under `framework/shared/src`,
+of which `requirements.md` §4.8 puts **47** across a destination boundary — and the moved trees carry a
+further **115** relative statements in **development** files, in neither that 47 nor the ~192 byte-identical
+(§3.6). An earlier draft quoted the 47 as if it were the whole population; it is the production half. Pass 2 re-resolves
 each relative specifier against the destination map:
 
+- **a dissolving barrel** (`../index.js` and the four sub-barrels) → resolved **by symbol** through the same
+  map pass 1 uses. 27 statements, all in development files (§3.6).
 - **same destination** → unchanged. Because §3.2 preserves `src/`-relative paths, this is byte-identical for
   all ~192 of them; the pass asserts that rather than rewriting.
 - **different destination** → replaced with `@hyperidle/<dest>` (e.g. `event-bus.ts:8` `./logger.js` →
@@ -248,14 +310,22 @@ Seven of the 640 names collide with exports outside the eighteen — `Message`, 
 
 **Dead specifiers.** A missed pass-1 site keeps a `@hyperidle/shared` specifier; `check` fails on each, and a
 residual grep must return zero. **That grep is blind to pass 2** — a missed relative import is not
-`@hyperidle/shared`-shaped. Pass 2's own check is the assertion above: after the move, **no file under
-`framework/*/src` may hold a relative specifier that resolves outside its own package root**. That is
-checkable from the tree and is what `check` would otherwise only catch by accident.
+`@hyperidle/shared`-shaped.
+
+**Pass 2's real gate is `npm run check`, stated plainly rather than hedged.** A missed pass-2 rewrite leaves
+`framework/event-bus/src/event-bus.ts` importing `./logger.js` — a specifier that resolves *inside* its own
+package root, to a file that is no longer there. So "no relative specifier resolving outside its package
+root" does **not** fire on pass 2's own failure mode, and an earlier draft was wrong to present it as the
+check. `tsc` raises TS2307 on every such import; that is the gate, it is total, and it is not an accident.
+The outside-the-root assertion is kept as a cheap secondary that catches a different mistake — a rewrite that
+reaches across a package boundary with `../..` instead of a package specifier.
 
 **The abort guard, in explicit terms.** The codemod aborts on: an unmapped name; **any `@hyperidle/shared`
 specifier in any of the four node shapes that it cannot decompose into names** (namespace import, default
-import, bare side-effect import, a dynamic import whose result is not property-accessed); and any relative
-specifier in pass 2 that resolves to no module under the map.
+import, bare side-effect import, a dynamic import whose result is neither destructured nor property-accessed);
+and any relative specifier in pass 2 that resolves to neither a module under the map **nor a dissolving
+barrel** — barrels are resolved by symbol, not aborted (§3.6). Every construct that would otherwise trip the
+guard is removed in A4 (§3.5).
 
 **Correctness within the range (P6).** The module-level export sets of the eighteen give **656 names with
 zero cross-package collisions**. A wrong destination is a name the target does not export and `tsc` fails.
@@ -279,6 +349,31 @@ scans each package's files and reports divergences in both directions with sites
 zero. AC-4's named failure mode is closed by construction (P1). `tsconfig` `references` are the same
 derivation over the 29 sites in B5.
 
+### 5.1 Which dependency block — a decision neither derivation makes
+
+**The block decides the world.** `scripts/lib/crossings.ts:196-200`: on a shipping package, `dependencies`
+is a **production** manifest crossing and `devDependencies` a development one. `deps:check` is
+block-agnostic — `dep-manifest-verdict.ts:35-37` compares declared against imported and nothing else — so it
+will neither guide the choice nor catch a wrong one.
+
+This is not cosmetic. `requirements.md` §4.7 records **eight destinations reached only from development
+files** on shipping packages: `agent-run-config`→harness-capability, `tool-handlers`→harness-protocol,
+`tool-handlers`→event-bus, `core-api`→block-derivation, `core-api`→host-process,
+`filesystem-mounting`→host-process, `framework/db`→diagnostics, `core-ui`→credential-access. Every one of
+those consumers is **deliberately absent** from the target's `reach`, because §4.7 refuses to grant on
+development evidence — and every one declares `@hyperidle/shared` in `dependencies` today. A
+block-preserving rewrite therefore emits eight production manifest crossings that
+`reach-declared-surfaces-only` forbids: red lint after B3, resolvable only by a decision.
+
+> **The rule.** A destination reached **only** from development files within a consumer is declared in that
+> consumer's `devDependencies`. Any production reach puts it in `dependencies`.
+
+**It is mechanical and it is checkable.** The codemod already classifies every consumer file by
+`CLAUDE.md`'s production/development rule — that classification is what produced §4.7's two columns — so it
+emits two sets per consumer without further input. The check is that the resulting `devDependencies`-only
+edges are exactly the eight above plus the eighteen packages' own dev-only siblings; §4.7's dev-only column
+is the expected answer to compare against, and any ninth is a finding.
+
 ---
 
 ## 6. Model and tooling changes
@@ -299,17 +394,24 @@ grow.
 (`governance-attacks.ts:804-831`) keys on **registered rule ids**, and `reach-declared-surfaces-only` is a
 *clause* id.
 
-**The gate is `decided-rules.json`.** Three rows, all `forbidden` in both worlds — the third added because
-`founder-rulings.md` names three `reach: []` surfaces and a further row costs nothing:
+**The gate is `decided-rules.json`.** Three rows — and **the third does not carry the same verdicts as the
+other two**:
 
-| source | target | kind |
-|---|---|---|
-| `framework` | `db:schema-ns` | `import` |
-| `framework` | `db:unknown` | `import` |
-| `framework` | `db:testing` | `import` |
+| source | target | kind | production | development |
+|---|---|---|---|---|
+| `framework` | `db:schema-ns` | `import` | `forbidden` | `forbidden` |
+| `framework` | `db:unknown` | `import` | `forbidden` | `forbidden` |
+| `framework` | `db:testing` | `import` | `forbidden` | **`allowed`** |
 
-All three reproduce today (probed) and would return `allowed` under a broadly-written clause, failing the
-frozen loop loudly. They land in **A2**, because they gate A1.
+`db:schema-ns` and `db:unknown` are `oneDoorSurfaces`, so the development relaxation does not cross them.
+`db:testing` is **not** one, so `relaxForDevelopment` allows it — exactly as `feasibility.md` P8 measured.
+An earlier draft wrote all three as forbidden/forbidden, which would have failed A2 on landing; corrected
+here.
+
+All three reproduce today and would return `allowed` in production under a broadly-written clause, failing
+the frozen loop loudly. They land in **A2**, immediately after A1 — the rows record the verdicts A1's clause
+must produce, so the clause is written first and the rows are what prove it. An earlier draft said the rows
+"gate A1", which reads as if they precede it.
 
 **The twelve `framework/shared` rows retire in B6, not C2.** Six sources × two kinds, all `allowed`. Once
 B6 removes the surface, `governance-model.ts:294-299` returns `forbidden` ("is not a declared surface") for
@@ -356,7 +458,9 @@ Fixed in A1, with its attack case in A3 (§3.4 — without that case nothing exe
   matters**: `:292-298` builds leaves in dependency order, and the eighteen carry nine sibling edges plus
   `credential-access → domain-model`, with `db` and `design-system` depending on several — the list is
   topologically sorted, not appended.
-- `scripts/governance-new-cells.ts:49,74` — `TARGETS_BY_KIND` hardcodes `framework/shared`.
+- `scripts/governance-new-cells.ts:49,74` — `TARGETS_BY_KIND` hardcodes `framework/shared`; **and `:151`**
+  returns `{ sort: "package", name: "shared", role: "framework" }` for a bare `framework` source — the same
+  staleness as `governance-model.test.ts:150-151`, and an earlier draft listed only the first two.
 - `scripts/rules/no-laundered-re-exports.ts:17,32` — its `@lore` reasons from `shared` being `everyone`.
 - `scripts/lib/crossings.ts:55` — doc-comment example.
 
@@ -479,14 +583,14 @@ specifier that **never resolved** — pre-existing dead config the rewrite surfa
 | T2 | Three `forbidden` rows; `makeActor`'s 25 packages; **`makeTarget`'s bare-`framework` case**; the row bookkeeping (§6.6) | L1 | T1 |
 | T3 | Attack cases: Ruling 1 positive; three `db:*` twins; **the `frameworkSurfacesOf` case** | L1 | T1 |
 | T4 | New registered rule `framework-surfaces-declared`, both directions, subset floor, forced positive case + twin | L1 | — |
-| T5 | Delete `format/money.ts` + ten dead exports; **every no-successor construct** (§3.5); ten test consequences | L2 | — |
+| T5 | Delete `format/money.ts` + ten dead exports; **every no-successor construct** (§3.5) incl. deleting `model-gateway-package-dissolved.test.ts`; ten test consequences | L2 | — |
 | T6 | The nine folds | L2 | T5 |
-| T7 | Split the cross-destination tests (§3.6) | L2 | T6 |
+| T7 | **Place all 86 development files** by §3.6's subject rule — 17 span destinations, 27 statements resolve through a dissolving barrel | L2 | T6 |
 | T8 | Four edge rewrites, pre-split spelling | L2 | — |
 | T9 | Six republication removals + two repoints | L2 | — |
 | T10 | Split `model-gateway.ts` / `credential.ts` in place | L2 | T8 |
-| T11 | Build the codemod — **four node shapes, two passes**, the explicit abort guard, the `(name → isTypeOnly)` set check; dry-run; reconcile its map | L3 | T1–T10 |
-| T12 | **Atomic:** eighteen packages (layout per §3.2), delete `shared`, both codemod passes, manifests + tsconfigs, registries incl. **the −12 rows**, `design-system/vitest.config.ts`, `typecheck-gate` leaf list in dependency order, both lockfiles, floor raise, then green = `verify` **+** the frozen model test | L3 | T11 |
+| T11 | Build the codemod — **four node shapes, two passes** (incl. barrel-by-symbol resolution and the 115 development-file statements), the explicit abort guard, the `(name → isTypeOnly)` set check, and the **`dependencies`/`devDependencies` split** (§5.1); dry-run; reconcile its map | L3 | T1–T10 |
+| T12 | **Atomic:** eighteen packages (layout per §3.2), delete `shared`, both codemod passes, eighteen derived barrels (B2), manifests **in the right block** (§5.1) + tsconfigs, registries incl. **the −12 rows**, `design-system/vitest.config.ts`, `typecheck-gate` leaf list in dependency order, both lockfiles, floor raise, then green = `verify` **+** the frozen model test | L3 | T11 |
 | T13 | `eslint.config.ts` + the four `scripts/` sites + remaining prose | L3 | T12 |
 | T14 | Extend the surface finding to name the declared audience (`scripts/rules/crossings.ts:70` / `governance-model.ts:302`); write `plan.md:58`'s attack case + twin | L3 | T12 |
 | T15 | `decided-rules.json` AU34 surface rows + totals + README's six `124` sites | L3 | concept gate |
