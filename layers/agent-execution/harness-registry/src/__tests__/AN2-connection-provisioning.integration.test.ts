@@ -1,8 +1,10 @@
 /**
  * AN2 — Connection provisioning real-harness live-proof tests (AC2, AC3).
  *
- * ⚠️  LOCAL-ONLY LANE — runs via test:integration's serial `harness` project; the
- *     signed attestation carries the result. No test suite runs in GitHub Actions.
+ * ⚠️  LOCAL-ONLY LANE — runs via test:integration's serial `harness` project. CI
+ *     runs the unit and service-integration lanes, but NOT this one: it needs real
+ *     CLI binaries and real LLM credentials. Nothing records that it ran, so a
+ *     human running it is the only evidence it passed.
  *
  * Proves that the provisioned config files actually enable agent authentication
  * to a real MCP server. Each carrier path is tested separately:

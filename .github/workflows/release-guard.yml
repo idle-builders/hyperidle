@@ -25,6 +25,8 @@ jobs:
   release-guard:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    outputs:
+      bumped: ${{ steps.bump.outputs.bumped }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -104,12 +106,6 @@ jobs:
           echo "sha256=$(jq -r .sha256 "$MF")" >> "$GITHUB_OUTPUT"
           echo "dmg=$(jq -r .dmgName "$MF")" >> "$GITHUB_OUTPUT"
 
-      - name: Require full-scope attestation on version bump
-        if: steps.bump.outputs.bumped == 'true'
-        env:
-          VERIFY_SECRET: ${{ secrets.VERIFY_SECRET }}
-        run: npx tsx scripts/check-attestation.ts --require-scope=full
-
       - name: Staged DMG exists with matching sha256
         if: steps.bump.outputs.bumped == 'true'
         env:
@@ -142,3 +138,36 @@ jobs:
             exit 1
           fi
           echo "✓ staged DMG $DMG verified (sha256 $ACTUAL)"
+
+  # Full suite + e2e, on version-bump PRs only.
+  release-tests:
+    name: Release tests
+    needs: release-guard
+    if: needs.release-guard.outputs.bumped == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run test:full
+      - run: npm run test:integration:service
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e:full
+
+  # Required status check. The lanes above skip on non-bump PRs, and a required
+  # context that never reports blocks the PR forever — so this always runs.
+  release-verify:
+    name: release verify
+    needs: [release-guard, release-tests]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: |
+          for r in "${{ needs.release-guard.result }}" "${{ needs.release-tests.result }}"; do
+            case "$r" in success|skipped) ;; *) echo "::error::release lane: $r"; exit 1 ;; esac
+          done

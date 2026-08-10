@@ -47,13 +47,14 @@ Before any work is complete: `npm run check` (zero type errors) + `npm run lint`
 | **Unit + component tests (full)** | `npm run test:full` | All fast unit + component tests (`vitest run`) — no `--changed` filter. |
 | **Integration tests** | `npm run test:integration` | All integration tests (`*.integration.test.ts`): service + harness projects. |
 | **Service integration** | `npm run test:integration:service` | DB/API integration tests only (the lane per-merge verify runs). |
-| **Harness integration** | `npm run test:integration:harness` | Real-binary + real-LLM harness tests. Release-gated: runs in `verify:release`, not per-merge verify. |
+| **Harness integration** | `npm run test:integration:harness` | Real-binary + real-LLM harness tests. **Local only — no CI job, by design.** Part of the `verify:release` checklist you run before a version bump. |
 | **All tests** | `npm run test:all` | `test:full` + `test:integration` (unit + component + integration). |
 | **E2E tests** | `npm run test:e2e` | Playwright end-to-end tests (Chromium). |
 | **Typecheck** | `npm run check` | Per-package typecheck gate (`scripts/typecheck-gate.ts`) — discovers all packages under `layers/`, `framework/`, `applications/`, `tools/`, runs `tsc --noEmit` per package, applies debt ratchet. |
 | **Lint** | `npm run lint` | Biome + ESLint + three governance-lint passes (fixtures, attacks, default). |
 | **Quick verify** | `npm run verify:quick` | check + lint + knip + knip:production + deps:check. No tests or builds. |
-| **Full verify** | `npm run verify` | check + lint + knip + knip:production + deps:check + mock-inventory:check + web build + desktop build + attestation. No tests. |
+| **Full verify** | `npm run verify` | check + lint + knip + knip:production + deps:check + mock-inventory:check + web build + desktop build. No tests — CI runs those. |
+| **Release checklist** | `npm run verify:release` | `verify` + `test:full` + `test:integration` (incl. the harness lane) + full e2e. Run locally before a version bump. |
 
 ### Test file naming
 
@@ -74,9 +75,9 @@ A file is **development** if its name declares it (`.test.ts(x)`, `.spec.ts(x)`,
 
 A few production-path files are really development and cannot move yet. Each is recorded with its reason in `tools/governance/misplaced-files.json`, warns on every lint run, and the count only shrinks — adding an entry is a diff review will challenge.
 
-**Harness-facing integration tests use the REAL installed harness binary — never a stub.** Decide by "is the harness/agent/CLI the thing under test?"; if yes, a stubbed/scripted/mocked adapter makes it a mislabeled unit test, not an integration test. Gate with `requireHarness(<name>)` (claude/codex/opencode/cursor-agent = binary on PATH; builtin = `OPENROUTER_API_KEY`) — a missing harness hard-fails the run (the work can't be completed), never `skipIf` to green. Non-harness binaries (e.g. `gh`) use `requireBinary(<name>)` instead. Enforced via `requireHarness` + the attestation agentic floor. **Like e2e, the harness lane is release-gated:** per-merge verify (affected scope) runs the service project only; `verify:release` (full scope) runs the harness lane and its floors (agentic executed-count + per-harness symmetry) enforce it.
+**Harness-facing integration tests use the REAL installed harness binary — never a stub.** Decide by "is the harness/agent/CLI the thing under test?"; if yes, a stubbed/scripted/mocked adapter makes it a mislabeled unit test, not an integration test. Gate with `requireHarness(<name>)` (claude/codex/opencode/cursor-agent = binary on PATH; builtin = `OPENROUTER_API_KEY`) — a missing harness hard-fails the run (the work can't be completed), never `skipIf` to green. Non-harness binaries (e.g. `gh`) use `requireBinary(<name>)` instead. Enforced via `requireHarness`. **The harness lane has no CI job at all** — it needs four real CLI binaries and real LLM credentials, so it stays a local command in the `verify:release` checklist. Nothing mechanically blocks a release whose harness lane never ran; that is a deliberate trade, not an oversight. Per-merge CI runs the service integration project only.
 
-`verify` is pure npm script chaining — no custom process orchestrator. The shell owns every child process. Attestation is a standalone script (`scripts/verify-attest.ts`).
+`verify` is pure npm script chaining — no custom process orchestrator. The shell owns every child process. Every per-merge gate runs live in GitHub Actions (`.github/workflows/ci.yml`); nothing is trusted from a local machine, and no signed attestation exists.
 
 ## Proof & Definition of Done
 
@@ -150,7 +151,7 @@ Never hardcode a package path in a script, guard, or config. Discover paths by s
 
 ## Commands
 
-`npm install`, `npm run dev` (server 3001 + web 5173), `npm run verify` (check + lint + knip + knip:production + deps:check + mock-inventory:check + web + desktop build + attestation — no tests; preferred before shipping), `npm run test` (affected slice via `--changed=origin/main`, excludes integration), `npm run test:full` (all fast unit + component tests), `npm run test:integration` (all integration tests), `npm run test:integration:service` (DB/API only), `npm run test:integration:harness` (real-harness lane, release-gated), `npm run test:all` (test:full + all integration), `npm run test:e2e` (Playwright E2E), `npm run check` (per-package typecheck gate), `npm run lint` (Biome + ESLint + three governance-lint passes), `npm run lint:biome`, `npm run lint:eslint`, `npm run lint:fix`, `npm run db:generate`, `npm run db:migrate`.
+`npm install`, `npm run dev` (server 3001 + web 5173), `npm run verify` (check + lint + knip + knip:production + deps:check + mock-inventory:check + web + desktop build — no tests, CI runs those; preferred before shipping), `npm run verify:release` (verify + full tests + harness lane + full e2e; before a version bump), `npm run test` (affected slice via `--changed=origin/main`, excludes integration), `npm run test:full` (all fast unit + component tests), `npm run test:integration` (all integration tests), `npm run test:integration:service` (DB/API only), `npm run test:integration:harness` (real-harness lane, local-only — no CI job), `npm run test:all` (test:full + all integration), `npm run test:e2e` (Playwright E2E), `npm run check` (per-package typecheck gate), `npm run lint` (Biome + ESLint + three governance-lint passes), `npm run lint:biome`, `npm run lint:eslint`, `npm run lint:fix`, `npm run db:generate`, `npm run db:migrate`.
 
 ---
 

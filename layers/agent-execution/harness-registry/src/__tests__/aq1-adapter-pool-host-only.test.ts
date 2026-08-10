@@ -26,7 +26,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createLocalAdapterPool } from "../adapter-pool.js";
 
 // Ids the factory ALWAYS registers regardless of environment.
-const ALWAYS_PRESENT_IDS = ["local-claude-code", "local-builtin"];
+// ALWAYS_PRESENT_IDS moved with its only consumer to
+// adapter-pool-real-discovery.integration.test.ts — `local-claude-code` is only
+// registered when `claude` is on PATH, so the list is not host-independent.
 
 function poolIds(pool: Awaited<ReturnType<typeof createLocalAdapterPool>>): string[] {
 	return pool.list().map((a) => a.id);
@@ -41,14 +43,9 @@ describe("AQ1: createLocalAdapterPool — host-only, no isolation path", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("always-present local adapters are registered", async () => {
-		const pool = await createLocalAdapterPool();
-		const ids = poolIds(pool);
-
-		for (const id of ALWAYS_PRESENT_IDS) {
-			expect(ids).toContain(id);
-		}
-	});
+	// "always-present local adapters are registered" moved to
+	// adapter-pool-real-discovery.integration.test.ts — `local-claude-code` is
+	// only registered when `claude` is on PATH.
 
 	it("no adapter id matches /isolated|docker/ — isolation machinery is gone", async () => {
 		const pool = await createLocalAdapterPool();

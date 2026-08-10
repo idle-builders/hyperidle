@@ -43,9 +43,9 @@ Default test commands run the **affected slice** against `origin/main` (AT1); `:
 
 | Command | Purpose |
 |---------|---------|
-| `npm run verify` | Full gate chain: check + lint + knip + knip:production + deps:check + mock-inventory:check + builds (web, desktop) + signed attestation. `verify` itself runs no test leg — `scripts/verify-attest.ts` runs the attested test legs (`test`, `test:integration`, `test:e2e`) and derives status from their exit codes |
+| `npm run verify` | Static gate chain: check + lint + knip + knip:production + deps:check + mock-inventory:check + builds (web, desktop). Runs **no tests** — CI runs the affected slice on every PR and push (`.github/workflows/ci.yml`) |
 | `npm run verify:quick` | check + lint + knip + knip:production + deps:check only — no tests or builds |
-| `npm run verify:release` | `VERIFY_SCOPE=full npm run verify` — required before a version-bump PR (release-guard CI requires a full-scope attestation, `.github/workflows/release-guard.yml`) |
+| `npm run verify:release` | `verify` + `test:full` + `test:integration` (incl. the harness lane) + full e2e. The pre-version-bump checklist. CI re-runs the full suite and e2e on the bump PR (`.github/workflows/release-guard.yml`); the harness lane is local-only and has no CI job |
 
 ## Typecheck and lint
 

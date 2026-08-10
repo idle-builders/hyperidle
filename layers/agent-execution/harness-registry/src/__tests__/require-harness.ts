@@ -31,13 +31,17 @@ import { isBinaryOnPath } from "./require-binary.js";
 export type HarnessName = "claude" | "codex" | "opencode" | "cursor-agent" | "builtin";
 
 /**
- * AR2 §0 — bidirectional lockstep with scripts/lib/honest-harness-predicate.ts
- * SUPPORTED_HARNESSES. A package cannot import `scripts/`, so we mirror the
- * literal here and assert TYPE IDENTITY in BOTH directions:
- *   _AssertSupportedInHarness: every supported name is a valid HarnessName (→).
- *   _AssertHarnessCoversSupported: every member of the mirror is a SupportedHarness (←).
- * Adding a harness to SUPPORTED_HARNESSES without updating HarnessName → `npm run check` RED.
- * Adding to HarnessName without updating the mirror → `npm run check` RED (the ← assert fails).
+ * The supported-harness matrix. This file is now the SINGLE source of truth.
+ *
+ * @lore ci-move: this was one half of a cross-file mirror — the other half,
+ * `SUPPORTED_HARNESSES` in `scripts/lib/honest-harness-predicate.ts`, existed
+ * only to feed the attestation's per-harness floor. The attestation is gone and
+ * the predicate with it, so there is nothing left to mirror. The list and the
+ * `HarnessName` union both live here, and the asserts below now check this
+ * file against itself:
+ *   _AssertSupportedInHarness: every listed name is a valid HarnessName (→).
+ *   _AssertHarnessCoversSupported: every HarnessName is in the list (←).
+ * Adding to either without the other → `npm run check` RED, in both directions.
  *
  * @lore AU28 Ruling 15: the two sets are now IDENTICAL. They used to differ by exactly one
  * member — `gh`, carved out of the ← direction by hand — and that carve-out was the type system

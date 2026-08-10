@@ -2,7 +2,7 @@
 
 Every agent turn that completes normally must invoke one of four return actions before stopping. A turn that doesn't is **never silently recorded as `completed`** — enforcement is provisioned per-harness at sandbox setup time, adjudicated by HyperIdle via a real HTTP route, and backstopped by a drain-end `ReturnGate` that no harness can bypass.
 
-Test-side honesty (the five-harness matrix, locked test models, the attestation floor) is a separate mechanism — see [harness-coverage-enforcement.md](harness-coverage-enforcement.md).
+Test-side honesty (the five-harness matrix, locked test models) is a separate mechanism — see [harness-coverage-enforcement.md](harness-coverage-enforcement.md), which also records that its execution-level floor was deleted with the attestation.
 
 ---
 
@@ -235,7 +235,7 @@ Together the two external scenarios form complete process-reengage coverage: for
 
 `layers/core-api/src/__tests__/real-harness-return-enforcement-realbinary.integration.test.ts` covers all five supported harnesses in a single file (AR6 consolidation — the former scripted in-process anchor file was merged into this file).
 
-Each real-binary lane is gated by `requireHarness(<name>)` (hard-fail, never skip) + an inner auth check. Runs locally via `test:integration`'s serial `harness` project; the signed attestation carries the result.
+Each real-binary lane is gated by `requireHarness(<name>)` (hard-fail, never skip) + an inner auth check. Runs locally via `test:integration`'s serial `harness` project. Nothing carries the result anywhere — the lane has no CI job, so a human running it is the only record.
 
 | Harness | Proof |
 |---|---|
