@@ -14,22 +14,56 @@ jobs:
   # Job name is the required status context in the `main-protection` ruleset.
   # Renaming it un-gates main.
   #
-  # Runs the FULL suite, deliberately. `vitest --changed` is wired in the local
-  # `npm run test` but selects 563 of 563 files in CI — it is not a working
-  # optimisation here, and CI should not imply otherwise. Affected selection is
-  # its own piece of work; so is AU38, which is worth ~2790 CPU-seconds of the
-  # runtime below (see .pipeline/work/AU38/plan.md).
+  # Runs the AFFECTED slice (`--changed`), not the full suite. Affected used to
+  # select 563 of 563 files in CI while selecting ~30 locally on the same commit:
+  # vitest's default forceRerunTriggers are globs that picomatch cannot match
+  # across a dot-free checkout path, so any package.json edit force-reruns
+  # everything. That is fixed with absolute-literal triggers in vitest.config.ts
+  # (@lore affected-determinism), so the slice is deterministic and matches
+  # local. Base per event: pull_request → origin/main; push → the previous tip
+  # (github.event.before). An unresolvable base (first/force push) falls back to
+  # the full suite. The full-suite backstop otherwise runs only in
+  # release-guard.yml on a version bump.
   verify:
     name: npm run verify
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # `--changed=<base>` needs the base commit in history
       - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
       - run: npm ci
       - run: npm run verify
-      - run: npm run test:full
-      - run: npm run test:integration:service
+
+      - name: Resolve affected base
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="origin/main"
+          else
+            BASE="${{ github.event.before }}"
+          fi
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            BASE=""
+          fi
+          echo "BASE=$BASE" >> "$GITHUB_ENV"
+          echo "affected base: ${BASE:-<none — full-suite fallback>}"
+
+      - name: Unit + component tests (affected)
+        run: |
+          if [ -n "$BASE" ]; then
+            npx vitest run --changed="$BASE" --passWithNoTests
+          else
+            npm run test:full
+          fi
+
+      - name: Service integration tests (affected)
+        run: |
+          if [ -n "$BASE" ]; then
+            npx vitest run --config vitest.integration.config.ts --project service --changed="$BASE" --passWithNoTests
+          else
+            npm run test:integration:service
+          fi
