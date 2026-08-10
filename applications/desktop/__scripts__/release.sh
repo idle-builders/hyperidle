@@ -14,7 +14,7 @@ set -euo pipefail
 # bumped without a matching staged DMG.
 #
 # This script does NOT commit, tag, push, or publish. Workflow:
-#   1. ./applications/desktop/scripts/release.sh <version>
+#   1. ./applications/desktop/__scripts__/release.sh <version>
 #   2. git add -A && git commit && open a PR
 #   3. merge to main → CD publishes the release + deploys the backend
 #
@@ -23,7 +23,7 @@ set -euo pipefail
 #   - APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID in .env or environment
 #   - gh CLI authenticated with write access to ambrovia/hyperidle
 #
-# Usage: ./scripts/release.sh <version>   (e.g. ./scripts/release.sh 0.5.0)
+# Usage: ./__scripts__/release.sh <version>   (e.g. ./__scripts__/release.sh 0.5.0)
 
 VERSION="${1:-}"
 if [ -z "$VERSION" ]; then
@@ -79,7 +79,7 @@ perl -0pi -e "s/^appVersion:.*\$/appVersion: \"$VERSION\"/m" "$REPO_ROOT/deploy/
 echo "==> Building web SPA"
 npm run -w @hyperidle/core-ui build
 echo "==> Bundling desktop (esbuild → dist/main.cjs)"
-npx tsx applications/desktop/scripts/bundle.ts
+npx tsx applications/desktop/__scripts__/bundle.ts
 echo "==> Building, signing, and notarizing DMG (this takes several minutes)"
 cd "$DESKTOP_DIR"
 npx electron-builder --config electron-builder.yml --mac --arm64 --publish never
