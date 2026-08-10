@@ -1,17 +1,88 @@
-/* Markdown typography for the /docs/** seam — the neo-brutal marketing
-   identity applied to long-form prose. Follow-up docs WP reuses this. */
-.doc-page {
-	padding: var(--s8) 0 var(--s9);
+/* Docs area — the neo-brutal marketing identity applied to long-form prose,
+   with a side-navigated reading layout. Two parts: the docs-layout grid
+   (sidebar + main column) and the .prose typography for rendered markdown. */
+
+/* ---------- layout ---------- */
+.docs-layout {
+	display: grid;
+	grid-template-columns: 300px minmax(0, 1fr);
+	gap: var(--s7);
+	align-items: start;
+	padding: var(--s7) 0 var(--s9);
 }
+.docs-main {
+	min-width: 0;
+}
+
+/* ---------- side navigation ---------- */
+.docs-menu {
+	position: sticky;
+	top: 96px;
+	max-height: calc(100vh - 120px);
+	overflow-y: auto;
+	border: var(--border);
+	background: var(--white);
+	box-shadow: var(--sh-card);
+}
+.docs-menu-toggle {
+	display: none; /* desktop: nav is always expanded, nothing to toggle */
+}
+.docs-menu-nav {
+	padding: var(--s4);
+}
+.docs-menu-section + .docs-menu-section {
+	margin-top: var(--s5);
+	border-top: var(--border);
+	padding-top: var(--s5);
+}
+.docs-menu-h {
+	display: inline-block;
+	font: 700 11px / 1 var(--mono);
+	letter-spacing: 0.16em;
+	text-transform: uppercase;
+	color: var(--ink);
+	background: var(--yellow);
+	border: 2px solid var(--ink);
+	padding: var(--s1) var(--s2);
+	margin-bottom: var(--s3);
+}
+.docs-menu-nav ul {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+.docs-menu-nav a {
+	display: flex;
+	align-items: center;
+	min-height: 44px;
+	padding: var(--s1) var(--s3);
+	font: 500 0.9375rem / 1.35 var(--body);
+	color: var(--text-body);
+	border: 2px solid transparent;
+}
+.docs-menu-nav a:hover {
+	background: var(--paper);
+	border-color: var(--ink);
+	color: var(--ink);
+}
+.docs-menu-nav a[aria-current="page"] {
+	background: var(--yellow);
+	border-color: var(--ink);
+	box-shadow: var(--sh-chip);
+	color: var(--ink);
+	font-weight: 700;
+}
+
+/* ---------- breadcrumb ---------- */
 .doc-crumb {
-	max-width: 760px;
-	margin: 0 auto var(--s6);
 	font: 700 12px / 1 var(--mono);
 	letter-spacing: 0.14em;
 	text-transform: uppercase;
 	display: flex;
 	align-items: center;
 	gap: var(--s2);
+	flex-wrap: wrap;
+	margin-bottom: var(--s6);
 }
 .doc-crumb a {
 	color: var(--ink);
@@ -35,9 +106,63 @@
 	color: var(--text-dimmer);
 }
 
+/* ---------- hub ---------- */
+.docs-hub {
+	margin-top: var(--s6);
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: var(--s5);
+}
+.docs-hub-section {
+	border: var(--border);
+	background: var(--white);
+	box-shadow: var(--sh-card);
+	padding: var(--s5);
+}
+.docs-hub-section:nth-child(odd) {
+	transform: rotate(-0.4deg);
+}
+.docs-hub-section:nth-child(even) {
+	transform: rotate(0.4deg);
+}
+.docs-hub-section h2 {
+	font-family: var(--disp);
+	text-transform: uppercase;
+	font-size: 1.25rem;
+	line-height: 1.1;
+	color: var(--ink);
+}
+.docs-hub-blurb {
+	margin-top: var(--s3);
+	font-size: 0.9375rem;
+	line-height: 1.55;
+	color: var(--text-body);
+}
+.docs-hub-section ul {
+	list-style: none;
+	margin: var(--s4) 0 0;
+	padding: 0;
+	border-top: var(--border);
+}
+.docs-hub-section li + li {
+	border-top: 2px solid var(--ink);
+}
+.docs-hub-section a {
+	display: flex;
+	align-items: center;
+	min-height: 44px;
+	font: 700 13px / 1.3 var(--mono);
+	letter-spacing: 0.04em;
+	color: var(--ink);
+	padding: var(--s1) var(--s2);
+}
+.docs-hub-section a:hover {
+	background: var(--yellow);
+}
+
+/* ---------- prose ---------- */
 .prose {
 	max-width: 760px;
-	margin: 0 auto;
 	font-size: 1.0625rem;
 	line-height: 1.7;
 	color: var(--text-body);
@@ -98,6 +223,7 @@
 	text-decoration-color: var(--yellow);
 	text-decoration-thickness: 3px;
 	text-underline-offset: 3px;
+	overflow-wrap: anywhere;
 }
 .prose a:hover {
 	background: var(--yellow);
@@ -139,7 +265,7 @@
 	border-radius: 0;
 }
 .prose pre {
-	background: var(--white);
+	background: var(--ink);
 	border: var(--border);
 	box-shadow: var(--sh-card);
 	padding: var(--s5);
@@ -151,7 +277,7 @@
 	padding: 0;
 	font-size: 0.8125rem;
 	line-height: 1.9;
-	color: var(--text-body);
+	color: var(--paper);
 }
 .prose blockquote {
 	border: var(--border);
@@ -175,12 +301,16 @@
 	border-top: 0;
 	padding-top: 0;
 }
+/* tables overflow narrow columns horizontally instead of breaking cells */
+.prose .table-wrap {
+	overflow-x: auto;
+	box-shadow: var(--sh-card);
+	border: var(--border);
+	background: var(--white);
+}
 .prose table {
 	width: 100%;
 	border-collapse: collapse;
-	border: var(--border);
-	background: var(--white);
-	box-shadow: var(--sh-card);
 	font-size: 0.9375rem;
 }
 .prose th {
@@ -198,6 +328,7 @@
 	border-bottom: 2px solid var(--ink);
 	color: var(--text-body);
 	vertical-align: top;
+	background: var(--white);
 }
 .prose tr:last-child td {
 	border-bottom: 0;
@@ -208,9 +339,68 @@
 	box-shadow: var(--sh-card);
 }
 
+/* ---------- responsive ---------- */
+@media (max-width: 1024px) {
+	.docs-layout {
+		grid-template-columns: 1fr;
+		gap: var(--s5);
+		padding-top: var(--s5);
+	}
+	/* mobile: the sidebar becomes a collapsible drawer (native <details>) */
+	.docs-menu {
+		position: static;
+		max-height: none;
+		overflow-y: visible;
+		box-shadow: var(--sh-chip);
+	}
+	.docs-menu-toggle {
+		display: flex;
+		align-items: center;
+		gap: var(--s3);
+		min-height: 48px;
+		padding: var(--s3) var(--s4);
+		cursor: pointer;
+		list-style: none;
+		border-bottom: var(--border);
+		background: var(--white);
+	}
+	.docs-menu-toggle::-webkit-details-marker {
+		display: none;
+	}
+	.docs-menu:not([open]) .docs-menu-toggle {
+		border-bottom: 0;
+	}
+	.docs-menu-cap {
+		font: 700 11px / 1 var(--mono);
+		letter-spacing: 0.16em;
+		color: var(--ink);
+		background: var(--yellow);
+		border: 2px solid var(--ink);
+		padding: var(--s1) var(--s2);
+	}
+	.docs-menu-here {
+		font: 700 13px / 1.3 var(--mono);
+		color: var(--text-body);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		flex: 1;
+	}
+	.docs-menu-caret {
+		font: 700 14px / 1 var(--mono);
+		color: var(--ink);
+		transition: transform var(--dur-hover) ease;
+	}
+	.docs-menu:not([open]) .docs-menu-caret {
+		transform: rotate(-90deg);
+	}
+	.docs-hub {
+		grid-template-columns: 1fr;
+	}
+}
 @media (max-width: 640px) {
-	.doc-page {
-		padding: var(--s6) 0 var(--s7);
+	.docs-layout {
+		padding-bottom: var(--s7);
 	}
 	.prose pre {
 		padding: var(--s4);

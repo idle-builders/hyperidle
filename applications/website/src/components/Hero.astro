@@ -1,176 +1,28 @@
 ---
 const base = import.meta.env.BASE_URL;
+const GITHUB = "https://github.com/ambrovia/hyperidle";
 ---
 
 <section class="hero" id="top" aria-labelledby="hero-h">
-	<div class="container hero-grid">
-		<div>
-			<span class="eyebrow">[ Agentic Operating System ]</span>
-			<h1 id="hero-h">
-				The operating system for <span class="hl">AI-first</span>{" "}companies.
-			</h1>
-			<p class="hero-sub">
-				HyperIdle runs flat teams of humans and AI agents. You shape the work, agents execute,
-				you validate — and everything they learn compounds into knowledge the next bet starts
-				with.
-			</p>
-			<div class="hero-ctas">
-				<a class="btn btn-primary" href={`${base}#self-host`}>Self-host quickstart</a>
-				<a class="btn btn-ghost" href={`${base}#docs`}>Read the docs</a>
-			</div>
-			<p class="hero-meta">
-				<span>Agents execute</span>
-				<span>Humans validate</span>
-				<span>Knowledge compounds</span>
-			</p>
+	<div class="container">
+		<span class="eyebrow">[ Agentic Operating System ]</span>
+		<h1 id="hero-h">
+			The agentic operating system for <span class="hl">AI-first</span> teams.
+		</h1>
+		<p class="hero-sub">
+			Flat teams of humans and AI agents, working side by side. Work ships as time-boxed bets —
+			and everything your agents learn compounds into knowledge the next bet starts with.
+		</p>
+		<div class="hero-ctas">
+			<a class="btn btn-primary" href={`${base}docs/guides/user/getting-started/`}
+				>Install HyperIdle</a
+			>
+			<a class="btn btn-ghost" href={GITHUB}>Browse the source</a>
 		</div>
-
-		<div class="term" id="term" role="region" aria-label="Example agent session transcript">
-			<div class="term-bar">
-				<span class="term-title">hyperidle://session/0427 — builder@acme</span>
-				<span class="term-live">LIVE <span class="caret" aria-hidden="true"></span></span>
-			</div>
-			<div class="term-body" id="termBody">
-				<div class="t-line t-sys">▸ bet activated — payments-beta</div>
-				<div class="t-line t-sys">▸ task assigned — implement stripe webhook handler</div>
-				<div class="t-line t-gap" aria-hidden="true"></div>
-				<div class="t-line t-meta"><span class="t-name">MIKA / BUILDER</span><span class="t-time">09:12</span></div>
-				<div class="t-line t-msg">Picking up the webhook task. Done condition:</div>
-				<div class="t-line t-msg">endpoint returns 200 for all test events.</div>
-				<div class="t-line t-gap" aria-hidden="true"></div>
-				<div class="t-line t-meta"><span class="t-name">MIKA / BUILDER</span><span class="t-time">09:41</span></div>
-				<div class="t-line t-msg">Product question before I close this out —</div>
-				<div class="t-line t-msg">all 27 Stripe event types, or the 4 checkout needs?</div>
-				<div class="t-line t-sys">▸ handoff → founder</div>
-				<div class="t-line t-gap" aria-hidden="true"></div>
-				<div class="t-line t-meta"><span class="t-name">YOU</span><span class="t-time">09:44</span></div>
-				<div class="t-line t-msg">The 4 for checkout.</div>
-				<div class="t-line t-gap" aria-hidden="true"></div>
-				<div class="t-line t-meta"><span class="t-name">MIKA / BUILDER</span><span class="t-time">09:47</span></div>
-				<div class="t-line t-msg">Shipping. Session notes written back to the store.</div>
-				<div class="t-line t-gap" aria-hidden="true"></div>
-				<div class="t-line t-ok">✓ review approved — artifact merged</div>
-				<div class="t-line t-sys">▸ knowledge captured → practice/webhooks</div>
-				<div class="t-line"><span class="caret" aria-hidden="true"></span></div>
-			</div>
-		</div>
+		<p class="hero-meta">
+			<span>Agents execute</span>
+			<span>Humans validate</span>
+			<span>Knowledge compounds</span>
+		</p>
 	</div>
 </section>
-
-<script>
-	// Hero terminal typing — the transcript is real text in the DOM (full
-	// content with JS off; no runtime calls needed to display). With JS and
-	// motion allowed, lines re-play sequentially; clicking completes instantly.
-	const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-	const termBody = document.getElementById("termBody");
-
-	if (termBody && !reduce) {
-		const lines = Array.from(termBody.querySelectorAll<HTMLElement>(".t-line"));
-		const caret = document.createElement("span");
-		caret.className = "caret";
-		caret.setAttribute("aria-hidden", "true");
-		let skipped = false;
-		termBody.addEventListener("click", () => {
-			skipped = true;
-		});
-		const staticCaret = termBody.querySelector(".t-line:last-child .caret");
-		if (staticCaret) staticCaret.remove();
-
-		const textNodesOf = (line: HTMLElement) => {
-			const out: { node: Text; full: string }[] = [];
-			const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT);
-			let n: Node | null;
-			while ((n = walker.nextNode())) {
-				const text = n as Text;
-				if (text.parentElement && text.parentElement.classList.contains("caret")) continue;
-				out.push({ node: text, full: text.nodeValue ?? "" });
-				text.nodeValue = "";
-			}
-			return out;
-		};
-
-		const prepared = lines.map((line) => ({
-			line,
-			texts: textNodesOf(line),
-			done: line.classList.contains("t-gap"),
-		}));
-
-		const finishAll = () => {
-			prepared.forEach((p) => {
-				p.texts.forEach((t) => {
-					t.node.nodeValue = t.full;
-				});
-			});
-		};
-
-		const typeLine = (p: (typeof prepared)[number]) =>
-			new Promise<void>((resolve) => {
-				if (p.done || p.texts.length === 0) {
-					resolve();
-					return;
-				}
-				const total = p.texts.reduce((a, t) => a + t.full.length, 0);
-				if (total === 0) {
-					resolve();
-					return;
-				}
-				p.line.appendChild(caret);
-				let ti = 0;
-				let i = 0;
-				const fast = p.line.classList.contains("t-sys") || p.line.classList.contains("t-meta");
-				const speed = fast ? 8 : 14;
-				const iv = window.setInterval(() => {
-					if (skipped) {
-						window.clearInterval(iv);
-						p.texts.forEach((t) => {
-							t.node.nodeValue = t.full;
-						});
-						resolve();
-						return;
-					}
-					let budget = 2;
-					while (budget > 0 && ti < p.texts.length) {
-						const t = p.texts[ti];
-						if (!t) break;
-						const take = Math.min(budget, t.full.length - i);
-						t.node.nodeValue = (t.node.nodeValue ?? "") + t.full.slice(i, i + take);
-						i += take;
-						budget -= take;
-						if (i >= t.full.length) {
-							ti += 1;
-							i = 0;
-						}
-					}
-					if (ti >= p.texts.length) {
-						window.clearInterval(iv);
-						resolve();
-					}
-				}, speed);
-			});
-
-		const pause = (ms: number) =>
-			new Promise<void>((r) => {
-				if (skipped) {
-					r();
-					return;
-				}
-				window.setTimeout(r, ms);
-			});
-
-		(async () => {
-			await pause(500);
-			for (const p of prepared) {
-				if (skipped) {
-					finishAll();
-					break;
-				}
-				if (p.line.classList.contains("t-gap")) continue;
-				await typeLine(p);
-				let d = p.line.classList.contains("t-meta") ? 260 : 160;
-				if (p.line.classList.contains("t-ok")) d = 420;
-				await pause(d);
-			}
-			termBody.lastElementChild?.appendChild(caret);
-		})();
-	}
-</script>

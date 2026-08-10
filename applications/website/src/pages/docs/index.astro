@@ -1,35 +1,55 @@
 ---
-import Marketing from "../../layouts/Marketing.astro";
+import Site from "../../layouts/Site.astro";
+import DocsSidebar from "../../components/DocsSidebar.astro";
+import { DOCS_NAV, navItemUrl } from "../../lib/docs-nav.js";
 import "../../styles/docs.css";
 
 const base = import.meta.env.BASE_URL;
+
+const sectionBlurb: Record<string, string> = {
+	installation:
+		"From zero to running: the getting-started walkthrough plus every deployment profile — laptop, VPS, cloud, shared backend, releases.",
+	"user-guide":
+		"Day-to-day HyperIdle: the interface, the three views, your agents, team rhythms, settings, and connections.",
+	"developer-guide":
+		"Contributor walkthroughs: setup, commands, testing, linting, and the conventions the repo builds by.",
+	concepts: "The product story from the source docs — what HyperIdle is, how work flows, and how knowledge compounds.",
+};
 ---
 
-<Marketing
+<Site
 	title="Documentation — HyperIdle"
-	description="The HyperIdle product story, rendered from the source docs — what it is, how work flows, how humans and agents collaborate, and how knowledge compounds."
+	description="Install HyperIdle, run your team, and understand the product — user guide, developer guide, and concepts rendered from the source docs."
 >
-	<div class="container doc-page">
-		<p class="doc-crumb"><span class="here">Documentation</span></p>
-		<div class="prose">
-			<h1>Documentation</h1>
-			<p>
-				The product story, rendered from the source docs — what HyperIdle is, how work flows,
-				how humans and agents collaborate, and how knowledge compounds. Written as ground truth,
-				not brochureware.
-			</p>
-			<h2>Read now</h2>
-			<ul>
-				<li>
-					<a href={`${base}docs/product/`}>The product story</a> — what HyperIdle is and how it
-					works, from the source docs. Start here.
-				</li>
-			</ul>
-			<h2>Coming next</h2>
-			<p>
-				The user guide and the developer guide render on this foundation in a follow-up — the
-				seam is in place, the guides are next.
-			</p>
+	<div class="container docs-layout">
+		<DocsSidebar entryId="" />
+		<div class="docs-main">
+			<p class="doc-crumb"><span class="here">Documentation</span></p>
+			<div class="prose">
+				<h1>Documentation</h1>
+				<p>
+					Install HyperIdle, run your team, and understand the product. Rendered from the
+					source docs — ground truth, not brochureware. Start with{" "}
+					<a href={navItemUrl("guides/user/getting-started", base)}>Getting started</a>.
+				</p>
+			</div>
+			<div class="docs-hub">
+				{
+					DOCS_NAV.map((section) => (
+						<section class="docs-hub-section" aria-labelledby={`hub-${section.id}`}>
+							<h2 id={`hub-${section.id}`}>{section.title}</h2>
+							<p class="docs-hub-blurb">{sectionBlurb[section.id]}</p>
+							<ul>
+								{section.items.map((item) => (
+									<li>
+										<a href={navItemUrl(item.id, base)}>{item.title}</a>
+									</li>
+								))}
+							</ul>
+						</section>
+					))
+				}
+			</div>
 		</div>
 	</div>
-</Marketing>
+</Site>

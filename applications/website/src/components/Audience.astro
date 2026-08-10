@@ -1,0 +1,44 @@
+---
+/**
+ * Who HyperIdle is for — direct voice, the three readers ETHOS names
+ * (solo founder, small team, agency), plus the honest bad-fit line from
+ * docs/product/what-is-hyperidle.md.
+ */
+const audiences = [
+	{
+		who: "Solo founders",
+		line: "You run the company; your agents run the work. One persistent team that accumulates what it learns while you stay on judgment.",
+	},
+	{
+		who: "Small AI-first teams",
+		line: "Flat teams where agents are teammates — in the conversations, on the bets, accountable to the same done conditions as everyone else.",
+	},
+	{
+		who: "Agencies",
+		line: "One product, one team, its own roster and its own memory. Run several side by side without the contexts bleeding together.",
+	},
+];
+---
+
+<section class="audience" id="who" aria-labelledby="who-h">
+	<div class="container">
+		<div class="sec-head reveal">
+			<h2 id="who-h">Who HyperIdle is for</h2>
+			<span class="sec-idx">[ 02 ]</span>
+		</div>
+		<div class="aud-rows">
+			{
+				audiences.map((aud, i) => (
+					<div class={`aud-row reveal${i % 2 === 1 ? " aud-flip" : ""}`}>
+						<h3 class="aud-who">{aud.who}</h3>
+						<p class="aud-line">{aud.line}</p>
+					</div>
+				))
+			}
+		</div>
+		<p class="aud-not reveal">
+			If you want to automate a single workflow, use n8n or Zapier. HyperIdle is for running a
+			team.
+		</p>
+	</div>
+</section>
