@@ -1,6 +1,6 @@
 # Developer Guide
 
-Walkthrough docs for contributors — onboarding, commands, testing, and conventions. Depth (coding rules, test archetypes, design tokens) lives in `.claude/rules/` and `docs/ui-design/`; these guides link, never restate. Architectural boundary rules live in [`governance/README.md`](../../../governance/README.md), which is the only place they are written down.
+Walkthrough docs for contributors — onboarding, commands, testing, and conventions. Depth (coding rules, test archetypes, design tokens) lives in `.claude/rules/` and `docs/ui-design/`; these guides link, never restate. Architectural boundary rules live in [`tools/governance/README.md`](../../../tools/governance/README.md), which is the only place they are written down.
 
 - [getting-started.md](getting-started.md) — prerequisites, five-command quick start, ports/env table, repo map of the 33 workspace packages
 - [commands.md](commands.md) — full `npm` script reference grouped by task, affected-slice semantics, governance commands

@@ -1,5 +1,5 @@
 // @lore AU28: this used to filter only `/__tests__/`. The production/development split
-// makes any `__`-prefixed path segment development (see `scripts/lib/repo-census.ts`), and
+// makes any `__`-prefixed path segment development (see `tools/governance/src/lib/repo-census.ts`), and
 // a development file is by definition not production dead code — knip --production must
 // not report `__testing__/`, `__fixtures__/`, `__preview__/`, `__e2e__/` or `__scripts__/`
 // as unused just because only tests reach them.

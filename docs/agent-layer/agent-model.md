@@ -21,7 +21,7 @@ Agent identity has two parts, and they live in two different tables:
 - **Who the agent is to the org** — `users`: the stable `users.id` (kind = `'ai'`) every session attaches to, plus `role`, `status`, `teamId`, `agentCategory`.
 - **How the agent runs** — `agent_run_config`: the system prompt, harness, model, and concurrency. Keyed one row per `agent_user_id`.
 
-Which table a field belongs in is a package-boundary question, and the boundary is machine-enforced — see [`governance/README.md`](../../governance/README.md). Do not infer it from surrounding code.
+Which table a field belongs in is a package-boundary question, and the boundary is machine-enforced — see [`tools/governance/README.md`](../../tools/governance/README.md). Do not infer it from surrounding code.
 
 Agents are created from an `AgentScaffoldSpec`. `persistScaffoldedAgents` is the single writer of agent `users` rows: specs go in, real rows come out with ids assigned and mechanism fields attached (`layers/core-api/org/src/scaffold-agents.ts`).
 

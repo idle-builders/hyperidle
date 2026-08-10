@@ -224,7 +224,7 @@
 			}
 		},
 		{
-			"includes": ["**/scripts/**", "**/__scripts__/**"],
+			"includes": ["**/scripts/**", "**/__scripts__/**", "tools/governance/src/*.ts"],
 			"linter": {
 				"rules": {
 					"suspicious": {

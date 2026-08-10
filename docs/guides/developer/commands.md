@@ -66,7 +66,7 @@ Default test commands run the **affected slice** against `origin/main` (AT1); `:
 
 ## Governance
 
-Package-boundary rules live in `governance/` (`README.md`, `architecture.json`, `decided-rules.json`, `table-owners.json`, `misplaced-files.json`). See [governance/README.md](../../../governance/README.md) for what the rules are — this guide does not restate them.
+Package-boundary rules live in `tools/governance/` (`README.md`, `architecture.json`, `decided-rules.json`, `table-owners.json`, `misplaced-files.json`). See [tools/governance/README.md](../../../tools/governance/README.md) for what the rules are — this guide does not restate them.
 
 | Command | Purpose |
 |---------|---------|

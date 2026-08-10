@@ -2,7 +2,7 @@
 
 Technical ground truth for how HyperIdle is built — the four-Layer structure, code-level domain map, data flows, and every load-bearing boundary decision. Companion to [docs/requirements/](../requirements/index.md).
 
-What may cross which package boundary is not documented here. It is machine-enforced by `npm run lint` and stated once in [`governance/README.md`](../../governance/README.md).
+What may cross which package boundary is not documented here. It is machine-enforced by `npm run lint` and stated once in [`tools/governance/README.md`](../../tools/governance/README.md).
 
 - [system-overview.md](./system-overview.md) — the four Layers and the repository tiers, stack summary, desktop-shell posture, non-goals, delivery/mobile claim
 - [as-implemented-domain-architecture.md](./as-implemented-domain-architecture.md) — verified component inventory, MCP surface, session flow, EventBus + WS contract

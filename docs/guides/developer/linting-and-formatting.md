@@ -9,8 +9,8 @@ Four steps, in order, all must pass:
 ```
 biome check . --reporter=summary
 npx eslint . --quiet
-npx tsx scripts/governance-lint.ts --fixtures
-npx tsx scripts/governance-lint.ts
+npx tsx tools/governance/src/governance-lint.ts --fixtures
+npx tsx tools/governance/src/governance-lint.ts
 ```
 
 There are no domain guard scripts in the chain. The governance lint replaced them.
@@ -29,13 +29,13 @@ Individual legs: `npm run lint:biome`, `npm run lint:eslint`, `npm run lint:gove
 
 ## Architectural governance lint
 
-`scripts/governance-lint.ts` is the architectural boundary gate: what may cross which boundary in this repo, and why. It runs twice in `npm run lint` — first `--fixtures`, which self-tests the detectors against a synthetic tree, then against the live tree.
+`tools/governance/src/governance-lint.ts` is the architectural boundary gate: what may cross which boundary in this repo, and why. It runs twice in `npm run lint` — first `--fixtures`, which self-tests the detectors against a synthetic tree, then against the live tree.
 
-**The rules themselves are documented in [`governance/README.md`](../../../governance/README.md), and that file forbids restating any of them anywhere else** — a second copy drifts from the enforced one and then agents follow the wrong copy. Read it there.
+**The rules themselves are documented in [`tools/governance/README.md`](../../../tools/governance/README.md), and that file forbids restating any of them anywhere else** — a second copy drifts from the enforced one and then agents follow the wrong copy. Read it there.
 
 What is useful to know here is the shape:
 
-- **One census, many rules.** One pass builds the connection graph and classifies every tracked file; each rule in `scripts/rules/` is a declarative predicate over it. No rule does its own file discovery — `scripts/governance-lint.ts` is the only file in the stack allowed to touch the filesystem or spawn a process.
+- **One census, many rules.** One pass builds the connection graph and classifies every tracked file; each rule in `tools/governance/src/rules/` is a declarative predicate over it. No rule does its own file discovery — `tools/governance/src/governance-lint.ts` is the only file in the stack allowed to touch the filesystem or spawn a process.
 - **Every file must classify**, and **a rule matching zero files fails loudly** (`DeadRuleError`). Both exist because the previous guard set contained scripts that scanned a directory deleted two tracks earlier and printed PASS.
 - **One severity per rule: `error`, unconditionally.** There is no severity dial and no severity file — a new rule lands with its violations already fixed in the same pull request.
 - **Warnings print one line per site**, never aggregated — the next thing that happens after a rule lands at warn is a work package that clears it, and that work package needs the sites. `--errors-only` gives you the gate without the debt.
@@ -49,7 +49,7 @@ A file is **development** if its name declares it (`.stories.tsx`, `.test.ts(x)`
 
 Two mechanisms, both deliberate: a file whose **name** declares it development is development wherever it sits, and a folder whose **name** declares it development makes everything inside it development. The suffix clauses are checked before the `__` clause. That is why a `.stories.tsx` may sit beside its component — the story is the design artifact under the TSX-first rule — without the component's directory becoming development.
 
-Enforced by `scripts/rules/no-production-imports-development.ts`, with `scripts/rules/classification-total.ts` making an unclassified file a build error and `scripts/rules/pattern-live.ts` failing any clause that matches zero files.
+Enforced by `tools/governance/src/rules/no-production-imports-development.ts`, with `tools/governance/src/rules/classification-total.ts` making an unclassified file a build error and `tools/governance/src/rules/pattern-live.ts` failing any clause that matches zero files.
 
 ## eslint-plugin-design
 

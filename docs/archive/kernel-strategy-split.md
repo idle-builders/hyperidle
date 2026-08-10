@@ -1,6 +1,6 @@
 # Kernel ↔ Strategy split
 
-> **ARCHIVED.** This describes an architecture that no longer exists — there is no Kernel/Strategy boundary, no Strategy port, and neither `@hyperidle/fabric` nor `@hyperidle/strategy-minimal` is in the tree. Kept for history only. The enforced account of what may cross which boundary is [`governance/README.md`](../../governance/README.md).
+> **ARCHIVED.** This describes an architecture that no longer exists — there is no Kernel/Strategy boundary, no Strategy port, and neither `@hyperidle/fabric` nor `@hyperidle/strategy-minimal` is in the tree. Kept for history only. The enforced account of what may cross which boundary is [`tools/governance/README.md`](../../tools/governance/README.md).
 
 **Status (historical):** Authoritative (founder-aligned 2026-06-14; boundary **refined** 2026-06-15 — see §2a "Agents are knowledge"). This document is the ground truth for the kernel/strategy boundary and the harness-engineering vocabulary. Where another doc disagrees with this one on the boundary or the nouns, this one wins.
 

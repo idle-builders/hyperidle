@@ -1,0 +1,13 @@
+{
+	"name": "@hyperidle/governance",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"description": "The architectural governance engine (AU28) — what may cross which boundary, and why. A tool like the other lint rules under tools/, not a top-level folder.",
+	"scripts": {
+		"check": "tsc --noEmit"
+	},
+	"dependencies": {
+		"typescript": "^6.0.3"
+	}
+}

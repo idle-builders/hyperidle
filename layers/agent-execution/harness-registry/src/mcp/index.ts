@@ -64,7 +64,7 @@ export function createMcpToolBridge(
  * AU31 §2.7/§3.1 sites 12,14 (B1) — the session-scoped MCP dial, folded in
  * from `run-orchestration`'s `provisioner.ts`: bridge-open, the `/api/mcp/`
  * URL spelling, and close. `harness-registry` is the one Service with an
- * allowed edge to the MCP router (`governance/decided-rules.json`);
+ * allowed edge to the MCP router (`tools/governance/decided-rules.json`);
  * `provisioner.ts` calls only these two functions, through the injected
  * `SessionLifecycleHarnessRuntime` port (`openMcpBridge`/`closeMcpBridge`,
  * wired at `layers/core-api/src/services/run-orchestration-composition.ts`),

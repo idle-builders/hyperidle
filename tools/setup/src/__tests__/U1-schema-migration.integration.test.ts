@@ -16,7 +16,7 @@
  * AC6 (Zod schema exports) and AC7 (schema table exports) needed the WHOLE
  * `schema`/`zod-schemas` namespace object (including checking symbols are
  * ABSENT) — a same-package deep import inside `framework/db` before the move,
- * but a `db:schema-ns` crossing (the one-door surface `governance/README.md`
+ * but a `db:schema-ns` crossing (the one-door surface `tools/governance/README.md`
  * forbids even for tests) once cross-package. Those two describe blocks never
  * touched a database, so they stayed behind as
  * `framework/db/src/__tests__/U1-schema-exports.test.ts`, a plain unit test

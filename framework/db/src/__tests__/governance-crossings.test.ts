@@ -15,17 +15,24 @@ import {
 	layerServing,
 	readEventTypes,
 	UnclaimedProductionFileError,
-} from "../../../../scripts/lib/crossing-detectors.js";
-import { groupKey, targetLabel } from "../../../../scripts/lib/crossing-keys.js";
-import { buildPackageLocator, type DetectedCrossing } from "../../../../scripts/lib/crossings.js";
+} from "../../../../tools/governance/src/lib/crossing-detectors.js";
+import { groupKey, targetLabel } from "../../../../tools/governance/src/lib/crossing-keys.js";
+import {
+	buildPackageLocator,
+	type DetectedCrossing,
+} from "../../../../tools/governance/src/lib/crossings.js";
 import {
 	buildDbSurfaceIndex,
 	type DatabasePackageConfig,
-} from "../../../../scripts/lib/db-surfaces.js";
-import type { Actor, Architecture, Kind } from "../../../../scripts/lib/governance-model.js";
-import { buildCensus } from "../../../../scripts/lib/repo-census.js";
-import { crossingRules } from "../../../../scripts/rules/crossings.js";
-import { noLaunderedReExports } from "../../../../scripts/rules/no-laundered-re-exports.js";
+} from "../../../../tools/governance/src/lib/db-surfaces.js";
+import type {
+	Actor,
+	Architecture,
+	Kind,
+} from "../../../../tools/governance/src/lib/governance-model.js";
+import { buildCensus } from "../../../../tools/governance/src/lib/repo-census.js";
+import { crossingRules } from "../../../../tools/governance/src/rules/crossings.js";
+import { noLaunderedReExports } from "../../../../tools/governance/src/rules/no-laundered-re-exports.js";
 
 const ROLE_RULES = [
 	{ pattern: "layers/*", role: "layer" as const },

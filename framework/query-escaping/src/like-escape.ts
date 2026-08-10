@@ -20,7 +20,7 @@
  * @lore AU29: moved verbatim from `framework/db/src/like-escape.ts`. This
  * function touches no database — no SQL, no schema, no connection — so it
  * never belonged to the database package's surface (the `db:util` ANOMALY
- * `governance/architecture.json` flagged since AU28). It is pure string
+ * `tools/governance/architecture.json` flagged since AU28). It is pure string
  * substrate, which is why it has a framework package of its own.
  */
 export function escapeLikePattern(s: string): string {

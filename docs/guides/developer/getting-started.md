@@ -59,7 +59,7 @@ hyperidle/
 │   ├── core-api/              # Hono API layer — per-domain services (conversation, credentials, knowledge, notifications, org, policy, review, routine, settings, users, work)
 │   ├── agent-orchestration/   # Session/run orchestration, connections, tool handlers, filesystem mounting
 │   └── agent-execution/       # Harness registry — CLI/LLM adapters, context window, MCP bridge
-├── framework/            # One package per thing, each with a decided audience in governance/architecture.json
+├── framework/            # One package per thing, each with a decided audience in tools/governance/architecture.json
 │   ├── api-contract/          # Typed API request/response contracts
 │   ├── db/                    # Drizzle schema, migrations, setup CLI (PGlite + Postgres)
 │   ├── design-system/         # TSX component library + stories (single design source of truth)
@@ -88,9 +88,9 @@ hyperidle/
 ├── tools/
 │   ├── eslint-plugin-authz/    # Authorization lint rules (default-deny access boundary)
 │   ├── eslint-plugin-design/   # Design-system lint rules (token scales, page anatomy)
-│   └── eval/                   # Graded journey evals — real-LLM tuning tool, not tests
+│   ├── eval/                   # Graded journey evals — real-LLM tuning tool, not tests
+│   └── governance/             # Package-boundary rules + the misplacement ledger — see its own README.md
 ├── docs/                       # Ground-truth documentation
-├── governance/                 # Package-boundary rules + the misplacement ledger — see governance/README.md
 ├── .pipeline/                  # work/<id>/plan.md + <track>.md coordination; legacy specs in work-packages/
 ├── deploy/                     # macOS LaunchAgent service wrapper, setup script, Homebrew cask, Helm chart
 └── .github/                    # Workflows: ci, deploy, desktop-release, release-guard, release
@@ -98,7 +98,7 @@ hyperidle/
 
 Cross-package imports use npm workspace aliases (`@hyperidle/db`, `@hyperidle/domain-model`, …). The macOS LaunchAgent service commands are documented in [deployment/laptop](../../deployment/laptop.md).
 
-**Before you add a file, know which world it is in.** `layers/`, `framework/` and `applications/` hold shipping code; a file there is production unless its name says otherwise (`.test.ts(x)`, `.spec.ts(x)`, `.stories.tsx`, a `__` path segment, a test-runner config). Everything else in the tree is development. A production file may never import a development one — the rule and the handful of recorded exceptions are stated in [CLAUDE.md](../../../CLAUDE.md#production-and-development-files); what may cross which *package* boundary is a separate question answered in [governance/README.md](../../../governance/README.md).
+**Before you add a file, know which world it is in.** `layers/`, `framework/` and `applications/` hold shipping code; a file there is production unless its name says otherwise (`.test.ts(x)`, `.spec.ts(x)`, `.stories.tsx`, a `__` path segment, a test-runner config). Everything else in the tree is development. A production file may never import a development one — the rule and the handful of recorded exceptions are stated in [CLAUDE.md](../../../CLAUDE.md#production-and-development-files); what may cross which *package* boundary is a separate question answered in [tools/governance/README.md](../../../tools/governance/README.md).
 
 ## Next
 

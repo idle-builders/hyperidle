@@ -5,7 +5,7 @@
  * Typed functions and classes only. This barrel MUST NOT re-export the raw
  * `serviceConnections` pgTable object — that would let a consumer obtain the
  * table transitively and defeat Table ACL (Mechanism A). This package is the
- * sole importer of that table, and `governance/table-owners.json` names it the
+ * sole importer of that table, and `tools/governance/table-owners.json` names it the
  * owner. It does NOT own `server_credentials` — that table belongs to
  * `@hyperidle/credentials`, as the next paragraph's consumer-locus argument
  * already said and the registry now agrees.

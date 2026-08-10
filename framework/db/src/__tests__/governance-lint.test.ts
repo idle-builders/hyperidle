@@ -6,17 +6,25 @@
  * codebase properties (zero production→development crossings, every pattern alive) are enforced by
  * `npm run lint`, per CLAUDE.md's split.
  *
- * @lore AU28: this file lives under `framework/db/src/__tests__/` because that is the established home
- * for guard-logic tests importing from the root `scripts/` tree — root `tsconfig.json` has
- * `include: []`, so `scripts/**` is typechecked only transitively through imports like these. The
- * location is load-bearing, not incidental: delete the last such test and `scripts/` stops being
- * typechecked.
+ * @lore AU31: this file lives under `framework/db/src/__tests__/` alongside `governance-model.test.ts`
+ * and `governance-crossings.test.ts` — its sibling, which needs `framework/db`'s live `schema.js` to
+ * test real `PgTable` ownership and cannot move without losing that. `tools/governance/` (AU31) is its
+ * own workspace package with its own `tsconfig.json`, typechecked directly by `typecheck-gate.ts`'s
+ * package discovery — these tests are not what keeps its engine typechecked, unlike the `scripts/`
+ * tree these imports used to reach into before the move.
  */
 
 import { describe, expect, it } from "vitest";
-import { buildFixtureCensus, FIXTURE_CASES } from "../../../../scripts/lib/governance-fixtures.js";
-import type { MisplacedFiles } from "../../../../scripts/lib/governance-registry.js";
-import { DeadRuleError, type Rule, runRules } from "../../../../scripts/lib/governance-rules.js";
+import {
+	buildFixtureCensus,
+	FIXTURE_CASES,
+} from "../../../../tools/governance/src/lib/governance-fixtures.js";
+import type { MisplacedFiles } from "../../../../tools/governance/src/lib/governance-registry.js";
+import {
+	DeadRuleError,
+	type Rule,
+	runRules,
+} from "../../../../tools/governance/src/lib/governance-rules.js";
 import {
 	buildCensus,
 	CLASSIFICATION_PATTERNS,
@@ -25,17 +33,17 @@ import {
 	DEVELOPMENT_ROOTS,
 	PRODUCTION_ROOTS,
 	TEST_RUNNER_CONFIG_BASENAMES,
-} from "../../../../scripts/lib/repo-census.js";
-import { classificationTotal } from "../../../../scripts/rules/classification-total.js";
+} from "../../../../tools/governance/src/lib/repo-census.js";
+import { classificationTotal } from "../../../../tools/governance/src/rules/classification-total.js";
 import {
 	allowedSlack,
 	floorsTight,
 	floorVerdict,
 	suggestedFloor,
-} from "../../../../scripts/rules/floors-tight.js";
-import { misplacementLedger } from "../../../../scripts/rules/misplacement-ledger.js";
-import { noProductionImportsDevelopment } from "../../../../scripts/rules/no-production-imports-development.js";
-import { patternLive } from "../../../../scripts/rules/pattern-live.js";
+} from "../../../../tools/governance/src/rules/floors-tight.js";
+import { misplacementLedger } from "../../../../tools/governance/src/rules/misplacement-ledger.js";
+import { noProductionImportsDevelopment } from "../../../../tools/governance/src/rules/no-production-imports-development.js";
+import { patternLive } from "../../../../tools/governance/src/rules/pattern-live.js";
 
 const emptyCensus = () => buildCensus({ files: [], readFile: () => "" });
 
