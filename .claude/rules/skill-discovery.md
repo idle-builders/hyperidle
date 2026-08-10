@@ -46,7 +46,7 @@ User request arrives
     └── None of the above? ──────────────────────→ Proceed normally
 ```
 
-**Note (block-1b):** `/pipeline:ship` handles the verify → attestation → commit → push → PR flow. The attestation system (HMAC-signed `.verify-attestation.json`) lets CI validate in ~30s instead of re-running full verify. `/pipeline:review` is the single comprehensive review skill — 3 positive lenses (architecture, design, security) + 3 negative lenses (adversarial, simplification, slop) + AC completeness. `/pipeline:write-tests` and `/pipeline:write-code` stay separate — red and green are different cognitive acts. `/pipeline:design-critique` and `/pipeline:architecture-critique` live with the reviewer, not the producer — the evaluator must be a different agent than the producer. The reviewer runs critique in Phase 2, then code review in Phase 4, carrying design/arch context forward.
+**Note (block-1b):** `/pipeline:ship` handles the verify → commit → push → PR flow. There is no attestation step: `npm run verify` runs the static gates locally and CI runs every gate — including the affected test slice — live on the PR. `/pipeline:review` is the single comprehensive review skill — 3 positive lenses (architecture, design, security) + 3 negative lenses (adversarial, simplification, slop) + AC completeness. `/pipeline:write-tests` and `/pipeline:write-code` stay separate — red and green are different cognitive acts. `/pipeline:design-critique` and `/pipeline:architecture-critique` live with the reviewer, not the producer — the evaluator must be a different agent than the producer. The reviewer runs critique in Phase 2, then code review in Phase 4, carrying design/arch context forward.
 
 ## Red Flags — Rationalizations for Skipping Skills
 

@@ -212,8 +212,9 @@ GitHub Actions are real, versioned dependencies — upgrade them every run, not 
    - Docker / cloud setup actions: skim the major notes for renamed inputs.
 4. **Edit** `.github/workflows/*.yml`, then **validate YAML** parses (e.g. `python3 -c "import yaml,sys; [yaml.safe_load(open(f)) for f in sys.argv[1:]]" .github/workflows/*.yml`).
 5. **Commit** the workflow edits: `chore(ci): upgrade {action(s)} v{old} → v{new}` (one commit for the whole CI bump is fine — they share one verification).
-6. **Regenerate the verify attestation — REQUIRED, easy to miss.** The attestation fingerprint (`scripts/check-attestation.ts` → `sourceHash`) covers **all tracked source, including `.github/`**. Any workflow edit changes that fingerprint, so the attestation carried over from `origin/main` no longer matches and CI **fails at "Validate test attestation"** even though every action bump is correct. After committing the workflow edits, run `npm run verify` (regenerates `.verify-attestations/<sha>.json`), then commit that file: `git add .verify-attestations/ && git commit -m "chore(ci): regenerate verify attestation for actions upgrade"`. CI then validates green. (This is also why a CI-only change can never skip `verify` — there is no docs-fast-path for `.yml`.)
-7. Push; CI confirms on the PR (the run itself exercises the bumped `checkout`/`setup-node`). Per project rules, never weaken or modify rulesets/branch protection to make CI pass.
+6. Push; CI confirms on the PR (the run itself exercises the bumped `checkout`/`setup-node`). Per project rules, never weaken or modify rulesets/branch protection to make CI pass.
+
+   > A previous step 6 here required regenerating a signed verify attestation after any workflow edit, because its fingerprint covered all tracked source including `.github/`. **That mechanism is gone** — CI runs every gate live and signs nothing. Nothing needs regenerating; just push. (A CI-only change still runs the full workflow: the docs fast-path keys on `.md` only, so a `.yml` edit never takes it.)
 
 ---
 

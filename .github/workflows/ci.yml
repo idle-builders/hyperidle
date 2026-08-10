@@ -6,117 +6,30 @@ on:
   push:
     branches: [main]
 
-# Cancel stale runs when a fresh push lands. Without this, concurrent CI runs
-# pile up and mask real failures behind queue backpressure.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# CI re-runs EVERY fast check live (typecheck gate, lint, knip, mock-inventory,
-# web + desktop build) so none of them can be bypassed. Only the slow test
-# suite (unit + integration + e2e) is trusted via a locally-generated,
-# HMAC-signed attestation that RECORDS the real test exit code
-# (scripts/verify-attest.ts runs the affected slice and derives status). CI
-# then validates that signed attestation (scripts/check-attestation.ts) —
-# including that the source has not changed since the attested run.
-# @lore AT1: `npm run test` now runs vitest --changed=origin/main (affected slice
-# only); `npm run test:full` runs the whole suite. verify-attest uses the affected
-# slice by default (scope:"affected") and full at release (VERIFY_SCOPE=full →
-# scope:"full"). E2e is now a third attested leg — still local-only, never a CI job.
-#
-# @lore Z8-166: the previous workflow ran ONLY check-attestation and re-ran
-# nothing, while verify-attest hardcoded status="passed". A red gate could ship
-# green. Re-running the fast checks here closes that for everything except the
-# DB-heavy test suite, and verify-attest no longer signs an unearned pass.
-#
-# @lore docs-only fast-path: `npm run verify` is a REQUIRED status check
-# (ruleset main-protection), so it must always run and report — workflow-level
-# `paths-ignore` would leave the check forever pending and block docs-only PRs.
-# Instead the job always runs; a "Detect docs-only change" step diffs the PR and,
-# when every changed file ends in `.md`, gates EVERY heavy step off. The job then
-# completes green in ~20s with nothing to attest, so worktrack/pipeline/plans
-# `.md` rewrites no longer pay for a full verify+attestation. Any non-`.md` file
-# in the diff (code, yaml, json, jsonl, lockfiles, the workflow itself) forces
-# the full run — the fast-path is conservative by construction.
 jobs:
+  # Job name is the required status context in the `main-protection` ruleset.
+  # Renaming it un-gates main.
+  #
+  # Runs the FULL suite, deliberately. `vitest --changed` is wired in the local
+  # `npm run test` but selects 563 of 563 files in CI — it is not a working
+  # optimisation here, and CI should not imply otherwise. Affected selection is
+  # its own piece of work; so is AU38, which is worth ~2790 CPU-seconds of the
+  # runtime below (see .pipeline/work/AU38/plan.md).
   verify:
     name: npm run verify
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - name: Detect docs-only change
-        id: changes
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            BASE="${{ github.event.pull_request.base.sha }}"
-            HEAD="${{ github.event.pull_request.head.sha }}"
-          else
-            BASE="${{ github.event.before }}"
-            HEAD="${{ github.sha }}"
-          fi
-          # Unknown/absent base (new branch, force-push, first push) → run full.
-          if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
-            echo "only_docs=false" >> "$GITHUB_OUTPUT"
-            echo "Base '$BASE' unavailable — running full verify."
-            exit 0
-          fi
-          FILES=$(git diff --name-only "$BASE" "$HEAD")
-          echo "Changed files:"; echo "$FILES"
-          # Non-empty output below = at least one changed file is NOT *.md.
-          # Tested via presence-of-output, not grep's exit code, so it is
-          # robust across grep implementations.
-          NON_MD=$(printf '%s\n' "$FILES" | grep -ivE '\.md$' || true)
-          if [ -z "$FILES" ]; then
-            echo "only_docs=false" >> "$GITHUB_OUTPUT"
-            echo "Empty diff — running full verify."
-          elif [ -n "$NON_MD" ]; then
-            echo "only_docs=false" >> "$GITHUB_OUTPUT"
-            echo "Non-docs file(s) changed — running full verify:"; echo "$NON_MD"
-          else
-            echo "only_docs=true" >> "$GITHUB_OUTPUT"
-            echo "Docs-only change — skipping verify steps (check reports green)."
-          fi
-
       - uses: actions/setup-node@v7
-        if: steps.changes.outputs.only_docs != 'true'
         with:
           node-version: 24
           cache: npm
-
-      - name: Install dependencies
-        if: steps.changes.outputs.only_docs != 'true'
-        run: npm ci
-
-      - name: Typecheck gate
-        if: steps.changes.outputs.only_docs != 'true'
-        run: npm run check
-
-      - name: Lint
-        if: steps.changes.outputs.only_docs != 'true'
-        run: npm run lint
-
-      - name: Knip
-        if: steps.changes.outputs.only_docs != 'true'
-        run: npm run knip
-
-      - name: Mock inventory
-        if: steps.changes.outputs.only_docs != 'true'
-        run: npm run mock-inventory:check
-
-      - name: Build (web)
-        if: steps.changes.outputs.only_docs != 'true'
-        run: npm run build
-
-      - name: Build (desktop)
-        if: steps.changes.outputs.only_docs != 'true'
-        run: npm run -w @hyperidle/desktop build
-
-      - name: Validate test attestation
-        if: steps.changes.outputs.only_docs != 'true'
-        run: npx tsx scripts/check-attestation.ts
-        env:
-          VERIFY_SECRET: ${{ secrets.VERIFY_SECRET }}
+      - run: npm ci
+      - run: npm run verify
+      - run: npm run test:full
+      - run: npm run test:integration:service

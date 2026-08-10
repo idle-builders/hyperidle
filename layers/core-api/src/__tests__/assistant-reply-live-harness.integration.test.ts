@@ -323,8 +323,9 @@ describe("the assistant reply reaches the calling thread via a real harness's ow
 	 * `scripts/honest-harness-guard.ts`, whose static scan could only read a
 	 * string literal. Ruling 10 deleted that guard, so nothing enforces the
 	 * convention any more — keep it anyway. It is what makes the per-harness
-	 * lanes greppable, and the attestation floor still counts executions per
-	 * harness. Do not collapse these into a loop over a variable.
+	 * lanes greppable, which matters more now than it did: the attestation floor
+	 * that counted executions per harness is also gone, so reading the file is
+	 * the only way to see the breadth. Do not collapse these into a loop.
 	 */
 	async function runReplyProof(harness: SupportedHarnessName, db: HyperIdleDb): Promise<void> {
 		const founderId = `founder-inc8-${harness}`;

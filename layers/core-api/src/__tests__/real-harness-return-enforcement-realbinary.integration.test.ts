@@ -127,7 +127,7 @@ interface RealHyperIdleServer {
  * building hook URLs from their own fabricated string. AU20 also tightened the
  * route: an unissued token used to fall through to `200`/empty ("allow stop"),
  * and now correctly answers `401`. That pair turned the whole real-binary lane
- * red (the release-gated lane is not run per merge, so it merged red). The
+ * red (this lane has no CI job at all, so it merged red unnoticed). The
  * argument is gone so a fabricated token cannot come back.
  *
  * After the binary runs and the hook fires, assert:

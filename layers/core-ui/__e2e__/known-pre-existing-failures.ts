@@ -30,7 +30,7 @@
  *      zero collisions against the 245 distinct titles of tests that DO pass).
  *
  * This is genuine, chronic e2e test-suite debt that was NEVER exercised by any
- * verify-attest run on this branch (or main) — `--only-changed` correctly
+ * pre-merge run on this branch (or main) — `--only-changed` correctly
  * excluded these dormant-broken files as "unaffected" by every prior commit,
  * since none of Increments 1-13 touched these specific spec files or their
  * dependencies. Fixing the underlying causes (updating years of stale e2e
@@ -38,7 +38,7 @@
  * unrelated, disproportionate scope for a core-api/agent-orchestration boundary
  * WP and is tracked as its own follow-up (e2e test-debt cleanup), NOT part of
  * AU21. Excluded here (not deleted, not silently passed) so this Increment's
- * OWN attestation is honest: every test that AU21 Increment 14 is actually
+ * OWN claim is honest: every test that AU21 Increment 14 is actually
  * responsible for genuinely passes; this list is the visible, grep-able,
  * removable paper trail for the cleanup WP to shrink to zero over time.
  */
