@@ -277,7 +277,7 @@ describe("AU28 — a production file in no package fails CLOSED", () => {
 	});
 
 	it("negative control — a DEVELOPMENT file outside every package still resolves to the repo root", () => {
-		// This is the case that must keep working: legitimate repo-root tooling under `scripts/`.
+		// This is the case that must keep working: legitimate repo-root tooling with no workspace package.
 		expect(() =>
 			detect({
 				"scripts/build-thing.ts": `

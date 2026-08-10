@@ -8,6 +8,7 @@ const PROJECTS = [
 	"applications/website",
 	"tools/eval",
 	"tools/setup",
+	"tools/repo-gates",
 	"applications/remote-server",
 	"applications/remote-worker",
 	"framework/domain-model",

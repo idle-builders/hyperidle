@@ -1,6 +1,6 @@
 # Linting & Formatting
 
-Lint/typecheck commands: detailed reference is [commands.md](commands.md). Note `npm run check` runs a fan-out gate (`scripts/typecheck-gate.ts`), not bare `tsc`.
+Lint/typecheck commands: detailed reference is [commands.md](commands.md). Note `npm run check` runs a fan-out gate (`tools/repo-gates/src/typecheck-gate.ts`), not bare `tsc`.
 
 ## What `npm run lint` actually runs
 

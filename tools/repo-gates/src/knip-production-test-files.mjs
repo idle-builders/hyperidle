@@ -3,13 +3,13 @@
 // a development file is by definition not production dead code — knip --production must
 // not report `__testing__/`, `__fixtures__/`, `__preview__/`, `__e2e__/` or `__scripts__/`
 // as unused just because only tests reach them.
-const isDevelopmentOwned = path =>
+const isDevelopmentOwned = (path) =>
 	path
 		.replaceAll("\\", "/")
 		.split("/")
-		.some(segment => segment.startsWith("__"));
+		.some((segment) => segment.startsWith("__"));
 
-export default options => {
+export default (options) => {
 	const files = Object.fromEntries(
 		Object.entries(options.issues.files).map(([workspace, issues]) => [
 			workspace,

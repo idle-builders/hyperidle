@@ -1,6 +1,6 @@
 /**
  * Shared source of truth for the mock-data guard.
- * Both ESLint rules and scripts/mock-inventory.ts import from here.
+ * Both ESLint rules and tools/repo-gates/src/mock-inventory.ts import from here.
  * See: docs/guides/developer/mock-data-policy.md (the canonical human doc).
  *
  * Architecture ref: M1 architecture.md § Decision 1 (Single source of truth)

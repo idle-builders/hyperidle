@@ -18,7 +18,7 @@ import type {
  * (unchanged from the pre-migration `packages/server/src/harness/llm-client.ts`)
  * fails to narrow `error.status` under this package's standalone
  * `tsc --noEmit -p <pkg>/tsconfig.json` invocation (the exact command
- * `scripts/typecheck-gate.ts` runs) — confirmed to be a pre-existing,
+ * `tools/repo-gates/src/typecheck-gate.ts` runs) — confirmed to be a pre-existing,
  * repo-wide artifact of cross-package-reference type resolution (reproduces
  * identically in `core-api/knowledge` and `agent-orchestration/dispatch`,
  * both otherwise-clean packages, with a trivial `instanceof HttpError`

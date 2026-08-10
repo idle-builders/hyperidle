@@ -1,5 +1,5 @@
 {
-	"$schema": "./scripts/typecheck-debt.schema.json",
+	"$schema": "./tools/repo-gates/typecheck-debt.schema.json",
 	"description": "Packages with known type errors, quarantined by AF1. Drained by AF2-AF5.",
 	"packages": {}
 }

@@ -57,7 +57,7 @@ export type Actor =
 	  }
 	/** The agent CLI. Not a package in this repo — it dials in from outside. */
 	| { readonly sort: "harness" }
-	/** `scripts/`, config at the repo root. Outside every package. */
+	/** Config at the repo root (e.g. `vitest.config.ts`). Outside every package. */
 	| { readonly sort: "repo-root" };
 
 /** What is being crossed to. */

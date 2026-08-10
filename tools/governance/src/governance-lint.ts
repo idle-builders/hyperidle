@@ -41,7 +41,7 @@ import {
 	loadMisplacedFiles,
 	loadTableOwners,
 	MIN_TRACKED_FILES,
-	presentGovernanceFiles,
+	presentToolingFiles,
 	readRepoFile,
 	trackedFiles,
 } from "./governance-context.js";
@@ -112,7 +112,7 @@ function buildRules(
 		registriesHonest(architecture, loadTableOwners(), detected.db.tables),
 		frameworkSurfacesDeclared(architecture),
 		misplacementLedger(loadMisplacedFiles()),
-		noStaleBuildArtifacts(presentGovernanceFiles()),
+		noStaleBuildArtifacts(presentToolingFiles()),
 		floorsTight({ floors: declaredFloors(census, detected.countsByKind) }),
 		noLaunderedReExports({
 			architecture,
@@ -220,7 +220,7 @@ function runLive(errorsOnly: boolean): number {
 		registriesHonest(architecture, loadTableOwners(), detected.db.tables),
 		frameworkSurfacesDeclared(architecture),
 		misplacementLedger(loadMisplacedFiles()),
-		noStaleBuildArtifacts(presentGovernanceFiles()),
+		noStaleBuildArtifacts(presentToolingFiles()),
 		floorsTight({ floors: declaredFloors(census, detected.countsByKind) }),
 		noLaunderedReExports({
 			architecture,

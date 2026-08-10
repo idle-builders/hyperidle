@@ -87,7 +87,8 @@ export function buildPackageLocator(
 /**
  * The actor performing a crossing from this file.
  *
- * A file in no package acts as the repo root — legitimately, for a build script under `scripts/`.
+ * A file in no package acts as the repo root — legitimately, for a config file at the repo root
+ * (e.g. `vitest.config.ts`).
  * A PRODUCTION file may never do so: the repo root is a declared composition root, and handing
  * composition-root powers to an unregistered directory under `layers/` is a misconfiguration failing
  * open. `kind` is required rather than optional so a new call site cannot forget to pass it.

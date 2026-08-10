@@ -10,12 +10,12 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, test } from "vitest";
-import { composeValidationContracts } from "../../../../scripts/validation-composition.js";
 import {
 	createFilesystemReviewVerifier,
 	type ReviewClaim,
 	type ReviewVerifier,
 } from "../../__e2e__/support/review-trust.js";
+import { composeValidationContracts } from "../../__e2e__/support/validation-composition.js";
 import { createValidationContracts } from "../../__e2e__/support/validation-contract.js";
 
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");

@@ -22,7 +22,7 @@
  * $-cost (totalCostCents via a hardcoded per-model rate table). Founder ruling:
  * "very few harness can actually report cost" — keep only token usage. The gate
  * now checks totalTokens against AH6_MAX_TOKENS (an already-established sibling
- * threshold surfaced in scripts/ah6-smoke-local.ts, not a newly-invented one).
+ * threshold surfaced in ah6-smoke-local.ts, not a newly-invented one).
  * The file is still named "ah6-cost.json" / AH6_COST_REPORT_PATH for back-compat
  * with the smoke orchestrator and playwright.ah6.config.ts wiring — the payload
  * no longer carries a $ figure.

@@ -162,7 +162,6 @@
 			"!**/plans",
 			"!tools/eslint-plugin-design/test-fixtures",
 			"!layers/agent-execution/harness-registry/src/__tests__/fixtures",
-			"!scripts",
 			"!.verify-attestations",
 			"!applications/desktop/release",
 			"!layers/core-ui/src/index.css",
@@ -225,7 +224,7 @@
 			}
 		},
 		{
-			"includes": ["**/scripts/**", "**/__scripts__/**", "tools/governance/src/*.ts"],
+			"includes": ["**/__scripts__/**", "tools/governance/src/*.ts"],
 			"linter": {
 				"rules": {
 					"suspicious": {

@@ -1,7 +1,7 @@
 /**
  * AF1 RED — Failing tests for the typecheck gate verdict function.
  *
- * Tests the pure computeVerdict() function from scripts/lib/typecheck-verdict.ts.
+ * Tests the pure computeVerdict() function from tools/repo-gates/src/lib/typecheck-verdict.ts.
  * All tests import the module and assert on return values — no filesystem reads,
  * no execSync, no mocking. This is a proper unit test per CLAUDE.md.
  *
@@ -15,14 +15,13 @@
  * Extra: Excepted-but-clean package → gate fails (stale ratchet).
  * Extra: Orphaned debt entry (package name not on disk) → validated separately by gate script.
  *
- * @lore AF1: These tests live in framework/api-contract (the only clean package)
- * rather than a dedicated test package because CLAUDE.md requires tests to live
- * in packages/ and vitest.config.ts only covers packages/* projects. The verdict
- * module lives in scripts/lib/ and is imported via a relative path.
+ * @lore AU37: moved here from framework/api-contract, where it was parked because the
+ * module under test lived in scripts/lib/ (not a workspace package) and vitest projects
+ * only cover workspace packages. tools/repo-gates is now that package.
  */
 
 import { describe, expect, it } from "vitest";
-import { computeVerdict, type PackageResult } from "../../../../scripts/lib/typecheck-verdict.js";
+import { computeVerdict, type PackageResult } from "../lib/typecheck-verdict.js";
 
 // -- Helpers --
 

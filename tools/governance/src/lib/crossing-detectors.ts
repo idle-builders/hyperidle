@@ -27,7 +27,7 @@ import type { Census, WorkspacePackage } from "./repo-census.js";
  * produces a crossing.
  *
  * @lore AU28: this is a MISCONFIGURATION failing open, which is the worst direction. `actorFor`
- * conflated two different situations — "outside the package tree" (a build script under `scripts/`,
+ * conflated two different situations — "outside the package tree" (a config file at the repo root,
  * legitimately the repo root) and "unregistered inside it" (a directory under `layers/` with no
  * `package.json`). The second resolved to the repo-root actor, which `architecture.json` declares a
  * COMPOSITION ROOT, so `layers/rogue/src/backdoor.ts` could import across every layer and be
