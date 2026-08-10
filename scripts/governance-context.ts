@@ -169,7 +169,35 @@ export function trackedFiles(): string[] {
 export const loadArchitecture = (): LoadedArchitecture => readJson<LoadedArchitecture>("governance/architecture.json");
 export const loadTableOwners = (): TableOwners => readJson<TableOwners>("governance/table-owners.json");
 export const loadMisplacedFiles = (): MisplacedFiles => readJson<MisplacedFiles>("governance/misplaced-files.json");
-export const loadRuleSeverity = (): RuleSeverity => readJson<RuleSeverity>("governance/rule-severity.json");
+
+/** Every rule this build declares, absent `rule-severity.json`, at `error` — the default the file's own
+ * contract already gave an absent KEY, now given to an absent FILE too. */
+const NO_SEVERITY_FILE: RuleSeverity = {
+	governanceRuleSeverity: true,
+	note: "governance/rule-severity.json does not exist. See governance/README.md's severity dial section.",
+	severity: {},
+};
+
+/**
+ * `governance/rule-severity.json` is not a permanent fixture — see `governance/README.md`'s severity
+ * dial section. Its normal state is absent, and absent means every rule is at `error`: the exact
+ * verdict a present-but-empty file already produced (`severity: {}`), so this is not a behaviour change,
+ * only the removal of a file whose contents had become the empty object it always degrades to.
+ *
+ * @lore AU31: only `ENOENT` degrades to "every rule at error". Any other read failure — bad permissions,
+ * a directory where the file should be, malformed JSON — still throws. A rule-severity file that exists
+ * but cannot be parsed must fail loudly, never silently fall back to error-for-everything, because that
+ * would hide a `warn` rule the founder deliberately pinned to keep from blocking on old debt.
+ */
+export function loadRuleSeverity(): RuleSeverity {
+	try {
+		return readJson<RuleSeverity>("governance/rule-severity.json");
+	} catch (error) {
+		const isEnoent = typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
+		if (!isEnoent) throw error;
+		return NO_SEVERITY_FILE;
+	}
+}
 
 /**
  * Which `warn` rules are clean right now, reported so a sibling can see it — never enforced.

@@ -66,7 +66,7 @@ Default test commands run the **affected slice** against `origin/main` (AT1); `:
 
 ## Governance
 
-Package-boundary rules live in `governance/` (`README.md`, `architecture.json`, `decided-rules.json`, `table-owners.json`, `rule-severity.json`, `misplaced-files.json`). See [governance/README.md](../../../governance/README.md) for what the rules are — this guide does not restate them.
+Package-boundary rules live in `governance/` (`README.md`, `architecture.json`, `decided-rules.json`, `table-owners.json`, `misplaced-files.json`). `rule-severity.json` is not among them by default — it exists only for the span between a new rule landing over existing debt and that debt clearing; see [governance/README.md](../../../governance/README.md) for what the rules are — this guide does not restate them.
 
 | Command | Purpose |
 |---------|---------|

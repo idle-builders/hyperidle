@@ -29,7 +29,6 @@ Three things, and the split between them is the whole design:
 | **`scripts/lib/governance-model.ts`** | 15 clauses, checked in order, first match wins, default `forbidden` | the founder rules on the architecture |
 | **`architecture.json` · `table-owners.json`** | the registries the clauses read — roles, surfaces, endpoints, table owners | packages, surfaces or owners change |
 | **`decided-rules.json`** | 195 verdicts the founder decided one at a time | never, except by founder ruling |
-| **`rule-severity.json`** | one severity — `error` or `warn` — for every architectural rule that is not yet clean | a rule's last violation clears, or a new rule lands over existing debt |
 
 **A clause is a principle. A registry is a fact. A decided rule is a decision. A severity is a dial.**
 Putting a fact in a clause means a new package needs a code change; putting a principle in a registry
@@ -80,16 +79,24 @@ undecided-surface catch-all are not something the framework role gets by being f
 
 ## The severity dial
 
-A standard linter, not a bookkeeper: every architectural rule carries exactly one severity, `error` or
-`warn`, declared in `governance/rule-severity.json`. **A key absent from that file is at `error`** — the
-file lists only what is not yet clean, so it is short and it makes no claim about how many violations
-exist, where, or since when. No paths, no counts, no dates, no adoption records.
+A standard linter, not a bookkeeper: every architectural rule carries exactly one severity, and that
+severity is `error`. **There is no severity file.** `governance/rule-severity.json` does not exist — it
+was deleted once its last key was gone, and `loadRuleSeverity` treats an absent file exactly as it
+always treated an absent key: at `error`. Nothing about what the build enforces changed; what changed is
+that the mechanism for saying "not yet" no longer sits in the repo with nothing to say.
 
-A rule at `warn` warns for **every** one of its violations, including new ones — nothing blocks fresh
-debt on a rule that is not yet clean. A rule clears when the last violation under its key is fixed, and
-the pull request that fixes it removes the key from `rule-severity.json` in the same commit. **That
-removal is the whole of promotion** — no generator, no escape-hatch flag, and no later step to
-remember.
+The file comes back for exactly one reason: **a new architectural rule has to land over debt that
+already exists.** When that happens, recreate `governance/rule-severity.json` with that one rule's key
+at `"warn"` and nothing else — `no-per-file-allowances` (below) still fails the build on every other new
+file under `governance/`, but carves out this one filename, by name, for exactly this purpose. A rule at
+`warn` warns for **every** one of its violations, including new ones — nothing blocks fresh debt on a
+rule that is not yet clean.
+
+A rule clears when the last violation under its key is fixed, and the pull request that fixes it removes
+the key — which, once it is the only key left, means deleting the file again. **That deletion is the
+whole of promotion** — no generator, no escape-hatch flag, and no later step to remember. This is the
+steady state: the file exists only for the span between a rule landing over debt and that debt clearing,
+and most of the time — right now included — it does not exist at all.
 
 **What the lint will never do, by design:** fail a build because a `warn` rule happens to be clean right
 now. That check has no architectural fact to report — it would only be comparing today's count to
@@ -98,9 +105,10 @@ violation in a file was fixed. The lint instead **reports** a clean `warn` rule 
 flip to error") and never turns that observation into a failure.
 
 **Nothing may rebuild a per-file allowance, under any name.** `no-per-file-allowances` (registered like
-every other rule) fails the build on a new file under `governance/`, a nested value under a severity
-key, a key that is not a well-formed rule key, or an undeclared flag on a governance CLI — see that
-rule's own comments for exactly what it catches and what it does not.
+every other rule) fails the build on a new file under `governance/` — except `rule-severity.json` itself,
+by name, for the one reason above — a nested value under a severity key, a key that is not a
+well-formed rule key, or an undeclared flag on a governance CLI — see that rule's own comments for
+exactly what it catches and what it does not.
 
 ## The other shrinking record: `misplaced-files.json`
 

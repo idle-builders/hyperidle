@@ -1,5 +1,0 @@
-{
-	"governanceRuleSeverity": true,
-	"note": "Every architectural rule carries one severity: error or warn. An absent key is at error — this file lists only what is not yet clean. A rule leaves this file when its last violation is gone, in the pull request that clears it: that removal is the whole of promotion, and there is nothing else to do. This file makes no claim about how many violations exist or where — no paths, no counts, no dates — so it can never disagree with reality and nothing ever regenerates it.",
-	"severity": {}
-}

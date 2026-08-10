@@ -28,7 +28,13 @@ const GOVERNANCE_DIR = "governance/";
 const SEVERITY_FILE = "governance/rule-severity.json";
 
 /** The only files `governance/` may hold. An allowlist of what may exist, not a denylist of names —
- * that is what catches a returning record whatever it is called. */
+ * that is what catches a returning record whatever it is called.
+ *
+ * @lore AU31: `rule-severity.json` stays in this set even though its steady state is ABSENT from the
+ * live tree — deleting the entry here would make `no-per-file-allowances` itself refuse the one
+ * sanctioned reason to recreate it (a new rule landing over existing debt; see `governance/README.md`'s
+ * severity dial section). This is the single named carve-out from the closed set's own rule: exactly
+ * this filename, nothing wider. */
 const CLOSED_SET: ReadonlySet<string> = new Set([
 	"governance/README.md",
 	"governance/architecture.json",
