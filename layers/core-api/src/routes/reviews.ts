@@ -1,8 +1,13 @@
+import type {
+	CaptureProposedCallRequest,
+	ConsumeTailoredGrantRequest,
+	ProposedCallOutcomeResult,
+} from "@hyperidle/api-contract";
 import { findMessage } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { requireBoundary } from "@hyperidle/http-middleware";
 import { relativeLong } from "@hyperidle/presentation-format";
-import { findProposedCall } from "@hyperidle/review";
+import { findProposedCall, recordProposedCall, transitionProposedCall } from "@hyperidle/review";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
 
@@ -164,6 +169,43 @@ export function createReviewRoutes(db: HyperIdleDb): Hono {
 			...reviewPayload,
 			artifacts: artifactsWithOp,
 		});
+	});
+
+	// -------------------------------------------------------------------------
+	// AU31 §2.5 — the AL7 trust-first workflow's three write ops, crossing the
+	// seam as `CoreApiPort.review`. The moved tool dispatch
+	// (`@hyperidle/tool-handlers`'s relocated `buildToolRegistry`, now
+	// agent-orchestration's own Service) reaches `review`'s owned tables
+	// through this one door instead of importing `@hyperidle/review` directly
+	// (which would be an orchestration → core-api service import after the
+	// move). Reachable by any authenticated caller like every other mounted
+	// route (`requireBoundary({kind:"public-data"})`) — a consistency gate's
+	// placement, not a security boundary (ETHOS: no preemptive wall), same
+	// reasoning as `routes/filesystems.ts`'s injection-persist route.
+	// -------------------------------------------------------------------------
+
+	app.post("/proposed-calls", requireBoundary({ kind: "public-data" }), async (c) => {
+		const input = (await c.req.json()) as CaptureProposedCallRequest;
+		const result = await recordProposedCall(db, input);
+		return c.json(result);
+	});
+
+	app.post("/proposed-calls/consume", requireBoundary({ kind: "public-data" }), async (c) => {
+		const input = (await c.req.json()) as ConsumeTailoredGrantRequest;
+		const result = await transitionProposedCall(db, {
+			to: "consumed",
+			taskId: input.taskId,
+			agentId: input.agentId,
+			toolId: input.toolId,
+		});
+		return c.json(result);
+	});
+
+	app.post("/proposed-calls/:id/outcome", requireBoundary({ kind: "public-data" }), async (c) => {
+		const id = c.req.param("id");
+		const { result } = (await c.req.json()) as { readonly result: ProposedCallOutcomeResult };
+		await transitionProposedCall(db, { to: "outcome-recorded", id, result });
+		return c.json({ ok: true });
 	});
 
 	return app;

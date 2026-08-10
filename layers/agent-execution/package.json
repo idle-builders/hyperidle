@@ -11,9 +11,11 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"@hyperidle/domain-model": "*",
-		"@hyperidle/event-bus": "*",
-		"@hyperidle/harness-registry": "*"
+		"@hyperidle/harness-capability": "*",
+		"@hyperidle/harness-protocol": "*",
+		"@hyperidle/harness-registry": "*",
+		"@hyperidle/tool-protocol": "*",
+		"hono": "^4.12.27"
 	},
 	"devDependencies": {
 		"vitest": "^4.1.9"

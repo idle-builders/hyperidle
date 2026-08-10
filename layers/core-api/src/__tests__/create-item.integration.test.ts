@@ -1,43 +1,23 @@
 import * as os from "node:os";
 import * as path from "node:path";
+import {
+	buildToolDefinitions,
+	createInProcessCoreApiTransport,
+} from "@hyperidle/agent-orchestration";
 import { type HyperIdleDb, items, teamMembers, teams, threads, users } from "@hyperidle/db";
 import type { ItemCreatedEvent } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import type { ToolContext } from "@hyperidle/tool-protocol";
 import { eq } from "drizzle-orm";
+import type { Hono } from "hono";
 import { describe, expect } from "vitest";
-import { test as baseTest } from "../__testing__/test-fixtures.js";
-import {
-	createInProcessCoreApiTransport,
-	registerCoreApiTransport,
-} from "../services/core-api-port-composition.js";
-import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
+import { test } from "../__testing__/test-fixtures.js";
 
-/**
- * @lore AU21 §9 Increment 2: this file's tool handler(s) now reach
- * `ports.coreApi.*` (the seam) — this file-scoped `auto:true` fixture
- * registers a real in-process `CoreApiPort` transport off THIS test's own
- * `app` for every test in this file, without forcing `app`'s full
- * subscriber wiring onto every OTHER test file that imports the bare
- * `test` from `test-fixtures.ts` (that fixture's `app` stays lazy — a
- * global auto-fixture there double-fired `app.ts`'s task-`done`
- * dep-watcher against tests that manually drive the same transition,
- * an AU21 Increment 2 GREEN-phase finding).
- */
-const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
-	coreApiSeamRegistration: [
-		async ({ app }, use) => {
-			registerCoreApiTransport(createInProcessCoreApiTransport(app));
-			await use(undefined);
-		},
-		{ auto: true },
-	],
-});
-
-const createItemTool = buildToolDefinitions(toolHandlersPorts).find(
-	(t) => t.name === "create_item",
-)!;
+function buildCreateItemTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
+	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+		(t) => t.name === "create_item",
+	)!;
+}
 
 async function seed(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
@@ -73,7 +53,9 @@ describe("create_item tool", () => {
 		test("creates the item, routes to conversations, and emits item_created", async ({
 			db,
 			eventBus,
+			app,
 		}) => {
+			const createItemTool = buildCreateItemTool(app);
 			await seed(db);
 			const emitted: ItemCreatedEvent[] = [];
 			eventBus.on("item_created", (e) => {
@@ -111,7 +93,8 @@ describe("create_item tool", () => {
 			expect(emitted[0]!.kind).toBe("review");
 		});
 
-		test("auto-creates a thread when no threadId is provided", async ({ db, eventBus }) => {
+		test("auto-creates a thread when no threadId is provided", async ({ db, eventBus, app }) => {
+			const createItemTool = buildCreateItemTool(app);
 			await seed(db);
 			const result = await createItemTool.handler(
 				{
@@ -128,7 +111,8 @@ describe("create_item tool", () => {
 			expect(thread).toBeDefined();
 		});
 
-		test("reuses an existing thread when threadId is provided", async ({ db, eventBus }) => {
+		test("reuses an existing thread when threadId is provided", async ({ db, eventBus, app }) => {
+			const createItemTool = buildCreateItemTool(app);
 			await seed(db);
 			const now = new Date().toISOString();
 			await db.insert(threads).values({
@@ -157,7 +141,8 @@ describe("create_item tool", () => {
 	});
 
 	describe("AU21 §6 Decision L3: result shape has no view field (routeItem deleted)", () => {
-		test("result is exactly {itemId, threadId} — no view field", async ({ db, eventBus }) => {
+		test("result is exactly {itemId, threadId} — no view field", async ({ db, eventBus, app }) => {
+			const createItemTool = buildCreateItemTool(app);
 			await seed(db);
 			const result = await createItemTool.handler(
 				{
@@ -177,7 +162,12 @@ describe("create_item tool", () => {
 	});
 
 	describe("item_created event fields (validation scenario)", () => {
-		test("emits event with itemId, conversationId, kind, timestamp", async ({ db, eventBus }) => {
+		test("emits event with itemId, conversationId, kind, timestamp", async ({
+			db,
+			eventBus,
+			app,
+		}) => {
+			const createItemTool = buildCreateItemTool(app);
 			await seed(db);
 			const emitted: ItemCreatedEvent[] = [];
 			eventBus.on("item_created", (e) => emitted.push(e));
@@ -198,7 +188,8 @@ describe("create_item tool", () => {
 	});
 
 	describe("AC9: invalid input returns structured error", () => {
-		test("returns INVALID_INPUT when title missing", async ({ db, eventBus }) => {
+		test("returns INVALID_INPUT when title missing", async ({ db, eventBus, app }) => {
+			const createItemTool = buildCreateItemTool(app);
 			await seed(db);
 			const result = await createItemTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
@@ -210,7 +201,8 @@ describe("create_item tool", () => {
 			expect(result.code).toBe("INVALID_INPUT");
 		});
 
-		test("returns INVALID_INPUT for unknown riskTier", async ({ db, eventBus }) => {
+		test("returns INVALID_INPUT for unknown riskTier", async ({ db, eventBus, app }) => {
+			const createItemTool = buildCreateItemTool(app);
 			await seed(db);
 			const result = await createItemTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
@@ -222,7 +214,12 @@ describe("create_item tool", () => {
 			expect(result.code).toBe("INVALID_INPUT");
 		});
 
-		test("returns NOT_FOUND when supplied threadId does not exist", async ({ db, eventBus }) => {
+		test("returns NOT_FOUND when supplied threadId does not exist", async ({
+			db,
+			eventBus,
+			app,
+		}) => {
+			const createItemTool = buildCreateItemTool(app);
 			await seed(db);
 			const result = await createItemTool.handler(
 				{ title: "x", threadId: "nope" },

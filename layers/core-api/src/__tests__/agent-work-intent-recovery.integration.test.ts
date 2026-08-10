@@ -17,8 +17,8 @@ import {
 } from "@hyperidle/db";
 import { drainIntents } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
+import { queueDeps } from "../__testing__/durable-agent-queue-test-deps.js";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
-import { queueDeps } from "../services/durable-agent-queue.js";
 
 async function seedExplicitStartIntent(
 	db: import("@hyperidle/db").HyperIdleDb,

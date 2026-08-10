@@ -81,7 +81,7 @@ The fix is to re-derive the rule from something that survives a package move —
 
 ## No source-level gate
 
-Nothing checks harness-facing test *source* any more. `npm run lint` runs biome, eslint, and `scripts/governance-lint.ts` (twice — once against its fixtures, once against the live tree). No lint step reads a harness test for coverage, stubs, or model-seam imports.
+Nothing checks harness-facing test *source* any more. `npm run lint` runs biome, eslint, and `tools/governance/src/governance-lint.ts` (twice — once against its fixtures, once against the live tree). No lint step reads a harness test for coverage, stubs, or model-seam imports.
 
 Concretely, none of the following exist: a coverage rule asserting every `SUPPORTED_HARNESSES` member appears as a real `requireHarness(…)` call; a stub/mock detector for harness seams; an import ban on the raw model-callers; a coverage-debt or stub-debt allowlist.
 

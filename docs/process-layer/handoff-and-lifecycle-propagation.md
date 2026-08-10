@@ -119,7 +119,7 @@ If a human manually transitions a task or bet while propagation fires, the resul
 
 `propagation_log` is infrastructure, not UI — the user sees status chips change, not the mechanism. Terminal rows (`applied`/`skipped`) are TTL-swept on a retention schedule.
 
-Lifecycle propagation does not drive the task state machine itself — it calls the work service through an injected port (`transitionTaskState`), so the transition transaction boundary stays owned in one place. What may cross which boundary is enforced, not described here; see `governance/README.md`.
+Lifecycle propagation does not drive the task state machine itself — it calls the work service through an injected port (`transitionTaskState`), so the transition transaction boundary stays owned in one place. What may cross which boundary is enforced, not described here; see `tools/governance/README.md`.
 
 ---
 

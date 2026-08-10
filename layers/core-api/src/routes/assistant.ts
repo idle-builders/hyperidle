@@ -15,12 +15,10 @@
  * hostId=userId + participants includes the assistant agent.
  */
 
-import {
-	type AgentRunConfigPatch,
-	readAgentRunConfig,
-	validateAgentConfig,
-	writeAgentRunConfig,
-} from "@hyperidle/agent-run-config";
+import type {
+	AgentOrchestrationPort,
+	AgentOrchestrationRunConfigPatch,
+} from "@hyperidle/api-contract";
 import { findThread, insertThread, listMessages } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
@@ -44,18 +42,9 @@ import { persistScaffoldedAgents } from "@hyperidle/org";
 import { findUser, insertUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
+import { buildSeamBackedAgentRunConfigWriter } from "../services/agent-orchestration-port-composition.js";
 import { messageRowSchema, threadParticipantsSchema } from "./threads-schema.js";
-
-// AU19 Increment 1c / AU20 Am11: `org`'s `OrgUserDirectory` port (Mechanism C),
-// wired via adapter so `findUser({id})` satisfies `getUserById`.
-// AU26 G1 (§D-L): `persistScaffoldedAgents` also stamps the run config, which
-// left `users` for `agent_run_config`. The Layer wires the writer down the same
-// Mechanism-C way it wires the user directory.
-const orgUsers = {
-	getUserById: (db: HyperIdleDb, id: string) => findUser(db, { id }),
-	insertUser,
-	writeAgentRunConfig,
-};
+import { validateAgentConfig } from "./validate-agent-config.js";
 
 // @lore AF11-IDOR: SENDER_HEADER and readSenderId removed. Authorization paths
 // (thread scoping, participant checks) MUST derive identity from c.get("userId")
@@ -279,8 +268,21 @@ export function createAssistantThreadRoute(
 export function createAssistantSoulRoutes(
 	db: HyperIdleDb,
 	adapterPool: HarnessCapabilityReader | null,
+	agentOrchestration: AgentOrchestrationPort,
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
+
+	// AU19 Increment 1c / AU20 Am11: `org`'s `OrgUserDirectory` port (Mechanism C),
+	// wired via adapter so `findUser({id})` satisfies `getUserById`.
+	// AU26 G1 (§D-L) / AU31 §2.2: `persistScaffoldedAgents` also stamps the run
+	// config, which left `users` for `agent_run_config` — now reached through
+	// the seam (`buildSeamBackedAgentRunConfigWriter`) instead of a direct
+	// `@hyperidle/agent-run-config` import.
+	const orgUsers = {
+		getUserById: (db2: HyperIdleDb, id: string) => findUser(db2, { id }),
+		insertUser,
+		...buildSeamBackedAgentRunConfigWriter(agentOrchestration),
+	};
 
 	// Row 6: GET /api/users/:userId/assistant — S (principal-self: self-only guard below)
 	// GET /api/users/:userId/assistant
@@ -338,7 +340,7 @@ export function createAssistantSoulRoutes(
 
 		// @lore AU26 G1 (§D-L): the assistant row is an AI user with agent
 		// semantics, so its run config moved with every other agent's.
-		const runConfig = await readAgentRunConfig(db, assistantAgentId);
+		const runConfig = await agentOrchestration.runConfig.read(assistantAgentId);
 
 		return c.json({
 			id: agentRow.id,
@@ -461,7 +463,7 @@ export function createAssistantSoulRoutes(
 		// `agent_run_config`, so this handler no longer writes the `users` row at
 		// all — it delegates the whole persist down to the owning Service. The
 		// route stays core-hosted (§D-A rule 3) and the wire shape is unchanged.
-		const patch: AgentRunConfigPatch = {};
+		const patch: AgentOrchestrationRunConfigPatch = {};
 
 		if (parsed.data.systemPrompt !== undefined) {
 			patch.systemPrompt = parsed.data.systemPrompt;
@@ -477,11 +479,11 @@ export function createAssistantSoulRoutes(
 		}
 
 		if (Object.keys(patch).length > 0) {
-			await writeAgentRunConfig(db, assistantAgentId, patch);
+			await agentOrchestration.runConfig.write(assistantAgentId, patch);
 		}
 
 		// Re-read the updated config to return accurate values
-		const updatedRunConfig = await readAgentRunConfig(db, assistantAgentId);
+		const updatedRunConfig = await agentOrchestration.runConfig.read(assistantAgentId);
 
 		return c.json({
 			id: agentRow.id,

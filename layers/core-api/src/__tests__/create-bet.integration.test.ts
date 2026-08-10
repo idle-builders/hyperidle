@@ -12,19 +12,28 @@
  * exactly as they were.
  */
 
+import {
+	buildToolDefinitions,
+	createInProcessCoreApiTransport,
+} from "@hyperidle/agent-orchestration";
 import { bets, teamMembers, teams } from "@hyperidle/db";
-import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
+import type { Hono } from "hono";
 import { describe, expect } from "vitest";
 import { test, vi } from "../__testing__/test-fixtures.js";
-import {
-	createInProcessCoreApiTransport,
-	registerCoreApiTransport,
-} from "../services/core-api-port-composition.js";
-import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
 import { makeContext, NOW } from "./_helpers.js";
 
-const createBetTool = buildToolDefinitions(toolHandlersPorts).find((t) => t.name === "create_bet")!;
+/**
+ * @lore AU31 §3.2/B2: the tool is built fresh per test off THIS test's own
+ * `app` (`createInProcessCoreApiTransport`) — no ambient transport global to
+ * register. `buildToolDefinitions` only needs an `app` to exist, so the
+ * factory works whether or not the test also touches `db`.
+ */
+function buildCreateBetTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
+	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+		(t) => t.name === "create_bet",
+	)!;
+}
 
 const TEST_API_KEY = "create-bet-test-key";
 
@@ -45,7 +54,7 @@ async function seedTeam(db: Parameters<typeof makeContext>[0]): Promise<{ teamId
 describe("create_bet tool", () => {
 	test("inserts a bets row with status=draft and the given teamId", async ({ db, app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		registerCoreApiTransport(createInProcessCoreApiTransport(app));
+		const createBetTool = buildCreateBetTool(app);
 		const { teamId } = await seedTeam(db);
 
 		const result = await createBetTool.handler(
@@ -68,7 +77,7 @@ describe("create_bet tool", () => {
 
 	test("stores optional doneCondition and hypothesis", async ({ db, app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		registerCoreApiTransport(createInProcessCoreApiTransport(app));
+		const createBetTool = buildCreateBetTool(app);
 		const { teamId } = await seedTeam(db);
 
 		const result = await createBetTool.handler(
@@ -91,7 +100,7 @@ describe("create_bet tool", () => {
 
 	test("returns ok({ betId, status: 'draft', teamId })", async ({ db, app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		registerCoreApiTransport(createInProcessCoreApiTransport(app));
+		const createBetTool = buildCreateBetTool(app);
 		const { teamId } = await seedTeam(db);
 
 		const result = await createBetTool.handler(
@@ -107,7 +116,8 @@ describe("create_bet tool", () => {
 		expect(data.teamId).toBe(teamId);
 	});
 
-	test("error when teamId does not exist", async ({ db }) => {
+	test("error when teamId does not exist", async ({ db, app }) => {
+		const createBetTool = buildCreateBetTool(app);
 		const result = await createBetTool.handler(
 			{ teamId: "team-does-not-exist", description: "Will fail" },
 			makeContext(db),
@@ -117,7 +127,8 @@ describe("create_bet tool", () => {
 		expect(result.error).toMatch(/Team not found/);
 	});
 
-	test("error when description is empty (fails Zod min(1))", async ({ db }) => {
+	test("error when description is empty (fails Zod min(1))", async ({ db, app }) => {
+		const createBetTool = buildCreateBetTool(app);
 		const { teamId } = await seedTeam(db);
 
 		const result = await createBetTool.handler({ teamId, description: "" }, makeContext(db));
@@ -126,7 +137,8 @@ describe("create_bet tool", () => {
 
 	// @lore AD8b: role "chief_of_staff" renamed to "assistant". The AssistantToolShape
 	// itself has no roles field; roles filter is applied in tool-registry wrapForRegistry.
-	test("createBetTool is an AssistantToolShape (name and handler defined)", () => {
+	test("createBetTool is an AssistantToolShape (name and handler defined)", ({ app }) => {
+		const createBetTool = buildCreateBetTool(app);
 		expect(createBetTool.name).toBe("create_bet");
 		expect(typeof createBetTool.handler).toBe("function");
 	});

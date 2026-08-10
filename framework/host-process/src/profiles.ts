@@ -2,7 +2,7 @@
  * @lore AU29: moved verbatim from `framework/db/src/profiles.ts`. This module
  * resolves a deployment profile from a string/env var — no SQL, no schema, no
  * connection — so it never belonged to the database package's surface (the
- * `db:util` ANOMALY `governance/architecture.json` flagged since AU28).
+ * `db:util` ANOMALY `tools/governance/architecture.json` flagged since AU28).
  *
  * Only `resolveProfile` and `DeploymentProfile` are barrel-exported from
  * `@hyperidle/host-process` — the only symbols named outside this module

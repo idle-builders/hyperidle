@@ -28,8 +28,9 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 	test("returns an array of disposer functions when called with db and eventBus", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
-		const disposers = fullServiceBootstrap({ db, eventBus });
+		const disposers = fullServiceBootstrap({ db, eventBus, agentOrchestration });
 
 		expect(Array.isArray(disposers)).toBe(true);
 		expect(disposers.length).toBeGreaterThan(0);
@@ -45,6 +46,7 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 	test("returns the exact named owners and invokes every distinct cleanup effect", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
 		type OwnedDisposer = (() => void) & {
 			readonly owner: string;
@@ -52,11 +54,12 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 			readonly constituents: readonly string[];
 		};
 		const expectedOwnership = [
-			{
-				owner: "lifecycle-projection drain",
-				cleanupEffect: "stops drain",
-				constituents: ["drain interval"],
-			},
+			// @lore AU31 B2 (§5, §12 lifecycle-drain cluster): "lifecycle-projection
+			// drain" relocated into `bootAgentOrchestration`
+			// (`layers/agent-orchestration/src/boot.ts`) — it is no longer one of
+			// `registerCoreDomainServices`'s named owners. See
+			// `agent-orchestration/src/__tests__/boot-lifecycle-drain.integration.test.ts`
+			// for its new home's coverage.
 			{
 				owner: "agent-run-admission reactions",
 				cleanupEffect: "unsubscribe",
@@ -179,6 +182,7 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 		const disposers = fullServiceBootstrap({
 			db,
 			eventBus,
+			agentOrchestration,
 			dispatcherDeps: {
 				adapterPool: {},
 				workspace: {},
@@ -210,7 +214,10 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 			}
 
 			expect(observedEffects).toEqual([
-				{ unsubscribedEvents: [], clearedIntervals: 1 },
+				// @lore AU31 B2: the "lifecycle-projection drain" entry (previously
+				// first, `clearedIntervals: 1`) relocated into
+				// `bootAgentOrchestration` — see this file's `expectedOwnership`
+				// note above.
 				// @lore AU21 Increment 3 Wave 0: `registerAgentRunAdmissionReactions`
 				// is idempotent PER eventBus instance — the `eventBus` test fixture
 				// already registered it before this test's own

@@ -16,7 +16,7 @@
 
 // @lore U1: `teams` renamed to `teamMembers` (membership group); `products` renamed to `teams` (domain entity).
 // `mechanism: "team"` targets the agent membership group → check `teamMembers`.
-import { writeAgentRunConfig } from "@hyperidle/agent-run-config";
+import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { API_ERROR_CODES, ORG_EDGE_MECHANISMS } from "@hyperidle/domain-model";
 import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/http-middleware";
@@ -35,6 +35,7 @@ import { provisionTeamRoutines } from "@hyperidle/routine";
 import { findUser, insertUser, listUsers } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
+import { buildSeamBackedAgentRunConfigWriter } from "../services/agent-orchestration-port-composition.js";
 
 const putOrgEdgeSchema = z.object({
 	fromUserId: z.string().min(1),
@@ -97,7 +98,10 @@ const provisionTeamRoutinesSchema = z.object({
 /**
  * Create Hono routes for the OrgChart API.
  */
-export function createOrgRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
+export function createOrgRoutes(
+	db: HyperIdleDb,
+	agentOrchestration: AgentOrchestrationPort,
+): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
 	// GET / — full org chart
@@ -303,7 +307,14 @@ export function createOrgRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 			const body = c.req.valid("json" as never) as z.infer<typeof persistScaffoldedAgentsSchema>;
 			const result = await persistScaffoldedAgents(
 				db,
-				{ getUserById: (db2, id) => findUser(db2, { id }), insertUser, writeAgentRunConfig },
+				{
+					getUserById: (db2, id) => findUser(db2, { id }),
+					insertUser,
+					// AU31 §2.2/§3 clause 2: the injected writer used to be a direct
+					// @hyperidle/agent-run-config import (crossing-di) — now the
+					// seam-backed adapter.
+					...buildSeamBackedAgentRunConfigWriter(agentOrchestration),
+				},
 				body.teamMembersId,
 				body.specs,
 			);

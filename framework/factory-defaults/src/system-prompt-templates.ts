@@ -24,7 +24,7 @@ import * as path from "node:path";
  *
  * @lore AU29: moved verbatim from `framework/db/src/system-prompt-templates.ts`
  * into `framework/factory-defaults` — this module performs no database access (it never
- * had a `db:*` surface; `governance/architecture.json` deliberately did not
+ * had a `db:*` surface; `tools/governance/architecture.json` deliberately did not
  * name it, and it was one of the four symbols that fell to `db:unknown`). The
  * cwd-relative `docs/` resolution and the closed allowlist map are unchanged
  * — this IS the traversal defense; "improving" it is a regression, not a move.

@@ -64,8 +64,8 @@ import {
 import { attentionReviewReasoningMarker } from "@hyperidle/review";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { and, eq } from "drizzle-orm";
+import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
 import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
-import { queueDeps } from "../durable-agent-queue.js";
 
 const NOW = new Date().toISOString();
 

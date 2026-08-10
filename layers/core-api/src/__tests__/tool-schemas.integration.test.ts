@@ -1,11 +1,16 @@
 import * as os from "node:os";
 import * as path from "node:path";
+import {
+	buildToolDefinitions,
+	createInProcessCoreApiTransport,
+	unconfiguredCoreApiTransport,
+} from "@hyperidle/agent-orchestration";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
+import { buildToolRegistry } from "@hyperidle/tool-handlers";
 import { type ToolContext, toClaudeToolSpec } from "@hyperidle/tool-protocol";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
-import { buildToolRegistry } from "../services/tool-provider-bindings.js";
 
 const EXPECTED_TOOL_NAMES = [
 	"create_item",
@@ -52,8 +57,9 @@ function makeContext(db: HyperIdleDb): ToolContext<HyperIdleDb> {
 }
 
 describe("AC8: every tool has a valid Claude tool_use JSON schema", () => {
-	test("registry produces one spec per expected tool name", ({ db }) => {
-		const specs = buildToolRegistry(makeContext(db), {
+	test("registry produces one spec per expected tool name", ({ db, app }) => {
+		const definitions = buildToolDefinitions(createInProcessCoreApiTransport(app));
+		const specs = buildToolRegistry(definitions, makeContext(db), {
 			role: "assistant",
 		}).toClaudeToolSpecs();
 		const names = specs.map((s) => s.name).sort();
@@ -68,7 +74,12 @@ describe("AC8: every tool has a valid Claude tool_use JSON schema", () => {
 		// @lore tool-schemas: test.each doesn't compose with fixture injection in vitest;
 		// buildToolRegistry here only inspects Zod schemas (no DB calls), so a dummy
 		// context object satisfies the type without a real connection.
+		// @lore AU31 §3.2/§5: no `app` fixture reachable from `test.each`, and
+		// this whole describe block never actually calls a tool handler (schema
+		// introspection only) — the unconfigured transport (throws only if
+		// actually dialled) is honest here.
 		const registry = buildToolRegistry(
+			buildToolDefinitions(unconfiguredCoreApiTransport()),
 			{
 				db: null as unknown as HyperIdleDb,
 				eventBus: new EventBus(),
@@ -98,8 +109,9 @@ describe("AC8: every tool has a valid Claude tool_use JSON schema", () => {
 		expect(Array.isArray(spec.input_schema.properties)).toBe(false);
 	});
 
-	test("each spec is JSON-serializable (no circular references)", ({ db }) => {
-		const specs = buildToolRegistry(makeContext(db), {
+	test("each spec is JSON-serializable (no circular references)", ({ db, app }) => {
+		const definitions = buildToolDefinitions(createInProcessCoreApiTransport(app));
+		const specs = buildToolRegistry(definitions, makeContext(db), {
 			role: "assistant",
 		}).toClaudeToolSpecs();
 		for (const spec of specs) {

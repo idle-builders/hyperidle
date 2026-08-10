@@ -26,6 +26,7 @@
  * Guard: this file is NOT in EXPLICIT_HARNESS_INTEGRATION (service-integration only).
  */
 
+import { CORE_API_ACTOR_OVERRIDE_HEADER } from "@hyperidle/api-contract";
 import {
 	agentRunConfig,
 	agentWorkIntents,
@@ -37,7 +38,6 @@ import {
 import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
-import { CORE_API_ACTOR_OVERRIDE_HEADER } from "../services/actor-transport-header.js";
 
 // ---------------------------------------------------------------------------
 // Constants

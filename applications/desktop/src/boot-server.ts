@@ -2,21 +2,16 @@
  * Server lifecycle: migrate → start → health-check.
  */
 
-import { createLocalAdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
 // @lore PGlite migration: createServer is now async (awaits PGlite WASM init).
 //
-// @lore AU19 Increment 5 (item 2): `desktop` (the `core-api` + `agent-execution`
-// + `agent-orchestration` Application per §3) now constructs and injects its
-// own concrete `HarnessPort` adapter — `LocalSandboxAdapter` +
-// `createLocalAdapterPool()` (in-process CLI harness discovery) — instead of
-// `@hyperidle/remote-server`'s `createServer` defaulting it internally via a
-// `HYPERIDLE_PROFILE` runtime branch. See `create-server.ts`'s
-// `CreateServerDeps` top `@lore` and `applications/remote-server/src/index.ts`
-// (the mirror-image Application, empty pool + `DisabledSandboxAdapter`).
-import {
-	createServer as _createServer,
-	type ServerHandle,
-} from "@hyperidle/remote-server/create-server";
+// @lore AU31 §5.3: `desktop` boots its OWN composition root now
+// (`./create-server.js`) — no `application → application` import of
+// `@hyperidle/remote-server`. `topology: "local"` replaces the concrete
+// `LocalSandboxAdapter` + `createLocalAdapterPool()` this file used to
+// construct itself; `bootAgentExecution` (inside `create-server.ts`) owns
+// that construction now. See `./create-server.ts`'s own top `@lore` for why
+// the two Applications' composition roots are duplicated, not shared.
+import { createServer as _createServer, type ServerHandle } from "./create-server.js";
 
 export type { ServerHandle };
 
@@ -39,10 +34,8 @@ const LOOPBACK = "127.0.0.1";
  * HYPERIDLE_API_KEY, and HYPERIDLE_STATIC_DIR must be set before calling this.
  */
 export async function startServer(): Promise<ServerHandle> {
-	const adapterPool = await createLocalAdapterPool();
 	return _createServer(0, {
-		adapterPool,
-		workspaceAdapter: createSandboxAdapter("local"),
+		topology: "local",
 		hostname: LOOPBACK,
 	});
 }

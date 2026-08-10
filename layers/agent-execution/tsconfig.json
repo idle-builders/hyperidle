@@ -3,15 +3,19 @@
 	"compilerOptions": {
 		"composite": true,
 		"outDir": "dist",
-		"rootDir": "src"
+		"rootDir": "src",
+		"types": ["node"]
 	},
 	"include": ["src"],
 	"references": [
 		{
-			"path": "../../framework/domain-model"
+			"path": "../../framework/harness-capability"
 		},
 		{
-			"path": "../../framework/event-bus"
+			"path": "../../framework/harness-protocol"
+		},
+		{
+			"path": "../../framework/tool-protocol"
 		},
 		{
 			"path": "harness-registry"

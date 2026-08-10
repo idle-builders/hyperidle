@@ -12,30 +12,28 @@
  */
 import * as os from "node:os";
 import * as path from "node:path";
+import {
+	buildToolDefinitions,
+	createInProcessCoreApiTransport,
+} from "@hyperidle/agent-orchestration";
 import { type HyperIdleDb, messages, teamMembers, teams, threads, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
-import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import type { ToolContext } from "@hyperidle/tool-protocol";
 import { eq } from "drizzle-orm";
+import type { Hono } from "hono";
 import { describe, expect, vi } from "vitest";
-import { test as baseTest } from "../__testing__/test-fixtures.js";
-import {
-	createInProcessCoreApiTransport,
-	registerCoreApiTransport,
-} from "../services/core-api-port-composition.js";
-import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
+import { test } from "../__testing__/test-fixtures.js";
 
-const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
-	coreApiSeamRegistration: [
-		async ({ app }, use) => {
-			registerCoreApiTransport(createInProcessCoreApiTransport(app));
-			await use(undefined);
-		},
-		{ auto: true },
-	],
-});
-
-const replyTool = buildToolDefinitions(toolHandlersPorts).find((t) => t.name === "reply")!;
+/**
+ * @lore AU31 §3.2/B2: `reply` reaches `ports.coreApi.*` (the seam) — the
+ * tool is built fresh per test off THIS test's own `app`
+ * (`createInProcessCoreApiTransport`), never an ambient transport global.
+ */
+function buildReplyTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
+	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+		(t) => t.name === "reply",
+	)!;
+}
 
 function makeContext(
 	db: HyperIdleDb,
@@ -87,6 +85,7 @@ describe("reply tool", () => {
 			db,
 			app,
 		}) => {
+			const replyTool = buildReplyTool(app);
 			await seedTaskWithAgentAndThread(db, {
 				agentId: "agent-reply-1",
 				taskId: "task-reply-1",
@@ -120,7 +119,9 @@ describe("reply tool", () => {
 
 		test("proves the capability is generic, not assistant-specific — a plain builder agent can reply", async ({
 			db,
+			app,
 		}) => {
+			const replyTool = buildReplyTool(app);
 			await seedTaskWithAgentAndThread(db, {
 				agentId: "agent-reply-2",
 				taskId: "task-reply-2",
@@ -144,7 +145,9 @@ describe("reply tool", () => {
 	describe("AC-7 (superseded): no calling thread — falls back to a direct thread with the human", () => {
 		test("a routine_run-style session (no ctx.threadId) lands its reply in a direct thread with the sole human", async ({
 			db,
+			app,
 		}) => {
+			const replyTool = buildReplyTool(app);
 			const now = new Date().toISOString();
 			await db.insert(users).values({
 				id: "founder-reply-fallback",
@@ -186,7 +189,9 @@ describe("reply tool", () => {
 
 		test("a second reply from the same thread-less agent reuses the same direct thread", async ({
 			db,
+			app,
 		}) => {
+			const replyTool = buildReplyTool(app);
 			const now = new Date().toISOString();
 			await db.insert(users).values({
 				id: "founder-reply-fallback-2",
@@ -223,7 +228,8 @@ describe("reply tool", () => {
 	});
 
 	describe("AC-9: invalid input returns structured error", () => {
-		test("returns INVALID_INPUT when text is empty", async ({ db }) => {
+		test("returns INVALID_INPUT when text is empty", async ({ db, app }) => {
+			const replyTool = buildReplyTool(app);
 			await seedTaskWithAgentAndThread(db, {
 				agentId: "agent-reply-invalid",
 				taskId: "task-reply-invalid",
@@ -240,11 +246,17 @@ describe("reply tool", () => {
 	});
 
 	describe("tool declaration", () => {
-		test("declares reversibility: reversible (never fails closed to irreversible under AL7)", () => {
+		test("declares reversibility: reversible (never fails closed to irreversible under AL7)", ({
+			app,
+		}) => {
+			const replyTool = buildReplyTool(app);
 			expect(replyTool.reversibility).toBe("reversible");
 		});
 
-		test("input schema has no thread argument — reply always targets its own calling thread", () => {
+		test("input schema has no thread argument — reply always targets its own calling thread", ({
+			app,
+		}) => {
+			const replyTool = buildReplyTool(app);
 			const shape = (replyTool.inputSchema as unknown as { shape: Record<string, unknown> }).shape;
 			expect(Object.keys(shape)).toEqual(["text"]);
 		});

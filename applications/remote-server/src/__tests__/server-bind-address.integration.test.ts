@@ -20,7 +20,6 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { AdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
 import { afterEach, beforeEach, vi } from "vitest";
 import { createServer, type ServerHandle } from "../create-server.js";
 
@@ -46,8 +45,7 @@ describe("createServer bind address", () => {
 
 	const deps = (db: HyperIdleDb, hostname?: string) => ({
 		db,
-		adapterPool: new AdapterPool(),
-		workspaceAdapter: createSandboxAdapter("disabled"),
+		topology: "disabled" as const,
 		sandboxBasePath: path.join(os.tmpdir(), "bind-address-invariant"),
 		...(hostname === undefined ? {} : { hostname }),
 	});

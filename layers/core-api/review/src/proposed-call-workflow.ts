@@ -493,22 +493,22 @@ export type ProposedCallTransition =
 type TransitionProposedCallPorts = Pick<ReviewPorts, "intentRecorder"> &
 	Partial<ReengagementResolverDeps>;
 export function transitionProposedCall(
-	tx: HyperIdleDb,
+	exec: HyperIdleDb,
 	transition: Extract<ProposedCallTransition, { to: "consumed" }>,
 ): Promise<{ readonly proposedCallId: string } | null>;
 export function transitionProposedCall(
-	tx: HyperIdleDb,
+	exec: HyperIdleDb,
 	transition: Exclude<ProposedCallTransition, { to: "consumed" }>,
 	ports?: TransitionProposedCallPorts,
 ): Promise<void>;
 export async function transitionProposedCall(
-	tx: HyperIdleDb,
+	exec: HyperIdleDb,
 	transition: ProposedCallTransition,
 	ports?: TransitionProposedCallPorts,
 ): Promise<{ readonly proposedCallId: string } | null | void> {
 	switch (transition.to) {
 		case "held": {
-			await tx
+			await exec
 				.update(proposedCalls)
 				.set({ status: "held" })
 				.where(eq(proposedCalls.id, transition.id));
@@ -520,7 +520,20 @@ export async function transitionProposedCall(
 				typeof transition.approvedArgs === "string"
 					? transition.approvedArgs
 					: JSON.stringify(transition.approvedArgs);
-			await tx.transaction(async (innerTx) => {
+			// AU31 §3.1 site 9 — the intent SUBMIT (`ports.intentRecorder.record`)
+			// is captured here and called AFTER this transaction commits, never
+			// inside it: a seam call issued while a transaction holds the shared
+			// connection deadlocks it. The bake itself (`resolveReengagementRequest`)
+			// stays IN the transaction — it reads the grant row just inserted
+			// below. Cross-layer atomicity with `agent-orchestration` is
+			// relinquished (founder ruling, architecture.md §3.1/§13 item 9): on a
+			// failed submit, the human's approval is recorded and the grant is
+			// minted, but no reengagement session is queued — the grant row stays
+			// `consumed:false`, so the agent's next attempt at the same tool call
+			// consumes it, and `applyLivenessRetry` is the existing net on the
+			// same path.
+			let pendingIntent: ReviewAgentWorkIntentInput | undefined;
+			await exec.transaction(async (innerTx) => {
 				await innerTx.insert(tailoredGrants).values({
 					proposedCallId: transition.id,
 					taskScope: transition.taskScope,
@@ -567,7 +580,7 @@ export async function transitionProposedCall(
 							bakedRequest = undefined;
 						}
 					}
-					const input: ReviewAgentWorkIntentInput = {
+					pendingIntent = {
 						kind: "reengagement",
 						sourceKind: "proposed_call",
 						sourceId: transition.id,
@@ -575,14 +588,16 @@ export async function transitionProposedCall(
 						idempotencyKey: `grant:${transition.id}`,
 						bakedRequest,
 					};
-					await ports.intentRecorder.record(innerTx, input);
 				}
 			});
+			if (pendingIntent && ports?.intentRecorder) {
+				await ports.intentRecorder.record(exec, pendingIntent);
+			}
 			return;
 		}
 
 		case "consumed": {
-			const [claimed] = await tx
+			const [claimed] = await exec
 				.update(tailoredGrants)
 				.set({ consumed: true, consumedAt: nowIso() })
 				.where(
@@ -602,14 +617,14 @@ export async function transitionProposedCall(
 			const executedAt = nowIso();
 			if (result.success) {
 				const receipt = typeof result.data === "string" ? result.data : JSON.stringify(result.data);
-				await tx.insert(operationOutcomes).values({
+				await exec.insert(operationOutcomes).values({
 					proposedCallId: id,
 					status: "ok",
 					receipt,
 					executedAt,
 				});
 			} else {
-				await tx.insert(operationOutcomes).values({
+				await exec.insert(operationOutcomes).values({
 					proposedCallId: id,
 					status: "failed",
 					error: result.error,
@@ -617,7 +632,7 @@ export async function transitionProposedCall(
 				});
 			}
 			const newStatus = result.success ? "executed" : "failed";
-			await tx.update(proposedCalls).set({ status: newStatus }).where(eq(proposedCalls.id, id));
+			await exec.update(proposedCalls).set({ status: newStatus }).where(eq(proposedCalls.id, id));
 			return;
 		}
 	}

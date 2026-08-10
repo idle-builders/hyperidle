@@ -22,6 +22,11 @@
 import * as os from "node:os";
 import * as path from "node:path";
 import {
+	buildProposedCallWorkflowPort,
+	buildToolDefinitions,
+	createInProcessCoreApiTransport,
+} from "@hyperidle/agent-orchestration";
+import {
 	artifacts,
 	bets,
 	type HyperIdleDb,
@@ -35,30 +40,36 @@ import {
 	users,
 } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
-import type { ToolContext } from "@hyperidle/tool-protocol";
+import { buildToolRegistry as buildToolRegistryFromDefinitions } from "@hyperidle/tool-handlers";
+import type { BuildToolRegistryOptions, ToolContext, ToolRegistry } from "@hyperidle/tool-protocol";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test as baseTest } from "../__testing__/test-fixtures.js";
-import {
-	createInProcessCoreApiTransport,
-	registerCoreApiTransport,
-} from "../services/core-api-port-composition.js";
-import { buildToolRegistry } from "../services/tool-provider-bindings.js";
 
 /**
- * @lore AU21 §9 Increment 2 (conversation wave): this file invokes
- * `read_inbox`, which now reaches `ports.coreApi.listInboxBySenderExclusion`
- * (the seam) — same file-scoped `auto:true` fixture idiom as
- * `create-item.integration.test.ts`.
+ * @lore AU31 §2.5/§3.2/§5: the `coreApiSeamRegistration` auto-fixture used to
+ * register this test's `app` on the ambient global — replaced by a
+ * `buildToolRegistry` fixture built fresh off THIS test's own `app`,
+ * wired to the REAL `CoreApiPort.review` seam ops (`buildProposedCallWorkflowPort`)
+ * so the AL7 workflow router's capture/consume/record-outcome calls exercise
+ * the real `POST /reviews/proposed-calls*` routes this leaf added — same
+ * two-arg shape (`(ctx, options) => registry`) the deleted `tool-provider-
+ * bindings.ts` wrapper had, so every call site below is unchanged.
  */
-const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
-	coreApiSeamRegistration: [
-		async ({ app }, use) => {
-			registerCoreApiTransport(createInProcessCoreApiTransport(app));
-			await use(undefined);
-		},
-		{ auto: true },
-	],
+const test = baseTest.extend<{
+	buildToolRegistry: (
+		ctx: ToolContext<HyperIdleDb>,
+		options: BuildToolRegistryOptions<HyperIdleDb>,
+	) => ToolRegistry<HyperIdleDb>;
+}>({
+	buildToolRegistry: async ({ app }, use) => {
+		const transport = createInProcessCoreApiTransport(app);
+		const definitions = buildToolDefinitions(transport);
+		const workflowPort = buildProposedCallWorkflowPort(transport);
+		await use((ctx, options) =>
+			buildToolRegistryFromDefinitions<HyperIdleDb>(definitions, ctx, options, workflowPort),
+		);
+	},
 });
 
 const NOW = new Date().toISOString();
@@ -177,6 +188,7 @@ describe("AC1: irreversible call is captured + session 1 aborted", () => {
 	test("invoking commit_file in open-work session creates a proposed_calls row (status:captured)", async ({
 		db,
 		eventBus,
+		buildToolRegistry,
 	}) => {
 		const { agentId, taskId, threadId, reviewMessageId, artifactId } = await seedWorld(db);
 		const sessionId = `sess-s1-${crypto.randomUUID()}`;
@@ -222,6 +234,7 @@ describe("AC1: irreversible call is captured + session 1 aborted", () => {
 	test("invoking commit_file aborts session 1 (sessionRunRegistry.abort fires)", async ({
 		db,
 		eventBus,
+		buildToolRegistry,
 	}) => {
 		const { agentId, taskId, threadId, reviewMessageId, artifactId } = await seedWorld(db);
 		const sessionId = `sess-abort-${crypto.randomUUID()}`;
@@ -258,6 +271,7 @@ describe("AC1: capture idempotency — (origin_session_id, identity_hash) UNIQUE
 	test("a second identical call in the same session creates NO duplicate proposed_calls row", async ({
 		db,
 		eventBus,
+		buildToolRegistry,
 	}) => {
 		const { agentId, taskId, threadId, reviewMessageId, artifactId } = await seedWorld(db);
 		const sessionId = `sess-idem-${crypto.randomUUID()}`;
@@ -292,6 +306,7 @@ describe("AC1: capture idempotency — (origin_session_id, identity_hash) UNIQUE
 	test("a second DIFFERENT irreversible call in the same dying session creates a SECOND Proposed Call", async ({
 		db,
 		eventBus,
+		buildToolRegistry,
 	}) => {
 		// This is INTENDED behavior (WARNING-5.1): each distinct consequential call the
 		// agent attempted deserves its own human decision. We do not short-circuit.
@@ -332,6 +347,7 @@ describe("AC2: reversible call flows with no capture", () => {
 	test("a reversible tool invocation returns the tool result (not AWAITING_REVIEW)", async ({
 		db,
 		eventBus,
+		buildToolRegistry,
 	}) => {
 		const { agentId, taskId, threadId, reviewMessageId, artifactId } = await seedWorld(db);
 		const sessionId = `sess-rev-${crypto.randomUUID()}`;

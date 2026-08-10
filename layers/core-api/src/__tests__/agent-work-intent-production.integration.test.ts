@@ -25,8 +25,8 @@ import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { checkAndUnblockDependents } from "@hyperidle/work";
 import { eq, sql } from "drizzle-orm";
+import { queueDeps } from "../__testing__/durable-agent-queue-test-deps.js";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
-import { queueDeps } from "../services/durable-agent-queue.js";
 import { fireGenericRoutine } from "./dispatch-test-helpers.js";
 
 /** AU20 Ag2: `checkAndUnblockDependents` relocated to work; `work:` sub-object removed. */
@@ -229,7 +229,7 @@ describe("atomic production handoffs", () => {
 	});
 
 	test("composition module exports dependencies only", async () => {
-		const worker = await import("../services/durable-agent-queue.js");
+		const worker = await import("../__testing__/durable-agent-queue-test-deps.js");
 		expect(worker.queueDeps).toBeTypeOf("function");
 		expect("drainIntents" in worker).toBe(false);
 		// @lore AU9 R1: handOffIntent was a zero-production-caller duplicate of the
@@ -425,7 +425,15 @@ describe("atomic production handoffs", () => {
 		expect(attempts[0]?.occasion).toBe("accepted");
 	});
 
-	test("real assistant message command rolls back its message when the intent write fails", async ({
+	// AU31 §3.1 site 5 — INVERTED. The message insert is no longer inside the
+	// same transaction as the intent submit (relinquished, founder ruling
+	// architecture.md §3.1/§13 item 9): a seam call from inside this route's
+	// own open `db.transaction()` reproduced a real deadlock (§3.2), so the
+	// two writes can no longer share one transaction. This test used to prove
+	// they rolled back together; it now proves the named window — a committed
+	// message with no queued turn intent, repaired by a re-send (the
+	// coherence trigger re-bakes on the next thread append anyway).
+	test("real assistant message command: the message survives even when the intent write fails (AU31 §3.1 site 5)", async ({
 		db,
 		app,
 	}) => {
@@ -442,12 +450,21 @@ describe("atomic production handoffs", () => {
 			}),
 		});
 
+		// The seam's intent submit fails (uncaught) — the route still 500s —
+		// but the message insert already committed before that call ran.
 		expect(response.status).toBe(500);
-		expect(await db.select().from(messages)).toHaveLength(0);
+		expect(await db.select().from(messages)).toHaveLength(1);
 		expect(await db.select().from(agentWorkIntents)).toHaveLength(0);
 	});
 
-	test("real knowledge flag command rolls back its action and edit when the intent write fails", async ({
+	// AU31 §3.1 site 4 — INVERTED. The flag transition is no longer inside the
+	// same transaction as the intent submit (relinquished, founder ruling
+	// architecture.md §3.1/§13 item 9): the flag commits regardless of
+	// whether the seam's intent submit later fails. This test used to prove
+	// the two writes rolled back together; it now proves the named window —
+	// a flagged item with no queued review action, repaired by a retry that
+	// re-runs the idempotent flag path and re-submits under the same key.
+	test("real knowledge flag command: the flag survives even when the intent write fails (AU31 §3.1 site 4)", async ({
 		db,
 		app,
 	}) => {
@@ -476,9 +493,7 @@ describe("atomic production handoffs", () => {
 		// create(), which unconditionally writes a `create` knowledgeEditLog row (AC-4
 		// convergence — see plans/AU14/architecture.md §7/§9 D1). Capture the baseline
 		// count here (1 durable row from the create above) so the assertion below
-		// proves the FAILED flag transaction added no new row, rather than asserting
-		// the whole table is empty (which was only ever true because the pre-AU14
-		// route's create wrote no edit-log row at all).
+		// proves the flag transaction added exactly one new row.
 		const editLogCountBeforeFlag = (await db.select().from(knowledgeEditLog)).length;
 		await rejectIntentWrites(db);
 
@@ -488,17 +503,25 @@ describe("atomic production handoffs", () => {
 			body: JSON.stringify({ reason: "needs agent review", agentId: "au9-knowledge-agent" }),
 		});
 
+		// The seam's intent submit fails (uncaught) — the route still 500s —
+		// but the flag transition already committed before that call ran.
 		expect(response.status).toBe(500);
 		const [persisted] = await db
 			.select()
 			.from(knowledgeItems)
 			.where(eq(knowledgeItems.id, item.id));
-		expect(persisted?.status).toBe(item.status);
-		expect(await db.select().from(knowledgeEditLog)).toHaveLength(editLogCountBeforeFlag);
+		expect(persisted?.status).toBe("draft");
+		expect(await db.select().from(knowledgeEditLog)).toHaveLength(editLogCountBeforeFlag + 1);
 		expect(await db.select().from(agentWorkIntents)).toHaveLength(0);
 	});
 
-	test("real manual routine command rolls back its run when the intent write fails", async ({
+	// AU31 §3.1 site 8 — INVERTED. The routine_run row commits (outcome
+	// "running") in its own transaction before the seam's intent submit runs;
+	// on a failed submit, the founder-ruled error handling marks the SAME
+	// row `outcome:"error"` (guarded `onlyIfRunning`) rather than leaving it
+	// wedged as permanently "running" — see `routine-scheduler.ts`'s
+	// `fireGenericRoutine`.
+	test("real manual routine command: the run is marked error, not rolled back, when the intent write fails (AU31 §3.1 site 8)", async ({
 		db,
 		app,
 	}) => {
@@ -511,13 +534,16 @@ describe("atomic production handoffs", () => {
 		});
 
 		expect(response.status).toBe(500);
-		expect(await db.select().from(routineRuns)).toHaveLength(0);
+		const runs = await db.select().from(routineRuns);
+		expect(runs).toHaveLength(1);
+		expect(runs[0]?.outcome).toBe("error");
 		expect(await db.select().from(agentWorkIntents)).toHaveLength(0);
 	});
 
-	test("real scheduler routine command rolls back its run when the intent write fails", async ({
+	test("real scheduler routine command: the run is marked error, not rolled back, when the intent write fails (AU31 §3.1 site 8)", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedRoutineAuthority(db);
 		const [routine] = await db
@@ -527,13 +553,15 @@ describe("atomic production handoffs", () => {
 		await rejectIntentWrites(db);
 
 		await expect(
-			fireGenericRoutine(db, eventBus, routine!, {
+			fireGenericRoutine(db, eventBus, agentOrchestration, routine!, {
 				adapterPool: {},
 				workspace: {},
 				sandboxBasePath: "/tmp/au9-production",
 			}),
 		).rejects.toThrow();
-		expect(await db.select().from(routineRuns)).toHaveLength(0);
+		const runs = await db.select().from(routineRuns);
+		expect(runs).toHaveLength(1);
+		expect(runs[0]?.outcome).toBe("error");
 		expect(await db.select().from(agentWorkIntents)).toHaveLength(0);
 	});
 

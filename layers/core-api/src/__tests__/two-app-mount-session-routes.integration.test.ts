@@ -276,8 +276,12 @@ describe("agent-orchestration's own app, mounted beside core-api's", () => {
 		db,
 		eventBus,
 	}) => {
-		const orchestration = bootAgentOrchestration({ db, eventBus });
-		const coreOnly = await createCoreApiApp({ db, eventBus });
+		const orchestration = await bootAgentOrchestration({ db, eventBus });
+		const coreOnly = await createCoreApiApp({
+			db,
+			eventBus,
+			agentOrchestration: buildAgentOrchestrationPort(async (req) => orchestration.app.fetch(req)),
+		});
 
 		// @lore AU26 B1b: BOTH Layer apps are now bare route tables that the
 		// Application mounts at `/` on its own `/api` router, so their path

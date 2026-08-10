@@ -482,18 +482,18 @@ export async function seedConflict(
 }
 
 /**
- * Seed the three builtin agent stubs that `provisionTeamRoutines()` (`@hyperidle/core-api/routines`) references via
+ * Seed the three builtin agent stubs that `provisionTeamRoutines()` (`@hyperidle/routine`) references via
  * owner role resolution (`seed-agent-cos`, `seed-agent-pf-facilitation`, `demo-agent-pm`).
- * Must be called before `provisionTeamRoutines()` (`@hyperidle/core-api/routines`) in any eval scenario that exercises
+ * Must be called before `provisionTeamRoutines()` (`@hyperidle/routine`) in any eval scenario that exercises
  * the builtin routine subsystem.
  *
- * @lore X8 BUILTIN-FK: `provisionTeamRoutines` (`@hyperidle/core-api/routines`) resolves ownerByRole to users.id.
+ * @lore X8 BUILTIN-FK: `provisionTeamRoutines` (`@hyperidle/routine`) resolves ownerByRole to users.id.
  * The eval ephemeral PGlite DB does NOT run the production seed, so FK constraints
  * on `routines.ownerAgentId → users.id` fail unless we pre-insert these three stubs.
  * We use `onConflictDoNothing` so this is idempotent.
  *
  * @lore AF17: Updated from the old `seedBuiltinRoutines` shim (deleted) to
- * `provisionTeamRoutines` (`@hyperidle/core-api/routines`). The owner agent ids remain the same stable factory stubs.
+ * `provisionTeamRoutines` (`@hyperidle/routine`). The owner agent ids remain the same stable factory stubs.
  */
 export async function seedBuiltinAgents(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();

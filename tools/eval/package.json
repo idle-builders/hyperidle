@@ -12,16 +12,21 @@
 	},
 	"dependencies": {
 		"@anthropic-ai/sdk": "^0.112.1",
+		"@hyperidle/agent-orchestration": "*",
+		"@hyperidle/api-contract": "*",
 		"@hyperidle/core-api": "*",
 		"@hyperidle/credential-access": "*",
 		"@hyperidle/db": "*",
 		"@hyperidle/domain-model": "*",
 		"@hyperidle/event-bus": "*",
 		"@hyperidle/harness-registry": "*",
+		"@hyperidle/http-middleware": "*",
+		"@hyperidle/routine": "*",
 		"@hyperidle/settings": "*",
 		"@hyperidle/users": "*",
 		"@hyperidle/work-intent-port": "*",
-		"drizzle-orm": "^0.45.2"
+		"drizzle-orm": "^0.45.2",
+		"hono": "^4.12.27"
 	},
 	"devDependencies": {
 		"tsx": "^4.22.4",

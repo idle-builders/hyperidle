@@ -10,43 +10,23 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
+import {
+	buildToolDefinitions,
+	createInProcessCoreApiTransport,
+} from "@hyperidle/agent-orchestration";
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
 import type { TaskStateChangedEvent } from "@hyperidle/domain-model";
-import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import type { ToolContext } from "@hyperidle/tool-protocol";
 import { eq } from "drizzle-orm";
+import type { Hono } from "hono";
 import { describe, expect } from "vitest";
-import { test as baseTest } from "../__testing__/test-fixtures.js";
-import {
-	createInProcessCoreApiTransport,
-	registerCoreApiTransport,
-} from "../services/core-api-port-composition.js";
-import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
+import { test } from "../__testing__/test-fixtures.js";
 
-/**
- * @lore AU21 §9 Increment 2: this file's tool handler(s) now reach
- * `ports.coreApi.*` (the seam) — this file-scoped `auto:true` fixture
- * registers a real in-process `CoreApiPort` transport off THIS test's own
- * `app` for every test in this file, without forcing `app`'s full
- * subscriber wiring onto every OTHER test file that imports the bare
- * `test` from `test-fixtures.ts` (that fixture's `app` stays lazy — a
- * global auto-fixture there double-fired `app.ts`'s task-`done`
- * dep-watcher against tests that manually drive the same transition,
- * an AU21 Increment 2 GREEN-phase finding).
- */
-const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
-	coreApiSeamRegistration: [
-		async ({ app }, use) => {
-			registerCoreApiTransport(createInProcessCoreApiTransport(app));
-			await use(undefined);
-		},
-		{ auto: true },
-	],
-});
-
-const createTaskTool = buildToolDefinitions(toolHandlersPorts).find(
-	(t) => t.name === "create_task",
-)!;
+function buildCreateTaskTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
+	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+		(t) => t.name === "create_task",
+	)!;
+}
 
 const NOW = new Date().toISOString();
 
@@ -106,7 +86,9 @@ describe("create_task tool", () => {
 		test("returns ok with taskId and inserts task row with derived betId", async ({
 			db,
 			eventBus,
+			app,
 		}) => {
+			const createTaskTool = buildCreateTaskTool(app);
 			await seed(db);
 			const result = await createTaskTool.handler(
 				{ title: "Implement feature X" },
@@ -133,7 +115,9 @@ describe("create_task tool", () => {
 		test("persists optional description and doneCondition when provided", async ({
 			db,
 			eventBus,
+			app,
 		}) => {
+			const createTaskTool = buildCreateTaskTool(app);
 			await seed(db);
 			const result = await createTaskTool.handler(
 				{
@@ -156,7 +140,8 @@ describe("create_task tool", () => {
 
 	// AC5: new tasks from create_task start in proposed state
 	describe("AC5: new task starts in proposed state", () => {
-		test("inserted task has state=proposed", async ({ db, eventBus }) => {
+		test("inserted task has state=proposed", async ({ db, eventBus, app }) => {
+			const createTaskTool = buildCreateTaskTool(app);
 			await seed(db);
 			const result = await createTaskTool.handler({ title: "Subtask" }, makeContext(db, eventBus));
 
@@ -171,7 +156,8 @@ describe("create_task tool", () => {
 
 	// Event emission
 	describe("event emission", () => {
-		test("emits task_state_changed event after creating a task", async ({ db, eventBus }) => {
+		test("emits task_state_changed event after creating a task", async ({ db, eventBus, app }) => {
+			const createTaskTool = buildCreateTaskTool(app);
 			await seed(db);
 			const emitted: TaskStateChangedEvent[] = [];
 			eventBus.on("task_state_changed", (e: TaskStateChangedEvent) => emitted.push(e));
@@ -189,7 +175,8 @@ describe("create_task tool", () => {
 
 	// Error cases
 	describe("error cases", () => {
-		test("returns NOT_FOUND when ctx.taskId does not exist", async ({ db, eventBus }) => {
+		test("returns NOT_FOUND when ctx.taskId does not exist", async ({ db, eventBus, app }) => {
+			const createTaskTool = buildCreateTaskTool(app);
 			await seed(db);
 			const ctx: ToolContext<HyperIdleDb> = {
 				...makeContext(db, eventBus),
@@ -203,7 +190,8 @@ describe("create_task tool", () => {
 			expect(result.code).toBe("NOT_FOUND");
 		});
 
-		test("returns INVALID_INPUT when title is empty string", async ({ db, eventBus }) => {
+		test("returns INVALID_INPUT when title is empty string", async ({ db, eventBus, app }) => {
+			const createTaskTool = buildCreateTaskTool(app);
 			await seed(db);
 			const result = await createTaskTool.handler({ title: "" }, makeContext(db, eventBus));
 
@@ -212,7 +200,12 @@ describe("create_task tool", () => {
 			expect(result.code).toBe("INVALID_INPUT");
 		});
 
-		test("returns INVALID_INPUT when title exceeds 512 characters", async ({ db, eventBus }) => {
+		test("returns INVALID_INPUT when title exceeds 512 characters", async ({
+			db,
+			eventBus,
+			app,
+		}) => {
+			const createTaskTool = buildCreateTaskTool(app);
 			await seed(db);
 			const result = await createTaskTool.handler(
 				{ title: "x".repeat(513) },

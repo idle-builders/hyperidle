@@ -167,12 +167,18 @@ export interface PolicyDeps {
 	 *
 	 * Optional for the same reason `sessionRequests`/`taskRunResolver`/`org` are:
 	 * it is a HANDOFF-only dependency, and `HandoffDeps` narrows it back to
-	 * required with `NonNullable<...>`. The reactive/query composition roots
-	 * (`registerPolicy`, `computeApprovalRate`) never touch it.
+	 * required with `NonNullable<...>`.
 	 *
-	 * Called with the handoff's OWN `tx` handle — the run must be terminal at
-	 * the same commit as the task claim, or a handoff commits with a live run
-	 * and nothing behind it ever cleans up (the reaper is routine-only).
+	 * @lore AU31 §3.1 site 7 — called BEFORE the handoff's `tx` opens, not
+	 * inside it. Cross-layer atomicity with `agent-orchestration` is
+	 * relinquished (relinquishment is the default for every site in §3.1),
+	 * but this one site uses the "free lever": since the write has NO safety
+	 * net behind it (no reaper sweeps a handed-off-but-still-`active` run —
+	 * routine-only), relinquishing in the default POST-commit order would
+	 * strand that agent's session slot forever on a failure. Ordered first
+	 * instead: the write takes no CAS, so it is idempotent, and a rolled-back
+	 * handoff simply leaves an already-ended run + an untouched task — the
+	 * named residue, not a stranded resource.
 	 */
 	readonly runOrchestration?: {
 		endRunForHandoff(exec: WriteExecutor, sessionId: string, endedAt: string): Promise<void>;

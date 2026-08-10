@@ -1,11 +1,21 @@
-import { runSession } from "@hyperidle/core-api/session";
 import type { HyperIdleDb, User } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { AdapterPool } from "@hyperidle/harness-registry";
 import { describe, expect, it, vi } from "vitest";
 import { runEvalSession } from "./provision-harness.js";
 
-vi.mock("@hyperidle/core-api/session", () => ({ runSession: vi.fn() }));
+/**
+ * @lore AU31 §2.3/§5: `runSession` moved off a free function
+ * (`@hyperidle/core-api/session`) onto `buildRunOrchestrationComposition(...)
+ * .runSession` (`@hyperidle/agent-orchestration`) — mock the FACTORY to
+ * return an object whose `runSession` is the spy, same mocking intent as
+ * before (this test's concern is adapter-pool selection, not the
+ * composition's own wiring).
+ */
+const runSession = vi.fn();
+vi.mock("@hyperidle/agent-orchestration", () => ({
+	buildRunOrchestrationComposition: () => ({ runSession }),
+}));
 // AU21 §9 Increment 12 (Decision H3), Wave E: `runEvalSession` now performs a
 // real `requireRunnableAgent`/`readServerConfig` bake before calling
 // `runSession` (mocked above) — this test's concern is adapter-pool

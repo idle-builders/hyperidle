@@ -1,3 +1,4 @@
+import { CORE_API_ACTOR_OVERRIDE_HEADER } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { ApiErrorResponse } from "@hyperidle/domain-model";
@@ -5,7 +6,6 @@ import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import { constantTimeStringEqual, type HyperIdleEnv } from "@hyperidle/http-middleware";
 import { findUser, validateBearerToken } from "@hyperidle/users";
 import type { Context, MiddlewareHandler } from "hono";
-import { CORE_API_ACTOR_OVERRIDE_HEADER } from "../services/actor-transport-header.js";
 
 /**
  * API key authentication middleware.
@@ -131,7 +131,9 @@ async function handleBearerAuth(
  *
  * AU21 §12: an actor-override header lets the seam's own Application-layer
  * composition root (never an external client — see
- * `actor-transport-header.ts`'s `@lore`) carry the calling agent's own
+ * `@hyperidle/api-contract`'s `CORE_API_ACTOR_OVERRIDE_HEADER` doc comment,
+ * moved there in AU31 §12 so both sides of the seam read the same wire
+ * constant from the contract package) carry the calling agent's own
  * identity as the route actor. Falls back to the existing human-resolution
  * behavior (`@lore P2`) when the header is absent.
  */

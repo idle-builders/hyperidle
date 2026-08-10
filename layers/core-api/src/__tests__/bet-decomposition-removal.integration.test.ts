@@ -37,14 +37,13 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { AdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
 import { createServer, type ServerHandle } from "@hyperidle/remote-server/create-server";
 import type { RuntimePorts } from "@hyperidle/run-orchestration";
 import { drainIntents } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
+import { queueDeps } from "../__testing__/durable-agent-queue-test-deps.js";
 import { afterEach, beforeEach, describe, expect, test } from "../__testing__/test-fixtures.js";
-import { queueDeps } from "../services/durable-agent-queue.js";
 import { startTestRuntime } from "./run-orchestration-test-runtime.js";
 
 const TEST_API_KEY = "test-key-au21-inc10a";
@@ -56,8 +55,7 @@ function authHeaders(): Record<string, string> {
 async function bootRealServer(db: HyperIdleDb): Promise<{ handle: ServerHandle; baseUrl: string }> {
 	const handle = await createServer(0, {
 		db,
-		adapterPool: new AdapterPool(),
-		workspaceAdapter: createSandboxAdapter("disabled"),
+		topology: "disabled",
 		sandboxBasePath: "/tmp/au21-inc10a-workspaces",
 	});
 	const address = handle.httpServer.address();

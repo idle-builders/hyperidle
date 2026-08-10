@@ -13,11 +13,13 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { fireRoutine, provisionTeamRoutines } from "@hyperidle/core-api/routines";
+import { fireRoutine } from "@hyperidle/core-api";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { items, routines } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
+import { provisionTeamRoutines } from "@hyperidle/routine";
 import { and, eq, like } from "drizzle-orm";
+import { buildEvalAgentOrchestrationPort } from "../agent-orchestration-fixture.js";
 import { judgeReviewItemCreated, judgeRoutineFired, judgeStaleItemsMarked } from "../judges.js";
 
 async function fireStoredRoutine(
@@ -28,7 +30,8 @@ async function fireStoredRoutine(
 ) {
 	const [routine] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
 	if (!routine) return { fired: false as const, reason: "routine not found" };
-	return fireRoutine(db, eventBus, routine, { args });
+	const agentOrchestration = await buildEvalAgentOrchestrationPort(db, eventBus);
+	return fireRoutine(db, eventBus, agentOrchestration, routine, { args });
 }
 
 import { seedBet, seedBuiltinAgents, seedMinimalWorld } from "../seeding.js";

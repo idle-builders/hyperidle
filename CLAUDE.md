@@ -72,7 +72,7 @@ A file is **development** if its name declares it (`.test.ts(x)`, `.spec.ts(x)`,
 
 **A production file may never import a development file.** One direction, no exceptions — no allowlist, no suppression comment. So a fixture a shipping page reads cannot just move into `__fixtures__/`; the page has to stop needing it first.
 
-A few production-path files are really development and cannot move yet. Each is recorded with its reason in `governance/misplaced-files.json`, warns on every lint run, and the count only shrinks — adding an entry is a diff review will challenge.
+A few production-path files are really development and cannot move yet. Each is recorded with its reason in `tools/governance/misplaced-files.json`, warns on every lint run, and the count only shrinks — adding an entry is a diff review will challenge.
 
 **Harness-facing integration tests use the REAL installed harness binary — never a stub.** Decide by "is the harness/agent/CLI the thing under test?"; if yes, a stubbed/scripted/mocked adapter makes it a mislabeled unit test, not an integration test. Gate with `requireHarness(<name>)` (claude/codex/opencode/cursor-agent = binary on PATH; builtin = `OPENROUTER_API_KEY`) — a missing harness hard-fails the run (the work can't be completed), never `skipIf` to green. Non-harness binaries (e.g. `gh`) use `requireBinary(<name>)` instead. Enforced via `requireHarness` + the attestation agentic floor. **Like e2e, the harness lane is release-gated:** per-merge verify (affected scope) runs the service project only; `verify:release` (full scope) runs the harness lane and its floors (agentic executed-count + per-harness symmetry) enforce it.
 
@@ -92,9 +92,9 @@ When you make a non-obvious decision, encounter a cross-cutting constraint, or d
 
 ## Architecture
 
-Package boundaries — what may import what, and how packages talk across them — are **machine-enforced**. `npm run lint` is the source of truth, and [`governance/README.md`](governance/README.md) is where those rules are written down.
+Package boundaries — what may import what, and how packages talk across them — are **machine-enforced**. `npm run lint` is the source of truth, and [`tools/governance/README.md`](tools/governance/README.md) is where those rules are written down.
 
-Never infer a boundary rule from the code around you: an existing import may be a violation nobody has caught yet. Never restate them here either — a second copy drifts from the enforced one, and then agents follow the wrong copy. Read them in `governance/README.md` when the linter stops you.
+Never infer a boundary rule from the code around you: an existing import may be a violation nobody has caught yet. Never restate them here either — a second copy drifts from the enforced one, and then agents follow the wrong copy. Read them in `tools/governance/README.md` when the linter stops you.
 
 The one rule that is stated above rather than pointed at is which **world** a file is in — production or development — because you need it before you write the file, not after the linter rejects it.
 

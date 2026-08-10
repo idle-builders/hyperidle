@@ -62,9 +62,13 @@ describe("AC12: no kernel-executor surface in the trust-first model", () => {
 	});
 
 	it("stage_operation tool is NOT in ALL_TOOL_DEFINITIONS (v1 tool retired)", async () => {
-		const { allToolDefinitions: ALL_TOOL_DEFINITIONS } = await import(
-			"../services/tool-handlers-bindings.js"
-		);
+		const { buildToolDefinitions } = await import("@hyperidle/agent-orchestration");
+		// @lore AU31 §3.2/B2: this test only reads tool NAMES — never invokes a
+		// handler — so a transport that throws if called is more honest than
+		// wiring a real `app`.
+		const ALL_TOOL_DEFINITIONS = buildToolDefinitions(() => {
+			throw new Error("AL7-no-kernel-executor never invokes a tool handler");
+		});
 		const names = ALL_TOOL_DEFINITIONS.map((d: { name: string }) => d.name);
 		// The stage_operation tool was the v1 agent-authored staging tool — retired per concept rejection #8
 		expect(names).not.toContain("stage_operation");

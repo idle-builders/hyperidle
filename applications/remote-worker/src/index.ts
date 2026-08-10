@@ -12,7 +12,14 @@
  * (`agent-execution` Layer: it holds a `HarnessAdapter` and runs sessions,
  * never touches `core-api`/`agent-orchestration`/`core-ui`), not because a
  * standalone `remote-worker` binary/deployable exists yet.
+ *
+ * @lore AU31 §2.7/§5.3/[P9]: the class itself relocated into
+ * `@hyperidle/agent-execution` — a composition root reaches a layer's public
+ * face only, never another application (`application → application [import]`
+ * is forbidden). This package thins to a re-export of that face, keeping the
+ * separately-typed `remote-worker` role real for whenever a standalone
+ * process entry is built, without holding the implementation itself.
  */
 
-export type { RemoteWorkerClientOptions, WorkerStatus } from "./remote-worker-client.js";
-export { RemoteWorkerClient } from "./remote-worker-client.js";
+export type { RemoteWorkerClientOptions, WorkerStatus } from "@hyperidle/agent-execution";
+export { RemoteWorkerClient } from "@hyperidle/agent-execution";

@@ -1,3 +1,4 @@
+import { bootAgentExecution } from "@hyperidle/agent-execution";
 import { SESSION_NOT_RETURNED_NOTICE_TEXT } from "@hyperidle/conversation";
 import { encryptCredentialValue } from "@hyperidle/credential-access";
 import {
@@ -9,11 +10,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import {
-	AdapterPool,
-	createHarnessAdapter,
-	createSandboxAdapter,
-} from "@hyperidle/harness-registry";
+import { createHarnessAdapter } from "@hyperidle/harness-registry";
 import { requireHarness } from "@hyperidle/harness-registry/test-utils";
 import { createServer } from "@hyperidle/remote-server/create-server";
 import { eq } from "drizzle-orm";
@@ -91,8 +88,22 @@ describe("[harness:builtin] assistant durable handoff", () => {
 			validationState: "present_untested",
 			updatedAt: now,
 		});
-		const pool = new AdapterPool();
-		pool.register(
+		// AU31 §6: `bootAgentExecution({topology:"local"})` builds a REAL local
+		// sandbox adapter plus every other execution-face piece (MCP bridge,
+		// enforcement registry) this composition needs, and pre-populates the
+		// pool via `createLocalAdapterPool()`'s own "local-builtin" registration
+		// — the test then RE-registers that same key with its own tuned
+		// builtin adapter (`AdapterPool.register` overwrites), keeping the real
+		// local `SandboxAdapter` a `"disabled"` topology would not give
+		// (`workspace.spawn()` on a disabled sandbox always rejects, which the
+		// assistant-kind admission path silently swallows pre-admission — the
+		// exact bug this comment now documents so a future rewrite does not
+		// reintroduce it).
+		const agentExecutionBoot = await bootAgentExecution({
+			topology: "local",
+			mcpBaseUrl: "http://localhost:0",
+		});
+		agentExecutionBoot.adapters.pool.register(
 			"local-builtin",
 			createHarnessAdapter({
 				kind: "builtin",
@@ -108,8 +119,8 @@ describe("[harness:builtin] assistant durable handoff", () => {
 		);
 		const server = await createServer(0, {
 			db,
-			adapterPool: pool,
-			workspaceAdapter: createSandboxAdapter("local"),
+			topology: "local",
+			agentExecutionBoot,
 		});
 		try {
 			const address = server.httpServer.address();

@@ -2,8 +2,9 @@
  * N4 — boot-server tests
  *
  * AC coverage:
- *  - startServer() calls createServer(0, deps) from @hyperidle/remote-server/create-server,
- *    injecting a concrete LocalSandboxAdapter/AdapterPool (AU19 Increment 5 item 2)
+ *  - startServer() calls createServer(0, deps) from ./create-server.js,
+ *    with topology:"local" and the loopback hostname (AU31 §5.3: desktop's
+ *    own composition root — no `application → application` import)
  *  - getPort() extracts the OS-assigned port from a listening handle
  *  - waitForHealth() resolves when /api/health returns 200
  *  - waitForHealth() throws after 30s timeout (mocked to fast timeout)
@@ -14,9 +15,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { getPort, startServer, waitForHealth } from "../src/boot-server.js";
 
 // ---------------------------------------------------------------------------
-// Mock @hyperidle/remote-server/create-server + @hyperidle/harness-registry
+// Mock ./create-server.js — desktop's own composition root (AU31 §5.3)
 // ---------------------------------------------------------------------------
-vi.mock("@hyperidle/remote-server/create-server", () => ({
+vi.mock("../src/create-server.js", () => ({
 	createServer: vi.fn(async (port: number) => ({
 		httpServer: {
 			address: () => ({ port: port === 0 ? 51234 : port }),
@@ -26,22 +27,11 @@ vi.mock("@hyperidle/remote-server/create-server", () => ({
 	})),
 }));
 
-vi.mock("@hyperidle/harness-registry", () => ({
-	createLocalAdapterPool: vi.fn(async () => ({ pool: "fake-adapter-pool" })),
-	createSandboxAdapter: vi.fn(() => ({ workspaceAdapter: "fake" })),
-}));
-
 describe("startServer", () => {
-	it("calls createServer with port 0 and an injected adapterPool/workspaceAdapter", async () => {
-		const { createServer } = await import("@hyperidle/remote-server/create-server");
+	it("calls createServer with port 0 and topology:local", async () => {
+		const { createServer } = await import("../src/create-server.js");
 		await startServer();
-		expect(createServer).toHaveBeenCalledWith(
-			0,
-			expect.objectContaining({
-				adapterPool: expect.anything(),
-				workspaceAdapter: expect.anything(),
-			}),
-		);
+		expect(createServer).toHaveBeenCalledWith(0, expect.objectContaining({ topology: "local" }));
 	});
 
 	// S-9.2: the embedded server must not be reachable from the local network.
@@ -51,7 +41,7 @@ describe("startServer", () => {
 	// real bind, in
 	// `applications/remote-server/src/__tests__/server-bind-address.integration.test.ts`.
 	it("pins the embedded server to loopback", async () => {
-		const { createServer } = await import("@hyperidle/remote-server/create-server");
+		const { createServer } = await import("../src/create-server.js");
 		await startServer();
 		expect(createServer).toHaveBeenCalledWith(
 			0,

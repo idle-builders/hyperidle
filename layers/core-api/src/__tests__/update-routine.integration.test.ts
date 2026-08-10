@@ -4,39 +4,22 @@
  * RED phase: these tests will fail until update-routine.ts is implemented.
  */
 
-import { bets, routines, tasks, teamMembers, teams, users } from "@hyperidle/db";
-import { buildToolDefinitions } from "@hyperidle/tool-handlers";
-import { eq } from "drizzle-orm";
-import { describe, expect } from "vitest";
-import { test as baseTest } from "../__testing__/test-fixtures.js";
 import {
+	buildToolDefinitions,
 	createInProcessCoreApiTransport,
-	registerCoreApiTransport,
-} from "../services/core-api-port-composition.js";
-import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
-
-/**
- * @lore AU21 §9 Increment 2 (org/routine/handoff wave): this file's tool
- * handler now reaches `ports.coreApi.*` (the seam) — this file-scoped
- * `auto:true` fixture registers a real in-process `CoreApiPort` transport off
- * THIS test's own `app` for every test in this file (same idiom as
- * `create-routine.integration.test.ts`/`handoff-to.integration.test.ts`).
- */
-const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
-	coreApiSeamRegistration: [
-		async ({ app }, use) => {
-			registerCoreApiTransport(createInProcessCoreApiTransport(app));
-			await use(undefined);
-		},
-		{ auto: true },
-	],
-});
-
+} from "@hyperidle/agent-orchestration";
+import { bets, routines, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { eq } from "drizzle-orm";
+import type { Hono } from "hono";
+import { describe, expect } from "vitest";
+import { test } from "../__testing__/test-fixtures.js";
 import { makeContext, NOW } from "./_helpers.js";
 
-const updateRoutineTool = buildToolDefinitions(toolHandlersPorts).find(
-	(t) => t.name === "update_routine",
-)!;
+function buildUpdateRoutineTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
+	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+		(t) => t.name === "update_routine",
+	)!;
+}
 
 async function seedRoutine(db: Parameters<typeof makeContext>[0]): Promise<{
 	routineId: string;
@@ -101,7 +84,8 @@ async function seedRoutine(db: Parameters<typeof makeContext>[0]): Promise<{
 }
 
 describe("update_routine tool", () => {
-	test("updates routine name", async ({ db }) => {
+	test("updates routine name", async ({ db, app }) => {
+		const updateRoutineTool = buildUpdateRoutineTool(app);
 		const { routineId } = await seedRoutine(db);
 
 		const result = await updateRoutineTool.handler(
@@ -118,7 +102,8 @@ describe("update_routine tool", () => {
 		expect(row!.name).toBe("Weekly sync");
 	});
 
-	test("pausing syncs active=false", async ({ db }) => {
+	test("pausing syncs active=false", async ({ db, app }) => {
+		const updateRoutineTool = buildUpdateRoutineTool(app);
 		const { routineId } = await seedRoutine(db);
 
 		const result = await updateRoutineTool.handler(
@@ -136,7 +121,8 @@ describe("update_routine tool", () => {
 		expect(row!.active).toBe(false);
 	});
 
-	test("resuming with active sets active=true", async ({ db }) => {
+	test("resuming with active sets active=true", async ({ db, app }) => {
+		const updateRoutineTool = buildUpdateRoutineTool(app);
 		const { routineId } = await seedRoutine(db);
 
 		// First pause it
@@ -158,7 +144,8 @@ describe("update_routine tool", () => {
 		expect(row!.active).toBe(true);
 	});
 
-	test("updates multiple fields in one call", async ({ db }) => {
+	test("updates multiple fields in one call", async ({ db, app }) => {
+		const updateRoutineTool = buildUpdateRoutineTool(app);
 		const { routineId } = await seedRoutine(db);
 
 		const result = await updateRoutineTool.handler(
@@ -180,7 +167,8 @@ describe("update_routine tool", () => {
 		expect(row!.description).toBe("New description");
 	});
 
-	test("returns ok({ routineId, name, state })", async ({ db }) => {
+	test("returns ok({ routineId, name, state })", async ({ db, app }) => {
+		const updateRoutineTool = buildUpdateRoutineTool(app);
 		const { routineId } = await seedRoutine(db);
 
 		const result = await updateRoutineTool.handler(
@@ -196,7 +184,8 @@ describe("update_routine tool", () => {
 		expect(typeof data.state).toBe("string");
 	});
 
-	test("NOT_FOUND for nonexistent routineId", async ({ db }) => {
+	test("NOT_FOUND for nonexistent routineId", async ({ db, app }) => {
+		const updateRoutineTool = buildUpdateRoutineTool(app);
 		const result = await updateRoutineTool.handler(
 			{ routineId: "routine-does-not-exist", updates: { name: "X" } },
 			makeContext(db),
@@ -206,7 +195,8 @@ describe("update_routine tool", () => {
 		expect(result.code).toBe("NOT_FOUND");
 	});
 
-	test("NOT_FOUND for soft-deleted routine", async ({ db }) => {
+	test("NOT_FOUND for soft-deleted routine", async ({ db, app }) => {
+		const updateRoutineTool = buildUpdateRoutineTool(app);
 		const { routineId } = await seedRoutine(db);
 
 		// Soft-delete the routine
@@ -222,7 +212,8 @@ describe("update_routine tool", () => {
 	});
 
 	// @lore AD8b: role "chief_of_staff" renamed to "assistant".
-	test("tool is restricted to assistant role", () => {
+	test("tool is restricted to assistant role", ({ app }) => {
+		const updateRoutineTool = buildUpdateRoutineTool(app);
 		expect(updateRoutineTool.roles).toBeDefined();
 		expect(updateRoutineTool.roles).toContain("assistant");
 	});

@@ -45,12 +45,12 @@
  * reaction cannot run more than once per message either.
  */
 
+import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { findMessage, resolveAssistantTurnRequest } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { ThreadMessageAppendedEvent } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { enqueueWorkIntent, listPendingIntentsByKind } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import { requireRunnableAgent } from "@hyperidle/users";
 
@@ -60,8 +60,9 @@ const registeredBuses = new WeakSet<EventBus>();
 async function rebakePendingSiblingsForThread(
 	db: HyperIdleDb,
 	event: ThreadMessageAppendedEvent,
+	agentOrchestration: AgentOrchestrationPort,
 ): Promise<void> {
-	const pending = await listPendingIntentsByKind(db, "assistant_turn");
+	const pending = await agentOrchestration.requests.listPendingIntentsByKind("assistant_turn");
 	for (const intent of pending) {
 		// The intent that this very message just created (recorded atomically
 		// with the insert, `routes/threads.ts`'s `recordsAssistantIntent`
@@ -80,7 +81,7 @@ async function rebakePendingSiblingsForThread(
 			// consistent with the "granted" reengagement path's forwarding.
 			readServerConfig,
 		});
-		await enqueueWorkIntent(db, {
+		await agentOrchestration.intents.submit({
 			kind: "assistant_turn",
 			sourceKind: "thread_message",
 			sourceId: intent.sourceId,
@@ -100,6 +101,7 @@ async function rebakePendingSiblingsForThread(
 export function registerAssistantTurnCoherenceTrigger(
 	db: HyperIdleDb,
 	eventBus: EventBus,
+	agentOrchestration: AgentOrchestrationPort,
 ): () => void {
 	if (registeredBuses.has(eventBus)) {
 		return () => {};
@@ -108,7 +110,7 @@ export function registerAssistantTurnCoherenceTrigger(
 
 	const unsubscribe = eventBus.on("thread_message_appended", (event) => {
 		if (event.messageType !== "plain") return;
-		void rebakePendingSiblingsForThread(db, event).catch((error: unknown) => {
+		void rebakePendingSiblingsForThread(db, event, agentOrchestration).catch((error: unknown) => {
 			logger.error("assistant_turn B‴ coherence re-bake reaction failed", {
 				threadId: event.threadId,
 				messageId: event.messageId,

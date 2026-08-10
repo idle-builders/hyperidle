@@ -34,7 +34,7 @@
 	},
 	"workspaces": {
 		".": {
-			"entry": ["scripts/*.ts!", "scripts/lib/**/*.ts!", "scripts/rules/**/*.ts!"],
+			"entry": ["scripts/*.ts!", "scripts/lib/**/*.ts!"],
 			"project": ["scripts/**/*.ts"]
 		},
 		"framework/domain-model": {},
@@ -97,6 +97,9 @@
 		"tools/eslint-plugin-design": {},
 		"tools/eval": {
 			"entry": ["src/judges.ts!", "src/cli.ts!"]
+		},
+		"tools/governance": {
+			"entry": ["src/*.ts!", "src/lib/**/*.ts!", "src/rules/**/*.ts!"]
 		},
 		"tools/setup": {
 			"entry": ["src/setup-cli.ts!", "src/bootstrap-pg.ts!", "src/seed-pg-cli.ts!"]

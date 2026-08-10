@@ -13,33 +13,32 @@
  * orchestration-side write — crosses the seam under its own `ast-<userId>`
  * identity.
  */
+
+import {
+	buildToolDefinitions,
+	createInProcessCoreApiTransport,
+} from "@hyperidle/agent-orchestration";
 import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
 import type { ThreadMessageAppendedEvent } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
-import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import type { ToolContext } from "@hyperidle/tool-protocol";
 import { eq } from "drizzle-orm";
+import type { Hono } from "hono";
 import { describe, expect, vi } from "vitest";
-import { test as baseTest } from "../../__testing__/test-fixtures.js";
-import {
-	createInProcessCoreApiTransport,
-	registerCoreApiTransport,
-} from "../core-api-port-composition.js";
-import { toolHandlersPorts } from "../tool-handlers-bindings.js";
+import { test } from "../../__testing__/test-fixtures.js";
 
-const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
-	coreApiSeamRegistration: [
-		async ({ app }, use) => {
-			registerCoreApiTransport(createInProcessCoreApiTransport(app));
-			await use(undefined);
-		},
-		{ auto: true },
-	],
-});
+/**
+ * @lore AU31 §3.2/B2: `reply` reaches `ports.coreApi.*` (the seam) — the
+ * tool is built fresh per test off THIS test's own `app`
+ * (`createInProcessCoreApiTransport`), never an ambient transport global.
+ */
+function buildReplyTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
+	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+		(t) => t.name === "reply",
+	)!;
+}
 
 const NOW = "2026-07-28T00:00:00.000Z";
-
-const replyTool = buildToolDefinitions(toolHandlersPorts).find((t) => t.name === "reply")!;
 
 async function seedFounderAndAssistantThread(
 	db: HyperIdleDb,
@@ -81,6 +80,7 @@ describe("the assistant's own reply call crosses the CoreApiPort seam", () => {
 		app,
 		eventBus,
 	}) => {
+		const replyTool = buildReplyTool(app);
 		const founderId = "founder-reply-seam";
 		const threadId = "thread-reply-seam";
 		const assistantAgentId = await seedFounderAndAssistantThread(db, { founderId, threadId });

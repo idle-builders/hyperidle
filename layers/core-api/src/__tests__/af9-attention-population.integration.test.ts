@@ -125,6 +125,7 @@ describe("AF9 AC4: attention population on promotion sweep", () => {
 	test("promotion sweep populates attentionScore on candidate items (not all null)", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedOwners(db);
 		await seedBuiltinRoutines(db, "prod-1");
@@ -143,7 +144,7 @@ describe("AF9 AC4: attention population on promotion sweep", () => {
 
 		// Act: run the promotion routine. Task 4 piggybacks recomputeScope({ids})
 		// on the sweep's candidate set.
-		const result = await fireStoredRoutine(db, eventBus, PROMOTION_ROUTINE_ID);
+		const result = await fireStoredRoutine(db, eventBus, agentOrchestration, PROMOTION_ROUTINE_ID);
 		expect(result.fired).toBe(true);
 
 		// Assert: at least some items now have a populated attentionScore.
@@ -163,6 +164,7 @@ describe("AF9 AC4: attention population on promotion sweep", () => {
 	test("items with an open conflict score differently from items without (real differing scores)", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedOwners(db);
 		await seedBuiltinRoutines(db, "prod-1");
@@ -185,7 +187,7 @@ describe("AF9 AC4: attention population on promotion sweep", () => {
 		});
 
 		// Act: run promotion routine — attention recompute is piggybacked.
-		await fireStoredRoutine(db, eventBus, PROMOTION_ROUTINE_ID);
+		await fireStoredRoutine(db, eventBus, agentOrchestration, PROMOTION_ROUTINE_ID);
 
 		// Retrieve scores.
 		const [conflictedFabric] = await db
@@ -213,6 +215,7 @@ describe("AF9 AC4: attention population on promotion sweep", () => {
 	test("attentionScore values differ across items (not all equal — confirms real scoring)", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedOwners(db);
 		await seedBuiltinRoutines(db, "prod-1");
@@ -232,7 +235,7 @@ describe("AF9 AC4: attention population on promotion sweep", () => {
 			createdAt: NOW_ISO,
 		});
 
-		await fireStoredRoutine(db, eventBus, PROMOTION_ROUTINE_ID);
+		await fireStoredRoutine(db, eventBus, agentOrchestration, PROMOTION_ROUTINE_ID);
 
 		// Collect all populated scores.
 		const scores: number[] = [];
@@ -257,6 +260,7 @@ describe("AF9 AC4: attention population on promotion sweep", () => {
 	test("attention-sorted order reflects scores (conflicted item sorts above clean items)", async ({
 		db,
 		eventBus,
+		agentOrchestration,
 	}) => {
 		await seedOwners(db);
 		await seedBuiltinRoutines(db, "prod-1");
@@ -275,7 +279,7 @@ describe("AF9 AC4: attention population on promotion sweep", () => {
 			createdAt: NOW_ISO,
 		});
 
-		await fireStoredRoutine(db, eventBus, PROMOTION_ROUTINE_ID);
+		await fireStoredRoutine(db, eventBus, agentOrchestration, PROMOTION_ROUTINE_ID);
 
 		// Retrieve scores for the conflicted item and the first clean item.
 		const [conflictedFabric] = await db

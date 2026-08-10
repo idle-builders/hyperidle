@@ -38,7 +38,6 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { encryptCredentialValue } from "@hyperidle/credential-access";
 import { applyMigrations, createPgliteDb, serverCredentials } from "@hyperidle/db";
-import { createLocalAdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
 import { createServer } from "@hyperidle/remote-server/create-server";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
@@ -134,15 +133,14 @@ if (resolveModelFile && fs.existsSync(resolveModelFile)) {
 
 // ---------------------------------------------------------------------------
 // 4. Boot the Hono server with the already-migrated tmp-dir DB.
-//    AU19 Increment 5 (item 2): adapterPool/workspaceAdapter are now REQUIRED
-//    — inject a LocalSandboxAdapter (laptop profile, set above), mirroring
-//    applications/desktop's boot-server.ts.
+//    AU31 §6: `topology: "local"` replaces the concrete `AdapterPool`/
+//    `SandboxAdapter` this script used to construct itself (laptop profile,
+//    set above, still governs the in-process CLI discovery).
 // ---------------------------------------------------------------------------
 const handle = await createServer(AH5_API_PORT, {
 	db,
 	sandboxBasePath: "/tmp/ah5-e2e-workspaces",
-	adapterPool: await createLocalAdapterPool(),
-	workspaceAdapter: createSandboxAdapter("local"),
+	topology: "local",
 });
 
 // 5. Signal readiness — playwright.ah5.config.ts waits for this line.

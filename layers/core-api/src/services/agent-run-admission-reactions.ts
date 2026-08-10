@@ -30,6 +30,7 @@
  * double-registers and double-fires a reaction.
  */
 
+import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { insertThread } from "@hyperidle/conversation";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
@@ -41,10 +42,10 @@ import {
 	reengageOnAdmissionFailure,
 } from "@hyperidle/review";
 import * as routineService from "@hyperidle/routine";
-import { enqueueWorkIntent, transitionSessionRequest } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import { requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
+import { buildSeamBackedWorkIntentRecorder } from "./agent-orchestration-port-composition.js";
 import { resolveOrCreateCallingThread } from "./calling-thread-bindings.js";
 
 const logger = createLogger({ pkg: "core-api.agent-run-admission-reactions" });
@@ -83,9 +84,11 @@ async function reactToAdmissionFailure(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	event: AgentRunAdmissionFailedEvent,
+	agentOrchestration: AgentOrchestrationPort,
 ): Promise<void> {
 	switch (event.kind) {
 		case "routine_run":
+			// `routine` is core-api's own Service — in-layer, not a crossing.
 			await routineService.updateRoutineRun(
 				db,
 				event.sourceId,
@@ -101,12 +104,8 @@ async function reactToAdmissionFailure(
 			await work.taskDispatchAttemptStore.markFailed(db, event.sourceId);
 			return;
 		case "session_start":
-			await transitionSessionRequest(db, {
-				target: "explicitStart",
-				to: "failed",
-				startId: event.sourceId,
-				failureCode: event.failureCode,
-			});
+			// AU31 §3: seam-backed — `runs.failExplicitStart`.
+			await agentOrchestration.runs.failExplicitStart(event.sourceId, event.failureCode);
 			return;
 		case "knowledge_action":
 			await flagStalledKnowledgeAction(db, eventBus, event);
@@ -114,7 +113,10 @@ async function reactToAdmissionFailure(
 		case "reengagement":
 			await reengageOnAdmissionFailure(db, {
 				proposedCallId: event.sourceId,
-				intentRecorder: { record: enqueueWorkIntent },
+				// AU31 §2.1a/§3.2: seam-backed — this fires from an `EventBus`
+				// reaction, so it needs the port handed in at registration time,
+				// not read from a module-level singleton.
+				intentRecorder: buildSeamBackedWorkIntentRecorder<WriteExecutor>(agentOrchestration),
 				// AU21 §6 Decision B: bake the re-provision request at emit time —
 				// see `applyLivenessRetry`'s `@lore` in `proposed-call-workflow.ts`.
 				getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
@@ -141,6 +143,7 @@ async function reactToAdmissionFailure(
 export function registerAgentRunAdmissionReactions(
 	db: HyperIdleDb,
 	eventBus: EventBus,
+	agentOrchestration: AgentOrchestrationPort,
 ): () => void {
 	if (registeredBuses.has(eventBus)) {
 		return () => {};
@@ -151,13 +154,15 @@ export function registerAgentRunAdmissionReactions(
 		"agent_run_admission_failed",
 		(event: AgentRunAdmissionFailedEvent) => {
 			if (!event.terminal) return;
-			void reactToAdmissionFailure(db, eventBus, event).catch((error: unknown) => {
-				logger.error("agent_run_admission_failed reaction failed", {
-					kind: event.kind,
-					intentId: event.intentId,
-					error: error instanceof Error ? error.message : String(error),
-				});
-			});
+			void reactToAdmissionFailure(db, eventBus, event, agentOrchestration).catch(
+				(error: unknown) => {
+					logger.error("agent_run_admission_failed reaction failed", {
+						kind: event.kind,
+						intentId: event.intentId,
+						error: error instanceof Error ? error.message : String(error),
+					});
+				},
+			);
 		},
 	);
 

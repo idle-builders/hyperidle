@@ -3,11 +3,6 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { agentRunConfig, serviceConnections, teamMembers, teams, users } from "@hyperidle/db";
-import {
-	AdapterPool,
-	createHarnessAdapter,
-	createSandboxAdapter,
-} from "@hyperidle/harness-registry";
 import { createServer, type ServerHandle } from "@hyperidle/remote-server/create-server";
 import { listConfiguration } from "@hyperidle/settings";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -94,24 +89,16 @@ describe("configuration projection boot wiring", () => {
 });
 
 async function bootTestServer(db: HyperIdleDb, label: string): Promise<ServerHandle> {
+	// AU31 §6: `topology: "local"` gives `bootAgentExecution`'s own
+	// `createLocalAdapterPool()`, which unconditionally registers a
+	// "local-builtin"/`type: "builtin"` adapter (`adapter-pool.ts:628-636`) —
+	// exactly the harness this test asserts on. The hand-built pool this test
+	// used to inject duplicated that same registration.
 	return createServer(0, {
 		db,
-		adapterPool: makeBuiltinPool(),
-		workspaceAdapter: createSandboxAdapter("disabled"),
+		topology: "local",
 		sandboxBasePath: path.join(os.tmpdir(), label),
 	});
-}
-
-function makeBuiltinPool(): AdapterPool {
-	const pool = new AdapterPool();
-	pool.register("local-builtin", createHarnessAdapter({ kind: "builtin" }), {
-		name: "Built-in Harness",
-		kind: "local",
-		type: "builtin",
-		modelProviders: ["anthropic", "openrouter", "openai-compatible"],
-		maxConcurrent: 4,
-	});
-	return pool;
 }
 
 function serverBaseUrl(handle: ServerHandle): string {

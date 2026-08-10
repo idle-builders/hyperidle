@@ -1,5 +1,9 @@
 import * as os from "node:os";
 import * as path from "node:path";
+import {
+	buildToolDefinitions,
+	createInProcessCoreApiTransport,
+} from "@hyperidle/agent-orchestration";
 import { findThread, insertThread, updateThread } from "@hyperidle/conversation";
 import {
 	agentSessionRequests,
@@ -19,42 +23,20 @@ import type { EventBus } from "@hyperidle/event-bus";
 import { resolveReviewRecipients } from "@hyperidle/org";
 import { type ReviewPorts, registerReviewSubscriptions } from "@hyperidle/review";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
-import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import type { ToolContext } from "@hyperidle/tool-protocol";
 import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { getTaskRiskTierByTaskId } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
+import type { Hono } from "hono";
 import { describe, expect, vi } from "vitest";
-import { test as baseTest } from "../__testing__/test-fixtures.js";
-import {
-	createInProcessCoreApiTransport,
-	registerCoreApiTransport,
-} from "../services/core-api-port-composition.js";
-import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
+import { test } from "../__testing__/test-fixtures.js";
 
-/**
- * @lore AU21 §9 Increment 2: this file's tool handler(s) now reach
- * `ports.coreApi.*` (the seam) — this file-scoped `auto:true` fixture
- * registers a real in-process `CoreApiPort` transport off THIS test's own
- * `app` for every test in this file, without forcing `app`'s full
- * subscriber wiring onto every OTHER test file that imports the bare
- * `test` from `test-fixtures.ts` (that fixture's `app` stays lazy — a
- * global auto-fixture there double-fired `app.ts`'s task-`done`
- * dep-watcher against tests that manually drive the same transition,
- * an AU21 Increment 2 GREEN-phase finding).
- */
-const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
-	coreApiSeamRegistration: [
-		async ({ app }, use) => {
-			registerCoreApiTransport(createInProcessCoreApiTransport(app));
-			await use(undefined);
-		},
-		{ auto: true },
-	],
-});
-
-const handoffToTool = buildToolDefinitions(toolHandlersPorts).find((t) => t.name === "handoff_to")!;
+function buildHandoffToTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
+	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+		(t) => t.name === "handoff_to",
+	)!;
+}
 
 async function seed(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
@@ -162,7 +144,8 @@ const baseMetadata = {
 
 describe("handoff_to tool", () => {
 	describe("AC5: handoff to agent B changes task owner and ends session", () => {
-		test("transfers ownership to B and ends A's session", async ({ db, eventBus }) => {
+		test("transfers ownership to B and ends A's session", async ({ db, eventBus, app }) => {
+			const handoffToTool = buildHandoffToTool(app);
 			await seed(db);
 			const result = await handoffToTool.handler(
 				{ toAgent: "agent-b", ...baseMetadata },
@@ -183,7 +166,8 @@ describe("handoff_to tool", () => {
 	});
 
 	describe("handoff by role", () => {
-		test("resolves toRole to an available teammate", async ({ db, eventBus }) => {
+		test("resolves toRole to an available teammate", async ({ db, eventBus, app }) => {
+			const handoffToTool = buildHandoffToTool(app);
 			await seed(db);
 			const ctx = makeContext(db, eventBus);
 			// agent-a is also builder; handoff to role builder should pick agent-b (excludes self)
@@ -197,7 +181,8 @@ describe("handoff_to tool", () => {
 	});
 
 	describe("handoff to human", () => {
-		test("creates a review item and transitions task to blocked", async ({ db, eventBus }) => {
+		test("creates a review item and transitions task to blocked", async ({ db, eventBus, app }) => {
+			const handoffToTool = buildHandoffToTool(app);
 			await seed(db);
 			const result = await handoffToTool.handler(
 				{ toHuman: true, ...baseMetadata, status: "blocked", reason: "need a human" },
@@ -218,7 +203,8 @@ describe("handoff_to tool", () => {
 	});
 
 	describe("AC9: invalid input returns structured error", () => {
-		test("returns INVALID_INPUT when no target is specified", async ({ db, eventBus }) => {
+		test("returns INVALID_INPUT when no target is specified", async ({ db, eventBus, app }) => {
+			const handoffToTool = buildHandoffToTool(app);
 			await seed(db);
 			const result = await handoffToTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
@@ -230,7 +216,8 @@ describe("handoff_to tool", () => {
 			expect(result.code).toBe("INVALID_INPUT");
 		});
 
-		test("returns INVALID_INPUT when reason is missing", async ({ db, eventBus }) => {
+		test("returns INVALID_INPUT when reason is missing", async ({ db, eventBus, app }) => {
+			const handoffToTool = buildHandoffToTool(app);
 			await seed(db);
 			const result = await handoffToTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
@@ -242,7 +229,8 @@ describe("handoff_to tool", () => {
 			expect(result.code).toBe("INVALID_INPUT");
 		});
 
-		test("returns NOT_FOUND when target agent does not exist", async ({ db, eventBus }) => {
+		test("returns NOT_FOUND when target agent does not exist", async ({ db, eventBus, app }) => {
+			const handoffToTool = buildHandoffToTool(app);
 			await seed(db);
 			const result = await handoffToTool.handler(
 				{ toAgent: "ghost", ...baseMetadata },
@@ -278,7 +266,9 @@ describe("AU26 H1 — handoff's run-end write", () => {
 	test("emits no session_ended and creates no review item, even for a high-risk task", async ({
 		db,
 		eventBus,
+		app,
 	}) => {
+		const handoffToTool = buildHandoffToTool(app);
 		await seed(db);
 		// High risk: without this the review creator returns early and the
 		// "no review item" assertion below would be vacuous.
@@ -335,7 +325,9 @@ describe("AU26 H1 — handoff's run-end write", () => {
 	test("ends the run even when no agentSessionRequests row exists (trap a)", async ({
 		db,
 		eventBus,
+		app,
 	}) => {
+		const handoffToTool = buildHandoffToTool(app);
 		await seed(db);
 		// The handoff path must not depend on a session-request row: the
 		// `session_handoff_completed` subscriber that transitions the request
@@ -353,15 +345,26 @@ describe("AU26 H1 — handoff's run-end write", () => {
 		expect(await db.select().from(agentSessionRequests)).toHaveLength(0);
 	});
 
-	test("leaves the run untouched when the handoff transaction rolls back", async ({
+	// AU31 §3.1 site 7 — INVERTED. `endRunForHandoff` now runs BEFORE the
+	// handoff's transaction opens (the "free lever" reorder — no safety net
+	// exists behind that write, so relinquishing it in the default post-commit
+	// order would strand the agent's session slot forever on a failure; see
+	// `handoff-protocol.ts`'s `@lore` above `deps.runOrchestration
+	// .endRunForHandoff`). So a rolled-back handoff now leaves an
+	// ALREADY-ENDED run and an untouched task — the named residue, repaired by
+	// the same `hold`/re-dispatch path site 6 already uses. This test's twin,
+	// `handoff-protocol.integration.test.ts`'s "rolls back session, task,
+	// auditTrail when messages INSERT throws", asserts the identical window.
+	test("ends the run even when the handoff transaction rolls back (AU31 §3.1 site 7)", async ({
 		db,
 		eventBus,
+		app,
 	}) => {
+		const handoffToTool = buildHandoffToTool(app);
 		await seed(db);
 		// `review -> blocked` is not a legal task transition, so the toHuman
-		// branch throws INSIDE the transaction, AFTER the run-end write. If the
-		// write were not in the caller's transaction the run would already be
-		// `done` here.
+		// branch throws INSIDE the transaction — AFTER the run-end write, which
+		// now runs before the transaction opens at all.
 		await db.update(tasks).set({ state: "review" }).where(eq(tasks.id, "task-1"));
 
 		await expect(
@@ -372,8 +375,8 @@ describe("AU26 H1 — handoff's run-end write", () => {
 		).rejects.toThrow("Invalid transition for task task-1: review -> blocked");
 
 		const [session] = await db.select().from(sessions).where(eq(sessions.id, "session-1"));
-		expect(session?.state).toBe("active");
-		expect(session?.endedAt).toBeNull();
+		expect(session?.state).toBe("done");
+		expect(session?.endedAt).toBeTruthy();
 		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
 		expect(task?.state).toBe("review");
 	});

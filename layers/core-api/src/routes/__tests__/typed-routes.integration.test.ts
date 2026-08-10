@@ -37,10 +37,10 @@ describe("D1. Bets route factory structure", () => {
 		expect(typeof mod.createBetRoutes).toBe("function");
 	});
 
-	test("createBetRoutes returns a Hono instance", async ({ db }) => {
+	test("createBetRoutes returns a Hono instance", async ({ db, agentOrchestration }) => {
 		const mod = await import("../bets.js");
 		const eventBus = new EventBus();
-		const router = mod.createBetRoutes(db, eventBus);
+		const router = mod.createBetRoutes(db, eventBus, agentOrchestration);
 
 		// Should be a Hono instance with routes attached
 		expect(router).toBeDefined();

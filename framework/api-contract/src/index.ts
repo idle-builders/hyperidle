@@ -7,16 +7,38 @@
  */
 
 export type {
+	AgentOrchestrationCreateBareRunRequest,
+	AgentOrchestrationExplicitStartRequest,
+	AgentOrchestrationExplicitStartResult,
+	AgentOrchestrationExplicitStartView,
+	AgentOrchestrationFilesystemInjectionView,
+	AgentOrchestrationFilesystemsPort,
+	AgentOrchestrationIntentsPort,
+	AgentOrchestrationPersistInjectionResult,
 	AgentOrchestrationPort,
+	AgentOrchestrationRequestsPort,
+	AgentOrchestrationRunConfigPatch,
+	AgentOrchestrationRunConfigPort,
+	AgentOrchestrationRunConfigView,
+	AgentOrchestrationRunsPort,
 	AgentOrchestrationSessionActivityEntry,
 	AgentOrchestrationSessionHistoryEntry,
 	AgentOrchestrationSessionsPort,
 	AgentOrchestrationSessionWireRow,
+	AgentOrchestrationStoppedRun,
+	AgentOrchestrationTeamRunConfigDefaultsView,
 	AgentOrchestrationTransport,
+	AgentOrchestrationWorkIntentInput,
+	AgentOrchestrationWorkIntentKind,
+	AgentOrchestrationWorkIntentReceipt,
 } from "./agent-orchestration-port.js";
 export type { AuthMeResponse } from "./auth.js";
 export type {
 	BetView,
+	CaptureProposedCallRequest,
+	CaptureProposedCallResponse,
+	ConsumeTailoredGrantRequest,
+	ConsumeTailoredGrantResponse,
 	ConversationInboxMessageView,
 	ConversationInboxRowView,
 	ConversationMessageType,
@@ -25,6 +47,7 @@ export type {
 	CoreApiKnowledgePort,
 	CoreApiOrgPort,
 	CoreApiPort,
+	CoreApiReviewPort,
 	CoreApiRoutinePort,
 	CoreApiTransport,
 	CoreApiUsersPort,
@@ -59,17 +82,22 @@ export type {
 	PersistScaffoldedAgentsResponse,
 	PromoteKnowledgeItemRequest,
 	PromoteKnowledgeItemResult,
+	ProposedCallOutcomeResult,
 	ProvisionTeamRoutinesRequest,
 	ReviewRecipientsQuery,
 	RoutineView,
 	TaskView,
 	UpdateBetRequest,
 	UpdateItemRequest,
+	UpdateKnowledgeItemContentRequest,
+	UpdateKnowledgeItemContentResponse,
+	UpdateKnowledgeItemContentResult,
 	UpdateOrgTeamRequest,
 	UpdateRoutineRequest,
 	UpdateThreadRequest,
 	UserView,
 } from "./core-api-port.js";
+export { CORE_API_ACTOR_OVERRIDE_HEADER } from "./core-api-port.js";
 export type { CreateSessionAcceptedResponse, PendingSessionStart } from "./session.js";
 export { isPendingSessionStart } from "./session.js";
 export type {

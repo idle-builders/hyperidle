@@ -8,9 +8,15 @@
  *
  * @lore AU26 G1 (architecture §D-L): this Service is the new home of the nine
  * run-config columns that lived on `users` (six) and `teams` (three) until
- * AU26, plus `validateAgentConfig`, which moved with the columns it validates.
- * `users.system_prompt_path` and `users.skills` were DROPPED, not moved — zero
- * production readers repo-wide at the time of the move.
+ * AU26. `users.system_prompt_path` and `users.skills` were DROPPED, not moved
+ * — zero production readers repo-wide at the time of the move.
+ *
+ * @lore AU31 §2.8: `validateAgentConfig` moved BACK to core-api (its only
+ * caller's layer) — AU26 G1's "moved with the columns it validates" held only
+ * while the crossing it created was free (both packages lived inside
+ * core-api's own composition at the time); under AU31's boundary rule that
+ * crossing costs something and buys nothing, so it returns to
+ * `layers/core-api/src/routes/validate-agent-config.ts`.
  *
  * @lore AU26 G1: core-api still hosts every run-config write route (§D-A rule
  * 3 — those handlers gate on `users`, a core table, so they have exactly one
@@ -36,5 +42,3 @@ export {
 	readTeamRunConfigDefaults,
 	writeTeamRunConfigDefaults,
 } from "./team-run-config-defaults-store.js";
-export type { AgentConfigValidationError } from "./validate-agent-config.js";
-export { validateAgentConfig } from "./validate-agent-config.js";

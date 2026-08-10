@@ -1,3 +1,4 @@
+import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { getArtifactThreadSummaries } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ArtifactThreadSummary } from "@hyperidle/domain-model";
@@ -13,13 +14,12 @@ import {
 import { getTeam, getTeamMembers, listTeamMembers, listTeams, updateTeam } from "@hyperidle/org";
 import { recordPropagationHop } from "@hyperidle/policy";
 import { deriveTitle } from "@hyperidle/presentation-format";
-import { requestRunStopForTasks } from "@hyperidle/run-orchestration";
-import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import * as work from "@hyperidle/work";
 import { cascadeBetKill, transitionBet, updateBetField } from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";
 import { enumValues } from "../schemas/common.schema.js";
+import { buildSeamBackedWorkIntentRecorder } from "../services/agent-orchestration-port-composition.js";
 import { taskRunResolverDeps } from "../services/task-run-resolver-bindings.js";
 
 const SUMMARY_CAP = 10;
@@ -279,7 +279,11 @@ async function patchDescription(
  * Create Hono routes for bet endpoints.
  * Requires db and eventBus to be set in context via middleware.
  */
-export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<HyperIdleEnv> {
+export function createBetRoutes(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	agentOrchestration: AgentOrchestrationPort,
+): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
 	// GET /bets — list all bets grouped by status, with pagination
@@ -684,11 +688,15 @@ export function createBetRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<Hyper
 			// task-kill's upward propagation sees a terminal bet and skips (no spurious
 			// review thread). Synchronous so the UI's immediate refresh shows true state.
 			await cascadeBetKill(db, eventBus, betId, {
-				workIntents: { record: enqueueWorkIntent },
+				workIntents: buildSeamBackedWorkIntentRecorder(agentOrchestration),
 				taskRunResolver: taskRunResolverDeps,
-				// AU26 H2 (§D-M.2): stopping a run is `agent-orchestration`'s
-				// state transition — a downward call, not a Port method.
-				runOrchestration: { requestRunStopForTasks },
+				// AU31 §3.1/§13 item 2: seam-backed — supersedes AU26 H2's "a
+				// downward call, not a Port method"; the port is now core's one
+				// door, both directions.
+				runOrchestration: {
+					requestRunStopForTasks: (_exec, taskIds, opts) =>
+						agentOrchestration.runs.stopForTasks(taskIds, opts.reason),
+				},
 				// `policy` owns `propagation_log`, so the cascade's hop rows go
 				// through its builder — same Mechanism C shape as the line above.
 				policy: { recordPropagationHop },

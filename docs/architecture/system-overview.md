@@ -31,7 +31,7 @@ tools/            eval, eslint-plugin-authz, eslint-plugin-design
 
 A Layer is **isolated**, not stacked — it does not sit above or below its neighbours, and there is no
 "downward dependency" allowance. What may actually cross which boundary is machine-enforced by
-`npm run lint` and written down once, in [`governance/README.md`](../../governance/README.md). No
+`npm run lint` and written down once, in [`tools/governance/README.md`](../../tools/governance/README.md). No
 rule is restated here; a second copy drifts from the enforced one. Never infer a boundary rule from
 the imports in the code around you either — an existing import may be a violation nobody has caught
 yet.
@@ -80,7 +80,7 @@ The tiers:
 | Tier | Packages | Purpose |
 |---|---|---|
 | `layers/` | `core-ui`, `core-api`, `agent-orchestration`, `agent-execution`, plus a nested package per Service | The four Layers and their Services |
-| `framework/` | `db`, `api-contract`, `design-system`, and the eighteen the old `shared` substrate became — `domain-model`, `presentation-format`, `harness-capability`, `harness-protocol`, `tool-protocol`, `work-intent-port`, `filesystem-contract`, `conversation-parts`, `block-derivation`, `event-bus`, `http-middleware`, `diagnostics`, `host-process`, `factory-defaults`, `credential-access`, `cron`, `toon-codec`, `query-escaping` | Drizzle schema + migrations, Zod response schemas, React components + stories, and one package per thing the substrate held. Each declares who may name it in `governance/architecture.json`; only `domain-model`, the product's nouns, is reachable by everyone |
+| `framework/` | `db`, `api-contract`, `design-system`, and the eighteen the old `shared` substrate became — `domain-model`, `presentation-format`, `harness-capability`, `harness-protocol`, `tool-protocol`, `work-intent-port`, `filesystem-contract`, `conversation-parts`, `block-derivation`, `event-bus`, `http-middleware`, `diagnostics`, `host-process`, `factory-defaults`, `credential-access`, `cron`, `toon-codec`, `query-escaping` | Drizzle schema + migrations, Zod response schemas, React components + stories, and one package per thing the substrate held. Each declares who may name it in `tools/governance/architecture.json`; only `domain-model`, the product's nouns, is reachable by everyone |
 | `applications/` | `desktop`, `remote-server`, `remote-worker` | Deployment units — wiring and bootstrap only |
 | `tools/` | `eval`, `eslint-plugin-design`, `eslint-plugin-authz` | LLM-judged evals; design-system and authorization lint rules |
 

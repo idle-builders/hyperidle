@@ -14,37 +14,27 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
+import {
+	buildToolDefinitions,
+	createInProcessCoreApiTransport,
+} from "@hyperidle/agent-orchestration";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import { create as createKnowledgeItem } from "@hyperidle/knowledge";
-import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import type { ToolContext } from "@hyperidle/tool-protocol";
-import { test as baseTest, describe, expect } from "../__testing__/test-fixtures.js";
-import {
-	createInProcessCoreApiTransport,
-	registerCoreApiTransport,
-} from "../services/core-api-port-composition.js";
-import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
+import type { Hono } from "hono";
+import { describe, expect, test } from "../__testing__/test-fixtures.js";
 
 /**
- * @lore AU21 §9 Increment 2 (knowledge wave): `query_practice` now reaches
- * `ports.coreApi.search` (the seam) — this file-scoped `auto:true` fixture
- * registers a real in-process `CoreApiPort` transport off THIS test's own
- * `app`, same idiom as `write-memory.integration.test.ts`.
+ * @lore AU31 §3.2/B2: `query_practice` reaches `ports.coreApi.search` (the
+ * seam) — the tool is built fresh per test off THIS test's own `app`
+ * (`createInProcessCoreApiTransport`), never an ambient transport global.
  */
-const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
-	coreApiSeamRegistration: [
-		async ({ app }, use) => {
-			registerCoreApiTransport(createInProcessCoreApiTransport(app));
-			await use(undefined);
-		},
-		{ auto: true },
-	],
-});
-
-const queryPracticeTool = buildToolDefinitions(toolHandlersPorts).find(
-	(t) => t.name === "query_practice",
-)!;
+function buildQueryPracticeTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
+	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+		(t) => t.name === "query_practice",
+	)!;
+}
 
 function makeContext(db: HyperIdleDb): ToolContext<HyperIdleDb> {
 	return {
@@ -59,7 +49,11 @@ function makeContext(db: HyperIdleDb): ToolContext<HyperIdleDb> {
 }
 
 describe("AF9 AC3b: query_practice tool — migration path (no manual setupFts)", () => {
-	test("queryPracticeTool returns success=true without manual setupFts call", async ({ db }) => {
+	test("queryPracticeTool returns success=true without manual setupFts call", async ({
+		db,
+		app,
+	}) => {
+		const queryPracticeTool = buildQueryPracticeTool(app);
 		// Arrange: create items WITHOUT calling setupFts — the migration must have done it.
 		await createKnowledgeItem(db, {
 			layer: "L3",
@@ -98,7 +92,9 @@ describe("AF9 AC3b: query_practice tool — migration path (no manual setupFts)"
 
 	test("queryPracticeTool returns empty items for a zero-match query (not an error)", async ({
 		db,
+		app,
 	}) => {
+		const queryPracticeTool = buildQueryPracticeTool(app);
 		await createKnowledgeItem(db, {
 			layer: "L3",
 			kind: "pattern",

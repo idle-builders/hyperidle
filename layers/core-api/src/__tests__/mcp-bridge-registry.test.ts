@@ -1,9 +1,13 @@
+import {
+	buildToolDefinitions,
+	createInProcessCoreApiTransport,
+} from "@hyperidle/agent-orchestration";
 import { EventBus } from "@hyperidle/event-bus";
 import { createReturnEnforcement } from "@hyperidle/harness-registry";
 import { createMcpToolBridge } from "@hyperidle/harness-registry/mcp";
+import { buildToolRegistry } from "@hyperidle/tool-handlers";
 import type { ToolContext, ToolRegistry } from "@hyperidle/tool-protocol";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
-import { buildToolRegistry } from "../services/tool-provider-bindings.js";
 
 const registry: ToolRegistry = {
 	definitions: [],
@@ -14,7 +18,12 @@ const registry: ToolRegistry = {
 describe("X2 MCP session custody", () => {
 	test("opens a role-filtered production tool registry and preserves result codes", async ({
 		db,
+		app,
 	}) => {
+		// @lore AU31 §3.2/§5: the tool definitions are built fresh off THIS
+		// test's own `app` — no ambient global to register (the cross-test
+		// bleed architecture.md §3.2 names as the reason it's deleted).
+		const definitions = buildToolDefinitions(createInProcessCoreApiTransport(app));
 		const context: ToolContext<typeof db> = {
 			db,
 			eventBus: new EventBus(),
@@ -24,8 +33,8 @@ describe("X2 MCP session custody", () => {
 			sandboxPath: "/tmp/mcp-role-session",
 			ingestion: { dispose() {} },
 		};
-		const builderRegistry = buildToolRegistry(context, { role: "builder" });
-		const assistantRegistry = buildToolRegistry(context, { role: "assistant" });
+		const builderRegistry = buildToolRegistry(definitions, context, { role: "builder" });
+		const assistantRegistry = buildToolRegistry(definitions, context, { role: "assistant" });
 		expect(builderRegistry.definitions.some(({ name }) => name === "create_team")).toBe(false);
 		expect(assistantRegistry.definitions.some(({ name }) => name === "create_team")).toBe(true);
 		await expect(builderRegistry.invoke("create_team", {})).resolves.toMatchObject({

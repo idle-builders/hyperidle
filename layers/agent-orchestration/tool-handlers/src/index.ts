@@ -23,3 +23,11 @@
 
 export type { ToolHandlersPorts } from "./ports.js";
 export { buildToolDefinitions } from "./tool-definitions.js";
+/**
+ * @lore AU31 §2.5: `buildToolRegistry` relocated from `@hyperidle/harness-
+ * registry` (agent-execution) — it imports only `@hyperidle/shared` and
+ * holds zero execution content (role-filter + zod-validate + workflow-route
+ * closure over shared types), so its legal home is the layer that owns the
+ * definitions it dispatches, not the layer that owns harness adapters.
+ */
+export { buildToolRegistry } from "./tool-registry.js";

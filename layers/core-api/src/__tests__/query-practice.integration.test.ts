@@ -1,37 +1,27 @@
 import * as os from "node:os";
 import * as path from "node:path";
+import {
+	buildToolDefinitions,
+	createInProcessCoreApiTransport,
+} from "@hyperidle/agent-orchestration";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import { create as createKnowledgeItem } from "@hyperidle/knowledge";
-import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import type { ToolContext } from "@hyperidle/tool-protocol";
+import type { Hono } from "hono";
 import { describe, expect } from "vitest";
-import { test as baseTest } from "../__testing__/test-fixtures.js";
-import {
-	createInProcessCoreApiTransport,
-	registerCoreApiTransport,
-} from "../services/core-api-port-composition.js";
-import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
+import { test } from "../__testing__/test-fixtures.js";
 
 /**
- * @lore AU21 §9 Increment 2 (knowledge wave): `query_practice` now reaches
- * `ports.coreApi.search` (the seam) — this file-scoped `auto:true` fixture
- * registers a real in-process `CoreApiPort` transport off THIS test's own
- * `app`, same idiom as `write-memory.integration.test.ts`.
+ * @lore AU31 §3.2/B2: `query_practice` reaches `ports.coreApi.search` (the
+ * seam) — the tool is built fresh per test off THIS test's own `app`
+ * (`createInProcessCoreApiTransport`), never an ambient transport global.
  */
-const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
-	coreApiSeamRegistration: [
-		async ({ app }, use) => {
-			registerCoreApiTransport(createInProcessCoreApiTransport(app));
-			await use(undefined);
-		},
-		{ auto: true },
-	],
-});
-
-const queryPracticeTool = buildToolDefinitions(toolHandlersPorts).find(
-	(t) => t.name === "query_practice",
-)!;
+function buildQueryPracticeTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
+	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+		(t) => t.name === "query_practice",
+	)!;
+}
 
 function makeContext(db: HyperIdleDb): ToolContext<HyperIdleDb> {
 	return {
@@ -47,7 +37,8 @@ function makeContext(db: HyperIdleDb): ToolContext<HyperIdleDb> {
 
 describe("query_practice tool", () => {
 	describe("AC4: searches 'file handling' returns matching L3 practices", () => {
-		test("returns L3 patterns whose body matches the query", async ({ db }) => {
+		test("returns L3 patterns whose body matches the query", async ({ db, app }) => {
+			const queryPracticeTool = buildQueryPracticeTool(app);
 			await createKnowledgeItem(db, {
 				layer: "L3",
 				kind: "pattern",
@@ -79,7 +70,8 @@ describe("query_practice tool", () => {
 			expect(titles).not.toContain("Concurrency pattern");
 		});
 
-		test("excludes L1 items by default (default layer filter is L3)", async ({ db }) => {
+		test("excludes L1 items by default (default layer filter is L3)", async ({ db, app }) => {
+			const queryPracticeTool = buildQueryPracticeTool(app);
 			await createKnowledgeItem(db, {
 				layer: "L3",
 				kind: "pattern",
@@ -110,7 +102,8 @@ describe("query_practice tool", () => {
 			expect(layers).not.toContain("L1");
 		});
 
-		test("returns empty list when no items match", async ({ db }) => {
+		test("returns empty list when no items match", async ({ db, app }) => {
+			const queryPracticeTool = buildQueryPracticeTool(app);
 			const result = await queryPracticeTool.handler(
 				{ query: "nothing matches xyz" },
 				makeContext(db),
@@ -121,7 +114,8 @@ describe("query_practice tool", () => {
 			expect(data.items).toEqual([]);
 		});
 
-		test("respects explicit layer override", async ({ db }) => {
+		test("respects explicit layer override", async ({ db, app }) => {
+			const queryPracticeTool = buildQueryPracticeTool(app);
 			await createKnowledgeItem(db, {
 				layer: "L1",
 				kind: "pattern",
@@ -145,14 +139,16 @@ describe("query_practice tool", () => {
 	});
 
 	describe("AC9: invalid input returns structured error", () => {
-		test("returns INVALID_INPUT when query is empty", async ({ db }) => {
+		test("returns INVALID_INPUT when query is empty", async ({ db, app }) => {
+			const queryPracticeTool = buildQueryPracticeTool(app);
 			const result = await queryPracticeTool.handler({ query: "" }, makeContext(db));
 			expect(result.success).toBe(false);
 			if (result.success) return;
 			expect(result.code).toBe("INVALID_INPUT");
 		});
 
-		test("returns INVALID_INPUT when layer is not a known layer", async ({ db }) => {
+		test("returns INVALID_INPUT when layer is not a known layer", async ({ db, app }) => {
+			const queryPracticeTool = buildQueryPracticeTool(app);
 			const result = await queryPracticeTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
 				{ query: "x", layer: "L99" } as any,

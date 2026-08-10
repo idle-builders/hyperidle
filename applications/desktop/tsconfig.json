@@ -11,20 +11,14 @@
 	},
 	"include": ["src"],
 	"references": [
-		{
-			"path": "../../framework/db"
-		},
-		{
-			"path": "../../framework/domain-model"
-		},
-		{
-			"path": "../../layers/agent-execution/harness-registry"
-		},
-		{
-			"path": "../remote-server"
-		},
-		{
-			"path": "../remote-worker"
-		}
+		{ "path": "../../framework/credential-access" },
+		{ "path": "../../framework/db" },
+		{ "path": "../../framework/domain-model" },
+		{ "path": "../../framework/event-bus" },
+		{ "path": "../../framework/host-process" },
+		{ "path": "../../framework/http-middleware" },
+		{ "path": "../../layers/agent-execution" },
+		{ "path": "../../layers/agent-orchestration" },
+		{ "path": "../../layers/core-api" }
 	]
 }

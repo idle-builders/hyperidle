@@ -57,7 +57,6 @@ import { getTeam } from "@hyperidle/org";
 import { deriveTitle } from "@hyperidle/presentation-format";
 import { escapeLikePattern } from "@hyperidle/query-escaping";
 import { findProposedCall, transitionProposedCall } from "@hyperidle/review";
-import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
@@ -660,9 +659,11 @@ function err(
  * @lore AU19 §11 (AC-9): `agentWorkIntentRecorder` is the Application-injected
  * cross-Layer port (`@hyperidle/work-intent-port`, Mechanism C) — this route (core-api)
  * must not import `@hyperidle/session-requests` (agent-orchestration)
- * directly for its raw `agent_work_intents` write below. `createApp`
- * defaults it to the real production binding
- * (`durable-agent-queue.ts`); tests may override.
+ * directly for its raw `agent_work_intents` write below. `app.ts` defaults it
+ * to the seam-backed recorder built over `AgentOrchestrationPort`
+ * (`buildSeamBackedWorkIntentRecorder`, AU31 §3.1 site 5 — see the record
+ * call's own `@lore` below for why it now runs post-commit, not inside this
+ * route's `db.transaction()`); tests may override.
  */
 export function createThreadRoutes(
 	db: HyperIdleDb,
@@ -1447,24 +1448,6 @@ export function createThreadRoutes(
 						blockId: appendBlockId,
 						createdAt: now,
 					});
-					if (recordsAssistantIntent) {
-						// AU21 §6 Decision B: resolve + validate the assistant run AT EMIT
-						// TIME (this Service's own domain state, plus the shared ast-<userId>
-						// runnability invariant) and bake the full request onto the intent —
-						// the drain dispatches it directly, with zero domain reads.
-						const bakedRequest = await resolveAssistantTurnRequest(tx as HyperIdleDb, messageId, {
-							requireRunnableAgent,
-							readServerConfig,
-						});
-						await agentWorkIntentRecorder.record(tx as HyperIdleDb, {
-							kind: "assistant_turn",
-							sourceKind: "thread_message",
-							sourceId: messageId,
-							requestedBy: senderId,
-							idempotencyKey: `assistant:${messageId}`,
-							bakedRequest,
-						});
-					}
 
 					// AE5: Atomically add new participants from @mentions.
 					// Concept hard rule #2: participant addition is atomic with message write.
@@ -1510,6 +1493,40 @@ export function createThreadRoutes(
 				);
 			}
 
+			// AU31 §3.1 site 5 — the `assistant_turn` intent submit runs AFTER the
+			// message-insert transaction commits, not inside it. Cross-layer
+			// atomicity with agent-orchestration is relinquished (founder ruling,
+			// architecture.md §3.1/§13 item 9): a seam call from inside this route's
+			// own open `db.transaction()` reproduced a real deadlock (§3.2), so the
+			// two can no longer share one transaction. On a failed submit here, the
+			// message is committed with no turn intent; this handler throws (no
+			// try/catch — same as `knowledge.ts`'s site 4), the caller sees a 5xx,
+			// the user re-sends, and the coherence trigger
+			// (`assistant-turn-coherence-trigger.ts`) re-bakes on the next thread
+			// append anyway. [D4] A re-send inserts a second *visible* message
+			// unless the client reuses its `clientKey` — the dedupe path above
+			// handles that, so the worst observable outcome is one duplicated
+			// message, never a lost one.
+			if (recordsAssistantIntent) {
+				// AU21 §6 Decision B: resolve + validate the assistant run (this
+				// Service's own domain state, plus the shared ast-<userId>
+				// runnability invariant) and bake the full request onto the intent —
+				// the drain dispatches it directly, with zero domain reads. The
+				// message is already committed, so a plain (non-tx) read sees it.
+				const bakedRequest = await resolveAssistantTurnRequest(db, messageId, {
+					requireRunnableAgent,
+					readServerConfig,
+				});
+				await agentWorkIntentRecorder.record(db, {
+					kind: "assistant_turn",
+					sourceKind: "thread_message",
+					sourceId: messageId,
+					requestedBy: senderId,
+					idempotencyKey: `assistant:${messageId}`,
+					bakedRequest,
+				});
+			}
+
 			const appendedEvent: ThreadMessageAppendedEvent = {
 				type: "thread_message_appended",
 				streamId: threadId,
@@ -1522,10 +1539,11 @@ export function createThreadRoutes(
 			eventBus.emit(appendedEvent);
 
 			// @lore AU9: the assistant turn is no longer fired from this route — a
-			// human plain message on the assistant thread instead atomically records
-			// an agent_work_intents row above (recordsAssistantIntent), and the agent
-			// layer's intent drain resolves/creates/executes the request. This route
-			// has no assistant-execution dependency at all.
+			// human plain message on the assistant thread instead records an
+			// agent_work_intents row above (recordsAssistantIntent, post-commit —
+			// AU31 §3.1 site 5), and the agent layer's intent drain
+			// resolves/creates/executes the request. This route has no
+			// assistant-execution dependency at all.
 
 			if (input.type === "verdict" && resolvesMessageRow) {
 				const resolvedEvent: ThreadResolvedEvent = {
@@ -1671,7 +1689,14 @@ export function createThreadRoutes(
 						identityHash: pcView.call.identityHash,
 					},
 					{
-						intentRecorder: { record: enqueueWorkIntent },
+						// AU31 §3.1 site 9 (caller side) — reuse the same seam-backed
+						// recorder site 5 uses above, instead of importing
+						// `@hyperidle/session-requests`' `enqueueWorkIntent` directly.
+						// `transitionProposedCall` already runs the record call AFTER
+						// its own inner transaction commits (see that function's
+						// `@lore`), so no additional relinquishment is needed here —
+						// this call site was never itself inside an open transaction.
+						intentRecorder: agentWorkIntentRecorder,
 						// AU21 §6 Decision B: resolve + validate the reengagement run AT
 						// EMIT TIME (this Service's own domain state, plus the shared
 						// ast-<userId> runnability invariant) and bake the full request

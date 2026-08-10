@@ -18,16 +18,21 @@
 		"@hyperidle/domain-model": "*"
 	},
 	"devDependencies": {
+		"@hono/node-server": "^2.0.6",
+		"@hyperidle/agent-execution": "*",
 		"@hyperidle/agent-orchestration": "*",
 		"@hyperidle/core-api": "*",
+		"@hyperidle/credential-access": "*",
 		"@hyperidle/db": "*",
-		"@hyperidle/harness-registry": "*",
-		"@hyperidle/remote-server": "*",
-		"@hyperidle/remote-worker": "*",
+		"@hyperidle/event-bus": "*",
+		"@hyperidle/host-process": "*",
+		"@hyperidle/http-middleware": "*",
+		"@types/ws": "^8.18.1",
 		"electron": "^43.1.1",
 		"electron-builder": "^26.15.3",
 		"esbuild": "^0.28.1",
 		"vitest": "*",
+		"ws": "^8.20.0",
 		"zod": "^4.3.6"
 	}
 }

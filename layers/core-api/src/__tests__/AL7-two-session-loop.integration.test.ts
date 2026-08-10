@@ -19,6 +19,11 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import {
+	buildProposedCallWorkflowPort,
+	buildToolDefinitions,
+	createInProcessCoreApiTransport,
+} from "@hyperidle/agent-orchestration";
+import {
 	artifacts,
 	bets,
 	type HyperIdleDb,
@@ -35,30 +40,36 @@ import {
 import type { SessionEndedEvent } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { type ReviewPorts, registerReviewSubscriptions } from "@hyperidle/review";
-import type { BuildToolRegistryOptions, ToolContext } from "@hyperidle/tool-protocol";
+import { buildToolRegistry as buildToolRegistryFromDefinitions } from "@hyperidle/tool-handlers";
+import type { BuildToolRegistryOptions, ToolContext, ToolRegistry } from "@hyperidle/tool-protocol";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { test as baseTest } from "../__testing__/test-fixtures.js";
-import {
-	createInProcessCoreApiTransport,
-	registerCoreApiTransport,
-} from "../services/core-api-port-composition.js";
-import { buildToolRegistry } from "../services/tool-provider-bindings.js";
 
 /**
- * @lore AU21 §9 Increment 2 (conversation wave): this file invokes
- * `read_inbox`, which now reaches `ports.coreApi.listInboxBySenderExclusion`
- * (the seam) — same file-scoped `auto:true` fixture idiom as
- * `create-item.integration.test.ts`.
+ * @lore AU31 §2.5/§3.2/§5: the `coreApiSeamRegistration` auto-fixture used to
+ * register this test's `app` on the ambient global — replaced by a
+ * `buildToolRegistry` fixture built fresh off THIS test's own `app`, wired
+ * to the REAL `CoreApiPort.review` seam ops (`buildProposedCallWorkflowPort`)
+ * so the AL7 workflow router's capture/consume/record-outcome calls exercise
+ * the real `POST /reviews/proposed-calls*` routes — same two-arg shape
+ * (`(ctx, options) => registry`) the deleted `tool-provider-bindings.ts`
+ * wrapper had, so every call site below is unchanged.
  */
-const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
-	coreApiSeamRegistration: [
-		async ({ app }, use) => {
-			registerCoreApiTransport(createInProcessCoreApiTransport(app));
-			await use(undefined);
-		},
-		{ auto: true },
-	],
+const test = baseTest.extend<{
+	buildToolRegistry: (
+		ctx: ToolContext<HyperIdleDb>,
+		options: BuildToolRegistryOptions<HyperIdleDb>,
+	) => ToolRegistry<HyperIdleDb>;
+}>({
+	buildToolRegistry: async ({ app }, use) => {
+		const transport = createInProcessCoreApiTransport(app);
+		const definitions = buildToolDefinitions(transport);
+		const workflowPort = buildProposedCallWorkflowPort(transport);
+		await use((ctx, options) =>
+			buildToolRegistryFromDefinitions<HyperIdleDb>(definitions, ctx, options, workflowPort),
+		);
+	},
 });
 
 const NOW = new Date().toISOString();
@@ -173,6 +184,7 @@ describe("AC4: session 2 executes approved commit_file via CAS-consume → Outco
 	test("grant-bearing registry: commit_file CAS-consumes grant, writes file, records Outcome", async ({
 		db,
 		eventBus,
+		buildToolRegistry,
 	}) => {
 		const { agentId, taskId, threadId, reviewMessageId, artifactId } = await seedWorld(db);
 		const sandboxPath = makeSandbox("s2");
@@ -269,6 +281,7 @@ describe("AC5: different irreversible op in session 2 is re-routed to review", (
 	test("non-approved irreversible call in grant-bearing session returns AWAITING_REVIEW", async ({
 		db,
 		eventBus,
+		buildToolRegistry,
 	}) => {
 		const { agentId, taskId, threadId, reviewMessageId, artifactId } = await seedWorld(db);
 		const sandboxPath = makeSandbox("s2-ac5");
@@ -584,6 +597,7 @@ describe("AC11: work continues in session 2 after the approved op executes", () 
 	test("registry stays functional after approved commit_file: reversible tool succeeds", async ({
 		db,
 		eventBus,
+		buildToolRegistry,
 	}) => {
 		const { agentId, taskId, threadId, reviewMessageId, artifactId } = await seedWorld(db);
 		const sandboxPath = makeSandbox("s2-ac11");

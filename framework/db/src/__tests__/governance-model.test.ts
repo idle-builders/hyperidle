@@ -1,10 +1,10 @@
 /**
  * AU28 — the compact architecture model reproduces every decided verdict.
  *
- * `governance/decided-rules.json` holds 195 verdicts the founder decided one at a time: every role
- * pair × crossing kind, with a separate answer for the production and development worlds. They are
- * the decision artifact. `scripts/lib/governance-model.ts` is fifteen clauses that must *derive* all
- * 390 answers (195 rows × 2 worlds).
+ * `tools/governance/decided-rules.json` holds 195 verdicts the founder decided one at a time: every
+ * role pair × crossing kind, with a separate answer for the production and development worlds. They
+ * are the decision artifact. `tools/governance/src/lib/governance-model.ts` is fifteen clauses that
+ * must *derive* all 390 answers (195 rows × 2 worlds).
  *
  * The row count moved four times, by founder ruling: AU28 Ruling 14 collapsed `raw runtime` and
  * `harness` into one target, merging the two `harness-registry` capability rows that had the same
@@ -37,24 +37,24 @@ import {
 	type Kind,
 	type Role,
 	type Target,
-} from "../../../../scripts/lib/governance-model.js";
+} from "../../../../tools/governance/src/lib/governance-model.js";
 import {
 	ownerOf,
 	RegistryError,
 	type TableOwners,
 	validateArchitecture,
 	validateTableOwners,
-} from "../../../../scripts/lib/governance-registry.js";
+} from "../../../../tools/governance/src/lib/governance-registry.js";
 import {
 	readWorkspacePackages,
 	type WorkspaceRoleRule,
-} from "../../../../scripts/lib/repo-census.js";
+} from "../../../../tools/governance/src/lib/repo-census.js";
 import * as schema from "../schema.js";
 
 const repoRoot = join(import.meta.dirname, "../../../..");
 const readJson = (rel: string): unknown => JSON.parse(readFileSync(join(repoRoot, rel), "utf8"));
 
-const architecture = readJson("governance/architecture.json") as Architecture & {
+const architecture = readJson("tools/governance/architecture.json") as Architecture & {
 	roles: { byWorkspacePattern: readonly WorkspaceRoleRule[] };
 };
 
@@ -67,7 +67,7 @@ interface DecidedRow {
 	readonly development: "allowed" | "forbidden";
 	readonly instances: { readonly production: number; readonly development: number };
 }
-const decided = readJson("governance/decided-rules.json") as {
+const decided = readJson("tools/governance/decided-rules.json") as {
 	totals: { rows: number; production: { allowed: number; forbidden: number } };
 	rows: readonly DecidedRow[];
 };
@@ -111,6 +111,7 @@ const NAMED_PACKAGES: Readonly<Record<string, { readonly role: Role; readonly la
 	"core-ui": { role: "layer" },
 	credentials: { role: "service", layer: "core-api" },
 	"design-system": { role: "framework" },
+	desktop: { role: "application" },
 	"filesystem-mounting": { role: "service", layer: "agent-orchestration" },
 	filesystems: { role: "service", layer: "agent-orchestration" },
 	"harness-registry": { role: "service", layer: "agent-execution" },
@@ -131,14 +132,14 @@ const NAMED_PACKAGES: Readonly<Record<string, { readonly role: Role; readonly la
 
 /**
  * The workspace path a named package's manifest sits at, from the role the fixture declares for it.
- * The role globs in `governance/architecture.json` are what decide it, so this is the same derivation
+ * The role globs in `tools/governance/architecture.json` are what decide it, so this is the same derivation
  * `readWorkspacePackages` runs, in reverse.
  */
 function manifestPathOf(name: string): string {
 	const named = NAMED_PACKAGES[name];
 	if (named === undefined) {
 		throw new Error(
-			`governance/architecture.json grants reach to "${name}", which this fixture does not know. ` +
+			`tools/governance/architecture.json grants reach to "${name}", which this fixture does not know. ` +
 				"Add it to NAMED_PACKAGES with its declared role and home layer.",
 		);
 	}
@@ -575,7 +576,7 @@ describe("AU28 — the clauses hold beyond the decided rows", () => {
 // The registries
 // -------------------------------------------------------------------------------------------
 
-const tableOwners = readJson("governance/table-owners.json") as TableOwners;
+const tableOwners = readJson("tools/governance/table-owners.json") as TableOwners;
 
 /** Every table the schema actually declares, by export name — read from the module, not the file. */
 const liveTables = new Set(

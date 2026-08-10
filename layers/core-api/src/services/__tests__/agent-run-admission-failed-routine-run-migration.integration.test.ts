@@ -56,8 +56,8 @@ import { readServerConfig } from "@hyperidle/settings";
 import { requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { eq, sql } from "drizzle-orm";
+import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";
-import { queueDeps } from "../durable-agent-queue.js";
 
 const NOW = new Date().toISOString();
 

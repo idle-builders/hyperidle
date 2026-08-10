@@ -28,99 +28,120 @@
  * inverted to the `session_handoff_completed` EventBus subscription
  * `session-lifecycle-bindings.ts`'s `registerHandoffTerminationRequester`
  * now owns — see `handoff-protocol.ts`'s inline `@lore` at the emission site.
+ *
+ * @lore AU31 §3.1/§3.2: `sessionRequests`/`runOrchestration` are now
+ * seam-backed (`AgentOrchestrationPort`), not direct
+ * `@hyperidle/session-requests`/`@hyperidle/run-orchestration` imports —
+ * supersedes AU26 H1's "a plain downward call, NOT an `AgentOrchestrationPort`
+ * method (that door stays read-only)" (architecture.md §13 item 2: one door,
+ * both directions now). The port is a per-composition value, so `handoffDeps`
+ * can no longer be a module-level constant — `buildHandoffDeps(port)` is the
+ * factory, and `handoff`'s production binding is `buildProductionHandoff(port)`.
  */
 
+import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { insertMessage, insertThread, listMessages } from "@hyperidle/conversation";
 import type { HyperIdleDb, NewItem, NewTask, WriteExecutor } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
 import { getTeamMembers } from "@hyperidle/org";
 import type { HandoffParams, HandoffResult } from "@hyperidle/policy";
 import { buildHandoff, computeApprovalRate as policyComputeApprovalRate } from "@hyperidle/policy";
-import { endRunForHandoff } from "@hyperidle/run-orchestration";
-import { enqueueWorkIntent, sessionRunRegistry } from "@hyperidle/session-requests";
 import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { resolveTaskRunRequest } from "@hyperidle/work";
 import { taskRunResolverDeps } from "./task-run-resolver-bindings.js";
 
-const handoffDeps = {
-	work: {
-		getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
-		updateTaskById: (exec: WriteExecutor, id: string, patch: Partial<NewTask>) =>
-			work.update(exec, "task", id, patch),
-		claimTaskHandoff: (
-			exec: WriteExecutor,
-			{
-				taskId,
-				expectedUpdatedAt,
-				claimedAt,
-			}: { taskId: string; expectedUpdatedAt: string; claimedAt: string },
-		) =>
-			work.transition(exec, "task", {
-				id: taskId,
-				guard: { field: "updatedAt", equals: expectedUpdatedAt },
-				patch: { updatedAt: claimedAt },
-			}),
-		createItem: (exec: WriteExecutor, values: NewItem) => work.create(exec, "item", values),
-		insertDispatchAttempt: (
-			exec: WriteExecutor,
-			input: {
-				readonly taskId: string;
-				readonly occasion: string;
-				readonly agentId: string;
-				readonly predecessorSessionId: string;
-				readonly now: string;
+function buildHandoffDeps(port: AgentOrchestrationPort) {
+	return {
+		work: {
+			getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
+			updateTaskById: (exec: WriteExecutor, id: string, patch: Partial<NewTask>) =>
+				work.update(exec, "task", id, patch),
+			claimTaskHandoff: (
+				exec: WriteExecutor,
+				{
+					taskId,
+					expectedUpdatedAt,
+					claimedAt,
+				}: { taskId: string; expectedUpdatedAt: string; claimedAt: string },
+			) =>
+				work.transition(exec, "task", {
+					id: taskId,
+					guard: { field: "updatedAt", equals: expectedUpdatedAt },
+					patch: { updatedAt: claimedAt },
+				}),
+			createItem: (exec: WriteExecutor, values: NewItem) => work.create(exec, "item", values),
+			insertDispatchAttempt: (
+				exec: WriteExecutor,
+				input: {
+					readonly taskId: string;
+					readonly occasion: string;
+					readonly agentId: string;
+					readonly predecessorSessionId: string;
+					readonly now: string;
+				},
+			) => work.taskDispatchAttemptStore.insertAttempt(exec, input),
+		},
+		conversation: { insertMessage, insertThread },
+		users: {
+			getUserById: (db: WriteExecutor, id: string) => findUser(db, { id }),
+			findActiveTeammateByRole: (
+				db: WriteExecutor,
+				role: string,
+				teamMembersIds: string[],
+				excludeId: string,
+			) => findUser(db, { role, teamIds: teamMembersIds, status: "active", excludeId }),
+		},
+		org: { getByTeamId: (db: WriteExecutor, teamId: string) => getTeamMembers(db, { teamId }) },
+		sessionRequests: {
+			record: (
+				_exec: WriteExecutor,
+				input: {
+					readonly kind: "task_run";
+					readonly sourceKind: string;
+					readonly sourceId: string;
+					readonly requestedBy?: string;
+					readonly idempotencyKey: string;
+					readonly bakedRequest?: import("@hyperidle/work-intent-port").BakedWorkIntentRequest;
+				},
+			) => port.intents.submit(input),
+			// AU31 §2.1a: `sessionRunRegistry.abort` never crosses the seam
+			// itself — it is an implementation detail of `runs.abort`'s handler,
+			// executed orchestration-side. Nothing here reads the boolean
+			// `sessionRunRegistry.abort` used to return (handoff-protocol.ts
+			// discards it), so the seam's `void`-returning op is a faithful swap.
+			abort: async (sessionId: string) => {
+				await port.runs.abort(sessionId);
+				return true;
 			},
-		) => work.taskDispatchAttemptStore.insertAttempt(exec, input),
-	},
-	conversation: { insertMessage, insertThread },
-	users: {
-		getUserById: (db: WriteExecutor, id: string) => findUser(db, { id }),
-		findActiveTeammateByRole: (
-			db: WriteExecutor,
-			role: string,
-			teamMembersIds: string[],
-			excludeId: string,
-		) => findUser(db, { role, teamIds: teamMembersIds, status: "active", excludeId }),
-	},
-	org: { getByTeamId: (db: WriteExecutor, teamId: string) => getTeamMembers(db, { teamId }) },
-	sessionRequests: {
-		record: (
-			exec: WriteExecutor,
-			input: {
-				readonly kind: "task_run";
-				readonly sourceKind: string;
-				readonly sourceId: string;
-				readonly requestedBy?: string;
-				readonly idempotencyKey: string;
-				readonly bakedRequest?: import("@hyperidle/work-intent-port").BakedWorkIntentRequest;
-			},
-		) => enqueueWorkIntent(exec, input as Parameters<typeof enqueueWorkIntent>[1]),
-		abort: sessionRunRegistry.abort,
-	},
-	// AU21 §6 Decision B / Increment 3: `task_run`'s emit-time resolver,
-	// pre-bound with the real `requireRunnableAgent` — `policy` cannot import
-	// `@hyperidle/work` directly (Mechanism C), so this composition root
-	// (which already imports `@hyperidle/work` for `handoffDeps.work`) wires
-	// the concrete resolver in.
-	taskRunResolver: {
-		resolve: (exec: WriteExecutor, attemptId: string) =>
-			resolveTaskRunRequest(exec as HyperIdleDb, attemptId, taskRunResolverDeps),
-	},
-	// AU26 H1 (§D-M.1): the handoff's run-end write is `agent-orchestration`'s
-	// state transition. `core-api → agent-orchestration` is the permitted
-	// direction and `@hyperidle/run-orchestration` is already a dependency, so
-	// this is a plain downward call — NOT an `AgentOrchestrationPort` method
-	// (that door stays read-only).
-	runOrchestration: { endRunForHandoff },
-};
+		},
+		// AU21 §6 Decision B / Increment 3: `task_run`'s emit-time resolver,
+		// pre-bound with the real `requireRunnableAgent` — `policy` cannot import
+		// `@hyperidle/work` directly (Mechanism C), so this composition root
+		// (which already imports `@hyperidle/work` for `handoffDeps.work`) wires
+		// the concrete resolver in.
+		taskRunResolver: {
+			resolve: (exec: WriteExecutor, attemptId: string) =>
+				resolveTaskRunRequest(exec as HyperIdleDb, attemptId, taskRunResolverDeps),
+		},
+		// AU31 §3.1 site 7 / §13 item 2: seam-backed, superseding AU26 H1's
+		// "a plain downward call, NOT an `AgentOrchestrationPort` method (that
+		// door stays read-only)" — the port is now core's one door, both
+		// directions. Called BEFORE the handoff's transaction (see
+		// `ports.ts`'s `runOrchestration` @lore for why this site reorders).
+		runOrchestration: {
+			endRunForHandoff: (_exec: WriteExecutor, sessionId: string, endedAt: string) =>
+				port.runs.endForHandoff(sessionId, endedAt),
+		},
+	};
+}
 
-/** Production-wired `handoff` — every real call site imports this, not `@hyperidle/policy` directly. */
-export const handoff: (
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	params: HandoffParams,
-) => Promise<HandoffResult> = buildHandoff(handoffDeps);
+/** Production-wired `handoff` factory — every real call site builds one from the composition's port. */
+export function buildProductionHandoff(
+	port: AgentOrchestrationPort,
+): (db: HyperIdleDb, eventBus: EventBus, params: HandoffParams) => Promise<HandoffResult> {
+	return buildHandoff(buildHandoffDeps(port));
+}
 
 const approvalRateDeps = {
 	work: {

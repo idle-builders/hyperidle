@@ -1041,7 +1041,7 @@ export default [
 	// census or it has nothing. This is the one thing ESLint is genuinely good at here — a per-file
 	// import restriction — and it is the only part of the governance stack that lives in ESLint.
 	{
-		files: ["scripts/rules/**/*.ts"],
+		files: ["tools/governance/src/rules/**/*.ts"],
 		languageOptions: {
 			parser: tsParser,
 		},

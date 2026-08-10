@@ -9,21 +9,34 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
+import {
+	buildToolDefinitions,
+	createInProcessCoreApiTransport,
+} from "@hyperidle/agent-orchestration";
 import { bets, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
-import { buildToolDefinitions } from "@hyperidle/tool-handlers";
 import type { ToolContext } from "@hyperidle/tool-protocol";
 import { eq } from "drizzle-orm";
+import type { Hono } from "hono";
 import { describe, expect } from "vitest";
 import { test, vi } from "../__testing__/test-fixtures.js";
-import {
-	createInProcessCoreApiTransport,
-	registerCoreApiTransport,
-} from "../services/core-api-port-composition.js";
-import { toolHandlersPorts } from "../services/tool-handlers-bindings.js";
 
-const createBetTool = buildToolDefinitions(toolHandlersPorts).find((t) => t.name === "create_bet")!;
-const editBetTool = buildToolDefinitions(toolHandlersPorts).find((t) => t.name === "edit_bet")!;
+/**
+ * @lore AU31 §3.2/B2: both tools reach `ports.coreApi.*` (the seam) — each is
+ * built fresh per test off THIS test's own `app`, never an ambient
+ * transport global (and never a stale transport left registered by an
+ * earlier test in this file, which the old ambient-global shape allowed).
+ */
+function buildCreateBetTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
+	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+		(t) => t.name === "create_bet",
+	)!;
+}
+function buildEditBetTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
+	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
+		(t) => t.name === "edit_bet",
+	)!;
+}
 
 const NOW = "2026-06-09T00:00:00.000Z";
 
@@ -86,7 +99,7 @@ describe("AD8b — create_bet tool", () => {
 		// registered in-process transport + a stubbed API key, same
 		// convention `bets.integration.test.ts` uses for every real route call.
 		vi.stubEnv("HYPERIDLE_API_KEY", "ad8b-create-bet-test-key");
-		registerCoreApiTransport(createInProcessCoreApiTransport(app));
+		const createBetTool = buildCreateBetTool(app);
 		await seedBase(db);
 		const ctx = makeCtx(db, "create-bet");
 
@@ -107,7 +120,8 @@ describe("AD8b — create_bet tool", () => {
 		expect(row?.teamId).toBe("team-ad8b");
 	});
 
-	test("returns error when teamId is missing", async ({ db }) => {
+	test("returns error when teamId is missing", async ({ db, app }) => {
+		const createBetTool = buildCreateBetTool(app);
 		await seedBase(db);
 		const ctx = makeCtx(db, "create-bet-err");
 
@@ -120,7 +134,8 @@ describe("AD8b — create_bet tool", () => {
 		expect(result.success).toBe(false);
 	});
 
-	test("bet tool definition has name='create_bet'", () => {
+	test("bet tool definition has name='create_bet'", ({ app }) => {
+		const createBetTool = buildCreateBetTool(app);
 		expect(createBetTool.name).toBe("create_bet");
 	});
 });
@@ -130,7 +145,8 @@ describe("AD8b — create_bet tool", () => {
 // ---------------------------------------------------------------------------
 
 describe("AD8b — edit_bet tool", () => {
-	test("updates bet description and returns ok", async ({ db }) => {
+	test("updates bet description and returns ok", async ({ db, app }) => {
+		const editBetTool = buildEditBetTool(app);
 		await seedBase(db);
 		await seedBet(db);
 		const ctx = makeCtx(db, "edit-bet");
@@ -146,7 +162,8 @@ describe("AD8b — edit_bet tool", () => {
 		expect(row?.description).toBe("Updated description");
 	});
 
-	test("returns error for non-existent bet", async ({ db }) => {
+	test("returns error for non-existent bet", async ({ db, app }) => {
+		const editBetTool = buildEditBetTool(app);
 		await seedBase(db);
 		const ctx = makeCtx(db, "edit-bet-err");
 
@@ -158,7 +175,8 @@ describe("AD8b — edit_bet tool", () => {
 		expect(result.success).toBe(false);
 	});
 
-	test("bet edit tool definition has name='edit_bet'", () => {
+	test("bet edit tool definition has name='edit_bet'", ({ app }) => {
+		const editBetTool = buildEditBetTool(app);
 		expect(editBetTool.name).toBe("edit_bet");
 	});
 });

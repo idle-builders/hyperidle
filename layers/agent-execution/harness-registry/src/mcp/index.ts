@@ -59,3 +59,32 @@ export function createMcpToolBridge(
 		},
 	};
 }
+
+/**
+ * AU31 §2.7/§3.1 sites 12,14 (B1) — the session-scoped MCP dial, folded in
+ * from `run-orchestration`'s `provisioner.ts`: bridge-open, the `/api/mcp/`
+ * URL spelling, and close. `harness-registry` is the one Service with an
+ * allowed edge to the MCP router (`tools/governance/decided-rules.json`);
+ * `provisioner.ts` calls only these two functions, through the injected
+ * `SessionLifecycleHarnessRuntime` port (`openMcpBridge`/`closeMcpBridge`,
+ * wired at `layers/core-api/src/services/run-orchestration-composition.ts`),
+ * never touching `bridge.open`/`bridge.close` or a `/api/mcp/` literal
+ * itself again.
+ */
+export async function openMcpBridgeSession(
+	bridge: McpToolBridge,
+	baseUrl: string,
+	session: {
+		readonly sessionId: string;
+		readonly registry: ToolRegistry;
+		readonly onToolCall?: (call: { toolName: string; args: unknown }) => void;
+	},
+): Promise<{ readonly token: string; readonly url: string }> {
+	const { token } = await bridge.open(session);
+	return { token, url: `${baseUrl}/api/mcp/${token}` };
+}
+
+/** The dial's close half — see `openMcpBridgeSession`'s `@lore`. */
+export function closeMcpBridgeSession(bridge: McpToolBridge, token: string): Promise<void> {
+	return bridge.close(token);
+}

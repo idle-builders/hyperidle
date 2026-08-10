@@ -4,24 +4,20 @@
  *
  * @lore AU19 Increment 5 (item 2): relocated from `packages/server/src/index.ts`
  * (the pre-AU19 composition root's process entrypoint) — mechanical move, same
- * boot sequence. The one REAL structural change: this Application now
- * constructs and injects its own concrete `HarnessPort` adapter instead of
- * `@hyperidle/core-api`'s `createServer` defaulting it internally via a
- * `HYPERIDLE_PROFILE` runtime branch (see `create-server.ts`'s
- * `CreateServerDeps` top `@lore`). `remote-server` never runs a sandbox
- * in-process — its `adapterPool` starts EMPTY (no local CLI harness
- * discovery, unlike `desktop`'s `createLocalAdapterPool()`) and is populated
- * only by remote workers registering over the worker WS route
- * (`@hyperidle/core-api`'s `registerWorkerWsRoute`, wired unconditionally
- * inside `createServer` — every Application that calls `createServer` gets
- * worker-hosting for free, same code path, no extra injection needed here).
- * `workspaceAdapter` is `DisabledSandboxAdapter` — this process never
- * provisions a local sandbox; it fails loudly only if something actually
- * tries to.
+ * boot sequence.
+ *
+ * @lore AU31 §6/§5.3: `topology: "disabled"` replaces the concrete
+ * `AdapterPool`/`SandboxAdapter` this Application used to construct and
+ * inject itself — `bootAgentExecution` (inside `create-server.ts` now) owns
+ * that construction. `remote-server` never runs a sandbox in-process — its
+ * pool starts EMPTY (no local CLI harness discovery, unlike `desktop`'s
+ * `"local"` topology) and is populated only by remote workers registering
+ * over the worker WS route (wired unconditionally inside `bootAgentOrchestration`
+ * — every Application gets worker-hosting for free, same code path, no extra
+ * injection needed here).
  */
 
 import { createLogger } from "@hyperidle/diagnostics";
-import { AdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
 import { validateStartupEnv } from "@hyperidle/host-process";
 import { createServer } from "./create-server.js";
 
@@ -35,10 +31,7 @@ if (envError) {
 
 const port = Number(process.env.PORT) || 3001;
 
-const handle = await createServer(port, {
-	adapterPool: new AdapterPool(),
-	workspaceAdapter: createSandboxAdapter("disabled"),
-});
+const handle = await createServer(port, { topology: "disabled" });
 log.info(`remote-server running on http://localhost:${port}`);
 
 let shutdownPromise: Promise<void> | null = null;

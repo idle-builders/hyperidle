@@ -45,28 +45,29 @@
  * already use.
  */
 
+import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import { type SessionStartedEvent, TaskInvalidTransitionError } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { type TaskStateMachineDeps, transitionTask } from "@hyperidle/work";
+import { buildSeamBackedWorkIntentRecorder } from "./agent-orchestration-port-composition.js";
 import { taskRunResolverDeps } from "./task-run-resolver-bindings.js";
 
 const logger = createLogger({ pkg: "core-api.work-session-started-reactions" });
 const registeredBuses = new WeakSet<EventBus>();
 
-const transitionDeps: TaskStateMachineDeps = {
-	workIntents: { record: enqueueWorkIntent },
-	taskRunResolver: taskRunResolverDeps,
-};
-
 async function reactToSessionStarted(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	event: SessionStartedEvent,
+	agentOrchestration: AgentOrchestrationPort,
 ): Promise<void> {
 	if (!event.taskId) return;
+	const transitionDeps: TaskStateMachineDeps = {
+		workIntents: buildSeamBackedWorkIntentRecorder(agentOrchestration),
+		taskRunResolver: taskRunResolverDeps,
+	};
 	try {
 		await transitionTask(db, eventBus, event.taskId, "in_progress", transitionDeps);
 	} catch (error) {
@@ -86,6 +87,7 @@ async function reactToSessionStarted(
 export function registerWorkSessionStartedReactions(
 	db: HyperIdleDb,
 	eventBus: EventBus,
+	agentOrchestration: AgentOrchestrationPort,
 ): () => void {
 	if (registeredBuses.has(eventBus)) {
 		return () => {};
@@ -93,7 +95,7 @@ export function registerWorkSessionStartedReactions(
 	registeredBuses.add(eventBus);
 
 	const unsubscribe = eventBus.on("session_started", (event) => {
-		void reactToSessionStarted(db, eventBus, event).catch((error: unknown) => {
+		void reactToSessionStarted(db, eventBus, event, agentOrchestration).catch((error: unknown) => {
 			logger.error("session_started task in_progress transition reaction failed", {
 				taskId: event.taskId,
 				error: error instanceof Error ? error.message : String(error),

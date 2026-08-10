@@ -47,8 +47,8 @@ import { attentionReviewReasoningMarker } from "@hyperidle/review";
 import { drainIntents } from "@hyperidle/session-requests";
 import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
 import { test } from "../../__testing__/test-fixtures.js";
-import { queueDeps } from "../durable-agent-queue.js";
 
 const TEST_API_KEY = "test-key-au21-knowledge-action-migration";
 

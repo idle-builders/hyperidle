@@ -1,8 +1,8 @@
 import { agentSessionRequests, agentWorkIntents, type HyperIdleDb, users } from "@hyperidle/db";
 import { reapExpired } from "@hyperidle/session-requests";
 import { eq, sql } from "drizzle-orm";
+import { queueDeps } from "../__testing__/durable-agent-queue-test-deps.js";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
-import { queueDeps } from "../services/durable-agent-queue.js";
 
 const DAY = 86_400_000;
 const now = new Date("2026-07-11T12:00:00.000Z");
@@ -35,7 +35,7 @@ async function seedTerminalRequest(db: HyperIdleDb, id: string): Promise<void> {
 }
 
 async function reaper() {
-	const module = await import("../services/durable-agent-queue.js");
+	const module = await import("../__testing__/durable-agent-queue-test-deps.js");
 	expect("reapExpired" in module).toBe(false);
 	return (db: HyperIdleDb, options: { now: Date; retentionDays: number; batchSize: number }) =>
 		reapExpired(queueDeps(db), options);

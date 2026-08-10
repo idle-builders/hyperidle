@@ -61,6 +61,11 @@
  */
 
 import {
+	buildCoreApiPort,
+	createInProcessCoreApiTransport,
+	withActorTransport,
+} from "@hyperidle/agent-orchestration";
+import {
 	artifacts,
 	bets,
 	type HyperIdleDb,
@@ -74,11 +79,6 @@ import {
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
-import {
-	buildCoreApiPort,
-	createInProcessCoreApiTransport,
-	withActorTransport,
-} from "../core-api-port-composition.js";
 
 const NOW = "2026-07-27T00:00:00.000Z";
 

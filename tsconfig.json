@@ -77,6 +77,9 @@
 			"path": "tools/eval"
 		},
 		{
+			"path": "tools/governance"
+		},
+		{
 			"path": "tools/setup"
 		},
 		{

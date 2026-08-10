@@ -11,29 +11,14 @@
 	},
 	"include": ["src"],
 	"references": [
-		{
-			"path": "../../framework/credential-access"
-		},
-		{
-			"path": "../../framework/db"
-		},
-		{
-			"path": "../../framework/diagnostics"
-		},
-		{
-			"path": "../../framework/domain-model"
-		},
-		{
-			"path": "../../framework/event-bus"
-		},
-		{
-			"path": "../../framework/host-process"
-		},
-		{
-			"path": "../../layers/agent-execution/harness-registry"
-		},
-		{
-			"path": "../../layers/core-api"
-		}
+		{ "path": "../../framework/credential-access" },
+		{ "path": "../../framework/db" },
+		{ "path": "../../framework/diagnostics" },
+		{ "path": "../../framework/event-bus" },
+		{ "path": "../../framework/host-process" },
+		{ "path": "../../framework/http-middleware" },
+		{ "path": "../../layers/agent-execution" },
+		{ "path": "../../layers/agent-orchestration" },
+		{ "path": "../../layers/core-api" }
 	]
 }

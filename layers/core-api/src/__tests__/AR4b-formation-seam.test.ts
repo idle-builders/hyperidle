@@ -28,21 +28,14 @@ import type { BakedAgentRunnableConfig } from "@hyperidle/work-intent-port";
 import { and, eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { beforeEach, describe, expect, vi } from "vitest";
-import { test as baseTest } from "../__testing__/test-fixtures.js";
-import {
-	createInProcessCoreApiTransport,
-	registerCoreApiTransport,
-} from "../services/core-api-port-composition.js";
-
-const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
-	coreApiSeamRegistration: [
-		async ({ app }, use) => {
-			registerCoreApiTransport(createInProcessCoreApiTransport(app));
-			await use(undefined);
-		},
-		{ auto: true },
-	],
-});
+/**
+ * @lore AU31 §3.2/§5: the `coreApiSeamRegistration` auto-fixture used to
+ * register this test's `app` on the `CoreApiPort` ambient global — deleted
+ * (no ambient global left to register). This file never calls a tool
+ * dispatch or the `CoreApiPort` seam directly (it drives real HTTP routes
+ * only), so nothing here needs a seam transport at all.
+ */
+import { test } from "../__testing__/test-fixtures.js";
 
 const FOUNDER_ID = "founder-ar4b-formation";
 const ASSISTANT_ID = `ast-${FOUNDER_ID}`;

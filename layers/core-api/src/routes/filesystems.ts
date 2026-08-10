@@ -28,11 +28,18 @@
  * @lore AO1 §3: the team gate is route-level. There is no DB-level cross-table
  * CHECK constraint, and the bot's `teamId` points at `team_members.id`
  * (`schema.ts:47`), so reaching the real `teams.id` needs the extra hop.
+ *
+ * @lore AU31 §2.6: the existence check + the persist are now
+ * `AgentOrchestrationPort.filesystems.persistInjection` — a downward
+ * DOWNWARD CALL was still a `@hyperidle/filesystems` import (a cross-layer
+ * import regardless of direction), so it converts to the seam like every
+ * other conversation site. The gate stays exactly where it is, route-level,
+ * reading only core-api's own `users`/`team_members`.
  */
 
+import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { FilesystemInjection } from "@hyperidle/filesystem-contract";
-import { getFilesystem, saveInjection } from "@hyperidle/filesystems";
 import {
 	createBodyLimit,
 	type HyperIdleEnv,
@@ -50,15 +57,10 @@ const injectFilesystemSchema = z.object({
 
 const FILESYSTEM_BODY_LIMIT = { maxSize: 8 * 1024 }; // 8 KB (the body is one id)
 
-function rowToInjection(row: FilesystemInjection): FilesystemInjection {
-	return {
-		agentUserId: row.agentUserId,
-		filesystemId: row.filesystemId,
-		createdAt: row.createdAt,
-	};
-}
-
-export function createFilesystemInjectionRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
+export function createFilesystemInjectionRoutes(
+	db: HyperIdleDb,
+	agentOrchestration: AgentOrchestrationPort,
+): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
 	// ── POST /api/filesystems/:id/injections — Inject filesystem into a bot ───
@@ -71,9 +73,11 @@ export function createFilesystemInjectionRoutes(db: HyperIdleDb): Hono<HyperIdle
 			const fsId = c.req.param("id");
 			const body = c.req.valid("json");
 
-			// Check filesystem exists (downward call into the orchestration Service).
-			const fs = await getFilesystem(db, fsId);
-			if (fs == null) {
+			// Check filesystem exists + get its team (the pre-write half of the
+			// gate — see the port's own doc for why this reads separately from
+			// `persistInjection`'s own existence recheck).
+			const filesystemTeamId = await agentOrchestration.filesystems.getTeamId(fsId);
+			if (filesystemTeamId == null) {
 				return c.json({ error: "Filesystem not found", code: "NOT_FOUND" }, 404);
 			}
 
@@ -86,58 +90,30 @@ export function createFilesystemInjectionRoutes(db: HyperIdleDb): Hono<HyperIdle
 			// Team-consistency check: the bot's team must match the filesystem's teamId.
 			// The bot's teamId points at team_members.id (schema.ts:47); we need the teams.id.
 			// @lore AO1 §3: Route-level guard — no DB-level cross-table CHECK constraint.
-			if (agent.teamId != null) {
-				const tmRow = await getTeamMembers(db, { id: agent.teamId });
-				const agentActualTeamId = tmRow?.teamId ?? null;
-				if (agentActualTeamId !== fs.teamId) {
-					return c.json(
-						{ error: "Agent team does not match filesystem team", code: "TEAM_MISMATCH" },
-						400,
-					);
-				}
-			} else {
-				// Bot has no team assignment — can't inject into a team-scoped filesystem.
+			if (agent.teamId == null) {
 				return c.json({ error: "Agent user has no team assignment", code: "TEAM_MISMATCH" }, 400);
 			}
-
-			const now = new Date().toISOString();
-
-			try {
-				await saveInjection(db, {
-					agentUserId: body.agentUserId,
-					filesystemId: fsId,
-					createdAt: now,
-				});
-			} catch (err) {
-				// UNIQUE constraint violation (composite PK already exists) → 409
-				// @lore drizzle-orm 0.45.2: wraps PGlite errors — walk cause chain to find constraint message.
-				const constraintMsg = (e: unknown): string => {
-					if (!(e instanceof Error)) return String(e);
-					const own = e.message.toLowerCase();
-					if (
-						e.message.includes("filesystem_injections_agent_user_id_filesystem_id_pk") ||
-						own.includes("duplicate key") ||
-						own.includes("unique constraint")
-					)
-						return e.message;
-					return e.cause !== undefined ? constraintMsg(e.cause) : e.message;
-				};
-				const msg = constraintMsg(err);
-				if (
-					msg.includes("filesystem_injections_agent_user_id_filesystem_id_pk") ||
-					msg.toLowerCase().includes("duplicate key") ||
-					msg.toLowerCase().includes("unique constraint")
-				) {
-					return c.json({ error: "Already injected", code: "CONFLICT" }, 409);
-				}
-				throw err;
+			const tmRow = await getTeamMembers(db, { id: agent.teamId });
+			const agentActualTeamId = tmRow?.teamId ?? null;
+			if (agentActualTeamId !== filesystemTeamId) {
+				return c.json(
+					{ error: "Agent team does not match filesystem team", code: "TEAM_MISMATCH" },
+					400,
+				);
 			}
 
-			// injected is defined — we just inserted it.
-			return c.json(
-				rowToInjection({ agentUserId: body.agentUserId, filesystemId: fsId, createdAt: now }),
-				201,
+			const injectionAttempt = await agentOrchestration.filesystems.persistInjection(
+				fsId,
+				body.agentUserId,
 			);
+			if (!injectionAttempt.ok) {
+				if (injectionAttempt.code === "NOT_FOUND") {
+					return c.json({ error: "Filesystem not found", code: "NOT_FOUND" }, 404);
+				}
+				return c.json({ error: "Already injected", code: "CONFLICT" }, 409);
+			}
+
+			return c.json(injectionAttempt.injection satisfies FilesystemInjection, 201);
 		},
 	);
 

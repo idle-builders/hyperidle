@@ -1,30 +1,37 @@
 import * as os from "node:os";
 import * as path from "node:path";
+import {
+	buildToolDefinitions,
+	createInProcessCoreApiTransport,
+} from "@hyperidle/agent-orchestration";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
-import type { ToolContext } from "@hyperidle/tool-protocol";
+import { buildToolRegistry as buildToolRegistryFromDefinitions } from "@hyperidle/tool-handlers";
+import type { BuildToolRegistryOptions, ToolContext, ToolRegistry } from "@hyperidle/tool-protocol";
 import { describe, expect } from "vitest";
 import { test as baseTest } from "../__testing__/test-fixtures.js";
-import {
-	createInProcessCoreApiTransport,
-	registerCoreApiTransport,
-} from "../services/core-api-port-composition.js";
-import { buildToolRegistry } from "../services/tool-provider-bindings.js";
 
 /**
  * @lore AU21 §9 Increment 2 (conversation wave): this file invokes
  * `read_inbox`, which now reaches `ports.coreApi.listInboxBySenderExclusion`
- * (the seam) — same file-scoped `auto:true` fixture idiom as
- * `create-item.integration.test.ts`.
+ * (the seam). @lore AU31 §3.2/§5: the `coreApiSeamRegistration` auto-fixture
+ * used to register this test's `app` on the ambient global — replaced by a
+ * `buildToolRegistry` fixture that builds the dispatch fresh off THIS test's
+ * own `app`, bound with the OLD two-arg shape (`(ctx, options) => registry`)
+ * so every call site below is unchanged.
  */
-const test = baseTest.extend<{ coreApiSeamRegistration: undefined }>({
-	coreApiSeamRegistration: [
-		async ({ app }, use) => {
-			registerCoreApiTransport(createInProcessCoreApiTransport(app));
-			await use(undefined);
-		},
-		{ auto: true },
-	],
+const test = baseTest.extend<{
+	buildToolRegistry: (
+		ctx: ToolContext<HyperIdleDb>,
+		options: BuildToolRegistryOptions<HyperIdleDb>,
+	) => ToolRegistry<HyperIdleDb>;
+}>({
+	buildToolRegistry: async ({ app }, use) => {
+		const definitions = buildToolDefinitions(createInProcessCoreApiTransport(app));
+		await use((ctx, options) =>
+			buildToolRegistryFromDefinitions<HyperIdleDb>(definitions, ctx, options),
+		);
+	},
 });
 
 function makeContext(db: HyperIdleDb, eventBus: EventBus): ToolContext<HyperIdleDb> {
@@ -40,7 +47,7 @@ function makeContext(db: HyperIdleDb, eventBus: EventBus): ToolContext<HyperIdle
 }
 
 describe("buildToolRegistry", () => {
-	test("returns the canonical set of skill tools", ({ db, eventBus }) => {
+	test("returns the canonical set of skill tools", ({ db, eventBus, buildToolRegistry }) => {
 		const registry = buildToolRegistry(makeContext(db, eventBus), { role: "assistant" }); // @lore AD8a: role string renamed to "assistant" in AD8b
 		const names = registry.definitions.map((d) => d.name).sort();
 		expect(names).toEqual(
@@ -86,7 +93,11 @@ describe("buildToolRegistry", () => {
 		expect(registry.definitions).toHaveLength(22);
 	});
 
-	test("each definition has a non-empty description and a Zod input schema", ({ db, eventBus }) => {
+	test("each definition has a non-empty description and a Zod input schema", ({
+		db,
+		eventBus,
+		buildToolRegistry,
+	}) => {
 		const registry = buildToolRegistry(makeContext(db, eventBus), { role: "assistant" });
 		for (const def of registry.definitions) {
 			expect(typeof def.name).toBe("string");
@@ -100,7 +111,11 @@ describe("buildToolRegistry", () => {
 	});
 
 	describe("invoke()", () => {
-		test("returns NOT_FOUND when tool name is unknown", async ({ db, eventBus }) => {
+		test("returns NOT_FOUND when tool name is unknown", async ({
+			db,
+			eventBus,
+			buildToolRegistry,
+		}) => {
 			const registry = buildToolRegistry(makeContext(db, eventBus), { role: "assistant" });
 			const result = await registry.invoke("does_not_exist", {});
 			expect(result.success).toBe(false);
@@ -109,14 +124,18 @@ describe("buildToolRegistry", () => {
 			}
 		});
 
-		test("routes to the matching handler by name", async ({ db, eventBus }) => {
+		test("routes to the matching handler by name", async ({ db, eventBus, buildToolRegistry }) => {
 			const registry = buildToolRegistry(makeContext(db, eventBus), { role: "assistant" });
 			// read_inbox with no inbox messages should return success: true with empty list
 			const result = await registry.invoke("read_inbox", {});
 			expect(result.success).toBe(true);
 		});
 
-		test("returns INVALID_INPUT when args fail Zod validation", async ({ db, eventBus }) => {
+		test("returns INVALID_INPUT when args fail Zod validation", async ({
+			db,
+			eventBus,
+			buildToolRegistry,
+		}) => {
 			const registry = buildToolRegistry(makeContext(db, eventBus), { role: "assistant" });
 			// limit must be a positive integer
 			const result = await registry.invoke("read_inbox", { limit: "not-a-number" });
@@ -128,7 +147,7 @@ describe("buildToolRegistry", () => {
 	});
 
 	describe("toClaudeToolSpecs()", () => {
-		test("returns one Claude tool spec per definition", ({ db, eventBus }) => {
+		test("returns one Claude tool spec per definition", ({ db, eventBus, buildToolRegistry }) => {
 			const registry = buildToolRegistry(makeContext(db, eventBus), { role: "assistant" });
 			const specs = registry.toClaudeToolSpecs();
 			expect(specs).toHaveLength(registry.definitions.length);
@@ -141,7 +160,7 @@ describe("buildToolRegistry", () => {
 			}
 		});
 
-		test("preserves tool names exactly", ({ db, eventBus }) => {
+		test("preserves tool names exactly", ({ db, eventBus, buildToolRegistry }) => {
 			const registry = buildToolRegistry(makeContext(db, eventBus), { role: "assistant" });
 			const specNames = registry
 				.toClaudeToolSpecs()

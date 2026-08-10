@@ -1,5 +1,4 @@
 import type { HyperIdleDb } from "@hyperidle/db";
-import { AdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
 import { sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -25,18 +24,31 @@ const shutdown = vi.hoisted(() => {
 	return { state, phase, phaseSync };
 });
 
-vi.mock("../services/run-orchestration-composition.js", async (importOriginal) => {
-	const actual =
-		await importOriginal<typeof import("../services/run-orchestration-composition.js")>();
+/**
+ * @lore AU31 §5.1: `startRuntime` is no longer a module-level export this
+ * test can override directly — `bootAgentOrchestration` (`@hyperidle/agent-
+ * orchestration`) now starts the runtime internally and exposes its
+ * disposer separately as `disposeRuntime`. Wrap the REAL
+ * `bootAgentOrchestration` and override only `disposeRuntime`'s behavior —
+ * everything else (the app, the session-stream socket, the lifecycle drain)
+ * stays real, same as before this boot absorbed the runtime.
+ */
+vi.mock("@hyperidle/agent-orchestration", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("@hyperidle/agent-orchestration")>();
 	return {
 		...actual,
-		startRuntime: async () => ({
-			registerWorkerWebSocket: () => () => {},
-			dispose: async () => {
-				await shutdown.phase("run-runtime");
-				await shutdown.state.recordDurableShutdown?.();
-			},
-		}),
+		bootAgentOrchestration: async (
+			options: Parameters<typeof actual.bootAgentOrchestration>[0],
+		) => {
+			const boot = await actual.bootAgentOrchestration(options);
+			return {
+				...boot,
+				disposeRuntime: async () => {
+					await shutdown.phase("run-runtime");
+					await shutdown.state.recordDurableShutdown?.();
+				},
+			};
+		},
 	};
 });
 
@@ -109,8 +121,7 @@ const expectedPhases = ["run-runtime", "app-domain", "websocket", "http", "owned
 async function bootOwnedServer(db: HyperIdleDb): Promise<AsyncServerHandle> {
 	shutdown.state.nextOwnedDb = db;
 	return createServer(0, {
-		adapterPool: new AdapterPool(),
-		workspaceAdapter: createSandboxAdapter("disabled"),
+		topology: "disabled",
 		sandboxBasePath: "/tmp/au20-server-disposal",
 	}) as Promise<AsyncServerHandle>;
 }
@@ -177,8 +188,7 @@ describe("ordered asynchronous server disposal", () => {
 		shutdown.state.events.length = 0;
 		const server = (await createServer(0, {
 			db,
-			adapterPool: new AdapterPool(),
-			workspaceAdapter: createSandboxAdapter("disabled"),
+			topology: "disabled",
 			sandboxBasePath: "/tmp/au20-server-disposal-injected",
 		})) as AsyncServerHandle;
 

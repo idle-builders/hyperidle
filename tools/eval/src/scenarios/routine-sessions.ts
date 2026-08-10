@@ -10,10 +10,11 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { fireRoutine } from "@hyperidle/core-api/routines";
+import { fireRoutine } from "@hyperidle/core-api";
 import { items, routines, sessions } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import { and, eq } from "drizzle-orm";
+import { buildEvalAgentOrchestrationPort } from "../agent-orchestration-fixture.js";
 import { seedMinimalWorld, seedRoutine } from "../seeding.js";
 import type {
 	DimensionScore,
@@ -79,7 +80,8 @@ const rsHeartbeatFire: EvalScenario = {
 			.limit(1);
 
 		if (!routine) return makeSyntheticResult(startMs, false);
-		const result = await fireRoutine(ctx.db, eventBus, routine);
+		const agentOrchestration = await buildEvalAgentOrchestrationPort(ctx.db, eventBus);
+		const result = await fireRoutine(ctx.db, eventBus, agentOrchestration, routine);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
@@ -189,7 +191,8 @@ const rsCalendarFire: EvalScenario = {
 			.limit(1);
 
 		if (!routine) return makeSyntheticResult(startMs, false);
-		const result = await fireRoutine(ctx.db, eventBus, routine);
+		const agentOrchestration = await buildEvalAgentOrchestrationPort(ctx.db, eventBus);
+		const result = await fireRoutine(ctx.db, eventBus, agentOrchestration, routine);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
@@ -272,7 +275,8 @@ const rsHumanReviewFlag: EvalScenario = {
 			.limit(1);
 
 		if (!routine) return makeSyntheticResult(startMs, false);
-		const result = await fireRoutine(ctx.db, eventBus, routine);
+		const agentOrchestration = await buildEvalAgentOrchestrationPort(ctx.db, eventBus);
+		const result = await fireRoutine(ctx.db, eventBus, agentOrchestration, routine);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {
@@ -364,7 +368,8 @@ const rsSilentNoReviewItem: EvalScenario = {
 			.limit(1);
 
 		if (!routine) return makeSyntheticResult(startMs, false);
-		const result = await fireRoutine(ctx.db, eventBus, routine);
+		const agentOrchestration = await buildEvalAgentOrchestrationPort(ctx.db, eventBus);
+		const result = await fireRoutine(ctx.db, eventBus, agentOrchestration, routine);
 		return makeSyntheticResult(startMs, result.fired);
 	},
 	rubric: {

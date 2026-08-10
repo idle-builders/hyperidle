@@ -99,15 +99,15 @@
  * not relocated onto any seam.
  */
 
-import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
-import { eq } from "drizzle-orm";
-import type { Hono } from "hono";
-import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 import {
 	buildCoreApiPort,
 	createInProcessCoreApiTransport,
 	withActorTransport,
-} from "../core-api-port-composition.js";
+} from "@hyperidle/agent-orchestration";
+import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
+import { eq } from "drizzle-orm";
+import type { Hono } from "hono";
+import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 
 const NOW = "2026-07-28T00:00:00.000Z";
 

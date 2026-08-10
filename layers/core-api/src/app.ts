@@ -1,14 +1,14 @@
+import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { CredentialResolver } from "@hyperidle/credential-access";
 import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credential-access";
 import { deleteCredential, readCredentials, writeCredential } from "@hyperidle/credentials";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import { EventBus } from "@hyperidle/event-bus";
-import type { AdapterPool, McpToolBridge, SandboxAdapter } from "@hyperidle/harness-registry";
+import type { HarnessCapabilityReader } from "@hyperidle/harness-protocol";
 import { createRateLimiter } from "@hyperidle/http-middleware";
 import type { NotificationAdapter, NotificationsDeps } from "@hyperidle/notifications";
 import { getTeamMembers } from "@hyperidle/org";
-import { enqueueWorkIntent, findSessionRequest } from "@hyperidle/session-requests";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import { createUpgradeTokenStore, findUser, type UpgradeTokenStore } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
@@ -43,14 +43,8 @@ import { createTeamRoutes } from "./routes/teams-routes.js";
 import { createThreadRoutes } from "./routes/threads.js";
 import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
 import { createWorkersRoutes } from "./routes/workers.js";
+import { buildSeamBackedWorkIntentRecorder } from "./services/agent-orchestration-port-composition.js";
 import { taskRunResolverDeps } from "./services/task-run-resolver-bindings.js";
-
-const agentWorkIntentRecorder = { record: enqueueWorkIntent };
-const agentWorkIntentReader: import("@hyperidle/work-intent-port").AgentWorkIntentReader<HyperIdleDb> =
-	{
-		findByKindAndSource: (db, kind, sourceId) =>
-			findSessionRequest(db, { by: "intentSource", kind, sourceId }),
-	};
 
 /**
  * The minimal shape a route needs to push data onto the WS connection hub —
@@ -65,7 +59,37 @@ export interface WsPushTarget {
 interface AppOptions {
 	db?: HyperIdleDb;
 	eventBus?: EventBus;
-	serviceBootstrap?: (ctx: { db: HyperIdleDb; eventBus: EventBus }) => Array<() => void>;
+	/**
+	 * AU31 §3.2 — the seam's ONE port for this composition, built by the caller
+	 * (`buildAgentOrchestrationPort(transport)`) and handed in as a value —
+	 * there is no ambient/module-level transport to fall back on. Required
+	 * whenever `db` is provided: every route and reaction that used to reach
+	 * `@hyperidle/session-requests`/`@hyperidle/run-orchestration`/
+	 * `@hyperidle/agent-run-config`/`@hyperidle/filesystems` directly now goes
+	 * through this door. `createCoreApiApp` throws a named error at
+	 * construction if `db` is present and this is not.
+	 */
+	agentOrchestration?: AgentOrchestrationPort;
+	serviceBootstrap?: (ctx: {
+		db: HyperIdleDb;
+		eventBus: EventBus;
+		agentOrchestration: AgentOrchestrationPort;
+		/**
+		 * AU31 §5.2: built by `bootCoreApi` from this Layer's own `settings`
+		 * service and merged onto `ctx` before the caller's `serviceBootstrap`
+		 * runs — the Application used to build this closure itself
+		 * (`create-server.ts`'s deleted `readAlertPreferences`), which meant
+		 * importing `@hyperidle/settings` directly. Optional so a caller that
+		 * doesn't register the routine scheduler (most tests) can ignore it.
+		 */
+		readAlertPreferences?: () => Promise<{
+			readonly blockerAlerts: boolean;
+			readonly reviewAlerts: boolean;
+			readonly quietHoursEnabled: boolean;
+			readonly quietHoursStart: string;
+			readonly quietHoursEnd: string;
+		}>;
+	}) => Array<() => void>;
 	/**
 	 * Optional override for the notification adapter used by the HTTP
 	 * `/notifications/test`, `/notifications/flush`, and
@@ -127,36 +151,31 @@ interface AppOptions {
 	 */
 	upgradeTokenStore?: UpgradeTokenStore;
 	/**
-	 * Adapter pool for running agent sessions. When provided alongside
-	 * `workspaceAdapter`, POST /api/sessions routes through `provisionSession`
-	 * instead of a bare DB insert (R1).
+	 * Adapter pool for running agent sessions — read-only capability probe
+	 * (which harnesses are registered/discovered), used only to gate route
+	 * mounting and answer descriptor reads (`agents.ts`, `teams-routes.ts`,
+	 * `users.ts`, `workers.ts`, `harnesses.ts`).
+	 *
+	 * @lore AU31 §2.4/[P4]: typed against `@hyperidle/harness-protocol`'s
+	 * `HarnessCapabilityReader` rather than `@hyperidle/harness-registry`'s
+	 * `AdapterPool` — this route layer never provisions or executes a session
+	 * (that is `run-orchestration-composition.ts`'s job, agent-orchestration
+	 * wiring), it only reads capability descriptors, so the narrower shared
+	 * type is both sufficient and the one every consuming route factory
+	 * already declares its own parameter as. `workspaceAdapter`/
+	 * `sandboxBasePath`/`mcpBridgeRegistry`/`mcpBaseUrl`/`mounter` were
+	 * forward-only threading with zero readers anywhere in this file (every
+	 * real consumer resolved them via a separately-built `dispatcherDeps`
+	 * bundle in `create-server.ts` instead — `service-bootstrap.ts`'s
+	 * `canProvision: boolean` already carries the one bit those five fields
+	 * existed to signal) — deleted rather than retyped.
 	 * @lore S2: renamed from harnessAdapter to adapterPool.
 	 */
-	adapterPool?: AdapterPool;
-	/**
-	 * Sandbox adapter for provisioning/destroying agent sandboxes (R1).
-	 */
-	workspaceAdapter?: SandboxAdapter;
-	/**
-	 * Base path where workspaces are created. Defaults to a tmp directory in
-	 * production (R1).
-	 */
-	sandboxBasePath?: string;
+	adapterPool?: HarnessCapabilityReader;
 	/**
 	 * Credential resolver for pre-flight API key checks (R1).
 	 */
 	credentialResolver?: CredentialResolver;
-	/**
-	 * X2: MCP bridge registry for routing MCP requests to session transports.
-	 * When provided alongside `mcpBaseUrl`, the session provisioner creates a
-	 * per-session bridge and writes `.mcp.json` for harness auto-discovery.
-	 */
-	mcpBridgeRegistry?: McpToolBridge;
-	/**
-	 * X2: Base URL for MCP bridge (e.g., "http://localhost:3001").
-	 * Used when writing `.mcp.json` to the workspace during session provisioning.
-	 */
-	mcpBaseUrl?: string;
 	/**
 	 * Enable shared-mode authentication (S1). When true, the auth middleware
 	 * accepts Bearer tokens from LoginSessions in addition to X-API-Key.
@@ -170,21 +189,14 @@ interface AppOptions {
 	 */
 	sharedMode?: boolean;
 	/**
-	 * AO2: Optional filesystem mounter. When present, mount + captureBack hooks
-	 * run around each session. When absent, sessions run without filesystem mount.
-	 */
-	mounter?: import("@hyperidle/filesystem-contract").FilesystemMounter;
-	/**
-	 * AU19 §11 (AC-9): Application-injected cross-Layer `agent_work_intents`
-	 * recorder/reader (`@hyperidle/work-intent-port`-typed, Mechanism C) — the
-	 * `agent-orchestration`/`session-requests` Layer boundary
-	 * `routes/threads.ts`/`routes/sessions-routes.ts` (core-api routes) must
-	 * not cross by importing `@hyperidle/session-requests` directly. Defaults
-	 * to the real production binding (`durable-agent-queue.ts`); tests
-	 * may override for isolation.
+	 * AU19 §11 (AC-9) / AU31 §3.2: Application-injected cross-Layer
+	 * `agent_work_intents` recorder (`@hyperidle/work-intent-port`-typed,
+	 * Mechanism C) — `routes/threads.ts` must not cross by importing
+	 * `@hyperidle/session-requests` directly. Defaults to the seam-backed
+	 * recorder built over `agentOrchestration` (`buildSeamBackedWorkIntentRecorder`);
+	 * tests may override for isolation.
 	 */
 	agentWorkIntentRecorder?: import("@hyperidle/work-intent-port").AgentWorkIntentRecorder<HyperIdleDb>;
-	agentWorkIntentReader?: import("@hyperidle/work-intent-port").AgentWorkIntentReader<HyperIdleDb>;
 }
 
 /**
@@ -283,10 +295,13 @@ export function registerCoreApiPreAuthRoutes(
 	// P4: Public: POST /api/users (setup — no auth required on first run).
 	// The route itself enforces auth once a human user already exists
 	// (setup-complete guard).
-	if (options?.db) {
+	if (options?.db && options.agentOrchestration) {
 		// AK6 T8: eventBus passed so user_created event is emitted after assistant persist.
 		const earlyEventBus = options.eventBus ?? new EventBus();
-		api.route("/users", createUserSetupRoute(options.db, earlyEventBus));
+		api.route(
+			"/users",
+			createUserSetupRoute(options.db, earlyEventBus, options.agentOrchestration),
+		);
 	}
 
 	// S1: Public: POST /api/auth/claim (invite claim — no auth required).
@@ -368,14 +383,29 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 	// Register work endpoints if db is provided
 	if (options?.db) {
 		const eventBus = options.eventBus ?? new EventBus();
+		// AU31 §3.2: the seam's one port for this composition — a required
+		// value, never an ambient global. `createTestApp`/`create-server.ts`
+		// build it before calling `createCoreApiApp`.
+		const agentOrchestration = options.agentOrchestration;
+		if (!agentOrchestration) {
+			throw new Error(
+				"AppOptions.agentOrchestration is required when db is provided — build one with " +
+					"buildAgentOrchestrationPort(transport) and pass it explicitly (AU31 §3.2: no ambient transport).",
+			);
+		}
+		const defaultAgentWorkIntentRecorder =
+			buildSeamBackedWorkIntentRecorder<HyperIdleDb>(agentOrchestration);
 
 		// @lore U2: `/products` URL renamed to `/teams` (domain rename: Product → Team).
 		// The old `createTeamsRoutes` (knowledge team_members listing) relocated to `/team-members`.
-		api.route("/agents", createAgentRoutes(options.db, options.adapterPool));
+		api.route("/agents", createAgentRoutes(options.db, agentOrchestration, options.adapterPool));
 		api.route("/model-gateway", createModelGatewayRoutes(options.db));
-		api.route("/teams", createTeamRoutes(options.db, eventBus, options.adapterPool));
-		api.route("/bets", createBetRoutes(options.db, eventBus));
-		api.route("/tasks", createTaskRoutes(options.db, eventBus));
+		api.route(
+			"/teams",
+			createTeamRoutes(options.db, eventBus, agentOrchestration, options.adapterPool),
+		);
+		api.route("/bets", createBetRoutes(options.db, eventBus, agentOrchestration));
+		api.route("/tasks", createTaskRoutes(options.db, eventBus, agentOrchestration));
 		api.route("/reviews", createReviewRoutes(options.db));
 		api.route("/artifacts", createArtifactRoutes(options.db, eventBus));
 		// AU26 F2: only ONE `/api/filesystems` registration is still core-hosted —
@@ -384,8 +414,8 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// `ServiceConnectionResolver`, which core-api no longer constructs) lives
 		// on agent-orchestration's app at byte-identical paths. See
 		// `routes/filesystems.ts`'s own top-of-file `@lore`.
-		api.route("/filesystems", createFilesystemInjectionRoutes(options.db));
-		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus));
+		api.route("/filesystems", createFilesystemInjectionRoutes(options.db, agentOrchestration));
+		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus, agentOrchestration));
 		api.route("/team-members", createTeamMembersRoutes(options.db));
 		api.route("/settings", createSettingsRoutes(options.db, eventBus));
 		api.route("/settings/agent-behavior", createAgentBehaviorSettingsRoutes(options.db));
@@ -395,13 +425,13 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 			createThreadRoutes(
 				options.db,
 				eventBus,
-				options.agentWorkIntentRecorder ?? agentWorkIntentRecorder,
+				options.agentWorkIntentRecorder ?? defaultAgentWorkIntentRecorder,
 				options.wsHub,
 			),
 		);
-		api.route("/users", createUserRoutes(options.db, options.adapterPool));
-		api.route("/org", createOrgRoutes(options.db));
-		api.route("/routines", createRoutineRoutes(options.db, eventBus));
+		api.route("/users", createUserRoutes(options.db, agentOrchestration, options.adapterPool));
+		api.route("/org", createOrgRoutes(options.db, agentOrchestration));
+		api.route("/routines", createRoutineRoutes(options.db, eventBus, agentOrchestration));
 		api.route("/recipients", createRecipientRoutes(options.db, eventBus));
 
 		// AU26 B1a (§D-A's `sessions-routes.ts` split): `POST /api/sessions` is all that is left of this
@@ -421,13 +451,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 			// boolean gate (see routes/sessions-routes.ts's removal note) — the
 			// composition root now computes that boolean directly instead of
 			// threading the whole harness-typed deps object into the route.
-			createSessionRoutes(
-				options.db,
-				eventBus,
-				Boolean(options.adapterPool),
-				options.agentWorkIntentRecorder ?? agentWorkIntentRecorder,
-				options.agentWorkIntentReader ?? agentWorkIntentReader,
-			),
+			createSessionRoutes(options.db, eventBus, Boolean(options.adapterPool), agentOrchestration),
 		);
 		api.route("/status", createStatusRoutes(options.db));
 
@@ -475,7 +499,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 
 		const disposers: Array<() => void> = [];
 
-		const serviceDisposers = options.serviceBootstrap?.({ db, eventBus }) ?? [];
+		const serviceDisposers = options.serviceBootstrap?.({ db, eventBus, agentOrchestration }) ?? [];
 		disposers.push(...serviceDisposers);
 
 		// AD5 AC-2: Auto-unblock dependent tasks when a task transitions to "done".
@@ -484,12 +508,13 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// to `@hyperidle/work` (AU20 Ag2 barrel collapse) — it exclusively calls
 		// work's own table paths, so `work` is its correct home. The `work:` DI-port
 		// sub-object is gone; only the against-grain `session-requests` recorder
-		// (`workIntents`) remains injected, wired to `enqueueWorkIntent`
-		// (migrated Increment 3b, `durable-agent-queue.js`).
+		// (`workIntents`) remains injected — AU31 §3.1/§3.2: seam-backed, so this
+		// write is now the same relinquished-atomicity shape as `transitionTask`'s
+		// own site 6 (`checkAndUnblockDependents` calls `transitionTask` directly).
 		const unsubDepWatcher = eventBus.on("task_state_changed", (event) => {
 			if (event.toState === "done") {
 				void checkAndUnblockDependents(db, eventBus, event.taskId, {
-					workIntents: { record: enqueueWorkIntent },
+					workIntents: defaultAgentWorkIntentRecorder,
 					taskRunResolver: taskRunResolverDeps,
 				}).catch((err) => {
 					appLogger.error("[dep-watcher] unblock failed for task", {

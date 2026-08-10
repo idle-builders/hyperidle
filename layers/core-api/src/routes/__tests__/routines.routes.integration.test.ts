@@ -272,11 +272,17 @@ describe("routines routes", () => {
 			db,
 			app,
 			eventBus,
+			agentOrchestration,
 		}) => {
 			const routineId = await seedBuiltinRoutine(db);
 
 			// Simulate an auto-fire (same code path the scheduler uses; no session).
-			const result = await fireStoredRoutine(db, eventBus, "builtin:knowledge-decay");
+			const result = await fireStoredRoutine(
+				db,
+				eventBus,
+				agentOrchestration,
+				"builtin:knowledge-decay",
+			);
 			expect(result.fired).toBe(true);
 
 			const res = await app.request(`/api/routines/${routineId}`, {
@@ -298,11 +304,21 @@ describe("routines routes", () => {
 
 		// AC2 negative parity at the run-row level: a disabled built-in writes NO
 		// run row (the disabled short-circuit returns before any insert).
-		test("a disabled built-in writes no run row", async ({ db, app, eventBus }) => {
+		test("a disabled built-in writes no run row", async ({
+			db,
+			app,
+			eventBus,
+			agentOrchestration,
+		}) => {
 			const routineId = await seedBuiltinRoutine(db);
 			await db.update(routines).set({ active: false }).where(eq(routines.id, routineId));
 
-			const result = await fireStoredRoutine(db, eventBus, "builtin:knowledge-decay");
+			const result = await fireStoredRoutine(
+				db,
+				eventBus,
+				agentOrchestration,
+				"builtin:knowledge-decay",
+			);
 			expect(result.fired).toBe(false);
 
 			const res = await app.request(`/api/routines/${routineId}`, {
