@@ -163,6 +163,7 @@
 			"!tools/eslint-plugin-design/test-fixtures",
 			"!layers/agent-execution/harness-registry/src/__tests__/fixtures",
 			"!scripts",
+			"!.verify-attestations",
 			"!applications/desktop/release",
 			"!layers/core-ui/src/index.css",
 			"!framework/design-system/viewer/viewer.css",
