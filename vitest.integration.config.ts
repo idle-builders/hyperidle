@@ -68,7 +68,7 @@ export default defineConfig({
 					// (vi.mock("./llm-client") was non-deterministically bypassed with isolate:false
 					// because builtin-harness-adapter was pre-loaded by other files before the mock
 					// could hoist). The PGlite pool lives on globalThis so it survives reloads.
-					isolate: true,
+					isolate: false,
 					setupFiles: ["framework/db/src/__testing__/vitest-integration-setup.ts"],
 				},
 			},
