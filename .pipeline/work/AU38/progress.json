@@ -1,0 +1,35 @@
+{
+  "workPackage": "AU38",
+  "title": "Each test isolates its own data; the framework stops wiping the database",
+  "phase": "architecture",
+  "status": "in_progress",
+  "conceptGate": null,
+  "worktree": ".worktrees/AU38",
+  "branch": "chore/AU38-test-self-isolation",
+  "base": "origin/main @ 557cf323",
+  "sessions": [
+    {
+      "started": "2026-08-10",
+      "phase": "preflight",
+      "note": "plan.md seeded from founder-provided spec; registry row + dependency entry added to .pipeline/AU.md; worktree created off fresh origin/main @ 557cf323. No prior AU38 branch/PR existed."
+    },
+    {
+      "started": "2026-08-10",
+      "phase": "refine",
+      "note": "SKIPPED — plan's pre-build trigger names /architecture only; outcome, ACs, scope boundary and measured evidence are settled. The two open decisions (identity scoping, landing sequence) are architecture decisions, not requirement ambiguities."
+    },
+    {
+      "started": "2026-08-10",
+      "phase": "architecture",
+      "note": "dispatched to pipeline-planner. Open decisions: (1) identity-scoping mechanism honouring production ID formats; (2) landing sequence keeping the suite green at every commit; (3) scope question surfaced by orchestrator: does the isolate:false flip land inside AU38 (required for the lane itself to demonstrate the shared-database ACs on PGlite) or in the follow-on — plan's outcome/validation scenarios read as requiring it in-scope; sequencing-consequence paragraph reads as follow-on. Planner must decide and justify; concept gate settles it."
+    }
+  ],
+  "evaluations": [],
+  "artifacts": {
+    "plan": ".pipeline/work/AU38/plan.md"
+  },
+  "approvals": [],
+  "verdicts": [],
+  "pendingFounderApproval": [],
+  "flaggedNotActioned": []
+}
