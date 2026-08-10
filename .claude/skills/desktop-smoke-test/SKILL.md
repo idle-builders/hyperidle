@@ -32,6 +32,24 @@ Seeding demo data into `~/Library/Application Support/HyperIdle/…` does nothin
 `npm run setup -- --demo --db-path "$HOME/Library/Application Support/@hyperidle/desktop/hyperidle-pg"`.
 Often the dir already holds real accumulated data — treat existing data as **read-only**; only add clearly-labeled test entities and clean them up.
 
+### Wiping / fresh-state behavior (learned 2026-08-10, round 2)
+
+- To wipe: quit the app (it holds the DB lock — `osascript -e 'quit app "HyperIdle"'`, then `kill -9` any survivors), then **move `hyperidle-pg` aside as a timestamped backup** (`mv hyperidle-pg hyperidle-pg.bak-$(date +%Y%m%d-%H%M%S)`) rather than hard-deleting — reversible, and preserves the user's real accumulated data. Keep `secrets.json`.
+- **A wiped (factory) DB boots into the `/setup` ONBOARDING flow, not the app.** This is the surface to test: name + Anthropic API key + agent-harness picker (Built-in gateway / Claude Code / Cursor Agent / CLI codex / opencode — each shows readiness) + optional project folder + a "What are you building?" team-type picker (Software/Eng+UX/Full team/Growth/Custom, previews the roles it creates). "Start HyperIdle" seeds a founder + team + agents + routines and lands in Work. Use a **fake** key (`sk-ant-…`) — onboarding stores it without a live validation call, so a dummy value completes the flow (never type a real credential).
+- **`--demo` seeds a founder too, so it SKIPS onboarding** and boots straight into the Acme team. But the demo world is minimal: 1 draft "daily-digest anchor" bet, its 1 anchor task, 1 knowledge item ("Boil the Lake"), 1 routine — and **all credentials are `absent`**, so agents can't run and won't auto-generate tasks/reviews/artifacts.
+
+### Reaching data-detail surfaces when agents can't run (no credential) — seed via the embedded API, open by mouse
+
+The demo/factory world has no bets-with-tasks, no artifacts, no reviews. Rather than committing a bet (needs a live LLM credential), **write the entity through the embedded API, then click into it** (read path is what you're proving):
+- Task: `POST /api/tasks {betId,title,description?,doneCondition?}` → appears under the (active) bet's TASKS → click → `WorkTask` detail.
+- Artifact: `POST /api/artifacts {producingTaskId,kind:"text",label?,preview:{kind:"text",body,format:"markdown"}}` → appears in the bet/task ARTIFACTS list → click → `ArtifactPermalink` (renders the markdown). Also exercises the AE6 artifact-kind + preview-schema path.
+- Create a bet in the UI first (New bet → type description → Create → "…" menu → **Activate bet** = draft→active) so the task has an active parent that surfaces in the Work view. The empty-TASKS state only offers "Add an agent" (needs a credential) — there is no manual add-task button, hence the API seed.
+- Review page (`work/bet/:betId/review/:reviewId` → `ReviewPage`): reviews only come from the agent `submit_review`/proposed-calls flow (session + credential), so none exist in a fresh seed. The GET has a **fixture path** — `GET /api/reviews/rev-1` returns a full fixture the page renders — but reaching `/review/rev-1` needs URL entry (no address bar in the packaged app). If no review is surfaced to click, verify the data path with the `rev-1` fixture curl + confirm `ReviewPage.tsx` compiles, and report it as data/nav-limited, not broken.
+
+### computer-use keyboard gotcha (macOS key-window theft)
+
+Character typing goes to whatever holds the macOS **key window**, which can silently become a background **Terminal.app** (its Dock icon shows a badge as your keystrokes land there) even while HyperIdle is frontmost and clickable. Symptoms: clicks work, but `type`/`key`(Escape) never reach the webview; a command-palette modal (⌘K) then can't be dismissed (Escape dead, no backdrop light-dismiss) — deadlock. `⌘K`/`⌘R` still fire because they're app accelerators, not DOM input. Mitigations, in order: (1) prefer the **API-seed-then-click** path above so you need no typing; (2) app-menu open→click-body to force key focus (unreliable); (3) **relaunch the app** to reset the modal + focus. The app's own inline page inputs (onboarding, bet composer) DO accept typing when HyperIdle holds key focus — so a typing failure is the environment, not an app defect. Don't type real credentials into any field regardless.
+
 ---
 
 ## Phase 1 — Build the packaged app
