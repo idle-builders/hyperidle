@@ -184,7 +184,7 @@ Two code paths converge on the `HarnessEvent` union — consumers cannot tell wh
 
 **Production caller:** `cli-harness-adapter.ts` — the production event loop calls `normalizeHarnessEvent` on every parsed line.
 
-**Locked in CI:** three-way field equivalence (codex ≡ claude-code ≡ builtin all produce `{ type: "token_usage", inputTokens, outputTokens }`, no native snake_case downstream) and the opencode pre-map, in `framework/harness-protocol/src/harness/__tests__/harness-event-normalization.test.ts` + `harness-event-normalization-codex.test.ts`. Harness test enforcement (locked models, symmetry, the attestation floor) is owned by [harness-coverage-enforcement](./harness-coverage-enforcement.md).
+**Locked in CI:** three-way field equivalence (codex ≡ claude-code ≡ builtin all produce `{ type: "token_usage", inputTokens, outputTokens }`, no native snake_case downstream) and the opencode pre-map, in `framework/harness-protocol/src/harness/__tests__/harness-event-normalization.test.ts` + `harness-event-normalization-codex.test.ts`. Harness test enforcement (locked models, and the symmetry expectation that no longer has an enforcer) is owned by [harness-coverage-enforcement](./harness-coverage-enforcement.md).
 
 ---
 

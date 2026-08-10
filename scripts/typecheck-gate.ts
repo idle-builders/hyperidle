@@ -139,8 +139,8 @@ async function mapWithConcurrency<T, R>(
 // package name is hardcoded, and an empty scan is FATAL below.
 const PACKAGE_ROOTS = ["layers", "framework", "applications", "tools"] as const;
 
-// @lore AU28: `scripts/` is not a workspace package but it holds repo-root tooling (attestation,
-// the typecheck gate itself, dep-manifest lint) that went untypechecked until AU28 wired it in here.
+// @lore AU28: `scripts/` is not a workspace package but it holds repo-root tooling (this typecheck
+// gate, dep-manifest lint, mock inventory) that went untypechecked until AU28 wired it in here.
 // A guard nothing typechecks is the same silent-rot shape a guard exists to prevent. It has its own
 // tsconfig because it is Node-resolved and emits nothing.
 //

@@ -38,7 +38,7 @@
  * unrelated, disproportionate scope for a core-api/agent-orchestration boundary
  * WP and is tracked as its own follow-up (e2e test-debt cleanup), NOT part of
  * AU21. Excluded here (not deleted, not silently passed) so this Increment's
- * OWN attestation is honest: every test that AU21 Increment 14 is actually
+ * OWN claim is honest: every test that AU21 Increment 14 is actually
  * responsible for genuinely passes; this list is the visible, grep-able,
  * removable paper trail for the cleanup WP to shrink to zero over time.
  */

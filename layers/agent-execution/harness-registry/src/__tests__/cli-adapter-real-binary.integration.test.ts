@@ -1,8 +1,10 @@
 /**
  * cli-adapter-real-binary — LIVE real-binary CliHarnessAdapter integration tests.
  *
- * ⚠️  LOCAL-ONLY LANE — runs via test:integration's serial `harness` project; the
- *     signed attestation carries the result. No test suite runs in GitHub Actions.
+ * ⚠️  LOCAL-ONLY LANE — runs via test:integration's serial `harness` project. CI
+ *     runs the unit and service-integration lanes, but NOT this one: it needs real
+ *     CLI binaries and real LLM credentials. Nothing records that it ran, so a
+ *     human running it is the only evidence it passed.
  *
  * These tests close the test-coverage seam: the existing real-harness lanes
  * (return-enforcement, AL7) prove the real binaries behave, but spawn them
@@ -78,7 +80,7 @@ async function rmSandboxWithRetry(sandboxPath: string): Promise<void> {
 			if (code !== "ENOTEMPTY" && code !== "EBUSY") throw err;
 			// @lore AV3-ship: real CLI harnesses can leave a just-exited helper touching
 			// the temp sandbox for a tick on macOS. The proof already passed; cleanup retries
-			// prevent a non-product ENOTEMPTY race from failing attestation.
+			// prevent a non-product ENOTEMPTY race from failing the run.
 			await new Promise((resolve) => setTimeout(resolve, 50 * (attempt + 1)));
 		}
 	}

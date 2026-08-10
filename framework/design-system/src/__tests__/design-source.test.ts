@@ -3,8 +3,8 @@
  *
  * Enforces that TSX is the single design source of truth.
  * Replaces `scripts/design-source-guard.ts` which was local-only and NOT enforced
- * in CI. This vitest test rides `test:all` and is therefore enforced via the signed
- * attestation in CI.
+ * in CI. This vitest test rides the test suite, which CI runs directly — so the
+ * invariant is enforced by an actual run rather than by a signed claim about one.
  *
  * Fails if:
  *   1. `framework/design-system/html/` directory exists (HTML reference tree still present).
