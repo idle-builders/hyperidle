@@ -48,6 +48,25 @@ concurrency:
 # The counting costs `scope` one install; it buys back far more than it spends
 # on any diff that is not near-total.
 #
+# @lore ci-move affected-selection is near-total in CI, and nobody knows why:
+# for the same commit, same base sha, same clean tree, same Node 24 and the same
+# `vitest list --changed=<sha>` invocation, CI reports 561 affected unit files
+# (the ENTIRE suite) where a local run reports 29. Ruled out: the vitest/vite
+# module-graph cache (no cache dir existed locally, and clearing it changed
+# nothing), missing `dist/` shifting workspace resolution from build output to
+# source (removing all 48 dist dirs locally still gave 29), and the PR merge ref
+# differing from the branch tip (`git diff HEAD origin/pr-N/merge` was empty).
+# TEST_BASE was verified correct in the CI log, so it is not the empty-base
+# fallback either.
+#
+# The direction is SAFE — CI over-selects, so no test is missed; it only costs
+# minutes. The corollary is less comfortable: a local `npm run test` may be
+# under-selecting, which is a property of `--changed` this workflow inherited
+# rather than introduced. Do not "fix" the lane sizing by trusting the local
+# number. If you resolve this, the sizing thresholds below become worth tuning;
+# until then they mostly pick the maximum fan-out and the real wins are in
+# making the suite itself cheaper (see AU38).
+#
 # @lore ci-move required-check name: the `main-protection` ruleset requires
 # exactly one status context, "npm run verify". Moving the tests into their own
 # jobs would silently un-gate them, since new contexts are not required until
