@@ -22,6 +22,7 @@
  */
 
 import * as fs from "node:fs";
+import * as net from "node:net";
 import * as os from "node:os";
 import * as path from "node:path";
 import { type ServerType, serve, upgradeWebSocket } from "@hono/node-server";
@@ -122,6 +123,23 @@ function resolvePglitePath(rawPath: string): string {
 	return path.resolve(repoRoot, rawPath);
 }
 
+/**
+ * Resolve a concrete OS-assigned loopback port by briefly binding `:0`, reading
+ * the assigned port, then releasing it. Used so `mcpBaseUrl` can carry the real
+ * port BEFORE `serve()` binds — the CLI-harness MCP bridge dials that URL.
+ */
+async function resolveFreeLoopbackPort(hostname: string | undefined): Promise<number> {
+	return await new Promise<number>((resolve, reject) => {
+		const probe = net.createServer();
+		probe.once("error", reject);
+		probe.listen(0, hostname ?? "127.0.0.1", () => {
+			const address = probe.address();
+			const resolvedPort = typeof address === "object" && address !== null ? address.port : 0;
+			probe.close((closeErr) => (closeErr ? reject(closeErr) : resolve(resolvedPort)));
+		});
+	});
+}
+
 export async function createServer(port: number, deps: CreateServerDeps): Promise<ServerHandle> {
 	// @lore AU31 §8 overlap 1 (AU29's own db:util handoff): kept byte-for-byte
 	// identical to `remote-server`'s own DB-open block — see that file's
@@ -155,7 +173,16 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		deps.sandboxBasePath ??
 		process.env.HYPERIDLE_WORKSPACES_DIR ??
 		path.join(os.tmpdir(), "hyperidle-workspaces");
-	const mcpBaseUrl = `http://localhost:${port}`;
+	// `mcpBaseUrl` must carry the REAL listening port: CLI harnesses dial
+	// `${mcpBaseUrl}/api/mcp/:token` for their tool bridge. `serve()` binds
+	// further below, so when the caller asks for an OS-assigned port (0) we
+	// resolve a concrete free loopback port up front and use it for BOTH the
+	// bridge URL and the listener. Otherwise `mcpBaseUrl` would be
+	// `http://…:0` — an unreachable bridge, leaving every CLI-harness session
+	// with no HyperIdle MCP tools.
+	const mcpHost = deps.hostname ?? "localhost";
+	const listenPort = port === 0 ? await resolveFreeLoopbackPort(deps.hostname) : port;
+	const mcpBaseUrl = `http://${mcpHost}:${listenPort}`;
 
 	const agentExecution = await bootAgentExecution({ topology: deps.topology, mcpBaseUrl });
 
@@ -288,7 +315,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 
 	const httpServer = serve({
 		fetch: staticFetch,
-		port,
+		port: listenPort,
 		...(deps.hostname === undefined ? {} : { hostname: deps.hostname }),
 		websocket: { server: wss },
 	});
