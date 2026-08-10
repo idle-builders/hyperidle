@@ -20,21 +20,17 @@ const devTopics = "getting started · commands · testing · linting · work pac
 		</div>
 
 		<div class="docs-grid">
-			<a class="nframe lift reveal doc-card" href={`${base}docs/user/`}>
-				<div class="ninner corners">
-					<span class="eyebrow doc-eyebrow">User Guide</span>
-					<h3>Run your team day to day.</h3>
-					<p class="doc-meta">{userTopics}</p>
-					<span class="doc-link">Read the user guide <span aria-hidden="true">→</span></span>
-				</div>
+			<a class="doc-card reveal" href={`${base}docs/user/`}>
+				<span class="eyebrow doc-eyebrow">User Guide</span>
+				<h3>Run your team day to day.</h3>
+				<p class="doc-meta">{userTopics}</p>
+				<span class="doc-link">Read the user guide <span aria-hidden="true">→</span></span>
 			</a>
-			<a class="nframe lift reveal doc-card" href={`${base}docs/developer/`}>
-				<div class="ninner corners">
-					<span class="eyebrow doc-eyebrow">Developer Guide</span>
-					<h3>Build on HyperIdle.</h3>
-					<p class="doc-meta">{devTopics}</p>
-					<span class="doc-link">Read the developer guide <span aria-hidden="true">→</span></span>
-				</div>
+			<a class="doc-card reveal" href={`${base}docs/developer/`}>
+				<span class="eyebrow doc-eyebrow">Developer Guide</span>
+				<h3>Build on HyperIdle.</h3>
+				<p class="doc-meta">{devTopics}</p>
+				<span class="doc-link">Read the developer guide <span aria-hidden="true">→</span></span>
 			</a>
 		</div>
 		<p class="doc-note reveal">

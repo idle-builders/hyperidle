@@ -7,7 +7,7 @@ const base = import.meta.env.BASE_URL;
 		<div>
 			<span class="eyebrow">[ Agentic Operating System ]</span>
 			<h1 id="hero-h">
-				The operating system for <span class="accent glowtext"><span class="nb">AI-first</span>{" "}companies.</span>
+				The operating system for <span class="hl">AI-first</span>{" "}companies.
 			</h1>
 			<p class="hero-sub">
 				HyperIdle runs flat teams of humans and AI agents. You shape the work, agents execute,
@@ -18,10 +18,14 @@ const base = import.meta.env.BASE_URL;
 				<a class="btn btn-primary" href={`${base}#self-host`}>Self-host quickstart</a>
 				<a class="btn btn-ghost" href={`${base}#docs`}>Read the docs</a>
 			</div>
-			<p class="hero-meta">Agents execute <b>·</b> Humans validate <b>·</b> Knowledge compounds</p>
+			<p class="hero-meta">
+				<span>Agents execute</span>
+				<span>Humans validate</span>
+				<span>Knowledge compounds</span>
+			</p>
 		</div>
 
-		<div class="term frame-double" id="term" role="region" aria-label="Example agent session transcript">
+		<div class="term" id="term" role="region" aria-label="Example agent session transcript">
 			<div class="term-bar">
 				<span class="term-title">hyperidle://session/0427 — builder@acme</span>
 				<span class="term-live">LIVE <span class="caret" aria-hidden="true"></span></span>

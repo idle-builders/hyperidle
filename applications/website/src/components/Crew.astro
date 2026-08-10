@@ -118,8 +118,8 @@ const base = import.meta.env.BASE_URL;
 		<div class="crew-grid" data-stagger>
 			{
 				cards.map((card) => (
-					<article class:list={["crew", "lift", "reveal", { wide: card.wide }]}>
-						<div class="crew-in corners">
+					<article class:list={["crew", "reveal", { wide: card.wide }]}>
+						<div class="crew-in">
 							<span class="crew-code">{card.code}</span>
 							<h3 class="crew-name">{card.name}</h3>
 							<p class="crew-dossier">{card.dossier}</p>
@@ -128,8 +128,8 @@ const base = import.meta.env.BASE_URL;
 					</article>
 				))
 			}
-			<a class="crew wide crew-cta lift reveal" href={`${base}#self-host`}>
-				<div class="crew-in corners">
+			<a class="crew wide crew-cta reveal" href={`${base}#self-host`}>
+				<div class="crew-in">
 					<span class="cta-line">Assemble your crew <span class="cta-arrow">→</span></span>
 					<span class="cta-sub">git clone · npm install · npm run dev</span>
 				</div>
