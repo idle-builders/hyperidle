@@ -76,10 +76,14 @@ const MAX_ERROR_LINES = 10;
 // package name is hardcoded, and an empty scan is FATAL below.
 const PACKAGE_ROOTS = ["layers", "framework", "applications", "tools"] as const;
 
-// @lore AU28: `scripts/` is not a workspace package but it holds the governance guard — the code
-// that decides whether every other boundary rule passes. It went untypechecked until AU28 wired it
-// in here, and a guard nothing typechecks is the same silent-rot shape the guard exists to prevent.
-// It has its own tsconfig because it is Node-resolved and emits nothing.
+// @lore AU28: `scripts/` is not a workspace package but it holds repo-root tooling (attestation,
+// the typecheck gate itself, dep-manifest lint) that went untypechecked until AU28 wired it in here.
+// A guard nothing typechecks is the same silent-rot shape a guard exists to prevent. It has its own
+// tsconfig because it is Node-resolved and emits nothing.
+//
+// @lore AU31: the governance guard itself — the code that decides whether every other boundary rule
+// passes — moved to `tools/governance/`, its own workspace package, typechecked by the normal
+// per-package discovery below rather than through this EXTRA_PROJECTS entry.
 const EXTRA_PROJECTS = ["scripts"] as const;
 
 // Matches: <root>/<path...>/file.ts(line,col): error TS1234: message
@@ -547,8 +551,8 @@ function buildLeafDeclarations(root: string): void {
 /**
  * Remove compiled copies this build emitted beside their own sources.
  *
- * @lore AU28: the governance tests in `framework/db` import `scripts/lib/*.js`, which pulls those
- * files into a composite build whose rootDir they sit outside. tsc emits `.js`/`.d.ts` next to the
+ * @lore AU28: the governance tests in `framework/db` import `tools/governance/src/lib/*.js`, which
+ * pulls those files into a composite build whose rootDir they sit outside. tsc emits `.js`/`.d.ts` next to the
  * `.ts` (hiding the reason as TS6059, which this gate filters as reference noise) — and then Node,
  * tsx and vitest ALL resolve the compiled copy first. The guard runs stale logic while the source on
  * disk says something else, and the only symptom is a failure that makes no sense. This build makes
