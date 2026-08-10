@@ -190,7 +190,7 @@ test.describe("AH1 AC1 — onboarding key visible in Settings Credentials", () =
 		await page.waitForSelector("[data-testid='main-content']");
 
 		// Open Settings and navigate to Credentials section.
-		await page.getByTestId("sidebar-avatar-btn").click();
+		await page.getByTestId("sidebar-settings-btn").click();
 		await page.getByTestId("settings-section-credentials").scrollIntoViewIfNeeded();
 
 		// Step 5: Assert Anthropic row shows set/valid state (not absent).
@@ -234,7 +234,7 @@ test.describe("AH1 AC1 — onboarding key visible in Settings Credentials", () =
 		// Navigate directly to settings credentials section.
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
-		await page.getByTestId("sidebar-avatar-btn").click();
+		await page.getByTestId("sidebar-settings-btn").click();
 		// Settings opens as a page; navigate to the credentials section via the settings nav.
 		await page.getByTestId("settings-section-credentials").scrollIntoViewIfNeeded();
 		await expect(page.getByTestId("settings-section-credentials")).toBeVisible({ timeout: 10_000 });
@@ -266,7 +266,7 @@ test.describe("AH1 AC1 — onboarding key visible in Settings Credentials", () =
 
 		await page.goto("/");
 		await page.waitForSelector("[data-testid='main-content']");
-		await page.getByTestId("sidebar-avatar-btn").click();
+		await page.getByTestId("sidebar-settings-btn").click();
 		await page.getByTestId("settings-section-credentials").scrollIntoViewIfNeeded();
 		await expect(page.getByTestId("settings-section-credentials")).toBeVisible({ timeout: 10_000 });
 
