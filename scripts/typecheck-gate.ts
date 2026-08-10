@@ -667,10 +667,30 @@ async function main(): Promise<void> {
 
   // Resolve `tsc` once. A missing binary is FATAL: silently falling back would
   // make every package "pass" with zero parsed errors.
-  const tscBin = resolve(root, "node_modules", ".bin", "tsc");
+  //
+  // @lore ci-move: TYPECHECK_TSC selects the compiler. This gate is the ONE
+  // TypeScript consumer in the repo that can move independently, because it
+  // never imports the API — it shells out and parses text. Everything else
+  // (tools/governance's crossing detectors and repo census, dep-manifest-lint,
+  // typescript-eslint) needs the full compiler API, and `typescript@7` no longer
+  // ships one: its main export is `./lib/version.cjs` and the API lives behind
+  // `./unstable/*` until 7.1. So TS 7 goes in under an npm ALIAS, used only
+  // here, while `typescript@^6` stays the library everything else imports.
+  // Preference order: explicit override, then the TS 7 alias, then the classic
+  // compiler. Which one ran is PRINTED, never silent — a gate whose verdict
+  // depends on an invisible choice of compiler is a gate you cannot trust.
+  const override = process.env["TYPECHECK_TSC"];
+  const nativeBin = resolve(root, "node_modules", "typescript-native", "bin", "tsc");
+  const classicBin = resolve(root, "node_modules", ".bin", "tsc");
+  const tscBin = override
+    ? resolve(root, override)
+    : existsSync(nativeBin)
+      ? nativeBin
+      : classicBin;
   if (!existsSync(tscBin)) {
     process.stderr.write(
-      `typecheck-gate: FATAL — tsc not found at ${tscBin}. Run \`npm ci\`.\n`,
+      `typecheck-gate: FATAL — tsc not found at ${tscBin}.` +
+        (override ? " TYPECHECK_TSC points at a missing binary.\n" : " Run `npm ci`.\n"),
     );
     process.exit(1);
   }
@@ -707,7 +727,9 @@ async function main(): Promise<void> {
 
   const concurrency = resolveConcurrency();
   process.stderr.write(
-    `typecheck-gate: checking ${allPackages.length} packages (concurrency ${concurrency})...\n`,
+    `typecheck-gate: checking ${allPackages.length} packages ` +
+      `(concurrency ${concurrency}, compiler ${tscBin.replace(`${root}/`, "")} ` +
+      `${execSync(`${JSON.stringify(tscBin)} --version`, { encoding: "utf-8" }).trim()})...\n`,
   );
 
   // 4. Run tsc per package, up to `concurrency` at a time. Results keep input
