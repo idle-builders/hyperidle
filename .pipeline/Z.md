@@ -14,11 +14,12 @@ Tell the HyperIdle story. Produce external-facing surfaces and documentation tha
 
 | ID | Title | Type | Complexity | Depends | Status |
 |---|---|---|---|---|---|
-| Z9 | Marketing landing page on a static-site foundation (cyberpunk marketing identity, `#FCEE0A` accent; static HTML generated at build time from sources incl. markdown; hosting-agnostic) | frontend/site | M | — | implemented — Astro 7 in `applications/website`; all 6 ACs pass review; PR pending CI |
+| Z9 | Marketing landing page on a static-site foundation (cyberpunk marketing identity, `#FCEE0A` accent; static HTML generated at build time from sources incl. markdown; hosting-agnostic) | frontend/site | M | — | **SHIPPED, PR #470 merged (2026-08-09).** Astro 7 in `applications/website`; identity pivoted founder-directed from dark neon-noir to light neo-brutal (`proposals/b-neo-brutal.html` style authority) after founder review rejected the dark variant. |
+| Z10 | Site content architecture: marketing landing, useful docs (founder-approved section structure from dev-landing research; docs area with top-level Installation + side-navigated User/Developer guides; quickstart moves landing → Installation) | frontend/site | M | — | planned |
 
 Legacy-registered (specs in `.pipeline/work-packages/TRACK-Z.md`): Z0 (superseded per migration note), Z1 (product story — shipped as `docs/product/`), Z2–Z8.
 
 ## Dependency graph
 
 - `Z9` depends on nothing: the static-site foundation and landing page are built from already-shipped content (`docs/product/`, `docs/guides/`, `ETHOS.md`).
-- The follow-up docs-rendering work package (not yet registered) will depend on `Z9`: it renders `docs/guides/` on the static foundation Z9 establishes.
+- `Z10` builds on Z9's shipped foundation (seam, identity, base-path contract): restructures the landing content and widens the seam to `docs/guides/**` + `docs/deployment/**` with side navigation. Supersedes the earlier unnamed "docs-rendering follow-up" note.
