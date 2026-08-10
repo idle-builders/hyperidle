@@ -111,6 +111,24 @@ runs** — `bet-decomposition-removal`, `knowledge-action-baked-emit`, `threads.
 and `agent-work-intent-recovery` appeared on a second run having passed the first. An allowlist against
 an order-dependent failure set is flaky by construction. Reverted.
 
+**What that attempt measured, on a real CI runner** (throwaway PR #477, since closed — the run was red
+by design and the failures do not affect phase timings):
+
+| phase | `isolate: true` | `isolate: false` | |
+|---|---|---|---|
+| `setup` | 2831s | **40.6s** | **70× less** |
+| `import` | 510s | 23.5s | 22× less |
+| `tests` | 1173s | 951.6s | — |
+| wall | 1170s | **258s** | **4.5× faster** |
+
+**One flag is worth ~2790 CPU-seconds and roughly 15 minutes of wall clock per CI run.** For scale, the
+entire rest of CI — typecheck, lint, knip, both builds and the whole unit lane — is about 900s, so the
+per-file boot alone costs three times everything else combined. This is not code health; it is the
+largest single cost in the pipeline, and the only thing standing between it and a 4.5× faster lane is
+tests that assume they own the database. Caveat on the figure: 12 files failed, so ~4% of the lane did
+not complete and a green `tests` number would be somewhat above 951.6s; the `setup` collapse is
+unaffected by that.
+
 **Why both failed is this work package's whole subject.** A shared database and a shared module registry
 are the same bet: that a test does not depend on what its neighbours left behind. These tests do — via
 fixed ids, unscoped reads, and module-level state. Until that is false, every cheap fix for the 2831
