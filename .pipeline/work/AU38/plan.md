@@ -78,6 +78,54 @@ files — that is the follow-on this work package unblocks, and it should be reg
 this lands. The harness lane. The unit lane's own fixtures. Any change to which tables exist or who owns
 them.
 
+## Measured evidence (2026-08-10)
+
+Two independent attempts to make the service lane cheap were tried and **both failed for the same
+reason**, which is what this work package fixes. Recorded so neither is attempted again as a shortcut.
+
+**The prize, measured in CI** (2-vCPU GitHub-hosted runner, full lane, 329 files):
+
+| phase | CI CPU-seconds |
+|---|---|
+| `setup` | **2831** |
+| `tests` | 1173 |
+| `import` | 510 |
+
+`setup` is the single largest number anywhere in CI — larger than the tests themselves, larger than
+typecheck and lint combined. It is one PGlite boot plus 57 replayed migrations per test **file**,
+because `isolate: true` gives every file a fresh context and nothing survives between them.
+
+**Attempt 1 — swap PGlite for a real PostgreSQL.** Implemented: one migrated template database,
+per-worker copies via `CREATE DATABASE ... TEMPLATE`, `DATABASE_URL` selecting the backend. Acquiring a
+database went from ~2172ms to ~7ms. It still cannot land: **213 tests across 52 files fail on real
+Postgres** — behavioural differences the PGlite-only suite has never been exposed to. Two real defects
+were found and fixed on the way and are worth keeping in mind: PGlite's `db.execute()` resolves to
+`{ rows }` while postgres-js resolves to the array itself (both test pools read `.rows` unconditionally),
+and a per-file connection pool leaks under `isolate: true` until the server's `max_connections` is
+exhausted. The work is stashed on the `chore/ci-move-attestation-to-ci` branch, not deleted.
+
+**Attempt 2 — turn off `isolate: true`.** Only **9 of 342** integration files use `vi.mock`, the single
+documented reason the flag is set, so scoping isolation to a named minority looked contained. It is not:
+turning it off surfaces shared-state coupling across **at least 8 files, and the set changes between
+runs** — `bet-decomposition-removal`, `knowledge-action-baked-emit`, `threads.reengagement-baked-emit`
+and `agent-work-intent-recovery` appeared on a second run having passed the first. An allowlist against
+an order-dependent failure set is flaky by construction. Reverted.
+
+**Why both failed is this work package's whole subject.** A shared database and a shared module registry
+are the same bet: that a test does not depend on what its neighbours left behind. These tests do — via
+fixed ids, unscoped reads, and module-level state. Until that is false, every cheap fix for the 2831
+seconds is blocked, and the per-file boot is the price of the assumption.
+
+**Sequencing consequence.** Do this first, then re-attempt one of the two above — they become
+straightforward once tests own their state, and the Postgres route additionally allows workers to share
+one database rather than one each. Do not attempt them in the other order.
+
+> Performance numbers in this section that are labelled CI come from a GitHub-hosted 2-vCPU runner.
+> Local timings on developer hardware were found not to transfer at all (the same lane's `setup` is
+> 494.9s locally against 2831s in CI) and must not be used to judge any of this. Correctness findings
+> — the 213 Postgres failures, the order-dependent `isolate` failures — do transfer and were measured
+> locally.
+
 ## Acceptance criteria
 
 - No code path in the `db` test fixture truncates, drops, or otherwise empties a table between tests.
