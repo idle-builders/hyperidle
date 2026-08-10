@@ -201,3 +201,41 @@ jobs:
         run: |
           npm run -w @hyperidle/core-ui test:e2e:full -- \
             --shard=${{ matrix.shard }}/4 --workers=2 --reporter=line
+
+  # THE required status check for the release lane.
+  #
+  # @lore ci-move release aggregator: the lanes above are skipped on every PR
+  # that does not bump the version, and a required context that never reports
+  # leaves a PR pending forever — which is the same trap `paths-ignore` sets for
+  # the docs fast-path. So the required context is this job, which ALWAYS runs.
+  # `skipped` counts as success (no version bump ⇒ nothing to prove); `failure`
+  # and `cancelled` do not, because an unknown result must not merge.
+  #
+  # Adding a release lane means adding it to BOTH `needs` and the check below —
+  # a lane absent from the check is a lane that cannot block a release.
+  release-verify:
+    name: release verify
+    needs: [release-guard, release-tests, release-e2e]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Aggregate release lane results
+        run: |
+          set -u
+          FAILED=0
+          check() {
+            echo "$1: $2"
+            case "$2" in
+              success|skipped) ;;
+              *) FAILED=1 ;;
+            esac
+          }
+          check "release-guard" "${{ needs.release-guard.result }}"
+          check "release-tests" "${{ needs.release-tests.result }}"
+          check "release-e2e"   "${{ needs.release-e2e.result }}"
+          if [ "$FAILED" = 1 ]; then
+            echo "::error::a release lane did not pass"
+            exit 1
+          fi
+          echo "All release lanes passed (or were correctly skipped)."
