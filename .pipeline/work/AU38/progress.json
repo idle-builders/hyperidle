@@ -1,8 +1,8 @@
 {
   "workPackage": "AU38",
   "title": "Each test isolates its own data; the framework stops wiping the database",
-  "phase": "architecture",
-  "status": "in_progress",
+  "phase": "concept-gate",
+  "status": "awaiting-human-review",
   "conceptGate": null,
   "worktree": ".worktrees/AU38",
   "branch": "chore/AU38-test-self-isolation",
@@ -21,12 +21,44 @@
     {
       "started": "2026-08-10",
       "phase": "architecture",
-      "note": "dispatched to pipeline-planner. Open decisions: (1) identity-scoping mechanism honouring production ID formats; (2) landing sequence keeping the suite green at every commit; (3) scope question surfaced by orchestrator: does the isolate:false flip land inside AU38 (required for the lane itself to demonstrate the shared-database ACs on PGlite) or in the follow-on — plan's outcome/validation scenarios read as requiring it in-scope; sequencing-consequence paragraph reads as follow-on. Planner must decide and justify; concept gate settles it."
+      "note": "pipeline-planner produced architecture.md + feasibility.md. Decisions: D1 fixture-injected deterministic per-test UUID derivation (ids fixture); D2 ratchet-guarded batch migration (10 increments, truncate removed only after a green lane run without it); D3 isolate:false flip lands IN AU38 as capstone (AC2/VS1/VS2 otherwise unprovable) — flagged for concept-gate confirmation."
+    },
+    {
+      "started": "2026-08-10",
+      "phase": "architecture-critique",
+      "note": "round 1 fresh reviewer: BLOCKING (B1 — P11 exemption cluster: 9 of 16 createTestDb files use the shared fixture pool and were wrongly exempted) + 5 non-blocking numeric/reference defects. Orchestrator merged origin/main 705b28f6 (PR #472: tests moved into CI, attestation deleted, 3 unit tests renamed into the lane, new lore claiming isolate:false is NOT the fix) — fix round folded B1 + rebase fallout. Round 2 fresh reviewer: PASS, no blockers; 5 non-blocking notes retained (see architecture-critique-round2.md)."
+    },
+    {
+      "started": "2026-08-10",
+      "phase": "concept-gate",
+      "note": "awaiting founder approval of architecture; two rulings requested: (1) confirm isolate:false flip in AU38 scope (D3); (2) confirm AC6 satisfied by static ESLint ratchet (R1 no-literal-entity-ids, R2 no-unscoped-table-read, shrinking waivers)."
     }
   ],
-  "evaluations": [],
+  "evaluations": [
+    {
+      "phase": "architecture-critique",
+      "attempt": 1,
+      "verdict": "blocking-findings",
+      "blocking": [
+        "B1 P11 exemption cluster: 9 of 16 createTestDb files import test-fixtures and use the shared pool; wrongly exempted from migration and lint; concrete increment-8 breakage unplanned (bets:69-78, hints:82, migration:67); derived: migration-l1 misclassified, useFakeTimers tally wrong (4 fixture-based not 1), typed-routes wrongly exempt"
+      ],
+      "record": ".pipeline/work/AU38/architecture-critique.md"
+    },
+    {
+      "phase": "architecture-critique",
+      "attempt": 2,
+      "verdict": "pass",
+      "blocking": [],
+      "nonBlocking": 5,
+      "record": ".pipeline/work/AU38/architecture-critique-round2.md"
+    }
+  ],
   "artifacts": {
-    "plan": ".pipeline/work/AU38/plan.md"
+    "plan": ".pipeline/work/AU38/plan.md",
+    "architecture": ".pipeline/work/AU38/architecture.md",
+    "feasibility": ".pipeline/work/AU38/feasibility.md",
+    "critiqueRound1": ".pipeline/work/AU38/architecture-critique.md",
+    "critiqueRound2": ".pipeline/work/AU38/architecture-critique-round2.md"
   },
   "approvals": [],
   "verdicts": [],
