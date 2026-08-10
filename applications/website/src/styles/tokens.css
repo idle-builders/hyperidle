@@ -1,0 +1,37 @@
+/* ============================================================
+   HYPERIDLE MARKETING LANGUAGE — WP-owned tokens.
+   NEO-BRUTAL, light mode (founder-approved pivot; see
+   .pipeline/work/Z9/proposals/b-neo-brutal.html). Deliberately
+   NOT the Hearth app design system: these custom properties live
+   in the site source only and must never move into
+   framework/design-system.
+   ============================================================ */
+:root {
+	--paper: #fffdf5;
+	--white: #ffffff;
+	--ink: #000000;
+	--yellow: #fcee0a;
+	/* secondary text on white/paper — 12.6 / 9.7 / 7.5:1 */
+	--text-body: #333333;
+	--text-dim: #444444;
+	--text-dimmer: #555555;
+	--border: 3px solid var(--ink);
+	--sh-chip: 3px 3px 0 var(--ink);
+	--sh-card: 5px 5px 0 var(--ink);
+	--sh-hero: 8px 8px 0 var(--ink);
+	--disp: "Archivo Black", "Space Grotesk", system-ui, sans-serif;
+	--body: "Space Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+	--mono: "Space Mono", ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+	--s1: 4px;
+	--s2: 8px;
+	--s3: 12px;
+	--s4: 16px;
+	--s5: 24px;
+	--s6: 32px;
+	--s7: 48px;
+	--s8: 64px;
+	--s9: 96px;
+	--ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+	--dur-hover: 100ms;
+	--dur-entry: 540ms;
+}

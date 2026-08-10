@@ -18,6 +18,7 @@ export default defineConfig({
 			"framework/api-contract",
 			"framework/db",
 			"applications/desktop",
+			"applications/website",
 			"tools/eval",
 			"tools/setup",
 			"applications/remote-server",

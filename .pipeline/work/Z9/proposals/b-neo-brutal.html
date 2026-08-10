@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proposal B — NEO-BRUTAL · HyperIdle design exploration</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   PROPOSAL B — "NEO-BRUTAL"
+   The loud one: neubrutalist poster energy. Chunky display type,
+   3px borders, big hard offset shadows (zero blur), sticker
+   badges, yellow/black/white only. Catchy by construction.
+   ============================================================ */
+:root{
+  --paper:#FFFDF5;
+  --white:#FFFFFF;
+  --ink:#000000;
+  --yellow:#FCEE0A;
+  --border:3px solid var(--ink);
+  --sh-chip:3px 3px 0 var(--ink);
+  --sh-card:5px 5px 0 var(--ink);
+  --sh-hero:8px 8px 0 var(--ink);
+  --disp:'Archivo Black',sans-serif;
+  --body:'Space Grotesk',sans-serif;
+  --mono:'IBM Plex Mono',monospace;
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px; --s9:96px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--body);
+  font-size:17px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--yellow)}
+.wrap{max-width:1160px;margin:0 auto;padding:0 var(--s5)}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--ink);outline-offset:4px}
+
+/* ---------- sheet header ---------- */
+.sheet-head{padding:var(--s8) 0 var(--s7);border-bottom:var(--border);position:relative;overflow:hidden}
+.sticker{
+  display:inline-block;
+  font-family:var(--mono);font-weight:700;font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+  background:var(--yellow);border:var(--border);box-shadow:var(--sh-chip);
+  padding:var(--s2) var(--s4);
+  transform:rotate(-2deg);
+}
+.sheet-head h1{
+  font-family:var(--disp);text-transform:uppercase;
+  font-size:clamp(3rem,9vw,6.5rem);line-height:.95;letter-spacing:-.01em;
+  margin:var(--s5) 0 var(--s4);
+}
+.hl{background:var(--yellow);padding:0 var(--s3);box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.intent{max-width:64ch;font-size:1.1rem;font-weight:500}
+.sheet-meta{margin-top:var(--s5);display:flex;flex-wrap:wrap;gap:var(--s3)}
+.sheet-meta span{
+  font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;
+  border:var(--border);background:var(--white);box-shadow:var(--sh-chip);
+  padding:var(--s1) var(--s3);
+}
+.sheet-meta span:nth-child(odd){transform:rotate(-1deg)}
+.sheet-meta span:nth-child(even){transform:rotate(1deg)}
+.big-mark{
+  position:absolute;right:-30px;top:-40px;
+  font-family:var(--disp);font-size:14rem;line-height:1;color:var(--yellow);
+  -webkit-text-stroke:3px var(--ink);
+  transform:rotate(6deg);pointer-events:none;user-select:none;
+}
+
+/* ---------- blocks ---------- */
+.block{padding:var(--s8) 0;border-bottom:var(--border)}
+.block:last-of-type{border-bottom:0}
+.block-head{display:flex;align-items:center;gap:var(--s4);margin-bottom:var(--s6)}
+.block-num{
+  font-family:var(--disp);font-size:22px;
+  background:var(--ink);color:var(--yellow);
+  width:52px;height:52px;display:grid;place-items:center;flex:none;
+  border:var(--border);box-shadow:var(--sh-chip);transform:rotate(-3deg);
+}
+.block-label{font-family:var(--mono);font-weight:700;font-size:13px;letter-spacing:.14em;text-transform:uppercase}
+.eyebrow{
+  display:inline-block;font-family:var(--mono);font-weight:700;font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+  background:var(--ink);color:var(--yellow);padding:var(--s1) var(--s3);
+  transform:rotate(-1deg);margin-bottom:var(--s4);
+}
+h2.sec{font-family:var(--disp);text-transform:uppercase;font-size:clamp(2rem,5vw,3.4rem);line-height:1}
+.lead{margin-top:var(--s4);max-width:58ch;font-size:1.1rem;font-weight:500}
+
+/* ---------- 01 tokens ---------- */
+.tok-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:var(--s5)}
+.tok{border:var(--border);background:var(--white);box-shadow:var(--sh-card)}
+.tok:nth-child(3n){transform:rotate(.6deg)}
+.tok:nth-child(3n+1){transform:rotate(-.6deg)}
+.tok-swatch{height:84px;border-bottom:var(--border)}
+.tok-label{font-family:var(--mono);font-weight:700;font-size:12px;letter-spacing:.06em;padding:var(--s3) var(--s4);display:flex;justify-content:space-between;gap:var(--s2)}
+.tok-demo{height:84px;display:grid;place-items:center;border-bottom:var(--border);background:var(--paper)}
+.tok-demo .box{width:48px;height:48px;background:var(--yellow);border:var(--border);box-shadow:var(--sh-card)}
+.tok-type{padding:var(--s3) var(--s4);font-size:30px;line-height:1.15}
+.tok-type small{display:block;font-family:var(--mono);font-weight:500;font-size:10px;letter-spacing:.1em;color:#444;margin-top:4px}
+
+/* ---------- 02 navbar ---------- */
+.nav{
+  border:var(--border);background:var(--white);box-shadow:var(--sh-card);
+  display:flex;align-items:center;gap:var(--s5);flex-wrap:wrap;
+  padding:var(--s4) var(--s5);
+}
+.brand{display:flex;align-items:center;gap:var(--s3);text-decoration:none}
+.brand-mark{
+  font-family:var(--disp);font-size:20px;
+  background:var(--yellow);border:var(--border);box-shadow:var(--sh-chip);
+  padding:var(--s1) var(--s3);transform:rotate(-3deg);
+}
+.brand-name{font-family:var(--disp);font-size:20px;text-transform:uppercase;letter-spacing:.01em}
+.nav-links{display:flex;gap:var(--s2);flex-wrap:wrap;margin-left:auto}
+.nav-links a{
+  font-family:var(--mono);font-weight:700;font-size:13px;letter-spacing:.08em;text-transform:uppercase;
+  text-decoration:none;border:var(--border);background:var(--white);
+  padding:var(--s2) var(--s3);box-shadow:var(--sh-chip);
+  transition:transform .1s ease,box-shadow .1s ease;
+}
+.nav-links a:hover{transform:translate(-2px,-2px);box-shadow:5px 5px 0 var(--ink);background:var(--yellow)}
+.nav-links a:active{transform:translate(3px,3px);box-shadow:none}
+
+/* ---------- buttons ---------- */
+.btn{
+  display:inline-block;
+  font-family:var(--disp);text-transform:uppercase;font-size:16px;letter-spacing:.02em;
+  text-decoration:none;text-align:center;cursor:pointer;
+  border:var(--border);padding:var(--s4) var(--s6);
+  box-shadow:var(--sh-card);
+  transition:transform .1s ease,box-shadow .1s ease;
+}
+.btn:hover{transform:translate(-2px,-2px);box-shadow:var(--sh-hero)}
+.btn:active{transform:translate(3px,3px);box-shadow:none}
+.btn-primary{background:var(--yellow);color:var(--ink)}
+.btn-secondary{background:var(--white);color:var(--ink)}
+.btn-ink{background:var(--ink);color:var(--yellow)}
+.btn-ghost{background:transparent;box-shadow:none;border-style:solid}
+.btn-ghost:hover{background:var(--yellow);box-shadow:var(--sh-card)}
+.btn-ghost:active{box-shadow:none}
+.btn-row{display:flex;flex-wrap:wrap;gap:var(--s5);align-items:flex-start}
+.state-demo{display:grid;gap:var(--s3);justify-items:start}
+.state-demo .cap{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#444}
+.btn.is-static,.btn.is-static:hover,.btn.is-static:active{transform:none;box-shadow:var(--sh-card);cursor:default}
+.btn.sim-hover{transform:translate(-2px,-2px);box-shadow:var(--sh-hero)}
+.btn.sim-active{transform:translate(3px,3px);box-shadow:none}
+
+/* ---------- 03 hero ---------- */
+.hero{padding:var(--s6) 0}
+.hero h2{
+  font-family:var(--disp);text-transform:uppercase;
+  font-size:clamp(2.6rem,7.5vw,5.5rem);line-height:.98;letter-spacing:-.01em;
+  margin:var(--s4) 0 var(--s6);max-width:16ch;
+}
+.hero-sub{max-width:52ch;font-size:1.2rem;font-weight:500;margin-bottom:var(--s6)}
+.hero-meta{margin-top:var(--s6);display:flex;flex-wrap:wrap;gap:var(--s3)}
+.hero-meta span{
+  font-family:var(--mono);font-weight:700;font-size:12px;letter-spacing:.1em;text-transform:uppercase;
+  border:var(--border);background:var(--white);box-shadow:var(--sh-chip);padding:var(--s2) var(--s3);
+}
+.hero-meta span:nth-child(2){transform:rotate(1.5deg);background:var(--yellow)}
+.hero-meta span:nth-child(3){transform:rotate(-1.5deg)}
+.hero-strip{
+  margin-top:var(--s7);
+  border:var(--border);background:var(--yellow);box-shadow:var(--sh-hero);
+  padding:var(--s4) var(--s5);
+  display:flex;flex-wrap:wrap;gap:var(--s5);align-items:center;justify-content:space-between;
+  font-family:var(--mono);font-weight:700;font-size:13px;letter-spacing:.1em;text-transform:uppercase;
+}
+
+/* ---------- cards ---------- */
+.cards-2{display:grid;grid-template-columns:1fr 1fr;gap:var(--s6);align-items:start}
+.card{
+  border:var(--border);background:var(--white);box-shadow:var(--sh-card);
+  padding:var(--s6);
+  transition:transform .1s ease,box-shadow .1s ease;
+}
+.card:hover{transform:translate(-2px,-2px);box-shadow:var(--sh-hero)}
+.card-kicker{
+  display:flex;justify-content:space-between;align-items:center;gap:var(--s3);
+  margin-bottom:var(--s5);
+}
+.card-kicker .id{
+  font-family:var(--mono);font-weight:700;font-size:12px;letter-spacing:.1em;text-transform:uppercase;
+  background:var(--ink);color:var(--yellow);padding:var(--s1) var(--s3);
+}
+.card-kicker .tag{
+  font-family:var(--mono);font-weight:700;font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+  border:var(--border);background:var(--yellow);box-shadow:var(--sh-chip);
+  padding:2px var(--s2);transform:rotate(3deg);
+}
+.card h3{font-family:var(--disp);text-transform:uppercase;font-size:1.6rem;line-height:1.05;margin-bottom:var(--s3)}
+.card-foot{
+  margin-top:var(--s5);padding-top:var(--s4);border-top:var(--border);
+  font-family:var(--mono);font-weight:700;font-size:12px;letter-spacing:.1em;text-transform:uppercase;
+  display:flex;justify-content:space-between;gap:var(--s3);flex-wrap:wrap;
+}
+.agent-top{display:flex;align-items:center;gap:var(--s4);margin-bottom:var(--s4)}
+.agent-sigil{
+  width:64px;height:64px;flex:none;
+  font-family:var(--disp);font-size:28px;
+  background:var(--yellow);border:var(--border);box-shadow:var(--sh-chip);
+  display:grid;place-items:center;transform:rotate(-4deg);
+}
+.agent-name{font-family:var(--disp);text-transform:uppercase;font-size:1.6rem;line-height:1}
+.agent-role{font-family:var(--mono);font-weight:700;font-size:12px;letter-spacing:.12em;text-transform:uppercase;margin-top:var(--s1)}
+.status-line{display:flex;align-items:center;gap:var(--s2);font-family:var(--mono);font-weight:700;font-size:12px;letter-spacing:.1em;text-transform:uppercase}
+.pulse{width:12px;height:12px;background:var(--ink);flex:none}
+@media (prefers-reduced-motion: no-preference){.pulse{animation:pulse 1.4s steps(2) infinite}}
+@keyframes pulse{50%{background:var(--yellow);outline:3px solid var(--ink)}}
+
+/* ---------- chips ---------- */
+.chip-row{display:flex;flex-wrap:wrap;gap:var(--s4);align-items:center}
+.chip{
+  font-family:var(--mono);font-weight:700;font-size:12px;letter-spacing:.1em;text-transform:uppercase;
+  border:var(--border);background:var(--white);box-shadow:var(--sh-chip);
+  padding:var(--s2) var(--s4);
+}
+.chip:nth-child(odd){transform:rotate(-2deg)}
+.chip:nth-child(even){transform:rotate(2deg)}
+.chip-yellow{background:var(--yellow)}
+.chip-ink{background:var(--ink);color:var(--yellow)}
+.chip-big{
+  font-family:var(--disp);font-size:14px;padding:var(--s3) var(--s5);
+  transform:rotate(-4deg);
+}
+
+/* ---------- field ---------- */
+.field{display:grid;gap:var(--s3);max-width:440px}
+.field-label{font-family:var(--mono);font-weight:700;font-size:13px;letter-spacing:.12em;text-transform:uppercase}
+.field-label b{background:var(--yellow);padding:0 var(--s1)}
+.field input{
+  font-family:var(--body);font-weight:500;font-size:17px;color:var(--ink);
+  background:var(--white);border:var(--border);box-shadow:var(--sh-card);
+  padding:var(--s4) var(--s5);border-radius:0;
+  transition:transform .1s ease,box-shadow .1s ease;
+}
+.field input::placeholder{color:#666}
+.field input:hover{transform:translate(-2px,-2px);box-shadow:var(--sh-hero)}
+.field input:focus-visible{outline:3px solid var(--ink);outline-offset:4px;background:var(--yellow)}
+.field-hint{font-family:var(--mono);font-size:12px;letter-spacing:.04em;color:#444}
+
+/* ---------- terminal ---------- */
+.term{
+  border:var(--border);background:var(--white);box-shadow:var(--sh-hero);
+}
+.term-bar{
+  display:flex;justify-content:space-between;gap:var(--s3);align-items:center;flex-wrap:wrap;
+  background:var(--ink);color:var(--yellow);
+  border-bottom:var(--border);padding:var(--s3) var(--s5);
+  font-family:var(--mono);font-weight:700;font-size:13px;letter-spacing:.08em;text-transform:uppercase;
+}
+.caret{display:inline-block;width:10px;height:16px;background:var(--yellow);vertical-align:middle}
+@media (prefers-reduced-motion: no-preference){.caret{animation:blink 1s steps(1) infinite}}
+@keyframes blink{50%{opacity:0}}
+.term-body{padding:var(--s5) var(--s6);font-family:var(--mono);font-size:14.5px;line-height:1.9;background:var(--white)}
+.t-p{font-weight:700}
+.t-c{color:#555}
+.t-ok{font-weight:700;background:var(--yellow);display:inline-block;padding:0 var(--s2)}
+
+/* ---------- bet row ---------- */
+.betrow{
+  border:var(--border);background:var(--white);box-shadow:var(--sh-card);
+  display:grid;grid-template-columns:110px 1fr 170px 120px 160px auto;
+  gap:var(--s5);align-items:center;padding:var(--s4) var(--s5);
+  transition:transform .1s ease,box-shadow .1s ease;
+}
+.betrow:hover{transform:translate(-2px,-2px);box-shadow:var(--sh-hero)}
+.bet-id{font-family:var(--disp);font-size:15px;background:var(--ink);color:var(--yellow);padding:var(--s1) var(--s2);text-align:center;transform:rotate(-2deg)}
+.bet-name{font-family:var(--body);font-weight:700;font-size:18px;line-height:1.2}
+.bet-name em{font-style:normal;font-weight:500;color:#444;font-size:14px;display:block}
+.bet-owner,.bet-days{font-family:var(--mono);font-weight:700;font-size:12px;letter-spacing:.1em;text-transform:uppercase}
+.bet-days{background:var(--yellow);border:var(--border);box-shadow:var(--sh-chip);padding:var(--s1) var(--s2);justify-self:start;transform:rotate(1deg)}
+.segs{display:flex;gap:4px}
+.segs i{width:12px;height:18px;border:3px solid var(--ink);background:var(--white)}
+.segs i.f{background:var(--ink)}
+.segs i.now{background:var(--yellow)}
+
+/* ---------- footer ---------- */
+.foot{padding:var(--s7) 0 var(--s8);display:flex;justify-content:space-between;gap:var(--s4);flex-wrap:wrap;font-family:var(--mono);font-weight:700;font-size:12px;letter-spacing:.1em;text-transform:uppercase}
+
+/* ---------- responsive ---------- */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:var(--s6);align-items:start}
+@media (max-width:860px){
+  .cards-2,.two-col{grid-template-columns:1fr}
+  .betrow{grid-template-columns:1fr 1fr;gap:var(--s4)}
+  .nav-links{margin-left:0}
+  .big-mark{display:none}
+}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body>
+
+<header class="sheet-head wrap">
+  <span class="big-mark" aria-hidden="true">B</span>
+  <span class="sticker">Proposal B · Z9 design exploration · light direction</span>
+  <h1>NEO-<span class="hl">BRUTAL</span></h1>
+  <p class="intent">
+    Neubrutalist poster energy: chunky Archivo Black, hard offset shadows with zero blur, sticker badges,
+    and yellow/black/white only. The sheet a visitor remembers — maximum loudness, but every rotation,
+    shadow tier, and spacing step is mechanically aligned.
+  </p>
+  <div class="sheet-meta">
+    <span>Base #FFFDF5</span><span>Accent #FCEE0A</span><span>Border 3px</span>
+    <span>Shadow 3 / 5 / 8px hard</span><span>Archivo Black / Space Grotesk / IBM Plex Mono</span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- 01 TOKENS -->
+  <section class="block" aria-label="Design tokens">
+    <div class="block-head"><span class="block-num" aria-hidden="true">01</span><span class="block-label">Token strip — palette / border / shadow / type</span></div>
+    <div class="tok-grid">
+      <div class="tok"><div class="tok-swatch" style="background:#FFFDF5"></div><div class="tok-label"><span>PAPER</span><span>#FFFDF5</span></div></div>
+      <div class="tok"><div class="tok-swatch" style="background:#FFFFFF;border-bottom:3px solid #000"></div><div class="tok-label"><span>WHITE</span><span>#FFFFFF</span></div></div>
+      <div class="tok"><div class="tok-swatch" style="background:#000000"></div><div class="tok-label"><span>INK</span><span>#000000</span></div></div>
+      <div class="tok"><div class="tok-swatch" style="background:#FCEE0A"></div><div class="tok-label"><span>YELLOW</span><span>#FCEE0A</span></div></div>
+      <div class="tok"><div class="tok-demo"><span class="box"></span></div><div class="tok-label"><span>BORDER / SHADOW</span><span>3px · 5px 5px 0</span></div></div>
+      <div class="tok"><div class="tok-type" style="font-family:var(--disp)">Aa<small>ARCHIVO BLACK — DISPLAY</small></div></div>
+      <div class="tok"><div class="tok-type" style="font-family:var(--body);font-weight:500">Aa<small>SPACE GROTESK — BODY</small></div></div>
+      <div class="tok"><div class="tok-type" style="font-family:var(--mono);font-weight:700;font-size:24px">Aa_<small>IBM PLEX MONO — LABELS</small></div></div>
+    </div>
+  </section>
+
+  <!-- 02 NAVBAR -->
+  <section class="block" aria-label="Navbar">
+    <div class="block-head"><span class="block-num" aria-hidden="true">02</span><span class="block-label">Navbar</span></div>
+    <nav class="nav" aria-label="Demo navigation">
+      <a class="brand" href="#top">
+        <span class="brand-mark" aria-hidden="true">H/</span>
+        <span class="brand-name">HyperIdle</span>
+      </a>
+      <div class="nav-links">
+        <a href="#product">Product</a>
+        <a href="#crew">Crew</a>
+        <a href="#docs">Docs</a>
+        <a href="#selfhost">Self-host</a>
+      </div>
+      <a class="btn btn-primary" href="#selfhost" style="padding:var(--s3) var(--s5);font-size:14px">Get started</a>
+    </nav>
+  </section>
+
+  <!-- 03 HERO -->
+  <section class="block hero" aria-label="Hero">
+    <div class="block-head"><span class="block-num" aria-hidden="true">03</span><span class="block-label">Hero + CTA</span></div>
+    <span class="eyebrow">Agentic operating system</span>
+    <h2>The OS for <span class="hl">AI-first</span> companies.</h2>
+    <p class="hero-sub">
+      HyperIdle runs flat teams of humans and AI agents. You shape the work, agents execute,
+      you validate — and everything they learn compounds into knowledge the next bet starts with.
+    </p>
+    <div class="btn-row">
+      <a class="btn btn-primary" href="#selfhost">Self-host quickstart</a>
+      <a class="btn btn-ink" href="#docs">Read the docs</a>
+      <a class="btn btn-ghost" href="#crew">Meet the crew</a>
+    </div>
+    <div class="hero-meta" aria-label="Product pillars">
+      <span>Agents execute</span>
+      <span>Humans validate</span>
+      <span>Knowledge compounds</span>
+    </div>
+    <div class="hero-strip">
+      <span>Teams persist across bets</span>
+      <span aria-hidden="true">///</span>
+      <span>One team per product</span>
+      <span aria-hidden="true">///</span>
+      <span>The tenth bet is faster than the first</span>
+    </div>
+  </section>
+
+  <!-- 04 BUTTONS -->
+  <section class="block" aria-label="Button states">
+    <div class="block-head"><span class="block-num" aria-hidden="true">04</span><span class="block-label">Button states — hover &amp; focus are live everywhere on this sheet</span></div>
+    <div class="btn-row">
+      <div class="state-demo">
+        <a class="btn btn-primary is-static" href="#btn" tabindex="-1" aria-hidden="true">Default</a>
+        <span class="cap">Default — 5px shadow</span>
+      </div>
+      <div class="state-demo">
+        <a class="btn btn-primary sim-hover is-static" href="#btn" tabindex="-1" aria-hidden="true">Hover</a>
+        <span class="cap">Hover — lift −2px, 8px shadow</span>
+      </div>
+      <div class="state-demo">
+        <a class="btn btn-primary sim-active is-static" href="#btn" tabindex="-1" aria-hidden="true">Active</a>
+        <span class="cap">Active — press +3px, no shadow</span>
+      </div>
+      <div class="state-demo">
+        <a class="btn btn-ghost is-static" href="#btn" tabindex="-1" aria-hidden="true">Ghost</a>
+        <span class="cap">Ghost — fills yellow on hover</span>
+      </div>
+    </div>
+    <p class="field-hint" style="margin-top:var(--s6)">Live pair — hover, press, and Tab to them:</p>
+    <div class="btn-row" style="margin-top:var(--s4)">
+      <a class="btn btn-primary" href="#btn">Self-host quickstart</a>
+      <a class="btn btn-secondary" href="#btn">Read the docs</a>
+    </div>
+  </section>
+
+  <!-- 05 SECTION HEADER -->
+  <section class="block" aria-label="Section header pattern">
+    <div class="block-head"><span class="block-num" aria-hidden="true">05</span><span class="block-label">Section header — mono eyebrow</span></div>
+    <span class="eyebrow">// The loop</span>
+    <h2 class="sec">Work flows through bets.</h2>
+    <p class="lead">
+      A bet is time-boxed work with a done condition — planned, tracked, and settled in the open.
+      Tasks break it down, sessions execute it, handoffs bring it back to a human when judgment is needed.
+    </p>
+  </section>
+
+  <!-- 06 CARDS -->
+  <section class="block" aria-label="Cards">
+    <div class="block-head"><span class="block-num" aria-hidden="true">06</span><span class="block-label">Feature card + agent roster card</span></div>
+    <div class="cards-2">
+      <article class="card">
+        <div class="card-kicker"><span class="id">PRIMITIVE/BET</span><span class="tag">Time-boxed</span></div>
+        <h3>Work shaped as bets</h3>
+        <p>
+          Every piece of work is a bet with a done condition and a budget. Agents execute inside the box;
+          when it settles, what they learned is written back to the store — so the tenth bet is faster than the first.
+        </p>
+        <div class="card-foot"><span>BET → TASK → SESSION</span><span>HANDOFF → HUMAN</span></div>
+      </article>
+      <article class="card" aria-label="Agent roster card">
+        <div class="card-kicker"><span class="id">TEAM/BLD</span><span class="tag">Dossier</span></div>
+        <div class="agent-top">
+          <span class="agent-sigil" aria-hidden="true">M</span>
+          <div>
+            <div class="agent-name">Mika</div>
+            <div class="agent-role">Builder — Acme team</div>
+          </div>
+        </div>
+        <p>Shipped auth in January, ships payments in March. Keeps every lesson.</p>
+        <div class="card-foot">
+          <span class="status-line"><span class="pulse" aria-hidden="true"></span> IN SESSION — payments-beta</span>
+          <span>HARNESS: claude</span>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- 07 CHIPS + INPUT -->
+  <section class="block" aria-label="Chips and input">
+    <div class="block-head"><span class="block-num" aria-hidden="true">07</span><span class="block-label">Badge / chip set + text input</span></div>
+    <div class="two-col">
+      <div>
+        <div class="chip-row" role="list" aria-label="Status chips">
+          <span class="chip chip-yellow" role="listitem">On track</span>
+          <span class="chip" role="listitem">At risk</span>
+          <span class="chip chip-ink" role="listitem">Shipped</span>
+          <span class="chip" role="listitem">Blocked</span>
+        </div>
+        <div class="chip-row" style="margin-top:var(--s5)" role="list" aria-label="Role stickers">
+          <span class="chip chip-big chip-yellow" role="listitem">Builder</span>
+          <span class="chip chip-big" role="listitem">Product Manager</span>
+          <span class="chip chip-big chip-yellow" role="listitem">QA Engineer</span>
+          <span class="chip chip-big" role="listitem">Designer</span>
+        </div>
+      </div>
+      <label class="field">
+        <span class="field-label">Name the bet <b>// required</b></span>
+        <input type="text" placeholder="payments-beta" autocomplete="off">
+        <span class="field-hint">Lowercase, hyphenated. The done condition comes next.</span>
+      </label>
+    </div>
+  </section>
+
+  <!-- 08 TERMINAL -->
+  <section class="block" aria-label="Terminal snippet">
+    <div class="block-head"><span class="block-num" aria-hidden="true">08</span><span class="block-label">Terminal / log snippet — quickstart</span></div>
+    <div class="term" role="region" aria-label="Quickstart commands" tabindex="0">
+      <div class="term-bar"><span>hyperidle — quickstart</span><span>bash <span class="caret" aria-hidden="true"></span></span></div>
+      <div class="term-body">
+        <div><span class="t-p">$</span> npm install</div>
+        <div><span class="t-p">$</span> npm run setup -- --profile laptop <span class="t-c"># PGlite + migrations + bootstrap</span></div>
+        <div><span class="t-p">$</span> npm run dev <span class="t-c"># server :3001 + web :5173</span></div>
+        <div><span class="t-ok">✓ hyperidle running → http://localhost:5173</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 09 DATA ROW -->
+  <section class="block" aria-label="Bet list row">
+    <div class="block-head"><span class="block-num" aria-hidden="true">09</span><span class="block-label">Data row — bet list</span></div>
+    <div class="betrow">
+      <span class="bet-id">BET-014</span>
+      <span class="bet-name">payments-beta<em>Stripe checkout webhooks — done when endpoint returns 200 for all test events</em></span>
+      <span class="bet-owner">MIKA / BUILDER</span>
+      <span class="bet-days">DAY 04/10</span>
+      <span class="segs" aria-label="Day 4 of 10">
+        <i class="f"></i><i class="f"></i><i class="f"></i><i class="now"></i><i></i><i></i><i></i><i></i><i></i><i></i>
+      </span>
+      <span class="chip chip-yellow" style="transform:rotate(2deg)">On track</span>
+    </div>
+  </section>
+
+</main>
+
+<footer class="foot wrap">
+  <span>Z9 design exploration · light direction · 2026-08-09</span>
+  <span>Agents execute · Humans validate · Knowledge compounds</span>
+</footer>
+
+</body>
+</html>

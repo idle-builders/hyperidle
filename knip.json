@@ -5,6 +5,7 @@
 		".hermes/**",
 		".opencode/**",
 		"docs/product/.vitepress/**",
+		"applications/website/.astro/**",
 		"tools/eslint-plugin-design/test-fixtures/**",
 		"plans/**",
 		"layers/core-ui/src/**/*.stories.tsx",
@@ -87,6 +88,18 @@
 					"playwright.ah6.config.ts"
 				]
 			}
+		},
+		"applications/website": {
+			// In the --production lane knip's Astro plugin registers astro.config.ts and
+			// src/content.config.ts as dev-only entries, so the graph never reaches the
+			// lib modules they import. Declare the lib modules as production entries —
+			// for a static site the build-time modules ARE the production surface.
+			"entry": ["src/lib/*.ts!"],
+			// cookie is a resolution shim, never imported: astro's emitted prerender entry
+			// needs cookie@2, and the monorepo hoists cookie@0.7.2 for express@5. Declared
+			// in the package so Node's upward resolution from dist/.prerender/ finds the
+			// nested copy (see JUSTIFIED_UNUSED in scripts/lib/dep-manifest-verdict.ts).
+			"ignoreDependencies": ["cookie"]
 		},
 		"applications/desktop": {
 			"entry": ["src/preload.ts!", "__scripts__/bundle.ts!", "__scripts__/check-native.ts!"],

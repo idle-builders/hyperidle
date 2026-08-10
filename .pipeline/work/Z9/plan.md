@@ -47,3 +47,34 @@
 - Given the built landing page HTML, when inspected, then it requires no server-side rendering or runtime API calls to display.
 - Given a visual review of the built page, when compared against the Hearth app theme, then the page reads as the cyberpunk marketing identity (dark, neon-yellow accent, hard borders/shadows), not Hearth.
 - Given a maintainer pointing the build output at a different static host (different base path), when rebuilt with the configured base path, then all internal links and assets resolve.
+
+## Shipped — as-built decisions (consolidated from design + architecture + feasibility, 2026-08-09)
+
+**Stack & placement.** Astro 7 in `applications/website` (`@hyperidle/website`). Zero-runtime-JS static output by default; markdown via content collections with an external-base glob loader over the repo tree (markdown read in place, never copied). Rejected: VitePress (Vue runtime, docs-shaped), custom vite+markdown-it, plain scripts — they reinvent what a maintained primitive provides.
+
+**Base path.** `HYPERIDLE_SITE_BASE` env → fail-fast `normalizeBase` validation → astro `base`; template hrefs via `import.meta.env.BASE_URL`, markdown cross-links via a remark plugin, assets through the Vite pipeline (nothing URL-referenced lives in `public/`). Proven for `/` and `/hyperidle/`; invalid values fail the build.
+
+**Content seam.** This WP ingests `docs/product/*.md` (6 pages at `/docs/product/**`) as the markdown-proof + hub. The follow-up docs WP widens the glob pattern to `docs/guides/**` — no new machinery. `docEntryId` collapses `index.md` onto directory URLs; `mapDocHref` rewrites sibling `.md` links to route URLs.
+
+**Fonts.** Space Grotesk 400/500/700 + Space Mono 400/700 latin woff2 committed under `src/assets/fonts/` (OFL shipped), `font-display: swap`, no hotlinking.
+
+**Marketing identity.** PIVOT (2026-08-10, founder-directed): the dark neon-noir direction was
+rejected after review; the shipping identity is **light neo-brutal** per
+`.pipeline/work/Z9/proposals/b-neo-brutal.html` (the `proposals/` folder holds the explorations).
+Paper `#FFFDF5` base, white cards, black ink, `#FCEE0A` as fill only (black text on yellow, never
+yellow text on white), 3px solid black borders, zero-blur hard offset shadows in 3/5/8px tiers,
+hover lift −2px / active press +3px, sticker rotations. Type: Archivo Black display + Space
+Grotesk body + Space Mono labels, all self-hosted (OFL). The four guarded JS behaviors,
+visible-first reveals, reduced-motion fallbacks, and the 4.5:1 contrast floor carried over
+unchanged from the dark iteration; copy is verbatim.
+
+**Motion & JS.** Four guarded plain-JS behaviors, no islands: hero terminal typing (full transcript in DOM without JS; click-to-skip), visible-first reveals (`html.js-reveal` opt-in — content fully visible with JS disabled), mobile menu with focus containment + Esc + scroll lock, copy button. All motion disabled under `prefers-reduced-motion`.
+
+**Evidence.** 17 unit tests (normalizeBase/mapDocHref/docEntryId/barePackageName) + scripted build checks (static dist, serve+curl 200s for both base paths, zero runtime fetch/XHR) + visual captures at 3 viewports + reduced-motion + no-JS under `.pipeline/work/Z9/evidence/`. Review verdict DONE, all 6 ACs pass (see review record / git history).
+
+**Deferrals & known limitations (outlive this run):**
+- `/docs/user/` and `/docs/developer/` teaser + footer links are accepted placeholders — they 404 until the follow-up docs-rendering WP (registered in `.pipeline/Z.md` dependency graph).
+- `npm run verify` / CI deliberately do NOT build the site in this WP; the site builds via its own package scripts. Wiring a CI build leg is a later decision.
+- Hosting remains open (GitHub Pages / Cloudflare Pages / own infra); deploy wiring is separate work.
+- Two non-blocking biome `!important` warnings in the reduced-motion block (intentional universal disable).
+- The e2e snapshot net rewrites stale `plans/AI3|AI4/proof/*.png` during verify runs (pre-existing behavior, unrelated to this WP) — revert before committing.

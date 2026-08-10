@@ -1,0 +1,93 @@
+---
+const rows = [
+	{
+		label: "Structure",
+		typical: "Strings in a vector index",
+		hyperidle: "Scope, status, topic, lifecycle in one canonical table",
+	},
+	{
+		label: "Cross-product",
+		typical: "Per-agent or per-project silos",
+		hyperidle: "Practice layer shared across all products by design",
+	},
+	{
+		label: "Curation",
+		typical: "Raw captures accumulate",
+		hyperidle: "Facilitators organize, score, and promote continuously",
+	},
+	{
+		label: "Oversight",
+		typical: "AI-generated, trusted automatically",
+		hyperidle: "AI-generated, facilitator-organized, human-curated",
+	},
+];
+const layers = [
+	{ code: "L4", name: "Factory", cad: "monthly", hot: false },
+	{ code: "L3", name: "Practice", cad: "weekly", hot: true },
+	{ code: "L2", name: "Product", cad: "per cycle", hot: false },
+	{ code: "L1", name: "Task", cad: "per task", hot: false },
+	{ code: "L0", name: "Session", cad: "minutes", hot: false },
+];
+---
+
+<section id="knowledge" aria-labelledby="know-h">
+	<div class="container">
+		<div class="sec-head reveal">
+			<div>
+				<span class="eyebrow">[ // The Compound ]</span>
+				<h2 id="know-h">The tenth bet is faster than the first.</h2>
+				<p class="lead">
+					What one agent learns on one product becomes available to every agent in the same
+					practice. Nine bets of accumulated context are present at session start.
+				</p>
+			</div>
+			<span class="sec-idx" aria-hidden="true">SEC.05</span>
+		</div>
+
+		<div class="know-grid">
+			<div class="reveal">
+				<p>
+					One canonical store, two projections: rich cards for humans in the Knowledge view,
+					markdown and structured packs for agents in the sandbox. Both read and write the same
+					table — no sync problem, because there is one source of truth.
+				</p>
+				<div class="compare" aria-label="Typical agent memory compared with HyperIdle knowledge">
+					{
+						rows.map((row) => (
+							<div class="compare-row labelled">
+								<span class="compare-label">{row.label}</span>
+								<div class="cells">
+									<div class="compare-cell dim">{row.typical}</div>
+									<div class="compare-cell good">{row.hyperidle}</div>
+								</div>
+							</div>
+						))
+					}
+				</div>
+			</div>
+
+			<div class="reveal">
+				<div
+					class="ladder"
+					role="img"
+					aria-label="Five knowledge layers, L4 factory down to L0 session; the L3 practice layer is shared across all products"
+				>
+					{
+						layers.map((layer) => (
+							<div class:list={["layer", { hot: layer.hot }]}>
+								<span class="layer-code">{layer.code}</span>
+								<span class="layer-name">{layer.name}</span>
+								<span class="layer-cad">{layer.cad}</span>
+								{layer.hot && <span class="layer-tag">▸ shared across all products</span>}
+							</div>
+						))
+					}
+				</div>
+				<div class="ladder-rails" aria-hidden="true">
+					<span>↑ promotion — learnings flow up</span>
+					<span>loading — context flows down ↓</span>
+				</div>
+			</div>
+		</div>
+	</div>
+</section>

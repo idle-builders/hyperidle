@@ -1,0 +1,46 @@
+---
+const base = import.meta.env.BASE_URL;
+const userTopics =
+	"getting started · the interface · three core views · agents · running your team · deployment";
+const devTopics = "getting started · commands · testing · linting · work packages";
+---
+
+<section id="docs" aria-labelledby="docs-h">
+	<div class="container">
+		<div class="sec-head reveal">
+			<div>
+				<span class="eyebrow">[ // Documentation ]</span>
+				<h2 id="docs-h">Read the docs.</h2>
+				<p class="lead">
+					The product story, the user guide, and the developer guide — written as ground truth,
+					not brochureware.
+				</p>
+			</div>
+			<span class="sec-idx" aria-hidden="true">SEC.06</span>
+		</div>
+
+		<div class="docs-grid">
+			<a class="doc-card reveal" href={`${base}docs/user/`}>
+				<span class="eyebrow doc-eyebrow">User Guide</span>
+				<h3>Run your team day to day.</h3>
+				<p class="doc-meta">{userTopics}</p>
+				<span class="doc-link">Read the user guide <span aria-hidden="true">→</span></span>
+			</a>
+			<a class="doc-card reveal" href={`${base}docs/developer/`}>
+				<span class="eyebrow doc-eyebrow">Developer Guide</span>
+				<h3>Build on HyperIdle.</h3>
+				<p class="doc-meta">{devTopics}</p>
+				<span class="doc-link">Read the developer guide <span aria-hidden="true">→</span></span>
+			</a>
+		</div>
+		<p class="doc-note reveal">
+			// the product story renders on this site today — the guides above land in a coming drop.
+		</p>
+	</div>
+</section>
+
+<style>
+	.doc-eyebrow {
+		margin-bottom: 12px;
+	}
+</style>

@@ -1,0 +1,30 @@
+---
+import { getCollection, render } from "astro:content";
+import Marketing from "../../layouts/Marketing.astro";
+import "../../styles/docs.css";
+
+export async function getStaticPaths() {
+	const entries = await getCollection("docs");
+	return entries.map((entry) => ({ params: { slug: entry.id }, props: { entry } }));
+}
+
+const base = import.meta.env.BASE_URL;
+const { entry } = Astro.props;
+const { Content, headings } = await render(entry);
+const h1 = headings.find((h) => h.depth === 1)?.text;
+const title = entry.data.title ?? h1 ?? entry.id;
+const crumb = entry.id.split("/")[0] ?? "docs";
+---
+
+<Marketing title={`${title} — HyperIdle`}>
+	<div class="container doc-page">
+		<p class="doc-crumb">
+			<a href={`${base}docs/`}>Documentation</a><span class="sep" aria-hidden="true">/</span><span
+				class="here">{crumb}</span
+			>
+		</p>
+		<article class="prose">
+			<Content />
+		</article>
+	</div>
+</Marketing>

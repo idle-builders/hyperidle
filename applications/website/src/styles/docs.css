@@ -1,0 +1,222 @@
+/* Markdown typography for the /docs/** seam — the neo-brutal marketing
+   identity applied to long-form prose. Follow-up docs WP reuses this. */
+.doc-page {
+	padding: var(--s8) 0 var(--s9);
+}
+.doc-crumb {
+	max-width: 760px;
+	margin: 0 auto var(--s6);
+	font: 700 12px / 1 var(--mono);
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	display: flex;
+	align-items: center;
+	gap: var(--s2);
+}
+.doc-crumb a {
+	color: var(--ink);
+	background: var(--yellow);
+	border: 2px solid var(--ink);
+	box-shadow: var(--sh-chip);
+	display: inline-flex;
+	align-items: center;
+	min-height: 44px;
+	padding: 0 var(--s3);
+}
+.doc-crumb a:hover {
+	transform: translate(-2px, -2px);
+	box-shadow: var(--sh-card);
+}
+.doc-crumb .sep {
+	color: var(--text-dimmer);
+	padding: 0 var(--s1);
+}
+.doc-crumb .here {
+	color: var(--text-dimmer);
+}
+
+.prose {
+	max-width: 760px;
+	margin: 0 auto;
+	font-size: 1.0625rem;
+	line-height: 1.7;
+	color: var(--text-body);
+}
+.prose > * + * {
+	margin-top: 1.1em;
+}
+.prose h1 {
+	font-family: var(--disp);
+	text-transform: uppercase;
+	font-size: clamp(2rem, 4vw, 3rem);
+	line-height: 1.05;
+	letter-spacing: 0;
+	color: var(--ink);
+	padding-bottom: var(--s5);
+	border-bottom: var(--border);
+	margin-bottom: 0.4em;
+}
+.prose h2 {
+	font-family: var(--disp);
+	text-transform: uppercase;
+	font-size: 1.5rem;
+	line-height: 1.2;
+	color: var(--ink);
+	margin-top: 2em;
+	padding-top: 1.2em;
+	border-top: var(--border);
+}
+.prose h3 {
+	font-family: var(--body);
+	font-weight: 700;
+	text-transform: none;
+	font-size: 1.125rem;
+	line-height: 1.3;
+	color: var(--ink);
+	margin-top: 1.8em;
+}
+.prose h4,
+.prose h5,
+.prose h6 {
+	font: 700 0.8125rem / 1.4 var(--mono);
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	color: var(--text-dim);
+	margin-top: 1.8em;
+}
+.prose p {
+	color: var(--text-body);
+}
+.prose strong {
+	color: var(--ink);
+	font-weight: 700;
+}
+.prose a {
+	color: var(--ink);
+	font-weight: 500;
+	text-decoration: underline;
+	text-decoration-color: var(--yellow);
+	text-decoration-thickness: 3px;
+	text-underline-offset: 3px;
+}
+.prose a:hover {
+	background: var(--yellow);
+}
+.prose ul,
+.prose ol {
+	padding-left: 1.4em;
+	color: var(--text-body);
+}
+.prose ul {
+	list-style: none;
+}
+.prose ul > li {
+	position: relative;
+}
+.prose ul > li::before {
+	content: "▸";
+	position: absolute;
+	left: -1.4em;
+	color: var(--ink);
+	font-family: var(--mono);
+	font-weight: 700;
+	font-size: 0.8em;
+}
+.prose ol > li::marker {
+	color: var(--ink);
+	font-family: var(--mono);
+	font-weight: 700;
+}
+.prose li + li {
+	margin-top: 0.5em;
+}
+.prose code {
+	font: 400 0.875em var(--mono);
+	color: var(--ink);
+	background: var(--white);
+	border: 2px solid var(--ink);
+	padding: 2px 6px;
+	border-radius: 0;
+}
+.prose pre {
+	background: var(--white);
+	border: var(--border);
+	box-shadow: var(--sh-card);
+	padding: var(--s5);
+	overflow-x: auto;
+}
+.prose pre code {
+	background: none;
+	border: 0;
+	padding: 0;
+	font-size: 0.8125rem;
+	line-height: 1.9;
+	color: var(--text-body);
+}
+.prose blockquote {
+	border: var(--border);
+	background: var(--yellow);
+	box-shadow: var(--sh-chip);
+	padding: var(--s3) var(--s5);
+	color: var(--ink);
+}
+.prose blockquote p + p {
+	margin-top: 0.8em;
+}
+.prose hr {
+	border: 0;
+	border-top: var(--border);
+	margin: 2.4em 0;
+}
+/* source docs separate sections with a --- before each h2; the h2 carries its
+   own top rule, so where a rule precedes the heading the h2's rule yields
+   (plain adjacent selector — esbuild's css minifier drops :has()) */
+.prose hr + h2 {
+	border-top: 0;
+	padding-top: 0;
+}
+.prose table {
+	width: 100%;
+	border-collapse: collapse;
+	border: var(--border);
+	background: var(--white);
+	box-shadow: var(--sh-card);
+	font-size: 0.9375rem;
+}
+.prose th {
+	font: 700 10px / 1.4 var(--mono);
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--yellow);
+	background: var(--ink);
+	text-align: left;
+	padding: var(--s3) var(--s4);
+	border-bottom: var(--border);
+}
+.prose td {
+	padding: var(--s3) var(--s4);
+	border-bottom: 2px solid var(--ink);
+	color: var(--text-body);
+	vertical-align: top;
+}
+.prose tr:last-child td {
+	border-bottom: 0;
+}
+.prose img {
+	max-width: 100%;
+	border: var(--border);
+	box-shadow: var(--sh-card);
+}
+
+@media (max-width: 640px) {
+	.doc-page {
+		padding: var(--s6) 0 var(--s7);
+	}
+	.prose pre {
+		padding: var(--s4);
+	}
+	.prose th,
+	.prose td {
+		padding: var(--s2) var(--s3);
+	}
+}
