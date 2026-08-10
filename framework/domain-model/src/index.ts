@@ -98,9 +98,11 @@ export {
 } from "./connection.js";
 export type { CredentialCatalogEntry, CredentialName, CredentialState } from "./credential.js";
 export {
+	CREDENTIAL_BY_PROVIDER,
 	CREDENTIAL_CATALOG,
 	CREDENTIAL_NAMES,
 	CREDENTIAL_STATES,
+	credentialNameForProvider,
 	isCredentialName,
 } from "./credential.js";
 export {

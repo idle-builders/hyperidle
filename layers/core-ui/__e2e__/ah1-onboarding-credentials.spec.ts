@@ -101,6 +101,38 @@ test.describe("AH1 AC1 — onboarding key visible in Settings Credentials", () =
 			}
 		});
 
+		// GET /api/harnesses — pin the built-in gateway to "unauthenticated".
+		// Setup only asks for a key when the gateway does not already have one, and
+		// the real backend reports "ready" on any machine with a gateway credential
+		// in its environment. Without this the test's whole premise — a key entered
+		// during onboarding — depends on the developer's shell.
+		await page.route("**/api/harnesses", async (route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify([
+					{
+						type: "builtin",
+						name: "Built-in gateway",
+						kind: "remote",
+						accessMode: "api-gateway",
+						authAction: { kind: "enter_api_key", label: "Enter API key" },
+						discovery: { state: "unauthenticated" },
+						models: [],
+						runtime: {
+							preCompactionTrigger: false,
+							subAgents: false,
+							mcpSupport: false,
+							modelProviders: ["anthropic"],
+							fileEditing: false,
+							toolUse: false,
+						},
+						modelProviders: ["anthropic"],
+					},
+				]),
+			});
+		});
+
 		// After setup, auth/me returns the new user.
 		// (Registered after the no-user mock so it takes LIFO precedence post-setup.)
 	});
@@ -128,8 +160,9 @@ test.describe("AH1 AC1 — onboarding key visible in Settings Credentials", () =
 		});
 		await page.getByRole("button", { name: /start hyperidle/i }).click();
 		// Wait for setup to complete and navigate away from /setup.
-		// SetupFlow navigates to /work/portfolio?onboarding=true on success.
-		await page.waitForURL(/\/work\/portfolio/, { timeout: 30_000 });
+		// AD9 retired /work/portfolio: SetupFlow lands on /work?onboarding=true and
+		// WorkOverview short-circuits to the team page when there is only one team.
+		await page.waitForURL(/\/work(\?|\/|$)/, { timeout: 30_000 });
 
 		// Step 4: Navigate to Settings → Credentials.
 		// After setup, simulate auth returning the new user.
