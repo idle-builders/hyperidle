@@ -17,7 +17,10 @@ function run(tree: Node): Node {
 describe("rehypeWrapTables", () => {
 	test("wraps a table in a scrollable .table-wrap div", () => {
 		const table: Node = { type: "element", tagName: "table", children: [] };
-		const tree: Node = { type: "root", children: [{ type: "element", tagName: "p", children: [] }, table] };
+		const tree: Node = {
+			type: "root",
+			children: [{ type: "element", tagName: "p", children: [] }, table],
+		};
 		run(tree);
 		const wrapper = tree.children?.[1];
 		expect(wrapper?.tagName).toBe("div");

@@ -58,8 +58,7 @@ export function resolveRepoPath(sourceDoc: string, hrefPath: string): string | n
  * directories (trailing slash, or a final segment without an extension).
  */
 export function githubDocUrl(github: GitHubTarget, repoPath: string): string {
-	const isDirectory =
-		repoPath.endsWith("/") || !path.posix.basename(repoPath).includes(".");
+	const isDirectory = repoPath.endsWith("/") || !path.posix.basename(repoPath).includes(".");
 	const kind = isDirectory ? "tree" : "blob";
 	const cleaned = repoPath.replace(/\/+$/, "");
 	return `https://github.com/${github.owner}/${github.repo}/${kind}/${github.ref}/${cleaned}`;

@@ -75,9 +75,9 @@ describe("mapDocHref", () => {
 	});
 
 	test("maps a cross-directory index.md onto its directory URL", () => {
-		expect(
-			mapDocHref("../../deployment/index.md", "docs/guides/user/deployment.md", options),
-		).toBe("/docs/deployment/");
+		expect(mapDocHref("../../deployment/index.md", "docs/guides/user/deployment.md", options)).toBe(
+			"/docs/deployment/",
+		);
 	});
 
 	test("maps the developer guide's getting-started from the deployment docs", () => {
@@ -122,7 +122,9 @@ describe("mapDocHref", () => {
 
 	test("leaves external URLs untouched", () => {
 		expect(mapDocHref("https://example.com/x.md", "docs/product/index.md", options)).toBeNull();
-		expect(mapDocHref("http://localhost:5173", "docs/guides/user/getting-started.md", options)).toBeNull();
+		expect(
+			mapDocHref("http://localhost:5173", "docs/guides/user/getting-started.md", options),
+		).toBeNull();
 	});
 
 	test("leaves anchors untouched", () => {

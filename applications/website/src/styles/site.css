@@ -535,6 +535,9 @@ html.js-reveal .reveal.in {
 .aud-rows {
 	border-top: var(--border);
 }
+.aud-who {
+	font-size: clamp(1.2rem, 2.4vw, 1.6rem);
+}
 .aud-row {
 	display: grid;
 	grid-template-columns: 280px 1fr;
@@ -549,9 +552,6 @@ html.js-reveal .reveal.in {
 .aud-row.aud-flip .aud-who {
 	order: 2;
 	text-align: right;
-}
-.aud-who {
-	font-size: clamp(1.2rem, 2.4vw, 1.6rem);
 }
 .aud-line {
 	font-size: 1.0625rem;
