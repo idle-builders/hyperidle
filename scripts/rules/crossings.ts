@@ -4,31 +4,23 @@
  * One registered rule per crossing kind, so each keeps its own liveness floor and a dead detector
  * fails loudly instead of contributing a clean verdict.
  *
- * Severity comes from a plain declaration, not from a record of counts (Ruling E,
- * `governance/rule-severity.json`): a rule at `warn` warns for every one of its violations, and an
- * absent rule is at `error`. See `scripts/governance-context.ts`'s `loadRuleSeverity` for the file this
- * reads, and `governance/README.md` for the model.
+ * @lore AU31: every crossing is at `error`, unconditionally. A staged severity dial
+ * (`governance/rule-severity.json`, a rule key → `warn`/`error` declaration) lived here through the
+ * bulk migration that brought the crossing rules up — it let a rule land ahead of a full cleanup, with
+ * a run in between to clear the debt. That migration finished; a new rule now lands with its
+ * violations already fixed in the same pull request, so the dial had nothing left to do and is gone —
+ * see `governance/README.md` for the one-line record of why it existed.
  */
 
 import { groupKey } from "../lib/crossing-keys.js";
 import type { DetectedCrossing } from "../lib/crossings.js";
 import type { Architecture, Kind } from "../lib/governance-model.js";
 import { decide } from "../lib/governance-model.js";
-import type { Finding, Rule, Severity } from "../lib/governance-rules.js";
+import type { Finding, Rule } from "../lib/governance-rules.js";
 
 export interface CrossingRuleInput {
 	readonly architecture: Architecture;
 	readonly crossings: readonly DetectedCrossing[];
-	/**
-	 * Rule key → severity. Deliberately cannot see a file, a line or a count — only the rule key —
-	 * which is the honest half of the reintroduction guard (D11 covers the other half: the shape of
-	 * `governance/rule-severity.json` itself). @lore AU32: a per-file allowance would have to widen
-	 * this signature to take a path, which fails to compile at every call site and lands as a
-	 * reviewed diff. That is deliberate: the guard against rebuilding the ratchet is the type, not a
-	 * runtime check — a red build as the reward for fixing the last violation names no architectural
-	 * fact, and this project treats governance rules as guidance for an honest mistake, never a wall.
-	 */
-	readonly severityOf: (ruleKey: string) => Severity;
 	/** Minimum crossings each detector must find. Below it the rule throws rather than passing. */
 	readonly floors: ReadonlyMap<Kind, number>;
 }
@@ -48,7 +40,7 @@ export function violationsOf(
 }
 
 export function crossingRules(input: CrossingRuleInput): Rule[] {
-	const { architecture, crossings, severityOf, floors } = input;
+	const { architecture, crossings, floors } = input;
 	const violations = violationsOf(architecture, crossings);
 
 	const kinds = [...floors.keys()];
@@ -61,20 +53,15 @@ export function crossingRules(input: CrossingRuleInput): Rule[] {
 			scope: () => mine.map((c) => `${c.file}:${c.line}`),
 			minScope: floors.get(kind) ?? 1,
 			evaluate: (): readonly Finding[] =>
-				myViolations.map((violation) => {
-					const severity = severityOf(violation.key);
-					return {
-						ruleId: `crossing-${kind.replace(":", "-")}`,
-						severity,
-						message:
-							`${violation.key} — ${violation.found.detail}. ${violation.why}` +
-							(severity === "warn" ? " [known debt]" : ""),
-						path: violation.found.file,
-						line: violation.found.line,
-						world: violation.found.world,
-						group: violation.key,
-					};
-				}),
+				myViolations.map((violation) => ({
+					ruleId: `crossing-${kind.replace(":", "-")}`,
+					severity: "error",
+					message: `${violation.key} — ${violation.found.detail}. ${violation.why}`,
+					path: violation.found.file,
+					line: violation.found.line,
+					world: violation.found.world,
+					group: violation.key,
+				})),
 		};
 	});
 }

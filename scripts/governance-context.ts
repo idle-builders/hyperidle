@@ -21,7 +21,7 @@ import { buildDbSurfaceIndex, type DatabasePackageConfig } from "./lib/db-surfac
 import type { Architecture, Kind } from "./lib/governance-model.js";
 import type { FloorRecord } from "./rules/floors-tight.js";
 import { buildCensus, type Census, CLASSIFICATION_PATTERNS, type WorkspaceRoleRule } from "./lib/repo-census.js";
-import type { MisplacedFiles, RuleSeverity, TableOwners } from "./lib/governance-registry.js";
+import type { MisplacedFiles, TableOwners } from "./lib/governance-registry.js";
 
 export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -169,51 +169,6 @@ export function trackedFiles(): string[] {
 export const loadArchitecture = (): LoadedArchitecture => readJson<LoadedArchitecture>("governance/architecture.json");
 export const loadTableOwners = (): TableOwners => readJson<TableOwners>("governance/table-owners.json");
 export const loadMisplacedFiles = (): MisplacedFiles => readJson<MisplacedFiles>("governance/misplaced-files.json");
-
-/** Every rule this build declares, absent `rule-severity.json`, at `error` — the default the file's own
- * contract already gave an absent KEY, now given to an absent FILE too. */
-const NO_SEVERITY_FILE: RuleSeverity = {
-	governanceRuleSeverity: true,
-	note: "governance/rule-severity.json does not exist. See governance/README.md's severity dial section.",
-	severity: {},
-};
-
-/**
- * `governance/rule-severity.json` is not a permanent fixture — see `governance/README.md`'s severity
- * dial section. Its normal state is absent, and absent means every rule is at `error`: the exact
- * verdict a present-but-empty file already produced (`severity: {}`), so this is not a behaviour change,
- * only the removal of a file whose contents had become the empty object it always degrades to.
- *
- * @lore AU31: only `ENOENT` degrades to "every rule at error". Any other read failure — bad permissions,
- * a directory where the file should be, malformed JSON — still throws. A rule-severity file that exists
- * but cannot be parsed must fail loudly, never silently fall back to error-for-everything, because that
- * would hide a `warn` rule the founder deliberately pinned to keep from blocking on old debt.
- */
-export function loadRuleSeverity(): RuleSeverity {
-	try {
-		return readJson<RuleSeverity>("governance/rule-severity.json");
-	} catch (error) {
-		const isEnoent = typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
-		if (!isEnoent) throw error;
-		return NO_SEVERITY_FILE;
-	}
-}
-
-/**
- * Which `warn` rules are clean right now, reported so a sibling can see it — never enforced.
- *
- * @lore AU32 — Ruling E: a check that a `warn` rule with zero live violations is an ERROR is the
- * stale-baseline check reborn (a red build as the reward for fixing the last violation, naming no
- * architectural fact) and is forbidden. This returns `readonly string[]`, never `Finding[]` — a
- * `Finding` is the only thing this lint can fail the build on, so turning this into a gate means
- * changing the return type and routing it through `runRules`, which is a compile-visible diff in a
- * reviewed file. That signature is the guard, not a runtime check.
- */
-export function readyToFlip(severity: RuleSeverity, liveKeys: ReadonlySet<string>): readonly string[] {
-	return Object.entries(severity.severity)
-		.filter(([key, value]) => value === "warn" && !liveKeys.has(key))
-		.map(([key]) => `${key} — clean; this rule can go to error`);
-}
 
 export function buildLiveCensus(architecture: LoadedArchitecture, files: readonly string[]): Census {
 	return buildCensus({ files, readFile: readRepoFile, roleRules: architecture.roles.byWorkspacePattern });

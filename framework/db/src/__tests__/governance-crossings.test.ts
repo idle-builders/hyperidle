@@ -8,7 +8,6 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { readyToFlip } from "../../../../scripts/governance-context.js";
 import {
 	buildCompanionGroups,
 	buildWriteSets,
@@ -24,7 +23,6 @@ import {
 	type DatabasePackageConfig,
 } from "../../../../scripts/lib/db-surfaces.js";
 import type { Actor, Architecture, Kind } from "../../../../scripts/lib/governance-model.js";
-import type { RuleSeverity } from "../../../../scripts/lib/governance-registry.js";
 import { buildCensus } from "../../../../scripts/lib/repo-census.js";
 import { crossingRules } from "../../../../scripts/rules/crossings.js";
 import { noLaunderedReExports } from "../../../../scripts/rules/no-laundered-re-exports.js";
@@ -946,11 +944,10 @@ describe("AU28 — companion rows (Ruling 13)", () => {
 		expect(groups.size).toBe(0);
 	});
 
-	it("the warn→error flip — one synthetic violation is warn under a severity declaration, error when the key is absent", () => {
-		// `crossingRules` decides severity from `severityOf` alone, not from a per-rule switch. Run the
-		// exported rules twice over the SAME violation: a `"warn"` declaration for the key must warn, and
-		// the same violation with the key absent must error — proving the flip that removing a rule's
-		// declared key is what turns it from warn to error (Ruling E), not a second code path.
+	it("crossingRules — a violation is reported at error, unconditionally", () => {
+		// AU31 removed the severity dial (`governance/rule-severity.json`, `severityOf`) entirely — a
+		// new architectural rule now lands with its violations already fixed, so every crossing
+		// `decide()` calls forbidden reports at `error`. No declaration to consult, no flip to prove.
 		const architecture = {
 			containment: { compositionRootRoles: ["application"], repoRootIsCompositionRoot: true },
 			surfaces: {},
@@ -984,53 +981,18 @@ describe("AU28 — companion rows (Ruling 13)", () => {
 			detail: "writes knowledgeItems without knowledgeAppProjection",
 		};
 
-		const key = groupKey(crossing.crossing, crossing.world);
 		const floors = new Map<Kind, number>([["table:write", 1]]);
 
-		const declaredWarn: RuleSeverity = {
-			governanceRuleSeverity: true,
-			note: "",
-			severity: { [key]: "warn" },
-		};
-		const keyAbsent: RuleSeverity = { governanceRuleSeverity: true, note: "", severity: {} };
 		// `Rule.evaluate` is typed to take a Census — these rules never read it (the violations are
 		// already closed over), but the call site still has to pass one.
 		const unusedCensus = buildCensus({ files: [], readFile: () => "" });
 
-		const knownDebtFindings = crossingRules({
+		const findings = crossingRules({
 			architecture,
 			crossings: [crossing],
-			severityOf: (ruleKey) => declaredWarn.severity[ruleKey] ?? "error",
 			floors,
 		}).flatMap((rule) => rule.evaluate(unusedCensus));
-		expect(knownDebtFindings).toHaveLength(1);
-		expect(knownDebtFindings[0]?.severity).toBe("warn");
-
-		const newDebtFindings = crossingRules({
-			architecture,
-			crossings: [crossing],
-			severityOf: (ruleKey) => keyAbsent.severity[ruleKey] ?? "error",
-			floors,
-		}).flatMap((rule) => rule.evaluate(unusedCensus));
-		expect(newDebtFindings).toHaveLength(1);
-		expect(newDebtFindings[0]?.severity).toBe("error");
-	});
-
-	it("readyToFlip — names exactly the warn key with no live violation, and none other", () => {
-		const severity: RuleSeverity = {
-			governanceRuleSeverity: true,
-			note: "",
-			severity: {
-				"layer → service (other layer) [import] production": "warn",
-				"service → db:table (other) [table:write] production": "warn",
-			},
-		};
-		const liveKeys = new Set(["service → db:table (other) [table:write] production"]);
-
-		const lines = readyToFlip(severity, liveKeys);
-
-		expect(lines).toHaveLength(1);
-		expect(lines[0]).toContain("layer → service (other layer) [import] production");
-		expect(lines[0]).not.toContain("db:table (other) [table:write]");
+		expect(findings).toHaveLength(1);
+		expect(findings[0]?.severity).toBe("error");
 	});
 });

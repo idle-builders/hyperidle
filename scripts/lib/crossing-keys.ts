@@ -1,12 +1,12 @@
 /**
- * AU28 — naming a crossing: the label a finding is reported under, and the key its rule is grouped and
- * severity-declared under.
+ * AU28 — naming a crossing: the label a finding is reported under, and the key its rule is grouped
+ * under.
  *
- * @lore AU32 (Ruling E): this module used to also hold a committed record of known violations and the
- * check that compared it to reality. That mechanism is gone; `groupKey`'s output is now looked up in
- * `governance/rule-severity.json` (a flat map, no paths, no counts) instead of a per-file allowance
- * record. What survives here is naming, which every consumer of a finding still needs regardless of
- * how severity is decided.
+ * @lore AU32 (Ruling E) / AU31: this module used to also hold a committed record of known violations
+ * and the check that compared it to reality, then a lookup into a rule-key → severity declaration that
+ * staged that record's replacement. Both are gone — every crossing is at `error` now. What survives
+ * here is naming, which every consumer of a finding still needs regardless of how the finding is
+ * reported.
  */
 
 import type { Actor, Crossing, Target } from "./governance-model.js";

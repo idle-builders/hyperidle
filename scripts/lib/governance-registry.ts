@@ -13,7 +13,6 @@
  */
 
 import type { Architecture, Role } from "./governance-model.js";
-import type { Severity } from "./governance-rules.js";
 
 export interface TableOwners {
 	readonly tableOwners: true;
@@ -39,20 +38,6 @@ export interface MisplacedFiles {
 	readonly resolvedFiles: number;
 	/** Repo-relative path → why it is stuck in a production path. */
 	readonly files: Readonly<Record<string, string>>;
-}
-
-/**
- * One severity — `error` or `warn` — per architectural rule (Ruling E).
- *
- * A key absent from `severity` is at `error`; the file lists only what is not yet clean. Values are
- * exactly `Severity`, never a nested shape — a per-file allowance would have to widen this type, which
- * fails to compile at every call site and is a visible diff in a reviewed file (D11 checks the shape at
- * runtime too, for the JSON this type describes).
- */
-export interface RuleSeverity {
-	readonly governanceRuleSeverity: true;
-	readonly note: string;
-	readonly severity: Readonly<Record<string, Severity>>;
 }
 
 export class RegistryError extends Error {

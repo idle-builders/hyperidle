@@ -39,12 +39,10 @@ import {
 	DETECTOR_FLOORS,
 	loadArchitecture,
 	loadMisplacedFiles,
-	loadRuleSeverity,
 	loadTableOwners,
 	MIN_TRACKED_FILES,
 	presentGovernanceFiles,
 	readRepoFile,
-	readyToFlip,
 	trackedFiles,
 } from "./governance-context.js";
 import { UnclaimedProductionFileError } from "./lib/crossing-detectors.js";
@@ -52,7 +50,7 @@ import { buildPackageLocator, type CrossingsResult } from "./lib/crossings.js";
 import { runAttacks } from "./lib/governance-attacks.js";
 import { runFixtureSelfTest } from "./lib/governance-fixtures.js";
 import type { Kind } from "./lib/governance-model.js";
-import { DeadRuleError, type Finding, formatFinding, hasErrors, type Rule, runRules } from "./lib/governance-rules.js";
+import { DeadRuleError, formatFinding, hasErrors, type Rule, runRules } from "./lib/governance-rules.js";
 import type { Census } from "./lib/repo-census.js";
 import { classificationTotal } from "./rules/classification-total.js";
 import { dbSymbolsAllPlaced } from "./rules/db-symbols-all-placed.js";
@@ -69,44 +67,6 @@ import { noStaleBuildArtifacts } from "./rules/no-stale-build-artifacts.js";
 import { patternLive } from "./rules/pattern-live.js";
 import { registriesHonest } from "./rules/registries-honest.js";
 import { serviceValuesDoNotEscapeTheFace } from "./rules/service-values-do-not-escape-the-face.js";
-
-/**
- * The known-violation summary: one line per rule group, split by world.
- *
- * @lore AU28: this is the goal metric and it is on screen every run, so progress is visible without
- * anyone having to ask for a report. Production and development are totalled SEPARATELY on purpose:
- * they are different kinds of debt, and one number lets the smaller, more serious half move
- * unnoticed behind the larger one. The split was introduced when development stood at 2,022; Ruling
- * 13 and 13a then collapsed that to double digits, and the split matters MORE at that size, not
- * less — production is now the larger half and would otherwise hide the development one.
- */
-function printKnownDebt(findings: readonly Finding[]): void {
-	const warnings = findings.filter((f) => f.severity === "warn" && f.group !== undefined);
-	if (warnings.length === 0) return;
-
-	const byGroup = new Map<string, { count: number; files: Set<string>; world: string }>();
-	for (const finding of warnings) {
-		const key = finding.group ?? "";
-		const entry = byGroup.get(key) ?? { count: 0, files: new Set<string>(), world: finding.world ?? "?" };
-		entry.count += 1;
-		if (finding.path !== undefined) entry.files.add(finding.path);
-		byGroup.set(key, entry);
-	}
-
-	console.error("\n  known violations — the migration surface, by world\n");
-	for (const world of ["production", "development"]) {
-		const groups = [...byGroup].filter(([, g]) => g.world === world).sort((a, b) => b[1].count - a[1].count);
-		if (groups.length === 0) continue;
-		const total = groups.reduce((n, [, g]) => n + g.count, 0);
-		const files = new Set(groups.flatMap(([, g]) => [...g.files])).size;
-		console.error(`  ${world.toUpperCase()} — ${total} violation(s) across ${files} file(s), ${groups.length} rule group(s)`);
-		for (const [key, group] of groups) {
-			const label = key.replace(new RegExp(` ${world}$`), "");
-			console.error(`    ${String(group.count).padStart(5)}  ${String(group.files.size).padStart(3)} file(s)  ${label}`);
-		}
-		console.error("");
-	}
-}
 
 function runFixtures(): number {
 	const results = runFixtureSelfTest();
@@ -151,7 +111,7 @@ function buildRules(
 			locate: buildPackageLocator(census.packages),
 			readFile,
 		}),
-		noPerFileAllowances({ floors: DETECTOR_FLOORS, readFile }),
+		noPerFileAllowances({ readFile }),
 		dbSymbolsAllPlaced({
 			unplacedDbSymbols: detected.unplacedDbSymbols,
 			dbSourceRoot: architecture.databasePackage.sourceRoot,
@@ -160,12 +120,9 @@ function buildRules(
 		layerExportsResolveInsideTheLayer({ locate: buildPackageLocator(census.packages), readFile }),
 		serviceValuesDoNotEscapeTheFace({ locate: buildPackageLocator(census.packages), readFile }),
 		deepImportsDieWithTheirEntries({ readFile }),
-		// An overlaid tree has no debt, so the crossing rules judge it against nothing — every crossing
-		// on an attack overlay is an error, whatever a live severity declaration would say.
 		...crossingRules({
 			architecture,
 			crossings: detected.crossings,
-			severityOf: () => "error",
 			floors: new Map<Kind, number>(DETECTOR_FLOORS.map((f) => [f.kind, f.min])),
 		}),
 	];
@@ -234,12 +191,9 @@ function runLive(errorsOnly: boolean): number {
 		console.error("\ngovernance-lint: FAIL — 1 error(s). The census refused a verdict, so no rule ran.");
 		return 1;
 	}
-	const severity = loadRuleSeverity();
-	const severityOf = (ruleKey: string) => severity.severity[ruleKey] ?? "error";
 	const ruleInput = {
 		architecture,
 		crossings: detected.crossings,
-		severityOf,
 		floors: new Map<Kind, number>(DETECTOR_FLOORS.map((f) => [f.kind, f.min])),
 	};
 
@@ -259,7 +213,7 @@ function runLive(errorsOnly: boolean): number {
 			locate: buildPackageLocator(census.packages),
 			readFile: readRepoFile,
 		}),
-		noPerFileAllowances({ floors: DETECTOR_FLOORS, readFile: readRepoFile }),
+		noPerFileAllowances({ readFile: readRepoFile }),
 		dbSymbolsAllPlaced({
 			unplacedDbSymbols: detected.unplacedDbSymbols,
 			dbSourceRoot: architecture.databasePackage.sourceRoot,
@@ -297,19 +251,8 @@ function runLive(errorsOnly: boolean): number {
 		console.error(`  (${warnings.length} warning(s) hidden by --errors-only)`);
 	}
 
-	printKnownDebt(result.findings);
-
 	// AU29: the unplaced-db-symbol NOTE that used to print here is gone — `db-symbols-all-placed`
 	// (registered above) escalates the same condition to a hard error naming the symbol.
-
-	// Reported, never enforced (D7′): a `warn` rule with zero live violations is READY to flip, not an
-	// error. Turning this into a gate would be the stale-baseline check reborn.
-	const liveKeys = new Set(violationsOf(architecture, detected.crossings).map((v) => v.key));
-	const ready = readyToFlip(severity, liveKeys);
-	if (ready.length > 0) {
-		console.error(`  NOTE  ${ready.length} rule(s) ready to flip to error:`);
-		for (const line of ready) console.error(`          ${line}`);
-	}
 
 	const production = census.files.filter((f) => f.kind === "production").length;
 	const development = census.files.length - production;

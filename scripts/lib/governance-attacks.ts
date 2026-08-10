@@ -1232,8 +1232,8 @@ function frameworkSurfacesOf(census: Census): Map<string, string> {
  * would put the break-tests outside the default gate, which is where checks go to be ignored. Cases
  * marked `isolate` cost a pass each and are kept to the two that genuinely need one.
  *
- * @lore AU32: every crossing rule judges an overlaid tree with `severityOf: () => "error"` (Ruling E) —
- * an overlay is never debt, so nothing here needs a severity declaration of its own.
+ * @lore AU31: every crossing rule judges an overlaid tree at `error`, unconditionally — there is no
+ * severity declaration left anywhere in the build for an overlay, or anything else, to consult.
  */
 export function runAttacks(
 	tree: AttackTree,
@@ -1548,60 +1548,39 @@ export const STANDALONE_ATTACKS: readonly StandaloneAttack[] = [
 	{
 		id: "no-per-file-allowances-shape",
 		detail:
-			"a nested severity value, a path-shaped severity key, and an undeclared CLI flag each fail the shape checks directly — the well-formed equivalents are silent",
+			"a new file under governance/ — including a recreated rule-severity.json, which carries no exception — and an undeclared CLI flag each fail directly; the well-formed equivalents are silent",
 		rules: ["no-per-file-allowances"],
 		positive: true,
 		run: () => {
-			const files = [
+			const closedSet = [
 				"governance/README.md",
 				"governance/architecture.json",
 				"governance/decided-rules.json",
 				"governance/table-owners.json",
-				"governance/rule-severity.json",
 				"governance/misplaced-files.json",
 				"scripts/governance-lint.ts",
 				"scripts/governance-floors.ts",
 				"scripts/governance-new-cells.ts",
 			];
-			const floors: DetectorFloor[] = [
-				{ kind: "import", min: 1, floorKind: "magnitude" },
-				{ kind: "manifest", min: 1, floorKind: "magnitude" },
-				{ kind: "di", min: 1, floorKind: "magnitude" },
-				{ kind: "api", min: 1, floorKind: "magnitude" },
-				{ kind: "mcp", min: 1, floorKind: "magnitude" },
-				{ kind: "event", min: 1, floorKind: "magnitude" },
-				{ kind: "capability", min: 1, floorKind: "magnitude" },
-				{ kind: "table:read", min: 1, floorKind: "magnitude" },
-				{ kind: "table:write", min: 1, floorKind: "magnitude" },
-			];
-			const cleanKey = "layer → service (other layer) [import] production";
 			const cleanCli = 'process.argv.includes("--fixtures");\nprocess.argv.includes("--attacks");\nprocess.argv.includes("--errors-only");\n';
-			const run = (severityJson: string, cliSource: string): readonly Finding[] => {
-				const contents: Record<string, string> = {
-					"governance/rule-severity.json": severityJson,
-					"scripts/governance-lint.ts": cliSource,
-				};
+			const run = (files: readonly string[], cliSource: string): readonly Finding[] => {
+				const contents: Record<string, string> = { "scripts/governance-lint.ts": cliSource };
 				const census = buildCensus({ files, readFile: (p) => contents[p] ?? "" });
-				return noPerFileAllowances({ floors, readFile: (p) => contents[p] ?? "" }).evaluate(census);
+				return noPerFileAllowances({ readFile: (p) => contents[p] ?? "" }).evaluate(census);
 			};
-			const wellFormedSeverity = JSON.stringify({ governanceRuleSeverity: true, note: "", severity: { [cleanKey]: "warn" } });
 
-			const clean = run(wellFormedSeverity, cleanCli);
-			if (clean.length !== 0) return `a well-formed severity file and CLI set were reported: ${clean.map((f) => f.message).join(" | ")}`;
+			const clean = run(closedSet, cleanCli);
+			if (clean.length !== 0) return `a well-formed closed set and CLI set were reported: ${clean.map((f) => f.message).join(" | ")}`;
 
-			const nested = run(
-				JSON.stringify({ governanceRuleSeverity: true, note: "", severity: { [cleanKey]: { warn: 1 } } }),
-				cleanCli,
-			);
-			if (!nested.some((f) => f.message.includes("not the string"))) return "a nested severity value was accepted";
+			const recreatedSeverityFile = run([...closedSet, "governance/rule-severity.json"], cleanCli);
+			if (!recreatedSeverityFile.some((f) => f.message.includes("is a new file under governance/"))) {
+				return "a recreated rule-severity.json was accepted — the mechanism carries no filename exception anymore";
+			}
 
-			const pathKey = run(
-				JSON.stringify({ governanceRuleSeverity: true, note: "", severity: { "scripts/rules/crossings.ts": "warn" } }),
-				cleanCli,
-			);
-			if (!pathKey.some((f) => f.message.includes("does not parse"))) return "a path-shaped severity key was accepted";
+			const otherNewFile = run([...closedSet, "governance/scratch.json"], cleanCli);
+			if (!otherNewFile.some((f) => f.message.includes("is a new file under governance/"))) return "an unrelated new file under governance/ was accepted";
 
-			const undeclaredFlag = run(wellFormedSeverity, 'process.argv.includes("--grandfather");\n');
+			const undeclaredFlag = run(closedSet, 'process.argv.includes("--grandfather");\n');
 			if (!undeclaredFlag.some((f) => f.message.includes("not one of the declared flags"))) return "an undeclared CLI flag was accepted";
 
 			return null;
