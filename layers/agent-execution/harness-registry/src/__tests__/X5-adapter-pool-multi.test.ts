@@ -53,13 +53,8 @@ function makeStubAdapter(mcpSupport = false): HarnessAdapter {
 // ── createLocalAdapterPool registration ──────────────────────────────────────
 
 describe("createLocalAdapterPool — registration", () => {
-	it("registers a claude-code adapter", async () => {
-		const pool = await createLocalAdapterPool();
-		const entries = pool.list();
-		const claudeCodeEntry = entries.find((e) => e.type === "claude-code");
-		expect(claudeCodeEntry).toBeDefined();
-		expect(claudeCodeEntry?.kind).toBe("local");
-	});
+	// "registers a claude-code adapter" moved to
+	// adapter-pool-real-discovery.integration.test.ts — it needs `claude` on PATH.
 
 	it("registers a builtin adapter", async () => {
 		const pool = await createLocalAdapterPool();
@@ -69,17 +64,9 @@ describe("createLocalAdapterPool — registration", () => {
 		expect(builtinEntry?.kind).toBe("local");
 	});
 
-	it("registers at least two adapters (claude-code and builtin)", async () => {
-		const pool = await createLocalAdapterPool();
-		expect(pool.size).toBeGreaterThanOrEqual(2);
-	});
-
-	it("claude-code adapter has id 'local-claude-code'", async () => {
-		const pool = await createLocalAdapterPool();
-		const entries = pool.list();
-		const entry = entries.find((e) => e.id === "local-claude-code");
-		expect(entry).toBeDefined();
-	});
+	// "registers at least two adapters" and "claude-code adapter has id
+	// 'local-claude-code'" moved to adapter-pool-real-discovery.integration.test.ts
+	// — both need `claude` on PATH.
 
 	it("builtin adapter has id 'local-builtin'", async () => {
 		const pool = await createLocalAdapterPool();
@@ -92,12 +79,8 @@ describe("createLocalAdapterPool — registration", () => {
 // ── Pool selection by harnessType ─────────────────────────────────────────────
 
 describe("AdapterPool selection by harnessType", () => {
-	it("selects claude-code adapter when harnessType is 'claude-code'", async () => {
-		const pool = await createLocalAdapterPool();
-		const entry = pool.select({ harnessType: "claude-code" });
-		expect(entry).not.toBeNull();
-		expect(entry?.meta.type).toBe("claude-code");
-	});
+	// "selects claude-code adapter when harnessType is 'claude-code'" moved to
+	// adapter-pool-real-discovery.integration.test.ts — it needs `claude` on PATH.
 
 	it("selects builtin adapter when harnessType is 'builtin'", async () => {
 		const pool = await createLocalAdapterPool();

@@ -434,13 +434,8 @@ describe("AC-8: Default adapter registered in pool with type 'builtin'", () => {
 		expect(builtinEntry?.kind).toBe("local");
 	});
 
-	it("pool still has the claude-code adapter alongside builtin", async () => {
-		const { createLocalAdapterPool } = await import("../adapter-pool.js");
-		const pool = await createLocalAdapterPool();
-		const claudeEntry = pool.list().find((e) => e.id === "local-claude-code");
-		expect(claudeEntry).toBeDefined();
-		expect(claudeEntry?.type).toBe("claude-code");
-	});
+	// "pool still has the claude-code adapter alongside builtin" moved to
+	// adapter-pool-real-discovery.integration.test.ts — it needs `claude` on PATH.
 });
 
 // ── AC-9: Planning turn writes to session notes ───────────────────────────────

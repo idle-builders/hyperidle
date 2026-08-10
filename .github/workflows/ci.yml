@@ -158,12 +158,25 @@ jobs:
   # gate (release-guard.yml) — the backstop for anything this under-selects.
   # A diff touching shared test infrastructure or root config legitimately
   # selects nearly everything; that is the lane working, not misfiring.
+  # @lore ci-move sharding: measured on a diff whose affected slice was nearly the
+  # whole suite — unit 14m30s, service integration 19m21s on one 2-vCPU runner.
+  # Sharding cuts WALL time by the shard count; billed minutes stay roughly flat
+  # apart from each shard repeating checkout + npm ci (~35s). Integration gets more
+  # shards because it is the critical path, and it is the critical path because
+  # every one of its files boots PGlite and re-runs the migrations (~1.47s each).
+  # When AU38 lands and a shared database becomes possible, revisit these counts —
+  # sharding is compensating for a per-file cost that should not exist.
   test_unit:
-    name: Tests (unit + component, affected)
+    name: Tests (unit, affected) ${{ matrix.shard }}/3
     needs: scope
     if: needs.scope.outputs.only_docs != 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 25
+    strategy:
+      # Never cancel siblings — one shard failing must not hide what the others found.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v7
         with:
@@ -173,19 +186,26 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      # --passWithNoTests is load-bearing with sharding: an affected slice smaller
+      # than the shard count legitimately leaves some shards with zero files.
       - run: |
           if [ -n "${{ needs.scope.outputs.test_base }}" ]; then
-            npx vitest run --changed="${{ needs.scope.outputs.test_base }}" --passWithNoTests
+            npx vitest run --changed="${{ needs.scope.outputs.test_base }}" \
+              --shard=${{ matrix.shard }}/3 --passWithNoTests
           else
-            npx vitest run
+            npx vitest run --shard=${{ matrix.shard }}/3 --passWithNoTests
           fi
 
   test_integration:
-    name: Tests (service integration, affected)
+    name: Tests (service integration, affected) ${{ matrix.shard }}/4
     needs: scope
     if: needs.scope.outputs.only_docs != 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v7
         with:
@@ -198,9 +218,11 @@ jobs:
       - run: |
           if [ -n "${{ needs.scope.outputs.test_base }}" ]; then
             npx vitest run --config vitest.integration.config.ts --project service \
-              --changed="${{ needs.scope.outputs.test_base }}" --passWithNoTests
+              --changed="${{ needs.scope.outputs.test_base }}" \
+              --shard=${{ matrix.shard }}/4 --passWithNoTests
           else
-            npx vitest run --config vitest.integration.config.ts --project service
+            npx vitest run --config vitest.integration.config.ts --project service \
+              --shard=${{ matrix.shard }}/4 --passWithNoTests
           fi
 
   # THE required status check. Owns the name the ruleset gates on; fails if any

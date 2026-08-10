@@ -42,7 +42,8 @@ export interface ToolCatalogEntry {
  * denylist ever gave).
  *
  * Kept in sync with `ALL_TOOL_DEFINITIONS` by
- * `tools/__tests__/builtin-tool-catalog-consistency.test.ts` — a name-set +
+ * `layers/agent-orchestration/tool-handlers/src/__tests__/builtin-tool-catalog-consistency.integration.test.ts`
+ * — a name-set +
  * per-name metadata deep-equal check that goes red the moment a tool is added
  * to the registry without a catalog entry (or vice versa). `return-status-tool`
  * is deliberately excluded from both, consistent with the runtime registry.
