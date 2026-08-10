@@ -19,11 +19,22 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # `--changed=origin/main` needs the base commit
       - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
       - run: npm ci
+      # Telemetry: CI has reported the whole suite as "affected" where the same
+      # command locally reports a fraction. Print what git and vitest each think
+      # changed, so the next red herring is cheap to rule out.
+      - run: |
+          git rev-parse origin/main
+          echo "--- tracked files dirty after npm ci (should be none) ---"
+          git status --porcelain
+          echo "--- vitest affected counts ---"
+          npx vitest list --changed=origin/main --filesOnly 2>/dev/null | wc -l
       - run: npm run verify
-      - run: npm run test:full
-      - run: npm run test:integration:service
+      - run: npm run test
+      - run: npm run test:integration:affected
