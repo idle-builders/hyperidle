@@ -35,27 +35,29 @@
  * rawParsedCount (before own-file filtering) rather than ownErrors to avoid
  * false-triggering on packages that only have reference-noise errors.
  *
- * @lore AF3: AF3 discovered that main's gate can be RED while CI is GREEN because
- * CI trusts the HMAC-signed attestation (scripts/check-attestation.ts) rather than
- * re-running this gate. AF2 removed design-system/desktop/eval from typecheck-debt.json
- * and declared them zero-error, but those packages still had 15/1/17 errors on AF2's
- * own merged tree. The attestation was signed on a tree whose gate was failing; CI
- * validated the signature, saw status="passed", and reported green. A green attestation
- * is NOT proof of a green gate if the attestation was generated on an already-red tree.
- * To fix this integrity gap: (a) have verify-attest.ts record the typecheck-gate exit
- * code explicitly in the attestation payload, and (b) have check-attestation.ts verify
- * that field — OR add a CI step that re-runs this script independently of the attestation.
- * See Z8-166 in plans/Z8/master-flag-register.md.
+ * @lore AF3 (resolved): main's gate could once be RED while CI was GREEN, because
+ * CI trusted an HMAC-signed local attestation instead of running this gate. AF2
+ * declared design-system/desktop/eval zero-error while they still had 15/1/17
+ * errors; the attestation was signed on that red tree and CI validated only the
+ * signature. AF3 proposed recording this gate's exit code in the attestation
+ * payload, "OR add a CI step that re-runs this script". The latter was done, and
+ * the attestation mechanism has since been deleted outright — this gate now runs
+ * live in .github/workflows/ci.yml on every PR and push, so its verdict cannot be
+ * asserted from anywhere but an actual run. See Z8-166 in plans/Z8/master-flag-register.md.
  */
 
-import { execSync } from "node:child_process";
+import { execFile, execSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { availableParallelism } from "node:os";
 import { resolve } from "node:path";
+import { promisify } from "node:util";
 import {
   type DebtFile,
   type PackageResult,
   computeVerdict,
 } from "./lib/typecheck-verdict.js";
+
+const execFileAsync = promisify(execFile);
 
 // -- Constants --
 
@@ -68,6 +70,67 @@ const REFERENCE_NOISE_CODES: ReadonlySet<string> = new Set([
 
 const DEBT_FILE = "typecheck-debt.json";
 const MAX_ERROR_LINES = 10;
+
+/**
+ * tsc can emit a multi-thousand-line cascade for one package (see the Z8-170
+ * `any`-cascade note below), which overruns execFile's 1 MB default and would
+ * surface as a spurious CRASHED verdict rather than the real error count.
+ */
+const TSC_MAX_BUFFER = 64 * 1024 * 1024;
+
+/**
+ * Per-package `tsc --noEmit` runs are independent by construction — that
+ * independence is the whole point of the AF1 fan-out — so they parallelise
+ * freely. Bound it by the machine: each tsc holds a full program in memory
+ * (~1 GB for the larger packages), so unbounded fan-out OOMs a small runner.
+ *
+ * @lore ci-move: this loop was serial, and on the 2-vCPU GitHub-hosted runner a
+ * private repo gets, it was 216s of a 326s CI job — 66% of every run, spent
+ * waiting on one core while the other idled. Nothing about the work required
+ * serialisation; it was just written as a `for` loop. `TYPECHECK_CONCURRENCY`
+ * overrides for machines where memory, not cores, is the binding constraint.
+ */
+const MAX_CONCURRENCY = 6;
+
+function resolveConcurrency(): number {
+  const override = process.env["TYPECHECK_CONCURRENCY"];
+  if (override !== undefined && override !== "") {
+    const n = Number(override);
+    if (!Number.isInteger(n) || n <= 0) {
+      process.stderr.write(
+        `typecheck-gate: FATAL — TYPECHECK_CONCURRENCY must be a positive integer, got "${override}".\n`,
+      );
+      process.exit(1);
+    }
+    return n;
+  }
+  return Math.max(1, Math.min(availableParallelism(), MAX_CONCURRENCY));
+}
+
+/**
+ * Run `tasks` with at most `limit` in flight, preserving input order in the
+ * result. Workers pull from a shared cursor so a slow package never blocks a
+ * free slot.
+ */
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+  const worker = async (): Promise<void> => {
+    for (;;) {
+      const index = cursor++;
+      if (index >= items.length) return;
+      results[index] = await fn(items[index] as T, index);
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, () => worker()),
+  );
+  return results;
+}
 
 // @lore AU28 step 2: the four role roots replace the single `packages/` tree.
 // A package IDENTITY is now its repo-relative directory (`layers/core-api/work`,
@@ -179,31 +242,36 @@ function readDebtFile(root: string): { excepted: Set<string>; raw: DebtFile } {
 
 // -- Per-package tsc runner --
 
-function runPackage(
+async function runPackage(
   root: string,
+  tscBin: string,
   pkg: string,
   allPackages: readonly string[],
-): PackageResult {
+): Promise<PackageResult> {
   const tsconfig = `${pkg}/tsconfig.json`;
   let rawOutput = "";
   let exitCode = 0;
 
   try {
-    rawOutput = execSync(`npx tsc --noEmit -p ${tsconfig}`, {
+    // @lore ci-move: invoke the resolved `tsc` binary rather than `npx tsc`.
+    // npx re-resolves the package on every call, and this runs once per
+    // package — pure spawn overhead repeated ~35 times per gate run.
+    const { stdout } = await execFileAsync(tscBin, ["--noEmit", "-p", tsconfig], {
       encoding: "utf-8",
-      stdio: "pipe",
       cwd: root,
+      maxBuffer: TSC_MAX_BUFFER,
     });
+    rawOutput = stdout;
     // tsc exits 0 → clean (or only reference noise)
   } catch (err: unknown) {
-    // execSync throws on non-zero exit; attach output and record exit code.
+    // execFile rejects on non-zero exit; attach output and record exit code.
     const nodeErr = err as NodeJS.ErrnoException & {
       stdout?: string;
       stderr?: string;
-      status?: number;
+      code?: number | string;
     };
     rawOutput = (nodeErr.stdout ?? "") + (nodeErr.stderr ?? "");
-    exitCode = nodeErr.status ?? 1;
+    exitCode = typeof nodeErr.code === "number" ? nodeErr.code : 1;
   }
 
   // Parse error lines
@@ -309,7 +377,7 @@ function printSummary(
  * eval scenarios) that is out of scope here. fabric stays source-resolved, exactly
  * as on origin/main. See plans/Z8/master-flag-register.md Z8-170.
  */
-function buildLeafDeclarations(root: string): void {
+function buildLeafDeclarations(root: string, tscBin: string): void {
   // @lore AF5: design-system added after shared — web typechecks import from
   // @hyperidle/design-system; without a pre-built dist the tsc reference resolver
   // can't find SenderGroupedMessage / TagKindMeta and infers `any`/`unknown` for
@@ -539,7 +607,10 @@ function buildLeafDeclarations(root: string): void {
     "applications/remote-worker",
   ]) {
     try {
-      execSync(`npx tsc -b ${leaf}`, { cwd: root, stdio: "ignore" });
+      // Stays SERIAL: these are a dependency chain writing shared `dist/`
+      // outputs, so concurrent builds would race. Only the `npx` indirection
+      // is removed here — the ordering is load-bearing.
+      execSync(`${JSON.stringify(tscBin)} -b ${leaf}`, { cwd: root, stdio: "ignore" });
     } catch {
       // tsc -b exits non-zero on reference-noise (TS6059) but still emits the
       // declarations to dist/. Real errors surface in the per-package measurement.
@@ -591,8 +662,18 @@ function cleanEmittedGovernanceArtifacts(root: string): void {
 
 // -- Main --
 
-function main(): void {
+async function main(): Promise<void> {
   const root = process.cwd();
+
+  // Resolve `tsc` once. A missing binary is FATAL: silently falling back would
+  // make every package "pass" with zero parsed errors.
+  const tscBin = resolve(root, "node_modules", ".bin", "tsc");
+  if (!existsSync(tscBin)) {
+    process.stderr.write(
+      `typecheck-gate: FATAL — tsc not found at ${tscBin}. Run \`npm ci\`.\n`,
+    );
+    process.exit(1);
+  }
 
   // 1. Discover packages
   const allPackages = discoverPackages(root);
@@ -622,31 +703,32 @@ function main(): void {
   process.stderr.write(
     "typecheck-gate: building leaf declarations (shared, db, design-system)...\n",
   );
-  buildLeafDeclarations(root);
+  buildLeafDeclarations(root, tscBin);
 
+  const concurrency = resolveConcurrency();
   process.stderr.write(
-    `typecheck-gate: checking ${allPackages.length} packages...\n`,
+    `typecheck-gate: checking ${allPackages.length} packages (concurrency ${concurrency})...\n`,
   );
 
-  // 4. Run tsc per package
-  const results: PackageResult[] = [];
-  for (const pkg of allPackages) {
-    process.stderr.write(`  tsc ${pkg}...`);
-    const result = runPackage(root, pkg, allPackages);
+  // 4. Run tsc per package, up to `concurrency` at a time. Results keep input
+  //    order regardless of completion order, so the summary table is stable.
+  //    Status is printed on completion (not before the run) because with a
+  //    parallel pool a "starting X..." line no longer pairs with its result.
+  const results = await mapWithConcurrency(allPackages, concurrency, async (pkg) => {
+    const result = await runPackage(root, tscBin, pkg, allPackages);
     result.excepted = excepted.has(pkg);
-    results.push(result);
 
-    // Brief status hint while running
     if (result.crashed) {
-      process.stderr.write(" CRASHED\n");
+      process.stderr.write(`  tsc ${pkg} CRASHED\n`);
     } else if (result.ownErrors === 0) {
-      process.stderr.write(" ok\n");
+      process.stderr.write(`  tsc ${pkg} ok\n`);
     } else if (result.excepted) {
-      process.stderr.write(` ${result.ownErrors} errors (quarantined)\n`);
+      process.stderr.write(`  tsc ${pkg} ${result.ownErrors} errors (quarantined)\n`);
     } else {
-      process.stderr.write(` ${result.ownErrors} errors FAIL\n`);
+      process.stderr.write(`  tsc ${pkg} ${result.ownErrors} errors FAIL\n`);
     }
-  }
+    return result;
+  });
 
   // 5. Compute verdict
   const verdict = computeVerdict(results);
@@ -679,4 +761,9 @@ function main(): void {
   }
 }
 
-main();
+main().catch((err: unknown) => {
+  // An unhandled rejection would otherwise exit 0 on some Node versions —
+  // a gate that fails open is worse than no gate.
+  process.stderr.write(`typecheck-gate: FATAL — ${String(err)}\n`);
+  process.exit(1);
+});

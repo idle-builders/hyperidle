@@ -33,13 +33,14 @@ const FIXTURES_DIR = join(import.meta.dirname, "fixtures");
 
 /**
  * Write fixture only if it does not already exist on disk.
- * Fixtures are SNAPSHOTS of real captured events committed to git. Re-running
- * probes yields fresh timestamps/session IDs that would change the file content
- * and break the srcHash attestation check. Write once; update only intentionally.
+ * Fixtures are SNAPSHOTS of real captured events committed to git. Write once;
+ * update only intentionally.
  *
- * @lore AM2: Fixtures must not change every test run — they're committed blobs
- * that verify-attest's srcHash fingerprints. Dynamic timestamps make every run
- * produce new blobs, invalidating the attestation. "Write-once" keeps srcHash stable.
+ * @lore AM2: Fixtures must not change every test run. The original reason was
+ * mechanical — verify-attest fingerprinted the whole tracked tree, so a fresh
+ * timestamp invalidated the attestation. That mechanism is gone, but write-once
+ * still holds for the ordinary reason: a fixture that rewrites itself on every
+ * run is not a snapshot, and a diff full of churn hides the change that matters.
  */
 async function writeFixtureIfMissing(filePath: string, content: string): Promise<void> {
 	try {

@@ -18,8 +18,9 @@
  *
  * @lore AJ1 REDO: Previously a bespoke tsx script (`scripts/design-source-guard.ts`)
  *   run only in `npm run verify` (local). Moved to vitest so the invariant is enforced
- *   in CI via the signed attestation (`scripts/verify-attest.ts` records the real test
- *   exit code). This gives AC1 real CI enforcement without a custom CI step.
+ *   in CI without a custom CI step. (It was originally enforced via the signed
+ *   attestation; the attestation is gone and CI now runs the test suite directly,
+ *   which enforces this the same way for a simpler reason.)
  *   See plans/AJ1/architecture.md and `.pipeline/work-packages/TRACK-AJ.md`.
  */
 

@@ -25,6 +25,8 @@ jobs:
   release-guard:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    outputs:
+      bumped: ${{ steps.bump.outputs.bumped }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -104,12 +106,6 @@ jobs:
           echo "sha256=$(jq -r .sha256 "$MF")" >> "$GITHUB_OUTPUT"
           echo "dmg=$(jq -r .dmgName "$MF")" >> "$GITHUB_OUTPUT"
 
-      - name: Require full-scope attestation on version bump
-        if: steps.bump.outputs.bumped == 'true'
-        env:
-          VERIFY_SECRET: ${{ secrets.VERIFY_SECRET }}
-        run: npx tsx scripts/check-attestation.ts --require-scope=full
-
       - name: Staged DMG exists with matching sha256
         if: steps.bump.outputs.bumped == 'true'
         env:
@@ -142,3 +138,66 @@ jobs:
             exit 1
           fi
           echo "✓ staged DMG $DMG verified (sha256 $ACTUAL)"
+
+  # ---------------------------------------------------------------------------
+  # Release-scope test lanes.
+  #
+  # @lore ci-move: these replace `check-attestation --require-scope=full`. The
+  # per-merge lane (ci.yml) runs only the slice AFFECTED by a diff, which is what
+  # keeps normal PRs cheap; these full unfiltered runs are the backstop for
+  # anything affected-selection under-selects, and they run exactly once per
+  # release rather than on every push.
+  #
+  # Both are no-ops unless the PR bumps the root package.json version.
+  # ---------------------------------------------------------------------------
+  release-tests:
+    name: Release tests (full scope)
+    needs: release-guard
+    if: needs.release-guard.outputs.bumped == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Unit + component (full)
+        run: npm run test:full
+      - name: Service integration (full)
+        run: npm run test:integration:service
+
+  release-e2e:
+    name: Release e2e (shard ${{ matrix.shard }}/4)
+    needs: release-guard
+    if: needs.release-guard.outputs.bumped == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      # One shard's failure must not cancel the others — a release needs the
+      # complete picture of what broke, not the first thing that broke.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      # The config pins `workers: CI ? 1 : undefined`, sized for a laptop running
+      # the affected subset. A 2-vCPU runner carries 2, and sharding is what makes
+      # the full suite fit inside the config's 45-minute globalTimeout.
+      #
+      # 4 shards is sized against ~284 actually-running specs: the suite has 561,
+      # but `grepInvert` (known-pre-existing-failures.ts) excludes 277 chronically
+      # broken ones. SHARD COUNT IS UNVERIFIED — no version-bump PR has exercised
+      # this lane yet. Tune it against the first real release run.
+      - name: E2E (full, sharded)
+        run: |
+          npm run -w @hyperidle/core-ui test:e2e:full -- \
+            --shard=${{ matrix.shard }}/4 --workers=2 --reporter=line

@@ -30,7 +30,7 @@
  *      zero collisions against the 245 distinct titles of tests that DO pass).
  *
  * This is genuine, chronic e2e test-suite debt that was NEVER exercised by any
- * verify-attest run on this branch (or main) — `--only-changed` correctly
+ * pre-merge run on this branch (or main) — `--only-changed` correctly
  * excluded these dormant-broken files as "unaffected" by every prior commit,
  * since none of Increments 1-13 touched these specific spec files or their
  * dependencies. Fixing the underlying causes (updating years of stale e2e

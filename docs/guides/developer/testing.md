@@ -15,33 +15,41 @@ npm run test:integration:harness # harness integration only (real binaries + rea
 npm run test:all                 # ALL unit + component + integration sequentially (test:full + test:integration)
 npm run test:e2e                 # affected Playwright E2E (--only-changed=origin/main)
 npm run test:e2e:full            # ALL Playwright E2E specs
-npm run verify                   # check + lint + knip + knip:production + deps:check + mock-inventory:check + builds + attestation (affected slice)
-npm run verify:release           # same but VERIFY_SCOPE=full — all three test legs run fully (required at release)
+npm run verify                   # check + lint + knip + knip:production + deps:check + mock-inventory:check + builds. No tests.
+npm run verify:release           # verify + test:full + test:integration (incl. harness) + full e2e — run before a version bump
 npm run verify:quick             # check + lint + knip + knip:production only
 ```
 
-`verify` chains the static gates (check, lint, knip, knip:production, deps:check, mock-inventory:check), the web and desktop builds, then `scripts/verify-attest.ts`, which runs the three test legs and signs the attestation.
+`verify` chains the static gates (check, lint, knip, knip:production, deps:check, mock-inventory:check) and the web and desktop builds. It runs **no tests** — those run in CI on every PR and push. It signs nothing: there is no attestation.
 
 **Run a specific file: `npm run test:full -- <path>`.** Not `npm run test -- <path>` — the `--changed` filter intersects with the filename filter, so an unchanged file silently runs zero tests and exits green.
 
-## Affected vs Full
+## Where each lane runs
 
-`npm run verify` selects the **affected** slice of the suite vs `origin/main` (`scripts/lib/attestation-scope.ts`):
+Tests run in **CI**, not on your machine. The split is by cost, not by trust.
 
-- Unit/component: `vitest --changed=origin/main` — only tests whose import-closure intersects the diff.
-- Integration: `vitest --project service --changed=origin/main` on the integration config — the **harness project is excluded entirely** from the affected leg. The real-LLM harness suite is release-gated: it runs only in `verify:release` (full scope), where the agentic floor + per-harness symmetry require it. Run it on demand with `npm run test:integration:harness`.
-- E2E: `playwright test --only-changed=origin/main` — only specs whose file changed (black-box, so app-only changes select 0 specs; the full e2e run at release is the backstop).
+| Lane | Per PR + push to main (`ci.yml`) | Version bump (`release-guard.yml`) | Local only |
+|---|---|---|---|
+| Static gates (check, lint, knip ×2, deps, mock-inventory, builds) | full | — | `npm run verify` |
+| Unit + component | affected (`--changed=<base>`) | **full** | `npm run test:full` |
+| Service integration | affected (`--project service --changed=<base>`) | **full** | `npm run test:integration:service` |
+| E2E (Playwright) | — | **full**, 8 shards | `npm run test:e2e` |
+| Harness (real binaries + real LLM) | — | — | `npm run test:integration:harness` |
 
-**Before releasing a version bump, run `npm run verify:release`.** The Release Guard (`.github/workflows/release-guard.yml`) rejects an `affected`-scope attestation when the package version changes.
+The per-merge lane runs only the slice **affected** by the diff — the tests whose import-closure intersects your changes. The full unfiltered run at release is the backstop for anything affected-selection under-selects.
+
+**The harness lane has no CI job.** It needs four real CLI binaries and real LLM credentials, so it stays local, and no gate blocks a release whose harness lane never ran. Running it is a human step on the release checklist (`npm run verify:release`).
+
+> Note: as of 2026-08-09 the harness lane is red on `origin/main` itself (5 failed / 62 passed — codex MCP readiness, opencode `step_finish`). Compare against `origin/main` before concluding your branch broke it.
 
 #### When to run the harness lane manually
 
-The harness project (real installed binaries + real LLM) is release-gated — per-merge `npm run verify` never executes it. That makes the manual run YOUR job during development. Run `npm run test:integration:harness` (or `-- <file>` for one file) and get it green before shipping whenever you:
+No CI job executes the harness lane, which makes the manual run YOUR job during development. Run `npm run test:integration:harness` (or `-- <file>` for one file) and get it green before shipping whenever you:
 
-- change harness setup or plumbing — anything under `layers/agent-execution/harness-registry/src/`, session provisioning, CLI adapter configs (`CLI_TOOL_CONFIGS`), `require-harness.ts`, or the honest-harness predicate,
+- change harness setup or plumbing — anything under `layers/agent-execution/harness-registry/src/`, session provisioning, CLI adapter configs (`CLI_TOOL_CONFIGS`), or `require-harness.ts`,
 - write a new harness-facing `*.integration.test.ts` or modify an existing one.
 
-The release `verify:release` run is the enforcement backstop, not the discovery point — a harness break found at the version bump is a break that shipped past its author.
+Nothing downstream will catch it for you. `verify:release` is a checklist you run, not a gate that runs itself — a harness break found at the version bump is a break that shipped past its author, and one found after release is a break nothing looked for.
 
 > **E2E under-selection caveat (R3 from AT1):** Playwright `--only-changed` selects by changed *spec files + their import graph*. Every e2e spec imports only `./fixtures` + Node builtins — zero imports from `layers/core-ui/src` — so a pure app-code change selects no e2e specs. This is not a coverage hole: the affected unit/component leg catches the component (white-box, imports it). Affected-e2e = "specs you edited"; full e2e at release covers all journeys.
 
@@ -49,7 +57,7 @@ The release `verify:release` run is the enforcement backstop, not the discovery 
 
 Two archetypes — **service** (real DB + app via `{ db, app, eventBus }` fixtures) and **harness-facing** (the real installed harness binary, zero stubs, hard-fail if absent). Fixture pattern and full rules: [`.claude/rules/testing.md`](../../../.claude/rules/testing.md) §"Integration tests: two archetypes".
 
-Harness availability is gated with `requireHarness(<name>)` — `layers/agent-execution/harness-registry/src/__tests__/require-harness.ts` — never `skipIf`. The deep enforcement mechanism (the five-harness `SUPPORTED_HARNESSES` matrix, locked test models, symmetry assertion, attestation floor) is owned by [harness coverage enforcement](../../agent-layer/harness-coverage-enforcement.md) — the one execution-level floor; see that doc for mechanism depth.
+Harness availability is gated with `requireHarness(<name>)` — `layers/agent-execution/harness-registry/src/__tests__/require-harness.ts` — never `skipIf`. That source-level gate is now the *only* automated part: the execution-level floor that used to assert every supported harness actually ran (and ran symmetrically) lived in the attestation and went with it. See [harness coverage enforcement](../../agent-layer/harness-coverage-enforcement.md) for what remains and what does not.
 
 ## E2E Tests (Playwright)
 

@@ -12,43 +12,52 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# CI re-runs EVERY fast check live (typecheck gate, lint, knip, mock-inventory,
-# web + desktop build) so none of them can be bypassed. Only the slow test
-# suite (unit + integration + e2e) is trusted via a locally-generated,
-# HMAC-signed attestation that RECORDS the real test exit code
-# (scripts/verify-attest.ts runs the affected slice and derives status). CI
-# then validates that signed attestation (scripts/check-attestation.ts) —
-# including that the source has not changed since the attested run.
-# @lore AT1: `npm run test` now runs vitest --changed=origin/main (affected slice
-# only); `npm run test:full` runs the whole suite. verify-attest uses the affected
-# slice by default (scope:"affected") and full at release (VERIFY_SCOPE=full →
-# scope:"full"). E2e is now a third attested leg — still local-only, never a CI job.
+# CI runs EVERY per-merge gate live. Nothing is trusted from a local machine.
 #
-# @lore Z8-166: the previous workflow ran ONLY check-attestation and re-ran
-# nothing, while verify-attest hardcoded status="passed". A red gate could ship
-# green. Re-running the fast checks here closes that for everything except the
-# DB-heavy test suite, and verify-attest no longer signs an unearned pass.
+# @lore ci-move: this replaces the HMAC-signed local attestation
+# (scripts/verify-attest.ts + scripts/check-attestation.ts, both deleted). That
+# design had CI re-run the fast checks and trust a locally-signed record of the
+# slow test suite. It failed in practice for reasons that were structural, not
+# incidental:
+#   - the attestation fingerprints the WHOLE tracked tree, so ANY commit after
+#     it — a progress JSON, a rebase, main advancing under a PR — invalidated it
+#     and forced a full local re-verify;
+#   - the local re-verify is 10+ minutes, which is longer than an agent's
+#     foreground tool budget, so shipping repeatedly stranded mid-run;
+#   - it was only ever as honest as the local machine, and had already shipped
+#     a red tree green once (Z8-166).
+# The whole mechanism existed to keep test minutes off GitHub. The cheaper way
+# to do that is to run the AFFECTED slice per merge and the full suite only at
+# release — which is what this workflow and release-guard.yml now do.
+#
+# Split by cost, not by trust:
+#   here (every PR + push to main) — all static gates at full scope, plus the
+#     unit and service-integration slices AFFECTED by the diff;
+#   release-guard.yml (version bump only) — the full unfiltered suite + e2e.
+# The harness lane (real CLI binaries + real LLM calls) has no CI job by
+# design; it stays a local release-checklist command. See docs/guides/developer/testing.md.
 #
 # @lore docs-only fast-path: `npm run verify` is a REQUIRED status check
 # (ruleset main-protection), so it must always run and report — workflow-level
 # `paths-ignore` would leave the check forever pending and block docs-only PRs.
-# Instead the job always runs; a "Detect docs-only change" step diffs the PR and,
+# Instead the job always runs; a "Detect change scope" step diffs the PR and,
 # when every changed file ends in `.md`, gates EVERY heavy step off. The job then
-# completes green in ~20s with nothing to attest, so worktrack/pipeline/plans
-# `.md` rewrites no longer pay for a full verify+attestation. Any non-`.md` file
-# in the diff (code, yaml, json, jsonl, lockfiles, the workflow itself) forces
-# the full run — the fast-path is conservative by construction.
+# completes green in ~20s with nothing to check. Any non-`.md` file in the diff
+# (code, yaml, json, jsonl, lockfiles, the workflow itself) forces the full run —
+# the fast-path is conservative by construction.
 jobs:
   verify:
+    # NOTE: this name is the required status check context in the
+    # `main-protection` ruleset. Renaming the job silently un-gates main.
     name: npm run verify
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - name: Detect docs-only change
+      - name: Detect change scope
         id: changes
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
@@ -58,12 +67,16 @@ jobs:
             BASE="${{ github.event.before }}"
             HEAD="${{ github.sha }}"
           fi
-          # Unknown/absent base (new branch, force-push, first push) → run full.
+          # Unknown/absent base (new branch, force-push, first push) → run
+          # everything, unfiltered. An unresolvable base must never silently
+          # select zero tests.
           if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
             echo "only_docs=false" >> "$GITHUB_OUTPUT"
-            echo "Base '$BASE' unavailable — running full verify."
+            echo "test_base=" >> "$GITHUB_OUTPUT"
+            echo "Base '$BASE' unavailable — running full (unfiltered) test scope."
             exit 0
           fi
+          echo "test_base=$BASE" >> "$GITHUB_OUTPUT"
           FILES=$(git diff --name-only "$BASE" "$HEAD")
           echo "Changed files:"; echo "$FILES"
           # Non-empty output below = at least one changed file is NOT *.md.
@@ -91,6 +104,20 @@ jobs:
         if: steps.changes.outputs.only_docs != 'true'
         run: npm ci
 
+      # ESLint re-lints every file from scratch on each run. The cache keys on
+      # per-file content, so an unchanged file is skipped entirely. Keyed by
+      # run_id so each run writes a fresh entry and restores the newest prior
+      # one (actions/cache never overwrites an existing exact key).
+      - name: Restore ESLint cache
+        if: steps.changes.outputs.only_docs != 'true'
+        uses: actions/cache@v4
+        with:
+          path: .eslintcache
+          key: eslint-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ github.run_id }}
+          restore-keys: |
+            eslint-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
+            eslint-${{ runner.os }}-
+
       - name: Typecheck gate
         if: steps.changes.outputs.only_docs != 'true'
         run: npm run check
@@ -102,6 +129,18 @@ jobs:
       - name: Knip
         if: steps.changes.outputs.only_docs != 'true'
         run: npm run knip
+
+      # @lore ci-move: knip:production and deps:check are in `npm run verify`
+      # locally but were absent from this workflow — CI was a WEAKER gate than
+      # the local chain it was supposed to be backstopping. Added here so the
+      # required check actually covers what its name claims.
+      - name: Knip (production)
+        if: steps.changes.outputs.only_docs != 'true'
+        run: npm run knip:production
+
+      - name: Dependency manifest
+        if: steps.changes.outputs.only_docs != 'true'
+        run: npm run deps:check
 
       - name: Mock inventory
         if: steps.changes.outputs.only_docs != 'true'
@@ -115,8 +154,25 @@ jobs:
         if: steps.changes.outputs.only_docs != 'true'
         run: npm run -w @hyperidle/desktop build
 
-      - name: Validate test attestation
+      # Affected slice only. `--changed=<base>` selects test files reachable
+      # from the diff through vitest's module graph. The full unfiltered suite
+      # is the release gate (release-guard.yml) — that is the backstop for
+      # anything affected-selection under-selects.
+      - name: Tests (unit + component, affected)
         if: steps.changes.outputs.only_docs != 'true'
-        run: npx tsx scripts/check-attestation.ts
-        env:
-          VERIFY_SECRET: ${{ secrets.VERIFY_SECRET }}
+        run: |
+          if [ -n "${{ steps.changes.outputs.test_base }}" ]; then
+            npx vitest run --changed="${{ steps.changes.outputs.test_base }}" --passWithNoTests
+          else
+            npx vitest run
+          fi
+
+      - name: Tests (service integration, affected)
+        if: steps.changes.outputs.only_docs != 'true'
+        run: |
+          if [ -n "${{ steps.changes.outputs.test_base }}" ]; then
+            npx vitest run --config vitest.integration.config.ts --project service \
+              --changed="${{ steps.changes.outputs.test_base }}" --passWithNoTests
+          else
+            npx vitest run --config vitest.integration.config.ts --project service
+          fi
