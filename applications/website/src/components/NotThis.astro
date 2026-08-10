@@ -1,0 +1,43 @@
+---
+/**
+ * What HyperIdle is NOT — the ETHOS disqualifier stated plainly.
+ * Grounded in ETHOS.md §1–2 and docs/product/human-ai-collaboration.md
+ * ("What this model is not"). An honest no is worth more than a vague yes.
+ */
+const nots = [
+	{
+		title: "Not for enterprise",
+		line: "No approval chains, no audit theater, no permission matrices. If you need governance to reassure a buyer, we built for someone else.",
+	},
+	{
+		title: "Not a zero-human fantasy",
+		line: "Humans lead, agents execute. You stay in every loop that matters — and only the loops that matter.",
+	},
+	{
+		title: "No gates by default",
+		line: "Trust first: the agent acts, the human acts. Review attaches where you choose it or where real outcomes earn it — never preemptively.",
+	},
+];
+---
+
+<section class="notsec" id="why-not" aria-labelledby="not-h">
+	<div class="container">
+		<div class="sec-head reveal">
+			<h2 id="not-h">What HyperIdle is not</h2>
+			<span class="sec-idx">[ 03 ]</span>
+		</div>
+		<div class="not-rows">
+			{
+				nots.map((item) => (
+					<div class="not-row reveal">
+						<span class="not-x" aria-hidden="true">✕</span>
+						<div>
+							<h3 class="not-title">{item.title}</h3>
+							<p class="not-line">{item.line}</p>
+						</div>
+					</div>
+				))
+			}
+		</div>
+	</div>
+</section>

@@ -1,6 +1,8 @@
 ---
 import { getCollection, render } from "astro:content";
-import Marketing from "../../layouts/Marketing.astro";
+import Site from "../../layouts/Site.astro";
+import DocsSidebar from "../../components/DocsSidebar.astro";
+import { findNavSection } from "../../lib/docs-nav.js";
 import "../../styles/docs.css";
 
 export async function getStaticPaths() {
@@ -13,18 +15,27 @@ const { entry } = Astro.props;
 const { Content, headings } = await render(entry);
 const h1 = headings.find((h) => h.depth === 1)?.text;
 const title = entry.data.title ?? h1 ?? entry.id;
-const crumb = entry.id.split("/")[0] ?? "docs";
+const section = findNavSection(entry.id);
 ---
 
-<Marketing title={`${title} — HyperIdle`}>
-	<div class="container doc-page">
-		<p class="doc-crumb">
-			<a href={`${base}docs/`}>Documentation</a><span class="sep" aria-hidden="true">/</span><span
-				class="here">{crumb}</span
-			>
-		</p>
-		<article class="prose">
-			<Content />
-		</article>
+<Site title={`${title} — HyperIdle Docs`}>
+	<div class="container docs-layout">
+		<DocsSidebar entryId={entry.id} />
+		<div class="docs-main">
+			<p class="doc-crumb">
+				<a href={`${base}docs/`}>Documentation</a>
+				{
+					section && (
+						<>
+							<span class="sep" aria-hidden="true">/</span>
+							<span class="here">{section.title}</span>
+						</>
+					)
+				}
+			</p>
+			<article class="prose">
+				<Content />
+			</article>
+		</div>
 	</div>
-</Marketing>
+</Site>

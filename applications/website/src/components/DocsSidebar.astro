@@ -1,0 +1,50 @@
+---
+/**
+ * Docs side navigation, generated from the DOCS_NAV config (mirrors each
+ * guide's index.md order; Installation is the assembled first-run section).
+ *
+ * Wrapped in a native <details open> so the mobile collapse works with zero
+ * JS and is keyboard accessible out of the box — summary is the toggle on
+ * small screens, hidden on desktop where the nav is always expanded.
+ * @lore a CSS-only "drawer" would need JS for focus containment anyway; the
+ * native disclosure gives collapse + keyboard + no-JS for free.
+ */
+import { DOCS_NAV, findNavSection, navItemUrl } from "../lib/docs-nav.js";
+
+interface Props {
+	entryId: string;
+}
+const { entryId } = Astro.props;
+const base = import.meta.env.BASE_URL;
+const section = findNavSection(entryId);
+const here = section?.items.find((item) => item.id === entryId)?.title ?? "Documentation";
+---
+
+<details class="docs-menu" open>
+	<summary class="docs-menu-toggle">
+		<span class="docs-menu-cap">CONTENTS</span>
+		<span class="docs-menu-here">{here}</span>
+		<span class="docs-menu-caret" aria-hidden="true">▾</span>
+	</summary>
+	<nav class="docs-menu-nav" aria-label="Documentation">
+		{
+			DOCS_NAV.map((navSection) => (
+				<div class="docs-menu-section">
+					<p class="docs-menu-h">{navSection.title}</p>
+					<ul>
+						{navSection.items.map((item) => (
+							<li>
+								<a
+									href={navItemUrl(item.id, base)}
+									aria-current={item.id === entryId ? "page" : undefined}
+								>
+									{item.title}
+								</a>
+							</li>
+						))}
+					</ul>
+				</div>
+			))
+		}
+	</nav>
+</details>

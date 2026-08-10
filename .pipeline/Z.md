@@ -15,7 +15,7 @@ Tell the HyperIdle story. Produce external-facing surfaces and documentation tha
 | ID | Title | Type | Complexity | Depends | Status |
 |---|---|---|---|---|---|
 | Z9 | Marketing landing page on a static-site foundation (cyberpunk marketing identity, `#FCEE0A` accent; static HTML generated at build time from sources incl. markdown; hosting-agnostic) | frontend/site | M | — | **SHIPPED, PR #470 merged (2026-08-09).** Astro 7 in `applications/website`; identity pivoted founder-directed from dark neon-noir to light neo-brutal (`proposals/b-neo-brutal.html` style authority) after founder review rejected the dark variant. |
-| Z10 | Site content architecture: marketing landing, useful docs (founder-approved section structure from dev-landing research; docs area with top-level Installation + side-navigated User/Developer guides; quickstart moves landing → Installation) | frontend/site | M | — | planned |
+| Z10 | Site content architecture: marketing landing, useful docs (founder-approved section structure from dev-landing research; docs area with top-level Installation + side-navigated User/Developer guides; quickstart moves landing → Installation) | frontend/site | M | — | implemented — all 5 ACs pass review (DONE); PR pending CI |
 
 Legacy-registered (specs in `.pipeline/work-packages/TRACK-Z.md`): Z0 (superseded per migration note), Z1 (product story — shipped as `docs/product/`), Z2–Z8.
 

@@ -1,12 +1,10 @@
 ---
 const base = import.meta.env.BASE_URL;
 const links = [
-	{ href: `${base}#crew`, label: "Crew" },
-	{ href: `${base}#loop`, label: "Loop" },
-	{ href: `${base}#views`, label: "Views" },
-	{ href: `${base}#ethos`, label: "Ethos" },
-	{ href: `${base}#knowledge`, label: "Knowledge" },
-	{ href: `${base}#docs`, label: "Docs" },
+	{ href: `${base}#capabilities`, label: "Capabilities" },
+	{ href: `${base}#who`, label: "Who it's for" },
+	{ href: `${base}#why-not`, label: "Why not" },
+	{ href: `${base}docs/`, label: "Docs" },
 ];
 ---
 
@@ -18,7 +16,7 @@ const links = [
 		<nav class="nav-links" aria-label="Primary">
 			{links.map((link) => <a href={link.href}>{link.label}</a>)}
 		</nav>
-		<a class="btn btn-ghost" href={`${base}#self-host`}>Self-host</a>
+		<a class="btn btn-ghost" href={`${base}docs/guides/user/getting-started/`}>Install</a>
 		<button class="burger" id="burger" aria-label="Open menu" aria-expanded="false" aria-controls="menu">
 			<span></span><span></span>
 		</button>
@@ -33,7 +31,7 @@ const links = [
 	<nav class="menu-links" aria-label="Mobile">
 		{links.map((link) => <a href={link.href}>{link.label}</a>)}
 	</nav>
-	<a class="btn btn-primary" href={`${base}#self-host`}>Self-host quickstart</a>
+	<a class="btn btn-primary" href={`${base}docs/guides/user/getting-started/`}>Install HyperIdle</a>
 </div>
 
 <script>

@@ -1,0 +1,90 @@
+---
+/**
+ * Capabilities — plain-language feature blocks, asymmetric layout.
+ * Every claim is one line; every grounding line is traceable to a rendered
+ * doc page (linked), so an evaluator can check each statement at the source.
+ */
+const base = import.meta.env.BASE_URL;
+
+interface Capability {
+	idx: string;
+	claim: string;
+	grounding: string;
+	href: string;
+	doc: string;
+	span: string;
+}
+
+const capabilities: Capability[] = [
+	{
+		idx: "01",
+		claim: "Agents do the work",
+		grounding:
+			"Rosters derive from your team's functions — Builder, Designer, Product Manager, QA, Growth, and more. They pick up tasks, run sessions, and ship artifacts.",
+		href: `${base}docs/guides/user/agents/`,
+		doc: "User guide · Agents",
+		span: "cap-a",
+	},
+	{
+		idx: "02",
+		claim: "Work ships as bets",
+		grounding:
+			"A bet is a time-boxed piece of work with an explicit done condition: draft → active → completed or killed. No sprint ceremony, no central planner — sequences emerge from the work itself.",
+		href: `${base}docs/product/how-work-flows/`,
+		doc: "Concepts · How work flows",
+		span: "cap-b",
+	},
+	{
+		idx: "03",
+		claim: "Knowledge compounds",
+		grounding:
+			"One canonical store, human-curated. What one agent learns flows back in — the tenth bet is faster than the first.",
+		href: `${base}docs/product/how-knowledge-compounds/`,
+		doc: "Concepts · How knowledge compounds",
+		span: "cap-c",
+	},
+	{
+		idx: "04",
+		claim: "Self-hosted, on your terms",
+		grounding:
+			"Signed macOS app, laptop dev with embedded PGlite, VPS via Docker Compose, or managed cloud Postgres. Your machine, your server, your data.",
+		href: `${base}docs/deployment/`,
+		doc: "Installation · Deployment",
+		span: "cap-d",
+	},
+	{
+		idx: "05",
+		claim: "Humans stay in charge",
+		grounding:
+			"Committing a bet is always your action. Verdicts — approve, request changes, reject — decide what ships, and trust is earned from your verdicts, never configured.",
+		href: `${base}docs/product/human-ai-collaboration/`,
+		doc: "Concepts · Human + AI collaboration",
+		span: "cap-e",
+	},
+];
+---
+
+<section class="caps" id="capabilities" aria-labelledby="caps-h">
+	<div class="container">
+		<div class="sec-head reveal">
+			<h2 id="caps-h">What HyperIdle does</h2>
+			<span class="sec-idx">[ 01 ]</span>
+		</div>
+		<div class="caps-grid" data-stagger>
+			{
+				capabilities.map((cap) => (
+					<article class={`cap ${cap.span} reveal`}>
+						<div class="cap-in">
+							<span class="cap-idx">{cap.idx}</span>
+							<h3 class="cap-claim">{cap.claim}</h3>
+							<p class="cap-ground">{cap.grounding}</p>
+							<a class="cap-doc" href={cap.href}>
+								{cap.doc} →
+							</a>
+						</div>
+					</article>
+				))
+			}
+		</div>
+	</div>
+</section>
