@@ -1,9 +1,12 @@
 import process from "node:process";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { unified } from "@astrojs/markdown-remark";
 import { defineConfig } from "astro/config";
 
 import { normalizeBase } from "./src/lib/base-path.js";
 import { remarkDocLinks } from "./src/lib/doc-links.js";
+import { rehypeWrapTables } from "./src/lib/wrap-tables.js";
 
 // Hosting-agnostic base path: set HYPERIDLE_SITE_BASE at build time
 // (e.g. HYPERIDLE_SITE_BASE=/hyperidle/ npm run build). Default "/".
@@ -18,6 +21,21 @@ import { remarkDocLinks } from "./src/lib/doc-links.js";
 // desktop's @electric-sql/pglite).
 const base = normalizeBase(process.env.HYPERIDLE_SITE_BASE ?? "/");
 
+// Repo root = two levels up from this package. The link rewriter needs it to
+// turn each markdown file's absolute vfile path back into a repo-relative
+// path it can resolve hrefs against.
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+
+// The docs/ subtrees the site renders — mirrors the content collection's
+// glob patterns (content.config.ts). Relative links resolving outside this
+// set are rewritten to their GitHub URL on main instead of 404ing.
+const renderedSections = [
+	"docs/product",
+	"docs/guides/user",
+	"docs/guides/developer",
+	"docs/deployment",
+];
+
 export default defineConfig({
 	base,
 	markdown: {
@@ -25,7 +43,18 @@ export default defineConfig({
 		// @astrojs/markdown-remark is the supported way to run remark plugins
 		// (here: repo-relative .md cross-link rewriting for the docs seam).
 		processor: unified({
-			remarkPlugins: [[remarkDocLinks, { base, section: "docs/product" }]],
+			remarkPlugins: [
+				[
+					remarkDocLinks,
+					{
+						base,
+						repoRoot,
+						renderedSections,
+						github: { owner: "ambrovia", repo: "hyperidle", ref: "main" },
+					},
+				],
+			],
+			rehypePlugins: [rehypeWrapTables],
 		}),
 	},
 });
