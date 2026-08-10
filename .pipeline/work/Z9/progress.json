@@ -13,7 +13,8 @@
     { "phase": "build", "startedAt": "2026-08-09", "result": "12 commits: skeleton, landing page port, docs seam, critique closures, evidence captures" },
     { "phase": "implementation-review", "startedAt": "2026-08-09", "result": "DONE after 3 rounds: WP-ID leak fixed (3f119cac), attestation re-minted after rebase onto fresh origin/main (ca5a17c2/bcc5e2dd); all 6 ACs pass" },
     { "phase": "retro", "startedAt": "2026-08-09", "result": "retro.jsonl written (6 observations + cost entry)" },
-    { "phase": "ship", "startedAt": "2026-08-09", "result": "WP folder consolidated into plan.md; superseded artifacts deleted" }
+    { "phase": "ship", "startedAt": "2026-08-09", "result": "WP folder consolidated into plan.md; superseded artifacts deleted" },
+    { "phase": "identity-pivot", "startedAt": "2026-08-10", "result": "Founder rejected dark neon-noir post-review; landing + docs restyled light neo-brutal per proposals/b-neo-brutal.html (Archivo Black vendored, tokens/CSS rewritten, markup de-notched); copy verbatim, behaviors/a11y unchanged; evidence re-captured" }
   ],
   "artifacts": {
     "plan": ".pipeline/work/Z9/plan.md",

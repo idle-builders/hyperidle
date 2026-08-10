@@ -58,7 +58,15 @@
 
 **Fonts.** Space Grotesk 400/500/700 + Space Mono 400/700 latin woff2 committed under `src/assets/fonts/` (OFL shipped), `font-display: swap`, no hotlinking.
 
-**Marketing identity.** WP-owned token set in `applications/website/src/styles/` — page `#0A0A0F`, 4-step surface ladder, hairline `#1C1F2B` / strong `#2B3040` borders, text `#E9EBF2 / #A0A5B8 / #7B8199` (all ≥4.5:1 on their surfaces), single accent `#FCEE0A` (+ink/tint/border variants). Depth: hairline → double frame → hard offset shadow `4px 4px 0 #FCEE0A` on hover only (transform/opacity animation); glow restricted to focus rings + hero accent. Radius 0 (2px chips), clip-path notches, HUD brackets. Nothing touches `framework/design-system`; enforcement is the package-boundary governance plus convention.
+**Marketing identity.** PIVOT (2026-08-10, founder-directed): the dark neon-noir direction was
+rejected after review; the shipping identity is **light neo-brutal** per
+`.pipeline/work/Z9/proposals/b-neo-brutal.html` (the `proposals/` folder holds the explorations).
+Paper `#FFFDF5` base, white cards, black ink, `#FCEE0A` as fill only (black text on yellow, never
+yellow text on white), 3px solid black borders, zero-blur hard offset shadows in 3/5/8px tiers,
+hover lift −2px / active press +3px, sticker rotations. Type: Archivo Black display + Space
+Grotesk body + Space Mono labels, all self-hosted (OFL). The four guarded JS behaviors,
+visible-first reveals, reduced-motion fallbacks, and the 4.5:1 contrast floor carried over
+unchanged from the dark iteration; copy is verbatim.
 
 **Motion & JS.** Four guarded plain-JS behaviors, no islands: hero terminal typing (full transcript in DOM without JS; click-to-skip), visible-first reveals (`html.js-reveal` opt-in — content fully visible with JS disabled), mobile menu with focus containment + Esc + scroll lock, copy button. All motion disabled under `prefers-reduced-motion`.
 
