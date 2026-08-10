@@ -260,13 +260,6 @@ describe("X3 AC-18: AdapterPool.select() filters by harnessType", () => {
 		expect(entry?.meta.name).toBe("aider-anthropic");
 	});
 
-	it("createLocalAdapterPool registers with type 'claude-code'", async () => {
-		const { createLocalAdapterPool } = await import("../adapter-pool.js");
-		const pool = await createLocalAdapterPool();
-
-		const entries = pool.list();
-		const claudeEntry = entries.find((e) => e.type === "claude-code");
-		expect(claudeEntry).toBeDefined();
-		expect(claudeEntry?.type).toBe("claude-code");
-	});
+	// "createLocalAdapterPool registers with type 'claude-code'" moved to
+	// adapter-pool-real-discovery.integration.test.ts — it needs `claude` on PATH.
 });

@@ -23,9 +23,10 @@ import type { z } from "zod";
  * (ignore its TS6059 rootDir notices — it still emits), THEN delete the
  * generated `.d.ts/.js/.map` it scatters into the packages' `src` dirs (biome
  * lints src and would report ~714 phantom noBannedTypes errors from them).
- * Then `npm run verify` → server=0, gate PASS, biome 0 errors. CI never sees the
- * fragility (it validates the attestation signature, not the live gate). Upstream
- * cause is AF1-owned. Full writeup: plans/AF4/lore.md.
+ * Then `npm run verify` → server=0, gate PASS, biome 0 errors. CI used to be blind
+ * to this because it validated an attestation signature rather than the gate; it now
+ * runs the gate live, so the fragility is at least visible. Upstream cause is
+ * AF1-owned. Full writeup: plans/AF4/lore.md.
  */
 
 /**

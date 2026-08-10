@@ -43,8 +43,8 @@
 		"lint:governance:fixtures": "npx tsx tools/governance/src/governance-lint.ts --fixtures",
 		"lint:design": "npx eslint 'layers/core-ui/src/**/*.tsx' 'framework/design-system/src/**/*.tsx'",
 		"lint:fix": "biome check --write .",
-		"verify": "npm run check && npm run lint && npm run knip && npm run knip:production && npm run deps:check && npm run mock-inventory:check && npm run build && npm run -w @hyperidle/desktop build && npx tsx scripts/verify-attest.ts",
-		"verify:release": "VERIFY_SCOPE=full npm run verify",
+		"verify": "npm run check && npm run lint && npm run knip && npm run knip:production && npm run deps:check && npm run mock-inventory:check && npm run build && npm run -w @hyperidle/desktop build",
+		"verify:release": "npm run verify && npm run test:full && npm run test:integration && npm run test:e2e:full",
 		"verify:quick": "npm run check && npm run lint && npm run knip && npm run knip:production && npm run deps:check",
 		"db:generate": "npm run -w @hyperidle/db generate",
 		"db:migrate": "npm run -w @hyperidle/db migrate",
@@ -92,6 +92,7 @@
 		"tsx": "^4.22.4",
 		"typescript": "^6.0.3",
 		"typescript-eslint": "^8.62.0",
+		"typescript-native": "npm:typescript@^7.0.2",
 		"vitepress": "^1.6.4",
 		"vitest": "^4.1.9"
 	}

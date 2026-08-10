@@ -33,7 +33,6 @@ logs/
 **/.fuse_*
 .claude/scheduled_tasks.lock
 test-output.toon
-.verify-attestation.json
 .verify.pid
 # plans/ is tracked — pipeline artifacts persist across worktrees and are retired
 # at the /write-docs step once their essence lives in docs/ + code. (Was: plans/*)
