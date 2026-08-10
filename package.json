@@ -24,7 +24,6 @@
 		"test:full": "vitest run",
 		"test:integration": "vitest run --config vitest.integration.config.ts",
 		"test:integration:service": "vitest run --config vitest.integration.config.ts --project service",
-		"test:integration:affected": "vitest run --config vitest.integration.config.ts --project service --changed=origin/main --passWithNoTests",
 		"test:integration:harness": "vitest run --config vitest.integration.config.ts --project harness",
 		"test:all": "npm run test:full && npm run test:integration",
 		"test:coverage": "vitest run --coverage",
