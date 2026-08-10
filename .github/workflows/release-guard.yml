@@ -139,23 +139,13 @@ jobs:
           fi
           echo "✓ staged DMG $DMG verified (sha256 $ACTUAL)"
 
-  # ---------------------------------------------------------------------------
-  # Release-scope test lanes.
-  #
-  # @lore ci-move: these replace `check-attestation --require-scope=full`. The
-  # per-merge lane (ci.yml) runs only the slice AFFECTED by a diff, which is what
-  # keeps normal PRs cheap; these full unfiltered runs are the backstop for
-  # anything affected-selection under-selects, and they run exactly once per
-  # release rather than on every push.
-  #
-  # Both are no-ops unless the PR bumps the root package.json version.
-  # ---------------------------------------------------------------------------
+  # Full suite + e2e, on version-bump PRs only.
   release-tests:
-    name: Release tests (full scope)
+    name: Release tests
     needs: release-guard
     if: needs.release-guard.outputs.bumped == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -163,79 +153,21 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Unit + component (full)
-        run: npm run test:full
-      - name: Service integration (full)
-        run: npm run test:integration:service
+      - run: npm run test:full
+      - run: npm run test:integration:service
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e:full
 
-  release-e2e:
-    name: Release e2e (shard ${{ matrix.shard }}/4)
-    needs: release-guard
-    if: needs.release-guard.outputs.bumped == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    strategy:
-      # One shard's failure must not cancel the others — a release needs the
-      # complete picture of what broke, not the first thing that broke.
-      fail-fast: false
-      matrix:
-        shard: [1, 2, 3, 4]
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
-      # The config pins `workers: CI ? 1 : undefined`, sized for a laptop running
-      # the affected subset. A 2-vCPU runner carries 2, and sharding is what makes
-      # the full suite fit inside the config's 45-minute globalTimeout.
-      #
-      # 4 shards is sized against ~284 actually-running specs: the suite has 561,
-      # but `grepInvert` (known-pre-existing-failures.ts) excludes 277 chronically
-      # broken ones. SHARD COUNT IS UNVERIFIED — no version-bump PR has exercised
-      # this lane yet. Tune it against the first real release run.
-      - name: E2E (full, sharded)
-        run: |
-          npm run -w @hyperidle/core-ui test:e2e:full -- \
-            --shard=${{ matrix.shard }}/4 --workers=2 --reporter=line
-
-  # THE required status check for the release lane.
-  #
-  # @lore ci-move release aggregator: the lanes above are skipped on every PR
-  # that does not bump the version, and a required context that never reports
-  # leaves a PR pending forever — which is the same trap `paths-ignore` sets for
-  # the docs fast-path. So the required context is this job, which ALWAYS runs.
-  # `skipped` counts as success (no version bump ⇒ nothing to prove); `failure`
-  # and `cancelled` do not, because an unknown result must not merge.
-  #
-  # Adding a release lane means adding it to BOTH `needs` and the check below —
-  # a lane absent from the check is a lane that cannot block a release.
+  # Required status check. The lanes above skip on non-bump PRs, and a required
+  # context that never reports blocks the PR forever — so this always runs.
   release-verify:
     name: release verify
-    needs: [release-guard, release-tests, release-e2e]
+    needs: [release-guard, release-tests]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Aggregate release lane results
-        run: |
-          set -u
-          FAILED=0
-          check() {
-            echo "$1: $2"
-            case "$2" in
-              success|skipped) ;;
-              *) FAILED=1 ;;
-            esac
-          }
-          check "release-guard" "${{ needs.release-guard.result }}"
-          check "release-tests" "${{ needs.release-tests.result }}"
-          check "release-e2e"   "${{ needs.release-e2e.result }}"
-          if [ "$FAILED" = 1 ]; then
-            echo "::error::a release lane did not pass"
-            exit 1
-          fi
-          echo "All release lanes passed (or were correctly skipped)."
+      - run: |
+          for r in "${{ needs.release-guard.result }}" "${{ needs.release-tests.result }}"; do
+            case "$r" in success|skipped) ;; *) echo "::error::release lane: $r"; exit 1 ;; esac
+          done
