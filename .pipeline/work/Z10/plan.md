@@ -44,3 +44,17 @@
 - Given a visitor opening the docs, when they use the side navigation, then every Installation, User Guide, and Developer Guide page is reachable and cross-links between pages resolve.
 - Given the built site, when served statically at `/` and at a subpath, then all pages, nav links, and assets resolve.
 - Given JS disabled, when any page loads, then all content is visible.
+
+## Shipped — as-built decisions (consolidated 2026-08-09)
+
+**Landing.** Exactly six components: Hero (headline "The agentic operating system for AI-first teams." + subhead + CTA into docs), VideoSlot (honest placeholder frame — no fake player/duration, swappable for a real `<video>` without layout change), Capabilities (5 asymmetric blocks grounded in agents.md / deployment / human-ai-collaboration), Audience, NotThis (ETHOS §1–2 disqualifiers incl. the n8n/Zapier workflow-tool distinction from what-is-hyperidle.md), final CTA ("ten minutes" framing from getting-started.md). Deleted: crew roster, loop schematic, three-views mocks, ethos manifesto, knowledge section, quickstart block, docs teaser cards. Footer keeps the "EARLY AND SHIPPING" honesty line.
+
+**Docs area.** Seam widened in place (never copied) to `docs/guides/user/**` (9), `docs/guides/developer/**` (8), `docs/deployment/**` (5) alongside `docs/product/**` (6); 28 doc pages + hub, index.md collapsed to directory URLs. Sidebar sections Installation → User Guide → Developer Guide → Concepts via a nav config; mobile drawer is native `<details>` (keyboard-usable, works no-JS). Link mapping generalized: in-set sibling `.md` links → site routes; out-of-set links → GitHub `blob|tree/main/...` URLs (unit-tested incl. root-escape and tree-vs-blob). Tables wrapped scrollable.
+
+**Evidence.** 41 unit tests across 5 website test files; build checks for `/` and `/hyperidle/` with a zero-dead-internal-link sweep (35 internal links, 0 dead on both bases); 10 visual captures under `evidence/` (landing + docs at 1440/768/390). Review verdict DONE, all 5 ACs pass.
+
+**Deferrals & known limitations (outlive this run):**
+- Demo video does not exist yet — the slot is a placeholder by design; recording is separate work.
+- Docs hub cards rotate ±0.4deg causing a 2px overflow at ≤768px, clipped by `overflow-x:hidden` (cosmetic, accepted).
+- Installation assembles deployment docs in a slightly different order than `docs/deployment/index.md` (assembly, not mirror).
+- Hosting/deploy wiring still open (GitHub Pages / Cloudflare Pages / own infra).
