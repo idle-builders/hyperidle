@@ -1,0 +1,26 @@
+---
+/**
+ * Demo video slot — a designed placeholder until a real recording exists.
+ * Honest by construction: no fake player chrome, no fake duration, no stock
+ * footage. When the video ships, replace the .video-placeholder div with a
+ * <video controls> element — the frame (.video-frame, 16:9) is the stable
+ * part and does not change.
+ */
+---
+
+<section class="video" id="video" aria-labelledby="video-h">
+	<div class="container">
+		<div class="sec-head reveal">
+			<h2 id="video-h">See a bet run</h2>
+			<span class="sec-idx">[ 00 ]</span>
+		</div>
+		<div class="video-frame reveal">
+			<!-- swap .video-placeholder for <video controls …> when the demo exists -->
+			<div class="video-placeholder" role="img" aria-label="Demo video placeholder: a bet, end to end — video coming">
+				<span class="video-play" aria-hidden="true">▶</span>
+				<p class="video-title">A bet, end to end — video coming</p>
+				<p class="video-note">No fake players, no stock footage. The demo ships when it's recorded.</p>
+			</div>
+		</div>
+	</div>
+</section>
