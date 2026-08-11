@@ -7,7 +7,7 @@ Every useful root `npm` script, grouped by task. Onboarding path: [getting-start
 | Command | Purpose |
 |---------|---------|
 | `npm install` | Install dependencies |
-| `npm run setup` | Initialize the database (`tools/setup/src/setup-cli.ts`); flags: `--profile <laptop\|vps\|cloud>`, `--db-path`, `--db-url` |
+| `npm run setup` | Initialize the database (`tools/setup/src/setup-cli.ts`); flags: `--profile <laptop\|vps\|cloud>`, `--db-path`, `--db-url`, `--demo` (seed the lived-in Acme demo world — opt-in only) |
 | `npm run dev` | Dev server with hot reload (API + frontend) |
 | `npm run dev:desktop` | Web dev server + Electron desktop shell |
 

@@ -20,7 +20,16 @@ npm run dev                          # server (3001) + web (5173)
 
 Open [http://localhost:5173](http://localhost:5173).
 
-Setup flags: `--db-path <dir>` (PGlite data directory, default `./hyperidle-pg`), `--demo` (seed a demo "Acme" team — opt-in only, never seeded by default).
+Setup flags: `--db-path <dir>` (PGlite data directory, default `./hyperidle-pg`), `--demo` (seed the demo "Acme" world — opt-in only, never seeded by default).
+
+### Demo data
+
+`npm run setup -- --demo` fills a fresh database with a lived-in Acme world — six weeks of history for a small team of two humans and five agents: bets across every lifecycle (active with a review blocking on the founder, drafts, completed with verdicts, killed), tasks in all eight states, ~15 threads with reviews, verdicts and DMs, a ~40-item knowledge corpus with a triage queue, sessions, routines with run history, and unread notifications. It exists so UI work and demos happen against a product that looks used, not an empty shell. The seed is idempotent (`demo-*` ids, re-running changes nothing) and anchors all timestamps to seed time.
+
+- Local-mode auth resolves the first human user, so a seeded instance logs you straight in as the demo founder — no onboarding.
+- Postgres: `npm run db:bootstrap:pg -- --demo` (or `HYPERIDLE_DEMO=1`).
+- Packaged desktop app: seed its data dir while the app is not running — `npm run setup -- --demo --db-path "$HOME/Library/Application Support/@hyperidle/desktop/hyperidle-pg"` — then launch the app. Back any existing data up first; the app holds the DB lock while running.
+- Desktop dev (`npm run dev:desktop`) cannot load the world today: Electron loads `src/preload.js` outside tsx and that file only exists as `dist/preload.js` after bundling, so the dev window 401s into the setup flow. Test the desktop via `npm run -w @hyperidle/desktop build:local` and the packaged app.
 
 Desktop dev: `npm run dev:desktop` runs the Vite dev server plus the Electron shell instead of the standalone server.
 
