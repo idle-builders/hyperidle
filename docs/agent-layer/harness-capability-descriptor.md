@@ -2,7 +2,7 @@
 
 A **harness capability descriptor** is the Kernel-owned, queryable declaration of what one registered harness backend can run and how downstream consumers may configure and interpret it. Descriptors are evidence-first: a field may only claim a capability backed by real source research or a passing real integration test. Unproven claims use `unknown`, `unavailable`, or are absent.
 
-The descriptor exposes models, access mode, auth action, discovery state, runtime capabilities, inherited tools, and event normalization commitments — without leaking API keys, base URLs, or provider subscription tokens (route tests assert this: `layers/core-api/src/routes/__tests__/AM2-harness-capabilities.integration.test.ts`).
+The descriptor exposes models, access mode, auth action, discovery state, runtime capabilities, and event normalization commitments — without leaking API keys, base URLs, or provider subscription tokens (route tests assert this: `layers/core-api/src/routes/__tests__/AM2-harness-capabilities.integration.test.ts`). It describes the harness only: what an agent may **reach** is a separate concept owned by the [Connection model](../architecture/connection-model.md) — the descriptor carries no reach field (AU36).
 
 ```ts
 // framework/harness-capability/src/harness/harness-capability-descriptor.ts (authoritative)
@@ -16,20 +16,20 @@ interface HarnessCapabilityDescriptor {
   models: readonly HarnessModelDescriptor[];
   runtime: HarnessRuntimeCapabilities;
   modelProviders: readonly string[];
-  inheritedTools?: readonly InheritedToolDescriptor[];  // AN1 — identity only, never tokens
 }
 ```
 
-Two additive fields postdate the original AM2 shape:
+One additive field postdates the original AM2 shape:
 
 - **`discovery.disabled?: boolean`** (AM4) — stamped by the route handler (not the pool, which is DB-free) from `server_config.harnessDisabled`. `builtin` is always exempt. See [Enable/Disable](#enabledisable-and-adapterpoolselect).
-- **`inheritedTools?`** (AN1) — tools the harness/environment is already configured with. Identity only: name + kind (`mcp-server` | `cli`) + source harness + health. No secret, token, env, or command can appear — enforced at the type level. The held/inherited Connection split lives in [connection-model](../architecture/connection-model.md).
+
+`inheritedTools?` (AN1) was DELETED by AU36 — reach moved into the connections domain (`InheritedConnectionFact`, probed and cached by `@hyperidle/connections`). No compatibility field remains. The held/inherited Connection split lives in [connection-model](../architecture/connection-model.md).
 
 ---
 
 ## Discovery and Readiness States
 
-`discoverLocalHarnesses()` (`layers/agent-execution/harness-registry/src/harness-discovery.ts`) probes the five known families concurrently (`Promise.all`). Probes run version and auth-status commands, and (since AN1) read harness config files for MCP server **names** — never provider credential files, never token values.
+`discoverLocalHarnesses()` (`layers/agent-execution/harness-registry/src/harness-discovery.ts`) probes the five known families concurrently (`Promise.all`). Probes run version and auth-status commands — never provider credential files, never token values. (The harness-config MCP-name probes AN1 added here moved to the connections domain under AU36 — see the [Connection model](../architecture/connection-model.md) reach seam.)
 
 | State | Meaning |
 |---|---|
@@ -38,15 +38,6 @@ Two additive fields postdate the original AM2 shape:
 | `unauthenticated` | Binary present; user must run the CLI login flow |
 | `ready` | Binary present and authenticated (or credential present for builtin) |
 | `unavailable` | Cannot be used; explicit reason provided |
-
-### Inherited-tool enumeration (AN1)
-
-Discovery also enumerates tools each harness already carries — names and health only:
-
-- **claude-code:** `claude mcp list` (reads `.mcp.json` project scope)
-- **codex:** `[mcp_servers.<name>]` table keys in `$CODEX_HOME/config.toml` (default `~/.codex/config.toml`)
-- **opencode:** `mcp` keys in `$XDG_CONFIG_HOME/opencode/opencode.jsonc`
-- **environment:** `gh auth status --json hosts` (GitHub CLI; JSON output carries no token values)
 
 ---
 
@@ -199,7 +190,7 @@ The route handler (`layers/core-api/src/routes/harnesses.ts`):
 
 ### `POST /api/harnesses/redetect` → `HarnessCapabilityDescriptor[]`
 
-Re-runs `discoverLocalHarnesses()` server-side, refreshes the pool's discovery snapshot, stamps `discovery.disabled`, and returns the fresh list.
+Re-runs `discoverLocalHarnesses()` server-side, refreshes the pool's discovery snapshot, stamps `discovery.disabled`, and returns the fresh list. Since AU36 the same moment also refreshes inherited reach (the Application wires the connections domain's `inheritedReach.refresh` via `onHarnessRedetect`, awaited alongside the discovery refresh before the response returns).
 
 - Auth boundary: `requireBoundary({ kind: "public-data" })` — same as GET.
 - Rate limit: dedicated `createRateLimiter({ limit: 1, windowMs: 5000 })` scoped to this route (`layers/core-api/src/routes/harnesses.ts`), not the global limiter. Excess returns 429. Rationale: discovery spawns ~10 `execFile` probes each with a 15s timeout — fork-bomb amplification guard.
