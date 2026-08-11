@@ -8,7 +8,7 @@
  * already-drained payload, ZERO orchestration -> core read.
  */
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
-import { expect, test, type ScopedIds } from "@hyperidle/db/test-fixtures";
+import { expect, type ScopedIds, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import { createSessionRequest } from "@hyperidle/session-requests";
 import { describe, vi } from "vitest";
@@ -20,9 +20,13 @@ async function seedTaskFixture(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	await db
 		.insert(teams)
 		.values({ id: ids("team-1"), name: "Team", phase: "build", createdAt: now });
-	await db
-		.insert(teamMembers)
-		.values({ id: ids("member-1"), teamId: ids("team-1"), capacity: 3, activeBets: 0, formedAt: now });
+	await db.insert(teamMembers).values({
+		id: ids("member-1"),
+		teamId: ids("team-1"),
+		capacity: 3,
+		activeBets: 0,
+		formedAt: now,
+	});
 	await db.insert(users).values({
 		id: ids("agent-1"),
 		kind: "ai",

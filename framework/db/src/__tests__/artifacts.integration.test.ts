@@ -1,8 +1,8 @@
 // L3 RED — Drizzle schema tests for the `artifacts` table.
 // Source of truth: plans/L3/architecture.md §4.1, §12.
 
-import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import type { ScopedIds } from "@hyperidle/db/test-fixtures";
+import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import type { HyperIdleDb } from "../connection.js";
 // @lore U1: `products` renamed to `teams`; old `teams` (membership) renamed to `teamMembers`.
@@ -65,7 +65,10 @@ describe("L3 artifacts schema", () => {
 			createdAt: NOW,
 		});
 
-		const rows = await db.select().from(artifacts).where(eq(artifacts.id, ids("art1")));
+		const rows = await db
+			.select()
+			.from(artifacts)
+			.where(eq(artifacts.id, ids("art1")));
 		expect(rows).toHaveLength(1);
 		expect(rows[0]?.kind).toBe("code");
 		expect(rows[0]?.producingTaskId).toBe(taskId);

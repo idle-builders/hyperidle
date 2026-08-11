@@ -13,7 +13,7 @@
  */
 
 import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
-import { describe, expect, test, type ScopedIds } from "@hyperidle/db/test-fixtures";
+import { describe, expect, type ScopedIds, test } from "@hyperidle/db/test-fixtures";
 import { eq, inArray } from "drizzle-orm";
 import { requestRunStopForTasks } from "../request-run-stop-for-tasks.js";
 
@@ -108,14 +108,14 @@ describe("requestRunStopForTasks", () => {
 		const stopped = await requestRunStopForTasks(db, [ids("task-a")], { reason: "bet_killed" });
 
 		expect(stopped).toEqual([{ taskId: ids("task-a"), sessionId: ids("run-a") }]);
-		const [other] = await db.select().from(sessions).where(eq(sessions.id, ids("run-other")));
+		const [other] = await db
+			.select()
+			.from(sessions)
+			.where(eq(sessions.id, ids("run-other")));
 		expect(other?.state).toBe("active");
 	});
 
-	test("is idempotent — an already-stopped run is not in the returned set", async ({
-		db,
-		ids,
-	}) => {
+	test("is idempotent — an already-stopped run is not in the returned set", async ({ db, ids }) => {
 		await seed(db, ids);
 		await seedRun(db, ids, "run-a", "task-a", "active");
 
@@ -133,7 +133,10 @@ describe("requestRunStopForTasks", () => {
 		await seedRun(db, ids, "run-a", "task-a", "active");
 
 		expect(await requestRunStopForTasks(db, [], { reason: "bet_killed" })).toEqual([]);
-		const [row] = await db.select().from(sessions).where(eq(sessions.id, ids("run-a")));
+		const [row] = await db
+			.select()
+			.from(sessions)
+			.where(eq(sessions.id, ids("run-a")));
 		expect(row?.state).toBe("active");
 	});
 });

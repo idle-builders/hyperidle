@@ -65,7 +65,10 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 
 			await db.insert(users).values(aiUser);
 
-			const rows = await db.select().from(users).where(eq(users.id, ids("u-test-ai")));
+			const rows = await db
+				.select()
+				.from(users)
+				.where(eq(users.id, ids("u-test-ai")));
 			expect(rows[0]).toBeDefined();
 			expect(rows[0]).toMatchObject({ kind: "ai" });
 		});
@@ -83,7 +86,10 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 
 			await db.insert(users).values(humanUser);
 
-			const rows = await db.select().from(users).where(eq(users.id, ids("u-founder")));
+			const rows = await db
+				.select()
+				.from(users)
+				.where(eq(users.id, ids("u-founder")));
 			expect(rows[0]).toBeDefined();
 			// role column is text — "founder" is valid even though it is not in USER_ROLES union
 			expect(rows[0]).toMatchObject({ kind: "human", role: "founder" });
@@ -122,7 +128,10 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 
 			await db.insert(users).values(aiUser);
 
-			const rows = await db.select().from(users).where(eq(users.id, ids("u-ai-no-email")));
+			const rows = await db
+				.select()
+				.from(users)
+				.where(eq(users.id, ids("u-ai-no-email")));
 			expect(rows[0]).toBeDefined();
 			expect(rows[0]).toMatchObject({ email: null, avatarUrl: null });
 		});
@@ -141,7 +150,10 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 
 			await db.insert(users).values(humanUser);
 
-			const rows = await db.select().from(users).where(eq(users.id, ids("u-human-with-profile")));
+			const rows = await db
+				.select()
+				.from(users)
+				.where(eq(users.id, ids("u-human-with-profile")));
 			expect(rows[0]).toBeDefined();
 			expect(rows[0]).toMatchObject({
 				email: "human@example.com",

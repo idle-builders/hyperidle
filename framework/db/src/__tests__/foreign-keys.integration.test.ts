@@ -37,9 +37,13 @@ describe("I3: FK actions — RESTRICT on reference data", () => {
 	// @lore U1: `products` renamed to `teams`; `teams` (membership) renamed to `teamMembers`.
 	test("rejects deleting a team while a teamMembers row references it", async ({ db, ids }) => {
 		await db.insert(teams).values({ id: ids("p1"), name: "P", phase: "build", createdAt: NOW });
-		await db
-			.insert(teamMembers)
-			.values({ id: ids("p1-members"), teamId: ids("p1"), capacity: 5, activeBets: 0, formedAt: NOW });
+		await db.insert(teamMembers).values({
+			id: ids("p1-members"),
+			teamId: ids("p1"),
+			capacity: 5,
+			activeBets: 0,
+			formedAt: NOW,
+		});
 		// teamMembers.team_id → teams.id must block
 		await expect(db.delete(teams).where(eq(teams.id, ids("p1")))).rejects.toThrow();
 	});
@@ -49,9 +53,13 @@ describe("I3: FK actions — RESTRICT on reference data", () => {
 		// The team is an arranged entity, so it arrives with its membership companion (no arranged
 		// entity stays partial) — but that companion's own RESTRICT FK would then be a second
 		// sufficient cause of the rejection this test asserts, over-determining it.
-		await db
-			.insert(teamMembers)
-			.values({ id: ids("p1-members"), teamId: ids("p1"), capacity: 5, activeBets: 0, formedAt: NOW });
+		await db.insert(teamMembers).values({
+			id: ids("p1-members"),
+			teamId: ids("p1"),
+			capacity: 5,
+			activeBets: 0,
+			formedAt: NOW,
+		});
 		await db.insert(bets).values({
 			id: ids("b1"),
 			teamId: ids("p1"),

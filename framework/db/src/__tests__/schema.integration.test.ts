@@ -86,7 +86,10 @@ describe("A2: Database Schema", () => {
 				formedAt: now,
 			});
 
-			const result = await db.select().from(teams).where(eq(teams.id, ids("prod-1")));
+			const result = await db
+				.select()
+				.from(teams)
+				.where(eq(teams.id, ids("prod-1")));
 
 			expect(result[0]).toMatchObject({
 				id: ids("prod-1"),
@@ -106,7 +109,10 @@ describe("A2: Database Schema", () => {
 				createdAt: now,
 			});
 
-			const result = await db.select().from(users).where(eq(users.id, ids("agent-1")));
+			const result = await db
+				.select()
+				.from(users)
+				.where(eq(users.id, ids("agent-1")));
 
 			expect(result[0]).toMatchObject({
 				id: ids("agent-1"),
@@ -166,7 +172,10 @@ describe("A2: Database Schema", () => {
 				createdAt: now,
 			});
 
-			const result = await db.select().from(bets).where(eq(bets.id, ids("bet-1")));
+			const result = await db
+				.select()
+				.from(bets)
+				.where(eq(bets.id, ids("bet-1")));
 
 			expect(result[0]).toMatchObject({
 				id: ids("bet-1"),
@@ -207,7 +216,10 @@ describe("A2: Database Schema", () => {
 				updatedAt: now,
 			});
 
-			const result = await db.select().from(tasks).where(eq(tasks.id, ids("task-1")));
+			const result = await db
+				.select()
+				.from(tasks)
+				.where(eq(tasks.id, ids("task-1")));
 
 			expect(result[0]).toMatchObject({
 				id: ids("task-1"),
@@ -252,7 +264,10 @@ describe("A2: Database Schema", () => {
 				.set({ state: "in_progress", updatedAt: new Date().toISOString() })
 				.where(eq(tasks.id, ids("task-1")));
 
-			const result = await db.select().from(tasks).where(eq(tasks.id, ids("task-1")));
+			const result = await db
+				.select()
+				.from(tasks)
+				.where(eq(tasks.id, ids("task-1")));
 			expect(result[0]?.state).toBe("in_progress");
 		});
 
@@ -303,7 +318,10 @@ describe("A2: Database Schema", () => {
 				state: "active",
 			});
 
-			const result = await db.select().from(sessions).where(eq(sessions.id, ids("sess-1")));
+			const result = await db
+				.select()
+				.from(sessions)
+				.where(eq(sessions.id, ids("sess-1")));
 			expect(result[0]).toMatchObject({
 				id: ids("sess-1"),
 				taskId: ids("task-1"),
@@ -344,7 +362,10 @@ describe("A2: Database Schema", () => {
 				active: true,
 			});
 
-			const result = await db.select().from(routines).where(eq(routines.id, ids("routine-1")));
+			const result = await db
+				.select()
+				.from(routines)
+				.where(eq(routines.id, ids("routine-1")));
 			expect(result[0]).toMatchObject({
 				id: ids("routine-1"),
 				ownerAgentId: ids("agent-1"),
@@ -394,7 +415,10 @@ describe("A2: Database Schema", () => {
 				createdAt: now,
 			});
 
-			const result = await db.select().from(messages).where(eq(messages.id, ids("msg-1")));
+			const result = await db
+				.select()
+				.from(messages)
+				.where(eq(messages.id, ids("msg-1")));
 			expect(result[0]).toMatchObject({
 				id: ids("msg-1"),
 				senderId: ids("agent-1"),
@@ -445,7 +469,10 @@ describe("A2: Database Schema", () => {
 				createdAt: now,
 			});
 
-			const item = await db.select().from(items).where(eq(items.id, ids("item-1")));
+			const item = await db
+				.select()
+				.from(items)
+				.where(eq(items.id, ids("item-1")));
 			expect(item[0]).toMatchObject({
 				id: ids("item-1"),
 				kind: "review",
@@ -463,7 +490,10 @@ describe("A2: Database Schema", () => {
 				createdAt: now,
 			});
 
-			const resp = await db.select().from(messages).where(eq(messages.id, ids("resp-1")));
+			const resp = await db
+				.select()
+				.from(messages)
+				.where(eq(messages.id, ids("resp-1")));
 			expect(resp[0]).toMatchObject({
 				id: ids("resp-1"),
 				type: "verdict",

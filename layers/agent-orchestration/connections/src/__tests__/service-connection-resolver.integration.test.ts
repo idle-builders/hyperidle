@@ -24,7 +24,7 @@
 
 import { encryptCredentialValue } from "@hyperidle/credential-access";
 import { type HyperIdleDb, serviceConnections, users } from "@hyperidle/db";
-import { test, type ScopedIds } from "@hyperidle/db/test-fixtures";
+import { type ScopedIds, test } from "@hyperidle/db/test-fixtures";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { ServiceConnectionResolver } from "../service-connection-resolver.js";
 

@@ -5,7 +5,7 @@ import {
 	type HyperIdleDb,
 	users,
 } from "@hyperidle/db";
-import { expect, test, type ScopedIds } from "@hyperidle/db/test-fixtures";
+import { expect, type ScopedIds, test } from "@hyperidle/db/test-fixtures";
 import { eq, inArray } from "drizzle-orm";
 import { describe } from "vitest";
 import {

@@ -98,10 +98,7 @@ describe("P5 AC1: hint_progress table", () => {
 	});
 
 	// AC1d: Delete user cascades to hint_progress rows
-	test("cascades deletion of hint_progress rows when the user is deleted", async ({
-		db,
-		ids,
-	}) => {
+	test("cascades deletion of hint_progress rows when the user is deleted", async ({ db, ids }) => {
 		await seedUser(db, ids("user-cascade"));
 
 		await db

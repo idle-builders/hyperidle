@@ -120,7 +120,10 @@ describe("session request schema", () => {
 			})
 			.where(eq(agentSessionRequests.id, ids("req-1")));
 
-		const [row] = await db.select().from(sessions).where(eq(sessions.id, ids("session-1")));
+		const [row] = await db
+			.select()
+			.from(sessions)
+			.where(eq(sessions.id, ids("session-1")));
 		expect(row?.taskId).toBeNull();
 		expect(row?.requestId).toBe(ids("req-1"));
 		expect(row?.sourceKind).toBe("assistant");

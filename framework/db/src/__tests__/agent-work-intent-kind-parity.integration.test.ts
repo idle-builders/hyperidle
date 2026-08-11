@@ -15,8 +15,8 @@
  * this test fails, proving the two sets can't silently drift apart.
  */
 
-import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import type { ScopedIds } from "@hyperidle/db/test-fixtures";
+import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { AGENT_WORK_INTENT_KINDS, type AgentWorkIntentKind } from "@hyperidle/domain-model";
 import type { HyperIdleDb } from "../connection.js";
 import { agentWorkIntents } from "../schema.js";

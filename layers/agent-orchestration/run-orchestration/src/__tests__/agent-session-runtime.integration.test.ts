@@ -34,9 +34,13 @@ describe("agent session runtime consumer", () => {
 		await db
 			.insert(teams)
 			.values({ id: ids("team-1"), name: "Team", phase: "build", createdAt: now });
-		await db
-			.insert(teamMembers)
-			.values({ id: ids("member-1"), teamId: ids("team-1"), capacity: 3, activeBets: 0, formedAt: now });
+		await db.insert(teamMembers).values({
+			id: ids("member-1"),
+			teamId: ids("team-1"),
+			capacity: 3,
+			activeBets: 0,
+			formedAt: now,
+		});
 		await db.insert(users).values({
 			id: ids("agent-1"),
 			kind: "ai",
@@ -117,9 +121,13 @@ describe("agent session runtime consumer", () => {
 		await db
 			.insert(teams)
 			.values({ id: ids("team-1"), name: "Team", phase: "build", createdAt: now });
-		await db
-			.insert(teamMembers)
-			.values({ id: ids("member-1"), teamId: ids("team-1"), capacity: 3, activeBets: 0, formedAt: now });
+		await db.insert(teamMembers).values({
+			id: ids("member-1"),
+			teamId: ids("team-1"),
+			capacity: 3,
+			activeBets: 0,
+			formedAt: now,
+		});
 		await db.insert(users).values({
 			id: ids("agent-1"),
 			kind: "ai",

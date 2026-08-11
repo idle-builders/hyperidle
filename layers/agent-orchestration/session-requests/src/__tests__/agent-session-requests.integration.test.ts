@@ -517,10 +517,7 @@ describe("agent session request repository", () => {
 		expect(rows).toHaveLength(1);
 	});
 
-	test("parameterized reads preserve payloads and source/running filters", async ({
-		db,
-		ids,
-	}) => {
+	test("parameterized reads preserve payloads and source/running filters", async ({ db, ids }) => {
 		const request = await createAssistantRequest(db, ids("reads"), '{"mode":"deep"}');
 		expect((await findSessionRequest(db, { by: "id", requestId: request.id }))?.payloadJson).toBe(
 			'{"mode":"deep"}',

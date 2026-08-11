@@ -42,7 +42,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { describe, expect, test, type ScopedIds } from "@hyperidle/db/test-fixtures";
+import { describe, expect, type ScopedIds, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import { afterEach, beforeEach, vi } from "vitest";
 import { bootAgentOrchestration } from "../boot.js";
@@ -59,9 +59,12 @@ afterEach(() => {
 });
 
 async function seed(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
-	await db
-		.insert(teams)
-		.values({ id: ids("team-au26-c1"), name: "AU26 C1", phase: "build", createdAt: OWNER_CREATED_AT });
+	await db.insert(teams).values({
+		id: ids("team-au26-c1"),
+		name: "AU26 C1",
+		phase: "build",
+		createdAt: OWNER_CREATED_AT,
+	});
 	await db.insert(teamMembers).values({
 		id: ids("tm-au26-c1"),
 		teamId: ids("team-au26-c1"),
@@ -189,10 +192,7 @@ describe("bootAgentOrchestration wires the real session-provisioning ports", () 
 		ids,
 	}) => {
 		await seed(db, ids);
-		const { agentOrchestration, agentExecution } = await bootOrchestrationWithProvisioning(
-			db,
-			ids,
-		);
+		const { agentOrchestration, agentExecution } = await bootOrchestrationWithProvisioning(db, ids);
 		try {
 			expect(agentOrchestration.provisioning?.serviceConnectionResolver).toBeInstanceOf(
 				ServiceConnectionResolver,
@@ -224,10 +224,7 @@ describe("bootAgentOrchestration wires the real session-provisioning ports", () 
 		ids,
 	}) => {
 		await seed(db, ids);
-		const { agentOrchestration, agentExecution } = await bootOrchestrationWithProvisioning(
-			db,
-			ids,
-		);
+		const { agentOrchestration, agentExecution } = await bootOrchestrationWithProvisioning(db, ids);
 		try {
 			const rows =
 				(await agentOrchestration.provisioning?.heldConnections?.listHeldForProvisioning()) ?? [];
@@ -267,10 +264,7 @@ describe("bootAgentOrchestration wires the real session-provisioning ports", () 
 		ids,
 	}) => {
 		await seed(db, ids);
-		const { agentOrchestration, agentExecution } = await bootOrchestrationWithProvisioning(
-			db,
-			ids,
-		);
+		const { agentOrchestration, agentExecution } = await bootOrchestrationWithProvisioning(db, ids);
 		try {
 			const injected =
 				(await agentOrchestration.provisioning?.injectedFilesystems.listInjectedForProvisioning(

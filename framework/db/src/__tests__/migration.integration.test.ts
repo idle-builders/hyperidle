@@ -81,7 +81,10 @@ describe("A2: Migration", () => {
 			formedAt: now,
 		});
 
-		const result = await db.select().from(teams).where(eq(teams.id, ids("test-prod")));
+		const result = await db
+			.select()
+			.from(teams)
+			.where(eq(teams.id, ids("test-prod")));
 		expect(result).toHaveLength(1);
 		expect(result[0]).toMatchObject({ id: ids("test-prod"), name: "Test" });
 	});

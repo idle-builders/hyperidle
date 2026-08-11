@@ -45,7 +45,10 @@ async function insertAgent(
 }
 
 describe("agent run config store", () => {
-	test("an agent with no config row resolves the all-null effective config", async ({ db, ids }) => {
+	test("an agent with no config row resolves the all-null effective config", async ({
+		db,
+		ids,
+	}) => {
 		await insertAgent(db, ids("a-none"));
 
 		const config = await readAgentRunConfig(db, ids("a-none"));
@@ -175,15 +178,21 @@ describe("team run config defaults store", () => {
 			defaultModelId: null,
 			defaultModelProvider: null,
 		});
-		expect(await readTeamRunConfigDefaults(db, ids("t-none"))).toEqual(EMPTY_TEAM_RUN_CONFIG_DEFAULTS);
+		expect(await readTeamRunConfigDefaults(db, ids("t-none"))).toEqual(
+			EMPTY_TEAM_RUN_CONFIG_DEFAULTS,
+		);
 	});
 
 	test("team defaults round-trip verbatim", async ({ db, ids }) => {
 		await db.insert(teams).values({ id: ids("t-set"), name: "T", phase: "build", createdAt: NOW });
 		// The owner writes the membership row alongside the team.
-		await db
-			.insert(teamMembers)
-			.values({ id: ids("t-set-members"), teamId: ids("t-set"), capacity: 5, activeBets: 0, formedAt: NOW });
+		await db.insert(teamMembers).values({
+			id: ids("t-set-members"),
+			teamId: ids("t-set"),
+			capacity: 5,
+			activeBets: 0,
+			formedAt: NOW,
+		});
 
 		await writeTeamRunConfigDefaults(db, ids("t-set"), {
 			defaultHarnessType: "codex",

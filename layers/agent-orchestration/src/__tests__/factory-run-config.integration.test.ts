@@ -105,9 +105,7 @@ describe("applyFactoryRunConfigDefaults — first-boot run-config state (AU29 AC
 			maxConcurrentSessions: 3,
 		});
 
-		await applyFactoryRunConfigDefaults(db, [
-			{ id: ids("agent-upgrade"), role: "facilitator" },
-		]);
+		await applyFactoryRunConfigDefaults(db, [{ id: ids("agent-upgrade"), role: "facilitator" }]);
 
 		const [row] = await db
 			.select()

@@ -21,7 +21,7 @@
  */
 
 import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
-import { describe, expect, test, type ScopedIds } from "@hyperidle/db/test-fixtures";
+import { describe, expect, type ScopedIds, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import { endRunForHandoff } from "../end-run-for-handoff.js";
 
@@ -72,7 +72,10 @@ describe("endRunForHandoff", () => {
 
 		await endRunForHandoff(db, ids("session-1"), ENDED_AT);
 
-		const [row] = await db.select().from(sessions).where(eq(sessions.id, ids("session-1")));
+		const [row] = await db
+			.select()
+			.from(sessions)
+			.where(eq(sessions.id, ids("session-1")));
 		expect(row?.state).toBe("done");
 		expect(row?.endedAt).toBe(ENDED_AT);
 		// A handoff records no session-end outcome — that is what keeps the
@@ -85,7 +88,10 @@ describe("endRunForHandoff", () => {
 
 		await endRunForHandoff(db, ids("session-1"), ENDED_AT);
 
-		const [row] = await db.select().from(sessions).where(eq(sessions.id, ids("session-1")));
+		const [row] = await db
+			.select()
+			.from(sessions)
+			.where(eq(sessions.id, ids("session-1")));
 		expect(row?.state).toBe("done");
 		expect(row?.endedAt).toBe(ENDED_AT);
 	});
@@ -100,7 +106,10 @@ describe("endRunForHandoff", () => {
 			}),
 		).rejects.toThrow("caller aborted after the run-end write");
 
-		const [row] = await db.select().from(sessions).where(eq(sessions.id, ids("session-1")));
+		const [row] = await db
+			.select()
+			.from(sessions)
+			.where(eq(sessions.id, ids("session-1")));
 		expect(row?.state).toBe("active");
 		expect(row?.endedAt).toBeNull();
 	});

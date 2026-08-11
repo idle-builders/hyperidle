@@ -112,7 +112,10 @@ describe("P2 — org_edges table (AC5)", () => {
 
 			await db.insert(orgEdges).values(edge);
 
-			const rows = await db.select().from(orgEdges).where(eq(orgEdges.id, ids("edge-1")));
+			const rows = await db
+				.select()
+				.from(orgEdges)
+				.where(eq(orgEdges.id, ids("edge-1")));
 			const row = rows[0];
 			expect(row).toBeDefined();
 			expect((row as OrgEdge).fromUserId).toBe(ids("u-human-1"));
@@ -133,7 +136,10 @@ describe("P2 — org_edges table (AC5)", () => {
 
 			await db.insert(orgEdges).values(edge);
 
-			const rows = await db.select().from(orgEdges).where(eq(orgEdges.id, ids("edge-func-1")));
+			const rows = await db
+				.select()
+				.from(orgEdges)
+				.where(eq(orgEdges.id, ids("edge-func-1")));
 			expect(rows[0]).toMatchObject({ mechanism: "function", target: "builder" });
 		});
 
@@ -150,7 +156,10 @@ describe("P2 — org_edges table (AC5)", () => {
 
 			await db.insert(orgEdges).values(edge);
 
-			const rows = await db.select().from(orgEdges).where(eq(orgEdges.id, ids("edge-team-1")));
+			const rows = await db
+				.select()
+				.from(orgEdges)
+				.where(eq(orgEdges.id, ids("edge-team-1")));
 			expect(rows[0]).toMatchObject({ mechanism: "team", target: "team-alpha" });
 		});
 

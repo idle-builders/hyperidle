@@ -17,7 +17,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
-import { expect, test, type ScopedIds } from "@hyperidle/db/test-fixtures";
+import { expect, type ScopedIds, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import type { SessionConfig } from "@hyperidle/harness-protocol";
 import { afterEach, describe, vi } from "vitest";

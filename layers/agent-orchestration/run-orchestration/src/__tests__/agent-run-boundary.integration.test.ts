@@ -1,6 +1,6 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { agentSessionRequests, bets, tasks, teamMembers, teams, users } from "@hyperidle/db";
-import { expect, test, type ScopedIds } from "@hyperidle/db/test-fixtures";
+import { expect, type ScopedIds, test } from "@hyperidle/db/test-fixtures";
 import type { AgentSessionRequestInput } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import { createSessionRequest } from "@hyperidle/session-requests";
