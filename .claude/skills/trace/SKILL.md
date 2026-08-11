@@ -48,7 +48,9 @@ Output lists each matching door/subscriber with the `via` reason (`seam …`, `e
 
 - **Absence of evidence ≠ evidence of absence.** A `no door references X` answer means the graph didn't find a path — reflection, string-built calls, and DB-config-driven dispatch are invisible.
 - **DB-config event subscriptions are not traced.** Routines with `triggerType:"event"` subscribe to whatever their `triggerConfig.eventType` row says — that's runtime data, not code. The tick door is visible; the event it subscribes to is not.
-- **Wildcard subscribers (`on("*")`) are listed but not expanded** through — they react to everything, so expanding them would match everything. (AU39 redesigns this.)
+- **Worker-protocol message doors are listed but not traced through** — their handler bodies are not fingerprinted, so `trace-uses` cannot attribute anything through a worker message.
+- **Wildcard subscribers (`on("*")`) are listed but not expanded** through — they react to everything, so expanding them would match everything.
+- **Deep call chains are capped** — the fingerprint walk stops at depth 4; a symbol reached only through a deeper chain can read as unused.
 - **DI resolution is an over-approximation** — a deps-bag method name shared by several bags follows up to 3 bindings. Precise where names are specific (they mostly are); treat a surprising match as "verify the wiring," not proof.
 - The graph reflects **production** files only (test/spec/`__` files excluded).
 
