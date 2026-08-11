@@ -100,7 +100,6 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/__tests__/write-memory.integration.test.ts`
 - `layers/core-api/src/__tests__/write-session-notes.integration.test.ts`
 - `layers/core-api/src/__tests__/ws-subscribe-authz.integration.test.ts`
-- `layers/core-api/src/routes/__tests__/AF11-authz.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/knowledge.q2.integration.test.ts`
 - `layers/core-api/src/services/__tests__/agent-orchestration-port-writes.integration.test.ts`
 - `layers/core-api/src/services/__tests__/agent-run-admission-failed-knowledge-action-migration.integration.test.ts`
@@ -156,7 +155,6 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/__tests__/users.integration.test.ts`
 - `layers/core-api/src/__tests__/write-memory.integration.test.ts`
 - `layers/core-api/src/bootstrap/__tests__/factory-state.integration.test.ts`
-- `layers/core-api/src/routes/__tests__/AF11-authz.integration.test.ts`
 - `layers/core-api/src/services/__tests__/agent-run-admission-failed-knowledge-action-migration.integration.test.ts`
 - `layers/core-api/src/services/__tests__/agent-run-admission-failed-subscribers.integration.test.ts`
 - `layers/core-api/src/services/__tests__/agent-session-request-sources.integration.test.ts`

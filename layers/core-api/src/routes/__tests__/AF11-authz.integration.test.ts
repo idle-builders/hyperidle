@@ -12,8 +12,11 @@
  * AC5: Scope enforcement — participant-scope routes reject cross-principal access.
  */
 
+import { CORE_API_ACTOR_OVERRIDE_HEADER } from "@hyperidle/api-contract";
 import { serverConfig, threads, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { AdapterPool } from "@hyperidle/harness-registry";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 import { registerWorkerTestSocket, startWorkerTestRuntime } from "./worker-runtime-test-helper.js";
@@ -31,12 +34,30 @@ async function createWorkerConnectionManager(pool: AdapterPool) {
 const TEST_API_KEY = "test-key-af11-authz";
 const TEST_SERVER_SECRET = "a-test-secret-for-af11-encryption-32x";
 
+/**
+ * @lore AU38 P10: server_config's production-fixed singleton row id. Named
+ * constant (not ids()) because it cannot be scoped per test — same class as
+ * the server_credentials catalog names.
+ */
+const SERVER_CONFIG_DEFAULT_ID = "default";
+
 function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
 	return {
 		"X-API-Key": TEST_API_KEY,
 		"Content-Type": "application/json",
 		...extra,
 	};
+}
+
+/**
+ * @lore AU38: AF11's original strategy — "seed exactly one kind='human' user
+ * so the middleware resolves that one as principal" — is nondeterministic in a
+ * populated world (other tests' humans exist). These tests pin the principal
+ * via the production CORE_API_ACTOR_OVERRIDE_HEADER seam instead; the
+ * anti-spoof property under test is unchanged (principal vs X-Identity/body).
+ */
+function actorHeaders(actorId: string, extra: Record<string, string> = {}): Record<string, string> {
+	return authHeaders({ [CORE_API_ACTOR_OVERRIDE_HEADER]: actorId, ...extra });
 }
 
 // ---------------------------------------------------------------------------
@@ -52,7 +73,7 @@ describe("AC1: GET /api/threads/:id — participant-scope IDOR guard", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("participant-scope thread: non-participant principal gets 403", async ({ db, app }) => {
+	test("participant-scope thread: non-participant principal gets 403", async ({ db, app, ids }) => {
 		const now = new Date().toISOString();
 
 		// Auth middleware resolves userId = first kind='human' user from DB.
@@ -62,7 +83,7 @@ describe("AC1: GET /api/threads/:id — participant-scope IDOR guard", () => {
 		// @lore AF11: X-Identity header no longer controls the principal post-AF11.
 		// Tests must seed exactly ONE kind='human' user so the resolved principal is deterministic.
 		await db.insert(users).values({
-			id: "u-bob",
+			id: ids("u-bob"),
 			kind: "human",
 			name: "Bob",
 			role: "founder",
@@ -70,7 +91,7 @@ describe("AC1: GET /api/threads/:id — participant-scope IDOR guard", () => {
 			createdAt: now,
 		});
 		await db.insert(users).values({
-			id: "u-alice",
+			id: ids("u-alice"),
 			kind: "ai",
 			name: "Alice",
 			role: "founder",
@@ -80,30 +101,30 @@ describe("AC1: GET /api/threads/:id — participant-scope IDOR guard", () => {
 
 		// Create a participant-scope thread (hostKind=user) with alice only
 		await db.insert(threads).values({
-			id: "thread-alice-only",
+			id: ids("thread-alice-only"),
 			hostKind: "user",
-			hostId: "u-alice",
-			initiatorId: "u-alice",
-			participants: JSON.stringify(["u-alice"]),
+			hostId: ids("u-alice"),
+			initiatorId: ids("u-alice"),
+			participants: JSON.stringify([ids("u-alice")]),
 			pinned: false,
 			createdAt: now,
 			lastActiveAt: now,
 		});
 
-		// Resolved principal is u-bob (not in participants) → must be 403
-		const res = await app.request("/api/threads/thread-alice-only", {
+		// Pinned principal is u-bob (not in participants) → must be 403
+		const res = await app.request(`/api/threads/${ids("thread-alice-only")}`, {
 			method: "GET",
-			headers: authHeaders(),
+			headers: actorHeaders(ids("u-bob")),
 		});
 		expect(res.status).toBe(403);
 	});
 
-	test("participant-scope thread: participant principal gets 200", async ({ db, app }) => {
+	test("participant-scope thread: participant principal gets 200", async ({ db, app, ids }) => {
 		const now = new Date().toISOString();
 
 		await db.insert(users).values([
 			{
-				id: "u-alice2",
+				id: ids("u-alice2"),
 				kind: "human",
 				name: "Alice2",
 				role: "founder",
@@ -113,19 +134,19 @@ describe("AC1: GET /api/threads/:id — participant-scope IDOR guard", () => {
 		]);
 
 		await db.insert(threads).values({
-			id: "thread-alice2-only",
+			id: ids("thread-alice2-only"),
 			hostKind: "user",
-			hostId: "u-alice2",
-			initiatorId: "u-alice2",
-			participants: JSON.stringify(["u-alice2"]),
+			hostId: ids("u-alice2"),
+			initiatorId: ids("u-alice2"),
+			participants: JSON.stringify([ids("u-alice2")]),
 			pinned: false,
 			createdAt: now,
 			lastActiveAt: now,
 		});
 
-		const res = await app.request("/api/threads/thread-alice2-only", {
+		const res = await app.request(`/api/threads/${ids("thread-alice2-only")}`, {
 			method: "GET",
-			headers: authHeaders({ "X-Identity": "u-alice2" }),
+			headers: actorHeaders(ids("u-alice2")),
 		});
 		expect(res.status).toBe(200);
 	});
@@ -133,39 +154,42 @@ describe("AC1: GET /api/threads/:id — participant-scope IDOR guard", () => {
 	test("host-scope thread (task host): any authenticated principal gets 200", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		const now = new Date().toISOString();
 
 		// Import needed tables
 		const { teams, teamMembers, bets, tasks } = await import("@hyperidle/db");
 
-		await db.insert(teams).values({ id: "p-af11", name: "P-AF11", phase: "build", createdAt: now });
+		await db
+			.insert(teams)
+			.values({ id: ids("p-af11"), name: "P-AF11", phase: "build", createdAt: now });
 		await db.insert(teamMembers).values({
-			id: "tm-af11",
-			teamId: "p-af11",
+			id: ids("tm-af11"),
+			teamId: ids("p-af11"),
 			capacity: 5,
 			activeBets: 0,
 			formedAt: now,
 		});
 		await db.insert(bets).values({
-			id: "bet-af11",
-			teamId: "p-af11",
+			id: ids("bet-af11"),
+			teamId: ids("p-af11"),
 			description: "af11 test",
 			appetite: "small",
 			status: "active",
 			createdAt: now,
 		});
 		await db.insert(tasks).values({
-			id: "task-af11",
-			betId: "bet-af11",
-			teamId: "p-af11",
+			id: ids("task-af11"),
+			betId: ids("bet-af11"),
+			teamId: ids("p-af11"),
 			title: "AF11",
 			state: "in_progress",
 			createdAt: now,
 			updatedAt: now,
 		});
 		await db.insert(users).values({
-			id: "u-stranger",
+			id: ids("u-stranger"),
 			kind: "human",
 			name: "Stranger",
 			role: "founder",
@@ -175,26 +199,26 @@ describe("AC1: GET /api/threads/:id — participant-scope IDOR guard", () => {
 
 		// Task-hosted thread — host-scope, any authenticated principal should read it
 		await db.insert(threads).values({
-			id: "thread-task-scope",
+			id: ids("thread-task-scope"),
 			hostKind: "task",
-			hostId: "task-af11",
-			initiatorId: "u-stranger",
-			participants: JSON.stringify(["u-stranger"]),
+			hostId: ids("task-af11"),
+			initiatorId: ids("u-stranger"),
+			participants: JSON.stringify([ids("u-stranger")]),
 			pinned: false,
 			createdAt: now,
 			lastActiveAt: now,
 		});
 
 		// A stranger (not in participants) can still read host-scope thread
-		const res = await app.request("/api/threads/thread-task-scope", {
+		const res = await app.request(`/api/threads/${ids("thread-task-scope")}`, {
 			method: "GET",
-			headers: authHeaders({ "X-Identity": "u-stranger" }),
+			headers: actorHeaders(ids("u-stranger")),
 		});
 		expect(res.status).toBe(200);
 	});
 
-	test("non-existent thread returns 404 (not 403)", async ({ app }) => {
-		const res = await app.request("/api/threads/nonexistent-thread-id", {
+	test("non-existent thread returns 404 (not 403)", async ({ app, ids }) => {
+		const res = await app.request(`/api/threads/${ids("nonexistent-thread-id")}`, {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -218,12 +242,13 @@ describe("AC2: System-prompt — authorization from Principal, not X-Identity he
 	test("GET /api/users/:userId/assistant: X-Identity cannot grant access to another user's assistant", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		const now = new Date().toISOString();
 
 		// Seed user-a (the auth principal) and user-b (the target)
 		await db.insert(users).values({
-			id: "u-authA",
+			id: ids("u-authA"),
 			kind: "human",
 			name: "Auth A",
 			role: "founder",
@@ -231,7 +256,7 @@ describe("AC2: System-prompt — authorization from Principal, not X-Identity he
 			createdAt: now,
 		});
 		await db.insert(users).values({
-			id: "u-targetB",
+			id: ids("u-targetB"),
 			kind: "human",
 			name: "Target B",
 			role: "founder",
@@ -241,9 +266,9 @@ describe("AC2: System-prompt — authorization from Principal, not X-Identity he
 
 		// Auth as u-authA (API key sets userId=u-authA), try to access u-targetB's assistant
 		// with X-Identity: u-targetB header (the live exploit path)
-		const res = await app.request("/api/users/u-targetB/assistant", {
+		const res = await app.request(`/api/users/${ids("u-targetB")}/assistant`, {
 			method: "GET",
-			headers: authHeaders({ "X-Identity": "u-targetB" }),
+			headers: actorHeaders(ids("u-authA"), { "X-Identity": ids("u-targetB") }),
 		});
 
 		// The authenticated principal is u-authA (from API key lookup), not u-targetB
@@ -255,12 +280,13 @@ describe("AC2: System-prompt — authorization from Principal, not X-Identity he
 	test("GET /api/users/:userId/assistant: authenticated as the target user gets 200", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		const now = new Date().toISOString();
 
 		await db.insert(users).values([
 			{
-				id: "u-selfAccess",
+				id: ids("u-selfAccess"),
 				kind: "human",
 				name: "Self",
 				role: "founder",
@@ -270,20 +296,24 @@ describe("AC2: System-prompt — authorization from Principal, not X-Identity he
 		]);
 
 		// Auth as u-selfAccess, access their own assistant (X-Identity matches principal)
-		const res = await app.request("/api/users/u-selfAccess/assistant", {
+		const res = await app.request(`/api/users/${ids("u-selfAccess")}/assistant`, {
 			method: "GET",
-			headers: authHeaders({ "X-Identity": "u-selfAccess" }),
+			headers: actorHeaders(ids("u-selfAccess")),
 		});
 
 		// The principal IS the target — should get 200
 		expect(res.status).toBe(200);
 	});
 
-	test("PATCH /api/users/:userId/assistant: X-Identity spoofing gets 403", async ({ db, app }) => {
+	test("PATCH /api/users/:userId/assistant: X-Identity spoofing gets 403", async ({
+		db,
+		app,
+		ids,
+	}) => {
 		const now = new Date().toISOString();
 
 		await db.insert(users).values({
-			id: "u-patchA",
+			id: ids("u-patchA"),
 			kind: "human",
 			name: "PatchA",
 			role: "founder",
@@ -291,7 +321,7 @@ describe("AC2: System-prompt — authorization from Principal, not X-Identity he
 			createdAt: now,
 		});
 		await db.insert(users).values({
-			id: "u-patchB",
+			id: ids("u-patchB"),
 			kind: "human",
 			name: "PatchB",
 			role: "founder",
@@ -300,9 +330,9 @@ describe("AC2: System-prompt — authorization from Principal, not X-Identity he
 		});
 
 		// Auth as u-patchA, supply X-Identity: u-patchB, target u-patchB's system prompt
-		const res = await app.request("/api/users/u-patchB/assistant", {
+		const res = await app.request(`/api/users/${ids("u-patchB")}/assistant`, {
 			method: "PATCH",
-			headers: authHeaders({ "X-Identity": "u-patchB" }),
+			headers: actorHeaders(ids("u-patchA"), { "X-Identity": ids("u-patchB") }),
 			body: JSON.stringify({ systemPrompt: "Hacked prompt" }),
 		});
 
@@ -357,8 +387,11 @@ describe("AC3: Worker token cannot access credentials or admin routes", () => {
 // AC3c — Duplicate-active-id worker register rejection
 // ---------------------------------------------------------------------------
 
+// @lore AU38: worker ids are scoped — LIVE_WORKER_SOCKETS is module-global
+// state keyed by workerId (architecture §4.4(b)), so literal ids would leak
+// across tests and files.
 describe("AC3c: WorkerConnectionManager — duplicate live id rejection", () => {
-	test("register with already-active id is rejected when incumbent is live", async ({}) => {
+	test("register with already-active id is rejected when incumbent is live", async ({ ids }) => {
 		const pool = new AdapterPool();
 		const ws1Sent: string[] = [];
 		const ws1 = {
@@ -372,7 +405,7 @@ describe("AC3c: WorkerConnectionManager — duplicate live id rejection", () => 
 		manager1.onMessage(
 			JSON.stringify({
 				type: "register",
-				id: "worker-x",
+				id: ids("worker-x"),
 				name: "Worker X",
 				modelProviders: ["anthropic"],
 				maxConcurrent: 2,
@@ -388,7 +421,7 @@ describe("AC3c: WorkerConnectionManager — duplicate live id rejection", () => 
 		manager2.onMessage(
 			JSON.stringify({
 				type: "register",
-				id: "worker-x",
+				id: ids("worker-x"),
 				name: "Worker X Dup",
 				modelProviders: ["anthropic"],
 				maxConcurrent: 2,
@@ -403,7 +436,7 @@ describe("AC3c: WorkerConnectionManager — duplicate live id rejection", () => 
 		expect(rejected?.reason).toBe("id_in_use");
 	});
 
-	test("register with dead-incumbent id is accepted (reconnect)", async ({}) => {
+	test("register with dead-incumbent id is accepted (reconnect)", async ({ ids }) => {
 		const pool = new AdapterPool();
 		// Closed socket (readyState=3: CLOSED)
 		const ws1Sent: string[] = [];
@@ -418,7 +451,7 @@ describe("AC3c: WorkerConnectionManager — duplicate live id rejection", () => 
 		manager1.onMessage(
 			JSON.stringify({
 				type: "register",
-				id: "worker-y",
+				id: ids("worker-y"),
 				name: "Worker Y",
 				modelProviders: [],
 				maxConcurrent: 1,
@@ -432,7 +465,7 @@ describe("AC3c: WorkerConnectionManager — duplicate live id rejection", () => 
 		manager2.onMessage(
 			JSON.stringify({
 				type: "register",
-				id: "worker-y",
+				id: ids("worker-y"),
 				name: "Worker Y Reconnect",
 				modelProviders: [],
 				maxConcurrent: 1,
@@ -465,6 +498,7 @@ describe("AC4: openai-compatible key in server_credentials, not server_config bl
 	test("PATCH /api/model-gateway stores tier config WITHOUT apiKey field in blob", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		// AH1 §2: apiKey is no longer accepted in the model-gateway PATCH (schema change).
 		// The blob must never contain an apiKey field.
@@ -492,7 +526,8 @@ describe("AC4: openai-compatible key in server_credentials, not server_config bl
 		expect(patchRes.status).toBe(200);
 
 		// Read the raw DB row directly — must have no apiKey field in any tier.
-		const rows = await db.select().from(serverConfig);
+		// AU38 R2/P10: server_config is the "default" singleton — scope the read.
+		const rows = await db.select().from(serverConfig).where(eq(serverConfig.id, SERVER_CONFIG_DEFAULT_ID));
 		expect(rows.length).toBe(1);
 
 		const rawConfig = rows[0]?.config ?? "";
@@ -507,6 +542,7 @@ describe("AC4: openai-compatible key in server_credentials, not server_config bl
 
 	test("AH1 migration: legacy apiKey in server_config blob is relocated to server_credentials", async ({
 		db,
+		ids,
 	}) => {
 		const plaintextApiKey = "sk-legacy-plaintext-af11";
 		const now = new Date().toISOString();
@@ -535,7 +571,17 @@ describe("AC4: openai-compatible key in server_credentials, not server_config bl
 			},
 		});
 
-		await db.insert(serverConfig).values({ id: "default", config: rawBlob, updatedAt: now });
+		// AU38 P10: upsert the singleton (another file may hold it), and arrange
+		// the credential's absence so the relocation below owns the row it writes.
+		await db
+			.insert(serverConfig)
+			.values({ id: SERVER_CONFIG_DEFAULT_ID, config: rawBlob, updatedAt: now })
+			.onConflictDoUpdate({ target: serverConfig.id, set: { config: rawBlob, updatedAt: now } });
+		const { serverCredentials: serverCredentialsTable } = await import("@hyperidle/db");
+		const { eq: eqOp } = await import("drizzle-orm");
+		await db
+			.delete(serverCredentialsTable)
+			.where(eqOp(serverCredentialsTable.name, "openai_compatible_api_key"));
 
 		// Run the AH1 migration — relocates blob apiKey to server_credentials.
 		const { migrateCredentialsToStore } = await import("@hyperidle/settings");
@@ -574,7 +620,7 @@ describe("AC4: openai-compatible key in server_credentials, not server_config bl
 		await migrateCredentialsToStore(db, cipher, credentialStore);
 
 		// After migration: blob has no apiKey field.
-		const rows = await db.select().from(serverConfig);
+		const rows = await db.select().from(serverConfig).where(eq(serverConfig.id, SERVER_CONFIG_DEFAULT_ID));
 		const blobRaw = rows[0]?.config ?? "";
 		expect(blobRaw).not.toContain(plaintextApiKey);
 		const blobParsed = JSON.parse(blobRaw) as Record<string, unknown>;
@@ -630,7 +676,7 @@ describe("AC5: Participant-scope routes reject cross-principal access", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("GET /api/users/:id/inbox: non-self principal gets 403", async ({ db, app }) => {
+	test("GET /api/users/:id/inbox: non-self principal gets 403", async ({ db, app, ids }) => {
 		const now = new Date().toISOString();
 
 		// Auth middleware resolves userId = first kind='human' user from DB.
@@ -641,7 +687,7 @@ describe("AC5: Participant-scope routes reject cross-principal access", () => {
 		// @lore AF11: X-Identity header no longer controls the principal post-AF11.
 		// Seed strategy: attacker is kind='human' (resolved), victim is kind='ai'.
 		await db.insert(users).values({
-			id: "u-inbox-other",
+			id: ids("u-inbox-other"),
 			kind: "human",
 			name: "InboxOther",
 			role: "founder",
@@ -649,7 +695,7 @@ describe("AC5: Participant-scope routes reject cross-principal access", () => {
 			createdAt: now,
 		});
 		await db.insert(users).values({
-			id: "u-inbox-owner",
+			id: ids("u-inbox-owner"),
 			kind: "ai",
 			name: "InboxOwner",
 			role: "founder",
@@ -658,9 +704,9 @@ describe("AC5: Participant-scope routes reject cross-principal access", () => {
 		});
 
 		// Resolved principal is u-inbox-other; target inbox is u-inbox-owner's → 403
-		const res = await app.request("/api/users/u-inbox-owner/inbox", {
+		const res = await app.request(`/api/users/${ids("u-inbox-owner")}/inbox`, {
 			method: "GET",
-			headers: authHeaders(),
+			headers: actorHeaders(ids("u-inbox-other")),
 		});
 		expect(res.status).toBe(403);
 	});
@@ -668,25 +714,32 @@ describe("AC5: Participant-scope routes reject cross-principal access", () => {
 	test("host-scope route: bet stays readable by any authenticated principal", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		const now = new Date().toISOString();
 
 		const { teams, teamMembers, bets } = await import("@hyperidle/db");
 
-		await db.insert(teams).values({ id: "p-ac5", name: "P-AC5", phase: "build", createdAt: now });
 		await db
-			.insert(teamMembers)
-			.values({ id: "tm-ac5", teamId: "p-ac5", capacity: 5, activeBets: 0, formedAt: now });
+			.insert(teams)
+			.values({ id: ids("p-ac5"), name: "P-AC5", phase: "build", createdAt: now });
+		await db.insert(teamMembers).values({
+			id: ids("tm-ac5"),
+			teamId: ids("p-ac5"),
+			capacity: 5,
+			activeBets: 0,
+			formedAt: now,
+		});
 		await db.insert(bets).values({
-			id: "bet-ac5",
-			teamId: "p-ac5",
+			id: ids("bet-ac5"),
+			teamId: ids("p-ac5"),
 			description: "AC5 bet",
 			appetite: "small",
 			status: "active",
 			createdAt: now,
 		});
 		await db.insert(users).values({
-			id: "u-ac5-user",
+			id: ids("u-ac5-user"),
 			kind: "human",
 			name: "AC5User",
 			role: "founder",
@@ -694,9 +747,9 @@ describe("AC5: Participant-scope routes reject cross-principal access", () => {
 			createdAt: now,
 		});
 
-		const res = await app.request("/api/bets/bet-ac5", {
+		const res = await app.request(`/api/bets/${ids("bet-ac5")}`, {
 			method: "GET",
-			headers: authHeaders({ "X-Identity": "u-ac5-user" }),
+			headers: actorHeaders(ids("u-ac5-user")),
 		});
 		// Host-scope bets should remain readable (Hard Rule 5 — no over-restriction)
 		expect(res.status).toBe(200);
