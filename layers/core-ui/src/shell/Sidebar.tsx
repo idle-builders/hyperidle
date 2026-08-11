@@ -495,7 +495,7 @@ export function Sidebar({
 	// Shared empty state empty message for non-active sections (shouldn't appear)
 	const emptyMessage = fastNavEmpty[activeView];
 
-	function renderFastNavItems(): JSX.Element {
+	function renderFastNavItems(): JSX.Element | null {
 		if (settingsOpen) {
 			// Settings mode: show "Settings" heading + settings nav items.
 			// @lore P4 AC: "Settings" text in sidebar body appears when settingsOpen=true
@@ -534,8 +534,13 @@ export function Sidebar({
 		}
 
 		if (activeView === "work") {
-			// AD3 AC-1: suppress for 1 team
-			const visibleTeams = teams.length <= 1 ? [] : teams;
+			// AD3 AC-1: suppress the sub-list for a single team — the Work view
+			// short-circuits straight to that team's page, so a one-row list is
+			// noise. Suppressed is not empty: render nothing, not "No teams yet".
+			if (teams.length === 1) {
+				return null;
+			}
+			const visibleTeams = teams;
 			if (visibleTeams.length === 0) {
 				return (
 					<p className="px-[24px] py-[12px] text-[13px] text-[var(--text-tertiary)]">

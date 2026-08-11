@@ -182,6 +182,21 @@ describe("Sidebar — AC-4: Work section team list", () => {
 		expect(screen.queryByText("Alpha Team")).not.toBeInTheDocument();
 	});
 
+	it("single team suppresses the list without showing the empty state (AD3 AC-1)", () => {
+		// A suppressed list is not an empty one: with exactly one team the Work
+		// view short-circuits to that team's page, so the sidebar shows neither
+		// the list nor "No teams yet".
+		const teams = [mkTeam("team-1", "Alpha Team")];
+		render(<Sidebar {...defaultProps} activeView="work" teams={teams} />);
+		expect(screen.queryByText("Alpha Team")).not.toBeInTheDocument();
+		expect(screen.queryByText("No teams yet")).not.toBeInTheDocument();
+	});
+
+	it("shows the empty state only when there are no teams at all", () => {
+		render(<Sidebar {...defaultProps} activeView="work" teams={[]} />);
+		expect(screen.getByText("No teams yet")).toBeInTheDocument();
+	});
+
 	it("calls onSelectTeam with team id when a team sub-item is clicked", async () => {
 		// AD3: 2 teams required — single-team hides the list, so clicking would fail.
 		// The test intent is to verify onSelectTeam fires; use 2 teams to keep the list visible.
