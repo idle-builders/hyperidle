@@ -12,15 +12,27 @@
  *
  * Tests import createTestApp which mounts ALL routes including the new
  * /api/threads/coach route (not yet mounted — will FAIL until green phase).
+ *
+ * @lore AU38: two fixed points here. (1) `seed-agent-cos` is a production
+ * constant (coach.ts COC_AGENT_ID) — it cannot be scoped; the seed uses
+ * onConflictDoNothing so another file's identical row is absorbed. (2) The
+ * route actor is pinned via CORE_API_ACTOR_OVERRIDE_HEADER — in a populated
+ * world "the first human" is whoever any test inserted first, and the
+ * coach-thread-per-user assertions are only scoped when the actor is.
  */
 
+import { CORE_API_ACTOR_OVERRIDE_HEADER } from "@hyperidle/api-contract";
 import { type HyperIdleDb, teamMembers, teams, threads, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { classifyThreadConfiguration } from "@hyperidle/domain-model";
 import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
 const TEST_API_KEY = "test-key-coach";
+
+/** Production-fixed system agent id (coach.ts COC_AGENT_ID) — never scope. */
+const COC_AGENT_ID = "seed-agent-cos";
 
 function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
 	return {
@@ -30,18 +42,25 @@ function authHeaders(extra: Record<string, string> = {}): Record<string, string>
 	};
 }
 
-async function seedBase(db: HyperIdleDb): Promise<void> {
+/** Auth headers carrying an explicit route actor (production override seam). */
+function actorHeaders(actorId: string, extra: Record<string, string> = {}): Record<string, string> {
+	return authHeaders({ [CORE_API_ACTOR_OVERRIDE_HEADER]: actorId, ...extra });
+}
+
+async function seedBase(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	const now = new Date().toISOString();
 
 	// Seed base product/team
-	await db.insert(teams).values({ id: "p1", name: "TestProduct", phase: "build", createdAt: now });
+	await db
+		.insert(teams)
+		.values({ id: ids("p1"), name: "TestProduct", phase: "build", createdAt: now });
 	await db
 		.insert(teamMembers)
-		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+		.values({ id: ids("t1"), teamId: ids("p1"), capacity: 5, activeBets: 0, formedAt: now });
 
 	// Seed founder user
 	await db.insert(users).values({
-		id: "u-founder",
+		id: ids("u-founder"),
 		name: "Founder",
 		role: "founder",
 		status: "active",
@@ -50,7 +69,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 
 	// Seed a second user for X-Identity tests
 	await db.insert(users).values({
-		id: "u-other",
+		id: ids("u-other"),
 		name: "Other User",
 		role: "founder",
 		status: "active",
@@ -62,7 +81,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	// and reviewer feedback use "seed-agent-cos". The coach route constant
 	// must match the real seeded agent id.
 	await db.insert(users).values({
-		id: "seed-agent-cos",
+		id: COC_AGENT_ID,
 		name: "System Agent",
 		role: "assistant",
 		status: "active",
@@ -80,50 +99,53 @@ describe("L21 — GET /api/threads/coach", () => {
 	});
 
 	describe("AC-13: creates coach thread when absent", () => {
-		test("returns 200 on first call even when no coach thread exists", async ({ db, app }) => {
-			await seedBase(db);
+		test("returns 200 on first call even when no coach thread exists", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
 			const res = await app.request("/api/threads/coach", {
 				method: "GET",
-				headers: authHeaders(),
+				headers: actorHeaders(ids("u-founder")),
 			});
 			expect(res.status).toBe(200);
 		});
 
-		test("returns a thread with hostKind='user' on first call", async ({ db, app }) => {
-			await seedBase(db);
+		test("returns a thread with hostKind='user' on first call", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
 			const res = await app.request("/api/threads/coach", {
 				method: "GET",
-				headers: authHeaders(),
+				headers: actorHeaders(ids("u-founder")),
 			});
 			const body = (await res.json()) as { thread: { hostKind: string } };
 			expect(body.thread.hostKind).toBe("user");
 		});
 
-		test("returns a thread with pinned=true on first call", async ({ db, app }) => {
-			await seedBase(db);
+		test("returns a thread with pinned=true on first call", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
 			const res = await app.request("/api/threads/coach", {
 				method: "GET",
-				headers: authHeaders(),
+				headers: actorHeaders(ids("u-founder")),
 			});
 			const body = (await res.json()) as { thread: { pinned: boolean } };
 			expect(body.thread.pinned).toBe(true);
 		});
 
-		test("returns empty messages array on first call (new thread)", async ({ db, app }) => {
-			await seedBase(db);
+		test("returns empty messages array on first call (new thread)", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
 			const res = await app.request("/api/threads/coach", {
 				method: "GET",
-				headers: authHeaders(),
+				headers: actorHeaders(ids("u-founder")),
 			});
 			const body = (await res.json()) as { messages: unknown[] };
+			// AU38 P4: scoped absence — the coach thread is per authenticated
+			// user, and the actor override pins it to this test's own user,
+			// whose thread was just created with no messages.
 			expect(body.messages).toEqual([]);
 		});
 
-		test("response includes headMessageId field", async ({ db, app }) => {
-			await seedBase(db);
+		test("response includes headMessageId field", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
 			const res = await app.request("/api/threads/coach", {
 				method: "GET",
-				headers: authHeaders(),
+				headers: actorHeaders(ids("u-founder")),
 			});
 			const body = (await res.json()) as { headMessageId: string | null };
 			expect(body).toHaveProperty("headMessageId");
@@ -131,35 +153,36 @@ describe("L21 — GET /api/threads/coach", () => {
 	});
 
 	describe("AC-12: thread shape validates correctly", () => {
-		test("thread hostId matches the authenticated user id", async ({ db, app }) => {
-			await seedBase(db);
+		test("thread hostId matches the authenticated user id", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
 			const res = await app.request("/api/threads/coach", {
 				method: "GET",
-				headers: authHeaders({ "X-Identity": "u-founder" }),
+				headers: actorHeaders(ids("u-founder"), { "X-Identity": ids("u-founder") }),
 			});
 			const body = (await res.json()) as { thread: { hostId: string } };
-			expect(body.thread.hostId).toBe("u-founder");
+			expect(body.thread.hostId).toBe(ids("u-founder"));
 		});
 
 		test("thread participants include both user and seed-agent-cos (system agent)", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			await seedBase(db);
+			await seedBase(db, ids);
 			const res = await app.request("/api/threads/coach", {
 				method: "GET",
-				headers: authHeaders({ "X-Identity": "u-founder" }),
+				headers: actorHeaders(ids("u-founder"), { "X-Identity": ids("u-founder") }),
 			});
 			const body = (await res.json()) as { thread: { participants: string[] } };
-			expect(body.thread.participants).toContain("u-founder");
-			expect(body.thread.participants).toContain("seed-agent-cos");
+			expect(body.thread.participants).toContain(ids("u-founder"));
+			expect(body.thread.participants).toContain(COC_AGENT_ID);
 		});
 
-		test("thread resolvedAt is null (coach threads are perpetual)", async ({ db, app }) => {
-			await seedBase(db);
+		test("thread resolvedAt is null (coach threads are perpetual)", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
 			const res = await app.request("/api/threads/coach", {
 				method: "GET",
-				headers: authHeaders(),
+				headers: actorHeaders(ids("u-founder")),
 			});
 			const body = (await res.json()) as { thread: { resolvedAt: string | null } };
 			expect(body.thread.resolvedAt).toBeNull();
@@ -167,39 +190,39 @@ describe("L21 — GET /api/threads/coach", () => {
 	});
 
 	describe("AC-14: idempotent — does not duplicate on second call", () => {
-		test("returns the same thread id on two consecutive calls", async ({ db, app }) => {
-			await seedBase(db);
+		test("returns the same thread id on two consecutive calls", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
 			const first = await app.request("/api/threads/coach", {
 				method: "GET",
-				headers: authHeaders({ "X-Identity": "u-founder" }),
+				headers: actorHeaders(ids("u-founder"), { "X-Identity": ids("u-founder") }),
 			});
 			const firstBody = (await first.json()) as { thread: { id: string } };
 
 			const second = await app.request("/api/threads/coach", {
 				method: "GET",
-				headers: authHeaders({ "X-Identity": "u-founder" }),
+				headers: actorHeaders(ids("u-founder"), { "X-Identity": ids("u-founder") }),
 			});
 			const secondBody = (await second.json()) as { thread: { id: string } };
 
 			expect(secondBody.thread.id).toBe(firstBody.thread.id);
 		});
 
-		test("does not create a second coach thread for the same user", async ({ db, app }) => {
-			await seedBase(db);
+		test("does not create a second coach thread for the same user", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
 			await app.request("/api/threads/coach", {
 				method: "GET",
-				headers: authHeaders({ "X-Identity": "u-founder" }),
+				headers: actorHeaders(ids("u-founder"), { "X-Identity": ids("u-founder") }),
 			});
 			await app.request("/api/threads/coach", {
 				method: "GET",
-				headers: authHeaders({ "X-Identity": "u-founder" }),
+				headers: actorHeaders(ids("u-founder"), { "X-Identity": ids("u-founder") }),
 			});
 
 			// Only one pinned user-hosted thread should exist for u-founder.
 			const rows = await db
 				.select()
 				.from(threads)
-				.where(and(eq(threads.hostKind, "user"), eq(threads.hostId, "u-founder")));
+				.where(and(eq(threads.hostKind, "user"), eq(threads.hostId, ids("u-founder"))));
 
 			// Filter to pinned ones only (the coach thread).
 			const pinnedRows = rows.filter((r: { pinned: boolean }) => r.pinned);
@@ -212,18 +235,22 @@ describe("L21 — GET /api/threads/coach", () => {
 	// that was the security hole. After the fix, the auth principal (c.get("userId"))
 	// controls the thread. X-Identity is ignored for authorization/scoping.
 	describe("AC-15: X-Identity header is IGNORED — authenticated principal controls coach thread", () => {
-		test("X-Identity header cannot change which coach thread is returned", async ({ db, app }) => {
-			await seedBase(db);
+		test("X-Identity header cannot change which coach thread is returned", async ({
+			db,
+			app,
+			ids,
+		}) => {
+			await seedBase(db, ids);
 
-			// Both requests use the same auth credential → same auth principal → same thread
-			// X-Identity headers differ but are ignored for thread scoping.
+			// Both requests use the same auth principal (actor override) → same
+			// thread. X-Identity headers differ but are ignored for thread scoping.
 			const firstRes = await app.request("/api/threads/coach", {
 				method: "GET",
-				headers: authHeaders({ "X-Identity": "u-founder" }),
+				headers: actorHeaders(ids("u-founder"), { "X-Identity": ids("u-founder") }),
 			});
 			const secondRes = await app.request("/api/threads/coach", {
 				method: "GET",
-				headers: authHeaders({ "X-Identity": "u-other" }),
+				headers: actorHeaders(ids("u-founder"), { "X-Identity": ids("u-other") }),
 			});
 
 			const firstBody = (await firstRes.json()) as { thread: { id: string; hostId: string } };
@@ -232,8 +259,8 @@ describe("L21 — GET /api/threads/coach", () => {
 			// Both requests must return the SAME thread (for the auth principal), not different ones
 			expect(firstBody.thread.id).toBe(secondBody.thread.id);
 			// Neither thread's hostId can be the spoofed X-Identity value
-			expect(firstBody.thread.hostId).not.toBe("u-other");
-			expect(secondBody.thread.hostId).not.toBe("u-other");
+			expect(firstBody.thread.hostId).not.toBe(ids("u-other"));
+			expect(secondBody.thread.hostId).not.toBe(ids("u-other"));
 		});
 	});
 
@@ -242,30 +269,31 @@ describe("L21 — GET /api/threads/coach", () => {
 		test("identities response contains seed-agent-cos with name 'System Agent'", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			await seedBase(db);
+			await seedBase(db, ids);
 			const res = await app.request("/api/threads/coach", {
 				method: "GET",
-				headers: authHeaders(),
+				headers: actorHeaders(ids("u-founder")),
 			});
 			const body = (await res.json()) as {
 				identities: Record<string, { name: string; role?: string }>;
 			};
-			expect(body.identities).toHaveProperty("seed-agent-cos");
-			const cocIdentity = body.identities["seed-agent-cos"];
+			expect(body.identities).toHaveProperty(COC_AGENT_ID);
+			const cocIdentity = body.identities[COC_AGENT_ID];
 			expect(cocIdentity?.name).toBe("System Agent");
 		});
 
-		test("identities response contains the user identity", async ({ db, app }) => {
-			await seedBase(db);
+		test("identities response contains the user identity", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
 			const res = await app.request("/api/threads/coach", {
 				method: "GET",
-				headers: authHeaders({ "X-Identity": "u-founder" }),
+				headers: actorHeaders(ids("u-founder"), { "X-Identity": ids("u-founder") }),
 			});
 			const body = (await res.json()) as {
 				identities: Record<string, { name: string }>;
 			};
-			expect(body.identities).toHaveProperty("u-founder");
+			expect(body.identities).toHaveProperty(ids("u-founder"));
 		});
 	});
 
@@ -273,11 +301,12 @@ describe("L21 — GET /api/threads/coach", () => {
 		test("response contains thread, messages, headMessageId, and identities keys", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			await seedBase(db);
+			await seedBase(db, ids);
 			const res = await app.request("/api/threads/coach", {
 				method: "GET",
-				headers: authHeaders(),
+				headers: actorHeaders(ids("u-founder")),
 			});
 			const body = (await res.json()) as Record<string, unknown>;
 			expect(body).toHaveProperty("thread");
@@ -286,11 +315,11 @@ describe("L21 — GET /api/threads/coach", () => {
 			expect(body).toHaveProperty("identities");
 		});
 
-		test("messages is an array", async ({ db, app }) => {
-			await seedBase(db);
+		test("messages is an array", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
 			const res = await app.request("/api/threads/coach", {
 				method: "GET",
-				headers: authHeaders(),
+				headers: actorHeaders(ids("u-founder")),
 			});
 			const body = (await res.json()) as { messages: unknown };
 			expect(Array.isArray(body.messages)).toBe(true);
@@ -301,11 +330,12 @@ describe("L21 — GET /api/threads/coach", () => {
 		test("thread with hostKind='user' and pinned=true is classified as 'assistant'", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			await seedBase(db);
+			await seedBase(db, ids);
 			const res = await app.request("/api/threads/coach", {
 				method: "GET",
-				headers: authHeaders(),
+				headers: actorHeaders(ids("u-founder")),
 			});
 			const body = (await res.json()) as { thread: { hostKind: string; pinned: boolean } };
 
@@ -314,9 +344,9 @@ describe("L21 — GET /api/threads/coach", () => {
 			const configuration = classifyThreadConfiguration({
 				id: "test",
 				hostKind: body.thread.hostKind as "user",
-				hostId: "u-founder",
-				initiatorId: "u-founder",
-				participants: ["u-founder", "agent-coc"],
+				hostId: ids("u-founder"),
+				initiatorId: ids("u-founder"),
+				participants: [ids("u-founder"), "agent-coc"],
 				pinned: body.thread.pinned,
 				resolvedAt: null,
 				lastActiveAt: new Date().toISOString(),

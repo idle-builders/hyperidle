@@ -14,8 +14,15 @@
  * separate app instances are used — each db is seeded with a different human
  * user, so each app maps its API key to a different userId. This mirrors the
  * single-human desktop model.
+ *
+ * @lore AU38: the fixture-based tests below pin the route actor through the
+ * production CORE_API_ACTOR_OVERRIDE_HEADER seam — in a populated world the
+ * "first human" resolution is whoever any test inserted first, and the
+ * dismissed-list assertions are only scoped when the actor is. The AC8 block
+ * keeps its own createTestDb instances (they own their isolation).
  */
 
+import { CORE_API_ACTOR_OVERRIDE_HEADER } from "@hyperidle/api-contract";
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import { createTestDb } from "@hyperidle/db/testing";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -32,10 +39,15 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	};
 }
 
+/** Auth headers carrying an explicit route actor (production override seam). */
+function actorHeaders(actorId: string): Record<string, string> {
+	return authHeaders({ [CORE_API_ACTOR_OVERRIDE_HEADER]: actorId });
+}
+
 const NOW = new Date().toISOString();
 
 /** Seed base user for standard fixture-based tests. */
-async function seedUser(db: HyperIdleDb, userId = "u-human-1"): Promise<void> {
+async function seedUser(db: HyperIdleDb, userId: string): Promise<void> {
 	await db.insert(users).values({
 		id: userId,
 		kind: "human",
@@ -79,16 +91,18 @@ describe("GET /api/hint-progress", () => {
 	});
 
 	// AC3: Empty state
-	test("returns { dismissed: [] } when no hints have been dismissed", async ({ db, app }) => {
-		await seedUser(db);
+	test("returns { dismissed: [] } when no hints have been dismissed", async ({ db, app, ids }) => {
+		await seedUser(db, ids("u-human-1"));
 		const res = await app.request("/api/hint-progress", {
 			method: "GET",
-			headers: authHeaders(),
+			headers: actorHeaders(ids("u-human-1")),
 		});
 
 		expect(res.status).toBe(200);
 		const body = await res.json();
 		expect(body).toHaveProperty("dismissed");
+		// AU38 P4: scoped absence — the list is per authenticated user, and the
+		// actor override pins it to this test's own user, who dismissed nothing.
 		expect(body.dismissed).toEqual([]);
 	});
 
@@ -96,17 +110,18 @@ describe("GET /api/hint-progress", () => {
 	test("returns dismissed hints with hintId and seenAt for the authenticated user", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedUser(db);
+		await seedUser(db, ids("u-human-1"));
 		// Dismiss a hint first
 		await app.request("/api/hint-progress/create-bet/dismiss", {
 			method: "POST",
-			headers: authHeaders(),
+			headers: actorHeaders(ids("u-human-1")),
 		});
 
 		const res = await app.request("/api/hint-progress", {
 			method: "GET",
-			headers: authHeaders(),
+			headers: actorHeaders(ids("u-human-1")),
 		});
 
 		expect(res.status).toBe(200);
@@ -119,20 +134,24 @@ describe("GET /api/hint-progress", () => {
 	});
 
 	// AC3: Multiple dismissed hints are all returned
-	test("returns all dismissed hints when multiple have been dismissed", async ({ db, app }) => {
-		await seedUser(db);
+	test("returns all dismissed hints when multiple have been dismissed", async ({
+		db,
+		app,
+		ids,
+	}) => {
+		await seedUser(db, ids("u-human-1"));
 		await app.request("/api/hint-progress/create-bet/dismiss", {
 			method: "POST",
-			headers: authHeaders(),
+			headers: actorHeaders(ids("u-human-1")),
 		});
 		await app.request("/api/hint-progress/add-credential/dismiss", {
 			method: "POST",
-			headers: authHeaders(),
+			headers: actorHeaders(ids("u-human-1")),
 		});
 
 		const res = await app.request("/api/hint-progress", {
 			method: "GET",
-			headers: authHeaders(),
+			headers: actorHeaders(ids("u-human-1")),
 		});
 
 		expect(res.status).toBe(200);
@@ -166,11 +185,12 @@ describe("POST /api/hint-progress/:hintId/dismiss", () => {
 	test("returns { ok: true } when dismissing a valid hint for the first time", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedUser(db);
+		await seedUser(db, ids("u-human-1"));
 		const res = await app.request("/api/hint-progress/create-bet/dismiss", {
 			method: "POST",
-			headers: authHeaders(),
+			headers: actorHeaders(ids("u-human-1")),
 		});
 
 		expect(res.status).toBe(200);
@@ -179,16 +199,16 @@ describe("POST /api/hint-progress/:hintId/dismiss", () => {
 	});
 
 	// AC4: GET after dismiss shows the hint as dismissed
-	test("GET after dismiss returns the dismissed hint in the list", async ({ db, app }) => {
-		await seedUser(db);
+	test("GET after dismiss returns the dismissed hint in the list", async ({ db, app, ids }) => {
+		await seedUser(db, ids("u-human-1"));
 		await app.request("/api/hint-progress/create-bet/dismiss", {
 			method: "POST",
-			headers: authHeaders(),
+			headers: actorHeaders(ids("u-human-1")),
 		});
 
 		const res = await app.request("/api/hint-progress", {
 			method: "GET",
-			headers: authHeaders(),
+			headers: actorHeaders(ids("u-human-1")),
 		});
 
 		expect(res.status).toBe(200);
@@ -199,19 +219,19 @@ describe("POST /api/hint-progress/:hintId/dismiss", () => {
 	});
 
 	// AC4: Returns 409 on duplicate dismiss
-	test("returns 409 when dismissing the same hint a second time", async ({ db, app }) => {
-		await seedUser(db);
+	test("returns 409 when dismissing the same hint a second time", async ({ db, app, ids }) => {
+		await seedUser(db, ids("u-human-1"));
 		// First dismiss succeeds
 		const first = await app.request("/api/hint-progress/create-bet/dismiss", {
 			method: "POST",
-			headers: authHeaders(),
+			headers: actorHeaders(ids("u-human-1")),
 		});
 		expect(first.status).toBe(200);
 
 		// Second dismiss returns 409
 		const second = await app.request("/api/hint-progress/create-bet/dismiss", {
 			method: "POST",
-			headers: authHeaders(),
+			headers: actorHeaders(ids("u-human-1")),
 		});
 		expect(second.status).toBe(409);
 		const body = await second.json();
@@ -219,11 +239,11 @@ describe("POST /api/hint-progress/:hintId/dismiss", () => {
 	});
 
 	// AC4: Returns 400 for invalid hint ID
-	test("returns 400 when dismissing an unknown hint ID", async ({ db, app }) => {
-		await seedUser(db);
+	test("returns 400 when dismissing an unknown hint ID", async ({ db, app, ids }) => {
+		await seedUser(db, ids("u-human-1"));
 		const res = await app.request("/api/hint-progress/not-a-hint/dismiss", {
 			method: "POST",
-			headers: authHeaders(),
+			headers: actorHeaders(ids("u-human-1")),
 		});
 
 		expect(res.status).toBe(400);
@@ -232,11 +252,11 @@ describe("POST /api/hint-progress/:hintId/dismiss", () => {
 	});
 
 	// AC4: Another valid hint ID also works
-	test("returns { ok: true } when dismissing add-credential", async ({ db, app }) => {
-		await seedUser(db);
+	test("returns { ok: true } when dismissing add-credential", async ({ db, app, ids }) => {
+		await seedUser(db, ids("u-human-1"));
 		const res = await app.request("/api/hint-progress/add-credential/dismiss", {
 			method: "POST",
-			headers: authHeaders(),
+			headers: actorHeaders(ids("u-human-1")),
 		});
 
 		expect(res.status).toBe(200);
@@ -245,14 +265,14 @@ describe("POST /api/hint-progress/:hintId/dismiss", () => {
 	});
 
 	// AC4: All 4 valid hint IDs can be dismissed
-	test("accepts all 4 valid hint IDs", async ({ db, app }) => {
-		await seedUser(db);
+	test("accepts all 4 valid hint IDs", async ({ db, app, ids }) => {
+		await seedUser(db, ids("u-human-1"));
 		const hintIds = ["create-bet", "add-credential", "knowledge-empty", "review-verdict"];
 
 		for (const hintId of hintIds) {
 			const res = await app.request(`/api/hint-progress/${hintId}/dismiss`, {
 				method: "POST",
-				headers: authHeaders(),
+				headers: actorHeaders(ids("u-human-1")),
 			});
 			expect(res.status).toBe(200);
 		}
