@@ -1,109 +1,82 @@
 /**
- * AN1 RED — ServiceConnectionProjection unit tests.
+ * AU36 RED — ServiceConnectionProjection unit tests, retargeted from harness
+ * descriptor fixtures to `InheritedConnectionFact` arrays (architecture.md
+ * §7.1 / D6: signature becomes `(facts: readonly InheritedConnectionFact[]):
+ * ServiceConnectionView[]`).
+ *
+ * Every assertion preserves the AN1 output contract verbatim (architecture §2
+ * "Reused verbatim"): authSource:"inherited", removable:false,
+ * id: inherited:<source>:<name>, via: "<source> · <name>", health
+ * unknown→working / explicit needs-attention kept, first-wins dedup by name.
  *
  * AC coverage:
- *   AC1 (inherited): GET unions held + inherited; inherited group uses projected
- *                    view with authSource:"inherited" and removable:false
- *   AC7 (concept): inherited never persisted — projection only, no DB row
- *   AC7: DELETE of inherited id → 404 (no DB row to delete)
- *   Concept hard-rule 4: inherited stores no auth material (no secret field)
- *   AC1: projection enumerates identity only (service + source harness, NO token)
- *   AN3 scope: absent harness removes the inherited entry; honest none-state
+ *   AC1 — the projection reads reach facts only — no harness descriptor anywhere
+ *   AC3 — the projected view shape/values are exactly today's contract
+ *   AC4 — projected views carry identity only (no secret/token material)
  *
- * FAILS until packages/server/src/services/service-connection-projection.ts is created.
+ * FAILS until:
+ *   - framework/domain-model/src/connection.ts exports InheritedConnectionFact (D2)
+ *   - service-connection-projection.ts flattens facts (input order, first-wins
+ *     dedup by name) instead of descriptors[].inheritedTools
  */
 
-import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
+import type { InheritedConnectionFact } from "@hyperidle/domain-model";
 import { describe, expect, it } from "vitest";
 import { projectInheritedConnections } from "../service-connection-projection.js";
 
-// Minimal descriptor shape for projection tests
-function makeDescriptor(
-	type: string,
-	inheritedTools: HarnessCapabilityDescriptor["inheritedTools"],
-): HarnessCapabilityDescriptor {
+/** Minimal fact builder — identity-only shape of D2. */
+function makeFact(
+	overrides: Partial<InheritedConnectionFact> & Pick<InheritedConnectionFact, "name">,
+): InheritedConnectionFact {
 	return {
-		type,
-		name: type,
-		kind: "local",
-		accessMode: "provider-subscription-cli",
-		authAction: { kind: "none", label: "None" },
-		discovery: { state: "ready" },
-		models: [],
-		runtime: {
-			preCompactionTrigger: false,
-			subAgents: false,
-			mcpSupport: false,
-			modelProviders: [],
-			fileEditing: false,
-			toolUse: false,
-		},
-		modelProviders: [],
-		inheritedTools,
+		kind: "mcp-server",
+		source: "claude-code",
+		health: "working",
+		...overrides,
 	};
 }
 
-describe("projectInheritedConnections", () => {
-	// AC1 (inherited): basic projection
-	describe("projection from descriptor with inherited tools", () => {
-		it("returns a ServiceConnectionView for each inherited tool", () => {
-			const descriptors = [
-				makeDescriptor("claude-code", [
-					{ name: "github", kind: "mcp-server", harness: "claude-code", health: "working" },
-					{ name: "linear", kind: "mcp-server", harness: "claude-code", health: "working" },
-				]),
-			];
+describe("projectInheritedConnections (over facts)", () => {
+	// AC1/AC3: basic projection from facts
+	describe("projection from reach facts", () => {
+		it("returns a ServiceConnectionView for each fact", () => {
+			const facts = [makeFact({ name: "github" }), makeFact({ name: "linear" })];
 
-			const views = projectInheritedConnections(descriptors);
+			const views = projectInheritedConnections(facts);
 
 			expect(views).toHaveLength(2);
 		});
 
 		it("all projected views have authSource:'inherited'", () => {
-			const descriptors = [
-				makeDescriptor("claude-code", [
-					{ name: "github", kind: "mcp-server", harness: "claude-code", health: "working" },
-				]),
-			];
-
-			const views = projectInheritedConnections(descriptors);
+			const views = projectInheritedConnections([makeFact({ name: "github" })]);
 			for (const v of views) {
 				expect(v.authSource).toBe("inherited");
 			}
 		});
 
 		it("all projected views have removable:false (concept hard-rule 7)", () => {
-			const descriptors = [
-				makeDescriptor("claude-code", [
-					{ name: "stripe", kind: "cli", harness: "environment", health: "working" },
-				]),
-			];
-
-			const views = projectInheritedConnections(descriptors);
+			const views = projectInheritedConnections([
+				makeFact({ name: "stripe", kind: "cli", source: "environment" }),
+			]);
 			for (const v of views) {
 				expect(v.removable).toBe(false);
 			}
 		});
 
-		it("projected view id uses inherited: prefix (sentinel, not a DB id)", () => {
-			const descriptors = [
-				makeDescriptor("claude-code", [
-					{ name: "github", kind: "mcp-server", harness: "claude-code", health: "working" },
-				]),
-			];
+		it("projected view id is inherited:<source>:<name> (sentinel, not a DB id)", () => {
+			const views = projectInheritedConnections([makeFact({ name: "github" })]);
+			expect(views[0]?.id).toBe("inherited:claude-code:github");
+		});
 
-			const views = projectInheritedConnections(descriptors);
-			expect(views[0]?.id).toMatch(/^inherited:/);
+		it("projected view via is '<source> · <name>' (identity only)", () => {
+			const views = projectInheritedConnections([makeFact({ name: "linear", source: "codex" })]);
+			expect(views[0]?.via).toBe("codex · linear");
 		});
 
 		it("projected view carries no secret, no token, no encryptedToken field", () => {
-			const descriptors = [
-				makeDescriptor("claude-code", [
-					{ name: "gh", kind: "cli", harness: "environment", health: "working" },
-				]),
-			];
-
-			const views = projectInheritedConnections(descriptors);
+			const views = projectInheritedConnections([
+				makeFact({ name: "gh", kind: "cli", source: "environment" }),
+			]);
 			for (const v of views) {
 				// AC4 / concept hard-rule 4: no auth material in projected view
 				expect(v).not.toHaveProperty("secret");
@@ -112,82 +85,53 @@ describe("projectInheritedConnections", () => {
 				expect(v).not.toHaveProperty("encrypted_token");
 			}
 		});
+	});
 
-		it("projected view 'via' string contains harness name (identity only)", () => {
-			const descriptors = [
-				makeDescriptor("claude-code", [
-					{ name: "linear", kind: "mcp-server", harness: "claude-code", health: "working" },
-				]),
-			];
+	// Health display contract (architecture §2): unknown→working, explicit kept
+	describe("health display contract", () => {
+		it("health 'unknown' displays as 'working'", () => {
+			const views = projectInheritedConnections([makeFact({ name: "github", health: "unknown" })]);
+			expect(views[0]?.health).toBe("working");
+		});
 
-			const views = projectInheritedConnections(descriptors);
-			expect(views[0]?.via).toContain("claude-code");
+		it("explicit 'needs-attention' is preserved", () => {
+			const views = projectInheritedConnections([
+				makeFact({ name: "github", health: "needs-attention" }),
+			]);
+			expect(views[0]?.health).toBe("needs-attention");
 		});
 	});
 
 	// AN3 scope: honest none-state when nothing inherited
-	describe("empty descriptor list → no views", () => {
-		it("returns empty array when descriptors array is empty", () => {
+	describe("empty input → no views", () => {
+		it("returns empty array when the facts array is empty", () => {
 			const views = projectInheritedConnections([]);
 			expect(views).toHaveLength(0);
 		});
-
-		it("returns empty array when descriptor has no inheritedTools", () => {
-			const descriptors = [makeDescriptor("claude-code", [])];
-			const views = projectInheritedConnections(descriptors);
-			expect(views).toHaveLength(0);
-		});
 	});
 
-	// AC7: disconnected/absent harness server removes inherited entry
-	describe("absent harness → removes inherited entry", () => {
-		it("excludes tools from a descriptor with no inherited tools", () => {
-			const descriptors = [
-				makeDescriptor("claude-code", []),
-				makeDescriptor("codex", [
-					{ name: "github", kind: "mcp-server", harness: "codex", health: "working" },
-				]),
+	// Dedup: same service from multiple sources → one row (first wins, input order)
+	describe("deduplication across sources", () => {
+		it("deduplicates by service name when the same service appears in multiple sources", () => {
+			const facts = [
+				makeFact({ name: "github", source: "claude-code" }),
+				makeFact({ name: "github", source: "codex" }),
 			];
 
-			const views = projectInheritedConnections(descriptors);
-			// Only codex has a tool
-			expect(views).toHaveLength(1);
+			const views = projectInheritedConnections(facts);
+
+			// First wins — dedupe by service name
+			expect(views.filter((v) => v.service === "github")).toHaveLength(1);
+			expect(views[0]?.id).toBe("inherited:claude-code:github");
 		});
 	});
 
-	// Dedup: same service from multiple harnesses → one row (architecture §7)
-	describe("deduplication across harnesses", () => {
-		it("deduplicates by service name when the same service appears in multiple harnesses", () => {
-			const descriptors = [
-				makeDescriptor("claude-code", [
-					{ name: "github", kind: "mcp-server", harness: "claude-code", health: "working" },
-				]),
-				makeDescriptor("codex", [
-					{ name: "github", kind: "mcp-server", harness: "codex", health: "working" },
-				]),
-			];
-
-			const views = projectInheritedConnections(descriptors);
-			// First wins — dedupe by service
-			expect(views.filter((v: { service: string }) => v.service === "github")).toHaveLength(1);
-		});
-	});
-
-	// Type guard: projectInheritedConnections returns ServiceConnectionView[]
+	// Return shape: ServiceConnectionView fields
 	describe("return type", () => {
-		it("returns an array", () => {
-			const views = projectInheritedConnections([]);
-			expect(Array.isArray(views)).toBe(true);
-		});
-
 		it("each view has the expected ServiceConnectionView fields", () => {
-			const descriptors = [
-				makeDescriptor("claude-code", [
-					{ name: "stripe", kind: "cli", harness: "environment", health: "working" },
-				]),
-			];
-
-			const views = projectInheritedConnections(descriptors);
+			const views = projectInheritedConnections([
+				makeFact({ name: "stripe", kind: "cli", source: "environment" }),
+			]);
 			expect(views).toHaveLength(1);
 			const v = views[0];
 			expect(v).toHaveProperty("id");

@@ -18,7 +18,7 @@ Every Connection has one of three auth sources. This is the load-bearing distinc
 
 **Held connections** (`token`, `mcp`) are DB rows. The user creates and removes them. HyperIdle resolves and injects them into the session working directory at spawn (AN2).
 
-**Inherited connections** are not DB rows. They are live projections from the [harness capability descriptor](../agent-layer/harness-capability-descriptor.md), reflecting what the harness or PATH-level environment is already configured with. The user does not create or remove them in HyperIdle — that is managed in the harness. HyperIdle holds no auth material for them; the token stays in the OS keychain, never extracted.
+**Inherited connections** are not DB rows. They are live projections from the connections domain's own reach cache (`InheritedConnectionFact[]`, probed at boot and on redetect), reflecting what the harness configs or PATH-level environment are already configured with. The user does not create or remove them in HyperIdle — that is managed in the harness. HyperIdle holds no auth material for them; the token stays in the OS keychain, never extracted.
 
 This is the concrete meaning of "ride the harness": OAuth-protected services arrive inherited because the harness already holds the auth. HyperIdle never runs a 3-legged OAuth dance and registers no per-service OAuth app.
 
@@ -28,21 +28,21 @@ This is the concrete meaning of "ride the harness": OAuth-protected services arr
 
 The view shape and its closed sets live in `framework/domain-model/src/connection.ts` (`ServiceConnectionView`, `CONNECTION_AUTH_SOURCES`, `CONNECTION_HEALTH`). The semantics:
 
-- **id** — `sc-<uuid>` for held rows; `inherited:<harness>:<name>` for projections.
+- **id** — `sc-<uuid>` for held rows; `inherited:<source>:<name>` for projections.
 - **authSource** — closed set `token | mcp | inherited`.
 - **health** — closed 2-set `working | needs-attention`. Starts as `needs-attention` on create (unvalidated); the validate endpoint updates it. A token that stops working becomes `needs-attention` — there is no "expired" state.
 - **removable** — `true` for held, `false` for inherited.
-- **via** — always server-constructed, never a raw URL or secret echo: `token` → `"API key · stored encrypted"`, `mcp` → hostname of the MCP server URL, `inherited` → `"<harness> · <name>"`.
+- **via** — always server-constructed, never a raw URL or secret echo: `token` → `"API key · stored encrypted"`, `mcp` → hostname of the MCP server URL, `inherited` → `"<source> · <name>"`.
 
 There is no `trustTier` field. ETHOS §2 — security is earned from real learnings, never a preemptive wall.
 
 ---
 
-## The descriptor seam — where inherited connections come from
+## The reach seam — where inherited connections come from
 
-Inherited connections project from `HarnessCapabilityDescriptor.inheritedTools?` (optional, default `[]`). Each `InheritedToolDescriptor` carries identity only — `name`, `kind` (`mcp-server | cli`), `harness` (`claude-code | codex | opencode | environment`), `health | "unknown"`. The type has no secret field: no code path can copy an env var, command, keychain value, or token into it — the invariant is enforced at the type level.
+Inherited connections project from `InheritedConnectionFact` (`framework/domain-model/src/connection.ts`) — the connections domain's own fact type, probed and cached by `createInheritedReach()` (`layers/agent-orchestration/connections/src/inherited-reach.ts`). Each fact carries identity only — `name`, `kind` (`mcp-server | cli`), `source` (`claude-code | codex | opencode | environment` — which config the auth was found in), `health | "unknown"`. The type has no secret field: no code path can copy an env var, command, keychain value, or token into it — the invariant is enforced at the type level.
 
-`discoverLocalHarnesses()` populates it via four probes — claude-code, codex, **opencode**, and the `gh`-CLI environment. Probe mechanics are owned by the [Harness Capability Descriptor](../agent-layer/harness-capability-descriptor.md) doc.
+`createInheritedReach().refresh()` populates the cache via four probes — claude-code, codex, **opencode**, and the `gh`-CLI environment — at boot and on `POST /api/harnesses/redetect` (composition-root wiring). The harness capability descriptor carries NO reach field — what an agent can reach is answered without reading anything about harnesses.
 
 ---
 
@@ -55,9 +55,9 @@ DELETE /api/connections/:id    → 204 | 404
 POST   /api/connections/:id/validate → { health }
 ```
 
-`GET` returns inherited projections first, then held rows. It reads **cached** descriptors (`pool.describe()`) — never re-probes per request. Inherited connections have `removable: false`; DELETE of an `inherited:*` id returns 404.
+`GET` returns inherited projections first, then held rows. It reads the **cached** reach snapshot (`inheritedReach.list()`) — never re-probes per request. Inherited connections have `removable: false`; DELETE of an `inherited:*` id returns 404.
 
-POST accepts a discriminated union — `authSource: "token"` or `authSource: "mcp"`. A unique-constraint violation on (user × service × authSource) returns 409. Inherited connections are never created via the API; they appear automatically from harness discovery.
+POST accepts a discriminated union — `authSource: "token"` or `authSource: "mcp"`. A unique-constraint violation on (user × service × authSource) returns 409. Inherited connections are never created via the API; they appear automatically from the reach probes.
 
 Rate limits: POST/DELETE 20 req/min; validate 3 req/min.
 
@@ -86,7 +86,7 @@ Column details belong to the schema file, not this doc.
 
 ## Projection (`ServiceConnectionProjection`)
 
-`layers/agent-orchestration/connections/src/service-connection-projection.ts` — projects `descriptors[].inheritedTools` into `ServiceConnectionView[]` at GET time. Pure function over the cached descriptors: no DB access, no child-process spawn. Deduplicates by service name across harnesses (first wins). Descriptor health `unknown` displays as `working` (`service-connection-projection.ts:50-51`) — inherited tools are auto-detected and expected-healthy; `needs-attention` is reserved for explicit probe failures.
+`layers/agent-orchestration/connections/src/service-connection-projection.ts` — projects `InheritedConnectionFact[]` into `ServiceConnectionView[]` at GET time. Pure function over the cached facts: no DB access, no child-process spawn. Flattens in input order (the reach cache assembles the fixed source order `claude-code → environment → codex → opencode`) and deduplicates by service name (first wins). Fact health `unknown` displays as `working` — inherited tools are auto-detected and expected-healthy; `needs-attention` is reserved for explicit probe failures.
 
 ---
 
@@ -106,10 +106,10 @@ Column details belong to the schema file, not this doc.
 |---|---|---|
 | Connection | `ServiceConnection*` (avoids collision with db-connection noun) | `integration`, `connector`, `account`, `credential` |
 | Held connection | auth source `token` or `mcp` | stored connection, managed credential |
-| Inherited connection | auth source `inherited`; reflected from harness | native tool (informal only, not in types) |
+| Inherited connection | auth source `inherited`; reflected from the machine (harness configs / environment) | native tool (informal only, not in types) |
 | Auth source | closed `{token, mcp, inherited}` | auth type, kind, provider |
 | Connection health | closed `{working, needs-attention}` | status, validation state |
 
 ---
 
-See also: [Credential model](./credential-model.md) — infra-secret catalog, shared AES-GCM primitive. [Harness Capability Descriptor](../agent-layer/harness-capability-descriptor.md) — descriptor shape, `inheritedTools`, discovery probes. [Authorization model](./authorization-model.md) — access boundary, Managed secret definition.
+See also: [Credential model](./credential-model.md) — infra-secret catalog, shared AES-GCM primitive. [Harness Capability Descriptor](../agent-layer/harness-capability-descriptor.md) — harness readiness/models/auth state (describes the harness only; no reach field). [Authorization model](./authorization-model.md) — access boundary, Managed secret definition.

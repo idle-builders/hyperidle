@@ -203,11 +203,24 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		req,
 	) => {
 		if (!realAgentOrchestrationTransport) {
-			throw new Error("AgentOrchestrationPort transport called before the composed app was built.");
+			throw new Error("AgentOrchestrationTransport called before the composed app was built.");
 		}
 		return realAgentOrchestrationTransport(req);
 	};
 	const agentOrchestrationPort = buildAgentOrchestrationPort(agentOrchestrationTransport);
+
+	// @lore AU36 D5: same deferred-binding idiom as the transports above —
+	// `bootCoreApi` runs BEFORE `bootAgentOrchestration`, so the redetect
+	// callback closes over a binding filled once the orchestration boot (and
+	// thus its `inheritedReach`) exists. Any real redetect happens strictly
+	// after that (route handlers only run on the composed app).
+	let realInheritedReachRefresh: (() => Promise<void>) | undefined;
+	const onHarnessRedetect: () => Promise<void> = () => {
+		if (!realInheritedReachRefresh) {
+			throw new Error("onHarnessRedetect called before the composed app was built.");
+		}
+		return realInheritedReachRefresh();
+	};
 
 	const coreApi = await bootCoreApi({
 		db,
@@ -215,6 +228,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		agentOrchestration: agentOrchestrationPort,
 		upgradeWebSocket,
 		adapterPool: agentExecution.adapters.pool,
+		onHarnessRedetect,
 		serviceBootstrap: (ctx) => {
 			return [
 				...registerCoreDomainServices({ ...ctx, canProvision: true }),
@@ -247,7 +261,9 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		db,
 		eventBus,
 		sessionStream: { upgradeWebSocket, upgradeTokens: coreApi.upgradeTokenStore },
-		adapterPool: agentExecution.adapters.pool,
+		// AU36 D4: desktop is always topology "local" (boot-server.ts) — boot
+		// awaits the initial reach probe, so facts are cached by serve time.
+		probeInheritedReach: deps.topology === "local",
 		runtime: {
 			harnessRuntime: harnessRuntimeAdapter,
 			returnStatusTool: returnStatusToolAdapter,
@@ -271,6 +287,8 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			resolveProvisioningOwnerUserId: coreApi.resolveProvisioningOwnerUserId,
 		},
 	});
+	// AU36 D5: close the deferred binding — redetect now reaches the reach cache.
+	realInheritedReachRefresh = () => agentOrchestration.inheritedReach.refresh();
 
 	const app = composeApiApplication({
 		middleware: coreApi.middleware,
