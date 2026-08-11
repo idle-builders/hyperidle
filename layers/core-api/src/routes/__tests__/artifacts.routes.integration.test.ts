@@ -8,6 +8,7 @@
  */
 
 import { artifacts, bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
@@ -17,42 +18,42 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
-async function seedBase(db: HyperIdleDb): Promise<{ taskId: string }> {
+async function seedBase(db: HyperIdleDb, ids: ScopedIds): Promise<{ taskId: string }> {
 	const now = new Date().toISOString();
 	await db
 		.insert(teams)
-		.values({ id: "team-1", name: "Test Team", phase: "build", createdAt: now });
+		.values({ id: ids("team-1"), name: "Test Team", phase: "build", createdAt: now });
 	await db
 		.insert(teamMembers)
-		.values({ id: "tm-1", teamId: "team-1", capacity: 5, activeBets: 0, formedAt: now });
+		.values({ id: ids("tm-1"), teamId: ids("team-1"), capacity: 5, activeBets: 0, formedAt: now });
 	await db.insert(users).values({
-		id: "agent-1",
+		id: ids("agent-1"),
 		kind: "ai",
 		name: "Test Agent",
 		role: "builder",
 		status: "active",
-		teamId: "tm-1",
+		teamId: ids("tm-1"),
 		createdAt: now,
 	});
 	await db.insert(bets).values({
-		id: "bet-1",
-		teamId: "team-1",
+		id: ids("bet-1"),
+		teamId: ids("team-1"),
 		description: "Test bet",
 		appetite: "small",
 		status: "active",
 		createdAt: now,
 	});
 	await db.insert(tasks).values({
-		id: "task-1",
+		id: ids("task-1"),
 		title: "Test task",
-		betId: "bet-1",
-		teamId: "team-1",
+		betId: ids("bet-1"),
+		teamId: ids("team-1"),
 		state: "in_progress",
-		ownerAgentId: "agent-1",
+		ownerAgentId: ids("agent-1"),
 		createdAt: now,
 		updatedAt: now,
 	});
-	return { taskId: "task-1" };
+	return { taskId: ids("task-1") };
 }
 
 describe("artifacts routes", () => {
@@ -107,9 +108,10 @@ describe("artifacts routes", () => {
 		test("returns 200 with empty items when no artifacts exist (axis=task)", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			await seedBase(db);
-			const res = await app.request("/api/artifacts?axis=task&taskId=task-1", {
+			await seedBase(db, ids);
+			const res = await app.request(`/api/artifacts?axis=task&taskId=${ids("task-1")}`, {
 				method: "GET",
 				headers: authHeaders(),
 			});
@@ -120,13 +122,13 @@ describe("artifacts routes", () => {
 			expect(body.nextCursor).toBeNull();
 		});
 
-		test("returns 200 with paginated artifacts for axis=task", async ({ db, app }) => {
-			const { taskId } = await seedBase(db);
+		test("returns 200 with paginated artifacts for axis=task", async ({ db, app, ids }) => {
+			const { taskId } = await seedBase(db, ids);
 			const now = new Date().toISOString();
 			// @lore AE6: 'verification' was an old kind; direct DB insert uses any string (bypasses API validation).
 			// Using 'data' (the AE6 mapped kind for verification) for clarity.
 			await db.insert(artifacts).values({
-				id: "art-1",
+				id: ids("art-1"),
 				producingTaskId: taskId,
 				kind: "data",
 				previewJson: null,
@@ -140,12 +142,12 @@ describe("artifacts routes", () => {
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as { items: Array<{ id: string }> };
 			expect(body.items).toHaveLength(1);
-			expect(body.items[0]?.id).toBe("art-1");
+			expect(body.items[0]?.id).toBe(ids("art-1"));
 		});
 
-		test("returns 400 when limit exceeds HARD_LIMIT_CAP (200)", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/artifacts?axis=task&taskId=task-1&limit=201", {
+		test("returns 400 when limit exceeds HARD_LIMIT_CAP (200)", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
+			const res = await app.request(`/api/artifacts?axis=task&taskId=${ids("task-1")}&limit=201`, {
 				method: "GET",
 				headers: authHeaders(),
 			});
@@ -154,29 +156,29 @@ describe("artifacts routes", () => {
 	});
 
 	describe("GET /api/artifacts/:id", () => {
-		test("returns 200 with artifact and denormalized task title", async ({ db, app }) => {
-			const { taskId } = await seedBase(db);
+		test("returns 200 with artifact and denormalized task title", async ({ db, app, ids }) => {
+			const { taskId } = await seedBase(db, ids);
 			const now = new Date().toISOString();
 			await db.insert(artifacts).values({
-				id: "art-1",
+				id: ids("art-1"),
 				producingTaskId: taskId,
 				kind: "data",
 				previewJson: null,
 				createdAt: now,
 			});
 
-			const res = await app.request("/api/artifacts/art-1", {
+			const res = await app.request(`/api/artifacts/${ids("art-1")}`, {
 				method: "GET",
 				headers: authHeaders(),
 			});
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as { id: string; producingTaskTitle: string };
-			expect(body.id).toBe("art-1");
+			expect(body.id).toBe(ids("art-1"));
 			expect(body.producingTaskTitle).toBe("Test task");
 		});
 
-		test("returns 404 for non-existent artifact", async ({ app }) => {
-			const res = await app.request("/api/artifacts/does-not-exist", {
+		test("returns 404 for non-existent artifact", async ({ app, ids }) => {
+			const res = await app.request(`/api/artifacts/${ids("does-not-exist")}`, {
 				method: "GET",
 				headers: authHeaders(),
 			});
@@ -185,9 +187,9 @@ describe("artifacts routes", () => {
 	});
 
 	describe("POST /api/artifacts", () => {
-		test("returns 201 with created artifact on valid input", async ({ db, app }) => {
+		test("returns 201 with created artifact on valid input", async ({ db, app, ids }) => {
 			// @lore AE6: POST only accepts the 6 fundamental kinds.
-			const { taskId } = await seedBase(db);
+			const { taskId } = await seedBase(db, ids);
 			const res = await app.request("/api/artifacts", {
 				method: "POST",
 				headers: authHeaders(),
@@ -199,13 +201,17 @@ describe("artifacts routes", () => {
 			expect(body.kind).toBe("data");
 		});
 
-		test("returns 400 when producingTaskId references non-existent task", async ({ db, app }) => {
-			await seedBase(db);
+		test("returns 400 when producingTaskId references non-existent task", async ({
+			db,
+			app,
+			ids,
+		}) => {
+			await seedBase(db, ids);
 			const res = await app.request("/api/artifacts", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					producingTaskId: "non-existent",
+					producingTaskId: ids("non-existent"),
 					kind: "data",
 					preview: null,
 				}),
@@ -216,10 +222,11 @@ describe("artifacts routes", () => {
 		test("returns 400 when kind is 'unknown_kind' (not a fundamental kind)", async ({
 			db,
 			app,
+			ids,
 		}) => {
 			// @lore AE6: 'unknown_kind' is a legacy sentinel — POST rejects it since only
 			// the 6 fundamental kinds are accepted at create time.
-			const { taskId } = await seedBase(db);
+			const { taskId } = await seedBase(db, ids);
 			const res = await app.request("/api/artifacts", {
 				method: "POST",
 				headers: authHeaders(),
@@ -228,8 +235,8 @@ describe("artifacts routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		test("returns 400 when kind/preview discriminant mismatches", async ({ db, app }) => {
-			const { taskId } = await seedBase(db);
+		test("returns 400 when kind/preview discriminant mismatches", async ({ db, app, ids }) => {
+			const { taskId } = await seedBase(db, ids);
 			// kind=data but preview is code (discriminant mismatch)
 			const res = await app.request("/api/artifacts", {
 				method: "POST",
@@ -269,18 +276,19 @@ describe("artifacts routes", () => {
 		test("returns 200 on successful preview set (when previewJson IS NULL)", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			const { taskId } = await seedBase(db);
+			const { taskId } = await seedBase(db, ids);
 			const now = new Date().toISOString();
 			await db.insert(artifacts).values({
-				id: "art-noprev",
+				id: ids("art-noprev"),
 				producingTaskId: taskId,
 				kind: "text",
 				previewJson: null,
 				createdAt: now,
 			});
 
-			const res = await app.request("/api/artifacts/art-noprev/preview", {
+			const res = await app.request(`/api/artifacts/${ids("art-noprev")}/preview`, {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({ preview: validTextPreview }),
@@ -288,18 +296,18 @@ describe("artifacts routes", () => {
 			expect(res.status).toBe(200);
 		});
 
-		test("returns 409 when preview is already set (IMMUTABLE)", async ({ db, app }) => {
-			const { taskId } = await seedBase(db);
+		test("returns 409 when preview is already set (IMMUTABLE)", async ({ db, app, ids }) => {
+			const { taskId } = await seedBase(db, ids);
 			const now = new Date().toISOString();
 			await db.insert(artifacts).values({
-				id: "art-withprev",
+				id: ids("art-withprev"),
 				producingTaskId: taskId,
 				kind: "text",
 				previewJson: JSON.stringify(validTextPreview),
 				createdAt: now,
 			});
 
-			const res = await app.request("/api/artifacts/art-withprev/preview", {
+			const res = await app.request(`/api/artifacts/${ids("art-withprev")}/preview`, {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({ preview: validTextPreview }),
@@ -307,8 +315,8 @@ describe("artifacts routes", () => {
 			expect(res.status).toBe(409);
 		});
 
-		test("returns 404 for non-existent artifact", async ({ app }) => {
-			const res = await app.request("/api/artifacts/does-not-exist/preview", {
+		test("returns 404 for non-existent artifact", async ({ app, ids }) => {
+			const res = await app.request(`/api/artifacts/${ids("does-not-exist")}/preview`, {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({ preview: validTextPreview }),
@@ -316,18 +324,18 @@ describe("artifacts routes", () => {
 			expect(res.status).toBe(404);
 		});
 
-		test("returns 400 on invalid preview body", async ({ db, app }) => {
-			const { taskId } = await seedBase(db);
+		test("returns 400 on invalid preview body", async ({ db, app, ids }) => {
+			const { taskId } = await seedBase(db, ids);
 			const now = new Date().toISOString();
 			await db.insert(artifacts).values({
-				id: "art-badprev",
+				id: ids("art-badprev"),
 				producingTaskId: taskId,
 				kind: "verification",
 				previewJson: null,
 				createdAt: now,
 			});
 
-			const res = await app.request("/api/artifacts/art-badprev/preview", {
+			const res = await app.request(`/api/artifacts/${ids("art-badprev")}/preview`, {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({ notPreview: true }),

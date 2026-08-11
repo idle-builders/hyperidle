@@ -17,7 +17,9 @@
  * replacement.
  */
 
+import { CORE_API_ACTOR_OVERRIDE_HEADER } from "@hyperidle/api-contract";
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import type { EventBus } from "@hyperidle/event-bus";
 import { getTeamMembers, updateTeam } from "@hyperidle/org";
 import type { RevisionLogEntry, WorkDeps } from "@hyperidle/work";
@@ -38,23 +40,33 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
+/**
+ * @lore AU38: the kill route writes the authenticated actor into the revision
+ * log; the API-key actor falls back to "the first human" — nondeterministic in
+ * a populated world. These tests pin the actor via the production override
+ * header instead.
+ */
+function actorHeaders(actorId: string): Record<string, string> {
+	return authHeaders({ [CORE_API_ACTOR_OVERRIDE_HEADER]: actorId });
+}
+
 function parseRevisionLog(raw: string | null): RevisionLogEntry[] {
 	if (!raw) return [];
 	return JSON.parse(raw) as RevisionLogEntry[];
 }
 
-async function seedBase(db: HyperIdleDb, _eventBus: EventBus): Promise<void> {
+async function seedBase(db: HyperIdleDb, _eventBus: EventBus, ids: ScopedIds): Promise<void> {
 	const now = new Date().toISOString();
 	// @lore U1: teams = domain entity (formerly products); teamMembers = membership group.
-	await db.insert(teams).values({ id: "p1", name: "Alpha", phase: "build", createdAt: now });
+	await db.insert(teams).values({ id: ids("p1"), name: "Alpha", phase: "build", createdAt: now });
 	await db
 		.insert(teamMembers)
-		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+		.values({ id: ids("t1"), teamId: ids("p1"), capacity: 5, activeBets: 0, formedAt: now });
 
 	await db.insert(bets).values({
-		id: "bet1",
+		id: ids("bet1"),
 		// @lore U1: bets.teamId references teams.id (domain entity), NOT teamMembers.id
-		teamId: "p1",
+		teamId: ids("p1"),
 		description: "# Hello\nBody text",
 		appetite: "2 weeks",
 		// @lore U1: status is "draft" (formerly "shaped")
@@ -81,10 +93,11 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			db,
 			app,
 			eventBus,
+			ids,
 		}) => {
-			await seedBase(db, eventBus);
+			await seedBase(db, eventBus, ids);
 			// U1 removed the pause route — expect 404 (route not found)
-			const res = await app.request("/api/bets/bet1/pause", {
+			const res = await app.request(`/api/bets/${ids("bet1")}/pause`, {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({ reason: "Pause it" }),
@@ -93,9 +106,14 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			expect(res.status).toBe(404);
 		});
 
-		test("returns 404 for unknown betId (route removed in U1)", async ({ db, app, eventBus }) => {
-			await seedBase(db, eventBus);
-			const res = await app.request("/api/bets/nonexistent/pause", {
+		test("returns 404 for unknown betId (route removed in U1)", async ({
+			db,
+			app,
+			eventBus,
+			ids,
+		}) => {
+			await seedBase(db, eventBus, ids);
+			const res = await app.request(`/api/bets/${ids("nonexistent")}/pause`, {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({ reason: "reason" }),
@@ -108,9 +126,9 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 	// ─── AC-2: Resume route (removed in U1) ─────────────────────────────────────
 
 	describe("AC-2 — POST /bets/:id/resume", () => {
-		test("returns 404 when resume route removed in U1", async ({ db, app, eventBus }) => {
-			await seedBase(db, eventBus);
-			const res = await app.request("/api/bets/bet1/resume", {
+		test("returns 404 when resume route removed in U1", async ({ db, app, eventBus, ids }) => {
+			await seedBase(db, eventBus, ids);
+			const res = await app.request(`/api/bets/${ids("bet1")}/resume`, {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({}),
@@ -127,10 +145,11 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			db,
 			app,
 			eventBus,
+			ids,
 		}) => {
-			await seedBase(db, eventBus);
+			await seedBase(db, eventBus, ids);
 			// Pause route is removed; verify 400 from kill (same empty-reason validation)
-			const res = await app.request("/api/bets/bet1/kill", {
+			const res = await app.request(`/api/bets/${ids("bet1")}/kill`, {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({ reason: "" }),
@@ -143,9 +162,10 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			db,
 			app,
 			eventBus,
+			ids,
 		}) => {
-			await seedBase(db, eventBus);
-			const res = await app.request("/api/bets/bet1/kill", {
+			await seedBase(db, eventBus, ids);
+			const res = await app.request(`/api/bets/${ids("bet1")}/kill`, {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({}),
@@ -169,17 +189,18 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			db,
 			app,
 			eventBus,
+			ids,
 		}) => {
-			await seedBase(db, eventBus);
-			await transitionBet(db, eventBus, teamCapacity, "bet1", "active");
+			await seedBase(db, eventBus, ids);
+			await transitionBet(db, eventBus, teamCapacity, ids("bet1"), "active");
 
-			await app.request("/api/bets/bet1/kill", {
+			await app.request(`/api/bets/${ids("bet1")}/kill`, {
 				method: "POST",
-				headers: authHeaders(),
+				headers: actorHeaders(ids("u-actor")),
 				body: JSON.stringify({ reason: "No longer viable" }),
 			});
 
-			const res = await app.request("/api/bets/bet1", {
+			const res = await app.request(`/api/bets/${ids("bet1")}`, {
 				method: "GET",
 				headers: authHeaders(),
 			});
@@ -187,7 +208,7 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			const log = parseRevisionLog(body.revisionLog);
 			const killEntry = log.find((e) => e.new_value === "killed");
 			expect(killEntry).toBeDefined();
-			expect(killEntry?.actor).toBe("u-founder");
+			expect(killEntry?.actor).toBe(ids("u-actor"));
 		});
 	});
 
@@ -198,10 +219,11 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			db,
 			app,
 			eventBus,
+			ids,
 		}) => {
-			await seedBase(db, eventBus);
+			await seedBase(db, eventBus, ids);
 			// description starts with "# Hello"
-			const res = await app.request("/api/bets/bet1", {
+			const res = await app.request(`/api/bets/${ids("bet1")}`, {
 				method: "GET",
 				headers: authHeaders(),
 			});
@@ -215,9 +237,10 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			db,
 			app,
 			eventBus,
+			ids,
 		}) => {
-			await seedBase(db, eventBus);
-			const res = await app.request("/api/bets/bet1", {
+			await seedBase(db, eventBus, ids);
+			const res = await app.request(`/api/bets/${ids("bet1")}`, {
 				method: "GET",
 				headers: authHeaders(),
 			});
@@ -225,9 +248,9 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			expect(body.team).toBe("Alpha");
 		});
 
-		test("returns team identifier joined from teams table", async ({ db, app, eventBus }) => {
-			await seedBase(db, eventBus);
-			const res = await app.request("/api/bets/bet1", {
+		test("returns team identifier joined from teams table", async ({ db, app, eventBus, ids }) => {
+			await seedBase(db, eventBus, ids);
+			const res = await app.request(`/api/bets/${ids("bet1")}`, {
 				method: "GET",
 				headers: authHeaders(),
 			});
@@ -241,14 +264,15 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			db,
 			app,
 			eventBus,
+			ids,
 		}) => {
-			await seedBase(db, eventBus);
+			await seedBase(db, eventBus, ids);
 			const now = new Date().toISOString();
 			// Seed two tasks: one done, one in_progress
 			await db.insert(tasks).values({
-				id: "task-done",
-				betId: "bet1",
-				teamId: "p1",
+				id: ids("task-done"),
+				betId: ids("bet1"),
+				teamId: ids("p1"),
 				title: "Done task",
 				state: "done",
 				createdAt: now,
@@ -256,16 +280,16 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			});
 
 			await db.insert(tasks).values({
-				id: "task-wip",
-				betId: "bet1",
-				teamId: "p1",
+				id: ids("task-wip"),
+				betId: ids("bet1"),
+				teamId: ids("p1"),
 				title: "WIP task",
 				state: "in_progress",
 				createdAt: now,
 				updatedAt: now,
 			});
 
-			const res = await app.request("/api/bets/bet1", {
+			const res = await app.request(`/api/bets/${ids("bet1")}`, {
 				method: "GET",
 				headers: authHeaders(),
 			});
@@ -273,9 +297,14 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			expect(body.progress).toEqual({ done: 1, total: 2 });
 		});
 
-		test("returns progress { done: 0, total: 0 } when no tasks", async ({ db, app, eventBus }) => {
-			await seedBase(db, eventBus);
-			const res = await app.request("/api/bets/bet1", {
+		test("returns progress { done: 0, total: 0 } when no tasks", async ({
+			db,
+			app,
+			eventBus,
+			ids,
+		}) => {
+			await seedBase(db, eventBus, ids);
+			const res = await app.request(`/api/bets/${ids("bet1")}`, {
 				method: "GET",
 				headers: authHeaders(),
 			});
@@ -283,19 +312,24 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			expect(body.progress).toEqual({ done: 0, total: 0 });
 		});
 
-		test("falls back to bet id when description has no heading", async ({ db, app, eventBus }) => {
-			await seedBase(db, eventBus);
+		test("falls back to bet id when description has no heading", async ({
+			db,
+			app,
+			eventBus,
+			ids,
+		}) => {
+			await seedBase(db, eventBus, ids);
 			const now = new Date().toISOString();
 			await db.insert(bets).values({
-				id: "bet-noheading",
-				teamId: "p1",
+				id: ids("bet-noheading"),
+				teamId: ids("p1"),
 				description: "Just some prose with no heading",
 				appetite: "1 week",
 				status: "draft",
 				createdAt: now,
 			});
 
-			const res = await app.request("/api/bets/bet-noheading", {
+			const res = await app.request(`/api/bets/${ids("bet-noheading")}`, {
 				method: "GET",
 				headers: authHeaders(),
 			});
@@ -308,13 +342,18 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 	// ─── AC-13: POST /bets create schema rejects invalid appetite ────────────
 
 	describe("AC-13 — Create bet schema rejects invalid appetite enum", () => {
-		test("returns 400 when creating bet with appetite 'small'", async ({ db, app, eventBus }) => {
-			await seedBase(db, eventBus);
+		test("returns 400 when creating bet with appetite 'small'", async ({
+			db,
+			app,
+			eventBus,
+			ids,
+		}) => {
+			await seedBase(db, eventBus, ids);
 			const res = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					teamId: "p1",
+					teamId: ids("p1"),
 					description: "# Feature",
 					appetite: "small",
 				}),
@@ -322,13 +361,18 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 			expect(res.status).toBe(400);
 		});
 
-		test("returns 400 when creating bet with appetite 'big'", async ({ db, app, eventBus }) => {
-			await seedBase(db, eventBus);
+		test("returns 400 when creating bet with appetite 'big'", async ({
+			db,
+			app,
+			eventBus,
+			ids,
+		}) => {
+			await seedBase(db, eventBus, ids);
 			const res = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					teamId: "p1",
+					teamId: ids("p1"),
 					description: "# Feature",
 					appetite: "big",
 				}),

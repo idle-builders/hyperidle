@@ -106,8 +106,6 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/routes/__tests__/AH4-org-edge.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/X3-agents.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/agent-profile.integration.test.ts`
-- `layers/core-api/src/routes/__tests__/artifacts.routes.integration.test.ts`
-- `layers/core-api/src/routes/__tests__/bets.L14-actions.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/bets.artifact-thread-summary.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/knowledge.af13.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/knowledge.q2.integration.test.ts`
