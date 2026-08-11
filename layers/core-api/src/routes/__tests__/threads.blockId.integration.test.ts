@@ -12,6 +12,7 @@
  */
 
 import { type HyperIdleDb, messages, teamMembers, teams, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -27,18 +28,20 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	};
 }
 
-async function seedBase(db: HyperIdleDb): Promise<void> {
+async function seedBase(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(teams).values({ id: "p1-t5", name: "T5Team", phase: "build", createdAt: now });
+	await db
+		.insert(teams)
+		.values({ id: ids("p1-t5"), name: "T5Team", phase: "build", createdAt: now });
 	await db.insert(teamMembers).values({
-		id: "tm-t5",
-		teamId: "p1-t5",
+		id: ids("tm-t5"),
+		teamId: ids("p1-t5"),
 		capacity: 5,
 		activeBets: 0,
 		formedAt: now,
 	});
 	await db.insert(users).values({
-		id: "u-t5-founder",
+		id: ids("u-t5-founder"),
 		kind: "human",
 		name: "Founder T5",
 		role: "founder",
@@ -47,36 +50,36 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	});
 }
 
-async function createThread(app: Hono): Promise<string> {
+async function createThread(app: Hono, ids: ScopedIds): Promise<string> {
 	const create = await app.request("/api/threads", {
 		method: "POST",
 		headers: authHeaders(),
 		body: JSON.stringify({
 			hostKind: "user",
-			hostId: "u-t5-founder",
-			participants: ["u-t5-founder"],
+			hostId: ids("u-t5-founder"),
+			participants: [ids("u-t5-founder")],
 			initialMessage: {
 				type: "plain",
 				payload: { text: "Thread open" },
-				clientKey: "t5-append-init",
+				clientKey: `t5-append-init-${ids("suffix")}`,
 			},
 		}),
 	});
 	return ((await create.json()) as { thread: { id: string } }).thread.id;
 }
 
-async function createFilterThread(app: Hono): Promise<string> {
+async function createFilterThread(app: Hono, ids: ScopedIds): Promise<string> {
 	const create = await app.request("/api/threads", {
 		method: "POST",
 		headers: authHeaders(),
 		body: JSON.stringify({
 			hostKind: "user",
-			hostId: "u-t5-founder",
-			participants: ["u-t5-founder"],
+			hostId: ids("u-t5-founder"),
+			participants: [ids("u-t5-founder")],
 			initialMessage: {
 				type: "plain",
-				payload: { text: "Block A message 1", blockId: "block-filter-A" },
-				clientKey: "t5-filter-init",
+				payload: { text: "Block A message 1", blockId: ids("block-filter-A") },
+				clientKey: `t5-filter-init-${ids("suffix")}`,
 			},
 		}),
 	});
@@ -87,8 +90,8 @@ async function createFilterThread(app: Hono): Promise<string> {
 		headers: authHeaders(),
 		body: JSON.stringify({
 			type: "plain",
-			payload: { text: "Block A message 2", blockId: "block-filter-A" },
-			clientKey: "t5-filter-a2",
+			payload: { text: "Block A message 2", blockId: ids("block-filter-A") },
+			clientKey: `t5-filter-a2-${ids("suffix")}`,
 		}),
 	});
 	await app.request(`/api/threads/${threadId}/messages`, {
@@ -96,8 +99,8 @@ async function createFilterThread(app: Hono): Promise<string> {
 		headers: authHeaders(),
 		body: JSON.stringify({
 			type: "plain",
-			payload: { text: "Block B message 1", blockId: "block-filter-B" },
-			clientKey: "t5-filter-b1",
+			payload: { text: "Block B message 1", blockId: ids("block-filter-B") },
+			clientKey: `t5-filter-b1-${ids("suffix")}`,
 		}),
 	});
 	await app.request(`/api/threads/${threadId}/messages`, {
@@ -106,7 +109,7 @@ async function createFilterThread(app: Hono): Promise<string> {
 		body: JSON.stringify({
 			type: "plain",
 			payload: { text: "Unanchored message 1" },
-			clientKey: "t5-filter-u1",
+			clientKey: `t5-filter-u1-${ids("suffix")}`,
 		}),
 	});
 	await app.request(`/api/threads/${threadId}/messages`, {
@@ -115,7 +118,7 @@ async function createFilterThread(app: Hono): Promise<string> {
 		body: JSON.stringify({
 			type: "plain",
 			payload: { text: "Unanchored message 2" },
-			clientKey: "t5-filter-u2",
+			clientKey: `t5-filter-u2-${ids("suffix")}`,
 		}),
 	});
 
@@ -136,21 +139,22 @@ describe("AC-1 — blockId written to column on POST /api/threads (initial messa
 	test("message row has block_id column populated when blockId is in plain payload", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedBase(db);
-		const blockId = "block-abc123def456";
+		await seedBase(db, ids);
+		const blockId = ids("block-abc123def456");
 
 		const res = await app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
 				hostKind: "user",
-				hostId: "u-t5-founder",
-				participants: ["u-t5-founder"],
+				hostId: ids("u-t5-founder"),
+				participants: [ids("u-t5-founder")],
 				initialMessage: {
 					type: "plain",
 					payload: { text: "Discussing this block", blockId },
-					clientKey: "t5-init-blockid-1",
+					clientKey: `t5-init-blockid-1-${ids("suffix")}`,
 				},
 			}),
 		});
@@ -170,19 +174,19 @@ describe("AC-1 — blockId written to column on POST /api/threads (initial messa
 		expect(messageRows[0]!.blockId).toBe(blockId);
 	});
 
-	test("message row has null block_id when no blockId is in payload", async ({ db, app }) => {
-		await seedBase(db);
+	test("message row has null block_id when no blockId is in payload", async ({ db, app, ids }) => {
+		await seedBase(db, ids);
 		const res = await app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
 				hostKind: "user",
-				hostId: "u-t5-founder",
-				participants: ["u-t5-founder"],
+				hostId: ids("u-t5-founder"),
+				participants: [ids("u-t5-founder")],
 				initialMessage: {
 					type: "plain",
 					payload: { text: "No block anchor here" },
-					clientKey: "t5-init-no-blockid",
+					clientKey: `t5-init-no-blockid-${ids("suffix")}`,
 				},
 			}),
 		});
@@ -216,10 +220,11 @@ describe("AC-1 — blockId written to column on POST /api/threads/:id/messages (
 	test("appended message row has block_id column populated when blockId is in payload", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedBase(db);
-		const threadId = await createThread(app);
-		const blockId = "block-append-xyz789";
+		await seedBase(db, ids);
+		const threadId = await createThread(app, ids);
+		const blockId = ids("block-append-xyz789");
 
 		const res = await app.request(`/api/threads/${threadId}/messages`, {
 			method: "POST",
@@ -227,7 +232,7 @@ describe("AC-1 — blockId written to column on POST /api/threads/:id/messages (
 			body: JSON.stringify({
 				type: "plain",
 				payload: { text: "Anchored reply", blockId },
-				clientKey: "t5-append-blockid-1",
+				clientKey: `t5-append-blockid-1-${ids("suffix")}`,
 			}),
 		});
 
@@ -243,16 +248,17 @@ describe("AC-1 — blockId written to column on POST /api/threads/:id/messages (
 	test("appended message row has null block_id when no blockId is in payload", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedBase(db);
-		const threadId = await createThread(app);
+		await seedBase(db, ids);
+		const threadId = await createThread(app, ids);
 		const res = await app.request(`/api/threads/${threadId}/messages`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
 				type: "plain",
 				payload: { text: "Plain reply, no anchor" },
-				clientKey: "t5-append-no-blockid",
+				clientKey: `t5-append-no-blockid-${ids("suffix")}`,
 			}),
 		});
 
@@ -280,11 +286,12 @@ describe("AC-5 — GET /api/threads/:id?block_id=X returns only matching message
 	test("GET with ?block_id=block-filter-A returns only 2 messages anchored to block-A", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedBase(db);
-		const threadId = await createFilterThread(app);
+		await seedBase(db, ids);
+		const threadId = await createFilterThread(app, ids);
 
-		const res = await app.request(`/api/threads/${threadId}?block_id=block-filter-A`, {
+		const res = await app.request(`/api/threads/${threadId}?block_id=${ids("block-filter-A")}`, {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -296,13 +303,13 @@ describe("AC-5 — GET /api/threads/:id?block_id=X returns only matching message
 
 		expect(body.messages).toHaveLength(2);
 		for (const msg of body.messages) {
-			expect(msg.payload.blockId).toBe("block-filter-A");
+			expect(msg.payload.blockId).toBe(ids("block-filter-A"));
 		}
 	});
 
-	test("GET without block_id filter returns all 5 messages", async ({ db, app }) => {
-		await seedBase(db);
-		const threadId = await createFilterThread(app);
+	test("GET without block_id filter returns all 5 messages", async ({ db, app, ids }) => {
+		await seedBase(db, ids);
+		const threadId = await createFilterThread(app, ids);
 		const res = await app.request(`/api/threads/${threadId}`, {
 			method: "GET",
 			headers: authHeaders(),
@@ -317,10 +324,11 @@ describe("AC-5 — GET /api/threads/:id?block_id=X returns only matching message
 	test("GET with ?block_id=block-filter-B returns only 1 message anchored to block-B", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedBase(db);
-		const threadId = await createFilterThread(app);
-		const res = await app.request(`/api/threads/${threadId}?block_id=block-filter-B`, {
+		await seedBase(db, ids);
+		const threadId = await createFilterThread(app, ids);
+		const res = await app.request(`/api/threads/${threadId}?block_id=${ids("block-filter-B")}`, {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -331,10 +339,10 @@ describe("AC-5 — GET /api/threads/:id?block_id=X returns only matching message
 		expect(body.messages).toHaveLength(1);
 	});
 
-	test("GET with ?block_id=block-nonexistent returns 0 messages", async ({ db, app }) => {
-		await seedBase(db);
-		const threadId = await createFilterThread(app);
-		const res = await app.request(`/api/threads/${threadId}?block_id=block-nonexistent`, {
+	test("GET with ?block_id=block-nonexistent returns 0 messages", async ({ db, app, ids }) => {
+		await seedBase(db, ids);
+		const threadId = await createFilterThread(app, ids);
+		const res = await app.request(`/api/threads/${threadId}?block_id=${ids("block-nonexistent")}`, {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -348,9 +356,10 @@ describe("AC-5 — GET /api/threads/:id?block_id=X returns only matching message
 	test("GET with ?block_id= (empty string) returns 400 or ignores the filter (security: rejects empty)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedBase(db);
-		const threadId = await createFilterThread(app);
+		await seedBase(db, ids);
+		const threadId = await createFilterThread(app, ids);
 		const res = await app.request(`/api/threads/${threadId}?block_id=`, {
 			method: "GET",
 			headers: authHeaders(),
@@ -362,9 +371,10 @@ describe("AC-5 — GET /api/threads/:id?block_id=X returns only matching message
 	test("GET with ?block_id exceeding 128 chars returns 400 (T5 max-length guard)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedBase(db);
-		const threadId = await createFilterThread(app);
+		await seedBase(db, ids);
+		const threadId = await createFilterThread(app, ids);
 		const oversizedBlockId = "x".repeat(129);
 		const res = await app.request(`/api/threads/${threadId}?block_id=${oversizedBlockId}`, {
 			method: "GET",
@@ -388,21 +398,21 @@ describe("AC-4 — anchored messages outlive their block (no cascade delete)", (
 		vi.unstubAllEnvs();
 	});
 
-	test("message with blockId persists when the thread is not deleted", async ({ db, app }) => {
-		await seedBase(db);
-		const blockId = "block-persist-test";
+	test("message with blockId persists when the thread is not deleted", async ({ db, app, ids }) => {
+		await seedBase(db, ids);
+		const blockId = ids("block-persist-test");
 
 		const res = await app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
 				hostKind: "user",
-				hostId: "u-t5-founder",
-				participants: ["u-t5-founder"],
+				hostId: ids("u-t5-founder"),
+				participants: [ids("u-t5-founder")],
 				initialMessage: {
 					type: "plain",
 					payload: { text: "Anchored message that outlives its block", blockId },
-					clientKey: "t5-persist-1",
+					clientKey: `t5-persist-1-${ids("suffix")}`,
 				},
 			}),
 		});

@@ -12,8 +12,10 @@
  */
 
 import { type HyperIdleDb, knowledgeAppProjection, knowledgeItems, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { KERNEL_KNOWLEDGE_STATUSES } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
+import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
@@ -38,7 +40,7 @@ async function seedKnowledgeItem(
 	db: HyperIdleDb,
 	id: string,
 	status: string,
-	updatedBy = "founder",
+	updatedBy,
 	scopeKind = "factory",
 ): Promise<void> {
 	const now = new Date().toISOString();
@@ -110,10 +112,11 @@ describe("Y4 — GET /api/knowledge returns attentionScore in signals", () => {
 	test("returns attentionScore as a number when fabric row has attentionScore", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedFounder(db, "founder");
-		await seedKnowledgeItem(db, "ki-1", "active");
-		await seedFabricWithAttentionScore(db, "ki-1", "0.85");
+		await seedFounder(db, ids("founder"));
+		await seedKnowledgeItem(db, ids("ki-1"), "active", ids("founder"));
+		await seedFabricWithAttentionScore(db, ids("ki-1"), "0.85");
 
 		const res = await app.request("/api/knowledge", { headers: authHeaders() });
 		expect(res.status).toBe(200);
@@ -121,7 +124,7 @@ describe("Y4 — GET /api/knowledge returns attentionScore in signals", () => {
 		const body = (await res.json()) as {
 			items: Array<{ id: string; signals: { attentionScore: number | null } }>;
 		};
-		const item = body.items.find((i) => i.id === "ki-1");
+		const item = body.items.find((i) => i.id === ids("ki-1"));
 		expect(item).toBeDefined();
 		expect(item?.signals).toHaveProperty("attentionScore");
 		expect(typeof item?.signals.attentionScore).toBe("number");
@@ -131,11 +134,12 @@ describe("Y4 — GET /api/knowledge returns attentionScore in signals", () => {
 	test("returns attentionScore as null when fabric row has no attentionScore", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedFounder(db, "founder");
-		await seedKnowledgeItem(db, "ki-2", "active");
+		await seedFounder(db, ids("founder"));
+		await seedKnowledgeItem(db, ids("ki-2"), "active", ids("founder"));
 		// Seed fabric row without attentionScore (null)
-		await seedFabricWithAttentionScore(db, "ki-2", null);
+		await seedFabricWithAttentionScore(db, ids("ki-2"), null);
 
 		const res = await app.request("/api/knowledge", { headers: authHeaders() });
 		expect(res.status).toBe(200);
@@ -143,14 +147,18 @@ describe("Y4 — GET /api/knowledge returns attentionScore in signals", () => {
 		const body = (await res.json()) as {
 			items: Array<{ id: string; signals: { attentionScore: number | null } }>;
 		};
-		const item = body.items.find((i) => i.id === "ki-2");
+		const item = body.items.find((i) => i.id === ids("ki-2"));
 		expect(item).toBeDefined();
 		expect(item?.signals.attentionScore).toBeNull();
 	});
 
-	test("returns attentionScore as null when no fabric row exists for item", async ({ db, app }) => {
-		await seedFounder(db, "founder");
-		await seedKnowledgeItem(db, "ki-3", "active");
+	test("returns attentionScore as null when no fabric row exists for item", async ({
+		db,
+		app,
+		ids,
+	}) => {
+		await seedFounder(db, ids("founder"));
+		await seedKnowledgeItem(db, ids("ki-3"), "active", ids("founder"));
 		// No fabric row seeded
 
 		const res = await app.request("/api/knowledge", { headers: authHeaders() });
@@ -159,7 +167,7 @@ describe("Y4 — GET /api/knowledge returns attentionScore in signals", () => {
 		const body = (await res.json()) as {
 			items: Array<{ id: string; signals: { attentionScore: number | null } }>;
 		};
-		const item = body.items.find((i) => i.id === "ki-3");
+		const item = body.items.find((i) => i.id === ids("ki-3"));
 		expect(item).toBeDefined();
 		expect(item?.signals.attentionScore).toBeNull();
 	});
@@ -167,10 +175,11 @@ describe("Y4 — GET /api/knowledge returns attentionScore in signals", () => {
 	test("parses attentionScore from string to number (stored as text in DB)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedFounder(db, "founder");
-		await seedKnowledgeItem(db, "ki-4", "draft");
-		await seedFabricWithAttentionScore(db, "ki-4", "0.72");
+		await seedFounder(db, ids("founder"));
+		await seedKnowledgeItem(db, ids("ki-4"), "draft", ids("founder"));
+		await seedFabricWithAttentionScore(db, ids("ki-4"), "0.72");
 
 		const res = await app.request("/api/knowledge", { headers: authHeaders() });
 		expect(res.status).toBe(200);
@@ -178,7 +187,7 @@ describe("Y4 — GET /api/knowledge returns attentionScore in signals", () => {
 		const body = (await res.json()) as {
 			items: Array<{ id: string; signals: { attentionScore: number | null } }>;
 		};
-		const item = body.items.find((i) => i.id === "ki-4");
+		const item = body.items.find((i) => i.id === ids("ki-4"));
 		expect(item).toBeDefined();
 		// Must be a JS number, not the string "0.72"
 		expect(item?.signals.attentionScore).toBe(0.72);
@@ -198,61 +207,73 @@ describe("Y4 — GET /api/knowledge/triage-count", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("returns { count: 0 } when no items exist", async ({ db, app }) => {
-		await seedFounder(db, "founder");
+	// @lore AU38 P6: triage-count is a GLOBAL count over everything visible to
+	// the requester — in a populated world other tests' items contribute. The
+	// counting behaviour is therefore asserted as a before/after diff: seed
+	// scoped rows, and the count must move by exactly the expected delta.
+	async function getTriageCount(app: Pick<Hono, "request">): Promise<number> {
+		const res = await app.request("/api/knowledge/triage-count", { headers: authHeaders() });
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { count: number };
+		return body.count;
+	}
+
+	test("returns a numeric count regardless of world state", async ({ db, app, ids }) => {
+		// AU38 P4: the original claimed a global zero "when no items exist" —
+		// an absence a populated world cannot honour. Re-homed on the shape.
+		await seedFounder(db, ids("founder"));
 		const res = await app.request("/api/knowledge/triage-count", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { count: number };
 		expect(body).toHaveProperty("count");
-		expect(body.count).toBe(0);
+		expect(typeof body.count).toBe("number");
+		expect(body.count).toBeGreaterThanOrEqual(0);
 	});
 
-	test("counts draft items only when no needs_human items exist", async ({ db, app }) => {
-		await seedFounder(db, "founder");
-		await seedKnowledgeItem(db, "ki-draft-1", "draft");
-		await seedKnowledgeItem(db, "ki-draft-2", "draft");
-		await seedKnowledgeItem(db, "ki-active", "active");
-		await seedKnowledgeItem(db, "ki-archived", "archived");
+	test("counts draft items only when no needs_human items exist", async ({ db, app, ids }) => {
+		await seedFounder(db, ids("founder"));
+		const baseline = await getTriageCount(app);
+		await seedKnowledgeItem(db, ids("ki-draft-1"), "draft", ids("founder"));
+		await seedKnowledgeItem(db, ids("ki-draft-2"), "draft", ids("founder"));
+		await seedKnowledgeItem(db, ids("ki-active"), "active", ids("founder"));
+		await seedKnowledgeItem(db, ids("ki-archived"), "archived", ids("founder"));
 
-		const res = await app.request("/api/knowledge/triage-count", { headers: authHeaders() });
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as { count: number };
-		expect(body.count).toBe(2);
+		const body = { count: await getTriageCount(app) };
+		expect(body.count - baseline).toBe(2);
 	});
 
-	test("counts needs_human items in addition to draft items", async ({ db, app }) => {
-		await seedFounder(db, "founder");
-		await seedKnowledgeItem(db, "ki-draft-a", "draft");
-		await seedKnowledgeItem(db, "ki-draft-b", "draft");
-		await seedKnowledgeItem(db, "ki-draft-c", "draft");
-		await seedKnowledgeItem(db, "ki-nh-1", "needs_human");
-		await seedKnowledgeItem(db, "ki-nh-2", "needs_human");
-		await seedKnowledgeItem(db, "ki-active", "active");
+	test("counts needs_human items in addition to draft items", async ({ db, app, ids }) => {
+		await seedFounder(db, ids("founder"));
+		const baseline = await getTriageCount(app);
+		await seedKnowledgeItem(db, ids("ki-draft-a"), "draft", ids("founder"));
+		await seedKnowledgeItem(db, ids("ki-draft-b"), "draft", ids("founder"));
+		await seedKnowledgeItem(db, ids("ki-draft-c"), "draft", ids("founder"));
+		await seedKnowledgeItem(db, ids("ki-nh-1"), "needs_human", ids("founder"));
+		await seedKnowledgeItem(db, ids("ki-nh-2"), "needs_human", ids("founder"));
+		await seedKnowledgeItem(db, ids("ki-active"), "active", ids("founder"));
 
-		const res = await app.request("/api/knowledge/triage-count", { headers: authHeaders() });
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as { count: number };
+		const body = { count: await getTriageCount(app) };
 		// 3 draft + 2 needs_human = 5
-		expect(body.count).toBe(5);
+		expect(body.count - baseline).toBe(5);
 	});
 
-	test("does NOT count active or archived items", async ({ db, app }) => {
-		await seedFounder(db, "founder");
-		await seedKnowledgeItem(db, "ki-active-1", "active");
-		await seedKnowledgeItem(db, "ki-active-2", "active");
-		await seedKnowledgeItem(db, "ki-archived-1", "archived");
+	test("does NOT count active or archived items", async ({ db, app, ids }) => {
+		await seedFounder(db, ids("founder"));
+		const baseline = await getTriageCount(app);
+		await seedKnowledgeItem(db, ids("ki-active-1"), "active", ids("founder"));
+		await seedKnowledgeItem(db, ids("ki-active-2"), "active", ids("founder"));
+		await seedKnowledgeItem(db, ids("ki-archived-1"), "archived", ids("founder"));
 
-		const res = await app.request("/api/knowledge/triage-count", { headers: authHeaders() });
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as { count: number };
-		expect(body.count).toBe(0);
+		const body = { count: await getTriageCount(app) };
+		expect(body.count - baseline).toBe(0);
 	});
 
 	test("returns { count: number } response shape (not an array or nested object)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedFounder(db, "founder");
+		await seedFounder(db, ids("founder"));
 		const res = await app.request("/api/knowledge/triage-count", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as Record<string, unknown>;
@@ -269,32 +290,30 @@ describe("Y4 — GET /api/knowledge/triage-count", () => {
 		expect(res.status).toBe(401);
 	});
 
-	test("excludes user-scoped items from other users in the count", async ({ db, app }) => {
-		await seedFounder(db, "founder");
-		// Seed a different human user, then switch to them
+	test("excludes user-scoped items from other users in the count", async ({ db, app, ids }) => {
+		await seedFounder(db, ids("founder"));
+		const baseline = await getTriageCount(app);
 		// The triage-count endpoint should only count items visible to the requesting user
-		await seedKnowledgeItem(db, "ki-draft-factory", "draft", "founder", "factory");
+		await seedKnowledgeItem(db, ids("ki-draft-factory"), "draft", ids("founder"), "factory");
 		// User-scoped item authored by a different user
 		await db.insert(knowledgeItems).values({
-			id: "ki-private-other",
+			id: ids("ki-private-other"),
 			title: "Private item from other user",
 			body: "body",
 			format: "markdown",
 			status: "draft",
 			version: 1,
-			updatedBy: "other-user",
+			updatedBy: ids("other-user"),
 			scopeKind: "user",
 			createdAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString(),
 		});
 
-		// Auth resolves to "founder" (the only human user). The private item from
-		// "other-user" with scope_kind="user" should not be counted.
-		const res = await app.request("/api/knowledge/triage-count", { headers: authHeaders() });
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as { count: number };
-		// Only the factory-scoped draft should count (not the other-user's private draft)
-		expect(body.count).toBe(1);
+		// AU38: the private item belongs to a scoped user that is not the
+		// requester (whoever the populated world resolves), so only the
+		// factory-scoped draft may enter the count.
+		const body = { count: await getTriageCount(app) };
+		expect(body.count - baseline).toBe(1);
 	});
 });
 
@@ -311,8 +330,8 @@ describe("Y4 — PATCH /api/knowledge/:id accepts needs_human status", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("PATCH with status=needs_human returns 200", async ({ db, app }) => {
-		await seedFounder(db, "founder");
+	test("PATCH with status=needs_human returns 200", async ({ db, app, ids }) => {
+		await seedFounder(db, ids("founder"));
 		// First create a draft item via POST
 		const createRes = await app.request("/api/knowledge", {
 			method: "POST",
@@ -321,7 +340,7 @@ describe("Y4 — PATCH /api/knowledge/:id accepts needs_human status", () => {
 				title: "Item to flag",
 				body: "body",
 				format: "markdown",
-				updatedBy: "founder",
+				updatedBy: ids("founder"),
 				scopeKind: "factory",
 			}),
 		});
@@ -333,15 +352,15 @@ describe("Y4 — PATCH /api/knowledge/:id accepts needs_human status", () => {
 			headers: authHeaders(),
 			body: JSON.stringify({
 				version: created.version,
-				updatedBy: "founder",
+				updatedBy: ids("founder"),
 				status: "needs_human",
 			}),
 		});
 		expect(patchRes.status).toBe(200);
 	});
 
-	test("PATCH with status=needs_human persists the new status", async ({ db, app }) => {
-		await seedFounder(db, "founder");
+	test("PATCH with status=needs_human persists the new status", async ({ db, app, ids }) => {
+		await seedFounder(db, ids("founder"));
 		const createRes = await app.request("/api/knowledge", {
 			method: "POST",
 			headers: authHeaders(),
@@ -349,7 +368,7 @@ describe("Y4 — PATCH /api/knowledge/:id accepts needs_human status", () => {
 				title: "Flaggable item",
 				body: "body",
 				format: "markdown",
-				updatedBy: "founder",
+				updatedBy: ids("founder"),
 				scopeKind: "factory",
 			}),
 		});
@@ -361,7 +380,7 @@ describe("Y4 — PATCH /api/knowledge/:id accepts needs_human status", () => {
 			headers: authHeaders(),
 			body: JSON.stringify({
 				version: created.version,
-				updatedBy: "founder",
+				updatedBy: ids("founder"),
 				status: "needs_human",
 			}),
 		});
@@ -378,17 +397,18 @@ describe("Y4 — PATCH /api/knowledge/:id accepts needs_human status", () => {
 	test("PATCH from needs_human to active returns 200 (triage validate flow)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedFounder(db, "founder");
+		await seedFounder(db, ids("founder"));
 		// Seed a needs_human item directly
-		await seedKnowledgeItem(db, "ki-needs-human", "needs_human");
+		await seedKnowledgeItem(db, ids("ki-needs-human"), "needs_human", ids("founder"));
 
-		const patchRes = await app.request("/api/knowledge/ki-needs-human", {
+		const patchRes = await app.request(`/api/knowledge/${ids("ki-needs-human")}`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({
 				version: 1,
-				updatedBy: "founder",
+				updatedBy: ids("founder"),
 				status: "active",
 			}),
 		});
@@ -400,32 +420,33 @@ describe("Y4 — PATCH /api/knowledge/:id accepts needs_human status", () => {
 	test("PATCH from needs_human to archived returns 200 (triage reject flow)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedFounder(db, "founder");
-		await seedKnowledgeItem(db, "ki-nh-reject", "needs_human");
+		await seedFounder(db, ids("founder"));
+		await seedKnowledgeItem(db, ids("ki-nh-reject"), "needs_human", ids("founder"));
 
-		const patchRes = await app.request("/api/knowledge/ki-nh-reject", {
+		const patchRes = await app.request(`/api/knowledge/${ids("ki-nh-reject")}`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({
 				version: 1,
-				updatedBy: "founder",
+				updatedBy: ids("founder"),
 				status: "archived",
 			}),
 		});
 		expect(patchRes.status).toBe(200);
 	});
 
-	test("PATCH with an unknown status still returns 400", async ({ db, app }) => {
-		await seedFounder(db, "founder");
-		await seedKnowledgeItem(db, "ki-bad-status", "draft");
+	test("PATCH with an unknown status still returns 400", async ({ db, app, ids }) => {
+		await seedFounder(db, ids("founder"));
+		await seedKnowledgeItem(db, ids("ki-bad-status"), "draft", ids("founder"));
 
-		const patchRes = await app.request("/api/knowledge/ki-bad-status", {
+		const patchRes = await app.request(`/api/knowledge/${ids("ki-bad-status")}`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({
 				version: 1,
-				updatedBy: "founder",
+				updatedBy: ids("founder"),
 				status: "invalid_status_xyz",
 			}),
 		});
