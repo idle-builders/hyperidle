@@ -113,7 +113,7 @@ Verified against the seed fixture. True chronological order in the pricing-revie
 
 ### C2. A blocking decision cannot be answered **[P0]**
 
-On the blocked annual-billing task an agent asks the founder a question with three options (10% / 15% / 20%). Verified live: the options are plain `<li>` elements — no `button`, no `role`, `cursor: auto` — and clicking one changes nothing. The product's central claim is that humans steer and agents build; the control where a human steers a blocked task is inert. This belongs beside "Open review" in AZ5, and is arguably the more damaging of the two.
+On the blocked annual-billing task an agent asks the founder a question with three options (10% / 15% / 20%). Verified live: the options are plain `<li>` elements — no `button`, no `role`, `cursor: auto` — and clicking one changes nothing. The product's central claim is that humans steer and agents build; the control where a human steers a blocked task is inert. This belongs beside the silent "Open review" no-op, and is arguably the more damaging of the two.
 
 ### C3. The conversation kebab injects unrelated fixture content **[P1]**
 
@@ -137,7 +137,7 @@ The documented scale is `0 / 10 / 16 / 9999`. In use: `3.35544e+07px` (**99 occu
 
 ### C6. Dividers — the token is clean, the placement is not **[correction]**
 
-Pass A claimed inconsistent separator treatments. That was wrong, and an artifact of counting button borders as dividers. Measured properly — elements whose only border is a bottom border, excluding controls — there is exactly **one** divider recipe (`1px rgb(237, 230, 200)`) used 89 times. The real problem is where dividers are drawn, not how: they stop mid-row (the `Row` width bug, AZ9), they stack into phantom empty rows on task detail, and they bracket sections that have no content. Fixing placement, not styling.
+Pass A claimed inconsistent separator treatments. That was wrong, and an artifact of counting button borders as dividers. Measured properly — elements whose only border is a bottom border, excluding controls — there is exactly **one** divider recipe (`1px rgb(237, 230, 200)`) used 89 times. The real problem is where dividers are drawn, not how: they stop mid-row (the shared row primitive's width bug), they stack into phantom empty rows on task detail, and they bracket sections that have no content. Fixing placement, not styling.
 
 ### C7. Prose blocks have two different editing models **[P1]**
 
@@ -149,7 +149,7 @@ Opening a routine or an agent replaces half the screen with a split pane; openin
 
 ### C9. Onboarding banners — founder ruling: delete **[scope change]**
 
-Passes A and B recorded the coach-mark banners as misplaced and proposed relocating them below the page header. Founder ruling, 2026-08-11: they are useless and should be **removed entirely**, not relocated. This narrows AZ11.
+Passes A and B recorded the coach-mark banners as misplaced and proposed relocating them below the page header. Founder ruling, 2026-08-11: they are useless and should be **removed entirely**, not relocated. This narrows the page-geometry work to setting the rule that nothing sits above a page header.
 
 ### C10. Spacing and elevation were never audited systematically **[gap]**
 
