@@ -16,7 +16,9 @@
 
 **Engineering tier.** mvp
 
-**Pre-build.** Not required — this is a correctness and presentation pass with no new user-facing concepts.
+**Pre-build.** Not required — this is a correctness and presentation pass with no new user-facing concepts. An architecture round still precedes the build — see the execution procedure below.
+
+**Execution procedure (human-approved).** Skip the pipeline's standard phase set. One agent runs an architecture round first and stops; the founder reviews and approves it before any code is written. The same agent then builds in a single session — tests, then code. When it is done, one fresh agent reviews it, one round only. No refinement, design or critique phase, and no further human gate after the architecture approval. Founder decision, 2026-08-11: this is the approved procedure for this work package and the orchestrator does not add phases to it.
 
 **Constraints.** Identifiers may still appear in copy-for-support affordances and developer surfaces, provided they are not the primary label of an object.
 

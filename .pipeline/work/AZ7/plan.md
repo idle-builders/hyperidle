@@ -16,7 +16,9 @@
 
 **Engineering tier.** mvp
 
-**Pre-build.** **Light design pass.** The presentations exist; what is undecided is the canonical word for each state where surfaces currently disagree, and which states deserve a chip at all.
+**Pre-build.** **Folded into the architecture round.** What is undecided — the canonical word for each state where surfaces currently disagree, and which states deserve a chip at all — is decided in the architecture round below and approved there before any code is written.
+
+**Execution procedure (human-approved).** Skip the pipeline's standard phase set. One agent runs an architecture round first and stops; the founder reviews and approves it before any code is written. The same agent then builds in a single session — tests, then code. When it is done, one fresh agent reviews it, one round only. No refinement, design or critique phase, and no further human gate after the architecture approval. Founder decision, 2026-08-11: this is the approved procedure for this work package and the orchestrator does not add phases to it.
 
 **Constraints.** The documented colour-to-meaning table in settings is already correct and is the reference, not a candidate for change.
 

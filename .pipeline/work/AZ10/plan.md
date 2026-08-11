@@ -18,6 +18,8 @@
 
 **Pre-build.** Not required — no new surface or visual concept; hover and focus treatments already exist in the shared primitives.
 
+**Execution procedure (human-approved).** Skip the pipeline. One agent does the whole build in a single session — its own planning, then tests, then code — with no refinement, design, critique or architecture phase and no mid-build human gate. When it is done, one fresh agent reviews it, one round only. Founder decision, 2026-08-11: this is the approved procedure for this work package and the orchestrator does not add phases to it.
+
 **Constraints.** Keyboard activation and existing shortcuts must not regress. Controls that act without changing the address stay buttons — this is not a blanket conversion.
 
 **Out of scope.** Changing any route or address; adding a browser-history or breadcrumb affordance.

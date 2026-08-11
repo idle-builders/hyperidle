@@ -18,6 +18,8 @@
 
 **Pre-build.** Not required — this is a token value correction with a measurable target, not a new visual direction.
 
+**Execution procedure (human-approved).** Skip the pipeline. One agent does the whole build in a single session — its own planning, then tests, then code — with no refinement, design, critique or architecture phase and no mid-build human gate. When it is done, one fresh agent reviews it, one round only. Founder decision, 2026-08-11: this is the approved procedure for this work package and the orchestrator does not add phases to it.
+
 **Constraints.** Change token values only; no component may work around the theme by declaring its own border colour. The surface ladder is correct and is not in scope to change.
 
 **Out of scope.** The light theme; shadows and elevation; any component's border geometry or radius.

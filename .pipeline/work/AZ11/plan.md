@@ -16,7 +16,9 @@
 
 **Engineering tier.** mvp
 
-**Pre-build.** **Design required.** Choosing one content width and one breadcrumb treatment across surfaces with genuinely different content shapes (dense lists vs. prose vs. forms) is a user-facing decision not determined by an existing approved pattern.
+**Pre-build.** **Folded into the architecture round.** The decision — one content column rule and one breadcrumb treatment spanning dense lists, prose and forms — is made in the architecture round below and approved there before any code is written.
+
+**Execution procedure (human-approved).** Skip the pipeline's standard phase set. One agent runs an architecture round first and stops; the founder reviews and approves it before any code is written. The same agent then builds in a single session — tests, then code. When it is done, one fresh agent reviews it, one round only. No refinement, design or critique phase, and no further human gate after the architecture approval. Founder decision, 2026-08-11: this is the approved procedure for this work package and the orchestrator does not add phases to it.
 
 **Constraints.** The documented pinned-header anatomy and the one-top-level-heading-per-page rule are fixed and must hold after the change.
 

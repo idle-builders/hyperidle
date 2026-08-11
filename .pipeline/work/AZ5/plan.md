@@ -18,6 +18,8 @@
 
 **Pre-build.** Not required — no new surface; this decides presence and state of existing controls.
 
+**Execution procedure (human-approved).** Skip the pipeline. One agent does the whole build in a single session — its own planning, then tests, then code — with no refinement, design, critique or architecture phase and no mid-build human gate. When it is done, one fresh agent reviews it, one round only. Founder decision, 2026-08-11: this is the approved procedure for this work package and the orchestrator does not add phases to it.
+
 **Constraints.** Do not create dead destinations to make a button work; absence or an explained unavailable state is the correct outcome when there is nowhere to go.
 
 **Out of scope.** Adding the missing review destination itself; cursor and hover behaviour generally (AZ10).

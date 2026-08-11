@@ -16,7 +16,9 @@
 
 **Engineering tier.** mvp
 
-**Pre-build.** **Design required.** Whether the secondary list is real navigation worth its space, or redundancy to remove, is a product decision — and the settings takeover needs a decided model for how a mode coexists with primary navigation. Neither is determined by an existing approved pattern.
+**Pre-build.** **Folded into the architecture round.** The product decisions — whether the secondary list earns its space, and how a mode like settings coexists with primary navigation — are made in the architecture round below and approved there before any code is written.
+
+**Execution procedure (human-approved).** Skip the pipeline's standard phase set. One agent runs an architecture round first and stops; the founder reviews and approves it before any code is written. The same agent then builds in a single session — tests, then code. When it is done, one fresh agent reviews it, one round only. No refinement, design or critique phase, and no further human gate after the architecture approval. Founder decision, 2026-08-11: this is the approved procedure for this work package and the orchestrator does not add phases to it.
 
 **Constraints.** Whatever is decided must hold at every viewport, including the phone drawer, which presents the same navigation.
 

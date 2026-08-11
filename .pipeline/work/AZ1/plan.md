@@ -18,6 +18,8 @@
 
 **Pre-build.** Not required — the outcome is a restored interaction with an identified cause and no user-facing design change.
 
+**Execution procedure (human-approved).** Skip the pipeline. One agent does the whole build in a single session — its own planning, then tests, then code — with no refinement, design, critique or architecture phase and no mid-build human gate. When it is done, one fresh agent reviews it, one round only. Founder decision, 2026-08-11: this is the approved procedure for this work package and the orchestrator does not add phases to it.
+
 **Constraints.** Existing shortcuts keep working (⌘K opens and closes search; Escape dismisses). No change to what search returns or to drawer styling.
 
 **Out of scope.** Search result ranking or coverage, the palette's empty-state copy, drawer visual design, the scrim's extent over the sidebar.

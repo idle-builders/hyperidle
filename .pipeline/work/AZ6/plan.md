@@ -16,7 +16,9 @@
 
 **Engineering tier.** mvp
 
-**Pre-build.** **Refinement and design required.** Rendering authored HTML is a safety decision, not only a visual one — what is rendered, what is sanitised, and what isolation the render runs in must be decided before implementation. The unrenderable state also needs designed copy and a deliberate route to the source. Trigger: the load-bearing noun ("what an artifact preview is allowed to run") is unresolved.
+**Pre-build.** **Folded into the architecture round.** The decision this work package cannot proceed without — what an artifact preview may render, and under what isolation it runs — is a safety decision, not only a visual one. It is now made in the architecture round below and must be explicitly recorded and approved there before any code is written.
+
+**Execution procedure (human-approved).** Skip the pipeline's standard phase set. One agent runs an architecture round first and stops; the founder reviews and approves it before any code is written. The same agent then builds in a single session — tests, then code. When it is done, one fresh agent reviews it, one round only. No refinement, design or critique phase, and no further human gate after the architecture approval. Founder decision, 2026-08-11: this is the approved procedure for this work package and the orchestrator does not add phases to it.
 
 **Constraints.** No change to how artifacts are produced or stored.
 

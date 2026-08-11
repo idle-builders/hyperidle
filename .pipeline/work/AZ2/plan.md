@@ -16,7 +16,9 @@
 
 **Engineering tier.** mvp
 
-**Pre-build.** Not required — the correct behaviour is already documented and the cause is identified.
+**Pre-build.** Not required — the correct behaviour is already documented and the cause is identified. An architecture round still precedes the build — see the execution procedure below.
+
+**Execution procedure (human-approved).** Skip the pipeline's standard phase set. One agent runs an architecture round first and stops; the founder reviews and approves it before any code is written. The same agent then builds in a single session — tests, then code. When it is done, one fresh agent reviews it, one round only. No refinement, design or critique phase, and no further human gate after the architecture approval. Founder decision, 2026-08-11: this is the approved procedure for this work package and the orchestrator does not add phases to it.
 
 **Constraints.** The pinned-header/scrolling-body anatomy and the single-`h1` heading contract stay as documented. Window-level scrolling remains impossible; each page owns its scroll region.
 
