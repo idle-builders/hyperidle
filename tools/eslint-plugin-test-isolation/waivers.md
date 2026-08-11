@@ -13,13 +13,6 @@ increment 1 by running both rules over the whole lane.
 
 ## no-literal-entity-ids
 
-- `framework/db/src/__tests__/P2-org-edges.integration.test.ts`
-- `framework/db/src/__tests__/artifacts.integration.test.ts`
-- `framework/db/src/__tests__/foreign-keys.integration.test.ts`
-- `framework/db/src/__tests__/hint-progress.integration.test.ts`
-- `framework/db/src/__tests__/migration.integration.test.ts`
-- `framework/db/src/__tests__/schema.integration.test.ts`
-- `framework/db/src/__tests__/session-requests.integration.test.ts`
 - `layers/agent-orchestration/agent-run-config/src/__tests__/agent-run-config-store.integration.test.ts`
 - `layers/agent-orchestration/connections/src/__tests__/connection-store-completeness.integration.test.ts`
 - `layers/agent-orchestration/filesystems/src/__tests__/injected-filesystems-for-provisioning.integration.test.ts`
@@ -206,8 +199,6 @@ increment 1 by running both rules over the whole lane.
 
 ## no-unscoped-table-read
 
-- `framework/db/src/__tests__/migration.integration.test.ts`
-- `framework/db/src/__tests__/session-requests.integration.test.ts`
 - `layers/agent-orchestration/run-orchestration/src/__tests__/request-run-stop-for-tasks.integration.test.ts`
 - `layers/agent-orchestration/session-requests/src/__tests__/agent-session-requests.integration.test.ts`
 - `layers/agent-orchestration/session-requests/src/__tests__/durable-queue-regressions.integration.test.ts`

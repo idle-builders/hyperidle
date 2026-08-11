@@ -2,6 +2,7 @@
 // Source of truth: plans/L3/architecture.md §4.1, §12.
 
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import type { HyperIdleDb } from "../connection.js";
 // @lore U1: `products` renamed to `teams`; old `teams` (membership) renamed to `teamMembers`.
@@ -12,15 +13,16 @@ const NOW = "2026-04-28T00:00:00.000Z";
 // @lore U1: seedTask now uses `teams` (formerly `products`) and `teamMembers` (formerly `teams`).
 async function seedTask(
 	db: HyperIdleDb,
+	ids: ScopedIds,
 ): Promise<{ taskId: string; betId: string; teamId: string }> {
-	await db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: NOW });
+	await db.insert(teams).values({ id: ids("p1"), name: "P", phase: "build", createdAt: NOW });
 	await db
 		.insert(teamMembers)
-		.values({ id: "tm1", teamId: "p1", capacity: 1, activeBets: 0, formedAt: NOW });
+		.values({ id: ids("tm1"), teamId: ids("p1"), capacity: 1, activeBets: 0, formedAt: NOW });
 
 	await db.insert(bets).values({
-		id: "b1",
-		teamId: "p1",
+		id: ids("b1"),
+		teamId: ids("p1"),
 		description: "x",
 		appetite: "1w",
 		status: "draft",
@@ -28,16 +30,16 @@ async function seedTask(
 	});
 
 	await db.insert(tasks).values({
-		id: "task1",
-		betId: "b1",
-		teamId: "p1",
+		id: ids("task1"),
+		betId: ids("b1"),
+		teamId: ids("p1"),
 		title: "T",
 		state: "pending",
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
 
-	return { taskId: "task1", betId: "b1", teamId: "p1" };
+	return { taskId: ids("task1"), betId: ids("b1"), teamId: ids("p1") };
 }
 
 describe("L3 artifacts schema", () => {
@@ -51,31 +53,34 @@ describe("L3 artifacts schema", () => {
 		expect(rows.map((r) => r.tablename)).toContain("artifacts");
 	});
 
-	test("supports insert + select round-trip", async ({ db }) => {
+	test("supports insert + select round-trip", async ({ db, ids }) => {
 		// @lore O2: cost columns stripped from artifacts kernel table.
-		const { taskId } = await seedTask(db);
+		const { taskId } = await seedTask(db, ids);
 		// AM5 B1: code_diff → code (pre-alpha purge; no DB rows to honor)
 		await db.insert(artifacts).values({
-			id: "art1",
+			id: ids("art1"),
 			producingTaskId: taskId,
 			kind: "code",
 			previewJson: null,
 			createdAt: NOW,
 		});
 
-		const rows = await db.select().from(artifacts).where(eq(artifacts.id, "art1"));
+		const rows = await db.select().from(artifacts).where(eq(artifacts.id, ids("art1")));
 		expect(rows).toHaveLength(1);
 		expect(rows[0]?.kind).toBe("code");
 		expect(rows[0]?.producingTaskId).toBe(taskId);
 	});
 
 	// AC-2 / protected: insert with non-existent producing_task_id must fail (FK restrict)
-	test("rejects inserts with a non-existent producing_task_id (FK restrict)", async ({ db }) => {
+	test("rejects inserts with a non-existent producing_task_id (FK restrict)", async ({
+		db,
+		ids,
+	}) => {
 		// @lore O2: cost columns stripped from artifacts kernel table.
 		await expect(
 			db.insert(artifacts).values({
-				id: "art2",
-				producingTaskId: "nonexistent",
+				id: ids("art2"),
+				producingTaskId: ids("nonexistent"),
 				kind: "deck",
 				previewJson: null,
 				createdAt: NOW,
@@ -83,11 +88,14 @@ describe("L3 artifacts schema", () => {
 		).rejects.toThrow();
 	});
 
-	test("rejects deletion of a task that owns artifacts (ON DELETE RESTRICT)", async ({ db }) => {
-		const { taskId } = await seedTask(db);
+	test("rejects deletion of a task that owns artifacts (ON DELETE RESTRICT)", async ({
+		db,
+		ids,
+	}) => {
+		const { taskId } = await seedTask(db, ids);
 		// @lore O2: cost columns stripped from artifacts kernel table.
 		await db.insert(artifacts).values({
-			id: "art3",
+			id: ids("art3"),
 			producingTaskId: taskId,
 			kind: "deck",
 			previewJson: null,
@@ -96,11 +104,11 @@ describe("L3 artifacts schema", () => {
 		await expect(db.delete(tasks).where(eq(tasks.id, taskId))).rejects.toThrow();
 	});
 
-	test("enforces unique id constraint (PK)", async ({ db }) => {
-		const { taskId } = await seedTask(db);
+	test("enforces unique id constraint (PK)", async ({ db, ids }) => {
+		const { taskId } = await seedTask(db, ids);
 		// @lore O2: cost columns stripped from artifacts kernel table.
 		await db.insert(artifacts).values({
-			id: "art4",
+			id: ids("art4"),
 			producingTaskId: taskId,
 			kind: "deck",
 			previewJson: null,
@@ -108,7 +116,7 @@ describe("L3 artifacts schema", () => {
 		});
 		await expect(
 			db.insert(artifacts).values({
-				id: "art4",
+				id: ids("art4"),
 				producingTaskId: taskId,
 				kind: "deck",
 				previewJson: null,

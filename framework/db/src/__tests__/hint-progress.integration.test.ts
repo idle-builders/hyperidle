@@ -28,94 +28,127 @@ async function seedUser(db: HyperIdleDb, id: string): Promise<void> {
 
 describe("P5 AC1: hint_progress table", () => {
 	// AC1a: Insert a row, select it, assert shape
-	test("inserts a hint_progress row and selects it back with the correct shape", async ({ db }) => {
-		await seedUser(db, "user-1");
+	test("inserts a hint_progress row and selects it back with the correct shape", async ({
+		db,
+		ids,
+	}) => {
+		await seedUser(db, ids("user-1"));
 
 		await db.insert(hintProgress).values({
-			userId: "user-1",
-			hintId: "create-bet",
+			userId: ids("user-1"),
+			hintId: ids("create-bet"),
 			seenAt: NOW,
 		});
 
-		const rows = await db.select().from(hintProgress).where(eq(hintProgress.userId, "user-1"));
+		const rows = await db
+			.select()
+			.from(hintProgress)
+			.where(eq(hintProgress.userId, ids("user-1")));
 
 		expect(rows).toHaveLength(1);
 		const row = rows[0];
-		expect(row?.userId).toBe("user-1");
-		expect(row?.hintId).toBe("create-bet");
+		expect(row?.userId).toBe(ids("user-1"));
+		expect(row?.hintId).toBe(ids("create-bet"));
 		expect(row?.seenAt).toBe(NOW);
 	});
 
 	// AC1b: Insert duplicate (userId, hintId) — composite primary key violation
-	test("rejects duplicate (userId, hintId) — composite primary key constraint", async ({ db }) => {
-		await seedUser(db, "user-1");
+	test("rejects duplicate (userId, hintId) — composite primary key constraint", async ({
+		db,
+		ids,
+	}) => {
+		await seedUser(db, ids("user-1"));
 
-		await db.insert(hintProgress).values({ userId: "user-1", hintId: "create-bet", seenAt: NOW });
+		await db
+			.insert(hintProgress)
+			.values({ userId: ids("user-1"), hintId: ids("create-bet"), seenAt: NOW });
 
 		await expect(
-			db.insert(hintProgress).values({ userId: "user-1", hintId: "create-bet", seenAt: NOW }),
+			db
+				.insert(hintProgress)
+				.values({ userId: ids("user-1"), hintId: ids("create-bet"), seenAt: NOW }),
 		).rejects.toThrow();
 	});
 
 	// AC1c: Same user, different hintId — allowed
-	test("allows same user to have multiple different hint dismissals", async ({ db }) => {
-		await seedUser(db, "user-1");
+	test("allows same user to have multiple different hint dismissals", async ({ db, ids }) => {
+		await seedUser(db, ids("user-1"));
 
-		await db.insert(hintProgress).values({ userId: "user-1", hintId: "create-bet", seenAt: NOW });
 		await db
 			.insert(hintProgress)
-			.values({ userId: "user-1", hintId: "add-credential", seenAt: NOW });
+			.values({ userId: ids("user-1"), hintId: ids("create-bet"), seenAt: NOW });
+		await db
+			.insert(hintProgress)
+			.values({ userId: ids("user-1"), hintId: ids("add-credential"), seenAt: NOW });
 
-		const rows = await db.select().from(hintProgress).where(eq(hintProgress.userId, "user-1"));
+		const rows = await db
+			.select()
+			.from(hintProgress)
+			.where(eq(hintProgress.userId, ids("user-1")));
 		expect(rows).toHaveLength(2);
 	});
 
 	// AC1d: FK to non-existent user — FK violation
-	test("rejects insert when userId does not reference an existing user", async ({ db }) => {
+	test("rejects insert when userId does not reference an existing user", async ({ db, ids }) => {
 		await expect(
-			db.insert(hintProgress).values({ userId: "ghost-user", hintId: "create-bet", seenAt: NOW }),
+			db
+				.insert(hintProgress)
+				.values({ userId: ids("ghost-user"), hintId: ids("create-bet"), seenAt: NOW }),
 		).rejects.toThrow();
 	});
 
 	// AC1d: Delete user cascades to hint_progress rows
-	test("cascades deletion of hint_progress rows when the user is deleted", async ({ db }) => {
-		await seedUser(db, "user-cascade");
+	test("cascades deletion of hint_progress rows when the user is deleted", async ({
+		db,
+		ids,
+	}) => {
+		await seedUser(db, ids("user-cascade"));
 
 		await db
 			.insert(hintProgress)
-			.values({ userId: "user-cascade", hintId: "create-bet", seenAt: NOW });
+			.values({ userId: ids("user-cascade"), hintId: ids("create-bet"), seenAt: NOW });
 		await db
 			.insert(hintProgress)
-			.values({ userId: "user-cascade", hintId: "add-credential", seenAt: NOW });
+			.values({ userId: ids("user-cascade"), hintId: ids("add-credential"), seenAt: NOW });
 
 		// Verify rows exist before deletion
 		const before = await db
 			.select()
 			.from(hintProgress)
-			.where(eq(hintProgress.userId, "user-cascade"));
+			.where(eq(hintProgress.userId, ids("user-cascade")));
 		expect(before).toHaveLength(2);
 
 		// Delete the user — should cascade
-		await db.delete(users).where(eq(users.id, "user-cascade"));
+		await db.delete(users).where(eq(users.id, ids("user-cascade")));
 
 		// hint_progress rows should be gone
 		const after = await db
 			.select()
 			.from(hintProgress)
-			.where(eq(hintProgress.userId, "user-cascade"));
+			.where(eq(hintProgress.userId, ids("user-cascade")));
 		expect(after).toHaveLength(0);
 	});
 
 	// Multiple users, same hintId — allowed
-	test("allows multiple users to dismiss the same hint independently", async ({ db }) => {
-		await seedUser(db, "user-a");
-		await seedUser(db, "user-b");
+	test("allows multiple users to dismiss the same hint independently", async ({ db, ids }) => {
+		await seedUser(db, ids("user-a"));
+		await seedUser(db, ids("user-b"));
 
-		await db.insert(hintProgress).values({ userId: "user-a", hintId: "create-bet", seenAt: NOW });
-		await db.insert(hintProgress).values({ userId: "user-b", hintId: "create-bet", seenAt: NOW });
+		await db
+			.insert(hintProgress)
+			.values({ userId: ids("user-a"), hintId: ids("create-bet"), seenAt: NOW });
+		await db
+			.insert(hintProgress)
+			.values({ userId: ids("user-b"), hintId: ids("create-bet"), seenAt: NOW });
 
-		const rowsA = await db.select().from(hintProgress).where(eq(hintProgress.userId, "user-a"));
-		const rowsB = await db.select().from(hintProgress).where(eq(hintProgress.userId, "user-b"));
+		const rowsA = await db
+			.select()
+			.from(hintProgress)
+			.where(eq(hintProgress.userId, ids("user-a")));
+		const rowsB = await db
+			.select()
+			.from(hintProgress)
+			.where(eq(hintProgress.userId, ids("user-b")));
 
 		expect(rowsA).toHaveLength(1);
 		expect(rowsB).toHaveLength(1);

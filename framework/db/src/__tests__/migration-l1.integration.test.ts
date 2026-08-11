@@ -150,28 +150,28 @@ describe("L1a migration — schema shape", () => {
 });
 
 describe("L1a migration — legacy data projection (§5.3)", () => {
-	test("plain message round-trips with type='plain'", async ({ db }) => {
+	test("plain message round-trips with type='plain'", async ({ db, ids }) => {
 		// Smoke: insert a bare message via the post-migration schema and
 		// assert it round-trips with type='plain'.
 		const now = new Date().toISOString();
 		await db.execute(
-			`INSERT INTO users (id, kind, name, role, status, created_at) VALUES ('u1', 'human', 'U', 'founder', 'active', '${now}')` as Parameters<
+			`INSERT INTO users (id, kind, name, role, status, created_at) VALUES ('${ids("u1")}', 'human', 'U', 'founder', 'active', '${now}')` as Parameters<
 				typeof db.execute
 			>[0],
 		);
 		await db.execute(
-			`INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, last_active_at, created_at) VALUES ('thr-chat', 'user', 'u1', 'u1', '["u1"]', '${now}', '${now}')` as Parameters<
+			`INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, last_active_at, created_at) VALUES ('${ids("thr-chat")}', 'user', '${ids("u1")}', '${ids("u1")}', '${JSON.stringify([ids("u1")])}', '${now}', '${now}')` as Parameters<
 				typeof db.execute
 			>[0],
 		);
 		await db.execute(
-			`INSERT INTO messages (id, thread_id, sender_id, type, payload, client_key, created_at) VALUES ('m1', 'thr-chat', 'u1', 'plain', '${JSON.stringify({ text: "subject\n\nbody" })}', 'k1', '${now}')` as Parameters<
+			`INSERT INTO messages (id, thread_id, sender_id, type, payload, client_key, created_at) VALUES ('${ids("m1")}', '${ids("thr-chat")}', '${ids("u1")}', 'plain', '${JSON.stringify({ text: "subject\n\nbody" })}', '${ids("k1")}', '${now}')` as Parameters<
 				typeof db.execute
 			>[0],
 		);
 
 		const result = await db.execute(
-			`SELECT id, type, payload, legacy_item_id FROM messages WHERE id='m1'` as Parameters<
+			`SELECT id, type, payload, legacy_item_id FROM messages WHERE id='${ids("m1")}'` as Parameters<
 				typeof db.execute
 			>[0],
 		);
@@ -188,21 +188,22 @@ describe("L1a migration — legacy data projection (§5.3)", () => {
 
 	test("verdict-typed messages can be inserted with payload.resolvesMessageId pointing at a review id", async ({
 		db,
+		ids,
 	}) => {
 		// Smoke: post-migration schema accepts the verdict-message shape.
 		const now = new Date().toISOString();
 		await db.execute(
-			`INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, last_active_at, created_at) VALUES ('thr-r', 'task', 'task-1', 'u1', '["u1","agent-1"]', '${now}', '${now}')` as Parameters<
+			`INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, last_active_at, created_at) VALUES ('${ids("thr-r")}', 'task', '${ids("task-1")}', '${ids("u1")}', '${JSON.stringify([ids("u1"), ids("agent-1")])}', '${now}', '${now}')` as Parameters<
 				typeof db.execute
 			>[0],
 		);
 		await db.execute(
-			`INSERT INTO users (id, kind, name, role, status, created_at) VALUES ('u1', 'human', 'U', 'founder', 'active', '${now}')` as Parameters<
+			`INSERT INTO users (id, kind, name, role, status, created_at) VALUES ('${ids("u1")}', 'human', 'U', 'founder', 'active', '${now}')` as Parameters<
 				typeof db.execute
 			>[0],
 		);
 		await db.execute(
-			`INSERT INTO users (id, kind, name, role, status, created_at) VALUES ('agent-1', 'ai', 'A', 'builder', 'active', '${now}')` as Parameters<
+			`INSERT INTO users (id, kind, name, role, status, created_at) VALUES ('${ids("agent-1")}', 'ai', 'A', 'builder', 'active', '${now}')` as Parameters<
 				typeof db.execute
 			>[0],
 		);
@@ -212,22 +213,24 @@ describe("L1a migration — legacy data projection (§5.3)", () => {
 			artifactRef: { id: "art-1", kind: "text_diff" },
 		}).replace(/'/g, "''");
 		await db.execute(
-			`INSERT INTO messages (id, thread_id, sender_id, type, payload, client_key, created_at) VALUES ('m-rev', 'thr-r', 'agent-1', 'review', '${reviewPayload}', 'kr', '${now}')` as Parameters<
+			`INSERT INTO messages (id, thread_id, sender_id, type, payload, client_key, created_at) VALUES ('${ids("m-rev")}', '${ids("thr-r")}', '${ids("agent-1")}', 'review', '${reviewPayload}', '${ids("kr")}', '${now}')` as Parameters<
 				typeof db.execute
 			>[0],
 		);
 		const verdictPayload = JSON.stringify({
 			decision: "approve",
-			resolvesMessageId: "m-rev",
+			resolvesMessageId: ids("m-rev"),
 		}).replace(/'/g, "''");
 		await db.execute(
-			`INSERT INTO messages (id, thread_id, sender_id, type, payload, client_key, created_at) VALUES ('m-v', 'thr-r', 'u1', 'verdict', '${verdictPayload}', 'kv', '${now}')` as Parameters<
+			`INSERT INTO messages (id, thread_id, sender_id, type, payload, client_key, created_at) VALUES ('${ids("m-v")}', '${ids("thr-r")}', '${ids("u1")}', 'verdict', '${verdictPayload}', '${ids("kv")}', '${now}')` as Parameters<
 				typeof db.execute
 			>[0],
 		);
 
 		const result = await db.execute(
-			`SELECT id, type, payload FROM messages WHERE id='m-v'` as Parameters<typeof db.execute>[0],
+			`SELECT id, type, payload FROM messages WHERE id='${ids("m-v")}'` as Parameters<
+				typeof db.execute
+			>[0],
 		);
 		const rows = (result as { rows: Array<{ id: string; type: string; payload: string }> }).rows;
 		expect(rows[0]?.type).toBe("verdict");
@@ -236,31 +239,35 @@ describe("L1a migration — legacy data projection (§5.3)", () => {
 			resolvesMessageId: string;
 		};
 		expect(p.decision).toBe("approve");
-		expect(p.resolvesMessageId).toBe("m-rev");
+		expect(p.resolvesMessageId).toBe(ids("m-rev"));
 	});
 
 	test("idempotency UNIQUE constraint rejects duplicate (thread_id, sender_id, client_key)", async ({
 		db,
+		ids,
 	}) => {
 		const now = new Date().toISOString();
 		await db.execute(
-			`INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, last_active_at, created_at) VALUES ('thr-i', 'user', 'u1', 'u1', '["u1"]', '${now}', '${now}')` as Parameters<
+			`INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, last_active_at, created_at) VALUES ('${ids("thr-i")}', 'user', '${ids("u1")}', '${ids("u1")}', '${JSON.stringify([ids("u1")])}', '${now}', '${now}')` as Parameters<
 				typeof db.execute
 			>[0],
 		);
 		await db.execute(
-			`INSERT INTO users (id, kind, name, role, status, created_at) VALUES ('u1', 'human', 'U', 'founder', 'active', '${now}')` as Parameters<
+			`INSERT INTO users (id, kind, name, role, status, created_at) VALUES ('${ids("u1")}', 'human', 'U', 'founder', 'active', '${now}')` as Parameters<
 				typeof db.execute
 			>[0],
 		);
 		await db.execute(
-			`INSERT INTO messages (id, thread_id, sender_id, type, payload, client_key, created_at) VALUES ('m-a', 'thr-i', 'u1', 'plain', '{"text":"hi"}', 'same-key', '${now}')` as Parameters<
+			`INSERT INTO messages (id, thread_id, sender_id, type, payload, client_key, created_at) VALUES ('${ids("m-a")}', '${ids("thr-i")}', '${ids("u1")}', 'plain', '{"text":"hi"}', '${ids("same-key")}', '${now}')` as Parameters<
 				typeof db.execute
 			>[0],
 		);
+		// @lore AU38: duplicate-key test — the two inserts deliberately share one
+		// (thread_id, sender_id, client_key) tuple; same labels resolve identically
+		// within this test, and the PKs stay distinct via distinct labels.
 		await expect(
 			db.execute(
-				`INSERT INTO messages (id, thread_id, sender_id, type, payload, client_key, created_at) VALUES ('m-b', 'thr-i', 'u1', 'plain', '{"text":"hi-again"}', 'same-key', '${now}')` as Parameters<
+				`INSERT INTO messages (id, thread_id, sender_id, type, payload, client_key, created_at) VALUES ('${ids("m-b")}', '${ids("thr-i")}', '${ids("u1")}', 'plain', '{"text":"hi-again"}', '${ids("same-key")}', '${now}')` as Parameters<
 					typeof db.execute
 				>[0],
 			),
@@ -269,57 +276,62 @@ describe("L1a migration — legacy data projection (§5.3)", () => {
 });
 
 describe("L1a — host immutability (PG constraint check)", () => {
-	test("UPDATE that changes host_kind raises (immutability trigger)", async ({ db }) => {
+	test("UPDATE that changes host_kind raises (immutability trigger)", async ({ db, ids }) => {
 		const now = new Date().toISOString();
 		await db.execute(
-			`INSERT INTO users (id, kind, name, role, status, created_at) VALUES ('u1', 'human', 'U', 'founder', 'active', '${now}')` as Parameters<
+			`INSERT INTO users (id, kind, name, role, status, created_at) VALUES ('${ids("u1")}', 'human', 'U', 'founder', 'active', '${now}')` as Parameters<
 				typeof db.execute
 			>[0],
 		);
 		await db.execute(
-			`INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, last_active_at, created_at) VALUES ('thr-im', 'task', 'task-1', 'u1', '["u1"]', '${now}', '${now}')` as Parameters<
+			`INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, last_active_at, created_at) VALUES ('${ids("thr-im")}', 'task', '${ids("task-1")}', '${ids("u1")}', '${JSON.stringify([ids("u1")])}', '${now}', '${now}')` as Parameters<
 				typeof db.execute
 			>[0],
 		);
 
 		await expect(
 			db.execute(
-				`UPDATE threads SET host_kind='bet' WHERE id='thr-im'` as Parameters<typeof db.execute>[0],
-			),
-		).rejects.toThrow(/immutable/i);
-	});
-
-	test("UPDATE that changes host_id raises (immutability trigger)", async ({ db }) => {
-		const now = new Date().toISOString();
-		await db.execute(
-			`INSERT INTO users (id, kind, name, role, status, created_at) VALUES ('u1', 'human', 'U', 'founder', 'active', '${now}')` as Parameters<
-				typeof db.execute
-			>[0],
-		);
-		await db.execute(
-			`INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, last_active_at, created_at) VALUES ('thr-im', 'task', 'task-1', 'u1', '["u1"]', '${now}', '${now}')` as Parameters<
-				typeof db.execute
-			>[0],
-		);
-
-		await expect(
-			db.execute(
-				`UPDATE threads SET host_id='task-99' WHERE id='thr-im'` as Parameters<
+				`UPDATE threads SET host_kind='bet' WHERE id='${ids("thr-im")}'` as Parameters<
 					typeof db.execute
 				>[0],
 			),
 		).rejects.toThrow(/immutable/i);
 	});
 
-	test("UPDATE of unrelated columns (resolved_at, last_active_at) succeeds", async ({ db }) => {
+	test("UPDATE that changes host_id raises (immutability trigger)", async ({ db, ids }) => {
 		const now = new Date().toISOString();
 		await db.execute(
-			`INSERT INTO users (id, kind, name, role, status, created_at) VALUES ('u1', 'human', 'U', 'founder', 'active', '${now}')` as Parameters<
+			`INSERT INTO users (id, kind, name, role, status, created_at) VALUES ('${ids("u1")}', 'human', 'U', 'founder', 'active', '${now}')` as Parameters<
 				typeof db.execute
 			>[0],
 		);
 		await db.execute(
-			`INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, last_active_at, created_at) VALUES ('thr-im', 'task', 'task-1', 'u1', '["u1"]', '${now}', '${now}')` as Parameters<
+			`INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, last_active_at, created_at) VALUES ('${ids("thr-im")}', 'task', '${ids("task-1")}', '${ids("u1")}', '${JSON.stringify([ids("u1")])}', '${now}', '${now}')` as Parameters<
+				typeof db.execute
+			>[0],
+		);
+
+		await expect(
+			db.execute(
+				`UPDATE threads SET host_id='${ids("task-99")}' WHERE id='${ids("thr-im")}'` as Parameters<
+					typeof db.execute
+				>[0],
+			),
+		).rejects.toThrow(/immutable/i);
+	});
+
+	test("UPDATE of unrelated columns (resolved_at, last_active_at) succeeds", async ({
+		db,
+		ids,
+	}) => {
+		const now = new Date().toISOString();
+		await db.execute(
+			`INSERT INTO users (id, kind, name, role, status, created_at) VALUES ('${ids("u1")}', 'human', 'U', 'founder', 'active', '${now}')` as Parameters<
+				typeof db.execute
+			>[0],
+		);
+		await db.execute(
+			`INSERT INTO threads (id, host_kind, host_id, initiator_id, participants, last_active_at, created_at) VALUES ('${ids("thr-im")}', 'task', '${ids("task-1")}', '${ids("u1")}', '${JSON.stringify([ids("u1")])}', '${now}', '${now}')` as Parameters<
 				typeof db.execute
 			>[0],
 		);
@@ -327,12 +339,14 @@ describe("L1a — host immutability (PG constraint check)", () => {
 		const later = new Date(Date.now() + 1000).toISOString();
 		// Should NOT raise — only host_kind and host_id are immutable.
 		await db.execute(
-			`UPDATE threads SET resolved_at='${later}', last_active_at='${later}' WHERE id='thr-im'` as Parameters<
+			`UPDATE threads SET resolved_at='${later}', last_active_at='${later}' WHERE id='${ids("thr-im")}'` as Parameters<
 				typeof db.execute
 			>[0],
 		);
 		const result = await db.execute(
-			`SELECT resolved_at FROM threads WHERE id='thr-im'` as Parameters<typeof db.execute>[0],
+			`SELECT resolved_at FROM threads WHERE id='${ids("thr-im")}'` as Parameters<
+				typeof db.execute
+			>[0],
 		);
 		const rows = (result as { rows: Array<{ resolved_at: string }> }).rows;
 		expect(rows[0]?.resolved_at).toBeDefined();

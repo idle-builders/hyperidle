@@ -90,16 +90,19 @@ describe("X3 AC-1: agent run config carries systemPrompt, harnessType, modelTier
 
 	test("can insert a run-config row with all three columns null (null semantics work)", async ({
 		db,
+		ids,
 	}) => {
 		const now = new Date().toISOString();
 		await db.execute(
 			sql.raw(`
       INSERT INTO users (id, kind, name, role, status, created_at)
-      VALUES ('x3-test-agent-null-cols', 'ai', 'Test Agent', 'builder', 'active', '${now}')
+      VALUES ('${ids("x3-test-agent-null-cols")}', 'ai', 'Test Agent', 'builder', 'active', '${now}')
     `),
 		);
 		await db.execute(
-			sql.raw(`INSERT INTO agent_run_config (agent_user_id) VALUES ('x3-test-agent-null-cols')`),
+			sql.raw(
+				`INSERT INTO agent_run_config (agent_user_id) VALUES ('${ids("x3-test-agent-null-cols")}')`,
+			),
 		);
 
 		const rows = await queryRows<{
@@ -113,7 +116,7 @@ describe("X3 AC-1: agent run config carries systemPrompt, harnessType, modelTier
 			`SELECT agent_user_id AS "id", system_prompt AS "systemPrompt", harness_type AS "harnessType",
               model_tier_preference AS "modelTierPreference",
               max_concurrent_sessions AS "maxConcurrentSessions"
-       FROM agent_run_config WHERE agent_user_id = 'x3-test-agent-null-cols'`,
+       FROM agent_run_config WHERE agent_user_id = '${ids("x3-test-agent-null-cols")}'`,
 		);
 		expect(rows).toHaveLength(1);
 		expect(rows[0]?.systemPrompt).toBeNull();
@@ -125,18 +128,19 @@ describe("X3 AC-1: agent run config carries systemPrompt, harnessType, modelTier
 
 	test("can insert a run-config row with systemPrompt, harnessType, modelTierPreference set", async ({
 		db,
+		ids,
 	}) => {
 		const now = new Date().toISOString();
 		await db.execute(
 			sql.raw(`
       INSERT INTO users (id, kind, name, role, status, created_at)
-      VALUES ('x3-test-agent-full-cols', 'ai', 'Full Bot', 'builder', 'active', '${now}')
+      VALUES ('${ids("x3-test-agent-full-cols")}', 'ai', 'Full Bot', 'builder', 'active', '${now}')
     `),
 		);
 		await db.execute(
 			sql.raw(`
       INSERT INTO agent_run_config (agent_user_id, system_prompt, harness_type, model_tier_preference)
-      VALUES ('x3-test-agent-full-cols', 'You are a builder.', 'claude-code', 'reasoning')
+      VALUES ('${ids("x3-test-agent-full-cols")}', 'You are a builder.', 'claude-code', 'reasoning')
     `),
 		);
 
@@ -147,7 +151,7 @@ describe("X3 AC-1: agent run config carries systemPrompt, harnessType, modelTier
 		}>(
 			db,
 			`SELECT system_prompt AS "systemPrompt", harness_type AS "harnessType", model_tier_preference AS "modelTierPreference"
-       FROM agent_run_config WHERE agent_user_id = 'x3-test-agent-full-cols'`,
+       FROM agent_run_config WHERE agent_user_id = '${ids("x3-test-agent-full-cols")}'`,
 		);
 		expect(rows[0]?.systemPrompt).toBe("You are a builder.");
 		expect(rows[0]?.harnessType).toBe("claude-code");

@@ -54,9 +54,9 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 			expect(rows[0]?.is_nullable).toBe("NO");
 		});
 
-		test("inserts an AI user with kind defaulting to ai", async ({ db }) => {
+		test("inserts an AI user with kind defaulting to ai", async ({ db, ids }) => {
 			const aiUser: NewUser = {
-				id: "u-test-ai",
+				id: ids("u-test-ai"),
 				name: "Builder Bot",
 				role: "builder",
 				status: "active",
@@ -65,14 +65,14 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 
 			await db.insert(users).values(aiUser);
 
-			const rows = await db.select().from(users).where(eq(users.id, "u-test-ai"));
+			const rows = await db.select().from(users).where(eq(users.id, ids("u-test-ai")));
 			expect(rows[0]).toBeDefined();
 			expect(rows[0]).toMatchObject({ kind: "ai" });
 		});
 
-		test("inserts a human user with kind = human", async ({ db }) => {
+		test("inserts a human user with kind = human", async ({ db, ids }) => {
 			const humanUser: NewUser = {
-				id: "u-founder",
+				id: ids("u-founder"),
 				kind: "human",
 				name: "Founder",
 				role: "founder",
@@ -83,7 +83,7 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 
 			await db.insert(users).values(humanUser);
 
-			const rows = await db.select().from(users).where(eq(users.id, "u-founder"));
+			const rows = await db.select().from(users).where(eq(users.id, ids("u-founder")));
 			expect(rows[0]).toBeDefined();
 			// role column is text — "founder" is valid even though it is not in USER_ROLES union
 			expect(rows[0]).toMatchObject({ kind: "human", role: "founder" });
@@ -108,9 +108,9 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 	// AC2: human-specific nullable columns: email, avatarUrl
 	// -------------------------------------------------------------------------
 	describe("AC2: email and avatarUrl are nullable", () => {
-		test("inserts an AI user with null email and null avatarUrl", async ({ db }) => {
+		test("inserts an AI user with null email and null avatarUrl", async ({ db, ids }) => {
 			const aiUser: NewUser = {
-				id: "u-ai-no-email",
+				id: ids("u-ai-no-email"),
 				kind: "ai",
 				name: "No Email Bot",
 				role: "builder",
@@ -122,14 +122,14 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 
 			await db.insert(users).values(aiUser);
 
-			const rows = await db.select().from(users).where(eq(users.id, "u-ai-no-email"));
+			const rows = await db.select().from(users).where(eq(users.id, ids("u-ai-no-email")));
 			expect(rows[0]).toBeDefined();
 			expect(rows[0]).toMatchObject({ email: null, avatarUrl: null });
 		});
 
-		test("inserts a human user with email and avatarUrl populated", async ({ db }) => {
+		test("inserts a human user with email and avatarUrl populated", async ({ db, ids }) => {
 			const humanUser: NewUser = {
-				id: "u-human-with-profile",
+				id: ids("u-human-with-profile"),
 				kind: "human",
 				name: "Test Human",
 				role: "founder",
@@ -141,7 +141,7 @@ describe("P2 — users table schema (AC1, AC2, AC9)", () => {
 
 			await db.insert(users).values(humanUser);
 
-			const rows = await db.select().from(users).where(eq(users.id, "u-human-with-profile"));
+			const rows = await db.select().from(users).where(eq(users.id, ids("u-human-with-profile")));
 			expect(rows[0]).toBeDefined();
 			expect(rows[0]).toMatchObject({
 				email: "human@example.com",

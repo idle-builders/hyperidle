@@ -16,6 +16,7 @@
  */
 
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { AGENT_WORK_INTENT_KINDS, type AgentWorkIntentKind } from "@hyperidle/domain-model";
 import type { HyperIdleDb } from "../connection.js";
 import { agentWorkIntents } from "../schema.js";
@@ -59,19 +60,21 @@ function baseIntent(
 describe("agent_work_intents kind CHECK == @hyperidle/domain-model AGENT_WORK_INTENT_KINDS", () => {
 	test("the DB accepts every kind AGENT_WORK_INTENT_KINDS declares (shared ⊆ schema CHECK)", async ({
 		db,
+		ids,
 	}: {
 		db: HyperIdleDb;
+		ids: ScopedIds;
 	}) => {
 		for (const kind of AGENT_WORK_INTENT_KINDS) {
 			const [row] = await db
 				.insert(agentWorkIntents)
 				.values(
 					baseIntent({
-						id: `parity-${kind}`,
+						id: ids(`parity-${kind}`),
 						kind,
 						sourceKind: COMPATIBLE_SOURCE_KIND[kind],
-						sourceId: `parity-source-${kind}`,
-						idempotencyKey: `parity-key-${kind}`,
+						sourceId: ids(`parity-source-${kind}`),
+						idempotencyKey: ids(`parity-key-${kind}`),
 					}),
 				)
 				.returning();
@@ -82,15 +85,19 @@ describe("agent_work_intents kind CHECK == @hyperidle/domain-model AGENT_WORK_IN
 
 	test("the DB rejects a kind outside AGENT_WORK_INTENT_KINDS (schema CHECK stays closed)", async ({
 		db,
+		ids,
 	}: {
 		db: HyperIdleDb;
+		ids: ScopedIds;
 	}) => {
 		await expect(
 			db.insert(agentWorkIntents).values(
 				baseIntent({
-					id: "parity-invented-kind",
+					id: ids("parity-invented-kind"),
 					kind: "invented_kind_not_in_shared_union",
 					sourceKind: "thread_message",
+					sourceId: ids("parity-source-invented"),
+					idempotencyKey: ids("parity-key-invented"),
 				}),
 			),
 		).rejects.toThrow();

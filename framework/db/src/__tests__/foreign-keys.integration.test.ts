@@ -35,26 +35,26 @@ const NOW = new Date().toISOString();
 
 describe("I3: FK actions — RESTRICT on reference data", () => {
 	// @lore U1: `products` renamed to `teams`; `teams` (membership) renamed to `teamMembers`.
-	test("rejects deleting a team while a teamMembers row references it", async ({ db }) => {
-		await db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: NOW });
+	test("rejects deleting a team while a teamMembers row references it", async ({ db, ids }) => {
+		await db.insert(teams).values({ id: ids("p1"), name: "P", phase: "build", createdAt: NOW });
 		await db
 			.insert(teamMembers)
-			.values({ id: "p1-members", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
+			.values({ id: ids("p1-members"), teamId: ids("p1"), capacity: 5, activeBets: 0, formedAt: NOW });
 		// teamMembers.team_id → teams.id must block
-		await expect(db.delete(teams).where(eq(teams.id, "p1"))).rejects.toThrow();
+		await expect(db.delete(teams).where(eq(teams.id, ids("p1")))).rejects.toThrow();
 	});
 
-	test("rejects deleting a team while a bet references it", async ({ db }) => {
-		await db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: NOW });
+	test("rejects deleting a team while a bet references it", async ({ db, ids }) => {
+		await db.insert(teams).values({ id: ids("p1"), name: "P", phase: "build", createdAt: NOW });
 		// The team is an arranged entity, so it arrives with its membership companion (no arranged
 		// entity stays partial) — but that companion's own RESTRICT FK would then be a second
 		// sufficient cause of the rejection this test asserts, over-determining it.
 		await db
 			.insert(teamMembers)
-			.values({ id: "p1-members", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
+			.values({ id: ids("p1-members"), teamId: ids("p1"), capacity: 5, activeBets: 0, formedAt: NOW });
 		await db.insert(bets).values({
-			id: "b1",
-			teamId: "p1",
+			id: ids("b1"),
+			teamId: ids("p1"),
 			description: "x",
 			appetite: "2w",
 			status: "draft",
@@ -67,8 +67,8 @@ describe("I3: FK actions — RESTRICT on reference data", () => {
 		// exactly this shape, not just transiently. Mirroring that order here — remove the membership
 		// row, then attempt the team delete — restores `bets.teamId` as the single cause without
 		// touching the assertion below.
-		await db.delete(teamMembers).where(eq(teamMembers.teamId, "p1"));
+		await db.delete(teamMembers).where(eq(teamMembers.teamId, ids("p1")));
 		// `bets.team_id → teams.id` must block
-		await expect(db.delete(teams).where(eq(teams.id, "p1"))).rejects.toThrow();
+		await expect(db.delete(teams).where(eq(teams.id, ids("p1")))).rejects.toThrow();
 	});
 });

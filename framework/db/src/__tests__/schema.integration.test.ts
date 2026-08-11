@@ -70,35 +70,35 @@ describe("A2: Database Schema", () => {
 	// --- AC2: All tables insert/read/update correctly with full type safety ---
 	describe("AC2: CRUD operations", () => {
 		// @lore U1: `products` renamed to `teams`.
-		test("inserts and reads teams (formerly products)", async ({ db }) => {
+		test("inserts and reads teams (formerly products)", async ({ db, ids }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({
-				id: "prod-1",
+				id: ids("prod-1"),
 				name: "Acme",
 				phase: "build",
 				createdAt: now,
 			});
 			await db.insert(teamMembers).values({
-				id: "prod-1-members",
-				teamId: "prod-1",
+				id: ids("prod-1-members"),
+				teamId: ids("prod-1"),
 				capacity: 5,
 				activeBets: 0,
 				formedAt: now,
 			});
 
-			const result = await db.select().from(teams).where(eq(teams.id, "prod-1"));
+			const result = await db.select().from(teams).where(eq(teams.id, ids("prod-1")));
 
 			expect(result[0]).toMatchObject({
-				id: "prod-1",
+				id: ids("prod-1"),
 				name: "Acme",
 				phase: "build",
 			});
 		});
 
-		test("inserts and reads users (AI kind)", async ({ db }) => {
+		test("inserts and reads users (AI kind)", async ({ db, ids }) => {
 			const now = new Date().toISOString();
 			await db.insert(users).values({
-				id: "agent-1",
+				id: ids("agent-1"),
 				kind: "ai",
 				name: "Builder",
 				role: "builder",
@@ -106,10 +106,10 @@ describe("A2: Database Schema", () => {
 				createdAt: now,
 			});
 
-			const result = await db.select().from(users).where(eq(users.id, "agent-1"));
+			const result = await db.select().from(users).where(eq(users.id, ids("agent-1")));
 
 			expect(result[0]).toMatchObject({
-				id: "agent-1",
+				id: ids("agent-1"),
 				kind: "ai",
 				name: "Builder",
 				role: "builder",
@@ -118,51 +118,58 @@ describe("A2: Database Schema", () => {
 		});
 
 		// @lore U1: old `teams` (agent membership) renamed to `teamMembers`.
-		test("inserts and reads teamMembers (formerly teams)", async ({ db }) => {
+		test("inserts and reads teamMembers (formerly teams)", async ({ db, ids }) => {
 			const now = new Date().toISOString();
-			await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: now });
+			await db
+				.insert(teams)
+				.values({ id: ids("prod-1"), name: "Acme", phase: "build", createdAt: now });
 			await db.insert(teamMembers).values({
-				id: "team-1",
-				teamId: "prod-1",
+				id: ids("team-1"),
+				teamId: ids("prod-1"),
 				capacity: 5,
 				activeBets: 0,
 				formedAt: now,
 			});
 
-			const result = await db.select().from(teamMembers).where(eq(teamMembers.id, "team-1"));
+			const result = await db
+				.select()
+				.from(teamMembers)
+				.where(eq(teamMembers.id, ids("team-1")));
 
 			expect(result[0]).toMatchObject({
-				id: "team-1",
-				teamId: "prod-1",
+				id: ids("team-1"),
+				teamId: ids("prod-1"),
 				capacity: 5,
 				activeBets: 0,
 			});
 		});
 
 		// @lore U1: bets.productId/pitch/status simplified; teamId now refs `teams` (formerly products).
-		test("inserts and reads bets", async ({ db }) => {
+		test("inserts and reads bets", async ({ db, ids }) => {
 			const now = new Date().toISOString();
-			await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: now });
+			await db
+				.insert(teams)
+				.values({ id: ids("prod-1"), name: "Acme", phase: "build", createdAt: now });
 			await db.insert(teamMembers).values({
-				id: "prod-1-members",
-				teamId: "prod-1",
+				id: ids("prod-1-members"),
+				teamId: ids("prod-1"),
 				capacity: 5,
 				activeBets: 0,
 				formedAt: now,
 			});
 			await db.insert(bets).values({
-				id: "bet-1",
-				teamId: "prod-1",
+				id: ids("bet-1"),
+				teamId: ids("prod-1"),
 				description: "Build file upload",
 				appetite: "6w",
 				status: "draft",
 				createdAt: now,
 			});
 
-			const result = await db.select().from(bets).where(eq(bets.id, "bet-1"));
+			const result = await db.select().from(bets).where(eq(bets.id, ids("bet-1")));
 
 			expect(result[0]).toMatchObject({
-				id: "bet-1",
+				id: ids("bet-1"),
 				description: "Build file upload",
 				appetite: "6w",
 				status: "draft",
@@ -170,66 +177,70 @@ describe("A2: Database Schema", () => {
 		});
 
 		// @lore U1: tasks.productId dropped; teamId refs `teams` (formerly products).
-		test("inserts and reads tasks", async ({ db }) => {
+		test("inserts and reads tasks", async ({ db, ids }) => {
 			const now = new Date().toISOString();
-			await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: now });
+			await db
+				.insert(teams)
+				.values({ id: ids("prod-1"), name: "Acme", phase: "build", createdAt: now });
 			await db.insert(teamMembers).values({
-				id: "prod-1-members",
-				teamId: "prod-1",
+				id: ids("prod-1-members"),
+				teamId: ids("prod-1"),
 				capacity: 5,
 				activeBets: 0,
 				formedAt: now,
 			});
 			await db.insert(bets).values({
-				id: "bet-1",
-				teamId: "prod-1",
+				id: ids("bet-1"),
+				teamId: ids("prod-1"),
 				description: "X",
 				appetite: "2w",
 				status: "draft",
 				createdAt: now,
 			});
 			await db.insert(tasks).values({
-				id: "task-1",
-				betId: "bet-1",
-				teamId: "prod-1",
+				id: ids("task-1"),
+				betId: ids("bet-1"),
+				teamId: ids("prod-1"),
 				title: "Implement upload",
 				state: "proposed",
 				createdAt: now,
 				updatedAt: now,
 			});
 
-			const result = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
+			const result = await db.select().from(tasks).where(eq(tasks.id, ids("task-1")));
 
 			expect(result[0]).toMatchObject({
-				id: "task-1",
+				id: ids("task-1"),
 				title: "Implement upload",
 				state: "proposed",
 			});
 		});
 
 		// @lore U1: tasks.productId dropped; teamId refs `teams` (formerly products).
-		test("updates tasks correctly", async ({ db }) => {
+		test("updates tasks correctly", async ({ db, ids }) => {
 			const now = new Date().toISOString();
-			await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: now });
+			await db
+				.insert(teams)
+				.values({ id: ids("prod-1"), name: "Acme", phase: "build", createdAt: now });
 			await db.insert(teamMembers).values({
-				id: "prod-1-members",
-				teamId: "prod-1",
+				id: ids("prod-1-members"),
+				teamId: ids("prod-1"),
 				capacity: 5,
 				activeBets: 0,
 				formedAt: now,
 			});
 			await db.insert(bets).values({
-				id: "bet-1",
-				teamId: "prod-1",
+				id: ids("bet-1"),
+				teamId: ids("prod-1"),
 				description: "X",
 				appetite: "2w",
 				status: "draft",
 				createdAt: now,
 			});
 			await db.insert(tasks).values({
-				id: "task-1",
-				betId: "bet-1",
-				teamId: "prod-1",
+				id: ids("task-1"),
+				betId: ids("bet-1"),
+				teamId: ids("prod-1"),
 				title: "Original",
 				state: "proposed",
 				createdAt: now,
@@ -239,25 +250,27 @@ describe("A2: Database Schema", () => {
 			await db
 				.update(tasks)
 				.set({ state: "in_progress", updatedAt: new Date().toISOString() })
-				.where(eq(tasks.id, "task-1"));
+				.where(eq(tasks.id, ids("task-1")));
 
-			const result = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
+			const result = await db.select().from(tasks).where(eq(tasks.id, ids("task-1")));
 			expect(result[0]?.state).toBe("in_progress");
 		});
 
 		// @lore U1: tasks.productId dropped; teamId refs `teams` (formerly products).
-		test("inserts and reads sessions", async ({ db }) => {
+		test("inserts and reads sessions", async ({ db, ids }) => {
 			const now = new Date().toISOString();
-			await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: now });
+			await db
+				.insert(teams)
+				.values({ id: ids("prod-1"), name: "Acme", phase: "build", createdAt: now });
 			await db.insert(teamMembers).values({
-				id: "prod-1-members",
-				teamId: "prod-1",
+				id: ids("prod-1-members"),
+				teamId: ids("prod-1"),
 				capacity: 5,
 				activeBets: 0,
 				formedAt: now,
 			});
 			await db.insert(users).values({
-				id: "agent-1",
+				id: ids("agent-1"),
 				kind: "ai",
 				name: "Builder",
 				role: "builder",
@@ -265,53 +278,55 @@ describe("A2: Database Schema", () => {
 				createdAt: now,
 			});
 			await db.insert(bets).values({
-				id: "bet-1",
-				teamId: "prod-1",
+				id: ids("bet-1"),
+				teamId: ids("prod-1"),
 				description: "X",
 				appetite: "2w",
 				status: "draft",
 				createdAt: now,
 			});
 			await db.insert(tasks).values({
-				id: "task-1",
-				betId: "bet-1",
-				teamId: "prod-1",
+				id: ids("task-1"),
+				betId: ids("bet-1"),
+				teamId: ids("prod-1"),
 				title: "T",
 				state: "proposed",
 				createdAt: now,
 				updatedAt: now,
 			});
 			await db.insert(sessions).values({
-				id: "sess-1",
-				taskId: "task-1",
-				agentId: "agent-1",
+				id: ids("sess-1"),
+				taskId: ids("task-1"),
+				agentId: ids("agent-1"),
 				modelTier: "workhorse",
 				startedAt: now,
 				state: "active",
 			});
 
-			const result = await db.select().from(sessions).where(eq(sessions.id, "sess-1"));
+			const result = await db.select().from(sessions).where(eq(sessions.id, ids("sess-1")));
 			expect(result[0]).toMatchObject({
-				id: "sess-1",
-				taskId: "task-1",
-				agentId: "agent-1",
+				id: ids("sess-1"),
+				taskId: ids("task-1"),
+				agentId: ids("agent-1"),
 				modelTier: "workhorse",
 				state: "active",
 			});
 		});
 
-		test("inserts and reads routines", async ({ db }) => {
+		test("inserts and reads routines", async ({ db, ids }) => {
 			const now = new Date().toISOString();
-			await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: now });
+			await db
+				.insert(teams)
+				.values({ id: ids("prod-1"), name: "Acme", phase: "build", createdAt: now });
 			await db.insert(teamMembers).values({
-				id: "prod-1-members",
-				teamId: "prod-1",
+				id: ids("prod-1-members"),
+				teamId: ids("prod-1"),
 				capacity: 5,
 				activeBets: 0,
 				formedAt: now,
 			});
 			await db.insert(users).values({
-				id: "agent-1",
+				id: ids("agent-1"),
 				kind: "ai",
 				name: "Test Agent",
 				role: "assistant",
@@ -319,30 +334,30 @@ describe("A2: Database Schema", () => {
 				createdAt: now,
 			});
 			await db.insert(routines).values({
-				id: "routine-1",
+				id: ids("routine-1"),
 				name: "Test routine",
-				teamId: "prod-1",
+				teamId: ids("prod-1"),
 				state: "active",
-				ownerAgentId: "agent-1",
+				ownerAgentId: ids("agent-1"),
 				triggerType: "heartbeat",
 				triggerConfig: JSON.stringify({ intervalSeconds: 900 }),
 				active: true,
 			});
 
-			const result = await db.select().from(routines).where(eq(routines.id, "routine-1"));
+			const result = await db.select().from(routines).where(eq(routines.id, ids("routine-1")));
 			expect(result[0]).toMatchObject({
-				id: "routine-1",
-				ownerAgentId: "agent-1",
+				id: ids("routine-1"),
+				ownerAgentId: ids("agent-1"),
 				triggerType: "heartbeat",
 				active: true,
 			});
 		});
 
-		test("inserts and reads threads and messages", async ({ db }) => {
+		test("inserts and reads threads and messages", async ({ db, ids }) => {
 			const now = new Date().toISOString();
 			await db.insert(users).values([
 				{
-					id: "agent-1",
+					id: ids("agent-1"),
 					kind: "ai",
 					name: "A",
 					role: "builder",
@@ -350,7 +365,7 @@ describe("A2: Database Schema", () => {
 					createdAt: now,
 				},
 				{
-					id: "agent-2",
+					id: ids("agent-2"),
 					kind: "ai",
 					name: "B",
 					role: "builder",
@@ -359,43 +374,43 @@ describe("A2: Database Schema", () => {
 				},
 			]);
 			await db.insert(threads).values({
-				id: "thread-1",
+				id: ids("thread-1"),
 				hostKind: "task",
-				hostId: "task-1",
-				initiatorId: "agent-1",
-				participants: JSON.stringify(["agent-1"]),
+				hostId: ids("task-1"),
+				initiatorId: ids("agent-1"),
+				participants: JSON.stringify([ids("agent-1")]),
 				lastActiveAt: now,
 				createdAt: now,
 			});
 			// L1a: messages now carry type/payload/clientKey instead of
 			// recipientId/subject/body (plan §5.3).
 			await db.insert(messages).values({
-				id: "msg-1",
-				senderId: "agent-1",
-				threadId: "thread-1",
+				id: ids("msg-1"),
+				senderId: ids("agent-1"),
+				threadId: ids("thread-1"),
 				type: "plain",
 				payload: JSON.stringify({ text: "Hello" }),
-				clientKey: "msg-1",
+				clientKey: ids("msg-1"),
 				createdAt: now,
 			});
 
-			const result = await db.select().from(messages).where(eq(messages.id, "msg-1"));
+			const result = await db.select().from(messages).where(eq(messages.id, ids("msg-1")));
 			expect(result[0]).toMatchObject({
-				id: "msg-1",
-				senderId: "agent-1",
+				id: ids("msg-1"),
+				senderId: ids("agent-1"),
 				type: "plain",
 			});
 			const payload = JSON.parse(result[0]?.payload ?? "{}") as { text?: string };
 			expect(payload.text).toBe("Hello");
 		});
 
-		test("inserts and reads items and verdict messages", async ({ db }) => {
+		test("inserts and reads items and verdict messages", async ({ db, ids }) => {
 			// L1a: legacy `responses` table was dropped; verdict messages
 			// (type='verdict', legacy_item_id) replace it (plan §5.2).
 			const now = new Date().toISOString();
 			await db.insert(users).values([
 				{
-					id: "agent-1",
+					id: ids("agent-1"),
 					kind: "ai",
 					name: "A",
 					role: "builder",
@@ -403,7 +418,7 @@ describe("A2: Database Schema", () => {
 					createdAt: now,
 				},
 				{
-					id: "human-1",
+					id: ids("human-1"),
 					kind: "human",
 					name: "Human",
 					role: "founder",
@@ -412,49 +427,57 @@ describe("A2: Database Schema", () => {
 				},
 			]);
 			await db.insert(threads).values({
-				id: "thread-1",
+				id: ids("thread-1"),
 				hostKind: "task",
-				hostId: "task-1",
-				initiatorId: "agent-1",
-				participants: JSON.stringify(["agent-1"]),
+				hostId: ids("task-1"),
+				initiatorId: ids("agent-1"),
+				participants: JSON.stringify([ids("agent-1")]),
 				lastActiveAt: now,
 				createdAt: now,
 			});
 			await db.insert(items).values({
-				id: "item-1",
-				sourceAgentId: "agent-1",
+				id: ids("item-1"),
+				sourceAgentId: ids("agent-1"),
 				kind: "review",
 				title: "Review upload",
 				body: "Please review",
-				threadId: "thread-1",
+				threadId: ids("thread-1"),
 				createdAt: now,
 			});
 
-			const item = await db.select().from(items).where(eq(items.id, "item-1"));
-			expect(item[0]).toMatchObject({ id: "item-1", kind: "review", title: "Review upload" });
+			const item = await db.select().from(items).where(eq(items.id, ids("item-1")));
+			expect(item[0]).toMatchObject({
+				id: ids("item-1"),
+				kind: "review",
+				title: "Review upload",
+			});
 
 			await db.insert(messages).values({
-				id: "resp-1",
-				senderId: "human-1",
-				threadId: "thread-1",
+				id: ids("resp-1"),
+				senderId: ids("human-1"),
+				threadId: ids("thread-1"),
 				type: "verdict",
 				payload: JSON.stringify({ decision: "approve" }),
-				clientKey: "resp-1",
-				legacyItemId: "item-1",
+				clientKey: ids("resp-1"),
+				legacyItemId: ids("item-1"),
 				createdAt: now,
 			});
 
-			const resp = await db.select().from(messages).where(eq(messages.id, "resp-1"));
-			expect(resp[0]).toMatchObject({ id: "resp-1", type: "verdict", legacyItemId: "item-1" });
+			const resp = await db.select().from(messages).where(eq(messages.id, ids("resp-1")));
+			expect(resp[0]).toMatchObject({
+				id: ids("resp-1"),
+				type: "verdict",
+				legacyItemId: ids("item-1"),
+			});
 			const verdict = JSON.parse(resp[0]?.payload ?? "{}") as { decision: string };
 			expect(verdict.decision).toBe("approve");
 		});
 
-		test("inserts and reads knowledge_items", async ({ db }) => {
+		test("inserts and reads knowledge_items", async ({ db, ids }) => {
 			// @lore O2: layer, kind stripped from kernel table; use knowledgeAppProjection.
 			const now = new Date().toISOString();
 			await db.insert(knowledgeItems).values({
-				id: "ki-1",
+				id: ids("ki-1"),
 				title: "Chunked uploads",
 				body: "Use chunked uploads for files >10MB",
 				format: "markdown",
@@ -467,21 +490,24 @@ describe("A2: Database Schema", () => {
 			// The owner's `create` always writes the projection row alongside the item.
 			await db
 				.insert(knowledgeAppProjection)
-				.values({ id: "ki-1-projection", knowledgeItemId: "ki-1" });
+				.values({ id: ids("ki-1-projection"), knowledgeItemId: ids("ki-1") });
 
-			const result = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-1"));
+			const result = await db
+				.select()
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.id, ids("ki-1")));
 			expect(result[0]).toMatchObject({
-				id: "ki-1",
+				id: ids("ki-1"),
 				title: "Chunked uploads",
 				version: 1,
 			});
 		});
 
-		test("updates knowledge_items version", async ({ db }) => {
+		test("updates knowledge_items version", async ({ db, ids }) => {
 			// @lore O2: layer, kind stripped from kernel table.
 			const now = new Date().toISOString();
 			await db.insert(knowledgeItems).values({
-				id: "ki-1",
+				id: ids("ki-1"),
 				title: "Original",
 				body: "Body",
 				format: "markdown",
@@ -494,23 +520,26 @@ describe("A2: Database Schema", () => {
 			// The owner's `create` always writes the projection row alongside the item.
 			await db
 				.insert(knowledgeAppProjection)
-				.values({ id: "ki-1-projection", knowledgeItemId: "ki-1" });
+				.values({ id: ids("ki-1-projection"), knowledgeItemId: ids("ki-1") });
 
 			await db
 				.update(knowledgeItems)
 				.set({ title: "Updated", version: 2, updatedAt: new Date().toISOString() })
-				.where(eq(knowledgeItems.id, "ki-1"));
+				.where(eq(knowledgeItems.id, ids("ki-1")));
 
-			const result = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "ki-1"));
+			const result = await db
+				.select()
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.id, ids("ki-1")));
 			expect(result[0]?.title).toBe("Updated");
 			expect(result[0]?.version).toBe(2);
 		});
 
-		test("inserts and reads knowledge_edit_log", async ({ db }) => {
+		test("inserts and reads knowledge_edit_log", async ({ db, ids }) => {
 			// @lore O2: layer, kind stripped from kernel table.
 			const now = new Date().toISOString();
 			await db.insert(knowledgeItems).values({
-				id: "ki-1",
+				id: ids("ki-1"),
 				title: "T",
 				body: "B",
 				format: "markdown",
@@ -523,10 +552,10 @@ describe("A2: Database Schema", () => {
 			// The owner's `create` always writes the projection row alongside the item.
 			await db
 				.insert(knowledgeAppProjection)
-				.values({ id: "ki-1-projection", knowledgeItemId: "ki-1" });
+				.values({ id: ids("ki-1-projection"), knowledgeItemId: ids("ki-1") });
 			await db.insert(knowledgeEditLog).values({
-				id: "kel-1",
-				itemId: "ki-1",
+				id: ids("kel-1"),
+				itemId: ids("ki-1"),
 				editor: "human-1",
 				field: "title",
 				oldValue: "Old",
@@ -538,23 +567,29 @@ describe("A2: Database Schema", () => {
 			const result = await db
 				.select()
 				.from(knowledgeEditLog)
-				.where(eq(knowledgeEditLog.id, "kel-1"));
+				.where(eq(knowledgeEditLog.id, ids("kel-1")));
 			expect(result[0]).toMatchObject({
-				id: "kel-1",
-				itemId: "ki-1",
+				id: ids("kel-1"),
+				itemId: ids("ki-1"),
 				field: "title",
 			});
 		});
 
 		// @lore AU18: factory_settings (generic KV bucket) is retired. server_config
 		// is its typed singleton-row successor — still exercises a real insert+read.
-		test("inserts and reads server_config", async ({ db }) => {
+		test("inserts and reads server_config", async ({ db, ids }) => {
 			const now = new Date().toISOString();
-			await db.insert(serverConfig).values({ id: "default", config: "{}", updatedAt: now });
+			// @lore AU38: the production singleton row key is "default"; the CRUD
+			// round-trip scopes it anyway so no other test's singleton row can
+			// collide with this one (no DB-level constraint pins the id).
+			await db.insert(serverConfig).values({ id: ids("default"), config: "{}", updatedAt: now });
 
-			const result = await db.select().from(serverConfig).where(eq(serverConfig.id, "default"));
+			const result = await db
+				.select()
+				.from(serverConfig)
+				.where(eq(serverConfig.id, ids("default")));
 
-			expect(result[0]).toMatchObject({ id: "default", config: "{}" });
+			expect(result[0]).toMatchObject({ id: ids("default"), config: "{}" });
 		});
 	});
 
@@ -594,12 +629,14 @@ describe("A2: Database Schema", () => {
 	// --- AC6: Foreign key constraints enforced ---
 	describe("AC6: foreign key constraints", () => {
 		// @lore U1: tasks.productId dropped; teamId refs `teams` (formerly products).
-		test("rejects task with invalid bet_id", async ({ db }) => {
+		test("rejects task with invalid bet_id", async ({ db, ids }) => {
 			const now = new Date().toISOString();
-			await db.insert(teams).values({ id: "prod-1", name: "P", phase: "build", createdAt: now });
+			await db
+				.insert(teams)
+				.values({ id: ids("prod-1"), name: "P", phase: "build", createdAt: now });
 			await db.insert(teamMembers).values({
-				id: "prod-1-members",
-				teamId: "prod-1",
+				id: ids("prod-1-members"),
+				teamId: ids("prod-1"),
 				capacity: 5,
 				activeBets: 0,
 				formedAt: now,
@@ -607,9 +644,9 @@ describe("A2: Database Schema", () => {
 
 			await expect(
 				db.insert(tasks).values({
-					id: "task-1",
-					betId: "nonexistent-bet",
-					teamId: "prod-1",
+					id: ids("task-1"),
+					betId: ids("nonexistent-bet"),
+					teamId: ids("prod-1"),
 					title: "T",
 					state: "proposed",
 					createdAt: now,
@@ -619,28 +656,30 @@ describe("A2: Database Schema", () => {
 		});
 
 		// @lore U1: tasks.productId dropped; teamId refs `teams` (formerly products).
-		test("rejects session with invalid agent_id", async ({ db }) => {
+		test("rejects session with invalid agent_id", async ({ db, ids }) => {
 			const now = new Date().toISOString();
-			await db.insert(teams).values({ id: "prod-1", name: "P", phase: "build", createdAt: now });
+			await db
+				.insert(teams)
+				.values({ id: ids("prod-1"), name: "P", phase: "build", createdAt: now });
 			await db.insert(teamMembers).values({
-				id: "prod-1-members",
-				teamId: "prod-1",
+				id: ids("prod-1-members"),
+				teamId: ids("prod-1"),
 				capacity: 5,
 				activeBets: 0,
 				formedAt: now,
 			});
 			await db.insert(bets).values({
-				id: "bet-1",
-				teamId: "prod-1",
+				id: ids("bet-1"),
+				teamId: ids("prod-1"),
 				description: "X",
 				appetite: "2w",
 				status: "draft",
 				createdAt: now,
 			});
 			await db.insert(tasks).values({
-				id: "task-1",
-				betId: "bet-1",
-				teamId: "prod-1",
+				id: ids("task-1"),
+				betId: ids("bet-1"),
+				teamId: ids("prod-1"),
 				title: "T",
 				state: "proposed",
 				createdAt: now,
@@ -649,9 +688,9 @@ describe("A2: Database Schema", () => {
 
 			await expect(
 				db.insert(sessions).values({
-					id: "sess-1",
-					taskId: "task-1",
-					agentId: "nonexistent-agent",
+					id: ids("sess-1"),
+					taskId: ids("task-1"),
+					agentId: ids("nonexistent-agent"),
 					modelTier: "workhorse",
 					startedAt: now,
 					state: "active",
@@ -661,6 +700,7 @@ describe("A2: Database Schema", () => {
 
 		test("rejects verdict message with invalid sender_id (replaces legacy responses FK contract)", async ({
 			db,
+			ids,
 		}) => {
 			// L1a: legacy `responses.item_id` FK no longer exists — `responses`
 			// table dropped (plan §5.2). Replacement contract: verdict-typed
@@ -668,33 +708,33 @@ describe("A2: Database Schema", () => {
 			// users.id rejects unknown senders. P2: agents → users.
 			const now = new Date().toISOString();
 			await db.insert(threads).values({
-				id: "thread-fk",
+				id: ids("thread-fk"),
 				hostKind: "task",
-				hostId: "task-1",
-				initiatorId: "agent-1",
+				hostId: ids("task-1"),
+				initiatorId: ids("agent-1"),
 				participants: JSON.stringify([]),
 				lastActiveAt: now,
 				createdAt: now,
 			});
 			await expect(
 				db.insert(messages).values({
-					id: "verdict-fk",
-					senderId: "nonexistent-agent",
-					threadId: "thread-fk",
+					id: ids("verdict-fk"),
+					senderId: ids("nonexistent-agent"),
+					threadId: ids("thread-fk"),
 					type: "verdict",
 					payload: JSON.stringify({ decision: "approve" }),
-					clientKey: "verdict-fk",
+					clientKey: ids("verdict-fk"),
 					createdAt: now,
 				}),
 			).rejects.toThrow();
 		});
 
-		test("rejects knowledge_edit_log with invalid item_id", async ({ db }) => {
+		test("rejects knowledge_edit_log with invalid item_id", async ({ db, ids }) => {
 			const now = new Date().toISOString();
 			await expect(
 				db.insert(knowledgeEditLog).values({
-					id: "kel-1",
-					itemId: "nonexistent-ki",
+					id: ids("kel-1"),
+					itemId: ids("nonexistent-ki"),
 					editor: "human-1",
 					field: "title",
 					oldValue: "Old",
