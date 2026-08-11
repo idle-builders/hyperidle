@@ -151,10 +151,11 @@ describe("provisioner.run — ToolContext.threadId forwarded from params.calling
 	});
 	test("a session with a baked callingThreadId gets a ToolContext.threadId matching it", async ({
 		db,
+		ids,
 	}) => {
 		const now = new Date().toISOString();
 		await db.insert(users).values({
-			id: "agent-thread-ctx-1",
+			id: ids("agent-thread-ctx-1"),
 			kind: "ai",
 			name: "Agent",
 			role: "builder",
@@ -170,8 +171,8 @@ describe("provisioner.run — ToolContext.threadId forwarded from params.calling
 
 		const params: ProvisionSessionParams = {
 			taskId: null,
-			agentId: "agent-thread-ctx-1",
-			productId: "task-free",
+			agentId: ids("agent-thread-ctx-1"),
+			productId: ids("task-free"),
 			sandboxBasePath: sandboxPath,
 			agentConfig: {
 				kind: "ai",
@@ -180,22 +181,23 @@ describe("provisioner.run — ToolContext.threadId forwarded from params.calling
 				teamId: null,
 			},
 			harnessDisabled: [],
-			callingThreadId: "thread-provisioner-ctx-1",
+			callingThreadId: ids("thread-provisioner-ctx-1"),
 		} as ProvisionSessionParams;
 
 		const deps = buildDeps(db as HyperIdleDb, sandboxPath);
 		const admitted = await provisioner.admit(deps, params);
 		await provisioner.run(deps, params, admitted);
 
-		expect(captured.toolContext?.threadId).toBe("thread-provisioner-ctx-1");
+		expect(captured.toolContext?.threadId).toBe(ids("thread-provisioner-ctx-1"));
 	});
 
 	test("a session with no baked callingThreadId gets no ToolContext.threadId (routine_run)", async ({
 		db,
+		ids,
 	}) => {
 		const now = new Date().toISOString();
 		await db.insert(users).values({
-			id: "agent-thread-ctx-2",
+			id: ids("agent-thread-ctx-2"),
 			kind: "ai",
 			name: "Agent",
 			role: "builder",
@@ -211,8 +213,8 @@ describe("provisioner.run — ToolContext.threadId forwarded from params.calling
 
 		const params: ProvisionSessionParams = {
 			taskId: null,
-			agentId: "agent-thread-ctx-2",
-			productId: "task-free",
+			agentId: ids("agent-thread-ctx-2"),
+			productId: ids("task-free"),
 			sandboxBasePath: sandboxPath,
 			agentConfig: {
 				kind: "ai",

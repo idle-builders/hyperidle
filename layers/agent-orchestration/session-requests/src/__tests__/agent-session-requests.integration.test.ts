@@ -92,19 +92,50 @@ describe("agent session request repository", () => {
 		if (!row?.claimToken) throw new Error("Expected an actively claimed request");
 		return row.claimToken;
 	}
-	test("createRequestForTest is idempotent by source/action key", async ({ db }) => {
+
+	// @lore AU38: once the per-test truncate goes away, a request left `pending`
+	// by one test changes the premise of a later `claimSessionRequest({next:true})`
+	// test in this file (it claims the OLDEST pending row). Terminalize the row
+	// after the test's own assertions so this file leaves no pending rows behind.
+	async function terminalizeRequest(
+		db: HyperIdleDb,
+		requestId: string,
+		sessionId: string,
+	): Promise<void> {
+		const claimed = await claimSessionRequest(
+			db,
+			{ id: requestId },
+			{ workerId: "teardown", now: new Date(), leaseMs: 30_000 },
+		);
+		await transitionSessionRequest(db, {
+			to: "running",
+			requestId,
+			sessionId,
+			claimToken: claimedToken(claimed),
+		});
+		await transitionSessionRequest(db, {
+			to: "failed",
+			precondition: "running",
+			requestId,
+			sessionId,
+			failureCode: "TEST_TEARDOWN",
+		});
+	}
+	test("createRequestForTest is idempotent by source/action key", async ({ db, ids }) => {
 		const now = new Date().toISOString();
-		await db.insert(teams).values({ id: "team-1", name: "Team", phase: "build", createdAt: now });
+		await db
+			.insert(teams)
+			.values({ id: ids("team-1"), name: "Team", phase: "build", createdAt: now });
 		await db.insert(teamMembers).values({
-			id: "members-1",
-			teamId: "team-1",
+			id: ids("members-1"),
+			teamId: ids("team-1"),
 			capacity: 3,
 			activeBets: 0,
 			formedAt: now,
 		});
 		await db.insert(users).values([
 			{
-				id: "agent-1",
+				id: ids("agent-1"),
 				kind: "ai",
 				name: "Agent",
 				role: "builder",
@@ -112,7 +143,7 @@ describe("agent session request repository", () => {
 				createdAt: now,
 			},
 			{
-				id: "user-1",
+				id: ids("user-1"),
 				kind: "human",
 				name: "User",
 				role: "founder",
@@ -121,16 +152,16 @@ describe("agent session request repository", () => {
 			},
 		]);
 		await db.insert(bets).values({
-			id: "bet-1",
-			teamId: "team-1",
+			id: ids("bet-1"),
+			teamId: ids("team-1"),
 			description: "Bet",
 			status: "active",
 			createdAt: now,
 		});
 		await db.insert(tasks).values({
-			id: "task-1",
-			betId: "bet-1",
-			teamId: "team-1",
+			id: ids("task-1"),
+			betId: ids("bet-1"),
+			teamId: ids("team-1"),
 			title: "Task",
 			state: "accepted",
 			createdAt: now,
@@ -139,38 +170,46 @@ describe("agent session request repository", () => {
 
 		const input = {
 			sourceKind: "task" as const,
-			sourceId: "task-1",
-			streamId: "task:task-1",
-			taskId: "task-1",
-			teamId: "team-1",
-			agentId: "agent-1",
+			sourceId: ids("task-1"),
+			streamId: `task:${ids("task-1")}`,
+			taskId: ids("task-1"),
+			teamId: ids("team-1"),
+			agentId: ids("agent-1"),
 			promptMode: "task" as const,
-			idempotencyKey: "task:task-1:accepted",
-			sourceCorrelation: { taskId: "task-1", teamId: "team-1" },
+			idempotencyKey: ids("task:task-1:accepted"),
+			sourceCorrelation: { taskId: ids("task-1"), teamId: ids("team-1") },
 		};
 
 		const first = await createSessionRequest(db, { kind: "direct", request: input });
 		const second = await createSessionRequest(db, { kind: "direct", request: input });
 
 		expect(second.id).toBe(first.id);
-		const rows = await db.select().from(agentSessionRequests);
+		const rows = await db
+			.select()
+			.from(agentSessionRequests)
+			.where(eq(agentSessionRequests.sourceId, ids("task-1")));
 		expect(rows).toHaveLength(1);
+
+		await terminalizeRequest(db, first.id, ids("teardown-session-1"));
 	});
 
 	test("createRequestForTest returns the existing row under concurrent duplicate creates", async ({
 		db,
+		ids,
 	}) => {
 		const now = new Date().toISOString();
-		await db.insert(teams).values({ id: "team-2", name: "Team", phase: "build", createdAt: now });
+		await db
+			.insert(teams)
+			.values({ id: ids("team-2"), name: "Team", phase: "build", createdAt: now });
 		await db.insert(teamMembers).values({
-			id: "members-2",
-			teamId: "team-2",
+			id: ids("members-2"),
+			teamId: ids("team-2"),
 			capacity: 3,
 			activeBets: 0,
 			formedAt: now,
 		});
 		await db.insert(users).values({
-			id: "agent-2",
+			id: ids("agent-2"),
 			kind: "ai",
 			name: "Agent",
 			role: "builder",
@@ -178,16 +217,16 @@ describe("agent session request repository", () => {
 			createdAt: now,
 		});
 		await db.insert(bets).values({
-			id: "bet-2",
-			teamId: "team-2",
+			id: ids("bet-2"),
+			teamId: ids("team-2"),
 			description: "Bet",
 			status: "active",
 			createdAt: now,
 		});
 		await db.insert(tasks).values({
-			id: "task-2",
-			betId: "bet-2",
-			teamId: "team-2",
+			id: ids("task-2"),
+			betId: ids("bet-2"),
+			teamId: ids("team-2"),
 			title: "Task",
 			state: "accepted",
 			createdAt: now,
@@ -196,14 +235,14 @@ describe("agent session request repository", () => {
 
 		const input = {
 			sourceKind: "task" as const,
-			sourceId: "task-2",
-			streamId: "task:task-2",
-			taskId: "task-2",
-			teamId: "team-2",
-			agentId: "agent-2",
+			sourceId: ids("task-2"),
+			streamId: `task:${ids("task-2")}`,
+			taskId: ids("task-2"),
+			teamId: ids("team-2"),
+			agentId: ids("agent-2"),
 			promptMode: "task" as const,
-			idempotencyKey: "task:task-2:accepted",
-			sourceCorrelation: { taskId: "task-2", teamId: "team-2" },
+			idempotencyKey: ids("task:task-2:accepted"),
+			sourceCorrelation: { taskId: ids("task-2"), teamId: ids("team-2") },
 		};
 
 		const results = await Promise.all(
@@ -214,23 +253,29 @@ describe("agent session request repository", () => {
 		const rows = await db
 			.select()
 			.from(agentSessionRequests)
-			.where(eq(agentSessionRequests.sourceId, "task-2"));
+			.where(eq(agentSessionRequests.sourceId, ids("task-2")));
 		expect(rows).toHaveLength(1);
+
+		const created = results[0];
+		if (!created) throw new Error("Expected the concurrent creates to return the row");
+		await terminalizeRequest(db, created.id, ids("teardown-session-2"));
 	});
 
-	test("claimNextAgentSessionRequest claims exactly one pending request", async ({ db }) => {
+	test("claimNextAgentSessionRequest claims exactly one pending request", async ({ db, ids }) => {
 		const now = new Date().toISOString();
-		await db.insert(teams).values({ id: "team-3", name: "Team", phase: "build", createdAt: now });
+		await db
+			.insert(teams)
+			.values({ id: ids("team-3"), name: "Team", phase: "build", createdAt: now });
 		await db.insert(teamMembers).values({
-			id: "members-3",
-			teamId: "team-3",
+			id: ids("members-3"),
+			teamId: ids("team-3"),
 			capacity: 3,
 			activeBets: 0,
 			formedAt: now,
 		});
 		await db.insert(users).values([
 			{
-				id: "agent-3",
+				id: ids("agent-3"),
 				kind: "ai",
 				name: "Agent",
 				role: "builder",
@@ -238,7 +283,7 @@ describe("agent session request repository", () => {
 				createdAt: now,
 			},
 			{
-				id: "user-3",
+				id: ids("user-3"),
 				kind: "human",
 				name: "User",
 				role: "founder",
@@ -251,17 +296,17 @@ describe("agent session request repository", () => {
 			kind: "direct",
 			request: {
 				sourceKind: "assistant",
-				sourceId: "msg-3",
-				streamId: "thread:thread-3",
-				agentId: "agent-3",
-				userId: "user-3",
+				sourceId: ids("msg-3"),
+				streamId: `thread:${ids("thread-3")}`,
+				agentId: ids("agent-3"),
+				userId: ids("user-3"),
 				promptMode: "conversation",
-				idempotencyKey: "assistant:msg-3",
+				idempotencyKey: ids("assistant:msg-3"),
 				sourceCorrelation: {
-					threadId: "thread-3",
-					messageId: "msg-3",
-					userId: "user-3",
-					assistantAgentId: "agent-3",
+					threadId: ids("thread-3"),
+					messageId: ids("msg-3"),
+					userId: ids("user-3"),
+					assistantAgentId: ids("agent-3"),
 				},
 			},
 		});
@@ -290,7 +335,7 @@ describe("agent session request repository", () => {
 			{
 				to: "running",
 				requestId: winner.id,
-				sessionId: "session-1",
+				sessionId: ids("session-1"),
 				claimToken: claimedToken(winner),
 			},
 			undefined,
@@ -301,13 +346,28 @@ describe("agent session request repository", () => {
 			.from(agentSessionRequests)
 			.where(eq(agentSessionRequests.id, winner.id));
 		expect(row?.status).toBe("running");
-		expect(row?.sessionId).toBe("session-1");
+		expect(row?.sessionId).toBe(ids("session-1"));
+
+		// Leave the claimed row terminal, not pending (see terminalizeRequest lore).
+		await transitionSessionRequest(
+			db,
+			{
+				to: "failed",
+				precondition: "running",
+				requestId: winner.id,
+				sessionId: ids("session-1"),
+				failureCode: "TEST_TEARDOWN",
+			},
+			undefined,
+			{ now: new Date("2026-07-08T12:00:01.000Z") },
+		);
 	});
 
 	test("claim custody is token-fenced across concurrent claim, renew, expiry, and reclaim", async ({
 		db,
+		ids,
 	}) => {
-		const request = await createAssistantRequest(db, "lease");
+		const request = await createAssistantRequest(db, ids("lease"));
 		const now = new Date("2026-07-08T12:00:00.000Z");
 		const [first, second] = await Promise.all([
 			claimSessionRequest(db, { id: request.id }, { workerId: "worker-a", now, leaseMs: 1_000 }),
@@ -364,8 +424,9 @@ describe("agent session request repository", () => {
 
 	test("release ignores a stale token and returns the matching claim to pending", async ({
 		db,
+		ids,
 	}) => {
-		const request = await createAssistantRequest(db, "release");
+		const request = await createAssistantRequest(db, ids("release"));
 		const claimed = await claimSessionRequest(
 			db,
 			{ id: request.id },
@@ -389,13 +450,13 @@ describe("agent session request repository", () => {
 		expect(reclaimed?.claimToken).not.toBe(claimed?.claimToken);
 	});
 
-	test("concurrent intent drains process one durable attempt", async ({ db }) => {
+	test("concurrent intent drains process one durable attempt", async ({ db, ids }) => {
 		const intent = await enqueueWorkIntent(db, {
 			kind: "reengagement",
 			sourceKind: "proposed_call",
-			sourceId: "review-intent-lease",
-			requestedBy: "agent-intent-lease",
-			idempotencyKey: "reengagement:intent-lease",
+			sourceId: ids("review-intent-lease"),
+			requestedBy: ids("agent-intent-lease"),
+			idempotencyKey: ids("reengagement:intent-lease"),
 		});
 		const deps: DurableAgentQueueDeps = {
 			db,
@@ -428,9 +489,12 @@ describe("agent session request repository", () => {
 	 * `requested_by`, so dedup on (kind, sourceId, idempotencyKey) needs none of
 	 * it, and `user_skills` no longer exists to seed.
 	 */
-	test("enqueueWorkIntent is idempotent on (kind, sourceId, idempotencyKey)", async ({ db }) => {
-		const runId = "au15-routine-idem-run";
-		const ownerAgentId = "au15-owner";
+	test("enqueueWorkIntent is idempotent on (kind, sourceId, idempotencyKey)", async ({
+		db,
+		ids,
+	}) => {
+		const runId = ids("au15-routine-idem-run");
+		const ownerAgentId = ids("au15-owner");
 		const first = await enqueueWorkIntent(db, {
 			kind: "routine_run",
 			sourceKind: "routine_run",
@@ -453,8 +517,11 @@ describe("agent session request repository", () => {
 		expect(rows).toHaveLength(1);
 	});
 
-	test("parameterized reads preserve payloads and source/running filters", async ({ db }) => {
-		const request = await createAssistantRequest(db, "reads", '{"mode":"deep"}');
+	test("parameterized reads preserve payloads and source/running filters", async ({
+		db,
+		ids,
+	}) => {
+		const request = await createAssistantRequest(db, ids("reads"), '{"mode":"deep"}');
 		expect((await findSessionRequest(db, { by: "id", requestId: request.id }))?.payloadJson).toBe(
 			'{"mode":"deep"}',
 		);
@@ -463,17 +530,19 @@ describe("agent session request repository", () => {
 				await findSessionRequest(db, {
 					by: "idempotencyKey",
 					sourceKind: "assistant",
-					sourceId: "message-reads",
-					idempotencyKey: "assistant:reads",
+					sourceId: `message-${ids("reads")}`,
+					idempotencyKey: `assistant:${ids("reads")}`,
 				})
 			)?.id,
 		).toBe(request.id);
 		expect(
-			await listSessionRequests(db, { source: { kind: "assistant", id: "message-reads" } }),
+			await listSessionRequests(db, {
+				source: { kind: "assistant", id: `message-${ids("reads")}` },
+			}),
 		).toHaveLength(1);
-		expect(await listSessionRequests(db, { source: { kind: "assistant", id: "other" } })).toEqual(
-			[],
-		);
+		expect(
+			await listSessionRequests(db, { source: { kind: "assistant", id: ids("other") } }),
+		).toEqual([]);
 		const claimed = await claimSessionRequest(
 			db,
 			{ id: request.id },
@@ -482,11 +551,11 @@ describe("agent session request repository", () => {
 		await transitionSessionRequest(db, {
 			to: "running",
 			requestId: request.id,
-			sessionId: "session-reads",
+			sessionId: ids("session-reads"),
 			claimToken: claimedToken(claimed),
 		});
 		expect(
-			(await findSessionRequest(db, { by: "sessionId", sessionId: "session-reads" }))?.id,
+			(await findSessionRequest(db, { by: "sessionId", sessionId: ids("session-reads") }))?.id,
 		).toBe(request.id);
 		expect(
 			(await listSessionRequests(db, { status: "running" })).map((row: { id: string }) => row.id),
@@ -495,21 +564,22 @@ describe("agent session request repository", () => {
 
 	test("explicit starts are found by id and requester key and transition to admitted", async ({
 		db,
+		ids,
 	}) => {
 		const now = new Date().toISOString();
 		await db
 			.insert(teams)
-			.values({ id: "explicit-team", name: "Team", phase: "build", createdAt: now });
+			.values({ id: ids("explicit-team"), name: "Team", phase: "build", createdAt: now });
 		await db.insert(teamMembers).values({
-			id: "explicit-members",
-			teamId: "explicit-team",
+			id: ids("explicit-members"),
+			teamId: ids("explicit-team"),
 			capacity: 3,
 			activeBets: 0,
 			formedAt: now,
 		});
 		await db.insert(users).values([
 			{
-				id: "explicit-agent",
+				id: ids("explicit-agent"),
 				kind: "ai",
 				name: "Agent",
 				role: "builder",
@@ -517,7 +587,7 @@ describe("agent session request repository", () => {
 				createdAt: now,
 			},
 			{
-				id: "explicit-user",
+				id: ids("explicit-user"),
 				kind: "human",
 				name: "User",
 				role: "founder",
@@ -526,16 +596,16 @@ describe("agent session request repository", () => {
 			},
 		]);
 		await db.insert(bets).values({
-			id: "explicit-bet",
-			teamId: "explicit-team",
+			id: ids("explicit-bet"),
+			teamId: ids("explicit-team"),
 			description: "Bet",
 			status: "active",
 			createdAt: now,
 		});
 		await db.insert(tasks).values({
-			id: "explicit-task",
-			betId: "explicit-bet",
-			teamId: "explicit-team",
+			id: ids("explicit-task"),
+			betId: ids("explicit-bet"),
+			teamId: ids("explicit-team"),
 			title: "Task",
 			state: "accepted",
 			createdAt: now,
@@ -544,34 +614,37 @@ describe("agent session request repository", () => {
 		const start = await createSessionRequest(db, {
 			kind: "explicitStart",
 			start: {
-				taskId: "explicit-task",
-				requestedAgentId: "explicit-agent",
-				requestedBy: "explicit-user",
-				idempotencyKey: "explicit-key",
+				taskId: ids("explicit-task"),
+				requestedAgentId: ids("explicit-agent"),
+				requestedBy: ids("explicit-user"),
+				idempotencyKey: ids("explicit-key"),
 			},
 		});
 		const request = await createSessionRequest(db, {
 			kind: "direct",
 			request: {
 				sourceKind: "task",
-				sourceId: "explicit-task",
-				streamId: "task:explicit-task",
-				taskId: "explicit-task",
-				teamId: "explicit-team",
-				agentId: "explicit-agent",
+				sourceId: ids("explicit-task"),
+				streamId: `task:${ids("explicit-task")}`,
+				taskId: ids("explicit-task"),
+				teamId: ids("explicit-team"),
+				agentId: ids("explicit-agent"),
 				promptMode: "task",
-				idempotencyKey: "explicit-request-key",
-				sourceCorrelation: { taskId: "explicit-task", teamId: "explicit-team" },
+				idempotencyKey: ids("explicit-request-key"),
+				sourceCorrelation: { taskId: ids("explicit-task"), teamId: ids("explicit-team") },
 			},
 		});
 		await db.insert(sessions).values({
-			id: "explicit-session",
-			taskId: "explicit-task",
+			id: ids("explicit-session"),
+			taskId: ids("explicit-task"),
 			requestId: request.id,
 			sourceKind: "task",
-			sourceId: "explicit-task",
-			sourceCorrelationJson: JSON.stringify({ taskId: "explicit-task", teamId: "explicit-team" }),
-			agentId: "explicit-agent",
+			sourceId: ids("explicit-task"),
+			sourceCorrelationJson: JSON.stringify({
+				taskId: ids("explicit-task"),
+				teamId: ids("explicit-team"),
+			}),
+			agentId: ids("explicit-agent"),
 			modelTier: "fast",
 			startedAt: now,
 			state: "active",
@@ -583,8 +656,8 @@ describe("agent session request repository", () => {
 			(
 				await findSessionRequest(db, {
 					by: "explicitStart",
-					requestedBy: "explicit-user",
-					idempotencyKey: "explicit-key",
+					requestedBy: ids("explicit-user"),
+					idempotencyKey: ids("explicit-key"),
 				})
 			)?.id,
 		).toBe(start.id);
@@ -593,18 +666,21 @@ describe("agent session request repository", () => {
 			to: "admitted",
 			startId: start.id,
 			requestId: request.id,
-			sessionId: "explicit-session",
+			sessionId: ids("explicit-session"),
 		});
 		const admitted = await findSessionRequest(db, { by: "explicitStart", startId: start.id });
 		expect(admitted).toMatchObject({
 			status: "admitted",
 			requestId: request.id,
-			sessionId: "explicit-session",
+			sessionId: ids("explicit-session"),
 		});
 	});
 
-	test("lifecycle transitions are CAS-guarded and emit one terminal inbox fact", async ({ db }) => {
-		const request = await createAssistantRequest(db, "terminal");
+	test("lifecycle transitions are CAS-guarded and emit one terminal inbox fact", async ({
+		db,
+		ids,
+	}) => {
+		const request = await createAssistantRequest(db, ids("terminal"));
 		const claimed = await claimSessionRequest(
 			db,
 			{ id: request.id },
@@ -614,14 +690,14 @@ describe("agent session request repository", () => {
 			transitionSessionRequest(db, {
 				to: "running",
 				requestId: request.id,
-				sessionId: "session-terminal",
+				sessionId: ids("session-terminal"),
 				claimToken: "stale",
 			}),
 		).rejects.toThrow("Lost request custody");
 		await transitionSessionRequest(db, {
 			to: "running",
 			requestId: request.id,
-			sessionId: "session-terminal",
+			sessionId: ids("session-terminal"),
 			claimToken: claimedToken(claimed),
 		});
 		expect(
@@ -651,18 +727,22 @@ describe("agent session request repository", () => {
 				to: "cancelled",
 				precondition: "running",
 				requestId: request.id,
-				sessionId: "session-terminal",
+				sessionId: ids("session-terminal"),
 			}),
 			transitionSessionRequest(db, {
 				to: "failed",
 				precondition: "running",
 				requestId: request.id,
-				sessionId: "session-terminal",
+				sessionId: ids("session-terminal"),
 				failureCode: "RACE_LOST",
 			}),
 		]);
 		expect(results.filter(Boolean)).toHaveLength(1);
-		expect(await db.select().from(agentLifecycleInbox)).toHaveLength(1);
+		const facts = await db
+			.select()
+			.from(agentLifecycleInbox)
+			.where(eq(agentLifecycleInbox.requestId, request.id));
+		expect(facts).toHaveLength(1);
 	});
 
 	test("live run registry replaces, aborts, and deregisters runtime handles", async () => {

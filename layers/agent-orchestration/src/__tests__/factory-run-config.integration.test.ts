@@ -69,17 +69,18 @@ async function seedUser(
 describe("applyFactoryRunConfigDefaults — first-boot run-config state (AU29 AC 7)", () => {
 	test("fresh roster agent gets AH2 runnable defaults and its role's template as systemPrompt", async ({
 		db,
+		ids,
 	}) => {
-		await seedUser(db, "agent-fresh-facilitator", "facilitator");
+		await seedUser(db, ids("agent-fresh-facilitator"), "facilitator");
 
 		await applyFactoryRunConfigDefaults(db, [
-			{ id: "agent-fresh-facilitator", role: "facilitator" },
+			{ id: ids("agent-fresh-facilitator"), role: "facilitator" },
 		]);
 
 		const [row] = await db
 			.select()
 			.from(agentRunConfig)
-			.where(eq(agentRunConfig.agentUserId, "agent-fresh-facilitator"));
+			.where(eq(agentRunConfig.agentUserId, ids("agent-fresh-facilitator")));
 		expect(row?.harnessType).toBe(AH2.harnessType);
 		expect(row?.modelId).toBe(AH2.modelId);
 		expect(row?.modelProvider).toBe(AH2.modelProvider);
@@ -89,24 +90,29 @@ describe("applyFactoryRunConfigDefaults — first-boot run-config state (AU29 AC
 
 	test("upgrade over an operator-configured row: AH2 fields + prompt overwritten, modelTierPreference untouched", async ({
 		db,
+		ids,
 	}) => {
-		await seedUser(db, "agent-upgrade", "facilitator");
+		await seedUser(db, ids("agent-upgrade"), "facilitator");
 		await db.insert(agentRunConfig).values({
-			agentUserId: "agent-upgrade",
+			agentUserId: ids("agent-upgrade"),
 			systemPrompt: "operator-set prompt",
 			harnessType: "claude",
 			modelTierPreference: "workhorse",
-			modelId: "some-model",
+			// @lore AU38: modelId is a model NAME, not an entity id — scoped only
+			// because R1 keys on `*Id`; the test just needs a distinct pre-value.
+			modelId: ids("some-model"),
 			modelProvider: "openrouter",
 			maxConcurrentSessions: 3,
 		});
 
-		await applyFactoryRunConfigDefaults(db, [{ id: "agent-upgrade", role: "facilitator" }]);
+		await applyFactoryRunConfigDefaults(db, [
+			{ id: ids("agent-upgrade"), role: "facilitator" },
+		]);
 
 		const [row] = await db
 			.select()
 			.from(agentRunConfig)
-			.where(eq(agentRunConfig.agentUserId, "agent-upgrade"));
+			.where(eq(agentRunConfig.agentUserId, ids("agent-upgrade")));
 		expect(row?.harnessType).toBe(AH2.harnessType);
 		expect(row?.modelId).toBe(AH2.modelId);
 		expect(row?.modelProvider).toBe(AH2.modelProvider);
@@ -117,22 +123,23 @@ describe("applyFactoryRunConfigDefaults — first-boot run-config state (AU29 AC
 
 	test("a missing template read preserves the agent's existing systemPrompt instead of nulling it", async ({
 		db,
+		ids,
 	}) => {
 		nullTemplateRole = "facilitator";
-		await seedUser(db, "agent-missing-template", "facilitator");
+		await seedUser(db, ids("agent-missing-template"), "facilitator");
 		await db.insert(agentRunConfig).values({
-			agentUserId: "agent-missing-template",
+			agentUserId: ids("agent-missing-template"),
 			systemPrompt: "pre-existing prompt that must survive",
 		});
 
 		await applyFactoryRunConfigDefaults(db, [
-			{ id: "agent-missing-template", role: "facilitator" },
+			{ id: ids("agent-missing-template"), role: "facilitator" },
 		]);
 
 		const [row] = await db
 			.select()
 			.from(agentRunConfig)
-			.where(eq(agentRunConfig.agentUserId, "agent-missing-template"));
+			.where(eq(agentRunConfig.agentUserId, ids("agent-missing-template")));
 		// Step 1 (AH2 defaults) still runs unconditionally...
 		expect(row?.harnessType).toBe(AH2.harnessType);
 		// ...but step 2 (prompt backfill) must skip this role, leaving the prompt as it was.

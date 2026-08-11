@@ -8,21 +8,23 @@
  * already-drained payload, ZERO orchestration -> core read.
  */
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
-import { expect, test } from "@hyperidle/db/test-fixtures";
+import { expect, test, type ScopedIds } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import { createSessionRequest } from "@hyperidle/session-requests";
 import { describe, vi } from "vitest";
 import { runSession } from "../runtime.js";
 import { buildTestPorts } from "./test-ports.js";
 
-async function seedTaskFixture(db: HyperIdleDb): Promise<void> {
+async function seedTaskFixture(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(teams).values({ id: "team-1", name: "Team", phase: "build", createdAt: now });
+	await db
+		.insert(teams)
+		.values({ id: ids("team-1"), name: "Team", phase: "build", createdAt: now });
 	await db
 		.insert(teamMembers)
-		.values({ id: "member-1", teamId: "team-1", capacity: 3, activeBets: 0, formedAt: now });
+		.values({ id: ids("member-1"), teamId: ids("team-1"), capacity: 3, activeBets: 0, formedAt: now });
 	await db.insert(users).values({
-		id: "agent-1",
+		id: ids("agent-1"),
 		kind: "ai",
 		name: "Agent",
 		role: "builder",
@@ -30,19 +32,19 @@ async function seedTaskFixture(db: HyperIdleDb): Promise<void> {
 		createdAt: now,
 	});
 	await db.insert(bets).values({
-		id: "bet-1",
-		teamId: "team-1",
+		id: ids("bet-1"),
+		teamId: ids("team-1"),
 		description: "Bet",
 		status: "active",
 		createdAt: now,
 	});
 	await db.insert(tasks).values({
-		id: "task-1",
-		betId: "bet-1",
-		teamId: "team-1",
+		id: ids("task-1"),
+		betId: ids("bet-1"),
+		teamId: ids("team-1"),
 		title: "Task",
 		state: "accepted",
-		ownerAgentId: "agent-1",
+		ownerAgentId: ids("agent-1"),
 		createdAt: now,
 		updatedAt: now,
 	});
@@ -51,42 +53,45 @@ async function seedTaskFixture(db: HyperIdleDb): Promise<void> {
 describe("consumeAgentSessionRequest — baked transcript mapping (Increment 4)", () => {
 	test("maps baked raw transcript rows to generic chat messages, keyed on the running agent's own id", async ({
 		db,
+		ids,
 	}) => {
-		await seedTaskFixture(db);
+		await seedTaskFixture(db, ids);
 
 		const ports = buildTestPorts();
 		vi.mocked(ports.sessionProvisioner!.admitSession).mockImplementation(async (_deps, params) => ({
-			sessionId: "session-transcript-1",
+			sessionId: ids("session-transcript-1"),
 			sessionContext: { taskId: params.taskId },
 		}));
 		vi.mocked(ports.sessionProvisioner!.runSession).mockImplementation(async () => ({
-			sessionId: "session-transcript-1",
+			sessionId: ids("session-transcript-1"),
 			outcome: "completed",
-			taskId: "task-1",
+			taskId: ids("task-1"),
 			forceReturnCount: 0,
 		}));
 
+		// @lore AU38: the mapping keys sender→role off the running agent's OWN id,
+		// so the transcript senderIds must resolve identically to the arranged ids.
 		const rawTranscript = [
-			{ senderId: "user-1", payload: JSON.stringify({ text: "hello" }), type: "plain" },
-			{ senderId: "agent-1", payload: JSON.stringify({ text: "hi there" }), type: "plain" },
+			{ senderId: ids("user-1"), payload: JSON.stringify({ text: "hello" }), type: "plain" },
+			{ senderId: ids("agent-1"), payload: JSON.stringify({ text: "hi there" }), type: "plain" },
 			// A notice-typed row must be filtered out (no `text` reply content).
-			{ senderId: "agent-1", payload: JSON.stringify({ notice: "system" }), type: "plain" },
+			{ senderId: ids("agent-1"), payload: JSON.stringify({ notice: "system" }), type: "plain" },
 			// A non-"plain" row must be filtered out.
-			{ senderId: "user-1", payload: JSON.stringify({ text: "verdict" }), type: "verdict" },
+			{ senderId: ids("user-1"), payload: JSON.stringify({ text: "verdict" }), type: "verdict" },
 		];
 
 		const request = await createSessionRequest(db, {
 			kind: "direct",
 			request: {
 				sourceKind: "task",
-				sourceId: "task-1",
-				streamId: "task:task-1",
-				taskId: "task-1",
-				agentId: "agent-1",
-				teamId: "team-1",
+				sourceId: ids("task-1"),
+				streamId: `task:${ids("task-1")}`,
+				taskId: ids("task-1"),
+				agentId: ids("agent-1"),
+				teamId: ids("team-1"),
 				promptMode: "task",
-				idempotencyKey: "task:task-1:transcript",
-				sourceCorrelation: { taskId: "task-1", teamId: "team-1" },
+				idempotencyKey: ids("task:task-1:transcript"),
+				sourceCorrelation: { taskId: ids("task-1"), teamId: ids("team-1") },
 				payloadJson: JSON.stringify({ transcript: rawTranscript }),
 			},
 		});
@@ -107,18 +112,18 @@ describe("consumeAgentSessionRequest — baked transcript mapping (Increment 4)"
 		);
 	});
 
-	test("omits transcript when the drained payload carries none", async ({ db }) => {
-		await seedTaskFixture(db);
+	test("omits transcript when the drained payload carries none", async ({ db, ids }) => {
+		await seedTaskFixture(db, ids);
 
 		const ports = buildTestPorts();
 		vi.mocked(ports.sessionProvisioner!.admitSession).mockImplementation(async (_deps, params) => ({
-			sessionId: "session-transcript-2",
+			sessionId: ids("session-transcript-2"),
 			sessionContext: { taskId: params.taskId },
 		}));
 		vi.mocked(ports.sessionProvisioner!.runSession).mockImplementation(async () => ({
-			sessionId: "session-transcript-2",
+			sessionId: ids("session-transcript-2"),
 			outcome: "completed",
-			taskId: "task-1",
+			taskId: ids("task-1"),
 			forceReturnCount: 0,
 		}));
 
@@ -126,14 +131,14 @@ describe("consumeAgentSessionRequest — baked transcript mapping (Increment 4)"
 			kind: "direct",
 			request: {
 				sourceKind: "task",
-				sourceId: "task-1",
-				streamId: "task:task-1",
-				taskId: "task-1",
-				agentId: "agent-1",
-				teamId: "team-1",
+				sourceId: ids("task-1"),
+				streamId: `task:${ids("task-1")}`,
+				taskId: ids("task-1"),
+				agentId: ids("agent-1"),
+				teamId: ids("team-1"),
 				promptMode: "task",
-				idempotencyKey: "task:task-1:no-transcript",
-				sourceCorrelation: { taskId: "task-1", teamId: "team-1" },
+				idempotencyKey: ids("task:task-1:no-transcript"),
+				sourceCorrelation: { taskId: ids("task-1"), teamId: ids("team-1") },
 			},
 		});
 

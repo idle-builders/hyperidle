@@ -17,7 +17,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
-import { expect, test } from "@hyperidle/db/test-fixtures";
+import { expect, test, type ScopedIds } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import type { SessionConfig } from "@hyperidle/harness-protocol";
 import { afterEach, describe, vi } from "vitest";
@@ -198,11 +198,15 @@ describe("generic transcript delivery (Increment 4)", () => {
 		};
 	}
 
-	function baseParams(agentId: string, sandboxPath: string): ProvisionSessionParams {
+	function baseParams(
+		ids: ScopedIds,
+		agentId: string,
+		sandboxPath: string,
+	): ProvisionSessionParams {
 		return {
 			taskId: null,
 			agentId,
-			productId: "task-free",
+			productId: ids("task-free"),
 			sandboxBasePath: sandboxPath,
 			agentConfig: {
 				kind: "ai",
@@ -216,8 +220,9 @@ describe("generic transcript delivery (Increment 4)", () => {
 
 	test("a session with a baked transcript + calling thread + no task gets ## Conversation, chat messages, and requiredReturnActions:['reply']", async ({
 		db,
+		ids,
 	}) => {
-		await seedAgent(db, "agent-transcript-1");
+		await seedAgent(db, ids("agent-transcript-1"));
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "au27-transcript-"));
 		sandboxDirs.push(sandboxPath);
 
@@ -227,8 +232,8 @@ describe("generic transcript delivery (Increment 4)", () => {
 		const deps = buildDeps(db as HyperIdleDb, sandboxPath, captured);
 
 		const params: ProvisionSessionParams = {
-			...baseParams("agent-transcript-1", sandboxPath),
-			callingThreadId: "thread-transcript-1",
+			...baseParams(ids, ids("agent-transcript-1"), sandboxPath),
+			callingThreadId: ids("thread-transcript-1"),
 			transcript: [
 				{ role: "user", content: "What's the status of the launch?" },
 				{ role: "assistant", content: "On track for Friday." },
@@ -255,9 +260,10 @@ describe("generic transcript delivery (Increment 4)", () => {
 
 	test("a task_run session (has a taskId) with a transcript does NOT get requiredReturnActions:['reply'] — the trio still satisfies", async ({
 		db,
+		ids,
 	}) => {
-		await seedAgent(db, "agent-transcript-2");
-		await seedTask(db, "task-transcript-2");
+		await seedAgent(db, ids("agent-transcript-2"));
+		await seedTask(db, ids("task-transcript-2"));
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "au27-transcript-"));
 		sandboxDirs.push(sandboxPath);
 
@@ -267,9 +273,9 @@ describe("generic transcript delivery (Increment 4)", () => {
 		const deps = buildDeps(db as HyperIdleDb, sandboxPath, captured);
 
 		const params: ProvisionSessionParams = {
-			...baseParams("agent-transcript-2", sandboxPath),
-			taskId: "task-transcript-2",
-			callingThreadId: "thread-transcript-2",
+			...baseParams(ids, ids("agent-transcript-2"), sandboxPath),
+			taskId: ids("task-transcript-2"),
+			callingThreadId: ids("thread-transcript-2"),
 			transcript: [{ role: "user", content: "Any updates?" }],
 		} as ProvisionSessionParams;
 
@@ -281,8 +287,9 @@ describe("generic transcript delivery (Increment 4)", () => {
 
 	test("a session with no transcript renders the original Correlation line, unchanged (no regression)", async ({
 		db,
+		ids,
 	}) => {
-		await seedAgent(db, "agent-transcript-3");
+		await seedAgent(db, ids("agent-transcript-3"));
 		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "au27-transcript-"));
 		sandboxDirs.push(sandboxPath);
 
@@ -292,12 +299,15 @@ describe("generic transcript delivery (Increment 4)", () => {
 		const deps = buildDeps(db as HyperIdleDb, sandboxPath, captured);
 
 		const params: ProvisionSessionParams = {
-			...baseParams("agent-transcript-3", sandboxPath),
+			...baseParams(ids, ids("agent-transcript-3"), sandboxPath),
 			requestContext: {
-				requestId: "req-transcript-3",
+				requestId: ids("req-transcript-3"),
 				sourceKind: "task",
-				sourceId: "task-transcript-3",
-				sourceCorrelation: { taskId: "task-transcript-3", teamId: "team-transcript-3" },
+				sourceId: ids("task-transcript-3"),
+				sourceCorrelation: {
+					taskId: ids("task-transcript-3"),
+					teamId: ids("team-transcript-3"),
+				},
 			},
 		} as ProvisionSessionParams;
 

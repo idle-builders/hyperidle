@@ -36,20 +36,21 @@ const NOW = "2026-08-02T00:00:00.000Z";
 describe("listInjectedFilesystemsForProvisioning reads an agent's injected filesystems live at spawn", () => {
 	test("matches EXACTLY what the route's `filesystem_injections -> filesystems` join returns for a fixed agent/team/injection fixture", async ({
 		db,
+		ids,
 	}) => {
 		await db
 			.insert(teams)
-			.values({ id: "team-rifa-1", name: "RIFA Team", phase: "build", createdAt: NOW });
+			.values({ id: ids("team-rifa-1"), name: "RIFA Team", phase: "build", createdAt: NOW });
 		// The owner writes the membership row alongside the team.
 		await db.insert(teamMembers).values({
-			id: "team-rifa-1-members",
-			teamId: "team-rifa-1",
+			id: ids("team-rifa-1-members"),
+			teamId: ids("team-rifa-1"),
 			capacity: 5,
 			activeBets: 0,
 			formedAt: NOW,
 		});
 		await db.insert(users).values({
-			id: "agent-rifa-1",
+			id: ids("agent-rifa-1"),
 			kind: "ai",
 			name: "RIFA Agent",
 			role: "builder",
@@ -57,8 +58,8 @@ describe("listInjectedFilesystemsForProvisioning reads an agent's injected files
 			createdAt: NOW,
 		});
 		await db.insert(filesystemsTable).values({
-			id: "fs-rifa-1",
-			teamId: "team-rifa-1",
+			id: ids("fs-rifa-1"),
+			teamId: ids("team-rifa-1"),
 			source: "local",
 			kind: "doc_set",
 			connectionId: null,
@@ -68,19 +69,19 @@ describe("listInjectedFilesystemsForProvisioning reads an agent's injected files
 			createdAt: NOW,
 		});
 		await db.insert(filesystemInjections).values({
-			agentUserId: "agent-rifa-1",
-			filesystemId: "fs-rifa-1",
+			agentUserId: ids("agent-rifa-1"),
+			filesystemId: ids("fs-rifa-1"),
 			createdAt: NOW,
 		});
 
-		const result = await listInjectedFilesystemsForProvisioning(db, "agent-rifa-1");
+		const result = await listInjectedFilesystemsForProvisioning(db, ids("agent-rifa-1"));
 
 		// Pinned by hand against the fixture above — the OLD route's
 		// `rowToFilesystem` shape, `resourceRef` already parsed.
 		expect(result).toEqual([
 			{
-				id: "fs-rifa-1",
-				teamId: "team-rifa-1",
+				id: ids("fs-rifa-1"),
+				teamId: ids("team-rifa-1"),
 				source: "local",
 				kind: "doc_set",
 				connectionId: null,
@@ -94,20 +95,21 @@ describe("listInjectedFilesystemsForProvisioning reads an agent's injected files
 
 	test("an agent with multiple injected filesystems gets every one back, in the same shape", async ({
 		db,
+		ids,
 	}) => {
 		await db
 			.insert(teams)
-			.values({ id: "team-rifa-2", name: "RIFA Team 2", phase: "build", createdAt: NOW });
+			.values({ id: ids("team-rifa-2"), name: "RIFA Team 2", phase: "build", createdAt: NOW });
 		// The owner writes the membership row alongside the team.
 		await db.insert(teamMembers).values({
-			id: "team-rifa-2-members",
-			teamId: "team-rifa-2",
+			id: ids("team-rifa-2-members"),
+			teamId: ids("team-rifa-2"),
 			capacity: 5,
 			activeBets: 0,
 			formedAt: NOW,
 		});
 		await db.insert(users).values({
-			id: "agent-rifa-2",
+			id: ids("agent-rifa-2"),
 			kind: "ai",
 			name: "RIFA Agent 2",
 			role: "builder",
@@ -116,8 +118,8 @@ describe("listInjectedFilesystemsForProvisioning reads an agent's injected files
 		});
 		await db.insert(filesystemsTable).values([
 			{
-				id: "fs-rifa-2a",
-				teamId: "team-rifa-2",
+				id: ids("fs-rifa-2a"),
+				teamId: ids("team-rifa-2"),
 				source: "local",
 				kind: "code",
 				connectionId: null,
@@ -127,8 +129,8 @@ describe("listInjectedFilesystemsForProvisioning reads an agent's injected files
 				createdAt: NOW,
 			},
 			{
-				id: "fs-rifa-2b",
-				teamId: "team-rifa-2",
+				id: ids("fs-rifa-2b"),
+				teamId: ids("team-rifa-2"),
 				source: "local",
 				kind: "doc_set",
 				connectionId: null,
@@ -139,19 +141,19 @@ describe("listInjectedFilesystemsForProvisioning reads an agent's injected files
 			},
 		]);
 		await db.insert(filesystemInjections).values([
-			{ agentUserId: "agent-rifa-2", filesystemId: "fs-rifa-2a", createdAt: NOW },
-			{ agentUserId: "agent-rifa-2", filesystemId: "fs-rifa-2b", createdAt: NOW },
+			{ agentUserId: ids("agent-rifa-2"), filesystemId: ids("fs-rifa-2a"), createdAt: NOW },
+			{ agentUserId: ids("agent-rifa-2"), filesystemId: ids("fs-rifa-2b"), createdAt: NOW },
 		]);
 
-		const result = await listInjectedFilesystemsForProvisioning(db, "agent-rifa-2");
+		const result = await listInjectedFilesystemsForProvisioning(db, ids("agent-rifa-2"));
 
 		expect(result).toHaveLength(2);
 		const byId = new Map<string, InjectedFilesystemForProvisioning>(
 			result.map((row) => [row.id, row]),
 		);
-		expect(byId.get("fs-rifa-2a")).toEqual({
-			id: "fs-rifa-2a",
-			teamId: "team-rifa-2",
+		expect(byId.get(ids("fs-rifa-2a"))).toEqual({
+			id: ids("fs-rifa-2a"),
+			teamId: ids("team-rifa-2"),
 			source: "local",
 			kind: "code",
 			connectionId: null,
@@ -160,9 +162,9 @@ describe("listInjectedFilesystemsForProvisioning reads an agent's injected files
 			state: "attached",
 			createdAt: NOW,
 		});
-		expect(byId.get("fs-rifa-2b")).toEqual({
-			id: "fs-rifa-2b",
-			teamId: "team-rifa-2",
+		expect(byId.get(ids("fs-rifa-2b"))).toEqual({
+			id: ids("fs-rifa-2b"),
+			teamId: ids("team-rifa-2"),
 			source: "local",
 			kind: "doc_set",
 			connectionId: null,
@@ -175,9 +177,10 @@ describe("listInjectedFilesystemsForProvisioning reads an agent's injected files
 
 	test("an agent with NO injected filesystems resolves an empty list, not a throw", async ({
 		db,
+		ids,
 	}) => {
 		await db.insert(users).values({
-			id: "agent-rifa-3",
+			id: ids("agent-rifa-3"),
 			kind: "ai",
 			name: "RIFA Agent 3",
 			role: "builder",
@@ -185,7 +188,7 @@ describe("listInjectedFilesystemsForProvisioning reads an agent's injected files
 			createdAt: NOW,
 		});
 
-		const result = await listInjectedFilesystemsForProvisioning(db, "agent-rifa-3");
+		const result = await listInjectedFilesystemsForProvisioning(db, ids("agent-rifa-3"));
 
 		expect(result).toEqual([]);
 	});

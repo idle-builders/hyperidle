@@ -176,10 +176,13 @@ function buildDeps(
 }
 
 describe("admitSession mounts what the live injection record says", () => {
-	test("asks the in-layer reader for THIS agent and mounts what it returns", async ({ db }) => {
+	test("asks the in-layer reader for THIS agent and mounts what it returns", async ({
+		db,
+		ids,
+	}) => {
 		const now = new Date().toISOString();
 		await db.insert(users).values({
-			id: "agent-baked-fs-1",
+			id: ids("agent-baked-fs-1"),
 			kind: "ai",
 			name: "Baked FS Agent",
 			role: "builder",
@@ -200,8 +203,8 @@ describe("admitSession mounts what the live injection record says", () => {
 		const provisioner = createProvisioner(ports);
 
 		const liveFilesystem: InjectedFilesystem = {
-			id: "fs-baked-1",
-			teamId: "team-baked-1",
+			id: ids("fs-baked-1"),
+			teamId: ids("team-baked-1"),
 			source: "local",
 			kind: "doc_set",
 			connectionId: null,
@@ -213,8 +216,8 @@ describe("admitSession mounts what the live injection record says", () => {
 
 		const params: ProvisionSessionParams = {
 			taskId: null,
-			agentId: "agent-baked-fs-1",
-			productId: "task-free",
+			agentId: ids("agent-baked-fs-1"),
+			productId: ids("task-free"),
 			sandboxBasePath: "/tmp/au21-admit-session-baked-fs",
 			agentConfig: {
 				kind: "ai",
@@ -232,19 +235,20 @@ describe("admitSession mounts what the live injection record says", () => {
 		);
 
 		// Nothing about filesystems rode the request; the port was asked instead.
-		expect(asked).toEqual(["agent-baked-fs-1"]);
+		expect(asked).toEqual([ids("agent-baked-fs-1")]);
 		expect(admitted.mountedFilesystems).toHaveLength(1);
-		expect(admitted.mountedFilesystems[0]?.id).toBe("fs-baked-1");
+		expect(admitted.mountedFilesystems[0]?.id).toBe(ids("fs-baked-1"));
 		expect(mountCalls).toHaveLength(1);
 		expect(mountCalls[0]?.resourceRef).toEqual({ kind: "doc_set", folder: "/docs" });
 	});
 
 	test("an agent with NO injected filesystems mounts nothing — unchanged from today's behavior", async ({
 		db,
+		ids,
 	}) => {
 		const now = new Date().toISOString();
 		await db.insert(users).values({
-			id: "agent-baked-fs-2",
+			id: ids("agent-baked-fs-2"),
 			kind: "ai",
 			name: "Baked FS Agent 2",
 			role: "builder",
@@ -262,8 +266,8 @@ describe("admitSession mounts what the live injection record says", () => {
 
 		const params: ProvisionSessionParams = {
 			taskId: null,
-			agentId: "agent-baked-fs-2",
-			productId: "task-free",
+			agentId: ids("agent-baked-fs-2"),
+			productId: ids("task-free"),
 			sandboxBasePath: "/tmp/au21-admit-session-baked-fs",
 			agentConfig: {
 				kind: "ai",

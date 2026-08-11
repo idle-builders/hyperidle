@@ -111,9 +111,10 @@ describe("session_not_returned carries callingThreadId (Increment 5)", () => {
 
 	test("a not-returned session with a baked callingThreadId emits session_not_returned carrying it", async ({
 		db,
+		ids,
 	}) => {
 		await db.insert(users).values({
-			id: "agent-not-returned-1",
+			id: ids("agent-not-returned-1"),
 			kind: "ai",
 			name: "Agent",
 			role: "builder",
@@ -157,8 +158,8 @@ describe("session_not_returned carries callingThreadId (Increment 5)", () => {
 
 		const params: ProvisionSessionParams = {
 			taskId: null,
-			agentId: "agent-not-returned-1",
-			productId: "task-free",
+			agentId: ids("agent-not-returned-1"),
+			productId: ids("task-free"),
 			sandboxBasePath: sandboxPath,
 			agentConfig: {
 				kind: "ai",
@@ -167,7 +168,7 @@ describe("session_not_returned carries callingThreadId (Increment 5)", () => {
 				teamId: null,
 			},
 			harnessDisabled: [],
-			callingThreadId: "thread-not-returned-1",
+			callingThreadId: ids("thread-not-returned-1"),
 		} as ProvisionSessionParams;
 
 		const admitted = await provisioner.admit(deps, params);
@@ -175,14 +176,15 @@ describe("session_not_returned carries callingThreadId (Increment 5)", () => {
 
 		expect(result.outcome).toBe("not_returned");
 		expect(captured).toHaveLength(1);
-		expect(captured[0]?.callingThreadId).toBe("thread-not-returned-1");
+		expect(captured[0]?.callingThreadId).toBe(ids("thread-not-returned-1"));
 	});
 
 	test("a not-returned session with no callingThreadId omits the field (unchanged)", async ({
 		db,
+		ids,
 	}) => {
 		await db.insert(users).values({
-			id: "agent-not-returned-2",
+			id: ids("agent-not-returned-2"),
 			kind: "ai",
 			name: "Agent",
 			role: "builder",
@@ -226,8 +228,8 @@ describe("session_not_returned carries callingThreadId (Increment 5)", () => {
 
 		const params: ProvisionSessionParams = {
 			taskId: null,
-			agentId: "agent-not-returned-2",
-			productId: "task-free",
+			agentId: ids("agent-not-returned-2"),
+			productId: ids("task-free"),
 			sandboxBasePath: sandboxPath,
 			agentConfig: {
 				kind: "ai",

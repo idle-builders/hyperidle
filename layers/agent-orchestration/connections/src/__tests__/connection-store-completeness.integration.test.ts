@@ -14,10 +14,11 @@ const LATER = "2026-01-02T00:00:00.000Z";
 describe("connection store completeness contract", () => {
 	test("connection store composes auth-source/user/id filters and persists updates", async ({
 		db,
+		ids,
 	}) => {
 		await db.insert(users).values([
 			{
-				id: "connections-contract-a",
+				id: ids("connections-contract-a"),
 				kind: "human",
 				name: "Contract A",
 				email: "connections-contract-a@example.test",
@@ -26,7 +27,7 @@ describe("connection store completeness contract", () => {
 				createdAt: NOW,
 			},
 			{
-				id: "connections-contract-b",
+				id: ids("connections-contract-b"),
 				kind: "human",
 				name: "Contract B",
 				email: "connections-contract-b@example.test",
@@ -37,9 +38,17 @@ describe("connection store completeness contract", () => {
 		]);
 
 		for (const row of [
-			{ id: "contract-a-token", userId: "connections-contract-a", authSource: "token" },
-			{ id: "contract-a-mcp", userId: "connections-contract-a", authSource: "mcp" },
-			{ id: "contract-b-token", userId: "connections-contract-b", authSource: "token" },
+			{
+				id: ids("contract-a-token"),
+				userId: ids("connections-contract-a"),
+				authSource: "token",
+			},
+			{ id: ids("contract-a-mcp"), userId: ids("connections-contract-a"), authSource: "mcp" },
+			{
+				id: ids("contract-b-token"),
+				userId: ids("connections-contract-b"),
+				authSource: "token",
+			},
 		]) {
 			await insertConnection(db, {
 				...row,
@@ -54,42 +63,42 @@ describe("connection store completeness contract", () => {
 		}
 
 		expect((await listConnections(db, { authSource: "token" })).map((row) => row.id)).toEqual([
-			"contract-a-token",
-			"contract-b-token",
+			ids("contract-a-token"),
+			ids("contract-b-token"),
 		]);
 		expect(
 			await listConnections(db, {
-				id: "contract-a-token",
-				userId: "connections-contract-b",
+				id: ids("contract-a-token"),
+				userId: ids("connections-contract-b"),
 			}),
 		).toEqual([]);
 
 		await updateConnection(
 			db,
-			{ id: "contract-a-token", userId: "connections-contract-b" },
+			{ id: ids("contract-a-token"), userId: ids("connections-contract-b") },
 			{ health: "healthy", lastValidatedAt: LATER, updatedAt: LATER },
 		);
-		expect(await listConnections(db, { id: "contract-a-token" })).toMatchObject([
+		expect(await listConnections(db, { id: ids("contract-a-token") })).toMatchObject([
 			{ health: "needs-attention", lastValidatedAt: null, updatedAt: NOW },
 		]);
 
 		await updateConnection(
 			db,
-			{ id: "contract-a-token", userId: "connections-contract-a" },
+			{ id: ids("contract-a-token"), userId: ids("connections-contract-a") },
 			{
 				health: "healthy",
 				lastValidatedAt: LATER,
 				updatedAt: LATER,
 			},
 		);
-		expect(await listConnections(db, { id: "contract-a-token" })).toMatchObject([
+		expect(await listConnections(db, { id: ids("contract-a-token") })).toMatchObject([
 			{ health: "healthy", lastValidatedAt: LATER, updatedAt: LATER },
 		]);
 	});
 
-	test("connection deletion remains scoped to the owning user", async ({ db }) => {
+	test("connection deletion remains scoped to the owning user", async ({ db, ids }) => {
 		await db.insert(users).values({
-			id: "connections-delete-owner",
+			id: ids("connections-delete-owner"),
 			kind: "human",
 			name: "Delete Owner",
 			email: "connections-delete-owner@example.test",
@@ -98,8 +107,8 @@ describe("connection store completeness contract", () => {
 			createdAt: NOW,
 		});
 		await db.insert(serviceConnections).values({
-			id: "connections-delete-row",
-			userId: "connections-delete-owner",
+			id: ids("connections-delete-row"),
+			userId: ids("connections-delete-owner"),
 			service: "github",
 			authSource: "token",
 			encryptedToken: "encrypted",
@@ -111,15 +120,15 @@ describe("connection store completeness contract", () => {
 		});
 
 		await deleteConnection(db, {
-			id: "connections-delete-row",
-			userId: "not-the-owner",
+			id: ids("connections-delete-row"),
+			userId: ids("not-the-owner"),
 		});
-		expect(await listConnections(db, { id: "connections-delete-row" })).toHaveLength(1);
+		expect(await listConnections(db, { id: ids("connections-delete-row") })).toHaveLength(1);
 
 		await deleteConnection(db, {
-			id: "connections-delete-row",
-			userId: "connections-delete-owner",
+			id: ids("connections-delete-row"),
+			userId: ids("connections-delete-owner"),
 		});
-		expect(await listConnections(db, { id: "connections-delete-row" })).toEqual([]);
+		expect(await listConnections(db, { id: ids("connections-delete-row") })).toEqual([]);
 	});
 });

@@ -129,10 +129,11 @@ function widen(
 describe("transitionRun session disposition — routineRuns collapse (Decision B″ item 3)", () => {
 	test("endSession for a routine-sourced session emits session_ended carrying the routine finalize payload, with zero routine port dependency", async ({
 		db,
+		ids,
 	}) => {
 		const { routineId, runId, agentId, sessionId, teamId } = await seedRoutineSession(
 			db,
-			"trc-end",
+			ids("trc-end"),
 		);
 		const eventBus = new EventBus();
 		const captured: SessionEndedEvent[] = [];
@@ -151,7 +152,7 @@ describe("transitionRun session disposition — routineRuns collapse (Decision B
 					traceId: "trace-trc-end",
 					routineId,
 					requestContext: {
-						requestId: "trc-end-request",
+						requestId: ids("trc-end-request"),
 						sourceKind: "routine",
 						sourceId: runId,
 						sourceCorrelation: { routineId, routineRunId: runId, teamId },
@@ -173,10 +174,11 @@ describe("transitionRun session disposition — routineRuns collapse (Decision B
 
 	test("crashSession for a routine-sourced session emits session_ended with routineRunOutcome=error", async ({
 		db,
+		ids,
 	}) => {
 		const { routineId, runId, agentId, sessionId, teamId } = await seedRoutineSession(
 			db,
-			"trc-crash",
+			ids("trc-crash"),
 		);
 		const eventBus = new EventBus();
 		const captured: SessionEndedEvent[] = [];
@@ -195,7 +197,7 @@ describe("transitionRun session disposition — routineRuns collapse (Decision B
 					traceId: "trace-trc-crash",
 					routineId,
 					requestContext: {
-						requestId: "trc-crash-request",
+						requestId: ids("trc-crash-request"),
 						sourceKind: "routine",
 						sourceId: runId,
 						sourceCorrelation: { routineId, routineRunId: runId, teamId },
@@ -216,29 +218,30 @@ describe("transitionRun session disposition — routineRuns collapse (Decision B
 
 	test("a non-routine session's endSession never carries a routine finalize payload", async ({
 		db,
+		ids,
 	}) => {
 		await db
 			.insert(teams)
-			.values({ id: "trc-nr-team", name: "Team", phase: "build", createdAt: NOW });
+			.values({ id: ids("trc-nr-team"), name: "Team", phase: "build", createdAt: NOW });
 		await db.insert(teamMembers).values({
-			id: "trc-nr-tm",
-			teamId: "trc-nr-team",
+			id: ids("trc-nr-tm"),
+			teamId: ids("trc-nr-team"),
 			capacity: 3,
 			activeBets: 0,
 			formedAt: NOW,
 		});
 		await db.insert(users).values({
-			id: "trc-nr-agent",
+			id: ids("trc-nr-agent"),
 			kind: "ai",
 			name: "Agent",
 			role: "builder",
 			status: "active",
-			teamId: "trc-nr-tm",
+			teamId: ids("trc-nr-tm"),
 			createdAt: NOW,
 		});
 		await db.insert(sessions).values({
-			id: "trc-nr-session",
-			agentId: "trc-nr-agent",
+			id: ids("trc-nr-session"),
+			agentId: ids("trc-nr-agent"),
 			modelTier: "fast",
 			startedAt: NOW,
 			state: "active",
@@ -252,8 +255,8 @@ describe("transitionRun session disposition — routineRuns collapse (Decision B
 			{
 				target: "session",
 				context: {
-					sessionId: "trc-nr-session",
-					agentId: "trc-nr-agent",
+					sessionId: ids("trc-nr-session"),
+					agentId: ids("trc-nr-agent"),
 					taskId: null,
 					sandboxPath: "/tmp/trc-nr",
 					ingestion: { dispose: () => {} },

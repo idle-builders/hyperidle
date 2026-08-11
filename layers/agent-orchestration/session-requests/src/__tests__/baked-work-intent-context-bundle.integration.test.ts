@@ -41,39 +41,40 @@ async function seedAgent(db: HyperIdleDb, id: string): Promise<void> {
 
 test("BakedWorkIntentRequest accepts an optional contextBundle and round-trips it through bakedRequestJson", async ({
 	db,
+	ids,
 }) => {
-	await seedAgent(db, "i12-context-bundle-agent");
+	await seedAgent(db, ids("i12-context-bundle-agent"));
 
 	const bakedRequest: BakedWorkIntentRequest = {
-		defaultAgentId: "i12-context-bundle-agent",
+		defaultAgentId: ids("i12-context-bundle-agent"),
 		sourceKind: "task",
-		sourceId: "task:i12-context-bundle-task",
-		streamId: "task:i12-context-bundle-task",
-		taskId: "i12-context-bundle-task",
-		teamId: "i12-context-bundle-team",
+		sourceId: `task:${ids("i12-context-bundle-task")}`,
+		streamId: `task:${ids("i12-context-bundle-task")}`,
+		taskId: ids("i12-context-bundle-task"),
+		teamId: ids("i12-context-bundle-team"),
 		sourceCorrelation: {
-			taskId: "i12-context-bundle-task",
-			teamId: "i12-context-bundle-team",
+			taskId: ids("i12-context-bundle-task"),
+			teamId: ids("i12-context-bundle-team"),
 		},
 		contextBundle: {
 			kind: "task",
 			task: {
-				id: "i12-context-bundle-task",
+				id: ids("i12-context-bundle-task"),
 				title: "Ship the seam",
 				description: "Close the last read.",
 				state: "in_progress",
 			},
 			bet: {
-				id: "i12-context-bundle-bet",
+				id: ids("i12-context-bundle-bet"),
 				description: "Boundary seam bet",
 				appetite: "2 weeks",
 				doneCondition: "Zero orchestration reads",
 			},
-			agent: { id: "i12-context-bundle-agent", name: "Agent", role: "builder" },
-			team: { id: "i12-context-bundle-team", name: "Team" },
+			agent: { id: ids("i12-context-bundle-agent"), name: "Agent", role: "builder" },
+			team: { id: ids("i12-context-bundle-team"), name: "Team" },
 			knowledge: [
 				{
-					id: "item-i12-context-bundle",
+					id: ids("item-i12-context-bundle"),
 					title: "Baked knowledge item",
 					body: "Ranked + budgeted content.",
 					format: "markdown",
@@ -87,15 +88,15 @@ test("BakedWorkIntentRequest accepts an optional contextBundle and round-trips i
 	await enqueueWorkIntent(db, {
 		kind: "task_run",
 		sourceKind: "task_dispatch_attempt",
-		sourceId: "task:i12-context-bundle-task",
-		idempotencyKey: "i12-context-bundle-persist",
+		sourceId: `task:${ids("i12-context-bundle-task")}`,
+		idempotencyKey: ids("i12-context-bundle-persist"),
 		bakedRequest,
 	});
 
 	const [row] = await db
 		.select()
 		.from(agentWorkIntents)
-		.where(eq(agentWorkIntents.sourceId, "task:i12-context-bundle-task"));
+		.where(eq(agentWorkIntents.sourceId, `task:${ids("i12-context-bundle-task")}`));
 
 	expect(row).toBeDefined();
 	const persisted = row?.bakedRequestJson
@@ -107,5 +108,5 @@ test("BakedWorkIntentRequest accepts an optional contextBundle and round-trips i
 	expect(persisted).toEqual(bakedRequest);
 	expect(persisted?.contextBundle?.kind).toBe("task");
 	expect(persisted?.contextBundle?.knowledge).toHaveLength(1);
-	expect(persisted?.contextBundle?.knowledge[0]?.id).toBe("item-i12-context-bundle");
+	expect(persisted?.contextBundle?.knowledge[0]?.id).toBe(ids("item-i12-context-bundle"));
 });

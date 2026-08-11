@@ -16,7 +16,7 @@
  */
 
 import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
-import { test as dbTest } from "@hyperidle/db/test-fixtures";
+import { test as dbTest, type ScopedIds } from "@hyperidle/db/test-fixtures";
 import { describe, expect } from "vitest";
 import {
 	createRunStreamSubscribeAuthorizer,
@@ -37,20 +37,29 @@ function createMockClient(): SessionStreamClient & { messages: string[] } {
 const NOW = "2026-08-04T00:00:00.000Z";
 
 /** The FK chain a run row needs: a team, a bet, a task and two users. */
-async function seedRunHosts(db: HyperIdleDb): Promise<void> {
-	await db.insert(teams).values({ id: "team-1", name: "Team", phase: "build", createdAt: NOW });
+async function seedRunHosts(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
+	await db
+		.insert(teams)
+		.values({ id: ids("team-1"), name: "Team", phase: "build", createdAt: NOW });
 	// The owner writes the membership row alongside the team.
 	await db.insert(teamMembers).values({
-		id: "team-1-members",
-		teamId: "team-1",
+		id: ids("team-1-members"),
+		teamId: ids("team-1"),
 		capacity: 5,
 		activeBets: 0,
 		formedAt: NOW,
 	});
 	await db.insert(users).values([
-		{ id: "agent-1", kind: "ai", name: "Agent", role: "builder", status: "idle", createdAt: NOW },
 		{
-			id: "ast-1",
+			id: ids("agent-1"),
+			kind: "ai",
+			name: "Agent",
+			role: "builder",
+			status: "idle",
+			createdAt: NOW,
+		},
+		{
+			id: ids("ast-1"),
 			kind: "ai",
 			name: "Assistant",
 			role: "assistant",
@@ -59,17 +68,17 @@ async function seedRunHosts(db: HyperIdleDb): Promise<void> {
 		},
 	]);
 	await db.insert(bets).values({
-		id: "bet-1",
-		teamId: "team-1",
+		id: ids("bet-1"),
+		teamId: ids("team-1"),
 		description: "Test",
 		appetite: "small",
 		status: "active",
 		createdAt: NOW,
 	});
 	await db.insert(tasks).values({
-		id: "task-1",
-		betId: "bet-1",
-		teamId: "team-1",
+		id: ids("task-1"),
+		betId: ids("bet-1"),
+		teamId: ids("team-1"),
 		title: "Task",
 		state: "in_progress",
 		createdAt: NOW,
@@ -78,12 +87,12 @@ async function seedRunHosts(db: HyperIdleDb): Promise<void> {
 }
 
 describe("session stream hub", () => {
-	dbTest("an authenticated user may subscribe to an existing run", async ({ db }) => {
-		await seedRunHosts(db);
+	dbTest("an authenticated user may subscribe to an existing run", async ({ db, ids }) => {
+		await seedRunHosts(db, ids);
 		await db.insert(sessions).values({
-			id: "run-1",
-			agentId: "agent-1",
-			taskId: "task-1",
+			id: ids("run-1"),
+			agentId: ids("agent-1"),
+			taskId: ids("task-1"),
 			modelTier: "workhorse",
 			startedAt: NOW,
 			state: "active",
@@ -92,22 +101,22 @@ describe("session stream hub", () => {
 		const client = createMockClient();
 		hub.addClient(client, "user-1");
 
-		expect(await hub.subscribe(client, "session:run-1")).toBe("ok");
+		expect(await hub.subscribe(client, `session:${ids("run-1")}`)).toBe("ok");
 	});
 
-	dbTest("a task-free run is reachable by any authenticated user too", async ({ db }) => {
-		await seedRunHosts(db);
+	dbTest("a task-free run is reachable by any authenticated user too", async ({ db, ids }) => {
+		await seedRunHosts(db, ids);
 		await db.insert(sessions).values({
-			id: "run-assistant",
-			agentId: "ast-1",
+			id: ids("run-assistant"),
+			agentId: ids("ast-1"),
 			taskId: null,
 			sourceKind: "assistant",
-			sourceId: "msg-1",
+			sourceId: ids("msg-1"),
 			sourceCorrelationJson: JSON.stringify({
-				threadId: "thr-1",
-				messageId: "msg-1",
-				userId: "u-founder",
-				assistantAgentId: "ast-1",
+				threadId: ids("thr-1"),
+				messageId: ids("msg-1"),
+				userId: ids("u-founder"),
+				assistantAgentId: ids("ast-1"),
 			}),
 			modelTier: "workhorse",
 			startedAt: NOW,
@@ -117,24 +126,24 @@ describe("session stream hub", () => {
 		const client = createMockClient();
 		hub.addClient(client, "u-other");
 
-		expect(await hub.subscribe(client, "session:run-assistant")).toBe("ok");
+		expect(await hub.subscribe(client, `session:${ids("run-assistant")}`)).toBe("ok");
 	});
 
-	dbTest("an unknown run is denied — fail-closed", async ({ db }) => {
+	dbTest("an unknown run is denied — fail-closed", async ({ db, ids }) => {
 		const hub = new SessionStreamHub(createRunStreamSubscribeAuthorizer(db));
 		const client = createMockClient();
 		hub.addClient(client, "user-1");
 
-		expect(await hub.subscribe(client, "session:no-such-run")).toBe("forbidden");
+		expect(await hub.subscribe(client, `session:${ids("no-such-run")}`)).toBe("forbidden");
 		expect(await hub.subscribe(client, "session:")).toBe("forbidden");
 	});
 
-	dbTest("an unauthenticated client is denied", async ({ db }) => {
-		await seedRunHosts(db);
+	dbTest("an unauthenticated client is denied", async ({ db, ids }) => {
+		await seedRunHosts(db, ids);
 		await db.insert(sessions).values({
-			id: "run-1",
-			agentId: "agent-1",
-			taskId: "task-1",
+			id: ids("run-1"),
+			agentId: ids("agent-1"),
+			taskId: ids("task-1"),
 			modelTier: "workhorse",
 			startedAt: NOW,
 			state: "active",
@@ -143,7 +152,7 @@ describe("session stream hub", () => {
 		const client = createMockClient();
 		hub.addClient(client); // no bound identity
 
-		expect(await hub.subscribe(client, "session:run-1")).toBe("forbidden");
+		expect(await hub.subscribe(client, `session:${ids("run-1")}`)).toBe("forbidden");
 	});
 
 	dbTest("core's own topics are not served here", async ({ db }) => {
@@ -156,22 +165,22 @@ describe("session stream hub", () => {
 		expect(await hub.subscribe(client, "work")).toBe("forbidden");
 	});
 
-	dbTest("a denied client never joins the topic and receives no broadcast", async ({ db }) => {
+	dbTest("a denied client never joins the topic and receives no broadcast", async ({ db, ids }) => {
 		const hub = new SessionStreamHub(createRunStreamSubscribeAuthorizer(db));
 		const denied = createMockClient();
 		hub.addClient(denied, "user-1");
-		expect(await hub.subscribe(denied, "session:no-such-run")).toBe("forbidden");
+		expect(await hub.subscribe(denied, `session:${ids("no-such-run")}`)).toBe("forbidden");
 
-		hub.broadcast("session:no-such-run", JSON.stringify({ type: "tool_call_recorded" }));
+		hub.broadcast(`session:${ids("no-such-run")}`, JSON.stringify({ type: "tool_call_recorded" }));
 		expect(denied.messages).toEqual([]);
 	});
 
-	dbTest("a subscribed client receives broadcasts until it unsubscribes", async ({ db }) => {
-		await seedRunHosts(db);
+	dbTest("a subscribed client receives broadcasts until it unsubscribes", async ({ db, ids }) => {
+		await seedRunHosts(db, ids);
 		await db.insert(sessions).values({
-			id: "run-1",
-			agentId: "agent-1",
-			taskId: "task-1",
+			id: ids("run-1"),
+			agentId: ids("agent-1"),
+			taskId: ids("task-1"),
 			modelTier: "workhorse",
 			startedAt: NOW,
 			state: "active",
@@ -179,21 +188,21 @@ describe("session stream hub", () => {
 		const hub = new SessionStreamHub(createRunStreamSubscribeAuthorizer(db));
 		const client = createMockClient();
 		hub.addClient(client, "user-1");
-		await hub.subscribe(client, "session:run-1");
+		await hub.subscribe(client, `session:${ids("run-1")}`);
 
-		hub.broadcast("session:run-1", "first");
+		hub.broadcast(`session:${ids("run-1")}`, "first");
 		expect(client.messages).toEqual(["first"]);
 
-		hub.unsubscribe(client, "session:run-1");
-		hub.broadcast("session:run-1", "second");
+		hub.unsubscribe(client, `session:${ids("run-1")}`);
+		hub.broadcast(`session:${ids("run-1")}`, "second");
 		expect(client.messages).toEqual(["first"]);
 	});
 
-	dbTest("an unregistered client reports unknown_client", async ({ db }) => {
+	dbTest("an unregistered client reports unknown_client", async ({ db, ids }) => {
 		const hub = new SessionStreamHub(createRunStreamSubscribeAuthorizer(db));
 		const stranger = createMockClient();
 
-		expect(await hub.subscribe(stranger, "session:run-1")).toBe("unknown_client");
-		expect(hub.unsubscribe(stranger, "session:run-1")).toBe("unknown_client");
+		expect(await hub.subscribe(stranger, `session:${ids("run-1")}`)).toBe("unknown_client");
+		expect(hub.unsubscribe(stranger, `session:${ids("run-1")}`)).toBe("unknown_client");
 	});
 });

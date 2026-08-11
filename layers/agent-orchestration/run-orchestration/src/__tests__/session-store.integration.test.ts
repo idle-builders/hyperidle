@@ -25,47 +25,44 @@
  */
 
 import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
-import { describe, expect, test } from "@hyperidle/db/test-fixtures";
+import { describe, expect, test, type ScopedIds } from "@hyperidle/db/test-fixtures";
 import type { SessionEndedEvent } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { endSessionByCas } from "../session-store.js";
 
-const AGENT_ID = "agent-session-store";
-const TEAM_ID = "team-session-store";
-const BET_ID = "bet-session-store";
-const TASK_ID = "task-session-store";
-
-async function seedWorld(db: HyperIdleDb): Promise<void> {
+async function seedWorld(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(users).values({
-		id: AGENT_ID,
+		id: ids("agent-session-store"),
 		kind: "ai",
 		name: "Session agent",
 		role: "builder",
 		status: "active",
 		createdAt: now,
 	});
-	await db.insert(teams).values({ id: TEAM_ID, name: TEAM_ID, phase: "build", createdAt: now });
+	await db
+		.insert(teams)
+		.values({ id: ids("team-session-store"), name: "Team", phase: "build", createdAt: now });
 	await db.insert(teamMembers).values({
-		id: `${TEAM_ID}-members`,
-		teamId: TEAM_ID,
+		id: ids("team-session-store-members"),
+		teamId: ids("team-session-store"),
 		capacity: 5,
 		activeBets: 0,
 		formedAt: now,
 	});
 	await db.insert(bets).values({
-		id: BET_ID,
-		teamId: TEAM_ID,
+		id: ids("bet-session-store"),
+		teamId: ids("team-session-store"),
 		description: "Session-store bet",
 		status: "active",
 		createdAt: now,
 	});
 	await db.insert(tasks).values({
-		id: TASK_ID,
-		betId: BET_ID,
-		teamId: TEAM_ID,
-		ownerAgentId: AGENT_ID,
+		id: ids("task-session-store"),
+		betId: ids("bet-session-store"),
+		teamId: ids("team-session-store"),
+		ownerAgentId: ids("agent-session-store"),
 		title: "Session-store task",
 		state: "in_progress",
 		createdAt: now,
@@ -75,12 +72,13 @@ async function seedWorld(db: HyperIdleDb): Promise<void> {
 
 async function seedSession(
 	db: HyperIdleDb,
+	ids: ScopedIds,
 	options: { readonly id: string; readonly state: string; readonly outcome?: string },
 ): Promise<void> {
 	await db.insert(sessions).values({
 		id: options.id,
-		taskId: TASK_ID,
-		agentId: AGENT_ID,
+		taskId: ids("task-session-store"),
+		agentId: ids("agent-session-store"),
 		modelTier: "standard",
 		startedAt: new Date().toISOString(),
 		state: options.state,
@@ -103,36 +101,36 @@ async function readSession(
 }
 
 describe("endSessionByCas — the terminal transition lives with the table", () => {
-	test("refuses a session that is no longer active, and emits nothing", async ({ db }) => {
-		await seedWorld(db);
-		await seedSession(db, { id: "s-settled", state: "done", outcome: "completed" });
-		const before = await readSession(db, "s-settled");
+	test("refuses a session that is no longer active, and emits nothing", async ({ db, ids }) => {
+		await seedWorld(db, ids);
+		await seedSession(db, ids, { id: ids("s-settled"), state: "done", outcome: "completed" });
+		const before = await readSession(db, ids("s-settled"));
 		const eventBus = new EventBus();
 		const emitted = captureSessionEnded(eventBus);
 
 		await endSessionByCas(db, eventBus, {
-			sessionId: "s-settled",
-			agentId: AGENT_ID,
-			taskId: TASK_ID,
+			sessionId: ids("s-settled"),
+			agentId: ids("agent-session-store"),
+			taskId: ids("task-session-store"),
 			state: "crashed",
 			now: new Date().toISOString(),
 		});
 
-		expect(await readSession(db, "s-settled")).toEqual(before);
+		expect(await readSession(db, ids("s-settled"))).toEqual(before);
 		expect(emitted).toHaveLength(0);
 	});
 
-	test("emits session_ended exactly once for one real transition", async ({ db }) => {
-		await seedWorld(db);
-		await seedSession(db, { id: "s-active", state: "active" });
+	test("emits session_ended exactly once for one real transition", async ({ db, ids }) => {
+		await seedWorld(db, ids);
+		await seedSession(db, ids, { id: ids("s-active"), state: "active" });
 		const eventBus = new EventBus();
 		const emitted = captureSessionEnded(eventBus);
 		const now = new Date().toISOString();
 
 		await endSessionByCas(db, eventBus, {
-			sessionId: "s-active",
-			agentId: AGENT_ID,
-			taskId: TASK_ID,
+			sessionId: ids("s-active"),
+			agentId: ids("agent-session-store"),
+			taskId: ids("task-session-store"),
 			state: "done",
 			now,
 		});
@@ -140,40 +138,40 @@ describe("endSessionByCas — the terminal transition lives with the table", () 
 		expect(emitted).toHaveLength(1);
 		expect(emitted[0]).toMatchObject({
 			type: "session_ended",
-			streamId: "s-active",
-			sessionId: "s-active",
-			agentId: AGENT_ID,
-			taskId: TASK_ID,
+			streamId: ids("s-active"),
+			sessionId: ids("s-active"),
+			agentId: ids("agent-session-store"),
+			taskId: ids("task-session-store"),
 			outcome: "completed",
 		});
 
-		const afterFirst = await readSession(db, "s-active");
+		const afterFirst = await readSession(db, ids("s-active"));
 		expect(afterFirst?.state).toBe("done");
 		expect(afterFirst?.endedAt).toBe(now);
 
 		// A repeat of the same call finds a settled row: no write, no second emit.
 		await endSessionByCas(db, eventBus, {
-			sessionId: "s-active",
-			agentId: AGENT_ID,
-			taskId: TASK_ID,
+			sessionId: ids("s-active"),
+			agentId: ids("agent-session-store"),
+			taskId: ids("task-session-store"),
 			state: "crashed",
 			now: new Date(Date.now() + 1000).toISOString(),
 		});
 
 		expect(emitted).toHaveLength(1);
-		expect(await readSession(db, "s-active")).toEqual(afterFirst);
+		expect(await readSession(db, ids("s-active"))).toEqual(afterFirst);
 	});
 
-	test("returns the row as it stands after the write", async ({ db }) => {
-		await seedWorld(db);
-		await seedSession(db, { id: "s-readback", state: "active" });
+	test("returns the row as it stands after the write", async ({ db, ids }) => {
+		await seedWorld(db, ids);
+		await seedSession(db, ids, { id: ids("s-readback"), state: "active" });
 		const eventBus = new EventBus();
 		const now = new Date().toISOString();
 
 		const returned = await endSessionByCas(db, eventBus, {
-			sessionId: "s-readback",
-			agentId: AGENT_ID,
-			taskId: TASK_ID,
+			sessionId: ids("s-readback"),
+			agentId: ids("agent-session-store"),
+			taskId: ids("task-session-store"),
 			state: "crashed",
 			notes: "ran out of budget",
 			effectivenessScore: 0.25,
@@ -181,7 +179,7 @@ describe("endSessionByCas — the terminal transition lives with the table", () 
 			now,
 		});
 
-		expect(returned).toEqual(await readSession(db, "s-readback"));
+		expect(returned).toEqual(await readSession(db, ids("s-readback")));
 		expect(returned?.state).toBe("crashed");
 		expect(returned?.outcome).toBe("crashed");
 		expect(returned?.notes).toBe("ran out of budget");
@@ -192,16 +190,17 @@ describe("endSessionByCas — the terminal transition lives with the table", () 
 
 	test("persists the caller's outcome override while the event carries the derived one", async ({
 		db,
+		ids,
 	}) => {
-		await seedWorld(db);
-		await seedSession(db, { id: "s-override", state: "active" });
+		await seedWorld(db, ids);
+		await seedSession(db, ids, { id: ids("s-override"), state: "active" });
 		const eventBus = new EventBus();
 		const emitted = captureSessionEnded(eventBus);
 
 		const returned = await endSessionByCas(db, eventBus, {
-			sessionId: "s-override",
-			agentId: AGENT_ID,
-			taskId: TASK_ID,
+			sessionId: ids("s-override"),
+			agentId: ids("agent-session-store"),
+			taskId: ids("task-session-store"),
 			state: "done",
 			outcome: "stopped",
 			now: new Date().toISOString(),

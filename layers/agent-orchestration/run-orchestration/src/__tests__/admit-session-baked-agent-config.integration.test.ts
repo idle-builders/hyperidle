@@ -174,10 +174,11 @@ function buildDeps(db: HyperIdleDb): ProvisionSessionDeps {
 describe("admitSession — baked agent-runnability config (Increment 12 Wave E)", () => {
 	test("a deactivated agent's BAKED snapshot still fails provisioning, even when the agent's LIVE row is runnable", async ({
 		db,
+		ids,
 	}) => {
 		const now = new Date().toISOString();
 		await db.insert(users).values({
-			id: "wave-e-agent-1",
+			id: ids("wave-e-agent-1"),
 			kind: "ai",
 			name: "Agent One",
 			role: "builder",
@@ -188,7 +189,10 @@ describe("admitSession — baked agent-runnability config (Increment 12 Wave E)"
 		// cannot: `SessionLifecyclePorts` carries no `users` field at all)
 		// consult it. Only the BAKED snapshot on `params.agentConfig` below
 		// governs the outcome.
-		const [liveRunnableAgent] = await db.select().from(users).where(eq(users.id, "wave-e-agent-1"));
+		const [liveRunnableAgent] = await db
+			.select()
+			.from(users)
+			.where(eq(users.id, ids("wave-e-agent-1")));
 		if (!liveRunnableAgent) throw new Error("fixture insert failed");
 
 		const ports = buildHarnessPorts({});
@@ -196,8 +200,8 @@ describe("admitSession — baked agent-runnability config (Increment 12 Wave E)"
 
 		const params: ProvisionSessionParams = {
 			taskId: null,
-			agentId: "wave-e-agent-1",
-			productId: "task-free",
+			agentId: ids("wave-e-agent-1"),
+			productId: ids("task-free"),
 			sandboxBasePath: "/tmp/au21-admit-session-baked-config",
 			// The BAKED snapshot (what the emit-time resolver produced) says this
 			// agent is NOT runnable — deliberately mismatched from the live row
@@ -217,6 +221,7 @@ describe("admitSession — baked agent-runnability config (Increment 12 Wave E)"
 
 	test("admitSession admits purely from a fully-baked snapshot — SessionLifecyclePorts carries no users/settings/routine field to read live at all", async ({
 		db,
+		ids,
 	}) => {
 		const now = new Date().toISOString();
 		// The live row exists but is never consulted — `SessionLifecyclePorts`
@@ -224,7 +229,7 @@ describe("admitSession — baked agent-runnability config (Increment 12 Wave E)"
 		// `routine` field for `admitSession` to read through; the only
 		// mechanism left is the baked snapshot below.
 		await db.insert(users).values({
-			id: "wave-e-agent-2",
+			id: ids("wave-e-agent-2"),
 			kind: "ai",
 			name: "Agent Two",
 			role: "builder",
@@ -237,27 +242,27 @@ describe("admitSession — baked agent-runnability config (Increment 12 Wave E)"
 
 		const params: ProvisionSessionParams = {
 			taskId: null,
-			agentId: "wave-e-agent-2",
-			productId: "team-1",
+			agentId: ids("wave-e-agent-2"),
+			productId: ids("team-1"),
 			sandboxBasePath: "/tmp/au21-admit-session-baked-config",
-			routineId: "routine-1",
+			routineId: ids("routine-1"),
 			agentConfig: {
 				kind: "ai",
 				status: "active",
 				role: "builder",
-				teamId: "team-1",
+				teamId: ids("team-1"),
 			},
 			harnessDisabled: [],
 			contextBundle: {
 				kind: "routine",
 				routine: {
-					id: "routine-1",
+					id: ids("routine-1"),
 					name: "Nightly sweep",
 					description: null,
 					lastRunSummary: null,
 				},
-				agent: { id: "wave-e-agent-2", name: "Agent Two", role: "builder" },
-				team: { id: "team-1", name: "Team" },
+				agent: { id: ids("wave-e-agent-2"), name: "Agent Two", role: "builder" },
+				team: { id: ids("team-1"), name: "Team" },
 				knowledge: [],
 			},
 		};

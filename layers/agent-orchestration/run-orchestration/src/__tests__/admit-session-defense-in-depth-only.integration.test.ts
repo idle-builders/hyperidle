@@ -186,6 +186,7 @@ function buildDeps(db: HyperIdleDb): ProvisionSessionDeps {
 describe("admitSession — baked-snapshot defense-in-depth ONLY, zero live read (Increment 12, third/founder-final pass)", () => {
 	test("a malformed/missing baked config (resolver-bug simulation) still throws TargetAgentNotRunnableError, with no live read of any kind", async ({
 		db,
+		ids,
 	}) => {
 		const now = new Date().toISOString();
 		// The live row IS runnable — proving the failure below comes purely
@@ -193,7 +194,7 @@ describe("admitSession — baked-snapshot defense-in-depth ONLY, zero live read 
 		// a live re-check (there is none to consult: `SessionLifecyclePorts`
 		// carries no `users`/`agentRunnability` field of any kind).
 		await db.insert(users).values({
-			id: "defense-agent-1",
+			id: ids("defense-agent-1"),
 			kind: "ai",
 			name: "Agent One",
 			role: "builder",
@@ -206,8 +207,8 @@ describe("admitSession — baked-snapshot defense-in-depth ONLY, zero live read 
 
 		const params: ProvisionSessionParams = {
 			taskId: null,
-			agentId: "defense-agent-1",
-			productId: "task-free",
+			agentId: ids("defense-agent-1"),
+			productId: ids("task-free"),
 			sandboxBasePath: "/tmp/au21-admit-session-defense-in-depth-only",
 			// A resolver bug baked an inconsistent snapshot — `kind`/`status`
 			// disagree with what `requireRunnableAgent` would ever produce.
@@ -226,14 +227,15 @@ describe("admitSession — baked-snapshot defense-in-depth ONLY, zero live read 
 
 	test("admission fails for a missing bake entirely (agentConfig absent), same defense-in-depth path, zero live read", async ({
 		db,
+		ids,
 	}) => {
 		const ports = buildDefenseInDepthOnlyPorts({});
 		const provisioner = createProvisioner(ports);
 
 		const params: ProvisionSessionParams = {
 			taskId: null,
-			agentId: "no-such-agent",
-			productId: "task-free",
+			agentId: ids("no-such-agent"),
+			productId: ids("task-free"),
 			sandboxBasePath: "/tmp/au21-admit-session-defense-in-depth-only",
 			// No `agentConfig` at all — every real durable path bakes it; its
 			// absence is a hard provisioning failure, never a silent allow.
@@ -246,10 +248,11 @@ describe("admitSession — baked-snapshot defense-in-depth ONLY, zero live read 
 
 	test("a well-formed, genuinely-runnable baked snapshot admits successfully with ZERO live read — an agent deactivated in the live row after emit still admits, by design", async ({
 		db,
+		ids,
 	}) => {
 		const now = new Date().toISOString();
 		await db.insert(users).values({
-			id: "defense-agent-2",
+			id: ids("defense-agent-2"),
 			kind: "ai",
 			name: "Agent Two",
 			role: "builder",
@@ -260,15 +263,18 @@ describe("admitSession — baked-snapshot defense-in-depth ONLY, zero live read 
 		// non-issue: the agent is deactivated in the LIVE row after the
 		// snapshot below was baked. There is no mechanism left to consult this
 		// live row at all — admission must succeed purely from the bake.
-		await db.update(users).set({ status: "archived" }).where(eq(users.id, "defense-agent-2"));
+		await db
+			.update(users)
+			.set({ status: "archived" })
+			.where(eq(users.id, ids("defense-agent-2")));
 
 		const ports = buildDefenseInDepthOnlyPorts({});
 		const provisioner = createProvisioner(ports);
 
 		const params: ProvisionSessionParams = {
 			taskId: null,
-			agentId: "defense-agent-2",
-			productId: "task-free",
+			agentId: ids("defense-agent-2"),
+			productId: ids("task-free"),
 			sandboxBasePath: "/tmp/au21-admit-session-defense-in-depth-only",
 			agentConfig: {
 				kind: "ai",

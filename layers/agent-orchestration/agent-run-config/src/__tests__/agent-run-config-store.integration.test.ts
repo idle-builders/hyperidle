@@ -45,10 +45,10 @@ async function insertAgent(
 }
 
 describe("agent run config store", () => {
-	test("an agent with no config row resolves the all-null effective config", async ({ db }) => {
-		await insertAgent(db, "a-none");
+	test("an agent with no config row resolves the all-null effective config", async ({ db, ids }) => {
+		await insertAgent(db, ids("a-none"));
 
-		const config = await readAgentRunConfig(db, "a-none");
+		const config = await readAgentRunConfig(db, ids("a-none"));
 
 		expect(config).toEqual({
 			systemPrompt: null,
@@ -61,10 +61,10 @@ describe("agent run config store", () => {
 		expect(config).toEqual(DEFAULT_AGENT_RUN_CONFIG);
 	});
 
-	test("a full write round-trips verbatim", async ({ db }) => {
-		await insertAgent(db, "a-full");
+	test("a full write round-trips verbatim", async ({ db, ids }) => {
+		await insertAgent(db, ids("a-full"));
 
-		await writeAgentRunConfig(db, "a-full", {
+		await writeAgentRunConfig(db, ids("a-full"), {
 			systemPrompt: "you are a builder",
 			harnessType: "claude-code",
 			modelTierPreference: "reasoning",
@@ -73,7 +73,7 @@ describe("agent run config store", () => {
 			maxConcurrentSessions: 7,
 		});
 
-		expect(await readAgentRunConfig(db, "a-full")).toEqual({
+		expect(await readAgentRunConfig(db, ids("a-full"))).toEqual({
 			systemPrompt: "you are a builder",
 			harnessType: "claude-code",
 			modelTierPreference: "reasoning",
@@ -83,18 +83,18 @@ describe("agent run config store", () => {
 		});
 	});
 
-	test("a partial write patches only the named fields", async ({ db }) => {
-		await insertAgent(db, "a-partial");
-		await writeAgentRunConfig(db, "a-partial", {
+	test("a partial write patches only the named fields", async ({ db, ids }) => {
+		await insertAgent(db, ids("a-partial"));
+		await writeAgentRunConfig(db, ids("a-partial"), {
 			harnessType: "builtin",
 			modelId: "claude-sonnet-4-6",
 			modelProvider: "anthropic",
 			maxConcurrentSessions: 3,
 		});
 
-		await writeAgentRunConfig(db, "a-partial", { modelId: "claude-opus-4-8" });
+		await writeAgentRunConfig(db, ids("a-partial"), { modelId: "claude-opus-4-8" });
 
-		expect(await readAgentRunConfig(db, "a-partial")).toEqual({
+		expect(await readAgentRunConfig(db, ids("a-partial"))).toEqual({
 			systemPrompt: null,
 			harnessType: "builtin",
 			modelTierPreference: null,
@@ -104,28 +104,29 @@ describe("agent run config store", () => {
 		});
 	});
 
-	test("an explicit null in a patch clears that field only", async ({ db }) => {
-		await insertAgent(db, "a-clear");
-		await writeAgentRunConfig(db, "a-clear", {
+	test("an explicit null in a patch clears that field only", async ({ db, ids }) => {
+		await insertAgent(db, ids("a-clear"));
+		await writeAgentRunConfig(db, ids("a-clear"), {
 			harnessType: "claude-code",
 			modelId: "claude-opus-4-8",
 		});
 
-		await writeAgentRunConfig(db, "a-clear", { modelId: null });
+		await writeAgentRunConfig(db, ids("a-clear"), { modelId: null });
 
-		const config = await readAgentRunConfig(db, "a-clear");
+		const config = await readAgentRunConfig(db, ids("a-clear"));
 		expect(config.modelId).toBeNull();
 		expect(config.harnessType).toBe("claude-code");
 	});
 
 	test("a first write for an agent with no row still lands the defaults for absent fields", async ({
 		db,
+		ids,
 	}) => {
-		await insertAgent(db, "a-first");
+		await insertAgent(db, ids("a-first"));
 
-		await writeAgentRunConfig(db, "a-first", { harnessType: "builtin" });
+		await writeAgentRunConfig(db, ids("a-first"), { harnessType: "builtin" });
 
-		expect(await readAgentRunConfig(db, "a-first")).toEqual({
+		expect(await readAgentRunConfig(db, ids("a-first"))).toEqual({
 			systemPrompt: null,
 			harnessType: "builtin",
 			modelTierPreference: null,
@@ -137,15 +138,16 @@ describe("agent run config store", () => {
 
 	test("readAgentRunConfigs returns one entry per requested agent, defaulting the missing", async ({
 		db,
+		ids,
 	}) => {
-		await insertAgent(db, "a-batch-1");
-		await insertAgent(db, "a-batch-2");
-		await writeAgentRunConfig(db, "a-batch-1", { maxConcurrentSessions: 5 });
+		await insertAgent(db, ids("a-batch-1"));
+		await insertAgent(db, ids("a-batch-2"));
+		await writeAgentRunConfig(db, ids("a-batch-1"), { maxConcurrentSessions: 5 });
 
-		const map = await readAgentRunConfigs(db, ["a-batch-1", "a-batch-2"]);
+		const map = await readAgentRunConfigs(db, [ids("a-batch-1"), ids("a-batch-2")]);
 
-		expect(map.get("a-batch-1")?.maxConcurrentSessions).toBe(5);
-		expect(map.get("a-batch-2")).toEqual(DEFAULT_AGENT_RUN_CONFIG);
+		expect(map.get(ids("a-batch-1"))?.maxConcurrentSessions).toBe(5);
+		expect(map.get(ids("a-batch-2"))).toEqual(DEFAULT_AGENT_RUN_CONFIG);
 	});
 
 	// @lore this file used to have a test asserting the `agentRunConfig.agentId → users.id` cascade
@@ -157,39 +159,39 @@ describe("agent run config store", () => {
 });
 
 describe("team run config defaults store", () => {
-	test("a team with no row resolves all-null defaults", async ({ db }) => {
-		await db.insert(teams).values({ id: "t-none", name: "T", phase: "build", createdAt: NOW });
+	test("a team with no row resolves all-null defaults", async ({ db, ids }) => {
+		await db.insert(teams).values({ id: ids("t-none"), name: "T", phase: "build", createdAt: NOW });
 		// The owner writes the membership row alongside the team.
 		await db.insert(teamMembers).values({
-			id: "t-none-members",
-			teamId: "t-none",
+			id: ids("t-none-members"),
+			teamId: ids("t-none"),
 			capacity: 5,
 			activeBets: 0,
 			formedAt: NOW,
 		});
 
-		expect(await readTeamRunConfigDefaults(db, "t-none")).toEqual({
+		expect(await readTeamRunConfigDefaults(db, ids("t-none"))).toEqual({
 			defaultHarnessType: null,
 			defaultModelId: null,
 			defaultModelProvider: null,
 		});
-		expect(await readTeamRunConfigDefaults(db, "t-none")).toEqual(EMPTY_TEAM_RUN_CONFIG_DEFAULTS);
+		expect(await readTeamRunConfigDefaults(db, ids("t-none"))).toEqual(EMPTY_TEAM_RUN_CONFIG_DEFAULTS);
 	});
 
-	test("team defaults round-trip verbatim", async ({ db }) => {
-		await db.insert(teams).values({ id: "t-set", name: "T", phase: "build", createdAt: NOW });
+	test("team defaults round-trip verbatim", async ({ db, ids }) => {
+		await db.insert(teams).values({ id: ids("t-set"), name: "T", phase: "build", createdAt: NOW });
 		// The owner writes the membership row alongside the team.
 		await db
 			.insert(teamMembers)
-			.values({ id: "t-set-members", teamId: "t-set", capacity: 5, activeBets: 0, formedAt: NOW });
+			.values({ id: ids("t-set-members"), teamId: ids("t-set"), capacity: 5, activeBets: 0, formedAt: NOW });
 
-		await writeTeamRunConfigDefaults(db, "t-set", {
+		await writeTeamRunConfigDefaults(db, ids("t-set"), {
 			defaultHarnessType: "codex",
 			defaultModelId: "claude-sonnet-4-6",
 			defaultModelProvider: "anthropic",
 		});
 
-		expect(await readTeamRunConfigDefaults(db, "t-set")).toEqual({
+		expect(await readTeamRunConfigDefaults(db, ids("t-set"))).toEqual({
 			defaultHarnessType: "codex",
 			defaultModelId: "claude-sonnet-4-6",
 			defaultModelProvider: "anthropic",

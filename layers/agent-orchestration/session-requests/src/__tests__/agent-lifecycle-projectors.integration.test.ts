@@ -123,13 +123,16 @@ describe("drainLifecycleProjections — exhaustive DI port wiring", () => {
 	 */
 	test("routine family is observeOnly — the drain never calls the injected routine port directly", async ({
 		db,
+		ids,
 	}) => {
 		const deps = fakeDeps();
-		await seedRequest(db, "lp-routine-req", "routine", "lp-routine-run");
+		await seedRequest(db, ids("lp-routine-req"), "routine", ids("lp-routine-run"));
 
+		// @lore AU38: the drain scans the whole inbox by design, so the exact
+		// return count was a global claim; re-homed on this test's own fact below.
 		const count = await drainLifecycleProjections(queueDeps(db, deps));
 
-		expect(count).toBe(1);
+		expect(count).toBeGreaterThanOrEqual(1);
 		expect(deps.routineCalls).toHaveLength(0);
 		expect(deps.workCalls).toHaveLength(0);
 		expect(deps.explicitCalls).toHaveLength(0);
@@ -137,20 +140,33 @@ describe("drainLifecycleProjections — exhaustive DI port wiring", () => {
 		const [row] = await db
 			.select({ projectedAt: agentLifecycleInbox.projectedAt })
 			.from(agentLifecycleInbox)
-			.where(eq(agentLifecycleInbox.requestId, "lp-routine-req"));
+			.where(eq(agentLifecycleInbox.requestId, ids("lp-routine-req")));
 		expect(row?.projectedAt).toBeTruthy();
 	});
 
-	test("explicit_session_start family calls the injected session-requests port", async ({ db }) => {
+	test("explicit_session_start family calls the injected session-requests port", async ({
+		db,
+		ids,
+	}) => {
 		const deps = fakeDeps();
-		await seedRequest(db, "lp-explicit-req", "explicit_session_start", "lp-explicit-req", "sess-1");
+		await seedRequest(
+			db,
+			ids("lp-explicit-req"),
+			"explicit_session_start",
+			ids("lp-explicit-req"),
+			ids("sess-1"),
+		);
 
 		await drainLifecycleProjections(queueDeps(db, deps));
 
-		expect(deps.explicitCalls).toHaveLength(1);
-		expect(deps.explicitCalls[0]).toMatchObject({
-			requestId: "lp-explicit-req",
-			patch: { status: "completed", sessionId: "sess-1" },
+		// @lore AU38: scoped to this test's own fact — the drain processes every
+		// unprojected inbox row, so the witness array's total length is a global
+		// claim; the contract under test is that THIS fact reached the port.
+		const mine = deps.explicitCalls.filter((call) => call.requestId === ids("lp-explicit-req"));
+		expect(mine).toHaveLength(1);
+		expect(mine[0]).toMatchObject({
+			requestId: ids("lp-explicit-req"),
+			patch: { status: "completed", sessionId: ids("sess-1") },
 		});
 	});
 
@@ -172,24 +188,30 @@ describe("drainLifecycleProjections — exhaustive DI port wiring", () => {
 	 */
 	test("task family is observeOnly — the drain never calls any port directly (Increment 10, Decision H1)", async ({
 		db,
+		ids,
 	}) => {
 		const deps = fakeDeps();
-		await seedRequest(db, "lp-task-observeonly-req", "task", "lp-task-observeonly-attempt");
+		await seedRequest(
+			db,
+			ids("lp-task-observeonly-req"),
+			"task",
+			ids("lp-task-observeonly-attempt"),
+		);
 
 		const count = await drainLifecycleProjections(queueDeps(db, deps));
 
-		expect(count).toBe(1);
+		expect(count).toBeGreaterThanOrEqual(1);
 		expect(deps.workCalls).toHaveLength(0);
 		expect(deps.explicitCalls).toHaveLength(0);
 
 		const [row] = await db
 			.select({ projectedAt: agentLifecycleInbox.projectedAt })
 			.from(agentLifecycleInbox)
-			.where(eq(agentLifecycleInbox.requestId, "lp-task-observeonly-req"));
+			.where(eq(agentLifecycleInbox.requestId, ids("lp-task-observeonly-req")));
 		expect(row?.projectedAt).toBeTruthy();
 	});
 
-	test("all no-op families acknowledge without calling any port", async ({ db }) => {
+	test("all no-op families acknowledge without calling any port", async ({ db, ids }) => {
 		const deps = fakeDeps();
 		// AU21 correction: `routine` joins the no-op families here (see the
 		// dedicated test above for the RED signal on that transition). AU21 §9
@@ -202,12 +224,32 @@ describe("drainLifecycleProjections — exhaustive DI port wiring", () => {
 			"routine",
 			"task",
 		] as const) {
-			await seedRequest(db, `lp-${sourceKind}-req`, sourceKind, `lp-${sourceKind}-source`);
+			await seedRequest(
+				db,
+				ids(`lp-${sourceKind}-req`),
+				sourceKind,
+				ids(`lp-${sourceKind}-source`),
+			);
 		}
 
 		const count = await drainLifecycleProjections(queueDeps(db, deps));
 
-		expect(count).toBe(5);
+		// @lore AU38: exact count was a global claim (the drain scans the whole
+		// inbox); re-homed on the five arranged facts — each one acknowledged.
+		expect(count).toBeGreaterThanOrEqual(5);
+		for (const sourceKind of [
+			"assistant",
+			"knowledge",
+			"proposed_call",
+			"routine",
+			"task",
+		] as const) {
+			const [row] = await db
+				.select({ projectedAt: agentLifecycleInbox.projectedAt })
+				.from(agentLifecycleInbox)
+				.where(eq(agentLifecycleInbox.requestId, ids(`lp-${sourceKind}-req`)));
+			expect(row?.projectedAt).toBeTruthy();
+		}
 		expect(deps.routineCalls).toHaveLength(0);
 		expect(deps.workCalls).toHaveLength(0);
 		expect(deps.explicitCalls).toHaveLength(0);
@@ -215,13 +257,13 @@ describe("drainLifecycleProjections — exhaustive DI port wiring", () => {
 });
 
 describe("reapExpired — lifecycle retention contract", () => {
-	test("removes projected lifecycle facts older than retention", async ({ db }) => {
+	test("removes projected lifecycle facts older than retention", async ({ db, ids }) => {
 		const past = new Date(Date.now() - 60_000).toISOString();
-		await seedRequest(db, "lp-reap-req", "assistant", "lp-reap-source");
+		await seedRequest(db, ids("lp-reap-req"), "assistant", ids("lp-reap-source"));
 		await db
 			.update(agentLifecycleInbox)
 			.set({ projectedAt: new Date().toISOString(), occurredAt: past })
-			.where(eq(agentLifecycleInbox.requestId, "lp-reap-req"));
+			.where(eq(agentLifecycleInbox.requestId, ids("lp-reap-req")));
 
 		await reapExpired(queueDeps(db, fakeDeps()), {
 			now: new Date(),
@@ -232,7 +274,7 @@ describe("reapExpired — lifecycle retention contract", () => {
 		const remaining = await db
 			.select({ requestId: agentLifecycleInbox.requestId })
 			.from(agentLifecycleInbox)
-			.where(eq(agentLifecycleInbox.requestId, "lp-reap-req"));
+			.where(eq(agentLifecycleInbox.requestId, ids("lp-reap-req")));
 		expect(remaining).toHaveLength(0);
 	});
 });

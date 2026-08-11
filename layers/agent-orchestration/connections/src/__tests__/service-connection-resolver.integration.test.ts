@@ -24,15 +24,12 @@
 
 import { encryptCredentialValue } from "@hyperidle/credential-access";
 import { type HyperIdleDb, serviceConnections, users } from "@hyperidle/db";
-import { test } from "@hyperidle/db/test-fixtures";
+import { test, type ScopedIds } from "@hyperidle/db/test-fixtures";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { ServiceConnectionResolver } from "../service-connection-resolver.js";
 
 const SERVER_SECRET = "integration-test-server-secret-an1";
 const NOW = new Date().toISOString();
-
-const USER_A_ID = "u-an1-resolver-a";
-const USER_B_ID = "u-an1-resolver-b";
 
 describe("ServiceConnectionResolver (real DB integration)", () => {
 	beforeEach(() => {
@@ -47,12 +44,12 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 	 * Seed a minimal human user row.  The serviceConnections table has a FK on
 	 * users.id, so users must exist before we insert connection rows.
 	 */
-	async function seedUsers(db: HyperIdleDb): Promise<void> {
+	async function seedUsers(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 		await db
 			.insert(users)
 			.values([
 				{
-					id: USER_A_ID,
+					id: ids("u-an1-resolver-a"),
 					kind: "human",
 					name: "Resolver User A",
 					email: "resolver-a@an1test.dev",
@@ -61,7 +58,7 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 					createdAt: NOW,
 				},
 				{
-					id: USER_B_ID,
+					id: ids("u-an1-resolver-b"),
 					kind: "human",
 					name: "Resolver User B",
 					email: "resolver-b@an1test.dev",
@@ -77,17 +74,18 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 
 	test("(a) resolve(userA, tokenRowId) returns the exact original plaintext secret", async ({
 		db,
+		ids,
 	}) => {
-		await seedUsers(db);
+		await seedUsers(db, ids);
 
 		const PLAINTEXT = "sk-stripe-integration-test-secret-abc123";
 		// env stubbed in beforeEach (HYPERIDLE_CREDENTIAL_KEY = SERVER_SECRET)
 		const encrypted = encryptCredentialValue(PLAINTEXT);
-		const rowId = "sc-resolver-test-a-token";
+		const rowId = ids("sc-resolver-test-a-token");
 
 		await db.insert(serviceConnections).values({
 			id: rowId,
-			userId: USER_A_ID,
+			userId: ids("u-an1-resolver-a"),
 			service: "Stripe",
 			authSource: "token",
 			encryptedToken: encrypted,
@@ -99,7 +97,7 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 		});
 
 		const resolver = new ServiceConnectionResolver(db);
-		const result = await resolver.resolve(USER_A_ID, rowId);
+		const result = await resolver.resolve(ids("u-an1-resolver-a"), rowId);
 
 		// Must return the EXACT plaintext — not null, not a different string.
 		expect(result).toBe(PLAINTEXT);
@@ -116,18 +114,19 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 
 	test("(b) resolve(userB, tokenRowId) returns null — cross-user isolation (AC5)", async ({
 		db,
+		ids,
 	}) => {
-		await seedUsers(db);
+		await seedUsers(db, ids);
 
 		const PLAINTEXT = "sk-stripe-user-a-secret-xyz";
 		// env stubbed in beforeEach (HYPERIDLE_CREDENTIAL_KEY = SERVER_SECRET)
 		const encrypted = encryptCredentialValue(PLAINTEXT);
-		const rowId = "sc-resolver-test-b-isolation";
+		const rowId = ids("sc-resolver-test-b-isolation");
 
 		// Insert the row belonging to USER_A
 		await db.insert(serviceConnections).values({
 			id: rowId,
-			userId: USER_A_ID,
+			userId: ids("u-an1-resolver-a"),
 			service: "Stripe",
 			authSource: "token",
 			encryptedToken: encrypted,
@@ -141,7 +140,7 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 		const resolver = new ServiceConnectionResolver(db);
 
 		// USER_B must NOT get USER_A's plaintext — cross-user → null
-		const result = await resolver.resolve(USER_B_ID, rowId);
+		const result = await resolver.resolve(ids("u-an1-resolver-b"), rowId);
 		expect(result).toBeNull();
 
 		// Sanity-break evidence:
@@ -155,14 +154,17 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 
 	// ─── (c) mcp row (no encryptedToken) → null ──────────────────────────────
 
-	test("(c) resolve(userA, mcpRowId) returns null — mcp has no stored token", async ({ db }) => {
-		await seedUsers(db);
+	test("(c) resolve(userA, mcpRowId) returns null — mcp has no stored token", async ({
+		db,
+		ids,
+	}) => {
+		await seedUsers(db, ids);
 
-		const mcpRowId = "sc-resolver-test-c-mcp";
+		const mcpRowId = ids("sc-resolver-test-c-mcp");
 
 		await db.insert(serviceConnections).values({
 			id: mcpRowId,
-			userId: USER_A_ID,
+			userId: ids("u-an1-resolver-a"),
 			service: "figma.com",
 			authSource: "mcp",
 			encryptedToken: null,
@@ -174,7 +176,7 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 		});
 
 		const resolver = new ServiceConnectionResolver(db);
-		const result = await resolver.resolve(USER_A_ID, mcpRowId);
+		const result = await resolver.resolve(ids("u-an1-resolver-a"), mcpRowId);
 
 		// mcp rows have no secret → resolver must return null
 		expect(result).toBeNull();
@@ -182,26 +184,26 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 
 	// ─── (d) absent id → null ────────────────────────────────────────────────
 
-	test("(d) resolve(userA, absentId) returns null — non-existent row", async ({ db }) => {
-		await seedUsers(db);
+	test("(d) resolve(userA, absentId) returns null — non-existent row", async ({ db, ids }) => {
+		await seedUsers(db, ids);
 
 		const resolver = new ServiceConnectionResolver(db);
-		const result = await resolver.resolve(USER_A_ID, "sc-does-not-exist-at-all");
+		const result = await resolver.resolve(ids("u-an1-resolver-a"), ids("sc-does-not-exist-at-all"));
 
 		expect(result).toBeNull();
 	});
 
 	// ─── (e) tampered / garbage encryptedToken → null, never throws ──────────
 
-	test("(e) tampered encryptedToken returns null and never throws", async ({ db }) => {
-		await seedUsers(db);
+	test("(e) tampered encryptedToken returns null and never throws", async ({ db, ids }) => {
+		await seedUsers(db, ids);
 
-		const rowId = "sc-resolver-test-e-tampered";
+		const rowId = ids("sc-resolver-test-e-tampered");
 
 		// Insert a row with a garbage encrypted value (not valid AES-GCM base64)
 		await db.insert(serviceConnections).values({
 			id: rowId,
-			userId: USER_A_ID,
+			userId: ids("u-an1-resolver-a"),
 			service: "Stripe",
 			authSource: "token",
 			encryptedToken: "this-is-not-valid-aes-gcm-base64!!!!",
@@ -218,7 +220,7 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 		let threw = false;
 		let result: string | null = "sentinel";
 		try {
-			result = await resolver.resolve(USER_A_ID, rowId);
+			result = await resolver.resolve(ids("u-an1-resolver-a"), rowId);
 		} catch {
 			threw = true;
 		}
@@ -233,17 +235,17 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 	// on null. The new API reads HYPERIDLE_CREDENTIAL_KEY from env (cipher-owns-key).
 	// This test proves the same graceful-null behavior when no env secret is configured.
 
-	test("resolve returns null when no HYPERIDLE_CREDENTIAL_KEY in env", async ({ db }) => {
-		await seedUsers(db);
+	test("resolve returns null when no HYPERIDLE_CREDENTIAL_KEY in env", async ({ db, ids }) => {
+		await seedUsers(db, ids);
 
 		// Store an encrypted row (encrypted with SERVER_SECRET from beforeEach)
 		const PLAINTEXT = "sk-secret-missing-env-test";
 		const encrypted = encryptCredentialValue(PLAINTEXT);
-		const rowId = "sc-resolver-test-missing-secret";
+		const rowId = ids("sc-resolver-test-missing-secret");
 
 		await db.insert(serviceConnections).values({
-			id: `${USER_A_ID}-conn-missing`,
-			userId: USER_A_ID,
+			id: rowId,
+			userId: ids("u-an1-resolver-a"),
 			service: "Stripe",
 			authSource: "token",
 			encryptedToken: encrypted,
@@ -260,7 +262,7 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 		delete process.env.HYPERIDLE_API_KEY;
 
 		const resolver = new ServiceConnectionResolver(db);
-		const result = await resolver.resolve(USER_A_ID, rowId);
+		const result = await resolver.resolve(ids("u-an1-resolver-a"), rowId);
 		expect(result).toBeNull();
 	});
 });

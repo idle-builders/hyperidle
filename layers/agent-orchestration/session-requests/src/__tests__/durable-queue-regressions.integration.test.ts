@@ -5,8 +5,8 @@ import {
 	type HyperIdleDb,
 	users,
 } from "@hyperidle/db";
-import { expect, test } from "@hyperidle/db/test-fixtures";
-import { eq } from "drizzle-orm";
+import { expect, test, type ScopedIds } from "@hyperidle/db/test-fixtures";
+import { eq, inArray } from "drizzle-orm";
 import { describe } from "vitest";
 import {
 	claimSessionRequest,
@@ -92,8 +92,8 @@ describe("durable request and intent lease fencing", () => {
 		if (!row?.claimToken) throw new Error("Expected an actively claimed request");
 		return row.claimToken;
 	}
-	test("renewal at expiry cannot resurrect request custody", async ({ db }) => {
-		const request = await seedRequest(db, "expired-renew");
+	test("renewal at expiry cannot resurrect request custody", async ({ db, ids }) => {
+		const request = await seedRequest(db, ids("expired-renew"));
 		const claimedAt = new Date("2026-07-22T10:00:00.000Z");
 		const requestClaim = await claimSessionRequest(
 			db,
@@ -112,8 +112,9 @@ describe("durable request and intent lease fencing", () => {
 
 	test("intent custody blocks a second drain until lease expiry, then permits one reclaim", async ({
 		db,
+		ids,
 	}) => {
-		const intent = await seedIntent(db, "lease-reclaim");
+		const intent = await seedIntent(db, ids("lease-reclaim"));
 		await db
 			.update(agentWorkIntents)
 			.set({
@@ -140,8 +141,8 @@ describe("durable request and intent lease fencing", () => {
 		).toMatchObject({ status: "failed", attempts: 1 });
 	});
 
-	test("tokenless and stale release are no-ops for a claimed request", async ({ db }) => {
-		const request = await seedRequest(db, "release-fence");
+	test("tokenless and stale release are no-ops for a claimed request", async ({ db, ids }) => {
+		const request = await seedRequest(db, ids("release-fence"));
 		const claimed = await claimSessionRequest(
 			db,
 			{ id: request.id },
@@ -157,13 +158,14 @@ describe("durable request and intent lease fencing", () => {
 
 	test("claimed to running rejects missing, stale, and expired tokens and preserves custody", async ({
 		db,
+		ids,
 	}) => {
 		for (const [name, tokenKind, now] of [
 			["missing", undefined, "2026-07-22T10:00:00.500Z"],
 			["stale", "stale-token", "2026-07-22T10:00:00.500Z"],
 			["expired", "actual", "2026-07-22T10:00:01.000Z"],
 		] as const) {
-			const request = await seedRequest(db, `running-${name}`);
+			const request = await seedRequest(db, ids(`running-${name}`));
 			const claimed = await claimSessionRequest(
 				db,
 				{ id: request.id },
@@ -174,7 +176,7 @@ describe("durable request and intent lease fencing", () => {
 			const transition = {
 				requestId: request.id,
 				to: "running",
-				sessionId: `session-${name}`,
+				sessionId: ids(`session-${name}`),
 				claimToken: token,
 			};
 			await expect(
@@ -194,9 +196,10 @@ describe("durable request and intent lease fencing", () => {
 
 	test("a pending intent is unavailable before future updatedAt and claimable at the boundary", async ({
 		db,
+		ids,
 	}) => {
 		const eligibleAt = new Date("2026-07-22T10:00:05.000Z");
-		const intent = await seedIntent(db, "retry-boundary", eligibleAt.toISOString());
+		const intent = await seedIntent(db, ids("retry-boundary"), eligibleAt.toISOString());
 
 		const deps = queueDeps(db);
 		await drainIntents(deps, {
@@ -239,8 +242,10 @@ function projectionDeps(failRequestId: string) {
 	};
 }
 
-async function seedLifecycleFact(db: HyperIdleDb, suffix: string) {
-	const request = await seedRequest(db, `projection-${suffix}`);
+// @lore AU38: `timingDigit` is interpolated into `occurredAt`'s seconds, so it
+// must stay a single digit; the request identity rides a scoped ids() label.
+async function seedLifecycleFact(db: HyperIdleDb, ids: ScopedIds, timingDigit: string) {
+	const request = await seedRequest(db, ids(`projection-${timingDigit}`));
 	await db
 		.update(agentSessionRequests)
 		.set({ status: "completed" })
@@ -248,9 +253,9 @@ async function seedLifecycleFact(db: HyperIdleDb, suffix: string) {
 	await db.insert(agentLifecycleInbox).values({
 		requestId: request.id,
 		sourceKind: "explicit_session_start",
-		sourceId: `projection-${suffix}-source`,
+		sourceId: ids(`projection-${timingDigit}-source`),
 		state: "completed",
-		occurredAt: `2026-07-22T10:00:0${suffix}.000Z`,
+		occurredAt: `2026-07-22T10:00:0${timingDigit}.000Z`,
 	});
 	return request.id;
 }
@@ -258,8 +263,9 @@ async function seedLifecycleFact(db: HyperIdleDb, suffix: string) {
 describe("lifecycle inbox retry and poison handling", () => {
 	test("reclaim observes a same-token lease extension and waits for the extended expiry", async ({
 		db,
+		ids,
 	}) => {
-		const requestId = await seedLifecycleFact(db, "0");
+		const requestId = await seedLifecycleFact(db, ids, "0");
 		await db
 			.update(agentLifecycleInbox)
 			.set({
@@ -268,12 +274,13 @@ describe("lifecycle inbox retry and poison handling", () => {
 			})
 			.where(eq(agentLifecycleInbox.requestId, requestId));
 
-		expect(
-			await drainLifecycleProjections(queueDeps(db, projectionDeps("never")), {
-				now: new Date("2026-07-22T10:00:19.999Z"),
-				leaseMs: 1_000,
-			}),
-		).toBe(0);
+		// @lore AU38: the drain scans the whole inbox, so exact return counts were
+		// global claims; re-homed on this test's own fact (untouched before the
+		// extended expiry, projected after it).
+		await drainLifecycleProjections(queueDeps(db, projectionDeps("never")), {
+			now: new Date("2026-07-22T10:00:19.999Z"),
+			leaseMs: 1_000,
+		});
 		const [stillOwned] = await db
 			.select()
 			.from(agentLifecycleInbox)
@@ -282,29 +289,41 @@ describe("lifecycle inbox retry and poison handling", () => {
 			claimToken: "same-owner-token",
 			claimExpiresAt: "2026-07-22T10:00:20.000Z",
 			attempts: 0,
+			projectedAt: null,
 		});
 
-		expect(
-			await drainLifecycleProjections(queueDeps(db, projectionDeps("never")), {
-				now: new Date("2026-07-22T10:00:20.001Z"),
-				leaseMs: 1_000,
-			}),
-		).toBe(1);
+		const drained = await drainLifecycleProjections(queueDeps(db, projectionDeps("never")), {
+			now: new Date("2026-07-22T10:00:20.001Z"),
+			leaseMs: 1_000,
+		});
+		expect(drained).toBeGreaterThanOrEqual(1);
+		const [projected] = await db
+			.select()
+			.from(agentLifecycleInbox)
+			.where(eq(agentLifecycleInbox.requestId, requestId));
+		expect(projected?.projectedAt).toBeTruthy();
 	});
 
 	test("a failed projection keeps its lease and does not block a later fact in the batch", async ({
 		db,
+		ids,
 	}) => {
-		const poisonId = await seedLifecycleFact(db, "1");
-		const validId = await seedLifecycleFact(db, "2");
+		const poisonId = await seedLifecycleFact(db, ids, "1");
+		const validId = await seedLifecycleFact(db, ids, "2");
 
 		const count = await drainLifecycleProjections(queueDeps(db, projectionDeps(poisonId)), {
 			now: new Date("2026-07-22T10:00:10.000Z"),
 			leaseMs: 1_000,
 		});
 
-		expect(count).toBe(1);
-		const rows = await db.select().from(agentLifecycleInbox);
+		// @lore AU38: count re-homed from the global exact onto "at least the one
+		// arranged healthy fact drained"; the per-row assertions below carry the
+		// poison/valid contract scoped to the two arranged facts.
+		expect(count).toBeGreaterThanOrEqual(1);
+		const rows = await db
+			.select()
+			.from(agentLifecycleInbox)
+			.where(inArray(agentLifecycleInbox.requestId, [poisonId, validId]));
 		expect(rows.find((row) => row.requestId === poisonId)).toMatchObject({
 			attempts: 1,
 			lastError: "poison projection",
@@ -314,8 +333,11 @@ describe("lifecycle inbox retry and poison handling", () => {
 		expect(rows.find((row) => row.requestId === validId)?.projectedAt).toBeTruthy();
 	});
 
-	test("a poison fact becomes handled only on the configured maximum attempt", async ({ db }) => {
-		const poisonId = await seedLifecycleFact(db, "3");
+	test("a poison fact becomes handled only on the configured maximum attempt", async ({
+		db,
+		ids,
+	}) => {
+		const poisonId = await seedLifecycleFact(db, ids, "3");
 		const options = {
 			now: new Date("2026-07-22T10:00:10.000Z"),
 			leaseMs: 1,

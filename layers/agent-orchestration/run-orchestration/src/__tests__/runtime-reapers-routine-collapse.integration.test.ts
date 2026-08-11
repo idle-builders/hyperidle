@@ -119,8 +119,9 @@ function widen(
 describe("reapStaleRoutineSessions — routineRuns collapse (Decision B″ item 3)", () => {
 	test("finalizes a stale routine session by emitting session_ended (routineRunOutcome=timeout), not a direct routine port write", async ({
 		db,
+		ids,
 	}) => {
-		const { runId, sessionId } = await seedStaleRoutineSession(db, "rrc-stale");
+		const { runId, sessionId } = await seedStaleRoutineSession(db, ids("rrc-stale"));
 		const eventBus = new EventBus();
 		const captured: SessionEndedEvent[] = [];
 		eventBus.on("session_ended", (event) => captured.push(event));
@@ -128,17 +129,25 @@ describe("reapStaleRoutineSessions — routineRuns collapse (Decision B″ item 
 		const reapers = createRuntimeReapers(db, eventBus, buildPortsGetOnly());
 		const reaped = await reapers.reapRoutineSessions({ staleAfterMs: 60 * 60 * 1000, now: NOW_MS });
 
-		expect(reaped).toBe(1);
-		expect(captured).toHaveLength(1);
-		expect(captured[0]).toMatchObject({ sourceKind: "routine", sourceId: runId, sessionId });
-		expect(widen(captured[0] as SessionEndedEvent).routineRunOutcome).toBe("timeout");
+		// @lore AU38: the reaper scans globally by design (it finds ANY stale
+		// routine session), so the exact count was a global absence claim. Re-homed
+		// on this test's own session: it was reaped, and exactly one session_ended
+		// fact for it was emitted.
+		expect(reaped).toBeGreaterThanOrEqual(1);
+		const mine = captured.filter((event) => event.sessionId === sessionId);
+		expect(mine).toHaveLength(1);
+		expect(mine[0]).toMatchObject({ sourceKind: "routine", sourceId: runId, sessionId });
+		expect(widen(mine[0] as SessionEndedEvent).routineRunOutcome).toBe("timeout");
 
 		const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId));
 		expect(session?.state).toBe("crashed");
 	});
 
-	test("a session younger than the TTL is left untouched and emits nothing", async ({ db }) => {
-		const { sessionId } = await seedStaleRoutineSession(db, "rrc-fresh");
+	test("a session younger than the TTL is left untouched and emits nothing", async ({
+		db,
+		ids,
+	}) => {
+		const { sessionId } = await seedStaleRoutineSession(db, ids("rrc-fresh"));
 		await db
 			.update(sessions)
 			.set({ startedAt: new Date(NOW_MS - 5 * 60 * 1000).toISOString() }) // 5m ago
@@ -148,9 +157,12 @@ describe("reapStaleRoutineSessions — routineRuns collapse (Decision B″ item 
 		eventBus.on("session_ended", (event) => captured.push(event));
 
 		const reapers = createRuntimeReapers(db, eventBus, buildPortsGetOnly());
-		const reaped = await reapers.reapRoutineSessions({ staleAfterMs: 60 * 60 * 1000, now: NOW_MS });
+		await reapers.reapRoutineSessions({ staleAfterMs: 60 * 60 * 1000, now: NOW_MS });
 
-		expect(reaped).toBe(0);
-		expect(captured).toHaveLength(0);
+		// @lore AU38: re-homed from the global "nothing was reaped" claim onto this
+		// test's own session — it stays active and no session_ended fact names it.
+		expect(captured.filter((event) => event.sessionId === sessionId)).toHaveLength(0);
+		const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId));
+		expect(session?.state).toBe("active");
 	});
 });

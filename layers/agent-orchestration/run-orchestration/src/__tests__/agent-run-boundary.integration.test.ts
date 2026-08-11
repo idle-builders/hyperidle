@@ -1,6 +1,6 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { agentSessionRequests, bets, tasks, teamMembers, teams, users } from "@hyperidle/db";
-import { expect, test } from "@hyperidle/db/test-fixtures";
+import { expect, test, type ScopedIds } from "@hyperidle/db/test-fixtures";
 import type { AgentSessionRequestInput } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import { createSessionRequest } from "@hyperidle/session-requests";
@@ -11,28 +11,30 @@ import { buildTestPorts } from "./test-ports.js";
 
 const createRequestForTest = (db: HyperIdleDb, request: AgentSessionRequestInput) =>
 	createSessionRequest(db, { kind: "direct", request });
-async function seedBase(db: HyperIdleDb): Promise<void> {
+async function seedBase(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(teams).values({ id: "team-au6", name: "AU6", phase: "build", createdAt: now });
+	await db
+		.insert(teams)
+		.values({ id: ids("team-au6"), name: "AU6", phase: "build", createdAt: now });
 	await db.insert(teamMembers).values({
-		id: "member-au6",
-		teamId: "team-au6",
+		id: ids("member-au6"),
+		teamId: ids("team-au6"),
 		capacity: 3,
 		activeBets: 0,
 		formedAt: now,
 	});
 	await db.insert(users).values([
 		{
-			id: "agent-au6",
+			id: ids("agent-au6"),
 			kind: "ai",
 			name: "Agent",
 			role: "builder",
 			status: "active",
-			teamId: "member-au6",
+			teamId: ids("member-au6"),
 			createdAt: now,
 		},
 		{
-			id: "user-au6",
+			id: ids("user-au6"),
 			kind: "human",
 			name: "Founder",
 			role: "founder",
@@ -41,33 +43,34 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		},
 	]);
 	await db.insert(bets).values({
-		id: "bet-au6",
-		teamId: "team-au6",
+		id: ids("bet-au6"),
+		teamId: ids("team-au6"),
 		description: "Close agent execution boundary",
 		status: "active",
 		createdAt: now,
 	});
 	await db.insert(tasks).values({
-		id: "task-au6",
-		betId: "bet-au6",
-		teamId: "team-au6",
+		id: ids("task-au6"),
+		betId: ids("bet-au6"),
+		teamId: ids("team-au6"),
 		title: "Boundary task",
 		state: "accepted",
-		ownerAgentId: "agent-au6",
+		ownerAgentId: ids("agent-au6"),
 		createdAt: now,
 		updatedAt: now,
 	});
 }
 
 function sourceInput(
+	ids: ScopedIds,
 	sourceKind: AgentSessionRequestInput["sourceKind"],
 	suffix: string,
 ): AgentSessionRequestInput {
 	const base = {
 		sourceId: `${sourceKind}-${suffix}`,
 		streamId: `${sourceKind}:${suffix}`,
-		agentId: "agent-au6",
-		teamId: "team-au6",
+		agentId: ids("agent-au6"),
+		teamId: ids("team-au6"),
 		idempotencyKey: `${sourceKind}:${suffix}`,
 	} as const;
 
@@ -76,23 +79,23 @@ function sourceInput(
 			return {
 				...base,
 				sourceKind,
-				sourceId: "task-au6",
-				streamId: "task:task-au6",
-				taskId: "task-au6",
+				sourceId: ids("task-au6"),
+				streamId: `task:${ids("task-au6")}`,
+				taskId: ids("task-au6"),
 				promptMode: "task",
-				sourceCorrelation: { taskId: "task-au6", teamId: "team-au6" },
+				sourceCorrelation: { taskId: ids("task-au6"), teamId: ids("team-au6") },
 			};
 		case "assistant":
 			return {
 				...base,
 				sourceKind,
-				userId: "user-au6",
+				userId: ids("user-au6"),
 				promptMode: "conversation",
 				sourceCorrelation: {
-					threadId: "thread-au6",
+					threadId: ids("thread-au6"),
 					messageId: `msg-${suffix}`,
-					userId: "user-au6",
-					assistantAgentId: "agent-au6",
+					userId: ids("user-au6"),
+					assistantAgentId: ids("agent-au6"),
 				},
 			};
 		case "routine":
@@ -104,7 +107,7 @@ function sourceInput(
 				sourceCorrelation: {
 					routineId: `routine-${suffix}`,
 					routineRunId: `routine-run-${suffix}`,
-					teamId: "team-au6",
+					teamId: ids("team-au6"),
 				},
 			};
 		case "knowledge":
@@ -116,19 +119,19 @@ function sourceInput(
 				sourceCorrelation: {
 					knowledgeItemId: `item-${suffix}`,
 					action: "summarize",
-					teamId: "team-au6",
+					teamId: ids("team-au6"),
 				},
 			};
 		case "proposed_call":
 			return {
 				...base,
 				sourceKind,
-				taskId: "task-au6",
+				taskId: ids("task-au6"),
 				promptMode: "proposed_call",
 				sourceCorrelation: {
-					taskId: "task-au6",
+					taskId: ids("task-au6"),
 					proposedCallId: `proposed-call-${suffix}`,
-					grantedAgentId: "agent-au6",
+					grantedAgentId: ids("agent-au6"),
 				},
 			};
 	}
@@ -141,12 +144,13 @@ describe("agent run boundary", () => {
 
 	test("executes a durable request through the agent-layer boundary and publishes lifecycle", async ({
 		db,
+		ids,
 	}) => {
-		await seedBase(db);
+		await seedBase(db, ids);
 		const ports = buildTestPorts();
-		const request = await createRequestForTest(db, sourceInput("task", "execute"));
+		const request = await createRequestForTest(db, sourceInput(ids, "task", ids("execute")));
 		vi.mocked(ports.sessionProvisioner!.admitSession).mockImplementation(async (_deps, params) => ({
-			sessionId: "session-au6-boundary",
+			sessionId: ids("session-au6-boundary"),
 			sessionContext: { taskId: params.taskId },
 		}));
 		vi.mocked(ports.sessionProvisioner!.runSession).mockImplementationOnce(async () => {
@@ -154,11 +158,14 @@ describe("agent run boundary", () => {
 				.select()
 				.from(agentSessionRequests)
 				.where(eq(agentSessionRequests.id, request.id));
-			expect(ownerRow).toMatchObject({ status: "running", sessionId: "session-au6-boundary" });
+			expect(ownerRow).toMatchObject({
+				status: "running",
+				sessionId: ids("session-au6-boundary"),
+			});
 			return {
-				sessionId: "session-au6-boundary",
+				sessionId: ids("session-au6-boundary"),
 				outcome: "completed",
-				taskId: "task-au6",
+				taskId: ids("task-au6"),
 				forceReturnCount: 0,
 			};
 		});
@@ -175,18 +182,18 @@ describe("agent run boundary", () => {
 		expect(ownerRow).toMatchObject({
 			id: request.id,
 			sourceKind: "task",
-			sourceId: "task-au6",
+			sourceId: ids("task-au6"),
 			status: "completed",
-			sessionId: "session-au6-boundary",
+			sessionId: ids("session-au6-boundary"),
 		});
 	});
 
-	test("keeps failed execution lifecycle uniform when runtime throws", async ({ db }) => {
-		await seedBase(db);
+	test("keeps failed execution lifecycle uniform when runtime throws", async ({ db, ids }) => {
+		await seedBase(db, ids);
 		const ports = buildTestPorts();
-		const request = await createRequestForTest(db, sourceInput("routine", "throws"));
+		const request = await createRequestForTest(db, sourceInput(ids, "routine", ids("throws")));
 		vi.mocked(ports.sessionProvisioner!.admitSession).mockImplementation(async (_deps, params) => ({
-			sessionId: "session-au6-boundary",
+			sessionId: ids("session-au6-boundary"),
 			sessionContext: { taskId: params.taskId },
 		}));
 		vi.mocked(ports.sessionProvisioner!.runSession).mockRejectedValueOnce(
@@ -211,20 +218,20 @@ describe("agent run boundary", () => {
 		});
 	});
 
-	test("all source kinds can enter the boundary from a durable request", async ({ db }) => {
-		await seedBase(db);
+	test("all source kinds can enter the boundary from a durable request", async ({ db, ids }) => {
+		await seedBase(db, ids);
 		const ports = buildTestPorts();
 		const eventBus = new EventBus();
 		const lifecycle: Array<{ sourceKind: string; sourceId: string; state: string }> = [];
 		eventBus.on("agent_run_lifecycle_changed", (event) => lifecycle.push(event));
 		vi.mocked(ports.sessionProvisioner!.admitSession).mockImplementation(async (_deps, params) => ({
-			sessionId: "session-au6-boundary",
+			sessionId: ids("session-au6-boundary"),
 			sessionContext: { taskId: params.taskId },
 		}));
 		vi.mocked(ports.sessionProvisioner!.runSession).mockImplementation(async () => ({
-			sessionId: "session-au6-boundary",
+			sessionId: ids("session-au6-boundary"),
 			outcome: "completed",
-			taskId: "task-au6",
+			taskId: ids("task-au6"),
 			forceReturnCount: 0,
 		}));
 		for (const sourceKind of [
@@ -234,7 +241,7 @@ describe("agent run boundary", () => {
 			"knowledge",
 			"proposed_call",
 		] as const) {
-			const request = await createRequestForTest(db, sourceInput(sourceKind, "boundary"));
+			const request = await createRequestForTest(db, sourceInput(ids, sourceKind, ids("boundary")));
 			await executeAgentRunRequest(
 				{ db, eventBus, ports } as unknown as import("../contracts.js").RuntimeDeps,
 				{ mode: "durable", request, sandboxBasePath: "/tmp/au6-boundary" },
@@ -253,7 +260,10 @@ describe("agent run boundary", () => {
 			})),
 		);
 		expect(lifecycle.filter(({ sourceKind }) => sourceKind === "assistant")).toEqual([
-			expect.objectContaining({ sourceId: "assistant-boundary", state: "completed" }),
+			expect.objectContaining({
+				sourceId: `assistant-${ids("boundary")}`,
+				state: "completed",
+			}),
 		]);
 	});
 });

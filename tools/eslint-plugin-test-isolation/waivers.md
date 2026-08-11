@@ -13,26 +13,6 @@ increment 1 by running both rules over the whole lane.
 
 ## no-literal-entity-ids
 
-- `layers/agent-orchestration/agent-run-config/src/__tests__/agent-run-config-store.integration.test.ts`
-- `layers/agent-orchestration/connections/src/__tests__/connection-store-completeness.integration.test.ts`
-- `layers/agent-orchestration/filesystems/src/__tests__/injected-filesystems-for-provisioning.integration.test.ts`
-- `layers/agent-orchestration/run-orchestration/src/__tests__/admit-session-baked-agent-config.integration.test.ts`
-- `layers/agent-orchestration/run-orchestration/src/__tests__/admit-session-defense-in-depth-only.integration.test.ts`
-- `layers/agent-orchestration/run-orchestration/src/__tests__/admit-session-live-filesystems.integration.test.ts`
-- `layers/agent-orchestration/run-orchestration/src/__tests__/agent-run-boundary.integration.test.ts`
-- `layers/agent-orchestration/run-orchestration/src/__tests__/agent-session-runtime.integration.test.ts`
-- `layers/agent-orchestration/run-orchestration/src/__tests__/baked-transcript-mapping.integration.test.ts`
-- `layers/agent-orchestration/run-orchestration/src/__tests__/calling-thread-id-bake.integration.test.ts`
-- `layers/agent-orchestration/run-orchestration/src/__tests__/end-run-for-handoff.integration.test.ts`
-- `layers/agent-orchestration/run-orchestration/src/__tests__/provisioner-tool-context-thread-id.integration.test.ts`
-- `layers/agent-orchestration/run-orchestration/src/__tests__/request-run-stop-for-tasks.integration.test.ts`
-- `layers/agent-orchestration/run-orchestration/src/__tests__/session-not-returned-calling-thread-id.integration.test.ts`
-- `layers/agent-orchestration/run-orchestration/src/__tests__/transition-run-routine-collapse.integration.test.ts`
-- `layers/agent-orchestration/session-requests/src/__tests__/agent-session-requests.integration.test.ts`
-- `layers/agent-orchestration/src/__tests__/boot-lifecycle-drain.integration.test.ts`
-- `layers/agent-orchestration/src/__tests__/boot-provisioning-wiring.integration.test.ts`
-- `layers/agent-orchestration/src/__tests__/factory-run-config.integration.test.ts`
-- `layers/agent-orchestration/src/services/__tests__/session-stream-hub.integration.test.ts`
 - `layers/core-api/conversation/src/__tests__/assistant-turn-resolver.integration.test.ts`
 - `layers/core-api/conversation/src/__tests__/session-not-returned-notice.integration.test.ts`
 - `layers/core-api/knowledge/src/__tests__/knowledge-action-resolver.integration.test.ts`
@@ -199,9 +179,6 @@ increment 1 by running both rules over the whole lane.
 
 ## no-unscoped-table-read
 
-- `layers/agent-orchestration/run-orchestration/src/__tests__/request-run-stop-for-tasks.integration.test.ts`
-- `layers/agent-orchestration/session-requests/src/__tests__/agent-session-requests.integration.test.ts`
-- `layers/agent-orchestration/session-requests/src/__tests__/durable-queue-regressions.integration.test.ts`
 - `layers/core-api/conversation/src/__tests__/session-not-returned-notice.integration.test.ts`
 - `layers/core-api/knowledge/src/__tests__/knowledge-repository.au14-round2.integration.test.ts`
 - `layers/core-api/org/src/__tests__/org-edges.integration.test.ts`
