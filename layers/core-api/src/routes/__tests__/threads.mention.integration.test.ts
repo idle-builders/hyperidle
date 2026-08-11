@@ -24,6 +24,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
@@ -37,13 +38,15 @@ function authHeaders(extra: Record<string, string> = {}): Record<string, string>
 	};
 }
 
-async function seedBase(db: HyperIdleDb): Promise<void> {
+async function seedBase(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	const now = new Date().toISOString();
 
-	await db.insert(teams).values({ id: "p1", name: "Team Alpha", phase: "build", createdAt: now });
+	await db
+		.insert(teams)
+		.values({ id: ids("p1"), name: "Team Alpha", phase: "build", createdAt: now });
 	await db.insert(teamMembers).values({
-		id: "tm1",
-		teamId: "p1",
+		id: ids("tm1"),
+		teamId: ids("p1"),
 		capacity: 5,
 		activeBets: 0,
 		formedAt: now,
@@ -51,49 +54,49 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 
 	// Human founder (sender)
 	await db.insert(users).values({
-		id: "u-founder",
+		id: ids("u-founder"),
 		kind: "human",
 		name: "Alice Founder",
 		role: "founder",
 		status: "active",
-		teamId: "tm1",
+		teamId: ids("tm1"),
 		createdAt: now,
 	});
 
 	// AI agent (to be mentioned)
 	await db.insert(users).values({
-		id: "agent-aria",
+		id: ids("agent-aria"),
 		kind: "ai",
 		name: "Aria",
 		role: "builder",
 		status: "active",
-		teamId: "tm1",
+		teamId: ids("tm1"),
 		createdAt: now,
 	});
 
 	// Another AI agent
 	await db.insert(users).values({
-		id: "agent-bob",
+		id: ids("agent-bob"),
 		kind: "ai",
 		name: "Bob",
 		role: "reviewer",
 		status: "active",
-		teamId: "tm1",
+		teamId: ids("tm1"),
 		createdAt: now,
 	});
 
 	// A bet + task for hosting threads
 	await db.insert(bets).values({
-		id: "bet-1",
-		teamId: "p1",
+		id: ids("bet-1"),
+		teamId: ids("p1"),
 		description: "Test bet",
 		status: "active",
 		createdAt: now,
 	});
 	await db.insert(tasks).values({
-		id: "task-1",
-		betId: "bet-1",
-		teamId: "p1",
+		id: ids("task-1"),
+		betId: ids("bet-1"),
+		teamId: ids("p1"),
 		title: "Test task",
 		state: "in_progress",
 		createdAt: now,
@@ -110,17 +113,17 @@ describe("AE5 — @mention adds participant to thread (AC-1)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("message with @Aria adds Aria to thread participants", async ({ db, app }) => {
-		await seedBase(db);
+	test("message with @Aria adds Aria to thread participants", async ({ db, app, ids }) => {
+		await seedBase(db, ids);
 
 		// Create thread with only founder (Aria is NOT yet a participant)
 		const create = await app.request("/api/threads", {
 			method: "POST",
-			headers: authHeaders({ "X-Identity": "u-founder" }),
+			headers: authHeaders({ "X-Identity": ids("u-founder") }),
 			body: JSON.stringify({
 				hostKind: "task",
-				hostId: "task-1",
-				participants: ["u-founder"],
+				hostId: ids("task-1"),
+				participants: [ids("u-founder")],
 				initialMessage: {
 					type: "plain",
 					payload: { text: "Starting this task" },
@@ -133,12 +136,12 @@ describe("AE5 — @mention adds participant to thread (AC-1)", () => {
 		const threadId = createBody.thread.id;
 
 		// Verify Aria is NOT in participants yet
-		expect(createBody.thread.participants).not.toContain("agent-aria");
+		expect(createBody.thread.participants).not.toContain(ids("agent-aria"));
 
 		// Send message with @Aria mention
 		const mention = await app.request(`/api/threads/${threadId}/messages`, {
 			method: "POST",
-			headers: authHeaders({ "X-Identity": "u-founder" }),
+			headers: authHeaders({ "X-Identity": ids("u-founder") }),
 			body: JSON.stringify({
 				type: "plain",
 				payload: { text: "Hey @Aria please review this" },
@@ -154,19 +157,19 @@ describe("AE5 — @mention adds participant to thread (AC-1)", () => {
 		});
 		expect(getThread.status).toBe(200);
 		const threadBody = (await getThread.json()) as { thread: { participants: string[] } };
-		expect(threadBody.thread.participants).toContain("agent-aria");
+		expect(threadBody.thread.participants).toContain(ids("agent-aria"));
 	});
 
-	test("mentioned user appears in refs[] as MentionRef (AC-2)", async ({ db, app }) => {
-		await seedBase(db);
+	test("mentioned user appears in refs[] as MentionRef (AC-2)", async ({ db, app, ids }) => {
+		await seedBase(db, ids);
 
 		const create = await app.request("/api/threads", {
 			method: "POST",
-			headers: authHeaders({ "X-Identity": "u-founder" }),
+			headers: authHeaders({ "X-Identity": ids("u-founder") }),
 			body: JSON.stringify({
 				hostKind: "task",
-				hostId: "task-1",
-				participants: ["u-founder"],
+				hostId: ids("task-1"),
+				participants: [ids("u-founder")],
 				initialMessage: {
 					type: "plain",
 					payload: { text: "Starting" },
@@ -179,7 +182,7 @@ describe("AE5 — @mention adds participant to thread (AC-1)", () => {
 
 		const mention = await app.request(`/api/threads/${threadId}/messages`, {
 			method: "POST",
-			headers: authHeaders({ "X-Identity": "u-founder" }),
+			headers: authHeaders({ "X-Identity": ids("u-founder") }),
 			body: JSON.stringify({
 				type: "plain",
 				payload: { text: "Hey @Aria please check this out" },
@@ -201,23 +204,24 @@ describe("AE5 — @mention adds participant to thread (AC-1)", () => {
 		expect(mentionBody.message.payload.refs).toBeDefined();
 		const mentionRef = mentionBody.message.payload.refs?.find((r) => r.kind === "mention");
 		expect(mentionRef).toBeDefined();
-		expect(mentionRef?.identityId).toBe("agent-aria");
+		expect(mentionRef?.identityId).toBe(ids("agent-aria"));
 		expect(mentionRef?.displayName).toBe("Aria");
 	});
 
 	test("self-mention does NOT add sender to participants (already present)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedBase(db);
+		await seedBase(db, ids);
 
 		const create = await app.request("/api/threads", {
 			method: "POST",
-			headers: authHeaders({ "X-Identity": "u-founder" }),
+			headers: authHeaders({ "X-Identity": ids("u-founder") }),
 			body: JSON.stringify({
 				hostKind: "task",
-				hostId: "task-1",
-				participants: ["u-founder"],
+				hostId: ids("task-1"),
+				participants: [ids("u-founder")],
 				initialMessage: {
 					type: "plain",
 					payload: { text: "I am here" },
@@ -233,7 +237,7 @@ describe("AE5 — @mention adds participant to thread (AC-1)", () => {
 		// Self-mention: founder mentions themselves
 		const mention = await app.request(`/api/threads/${threadId}/messages`, {
 			method: "POST",
-			headers: authHeaders({ "X-Identity": "u-founder" }),
+			headers: authHeaders({ "X-Identity": ids("u-founder") }),
 			body: JSON.stringify({
 				type: "plain",
 				payload: { text: "Hey @Alice let me clarify" },
@@ -249,21 +253,21 @@ describe("AE5 — @mention adds participant to thread (AC-1)", () => {
 		});
 		const threadBody = (await getThread.json()) as { thread: { participants: string[] } };
 		// u-founder was already a participant; self-mention doesn't duplicate
-		expect(threadBody.thread.participants.filter((p) => p === "u-founder")).toHaveLength(1);
+		expect(threadBody.thread.participants.filter((p) => p === ids("u-founder"))).toHaveLength(1);
 		// Participant count stays same (no new entries for self)
 		expect(threadBody.thread.participants.length).toBeLessThanOrEqual(initialParticipantCount + 1);
 	});
 
-	test("unknown @name stays as plain text (no MentionRef, no error)", async ({ db, app }) => {
-		await seedBase(db);
+	test("unknown @name stays as plain text (no MentionRef, no error)", async ({ db, app, ids }) => {
+		await seedBase(db, ids);
 
 		const create = await app.request("/api/threads", {
 			method: "POST",
-			headers: authHeaders({ "X-Identity": "u-founder" }),
+			headers: authHeaders({ "X-Identity": ids("u-founder") }),
 			body: JSON.stringify({
 				hostKind: "task",
-				hostId: "task-1",
-				participants: ["u-founder"],
+				hostId: ids("task-1"),
+				participants: [ids("u-founder")],
 				initialMessage: {
 					type: "plain",
 					payload: { text: "Starting" },
@@ -277,7 +281,7 @@ describe("AE5 — @mention adds participant to thread (AC-1)", () => {
 		// @NoSuchPerson does not exist in DB — should be silently ignored
 		const res = await app.request(`/api/threads/${threadId}/messages`, {
 			method: "POST",
-			headers: authHeaders({ "X-Identity": "u-founder" }),
+			headers: authHeaders({ "X-Identity": ids("u-founder") }),
 			body: JSON.stringify({
 				type: "plain",
 				payload: { text: "Hey @NoSuchPerson check this" },
@@ -303,17 +307,18 @@ describe("AE5 — @mention adds participant to thread (AC-1)", () => {
 	test("@mention in initial thread creation message adds participant atomically", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedBase(db);
+		await seedBase(db, ids);
 
 		// Create thread with initial message that mentions Bob
 		const create = await app.request("/api/threads", {
 			method: "POST",
-			headers: authHeaders({ "X-Identity": "u-founder" }),
+			headers: authHeaders({ "X-Identity": ids("u-founder") }),
 			body: JSON.stringify({
 				hostKind: "task",
-				hostId: "task-1",
-				participants: ["u-founder"],
+				hostId: ids("task-1"),
+				participants: [ids("u-founder")],
 				initialMessage: {
 					type: "plain",
 					payload: { text: "Hey @Bob can you help here?" },
@@ -325,19 +330,23 @@ describe("AE5 — @mention adds participant to thread (AC-1)", () => {
 		const createBody = (await create.json()) as { thread: { id: string; participants: string[] } };
 
 		// Bob should be in participants immediately (atomic with thread creation)
-		expect(createBody.thread.participants).toContain("agent-bob");
+		expect(createBody.thread.participants).toContain(ids("agent-bob"));
 	});
 
-	test("multiple @mentions in one message add all mentioned participants", async ({ db, app }) => {
-		await seedBase(db);
+	test("multiple @mentions in one message add all mentioned participants", async ({
+		db,
+		app,
+		ids,
+	}) => {
+		await seedBase(db, ids);
 
 		const create = await app.request("/api/threads", {
 			method: "POST",
-			headers: authHeaders({ "X-Identity": "u-founder" }),
+			headers: authHeaders({ "X-Identity": ids("u-founder") }),
 			body: JSON.stringify({
 				hostKind: "task",
-				hostId: "task-1",
-				participants: ["u-founder"],
+				hostId: ids("task-1"),
+				participants: [ids("u-founder")],
 				initialMessage: {
 					type: "plain",
 					payload: { text: "Starting task" },
@@ -351,7 +360,7 @@ describe("AE5 — @mention adds participant to thread (AC-1)", () => {
 		// Mention both Aria and Bob Agent
 		const mention = await app.request(`/api/threads/${threadId}/messages`, {
 			method: "POST",
-			headers: authHeaders({ "X-Identity": "u-founder" }),
+			headers: authHeaders({ "X-Identity": ids("u-founder") }),
 			body: JSON.stringify({
 				type: "plain",
 				payload: { text: "Hey @Aria and @Bob please both check this" },
@@ -365,23 +374,24 @@ describe("AE5 — @mention adds participant to thread (AC-1)", () => {
 			headers: authHeaders(),
 		});
 		const threadBody = (await getThread.json()) as { thread: { participants: string[] } };
-		expect(threadBody.thread.participants).toContain("agent-aria");
-		expect(threadBody.thread.participants).toContain("agent-bob");
+		expect(threadBody.thread.participants).toContain(ids("agent-aria"));
+		expect(threadBody.thread.participants).toContain(ids("agent-bob"));
 	});
 
 	test("mentioning existing participant does not create duplicate in participants", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedBase(db);
+		await seedBase(db, ids);
 
 		const create = await app.request("/api/threads", {
 			method: "POST",
-			headers: authHeaders({ "X-Identity": "u-founder" }),
+			headers: authHeaders({ "X-Identity": ids("u-founder") }),
 			body: JSON.stringify({
 				hostKind: "task",
-				hostId: "task-1",
-				participants: ["u-founder", "agent-aria"],
+				hostId: ids("task-1"),
+				participants: [ids("u-founder"), ids("agent-aria")],
 				initialMessage: {
 					type: "plain",
 					payload: { text: "Starting" },
@@ -395,7 +405,7 @@ describe("AE5 — @mention adds participant to thread (AC-1)", () => {
 		// Mention Aria who is already a participant
 		await app.request(`/api/threads/${threadId}/messages`, {
 			method: "POST",
-			headers: authHeaders({ "X-Identity": "u-founder" }),
+			headers: authHeaders({ "X-Identity": ids("u-founder") }),
 			body: JSON.stringify({
 				type: "plain",
 				payload: { text: "Hey @Aria again" },
@@ -409,7 +419,7 @@ describe("AE5 — @mention adds participant to thread (AC-1)", () => {
 		});
 		const threadBody = (await getThread.json()) as { thread: { participants: string[] } };
 		// Aria should appear exactly once
-		expect(threadBody.thread.participants.filter((p) => p === "agent-aria")).toHaveLength(1);
+		expect(threadBody.thread.participants.filter((p) => p === ids("agent-aria"))).toHaveLength(1);
 	});
 });
 
@@ -426,24 +436,24 @@ describe("AE5 — thread detail with hostTitle and extended identities (Task 5)"
 	// After the fix, POST /api/threads/:id/messages always attributes to c.get("userId")
 	// (the auth principal = u-founder), so agent-aria cannot send via X-Identity.
 	// Seeding agent messages directly tests the same observable: isAgent in identities.
-	test("AI agent identity includes isAgent: true in thread detail", async ({ db, app }) => {
-		await seedBase(db);
+	test("AI agent identity includes isAgent: true in thread detail", async ({ db, app, ids }) => {
+		await seedBase(db, ids);
 		const now = new Date().toISOString();
 
 		// Seed thread + messages directly
 		await db.insert(threads).values({
-			id: "thr-ae5-identity-009",
+			id: ids("thr-ae5-identity-009"),
 			hostKind: "task",
-			hostId: "task-1",
-			initiatorId: "u-founder",
-			participants: JSON.stringify(["u-founder", "agent-aria"]),
+			hostId: ids("task-1"),
+			initiatorId: ids("u-founder"),
+			participants: JSON.stringify([ids("u-founder"), ids("agent-aria")]),
 			lastActiveAt: now,
 			createdAt: now,
 		});
 		await db.insert(messages).values({
-			id: "msg-human-009",
-			threadId: "thr-ae5-identity-009",
-			senderId: "u-founder",
+			id: ids("msg-human-009"),
+			threadId: ids("thr-ae5-identity-009"),
+			senderId: ids("u-founder"),
 			type: "plain",
 			payload: JSON.stringify({ text: "hello" }),
 			clientKey: "ae5-identity-009",
@@ -451,16 +461,16 @@ describe("AE5 — thread detail with hostTitle and extended identities (Task 5)"
 		});
 		// Agent message seeded directly (not via API) to test isAgent identity field
 		await db.insert(messages).values({
-			id: "msg-agent-009",
-			threadId: "thr-ae5-identity-009",
-			senderId: "agent-aria",
+			id: ids("msg-agent-009"),
+			threadId: ids("thr-ae5-identity-009"),
+			senderId: ids("agent-aria"),
 			type: "plain",
 			payload: JSON.stringify({ text: "agent reply" }),
 			clientKey: "ae5-identity-agent-009",
 			createdAt: now,
 		});
 
-		const res = await app.request("/api/threads/thr-ae5-identity-009", {
+		const res = await app.request(`/api/threads/${ids("thr-ae5-identity-009")}`, {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -470,19 +480,19 @@ describe("AE5 — thread detail with hostTitle and extended identities (Task 5)"
 			identities: Record<string, { name: string; role?: string; isAgent?: boolean }>;
 		};
 
-		expect(body.identities["agent-aria"]?.isAgent).toBe(true);
+		expect(body.identities[ids("agent-aria")]?.isAgent).toBe(true);
 	});
 
-	test("human identity does not have isAgent: true", async ({ db, app }) => {
-		await seedBase(db);
+	test("human identity does not have isAgent: true", async ({ db, app, ids }) => {
+		await seedBase(db, ids);
 
 		const create = await app.request("/api/threads", {
 			method: "POST",
-			headers: authHeaders({ "X-Identity": "u-founder" }),
+			headers: authHeaders({ "X-Identity": ids("u-founder") }),
 			body: JSON.stringify({
 				hostKind: "task",
-				hostId: "task-1",
-				participants: ["u-founder"],
+				hostId: ids("task-1"),
+				participants: [ids("u-founder")],
 				initialMessage: {
 					type: "plain",
 					payload: { text: "human message" },
@@ -501,19 +511,19 @@ describe("AE5 — thread detail with hostTitle and extended identities (Task 5)"
 		};
 
 		// Human should either have isAgent: false or undefined (not true)
-		expect(body.identities["u-founder"]?.isAgent).not.toBe(true);
+		expect(body.identities[ids("u-founder")]?.isAgent).not.toBe(true);
 	});
 
-	test("thread detail includes hostTitle for task-hosted thread", async ({ db, app }) => {
-		await seedBase(db);
+	test("thread detail includes hostTitle for task-hosted thread", async ({ db, app, ids }) => {
+		await seedBase(db, ids);
 
 		const create = await app.request("/api/threads", {
 			method: "POST",
-			headers: authHeaders({ "X-Identity": "u-founder" }),
+			headers: authHeaders({ "X-Identity": ids("u-founder") }),
 			body: JSON.stringify({
 				hostKind: "task",
-				hostId: "task-1",
-				participants: ["u-founder"],
+				hostId: ids("task-1"),
+				participants: [ids("u-founder")],
 				initialMessage: {
 					type: "plain",
 					payload: { text: "hello" },
@@ -544,24 +554,25 @@ describe("AE5 — thread detail with hostTitle and extended identities (Task 5)"
 	test("an agent sender is flagged isAgent and carries no run-derived status", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedBase(db);
+		await seedBase(db, ids);
 		const now = new Date().toISOString();
 
 		// Seed thread + agent message directly
 		await db.insert(threads).values({
-			id: "thr-ae5-idle-012",
+			id: ids("thr-ae5-idle-012"),
 			hostKind: "task",
-			hostId: "task-1",
-			initiatorId: "u-founder",
-			participants: JSON.stringify(["u-founder", "agent-aria"]),
+			hostId: ids("task-1"),
+			initiatorId: ids("u-founder"),
+			participants: JSON.stringify([ids("u-founder"), ids("agent-aria")]),
 			lastActiveAt: now,
 			createdAt: now,
 		});
 		await db.insert(messages).values({
-			id: "msg-human-idle-012",
-			threadId: "thr-ae5-idle-012",
-			senderId: "u-founder",
+			id: ids("msg-human-idle-012"),
+			threadId: ids("thr-ae5-idle-012"),
+			senderId: ids("u-founder"),
 			type: "plain",
 			payload: JSON.stringify({ text: "hello" }),
 			clientKey: "ae5-status-idle-012",
@@ -569,16 +580,16 @@ describe("AE5 — thread detail with hostTitle and extended identities (Task 5)"
 		});
 		// A second, agent-authored message so the identity map covers an AI sender.
 		await db.insert(messages).values({
-			id: "msg-agent-idle-012",
-			threadId: "thr-ae5-idle-012",
-			senderId: "agent-aria",
+			id: ids("msg-agent-idle-012"),
+			threadId: ids("thr-ae5-idle-012"),
+			senderId: ids("agent-aria"),
 			type: "plain",
 			payload: JSON.stringify({ text: "reply" }),
 			clientKey: "ae5-status-idle-reply-012",
 			createdAt: now,
 		});
 
-		const res = await app.request("/api/threads/thr-ae5-idle-012", {
+		const res = await app.request(`/api/threads/${ids("thr-ae5-idle-012")}`, {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -586,7 +597,7 @@ describe("AE5 — thread detail with hostTitle and extended identities (Task 5)"
 			identities: Record<string, Record<string, unknown>>;
 		};
 
-		const agentIdentity = body.identities["agent-aria"];
+		const agentIdentity = body.identities[ids("agent-aria")];
 		expect(agentIdentity?.isAgent).toBe(true);
 		expect(agentIdentity).not.toHaveProperty("operationalStatus");
 	});
