@@ -1,8 +1,5 @@
 {
 	"$schema": "https://biomejs.dev/schemas/2.5.4/schema.json",
-	"files": {
-		"includes": ["**", "!tools/trace/graph.json"]
-	},
 	"assist": { "actions": { "source": { "organizeImports": "on" } } },
 	"javascript": {
 		"globals": ["React", "JSX", "jest"]
@@ -143,6 +140,7 @@
 			"!**/.astro",
 			"!**/*.astro",
 			"!**/*.db",
+			"!tools/trace/graph.json",
 			"!**/coverage",
 			"!**/playwright-report",
 			"!**/playwright-report-ah1",

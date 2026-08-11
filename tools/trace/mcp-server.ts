@@ -125,9 +125,7 @@ server.registerTool(
 							tables: d.touches.tables,
 							events: d.touches.events,
 							crossLayerCalls: d.touches.ports,
-							functions: d.touches.calls
-								.filter((c) => !c.startsWith("di:"))
-								.slice(0, 20),
+							functions: d.touches.calls.filter((c) => !c.startsWith("di:")).slice(0, 20),
 							functionCount: d.touches.calls.length,
 						}
 					: null,
