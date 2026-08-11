@@ -29,6 +29,11 @@ const HARNESS_INCLUDE = [
 	// @lore AU19 Increment 5 (item 2): `packages/server` dissolved — these files
 	// (and the composition root itself) relocated to `layers/core-api/src/`.
 	"layers/agent-execution/harness-registry/src/__tests__/**/*.integration.test.ts",
+	// @lore AU36: the AN1 real-harness inherited-reach pin moved with the probes
+	// into the connections package. Explicit entry required — the list is
+	// explicit, and without it the file matches the service lane's
+	// `layers/**` include and hard-fails CI where the binaries are absent.
+	"layers/agent-orchestration/connections/src/__tests__/AN1-real-harness-inherited.integration.test.ts",
 	"layers/core-api/src/__tests__/real-harness-return-enforcement-realbinary.integration.test.ts",
 	"layers/core-api/src/__tests__/AL7-two-session-trust-first.integration.test.ts",
 	"layers/core-api/src/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts",
