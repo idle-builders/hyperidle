@@ -1,0 +1,194 @@
+[
+	{
+		"recipe": "input|input input-bordered input-sm",
+		"count": 6,
+		"sites": [
+			"layers/core-ui/src/pages/AgentAddDialog.tsx:174",
+			"layers/core-ui/src/pages/AgentAddDialog.tsx:232",
+			"layers/core-ui/src/pages/AgentAddDialog.tsx:271",
+			"layers/core-ui/src/pages/work/AgentDetailPane.tsx:267",
+			"layers/core-ui/src/pages/work/AgentDetailPane.tsx:308",
+			"layers/core-ui/src/pages/work/RoutineDetailPane.tsx:315"
+		]
+	},
+	{
+		"recipe": "input|input input-bordered input-sm text-base",
+		"count": 5,
+		"sites": [
+			"layers/core-ui/src/pages/KnowledgeCreate.tsx:249",
+			"layers/core-ui/src/pages/knowledge/KnowledgeCreateDialog.tsx:167",
+			"layers/core-ui/src/pages/knowledge/KnowledgeCreateDialog.tsx:225",
+			"layers/core-ui/src/pages/knowledge/ScopeChangeDialog.tsx:185",
+			"layers/core-ui/src/pages/work/RoutineCreateDialog.tsx:149"
+		]
+	},
+	{
+		"recipe": "input|(no visual classes)",
+		"count": 4,
+		"sites": [
+			"framework/design-system/src/Checkbox.tsx:36",
+			"layers/core-ui/src/pages/KnowledgeList.tsx:1009",
+			"layers/core-ui/src/pages/SetupFlow.tsx:633",
+			"layers/core-ui/src/pages/SetupFlow.tsx:762"
+		]
+	},
+	{
+		"recipe": "textarea|textarea textarea-bordered",
+		"count": 3,
+		"sites": [
+			"layers/core-ui/src/pages/AgentAddDialog.tsx:211",
+			"layers/core-ui/src/pages/work/AgentDetailPane.tsx:221",
+			"layers/core-ui/src/pages/work/RoutineDetailPane.tsx:337"
+		]
+	},
+	{
+		"recipe": "textarea|h-20 text-base textarea textarea-bordered",
+		"count": 3,
+		"sites": [
+			"layers/core-ui/src/pages/WorkBet.tsx:386",
+			"layers/core-ui/src/pages/knowledge/ScopeChangeDialog.tsx:201",
+			"layers/core-ui/src/shell/TaskSheet.tsx:512"
+		]
+	},
+	{
+		"recipe": "textarea|bg-[var(--surface-container)] border-[var(--border-default)] min-h-[72px] text-[13px] textarea textarea-sm",
+		"count": 2,
+		"sites": [
+			"layers/core-ui/src/pages/WorkBet.tsx:1181",
+			"layers/core-ui/src/pages/WorkBet.tsx:1198"
+		]
+	},
+	{
+		"recipe": "textarea|bg-[var(--surface-page)] border-[1.5px] border-[var(--border-default)] min-h-[44px] px-[12px] py-[9px] rounded-[var(--r-default)] text-[15px]",
+		"count": 1,
+		"sites": [
+			"framework/design-system/src/Composer.tsx:86"
+		]
+	},
+	{
+		"recipe": "textarea|leading-[1.55] min-h-[80px] «dyn»",
+		"count": 1,
+		"sites": [
+			"framework/design-system/src/Input.tsx:73"
+		]
+	},
+	{
+		"recipe": "input|«dyn»",
+		"count": 1,
+		"sites": [
+			"framework/design-system/src/Input.tsx:82"
+		]
+	},
+	{
+		"recipe": "input|bg-[var(--surface-page)] px-[9px] py-[6px] rounded-[var(--r-subtle)] text-[13px]",
+		"count": 1,
+		"sites": [
+			"framework/design-system/src/RoleCombobox.tsx:217"
+		]
+	},
+	{
+		"recipe": "input|bg-[var(--surface-container)] border border-[var(--border-subtle)] font-[family-name:var(--font-sans)] h-[32px] pl-[36px] pr-[48px] rounded-[var(--r-default)] text-[13px]",
+		"count": 1,
+		"sites": [
+			"framework/design-system/src/SearchField.tsx:38"
+		]
+	},
+	{
+		"recipe": "select|«dyn»",
+		"count": 1,
+		"sites": [
+			"framework/design-system/src/Select.tsx:84"
+		]
+	},
+	{
+		"recipe": "textarea|bg-transparent border-none leading-[1.5] min-h-[72px] outline-none py-[3px] text-[15px]",
+		"count": 1,
+		"sites": [
+			"layers/core-ui/src/components/ConversationSurface.tsx:373"
+		]
+	},
+	{
+		"recipe": "textarea|bg-[var(--surface-elevated)] border border-[var(--border-default)] min-h-[80px] p-[8px] rounded-[var(--r-subtle)] text-[13px]",
+		"count": 1,
+		"sites": [
+			"layers/core-ui/src/components/RecipientPicker.tsx:239"
+		]
+	},
+	{
+		"recipe": "textarea|bg-transparent border-none leading-[1.5] min-h-[48px] outline-none py-[3px] text-[15px]",
+		"count": 1,
+		"sites": [
+			"layers/core-ui/src/components/SessionView.tsx:599"
+		]
+	},
+	{
+		"recipe": "input|bg-transparent border-none outline-none p-0 «dyn»",
+		"count": 1,
+		"sites": [
+			"layers/core-ui/src/pages/KnowledgeCreate.tsx:146"
+		]
+	},
+	{
+		"recipe": "input|bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] outline-none pl-[36px] px-[12px] py-[10px] rounded-[var(--r-default)] text-[15px]",
+		"count": 1,
+		"sites": [
+			"layers/core-ui/src/pages/SetupFlow.tsx:837"
+		]
+	},
+	{
+		"recipe": "input|h-[16px]",
+		"count": 1,
+		"sites": [
+			"layers/core-ui/src/pages/review/ReviewFieldChangeSet.tsx:146"
+		]
+	},
+	{
+		"recipe": "input|range range-xs",
+		"count": 1,
+		"sites": [
+			"layers/core-ui/src/pages/review/ReviewVisualDiff.tsx:300"
+		]
+	},
+	{
+		"recipe": "textarea|text-base textarea textarea-bordered textarea-sm",
+		"count": 1,
+		"sites": [
+			"layers/core-ui/src/pages/work/RoutineCreateDialog.tsx:163"
+		]
+	},
+	{
+		"recipe": "input|font-mono input input-bordered input-sm text-base",
+		"count": 1,
+		"sites": [
+			"layers/core-ui/src/pages/work/RoutineCreateDialog.tsx:234"
+		]
+	},
+	{
+		"recipe": "input|font-[family-name:var(--font-mono)] input input-bordered input-sm",
+		"count": 1,
+		"sites": [
+			"layers/core-ui/src/pages/work/RoutineDetailPane.tsx:405"
+		]
+	},
+	{
+		"recipe": "input|checkbox checkbox-sm",
+		"count": 1,
+		"sites": [
+			"layers/core-ui/src/pages/work/RoutineDetailPane.tsx:420"
+		]
+	},
+	{
+		"recipe": "input|bg-[var(--surface-page)] border-[1.5px] border-[var(--border-default)] outline-none rounded-[var(--r-default)] text-[13px]",
+		"count": 1,
+		"sites": [
+			"layers/core-ui/src/shell/HostThreadSection.tsx:333"
+		]
+	},
+	{
+		"recipe": "input|radio radio-sm",
+		"count": 1,
+		"sites": [
+			"layers/core-ui/src/shell/TaskSheet.tsx:495"
+		]
+	}
+]

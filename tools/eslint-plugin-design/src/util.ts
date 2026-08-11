@@ -316,6 +316,122 @@ export function collectClassStringsFromJSXAttribute(
 }
 
 /**
+ * Deep variant of `collectClassStringsFromExpression` — walks EVERY call
+ * expression's arguments and, for a member-call receiver (`[...].join(" ")`),
+ * the receiver too. The shallow collector only widens into `cn()`/`clsx()`-style
+ * named helpers; it never chases `.join()`, so `className={[...].join(" ")}` —
+ * a real, measured pattern (AZ7 measurement `scan.mjs`/`predicates.mjs`, which
+ * use this exact traversal shape) — is invisible to it. `no-off-scale-radius`
+ * silently passed `Checkbox.tsx`'s `rounded-[6px]` for this reason: the class
+ * list is built via `[...].join(" ")` and the shallow walker stops at the
+ * `CallExpression` because `.join` is a `MemberExpression` callee, not a bare
+ * `Identifier` named `cn`/`clsx`/etc.
+ *
+ * @lore AZ7 E2/E6: kept as a SEPARATE exported function rather than changing
+ * `collectClassStringsFromExpression` in place — that function backs 20+ other
+ * rules already at `error` in production; widening it in place risks surfacing
+ * new findings in files those rules currently read as clean, outside this
+ * work package's scope. The two new AZ7 rules (`radius-token-only`,
+ * `no-handrolled-control`) use the deep variant so their site counts match the
+ * measurement's `predicate-sites.json`, which is what `migration-backlog.md`
+ * and the scope-line arithmetic in the approved plan are built from.
+ */
+export function collectClassStringsFromExpressionDeep(
+	expr: unknown,
+): Array<{ text: string; node: AnyNode }> {
+	const out: Array<{ text: string; node: AnyNode }> = [];
+	function walk(n: unknown): void {
+		if (!n || typeof n !== "object") return;
+		const node = n as WalkNode;
+		switch (node.type) {
+			case "Literal": {
+				if (typeof node.value === "string") {
+					out.push({ text: node.value as string, node: node as JSSyntaxElement });
+				}
+				return;
+			}
+			case "TemplateLiteral": {
+				const quasis = node.quasis as Array<TemplateElement>;
+				for (const q of quasis) {
+					const text = q.value.cooked ?? q.value.raw;
+					if (typeof text === "string" && text.length > 0) {
+						out.push({ text, node: q as JSSyntaxElement });
+					}
+				}
+				const exprs = node.expressions as unknown[];
+				for (const sub of exprs) walk(sub);
+				return;
+			}
+			case "ArrayExpression": {
+				const elements = node.elements as unknown[];
+				for (const el of elements) walk(el);
+				return;
+			}
+			case "ObjectExpression": {
+				const props = node.properties as Array<{
+					type: string;
+					key?: unknown;
+					value?: unknown;
+				}>;
+				for (const p of props) {
+					if (p.type === "Property") walk(p.key);
+				}
+				return;
+			}
+			case "CallExpression": {
+				const args = node.arguments as unknown[];
+				for (const a of args) walk(a);
+				// `[...].join(" ")` / `arr.filter(Boolean).join(" ")` — also walk the
+				// receiver of a member-call, whatever its name (not just cn/clsx).
+				const callee = node.callee as WalkNode;
+				if (callee.type === "MemberExpression") {
+					walk((callee as { object?: unknown }).object);
+				}
+				return;
+			}
+			case "ConditionalExpression": {
+				walk(node.consequent);
+				walk(node.alternate);
+				return;
+			}
+			case "LogicalExpression":
+			case "BinaryExpression": {
+				walk(node.left);
+				walk(node.right);
+				return;
+			}
+			case "ParenthesizedExpression": {
+				walk((node as { expression?: unknown }).expression);
+				return;
+			}
+		}
+	}
+	walk(expr);
+	return out;
+}
+
+/**
+ * Deep variant of `collectClassStringsFromJSXAttribute` — see
+ * `collectClassStringsFromExpressionDeep` for why this exists as a sibling
+ * function rather than a change to the shallow one.
+ */
+export function collectClassStringsFromJSXAttributeDeep(
+	attr: unknown,
+): Array<{ text: string; node: AnyNode }> {
+	if (!attr || typeof attr !== "object") return [];
+	const a = attr as { value?: WalkNode | null };
+	const v = a.value;
+	if (!v) return [];
+	if (v.type === "Literal" && typeof v.value === "string") {
+		return [{ text: v.value as string, node: v as JSSyntaxElement }];
+	}
+	if (v.type === "JSXExpressionContainer") {
+		return collectClassStringsFromExpressionDeep(v.expression);
+	}
+	return [];
+}
+
+/**
  * Tiny helper so each rule can build a Rule.RuleModule without ts-eslint Utils.
  * Keeps the rule files free of boilerplate.
  */

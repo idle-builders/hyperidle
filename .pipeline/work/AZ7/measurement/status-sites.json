@@ -1,0 +1,1120 @@
+{
+	"statusChipUses": [
+		{
+			"file": "framework/design-system/src/BetCard.tsx",
+			"line": 144,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status",
+				"label"
+			]
+		},
+		{
+			"file": "framework/design-system/src/BetCard.tsx",
+			"line": 151,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status",
+				"label"
+			]
+		},
+		{
+			"file": "framework/design-system/src/CommentRow.tsx",
+			"line": 196,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status"
+			]
+		},
+		{
+			"file": "framework/design-system/src/KnowledgeRow.tsx",
+			"line": 97,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status"
+			]
+		},
+		{
+			"file": "framework/design-system/src/NotificationRow.tsx",
+			"line": 61,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status"
+			]
+		},
+		{
+			"file": "framework/design-system/src/RichMessageCard.tsx",
+			"line": 490,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status"
+			]
+		},
+		{
+			"file": "framework/design-system/src/TaskCard.tsx",
+			"line": 42,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status"
+			]
+		},
+		{
+			"file": "framework/design-system/src/ThreadHostBanner.tsx",
+			"line": 125,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status"
+			]
+		},
+		{
+			"file": "framework/design-system/src/ThreadRow.tsx",
+			"line": 181,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status"
+			]
+		},
+		{
+			"file": "layers/core-ui/src/components/CredentialsTab.tsx",
+			"line": 232,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status",
+				"label"
+			]
+		},
+		{
+			"file": "layers/core-ui/src/components/RecipientPicker.tsx",
+			"line": 212,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status"
+			]
+		},
+		{
+			"file": "layers/core-ui/src/pages/AgentProfile.tsx",
+			"line": 224,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status",
+				"label"
+			]
+		},
+		{
+			"file": "layers/core-ui/src/pages/AgentProfile.tsx",
+			"line": 436,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status"
+			]
+		},
+		{
+			"file": "layers/core-ui/src/pages/KnowledgeDetail.tsx",
+			"line": 815,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status"
+			]
+		},
+		{
+			"file": "layers/core-ui/src/pages/KnowledgeDetail.tsx",
+			"line": 1066,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status"
+			]
+		},
+		{
+			"file": "layers/core-ui/src/pages/KnowledgeList.tsx",
+			"line": 510,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status",
+				"label"
+			]
+		},
+		{
+			"file": "layers/core-ui/src/pages/KnowledgeList.tsx",
+			"line": 738,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status",
+				"label"
+			]
+		},
+		{
+			"file": "layers/core-ui/src/pages/WorkBet.tsx",
+			"line": 813,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status",
+				"label"
+			]
+		},
+		{
+			"file": "layers/core-ui/src/pages/WorkBet.tsx",
+			"line": 1047,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status",
+				"label"
+			]
+		},
+		{
+			"file": "layers/core-ui/src/pages/WorkBet.tsx",
+			"line": 1389,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status",
+				"label"
+			]
+		},
+		{
+			"file": "layers/core-ui/src/pages/WorkBet.tsx",
+			"line": 1400,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status",
+				"label"
+			]
+		},
+		{
+			"file": "layers/core-ui/src/pages/WorkOverview.tsx",
+			"line": 171,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status"
+			]
+		},
+		{
+			"file": "layers/core-ui/src/pages/WorkTask.tsx",
+			"line": 213,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status",
+				"label"
+			]
+		},
+		{
+			"file": "layers/core-ui/src/pages/WorkTask.tsx",
+			"line": 247,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status",
+				"label"
+			]
+		},
+		{
+			"file": "layers/core-ui/src/pages/WorkTeam.tsx",
+			"line": 709,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status"
+			]
+		},
+		{
+			"file": "layers/core-ui/src/pages/WorkTeam.tsx",
+			"line": 831,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status",
+				"label"
+			]
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewBatch.tsx",
+			"line": 266,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status",
+				"label"
+			]
+		},
+		{
+			"file": "layers/core-ui/src/pages/work/RoutineDetailPane.tsx",
+			"line": 280,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status"
+			]
+		},
+		{
+			"file": "layers/core-ui/src/settings/SettingsAgentBehavior.tsx",
+			"line": 285,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status",
+				"label"
+			]
+		},
+		{
+			"file": "layers/core-ui/src/settings/SettingsAgents.tsx",
+			"line": 470,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status",
+				"label"
+			]
+		},
+		{
+			"file": "layers/core-ui/src/settings/SettingsConnections.tsx",
+			"line": 258,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status",
+				"label"
+			]
+		},
+		{
+			"file": "layers/core-ui/src/settings/SettingsFilesystems.tsx",
+			"line": 171,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status",
+				"label"
+			]
+		},
+		{
+			"file": "layers/core-ui/src/settings/SettingsHarnesses.tsx",
+			"line": 130,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status",
+				"label"
+			]
+		},
+		{
+			"file": "layers/core-ui/src/settings/SettingsModels.tsx",
+			"line": 172,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status",
+				"label"
+			]
+		},
+		{
+			"file": "layers/core-ui/src/settings/SettingsModels.tsx",
+			"line": 207,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status",
+				"label"
+			]
+		},
+		{
+			"file": "layers/core-ui/src/settings/SettingsWorker.tsx",
+			"line": 65,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status",
+				"label"
+			]
+		},
+		{
+			"file": "layers/core-ui/src/shell/TaskSheet.tsx",
+			"line": 427,
+			"tag": "StatusChip",
+			"cls": "",
+			"attrs": [
+				"status"
+			]
+		}
+	],
+	"localStatusCandidates": [
+		{
+			"file": "framework/design-system/src/BetCard.tsx",
+			"line": 135,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "inline-flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-full bg-[var(--surface-container)] text-[var(--text-primary)] text-[11px] font-semibold"
+		},
+		{
+			"file": "framework/design-system/src/BetCard.tsx",
+			"line": 159,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": true,
+			"dot": false,
+			"cls": "inline-flex items-center text-[12px] font-[500] px-[9px] py-[3px] rounded-[var(--r-pill)] leading-[1.4] whitespace-nowrap ml-auto bg-[color-mix(in_oklab,var(--status-warning)_10%,transparent)] text-[var(--accent-secondary)]"
+		},
+		{
+			"file": "framework/design-system/src/BetCard.tsx",
+			"line": 214,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "inline-flex w-[24px] h-[24px] items-center justify-center rounded-full text-[9px] font-[600] shrink-0 -ml-[6px] bg-[var(--accent-primary-dim)] text-[var(--accent-deep)] border-[2px] border-[var(--surface-elevated)] bg-[var(--surface-page)] text-[var(--text-secondary)] border-[2px] border-[var(--surface-elevated)]"
+		},
+		{
+			"file": "framework/design-system/src/BetCard.tsx",
+			"line": 245,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "inline-flex w-[24px] h-[24px] items-center justify-center rounded-full text-[9px] font-[600] shrink-0 -ml-[6px] bg-[var(--accent-primary-dim)] text-[var(--accent-deep)] border-[2px] border-[var(--surface-elevated)] bg-[var(--surface-page)] text-[var(--text-secondary)] border-[2px] border-[var(--surface-elevated)]"
+		},
+		{
+			"file": "framework/design-system/src/CommentRow.tsx",
+			"line": 89,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": true,
+			"dot": false,
+			"cls": "inline-flex items-center px-[3px] py-[3px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--accent-primary)_8%,transparent)] text-[var(--accent-deep)]"
+		},
+		{
+			"file": "framework/design-system/src/KnowledgeRow.tsx",
+			"line": 99,
+			"tag": "span",
+			"pill": true,
+			"mono": true,
+			"upper": false,
+			"tinted": true,
+			"dot": false,
+			"cls": "inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps)] bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-tertiary)] shrink-0"
+		},
+		{
+			"file": "framework/design-system/src/LiveDot.tsx",
+			"line": 16,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "inline-block w-[6px] h-[6px] rounded-full bg-[var(--accent-primary)] animate-pulse shrink-0"
+		},
+		{
+			"file": "framework/design-system/src/NavItem.tsx",
+			"line": 78,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "h-[8px] w-[8px] rounded-full shrink-0 «dyn»"
+		},
+		{
+			"file": "framework/design-system/src/NotificationRow.tsx",
+			"line": 55,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "inline-flex w-[24px] h-[24px] rounded-full shrink-0 items-center justify-center"
+		},
+		{
+			"file": "framework/design-system/src/RichMessageCard.tsx",
+			"line": 207,
+			"tag": "span",
+			"pill": true,
+			"mono": true,
+			"upper": false,
+			"tinted": true,
+			"dot": false,
+			"cls": "inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[11px] font-mono tracking-[var(--tracking-caps-sm)] bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-secondary)]"
+		},
+		{
+			"file": "framework/design-system/src/RichMessageCard.tsx",
+			"line": 210,
+			"tag": "span",
+			"pill": false,
+			"mono": true,
+			"upper": true,
+			"tinted": false,
+			"dot": false,
+			"cls": "font-mono text-[11px] tracking-[var(--tracking-caps-sm)] uppercase font-medium text-[var(--status-success)]"
+		},
+		{
+			"file": "framework/design-system/src/RichMessageCard.tsx",
+			"line": 483,
+			"tag": "span",
+			"pill": true,
+			"mono": true,
+			"upper": false,
+			"tinted": true,
+			"dot": false,
+			"cls": "inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[11px] font-mono tracking-[var(--tracking-caps-sm)] bg-[color-mix(in_oklab,var(--accent-primary)_18%,transparent)] text-[var(--accent-deep)]"
+		},
+		{
+			"file": "framework/design-system/src/RowDot.tsx",
+			"line": 41,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "w-[6px] h-[6px] rounded-full shrink-0 inline-block"
+		},
+		{
+			"file": "framework/design-system/src/RowDot.tsx",
+			"line": 52,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "w-[6px] h-[6px] rounded-full shrink-0 inline-block"
+		},
+		{
+			"file": "framework/design-system/src/SearchField.tsx",
+			"line": 20,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "inline-block h-[14px] w-[14px] rounded-full border-2 border-[var(--border-subtle)] border-t-[var(--accent-primary)] animate-spin"
+		},
+		{
+			"file": "framework/design-system/src/SplitView.tsx",
+			"line": 124,
+			"tag": "button",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": true,
+			"dot": false,
+			"cls": "inline-flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[color-mix(in_oklab,var(--surface-page)_80%,transparent)] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:[outline-offset:1px]"
+		},
+		{
+			"file": "framework/design-system/src/StatusChip.tsx",
+			"line": 124,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "h-[6px] w-[6px] rounded-full shrink-0 «dyn»"
+		},
+		{
+			"file": "framework/design-system/src/ThreadHostBanner.tsx",
+			"line": 61,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "absolute bottom-0 right-0 w-[6px] h-[6px] rounded-full border-[1.5px] border-[var(--surface-container)] «dyn»"
+		},
+		{
+			"file": "framework/design-system/src/ThreadHostBanner.tsx",
+			"line": 132,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "relative inline-flex items-center justify-center w-[24px] h-[24px] rounded-full bg-[var(--surface-elevated)] text-[var(--text-tertiary)] text-[11px] font-medium border border-[var(--border-subtle)]"
+		},
+		{
+			"file": "framework/design-system/src/ThreadHostBanner.tsx",
+			"line": 144,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "inline-flex items-center justify-center w-[24px] h-[24px] rounded-full bg-[var(--surface-elevated)] text-[var(--text-tertiary)] text-[11px] font-medium border border-[var(--border-subtle)]"
+		},
+		{
+			"file": "framework/design-system/src/ThreadRow.tsx",
+			"line": 28,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "absolute bottom-0 right-0 w-[6px] h-[6px] rounded-full border-[1.5px] border-[var(--surface-elevated)] «dyn»"
+		},
+		{
+			"file": "framework/design-system/src/ThreadRow.tsx",
+			"line": 136,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "w-[8px] h-[8px] rounded-full shrink-0 bg-[var(--accent-primary)] bg-transparent"
+		},
+		{
+			"file": "framework/design-system/src/ThreadRow.tsx",
+			"line": 174,
+			"tag": "span",
+			"pill": true,
+			"mono": true,
+			"upper": false,
+			"tinted": true,
+			"dot": false,
+			"cls": "inline-flex items-center px-[6px] py-[3px] rounded-[var(--r-pill)] font-mono text-[10px] leading-[1.4] bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-secondary)] whitespace-nowrap"
+		},
+		{
+			"file": "framework/design-system/src/ThreadRow.tsx",
+			"line": 200,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": true,
+			"dot": false,
+			"cls": "inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)] text-[var(--status-error)] whitespace-nowrap shrink-0"
+		},
+		{
+			"file": "framework/design-system/src/ThreadRow.tsx",
+			"line": 212,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "relative w-[24px] h-[24px] rounded-full inline-flex items-center justify-center shrink-0 text-[9px] font-[600] leading-none border-[2px] border-[var(--surface-elevated)] ml-[-6px] bg-[var(--accent-primary-dim)] border-[var(--accent-deep)] text-[var(--accent-deep)] bg-[var(--surface-page)] border-[var(--border-default)] text-[var(--text-secondary)]"
+		},
+		{
+			"file": "framework/design-system/src/ThreadShell.tsx",
+			"line": 175,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": true,
+			"dot": false,
+			"cls": "inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--accent-primary)_18%,transparent)] text-[var(--accent-deep)]"
+		},
+		{
+			"file": "framework/design-system/src/ThreadShell.tsx",
+			"line": 205,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": true,
+			"dot": false,
+			"cls": "inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--accent-primary)_18%,transparent)] text-[var(--accent-deep)]"
+		},
+		{
+			"file": "framework/design-system/src/Toast.tsx",
+			"line": 59,
+			"tag": "div",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "h-[20px] w-[20px] shrink-0 rounded-full flex items-center justify-center text-[12px] font-bold «dyn» «dyn»"
+		},
+		{
+			"file": "framework/design-system/src/Toggle.tsx",
+			"line": 57,
+			"tag": "button",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "relative inline-flex shrink-0 h-[24px] w-[44px] items-center rounded-full border-[1.5px] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] bg-[var(--accent-primary)] border-[var(--accent-primary)] bg-[var(--border-default)] border-[var(--border-default)]"
+		},
+		{
+			"file": "framework/design-system/src/Toggle.tsx",
+			"line": 74,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "absolute top-[2px] h-[18px] w-[18px] rounded-full bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] transition-transform duration-[var(--motion-fast)] translate-x-[22px] translate-x-[2px]"
+		},
+		{
+			"file": "framework/design-system/src/Toggle.tsx",
+			"line": 99,
+			"tag": "button",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "relative inline-flex shrink-0 h-[24px] w-[44px] items-center rounded-full border-[1.5px] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] bg-[var(--accent-primary)] border-[var(--accent-primary)] bg-[var(--border-default)] border-[var(--border-default)]"
+		},
+		{
+			"file": "framework/design-system/src/Toggle.tsx",
+			"line": 116,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "absolute top-[2px] h-[18px] w-[18px] rounded-full bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] transition-transform duration-[var(--motion-fast)] translate-x-[22px] translate-x-[2px]"
+		},
+		{
+			"file": "framework/design-system/src/block/UnknownPayload.tsx",
+			"line": 19,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": true,
+			"tinted": true,
+			"dot": false,
+			"cls": "inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] uppercase tracking-[var(--tracking-caps-sm)] text-[11px] font-semibold bg-[color-mix(in_oklab,var(--status-warning)_15%,var(--surface-container))] text-[var(--status-warning)] border border-[var(--status-warning)]"
+		},
+		{
+			"file": "framework/design-system/src/kinds/compose-artifact-body.tsx",
+			"line": 173,
+			"tag": "span",
+			"pill": false,
+			"mono": true,
+			"upper": true,
+			"tinted": false,
+			"dot": false,
+			"cls": "text-xs text-[var(--text-tertiary)] font-mono uppercase w-32 shrink-0"
+		},
+		{
+			"file": "layers/core-ui/src/components/ConversationSurface.tsx",
+			"line": 180,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": true,
+			"tinted": false,
+			"dot": false,
+			"cls": "inline-flex items-center rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[9px] py-[1px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-deep)]"
+		},
+		{
+			"file": "layers/core-ui/src/components/PartList.tsx",
+			"line": 80,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full border text-[10px] font-[600] «dyn»"
+		},
+		{
+			"file": "layers/core-ui/src/components/RecipientPicker.tsx",
+			"line": 203,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "w-[5px] h-[5px] rounded-full bg-[var(--accent-primary)] animate-pulse"
+		},
+		{
+			"file": "layers/core-ui/src/components/SessionActivityPanel.tsx",
+			"line": 180,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "w-[5px] h-[5px] rounded-full bg-[var(--accent-primary)] animate-pulse"
+		},
+		{
+			"file": "layers/core-ui/src/components/SessionView.tsx",
+			"line": 697,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "inline-block h-[6px] w-[6px] rounded-full bg-[var(--accent-secondary)] motion-safe:animate-[skeleton-pulse_1.4s_ease-in-out_infinite]"
+		},
+		{
+			"file": "layers/core-ui/src/components/SessionView.tsx",
+			"line": 771,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": true,
+			"tinted": false,
+			"dot": false,
+			"cls": "inline-flex items-center gap-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[9px] py-[1px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-deep)]"
+		},
+		{
+			"file": "layers/core-ui/src/components/SessionView.tsx",
+			"line": 773,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "inline-block h-[6px] w-[6px] rounded-full bg-[var(--accent-secondary)] motion-safe:animate-[skeleton-pulse_1.4s_ease-in-out_infinite]"
+		},
+		{
+			"file": "layers/core-ui/src/components/parts/ToolPart.tsx",
+			"line": 60,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "inline-block h-[7px] w-[7px] shrink-0 rounded-full bg-[var(--accent-secondary)] motion-safe:animate-[skeleton-pulse_1.4s_ease-in-out_infinite]"
+		},
+		{
+			"file": "layers/core-ui/src/layouts/AppShell.tsx",
+			"line": 706,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "absolute top-[8px] right-[8px] w-[6px] h-[6px] rounded-full bg-[var(--accent-primary)]"
+		},
+		{
+			"file": "layers/core-ui/src/pages/Conversations.tsx",
+			"line": 408,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "w-[6px] h-[6px] rounded-full bg-[var(--accent-primary)] animate-pulse shrink-0"
+		},
+		{
+			"file": "layers/core-ui/src/pages/SetupFlow.tsx",
+			"line": 224,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "block w-[8px] h-[8px] rounded-full shrink-0"
+		},
+		{
+			"file": "layers/core-ui/src/pages/WorkTeam.tsx",
+			"line": 447,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "w-[24px] h-[24px] rounded-full shrink-0 flex items-center justify-center text-[9px] font-semibold text-[var(--accent-deep)]"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewActionOperation.tsx",
+			"line": 219,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "mt-[7px] h-[4px] w-[4px] shrink-0 rounded-full bg-[var(--text-tertiary)]"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewActionOperation.tsx",
+			"line": 237,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "mt-[3px] h-[12px] w-[12px] shrink-0 rounded-full border-2 border-[var(--status-error)]"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewActionOperation.tsx",
+			"line": 294,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "h-[14px] w-[14px] shrink-0 rounded-full border-2 border-[var(--text-tertiary)] border-t-transparent"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewActionOperation.tsx",
+			"line": 330,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "mt-[2px] flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewActionOperation.tsx",
+			"line": 400,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "h-[5px] w-[5px] rounded-full bg-[var(--status-warning)]"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewBatch.tsx",
+			"line": 186,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": true,
+			"tinted": true,
+			"dot": false,
+			"cls": "inline-flex items-center gap-[6px] px-[8px] py-[2px] rounded-full text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] leading-[1.4] whitespace-nowrap shrink-0 bg-[color-mix(in_oklab,var(--status-error)_14%,transparent)] text-[var(--status-error)]"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewBatch.tsx",
+			"line": 190,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "h-[6px] w-[6px] rounded-full shrink-0 bg-[var(--status-error)]"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewBatch.tsx",
+			"line": 284,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "h-[6px] w-[6px] rounded-full bg-[var(--status-success)] shrink-0"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewBatch.tsx",
+			"line": 329,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": true,
+			"dot": true,
+			"cls": "flex items-center justify-center h-[22px] w-[22px] shrink-0 rounded-full bg-[color-mix(in_oklab,var(--status-error)_12%,transparent)] text-[11px] font-[700] tabular-nums text-[var(--status-error)]"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewBatch.tsx",
+			"line": 385,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "h-[16px] w-[16px] rounded-full bg-[var(--accent-primary)] text-[var(--text-on-accent)] text-[9px] font-[700] inline-flex items-center justify-center shrink-0"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewBatch.tsx",
+			"line": 405,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "inline-flex h-[16px] w-[16px] items-center justify-center rounded-full bg-[var(--status-error)] text-[var(--text-on-accent)] text-[11px] font-[700] leading-none shrink-0"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewCodeDiff.tsx",
+			"line": 307,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": true,
+			"dot": false,
+			"cls": "inline-flex items-center gap-[6px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--status-success)_14%,transparent)] px-[9px] py-[3px] text-[12px] font-[600] text-[var(--status-success)]"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewCodeDiff.tsx",
+			"line": 472,
+			"tag": "div",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "w-[6px] h-[6px] rounded-full bg-[var(--accent-primary)]"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewCodeDiff.tsx",
+			"line": 682,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": true,
+			"tinted": true,
+			"dot": false,
+			"cls": "inline-flex items-center gap-[4px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--status-success)_14%,transparent)] px-[9px] py-[2px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--status-success)]"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewComposition.tsx",
+			"line": 455,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "mt-[6px] inline-block h-[7px] w-[7px] shrink-0 rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewComposition.tsx",
+			"line": 570,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": true,
+			"tinted": false,
+			"dot": false,
+			"cls": "rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[6px] py-[1px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-deep)]"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewMetricsMoved.tsx",
+			"line": 418,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": true,
+			"tinted": false,
+			"dot": false,
+			"cls": "rounded-[var(--r-pill)] px-[6px] py-[3px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)]"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewMetricsMoved.tsx",
+			"line": 425,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": true,
+			"tinted": false,
+			"dot": false,
+			"cls": "rounded-[var(--r-pill)] px-[6px] py-[3px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)]"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewOutcomeSummary.tsx",
+			"line": 84,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": true,
+			"tinted": false,
+			"dot": false,
+			"cls": "inline-flex items-center gap-[6px] rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[600] uppercase"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewOutcomeSummary.tsx",
+			"line": 129,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": true,
+			"tinted": false,
+			"dot": false,
+			"cls": "mt-[2px] inline-flex shrink-0 items-center rounded-[var(--r-pill)] px-[6px] py-[2px] text-[10px] font-[600] uppercase"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewUnknownCanvas.tsx",
+			"line": 28,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": true,
+			"tinted": false,
+			"dot": false,
+			"cls": "rounded-[var(--r-pill)] bg-[var(--surface-container)] px-[9px] py-[3px] text-[12px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/review-canvas.tsx",
+			"line": 167,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "h-[6px] w-[6px] rounded-full bg-[var(--accent-primary)]"
+		},
+		{
+			"file": "layers/core-ui/src/shell/Sidebar.tsx",
+			"line": 316,
+			"tag": "span",
+			"pill": true,
+			"mono": false,
+			"upper": false,
+			"tinted": false,
+			"dot": true,
+			"cls": "absolute top-[6px] right-[9px] w-[6px] h-[6px] rounded-full bg-[var(--status-error)]"
+		}
+	]
+}

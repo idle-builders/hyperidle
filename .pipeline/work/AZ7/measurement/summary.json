@@ -1,0 +1,41 @@
+{
+	"generatedFrom": "static scan of production .tsx under layers/ framework/ applications/",
+	"productionTsxFiles": 164,
+	"jsxElements": 3444,
+	"buttons": {
+		"rawButtonElements": 167,
+		"distinctStaticRecipes": 118,
+		"dsButtonUses": 74
+	},
+	"inputs": {
+		"rawInputElements": 42,
+		"distinctStaticRecipes": 25,
+		"dsInputLikeUses": 59
+	},
+	"radius": {
+		"rounded-[var(--r-subtle)]": 120,
+		"rounded-[var(--r-pill)]": 87,
+		"rounded-full": 69,
+		"rounded-[var(--r-default)]": 64,
+		"rounded": 8,
+		"rounded-[4px]": 5,
+		"rounded-[6px]": 4,
+		"rounded-[8px]": 2,
+		"rounded-t-[var(--r-default)]": 2,
+		"rounded-lg": 1,
+		"rounded-[2px]": 1
+	},
+	"cssBorderRadiusDecls": 7,
+	"surfaces": {
+		"--surface-elevated": 82,
+		"--surface-container": 79,
+		"--surface-page": 43,
+		"--accent-primary-dim": 15,
+		"--surface-overlay": 1
+	},
+	"status": {
+		"statusChipUses": 37,
+		"statusChipFiles": 27,
+		"localStatusCandidates": 69
+	}
+}

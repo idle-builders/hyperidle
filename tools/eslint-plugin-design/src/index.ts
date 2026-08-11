@@ -11,6 +11,7 @@ import type { ESLint, Linter, Rule } from "eslint";
 
 import { noAiAesthetic } from "./rules/no-ai-aesthetic.js";
 import { noDialogBoilerplate } from "./rules/no-dialog-boilerplate.js";
+import { noHandrolledControl } from "./rules/no-handrolled-control.js";
 import { noHandrolledPageHeader } from "./rules/no-handrolled-page-header.js";
 import { noHandrolledPageScaffold } from "./rules/no-handrolled-page-scaffold.js";
 import { noHandrolledSelect } from "./rules/no-handrolled-select.js";
@@ -22,7 +23,6 @@ import { noMockDataSymbol } from "./rules/no-mock-data-symbol.js";
 import { noOffGridSpacing } from "./rules/no-off-grid-spacing.js";
 import { noOffScaleDuration } from "./rules/no-off-scale-duration.js";
 import { noOffScaleFontSize } from "./rules/no-off-scale-font-size.js";
-import { noOffScaleRadius } from "./rules/no-off-scale-radius.js";
 import { noOpButton } from "./rules/no-op-button.js";
 import { noRawActorFetch } from "./rules/no-raw-actor-fetch.js";
 import { noRawOverlayZ } from "./rules/no-raw-overlay-z.js";
@@ -31,6 +31,7 @@ import { noRawTailwindColor } from "./rules/no-raw-tailwind-color.js";
 import { noUndefinedFontHeading } from "./rules/no-undefined-font-heading.js";
 import { noUngatedStreamDrain } from "./rules/no-ungated-stream-drain.js";
 import { noUnknownCast } from "./rules/no-unknown-cast.js";
+import { radiusTokenOnly } from "./rules/radius-token-only.js";
 import { requireDsAttribute } from "./rules/require-ds-attribute.js";
 import { requireFocusOnInteractive } from "./rules/require-focus-on-interactive.js";
 import { requireStoriesSibling } from "./rules/require-stories-sibling.js";
@@ -40,6 +41,7 @@ export const rules: Record<string, Rule.RuleModule> = {
 	"no-ungated-stream-drain": noUngatedStreamDrain,
 	"no-mock-data-import": noMockDataImport,
 	"no-mock-data-symbol": noMockDataSymbol,
+	"no-handrolled-control": noHandrolledControl,
 	"no-handrolled-page-header": noHandrolledPageHeader,
 	"no-handrolled-page-scaffold": noHandrolledPageScaffold,
 	"no-handrolled-select": noHandrolledSelect,
@@ -49,7 +51,7 @@ export const rules: Record<string, Rule.RuleModule> = {
 	"no-local-status-builder": noLocalStatusBuilder,
 	"no-off-grid-spacing": noOffGridSpacing,
 	"no-off-scale-duration": noOffScaleDuration,
-	"no-off-scale-radius": noOffScaleRadius,
+	"radius-token-only": radiusTokenOnly,
 	"no-off-scale-font-size": noOffScaleFontSize,
 	"no-ai-aesthetic": noAiAesthetic,
 	"no-op-button": noOpButton,
@@ -73,7 +75,11 @@ const recommendedRules: Linter.RulesRecord = {
 	"design/no-local-status-builder": "error",
 	"design/no-off-grid-spacing": "warn",
 	"design/no-off-scale-duration": "warn",
-	"design/no-off-scale-radius": "warn",
+	// AZ7 E6: radius-token-only replaces no-off-scale-radius outright — the old
+	// rule's allowlist permitted rounded-full, which is the pill's second,
+	// now-forbidden spelling.
+	"design/radius-token-only": "error",
+	"design/no-handrolled-control": "error",
 	"design/no-off-scale-font-size": "warn",
 	"design/no-ai-aesthetic": "warn",
 	"design/no-raw-actor-fetch": "warn",

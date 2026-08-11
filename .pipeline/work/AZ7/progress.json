@@ -1,0 +1,44 @@
+{
+  "id": "AZ7",
+  "title": "Close the visual system",
+  "status": "in-progress",
+  "phase": "build",
+  "procedure": "founder-approved custom procedure (plan.md, 2026-08-11): one combined refine+design+architecture artifact -> founder approval -> same-session build (tests then code) -> one fresh review round. No separate refine/design/architecture/critique phases, no second human gate.",
+  "worktree": "/Users/tg/hyperidle/.claude/worktrees/pipeline-az7-dbd5ab",
+  "branch": "claude/pipeline-az7-dbd5ab",
+  "base": "a8ed3ad95ac9f8124ba1463342cb09d514c7936a",
+  "sessions": [
+    {
+      "phase": "preflight",
+      "result": "clean: base fresh, no dependencies, rules present, bootstrapped"
+    },
+    {
+      "phase": "combined-round",
+      "result": "complete",
+      "artifact": ".pipeline/work/AZ7/combined-round.md"
+    }
+  ],
+  "artifacts": [
+    ".pipeline/work/AZ7/combined-round.md",
+    ".pipeline/work/AZ7/measurement/ (re-runnable scanners + raw data)"
+  ],
+  "approvals": [
+    {
+      "gate": "concept (combined-round.md)",
+      "by": "founder",
+      "date": "2026-08-12",
+      "decision": "APPROVED \u2014 recommended scope split (S4.1): radii, inputs, status close fully; buttons close partly (63 sites); remainder enumerated. No size cuts (all five axes, full enforcement). Icon buttons: one size=\"icon\", painted proof required. E5 recess rule: OUT, left to AZ15. Confirmed assumptions: delete Button variant=\"amber\"; rounded-[var(--r-pill)] is the one spelling of pill."
+    }
+  ],
+  "evaluations": 0,
+  "verdicts": [],
+  "parked": null,
+  "notes": [
+    "Plan's radius finding is wrong: 3.35544e+07px is Tailwind v4 rounded-full (calc(infinity * 1px)), not an off-scale value. Real off-scale radii: 21. The genuine defect is the two spellings of pill.",
+    "Source measurement is worse than the plan's rendered-DOM measurement: 118 button recipes (not 47), 25 input recipes over a surviving DaisyUI control system, 79 uses of --surface-container in 27 shapes. Status is better: StatusChip forked in only 5 named places.",
+    "Root cause of non-enforcement: `npm run lint` runs `eslint . --quiet`, which does not run warn-level rules at all; every core-ui design rule is at warn; three plugin rules are registered nowhere; `npm run lint:design` crashes on main.",
+    "BLOCKER OUTSIDE AZ7: .pipeline/AZ.md:23,57 links .pipeline/AZ-bugs.md as 'the main artifact of this track'. That file does not exist in the worktree or in git history; ~110 bug-list items are unregistered. Recreating it is a separate decision.",
+    "CORRECTION: .pipeline/AZ-bugs.md DOES exist (168 lines, ~150 items, Batches A-I) at /Users/tg/hyperidle/.claude/worktrees/ui-audit-optimization-8541a2/.pipeline/AZ-bugs.md. It is invisible to git because .gitignore:16 ignores .pipeline/* and re-includes only work-packages/, progress/, retro-log/, audits/, work/, [A-Z].md and [A-Z][A-Z].md - AZ-bugs.md matches no re-include. Untracked, exists on disk in that one worktree only; pruning it loses ~150 items. Fix is a one-line .gitignore re-include, NOT AZ7's job.",
+    "The bug list already excludes 'the visual system's closed sets' (its preamble) and its Batch D is exactly AZ7's migration population. AZ7 therefore does NOT create a rival backlog: it generates items in AZ-bugs.md format, deduped against Batch D."
+  ]
+}

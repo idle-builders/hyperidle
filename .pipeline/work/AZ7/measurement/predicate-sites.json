@@ -1,0 +1,3110 @@
+{
+	"radiusNonToken": [
+		{
+			"file": "layers/core-ui/src/components/ArtifactThreadsSummary.stories.tsx",
+			"line": 22,
+			"tag": "div",
+			"cls": "animate-pulse h-4 bg-[var(--surface-elevated)] rounded w-1/3",
+			"prod": false,
+			"token": "rounded"
+		},
+		{
+			"file": "layers/core-ui/src/components/ArtifactThreadsSummary.stories.tsx",
+			"line": 79,
+			"tag": "a",
+			"cls": "flex flex-col gap-0.5 px-3 py-2 rounded hover:bg-[var(--surface-container)] text-sm",
+			"prod": false,
+			"token": "rounded"
+		},
+		{
+			"file": "layers/core-ui/src/components/ArtifactThreadsSummary.stories.tsx",
+			"line": 116,
+			"tag": "a",
+			"cls": "flex flex-col gap-0.5 px-3 py-2 rounded hover:bg-[var(--surface-container)] text-sm",
+			"prod": false,
+			"token": "rounded"
+		},
+		{
+			"file": "layers/core-ui/src/components/ArtifactThreadsSummary.tsx",
+			"line": 96,
+			"tag": "Link",
+			"cls": "flex flex-col gap-0.5 px-3 py-2 rounded hover:bg-[var(--surface-container)] text-sm",
+			"prod": true,
+			"token": "rounded"
+		},
+		{
+			"file": "layers/core-ui/src/components/ConversationSurface.tsx",
+			"line": 136,
+			"tag": "div",
+			"cls": "inline-flex items-center justify-center rounded-full border-[1.5px] font-[600] shrink-0 «dyn»",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/components/ConversationSurface.tsx",
+			"line": 154,
+			"tag": "div",
+			"cls": "rounded-full ring-2 ring-[var(--surface-page)]",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/components/ErrorBoundary.tsx",
+			"line": 71,
+			"tag": "div",
+			"cls": "flex flex-col items-start gap-2 p-3 rounded-lg bg-[var(--surface-container)]",
+			"prod": true,
+			"token": "rounded-lg"
+		},
+		{
+			"file": "layers/core-ui/src/components/GlobalSearchPanel.tsx",
+			"line": 213,
+			"tag": "div",
+			"cls": "bg-[var(--surface-elevated)] rounded",
+			"prod": true,
+			"token": "rounded"
+		},
+		{
+			"file": "layers/core-ui/src/components/GlobalSearchPanel.tsx",
+			"line": 241,
+			"tag": "div",
+			"cls": "bg-[var(--surface-elevated)] rounded",
+			"prod": true,
+			"token": "rounded"
+		},
+		{
+			"file": "layers/core-ui/src/components/GlobalSearchPanel.tsx",
+			"line": 268,
+			"tag": "div",
+			"cls": "bg-[var(--surface-elevated)] rounded",
+			"prod": true,
+			"token": "rounded"
+		},
+		{
+			"file": "layers/core-ui/src/components/KnowledgeTopicGroup.tsx",
+			"line": 63,
+			"tag": "span",
+			"cls": "inline-block h-2 w-2 rounded-full shrink-0 sr-only «dyn»",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/components/PartList.tsx",
+			"line": 80,
+			"tag": "span",
+			"cls": "inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full border text-[10px] font-[600] «dyn»",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/components/RecipientPicker.tsx",
+			"line": 199,
+			"tag": "span",
+			"cls": "inline-flex items-center gap-[4px] px-[6px] py-[1px] rounded-full bg-[color-mix(in_oklab,var(--accent-primary)_14%,transparent)] text-[var(--accent-deep)] text-[10px] font-medium uppercase tracking-[0.05em]",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/components/RecipientPicker.tsx",
+			"line": 203,
+			"tag": "span",
+			"cls": "w-[5px] h-[5px] rounded-full bg-[var(--accent-primary)] animate-pulse",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/components/SessionActivityPanel.tsx",
+			"line": 175,
+			"tag": "span",
+			"cls": "inline-flex items-center gap-[4px] px-[6px] py-[1px] rounded-full bg-[color-mix(in_oklab,var(--accent-primary)_14%,transparent)] text-[var(--accent-deep)] text-[10px] font-medium uppercase tracking-[0.05em]",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/components/SessionActivityPanel.tsx",
+			"line": 180,
+			"tag": "span",
+			"cls": "w-[5px] h-[5px] rounded-full bg-[var(--accent-primary)] animate-pulse",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/components/SessionView.tsx",
+			"line": 100,
+			"tag": "div",
+			"cls": "inline-flex items-center justify-center rounded-full border-[1.5px] font-[600] shrink-0 «dyn»",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/components/SessionView.tsx",
+			"line": 114,
+			"tag": "div",
+			"cls": "rounded-full ring-2 ring-[var(--surface-page)]",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/components/SessionView.tsx",
+			"line": 623,
+			"tag": "span",
+			"cls": "h-[10px] w-[10px] rounded-[2px] bg-current",
+			"prod": true,
+			"token": "rounded-[2px]"
+		},
+		{
+			"file": "layers/core-ui/src/components/SessionView.tsx",
+			"line": 697,
+			"tag": "span",
+			"cls": "inline-block h-[6px] w-[6px] rounded-full bg-[var(--accent-secondary)] motion-safe:animate-[skeleton-pulse_1.4s_ease-in-out_infinite]",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/components/SessionView.tsx",
+			"line": 773,
+			"tag": "span",
+			"cls": "inline-block h-[6px] w-[6px] rounded-full bg-[var(--accent-secondary)] motion-safe:animate-[skeleton-pulse_1.4s_ease-in-out_infinite]",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/components/parts/ToolPart.tsx",
+			"line": 60,
+			"tag": "span",
+			"cls": "inline-block h-[7px] w-[7px] shrink-0 rounded-full bg-[var(--accent-secondary)] motion-safe:animate-[skeleton-pulse_1.4s_ease-in-out_infinite]",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/layouts/AppShell.tsx",
+			"line": 706,
+			"tag": "span",
+			"cls": "absolute top-[8px] right-[8px] w-[6px] h-[6px] rounded-full bg-[var(--accent-primary)]",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/pages/Conversations.tsx",
+			"line": 408,
+			"tag": "span",
+			"cls": "w-[6px] h-[6px] rounded-full bg-[var(--accent-primary)] animate-pulse shrink-0",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/pages/KnowledgeList.tsx",
+			"line": 608,
+			"tag": "kbd",
+			"cls": "inline-flex items-center px-[4px] py-[2px] rounded-[4px] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)]",
+			"prod": true,
+			"token": "rounded-[4px]"
+		},
+		{
+			"file": "layers/core-ui/src/pages/KnowledgeList.tsx",
+			"line": 611,
+			"tag": "kbd",
+			"cls": "inline-flex items-center px-[4px] py-[2px] rounded-[4px] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)] ml-[3px]",
+			"prod": true,
+			"token": "rounded-[4px]"
+		},
+		{
+			"file": "layers/core-ui/src/pages/KnowledgeList.tsx",
+			"line": 617,
+			"tag": "kbd",
+			"cls": "inline-flex items-center px-[4px] py-[2px] rounded-[4px] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)]",
+			"prod": true,
+			"token": "rounded-[4px]"
+		},
+		{
+			"file": "layers/core-ui/src/pages/KnowledgeList.tsx",
+			"line": 623,
+			"tag": "kbd",
+			"cls": "inline-flex items-center px-[4px] py-[2px] rounded-[4px] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)]",
+			"prod": true,
+			"token": "rounded-[4px]"
+		},
+		{
+			"file": "layers/core-ui/src/pages/KnowledgeList.tsx",
+			"line": 629,
+			"tag": "kbd",
+			"cls": "inline-flex items-center px-[4px] py-[2px] rounded-[4px] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)]",
+			"prod": true,
+			"token": "rounded-[4px]"
+		},
+		{
+			"file": "layers/core-ui/src/pages/SetupFlow.tsx",
+			"line": 224,
+			"tag": "span",
+			"cls": "block w-[8px] h-[8px] rounded-full shrink-0",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/pages/SetupFlow.tsx",
+			"line": 228,
+			"tag": "span",
+			"cls": "block h-[6px] rounded-full bg-[var(--border-subtle)] w-3/5",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/pages/SetupFlow.tsx",
+			"line": 230,
+			"tag": "span",
+			"cls": "block h-[6px] bg-[var(--border-subtle)] rounded-full w-[90%] mb-[3px]",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/pages/SetupFlow.tsx",
+			"line": 231,
+			"tag": "span",
+			"cls": "block h-[6px] bg-[var(--border-subtle)] rounded-full w-3/5",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/pages/WorkBet.tsx",
+			"line": 176,
+			"tag": "div",
+			"cls": "text-xs text-[var(--text-tertiary)] px-2 py-1 bg-[var(--surface-container)] rounded",
+			"prod": true,
+			"token": "rounded"
+		},
+		{
+			"file": "layers/core-ui/src/pages/WorkTeam.tsx",
+			"line": 447,
+			"tag": "span",
+			"cls": "w-[24px] h-[24px] rounded-full shrink-0 flex items-center justify-center text-[9px] font-semibold text-[var(--accent-deep)]",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/pages/knowledge/KnowledgeBody.tsx",
+			"line": 84,
+			"tag": "div",
+			"cls": "text-xs text-[var(--text-tertiary)] px-2 py-1 bg-[var(--surface-container)] rounded",
+			"prod": true,
+			"token": "rounded"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewActionOperation.tsx",
+			"line": 219,
+			"tag": "span",
+			"cls": "mt-[7px] h-[4px] w-[4px] shrink-0 rounded-full bg-[var(--text-tertiary)]",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewActionOperation.tsx",
+			"line": 237,
+			"tag": "span",
+			"cls": "mt-[3px] h-[12px] w-[12px] shrink-0 rounded-full border-2 border-[var(--status-error)]",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewActionOperation.tsx",
+			"line": 294,
+			"tag": "span",
+			"cls": "h-[14px] w-[14px] shrink-0 rounded-full border-2 border-[var(--text-tertiary)] border-t-transparent",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewActionOperation.tsx",
+			"line": 330,
+			"tag": "span",
+			"cls": "mt-[2px] flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-full",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewActionOperation.tsx",
+			"line": 400,
+			"tag": "span",
+			"cls": "h-[5px] w-[5px] rounded-full bg-[var(--status-warning)]",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewBatch.tsx",
+			"line": 186,
+			"tag": "span",
+			"cls": "inline-flex items-center gap-[6px] px-[8px] py-[2px] rounded-full text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] leading-[1.4] whitespace-nowrap shrink-0 bg-[color-mix(in_oklab,var(--status-error)_14%,transparent)] text-[var(--status-error)]",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewBatch.tsx",
+			"line": 190,
+			"tag": "span",
+			"cls": "h-[6px] w-[6px] rounded-full shrink-0 bg-[var(--status-error)]",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewBatch.tsx",
+			"line": 284,
+			"tag": "span",
+			"cls": "h-[6px] w-[6px] rounded-full bg-[var(--status-success)] shrink-0",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewBatch.tsx",
+			"line": 329,
+			"tag": "span",
+			"cls": "flex items-center justify-center h-[22px] w-[22px] shrink-0 rounded-full bg-[color-mix(in_oklab,var(--status-error)_12%,transparent)] text-[11px] font-[700] tabular-nums text-[var(--status-error)]",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewBatch.tsx",
+			"line": 385,
+			"tag": "span",
+			"cls": "h-[16px] w-[16px] rounded-full bg-[var(--accent-primary)] text-[var(--text-on-accent)] text-[9px] font-[700] inline-flex items-center justify-center shrink-0",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewBatch.tsx",
+			"line": 405,
+			"tag": "span",
+			"cls": "inline-flex h-[16px] w-[16px] items-center justify-center rounded-full bg-[var(--status-error)] text-[var(--text-on-accent)] text-[11px] font-[700] leading-none shrink-0",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewBatch.tsx",
+			"line": 455,
+			"tag": "span",
+			"cls": "flex items-center justify-center h-[22px] min-w-[22px] px-[6px] shrink-0 rounded-full bg-[color-mix(in_oklab,var(--text-tertiary)_12%,transparent)] text-[11px] font-[700] tabular-nums text-[var(--text-secondary)]",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewCodeDiff.tsx",
+			"line": 282,
+			"tag": "button",
+			"cls": "inline-flex h-[18px] w-[18px] items-center justify-center rounded-[6px] border-[1.5px] shrink-0 transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] bg-[var(--accent-primary)] border-[var(--accent-primary)] text-[var(--text-on-accent)] bg-[var(--surface-elevated)] border-[var(--border-default)] text-transparent",
+			"prod": true,
+			"token": "rounded-[6px]"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewCodeDiff.tsx",
+			"line": 472,
+			"tag": "div",
+			"cls": "w-[6px] h-[6px] rounded-full bg-[var(--accent-primary)]",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewComposition.tsx",
+			"line": 77,
+			"tag": "span",
+			"cls": "inline-flex items-center rounded-[6px] bg-[var(--surface-container)] px-[6px] py-[3px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] leading-none text-[var(--text-tertiary)]",
+			"prod": true,
+			"token": "rounded-[6px]"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewComposition.tsx",
+			"line": 344,
+			"tag": "div",
+			"cls": "flex-1 rounded-[8px] border bg-[var(--surface-page)] px-[9px] py-[6px] font-mono text-[12px] text-[var(--text-primary)] border-[var(--status-error)] border-[var(--border-default)]",
+			"prod": true,
+			"token": "rounded-[8px]"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewComposition.tsx",
+			"line": 352,
+			"tag": "span",
+			"cls": "rounded-[8px] bg-[var(--surface-container)] px-[9px] py-[6px] text-[12px] font-[500] text-[var(--text-tertiary)]",
+			"prod": true,
+			"token": "rounded-[8px]"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewComposition.tsx",
+			"line": 455,
+			"tag": "span",
+			"cls": "mt-[6px] inline-block h-[7px] w-[7px] shrink-0 rounded-full",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewComposition.tsx",
+			"line": 577,
+			"tag": "button",
+			"cls": "mt-[3px] inline-flex items-center gap-[4px] rounded-[6px] border border-[var(--border-subtle)] bg-[var(--surface-container)] px-[6px] py-[1px] text-[11px] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-secondary)]",
+			"prod": true,
+			"token": "rounded-[6px]"
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/review-canvas.tsx",
+			"line": 167,
+			"tag": "span",
+			"cls": "h-[6px] w-[6px] rounded-full bg-[var(--accent-primary)]",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/settings/SettingsAgentBehavior.tsx",
+			"line": 326,
+			"tag": "a",
+			"cls": "inline-flex min-h-[32px] items-center rounded-full border border-[var(--border-default)] px-[12px] text-[12px] font-[500] text-[var(--text-primary)]",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/settings/SettingsAgentBehavior.tsx",
+			"line": 339,
+			"tag": "a",
+			"cls": "inline-flex min-h-[32px] items-center rounded-full border border-[var(--border-default)] px-[12px] text-[12px] font-[500] text-[var(--text-primary)]",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/settings/SettingsHarnesses.tsx",
+			"line": 325,
+			"tag": "span",
+			"cls": "inline-block rounded-full",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/shell/HostThreadSection.stories.tsx",
+			"line": 27,
+			"tag": "div",
+			"cls": "animate-pulse h-4 bg-[var(--surface-elevated)] rounded w-1/2",
+			"prod": false,
+			"token": "rounded"
+		},
+		{
+			"file": "layers/core-ui/src/shell/HostThreadSection.stories.tsx",
+			"line": 152,
+			"tag": "div",
+			"cls": "flex items-center gap-1 px-2 py-1 text-xs bg-[var(--surface-elevated)] rounded text-[var(--text-tertiary)]",
+			"prod": false,
+			"token": "rounded"
+		},
+		{
+			"file": "layers/core-ui/src/shell/HostThreadSection.tsx",
+			"line": 311,
+			"tag": "div",
+			"cls": "flex items-center gap-1 px-2 py-1 text-xs bg-[var(--surface-elevated)] rounded text-[var(--text-tertiary)]",
+			"prod": true,
+			"token": "rounded"
+		},
+		{
+			"file": "layers/core-ui/src/shell/NotificationPopover.tsx",
+			"line": 257,
+			"tag": "span",
+			"cls": "shrink-0 rounded-full",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/shell/Sidebar.tsx",
+			"line": 210,
+			"tag": "span",
+			"cls": "inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full text-[9px] font-[600] tabular-nums bg-[var(--accent-primary)] text-[var(--text-on-accent)] ml-auto",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/shell/Sidebar.tsx",
+			"line": 316,
+			"tag": "span",
+			"cls": "absolute top-[6px] right-[9px] w-[6px] h-[6px] rounded-full bg-[var(--status-error)]",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "layers/core-ui/src/shell/TaskSheet.tsx",
+			"line": 377,
+			"tag": "div",
+			"cls": "fixed inset-x-0 bottom-0 max-h-[85vh] rounded-t-[var(--r-default)] flex flex-col w-full bg-[var(--surface-container)] border-t border-[var(--border-subtle)] shadow-lg sm:inset-y-0 sm:right-0 sm:bottom-auto sm:left-auto sm:max-w-[min(640px,90vw)] sm:max-h-screen sm:rounded-none sm:border-t-0 sm:border-l",
+			"prod": true,
+			"token": "rounded-none"
+		},
+		{
+			"file": "layers/core-ui/src/shell/TaskSheet.tsx",
+			"line": 491,
+			"tag": "label",
+			"cls": "flex items-center gap-2 min-h-[44px] px-3 rounded cursor-pointer hover:bg-[var(--surface-elevated)]",
+			"prod": true,
+			"token": "rounded"
+		},
+		{
+			"file": "framework/design-system/src/Avatar.tsx",
+			"line": 47,
+			"tag": "div",
+			"cls": "inline-flex items-center justify-center rounded-full border-[1.5px] font-semibold shrink-0 «dyn» «dyn» «dyn»",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "framework/design-system/src/Avatar.tsx",
+			"line": 74,
+			"tag": "div",
+			"cls": "«dyn» ring-[2px] ring-[var(--surface-elevated)] rounded-full",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "framework/design-system/src/BetCard.tsx",
+			"line": 135,
+			"tag": "span",
+			"cls": "inline-flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-full bg-[var(--surface-container)] text-[var(--text-primary)] text-[11px] font-semibold",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "framework/design-system/src/BetCard.tsx",
+			"line": 214,
+			"tag": "span",
+			"cls": "inline-flex w-[24px] h-[24px] items-center justify-center rounded-full text-[9px] font-[600] shrink-0 -ml-[6px] bg-[var(--accent-primary-dim)] text-[var(--accent-deep)] border-[2px] border-[var(--surface-elevated)] bg-[var(--surface-page)] text-[var(--text-secondary)] border-[2px] border-[var(--surface-elevated)]",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "framework/design-system/src/BetCard.tsx",
+			"line": 245,
+			"tag": "span",
+			"cls": "inline-flex w-[24px] h-[24px] items-center justify-center rounded-full text-[9px] font-[600] shrink-0 -ml-[6px] bg-[var(--accent-primary-dim)] text-[var(--accent-deep)] border-[2px] border-[var(--surface-elevated)] bg-[var(--surface-page)] text-[var(--text-secondary)] border-[2px] border-[var(--surface-elevated)]",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "framework/design-system/src/Button.tsx",
+			"line": 56,
+			"tag": "button",
+			"cls": "inline-flex items-center justify-center gap-[6px] rounded-full border-[1.5px] font-medium cursor-pointer active:scale-[0.97] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] «dyn» «dyn» «dyn»",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "framework/design-system/src/Checkbox.tsx",
+			"line": 44,
+			"tag": "div",
+			"cls": "h-[20px] w-[20px] rounded-[6px] border-[1.5px] transition-all duration-[var(--motion-fast)] ease-[var(--motion-ease)] flex items-center justify-center bg-[var(--accent-primary)] border-[var(--accent-primary)] bg-[var(--surface-elevated)] border-[var(--border-default)]",
+			"prod": true,
+			"token": "rounded-[6px]"
+		},
+		{
+			"file": "framework/design-system/src/KeyValue.stories.tsx",
+			"line": 48,
+			"tag": "div",
+			"cls": "flex w-60 flex-col gap-2 rounded-lg bg-[var(--surface-container)] p-4",
+			"prod": false,
+			"token": "rounded-lg"
+		},
+		{
+			"file": "framework/design-system/src/KeyValue.stories.tsx",
+			"line": 52,
+			"tag": "div",
+			"cls": "flex w-60 flex-col gap-3 rounded-lg bg-[var(--surface-container)] p-4",
+			"prod": false,
+			"token": "rounded-lg"
+		},
+		{
+			"file": "framework/design-system/src/LiveDot.tsx",
+			"line": 16,
+			"tag": "span",
+			"cls": "inline-block w-[6px] h-[6px] rounded-full bg-[var(--accent-primary)] animate-pulse shrink-0",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "framework/design-system/src/NavItem.tsx",
+			"line": 78,
+			"tag": "span",
+			"cls": "h-[8px] w-[8px] rounded-full shrink-0 «dyn»",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "framework/design-system/src/NotificationRow.tsx",
+			"line": 55,
+			"tag": "span",
+			"cls": "inline-flex w-[24px] h-[24px] rounded-full shrink-0 items-center justify-center",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "framework/design-system/src/Progress.tsx",
+			"line": 33,
+			"tag": "div",
+			"cls": "h-[8px] w-full bg-[var(--surface-container)] rounded-full overflow-hidden",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "framework/design-system/src/Progress.tsx",
+			"line": 34,
+			"tag": "div",
+			"cls": "h-full rounded-full transition-[width] duration-[var(--motion-slow)] ease-[var(--motion-ease)] «dyn»",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "framework/design-system/src/ReviewAnchoredComment.stories.tsx",
+			"line": 98,
+			"tag": "div",
+			"cls": "w-[6px] h-[6px] rounded-full bg-[var(--accent-primary)]",
+			"prod": false,
+			"token": "rounded-full"
+		},
+		{
+			"file": "framework/design-system/src/ReviewAnchoredComment.stories.tsx",
+			"line": 124,
+			"tag": "span",
+			"cls": "h-[6px] w-[6px] rounded-full bg-[var(--accent-primary)]",
+			"prod": false,
+			"token": "rounded-full"
+		},
+		{
+			"file": "framework/design-system/src/ReviewAnchoredComment.stories.tsx",
+			"line": 208,
+			"tag": "span",
+			"cls": "h-[6px] w-[6px] rounded-full bg-[var(--text-tertiary)]",
+			"prod": false,
+			"token": "rounded-full"
+		},
+		{
+			"file": "framework/design-system/src/RowDot.tsx",
+			"line": 41,
+			"tag": "span",
+			"cls": "w-[6px] h-[6px] rounded-full shrink-0 inline-block",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "framework/design-system/src/RowDot.tsx",
+			"line": 52,
+			"tag": "span",
+			"cls": "w-[6px] h-[6px] rounded-full shrink-0 inline-block",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "framework/design-system/src/SearchField.stories.tsx",
+			"line": 56,
+			"tag": "div",
+			"cls": "max-w-[360px] rounded-lg bg-[var(--surface-container)] p-4",
+			"prod": false,
+			"token": "rounded-lg"
+		},
+		{
+			"file": "framework/design-system/src/SearchField.tsx",
+			"line": 20,
+			"tag": "span",
+			"cls": "inline-block h-[14px] w-[14px] rounded-full border-2 border-[var(--border-subtle)] border-t-[var(--accent-primary)] animate-spin",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "framework/design-system/src/StatusChip.stories.tsx",
+			"line": 51,
+			"tag": "div",
+			"cls": "rounded-lg bg-[var(--surface-container)] p-4",
+			"prod": false,
+			"token": "rounded-lg"
+		},
+		{
+			"file": "framework/design-system/src/StatusChip.tsx",
+			"line": 124,
+			"tag": "span",
+			"cls": "h-[6px] w-[6px] rounded-full shrink-0 «dyn»",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "framework/design-system/src/TabBar.tsx",
+			"line": 56,
+			"tag": "div",
+			"cls": "inline-flex items-center bg-[var(--surface-container)] rounded-full p-[3px] gap-[3px]",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "framework/design-system/src/TabBar.tsx",
+			"line": 64,
+			"tag": "button",
+			"cls": "px-[12px] py-[6px] rounded-full text-[13px] transition-all duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] bg-[var(--surface-elevated)] text-[var(--accent-deep)] font-semibold shadow-[var(--shadow-subtle)] text-[var(--text-secondary)] font-medium hover:text-[var(--text-primary)]",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "framework/design-system/src/Tag.stories.tsx",
+			"line": 46,
+			"tag": "div",
+			"cls": "rounded-lg bg-[var(--surface-container)] p-4",
+			"prod": false,
+			"token": "rounded-lg"
+		},
+		{
+			"file": "framework/design-system/src/ThreadHostBanner.tsx",
+			"line": 61,
+			"tag": "span",
+			"cls": "absolute bottom-0 right-0 w-[6px] h-[6px] rounded-full border-[1.5px] border-[var(--surface-container)] «dyn»",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "framework/design-system/src/ThreadHostBanner.tsx",
+			"line": 132,
+			"tag": "span",
+			"cls": "relative inline-flex items-center justify-center w-[24px] h-[24px] rounded-full bg-[var(--surface-elevated)] text-[var(--text-tertiary)] text-[11px] font-medium border border-[var(--border-subtle)]",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "framework/design-system/src/ThreadHostBanner.tsx",
+			"line": 144,
+			"tag": "span",
+			"cls": "inline-flex items-center justify-center w-[24px] h-[24px] rounded-full bg-[var(--surface-elevated)] text-[var(--text-tertiary)] text-[11px] font-medium border border-[var(--border-subtle)]",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "framework/design-system/src/ThreadRow.tsx",
+			"line": 28,
+			"tag": "span",
+			"cls": "absolute bottom-0 right-0 w-[6px] h-[6px] rounded-full border-[1.5px] border-[var(--surface-elevated)] «dyn»",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "framework/design-system/src/ThreadRow.tsx",
+			"line": 136,
+			"tag": "span",
+			"cls": "w-[8px] h-[8px] rounded-full shrink-0 bg-[var(--accent-primary)] bg-transparent",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "framework/design-system/src/ThreadRow.tsx",
+			"line": 212,
+			"tag": "span",
+			"cls": "relative w-[24px] h-[24px] rounded-full inline-flex items-center justify-center shrink-0 text-[9px] font-[600] leading-none border-[2px] border-[var(--surface-elevated)] ml-[-6px] bg-[var(--accent-primary-dim)] border-[var(--accent-deep)] text-[var(--accent-deep)] bg-[var(--surface-page)] border-[var(--border-default)] text-[var(--text-secondary)]",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "framework/design-system/src/Toast.tsx",
+			"line": 59,
+			"tag": "div",
+			"cls": "h-[20px] w-[20px] shrink-0 rounded-full flex items-center justify-center text-[12px] font-bold «dyn» «dyn»",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "framework/design-system/src/Toggle.tsx",
+			"line": 57,
+			"tag": "button",
+			"cls": "relative inline-flex shrink-0 h-[24px] w-[44px] items-center rounded-full border-[1.5px] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] bg-[var(--accent-primary)] border-[var(--accent-primary)] bg-[var(--border-default)] border-[var(--border-default)]",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "framework/design-system/src/Toggle.tsx",
+			"line": 74,
+			"tag": "span",
+			"cls": "absolute top-[2px] h-[18px] w-[18px] rounded-full bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] transition-transform duration-[var(--motion-fast)] translate-x-[22px] translate-x-[2px]",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "framework/design-system/src/Toggle.tsx",
+			"line": 99,
+			"tag": "button",
+			"cls": "relative inline-flex shrink-0 h-[24px] w-[44px] items-center rounded-full border-[1.5px] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] bg-[var(--accent-primary)] border-[var(--accent-primary)] bg-[var(--border-default)] border-[var(--border-default)]",
+			"prod": true,
+			"token": "rounded-full"
+		},
+		{
+			"file": "framework/design-system/src/Toggle.tsx",
+			"line": 116,
+			"tag": "span",
+			"cls": "absolute top-[2px] h-[18px] w-[18px] rounded-full bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] transition-transform duration-[var(--motion-fast)] translate-x-[22px] translate-x-[2px]",
+			"prod": true,
+			"token": "rounded-full"
+		}
+	],
+	"controlChrome": [
+		{
+			"file": "layers/core-ui/src/__tests__/foundation.component.test.tsx",
+			"line": 7,
+			"tag": "button",
+			"cls": "btn btn-primary",
+			"prod": false,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/__tests__/foundation.component.test.tsx",
+			"line": 18,
+			"tag": "button",
+			"cls": "btn btn-primary",
+			"prod": false,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/components/AssistantAttachButton.tsx",
+			"line": 34,
+			"tag": "button",
+			"cls": "ml-auto shrink-0 flex items-center justify-center h-[24px] w-[24px] min-h-[44px] min-w-[44px] xl:min-h-[24px] xl:min-w-[24px] rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-overlay)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] transition-colors duration-[var(--motion-fast)]",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/components/BlockRefEmbed.stories.tsx",
+			"line": 85,
+			"tag": "button",
+			"cls": "btn btn-xs btn-ghost shrink-0",
+			"prod": false,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/components/BlockRefEmbed.tsx",
+			"line": 111,
+			"tag": "button",
+			"cls": "w-full text-left border border-[var(--border-subtle)] rounded-[var(--r-subtle)] px-3 py-2 bg-[var(--surface-container)] hover:bg-[var(--surface-container)] hover:border-[var(--border-default)] transition-colors duration-[var(--motion-fast)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]",
+			"prod": true,
+			"fill": true,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/components/ConversationSurface.tsx",
+			"line": 207,
+			"tag": "button",
+			"cls": "flex h-[32px] w-[32px] items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/components/ConversationSurface.tsx",
+			"line": 252,
+			"tag": "button",
+			"cls": "flex w-full items-center gap-[9px] rounded-[var(--r-subtle)] px-[9px] py-[6px] text-left transition-colors duration-[var(--motion-fast)] «dyn»",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/components/ConversationSurface.tsx",
+			"line": 300,
+			"tag": "button",
+			"cls": "flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/components/ConversationSurface.tsx",
+			"line": 356,
+			"tag": "button",
+			"cls": "flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] border border-[var(--accent-deep)] bg-[var(--accent-primary-dim)] text-[var(--accent-deep)] flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] border border-[var(--border-default)] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]",
+			"prod": true,
+			"fill": true,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/components/ConversationSurface.tsx",
+			"line": 380,
+			"tag": "button",
+			"cls": "flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--accent-primary-hover)]",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/components/ErrorBoundary.tsx",
+			"line": 88,
+			"tag": "button",
+			"cls": "btn btn-xs btn-ghost",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/components/GlobalSearchPanel.stories.tsx",
+			"line": 80,
+			"tag": "button",
+			"cls": "btn btn-sm",
+			"prod": false,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/components/RecipientPicker.tsx",
+			"line": 179,
+			"tag": "button",
+			"cls": "flex items-center gap-[8px] px-[8px] py-[6px] rounded-[var(--r-subtle)] text-left cursor-pointer bg-transparent border-none transition-[background] duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] focus:outline-none focus:bg-[var(--surface-container)]",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/components/RecipientPicker.tsx",
+			"line": 239,
+			"tag": "textarea",
+			"cls": "w-full min-h-[80px] p-[8px] bg-[var(--surface-elevated)] border border-[var(--border-default)] rounded-[var(--r-subtle)] text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] resize-none focus:outline-none focus:border-[var(--accent-deep)] transition-[border-color] duration-[var(--motion-fast)]",
+			"prod": true,
+			"fill": true,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/components/RecipientPicker.tsx",
+			"line": 254,
+			"tag": "button",
+			"cls": "btn btn-sm btn-ghost text-[var(--text-tertiary)]",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/components/RecipientPicker.tsx",
+			"line": 262,
+			"tag": "button",
+			"cls": "btn btn-sm btn-primary",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/components/SessionActivityPanel.tsx",
+			"line": 192,
+			"tag": "button",
+			"cls": "flex-shrink-0 inline-flex items-center justify-center w-[24px] h-[24px] min-h-[44px] min-w-[44px] xl:min-h-[24px] xl:min-w-[24px] rounded-[var(--r-subtle)] bg-transparent text-[var(--text-tertiary)] border-none cursor-pointer transition-[background,color] duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/components/SessionActivityPanel.tsx",
+			"line": 259,
+			"tag": "button",
+			"cls": "btn btn-xs btn-ghost text-[var(--text-tertiary)] text-[10px]",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/components/SessionView.tsx",
+			"line": 159,
+			"tag": "button",
+			"cls": "shrink-0 rounded-[var(--r-subtle)] p-[3px] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/components/SessionView.tsx",
+			"line": 343,
+			"tag": "button",
+			"cls": "rounded-[var(--r-pill)] border border-[var(--border-default)] px-[9px] py-[3px] text-[12px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:text-[var(--text-primary)]",
+			"prod": true,
+			"fill": false,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/components/SessionView.tsx",
+			"line": 591,
+			"tag": "button",
+			"cls": "flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] border border-[var(--border-default)] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]",
+			"prod": true,
+			"fill": true,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/components/SessionView.tsx",
+			"line": 617,
+			"tag": "button",
+			"cls": "flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--status-error)] text-[var(--text-on-accent)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--status-error-hover)]",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/components/SessionView.tsx",
+			"line": 626,
+			"tag": "button",
+			"cls": "flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--accent-primary-hover)]",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/components/SessionView.tsx",
+			"line": 641,
+			"tag": "button",
+			"cls": "inline-flex items-center gap-[6px] rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/components/SessionView.tsx",
+			"line": 657,
+			"tag": "button",
+			"cls": "inline-flex items-center gap-[6px] rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/components/SessionView.tsx",
+			"line": 676,
+			"tag": "button",
+			"cls": "inline-flex items-center gap-[6px] rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[500] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)] «dyn»",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/components/parts/ReviewRequestPart.tsx",
+			"line": 58,
+			"tag": "button",
+			"cls": "inline-flex w-fit items-center gap-[6px] rounded-[var(--r-subtle)] bg-[var(--accent-primary)] px-[12px] py-[7px] text-[13px] font-[600] text-[var(--text-on-accent)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--accent-primary-hover)]",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/components/parts/ToolPart.tsx",
+			"line": 181,
+			"tag": "button",
+			"cls": "inline-flex shrink-0 items-center gap-[6px] rounded-[var(--r-pill)] border border-[var(--border-subtle)] px-[9px] py-[3px] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-default)]",
+			"prod": true,
+			"fill": false,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/components/parts/ToolPart.tsx",
+			"line": 205,
+			"tag": "button",
+			"cls": "inline-flex shrink-0 items-center gap-[6px] rounded-[var(--r-pill)] border border-[var(--border-subtle)] px-[9px] py-[3px] text-[11px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:border-[var(--accent-deep)] hover:text-[var(--accent-deep)]",
+			"prod": true,
+			"fill": false,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/AgentAddDialog.tsx",
+			"line": 174,
+			"tag": "input",
+			"cls": "input input-sm input-bordered w-full",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/AgentAddDialog.tsx",
+			"line": 211,
+			"tag": "textarea",
+			"cls": "textarea textarea-bordered w-full mt-[6px]",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/AgentAddDialog.tsx",
+			"line": 232,
+			"tag": "input",
+			"cls": "input input-sm input-bordered w-full",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/AgentAddDialog.tsx",
+			"line": 271,
+			"tag": "input",
+			"cls": "input input-sm input-bordered w-full",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/Conversations.tsx",
+			"line": 213,
+			"tag": "button",
+			"cls": "absolute top-[9px] right-[12px] z-[1] rounded-[var(--r-subtle)] p-[6px] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/Conversations.tsx",
+			"line": 572,
+			"tag": "button",
+			"cls": "btn btn-ghost btn-xs text-[var(--text-tertiary)] min-h-[44px]",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/KnowledgeCreate.tsx",
+			"line": 249,
+			"tag": "input",
+			"cls": "input input-bordered input-sm text-base w-full",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/KnowledgeDetail.tsx",
+			"line": 455,
+			"tag": "button",
+			"cls": "inline-flex items-center justify-center w-[32px] h-[32px] min-h-[44px] min-w-[44px] xl:min-h-[32px] xl:min-w-[32px] rounded-[var(--r-pill)] border-[1.5px] border-[var(--border-default)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] text-[16px] cursor-pointer hover:border-[var(--accent-deep)] hover:text-[var(--text-primary)]",
+			"prod": true,
+			"fill": true,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/KnowledgeList.tsx",
+			"line": 526,
+			"tag": "button",
+			"cls": "w-[24px] h-[24px] flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_6%,transparent)] border-none bg-transparent cursor-pointer",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/KnowledgeList.tsx",
+			"line": 549,
+			"tag": "button",
+			"cls": "w-[24px] h-[24px] flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_6%,transparent)] border-none bg-transparent cursor-pointer",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/KnowledgeList.tsx",
+			"line": 572,
+			"tag": "button",
+			"cls": "w-[24px] h-[24px] flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_6%,transparent)] border-none bg-transparent cursor-pointer",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/KnowledgeList.tsx",
+			"line": 661,
+			"tag": "button",
+			"cls": "btn btn-ghost btn-xs text-[var(--text-tertiary)] min-h-[44px]",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/KnowledgeList.tsx",
+			"line": 974,
+			"tag": "button",
+			"cls": "px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px] font-[600] bg-[var(--surface-elevated)] text-[var(--accent-deep)] shadow-[var(--shadow-subtle)] cursor-pointer border-none px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px] font-[500] text-[var(--text-secondary)] cursor-pointer border-none bg-transparent",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/KnowledgeList.tsx",
+			"line": 990,
+			"tag": "button",
+			"cls": "px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px] font-[600] bg-[var(--surface-elevated)] text-[var(--accent-deep)] shadow-[var(--shadow-subtle)] cursor-pointer border-none px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px] font-[500] text-[var(--text-secondary)] cursor-pointer border-none bg-transparent",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/SetupFlow.tsx",
+			"line": 837,
+			"tag": "input",
+			"cls": "w-full text-[15px] px-[12px] py-[10px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-none focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_rgba(111,77,30,0.12)] pl-[36px]",
+			"prod": true,
+			"fill": true,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/SetupFlow.tsx",
+			"line": 885,
+			"tag": "button",
+			"cls": "min-h-[44px] px-[12px] py-[9px] rounded-[var(--r-pill)] text-[13px] font-[500] border-[1.5px] transition-[border-color,background-color] duration-[var(--motion-fast)] ease-[var(--motion-ease)] border-[var(--accent-primary)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] btn-primary selected border-[var(--border-default)] bg-[var(--surface-elevated)] text-[var(--text-primary)] hover:border-[var(--border-strong)]",
+			"prod": true,
+			"fill": true,
+			"border": true,
+			"daisy": true,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/SetupFlow.tsx",
+			"line": 917,
+			"tag": "button",
+			"cls": "min-h-[44px] px-[12px] py-[9px] rounded-[var(--r-subtle)] text-[13px] capitalize border-[1.5px] transition-[border-color,background-color] duration-[var(--motion-fast)] ease-[var(--motion-ease)] border-[var(--accent-deep)] bg-[var(--surface-elevated)] text-[var(--accent-deep)] font-[600] border-[var(--border-subtle)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:border-[var(--border-default)]",
+			"prod": true,
+			"fill": true,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/WorkBet.tsx",
+			"line": 341,
+			"tag": "button",
+			"cls": "btn btn-xs btn-ghost",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/WorkBet.tsx",
+			"line": 349,
+			"tag": "button",
+			"cls": "btn btn-xs btn-error",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/WorkBet.tsx",
+			"line": 386,
+			"tag": "textarea",
+			"cls": "textarea textarea-bordered text-base resize-none h-20 w-full",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/WorkBet.tsx",
+			"line": 821,
+			"tag": "button",
+			"cls": "inline-flex items-center justify-center w-[32px] h-[32px] min-h-[44px] min-w-[44px] xl:min-h-[32px] xl:min-w-[32px] rounded-[var(--r-pill)] border-[1.5px] border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] text-[16px] cursor-pointer hover:border-[var(--accent-deep)] hover:text-[var(--text-primary)] transition-colors duration-[var(--motion-fast)]",
+			"prod": true,
+			"fill": false,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/WorkBet.tsx",
+			"line": 902,
+			"tag": "button",
+			"cls": "btn btn-ghost btn-xs text-[var(--text-tertiary)] min-h-[44px]",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/WorkBet.tsx",
+			"line": 1181,
+			"tag": "textarea",
+			"cls": "textarea textarea-sm bg-[var(--surface-container)] border-[var(--border-default)] text-[var(--text-primary)] text-[13px] min-h-[72px] resize-y",
+			"prod": true,
+			"fill": true,
+			"border": true,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/WorkBet.tsx",
+			"line": 1198,
+			"tag": "textarea",
+			"cls": "textarea textarea-sm bg-[var(--surface-container)] border-[var(--border-default)] text-[var(--text-primary)] text-[13px] min-h-[72px] resize-y",
+			"prod": true,
+			"fill": true,
+			"border": true,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/WorkBet.tsx",
+			"line": 1370,
+			"tag": "button",
+			"cls": "flex items-center gap-[12px] py-[12px] border-b border-[var(--border-subtle)] last:border-b-0 cursor-pointer hover:bg-[rgba(44,36,26,0.02)] transition-colors duration-[var(--motion-fast)] text-left w-full",
+			"prod": true,
+			"fill": false,
+			"border": true,
+			"daisy": false,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/WorkBetCreate.tsx",
+			"line": 154,
+			"tag": "button",
+			"cls": "inline-flex items-center text-[13px] font-[500] px-[12px] py-[7px] rounded-[var(--r-pill)] bg-transparent border-[1.5px] border-[var(--border-default)] text-[var(--text-secondary)] cursor-pointer hover:border-[var(--accent-deep)] hover:text-[var(--text-primary)] transition-colors duration-[var(--motion-fast)]",
+			"prod": true,
+			"fill": false,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/WorkBetCreate.tsx",
+			"line": 162,
+			"tag": "button",
+			"cls": "inline-flex items-center text-[13px] font-[500] px-[12px] py-[7px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] border-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-opacity duration-[var(--motion-fast)]",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/WorkTeam.tsx",
+			"line": 375,
+			"tag": "button",
+			"cls": "btn btn-ghost btn-xs text-[var(--text-tertiary)] min-h-[44px]",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/WorkTeam.tsx",
+			"line": 610,
+			"tag": "button",
+			"cls": "btn btn-ghost btn-xs shrink-0",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/knowledge/KnowledgeCreateDialog.tsx",
+			"line": 142,
+			"tag": "button",
+			"cls": "btn btn-xs btn-ghost",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/knowledge/KnowledgeCreateDialog.tsx",
+			"line": 150,
+			"tag": "button",
+			"cls": "btn btn-xs btn-primary",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/knowledge/KnowledgeCreateDialog.tsx",
+			"line": 167,
+			"tag": "input",
+			"cls": "input input-bordered input-sm text-base w-full",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/knowledge/KnowledgeCreateDialog.tsx",
+			"line": 225,
+			"tag": "input",
+			"cls": "input input-bordered input-sm text-base w-full",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/knowledge/ScopeChangeDialog.tsx",
+			"line": 133,
+			"tag": "button",
+			"cls": "btn btn-xs btn-ghost",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/knowledge/ScopeChangeDialog.tsx",
+			"line": 141,
+			"tag": "button",
+			"cls": "btn btn-xs btn-primary",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/knowledge/ScopeChangeDialog.tsx",
+			"line": 185,
+			"tag": "input",
+			"cls": "input input-bordered input-sm text-base w-full",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/knowledge/ScopeChangeDialog.tsx",
+			"line": 201,
+			"tag": "textarea",
+			"cls": "textarea textarea-bordered text-base resize-none h-20 w-full",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewBatch.tsx",
+			"line": 322,
+			"tag": "button",
+			"cls": "w-full flex items-center gap-[12px] px-[15px] py-[12px] text-left cursor-pointer hover:bg-[var(--surface-page)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewBatch.tsx",
+			"line": 449,
+			"tag": "button",
+			"cls": "w-full flex items-center gap-[12px] px-[15px] py-[9px] text-left cursor-pointer hover:bg-[var(--surface-page)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewCodeDiff.tsx",
+			"line": 282,
+			"tag": "button",
+			"cls": "inline-flex h-[18px] w-[18px] items-center justify-center rounded-[6px] border-[1.5px] shrink-0 transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] bg-[var(--accent-primary)] border-[var(--accent-primary)] text-[var(--text-on-accent)] bg-[var(--surface-elevated)] border-[var(--border-default)] text-transparent",
+			"prod": true,
+			"fill": true,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewCodeDiff.tsx",
+			"line": 447,
+			"tag": "button",
+			"cls": "absolute left-[68px] top-1/2 hidden h-[16px] w-[16px] -translate-y-1/2 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] text-[12px] leading-none group-hover/line:flex focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewCodeDiff.tsx",
+			"line": 706,
+			"tag": "button",
+			"cls": "rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[6px] text-[12px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)]",
+			"prod": true,
+			"fill": true,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewComposition.tsx",
+			"line": 143,
+			"tag": "button",
+			"cls": "inline-flex items-center gap-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] px-[14px] py-[7px] text-[13px] font-[600] text-white transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewComposition.tsx",
+			"line": 153,
+			"tag": "button",
+			"cls": "rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[7px] text-[13px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-60",
+			"prod": true,
+			"fill": true,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewComposition.tsx",
+			"line": 162,
+			"tag": "button",
+			"cls": "inline-flex h-[32px] w-[32px] items-center justify-center rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[var(--surface-elevated)] text-[15px] leading-none text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-60",
+			"prod": true,
+			"fill": true,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewComposition.tsx",
+			"line": 175,
+			"tag": "button",
+			"cls": "block w-full px-[12px] py-[7px] text-left text-[13px] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:bg-[var(--surface-container)] disabled:cursor-not-allowed disabled:opacity-60 text-[var(--status-error)] text-[var(--text-primary)]",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewComposition.tsx",
+			"line": 448,
+			"tag": "button",
+			"cls": "group flex w-full items-start gap-[9px] rounded-[var(--r-subtle)] px-[9px] py-[6px] text-left transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] disabled:cursor-default",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewComposition.tsx",
+			"line": 491,
+			"tag": "button",
+			"cls": "group flex w-full items-center gap-[12px] rounded-[var(--r-subtle)] border bg-[var(--surface-elevated)] px-[12px] py-[9px] text-left transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] border-[var(--accent-deep)] bg-[var(--accent-primary-dim)] border-[var(--border-subtle)] hover:border-[var(--border-default)]",
+			"prod": true,
+			"fill": true,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewComposition.tsx",
+			"line": 577,
+			"tag": "button",
+			"cls": "mt-[3px] inline-flex items-center gap-[4px] rounded-[6px] border border-[var(--border-subtle)] bg-[var(--surface-container)] px-[6px] py-[1px] text-[11px] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-secondary)]",
+			"prod": true,
+			"fill": true,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewComposition.tsx",
+			"line": 665,
+			"tag": "button",
+			"cls": "rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[var(--surface-elevated)] px-[10px] py-[5px] text-[12px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)]",
+			"prod": true,
+			"fill": true,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewComposition.tsx",
+			"line": 674,
+			"tag": "button",
+			"cls": "inline-flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[var(--surface-elevated)] text-[14px] leading-none text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)]",
+			"prod": true,
+			"fill": true,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewFieldChangeSet.tsx",
+			"line": 195,
+			"tag": "button",
+			"cls": "shrink-0 rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[500] text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewFieldChangeSet.tsx",
+			"line": 347,
+			"tag": "button",
+			"cls": "rounded-[var(--r-pill)] px-[12px] py-[6px] text-[13px] font-[600] text-[var(--text-on-accent)]",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewOutcomeSummary.tsx",
+			"line": 120,
+			"tag": "button",
+			"cls": "group flex w-full items-start gap-[9px] rounded-[var(--r-subtle)] border px-[12px] py-[9px] text-left transition-[transform,opacity] duration-[var(--motion-fast)] [transition-timing-function:var(--motion-ease)] hover:opacity-90 active:translate-y-[1px]",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewOutcomeSummary.tsx",
+			"line": 290,
+			"tag": "button",
+			"cls": "rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[var(--surface-page)] px-[12px] py-[3px] text-[12px] font-[500] text-[var(--text-secondary)] transition-[opacity] duration-[var(--motion-fast)] hover:opacity-80",
+			"prod": true,
+			"fill": true,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewRenderedInContext.tsx",
+			"line": 365,
+			"tag": "button",
+			"cls": "rounded-[var(--r-pill)] bg-[var(--accent-primary)] px-[10px] py-[5px] text-[12px] font-[500] text-[var(--text-on-accent)]",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewVisualDiff.tsx",
+			"line": 300,
+			"tag": "input",
+			"cls": "range range-xs w-[120px]",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/work/AgentDetailPane.tsx",
+			"line": 221,
+			"tag": "textarea",
+			"cls": "textarea textarea-bordered w-full mt-[6px]",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/work/AgentDetailPane.tsx",
+			"line": 267,
+			"tag": "input",
+			"cls": "input input-sm input-bordered w-full",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/work/AgentDetailPane.tsx",
+			"line": 308,
+			"tag": "input",
+			"cls": "input input-sm input-bordered w-full",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/work/RoutineCreateDialog.tsx",
+			"line": 124,
+			"tag": "button",
+			"cls": "btn btn-sm btn-ghost min-h-[44px]",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/work/RoutineCreateDialog.tsx",
+			"line": 132,
+			"tag": "button",
+			"cls": "btn btn-sm btn-primary min-h-[44px]",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/work/RoutineCreateDialog.tsx",
+			"line": 149,
+			"tag": "input",
+			"cls": "input input-bordered input-sm text-base w-full",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/work/RoutineCreateDialog.tsx",
+			"line": 163,
+			"tag": "textarea",
+			"cls": "textarea textarea-bordered textarea-sm text-base w-full",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/work/RoutineCreateDialog.tsx",
+			"line": 234,
+			"tag": "input",
+			"cls": "input input-bordered input-sm font-mono text-base w-full",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/work/RoutineDetailPane.tsx",
+			"line": 315,
+			"tag": "input",
+			"cls": "input input-sm input-bordered w-full",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/work/RoutineDetailPane.tsx",
+			"line": 337,
+			"tag": "textarea",
+			"cls": "textarea textarea-bordered w-full",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/work/RoutineDetailPane.tsx",
+			"line": 405,
+			"tag": "input",
+			"cls": "input input-sm input-bordered font-[family-name:var(--font-mono)] w-full",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/pages/work/RoutineDetailPane.tsx",
+			"line": 420,
+			"tag": "input",
+			"cls": "checkbox checkbox-sm",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/settings/SettingsAppearance.tsx",
+			"line": 74,
+			"tag": "button",
+			"cls": "flex flex-col items-start p-0 rounded-[var(--r-default)] overflow-hidden border-[1.5px] transition-colors duration-[var(--motion-fast)] w-[120px] text-left cursor-pointer border-[var(--accent-deep)] border-[var(--border-default)] hover:border-[var(--border-strong)]",
+			"prod": true,
+			"fill": false,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/shell/AssistantOverlay.tsx",
+			"line": 137,
+			"tag": "button",
+			"cls": "text-[12px] font-[500] px-[9px] py-[6px] rounded-[var(--r-subtle)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)]",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/shell/AssistantOverlay.tsx",
+			"line": 158,
+			"tag": "button",
+			"cls": "text-[12px] font-[500] px-[9px] py-[6px] rounded-[var(--r-subtle)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)]",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/shell/AssistantOverlay.tsx",
+			"line": 177,
+			"tag": "button",
+			"cls": "text-[12px] font-[500] px-[9px] py-[6px] rounded-[var(--r-subtle)] border border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
+			"prod": true,
+			"fill": false,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/shell/AssistantOverlay.tsx",
+			"line": 308,
+			"tag": "button",
+			"cls": "text-[12px] font-[500] px-[9px] py-[6px] rounded-[var(--r-subtle)] border border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
+			"prod": true,
+			"fill": false,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/shell/AssistantOverlay.tsx",
+			"line": 386,
+			"tag": "button",
+			"cls": "btn btn-xs btn-ghost",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/shell/AssistantOverlay.tsx",
+			"line": 553,
+			"tag": "button",
+			"cls": "flex items-center justify-center w-[24px] h-[24px] min-h-[44px] min-w-[44px] xl:min-h-[24px] xl:min-w-[24px] rounded-[var(--r-pill)] bg-transparent border-none text-[var(--text-secondary)] cursor-pointer hover:text-[var(--accent-deep)] transition-colors duration-[var(--motion-fast)]",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/shell/HostThreadSection.stories.tsx",
+			"line": 42,
+			"tag": "textarea",
+			"cls": "textarea textarea-bordered text-base resize-none flex-1 h-16",
+			"prod": false,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/shell/HostThreadSection.stories.tsx",
+			"line": 47,
+			"tag": "button",
+			"cls": "btn btn-primary btn-sm self-end",
+			"prod": false,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/shell/HostThreadSection.stories.tsx",
+			"line": 129,
+			"tag": "textarea",
+			"cls": "textarea textarea-bordered text-base resize-none flex-1 h-16",
+			"prod": false,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/shell/HostThreadSection.stories.tsx",
+			"line": 134,
+			"tag": "button",
+			"cls": "btn btn-primary btn-sm self-end",
+			"prod": false,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/shell/HostThreadSection.stories.tsx",
+			"line": 160,
+			"tag": "textarea",
+			"cls": "textarea textarea-bordered text-base resize-none flex-1 h-16",
+			"prod": false,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/shell/HostThreadSection.stories.tsx",
+			"line": 165,
+			"tag": "button",
+			"cls": "btn btn-primary btn-sm self-end",
+			"prod": false,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/shell/HostThreadSection.stories.tsx",
+			"line": 180,
+			"tag": "textarea",
+			"cls": "textarea textarea-bordered text-base resize-none flex-1 h-16",
+			"prod": false,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/shell/HostThreadSection.stories.tsx",
+			"line": 185,
+			"tag": "button",
+			"cls": "btn btn-primary btn-sm self-end",
+			"prod": false,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/shell/HostThreadSection.tsx",
+			"line": 333,
+			"tag": "input",
+			"cls": "flex-1 text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] bg-[var(--surface-page)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] outline-none focus:border-[var(--accent-deep)] transition-colors duration-[var(--motion-fast)]",
+			"prod": true,
+			"fill": true,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/shell/HostThreadSection.tsx",
+			"line": 350,
+			"tag": "button",
+			"cls": "inline-flex items-center text-[12px] font-[500] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] border-none cursor-pointer hover:bg-[var(--accent-primary-hover)] transition-colors duration-[var(--motion-fast)] disabled:opacity-50 disabled:cursor-not-allowed shrink-0",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/shell/NotificationPopover.tsx",
+			"line": 156,
+			"tag": "button",
+			"cls": "flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--accent-deep)]",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/shell/NotificationPopover.tsx",
+			"line": 204,
+			"tag": "button",
+			"cls": "btn btn-xs btn-ghost",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/shell/NotificationPopover.tsx",
+			"line": 319,
+			"tag": "button",
+			"cls": "flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)]",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/shell/NotificationPopover.tsx",
+			"line": 357,
+			"tag": "button",
+			"cls": "flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)]",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/shell/Sidebar.stories.tsx",
+			"line": 139,
+			"tag": "button",
+			"cls": "btn btn-ghost btn-sm w-full justify-start",
+			"prod": false,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/shell/Sidebar.stories.tsx",
+			"line": 144,
+			"tag": "button",
+			"cls": "btn btn-ghost btn-sm w-full justify-start",
+			"prod": false,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/shell/Sidebar.stories.tsx",
+			"line": 149,
+			"tag": "button",
+			"cls": "btn btn-ghost btn-sm w-full justify-start",
+			"prod": false,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/shell/Sidebar.tsx",
+			"line": 176,
+			"tag": "button",
+			"cls": "flex w-full items-center gap-[9px] px-[12px] py-[6px] font-[family-name:var(--font-sans)] text-[14px] rounded-[var(--r-subtle)] mb-[3px] transition-[background,color] duration-[var(--motion-fast)] ease-[var(--motion-ease)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] text-[var(--text-primary)] font-[600] text-[var(--text-secondary)] font-[500] hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/shell/Sidebar.tsx",
+			"line": 241,
+			"tag": "button",
+			"cls": "inline-flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[var(--r-default)] border border-[var(--border-subtle)] transition-[background,border-color,color] duration-[var(--motion-fast)] ease-[var(--motion-ease)] bg-[var(--accent-primary-dim)] border-[var(--accent-deep)] text-[var(--accent-deep)] bg-[var(--surface-container)] text-[var(--text-secondary)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]",
+			"prod": true,
+			"fill": true,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/shell/Sidebar.tsx",
+			"line": 301,
+			"tag": "button",
+			"cls": "relative flex w-full items-center gap-[9px] px-[12px] py-[6px] font-[family-name:var(--font-sans)] text-[14px] rounded-[var(--r-subtle)] mb-[3px] text-[var(--text-secondary)] font-[500] hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))] transition-[background,color] duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/shell/Sidebar.tsx",
+			"line": 324,
+			"tag": "button",
+			"cls": "flex w-full items-center gap-[9px] px-[12px] py-[6px] font-[family-name:var(--font-sans)] text-[14px] rounded-[var(--r-subtle)] transition-[background,color] duration-[var(--motion-fast)] ease-[var(--motion-ease)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] text-[var(--text-primary)] font-[600] text-[var(--text-secondary)] font-[500] hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/shell/Sidebar.tsx",
+			"line": 419,
+			"tag": "button",
+			"cls": "«dyn» flex items-center w-full px-[24px] min-h-[44px] text-[13px] font-[500] text-[var(--text-primary)] truncate transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/shell/SidebarV2.stories.tsx",
+			"line": 85,
+			"tag": "button",
+			"cls": "flex w-full items-center gap-[9px] px-[12px] py-[6px] font-[family-name:var(--font-sans)] text-[14px] rounded-[var(--r-subtle)] mb-[3px] transition-[background,color] duration-[var(--motion-fast)] ease-[var(--motion-ease)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] text-[var(--text-primary)] font-[600] text-[var(--text-secondary)] font-[500] hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]",
+			"prod": false,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/shell/SidebarV2.stories.tsx",
+			"line": 135,
+			"tag": "button",
+			"cls": "inline-flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[var(--r-default)] border border-[var(--border-subtle)] transition-[background,border-color,color] duration-[var(--motion-fast)] ease-[var(--motion-ease)] bg-[var(--accent-primary-dim)] border-[var(--accent-deep)] text-[var(--accent-deep)] bg-[var(--surface-container)] text-[var(--text-secondary)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]",
+			"prod": false,
+			"fill": true,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/shell/SidebarV2.stories.tsx",
+			"line": 189,
+			"tag": "button",
+			"cls": "flex w-full items-center gap-[9px] px-[12px] py-[6px] font-[family-name:var(--font-sans)] text-[14px] rounded-[var(--r-subtle)] transition-[background,color] duration-[var(--motion-fast)] ease-[var(--motion-ease)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] text-[var(--text-primary)] font-[600] text-[var(--text-secondary)] font-[500] hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]",
+			"prod": false,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "layers/core-ui/src/shell/TaskSheet.tsx",
+			"line": 399,
+			"tag": "button",
+			"cls": "btn btn-ghost btn-xs",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/shell/TaskSheet.tsx",
+			"line": 464,
+			"tag": "button",
+			"cls": "btn btn-ghost btn-xs text-xs",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/shell/TaskSheet.tsx",
+			"line": 495,
+			"tag": "input",
+			"cls": "radio radio-sm",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/shell/TaskSheet.tsx",
+			"line": 512,
+			"tag": "textarea",
+			"cls": "textarea textarea-bordered text-base resize-none h-20",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/shell/TaskSheet.tsx",
+			"line": 536,
+			"tag": "button",
+			"cls": "btn btn-primary btn-sm w-full",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "layers/core-ui/src/shell/ToastRegion.stories.tsx",
+			"line": 9,
+			"tag": "button",
+			"cls": "px-[12px] py-[6px] rounded-[var(--r-subtle)] bg-[var(--accent)] text-[var(--accent-on)] text-[13px]",
+			"prod": false,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "framework/design-system/src/BlockHandle.tsx",
+			"line": 50,
+			"tag": "button",
+			"cls": "inline-flex items-center gap-[3px] w-[20px] h-[20px] justify-center rounded-[var(--r-subtle)] text-[var(--text-secondary)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] [@media(pointer:coarse)]:min-w-[44px] [@media(pointer:coarse)]:min-h-[44px] «dyn»",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "framework/design-system/src/Button.tsx",
+			"line": 56,
+			"tag": "button",
+			"cls": "inline-flex items-center justify-center gap-[6px] rounded-full border-[1.5px] font-medium cursor-pointer active:scale-[0.97] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] «dyn» «dyn» «dyn»",
+			"prod": true,
+			"fill": false,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "framework/design-system/src/Composer.tsx",
+			"line": 86,
+			"tag": "textarea",
+			"cls": "flex-1 min-h-[44px] resize-none bg-[var(--surface-page)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] px-[12px] py-[9px] text-[15px] focus:outline-hidden focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)]",
+			"prod": true,
+			"fill": true,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "framework/design-system/src/Composer.tsx",
+			"line": 96,
+			"tag": "button",
+			"cls": "px-[12px] min-h-[44px] rounded-[var(--r-pill)] text-[12px] font-[500] bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)] active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] self-stretch transition-all duration-[var(--motion-default)]",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "framework/design-system/src/EmptyState.stories.tsx",
+			"line": 41,
+			"tag": "button",
+			"cls": "inline-flex items-center px-[12px] py-[7px] text-[12px] font-[500] text-[var(--text-on-accent)] bg-[var(--accent-primary)] rounded-[var(--r-pill)] border-[1.5px] border-transparent cursor-pointer",
+			"prod": false,
+			"fill": true,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "framework/design-system/src/EmptyState.stories.tsx",
+			"line": 73,
+			"tag": "button",
+			"cls": "inline-flex items-center px-[18px] py-[10px] text-[13px] font-[500] text-[var(--text-on-accent)] bg-[var(--accent-primary)] rounded-[var(--r-pill)] border-[1.5px] border-transparent cursor-pointer transition-[background-color] duration-[var(--motion-default)] hover:bg-[var(--accent-primary-hover)]",
+			"prod": false,
+			"fill": true,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "framework/design-system/src/EmptyState.stories.tsx",
+			"line": 105,
+			"tag": "button",
+			"cls": "inline-flex items-center px-[18px] py-[10px] text-[13px] font-[500] text-[var(--text-on-accent)] bg-[var(--accent-primary)] rounded-[var(--r-pill)] border-[1.5px] border-transparent cursor-pointer transition-[background-color] duration-[var(--motion-default)] hover:bg-[var(--accent-primary-hover)]",
+			"prod": false,
+			"fill": true,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "framework/design-system/src/EmptyState.stories.tsx",
+			"line": 150,
+			"tag": "button",
+			"cls": "btn btn-sm btn-primary",
+			"prod": false,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "framework/design-system/src/Menu.stories.tsx",
+			"line": 39,
+			"tag": "button",
+			"cls": "inline-flex items-center justify-center w-[32px] h-[32px] rounded-[var(--r-pill)] border-[1.5px] border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] text-[16px] cursor-pointer hover:border-[var(--accent-deep)]",
+			"prod": false,
+			"fill": false,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "framework/design-system/src/Menu.tsx",
+			"line": 170,
+			"tag": "button",
+			"cls": "text-left text-[13px] px-[12px] py-[9px] rounded-[var(--r-subtle)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:[outline-offset:-1px] disabled:opacity-50 flex items-center justify-between gap-[12px] w-full «dyn»",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "framework/design-system/src/NotificationRow.stories.tsx",
+			"line": 35,
+			"tag": "button",
+			"cls": "btn btn-ghost btn-xs",
+			"prod": false,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "framework/design-system/src/ReferenceChip.tsx",
+			"line": 120,
+			"tag": "button",
+			"cls": "flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-secondary)]",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "framework/design-system/src/ReviewAnchoredComment.stories.tsx",
+			"line": 78,
+			"tag": "button",
+			"cls": "absolute left-[68px] top-1/2 flex h-[16px] w-[16px] -translate-y-1/2 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] text-[12px] leading-none group-hover/line:flex focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]",
+			"prod": false,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "framework/design-system/src/RichMessageCard.tsx",
+			"line": 437,
+			"tag": "button",
+			"cls": "inline-flex items-center gap-[6px] mx-[12px] mb-[9px] px-[9px] py-[3px] bg-[var(--surface-container)] rounded-[var(--r-subtle)] text-[12px] text-[var(--text-secondary)] cursor-pointer border-none w-fit hover:bg-[var(--surface-elevated)] hover:text-[var(--text-primary)]",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "framework/design-system/src/RoleCombobox.tsx",
+			"line": 189,
+			"tag": "button",
+			"cls": "flex h-[36px] items-center justify-between gap-[9px] rounded-[var(--r-subtle)] border border-[var(--border-default)] bg-[var(--surface-page)] px-[9px] text-left text-[13px] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] «dyn»",
+			"prod": true,
+			"fill": true,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "framework/design-system/src/RoleCombobox.tsx",
+			"line": 217,
+			"tag": "input",
+			"cls": "w-full rounded-[var(--r-subtle)] bg-[var(--surface-page)] px-[9px] py-[6px] text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none max-md:text-[16px]",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "framework/design-system/src/Row.stories.tsx",
+			"line": 110,
+			"tag": "button",
+			"cls": "btn btn-ghost btn-xs",
+			"prod": false,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "framework/design-system/src/SearchField.tsx",
+			"line": 38,
+			"tag": "input",
+			"cls": "w-full h-[32px] pl-[36px] pr-[48px] bg-[var(--surface-container)] border border-[var(--border-subtle)] rounded-[var(--r-default)] font-[family-name:var(--font-sans)] text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,background,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus:border-[var(--accent-deep)] focus:bg-[var(--surface-page)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] focus:outline-hidden",
+			"prod": true,
+			"fill": true,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "framework/design-system/src/SearchField.tsx",
+			"line": 48,
+			"tag": "button",
+			"cls": "inline-flex items-center justify-center w-[18px] h-[18px] rounded-[var(--r-subtle)] bg-transparent text-[var(--text-tertiary)] text-[12px] cursor-pointer border-none p-0 transition-[background,color] duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] hover:text-[var(--text-secondary)]",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "framework/design-system/src/SplitView.tsx",
+			"line": 124,
+			"tag": "button",
+			"cls": "inline-flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[color-mix(in_oklab,var(--surface-page)_80%,transparent)] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:[outline-offset:1px]",
+			"prod": true,
+			"fill": true,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "framework/design-system/src/TabBar.tsx",
+			"line": 31,
+			"tag": "button",
+			"cls": "pb-[6px] px-[9px] text-[13px] border-b-[2px] -mb-[1px] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] text-[var(--accent-deep)] font-semibold border-[var(--accent-deep)] bg-[var(--accent-primary-dim)] text-[var(--text-tertiary)] font-medium border-transparent hover:text-[var(--text-secondary)]",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": false
+		},
+		{
+			"file": "framework/design-system/src/TabBar.tsx",
+			"line": 64,
+			"tag": "button",
+			"cls": "px-[12px] py-[6px] rounded-full text-[13px] transition-all duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] bg-[var(--surface-elevated)] text-[var(--accent-deep)] font-semibold shadow-[var(--shadow-subtle)] text-[var(--text-secondary)] font-medium hover:text-[var(--text-primary)]",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "framework/design-system/src/ThreadRow.stories.tsx",
+			"line": 152,
+			"tag": "button",
+			"cls": "btn btn-xs btn-ghost",
+			"prod": false,
+			"fill": false,
+			"border": false,
+			"daisy": true,
+			"radius": false
+		},
+		{
+			"file": "framework/design-system/src/ThreadShell.tsx",
+			"line": 224,
+			"tag": "button",
+			"cls": "px-[9px] py-[6px] min-h-[44px] rounded-[var(--r-subtle)] text-[12px] font-medium border bg-transparent text-[var(--text-secondary)] border-[var(--border-subtle)] disabled:opacity-50 disabled:cursor-not-allowed",
+			"prod": true,
+			"fill": false,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "framework/design-system/src/Toggle.tsx",
+			"line": 57,
+			"tag": "button",
+			"cls": "relative inline-flex shrink-0 h-[24px] w-[44px] items-center rounded-full border-[1.5px] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] bg-[var(--accent-primary)] border-[var(--accent-primary)] bg-[var(--border-default)] border-[var(--border-default)]",
+			"prod": true,
+			"fill": true,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "framework/design-system/src/Toggle.tsx",
+			"line": 99,
+			"tag": "button",
+			"cls": "relative inline-flex shrink-0 h-[24px] w-[44px] items-center rounded-full border-[1.5px] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] bg-[var(--accent-primary)] border-[var(--accent-primary)] bg-[var(--border-default)] border-[var(--border-default)]",
+			"prod": true,
+			"fill": true,
+			"border": true,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "framework/design-system/src/block/CodePayload.tsx",
+			"line": 29,
+			"tag": "button",
+			"cls": "self-start text-[12px] text-[var(--text-secondary)] underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:[outline-offset:2px] rounded-[var(--r-subtle)]",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "framework/design-system/src/block/ImagePayload.tsx",
+			"line": 43,
+			"tag": "button",
+			"cls": "absolute top-[8px] right-[8px] w-[28px] h-[28px] rounded-[var(--r-default)] bg-[color-mix(in_oklab,var(--surface-page)_75%,transparent)] text-[var(--text-secondary)] flex items-center justify-center focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:[outline-offset:-1px]",
+			"prod": true,
+			"fill": true,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		},
+		{
+			"file": "framework/design-system/src/body-editor/floating-toolbar.tsx",
+			"line": 39,
+			"tag": "button",
+			"cls": "w-[28px] h-[28px] flex items-center justify-center rounded-[var(--r-subtle)] text-[13px] font-medium cursor-pointer transition-colors «dyn»",
+			"prod": true,
+			"fill": false,
+			"border": false,
+			"daisy": false,
+			"radius": true
+		}
+	],
+	"handrolledChip": [
+		{
+			"file": "layers/core-ui/src/components/ConversationSurface.tsx",
+			"line": 180,
+			"tag": "span",
+			"cls": "inline-flex items-center rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[9px] py-[1px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-deep)]",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/components/RecipientPicker.tsx",
+			"line": 199,
+			"tag": "span",
+			"cls": "inline-flex items-center gap-[4px] px-[6px] py-[1px] rounded-full bg-[color-mix(in_oklab,var(--accent-primary)_14%,transparent)] text-[var(--accent-deep)] text-[10px] font-medium uppercase tracking-[0.05em]",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/components/RecipientPicker.tsx",
+			"line": 203,
+			"tag": "span",
+			"cls": "w-[5px] h-[5px] rounded-full bg-[var(--accent-primary)] animate-pulse",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/components/SessionActivityPanel.tsx",
+			"line": 175,
+			"tag": "span",
+			"cls": "inline-flex items-center gap-[4px] px-[6px] py-[1px] rounded-full bg-[color-mix(in_oklab,var(--accent-primary)_14%,transparent)] text-[var(--accent-deep)] text-[10px] font-medium uppercase tracking-[0.05em]",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/components/SessionActivityPanel.tsx",
+			"line": 180,
+			"tag": "span",
+			"cls": "w-[5px] h-[5px] rounded-full bg-[var(--accent-primary)] animate-pulse",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/components/SessionView.tsx",
+			"line": 697,
+			"tag": "span",
+			"cls": "inline-block h-[6px] w-[6px] rounded-full bg-[var(--accent-secondary)] motion-safe:animate-[skeleton-pulse_1.4s_ease-in-out_infinite]",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/components/SessionView.tsx",
+			"line": 700,
+			"tag": "span",
+			"cls": "inline-flex items-center gap-[6px] rounded-[var(--r-pill)] bg-[var(--surface-container)] px-[9px] py-[3px] text-[12px] font-[500] text-[var(--text-secondary)]",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/components/SessionView.tsx",
+			"line": 771,
+			"tag": "span",
+			"cls": "inline-flex items-center gap-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[9px] py-[1px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-deep)]",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/components/SessionView.tsx",
+			"line": 773,
+			"tag": "span",
+			"cls": "inline-block h-[6px] w-[6px] rounded-full bg-[var(--accent-secondary)] motion-safe:animate-[skeleton-pulse_1.4s_ease-in-out_infinite]",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/components/parts/QuestionnairePart.tsx",
+			"line": 35,
+			"tag": "span",
+			"cls": "mt-[1px] flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[var(--accent-deep)]",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/components/parts/ReviewRequestPart.tsx",
+			"line": 31,
+			"tag": "span",
+			"cls": "mt-[1px] flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[var(--accent-deep)]",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/components/parts/ToolPart.tsx",
+			"line": 60,
+			"tag": "span",
+			"cls": "inline-block h-[7px] w-[7px] shrink-0 rounded-full bg-[var(--accent-secondary)] motion-safe:animate-[skeleton-pulse_1.4s_ease-in-out_infinite]",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/layouts/AppShell.tsx",
+			"line": 706,
+			"tag": "span",
+			"cls": "absolute top-[8px] right-[8px] w-[6px] h-[6px] rounded-full bg-[var(--accent-primary)]",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/Conversations.tsx",
+			"line": 408,
+			"tag": "span",
+			"cls": "w-[6px] h-[6px] rounded-full bg-[var(--accent-primary)] animate-pulse shrink-0",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/KnowledgeList.tsx",
+			"line": 968,
+			"tag": "div",
+			"cls": "inline-flex gap-[6px] bg-[var(--surface-container)] rounded-[var(--r-pill)] p-[3px]",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/WorkBet.tsx",
+			"line": 968,
+			"tag": "div",
+			"cls": "w-full h-[8px] bg-[var(--surface-container)] rounded-[var(--r-pill)] overflow-hidden mt-[9px]",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/WorkBet.tsx",
+			"line": 969,
+			"tag": "div",
+			"cls": "h-full bg-[var(--accent-primary)] rounded-[var(--r-pill)]",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/CanvasSourceHeader.tsx",
+			"line": 49,
+			"tag": "a",
+			"cls": "shrink-0 inline-flex items-center gap-[3px] rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[500] text-[var(--accent-deep)] hover:bg-[var(--accent-primary-dim)] transition-colors duration-[var(--motion-fast)]",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewActionOperation.tsx",
+			"line": 400,
+			"tag": "span",
+			"cls": "h-[5px] w-[5px] rounded-full bg-[var(--status-warning)]",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewBatch.tsx",
+			"line": 186,
+			"tag": "span",
+			"cls": "inline-flex items-center gap-[6px] px-[8px] py-[2px] rounded-full text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] leading-[1.4] whitespace-nowrap shrink-0 bg-[color-mix(in_oklab,var(--status-error)_14%,transparent)] text-[var(--status-error)]",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewBatch.tsx",
+			"line": 190,
+			"tag": "span",
+			"cls": "h-[6px] w-[6px] rounded-full shrink-0 bg-[var(--status-error)]",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewBatch.tsx",
+			"line": 284,
+			"tag": "span",
+			"cls": "h-[6px] w-[6px] rounded-full bg-[var(--status-success)] shrink-0",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewBatch.tsx",
+			"line": 329,
+			"tag": "span",
+			"cls": "flex items-center justify-center h-[22px] w-[22px] shrink-0 rounded-full bg-[color-mix(in_oklab,var(--status-error)_12%,transparent)] text-[11px] font-[700] tabular-nums text-[var(--status-error)]",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewBatch.tsx",
+			"line": 385,
+			"tag": "span",
+			"cls": "h-[16px] w-[16px] rounded-full bg-[var(--accent-primary)] text-[var(--text-on-accent)] text-[9px] font-[700] inline-flex items-center justify-center shrink-0",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewBatch.tsx",
+			"line": 405,
+			"tag": "span",
+			"cls": "inline-flex h-[16px] w-[16px] items-center justify-center rounded-full bg-[var(--status-error)] text-[var(--text-on-accent)] text-[11px] font-[700] leading-none shrink-0",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewBatch.tsx",
+			"line": 455,
+			"tag": "span",
+			"cls": "flex items-center justify-center h-[22px] min-w-[22px] px-[6px] shrink-0 rounded-full bg-[color-mix(in_oklab,var(--text-tertiary)_12%,transparent)] text-[11px] font-[700] tabular-nums text-[var(--text-secondary)]",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewCodeDiff.tsx",
+			"line": 307,
+			"tag": "span",
+			"cls": "inline-flex items-center gap-[6px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--status-success)_14%,transparent)] px-[9px] py-[3px] text-[12px] font-[600] text-[var(--status-success)]",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewCodeDiff.tsx",
+			"line": 472,
+			"tag": "div",
+			"cls": "w-[6px] h-[6px] rounded-full bg-[var(--accent-primary)]",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewCodeDiff.tsx",
+			"line": 682,
+			"tag": "span",
+			"cls": "inline-flex items-center gap-[4px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--status-success)_14%,transparent)] px-[9px] py-[2px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--status-success)]",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewComposition.tsx",
+			"line": 112,
+			"tag": "span",
+			"cls": "inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[var(--surface-container)] text-[10px] font-[600] text-[var(--text-secondary)]",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewComposition.tsx",
+			"line": 570,
+			"tag": "span",
+			"cls": "rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[6px] py-[1px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-deep)]",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/ReviewUnknownCanvas.tsx",
+			"line": 28,
+			"tag": "span",
+			"cls": "rounded-[var(--r-pill)] bg-[var(--surface-container)] px-[9px] py-[3px] text-[12px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/review-canvas.tsx",
+			"line": 167,
+			"tag": "span",
+			"cls": "h-[6px] w-[6px] rounded-full bg-[var(--accent-primary)]",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/review-canvas.tsx",
+			"line": 175,
+			"tag": "span",
+			"cls": "ml-auto rounded-[var(--r-pill)] bg-[var(--surface-container)] px-[6px] py-[1px] text-[10px] text-[var(--text-tertiary)]",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/pages/review/review-canvas.tsx",
+			"line": 179,
+			"tag": "span",
+			"cls": "ml-auto rounded-[var(--r-pill)] bg-[var(--surface-container)] px-[6px] py-[1px] text-[10px] text-[var(--text-tertiary)]",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/shell/Sidebar.tsx",
+			"line": 210,
+			"tag": "span",
+			"cls": "inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full text-[9px] font-[600] tabular-nums bg-[var(--accent-primary)] text-[var(--text-on-accent)] ml-auto",
+			"prod": true
+		},
+		{
+			"file": "layers/core-ui/src/shell/Sidebar.tsx",
+			"line": 316,
+			"tag": "span",
+			"cls": "absolute top-[6px] right-[9px] w-[6px] h-[6px] rounded-full bg-[var(--status-error)]",
+			"prod": true
+		},
+		{
+			"file": "framework/design-system/src/BetCard.tsx",
+			"line": 135,
+			"tag": "span",
+			"cls": "inline-flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-full bg-[var(--surface-container)] text-[var(--text-primary)] text-[11px] font-semibold",
+			"prod": true
+		},
+		{
+			"file": "framework/design-system/src/BetCard.tsx",
+			"line": 159,
+			"tag": "span",
+			"cls": "inline-flex items-center text-[12px] font-[500] px-[9px] py-[3px] rounded-[var(--r-pill)] leading-[1.4] whitespace-nowrap ml-auto bg-[color-mix(in_oklab,var(--status-warning)_10%,transparent)] text-[var(--accent-secondary)]",
+			"prod": true
+		},
+		{
+			"file": "framework/design-system/src/BetCard.tsx",
+			"line": 192,
+			"tag": "div",
+			"cls": "w-full h-[8px] bg-[var(--surface-container)] rounded-[var(--r-pill)] overflow-hidden",
+			"prod": true
+		},
+		{
+			"file": "framework/design-system/src/BetCard.tsx",
+			"line": 214,
+			"tag": "span",
+			"cls": "inline-flex w-[24px] h-[24px] items-center justify-center rounded-full text-[9px] font-[600] shrink-0 -ml-[6px] bg-[var(--accent-primary-dim)] text-[var(--accent-deep)] border-[2px] border-[var(--surface-elevated)] bg-[var(--surface-page)] text-[var(--text-secondary)] border-[2px] border-[var(--surface-elevated)]",
+			"prod": true
+		},
+		{
+			"file": "framework/design-system/src/BetCard.tsx",
+			"line": 245,
+			"tag": "span",
+			"cls": "inline-flex w-[24px] h-[24px] items-center justify-center rounded-full text-[9px] font-[600] shrink-0 -ml-[6px] bg-[var(--accent-primary-dim)] text-[var(--accent-deep)] border-[2px] border-[var(--surface-elevated)] bg-[var(--surface-page)] text-[var(--text-secondary)] border-[2px] border-[var(--surface-elevated)]",
+			"prod": true
+		},
+		{
+			"file": "framework/design-system/src/CommentRow.tsx",
+			"line": 89,
+			"tag": "span",
+			"cls": "inline-flex items-center px-[3px] py-[3px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--accent-primary)_8%,transparent)] text-[var(--accent-deep)]",
+			"prod": true
+		},
+		{
+			"file": "framework/design-system/src/CommentRow.tsx",
+			"line": 269,
+			"tag": "span",
+			"cls": "inline-flex items-center px-[6px] py-[3px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[var(--accent-deep)] text-[10px] font-[600] tracking-[var(--tracking-caps-sm)]",
+			"prod": true
+		},
+		{
+			"file": "framework/design-system/src/KnowledgeRow.tsx",
+			"line": 99,
+			"tag": "span",
+			"cls": "inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps)] bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-tertiary)] shrink-0",
+			"prod": true
+		},
+		{
+			"file": "framework/design-system/src/LiveDot.tsx",
+			"line": 16,
+			"tag": "span",
+			"cls": "inline-block w-[6px] h-[6px] rounded-full bg-[var(--accent-primary)] animate-pulse shrink-0",
+			"prod": true
+		},
+		{
+			"file": "framework/design-system/src/Progress.tsx",
+			"line": 33,
+			"tag": "div",
+			"cls": "h-[8px] w-full bg-[var(--surface-container)] rounded-full overflow-hidden",
+			"prod": true
+		},
+		{
+			"file": "framework/design-system/src/ReviewAnchoredComment.stories.tsx",
+			"line": 98,
+			"tag": "div",
+			"cls": "w-[6px] h-[6px] rounded-full bg-[var(--accent-primary)]",
+			"prod": false
+		},
+		{
+			"file": "framework/design-system/src/ReviewAnchoredComment.stories.tsx",
+			"line": 124,
+			"tag": "span",
+			"cls": "h-[6px] w-[6px] rounded-full bg-[var(--accent-primary)]",
+			"prod": false
+		},
+		{
+			"file": "framework/design-system/src/ReviewAnchoredComment.stories.tsx",
+			"line": 215,
+			"tag": "span",
+			"cls": "ml-auto rounded-[var(--r-pill)] bg-[var(--surface-container)] px-[6px] py-[1px] text-[10px] text-[var(--text-tertiary)]",
+			"prod": false
+		},
+		{
+			"file": "framework/design-system/src/RichMessageCard.tsx",
+			"line": 207,
+			"tag": "span",
+			"cls": "inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[11px] font-mono tracking-[var(--tracking-caps-sm)] bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-secondary)]",
+			"prod": true
+		},
+		{
+			"file": "framework/design-system/src/RichMessageCard.tsx",
+			"line": 483,
+			"tag": "span",
+			"cls": "inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[11px] font-mono tracking-[var(--tracking-caps-sm)] bg-[color-mix(in_oklab,var(--accent-primary)_18%,transparent)] text-[var(--accent-deep)]",
+			"prod": true
+		},
+		{
+			"file": "framework/design-system/src/TabBar.tsx",
+			"line": 56,
+			"tag": "div",
+			"cls": "inline-flex items-center bg-[var(--surface-container)] rounded-full p-[3px] gap-[3px]",
+			"prod": true
+		},
+		{
+			"file": "framework/design-system/src/ThreadHostBanner.tsx",
+			"line": 132,
+			"tag": "span",
+			"cls": "relative inline-flex items-center justify-center w-[24px] h-[24px] rounded-full bg-[var(--surface-elevated)] text-[var(--text-tertiary)] text-[11px] font-medium border border-[var(--border-subtle)]",
+			"prod": true
+		},
+		{
+			"file": "framework/design-system/src/ThreadHostBanner.tsx",
+			"line": 144,
+			"tag": "span",
+			"cls": "inline-flex items-center justify-center w-[24px] h-[24px] rounded-full bg-[var(--surface-elevated)] text-[var(--text-tertiary)] text-[11px] font-medium border border-[var(--border-subtle)]",
+			"prod": true
+		},
+		{
+			"file": "framework/design-system/src/ThreadRow.tsx",
+			"line": 136,
+			"tag": "span",
+			"cls": "w-[8px] h-[8px] rounded-full shrink-0 bg-[var(--accent-primary)] bg-transparent",
+			"prod": true
+		},
+		{
+			"file": "framework/design-system/src/ThreadRow.tsx",
+			"line": 174,
+			"tag": "span",
+			"cls": "inline-flex items-center px-[6px] py-[3px] rounded-[var(--r-pill)] font-mono text-[10px] leading-[1.4] bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-secondary)] whitespace-nowrap",
+			"prod": true
+		},
+		{
+			"file": "framework/design-system/src/ThreadRow.tsx",
+			"line": 200,
+			"tag": "span",
+			"cls": "inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)] text-[var(--status-error)] whitespace-nowrap shrink-0",
+			"prod": true
+		},
+		{
+			"file": "framework/design-system/src/ThreadRow.tsx",
+			"line": 212,
+			"tag": "span",
+			"cls": "relative w-[24px] h-[24px] rounded-full inline-flex items-center justify-center shrink-0 text-[9px] font-[600] leading-none border-[2px] border-[var(--surface-elevated)] ml-[-6px] bg-[var(--accent-primary-dim)] border-[var(--accent-deep)] text-[var(--accent-deep)] bg-[var(--surface-page)] border-[var(--border-default)] text-[var(--text-secondary)]",
+			"prod": true
+		},
+		{
+			"file": "framework/design-system/src/ThreadRow.tsx",
+			"line": 235,
+			"tag": "span",
+			"cls": "inline-flex items-center justify-center text-[12px] font-[500] px-[6px] py-[3px] rounded-[var(--r-pill)] min-w-[20px] text-center whitespace-nowrap bg-[var(--accent-primary-dim)] text-[var(--accent-deep)] bg-[var(--surface-container)] text-[var(--text-secondary)]",
+			"prod": true
+		},
+		{
+			"file": "framework/design-system/src/ThreadShell.tsx",
+			"line": 175,
+			"tag": "span",
+			"cls": "inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--accent-primary)_18%,transparent)] text-[var(--accent-deep)]",
+			"prod": true
+		},
+		{
+			"file": "framework/design-system/src/ThreadShell.tsx",
+			"line": 205,
+			"tag": "span",
+			"cls": "inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--accent-primary)_18%,transparent)] text-[var(--accent-deep)]",
+			"prod": true
+		},
+		{
+			"file": "framework/design-system/src/Toggle.tsx",
+			"line": 74,
+			"tag": "span",
+			"cls": "absolute top-[2px] h-[18px] w-[18px] rounded-full bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] transition-transform duration-[var(--motion-fast)] translate-x-[22px] translate-x-[2px]",
+			"prod": true
+		},
+		{
+			"file": "framework/design-system/src/Toggle.tsx",
+			"line": 116,
+			"tag": "span",
+			"cls": "absolute top-[2px] h-[18px] w-[18px] rounded-full bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] transition-transform duration-[var(--motion-fast)] translate-x-[22px] translate-x-[2px]",
+			"prod": true
+		},
+		{
+			"file": "framework/design-system/src/block/UnknownPayload.tsx",
+			"line": 19,
+			"tag": "span",
+			"cls": "inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] uppercase tracking-[var(--tracking-caps-sm)] text-[11px] font-semibold bg-[color-mix(in_oklab,var(--status-warning)_15%,var(--surface-container))] text-[var(--status-warning)] border border-[var(--status-warning)]",
+			"prod": true
+		}
+	]
+}
