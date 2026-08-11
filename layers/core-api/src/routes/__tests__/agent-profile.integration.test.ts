@@ -37,6 +37,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { AdapterPool } from "@hyperidle/harness-registry";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -53,14 +54,14 @@ const NOW = new Date().toISOString();
 // 10 days ago (outside 7-day health window)
 
 /** Seed the minimum required prerequisite rows for agent profile tests. */
-async function seedPrereqs(db: HyperIdleDb): Promise<void> {
+async function seedPrereqs(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	await db
 		.insert(teams)
-		.values({ id: "ab1-team", name: "AB1 Test Team", phase: "build", createdAt: NOW });
+		.values({ id: ids("ab1-team"), name: "AB1 Test Team", phase: "build", createdAt: NOW });
 
 	await db.insert(teamMembers).values({
-		id: "ab1-tm",
-		teamId: "ab1-team",
+		id: ids("ab1-tm"),
+		teamId: ids("ab1-team"),
 		capacity: 5,
 		activeBets: 0,
 		formedAt: NOW,
@@ -68,7 +69,7 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 
 	// Seed the human founder (required for auth middleware)
 	await db.insert(users).values({
-		id: "u-founder-ab1",
+		id: ids("u-founder-ab1"),
 		kind: "human",
 		name: "AB1 Founder",
 		role: "founder",
@@ -78,23 +79,23 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 	});
 	// @lore AU26 G1: the run config left `users` for `agent_run_config`.
 	await db.insert(agentRunConfig).values({
-		agentUserId: "u-founder-ab1",
+		agentUserId: ids("u-founder-ab1"),
 		maxConcurrentSessions: 0,
 	});
 
 	// Seed a configurable AI agent (builder role)
 	await db.insert(users).values({
-		id: "ab1-agent-builder",
+		id: ids("ab1-agent-builder"),
 		kind: "ai",
 		name: "AB1 Builder Bot",
 		role: "builder",
 		status: "active",
-		teamId: "ab1-tm",
+		teamId: ids("ab1-tm"),
 		createdAt: NOW,
 	});
 	// @lore AU26 G1: the run config left `users` for `agent_run_config`.
 	await db.insert(agentRunConfig).values({
-		agentUserId: "ab1-agent-builder",
+		agentUserId: ids("ab1-agent-builder"),
 		maxConcurrentSessions: 2,
 		harnessType: "claude-code",
 		systemPrompt: "You are a builder agent.",
@@ -103,7 +104,7 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 
 	// Seed a human user (to test 404 path)
 	await db.insert(users).values({
-		id: "ab1-human-user",
+		id: ids("ab1-human-user"),
 		kind: "human",
 		name: "AB1 Human",
 		role: "founder",
@@ -113,23 +114,23 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 	});
 	// @lore AU26 G1: the run config left `users` for `agent_run_config`.
 	await db.insert(agentRunConfig).values({
-		agentUserId: "ab1-human-user",
+		agentUserId: ids("ab1-human-user"),
 		maxConcurrentSessions: 0,
 	});
 
 	// Seed a bet and task for sessions
 	await db.insert(bets).values({
-		id: "ab1-bet-1",
-		teamId: "ab1-team",
+		id: ids("ab1-bet-1"),
+		teamId: ids("ab1-team"),
 		description: "Test bet",
 		status: "active",
 		createdAt: NOW,
 	});
 
 	await db.insert(tasks).values({
-		id: "ab1-task-1",
-		betId: "ab1-bet-1",
-		teamId: "ab1-team",
+		id: ids("ab1-task-1"),
+		betId: ids("ab1-bet-1"),
+		teamId: ids("ab1-team"),
 		title: "Test task 1",
 		state: "in_progress",
 		createdAt: NOW,
@@ -150,9 +151,9 @@ describe("AB1 AC-1: GET /api/agents/:id/profile returns 200 with correct shape",
 		vi.unstubAllEnvs();
 	});
 
-	test("returns 200 with correct top-level shape", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
+	test("returns 200 with correct top-level shape", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
+		const res = await app.request(`/api/agents/${ids("ab1-agent-builder")}/profile`, {
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(200);
@@ -188,14 +189,14 @@ describe("AB1 AC-1: GET /api/agents/:id/profile returns 200 with correct shape",
 		expect(body).toHaveProperty("reviewTrackRecord");
 	});
 
-	test("returns correct identity values for the builder agent", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
+	test("returns correct identity values for the builder agent", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
+		const res = await app.request(`/api/agents/${ids("ab1-agent-builder")}/profile`, {
 			headers: authHeaders(),
 		});
 		const body = (await res.json()) as Record<string, unknown>;
 
-		expect(body.id).toBe("ab1-agent-builder");
+		expect(body.id).toBe(ids("ab1-agent-builder"));
 		expect(body.name).toBe("AB1 Builder Bot");
 		expect(body.role).toBe("builder");
 		expect(body.harnessType).toBe("claude-code");
@@ -204,15 +205,15 @@ describe("AB1 AC-1: GET /api/agents/:id/profile returns 200 with correct shape",
 		expect(body.maxConcurrentSessions).toBe(2);
 	});
 
-	test("returns 401 without auth header", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/ab1-agent-builder/profile");
+	test("returns 401 without auth header", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
+		const res = await app.request(`/api/agents/${ids("ab1-agent-builder")}/profile`);
 		expect(res.status).toBe(401);
 	});
 
-	test("harnessCapabilities shape has required fields", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
+	test("harnessCapabilities shape has required fields", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
+		const res = await app.request(`/api/agents/${ids("ab1-agent-builder")}/profile`, {
 			headers: authHeaders(),
 		});
 		const body = (await res.json()) as Record<string, unknown>;
@@ -227,9 +228,10 @@ describe("AB1 AC-1: GET /api/agents/:id/profile returns 200 with correct shape",
 	test("reviewTrackRecord is present and has recentVerdicts array (AD4: replaces skills)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
+		await seedPrereqs(db, ids);
+		const res = await app.request(`/api/agents/${ids("ab1-agent-builder")}/profile`, {
 			headers: authHeaders(),
 		});
 		const body = (await res.json()) as Record<string, unknown>;
@@ -252,9 +254,9 @@ describe("AB1 AC-2: GET /api/agents/:id/profile returns 404 for non-existent age
 		vi.unstubAllEnvs();
 	});
 
-	test("returns 404 for a non-existent agent id", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/nonexistent-agent-id/profile", {
+	test("returns 404 for a non-existent agent id", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
+		const res = await app.request(`/api/agents/${ids("nonexistent-agent-id")}/profile`, {
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(404);
@@ -278,10 +280,10 @@ describe("AB1 AC-3: GET /api/agents/:id/profile returns 404 for human users", ()
 		vi.unstubAllEnvs();
 	});
 
-	test("returns 404 when querying a human user's profile", async ({ db, app }) => {
-		await seedPrereqs(db);
+	test("returns 404 when querying a human user's profile", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
 		// ab1-human-user is kind='human' — not an AI agent
-		const res = await app.request("/api/agents/ab1-human-user/profile", {
+		const res = await app.request(`/api/agents/${ids("ab1-human-user")}/profile`, {
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(404);
@@ -311,8 +313,9 @@ describe("AB1 AC-10: Harness availability", () => {
 	test("sets harnessAvailable=true when agent harnessType is registered in pool", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seedPrereqs(db);
+		await seedPrereqs(db, ids);
 		// Create a pool with 'claude-code' adapter registered
 		const adapterPool = new AdapterPool();
 		adapterPool.register("local-claude-code", makeMockAdapter(), {
@@ -326,7 +329,7 @@ describe("AB1 AC-10: Harness availability", () => {
 		const app = await createTestApp({ db, eventBus, adapterPool });
 
 		// ab1-agent-builder has harnessType: 'claude-code'
-		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
+		const res = await app.request(`/api/agents/${ids("ab1-agent-builder")}/profile`, {
 			headers: authHeaders(),
 		});
 		const body = (await res.json()) as Record<string, unknown>;
@@ -336,15 +339,16 @@ describe("AB1 AC-10: Harness availability", () => {
 	test("sets harnessAvailable=false when agent harnessType is not in pool", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seedPrereqs(db);
+		await seedPrereqs(db, ids);
 		// Empty pool — no adapters registered
 		const adapterPool = new AdapterPool();
 
 		const app = await createTestApp({ db, eventBus, adapterPool });
 
 		// ab1-agent-builder has harnessType: 'claude-code' but it's not in the empty pool
-		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
+		const res = await app.request(`/api/agents/${ids("ab1-agent-builder")}/profile`, {
 			headers: authHeaders(),
 		});
 		const body = (await res.json()) as Record<string, unknown>;
@@ -354,8 +358,9 @@ describe("AB1 AC-10: Harness availability", () => {
 	test("sets harnessAvailable=true when agent has no harnessType preference", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seedPrereqs(db);
+		await seedPrereqs(db, ids);
 		const adapterPool = new AdapterPool();
 		// Register any adapter
 		adapterPool.register("local-builtin", makeMockAdapter(), {
@@ -370,7 +375,7 @@ describe("AB1 AC-10: Harness availability", () => {
 
 		// Insert an agent without a harnessType preference
 		await db.insert(users).values({
-			id: "ab1-agent-no-harness",
+			id: ids("ab1-agent-no-harness"),
 			kind: "ai",
 			name: "No Harness Agent",
 			role: "builder",
@@ -379,7 +384,7 @@ describe("AB1 AC-10: Harness availability", () => {
 			// no harnessType,
 		});
 
-		const res = await app.request("/api/agents/ab1-agent-no-harness/profile", {
+		const res = await app.request(`/api/agents/${ids("ab1-agent-no-harness")}/profile`, {
 			headers: authHeaders(),
 		});
 		const body = (await res.json()) as Record<string, unknown>;
@@ -404,9 +409,10 @@ describe("AB1 AC-11 (AD4): reviewTrackRecord — approval rate from verdict hist
 	test("returns reviewTrackRecord with required field shapes (AD4: replaces skills)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
+		await seedPrereqs(db, ids);
+		const res = await app.request(`/api/agents/${ids("ab1-agent-builder")}/profile`, {
 			headers: authHeaders(),
 		});
 		const body = (await res.json()) as Record<string, unknown>;
@@ -422,8 +428,9 @@ describe("AB1 AC-11 (AD4): reviewTrackRecord — approval rate from verdict hist
 	test("reviewTrackRecord entry has decision, threadId, createdAt shape when verdicts exist", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedPrereqs(db);
+		await seedPrereqs(db, ids);
 		// Seed a verdict by inserting directly
 		const threadId = crypto.randomUUID();
 		const itemId = crypto.randomUUID();
@@ -432,15 +439,15 @@ describe("AB1 AC-11 (AD4): reviewTrackRecord — approval rate from verdict hist
 		await db.insert(threads).values({
 			id: threadId,
 			hostKind: "task",
-			hostId: "task-ac11",
-			initiatorId: "ab1-agent-builder",
-			participants: JSON.stringify(["ab1-agent-builder"]),
+			hostId: ids("task-ac11"),
+			initiatorId: ids("ab1-agent-builder"),
+			participants: JSON.stringify([ids("ab1-agent-builder")]),
 			lastActiveAt: fiveDaysAgo,
 			createdAt: fiveDaysAgo,
 		});
 		await db.insert(items).values({
 			id: itemId,
-			sourceAgentId: "ab1-agent-builder",
+			sourceAgentId: ids("ab1-agent-builder"),
 			kind: "approval",
 			title: "AC-11 test item",
 			riskTier: "low",
@@ -449,7 +456,7 @@ describe("AB1 AC-11 (AD4): reviewTrackRecord — approval rate from verdict hist
 		});
 		await db.insert(messages).values({
 			id: crypto.randomUUID(),
-			senderId: "u-founder-ab1",
+			senderId: ids("u-founder-ab1"),
 			threadId,
 			type: "verdict",
 			payload: JSON.stringify({ decision: "approve" }),
@@ -458,7 +465,7 @@ describe("AB1 AC-11 (AD4): reviewTrackRecord — approval rate from verdict hist
 			createdAt: fiveDaysAgo,
 		});
 
-		const res = await app.request("/api/agents/ab1-agent-builder/profile", {
+		const res = await app.request(`/api/agents/${ids("ab1-agent-builder")}/profile`, {
 			headers: authHeaders(),
 		});
 		const body = (await res.json()) as Record<string, unknown>;

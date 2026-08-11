@@ -23,6 +23,7 @@ import {
 	knowledgeItems,
 	users,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 import { createTestApp } from "../../__testing__/test-utils.js";
@@ -50,10 +51,10 @@ async function seedItem(
 	opts: {
 		topic?: string | null;
 		scopeKind?: string;
-		updatedBy?: string;
+		updatedBy: string;
 		title?: string;
 		status?: string;
-	} = {},
+	},
 ): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(knowledgeItems).values({
@@ -63,7 +64,7 @@ async function seedItem(
 		format: "markdown",
 		status: opts.status ?? "active",
 		version: 1,
-		updatedBy: opts.updatedBy ?? "u-founder",
+		updatedBy: opts.updatedBy,
 		scopeKind: opts.scopeKind ?? "factory",
 		topic: opts.topic ?? null,
 		createdAt: now,
@@ -112,16 +113,17 @@ describe("AF13 §5 — Detail route: accessCount excludes the current page-load"
 	test("GET /:id returns accessCount === N where N = pre-existing rows (not N+1 from own load)", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
 		// Arrange: seed founder, item, and 3 access-log rows within the 30-day window
-		await seedFounder(db, "u-founder");
-		await seedItem(db, "item-access", { scopeKind: "factory", updatedBy: "u-founder" });
-		await seedAccessLog(db, "item-access", 3, true); // 3 existing rows
+		await seedFounder(db, ids("u-founder"));
+		await seedItem(db, ids("item-access"), { scopeKind: "factory", updatedBy: ids("u-founder") });
+		await seedAccessLog(db, ids("item-access"), 3, true); // 3 existing rows
 
 		const app = await createTestApp({ db, eventBus });
 
 		// Act: fetch the detail once (triggers the best-effort access-log insert)
-		const res = await app.request("/api/knowledge/item-access", {
+		const res = await app.request(`/api/knowledge/${ids("item-access")}`, {
 			headers: authHeaders(),
 		});
 
@@ -136,14 +138,18 @@ describe("AF13 §5 — Detail route: accessCount excludes the current page-load"
 	test("GET /:id returns accessCount === 0 when no prior access-log rows exist", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seedFounder(db, "u-founder");
-		await seedItem(db, "item-zero-access", { scopeKind: "factory", updatedBy: "u-founder" });
+		await seedFounder(db, ids("u-founder"));
+		await seedItem(db, ids("item-zero-access"), {
+			scopeKind: "factory",
+			updatedBy: ids("u-founder"),
+		});
 		// No access log rows seeded
 
 		const app = await createTestApp({ db, eventBus });
 
-		const res = await app.request("/api/knowledge/item-zero-access", {
+		const res = await app.request(`/api/knowledge/${ids("item-zero-access")}`, {
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(200);
@@ -153,15 +159,22 @@ describe("AF13 §5 — Detail route: accessCount excludes the current page-load"
 		expect(body.accessCount).toBe(0);
 	});
 
-	test("GET /:id does not count access-log rows older than 30 days", async ({ db, eventBus }) => {
-		await seedFounder(db, "u-founder");
-		await seedItem(db, "item-old-access", { scopeKind: "factory", updatedBy: "u-founder" });
-		await seedAccessLog(db, "item-old-access", 2, true); // 2 within window
-		await seedAccessLog(db, "item-old-access", 5, false); // 5 outside window
+	test("GET /:id does not count access-log rows older than 30 days", async ({
+		db,
+		eventBus,
+		ids,
+	}) => {
+		await seedFounder(db, ids("u-founder"));
+		await seedItem(db, ids("item-old-access"), {
+			scopeKind: "factory",
+			updatedBy: ids("u-founder"),
+		});
+		await seedAccessLog(db, ids("item-old-access"), 2, true); // 2 within window
+		await seedAccessLog(db, ids("item-old-access"), 5, false); // 5 outside window
 
 		const app = await createTestApp({ db, eventBus });
 
-		const res = await app.request("/api/knowledge/item-old-access", {
+		const res = await app.request(`/api/knowledge/${ids("item-old-access")}`, {
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(200);
@@ -187,12 +200,17 @@ describe("AF13 §5 — Detail route: relatedItems in route response (not compone
 	test("GET /:id includes relatedItems: [] when no other items share the topic", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seedFounder(db, "u-founder");
-		await seedItem(db, "item-solo", { topic: "UniqueTopicABC", scopeKind: "factory" });
+		await seedFounder(db, ids("u-founder"));
+		await seedItem(db, ids("item-solo"), {
+			topic: `UniqueTopicABC-${ids("suffix")}`,
+			scopeKind: "factory",
+			updatedBy: ids("u-founder"),
+		});
 
 		const app = await createTestApp({ db, eventBus });
-		const res = await app.request("/api/knowledge/item-solo", { headers: authHeaders() });
+		const res = await app.request(`/api/knowledge/${ids("item-solo")}`, { headers: authHeaders() });
 		expect(res.status).toBe(200);
 
 		const body = (await res.json()) as { relatedItems?: unknown };
@@ -206,24 +224,35 @@ describe("AF13 §5 — Detail route: relatedItems in route response (not compone
 	test("GET /:id includes relatedItems with correct {id, title} for same-topic items", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seedFounder(db, "u-founder");
-		await seedItem(db, "item-main", { topic: "SharedTopic", scopeKind: "factory" });
-		await seedItem(db, "item-related-1", {
-			topic: "SharedTopic",
+		await seedFounder(db, ids("u-founder"));
+		await seedItem(db, ids("item-main"), {
+			topic: `SharedTopic-${ids("suffix")}`,
+			scopeKind: "factory",
+			updatedBy: ids("u-founder"),
+		});
+		await seedItem(db, ids("item-related-1"), {
+			topic: `SharedTopic-${ids("suffix")}`,
 			scopeKind: "factory",
 			title: "Related Item One",
+			updatedBy: ids("u-founder"),
 		});
-		await seedItem(db, "item-related-2", {
-			topic: "SharedTopic",
+		await seedItem(db, ids("item-related-2"), {
+			topic: `SharedTopic-${ids("suffix")}`,
 			scopeKind: "factory",
 			title: "Related Item Two",
+			updatedBy: ids("u-founder"),
 		});
 		// Different topic — should NOT appear
-		await seedItem(db, "item-unrelated", { topic: "OtherTopic", scopeKind: "factory" });
+		await seedItem(db, ids("item-unrelated"), {
+			topic: `OtherTopic-${ids("suffix")}`,
+			scopeKind: "factory",
+			updatedBy: ids("u-founder"),
+		});
 
 		const app = await createTestApp({ db, eventBus });
-		const res = await app.request("/api/knowledge/item-main", { headers: authHeaders() });
+		const res = await app.request(`/api/knowledge/${ids("item-main")}`, { headers: authHeaders() });
 		expect(res.status).toBe(200);
 
 		const body = (await res.json()) as {
@@ -233,11 +262,11 @@ describe("AF13 §5 — Detail route: relatedItems in route response (not compone
 		const related = body.relatedItems ?? [];
 		expect(related.length).toBe(2);
 
-		const ids = related.map((r) => r.id);
-		expect(ids).toContain("item-related-1");
-		expect(ids).toContain("item-related-2");
+		const relatedIds = related.map((r) => r.id);
+		expect(relatedIds).toContain(ids("item-related-1"));
+		expect(relatedIds).toContain(ids("item-related-2"));
 		// Self should not appear
-		expect(ids).not.toContain("item-main");
+		expect(relatedIds).not.toContain(ids("item-main"));
 
 		// Each entry has title
 		const titles = related.map((r) => r.title);
@@ -248,11 +277,12 @@ describe("AF13 §5 — Detail route: relatedItems in route response (not compone
 	test("GET /:id: relatedItems excludes other users' private (user-scoped) items", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
 		// Seed two users
-		await seedFounder(db, "u-founder");
+		await seedFounder(db, ids("u-founder"));
 		await db.insert(users).values({
-			id: "u-other",
+			id: ids("u-other"),
 			name: "Other",
 			role: "member",
 			status: "active",
@@ -260,68 +290,87 @@ describe("AF13 §5 — Detail route: relatedItems in route response (not compone
 			createdAt: new Date().toISOString(),
 		});
 
-		await seedItem(db, "item-main-priv", {
-			topic: "PrivateTopic",
+		await seedItem(db, ids("item-main-priv"), {
+			topic: `PrivateTopic-${ids("suffix")}`,
 			scopeKind: "factory",
-			updatedBy: "u-founder",
+			updatedBy: ids("u-founder"),
 		});
 		// Other user's private item on same topic — must NOT appear in relatedItems
-		await seedItem(db, "item-private-other", {
-			topic: "PrivateTopic",
+		await seedItem(db, ids("item-private-other"), {
+			topic: `PrivateTopic-${ids("suffix")}`,
 			scopeKind: "user",
-			updatedBy: "u-other",
+			updatedBy: ids("u-other"),
 			title: "Other User Private",
 		});
 		// Requester's own private item — MAY appear (same user)
-		await seedItem(db, "item-private-self", {
-			topic: "PrivateTopic",
+		await seedItem(db, ids("item-private-self"), {
+			topic: `PrivateTopic-${ids("suffix")}`,
 			scopeKind: "user",
-			updatedBy: "u-founder",
+			updatedBy: ids("u-founder"),
 			title: "My Private Item",
 		});
 
 		const app = await createTestApp({ db, eventBus });
-		const res = await app.request("/api/knowledge/item-main-priv", { headers: authHeaders() });
+		const res = await app.request(`/api/knowledge/${ids("item-main-priv")}`, {
+			headers: authHeaders(),
+		});
 		expect(res.status).toBe(200);
 
 		const body = (await res.json()) as {
 			relatedItems?: Array<{ id: string; title: string }>;
 		};
 		const related = body.relatedItems ?? [];
-		const ids = related.map((r) => r.id);
+		const relatedIds = related.map((r) => r.id);
 
 		// Other user's private item must not appear
-		expect(ids).not.toContain("item-private-other");
+		expect(relatedIds).not.toContain(ids("item-private-other"));
 	});
 
-	test("GET /:id: relatedItems is capped at 10 items", async ({ db, eventBus }) => {
-		await seedFounder(db, "u-founder");
-		await seedItem(db, "item-cap-main", { topic: "BigTopic", scopeKind: "factory" });
+	test("GET /:id: relatedItems is capped at 10 items", async ({ db, eventBus, ids }) => {
+		await seedFounder(db, ids("u-founder"));
+		await seedItem(db, ids("item-cap-main"), {
+			topic: `BigTopic-${ids("suffix")}`,
+			scopeKind: "factory",
+			updatedBy: ids("u-founder"),
+		});
 
 		// Seed 15 items on the same topic
 		for (let i = 1; i <= 15; i++) {
-			await seedItem(db, `item-cap-${i}`, {
-				topic: "BigTopic",
+			await seedItem(db, ids(`item-cap-${i}`), {
+				topic: `BigTopic-${ids("suffix")}`,
 				scopeKind: "factory",
 				title: `Related ${i}`,
+				updatedBy: ids("u-founder"),
 			});
 		}
 
 		const app = await createTestApp({ db, eventBus });
-		const res = await app.request("/api/knowledge/item-cap-main", { headers: authHeaders() });
+		const res = await app.request(`/api/knowledge/${ids("item-cap-main")}`, {
+			headers: authHeaders(),
+		});
 		expect(res.status).toBe(200);
 
 		const body = (await res.json()) as { relatedItems?: unknown[] };
 		expect((body.relatedItems ?? []).length).toBeLessThanOrEqual(10);
 	});
 
-	test("GET /:id: relatedItems is [] when item has no topic", async ({ db, eventBus }) => {
-		await seedFounder(db, "u-founder");
-		await seedItem(db, "item-no-topic", { topic: null, scopeKind: "factory" });
-		await seedItem(db, "item-other-no-topic", { topic: null, scopeKind: "factory" });
+	test("GET /:id: relatedItems is [] when item has no topic", async ({ db, eventBus, ids }) => {
+		await seedFounder(db, ids("u-founder"));
+		await seedItem(db, ids("item-no-topic"), {
+			topic: null,
+			scopeKind: "factory",
+			updatedBy: ids("u-founder"),
+		});
+		await seedItem(db, ids("item-other-no-topic"), {
+			topic: null,
+			scopeKind: "factory",
+			updatedBy: ids("u-founder"),
+		});
 
 		const app = await createTestApp({ db, eventBus });
-		const res = await app.request("/api/knowledge/item-no-topic", { headers: authHeaders() });
+		const res = await app.request(`/api/knowledge/${ids("item-no-topic")}`, {
+			headers: authHeaders(),
+		});
 		expect(res.status).toBe(200);
 
 		const body = (await res.json()) as { relatedItems?: unknown[] };
@@ -343,8 +392,12 @@ describe("AF13 §1 — Create-status contract: POST /api/knowledge with status:a
 		vi.unstubAllEnvs();
 	});
 
-	test("POST /api/knowledge with status:active returns status=active", async ({ db, eventBus }) => {
-		await seedFounder(db, "u-founder");
+	test("POST /api/knowledge with status:active returns status=active", async ({
+		db,
+		eventBus,
+		ids,
+	}) => {
+		await seedFounder(db, ids("u-founder"));
 		const app = await createTestApp({ db, eventBus });
 
 		const payload = {
@@ -352,7 +405,7 @@ describe("AF13 §1 — Create-status contract: POST /api/knowledge with status:a
 			body: "Some content",
 			format: "markdown",
 			scopeKind: "factory",
-			updatedBy: "u-founder",
+			updatedBy: ids("u-founder"),
 			status: "active",
 		};
 
@@ -369,8 +422,8 @@ describe("AF13 §1 — Create-status contract: POST /api/knowledge with status:a
 		expect(created.status).toBe("active");
 	});
 
-	test("POST /api/knowledge without status defaults to draft", async ({ db, eventBus }) => {
-		await seedFounder(db, "u-founder");
+	test("POST /api/knowledge without status defaults to draft", async ({ db, eventBus, ids }) => {
+		await seedFounder(db, ids("u-founder"));
 		const app = await createTestApp({ db, eventBus });
 
 		const payload = {
@@ -378,7 +431,7 @@ describe("AF13 §1 — Create-status contract: POST /api/knowledge with status:a
 			body: "Some content",
 			format: "markdown",
 			scopeKind: "factory",
-			updatedBy: "u-founder",
+			updatedBy: ids("u-founder"),
 			// no status field
 		};
 
