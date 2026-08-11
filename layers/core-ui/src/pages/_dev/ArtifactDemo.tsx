@@ -18,6 +18,7 @@ import {
 import type { Artifact } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { useArtifacts } from "../../hooks/useArtifacts.js";
+import { sanitizeHtml } from "../../utils/sanitize-html.js";
 
 const BANNER =
 	"bg-[var(--surface-elevated)] text-[var(--text-secondary)] font-mono text-[11px] tracking-[0.02em] uppercase rounded-[var(--r-subtle)] px-[12px] py-[8px]";
@@ -83,7 +84,7 @@ export function ArtifactDemo(): JSX.Element | null {
 
 			<section className={SECTION}>
 				<div className={SECTION_LABEL}>Single full preview</div>
-				<ArtifactPreview data={first} />
+				<ArtifactPreview data={first} sanitizeHtml={sanitizeHtml} />
 			</section>
 
 			<section className={SECTION}>

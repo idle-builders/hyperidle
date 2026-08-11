@@ -40,6 +40,7 @@ import type { ArtifactFilterAxis, ArtifactQuery } from "@hyperidle/domain-model"
 import type { JSX } from "react";
 import { useNavigate } from "react-router-dom";
 import { useArtifacts } from "../hooks/useArtifacts.js";
+import { sanitizeHtml } from "../utils/sanitize-html.js";
 
 export type ArtifactSectionLayout = "gallery" | "stack" | "single";
 
@@ -209,7 +210,7 @@ export function ArtifactSection({
 			{layout === "single" && (
 				// @lore L12 (B-4): items[0] access is guarded by the empty check above.
 				// If we reach this branch, items.length >= 1 is guaranteed.
-				<ArtifactPreview data={items[0]} />
+				<ArtifactPreview data={items[0]} sanitizeHtml={sanitizeHtml} />
 			)}
 
 			{/* @lore AM5 T9 (was L12 B-3): wired via onViewAll callback (the /artifacts/:id route

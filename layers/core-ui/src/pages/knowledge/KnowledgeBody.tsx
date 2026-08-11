@@ -7,9 +7,10 @@
  * I/O, and costs <1 ms on bodies within the 256 KB cap. No server-side
  * pre-derivation — see architecture.md § "Where the deriver runs".
  *
- * @lore L23: `sanitizeHtml` is fixed to DOMPurify.sanitize (default profile) and
- * is NOT exposed as a prop. One host, one sanitiser policy. Future hosts that
- * need a different policy build their own renderer. See architecture.md § 2.
+ * @lore L23 / AZ6: `sanitizeHtml` is fixed and NOT exposed as a prop. It now
+ * comes from `utils/sanitize-html.ts`, which is the single policy for
+ * agent-authored prose across every host that renders a body — a knowledge item,
+ * a comment and a `text` artifact are the same class of content.
  *
  * @lore L23: `slots` is intentionally omitted from <Block /> calls. FU-1
  * (floating-ui wiring) and FU-2 (mobile sheet) are L26 prereqs; the popover is
@@ -26,10 +27,10 @@ import { deriveBlocks } from "@hyperidle/block-derivation";
 import { Block } from "@hyperidle/design-system";
 import type { Message } from "@hyperidle/domain-model";
 import { isRedactedPayload } from "@hyperidle/domain-model";
-import DOMPurify from "dompurify";
 import { type JSX, useMemo } from "react";
 import { AssistantAttachButton } from "../../components/AssistantAttachButton.js";
 import { blockExcerptFromPayload } from "../../utils/block-excerpt.js";
+import { sanitizeHtml } from "../../utils/sanitize-html.js";
 
 export interface KnowledgeBodyProps {
 	/** Raw markdown body text. May be empty. */
@@ -46,12 +47,6 @@ export interface KnowledgeBodyProps {
 	/** L18: Messages grouped by blockId for inline anchored-message slots. */
 	messagesByBlockId?: ReadonlyMap<string, ReadonlyArray<Message>>;
 }
-
-/**
- * Fixed sanitiser — DOMPurify default profile.
- * Not parametrised: one host, one policy.
- */
-const sanitizeHtml = (raw: string): string => DOMPurify.sanitize(raw);
 
 /**
  * Inline anchored messages — shown below a block's payload.
