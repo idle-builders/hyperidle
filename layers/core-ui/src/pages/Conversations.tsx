@@ -35,6 +35,7 @@ import {
 	EmptyState,
 	ErrorState,
 	PageHeader,
+	PageScaffold,
 	SkeletonList,
 	SplitView,
 } from "@hyperidle/design-system";
@@ -351,35 +352,39 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 
 	if (status === "loading") {
 		return (
-			<div className="flex flex-col gap-3 h-full" data-testid="conversations-page">
-				<SkeletonList rows={3} ariaLabel="Loading thread" />
-			</div>
+			<PageScaffold data-testid="conversations-page">
+				<div className="flex flex-col gap-3">
+					<SkeletonList rows={3} ariaLabel="Loading thread" />
+				</div>
+			</PageScaffold>
 		);
 	}
 
 	if (status === "not-found") {
 		return (
-			<div className="flex flex-col h-full" data-testid="conversations-page">
+			<PageScaffold data-testid="conversations-page">
 				<EmptyState
 					title="Thread not found"
 					description="This thread may have been resolved, archived, or the link is incorrect."
 					action={<Link to="/conversations">Back to inbox</Link>}
 					dataTestId="thread-not-found"
 				/>
-			</div>
+			</PageScaffold>
 		);
 	}
 
 	if (status === "error") {
 		return (
-			<div className="flex flex-col gap-3 h-full" data-testid="conversations-page">
-				<ErrorState
-					title="Failed to load thread"
-					description={error ?? "Unknown error"}
-					onRetry={retry}
-					dataTestId="thread-error"
-				/>
-			</div>
+			<PageScaffold data-testid="conversations-page">
+				<div className="flex flex-col gap-3">
+					<ErrorState
+						title="Failed to load thread"
+						description={error ?? "Unknown error"}
+						onRetry={retry}
+						dataTestId="thread-error"
+					/>
+				</div>
+			</PageScaffold>
 		);
 	}
 
@@ -458,7 +463,7 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 		const agentName = agentIdentity?.name ?? agentId;
 
 		return (
-			<div className="h-full w-full" data-testid="conversations-page">
+			<PageScaffold body="managed" data-testid="conversations-page">
 				<SplitView
 					surfaceKey="conversation.dial-in"
 					mode="split"
@@ -486,7 +491,7 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 						/>
 					}
 				/>
-			</div>
+			</PageScaffold>
 		);
 	}
 
@@ -502,7 +507,7 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 		const viewerName = data.identities[viewerId]?.name ?? viewerId;
 
 		return (
-			<div className="h-full w-full" data-testid="conversations-page">
+			<PageScaffold body="managed" data-testid="conversations-page">
 				<SplitView
 					surfaceKey="conversation.session"
 					mode="split"
@@ -537,7 +542,7 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 						</div>
 					}
 				/>
-			</div>
+			</PageScaffold>
 		);
 	}
 
@@ -545,48 +550,51 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	const hasReviewMessages = data.messages.some((m) => m.type === "review");
 
 	return (
-		<div className="flex flex-col h-full" data-testid="conversations-page">
-			{/* AM1: ConversationSurface owns the thread header (title + host context
-			    link). A thin action bar above it carries the dial-in affordance +
-			    the review-verdict hint — chrome the design header does not own. */}
-			{(dialInButton || (hintReviewVerdict.visible && hasReviewMessages)) && (
-				<div className="flex flex-col gap-[6px] border-b border-[var(--border-subtle)] px-[18px] py-[9px]">
-					{dialInButton && <div className="flex justify-end">{dialInButton}</div>}
-					{hintReviewVerdict.visible && hasReviewMessages && (
-						<div
-							role="status"
-							data-testid={hintReviewVerdict.testId}
-							className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[12px] flex flex-col gap-[6px]"
-						>
-							<p className="text-[15px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
-								{hintReviewVerdict.copy}
-							</p>
-							<div className="flex gap-2">
-								<button
-									type="button"
-									className="btn btn-ghost btn-xs text-[var(--text-tertiary)] min-h-[44px]"
-									onClick={hintReviewVerdict.dismiss}
-								>
-									Got it
-								</button>
+		<PageScaffold
+			data-testid="conversations-page"
+			header={
+				/* AM1: ConversationSurface owns the thread header (title + host context
+				    link). A thin action bar above it carries the dial-in affordance +
+				    the review-verdict hint — chrome the design header does not own. */
+				(dialInButton || (hintReviewVerdict.visible && hasReviewMessages)) && (
+					<div className="flex flex-col gap-[6px] border-b border-[var(--border-subtle)] px-[18px] py-[9px]">
+						{dialInButton && <div className="flex justify-end">{dialInButton}</div>}
+						{hintReviewVerdict.visible && hasReviewMessages && (
+							<div
+								role="status"
+								data-testid={hintReviewVerdict.testId}
+								className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[12px] flex flex-col gap-[6px]"
+							>
+								<p className="text-[15px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
+									{hintReviewVerdict.copy}
+								</p>
+								<div className="flex gap-2">
+									<button
+										type="button"
+										className="btn btn-ghost btn-xs text-[var(--text-tertiary)] min-h-[44px]"
+										onClick={hintReviewVerdict.dismiss}
+									>
+										Got it
+									</button>
+								</div>
 							</div>
-						</div>
-					)}
-				</div>
-			)}
-			{/* ConversationSurface takes flex-1 overflow-hidden; it manages its own
+						)}
+					</div>
+				)
+			}
+			body="managed"
+		>
+			{/* ConversationSurface takes the managed body; it manages its own
 			    internal scroll (scroll prop). */}
-			<div className="flex-1 overflow-hidden">
-				<ConversationSurface
-					parts={parts}
-					onOpen={openTarget}
-					header={header}
-					participants={participants}
-					onSend={onSend}
-					scroll
-				/>
-			</div>
-		</div>
+			<ConversationSurface
+				parts={parts}
+				onOpen={openTarget}
+				header={header}
+				participants={participants}
+				onSend={onSend}
+				scroll
+			/>
+		</PageScaffold>
 	);
 }
 
@@ -644,32 +652,40 @@ export function Conversations(): JSX.Element {
 			conversationsThreads.status !== "error";
 
 		return (
-			<div className="flex flex-col h-full" data-testid="conversations-page">
-				{/* AI7: PageHeader — Conversations list title + optional "New thread" action.
-				    data-conversations-header wrapper preserved for e2e + unit test selectors. */}
-				<div data-conversations-header>
-					<PageHeader
-						data-testid="conversations-filter-bar"
-						title="Conversations"
-						actions={
-							/* W3 AC-8: New thread button in header — only shown when threads exist. */
-							!isEmpty ? (
-								<Button
-									variant="primary"
-									size="sm"
-									onClick={onNewThread ?? (() => undefined)}
-									data-testid="new-thread-btn"
-								>
-									New thread
-								</Button>
-							) : undefined
-						}
-					/>
-				</div>
+			<PageScaffold
+				data-testid="conversations-page"
+				header={
+					/* AI7: PageHeader — Conversations list title + optional "New thread" action.
+					    data-conversations-header wrapper preserved for e2e + unit test selectors. */
+					<div data-conversations-header>
+						<PageHeader
+							data-testid="conversations-filter-bar"
+							title="Conversations"
+							actions={
+								/* W3 AC-8: New thread button in header — only shown when threads exist. */
+								!isEmpty ? (
+									<Button
+										variant="primary"
+										size="sm"
+										onClick={onNewThread ?? (() => undefined)}
+										data-testid="new-thread-btn"
+									>
+										New thread
+									</Button>
+								) : undefined
+							}
+						/>
+					</div>
+				}
+			>
 				{isEmpty ? (
 					// Empty state: centered card matching mockup's .empty-center wrapper.
 					// The "New thread" action is inside the EmptyState card (not the header).
-					<div className="flex flex-1 items-center justify-center p-[48px_24px]">
+					// @lore AZ2: h-full (not flex-1) — this div is now the scroll body's
+					// direct child, not a flex item of a flex-col root; h-full resolves
+					// against the scroll body's own definite height (same pattern as
+					// KnowledgeList.tsx's systemEmpty branch).
+					<div className="flex items-center justify-center p-[48px_24px] h-full">
 						<EmptyState
 							title="No conversations yet"
 							description="Start a thread to coordinate with your team and agents. Conversations are where decisions happen — every message can carry context, artifacts, and actions."
@@ -718,7 +734,7 @@ export function Conversations(): JSX.Element {
 						groupBySection={false}
 					/>
 				)}
-			</div>
+			</PageScaffold>
 		);
 	}
 

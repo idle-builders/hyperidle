@@ -20,6 +20,7 @@ import {
 	EmptyState,
 	ErrorState,
 	PageHeader,
+	PageScaffold,
 	SkeletonCard,
 } from "@hyperidle/design-system";
 import type { RoutineDetail } from "@hyperidle/domain-model";
@@ -65,40 +66,35 @@ export function WorkRoutine({
 
 	if (loading) {
 		return (
-			<div className="flex flex-col h-full" data-testid="work-routine-loading">
-				<PageHeader title="Routine" />
-				<div className="flex-1 overflow-y-auto">
-					<div className="flex flex-col gap-[12px] p-[24px]">
-						<SkeletonCard ariaLabel="Loading routine header" />
-						<SkeletonCard ariaLabel="Loading run history" />
-					</div>
+			<PageScaffold header={<PageHeader title="Routine" />} data-testid="work-routine-loading">
+				<div className="flex flex-col gap-[12px] p-[24px]">
+					<SkeletonCard ariaLabel="Loading routine header" />
+					<SkeletonCard ariaLabel="Loading run history" />
 				</div>
-			</div>
+			</PageScaffold>
 		);
 	}
 
 	if (error !== null && error !== undefined) {
 		return (
-			<div className="flex flex-col h-full" data-testid="work-routine-error">
-				<PageHeader title="Routine" />
-				<div className="flex-1 overflow-y-auto p-[24px]">
+			<PageScaffold header={<PageHeader title="Routine" />} data-testid="work-routine-error">
+				<div className="p-[24px]">
 					<ErrorState title="Failed to load routine" description={error.message} />
 				</div>
-			</div>
+			</PageScaffold>
 		);
 	}
 
 	if (data === null) {
 		return (
-			<div className="flex flex-col h-full" data-testid="work-routine-not-found">
-				<PageHeader title="Routine" />
-				<div className="flex-1 overflow-y-auto p-[24px]">
+			<PageScaffold header={<PageHeader title="Routine" />} data-testid="work-routine-not-found">
+				<div className="p-[24px]">
 					<EmptyState
 						title="Routine not found"
 						description="This routine does not exist or has been removed."
 					/>
 				</div>
-			</div>
+			</PageScaffold>
 		);
 	}
 
@@ -106,31 +102,34 @@ export function WorkRoutine({
 	const routineTeamName = data.routine.teamName ?? null;
 
 	return (
-		<div className="flex flex-col h-full" data-testid="work-routine-page">
-			{/* AI7: PageHeader owns the pinned title strip. */}
-			<PageHeader
-				title={routineName}
-				leading={
-					/* AG4: DS Breadcrumb — routine-breadcrumb-back testId preserved on first segment */
-					<Breadcrumb
-						segments={[
-							{ label: "Work", to: "/work", testId: "routine-breadcrumb-back" },
-							...(routineTeamName ? [{ label: routineTeamName }] : []),
-							{ label: routineName },
-						]}
-						leading={
-							!sidebarMobile ? (
-								<NavHistoryCluster onBack={() => navigate(-1)} onForward={() => navigate(1)} />
-							) : undefined
-						}
-						LinkComponent={RRLink}
-					/>
-				}
-			/>
+		<PageScaffold
+			header={
+				/* AI7: PageHeader owns the pinned title strip. */
+				<PageHeader
+					title={routineName}
+					leading={
+						/* AG4: DS Breadcrumb — routine-breadcrumb-back testId preserved on first segment */
+						<Breadcrumb
+							segments={[
+								{ label: "Work", to: "/work", testId: "routine-breadcrumb-back" },
+								...(routineTeamName ? [{ label: routineTeamName }] : []),
+								{ label: routineName },
+							]}
+							leading={
+								!sidebarMobile ? (
+									<NavHistoryCluster onBack={() => navigate(-1)} onForward={() => navigate(1)} />
+								) : undefined
+							}
+							LinkComponent={RRLink}
+						/>
+					}
+				/>
+			}
+			body="managed"
+			data-testid="work-routine-page"
+		>
 			{/* AV4: body delegates to shared RoutineDetailPane (de-greyed, editable). */}
-			<div className="flex-1 overflow-hidden">
-				<RoutineDetailPane routineId={routineId ?? ""} overrideData={overrideData} />
-			</div>
-		</div>
+			<RoutineDetailPane routineId={routineId ?? ""} overrideData={overrideData} />
+		</PageScaffold>
 	);
 }

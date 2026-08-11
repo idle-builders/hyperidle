@@ -12,7 +12,7 @@
  */
 
 // hearth-internal-padding
-import { Avatar, Button, Select } from "@hyperidle/design-system";
+import { Avatar, Button, PageScaffold, Select } from "@hyperidle/design-system";
 import type { RosterMember } from "@hyperidle/domain-model";
 import { findRoleCatalogEntry, MODEL_TIERS } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
@@ -141,42 +141,49 @@ export function AgentDetailPane({
 
 	if (agent === null) {
 		return (
-			<div className="flex flex-col h-full items-center justify-center p-[24px] text-[var(--text-tertiary)] text-[13px]">
-				No agent selected
-			</div>
+			<PageScaffold>
+				<div className="flex h-full items-center justify-center p-[24px] text-[var(--text-tertiary)] text-[13px]">
+					No agent selected
+				</div>
+			</PageScaffold>
 		);
 	}
 
 	return (
-		// Note: NO <Dialog> shell — no role="dialog" (AC#3 requirement).
-		<div className="flex flex-col h-full" data-testid="agent-detail-pane">
-			{/* Pane header — Save / Cancel + agent name */}
-			<div className="flex items-center gap-[12px] px-[24px] py-[18px] border-b border-[var(--border-subtle)] shrink-0">
-				<span className="flex-1 text-[17px] font-semibold text-[var(--text-primary)] leading-tight truncate">
-					{agentName}
-				</span>
-				{isDirty && (
-					<span className="text-[11px] text-[var(--text-tertiary)] shrink-0">Unsaved changes</span>
-				)}
-				<div className="flex items-center gap-[6px] shrink-0">
-					<Button variant="ghost" size="sm" type="button" onClick={onClose} disabled={saving}>
-						Cancel
-					</Button>
-					<Button
-						variant="primary"
-						size="sm"
-						type="button"
-						onClick={() => void handleSave()}
-						disabled={saving}
-					>
-						{saving && <span className="loading loading-spinner loading-xs" />}
-						Save
-					</Button>
+		<PageScaffold
+			// Note: NO <Dialog> shell — no role="dialog" (AC#3 requirement).
+			data-testid="agent-detail-pane"
+			header={
+				/* Pane header — Save / Cancel + agent name */
+				<div className="flex items-center gap-[12px] px-[24px] py-[18px] border-b border-[var(--border-subtle)] shrink-0">
+					<span className="flex-1 text-[17px] font-semibold text-[var(--text-primary)] leading-tight truncate">
+						{agentName}
+					</span>
+					{isDirty && (
+						<span className="text-[11px] text-[var(--text-tertiary)] shrink-0">
+							Unsaved changes
+						</span>
+					)}
+					<div className="flex items-center gap-[6px] shrink-0">
+						<Button variant="ghost" size="sm" type="button" onClick={onClose} disabled={saving}>
+							Cancel
+						</Button>
+						<Button
+							variant="primary"
+							size="sm"
+							type="button"
+							onClick={() => void handleSave()}
+							disabled={saving}
+						>
+							{saving && <span className="loading loading-spinner loading-xs" />}
+							Save
+						</Button>
+					</div>
 				</div>
-			</div>
-
-			{/* Scrollable body — same content as AgentEditDialog, Dialog shell stripped */}
-			<div className="flex-1 overflow-y-auto p-[24px]">
+			}
+		>
+			{/* Same content as AgentEditDialog, Dialog shell stripped */}
+			<div className="p-[24px]">
 				{/* Header */}
 				<div className="flex items-start gap-[12px] mb-[18px]">
 					<Avatar initials={initials} size="sm" agent />
@@ -319,6 +326,6 @@ export function AgentDetailPane({
 					)}
 				</div>
 			</div>
-		</div>
+		</PageScaffold>
 	);
 }

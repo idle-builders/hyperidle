@@ -23,6 +23,7 @@ import {
 	ErrorState,
 	LiveDot,
 	PageHeader,
+	PageScaffold,
 	SectionLabel,
 	StatusChip,
 	taskStateToStatus,
@@ -123,34 +124,38 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 	// Loading state
 	if (betLoading) {
 		return (
-			<div data-testid="task-detail-loading" className="flex flex-col h-full">
-				<PageHeader
-					title={
-						<>
-							<div className="skeleton h-[13px] w-[240px] mb-[6px]" />
-							<div className="skeleton h-[20px] w-[320px]" />
-						</>
-					}
-				/>
-				<div role="status" aria-busy="true" className="flex-1 overflow-y-auto p-[24px]">
+			<PageScaffold
+				data-testid="task-detail-loading"
+				header={
+					<PageHeader
+						title={
+							<>
+								<div className="skeleton h-[13px] w-[240px] mb-[6px]" />
+								<div className="skeleton h-[20px] w-[320px]" />
+							</>
+						}
+					/>
+				}
+			>
+				<div role="status" aria-busy="true" className="p-[24px]">
 					<div className="skeleton h-[120px] w-full rounded-[var(--r-default)]" />
 				</div>
-			</div>
+			</PageScaffold>
 		);
 	}
 
 	// Error state
 	if (betError) {
 		return (
-			<div data-testid="task-detail-error" role="alert" className="flex flex-col h-full">
-				<div className="flex-1 overflow-y-auto p-[24px]">
+			<PageScaffold data-testid="task-detail-error">
+				<div role="alert" className="p-[24px]">
 					<ErrorState
 						title="Failed to load task"
 						description={betError.message}
 						dataTestId="task-error-state"
 					/>
 				</div>
-			</div>
+			</PageScaffold>
 		);
 	}
 
@@ -158,11 +163,11 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 	const task = bet?.tasks.find((t) => t.id === taskId);
 	if (!(bet && task)) {
 		return (
-			<div data-testid="task-detail-not-found" className="flex flex-col h-full">
-				<div className="flex-1 overflow-y-auto p-[24px]">
+			<PageScaffold data-testid="task-detail-not-found">
+				<div className="p-[24px]">
 					<p className="text-[13px] text-[var(--text-secondary)]">Task not found.</p>
 				</div>
-			</div>
+			</PageScaffold>
 		);
 	}
 
@@ -175,163 +180,161 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 	// AI4: statusBadgeClass/statusLabel IIFEs removed — use StatusChip + TASK_STATE_LABEL.
 
 	return (
-		<div data-testid="task-detail-page" className="flex flex-col h-full">
-			{/* AI7: PageHeader owns the pinned title strip. */}
-			<PageHeader
-				title={task.title}
-				leading={
-					/* AG4: Breadcrumb — DS Breadcrumb replaces hand-rolled nav */
-					<div data-testid="task-breadcrumb">
-						<Breadcrumb
-							segments={[
-								{ label: "Work", to: "/work" },
-								{ label: bet.team, to: "/work" },
-								{ label: bet.title, to: `/work/bet/${bet.id}` },
-								{ label: task.title },
-							]}
-							leading={
-								!sidebarMobile ? (
-									<NavHistoryCluster onBack={() => navigate(-1)} onForward={() => navigate(1)} />
-								) : undefined
-							}
-							LinkComponent={RRLink}
-						/>
-					</div>
-				}
-				actions={
-					/* AC-2: "More actions" overflow button removed — no task-level overflow
-					   actions defined. Add back when real actions exist. */
-					<div className="flex items-center gap-[6px]">
-						{task.state === "in_progress" && <LiveDot />}
-						<StatusChip
-							status={taskStateToStatus(task.state)}
-							label={TASK_STATE_LABEL[task.state]}
-						/>
-					</div>
-				}
-			/>
-
-			{/* Scrollable body */}
-			<div className="flex-1 overflow-y-auto">
-				{/* W3 AC-32: max-width 800px centered body */}
+		<PageScaffold
+			data-testid="task-detail-page"
+			header={
+				/* AI7: PageHeader owns the pinned title strip. */
+				<PageHeader
+					title={task.title}
+					leading={
+						/* AG4: Breadcrumb — DS Breadcrumb replaces hand-rolled nav */
+						<div data-testid="task-breadcrumb">
+							<Breadcrumb
+								segments={[
+									{ label: "Work", to: "/work" },
+									{ label: bet.team, to: "/work" },
+									{ label: bet.title, to: `/work/bet/${bet.id}` },
+									{ label: task.title },
+								]}
+								leading={
+									!sidebarMobile ? (
+										<NavHistoryCluster onBack={() => navigate(-1)} onForward={() => navigate(1)} />
+									) : undefined
+								}
+								LinkComponent={RRLink}
+							/>
+						</div>
+					}
+					actions={
+						/* AC-2: "More actions" overflow button removed — no task-level overflow
+						   actions defined. Add back when real actions exist. */
+						<div className="flex items-center gap-[6px]">
+							{task.state === "in_progress" && <LiveDot />}
+							<StatusChip
+								status={taskStateToStatus(task.state)}
+								label={TASK_STATE_LABEL[task.state]}
+							/>
+						</div>
+					}
+				/>
+			}
+		>
+			{/* W3 AC-32: max-width 800px centered body */}
+			<div
+				data-testid="task-detail-body"
+				className="flex flex-col gap-[24px] max-w-[800px] mx-auto w-full p-[24px] box-border"
+			>
+				{/* W3 AC-28: Bordered metadata cell grid */}
 				<div
-					data-testid="task-detail-body"
-					className="flex flex-col gap-[24px] max-w-[800px] mx-auto w-full p-[24px] box-border"
+					data-testid="task-meta-strip"
+					className="bg-[var(--surface-page)] rounded-[var(--r-default)] border border-[var(--border-subtle)] flex overflow-hidden"
 				>
-					{/* W3 AC-28: Bordered metadata cell grid */}
-					<div
-						data-testid="task-meta-strip"
-						className="bg-[var(--surface-page)] rounded-[var(--r-default)] border border-[var(--border-subtle)] flex overflow-hidden"
-					>
-						{/* Owner */}
-						<div className="flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px] border-r border-[var(--border-subtle)]">
-							<span className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
-								Owner
-							</span>
-							<span className="text-[13px] font-[500] text-[var(--text-primary)]">
-								{task.owner}
-							</span>
-						</div>
-						{/* Status — StatusChip + LiveDot for in_progress.
+					{/* Owner */}
+					<div className="flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px] border-r border-[var(--border-subtle)]">
+						<span className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
+							Owner
+						</span>
+						<span className="text-[13px] font-[500] text-[var(--text-primary)]">{task.owner}</span>
+					</div>
+					{/* Status — StatusChip + LiveDot for in_progress.
 						    AI4: Replaced plain text + local LiveDot with design-system StatusChip. */}
-						<div className="flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px] border-r border-[var(--border-subtle)]">
-							<span className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
-								Status
-							</span>
-							<div className="flex items-center gap-[6px] mt-[3px]">
-								{task.state === "in_progress" && <LiveDot />}
-								<StatusChip
-									status={taskStateToStatus(task.state)}
-									label={TASK_STATE_LABEL[task.state]}
-								/>
-							</div>
+					<div className="flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px] border-r border-[var(--border-subtle)]">
+						<span className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
+							Status
+						</span>
+						<div className="flex items-center gap-[6px] mt-[3px]">
+							{task.state === "in_progress" && <LiveDot />}
+							<StatusChip
+								status={taskStateToStatus(task.state)}
+								label={TASK_STATE_LABEL[task.state]}
+							/>
 						</div>
-						{/* Started */}
-						{task.startedAt && (
-							<div className="flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px] border-r border-[var(--border-subtle)]">
-								<span className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
-									Started
-								</span>
-								<span
-									data-testid="task-started-at"
-									className="text-[13px] font-[500] text-[var(--text-primary)]"
-								>
-									{relativeLong(task.startedAt)}
-								</span>
-							</div>
-						)}
-						{/* Sessions */}
+					</div>
+					{/* Started */}
+					{task.startedAt && (
 						<div className="flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px] border-r border-[var(--border-subtle)]">
 							<span className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
-								Sessions
+								Started
 							</span>
 							<span
-								data-testid="task-session-count"
+								data-testid="task-started-at"
 								className="text-[13px] font-[500] text-[var(--text-primary)]"
 							>
-								{activeSessions.length} active / {completedSessions.length} completed
+								{relativeLong(task.startedAt)}
 							</span>
-							{/* AC-2: "Dial in" button removed — no work/session/:id route or
+						</div>
+					)}
+					{/* Sessions */}
+					<div className="flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px] border-r border-[var(--border-subtle)]">
+						<span className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
+							Sessions
+						</span>
+						<span
+							data-testid="task-session-count"
+							className="text-[13px] font-[500] text-[var(--text-primary)]"
+						>
+							{activeSessions.length} active / {completedSessions.length} completed
+						</span>
+						{/* AC-2: "Dial in" button removed — no work/session/:id route or
 							    dial-in handler exists anywhere in the codebase. A visible,
 							    labeled button that cannot navigate or invoke any action is
 							    a no-op and violates AC-2. Re-add when a session detail route
 							    is built (e.g. work/bet/:betId/session/:sessionId). */}
-						</div>
-						{/* AC1: Outcome cell — always rendered; shows "--" when not evaluated */}
-						<div className="flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px]">
-							<span className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
-								Outcome
-							</span>
-							<span
-								data-testid="task-outcome-cell"
-								className="text-[13px] font-[500] text-[var(--text-primary)]"
-							>
-								{task.outcomeVerdict
-									? task.outcomeVerdict.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
-									: "--"}
-							</span>
-						</div>
 					</div>
-
-					{/* W3 AC-29: Sessions section */}
-					<section data-testid="task-sessions-section">
-						<SectionLabel label="Sessions" divider />
-						{sessions.length === 0 ? (
-							<p className="text-[12px] text-[var(--text-tertiary)]">No sessions yet.</p>
-						) : (
-							<div className="flex flex-col">
-								{sessions.map((s) => (
-									<SessionRow
-										key={s.id}
-										id={s.id}
-										title={s.title}
-										agent={s.agent}
-										status={s.status}
-										effectivenessScore={s.effectivenessScore}
-									/>
-								))}
-							</div>
-						)}
-					</section>
-
-					{/* W3 AC-31: Artifacts section */}
-					<section aria-label="Artifacts">
-						<SectionLabel label="Artifacts" divider />
-						<ArtifactSection
-							filter={{ axis: "task", taskId: taskId ?? "" }}
-							layout="stack"
-							heading=""
-							onOpen={onOpenArtifact}
-						/>
-					</section>
-
-					{/* W3 AC-30: Discussion section */}
-					<section aria-label="Discussion">
-						<SectionLabel label="Discussion" divider />
-						<HostThreadSection hostKind="task" hostId={taskId ?? ""} title="" />
-					</section>
+					{/* AC1: Outcome cell — always rendered; shows "--" when not evaluated */}
+					<div className="flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px]">
+						<span className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
+							Outcome
+						</span>
+						<span
+							data-testid="task-outcome-cell"
+							className="text-[13px] font-[500] text-[var(--text-primary)]"
+						>
+							{task.outcomeVerdict
+								? task.outcomeVerdict.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+								: "--"}
+						</span>
+					</div>
 				</div>
+
+				{/* W3 AC-29: Sessions section */}
+				<section data-testid="task-sessions-section">
+					<SectionLabel label="Sessions" divider />
+					{sessions.length === 0 ? (
+						<p className="text-[12px] text-[var(--text-tertiary)]">No sessions yet.</p>
+					) : (
+						<div className="flex flex-col">
+							{sessions.map((s) => (
+								<SessionRow
+									key={s.id}
+									id={s.id}
+									title={s.title}
+									agent={s.agent}
+									status={s.status}
+									effectivenessScore={s.effectivenessScore}
+								/>
+							))}
+						</div>
+					)}
+				</section>
+
+				{/* W3 AC-31: Artifacts section */}
+				<section aria-label="Artifacts">
+					<SectionLabel label="Artifacts" divider />
+					<ArtifactSection
+						filter={{ axis: "task", taskId: taskId ?? "" }}
+						layout="stack"
+						heading=""
+						onOpen={onOpenArtifact}
+					/>
+				</section>
+
+				{/* W3 AC-30: Discussion section */}
+				<section aria-label="Discussion">
+					<SectionLabel label="Discussion" divider />
+					<HostThreadSection hostKind="task" hostId={taskId ?? ""} title="" />
+				</section>
 			</div>
-		</div>
+		</PageScaffold>
 	);
 }

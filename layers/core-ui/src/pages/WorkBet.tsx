@@ -33,6 +33,7 @@ import {
 	LiveDot,
 	Menu,
 	PageHeader,
+	PageScaffold,
 	SectionLabel,
 	Select,
 	SkeletonCard,
@@ -697,40 +698,44 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 	// Explicit prop loading takes priority (used by Loading story).
 	if (loading || (!overrideBet && fetched.loading)) {
 		return (
-			<div className="flex flex-col h-full" data-testid="work-bet-page">
-				<PageHeader
-					title={
-						<>
-							<div className="skeleton h-[13px] w-[120px] mb-[6px]" />
-							<div className="skeleton h-[20px] w-[280px]" />
-						</>
-					}
-				/>
-				<div className="flex-1 overflow-y-auto p-[24px]">
+			<PageScaffold
+				header={
+					<PageHeader
+						title={
+							<>
+								<div className="skeleton h-[13px] w-[120px] mb-[6px]" />
+								<div className="skeleton h-[20px] w-[280px]" />
+							</>
+						}
+					/>
+				}
+				data-testid="work-bet-page"
+			>
+				<div className="p-[24px]">
 					<SkeletonCard ariaLabel="Loading bet" />
 					<SkeletonList rows={4} ariaLabel="Loading tasks" />
 				</div>
-			</div>
+			</PageScaffold>
 		);
 	}
 
 	if (!overrideBet && fetched.error) {
 		return (
-			<div className="flex flex-col h-full" data-testid="work-bet-page">
-				<div className="flex-1 overflow-y-auto p-[24px]">
+			<PageScaffold data-testid="work-bet-page">
+				<div className="p-[24px]">
 					<ErrorState title="Failed to load bet" description={fetched.error.message} />
 				</div>
-			</div>
+			</PageScaffold>
 		);
 	}
 
 	if (!bet) {
 		return (
-			<div className="flex flex-col h-full" data-testid="work-bet-page">
-				<div className="flex-1 overflow-y-auto p-[24px]">
+			<PageScaffold data-testid="work-bet-page">
+				<div className="p-[24px]">
 					<ErrorState title="Bet not found" description="The requested bet could not be found." />
 				</div>
-			</div>
+			</PageScaffold>
 		);
 	}
 
@@ -780,326 +785,232 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 	// AI4: statusBadgeClass/statusBadgeLabel IIFEs deleted — now use StatusChip + BET_STATUS_LABEL.
 
 	return (
-		<div className="flex flex-col h-full" data-testid="work-bet-page">
-			{/* AI7: PageHeader owns the pinned title strip. */}
-			<PageHeader
-				title={bet.title}
-				leading={
-					/* AG4: Breadcrumb — DS Breadcrumb replaces hand-rolled nav */
-					<Breadcrumb
-						segments={[
-							{ label: "Work", to: "/work" },
-							{ label: bet.team, to: "/work" },
-							{ label: bet.title },
-						]}
-						leading={
-							!sidebarMobile ? (
-								<NavHistoryCluster onBack={() => navigate(-1)} onForward={() => navigate(1)} />
-							) : undefined
-						}
-						LinkComponent={RRLink}
-					/>
-				}
-				actions={
-					<div className="flex items-center gap-[9px]">
-						<AssistantAttachButton ref={{ kind: "bet", id: bet.id, label: bet.title }} />
-						<StatusChip
-							status={betStatusToStatus(bet.status)}
-							label={BET_STATUS_LABEL[bet.status]}
+		<PageScaffold
+			data-testid="work-bet-page"
+			header={
+				/* AI7: PageHeader owns the pinned title strip. */
+				<PageHeader
+					title={bet.title}
+					leading={
+						/* AG4: Breadcrumb — DS Breadcrumb replaces hand-rolled nav */
+						<Breadcrumb
+							segments={[
+								{ label: "Work", to: "/work" },
+								{ label: bet.team, to: "/work" },
+								{ label: bet.title },
+							]}
+							leading={
+								!sidebarMobile ? (
+									<NavHistoryCluster onBack={() => navigate(-1)} onForward={() => navigate(1)} />
+								) : undefined
+							}
+							LinkComponent={RRLink}
 						/>
-						{/* W3 AC-19: overflow action menu */}
-						{/* AG5: Bet overflow menu — caller-owned trigger (bet-overflow-btn untouched per C4),
-						    Menu component handles panel/items/Escape/click-outside/keyboard. */}
-						<div className="relative" data-testid="bet-overflow-menu">
-							<button
-								type="button"
-								aria-label="More actions"
-								data-testid="bet-overflow-btn"
-								aria-haspopup="menu"
-								aria-expanded={betOverflowOpen}
-								/* AI5 AQ-015: hit-area expansion only (AG5 menu trigger stays a button). */
-								className="inline-flex items-center justify-center w-[32px] h-[32px] min-h-[44px] min-w-[44px] xl:min-h-[32px] xl:min-w-[32px] rounded-[var(--r-pill)] border-[1.5px] border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] text-[16px] cursor-pointer hover:border-[var(--accent-deep)] hover:text-[var(--text-primary)] transition-colors duration-[var(--motion-fast)]"
-								onClick={() => setBetOverflowOpen((v) => !v)}
-							>
-								&#xB7;&#xB7;&#xB7;
-							</button>
-							<Menu
-								open={betOverflowOpen}
-								onClose={() => setBetOverflowOpen(false)}
-								label="Bet actions"
-								align="end"
-								items={[
-									...(bet.status === "draft"
-										? [
-												{
-													id: "activate",
-													label: "Activate bet",
-													onSelect: () => handleAction("activate"),
-													dataAttrs: { "data-bet-action": "activate" },
-												} satisfies MenuItem,
-											]
-										: []),
-									...(bet.status === "active"
-										? [
-												{
-													id: "unblock",
-													label: "Unblock",
-													onSelect: () => handleAction("unblock"),
-													dataAttrs: { "data-bet-action": "unblock" },
-												} satisfies MenuItem,
-											]
-										: []),
-									...(bet.status !== "completed" && bet.status !== "killed"
-										? [
-												{
-													id: "kill",
-													label: "Kill",
-													destructive: true,
-													onSelect: () => handleAction("kill"),
-													dataAttrs: { "data-bet-action": "kill" },
-												} satisfies MenuItem,
-											]
-										: []),
-								]}
+					}
+					actions={
+						<div className="flex items-center gap-[9px]">
+							<AssistantAttachButton ref={{ kind: "bet", id: bet.id, label: bet.title }} />
+							<StatusChip
+								status={betStatusToStatus(bet.status)}
+								label={BET_STATUS_LABEL[bet.status]}
 							/>
-						</div>
-					</div>
-				}
-				subtitle={
-					/* AF12: activate failure surface (e.g. team at capacity → clean 400). */
-					activateError ? (
-						<p role="alert" className="text-[13px] text-error">
-							{activateError}
-						</p>
-					) : undefined
-				}
-			/>
-
-			{/* Scrollable body */}
-			<div className="flex-1 overflow-y-auto">
-				{/* W3 AC-25: max-width 800px centered detail body */}
-				<div
-					data-testid="bet-detail-body"
-					className="flex flex-col gap-[24px] max-w-[800px] mx-auto w-full p-[24px]"
-				>
-					{/* P5: Hint #2 — add-credential. Shows when the first bet is loaded. */}
-					{hintAddCredential.visible && (
-						<div
-							role="status"
-							data-testid={hintAddCredential.testId}
-							className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] flex flex-col gap-[6px]"
-						>
-							<p className="text-[15px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
-								{hintAddCredential.copy}
-							</p>
-							<div className="flex gap-2">
+							{/* W3 AC-19: overflow action menu */}
+							{/* AG5: Bet overflow menu — caller-owned trigger (bet-overflow-btn untouched per C4),
+						    Menu component handles panel/items/Escape/click-outside/keyboard. */}
+							<div className="relative" data-testid="bet-overflow-menu">
 								<button
 									type="button"
-									className="btn btn-ghost btn-xs text-[var(--text-tertiary)] min-h-[44px]"
-									onClick={hintAddCredential.dismiss}
+									aria-label="More actions"
+									data-testid="bet-overflow-btn"
+									aria-haspopup="menu"
+									aria-expanded={betOverflowOpen}
+									/* AI5 AQ-015: hit-area expansion only (AG5 menu trigger stays a button). */
+									className="inline-flex items-center justify-center w-[32px] h-[32px] min-h-[44px] min-w-[44px] xl:min-h-[32px] xl:min-w-[32px] rounded-[var(--r-pill)] border-[1.5px] border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] text-[16px] cursor-pointer hover:border-[var(--accent-deep)] hover:text-[var(--text-primary)] transition-colors duration-[var(--motion-fast)]"
+									onClick={() => setBetOverflowOpen((v) => !v)}
 								>
-									Got it
+									&#xB7;&#xB7;&#xB7;
 								</button>
+								<Menu
+									open={betOverflowOpen}
+									onClose={() => setBetOverflowOpen(false)}
+									label="Bet actions"
+									align="end"
+									items={[
+										...(bet.status === "draft"
+											? [
+													{
+														id: "activate",
+														label: "Activate bet",
+														onSelect: () => handleAction("activate"),
+														dataAttrs: { "data-bet-action": "activate" },
+													} satisfies MenuItem,
+												]
+											: []),
+										...(bet.status === "active"
+											? [
+													{
+														id: "unblock",
+														label: "Unblock",
+														onSelect: () => handleAction("unblock"),
+														dataAttrs: { "data-bet-action": "unblock" },
+													} satisfies MenuItem,
+												]
+											: []),
+										...(bet.status !== "completed" && bet.status !== "killed"
+											? [
+													{
+														id: "kill",
+														label: "Kill",
+														destructive: true,
+														onSelect: () => handleAction("kill"),
+														dataAttrs: { "data-bet-action": "kill" },
+													} satisfies MenuItem,
+												]
+											: []),
+									]}
+								/>
 							</div>
 						</div>
-					)}
-
-					{/* AK5: provenance backlink — shown when bet was promoted from a knowledge item. */}
-					{bet.sourceKnowledge != null && (
-						<RRLink
-							to={`/knowledge/${bet.sourceKnowledge.id}`}
-							data-testid="bet-provenance-link"
-							className="text-[13px] text-[var(--accent-deep)] hover:underline"
-						>
-							From knowledge: {bet.sourceKnowledge.title}
-						</RRLink>
-					)}
-
-					{/* Q2: Add knowledge button — opens KnowledgeCreateDialog with bet scope locked */}
-					<div className="flex items-center gap-2">
-						<Button variant="ghost" size="sm" onClick={() => setAddKnowledgeOpen(true)}>
-							Add knowledge
-						</Button>
-					</div>
-
-					{/* L14: Consequence preview dialog — kill */}
-					<ConsequencePreviewDialog
-						open={consequenceDialog.open}
-						onConfirm={handleConsequenceConfirm}
-						onCancel={() => setConsequenceDialog((prev) => ({ ...prev, open: false }))}
-					/>
-
-					{/* Q2: Add knowledge dialog — locked to bet scope */}
-					<KnowledgeCreateDialog
-						open={addKnowledgeOpen}
-						onClose={() => setAddKnowledgeOpen(false)}
-						onCreated={() => setAddKnowledgeOpen(false)}
-						lockedScopeKind="bet"
-						lockedScopeId={bet.id}
-					/>
-
-					{/* W3 AC-20: Stat cards row */}
-					<div data-testid="bet-stats-row" className="flex gap-[18px]">
-						{/* Progress stat card — AF16 T1 (Z8-019/020): branch on total>0, not object truthiness */}
-						<div className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[6px] flex-1">
-							<span className="text-[12px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
-								Progress
-							</span>
-							{/* @lore AF16 T1: old guard `bet.progress ?` was truthy even when total=0,
-							    producing 0/0=NaN. Now branch on hasTasks (total>0). */}
-							{(() => {
-								const total = bet.progress?.total ?? 0;
-								const done = bet.progress?.done ?? 0;
-								const hasTasks = total > 0;
-								const pct = hasTasks
-									? Math.min(100, Math.max(0, Math.round((done / total) * 100)))
-									: 0;
-								return hasTasks ? (
-									<>
-										<span className="text-[24px] font-[600] tracking-[-0.01em] tabular-nums text-[var(--text-primary)]">
-											{pct}%
-										</span>
-										<div className="w-full h-[8px] bg-[var(--surface-container)] rounded-[var(--r-pill)] overflow-hidden mt-[9px]">
-											<div
-												data-testid="bet-progress-bar"
-												className="h-full bg-[var(--accent-primary)] rounded-[var(--r-pill)]"
-												style={{ width: `${pct}%` }}
-											/>
-										</div>
-									</>
-								) : (
-									<span className="text-[13px] text-[var(--text-secondary)] mt-[3px]">
-										No tasks yet
-									</span>
-								);
-							})()}
+					}
+					subtitle={
+						/* AF12: activate failure surface (e.g. team at capacity → clean 400). */
+						activateError ? (
+							<p role="alert" className="text-[13px] text-error">
+								{activateError}
+							</p>
+						) : undefined
+					}
+				/>
+			}
+		>
+			{/* W3 AC-25: max-width 800px centered detail body */}
+			<div
+				data-testid="bet-detail-body"
+				className="flex flex-col gap-[24px] max-w-[800px] mx-auto w-full p-[24px]"
+			>
+				{/* P5: Hint #2 — add-credential. Shows when the first bet is loaded. */}
+				{hintAddCredential.visible && (
+					<div
+						role="status"
+						data-testid={hintAddCredential.testId}
+						className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] flex flex-col gap-[6px]"
+					>
+						<p className="text-[15px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
+							{hintAddCredential.copy}
+						</p>
+						<div className="flex gap-2">
+							<button
+								type="button"
+								className="btn btn-ghost btn-xs text-[var(--text-tertiary)] min-h-[44px]"
+								onClick={hintAddCredential.dismiss}
+							>
+								Got it
+							</button>
 						</div>
-						{/* Team stat card
+					</div>
+				)}
+
+				{/* AK5: provenance backlink — shown when bet was promoted from a knowledge item. */}
+				{bet.sourceKnowledge != null && (
+					<RRLink
+						to={`/knowledge/${bet.sourceKnowledge.id}`}
+						data-testid="bet-provenance-link"
+						className="text-[13px] text-[var(--accent-deep)] hover:underline"
+					>
+						From knowledge: {bet.sourceKnowledge.title}
+					</RRLink>
+				)}
+
+				{/* Q2: Add knowledge button — opens KnowledgeCreateDialog with bet scope locked */}
+				<div className="flex items-center gap-2">
+					<Button variant="ghost" size="sm" onClick={() => setAddKnowledgeOpen(true)}>
+						Add knowledge
+					</Button>
+				</div>
+
+				{/* L14: Consequence preview dialog — kill */}
+				<ConsequencePreviewDialog
+					open={consequenceDialog.open}
+					onConfirm={handleConsequenceConfirm}
+					onCancel={() => setConsequenceDialog((prev) => ({ ...prev, open: false }))}
+				/>
+
+				{/* Q2: Add knowledge dialog — locked to bet scope */}
+				<KnowledgeCreateDialog
+					open={addKnowledgeOpen}
+					onClose={() => setAddKnowledgeOpen(false)}
+					onCreated={() => setAddKnowledgeOpen(false)}
+					lockedScopeKind="bet"
+					lockedScopeId={bet.id}
+				/>
+
+				{/* W3 AC-20: Stat cards row */}
+				<div data-testid="bet-stats-row" className="flex gap-[18px]">
+					{/* Progress stat card — AF16 T1 (Z8-019/020): branch on total>0, not object truthiness */}
+					<div className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[6px] flex-1">
+						<span className="text-[12px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
+							Progress
+						</span>
+						{/* @lore AF16 T1: old guard `bet.progress ?` was truthy even when total=0,
+							    producing 0/0=NaN. Now branch on hasTasks (total>0). */}
+						{(() => {
+							const total = bet.progress?.total ?? 0;
+							const done = bet.progress?.done ?? 0;
+							const hasTasks = total > 0;
+							const pct = hasTasks
+								? Math.min(100, Math.max(0, Math.round((done / total) * 100)))
+								: 0;
+							return hasTasks ? (
+								<>
+									<span className="text-[24px] font-[600] tracking-[-0.01em] tabular-nums text-[var(--text-primary)]">
+										{pct}%
+									</span>
+									<div className="w-full h-[8px] bg-[var(--surface-container)] rounded-[var(--r-pill)] overflow-hidden mt-[9px]">
+										<div
+											data-testid="bet-progress-bar"
+											className="h-full bg-[var(--accent-primary)] rounded-[var(--r-pill)]"
+											style={{ width: `${pct}%` }}
+										/>
+									</div>
+								</>
+							) : (
+								<span className="text-[13px] text-[var(--text-secondary)] mt-[3px]">
+									No tasks yet
+								</span>
+							);
+						})()}
+					</div>
+					{/* Team stat card
 						    @lore visual-parity-audit D-11: mockup shows avatar-group + "N members"
 						    but BetDetail API does not return member list. Rendering team initial
 						    avatar + team name until the API exposes member data. */}
-						<div
-							data-stat-card="team"
-							className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[6px] flex-1"
-						>
-							<span className="text-[12px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
-								Team
-							</span>
-							<div className="flex items-center gap-[9px] mt-[9px]">
-								{/* AI5: shared Avatar primitive. Initials now derive via slice
+					<div
+						data-stat-card="team"
+						className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[6px] flex-1"
+					>
+						<span className="text-[12px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
+							Team
+						</span>
+						<div className="flex items-center gap-[9px] mt-[9px]">
+							{/* AI5: shared Avatar primitive. Initials now derive via slice
 								    (deriveInitials) — was word-initials ("GT"), now slice ("GR"). */}
-								<Avatar initials={deriveInitials(bet.team)} size="sm" className="shrink-0" />
-								<span className="text-[13px] font-[500] text-[var(--text-primary)] truncate">
-									{bet.team}
-								</span>
-							</div>
+							<Avatar initials={deriveInitials(bet.team)} size="sm" className="shrink-0" />
+							<span className="text-[13px] font-[500] text-[var(--text-primary)] truncate">
+								{bet.team}
+							</span>
 						</div>
 					</div>
+				</div>
 
-					{/* AC2: Outcome section — only shown for completed/killed bets */}
-					{(bet.status === "completed" || bet.status === "killed") && (
-						<section data-testid="outcome-section" aria-label="Outcome">
-							<SectionLabel label="Outcome" divider />
+				{/* AC2: Outcome section — only shown for completed/killed bets */}
+				{(bet.status === "completed" || bet.status === "killed") && (
+					<section data-testid="outcome-section" aria-label="Outcome">
+						<SectionLabel label="Outcome" divider />
 
-							{outcomeEditMode === "view" ? (
-								<div className="flex flex-col gap-[9px]">
-									{bet.outcomeVerdict ? (
-										/* AC2-12: populated state — two-column layout */
-										<div
-											data-testid="retro-columns"
-											className="grid grid-cols-1 gap-[18px] sm:grid-cols-2"
-										>
-											{/* Left column: hypothesis (read-only) */}
-											<div className="flex flex-col gap-[6px]">
-												<span className="text-[12px] font-[500] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
-													Predicted
-												</span>
-												{bet.hypothesis ? (
-													<p
-														data-testid="retro-hypothesis-display"
-														className="text-[13px] text-[var(--text-secondary)] leading-[1.7]"
-													>
-														{bet.hypothesis}
-													</p>
-												) : (
-													<p
-														data-testid="retro-hypothesis-display"
-														className="text-[13px] text-[var(--text-tertiary)] italic"
-													>
-														No hypothesis recorded
-													</p>
-												)}
-											</div>
-											{/* Right column: verdict + summary + actions */}
-											<div className="flex flex-col gap-[9px]">
-												<div className="flex items-center gap-[9px]">
-													{/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: span receives aria-label for test/screen-reader accessibility */}
-													<span
-														data-testid="outcome-verdict-badge"
-														aria-label={`Outcome: ${bet.outcomeVerdict}`}
-													>
-														<StatusChip
-															status={betOutcomeVerdictToStatus(
-																bet.outcomeVerdict as BetOutcomeVerdict,
-															)}
-															label={
-																BET_OUTCOME_VERDICT_LABEL[
-																	bet.outcomeVerdict as BetOutcomeVerdict
-																] ?? bet.outcomeVerdict
-															}
-														/>
-													</span>
-													<button
-														type="button"
-														className="text-[13px] text-[var(--accent-deep)] hover:underline cursor-pointer"
-														onClick={() => {
-															setOutcomeVerdictForm(bet.outcomeVerdict ?? "");
-															setOutcomeSummaryForm(bet.outcomeSummary ?? "");
-															setRetroLearningsForm("");
-															setOutcomeEditMode("editing");
-														}}
-													>
-														Edit outcome
-													</button>
-												</div>
-												{bet.outcomeSummary && (
-													<p className="text-[13px] text-[var(--text-secondary)] leading-[1.7]">
-														{bet.outcomeSummary}
-													</p>
-												)}
-											</div>
-										</div>
-									) : (
-										/* Not evaluated state */
-										<div className="flex items-center gap-[9px]">
-											<span className="text-[13px] text-[var(--text-tertiary)]">Not evaluated</span>
-											<button
-												type="button"
-												className="text-[13px] text-[var(--accent-deep)] hover:underline cursor-pointer"
-												onClick={() => {
-													setOutcomeVerdictForm("");
-													setOutcomeSummaryForm("");
-													setRetroLearningsForm("");
-													setRetroDraftError(null);
-													setOutcomeEditMode("editing");
-												}}
-											>
-												Record outcome
-											</button>
-										</div>
-									)}
-								</div>
-							) : (
-								/* AC2: Editing state — two-column form — aria-label required by Design W-2 */
-								<form
-									aria-label="Record bet outcome"
-									className="flex flex-col gap-[12px]"
-									onSubmit={(e) => {
-										e.preventDefault();
-										void handleOutcomeSave();
-									}}
-								>
-									{/* Two-column grid: hypothesis left, form right */}
+						{outcomeEditMode === "view" ? (
+							<div className="flex flex-col gap-[9px]">
+								{bet.outcomeVerdict ? (
+									/* AC2-12: populated state — two-column layout */
 									<div
 										data-testid="retro-columns"
 										className="grid grid-cols-1 gap-[18px] sm:grid-cols-2"
@@ -1125,351 +1036,443 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 												</p>
 											)}
 										</div>
-										{/* Right column: Draft with AI + form fields */}
-										<div className="flex flex-col gap-[12px]">
-											{/* Draft with AI button */}
+										{/* Right column: verdict + summary + actions */}
+										<div className="flex flex-col gap-[9px]">
 											<div className="flex items-center gap-[9px]">
-												<Button
-													variant="secondary"
-													size="sm"
-													disabled={retroDrafting}
-													onClick={() => void handleRetroDraft()}
+												{/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: span receives aria-label for test/screen-reader accessibility */}
+												<span
+													data-testid="outcome-verdict-badge"
+													aria-label={`Outcome: ${bet.outcomeVerdict}`}
 												>
-													{retroDrafting ? "Drafting…" : "Draft with AI"}
-												</Button>
-												{retroDraftError && (
-													<span className="text-[12px] text-[var(--status-error)]">
-														{retroDraftError}
-													</span>
-												)}
-											</div>
-											{/* Verdict select */}
-											<div className="flex flex-col gap-[6px]">
-												<label
-													htmlFor="outcome-verdict-select"
-													className="text-[12px] font-[500] text-[var(--text-secondary)]"
+													<StatusChip
+														status={betOutcomeVerdictToStatus(
+															bet.outcomeVerdict as BetOutcomeVerdict,
+														)}
+														label={
+															BET_OUTCOME_VERDICT_LABEL[bet.outcomeVerdict as BetOutcomeVerdict] ??
+															bet.outcomeVerdict
+														}
+													/>
+												</span>
+												<button
+													type="button"
+													className="text-[13px] text-[var(--accent-deep)] hover:underline cursor-pointer"
+													onClick={() => {
+														setOutcomeVerdictForm(bet.outcomeVerdict ?? "");
+														setOutcomeSummaryForm(bet.outcomeSummary ?? "");
+														setRetroLearningsForm("");
+														setOutcomeEditMode("editing");
+													}}
 												>
-													Verdict
-												</label>
-												<Select
-													id="outcome-verdict-select"
-													size="sm"
-													value={outcomeVerdictForm}
-													onChange={(e) =>
-														setOutcomeVerdictForm(e.target.value as typeof outcomeVerdictForm)
-													}
-													placeholder="Select verdict…"
-													options={BET_OUTCOME_VERDICTS.map((v) => ({
-														value: v,
-														label: BET_OUTCOME_VERDICT_LABEL[v] ?? v,
-													}))}
-												/>
+													Edit outcome
+												</button>
 											</div>
-											{/* Reality / summary textarea */}
-											<div className="flex flex-col gap-[6px]">
-												<label
-													htmlFor="outcome-summary-textarea"
-													className="text-[12px] font-[500] text-[var(--text-secondary)]"
-												>
-													Reality
-												</label>
-												<textarea
-													id="outcome-summary-textarea"
-													data-testid="retro-summary-textarea"
-													className="textarea textarea-sm bg-[var(--surface-container)] border-[var(--border-default)] text-[var(--text-primary)] text-[13px] min-h-[72px] resize-y"
-													placeholder="What actually happened?"
-													value={outcomeSummaryForm}
-													onChange={(e) => setOutcomeSummaryForm(e.target.value)}
-												/>
-											</div>
-											{/* Learnings textarea */}
-											<div className="flex flex-col gap-[6px]">
-												<label
-													htmlFor="retro-learnings-textarea"
-													className="text-[12px] font-[500] text-[var(--text-secondary)]"
-												>
-													Learnings (optional)
-												</label>
-												<textarea
-													id="retro-learnings-textarea"
-													data-testid="retro-learnings-textarea"
-													className="textarea textarea-sm bg-[var(--surface-container)] border-[var(--border-default)] text-[var(--text-primary)] text-[13px] min-h-[72px] resize-y"
-													placeholder="What did you learn from this bet?"
-													value={retroLearningsForm}
-													onChange={(e) => setRetroLearningsForm(e.target.value)}
-												/>
-											</div>
+											{bet.outcomeSummary && (
+												<p className="text-[13px] text-[var(--text-secondary)] leading-[1.7]">
+													{bet.outcomeSummary}
+												</p>
+											)}
 										</div>
 									</div>
-									{/* Error */}
-									{outcomeError && (
-										<p className="text-[12px] text-[var(--status-error)]">{outcomeError}</p>
-									)}
-									{/* Actions */}
-									<div className="flex gap-[9px] justify-end">
-										<Button
-											variant="ghost"
-											size="sm"
-											disabled={outcomeSaving}
-											onClick={() => setOutcomeEditMode("view")}
+								) : (
+									/* Not evaluated state */
+									<div className="flex items-center gap-[9px]">
+										<span className="text-[13px] text-[var(--text-tertiary)]">Not evaluated</span>
+										<button
+											type="button"
+											className="text-[13px] text-[var(--accent-deep)] hover:underline cursor-pointer"
+											onClick={() => {
+												setOutcomeVerdictForm("");
+												setOutcomeSummaryForm("");
+												setRetroLearningsForm("");
+												setRetroDraftError(null);
+												setOutcomeEditMode("editing");
+											}}
 										>
-											Cancel
-										</Button>
-										<Button
-											type="submit"
-											variant="primary"
-											size="sm"
-											disabled={!outcomeVerdictForm || outcomeSaving}
-										>
-											{outcomeSaving ? "Saving…" : "Save"}
-										</Button>
+											Record outcome
+										</button>
 									</div>
-								</form>
-							)}
-						</section>
-					)}
-
-					{/* W3 AC-21: Pitch section with save indicator */}
-					<section data-testid="bet-pitch-section" aria-label="Pitch">
-						<SectionLabel
-							label="Pitch"
-							divider
-							trailing={
-								/* C-01: For draft/active (canEditDescription=true), show save-status indicator.
-								   For completed/killed (canEditDescription=false), hide entirely — pitch is immutable. */
-								canEditDescription ? (
-									<span
-										className="text-[12px] text-[var(--status-success)] flex items-center gap-[3px]"
-										aria-live="polite"
-										data-testid="pitch-save-indicator"
+								)}
+							</div>
+						) : (
+							/* AC2: Editing state — two-column form — aria-label required by Design W-2 */
+							<form
+								aria-label="Record bet outcome"
+								className="flex flex-col gap-[12px]"
+								onSubmit={(e) => {
+									e.preventDefault();
+									void handleOutcomeSave();
+								}}
+							>
+								{/* Two-column grid: hypothesis left, form right */}
+								<div
+									data-testid="retro-columns"
+									className="grid grid-cols-1 gap-[18px] sm:grid-cols-2"
+								>
+									{/* Left column: hypothesis (read-only) */}
+									<div className="flex flex-col gap-[6px]">
+										<span className="text-[12px] font-[500] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
+											Predicted
+										</span>
+										{bet.hypothesis ? (
+											<p
+												data-testid="retro-hypothesis-display"
+												className="text-[13px] text-[var(--text-secondary)] leading-[1.7]"
+											>
+												{bet.hypothesis}
+											</p>
+										) : (
+											<p
+												data-testid="retro-hypothesis-display"
+												className="text-[13px] text-[var(--text-tertiary)] italic"
+											>
+												No hypothesis recorded
+											</p>
+										)}
+									</div>
+									{/* Right column: Draft with AI + form fields */}
+									<div className="flex flex-col gap-[12px]">
+										{/* Draft with AI button */}
+										<div className="flex items-center gap-[9px]">
+											<Button
+												variant="secondary"
+												size="sm"
+												disabled={retroDrafting}
+												onClick={() => void handleRetroDraft()}
+											>
+												{retroDrafting ? "Drafting…" : "Draft with AI"}
+											</Button>
+											{retroDraftError && (
+												<span className="text-[12px] text-[var(--status-error)]">
+													{retroDraftError}
+												</span>
+											)}
+										</div>
+										{/* Verdict select */}
+										<div className="flex flex-col gap-[6px]">
+											<label
+												htmlFor="outcome-verdict-select"
+												className="text-[12px] font-[500] text-[var(--text-secondary)]"
+											>
+												Verdict
+											</label>
+											<Select
+												id="outcome-verdict-select"
+												size="sm"
+												value={outcomeVerdictForm}
+												onChange={(e) =>
+													setOutcomeVerdictForm(e.target.value as typeof outcomeVerdictForm)
+												}
+												placeholder="Select verdict…"
+												options={BET_OUTCOME_VERDICTS.map((v) => ({
+													value: v,
+													label: BET_OUTCOME_VERDICT_LABEL[v] ?? v,
+												}))}
+											/>
+										</div>
+										{/* Reality / summary textarea */}
+										<div className="flex flex-col gap-[6px]">
+											<label
+												htmlFor="outcome-summary-textarea"
+												className="text-[12px] font-[500] text-[var(--text-secondary)]"
+											>
+												Reality
+											</label>
+											<textarea
+												id="outcome-summary-textarea"
+												data-testid="retro-summary-textarea"
+												className="textarea textarea-sm bg-[var(--surface-container)] border-[var(--border-default)] text-[var(--text-primary)] text-[13px] min-h-[72px] resize-y"
+												placeholder="What actually happened?"
+												value={outcomeSummaryForm}
+												onChange={(e) => setOutcomeSummaryForm(e.target.value)}
+											/>
+										</div>
+										{/* Learnings textarea */}
+										<div className="flex flex-col gap-[6px]">
+											<label
+												htmlFor="retro-learnings-textarea"
+												className="text-[12px] font-[500] text-[var(--text-secondary)]"
+											>
+												Learnings (optional)
+											</label>
+											<textarea
+												id="retro-learnings-textarea"
+												data-testid="retro-learnings-textarea"
+												className="textarea textarea-sm bg-[var(--surface-container)] border-[var(--border-default)] text-[var(--text-primary)] text-[13px] min-h-[72px] resize-y"
+												placeholder="What did you learn from this bet?"
+												value={retroLearningsForm}
+												onChange={(e) => setRetroLearningsForm(e.target.value)}
+											/>
+										</div>
+									</div>
+								</div>
+								{/* Error */}
+								{outcomeError && (
+									<p className="text-[12px] text-[var(--status-error)]">{outcomeError}</p>
+								)}
+								{/* Actions */}
+								<div className="flex gap-[9px] justify-end">
+									<Button
+										variant="ghost"
+										size="sm"
+										disabled={outcomeSaving}
+										onClick={() => setOutcomeEditMode("view")}
 									>
-										{saveStatus === "saving" && "Saving..."}
-										{saveStatus === "saved" && (
-											<>
-												<svg
-													width="12"
-													height="12"
-													viewBox="0 0 12 12"
-													fill="none"
-													aria-hidden="true"
-												>
-													<path
-														d="M2 6l3 3 5-5"
-														stroke="currentColor"
-														strokeWidth="1.5"
-														strokeLinecap="round"
-														strokeLinejoin="round"
-													/>
-												</svg>
-												Saved
-											</>
-										)}
-										{saveStatus === "error" && (
-											<span className="text-[var(--status-error)]">Save failed</span>
-										)}
-									</span>
-								) : undefined
-							}
-						/>
-						{/* T3: Conditional rendering based on bet status mutability. */}
-						{canEditDescription ? (
-							<div className="flex flex-col gap-2" data-testid="bet-description-editor">
-								<BodyEditor
-									initialContent={bet.description}
-									onChange={handleDescriptionChange}
-									placeholder="Describe this bet..."
-									variant="full"
-									minHeight="200px"
-								/>
+										Cancel
+									</Button>
+									<Button
+										type="submit"
+										variant="primary"
+										size="sm"
+										disabled={!outcomeVerdictForm || outcomeSaving}
+									>
+										{outcomeSaving ? "Saving…" : "Save"}
+									</Button>
+								</div>
+							</form>
+						)}
+					</section>
+				)}
+
+				{/* W3 AC-21: Pitch section with save indicator */}
+				<section data-testid="bet-pitch-section" aria-label="Pitch">
+					<SectionLabel
+						label="Pitch"
+						divider
+						trailing={
+							/* C-01: For draft/active (canEditDescription=true), show save-status indicator.
+								   For completed/killed (canEditDescription=false), hide entirely — pitch is immutable. */
+							canEditDescription ? (
 								<span
-									className="text-xs text-[var(--text-tertiary)]"
+									className="text-[12px] text-[var(--status-success)] flex items-center gap-[3px]"
 									aria-live="polite"
-									data-testid="bet-save-indicator"
+									data-testid="pitch-save-indicator"
 								>
 									{saveStatus === "saving" && "Saving..."}
-									{saveStatus === "saved" && "Saved"}
+									{saveStatus === "saved" && (
+										<>
+											<svg
+												width="12"
+												height="12"
+												viewBox="0 0 12 12"
+												fill="none"
+												aria-hidden="true"
+											>
+												<path
+													d="M2 6l3 3 5-5"
+													stroke="currentColor"
+													strokeWidth="1.5"
+													strokeLinecap="round"
+													strokeLinejoin="round"
+												/>
+											</svg>
+											Saved
+										</>
+									)}
 									{saveStatus === "error" && (
 										<span className="text-[var(--status-error)]">Save failed</span>
 									)}
 								</span>
-							</div>
-						) : (
-							<>
-								{/* L18: Block popover wiring */}
-								<BetPitch
-									description={bet.description}
-									betId={bet.id}
-									onOpenBlockActions={(blockId) => setOpenBlockId(blockId)}
-									messagesByBlockId={messagesByBlockId}
-									onShareBlock={handleShareBlock}
-								/>
-							</>
-						)}
-					</section>
+							) : undefined
+						}
+					/>
+					{/* T3: Conditional rendering based on bet status mutability. */}
+					{canEditDescription ? (
+						<div className="flex flex-col gap-2" data-testid="bet-description-editor">
+							<BodyEditor
+								initialContent={bet.description}
+								onChange={handleDescriptionChange}
+								placeholder="Describe this bet..."
+								variant="full"
+								minHeight="200px"
+							/>
+							<span
+								className="text-xs text-[var(--text-tertiary)]"
+								aria-live="polite"
+								data-testid="bet-save-indicator"
+							>
+								{saveStatus === "saving" && "Saving..."}
+								{saveStatus === "saved" && "Saved"}
+								{saveStatus === "error" && (
+									<span className="text-[var(--status-error)]">Save failed</span>
+								)}
+							</span>
+						</div>
+					) : (
+						<>
+							{/* L18: Block popover wiring */}
+							<BetPitch
+								description={bet.description}
+								betId={bet.id}
+								onOpenBlockActions={(blockId) => setOpenBlockId(blockId)}
+								messagesByBlockId={messagesByBlockId}
+								onShareBlock={handleShareBlock}
+							/>
+						</>
+					)}
+				</section>
 
-					{/* L18 + T4: Block actions popover — rendered at page level, opened from any block.
+				{/* L18 + T4: Block actions popover — rendered at page level, opened from any block.
 			    T4: "Share" action added; only shown when CoC overlay is open (per reviewer
 			    critique: Share must not be shown when overlay is closed). */}
-					{openBlockId !== null && (
-						<BlockActionsPopover
-							id={`block-popover-${openBlockId}`}
-							open
-							onClose={() => setOpenBlockId(null)}
-							liveRegionId="block-popover-live"
-							items={[
-								{
-									id: "discuss-block",
-									label: "Discuss",
-									onSelect: () => handleDiscussBlock(openBlockId),
-								},
-								...(overlayOpen
-									? [
-											{
-												id: "share-block",
-												label: "Share",
-												onSelect: () => handleShareBlock(openBlockId),
-											},
-										]
-									: []),
-							]}
-						/>
-					)}
+				{openBlockId !== null && (
+					<BlockActionsPopover
+						id={`block-popover-${openBlockId}`}
+						open
+						onClose={() => setOpenBlockId(null)}
+						liveRegionId="block-popover-live"
+						items={[
+							{
+								id: "discuss-block",
+								label: "Discuss",
+								onSelect: () => handleDiscussBlock(openBlockId),
+							},
+							...(overlayOpen
+								? [
+										{
+											id: "share-block",
+											label: "Share",
+											onSelect: () => handleShareBlock(openBlockId),
+										},
+									]
+								: []),
+						]}
+					/>
+				)}
 
-					{/*
-					 * W3 AC-22: flat task rows (no table). Each row is clickable and navigates
-					 * to the task detail page. Status is shown as a StatusChip badge, not a dot.
-					 *
-					 * @lore W3: The task table (sortable headers, outcome column, cost column) is
-					 * replaced by a flat list of task-row buttons matching the mockup. Rows have
-					 * border-bottom dividers (last:border-b-0). No horizontal padding, no rounding.
-					 */}
-					{/*
-					 * AU21 §9 Increment 10a (Decision I): two-state tasks section.
-					 * Precedence (approved.md binding): tasks>0 first, then draft, then the
-					 * honest "no tasks yet" state. Core no longer auto-decomposes a
-					 * committed bet (the built-in bet_decomposition mechanism is removed
-					 * entirely) — the prior Decomposing/Blocked auto-decompose states are
-					 * gone; a committed bet with zero tasks just says so.
-					 */}
-					<section aria-label="Tasks">
-						<SectionLabel label="Tasks" divider />
+				{/*
+				 * W3 AC-22: flat task rows (no table). Each row is clickable and navigates
+				 * to the task detail page. Status is shown as a StatusChip badge, not a dot.
+				 *
+				 * @lore W3: The task table (sortable headers, outcome column, cost column) is
+				 * replaced by a flat list of task-row buttons matching the mockup. Rows have
+				 * border-bottom dividers (last:border-b-0). No horizontal padding, no rounding.
+				 */}
+				{/*
+				 * AU21 §9 Increment 10a (Decision I): two-state tasks section.
+				 * Precedence (approved.md binding): tasks>0 first, then draft, then the
+				 * honest "no tasks yet" state. Core no longer auto-decomposes a
+				 * committed bet (the built-in bet_decomposition mechanism is removed
+				 * entirely) — the prior Decomposing/Blocked auto-decompose states are
+				 * gone; a committed bet with zero tasks just says so.
+				 */}
+				<section aria-label="Tasks">
+					<SectionLabel label="Tasks" divider />
 
-						{bet.tasks.length > 0 ? (
-							/* State 1: Populated — tasks>0 beats all other states (approved.md precedence). */
-							<div className="flex flex-col">
-								{sortedTasks.map((task) => {
-									const stateLabel = TASK_STATE_LABEL[task.state] ?? task.state;
-									const relTime = task.startedAt ? relativeLong(task.startedAt) : "";
-									const metaParts = [task.owner, stateLabel, relTime].filter(Boolean);
-									return (
-										<button
-											key={task.id}
-											type="button"
-											data-testid="task-row"
-											className="flex items-center gap-[12px] py-[12px] border-b border-[var(--border-subtle)] last:border-b-0 cursor-pointer hover:bg-[rgba(44,36,26,0.02)] transition-colors duration-[var(--motion-fast)] text-left w-full"
-											onClick={() => navigate(`/work/bet/${bet.id}/task/${task.id}`)}
-											aria-label={task.title}
-										>
-											<div className="flex-1 min-w-0">
-												<div className="text-[15px] text-[var(--text-primary)] truncate">
-													{task.title}
-												</div>
-												<div className="text-[12px] text-[var(--text-tertiary)] truncate mt-[2px]">
-													{metaParts.join(" · ")}
-												</div>
+					{bet.tasks.length > 0 ? (
+						/* State 1: Populated — tasks>0 beats all other states (approved.md precedence). */
+						<div className="flex flex-col">
+							{sortedTasks.map((task) => {
+								const stateLabel = TASK_STATE_LABEL[task.state] ?? task.state;
+								const relTime = task.startedAt ? relativeLong(task.startedAt) : "";
+								const metaParts = [task.owner, stateLabel, relTime].filter(Boolean);
+								return (
+									<button
+										key={task.id}
+										type="button"
+										data-testid="task-row"
+										className="flex items-center gap-[12px] py-[12px] border-b border-[var(--border-subtle)] last:border-b-0 cursor-pointer hover:bg-[rgba(44,36,26,0.02)] transition-colors duration-[var(--motion-fast)] text-left w-full"
+										onClick={() => navigate(`/work/bet/${bet.id}/task/${task.id}`)}
+										aria-label={task.title}
+									>
+										<div className="flex-1 min-w-0">
+											<div className="text-[15px] text-[var(--text-primary)] truncate">
+												{task.title}
 											</div>
-											{/* AI4 AC1: Task outcome verdict badge — shown when verdict is set */}
-											{task.outcomeVerdict && (
-												<span data-testid={`task-outcome-badge-${task.id}`}>
-													<StatusChip
-														status={taskOutcomeVerdictToStatus(task.outcomeVerdict)}
-														label={
-															TASK_OUTCOME_VERDICT_LABEL[task.outcomeVerdict] ?? task.outcomeVerdict
-														}
-													/>
-												</span>
-											)}
-											{/* AI4 AC1: StatusChip for task state + LiveDot for in_progress */}
-											<span className="flex items-center gap-[6px]">
-												{task.state === "in_progress" && <LiveDot />}
+											<div className="text-[12px] text-[var(--text-tertiary)] truncate mt-[2px]">
+												{metaParts.join(" · ")}
+											</div>
+										</div>
+										{/* AI4 AC1: Task outcome verdict badge — shown when verdict is set */}
+										{task.outcomeVerdict && (
+											<span data-testid={`task-outcome-badge-${task.id}`}>
 												<StatusChip
-													status={taskStateToStatus(task.state)}
-													label={TASK_STATE_LABEL[task.state]}
+													status={taskOutcomeVerdictToStatus(task.outcomeVerdict)}
+													label={
+														TASK_OUTCOME_VERDICT_LABEL[task.outcomeVerdict] ?? task.outcomeVerdict
+													}
 												/>
 											</span>
-										</button>
-									);
-								})}
-							</div>
-						) : bet.status === "draft" ? (
-							/* State 2: Draft — bet not yet committed. Core no longer
-							 * auto-decomposes on commit (AU21 Decision I removed the built-in
-							 * bet_decomposition mechanism) — copy must not promise automatic
-							 * behavior core itself no longer provides. */
-							<EmptyState
-								title="Not committed yet"
-								description="Commit this bet to start adding tasks."
-								dataTestId="bet-tasks-draft"
-							/>
-						) : (
-							/* State 3: No tasks yet — a committed/active bet with zero tasks.
-							 * Honest replacement for the removed auto-decompose
-							 * Decomposing/Blocked states (AU21 §9 Increment 10a / Decision I). */
-							<EmptyState
-								title="No tasks yet"
-								description="Add a task, or attach an agent to this bet, to get work started."
-								action={
-									bet.teamId ? (
-										<RRLink to={`/work/team/${bet.teamId}`}>
-											<Button variant="secondary">Add an agent</Button>
-										</RRLink>
-									) : undefined
-								}
-								dataTestId="bet-tasks-empty"
-							/>
-						)}
-					</section>
+										)}
+										{/* AI4 AC1: StatusChip for task state + LiveDot for in_progress */}
+										<span className="flex items-center gap-[6px]">
+											{task.state === "in_progress" && <LiveDot />}
+											<StatusChip
+												status={taskStateToStatus(task.state)}
+												label={TASK_STATE_LABEL[task.state]}
+											/>
+										</span>
+									</button>
+								);
+							})}
+						</div>
+					) : bet.status === "draft" ? (
+						/* State 2: Draft — bet not yet committed. Core no longer
+						 * auto-decomposes on commit (AU21 Decision I removed the built-in
+						 * bet_decomposition mechanism) — copy must not promise automatic
+						 * behavior core itself no longer provides. */
+						<EmptyState
+							title="Not committed yet"
+							description="Commit this bet to start adding tasks."
+							dataTestId="bet-tasks-draft"
+						/>
+					) : (
+						/* State 3: No tasks yet — a committed/active bet with zero tasks.
+						 * Honest replacement for the removed auto-decompose
+						 * Decomposing/Blocked states (AU21 §9 Increment 10a / Decision I). */
+						<EmptyState
+							title="No tasks yet"
+							description="Add a task, or attach an agent to this bet, to get work started."
+							action={
+								bet.teamId ? (
+									<RRLink to={`/work/team/${bet.teamId}`}>
+										<Button variant="secondary">Add an agent</Button>
+									</RRLink>
+								) : undefined
+							}
+							dataTestId="bet-tasks-empty"
+						/>
+					)}
+				</section>
 
-					{/* L12 (B-1): ArtifactSection inserted BEFORE HostThreadSection, not between
+				{/* L12 (B-1): ArtifactSection inserted BEFORE HostThreadSection, not between
 			    HostThreadSection and ArtifactThreadsSummary. Bet axis, stack layout, no limit. */}
-					<ArtifactSection
-						filter={{ axis: "bet", betId: bet.id }}
-						layout="stack"
-						heading="Artifacts"
-						emptyDescription="Artifacts appear as agents complete tasks on this bet."
-						onOpen={onOpenArtifact}
-					/>
+				<ArtifactSection
+					filter={{ axis: "bet", betId: bet.id }}
+					layout="stack"
+					heading="Artifacts"
+					emptyDescription="Artifacts appear as agents complete tasks on this bet."
+					onOpen={onOpenArtifact}
+				/>
 
-					{/* L18: Replace hardcoded comment fixture with real thread surface.
+				{/* L18: Replace hardcoded comment fixture with real thread surface.
 			    prefill carries the blockId so the composer includes it on submit.
 			    onClearPrefill lets the user dismiss the Re: chip.
 			    onMessagePosted refreshes the WorkBet-level thread data so that
 			    messagesByBlockId stays in sync with newly posted anchored messages. */}
-					<HostThreadSection
-						hostKind="bet"
-						hostId={bet.id}
-						title="Discussion"
-						prefill={threadPrefill}
-						onClearPrefill={() => setThreadPrefill(undefined)}
-						onMessagePosted={refreshThreadData}
-					/>
+				<HostThreadSection
+					hostKind="bet"
+					hostId={bet.id}
+					title="Discussion"
+					prefill={threadPrefill}
+					onClearPrefill={() => setThreadPrefill(undefined)}
+					onMessagePosted={refreshThreadData}
+				/>
 
-					{/* L18: Per-bet artifact thread summary */}
-					<ArtifactThreadsSummary betId={bet.id} />
+				{/* L18: Per-bet artifact thread summary */}
+				<ArtifactThreadsSummary betId={bet.id} />
 
-					{/* L13: TaskSheet — opens when a task row is clicked */}
-					<TaskSheet
-						task={selectedTask}
-						open={selectedTaskId !== null}
-						onClose={() => setSelectedTaskId(null)}
-						resolveThreadId={handleResolveThreadId}
-						postRequest={handlePostRequest}
-						onNavigateToThread={handleNavigateToThread}
-					/>
-				</div>
-				{/* end bet-detail-body */}
+				{/* L13: TaskSheet — opens when a task row is clicked */}
+				<TaskSheet
+					task={selectedTask}
+					open={selectedTaskId !== null}
+					onClose={() => setSelectedTaskId(null)}
+					resolveThreadId={handleResolveThreadId}
+					postRequest={handlePostRequest}
+					onNavigateToThread={handleNavigateToThread}
+				/>
 			</div>
-			{/* end scrollable body */}
-		</div>
+			{/* end bet-detail-body */}
+		</PageScaffold>
 	);
 }

@@ -23,6 +23,7 @@ import {
 	Breadcrumb,
 	Button,
 	PageHeader,
+	PageScaffold,
 	pageTitleClassName,
 	ScopePicker,
 } from "@hyperidle/design-system";
@@ -127,136 +128,137 @@ export function KnowledgeCreate(): JSX.Element {
 	};
 
 	return (
-		<div className="flex flex-col h-full" data-testid="knowledge-create-page">
-			{/* AI7: PageHeader with editable title input.
-			    @lore AI7-W1: pageTitleClassName is an identifier expression so
-			    no-handrolled-page-header does not fire (rule only checks literals). */}
-			<PageHeader
-				leading={
-					/* AG4: DS Breadcrumb — create page, NO leading cluster (not a detail route) */
-					<Breadcrumb
-						segments={[{ label: "Knowledge", to: "/knowledge" }, { label: "New" }]}
-						LinkComponent={RRLink}
-					/>
-				}
-				title={
-					<input
-						type="text"
-						aria-label="Knowledge item title"
-						data-testid="knowledge-create-title"
-						placeholder="Untitled"
-						value={title}
-						onChange={(e) => setTitle(e.target.value)}
-						disabled={submitting}
-						maxLength={500}
-						className={`${pageTitleClassName} bg-transparent border-none outline-none flex-1 p-0`}
-					/>
-				}
-				actions={
-					<div className="flex items-center gap-[9px]">
-						{/* AI5: shared Button primitive (secondary/primary). */}
-						<Button variant="secondary" onClick={handleCancel} disabled={submitting}>
-							Cancel
-						</Button>
-						<Button
-							variant="primary"
-							data-testid="knowledge-create-submit"
-							onClick={() => void handleCreate()}
-							disabled={!canCreate}
-						>
-							{submitting ? "Creating…" : "Create"}
-						</Button>
-					</div>
-				}
-			/>
-
-			{/* Scrollable body — two-column layout */}
-			<div className="flex-1 overflow-y-auto">
-				<div
-					className="max-w-[960px] mx-auto w-full p-[24px] flex gap-[24px] items-start"
-					data-testid="knowledge-create-body"
-				>
-					{/* Left: editor */}
-					<div className="flex-1 min-w-0 flex flex-col gap-[12px]">
-						{error && (
-							<p
-								role="alert"
-								data-testid="knowledge-create-error"
-								className="text-[12px] text-[var(--status-error)]"
+		<PageScaffold
+			data-testid="knowledge-create-page"
+			header={
+				/* AI7: PageHeader with editable title input.
+				    @lore AI7-W1: pageTitleClassName is an identifier expression so
+				    no-handrolled-page-header does not fire (rule only checks literals). */
+				<PageHeader
+					leading={
+						/* AG4: DS Breadcrumb — create page, NO leading cluster (not a detail route) */
+						<Breadcrumb
+							segments={[{ label: "Knowledge", to: "/knowledge" }, { label: "New" }]}
+							LinkComponent={RRLink}
+						/>
+					}
+					title={
+						<input
+							type="text"
+							aria-label="Knowledge item title"
+							data-testid="knowledge-create-title"
+							placeholder="Untitled"
+							value={title}
+							onChange={(e) => setTitle(e.target.value)}
+							disabled={submitting}
+							maxLength={500}
+							className={`${pageTitleClassName} bg-transparent border-none outline-none flex-1 p-0`}
+						/>
+					}
+					actions={
+						<div className="flex items-center gap-[9px]">
+							{/* AI5: shared Button primitive (secondary/primary). */}
+							<Button variant="secondary" onClick={handleCancel} disabled={submitting}>
+								Cancel
+							</Button>
+							<Button
+								variant="primary"
+								data-testid="knowledge-create-submit"
+								onClick={() => void handleCreate()}
+								disabled={!canCreate}
 							>
-								{error}
-							</p>
-						)}
-						<div
-							className="border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] p-[18px]"
-							style={{ minHeight: "300px" }}
+								{submitting ? "Creating…" : "Create"}
+							</Button>
+						</div>
+					}
+				/>
+			}
+		>
+			{/* Two-column layout */}
+			<div
+				className="max-w-[960px] mx-auto w-full p-[24px] flex gap-[24px] items-start"
+				data-testid="knowledge-create-body"
+			>
+				{/* Left: editor */}
+				<div className="flex-1 min-w-0 flex flex-col gap-[12px]">
+					{error && (
+						<p
+							role="alert"
+							data-testid="knowledge-create-error"
+							className="text-[12px] text-[var(--status-error)]"
 						>
-							<BodyEditor
-								initialContent=""
-								onChange={(md: string) => setBody(md)}
-								placeholder="Describe it in markdown…"
-								variant="full"
-								minHeight="260px"
-								editable={!submitting}
+							{error}
+						</p>
+					)}
+					<div
+						className="border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] p-[18px]"
+						style={{ minHeight: "300px" }}
+					>
+						<BodyEditor
+							initialContent=""
+							onChange={(md: string) => setBody(md)}
+							placeholder="Describe it in markdown…"
+							variant="full"
+							minHeight="260px"
+							editable={!submitting}
+						/>
+					</div>
+				</div>
+
+				{/*
+				 * Right: metadata card.
+				 * AD6: Kind selector removed. Scope replaced by 3-pill segmented control.
+				 * Shared → factory | Team → team (disabled without teamId) | Private → user.
+				 */}
+				<aside className="shrink-0 flex flex-col gap-[12px]" style={{ width: "240px" }}>
+					<div
+						className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[12px]"
+						data-testid="knowledge-create-metadata"
+					>
+						{/* Scope picker — 3 static pills */}
+						<div className="flex flex-col gap-[6px]">
+							<span className="text-[12px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
+								Scope
+							</span>
+							{/* AI5: consolidated to the shared ScopePicker primitive (select mode).
+								    Team is disabled while submitting or when the user has no team. */}
+							<ScopePicker
+								options={SCOPE_CREATE_OPTIONS.map((option) => ({
+									id: option.id,
+									label: option.label,
+									disabled: submitting || (option.id === "team" && !hasTeam),
+								}))}
+								value={selectedScope.id}
+								onChange={(id) => {
+									const next = SCOPE_CREATE_OPTIONS.find((o) => o.id === id);
+									if (next) {
+										setSelectedScope(next);
+										setScopeId("");
+									}
+								}}
+								ariaLabel="Scope"
+								testIdPrefix="scope-pill-create"
+								disabledTitle="Join a team to use team-scoped knowledge"
 							/>
 						</div>
-					</div>
-
-					{/*
-					 * Right: metadata card.
-					 * AD6: Kind selector removed. Scope replaced by 3-pill segmented control.
-					 * Shared → factory | Team → team (disabled without teamId) | Private → user.
-					 */}
-					<aside className="shrink-0 flex flex-col gap-[12px]" style={{ width: "240px" }}>
-						<div
-							className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[12px]"
-							data-testid="knowledge-create-metadata"
-						>
-							{/* Scope picker — 3 static pills */}
-							<div className="flex flex-col gap-[6px]">
+						{needsScopeId && (
+							<label className="flex flex-col gap-[6px]">
 								<span className="text-[12px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
-									Scope
+									Scope ID
 								</span>
-								{/* AI5: consolidated to the shared ScopePicker primitive (select mode).
-								    Team is disabled while submitting or when the user has no team. */}
-								<ScopePicker
-									options={SCOPE_CREATE_OPTIONS.map((option) => ({
-										id: option.id,
-										label: option.label,
-										disabled: submitting || (option.id === "team" && !hasTeam),
-									}))}
-									value={selectedScope.id}
-									onChange={(id) => {
-										const next = SCOPE_CREATE_OPTIONS.find((o) => o.id === id);
-										if (next) {
-											setSelectedScope(next);
-											setScopeId("");
-										}
-									}}
-									ariaLabel="Scope"
-									testIdPrefix="scope-pill-create"
-									disabledTitle="Join a team to use team-scoped knowledge"
+								<input
+									type="text"
+									className="input input-bordered input-sm text-base w-full"
+									placeholder={`${selectedScope.label} ID`}
+									value={scopeId}
+									onChange={(e) => setScopeId(e.target.value)}
+									disabled={submitting}
 								/>
-							</div>
-							{needsScopeId && (
-								<label className="flex flex-col gap-[6px]">
-									<span className="text-[12px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
-										Scope ID
-									</span>
-									<input
-										type="text"
-										className="input input-bordered input-sm text-base w-full"
-										placeholder={`${selectedScope.label} ID`}
-										value={scopeId}
-										onChange={(e) => setScopeId(e.target.value)}
-										disabled={submitting}
-									/>
-								</label>
-							)}
-						</div>
-					</aside>
-				</div>
+							</label>
+						)}
+					</div>
+				</aside>
 			</div>
-		</div>
+		</PageScaffold>
 	);
 }

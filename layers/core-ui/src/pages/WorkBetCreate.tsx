@@ -16,7 +16,7 @@
  */
 
 // hearth-internal-padding
-import { BodyEditor, Select } from "@hyperidle/design-system";
+import { BodyEditor, PageScaffold, Select } from "@hyperidle/design-system";
 import { deriveTitleFromPitch } from "@hyperidle/presentation-format";
 import { type JSX, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
@@ -115,158 +115,159 @@ export function WorkBetCreate(): JSX.Element {
 	};
 
 	return (
-		<div className="flex flex-col h-full" data-testid="bet-create-page">
-			{/* Bordered header */}
-			<header className="shrink-0 px-[24px] py-[18px] border-b border-[var(--border-subtle)]">
-				{/* Breadcrumb */}
-				<nav aria-label="Breadcrumb" className="text-[13px] text-[var(--text-tertiary)] mb-[6px]">
-					<Link
-						to="/work"
-						className="hover:text-[var(--accent-deep)] transition-colors duration-[var(--motion-fast)]"
-					>
-						Work
-					</Link>{" "}
-					/ New bet
-				</nav>
-				{/* Title preview + actions row */}
-				<div className="flex items-center justify-between gap-[12px]">
-					{/* Read-only derived title preview — bet title is derived, not typed */}
-					<span
-						data-testid="bet-create-title-preview"
-						style={{
-							fontSize: "20px",
-							fontWeight: 600,
-							letterSpacing: "-0.01em",
-							color: derivedTitle ? "var(--text-primary)" : "var(--text-tertiary)",
-							flex: 1,
-							minWidth: 0,
-							overflow: "hidden",
-							textOverflow: "ellipsis",
-							whiteSpace: "nowrap",
-							fontFamily: "var(--font-sans)",
-						}}
-					>
-						{derivedTitle || "Untitled bet"}
-					</span>
-					<div className="flex items-center gap-[9px] shrink-0">
-						<button
-							type="button"
-							className="inline-flex items-center text-[13px] font-[500] px-[12px] py-[7px] rounded-[var(--r-pill)] bg-transparent border-[1.5px] border-[var(--border-default)] text-[var(--text-secondary)] cursor-pointer hover:border-[var(--accent-deep)] hover:text-[var(--text-primary)] transition-colors duration-[var(--motion-fast)]"
-							onClick={handleCancel}
-							disabled={submitting}
+		<PageScaffold
+			data-testid="bet-create-page"
+			header={
+				/* Bordered header */
+				<header className="shrink-0 px-[24px] py-[18px] border-b border-[var(--border-subtle)]">
+					{/* Breadcrumb */}
+					<nav aria-label="Breadcrumb" className="text-[13px] text-[var(--text-tertiary)] mb-[6px]">
+						<Link
+							to="/work"
+							className="hover:text-[var(--accent-deep)] transition-colors duration-[var(--motion-fast)]"
 						>
-							Cancel
-						</button>
-						<button
-							type="button"
-							data-testid="bet-create-submit"
-							className="inline-flex items-center text-[13px] font-[500] px-[12px] py-[7px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] border-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-opacity duration-[var(--motion-fast)]"
-							onClick={() => void handleCreate()}
-							disabled={!canCreate}
+							Work
+						</Link>{" "}
+						/ New bet
+					</nav>
+					{/* Title preview + actions row */}
+					<div className="flex items-center justify-between gap-[12px]">
+						{/* Read-only derived title preview — bet title is derived, not typed */}
+						<span
+							data-testid="bet-create-title-preview"
+							style={{
+								fontSize: "20px",
+								fontWeight: 600,
+								letterSpacing: "-0.01em",
+								color: derivedTitle ? "var(--text-primary)" : "var(--text-tertiary)",
+								flex: 1,
+								minWidth: 0,
+								overflow: "hidden",
+								textOverflow: "ellipsis",
+								whiteSpace: "nowrap",
+								fontFamily: "var(--font-sans)",
+							}}
 						>
-							{submitting ? "Creating…" : "Create"}
-						</button>
-					</div>
-				</div>
-			</header>
-
-			{/* Scrollable body — responsive two-column layout */}
-			<div className="flex-1 overflow-y-auto">
-				<div
-					className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col sm:flex-row gap-[24px] items-start"
-					data-testid="bet-create-body"
-				>
-					{/* Left: editor */}
-					<div className="flex-1 min-w-0 flex flex-col gap-[12px]">
-						{error && (
-							<p
-								role="alert"
-								data-testid="bet-create-error"
-								className="text-[12px] text-[var(--status-error)]"
+							{derivedTitle || "Untitled bet"}
+						</span>
+						<div className="flex items-center gap-[9px] shrink-0">
+							<button
+								type="button"
+								className="inline-flex items-center text-[13px] font-[500] px-[12px] py-[7px] rounded-[var(--r-pill)] bg-transparent border-[1.5px] border-[var(--border-default)] text-[var(--text-secondary)] cursor-pointer hover:border-[var(--accent-deep)] hover:text-[var(--text-primary)] transition-colors duration-[var(--motion-fast)]"
+								onClick={handleCancel}
+								disabled={submitting}
 							>
-								{error}
-							</p>
-						)}
-						<div
-							className="border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] p-[18px]"
-							style={{ minHeight: "300px" }}
-						>
-							{/*
-							 * @lore AK5: On the ?fromKnowledge= path, defer mounting BodyEditor
-							 * until the knowledge fetch settles. TipTap captures initialContent
-							 * once at mount and never re-syncs (lore T1). Mounting with body=""
-							 * before the fetch resolves would leave the editor permanently empty.
-							 * On the normal create path (no fromKnowledgeId), render immediately.
-							 * knowledgeLoading is always false when fromKnowledgeId is undefined.
-							 *
-							 * initialContent uses knowledgeBody directly (not body state) on the
-							 * ?fromKnowledge= path: body state may still be "" when BodyEditor first
-							 * mounts (the seeding useEffect runs after render). knowledgeBody is
-							 * guaranteed non-null here because we gate on !knowledgeLoading and
-							 * knowledgeData.body is set by the time isLoading flips false.
-							 * The body state is still synced via onChange for POST payload.
-							 */}
-							{fromKnowledgeId != null && knowledgeLoading ? (
-								<div
-									className="flex items-center justify-center h-[260px] text-[13px] text-[var(--text-tertiary)]"
-									data-testid="bet-create-knowledge-loading"
-								>
-									Loading…
-								</div>
-							) : (
-								<BodyEditor
-									initialContent={fromKnowledgeId != null ? (knowledgeBody ?? "") : body}
-									onChange={(md: string) => setBody(md)}
-									placeholder="Describe the bet — problem, appetite, no-gos…"
-									variant="full"
-									minHeight="260px"
-									editable={!submitting}
-								/>
-							)}
+								Cancel
+							</button>
+							<button
+								type="button"
+								data-testid="bet-create-submit"
+								className="inline-flex items-center text-[13px] font-[500] px-[12px] py-[7px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] border-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-opacity duration-[var(--motion-fast)]"
+								onClick={() => void handleCreate()}
+								disabled={!canCreate}
+							>
+								{submitting ? "Creating…" : "Create"}
+							</button>
 						</div>
 					</div>
-
-					{/* Right: commitments aside — responsive: full-width on mobile, fixed on sm+ */}
-					<aside
-						className="w-full sm:w-[240px] shrink-0 flex flex-col gap-[12px]"
-						data-testid="bet-create-commitments"
+				</header>
+			}
+		>
+			{/* Responsive two-column layout */}
+			<div
+				className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col sm:flex-row gap-[24px] items-start"
+				data-testid="bet-create-body"
+			>
+				{/* Left: editor */}
+				<div className="flex-1 min-w-0 flex flex-col gap-[12px]">
+					{error && (
+						<p
+							role="alert"
+							data-testid="bet-create-error"
+							className="text-[12px] text-[var(--status-error)]"
+						>
+							{error}
+						</p>
+					)}
+					<div
+						className="border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] p-[18px]"
+						style={{ minHeight: "300px" }}
 					>
-						<div className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[12px]">
-							{/* Team — shown only when multiple teams; single-team auto-resolves */}
-							{singleTeam ? (
-								/* Single-team static line: labelled commitment, not bare inline text */
-								<div className="flex flex-col gap-[6px]">
-									<span className="text-[12px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
-										Team
-									</span>
-									<span className="text-[13px] text-[var(--text-primary)]">
-										{teams[0]?.name ?? ""}
-									</span>
-								</div>
-							) : (
-								<div className="flex flex-col gap-[6px]">
-									<label
-										htmlFor="bet-create-team"
-										className="text-[12px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]"
-									>
-										Team <span aria-hidden>(required)</span>
-									</label>
-									<Select
-										id="bet-create-team"
-										size="sm"
-										className="w-full"
-										value={teamId}
-										onChange={(e) => setTeamId(e.target.value)}
-										disabled={submitting}
-										placeholder="Select a team…"
-										options={teams.map((t) => ({ value: t.id, label: t.name }))}
-									/>
-								</div>
-							)}
-						</div>
-					</aside>
+						{/*
+						 * @lore AK5: On the ?fromKnowledge= path, defer mounting BodyEditor
+						 * until the knowledge fetch settles. TipTap captures initialContent
+						 * once at mount and never re-syncs (lore T1). Mounting with body=""
+						 * before the fetch resolves would leave the editor permanently empty.
+						 * On the normal create path (no fromKnowledgeId), render immediately.
+						 * knowledgeLoading is always false when fromKnowledgeId is undefined.
+						 *
+						 * initialContent uses knowledgeBody directly (not body state) on the
+						 * ?fromKnowledge= path: body state may still be "" when BodyEditor first
+						 * mounts (the seeding useEffect runs after render). knowledgeBody is
+						 * guaranteed non-null here because we gate on !knowledgeLoading and
+						 * knowledgeData.body is set by the time isLoading flips false.
+						 * The body state is still synced via onChange for POST payload.
+						 */}
+						{fromKnowledgeId != null && knowledgeLoading ? (
+							<div
+								className="flex items-center justify-center h-[260px] text-[13px] text-[var(--text-tertiary)]"
+								data-testid="bet-create-knowledge-loading"
+							>
+								Loading…
+							</div>
+						) : (
+							<BodyEditor
+								initialContent={fromKnowledgeId != null ? (knowledgeBody ?? "") : body}
+								onChange={(md: string) => setBody(md)}
+								placeholder="Describe the bet — problem, appetite, no-gos…"
+								variant="full"
+								minHeight="260px"
+								editable={!submitting}
+							/>
+						)}
+					</div>
 				</div>
+
+				{/* Right: commitments aside — responsive: full-width on mobile, fixed on sm+ */}
+				<aside
+					className="w-full sm:w-[240px] shrink-0 flex flex-col gap-[12px]"
+					data-testid="bet-create-commitments"
+				>
+					<div className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[12px]">
+						{/* Team — shown only when multiple teams; single-team auto-resolves */}
+						{singleTeam ? (
+							/* Single-team static line: labelled commitment, not bare inline text */
+							<div className="flex flex-col gap-[6px]">
+								<span className="text-[12px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
+									Team
+								</span>
+								<span className="text-[13px] text-[var(--text-primary)]">
+									{teams[0]?.name ?? ""}
+								</span>
+							</div>
+						) : (
+							<div className="flex flex-col gap-[6px]">
+								<label
+									htmlFor="bet-create-team"
+									className="text-[12px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]"
+								>
+									Team <span aria-hidden>(required)</span>
+								</label>
+								<Select
+									id="bet-create-team"
+									size="sm"
+									className="w-full"
+									value={teamId}
+									onChange={(e) => setTeamId(e.target.value)}
+									disabled={submitting}
+									placeholder="Select a team…"
+									options={teams.map((t) => ({ value: t.id, label: t.name }))}
+								/>
+							</div>
+						)}
+					</div>
+				</aside>
 			</div>
-		</div>
+		</PageScaffold>
 	);
 }
