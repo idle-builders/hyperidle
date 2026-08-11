@@ -13,8 +13,6 @@ increment 1 by running both rules over the whole lane.
 
 ## no-literal-entity-ids
 
-- `layers/core-api/org/src/__tests__/org-edges.integration.test.ts`
-- `layers/core-api/org/src/__tests__/org-routing.integration.test.ts`
 - `layers/core-api/src/__tests__/AC1-bet-outcome.integration.test.ts`
 - `layers/core-api/src/__tests__/AC1-session-effectiveness.integration.test.ts`
 - `layers/core-api/src/__tests__/AC1-task-outcome.integration.test.ts`
@@ -169,7 +167,6 @@ increment 1 by running both rules over the whole lane.
 
 ## no-unscoped-table-read
 
-- `layers/core-api/org/src/__tests__/org-edges.integration.test.ts`
 - `layers/core-api/src/__tests__/AC2-retro.integration.test.ts`
 - `layers/core-api/src/__tests__/AF15-teams-idempotency.integration.test.ts`
 - `layers/core-api/src/__tests__/AL7-proposed-call-capture.integration.test.ts`
