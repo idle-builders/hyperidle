@@ -224,12 +224,22 @@
 			}
 		},
 		{
-			"includes": ["**/__scripts__/**", "tools/governance/src/*.ts"],
+			"includes": ["**/__scripts__/**", "tools/governance/src/*.ts", "tools/trace/*.ts"],
 			"linter": {
 				"rules": {
 					"suspicious": {
 						"noConsole": "off",
 						"noEmptyBlockStatements": "off"
+					}
+				}
+			}
+		},
+		{
+			"includes": ["tools/trace/*.ts"],
+			"linter": {
+				"rules": {
+					"complexity": {
+						"noExcessiveCognitiveComplexity": "off"
 					}
 				}
 			}
