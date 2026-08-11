@@ -1,4 +1,4 @@
-import type { ConnectionHealth, ModelProvider } from "@hyperidle/domain-model";
+import type { ModelProvider } from "@hyperidle/domain-model";
 
 /**
  * @lore AU34: this type is declared HERE, beside the descriptor, and imported back by the adapter —
@@ -114,23 +114,13 @@ export interface HarnessDiscoveryStatus {
 }
 
 /**
- * AN1: Identity-only descriptor for a tool the harness/environment is already
- * configured with. Concept hard-rule 4: no secret, no token, no env, no command —
- * only name + kind + source + health.
- *
- * @lore AN1: Enforced at the type level — no secret field can appear here.
- * The descriptor type is the invariant, not a convention.
+ * AU36: the descriptor describes the harness — it carries NO field describing
+ * what an agent may reach. The inherited-reach fact lives in
+ * `@hyperidle/domain-model` (`InheritedConnectionFact`), probed and cached by
+ * the connections domain. `InheritedToolDescriptor` and
+ * `HarnessCapabilityDescriptor.inheritedTools` were deleted here with no
+ * compatibility alias (plan constraint: no compat field, no dual-write).
  */
-export interface InheritedToolDescriptor {
-	/** Server/CLI identity, e.g. "github", "linear", "gh". */
-	readonly name: string;
-	readonly kind: "mcp-server" | "cli";
-	/** Source harness: "claude-code" | "codex" | "opencode" | "environment". */
-	readonly harness: string;
-	/** evidence-first; "unknown" when not provable from probe output. */
-	readonly health: ConnectionHealth | "unknown";
-}
-
 export interface HarnessCapabilityDescriptor {
 	readonly type: string;
 	readonly name: string;
@@ -143,15 +133,4 @@ export interface HarnessCapabilityDescriptor {
 	readonly returnEnforcement?: ReturnEnforcementChannel;
 	/** Legacy compatibility for existing SettingsAgents selector. */
 	readonly modelProviders: readonly string[];
-	/**
-	 * AN1: Tools the harness/environment is already configured with.
-	 * Identity only — names and liveness, never token values.
-	 * Default [] (additive, non-breaking for existing consumers).
-	 *
-	 * @lore AN1: Placed top-level (peer to runtime/models) because inherited
-	 * tools are a harness-level fact, not a runtime capability boolean.
-	 * Nesting under runtime would bloat HarnessRuntimeCapabilities consumers.
-	 * connection.ts imports nothing from harness/ — no within-package cycle.
-	 */
-	readonly inheritedTools?: readonly InheritedToolDescriptor[];
 }

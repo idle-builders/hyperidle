@@ -53,7 +53,6 @@ const BUILTIN_DESCRIPTOR = {
 	accessMode: "api-gateway" as const,
 	discovery: { state: "ready" as const },
 	authAction: { kind: "enter_api_key" as const, label: "Enter API key" },
-	inheritedTools: [],
 	runtime: {
 		preCompactionTrigger: false,
 		subAgents: false,
@@ -77,7 +76,6 @@ const CODEX_DESCRIPTOR = {
 		label: "Log in to Codex",
 		command: ["codex", "login"],
 	},
-	inheritedTools: [],
 	runtime: {
 		preCompactionTrigger: false,
 		subAgents: false,
@@ -120,7 +118,6 @@ const CLAUDE_CODE_DESCRIPTOR = {
 		label: "Log in to Claude Code",
 		command: ["claude", "auth", "login"],
 	},
-	inheritedTools: [],
 	runtime: {
 		preCompactionTrigger: false,
 		subAgents: false,
