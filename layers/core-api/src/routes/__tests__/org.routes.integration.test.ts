@@ -7,6 +7,7 @@
  */
 
 import { type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
@@ -18,16 +19,17 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 
 async function seedUsers(
 	db: HyperIdleDb,
+	ids: ScopedIds,
 ): Promise<{ fromUserId: string; targetUserId: string; teamMembersId: string }> {
 	const now = new Date().toISOString();
 	await db
 		.insert(teams)
-		.values({ id: "team-1", name: "Test Team", phase: "build", createdAt: now });
+		.values({ id: ids("team-1"), name: "Test Team", phase: "build", createdAt: now });
 	await db
 		.insert(teamMembers)
-		.values({ id: "tm-1", teamId: "team-1", capacity: 5, activeBets: 0, formedAt: now });
+		.values({ id: ids("tm-1"), teamId: ids("team-1"), capacity: 5, activeBets: 0, formedAt: now });
 	await db.insert(users).values({
-		id: "human-1",
+		id: ids("human-1"),
 		kind: "human",
 		name: "From User",
 		role: "admin",
@@ -35,15 +37,15 @@ async function seedUsers(
 		createdAt: now,
 	});
 	await db.insert(users).values({
-		id: "agent-1",
+		id: ids("agent-1"),
 		kind: "ai",
 		name: "Target Agent",
 		role: "builder",
 		status: "active",
-		teamId: "tm-1",
+		teamId: ids("tm-1"),
 		createdAt: now,
 	});
-	return { fromUserId: "human-1", targetUserId: "agent-1", teamMembersId: "tm-1" };
+	return { fromUserId: ids("human-1"), targetUserId: ids("agent-1"), teamMembersId: ids("tm-1") };
 }
 
 describe("org routes", () => {
@@ -61,27 +63,40 @@ describe("org routes", () => {
 			expect(res.status).toBe(401);
 		});
 
-		test("returns 200 with edges and users arrays", async ({ db, app }) => {
-			await seedUsers(db);
+		test("returns 200 with edges and users arrays", async ({ db, app, ids }) => {
+			await seedUsers(db, ids);
 			const res = await app.request("/api/org", {
 				method: "GET",
 				headers: authHeaders(),
 			});
 			expect(res.status).toBe(200);
-			const body = (await res.json()) as { edges: unknown[]; users: unknown[] };
+			const body = (await res.json()) as {
+				edges: unknown[];
+				users: Array<{ id: string }>;
+			};
 			expect(Array.isArray(body.edges)).toBe(true);
 			expect(Array.isArray(body.users)).toBe(true);
-			expect(body.users).toHaveLength(2);
+			// AU38 P6: global org chart — assert the arranged users are present,
+			// not that the chart holds exactly two users.
+			const userIds = body.users.map((u) => u.id);
+			expect(userIds).toContain(ids("human-1"));
+			expect(userIds).toContain(ids("agent-1"));
 		});
 
-		test("returns empty edges when none exist", async ({ app }) => {
+		test("returns no edges for users that have none arranged", async ({ db, app, ids }) => {
+			// AU38 P4: the original claimed a globally empty edges array; in a
+			// populated world other tests' edges exist. Re-homed on this test's
+			// own scope: its arranged users have no edges, so none of the
+			// response's edges may anchor on them.
+			await seedUsers(db, ids);
 			const res = await app.request("/api/org", {
 				method: "GET",
 				headers: authHeaders(),
 			});
 			expect(res.status).toBe(200);
-			const body = (await res.json()) as { edges: unknown[] };
-			expect(body.edges).toHaveLength(0);
+			const body = (await res.json()) as { edges: Array<{ fromUserId: string }> };
+			expect(Array.isArray(body.edges)).toBe(true);
+			expect(body.edges.filter((e) => e.fromUserId === ids("human-1"))).toHaveLength(0);
 		});
 	});
 
@@ -91,8 +106,12 @@ describe("org routes", () => {
 			expect(res.status).toBe(401);
 		});
 
-		test("returns 201 with created edge on valid input (mechanism=direct)", async ({ db, app }) => {
-			const { fromUserId, targetUserId } = await seedUsers(db);
+		test("returns 201 with created edge on valid input (mechanism=direct)", async ({
+			db,
+			app,
+			ids,
+		}) => {
+			const { fromUserId, targetUserId } = await seedUsers(db, ids);
 			const res = await app.request("/api/org/edges", {
 				method: "PUT",
 				headers: authHeaders(),
@@ -104,8 +123,8 @@ describe("org routes", () => {
 			expect(body.fromUserId).toBe(fromUserId);
 		});
 
-		test("returns 200 with existing edge on duplicate tuple (upsert)", async ({ db, app }) => {
-			const { fromUserId, targetUserId } = await seedUsers(db);
+		test("returns 200 with existing edge on duplicate tuple (upsert)", async ({ db, app, ids }) => {
+			const { fromUserId, targetUserId } = await seedUsers(db, ids);
 			// First PUT: creates
 			await app.request("/api/org/edges", {
 				method: "PUT",
@@ -121,26 +140,34 @@ describe("org routes", () => {
 			expect(res.status).toBe(200);
 		});
 
-		test("returns 400 when fromUserId not found", async ({ db, app }) => {
-			await seedUsers(db);
+		test("returns 400 when fromUserId not found", async ({ db, app, ids }) => {
+			await seedUsers(db, ids);
 			const res = await app.request("/api/org/edges", {
 				method: "PUT",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					fromUserId: "non-existent",
+					fromUserId: ids("non-existent"),
 					mechanism: "direct",
-					target: "agent-1",
+					target: ids("agent-1"),
 				}),
 			});
 			expect(res.status).toBe(400);
 		});
 
-		test("returns 400 when target userId not found (mechanism=direct)", async ({ db, app }) => {
-			const { fromUserId } = await seedUsers(db);
+		test("returns 400 when target userId not found (mechanism=direct)", async ({
+			db,
+			app,
+			ids,
+		}) => {
+			const { fromUserId } = await seedUsers(db, ids);
 			const res = await app.request("/api/org/edges", {
 				method: "PUT",
 				headers: authHeaders(),
-				body: JSON.stringify({ fromUserId, mechanism: "direct", target: "non-existent-user" }),
+				body: JSON.stringify({
+					fromUserId,
+					mechanism: "direct",
+					target: ids("non-existent-user"),
+				}),
 			});
 			expect(res.status).toBe(400);
 		});
@@ -150,8 +177,9 @@ describe("org routes", () => {
 		test("returns 400 when target role is empty string (mechanism=function)", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			const { fromUserId } = await seedUsers(db);
+			const { fromUserId } = await seedUsers(db, ids);
 			const res = await app.request("/api/org/edges", {
 				method: "PUT",
 				headers: authHeaders(),
@@ -163,8 +191,9 @@ describe("org routes", () => {
 		test("returns 201 when target role is a custom string (mechanism=function, AB0)", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			const { fromUserId } = await seedUsers(db);
+			const { fromUserId } = await seedUsers(db, ids);
 			const res = await app.request("/api/org/edges", {
 				method: "PUT",
 				headers: authHeaders(),
@@ -173,12 +202,12 @@ describe("org routes", () => {
 			expect(res.status).toBe(201);
 		});
 
-		test("returns 400 when target teamId not found (mechanism=team)", async ({ db, app }) => {
-			const { fromUserId } = await seedUsers(db);
+		test("returns 400 when target teamId not found (mechanism=team)", async ({ db, app, ids }) => {
+			const { fromUserId } = await seedUsers(db, ids);
 			const res = await app.request("/api/org/edges", {
 				method: "PUT",
 				headers: authHeaders(),
-				body: JSON.stringify({ fromUserId, mechanism: "team", target: "non-existent-team" }),
+				body: JSON.stringify({ fromUserId, mechanism: "team", target: ids("non-existent-team") }),
 			});
 			expect(res.status).toBe(400);
 		});
@@ -194,13 +223,13 @@ describe("org routes", () => {
 	});
 
 	describe("DELETE /api/org/edges/:id", () => {
-		test("returns 401 without auth", async ({ app }) => {
-			const res = await app.request("/api/org/edges/some-id", { method: "DELETE" });
+		test("returns 401 without auth", async ({ app, ids }) => {
+			const res = await app.request(`/api/org/edges/${ids("some-id")}`, { method: "DELETE" });
 			expect(res.status).toBe(401);
 		});
 
-		test("returns 204 on successful delete", async ({ db, app }) => {
-			const { fromUserId, targetUserId } = await seedUsers(db);
+		test("returns 204 on successful delete", async ({ db, app, ids }) => {
+			const { fromUserId, targetUserId } = await seedUsers(db, ids);
 			// Create an edge first
 			const createRes = await app.request("/api/org/edges", {
 				method: "PUT",
@@ -216,8 +245,9 @@ describe("org routes", () => {
 			expect(res.status).toBe(204);
 		});
 
-		test("returns 404 for non-existent edge", async ({ app }) => {
-			const res = await app.request("/api/org/edges/non-existent", {
+		test("returns 404 for non-existent edge", async ({ app, ids }) => {
+			// AU38 P4: a derived id nobody inserted stays absent in a populated world.
+			const res = await app.request(`/api/org/edges/${ids("non-existent")}`, {
 				method: "DELETE",
 				headers: authHeaders(),
 			});

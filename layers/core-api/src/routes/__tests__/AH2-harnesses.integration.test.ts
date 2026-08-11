@@ -170,12 +170,12 @@ describe("AH2 H-1 regression: GET /api/harnesses accepts Bearer token (shared mo
 		vi.unstubAllEnvs();
 	});
 
-	test("200 with valid Bearer token (no X-API-Key sent)", async ({ db, eventBus }) => {
+	test("200 with valid Bearer token (no X-API-Key sent)", async ({ db, eventBus, ids }) => {
 		// Arrange: seed a human user and create a login session token
 		await db
 			.insert(users)
 			.values({
-				id: "u-harness-bearer",
+				id: ids("u-harness-bearer"),
 				kind: "human",
 				name: "Founder",
 				role: "founder",
@@ -184,7 +184,7 @@ describe("AH2 H-1 regression: GET /api/harnesses accepts Bearer token (shared mo
 			})
 			.onConflictDoNothing();
 
-		const { token } = await createLoginSession(db, "u-harness-bearer");
+		const { token } = await createLoginSession(db, ids("u-harness-bearer"));
 
 		// sharedMode=true activates Bearer token path in the auth middleware.
 		// This simulates shared mode (e.g. cloud/VPS install) where the Settings

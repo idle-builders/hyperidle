@@ -64,17 +64,21 @@ describe("D2. GET /api/bets returns betListResponseSchema-conforming response", 
 	// schema that contradicted the endpoint (integer atRisk vs the boolean the route
 	// emits) survived. The non-empty assertion is what makes the safeParse mean
 	// something.
-	test("returns 200 with a grouped bet list carrying a real bet", async ({ db, app }) => {
+	test("returns 200 with a grouped bet list carrying a real bet", async ({ db, app, ids }) => {
 		const now = new Date().toISOString();
 		await db
 			.insert(teams)
-			.values({ id: "prod-d2", name: "Product D2", phase: "build", createdAt: now });
-		await db
-			.insert(teamMembers)
-			.values({ id: "team-d2", teamId: "prod-d2", capacity: 3, activeBets: 0, formedAt: now });
+			.values({ id: ids("prod-d2"), name: "Product D2", phase: "build", createdAt: now });
+		await db.insert(teamMembers).values({
+			id: ids("team-d2"),
+			teamId: ids("prod-d2"),
+			capacity: 3,
+			activeBets: 0,
+			formedAt: now,
+		});
 		await db.insert(bets).values({
-			id: "bet-d2",
-			teamId: "prod-d2",
+			id: ids("bet-d2"),
+			teamId: ids("prod-d2"),
 			description: "A real bet so the list is not empty",
 			status: "draft",
 			createdAt: now,
@@ -84,8 +88,11 @@ describe("D2. GET /api/bets returns betListResponseSchema-conforming response", 
 		const res = await app.request("/api/bets", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 
-		const body = (await res.json()) as { draft: unknown[] };
-		expect(body.draft).toHaveLength(1);
+		// AU38 P6: GET /api/bets is a global list — assert the arranged bet is
+		// in its status group (which also keeps the group non-empty for the
+		// AU30 safeParse guarantee), not that the group holds exactly one bet.
+		const body = (await res.json()) as { draft: Array<{ id: string }> };
+		expect(body.draft.some((b) => b.id === ids("bet-d2"))).toBe(true);
 
 		// Must conform to the grouped structure
 		const validation = betListResponseSchema.safeParse(body);
@@ -93,14 +100,18 @@ describe("D2. GET /api/bets returns betListResponseSchema-conforming response", 
 	});
 
 	// @lore U1: Status groups simplified to draft|active|completed|killed.
-	test("returns each status group (draft, active, completed, killed)", async ({ db, app }) => {
+	test("returns each status group (draft, active, completed, killed)", async ({ db, app, ids }) => {
 		const now = new Date().toISOString();
 		await db
 			.insert(teams)
-			.values({ id: "prod-d2b", name: "Product D2b", phase: "build", createdAt: now });
-		await db
-			.insert(teamMembers)
-			.values({ id: "team-d2b", teamId: "prod-d2b", capacity: 3, activeBets: 0, formedAt: now });
+			.values({ id: ids("prod-d2b"), name: "Product D2b", phase: "build", createdAt: now });
+		await db.insert(teamMembers).values({
+			id: ids("team-d2b"),
+			teamId: ids("prod-d2b"),
+			capacity: 3,
+			activeBets: 0,
+			formedAt: now,
+		});
 
 		const res = await app.request("/api/bets", { headers: authHeaders() });
 		const body = (await res.json()) as Record<string, unknown>;
@@ -110,11 +121,17 @@ describe("D2. GET /api/bets returns betListResponseSchema-conforming response", 
 		expect(body).toHaveProperty("killed");
 	});
 
-	test("returns empty arrays when no bets exist", async ({ app }) => {
+	// @lore AU38 P4: the original asserted draft.length === 0 "when no bets
+	// exist" — a global-absence claim a populated world cannot honour (the
+	// endpoint lists ALL bets and offers no owner filter). Re-homed on the
+	// shape the test actually guards: every status group is an array, whatever
+	// the world contains.
+	test("returns every status group as an array regardless of world state", async ({ app }) => {
 		const res = await app.request("/api/bets", { headers: authHeaders() });
-		const body = (await res.json()) as { draft: unknown[] };
-		expect(Array.isArray(body.draft)).toBe(true);
-		expect(body.draft.length).toBe(0);
+		const body = (await res.json()) as Record<string, unknown>;
+		for (const group of ["draft", "active", "completed", "killed"]) {
+			expect(Array.isArray(body[group]), `${group} must be an array`).toBe(true);
+		}
 	});
 });
 
@@ -132,23 +149,28 @@ describe("D3. GET /api/bets/:id returns betDetailResponseSchema-conforming respo
 	test("returns 200 with a bet detail conforming to betDetailResponseSchema", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		const now = new Date().toISOString();
 		await db
 			.insert(teams)
-			.values({ id: "prod-d3", name: "Product D3", phase: "build", createdAt: now });
-		await db
-			.insert(teamMembers)
-			.values({ id: "team-d3", teamId: "prod-d3", capacity: 3, activeBets: 0, formedAt: now });
+			.values({ id: ids("prod-d3"), name: "Product D3", phase: "build", createdAt: now });
+		await db.insert(teamMembers).values({
+			id: ids("team-d3"),
+			teamId: ids("prod-d3"),
+			capacity: 3,
+			activeBets: 0,
+			formedAt: now,
+		});
 		await db.insert(bets).values({
-			id: "bet-d3",
-			teamId: "prod-d3",
+			id: ids("bet-d3"),
+			teamId: ids("prod-d3"),
 			description: "# Bet D3\n\nThis is a test bet.",
 			status: "draft",
 			createdAt: now,
 		});
 
-		const res = await app.request("/api/bets/bet-d3", { headers: authHeaders() });
+		const res = await app.request(`/api/bets/${ids("bet-d3")}`, { headers: authHeaders() });
 		expect(res.status).toBe(200);
 
 		const body = await res.json();
@@ -156,8 +178,11 @@ describe("D3. GET /api/bets/:id returns betDetailResponseSchema-conforming respo
 		expect(validation.success).toBe(true);
 	});
 
-	test("returns 404 for non-existent bet", async ({ app }) => {
-		const res = await app.request("/api/bets/nonexistent-bet", { headers: authHeaders() });
+	test("returns 404 for non-existent bet", async ({ app, ids }) => {
+		// AU38 P4: a derived id nobody inserted stays absent in a populated world.
+		const res = await app.request(`/api/bets/${ids("nonexistent-bet")}`, {
+			headers: authHeaders(),
+		});
 		expect(res.status).toBe(404);
 	});
 });

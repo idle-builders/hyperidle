@@ -36,6 +36,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { listNotifications } from "@hyperidle/notifications";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -50,14 +51,14 @@ const NOW = new Date().toISOString();
 const THREE_DAYS_AGO = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
 
 /** Seed the minimum required rows for team agent tests. */
-async function seedBase(db: HyperIdleDb): Promise<void> {
+async function seedBase(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	await db
 		.insert(teams)
-		.values({ id: "ab2-team", name: "AB2 Test Team", phase: "build", createdAt: NOW });
+		.values({ id: ids("ab2-team"), name: "AB2 Test Team", phase: "build", createdAt: NOW });
 
 	await db.insert(teamMembers).values({
-		id: "ab2-tm",
-		teamId: "ab2-team",
+		id: ids("ab2-tm"),
+		teamId: ids("ab2-team"),
 		capacity: 5,
 		activeBets: 0,
 		formedAt: NOW,
@@ -65,7 +66,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 
 	// Human founder — required for auth
 	await db.insert(users).values({
-		id: "u-founder-ab2",
+		id: ids("u-founder-ab2"),
 		kind: "human",
 		name: "AB2 Founder",
 		role: "founder",
@@ -75,23 +76,23 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	});
 	// @lore AU26 G1: the run config left `users` for `agent_run_config`.
 	await db.insert(agentRunConfig).values({
-		agentUserId: "u-founder-ab2",
+		agentUserId: ids("u-founder-ab2"),
 		maxConcurrentSessions: 0,
 	});
 
 	// AI agent — healthy, idle (no sessions)
 	await db.insert(users).values({
-		id: "ab2-agent-idle",
+		id: ids("ab2-agent-idle"),
 		kind: "ai",
 		name: "AB2 Idle Agent",
 		role: "builder",
 		status: "active",
-		teamId: "ab2-tm",
+		teamId: ids("ab2-tm"),
 		createdAt: NOW,
 	});
 	// @lore AU26 G1: the run config left `users` for `agent_run_config`.
 	await db.insert(agentRunConfig).values({
-		agentUserId: "ab2-agent-idle",
+		agentUserId: ids("ab2-agent-idle"),
 		maxConcurrentSessions: 2,
 	});
 }
@@ -109,19 +110,19 @@ describe("AB2 AC-2: GET /teams/:id roster shape", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("carries harnessAvailable and no run-derived fields", async ({ db, app }) => {
-		await seedBase(db);
+	test("carries harnessAvailable and no run-derived fields", async ({ db, app, ids }) => {
+		await seedBase(db, ids);
 		await db.insert(bets).values({
-			id: "ab2-bet-1",
-			teamId: "ab2-team",
+			id: ids("ab2-bet-1"),
+			teamId: ids("ab2-team"),
 			description: "Test bet",
 			status: "active",
 			createdAt: NOW,
 		});
 		await db.insert(tasks).values({
-			id: "ab2-task-1",
-			betId: "ab2-bet-1",
-			teamId: "ab2-team",
+			id: ids("ab2-task-1"),
+			betId: ids("ab2-bet-1"),
+			teamId: ids("ab2-team"),
 			title: "Implement feature",
 			state: "in_progress",
 			createdAt: NOW,
@@ -129,21 +130,21 @@ describe("AB2 AC-2: GET /teams/:id roster shape", () => {
 		});
 		// A live run — a roster that still carried run state would report it.
 		await db.insert(sessions).values({
-			id: "ab2-sess-active",
-			taskId: "ab2-task-1",
-			agentId: "ab2-agent-idle",
+			id: ids("ab2-sess-active"),
+			taskId: ids("ab2-task-1"),
+			agentId: ids("ab2-agent-idle"),
 			modelTier: "workhorse",
 			startedAt: NOW,
 			state: "active",
 		});
 
-		const res = await app.request("/api/teams/ab2-team", { headers: authHeaders() });
+		const res = await app.request(`/api/teams/${ids("ab2-team")}`, { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as Record<string, unknown>;
 		const roster = body.roster as Array<Record<string, unknown>>;
 		expect(roster.length).toBeGreaterThan(0);
 
-		const agent = roster.find((m) => m.agentId === "ab2-agent-idle");
+		const agent = roster.find((m) => m.agentId === ids("ab2-agent-idle"));
 		expect(agent).toBeDefined();
 		expect(typeof agent?.harnessAvailable).toBe("boolean");
 		for (const field of [
@@ -176,12 +177,13 @@ describe("AU26: GET /teams/:teamId enqueues nothing", () => {
 	test("a roster full of crashed runs still produces zero notification rows", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedBase(db);
+		await seedBase(db, ids);
 		// Seed enough crashes to trigger critical
 		await db.insert(bets).values({
-			id: "ab2-bet-notif",
-			teamId: "ab2-team",
+			id: ids("ab2-bet-notif"),
+			teamId: ids("ab2-team"),
 			description: "Notif bet",
 			status: "active",
 			createdAt: NOW,
@@ -189,18 +191,18 @@ describe("AU26: GET /teams/:teamId enqueues nothing", () => {
 		for (let i = 1; i <= 4; i++) {
 			const paddedId = i.toString().padStart(2, "0");
 			await db.insert(tasks).values({
-				id: `ab2-task-notif-${paddedId}`,
-				betId: "ab2-bet-notif",
-				teamId: "ab2-team",
+				id: ids(`ab2-task-notif-${paddedId}`),
+				betId: ids("ab2-bet-notif"),
+				teamId: ids("ab2-team"),
 				title: `Task ${i}`,
 				state: "completed",
 				createdAt: NOW,
 				updatedAt: NOW,
 			});
 			await db.insert(sessions).values({
-				id: `ab2-sess-notif-${paddedId}`,
-				taskId: `ab2-task-notif-${paddedId}`,
-				agentId: "ab2-agent-idle",
+				id: ids(`ab2-sess-notif-${paddedId}`),
+				taskId: ids(`ab2-task-notif-${paddedId}`),
+				agentId: ids("ab2-agent-idle"),
 				modelTier: "workhorse",
 				startedAt: THREE_DAYS_AGO,
 				endedAt: THREE_DAYS_AGO,
@@ -209,12 +211,18 @@ describe("AU26: GET /teams/:teamId enqueues nothing", () => {
 			});
 		}
 
+		// AU38 P4: "zero notification rows" is a global claim — re-homed as a
+		// before/after diff: the two GETs must add NO rows beyond whatever the
+		// populated world already holds.
+		const beforeIds = new Set((await listNotifications(db, { kind: "all" })).map((n) => n.id));
+
 		// The old producer ran here. Twice, to also rule out a throttled second write.
-		const first = await app.request("/api/teams/ab2-team", { headers: authHeaders() });
+		const first = await app.request(`/api/teams/${ids("ab2-team")}`, { headers: authHeaders() });
 		expect(first.status).toBe(200);
-		const second = await app.request("/api/teams/ab2-team", { headers: authHeaders() });
+		const second = await app.request(`/api/teams/${ids("ab2-team")}`, { headers: authHeaders() });
 		expect(second.status).toBe(200);
 
-		expect(await listNotifications(db, { kind: "all" })).toHaveLength(0);
+		const after = await listNotifications(db, { kind: "all" });
+		expect(after.filter((n) => !beforeIds.has(n.id))).toHaveLength(0);
 	});
 });

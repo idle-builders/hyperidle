@@ -55,10 +55,11 @@ describe("AK1 — assistant route uses systemPrompt (not soulPrompt)", () => {
 	test("GET /api/users/:id/assistant returns systemPrompt field (not soulPrompt)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedFounder(db, "u-ak1-a1");
+		await seedFounder(db, ids("u-ak1-a1"));
 
-		const res = await app.request("/api/users/u-ak1-a1/assistant", {
+		const res = await app.request(`/api/users/${ids("u-ak1-a1")}/assistant`, {
 			headers: authHeaders(),
 		});
 
@@ -74,12 +75,13 @@ describe("AK1 — assistant route uses systemPrompt (not soulPrompt)", () => {
 	test("PATCH /api/users/:id/assistant accepts systemPrompt field and returns it", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedFounder(db, "u-ak1-a2");
+		await seedFounder(db, ids("u-ak1-a2"));
 
 		const newPrompt = "You are a focused assistant. Help with clarity.";
 
-		const res = await app.request("/api/users/u-ak1-a2/assistant", {
+		const res = await app.request(`/api/users/${ids("u-ak1-a2")}/assistant`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ systemPrompt: newPrompt }),
@@ -98,14 +100,15 @@ describe("AK1 — assistant route uses systemPrompt (not soulPrompt)", () => {
 	test("PATCH /api/users/:id/assistant with soulPrompt field returns 400 (old field rejected)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedFounder(db, "u-ak1-a3");
+		await seedFounder(db, ids("u-ak1-a3"));
 
 		// After rename, soulPrompt is no longer a valid field name in the body schema.
 		// The zod schema should reject unknown/old fields (strict mode) or ignore them —
 		// either way, sending soulPrompt should NOT update the system prompt.
 		// We verify by checking the request either rejects or ignores the old field.
-		const res = await app.request("/api/users/u-ak1-a3/assistant", {
+		const res = await app.request(`/api/users/${ids("u-ak1-a3")}/assistant`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ soulPrompt: "Old field name" }),
@@ -120,12 +123,13 @@ describe("AK1 — assistant route uses systemPrompt (not soulPrompt)", () => {
 	test("PATCH /api/users/:id/assistant enforces max length via SYSTEM_PROMPT_MAX_LENGTH", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedFounder(db, "u-ak1-a4");
+		await seedFounder(db, ids("u-ak1-a4"));
 
 		const oversizedPrompt = "x".repeat(50_001);
 
-		const res = await app.request("/api/users/u-ak1-a4/assistant", {
+		const res = await app.request(`/api/users/${ids("u-ak1-a4")}/assistant`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ systemPrompt: oversizedPrompt }),
@@ -148,39 +152,40 @@ describe("AK1 — agents route uses systemPrompt (not soulPrompt)", () => {
 	test("GET /api/agents returns agents with systemPrompt field (not soulPrompt)", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		// Seed prerequisite data for the agents route
 		const { teams, teamMembers } = await import("@hyperidle/db");
 
 		await db.insert(teams).values({
-			id: "ak1-team",
+			id: ids("ak1-team"),
 			name: "AK1 Team",
 			phase: "build",
 			createdAt: NOW,
 		});
 
 		await db.insert(teamMembers).values({
-			id: "ak1-tm",
-			teamId: "ak1-team",
+			id: ids("ak1-tm"),
+			teamId: ids("ak1-team"),
 			capacity: 3,
 			activeBets: 0,
 			formedAt: NOW,
 		});
 
-		await seedFounder(db, "u-ak1-b1");
+		await seedFounder(db, ids("u-ak1-b1"));
 
 		await db.insert(users).values({
-			id: "ak1-agent-1",
+			id: ids("ak1-agent-1"),
 			kind: "ai",
 			name: "AK1 Builder Bot",
 			role: "builder",
 			status: "active",
-			teamId: "ak1-tm",
+			teamId: ids("ak1-tm"),
 			createdAt: NOW,
 		});
 		// @lore AU26 G1: the run config left `users` for `agent_run_config`.
 		await db.insert(agentRunConfig).values({
-			agentUserId: "ak1-agent-1",
+			agentUserId: ids("ak1-agent-1"),
 			maxConcurrentSessions: 2,
 		});
 
@@ -191,10 +196,10 @@ describe("AK1 — agents route uses systemPrompt (not soulPrompt)", () => {
 		expect(res.status).toBe(200);
 		const body = await res.json();
 
-		// At least one agent should be present
+		// AU38 P6: global list endpoint — the arranged agent must be present.
 		expect(Array.isArray(body)).toBe(true);
 		const agents = body as Array<Record<string, unknown>>;
-		expect(agents.length).toBeGreaterThan(0);
+		expect(agents.some((a) => a.id === ids("ak1-agent-1"))).toBe(true);
 
 		// Every agent must expose systemPrompt, not soulPrompt
 		for (const agent of agents) {

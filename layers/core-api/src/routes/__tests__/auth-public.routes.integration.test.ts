@@ -7,7 +7,9 @@
  */
 
 import { type HyperIdleDb, inviteCodes, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 import { createTestApp } from "../../__testing__/test-utils.js";
@@ -25,17 +27,18 @@ describe("auth-public routes", () => {
 
 	async function seedInviteCode(
 		db: HyperIdleDb,
+		ids: ScopedIds,
 		opts: { code?: string; expiresAt?: string; claimedBy?: string | null } = {},
 	): Promise<{ code: string; inviteId: string; creatorId: string }> {
 		const now = new Date().toISOString();
-		const creatorId = "creator-1";
-		const code = opts.code ?? "valid-invite-code";
-		const inviteId = "ic-1";
+		const creatorId = ids("creator-1");
+		const code = opts.code ?? ids("valid-invite-code");
+		const inviteId = ids("ic-1");
 		const expiresAt = opts.expiresAt ?? new Date(Date.now() + 86400000).toISOString();
 
-		// Create the creator user
-		const existingUser = await db.select().from(users);
-		if (!existingUser.some((u) => u.id === creatorId)) {
+		// Create the creator user (scoped existence check — AU38 R2).
+		const existingUser = await db.select().from(users).where(eq(users.id, creatorId));
+		if (existingUser.length === 0) {
 			await db.insert(users).values({
 				id: creatorId,
 				kind: "human",
@@ -60,9 +63,9 @@ describe("auth-public routes", () => {
 	}
 
 	describe("POST /api/auth/claim", () => {
-		test("returns 201 with token and user on valid invite claim", async ({ db, eventBus }) => {
+		test("returns 201 with token and user on valid invite claim", async ({ db, eventBus, ids }) => {
 			const app = await createTestApp({ db, eventBus, sharedMode: true });
-			const { code } = await seedInviteCode(db);
+			const { code } = await seedInviteCode(db, ids);
 
 			const res = await app.request("/api/auth/claim", {
 				method: "POST",
@@ -114,31 +117,39 @@ describe("auth-public routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		test("returns 404 when invite code does not exist", async ({ db, eventBus }) => {
+		test("returns 404 when invite code does not exist", async ({ db, eventBus, ids }) => {
 			const app = await createTestApp({ db, eventBus, sharedMode: true });
 			const res = await app.request("/api/auth/claim", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ code: "non-existent-code", name: "New User" }),
+				// AU38 P4: a derived code nobody inserted stays absent in a populated world.
+				body: JSON.stringify({ code: ids("non-existent-code"), name: "New User" }),
 			});
 			expect(res.status).toBe(404);
 			const body = (await res.json()) as { code: string };
 			expect(body.code).toBe(API_ERROR_CODES.NOT_FOUND);
 		});
 
-		test("returns 410 (INVITE_CLAIMED) when code is already claimed", async ({ db, eventBus }) => {
+		test("returns 410 (INVITE_CLAIMED) when code is already claimed", async ({
+			db,
+			eventBus,
+			ids,
+		}) => {
 			const app = await createTestApp({ db, eventBus, sharedMode: true });
 			const now = new Date().toISOString();
 			// Create a claimant user first
 			await db.insert(users).values({
-				id: "claimant-1",
+				id: ids("claimant-1"),
 				kind: "human",
 				name: "Claimant",
 				role: "member",
 				status: "active",
 				createdAt: now,
 			});
-			const { code } = await seedInviteCode(db, { code: "claimed-code", claimedBy: "claimant-1" });
+			const { code } = await seedInviteCode(db, ids, {
+				code: ids("claimed-code"),
+				claimedBy: ids("claimant-1"),
+			});
 
 			const res = await app.request("/api/auth/claim", {
 				method: "POST",
@@ -150,10 +161,13 @@ describe("auth-public routes", () => {
 			expect(body.code).toBe(API_ERROR_CODES.INVITE_CLAIMED);
 		});
 
-		test("returns 410 (INVITE_EXPIRED) when code has expired", async ({ db, eventBus }) => {
+		test("returns 410 (INVITE_EXPIRED) when code has expired", async ({ db, eventBus, ids }) => {
 			const app = await createTestApp({ db, eventBus, sharedMode: true });
 			const pastDate = new Date(Date.now() - 3600000).toISOString();
-			const { code } = await seedInviteCode(db, { code: "expired-code", expiresAt: pastDate });
+			const { code } = await seedInviteCode(db, ids, {
+				code: ids("expired-code"),
+				expiresAt: pastDate,
+			});
 
 			const res = await app.request("/api/auth/claim", {
 				method: "POST",
@@ -165,9 +179,9 @@ describe("auth-public routes", () => {
 			expect(body.code).toBe(API_ERROR_CODES.INVITE_EXPIRED);
 		});
 
-		test("creates user with email when provided", async ({ db, eventBus }) => {
+		test("creates user with email when provided", async ({ db, eventBus, ids }) => {
 			const app = await createTestApp({ db, eventBus, sharedMode: true });
-			const { code } = await seedInviteCode(db, { code: "email-code" });
+			const { code } = await seedInviteCode(db, ids, { code: ids("email-code") });
 
 			const res = await app.request("/api/auth/claim", {
 				method: "POST",
@@ -179,9 +193,9 @@ describe("auth-public routes", () => {
 			expect(body.user.email).toBe("user@example.com");
 		});
 
-		test("creates user without email when not provided", async ({ db, eventBus }) => {
+		test("creates user without email when not provided", async ({ db, eventBus, ids }) => {
 			const app = await createTestApp({ db, eventBus, sharedMode: true });
-			const { code } = await seedInviteCode(db, { code: "no-email-code" });
+			const { code } = await seedInviteCode(db, ids, { code: ids("no-email-code") });
 
 			const res = await app.request("/api/auth/claim", {
 				method: "POST",
