@@ -22,10 +22,12 @@
  */
 
 import { type CredentialResolver, resolveModel } from "@hyperidle/credential-access";
+import { type HyperIdleDb, serverConfig } from "@hyperidle/db";
 import {
 	BUILT_IN_GATEWAY_CONFIG as DEFAULT_GATEWAY_CONFIG,
 	MissingCredentialError,
 } from "@hyperidle/domain-model";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
@@ -56,6 +58,17 @@ function makeResolver(entries: Record<string, string | null>): CredentialResolve
 	return {
 		resolve: vi.fn(async (name: string) => entries[name] ?? null),
 	};
+}
+
+/**
+ * @lore AU38 P10: server_config is a singleton row (id = "default") shared by
+ * every test and file — the one table you cannot scope by inserting your own
+ * row. Defaults tests must arrange the absent state by deleting the row first
+ * (readServerConfig falls back to defaults when absent); same helper as the
+ * settings-package tests (batch 3).
+ */
+async function resetServerConfig(db: HyperIdleDb): Promise<void> {
+	await db.delete(serverConfig).where(eq(serverConfig.id, "default"));
 }
 
 // ---------------------------------------------------------------------------
@@ -257,7 +270,10 @@ describe("X4: GET /api/model-gateway", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("returns defaults when no config exists", async ({ app }) => {
+	test("returns defaults when no config exists", async ({ app, db }) => {
+		// AU38 P4: arrange the absent singleton — in a populated world other
+		// tests leave a server_config row behind.
+		await resetServerConfig(db);
 		const res = await app.request("/api/model-gateway", {
 			headers: authHeaders(),
 		});
@@ -505,7 +521,10 @@ describe("X4: ServerConfig modelGateway field defaults", () => {
 
 	test("modelGateway in server config defaults to DEFAULT_GATEWAY_CONFIG when no row exists", async ({
 		app,
+		db,
 	}) => {
+		// AU38 P4: arrange the absent singleton (see resetServerConfig lore).
+		await resetServerConfig(db);
 		// GET /api/model-gateway relies on readServerConfig → modelGateway field
 		const res = await app.request("/api/model-gateway", {
 			headers: authHeaders(),
