@@ -129,10 +129,19 @@ interface AppOptions {
 	registerWebSocket?: (apiRouter: Hono, tokenStore: UpgradeTokenStore) => void;
 	/**
 	 * AU28: optional hook letting a caller mount extra routes on the `/api`
-	 * sub-router. The only caller is the development test fixture, which mounts the
-	 * middleware-exercising routes that used to be statically imported here.
+	 * sub-router. The only caller is the development test fixture, which mounts
+	 * the middleware-exercising routes that used to be statically imported here.
 	 */
 	registerExtraRoutes?: (apiRouter: Hono) => void;
+	/**
+	 * AU36 D5: awaited inside POST /api/harnesses/redetect ALONGSIDE the
+	 * harness discovery refresh, BEFORE the response returns — the inherited
+	 * reach re-probe rides the same rate-limited moment (1 req/5s) with
+	 * identical observable effect to the pre-AU36 wiring. The Application
+	 * wires the orchestration Layer's `inheritedReach.refresh` here; absent
+	 * (kernel-only) the redetect refreshes harness discoveries only.
+	 */
+	onHarnessRedetect?: () => Promise<void>;
 	/**
 	 * AU21 §6 Decision L4 / §9 Increment 14d: the WS connection hub's
 	 * broadcast-only surface. When provided, route factories that push
@@ -463,7 +472,11 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 			// AH2: GET /api/harnesses — deduped harness type list for SettingsAgents selector.
 			// AM4 CHANGE 3 (Seam 3): thread options.db so the handler can stamp discovery.disabled
 			// and the redetect/disable routes can read/write server_config.
-			api.route("/harnesses", createHarnessRoutes(options.adapterPool, options.db));
+			// AU36 D5: thread onHarnessRedetect so redetect also refreshes inherited reach.
+			api.route(
+				"/harnesses",
+				createHarnessRoutes(options.adapterPool, options.db, options.onHarnessRedetect),
+			);
 		}
 		api.route("/credentials", createCredentialRoutes(options.db));
 		// AU26 E4: `/api/connections` is served by `agent-orchestration`'s own

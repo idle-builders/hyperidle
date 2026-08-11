@@ -113,8 +113,16 @@ async function stampBuiltinCredential(
  * Mounted at /api/harnesses by app.ts.
  *
  * AM4 CHANGE 3 (Seam 3): signature now includes db for readServerConfig access.
+ *
+ * @param onHarnessRedetect AU36 D5 — awaited alongside the discovery refresh
+ * in POST /redetect (the inherited-reach re-probe, wired by the Application).
+ * Plain `() => Promise<void>` on purpose: no cross-layer type import.
  */
-export function createHarnessRoutes(pool: HarnessCapabilityReader, db: HyperIdleDb): Hono {
+export function createHarnessRoutes(
+	pool: HarnessCapabilityReader,
+	db: HyperIdleDb,
+	onHarnessRedetect?: () => Promise<void>,
+): Hono {
 	const router = new Hono();
 
 	// AM4: Dedicated rate limiter for POST /redetect — created per router instance so
@@ -144,7 +152,13 @@ export function createHarnessRoutes(pool: HarnessCapabilityReader, db: HyperIdle
 		requireBoundary({ kind: "public-data" }),
 		redetectRateLimiter,
 		async (c) => {
-			await refreshHarnessDiscoveries(pool);
+			// AU36 D5: the reach re-probe rides the SAME bounded moment — awaited
+			// alongside the discovery refresh BEFORE responding, identical
+			// observable effect to the pre-AU36 wiring. `onHarnessRedetect`
+			// cannot reject in practice (refresh never rejects); a future wiring
+			// error that DID reject 500s — the same failure mode a
+			// `refreshHarnessDiscoveries` rejection has today.
+			await Promise.all([refreshHarnessDiscoveries(pool), onHarnessRedetect?.()]);
 			const { harnessDisabled, modelGateway } = await readServerConfig(db);
 			const raw: HarnessCapabilityDescriptor[] = harnessCapabilityDescriptors(pool);
 			const entries = await stampBuiltinCredential(

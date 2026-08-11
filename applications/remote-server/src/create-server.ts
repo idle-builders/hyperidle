@@ -297,6 +297,19 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	};
 	const agentOrchestrationPort = buildAgentOrchestrationPort(agentOrchestrationTransport);
 
+	// @lore AU36 D5: same deferred-binding idiom as the transports above —
+	// `bootCoreApi` runs BEFORE `bootAgentOrchestration`, so the redetect
+	// callback closes over a binding filled once the orchestration boot (and
+	// thus its `inheritedReach`) exists. Any real redetect happens strictly
+	// after that (route handlers only run on the composed app).
+	let realInheritedReachRefresh: (() => Promise<void>) | undefined;
+	const onHarnessRedetect: () => Promise<void> = () => {
+		if (!realInheritedReachRefresh) {
+			throw new Error("onHarnessRedetect called before the composed app was built.");
+		}
+		return realInheritedReachRefresh();
+	};
+
 	// AU26 J3: the one-shot WS upgrade-token store is the Application's,
 	// because TWO sockets consume it — core-api's `/api/ws` and
 	// `agent-orchestration`'s `/api/agent-orchestration/ws`. `bootCoreApi`
@@ -309,6 +322,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		agentOrchestration: agentOrchestrationPort,
 		upgradeWebSocket,
 		adapterPool: agentExecution.adapters.pool,
+		onHarnessRedetect,
 		serviceBootstrap: (ctx) => {
 			// AF6/AU1: production boots the routine scheduler at the default
 			// 30s cadence. Runtime deps are present, so generic routine fires
@@ -360,7 +374,9 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		db,
 		eventBus,
 		sessionStream: { upgradeWebSocket, upgradeTokens: coreApi.upgradeTokenStore },
-		adapterPool: agentExecution.adapters.pool,
+		// AU36 D4: a `local`-topology deployment probes at boot; a `disabled`
+		// one keeps today's behavior — no boot probe, redetect populates (D5).
+		probeInheritedReach: deps.topology === "local",
 		runtime: {
 			harnessRuntime: harnessRuntimeAdapter,
 			returnStatusTool: returnStatusToolAdapter,
@@ -384,6 +400,8 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			resolveProvisioningOwnerUserId: coreApi.resolveProvisioningOwnerUserId,
 		},
 	});
+	// AU36 D5: close the deferred binding — redetect now reaches the reach cache.
+	realInheritedReachRefresh = () => agentOrchestration.inheritedReach.refresh();
 
 	// ----- AU26 B1b (§D-B) / AU31 §5.3: the Application's own composition -----
 	//

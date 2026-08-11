@@ -2,7 +2,8 @@
  * AN1 — /api/connections routes.
  *
  * CRUD for per-user ServiceConnections (held: token | mcp).
- * Inherited connections are projected live from cached harness descriptors.
+ * Inherited connections are projected live from the connections domain's own
+ * reach cache (AU36).
  *
  * Security model:
  *   - All routes require auth (401 without API key / session token).
@@ -39,6 +40,7 @@
 import {
 	deleteConnection,
 	insertConnection,
+	type InheritedReach,
 	listConnections,
 	projectInheritedConnections,
 	updateConnection,
@@ -46,10 +48,6 @@ import {
 import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credential-access";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ConnectionHealth, ServiceConnectionView } from "@hyperidle/domain-model";
-import {
-	type HarnessCapabilityReader,
-	harnessCapabilityDescriptors,
-} from "@hyperidle/harness-protocol";
 import { isPrivateHostLiteral, resolveUrlForSSRF } from "@hyperidle/host-process";
 import { createRateLimiter, type HyperIdleEnv, requireBoundary } from "@hyperidle/http-middleware";
 import { Hono } from "hono";
@@ -184,11 +182,13 @@ function deriveServiceFromUrl(serverUrl: string): string {
  * (Mirrors the pattern used by `createHarnessRoutes` for its redetect limiter.)
  *
  * @param db — Drizzle DB handle
- * @param adapterPool — used to read cached harness descriptors for inherited projection
+ * @param inheritedReach — the connections domain's own reach cache (AU36 D7).
+ *   Absent (kernel-only/bare test apps) → empty inherited group, exactly as
+ *   today's absent-pool case.
  */
 export function createConnectionRoutes(
 	db: HyperIdleDb,
-	adapterPool?: HarnessCapabilityReader,
+	inheritedReach?: InheritedReach,
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
@@ -199,11 +199,15 @@ export function createConnectionRoutes(
 	// ── GET / ─────────────────────────────────────────────────────────────────
 	/**
 	 * List all connections for the authenticated user.
-	 * Returns: held rows (from DB) ∪ inherited projections (from cached descriptors).
+	 * Returns: held rows (from DB) ∪ inherited projections (from the reach cache).
 	 * NEVER includes encryptedToken or any secret value.
 	 *
-	 * @lore AN1 critique WARNING §7: reads CACHED descriptors via
-	 * `pool.listCapabilityDescriptors()` (sync + DB-free). Never re-probes per request.
+	 * @lore AN1 critique WARNING §7: reads the CACHED reach snapshot (sync +
+	 * DB-free). Never re-probes per request.
+	 *
+	 * @lore AU36 (AC1): the inherited half is assembled from connections-domain
+	 * state only — no harness registry, descriptor, or adapter-pool read in the
+	 * path.
 	 */
 	router.get("/", requireBoundary({ kind: "principal-self" }), async (c) => {
 		const userId = c.get("userId");
@@ -213,9 +217,8 @@ export function createConnectionRoutes(
 
 		const storedViews = rows.map(rowToView);
 
-		// Inherited projections from cached harness descriptors (no spawn per request)
-		const descriptors = harnessCapabilityDescriptors(adapterPool);
-		const inheritedViews = projectInheritedConnections(descriptors);
+		// Inherited projections from the reach cache (no spawn per request)
+		const inheritedViews = projectInheritedConnections(inheritedReach?.list() ?? []);
 
 		// Inherited first (the first-class signal), then held
 		return c.json([...inheritedViews, ...storedViews]);
