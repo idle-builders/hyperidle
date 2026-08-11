@@ -100,7 +100,6 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/__tests__/write-memory.integration.test.ts`
 - `layers/core-api/src/__tests__/write-session-notes.integration.test.ts`
 - `layers/core-api/src/__tests__/ws-subscribe-authz.integration.test.ts`
-- `layers/core-api/src/routes/__tests__/AD4-agent-profile.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/AF11-authz.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/AF14-threads.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/AH2-agent-config.integration.test.ts`
@@ -113,7 +112,6 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/routes/__tests__/knowledge.af13.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/knowledge.q2.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/knowledge.y4-triage.integration.test.ts`
-- `layers/core-api/src/routes/__tests__/routines.routes.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/threads.blockId.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/threads.identity.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/threads.mention.integration.test.ts`

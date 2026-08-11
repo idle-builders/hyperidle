@@ -18,25 +18,42 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 import { fireStoredRoutine } from "../../__tests__/dispatch-test-helpers.js";
 
+/**
+ * @lore AU38 P10: `builtin:knowledge-decay` is a production-fixed routine id —
+ * routine-scheduler.ts dispatches on exactly this string, so it cannot be
+ * scoped per test. The seed upserts (another file or the scheduler itself may
+ * already hold the row), and run-history assertions use before/after diffs
+ * because runs accumulate on the shared id.
+ */
+const BUILTIN_KNOWLEDGE_DECAY_ID = "builtin:knowledge-decay";
+
 /** Seed a built-in routine (knowledge-decay) owned by agent-1. */
-async function seedBuiltinRoutine(db: HyperIdleDb): Promise<string> {
-	await seedRoutine(db);
-	await db.insert(routines).values({
-		id: "builtin:knowledge-decay",
-		name: "Knowledge decay",
-		teamId: "team-1",
-		state: "active",
-		ownerAgentId: "agent-1",
-		triggerType: "calendar",
-		triggerConfig: JSON.stringify({ cron: "0 2 * * *" }),
-		active: true,
-	});
-	return "builtin:knowledge-decay";
+async function seedBuiltinRoutine(db: HyperIdleDb, ids: ScopedIds): Promise<string> {
+	await seedRoutine(db, ids);
+	// Upsert: own the row's active state whatever a prior writer left behind.
+	await db
+		.insert(routines)
+		.values({
+			id: BUILTIN_KNOWLEDGE_DECAY_ID,
+			name: "Knowledge decay",
+			teamId: ids("team-1"),
+			state: "active",
+			ownerAgentId: ids("agent-1"),
+			triggerType: "calendar",
+			triggerConfig: JSON.stringify({ cron: "0 2 * * *" }),
+			active: true,
+		})
+		.onConflictDoUpdate({
+			target: routines.id,
+			set: { active: true, state: "active" },
+		});
+	return BUILTIN_KNOWLEDGE_DECAY_ID;
 }
 
 const TEST_API_KEY = "test-key-routines";
@@ -45,52 +62,55 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
-async function seedRoutine(db: HyperIdleDb): Promise<{ routineId: string; taskId: string }> {
+async function seedRoutine(
+	db: HyperIdleDb,
+	ids: ScopedIds,
+): Promise<{ routineId: string; taskId: string }> {
 	const now = new Date().toISOString();
 	await db
 		.insert(teams)
-		.values({ id: "team-1", name: "Test Team", phase: "build", createdAt: now });
+		.values({ id: ids("team-1"), name: "Test Team", phase: "build", createdAt: now });
 	await db
 		.insert(teamMembers)
-		.values({ id: "tm-1", teamId: "team-1", capacity: 5, activeBets: 0, formedAt: now });
+		.values({ id: ids("tm-1"), teamId: ids("team-1"), capacity: 5, activeBets: 0, formedAt: now });
 	await db.insert(users).values({
-		id: "agent-1",
+		id: ids("agent-1"),
 		kind: "ai",
 		name: "Test Agent",
 		role: "builder",
 		status: "active",
-		teamId: "tm-1",
+		teamId: ids("tm-1"),
 		createdAt: now,
 	});
 	await db.insert(bets).values({
-		id: "bet-1",
-		teamId: "team-1",
+		id: ids("bet-1"),
+		teamId: ids("team-1"),
 		description: "Test bet",
 		appetite: "small",
 		status: "active",
 		createdAt: now,
 	});
 	await db.insert(tasks).values({
-		id: "task-1",
+		id: ids("task-1"),
 		title: "Test task",
-		betId: "bet-1",
-		teamId: "team-1",
+		betId: ids("bet-1"),
+		teamId: ids("team-1"),
 		state: "in_progress",
-		ownerAgentId: "agent-1",
+		ownerAgentId: ids("agent-1"),
 		createdAt: now,
 		updatedAt: now,
 	});
 	await db.insert(routines).values({
-		id: "routine-1",
+		id: ids("routine-1"),
 		name: "Test routine",
-		teamId: "team-1",
+		teamId: ids("team-1"),
 		state: "active",
-		ownerAgentId: "agent-1",
+		ownerAgentId: ids("agent-1"),
 		triggerType: "cron",
 		triggerConfig: "0 * * * *",
 		active: true,
 	});
-	return { routineId: "routine-1", taskId: "task-1" };
+	return { routineId: ids("routine-1"), taskId: ids("task-1") };
 }
 
 describe("routines routes", () => {
@@ -110,8 +130,23 @@ describe("routines routes", () => {
 	});
 
 	describe("GET /api/routines", () => {
-		test("returns 200 with list of routines", async ({ db, app }) => {
-			await seedRoutine(db);
+		test("returns 200 with list of routines", async ({ db, app, ids }) => {
+			const { routineId } = await seedRoutine(db, ids);
+			const res = await app.request("/api/routines", {
+				method: "GET",
+				headers: authHeaders(),
+			});
+			expect(res.status).toBe(200);
+			const body = (await res.json()) as Array<{ id: string }>;
+			expect(Array.isArray(body)).toBe(true);
+			// AU38 P6: global list endpoint — assert the arranged routine is present.
+			expect(body.some((r) => r.id === routineId)).toBe(true);
+		});
+
+		// @lore AU38 P4: the original claimed an empty global list "when none
+		// exist" — an absence a populated world cannot honour. Re-homed on the
+		// shape the test actually guards: the response is an array.
+		test("returns 200 with a routines array regardless of world state", async ({ app }) => {
 			const res = await app.request("/api/routines", {
 				method: "GET",
 				headers: authHeaders(),
@@ -119,23 +154,12 @@ describe("routines routes", () => {
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as unknown[];
 			expect(Array.isArray(body)).toBe(true);
-			expect(body).toHaveLength(1);
-		});
-
-		test("returns 200 with empty array when none exist", async ({ app }) => {
-			const res = await app.request("/api/routines", {
-				method: "GET",
-				headers: authHeaders(),
-			});
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as unknown[];
-			expect(body).toHaveLength(0);
 		});
 	});
 
 	describe("PATCH /api/routines/:id", () => {
-		test("returns 200 with updated routine on valid patch", async ({ db, app }) => {
-			const { routineId } = await seedRoutine(db);
+		test("returns 200 with updated routine on valid patch", async ({ db, app, ids }) => {
+			const { routineId } = await seedRoutine(db, ids);
 			const res = await app.request(`/api/routines/${routineId}`, {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -147,8 +171,9 @@ describe("routines routes", () => {
 			expect(body.triggerConfig).toBe("30 * * * *");
 		});
 
-		test("returns 404 for non-existent routine", async ({ app }) => {
-			const res = await app.request("/api/routines/non-existent", {
+		test("returns 404 for non-existent routine", async ({ app, ids }) => {
+			// AU38 P4: a derived id nobody inserted stays absent in a populated world.
+			const res = await app.request(`/api/routines/${ids("non-existent")}`, {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({ active: false }),
@@ -156,8 +181,8 @@ describe("routines routes", () => {
 			expect(res.status).toBe(404);
 		});
 
-		test("returns 400 on invalid autonomyLevel (out of range)", async ({ db, app }) => {
-			const { routineId } = await seedRoutine(db);
+		test("returns 400 on invalid autonomyLevel (out of range)", async ({ db, app, ids }) => {
+			const { routineId } = await seedRoutine(db, ids);
 			const res = await app.request(`/api/routines/${routineId}`, {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -168,8 +193,8 @@ describe("routines routes", () => {
 	});
 
 	describe("POST /api/routines/:id/retire", () => {
-		test("returns 200 with routine.active=false", async ({ db, app }) => {
-			const { routineId } = await seedRoutine(db);
+		test("returns 200 with routine.active=false", async ({ db, app, ids }) => {
+			const { routineId } = await seedRoutine(db, ids);
 			const res = await app.request(`/api/routines/${routineId}/retire`, {
 				method: "POST",
 				headers: authHeaders(),
@@ -179,8 +204,8 @@ describe("routines routes", () => {
 			expect(body.active).toBe(false);
 		});
 
-		test("returns 404 for non-existent routine", async ({ app }) => {
-			const res = await app.request("/api/routines/non-existent/retire", {
+		test("returns 404 for non-existent routine", async ({ app, ids }) => {
+			const res = await app.request(`/api/routines/${ids("non-existent")}/retire`, {
 				method: "POST",
 				headers: authHeaders(),
 			});
@@ -192,8 +217,9 @@ describe("routines routes", () => {
 		test("returns 200 after atomically recording a routine run and neutral intent", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			const { routineId } = await seedRoutine(db);
+			const { routineId } = await seedRoutine(db, ids);
 			const res = await app.request(`/api/routines/${routineId}/trigger`, {
 				method: "POST",
 				headers: authHeaders(),
@@ -209,7 +235,7 @@ describe("routines routes", () => {
 			expect(intent).toMatchObject({
 				kind: "routine_run",
 				sourceKind: "routine_run",
-				requestedBy: "agent-1",
+				requestedBy: ids("agent-1"),
 				idempotencyKey: `routine:${body.runId}`,
 				status: "pending",
 			});
@@ -217,16 +243,16 @@ describe("routines routes", () => {
 			expect(run).toMatchObject({ routineId, outcome: "running" });
 		});
 
-		test("returns 404 for non-existent routine", async ({ app }) => {
-			const res = await app.request("/api/routines/non-existent/trigger", {
+		test("returns 404 for non-existent routine", async ({ app, ids }) => {
+			const res = await app.request(`/api/routines/${ids("non-existent")}/trigger`, {
 				method: "POST",
 				headers: authHeaders(),
 			});
 			expect(res.status).toBe(404);
 		});
 
-		test("returns 403 when routine is disabled (active=false)", async ({ db, app }) => {
-			const { routineId } = await seedRoutine(db);
+		test("returns 403 when routine is disabled (active=false)", async ({ db, app, ids }) => {
+			const { routineId } = await seedRoutine(db, ids);
 			// First retire the routine
 			await app.request(`/api/routines/${routineId}/retire`, {
 				method: "POST",
@@ -245,8 +271,9 @@ describe("routines routes", () => {
 			db,
 			app,
 			eventBus,
+			ids,
 		}) => {
-			const { routineId } = await seedRoutine(db);
+			const { routineId } = await seedRoutine(db, ids);
 			const emittedEvents: unknown[] = [];
 			eventBus.on("session_started", (e) => {
 				emittedEvents.push(e);
@@ -273,15 +300,16 @@ describe("routines routes", () => {
 			app,
 			eventBus,
 			agentOrchestration,
+			ids,
 		}) => {
-			const routineId = await seedBuiltinRoutine(db);
+			const routineId = await seedBuiltinRoutine(db, ids);
 
 			// Simulate an auto-fire (same code path the scheduler uses; no session).
 			const result = await fireStoredRoutine(
 				db,
 				eventBus,
 				agentOrchestration,
-				"builtin:knowledge-decay",
+				BUILTIN_KNOWLEDGE_DECAY_ID,
 			);
 			expect(result.fired).toBe(true);
 
@@ -296,6 +324,8 @@ describe("routines routes", () => {
 			};
 
 			expect(body.runs.length).toBeGreaterThanOrEqual(1);
+			// AU38 P5: runs[] is newest-first and the fire above is the newest
+			// write to this routine's history, so [0] is the run just recorded.
 			const latest = body.runs[0];
 			expect(["success", "skipped"]).toContain(latest?.outcome);
 			expect(latest?.endedAt).toBeTruthy();
@@ -309,15 +339,24 @@ describe("routines routes", () => {
 			app,
 			eventBus,
 			agentOrchestration,
+			ids,
 		}) => {
-			const routineId = await seedBuiltinRoutine(db);
+			const routineId = await seedBuiltinRoutine(db, ids);
 			await db.update(routines).set({ active: false }).where(eq(routines.id, routineId));
+
+			// AU38 P4: run history accumulates on the shared fixed id (P10), so
+			// "writes no run row" is asserted as a before/after diff, not a
+			// global zero.
+			const runsBefore = await db
+				.select()
+				.from(routineRuns)
+				.where(eq(routineRuns.routineId, routineId));
 
 			const result = await fireStoredRoutine(
 				db,
 				eventBus,
 				agentOrchestration,
-				"builtin:knowledge-decay",
+				BUILTIN_KNOWLEDGE_DECAY_ID,
 			);
 			expect(result.fired).toBe(false);
 
@@ -326,7 +365,7 @@ describe("routines routes", () => {
 				headers: authHeaders(),
 			});
 			const body = (await res.json()) as { runs: unknown[] };
-			expect(body.runs).toHaveLength(0);
+			expect(body.runs.length).toBe(runsBefore.length);
 		});
 	});
 });

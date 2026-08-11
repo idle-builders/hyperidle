@@ -25,6 +25,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
@@ -37,23 +38,23 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 const NOW = new Date().toISOString();
 const FIVE_DAYS_AGO = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();
 
-async function seedPrereqs(db: HyperIdleDb): Promise<void> {
+async function seedPrereqs(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	await db.insert(teams).values({
-		id: "ad4-profile-team",
+		id: ids("ad4-profile-team"),
 		name: "AD4 Profile Test Team",
 		phase: "build",
 		createdAt: NOW,
 	});
 	await db.insert(teamMembers).values({
-		id: "ad4-profile-tm",
-		teamId: "ad4-profile-team",
+		id: ids("ad4-profile-tm"),
+		teamId: ids("ad4-profile-team"),
 		capacity: 5,
 		activeBets: 0,
 		formedAt: NOW,
 	});
 	// Human founder — required for auth middleware
 	await db.insert(users).values({
-		id: "ad4-profile-founder",
+		id: ids("ad4-profile-founder"),
 		kind: "human",
 		name: "AD4 Founder",
 		role: "founder",
@@ -63,28 +64,28 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 	});
 	// @lore AU26 G1: the run config left `users` for `agent_run_config`.
 	await db.insert(agentRunConfig).values({
-		agentUserId: "ad4-profile-founder",
+		agentUserId: ids("ad4-profile-founder"),
 		maxConcurrentSessions: 0,
 	});
 	// AI agent under test
 	await db.insert(users).values({
-		id: "ad4-profile-agent",
+		id: ids("ad4-profile-agent"),
 		kind: "ai",
 		name: "AD4 Builder Bot",
 		role: "builder",
 		status: "active",
-		teamId: "ad4-profile-tm",
+		teamId: ids("ad4-profile-tm"),
 		createdAt: NOW,
 	});
 	// @lore AU26 G1: the run config left `users` for `agent_run_config`.
 	await db.insert(agentRunConfig).values({
-		agentUserId: "ad4-profile-agent",
+		agentUserId: ids("ad4-profile-agent"),
 		maxConcurrentSessions: 2,
 		harnessType: "claude-code",
 	});
 	// Policy engine sender (needed for verdict messages)
 	await db.insert(users).values({
-		id: "policy_engine",
+		id: ids("policy_engine"),
 		kind: "ai",
 		name: "Policy Engine",
 		role: "system",
@@ -98,6 +99,7 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 // ---------------------------------------------------------------------------
 async function seedVerdict(
 	db: HyperIdleDb,
+	ids: ScopedIds,
 	decision: string,
 	createdAt: string = FIVE_DAYS_AGO,
 ): Promise<void> {
@@ -107,16 +109,16 @@ async function seedVerdict(
 	await db.insert(threads).values({
 		id: threadId,
 		hostKind: "task",
-		hostId: "task-ad4",
-		initiatorId: "ad4-profile-agent",
-		participants: JSON.stringify(["ad4-profile-agent"]),
+		hostId: ids("task-ad4"),
+		initiatorId: ids("ad4-profile-agent"),
+		participants: JSON.stringify([ids("ad4-profile-agent")]),
 		lastActiveAt: createdAt,
 		createdAt,
 	});
 
 	await db.insert(items).values({
 		id: itemId,
-		sourceAgentId: "ad4-profile-agent",
+		sourceAgentId: ids("ad4-profile-agent"),
 		kind: "approval",
 		title: "AD4 test item",
 		riskTier: "low",
@@ -126,7 +128,7 @@ async function seedVerdict(
 
 	await db.insert(messages).values({
 		id: crypto.randomUUID(),
-		senderId: "ad4-profile-founder",
+		senderId: ids("ad4-profile-founder"),
 		threadId,
 		type: "verdict",
 		payload: JSON.stringify({ decision }),
@@ -149,9 +151,9 @@ describe("AD4 AC4: GET /api/agents/:id/profile returns reviewTrackRecord", () =>
 		vi.unstubAllEnvs();
 	});
 
-	test("response has reviewTrackRecord field", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/ad4-profile-agent/profile", {
+	test("response has reviewTrackRecord field", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
+		const res = await app.request(`/api/agents/${ids("ad4-profile-agent")}/profile`, {
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(200);
@@ -162,9 +164,10 @@ describe("AD4 AC4: GET /api/agents/:id/profile returns reviewTrackRecord", () =>
 	test("reviewTrackRecord has required fields: approvalRate, totalVerdicts, recentVerdicts, windowDays", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/ad4-profile-agent/profile", {
+		await seedPrereqs(db, ids);
+		const res = await app.request(`/api/agents/${ids("ad4-profile-agent")}/profile`, {
 			headers: authHeaders(),
 		});
 		const body = (await res.json()) as Record<string, unknown>;
@@ -179,9 +182,10 @@ describe("AD4 AC4: GET /api/agents/:id/profile returns reviewTrackRecord", () =>
 	test("returns approvalRate=0 and totalVerdicts=0 when agent has no verdicts", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/ad4-profile-agent/profile", {
+		await seedPrereqs(db, ids);
+		const res = await app.request(`/api/agents/${ids("ad4-profile-agent")}/profile`, {
 			headers: authHeaders(),
 		});
 		const body = (await res.json()) as Record<string, unknown>;
@@ -193,15 +197,15 @@ describe("AD4 AC4: GET /api/agents/:id/profile returns reviewTrackRecord", () =>
 		expect((trackRecord.recentVerdicts as unknown[]).length).toBe(0);
 	});
 
-	test("computes correct approvalRate when agent has verdicts", async ({ db, app }) => {
-		await seedPrereqs(db);
+	test("computes correct approvalRate when agent has verdicts", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
 		// 3 approvals + 1 rejection = 75%
-		await seedVerdict(db, "approve");
-		await seedVerdict(db, "approve");
-		await seedVerdict(db, "approve-with-comments");
-		await seedVerdict(db, "reject");
+		await seedVerdict(db, ids, "approve");
+		await seedVerdict(db, ids, "approve");
+		await seedVerdict(db, ids, "approve-with-comments");
+		await seedVerdict(db, ids, "reject");
 
-		const res = await app.request("/api/agents/ad4-profile-agent/profile", {
+		const res = await app.request(`/api/agents/${ids("ad4-profile-agent")}/profile`, {
 			headers: authHeaders(),
 		});
 		const body = (await res.json()) as Record<string, unknown>;
@@ -211,11 +215,15 @@ describe("AD4 AC4: GET /api/agents/:id/profile returns reviewTrackRecord", () =>
 		expect(trackRecord.approvalRate as number).toBeCloseTo(0.75);
 	});
 
-	test("recentVerdicts is an array of verdict entries with required shape", async ({ db, app }) => {
-		await seedPrereqs(db);
-		await seedVerdict(db, "approve");
+	test("recentVerdicts is an array of verdict entries with required shape", async ({
+		db,
+		app,
+		ids,
+	}) => {
+		await seedPrereqs(db, ids);
+		await seedVerdict(db, ids, "approve");
 
-		const res = await app.request("/api/agents/ad4-profile-agent/profile", {
+		const res = await app.request(`/api/agents/${ids("ad4-profile-agent")}/profile`, {
 			headers: authHeaders(),
 		});
 		const body = (await res.json()) as Record<string, unknown>;
@@ -233,9 +241,10 @@ describe("AD4 AC4: GET /api/agents/:id/profile returns reviewTrackRecord", () =>
 	test("windowDays is a positive integer (from factory settings default=30)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/ad4-profile-agent/profile", {
+		await seedPrereqs(db, ids);
+		const res = await app.request(`/api/agents/${ids("ad4-profile-agent")}/profile`, {
 			headers: authHeaders(),
 		});
 		const body = (await res.json()) as Record<string, unknown>;
@@ -259,9 +268,9 @@ describe("AD4 AC1/AC5: GET /api/agents/:id/profile does NOT return skills", () =
 		vi.unstubAllEnvs();
 	});
 
-	test("response does NOT have a skills field", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/ad4-profile-agent/profile", {
+	test("response does NOT have a skills field", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
+		const res = await app.request(`/api/agents/${ids("ad4-profile-agent")}/profile`, {
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(200);
