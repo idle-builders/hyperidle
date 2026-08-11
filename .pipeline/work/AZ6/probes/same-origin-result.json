@@ -1,0 +1,22 @@
+{
+  "chromium": "150.0.7871.114",
+  "results": [
+    {
+      "label": "policy WITH 'self' (as shipped)",
+      "sameOriginChannelsReached": [
+        "CSS-URL",
+        "FONT",
+        "IMG",
+        "IMG-DYNAMIC",
+        "MEDIA",
+        "PREFETCH",
+        "PRELOAD",
+        "SCRIPT-SRC"
+      ]
+    },
+    {
+      "label": "policy WITHOUT 'self'",
+      "sameOriginChannelsReached": []
+    }
+  ]
+}
