@@ -244,14 +244,21 @@ interface SessionLifecycleHarnessRuntime {
 	 * `writeCliMcpConfig` above.
 	 */
 	openMcpBridge(options: {
-		readonly registry: SessionLifecycleMcpBridgeRegistry;
-		readonly baseUrl: string;
+		// AU31 vestige: the execution face now owns the ONE bridge registry +
+		// mcpBaseUrl (closed over in `bootAgentExecution`); these per-call values
+		// are ignored by the adapter and are no longer wired in production. Kept
+		// optional only so the (now harness-gated) call site still type-checks.
+		readonly registry?: SessionLifecycleMcpBridgeRegistry;
+		readonly baseUrl?: string;
 		readonly sessionId: string;
 		readonly toolRegistry: unknown;
 		readonly onToolCall?: (call: { toolName: string; args: unknown }) => void;
 	}): Promise<{ readonly token: string; readonly url: string }>;
 	/** The dial's close half — see `openMcpBridge`'s `@lore`. */
-	closeMcpBridge(registry: SessionLifecycleMcpBridgeRegistry, token: string): Promise<void>;
+	closeMcpBridge(
+		registry: SessionLifecycleMcpBridgeRegistry | undefined,
+		token: string,
+	): Promise<void>;
 }
 
 interface SessionLifecycleMcpBridgeRegistry {
@@ -1319,7 +1326,7 @@ async function runSession(
 	// Retrieve adapter capabilities once.
 	const adapterCapabilities = harness.getCapabilities();
 
-	// ── Phase 8b: create MCP bridge (if registry is configured).
+	// ── Phase 8b: create MCP bridge for CLI harnesses that dial it over HTTP.
 	const mcpJsonPath = path.join(sandboxPath, PROVISIONER_EMITTED_FILES[0]);
 	if (!fs.existsSync(mcpJsonPath)) {
 		fs.writeFileSync(mcpJsonPath, JSON.stringify({ mcpServers: {} }, null, 2), "utf-8");
@@ -1344,7 +1351,15 @@ async function runSession(
 	let mcpUrl: string | undefined;
 	/** AL7 delta: per-session MCP token env for CLI harnesses (codex: HYPERIDLE_MCP_TOKEN). */
 	let mcpTokenEnv: Record<string, string> | undefined;
-	if (mcpBridgeRegistry && mcpBaseUrl) {
+	// AU31 fix: a CLI harness reaches HyperIdle's tools ONLY through the MCP
+	// bridge it dials from its `.mcp.json` (claude-code reads it directly; codex/
+	// opencode/cursor get the same info via their `cliMcpDialect` translation).
+	// Gate on "this is a spawned CLI harness" (not builtin), NOT on the vestigial
+	// `mcpBridgeRegistry`/`mcpBaseUrl` deps — those moved into the execution face
+	// and are no longer wired in production, so the old gate was always false and
+	// every CLI-harness session got an empty `{"mcpServers":{}}` (no tools at
+	// all). Builtin/SDK harnesses use the in-process tool registry, no bridge.
+	if (selectedAdapter.meta.type !== "builtin") {
 		try {
 			const bridge = await ports.harnessRuntime.openMcpBridge({
 				registry: mcpBridgeRegistry,
@@ -1590,7 +1605,9 @@ async function runSession(
 	ports.sessionRequests.deregisterSessionRun(sessionId);
 
 	// X2: Unregister the MCP bridge BEFORE calling endSession/crashSession.
-	if (mcpBridgeRegistry && mcpBridgeToken) {
+	// Close whenever a bridge was opened (token present) — `mcpBridgeRegistry` is
+	// the vestigial, now-unwired dep and the face ignores it on close.
+	if (mcpBridgeToken) {
 		await ports.harnessRuntime.closeMcpBridge(mcpBridgeRegistry, mcpBridgeToken);
 	}
 

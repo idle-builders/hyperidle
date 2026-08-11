@@ -116,6 +116,24 @@ export async function seedDemoWorld(
 		})
 		.onConflictDoNothing();
 
+	// Founder's personal Assistant — per-user agent, id convention `ast-<userId>`.
+	// Registration normally scaffolds this (routes/users.ts); the demo fixture
+	// seeds the founder directly, so without this the assistant thread resolves
+	// `ast-<founderId>` → requireRunnableAgent throws → assistant send 500s.
+	await db
+		.insert(users)
+		.values({
+			id: `ast-${founderId}`,
+			kind: "ai",
+			name: "Founder's Assistant",
+			role: "assistant",
+			agentCategory: "individual",
+			status: "active",
+			createdAt: now,
+		})
+		.onConflictDoNothing();
+	await upsertDemoRunConfig(db, `ast-${founderId}`, { maxConcurrentSessions: 1 });
+
 	// Demo builder agent
 	await db
 		.insert(users)
