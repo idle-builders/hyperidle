@@ -76,6 +76,7 @@ async function seedItem(
 
 async function seedAccessLog(
 	db: HyperIdleDb,
+	ids: ScopedIds,
 	itemId: string,
 	count: number,
 	withinWindow = true,
@@ -91,7 +92,7 @@ async function seedAccessLog(
 			id: crypto.randomUUID(),
 			itemId,
 			accessorKind: "human",
-			accessorId: "browser",
+			accessorId: ids("browser"),
 			accessedAt: new Date(now - offset).toISOString(),
 		});
 	}
@@ -118,7 +119,7 @@ describe("AF13 §5 — Detail route: accessCount excludes the current page-load"
 		// Arrange: seed founder, item, and 3 access-log rows within the 30-day window
 		await seedFounder(db, ids("u-founder"));
 		await seedItem(db, ids("item-access"), { scopeKind: "factory", updatedBy: ids("u-founder") });
-		await seedAccessLog(db, ids("item-access"), 3, true); // 3 existing rows
+		await seedAccessLog(db, ids, ids("item-access"), 3, true); // 3 existing rows
 
 		const app = await createTestApp({ db, eventBus });
 
@@ -169,8 +170,8 @@ describe("AF13 §5 — Detail route: accessCount excludes the current page-load"
 			scopeKind: "factory",
 			updatedBy: ids("u-founder"),
 		});
-		await seedAccessLog(db, ids("item-old-access"), 2, true); // 2 within window
-		await seedAccessLog(db, ids("item-old-access"), 5, false); // 5 outside window
+		await seedAccessLog(db, ids, ids("item-old-access"), 2, true); // 2 within window
+		await seedAccessLog(db, ids, ids("item-old-access"), 5, false); // 5 outside window
 
 		const app = await createTestApp({ db, eventBus });
 
