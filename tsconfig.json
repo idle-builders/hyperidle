@@ -80,6 +80,9 @@
 			"path": "tools/governance"
 		},
 		{
+			"path": "tools/repo-gates"
+		},
+		{
 			"path": "tools/setup"
 		},
 		{

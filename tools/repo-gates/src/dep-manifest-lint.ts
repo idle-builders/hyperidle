@@ -3,19 +3,19 @@
  * AU28 — import-vs-manifest gate.
  *
  * Fails when a workspace package imports something it does not declare, or
- * declares something it never reaches. See scripts/lib/dep-manifest-verdict.ts
+ * declares something it never reaches. See tools/repo-gates/src/lib/dep-manifest-verdict.ts
  * for why knip cannot do this and what counts as "reaches".
  *
  * Usage:
  *   npm run deps:check
  */
 
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, extname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 
-import { barePackageName, BUILTINS } from "./lib/bare-package-name.js";
+import { BUILTINS, barePackageName } from "./lib/bare-package-name.js";
 import {
 	computeDependencyVerdict,
 	type DependencyField,
@@ -24,7 +24,7 @@ import {
 	type PackageFacts,
 } from "./lib/dep-manifest-verdict.js";
 
-const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 
 /** Directories that never hold first-party source. */
 const SKIP_DIRS = new Set([
@@ -93,7 +93,11 @@ function discoverWorkspaceDirs(): string[] {
 }
 
 /** Files owned by `dir`, excluding anything a nested workspace package owns. */
-function collectOwnedFiles(dir: string, ownedBy: ReadonlySet<string>, out: string[] = []): string[] {
+function collectOwnedFiles(
+	dir: string,
+	ownedBy: ReadonlySet<string>,
+	out: string[] = [],
+): string[] {
 	for (const entry of readdirSync(dir, { withFileTypes: true })) {
 		if (SKIP_DIRS.has(entry.name)) continue;
 		const path = join(dir, entry.name);
@@ -170,7 +174,11 @@ function gatherFacts(dir: string, ownedBy: ReadonlySet<string>): PackageFacts {
 		}
 	}
 
-	const scriptTokens = new Set(Object.values(manifest.scripts ?? {}).join(" ").match(/[\w@/.-]+/g) ?? []);
+	const scriptTokens = new Set(
+		Object.values(manifest.scripts ?? {})
+			.join(" ")
+			.match(/[\w@/.-]+/g) ?? [],
+	);
 
 	const peersOfDeclared = new Map<string, string[]>();
 	for (const dependency of declared.keys()) {
@@ -206,7 +214,9 @@ function report(divergences: readonly Divergence[]): void {
 			`\nImported but not declared (${undeclared.length}) — resolves only by workspace hoisting:\n`,
 		);
 		for (const d of undeclared) {
-			process.stderr.write(`  ${d.dir}  needs  ${d.dependency}\n    e.g. ${d.sites.join("\n    e.g. ")}\n`);
+			process.stderr.write(
+				`  ${d.dir}  needs  ${d.dependency}\n    e.g. ${d.sites.join("\n    e.g. ")}\n`,
+			);
 		}
 	}
 	if (unused.length > 0) {
@@ -218,7 +228,7 @@ function report(divergences: readonly Divergence[]): void {
 	process.stderr.write(
 		"\nEvery package declares exactly what it imports. Add the declaration, or drop it.\n" +
 			"A declaration that is real but unreachable belongs in JUSTIFIED_UNUSED\n" +
-			"(scripts/lib/dep-manifest-verdict.ts) with a reason.\n",
+			"(tools/repo-gates/src/lib/dep-manifest-verdict.ts) with a reason.\n",
 	);
 }
 

@@ -462,7 +462,7 @@ async function recordLlm(
 	// This prevents a runaway turn from overrunning the budget before the post-lane
 	// assert step runs. @lore AU21 harness-telemetry narrowing: was a $-cost cap;
 	// AH6_MAX_TOKENS already existed as an established sibling threshold (surfaced
-	// in scripts/ah6-smoke-local.ts) — reusing it here, not inventing a new one.
+	// in layers/core-ui/__scripts__/ah6-smoke-local.ts) — reusing it here, not inventing a new one.
 	const maxTokens = Number(process.env.AH6_MAX_TOKENS ?? "20000");
 	const currentTokens = recordRunUsage.totalInputTokens + recordRunUsage.totalOutputTokens;
 	if (currentTokens > maxTokens) {

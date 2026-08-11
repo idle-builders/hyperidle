@@ -1,8 +1,5 @@
-import {
-	createValidationContracts,
-	type ValidationContracts,
-} from "../layers/core-ui/__e2e__/support/validation-contract.js";
-import { createFilesystemReviewVerifier } from "../layers/core-ui/__e2e__/support/review-trust.js";
+import { createFilesystemReviewVerifier } from "./review-trust.js";
+import { createValidationContracts, type ValidationContracts } from "./validation-contract.js";
 
 export interface ValidationCompositionOptions {
 	repositoryRoot: string;

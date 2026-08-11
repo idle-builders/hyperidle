@@ -1,12 +1,12 @@
 /**
  * AU28 — unit tests for the import-vs-manifest verdict.
  *
- * Tests the pure functions from scripts/lib/dep-manifest-verdict.ts: facts in,
+ * Tests the pure functions from tools/repo-gates/src/lib/dep-manifest-verdict.ts: facts in,
  * divergences out. No filesystem, no mocks.
  *
- * @lore AU28: lives in framework/api-contract for the same reason
- * typecheck-verdict.test.ts does — the module under test is in scripts/lib/ and
- * vitest projects only cover workspace packages.
+ * @lore AU37: moved here from framework/api-contract, where it was parked for the same
+ * reason typecheck-verdict.test.ts was — the module under test lived in scripts/lib/ (not
+ * a workspace package) and vitest projects only cover workspace packages.
  */
 
 import { describe, expect, it } from "vitest";
@@ -18,7 +18,7 @@ import {
 	JUSTIFIED_UNUSED,
 	type PackageFacts,
 	packageNameForDefinitelyTyped,
-} from "../../../../scripts/lib/dep-manifest-verdict.js";
+} from "../lib/dep-manifest-verdict.js";
 
 function facts(overrides: Partial<PackageFacts> = {}): PackageFacts {
 	return {

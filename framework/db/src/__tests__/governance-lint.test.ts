@@ -98,7 +98,7 @@ describe("AU28 classifyFile — the settled production/development rule", () => 
 		["tools/eval/src/cli.ts", "development-root:tools"],
 		["tools/eslint-plugin-authz/src/index.ts", "development-root:tools"],
 		["tools/eslint-plugin-design/src/rules/x.ts", "development-root:tools"],
-		["scripts/typecheck-gate.ts", "outside-production-roots"],
+		[".github/workflows/ci.yml", "outside-production-roots"],
 		["docs/index.md", "outside-production-roots"],
 		["vitest.config.ts", "outside-production-roots"],
 		["deploy/chart/values.yaml", "outside-production-roots"],

@@ -74,9 +74,8 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const RESOLVE_MODEL_FILE =
-	process.env.RESOLVE_MODEL_FILE ?? "/tmp/ah6-model-selection.json";
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
+const RESOLVE_MODEL_FILE = process.env.RESOLVE_MODEL_FILE ?? "/tmp/ah6-model-selection.json";
 const MAX_TOKENS = Number(process.env.AH6_MAX_TOKENS ?? "20000");
 
 // ---------------------------------------------------------------------------
@@ -104,7 +103,9 @@ function run(
 		env: { ...process.env, ...opts?.env },
 	});
 	if (result.status !== 0) {
-		process.stderr.write(`[smoke:ah6] FAIL: ${label} exited with status ${String(result.status ?? 1)}\n`);
+		process.stderr.write(
+			`[smoke:ah6] FAIL: ${label} exited with status ${String(result.status ?? 1)}\n`,
+		);
 		process.exit(result.status ?? 1);
 	}
 }

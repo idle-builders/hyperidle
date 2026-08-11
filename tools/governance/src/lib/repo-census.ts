@@ -71,7 +71,7 @@ export interface ClassificationPattern {
  * delete itself when `eval` / `eslint-plugin-authz` / `eslint-plugin-design` moved into `tools/`, and
  * it has: the roots ARE the statement. `deploy/` (chart, homebrew, bin) is deliberately absent from
  * both lists — it is neither shipping source nor a package, so it falls to
- * `outside-production-roots` exactly like `scripts/`, `docs/` and the repo-root files do.
+ * `outside-production-roots` exactly like `docs/` and the repo-root config files do.
  *
  * @lore AU28: Ruling 5 says a package's ROLE never derives from its path. This is not a role — it is
  * a file KIND, and Ruling 8.3 settles that file kind must come from path or name because there is no

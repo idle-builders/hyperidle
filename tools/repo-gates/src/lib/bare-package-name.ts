@@ -1,6 +1,6 @@
 /**
  * Import-specifier normalization shared by the import-vs-manifest gate
- * (scripts/dep-manifest-lint.ts). Lives in scripts/lib so workspace test
+ * (tools/repo-gates/src/dep-manifest-lint.ts). Lives in src/lib so workspace test
  * projects can import it without executing the gate's main().
  */
 

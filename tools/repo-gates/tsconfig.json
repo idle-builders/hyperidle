@@ -1,0 +1,18 @@
+{
+	// @lore AU37: composite:true is only safe here because src/mock-inventory.ts imports
+	// eslint-plugin-design/mock-data-policy as a WORKSPACE import, not a relative reach into
+	// that package's src/. A relative cross-package import makes `tsc -b` treat the target as a
+	// project source file and emit a stale .js/.d.ts into eslint-plugin-design/src/, which its
+	// own ESLint rules then resolve in preference to the .ts beside it. If a future change
+	// reintroduces a relative import out of this package's src/, the emit hazard returns.
+	"extends": "../../tsconfig.json",
+	"compilerOptions": {
+		"outDir": "dist",
+		"rootDir": "src",
+		"composite": true,
+		"types": ["node"],
+		"module": "NodeNext",
+		"moduleResolution": "nodenext"
+	},
+	"include": ["src/**/*.ts"]
+}

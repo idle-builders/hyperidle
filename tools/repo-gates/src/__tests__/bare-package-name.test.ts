@@ -1,15 +1,15 @@
 /**
  * Unit tests for the import-specifier normalization used by the
- * import-vs-manifest gate (scripts/dep-manifest-lint.ts).
+ * import-vs-manifest gate (tools/repo-gates/src/dep-manifest-lint.ts).
  *
- * @lore lives in framework/api-contract for the same reason
- * dep-manifest-verdict.test.ts does — the module under test is in
- * scripts/lib/ and vitest projects only cover workspace packages.
+ * @lore AU37: moved here from framework/api-contract, where it was parked because the
+ * module under test lived in scripts/lib/ (not a workspace package) and vitest projects
+ * only cover workspace packages. tools/repo-gates is now that package.
  */
 
 import { describe, expect, it } from "vitest";
 
-import { barePackageName } from "../../../../scripts/lib/bare-package-name.js";
+import { barePackageName } from "../lib/bare-package-name.js";
 
 describe("barePackageName", () => {
 	it("strips the colon-namespaced virtual-module suffix", () => {

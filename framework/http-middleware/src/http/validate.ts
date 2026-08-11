@@ -10,7 +10,7 @@ import type { z } from "zod";
  * first non-core-api caller. Pure relocation; the runtime behaviour and the
  * 400 `ApiErrorResponse` shape are byte-identical.
  *
- * @lore AF4 (build/verify): The AF1 typecheck gate (scripts/typecheck-gate.ts)
+ * @lore AF4 (build/verify): The AF1 typecheck gate (tools/repo-gates/src/typecheck-gate.ts)
  * runs `tsc --noEmit -p` per package. server/web are project-`references`
  * consumers of shared+db and DO need the leaves' emitted `dist/*.d.ts` present:
  * with leaf `dist/` ABSENT, cross-package symbols (e.g. the vitest `dbTest`

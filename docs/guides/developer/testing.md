@@ -82,7 +82,7 @@ npm run test:e2e:ah6   # key-free, offline, deterministic
 **On-demand live refresh** — re-records cassettes against a real cheap OpenRouter model, asserts loose invariants (non-empty reply, tool fired + effect visible, cost > 0 ≤ cap). Local only — never a GitHub Actions job. Requires `OPENROUTER_API_KEY` in `.env`.
 
 ```bash
-npm run smoke:ah6      # scripts/ah6-smoke-local.ts
+npm run smoke:ah6      # layers/core-ui/__scripts__/ah6-smoke-local.ts
 ```
 
 ### How the cassette layer works
