@@ -14,6 +14,7 @@
  */
 
 import { agentRunConfig, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { AdapterPool, createHarnessAdapter } from "@hyperidle/harness-registry";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -53,19 +54,19 @@ function makeAH2Pool(): AdapterPool {
 	return pool;
 }
 
-async function seedPrereqs(db: HyperIdleDb) {
+async function seedPrereqs(db: HyperIdleDb, ids: ScopedIds) {
 	await db
 		.insert(teams)
-		.values({ id: "ah2-team", name: "AH2 Team", phase: "build", createdAt: NOW });
+		.values({ id: ids("ah2-team"), name: "AH2 Team", phase: "build", createdAt: NOW });
 	await db.insert(teamMembers).values({
-		id: "ah2-tm",
-		teamId: "ah2-team",
+		id: ids("ah2-tm"),
+		teamId: ids("ah2-team"),
 		capacity: 5,
 		activeBets: 0,
 		formedAt: NOW,
 	});
 	await db.insert(users).values({
-		id: "u-founder-ah2",
+		id: ids("u-founder-ah2"),
 		kind: "human",
 		name: "AH2 Founder",
 		role: "founder",
@@ -75,7 +76,7 @@ async function seedPrereqs(db: HyperIdleDb) {
 	});
 	// @lore AU26 G1: the run config left `users` for `agent_run_config`.
 	await db.insert(agentRunConfig).values({
-		agentUserId: "u-founder-ah2",
+		agentUserId: ids("u-founder-ah2"),
 		maxConcurrentSessions: 0,
 	});
 }
@@ -93,15 +94,15 @@ describe("AH2 AC1: per-agent model — distinct models on different agents", () 
 		vi.unstubAllEnvs();
 	});
 
-	test("POST creates agent with modelId and modelProvider", async ({ db, eventBus }) => {
-		await seedPrereqs(db);
+	test("POST creates agent with modelId and modelProvider", async ({ db, eventBus, ids }) => {
+		await seedPrereqs(db, ids);
 		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 
 		const res = await app.request("/api/agents", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				name: "Agent One",
+				name: `Agent One ${ids("suffix")}`,
 				role: "builder",
 				harnessType: "builtin",
 				modelId: "claude-opus-4-8",
@@ -115,15 +116,15 @@ describe("AH2 AC1: per-agent model — distinct models on different agents", () 
 		expect(body.modelProvider).toBe("anthropic");
 	});
 
-	test("two agents can have different modelId values", async ({ db, eventBus }) => {
-		await seedPrereqs(db);
+	test("two agents can have different modelId values", async ({ db, eventBus, ids }) => {
+		await seedPrereqs(db, ids);
 		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 
 		const res1 = await app.request("/api/agents", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				name: "Opus Agent",
+				name: `Opus Agent ${ids("suffix")}`,
 				role: "builder",
 				harnessType: "builtin",
 				modelId: "claude-opus-4-8",
@@ -134,7 +135,7 @@ describe("AH2 AC1: per-agent model — distinct models on different agents", () 
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				name: "Sonnet Agent",
+				name: `Sonnet Agent ${ids("suffix")}`,
 				role: "builder",
 				harnessType: "builtin",
 				modelId: "claude-sonnet-4-6",
@@ -156,20 +157,21 @@ describe("AH2 AC1: per-agent model — distinct models on different agents", () 
 	test("GET /api/agents response includes modelId and modelProvider fields", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seedPrereqs(db);
+		await seedPrereqs(db, ids);
 		await db.insert(users).values({
-			id: "ah2-builder",
+			id: ids("ah2-builder"),
 			kind: "ai",
 			name: "AH2 Builder",
 			role: "builder",
 			status: "active",
-			teamId: "ah2-tm",
+			teamId: ids("ah2-tm"),
 			createdAt: NOW,
 		});
 		// @lore AU26 G1: the run config left `users` for `agent_run_config`.
 		await db.insert(agentRunConfig).values({
-			agentUserId: "ah2-builder",
+			agentUserId: ids("ah2-builder"),
 			maxConcurrentSessions: 1,
 			harnessType: "builtin",
 			modelTierPreference: "workhorse",
@@ -180,7 +182,7 @@ describe("AH2 AC1: per-agent model — distinct models on different agents", () 
 		expect(res.status).toBe(200);
 
 		const body = (await res.json()) as Array<Record<string, unknown>>;
-		const agent = body.find((a) => a.id === "ah2-builder");
+		const agent = body.find((a) => a.id === ids("ah2-builder"));
 		expect(agent).toBeDefined();
 		// Fields must be present in response (even if null before migration — post-migration they'll be set)
 		// biome-ignore lint/style/noNonNullAssertion: asserted defined above
@@ -189,10 +191,10 @@ describe("AH2 AC1: per-agent model — distinct models on different agents", () 
 		expect(Object.hasOwn(agent!, "modelProvider")).toBe(true);
 	});
 
-	test("PATCH updates modelId on existing agent", async ({ db, eventBus }) => {
-		await seedPrereqs(db);
+	test("PATCH updates modelId on existing agent", async ({ db, eventBus, ids }) => {
+		await seedPrereqs(db, ids);
 		await db.insert(users).values({
-			id: "ah2-patchable",
+			id: ids("ah2-patchable"),
 			kind: "ai",
 			name: "Patchable",
 			role: "builder",
@@ -201,13 +203,13 @@ describe("AH2 AC1: per-agent model — distinct models on different agents", () 
 		});
 		// @lore AU26 G1: the run config left `users` for `agent_run_config`.
 		await db.insert(agentRunConfig).values({
-			agentUserId: "ah2-patchable",
+			agentUserId: ids("ah2-patchable"),
 			maxConcurrentSessions: 1,
 			harnessType: "builtin",
 		});
 
 		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
-		const res = await app.request("/api/agents/ah2-patchable", {
+		const res = await app.request(`/api/agents/${ids("ah2-patchable")}`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ modelId: "claude-haiku-4-5", modelProvider: "anthropic" }),
@@ -235,15 +237,16 @@ describe("AH2 AC2: unknown harness rejected", () => {
 	test("POST with unregistered harnessType returns 422 UNKNOWN_HARNESS", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seedPrereqs(db);
+		await seedPrereqs(db, ids);
 		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 
 		const res = await app.request("/api/agents", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				name: "Bad Harness Agent",
+				name: `Bad Harness Agent ${ids("suffix")}`,
 				role: "builder",
 				harnessType: "nonsense-typo-harness",
 				modelId: "claude-sonnet-4-6",
@@ -259,10 +262,11 @@ describe("AH2 AC2: unknown harness rejected", () => {
 	test("PATCH with unregistered harnessType returns 422 UNKNOWN_HARNESS", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seedPrereqs(db);
+		await seedPrereqs(db, ids);
 		await db.insert(users).values({
-			id: "ah2-harness-patch",
+			id: ids("ah2-harness-patch"),
 			kind: "ai",
 			name: "Harness Patch",
 			role: "builder",
@@ -271,13 +275,13 @@ describe("AH2 AC2: unknown harness rejected", () => {
 		});
 		// @lore AU26 G1: the run config left `users` for `agent_run_config`.
 		await db.insert(agentRunConfig).values({
-			agentUserId: "ah2-harness-patch",
+			agentUserId: ids("ah2-harness-patch"),
 			maxConcurrentSessions: 1,
 			harnessType: "builtin",
 		});
 
 		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
-		const res = await app.request("/api/agents/ah2-harness-patch", {
+		const res = await app.request(`/api/agents/${ids("ah2-harness-patch")}`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ harnessType: "ghost-harness" }),
@@ -291,15 +295,16 @@ describe("AH2 AC2: unknown harness rejected", () => {
 	test("POST with registered harnessType 'builtin' succeeds (200/201)", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seedPrereqs(db);
+		await seedPrereqs(db, ids);
 		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 
 		const res = await app.request("/api/agents", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				name: "Good Harness Agent",
+				name: `Good Harness Agent ${ids("suffix")}`,
 				role: "builder",
 				harnessType: "builtin",
 				modelId: "claude-sonnet-4-6",
@@ -310,15 +315,19 @@ describe("AH2 AC2: unknown harness rejected", () => {
 		expect(res.status).toBe(201);
 	});
 
-	test("POST with unknown anthropic model returns 422 UNKNOWN_MODEL", async ({ db, eventBus }) => {
-		await seedPrereqs(db);
+	test("POST with unknown anthropic model returns 422 UNKNOWN_MODEL", async ({
+		db,
+		eventBus,
+		ids,
+	}) => {
+		await seedPrereqs(db, ids);
 		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 
 		const res = await app.request("/api/agents", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				name: "Stale Model Agent",
+				name: `Stale Model Agent ${ids("suffix")}`,
 				role: "builder",
 				harnessType: "builtin",
 				modelId: "claude-sonnet-4-20250514",
@@ -348,15 +357,16 @@ describe("AH2 AC2b: cross-axis harness↔provider rejection", () => {
 	test("POST with claude-code harness + openrouter provider returns 422 INCOMPATIBLE_HARNESS_MODEL", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seedPrereqs(db);
+		await seedPrereqs(db, ids);
 		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 
 		const res = await app.request("/api/agents", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				name: "Cross-Axis Agent",
+				name: `Cross-Axis Agent ${ids("suffix")}`,
 				role: "builder",
 				harnessType: "claude-code",
 				modelId: "anthropic/claude-sonnet-4",
@@ -372,15 +382,16 @@ describe("AH2 AC2b: cross-axis harness↔provider rejection", () => {
 	test("POST with builtin harness + openrouter provider succeeds (builtin is multi-provider)", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seedPrereqs(db);
+		await seedPrereqs(db, ids);
 		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 
 		const res = await app.request("/api/agents", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				name: "Builtin+Openrouter Agent",
+				name: `Builtin+Openrouter Agent ${ids("suffix")}`,
 				role: "builder",
 				harnessType: "builtin",
 				modelId: "anthropic/claude-sonnet-4",
@@ -394,13 +405,14 @@ describe("AH2 AC2b: cross-axis harness↔provider rejection", () => {
 	test("PATCH that flips only modelProvider to incompatible value returns 422 INCOMPATIBLE_HARNESS_MODEL", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seedPrereqs(db);
+		await seedPrereqs(db, ids);
 		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 
 		// Start with claude-code (anthropic-only) + anthropic — valid pair
 		await db.insert(users).values({
-			id: "ah2-cross-patch",
+			id: ids("ah2-cross-patch"),
 			kind: "ai",
 			name: "Cross Patch",
 			role: "builder",
@@ -409,14 +421,14 @@ describe("AH2 AC2b: cross-axis harness↔provider rejection", () => {
 		});
 		// @lore AU26 G1: the run config left `users` for `agent_run_config`.
 		await db.insert(agentRunConfig).values({
-			agentUserId: "ah2-cross-patch",
+			agentUserId: ids("ah2-cross-patch"),
 			maxConcurrentSessions: 1,
 			harnessType: "claude-code",
 		});
 
 		// Now PATCH only modelProvider to openrouter — this should be caught
 		// because the effective pair is claude-code (anthropic-only) + openrouter
-		const res = await app.request("/api/agents/ah2-cross-patch", {
+		const res = await app.request(`/api/agents/${ids("ah2-cross-patch")}`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ modelProvider: "openrouter" }),
@@ -430,13 +442,14 @@ describe("AH2 AC2b: cross-axis harness↔provider rejection", () => {
 	test("PATCH to claude-code harness on agent already having openrouter returns 422", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seedPrereqs(db);
+		await seedPrereqs(db, ids);
 		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 
 		// Start with builtin + openrouter (valid)
 		await db.insert(users).values({
-			id: "ah2-cross-patch2",
+			id: ids("ah2-cross-patch2"),
 			kind: "ai",
 			name: "Cross Patch 2",
 			role: "builder",
@@ -445,19 +458,19 @@ describe("AH2 AC2b: cross-axis harness↔provider rejection", () => {
 		});
 		// @lore AU26 G1: the run config left `users` for `agent_run_config`.
 		await db.insert(agentRunConfig).values({
-			agentUserId: "ah2-cross-patch2",
+			agentUserId: ids("ah2-cross-patch2"),
 			maxConcurrentSessions: 1,
 			harnessType: "builtin",
 		});
 		// First set openrouter provider
-		await app.request("/api/agents/ah2-cross-patch2", {
+		await app.request(`/api/agents/${ids("ah2-cross-patch2")}`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ modelProvider: "openrouter", modelId: "openrouter/my-model" }),
 		});
 
 		// Now flip only harnessType to claude-code — effective pair = claude-code + openrouter → 422
-		const res = await app.request("/api/agents/ah2-cross-patch2", {
+		const res = await app.request(`/api/agents/${ids("ah2-cross-patch2")}`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ harnessType: "claude-code" }),
@@ -485,15 +498,16 @@ describe("AH2 AC2c: per-agent openai-compatible rejected (ARCH-3)", () => {
 	test("POST with modelProvider openai-compatible returns 422 UNSUPPORTED_PROVIDER", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seedPrereqs(db);
+		await seedPrereqs(db, ids);
 		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 
 		const res = await app.request("/api/agents", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				name: "OAI Agent",
+				name: `OAI Agent ${ids("suffix")}`,
 				role: "builder",
 				harnessType: "builtin",
 				modelId: "some-model",
@@ -509,10 +523,11 @@ describe("AH2 AC2c: per-agent openai-compatible rejected (ARCH-3)", () => {
 	test("PATCH with modelProvider openai-compatible returns 422 UNSUPPORTED_PROVIDER", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seedPrereqs(db);
+		await seedPrereqs(db, ids);
 		await db.insert(users).values({
-			id: "ah2-oai-patch",
+			id: ids("ah2-oai-patch"),
 			kind: "ai",
 			name: "OAI Patch",
 			role: "builder",
@@ -521,13 +536,13 @@ describe("AH2 AC2c: per-agent openai-compatible rejected (ARCH-3)", () => {
 		});
 		// @lore AU26 G1: the run config left `users` for `agent_run_config`.
 		await db.insert(agentRunConfig).values({
-			agentUserId: "ah2-oai-patch",
+			agentUserId: ids("ah2-oai-patch"),
 			maxConcurrentSessions: 1,
 			harnessType: "builtin",
 		});
 
 		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
-		const res = await app.request("/api/agents/ah2-oai-patch", {
+		const res = await app.request(`/api/agents/${ids("ah2-oai-patch")}`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ modelProvider: "openai-compatible" }),
@@ -555,15 +570,16 @@ describe("AH2 AC3: new agents get default model + harness", () => {
 	test("POST without explicit model/harness still creates agent with defaults", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seedPrereqs(db);
+		await seedPrereqs(db, ids);
 		const app = await createTestApp({ db, eventBus, adapterPool: makeAH2Pool() });
 
 		const res = await app.request("/api/agents", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				name: "Default Agent",
+				name: `Default Agent ${ids("suffix")}`,
 				role: "builder",
 			}),
 		});
