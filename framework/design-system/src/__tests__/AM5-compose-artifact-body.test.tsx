@@ -46,29 +46,33 @@ describe("composeArtifactBody (Artifact composition)", () => {
 		expect(link?.getAttribute("href")).toBe("https://example.com/service");
 	});
 
-	it("'html' kind → renders HtmlPayload (with sanitizeHtml injected)", () => {
-		const preview = { kind: "html", html: "<p>Hello</p>" };
-		// sanitizeHtml that passes content through
-		const sanitizeHtml = (raw: string): string => raw;
-		const { container } = render(<>{composeArtifactBody("html", preview, sanitizeHtml)}</>);
-		// HtmlPayload renders via dangerouslySetInnerHTML
-		expect(container.querySelector("p")).toBeTruthy();
-	});
-
-	it("'html' kind → renders UnknownPayload when sanitizeHtml is absent", () => {
+	// AZ6: the html kind is no longer sanitised into the app's own document. It is a
+	// self-contained page and runs whole inside a sealed frame; stripping its scripts
+	// deleted the thing that made it worth opening.
+	it("'html' kind → runs as its own document in a sealed frame", () => {
 		const preview = { kind: "html", html: "<p>Hello</p>" };
 		const { container } = render(<>{composeArtifactBody("html", preview)}</>);
-		// UnknownPayload uses a border-l warning stripe — data-block-unknown-pill is present
-		expect(container.querySelector("[data-block-unknown-pill]")).toBeTruthy();
+		const frame = container.querySelector("iframe");
+		expect(frame?.getAttribute("sandbox")).toBe("allow-scripts");
+		expect(frame?.getAttribute("srcdoc") ?? "").toContain("<p>Hello</p>");
 	});
 
-	it("unknown kind → renders UnknownPayload (K1 fallback, never crashes)", () => {
+	it("'html' kind → needs no sanitiser, because isolation replaced stripping", () => {
+		const preview = { kind: "html", html: "<p>Hello</p><script>1</script>" };
+		const { container } = render(<>{composeArtifactBody("html", preview)}</>);
+		expect(container.querySelector("[data-block-unknown-pill]")).toBeNull();
+		expect(container.querySelector("iframe")?.getAttribute("srcdoc") ?? "").toContain(
+			"<script>1</script>",
+		);
+	});
+
+	it("unknown kind → renders the designed unrenderable state (K1 fallback, never crashes)", () => {
 		const preview = { kind: "mystery_kind", data: "something" };
 		const { container } = render(<>{composeArtifactBody("mystery_kind", preview)}</>);
-		expect(container.querySelector("[data-block-unknown-pill]")).toBeTruthy();
+		expect(container.querySelector("[data-artifact-unrenderable]")).toBeTruthy();
 	});
 
-	it("AC5: composeArtifactBody('mystery', …) → UnknownPayload, never throws", () => {
+	it("AC5: composeArtifactBody('mystery', …) → the unrenderable state, never throws", () => {
 		// K1: unknown content → fallback, never crash
 		expect(() => {
 			render(<>{composeArtifactBody("mystery", { kind: "mystery" })}</>);

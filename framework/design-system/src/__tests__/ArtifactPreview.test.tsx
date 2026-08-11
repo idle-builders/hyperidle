@@ -10,6 +10,10 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ArtifactPreview } from "../ArtifactPreview.js";
 
+// @lore AZ6: a full-size preview now requires the app's HTML sanitiser at the type
+// level — a missing one used to degrade silently to the unknown-block stripe.
+const passthrough = (raw: string): string => raw;
+
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 function fixture(
@@ -50,6 +54,7 @@ describe("ArtifactPreview (single_full_preview)", () => {
 		act(() => {
 			root.render(
 				createElement(ArtifactPreview, {
+					sanitizeHtml: passthrough,
 					data: fixture(
 						"text",
 						{ kind: "text", body: "Ship X decision: proceed with PostgreSQL", format: "plain" },
@@ -65,7 +70,9 @@ describe("ArtifactPreview (single_full_preview)", () => {
 	// @lore AF16 T9: "PREVIEW NOT YET RENDERED" replaced with "No preview available" (full size).
 	it("renders 'No preview available' when preview is null and no <img>", () => {
 		act(() => {
-			root.render(createElement(ArtifactPreview, { data: fixture("image", null) }));
+			root.render(
+				createElement(ArtifactPreview, { sanitizeHtml: passthrough, data: fixture("image", null) }),
+			);
 		});
 		expect(container.textContent).toContain("No preview available");
 		expect(container.querySelector("img")).toBeNull();
@@ -73,7 +80,9 @@ describe("ArtifactPreview (single_full_preview)", () => {
 
 	it("does not render a discussion area by default (slot empty)", () => {
 		act(() => {
-			root.render(createElement(ArtifactPreview, { data: fixture("text", null) }));
+			root.render(
+				createElement(ArtifactPreview, { sanitizeHtml: passthrough, data: fixture("text", null) }),
+			);
 		});
 		expect(container.textContent).not.toContain("Reply...");
 	});
@@ -82,7 +91,9 @@ describe("ArtifactPreview (single_full_preview)", () => {
 	for (const kind of ARTIFACT_KINDS) {
 		it(`renders without throwing for kind '${kind}' (no preview)`, () => {
 			act(() => {
-				root.render(createElement(ArtifactPreview, { data: fixture(kind, null) }));
+				root.render(
+					createElement(ArtifactPreview, { sanitizeHtml: passthrough, data: fixture(kind, null) }),
+				);
 			});
 			expect(container.firstElementChild).toBeTruthy();
 		});

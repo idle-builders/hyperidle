@@ -148,7 +148,8 @@ describe("<Block />", () => {
 			await renderBlock(UNKNOWN);
 			const shell = container.firstElementChild as HTMLElement;
 			expect(shell.getAttribute("data-ds-kind")).toBe("unknown");
-			expect(container.textContent ?? "").toContain("parser-unrecognised");
+			// AZ6: the internal reason maps to plain words before it reaches the screen.
+			expect(container.textContent ?? "").toMatch(/couldn't read/i);
 		});
 	});
 
@@ -177,7 +178,8 @@ describe("<Block />", () => {
 
 		it("with a sanitizer that returns empty string, renders the unknown shell with reason 'sanitiser-stripped'", async () => {
 			await renderBlock(HTML, { sanitizeHtml: () => "" });
-			expect(container.textContent ?? "").toContain("sanitiser-stripped");
+			// AZ6: the internal reason maps to plain words before it reaches the screen.
+			expect(container.textContent ?? "").toMatch(/removed/i);
 			expect(container.querySelector("details")).toBeNull();
 		});
 
