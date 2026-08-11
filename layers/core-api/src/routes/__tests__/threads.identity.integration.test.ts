@@ -27,6 +27,8 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
@@ -40,13 +42,13 @@ function authHeaders(extra: Record<string, string> = {}): Record<string, string>
 	};
 }
 
-async function seedBase(db: HyperIdleDb): Promise<void> {
+async function seedBase(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	const now = new Date().toISOString();
 
-	await db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: now });
+	await db.insert(teams).values({ id: ids("p1"), name: "P", phase: "build", createdAt: now });
 	await db.insert(teamMembers).values({
-		id: "t1",
-		teamId: "p1",
+		id: ids("t1"),
+		teamId: ids("p1"),
 		capacity: 5,
 		activeBets: 0,
 		formedAt: now,
@@ -54,7 +56,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 
 	// Human founder user
 	await db.insert(users).values({
-		id: "u-human",
+		id: ids("u-human"),
 		kind: "human",
 		name: "Alice Founder",
 		role: "founder",
@@ -64,7 +66,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 
 	// AI agent user
 	await db.insert(users).values({
-		id: "agent-builder",
+		id: ids("agent-builder"),
 		kind: "ai",
 		name: "Builder Bot",
 		role: "builder",
@@ -74,17 +76,17 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 
 	// A bet + task so we can host a thread on a task.
 	await db.insert(bets).values({
-		id: "bet-1",
-		teamId: "p1",
+		id: ids("bet-1"),
+		teamId: ids("p1"),
 		description: "p",
 		appetite: "small",
 		status: "active",
 		createdAt: now,
 	});
 	await db.insert(tasks).values({
-		id: "task-1",
-		betId: "bet-1",
-		teamId: "p1",
+		id: ids("task-1"),
+		betId: ids("bet-1"),
+		teamId: ids("p1"),
 		title: "T",
 		state: "in_progress",
 		createdAt: now,
@@ -102,16 +104,20 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 	});
 
 	describe("AC-1: response shape includes identities field", () => {
-		test("identities field is present in GET /api/threads/:id response", async ({ db, app }) => {
-			await seedBase(db);
+		test("identities field is present in GET /api/threads/:id response", async ({
+			db,
+			app,
+			ids,
+		}) => {
+			await seedBase(db, ids);
 			// Arrange: create a thread with one message from the human user.
 			const create = await app.request("/api/threads", {
 				method: "POST",
-				headers: authHeaders({ "X-Identity": "u-human" }),
+				headers: authHeaders({ "X-Identity": ids("u-human") }),
 				body: JSON.stringify({
 					hostKind: "task",
-					hostId: "task-1",
-					participants: ["u-human", "agent-builder"],
+					hostId: ids("task-1"),
+					participants: [ids("u-human"), ids("agent-builder")],
 					initialMessage: {
 						type: "plain",
 						payload: { text: "hello" },
@@ -134,15 +140,15 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 			expect(body).toHaveProperty("identities");
 		});
 
-		test("identities is an object (not null, not an array)", async ({ db, app }) => {
-			await seedBase(db);
+		test("identities is an object (not null, not an array)", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
 			const create = await app.request("/api/threads", {
 				method: "POST",
-				headers: authHeaders({ "X-Identity": "u-human" }),
+				headers: authHeaders({ "X-Identity": ids("u-human") }),
 				body: JSON.stringify({
 					hostKind: "task",
-					hostId: "task-1",
-					participants: ["u-human", "agent-builder"],
+					hostId: ids("task-1"),
+					participants: [ids("u-human"), ids("agent-builder")],
 					initialMessage: {
 						type: "plain",
 						payload: { text: "hello" },
@@ -168,16 +174,17 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 		test("human sender appears in identities with exact name 'Alice Founder'", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			await seedBase(db);
+			await seedBase(db, ids);
 			// Arrange: human user sends initial message.
 			const create = await app.request("/api/threads", {
 				method: "POST",
-				headers: authHeaders({ "X-Identity": "u-human" }),
+				headers: authHeaders({ "X-Identity": ids("u-human") }),
 				body: JSON.stringify({
 					hostKind: "task",
-					hostId: "task-1",
-					participants: ["u-human", "agent-builder"],
+					hostId: ids("task-1"),
+					participants: [ids("u-human"), ids("agent-builder")],
 					initialMessage: {
 						type: "plain",
 						payload: { text: "human message" },
@@ -198,9 +205,9 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 			};
 
 			// Assert — exact field-level values, not just toBeDefined
-			expect(body.identities["u-human"]).toBeDefined();
-			expect(body.identities["u-human"]?.name).toBe("Alice Founder");
-			expect(body.identities["u-human"]?.role).toBe("founder");
+			expect(body.identities[ids("u-human")]).toBeDefined();
+			expect(body.identities[ids("u-human")]?.name).toBe("Alice Founder");
+			expect(body.identities[ids("u-human")]?.role).toBe("founder");
 		});
 	});
 
@@ -214,34 +221,35 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 		test("AI agent sender appears in identities with exact name 'Builder Bot' and role 'builder'", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			await seedBase(db);
+			await seedBase(db, ids);
 			const now = new Date().toISOString();
 
 			// Arrange: seed thread + messages directly (avoids X-Identity on POST /:id/messages)
 			await db.insert(threads).values({
-				id: "thr-r4-agent-0004",
+				id: ids("thr-r4-agent-0004"),
 				hostKind: "task",
-				hostId: "task-1",
-				initiatorId: "u-human",
-				participants: JSON.stringify(["u-human", "agent-builder"]),
+				hostId: ids("task-1"),
+				initiatorId: ids("u-human"),
+				participants: JSON.stringify([ids("u-human"), ids("agent-builder")]),
 				lastActiveAt: now,
 				createdAt: now,
 			});
 			await db.insert(messages).values({
-				id: "msg-human-0004",
-				threadId: "thr-r4-agent-0004",
-				senderId: "u-human",
+				id: ids("msg-human-0004"),
+				threadId: ids("thr-r4-agent-0004"),
+				senderId: ids("u-human"),
 				type: "plain",
 				payload: JSON.stringify({ text: "human creates thread" }),
 				clientKey: "r4-agent-key-0004",
 				createdAt: now,
 			});
-			// Agent message seeded directly — senderId = "agent-builder" (not via API)
+			// Agent message seeded directly — senderId = ids("agent-builder") (not via API)
 			await db.insert(messages).values({
-				id: "msg-agent-0004",
-				threadId: "thr-r4-agent-0004",
-				senderId: "agent-builder",
+				id: ids("msg-agent-0004"),
+				threadId: ids("thr-r4-agent-0004"),
+				senderId: ids("agent-builder"),
 				type: "plain",
 				payload: JSON.stringify({ text: "agent reply" }),
 				clientKey: "r4-agent-reply-0004",
@@ -249,7 +257,7 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 			});
 
 			// Act
-			const res = await app.request("/api/threads/thr-r4-agent-0004", {
+			const res = await app.request(`/api/threads/${ids("thr-r4-agent-0004")}`, {
 				method: "GET",
 				headers: authHeaders(),
 			});
@@ -258,41 +266,42 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 			};
 
 			// Assert — exact field-level values for the AI agent
-			expect(body.identities["agent-builder"]).toBeDefined();
-			expect(body.identities["agent-builder"]?.name).toBe("Builder Bot");
-			expect(body.identities["agent-builder"]?.role).toBe("builder");
+			expect(body.identities[ids("agent-builder")]).toBeDefined();
+			expect(body.identities[ids("agent-builder")]?.name).toBe("Builder Bot");
+			expect(body.identities[ids("agent-builder")]?.role).toBe("builder");
 		});
 
 		test("identities contains both human and agent when both have sent messages", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			await seedBase(db);
+			await seedBase(db, ids);
 			const now = new Date().toISOString();
 
 			// Arrange: seed thread + messages from both human and agent directly
 			await db.insert(threads).values({
-				id: "thr-r4-both-0005",
+				id: ids("thr-r4-both-0005"),
 				hostKind: "task",
-				hostId: "task-1",
-				initiatorId: "u-human",
-				participants: JSON.stringify(["u-human", "agent-builder"]),
+				hostId: ids("task-1"),
+				initiatorId: ids("u-human"),
+				participants: JSON.stringify([ids("u-human"), ids("agent-builder")]),
 				lastActiveAt: now,
 				createdAt: now,
 			});
 			await db.insert(messages).values({
-				id: "msg-human-0005",
-				threadId: "thr-r4-both-0005",
-				senderId: "u-human",
+				id: ids("msg-human-0005"),
+				threadId: ids("thr-r4-both-0005"),
+				senderId: ids("u-human"),
 				type: "plain",
 				payload: JSON.stringify({ text: "human start" }),
 				clientKey: "r4-both-key-0005",
 				createdAt: now,
 			});
 			await db.insert(messages).values({
-				id: "msg-agent-0005",
-				threadId: "thr-r4-both-0005",
-				senderId: "agent-builder",
+				id: ids("msg-agent-0005"),
+				threadId: ids("thr-r4-both-0005"),
+				senderId: ids("agent-builder"),
 				type: "plain",
 				payload: JSON.stringify({ text: "agent reply" }),
 				clientKey: "r4-both-agent-0005",
@@ -300,7 +309,7 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 			});
 
 			// Act
-			const res = await app.request("/api/threads/thr-r4-both-0005", {
+			const res = await app.request(`/api/threads/${ids("thr-r4-both-0005")}`, {
 				method: "GET",
 				headers: authHeaders(),
 			});
@@ -309,36 +318,35 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 			};
 
 			// Assert — both participants present with correct values
-			expect(body.identities["u-human"]?.name).toBe("Alice Founder");
-			expect(body.identities["u-human"]?.role).toBe("founder");
-			expect(body.identities["agent-builder"]?.name).toBe("Builder Bot");
-			expect(body.identities["agent-builder"]?.role).toBe("builder");
+			expect(body.identities[ids("u-human")]?.name).toBe("Alice Founder");
+			expect(body.identities[ids("u-human")]?.role).toBe("founder");
+			expect(body.identities[ids("agent-builder")]?.name).toBe("Builder Bot");
+			expect(body.identities[ids("agent-builder")]?.role).toBe("builder");
 		});
 	});
 
 	describe("AC-1 edge case: zero messages returns empty identities", () => {
-		test("thread with zero messages has an empty identities map", async ({ db, app }) => {
-			await seedBase(db);
+		test("thread with zero messages has an empty identities map", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
 			// Arrange: insert a thread directly with no messages (cannot do via API
 			// since POST /api/threads requires an initial message, so we insert
 			// directly into the DB to exercise the zero-message path).
 			const now = new Date().toISOString();
-			const threadId = "r4-zero-msg-thread";
+			const threadId = ids("r4-zero-msg-thread");
 			await db.insert(threads).values({
 				id: threadId,
 				hostKind: "task",
-				hostId: "task-1",
-				initiatorId: "u-human",
-				participants: JSON.stringify(["u-human"]),
+				hostId: ids("task-1"),
+				initiatorId: ids("u-human"),
+				participants: JSON.stringify([ids("u-human")]),
 				pinned: false,
 				resolvedAt: null,
 				lastActiveAt: now,
 				createdAt: now,
 			});
 
-			// Verify no messages exist for this thread.
-			const allMsgs = await db.select().from(messages);
-			const msgCount = allMsgs.filter((m) => m.threadId === threadId);
+			// Verify no messages exist for this thread (AU38 R2: scoped read).
+			const msgCount = await db.select().from(messages).where(eq(messages.threadId, threadId));
 			expect(msgCount.length).toBe(0);
 
 			// Act
@@ -358,17 +366,17 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 	});
 
 	describe("AC-1: identities only contains senders who have actually messaged", () => {
-		test("non-messaging participant is NOT included in identities", async ({ db, app }) => {
-			await seedBase(db);
+		test("non-messaging participant is NOT included in identities", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
 			// Arrange: u-human sends the only message; agent-builder is a participant
 			// but never sends. Only u-human should appear in identities.
 			const create = await app.request("/api/threads", {
 				method: "POST",
-				headers: authHeaders({ "X-Identity": "u-human" }),
+				headers: authHeaders({ "X-Identity": ids("u-human") }),
 				body: JSON.stringify({
 					hostKind: "task",
-					hostId: "task-1",
-					participants: ["u-human", "agent-builder"],
+					hostId: ids("task-1"),
+					participants: [ids("u-human"), ids("agent-builder")],
 					initialMessage: {
 						type: "plain",
 						payload: { text: "only me" },
@@ -389,8 +397,8 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 			};
 
 			// Assert — only the actual sender in identities
-			expect(body.identities["u-human"]).toBeDefined();
-			expect(body.identities["agent-builder"]).toBeUndefined();
+			expect(body.identities[ids("u-human")]).toBeDefined();
+			expect(body.identities[ids("agent-builder")]).toBeUndefined();
 		});
 	});
 
@@ -398,16 +406,17 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 		test("every unique senderId in messages array has an entry in identities", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			await seedBase(db);
+			await seedBase(db, ids);
 			// Arrange: both participants post messages.
 			const create = await app.request("/api/threads", {
 				method: "POST",
-				headers: authHeaders({ "X-Identity": "u-human" }),
+				headers: authHeaders({ "X-Identity": ids("u-human") }),
 				body: JSON.stringify({
 					hostKind: "task",
-					hostId: "task-1",
-					participants: ["u-human", "agent-builder"],
+					hostId: ids("task-1"),
+					participants: [ids("u-human"), ids("agent-builder")],
 					initialMessage: {
 						type: "plain",
 						payload: { text: "from human" },
@@ -421,7 +430,7 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 
 			await app.request(`/api/threads/${threadId}/messages`, {
 				method: "POST",
-				headers: authHeaders({ "X-Identity": "agent-builder" }),
+				headers: authHeaders({ "X-Identity": ids("agent-builder") }),
 				body: JSON.stringify({
 					type: "plain",
 					payload: { text: "from agent" },
@@ -451,15 +460,16 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 		test("identity name is a non-empty string (never 'Unknown' when user exists in db)", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			await seedBase(db);
+			await seedBase(db, ids);
 			const create = await app.request("/api/threads", {
 				method: "POST",
-				headers: authHeaders({ "X-Identity": "u-human" }),
+				headers: authHeaders({ "X-Identity": ids("u-human") }),
 				body: JSON.stringify({
 					hostKind: "task",
-					hostId: "task-1",
-					participants: ["u-human", "agent-builder"],
+					hostId: ids("task-1"),
+					participants: [ids("u-human"), ids("agent-builder")],
 					initialMessage: {
 						type: "plain",
 						payload: { text: "named sender" },
@@ -478,9 +488,9 @@ describe("R4 — GET /api/threads/:id includes identities map", () => {
 				identities: Record<string, { name: string }>;
 			};
 
-			// The sender is "u-human" with name "Alice Founder" — must NOT be "Unknown"
-			expect(body.identities["u-human"]?.name).not.toBe("Unknown");
-			expect(body.identities["u-human"]?.name).toBe("Alice Founder");
+			// The sender is ids("u-human") with name "Alice Founder" — must NOT be "Unknown"
+			expect(body.identities[ids("u-human")]?.name).not.toBe("Unknown");
+			expect(body.identities[ids("u-human")]?.name).toBe("Alice Founder");
 		});
 	});
 });
