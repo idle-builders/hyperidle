@@ -16,9 +16,9 @@
 
 **Engineering tier.** mvp
 
-**Pre-build.** Not required — the design system's composer is the approved pattern; this is adoption. An architecture round still precedes the build — see the execution procedure below.
+**Pre-build.** Not required — the design system's composer is the approved pattern; this is adoption. A combined refine + design + architecture round still precedes the build — see the execution procedure below.
 
-**Execution procedure (human-approved).** Skip the pipeline's standard phase set. One agent runs an architecture round first and stops; the founder reviews and approves it before any code is written. The same agent then builds in a single session — tests, then code. When it is done, one fresh agent reviews it, one round only. No refinement, design or critique phase, and no further human gate after the architecture approval. Founder decision, 2026-08-11: this is the approved procedure for this work package and the orchestrator does not add phases to it.
+**Execution procedure (human-approved).** Skip the pipeline's standard phase set. One agent runs a single **combined refine + design + architecture round** — sharpening the requirement, deciding the user-facing shape, and producing the technical plan as one artifact — and stops there. The founder reviews and approves that one artifact before any code is written. The same agent then builds in a single session — tests, then code. When it is done, one fresh agent reviews it, one round only. No separate refinement, design, critique or architecture phases, and no further human gate after the approval. Founder decision, 2026-08-11: this is the approved procedure for this work package and the orchestrator does not add phases to it.
 
 **Constraints.** No loss of an affordance a user has today: attachment and send-by-keyboard must survive the consolidation wherever they exist now.
 
