@@ -132,7 +132,10 @@ async function seedApprovableWorld(
 		subjectThreadId: threadId,
 		artifactId,
 		originSessionId: `${idPrefix}-origin`,
-		toolId: "commit_file",
+		// Derived from the scoped prefix (AU38 R1): the grant composition pairs
+		// approvedToolId with this same value (proposed-call-workflow.ts:607),
+		// so nothing downstream relies on a fixed tool-name literal here.
+		toolId: `${idPrefix}-tool`,
 		args: JSON.stringify({ path: "result.txt" }),
 		identityHash: `${idPrefix}-hash`,
 		reversibility: "irreversible",
