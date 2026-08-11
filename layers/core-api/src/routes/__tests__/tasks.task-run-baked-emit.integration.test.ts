@@ -49,6 +49,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { drainIntents } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -106,21 +107,21 @@ describe("task_run is resolved and baked at emit time (three real call sites)", 
 	});
 
 	describe("via task-state-machine (POST /api/tasks/:id/transition)", () => {
-		test("bakes the task_run request onto the recorded intent", async ({ db, app }) => {
-			await seedTeamAndBet(db, { teamId: "team-au21-trun-1", betId: "bet-au21-trun-1" });
-			await seedAgent(db, "agent-au21-trun-1", "team-au21-trun-1-members");
+		test("bakes the task_run request onto the recorded intent", async ({ db, app, ids }) => {
+			await seedTeamAndBet(db, { teamId: ids("team-au21-trun-1"), betId: ids("bet-au21-trun-1") });
+			await seedAgent(db, ids("agent-au21-trun-1"), `${ids("team-au21-trun-1")}-members`);
 			await db.insert(tasks).values({
-				id: "task-au21-trun-1",
-				betId: "bet-au21-trun-1",
-				teamId: "team-au21-trun-1",
-				ownerAgentId: "agent-au21-trun-1",
+				id: ids("task-au21-trun-1"),
+				betId: ids("bet-au21-trun-1"),
+				teamId: ids("team-au21-trun-1"),
+				ownerAgentId: ids("agent-au21-trun-1"),
 				title: "task_run baked-emit task",
 				state: "proposed",
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString(),
 			});
 
-			const res = await app.request("/api/tasks/task-au21-trun-1/transition", {
+			const res = await app.request(`/api/tasks/${ids("task-au21-trun-1")}/transition`, {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({ state: "accepted" }),
@@ -130,7 +131,7 @@ describe("task_run is resolved and baked at emit time (three real call sites)", 
 			const [attempt] = await db
 				.select()
 				.from(taskDispatchAttempts)
-				.where(eq(taskDispatchAttempts.taskId, "task-au21-trun-1"));
+				.where(eq(taskDispatchAttempts.taskId, ids("task-au21-trun-1")));
 			expect(attempt).toBeDefined();
 			const [intent] = await db
 				.select()
@@ -144,13 +145,13 @@ describe("task_run is resolved and baked at emit time (three real call sites)", 
 				? (JSON.parse(intent.bakedRequestJson) as Record<string, unknown>)
 				: undefined;
 			expect(baked).toMatchObject({
-				defaultAgentId: "agent-au21-trun-1",
+				defaultAgentId: ids("agent-au21-trun-1"),
 				sourceKind: "task",
-				sourceId: "task-au21-trun-1",
-				streamId: "task:task-au21-trun-1",
-				taskId: "task-au21-trun-1",
-				teamId: "team-au21-trun-1",
-				sourceCorrelation: { taskId: "task-au21-trun-1", teamId: "team-au21-trun-1" },
+				sourceId: ids("task-au21-trun-1"),
+				streamId: `task:${ids("task-au21-trun-1")}`,
+				taskId: ids("task-au21-trun-1"),
+				teamId: ids("team-au21-trun-1"),
+				sourceCorrelation: { taskId: ids("task-au21-trun-1"), teamId: ids("team-au21-trun-1") },
 			});
 		});
 
@@ -158,21 +159,22 @@ describe("task_run is resolved and baked at emit time (three real call sites)", 
 			db,
 			app,
 			eventBus,
+			ids,
 		}) => {
-			await seedTeamAndBet(db, { teamId: "team-au21-trun-2", betId: "bet-au21-trun-2" });
-			await seedAgent(db, "agent-au21-trun-2", "team-au21-trun-2-members");
+			await seedTeamAndBet(db, { teamId: ids("team-au21-trun-2"), betId: ids("bet-au21-trun-2") });
+			await seedAgent(db, ids("agent-au21-trun-2"), `${ids("team-au21-trun-2")}-members`);
 			await db.insert(tasks).values({
-				id: "task-au21-trun-2",
-				betId: "bet-au21-trun-2",
-				teamId: "team-au21-trun-2",
-				ownerAgentId: "agent-au21-trun-2",
+				id: ids("task-au21-trun-2"),
+				betId: ids("bet-au21-trun-2"),
+				teamId: ids("team-au21-trun-2"),
+				ownerAgentId: ids("agent-au21-trun-2"),
 				title: "task_run baked-emit task",
 				state: "proposed",
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString(),
 			});
 
-			const res = await app.request("/api/tasks/task-au21-trun-2/transition", {
+			const res = await app.request(`/api/tasks/${ids("task-au21-trun-2")}/transition`, {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({ state: "accepted" }),
@@ -181,7 +183,7 @@ describe("task_run is resolved and baked at emit time (three real call sites)", 
 			const [attempt] = await db
 				.select()
 				.from(taskDispatchAttempts)
-				.where(eq(taskDispatchAttempts.taskId, "task-au21-trun-2"));
+				.where(eq(taskDispatchAttempts.taskId, ids("task-au21-trun-2")));
 
 			// Zero domain reads: `DurableAgentQueueDeps` (AU21 §9 Increment 9,
 			// forensic-triage wave) no longer HAS a `work.getTaskById`/
@@ -202,53 +204,53 @@ describe("task_run is resolved and baked at emit time (three real call sites)", 
 	});
 
 	describe("via handoff-protocol (POST /api/tasks/:id/handoff)", () => {
-		async function seedHandoffWorld(db: HyperIdleDb): Promise<void> {
-			await seedTeamAndBet(db, { teamId: "team-au21-trun-4", betId: "bet-au21-trun-4" });
-			await seedAgent(db, "agent-au21-trun-4-source", "team-au21-trun-4-members");
-			await seedAgent(db, "agent-au21-trun-4-target", "team-au21-trun-4-members");
+		async function seedHandoffWorld(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
+			await seedTeamAndBet(db, { teamId: ids("team-au21-trun-4"), betId: ids("bet-au21-trun-4") });
+			await seedAgent(db, ids("agent-au21-trun-4-source"), `${ids("team-au21-trun-4")}-members`);
+			await seedAgent(db, ids("agent-au21-trun-4-target"), `${ids("team-au21-trun-4")}-members`);
 			const now = new Date().toISOString();
 			await db.insert(tasks).values({
-				id: "task-au21-trun-4",
-				betId: "bet-au21-trun-4",
-				teamId: "team-au21-trun-4",
-				ownerAgentId: "agent-au21-trun-4-source",
+				id: ids("task-au21-trun-4"),
+				betId: ids("bet-au21-trun-4"),
+				teamId: ids("team-au21-trun-4"),
+				ownerAgentId: ids("agent-au21-trun-4-source"),
 				title: "task_run baked-emit handoff task",
 				state: "in_progress",
 				createdAt: now,
 				updatedAt: now,
 			});
 			await db.insert(threads).values({
-				id: "thread-au21-trun-4",
+				id: ids("thread-au21-trun-4"),
 				hostKind: "task",
-				hostId: "task-au21-trun-4",
-				initiatorId: "agent-au21-trun-4-source",
-				participants: JSON.stringify(["agent-au21-trun-4-source"]),
+				hostId: ids("task-au21-trun-4"),
+				initiatorId: ids("agent-au21-trun-4-source"),
+				participants: JSON.stringify([ids("agent-au21-trun-4-source")]),
 				lastActiveAt: now,
 				createdAt: now,
 			});
 			await db
 				.update(tasks)
-				.set({ threadId: "thread-au21-trun-4" })
-				.where(eq(tasks.id, "task-au21-trun-4"));
+				.set({ threadId: ids("thread-au21-trun-4") })
+				.where(eq(tasks.id, ids("task-au21-trun-4")));
 			await db.insert(sessions).values({
-				id: "session-au21-trun-4",
-				taskId: "task-au21-trun-4",
-				agentId: "agent-au21-trun-4-source",
+				id: ids("session-au21-trun-4"),
+				taskId: ids("task-au21-trun-4"),
+				agentId: ids("agent-au21-trun-4-source"),
 				modelTier: "workhorse",
 				startedAt: now,
 				state: "active",
 			});
 		}
 
-		test("bakes the task_run request onto the recorded intent", async ({ db, app }) => {
-			await seedHandoffWorld(db);
+		test("bakes the task_run request onto the recorded intent", async ({ db, app, ids }) => {
+			await seedHandoffWorld(db, ids);
 
-			const res = await app.request("/api/tasks/task-au21-trun-4/handoff", {
+			const res = await app.request(`/api/tasks/${ids("task-au21-trun-4")}/handoff`, {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					sessionId: "session-au21-trun-4",
-					toAgent: "agent-au21-trun-4-target",
+					sessionId: ids("session-au21-trun-4"),
+					toAgent: ids("agent-au21-trun-4-target"),
 					reason: "Continue with target",
 				}),
 			});
@@ -257,7 +259,7 @@ describe("task_run is resolved and baked at emit time (three real call sites)", 
 			const [attempt] = await db
 				.select()
 				.from(taskDispatchAttempts)
-				.where(eq(taskDispatchAttempts.taskId, "task-au21-trun-4"));
+				.where(eq(taskDispatchAttempts.taskId, ids("task-au21-trun-4")));
 			expect(attempt).toBeDefined();
 			const [intent] = await db
 				.select()
@@ -271,10 +273,10 @@ describe("task_run is resolved and baked at emit time (three real call sites)", 
 				? (JSON.parse(intent.bakedRequestJson) as Record<string, unknown>)
 				: undefined;
 			expect(baked).toMatchObject({
-				defaultAgentId: "agent-au21-trun-4-target",
+				defaultAgentId: ids("agent-au21-trun-4-target"),
 				sourceKind: "task",
-				sourceId: "task-au21-trun-4",
-				streamId: "task:task-au21-trun-4",
+				sourceId: ids("task-au21-trun-4"),
+				streamId: `task:${ids("task-au21-trun-4")}`,
 			});
 		});
 
@@ -282,15 +284,16 @@ describe("task_run is resolved and baked at emit time (three real call sites)", 
 			db,
 			app,
 			eventBus,
+			ids,
 		}) => {
-			await seedHandoffWorld(db);
+			await seedHandoffWorld(db, ids);
 
-			const res = await app.request("/api/tasks/task-au21-trun-4/handoff", {
+			const res = await app.request(`/api/tasks/${ids("task-au21-trun-4")}/handoff`, {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					sessionId: "session-au21-trun-4",
-					toAgent: "agent-au21-trun-4-target",
+					sessionId: ids("session-au21-trun-4"),
+					toAgent: ids("agent-au21-trun-4-target"),
 					reason: "Continue with target",
 				}),
 			});
@@ -298,7 +301,7 @@ describe("task_run is resolved and baked at emit time (three real call sites)", 
 			const [attempt] = await db
 				.select()
 				.from(taskDispatchAttempts)
-				.where(eq(taskDispatchAttempts.taskId, "task-au21-trun-4"));
+				.where(eq(taskDispatchAttempts.taskId, ids("task-au21-trun-4")));
 
 			// Zero domain reads: `DurableAgentQueueDeps` (AU21 §9 Increment 9,
 			// forensic-triage wave) no longer HAS a `work.getTaskById`/

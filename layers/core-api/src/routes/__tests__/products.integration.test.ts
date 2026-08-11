@@ -35,7 +35,10 @@ describe("GET /api/teams", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("returns { teams: [] } when the table is empty", async ({ app }) => {
+	// @lore AU38 P4: the original claimed `{ teams: [] }` on an empty table — a
+	// global absence a populated world cannot honour. Re-homed on the shape the
+	// test actually guards: the response carries a `teams` array.
+	test("returns a teams array regardless of world state", async ({ app }) => {
 		const res = await app.request("/api/teams", {
 			method: "GET",
 			headers: authHeaders(),
@@ -45,24 +48,25 @@ describe("GET /api/teams", () => {
 		const body = (await res.json()) as Record<string, unknown>;
 		// @lore U1: route now returns { teams: [] } (renamed from { products: [] })
 		expect(body).toHaveProperty("teams");
-		expect((body.teams as unknown[]).length).toBe(0);
+		expect(Array.isArray(body.teams)).toBe(true);
 	});
 
 	test("returns one row with derived activeBets, shipped, shipRate for a seeded product+team+bet+task fixture", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		await db
 			.insert(teams)
-			.values({ id: "p1", name: "HyperIdle Core", phase: "build", createdAt: NOW });
+			.values({ id: ids("p1"), name: "HyperIdle Core", phase: "build", createdAt: NOW });
 
 		await db
 			.insert(teamMembers)
-			.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
+			.values({ id: ids("t1"), teamId: ids("p1"), capacity: 5, activeBets: 0, formedAt: NOW });
 
 		await db.insert(bets).values({
-			id: "b1",
-			teamId: "p1",
+			id: ids("b1"),
+			teamId: ids("p1"),
 			description: "# Active\n\ncommitted bet",
 			appetite: "2 weeks",
 			status: "active",
@@ -70,8 +74,8 @@ describe("GET /api/teams", () => {
 		});
 
 		await db.insert(bets).values({
-			id: "b2",
-			teamId: "p1",
+			id: ids("b2"),
+			teamId: ids("p1"),
 			description: "# Shipped\n\nshipped bet",
 			appetite: "1 week",
 			status: "completed",
@@ -95,9 +99,10 @@ describe("GET /api/teams", () => {
 				shipRate: string;
 			}>;
 		};
-		expect(body.teams).toHaveLength(1);
-		const product = body.teams[0];
-		expect(product!.id).toBe("p1");
+		// AU38 P6: global list endpoint — find the arranged team inside the
+		// response instead of asserting the response holds exactly one team.
+		const product = body.teams.find((t) => t.id === ids("p1"));
+		expect(product).toBeDefined();
 		expect(product!.name).toBe("HyperIdle Core");
 		expect(product!.activeBets).toBe(1);
 		expect(product!.shipped).toBe(1);
@@ -114,8 +119,9 @@ describe("GET /api/teams/:id", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("returns 404 for an unknown id", async ({ app }) => {
-		const res = await app.request("/api/teams/does-not-exist", {
+	test("returns 404 for an unknown id", async ({ app, ids }) => {
+		// AU38 P4: a derived id nobody inserted stays absent in a populated world.
+		const res = await app.request(`/api/teams/${ids("does-not-exist")}`, {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -126,12 +132,13 @@ describe("GET /api/teams/:id", () => {
 	test("returns 500 with code 'team_missing' when the team for a product is absent", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		await db
 			.insert(teams)
-			.values({ id: "p-no-team", name: "Orphan Product", phase: "build", createdAt: NOW });
+			.values({ id: ids("p-no-team"), name: "Orphan Product", phase: "build", createdAt: NOW });
 
-		const res = await app.request("/api/teams/p-no-team", {
+		const res = await app.request(`/api/teams/${ids("p-no-team")}`, {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -145,40 +152,41 @@ describe("GET /api/teams/:id", () => {
 	test("returns populated ProductDetail for a seeded product+team+roster+bets", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		await db
 			.insert(teams)
-			.values({ id: "p1", name: "HyperIdle Core", phase: "build", createdAt: NOW });
+			.values({ id: ids("p1"), name: "HyperIdle Core", phase: "build", createdAt: NOW });
 
 		await db.insert(teamMembers).values({
-			id: "t1",
-			teamId: "p1",
+			id: ids("t1"),
+			teamId: ids("p1"),
 			capacity: 5,
 			activeBets: 0,
 			formedAt: NOW,
 		});
 
 		await db.insert(users).values({
-			id: "agent-lead",
+			id: ids("agent-lead"),
 			name: "Lead Agent",
 			role: "lead",
 			status: "active",
-			teamId: "t1",
+			teamId: ids("t1"),
 			createdAt: NOW,
 		});
 
 		await db.insert(users).values({
-			id: "agent-member",
+			id: ids("agent-member"),
 			name: "Alice Agent",
 			role: "member",
 			status: "active",
-			teamId: "t1",
+			teamId: ids("t1"),
 			createdAt: NOW,
 		});
 
 		await db.insert(bets).values({
-			id: "b1",
-			teamId: "p1",
+			id: ids("b1"),
+			teamId: ids("p1"),
 			description: "# Active\n\ncommitted bet",
 			appetite: "2 weeks",
 			status: "active",
@@ -186,8 +194,8 @@ describe("GET /api/teams/:id", () => {
 		});
 
 		await db.insert(bets).values({
-			id: "b2",
-			teamId: "p1",
+			id: ids("b2"),
+			teamId: ids("p1"),
 			description: "# In progress\n\nin progress bet",
 			appetite: "6 weeks",
 			status: "active",
@@ -195,8 +203,8 @@ describe("GET /api/teams/:id", () => {
 		});
 
 		await db.insert(bets).values({
-			id: "b-shipped",
-			teamId: "p1",
+			id: ids("b-shipped"),
+			teamId: ids("p1"),
 			description: "# Shipped\n\nshipped bet",
 			appetite: "1 week",
 			status: "completed",
@@ -206,9 +214,9 @@ describe("GET /api/teams/:id", () => {
 
 		// Tasks for b1
 		await db.insert(tasks).values({
-			id: "task-1",
-			betId: "b1",
-			teamId: "p1",
+			id: ids("task-1"),
+			betId: ids("b1"),
+			teamId: ids("p1"),
 			title: "Task 1",
 			state: "done",
 			createdAt: NOW,
@@ -216,9 +224,9 @@ describe("GET /api/teams/:id", () => {
 		});
 
 		await db.insert(tasks).values({
-			id: "task-2",
-			betId: "b1",
-			teamId: "p1",
+			id: ids("task-2"),
+			betId: ids("b1"),
+			teamId: ids("p1"),
 			title: "Task 2",
 			state: "in_progress",
 			createdAt: NOW,
@@ -228,7 +236,7 @@ describe("GET /api/teams/:id", () => {
 		// Update the team to reference lead agent
 		// (teams.leadAgentId is set separately)
 
-		const res = await app.request("/api/teams/p1", {
+		const res = await app.request(`/api/teams/${ids("p1")}`, {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -252,41 +260,45 @@ describe("GET /api/teams/:id", () => {
 		};
 
 		// Team (formerly Product) summary
-		expect(body.team.id).toBe("p1");
+		expect(body.team.id).toBe(ids("p1"));
 		expect(body.team.name).toBe("HyperIdle Core");
 
 		// TeamMembers (formerly Team)
-		expect(body.teamMembers.id).toBe("t1");
+		expect(body.teamMembers.id).toBe(ids("t1"));
 
-		// Roster — 2 members
+		// Roster — 2 members (team-scoped response; this test arranged both)
 		expect(body.roster).toHaveLength(2);
 
 		// Active bets — only committed and in_progress (not shipped)
 		expect(body.activeBets).toHaveLength(2);
 		const betIds = body.activeBets.map((b) => b.id);
-		expect(betIds).toContain("b1");
-		expect(betIds).toContain("b2");
-		expect(betIds).not.toContain("b-shipped");
+		expect(betIds).toContain(ids("b1"));
+		expect(betIds).toContain(ids("b2"));
+		expect(betIds).not.toContain(ids("b-shipped"));
 
 		// Progress on b1
-		const bet1 = body.activeBets.find((b) => b.id === "b1");
+		const bet1 = body.activeBets.find((b) => b.id === ids("b1"));
 		expect(bet1).toBeDefined();
 		expect(bet1?.progressDone).toBe(1);
 		expect(bet1?.progressTotal).toBe(2);
 	});
 
-	test("returns activeBets: [] for a product whose bets are all shipped", async ({ db, app }) => {
+	test("returns activeBets: [] for a product whose bets are all shipped", async ({
+		db,
+		app,
+		ids,
+	}) => {
 		await db
 			.insert(teams)
-			.values({ id: "p2", name: "Shipped Product", phase: "cool-down", createdAt: NOW });
+			.values({ id: ids("p2"), name: "Shipped Product", phase: "cool-down", createdAt: NOW });
 
 		await db
 			.insert(teamMembers)
-			.values({ id: "t2", teamId: "p2", capacity: 3, activeBets: 0, formedAt: NOW });
+			.values({ id: ids("t2"), teamId: ids("p2"), capacity: 3, activeBets: 0, formedAt: NOW });
 
 		await db.insert(bets).values({
-			id: "b-s1",
-			teamId: "p2",
+			id: ids("b-s1"),
+			teamId: ids("p2"),
 			description: "# Shipped\n\nshipped bet",
 			appetite: "1 week",
 			status: "completed",
@@ -294,13 +306,14 @@ describe("GET /api/teams/:id", () => {
 			completedAt: NOW,
 		});
 
-		const res = await app.request("/api/teams/p2", {
+		const res = await app.request(`/api/teams/${ids("p2")}`, {
 			method: "GET",
 			headers: authHeaders(),
 		});
 
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { activeBets: unknown[] };
+		// Scoped absence: every bet this test arranged on its own team shipped.
 		expect(body.activeBets).toEqual([]);
 	});
 });

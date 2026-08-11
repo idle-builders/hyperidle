@@ -19,6 +19,7 @@ import {
 	teamMembers,
 	teams,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import type { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -30,33 +31,33 @@ function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json" };
 }
 
-async function seedBase(db: HyperIdleDb, _eventBus: EventBus): Promise<void> {
+async function seedBase(db: HyperIdleDb, _eventBus: EventBus, ids: ScopedIds): Promise<void> {
 	const now = new Date().toISOString();
 	await db
 		.insert(teams)
-		.values({ id: "team-ak5", name: "AK5 Team", phase: "build", createdAt: now });
+		.values({ id: ids("team-ak5"), name: "AK5 Team", phase: "build", createdAt: now });
 	await db.insert(teamMembers).values({
-		id: "tm-ak5",
-		teamId: "team-ak5",
+		id: ids("tm-ak5"),
+		teamId: ids("team-ak5"),
 		capacity: 5,
 		activeBets: 0,
 		formedAt: now,
 	});
 	await db.insert(knowledgeItems).values({
-		id: "ki-ak5",
+		id: ids("ki-ak5"),
 		title: "Architecture Decision: Auth Strategy",
 		body: "# Auth Strategy\n\nWe should use JWT with refresh tokens for all API calls.",
 		format: "markdown",
 		status: "active",
 		scopeKind: "factory",
-		updatedBy: "user-1",
+		updatedBy: ids("user-1"),
 		createdAt: now,
 		updatedAt: now,
 	});
 	// The owner writes the projection row alongside the item.
 	await db
 		.insert(knowledgeAppProjection)
-		.values({ id: "ki-ak5-projection", knowledgeItemId: "ki-ak5" });
+		.values({ id: ids("ki-ak5-projection"), knowledgeItemId: ids("ki-ak5") });
 }
 
 describe("AK5 — POST /bets with sourceKnowledgeItemId", () => {
@@ -75,17 +76,18 @@ describe("AK5 — POST /bets with sourceKnowledgeItemId", () => {
 			db,
 			app,
 			eventBus,
+			ids,
 		}) => {
-			await seedBase(db, eventBus);
+			await seedBase(db, eventBus, ids);
 
 			const res = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					teamId: "team-ak5",
+					teamId: ids("team-ak5"),
 					description:
 						"# Auth Strategy\n\nWe should use JWT with refresh tokens for all API calls.",
-					sourceKnowledgeItemId: "ki-ak5",
+					sourceKnowledgeItemId: ids("ki-ak5"),
 				}),
 			});
 
@@ -98,8 +100,9 @@ describe("AK5 — POST /bets with sourceKnowledgeItemId", () => {
 			db,
 			app,
 			eventBus,
+			ids,
 		}) => {
-			await seedBase(db, eventBus);
+			await seedBase(db, eventBus, ids);
 
 			const itemBody =
 				"# Auth Strategy\n\nWe should use JWT with refresh tokens for all API calls.";
@@ -107,9 +110,9 @@ describe("AK5 — POST /bets with sourceKnowledgeItemId", () => {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					teamId: "team-ak5",
+					teamId: ids("team-ak5"),
 					description: itemBody,
-					sourceKnowledgeItemId: "ki-ak5",
+					sourceKnowledgeItemId: ids("ki-ak5"),
 				}),
 			});
 
@@ -122,16 +125,17 @@ describe("AK5 — POST /bets with sourceKnowledgeItemId", () => {
 			db,
 			app,
 			eventBus,
+			ids,
 		}) => {
-			await seedBase(db, eventBus);
+			await seedBase(db, eventBus, ids);
 
 			const res = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					teamId: "team-ak5",
+					teamId: ids("team-ak5"),
 					description: "# Auth Strategy",
-					sourceKnowledgeItemId: "ki-ak5",
+					sourceKnowledgeItemId: ids("ki-ak5"),
 				}),
 			});
 
@@ -141,7 +145,7 @@ describe("AK5 — POST /bets with sourceKnowledgeItemId", () => {
 			// The DB row must carry the FK
 			const [row] = await db.select().from(bets).where(eq(bets.id, data.id)).limit(1);
 			expect(row).toBeDefined();
-			expect(row!.sourceKnowledgeItemId).toBe("ki-ak5");
+			expect(row!.sourceKnowledgeItemId).toBe(ids("ki-ak5"));
 		});
 	});
 
@@ -152,17 +156,18 @@ describe("AK5 — POST /bets with sourceKnowledgeItemId", () => {
 			db,
 			app,
 			eventBus,
+			ids,
 		}) => {
-			await seedBase(db, eventBus);
+			await seedBase(db, eventBus, ids);
 
 			// Create the promoted bet
 			const createRes = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					teamId: "team-ak5",
+					teamId: ids("team-ak5"),
 					description: "# Auth Strategy",
-					sourceKnowledgeItemId: "ki-ak5",
+					sourceKnowledgeItemId: ids("ki-ak5"),
 				}),
 			});
 			expect(createRes.status).toBe(201);
@@ -176,7 +181,7 @@ describe("AK5 — POST /bets with sourceKnowledgeItemId", () => {
 			const betDetail = await getRes.json();
 
 			expect(betDetail.sourceKnowledge).not.toBeNull();
-			expect(betDetail.sourceKnowledge.id).toBe("ki-ak5");
+			expect(betDetail.sourceKnowledge.id).toBe(ids("ki-ak5"));
 			expect(betDetail.sourceKnowledge.title).toBe("Architecture Decision: Auth Strategy");
 		});
 
@@ -184,15 +189,16 @@ describe("AK5 — POST /bets with sourceKnowledgeItemId", () => {
 			db,
 			app,
 			eventBus,
+			ids,
 		}) => {
-			await seedBase(db, eventBus);
+			await seedBase(db, eventBus, ids);
 
 			// Create a bet WITHOUT sourceKnowledgeItemId
 			const createRes = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					teamId: "team-ak5",
+					teamId: ids("team-ak5"),
 					description: "# Hand-typed bet",
 				}),
 			});
@@ -217,16 +223,17 @@ describe("AK5 — POST /bets with sourceKnowledgeItemId", () => {
 			db,
 			app,
 			eventBus,
+			ids,
 		}) => {
-			await seedBase(db, eventBus);
+			await seedBase(db, eventBus, ids);
 
 			const res = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					teamId: "team-ak5",
+					teamId: ids("team-ak5"),
 					description: "# Some bet",
-					sourceKnowledgeItemId: "ki-does-not-exist",
+					sourceKnowledgeItemId: ids("ki-does-not-exist"),
 				}),
 			});
 
@@ -237,14 +244,15 @@ describe("AK5 — POST /bets with sourceKnowledgeItemId", () => {
 			db,
 			app,
 			eventBus,
+			ids,
 		}) => {
-			await seedBase(db, eventBus);
+			await seedBase(db, eventBus, ids);
 
 			const res = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					teamId: "team-ak5",
+					teamId: ids("team-ak5"),
 					description: "# Normal bet",
 				}),
 			});
@@ -256,14 +264,15 @@ describe("AK5 — POST /bets with sourceKnowledgeItemId", () => {
 			db,
 			app,
 			eventBus,
+			ids,
 		}) => {
-			await seedBase(db, eventBus);
+			await seedBase(db, eventBus, ids);
 
 			const res = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					teamId: "team-ak5",
+					teamId: ids("team-ak5"),
 					description: "# Bet",
 					unknownField: "should be rejected",
 				}),
@@ -280,8 +289,9 @@ describe("AK5 — POST /bets with sourceKnowledgeItemId", () => {
 			db,
 			app,
 			eventBus,
+			ids,
 		}) => {
-			await seedBase(db, eventBus);
+			await seedBase(db, eventBus, ids);
 
 			const originalBody =
 				"# Auth Strategy\n\nWe should use JWT with refresh tokens for all API calls.";
@@ -291,9 +301,9 @@ describe("AK5 — POST /bets with sourceKnowledgeItemId", () => {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					teamId: "team-ak5",
+					teamId: ids("team-ak5"),
 					description: originalBody,
-					sourceKnowledgeItemId: "ki-ak5",
+					sourceKnowledgeItemId: ids("ki-ak5"),
 				}),
 			});
 			expect(res.status).toBe(201);
@@ -302,7 +312,7 @@ describe("AK5 — POST /bets with sourceKnowledgeItemId", () => {
 			const [item] = await db
 				.select()
 				.from(knowledgeItems)
-				.where(eq(knowledgeItems.id, "ki-ak5"))
+				.where(eq(knowledgeItems.id, ids("ki-ak5")))
 				.limit(1);
 			expect(item).toBeDefined();
 			expect(item!.body).toBe(originalBody);
