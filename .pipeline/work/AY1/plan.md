@@ -1,4 +1,6 @@
-# AU22 — Deliver a live update into an already-running agent session
+# AY1 — Deliver a live update into an already-running agent session
+
+> Formerly **AU22** in track AU — moved to track AY (Agent Session Runtime) 2026-08-11 by founder decision; scope unchanged.
 
 ## Work package
 
