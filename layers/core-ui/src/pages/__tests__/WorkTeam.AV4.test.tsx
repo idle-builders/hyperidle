@@ -198,12 +198,15 @@ describe("routine split-pane opens when ?routine param is present in the URL", (
 		expect(splitView).toBeNull();
 	});
 
-	it("[RED] existing work-team-page testid still present when ?routine is set (origin = teamBody)", async () => {
+	it("existing work-team-page testid still present when ?routine is set", async () => {
 		renderAtPath("/work/team/t1?routine=r1");
 
 		await waitFor(() => {
-			// The origin pane still contains the team page content.
-			// work-team-page is inside origin.
+			// @lore AZ2: work-team-page now lives on the outer PageScaffold root
+			// (consistent across every WorkTeam branch), not inside the SplitView
+			// origin pane — the split state uses PageScaffold's "managed" body, so
+			// the scaffold's own scroll contract (`data-page-scroll`) is absent here
+			// on purpose; SplitView's origin wrapper owns the scroll instead.
 			expect(screen.getByTestId("work-team-page")).toBeInTheDocument();
 		});
 	});
@@ -283,17 +286,26 @@ describe("agent split-pane opens when ?agent param is present in the URL", () =>
 // AC-1: AG1 contract not broken — work-team-page DOM unchanged when no selection
 // ---------------------------------------------------------------------------
 
-describe("no-selection path DOM is unchanged from before split-pane wiring", () => {
-	it("[GREEN] work-team-page has overflow-y-auto when no selection", () => {
-		renderAtPath("/work/team/t1");
-		const outer = screen.getByTestId("work-team-page");
-		expect(outer.className).toContain("overflow-y-auto");
+describe("no-selection path DOM contract, reconciled onto PageScaffold (AZ2)", () => {
+	// @lore AZ2: these two used to assert `outer.className` (the testid'd
+	// element) directly contained `overflow-y-auto` / `max-w-[960px]`. Since
+	// WorkTeam now composes <PageScaffold>, the testid lives on the scaffold's
+	// ROOT (`flex flex-col h-full`) and the scroll body is PageScaffold's own
+	// `[data-page-scroll]` element — a component's classes come from what the
+	// component renders, never from what a test demands (round.md §6 risk 1).
+	// These assert the scaffold CONTRACT (the `data-page-scroll` marker) in
+	// place of the class literal.
+	it("the team page's scroll body carries data-page-scroll with overflow-y-auto when no selection", () => {
+		const { container } = renderAtPath("/work/team/t1");
+		const scroller = container.querySelector("[data-page-scroll]");
+		expect(scroller).not.toBeNull();
+		expect(scroller?.className).toContain("overflow-y-auto");
 	});
 
-	it("[GREEN] work-team-page firstElementChild has max-w-[960px] when no selection", () => {
-		renderAtPath("/work/team/t1");
-		const outer = screen.getByTestId("work-team-page");
-		const inner = outer.firstElementChild;
+	it("the scroll body's firstElementChild has max-w-[960px] + mx-auto when no selection", () => {
+		const { container } = renderAtPath("/work/team/t1");
+		const scroller = container.querySelector("[data-page-scroll]");
+		const inner = scroller?.firstElementChild;
 		expect(inner?.className).toContain("max-w-[960px]");
 		expect(inner?.className).toContain("mx-auto");
 	});

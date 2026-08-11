@@ -211,26 +211,32 @@ function renderPage(data: TeamDetail | null = POPULATED_TEAM): ReturnType<typeof
 // ---------------------------------------------------------------------------
 
 describe("AG1 AC-1 — desktop content column wrapper", () => {
-	it("[RED] renders a scroll body with flex-1 overflow-y-auto on work-team-page outer div", () => {
-		renderPage(POPULATED_TEAM);
-		const outer = screen.getByTestId("work-team-page");
-		// AG1 T2a: outer element must be the scroll body, not the old flex flex-col h-full
-		expect(outer.className).toContain("overflow-y-auto");
+	// @lore AZ2: WorkTeam now composes <PageScaffold>, which owns the scroll
+	// contract. `data-testid="work-team-page"` moved to the scaffold's ROOT
+	// (`flex flex-col h-full`) — consistent with every other WorkTeam branch,
+	// which already carried it there. The scroll body itself is
+	// PageScaffold's own `[data-page-scroll]` element; these assertions moved
+	// there instead of pinning class literals on the outer testid'd element.
+	it("renders a scroll body carrying data-page-scroll with overflow-y-auto (PageScaffold's contract)", () => {
+		const { container } = renderPage(POPULATED_TEAM);
+		const scroller = container.querySelector("[data-page-scroll]");
+		expect(scroller).not.toBeNull();
+		expect(scroller?.className).toContain("overflow-y-auto");
 	});
 
-	it("[RED] renders an inner content column with max-w-[960px]", () => {
-		renderPage(POPULATED_TEAM);
-		const outer = screen.getByTestId("work-team-page");
+	it("renders an inner content column with max-w-[960px]", () => {
+		const { container } = renderPage(POPULATED_TEAM);
+		const scroller = container.querySelector("[data-page-scroll]");
 		// The inner column child must cap at 960px
-		const inner = outer.firstElementChild;
+		const inner = scroller?.firstElementChild;
 		expect(inner).not.toBeNull();
 		expect(inner?.className).toContain("max-w-[960px]");
 	});
 
-	it("[RED] inner column has centered auto margins (mx-auto)", () => {
-		renderPage(POPULATED_TEAM);
-		const outer = screen.getByTestId("work-team-page");
-		const inner = outer.firstElementChild;
+	it("inner column has centered auto margins (mx-auto)", () => {
+		const { container } = renderPage(POPULATED_TEAM);
+		const scroller = container.querySelector("[data-page-scroll]");
+		const inner = scroller?.firstElementChild;
 		expect(inner?.className).toContain("mx-auto");
 	});
 

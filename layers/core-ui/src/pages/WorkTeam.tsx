@@ -30,6 +30,7 @@ import {
 	ErrorState,
 	ItemList,
 	PageHeader,
+	PageScaffold,
 	Row,
 	RowDot,
 	routineStateToStatus,
@@ -110,17 +111,14 @@ export function WorkTeam({
 	// Loading state
 	if (overrideLoading === true || (overrideData === undefined && fetched.loading)) {
 		return (
-			<div className="flex flex-col h-full" data-testid="work-team-page">
-				<PageHeader title="Team" />
-				<div className="flex-1 overflow-y-auto">
-					<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
-						<SkeletonCard ariaLabel="Loading team header" />
-						<SkeletonCard ariaLabel="Loading burn vs cap" />
-						<SkeletonCard ariaLabel="Loading active bets" />
-						<SkeletonCard ariaLabel="Loading roster" />
-					</div>
+			<PageScaffold header={<PageHeader title="Team" />} data-testid="work-team-page">
+				<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
+					<SkeletonCard ariaLabel="Loading team header" />
+					<SkeletonCard ariaLabel="Loading burn vs cap" />
+					<SkeletonCard ariaLabel="Loading active bets" />
+					<SkeletonCard ariaLabel="Loading roster" />
 				</div>
-			</div>
+			</PageScaffold>
 		);
 	}
 
@@ -129,38 +127,7 @@ export function WorkTeam({
 		const is404 = error.message.includes("404");
 		if (is404) {
 			return (
-				<div className="flex flex-col h-full" data-testid="work-team-page">
-					<PageHeader title="Team" />
-					<div className="flex-1 overflow-y-auto">
-						<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
-							<EmptyState
-								title="Team not found"
-								description="The team you are looking for does not exist or has been removed."
-								dataTestId="team-not-found"
-							/>
-						</div>
-					</div>
-				</div>
-			);
-		}
-		return (
-			<div className="flex flex-col h-full" data-testid="work-team-page">
-				<PageHeader title="Team" />
-				<div className="flex-1 overflow-y-auto">
-					<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
-						<ErrorState title="Failed to load team" description={error.message} />
-					</div>
-				</div>
-			</div>
-		);
-	}
-
-	// Null data after loading/error — 404 from overrideData=null path
-	if (data === null) {
-		return (
-			<div className="flex flex-col h-full" data-testid="work-team-page">
-				<PageHeader title="Team" />
-				<div className="flex-1 overflow-y-auto">
+				<PageScaffold header={<PageHeader title="Team" />} data-testid="work-team-page">
 					<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
 						<EmptyState
 							title="Team not found"
@@ -168,8 +135,30 @@ export function WorkTeam({
 							dataTestId="team-not-found"
 						/>
 					</div>
+				</PageScaffold>
+			);
+		}
+		return (
+			<PageScaffold header={<PageHeader title="Team" />} data-testid="work-team-page">
+				<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
+					<ErrorState title="Failed to load team" description={error.message} />
 				</div>
-			</div>
+			</PageScaffold>
+		);
+	}
+
+	// Null data after loading/error — 404 from overrideData=null path
+	if (data === null) {
+		return (
+			<PageScaffold header={<PageHeader title="Team" />} data-testid="work-team-page">
+				<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
+					<EmptyState
+						title="Team not found"
+						description="The team you are looking for does not exist or has been removed."
+						dataTestId="team-not-found"
+					/>
+				</div>
+			</PageScaffold>
 		);
 	}
 
@@ -179,18 +168,15 @@ export function WorkTeam({
 	// than crashing in WorkTeamLoaded at `data.team.leadAgentId`.
 	if (!data.team) {
 		return (
-			<div className="flex flex-col h-full" data-testid="work-team-page">
-				<PageHeader title="Team" />
-				<div className="flex-1 overflow-y-auto">
-					<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
-						<EmptyState
-							title="Team not found"
-							description="The team you are looking for does not exist or has been removed."
-							dataTestId="team-not-found"
-						/>
-					</div>
+			<PageScaffold header={<PageHeader title="Team" />} data-testid="work-team-page">
+				<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
+					<EmptyState
+						title="Team not found"
+						description="The team you are looking for does not exist or has been removed."
+						dataTestId="team-not-found"
+					/>
 				</div>
-			</div>
+			</PageScaffold>
 		);
 	}
 
@@ -286,427 +272,446 @@ function WorkTeamLoaded({
 			? (roster.find((m) => m.agentId === team.leadAgentId)?.name ?? team.leadAgentId)
 			: null;
 
-	// @lore AV4: teamBody is the team list JSX extracted into a variable so it can be:
-	// 1. Rendered full-width when no selection (no-selection path — identical DOM to before).
-	// 2. Passed as `origin` to SplitView when ?routine or ?agent is set.
-	// The no-selection path is DOM-identical to origin/main so AG1/AB3/F1F2 tests are unaffected.
-	const teamBody = (
-		<div className="flex-1 overflow-y-auto" data-testid="work-team-page">
-			<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
-				{/* R4 — Team summary stat strip (AG1: replaces KeyValue burn list) */}
+	// @lore AZ2: teamBodyContent is the team list JSX extracted into a variable so it
+	// can be: 1. Rendered full-width when no selection (PageScaffold's own scroll
+	// body owns the scroll region). 2. Passed as `origin` to SplitView when
+	// ?routine or ?agent is set (SplitView's own origin wrapper — `flex min-w-0
+	// flex-col overflow-auto`, SplitView.tsx:197 — already gives it a bounded
+	// scrolling column; the content needs no scroll wrapper of its own there
+	// either). Pre-AZ2 this was `teamBody`, a standalone `flex-1 overflow-y-auto`
+	// div: that was ALSO the WorkTeam live defect's fix point — its parent
+	// (`:709` below, now the PageScaffold managed body) was a plain block, so
+	// `flex-1` on this div did nothing and it grew to its full content height
+	// instead of scrolling. The div's own class was always correct (shape A,
+	// round.md §2.3); moving it into PageScaffold(body="scroll") for the
+	// no-selection path removes the now-redundant hand-written wrapper instead
+	// of just fixing its ancestor.
+	const teamBodyContent = (
+		<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
+			{/* R4 — Team summary stat strip (AG1: replaces KeyValue burn list) */}
+			{/*
+			 * @lore AU21 Increment 14a: the Burn/Cap stat tiles + cap-utilization
+			 * progress bar are HARD-DELETED along with the rest of the cost-cap
+			 * feature — no replacement. Capacity/Status tiles are untouched.
+			 */}
+			<section aria-label="Team summary" data-testid="team-burn-vs-cap">
 				{/*
-				 * @lore AU21 Increment 14a: the Burn/Cap stat tiles + cap-utilization
-				 * progress bar are HARD-DELETED along with the rest of the cost-cap
-				 * feature — no replacement. Capacity/Status tiles are untouched.
+				 * @lore AG1: stat tiles (Capacity/Status) replace the KeyValue
+				 * burn list. flex-wrap (not grid-cols-N) avoids AQ-108. Status tile is
+				 * mandatory — empty roster → "—"/"No agents", never "Healthy". See
+				 * plans/AG1/design/approved.md §2 + §4a.
 				 */}
-				<section aria-label="Team summary" data-testid="team-burn-vs-cap">
-					{/*
-					 * @lore AG1: stat tiles (Capacity/Status) replace the KeyValue
-					 * burn list. flex-wrap (not grid-cols-N) avoids AQ-108. Status tile is
-					 * mandatory — empty roster → "—"/"No agents", never "Healthy". See
-					 * plans/AG1/design/approved.md §2 + §4a.
-					 */}
-					<div className="flex gap-[12px] flex-wrap">
-						{/* Capacity tile */}
-						<StatTile
-							label="Capacity"
-							value={`${burn.activeBets} / ${burn.capacity}`}
-							sub="active bets"
-						/>
-						{/* Status tile — derives from roster; empty → "—"/"No agents" */}
-						{(() => {
-							if (roster.length === 0) {
-								return <StatTile label="Status" value="—" sub="No agents" />;
-							}
-							if (rosterRunStateUnknown) {
-								return (
-									<StatTile
-										label="Status"
-										value="—"
-										sub={
-											rosterRunStatus === "error" ? "Run state unavailable" : "Loading run state"
-										}
-									/>
-								);
-							}
-							const runStates = roster.map(
-								(m) => rosterRunState.get(m.agentId) ?? DEFAULT_ROSTER_RUN_STATE,
-							);
-							const hasAttention = runStates.some((r) => r.healthLevel !== "healthy");
-							const idleCount = runStates.filter((r) => r.operationalStatus === "idle").length;
+				<div className="flex gap-[12px] flex-wrap">
+					{/* Capacity tile */}
+					<StatTile
+						label="Capacity"
+						value={`${burn.activeBets} / ${burn.capacity}`}
+						sub="active bets"
+					/>
+					{/* Status tile — derives from roster; empty → "—"/"No agents" */}
+					{(() => {
+						if (roster.length === 0) {
+							return <StatTile label="Status" value="—" sub="No agents" />;
+						}
+						if (rosterRunStateUnknown) {
 							return (
 								<StatTile
 									label="Status"
-									value={hasAttention ? "Attention" : "Healthy"}
-									sub={`${idleCount} idle agent${idleCount !== 1 ? "s" : ""}`}
+									value="—"
+									sub={rosterRunStatus === "error" ? "Run state unavailable" : "Loading run state"}
 								/>
 							);
-						})()}
-					</div>
-				</section>
-
-				{/* R2 — Active bets */}
-				<section aria-label="Active bets" data-testid="team-active-bets">
-					<SectionLabel
-						label="Active Bets"
-						as="h2"
-						trailing={
-							<Button
-								variant="ghost"
-								size="sm"
-								type="button"
-								onClick={() => navigate("/work/bet/new")}
-								data-testid="new-bet-btn"
-							>
-								+ New bet
-							</Button>
 						}
-					/>
-					{activeBets.length === 0 ? (
-						<>
-							<EmptyState
-								title="No active bets"
-								description="This team has no bets in flight."
-								dataTestId="team-active-bets-empty"
+						const runStates = roster.map(
+							(m) => rosterRunState.get(m.agentId) ?? DEFAULT_ROSTER_RUN_STATE,
+						);
+						const hasAttention = runStates.some((r) => r.healthLevel !== "healthy");
+						const idleCount = runStates.filter((r) => r.operationalStatus === "idle").length;
+						return (
+							<StatTile
+								label="Status"
+								value={hasAttention ? "Attention" : "Healthy"}
+								sub={`${idleCount} idle agent${idleCount !== 1 ? "s" : ""}`}
 							/>
-							{hintCreateBet.visible && (
-								<div
-									role="status"
-									data-testid={hintCreateBet.testId}
-									className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] flex flex-col gap-[6px] mt-2"
-								>
-									<p className="text-[15px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
-										{hintCreateBet.copy}
-									</p>
-									<div className="flex gap-2">
-										<button
-											type="button"
-											className="btn btn-ghost btn-xs text-[var(--text-tertiary)] min-h-[44px]"
-											onClick={hintCreateBet.dismiss}
-										>
-											Got it
-										</button>
-									</div>
-								</div>
-							)}
-						</>
-					) : (
-						<ItemList variant="flush" isEmpty={false}>
-							{activeBets.map((bet) => (
-								<BetRow
-									key={bet.id}
-									bet={bet}
-									onNavigate={() => {
-										navigate(`/work/bet/${encodeURIComponent(bet.id)}`);
-									}}
-								/>
-							))}
-						</ItemList>
-					)}
-				</section>
+						);
+					})()}
+				</div>
+			</section>
 
-				{/* R5 — Routines (AA1): sits after active bets, before roster */}
-				<section aria-label="Team routines" data-testid="team-routines">
-					<SectionLabel
-						label="Routines"
-						as="h2"
-						trailing={
-							<Button
-								variant="ghost"
-								size="sm"
-								type="button"
-								onClick={() => setCreateRoutineOpen(true)}
-								data-testid="new-routine-btn"
-							>
-								+ New routine
-							</Button>
-						}
-					/>
-					<ItemList
-						variant="flush"
-						isEmpty={routines.length === 0}
-						empty={{
-							title: "No routines",
-							description: "This team has no recurring work configured.",
-							dataTestId: "team-routines-empty",
-						}}
-					>
-						{routines.map((routine) => {
-							const routineStatus = routineStateToStatus(routine.state);
-							const routineTone =
-								routineStatus === "healthy"
-									? ("success" as const)
-									: routineStatus === "error"
-										? ("error" as const)
-										: routineStatus === "paused"
-											? ("info" as const)
-											: ("neutral" as const);
-							const lastRunLabel = routine.lastRunAt ? relativeShort(routine.lastRunAt) : "Never";
-							return (
-								<Row
-									key={routine.id}
-									data-testid="routine-row"
-									lead={<RowDot tone={routineTone} />}
-									title={routine.name}
-									cells={[
-										{
-											content: (
-												<span
-													className="w-[24px] h-[24px] rounded-full shrink-0 flex items-center justify-center text-[9px] font-semibold text-[var(--accent-deep)]"
-													style={{ background: "var(--accent-deep-dim)" }}
-													aria-label={routine.agentName}
-													title={routine.agentName}
-												>
-													{routine.agentInitials}
-												</span>
-											),
-										},
-										{ content: routine.scheduleLabel, width: 80, align: "start" },
-										{ content: lastRunLabel, width: 60, numeric: true },
-									]}
-									onClick={() => {
-										// @lore AV4: routine row click opens split pane via ?routine param
-										// (AC#1). Deep link via /work/routine/:id still works via WorkRoutine.
-										setSearchParams({ routine: routine.id });
-									}}
-								/>
-							);
-						})}
-					</ItemList>
-				</section>
-
-				{/* R3 — Agents (AB2: replaces Roster/AgentCard with flat AgentRow rows) */}
-				<section aria-label="Team agents" data-testid="team-agents">
-					<SectionLabel
-						label="Agents"
-						as="h2"
-						trailing={
-							<Button
-								variant="ghost"
-								size="sm"
-								type="button"
-								onClick={() => setAddDialogOpen(true)}
-								data-testid="add-agent-btn"
-							>
-								+ Add agent
-							</Button>
-						}
-					/>
-
-					{/* AB3 first-time hint — moved position, same logic */}
-					{hintReviewAgents.visible && roster.length > 0 && (
-						<div
-							role="status"
-							data-testid={hintReviewAgents.testId}
-							className="rounded-[var(--r-subtle)] p-[18px] flex flex-col gap-[6px] mb-[6px]"
-							style={{ background: "color-mix(in oklab, var(--accent-deep) 4%, transparent)" }}
+			{/* R2 — Active bets */}
+			<section aria-label="Active bets" data-testid="team-active-bets">
+				<SectionLabel
+					label="Active Bets"
+					as="h2"
+					trailing={
+						<Button
+							variant="ghost"
+							size="sm"
+							type="button"
+							onClick={() => navigate("/work/bet/new")}
+							data-testid="new-bet-btn"
 						>
-							<p className="text-[13px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
-								{hintReviewAgents.copy}
-							</p>
-							<div className="flex gap-2">
-								<Button variant="ghost" size="sm" type="button" onClick={hintReviewAgents.dismiss}>
-									Got it
-								</Button>
+							+ New bet
+						</Button>
+					}
+				/>
+				{activeBets.length === 0 ? (
+					<>
+						<EmptyState
+							title="No active bets"
+							description="This team has no bets in flight."
+							dataTestId="team-active-bets-empty"
+						/>
+						{hintCreateBet.visible && (
+							<div
+								role="status"
+								data-testid={hintCreateBet.testId}
+								className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] flex flex-col gap-[6px] mt-2"
+							>
+								<p className="text-[15px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
+									{hintCreateBet.copy}
+								</p>
+								<div className="flex gap-2">
+									<button
+										type="button"
+										className="btn btn-ghost btn-xs text-[var(--text-tertiary)] min-h-[44px]"
+										onClick={hintCreateBet.dismiss}
+									>
+										Got it
+									</button>
+								</div>
 							</div>
-						</div>
-					)}
-
-					<ItemList
-						variant="flush"
-						isEmpty={roster.length === 0}
-						empty={{
-							title: "No agents",
-							description: "No agents are assigned to this team.",
-						}}
-					>
-						{roster.map((member) => {
-							const runState = rosterRunState.get(member.agentId) ?? DEFAULT_ROSTER_RUN_STATE;
-							const memberStatus = runState.operationalStatus;
-							const healthLevel = runState.healthLevel;
-							const healthDetail = runState.healthDetail;
-							const initials = member.name.slice(0, 2).toUpperCase();
-
-							const healthTone = rosterRunStateUnknown
-								? ("neutral" as const)
-								: healthLevel === "healthy"
-									? ("success" as const)
-									: healthLevel === "warning"
-										? ("warning" as const)
-										: ("error" as const);
-							const healthLabel = rosterRunStateUnknown
-								? rosterRunStatus === "error"
-									? "Run state unavailable"
-									: "Run state loading"
-								: healthDetail;
-
-							const statusTone =
-								memberStatus === "active"
-									? ("success" as const)
-									: memberStatus === "error"
-										? ("error" as const)
-										: undefined;
-
-							let contextText = (() => {
-								const catalogEntry = findRoleCatalogEntry(member.role);
-								return catalogEntry?.description ?? member.role;
-							})();
-							let contextIsError = false;
-							if (memberStatus === "active" && runState.activeTaskTitle) {
-								contextText = runState.activeTaskTitle;
-							} else if (memberStatus === "error") {
-								contextText = healthDetail;
-								contextIsError = true;
-							}
-
-							const categoryLabel =
-								member.agentCategory === "strategy"
-									? "App-managed"
-									: member.agentCategory === "individual"
-										? "Individual"
-										: (member.agentCategory ?? "");
-
-							// Category cell — first cell when non-team category.
-							// @lore AG6: team agents do NOT render agent-card-category testid
-							// (AB3 protected test: strategy + individual only, team = 0). The
-							// AG6 "first cell" test renders app-managed agents where this is present.
-							const hasCategory = member.agentCategory && member.agentCategory !== "team";
-
-							return (
-								<Row
-									key={member.agentId}
-									data-testid="agent-row"
-									lead={
-										<>
-											<RowDot tone={healthTone} label={healthLabel} title={healthLabel} />
-											<Avatar initials={initials} size="sm" agent />
-										</>
-									}
-									title={
-										<>
-											{member.name}
-											{member.isLead && (
-												<span className="ml-1 text-[var(--accent-deep)] text-[10px]">— Lead</span>
-											)}
-										</>
-									}
-									cells={[
-										...(hasCategory
-											? [
-													{
-														content: <Tag label={categoryLabel} />,
-														"data-testid": "agent-card-category" as const,
-													},
-												]
-											: []),
-										{
-											content: memberStatus,
-											width: 48,
-											tone: statusTone,
-											"data-testid": "agent-status",
-										},
-										{
-											content: contextText,
-											width: 140,
-											align: "start",
-											tone: contextIsError ? ("error" as const) : undefined,
-											"data-testid": "agent-context",
-										},
-									]}
-									actions={
-										<button
-											type="button"
-											className="btn btn-ghost btn-xs shrink-0"
-											onClick={(e) => {
-												e.stopPropagation();
-												// @lore AV4: Customize now opens AgentDetailPane in the split pane
-												// via ?agent search param, not AgentEditDialog modal (AC#3).
-												setSearchParams({ agent: member.agentId });
-											}}
-											data-testid="agent-customize-btn"
-										>
-											Customize
-										</button>
-									}
-									onClick={() => navigate(`/agents/${encodeURIComponent(member.agentId)}`)}
-								/>
-							);
-						})}
+						)}
+					</>
+				) : (
+					<ItemList variant="flush" isEmpty={false}>
+						{activeBets.map((bet) => (
+							<BetRow
+								key={bet.id}
+								bet={bet}
+								onNavigate={() => {
+									navigate(`/work/bet/${encodeURIComponent(bet.id)}`);
+								}}
+							/>
+						))}
 					</ItemList>
-				</section>
+				)}
+			</section>
 
-				{/* L12: Artifact stack — product axis, limit=10, replaces placeholder */}
-				{!skipArtifacts && (
-					<ArtifactSection
-						// @lore U1: `productId` → `teamId` in ArtifactSection filter.
-						filter={{ axis: "product", teamId: team.id }}
-						layout="stack"
-						limit={10}
-						heading="Artifacts"
-						emptyDescription="Artifacts appear as agents complete tasks for this team."
-						onOpen={onOpenArtifact}
-					/>
+			{/* R5 — Routines (AA1): sits after active bets, before roster */}
+			<section aria-label="Team routines" data-testid="team-routines">
+				<SectionLabel
+					label="Routines"
+					as="h2"
+					trailing={
+						<Button
+							variant="ghost"
+							size="sm"
+							type="button"
+							onClick={() => setCreateRoutineOpen(true)}
+							data-testid="new-routine-btn"
+						>
+							+ New routine
+						</Button>
+					}
+				/>
+				<ItemList
+					variant="flush"
+					isEmpty={routines.length === 0}
+					empty={{
+						title: "No routines",
+						description: "This team has no recurring work configured.",
+						dataTestId: "team-routines-empty",
+					}}
+				>
+					{routines.map((routine) => {
+						const routineStatus = routineStateToStatus(routine.state);
+						const routineTone =
+							routineStatus === "healthy"
+								? ("success" as const)
+								: routineStatus === "error"
+									? ("error" as const)
+									: routineStatus === "paused"
+										? ("info" as const)
+										: ("neutral" as const);
+						const lastRunLabel = routine.lastRunAt ? relativeShort(routine.lastRunAt) : "Never";
+						return (
+							<Row
+								key={routine.id}
+								data-testid="routine-row"
+								lead={<RowDot tone={routineTone} />}
+								title={routine.name}
+								cells={[
+									{
+										content: (
+											<span
+												className="w-[24px] h-[24px] rounded-full shrink-0 flex items-center justify-center text-[9px] font-semibold text-[var(--accent-deep)]"
+												style={{ background: "var(--accent-deep-dim)" }}
+												aria-label={routine.agentName}
+												title={routine.agentName}
+											>
+												{routine.agentInitials}
+											</span>
+										),
+									},
+									{ content: routine.scheduleLabel, width: 80, align: "start" },
+									{ content: lastRunLabel, width: 60, numeric: true },
+								]}
+								onClick={() => {
+									// @lore AV4: routine row click opens split pane via ?routine param
+									// (AC#1). Deep link via /work/routine/:id still works via WorkRoutine.
+									setSearchParams({ routine: routine.id });
+								}}
+							/>
+						);
+					})}
+				</ItemList>
+			</section>
+
+			{/* R3 — Agents (AB2: replaces Roster/AgentCard with flat AgentRow rows) */}
+			<section aria-label="Team agents" data-testid="team-agents">
+				<SectionLabel
+					label="Agents"
+					as="h2"
+					trailing={
+						<Button
+							variant="ghost"
+							size="sm"
+							type="button"
+							onClick={() => setAddDialogOpen(true)}
+							data-testid="add-agent-btn"
+						>
+							+ Add agent
+						</Button>
+					}
+				/>
+
+				{/* AB3 first-time hint — moved position, same logic */}
+				{hintReviewAgents.visible && roster.length > 0 && (
+					<div
+						role="status"
+						data-testid={hintReviewAgents.testId}
+						className="rounded-[var(--r-subtle)] p-[18px] flex flex-col gap-[6px] mb-[6px]"
+						style={{ background: "color-mix(in oklab, var(--accent-deep) 4%, transparent)" }}
+					>
+						<p className="text-[13px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
+							{hintReviewAgents.copy}
+						</p>
+						<div className="flex gap-2">
+							<Button variant="ghost" size="sm" type="button" onClick={hintReviewAgents.dismiss}>
+								Got it
+							</Button>
+						</div>
+					</div>
 				)}
 
-				{/* @lore AV4: AgentEditDialog modal retired from the WorkTeam customize path.
-				 * Customize now opens AgentDetailPane in the split pane via ?agent param (AC#3).
-				 * AgentAddDialog stays a modal; it mounts in the outer return (not teamBody) so it
-				 * works correctly regardless of whether the split pane is open or not. */}
+				<ItemList
+					variant="flush"
+					isEmpty={roster.length === 0}
+					empty={{
+						title: "No agents",
+						description: "No agents are assigned to this team.",
+					}}
+				>
+					{roster.map((member) => {
+						const runState = rosterRunState.get(member.agentId) ?? DEFAULT_ROSTER_RUN_STATE;
+						const memberStatus = runState.operationalStatus;
+						const healthLevel = runState.healthLevel;
+						const healthDetail = runState.healthDetail;
+						const initials = member.name.slice(0, 2).toUpperCase();
 
-				{/* AA2: Routine create dialog */}
-				{createRoutineOpen && (
-					<RoutineCreateDialog
-						open={createRoutineOpen}
-						onClose={() => setCreateRoutineOpen(false)}
-						onCreated={() => {
-							// AF16 T3 (Z8-128): refetch team data so the new routine appears
-							// without a page reload. Mirrors the agent path (refetchAgents above).
-							refetchTeam?.();
-							setCreateRoutineOpen(false);
-						}}
-						teams={[{ id: team.id, name: team.name }]}
-						agents={roster
-							.filter((m) => m.role !== "human")
-							.map((m) => ({ id: m.agentId, name: m.name }))}
-					/>
-				)}
-			</div>
+						const healthTone = rosterRunStateUnknown
+							? ("neutral" as const)
+							: healthLevel === "healthy"
+								? ("success" as const)
+								: healthLevel === "warning"
+									? ("warning" as const)
+									: ("error" as const);
+						const healthLabel = rosterRunStateUnknown
+							? rosterRunStatus === "error"
+								? "Run state unavailable"
+								: "Run state loading"
+							: healthDetail;
+
+						const statusTone =
+							memberStatus === "active"
+								? ("success" as const)
+								: memberStatus === "error"
+									? ("error" as const)
+									: undefined;
+
+						let contextText = (() => {
+							const catalogEntry = findRoleCatalogEntry(member.role);
+							return catalogEntry?.description ?? member.role;
+						})();
+						let contextIsError = false;
+						if (memberStatus === "active" && runState.activeTaskTitle) {
+							contextText = runState.activeTaskTitle;
+						} else if (memberStatus === "error") {
+							contextText = healthDetail;
+							contextIsError = true;
+						}
+
+						const categoryLabel =
+							member.agentCategory === "strategy"
+								? "App-managed"
+								: member.agentCategory === "individual"
+									? "Individual"
+									: (member.agentCategory ?? "");
+
+						// Category cell — first cell when non-team category.
+						// @lore AG6: team agents do NOT render agent-card-category testid
+						// (AB3 protected test: strategy + individual only, team = 0). The
+						// AG6 "first cell" test renders app-managed agents where this is present.
+						const hasCategory = member.agentCategory && member.agentCategory !== "team";
+
+						return (
+							<Row
+								key={member.agentId}
+								data-testid="agent-row"
+								lead={
+									<>
+										<RowDot tone={healthTone} label={healthLabel} title={healthLabel} />
+										<Avatar initials={initials} size="sm" agent />
+									</>
+								}
+								title={
+									<>
+										{member.name}
+										{member.isLead && (
+											<span className="ml-1 text-[var(--accent-deep)] text-[10px]">— Lead</span>
+										)}
+									</>
+								}
+								cells={[
+									...(hasCategory
+										? [
+												{
+													content: <Tag label={categoryLabel} />,
+													"data-testid": "agent-card-category" as const,
+												},
+											]
+										: []),
+									{
+										content: memberStatus,
+										width: 48,
+										tone: statusTone,
+										"data-testid": "agent-status",
+									},
+									{
+										content: contextText,
+										width: 140,
+										align: "start",
+										tone: contextIsError ? ("error" as const) : undefined,
+										"data-testid": "agent-context",
+									},
+								]}
+								actions={
+									<button
+										type="button"
+										className="btn btn-ghost btn-xs shrink-0"
+										onClick={(e) => {
+											e.stopPropagation();
+											// @lore AV4: Customize now opens AgentDetailPane in the split pane
+											// via ?agent search param, not AgentEditDialog modal (AC#3).
+											setSearchParams({ agent: member.agentId });
+										}}
+										data-testid="agent-customize-btn"
+									>
+										Customize
+									</button>
+								}
+								onClick={() => navigate(`/agents/${encodeURIComponent(member.agentId)}`)}
+							/>
+						);
+					})}
+				</ItemList>
+			</section>
+
+			{/* L12: Artifact stack — product axis, limit=10, replaces placeholder */}
+			{!skipArtifacts && (
+				<ArtifactSection
+					// @lore U1: `productId` → `teamId` in ArtifactSection filter.
+					filter={{ axis: "product", teamId: team.id }}
+					layout="stack"
+					limit={10}
+					heading="Artifacts"
+					emptyDescription="Artifacts appear as agents complete tasks for this team."
+					onOpen={onOpenArtifact}
+				/>
+			)}
+
+			{/* @lore AV4: AgentEditDialog modal retired from the WorkTeam customize path.
+			 * Customize now opens AgentDetailPane in the split pane via ?agent param (AC#3).
+			 * AgentAddDialog stays a modal; it mounts in the outer return (not teamBody) so it
+			 * works correctly regardless of whether the split pane is open or not. */}
+
+			{/* AA2: Routine create dialog */}
+			{createRoutineOpen && (
+				<RoutineCreateDialog
+					open={createRoutineOpen}
+					onClose={() => setCreateRoutineOpen(false)}
+					onCreated={() => {
+						// AF16 T3 (Z8-128): refetch team data so the new routine appears
+						// without a page reload. Mirrors the agent path (refetchAgents above).
+						refetchTeam?.();
+						setCreateRoutineOpen(false);
+					}}
+					teams={[{ id: team.id, name: team.name }]}
+					agents={roster
+						.filter((m) => m.role !== "human")
+						.map((m) => ({ id: m.agentId, name: m.name }))}
+				/>
+			)}
 		</div>
-	); // end teamBody
+	); // end teamBodyContent
+
+	const hasSelection = selectedRoutineId !== null || selectedAgentId !== null;
 
 	return (
-		<div className="flex flex-col h-full">
-			{/* AI7: PageHeader owns the pinned title strip. */}
-			<PageHeader
-				title={team.name}
-				leading={
-					/* AG4: DS Breadcrumb — team-breadcrumb-back testId preserved on first segment link */
-					<Breadcrumb
-						segments={[
-							{ label: "Work", to: "/work", testId: "team-breadcrumb-back" },
-							{ label: team.name },
-						]}
+		<>
+			{/* AI7: PageHeader owns the pinned title strip.
+			    @lore AZ2: body switches "scroll" ↔ "managed" with selection state —
+			    no selection: the page owns the scroll region (teamBodyContent, shape
+			    A). A selection: SplitView owns its own scroll internally (its origin
+			    wrapper is itself `flex min-w-0 flex-col overflow-auto`, SplitView.tsx
+			    :197) and only needs a bounded flex column to size against — that
+			    bound is the managed body. This is the WorkTeam live defect's fix: the
+			    old `:709` wrapper was a plain block (`flex-1 overflow-hidden`, no
+			    flex-col), so `flex-1` on teamBodyContent's old wrapper div did
+			    nothing and it grew to its full content height (round.md §2.3, shape
+			    C). Routine and agent selections are mutually exclusive (plan §2.4). */}
+			<PageScaffold
+				header={
+					<PageHeader
+						title={team.name}
 						leading={
-							!sidebarMobile ? (
-								<NavHistoryCluster onBack={() => navigate(-1)} onForward={() => navigate(1)} />
-							) : undefined
+							/* AG4: DS Breadcrumb — team-breadcrumb-back testId preserved on first segment link */
+							<Breadcrumb
+								segments={[
+									{ label: "Work", to: "/work", testId: "team-breadcrumb-back" },
+									{ label: team.name },
+								]}
+								leading={
+									!sidebarMobile ? (
+										<NavHistoryCluster onBack={() => navigate(-1)} onForward={() => navigate(1)} />
+									) : undefined
+								}
+								LinkComponent={RRLink}
+							/>
 						}
-						LinkComponent={RRLink}
+						subtitle={
+							<span className="text-[13px] text-[var(--text-tertiary)]">
+								Phase: {team.phase}
+								{leadName && ` · Lead: ${leadName}`}
+							</span>
+						}
+						actions={<StatusChip status={team.status} />}
 					/>
 				}
-				subtitle={
-					<span className="text-[13px] text-[var(--text-tertiary)]">
-						Phase: {team.phase}
-						{leadName && ` · Lead: ${leadName}`}
-					</span>
-				}
-				actions={<StatusChip status={team.status} />}
-			/>
-			{/* @lore AV4: flex-1 body — either full-width teamBody (no selection) or SplitView.
-			 * When ?routine or ?agent is set, SplitView origin=teamBody, destination=detail pane.
-			 * No selection → teamBody renders identically to origin/main (AG1/AB3 tests unaffected).
-			 * Routine and agent selections are mutually exclusive (plan §2.4). */}
-			<div className="flex-1 overflow-hidden">
+				body={hasSelection ? "managed" : "scroll"}
+				data-testid="work-team-page"
+			>
 				{selectedRoutineId !== null ? (
 					<SplitView
 						surfaceKey="work.routine"
@@ -716,7 +721,7 @@ function WorkTeamLoaded({
 						onModeChange={(mode) => {
 							if (mode === "fold-back") setSearchParams({});
 						}}
-						origin={teamBody}
+						origin={teamBodyContent}
 						destination={
 							<RoutineDetailPane
 								routineId={selectedRoutineId}
@@ -733,7 +738,7 @@ function WorkTeamLoaded({
 						onModeChange={(mode) => {
 							if (mode === "fold-back") setSearchParams({});
 						}}
-						origin={teamBody}
+						origin={teamBodyContent}
 						destination={
 							<AgentDetailPane
 								agent={paneAgent}
@@ -747,9 +752,9 @@ function WorkTeamLoaded({
 						}
 					/>
 				) : (
-					teamBody
+					teamBodyContent
 				)}
-			</div>
+			</PageScaffold>
 
 			{/* AB3: Add dialog — only mounted when open to avoid DOM content collisions */}
 			{addDialogOpen && (
@@ -764,7 +769,7 @@ function WorkTeamLoaded({
 					}}
 				/>
 			)}
-		</div>
+		</>
 	);
 }
 
