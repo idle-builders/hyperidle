@@ -12,6 +12,7 @@
  */
 
 import { agentRunConfig, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -24,16 +25,19 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 
 const NOW = new Date().toISOString();
 
-async function seedTeamWithCategorizedAgents(db: HyperIdleDb): Promise<{
+async function seedTeamWithCategorizedAgents(
+	db: HyperIdleDb,
+	ids: ScopedIds,
+): Promise<{
 	teamId: string;
 	teamMembersId: string;
 	teamAgentId: string;
 	strategyAgentId: string;
 }> {
-	const teamId = "ab3-team";
-	const teamMembersId = "ab3-tm";
-	const teamAgentId = "ab3-agent-team";
-	const strategyAgentId = "ab3-agent-strategy";
+	const teamId = ids("ab3-team");
+	const teamMembersId = ids("ab3-tm");
+	const teamAgentId = ids("ab3-agent-team");
+	const strategyAgentId = ids("ab3-agent-strategy");
 
 	await db
 		.insert(teams)
@@ -94,8 +98,8 @@ describe("AB3 — teams routes: agentCategory in roster", () => {
 
 	// AC-1: roster members include agentCategory
 	describe("GET /api/teams/:id — roster includes agentCategory (AC-1)", () => {
-		test("returns agentCategory field on each roster member", async ({ db, app }) => {
-			const { teamId } = await seedTeamWithCategorizedAgents(db);
+		test("returns agentCategory field on each roster member", async ({ db, app, ids }) => {
+			const { teamId } = await seedTeamWithCategorizedAgents(db, ids);
 
 			const res = await app.request(`/api/teams/${teamId}`, {
 				method: "GET",
@@ -113,6 +117,7 @@ describe("AB3 — teams routes: agentCategory in roster", () => {
 				}>;
 			};
 			expect(Array.isArray(body.roster)).toBe(true);
+			// The roster is scoped to this team; this test arranged exactly two agents on it.
 			expect(body.roster.length).toBe(2);
 
 			// Every roster member must have an agentCategory field (not undefined)
@@ -121,8 +126,8 @@ describe("AB3 — teams routes: agentCategory in roster", () => {
 			}
 		});
 
-		test("roster member with agentCategory='team' is present", async ({ db, app }) => {
-			const { teamId, teamAgentId } = await seedTeamWithCategorizedAgents(db);
+		test("roster member with agentCategory='team' is present", async ({ db, app, ids }) => {
+			const { teamId, teamAgentId } = await seedTeamWithCategorizedAgents(db, ids);
 
 			const res = await app.request(`/api/teams/${teamId}`, {
 				method: "GET",
@@ -138,8 +143,8 @@ describe("AB3 — teams routes: agentCategory in roster", () => {
 			expect(teamMember?.agentCategory).toBe("team");
 		});
 
-		test("roster member with agentCategory='strategy' is present", async ({ db, app }) => {
-			const { teamId, strategyAgentId } = await seedTeamWithCategorizedAgents(db);
+		test("roster member with agentCategory='strategy' is present", async ({ db, app, ids }) => {
+			const { teamId, strategyAgentId } = await seedTeamWithCategorizedAgents(db, ids);
 
 			const res = await app.request(`/api/teams/${teamId}`, {
 				method: "GET",
@@ -158,10 +163,11 @@ describe("AB3 — teams routes: agentCategory in roster", () => {
 		test("roster member with null agentCategory returns null (not undefined)", async ({
 			db,
 			app,
+			ids,
 		}) => {
 			// Seed an agent with no agentCategory set
-			const teamId = "ab3-team-null-cat";
-			const teamMembersId = "ab3-tm-null-cat";
+			const teamId = ids("ab3-team-null-cat");
+			const teamMembersId = ids("ab3-tm-null-cat");
 			await db
 				.insert(teams)
 				.values({ id: teamId, name: "Null Cat Team", phase: "build", createdAt: NOW });
@@ -173,7 +179,7 @@ describe("AB3 — teams routes: agentCategory in roster", () => {
 				formedAt: NOW,
 			});
 			await db.insert(users).values({
-				id: "ab3-agent-no-cat",
+				id: ids("ab3-agent-no-cat"),
 				kind: "ai",
 				name: "No Category Agent",
 				role: "builder",
@@ -192,6 +198,7 @@ describe("AB3 — teams routes: agentCategory in roster", () => {
 			const body = (await res.json()) as {
 				roster: Array<{ agentId: string; agentCategory: string | null }>;
 			};
+			// Roster is team-scoped; exactly one agent arranged on this team.
 			expect(body.roster.length).toBe(1);
 			// Field must be present and null (not undefined)
 			const firstMember = body.roster[0];
@@ -203,12 +210,12 @@ describe("AB3 — teams routes: agentCategory in roster", () => {
 
 	// AC-4: PATCH /api/agents/:id with modelTierPreference returns 200 + updated value
 	describe("PATCH /api/agents/:id — modelTierPreference update (AC-4)", () => {
-		test("returns 200 with updated modelTierPreference", async ({ db, app }) => {
-			const { teamMembersId } = await seedTeamWithCategorizedAgents(db);
+		test("returns 200 with updated modelTierPreference", async ({ db, app, ids }) => {
+			const { teamMembersId } = await seedTeamWithCategorizedAgents(db, ids);
 
 			// First seed an agent directly accessible to the agents endpoint
 			await db.insert(users).values({
-				id: "ab3-patch-agent",
+				id: ids("ab3-patch-agent"),
 				kind: "ai",
 				name: "Patch Test Agent",
 				role: "builder",
@@ -218,12 +225,12 @@ describe("AB3 — teams routes: agentCategory in roster", () => {
 			});
 			// @lore AU26 G1: the run config left `users` for `agent_run_config`.
 			await db.insert(agentRunConfig).values({
-				agentUserId: "ab3-patch-agent",
+				agentUserId: ids("ab3-patch-agent"),
 				maxConcurrentSessions: 1,
 				modelTierPreference: null,
 			});
 
-			const res = await app.request("/api/agents/ab3-patch-agent", {
+			const res = await app.request(`/api/agents/${ids("ab3-patch-agent")}`, {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({ modelTierPreference: "reasoning" }),
@@ -240,14 +247,18 @@ describe("AB3 — teams routes: agentCategory in roster", () => {
 		test("returns 201 with created agent when teamId is a valid teamMembers id", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			const { teamMembersId } = await seedTeamWithCategorizedAgents(db);
+			const { teamMembersId } = await seedTeamWithCategorizedAgents(db, ids);
 
 			const res = await app.request("/api/agents", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					name: "New Custom Agent",
+					// AU38 P9: scope the name — creation routes may key idempotency
+					// on a literal name, and a populated world carries every name
+					// any other test used.
+					name: `New Custom Agent ${ids("suffix")}`,
 					role: "builder",
 					teamId: teamMembersId,
 				}),
@@ -255,7 +266,7 @@ describe("AB3 — teams routes: agentCategory in roster", () => {
 			expect(res.status).toBe(201);
 
 			const body = (await res.json()) as { id: string; name: string; role: string };
-			expect(body.name).toBe("New Custom Agent");
+			expect(body.name).toBe(`New Custom Agent ${ids("suffix")}`);
 			expect(body.role).toBe("builder");
 			expect(typeof body.id).toBe("string");
 		});

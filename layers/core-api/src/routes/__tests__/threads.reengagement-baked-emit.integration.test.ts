@@ -38,7 +38,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import { drainIntents } from "@hyperidle/session-requests";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -54,6 +54,7 @@ async function seedApprovableWorld(
 	readonly taskId: string;
 	readonly agentId: string;
 	readonly teamId: string;
+	readonly proposedCallId: string;
 }> {
 	const teamId = `${idPrefix}-team`;
 	const betId = `${idPrefix}-bet`;
@@ -62,6 +63,7 @@ async function seedApprovableWorld(
 	const threadId = `${idPrefix}-thread`;
 	const messageId = `${idPrefix}-message`;
 	const artifactId = `${idPrefix}-artifact`;
+	const proposedCallId = `${idPrefix}-pc`;
 
 	await db.insert(teams).values({ id: teamId, name: teamId, phase: "build", createdAt: NOW });
 	await db
@@ -125,7 +127,7 @@ async function seedApprovableWorld(
 	// what transitions this to "granted" + composes the tailored grant + emits
 	// the (this wave's target) `reengagement` intent.
 	await db.insert(proposedCalls).values({
-		id: `${idPrefix}-pc`,
+		id: proposedCallId,
 		reviewMessageId: messageId,
 		subjectThreadId: threadId,
 		artifactId,
@@ -139,18 +141,33 @@ async function seedApprovableWorld(
 		createdAt: NOW,
 	});
 
-	return { threadId, messageId, taskId, agentId, teamId };
+	return { threadId, messageId, taskId, agentId, teamId, proposedCallId };
+}
+
+/**
+ * @lore AU38: the intent select is scoped to this test's proposed call
+ * (sourceId = proposedCallId, proposed-call-workflow.ts:586) — in a populated
+ * world other tests' reengagement intents exist, and `.where(kind)` alone
+ * would read them.
+ */
+async function findReengagementIntent(db: HyperIdleDb, proposedCallId: string) {
+	const [intent] = await db
+		.select()
+		.from(agentWorkIntents)
+		.where(
+			and(eq(agentWorkIntents.kind, "reengagement"), eq(agentWorkIntents.sourceId, proposedCallId)),
+		);
+	return intent;
 }
 
 describe("reengagement is resolved and baked at emit time (POST /api/threads/:threadId/messages/:messageId/verdict)", () => {
 	test("approving a review captures + grants the proposed call and bakes the reengagement request onto the recorded intent", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		const { threadId, messageId, taskId, agentId, teamId } = await seedApprovableWorld(
-			db,
-			"au21-reengage-emit-1",
-		);
+		const { threadId, messageId, taskId, agentId, teamId, proposedCallId } =
+			await seedApprovableWorld(db, ids("au21-reengage-emit-1"));
 
 		const res = await app.request(`/api/threads/${threadId}/messages/${messageId}/verdict`, {
 			method: "POST",
@@ -159,10 +176,7 @@ describe("reengagement is resolved and baked at emit time (POST /api/threads/:th
 		});
 		expect(res.status).toBe(200);
 
-		const [intent] = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.kind, "reengagement"));
+		const intent = await findReengagementIntent(db, proposedCallId);
 		expect(intent).toBeDefined();
 
 		// RED today: `bakedRequestJson` is null — the "granted" transition does
@@ -187,14 +201,16 @@ describe("reengagement is resolved and baked at emit time (POST /api/threads/:th
 	test("approving a review for an agent with an injected filesystem carries NOTHING about filesystems on the emitted intent", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		const { threadId, messageId, agentId, teamId } = await seedApprovableWorld(
+		const prefix = ids("au21-reengage-emit-fs");
+		const { threadId, messageId, agentId, teamId, proposedCallId } = await seedApprovableWorld(
 			db,
-			"au21-reengage-emit-fs",
+			prefix,
 		);
 
 		await db.insert(filesystems).values({
-			id: "au21-reengage-emit-fs-repo",
+			id: `${prefix}-repo`,
 			teamId,
 			source: "local",
 			kind: "code",
@@ -206,7 +222,7 @@ describe("reengagement is resolved and baked at emit time (POST /api/threads/:th
 		});
 		await db.insert(filesystemInjections).values({
 			agentUserId: agentId,
-			filesystemId: "au21-reengage-emit-fs-repo",
+			filesystemId: `${prefix}-repo`,
 			createdAt: NOW,
 		});
 
@@ -217,10 +233,7 @@ describe("reengagement is resolved and baked at emit time (POST /api/threads/:th
 		});
 		expect(res.status).toBe(200);
 
-		const [intent] = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.kind, "reengagement"));
+		const intent = await findReengagementIntent(db, proposedCallId);
 		expect(intent?.bakedRequestJson).toBeTruthy();
 
 		// @lore AU26 F2: this used to assert the opposite — that the "granted"
@@ -243,17 +256,18 @@ describe("reengagement is resolved and baked at emit time (POST /api/threads/:th
 		db,
 		app,
 		eventBus,
+		ids,
 	}) => {
-		await seedApprovableWorld(db, "au21-reengage-emit-2");
-
-		const res = await app.request(
-			"/api/threads/au21-reengage-emit-2-thread/messages/au21-reengage-emit-2-message/verdict",
-			{
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ decision: "approve", rationale: "LGTM" }),
-			},
+		const { threadId, messageId, proposedCallId } = await seedApprovableWorld(
+			db,
+			ids("au21-reengage-emit-2"),
 		);
+
+		const res = await app.request(`/api/threads/${threadId}/messages/${messageId}/verdict`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ decision: "approve", rationale: "LGTM" }),
+		});
 		expect(res.status).toBe(200);
 
 		// `DurableAgentQueueDeps` no longer HAS a `review`/`work.getTaskById`/
@@ -265,10 +279,7 @@ describe("reengagement is resolved and baked at emit time (POST /api/threads/:th
 
 		await drainIntents(deps);
 
-		const [intent] = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.kind, "reengagement"));
+		const intent = await findReengagementIntent(db, proposedCallId);
 		expect(intent?.status).toBe("handed_off");
 		expect(intent?.requestId).toBeTruthy();
 	});
