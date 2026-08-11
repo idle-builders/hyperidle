@@ -766,6 +766,79 @@ export function collectSeamMap(): SeamEntry[] {
 	return entries;
 }
 
+// ── DI bindings (composition-root wiring) ────────────────────────────────────
+
+export interface DiBinding {
+	name: string;
+	file: string;
+	anchor: ts.Node;
+	via: string;
+}
+
+const DI_BINDING_FILES = [
+	"layers/core-api/src/service-bootstrap.ts",
+	"layers/core-api/src/services/policy-bindings.ts",
+	"layers/core-api/src/services/routine-scheduler-bindings.ts",
+	"layers/core-api/src/services/task-run-resolver-bindings.ts",
+	"layers/agent-orchestration/src/services/tool-handlers-bindings.ts",
+	"layers/agent-orchestration/src/services/calling-thread-bindings.ts",
+	"layers/agent-orchestration/src/services/run-orchestration-composition.ts",
+];
+
+let diBindingsCache: Map<string, DiBinding[]> | null = null;
+export function collectDiBindings(): Map<string, DiBinding[]> {
+	if (diBindingsCache) return diBindingsCache;
+	const index = new Map<string, DiBinding[]>();
+	const add = (name: string, binding: DiBinding): void => {
+		const list = index.get(name) ?? [];
+		list.push(binding);
+		index.set(name, list);
+	};
+	for (const file of DI_BINDING_FILES) {
+		if (!existsSync(file)) continue;
+		const sf = parse(file);
+		const visit = (node: ts.Node, via: string): void => {
+			if (ts.isObjectLiteralExpression(node)) {
+				for (const prop of node.properties) {
+					let name: string | null = null;
+					let value: ts.Expression | null = null;
+					if (ts.isPropertyAssignment(prop) && ts.isIdentifier(prop.name)) {
+						name = prop.name.text;
+						value = prop.initializer;
+					} else if (ts.isShorthandPropertyAssignment(prop)) {
+						name = prop.name.text;
+						value = prop.name;
+					}
+					if (!name || !value) continue;
+					const propVia = via ? `${via}.${name}` : name;
+					const unwrapped = unwrap(value);
+					if (ts.isArrowFunction(unwrapped) || ts.isFunctionExpression(unwrapped)) {
+						add(name, { name, file, anchor: unwrapped.body, via: propVia });
+					} else if (ts.isObjectLiteralExpression(unwrapped)) {
+						visit(unwrapped, propVia);
+					} else if (ts.isIdentifier(unwrapped)) {
+						const local = allScopeFns(file).get(unwrapped.text);
+						if (local) {
+							add(name, { name, file, anchor: local, via: propVia });
+						} else {
+							const res = resolveImportedSymbol(file, unwrapped.text, null);
+							if (res) {
+								const body = topLevelFns(res.file).get(res.name);
+								if (body) add(name, { name, file: res.file, anchor: body, via: propVia });
+							}
+						}
+					}
+				}
+				return;
+			}
+			ts.forEachChild(node, (child) => visit(child, via));
+		};
+		visit(sf, "");
+	}
+	diBindingsCache = index;
+	return index;
+}
+
 // ── fingerprints ─────────────────────────────────────────────────────────────
 
 export interface Fingerprint {
@@ -893,8 +966,26 @@ export function fingerprint(anchor: ts.Node, file: string): Fingerprint {
 	};
 	const known = knownEventTypes();
 	const schemaSymbols = schemaTableSymbols();
+	const diBindings = collectDiBindings();
 	const visited = new Set<string>();
 	const MAX_DEPTH = 4;
+	const INJECTED_BASE = /^(deps|ports|options|bindings|dependencies)$|Deps$|Ports$/;
+
+	const followDi = (leafName: string, depth: number): void => {
+		if (depth >= MAX_DEPTH) return;
+		const bindings = diBindings.get(leafName);
+		if (!bindings) return;
+		let followed = 0;
+		for (const b of bindings) {
+			if (followed >= 3) break;
+			const key = `di:${b.file}:${b.via}`;
+			if (visited.has(key)) continue;
+			visited.add(key);
+			followed++;
+			fp.calls.add(`di:${leafName}`);
+			scan(b.anchor, b.file, depth + 1);
+		}
+	};
 
 	const follow = (name: string, curFile: string, namespace: string | null, depth: number): void => {
 		if (depth >= MAX_DEPTH) return;
@@ -922,7 +1013,10 @@ export function fingerprint(anchor: ts.Node, file: string): Fingerprint {
 		if (visited.has(xkey)) return;
 		visited.add(xkey);
 		const res = resolveImportedSymbol(curFile, name, namespace);
-		if (!res) return;
+		if (!res) {
+			if (namespace && INJECTED_BASE.test(namespace)) followDi(name, depth);
+			return;
+		}
 		const body = topLevelFns(res.file).get(res.name);
 		if (body) scan(body, res.file, depth + 1);
 	};
@@ -988,6 +1082,9 @@ export function fingerprint(anchor: ts.Node, file: string): Fingerprint {
 					}
 					if (ts.isIdentifier(callee.expression)) {
 						follow(name, curFile, callee.expression.text, depth);
+					}
+					if (chain.length >= 2 && INJECTED_BASE.test(chain[0] ?? "")) {
+						followDi(name, depth);
 					}
 				}
 			}
