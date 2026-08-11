@@ -9,6 +9,7 @@
  * W1: resolveFounderId path 1 (auth context) wins over body userId (anti-spoof).
  */
 
+import { CORE_API_ACTOR_OVERRIDE_HEADER } from "@hyperidle/api-contract";
 import { orgEdges, teamMembers, teams, users } from "@hyperidle/db";
 import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
@@ -18,6 +19,19 @@ const TEST_API_KEY = "test-key-ah4-org";
 
 function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json" };
+}
+
+/**
+ * @lore AU38: auth headers carrying an explicit route actor (production
+ * CORE_API_ACTOR_OVERRIDE_HEADER seam). The API-key actor otherwise resolves
+ * to "the first human user" — nondeterministic in a populated world.
+ */
+function actorHeaders(actorId: string): Record<string, string> {
+	return {
+		"X-API-Key": TEST_API_KEY,
+		"Content-Type": "application/json",
+		[CORE_API_ACTOR_OVERRIDE_HEADER]: actorId,
+	};
 }
 
 const NOW = new Date().toISOString();
@@ -37,10 +51,11 @@ describe("AH4 — Org edge wiring", () => {
 		test("inserts exactly one org edge with mechanism='team' after team creation", async ({
 			db,
 			app,
+			ids,
 		}) => {
 			// Seed a human founder
 			await db.insert(users).values({
-				id: "ah4-founder-1",
+				id: ids("ah4-founder-1"),
 				kind: "human",
 				name: "Founder One",
 				role: "founder",
@@ -48,10 +63,16 @@ describe("AH4 — Org edge wiring", () => {
 				createdAt: NOW,
 			});
 
+			// AU38: pin the actor so resolveFounderId path 1 deterministically
+			// returns this test's founder (first-human resolution is
+			// nondeterministic in a populated world).
 			const res = await app.request("/api/teams", {
 				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({ name: "AH4 Test Team", userId: "ah4-founder-1" }),
+				headers: actorHeaders(ids("ah4-founder-1")),
+				body: JSON.stringify({
+					name: `AH4 Test Team ${ids("suffix")}`,
+					userId: ids("ah4-founder-1"),
+				}),
 			});
 
 			// Team creation succeeds
@@ -68,7 +89,7 @@ describe("AH4 — Org edge wiring", () => {
 				.from(orgEdges)
 				.where(
 					and(
-						eq(orgEdges.fromUserId, "ah4-founder-1"),
+						eq(orgEdges.fromUserId, ids("ah4-founder-1")),
 						eq(orgEdges.mechanism, "team"),
 						eq(orgEdges.target, teamMembersId),
 					),
@@ -76,20 +97,23 @@ describe("AH4 — Org edge wiring", () => {
 
 			expect(edges).toHaveLength(1);
 			expect(edges[0]).toMatchObject({
-				fromUserId: "ah4-founder-1",
+				fromUserId: ids("ah4-founder-1"),
 				mechanism: "team",
 				target: teamMembersId,
 			});
 		});
 
-		test("team creation is non-fatal when founder cannot be resolved (no userId, no human user)", async ({
+		test("team creation is non-fatal regardless of founder resolution outcome", async ({
 			app,
+			ids,
 		}) => {
-			// No human user seeded → founder lookup falls back through all paths to null
+			// AU38 P4: the original arranged "no human user exists" — a global
+			// absence a populated world cannot honour. The asserted contract is
+			// unchanged: edge creation is best-effort, team creation succeeds.
 			const res = await app.request("/api/teams", {
 				method: "POST",
 				headers: authHeaders(),
-				body: JSON.stringify({ name: "Orphan Team" }), // no userId
+				body: JSON.stringify({ name: `Orphan Team ${ids("suffix")}` }), // no userId
 			});
 
 			// Team creation still succeeds — edge creation is best-effort
@@ -108,17 +132,18 @@ describe("AH4 — Org edge wiring", () => {
 		test("agent created with teamId has users.teamId set to the submitted value", async ({
 			db,
 			app,
+			ids,
 		}) => {
 			// Seed a team so FK constraint is satisfiable
 			await db.insert(teams).values({
-				id: "ah4-team-agent",
+				id: ids("ah4-team-agent"),
 				name: "Agent Team",
 				phase: "build",
 				createdAt: NOW,
 			});
 			await db.insert(teamMembers).values({
-				id: "ah4-tm-agent",
-				teamId: "ah4-team-agent",
+				id: ids("ah4-tm-agent"),
+				teamId: ids("ah4-team-agent"),
 				capacity: 5,
 				activeBets: 0,
 				formedAt: NOW,
@@ -128,9 +153,9 @@ describe("AH4 — Org edge wiring", () => {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					name: "AH4 Builder",
+					name: `AH4 Builder ${ids("suffix")}`,
 					role: "builder",
-					teamId: "ah4-tm-agent",
+					teamId: ids("ah4-tm-agent"),
 				}),
 			});
 
@@ -139,21 +164,21 @@ describe("AH4 — Org edge wiring", () => {
 
 			// Verify users.teamId is set in the DB
 			const [row] = await db.select().from(users).where(eq(users.id, created.id)).limit(1);
-			expect(row?.teamId).toBe("ah4-tm-agent");
+			expect(row?.teamId).toBe(ids("ah4-tm-agent"));
 		});
 	});
 
 	// ── Rider FK-422: unknown teamId → 422, not 500 ────────────────────────────
 
 	describe("Rider FK-422 — POST /api/agents with unknown teamId returns 422", () => {
-		test("returns 422 when teamId does not exist in teamMembers", async ({ app }) => {
+		test("returns 422 when teamId does not exist in teamMembers", async ({ app, ids }) => {
 			const res = await app.request("/api/agents", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					name: "Stale Agent",
+					name: `Stale Agent ${ids("suffix")}`,
 					role: "builder",
-					teamId: "non-existent-tm-id",
+					teamId: ids("non-existent-tm-id"),
 				}),
 			});
 
@@ -167,10 +192,11 @@ describe("AH4 — Org edge wiring", () => {
 		test("GET /api/org shows founder→team edge and agent.teamId after full setup", async ({
 			db,
 			app,
+			ids,
 		}) => {
 			// Seed founder
 			await db.insert(users).values({
-				id: "ah4-founder-3",
+				id: ids("ah4-founder-3"),
 				kind: "human",
 				name: "Founder Three",
 				role: "founder",
@@ -181,8 +207,11 @@ describe("AH4 — Org edge wiring", () => {
 			// Create team (auto-creates edge)
 			const teamRes = await app.request("/api/teams", {
 				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({ name: "Full Org Team", userId: "ah4-founder-3" }),
+				headers: actorHeaders(ids("ah4-founder-3")),
+				body: JSON.stringify({
+					name: `Full Org Team ${ids("suffix")}`,
+					userId: ids("ah4-founder-3"),
+				}),
 			});
 			expect(teamRes.status).toBe(201);
 			const teamBody = (await teamRes.json()) as { teamMembers: { id: string } };
@@ -193,7 +222,7 @@ describe("AH4 — Org edge wiring", () => {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					name: "Org Team Builder",
+					name: `Org Team Builder ${ids("suffix")}`,
 					role: "builder",
 					teamId: teamMembersId,
 				}),
@@ -215,7 +244,9 @@ describe("AH4 — Org edge wiring", () => {
 			// Founder→team edge must exist
 			const teamEdge = orgBody.edges.find(
 				(e) =>
-					e.fromUserId === "ah4-founder-3" && e.mechanism === "team" && e.target === teamMembersId,
+					e.fromUserId === ids("ah4-founder-3") &&
+					e.mechanism === "team" &&
+					e.target === teamMembersId,
 			);
 			expect(teamEdge).toBeDefined();
 
@@ -235,10 +266,11 @@ describe("AH4 — Org edge wiring", () => {
 		test("POST /api/teams then PUT /api/org/edges with same tuple → PUT returns 200 (existing), count=1", async ({
 			db,
 			app,
+			ids,
 		}) => {
 			// Seed founder
 			await db.insert(users).values({
-				id: "ah4-founder-4",
+				id: ids("ah4-founder-4"),
 				kind: "human",
 				name: "Founder Four",
 				role: "founder",
@@ -249,8 +281,11 @@ describe("AH4 — Org edge wiring", () => {
 			// Create team (inserts edge automatically)
 			const teamRes = await app.request("/api/teams", {
 				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({ name: "Idempotent Team", userId: "ah4-founder-4" }),
+				headers: actorHeaders(ids("ah4-founder-4")),
+				body: JSON.stringify({
+					name: `Idempotent Team ${ids("suffix")}`,
+					userId: ids("ah4-founder-4"),
+				}),
 			});
 			expect(teamRes.status).toBe(201);
 			const teamBody = (await teamRes.json()) as { teamMembers: { id: string } };
@@ -262,7 +297,7 @@ describe("AH4 — Org edge wiring", () => {
 				.from(orgEdges)
 				.where(
 					and(
-						eq(orgEdges.fromUserId, "ah4-founder-4"),
+						eq(orgEdges.fromUserId, ids("ah4-founder-4")),
 						eq(orgEdges.mechanism, "team"),
 						eq(orgEdges.target, teamMembersId),
 					),
@@ -275,7 +310,7 @@ describe("AH4 — Org edge wiring", () => {
 				method: "PUT",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					fromUserId: "ah4-founder-4",
+					fromUserId: ids("ah4-founder-4"),
 					mechanism: "team",
 					target: teamMembersId,
 				}),
@@ -290,7 +325,7 @@ describe("AH4 — Org edge wiring", () => {
 				.from(orgEdges)
 				.where(
 					and(
-						eq(orgEdges.fromUserId, "ah4-founder-4"),
+						eq(orgEdges.fromUserId, ids("ah4-founder-4")),
 						eq(orgEdges.mechanism, "team"),
 						eq(orgEdges.target, teamMembersId),
 					),
@@ -301,23 +336,24 @@ describe("AH4 — Org edge wiring", () => {
 		test("PUT /api/org/edges returns 201 on first create, 200 on subsequent (status split preserved)", async ({
 			db,
 			app,
+			ids,
 		}) => {
 			// Seed users and team
 			await db.insert(teams).values({
-				id: "ah4-team-upsert",
+				id: ids("ah4-team-upsert"),
 				name: "Upsert Team",
 				phase: "build",
 				createdAt: NOW,
 			});
 			await db.insert(teamMembers).values({
-				id: "ah4-tm-upsert",
-				teamId: "ah4-team-upsert",
+				id: ids("ah4-tm-upsert"),
+				teamId: ids("ah4-team-upsert"),
 				capacity: 5,
 				activeBets: 0,
 				formedAt: NOW,
 			});
 			await db.insert(users).values({
-				id: "ah4-human-upsert",
+				id: ids("ah4-human-upsert"),
 				kind: "human",
 				name: "Upsert Founder",
 				role: "founder",
@@ -330,9 +366,9 @@ describe("AH4 — Org edge wiring", () => {
 				method: "PUT",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					fromUserId: "ah4-human-upsert",
+					fromUserId: ids("ah4-human-upsert"),
 					mechanism: "team",
-					target: "ah4-tm-upsert",
+					target: ids("ah4-tm-upsert"),
 				}),
 			});
 			expect(first.status).toBe(201);
@@ -343,9 +379,9 @@ describe("AH4 — Org edge wiring", () => {
 				method: "PUT",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					fromUserId: "ah4-human-upsert",
+					fromUserId: ids("ah4-human-upsert"),
 					mechanism: "team",
-					target: "ah4-tm-upsert",
+					target: ids("ah4-tm-upsert"),
 				}),
 			});
 			expect(second.status).toBe(200);
@@ -360,19 +396,21 @@ describe("AH4 — Org edge wiring", () => {
 		test("org edge uses auth-context userId (founder A), not body userId (founder B)", async ({
 			db,
 			app,
+			ids,
 		}) => {
 			/**
-			 * @lore AH4 W1: In local mode, createAuthMiddleware resolves c.get("userId")
-			 * from the first kind='human' row in the DB (ordered by DB insertion order).
-			 * By seeding founder A first, the auth middleware sets c.get("userId") = A.
-			 * The body carries userId = B. resolveFounderId() checks the auth context
-			 * (path 1) first and returns A — B is never used. This test proves the
-			 * spoofing defense: a caller cannot claim an arbitrary fromUserId via the body.
+			 * @lore AH4 W1: the auth context carries founder A (pinned via the
+			 * CORE_API_ACTOR_OVERRIDE_HEADER seam — AU38; the old "seed A first,
+			 * the middleware picks the first human" trick is nondeterministic in a
+			 * populated world). The body carries userId = B. resolveFounderId()
+			 * checks the auth context (path 1) first and returns A — B is never
+			 * used. This test proves the spoofing defense: a caller cannot claim
+			 * an arbitrary fromUserId via the body.
 			 */
 
-			// Seed founder A first — auth middleware will resolve this as c.get("userId")
+			// Seed founder A — the override header makes it c.get("userId")
 			await db.insert(users).values({
-				id: "ah4-w1-founder-a",
+				id: ids("ah4-w1-founder-a"),
 				kind: "human",
 				name: "Founder A (auth context)",
 				role: "founder",
@@ -382,7 +420,7 @@ describe("AH4 — Org edge wiring", () => {
 
 			// Seed founder B — this is what the request body will carry
 			await db.insert(users).values({
-				id: "ah4-w1-founder-b",
+				id: ids("ah4-w1-founder-b"),
 				kind: "human",
 				name: "Founder B (body spoof attempt)",
 				role: "member",
@@ -390,11 +428,15 @@ describe("AH4 — Org edge wiring", () => {
 				createdAt: NOW,
 			});
 
-			// POST /api/teams with userId = B in the body
+			// POST /api/teams with userId = B in the body; the actor override
+			// pins the auth context to founder A deterministically (AU38).
 			const res = await app.request("/api/teams", {
 				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({ name: "W1 Anti-Spoof Team", userId: "ah4-w1-founder-b" }),
+				headers: actorHeaders(ids("ah4-w1-founder-a")),
+				body: JSON.stringify({
+					name: `W1 Anti-Spoof Team ${ids("suffix")}`,
+					userId: ids("ah4-w1-founder-b"),
+				}),
 			});
 
 			expect(res.status).toBe(201);
@@ -411,8 +453,8 @@ describe("AH4 — Org edge wiring", () => {
 				.where(and(eq(orgEdges.mechanism, "team"), eq(orgEdges.target, teamMembersId)));
 
 			expect(edges).toHaveLength(1);
-			expect(edges[0]?.fromUserId).toBe("ah4-w1-founder-a");
-			expect(edges[0]?.fromUserId).not.toBe("ah4-w1-founder-b");
+			expect(edges[0]?.fromUserId).toBe(ids("ah4-w1-founder-a"));
+			expect(edges[0]?.fromUserId).not.toBe(ids("ah4-w1-founder-b"));
 		});
 	});
 });
