@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { defineConfig } from "vitest/config";
 
 /**
@@ -44,6 +45,16 @@ const HARNESS_INCLUDE = [
 
 export default defineConfig({
 	test: {
+		// @lore affected-determinism (see vitest.config.ts): absolute literal triggers,
+		// never `**` globs — picomatch's `**` won't cross dot-directories (`.worktrees`),
+		// so glob triggers fire in CI/dot-free checkouts but not in worktrees, making
+		// `--changed` selection depend on checkout location. The integration setup file
+		// is loaded outside the import graph, so the affected dep-walk never sees it.
+		forceRerunTriggers: [
+			join(import.meta.dirname, "package-lock.json"),
+			join(import.meta.dirname, "vitest.integration.config.ts"),
+			join(import.meta.dirname, "framework/db/src/__testing__/vitest-integration-setup.ts"),
+		],
 		hookTimeout: 120_000,
 		testTimeout: 120_000,
 		reporters: ["dot"],
