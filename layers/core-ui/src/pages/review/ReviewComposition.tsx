@@ -1,4 +1,4 @@
-import { Composer, SplitView } from "@hyperidle/design-system";
+import { Composer, PageScaffold, SplitView } from "@hyperidle/design-system";
 import {
 	type AnchorRef,
 	type VerdictDecision,
@@ -647,33 +647,41 @@ function ExaminePane({
 	const Canvas = getReviewCanvas(artifact.kind);
 	return (
 		// AM5 T6: w-[620px] + border-l REMOVED — ExaminePane now fills its SplitView destination slot.
+		// @lore AZ2: <aside> keeps the landmark + surface background; <PageScaffold>
+		// nested inside owns the pinned-header/scroll-body contract. Without it,
+		// ExaminePane's own scroll region would double up with SplitView's
+		// destination wrapper (SplitView.tsx:253, `min-h-0 flex-1 overflow-auto`
+		// around {destination}) — two nested scroll containers, and the header
+		// above would scroll away with the outer one instead of staying pinned.
 		<aside className="flex h-full flex-col bg-[var(--surface-container)]">
-			<div className="flex items-center gap-[9px] border-b border-[var(--border-subtle)] bg-[var(--surface-page)] px-[18px] py-[12px]">
-				<KindBadge kind={artifact.kind} />
-				<ToolLogo tool={artifact.tool as ToolId} size="sm" />
-				<span className="min-w-0 flex-1 truncate font-mono text-[13px] font-[600] text-[var(--text-primary)]">
-					{artifact.title}
-				</span>
-				<button
-					type="button"
-					onClick={() => {
-						/* no-op */
-					}}
-					className="rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[var(--surface-elevated)] px-[10px] py-[5px] text-[12px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)]"
-				>
-					Comment on this
-				</button>
-				<button
-					type="button"
-					aria-label="Close artifact"
-					onClick={onClose}
-					className="inline-flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[var(--surface-elevated)] text-[14px] leading-none text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)]"
-				>
-					✕
-				</button>
-			</div>
-
-			<div className="min-h-0 flex-1 overflow-auto">
+			<PageScaffold
+				header={
+					<div className="flex items-center gap-[9px] border-b border-[var(--border-subtle)] bg-[var(--surface-page)] px-[18px] py-[12px]">
+						<KindBadge kind={artifact.kind} />
+						<ToolLogo tool={artifact.tool as ToolId} size="sm" />
+						<span className="min-w-0 flex-1 truncate font-mono text-[13px] font-[600] text-[var(--text-primary)]">
+							{artifact.title}
+						</span>
+						<button
+							type="button"
+							onClick={() => {
+								/* no-op */
+							}}
+							className="rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[var(--surface-elevated)] px-[10px] py-[5px] text-[12px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)]"
+						>
+							Comment on this
+						</button>
+						<button
+							type="button"
+							aria-label="Close artifact"
+							onClick={onClose}
+							className="inline-flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[var(--surface-elevated)] text-[14px] leading-none text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)]"
+						>
+							✕
+						</button>
+					</div>
+				}
+			>
 				<div className="flex flex-col gap-[18px] p-[18px]">
 					{/* AL7 trust-first: action_operation canvases receive status+outcome from the
 					    loader via ComposedReviewArtifact.proposedCall (trust-first model).
@@ -689,7 +697,7 @@ function ExaminePane({
 						<Canvas artifact={artifact} />
 					)}
 				</div>
-			</div>
+			</PageScaffold>
 		</aside>
 	);
 }
@@ -748,16 +756,26 @@ export function ReviewComposition({
 
 	// AM5 T6: ExaminePane reconciled onto SplitView (surfaceKey="review").
 	// The review list is the origin; ExaminePane fills the destination.
+	//
+	// @lore AZ2: reviewListPane is a self-contained header+scroll-body unit —
+	// exactly PageScaffold's shape — used in the two same positions WorkTeam's
+	// pre-AZ2 teamBody used to occupy (standalone, and as a SplitView origin).
+	// The outer bg-[var(--surface-page)]/text-[var(--text-primary)] surface
+	// classes stay on a thin wrapper (PageScaffold's own root has no className
+	// prop) so the card's visual surface is unchanged.
 	const reviewListPane = (
-		<div className="flex h-full flex-col bg-[var(--surface-page)] text-[var(--text-primary)]">
-			<FrameHeader
-				subject={subject}
-				menuOpen={menuOpen}
-				onToggleMenu={() => setMenuOpen((v) => !v)}
-				onSubmitVerdict={onSubmitVerdict}
-				resolved={resolved}
-			/>
-			<div className="min-h-0 flex-1 overflow-auto">
+		<div className="h-full bg-[var(--surface-page)] text-[var(--text-primary)]">
+			<PageScaffold
+				header={
+					<FrameHeader
+						subject={subject}
+						menuOpen={menuOpen}
+						onToggleMenu={() => setMenuOpen((v) => !v)}
+						onSubmitVerdict={onSubmitVerdict}
+						resolved={resolved}
+					/>
+				}
+			>
 				<div className="flex max-w-[920px] flex-col gap-[36px] px-[24px] py-[24px]">
 					<TaskSection subject={subject} />
 					<ResultSection subject={subject} />
@@ -770,7 +788,7 @@ export function ReviewComposition({
 						resolved={resolved}
 					/>
 				</div>
-			</div>
+			</PageScaffold>
 		</div>
 	);
 

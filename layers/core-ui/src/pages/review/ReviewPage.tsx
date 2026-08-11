@@ -1,3 +1,4 @@
+import { PageScaffold } from "@hyperidle/design-system";
 import type {
 	AnchorRef,
 	BlockId,
@@ -200,14 +201,17 @@ export function ReviewPage({ loader = defaultLoader }: ReviewPageProps = {}): JS
 	}
 
 	return (
-		<div className="h-full">
+		// @lore AZ2: ReviewComposition already owns its own scroll contract
+		// internally (reviewListPane / ExaminePane both nest <PageScaffold>) — it
+		// only needs a bounded flex column to size against, the managed body's job.
+		<PageScaffold body="managed">
 			<ReviewComposition
 				subject={reviewSubject}
 				onSubmitVerdict={handleSubmitVerdict}
 				onPostComment={user ? handlePostComment : undefined}
 				threadId={hostThread.data?.thread.id ?? ""}
 			/>
-		</div>
+		</PageScaffold>
 	);
 }
 
