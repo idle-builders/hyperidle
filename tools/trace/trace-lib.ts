@@ -27,14 +27,10 @@ export function schemaTableSymbols(): Set<string> {
 	return out;
 }
 
-export function toSnake(name: string): string {
-	return name.replace(/([A-Z])/g, "_$1").toLowerCase();
-}
-
 export function knownEventTypes(): Set<string> {
 	const src = readFileSync(EVENTS_FILE, "utf8");
 	const out = new Set<string>();
-	for (const m of src.matchAll(/type:\s*"([a-z_]+)"/g)) out.add(m[1]);
+	for (const m of src.matchAll(/type:\s*"([a-z_]+)"/g)) if (m[1]) out.add(m[1]);
 	return out;
 }
 
@@ -1045,7 +1041,8 @@ export function fingerprint(anchor: ts.Node, file: string): Fingerprint {
 					const chain = calleeChain(callee);
 					const joined = chain.join(".");
 					fp.calls.add(joined);
-					fp.calls.add(chain[chain.length - 1]);
+					const leafCall = chain[chain.length - 1];
+					if (leafCall) fp.calls.add(leafCall);
 					const name = callee.name.text;
 					const arg0 = n.arguments[0];
 					if (name === "emit") {

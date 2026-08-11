@@ -91,7 +91,7 @@ export const DETECTOR_FLOORS: readonly DetectorFloor[] = [
 	{ kind: "manifest", min: 223, floorKind: "magnitude" },
 	{ kind: "di", min: 220, floorKind: "magnitude" },
 	{ kind: "api", min: 184, floorKind: "magnitude" },
-	{ kind: "mcp", min: 22, floorKind: "magnitude" },
+	{ kind: "mcp", min: 28, floorKind: "magnitude" },
 	{ kind: "event", min: 216, floorKind: "magnitude" },
 	// The thinnest detector in the set, and the one most able to lose half its coverage without
 	// tripping. Treat it as a tripwire, not a boundary. It is the one floor NOT moved to the middle of

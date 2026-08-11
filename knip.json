@@ -129,6 +129,15 @@
 		},
 		"tools/setup": {
 			"entry": ["src/setup-cli.ts!", "src/bootstrap-pg.ts!", "src/seed-pg-cli.ts!"]
+		},
+		"tools/trace": {
+			"entry": [
+				"mcp-server.ts!",
+				"trace-build.ts!",
+				"trace-doors.ts!",
+				"trace-events.ts!",
+				"trace-uses.ts!"
+			]
 		}
 	}
 }
