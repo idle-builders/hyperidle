@@ -103,7 +103,6 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/routes/__tests__/AF11-authz.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/AF14-threads.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/knowledge.q2.integration.test.ts`
-- `layers/core-api/src/routes/__tests__/threads.routes.integration.test.ts`
 - `layers/core-api/src/services/__tests__/agent-orchestration-port-writes.integration.test.ts`
 - `layers/core-api/src/services/__tests__/agent-run-admission-failed-knowledge-action-migration.integration.test.ts`
 - `layers/core-api/src/services/__tests__/agent-run-admission-failed-reengagement-migration.integration.test.ts`

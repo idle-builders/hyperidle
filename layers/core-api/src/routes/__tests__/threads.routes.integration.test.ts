@@ -13,7 +13,9 @@
  *  - plan §11 (security/abuse cases)
  */
 
+import { CORE_API_ACTOR_OVERRIDE_HEADER } from "@hyperidle/api-contract";
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { type DomainEvent, HOST_KINDS, MESSAGE_TYPES } from "@hyperidle/domain-model";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -28,22 +30,32 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	};
 }
 
-async function seedBase(db: HyperIdleDb): Promise<void> {
+/**
+ * @lore AU38: auth headers pinning the route actor via the production
+ * CORE_API_ACTOR_OVERRIDE_HEADER seam — the API-key actor otherwise resolves
+ * to "the first human user", nondeterministic in a populated world. Verdict
+ * authorization depends on WHO the principal is, so those tests pin it.
+ */
+function actorHeaders(actorId: string, extra?: Record<string, string>): Record<string, string> {
+	return authHeaders({ [CORE_API_ACTOR_OVERRIDE_HEADER]: actorId, ...extra });
+}
+
+async function seedBase(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: now });
+	await db.insert(teams).values({ id: ids("p1"), name: "P", phase: "build", createdAt: now });
 	await db.insert(teamMembers).values({
-		id: "t1",
-		teamId: "p1",
+		id: ids("t1"),
+		teamId: ids("p1"),
 		capacity: 5,
 		activeBets: 0,
 		formedAt: now,
 	});
 
-	// "u-founder" is the founder participant; "agent-1" is an agent.
-	// @lore AF11-IDOR: kind="human" added so auth middleware resolves "u-founder"
+	// ids("u-founder") is the founder participant; ids("agent-1") is an agent.
+	// @lore AF11-IDOR: kind="human" added so auth middleware resolves ids("u-founder")
 	// as the authenticated principal via `users WHERE kind = 'human' LIMIT 1`.
 	await db.insert(users).values({
-		id: "u-founder",
+		id: ids("u-founder"),
 		kind: "human",
 		name: "Founder",
 		role: "founder",
@@ -51,14 +63,14 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		createdAt: now,
 	});
 	await db.insert(users).values({
-		id: "agent-1",
+		id: ids("agent-1"),
 		name: "Agent",
 		role: "builder",
 		status: "active",
 		createdAt: now,
 	});
 	await db.insert(users).values({
-		id: "agent-2",
+		id: ids("agent-2"),
 		name: "Other Agent",
 		role: "builder",
 		status: "active",
@@ -66,8 +78,8 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	});
 	// A bet + task for host_kind='task' threads.
 	await db.insert(bets).values({
-		id: "bet-x",
-		teamId: "p1",
+		id: ids("bet-x"),
+		teamId: ids("p1"),
 		description: "x",
 		appetite: "small",
 		status: "active",
@@ -75,9 +87,9 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	});
 
 	await db.insert(tasks).values({
-		id: "task-1",
-		betId: "bet-x",
-		teamId: "p1",
+		id: ids("task-1"),
+		betId: ids("bet-x"),
+		teamId: ids("p1"),
 		title: "T",
 		state: "in_progress",
 		createdAt: now,
@@ -105,15 +117,16 @@ describe("AC-7 / AC-10 — POST /api/threads creates a thread per host_kind", ()
 		test(`accepts host_kind='${hostKind}' and round-trips it through GET /api/threads/:id`, async ({
 			db,
 			app,
+			ids,
 		}) => {
-			await seedBase(db);
+			await seedBase(db, ids);
 			const res = await app.request("/api/threads", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
 					hostKind,
 					hostId: `${hostKind}-host-id-1`,
-					participants: ["u-founder", "agent-1"],
+					participants: [ids("u-founder"), ids("agent-1")],
 					initialMessage: {
 						type: "plain",
 						payload: { text: "hello" },
@@ -155,16 +168,20 @@ describe("AC-12 — POST /api/threads/:id/messages round-trips every MessageType
 	});
 
 	for (const type of MESSAGE_TYPES) {
-		test(`POST /api/threads/:id/messages with type='${type}' round-trips`, async ({ db, app }) => {
-			await seedBase(db);
+		test(`POST /api/threads/:id/messages with type='${type}' round-trips`, async ({
+			db,
+			app,
+			ids,
+		}) => {
+			await seedBase(db, ids);
 
 			const create = await app.request("/api/threads", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
 					hostKind: "task",
-					hostId: "task-1",
-					participants: ["u-founder", "agent-1"],
+					hostId: ids("task-1"),
+					participants: [ids("u-founder"), ids("agent-1")],
 					initialMessage: {
 						type: "review",
 						payload: validReviewPayload,
@@ -245,15 +262,16 @@ describe("Idempotency on (thread_id, sender_id, client_key)", () => {
 	test("re-POST with the same clientKey returns the existing message id, no duplicate row", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedBase(db);
+		await seedBase(db, ids);
 		const create = await app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
 				hostKind: "user",
-				hostId: "u-founder",
-				participants: ["u-founder"],
+				hostId: ids("u-founder"),
+				participants: [ids("u-founder")],
 				pinned: true,
 				initialMessage: {
 					type: "plain",
@@ -306,15 +324,16 @@ describe("Idempotency on (thread_id, sender_id, client_key)", () => {
 	test("re-POST with same clientKey but a DIFFERENT payload returns 409 idempotency_conflict (Adv-C3)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedBase(db);
+		await seedBase(db, ids);
 		const create = await app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
 				hostKind: "user",
-				hostId: "u-founder",
-				participants: ["u-founder"],
+				hostId: ids("u-founder"),
+				participants: [ids("u-founder")],
 				pinned: true,
 				initialMessage: {
 					type: "plain",
@@ -354,15 +373,16 @@ describe("Idempotency on (thread_id, sender_id, client_key)", () => {
 	test("two senders with the same clientKey both succeed (per-sender dedupe namespace)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedBase(db);
+		await seedBase(db, ids);
 		const create = await app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
 				hostKind: "user",
-				hostId: "u-founder",
-				participants: ["u-founder"],
+				hostId: ids("u-founder"),
+				participants: [ids("u-founder")],
 				pinned: true,
 				initialMessage: {
 					type: "plain",
@@ -378,7 +398,7 @@ describe("Idempotency on (thread_id, sender_id, client_key)", () => {
 		// the same clientKey by design".
 		const a = await app.request(`/api/threads/${threadId}/messages`, {
 			method: "POST",
-			headers: authHeaders({ "X-Identity": "u-founder" }),
+			headers: authHeaders({ "X-Identity": ids("u-founder") }),
 			body: JSON.stringify({
 				type: "plain",
 				payload: { text: "from founder" },
@@ -402,8 +422,12 @@ describe("clientKey validation (plan §6.1 + §11)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("returns 400 when clientKey is too short (<8 chars, plan §6.1)", async ({ db, app }) => {
-		await seedBase(db);
+	test("returns 400 when clientKey is too short (<8 chars, plan §6.1)", async ({
+		db,
+		app,
+		ids,
+	}) => {
+		await seedBase(db, ids);
 		// L1 step9 (Arch): the plan requires min(8). The schema previously
 		// accepted any non-empty value; this test pins the min(8) contract.
 		const res = await app.request("/api/threads", {
@@ -411,8 +435,8 @@ describe("clientKey validation (plan §6.1 + §11)", () => {
 			headers: authHeaders(),
 			body: JSON.stringify({
 				hostKind: "user",
-				hostId: "u-founder",
-				participants: ["u-founder"],
+				hostId: ids("u-founder"),
+				participants: [ids("u-founder")],
 				initialMessage: {
 					type: "plain",
 					payload: { text: "x" },
@@ -423,15 +447,15 @@ describe("clientKey validation (plan §6.1 + §11)", () => {
 		expect(res.status).toBe(400);
 	});
 
-	test("returns 400 when initial-message clientKey is empty", async ({ db, app }) => {
-		await seedBase(db);
+	test("returns 400 when initial-message clientKey is empty", async ({ db, app, ids }) => {
+		await seedBase(db, ids);
 		const res = await app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
 				hostKind: "user",
-				hostId: "u-founder",
-				participants: ["u-founder"],
+				hostId: ids("u-founder"),
+				participants: [ids("u-founder")],
 				initialMessage: {
 					type: "plain",
 					payload: { text: "x" },
@@ -442,15 +466,15 @@ describe("clientKey validation (plan §6.1 + §11)", () => {
 		expect(res.status).toBe(400);
 	});
 
-	test("returns 400 when clientKey is too long (>128)", async ({ db, app }) => {
-		await seedBase(db);
+	test("returns 400 when clientKey is too long (>128)", async ({ db, app, ids }) => {
+		await seedBase(db, ids);
 		const res = await app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
 				hostKind: "user",
-				hostId: "u-founder",
-				participants: ["u-founder"],
+				hostId: ids("u-founder"),
+				participants: [ids("u-founder")],
 				initialMessage: {
 					type: "plain",
 					payload: { text: "x" },
@@ -461,15 +485,19 @@ describe("clientKey validation (plan §6.1 + §11)", () => {
 		expect(res.status).toBe(400);
 	});
 
-	test("returns 400 when clientKey contains whitespace (URL-safe regex)", async ({ db, app }) => {
-		await seedBase(db);
+	test("returns 400 when clientKey contains whitespace (URL-safe regex)", async ({
+		db,
+		app,
+		ids,
+	}) => {
+		await seedBase(db, ids);
 		const res = await app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
 				hostKind: "user",
-				hostId: "u-founder",
-				participants: ["u-founder"],
+				hostId: ids("u-founder"),
+				participants: [ids("u-founder")],
 				initialMessage: {
 					type: "plain",
 					payload: { text: "x" },
@@ -480,15 +508,15 @@ describe("clientKey validation (plan §6.1 + §11)", () => {
 		expect(res.status).toBe(400);
 	});
 
-	test("accepts a UUIDv4-style clientKey", async ({ db, app }) => {
-		await seedBase(db);
+	test("accepts a UUIDv4-style clientKey", async ({ db, app, ids }) => {
+		await seedBase(db, ids);
 		const res = await app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
 				hostKind: "user",
-				hostId: "u-founder",
-				participants: ["u-founder"],
+				hostId: ids("u-founder"),
+				participants: [ids("u-founder")],
 				initialMessage: {
 					type: "plain",
 					payload: { text: "x" },
@@ -516,18 +544,19 @@ describe("Verdict authorization (plan §6.1 REVISED for adversary C4)", () => {
 	test("auth principal self-verdicting their own review → 403 verdict_authorization", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedBase(db);
+		await seedBase(db, ids);
 
 		// Create a review attributed to u-founder (the auth principal).
-		// X-Identity: "u-founder" on POST /api/threads still works (attribution, not authz).
+		// X-Identity: ids("u-founder") on POST /api/threads still works (attribution, not authz).
 		const create = await app.request("/api/threads", {
 			method: "POST",
-			headers: authHeaders({ "X-Identity": "u-founder" }),
+			headers: authHeaders({ "X-Identity": ids("u-founder") }),
 			body: JSON.stringify({
 				hostKind: "task",
-				hostId: "task-1",
-				participants: ["u-founder", "agent-1"],
+				hostId: ids("task-1"),
+				participants: [ids("u-founder"), ids("agent-1")],
 				initialMessage: {
 					type: "review",
 					payload: validReviewPayload,
@@ -546,7 +575,7 @@ describe("Verdict authorization (plan §6.1 REVISED for adversary C4)", () => {
 		// u-founder (auth principal) attempts to verdict their own review → self-verdict → 403
 		const res = await app.request(`/api/threads/${threadId}/messages`, {
 			method: "POST",
-			headers: authHeaders(), // senderId = u-founder (auth principal)
+			headers: actorHeaders(ids("u-founder")), // senderId = u-founder (pinned actor)
 			body: JSON.stringify({
 				type: "verdict",
 				payload: {
@@ -562,7 +591,7 @@ describe("Verdict authorization (plan §6.1 REVISED for adversary C4)", () => {
 	});
 
 	// @lore AF11-IDOR: Original "non-founder participant posting verdict" test used
-	// X-Identity: "agent-2" to simulate an agent attempting a verdict — that was the
+	// X-Identity: ids("agent-2") to simulate an agent attempting a verdict — that was the
 	// IDOR pattern. After the fix, senderId is always c.get("userId") (u-founder).
 	// A non-founder verdicting via X-Identity is no longer possible. This test now
 	// verifies the reviewer-is-not-author guard: agent sends review, founder (u-founder)
@@ -570,8 +599,9 @@ describe("Verdict authorization (plan §6.1 REVISED for adversary C4)", () => {
 	test("founder who is not the review author can post a valid verdict → 201", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedBase(db);
+		await seedBase(db, ids);
 
 		// agent-1 sends the review (non-founder participant, picked by readInitialSenderId)
 		const create = await app.request("/api/threads", {
@@ -579,8 +609,8 @@ describe("Verdict authorization (plan §6.1 REVISED for adversary C4)", () => {
 			headers: authHeaders(), // no X-Identity → readInitialSenderId picks agent-1
 			body: JSON.stringify({
 				hostKind: "task",
-				hostId: "task-1",
-				participants: ["u-founder", "agent-1"],
+				hostId: ids("task-1"),
+				participants: [ids("u-founder"), ids("agent-1")],
 				initialMessage: {
 					type: "review",
 					payload: validReviewPayload,
@@ -599,7 +629,7 @@ describe("Verdict authorization (plan §6.1 REVISED for adversary C4)", () => {
 		// u-founder (auth principal, role='founder', NOT the review sender) → allowed
 		const res = await app.request(`/api/threads/${threadId}/messages`, {
 			method: "POST",
-			headers: authHeaders(), // senderId = u-founder
+			headers: actorHeaders(ids("u-founder")), // senderId = u-founder (pinned actor)
 			body: JSON.stringify({
 				type: "verdict",
 				payload: {
@@ -616,8 +646,9 @@ describe("Verdict authorization (plan §6.1 REVISED for adversary C4)", () => {
 		db,
 		app,
 		eventBus,
+		ids,
 	}) => {
-		await seedBase(db);
+		await seedBase(db, ids);
 		const events: DomainEvent[] = [];
 		eventBus.on("*", (e) => {
 			events.push(e);
@@ -628,8 +659,8 @@ describe("Verdict authorization (plan §6.1 REVISED for adversary C4)", () => {
 			headers: authHeaders(),
 			body: JSON.stringify({
 				hostKind: "task",
-				hostId: "task-1",
-				participants: ["u-founder", "agent-1"],
+				hostId: ids("task-1"),
+				participants: [ids("u-founder"), ids("agent-1")],
 				initialMessage: {
 					type: "review",
 					payload: validReviewPayload,
@@ -647,7 +678,7 @@ describe("Verdict authorization (plan §6.1 REVISED for adversary C4)", () => {
 
 		const res = await app.request(`/api/threads/${threadId}/messages`, {
 			method: "POST",
-			headers: authHeaders({ "X-Identity": "u-founder" }),
+			headers: actorHeaders(ids("u-founder"), { "X-Identity": ids("u-founder") }),
 			body: JSON.stringify({
 				type: "verdict",
 				payload: {
@@ -686,8 +717,9 @@ describe("Re-open semantics (plan §6.1 REVISED for adversary C5)", () => {
 		db,
 		app,
 		eventBus,
+		ids,
 	}) => {
-		await seedBase(db);
+		await seedBase(db, ids);
 		const events: DomainEvent[] = [];
 		eventBus.on("*", (e) => {
 			events.push(e);
@@ -699,8 +731,8 @@ describe("Re-open semantics (plan §6.1 REVISED for adversary C5)", () => {
 			headers: authHeaders(),
 			body: JSON.stringify({
 				hostKind: "task",
-				hostId: "task-1",
-				participants: ["u-founder", "agent-1"],
+				hostId: ids("task-1"),
+				participants: [ids("u-founder"), ids("agent-1")],
 				initialMessage: {
 					type: "review",
 					payload: validReviewPayload,
@@ -716,7 +748,7 @@ describe("Re-open semantics (plan §6.1 REVISED for adversary C5)", () => {
 		const oldReviewId = created!.messages[0]!.id;
 		const verdict = await app.request(`/api/threads/${threadId}/messages`, {
 			method: "POST",
-			headers: authHeaders({ "X-Identity": "u-founder" }),
+			headers: actorHeaders(ids("u-founder"), { "X-Identity": ids("u-founder") }),
 			body: JSON.stringify({
 				type: "verdict",
 				payload: {
@@ -771,20 +803,21 @@ describe("Re-open semantics (plan §6.1 REVISED for adversary C5)", () => {
 	test("non-participant attempting to re-open participant-scope thread → 403", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedBase(db);
+		await seedBase(db, ids);
 
 		const now = new Date().toISOString();
 
 		// Create a participant-scope thread where u-founder is NOT a participant.
 		// Directly seed the thread (u-founder cannot create it via API if not a participant).
-		const threadId = "thr-victim-reopen";
+		const threadId = ids("thr-victim-reopen");
 		await db.insert(threads).values({
 			id: threadId,
 			hostKind: "user",
-			hostId: "agent-1",
-			initiatorId: "agent-1",
-			participants: JSON.stringify(["agent-1"]),
+			hostId: ids("agent-1"),
+			initiatorId: ids("agent-1"),
+			participants: JSON.stringify([ids("agent-1")]),
 			pinned: false,
 			resolvedAt: now, // Already resolved (so re-open attempt can be made)
 			lastActiveAt: now,
@@ -794,7 +827,7 @@ describe("Re-open semantics (plan §6.1 REVISED for adversary C5)", () => {
 		// u-founder (auth principal) is NOT in participants → 403
 		const res = await app.request(`/api/threads/${threadId}/messages`, {
 			method: "POST",
-			headers: authHeaders({ "X-Identity": "agent-2" }),
+			headers: authHeaders({ "X-Identity": ids("agent-2") }),
 			body: JSON.stringify({
 				type: "review",
 				payload: {
@@ -818,8 +851,8 @@ describe("List threads + GET /api/threads validation", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("GET /api/threads without scope params returns 400", async ({ db, app }) => {
-		await seedBase(db);
+	test("GET /api/threads without scope params returns 400", async ({ db, app, ids }) => {
+		await seedBase(db, ids);
 		const res = await app.request("/api/threads", {
 			method: "GET",
 			headers: authHeaders(),
@@ -827,8 +860,8 @@ describe("List threads + GET /api/threads validation", () => {
 		expect(res.status).toBe(400);
 	});
 
-	test("GET /api/threads?host_kind=invalid → 400 (closed Zod enum)", async ({ db, app }) => {
-		await seedBase(db);
+	test("GET /api/threads?host_kind=invalid → 400 (closed Zod enum)", async ({ db, app, ids }) => {
+		await seedBase(db, ids);
 		const res = await app.request("/api/threads?host_kind=invalid&host_id=x", {
 			method: "GET",
 			headers: authHeaders(),
@@ -839,15 +872,16 @@ describe("List threads + GET /api/threads validation", () => {
 	test("GET /api/threads?host_kind=task&host_id=task-1 returns the matching threads sorted by last_active_at desc", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedBase(db);
+		await seedBase(db, ids);
 		await app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
 				hostKind: "task",
-				hostId: "task-1",
-				participants: ["u-founder", "agent-1"],
+				hostId: ids("task-1"),
+				participants: [ids("u-founder"), ids("agent-1")],
 				initialMessage: {
 					type: "plain",
 					payload: { text: "first" },
@@ -860,8 +894,8 @@ describe("List threads + GET /api/threads validation", () => {
 			headers: authHeaders(),
 			body: JSON.stringify({
 				hostKind: "task",
-				hostId: "task-1",
-				participants: ["u-founder", "agent-1"],
+				hostId: ids("task-1"),
+				participants: [ids("u-founder"), ids("agent-1")],
 				initialMessage: {
 					type: "plain",
 					payload: { text: "second" },
@@ -870,7 +904,7 @@ describe("List threads + GET /api/threads validation", () => {
 			}),
 		});
 
-		const res = await app.request("/api/threads?host_kind=task&host_id=task-1", {
+		const res = await app.request(`/api/threads?host_kind=task&host_id=${ids("task-1")}`, {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -885,8 +919,8 @@ describe("List threads + GET /api/threads validation", () => {
 		expect(ts).toEqual(sorted);
 	});
 
-	test("GET /api/threads/:id for a non-existent thread returns 404", async ({ app }) => {
-		const res = await app.request("/api/threads/does-not-exist", {
+	test("GET /api/threads/:id for a non-existent thread returns 404", async ({ app, ids }) => {
+		const res = await app.request(`/api/threads/${ids("does-not-exist")}`, {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -907,8 +941,9 @@ describe("Event emission (plan §6.3)", () => {
 		db,
 		app,
 		eventBus,
+		ids,
 	}) => {
-		await seedBase(db);
+		await seedBase(db, ids);
 		const events: DomainEvent[] = [];
 		eventBus.on("*", (e) => {
 			events.push(e);
@@ -919,8 +954,8 @@ describe("Event emission (plan §6.3)", () => {
 			headers: authHeaders(),
 			body: JSON.stringify({
 				hostKind: "user",
-				hostId: "u-founder",
-				participants: ["u-founder"],
+				hostId: ids("u-founder"),
+				participants: [ids("u-founder")],
 				initialMessage: {
 					type: "plain",
 					payload: { text: "x" },
@@ -949,15 +984,16 @@ describe("L8 — GET /api/threads list rows carry hasUnresolvedReview", () => {
 	test("hasUnresolvedReview=true when an unresolved review exists in the thread", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedBase(db);
+		await seedBase(db, ids);
 		const create = await app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
 				hostKind: "task",
-				hostId: "task-1",
-				participants: ["u-founder", "agent-1"],
+				hostId: ids("task-1"),
+				participants: [ids("u-founder"), ids("agent-1")],
 				initialMessage: {
 					type: "review",
 					payload: validReviewPayload,
@@ -967,7 +1003,7 @@ describe("L8 — GET /api/threads list rows carry hasUnresolvedReview", () => {
 		});
 		expect(create.status).toBe(201);
 
-		const res = await app.request("/api/threads?host_kind=task&host_id=task-1", {
+		const res = await app.request(`/api/threads?host_kind=task&host_id=${ids("task-1")}`, {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -979,15 +1015,15 @@ describe("L8 — GET /api/threads list rows carry hasUnresolvedReview", () => {
 		expect(body!.threads[0]!.hasUnresolvedReview).toBe(true);
 	});
 
-	test("hasUnresolvedReview=false for a plain-only thread", async ({ db, app }) => {
-		await seedBase(db);
+	test("hasUnresolvedReview=false for a plain-only thread", async ({ db, app, ids }) => {
+		await seedBase(db, ids);
 		await app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
 				hostKind: "task",
-				hostId: "task-1",
-				participants: ["u-founder", "agent-1"],
+				hostId: ids("task-1"),
+				participants: [ids("u-founder"), ids("agent-1")],
 				initialMessage: {
 					type: "plain",
 					payload: { text: "hi" },
@@ -996,7 +1032,7 @@ describe("L8 — GET /api/threads list rows carry hasUnresolvedReview", () => {
 			}),
 		});
 
-		const res = await app.request("/api/threads?host_kind=task&host_id=task-1", {
+		const res = await app.request(`/api/threads?host_kind=task&host_id=${ids("task-1")}`, {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -1010,15 +1046,16 @@ describe("L8 — GET /api/threads list rows carry hasUnresolvedReview", () => {
 	test("hasUnresolvedReview=false once the review is resolved by a verdict", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedBase(db);
+		await seedBase(db, ids);
 		const create = await app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
 				hostKind: "task",
-				hostId: "task-1",
-				participants: ["u-founder", "agent-1"],
+				hostId: ids("task-1"),
+				participants: [ids("u-founder"), ids("agent-1")],
 				initialMessage: {
 					type: "review",
 					payload: validReviewPayload,
@@ -1034,7 +1071,7 @@ describe("L8 — GET /api/threads list rows carry hasUnresolvedReview", () => {
 		const reviewId = created!.messages[0]!.id;
 		const verdict = await app.request(`/api/threads/${created.thread.id}/messages`, {
 			method: "POST",
-			headers: authHeaders(),
+			headers: actorHeaders(ids("u-founder")),
 			body: JSON.stringify({
 				type: "verdict",
 				payload: { decision: "approve", resolvesMessageId: reviewId },
@@ -1043,7 +1080,7 @@ describe("L8 — GET /api/threads list rows carry hasUnresolvedReview", () => {
 		});
 		expect(verdict.status).toBe(201);
 
-		const res = await app.request("/api/threads?host_kind=task&host_id=task-1", {
+		const res = await app.request(`/api/threads?host_kind=task&host_id=${ids("task-1")}`, {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -1055,16 +1092,16 @@ describe("L8 — GET /api/threads list rows carry hasUnresolvedReview", () => {
 		expect(row?.hasUnresolvedReview).toBe(false);
 	});
 
-	test("participant_id scope returns hasUnresolvedReview per row", async ({ db, app }) => {
-		await seedBase(db);
+	test("participant_id scope returns hasUnresolvedReview per row", async ({ db, app, ids }) => {
+		await seedBase(db, ids);
 		// One review thread, one plain thread; founder participates in both.
 		await app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
 				hostKind: "task",
-				hostId: "task-1",
-				participants: ["u-founder", "agent-1"],
+				hostId: ids("task-1"),
+				participants: [ids("u-founder"), ids("agent-1")],
 				initialMessage: {
 					type: "review",
 					payload: validReviewPayload,
@@ -1077,8 +1114,8 @@ describe("L8 — GET /api/threads list rows carry hasUnresolvedReview", () => {
 			headers: authHeaders(),
 			body: JSON.stringify({
 				hostKind: "task",
-				hostId: "task-1",
-				participants: ["u-founder", "agent-1"],
+				hostId: ids("task-1"),
+				participants: [ids("u-founder"), ids("agent-1")],
 				initialMessage: {
 					type: "plain",
 					payload: { text: "ping" },
@@ -1087,7 +1124,7 @@ describe("L8 — GET /api/threads list rows carry hasUnresolvedReview", () => {
 			}),
 		});
 
-		const res = await app.request("/api/threads?participant_id=u-founder", {
+		const res = await app.request(`/api/threads?participant_id=${ids("u-founder")}`, {
 			method: "GET",
 			headers: authHeaders(),
 		});
