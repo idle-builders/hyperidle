@@ -100,7 +100,6 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/__tests__/write-memory.integration.test.ts`
 - `layers/core-api/src/__tests__/write-session-notes.integration.test.ts`
 - `layers/core-api/src/__tests__/ws-subscribe-authz.integration.test.ts`
-- `layers/core-api/src/routes/__tests__/knowledge.q2.integration.test.ts`
 - `layers/core-api/src/services/__tests__/agent-orchestration-port-writes.integration.test.ts`
 - `layers/core-api/src/services/__tests__/agent-run-admission-failed-knowledge-action-migration.integration.test.ts`
 - `layers/core-api/src/services/__tests__/agent-run-admission-failed-reengagement-migration.integration.test.ts`

@@ -14,6 +14,7 @@
  * - AC-10: invalid scopeKind → 400; valid ones → 201
  */
 
+import { CORE_API_ACTOR_OVERRIDE_HEADER } from "@hyperidle/api-contract";
 import {
 	type HyperIdleDb,
 	knowledgeAppProjection,
@@ -21,6 +22,7 @@ import {
 	knowledgeItems,
 	users,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -31,6 +33,15 @@ const TEST_API_KEY = "test-key-q2-knowledge";
 
 function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
+}
+
+/**
+ * @lore AU38: pins the route actor via the production override header — the
+ * "first kind='human' user" resolution these tests used to rely on is
+ * nondeterministic in a populated world (AC-6's user-A/user-B switch).
+ */
+function actorHeaders(actorId: string): Record<string, string> {
+	return authHeaders({ [CORE_API_ACTOR_OVERRIDE_HEADER]: actorId });
 }
 
 /**
@@ -96,10 +107,13 @@ describe("Q2 AC-1: scope_kind + scope_id columns on knowledgeItems", () => {
 		expect(indexes).toContain("ki_scope_idx");
 	});
 
-	test("can insert a knowledge item with scopeKind=factory and retrieve it", async ({ db }) => {
+	test("can insert a knowledge item with scopeKind=factory and retrieve it", async ({
+		db,
+		ids,
+	}) => {
 		const now = new Date().toISOString();
 		await db.insert(knowledgeItems).values({
-			id: "ki-scope-1",
+			id: ids("ki-scope-1"),
 			scopeKind: "factory",
 			scopeId: null,
 			title: "Test",
@@ -107,19 +121,19 @@ describe("Q2 AC-1: scope_kind + scope_id columns on knowledgeItems", () => {
 			format: "markdown",
 			status: "draft",
 			version: 1,
-			updatedBy: "u-founder",
+			updatedBy: ids("u-founder"),
 			createdAt: now,
 			updatedAt: now,
 		});
 		// The owner writes the projection row alongside the item.
 		await db
 			.insert(knowledgeAppProjection)
-			.values({ id: "ki-scope-1-projection", knowledgeItemId: "ki-scope-1" });
+			.values({ id: ids("ki-scope-1-projection"), knowledgeItemId: ids("ki-scope-1") });
 
 		const [result] = await db
 			.select()
 			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, "ki-scope-1"));
+			.where(eq(knowledgeItems.id, ids("ki-scope-1")));
 
 		expect(result?.scopeKind).toBe("factory");
 		expect(result?.scopeId).toBeNull();
@@ -138,8 +152,8 @@ describe("Q2 AC-4: POST /api/knowledge scope validation", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("POST without scopeKind returns 400", async ({ db, app }) => {
-		await seedFounder(db, "u-founder");
+	test("POST without scopeKind returns 400", async ({ db, app, ids }) => {
+		await seedFounder(db, ids("u-founder"));
 		const res = await app.request("/api/knowledge", {
 			method: "POST",
 			headers: authHeaders(),
@@ -147,14 +161,14 @@ describe("Q2 AC-4: POST /api/knowledge scope validation", () => {
 				title: "No scope",
 				body: "Body content",
 				format: "markdown",
-				updatedBy: "u-founder",
+				updatedBy: ids("u-founder"),
 			}),
 		});
 		expect(res.status).toBe(400);
 	});
 
-	test("POST with invalid scopeKind returns 400", async ({ db, app }) => {
-		await seedFounder(db, "u-founder");
+	test("POST with invalid scopeKind returns 400", async ({ db, app, ids }) => {
+		await seedFounder(db, ids("u-founder"));
 		const res = await app.request("/api/knowledge", {
 			method: "POST",
 			headers: authHeaders(),
@@ -162,15 +176,15 @@ describe("Q2 AC-4: POST /api/knowledge scope validation", () => {
 				title: "Bad scope",
 				body: "Body content",
 				format: "markdown",
-				updatedBy: "u-founder",
+				updatedBy: ids("u-founder"),
 				scopeKind: "invalid_scope",
 			}),
 		});
 		expect(res.status).toBe(400);
 	});
 
-	test("POST with scopeKind=product and no scopeId returns 400", async ({ db, app }) => {
-		await seedFounder(db, "u-founder");
+	test("POST with scopeKind=product and no scopeId returns 400", async ({ db, app, ids }) => {
+		await seedFounder(db, ids("u-founder"));
 		const res = await app.request("/api/knowledge", {
 			method: "POST",
 			headers: authHeaders(),
@@ -178,7 +192,7 @@ describe("Q2 AC-4: POST /api/knowledge scope validation", () => {
 				title: "Product scope no id",
 				body: "Body content",
 				format: "markdown",
-				updatedBy: "u-founder",
+				updatedBy: ids("u-founder"),
 				scopeKind: "product",
 			}),
 		});
@@ -188,8 +202,9 @@ describe("Q2 AC-4: POST /api/knowledge scope validation", () => {
 	test("POST with scopeKind=factory and no scopeId returns 201 (factory needs no scopeId)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedFounder(db, "u-founder");
+		await seedFounder(db, ids("u-founder"));
 		const res = await app.request("/api/knowledge", {
 			method: "POST",
 			headers: authHeaders(),
@@ -197,7 +212,7 @@ describe("Q2 AC-4: POST /api/knowledge scope validation", () => {
 				title: "Factory item",
 				body: "Body content",
 				format: "markdown",
-				updatedBy: "u-founder",
+				updatedBy: ids("u-founder"),
 				scopeKind: "factory",
 			}),
 		});
@@ -207,8 +222,9 @@ describe("Q2 AC-4: POST /api/knowledge scope validation", () => {
 	test("POST with scopeKind=user and no scopeId returns 201 (user scope auto-fills userId)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedFounder(db, "u-founder");
+		await seedFounder(db, ids("u-founder"));
 		const res = await app.request("/api/knowledge", {
 			method: "POST",
 			headers: authHeaders(),
@@ -216,15 +232,15 @@ describe("Q2 AC-4: POST /api/knowledge scope validation", () => {
 				title: "User private note",
 				body: "My private thoughts",
 				format: "markdown",
-				updatedBy: "u-founder",
+				updatedBy: ids("u-founder"),
 				scopeKind: "user",
 			}),
 		});
 		expect(res.status).toBe(201);
 	});
 
-	test("POST with scopeKind=bet and scopeId=bet-123 returns 201", async ({ db, app }) => {
-		await seedFounder(db, "u-founder");
+	test("POST with scopeKind=bet and scopeId=bet-123 returns 201", async ({ db, app, ids }) => {
+		await seedFounder(db, ids("u-founder"));
 		const res = await app.request("/api/knowledge", {
 			method: "POST",
 			headers: authHeaders(),
@@ -232,16 +248,16 @@ describe("Q2 AC-4: POST /api/knowledge scope validation", () => {
 				title: "Bet knowledge",
 				body: "What we learned from this bet",
 				format: "markdown",
-				updatedBy: "u-founder",
+				updatedBy: ids("u-founder"),
 				scopeKind: "bet",
-				scopeId: "bet-123",
+				scopeId: ids("bet-123"),
 			}),
 		});
 		expect(res.status).toBe(201);
 	});
 
-	test("POST returns scopeKind and scopeId in response", async ({ db, app }) => {
-		await seedFounder(db, "u-founder");
+	test("POST returns scopeKind and scopeId in response", async ({ db, app, ids }) => {
+		await seedFounder(db, ids("u-founder"));
 		const res = await app.request("/api/knowledge", {
 			method: "POST",
 			headers: authHeaders(),
@@ -249,15 +265,15 @@ describe("Q2 AC-4: POST /api/knowledge scope validation", () => {
 				title: "Bet item",
 				body: "Body",
 				format: "markdown",
-				updatedBy: "u-founder",
+				updatedBy: ids("u-founder"),
 				scopeKind: "bet",
-				scopeId: "bet-abc",
+				scopeId: ids("bet-abc"),
 			}),
 		});
 		expect(res.status).toBe(201);
 		const body = (await res.json()) as { scopeKind: string; scopeId: string };
 		expect(body.scopeKind).toBe("bet");
-		expect(body.scopeId).toBe("bet-abc");
+		expect(body.scopeId).toBe(ids("bet-abc"));
 	});
 });
 
@@ -273,19 +289,19 @@ describe("Q2 AC-6: user-scoped item visibility", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("user-A's private item appears in list for user-A", async ({ db, eventBus }) => {
-		await seedFounder(db, "user-A");
+	test("user-A's private item appears in list for user-A", async ({ db, eventBus, ids }) => {
+		await seedFounder(db, ids("user-A"));
 		const app = await createTestApp({ db, eventBus });
 
 		// Create user-scoped item as user-A
 		const createRes = await app.request("/api/knowledge", {
 			method: "POST",
-			headers: authHeaders(),
+			headers: actorHeaders(ids("user-A")),
 			body: JSON.stringify({
 				title: "My private note",
 				body: "Only I can see this",
 				format: "markdown",
-				updatedBy: "user-A",
+				updatedBy: ids("user-A"),
 				scopeKind: "user",
 			}),
 		});
@@ -293,25 +309,25 @@ describe("Q2 AC-6: user-scoped item visibility", () => {
 		const created = (await createRes.json()) as { id: string };
 
 		// List as user-A — should be visible
-		const listRes = await app.request("/api/knowledge", { headers: authHeaders() });
+		const listRes = await app.request("/api/knowledge", { headers: actorHeaders(ids("user-A")) });
 		expect(listRes.status).toBe(200);
 		const list = (await listRes.json()) as { items: Array<{ id: string }> };
-		const ids = list.items.map((i) => i.id);
-		expect(ids).toContain(created.id);
+		const itemIds = list.items.map((i) => i.id);
+		expect(itemIds).toContain(created.id);
 	});
 
-	test("user-A's private item NOT visible to user-B (list endpoint)", async ({ db }) => {
+	test("user-A's private item NOT visible to user-B (list endpoint)", async ({ db, ids }) => {
 		// Create item as user-A
-		await seedFounder(db, "user-A");
+		await seedFounder(db, ids("user-A"));
 		const appA = await createTestApp({ db, eventBus: new EventBus() });
 		const createRes = await appA.request("/api/knowledge", {
 			method: "POST",
-			headers: authHeaders(),
+			headers: actorHeaders(ids("user-A")),
 			body: JSON.stringify({
 				title: "My private note",
 				body: "Only I can see this",
 				format: "markdown",
-				updatedBy: "user-A",
+				updatedBy: ids("user-A"),
 				scopeKind: "user",
 			}),
 		});
@@ -320,9 +336,12 @@ describe("Q2 AC-6: user-scoped item visibility", () => {
 
 		// Switch to user-B: demote user-A to AI kind, insert user-B as human
 		// @lore P2: auth reads users WHERE kind='human' LIMIT 1, not factorySettings
-		await db.update(users).set({ kind: "ai" }).where(eq(users.id, "user-A"));
+		await db
+			.update(users)
+			.set({ kind: "ai" })
+			.where(eq(users.id, ids("user-A")));
 		await db.insert(users).values({
-			id: "user-B",
+			id: ids("user-B"),
 			name: "User B",
 			role: "founder",
 			status: "active",
@@ -331,27 +350,28 @@ describe("Q2 AC-6: user-scoped item visibility", () => {
 		});
 
 		const appB = await createTestApp({ db, eventBus: new EventBus() });
-		const listRes = await appB.request("/api/knowledge", { headers: authHeaders() });
+		const listRes = await appB.request("/api/knowledge", { headers: actorHeaders(ids("user-B")) });
 		expect(listRes.status).toBe(200);
 		const list = (await listRes.json()) as { items: Array<{ id: string }> };
-		const ids = list.items.map((i) => i.id);
-		expect(ids).not.toContain(created.id);
+		const itemIds = list.items.map((i) => i.id);
+		expect(itemIds).not.toContain(created.id);
 	});
 
 	test("GET /:id returns 404 for user-A's private item when requested as user-B", async ({
 		db,
+		ids,
 	}) => {
 		// Create item as user-A
-		await seedFounder(db, "user-A");
+		await seedFounder(db, ids("user-A"));
 		const appA = await createTestApp({ db, eventBus: new EventBus() });
 		const createRes = await appA.request("/api/knowledge", {
 			method: "POST",
-			headers: authHeaders(),
+			headers: actorHeaders(ids("user-A")),
 			body: JSON.stringify({
 				title: "Private item",
 				body: "Body",
 				format: "markdown",
-				updatedBy: "user-A",
+				updatedBy: ids("user-A"),
 				scopeKind: "user",
 			}),
 		});
@@ -360,9 +380,12 @@ describe("Q2 AC-6: user-scoped item visibility", () => {
 
 		// Switch to user-B: demote user-A to AI kind, insert user-B as human
 		// @lore P2: auth reads users WHERE kind='human' LIMIT 1, not factorySettings
-		await db.update(users).set({ kind: "ai" }).where(eq(users.id, "user-A"));
+		await db
+			.update(users)
+			.set({ kind: "ai" })
+			.where(eq(users.id, ids("user-A")));
 		await db.insert(users).values({
-			id: "user-B",
+			id: ids("user-B"),
 			name: "User B",
 			role: "founder",
 			status: "active",
@@ -372,7 +395,7 @@ describe("Q2 AC-6: user-scoped item visibility", () => {
 
 		const appB = await createTestApp({ db, eventBus: new EventBus() });
 		const getRes = await appB.request(`/api/knowledge/${created.id}`, {
-			headers: authHeaders(),
+			headers: actorHeaders(ids("user-B")),
 		});
 		// 404, not 403 — don't leak existence
 		expect(getRes.status).toBe(404);
@@ -393,6 +416,7 @@ describe("Q2 AC-7: PATCH /:id/scope scope mutation", () => {
 
 	async function createUserItem(
 		app: Awaited<ReturnType<typeof createTestApp>>,
+		ids: ScopedIds,
 	): Promise<{ id: string; version: number }> {
 		const res = await app.request("/api/knowledge", {
 			method: "POST",
@@ -401,7 +425,7 @@ describe("Q2 AC-7: PATCH /:id/scope scope mutation", () => {
 				title: "Scope test item",
 				body: "Body content",
 				format: "markdown",
-				updatedBy: "u-founder",
+				updatedBy: ids("u-founder"),
 				scopeKind: "user",
 			}),
 		});
@@ -409,18 +433,18 @@ describe("Q2 AC-7: PATCH /:id/scope scope mutation", () => {
 		return res.json() as Promise<{ id: string; version: number }>;
 	}
 
-	test("PATCH /:id/scope changes scope_kind and scope_id", async ({ db, app }) => {
-		await seedFounder(db, "u-founder");
-		const item = await createUserItem(app);
+	test("PATCH /:id/scope changes scope_kind and scope_id", async ({ db, app, ids }) => {
+		await seedFounder(db, ids("u-founder"));
+		const item = await createUserItem(app, ids);
 
 		const patchRes = await app.request(`/api/knowledge/${item.id}/scope`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({
 				scopeKind: "product",
-				scopeId: "prod-123",
+				scopeId: ids("prod-123"),
 				reason: "Promoted to product knowledge",
-				updatedBy: "u-founder",
+				updatedBy: ids("u-founder"),
 				version: item.version,
 			}),
 		});
@@ -431,12 +455,12 @@ describe("Q2 AC-7: PATCH /:id/scope scope mutation", () => {
 			version: number;
 		};
 		expect(updated.scopeKind).toBe("product");
-		expect(updated.scopeId).toBe("prod-123");
+		expect(updated.scopeId).toBe(ids("prod-123"));
 	});
 
-	test("PATCH /:id/scope bumps version by 1", async ({ db, app }) => {
-		await seedFounder(db, "u-founder");
-		const item = await createUserItem(app);
+	test("PATCH /:id/scope bumps version by 1", async ({ db, app, ids }) => {
+		await seedFounder(db, ids("u-founder"));
+		const item = await createUserItem(app, ids);
 		const originalVersion = item.version;
 
 		const patchRes = await app.request(`/api/knowledge/${item.id}/scope`, {
@@ -444,9 +468,9 @@ describe("Q2 AC-7: PATCH /:id/scope scope mutation", () => {
 			headers: authHeaders(),
 			body: JSON.stringify({
 				scopeKind: "product",
-				scopeId: "prod-abc",
+				scopeId: ids("prod-abc"),
 				reason: "Promoting",
-				updatedBy: "u-founder",
+				updatedBy: ids("u-founder"),
 				version: originalVersion,
 			}),
 		});
@@ -455,18 +479,18 @@ describe("Q2 AC-7: PATCH /:id/scope scope mutation", () => {
 		expect(updated.version).toBe(originalVersion + 1);
 	});
 
-	test("PATCH /:id/scope logs scope_kind change in knowledgeEditLog", async ({ db, app }) => {
-		await seedFounder(db, "u-founder");
-		const item = await createUserItem(app);
+	test("PATCH /:id/scope logs scope_kind change in knowledgeEditLog", async ({ db, app, ids }) => {
+		await seedFounder(db, ids("u-founder"));
+		const item = await createUserItem(app, ids);
 
 		await app.request(`/api/knowledge/${item.id}/scope`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({
 				scopeKind: "product",
-				scopeId: "prod-xyz",
+				scopeId: ids("prod-xyz"),
 				reason: "Promoted because useful to whole product",
-				updatedBy: "u-founder",
+				updatedBy: ids("u-founder"),
 				version: item.version,
 			}),
 		});
@@ -482,9 +506,9 @@ describe("Q2 AC-7: PATCH /:id/scope scope mutation", () => {
 		expect(scopeKindLog?.newValue).toContain("product");
 	});
 
-	test("PATCH /:id/scope reason is captured in edit log", async ({ db, app }) => {
-		await seedFounder(db, "u-founder");
-		const item = await createUserItem(app);
+	test("PATCH /:id/scope reason is captured in edit log", async ({ db, app, ids }) => {
+		await seedFounder(db, ids("u-founder"));
+		const item = await createUserItem(app, ids);
 		const reason = "Promoted to product level";
 
 		await app.request(`/api/knowledge/${item.id}/scope`, {
@@ -492,9 +516,9 @@ describe("Q2 AC-7: PATCH /:id/scope scope mutation", () => {
 			headers: authHeaders(),
 			body: JSON.stringify({
 				scopeKind: "product",
-				scopeId: "prod-abc",
+				scopeId: ids("prod-abc"),
 				reason,
-				updatedBy: "u-founder",
+				updatedBy: ids("u-founder"),
 				version: item.version,
 			}),
 		});
@@ -511,43 +535,43 @@ describe("Q2 AC-7: PATCH /:id/scope scope mutation", () => {
 		expect(hasReason).toBe(true);
 	});
 
-	test("PATCH /:id/scope with wrong version returns 409", async ({ db, app }) => {
-		await seedFounder(db, "u-founder");
-		const item = await createUserItem(app);
+	test("PATCH /:id/scope with wrong version returns 409", async ({ db, app, ids }) => {
+		await seedFounder(db, ids("u-founder"));
+		const item = await createUserItem(app, ids);
 
 		const patchRes = await app.request(`/api/knowledge/${item.id}/scope`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({
 				scopeKind: "product",
-				scopeId: "prod-abc",
+				scopeId: ids("prod-abc"),
 				reason: "Moving",
-				updatedBy: "u-founder",
+				updatedBy: ids("u-founder"),
 				version: item.version + 99, // wrong version
 			}),
 		});
 		expect(patchRes.status).toBe(409);
 	});
 
-	test("PATCH /:id/scope on missing item returns 404", async ({ db, app }) => {
-		await seedFounder(db, "u-founder");
-		const patchRes = await app.request("/api/knowledge/nonexistent-id/scope", {
+	test("PATCH /:id/scope on missing item returns 404", async ({ db, app, ids }) => {
+		await seedFounder(db, ids("u-founder"));
+		const patchRes = await app.request(`/api/knowledge/${ids("nonexistent-id")}/scope`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({
 				scopeKind: "product",
-				scopeId: "prod-abc",
+				scopeId: ids("prod-abc"),
 				reason: "Moving",
-				updatedBy: "u-founder",
+				updatedBy: ids("u-founder"),
 				version: 1,
 			}),
 		});
 		expect(patchRes.status).toBe(404);
 	});
 
-	test("PATCH /:id/scope with invalid scopeKind returns 400", async ({ db, app }) => {
-		await seedFounder(db, "u-founder");
-		const item = await createUserItem(app);
+	test("PATCH /:id/scope with invalid scopeKind returns 400", async ({ db, app, ids }) => {
+		await seedFounder(db, ids("u-founder"));
+		const item = await createUserItem(app, ids);
 
 		const patchRes = await app.request(`/api/knowledge/${item.id}/scope`, {
 			method: "PATCH",
@@ -556,25 +580,25 @@ describe("Q2 AC-7: PATCH /:id/scope scope mutation", () => {
 				scopeKind: "invalid_kind",
 				scopeId: null,
 				reason: "Moving",
-				updatedBy: "u-founder",
+				updatedBy: ids("u-founder"),
 				version: item.version,
 			}),
 		});
 		expect(patchRes.status).toBe(400);
 	});
 
-	test("PATCH /:id/scope with missing reason returns 400", async ({ db, app }) => {
-		await seedFounder(db, "u-founder");
-		const item = await createUserItem(app);
+	test("PATCH /:id/scope with missing reason returns 400", async ({ db, app, ids }) => {
+		await seedFounder(db, ids("u-founder"));
+		const item = await createUserItem(app, ids);
 
 		const patchRes = await app.request(`/api/knowledge/${item.id}/scope`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({
 				scopeKind: "product",
-				scopeId: "prod-abc",
+				scopeId: ids("prod-abc"),
 				reason: "", // empty reason
-				updatedBy: "u-founder",
+				updatedBy: ids("u-founder"),
 				version: item.version,
 			}),
 		});
@@ -596,6 +620,7 @@ describe("Q2 AC-8: all scope kinds use the same schema and lifecycle", () => {
 
 	const SCOPE_TEST_CASES: Array<{
 		scopeKind: string;
+		// Labels — scoped via ids() inside each test (AU38).
 		scopeId: string | null;
 	}> = [
 		{ scopeKind: "factory", scopeId: null },
@@ -611,17 +636,18 @@ describe("Q2 AC-8: all scope kinds use the same schema and lifecycle", () => {
 		test(`creates a ${scopeKind}-scoped item and reads it back with full field set`, async ({
 			db,
 			app,
+			ids,
 		}) => {
-			await seedFounder(db, "u-founder");
+			await seedFounder(db, ids("u-founder"));
 			const payload: Record<string, unknown> = {
 				title: `${scopeKind} knowledge`,
 				body: "Test body",
 				format: "markdown",
-				updatedBy: "u-founder",
+				updatedBy: ids("u-founder"),
 				scopeKind,
 			};
 			if (scopeId !== null) {
-				payload.scopeId = scopeId;
+				payload.scopeId = ids(scopeId);
 			}
 
 			const res = await app.request("/api/knowledge", {
@@ -646,7 +672,7 @@ describe("Q2 AC-8: all scope kinds use the same schema and lifecycle", () => {
 			expect(created.scopeKind).toBe(scopeKind);
 			// factory and user have no scopeId, others have the one we sent
 			if (scopeId !== null) {
-				expect(created.scopeId).toBe(scopeId);
+				expect(created.scopeId).toBe(ids(scopeId));
 			}
 			expect(created.title).toBe(`${scopeKind} knowledge`);
 			expect(created.version).toBe(1);
@@ -674,6 +700,7 @@ describe("Q2 AC-9: fabric layer assignment on creation", () => {
 
 	async function createItem(
 		app: Awaited<ReturnType<typeof createTestApp>>,
+		ids: ScopedIds,
 		scopeKind: string,
 		scopeId: string | null,
 	): Promise<string> {
@@ -681,11 +708,11 @@ describe("Q2 AC-9: fabric layer assignment on creation", () => {
 			title: `${scopeKind} item`,
 			body: "Test body",
 			format: "markdown",
-			updatedBy: "u-founder",
+			updatedBy: ids("u-founder"),
 			scopeKind,
 		};
 		if (scopeId !== null) {
-			payload.scopeId = scopeId;
+			payload.scopeId = ids(scopeId);
 		}
 		const res = await app.request("/api/knowledge", {
 			method: "POST",
@@ -697,9 +724,9 @@ describe("Q2 AC-9: fabric layer assignment on creation", () => {
 		return created.id;
 	}
 
-	test("factory-scoped item gets fabric row with layer=L4", async ({ db, app }) => {
-		await seedFounder(db, "u-founder");
-		const id = await createItem(app, "factory", null);
+	test("factory-scoped item gets fabric row with layer=L4", async ({ db, app, ids }) => {
+		await seedFounder(db, ids("u-founder"));
+		const id = await createItem(app, ids, "factory", null);
 		const [fabricRow] = await db
 			.select()
 			.from(knowledgeAppProjection)
@@ -707,9 +734,9 @@ describe("Q2 AC-9: fabric layer assignment on creation", () => {
 		expect(fabricRow?.layer).toBe("L4");
 	});
 
-	test("product-scoped item gets fabric row with layer=L2", async ({ db, app }) => {
-		await seedFounder(db, "u-founder");
-		const id = await createItem(app, "product", "prod-1");
+	test("product-scoped item gets fabric row with layer=L2", async ({ db, app, ids }) => {
+		await seedFounder(db, ids("u-founder"));
+		const id = await createItem(app, ids, "product", "prod-1");
 		const [fabricRow] = await db
 			.select()
 			.from(knowledgeAppProjection)
@@ -717,9 +744,9 @@ describe("Q2 AC-9: fabric layer assignment on creation", () => {
 		expect(fabricRow?.layer).toBe("L2");
 	});
 
-	test("practice-scoped item gets fabric row with layer=L3", async ({ db, app }) => {
-		await seedFounder(db, "u-founder");
-		const id = await createItem(app, "practice", "fe-practice");
+	test("practice-scoped item gets fabric row with layer=L3", async ({ db, app, ids }) => {
+		await seedFounder(db, ids("u-founder"));
+		const id = await createItem(app, ids, "practice", "fe-practice");
 		const [fabricRow] = await db
 			.select()
 			.from(knowledgeAppProjection)
@@ -727,9 +754,9 @@ describe("Q2 AC-9: fabric layer assignment on creation", () => {
 		expect(fabricRow?.layer).toBe("L3");
 	});
 
-	test("task-scoped item gets fabric row with layer=L1", async ({ db, app }) => {
-		await seedFounder(db, "u-founder");
-		const id = await createItem(app, "task", "task-1");
+	test("task-scoped item gets fabric row with layer=L1", async ({ db, app, ids }) => {
+		await seedFounder(db, ids("u-founder"));
+		const id = await createItem(app, ids, "task", "task-1");
 		const [fabricRow] = await db
 			.select()
 			.from(knowledgeAppProjection)
@@ -737,9 +764,9 @@ describe("Q2 AC-9: fabric layer assignment on creation", () => {
 		expect(fabricRow?.layer).toBe("L1");
 	});
 
-	test("bet-scoped item has no layer (null) in fabric", async ({ db, app }) => {
-		await seedFounder(db, "u-founder");
-		const id = await createItem(app, "bet", "bet-1");
+	test("bet-scoped item has no layer (null) in fabric", async ({ db, app, ids }) => {
+		await seedFounder(db, ids("u-founder"));
+		const id = await createItem(app, ids, "bet", "bet-1");
 		const [fabricRow] = await db
 			.select()
 			.from(knowledgeAppProjection)
@@ -748,9 +775,9 @@ describe("Q2 AC-9: fabric layer assignment on creation", () => {
 		expect(fabricRow?.layer ?? null).toBeNull();
 	});
 
-	test("team-scoped item has no layer (null) in fabric", async ({ db, app }) => {
-		await seedFounder(db, "u-founder");
-		const id = await createItem(app, "team", "team-1");
+	test("team-scoped item has no layer (null) in fabric", async ({ db, app, ids }) => {
+		await seedFounder(db, ids("u-founder"));
+		const id = await createItem(app, ids, "team", "team-1");
 		const [fabricRow] = await db
 			.select()
 			.from(knowledgeAppProjection)
@@ -758,9 +785,9 @@ describe("Q2 AC-9: fabric layer assignment on creation", () => {
 		expect(fabricRow?.layer ?? null).toBeNull();
 	});
 
-	test("user-scoped item has no layer (null) in fabric", async ({ db, app }) => {
-		await seedFounder(db, "u-founder");
-		const id = await createItem(app, "user", null);
+	test("user-scoped item has no layer (null) in fabric", async ({ db, app, ids }) => {
+		await seedFounder(db, ids("u-founder"));
+		const id = await createItem(app, ids, "user", null);
 		const [fabricRow] = await db
 			.select()
 			.from(knowledgeAppProjection)
@@ -784,8 +811,8 @@ describe("Q2 AC-10: scope_kind closed enum validation at API boundary", () => {
 	const INVALID_SCOPES = ["FACTORY", "Practice", "global", "all", "", "null", "undefined"];
 
 	for (const invalid of INVALID_SCOPES) {
-		test(`POST with scopeKind="${invalid}" returns 400`, async ({ db, app }) => {
-			await seedFounder(db, "u-founder");
+		test(`POST with scopeKind="${invalid}" returns 400`, async ({ db, app, ids }) => {
+			await seedFounder(db, ids("u-founder"));
 			const res = await app.request("/api/knowledge", {
 				method: "POST",
 				headers: authHeaders(),
@@ -793,9 +820,9 @@ describe("Q2 AC-10: scope_kind closed enum validation at API boundary", () => {
 					title: "Test",
 					body: "Body",
 					format: "markdown",
-					updatedBy: "u-founder",
+					updatedBy: ids("u-founder"),
 					scopeKind: invalid,
-					scopeId: "some-id",
+					scopeId: ids("some-id"),
 				}),
 			});
 			expect(res.status).toBe(400);
@@ -813,16 +840,16 @@ describe("Q2 AC-10: scope_kind closed enum validation at API boundary", () => {
 	];
 
 	for (const { kind, id } of VALID_SCOPES) {
-		test(`POST with valid scopeKind="${kind}" returns 201`, async ({ db, app }) => {
-			await seedFounder(db, "u-founder");
+		test(`POST with valid scopeKind="${kind}" returns 201`, async ({ db, app, ids }) => {
+			await seedFounder(db, ids("u-founder"));
 			const payload: Record<string, unknown> = {
 				title: `${kind} item`,
 				body: "Body",
 				format: "markdown",
-				updatedBy: "u-founder",
+				updatedBy: ids("u-founder"),
 				scopeKind: kind,
 			};
-			if (id !== null) payload.scopeId = id;
+			if (id !== null) payload.scopeId = ids(id);
 
 			const res = await app.request("/api/knowledge", {
 				method: "POST",
@@ -849,8 +876,9 @@ describe("Q2 AC-9: fabric layer reassignment after scope change", () => {
 	test("fabric layer updated when scope changes from user (null) to product (L2)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedFounder(db, "u-founder");
+		await seedFounder(db, ids("u-founder"));
 		// Create as user scope
 		const createRes = await app.request("/api/knowledge", {
 			method: "POST",
@@ -859,7 +887,7 @@ describe("Q2 AC-9: fabric layer reassignment after scope change", () => {
 				title: "Scope change test",
 				body: "Body",
 				format: "markdown",
-				updatedBy: "u-founder",
+				updatedBy: ids("u-founder"),
 				scopeKind: "user",
 			}),
 		});
@@ -879,9 +907,9 @@ describe("Q2 AC-9: fabric layer reassignment after scope change", () => {
 			headers: authHeaders(),
 			body: JSON.stringify({
 				scopeKind: "product",
-				scopeId: "prod-abc",
+				scopeId: ids("prod-abc"),
 				reason: "Promoting to product",
-				updatedBy: "u-founder",
+				updatedBy: ids("u-founder"),
 				version: created.version,
 			}),
 		});
@@ -908,8 +936,8 @@ describe("Q2 GET /api/teams endpoint", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("GET /api/teams returns 200 with teams array", async ({ db, app }) => {
-		await seedFounder(db, "u-founder");
+	test("GET /api/teams returns 200 with teams array", async ({ db, app, ids }) => {
+		await seedFounder(db, ids("u-founder"));
 		const res = await app.request("/api/teams", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { teams: unknown[] };
