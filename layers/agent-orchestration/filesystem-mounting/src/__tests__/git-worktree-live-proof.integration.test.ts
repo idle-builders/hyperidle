@@ -138,8 +138,11 @@ describe("Git worktree live proof on this repo", () => {
 		const sandboxPath = path.join(tmpDir, sandboxBasename);
 		fs.mkdirSync(sandboxPath, { recursive: true });
 
+		// @lore #481 follow-up: the post-checkout hook runs `npm install` (~15s), so the
+		// default 5s local timeout is too short for `git worktree add`. Override to 120s.
 		const deps = {
-			gitRunnerFactory: (repoPath: string) => createGitRunner(repoPath),
+			gitRunnerFactory: (repoPath: string) =>
+				createGitRunner(repoPath, { timeouts: { localMs: 120_000 } }),
 			capturesDir,
 			db: { insert: () => ({ values: async () => undefined }) } as never,
 		};
