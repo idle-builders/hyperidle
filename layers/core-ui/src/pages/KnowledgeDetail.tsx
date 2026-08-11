@@ -7,6 +7,7 @@ import {
 	knowledgeStatusToStatus,
 	Menu,
 	PageHeader,
+	PageScaffold,
 	SectionLabel,
 	StatusChip,
 } from "@hyperidle/design-system";
@@ -779,339 +780,339 @@ function KnowledgeDetailView({
 	}
 
 	return (
-		<div className="flex flex-col h-full" data-testid="knowledge-detail-page">
-			{/* AI7: PageHeader — h1→h2 via primitive; leading=Breadcrumb; subtitle=metadata bar; actions=Edit/overflow */}
-			<PageHeader
-				title={item.title}
-				leading={
-					/* AG4: DS Breadcrumb replaces local KnowledgeDetailBreadcrumb fn */
-					<Breadcrumb
-						segments={[
-							{ label: "Knowledge", to: "/knowledge" },
-							// AV3 AC-3: replace deprecated item.scope with resolved item.scopeName.
-							// When scopeName absent (fixture/legacy path), omit the segment entirely.
-							// The deprecated KnowledgeScope item.scope is NOT read here (WARNING-A3).
-							...(item.scopeName ? [{ label: item.scopeName }] : []),
-							...(item.topic ? [{ label: item.topic }] : []),
-						]}
-						leading={
-							!sidebarMobile ? (
-								<NavHistoryCluster onBack={() => navigate(-1)} onForward={() => navigate(1)} />
-							) : undefined
-						}
-						LinkComponent={RRLink}
-					/>
-				}
-				subtitle={
-					/* Badge row — metadata bar
+		<PageScaffold
+			data-testid="knowledge-detail-page"
+			header={
+				/* AI7: PageHeader — h1→h2 via primitive; leading=Breadcrumb; subtitle=metadata bar; actions=Edit/overflow */
+				<PageHeader
+					title={item.title}
+					leading={
+						/* AG4: DS Breadcrumb replaces local KnowledgeDetailBreadcrumb fn */
+						<Breadcrumb
+							segments={[
+								{ label: "Knowledge", to: "/knowledge" },
+								// AV3 AC-3: replace deprecated item.scope with resolved item.scopeName.
+								// When scopeName absent (fixture/legacy path), omit the segment entirely.
+								// The deprecated KnowledgeScope item.scope is NOT read here (WARNING-A3).
+								...(item.scopeName ? [{ label: item.scopeName }] : []),
+								...(item.topic ? [{ label: item.topic }] : []),
+							]}
+							leading={
+								!sidebarMobile ? (
+									<NavHistoryCluster onBack={() => navigate(-1)} onForward={() => navigate(1)} />
+								) : undefined
+							}
+							LinkComponent={RRLink}
+						/>
+					}
+					subtitle={
+						/* Badge row — metadata bar
 					   @lore AD6: kind Tag and layer Tag removed from the metadata bar. */
-					<div
-						className="flex items-center gap-[6px] flex-wrap"
-						data-testid="knowledge-metadata-bar"
-					>
-						<StatusChip status={knowledgeStatusToStatus(item.status)} />
-						<span
-							className="text-[12px] text-[var(--text-tertiary)] font-mono tabular-nums"
-							data-testid="knowledge-confidence"
-							title="Confidence"
+						<div
+							className="flex items-center gap-[6px] flex-wrap"
+							data-testid="knowledge-metadata-bar"
 						>
-							confidence {formatConfidence(item.confidence)}
-						</span>
-						<span
-							className="text-[12px] text-[var(--text-tertiary)]"
-							data-testid="knowledge-origin-agent"
+							<StatusChip status={knowledgeStatusToStatus(item.status)} />
+							<span
+								className="text-[12px] text-[var(--text-tertiary)] font-mono tabular-nums"
+								data-testid="knowledge-confidence"
+								title="Confidence"
+							>
+								confidence {formatConfidence(item.confidence)}
+							</span>
+							<span
+								className="text-[12px] text-[var(--text-tertiary)]"
+								data-testid="knowledge-origin-agent"
+							>
+								by {item.originAgent ?? "unknown"}
+							</span>
+							<span
+								className="text-[12px] text-[var(--text-tertiary)]"
+								data-testid="knowledge-updated-at"
+							>
+								{item.timestamp}
+							</span>
+						</div>
+					}
+					actions={
+						<div className="flex items-center gap-[6px]">
+							{/* W3 AC-44: save indicator in header (only in edit mode) */}
+							{editing && <SaveIndicator saveStatus={saveStatus} />}
+							{/* W3 AC-39: Edit/Done button — read-only when agent-authored factory item */}
+							{/* AF13 §2: self-authored factory items show Edit; isReadOnly gates this */}
+							{!(editing || isReadOnly) ? (
+								<Button variant="primary" size="sm" onClick={startEdit}>
+									Edit
+								</Button>
+							) : editing ? (
+								<Button variant="primary" size="sm" onClick={exitEdit}>
+									Done
+								</Button>
+							) : null}
+							{/* W3 AC-39 / AD6: "..." overflow dropdown — Flag removed, Archive wired. */}
+							{!editing && (
+								<KnowledgeOverflowMenu
+									overflowOpen={overflowOpen}
+									onToggle={() => setOverflowOpen((prev) => !prev)}
+									onClose={closeOverflow}
+									onArchive={() => void handleArchive()}
+									onChangeScope={() => {
+										setScopeChangeOpen(true);
+										closeOverflow();
+									}}
+									onPromoteToBet={() => void handlePromoteToBet()}
+									archiving={archiving}
+									itemStatus={item.status}
+									isReadOnly={isReadOnly}
+								/>
+							)}
+						</div>
+					}
+				/>
+			}
+		>
+			<div className="flex gap-[24px] p-[24px] max-w-[960px] mx-auto w-full">
+				{/* Main content column */}
+				<div className="flex flex-col gap-[24px] flex-1 min-w-0">
+					{amendableBanner && (
+						<div
+							role="alert"
+							className="alert-info flex items-start gap-[9px] px-[12px] py-[9px] text-[13px] bg-[rgba(46,125,186,0.08)] text-[var(--status-info)] rounded-[var(--r-subtle)]"
+							data-testid="factory-amendable-banner"
 						>
-							by {item.originAgent ?? "unknown"}
-						</span>
-						<span
-							className="text-[12px] text-[var(--text-tertiary)]"
-							data-testid="knowledge-updated-at"
+							<span>Amendable under review — edits route through the review queue.</span>
+						</div>
+					)}
+
+					{/* AD6: Archive error — shown when POST /archive fails */}
+					{archiveError !== null && (
+						<div
+							role="alert"
+							className="flex items-center justify-between gap-2 px-[12px] py-[9px] text-[13px] bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)] border border-[var(--border-subtle)] rounded-[var(--r-subtle)]"
+							data-testid="archive-error"
 						>
-							{item.timestamp}
-						</span>
-					</div>
-				}
-				actions={
-					<div className="flex items-center gap-[6px]">
-						{/* W3 AC-44: save indicator in header (only in edit mode) */}
-						{editing && <SaveIndicator saveStatus={saveStatus} />}
-						{/* W3 AC-39: Edit/Done button — read-only when agent-authored factory item */}
-						{/* AF13 §2: self-authored factory items show Edit; isReadOnly gates this */}
-						{!(editing || isReadOnly) ? (
-							<Button variant="primary" size="sm" onClick={startEdit}>
-								Edit
-							</Button>
-						) : editing ? (
-							<Button variant="primary" size="sm" onClick={exitEdit}>
-								Done
-							</Button>
-						) : null}
-						{/* W3 AC-39 / AD6: "..." overflow dropdown — Flag removed, Archive wired. */}
-						{!editing && (
-							<KnowledgeOverflowMenu
-								overflowOpen={overflowOpen}
-								onToggle={() => setOverflowOpen((prev) => !prev)}
-								onClose={closeOverflow}
-								onArchive={() => void handleArchive()}
-								onChangeScope={() => {
-									setScopeChangeOpen(true);
-									closeOverflow();
-								}}
-								onPromoteToBet={() => void handlePromoteToBet()}
-								archiving={archiving}
-								itemStatus={item.status}
-								isReadOnly={isReadOnly}
-							/>
-						)}
-					</div>
-				}
-			/>
-
-			{/* Scrollable body */}
-			<div className="flex-1 overflow-y-auto" data-testid="knowledge-detail-body">
-				<div className="flex gap-[24px] p-[24px] max-w-[960px] mx-auto w-full">
-					{/* Main content column */}
-					<div className="flex flex-col gap-[24px] flex-1 min-w-0">
-						{amendableBanner && (
-							<div
-								role="alert"
-								className="alert-info flex items-start gap-[9px] px-[12px] py-[9px] text-[13px] bg-[rgba(46,125,186,0.08)] text-[var(--status-info)] rounded-[var(--r-subtle)]"
-								data-testid="factory-amendable-banner"
+							<span className="text-[var(--status-error)]">{archiveError}</span>
+							<button
+								type="button"
+								className="text-[12px] text-[var(--text-tertiary)] bg-transparent border-none cursor-pointer"
+								onClick={() => setArchiveError(null)}
 							>
-								<span>Amendable under review — edits route through the review queue.</span>
-							</div>
-						)}
+								Dismiss
+							</button>
+						</div>
+					)}
 
-						{/* AD6: Archive error — shown when POST /archive fails */}
-						{archiveError !== null && (
-							<div
-								role="alert"
-								className="flex items-center justify-between gap-2 px-[12px] py-[9px] text-[13px] bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)] border border-[var(--border-subtle)] rounded-[var(--r-subtle)]"
-								data-testid="archive-error"
+					{/* AK5: Promote error — shown when POST /api/bets fails during promotion */}
+					{promoteError !== null && (
+						<div
+							role="alert"
+							className="flex items-center justify-between gap-2 px-[12px] py-[9px] text-[13px] bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)] border border-[var(--border-subtle)] rounded-[var(--r-subtle)]"
+							data-testid="promote-error"
+						>
+							<span className="text-[var(--status-error)]">{promoteError}</span>
+							<button
+								type="button"
+								className="text-[12px] text-[var(--text-tertiary)] bg-transparent border-none cursor-pointer"
+								onClick={() => setPromoteError(null)}
 							>
-								<span className="text-[var(--status-error)]">{archiveError}</span>
-								<button
-									type="button"
-									className="text-[12px] text-[var(--text-tertiary)] bg-transparent border-none cursor-pointer"
-									onClick={() => setArchiveError(null)}
-								>
-									Dismiss
-								</button>
-							</div>
-						)}
+								Dismiss
+							</button>
+						</div>
+					)}
 
-						{/* AK5: Promote error — shown when POST /api/bets fails during promotion */}
-						{promoteError !== null && (
-							<div
-								role="alert"
-								className="flex items-center justify-between gap-2 px-[12px] py-[9px] text-[13px] bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)] border border-[var(--border-subtle)] rounded-[var(--r-subtle)]"
-								data-testid="promote-error"
-							>
-								<span className="text-[var(--status-error)]">{promoteError}</span>
-								<button
-									type="button"
-									className="text-[12px] text-[var(--text-tertiary)] bg-transparent border-none cursor-pointer"
-									onClick={() => setPromoteError(null)}
-								>
-									Dismiss
-								</button>
-							</div>
-						)}
-
-						{/* T2: Conflict banner — shown when PATCH returns 409 */}
-						{conflictVersion !== null && (
-							<div
-								role="alert"
-								className="flex items-center justify-between gap-2 px-[12px] py-[9px] text-[13px]
+					{/* T2: Conflict banner — shown when PATCH returns 409 */}
+					{conflictVersion !== null && (
+						<div
+							role="alert"
+							className="flex items-center justify-between gap-2 px-[12px] py-[9px] text-[13px]
 								           bg-[var(--surface-container)] border border-[var(--border-subtle)]
 								           rounded-[var(--r-subtle)]"
-								data-testid="conflict-banner"
-							>
-								<span className="text-[var(--text-secondary)]">
-									Version conflict — someone else saved this item. Reload to see their changes.
-								</span>
-								{/* AI5: shared Button primitive (secondary). */}
-								<Button variant="secondary" size="sm" onClick={() => window.location.reload()}>
-									Reload
-								</Button>
-							</div>
-						)}
+							data-testid="conflict-banner"
+						>
+							<span className="text-[var(--text-secondary)]">
+								Version conflict — someone else saved this item. Reload to see their changes.
+							</span>
+							{/* AI5: shared Button primitive (secondary). */}
+							<Button variant="secondary" size="sm" onClick={() => window.location.reload()}>
+								Reload
+							</Button>
+						</div>
+					)}
 
-						{legacySource && (
-							<p className="text-[13px] text-[var(--text-tertiary)]">{legacySource}</p>
-						)}
+					{legacySource && (
+						<p className="text-[13px] text-[var(--text-tertiary)]">{legacySource}</p>
+					)}
 
-						{/* L18 + T4: Block actions popover.
+					{/* L18 + T4: Block actions popover.
 						    T4: "Share" action added conditionally when CoC overlay is open. */}
-						{openBlockId !== null && (
-							<BlockActionsPopover
-								id={`block-popover-knowledge-${openBlockId}`}
-								open
-								onClose={() => setOpenBlockId(null)}
-								liveRegionId="block-popover-knowledge-live"
-								items={[
-									{
-										id: "discuss-block",
-										label: "Discuss",
-										onSelect: () => handleDiscussBlock(openBlockId),
-									},
-									...(overlayOpen
-										? [
-												{
-													id: "share-block",
-													label: "Share",
-													onSelect: () => handleShareBlock(openBlockId),
-												},
-											]
-										: []),
-								]}
-							/>
-						)}
+					{openBlockId !== null && (
+						<BlockActionsPopover
+							id={`block-popover-knowledge-${openBlockId}`}
+							open
+							onClose={() => setOpenBlockId(null)}
+							liveRegionId="block-popover-knowledge-live"
+							items={[
+								{
+									id: "discuss-block",
+									label: "Discuss",
+									onSelect: () => handleDiscussBlock(openBlockId),
+								},
+								...(overlayOpen
+									? [
+											{
+												id: "share-block",
+												label: "Share",
+												onSelect: () => handleShareBlock(openBlockId),
+											},
+										]
+									: []),
+							]}
+						/>
+					)}
 
-						{/* Body: editor or read view */}
-						{editing ? (
-							<div className="flex flex-col gap-[12px]" data-testid="knowledge-edit-panel">
-								<BodyEditor
-									initialContent={editContent}
-									onChange={handleContentChange}
-									placeholder="Start writing..."
-									autoFocus
-									minHeight="200px"
-									variant="full"
-								/>
-							</div>
-						) : (
-							// @lore AM5 T9: onOpenBlockActions is wired (L18 added this; it opens BlockActionsPopover
-							// with Discuss/Share. AM5 adds the block-anchor navigate contract (H2/AC2) as a
-							// COMPLEMENT: external links into knowledge now land at #block-<id> via
-							// open-handler + resolveHostRoute, while the local popover stays for in-page
-							// actions. No change needed here — the two paths are orthogonal.
-							<KnowledgeBody
-								body={savedContent}
-								hostId={item.id}
-								onOpenBlockActions={(blockId) => setOpenBlockId(blockId)}
-								messagesByBlockId={messagesByBlockId}
+					{/* Body: editor or read view */}
+					{editing ? (
+						<div className="flex flex-col gap-[12px]" data-testid="knowledge-edit-panel">
+							<BodyEditor
+								initialContent={editContent}
+								onChange={handleContentChange}
+								placeholder="Start writing..."
+								autoFocus
+								minHeight="200px"
+								variant="full"
 							/>
-						)}
-						{/* L18: Replace ObservationLog with HostThreadSection */}
-						<HostThreadSection
-							hostKind="knowledge_item"
+						</div>
+					) : (
+						// @lore AM5 T9: onOpenBlockActions is wired (L18 added this; it opens BlockActionsPopover
+						// with Discuss/Share. AM5 adds the block-anchor navigate contract (H2/AC2) as a
+						// COMPLEMENT: external links into knowledge now land at #block-<id> via
+						// open-handler + resolveHostRoute, while the local popover stays for in-page
+						// actions. No change needed here — the two paths are orthogonal.
+						<KnowledgeBody
+							body={savedContent}
 							hostId={item.id}
-							title="Discussion"
-							prefill={threadPrefill}
-							onClearPrefill={() => setThreadPrefill(undefined)}
-							filterBlockId={threadPrefill?.blockId}
+							onOpenBlockActions={(blockId) => setOpenBlockId(blockId)}
+							messagesByBlockId={messagesByBlockId}
 						/>
-					</div>
+					)}
+					{/* L18: Replace ObservationLog with HostThreadSection */}
+					<HostThreadSection
+						hostKind="knowledge_item"
+						hostId={item.id}
+						title="Discussion"
+						prefill={threadPrefill}
+						onClearPrefill={() => setThreadPrefill(undefined)}
+						filterBlockId={threadPrefill?.blockId}
+					/>
+				</div>
 
-					{/* Metadata aside — card containers, no left border */}
-					<aside
-						data-testid="knowledge-metadata-aside"
-						className="w-[240px] shrink-0 flex flex-col gap-[18px]"
-						aria-label="Knowledge metadata"
-					>
-						{/* Q2: Scope change dialog */}
-						<ScopeChangeDialog
-							open={scopeChangeOpen}
-							onClose={() => setScopeChangeOpen(false)}
-							onSaved={() => setScopeChangeOpen(false)}
-							knowledgeId={effectiveKnowledgeId}
-							currentVersion={item.versionNum ?? 1}
-							currentScopeKind={item.scopeKind ?? "factory"}
-						/>
+				{/* Metadata aside — card containers, no left border */}
+				<aside
+					data-testid="knowledge-metadata-aside"
+					className="w-[240px] shrink-0 flex flex-col gap-[18px]"
+					aria-label="Knowledge metadata"
+				>
+					{/* Q2: Scope change dialog */}
+					<ScopeChangeDialog
+						open={scopeChangeOpen}
+						onClose={() => setScopeChangeOpen(false)}
+						onSaved={() => setScopeChangeOpen(false)}
+						knowledgeId={effectiveKnowledgeId}
+						currentVersion={item.versionNum ?? 1}
+						currentScopeKind={item.scopeKind ?? "factory"}
+					/>
 
-						{/* Metadata card */}
-						<div className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px]">
-							<SectionLabel label="Metadata" as="h2" />
-							<div className="flex justify-between items-center py-[6px] border-b border-[var(--border-subtle)] text-[13px]">
-								<span className="text-[var(--text-tertiary)]">Kind</span>
-								{/* AF13 §5: null/undefined kind renders "—" not blank or "undefined" */}
-								<span className="text-[var(--text-primary)] font-[500]">{item.kind ?? "—"}</span>
-							</div>
-							{/* AV3: Scope row — resolved scope name + Change/ReadOnly affordance */}
-							<div
-								className="flex justify-between items-center py-[6px] border-b border-[var(--border-subtle)] text-[13px]"
-								data-testid="knowledge-scope-row"
-							>
-								<span className="text-[var(--text-tertiary)]">Scope</span>
-								<span className="flex items-center gap-[6px]">
-									<span className="text-[var(--text-primary)] font-[500]">
-										{/* AV3: resolved name takes priority; bucket fallback only when absent */}
-										{item.scopeName ?? scopeKindToLabel(item.scopeKind ?? "factory")}
-									</span>
-									{/* AV3 AC-4: inline Change trigger (editable) or Read-only marker (read-only) */}
-									{!isReadOnly ? (
-										<Button
-											variant="ghost"
-											size="sm"
-											data-testid="knowledge-scope-change-trigger"
-											onClick={() => setScopeChangeOpen(true)}
-										>
-											Change
-										</Button>
-									) : (
-										<span
-											className="text-[12px] text-[var(--text-tertiary)]"
-											data-testid="knowledge-scope-readonly"
-										>
-											Read-only
-										</span>
-									)}
-								</span>
-							</div>
-							<div className="flex justify-between items-center py-[6px] border-b border-[var(--border-subtle)] text-[13px]">
-								<span className="text-[var(--text-tertiary)]">Status</span>
-								<StatusChip status={knowledgeStatusToStatus(item.status)} />
-							</div>
-							<div className="flex justify-between items-center py-[6px] border-b border-[var(--border-subtle)] text-[13px]">
-								<span className="text-[var(--text-tertiary)]">Confidence</span>
-								<span className="text-[var(--text-primary)] font-[500] font-mono tabular-nums">
-									{formatConfidence(item.confidence)}
-								</span>
-							</div>
-							<div className="flex justify-between items-center py-[6px] border-b border-[var(--border-subtle)] text-[13px]">
-								<span className="text-[var(--text-tertiary)]">Last edited</span>
+					{/* Metadata card */}
+					<div className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px]">
+						<SectionLabel label="Metadata" as="h2" />
+						<div className="flex justify-between items-center py-[6px] border-b border-[var(--border-subtle)] text-[13px]">
+							<span className="text-[var(--text-tertiary)]">Kind</span>
+							{/* AF13 §5: null/undefined kind renders "—" not blank or "undefined" */}
+							<span className="text-[var(--text-primary)] font-[500]">{item.kind ?? "—"}</span>
+						</div>
+						{/* AV3: Scope row — resolved scope name + Change/ReadOnly affordance */}
+						<div
+							className="flex justify-between items-center py-[6px] border-b border-[var(--border-subtle)] text-[13px]"
+							data-testid="knowledge-scope-row"
+						>
+							<span className="text-[var(--text-tertiary)]">Scope</span>
+							<span className="flex items-center gap-[6px]">
 								<span className="text-[var(--text-primary)] font-[500]">
-									{absoluteDateTime(item.timestamp)}
+									{/* AV3: resolved name takes priority; bucket fallback only when absent */}
+									{item.scopeName ?? scopeKindToLabel(item.scopeKind ?? "factory")}
 								</span>
-							</div>
-							<div className="flex justify-between items-center py-[6px] border-b border-[var(--border-subtle)] text-[13px]">
-								<span className="text-[var(--text-tertiary)]">Editor</span>
-								{/* Resolve updatedBy to display name:
+								{/* AV3 AC-4: inline Change trigger (editable) or Read-only marker (read-only) */}
+								{!isReadOnly ? (
+									<Button
+										variant="ghost"
+										size="sm"
+										data-testid="knowledge-scope-change-trigger"
+										onClick={() => setScopeChangeOpen(true)}
+									>
+										Change
+									</Button>
+								) : (
+									<span
+										className="text-[12px] text-[var(--text-tertiary)]"
+										data-testid="knowledge-scope-readonly"
+									>
+										Read-only
+									</span>
+								)}
+							</span>
+						</div>
+						<div className="flex justify-between items-center py-[6px] border-b border-[var(--border-subtle)] text-[13px]">
+							<span className="text-[var(--text-tertiary)]">Status</span>
+							<StatusChip status={knowledgeStatusToStatus(item.status)} />
+						</div>
+						<div className="flex justify-between items-center py-[6px] border-b border-[var(--border-subtle)] text-[13px]">
+							<span className="text-[var(--text-tertiary)]">Confidence</span>
+							<span className="text-[var(--text-primary)] font-[500] font-mono tabular-nums">
+								{formatConfidence(item.confidence)}
+							</span>
+						</div>
+						<div className="flex justify-between items-center py-[6px] border-b border-[var(--border-subtle)] text-[13px]">
+							<span className="text-[var(--text-tertiary)]">Last edited</span>
+							<span className="text-[var(--text-primary)] font-[500]">
+								{absoluteDateTime(item.timestamp)}
+							</span>
+						</div>
+						<div className="flex justify-between items-center py-[6px] border-b border-[var(--border-subtle)] text-[13px]">
+							<span className="text-[var(--text-tertiary)]">Editor</span>
+							{/* Resolve updatedBy to display name:
 							    - If it matches the current user's id, show their name.
 							    - If it's a UUID with no name mapping, show truncated monospace.
 							    - Fallback: "Unknown". */}
-								{item.updatedBy && item.updatedBy === user?.id ? (
-									<span className="text-[var(--text-primary)] font-[500]">{user.name}</span>
-								) : item.updatedBy && item.updatedBy !== "Unknown" ? (
-									<span
-										className="text-[var(--text-primary)] font-[500] font-mono text-[11px]"
-										title={item.updatedBy}
-									>
-										{item.updatedBy.length > 12 ? `${item.updatedBy.slice(0, 8)}…` : item.updatedBy}
-									</span>
-								) : (
-									<span className="text-[var(--text-primary)] font-[500]">
-										{item.updatedBy ?? "Unknown"}
-									</span>
-								)}
-							</div>
-							<div className="flex justify-between items-center py-[6px] text-[13px]">
-								<span className="text-[var(--text-tertiary)]">Access count</span>
-								<span className="text-[var(--text-primary)] font-[500] font-mono tabular-nums">
-									{item.accessCount ?? 0}
+							{item.updatedBy && item.updatedBy === user?.id ? (
+								<span className="text-[var(--text-primary)] font-[500]">{user.name}</span>
+							) : item.updatedBy && item.updatedBy !== "Unknown" ? (
+								<span
+									className="text-[var(--text-primary)] font-[500] font-mono text-[11px]"
+									title={item.updatedBy}
+								>
+									{item.updatedBy.length > 12 ? `${item.updatedBy.slice(0, 8)}…` : item.updatedBy}
 								</span>
-							</div>
+							) : (
+								<span className="text-[var(--text-primary)] font-[500]">
+									{item.updatedBy ?? "Unknown"}
+								</span>
+							)}
 						</div>
+						<div className="flex justify-between items-center py-[6px] text-[13px]">
+							<span className="text-[var(--text-tertiary)]">Access count</span>
+							<span className="text-[var(--text-primary)] font-[500] font-mono tabular-nums">
+								{item.accessCount ?? 0}
+							</span>
+						</div>
+					</div>
 
-						{/* W3 AC-41: backlinks card */}
-						<BacklinksCard
-							structuredRelatedItems={item.structuredRelatedItems}
-							relatedItems={related}
-						/>
-					</aside>
-				</div>
+					{/* W3 AC-41: backlinks card */}
+					<BacklinksCard
+						structuredRelatedItems={item.structuredRelatedItems}
+						relatedItems={related}
+					/>
+				</aside>
 			</div>
-		</div>
+		</PageScaffold>
 	);
 }
