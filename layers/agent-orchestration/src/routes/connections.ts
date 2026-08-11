@@ -39,8 +39,8 @@
 
 import {
 	deleteConnection,
-	insertConnection,
 	type InheritedReach,
+	insertConnection,
 	listConnections,
 	projectInheritedConnections,
 	updateConnection,

@@ -431,9 +431,7 @@ export interface InheritedReach {
 }
 
 export function createInheritedReach(): InheritedReach {
-	let snapshot: readonly InheritedConnectionFact[] = Object.freeze(
-		[] as InheritedConnectionFact[],
-	);
+	let snapshot: readonly InheritedConnectionFact[] = Object.freeze([] as InheritedConnectionFact[]);
 
 	async function refresh(deps?: InheritedProbeDeps): Promise<void> {
 		try {
