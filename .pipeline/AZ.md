@@ -1,0 +1,76 @@
+# Track AZ: UI Coherence
+
+Make the shipped interface behave and look like one product. The palette, the type scale and the token system are sound; what is missing is enforcement — the same idea is spelled dozens of different ways, and a handful of real defects sit on the paths a user walks first.
+
+**Key narrative.** The design system is not underbuilt, it is under-adopted. A thread row, a composer, a statistic tile, a compact empty state and a status-to-presentation mapping all exist and are bypassed by the surfaces that need them most. Most of this work is therefore deletion: adopt what exists, remove the forks, and make the contract enforceable so the next page cannot fork again.
+
+**Constraint.** `npm run verify` must pass after each merge. No work may introduce a new component whose job an existing design-system export already does. Where a documented rule and the shipped code disagree, resolve the disagreement rather than silently picking a side.
+
+**Engineering tier.** `mvp` — founder decision, 2026-08-11. Recorded here because `pipeline.config.yml` declares no `engineering.tier`.
+
+---
+
+## How this track is split
+
+Founder decision, 2026-08-11: **the pipeline is the wrong mechanism for most of this.** Ceremony was costing more than the fixes.
+
+The dividing line is **decision vs. doing** — not severity, and not size. Severity cuts wrong here: the unscrollable Work page is a P0 that is one class name. Size cuts wrong too: "one content width" is a small change that every page must then obey.
+
+| | Goes to a **work package** | Goes to the **bug list** |
+|---|---|---|
+| Test | Closes a contract other work must obey, or needs the founder to choose between real alternatives | Correct end state already obvious; verifiable by looking; nothing downstream depends on the choice |
+| Count | 7 | ~110 |
+| Where | `work/<id>/plan.md`, registered below | [`AZ-bugs.md`](AZ-bugs.md) |
+
+**The bug list is the main artifact of this track.** One agent picks the next unchecked item, fixes it, proves it in the running app, ticks it, moves on — no refine, no design, no architecture, no review gate. Batch several per session where they share a file.
+
+**Execution procedure for the work packages — human-approved, 2026-08-11.** All seven are `M`. One agent runs a single **combined refine + design + architecture round** — requirement, user-facing shape and technical plan as **one artifact** — and stops. The founder reviews and approves that artifact before any code is written. The same agent then builds in one session: tests → code. Then **one fresh agent reviews, one round only**. No separate refinement, design, critique or architecture phases, and no further human gate after the approval. Each plan records this; an orchestrator reads it there and does not add phases.
+
+---
+
+## Work package registry
+
+| ID | Title | Type | Complexity | Depends | Status |
+|---|---|---|---|---|---|
+| AZ2 | Every page scrolls to its end | frontend/contract | M | — | **planned** — the Work page clips 538px at 1440×900 and 706px at 1024×768 with zero scroll containers; the roster and artifacts sections are unreachable. Kept as a work package not for the defect — that is one class name — but because the fix is a scaffold primitive plus enforcement that **every** page must then use: all 30+ page scrollers declare `flex-1 overflow-y-auto` without `min-h-0` and survive only by luck. Proof vehicle for AZ11. See `work/AZ2/plan.md`. |
+| AZ6 | Artifacts render as content | frontend | M | — | **planned** — the flagship artifact kind renders as a parser error plus its own source, uppercased and centred because preview chrome written for a placeholder caption styles the content it wraps. A work package because what a preview may render, and under what isolation, is a **safety decision**. See `work/AZ6/plan.md`. |
+| AZ7 | Close the visual system | frontend/contract | M | — | **planned** — measured across twelve routes: **47 button recipes**, **6 input recipes**, **13 uses of one surface fill**, and an off-scale radius as the most-used value in the app (99 occurrences) with "pill" spelled two ways. Plus five status presentations and two contradicting words for one state. A work package because it closes a set every future surface picks from; migrating the call sites afterwards is bug-list work. See `work/AZ7/plan.md`. |
+| AZ11 | One page geometry | frontend/contract | M | AZ2 | **planned** — content width declared five ways; header and body left edges miss by ~200px on every page; three breadcrumb treatments. A work package because one width across dense lists, prose and forms is a genuine decision. Narrowed 2026-08-11: the onboarding banners are deleted outright (bug list), so this only sets the rule that nothing sits above a page header. See `work/AZ11/plan.md`. |
+| AZ13 | Sidebar navigation is one system | frontend | M | — | **planned** — an unlabelled secondary list duplicates the main list in a different order; opening settings removes primary navigation entirely. A work package because whether that list earns its space is a product decision. See `work/AZ13/plan.md`. |
+| AZ14 | One rule for opening and editing an object | frontend/contract | M | — | **planned** — registered 2026-08-11 from the founder walkthrough. Routines and agents open a split pane; bets, tasks, knowledge, threads and artifacts take the page; notifications, assistant and search float above it — nothing about the objects explains the grouping. Editing splits the same way: a bet's pitch is an always-live inline editor, a knowledge item is read-only behind an Edit button. A work package because the rule, once set, governs every object. See `work/AZ14/plan.md`. |
+| AZ15 | Spacing and elevation hold across the product | frontend/contract | M | — | **planned** — registered 2026-08-11 from the founder walkthrough: *"there are so many spaces with weird spacing or non at all."* The only significant complaint with **no evidence behind it yet** — neither audit pass measured spacing or elevation. Its round therefore begins with measurement, then decides the proportional system. See `work/AZ15/plan.md`. |
+
+## Dependency graph
+
+- `AZ11` → `AZ2`: AZ2 settles the page scaffold; deciding geometry inside a scaffold still being repaired would be done twice. **The only hard dependency in the track.**
+- Every other work package is independent.
+
+**Sequencing preferences (not dependencies).**
+
+- `AZ7` early — it closes the sets a large share of the bug list migrates onto. Doing bug-list Batch D before AZ7 means adopting a status treatment AZ7 will change.
+- `AZ15` after `AZ7` if convenient — closing the control set removes noise from the spacing measurement.
+- `AZ6`, `AZ13`, `AZ14`, `AZ15` each carry a real decision; get those artifacts in front of the founder early so their builds are not gated waiting on approval.
+- The bug list runs in parallel with all of it. Batches A and B touch nothing a work package decides.
+
+## Retired registrations
+
+Registered 2026-08-11 and demoted the same day when the decision-vs-doing line was drawn. **None of the work is dropped** — every item moved to [`AZ-bugs.md`](AZ-bugs.md), where it is worked without ceremony. Plans remain in git history.
+
+| Was | Title | Now |
+|---|---|---|
+| AZ1 | Overlays accept input | `UI-001`, `UI-002` |
+| AZ3 | Loading, empty and failure are told apart | Batch B (`UI-010`–`UI-021`) |
+| AZ4 | No machine data in the interface | Batch C (`UI-030`–`UI-049`) |
+| AZ5 | No dead or lying controls | Batch A (`UI-004`–`UI-007`) |
+| AZ8 | One message composer | `UI-062`–`UI-064` |
+| AZ9 | Lists and tiles use the shared primitives | Batch D (`UI-060`–`UI-074`) |
+| AZ10 | The interface responds to the pointer | Batch E (`UI-080`–`UI-089`) |
+| AZ12 | Dark mode borders hold | `UI-160` |
+
+Each was a real finding; none needed a decision. AZ1 is the clearest case — two dead overlays, one known cause, one fix, and a full pipeline run around it would have been pure overhead.
+
+---
+
+**Provenance.** `plans/reviews/ui-audit-consolidated.md` — three passes: one driving the running app, one reading the source, one founder walkthrough. It records where the passes disagreed and how each conflict was settled live. Every finding cited here was verified in the running application.
+
+**Before building — one input defect.** `.claude/rules/frontend.md` is a *binding* rule slot and still specifies a "forest green accent"; Crème Lemon replaced it. `tokens.css` is the truth. Tracked as `UI-171`.
