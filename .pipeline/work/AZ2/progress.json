@@ -1,8 +1,8 @@
 {
   "id": "AZ2",
   "title": "Every page scrolls to its end",
-  "phase": "build",
-  "status": "in-progress",
+  "phase": "done",
+  "status": "done",
   "procedure": "AZ-track combined round: refine+design+architecture as one artifact -> founder approval -> single build session -> one fresh review round",
   "sessions": [
     {
@@ -12,7 +12,7 @@
     }
   ],
   "artifacts": [
-    "round.md"
+    "plan.md"
   ],
   "approvals": [
     {
@@ -21,11 +21,25 @@
       "by": "founder",
       "decision": "approved",
       "forks": {
-        "A": "A1 \u2014 migrate all 15 pages",
+        "A": "A1 — migrate all 15 pages",
         "B": "1440x900, 1024x768, 375x812"
       }
     }
   ],
-  "evaluations": [],
-  "verdicts": []
+  "evaluations": [
+    {
+      "phase": "implementation-review",
+      "attempt": 1,
+      "verdict": "DONE",
+      "blocking": 0,
+      "date": "2026-08-12"
+    }
+  ],
+  "verdicts": [
+    {
+      "gate": "implementation-review",
+      "verdict": "DONE",
+      "date": "2026-08-12"
+    }
+  ]
 }
