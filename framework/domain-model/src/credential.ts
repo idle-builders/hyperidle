@@ -7,6 +7,8 @@
  * user-extensible — HyperIdle knows exactly which credentials it needs.
  */
 
+import type { ModelProvider } from "./model-gateway.js";
+
 /** The fixed set of credential names. Not user-extensible. */
 export const CREDENTIAL_NAMES = [
 	"anthropic_api_key",
@@ -65,4 +67,27 @@ export const CREDENTIAL_CATALOG: readonly CredentialCatalogEntry[] = [
 /** Check if a string is a valid credential name. */
 export function isCredentialName(name: string): name is CredentialName {
 	return (CREDENTIAL_NAMES as readonly string[]).includes(name);
+}
+
+/**
+ * The credential a given model provider authenticates with.
+ *
+ * Every surface that pairs a provider with a key — the setup form, the
+ * credential resolver, the built-in gateway probe — asks here rather than
+ * spelling the pairing again. A second spelling is how a provider ends up
+ * storing its key under another provider's name.
+ *
+ * The `satisfies Record<ModelProvider, ...>` clause is the enforcement: adding a
+ * provider to MODEL_PROVIDERS without giving it a credential fails to compile
+ * here, so a provider can never reach the gateway with nowhere to read its key.
+ */
+export const CREDENTIAL_BY_PROVIDER = {
+	anthropic: "anthropic_api_key",
+	openrouter: "openrouter_api_key",
+	"openai-compatible": "openai_compatible_api_key",
+} as const satisfies Record<ModelProvider, CredentialName>;
+
+/** The credential name a model provider's key is stored under. */
+export function credentialNameForProvider(provider: ModelProvider): CredentialName {
+	return CREDENTIAL_BY_PROVIDER[provider];
 }
