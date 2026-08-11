@@ -4,9 +4,16 @@
  * AC coverage:
  * AC-27: PATCH /api/users/:id endpoint exists and updates name/email
  * AC-29: PATCH /api/users/:id rejects unauthorized updates (user can only patch self)
+ *
+ * @lore AU38: the API-key actor resolves to "the first human user" (auth.ts
+ * resolveApiKeyActorUserId) — in a populated world that is whoever any test
+ * inserted first, so these tests pin the actor through the production
+ * CORE_API_ACTOR_OVERRIDE_HEADER seam instead of relying on insertion order.
  */
 
+import { CORE_API_ACTOR_OVERRIDE_HEADER } from "@hyperidle/api-contract";
 import { type HyperIdleDb, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
@@ -20,11 +27,16 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	};
 }
 
+/** Auth headers carrying an explicit route actor (production override seam). */
+function actorHeaders(actorId: string): Record<string, string> {
+	return authHeaders({ [CORE_API_ACTOR_OVERRIDE_HEADER]: actorId });
+}
+
 const NOW = new Date().toISOString();
 
-async function seedUser(db: HyperIdleDb): Promise<void> {
+async function seedUser(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	await db.insert(users).values({
-		id: "u-human-1",
+		id: ids("u-human-1"),
 		kind: "human",
 		name: "Alice",
 		email: "alice@example.com",
@@ -44,26 +56,26 @@ describe("PATCH /api/users/:id — profile update", () => {
 	});
 
 	// AC-27: PATCH with valid body returns 200 + updated fields
-	test("updates name and returns 200 with updated user", async ({ db, app }) => {
-		await seedUser(db);
-		const res = await app.request("/api/users/u-human-1", {
+	test("updates name and returns 200 with updated user", async ({ db, app, ids }) => {
+		await seedUser(db, ids);
+		const res = await app.request(`/api/users/${ids("u-human-1")}`, {
 			method: "PATCH",
-			headers: authHeaders(),
+			headers: actorHeaders(ids("u-human-1")),
 			body: JSON.stringify({ name: "Alice Updated" }),
 		});
 
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as Record<string, unknown>;
 		expect(body.name).toBe("Alice Updated");
-		expect(body.id).toBe("u-human-1");
+		expect(body.id).toBe(ids("u-human-1"));
 	});
 
 	// AC-27: PATCH with email updates email
-	test("updates email and returns 200 with updated user", async ({ db, app }) => {
-		await seedUser(db);
-		const res = await app.request("/api/users/u-human-1", {
+	test("updates email and returns 200 with updated user", async ({ db, app, ids }) => {
+		await seedUser(db, ids);
+		const res = await app.request(`/api/users/${ids("u-human-1")}`, {
 			method: "PATCH",
-			headers: authHeaders(),
+			headers: actorHeaders(ids("u-human-1")),
 			body: JSON.stringify({ email: "alice-new@example.com" }),
 		});
 
@@ -73,11 +85,11 @@ describe("PATCH /api/users/:id — profile update", () => {
 	});
 
 	// AC-27: PATCH with both name and email
-	test("updates both name and email in one request", async ({ db, app }) => {
-		await seedUser(db);
-		const res = await app.request("/api/users/u-human-1", {
+	test("updates both name and email in one request", async ({ db, app, ids }) => {
+		await seedUser(db, ids);
+		const res = await app.request(`/api/users/${ids("u-human-1")}`, {
 			method: "PATCH",
-			headers: authHeaders(),
+			headers: actorHeaders(ids("u-human-1")),
 			body: JSON.stringify({ name: "Bob", email: "bob@example.com" }),
 		});
 
@@ -88,15 +100,19 @@ describe("PATCH /api/users/:id — profile update", () => {
 	});
 
 	// AC-27: PATCH persists changes (GET confirms)
-	test("persists changes so a subsequent GET returns the updated value", async ({ db, app }) => {
-		await seedUser(db);
-		await app.request("/api/users/u-human-1", {
+	test("persists changes so a subsequent GET returns the updated value", async ({
+		db,
+		app,
+		ids,
+	}) => {
+		await seedUser(db, ids);
+		await app.request(`/api/users/${ids("u-human-1")}`, {
 			method: "PATCH",
-			headers: authHeaders(),
+			headers: actorHeaders(ids("u-human-1")),
 			body: JSON.stringify({ name: "Persisted Name" }),
 		});
 
-		const getRes = await app.request("/api/users/u-human-1", {
+		const getRes = await app.request(`/api/users/${ids("u-human-1")}`, {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -105,11 +121,11 @@ describe("PATCH /api/users/:id — profile update", () => {
 	});
 
 	// AC-29: PATCH with different userId returns 403
-	test("returns 403 when patching another user's profile", async ({ db, app }) => {
-		await seedUser(db);
+	test("returns 403 when patching another user's profile", async ({ db, app, ids }) => {
+		await seedUser(db, ids);
 		// Seed a second human user to attempt PATCH on
 		await db.insert(users).values({
-			id: "u-human-2",
+			id: ids("u-human-2"),
 			kind: "human",
 			name: "Bob",
 			email: "bob@example.com",
@@ -118,11 +134,10 @@ describe("PATCH /api/users/:id — profile update", () => {
 			createdAt: NOW,
 		});
 
-		// The auth middleware resolves userId from the first human in the DB (u-human-1)
-		// Attempting to PATCH u-human-2 should return 403
-		const res = await app.request("/api/users/u-human-2", {
+		// Actor is u-human-1 (override header); PATCHing u-human-2 must 403.
+		const res = await app.request(`/api/users/${ids("u-human-2")}`, {
 			method: "PATCH",
-			headers: authHeaders(),
+			headers: actorHeaders(ids("u-human-1")),
 			body: JSON.stringify({ name: "Hacked Name" }),
 		});
 
@@ -130,11 +145,11 @@ describe("PATCH /api/users/:id — profile update", () => {
 	});
 
 	// Validation: invalid email returns 400
-	test("returns 400 for invalid email format", async ({ db, app }) => {
-		await seedUser(db);
-		const res = await app.request("/api/users/u-human-1", {
+	test("returns 400 for invalid email format", async ({ db, app, ids }) => {
+		await seedUser(db, ids);
+		const res = await app.request(`/api/users/${ids("u-human-1")}`, {
 			method: "PATCH",
-			headers: authHeaders(),
+			headers: actorHeaders(ids("u-human-1")),
 			body: JSON.stringify({ email: "not-an-email" }),
 		});
 
@@ -142,11 +157,11 @@ describe("PATCH /api/users/:id — profile update", () => {
 	});
 
 	// Validation: empty name returns 400
-	test("returns 400 for empty name string", async ({ db, app }) => {
-		await seedUser(db);
-		const res = await app.request("/api/users/u-human-1", {
+	test("returns 400 for empty name string", async ({ db, app, ids }) => {
+		await seedUser(db, ids);
+		const res = await app.request(`/api/users/${ids("u-human-1")}`, {
 			method: "PATCH",
-			headers: authHeaders(),
+			headers: actorHeaders(ids("u-human-1")),
 			body: JSON.stringify({ name: "" }),
 		});
 
@@ -160,11 +175,12 @@ describe("PATCH /api/users/:id — profile update", () => {
 	test("returns 403 for an unknown user id (self-only check fails before existence check)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedUser(db);
-		const res = await app.request("/api/users/u-does-not-exist", {
+		await seedUser(db, ids);
+		const res = await app.request(`/api/users/${ids("u-does-not-exist")}`, {
 			method: "PATCH",
-			headers: authHeaders(),
+			headers: actorHeaders(ids("u-human-1")),
 			body: JSON.stringify({ name: "Ghost" }),
 		});
 
@@ -172,9 +188,9 @@ describe("PATCH /api/users/:id — profile update", () => {
 	});
 
 	// Unauthenticated request returns 401
-	test("returns 401 when no API key is provided", async ({ db, app }) => {
-		await seedUser(db);
-		const res = await app.request("/api/users/u-human-1", {
+	test("returns 401 when no API key is provided", async ({ db, app, ids }) => {
+		await seedUser(db, ids);
+		const res = await app.request(`/api/users/${ids("u-human-1")}`, {
 			method: "PATCH",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ name: "Intruder" }),

@@ -12,6 +12,13 @@
  *
  * @lore AH1 §2: The openai-compatible key must live in server_credentials (not
  * server_config blob). After AH1 implementation, ModelTierConfig has no apiKey field.
+ *
+ * @lore AU38 P10: `server_credentials.name` is a production-fixed catalog PK —
+ * it cannot be scoped per test. Writes here go through the route's own upsert
+ * (writeCredential), so a row another file left under the same name is
+ * absorbed, not collided with; the one absence assert below arranges its
+ * absence via DELETE first, and the catalog-count assert reads the fixed
+ * CREDENTIAL_CATALOG, never table rows (credentials.ts GET handler).
  */
 
 import { decryptCredentialValue } from "@hyperidle/credential-access";
@@ -161,10 +168,20 @@ describe("AH1 AC2 — credential store: ciphertext in DB, no plaintext in blob",
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as Array<{ name: string }>;
 			// Fails today: catalog has 3 entries.
+			// AU38 P10: the response maps the fixed CREDENTIAL_CATALOG (one entry
+			// per catalog name, present or not), so the count is world-independent.
 			expect(body).toHaveLength(4);
 		});
 
 		test("catalog includes openai_compatible_api_key entry", async ({ app }) => {
+			// AU38 P4/P10: "absent" is arranged on this catalog name, not assumed —
+			// an earlier test (this file or another) may have written the row.
+			const del = await app.request("/api/credentials/openai_compatible_api_key", {
+				method: "DELETE",
+				headers: authHeaders(),
+			});
+			expect([204, 404]).toContain(del.status);
+
 			const res = await app.request("/api/credentials", {
 				method: "GET",
 				headers: authHeaders(),

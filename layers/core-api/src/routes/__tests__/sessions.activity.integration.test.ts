@@ -6,6 +6,7 @@
  */
 
 import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
@@ -17,28 +18,32 @@ function authHeaders(): Record<string, string> {
 
 const NOW = new Date().toISOString();
 
-async function seedSession(db: HyperIdleDb): Promise<void> {
+async function seedSession(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	await db
 		.insert(teams)
-		.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: NOW });
+		.values({ id: ids("prod-1"), name: "Test Product", phase: "build", createdAt: NOW });
 
-	await db
-		.insert(teamMembers)
-		.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 0, formedAt: NOW });
+	await db.insert(teamMembers).values({
+		id: ids("team-1"),
+		teamId: ids("prod-1"),
+		capacity: 3,
+		activeBets: 0,
+		formedAt: NOW,
+	});
 
 	await db.insert(users).values({
-		id: "agent-1",
+		id: ids("agent-1"),
 		name: "Builder",
 		role: "builder",
 		status: "active",
 		kind: "ai",
-		teamId: "team-1",
+		teamId: ids("team-1"),
 		createdAt: NOW,
 	});
 
 	await db.insert(bets).values({
-		id: "bet-1",
-		teamId: "prod-1",
+		id: ids("bet-1"),
+		teamId: ids("prod-1"),
 		description: "Test",
 		appetite: "small",
 		status: "active",
@@ -46,9 +51,9 @@ async function seedSession(db: HyperIdleDb): Promise<void> {
 	});
 
 	await db.insert(tasks).values({
-		id: "task-1",
-		betId: "bet-1",
-		teamId: "prod-1",
+		id: ids("task-1"),
+		betId: ids("bet-1"),
+		teamId: ids("prod-1"),
 		title: "Task 1",
 		state: "in_progress",
 		createdAt: NOW,
@@ -56,9 +61,9 @@ async function seedSession(db: HyperIdleDb): Promise<void> {
 	});
 
 	await db.insert(sessions).values({
-		id: "sess-1",
-		agentId: "agent-1",
-		taskId: "task-1",
+		id: ids("sess-1"),
+		agentId: ids("agent-1"),
+		taskId: ids("task-1"),
 		modelTier: "workhorse",
 		state: "active",
 		startedAt: NOW,
@@ -78,18 +83,21 @@ describe("GET /api/sessions/:id/activity (Q1 §3.2)", () => {
 	test("returns 200 with session metadata and empty activity array for fresh session", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedSession(db);
-		const res = await app.request("/api/sessions/sess-1/activity", { headers: authHeaders() });
+		await seedSession(db, ids);
+		const res = await app.request(`/api/sessions/${ids("sess-1")}/activity`, {
+			headers: authHeaders(),
+		});
 		expect(res.status).toBe(200);
 
 		const body = (await res.json()) as {
 			session: { id: string; agentId: string; taskId: string; state: string; modelTier: string };
 			activity: unknown[];
 		};
-		expect(body.session.id).toBe("sess-1");
-		expect(body.session.agentId).toBe("agent-1");
-		expect(body.session.taskId).toBe("task-1");
+		expect(body.session.id).toBe(ids("sess-1"));
+		expect(body.session.agentId).toBe(ids("agent-1"));
+		expect(body.session.taskId).toBe(ids("task-1"));
 		expect(body.session.state).toBe("active");
 		expect(body.session.modelTier).toBe("workhorse");
 		expect(Array.isArray(body.activity)).toBe(true);
@@ -100,19 +108,22 @@ describe("GET /api/sessions/:id/activity (Q1 §3.2)", () => {
 		db,
 		app,
 		eventBus,
+		ids,
 	}) => {
-		await seedSession(db);
+		await seedSession(db, ids);
 		// Emit a tool_call_recorded event so the buffer is populated
 		eventBus.emit({
 			type: "tool_call_recorded",
-			streamId: "sess-1",
-			sessionId: "sess-1",
+			streamId: ids("sess-1"),
+			sessionId: ids("sess-1"),
 			toolName: "bash",
 			argsSummary: 'cmd="ls"',
 			timestamp: Date.now(),
 		});
 
-		const res = await app.request("/api/sessions/sess-1/activity", { headers: authHeaders() });
+		const res = await app.request(`/api/sessions/${ids("sess-1")}/activity`, {
+			headers: authHeaders(),
+		});
 		expect(res.status).toBe(200);
 
 		const body = (await res.json()) as {
@@ -129,36 +140,39 @@ describe("GET /api/sessions/:id/activity (Q1 §3.2)", () => {
 	});
 
 	// 404 for unknown session
-	test("returns 404 for a session that does not exist", async ({ app }) => {
-		const res = await app.request("/api/sessions/unknown-session/activity", {
+	test("returns 404 for a session that does not exist", async ({ app, ids }) => {
+		// AU38 P4: a derived id nobody inserted stays absent in a populated world.
+		const res = await app.request(`/api/sessions/${ids("unknown-session")}/activity`, {
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(404);
 	});
 
 	// Auth: requires API key
-	test("returns 401 without API key", async ({ db, app }) => {
-		await seedSession(db);
-		const res = await app.request("/api/sessions/sess-1/activity");
+	test("returns 401 without API key", async ({ db, app, ids }) => {
+		await seedSession(db, ids);
+		const res = await app.request(`/api/sessions/${ids("sess-1")}/activity`);
 		expect(res.status).toBe(401);
 	});
 
 	// Response capped at 50 most recent entries
-	test("activity array is at most 50 entries", async ({ db, app, eventBus }) => {
-		await seedSession(db);
+	test("activity array is at most 50 entries", async ({ db, app, eventBus, ids }) => {
+		await seedSession(db, ids);
 		// Emit 60 events
 		for (let i = 0; i < 60; i++) {
 			eventBus.emit({
 				type: "tool_call_recorded",
-				streamId: "sess-1",
-				sessionId: "sess-1",
+				streamId: ids("sess-1"),
+				sessionId: ids("sess-1"),
 				toolName: `tool_${i}`,
 				argsSummary: "",
 				timestamp: Date.now() + i,
 			});
 		}
 
-		const res = await app.request("/api/sessions/sess-1/activity", { headers: authHeaders() });
+		const res = await app.request(`/api/sessions/${ids("sess-1")}/activity`, {
+			headers: authHeaders(),
+		});
 		expect(res.status).toBe(200);
 
 		const body = (await res.json()) as { activity: unknown[] };

@@ -8,6 +8,7 @@
  */
 
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -18,16 +19,16 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
-async function seedTask(db: HyperIdleDb): Promise<void> {
+async function seedTask(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: now });
+	await db.insert(teams).values({ id: ids("p1"), name: "P", phase: "build", createdAt: now });
 	await db
 		.insert(teamMembers)
-		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+		.values({ id: ids("t1"), teamId: ids("p1"), capacity: 5, activeBets: 0, formedAt: now });
 
 	await db.insert(bets).values({
-		id: "bet1",
-		teamId: "p1",
+		id: ids("bet1"),
+		teamId: ids("p1"),
 		description: "x",
 		appetite: "small",
 		status: "active",
@@ -36,12 +37,12 @@ async function seedTask(db: HyperIdleDb): Promise<void> {
 
 	await db
 		.insert(users)
-		.values({ id: "a1", name: "A", role: "builder", status: "active", createdAt: now });
+		.values({ id: ids("a1"), name: "A", role: "builder", status: "active", createdAt: now });
 
 	await db.insert(tasks).values({
-		id: "task1",
-		betId: "bet1",
-		teamId: "p1",
+		id: ids("task1"),
+		betId: ids("bet1"),
+		teamId: ids("p1"),
 		title: "Task",
 		state: "proposed",
 		createdAt: now,
@@ -58,9 +59,9 @@ describe("I2 V1 — POST /api/tasks/:id/transition Zod enum", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("returns 400 (Zod) when state is not a valid TaskState", async ({ db, app }) => {
-		await seedTask(db);
-		const res = await app.request("/api/tasks/task1/transition", {
+	test("returns 400 (Zod) when state is not a valid TaskState", async ({ db, app, ids }) => {
+		await seedTask(db, ids);
+		const res = await app.request(`/api/tasks/${ids("task1")}/transition`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ state: "banana" }),
@@ -74,11 +75,11 @@ describe("I2 V1 — POST /api/tasks/:id/transition Zod enum", () => {
 		expect(body.code).toBe(API_ERROR_CODES.VALIDATION_ERROR);
 	});
 
-	test("accepts every legal TaskState value (smoke)", async ({ db, app }) => {
-		await seedTask(db);
+	test("accepts every legal TaskState value (smoke)", async ({ db, app, ids }) => {
+		await seedTask(db, ids);
 		// proposed -> accepted is a legal first transition; if the enum is
 		// too narrow this fails on the schema check.
-		const res = await app.request("/api/tasks/task1/transition", {
+		const res = await app.request(`/api/tasks/${ids("task1")}/transition`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ state: "accepted" }),

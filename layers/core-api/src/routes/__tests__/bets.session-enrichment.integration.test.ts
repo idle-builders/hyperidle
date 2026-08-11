@@ -16,6 +16,7 @@
  */
 
 import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
@@ -29,16 +30,18 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	};
 }
 
-async function seedBase(db: HyperIdleDb): Promise<void> {
+async function seedBase(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	const now = new Date().toISOString();
 
-	await db.insert(teams).values({ id: "p1", name: "TestProduct", phase: "build", createdAt: now });
+	await db
+		.insert(teams)
+		.values({ id: ids("p1"), name: "TestProduct", phase: "build", createdAt: now });
 	await db
 		.insert(teamMembers)
-		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+		.values({ id: ids("t1"), teamId: ids("p1"), capacity: 5, activeBets: 0, formedAt: now });
 
 	await db.insert(users).values({
-		id: "agent-1",
+		id: ids("agent-1"),
 		name: "Builder Agent",
 		role: "builder",
 		status: "active",
@@ -57,9 +60,10 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("returns 404 for an unknown bet id", async ({ db, app }) => {
-		await seedBase(db);
-		const res = await app.request("/api/bets/non-existent-bet", {
+	test("returns 404 for an unknown bet id", async ({ db, app, ids }) => {
+		await seedBase(db, ids);
+		// AU38 P4: a derived id nobody inserted stays absent in a populated world.
+		const res = await app.request(`/api/bets/${ids("nonexistent")}`, {
 			method: "GET",
 			headers: authHeaders(),
 		});
@@ -77,47 +81,52 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 	 * `select().from(tasks)` recompose would leak. A live run is seeded below so
 	 * a route that still held the read would fail this key-set assertion.
 	 */
-	test("bet-detail task rows keep their exact key set and key order", async ({ db, app }) => {
-		await seedBase(db);
+	test("bet-detail task rows keep their exact key set and key order", async ({ db, app, ids }) => {
+		await seedBase(db, ids);
 
 		await db.insert(bets).values({
-			id: "bet-shape",
-			teamId: "p1",
+			id: ids("bet-shape"),
+			teamId: ids("p1"),
 			description: "Shape pitch",
 			appetite: "1 week",
 			status: "active",
 			createdAt: NOW,
 		});
 		await db.insert(tasks).values({
-			id: "task-shape",
-			betId: "bet-shape",
-			teamId: "p1",
+			id: ids("task-shape"),
+			betId: ids("bet-shape"),
+			teamId: ids("p1"),
 			title: "Shape task",
 			state: "in_progress",
 			createdAt: NOW,
 			updatedAt: NOW,
 			outcomeVerdict: "met",
 			outcomeRecordedAt: NOW,
-			outcomeRecordedBy: "agent-1",
+			outcomeRecordedBy: ids("agent-1"),
 		});
 		await db.insert(sessions).values({
-			id: "session-shape",
-			taskId: "task-shape",
-			agentId: "agent-1",
+			id: ids("session-shape"),
+			taskId: ids("task-shape"),
+			agentId: ids("agent-1"),
 			modelTier: "sonnet",
 			startedAt: NOW,
 			state: "done",
 			outcome: "completed",
 		});
 
-		const res = await app.request("/api/bets/bet-shape", {
+		const res = await app.request(`/api/bets/${ids("bet-shape")}`, {
 			method: "GET",
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { tasks: Array<Record<string, unknown>> };
 
-		expect(Object.keys(body.tasks[0]!)).toEqual([
+		// The route scopes tasks to the requested bet; this test arranged exactly
+		// one task on it, so find-by-id and [0] are the same row — predicate-find
+		// keeps the assertion independent of list position (AU38 P5).
+		const row = body.tasks.find((t) => t.id === ids("task-shape"));
+		expect(row).toBeDefined();
+		expect(Object.keys(row!)).toEqual([
 			"id",
 			"betId",
 			"teamId",
@@ -136,6 +145,6 @@ describe("L19 — GET /api/bets/:id — session enrichment", () => {
 			"outcomeVerdict",
 			"outcomeRecordedAt",
 		]);
-		expect(body.tasks[0]!.outcomeVerdict).toBe("met");
+		expect(row!.outcomeVerdict).toBe("met");
 	});
 });

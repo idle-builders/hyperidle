@@ -72,10 +72,10 @@ describe("AB2 AC-5: GET /teams includes agentCount", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("returns agentCount = 0 for a team with no agents", async ({ db, app }) => {
+	test("returns agentCount = 0 for a team with no agents", async ({ db, app, ids }) => {
 		// Founder required for auth
 		await db.insert(users).values({
-			id: "u-founder-ab2-list",
+			id: ids("u-founder-ab2-list"),
 			kind: "human",
 			name: "AB2 List Founder",
 			role: "founder",
@@ -85,28 +85,33 @@ describe("AB2 AC-5: GET /teams includes agentCount", () => {
 		});
 		// @lore AU26 G1: the run config left `users` for `agent_run_config`.
 		await db.insert(agentRunConfig).values({
-			agentUserId: "u-founder-ab2-list",
+			agentUserId: ids("u-founder-ab2-list"),
 			maxConcurrentSessions: 0,
 		});
 		await db
 			.insert(teams)
-			.values({ id: "empty-team", name: "Empty Team", phase: "build", createdAt: NOW });
-		await db
-			.insert(teamMembers)
-			.values({ id: "empty-tm", teamId: "empty-team", capacity: 5, activeBets: 0, formedAt: NOW });
+			.values({ id: ids("empty-team"), name: "Empty Team", phase: "build", createdAt: NOW });
+		await db.insert(teamMembers).values({
+			id: ids("empty-tm"),
+			teamId: ids("empty-team"),
+			capacity: 5,
+			activeBets: 0,
+			formedAt: NOW,
+		});
 
 		const res = await app.request("/api/teams", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 
+		// AU38 P6: global list endpoint — find the arranged team inside the response.
 		const body = (await res.json()) as { teams: Array<Record<string, unknown>> };
-		const team = body.teams.find((t) => t.id === "empty-team");
+		const team = body.teams.find((t) => t.id === ids("empty-team"));
 		expect(team).toBeDefined();
 		expect(team?.agentCount).toBe(0);
 	});
 
-	test("returns correct agentCount for a team with agents", async ({ db, app }) => {
+	test("returns correct agentCount for a team with agents", async ({ db, app, ids }) => {
 		await db.insert(users).values({
-			id: "u-founder-ab2-list",
+			id: ids("u-founder-ab2-list"),
 			kind: "human",
 			name: "AB2 List Founder",
 			role: "founder",
@@ -116,14 +121,14 @@ describe("AB2 AC-5: GET /teams includes agentCount", () => {
 		});
 		// @lore AU26 G1: the run config left `users` for `agent_run_config`.
 		await db.insert(agentRunConfig).values({
-			agentUserId: "u-founder-ab2-list",
+			agentUserId: ids("u-founder-ab2-list"),
 			maxConcurrentSessions: 0,
 		});
-		await seedTeamWithAgents(db, "ab2-list-team-1", "List Team One", 3);
+		await seedTeamWithAgents(db, ids("ab2-list-team-1"), "List Team One", 3);
 
 		const res = await app.request("/api/teams", { headers: authHeaders() });
 		const body = (await res.json()) as { teams: Array<Record<string, unknown>> };
-		const team = body.teams.find((t) => t.id === "ab2-list-team-1");
+		const team = body.teams.find((t) => t.id === ids("ab2-list-team-1"));
 
 		expect(team?.agentCount).toBe(3);
 	});
@@ -142,9 +147,9 @@ describe("AB2 AC-5: GET /teams agent summary shape", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("returns TeamListItem with a numeric agentCount", async ({ db, app }) => {
+	test("returns TeamListItem with a numeric agentCount", async ({ db, app, ids }) => {
 		await db.insert(users).values({
-			id: "u-founder-ab2-health",
+			id: ids("u-founder-ab2-health"),
 			kind: "human",
 			name: "AB2 Health Founder",
 			role: "founder",
@@ -154,14 +159,14 @@ describe("AB2 AC-5: GET /teams agent summary shape", () => {
 		});
 		// @lore AU26 G1: the run config left `users` for `agent_run_config`.
 		await db.insert(agentRunConfig).values({
-			agentUserId: "u-founder-ab2-health",
+			agentUserId: ids("u-founder-ab2-health"),
 			maxConcurrentSessions: 0,
 		});
-		await seedTeamWithAgents(db, "ab2-shape-team", "Shape Team", 2);
+		await seedTeamWithAgents(db, ids("ab2-shape-team"), "Shape Team", 2);
 
 		const res = await app.request("/api/teams", { headers: authHeaders() });
 		const body = (await res.json()) as { teams: Array<Record<string, unknown>> };
-		const team = body.teams.find((t) => t.id === "ab2-shape-team");
+		const team = body.teams.find((t) => t.id === ids("ab2-shape-team"));
 
 		expect(team).toBeDefined();
 		expect(team?.agentCount).toBe(2);

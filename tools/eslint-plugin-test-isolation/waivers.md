@@ -101,7 +101,6 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/__tests__/write-session-notes.integration.test.ts`
 - `layers/core-api/src/__tests__/ws-subscribe-authz.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/AB2-team-agents.integration.test.ts`
-- `layers/core-api/src/routes/__tests__/AB2-teams-list-agents.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/AD4-agent-profile.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/AF11-authz.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/AF14-threads.integration.test.ts`
@@ -116,8 +115,6 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/routes/__tests__/bets.AK5-promote.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/bets.L14-actions.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/bets.artifact-thread-summary.integration.test.ts`
-- `layers/core-api/src/routes/__tests__/bets.session-enrichment.integration.test.ts`
-- `layers/core-api/src/routes/__tests__/bets.validation.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/coach.routes.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/conversations.routes.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/knowledge.af13.integration.test.ts`
@@ -125,13 +122,8 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/routes/__tests__/knowledge.y4-triage.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/org.routes.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/products.integration.test.ts`
-- `layers/core-api/src/routes/__tests__/recipients.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/routines.routes.integration.test.ts`
-- `layers/core-api/src/routes/__tests__/search.af16.integration.test.ts`
-- `layers/core-api/src/routes/__tests__/sessions.activity.integration.test.ts`
-- `layers/core-api/src/routes/__tests__/tasks.batch-ids.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/tasks.task-run-baked-emit.integration.test.ts`
-- `layers/core-api/src/routes/__tests__/tasks.validation.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/teams-routes-AB3.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/threads.blockId.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/threads.identity.integration.test.ts`
@@ -139,7 +131,6 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/routes/__tests__/threads.reengagement-baked-emit.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/threads.routes.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/typed-routes.integration.test.ts`
-- `layers/core-api/src/routes/__tests__/users-profile.integration.test.ts`
 - `layers/core-api/src/services/__tests__/agent-orchestration-port-writes.integration.test.ts`
 - `layers/core-api/src/services/__tests__/agent-run-admission-failed-knowledge-action-migration.integration.test.ts`
 - `layers/core-api/src/services/__tests__/agent-run-admission-failed-reengagement-migration.integration.test.ts`
@@ -197,7 +188,6 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/routes/__tests__/AF11-authz.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/AF14-threads.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/auth-public.routes.integration.test.ts`
-- `layers/core-api/src/routes/__tests__/knowledge.au14-round2.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/threads.identity.integration.test.ts`
 - `layers/core-api/src/services/__tests__/agent-run-admission-failed-knowledge-action-migration.integration.test.ts`
 - `layers/core-api/src/services/__tests__/agent-run-admission-failed-subscribers.integration.test.ts`

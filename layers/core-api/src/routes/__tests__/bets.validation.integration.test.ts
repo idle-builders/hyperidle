@@ -9,6 +9,7 @@
  */
 
 import { bets, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { getTeamMembers, updateTeam } from "@hyperidle/org";
@@ -29,16 +30,16 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
-async function seedBet(db: HyperIdleDb, eventBus: EventBus): Promise<void> {
+async function seedBet(db: HyperIdleDb, eventBus: EventBus, ids: ScopedIds): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: now });
+	await db.insert(teams).values({ id: ids("p1"), name: "P", phase: "build", createdAt: now });
 	await db
 		.insert(teamMembers)
-		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+		.values({ id: ids("t1"), teamId: ids("p1"), capacity: 5, activeBets: 0, formedAt: now });
 
 	await db.insert(bets).values({
-		id: "bet1",
-		teamId: "p1",
+		id: ids("bet1"),
+		teamId: ids("p1"),
 		description: "x",
 		appetite: "small",
 		status: "draft",
@@ -46,7 +47,7 @@ async function seedBet(db: HyperIdleDb, eventBus: EventBus): Promise<void> {
 	});
 
 	// @lore U1: Move into active (formerly in_progress) so updateBetField doesn't reject on state.
-	await transitionBet(db, eventBus, teamCapacity, "bet1", "active");
+	await transitionBet(db, eventBus, teamCapacity, ids("bet1"), "active");
 }
 
 describe("I2 V2 — PATCH /api/bets/:id field enum", () => {
@@ -62,9 +63,10 @@ describe("I2 V2 — PATCH /api/bets/:id field enum", () => {
 		db,
 		app,
 		eventBus,
+		ids,
 	}) => {
-		await seedBet(db, eventBus);
-		const res = await app.request("/api/bets/bet1", {
+		await seedBet(db, eventBus, ids);
+		const res = await app.request(`/api/bets/${ids("bet1")}`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ field: "evil", value: "x", reason: "y" }),
@@ -82,14 +84,15 @@ describe("I2 V2 — PATCH /api/bets/:id field enum", () => {
 		db,
 		app,
 		eventBus,
+		ids,
 	}) => {
-		await seedBet(db, eventBus);
+		await seedBet(db, eventBus, ids);
 		const fieldValues: Record<string, unknown> = {
 			done_condition: "v",
 			hypothesis: "v",
 		};
 		for (const field of ["done_condition", "hypothesis"]) {
-			const res = await app.request("/api/bets/bet1", {
+			const res = await app.request(`/api/bets/${ids("bet1")}`, {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({ field, value: fieldValues[field], reason: "r" }),

@@ -92,14 +92,15 @@ describe("POST /:id/flag cross-domain atomic composition with agent work intents
 	test("flag WITH agentId commits both the flag edit-log row and the agentWorkIntents row atomically", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedAgent(db, "agent-flagger");
+		await seedAgent(db, ids("agent-flagger"));
 		const item = await createItem(app);
 
 		const res = await app.request(`/api/knowledge/${item.id}/flag`, {
 			method: "POST",
 			headers: authHeaders(),
-			body: JSON.stringify({ reason: "Needs review", agentId: "agent-flagger" }),
+			body: JSON.stringify({ reason: "Needs review", agentId: ids("agent-flagger") }),
 		});
 		expect(res.status).toBe(200);
 
@@ -116,7 +117,7 @@ describe("POST /:id/flag cross-domain atomic composition with agent work intents
 			.from(agentWorkIntents)
 			.where(eq(agentWorkIntents.idempotencyKey, `knowledge:${item.id}:review:${editId}`));
 		expect(intents).toHaveLength(1);
-		expect(intents[0]?.requestedBy).toBe("agent-flagger");
+		expect(intents[0]?.requestedBy).toBe(ids("agent-flagger"));
 	});
 
 	test("flag WITHOUT agentId records the flag edit-log row but creates no agentWorkIntents row", async ({
@@ -139,8 +140,12 @@ describe("POST /:id/flag cross-domain atomic composition with agent work intents
 		const flagLog = logs.find((l) => l.editType === "flag");
 		expect(flagLog).toBeDefined();
 
-		const intents = await db.select().from(agentWorkIntents);
-		const relatedIntents = intents.filter((i) => i.sourceId === `knowledge:${item.id}`);
+		// AU38 P4: the absence claim is scoped to this test's own item — in a
+		// populated world other tests' intent rows exist.
+		const relatedIntents = await db
+			.select()
+			.from(agentWorkIntents)
+			.where(eq(agentWorkIntents.sourceId, `knowledge:${item.id}`));
 		expect(relatedIntents).toHaveLength(0);
 	});
 });
