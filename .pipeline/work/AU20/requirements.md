@@ -34,7 +34,7 @@ The wider application/E2E run also produced hundreds of failures plus skipped, t
 
 **Scope.** Correct AU20 regressions, false/stale validation, and all review findings while preserving accepted Service simplification. Reconcile tests with authoritative product contracts where features intentionally moved. Restore proof for clean server boot, shutdown, real backend, harness discovery/MCP, desktop, accessibility, and current UI journeys.
 
-**Non-goals.** No new feature program, UI redesign, replacement E2E framework, arbitrary surface target, speculative hardening, or opportunistic refactor. AU22 remains the later no-fixed-number complexity challenge. AU20 removes more code only where diagnosis proves it obsolete or a smaller correction is coherent.
+**Non-goals.** No new feature program, UI redesign, replacement E2E framework, arbitrary surface target, speculative hardening, or opportunistic refactor. AY1 (formerly AU22, now track AY) remains the later no-fixed-number complexity challenge. AU20 removes more code only where diagnosis proves it obsolete or a smaller correction is coherent.
 
 ### Guide draft — evaluating AU20 completion
 
