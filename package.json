@@ -14,6 +14,7 @@
 		"tools/*"
 	],
 	"scripts": {
+		"prepare": "sh scripts/install-git-hooks.sh || true",
 		"dev": "concurrently --names server,web --prefix-colors blue,green \"npm run -w @hyperidle/remote-server dev\" \"npm run -w @hyperidle/core-ui dev\"",
 		"dev:desktop": "concurrently --names web,desktop --prefix-colors green,blue \"npm run -w @hyperidle/core-ui dev\" \"npm run -w @hyperidle/desktop dev\"",
 		"build": "npm run -w @hyperidle/core-ui build",

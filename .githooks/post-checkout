@@ -1,0 +1,55 @@
+#!/bin/sh
+# Bootstrap a working tree that has no dependencies installed yet.
+#
+# Git runs this after `git worktree add`, `git clone`, and `git checkout`, with
+# cwd set to the top of the new working tree. Every agent harness that makes a
+# worktree (Claude Code, Codex, opencode, plain git) goes through `git worktree
+# add`, so this one hook covers all of them — no per-harness hook needed.
+#
+# @lore: a fresh worktree shares the repo's history but NOT its node_modules,
+# so `npm run check` / `test` / `dev` all fail in a brand-new worktree until
+# someone installs. Doing it here means the worktree is usable the moment
+# `git worktree add` returns.
+#
+# Set HYPERIDLE_SKIP_BOOTSTRAP=1 to skip (e.g. when scripting many worktrees).
+
+[ -n "$HYPERIDLE_SKIP_BOOTSTRAP" ] && exit 0
+
+root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+[ -f "$root/package.json" ] || exit 0
+
+# Already installed — normal branch switches land here and do nothing.
+[ -d "$root/node_modules" ] && exit 0
+
+# The login shell's default node may predate the repo floor (package.json
+# engines). npm ci/install fails with confusing lockfile errors on an old node,
+# so reach for a new-enough one before giving up.
+need=$(sed -n 's/^\([0-9][0-9]*\).*/\1/p' "$root/.node-version" 2>/dev/null)
+[ -n "$need" ] || need=24
+have=$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null) || have=0
+if [ "${have:-0}" -lt "$need" ]; then
+	for candidate in /opt/homebrew/opt/node@$need/bin /usr/local/opt/node@$need/bin; do
+		if [ -x "$candidate/node" ]; then
+			PATH="$candidate:$PATH"
+			export PATH
+			have=$need
+			break
+		fi
+	done
+fi
+if [ "${have:-0}" -lt "$need" ]; then
+	echo "[bootstrap] node >=$need not found (have ${have:-none}) — skipping npm install in $root" >&2
+	echo "[bootstrap] install deps yourself once a newer node is on PATH." >&2
+	exit 0
+fi
+
+echo "[bootstrap] new working tree without node_modules — installing dependencies…" >&2
+if npm install --no-audit --no-fund --loglevel=error >&2; then
+	# Laptop profile DB: cheap, idempotent, and `npm run dev` dies without it.
+	npm run setup >&2 || echo "[bootstrap] npm run setup failed — run it yourself before npm run dev" >&2
+	echo "[bootstrap] ready: $root" >&2
+else
+	echo "[bootstrap] npm install failed — run it yourself in $root" >&2
+fi
+
+exit 0
