@@ -126,110 +126,117 @@ function buildDeps() {
 describe("resolveRoutineRunRequest — emit-time routine_run resolver (routine)", () => {
 	test("bakes the full request for a valid running run + eligible routine + owner not at capacity", async ({
 		db,
+		ids,
 	}) => {
 		const { resolveRoutineRunRequest } = await import("../routine-service.js");
-		await seedTeam(db, "team-rrun-1");
-		await seedAgent(db, "owner-rrun-1");
+		await seedTeam(db, ids("team-rrun-1"));
+		await seedAgent(db, ids("owner-rrun-1"));
 		await seedRoutine(db, {
-			routineId: "routine-rrun-1",
-			teamId: "team-rrun-1",
-			ownerAgentId: "owner-rrun-1",
+			routineId: ids("routine-rrun-1"),
+			teamId: ids("team-rrun-1"),
+			ownerAgentId: ids("owner-rrun-1"),
 		});
-		await seedRun(db, { runId: "run-rrun-1", routineId: "routine-rrun-1" });
+		await seedRun(db, { runId: ids("run-rrun-1"), routineId: ids("routine-rrun-1") });
 
-		const baked = await resolveRoutineRunRequest(db, "run-rrun-1", buildDeps());
+		const baked = await resolveRoutineRunRequest(db, ids("run-rrun-1"), buildDeps());
 
 		expect(baked).toMatchObject({
-			defaultAgentId: "owner-rrun-1",
+			defaultAgentId: ids("owner-rrun-1"),
 			sourceKind: "routine",
-			sourceId: "run-rrun-1",
-			streamId: "routine:routine-rrun-1",
-			teamId: "team-rrun-1",
+			sourceId: ids("run-rrun-1"),
+			streamId: `routine:${ids("routine-rrun-1")}`,
+			teamId: ids("team-rrun-1"),
 			taskId: null,
 			sourceCorrelation: {
-				routineId: "routine-rrun-1",
-				routineRunId: "run-rrun-1",
-				teamId: "team-rrun-1",
+				routineId: ids("routine-rrun-1"),
+				routineRunId: ids("run-rrun-1"),
+				teamId: ids("team-rrun-1"),
 			},
 		});
 	});
 
-	test("rejects when the routine run does not exist", async ({ db }) => {
+	test("rejects when the routine run does not exist", async ({ db, ids }) => {
 		const { resolveRoutineRunRequest } = await import("../routine-service.js");
-		await expect(resolveRoutineRunRequest(db, "run-does-not-exist", buildDeps())).rejects.toThrow();
+		await expect(
+			resolveRoutineRunRequest(db, ids("run-does-not-exist"), buildDeps()),
+		).rejects.toThrow();
 	});
 
-	test("rejects when the routine run's outcome is not 'running'", async ({ db }) => {
+	test("rejects when the routine run's outcome is not 'running'", async ({ db, ids }) => {
 		const { resolveRoutineRunRequest } = await import("../routine-service.js");
-		await seedTeam(db, "team-rrun-2");
-		await seedAgent(db, "owner-rrun-2");
+		await seedTeam(db, ids("team-rrun-2"));
+		await seedAgent(db, ids("owner-rrun-2"));
 		await seedRoutine(db, {
-			routineId: "routine-rrun-2",
-			teamId: "team-rrun-2",
-			ownerAgentId: "owner-rrun-2",
+			routineId: ids("routine-rrun-2"),
+			teamId: ids("team-rrun-2"),
+			ownerAgentId: ids("owner-rrun-2"),
 		});
-		await seedRun(db, { runId: "run-rrun-2", routineId: "routine-rrun-2", outcome: "success" });
+		await seedRun(db, {
+			runId: ids("run-rrun-2"),
+			routineId: ids("routine-rrun-2"),
+			outcome: "success",
+		});
 
-		await expect(resolveRoutineRunRequest(db, "run-rrun-2", buildDeps())).rejects.toThrow();
+		await expect(resolveRoutineRunRequest(db, ids("run-rrun-2"), buildDeps())).rejects.toThrow();
 	});
 
-	test("rejects when the routine is soft-deleted", async ({ db }) => {
+	test("rejects when the routine is soft-deleted", async ({ db, ids }) => {
 		const { resolveRoutineRunRequest } = await import("../routine-service.js");
-		await seedTeam(db, "team-rrun-3");
-		await seedAgent(db, "owner-rrun-3");
+		await seedTeam(db, ids("team-rrun-3"));
+		await seedAgent(db, ids("owner-rrun-3"));
 		await seedRoutine(db, {
-			routineId: "routine-rrun-3",
-			teamId: "team-rrun-3",
-			ownerAgentId: "owner-rrun-3",
+			routineId: ids("routine-rrun-3"),
+			teamId: ids("team-rrun-3"),
+			ownerAgentId: ids("owner-rrun-3"),
 			deletedAt: new Date().toISOString(),
 		});
-		await seedRun(db, { runId: "run-rrun-3", routineId: "routine-rrun-3" });
+		await seedRun(db, { runId: ids("run-rrun-3"), routineId: ids("routine-rrun-3") });
 
-		await expect(resolveRoutineRunRequest(db, "run-rrun-3", buildDeps())).rejects.toThrow();
+		await expect(resolveRoutineRunRequest(db, ids("run-rrun-3"), buildDeps())).rejects.toThrow();
 	});
 
-	test("rejects when the routine is inactive (active=false)", async ({ db }) => {
+	test("rejects when the routine is inactive (active=false)", async ({ db, ids }) => {
 		const { resolveRoutineRunRequest } = await import("../routine-service.js");
-		await seedTeam(db, "team-rrun-4");
-		await seedAgent(db, "owner-rrun-4");
+		await seedTeam(db, ids("team-rrun-4"));
+		await seedAgent(db, ids("owner-rrun-4"));
 		await seedRoutine(db, {
-			routineId: "routine-rrun-4",
-			teamId: "team-rrun-4",
-			ownerAgentId: "owner-rrun-4",
+			routineId: ids("routine-rrun-4"),
+			teamId: ids("team-rrun-4"),
+			ownerAgentId: ids("owner-rrun-4"),
 			active: false,
 		});
-		await seedRun(db, { runId: "run-rrun-4", routineId: "routine-rrun-4" });
+		await seedRun(db, { runId: ids("run-rrun-4"), routineId: ids("routine-rrun-4") });
 
-		await expect(resolveRoutineRunRequest(db, "run-rrun-4", buildDeps())).rejects.toThrow();
+		await expect(resolveRoutineRunRequest(db, ids("run-rrun-4"), buildDeps())).rejects.toThrow();
 	});
 
-	test("rejects when the routine's state is not 'active' (e.g. 'paused')", async ({ db }) => {
+	test("rejects when the routine's state is not 'active' (e.g. 'paused')", async ({ db, ids }) => {
 		const { resolveRoutineRunRequest } = await import("../routine-service.js");
-		await seedTeam(db, "team-rrun-5");
-		await seedAgent(db, "owner-rrun-5");
+		await seedTeam(db, ids("team-rrun-5"));
+		await seedAgent(db, ids("owner-rrun-5"));
 		await seedRoutine(db, {
-			routineId: "routine-rrun-5",
-			teamId: "team-rrun-5",
-			ownerAgentId: "owner-rrun-5",
+			routineId: ids("routine-rrun-5"),
+			teamId: ids("team-rrun-5"),
+			ownerAgentId: ids("owner-rrun-5"),
 			state: "paused",
 		});
-		await seedRun(db, { runId: "run-rrun-5", routineId: "routine-rrun-5" });
+		await seedRun(db, { runId: ids("run-rrun-5"), routineId: ids("routine-rrun-5") });
 
-		await expect(resolveRoutineRunRequest(db, "run-rrun-5", buildDeps())).rejects.toThrow();
+		await expect(resolveRoutineRunRequest(db, ids("run-rrun-5"), buildDeps())).rejects.toThrow();
 	});
 
-	test("rejects when the resolved owner is not a runnable AI agent", async ({ db }) => {
+	test("rejects when the resolved owner is not a runnable AI agent", async ({ db, ids }) => {
 		const { resolveRoutineRunRequest } = await import("../routine-service.js");
-		await seedTeam(db, "team-rrun-11");
-		await seedAgent(db, "owner-rrun-11", { status: "retired" });
+		await seedTeam(db, ids("team-rrun-11"));
+		await seedAgent(db, ids("owner-rrun-11"), { status: "retired" });
 		await seedRoutine(db, {
-			routineId: "routine-rrun-11",
-			teamId: "team-rrun-11",
-			ownerAgentId: "owner-rrun-11",
+			routineId: ids("routine-rrun-11"),
+			teamId: ids("team-rrun-11"),
+			ownerAgentId: ids("owner-rrun-11"),
 		});
-		await seedRun(db, { runId: "run-rrun-11", routineId: "routine-rrun-11" });
+		await seedRun(db, { runId: ids("run-rrun-11"), routineId: ids("routine-rrun-11") });
 
-		await expect(resolveRoutineRunRequest(db, "run-rrun-11", buildDeps())).rejects.toThrow();
+		await expect(resolveRoutineRunRequest(db, ids("run-rrun-11"), buildDeps())).rejects.toThrow();
 	});
 });
 
@@ -273,20 +280,21 @@ describe("resolveRoutineRunRequest — emit-time routine_run resolver (routine)"
 describe("resolveRoutineRunRequest — contextBundle baking (Increment 12 Wave B, RED)", () => {
 	test("bakes a contextBundle (kind:'routine') with routine/agent/team content + ranked knowledge", async ({
 		db,
+		ids,
 	}) => {
 		const { resolveRoutineRunRequest } = await import("../routine-service.js");
-		await seedTeam(db, "team-rrun-ctx-1");
-		await seedAgent(db, "owner-rrun-ctx-1");
+		await seedTeam(db, ids("team-rrun-ctx-1"));
+		await seedAgent(db, ids("owner-rrun-ctx-1"));
 		await seedRoutine(db, {
-			routineId: "routine-rrun-ctx-1",
-			teamId: "team-rrun-ctx-1",
-			ownerAgentId: "owner-rrun-ctx-1",
+			routineId: ids("routine-rrun-ctx-1"),
+			teamId: ids("team-rrun-ctx-1"),
+			ownerAgentId: ids("owner-rrun-ctx-1"),
 		});
-		await seedRun(db, { runId: "run-rrun-ctx-1", routineId: "routine-rrun-ctx-1" });
+		await seedRun(db, { runId: ids("run-rrun-ctx-1"), routineId: ids("routine-rrun-ctx-1") });
 
 		const now = new Date().toISOString();
 		await db.insert(knowledgeItems).values({
-			id: "item-rrun-ctx-l4",
+			id: ids("item-rrun-ctx-l4"),
 			scopeKind: "factory",
 			scopeId: null,
 			title: "Factory-wide practice",
@@ -294,24 +302,24 @@ describe("resolveRoutineRunRequest — contextBundle baking (Increment 12 Wave B
 			format: "markdown",
 			status: "active",
 			version: 1,
-			updatedBy: "owner-rrun-ctx-1",
+			updatedBy: ids("owner-rrun-ctx-1"),
 			createdAt: now,
 			updatedAt: now,
 		});
 		await db.insert(knowledgeAppProjection).values({
-			id: "proj-rrun-ctx-l4",
-			knowledgeItemId: "item-rrun-ctx-l4",
+			id: ids("proj-rrun-ctx-l4"),
+			knowledgeItemId: ids("item-rrun-ctx-l4"),
 			layer: "L4",
 			scopeId: null,
 		});
 
-		const baked = await resolveRoutineRunRequest(db, "run-rrun-ctx-1", {
+		const baked = await resolveRoutineRunRequest(db, ids("run-rrun-ctx-1"), {
 			requireRunnableAgent,
 			getTeamById: (d: HyperIdleDb, id: string) => getTeam(d, { id }),
 			assembleSessionKnowledge,
 		});
 
-		const team = await getTeam(db, { id: "team-rrun-ctx-1" });
+		const team = await getTeam(db, { id: ids("team-rrun-ctx-1") });
 
 		// RED (npm run check): `RoutineRunResolverDeps` does not declare
 		// `getTeamById`/`assembleSessionKnowledge` yet (TS2353 on the call above);
@@ -322,12 +330,16 @@ describe("resolveRoutineRunRequest — contextBundle baking (Increment 12 Wave B
 		expect(baked.contextBundle).toMatchObject({
 			kind: "routine",
 			routine: {
-				id: "routine-rrun-ctx-1",
-				name: "routine-rrun-ctx-1",
+				id: ids("routine-rrun-ctx-1"),
+				name: ids("routine-rrun-ctx-1"),
 			},
-			agent: { id: "owner-rrun-ctx-1", name: "Agent owner-rrun-ctx-1", role: "builder" },
-			team: { id: "team-rrun-ctx-1", name: team?.name },
-			knowledge: expect.arrayContaining([expect.objectContaining({ id: "item-rrun-ctx-l4" })]),
+			agent: {
+				id: ids("owner-rrun-ctx-1"),
+				name: `Agent ${ids("owner-rrun-ctx-1")}`,
+				role: "builder",
+			},
+			team: { id: ids("team-rrun-ctx-1"), name: team?.name },
+			knowledge: expect.arrayContaining([expect.objectContaining({ id: ids("item-rrun-ctx-l4") })]),
 		});
 	});
 });

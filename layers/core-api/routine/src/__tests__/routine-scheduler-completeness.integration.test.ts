@@ -31,6 +31,7 @@
 import { type HyperIdleDb, routines, teamMembers, teams, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
+import { inArray } from "drizzle-orm";
 import { describe, vi } from "vitest";
 import type { RoutineSchedulerPorts } from "../ports.js";
 import { startRoutineScheduler } from "../routine-scheduler.js";
@@ -109,7 +110,16 @@ async function seedEventRoutine(db: HyperIdleDb, id: string, triggerConfig: stri
 describe("relocated routine scheduler — disposal safety", () => {
 	test("partial event-trigger registration unwinds earlier subscriptions and creates no interval", async ({
 		db,
+		ids,
 	}) => {
+		// @lore AU38: `listRoutines` orders by `id` ASC — derived UUIDs do NOT
+		// sort in label order, so force the order: the valid routine must sort
+		// BEFORE the malformed one, guaranteeing its subscription succeeds before
+		// the mid-loop `JSON.parse` failure below.
+		let okId = ids("sched-partial-1-ok");
+		let badId = ids("sched-partial-2-bad");
+		if (okId > badId) [okId, badId] = [badId, okId];
+
 		vi.useFakeTimers();
 		try {
 			const eventBus = new EventBus();
@@ -121,14 +131,10 @@ describe("relocated routine scheduler — disposal safety", () => {
 				return unsubscribe;
 			}) as typeof eventBus.on);
 
-			// `listRoutines` orders by `id` ASC (`routine-service.ts`) — the ids
-			// below are deliberately chosen so the valid routine sorts BEFORE the
-			// malformed one, guaranteeing its subscription succeeds before the
-			// mid-loop `JSON.parse` failure below.
-			await seedEventRoutine(db, "sched-partial-1-ok", '{"eventType":"task_state_changed"}');
+			await seedEventRoutine(db, okId, '{"eventType":"task_state_changed"}');
 			// Malformed JSON — `JSON.parse` throws mid-loop, after the first
 			// routine's subscription already succeeded.
-			await seedEventRoutine(db, "sched-partial-2-bad", "{");
+			await seedEventRoutine(db, badId, "{");
 
 			await expect(
 				startRoutineScheduler(db, eventBus, inertPorts(), { pollIntervalMs: 999_999 }),
@@ -138,12 +144,21 @@ describe("relocated routine scheduler — disposal safety", () => {
 			expect(subscriptions.every((unsubscribe) => unsubscribe.mock.calls.length === 1)).toBe(true);
 			expect(vi.getTimerCount()).toBe(0);
 		} finally {
+			// @lore AU38: the scheduler scans ALL event routines globally, so the
+			// malformed-JSON row must not outlive this test — a later test's
+			// `startRoutineScheduler` would hit it mid-loop and fail on the wrong
+			// error (within-file accumulation once the per-test truncate is gone).
+			await db.delete(routines).where(inArray(routines.id, [okId, badId]));
 			vi.useRealTimers();
 			vi.restoreAllMocks();
 		}
 	});
 
-	test("interval construction failure unwinds scheduler event subscriptions", async ({ db }) => {
+	test("interval construction failure unwinds scheduler event subscriptions", async ({
+		db,
+		ids,
+	}) => {
+		const routineId = ids("sched-interval-fail");
 		vi.useFakeTimers();
 		try {
 			const eventBus = new EventBus();
@@ -155,7 +170,7 @@ describe("relocated routine scheduler — disposal safety", () => {
 				return unsubscribe;
 			}) as typeof eventBus.on);
 
-			await seedEventRoutine(db, "sched-interval-fail", '{"eventType":"task_state_changed"}');
+			await seedEventRoutine(db, routineId, '{"eventType":"task_state_changed"}');
 
 			vi.spyOn(globalThis, "setInterval").mockImplementationOnce(() => {
 				throw new Error("timer unavailable");
@@ -169,6 +184,9 @@ describe("relocated routine scheduler — disposal safety", () => {
 			expect(subscriptions.every((unsubscribe) => unsubscribe.mock.calls.length === 1)).toBe(true);
 			expect(vi.getTimerCount()).toBe(0);
 		} finally {
+			// @lore AU38: same global-scan reason as above — remove this test's
+			// routine so it cannot pollute a later scheduler start.
+			await db.delete(routines).where(inArray(routines.id, [routineId]));
 			vi.useRealTimers();
 			vi.restoreAllMocks();
 		}

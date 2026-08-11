@@ -85,36 +85,37 @@ async function seedMessage(
 describe("resolveAssistantTurnRequest — bakes the thread's conversational transcript (Increment 11, H2)", () => {
 	test("transcript carries every message in the thread, in createdAt order, including the triggering message", async ({
 		db,
+		ids,
 	}) => {
 		const { resolveAssistantTurnRequest } = await import("../assistant-turn-resolver.js");
-		const threadId = "thread-transcript-bake-1";
-		const senderId = "user-transcript-bake-1";
-		const assistantId = "ast-user-transcript-bake-1";
+		const threadId = ids("thread-transcript-bake-1");
+		const senderId = ids("user-transcript-bake-1");
+		const assistantId = `ast-${ids("user-transcript-bake-1")}`;
 		await seedThread(db, { threadId, senderId, assistantId });
 
 		await seedMessage(db, {
-			messageId: "msg-transcript-bake-1a",
+			messageId: ids("msg-transcript-bake-1a"),
 			threadId,
 			senderId,
 			text: "first human message",
 			createdAt: "2026-07-31T00:00:00.000Z",
 		});
 		await seedMessage(db, {
-			messageId: "msg-transcript-bake-1b",
+			messageId: ids("msg-transcript-bake-1b"),
 			threadId,
 			senderId: assistantId,
 			text: "first assistant reply",
 			createdAt: "2026-07-31T00:00:01.000Z",
 		});
 		await seedMessage(db, {
-			messageId: "msg-transcript-bake-1c",
+			messageId: ids("msg-transcript-bake-1c"),
 			threadId,
 			senderId,
 			text: "the triggering message",
 			createdAt: "2026-07-31T00:00:02.000Z",
 		});
 
-		const baked = await resolveAssistantTurnRequest(db, "msg-transcript-bake-1c", {
+		const baked = await resolveAssistantTurnRequest(db, ids("msg-transcript-bake-1c"), {
 			requireRunnableAgent,
 		});
 
@@ -137,23 +138,23 @@ describe("resolveAssistantTurnRequest — bakes the thread's conversational tran
 		]);
 	});
 
-	test("transcript excludes messages from other threads", async ({ db }) => {
+	test("transcript excludes messages from other threads", async ({ db, ids }) => {
 		const { resolveAssistantTurnRequest } = await import("../assistant-turn-resolver.js");
-		const threadId = "thread-transcript-bake-2";
-		const senderId = "user-transcript-bake-2";
-		const assistantId = "ast-user-transcript-bake-2";
+		const threadId = ids("thread-transcript-bake-2");
+		const senderId = ids("user-transcript-bake-2");
+		const assistantId = `ast-${ids("user-transcript-bake-2")}`;
 		await seedThread(db, { threadId, senderId, assistantId });
 
-		const otherThreadId = "thread-transcript-bake-2-other";
-		const otherSenderId = "user-transcript-bake-2-other";
-		const otherAssistantId = "ast-user-transcript-bake-2-other";
+		const otherThreadId = ids("thread-transcript-bake-2-other");
+		const otherSenderId = ids("user-transcript-bake-2-other");
+		const otherAssistantId = `ast-${ids("user-transcript-bake-2-other")}`;
 		await seedThread(db, {
 			threadId: otherThreadId,
 			senderId: otherSenderId,
 			assistantId: otherAssistantId,
 		});
 		await seedMessage(db, {
-			messageId: "msg-transcript-bake-2-decoy",
+			messageId: ids("msg-transcript-bake-2-decoy"),
 			threadId: otherThreadId,
 			senderId: otherSenderId,
 			text: "decoy message in a different thread",
@@ -161,14 +162,14 @@ describe("resolveAssistantTurnRequest — bakes the thread's conversational tran
 		});
 
 		await seedMessage(db, {
-			messageId: "msg-transcript-bake-2-trigger",
+			messageId: ids("msg-transcript-bake-2-trigger"),
 			threadId,
 			senderId,
 			text: "the only message in this thread",
 			createdAt: "2026-07-31T00:00:01.000Z",
 		});
 
-		const baked = await resolveAssistantTurnRequest(db, "msg-transcript-bake-2-trigger", {
+		const baked = await resolveAssistantTurnRequest(db, ids("msg-transcript-bake-2-trigger"), {
 			requireRunnableAgent,
 		});
 

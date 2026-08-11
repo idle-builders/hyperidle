@@ -19,7 +19,7 @@ import {
 } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import type { KernelKnowledgeStatus } from "@hyperidle/domain-model";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { create as createKnowledgeItem, remove, transition } from "../knowledge-repository.js";
 import type { KnowledgeStatus } from "../types.js";
 
@@ -79,10 +79,17 @@ describe("mergeItems exact-behavior lock", () => {
 			.where(eq(knowledgeItems.id, source.id));
 		expect(sourceRow?.status).toBe("archived");
 
+		// @lore AU38: scoped to this merge's two items — other tests' merge logs
+		// must not inflate the exactly-2 claim.
 		const logs = await db
 			.select()
 			.from(knowledgeEditLog)
-			.where(eq(knowledgeEditLog.editType, "merge"));
+			.where(
+				and(
+					eq(knowledgeEditLog.editType, "merge"),
+					inArray(knowledgeEditLog.itemId, [target.id, source.id]),
+				),
+			);
 		expect(logs).toHaveLength(2);
 		const targetLog = logs.find((l) => l.itemId === target.id);
 		const sourceLog = logs.find((l) => l.itemId === source.id);
@@ -129,15 +136,25 @@ describe("splitItem exact-behavior lock", () => {
 		const splitLogs = await db
 			.select()
 			.from(knowledgeEditLog)
-			.where(eq(knowledgeEditLog.editType, "split"));
+			.where(and(eq(knowledgeEditLog.editType, "split"), eq(knowledgeEditLog.itemId, original.id)));
 		expect(splitLogs).toHaveLength(1);
 		expect(splitLogs[0]?.itemId).toBe(original.id);
 		expect(splitLogs[0]?.field).toBe("status");
 
-		const createLogsForNewItems = await db.select().from(knowledgeEditLog);
-		const spuriousCreateRows = createLogsForNewItems.filter(
-			(l) => l.editType === "create" && created.some((c) => c.id === l.itemId),
-		);
+		// @lore AU38: scoped to the newly created items — the claim is "no
+		// spurious create log for MY split children", not a whole-table scan.
+		const spuriousCreateRows = await db
+			.select()
+			.from(knowledgeEditLog)
+			.where(
+				and(
+					eq(knowledgeEditLog.editType, "create"),
+					inArray(
+						knowledgeEditLog.itemId,
+						created.map((c) => c.id),
+					),
+				),
+			);
 		expect(spuriousCreateRows).toHaveLength(0);
 
 		for (const item of created) {
@@ -169,7 +186,7 @@ describe("archiveItem exact-behavior lock", () => {
 		const logs = await db
 			.select()
 			.from(knowledgeEditLog)
-			.where(eq(knowledgeEditLog.editType, "archive"));
+			.where(and(eq(knowledgeEditLog.editType, "archive"), eq(knowledgeEditLog.itemId, item.id)));
 		expect(logs).toHaveLength(1);
 		expect(logs[0]?.field).toBe("status");
 		expect(logs[0]?.oldValue).toBe(item.status);
@@ -197,7 +214,7 @@ describe("flagItem exact-behavior lock", () => {
 		const logs = await db
 			.select()
 			.from(knowledgeEditLog)
-			.where(eq(knowledgeEditLog.editType, "flag"));
+			.where(and(eq(knowledgeEditLog.editType, "flag"), eq(knowledgeEditLog.itemId, item.id)));
 		expect(logs).toHaveLength(1);
 		expect(logs[0]?.id).toBe(editId);
 		expect(logs[0]?.newValue).toBe(`flagged (reason: ${reason})`);
@@ -229,7 +246,7 @@ describe("flagItem rollback lock", () => {
 		const logs = await db
 			.select()
 			.from(knowledgeEditLog)
-			.where(eq(knowledgeEditLog.editType, "flag"));
+			.where(and(eq(knowledgeEditLog.editType, "flag"), eq(knowledgeEditLog.itemId, item.id)));
 		expect(logs).toHaveLength(0);
 	});
 });
@@ -271,7 +288,7 @@ describe("flagItem's own two writes stay atomic with each other (AU31 review B2)
 			const logs = await db
 				.select()
 				.from(knowledgeEditLog)
-				.where(eq(knowledgeEditLog.editType, "flag"));
+				.where(and(eq(knowledgeEditLog.editType, "flag"), eq(knowledgeEditLog.itemId, item.id)));
 			expect(logs).toHaveLength(0);
 		} finally {
 			// The pool reuses one PGlite instance across test files (truncate,

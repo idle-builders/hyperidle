@@ -111,69 +111,76 @@ async function seedKnowledgeItem(
 describe("resolveKnowledgeActionRequest — emit-time knowledge_action resolver (knowledge)", () => {
 	test("bakes the full request for a valid item, matching resolveIntentInputInternal's shape", async ({
 		db,
+		ids,
 	}) => {
 		const { resolveKnowledgeActionRequest } = await import("../knowledge-action-resolver.js");
-		await seedAgent(db, { id: "ast-knowledge-resolver-1" });
+		await seedAgent(db, { id: ids("ast-knowledge-resolver-1") });
 		await seedKnowledgeItem(db, {
-			id: "item-resolver-1",
-			updatedBy: "ast-knowledge-resolver-1",
+			id: ids("item-resolver-1"),
+			updatedBy: ids("ast-knowledge-resolver-1"),
 		});
 
-		const baked = await resolveKnowledgeActionRequest(db, "knowledge:item-resolver-1", {
+		const baked = await resolveKnowledgeActionRequest(db, `knowledge:${ids("item-resolver-1")}`, {
 			requireRunnableAgent,
 		});
 
 		expect(baked).toMatchObject({
-			defaultAgentId: "ast-knowledge-resolver-1",
+			defaultAgentId: ids("ast-knowledge-resolver-1"),
 			sourceKind: "knowledge",
-			sourceId: "knowledge:item-resolver-1",
-			streamId: "knowledge:item-resolver-1",
+			sourceId: `knowledge:${ids("item-resolver-1")}`,
+			streamId: `knowledge:${ids("item-resolver-1")}`,
 			sourceCorrelation: {
-				knowledgeItemId: "item-resolver-1",
+				knowledgeItemId: ids("item-resolver-1"),
 				action: "review",
 			},
 		});
 	});
 
-	test("includes scopeId in sourceCorrelation when the item has one", async ({ db }) => {
+	test("includes scopeId in sourceCorrelation when the item has one", async ({ db, ids }) => {
 		const { resolveKnowledgeActionRequest } = await import("../knowledge-action-resolver.js");
-		await seedAgent(db, { id: "ast-knowledge-resolver-scope" });
+		await seedAgent(db, { id: ids("ast-knowledge-resolver-scope") });
 		await seedKnowledgeItem(db, {
-			id: "item-resolver-scope",
-			updatedBy: "ast-knowledge-resolver-scope",
-			scopeId: "team-resolver-scope",
+			id: ids("item-resolver-scope"),
+			updatedBy: ids("ast-knowledge-resolver-scope"),
+			scopeId: ids("team-resolver-scope"),
 		});
 
-		const baked = await resolveKnowledgeActionRequest(db, "knowledge:item-resolver-scope", {
-			requireRunnableAgent,
-		});
+		const baked = await resolveKnowledgeActionRequest(
+			db,
+			`knowledge:${ids("item-resolver-scope")}`,
+			{
+				requireRunnableAgent,
+			},
+		);
 
 		expect(baked.sourceCorrelation).toMatchObject({
-			knowledgeItemId: "item-resolver-scope",
+			knowledgeItemId: ids("item-resolver-scope"),
 			action: "review",
-			scopeId: "team-resolver-scope",
+			scopeId: ids("team-resolver-scope"),
 		});
 	});
 
-	test("rejects a knowledge item that does not exist", async ({ db }) => {
+	test("rejects a knowledge item that does not exist", async ({ db, ids }) => {
 		const { resolveKnowledgeActionRequest } = await import("../knowledge-action-resolver.js");
 
 		await expect(
-			resolveKnowledgeActionRequest(db, "knowledge:does-not-exist", { requireRunnableAgent }),
+			resolveKnowledgeActionRequest(db, `knowledge:${ids("does-not-exist")}`, {
+				requireRunnableAgent,
+			}),
 		).rejects.toThrow();
 	});
 
-	test("rejects an archived knowledge item", async ({ db }) => {
+	test("rejects an archived knowledge item", async ({ db, ids }) => {
 		const { resolveKnowledgeActionRequest } = await import("../knowledge-action-resolver.js");
-		await seedAgent(db, { id: "ast-knowledge-resolver-archived" });
+		await seedAgent(db, { id: ids("ast-knowledge-resolver-archived") });
 		await seedKnowledgeItem(db, {
-			id: "item-resolver-archived",
-			updatedBy: "ast-knowledge-resolver-archived",
+			id: ids("item-resolver-archived"),
+			updatedBy: ids("ast-knowledge-resolver-archived"),
 			status: "archived",
 		});
 
 		await expect(
-			resolveKnowledgeActionRequest(db, "knowledge:item-resolver-archived", {
+			resolveKnowledgeActionRequest(db, `knowledge:${ids("item-resolver-archived")}`, {
 				requireRunnableAgent,
 			}),
 		).rejects.toThrow();
@@ -181,6 +188,7 @@ describe("resolveKnowledgeActionRequest — emit-time knowledge_action resolver 
 
 	test("rejects when the item's updatedBy is not a runnable AI agent (never trusts a human editor)", async ({
 		db,
+		ids,
 	}) => {
 		const { resolveKnowledgeActionRequest } = await import("../knowledge-action-resolver.js");
 		// Deliberately do NOT seed "human-resolver-1" as an AI agent — the
@@ -188,12 +196,12 @@ describe("resolveKnowledgeActionRequest — emit-time knowledge_action resolver 
 		// reject, never trust that whoever last touched the item is a
 		// runnable agent.
 		await seedKnowledgeItem(db, {
-			id: "item-resolver-unrunnable",
-			updatedBy: "human-resolver-1",
+			id: ids("item-resolver-unrunnable"),
+			updatedBy: ids("human-resolver-1"),
 		});
 
 		await expect(
-			resolveKnowledgeActionRequest(db, "knowledge:item-resolver-unrunnable", {
+			resolveKnowledgeActionRequest(db, `knowledge:${ids("item-resolver-unrunnable")}`, {
 				requireRunnableAgent,
 			}),
 		).rejects.toThrow();
@@ -201,20 +209,21 @@ describe("resolveKnowledgeActionRequest — emit-time knowledge_action resolver 
 
 	test("rejects when the resolved agent exists but is not runnable (inactive AI agent)", async ({
 		db,
+		ids,
 	}) => {
 		const { resolveKnowledgeActionRequest } = await import("../knowledge-action-resolver.js");
 		await seedAgent(db, {
-			id: "ast-knowledge-resolver-inactive",
+			id: ids("ast-knowledge-resolver-inactive"),
 			kind: "ai",
 			status: "paused",
 		});
 		await seedKnowledgeItem(db, {
-			id: "item-resolver-inactive-agent",
-			updatedBy: "ast-knowledge-resolver-inactive",
+			id: ids("item-resolver-inactive-agent"),
+			updatedBy: ids("ast-knowledge-resolver-inactive"),
 		});
 
 		await expect(
-			resolveKnowledgeActionRequest(db, "knowledge:item-resolver-inactive-agent", {
+			resolveKnowledgeActionRequest(db, `knowledge:${ids("item-resolver-inactive-agent")}`, {
 				requireRunnableAgent,
 			}),
 		).rejects.toThrow();
@@ -266,19 +275,20 @@ describe("resolveKnowledgeActionRequest — emit-time knowledge_action resolver 
 describe("resolveKnowledgeActionRequest — contextBundle baking (Increment 12 Wave B, RED)", () => {
 	test("bakes a contextBundle (kind:'knowledge') with the flagged item's own content + ranked knowledge", async ({
 		db,
+		ids,
 	}) => {
 		const { resolveKnowledgeActionRequest } = await import("../knowledge-action-resolver.js");
-		await seedAgent(db, { id: "ast-knowledge-ctx-1" });
+		await seedAgent(db, { id: ids("ast-knowledge-ctx-1") });
 		await seedKnowledgeItem(db, {
-			id: "item-knowledge-ctx-1",
-			updatedBy: "ast-knowledge-ctx-1",
+			id: ids("item-knowledge-ctx-1"),
+			updatedBy: ids("ast-knowledge-ctx-1"),
 		});
 
 		// A second, factory-wide item — always in scope regardless of the
 		// flagged item's own team scope — proves ranked knowledge is baked.
 		const now = new Date().toISOString();
 		await db.insert(knowledgeItems).values({
-			id: "item-knowledge-ctx-l4",
+			id: ids("item-knowledge-ctx-l4"),
 			scopeKind: "factory",
 			scopeId: null,
 			title: "Factory-wide practice",
@@ -286,20 +296,24 @@ describe("resolveKnowledgeActionRequest — contextBundle baking (Increment 12 W
 			format: "markdown",
 			status: "active",
 			version: 1,
-			updatedBy: "ast-knowledge-ctx-1",
+			updatedBy: ids("ast-knowledge-ctx-1"),
 			createdAt: now,
 			updatedAt: now,
 		});
 		await db.insert(knowledgeAppProjection).values({
-			id: "proj-knowledge-ctx-l4",
-			knowledgeItemId: "item-knowledge-ctx-l4",
+			id: ids("proj-knowledge-ctx-l4"),
+			knowledgeItemId: ids("item-knowledge-ctx-l4"),
 			layer: "L4",
 			scopeId: null,
 		});
 
-		const baked = await resolveKnowledgeActionRequest(db, "knowledge:item-knowledge-ctx-1", {
-			requireRunnableAgent,
-		});
+		const baked = await resolveKnowledgeActionRequest(
+			db,
+			`knowledge:${ids("item-knowledge-ctx-1")}`,
+			{
+				requireRunnableAgent,
+			},
+		);
 
 		// RED (npm run check): `BakedKnowledgeActionRequest` does not declare
 		// `contextBundle` yet (TS2339). Left uncast deliberately — the compile
@@ -309,14 +323,16 @@ describe("resolveKnowledgeActionRequest — contextBundle baking (Increment 12 W
 		expect(baked.contextBundle).toMatchObject({
 			kind: "knowledge",
 			item: {
-				id: "item-knowledge-ctx-1",
+				id: ids("item-knowledge-ctx-1"),
 				title: "Flag me",
 				body: "Body content",
 				format: "markdown",
 				version: 1,
 			},
-			agent: { id: "ast-knowledge-ctx-1", name: "Agent", role: "builder" },
-			knowledge: expect.arrayContaining([expect.objectContaining({ id: "item-knowledge-ctx-l4" })]),
+			agent: { id: ids("ast-knowledge-ctx-1"), name: "Agent", role: "builder" },
+			knowledge: expect.arrayContaining([
+				expect.objectContaining({ id: ids("item-knowledge-ctx-l4") }),
+			]),
 		});
 	});
 });
@@ -331,17 +347,18 @@ describe("resolveKnowledgeActionRequest — contextBundle baking (Increment 12 W
 describe("resolveKnowledgeActionRequest — callingThreadId baking (AU27)", () => {
 	test("bakes no callingThreadId when resolveOrCreateCallingThread is not supplied", async ({
 		db,
+		ids,
 	}) => {
 		const { resolveKnowledgeActionRequest } = await import("../knowledge-action-resolver.js");
-		await seedAgent(db, { id: "ast-knowledge-thread-absent" });
+		await seedAgent(db, { id: ids("ast-knowledge-thread-absent") });
 		await seedKnowledgeItem(db, {
-			id: "item-knowledge-thread-absent",
-			updatedBy: "ast-knowledge-thread-absent",
+			id: ids("item-knowledge-thread-absent"),
+			updatedBy: ids("ast-knowledge-thread-absent"),
 		});
 
 		const baked = await resolveKnowledgeActionRequest(
 			db,
-			"knowledge:item-knowledge-thread-absent",
+			`knowledge:${ids("item-knowledge-thread-absent")}`,
 			{
 				requireRunnableAgent,
 			},
@@ -352,26 +369,31 @@ describe("resolveKnowledgeActionRequest — callingThreadId baking (AU27)", () =
 
 	test("bakes callingThreadId via the injected resolver, called with the item id + the resolved agent", async ({
 		db,
+		ids,
 	}) => {
 		const { resolveKnowledgeActionRequest } = await import("../knowledge-action-resolver.js");
-		await seedAgent(db, { id: "ast-knowledge-thread-1" });
+		await seedAgent(db, { id: ids("ast-knowledge-thread-1") });
 		await seedKnowledgeItem(db, {
-			id: "item-knowledge-thread-1",
-			updatedBy: "ast-knowledge-thread-1",
+			id: ids("item-knowledge-thread-1"),
+			updatedBy: ids("ast-knowledge-thread-1"),
 		});
 
 		const calls: Array<{ knowledgeItemId: string; agentId: string }> = [];
-		const baked = await resolveKnowledgeActionRequest(db, "knowledge:item-knowledge-thread-1", {
-			requireRunnableAgent,
-			resolveOrCreateCallingThread: async (_db, knowledgeItemId, agentId) => {
-				calls.push({ knowledgeItemId, agentId });
-				return "thread-knowledge-thread-1";
+		const baked = await resolveKnowledgeActionRequest(
+			db,
+			`knowledge:${ids("item-knowledge-thread-1")}`,
+			{
+				requireRunnableAgent,
+				resolveOrCreateCallingThread: async (_db, knowledgeItemId, agentId) => {
+					calls.push({ knowledgeItemId, agentId });
+					return ids("thread-knowledge-thread-1");
+				},
 			},
-		});
+		);
 
-		expect(baked.callingThreadId).toBe("thread-knowledge-thread-1");
+		expect(baked.callingThreadId).toBe(ids("thread-knowledge-thread-1"));
 		expect(calls).toEqual([
-			{ knowledgeItemId: "item-knowledge-thread-1", agentId: "ast-knowledge-thread-1" },
+			{ knowledgeItemId: ids("item-knowledge-thread-1"), agentId: ids("ast-knowledge-thread-1") },
 		]);
 	});
 });

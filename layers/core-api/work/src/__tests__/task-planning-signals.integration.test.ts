@@ -51,34 +51,34 @@ async function seedTask(db: HyperIdleDb, id: string): Promise<void> {
 }
 
 describe("getTaskRiskTierByTaskId", () => {
-	test("returns the riskTier from the task's task_planning_signals row", async ({ db }) => {
-		await seedTask(db, "tps-task-1");
+	test("returns the riskTier from the task's task_planning_signals row", async ({ db, ids }) => {
+		await seedTask(db, ids("tps-task-1"));
 		await db.insert(taskPlanningSignals).values({
-			id: "tps-1",
-			taskId: "tps-task-1",
+			id: ids("tps-1"),
+			taskId: ids("tps-task-1"),
 			riskTier: "high",
 		});
 
-		const riskTier = await getTaskRiskTierByTaskId(db, "tps-task-1");
+		const riskTier = await getTaskRiskTierByTaskId(db, ids("tps-task-1"));
 		expect(riskTier).toBe("high");
 	});
 
-	test("returns null when the task has no task_planning_signals row", async ({ db }) => {
-		await seedTask(db, "tps-task-2");
+	test("returns null when the task has no task_planning_signals row", async ({ db, ids }) => {
+		await seedTask(db, ids("tps-task-2"));
 
-		const riskTier = await getTaskRiskTierByTaskId(db, "tps-task-2");
+		const riskTier = await getTaskRiskTierByTaskId(db, ids("tps-task-2"));
 		expect(riskTier).toBeNull();
 	});
 
-	test("returns null when the row's riskTier column is null", async ({ db }) => {
-		await seedTask(db, "tps-task-3");
+	test("returns null when the row's riskTier column is null", async ({ db, ids }) => {
+		await seedTask(db, ids("tps-task-3"));
 		await db.insert(taskPlanningSignals).values({
-			id: "tps-3",
-			taskId: "tps-task-3",
+			id: ids("tps-3"),
+			taskId: ids("tps-task-3"),
 			riskTier: null,
 		});
 
-		const riskTier = await getTaskRiskTierByTaskId(db, "tps-task-3");
+		const riskTier = await getTaskRiskTierByTaskId(db, ids("tps-task-3"));
 		expect(riskTier).toBeNull();
 	});
 });

@@ -13,14 +13,8 @@ increment 1 by running both rules over the whole lane.
 
 ## no-literal-entity-ids
 
-- `layers/core-api/conversation/src/__tests__/assistant-turn-resolver.integration.test.ts`
-- `layers/core-api/conversation/src/__tests__/session-not-returned-notice.integration.test.ts`
-- `layers/core-api/knowledge/src/__tests__/knowledge-action-resolver.integration.test.ts`
 - `layers/core-api/org/src/__tests__/org-edges.integration.test.ts`
 - `layers/core-api/org/src/__tests__/org-routing.integration.test.ts`
-- `layers/core-api/review/src/__tests__/reengagement-resolver.integration.test.ts`
-- `layers/core-api/routine/src/__tests__/routine-run-resolver.integration.test.ts`
-- `layers/core-api/routine/src/__tests__/routine-service.integration.test.ts`
 - `layers/core-api/src/__tests__/AC1-bet-outcome.integration.test.ts`
 - `layers/core-api/src/__tests__/AC1-session-effectiveness.integration.test.ts`
 - `layers/core-api/src/__tests__/AC1-task-outcome.integration.test.ts`
@@ -91,7 +85,6 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/__tests__/promote-knowledge.integration.test.ts`
 - `layers/core-api/src/__tests__/read-inbox.integration.test.ts`
 - `layers/core-api/src/__tests__/reply-tool.integration.test.ts`
-- `layers/core-api/src/__tests__/retention-reaper.integration.test.ts`
 - `layers/core-api/src/__tests__/routines-aa1.integration.test.ts`
 - `layers/core-api/src/__tests__/routines.integration.test.ts`
 - `layers/core-api/src/__tests__/score-attention.integration.test.ts`
@@ -173,14 +166,9 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/services/__tests__/session-knowledge-assembler-ranking-parity.integration.test.ts`
 - `layers/core-api/src/services/__tests__/session-review-creator.reengagement-liveness-baked-emit.integration.test.ts`
 - `layers/core-api/users/src/__tests__/runnable-agent.integration.test.ts`
-- `layers/core-api/work/src/__tests__/task-dispatch-attempt-store.integration.test.ts`
-- `layers/core-api/work/src/__tests__/task-planning-signals.integration.test.ts`
-- `layers/core-api/work/src/__tests__/task-run-resolver.integration.test.ts`
 
 ## no-unscoped-table-read
 
-- `layers/core-api/conversation/src/__tests__/session-not-returned-notice.integration.test.ts`
-- `layers/core-api/knowledge/src/__tests__/knowledge-repository.au14-round2.integration.test.ts`
 - `layers/core-api/org/src/__tests__/org-edges.integration.test.ts`
 - `layers/core-api/src/__tests__/AC2-retro.integration.test.ts`
 - `layers/core-api/src/__tests__/AF15-teams-idempotency.integration.test.ts`
@@ -204,7 +192,6 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/__tests__/knowledge.integration.test.ts`
 - `layers/core-api/src/__tests__/lifecycle-propagation.integration.test.ts`
 - `layers/core-api/src/__tests__/policy-engine.integration.test.ts`
-- `layers/core-api/src/__tests__/retention-reaper.integration.test.ts`
 - `layers/core-api/src/__tests__/routines.integration.test.ts`
 - `layers/core-api/src/__tests__/session-review-creator.integration.test.ts`
 - `layers/core-api/src/__tests__/users.integration.test.ts`

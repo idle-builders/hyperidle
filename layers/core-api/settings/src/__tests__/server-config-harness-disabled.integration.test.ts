@@ -15,9 +15,20 @@
  * __tests__/` — only needs `{ db }`, switched to `@hyperidle/db/test-fixtures`.
  */
 
+import { type HyperIdleDb, serverConfig } from "@hyperidle/db";
 import { test } from "@hyperidle/db/test-fixtures";
+import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { readServerConfig, updateServerConfig } from "../index.js";
+
+/**
+ * @lore AU38: server_config is a singleton row (id = "default") — the
+ * default-state assertion below arranges the empty state itself by deleting
+ * the row (readServerConfig falls back to defaults when absent).
+ */
+async function resetServerConfig(db: HyperIdleDb): Promise<void> {
+	await db.delete(serverConfig).where(eq(serverConfig.id, "default"));
+}
 
 /**
  * AM4 adds `harnessDisabled?: string[]` to ServerConfigPatch (Task 1).
@@ -31,6 +42,7 @@ type AM4ServerConfigPatch = Parameters<typeof updateServerConfig>[1] & {
 describe("server_config.harnessDisabled key", () => {
 	describe("readServerConfig defaults", () => {
 		test("harnessDisabled is [] on an empty config table", async ({ db }) => {
+			await resetServerConfig(db);
 			const config = await readServerConfig(db);
 			// The new harnessDisabled key MUST be present and default to []
 			expect(Array.isArray((config as { harnessDisabled?: unknown }).harnessDisabled)).toBe(true);

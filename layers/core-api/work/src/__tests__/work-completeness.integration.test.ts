@@ -1,16 +1,17 @@
 /** AU20 Stage 1: consumer-demand completeness contract for the work service. */
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
-import { describe, expect, test } from "@hyperidle/db/test-fixtures";
+import { describe, expect, type ScopedIds, test } from "@hyperidle/db/test-fixtures";
 import { create, get, list } from "../work-service.js";
 
 async function seedWork(
 	db: HyperIdleDb,
+	ids: ScopedIds,
 	suffix: string,
 ): Promise<{ betId: string; taskId: string }> {
 	const now = "2026-07-21T00:00:00.000Z";
-	const teamId = `work-team-${suffix}`;
-	const betId = `work-bet-${suffix}`;
-	const taskId = `work-task-${suffix}`;
+	const teamId = ids(`work-team-${suffix}`);
+	const betId = ids(`work-bet-${suffix}`);
+	const taskId = ids(`work-task-${suffix}`);
 	await db
 		.insert(teams)
 		.values({ id: teamId, name: `Team ${suffix}`, phase: "build", createdAt: now });
@@ -43,11 +44,12 @@ async function seedWork(
 
 async function seedItemDeps(
 	db: HyperIdleDb,
+	ids: ScopedIds,
 	suffix: string,
 ): Promise<{ agentId: string; threadId: string }> {
 	const now = "2026-07-21T00:00:00.000Z";
-	const agentId = `work-agent-${suffix}`;
-	const threadId = `work-thread-${suffix}`;
+	const agentId = ids(`work-agent-${suffix}`);
+	const threadId = ids(`work-thread-${suffix}`);
 	await db.insert(users).values({
 		id: agentId,
 		kind: "ai",
@@ -69,13 +71,13 @@ async function seedItemDeps(
 }
 
 describe("work completeness contract", () => {
-	test("source-agent item listing returns only matching item IDs", async ({ db }) => {
-		const first = await seedItemDeps(db, "items-a");
-		const second = await seedItemDeps(db, "items-b");
+	test("source-agent item listing returns only matching item IDs", async ({ db, ids }) => {
+		const first = await seedItemDeps(db, ids, "items-a");
+		const second = await seedItemDeps(db, ids, "items-b");
 		for (const [id, sourceAgentId, threadId] of [
-			["source-item-1", first.agentId, first.threadId],
-			["source-item-2", first.agentId, first.threadId],
-			["source-item-other", second.agentId, second.threadId],
+			[ids("source-item-1"), first.agentId, first.threadId],
+			[ids("source-item-2"), first.agentId, first.threadId],
+			[ids("source-item-other"), second.agentId, second.threadId],
 		] as const) {
 			await create(db, "item", {
 				id,
@@ -85,21 +87,23 @@ describe("work completeness contract", () => {
 				createdAt: "2026-07-21T00:00:00.000Z",
 			});
 		}
+		// @lore AU38: derived UUIDs don't sort in label order — sort both sides
+		// with the same comparator.
 		expect(
 			(await list(db, "item", { sourceAgentId: first.agentId })).map((item) => item.id).sort(),
-		).toEqual(["source-item-1", "source-item-2"]);
+		).toEqual([ids("source-item-1"), ids("source-item-2")].sort());
 		expect(
-			(await list(db, "item", { ids: ["source-item-2", "source-item-other"] }))
+			(await list(db, "item", { ids: [ids("source-item-2"), ids("source-item-other")] }))
 				.map((item) => item.id)
 				.sort(),
-		).toEqual(["source-item-2", "source-item-other"]);
+		).toEqual([ids("source-item-2"), ids("source-item-other")].sort());
 		expect(await list(db, "item", { ids: [] })).toEqual([]);
 	});
 
-	test("artifact create and direct get preserve the complete row", async ({ db }) => {
-		const { taskId } = await seedWork(db, "artifact");
+	test("artifact create and direct get preserve the complete row", async ({ db, ids }) => {
+		const { taskId } = await seedWork(db, ids, "artifact");
 		const artifact = {
-			id: "work-artifact-1",
+			id: ids("work-artifact-1"),
 			producingTaskId: taskId,
 			kind: "document",
 			label: "Result",

@@ -17,15 +17,27 @@
  * precedent as `@hyperidle/org`'s `org-edges.integration.test.ts`.
  */
 
-import { serverConfig } from "@hyperidle/db";
+import { type HyperIdleDb, serverConfig } from "@hyperidle/db";
 import { test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { migrateCredentialsToStore, readServerConfig, updateServerConfig } from "../index.js";
 
+/**
+ * @lore AU38: server_config is a singleton row (id = "default") shared by
+ * every test and file — the one table you cannot scope by inserting your own
+ * row. Tests that assert DEFAULT state must arrange it by deleting the row
+ * first (readServerConfig falls back to defaults when absent); the delete is
+ * scoped to the singleton id, the only row this file touches.
+ */
+async function resetServerConfig(db: HyperIdleDb): Promise<void> {
+	await db.delete(serverConfig).where(eq(serverConfig.id, "default"));
+}
+
 describe("server config read/write", () => {
 	describe("readServerConfig", () => {
 		test("returns defaults when table is empty", async ({ db }) => {
+			await resetServerConfig(db);
 			const config = await readServerConfig(db);
 
 			expect(config).toBeDefined();
@@ -38,6 +50,7 @@ describe("server config read/write", () => {
 		});
 
 		test("returns correct notification defaults shape", async ({ db }) => {
+			await resetServerConfig(db);
 			const config = await readServerConfig(db);
 
 			expect(typeof config.notifications.reviewAlerts).toBe("boolean");
@@ -50,6 +63,9 @@ describe("server config read/write", () => {
 
 	describe("updateServerConfig", () => {
 		test("merges partial notification updates without losing other keys", async ({ db }) => {
+			// Start from defaults so "other keys preserved" asserts against a
+			// known state, not whatever a prior writer left on the singleton.
+			await resetServerConfig(db);
 			await updateServerConfig(db, {
 				notifications: { reviewAlerts: false },
 			});
@@ -115,8 +131,11 @@ describe("server config read/write", () => {
 					reasoning: { provider: "openai-compatible", model: "reasoning", apiKey: "keep-me" },
 				},
 			};
+			// Upsert: earlier tests (or other files) may already hold the
+			// singleton row — this test owns its starting config (AU38).
 			await db.execute(
-				`INSERT INTO server_config (id, config, updated_at) VALUES ('default', '${JSON.stringify(legacy)}', now())`,
+				`INSERT INTO server_config (id, config, updated_at) VALUES ('default', '${JSON.stringify(legacy)}', now())
+				 ON CONFLICT (id) DO UPDATE SET config = EXCLUDED.config, updated_at = EXCLUDED.updated_at`,
 			);
 			const insert = vi.fn().mockRejectedValue(new Error("credential store unavailable"));
 

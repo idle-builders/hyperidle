@@ -137,121 +137,123 @@ async function seedAttempt(
 describe("resolveTaskRunRequest — emit-time task_run resolver (work)", () => {
 	test("bakes the full request for a valid attempt + task + runnable agent, matching resolveIntentInputInternal's shape", async ({
 		db,
+		ids,
 	}) => {
 		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
-		await seedTeamAndBet(db, { teamId: "team-trun-1", betId: "bet-trun-1" });
-		await seedAgent(db, "agent-trun-1");
+		await seedTeamAndBet(db, { teamId: ids("team-trun-1"), betId: ids("bet-trun-1") });
+		await seedAgent(db, ids("agent-trun-1"));
 		await seedTask(db, {
-			taskId: "task-trun-1",
-			betId: "bet-trun-1",
-			teamId: "team-trun-1",
-			ownerAgentId: "agent-trun-1",
+			taskId: ids("task-trun-1"),
+			betId: ids("bet-trun-1"),
+			teamId: ids("team-trun-1"),
+			ownerAgentId: ids("agent-trun-1"),
 		});
 		await seedAttempt(db, {
-			attemptId: "attempt-trun-1",
-			taskId: "task-trun-1",
-			agentId: "agent-trun-1",
+			attemptId: ids("attempt-trun-1"),
+			taskId: ids("task-trun-1"),
+			agentId: ids("agent-trun-1"),
 		});
 
-		const baked = await resolveTaskRunRequest(db, "attempt-trun-1", { requireRunnableAgent });
+		const baked = await resolveTaskRunRequest(db, ids("attempt-trun-1"), { requireRunnableAgent });
 
 		expect(baked).toMatchObject({
-			defaultAgentId: "agent-trun-1",
+			defaultAgentId: ids("agent-trun-1"),
 			sourceKind: "task",
-			sourceId: "task-trun-1",
-			streamId: "task:task-trun-1",
-			taskId: "task-trun-1",
-			teamId: "team-trun-1",
-			sourceCorrelation: { taskId: "task-trun-1", teamId: "team-trun-1" },
+			sourceId: ids("task-trun-1"),
+			streamId: `task:${ids("task-trun-1")}`,
+			taskId: ids("task-trun-1"),
+			teamId: ids("team-trun-1"),
+			sourceCorrelation: { taskId: ids("task-trun-1"), teamId: ids("team-trun-1") },
 		});
 	});
 
-	test("rejects a dispatch attempt that does not exist", async ({ db }) => {
+	test("rejects a dispatch attempt that does not exist", async ({ db, ids }) => {
 		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
 		await expect(
-			resolveTaskRunRequest(db, "attempt-does-not-exist", { requireRunnableAgent }),
+			resolveTaskRunRequest(db, ids("attempt-does-not-exist"), { requireRunnableAgent }),
 		).rejects.toThrow();
 	});
 
-	test("rejects a dispatch attempt that is no longer 'requested'", async ({ db }) => {
+	test("rejects a dispatch attempt that is no longer 'requested'", async ({ db, ids }) => {
 		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
-		await seedTeamAndBet(db, { teamId: "team-trun-2", betId: "bet-trun-2" });
-		await seedAgent(db, "agent-trun-2");
+		await seedTeamAndBet(db, { teamId: ids("team-trun-2"), betId: ids("bet-trun-2") });
+		await seedAgent(db, ids("agent-trun-2"));
 		await seedTask(db, {
-			taskId: "task-trun-2",
-			betId: "bet-trun-2",
-			teamId: "team-trun-2",
-			ownerAgentId: "agent-trun-2",
+			taskId: ids("task-trun-2"),
+			betId: ids("bet-trun-2"),
+			teamId: ids("team-trun-2"),
+			ownerAgentId: ids("agent-trun-2"),
 		});
 		await seedAttempt(db, {
-			attemptId: "attempt-trun-2",
-			taskId: "task-trun-2",
-			agentId: "agent-trun-2",
+			attemptId: ids("attempt-trun-2"),
+			taskId: ids("task-trun-2"),
+			agentId: ids("agent-trun-2"),
 			status: "running",
 		});
 
 		await expect(
-			resolveTaskRunRequest(db, "attempt-trun-2", { requireRunnableAgent }),
+			resolveTaskRunRequest(db, ids("attempt-trun-2"), { requireRunnableAgent }),
 		).rejects.toThrow();
 	});
 
-	test("rejects when the task is not in an agent-work-eligible state", async ({ db }) => {
+	test("rejects when the task is not in an agent-work-eligible state", async ({ db, ids }) => {
 		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
-		await seedTeamAndBet(db, { teamId: "team-trun-3", betId: "bet-trun-3" });
-		await seedAgent(db, "agent-trun-3");
+		await seedTeamAndBet(db, { teamId: ids("team-trun-3"), betId: ids("bet-trun-3") });
+		await seedAgent(db, ids("agent-trun-3"));
 		await seedTask(db, {
-			taskId: "task-trun-3",
-			betId: "bet-trun-3",
-			teamId: "team-trun-3",
-			ownerAgentId: "agent-trun-3",
+			taskId: ids("task-trun-3"),
+			betId: ids("bet-trun-3"),
+			teamId: ids("team-trun-3"),
+			ownerAgentId: ids("agent-trun-3"),
 			state: "done",
 		});
 		await seedAttempt(db, {
-			attemptId: "attempt-trun-3",
-			taskId: "task-trun-3",
-			agentId: "agent-trun-3",
+			attemptId: ids("attempt-trun-3"),
+			taskId: ids("task-trun-3"),
+			agentId: ids("agent-trun-3"),
 		});
 
 		await expect(
-			resolveTaskRunRequest(db, "attempt-trun-3", { requireRunnableAgent }),
+			resolveTaskRunRequest(db, ids("attempt-trun-3"), { requireRunnableAgent }),
 		).rejects.toThrow();
 	});
 
 	test("rejects when the task owner changed after the dispatch attempt was created", async ({
 		db,
+		ids,
 	}) => {
 		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
-		await seedTeamAndBet(db, { teamId: "team-trun-4", betId: "bet-trun-4" });
-		await seedAgent(db, "agent-trun-4-attempt");
-		await seedAgent(db, "agent-trun-4-new-owner");
+		await seedTeamAndBet(db, { teamId: ids("team-trun-4"), betId: ids("bet-trun-4") });
+		await seedAgent(db, ids("agent-trun-4-attempt"));
+		await seedAgent(db, ids("agent-trun-4-new-owner"));
 		await seedTask(db, {
-			taskId: "task-trun-4",
-			betId: "bet-trun-4",
-			teamId: "team-trun-4",
+			taskId: ids("task-trun-4"),
+			betId: ids("bet-trun-4"),
+			teamId: ids("team-trun-4"),
 			// Owner reassigned after the attempt below was created.
-			ownerAgentId: "agent-trun-4-new-owner",
+			ownerAgentId: ids("agent-trun-4-new-owner"),
 		});
 		await seedAttempt(db, {
-			attemptId: "attempt-trun-4",
-			taskId: "task-trun-4",
-			agentId: "agent-trun-4-attempt",
+			attemptId: ids("attempt-trun-4"),
+			taskId: ids("task-trun-4"),
+			agentId: ids("agent-trun-4-attempt"),
 		});
 
 		await expect(
-			resolveTaskRunRequest(db, "attempt-trun-4", { requireRunnableAgent }),
+			resolveTaskRunRequest(db, ids("attempt-trun-4"), { requireRunnableAgent }),
 		).rejects.toThrow();
 	});
 
-	test("rejects when the attempt's agent is not a runnable AI agent", async ({ db }) => {
+	test("rejects when the attempt's agent is not a runnable AI agent", async ({ db, ids }) => {
 		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
-		await seedTeamAndBet(db, { teamId: "team-trun-5", betId: "bet-trun-5" });
+		await seedTeamAndBet(db, { teamId: ids("team-trun-5"), betId: ids("bet-trun-5") });
 		// `tasks.owner_agent_id` / `task_dispatch_attempts.agent_id` FK to
 		// `users.id` — a real row must exist to satisfy the constraint. Seeded
 		// as `kind: "human"` (not `"ai"`) so the row is real but still fails
 		// the runnability check, same intent as the RED-phase author's
 		// "deliberately do NOT seed as an AI agent" comment.
 		await db.insert(users).values({
-			id: "agent-trun-5-unrunnable",
+			id: ids("agent-trun-5-unrunnable"),
 			kind: "human",
 			name: "Not An Agent",
 			role: "founder",
@@ -259,19 +261,19 @@ describe("resolveTaskRunRequest — emit-time task_run resolver (work)", () => {
 			createdAt: new Date().toISOString(),
 		});
 		await seedTask(db, {
-			taskId: "task-trun-5",
-			betId: "bet-trun-5",
-			teamId: "team-trun-5",
-			ownerAgentId: "agent-trun-5-unrunnable",
+			taskId: ids("task-trun-5"),
+			betId: ids("bet-trun-5"),
+			teamId: ids("team-trun-5"),
+			ownerAgentId: ids("agent-trun-5-unrunnable"),
 		});
 		await seedAttempt(db, {
-			attemptId: "attempt-trun-5",
-			taskId: "task-trun-5",
-			agentId: "agent-trun-5-unrunnable",
+			attemptId: ids("attempt-trun-5"),
+			taskId: ids("task-trun-5"),
+			agentId: ids("agent-trun-5-unrunnable"),
 		});
 
 		await expect(
-			resolveTaskRunRequest(db, "attempt-trun-5", { requireRunnableAgent }),
+			resolveTaskRunRequest(db, ids("attempt-trun-5"), { requireRunnableAgent }),
 		).rejects.toThrow();
 	});
 });
@@ -311,35 +313,36 @@ describe("resolveTaskRunRequest — emit-time task_run resolver (work)", () => {
 describe("resolveTaskRunRequest — contextBundle baking (Increment 12 Wave B, RED)", () => {
 	test("bakes a contextBundle (kind:'task') with task/bet/agent/team content + ranked knowledge", async ({
 		db,
+		ids,
 	}) => {
 		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
 
-		await seedTeamAndBet(db, { teamId: "team-trun-ctx-1", betId: "bet-trun-ctx-1" });
+		await seedTeamAndBet(db, { teamId: ids("team-trun-ctx-1"), betId: ids("bet-trun-ctx-1") });
 		await db
 			.update(bets)
 			.set({ appetite: "2 weeks", doneCondition: "Shipped to prod" })
-			.where(eq(bets.id, "bet-trun-ctx-1"));
-		await seedAgent(db, "agent-trun-ctx-1");
+			.where(eq(bets.id, ids("bet-trun-ctx-1")));
+		await seedAgent(db, ids("agent-trun-ctx-1"));
 		await seedTask(db, {
-			taskId: "task-trun-ctx-1",
-			betId: "bet-trun-ctx-1",
-			teamId: "team-trun-ctx-1",
-			ownerAgentId: "agent-trun-ctx-1",
+			taskId: ids("task-trun-ctx-1"),
+			betId: ids("bet-trun-ctx-1"),
+			teamId: ids("team-trun-ctx-1"),
+			ownerAgentId: ids("agent-trun-ctx-1"),
 		});
 		await db
 			.update(tasks)
 			.set({ description: "Ship the contextBundle wiring." })
-			.where(eq(tasks.id, "task-trun-ctx-1"));
+			.where(eq(tasks.id, ids("task-trun-ctx-1")));
 		await seedAttempt(db, {
-			attemptId: "attempt-trun-ctx-1",
-			taskId: "task-trun-ctx-1",
-			agentId: "agent-trun-ctx-1",
+			attemptId: ids("attempt-trun-ctx-1"),
+			taskId: ids("task-trun-ctx-1"),
+			agentId: ids("agent-trun-ctx-1"),
 		});
 
 		// L4 (factory-wide) knowledge item — always in scope regardless of team.
 		const now = new Date().toISOString();
 		await db.insert(knowledgeItems).values({
-			id: "item-trun-ctx-l4",
+			id: ids("item-trun-ctx-l4"),
 			scopeKind: "factory",
 			scopeId: null,
 			title: "Factory-wide practice",
@@ -347,13 +350,13 @@ describe("resolveTaskRunRequest — contextBundle baking (Increment 12 Wave B, R
 			format: "markdown",
 			status: "active",
 			version: 1,
-			updatedBy: "agent-trun-ctx-1",
+			updatedBy: ids("agent-trun-ctx-1"),
 			createdAt: now,
 			updatedAt: now,
 		});
 		await db.insert(knowledgeAppProjection).values({
-			id: "proj-trun-ctx-l4",
-			knowledgeItemId: "item-trun-ctx-l4",
+			id: ids("proj-trun-ctx-l4"),
+			knowledgeItemId: ids("item-trun-ctx-l4"),
 			layer: "L4",
 			scopeId: null,
 		});
@@ -364,13 +367,13 @@ describe("resolveTaskRunRequest — contextBundle baking (Increment 12 Wave B, R
 		// Left uncast deliberately (no `any`/`as` — CLAUDE.md strict-TS rule): the
 		// compile error itself IS the expected RED signal. Vitest's esbuild
 		// transpile (type-erasure only, no type-check) still executes this file.
-		const baked = await resolveTaskRunRequest(db, "attempt-trun-ctx-1", {
+		const baked = await resolveTaskRunRequest(db, ids("attempt-trun-ctx-1"), {
 			requireRunnableAgent,
 			getTeamById: (d: HyperIdleDb, id: string) => getTeam(d, { id }),
 			assembleSessionKnowledge,
 		});
 
-		const team = await getTeam(db, { id: "team-trun-ctx-1" });
+		const team = await getTeam(db, { id: ids("team-trun-ctx-1") });
 
 		// RED (npm run check): `BakedTaskRunRequest` does not declare `contextBundle`
 		// yet — `baked.contextBundle` is a genuine TS2339 "property does not exist"
@@ -381,20 +384,20 @@ describe("resolveTaskRunRequest — contextBundle baking (Increment 12 Wave B, R
 		expect(baked.contextBundle).toMatchObject({
 			kind: "task",
 			task: {
-				id: "task-trun-ctx-1",
+				id: ids("task-trun-ctx-1"),
 				title: "Task-run resolver task",
 				description: "Ship the contextBundle wiring.",
 				state: "accepted",
 			},
 			bet: {
-				id: "bet-trun-ctx-1",
+				id: ids("bet-trun-ctx-1"),
 				description: "Task-run resolver bet",
 				appetite: "2 weeks",
 				doneCondition: "Shipped to prod",
 			},
-			agent: { id: "agent-trun-ctx-1", name: "Agent", role: "builder" },
-			team: { id: "team-trun-ctx-1", name: team?.name },
-			knowledge: expect.arrayContaining([expect.objectContaining({ id: "item-trun-ctx-l4" })]),
+			agent: { id: ids("agent-trun-ctx-1"), name: "Agent", role: "builder" },
+			team: { id: ids("team-trun-ctx-1"), name: team?.name },
+			knowledge: expect.arrayContaining([expect.objectContaining({ id: ids("item-trun-ctx-l4") })]),
 		});
 	});
 });
@@ -431,52 +434,59 @@ describe("resolveTaskRunRequest — callingThreadId baking (Increment 1)", () =>
 		return threadId;
 	}
 
-	test("bakes callingThreadId by resolving-or-creating the task's thread", async ({ db }) => {
+	test("bakes callingThreadId by resolving-or-creating the task's thread", async ({ db, ids }) => {
 		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
-		await seedTeamAndBet(db, { teamId: "team-trun-thread-1", betId: "bet-trun-thread-1" });
-		await seedAgent(db, "agent-trun-thread-1");
+		await seedTeamAndBet(db, {
+			teamId: ids("team-trun-thread-1"),
+			betId: ids("bet-trun-thread-1"),
+		});
+		await seedAgent(db, ids("agent-trun-thread-1"));
 		await seedTask(db, {
-			taskId: "task-trun-thread-1",
-			betId: "bet-trun-thread-1",
-			teamId: "team-trun-thread-1",
-			ownerAgentId: "agent-trun-thread-1",
+			taskId: ids("task-trun-thread-1"),
+			betId: ids("bet-trun-thread-1"),
+			teamId: ids("team-trun-thread-1"),
+			ownerAgentId: ids("agent-trun-thread-1"),
 		});
 		await seedAttempt(db, {
-			attemptId: "attempt-trun-thread-1",
-			taskId: "task-trun-thread-1",
-			agentId: "agent-trun-thread-1",
+			attemptId: ids("attempt-trun-thread-1"),
+			taskId: ids("task-trun-thread-1"),
+			agentId: ids("agent-trun-thread-1"),
 		});
 
-		const baked = await resolveTaskRunRequest(db, "attempt-trun-thread-1", {
+		const baked = await resolveTaskRunRequest(db, ids("attempt-trun-thread-1"), {
 			requireRunnableAgent,
 			resolveOrCreateCallingThread: resolveOrCreateCallingThreadForTest,
 		});
 
 		expect(baked.callingThreadId).toBeDefined();
-		const thread = await findThread(db, { host: { kind: "task", id: "task-trun-thread-1" } });
+		const thread = await findThread(db, { host: { kind: "task", id: ids("task-trun-thread-1") } });
 		expect(thread?.id).toBe(baked.callingThreadId);
 	});
 
 	test("reuses the SAME thread across two task_run bakes for the same task (idempotent)", async ({
 		db,
+		ids,
 	}) => {
 		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
-		await seedTeamAndBet(db, { teamId: "team-trun-thread-2", betId: "bet-trun-thread-2" });
-		await seedAgent(db, "agent-trun-thread-2");
+		await seedTeamAndBet(db, {
+			teamId: ids("team-trun-thread-2"),
+			betId: ids("bet-trun-thread-2"),
+		});
+		await seedAgent(db, ids("agent-trun-thread-2"));
 		await seedTask(db, {
-			taskId: "task-trun-thread-2",
-			betId: "bet-trun-thread-2",
-			teamId: "team-trun-thread-2",
-			ownerAgentId: "agent-trun-thread-2",
+			taskId: ids("task-trun-thread-2"),
+			betId: ids("bet-trun-thread-2"),
+			teamId: ids("team-trun-thread-2"),
+			ownerAgentId: ids("agent-trun-thread-2"),
 		});
 		await seedAttempt(db, {
-			attemptId: "attempt-trun-thread-2a",
-			taskId: "task-trun-thread-2",
-			agentId: "agent-trun-thread-2",
+			attemptId: ids("attempt-trun-thread-2a"),
+			taskId: ids("task-trun-thread-2"),
+			agentId: ids("agent-trun-thread-2"),
 			status: "requested",
 		});
 
-		const firstBake = await resolveTaskRunRequest(db, "attempt-trun-thread-2a", {
+		const firstBake = await resolveTaskRunRequest(db, ids("attempt-trun-thread-2a"), {
 			requireRunnableAgent,
 			resolveOrCreateCallingThread: resolveOrCreateCallingThreadForTest,
 		});
@@ -486,8 +496,8 @@ describe("resolveTaskRunRequest — callingThreadId baking (Increment 1)", () =>
 		// (the resolver itself is idempotent per-task, not per-attempt).
 		const secondThreadId = await resolveOrCreateCallingThreadForTest(
 			db,
-			"task-trun-thread-2",
-			"agent-trun-thread-2",
+			ids("task-trun-thread-2"),
+			ids("agent-trun-thread-2"),
 		);
 
 		expect(secondThreadId).toBe(firstBake.callingThreadId);
@@ -495,23 +505,27 @@ describe("resolveTaskRunRequest — callingThreadId baking (Increment 1)", () =>
 
 	test("bakes no callingThreadId when the dep is not supplied (call site not yet wired)", async ({
 		db,
+		ids,
 	}) => {
 		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
-		await seedTeamAndBet(db, { teamId: "team-trun-thread-3", betId: "bet-trun-thread-3" });
-		await seedAgent(db, "agent-trun-thread-3");
+		await seedTeamAndBet(db, {
+			teamId: ids("team-trun-thread-3"),
+			betId: ids("bet-trun-thread-3"),
+		});
+		await seedAgent(db, ids("agent-trun-thread-3"));
 		await seedTask(db, {
-			taskId: "task-trun-thread-3",
-			betId: "bet-trun-thread-3",
-			teamId: "team-trun-thread-3",
-			ownerAgentId: "agent-trun-thread-3",
+			taskId: ids("task-trun-thread-3"),
+			betId: ids("bet-trun-thread-3"),
+			teamId: ids("team-trun-thread-3"),
+			ownerAgentId: ids("agent-trun-thread-3"),
 		});
 		await seedAttempt(db, {
-			attemptId: "attempt-trun-thread-3",
-			taskId: "task-trun-thread-3",
-			agentId: "agent-trun-thread-3",
+			attemptId: ids("attempt-trun-thread-3"),
+			taskId: ids("task-trun-thread-3"),
+			agentId: ids("agent-trun-thread-3"),
 		});
 
-		const baked = await resolveTaskRunRequest(db, "attempt-trun-thread-3", {
+		const baked = await resolveTaskRunRequest(db, ids("attempt-trun-thread-3"), {
 			requireRunnableAgent,
 		});
 

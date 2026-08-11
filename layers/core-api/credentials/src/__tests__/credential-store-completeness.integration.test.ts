@@ -34,7 +34,10 @@ describe("credential store completeness contract", () => {
 			updatedAt: LATER,
 		});
 
-		const rows = await readCredentials(db);
+		// @lore AU38: scoped to the catalog name this test writes — the
+		// whole-table count would see other tests' credential rows in a
+		// populated world (AU38 P10: scope the assertion, not the fixed name).
+		const rows = await readCredentials(db, { name: "anthropic_api_key" });
 		expect(rows).toHaveLength(1);
 		expect(rows[0]).toMatchObject({
 			encryptedValue: "ciphertext-v2",
@@ -48,7 +51,11 @@ describe("credential store completeness contract", () => {
 
 	test("concurrent same-name credential upserts leave one coherent winning value", async ({
 		db,
+		ids,
 	}) => {
+		// @lore AU38: the name is test-chosen (not the fixed catalog), so it is
+		// scoped — concurrent upserts from other tests can't collide with it.
+		const name = ids("concurrent_api_key");
 		const first = {
 			encryptedValue: "ciphertext-concurrent-a",
 			validationState: "valid",
@@ -62,12 +69,9 @@ describe("credential store completeness contract", () => {
 			updatedAt: LATER,
 		} as const;
 
-		await Promise.all([
-			writeCredential(db, "concurrent_api_key", first),
-			writeCredential(db, "concurrent_api_key", second),
-		]);
+		await Promise.all([writeCredential(db, name, first), writeCredential(db, name, second)]);
 
-		const rows = await readCredentials(db, { name: "concurrent_api_key" });
+		const rows = await readCredentials(db, { name });
 		expect(rows).toHaveLength(1);
 		const persisted = {
 			encryptedValue: rows[0]?.encryptedValue,

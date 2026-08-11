@@ -40,16 +40,31 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { describe, expect, test } from "@hyperidle/db/test-fixtures";
+import { describe, expect, type ScopedIds, test } from "@hyperidle/db/test-fixtures";
 import { asc, eq } from "drizzle-orm";
 import { taskDispatchAttemptStore } from "../work-service.js";
 
-const AGENT_ID = "agent-dispatch-ordinal";
-const SESSION_IDS = ["session-ord-1", "session-ord-2", "session-ord-3", "session-ord-4"] as const;
-const TEAM_ID = "team-dispatch-ordinal";
-const BET_ID = "bet-dispatch-ordinal";
+/**
+ * @lore AU38: the shared world ids (agent/team/bet/sessions) derive from the
+ * per-test `ids` fixture — every test seeds its own copy of this world, so the
+ * names stay readable while the rows stay per-test.
+ */
+function worldIds(ids: ScopedIds) {
+	return {
+		AGENT_ID: ids("agent-dispatch-ordinal"),
+		SESSION_IDS: [
+			ids("session-ord-1"),
+			ids("session-ord-2"),
+			ids("session-ord-3"),
+			ids("session-ord-4"),
+		],
+		TEAM_ID: ids("team-dispatch-ordinal"),
+		BET_ID: ids("bet-dispatch-ordinal"),
+	} as const;
+}
 
-async function seedWorld(db: HyperIdleDb): Promise<void> {
+async function seedWorld(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
+	const { AGENT_ID, SESSION_IDS, TEAM_ID, BET_ID } = worldIds(ids);
 	const now = new Date().toISOString();
 	await db.insert(users).values({
 		id: AGENT_ID,
@@ -85,7 +100,8 @@ async function seedWorld(db: HyperIdleDb): Promise<void> {
 	}
 }
 
-async function seedTask(db: HyperIdleDb, taskId: string): Promise<void> {
+async function seedTask(db: HyperIdleDb, ids: ScopedIds, taskId: string): Promise<void> {
+	const { AGENT_ID, TEAM_ID, BET_ID } = worldIds(ids);
 	const now = new Date().toISOString();
 	await db.insert(tasks).values({
 		id: taskId,
@@ -100,6 +116,7 @@ async function seedTask(db: HyperIdleDb, taskId: string): Promise<void> {
 }
 
 function attemptInput(
+	ids: ScopedIds,
 	taskId: string,
 	predecessorIndex = 0,
 ): {
@@ -109,6 +126,7 @@ function attemptInput(
 	readonly predecessorSessionId: string;
 	readonly now: string;
 } {
+	const { AGENT_ID, SESSION_IDS } = worldIds(ids);
 	return {
 		taskId,
 		occasion: "owner_handoff",
@@ -149,15 +167,24 @@ async function ordinalOf(db: HyperIdleDb, attemptId: string): Promise<number | u
 }
 
 describe("taskDispatchAttemptStore.insertAttempt — the ordinal invariant lives at the owner", () => {
-	test("A1: three successive calls for one task produce ordinals 1, 2, 3", async ({ db }) => {
-		await seedWorld(db);
-		await seedTask(db, "task-a1");
+	test("A1: three successive calls for one task produce ordinals 1, 2, 3", async ({ db, ids }) => {
+		await seedWorld(db, ids);
+		await seedTask(db, ids, ids("task-a1"));
 
-		const first = await taskDispatchAttemptStore.insertAttempt(db, attemptInput("task-a1", 0));
-		const second = await taskDispatchAttemptStore.insertAttempt(db, attemptInput("task-a1", 1));
-		const third = await taskDispatchAttemptStore.insertAttempt(db, attemptInput("task-a1", 2));
+		const first = await taskDispatchAttemptStore.insertAttempt(
+			db,
+			attemptInput(ids, ids("task-a1"), 0),
+		);
+		const second = await taskDispatchAttemptStore.insertAttempt(
+			db,
+			attemptInput(ids, ids("task-a1"), 1),
+		);
+		const third = await taskDispatchAttemptStore.insertAttempt(
+			db,
+			attemptInput(ids, ids("task-a1"), 2),
+		);
 
-		expect(await ordinalsFor(db, "task-a1")).toEqual([1, 2, 3]);
+		expect(await ordinalsFor(db, ids("task-a1"))).toEqual([1, 2, 3]);
 		expect(await ordinalOf(db, first.id)).toBe(1);
 		expect(await ordinalOf(db, second.id)).toBe(2);
 		expect(await ordinalOf(db, third.id)).toBe(3);
@@ -169,87 +196,99 @@ describe("taskDispatchAttemptStore.insertAttempt — the ordinal invariant lives
 			.where(eq(taskDispatchAttempts.id, first.id));
 		expect(row?.status).toBe("requested");
 		expect(row?.occasion).toBe("owner_handoff");
-		expect(row?.agentId).toBe(AGENT_ID);
-		expect(row?.predecessorSessionId).toBe(SESSION_IDS[0]);
+		expect(row?.agentId).toBe(worldIds(ids).AGENT_ID);
+		expect(row?.predecessorSessionId).toBe(worldIds(ids).SESSION_IDS[0]);
 	});
 
 	test("A2: the count is scoped to one task — task B's first attempt is 1, not 4", async ({
 		db,
+		ids,
 	}) => {
-		await seedWorld(db);
-		await seedTask(db, "task-a2-a");
-		await seedTask(db, "task-a2-b");
+		await seedWorld(db, ids);
+		await seedTask(db, ids, ids("task-a2-a"));
+		await seedTask(db, ids, ids("task-a2-b"));
 
-		await taskDispatchAttemptStore.insertAttempt(db, attemptInput("task-a2-a", 0));
-		await taskDispatchAttemptStore.insertAttempt(db, attemptInput("task-a2-a", 1));
-		await taskDispatchAttemptStore.insertAttempt(db, attemptInput("task-a2-a", 2));
+		await taskDispatchAttemptStore.insertAttempt(db, attemptInput(ids, ids("task-a2-a"), 0));
+		await taskDispatchAttemptStore.insertAttempt(db, attemptInput(ids, ids("task-a2-a"), 1));
+		await taskDispatchAttemptStore.insertAttempt(db, attemptInput(ids, ids("task-a2-a"), 2));
 
-		await taskDispatchAttemptStore.insertAttempt(db, attemptInput("task-a2-b", 0));
+		await taskDispatchAttemptStore.insertAttempt(db, attemptInput(ids, ids("task-a2-b"), 0));
 
-		expect(await ordinalsFor(db, "task-a2-a")).toEqual([1, 2, 3]);
-		expect(await ordinalsFor(db, "task-a2-b")).toEqual([1]);
+		expect(await ordinalsFor(db, ids("task-a2-a"))).toEqual([1, 2, 3]);
+		expect(await ordinalsFor(db, ids("task-a2-b"))).toEqual([1]);
 	});
 
 	test("A3: the rule is count-based, not max-based — one row at ordinal 9 yields 2", async ({
 		db,
+		ids,
 	}) => {
-		await seedWorld(db);
-		await seedTask(db, "task-a3");
+		await seedWorld(db, ids);
+		await seedTask(db, ids, ids("task-a3"));
 		const now = new Date().toISOString();
 		await db.insert(taskDispatchAttempts).values({
-			id: "attempt-a3-seed",
-			taskId: "task-a3",
+			id: ids("attempt-a3-seed"),
+			taskId: ids("task-a3"),
 			occasion: "accepted",
-			agentId: AGENT_ID,
+			agentId: worldIds(ids).AGENT_ID,
 			ordinal: 9,
 			status: "requested",
 			createdAt: now,
 			updatedAt: now,
 		});
 
-		const inserted = await taskDispatchAttemptStore.insertAttempt(db, attemptInput("task-a3"));
+		const inserted = await taskDispatchAttemptStore.insertAttempt(
+			db,
+			attemptInput(ids, ids("task-a3")),
+		);
 
 		// Addressed by identity, not by position: one existing row means the count
 		// rule yields 2 for the new row, where a max-based rule would yield 10. The
 		// seeded 9 must survive untouched, and no third row may appear.
 		expect(await ordinalOf(db, inserted.id)).toBe(2);
-		expect(await ordinalOf(db, "attempt-a3-seed")).toBe(9);
-		expect(await ordinalsFor(db, "task-a3")).toHaveLength(2);
+		expect(await ordinalOf(db, ids("attempt-a3-seed"))).toBe(9);
+		expect(await ordinalsFor(db, ids("task-a3"))).toHaveLength(2);
 	});
 
 	test("A4: two calls inside one transaction see each other — 1 then 2, readable through tx", async ({
 		db,
+		ids,
 	}) => {
-		await seedWorld(db);
-		await seedTask(db, "task-a4");
+		await seedWorld(db, ids);
+		await seedTask(db, ids, ids("task-a4"));
 
 		const seen = await db.transaction(async (tx) => {
-			const first = await taskDispatchAttemptStore.insertAttempt(tx, attemptInput("task-a4", 0));
-			const second = await taskDispatchAttemptStore.insertAttempt(tx, attemptInput("task-a4", 1));
+			const first = await taskDispatchAttemptStore.insertAttempt(
+				tx,
+				attemptInput(ids, ids("task-a4"), 0),
+			);
+			const second = await taskDispatchAttemptStore.insertAttempt(
+				tx,
+				attemptInput(ids, ids("task-a4"), 1),
+			);
 			const rows = await tx
 				.select({ id: taskDispatchAttempts.id, ordinal: taskDispatchAttempts.ordinal })
 				.from(taskDispatchAttempts)
-				.where(eq(taskDispatchAttempts.taskId, "task-a4"))
+				.where(eq(taskDispatchAttempts.taskId, ids("task-a4")))
 				.orderBy(asc(taskDispatchAttempts.ordinal));
 			return { first, second, rows };
 		});
 
 		expect(seen.rows.map((row) => row.ordinal)).toEqual([1, 2]);
 		expect(seen.rows.map((row) => row.id)).toEqual([seen.first.id, seen.second.id]);
-		expect(await ordinalsFor(db, "task-a4")).toEqual([1, 2]);
+		expect(await ordinalsFor(db, ids("task-a4"))).toEqual([1, 2]);
 	});
 
-	test("A5: a throwing transaction leaves zero attempt rows", async ({ db }) => {
-		await seedWorld(db);
-		await seedTask(db, "task-a5");
+	test("A5: a throwing transaction leaves zero attempt rows", async ({ db, ids }) => {
+		await seedWorld(db, ids);
+		await seedTask(db, ids, ids("task-a5"));
 
 		await expect(
 			db.transaction(async (tx) => {
-				await taskDispatchAttemptStore.insertAttempt(tx, attemptInput("task-a5"));
+				await taskDispatchAttemptStore.insertAttempt(tx, attemptInput(ids, ids("task-a5")));
 				throw new Error("handoff failed after the attempt row was written");
 			}),
 		).rejects.toThrow("handoff failed after the attempt row was written");
 
-		expect(await ordinalsFor(db, "task-a5")).toEqual([]);
+		expect(await ordinalsFor(db, ids("task-a5"))).toEqual([]);
 	});
 });

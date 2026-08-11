@@ -11,12 +11,25 @@
  * __tests__/` — only needs `{ db }`, switched to `@hyperidle/db/test-fixtures`.
  */
 
+import { type HyperIdleDb, serverConfig } from "@hyperidle/db";
 import { test } from "@hyperidle/db/test-fixtures";
+import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { readServerConfig, updateServerConfig } from "../index.js";
 
+/**
+ * @lore AU38: server_config is a singleton row (id = "default") — tests that
+ * assert DEFAULT values arrange the empty state themselves by deleting the
+ * row (readServerConfig falls back to defaults when absent). Scoped to the
+ * singleton id, the only row this file touches.
+ */
+async function resetServerConfig(db: HyperIdleDb): Promise<void> {
+	await db.delete(serverConfig).where(eq(serverConfig.id, "default"));
+}
+
 describe("server_config — observability section", () => {
 	test("readServerConfig returns observability defaults when empty", async ({ db }) => {
+		await resetServerConfig(db);
 		const config = await readServerConfig(db);
 		expect(config.observability.enabled).toBe(true);
 		expect(config.observability.adapter).toBe("console");
@@ -28,6 +41,9 @@ describe("server_config — observability section", () => {
 	test("updateServerConfig merges a partial observability patch without losing other keys", async ({
 		db,
 	}) => {
+		// Start from defaults so "adapter survives" asserts against a known
+		// state, not whatever a prior writer left on the singleton.
+		await resetServerConfig(db);
 		await updateServerConfig(db, { observability: { batchSize: 50 } });
 		const config = await readServerConfig(db);
 		expect(config.observability.batchSize).toBe(50);
@@ -43,6 +59,7 @@ describe("server_config — observability section", () => {
 
 describe("server_config — notifications.delivery / mutedTypes / silence", () => {
 	test("readServerConfig returns delivery defaults", async ({ db }) => {
+		await resetServerConfig(db);
 		const config = await readServerConfig(db);
 		expect(config.notifications.delivery.enabled).toBe(false);
 		expect(config.notifications.delivery.primaryChannel).toBe("console");
@@ -54,12 +71,14 @@ describe("server_config — notifications.delivery / mutedTypes / silence", () =
 	test("readServerConfig returns mutedTypes empty by default; updateServerConfig can set it", async ({
 		db,
 	}) => {
+		await resetServerConfig(db);
 		expect((await readServerConfig(db)).notifications.mutedTypes).toEqual([]);
 		await updateServerConfig(db, { notifications: { mutedTypes: ["review_alert"] } });
 		expect((await readServerConfig(db)).notifications.mutedTypes).toEqual(["review_alert"]);
 	});
 
 	test("readServerConfig returns silence defaults", async ({ db }) => {
+		await resetServerConfig(db);
 		const config = await readServerConfig(db);
 		expect(config.notifications.silence.mode).toBe(false);
 		expect(config.notifications.silence.silencedTeamIds).toEqual([]);

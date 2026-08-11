@@ -164,8 +164,8 @@ describe("get: summary view returns kernel row or null", () => {
 		expect(typeof result?.status).toBe("string");
 	});
 
-	test("get(id) returns null for unknown id", async ({ db }) => {
-		const result = await get(db, "nonexistent-id");
+	test("get(id) returns null for unknown id", async ({ db, ids }) => {
+		const result = await get(db, ids("nonexistent-id"));
 		expect(result).toBeNull();
 	});
 });
@@ -183,8 +183,8 @@ describe("get(id, {view:'projection'}): returns layer+kind from projection table
 		expect(proj?.kind).toBe("pattern");
 	});
 
-	test("returns null for unknown id", async ({ db }) => {
-		const proj = await get(db, "no-such-item", { view: "projection" });
+	test("returns null for unknown id", async ({ db, ids }) => {
+		const proj = await get(db, ids("no-such-item"), { view: "projection" });
 		expect(proj).toBeNull();
 	});
 });
@@ -253,12 +253,20 @@ describe("update: version-checked update writes edit-log and bumps version", () 
 describe("list({exportable}): filters by layer and status", () => {
 	test("listExportableKnowledgeItems() returns items matching layer + status, excludes others", async ({
 		db,
+		ids,
 	}) => {
 		// Matching item: L2 + validated.
-		const a = await seedItem(db, {
+		const a = await create(db, {
 			layer: "L2",
-			status: "validated",
+			scopeKind: "team",
+			scopeId: ids("t-1"),
+			topic: "process",
 			title: "Exportable",
+			body: "We ship weekly.",
+			format: "markdown",
+			status: "validated",
+			kind: "reflection",
+			updatedBy: ids("u-author"),
 		});
 		// Non-matching: wrong layer.
 		await seedItem(db, { layer: "L1", status: "validated", title: "Wrong layer" });
@@ -269,10 +277,14 @@ describe("list({exportable}): filters by layer and status", () => {
 			exportable: { layers: ["L2"], statuses: ["validated"] },
 		});
 
-		expect(rows.map((r) => r.id)).toContain(a.id);
-		expect(rows.length).toBe(1);
-		expect(rows[0]?.layer).toBe("L2");
-		expect(rows[0]?.title).toBe("Exportable");
+		// @lore AU38: the exportable filter is a global read — scoped to this
+		// test's own row via its scoped scopeId (the ExportRow shape carries no
+		// updatedBy), the exact-count claim survives in a populated world.
+		const mine = rows.filter((r) => r.scopeId === ids("t-1"));
+		expect(mine).toHaveLength(1);
+		expect(mine[0]?.id).toBe(a.id);
+		expect(mine[0]?.layer).toBe("L2");
+		expect(mine[0]?.title).toBe("Exportable");
 	});
 
 	test("get(id, {view:'projection'}) returns layer+kind", async ({ db }) => {
@@ -290,20 +302,25 @@ describe("list({exportable}): filters by layer and status", () => {
 describe("list({recentByLayers}): returns items in given layers updated since cutoff", () => {
 	test("returns items in requested layers updated after since, excludes older items", async ({
 		db,
+		ids,
 	}) => {
+		// @lore AU38: the titles carry scoped suffixes so the contains/absence
+		// claims below only ever match this test's own rows.
+		const recentTitle = `Recent L2 ${ids("sfx")}`;
+		const otherTitle = `L3 item ${ids("sfx")}`;
 		// Item that is recent in L2.
-		const recent = await seedItem(db, { layer: "L2", title: "Recent L2" });
+		const recent = await seedItem(db, { layer: "L2", title: recentTitle });
 		// Item in L3 (different layer — excluded by filter).
-		await seedItem(db, { layer: "L3", title: "L3 item" });
+		await seedItem(db, { layer: "L3", title: otherTitle });
 
 		// Make a 'recent' cutoff well before the items' timestamps.
 		const since = new Date(Date.now() - 60_000).toISOString(); // 1 minute ago
 
 		const rows = await list(db, { recentByLayers: { layers: ["L2"], since } });
 
-		expect(rows.map((r) => r.title)).toContain("Recent L2");
-		expect(rows.some((r) => r.title === "L3 item")).toBe(false);
-		expect(rows.find((r) => r.title === "Recent L2")?.layer).toBe("L2");
+		expect(rows.map((r) => r.title)).toContain(recentTitle);
+		expect(rows.some((r) => r.title === otherTitle)).toBe(false);
+		expect(rows.find((r) => r.title === recentTitle)?.layer).toBe("L2");
 
 		// An item updated BEFORE the cutoff is excluded.
 		const staleTs = new Date(Date.now() - 120_000).toISOString(); // 2 minutes ago
@@ -315,7 +332,7 @@ describe("list({recentByLayers}): returns items in given layers updated since cu
 		const rowsAfterStale = await list(db, {
 			recentByLayers: { layers: ["L2"], since: new Date(Date.now() - 60_000).toISOString() },
 		});
-		expect(rowsAfterStale.some((r) => r.title === "Recent L2")).toBe(false);
+		expect(rowsAfterStale.some((r) => r.title === recentTitle)).toBe(false);
 	});
 });
 
@@ -326,7 +343,13 @@ describe("list({recentByLayers}): returns items in given layers updated since cu
 describe("countTriageVisible auth boundary on draft and needs-human items", () => {
 	test("counts draft and needs_human items; excludes user-scoped items not owned by viewer", async ({
 		db,
+		ids,
 	}) => {
+		// @lore AU38: the triage count is a global read — a before/after diff on
+		// this test's own contribution replaces the exact global total.
+		const viewer = ids("u-viewer");
+		const before = await count(db, { triageVisible: viewer });
+
 		// Non-user items — always visible.
 		await seedItem(db, { status: "draft", scopeKind: "factory" });
 		await seedItem(db, { status: "needs_human", scopeKind: "team" });
@@ -338,7 +361,7 @@ describe("countTriageVisible auth boundary on draft and needs-human items", () =
 			body: "x",
 			format: "markdown",
 			status: "draft",
-			updatedBy: "u-viewer",
+			updatedBy: viewer,
 		});
 		// User-scoped item owned by someone else — excluded.
 		await create(db, {
@@ -348,14 +371,14 @@ describe("countTriageVisible auth boundary on draft and needs-human items", () =
 			body: "x",
 			format: "markdown",
 			status: "draft",
-			updatedBy: "u-other",
+			updatedBy: ids("u-other"),
 		});
 		// Active item — not triage.
 		await seedItem(db, { status: "active" });
 
-		const triageCount = await count(db, { triageVisible: "u-viewer" });
+		const triageCount = await count(db, { triageVisible: viewer });
 		// factory-draft + team-needs_human + viewer's own user-draft = 3.
-		expect(triageCount).toBe(3);
+		expect(triageCount - before).toBe(3);
 	});
 });
 
@@ -364,27 +387,37 @@ describe("countTriageVisible auth boundary on draft and needs-human items", () =
 // ===========================================================================
 
 describe("search: full-text search returns matching items", () => {
-	test("search() returns items whose title/body match the query term", async ({ db }) => {
+	test("search() returns items whose title/body match the query term", async ({ db, ids }) => {
 		// Set up the FTS generated column (idempotent).
 
 		const match = await seedItem(db, {
-			title: "Continuous deployment pipeline",
+			title: `Continuous deployment pipeline ${ids("sfx")}`,
 			body: "We run CI on every commit.",
 		});
-		await seedItem(db, { title: "Irrelevant topic", body: "Nothing matching here." });
+		const irrelevantTitle = `Irrelevant topic ${ids("sfx")}`;
+		await seedItem(db, { title: irrelevantTitle, body: "Nothing matching here." });
 
 		const results = await search(db, "deployment");
 
 		expect(results.map((r) => r.id)).toContain(match.id);
 		// The irrelevant item should not appear.
-		expect(results.some((r) => r.title === "Irrelevant topic")).toBe(false);
+		expect(results.some((r) => r.title === irrelevantTitle)).toBe(false);
 	});
 
-	test("search() returns empty array for query with no matches", async ({ db }) => {
-		await seedItem(db, { title: "Alpha", body: "Something about alpha." });
+	test("search() does not surface the test's own item for a query with no matches", async ({
+		db,
+		ids,
+	}) => {
+		const item = await seedItem(db, {
+			title: `Alpha ${ids("sfx")}`,
+			body: "Something about alpha.",
+		});
 
 		const results = await search(db, "xyznonexistentterm");
-		expect(results).toHaveLength(0);
+		// @lore AU38: re-homed from the global "zero rows match" claim — in a
+		// populated world only the test's own data is assertable: the seeded item
+		// does not match a term it does not contain.
+		expect(results.some((r) => r.id === item.id)).toBe(false);
 	});
 });
 
@@ -495,7 +528,10 @@ describe("transition({target:'promote'}): atomic CAS status transition", () => {
 // ===========================================================================
 
 describe("runAutoPromotionSweep: promotes provisional items at 5+ cross-scope repetitions", () => {
-	test("promotes items that meet the cross-scope repetition threshold (5+)", async ({ db }) => {
+	test("promotes items that meet the cross-scope repetition threshold (5+)", async ({
+		db,
+		ids,
+	}) => {
 		// Create 5 provisional items with the same (layer, topic, kind) signature
 		// but different scopeIds so cross-scope count reaches threshold=5.
 		const promotable: string[] = [];
@@ -506,7 +542,7 @@ describe("runAutoPromotionSweep: promotes provisional items at 5+ cross-scope re
 				kind: "pattern",
 				topic: "shared-pattern",
 				scopeKind: "bet",
-				scopeId: `product-${i}`,
+				scopeId: ids(`product-${i}`),
 			});
 			promotable.push(item.id);
 		}
@@ -518,7 +554,11 @@ describe("runAutoPromotionSweep: promotes provisional items at 5+ cross-scope re
 		for (const id of promotable) {
 			expect(result.promotedIds).toContain(id);
 		}
-		expect(result.flaggedForReviewIds).toHaveLength(0);
+		// @lore AU38: the sweep is global — re-homed from "nothing anywhere was
+		// flagged" to "none of THIS test's items was flagged" (they were promoted).
+		for (const id of promotable) {
+			expect(result.flaggedForReviewIds).not.toContain(id);
+		}
 
 		// DB rows updated.
 		for (const id of promotable) {
@@ -527,22 +567,30 @@ describe("runAutoPromotionSweep: promotes provisional items at 5+ cross-scope re
 		}
 	});
 
-	test("skips items with fewer than 5 distinct scopes", async ({ db }) => {
+	test("skips items with fewer than 5 distinct scopes", async ({ db, ids }) => {
 		// Only 3 items — not enough for auto-promotion.
+		const mine: string[] = [];
 		for (let i = 1; i <= 3; i++) {
-			await seedItem(db, {
+			const item = await seedItem(db, {
 				status: "provisional",
 				layer: "L2",
 				kind: "principle",
 				topic: "small-pattern",
 				scopeKind: "bet",
-				scopeId: `scope-${i}`,
+				scopeId: ids(`scope-${i}`),
 			});
+			mine.push(item.id);
 		}
 
 		const result = await sweep(db, mockEventBus, "autoPromotion");
 
-		expect(result.promotedIds).toHaveLength(0);
+		// @lore AU38: the sweep is global — re-homed from "nothing anywhere was
+		// promoted" to "none of THIS test's under-threshold items was promoted",
+		// and each was skipped.
+		for (const id of mine) {
+			expect(result.promotedIds).not.toContain(id);
+			expect(result.skippedIds).toContain(id);
+		}
 		expect(result.skippedIds.length).toBeGreaterThanOrEqual(3);
 	});
 });
@@ -851,43 +899,49 @@ describe("recomputeRelevance: denormalizes relevanceScore onto projection row", 
 // ===========================================================================
 
 describe("listVisibleWithSignals auth boundary and access signal aggregation", () => {
-	test("excludes user-scoped items not owned by the viewer", async ({ db }) => {
+	test("excludes user-scoped items not owned by the viewer", async ({ db, ids }) => {
+		// @lore AU38: viewer/owner ids and titles are scoped so the contains /
+		// absence claims only ever match this test's own rows.
+		const viewer = ids("u-viewer");
+		const factoryTitle = `Factory item ${ids("sfx")}`;
+		const myTitle = `My item ${ids("sfx")}`;
+		const hiddenTitle = `Hidden item ${ids("sfx")}`;
 		// Shared item — always visible.
 		await create(db, {
 			layer: null,
 			scopeKind: "factory",
-			title: "Factory item",
+			title: factoryTitle,
 			body: "x",
 			format: "markdown",
 			status: "active",
-			updatedBy: "u-any",
+			updatedBy: ids("u-any"),
 		});
 		// Viewer's own user-scoped item — visible.
 		await create(db, {
 			layer: null,
 			scopeKind: "user",
-			title: "My item",
+			title: myTitle,
 			body: "x",
 			format: "markdown",
 			status: "active",
-			updatedBy: "u-viewer",
+			updatedBy: viewer,
 		});
 		// Other user's item — excluded.
 		await create(db, {
 			layer: null,
 			scopeKind: "user",
-			title: "Hidden item",
+			title: hiddenTitle,
 			body: "x",
 			format: "markdown",
 			status: "active",
-			updatedBy: "u-other",
+			updatedBy: ids("u-other"),
 		});
 
-		const rows = await list(db, { visibleWithSignals: "u-viewer" });
+		const rows = await list(db, { visibleWithSignals: viewer });
 
 		const titles = rows.map((r) => r.item.title);
-		expect(titles).toContain("Factory item");
-		expect(titles).toContain("My item");
-		expect(titles).not.toContain("Hidden item");
+		expect(titles).toContain(factoryTitle);
+		expect(titles).toContain(myTitle);
+		expect(titles).not.toContain(hiddenTitle);
 	});
 });
