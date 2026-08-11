@@ -87,6 +87,7 @@ export type {
 	ConnectionAuthSource,
 	ConnectionHealth,
 	HeldAuthSource,
+	InheritedConnectionFact,
 	ServiceConnectionView,
 } from "./connection.js";
 export {

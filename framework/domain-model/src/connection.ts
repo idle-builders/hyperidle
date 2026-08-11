@@ -55,6 +55,34 @@ export function isConnectionAuthSource(v: string): v is ConnectionAuthSource {
 	return (CONNECTION_AUTH_SOURCES as readonly string[]).includes(v);
 }
 
+/**
+ * AU36 — one inherited-reach fact: a service the machine already holds auth
+ * for, found by a connections-domain probe (harness MCP configs, logged-in
+ * CLIs). The connections domain owns the probe, the cache and the projection
+ * of these facts — the harness capability descriptor carries NO reach field.
+ *
+ * Identity only (AN1 hard-rule 4, re-pinned in this home): name, kind,
+ * provenance, health — no secret, token, env, or command field may ever
+ * appear here. Adding one requires editing this type — a visible, reviewable
+ * act.
+ *
+ * @lore AU36 (D2): `source` is the renamed `InheritedToolDescriptor.harness`
+ * field — a plain provenance string ("which config the auth was found in"),
+ * NOT a dependency on the harness model. The VALUES are unchanged
+ * ("claude-code" | "codex" | "opencode" | "environment") because the view
+ * `id`/`via` are built from them and the Connections view must stay
+ * byte-identical.
+ */
+export interface InheritedConnectionFact {
+	/** Server/CLI identity, e.g. "github", "linear", "gh". */
+	readonly name: string;
+	readonly kind: "mcp-server" | "cli";
+	/** Provenance: "claude-code" | "codex" | "opencode" | "environment". */
+	readonly source: string;
+	/** evidence-first; "unknown" when not provable from probe output. */
+	readonly health: ConnectionHealth | "unknown";
+}
+
 /** Runtime type guard for the held (creatable) auth-source subset. */
 export function isHeldAuthSource(v: string): v is HeldAuthSource {
 	return (HELD_AUTH_SOURCES as readonly string[]).includes(v);
