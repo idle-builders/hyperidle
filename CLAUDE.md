@@ -179,7 +179,7 @@ Branch naming: `<type>/<workpackage-id>-<description>`. Commit: imperative mood,
 
 ## Code Tracing — before you grep
 
-For "where is this used / what does a change to it affect" questions, use the `hyperidle-trace` MCP tools (`trace_uses`, `trace_event`, `trace_doors`) instead of grep/read chains — the code graph follows connections grep cannot (cross-file calls, startup wiring, the core↔agent boundary, event chains). CLI fallback: `tools/trace/`. A "no matches" is not proof of unused — confirm an important negative with a targeted grep. Query patterns and caveats: the `trace` skill.
+For "where is this used / what does a change to it affect" questions, use the `hyperidle-trace` MCP tools (`trace_uses`, `trace_door`, `trace_event`, `trace_doors`) instead of grep/read chains — the code graph follows connections grep cannot (cross-file calls, startup wiring, the core↔agent boundary, event chains). CLI fallback: `tools/trace/`. A "no matches" is not proof of unused — confirm an important negative with a targeted grep. Query patterns and caveats: the `trace` skill.
 
 ---
 

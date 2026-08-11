@@ -42,7 +42,7 @@ server.registerTool(
 	{
 		title: "List entry points",
 		description:
-			"List every way work can enter HyperIdle: HTTP endpoints the UI calls, tools an AI agent can invoke, messages a remote worker can send, and scheduled timers. USE WHEN you need to discover what can trigger the system, find where a feature starts, or enumerate entry points before tracing deeper. Optional: kind narrows to ui|agent|scheduler; keyword filters results by text.",
+			"List every way work can enter HyperIdle: HTTP endpoints the UI calls, tools an AI agent can invoke, messages a remote worker can send, and scheduled timers. USE WHEN you want to know how the system gets triggered; where a feature starts or begins; what endpoints / routes / APIs exist; what tools agents can call; what scheduled / cron / timer jobs run; what the external surface, public interface, or attack surface is; or where to start understanding a feature. Also use it to enumerate entry points before tracing one in depth. Optional: kind narrows to ui|agent|scheduler; keyword filters results by text.",
 		inputSchema: { kind: kindEnum, keyword: z.string().optional() },
 	},
 	({ kind, keyword }) => {
@@ -66,7 +66,7 @@ server.registerTool(
 	{
 		title: "Who uses this?",
 		description:
-			"Given a name — a database table, an event, a function, or a cross-layer method — find every entry point and event handler that touches it, even indirectly. It follows calls across files, through startup wiring (dependency injection), across the core<->agent boundary, and through event publish/subscribe chains. USE WHEN you need to know which UI pages / agent tools / scheduled jobs use something, or what a change to it could affect (its blast radius). Note: 'no matches' means the graph found nothing, not that nothing exists — dynamic dispatch and config-driven behavior are not tracked.",
+			"Given a name — a database table, an event, a function, a method, or a constant — find every entry point and event handler that uses or reaches it, even indirectly. It follows calls across files, 			through startup wiring (dependency injection), across the core<->agent boundary, and through event publish/subscribe chains. Direction is bottom-up: you name something deep in the code, it tells you which ways-in eventually reach it. USE WHEN you want to know who uses / calls / invokes / references / depends on something; which UI pages / agent tools / scheduled jobs touch it; what writes to or reads from a table; where an event or a value comes from (who produces it); whether something is unused / dead / safe to delete, rename, or move; or what a change to it could break or affect (its blast radius / impact / consequences / dependents). Note: 'no matches' means the graph found nothing, not that nothing exists — dynamic dispatch and config-driven behavior are not tracked.",
 		inputSchema: {
 			symbol: z.string(),
 			kind: kindEnum,
@@ -97,11 +97,51 @@ server.registerTool(
 );
 
 server.registerTool(
+	"trace_door",
+	{
+		title: "What does this entry point touch?",
+		description:
+			"Given an entry point (an HTTP route, agent tool, worker message, or scheduled timer — matched by text in its name), show what it reaches: the database tables it reads/writes, the events it publishes, the cross-layer methods it calls, and the functions it invokes. This is the forward direction — start from a way-in, see what it touches. USE WHEN you want to know what an endpoint / route / tool / timer does; what tables / events / services a feature touches; what happens inside a specific entry point; or what a door reaches end-to-end. For the reverse question (who uses X), use trace_uses instead. Optional: kind narrows to ui|agent|scheduler.",
+		inputSchema: { door: z.string(), kind: kindEnum },
+	},
+	({ door, kind }) => {
+		const graph = loadGraph();
+		const q = door.replace(/\s+/g, " ").trim().toLowerCase();
+		const doors = graph.doors.filter((d) => {
+			if (kind && d.kind !== kind) return false;
+			const label = d.label.replace(/\s+/g, " ").trim().toLowerCase();
+			return label.includes(q) || d.detail.toLowerCase().includes(q);
+		});
+		return json({
+			head: graphHead(graph),
+			door,
+			count: doors.length,
+			doors: doors.map((d) => ({
+				kind: d.kind,
+				label: d.label.replace(/\s+/g, " ").trim(),
+				location: `${rel(d.file)}:${d.line}`,
+				touches: d.touches
+					? {
+							tables: d.touches.tables,
+							events: d.touches.events,
+							crossLayerCalls: d.touches.ports,
+							functions: d.touches.calls
+								.filter((c) => !c.startsWith("di:"))
+								.slice(0, 20),
+							functionCount: d.touches.calls.length,
+						}
+					: null,
+			})),
+		});
+	},
+);
+
+server.registerTool(
 	"trace_event",
 	{
 		title: "Trace an event",
 		description:
-			"Show who publishes and who handles a given event, and what each handler does. Events are how parts of HyperIdle react to things that happened (for example session_ended or task_state_changed). Pass event='__list__' to see every event with emit/handle counts. USE WHEN you need to answer 'what happens when X happens?' or follow an event-driven flow across the system.",
+			"Show who publishes and who handles a given event, and what each handler does. Events are how parts of HyperIdle react to things that happened (for example session_ended or task_state_changed). Pass event='__list__' to see every event with publish/handle counts. USE WHEN you want to know what happens when something happens; what reacts to / is triggered by / listens to / handles / subscribes to an event; where an event comes from or who emits / publishes / fires it; or what side effects or cascades follow an event.",
 		inputSchema: { event: z.string() },
 	},
 	({ event }) => {
@@ -141,7 +181,7 @@ server.registerTool(
 	{
 		title: "Rebuild the graph",
 		description:
-			"The graph normally updates itself when the code changes. USE WHEN results look out of date after you edited code and you want to force a refresh. Rebuilds the graph and returns statistics.",
+			"The graph normally updates itself when the code changes. USE WHEN trace results look wrong, stale, or out of date after you edited code, or you want to force the graph to refresh / regenerate / update. Rebuilds the graph and returns statistics.",
 		inputSchema: {},
 	},
 	() => {

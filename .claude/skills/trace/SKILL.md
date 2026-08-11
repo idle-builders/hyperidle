@@ -42,7 +42,7 @@ Output lists each matching door/subscriber with the `via` reason (`seam …`, `e
 - **"What can start an agent run?"** → `trace-uses.ts enqueueWorkIntent`
 - **"What reacts when a session ends?"** → `trace-events.ts session_ended` (then `trace-uses.ts session_ended` for what the reactors do)
 - **"Is `foo()` dead / who calls it?"** → `trace-uses.ts foo`
-- **"What does feature X reach end-to-end?"** → start from its door: `trace-doors.ts <keyword>`, then `trace-uses.ts` on the tables/events it touches.
+- **"What does feature X reach end-to-end?"** → forward direction: MCP `trace_door` with the door's name (CLI: `trace-doors.ts <keyword>` to find the door, then reason from its handler). Reverse direction (who reaches X): `trace-uses.ts <symbol>`.
 
 ## Caveats — read before trusting a negative
 
