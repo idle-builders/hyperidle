@@ -41,6 +41,7 @@ export default defineConfig({
 			"framework/design-system",
 			"tools/eslint-plugin-design",
 			"tools/eslint-plugin-authz",
+			"tools/eslint-plugin-test-isolation",
 			"layers/core-api",
 			"layers/core-api/knowledge",
 			"layers/core-api/routine",

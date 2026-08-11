@@ -12,6 +12,7 @@ import design from "eslint-plugin-design";
 import drizzle from "eslint-plugin-drizzle";
 import reactCompiler from "eslint-plugin-react-compiler";
 import reactHooks from "eslint-plugin-react-hooks";
+import testIsolation from "eslint-plugin-test-isolation";
 import tseslint from "typescript-eslint";
 
 export default [
@@ -526,6 +527,27 @@ export default [
 			"authz/no-header-identity-in-authz": "error",
 			"authz/require-boundary-declaration": "error",
 			"authz/no-raw-db-in-route-bypassing-policy": "error",
+		},
+	},
+
+	// AU38 — Test self-isolation ratchet (AC6).
+	//   test-isolation/no-literal-entity-ids   — R1: inserts use ids("<label>"), never literals
+	//   test-isolation/no-unscoped-table-read  — R2: every select().from() chain ends in .where(...)
+	// The glob is the outer gate; each rule self-gates on an actual fixture-`test`
+	// import from a `test-fixtures` module, which exempts createTestDb-only files
+	// and the harness lane's real-binary files with no path allowlists. Files not
+	// yet migrated are listed (and suppressed) in
+	// `tools/eslint-plugin-test-isolation/waivers.md` — the list only shrinks and
+	// must be empty for R1 at increment 8.
+	{
+		files: ["**/*.integration.test.ts"],
+		languageOptions: {
+			parser: tsParser,
+		},
+		plugins: { "test-isolation": testIsolation },
+		rules: {
+			"test-isolation/no-literal-entity-ids": "error",
+			"test-isolation/no-unscoped-table-read": "error",
 		},
 	},
 

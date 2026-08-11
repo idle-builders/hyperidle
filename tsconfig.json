@@ -68,6 +68,9 @@
 			"path": "tools/eslint-plugin-authz"
 		},
 		{
+			"path": "tools/eslint-plugin-test-isolation"
+		},
+		{
 			"path": "framework/api-contract"
 		},
 		{

@@ -1,0 +1,23 @@
+{
+	"name": "eslint-plugin-test-isolation",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"description": "HyperIdle AU38 test-self-isolation ESLint rules. Ratchet guard for the service integration lane: no literal entity ids in fixture-based inserts (R1), no unscoped whole-table reads (R2).",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"check": "tsc --noEmit",
+		"test": "vitest run"
+	},
+	"peerDependencies": {
+		"eslint": "^10.0.0",
+		"typescript": "^6.0.0"
+	},
+	"devDependencies": {
+		"@types/estree": "^1.0.0",
+		"@typescript-eslint/parser": "^8.62.0",
+		"vitest": "^4.1.9"
+	}
+}

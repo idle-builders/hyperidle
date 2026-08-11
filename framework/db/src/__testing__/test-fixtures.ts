@@ -1,9 +1,16 @@
 import { test as base } from "vitest";
 import type { HyperIdleDb } from "../connection.js";
+import { makeScopedIds, type ScopedIds } from "./scoped-ids.js";
 import { checkin, checkout } from "./test-pool.js";
+
+// @lore AU38: re-exported so downstream fixture files (core-api's
+// `dbTest.extend`) can name ScopedIds in their declaration output — the
+// inferred `test` type otherwise fails TS2883 on a non-portable deep import.
+export type { ScopedIds } from "./scoped-ids.js";
 
 export interface DbFixtures {
 	db: HyperIdleDb;
+	ids: ScopedIds;
 }
 
 /**
@@ -49,6 +56,9 @@ export const test = base.extend<DbFixtures>({
 		const instance = await checkout();
 		await use(wrapForTests(instance.db));
 		checkin(instance);
+	},
+	ids: async ({}, use) => {
+		await use(makeScopedIds());
 	},
 });
 
