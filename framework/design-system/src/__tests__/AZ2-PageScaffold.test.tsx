@@ -64,9 +64,9 @@ describe("AZ2 — PageScaffold component", () => {
 			);
 			const header = screen.getByTestId("my-header");
 			const body = screen.getByTestId("my-body");
-			expect(header.compareDocumentPosition(body) & Node.DOCUMENT_POSITION_FOLLOWING).toBeGreaterThan(
-				0,
-			);
+			expect(
+				header.compareDocumentPosition(body) & Node.DOCUMENT_POSITION_FOLLOWING,
+			).toBeGreaterThan(0);
 		});
 	});
 

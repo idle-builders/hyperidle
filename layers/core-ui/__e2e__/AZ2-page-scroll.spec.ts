@@ -25,7 +25,7 @@ import { expect, type Page, type Route, test } from "./fixtures";
 // The viewport set — named once, here, so it stops being folklore (round.md §1).
 // ---------------------------------------------------------------------------
 
-export const AZ2_VIEWPORTS = [
+const AZ2_VIEWPORTS = [
 	{ name: "desktop-1440", width: 1440, height: 900 },
 	{ name: "desktop-1024", width: 1024, height: 768 },
 	{ name: "mobile-375", width: 375, height: 812 },
@@ -58,7 +58,10 @@ function measureScroll(): ScrollMeasurement {
 
 	function isScrollContainer(el: HTMLElement): boolean {
 		const cs = getComputedStyle(el);
-		return el.scrollHeight > el.clientHeight + 1 && (cs.overflowY === "auto" || cs.overflowY === "scroll");
+		return (
+			el.scrollHeight > el.clientHeight + 1 &&
+			(cs.overflowY === "auto" || cs.overflowY === "scroll")
+		);
 	}
 
 	const scrollContainers = all.filter(isScrollContainer);
@@ -284,7 +287,11 @@ async function mockArtifactAppShell(page: Page): Promise<void> {
 		});
 	});
 	await page.route("**/api/teams**", async (route: Route) => {
-		await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ teams: [] }) });
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({ teams: [] }),
+		});
 	});
 	await page.route("**/api/threads?**host_kind=artifact**", async (route: Route) => {
 		await route.fulfill({
@@ -297,7 +304,9 @@ async function mockArtifactAppShell(page: Page): Promise<void> {
 
 test.describe("AZ2 AC1/AC2 — /artifacts/:id reaches its end at every viewport", () => {
 	for (const viewport of AZ2_VIEWPORTS) {
-		test(`artifact permalink: >=1 scroll container, clippedPx===0 at ${viewport.name}`, async ({ page }) => {
+		test(`artifact permalink: >=1 scroll container, clippedPx===0 at ${viewport.name}`, async ({
+			page,
+		}) => {
 			await page.setViewportSize({ width: viewport.width, height: viewport.height });
 			await mockArtifactAppShell(page);
 			await page.route(`**/api/artifacts/${ARTIFACT_ID}`, async (route: Route) => {
@@ -317,7 +326,9 @@ test.describe("AZ2 AC1/AC2 — /artifacts/:id reaches its end at every viewport"
 		});
 	}
 
-	test("AC1: the last line of the artifact diff is reachable by scrolling to the end", async ({ page }) => {
+	test("AC1: the last line of the artifact diff is reachable by scrolling to the end", async ({
+		page,
+	}) => {
 		await page.setViewportSize({ width: 1440, height: 900 });
 		await mockArtifactAppShell(page);
 		await page.route(`**/api/artifacts/${ARTIFACT_ID}`, async (route: Route) => {
@@ -332,7 +343,9 @@ test.describe("AZ2 AC1/AC2 — /artifacts/:id reaches its end at every viewport"
 		await page.waitForLoadState("networkidle");
 
 		await scrollToEndOfContainer(page, "[data-page-scroll]");
-		await expect(page.getByText("line 19-11 of a very long artifact that must scroll")).toBeInViewport();
+		await expect(
+			page.getByText("line 19-11 of a very long artifact that must scroll"),
+		).toBeInViewport();
 	});
 });
 
@@ -449,7 +462,11 @@ const ROUTES: readonly RouteCase[] = [
 				});
 			});
 			await page.route("**/api/sessions*", async (route: Route) => {
-				await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ sessions: [] }) });
+				await route.fulfill({
+					status: 200,
+					contentType: "application/json",
+					body: JSON.stringify({ sessions: [] }),
+				});
 			});
 		},
 	},
@@ -513,7 +530,12 @@ const ROUTES: readonly RouteCase[] = [
 							fileEditing: true,
 							subAgents: false,
 						},
-						reviewTrackRecord: { totalVerdicts: 0, approvalRate: 0, windowDays: 30, recentVerdicts: [] },
+						reviewTrackRecord: {
+							totalVerdicts: 0,
+							approvalRate: 0,
+							windowDays: 30,
+							recentVerdicts: [],
+						},
 					}),
 				});
 			});
@@ -533,7 +555,11 @@ const ROUTES: readonly RouteCase[] = [
 		setup: async (page) => {
 			await page.route("**/api/knowledge", async (route: Route) => {
 				if (route.request().method() !== "GET") return route.continue();
-				await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [] }) });
+				await route.fulfill({
+					status: 200,
+					contentType: "application/json",
+					body: JSON.stringify({ items: [] }),
+				});
 			});
 		},
 	},
@@ -577,7 +603,9 @@ const ROUTES: readonly RouteCase[] = [
 				await route.fulfill({
 					status: 200,
 					contentType: "application/json",
-					body: JSON.stringify({ teams: [{ id: "t1", name: "Alpha", phase: "build", active: true }] }),
+					body: JSON.stringify({
+						teams: [{ id: "t1", name: "Alpha", phase: "build", active: true }],
+					}),
 				});
 			});
 		},
