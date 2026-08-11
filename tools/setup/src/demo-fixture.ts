@@ -4,11 +4,22 @@
  * @lore AF17: This file is the ONLY place the "Acme" demo world lives.
  * It must NEVER be imported from production paths:
  *   - tools/setup/src/seed-pg-cli.ts
- *   - tools/setup/src/bootstrap-pg.ts
  *   - tools/setup/src/factory-bootstrap-runner.ts
  *   - framework/db/src/migrate-pg.ts
  *
- * Permitted importers: setup-cli.ts (behind --demo flag) and test files.
+ * Permitted importers: setup-cli.ts (behind --demo flag), bootstrap-pg.ts
+ * (behind --demo flag / HYPERIDLE_DEMO=1 — AX1), and test files.
+ *
+ * @lore AX1: the skeleton grew into a LIVED-IN world — six weeks of Acme
+ * history (bets across every lifecycle, threads with real reviews, a
+ * knowledge corpus, sessions and routines with run history). The content
+ * lives in `./demo-world/`; this file keeps the skeleton and the entry
+ * point. The AF17 constraint is unchanged: demo data is OPT-IN at database
+ * creation (`npm run setup -- --demo`, or `--db-path` pointed at any
+ * PGlite data directory — including the desktop app's), never silent,
+ * never on a non-demo instance's boot path. Desktop's Electron main
+ * process cannot import this file (production never imports tooling);
+ * the packaged-app path is the setup CLI against the desktop data dir.
  *
  * @lore AU29 §2.6: this file (and the whole `tools/setup` package it now
  * lives in) is `tooling` — `store-tooling-measures-everything` (Ruling 7)
@@ -34,14 +45,19 @@ import {
 } from "@hyperidle/db";
 import { readSystemPromptTemplateForRole } from "@hyperidle/factory-defaults";
 import { and, eq, inArray } from "drizzle-orm";
+import { seedDemoWorldContent } from "./demo-world/index.js";
+import { createDemoClock } from "./demo-world/time.js";
 
 /**
  * Seed a demo world for onboarding / development mode.
  *
- * Creates: team "Acme" + team_members row, human founder, demo agents
- * (builder, PM), daily-digest bet/task/routine.
+ * Creates: team "Acme" + team_members row, two humans, the founder's
+ * assistant and five team agents, eight bets across every lifecycle with
+ * ~27 tasks, fifteen threads with ~100 messages, a ~40-item knowledge
+ * corpus, ~45 sessions, routines with run history, and notifications —
+ * a world that reads as six weeks of use by a small team.
  *
- * Idempotent: uses onConflictDoNothing throughout.
+ * Idempotent: uses onConflictDoNothing throughout; fixed `demo-*` ids.
  *
  * @returns { teamId, founderId } — the demo team id and founder user id.
  */
@@ -73,12 +89,12 @@ async function upsertDemoRunConfig(
 export async function seedDemoWorld(
 	db: HyperIdleDb,
 ): Promise<{ teamId: string; founderId: string }> {
-	const now = new Date().toISOString();
+	const clock = createDemoClock();
 	const teamId = "demo-team-acme";
 	const teamMembersId = "demo-team-members-acme";
 	const founderId = "demo-founder";
 
-	// Demo team (domain entity — the "Acme" workspace)
+	// Demo team (domain entity — the "Acme" workspace), founded six weeks ago.
 	await db
 		.insert(teams)
 		.values({
@@ -86,7 +102,7 @@ export async function seedDemoWorld(
 			name: "Acme",
 			phase: "build",
 			functions: JSON.stringify(["development", "product"]),
-			createdAt: now,
+			createdAt: clock.daysAgo(44),
 		})
 		.onConflictDoNothing();
 
@@ -98,11 +114,12 @@ export async function seedDemoWorld(
 			teamId,
 			capacity: 5,
 			activeBets: 0,
-			formedAt: now,
+			formedAt: clock.daysAgo(44),
 		})
 		.onConflictDoNothing();
 
-	// Human founder — demo mode only
+	// Human founder — demo mode only. FIRST human by created_at: local-mode
+	// auth resolves the first human user, so the founder is who lands in the app.
 	await db
 		.insert(users)
 		.values({
@@ -112,7 +129,7 @@ export async function seedDemoWorld(
 			role: "founder",
 			status: "active",
 			email: "founder@example.com",
-			createdAt: now,
+			createdAt: clock.daysAgo(45),
 		})
 		.onConflictDoNothing();
 
@@ -129,7 +146,7 @@ export async function seedDemoWorld(
 			role: "assistant",
 			agentCategory: "individual",
 			status: "active",
-			createdAt: now,
+			createdAt: clock.daysAgo(44),
 		})
 		.onConflictDoNothing();
 	await upsertDemoRunConfig(db, `ast-${founderId}`, { maxConcurrentSessions: 1 });
@@ -145,7 +162,7 @@ export async function seedDemoWorld(
 			agentCategory: "team",
 			status: "active",
 			teamId: teamMembersId,
-			createdAt: now,
+			createdAt: clock.daysAgo(43),
 		})
 		.onConflictDoNothing();
 	await upsertDemoRunConfig(db, "demo-agent-builder", { maxConcurrentSessions: 3 });
@@ -161,7 +178,7 @@ export async function seedDemoWorld(
 			agentCategory: "team",
 			teamId: teamMembersId,
 			status: "active",
-			createdAt: now,
+			createdAt: clock.daysAgo(43),
 		})
 		.onConflictDoNothing();
 	await upsertDemoRunConfig(db, "demo-agent-pm", { maxConcurrentSessions: 1 });
@@ -181,7 +198,7 @@ export async function seedDemoWorld(
 			description: "Internal: daily digest scaffolding bet",
 			appetite: "small",
 			status: "draft",
-			createdAt: now,
+			createdAt: clock.daysAgo(19),
 		})
 		.onConflictDoNothing();
 
@@ -196,8 +213,8 @@ export async function seedDemoWorld(
 			title: "Daily digest anchor task",
 			description: "Anchor task for the daily digest routine — emits routine_fired.",
 			state: "ready",
-			createdAt: now,
-			updatedAt: now,
+			createdAt: clock.daysAgo(19),
+			updatedAt: clock.daysAgo(19),
 		})
 		.onConflictDoNothing();
 
@@ -219,8 +236,12 @@ export async function seedDemoWorld(
 			delegationAllowed: false,
 			humanReview: false,
 			silent: true,
+			createdAt: clock.daysAgo(19),
 		})
 		.onConflictDoNothing();
+
+	// ── The lived-in world: cast, knowledge, work, conversations, activity ──
+	await seedDemoWorldContent(db, clock);
 
 	// ── Backfill systemPrompt on demo agents from docs-backed role templates ──
 	// @lore AF17: applyFactoryBootstrap() backfills factory agents' systemPrompt.
@@ -233,14 +254,32 @@ export async function seedDemoWorld(
 	// map/reader bootstrap, roster.ts, and agents.ts now all use.
 	// @lore AU26 G1: `systemPrompt` moved to `agent_run_config`, so the role-scoped
 	// backfill resolves ids off `users` first and writes to the run-config rows.
-	const DEMO_AGENT_ROLES = ["builder", "product_manager"] as const;
+	// Roles without a docs template resolve null and are skipped.
+	const DEMO_AGENT_ROLES = [
+		"builder",
+		"product_manager",
+		"designer",
+		"qa_engineer",
+		"growth",
+	] as const;
 	for (const role of DEMO_AGENT_ROLES) {
 		const content = readSystemPromptTemplateForRole(role);
 		if (content === null) continue;
 		const matching = await db
 			.select({ id: users.id })
 			.from(users)
-			.where(and(inArray(users.id, ["demo-agent-builder", "demo-agent-pm"]), eq(users.role, role)));
+			.where(
+				and(
+					inArray(users.id, [
+						"demo-agent-builder",
+						"demo-agent-pm",
+						"demo-agent-designer",
+						"demo-agent-qa",
+						"demo-agent-growth",
+					]),
+					eq(users.role, role),
+				),
+			);
 		for (const { id } of matching) {
 			await upsertDemoRunConfig(db, id, { systemPrompt: content });
 		}

@@ -34,7 +34,7 @@
 - The world respects the product model as documented in `docs/process-layer/`: no cost/money data anywhere, tasks are agent-owned, conversations live in host-scoped threads (no channels), bet lifecycle is draft/active/completed/killed with outcome verdicts on closed bets, knowledge statuses/scopes/kinds come from the closed vocabularies in `framework/domain-model`.
 - No writes to encrypted-credential tables (`server_credentials`, `service_connections`) or orchestration queue tables (`agent_session_requests`, `agent_work_intents`, `explicit_session_starts`, `agent_lifecycle_inbox`, `task_dispatch_attempts`); those tolerate emptiness.
 - Timestamps are anchored relative to seed time and spread over ~6 weeks of history, never hardcoded absolute dates.
-- No new UI surface in this WP — the desktop opt-in is a flag/env var read at DB creation.
+- No new UI surface in this WP — the dev/PGlite opt-in is `npm run setup -- --demo`; the Postgres opt-in is `bootstrap-pg --demo`. The packaged desktop app cannot import the seeder (production never imports tooling — the AF17 bend covers opt-in flags, not that rule), so its path is the same tool pointed at the desktop data dir: `npm run setup -- --demo --db-path "<desktop PGlite dir>"`. Embedded desktop first-run seeding, if ever wanted, is its own architecture change.
 
 **Out of scope.**
 
