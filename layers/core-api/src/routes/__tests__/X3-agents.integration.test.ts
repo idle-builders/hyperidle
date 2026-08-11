@@ -16,6 +16,7 @@
  */
 
 import { agentRunConfig, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
@@ -28,14 +29,14 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 const NOW = new Date().toISOString();
 
 /** Seed the minimum required prerequisite rows for agent tests. */
-async function seedPrereqs(db: HyperIdleDb): Promise<void> {
+async function seedPrereqs(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	await db
 		.insert(teams)
-		.values({ id: "x3-team", name: "X3 Test Product", phase: "build", createdAt: NOW });
+		.values({ id: ids("x3-team"), name: "X3 Test Product", phase: "build", createdAt: NOW });
 
 	await db.insert(teamMembers).values({
-		id: "x3-tm",
-		teamId: "x3-team",
+		id: ids("x3-tm"),
+		teamId: ids("x3-team"),
 		capacity: 5,
 		activeBets: 0,
 		formedAt: NOW,
@@ -43,7 +44,7 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 
 	// Seed the human founder (required for auth middleware)
 	await db.insert(users).values({
-		id: "u-founder-x3",
+		id: ids("u-founder-x3"),
 		kind: "human",
 		name: "X3 Founder",
 		role: "founder",
@@ -53,29 +54,29 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 	});
 	// @lore AU26 G1: the run config left `users` for `agent_run_config`.
 	await db.insert(agentRunConfig).values({
-		agentUserId: "u-founder-x3",
+		agentUserId: ids("u-founder-x3"),
 		maxConcurrentSessions: 0,
 	});
 
 	// Seed a configurable AI agent
 	await db.insert(users).values({
-		id: "x3-agent-builder",
+		id: ids("x3-agent-builder"),
 		kind: "ai",
 		name: "X3 Builder Bot",
 		role: "builder",
 		status: "active",
-		teamId: "x3-tm",
+		teamId: ids("x3-tm"),
 		createdAt: NOW,
 	});
 	// @lore AU26 G1: the run config left `users` for `agent_run_config`.
 	await db.insert(agentRunConfig).values({
-		agentUserId: "x3-agent-builder",
+		agentUserId: ids("x3-agent-builder"),
 		maxConcurrentSessions: 2,
 	});
 
 	// Seed a system-role agent (should be excluded from agent management)
 	await db.insert(users).values({
-		id: "x3-system-agent",
+		id: ids("x3-system-agent"),
 		kind: "ai",
 		name: "System Agent",
 		role: "system",
@@ -85,7 +86,7 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 
 	// @lore AD8a: role string "chief_of_staff" renamed in AD8b. Seed a chief_of_staff agent for testing multiple agents
 	await db.insert(users).values({
-		id: "x3-agent-cos",
+		id: ids("x3-agent-cos"),
 		kind: "ai",
 		name: "X3 System Agent",
 		role: "assistant",
@@ -111,8 +112,8 @@ describe("X3 AC-4: GET /api/agents returns AI agents with config fields", () => 
 		vi.unstubAllEnvs();
 	});
 
-	test("returns 200 with array of AI agents", async ({ db, app }) => {
-		await seedPrereqs(db);
+	test("returns 200 with array of AI agents", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
 		const res = await app.request("/api/agents", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 
@@ -125,13 +126,15 @@ describe("X3 AC-4: GET /api/agents returns AI agents with config fields", () => 
 		expect(res.status).toBe(401);
 	});
 
-	test("each agent has required X3 config fields", async ({ db, app }) => {
-		await seedPrereqs(db);
+	test("each agent has required X3 config fields", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
 		const res = await app.request("/api/agents", { headers: authHeaders() });
 		const body = (await res.json()) as Array<Record<string, unknown>>;
 
-		expect(body.length).toBeGreaterThan(0);
-		const agent = body[0];
+		// AU38 P5/P6: global list — assert the shape on the arranged agent,
+		// not on whatever happens to be first in the world.
+		const agent = body.find((a) => a.id === ids("x3-agent-builder"));
+		expect(agent).toBeDefined();
 		expect(agent).toHaveProperty("id");
 		expect(agent).toHaveProperty("name");
 		expect(agent).toHaveProperty("role");
@@ -142,8 +145,8 @@ describe("X3 AC-4: GET /api/agents returns AI agents with config fields", () => 
 		expect(agent).toHaveProperty("status");
 	});
 
-	test("excludes system-role agents from the response", async ({ db, app }) => {
-		await seedPrereqs(db);
+	test("excludes system-role agents from the response", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
 		const res = await app.request("/api/agents", { headers: authHeaders() });
 		const body = (await res.json()) as Array<Record<string, unknown>>;
 
@@ -151,12 +154,12 @@ describe("X3 AC-4: GET /api/agents returns AI agents with config fields", () => 
 		expect(systemAgents).toHaveLength(0);
 	});
 
-	test("includes AI agents (non-system) in the response", async ({ db, app }) => {
-		await seedPrereqs(db);
+	test("includes AI agents (non-system) in the response", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
 		const res = await app.request("/api/agents", { headers: authHeaders() });
 		const body = (await res.json()) as Array<Record<string, unknown>>;
 
-		const builderAgent = body.find((a) => a.id === "x3-agent-builder");
+		const builderAgent = body.find((a) => a.id === ids("x3-agent-builder"));
 		expect(builderAgent).toBeDefined();
 		expect(builderAgent?.name).toBe("X3 Builder Bot");
 	});
@@ -164,8 +167,8 @@ describe("X3 AC-4: GET /api/agents returns AI agents with config fields", () => 
 	// @lore AU26 J4: the `activeSessions` run count is GONE from this response —
 	// core-api stopped reading `agent-orchestration`'s `sessions` table. Settings →
 	// Agents fetches `GET /api/agent-orchestration/runs/active-counts` instead.
-	test("carries no agent-run count", async ({ db, app }) => {
-		await seedPrereqs(db);
+	test("carries no agent-run count", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
 		const res = await app.request("/api/agents", { headers: authHeaders() });
 		const body = (await res.json()) as Array<Record<string, unknown>>;
 
@@ -189,13 +192,13 @@ describe("X3 AC-5: POST /api/agents creates a new agent", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("returns 201 with created agent on success", async ({ db, app }) => {
-		await seedPrereqs(db);
+	test("returns 201 with created agent on success", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
 		const res = await app.request("/api/agents", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				name: "New Test Builder",
+				name: `New Test Builder ${ids("suffix")}`,
 				role: "builder",
 				maxConcurrentSessions: 2,
 			}),
@@ -204,37 +207,37 @@ describe("X3 AC-5: POST /api/agents creates a new agent", () => {
 
 		const body = (await res.json()) as Record<string, unknown>;
 		expect(body).toHaveProperty("id");
-		expect(body.name).toBe("New Test Builder");
+		expect(body.name).toBe(`New Test Builder ${ids("suffix")}`);
 		expect(body.role).toBe("builder");
 		expect(body.maxConcurrentSessions).toBe(2);
 	});
 
-	test("created agent has kind = 'ai' and status = 'active'", async ({ db, app }) => {
-		await seedPrereqs(db);
+	test("created agent has kind = 'ai' and status = 'active'", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
 		const res = await app.request("/api/agents", {
 			method: "POST",
 			headers: authHeaders(),
-			body: JSON.stringify({ name: "Active Bot", role: "builder" }),
+			body: JSON.stringify({ name: `Active Bot ${ids("suffix")}`, role: "builder" }),
 		});
 		const body = (await res.json()) as Record<string, unknown>;
 		expect(body.status).toBe("active");
 	});
 
 	// @lore AU26 J4: see above — the create response no longer carries a run count.
-	test("created agent carries no agent-run count", async ({ db, app }) => {
-		await seedPrereqs(db);
+	test("created agent carries no agent-run count", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
 		const res = await app.request("/api/agents", {
 			method: "POST",
 			headers: authHeaders(),
-			body: JSON.stringify({ name: "New Bot", role: "builder" }),
+			body: JSON.stringify({ name: `New Bot ${ids("suffix")}`, role: "builder" }),
 		});
 		const body = (await res.json()) as Record<string, unknown>;
 		expect(body).not.toHaveProperty("activeSessions");
-		expect(body.name).toBe("New Bot");
+		expect(body.name).toBe(`New Bot ${ids("suffix")}`);
 	});
 
-	test("returns 400 when name is missing", async ({ db, app }) => {
-		await seedPrereqs(db);
+	test("returns 400 when name is missing", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
 		const res = await app.request("/api/agents", {
 			method: "POST",
 			headers: authHeaders(),
@@ -243,8 +246,8 @@ describe("X3 AC-5: POST /api/agents creates a new agent", () => {
 		expect(res.status).toBe(400);
 	});
 
-	test("returns 400 when role is empty string", async ({ db, app }) => {
-		await seedPrereqs(db);
+	test("returns 400 when role is empty string", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
 		const res = await app.request("/api/agents", {
 			method: "POST",
 			headers: authHeaders(),
@@ -253,20 +256,20 @@ describe("X3 AC-5: POST /api/agents creates a new agent", () => {
 		expect(res.status).toBe(400);
 	});
 
-	test("accepts custom role strings not in the catalog", async ({ db, app }) => {
-		await seedPrereqs(db);
+	test("accepts custom role strings not in the catalog", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
 		const res = await app.request("/api/agents", {
 			method: "POST",
 			headers: authHeaders(),
-			body: JSON.stringify({ name: "Custom Agent", role: "custom_specialist" }),
+			body: JSON.stringify({ name: `Custom Agent ${ids("suffix")}`, role: "custom_specialist" }),
 		});
 		expect(res.status).toBe(201);
 		const body = (await res.json()) as Record<string, unknown>;
 		expect(body.role).toBe("custom_specialist");
 	});
 
-	test("returns 400 when name exceeds 200 characters", async ({ db, app }) => {
-		await seedPrereqs(db);
+	test("returns 400 when name exceeds 200 characters", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
 		const res = await app.request("/api/agents", {
 			method: "POST",
 			headers: authHeaders(),
@@ -275,13 +278,13 @@ describe("X3 AC-5: POST /api/agents creates a new agent", () => {
 		expect(res.status).toBe(400);
 	});
 
-	test("returns 400 when systemPrompt exceeds 50,000 characters", async ({ db, app }) => {
-		await seedPrereqs(db);
+	test("returns 400 when systemPrompt exceeds 50,000 characters", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
 		const res = await app.request("/api/agents", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				name: "Big Prompt Bot",
+				name: `Big Prompt Bot ${ids("suffix")}`,
 				role: "builder",
 				systemPrompt: "x".repeat(50_001),
 			}),
@@ -289,8 +292,8 @@ describe("X3 AC-5: POST /api/agents creates a new agent", () => {
 		expect(res.status).toBe(400);
 	});
 
-	test("returns 400 when maxConcurrentSessions exceeds 20", async ({ db, app }) => {
-		await seedPrereqs(db);
+	test("returns 400 when maxConcurrentSessions exceeds 20", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
 		const res = await app.request("/api/agents", {
 			method: "POST",
 			headers: authHeaders(),
@@ -299,8 +302,8 @@ describe("X3 AC-5: POST /api/agents creates a new agent", () => {
 		expect(res.status).toBe(400);
 	});
 
-	test("returns 400 when modelTierPreference is invalid", async ({ db, app }) => {
-		await seedPrereqs(db);
+	test("returns 400 when modelTierPreference is invalid", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
 		const res = await app.request("/api/agents", {
 			method: "POST",
 			headers: authHeaders(),
@@ -309,24 +312,28 @@ describe("X3 AC-5: POST /api/agents creates a new agent", () => {
 		expect(res.status).toBe(400);
 	});
 
-	test("accepts valid modelTierPreference values", async ({ db, app }) => {
-		await seedPrereqs(db);
+	test("accepts valid modelTierPreference values", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
 		for (const tier of ["reasoning", "workhorse", "fast"]) {
 			const res = await app.request("/api/agents", {
 				method: "POST",
 				headers: authHeaders(),
-				body: JSON.stringify({ name: `Bot ${tier}`, role: "builder", modelTierPreference: tier }),
+				body: JSON.stringify({
+					name: `Bot ${tier} ${ids("suffix")}`,
+					role: "builder",
+					modelTierPreference: tier,
+				}),
 			});
 			expect(res.status, `modelTierPreference '${tier}' should be 201`).toBe(201);
 		}
 	});
 
-	test("persists the agent to the database", async ({ db, app }) => {
-		await seedPrereqs(db);
+	test("persists the agent to the database", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
 		const res = await app.request("/api/agents", {
 			method: "POST",
 			headers: authHeaders(),
-			body: JSON.stringify({ name: "DB Persist Bot", role: "builder" }),
+			body: JSON.stringify({ name: `DB Persist Bot ${ids("suffix")}`, role: "builder" }),
 		});
 		expect(res.status).toBe(201);
 		const body = (await res.json()) as Record<string, unknown>;
@@ -352,9 +359,9 @@ describe("X3 AC-6: PATCH /api/agents/:id updates agent configuration", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("returns 200 with updated agent on success", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/x3-agent-builder", {
+	test("returns 200 with updated agent on success", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
+		const res = await app.request(`/api/agents/${ids("x3-agent-builder")}`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ systemPrompt: "New persona text", modelTierPreference: "reasoning" }),
@@ -366,9 +373,9 @@ describe("X3 AC-6: PATCH /api/agents/:id updates agent configuration", () => {
 		expect(body.modelTierPreference).toBe("reasoning");
 	});
 
-	test("preserves unchanged fields when patching", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/x3-agent-builder", {
+	test("preserves unchanged fields when patching", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
+		const res = await app.request(`/api/agents/${ids("x3-agent-builder")}`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ systemPrompt: "Updated prompt" }),
@@ -379,9 +386,9 @@ describe("X3 AC-6: PATCH /api/agents/:id updates agent configuration", () => {
 		expect(body.role).toBe("builder");
 	});
 
-	test("returns 403 when patching a system-role agent", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/x3-system-agent", {
+	test("returns 403 when patching a system-role agent", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
+		const res = await app.request(`/api/agents/${ids("x3-system-agent")}`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ name: "Renamed System" }),
@@ -389,9 +396,9 @@ describe("X3 AC-6: PATCH /api/agents/:id updates agent configuration", () => {
 		expect(res.status).toBe(403);
 	});
 
-	test("returns 404 when agent ID does not exist", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/nonexistent-agent-id", {
+	test("returns 404 when agent ID does not exist", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
+		const res = await app.request(`/api/agents/${ids("nonexistent-agent-id")}`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ name: "Ghost" }),
@@ -399,9 +406,9 @@ describe("X3 AC-6: PATCH /api/agents/:id updates agent configuration", () => {
 		expect(res.status).toBe(404);
 	});
 
-	test("returns 400 when systemPrompt exceeds 50,000 characters", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/x3-agent-builder", {
+	test("returns 400 when systemPrompt exceeds 50,000 characters", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
+		const res = await app.request(`/api/agents/${ids("x3-agent-builder")}`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ systemPrompt: "x".repeat(50_001) }),
@@ -409,9 +416,9 @@ describe("X3 AC-6: PATCH /api/agents/:id updates agent configuration", () => {
 		expect(res.status).toBe(400);
 	});
 
-	test("can set harnessType", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/x3-agent-builder", {
+	test("can set harnessType", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
+		const res = await app.request(`/api/agents/${ids("x3-agent-builder")}`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ harnessType: "aider" }),
@@ -421,9 +428,9 @@ describe("X3 AC-6: PATCH /api/agents/:id updates agent configuration", () => {
 		expect(body.harnessType).toBe("aider");
 	});
 
-	test("can set systemPrompt to null (removes persona)", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/x3-agent-builder", {
+	test("can set systemPrompt to null (removes persona)", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
+		const res = await app.request(`/api/agents/${ids("x3-agent-builder")}`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ systemPrompt: null }),
@@ -447,9 +454,9 @@ describe("X3 AC-7: DELETE /api/agents/:id soft-deletes", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("returns 200 with status = 'retired' on successful delete", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/x3-agent-builder", {
+	test("returns 200 with status = 'retired' on successful delete", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
+		const res = await app.request(`/api/agents/${ids("x3-agent-builder")}`, {
 			method: "DELETE",
 			headers: authHeaders(),
 		});
@@ -457,50 +464,50 @@ describe("X3 AC-7: DELETE /api/agents/:id soft-deletes", () => {
 
 		const body = (await res.json()) as Record<string, unknown>;
 		expect(body.status).toBe("retired");
-		expect(body.id).toBe("x3-agent-builder");
+		expect(body.id).toBe(ids("x3-agent-builder"));
 	});
 
-	test("retired agent no longer appears in GET /api/agents list", async ({ db, app }) => {
-		await seedPrereqs(db);
-		await app.request("/api/agents/x3-agent-builder", {
+	test("retired agent no longer appears in GET /api/agents list", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
+		await app.request(`/api/agents/${ids("x3-agent-builder")}`, {
 			method: "DELETE",
 			headers: authHeaders(),
 		});
 
 		const listRes = await app.request("/api/agents", { headers: authHeaders() });
 		const agents = (await listRes.json()) as Array<Record<string, unknown>>;
-		const found = agents.find((a) => a.id === "x3-agent-builder");
+		const found = agents.find((a) => a.id === ids("x3-agent-builder"));
 		expect(found).toBeUndefined();
 	});
 
-	test("returns 403 when deleting a system-role agent", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/x3-system-agent", {
+	test("returns 403 when deleting a system-role agent", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
+		const res = await app.request(`/api/agents/${ids("x3-system-agent")}`, {
 			method: "DELETE",
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(403);
 	});
 
-	test("returns 404 when agent ID does not exist", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/nonexistent-id", {
+	test("returns 404 when agent ID does not exist", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
+		const res = await app.request(`/api/agents/${ids("nonexistent-id")}`, {
 			method: "DELETE",
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(404);
 	});
 
-	test("returns 409 when agent is already retired", async ({ db, app }) => {
-		await seedPrereqs(db);
+	test("returns 409 when agent is already retired", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
 		// First delete
-		await app.request("/api/agents/x3-agent-builder", {
+		await app.request(`/api/agents/${ids("x3-agent-builder")}`, {
 			method: "DELETE",
 			headers: authHeaders(),
 		});
 
 		// Second delete — should be 409 Conflict
-		const res = await app.request("/api/agents/x3-agent-builder", {
+		const res = await app.request(`/api/agents/${ids("x3-agent-builder")}`, {
 			method: "DELETE",
 			headers: authHeaders(),
 		});
@@ -521,8 +528,8 @@ describe("X3 AC-8: GET /api/agents/templates/:role returns template content", ()
 		vi.unstubAllEnvs();
 	});
 
-	test("returns 200 with { role, content } for product_manager", async ({ db, app }) => {
-		await seedPrereqs(db);
+	test("returns 200 with { role, content } for product_manager", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
 		const res = await app.request("/api/agents/templates/product_manager", {
 			headers: authHeaders(),
 		});
@@ -539,8 +546,9 @@ describe("X3 AC-8: GET /api/agents/templates/:role returns template content", ()
 	test("template content matches the real docs/system-prompts/product-manager.md file", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedPrereqs(db);
+		await seedPrereqs(db, ids);
 		const res = await app.request("/api/agents/templates/product_manager", {
 			headers: authHeaders(),
 		});
@@ -556,8 +564,8 @@ describe("X3 AC-8: GET /api/agents/templates/:role returns template content", ()
 	// docs/system-prompts/assistant.md file but is intentionally excluded
 	// from the canonical map because bootstrap never seeded it historically
 	// (@lore AD8a) — preserving today's 404 exactly (round 3 CRITICAL fix).
-	test("returns 200 for builder role (has a real template file, AB0)", async ({ db, app }) => {
-		await seedPrereqs(db);
+	test("returns 200 for builder role (has a real template file, AB0)", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
 		const res = await app.request("/api/agents/templates/builder", {
 			headers: authHeaders(),
 		});
@@ -570,8 +578,9 @@ describe("X3 AC-8: GET /api/agents/templates/:role returns template content", ()
 	test("returns 404 for assistant role (excluded from the canonical map by design)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedPrereqs(db);
+		await seedPrereqs(db, ids);
 		const res = await app.request("/api/agents/templates/assistant", {
 			headers: authHeaders(),
 		});
@@ -580,8 +589,8 @@ describe("X3 AC-8: GET /api/agents/templates/:role returns template content", ()
 		expect(body.code).toBe("NOT_FOUND");
 	});
 
-	test("returns 404 for nonexistent role", async ({ db, app }) => {
-		await seedPrereqs(db);
+	test("returns 404 for nonexistent role", async ({ db, app, ids }) => {
+		await seedPrereqs(db, ids);
 		const res = await app.request("/api/agents/templates/nonexistent_role", {
 			headers: authHeaders(),
 		});
