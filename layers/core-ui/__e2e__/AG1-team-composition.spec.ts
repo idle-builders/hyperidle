@@ -218,8 +218,11 @@ test.describe("AG1 populated team — section visibility & column width per view
 			await expect(page.getByTestId("team-agents")).toBeVisible();
 
 			// AC-1: content column ≤ 961px (cap holds at all desktop widths)
-			const outer = page.getByTestId("work-team-page");
-			const innerColumn = outer.locator("> div").first();
+			// @lore AZ2: work-team-page now sits on PageScaffold's root (consistent
+			// across every WorkTeam branch); the scroll body is the scaffold's own
+			// [data-page-scroll] element, and the max-w-[960px] content column is
+			// its first child.
+			const innerColumn = page.locator("[data-page-scroll] > div").first();
 			const box = await innerColumn.boundingBox();
 			expect(box).not.toBeNull();
 			if (box) {
@@ -261,8 +264,10 @@ test.describe("AG1 empty team — intentional composition & column width per vie
 			await expect(page.getByTestId("team-agents")).toBeVisible();
 
 			// AC-1: content column ≤ 961px
-			const outer = page.getByTestId("work-team-page");
-			const innerColumn = outer.locator("> div").first();
+			// @lore AZ2: see the populated-team case above — work-team-page is
+			// PageScaffold's root now; the content column is [data-page-scroll]'s
+			// first child.
+			const innerColumn = page.locator("[data-page-scroll] > div").first();
 			const box = await innerColumn.boundingBox();
 			expect(box).not.toBeNull();
 			if (box) {
