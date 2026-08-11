@@ -36,7 +36,6 @@ export function queryUses(graph: Graph, query: string, kindFilter: DoorKind | nu
 
 	const doorMatches = new Map<string, DoorMatch>();
 	for (const door of graph.doors) {
-		if (kindFilter && door.kind !== kindFilter) continue;
 		if (!door.touches) continue;
 		const via = touchesMatch(door.touches);
 		if (via.length > 0) doorMatches.set(doorKey(door), { door, via });
@@ -86,7 +85,6 @@ export function queryUses(graph: Graph, query: string, kindFilter: DoorKind | nu
 		}
 
 		for (const door of graph.doors) {
-			if (kindFilter && door.kind !== kindFilter) continue;
 			const key = doorKey(door);
 			if (doorMatches.has(key) || !door.touches) continue;
 			const via: string[] = [];
@@ -118,7 +116,7 @@ export function queryUses(graph: Graph, query: string, kindFilter: DoorKind | nu
 	return {
 		query,
 		head: graph.head,
-		doors: [...doorMatches.values()],
+		doors: [...doorMatches.values()].filter((m) => !kindFilter || m.door.kind === kindFilter),
 		subscribers: [...subMatches.values()],
 	};
 }

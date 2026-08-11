@@ -22,7 +22,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import type { AnySchema as McpAnySchema } from "@modelcontextprotocol/sdk/server/zod-compat.js";
 import { z } from "zod";
 
-import { buildGraph, type Graph, loadGraph } from "./trace-build.js";
+import { type Graph, loadGraph } from "./trace-build.js";
 import { rel } from "./trace-lib.js";
 import { type DoorKind, listEvents, queryDoors, queryEvent, queryUses } from "./trace-query.js";
 
@@ -194,7 +194,7 @@ server.registerTool(
 		inputSchema: asMcpInputSchema(z.object({})),
 	},
 	() => {
-		const graph = buildGraph();
+		const graph = loadGraph(true);
 		return json({
 			head: graphHead(graph),
 			doors: graph.doors.length,
