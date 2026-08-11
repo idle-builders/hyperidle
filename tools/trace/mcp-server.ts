@@ -40,9 +40,9 @@ const server = new McpServer({ name: "hyperidle-trace", version: "0.1.0" });
 server.registerTool(
 	"trace_doors",
 	{
-		title: "List entry-point doors",
+		title: "List entry points",
 		description:
-			"List HyperIdle's entry points ('doors'): UI HTTP routes, agent doors (MCP tools, worker protocol, agent-facing HTTP/WS), and scheduler ticks. Use to discover WHAT can trigger the system before tracing a feature. Optional kind narrows to ui|agent|scheduler; keyword filters by substring of the route/tool/tick.",
+			"List every way work can enter HyperIdle: HTTP endpoints the UI calls, tools an AI agent can invoke, messages a remote worker can send, and scheduled timers. USE WHEN you need to discover what can trigger the system, find where a feature starts, or enumerate entry points before tracing deeper. Optional: kind narrows to ui|agent|scheduler; keyword filters results by text.",
 		inputSchema: { kind: kindEnum, keyword: z.string().optional() },
 	},
 	({ kind, keyword }) => {
@@ -64,9 +64,9 @@ server.registerTool(
 server.registerTool(
 	"trace_uses",
 	{
-		title: "Who uses this symbol?",
+		title: "Who uses this?",
 		description:
-			"Reverse reachability: find every door and event subscriber whose handler body uses <symbol> — a table name, event type, port/seam method, or any function. Follows cross-file imports, entity->table resolution, seam (port->route) crossings, DI wiring, and event chains. Use to answer 'which UI surfaces / agent tools / schedulers touch X?' and to gauge blast radius before a change. A 'no matches' answer is absence of evidence, not proof of absence (reflection and DB-config dispatch are invisible).",
+			"Given a name — a database table, an event, a function, or a cross-layer method — find every entry point and event handler that touches it, even indirectly. It follows calls across files, through startup wiring (dependency injection), across the core<->agent boundary, and through event publish/subscribe chains. USE WHEN you need to know which UI pages / agent tools / scheduled jobs use something, or what a change to it could affect (its blast radius). Note: 'no matches' means the graph found nothing, not that nothing exists — dynamic dispatch and config-driven behavior are not tracked.",
 		inputSchema: {
 			symbol: z.string(),
 			kind: kindEnum,
@@ -99,9 +99,9 @@ server.registerTool(
 server.registerTool(
 	"trace_event",
 	{
-		title: "Trace a domain event",
+		title: "Trace an event",
 		description:
-			"Show who emits and who subscribes to a domain event type, and what each subscriber's handler touches. Pass event='__list__' to get every event type with emit/sub counts. Use to answer 'what happens when X fires?' and to follow event-driven flows (e.g. session_ended reactions).",
+			"Show who publishes and who handles a given event, and what each handler does. Events are how parts of HyperIdle react to things that happened (for example session_ended or task_state_changed). Pass event='__list__' to see every event with emit/handle counts. USE WHEN you need to answer 'what happens when X happens?' or follow an event-driven flow across the system.",
 		inputSchema: { event: z.string() },
 	},
 	({ event }) => {
@@ -139,9 +139,9 @@ server.registerTool(
 server.registerTool(
 	"trace_rebuild",
 	{
-		title: "Rebuild the trace graph",
+		title: "Rebuild the graph",
 		description:
-			"Force a rebuild of the code graph from the current working tree (normally automatic when HEAD changes). Use only if trace output looks stale after local edits. Returns build stats.",
+			"The graph normally updates itself when the code changes. USE WHEN results look out of date after you edited code and you want to force a refresh. Rebuilds the graph and returns statistics.",
 		inputSchema: {},
 	},
 	() => {

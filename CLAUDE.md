@@ -177,17 +177,9 @@ Branch naming: `<type>/<workpackage-id>-<description>`. Commit: imperative mood,
 
 ---
 
-## Code Tracing — first stop for "where is this used"
+## Code Tracing — before you grep
 
-Before reaching for grep or read-chains to answer a **reachability** question, use the code-graph MCP tools (`hyperidle-trace`, registered in `.mcp.json`; CLI fallback under `tools/trace/`). The graph is built by parsing the repo as a whole and answers in one query what otherwise takes many grep/read hops — and it sees through things grep cannot (cross-file calls, DI wiring, seam port→route crossings, event emit/subscribe chains).
-
-Reach for it first when the question is any of:
-- **Which UI surfaces / agent tools / schedulers touch X?** → `trace_uses` (X = a table, event type, port method, or function).
-- **What happens when event X fires?** → `trace_event`.
-- **What entry points exist / which door starts this feature?** → `trace_doors`.
-- **Blast radius before I change X** → `trace_uses` on X, read the `via` reasons.
-
-Grep/read is still right for: exact text, a known file, config/docs, or anything the graph can't model (reflection, DB-config dispatch, string-built calls). A trace "no matches" is absence of evidence, not proof of absence — confirm a load-bearing negative with a targeted grep. See the `trace` skill for query patterns and caveats.
+For "where is this used / what does a change to it affect" questions, use the `hyperidle-trace` MCP tools (`trace_uses`, `trace_event`, `trace_doors`) instead of grep/read chains — the code graph follows connections grep cannot (cross-file calls, startup wiring, the core↔agent boundary, event chains). CLI fallback: `tools/trace/`. A "no matches" is not proof of unused — confirm an important negative with a targeted grep. Query patterns and caveats: the `trace` skill.
 
 ---
 
