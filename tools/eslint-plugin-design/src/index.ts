@@ -12,6 +12,7 @@ import type { ESLint, Linter, Rule } from "eslint";
 import { noAiAesthetic } from "./rules/no-ai-aesthetic.js";
 import { noDialogBoilerplate } from "./rules/no-dialog-boilerplate.js";
 import { noHandrolledPageHeader } from "./rules/no-handrolled-page-header.js";
+import { noHandrolledPageScaffold } from "./rules/no-handrolled-page-scaffold.js";
 import { noHandrolledSelect } from "./rules/no-handrolled-select.js";
 import { noHardcodedColor } from "./rules/no-hardcoded-color.js";
 import { noHardcodedTracking } from "./rules/no-hardcoded-tracking.js";
@@ -40,6 +41,7 @@ export const rules: Record<string, Rule.RuleModule> = {
 	"no-mock-data-import": noMockDataImport,
 	"no-mock-data-symbol": noMockDataSymbol,
 	"no-handrolled-page-header": noHandrolledPageHeader,
+	"no-handrolled-page-scaffold": noHandrolledPageScaffold,
 	"no-handrolled-select": noHandrolledSelect,
 	"no-undefined-font-heading": noUndefinedFontHeading,
 	"no-hardcoded-color": noHardcodedColor,
