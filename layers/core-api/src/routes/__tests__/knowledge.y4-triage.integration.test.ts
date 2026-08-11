@@ -39,7 +39,7 @@ async function seedKnowledgeItem(
 	db: HyperIdleDb,
 	id: string,
 	status: string,
-	updatedBy,
+	updatedBy: string,
 	scopeKind = "factory",
 ): Promise<void> {
 	const now = new Date().toISOString();
