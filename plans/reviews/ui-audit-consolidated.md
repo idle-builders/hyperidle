@@ -103,6 +103,60 @@ Two problems. **The product bug [B]:** the flagship artifact kind doesn't render
 
 ---
 
+## Pass C — founder walkthrough, 2026-08-11
+
+A third pass: the founder drove the app and annotated screenshots. Every claim below was re-verified live before being written down. Two are more severe than anything in P2, and four are gaps in how passes A and B sliced the work rather than findings they missed.
+
+### C1. The conversation renders newest-first **[P0]**
+
+Verified against the seed fixture. True chronological order in the pricing-review thread is `pr-01` (3d) → `pr-03` (2d) → `pr-02` (1d) → `pr-06` (5h) → `pr-05` (4h) → `pr-07` (3h). The rendered order top-to-bottom is `pr-07` (3h, **newest**) → `pr-05` (4h) → `pr-06` (5h) → older. The stream is reverse-chronological in a surface whose composer sits at the bottom, so a user writes at the bottom and their message appears at the top, and reading a conversation means reading up. Pass A logged this only as "timestamps look out of order" — it is an ordering defect, not a formatting one.
+
+### C2. A blocking decision cannot be answered **[P0]**
+
+On the blocked annual-billing task an agent asks the founder a question with three options (10% / 15% / 20%). Verified live: the options are plain `<li>` elements — no `button`, no `role`, `cursor: auto` — and clicking one changes nothing. The product's central claim is that humans steer and agents build; the control where a human steers a blocked task is inert. This belongs beside "Open review" in AZ5, and is arguably the more damaging of the two.
+
+### C3. The conversation kebab injects unrelated fixture content **[P1]**
+
+The "Conversation actions" control in the thread header adds attachment chips to the composer area: `auth/passkey.ts — TS · 3 lines` and `auth-flow.png — 82 KB`. Neither has anything to do with a pricing thread — this is demo/fixture content reachable from an ordinary control in a normal session. Separately, the affordance is unexplained: a header menu whose effect lands in the composer.
+
+### C4. Control sprawl, quantified **[P1]**
+
+Measured across twelve routes by computed style:
+
+| Surface | Distinct recipes | Notes |
+|---|---|---|
+| Buttons | **47** | keyed on background, border, radius, height, padding, font-size, weight |
+| Inputs | **6** | four different fills, six heights (30/32/36/40/45/74), three radii |
+| `--surface-container` blocks | **13** | same fill doing jobs from a 138×32 chip to a 1189×260 card |
+
+The `--surface-container` count is the "yellow boxes everywhere" observation: one fill is standing in for chip, input, card, panel, banner and empty-state backgrounds, with radius varying 10px / 16px / 9999px and border present or absent per instance. It reads as arbitrary because it is.
+
+### C5. Radius scale is not being honoured **[P1]**
+
+The documented scale is `0 / 10 / 16 / 9999`. In use: `3.35544e+07px` (**99 occurrences**), `10px` (80), `9999px` (78), `16px` (61), `16px 16px 0px 0px` (3), `4px` (1). The most-used radius in the app is an off-scale computed value, and "pill" is spelled two different ways.
+
+### C6. Dividers — the token is clean, the placement is not **[correction]**
+
+Pass A claimed inconsistent separator treatments. That was wrong, and an artifact of counting button borders as dividers. Measured properly — elements whose only border is a bottom border, excluding controls — there is exactly **one** divider recipe (`1px rgb(237, 230, 200)`) used 89 times. The real problem is where dividers are drawn, not how: they stop mid-row (the `Row` width bug, AZ9), they stack into phantom empty rows on task detail, and they bracket sections that have no content. Fixing placement, not styling.
+
+### C7. Prose blocks have two different editing models **[P1]**
+
+The bet page renders a live Tiptap `contenteditable` inline — the pitch is always editable in place. Knowledge detail renders a read-only view behind an explicit **Edit** button, i.e. a mode switch. Same content primitive, two mental models, no rule for which applies.
+
+### C8. Split pane vs. full page vs. overlay has no rule **[P1]**
+
+Opening a routine or an agent replaces half the screen with a split pane; opening a bet, task, knowledge item, thread or artifact takes the whole page; notifications, the assistant and search are overlays. Nothing about the objects explains the grouping, so a user cannot predict what a click will do to their context.
+
+### C9. Onboarding banners — founder ruling: delete **[scope change]**
+
+Passes A and B recorded the coach-mark banners as misplaced and proposed relocating them below the page header. Founder ruling, 2026-08-11: they are useless and should be **removed entirely**, not relocated. This narrows AZ11.
+
+### C10. Spacing and elevation were never audited systematically **[gap]**
+
+Neither pass ran a proportional-spacing or elevation pass — the finding "spacing is inconsistent or absent in places" is correct and is not represented anywhere in P0/P1/P2. The token grid (`3/6/9/12/18/24/36/48`) and the shadow tokens exist; whether the app honours them per surface is unmeasured. This is the one item here that needs its own investigation before it can be scoped.
+
+---
+
 ## P1 — the app reads as several products
 
 ### 9. The design system already has the components the pages hand-rolled **[B]**
