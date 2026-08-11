@@ -18,8 +18,6 @@ export const PM_ID = "demo-agent-pm";
 export const DESIGNER_ID = "demo-agent-designer";
 export const QA_ID = "demo-agent-qa";
 export const GROWTH_ID = "demo-agent-growth";
-/** Factory system agent (created by factory bootstrap on every instance). */
-export const SYSTEM_AGENT_ID = "seed-agent-cos";
 /** Factory facilitator for the facilitation community (factory bootstrap). */
 export const FACILITATOR_ID = "seed-agent-pf-facilitation";
 export const PROPAGATION_ID = "system:propagation";
