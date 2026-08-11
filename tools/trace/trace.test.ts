@@ -59,6 +59,7 @@ describe("queryUses kind filter", () => {
 });
 
 describe("loadGraph", () => {
+	// Full-repo rebuild on a cold CI runner far exceeds the 5s default.
 	it("persists the artifact on a forced rebuild", () => {
 		const graph = loadGraph(true);
 		expect(existsSync(GRAPH_FILE)).toBe(true);
@@ -66,5 +67,5 @@ describe("loadGraph", () => {
 		expect(onDisk.head).toBe(graph.head);
 		const head = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
 		expect(graph.head).toBe(head);
-	});
+	}, 60_000);
 });
