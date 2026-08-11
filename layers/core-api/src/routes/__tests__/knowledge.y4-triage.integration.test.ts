@@ -12,7 +12,6 @@
  */
 
 import { type HyperIdleDb, knowledgeAppProjection, knowledgeItems, users } from "@hyperidle/db";
-import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { KERNEL_KNOWLEDGE_STATUSES } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";

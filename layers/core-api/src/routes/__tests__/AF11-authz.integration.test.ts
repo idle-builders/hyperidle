@@ -14,7 +14,6 @@
 
 import { CORE_API_ACTOR_OVERRIDE_HEADER } from "@hyperidle/api-contract";
 import { serverConfig, threads, users } from "@hyperidle/db";
-import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { AdapterPool } from "@hyperidle/harness-registry";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -498,7 +497,6 @@ describe("AC4: openai-compatible key in server_credentials, not server_config bl
 	test("PATCH /api/model-gateway stores tier config WITHOUT apiKey field in blob", async ({
 		db,
 		app,
-		ids,
 	}) => {
 		// AH1 §2: apiKey is no longer accepted in the model-gateway PATCH (schema change).
 		// The blob must never contain an apiKey field.
@@ -527,7 +525,10 @@ describe("AC4: openai-compatible key in server_credentials, not server_config bl
 
 		// Read the raw DB row directly — must have no apiKey field in any tier.
 		// AU38 R2/P10: server_config is the "default" singleton — scope the read.
-		const rows = await db.select().from(serverConfig).where(eq(serverConfig.id, SERVER_CONFIG_DEFAULT_ID));
+		const rows = await db
+			.select()
+			.from(serverConfig)
+			.where(eq(serverConfig.id, SERVER_CONFIG_DEFAULT_ID));
 		expect(rows.length).toBe(1);
 
 		const rawConfig = rows[0]?.config ?? "";
@@ -542,7 +543,6 @@ describe("AC4: openai-compatible key in server_credentials, not server_config bl
 
 	test("AH1 migration: legacy apiKey in server_config blob is relocated to server_credentials", async ({
 		db,
-		ids,
 	}) => {
 		const plaintextApiKey = "sk-legacy-plaintext-af11";
 		const now = new Date().toISOString();
@@ -620,7 +620,10 @@ describe("AC4: openai-compatible key in server_credentials, not server_config bl
 		await migrateCredentialsToStore(db, cipher, credentialStore);
 
 		// After migration: blob has no apiKey field.
-		const rows = await db.select().from(serverConfig).where(eq(serverConfig.id, SERVER_CONFIG_DEFAULT_ID));
+		const rows = await db
+			.select()
+			.from(serverConfig)
+			.where(eq(serverConfig.id, SERVER_CONFIG_DEFAULT_ID));
 		const blobRaw = rows[0]?.config ?? "";
 		expect(blobRaw).not.toContain(plaintextApiKey);
 		const blobParsed = JSON.parse(blobRaw) as Record<string, unknown>;
