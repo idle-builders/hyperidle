@@ -173,7 +173,7 @@ export interface Door {
 }
 
 export const rel = (p: string): string =>
-	p.startsWith(process.cwd() + "/") ? p.slice(process.cwd().length + 1) : p;
+	p.startsWith(`${process.cwd()}/`) ? p.slice(process.cwd().length + 1) : p;
 
 const HTTP_METHODS = new Set(["get", "post", "patch", "delete", "put", "all", "head", "options"]);
 
@@ -650,7 +650,12 @@ export function collectEventWiring(): EventWiring {
 					if (!label) return;
 					const line = lineOf(sf, node.getStart(sf));
 					if (label.kind === "dynamic") {
-						out.dynamic.push({ file, line, enclosing: enclosingName(node), expr: `${name}(${label.expr})` });
+						out.dynamic.push({
+							file,
+							line,
+							enclosing: enclosingName(node),
+							expr: `${name}(${label.expr})`,
+						});
 					} else if (label.text === "*") {
 						out.wildcards.push({ file, line, enclosing: enclosingName(node) });
 					} else if (known.has(label.text)) {
@@ -725,14 +730,20 @@ export function collectSeamMap(): SeamEntry[] {
 		if (!existsSync(file)) continue;
 		const sf = parse(file);
 		const visit = (node: ts.Node, portMethod: string | null): void => {
-			if (ts.isMethodDeclaration(node) && ts.isIdentifier(node.name) && node.body) {
-				portMethod = node.name.text;
-			}
+			const current =
+				ts.isMethodDeclaration(node) && ts.isIdentifier(node.name) && node.body
+					? node.name.text
+					: portMethod;
 			const http =
-				portMethod && ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)
+				current && ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)
 					? hcMethod(node.expression.name.text)
 					: null;
-			if (http && portMethod && ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)) {
+			if (
+				http &&
+				current &&
+				ts.isCallExpression(node) &&
+				ts.isPropertyAccessExpression(node.expression)
+			) {
 				const segments: string[] = [];
 				let cur: ts.Expression = node.expression.expression;
 				while (cur) {
@@ -750,7 +761,7 @@ export function collectSeamMap(): SeamEntry[] {
 				if (segments[0] === "client") segments.shift();
 				if (segments.length > 0) {
 					entries.push({
-						portMethod,
+						portMethod: current,
 						httpMethod: http,
 						path: `/api/${segments.join("/")}`,
 						portFile: file,
@@ -758,7 +769,7 @@ export function collectSeamMap(): SeamEntry[] {
 					});
 				}
 			}
-			ts.forEachChild(node, (child) => visit(child, portMethod));
+			ts.forEachChild(node, (child) => visit(child, current));
 		};
 		visit(sf, null);
 	}
@@ -809,7 +820,7 @@ export function collectDiBindings(): Map<string, DiBinding[]> {
 						name = prop.name.text;
 						value = prop.name;
 					}
-					if (!name || !value) continue;
+					if (!(name && value)) continue;
 					const propVia = via ? `${via}.${name}` : name;
 					const unwrapped = unwrap(value);
 					if (ts.isArrowFunction(unwrapped) || ts.isFunctionExpression(unwrapped)) {
