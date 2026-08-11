@@ -40,11 +40,11 @@ The surface is verifiable by path alone — no content inspection. Adding a new 
 
 ## Hard rules
 
-1. **No mock data in runtime production code paths.** Enforced by `design/no-mock-data-import` + `design/no-mock-data-symbol` (error-level in `eslint.config.ts`) and the literal-id detector in `scripts/mock-inventory.ts`.
+1. **No mock data in runtime production code paths.** Enforced by `design/no-mock-data-import` + `design/no-mock-data-symbol` (error-level in `eslint.config.ts`) and the literal-id detector in `tools/repo-gates/src/mock-inventory.ts`.
 2. **Every surviving mock instance is tracked with its remediation plan** in `plans/mock-data-purge/follow-ups.md` — the API, table, or context it stands in for.
 3. **Removing a mock removes its fallback.** The pattern `useFoo() ?? FALLBACK_FOO` is forbidden; the UI must render an honest empty / loading / error state when the source is silent.
 4. **The guard is non-bypassable.** Per-line `eslint-disable` for these rules requires a tracking issue id in the comment (enforced by the meta-test in `tools/eslint-plugin-design/src/__tests__/eslint-disable-meta.test.ts`).
-5. **The inventory is machine-generated.** `scripts/mock-inventory.ts` emits `plans/mock-data-purge/inventory.json`; `npm run mock-inventory:check` (in `npm run verify`) exits non-zero when it's stale. PRs that change the offender set must commit the regenerated inventory.
+5. **The inventory is machine-generated.** `tools/repo-gates/src/mock-inventory.ts` emits `plans/mock-data-purge/inventory.json`; `npm run mock-inventory:check` (in `npm run verify`) exits non-zero when it's stale. PRs that change the offender set must commit the regenerated inventory.
 
 ## Forbidden symbol-name prefixes (in runtime production code)
 
@@ -59,7 +59,7 @@ The surface is verifiable by path alone — no content inspection. Adding a new 
 The sanctioned fictional name for demo data is **`Acme`** (team id `demo-team-acme`, agents `demo-agent-*`). Use it for:
 
 - Test fixtures and stories that need a believable team name
-- Setup-cli demo mode (`--demo` flag)
+- Setup-cli demo mode (`--demo` flag) — seeds the lived-in six-week Acme world (bets, threads/reviews, knowledge, sessions, routines) into a fresh database; opt-in only, never on a normal boot path
 - Design mockups needing realistic example content
 
 Any other clearly-fictional placeholder (`ACME Corp`, `Test Team`, `Demo Co`) is fine too — as long as it is not `Nimmly`.

@@ -12,7 +12,7 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -137,13 +137,38 @@ export function declaredFloors(
  * repository at all. Tracked-by-git is the only definition that cannot drift.
  */
 /**
- * Files present in the working tree under the governance source dirs, tracked or not.
+ * Files present in the working tree under every relocated tooling source dir, tracked or not.
  *
  * `git ls-files` deliberately does not see gitignored build output — which is exactly what the
- * stale-artifact rule needs to look at. Narrow on purpose: only where the guard's own source lives.
+ * stale-artifact rule needs to look at. Narrow on purpose: only where a composite build can emit
+ * a stale `.js`/`.d.ts` beside its `.ts` — every tooling package's `src/` (scanned, never hardcoded —
+ * CLAUDE.md's monorepo rule) plus `layers/core-ui/__scripts__` and `layers/core-ui/__e2e__`, the two in-package
+ * homes AU37 gave the tools that moved into the package they serve rather than into `tools/`.
+ *
+ * @lore AU37: renamed from `presentGovernanceFiles` — before this work package `tools/governance`
+ * was the ONLY tooling package a composite build could emit into, because it was the only thing that
+ * had moved out of `scripts/` (which had its own `tsconfig.json` with `composite: false`, so it never
+ * emitted anywhere). Once `tools/repo-gates` existed with the same composite template, a `.js` planted
+ * there was invisible to both this guard and to `.gitignore`'s ignore patterns — strictly worse than
+ * `scripts/` was. The invariant this function and `.gitignore`'s compiled-artifact block must both
+ * satisfy: every directory whose compiled artifacts are gitignored is in this scan.
  */
-export function presentGovernanceFiles(): string[] {
-	const raw = execFileSync("git", ["ls-files", "-z", "--others", "--cached", "tools/governance"], {
+export function presentToolingFiles(): string[] {
+	const toolsRoot = path.join(REPO_ROOT, "tools");
+	const pathspecs = readdirSync(toolsRoot, { withFileTypes: true })
+		.filter((entry) => entry.isDirectory())
+		.map((entry) => `tools/${entry.name}/src`)
+		.filter((relative) => existsSync(path.join(REPO_ROOT, relative)));
+	// Tested BEFORE the two in-package homes are appended below — appending first would make
+	// pathspecs.length >= 2 always, so the scan going to zero (a tools/ root rename, a
+	// restructure moving sources out of src/, any future tools/ layout change) would silently
+	// narrow the census to just the two core-ui directories and report every tooling package
+	// clean, forever. CLAUDE.md's monorepo rule: hard-fail when a scan finds nothing.
+	if (pathspecs.length === 0) {
+		throw new Error("presentToolingFiles: scanned zero source directories under tools/");
+	}
+	pathspecs.push("layers/core-ui/__scripts__", "layers/core-ui/__e2e__");
+	const raw = execFileSync("git", ["ls-files", "-z", "--others", "--cached", ...pathspecs], {
 		cwd: REPO_ROOT,
 		encoding: "utf8",
 		maxBuffer: 64 * 1024 * 1024,

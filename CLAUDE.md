@@ -10,14 +10,18 @@ HyperIdle is an agentic operating system for AI-first companies. Flat teams of h
 
 ## ABSOLUTE RULES — NON-NEGOTIABLE
 
-1. **You are fully autonomous. There is NO human. NEVER pause, NEVER ask for confirmation, NEVER wait for feedback.** If something fails, handle it yourself or mark it blocked and move on.
-2. **Never Stop until you reached a validated output** Only once the acceptance criteria are proven to be done and correct can you stop or if something is genuinly blocked. Never stop otherwise, not after a plan, not after anything else.
+1. **Never Stop until you reached a validated output** Only once the acceptance criteria are proven to be done and correct can you stop or if something is genuinly blocked. Never stop otherwise, not after a plan, not after anything else.
 
 ---
 
 ## Communication Style
 
+**Use plain & simple language**: Every answer to the user must use plain, simple language. Avoid complicated words or domain specific lingo.
 **Be extremely concise. Sacrifice grammar for the sake of concision.** Drop articles, filler, preamble. No "Let me…", "I'll now…", "Looking at…". State findings, not process. One line where one line suffices.
+
+## Simplicity Sanity Check
+
+If you estimate a change will require 1,000 or more lines of code, assume you probably misunderstood the problem or requirements. Stop before implementation. Explain which assumptions make the solution complex and ask the user whether those assumptions are wrong. Do not proceed until the user clarifies. The user wants the dead simplest solution possible.
 
 ---
 
@@ -37,7 +41,7 @@ Tests are for application logic. A test imports code and asserts on its behavior
 
 ## Validation
 
-Before any work is complete: `npm run check` (zero type errors) + `npm run lint` (zero lint errors) + `npm run test` (all green). Tests live inside a package — under `layers/`, `framework/`, `applications/` or `tools/`, never in `scripts/` or the repo root — and only test runtime behavior through imports. Only **new** lint/type errors you introduce block — don't drain a pre-existing baseline you didn't cause.
+Before any work is complete: `npm run check` (zero type errors) + `npm run lint` (zero lint errors) + `npm run test` (all green). Tests live inside a package — under `layers/`, `framework/`, `applications/` or `tools/`, never at the repo root — and only test runtime behavior through imports. Only **new** lint/type errors you introduce block — don't drain a pre-existing baseline you didn't cause.
 
 ### Which command to use when
 
@@ -50,7 +54,7 @@ Before any work is complete: `npm run check` (zero type errors) + `npm run lint`
 | **Harness integration** | `npm run test:integration:harness` | Real-binary + real-LLM harness tests. **Local only — no CI job, by design.** Part of the `verify:release` checklist you run before a version bump. |
 | **All tests** | `npm run test:all` | `test:full` + `test:integration` (unit + component + integration). |
 | **E2E tests** | `npm run test:e2e` | Playwright end-to-end tests (Chromium). |
-| **Typecheck** | `npm run check` | Per-package typecheck gate (`scripts/typecheck-gate.ts`) — discovers all packages under `layers/`, `framework/`, `applications/`, `tools/`, runs `tsc --noEmit` per package, applies debt ratchet. |
+| **Typecheck** | `npm run check` | Per-package typecheck gate (`tools/repo-gates/src/typecheck-gate.ts`) — discovers all packages under `layers/`, `framework/`, `applications/`, `tools/`, runs `tsc --noEmit` per package, applies debt ratchet. |
 | **Lint** | `npm run lint` | Biome + ESLint + three governance-lint passes (fixtures, attacks, default). |
 | **Quick verify** | `npm run verify:quick` | check + lint + knip + knip:production + deps:check. No tests or builds. |
 | **Full verify** | `npm run verify` | check + lint + knip + knip:production + deps:check + mock-inventory:check + web build + desktop build. No tests — CI runs those. |

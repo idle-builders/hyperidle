@@ -10,9 +10,13 @@ From zero to HyperIdle running locally, with a Team, a Bet, and agents producing
 
 - **Node.js 24 or later** — check with `node --version`. Install from [nodejs.org](https://nodejs.org).
 - **Git** — check with `git --version`.
-- **Anthropic API key** — get one at [console.anthropic.com](https://console.anthropic.com). Your key starts with `sk-ant-`. Do not commit it to version control.
+- **A way for your agents to think** — either a model provider API key, or a coding CLI you are already signed in to (Claude Code, Codex, OpenCode, Cursor).
+  - **Anthropic** — get a key at [console.anthropic.com](https://console.anthropic.com); it starts with `sk-ant-`.
+  - **OpenRouter** — get a key at [openrouter.ai](https://openrouter.ai) to reach many models through one account.
+  - **Any OpenAI-compatible provider** (Together, Groq, a local server) — you will need its base URL as well as a key.
+  - Do not commit a key to version control.
 
-> An API key is required to complete first-run setup — the setup form won't submit without one.
+> Setup won't submit until the engine you picked can actually run. If you choose an already-signed-in CLI, no key is needed at all.
 
 ---
 
@@ -81,7 +85,10 @@ Open [http://localhost:5173](http://localhost:5173). HyperIdle detects a fresh i
 Fill in the four fields:
 
 1. **Your name** (required) — for example, `Sam Chen`.
-2. **Anthropic API key** (required) — paste your `sk-ant-...` key. The hint reads "Required. Your key stays on this device."
+2. **Agent harness** (required) — the engine every agent on your team thinks with. HyperIdle lists the built-in gateway plus whichever coding CLIs it found on this device.
+   - Pick a CLI that shows **Ready** and there is nothing else to fill in — it uses the login you already have.
+   - Pick **Built-in gateway** and the row opens for a credential: choose your **Provider** (Anthropic, OpenRouter, or any OpenAI-compatible endpoint) and paste that provider's key. OpenRouter offers its live model list to choose from; an OpenAI-compatible provider also asks for its base URL and model ID. Your key stays on this device.
+   - A CLI that isn't installed appears greyed with a hint rather than a dead option.
 3. **Project folder** (optional) — a local git repository path for agents to work in, for example `/Users/sam/projects/my-app`. Leave blank for now.
 4. **What are you building?** — pick a team type. The default preset is **software**; each preset determines which agent roles your team starts with. Picking **custom** requires selecting at least one function.
 
@@ -91,7 +98,7 @@ Click **Start HyperIdle**. A user record and Team are created; you land on **Wor
 
 After setup, open **Settings → Agent backends** to see which execution environments HyperIdle detected on this device. Each backend (Built-in, Claude Code, Codex, OpenCode, Cursor) gets a row with a status dot, version, and status line.
 
-- **Built-in** shows ready once a gateway credential is accepted — an Anthropic key, an OpenAI-compatible key, or an OpenRouter key all work. This is sufficient to run agents immediately.
+- **Built-in** shows ready once a gateway credential is stored for every provider your model tiers point at — an Anthropic key, an OpenAI-compatible key, or an OpenRouter key all work. A key you entered during setup counts here; you do not need to also set an environment variable. This is sufficient to run agents immediately.
 - CLI backends (Claude Code, Codex, OpenCode) show a warning state if the CLI is present but not signed in; the row shows the sign-in command to run in a terminal (for example `codex login`). After signing in, click **Refresh** to re-run detection.
 - **Cursor** appears as unavailable — it has no headless CLI.
 

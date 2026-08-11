@@ -141,10 +141,28 @@ async function drainAgentSessionRequests(deps: RuntimeDeps): Promise<number> {
 				deps.db,
 				request.agentId,
 			);
-			const resolvedModel = await deps.resolveModel?.(tier, {
-				modelId: runConfig.modelId,
-				modelProvider: runConfig.modelProvider,
-			});
+			// `resolvedModel` is consumed ONLY by the builtin (api-gateway) adapter,
+			// which makes direct provider API calls. A subscription-CLI (claude-code,
+			// cursor-agent) or external harness authenticates itself and needs no
+			// model/credential resolved here — resolving eagerly would throw
+			// MISSING_CREDENTIAL for a provider key that harness never uses, killing
+			// the session before adapter selection ever runs. Credential enforcement
+			// is the provisioner's builtin guard (`meta.type === "builtin" &&
+			// !resolvedModel`) — the single point that knows the SELECTED adapter. A
+			// missing credential is an expected condition with that designated
+			// handler, so tolerate it here and proceed with no resolved model; the
+			// guard still rejects a builtin selection that genuinely lacks one.
+			const resolvedModel = await (async () => {
+				try {
+					return await deps.resolveModel?.(tier, {
+						modelId: runConfig.modelId,
+						modelProvider: runConfig.modelProvider,
+					});
+				} catch (error) {
+					if (error instanceof Error && error.name === "MissingCredentialError") return undefined;
+					throw error;
+				}
+			})();
 			const result = await runSession(deps, {
 				mode: "durable",
 				request,

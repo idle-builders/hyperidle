@@ -87,14 +87,24 @@ export async function createTestApp(options?: TestAppOptions): Promise<Hono> {
 	};
 	const agentOrchestrationPort = buildAgentOrchestrationPort(transport);
 
+	// AU36 D4/D5: boot the orchestration Layer FIRST (when not pre-booted) so
+	// its `inheritedReach.refresh` can be wired into core-api's
+	// `onHarnessRedetect` — the same two-moment wiring the production
+	// Applications build (no deferred binding needed here: unlike the
+	// Applications, this composition site boots orchestration before
+	// `bootCoreApi`).
+	const agentOrchestration =
+		options?.agentOrchestrationBoot ??
+		(options?.db ? await bootAgentOrchestration({ db: options.db, eventBus }) : undefined);
+
 	const layerOptions: AppOptions = {
 		...options,
 		agentOrchestration: agentOrchestrationPort,
 		...(options?.db ? { eventBus } : {}),
+		...(agentOrchestration
+			? { onHarnessRedetect: () => agentOrchestration.inheritedReach.refresh() }
+			: {}),
 	};
-	const agentOrchestration =
-		options?.agentOrchestrationBoot ??
-		(options?.db ? await bootAgentOrchestration({ db: options.db, eventBus }) : undefined);
 	const coreApi = await bootCoreApi(layerOptions);
 
 	const app = new Hono();

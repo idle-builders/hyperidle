@@ -48,26 +48,38 @@ docs/product/.vitepress/cache
 # Astro generated types + content sync cache (applications/website)
 applications/website/.astro/
 .vitepress/cache
-# @lore AU28: `scripts/` runs via tsx and is never compiled deliberately, but tsc emits
-# declaration + map siblings there transitively (root tsconfig has `include: []`, so
-# `scripts/**` is only typechecked through the guard-logic tests in
-# `framework/db/src/__tests__/`, which are part of a `composite` project). Those artifacts
-# must never reach the tracked tree — a stale emitted `.js` next to a `.ts` also shadows
-# the source at resolution time. One rule instead of the per-file list AU28 replaced.
-scripts/**/*.js
-scripts/**/*.js.map
-scripts/**/*.d.ts
-scripts/**/*.d.ts.map
-!scripts/knip-production-test-files.mjs
-# @lore AU26 C3: same class as the guard artifacts above, one level up — a bare
-# `tsc -p framework/db` against a stale `dist/` emits declaration MAPS straight
-# into the package source tree (`framework/db/src/*.d.ts.map`); ten of them were
-# committed once and only a code review caught them. Emitted maps are never
-# sources, in any package.
-# `.d.ts` itself is deliberately NOT ignored here — hand-written ambient
-# declarations are real sources (`layers/core-ui/src/vite-env.d.ts`,
-# `window.d.ts`, `framework/design-system/src/css-modules.d.ts`) — except under
-# `framework/db/src`, which has none and is the one tree the emit lands in.
+# Compiled output emitted beside a source file by a composite build. A stale emitted `.js` is
+# resolved by Node, tsx, vitest and ESLint in preference to the `.ts` beside it, so the code that
+# runs is not the code on disk. These patterns keep it out of `git status`; `no-stale-build-artifacts`
+# (tools/governance/src/rules/, evidence from governance-context.ts's presentToolingFiles()) is what
+# NAMES one that exists.
+#
+# This block is WIDER than presentToolingFiles()'s guard census, not identical to it — the two lists
+# are not claimed to be the same list. The guard scans every tools/*/src (discovered, never
+# hardcoded) plus layers/core-ui/__scripts__ and __e2e__ (the two in-package homes AU37 gave tools
+# that moved into the package they serve; hardcoded here and in the guard because there are exactly
+# two and they do not grow the way tools/* packages do — a third in-package destination is a decision
+# this file and the guard should both be updated for on review, not something a scan should paper
+# over). The layers/*, framework/*, applications/* map-only lines below cover a DIFFERENT, older
+# hazard (AU26 C3 — a bare `tsc -p` against a stale dist/ emitting declaration maps straight into a
+# package's own src/) that the stale-build-artifact guard's census does not cover and this work
+# package does not change.
+#
+# All four suffixes under the tooling and relocated-tool source dirs: every file there is a .ts
+# source and none has a hand-written declaration (verified). Under the shipping roots' src/ only the
+# MAPS, because `vite-env.d.ts`, `window.d.ts` and `css-modules.d.ts` are real sources.
+tools/*/src/**/*.js
+tools/*/src/**/*.js.map
+tools/*/src/**/*.d.ts
+tools/*/src/**/*.d.ts.map
+layers/core-ui/__scripts__/**/*.js
+layers/core-ui/__scripts__/**/*.js.map
+layers/core-ui/__scripts__/**/*.d.ts
+layers/core-ui/__scripts__/**/*.d.ts.map
+layers/core-ui/__e2e__/**/*.js
+layers/core-ui/__e2e__/**/*.js.map
+layers/core-ui/__e2e__/**/*.d.ts
+layers/core-ui/__e2e__/**/*.d.ts.map
 layers/*/src/**/*.d.ts.map
 layers/*/src/**/*.js.map
 layers/*/*/src/**/*.d.ts.map
@@ -76,8 +88,6 @@ framework/*/src/**/*.d.ts.map
 framework/*/src/**/*.js.map
 applications/*/src/**/*.d.ts.map
 applications/*/src/**/*.js.map
-tools/*/src/**/*.d.ts.map
-tools/*/src/**/*.js.map
 framework/db/src/*.d.ts
 # viewer compiled outputs (Vite resolves ./discovery.js → discovery.ts at build/dev time;
 # emitted .js/.d.ts/.map files must not be committed)
@@ -96,11 +106,3 @@ framework/design-system/viewer/**/*.d.ts.map
 
 # docs audit working artifacts (not repo content)
 .docs-audit/
-
-# Compiled output emitted beside governance sources by composite builds — see
-# scripts/rules/no-stale-build-artifacts.ts. Never committed, and the lint fails if present.
-scripts/**/*.js
-scripts/**/*.d.ts
-scripts/**/*.js.map
-scripts/**/*.d.ts.map
-!scripts/*.mjs

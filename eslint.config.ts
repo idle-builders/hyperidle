@@ -175,6 +175,14 @@ export default [
 	//   Re-evaluate when AG7 / onboarding migrate.
 	//   @lore AI7: ignore-vs-allowlist: a two-entry ignores is the minimal, explicit,
 	//   greppable exemption that doesn't couple the rule scope to the migration list.
+	//
+	// no-handrolled-page-scaffold (error on pages/**, AZ2 AC5):
+	//   Flags a hand-written scrolling page body (flex-1 + a scroll overflow, or
+	//   flex-1 + overflow-hidden without flex-col). Unlike no-handrolled-page-header,
+	//   this rule is NOT scoped to a migration subset — AZ2 Fork A1 migrated every
+	//   page file onto <PageScaffold>, so the block's SettingsPage/SetupFlow
+	//   ignores (page-header's own carve-out) simply never matter for this rule:
+	//   neither file contains the flagged combo.
 	{
 		files: ["layers/core-ui/src/pages/**/*.tsx"],
 		ignores: [
@@ -195,6 +203,7 @@ export default [
 		rules: {
 			"design/no-undefined-font-heading": "error",
 			"design/no-handrolled-page-header": "error",
+			"design/no-handrolled-page-scaffold": "error",
 		},
 	},
 

@@ -7,7 +7,7 @@ Every useful root `npm` script, grouped by task. Onboarding path: [getting-start
 | Command | Purpose |
 |---------|---------|
 | `npm install` | Install dependencies |
-| `npm run setup` | Initialize the database (`tools/setup/src/setup-cli.ts`); flags: `--profile <laptop\|vps\|cloud>`, `--db-path`, `--db-url` |
+| `npm run setup` | Initialize the database (`tools/setup/src/setup-cli.ts`); flags: `--profile <laptop\|vps\|cloud>`, `--db-path`, `--db-url`, `--demo` (seed the lived-in Acme demo world — opt-in only) |
 | `npm run dev` | Dev server with hot reload (API + frontend) |
 | `npm run dev:desktop` | Web dev server + Electron desktop shell |
 
@@ -36,7 +36,7 @@ Default test commands run the **affected slice** against `origin/main` (AT1); `:
 | `npm run test:e2e:ah1` | AH1 lane — own Playwright config (`layers/core-ui/playwright.ah1.config.ts`) |
 | `npm run test:e2e:ah5` | AH5 lane — own Playwright config (`layers/core-ui/playwright.ah5.config.ts`) |
 | `npm run test:e2e:ah6` | AH6 real-interaction lane — key-free, offline, replays committed cassettes (`layers/core-ui/__e2e__/cassettes/`) |
-| `npm run smoke:ah6` | AH6 live refresh — re-records cassettes against a real OpenRouter model (`scripts/ah6-smoke-local.ts`; requires `OPENROUTER_API_KEY`, local only; review the cassette diff before committing) |
+| `npm run smoke:ah6` | AH6 live refresh — re-records cassettes against a real OpenRouter model (`layers/core-ui/__scripts__/ah6-smoke-local.ts`; requires `OPENROUTER_API_KEY`, local only; review the cassette diff before committing) |
 | `npm run test:pg` | Test suite against Postgres (`framework/db/src/__testing__/pg-test-runner.ts`) |
 
 ## Verify
@@ -51,7 +51,7 @@ Default test commands run the **affected slice** against `origin/main` (AT1); `:
 
 | Command | Purpose |
 |---------|---------|
-| `npm run check` | TypeScript type check — per-package fan-out gate (`scripts/typecheck-gate.ts`; quarantine list in `typecheck-debt.json`) |
+| `npm run check` | TypeScript type check — per-package fan-out gate (`tools/repo-gates/src/typecheck-gate.ts`; quarantine list in `typecheck-debt.json`) |
 | `npm run lint` | Biome + ESLint + governance-lint (once `--fixtures`, once against the live tree) — see [linting-and-formatting.md](linting-and-formatting.md) |
 | `npm run lint:biome` | Biome only |
 | `npm run lint:eslint` | ESLint only |
@@ -59,7 +59,7 @@ Default test commands run the **affected slice** against `origin/main` (AT1); `:
 | `npm run lint:design` | ESLint scoped to design-system surfaces only (`layers/core-ui/src/**/*.tsx`, `framework/design-system/src/**/*.tsx`) |
 | `npm run knip` | Find unused files/exports/dependencies |
 | `npm run knip:production` | Same, restricted to production files (test/story-only reachability doesn't count) |
-| `npm run deps:check` | Import-vs-manifest gate — fails when a package imports something undeclared or declares something it never reaches (`scripts/dep-manifest-lint.ts`) |
+| `npm run deps:check` | Import-vs-manifest gate — fails when a package imports something undeclared or declares something it never reaches (`tools/repo-gates/src/dep-manifest-lint.ts`) |
 | `npm run mock-inventory` | Write the mock-data inventory (`inventory.json`/`inventory.md`/`queue.md`) |
 | `npm run mock-inventory:check` | CI mode — compare inventory, exit 1 on diff |
 | `npm run check:native` | Native-module ABI check ahead of `electron .` (no-op — PGlite is pure WASM) |
@@ -76,15 +76,11 @@ Package-boundary rules live in `tools/governance/` (`README.md`, `architecture.j
 
 Both `lint:governance` and `lint:governance:fixtures` also run inside `npm run lint`.
 
-## Design system and observability
+## Design system
 
 | Command | Purpose |
 |---------|---------|
 | `npm run ds:inspect <page-path>` | Statically reports JSX element provenance (design-system vs. custom vs. inline-styled) for a TSX page |
-| `npm run obs:env` | Print OTel env vars to tag the current shell (`source <(npm run obs:env)`) |
-| `npm run obs:smoke` | Emit one span and verify ingest |
-| `npm run obs:run -- <command>` | Run a command with OTel env set |
-| `npm run obs:collector` | Run the local DuckDB-backed trace collector |
 
 ## Database
 

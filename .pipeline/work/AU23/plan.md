@@ -118,7 +118,7 @@ already reasoned about carefully.
 
 **Out of scope.**
 - Any of AU21's other 27 pairs (already resolved — dead/allowlisted/baked/seam-routed/relocated).
-- AU22's mid-run injection question (a different capability — delivering a live update into an ALREADY-RUNNING
+- AY1's (formerly AU22, now track AY) mid-run injection question (a different capability — delivering a live update into an ALREADY-RUNNING
   session — not context assembly at session START).
 - Rebuilding or wiring up the orphaned `settings` `kind:"trigger"` config feature (`SettingsAgentBehavior.tsx`'s
   "Triggers" tab) — flagged by AU21's forensic-triage wave as a pre-existing, unrelated product gap, not this

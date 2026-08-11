@@ -1,15 +1,16 @@
 /**
  * SetupFlow — initial setup page at /setup.
  *
- * Simplified single-scroll form. Two required fields (name + API key) and one
- * optional field (repo path). Team is created silently with defaults.
- * "Start HyperIdle" button disabled until name + API key are filled.
+ * Simplified single-scroll form. A name, an agent engine, and one optional
+ * field (repo path). Team is created silently with defaults. "Start HyperIdle"
+ * is disabled until the chosen engine can actually run.
  *
  * Submits:
  * 1. POST /api/users — create human user (name only, no email)
  * 2. POST /api/teams — create first team + primaryHarness (from picker)
- * 3. PUT /api/credentials/anthropic_api_key — key written before nav
- * 4. POST /api/filesystems (best-effort, if folder picked)
+ * 3. PUT /api/credentials/:name — built-in gateway key, written before nav
+ * 4. PATCH /api/model-gateway — only when that key is for a non-anthropic provider
+ * 5. POST /api/filesystems (best-effort, if folder picked)
  * On success: navigate to /work?onboarding=true.
  *
  * @lore P4: Replaces Onboarding.tsx. Single-scroll layout from approved design.
@@ -25,10 +26,20 @@
  * @lore AV1: Harness picker added (greyed non-installed rows per Decision 4).
  * derivePrimaryHarness() wired into POST /api/teams body; builtin → omit primaryHarness.
  * Folder → inspect-path + register filesystem (best-effort, writeback:"none").
+ * @lore AW1: The standalone Anthropic key field is gone. Credential entry belongs
+ * to the built-in gateway row — it is the only harness whose key HyperIdle holds,
+ * every CLI harness carries its own login — and it spans all three ModelProviders.
  */
 
-import { Button, Input } from "@hyperidle/design-system";
-import { AGENT_ROLE_CATALOG, defaultRoster, TEAM_FUNCTIONS } from "@hyperidle/domain-model";
+import { Button, Input, Select } from "@hyperidle/design-system";
+import type { ModelProvider } from "@hyperidle/domain-model";
+import {
+	AGENT_ROLE_CATALOG,
+	credentialNameForProvider,
+	defaultRoster,
+	MODEL_PROVIDERS,
+	TEAM_FUNCTIONS,
+} from "@hyperidle/domain-model";
 import {
 	derivePrimaryHarness,
 	type HarnessCapabilityDescriptor,
@@ -107,6 +118,80 @@ function stateHintText(d: HarnessCapabilityDescriptor): string {
 	return "Not installed";
 }
 
+// ── Built-in gateway providers ────────────────────────────────────────────────
+
+/**
+ * How each provider presents itself in the built-in gateway row.
+ *
+ * `needsEndpoint` marks the provider whose resolver cannot run on a key alone:
+ * openai-compatible has no fixed host, so `resolveProvider` demands a baseUrl
+ * and throws without one. Collecting it here is what keeps "drop a key" from
+ * producing a gateway that fails on its first call.
+ */
+interface GatewayProviderMeta {
+	readonly label: string;
+	readonly keyPlaceholder: string;
+	readonly needsEndpoint: boolean;
+	/** Whether the provider publishes a model catalog we can offer as choices. */
+	readonly hasCatalog: boolean;
+}
+
+/**
+ * Keyed by provider so the lookup is total — a provider added to MODEL_PROVIDERS
+ * without presentation here fails to compile rather than falling back to whatever
+ * sits first in a list.
+ */
+const GATEWAY_PROVIDERS = {
+	anthropic: {
+		label: "Anthropic",
+		keyPlaceholder: "sk-ant-...",
+		needsEndpoint: false,
+		hasCatalog: false,
+	},
+	openrouter: {
+		label: "OpenRouter",
+		keyPlaceholder: "sk-or-...",
+		needsEndpoint: false,
+		hasCatalog: true,
+	},
+	"openai-compatible": {
+		label: "OpenAI-compatible",
+		keyPlaceholder: "sk-...",
+		needsEndpoint: true,
+		hasCatalog: false,
+	},
+} as const satisfies Record<ModelProvider, GatewayProviderMeta>;
+
+/** A model offered by a provider's public catalog. */
+interface CatalogModel {
+	readonly id: string;
+	readonly label: string;
+}
+
+/**
+ * OpenRouter's public model list. No key required and it serves
+ * `access-control-allow-origin: *`, so the browser reads it directly rather
+ * than round-tripping through our server (verified 2026-08-10).
+ *
+ * ⚠️ UNVERIFIED beyond the shape observed on that date: `{ data: [{ id, name,
+ * context_length }] }`. Anything unparsable degrades to a typed model field —
+ * setup must never be blocked by a third-party catalog being down.
+ * https://openrouter.ai/docs/api-reference/list-available-models
+ */
+const OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models";
+
+function parseOpenRouterCatalog(body: unknown): CatalogModel[] {
+	const data = (body as { data?: unknown })?.data;
+	if (!Array.isArray(data)) return [];
+	return data.flatMap((item): CatalogModel[] => {
+		if (typeof item !== "object" || item === null) return [];
+		const entry = item as Record<string, unknown>;
+		const id = typeof entry.id === "string" ? entry.id : "";
+		if (!id) return [];
+		return [{ id, label: typeof entry.name === "string" ? entry.name : id }];
+	});
+}
+
 // ── Folder inspection result ──────────────────────────────────────────────────
 
 interface FolderInfo {
@@ -155,8 +240,15 @@ export function SetupFlow(): JSX.Element {
 
 	// Form state
 	const [name, setName] = useState("");
-	const [apiKey, setApiKey] = useState("");
 	const [repoPath, setRepoPath] = useState("");
+
+	// Built-in gateway credential — provider-scoped, not Anthropic-specific.
+	const [gatewayProvider, setGatewayProvider] = useState<ModelProvider>("anthropic");
+	const [apiKey, setApiKey] = useState("");
+	const [gatewayModel, setGatewayModel] = useState("");
+	const [gatewayBaseUrl, setGatewayBaseUrl] = useState("");
+	const [catalogModels, setCatalogModels] = useState<CatalogModel[]>([]);
+	const [catalogPending, setCatalogPending] = useState(false);
 
 	const [submitting, setSubmitting] = useState(false);
 	const [submitError, setSubmitError] = useState<string | null>(null);
@@ -200,6 +292,35 @@ export function SetupFlow(): JSX.Element {
 	// AV1: Folder inspection result for confirmation row.
 	const [folderInfo, setFolderInfo] = useState<FolderInfo | null>(null);
 
+	const providerMeta = GATEWAY_PROVIDERS[gatewayProvider];
+
+	// Fetch the chosen provider's public catalog so the model is picked, never guessed.
+	// A failed fetch leaves catalogModels empty, which renders a typed model field.
+	//
+	// `catalogPending` exists so the field never changes KIND under the user: without
+	// it the control renders as a text input while the request is in flight and swaps
+	// to a select on arrival, discarding whatever was typed in between.
+	useEffect(() => {
+		if (!providerMeta.hasCatalog) {
+			setCatalogModels([]);
+			setCatalogPending(false);
+			return;
+		}
+		let cancelled = false;
+		setCatalogPending(true);
+		apiFetch(OPENROUTER_MODELS_URL)
+			.then(async (res) => (res.ok ? parseOpenRouterCatalog(await res.json()) : []))
+			.catch(() => [])
+			.then((models) => {
+				if (cancelled) return;
+				setCatalogModels(models);
+				setCatalogPending(false);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [providerMeta.hasCatalog]);
+
 	// Resolved functions array based on current preset selection.
 	const resolvedFunctions: readonly string[] =
 		selectedPreset === "custom"
@@ -215,9 +336,27 @@ export function SetupFlow(): JSX.Element {
 	// AE2: submit requires functions when custom is selected (can't have empty roster).
 	const functionsValid = selectedPreset !== "custom" || customFunctions.length > 0;
 
-	// R2: Start button enabled only when name + API key are filled and functions are valid.
+	// Built-in is the only harness whose credential HyperIdle holds; every CLI
+	// harness carries its own login, so choosing one asks for no key at all.
+	const usingBuiltin = selectedHarnessType === "builtin";
+	const builtinDescriptor = descriptors.find((d) => d.type === "builtin");
+	// A gateway that already resolved a credential (env or a prior run) needs no re-entry.
+	const builtinAlreadyAuthed = builtinDescriptor?.discovery.state === "ready";
+	const needsGatewayCredential = usingBuiltin && !builtinAlreadyAuthed;
+
+	// A non-anthropic provider must also name its model — the built-in tier
+	// defaults are Anthropic model IDs and mean nothing to another provider.
+	const gatewayConfigComplete =
+		apiKey.trim().length > 0 &&
+		(gatewayProvider === "anthropic" || gatewayModel.trim().length > 0) &&
+		(!providerMeta.needsEndpoint || gatewayBaseUrl.trim().length > 0);
+
+	// R2: Start requires a name; the gateway fields only bind when built-in needs them.
 	const canStart =
-		name.trim().length > 0 && apiKey.trim().length > 0 && functionsValid && !submitting;
+		name.trim().length > 0 &&
+		functionsValid &&
+		(!needsGatewayCredential || gatewayConfigComplete) &&
+		!submitting;
 
 	const handleFolderPick = useCallback(async (): Promise<void> => {
 		const folder = await window.__HYPERIDLE__?.shell.selectFolder();
@@ -322,19 +461,38 @@ export function SetupFlow(): JSX.Element {
 				} | null;
 				const createdTeamId = teamBody?.team?.id ?? undefined;
 
-				// Step 3: Write anthropic API key via HTTP (AH1 §5).
+				// Step 3: Write the built-in gateway's key via HTTP (AH1 §5).
 				// @lore AH1: Replaced bridge write (window.__HYPERIDLE__.credentials.set)
 				// with HTTP write. apiFetch works in desktop-local AND web/E2E.
 				// The DB write is the runtime + Settings truth.
 				// The bridge mirror is dropped — no surviving non-resolution reader
 				// of the safeStorage credential value after AH1 §3 resolver swap.
 				// @lore AV1 AC4b: key PUT completes BEFORE navigate — ordering guarantee.
-				if (apiKey.trim()) {
-					await apiFetch("/api/credentials/anthropic_api_key", {
+				// @lore AW1: the credential NAME follows the chosen provider. Writing an
+				// OpenRouter key to anthropic_api_key stores it where nothing reads it.
+				if (needsGatewayCredential && apiKey.trim()) {
+					await apiFetch(`/api/credentials/${credentialNameForProvider(gatewayProvider)}`, {
 						method: "PUT",
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify({ value: apiKey.trim() }),
 					});
+
+					// @lore AW1: storing the key is only half the wiring. BUILT_IN_GATEWAY_CONFIG
+					// points every tier at an Anthropic model, so a key for any other provider
+					// would sit unread while the gateway kept calling Anthropic and failing on a
+					// missing anthropic_api_key. Repoint the tiers at the provider the key is for.
+					if (gatewayProvider !== "anthropic") {
+						const tier = {
+							provider: gatewayProvider,
+							model: gatewayModel.trim(),
+							...(providerMeta.needsEndpoint ? { baseUrl: gatewayBaseUrl.trim() } : {}),
+						};
+						await apiFetch("/api/model-gateway", {
+							method: "PATCH",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify({ reasoning: tier, workhorse: tier, fast: tier }),
+						});
+					}
 				}
 
 				// Step 4 (best-effort): Register folder as filesystem.
@@ -396,7 +554,21 @@ export function SetupFlow(): JSX.Element {
 				setSubmitting(false);
 			}
 		},
-		[canStart, name, repoPath, apiKey, resolvedFunctions, navigate, chosenDescriptor, folderInfo],
+		[
+			canStart,
+			name,
+			repoPath,
+			apiKey,
+			resolvedFunctions,
+			navigate,
+			chosenDescriptor,
+			folderInfo,
+			needsGatewayCredential,
+			gatewayProvider,
+			gatewayModel,
+			gatewayBaseUrl,
+			providerMeta.needsEndpoint,
+		],
 	);
 
 	return (
@@ -425,8 +597,8 @@ export function SetupFlow(): JSX.Element {
 					Set up your workspace
 				</p>
 				<p className="text-[15px] text-[var(--text-secondary)] leading-[1.7] mb-[24px]">
-					Enter your name and API key to get started. Your agents need the API key to think and act
-					on your behalf.
+					Tell us your name and pick the engine your agents think with. Bring an API key, or use a
+					coding CLI you are already signed in to.
 				</p>
 
 				<form onSubmit={handleSubmit} className="flex flex-col">
@@ -444,20 +616,6 @@ export function SetupFlow(): JSX.Element {
 						/>
 					</div>
 
-					{/* Anthropic API Key field (required) */}
-					<div className="mb-[18px]">
-						<Input
-							id="setup-api-key"
-							label="Anthropic API key"
-							type="password"
-							placeholder="sk-ant-..."
-							value={apiKey}
-							onChange={(e: ChangeEvent<HTMLInputElement>) => setApiKey(e.target.value)}
-							hint="Required. Your key stays on this device."
-							required
-						/>
-					</div>
-
 					{/* AV1: Harness picker — agent engine selection */}
 					<div className="mb-[18px]" role="radiogroup" aria-label="Agent harness">
 						<p className="text-[13px] font-[500] text-[var(--text-primary)] mb-[6px]">
@@ -468,29 +626,124 @@ export function SetupFlow(): JSX.Element {
 						</p>
 						{/* ONE bordered container with hairline-divided rows — same as SettingsHarnesses */}
 						<div className="border border-[var(--border-subtle)] rounded-[var(--r-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)] overflow-hidden">
-							{/* Built-in row — always first, always choosable */}
-							<label
-								data-testid="harness-row-builtin"
-								className="flex items-center gap-[9px] px-[12px] py-[12px] cursor-pointer"
-							>
-								<input
-									type="radio"
-									data-testid="harness-radio-builtin"
-									name="primary-harness"
-									value="builtin"
-									checked={selectedHarnessType === "builtin"}
-									onChange={() => setSelectedHarnessType("builtin")}
-									className="shrink-0"
-								/>
-								<div className="flex-1 min-w-0">
-									<span className="text-[14px] font-[600] text-[var(--text-primary)] leading-[1.2]">
-										Built-in gateway
-									</span>
-									<p className="text-[12px] text-[var(--text-tertiary)] leading-[1.4] mt-[3px]">
-										{apiKey.trim() ? "Ready" : "Add your API key below"}
-									</p>
-								</div>
-							</label>
+							{/* Built-in row — always first, always choosable. Owns its own
+							    credential entry: this is the one harness whose key we hold. */}
+							<div data-testid="harness-row-builtin">
+								<label className="flex items-center gap-[9px] px-[12px] py-[12px] cursor-pointer">
+									<input
+										type="radio"
+										data-testid="harness-radio-builtin"
+										// The row's status line mentions the credential; without an
+										// explicit label the radio's accessible name swallows it whole.
+										aria-label="Built-in gateway"
+										name="primary-harness"
+										value="builtin"
+										checked={usingBuiltin}
+										onChange={() => setSelectedHarnessType("builtin")}
+										className="shrink-0"
+									/>
+									<div className="flex-1 min-w-0">
+										<span className="text-[14px] font-[600] text-[var(--text-primary)] leading-[1.2]">
+											Built-in gateway
+										</span>
+										<p className="text-[12px] text-[var(--text-tertiary)] leading-[1.4] mt-[3px]">
+											{builtinAlreadyAuthed
+												? "Ready — using the credential already on this machine"
+												: "Bring your own model credentials"}
+										</p>
+									</div>
+								</label>
+
+								{/* Credential fields belong to this row, and appear only when it
+								    is the chosen engine and no key is already resolved. */}
+								{needsGatewayCredential && (
+									<div className="flex flex-col gap-[12px] px-[12px] pb-[12px] pl-[36px]">
+										<Select
+											id="setup-gateway-provider"
+											label="Provider"
+											size="sm"
+											value={gatewayProvider}
+											options={MODEL_PROVIDERS.map((p) => ({
+												value: p,
+												label: GATEWAY_PROVIDERS[p].label,
+											}))}
+											onChange={(e: ChangeEvent<HTMLSelectElement>) => {
+												setGatewayProvider(e.target.value as ModelProvider);
+												// A model ID is provider-specific; carrying one across
+												// providers would send a slug the next one cannot resolve.
+												setGatewayModel("");
+											}}
+										/>
+
+										{providerMeta.needsEndpoint && (
+											<Input
+												id="setup-gateway-base-url"
+												label="Base URL"
+												type="url"
+												placeholder="https://api.together.xyz/v1"
+												value={gatewayBaseUrl}
+												onChange={(e: ChangeEvent<HTMLInputElement>) =>
+													setGatewayBaseUrl(e.target.value)
+												}
+												hint="The endpoint your provider serves the OpenAI API on."
+												required
+											/>
+										)}
+
+										<Input
+											id="setup-api-key"
+											label={`${providerMeta.label} API key`}
+											type="password"
+											placeholder={providerMeta.keyPlaceholder}
+											value={apiKey}
+											onChange={(e: ChangeEvent<HTMLInputElement>) => setApiKey(e.target.value)}
+											hint="Your key stays on this device."
+											required
+										/>
+
+										{/* Anthropic ships with tier defaults; every other provider
+										    has to be told which model to run. */}
+										{gatewayProvider !== "anthropic" &&
+											(catalogPending ? (
+												<Select
+													id="setup-gateway-model"
+													label="Model"
+													size="sm"
+													placeholder="Loading models…"
+													value=""
+													options={[]}
+													disabled
+													onChange={() => undefined}
+												/>
+											) : catalogModels.length > 0 ? (
+												<Select
+													id="setup-gateway-model"
+													label="Model"
+													size="sm"
+													placeholder="Choose a model"
+													value={gatewayModel}
+													options={catalogModels.map((m) => ({ value: m.id, label: m.label }))}
+													onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+														setGatewayModel(e.target.value)
+													}
+												/>
+											) : (
+												<Input
+													id="setup-gateway-model"
+													label="Model"
+													type="text"
+													placeholder="anthropic/claude-opus-5"
+													value={gatewayModel}
+													onChange={(e: ChangeEvent<HTMLInputElement>) =>
+														setGatewayModel(e.target.value)
+													}
+													hint="The model ID your provider publishes."
+													required
+												/>
+											))}
+									</div>
+								)}
+							</div>
 							{/* Discovered harness rows — rendered after discovery resolves */}
 							{harnessLoaded &&
 								descriptors

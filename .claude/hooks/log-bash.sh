@@ -24,7 +24,7 @@ case "$CMD_FIRST" in
       "run build"*) CATEGORY="build" ;;
       "run db"*) CATEGORY="database" ;;
       "install"*) CATEGORY="install" ;;
-      "tsx scripts/"*) CATEGORY="script" ;;
+      "tsx tools/"*) CATEGORY="script" ;;
       *) CATEGORY="npm-other" ;;
     esac
     ;;

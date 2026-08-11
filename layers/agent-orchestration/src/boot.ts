@@ -43,6 +43,8 @@
 import * as path from "node:path";
 import type { CoreApiTransport } from "@hyperidle/api-contract";
 import {
+	createInheritedReach,
+	type InheritedReach,
 	listConnections,
 	listHeldConnectionsForProvisioning,
 	ServiceConnectionResolver,
@@ -53,11 +55,7 @@ import type { EventBus } from "@hyperidle/event-bus";
 import type { FilesystemMounter } from "@hyperidle/filesystem-contract";
 import { RegistryFilesystemMounter } from "@hyperidle/filesystem-mounting";
 import { listInjectedFilesystemsForProvisioning } from "@hyperidle/filesystems";
-import type {
-	HarnessAdapter,
-	HarnessCapabilityReader,
-	WorkerRegisterMessage,
-} from "@hyperidle/harness-protocol";
+import type { HarnessAdapter, WorkerRegisterMessage } from "@hyperidle/harness-protocol";
 import { createGitRunner } from "@hyperidle/host-process";
 import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import type {
@@ -168,11 +166,13 @@ export interface AgentOrchestrationBootOptions {
 		readonly upgradeTokens: SessionStreamTokenStore;
 	};
 	/**
-	 * AU26 E4: cached harness descriptors for `/api/connections`' inherited
-	 * projection. The Application already holds the pool; this Layer only reads
-	 * the cache off it.
+	 * AU36 D4: await the initial inherited-reach probe before returning, so
+	 * facts are cached by serve time (exactly as when `createLocalAdapterPool`
+	 * awaited discovery). Absent → the cache exists but stays empty until the
+	 * first redetect (the `disabled`-topology behavior — D5's unconditional
+	 * redetect refresh populates it there, as today).
 	 */
-	readonly adapterPool?: HarnessCapabilityReader;
+	readonly probeInheritedReach?: boolean;
 	/** AU31 §5.1 — absent means "no runtime": the route surface and session-stream socket exist, but no poller starts (the shape every existing bare-app test fixture already relies on). */
 	readonly runtime?: AgentOrchestrationRuntimeOptions;
 }
@@ -180,6 +180,13 @@ export interface AgentOrchestrationBootOptions {
 export interface AgentOrchestrationBoot {
 	/** Mounted by the Application on its `/api` router, AFTER the auth middleware. */
 	readonly app: Hono<HyperIdleEnv>;
+	/**
+	 * AU36 D4/D5: this Layer's own inherited-reach cache. Always built; the
+	 * Application wires `inheritedReach.refresh` into core-api's
+	 * `onHarnessRedetect` (the redetect moment) and chooses whether boot awaits
+	 * the initial probe (`probeInheritedReach`).
+	 */
+	readonly inheritedReach: InheritedReach;
 	/** Registered by the Application on its `/api` router, BEFORE the auth middleware. */
 	readonly registerPreAuthRoutes: (apiRouter: Hono) => void;
 	/**
@@ -318,7 +325,15 @@ function buildProvisioningReads(
 export async function bootAgentOrchestration(
 	options: AgentOrchestrationBootOptions,
 ): Promise<AgentOrchestrationBoot> {
-	const { db, eventBus, sessionStream, adapterPool, runtime } = options;
+	const { db, eventBus, sessionStream, probeInheritedReach, runtime } = options;
+
+	// AU36 D4: the reach cache is ALWAYS built; `probeInheritedReach` only
+	// decides whether boot awaits the initial probe (refresh never rejects, so
+	// the awaited probe cannot fail boot — worst case an empty inherited group).
+	const inheritedReach = createInheritedReach();
+	if (probeInheritedReach) {
+		await inheritedReach.refresh();
+	}
 
 	const activityBuffer = new SessionActivityBuffer(eventBus);
 	activityBuffer.start();
@@ -369,11 +384,12 @@ export async function bootAgentOrchestration(
 		db,
 		eventBus,
 		getRecentActivity: (sessionId) => activityBuffer.getActivity(sessionId),
-		...(adapterPool ? { adapterPool } : {}),
+		inheritedReach,
 	});
 
 	return {
 		app,
+		inheritedReach,
 		sessionStreamHub,
 		...(runSession ? { runSession } : {}),
 		...(runRuntime ? { disposeRuntime: () => runRuntime.dispose() } : {}),

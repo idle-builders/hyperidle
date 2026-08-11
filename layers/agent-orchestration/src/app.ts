@@ -22,11 +22,10 @@
  * JSON `ApiErrorResponse` 404, never Hono's `text/plain` default (AC10).
  */
 
-import { ServiceConnectionResolver } from "@hyperidle/connections";
+import { type InheritedReach, ServiceConnectionResolver } from "@hyperidle/connections";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ActivityEntry } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import type { HarnessCapabilityReader } from "@hyperidle/harness-protocol";
 import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import { Hono } from "hono";
 import { createAgentOrchestrationIntakeRoutes } from "./routes/agent-orchestration-intake.js";
@@ -41,19 +40,19 @@ export interface AgentOrchestrationAppOptions {
 	/** Reads the Layer's own `SessionActivityBuffer` — see `boot.ts`. */
 	readonly getRecentActivity: (sessionId: string) => ReadonlyArray<ActivityEntry>;
 	/**
-	 * AU26 E4: cached harness descriptors, for `/connections`' inherited
-	 * projection. Read-only and DB-free (`listCapabilityDescriptors()`), never a
+	 * AU36 D7: the connections domain's own reach cache, for `/connections`'
+	 * inherited projection. Read-only and DB-free (`list()`), never a
 	 * per-request probe. Absent → the inherited group is empty, exactly as it
-	 * was when this route was core-hosted with no pool.
+	 * was when this route read no pool (kernel-only/bare test apps).
 	 */
-	readonly adapterPool?: HarnessCapabilityReader;
+	readonly inheritedReach?: InheritedReach;
 }
 
 export function createAgentOrchestrationApp(
 	options: AgentOrchestrationAppOptions,
 ): Hono<HyperIdleEnv> {
 	const app = new Hono<HyperIdleEnv>();
-	const { db, eventBus, getRecentActivity, adapterPool } = options;
+	const { db, eventBus, getRecentActivity, inheritedReach } = options;
 
 	app.route("/sessions", createOrchestrationSessionRoutes(db, eventBus, getRecentActivity));
 	app.route("/agent-orchestration", createAgentOrchestrationSessionsRoutes(db, getRecentActivity));
@@ -61,7 +60,7 @@ export function createAgentOrchestrationApp(
 	// read routes above — same internal `/agent-orchestration` seam prefix.
 	app.route("/agent-orchestration", createAgentOrchestrationIntakeRoutes(db, eventBus));
 	// AU26 E4: `/api/connections` — the path is unchanged; only the host app is.
-	app.route("/connections", createConnectionRoutes(db, adapterPool));
+	app.route("/connections", createConnectionRoutes(db, inheritedReach));
 	// AU26 F2: `/api/filesystems` — same story. The reachability probe needs the
 	// held-connection decrypt path, and `service_connections` is this Layer's own
 	// table since E3, so the resolver is built HERE rather than handed down from

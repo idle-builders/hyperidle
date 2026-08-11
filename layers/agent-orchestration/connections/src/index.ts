@@ -40,7 +40,13 @@ export {
 	type HeldConnectionForProvisioning,
 	listHeldConnectionsForProvisioning,
 } from "./held-connections-for-provisioning.js";
-// -- In-memory projection (1) — inherited connections from harness descriptors --
+// -- Inherited reach (AU36 D1) — the domain's own probe + cache --
+export {
+	createInheritedReach,
+	type InheritedProbeDeps,
+	type InheritedReach,
+} from "./inherited-reach.js";
+// -- In-memory projection (1) — inherited connections from reach facts --
 export { projectInheritedConnections } from "./service-connection-projection.js";
 // -- ServiceConnectionResolver (1) — sole decrypted-held-token path --
 export { ServiceConnectionResolver } from "./service-connection-resolver.js";

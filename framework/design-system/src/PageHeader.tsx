@@ -6,10 +6,11 @@
  * Exports `pageTitleClassName` so pages that need an EDITABLE title input
  * can compose the exact treatment via a reference — not a literal fork.
  *
- * Scroll contract: renders a <header> with `shrink-0` so the AppShell
- * pinned-header pattern (flex flex-col h-full → shrink-0 header +
- * flex-1 overflow-y-auto body) always works. The caller is responsible for
- * the `flex flex-col h-full` root scaffold.
+ * Scroll contract: renders a <header> with `shrink-0` so it stays pinned
+ * wherever it is placed. The root scaffold (the `flex flex-col h-full` +
+ * scroll-body contract this header pins against) is `PageScaffold`
+ * (`./PageScaffold.tsx`, AZ2) — pass this component as its `header` prop.
+ * `PageHeader` does not, and should not, own that root; a page composes both.
  *
  * @lore AI7: tracking-[-0.01em] is negative-em — allowlisted by
  * design/no-hardcoded-tracking (which only forbids *positive-em* tracking

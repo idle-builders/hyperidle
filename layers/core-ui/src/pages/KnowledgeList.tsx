@@ -37,6 +37,7 @@ import {
 	ItemList,
 	knowledgeStatusToStatus,
 	PageHeader,
+	PageScaffold,
 	Row,
 	ScopePicker,
 	SkeletonList,
@@ -925,21 +926,21 @@ export function KnowledgeList({
 
 	if (loading) {
 		return (
-			<div className="flex flex-col h-full" data-testid="knowledge-list-page">
+			<PageScaffold data-testid="knowledge-list-page">
 				<SkeletonList rows={6} ariaLabel="Loading knowledge" />
-			</div>
+			</PageScaffold>
 		);
 	}
 
 	if (error) {
 		return (
-			<div className="flex flex-col h-full" data-testid="knowledge-list-page">
+			<PageScaffold data-testid="knowledge-list-page">
 				<ErrorState
 					title="Couldn't load knowledge"
 					description={error.message}
 					onRetry={error.onRetry}
 				/>
-			</div>
+			</PageScaffold>
 		);
 	}
 
@@ -948,141 +949,142 @@ export function KnowledgeList({
 	const isTriageEmpty = triageItems.length === 0 && !apiLoading;
 
 	return (
-		<div className="flex flex-col h-full" data-testid="knowledge-list-page">
-			{/* AI7: PageHeader — Knowledge title + tabs + search + New button in actions.
-			    When systemEmpty: title only. When populated: tabs + search + New in actions. */}
-			<PageHeader
-				title={
-					<>
-						<span className="sr-only">Knowledge Base</span>
-						Knowledge
-					</>
-				}
-				actions={
-					!systemEmpty ? (
-						<div className="flex items-center gap-[9px]">
-							{/* Curated/Triage tabs */}
-							<div
-								role="tablist"
-								aria-label="Knowledge view"
-								className="inline-flex gap-[6px] bg-[var(--surface-container)] rounded-[var(--r-pill)] p-[3px]"
-								data-testid="knowledge-tabs"
-							>
-								<button
-									type="button"
-									role="tab"
-									aria-selected={tab === "curated"}
-									className={
-										tab === "curated"
-											? "px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px] font-[600] bg-[var(--surface-elevated)] text-[var(--accent-deep)] shadow-[var(--shadow-subtle)] cursor-pointer border-none"
-											: "px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px] font-[500] text-[var(--text-secondary)] cursor-pointer border-none bg-transparent"
-									}
-									onClick={() => {
-										tabManuallySelectedRef.current = true;
-										setTab("curated");
+		<PageScaffold
+			data-testid="knowledge-list-page"
+			header={
+				/* AI7: PageHeader — Knowledge title + tabs + search + New button in actions.
+				    When systemEmpty: title only. When populated: tabs + search + New in actions. */
+				<PageHeader
+					title={
+						<>
+							<span className="sr-only">Knowledge Base</span>
+							Knowledge
+						</>
+					}
+					actions={
+						!systemEmpty ? (
+							<div className="flex items-center gap-[9px]">
+								{/* Curated/Triage tabs */}
+								<div
+									role="tablist"
+									aria-label="Knowledge view"
+									className="inline-flex gap-[6px] bg-[var(--surface-container)] rounded-[var(--r-pill)] p-[3px]"
+									data-testid="knowledge-tabs"
+								>
+									<button
+										type="button"
+										role="tab"
+										aria-selected={tab === "curated"}
+										className={
+											tab === "curated"
+												? "px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px] font-[600] bg-[var(--surface-elevated)] text-[var(--accent-deep)] shadow-[var(--shadow-subtle)] cursor-pointer border-none"
+												: "px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px] font-[500] text-[var(--text-secondary)] cursor-pointer border-none bg-transparent"
+										}
+										onClick={() => {
+											tabManuallySelectedRef.current = true;
+											setTab("curated");
+										}}
+									>
+										Curated
+									</button>
+									<button
+										type="button"
+										role="tab"
+										aria-selected={tab === "triage"}
+										className={
+											tab === "triage"
+												? "px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px] font-[600] bg-[var(--surface-elevated)] text-[var(--accent-deep)] shadow-[var(--shadow-subtle)] cursor-pointer border-none"
+												: "px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px] font-[500] text-[var(--text-secondary)] cursor-pointer border-none bg-transparent"
+										}
+										onClick={() => {
+											tabManuallySelectedRef.current = true;
+											setTab("triage");
+										}}
+									>
+										Triage
+									</button>
+								</div>
+								{/* Search + New */}
+								{/* hearth-internal-padding */}
+								<input
+									type="search"
+									aria-label="Search knowledge"
+									data-testid="knowledge-search"
+									placeholder="Search…"
+									value={searchQuery}
+									onChange={(e) => setSearchQuery(e.target.value)}
+									style={{
+										width: "200px",
+										borderRadius: "var(--r-pill)",
+										border: "1.5px solid var(--border-default)",
+										padding: "7px 12px",
+										fontSize: "13px",
+										background: "var(--surface-page)",
+										color: "var(--text-primary)",
+										outline: "none",
 									}}
-								>
-									Curated
-								</button>
-								<button
-									type="button"
-									role="tab"
-									aria-selected={tab === "triage"}
-									className={
-										tab === "triage"
-											? "px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px] font-[600] bg-[var(--surface-elevated)] text-[var(--accent-deep)] shadow-[var(--shadow-subtle)] cursor-pointer border-none"
-											: "px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px] font-[500] text-[var(--text-secondary)] cursor-pointer border-none bg-transparent"
-									}
-									onClick={() => {
-										tabManuallySelectedRef.current = true;
-										setTab("triage");
-									}}
-								>
-									Triage
-								</button>
-							</div>
-							{/* Search + New */}
-							{/* hearth-internal-padding */}
-							<input
-								type="search"
-								aria-label="Search knowledge"
-								data-testid="knowledge-search"
-								placeholder="Search…"
-								value={searchQuery}
-								onChange={(e) => setSearchQuery(e.target.value)}
-								style={{
-									width: "200px",
-									borderRadius: "var(--r-pill)",
-									border: "1.5px solid var(--border-default)",
-									padding: "7px 12px",
-									fontSize: "13px",
-									background: "var(--surface-page)",
-									color: "var(--text-primary)",
-									outline: "none",
-								}}
-							/>
-							{/* AI5: shared Button primitive. */}
-							<Button variant="primary" size="sm" onClick={() => navigate("/knowledge/new")}>
-								+ New
-							</Button>
-						</div>
-					) : undefined
-				}
-			/>
-
-			<div className="flex-1 overflow-y-auto">
-				{systemEmpty ? (
-					<div className="flex items-center justify-center p-[48px_24px] h-full">
-						<EmptyState
-							title="Your knowledge base is empty"
-							description="Knowledge items capture patterns, decisions, and lessons learned. As your agents work, they will start indexing insights here automatically. You can also add items manually."
-							icon={
-								<svg
-									width="24"
-									height="24"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									strokeWidth="2"
-									strokeLinecap="round"
-									strokeLinejoin="round"
-									aria-hidden="true"
-								>
-									<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-									<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-								</svg>
-							}
-							iconBg="rgba(46,125,186,0.08)"
-							action={
-								/* AI5: shared Button primitive. */
-								<Button variant="primary" onClick={() => navigate("/knowledge/new")}>
-									Create first item
+								/>
+								{/* AI5: shared Button primitive. */}
+								<Button variant="primary" size="sm" onClick={() => navigate("/knowledge/new")}>
+									+ New
 								</Button>
-							}
-							dataTestId="knowledge-curated-empty"
-						/>
-					</div>
-				) : (
-					<KnowledgeListContent
-						tab={tab}
-						sort={sort}
-						scope={scope}
-						selectedScopePill={selectedScopePill}
-						onScopePillChange={setSelectedScopePill}
-						onSortChange={handleSortChange}
-						grouped={grouped}
-						triageItems={triageItems}
-						apiLoading={apiLoading}
-						apiError={apiError}
-						isCuratedEmpty={isCuratedEmpty}
-						isTriageEmpty={isTriageEmpty}
-						hintKnowledgeEmpty={hintKnowledgeEmpty}
-						onNavigate={(id) => navigate(`/knowledge/${id}`)}
-						searchQuery={searchQuery}
-						onTriageAction={handleTriageAction}
+							</div>
+						) : undefined
+					}
+				/>
+			}
+		>
+			{systemEmpty ? (
+				<div className="flex items-center justify-center p-[48px_24px] h-full">
+					<EmptyState
+						title="Your knowledge base is empty"
+						description="Knowledge items capture patterns, decisions, and lessons learned. As your agents work, they will start indexing insights here automatically. You can also add items manually."
+						icon={
+							<svg
+								width="24"
+								height="24"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								strokeWidth="2"
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								aria-hidden="true"
+							>
+								<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+								<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+							</svg>
+						}
+						iconBg="rgba(46,125,186,0.08)"
+						action={
+							/* AI5: shared Button primitive. */
+							<Button variant="primary" onClick={() => navigate("/knowledge/new")}>
+								Create first item
+							</Button>
+						}
+						dataTestId="knowledge-curated-empty"
 					/>
-				)}
-			</div>
-		</div>
+				</div>
+			) : (
+				<KnowledgeListContent
+					tab={tab}
+					sort={sort}
+					scope={scope}
+					selectedScopePill={selectedScopePill}
+					onScopePillChange={setSelectedScopePill}
+					onSortChange={handleSortChange}
+					grouped={grouped}
+					triageItems={triageItems}
+					apiLoading={apiLoading}
+					apiError={apiError}
+					isCuratedEmpty={isCuratedEmpty}
+					isTriageEmpty={isTriageEmpty}
+					hintKnowledgeEmpty={hintKnowledgeEmpty}
+					onNavigate={(id) => navigate(`/knowledge/${id}`)}
+					searchQuery={searchQuery}
+					onTriageAction={handleTriageAction}
+				/>
+			)}
+		</PageScaffold>
 	);
 }

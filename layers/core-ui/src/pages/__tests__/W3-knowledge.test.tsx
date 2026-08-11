@@ -416,11 +416,16 @@ describe("W3 AC-42 — Discussion section below body", () => {
 // AC-43: Knowledge detail max-width 960px, centered
 // ---------------------------------------------------------------------------
 describe("W3 AC-43 — Knowledge detail max-width 960px", () => {
-	it("detail body inner container has max-w-[960px] and mx-auto", () => {
+	// @lore AZ2: KnowledgeDetail now composes <PageScaffold>; the scroll region
+	// is PageScaffold's own `[data-page-scroll]` element (the old
+	// `data-testid="knowledge-detail-body"` on that div is superseded by the
+	// scaffold's own contract marker — round.md §4.2 migration table). The
+	// max-w-[960px] content div is the scroll body's direct child.
+	it("scroll body's direct child has max-w-[960px] and mx-auto", () => {
 		renderKnowledgeDetail();
-		const detailBody = document.querySelector("[data-testid='knowledge-detail-body']");
-		expect(detailBody).not.toBeNull();
-		const inner = detailBody?.firstElementChild;
+		const scroller = document.querySelector("[data-page-scroll]");
+		expect(scroller).not.toBeNull();
+		const inner = scroller?.firstElementChild;
 		expect(inner).not.toBeNull();
 		expect(inner?.className).toMatch(/max-w-\[960px\]/);
 		expect(inner?.className).toMatch(/mx-auto/);

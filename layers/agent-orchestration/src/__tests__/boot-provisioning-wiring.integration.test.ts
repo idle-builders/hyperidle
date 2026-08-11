@@ -156,7 +156,6 @@ async function bootOrchestrationWithProvisioning(db: HyperIdleDb, ids: ScopedIds
 	const agentOrchestration = await bootAgentOrchestration({
 		db,
 		eventBus,
-		adapterPool: agentExecution.adapters.pool,
 		runtime: {
 			harnessRuntime: agentExecution.adapters.harnessRuntime,
 			returnStatusTool: {

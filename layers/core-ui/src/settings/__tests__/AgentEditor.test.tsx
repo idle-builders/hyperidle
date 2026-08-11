@@ -51,7 +51,6 @@ const BUILTIN_DESCRIPTOR: HarnessCapabilityDescriptor = {
 	accessMode: "api-gateway",
 	discovery: { state: "ready" },
 	authAction: { kind: "enter_api_key", label: "Enter API key" },
-	inheritedTools: [],
 	runtime: {
 		preCompactionTrigger: false,
 		subAgents: false,
@@ -75,7 +74,6 @@ const CODEX_DESCRIPTOR: HarnessCapabilityDescriptor = {
 		label: "Log in to Codex",
 		command: ["codex", "login"],
 	},
-	inheritedTools: [],
 	runtime: {
 		preCompactionTrigger: false,
 		subAgents: false,
@@ -109,7 +107,6 @@ const CLAUDE_DESCRIPTOR: HarnessCapabilityDescriptor = {
 		label: "Log in to Claude",
 		command: ["claude", "login"],
 	},
-	inheritedTools: [],
 	runtime: {
 		preCompactionTrigger: false,
 		subAgents: false,

@@ -121,6 +121,9 @@ export { NotificationRow } from "./NotificationRow.js";
 // ── AI7: PageHeader — canonical page-title strip (Tier 1) ──
 export type { PageHeaderProps } from "./PageHeader.js";
 export { PageHeader, pageTitleClassName } from "./PageHeader.js";
+// ── AZ2: PageScaffold — canonical page scroll contract (Tier 1) ──
+export type { PageScaffoldProps } from "./PageScaffold.js";
+export { PageScaffold } from "./PageScaffold.js";
 export type { ProgressProps } from "./Progress.js";
 export { Progress } from "./Progress.js";
 // U8: PitchCard deleted from design-system exports.

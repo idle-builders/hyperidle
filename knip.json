@@ -8,6 +8,7 @@
 		"applications/website/.astro/**",
 		"tools/eslint-plugin-design/test-fixtures/**",
 		"plans/**",
+		".pipeline/**",
 		"layers/core-ui/src/**/*.stories.tsx",
 		"**/vitest-setup.ts",
 		"**/vitest-integration-setup.ts",
@@ -15,6 +16,7 @@
 		"**/__tests__/setup.ts",
 		"**/__tests__/_helpers.ts",
 		"layers/agent-execution/harness-registry/src/__tests__/require-binary.ts",
+		"layers/agent-orchestration/connections/src/__tests__/require-binary.ts",
 		"layers/agent-execution/harness-registry/src/__tests__/require-harness.ts",
 		"layers/core-api/src/__testing__/test-fixtures.ts",
 		"layers/core-ui/__e2e__/fixtures.ts",
@@ -35,8 +37,7 @@
 	},
 	"workspaces": {
 		".": {
-			"entry": ["scripts/*.ts!", "scripts/lib/**/*.ts!"],
-			"project": ["scripts/**/*.ts"]
+			"entry": ["vitest.integration.config.ts!"]
 		},
 		"framework/domain-model": {},
 		"framework/diagnostics": {},
@@ -98,7 +99,7 @@
 			// cookie is a resolution shim, never imported: astro's emitted prerender entry
 			// needs cookie@2, and the monorepo hoists cookie@0.7.2 for express@5. Declared
 			// in the package so Node's upward resolution from dist/.prerender/ finds the
-			// nested copy (see JUSTIFIED_UNUSED in scripts/lib/dep-manifest-verdict.ts).
+			// nested copy (see JUSTIFIED_UNUSED in tools/repo-gates/src/lib/dep-manifest-verdict.ts).
 			"ignoreDependencies": ["cookie"]
 		},
 		"applications/desktop": {
@@ -112,7 +113,19 @@
 			"entry": ["src/judges.ts!", "src/cli.ts!"]
 		},
 		"tools/governance": {
-			"entry": ["src/*.ts!", "src/lib/**/*.ts!", "src/rules/**/*.ts!"]
+			"entry": [
+				"src/governance-lint.ts!",
+				"src/governance-floors.ts!",
+				"src/governance-new-cells.ts!"
+			]
+		},
+		"tools/repo-gates": {
+			"entry": [
+				"src/typecheck-gate.ts!",
+				"src/dep-manifest-lint.ts!",
+				"src/mock-inventory.ts!",
+				"src/knip-production-test-files.mjs!"
+			]
 		},
 		"tools/setup": {
 			"entry": ["src/setup-cli.ts!", "src/bootstrap-pg.ts!", "src/seed-pg-cli.ts!"]
