@@ -16,7 +16,8 @@ HyperIdle is an agentic operating system for AI-first companies. Flat teams of h
 
 ## Communication Style
 
-**Be extremely concise. Sacrifice grammar for the sake of concision.** Every answer to the user must use plain, simple language. Drop articles, filler, preamble. No "Let me…", "I'll now…", "Looking at…". State findings, not process. One line where one line suffices.
+**Use plain & simple language**: Every answer to the user must use plain, simple language. Avoid complicated words or domain specific lingo.
+**Be extremely concise. Sacrifice grammar for the sake of concision.** Drop articles, filler, preamble. No "Let me…", "I'll now…", "Looking at…". State findings, not process. One line where one line suffices.
 
 ## Simplicity Sanity Check
 
