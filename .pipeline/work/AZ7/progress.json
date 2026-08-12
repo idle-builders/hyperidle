@@ -1,8 +1,8 @@
 {
   "id": "AZ7",
   "title": "Close the visual system",
-  "status": "in-progress",
-  "phase": "build",
+  "status": "built",
+  "phase": "build-complete",
   "procedure": "founder-approved custom procedure (plan.md, 2026-08-11): one combined refine+design+architecture artifact -> founder approval -> same-session build (tests then code) -> one fresh review round. No separate refine/design/architecture/critique phases, no second human gate.",
   "worktree": "/Users/tg/hyperidle/.claude/worktrees/pipeline-az7-dbd5ab",
   "branch": "claude/pipeline-az7-dbd5ab",
@@ -16,11 +16,26 @@
       "phase": "combined-round",
       "result": "complete",
       "artifact": ".pipeline/work/AZ7/combined-round.md"
+    },
+    {
+      "phase": "build",
+      "result": "complete — tests then code, one continuous session, per plan.md's approved procedure",
+      "evidence": {
+        "rules": "design/radius-token-only, design/no-handrolled-control (both new), design/no-hardcoded-color (promoted warn->error for core-ui), design/no-local-status-builder (wired for the first time, was registered nowhere) — all at error, zero survivors. hearth-config.ts's totality test (E8) proves a rule can't again be exported and wired nowhere.",
+        "radius (AC3)": "90 non-token occurrences -> 0. 69 rounded-full -> rounded-[var(--r-pill)] (Trade-off 1); 21 judged per site against Set 4's job table. One documented AQ-011 exemption (Checkbox.tsx).",
+        "inputs": "core-ui raw chrome-carrying text controls -> 0 (28 sites migrated to Input/Composer/Select).",
+        "buttons (AC2 partial per approved scope line S4.1)": "DaisyUI + accent-fill union (63 sites) -> 0 in core-ui. ~62 hand-rolled control sites + ~39 hand-rolled chip sites remain, enumerated in migration-backlog.md (AC6).",
+        "status (Set 5)": "RowCell.tone deleted (type-level guard). All 5 named forks fixed (harness-presentation.ts Status redeclare, SettingsHarnesses tone ladder, WorkTeam agent-status raw text, WorkTeam StatTile 'Attention' word, ReviewComposition StatusDot — reused RowDot). AI4-status-language.spec.ts still green (6/6).",
+        "AC5 live break-test": "5th Button variant -> npm run check red (2 errors: VARIANT_CLASSES exhaustiveness + @ts-expect-error guard); rounded-lg + btn/btn-primary injected into a page -> npm run lint red (4 errors, correct rule names); both reverted, both green again.",
+        "verify": "npm run verify green (check/lint/knip/knip:production/deps:check/mock-inventory:check/web+desktop build). npm run test (affected slice) 265 files/2565 tests green. npm run test:full-equivalent broader run (core-ui + design-system projects) 328 files/3206 tests green.",
+        "painted proof": "npm run dev + npm run setup -- --demo, real screenshots taken and read: ConversationSurface (composer Send icon-button, InsertMenu toggle), KnowledgeList triage rows, WorkTeam roster (agent-status now a real StatusChip reading IDLE/ACTIVE, StatTile now reads 'Behind' matching the header's BLOCKED/ACTIVE vocabulary), WorkBet/WorkTask (Button-migrated Got-it/Send/Customize). SessionView's live composer (Stop/Send icon buttons) could not be reached in the demo world — no active/completed sessions are seeded (starting a real agent session needs harness credentials, out of scope) — but it shares the exact Button size=icon primitive already visually confirmed correct on ConversationSurface."
+      }
     }
   ],
   "artifacts": [
     ".pipeline/work/AZ7/combined-round.md",
-    ".pipeline/work/AZ7/measurement/ (re-runnable scanners + raw data)"
+    ".pipeline/work/AZ7/measurement/ (re-runnable scanners + raw data + render-backlog.mjs)",
+    ".pipeline/work/AZ7/migration-backlog.md (AC6 — 45 enumerated items, UI-180 onward)"
   ],
   "approvals": [
     {
