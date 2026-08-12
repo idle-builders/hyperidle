@@ -22,6 +22,7 @@
  */
 
 import {
+	agentOperationalStatusToStatus,
 	Avatar,
 	Breadcrumb,
 	Button,
@@ -42,7 +43,11 @@ import {
 } from "@hyperidle/design-system";
 // @lore U1: `ProductDetail` → `TeamDetail`, `BetCardSummary.pitchTitle` → `descriptionTitle`.
 import type { BetCardSummary, TeamDetail } from "@hyperidle/domain-model";
-import { BET_STATUS_LABEL, findRoleCatalogEntry } from "@hyperidle/domain-model";
+import {
+	AGENT_OPERATIONAL_STATUS_LABEL,
+	BET_STATUS_LABEL,
+	findRoleCatalogEntry,
+} from "@hyperidle/domain-model";
 import { relativeShort } from "@hyperidle/presentation-format";
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
@@ -327,10 +332,16 @@ function WorkTeamLoaded({
 						);
 						const hasAttention = runStates.some((r) => r.healthLevel !== "healthy");
 						const idleCount = runStates.filter((r) => r.operationalStatus === "idle").length;
+						// AZ7 E7 (§1.6 finding #2): "Attention" was a word that exists
+						// nowhere in the Status vocabulary, sitting on the page whose
+						// header chip reads BLOCKED/BEHIND/HEALTHY. "Behind" is that
+						// same vocabulary's word for "needs attention, not a clean
+						// healthy" — the header StatusChip renders it identically
+						// (Status.toUpperCase() when no label is given, same as here).
 						return (
 							<StatTile
 								label="Status"
-								value={hasAttention ? "Attention" : "Healthy"}
+								value={hasAttention ? "Behind" : "Healthy"}
 								sub={`${idleCount} idle agent${idleCount !== 1 ? "s" : ""}`}
 							/>
 						);
@@ -372,13 +383,14 @@ function WorkTeamLoaded({
 									{hintCreateBet.copy}
 								</p>
 								<div className="flex gap-2">
-									<button
-										type="button"
-										className="btn btn-ghost btn-xs text-[var(--text-tertiary)] min-h-[44px]"
+									<Button
+										variant="ghost"
+										size="sm"
+										className="text-[var(--text-tertiary)]"
 										onClick={hintCreateBet.dismiss}
 									>
 										Got it
-									</button>
+									</Button>
 								</div>
 							</div>
 						)}
@@ -533,13 +545,6 @@ function WorkTeamLoaded({
 								: "Run state loading"
 							: healthDetail;
 
-						const statusTone =
-							memberStatus === "active"
-								? ("success" as const)
-								: memberStatus === "error"
-									? ("error" as const)
-									: undefined;
-
 						let contextText = (() => {
 							const catalogEntry = findRoleCatalogEntry(member.role);
 							return catalogEntry?.description ?? member.role;
@@ -593,23 +598,37 @@ function WorkTeamLoaded({
 											]
 										: []),
 									{
-										content: memberStatus,
-										width: 48,
-										tone: statusTone,
+										// AZ7 E7 (§1.6 finding #1): the agent's operational status now
+										// reads through StatusChip like every other status on this page
+										// (the team header chip, bet StatusChips) — same word, same
+										// treatment, instead of the raw lowercase domain string.
+										content: (
+											<StatusChip
+												status={agentOperationalStatusToStatus(memberStatus)}
+												label={AGENT_OPERATIONAL_STATUS_LABEL[memberStatus]}
+											/>
+										),
+										width: 90,
 										"data-testid": "agent-status",
 									},
 									{
-										content: contextText,
+										// RowCell.tone is deleted (AZ7 Set 5) — the error tint moves onto
+										// the content itself.
+										content: contextIsError ? (
+											<span className="text-[var(--status-error)]">{contextText}</span>
+										) : (
+											contextText
+										),
 										width: 140,
 										align: "start",
-										tone: contextIsError ? ("error" as const) : undefined,
 										"data-testid": "agent-context",
 									},
 								]}
 								actions={
-									<button
-										type="button"
-										className="btn btn-ghost btn-xs shrink-0"
+									<Button
+										variant="ghost"
+										size="sm"
+										className="shrink-0"
 										onClick={(e) => {
 											e.stopPropagation();
 											// @lore AV4: Customize now opens AgentDetailPane in the split pane
@@ -619,7 +638,7 @@ function WorkTeamLoaded({
 										data-testid="agent-customize-btn"
 									>
 										Customize
-									</button>
+									</Button>
 								}
 								onClick={() => navigate(`/agents/${encodeURIComponent(member.agentId)}`)}
 							/>

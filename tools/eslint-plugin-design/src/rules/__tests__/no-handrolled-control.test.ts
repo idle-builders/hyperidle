@@ -36,6 +36,15 @@ ruleTester.run("no-handrolled-control", noHandrolledControl, {
 			filename: "layers/core-ui/src/pages/Foo.tsx",
 			code: 'const J = <input type="range" className="range range-xs" />;',
 		},
+		// Test/story files are not "used in a product surface" — excluded.
+		{
+			filename: "layers/core-ui/src/__tests__/foundation.component.test.tsx",
+			code: 'const J = <button className="btn btn-primary" />;',
+		},
+		{
+			filename: "layers/core-ui/src/pages/Foo.stories.tsx",
+			code: 'const J = <button className="btn btn-primary" />;',
+		},
 	],
 	invalid: [
 		// DaisyUI btn* class on a raw <button>.

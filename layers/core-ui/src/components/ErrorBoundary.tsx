@@ -1,3 +1,4 @@
+import { Button } from "@hyperidle/design-system";
 import { Component, type ErrorInfo, type ReactNode } from "react";
 
 /**
@@ -85,9 +86,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 							{error.message}
 						</p>
 					)}
-					<button type="button" className="btn btn-xs btn-ghost" onClick={this.handleReload}>
+					<Button variant="ghost" size="sm" onClick={this.handleReload}>
 						Reload
-					</button>
+					</Button>
 				</div>
 			);
 		}

@@ -42,7 +42,7 @@
  */
 
 import type { OpenHandler, OpenTarget, Part } from "@hyperidle/conversation-parts";
-import { ReferenceChip } from "@hyperidle/design-system";
+import { Button, ReferenceChip } from "@hyperidle/design-system";
 import { type JSX, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { PartList } from "./PartList.js";
@@ -254,7 +254,13 @@ function InsertMenu({ onPick }: { onPick: () => void }): JSX.Element {
 					type="button"
 					role="menuitem"
 					onClick={onPick}
+					// This is a full menu ROW (icon + label + hint), not a Button —
+					// UI-062 already tracks this composer's consolidation onto the
+					// DS Composer (which owns its own menu shape); a partial Button
+					// swap here would be rework when UI-062 lands. See
+					// migration-backlog.md.
 					className={`flex w-full items-center gap-[9px] rounded-[var(--r-subtle)] px-[9px] py-[6px] text-left transition-colors duration-[var(--motion-fast)] ${
+						// eslint-disable-next-line design/no-handrolled-control -- see comment above
 						it.key ? "bg-[var(--accent-primary-dim)]" : "hover:bg-[var(--surface-container)]"
 					}`}
 				>
@@ -361,9 +367,13 @@ function ComposerInputRow({
 					aria-haspopup="menu"
 					title="Insert block, attach, mention, reference, format"
 					onClick={onToggleMenu}
+					// A pressed/open TOGGLE state, not a Button variant (Button has no
+					// built-in pressed treatment distinct from its 4 action variants).
+					// UI-062 owns this composer's full consolidation.
 					className={
 						insertMenuOpen
-							? "flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] border border-[var(--accent-deep)] bg-[var(--accent-primary-dim)] text-[var(--accent-deep)]"
+							? // eslint-disable-next-line design/no-handrolled-control -- see comment above
+								"flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] border border-[var(--accent-deep)] bg-[var(--accent-primary-dim)] text-[var(--accent-deep)]"
 							: "flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] border border-[var(--border-default)] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]"
 					}
 				>
@@ -377,15 +387,9 @@ function ComposerInputRow({
 				onChange={(e) => onChange(e.target.value)}
 				className="min-h-[72px] flex-1 resize-none border-none bg-transparent py-[3px] text-[15px] leading-[1.5] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-placeholder)]"
 			/>
-			<button
-				type="button"
-				onClick={onSend}
-				aria-label="Send message"
-				// hearth-internal-padding
-				className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--accent-primary-hover)]"
-			>
+			<Button variant="primary" size="icon" onClick={onSend} aria-label="Send message">
 				<Glyph d={ICON_SEND} size={15} />
-			</button>
+			</Button>
 		</div>
 	);
 }

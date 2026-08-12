@@ -41,6 +41,7 @@ import {
 	derivePartsFromSession,
 	groupParts,
 } from "@hyperidle/conversation-parts";
+import { Button } from "@hyperidle/design-system";
 import type { ActivityEntry } from "@hyperidle/domain-model";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import { clockTime } from "@hyperidle/presentation-format";
@@ -614,23 +615,13 @@ function SessionComposer({
 					className="min-h-[48px] flex-1 resize-none border-none bg-transparent py-[3px] text-[15px] leading-[1.5] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-placeholder)]"
 				/>
 				{running ? (
-					<button
-						type="button"
-						aria-label="Stop the agent"
-						onClick={onStop}
-						className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--status-error)] text-[var(--text-on-accent)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--status-error-hover)]"
-					>
+					<Button variant="destructive" size="icon" onClick={onStop} aria-label="Stop the agent">
 						<span className="h-[10px] w-[10px] rounded-none bg-current" />
-					</button>
+					</Button>
 				) : (
-					<button
-						type="button"
-						aria-label="Send message"
-						onClick={handleSend}
-						className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--accent-primary-hover)]"
-					>
+					<Button variant="primary" size="icon" onClick={handleSend} aria-label="Send message">
 						<ComposerGlyph d={ICON_SEND} size={15} />
-					</button>
+					</Button>
 				)}
 			</div>
 

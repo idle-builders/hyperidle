@@ -19,7 +19,7 @@
  * does not flag it because it does not use DaisyUI select classes.
  */
 
-import { Avatar, SearchField, StatusChip, Tag } from "@hyperidle/design-system";
+import { Avatar, Button, SearchField, StatusChip, Tag } from "@hyperidle/design-system";
 import { type JSX, type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
 import type { Recipient } from "../hooks/useRecipients.js";
 import { useRecipients } from "../hooks/useRecipients.js";
@@ -251,22 +251,22 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 						</p>
 					)}
 					<div className="flex justify-end gap-[8px]">
-						<button
-							type="button"
-							className="btn btn-sm btn-ghost text-[var(--text-tertiary)]"
+						<Button
+							variant="ghost"
+							size="sm"
 							onClick={onCancel}
 							disabled={pickerState === "sending"}
 						>
 							Cancel
-						</button>
-						<button
-							type="button"
-							className="btn btn-sm btn-primary"
+						</Button>
+						<Button
+							variant="primary"
+							size="sm"
 							onClick={() => void handleSend()}
 							disabled={pickerState === "sending" || !message.trim()}
 						>
 							{pickerState === "sending" ? "Sending..." : "Send"}
-						</button>
+						</Button>
 					</div>
 				</>
 			)}

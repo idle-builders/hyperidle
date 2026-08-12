@@ -21,7 +21,6 @@
 import { createContext, type JSX, type ReactNode, useContext } from "react";
 import { clickableProps } from "./clickable.js";
 import { dsProps } from "./ds-attrs.js";
-import type { RowTone } from "./RowDot.js";
 
 // ---------------------------------------------------------------------------
 // ItemListContext — Row reads variant from its containing ItemList (if any)
@@ -49,12 +48,6 @@ export interface RowCell {
 	align?: "start" | "end";
 	/** → tabular-nums (AQ-006) */
 	numeric?: boolean;
-	/**
-	 * undefined/neutral → text-tertiary.
-	 * Other tones → --status-* color token.
-	 * Single spelling — no "default" alias.
-	 */
-	tone?: RowTone;
 	/** px breakpoint — cell hidden below it (mobile) */
 	hideBelow?: number;
 	"data-testid"?: string;
@@ -85,33 +78,21 @@ export interface RowProps {
 }
 
 // ---------------------------------------------------------------------------
-// Tone → color helper
-// ---------------------------------------------------------------------------
-
-function toneColor(tone: RowTone | undefined): string {
-	switch (tone) {
-		case "success":
-			return "var(--status-success)";
-		case "warning":
-			return "var(--status-warning)";
-		case "error":
-			return "var(--status-error)";
-		case "info":
-			return "var(--status-info)";
-		default:
-			return "var(--text-tertiary)";
-	}
-}
-
-// ---------------------------------------------------------------------------
 // Shared cell renderer — single implementation for all wrapper branches (W1/W2)
 // ---------------------------------------------------------------------------
 
+// @lore AZ7 E7 / Set 5: RowCell.tone (and the toneColor ladder it drove) is
+// deleted — a status/tone shown in a cell was a THIRD status channel
+// alongside StatusChip and RowDot, with one call site (WorkTeam.tsx's
+// agent-status cell, combined-round.md §1.6 finding #1). A cell that needs
+// tinted content now colors its own `content` ReactNode directly (e.g. wraps
+// it in a `<span className="text-[var(--status-error)]">`), or — for an
+// actual status word — renders a <StatusChip> as the cell content. Deleting
+// the prop is stronger than any lint rule could be (E7): every remaining use
+// is now a compile error, not a lint finding.
 function renderCell(cell: RowCell, i: number): JSX.Element {
 	const cellStyle: React.CSSProperties = {};
 	if (cell.width !== undefined) cellStyle.width = `${cell.width}px`;
-	// W1 fix: collapsed no-op if/else — toneColor handles neutral/undefined via default case
-	cellStyle.color = toneColor(cell.tone);
 	const align = cell.align === "start" ? "text-left" : "text-right";
 	const numericClass = cell.numeric ? "tabular-nums" : "";
 	const hideClass = cell.hideBelow !== undefined ? `max-[${cell.hideBelow}px]:hidden` : "";
@@ -121,7 +102,7 @@ function renderCell(cell: RowCell, i: number): JSX.Element {
 			key={i}
 			data-testid={cell["data-testid"]}
 			className={[
-				"shrink-0 text-[11px] font-[family-name:var(--font-mono)] truncate",
+				"shrink-0 text-[11px] font-[family-name:var(--font-mono)] text-[var(--text-tertiary)] truncate",
 				align,
 				numericClass,
 				hideClass,

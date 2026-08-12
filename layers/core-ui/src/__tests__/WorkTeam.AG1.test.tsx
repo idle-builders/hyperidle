@@ -101,7 +101,7 @@ const AGENT_HEALTHY: RosterMember = {
 	agentCategory: "team",
 };
 
-/** Warning-health roster member — triggers "Attention" on Status tile */
+/** Warning-health roster member — triggers "Behind" on Status tile (AZ7: word aligned to the Status vocabulary, was "Attention") */
 const AGENT_WARNING: RosterMember = {
 	agentId: "agent-w",
 	name: "Warning Agent",
@@ -182,7 +182,7 @@ const TEAM_ALL_HEALTHY: TeamDetail = {
 	roster: [AGENT_HEALTHY],
 };
 
-/** Team with one warning agent — Status → "Attention" */
+/** Team with one warning agent — Status → "Behind" (AZ7 §1.6 finding #2) */
 const TEAM_WITH_WARNING: TeamDetail = {
 	...POPULATED_TEAM,
 	roster: [AGENT_HEALTHY, AGENT_WARNING],
@@ -389,7 +389,7 @@ describe("AG1 AC-3 — empty team status tile", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-3: Populated roster — Status tile shows "Healthy" / "Attention"
+// AC-3: Populated roster — Status tile shows "Healthy" / "Behind"
 // [RED] — new tile value assertions for non-empty roster
 // ---------------------------------------------------------------------------
 
@@ -407,7 +407,7 @@ describe("AG1 AC-3 — populated roster status tile values", () => {
 		expect(valueSpan?.textContent?.trim()).toBe("Healthy");
 	});
 
-	it("[RED] Status tile shows 'Attention' when any roster member has warning/critical healthLevel", () => {
+	it("[RED] Status tile shows 'Behind' when any roster member has warning/critical healthLevel (AZ7: word aligned to Status vocabulary)", () => {
 		renderPage(TEAM_WITH_WARNING);
 		const section = screen.getByTestId("team-burn-vs-cap");
 		const tiles = section.querySelectorAll("[data-testid='stat-tile']");
@@ -417,7 +417,7 @@ describe("AG1 AC-3 — populated roster status tile values", () => {
 			),
 		);
 		const valueSpan = statusTile?.querySelectorAll("span")[1];
-		expect(valueSpan?.textContent?.trim()).toBe("Attention");
+		expect(valueSpan?.textContent?.trim()).toBe("Behind");
 	});
 
 	it("[RED] Status tile shows idle agent count in sublabel for non-empty roster", () => {

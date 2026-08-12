@@ -46,8 +46,17 @@ const DAISY_CONTROL_RE = /^(btn|input|textarea|select)(-[a-z0-9]+)*$/;
 // coming from a design-system component's variant system.
 const ACCENT_STATUS_FILL_RE = /^bg-\[var\(--(accent|status)-[a-z-]+\)\]$/;
 
+// @lore AZ7: excludes test/story files — "core-ui is where controls are
+// USED" means used in the product, not exercised in a fixture. A test that
+// renders a raw <button className="btn"> to prove DaisyUI classes resolve in
+// jsdom (foundation.component.test.tsx) is not a hand-rolled control in a
+// real surface; forcing it onto <Button> would test the wrong thing.
 function isInScope(filename: string): boolean {
-	return filename.replace(/\\/g, "/").includes("layers/core-ui/src");
+	const normalized = filename.replace(/\\/g, "/");
+	if (!normalized.includes("layers/core-ui/src")) return false;
+	if (/\.(test|stories|spec)\.tsx$/.test(normalized)) return false;
+	if (normalized.split("/").some((seg) => seg.startsWith("__"))) return false;
+	return true;
 }
 
 function classNameAttrOf(el: JSXOpeningElement): unknown {

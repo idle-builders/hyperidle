@@ -7,6 +7,7 @@
  */
 
 import type { OpenHandler, Part } from "@hyperidle/conversation-parts";
+import { Button } from "@hyperidle/design-system";
 import type { JSX } from "react";
 import { renderEmbed } from "./embeds.js";
 
@@ -55,10 +56,11 @@ export function ReviewRequestPart({
 				<div className="pl-[29px]">{renderEmbed(part.changeSet, "changeset", onOpen)}</div>
 			)}
 			<div className="pl-[29px]">
-				<button
-					type="button"
+				<Button
+					variant="primary"
+					size="sm"
+					className="w-fit"
 					onClick={() => onOpen({ route: "review", ...part.reviewTarget })}
-					className="inline-flex w-fit items-center gap-[6px] rounded-[var(--r-subtle)] bg-[var(--accent-primary)] px-[12px] py-[7px] text-[13px] font-[600] text-[var(--text-on-accent)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--accent-primary-hover)]"
 				>
 					Open review
 					<svg
@@ -69,7 +71,7 @@ export function ReviewRequestPart({
 					>
 						<path d={ICON_ARROW} />
 					</svg>
-				</button>
+				</Button>
 			</div>
 		</div>
 	);

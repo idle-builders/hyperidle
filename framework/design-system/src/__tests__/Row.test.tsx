@@ -282,23 +282,14 @@ describe("Row (AG6 T2)", () => {
 			expect(cell?.className ?? "").not.toContain("tabular-nums");
 		});
 
-		it("cell with tone='error' uses --status-error token", () => {
-			act(() => {
-				root.render(
-					createElement(Row, {
-						title: "Hello",
-						cells: [{ content: "Error detail", tone: "error", "data-testid": "err-cell" }],
-					}),
-				);
-			});
-			const cell = container.querySelector("[data-testid='err-cell']") as HTMLElement | null;
-			expect(cell).not.toBeNull();
-			// style or class must reference the error token
-			const cellHtml = cell?.outerHTML ?? "";
-			expect(cellHtml).toContain("status-error");
-		});
+		// AZ7 Set 5 / E7: RowCell.tone deleted — a status/tone shown in a cell
+		// was a third status channel (StatusChip, RowDot, and this), with one
+		// call site (combined-round.md §1.6 finding #1). A tinted cell now
+		// colors its own `content` directly; see WorkTeam.tsx's agent-context
+		// cell. This test used to prove `tone="error"` produced the error
+		// token — that prop no longer exists, so every cell is --text-tertiary.
 
-		it("cell without tone uses --text-tertiary (default mono tertiary)", () => {
+		it("cell uses --text-tertiary (mono tertiary, unconditional)", () => {
 			act(() => {
 				root.render(
 					createElement(Row, {
