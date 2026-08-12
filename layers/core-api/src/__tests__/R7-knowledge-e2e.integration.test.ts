@@ -26,6 +26,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import { assembleSessionKnowledge } from "@hyperidle/knowledge";
 import type { ToolContext } from "@hyperidle/tool-protocol";
@@ -57,16 +58,16 @@ function buildWriteMemoryTool(app: Hono): ReturnType<typeof buildToolDefinitions
 // ── Fixtures ────────────────────────────────────────────────────────────────
 
 const NOW = "2026-05-30T00:00:00.000Z";
-const TEAM_ID = "team-r7";
-const AGENT_ID = "agent-r7";
 
-async function seedBase(db: HyperIdleDb): Promise<void> {
-	await db.insert(teams).values({ id: TEAM_ID, name: "R7 Team", phase: "build", createdAt: NOW });
+async function seedBase(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
+	await db
+		.insert(teams)
+		.values({ id: ids("team"), name: "R7 Team", phase: "build", createdAt: NOW });
 	await db
 		.insert(teamMembers)
-		.values({ id: "tm-r7", teamId: TEAM_ID, capacity: 3, activeBets: 0, formedAt: NOW });
+		.values({ id: ids("tm"), teamId: ids("team"), capacity: 3, activeBets: 0, formedAt: NOW });
 	await db.insert(users).values({
-		id: AGENT_ID,
+		id: ids("agent"),
 		name: "Builder Agent",
 		role: "builder",
 		status: "active",
@@ -74,16 +75,16 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	});
 	// tasks require a betId (NOT NULL FK) — seed a bet first
 	await db.insert(bets).values({
-		id: "bet-r7",
-		teamId: TEAM_ID,
+		id: ids("bet"),
+		teamId: ids("team"),
 		description: "R7 test bet",
 		status: "active",
 		createdAt: NOW,
 	});
 	await db.insert(tasks).values({
-		id: "task-r7",
-		betId: "bet-r7",
-		teamId: TEAM_ID,
+		id: ids("task"),
+		betId: ids("bet"),
+		teamId: ids("team"),
 		title: "R7 test task",
 		state: "in_progress",
 		createdAt: NOW,
@@ -91,13 +92,17 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	});
 }
 
-function makeContext(db: HyperIdleDb, sandboxPath: string): ToolContext<HyperIdleDb> {
+function makeContext(
+	db: HyperIdleDb,
+	sandboxPath: string,
+	ids: ScopedIds,
+): ToolContext<HyperIdleDb> {
 	return {
 		db,
 		eventBus: new EventBus(),
-		agentId: AGENT_ID,
-		sessionId: "session-r7",
-		taskId: "task-r7",
+		agentId: ids("agent"),
+		sessionId: ids("session"),
+		taskId: ids("task"),
 		sandboxPath,
 		ingestion: { dispose: (): void => {} },
 	};
@@ -109,11 +114,12 @@ describe("R7 AC-1: write_memory creates items with status=draft", () => {
 	test("write_memory creates a knowledge item with status='draft' by default (not 'active')", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		const writeMemoryTool = buildWriteMemoryTool(app);
-		await seedBase(db);
+		await seedBase(db, ids);
 		const sandboxPath = path.join(os.tmpdir(), `r7-ac1-${Date.now()}`);
-		const ctx = makeContext(db, sandboxPath);
+		const ctx = makeContext(db, sandboxPath, ids);
 
 		const result = await writeMemoryTool.handler(
 			{
@@ -142,11 +148,12 @@ describe("R7 AC-1: write_memory creates items with status=draft", () => {
 	test("write_memory sets scopeKind='product' and scopeId=teamId on the kernel table", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		const writeMemoryTool = buildWriteMemoryTool(app);
-		await seedBase(db);
+		await seedBase(db, ids);
 		const sandboxPath = path.join(os.tmpdir(), `r7-ac1b-${Date.now()}`);
-		const ctx = makeContext(db, sandboxPath);
+		const ctx = makeContext(db, sandboxPath, ids);
 
 		const result = await writeMemoryTool.handler(
 			{
@@ -173,19 +180,20 @@ describe("R7 AC-1: write_memory creates items with status=draft", () => {
 		// AC: scopeKind should be "product" (not the default "factory")
 		expect(kernelRow?.scopeKind).toBe("product");
 		// AC: scopeId should be the team's id so assembleContext() can find it
-		expect(kernelRow?.scopeId).toBe(TEAM_ID);
+		expect(kernelRow?.scopeId).toBe(ids("team"));
 	});
 
 	test("write_memory correctly writes scopeId to the fabric extension table", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		const writeMemoryTool = buildWriteMemoryTool(app);
 		// R7 fix: the fabric extension table (knowledgeAppProjection.scopeId) must
 		// match the team ID for fetchAllForLayer(db, "L2", productId) to find the item.
-		await seedBase(db);
+		await seedBase(db, ids);
 		const sandboxPath = path.join(os.tmpdir(), `r7-ac1c-${Date.now()}`);
-		const ctx = makeContext(db, sandboxPath);
+		const ctx = makeContext(db, sandboxPath, ids);
 
 		const result = await writeMemoryTool.handler(
 			{
@@ -209,7 +217,7 @@ describe("R7 AC-1: write_memory creates items with status=draft", () => {
 			.limit(1);
 
 		// The fabric extension row must have scopeId matching the team
-		expect(fabricRow?.scopeId).toBe(TEAM_ID);
+		expect(fabricRow?.scopeId).toBe(ids("team"));
 		// And layer L2 as specified by the agent
 		expect(fabricRow?.layer).toBe("L2");
 	});
@@ -217,13 +225,14 @@ describe("R7 AC-1: write_memory creates items with status=draft", () => {
 	test("GET /api/knowledge returns the draft item in the response (triage-visible)", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		const writeMemoryTool = buildWriteMemoryTool(app);
 		// Verify that items created by write_memory appear in the knowledge list endpoint
 		// with status="draft" — the KnowledgeList triage tab filters on status === "draft"
-		await seedBase(db);
+		await seedBase(db, ids);
 		const sandboxPath = path.join(os.tmpdir(), `r7-ac1d-${Date.now()}`);
-		const ctx = makeContext(db, sandboxPath);
+		const ctx = makeContext(db, sandboxPath, ids);
 
 		const result = await writeMemoryTool.handler(
 			{
@@ -253,15 +262,15 @@ describe("R7 AC-1: write_memory creates items with status=draft", () => {
 // ── AC-2: promote_knowledge moves draft → active ───────────────────────────
 
 describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
-	test("promote_knowledge transitions a draft item to active status", async ({ db, app }) => {
+	test("promote_knowledge transitions a draft item to active status", async ({ db, app, ids }) => {
 		const promoteKnowledgeTool = buildPromoteKnowledgeTool(app);
-		await seedBase(db);
+		await seedBase(db, ids);
 		const sandboxPath = path.join(os.tmpdir(), `r7-ac2a-${Date.now()}`);
 		const eventBus = new EventBus();
 
 		// Add facilitator user
 		await db.insert(users).values({
-			id: "agent-fac-r7",
+			id: ids("agent-fac"),
 			name: "Facilitator Agent",
 			role: "facilitator", // @lore AD8c: renamed from practice_facilitator
 			status: "active",
@@ -271,9 +280,9 @@ describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 		const ctx: ToolContext<HyperIdleDb> = {
 			db,
 			eventBus,
-			agentId: "agent-fac-r7",
-			sessionId: "session-r7",
-			taskId: "task-r7",
+			agentId: ids("agent-fac"),
+			sessionId: ids("session"),
+			taskId: ids("task"),
 			sandboxPath,
 			ingestion: { dispose: (): void => {} },
 		};
@@ -286,7 +295,7 @@ describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 			title: "Draft item for promotion",
 			body: "To be promoted from draft to active.",
 			status: "draft",
-			updatedBy: "agent:agent-fac-r7",
+			updatedBy: `agent:${ids("agent-fac")}`,
 			createdAt: NOW,
 			updatedAt: NOW,
 		});
@@ -319,17 +328,18 @@ describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 	test("promote_knowledge succeeds for 'draft' now that ALLOWED_TRANSITIONS includes 'draft' key", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		const promoteKnowledgeTool = buildPromoteKnowledgeTool(app);
 		// R7 fix applied: "draft" is now in KNOWLEDGE_STATUSES and ALLOWED_TRANSITIONS
 		// so isKnowledgeStatus("draft") returns true and draft → active succeeds.
 		// Previously documented the INVALID_STATE failure mode; updated in write-code phase.
-		await seedBase(db);
+		await seedBase(db, ids);
 		const sandboxPath = path.join(os.tmpdir(), `r7-ac2b-${Date.now()}`);
 		const eventBus = new EventBus();
 
 		await db.insert(users).values({
-			id: "agent-fac-r7",
+			id: ids("agent-fac"),
 			name: "Facilitator Agent",
 			role: "facilitator", // @lore AD8c: renamed from practice_facilitator
 			status: "active",
@@ -339,9 +349,9 @@ describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 		const ctx: ToolContext<HyperIdleDb> = {
 			db,
 			eventBus,
-			agentId: "agent-fac-r7",
-			sessionId: "session-r7",
-			taskId: "task-r7",
+			agentId: ids("agent-fac"),
+			sessionId: ids("session"),
+			taskId: ids("task"),
 			sandboxPath,
 			ingestion: { dispose: (): void => {} },
 		};
@@ -353,7 +363,7 @@ describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 			title: "Draft item — post-fix behavior check",
 			body: "Testing post-fix behavior: draft is now a valid status.",
 			status: "draft",
-			updatedBy: "agent:agent-fac-r7",
+			updatedBy: `agent:${ids("agent-fac")}`,
 			createdAt: NOW,
 			updatedAt: NOW,
 		});
@@ -371,16 +381,20 @@ describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 		expect(result.success).toBe(true);
 	});
 
-	test("full triage-to-curated flow: write_memory then promote_knowledge", async ({ db, app }) => {
+	test("full triage-to-curated flow: write_memory then promote_knowledge", async ({
+		db,
+		app,
+		ids,
+	}) => {
 		const writeMemoryTool = buildWriteMemoryTool(app);
 		const promoteKnowledgeTool = buildPromoteKnowledgeTool(app);
 		// End-to-end: agent writes item (lands in triage as "draft"), facilitator promotes to "active" (curated)
-		await seedBase(db);
+		await seedBase(db, ids);
 		const sandboxPath = path.join(os.tmpdir(), `r7-ac2c-${Date.now()}`);
 		const eventBus = new EventBus();
 
 		await db.insert(users).values({
-			id: "agent-fac-r7",
+			id: ids("agent-fac"),
 			name: "Facilitator Agent",
 			role: "facilitator", // @lore AD8c: renamed from practice_facilitator
 			status: "active",
@@ -390,15 +404,15 @@ describe("R7 AC-2: promote_knowledge transitions draft → active", () => {
 		const writeCtx: ToolContext<HyperIdleDb> = {
 			db,
 			eventBus,
-			agentId: AGENT_ID,
-			sessionId: "session-r7",
-			taskId: "task-r7",
+			agentId: ids("agent"),
+			sessionId: ids("session"),
+			taskId: ids("task"),
 			sandboxPath,
 			ingestion: { dispose: (): void => {} },
 		};
 		const facCtx: ToolContext<HyperIdleDb> = {
 			...writeCtx,
-			agentId: "agent-fac-r7",
+			agentId: ids("agent-fac"),
 		};
 
 		// Step 1: write_memory → expect "draft"
@@ -463,10 +477,11 @@ describe("R7 AC-5: write_memory items appear in subsequent sessions", () => {
 	test("an item written by write_memory with layer=L2 appears in assembleContext() output for the same productId", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		const writeMemoryTool = buildWriteMemoryTool(app);
-		await seedBase(db);
-		const ctx = makeContext(db, sandboxPath);
+		await seedBase(db, ids);
+		const ctx = makeContext(db, sandboxPath, ids);
 
 		// Arrange: write a knowledge item via write_memory
 		const writeResult = await writeMemoryTool.handler(
@@ -487,13 +502,25 @@ describe("R7 AC-5: write_memory items appear in subsequent sessions", () => {
 		// SAME bundle a real `task_run` emit-time resolver would bake, from the
 		// real rows (including the item write_memory JUST persisted, proving
 		// the "session N knowledge reaches session N+1" behavior is unchanged).
-		const [taskRow] = await db.select().from(tasks).where(eq(tasks.id, "task-r7"));
-		const [betRow] = await db.select().from(bets).where(eq(bets.id, "bet-r7"));
-		const [teamRow] = await db.select().from(teams).where(eq(teams.id, TEAM_ID));
-		const [agentRow] = await db.select().from(users).where(eq(users.id, AGENT_ID));
+		const [taskRow] = await db
+			.select()
+			.from(tasks)
+			.where(eq(tasks.id, ids("task")));
+		const [betRow] = await db
+			.select()
+			.from(bets)
+			.where(eq(bets.id, ids("bet")));
+		const [teamRow] = await db
+			.select()
+			.from(teams)
+			.where(eq(teams.id, ids("team")));
+		const [agentRow] = await db
+			.select()
+			.from(users)
+			.where(eq(users.id, ids("agent")));
 		if (!(taskRow && betRow && teamRow && agentRow)) throw new Error("fixture rows missing");
 		const knowledge = await assembleSessionKnowledge(db, {
-			teamId: TEAM_ID,
+			teamId: ids("team"),
 			agentRole: agentRow.role,
 			taskDescription: taskRow.description ?? taskRow.title,
 		});
@@ -523,11 +550,11 @@ describe("R7 AC-5: write_memory items appear in subsequent sessions", () => {
 				mode: "assemble",
 				input: {
 					sandboxPath,
-					sessionId: "session-r7-next",
-					taskId: "task-r7",
-					agentId: AGENT_ID,
+					sessionId: ids("session-next"),
+					taskId: ids("task"),
+					agentId: ids("agent"),
 					agentRole: "builder",
-					teamId: TEAM_ID,
+					teamId: ids("team"),
 					isRoutine: false,
 					sourceKind: null,
 					sourceId: null,
@@ -560,13 +587,14 @@ describe("R7 AC-5: write_memory items appear in subsequent sessions", () => {
 	test("write_memory items ARE assembled even without explicit teamId in ToolContext (R7 fix verified)", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		const writeMemoryTool = buildWriteMemoryTool(app);
 		// R7 fix: write_memory now derives teamId from the task when ctx.teamId
 		// is absent, ensuring scopeId is always set for items tied to a team task.
 		// Previously documented the null-scopeId broken state; updated in write-code phase.
-		await seedBase(db);
-		const ctx = makeContext(db, sandboxPath);
+		await seedBase(db, ids);
+		const ctx = makeContext(db, sandboxPath, ids);
 
 		// Write an item without explicit teamId in ctx (derived from task instead)
 		const writeResult = await writeMemoryTool.handler(
@@ -582,7 +610,7 @@ describe("R7 AC-5: write_memory items appear in subsequent sessions", () => {
 		expect(writeResult.success).toBe(true);
 		if (!writeResult.success) return;
 
-		// After R7 fix: scopeId is set to TEAM_ID (derived from task-r7's teamId)
+		// After R7 fix: scopeId is set to team id (derived from task's teamId)
 		const data = writeResult.data as { knowledgeItemId: string };
 		const [fabricRow] = await db
 			.select({ scopeId: knowledgeAppProjection.scopeId })
@@ -590,7 +618,7 @@ describe("R7 AC-5: write_memory items appear in subsequent sessions", () => {
 			.where(eq(knowledgeAppProjection.knowledgeItemId, data.knowledgeItemId))
 			.limit(1);
 
-		// After R7 fix: scopeId is TEAM_ID (items are now properly scoped via task lookup)
-		expect(fabricRow?.scopeId).toBe(TEAM_ID);
+		// After R7 fix: scopeId is the team id (items are now properly scoped via task lookup)
+		expect(fabricRow?.scopeId).toBe(ids("team"));
 	});
 });

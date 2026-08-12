@@ -24,6 +24,7 @@ import {
 } from "@hyperidle/conversation";
 import type { WriteExecutor } from "@hyperidle/db";
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { enqueue } from "@hyperidle/notifications";
 import { getTeamMembers, updateTeam } from "@hyperidle/org";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
@@ -99,18 +100,21 @@ const teamCapacity: WorkDeps["teamCapacity"] = {
 };
 
 const TEST_API_KEY = "test-key-r7-bets";
+// @lore P10: system:propagation is a production-fixed user id (applyFactoryCoreState seeds it)
 const SYSTEM_PROPAGATION_ID = "system:propagation";
 
 function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
-async function seedBaseData(db: HyperIdleDb): Promise<void> {
+async function seedBaseData(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(teams).values({ id: "team-r7", name: "R7 Team", phase: "build", createdAt: now });
+	await db
+		.insert(teams)
+		.values({ id: ids("team"), name: "R7 Team", phase: "build", createdAt: now });
 	await db
 		.insert(teamMembers)
-		.values({ id: "tm-r7", teamId: "team-r7", capacity: 5, activeBets: 0, formedAt: now });
+		.values({ id: ids("tm"), teamId: ids("team"), capacity: 5, activeBets: 0, formedAt: now });
 
 	// F6: seed system propagation agent (required for review threads)
 	await db.insert(users).values({
@@ -122,7 +126,7 @@ async function seedBaseData(db: HyperIdleDb): Promise<void> {
 	});
 
 	await db.insert(users).values({
-		id: "agent-r7-builder",
+		id: ids("agent-builder"),
 		name: "Builder Agent",
 		role: "builder",
 		status: "active",
@@ -136,15 +140,16 @@ describe("R7 AC-3: Bet lifecycle transitions (draft → active → completed)", 
 	test("creating a bet via POST /api/bets results in status='draft' (shaped)", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedBaseData(db);
+		await seedBaseData(db, ids);
 
 		const res = await app.request("/api/bets", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				teamId: "team-r7",
+				teamId: ids("team"),
 				description: "R7 test bet — verify lifecycle",
 			}),
 		});
@@ -153,20 +158,20 @@ describe("R7 AC-3: Bet lifecycle transitions (draft → active → completed)", 
 		const body = (await res.json()) as Record<string, unknown>;
 		// @lore U1: shaped → draft
 		expect(body.status).toBe("draft");
-		expect(body.teamId).toBe("team-r7");
+		expect(body.teamId).toBe(ids("team"));
 		vi.unstubAllEnvs();
 	});
 
-	test("POST /api/bets/:id/commit transitions draft → active", async ({ db, app }) => {
+	test("POST /api/bets/:id/commit transitions draft → active", async ({ db, app, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedBaseData(db);
+		await seedBaseData(db, ids);
 
 		// Create a draft bet
 		const createRes = await app.request("/api/bets", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				teamId: "team-r7",
+				teamId: ids("team"),
 				description: "Bet for commit test",
 			}),
 		});
@@ -186,15 +191,15 @@ describe("R7 AC-3: Bet lifecycle transitions (draft → active → completed)", 
 		vi.unstubAllEnvs();
 	});
 
-	test("transitionBet service transitions active → completed", async ({ db, eventBus }) => {
-		await seedBaseData(db);
+	test("transitionBet service transitions active → completed", async ({ db, eventBus, ids }) => {
+		await seedBaseData(db, ids);
 
 		// Create and commit a bet directly via service layer
 		const now = new Date().toISOString();
-		const betId = "bet-r7-complete";
+		const betId = ids("bet-complete");
 		await db.insert(bets).values({
 			id: betId,
-			teamId: "team-r7",
+			teamId: ids("team"),
 			description: "Bet to be completed",
 			status: "active",
 			createdAt: now,
@@ -211,35 +216,36 @@ describe("R7 AC-3: Bet lifecycle transitions (draft → active → completed)", 
 	test("lifecycle propagation: all tasks done → bet transitions to completed", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seedBaseData(db);
+		await seedBaseData(db, ids);
 
 		// Arrange: active bet with one task in_progress
 		const now = new Date().toISOString();
-		const betId = "bet-r7-lc";
+		const betId = ids("bet-lc");
 		await db.insert(bets).values({
 			id: betId,
-			teamId: "team-r7",
+			teamId: ids("team"),
 			description: "Lifecycle propagation test bet",
 			status: "active",
 			createdAt: now,
 		});
 
-		const threadId = "thread-r7-lc";
+		const threadId = ids("thread-lc");
 		await db.insert(threads).values({
 			id: threadId,
 			hostKind: "task",
-			hostId: "task-r7-lc",
-			initiatorId: "agent-r7-builder",
-			participants: JSON.stringify(["agent-r7-builder"]),
+			hostId: ids("task-lc"),
+			initiatorId: ids("agent-builder"),
+			participants: JSON.stringify([ids("agent-builder")]),
 			lastActiveAt: now,
 			createdAt: now,
 		});
 
 		await db.insert(tasks).values({
-			id: "task-r7-lc",
+			id: ids("task-lc"),
 			betId,
-			teamId: "team-r7",
+			teamId: ids("team"),
 			title: "Last task on the bet",
 			state: "in_progress",
 			threadId,
@@ -253,12 +259,12 @@ describe("R7 AC-3: Bet lifecycle transitions (draft → active → completed)", 
 		await db
 			.update(tasks)
 			.set({ state: "done", updatedAt: new Date().toISOString() })
-			.where(eq(tasks.id, "task-r7-lc"));
+			.where(eq(tasks.id, ids("task-lc")));
 
 		eventBus.emit({
 			type: "task_state_changed",
-			streamId: "task-r7-lc",
-			taskId: "task-r7-lc",
+			streamId: ids("task-lc"),
+			taskId: ids("task-lc"),
 			fromState: "in_progress",
 			toState: "done",
 			timestamp: Date.now(),
@@ -277,9 +283,10 @@ describe("R7 AC-3: Bet lifecycle transitions (draft → active → completed)", 
 		db,
 		eventBus,
 		app,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedBaseData(db);
+		await seedBaseData(db, ids);
 
 		const now = new Date().toISOString();
 
@@ -288,7 +295,7 @@ describe("R7 AC-3: Bet lifecycle transitions (draft → active → completed)", 
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				teamId: "team-r7",
+				teamId: ids("team"),
 				description: "End-to-end bet lifecycle test",
 			}),
 		});
@@ -303,20 +310,20 @@ describe("R7 AC-3: Bet lifecycle transitions (draft → active → completed)", 
 		expect(commitRes.status).toBe(200);
 
 		// Step 3: Add a task and complete it via lifecycle propagation
-		const threadId = "thread-r7-e2e";
+		const threadId = ids("thread-e2e");
 		await db.insert(threads).values({
 			id: threadId,
 			hostKind: "task",
-			hostId: "task-r7-e2e",
-			initiatorId: "agent-r7-builder",
-			participants: JSON.stringify(["agent-r7-builder"]),
+			hostId: ids("task-e2e"),
+			initiatorId: ids("agent-builder"),
+			participants: JSON.stringify([ids("agent-builder")]),
 			lastActiveAt: now,
 			createdAt: now,
 		});
 		await db.insert(tasks).values({
-			id: "task-r7-e2e",
+			id: ids("task-e2e"),
 			betId,
-			teamId: "team-r7",
+			teamId: ids("team"),
 			title: "The one task",
 			state: "in_progress",
 			threadId,
@@ -329,12 +336,12 @@ describe("R7 AC-3: Bet lifecycle transitions (draft → active → completed)", 
 		await db
 			.update(tasks)
 			.set({ state: "done", updatedAt: new Date().toISOString() })
-			.where(eq(tasks.id, "task-r7-e2e"));
+			.where(eq(tasks.id, ids("task-e2e")));
 
 		eventBus.emit({
 			type: "task_state_changed",
-			streamId: "task-r7-e2e",
-			taskId: "task-r7-e2e",
+			streamId: ids("task-e2e"),
+			taskId: ids("task-e2e"),
 			fromState: "in_progress",
 			toState: "done",
 			timestamp: Date.now(),
@@ -357,15 +364,16 @@ describe("R7 AC-4: Completed bets appear in WorkPortfolio with correct shipRate"
 	test("GET /api/teams returns shipRate='100%' when all bets are completed", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedBaseData(db);
+		await seedBaseData(db, ids);
 
 		// Arrange: one completed bet, no active bets
 		const now = new Date().toISOString();
 		await db.insert(bets).values({
-			id: "bet-r7-shipped",
-			teamId: "team-r7",
+			id: ids("bet-shipped"),
+			teamId: ids("team"),
 			description: "Shipped bet",
 			status: "completed",
 			createdAt: now,
@@ -379,7 +387,7 @@ describe("R7 AC-4: Completed bets appear in WorkPortfolio with correct shipRate"
 			teams: Array<{ id: string; shipRate?: string }>;
 		};
 
-		const r7Team = body.teams.find((t) => t.id === "team-r7");
+		const r7Team = body.teams.find((t) => t.id === ids("team"));
 		expect(r7Team).toBeDefined();
 		// shipRate = completed / (completed + active) = 1 / (1 + 0) = 100%
 		expect(r7Team?.shipRate).toBe("100%");
@@ -389,30 +397,34 @@ describe("R7 AC-4: Completed bets appear in WorkPortfolio with correct shipRate"
 	test("GET /api/teams returns shipRate='50%' when half of bets are completed", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedBaseData(db);
+		await seedBaseData(db, ids);
 
 		// Arrange: one completed, one active
 		const now = new Date().toISOString();
 		await db.insert(bets).values([
 			{
-				id: "bet-r7-shipped-1",
-				teamId: "team-r7",
+				id: ids("bet-shipped-1"),
+				teamId: ids("team"),
 				description: "Shipped bet 1",
 				status: "completed",
 				createdAt: now,
 			},
 			{
-				id: "bet-r7-active-1",
-				teamId: "team-r7",
+				id: ids("bet-active-1"),
+				teamId: ids("team"),
 				description: "Active bet 1",
 				status: "active",
 				createdAt: now,
 			},
 		]);
 		// Update activeBets counter
-		await db.update(teamMembers).set({ activeBets: 1 }).where(eq(teamMembers.id, "tm-r7"));
+		await db
+			.update(teamMembers)
+			.set({ activeBets: 1 })
+			.where(eq(teamMembers.id, ids("tm")));
 
 		const res = await app.request("/api/teams", { headers: authHeaders() });
 		expect(res.status).toBe(200);
@@ -421,16 +433,16 @@ describe("R7 AC-4: Completed bets appear in WorkPortfolio with correct shipRate"
 			teams: Array<{ id: string; shipRate?: string }>;
 		};
 
-		const r7Team = body.teams.find((t) => t.id === "team-r7");
+		const r7Team = body.teams.find((t) => t.id === ids("team"));
 		expect(r7Team).toBeDefined();
 		// shipRate = 1 / (1 + 1) = 50%
 		expect(r7Team?.shipRate).toBe("50%");
 		vi.unstubAllEnvs();
 	});
 
-	test("GET /api/teams returns shipRate='—' when no bets exist", async ({ db, app }) => {
+	test("GET /api/teams returns shipRate='—' when no bets exist", async ({ db, app, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedBaseData(db);
+		await seedBaseData(db, ids);
 
 		// No bets at all → shipRate should be the dash placeholder
 		const res = await app.request("/api/teams", { headers: authHeaders() });
@@ -440,30 +452,34 @@ describe("R7 AC-4: Completed bets appear in WorkPortfolio with correct shipRate"
 			teams: Array<{ id: string; shipRate?: string }>;
 		};
 
-		const r7Team = body.teams.find((t) => t.id === "team-r7");
+		const r7Team = body.teams.find((t) => t.id === ids("team"));
 		expect(r7Team).toBeDefined();
 		expect(r7Team?.shipRate).toBe("—");
 		vi.unstubAllEnvs();
 	});
 
-	test("GET /api/teams shipRate excludes killed bets from denominator", async ({ db, app }) => {
+	test("GET /api/teams shipRate excludes killed bets from denominator", async ({
+		db,
+		app,
+		ids,
+	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedBaseData(db);
+		await seedBaseData(db, ids);
 
 		// Killed bets must not count in the ship rate calculation
 		// shipRate = completed / (completed + active) — killed is excluded
 		const now = new Date().toISOString();
 		await db.insert(bets).values([
 			{
-				id: "bet-r7-killed-1",
-				teamId: "team-r7",
+				id: ids("bet-killed-1"),
+				teamId: ids("team"),
 				description: "Killed bet",
 				status: "killed",
 				createdAt: now,
 			},
 			{
-				id: "bet-r7-completed-1",
-				teamId: "team-r7",
+				id: ids("bet-completed-1"),
+				teamId: ids("team"),
 				description: "Completed bet",
 				status: "completed",
 				createdAt: now,
@@ -477,7 +493,7 @@ describe("R7 AC-4: Completed bets appear in WorkPortfolio with correct shipRate"
 			teams: Array<{ id: string; shipRate?: string }>;
 		};
 
-		const r7Team = body.teams.find((t) => t.id === "team-r7");
+		const r7Team = body.teams.find((t) => t.id === ids("team"));
 		expect(r7Team).toBeDefined();
 		// Only completed (1) and active (0) count: 1 / (1 + 0) = 100%
 		// Killed (1) is excluded from the denominator
