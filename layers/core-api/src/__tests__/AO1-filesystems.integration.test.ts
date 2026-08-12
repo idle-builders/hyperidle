@@ -31,6 +31,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -55,15 +56,13 @@ interface SeedResult {
  * Seed a team + teamMembers (U1 1:1) + two bot users for injection tests.
  * users.teamId → teamMembers.id (schema.ts:47).
  */
-async function seedTeamAndBots(db: HyperIdleDb, prefix: string): Promise<SeedResult> {
-	const teamId = `team-ao1-${prefix}`;
-	const teamMembersId = `tm-ao1-${prefix}`;
-	const botId = `bot-ao1-${prefix}-1`;
-	const bot2Id = `bot-ao1-${prefix}-2`;
+async function seedTeamAndBots(db: HyperIdleDb, ids: ScopedIds): Promise<SeedResult> {
+	const teamId = ids("t1");
+	const teamMembersId = ids("tm1");
+	const botId = ids("bot1");
+	const bot2Id = ids("bot2");
 
-	await db
-		.insert(teams)
-		.values({ id: teamId, name: `AO1 Team ${prefix}`, phase: "build", createdAt: NOW });
+	await db.insert(teams).values({ id: teamId, name: "AO1 Team", phase: "build", createdAt: NOW });
 	await db
 		.insert(teamMembers)
 		.values({ id: teamMembersId, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
@@ -107,8 +106,9 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 		test("POST /api/filesystems with code kind returns 201 and stores source", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			const { teamId } = await seedTeamAndBots(db, "ac1a");
+			const { teamId } = await seedTeamAndBots(db, ids);
 
 			const res = await app.request("/api/filesystems", {
 				method: "POST",
@@ -134,8 +134,8 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			expect(body).not.toHaveProperty("agentUserId");
 		});
 
-		test("POST with null connectionId → source 'local'", async ({ db, app }) => {
-			const { teamId } = await seedTeamAndBots(db, "ac1b");
+		test("POST with null connectionId → source 'local'", async ({ db, app, ids }) => {
+			const { teamId } = await seedTeamAndBots(db, ids);
 
 			const res = await app.request("/api/filesystems", {
 				method: "POST",
@@ -157,9 +157,10 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 
 		test("GET /api/filesystems?teamId= lists the registered filesystem", async ({
 			db,
-			app
+			app,
+			ids,
 		}) => {
-			const { teamId } = await seedTeamAndBots(db, "ac1c");
+			const { teamId } = await seedTeamAndBots(db, ids);
 
 			await app.request("/api/filesystems", {
 				method: "POST",
@@ -183,8 +184,9 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 		test("GET /api/filesystems/:id returns the filesystem with all required fields", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			const { teamId } = await seedTeamAndBots(db, "ac1d");
+			const { teamId } = await seedTeamAndBots(db, ids);
 
 			const createRes = await app.request("/api/filesystems", {
 				method: "POST",
@@ -216,14 +218,14 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			expect(typeof got.resourceRef).toBe("object");
 		});
 
-		test("GET /api/filesystems/:id → 404 for unknown id", async ({ app }) => {
+		test("GET /api/filesystems/:id → 404 for unknown id", async ({ app, ids }) => {
 			const res = await app.request("/api/filesystems/does-not-exist", { headers: auth() });
 			expect(res.status).toBe(404);
 		});
 
 		// M2: teamId absent (no matching teams row) → 404 (FK violation caught at insert)
 		// This exercises the catch-based FK guard in filesystems.ts (the ONLY real enforcement path).
-		test("POST with non-existent teamId → 404 NOT_FOUND", async ({ app }) => {
+		test("POST with non-existent teamId → 404 NOT_FOUND", async ({ app, ids }) => {
 			const res = await app.request("/api/filesystems", {
 				method: "POST",
 				headers: auth(),
@@ -240,8 +242,8 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			expect(body.code).toBe("NOT_FOUND");
 		});
 
-		test("registered filesystem row carries NO credential column", async ({ db, app }) => {
-			const { teamId } = await seedTeamAndBots(db, "ac1e");
+		test("registered filesystem row carries NO credential column", async ({ db, app, ids }) => {
+			const { teamId } = await seedTeamAndBots(db, ids);
 
 			const createRes = await app.request("/api/filesystems", {
 				method: "POST",
@@ -274,8 +276,9 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 		test("POST /api/filesystems/:id/injections returns 201 and wires bot to filesystem", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			const { teamId, botId } = await seedTeamAndBots(db, "inj1");
+			const { teamId, botId } = await seedTeamAndBots(db, ids);
 
 			const createRes = await app.request("/api/filesystems", {
 				method: "POST",
@@ -304,8 +307,9 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 		test("GET /api/filesystems?agentUserId= lists filesystems injected to that bot", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			const { teamId, botId } = await seedTeamAndBots(db, "inj2");
+			const { teamId, botId } = await seedTeamAndBots(db, ids);
 
 			const createRes = await app.request("/api/filesystems", {
 				method: "POST",
@@ -331,12 +335,12 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			});
 			expect(listRes.status).toBe(200);
 			const listBody = (await listRes.json()) as { filesystems: Array<{ id: string }> };
-			const ids = listBody.filesystems.map((f) => f.id);
-			expect(ids).toContain(fsId);
+			const fsIds = listBody.filesystems.map((f) => f.id);
+			expect(fsIds).toContain(fsId);
 		});
 
-		test("same filesystem injected into TWO bots (sharing / N-N)", async ({ db, app }) => {
-			const { teamId, botId, bot2Id } = await seedTeamAndBots(db, "inj3");
+		test("same filesystem injected into TWO bots (sharing / N-N)", async ({ db, app, ids }) => {
+			const { teamId, botId, bot2Id } = await seedTeamAndBots(db, ids);
 
 			const createRes = await app.request("/api/filesystems", {
 				method: "POST",
@@ -378,8 +382,9 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 		test("re-injecting same (agentUserId, filesystemId) → 409 (UNIQUE enforcement)", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			const { teamId, botId } = await seedTeamAndBots(db, "inj4");
+			const { teamId, botId } = await seedTeamAndBots(db, ids);
 
 			const createRes = await app.request("/api/filesystems", {
 				method: "POST",
@@ -412,8 +417,9 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 		test("DELETE /api/filesystems/:id/injections/:agentUserId removes only the injection", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			const { teamId, botId } = await seedTeamAndBots(db, "inj5");
+			const { teamId, botId } = await seedTeamAndBots(db, ids);
 
 			const createRes = await app.request("/api/filesystems", {
 				method: "POST",
@@ -460,10 +466,11 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 		test("POST injection with mismatched team → 400 (team-consistency check)", async ({
 			db,
 			app,
+			ids,
 		}) => {
 			// Two separate teams
-			const { teamId: teamA } = await seedTeamAndBots(db, "inj6a");
-			const { teamMembersId: tmB } = await seedTeamAndBots(db, "inj6b");
+			const { teamId: teamA } = await seedTeamAndBots(db, ids);
+			const { teamMembersId: tmB } = await seedTeamAndBots(db, ids);
 			// A bot from team B
 			const botFromB = `bot-ao1-inj6b-alien`;
 			await db.insert(users).values({
@@ -508,8 +515,9 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 		test("POST stores connectionId and resourceRef (JSON selector) on the row", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			const { teamId } = await seedTeamAndBots(db, "ac2a");
+			const { teamId } = await seedTeamAndBots(db, ids);
 
 			const res = await app.request("/api/filesystems", {
 				method: "POST",
@@ -537,8 +545,8 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 	// ─────────────────────────────────────────────────────────────────────
 
 	describe("AC3: doc_set accepted; SoR kinds rejected at Zod boundary", () => {
-		test("POST with kind='doc_set' returns 201", async ({ db, app }) => {
-			const { teamId } = await seedTeamAndBots(db, "ac3a");
+		test("POST with kind='doc_set' returns 201", async ({ db, app, ids }) => {
+			const { teamId } = await seedTeamAndBots(db, ids);
 
 			const res = await app.request("/api/filesystems", {
 				method: "POST",
@@ -556,8 +564,8 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			expect(body.kind).toBe("doc_set");
 		});
 
-		test("POST with kind='inbox' (SoR) → 400 VALIDATION_ERROR", async ({ db, app }) => {
-			const { teamId } = await seedTeamAndBots(db, "ac3b");
+		test("POST with kind='inbox' (SoR) → 400 VALIDATION_ERROR", async ({ db, app, ids }) => {
+			const { teamId } = await seedTeamAndBots(db, ids);
 
 			const res = await app.request("/api/filesystems", {
 				method: "POST",
@@ -575,8 +583,8 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			expect(body.code ?? body.error).toBeDefined();
 		});
 
-		test("POST with kind='crm' (SoR) → 400 VALIDATION_ERROR", async ({ db, app }) => {
-			const { teamId } = await seedTeamAndBots(db, "ac3c");
+		test("POST with kind='crm' (SoR) → 400 VALIDATION_ERROR", async ({ db, app, ids }) => {
+			const { teamId } = await seedTeamAndBots(db, ids);
 
 			const res = await app.request("/api/filesystems", {
 				method: "POST",
@@ -592,8 +600,8 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			expect(res.status).toBe(400);
 		});
 
-		test("POST with kind='ticket_queue' (SoR) → 400 VALIDATION_ERROR", async ({ db, app }) => {
-			const { teamId } = await seedTeamAndBots(db, "ac3d");
+		test("POST with kind='ticket_queue' (SoR) → 400 VALIDATION_ERROR", async ({ db, app, ids }) => {
+			const { teamId } = await seedTeamAndBots(db, ids);
 
 			const res = await app.request("/api/filesystems", {
 				method: "POST",
@@ -618,8 +626,9 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 		test("registering a filesystem does not change knowledge_items rowcount", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			const { teamId } = await seedTeamAndBots(db, "ac4a");
+			const { teamId } = await seedTeamAndBots(db, ids);
 
 			// Count knowledge_items before
 			const before = await db.select().from(knowledgeItems);
@@ -646,8 +655,8 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 		// deleted with the exporter. The AC is "registering a filesystem touches
 		// only its own table", so it now reads `server_config` itself — the same
 		// claim, one indirection fewer.
-		test("registering a filesystem does not change the server config", async ({ db, app }) => {
-			const { teamId } = await seedTeamAndBots(db, "ac4b");
+		test("registering a filesystem does not change the server config", async ({ db, app, ids }) => {
+			const { teamId } = await seedTeamAndBots(db, ids);
 
 			const cfgBefore = await db.select().from(serverConfig);
 
@@ -676,8 +685,9 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 		test("code+git filesystem with connectionId → state:'needs_attention' (NoopAuthResolver)", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			const { teamId } = await seedTeamAndBots(db, "ac5a");
+			const { teamId } = await seedTeamAndBots(db, ids);
 
 			// Use a non-existent absolute local path so git ls-remote exits non-zero
 			// without ANY network call. repoToUrl("/no/such/repo") → file:///no/such/repo
@@ -719,8 +729,9 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 		test("local filesystem (connectionId null, real existing path) → state:'reachable'", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			const { teamId } = await seedTeamAndBots(db, "ac5b");
+			const { teamId } = await seedTeamAndBots(db, ids);
 
 			// Use os.tmpdir() — guaranteed to exist on every platform.
 			// @lore AO1 v2: The real probe checks fs.access(R_OK) — must use a real path.
@@ -750,8 +761,9 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 		test("writeback:'none' filesystem → state:'reachable' regardless of connectionId", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			const { teamId } = await seedTeamAndBots(db, "ac5c");
+			const { teamId } = await seedTeamAndBots(db, ids);
 
 			const createRes = await app.request("/api/filesystems", {
 				method: "POST",
@@ -782,8 +794,9 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 		test("DELETE /api/filesystems/:id removes registration and cascades injections", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			const { teamId, botId, bot2Id } = await seedTeamAndBots(db, "ac6a");
+			const { teamId, botId, bot2Id } = await seedTeamAndBots(db, ids);
 
 			// Register filesystem
 			const createRes = await app.request("/api/filesystems", {
@@ -833,7 +846,7 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			expect(body2.filesystems.map((f) => f.id)).not.toContain(fsId);
 		});
 
-		test("DELETE /api/filesystems/:id on unknown id → 404", async ({ app }) => {
+		test("DELETE /api/filesystems/:id on unknown id → 404", async ({ app, ids }) => {
 			const res = await app.request("/api/filesystems/no-such-fs", {
 				method: "DELETE",
 				headers: auth(),
@@ -847,7 +860,7 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 	// ─────────────────────────────────────────────────────────────────────
 
 	describe("AC8: Migration — correct tables, columns, constraints", () => {
-		test("filesystems table exists after migration", async ({ db }) => {
+		test("filesystems table exists after migration", async ({ db, ids }) => {
 			const result = await db.execute(
 				sql.raw(
 					`SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'filesystems'`,
@@ -857,7 +870,7 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			expect(rows.length).toBe(1);
 		});
 
-		test("filesystem_injections table exists after migration", async ({ db }) => {
+		test("filesystem_injections table exists after migration", async ({ db, ids }) => {
 			const result = await db.execute(
 				sql.raw(
 					`SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'filesystem_injections'`,
@@ -867,7 +880,7 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			expect(rows.length).toBe(1);
 		});
 
-		test("filesystems table has source column (not agent_user_id)", async ({ db }) => {
+		test("filesystems table has source column (not agent_user_id)", async ({ db, ids }) => {
 			const result = await db.execute(
 				sql.raw(
 					`SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='filesystems' ORDER BY ordinal_position`,
@@ -890,6 +903,7 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 
 		test("filesystem_injections has composite PK (agent_user_id, filesystem_id) — UNIQUE enforcement", async ({
 			db,
+			ids,
 		}) => {
 			const result = await db.execute(
 				sql.raw(
@@ -904,7 +918,7 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			expect(cols).toContain("created_at");
 		});
 
-		test("filesystems_team_idx index exists", async ({ db }) => {
+		test("filesystems_team_idx index exists", async ({ db, ids }) => {
 			const result = await db.execute(
 				sql.raw(
 					`SELECT indexname FROM pg_indexes WHERE schemaname='public' AND tablename='filesystems'`,
@@ -916,6 +930,7 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 
 		test("migration does not touch artifacts or knowledge_items tables (no ALTER)", async ({
 			db,
+			ids,
 		}) => {
 			// Both tables must still exist and have no new filesystem-related columns
 			const artifactCols = await db.execute(
