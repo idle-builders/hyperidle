@@ -3,10 +3,10 @@
   "title": "Spacing and elevation hold across the product",
   "track": "AZ",
   "phase": "ship",
-  "status": "ready-for-reconciliation-and-verification",
-  "revision": 10,
+  "status": "verified-ready-for-push",
+  "revision": 11,
   "updatedAt": "2026-08-13",
-  "revisionReason": "The approved outcome, evidence conclusions, review closure, verification, governance rationale, and known limits are consolidated into plan.md. Superseded probe, paint, round, and review artifacts are removed; the domain-named branch is ready for fresh-main reconciliation and clean-tree verification.",
+  "revisionReason": "The consolidated domain branch is exactly based on fresh origin/main and npm run verify passes from commit a434c56c. The committed state is ready to push, open as a non-draft PR, and wait for required CI.",
   "branch": "feat/spacing-elevation-coherence",
   "worktree": "/Users/tg/Development/hyperidle/.worktrees/AZ15",
   "baseCommit": "48cf8d5d9d5908b32cffab426a0c2ac04f8794c1",
@@ -21,7 +21,9 @@
       "effective review outcome after objective closure — DONE",
       "retro — DONE",
       "ship consolidation — DONE",
-      "fresh-main reconciliation, clean-tree verification, PR and CI — IN PROGRESS"
+      "fresh-main reconciliation — DONE (origin/main 48cf8d5d; branch 0 behind)",
+      "clean-tree verification — DONE",
+      "push, non-draft PR and required CI — IN PROGRESS"
     ]
   },
   "artifacts": {
@@ -54,7 +56,7 @@
     "designLint": "PASS — 0 errors; 42 pre-existing warnings",
     "paintedProof": "PASS — eight inspected real-app captures covered Settings desktop/narrow, Agent, Routine narrow, Work team/task, Knowledge detail, and Global Search overlay; Review paint unavailable and not claimed; TaskSheet proven at component/lint seam",
     "identifierScan": "PASS — rg -i \\bAZ15\\b outside .pipeline is empty",
-    "shipVerify": "PENDING — required after consolidation and fresh-main reconciliation"
+    "shipVerify": "PASS on a434c56c — 55-package typecheck, lint with 63 fixtures and 69 governance attacks, Knip, dependency/mock/design inventories, Core UI build, desktop validation"
   },
   "reviewState": {
     "completedEvaluations": 1,
@@ -72,5 +74,5 @@
     "deletedUntrackedReview": true,
     "governance": "Original outside-production-roots floor 1062 restored after generated evidence removal; governance PASS with 1327 live matches and 265 slack below the 266 stop threshold."
   },
-  "nextAction": "Commit consolidation, fetch and reconcile fresh origin/main without force, run npm run verify from the clean committed tree, push, open a non-draft main-targeting PR, and wait for required CI."
+  "nextAction": "Push the domain-named branch, open a non-draft main-targeting PR, and wait for every required CI check."
 }
