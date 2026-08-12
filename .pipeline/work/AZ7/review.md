@@ -152,3 +152,85 @@ against a false baseline.
 - Input migrations preserve behaviour — controlled value, `onChange`, `disabled`, `maxLength`, `onKeyDown`,
   `rows` all carried across.
 - AC6's backlog is real work, generated, in the track's shape, deferring to existing ids.
+
+---
+
+# AZ7 re-review — evaluation 2
+
+**Fresh independent reviewer, read-only. Verdict: NOT-DONE.**
+
+All five blocking findings from evaluation 1 are genuinely fixed, each reproduced by running.
+But the B1 fix changed which CSS the app ships, and that surfaced one new blocking failure.
+
+## The five blocking findings — all FIXED
+
+| # | Verdict | Evidence run |
+|---|---|---|
+| B1 icon button geometry | **FIXED** | `button[aria-label="Send message"]` computes **32×32** at 1440px, **44×44** at 768px. Root cause was a pre-existing broken `@source` glob on origin/main (`layers/core-ui/src/index.css:78` pointed at the nonexistent `layers/design-system/src`). Reverting the glob makes the new e2e spec red — the guard bites |
+| B2 three inputs | **FIXED** | Browser-verified: HostThreadSection composer is `INPUT` on `--surface-elevated`, `--surface-page` gone, `data-testid` preserved so `WorkBet.tsx:598`'s querySelector still resolves. RecipientPicker keeps Escape-to-close. Ref forwarding real. Scanner: **0** raw chrome-carrying text controls in core-ui production |
+| B3 SearchField fill | **FIXED** | Blurred and focused both `rgb(255,255,255)`; focus shows border `--accent-deep` + 3px ring. `focus:bg-[var(--surface-page)]` gone |
+| B4 WorkTeam status fork | **FIXED** | Header chip BLOCKED (red StatusChip); tile reads AGENT HEALTH / Needs attention / 4 idle agents. Label is honest — the tile rolls up `deriveHealthLevel`, a different measurement from `deriveTeamStatus`. Neither displayed word is a StatusChip word |
+| B5 AC5 type arm | **FIXED** | Reproduced the exact break-test: `"warning"` in the union AND `VARIANT_CLASSES` → `npm run check` **FAILS** (`W2-primitives.test.tsx(313,8): TS2322`). Reverted → 54/54 pass |
+
+N1, N3, N8, N9, N12 all confirmed fixed. **The fix diff adds zero suppressions** — no `eslint-disable`, no
+`ts-expect-error`, no `.skip`, no widened allowlist, no weakened test. It removes five disables.
+`npm run verify` green, `npm run test` green (265 files / 2566 tests), 14/14 relevant Playwright specs green.
+
+## NEW BLOCKING
+
+### NEW-1 — the pill has two spellings again, and the app paints both
+`framework/design-system/src/CommentRow.tsx:246-247` — both branches of a ternary build a class string
+containing `rounded-full`, assigned to a variable and only then passed to `className`.
+
+**Measured:** open the sidebar assistant — **18 elements** compute `border-radius: 3.35544e+07px`.
+Every other pill computes 9999px. `CommentRow` ships via `index.ts:71-72` → `ThreadShell` →
+`AssistantOverlay.tsx:447`: two clicks from app open.
+
+**Why it is new to this branch.** These two lines exist on origin/main too, but the broken `@source` glob
+meant `.rounded-full` was never generated, so they painted square. Evaluation 1's AC3 evidence recorded
+exactly that ("`rounded-full` is no longer generated into the app's CSS"). **The B1 fix invalidated that
+evidence** — `.rounded-full` is one of 198 CSS rules that came back.
+
+**Why nothing caught it.** The class string is held in a variable before reaching `className`.
+`radius-token-only` reads JSX `className` attributes, so `npx eslint --no-inline-config CommentRow.tsx`
+exits 0. `scan.mjs` and `predicates.mjs` share the blind spot and report no `rounded-full` anywhere.
+This is the exact failure AC5 exists to prevent: an out-of-set value passing silently.
+
+**Failure scenario.** A builder copies the adjacent line to add a sibling avatar, ships a third
+`rounded-full`, and lint, check and test are all green — while the app's most-used radius is again an
+off-scale value that a computed-style audit reports as the headline defect. `:247` also paints
+`bg-[var(--surface-page)]` on an avatar, the same Set 3 second-job defect B2 and B3 removed elsewhere.
+
+**Tracked files now untrue:** `DESIGN.md:259-266` ("`rounded-full` … are all lint errors"),
+`.pipeline/AZ.md:37` ("Radii, inputs and status close fully"), `progress.json` ("90 → 0").
+
+## AC status after evaluation 2
+
+AC1 PASS (two sentences now false per NEW-1) · AC2 PARTIAL (inputs now 28/28 and status close; radius does
+not) · **AC3 FAIL** (NEW-1) · AC4 FAIL as product property, founder-deferred; its one named deliverable
+(SearchField) is now delivered · AC5 PARTIAL (type arm proven red; the radius rule cannot see a class
+string in a variable) · AC6 PASS (backlog regenerates byte-identically, 44 items; does not cover NEW-1) ·
+Scenario 2 PASS · **Scenario 3 PASS** · Scenario 1 radius now fails too.
+
+## New non-blocking
+
+- **NB-1** The `@source` repair made the whole design-system utility surface live for the first time:
+  **+198 CSS rules, 0 removed**. Spot-checked team page, a dialog, the assistant overlay, the bet page,
+  `/knowledge`, `/setup` — all paint correctly, and dense buttons going 44px → 34/36px is what the design
+  intended (this resolves N11). But no one has swept every surface whose modal width, popover position,
+  toggle thumb or status tint only started applying with this commit.
+- **NB-2** `Input`'s textarea mode cannot reach its own minimum height. `Input.tsx:56` puts
+  `lg:min-h-[36px]` in `INPUT_BASE`; `:79` appends `min-h-[80px]` for textarea. CSS order wins over class
+  order, so at ≥1024px computed `min-height` is 36px — measured on RecipientPicker's message box. Newly
+  visible because both utilities only became live with the B1 fix.
+- **NB-3** Two members of the closed Input set still paint `--surface-page`: `Composer.tsx:86`,
+  `RoleCombobox.tsx:217`. Same defect B3 fixed on `SearchField`, same package. AC4 is founder-deferred, so
+  not blocking, but the set is internally inconsistent about its own rule.
+- **NB-4** Design-system `.stories.tsx` files sit inside the app's `@source` glob, so story-only utilities
+  now ship in the production stylesheet — development-world markup shaping a production artifact.
+- **NB-5** `Button.tsx:62`'s prose comment containing `lg:min-h-[N]` is emitted as a real CSS rule.
+- **NB-6** `measurement/predicate-summary.json` is the BEFORE snapshot (radius 91→3, control chrome
+  137→79, chips 62→64 on a fresh run). Pins down evaluation 1's N7.
+- **NB-7** `plans/AI4/proof/*.png` are rewritten by `AI4-status-language.spec.ts` and now differ because
+  AZ7 changed button heights. Restored by the reviewer; someone should decide whether to refresh them or
+  stop the spec writing into tracked files.
