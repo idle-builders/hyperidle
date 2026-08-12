@@ -25,7 +25,7 @@ import { transitionProposedCall } from "@hyperidle/review";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { checkAndUnblockDependents } from "@hyperidle/work";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { queueDeps } from "../__testing__/durable-agent-queue-test-deps.js";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 import { fireGenericRoutine } from "./dispatch-test-helpers.js";
@@ -174,7 +174,10 @@ async function seedAssistantThread(
 ): Promise<{ humanId: string; assistantId: string; threadId: string }> {
 	const now = new Date().toISOString();
 	const humanId = ids("au9-assistant-human");
-	const assistantId = ids("ast-au9-assistant-human");
+	// @lore AU38: `isAssistantThread` (routes/threads.ts) checks
+	// `participants.some(p => p === \`ast-${hostId}\`)` — the assistant's user id
+	// MUST be `ast-<humanId>`, not an independent scoped id.
+	const assistantId = `ast-${humanId}`;
 	const threadId = ids("au9-assistant-thread");
 	await db.insert(users).values([
 		{
@@ -361,22 +364,32 @@ describe("atomic production handoffs", () => {
 			} as object),
 		});
 		await drainIntents(queueDeps(db), { now: () => new Date(Date.now() + 2_000) });
-		const intents = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.idempotencyKey, idemKey));
-		const intent = intents[0];
-		// The drain creates a request from the intent. Query by the intent's sourceId
-		// (the explicit_session_start id) to find the correlated request.
+		// @lore AU38: the intent's idempotencyKey is `explicit-session-start:${startId}`,
+		// not the route's idempotency key — find the start first, then query the intent.
 		const [start] = await db
 			.select()
 			.from(explicitSessionStarts)
 			.where(eq(explicitSessionStarts.idempotencyKey, idemKey));
+		const intents = start
+			? await db
+					.select()
+					.from(agentWorkIntents)
+					.where(eq(agentWorkIntents.idempotencyKey, `explicit-session-start:${start.id}`))
+			: [];
+		const intent = intents[0];
+		// @lore AU38: the baked session_start request carries sourceKind:"task" and
+		// sourceId:task.id (not the explicit_session_start id) — the drain creates
+		// the request from the baked payload, so we query by the task identity.
 		const requests = start
 			? await db
 					.select()
 					.from(agentSessionRequests)
-					.where(eq(agentSessionRequests.sourceId, start.id))
+					.where(
+						and(
+							eq(agentSessionRequests.sourceKind, "task"),
+							eq(agentSessionRequests.sourceId, scope.taskId),
+						),
+					)
 			: [];
 		expect(callbacks, JSON.stringify(intent)).toBe(0);
 		expect(requests, JSON.stringify(intent)).toHaveLength(1);

@@ -78,12 +78,13 @@ function intent(
 describe("terminal intent retention", () => {
 	test("preserves 29-day terminal rows and deletes 31-day terminal rows", async ({ db, ids }) => {
 		const requestId = await seedTerminalRequest(db, ids, "retention-29");
-		await db
-			.insert(agentWorkIntents)
-			.values([
-				{ ...intent(ids, "retention-29", "handed_off", 29), requestId } as typeof agentWorkIntents.$inferInsert,
-				intent(ids, "retention-31", "failed", 31) as typeof agentWorkIntents.$inferInsert,
-			]);
+		await db.insert(agentWorkIntents).values([
+			{
+				...intent(ids, "retention-29", "handed_off", 29),
+				requestId,
+			} as typeof agentWorkIntents.$inferInsert,
+			intent(ids, "retention-31", "failed", 31) as typeof agentWorkIntents.$inferInsert,
+		]);
 		await (await reaper())(db, { now, retentionDays: 30, batchSize: 500 });
 		expect(
 			await db
@@ -102,7 +103,9 @@ describe("terminal intent retention", () => {
 	for (const status of ["pending", "claimed"] as const) {
 		test(`never deletes old active ${status} intents`, async ({ db, ids }) => {
 			const label = `retention-active-${status}`;
-			await db.insert(agentWorkIntents).values(intent(ids, label, status, 31) as typeof agentWorkIntents.$inferInsert);
+			await db
+				.insert(agentWorkIntents)
+				.values(intent(ids, label, status, 31) as typeof agentWorkIntents.$inferInsert);
 			expect(
 				await db
 					.select()
