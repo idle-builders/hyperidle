@@ -17,6 +17,7 @@
  */
 
 import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import type {
 	AgentRunActiveCountsResponse,
 	AgentRunLatestOutcomesResponse,
@@ -40,34 +41,61 @@ function authHeaders(): Record<string, string> {
  *   task-2: run-c (agent-2, done/crashed, T2)
  *   no task: run-d (agent-2, active, T2)
  */
-async function seed(db: HyperIdleDb): Promise<void> {
-	await db.insert(teams).values({ id: "team-1", name: "Team", phase: "build", createdAt: T1 });
+async function seed(
+	db: HyperIdleDb,
+	ids: ScopedIds,
+): Promise<{
+	teamId: string;
+	tmId: string;
+	agent1: string;
+	agent2: string;
+	betId: string;
+	task1: string;
+	task2: string;
+	runA: string;
+	runB: string;
+	runC: string;
+	runD: string;
+}> {
+	const teamId = ids("team-1");
+	const tmId = ids("tm-1");
+	const agent1 = ids("agent-1");
+	const agent2 = ids("agent-2");
+	const betId = ids("bet-1");
+	const task1 = ids("task-1");
+	const task2 = ids("task-2");
+	const runA = ids("run-a");
+	const runB = ids("run-b");
+	const runC = ids("run-c");
+	const runD = ids("run-d");
+
+	await db.insert(teams).values({ id: teamId, name: "Team", phase: "build", createdAt: T1 });
 	await db
 		.insert(teamMembers)
-		.values({ id: "tm-1", teamId: "team-1", capacity: 5, activeBets: 1, formedAt: T1 });
+		.values({ id: tmId, teamId: teamId, capacity: 5, activeBets: 1, formedAt: T1 });
 	await db.insert(users).values([
 		{
-			id: "agent-1",
+			id: agent1,
 			kind: "ai",
 			name: "One",
 			role: "builder",
 			status: "idle",
-			teamId: "tm-1",
+			teamId: tmId,
 			createdAt: T1,
 		},
 		{
-			id: "agent-2",
+			id: agent2,
 			kind: "ai",
 			name: "Two",
 			role: "builder",
 			status: "idle",
-			teamId: "tm-1",
+			teamId: tmId,
 			createdAt: T1,
 		},
 	]);
 	await db.insert(bets).values({
-		id: "bet-1",
-		teamId: "team-1",
+		id: betId,
+		teamId: teamId,
 		description: "Test",
 		appetite: "small",
 		status: "active",
@@ -75,18 +103,18 @@ async function seed(db: HyperIdleDb): Promise<void> {
 	});
 	await db.insert(tasks).values([
 		{
-			id: "task-1",
-			betId: "bet-1",
-			teamId: "team-1",
+			id: task1,
+			betId: betId,
+			teamId: teamId,
 			title: "One",
 			state: "in_progress",
 			createdAt: T1,
 			updatedAt: T1,
 		},
 		{
-			id: "task-2",
-			betId: "bet-1",
-			teamId: "team-1",
+			id: task2,
+			betId: betId,
+			teamId: teamId,
 			title: "Two",
 			state: "review",
 			createdAt: T1,
@@ -95,9 +123,9 @@ async function seed(db: HyperIdleDb): Promise<void> {
 	]);
 	await db.insert(sessions).values([
 		{
-			id: "run-a",
-			agentId: "agent-1",
-			taskId: "task-1",
+			id: runA,
+			agentId: agent1,
+			taskId: task1,
 			modelTier: "workhorse",
 			startedAt: T1,
 			endedAt: T1,
@@ -106,17 +134,17 @@ async function seed(db: HyperIdleDb): Promise<void> {
 			effectivenessScore: "0.75",
 		},
 		{
-			id: "run-b",
-			agentId: "agent-1",
-			taskId: "task-1",
+			id: runB,
+			agentId: agent1,
+			taskId: task1,
 			modelTier: "workhorse",
 			startedAt: T3,
 			state: "active",
 		},
 		{
-			id: "run-c",
-			agentId: "agent-2",
-			taskId: "task-2",
+			id: runC,
+			agentId: agent2,
+			taskId: task2,
 			modelTier: "workhorse",
 			startedAt: T2,
 			endedAt: T2,
@@ -124,14 +152,15 @@ async function seed(db: HyperIdleDb): Promise<void> {
 			outcome: "crashed",
 		},
 		{
-			id: "run-d",
-			agentId: "agent-2",
+			id: runD,
+			agentId: agent2,
 			taskId: null,
 			modelTier: "workhorse",
 			startedAt: T2,
 			state: "active",
 		},
 	]);
+	return { teamId, tmId, agent1, agent2, betId, task1, task2, runA, runB, runC, runD };
 }
 
 describe("agent-orchestration run reads", () => {
@@ -142,19 +171,23 @@ describe("agent-orchestration run reads", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("runs by task id, newest first, with the eight consumed fields", async ({ db, app }) => {
-		await seed(db);
-		const res = await app.request("/api/agent-orchestration/runs?task_id=task-1", {
+	test("runs by task id, newest first, with the eight consumed fields", async ({
+		db,
+		app,
+		ids,
+	}) => {
+		const s = await seed(db, ids);
+		const res = await app.request(`/api/agent-orchestration/runs?task_id=${s.task1}`, {
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as AgentRunsResponse;
-		expect(body.runs.map((r) => r.id)).toEqual(["run-b", "run-a"]);
+		expect(body.runs.map((r) => r.id)).toEqual([s.runB, s.runA]);
 		const [newest, oldest] = body.runs;
 		expect(newest).toEqual({
-			id: "run-b",
-			agentId: "agent-1",
-			taskId: "task-1",
+			id: s.runB,
+			agentId: s.agent1,
+			taskId: s.task1,
 			startedAt: T3,
 			endedAt: null,
 			state: "active",
@@ -164,27 +197,28 @@ describe("agent-orchestration run reads", () => {
 		expect(oldest?.effectivenessScore).toBe("0.75");
 	});
 
-	test("a task with no run returns an empty list", async ({ db, app }) => {
-		await seed(db);
-		const res = await app.request("/api/agent-orchestration/runs?task_id=nope", {
+	test("a task with no run returns an empty list", async ({ db, app, ids }) => {
+		await seed(db, ids);
+		const res = await app.request(`/api/agent-orchestration/runs?task_id=${ids("nope")}`, {
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(200);
 		expect(((await res.json()) as AgentRunsResponse).runs).toEqual([]);
 	});
 
-	test("runs by agent ids, newest first across all given agents", async ({ db, app }) => {
-		await seed(db);
-		const res = await app.request("/api/agent-orchestration/runs?agent_ids=agent-1,agent-2", {
-			headers: authHeaders(),
-		});
+	test("runs by agent ids, newest first across all given agents", async ({ db, app, ids }) => {
+		const s = await seed(db, ids);
+		const res = await app.request(
+			`/api/agent-orchestration/runs?agent_ids=${s.agent1},${s.agent2}`,
+			{ headers: authHeaders() },
+		);
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as AgentRunsResponse;
-		expect(body.runs.map((r) => r.id)).toEqual(["run-b", "run-c", "run-d", "run-a"]);
+		expect(body.runs.map((r) => r.id)).toEqual([s.runB, s.runC, s.runD, s.runA]);
 	});
 
-	test("an empty agent_ids list returns an empty list, not every run", async ({ db, app }) => {
-		await seed(db);
+	test("an empty agent_ids list returns an empty list, not every run", async ({ db, app, ids }) => {
+		await seed(db, ids);
 		const res = await app.request("/api/agent-orchestration/runs?agent_ids=", {
 			headers: authHeaders(),
 		});
@@ -192,47 +226,51 @@ describe("agent-orchestration run reads", () => {
 		expect(((await res.json()) as AgentRunsResponse).runs).toEqual([]);
 	});
 
-	test("neither task_id nor agent_ids is a 400", async ({ db, app }) => {
-		await seed(db);
+	test("neither task_id nor agent_ids is a 400", async ({ db, app, ids }) => {
+		await seed(db, ids);
 		const res = await app.request("/api/agent-orchestration/runs", { headers: authHeaders() });
 		expect(res.status).toBe(400);
 	});
 
-	test("active counts, unscoped, omit agents with no active run", async ({ db, app }) => {
-		await seed(db);
+	test("active counts, unscoped, omit agents with no active run", async ({ db, app, ids }) => {
+		const s = await seed(db, ids);
 		const res = await app.request("/api/agent-orchestration/runs/active-counts", {
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as AgentRunActiveCountsResponse;
-		expect(body.counts).toEqual({ "agent-1": 1, "agent-2": 1 });
+		expect(body.counts).toEqual({ [s.agent1]: 1, [s.agent2]: 1 });
 	});
 
-	test("active counts scoped to given agents", async ({ db, app }) => {
-		await seed(db);
+	test("active counts scoped to given agents", async ({ db, app, ids }) => {
+		const s = await seed(db, ids);
 		const res = await app.request(
-			"/api/agent-orchestration/runs/active-counts?agent_ids=agent-1,agent-3",
+			`/api/agent-orchestration/runs/active-counts?agent_ids=${s.agent1},${ids("agent-3")}`,
 			{ headers: authHeaders() },
 		);
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as AgentRunActiveCountsResponse;
-		expect(body.counts).toEqual({ "agent-1": 1 });
+		expect(body.counts).toEqual({ [s.agent1]: 1 });
 	});
 
-	test("latest outcome per task, newest run wins, unknown task absent", async ({ db, app }) => {
-		await seed(db);
+	test("latest outcome per task, newest run wins, unknown task absent", async ({
+		db,
+		app,
+		ids,
+	}) => {
+		const s = await seed(db, ids);
 		const res = await app.request(
-			"/api/agent-orchestration/runs/latest-outcomes?task_ids=task-1,task-2,task-none",
+			`/api/agent-orchestration/runs/latest-outcomes?task_ids=${s.task1},${s.task2},${ids("task-none")}`,
 			{ headers: authHeaders() },
 		);
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as AgentRunLatestOutcomesResponse;
 		// task-1's newest run is run-b (active, no outcome yet) — null, not "completed".
-		expect(body.outcomes).toEqual({ "task-1": null, "task-2": "crashed" });
+		expect(body.outcomes).toEqual({ [s.task1]: null, [s.task2]: "crashed" });
 	});
 
-	test("an empty task_ids list returns an empty map", async ({ db, app }) => {
-		await seed(db);
+	test("an empty task_ids list returns an empty map", async ({ db, app, ids }) => {
+		await seed(db, ids);
 		const res = await app.request("/api/agent-orchestration/runs/latest-outcomes?task_ids=", {
 			headers: authHeaders(),
 		});
@@ -240,9 +278,9 @@ describe("agent-orchestration run reads", () => {
 		expect(((await res.json()) as AgentRunLatestOutcomesResponse).outcomes).toEqual({});
 	});
 
-	test("the run reads are read-only — POST is not served", async ({ db, app }) => {
-		await seed(db);
-		const res = await app.request("/api/agent-orchestration/runs?task_id=task-1", {
+	test("the run reads are read-only — POST is not served", async ({ db, app, ids }) => {
+		const s = await seed(db, ids);
+		const res = await app.request(`/api/agent-orchestration/runs?task_id=${s.task1}`, {
 			method: "POST",
 			headers: authHeaders(),
 		});

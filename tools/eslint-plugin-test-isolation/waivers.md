@@ -18,18 +18,6 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts`
 - `layers/core-api/src/__tests__/bets.integration.test.ts` — createTestDb test at line 515 uses its own isolated DB; literal id is safe within that isolated scope
 
-- `layers/core-api/src/__tests__/af9-attention-population.integration.test.ts`
-- `layers/core-api/src/__tests__/af9-promotion-routine.integration.test.ts`
-- `layers/core-api/src/__tests__/agent-layer-boot-recovery.integration.test.ts`
-- `layers/core-api/src/__tests__/agent-lifecycle-projection.integration.test.ts`
-- `layers/core-api/src/__tests__/agent-orchestration-run-reads.integration.test.ts`
-- `layers/core-api/src/__tests__/agent-request-custody.integration.test.ts`
-- `layers/core-api/src/__tests__/agent-work-intent-production.integration.test.ts`
-- `layers/core-api/src/__tests__/agent-work-intent-recovery.integration.test.ts`
-- `layers/core-api/src/__tests__/agent-work-intent-retention.integration.test.ts`
-- `layers/core-api/src/__tests__/api-e2e.integration.test.ts`
-- `layers/core-api/src/__tests__/app-runtime-domain-observability.integration.test.ts`
-- `layers/core-api/src/__tests__/artifacts-route.integration.test.ts`
 - `layers/core-api/src/__tests__/bet-decomposition-removal.integration.test.ts`
 - `layers/core-api/src/__tests__/bets.q3.integration.test.ts`
 - `layers/core-api/src/__tests__/builtin-routines.integration.test.ts`
@@ -99,10 +87,6 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/__tests__/AO1-filesystems.integration.test.ts` — AC4 before/after comparison reads of knowledgeItems and serverConfig to prove filesystem registration didn't touch other tables; legitimate negative-proof pattern
 - `layers/core-api/src/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts`
 
-- `layers/core-api/src/__tests__/agent-lifecycle-projection.integration.test.ts`
-- `layers/core-api/src/__tests__/agent-request-custody.integration.test.ts`
-- `layers/core-api/src/__tests__/agent-work-intent-production.integration.test.ts`
-- `layers/core-api/src/__tests__/app-runtime-domain-observability.integration.test.ts`
 - `layers/core-api/src/__tests__/attention-service.integration.test.ts`
 - `layers/core-api/src/__tests__/builtin-routines.integration.test.ts`
 - `layers/core-api/src/__tests__/create-routine.integration.test.ts`

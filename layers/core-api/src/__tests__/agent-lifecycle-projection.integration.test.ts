@@ -20,6 +20,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import type { SessionEndedEvent } from "@hyperidle/domain-model";
 import {
 	drainLifecycleProjections,
@@ -49,15 +50,18 @@ async function waitForProjection(
 	try {
 		const deadline = Date.now() + 5_000;
 		for (;;) {
-			const rows = await db
-				.select({
-					requestId: agentLifecycleInbox.requestId,
-					projectedAt: agentLifecycleInbox.projectedAt,
-				})
-				.from(agentLifecycleInbox);
-			const pending = rows.filter(
-				(row) => requestIds.includes(row.requestId) && row.projectedAt === null,
-			);
+			const allRows: Array<{ requestId: string; projectedAt: string | null }> = [];
+			for (const rid of requestIds) {
+				const r = await db
+					.select({
+						requestId: agentLifecycleInbox.requestId,
+						projectedAt: agentLifecycleInbox.projectedAt,
+					})
+					.from(agentLifecycleInbox)
+					.where(eq(agentLifecycleInbox.requestId, rid));
+				allRows.push(...r);
+			}
+			const pending = allRows.filter((row) => row.projectedAt === null);
 			if (pending.length === 0) return;
 			if (Date.now() > deadline) throw new Error(`Projection timed out for ${pending.length} rows`);
 			await new Promise((resolve) => setTimeout(resolve, 15));
@@ -69,14 +73,16 @@ async function waitForProjection(
 
 async function seedTerminalRequest(
 	db: import("@hyperidle/db").HyperIdleDb,
-	requestId: string,
+	ids: ScopedIds,
+	prefix: string,
 	sourceKind: string,
 	sourceId: string,
 	sessionId?: string,
-): Promise<void> {
+): Promise<string> {
 	const now = new Date().toISOString();
+	const requestId = ids(prefix);
 	await db.insert(users).values({
-		id: `${requestId}-agent`,
+		id: ids(`${prefix}-agent`),
 		kind: "ai",
 		name: "Agent",
 		role: "builder",
@@ -86,9 +92,9 @@ async function seedTerminalRequest(
 	await db.insert(agentSessionRequests).values({
 		id: requestId,
 		sourceKind: "assistant",
-		sourceId: `${requestId}-source`,
-		streamId: `${requestId}-stream`,
-		agentId: `${requestId}-agent`,
+		sourceId: ids(`${prefix}-source`),
+		streamId: ids(`${prefix}-stream`),
+		agentId: ids(`${prefix}-agent`),
 		promptMode: "conversation",
 		sourceCorrelationJson: "{}",
 		idempotencyKey: requestId,
@@ -105,6 +111,7 @@ async function seedTerminalRequest(
 		...(sessionId ? { sessionId } : {}),
 		occurredAt: now,
 	});
+	return requestId;
 }
 
 describe("durable lifecycle projection", () => {
@@ -136,6 +143,7 @@ describe("durable lifecycle projection", () => {
 
 	test("the real drain projects a completed fact into every family's own domain state (or acknowledges the no-op families)", async ({
 		db,
+		ids,
 	}) => {
 		const now = new Date().toISOString();
 
@@ -147,29 +155,43 @@ describe("durable lifecycle projection", () => {
 		// `routine` projector is `observeOnly` — it acknowledges the fact but
 		// performs no `routineRuns` write. See the dedicated test below for the
 		// end-to-end proof that Wave C's mechanism alone still finalizes the run.
-		await db
-			.insert(teams)
-			.values({ id: "au9-lc-team", name: "AU9", phase: "build", createdAt: now });
+		const teamId = ids("au9-lc-team");
+		const memberId = ids("au9-lc-member");
+		const ownerId = ids("au9-lc-owner");
+		const routineId = ids("au9-lc-routine");
+		const routineRunId = ids("au9-lc-routine-run");
+		const routineRequestId = ids("au9-lc-routine-request");
+		const betId = ids("au9-lc-bet");
+		const taskId = ids("au9-lc-task");
+		const humanId = ids("au9-lc-human");
+		const explicitRequestId = ids("au9-lc-explicit-request");
+		const explicitSessionId = ids("au9-lc-explicit-session");
+		const startId = ids("au9-lc-start");
+		const assistantRequestId = ids("au9-lc-assistant-request");
+		const knowledgeRequestId = ids("au9-lc-knowledge-request");
+		const proposedCallRequestId = ids("au9-lc-proposed-call-request");
+
+		await db.insert(teams).values({ id: teamId, name: "AU9", phase: "build", createdAt: now });
 		await db.insert(teamMembers).values({
-			id: "au9-lc-member",
-			teamId: "au9-lc-team",
+			id: memberId,
+			teamId: teamId,
 			capacity: 3,
 			activeBets: 0,
 			formedAt: now,
 		});
 		await db.insert(users).values({
-			id: "au9-lc-owner",
+			id: ownerId,
 			kind: "ai",
 			name: "Owner",
 			role: "builder",
 			status: "active",
-			teamId: "au9-lc-member",
+			teamId: memberId,
 			createdAt: now,
 		});
 		await db.insert(routines).values({
-			id: "au9-lc-routine",
-			teamId: "au9-lc-team",
-			ownerAgentId: "au9-lc-owner",
+			id: routineId,
+			teamId: teamId,
+			ownerAgentId: ownerId,
 			name: "AU9 routine",
 			triggerType: "manual",
 			active: true,
@@ -177,33 +199,33 @@ describe("durable lifecycle projection", () => {
 			createdAt: now,
 		});
 		await db.insert(routineRuns).values({
-			id: "au9-lc-routine-run",
-			routineId: "au9-lc-routine",
+			id: routineRunId,
+			routineId: routineId,
 			outcome: "running",
 			startedAt: now,
 		});
-		await seedTerminalRequest(db, "au9-lc-routine-request", "routine", "au9-lc-routine-run");
+		await seedTerminalRequest(db, ids, "au9-lc-routine-request", "routine", routineRunId);
 
 		// explicit_session_start family — real projection
 		await db.insert(bets).values({
-			id: "au9-lc-bet",
-			teamId: "au9-lc-team",
+			id: betId,
+			teamId: teamId,
 			description: "AU9",
 			appetite: "small",
 			status: "active",
 			createdAt: now,
 		});
 		await db.insert(tasks).values({
-			id: "au9-lc-task",
-			betId: "au9-lc-bet",
-			teamId: "au9-lc-team",
+			id: taskId,
+			betId: betId,
+			teamId: teamId,
 			title: "AU9",
 			state: "in_progress",
 			createdAt: now,
 			updatedAt: now,
 		});
 		await db.insert(users).values({
-			id: "au9-lc-human",
+			id: humanId,
 			kind: "human",
 			name: "Founder",
 			role: "founder",
@@ -212,29 +234,30 @@ describe("durable lifecycle projection", () => {
 		});
 		await seedTerminalRequest(
 			db,
+			ids,
 			"au9-lc-explicit-request",
 			"explicit_session_start",
-			"au9-lc-explicit-request",
-			"au9-lc-explicit-session",
+			explicitRequestId,
+			explicitSessionId,
 		);
 		await db.insert(sessions).values({
-			id: "au9-lc-explicit-session",
-			taskId: "au9-lc-task",
-			agentId: "au9-lc-owner",
+			id: explicitSessionId,
+			taskId: taskId,
+			agentId: ownerId,
 			modelTier: "fast",
 			startedAt: now,
 			state: "active",
 		});
 		await db.insert(explicitSessionStarts).values({
-			id: "au9-lc-start",
-			taskId: "au9-lc-task",
-			requestedAgentId: "au9-lc-owner",
+			id: startId,
+			taskId: taskId,
+			requestedAgentId: ownerId,
 			requestedModelTier: "workhorse",
-			requestedBy: "au9-lc-human",
-			idempotencyKey: "au9-lc-start",
+			requestedBy: humanId,
+			idempotencyKey: startId,
 			status: "admitted",
-			requestId: "au9-lc-explicit-request",
-			sessionId: "au9-lc-explicit-session",
+			requestId: explicitRequestId,
+			sessionId: explicitSessionId,
 			createdAt: now,
 			updatedAt: now,
 		});
@@ -242,29 +265,32 @@ describe("durable lifecycle projection", () => {
 		// no-op families — acknowledged but no domain write expected.
 		await seedTerminalRequest(
 			db,
+			ids,
 			"au9-lc-assistant-request",
 			"assistant",
-			"au9-lc-assistant-source",
+			ids("au9-lc-assistant-source"),
 		);
 		await seedTerminalRequest(
 			db,
+			ids,
 			"au9-lc-knowledge-request",
 			"knowledge",
-			"au9-lc-knowledge-source",
+			ids("au9-lc-knowledge-source"),
 		);
 		await seedTerminalRequest(
 			db,
+			ids,
 			"au9-lc-proposed-call-request",
 			"proposed_call",
-			"au9-lc-proposed-call-source",
+			ids("au9-lc-proposed-call-source"),
 		);
 
 		await waitForProjection(db, [
-			"au9-lc-routine-request",
-			"au9-lc-explicit-request",
-			"au9-lc-assistant-request",
-			"au9-lc-knowledge-request",
-			"au9-lc-proposed-call-request",
+			routineRequestId,
+			explicitRequestId,
+			assistantRequestId,
+			knowledgeRequestId,
+			proposedCallRequestId,
 		]);
 
 		// AU21 correction: the drain's `routine` projector is `observeOnly` now —
@@ -274,29 +300,27 @@ describe("durable lifecycle projection", () => {
 		const [routineRun] = await db
 			.select()
 			.from(routineRuns)
-			.where(eq(routineRuns.id, "au9-lc-routine-run"));
+			.where(eq(routineRuns.id, routineRunId));
 		expect(routineRun).toMatchObject({ outcome: "running" });
 
 		const [start] = await db
 			.select()
 			.from(explicitSessionStarts)
-			.where(eq(explicitSessionStarts.id, "au9-lc-start"));
+			.where(eq(explicitSessionStarts.id, startId));
 		expect(start).toMatchObject({ status: "completed" });
 
-		const inbox = await db
-			.select({
-				requestId: agentLifecycleInbox.requestId,
-				projectedAt: agentLifecycleInbox.projectedAt,
-			})
-			.from(agentLifecycleInbox);
 		for (const requestId of [
-			"au9-lc-routine-request",
-			"au9-lc-explicit-request",
-			"au9-lc-assistant-request",
-			"au9-lc-knowledge-request",
-			"au9-lc-proposed-call-request",
+			routineRequestId,
+			explicitRequestId,
+			assistantRequestId,
+			knowledgeRequestId,
+			proposedCallRequestId,
 		]) {
-			expect(inbox.find((row) => row.requestId === requestId)?.projectedAt).toBeTruthy();
+			const [inboxRow] = await db
+				.select({ projectedAt: agentLifecycleInbox.projectedAt })
+				.from(agentLifecycleInbox)
+				.where(eq(agentLifecycleInbox.requestId, requestId));
+			expect(inboxRow?.projectedAt).toBeTruthy();
 		}
 	});
 
@@ -319,31 +343,38 @@ describe("durable lifecycle projection", () => {
 	test("a routine session's terminal finalization happens via Wave C's event reaction alone — the lifecycle-inbox drain performs no direct routineRuns write", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
 		const now = new Date().toISOString();
-		await db
-			.insert(teams)
-			.values({ id: "au21-corr-team", name: "AU21", phase: "build", createdAt: now });
+		const teamId = ids("au21-corr-team");
+		const memberId = ids("au21-corr-member");
+		const ownerId = ids("au21-corr-owner");
+		const routineId = ids("au21-corr-routine");
+		const runId = ids("au21-corr-run");
+		const sessionId = ids("au21-corr-session");
+		const requestId = ids("au21-corr-request");
+
+		await db.insert(teams).values({ id: teamId, name: "AU21", phase: "build", createdAt: now });
 		await db.insert(teamMembers).values({
-			id: "au21-corr-member",
-			teamId: "au21-corr-team",
+			id: memberId,
+			teamId: teamId,
 			capacity: 3,
 			activeBets: 0,
 			formedAt: now,
 		});
 		await db.insert(users).values({
-			id: "au21-corr-owner",
+			id: ownerId,
 			kind: "ai",
 			name: "Owner",
 			role: "builder",
 			status: "active",
-			teamId: "au21-corr-member",
+			teamId: memberId,
 			createdAt: now,
 		});
 		await db.insert(routines).values({
-			id: "au21-corr-routine",
-			teamId: "au21-corr-team",
-			ownerAgentId: "au21-corr-owner",
+			id: routineId,
+			teamId: teamId,
+			ownerAgentId: ownerId,
 			name: "AU21 routine",
 			triggerType: "manual",
 			active: true,
@@ -351,25 +382,19 @@ describe("durable lifecycle projection", () => {
 			createdAt: now,
 		});
 		await db.insert(routineRuns).values({
-			id: "au21-corr-run",
-			routineId: "au21-corr-routine",
+			id: runId,
+			routineId: routineId,
 			outcome: "running",
 			startedAt: now,
 		});
 		await db.insert(sessions).values({
-			id: "au21-corr-session",
-			agentId: "au21-corr-owner",
+			id: sessionId,
+			agentId: ownerId,
 			modelTier: "fast",
 			startedAt: now,
 			state: "done",
 		});
-		await seedTerminalRequest(
-			db,
-			"au21-corr-request",
-			"routine",
-			"au21-corr-run",
-			"au21-corr-session",
-		);
+		await seedTerminalRequest(db, ids, "au21-corr-request", "routine", runId, sessionId);
 
 		// Step 1: drain the lifecycle inbox through the REAL, production
 		// composition root (`queueDeps(db)` — no fakes). The routine fact must
@@ -379,15 +404,12 @@ describe("durable lifecycle projection", () => {
 		// `observeOnly`, so nothing writes to `routineRuns` here.
 		const projectedCount = await drainLifecycleProjections(queueDeps(db));
 		expect(projectedCount).toBe(1);
-		const [afterDrain] = await db
-			.select()
-			.from(routineRuns)
-			.where(eq(routineRuns.id, "au21-corr-run"));
+		const [afterDrain] = await db.select().from(routineRuns).where(eq(routineRuns.id, runId));
 		expect(afterDrain).toMatchObject({ outcome: "running", sessionId: null, endedAt: null });
 		const [inboxRow] = await db
 			.select({ projectedAt: agentLifecycleInbox.projectedAt })
 			.from(agentLifecycleInbox)
-			.where(eq(agentLifecycleInbox.requestId, "au21-corr-request"));
+			.where(eq(agentLifecycleInbox.requestId, requestId));
 		expect(inboxRow?.projectedAt).toBeTruthy();
 
 		// Step 2: Wave C's reaction is the ONLY thing that finalizes the run —
@@ -395,12 +417,12 @@ describe("durable lifecycle projection", () => {
 		registerRoutineRunSessionEndReactions(db, eventBus);
 		const event: SessionEndedEvent = {
 			type: "session_ended",
-			streamId: "au21-corr-session",
-			sessionId: "au21-corr-session",
-			agentId: "au21-corr-owner",
+			streamId: sessionId,
+			sessionId: sessionId,
+			agentId: ownerId,
 			taskId: null,
 			sourceKind: "routine",
-			sourceId: "au21-corr-run",
+			sourceId: runId,
 			timestamp: Date.now(),
 			outcome: "completed",
 			routineRunOutcome: "success",
@@ -408,12 +430,9 @@ describe("durable lifecycle projection", () => {
 		eventBus.emit(event);
 
 		await vi.waitFor(async () => {
-			const [finalized] = await db
-				.select()
-				.from(routineRuns)
-				.where(eq(routineRuns.id, "au21-corr-run"));
+			const [finalized] = await db.select().from(routineRuns).where(eq(routineRuns.id, runId));
 			expect(finalized?.outcome).toBe("success");
-			expect(finalized?.sessionId).toBe("au21-corr-session");
+			expect(finalized?.sessionId).toBe(sessionId);
 			expect(finalized?.endedAt).toBeTruthy();
 		});
 	});
@@ -422,11 +441,14 @@ describe("durable lifecycle projection", () => {
 describe("PATCH /api/sessions/:id drives request-level custody through the public route", () => {
 	async function seedActiveSession(
 		db: import("@hyperidle/db").HyperIdleDb,
-		id: string,
-	): Promise<void> {
+		ids: ScopedIds,
+		prefix: string,
+	): Promise<{ sessionId: string; requestId: string }> {
 		const now = new Date().toISOString();
+		const sessionId = ids(prefix);
+		const requestId = ids(`${prefix}-request`);
 		await db.insert(users).values({
-			id: `${id}-agent`,
+			id: ids(`${prefix}-agent`),
 			kind: "ai",
 			name: "Agent",
 			role: "builder",
@@ -434,35 +456,37 @@ describe("PATCH /api/sessions/:id drives request-level custody through the publi
 			createdAt: now,
 		});
 		await db.insert(agentSessionRequests).values({
-			id: `${id}-request`,
+			id: requestId,
 			sourceKind: "assistant",
-			sourceId: `${id}-source`,
-			streamId: `${id}-stream`,
-			agentId: `${id}-agent`,
+			sourceId: ids(`${prefix}-source`),
+			streamId: ids(`${prefix}-stream`),
+			agentId: ids(`${prefix}-agent`),
 			promptMode: "conversation",
 			sourceCorrelationJson: "{}",
-			idempotencyKey: id,
+			idempotencyKey: sessionId,
 			status: "running",
-			sessionId: id,
+			sessionId: sessionId,
 			createdAt: now,
 			updatedAt: now,
 		});
 		await db.insert(sessions).values({
-			id,
-			requestId: `${id}-request`,
-			agentId: `${id}-agent`,
+			id: sessionId,
+			requestId: requestId,
+			agentId: ids(`${prefix}-agent`),
 			modelTier: "fast",
 			startedAt: now,
 			state: "active",
 		});
+		return { sessionId, requestId };
 	}
 
 	test("no live registry: PATCH state=done terminalizes the correlated request to cancelled with one inbox fact", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedActiveSession(db, "au9-patch-done");
-		const response = await app.request("/api/sessions/au9-patch-done", {
+		const { sessionId, requestId } = await seedActiveSession(db, ids, "au9-patch-done");
+		const response = await app.request(`/api/sessions/${sessionId}`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ state: "done" }),
@@ -471,12 +495,12 @@ describe("PATCH /api/sessions/:id drives request-level custody through the publi
 		const [request] = await db
 			.select()
 			.from(agentSessionRequests)
-			.where(eq(agentSessionRequests.id, "au9-patch-done-request"));
+			.where(eq(agentSessionRequests.id, requestId));
 		expect(request).toMatchObject({ status: "cancelled" });
 		const inbox = await db
 			.select()
 			.from(agentLifecycleInbox)
-			.where(eq(agentLifecycleInbox.requestId, "au9-patch-done-request"));
+			.where(eq(agentLifecycleInbox.requestId, requestId));
 		expect(inbox).toHaveLength(1);
 		expect(inbox[0]).toMatchObject({ state: "cancelled" });
 	});
@@ -484,9 +508,10 @@ describe("PATCH /api/sessions/:id drives request-level custody through the publi
 	test("no live registry: PATCH state=crashed terminalizes the correlated request to failed", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedActiveSession(db, "au9-patch-crashed");
-		const response = await app.request("/api/sessions/au9-patch-crashed", {
+		const { sessionId, requestId } = await seedActiveSession(db, ids, "au9-patch-crashed");
+		const response = await app.request(`/api/sessions/${sessionId}`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ state: "crashed" }),
@@ -495,17 +520,17 @@ describe("PATCH /api/sessions/:id drives request-level custody through the publi
 		const [request] = await db
 			.select()
 			.from(agentSessionRequests)
-			.where(eq(agentSessionRequests.id, "au9-patch-crashed-request"));
+			.where(eq(agentSessionRequests.id, requestId));
 		expect(request).toMatchObject({ status: "failed" });
 	});
 
-	test("already-terminal session rejects the PATCH with 409", async ({ db, app }) => {
-		await seedActiveSession(db, "au9-patch-terminal");
+	test("already-terminal session rejects the PATCH with 409", async ({ db, app, ids }) => {
+		const { sessionId } = await seedActiveSession(db, ids, "au9-patch-terminal");
 		await db
 			.update(sessions)
 			.set({ state: "done", outcome: "completed", endedAt: new Date().toISOString() })
-			.where(eq(sessions.id, "au9-patch-terminal"));
-		const response = await app.request("/api/sessions/au9-patch-terminal", {
+			.where(eq(sessions.id, sessionId));
+		const response = await app.request(`/api/sessions/${sessionId}`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ state: "done" }),
@@ -516,14 +541,15 @@ describe("PATCH /api/sessions/:id drives request-level custody through the publi
 	test("a competing already-stored termination cause conflicts instead of silently overwriting", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedActiveSession(db, "au9-patch-competing");
+		const { sessionId, requestId } = await seedActiveSession(db, ids, "au9-patch-competing");
 		// Simulate a handoff (or another PATCH) that already stored a different cause.
 		await db
 			.update(agentSessionRequests)
 			.set({ terminationReason: "handoff", terminationRequestedAt: new Date().toISOString() })
-			.where(eq(agentSessionRequests.id, "au9-patch-competing-request"));
-		const response = await app.request("/api/sessions/au9-patch-competing", {
+			.where(eq(agentSessionRequests.id, requestId));
+		const response = await app.request(`/api/sessions/${sessionId}`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ state: "done" }),
@@ -532,7 +558,7 @@ describe("PATCH /api/sessions/:id drives request-level custody through the publi
 		const [request] = await db
 			.select()
 			.from(agentSessionRequests)
-			.where(eq(agentSessionRequests.id, "au9-patch-competing-request"));
+			.where(eq(agentSessionRequests.id, requestId));
 		// The competing cause is untouched — never silently overwritten.
 		expect(request).toMatchObject({ terminationReason: "handoff", status: "running" });
 	});
@@ -540,15 +566,16 @@ describe("PATCH /api/sessions/:id drives request-level custody through the publi
 	test("a live registry entry stores the cause before the async abort and returns 202", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedActiveSession(db, "au9-patch-live");
-		sessionRunRegistry.register("au9-patch-live", {
+		const { sessionId, requestId } = await seedActiveSession(db, ids, "au9-patch-live");
+		sessionRunRegistry.register(sessionId, {
 			signalAbort: vi.fn(),
 			handle: {} as never,
 			adapter: { stopSession: vi.fn(async () => {}) } as never,
 		});
 		try {
-			const response = await app.request("/api/sessions/au9-patch-live", {
+			const response = await app.request(`/api/sessions/${sessionId}`, {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({ state: "done" }),
@@ -557,12 +584,12 @@ describe("PATCH /api/sessions/:id drives request-level custody through the publi
 			const [request] = await db
 				.select()
 				.from(agentSessionRequests)
-				.where(eq(agentSessionRequests.id, "au9-patch-live-request"));
+				.where(eq(agentSessionRequests.id, requestId));
 			// Reason persisted BEFORE the (mocked) async abort settles; request is
 			// still durably "running" — the runtime teardown resolves it, not here.
 			expect(request).toMatchObject({ terminationReason: "user_done", status: "running" });
 		} finally {
-			sessionRunRegistry.deregister("au9-patch-live");
+			sessionRunRegistry.deregister(sessionId);
 		}
 	});
 });
@@ -570,12 +597,14 @@ describe("PATCH /api/sessions/:id drives request-level custody through the publi
 describe("crash-after-202 recovery resolves a durably-stored termination cause", () => {
 	async function seedRunningWithReason(
 		db: import("@hyperidle/db").HyperIdleDb,
-		id: string,
+		ids: ScopedIds,
+		prefix: string,
 		reason: "shutdown" | "handoff" | "user_crashed",
-	): Promise<void> {
+	): Promise<{ requestId: string }> {
 		const now = new Date().toISOString();
+		const requestId = ids(`${prefix}-request`);
 		await db.insert(users).values({
-			id: `${id}-agent`,
+			id: ids(`${prefix}-agent`),
 			kind: "ai",
 			name: "Agent",
 			role: "builder",
@@ -583,39 +612,40 @@ describe("crash-after-202 recovery resolves a durably-stored termination cause",
 			createdAt: now,
 		});
 		await db.insert(agentSessionRequests).values({
-			id: `${id}-request`,
+			id: requestId,
 			sourceKind: "assistant",
-			sourceId: `${id}-source`,
-			streamId: `${id}-stream`,
-			agentId: `${id}-agent`,
+			sourceId: ids(`${prefix}-source`),
+			streamId: ids(`${prefix}-stream`),
+			agentId: ids(`${prefix}-agent`),
 			promptMode: "conversation",
 			sourceCorrelationJson: "{}",
-			idempotencyKey: id,
+			idempotencyKey: prefix,
 			status: "running",
-			sessionId: `${id}-session`,
+			sessionId: ids(`${prefix}-session`),
 			terminationReason: reason,
 			terminationRequestedAt: now,
 			createdAt: now,
 			updatedAt: now,
 		});
 		await db.insert(sessions).values({
-			id: `${id}-session`,
-			requestId: `${id}-request`,
-			agentId: `${id}-agent`,
+			id: ids(`${prefix}-session`),
+			requestId: requestId,
+			agentId: ids(`${prefix}-agent`),
 			modelTier: "fast",
 			startedAt: now,
 			state: "active",
 		});
+		return { requestId };
 	}
 
-	test("shutdown recovers to failed/RUNTIME_LOST", async ({ db, eventBus }) => {
-		await seedRunningWithReason(db, "au9-recover-shutdown", "shutdown");
+	test("shutdown recovers to failed/RUNTIME_LOST", async ({ db, eventBus, ids }) => {
+		const { requestId } = await seedRunningWithReason(db, ids, "au9-recover-shutdown", "shutdown");
 		const runtime = await startTestRuntime(db, eventBus, { db, eventBus }, {} as never);
 		try {
 			const [request] = await db
 				.select()
 				.from(agentSessionRequests)
-				.where(eq(agentSessionRequests.id, "au9-recover-shutdown-request"));
+				.where(eq(agentSessionRequests.id, requestId));
 			expect(request).toMatchObject({ status: "failed", errorCode: "RUNTIME_LOST" });
 		} finally {
 			await runtime.dispose();
@@ -627,28 +657,37 @@ describe("crash-after-202 recovery resolves a durably-stored termination cause",
 	// (the cap gate that produced it is gone) and `BUDGET_EXHAUSTED` no longer
 	// exists as a disposition, no replacement.
 
-	test("handoff recovers to completed — never cancelled", async ({ db, eventBus }) => {
-		await seedRunningWithReason(db, "au9-recover-handoff", "handoff");
+	test("handoff recovers to completed — never cancelled", async ({ db, eventBus, ids }) => {
+		const { requestId } = await seedRunningWithReason(db, ids, "au9-recover-handoff", "handoff");
 		const runtime = await startTestRuntime(db, eventBus, { db, eventBus }, {} as never);
 		try {
 			const [request] = await db
 				.select()
 				.from(agentSessionRequests)
-				.where(eq(agentSessionRequests.id, "au9-recover-handoff-request"));
+				.where(eq(agentSessionRequests.id, requestId));
 			expect(request).toMatchObject({ status: "completed" });
 		} finally {
 			await runtime.dispose();
 		}
 	});
 
-	test("user_crashed recovers to failed with no stable failure code", async ({ db, eventBus }) => {
-		await seedRunningWithReason(db, "au9-recover-usercrash", "user_crashed");
+	test("user_crashed recovers to failed with no stable failure code", async ({
+		db,
+		eventBus,
+		ids,
+	}) => {
+		const { requestId } = await seedRunningWithReason(
+			db,
+			ids,
+			"au9-recover-usercrash",
+			"user_crashed",
+		);
 		const runtime = await startTestRuntime(db, eventBus, { db, eventBus }, {} as never);
 		try {
 			const [request] = await db
 				.select()
 				.from(agentSessionRequests)
-				.where(eq(agentSessionRequests.id, "au9-recover-usercrash-request"));
+				.where(eq(agentSessionRequests.id, requestId));
 			expect(request).toMatchObject({ status: "failed", errorCode: null });
 		} finally {
 			await runtime.dispose();

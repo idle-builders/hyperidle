@@ -4,6 +4,7 @@ import {
 	knowledgeAppProjection,
 	users,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { deliver, enqueue, listNotifications, updateConfig } from "@hyperidle/notifications";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -16,15 +17,17 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
-async function seedFounder(db: HyperIdleDb): Promise<void> {
+async function seedFounder(db: HyperIdleDb, ids: ScopedIds): Promise<string> {
+	const founderId = ids("founder");
 	await db.insert(users).values({
-		id: "u-au3-founder",
+		id: founderId,
 		name: "Founder",
 		role: "founder",
 		status: "active",
 		kind: "human",
 		createdAt: new Date().toISOString(),
 	});
+	return founderId;
 }
 
 describe("app runtime domain observability", () => {
@@ -38,8 +41,8 @@ describe("app runtime domain observability", () => {
 
 	fixtureTest(
 		"knowledge projection, routine request, and notifications stay observable",
-		async ({ app, db }) => {
-			await seedFounder(db);
+		async ({ app, db, ids }) => {
+			const founderId = await seedFounder(db, ids);
 
 			// @lore the raw projection UPDATE this test used to run is gone: the owner's `create`
 			// (invoked by POST /api/knowledge) already inserts the projection row, so a second write
@@ -53,7 +56,7 @@ describe("app runtime domain observability", () => {
 					title: "AU3 preserved knowledge",
 					body: "Projection survives runtime migration.",
 					format: "markdown",
-					updatedBy: "u-au3-founder",
+					updatedBy: founderId,
 					scopeKind: "factory",
 					kind: "decision",
 					layer: "L4",
@@ -84,8 +87,9 @@ describe("app runtime domain observability", () => {
 			// @lore AU20 Ag6b: `enqueueNotification` removed from public API; use `enqueue`
 			// with explicit id/status/attempts/createdAt fields. `flush` wraps
 			// loadNotificationConfig+flushQueue internally; no inline config needed.
+			const notificationId = ids("notif");
 			await enqueue(db, {
-				id: crypto.randomUUID(),
+				id: notificationId,
 				eventType: "au3.domain",
 				subjectId: created.id,
 				severity: "digest",
@@ -98,7 +102,7 @@ describe("app runtime domain observability", () => {
 				createdAt: new Date().toISOString(),
 			});
 			const queued = await listNotifications(db, { kind: "all" });
-			expect(queued).toHaveLength(1);
+			expect(queued.find((n) => n.id === notificationId)).toBeDefined();
 
 			// Enable notifications so flush actually delivers (default config has enabled=false)
 			await updateConfig(
@@ -126,11 +130,14 @@ describe("app runtime domain observability", () => {
 			});
 			expect(routinesRes.status).toBe(200);
 
-			const requests = await db.select().from(agentSessionRequests);
+			const requests = await db
+				.select()
+				.from(agentSessionRequests)
+				.where(eq(agentSessionRequests.id, ids("nonexistent-request")));
 			expect(Array.isArray(requests)).toBe(true);
 
 			const sent = (await listNotifications(db, { kind: "all" })).find(
-				(r) => r.eventType === "au3.domain",
+				(r) => r.id === notificationId,
 			);
 			expect(sent?.status).toBe("sent");
 		},

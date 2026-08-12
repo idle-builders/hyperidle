@@ -24,6 +24,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import type { KnowledgeUpdatedEvent } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
@@ -31,61 +32,83 @@ import { fireStoredRoutine, seedTeamRoutines } from "./dispatch-test-helpers.js"
 
 const NOW_ISO = "2026-06-11T00:00:00.000Z";
 
-const TEST_TEAM_ID = "prod-1";
-// @lore AF17: per-team routine id scheme — builtin:<kind>:<teamId>
-const PROMOTION_ROUTINE_ID = `builtin:knowledge-promotion:${TEST_TEAM_ID}`;
-
 /**
  * Seed the agent rows referenced by builtin routines.
  * Mirrors `seedOwners` in `builtin-routines.integration.test.ts`.
  */
-async function seedOwners(db: HyperIdleDb): Promise<void> {
-	await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: NOW_ISO });
+async function seedOwners(
+	db: HyperIdleDb,
+	ids: ScopedIds,
+): Promise<{
+	teamId: string;
+	memberId: string;
+	facilitatorId: string;
+	pmId: string;
+	assistantId: string;
+}> {
+	const teamId = ids("prod-1");
+	const memberId = ids("team-1");
+	const assistantId = ids("seed-agent-cos");
+	const facilitatorId = ids("seed-agent-pf-facilitation");
+	const pmId = ids("demo-agent-pm");
+	await db.insert(teams).values({ id: teamId, name: "Acme", phase: "build", createdAt: NOW_ISO });
 	await db.insert(teamMembers).values({
-		id: "team-1",
-		teamId: "prod-1",
+		id: memberId,
+		teamId: teamId,
 		capacity: 5,
 		activeBets: 0,
 		formedAt: NOW_ISO,
 	});
 	await db.insert(users).values({
-		id: "seed-agent-cos",
+		id: assistantId,
 		name: "System Agent",
 		role: "assistant",
 		status: "active",
 		createdAt: NOW_ISO,
 	});
 	await db.insert(users).values({
-		id: "seed-agent-pf-facilitation",
+		id: facilitatorId,
 		name: "Facilitation Facilitator",
 		role: "facilitator",
 		status: "active",
 		createdAt: NOW_ISO,
 	});
 	await db.insert(users).values({
-		id: "demo-agent-pm",
+		id: pmId,
 		name: "Acme PM",
 		role: "product_manager",
 		status: "active",
-		teamId: "team-1",
+		teamId: memberId,
 		createdAt: NOW_ISO,
 	});
+	return { teamId, memberId, facilitatorId, pmId, assistantId };
 }
 
 /**
  * @lore AF17: replaces seedBuiltinRoutines(db, teamId).
  * Uses seedTeamRoutines so ids are per-team: `builtin:<kind>:<teamId>`.
  */
-async function seedBuiltinRoutines(db: HyperIdleDb, teamId = TEST_TEAM_ID): Promise<void> {
+async function seedBuiltinRoutines(
+	db: HyperIdleDb,
+	ids: ScopedIds,
+	teamId: string,
+): Promise<string> {
+	const owners = {
+		facilitatorId: ids("seed-agent-pf-facilitation"),
+		pmId: ids("demo-agent-pm"),
+		assistantId: ids("seed-agent-cos"),
+	};
 	await seedTeamRoutines(db, {
 		teamId,
 		ownerByRole: {
-			facilitator: "seed-agent-pf-facilitation",
-			product_manager: "demo-agent-pm",
-			assistant: "seed-agent-cos",
+			facilitator: owners.facilitatorId,
+			product_manager: owners.pmId,
+			assistant: owners.assistantId,
 		},
-		leadAgentId: "seed-agent-cos",
+		leadAgentId: owners.assistantId,
 	});
+	// @lore AF17: per-team routine id scheme — builtin:<kind>:<teamId>
+	return `builtin:knowledge-promotion:${teamId}`;
 }
 
 /**
@@ -93,14 +116,18 @@ async function seedBuiltinRoutines(db: HyperIdleDb, teamId = TEST_TEAM_ID): Prom
  * across 5 distinct scopeIds — the minimum threshold for auto-promotion.
  * Returns the id of the first item (the "subject").
  */
-async function seedPromotionCandidates(db: HyperIdleDb, prefix: string): Promise<string> {
+async function seedPromotionCandidates(
+	db: HyperIdleDb,
+	ids: ScopedIds,
+	prefix: string,
+): Promise<string> {
 	const scopes = ["scope-a", "scope-b", "scope-c", "scope-d", "scope-e"];
 	const layer = "L3";
-	const topic = `topic-${prefix}`;
+	const topic = ids(`topic-${prefix}`);
 	const kind = "pattern";
 
 	for (let i = 0; i < scopes.length; i++) {
-		const id = `${prefix}-ki-${i}`;
+		const id = ids(`${prefix}-ki-${i}`);
 		await db.insert(knowledgeItems).values({
 			id,
 			scopeKind: "factory",
@@ -115,7 +142,7 @@ async function seedPromotionCandidates(db: HyperIdleDb, prefix: string): Promise
 			updatedAt: NOW_ISO,
 		});
 		await db.insert(knowledgeAppProjection).values({
-			id: `ksf-${id}`,
+			id: ids(`ksf-${prefix}-ki-${i}`),
 			knowledgeItemId: id,
 			layer,
 			scopeId: scopes[i],
@@ -123,23 +150,24 @@ async function seedPromotionCandidates(db: HyperIdleDb, prefix: string): Promise
 		});
 	}
 
-	return `${prefix}-ki-0`;
+	return ids(`${prefix}-ki-0`);
 }
 
 describe("AF9 AC2: builtin:knowledge-promotion routine", () => {
 	test("BUILTIN_ROUTINE_IDS contains 'builtin:knowledge-promotion'", () => {
 		// This test asserts a static property via runtime import.
 		// BUILTIN_ROUTINE_IDS contains the kind (global), not the per-team id.
-		expect(PROMOTION_ROUTINE_ID).toContain("builtin:knowledge-promotion");
+		expect("builtin:knowledge-promotion").toContain("builtin:knowledge-promotion");
 	});
 
 	test("seedBuiltinRoutines creates 'builtin:knowledge-promotion' with nextRunAt (scheduler eligible)", async ({
 		db,
+		ids,
 	}) => {
-		await seedOwners(db);
-		await seedBuiltinRoutines(db, "prod-1");
+		const owners = await seedOwners(db, ids);
+		const promotionRoutineId = await seedBuiltinRoutines(db, ids, owners.teamId);
 
-		const [row] = await db.select().from(routines).where(eq(routines.id, PROMOTION_ROUTINE_ID));
+		const [row] = await db.select().from(routines).where(eq(routines.id, promotionRoutineId));
 
 		expect(row).toBeDefined();
 		expect(row?.triggerType).toBe("calendar");
@@ -156,15 +184,16 @@ describe("AF9 AC2: builtin:knowledge-promotion routine", () => {
 		db,
 		eventBus,
 		agentOrchestration,
+		ids,
 	}) => {
-		await seedOwners(db);
-		await seedBuiltinRoutines(db, "prod-1");
+		const owners = await seedOwners(db, ids);
+		const promotionRoutineId = await seedBuiltinRoutines(db, ids, owners.teamId);
 
 		// Seed 5 provisional items with same signature across 5 scopes.
-		const subjectId = await seedPromotionCandidates(db, "promo-basic");
+		const subjectId = await seedPromotionCandidates(db, ids, "promo-basic");
 
 		// Act: run the promotion routine.
-		const result = await fireStoredRoutine(db, eventBus, agentOrchestration, PROMOTION_ROUTINE_ID);
+		const result = await fireStoredRoutine(db, eventBus, agentOrchestration, promotionRoutineId);
 		expect(result.fired).toBe(true);
 
 		// Assert: the subject item is now validated.
@@ -188,22 +217,23 @@ describe("AF9 AC2: builtin:knowledge-promotion routine", () => {
 		db,
 		eventBus,
 		agentOrchestration,
+		ids,
 	}) => {
-		await seedOwners(db);
-		await seedBuiltinRoutines(db, "prod-1");
-		await seedPromotionCandidates(db, "promo-runs");
+		const owners = await seedOwners(db, ids);
+		const promotionRoutineId = await seedBuiltinRoutines(db, ids, owners.teamId);
+		await seedPromotionCandidates(db, ids, "promo-runs");
 
 		const runsBefore = await db
 			.select()
 			.from(routineRuns)
-			.where(eq(routineRuns.routineId, PROMOTION_ROUTINE_ID));
+			.where(eq(routineRuns.routineId, promotionRoutineId));
 
-		await fireStoredRoutine(db, eventBus, agentOrchestration, PROMOTION_ROUTINE_ID);
+		await fireStoredRoutine(db, eventBus, agentOrchestration, promotionRoutineId);
 
 		const runsAfter = await db
 			.select()
 			.from(routineRuns)
-			.where(eq(routineRuns.routineId, PROMOTION_ROUTINE_ID));
+			.where(eq(routineRuns.routineId, promotionRoutineId));
 
 		expect(runsAfter.length).toBe(runsBefore.length + 1);
 		const newRun = runsAfter[runsAfter.length - 1];
@@ -216,27 +246,28 @@ describe("AF9 AC2: builtin:knowledge-promotion routine", () => {
 		db,
 		eventBus,
 		agentOrchestration,
+		ids,
 	}) => {
-		await seedOwners(db);
-		await seedBuiltinRoutines(db, "prod-1");
+		const owners = await seedOwners(db, ids);
+		const promotionRoutineId = await seedBuiltinRoutines(db, ids, owners.teamId);
 
 		// Disable the promotion routine.
-		await db.update(routines).set({ active: false }).where(eq(routines.id, PROMOTION_ROUTINE_ID));
+		await db.update(routines).set({ active: false }).where(eq(routines.id, promotionRoutineId));
 
 		const runsBefore = await db
 			.select()
 			.from(routineRuns)
-			.where(eq(routineRuns.routineId, PROMOTION_ROUTINE_ID));
+			.where(eq(routineRuns.routineId, promotionRoutineId));
 
 		// Act: run while disabled.
-		const result = await fireStoredRoutine(db, eventBus, agentOrchestration, PROMOTION_ROUTINE_ID);
+		const result = await fireStoredRoutine(db, eventBus, agentOrchestration, promotionRoutineId);
 		expect(result.fired).toBe(false);
 
 		// Assert: NO new routine_runs row written (the AF6 invariant: disabled → no row).
 		const runsAfter = await db
 			.select()
 			.from(routineRuns)
-			.where(eq(routineRuns.routineId, PROMOTION_ROUTINE_ID));
+			.where(eq(routineRuns.routineId, promotionRoutineId));
 		expect(runsAfter.length).toBe(runsBefore.length);
 	});
 
@@ -244,15 +275,16 @@ describe("AF9 AC2: builtin:knowledge-promotion routine", () => {
 		db,
 		eventBus,
 		agentOrchestration,
+		ids,
 	}) => {
-		await seedOwners(db);
-		await seedBuiltinRoutines(db, "prod-1");
-		const subjectId = await seedPromotionCandidates(db, "promo-emit");
+		const owners = await seedOwners(db, ids);
+		const promotionRoutineId = await seedBuiltinRoutines(db, ids, owners.teamId);
+		const subjectId = await seedPromotionCandidates(db, ids, "promo-emit");
 
 		const updatedEvents: KnowledgeUpdatedEvent[] = [];
 		eventBus.on("knowledge_updated", (e) => updatedEvents.push(e));
 
-		await fireStoredRoutine(db, eventBus, agentOrchestration, PROMOTION_ROUTINE_ID);
+		await fireStoredRoutine(db, eventBus, agentOrchestration, promotionRoutineId);
 
 		// Filter to auto_promoted events for the subject.
 		const autoPromotedForSubject = updatedEvents.filter(
@@ -268,19 +300,20 @@ describe("AF9 AC2: builtin:knowledge-promotion routine", () => {
 		db,
 		eventBus,
 		agentOrchestration,
+		ids,
 	}) => {
-		await seedOwners(db);
-		await seedBuiltinRoutines(db, "prod-1");
-		await seedPromotionCandidates(db, "promo-idem");
+		const owners = await seedOwners(db, ids);
+		const promotionRoutineId = await seedBuiltinRoutines(db, ids, owners.teamId);
+		await seedPromotionCandidates(db, ids, "promo-idem");
 
 		// First run — promotes items.
-		await fireStoredRoutine(db, eventBus, agentOrchestration, PROMOTION_ROUTINE_ID);
+		await fireStoredRoutine(db, eventBus, agentOrchestration, promotionRoutineId);
 
 		const updatedEventsRound2: KnowledgeUpdatedEvent[] = [];
 		eventBus.on("knowledge_updated", (e) => updatedEventsRound2.push(e));
 
 		// Second run — already validated, should produce no new auto_promoted events.
-		await fireStoredRoutine(db, eventBus, agentOrchestration, PROMOTION_ROUTINE_ID);
+		await fireStoredRoutine(db, eventBus, agentOrchestration, promotionRoutineId);
 
 		const newAutoPromoted = updatedEventsRound2.filter((e) => e.action === "auto_promoted");
 		expect(newAutoPromoted.length).toBe(0);

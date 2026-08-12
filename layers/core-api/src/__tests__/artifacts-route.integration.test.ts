@@ -2,6 +2,7 @@
 // Source of truth: plans/L3/architecture.md §5, §12.
 
 import { artifacts, bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
@@ -18,13 +19,13 @@ interface SeedScope {
 	taskId: string;
 }
 
-async function seed(db: HyperIdleDb, suffix = ""): Promise<SeedScope> {
+async function seed(db: HyperIdleDb, ids: ScopedIds, suffix = ""): Promise<SeedScope> {
 	// @lore U1: productId is actually teamId (domain entity id), not productId.
 	// Kept as "productId" in SeedScope for backward compat with test axis queries.
-	const productId = `prod${suffix}`;
-	const teamMembersId = `team${suffix}`;
-	const betId = `bet${suffix}`;
-	const taskId = `task${suffix}`;
+	const productId = ids(`${suffix}prod`);
+	const teamMembersId = ids(`${suffix}tm`);
+	const betId = ids(`${suffix}bet`);
+	const taskId = ids(`${suffix}task`);
 	// Insert domain entity (teams table, formerly products)
 	await db.insert(teams).values({ id: productId, name: "P", phase: "build", createdAt: NOW });
 	// Insert membership group (teamMembers table, formerly teams)
@@ -103,27 +104,28 @@ describe("L3 GET /api/artifacts (axis discriminated union)", () => {
 		expect(res.status).toBe(400);
 	});
 
-	test("axis=task returns artifacts for one task only", async ({ db, app }) => {
-		const a = await seed(db, "_a");
-		const b = await seed(db, "_b");
-		await insertArtifact(db, "art_a1", a.taskId);
-		await insertArtifact(db, "art_a2", a.taskId);
-		await insertArtifact(db, "art_b1", b.taskId);
+	test("axis=task returns artifacts for one task only", async ({ db, app, ids }) => {
+		const a = await seed(db, ids, "_a");
+		const b = await seed(db, ids, "_b");
+		await insertArtifact(db, ids("art_a1"), a.taskId);
+		await insertArtifact(db, ids("art_a2"), a.taskId);
+		await insertArtifact(db, ids("art_b1"), b.taskId);
 
 		const res = await app.request(`/api/artifacts?axis=task&taskId=${a.taskId}`, {
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { items: Array<{ id: string }> };
-		const ids = body.items.map((i) => i.id).sort();
-		expect(ids).toEqual(["art_a1", "art_a2"]);
+		const bodyIds = body.items.map((i) => i.id).sort();
+		expect(bodyIds).toEqual([ids("art_a1"), ids("art_a2")].sort());
 	});
 
-	test("axis=bet aggregates artifacts across the bet's tasks", async ({ db, app }) => {
-		const s = await seed(db);
+	test("axis=bet aggregates artifacts across the bet's tasks", async ({ db, app, ids }) => {
+		const s = await seed(db, ids);
 		// add a second task to the same bet
+		const task2Id = ids("task2");
 		await db.insert(tasks).values({
-			id: "task2",
+			id: task2Id,
 			betId: s.betId,
 			// @lore U1: teamId references teams.id (domain entity = s.productId)
 			teamId: s.productId,
@@ -133,43 +135,48 @@ describe("L3 GET /api/artifacts (axis discriminated union)", () => {
 			updatedAt: NOW,
 		});
 
-		insertArtifact(db, "art_x", s.taskId);
-		insertArtifact(db, "art_y", "task2");
+		const artX = ids("art_x");
+		const artY = ids("art_y");
+		await insertArtifact(db, artX, s.taskId);
+		await insertArtifact(db, artY, task2Id);
 		const res = await app.request(`/api/artifacts?axis=bet&betId=${s.betId}`, {
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { items: Array<{ id: string }> };
-		expect(body.items.map((i) => i.id).sort()).toEqual(["art_x", "art_y"]);
+		expect(body.items.map((i) => i.id).sort()).toEqual([artX, artY].sort());
 	});
 
-	test("axis=product aggregates artifacts across the product's bets", async ({ db, app }) => {
-		const s = await seed(db);
-		await insertArtifact(db, "art_p1", s.taskId);
+	test("axis=product aggregates artifacts across the product's bets", async ({ db, app, ids }) => {
+		const s = await seed(db, ids);
+		const artP1 = ids("art_p1");
+		await insertArtifact(db, artP1, s.taskId);
 		const res = await app.request(`/api/artifacts?axis=product&productId=${s.productId}`, {
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { items: Array<{ id: string }> };
-		expect(body.items.map((i) => i.id)).toContain("art_p1");
+		expect(body.items.map((i) => i.id)).toContain(artP1);
 	});
 
-	test("axis=portfolio aggregates artifacts across all products", async ({ db, app }) => {
-		const a = await seed(db, "_a");
-		const b = await seed(db, "_b");
-		await insertArtifact(db, "art_pa", a.taskId);
-		await insertArtifact(db, "art_pb", b.taskId);
+	test("axis=portfolio aggregates artifacts across all products", async ({ db, app, ids }) => {
+		const a = await seed(db, ids, "_a");
+		const b = await seed(db, ids, "_b");
+		const artPa = ids("art_pa");
+		const artPb = ids("art_pb");
+		await insertArtifact(db, artPa, a.taskId);
+		await insertArtifact(db, artPb, b.taskId);
 		const res = await app.request("/api/artifacts?axis=portfolio", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { items: Array<{ id: string }> };
-		const ids = body.items.map((i) => i.id);
-		expect(ids).toContain("art_pa");
-		expect(ids).toContain("art_pb");
+		const bodyIds = body.items.map((i) => i.id);
+		expect(bodyIds).toContain(artPa);
+		expect(bodyIds).toContain(artPb);
 	});
 
-	test("response items carry denormalised producing_task_title", async ({ db, app }) => {
-		const s = await seed(db);
-		await insertArtifact(db, "art_t", s.taskId);
+	test("response items carry denormalised producing_task_title", async ({ db, app, ids }) => {
+		const s = await seed(db, ids);
+		await insertArtifact(db, ids("art_t"), s.taskId);
 		const res = await app.request(`/api/artifacts?axis=task&taskId=${s.taskId}`, {
 			headers: authHeaders(),
 		});
@@ -182,9 +189,10 @@ describe("L3 GET /api/artifacts (axis discriminated union)", () => {
 	test("response items carry threadCount as a number (forward-compat zero until L1)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		const s = await seed(db);
-		await insertArtifact(db, "art_tc", s.taskId);
+		const s = await seed(db, ids);
+		await insertArtifact(db, ids("art_tc"), s.taskId);
 		const res = await app.request(`/api/artifacts?axis=task&taskId=${s.taskId}`, {
 			headers: authHeaders(),
 		});
@@ -196,9 +204,9 @@ describe("L3 GET /api/artifacts (axis discriminated union)", () => {
 	// @lore AU21 Increment 14a: response items never carry a `cost` field at
 	// all (not `cost: null`) — HARD-DELETED along with the rest of the
 	// cost-cap feature, no replacement.
-	test("response items do not carry a cost field", async ({ db, app }) => {
-		const s = await seed(db);
-		await insertArtifact(db, "art_c", s.taskId);
+	test("response items do not carry a cost field", async ({ db, app, ids }) => {
+		const s = await seed(db, ids);
+		await insertArtifact(db, ids("art_c"), s.taskId);
 		const res = await app.request(`/api/artifacts?axis=task&taskId=${s.taskId}`, {
 			headers: authHeaders(),
 		});
@@ -215,10 +223,10 @@ describe("L3 GET /api/artifacts (axis discriminated union)", () => {
 		expect(res.status).toBe(400);
 	});
 
-	test("pagination default limit caps results", async ({ db, app }) => {
-		const s = await seed(db);
+	test("pagination default limit caps results", async ({ db, app, ids }) => {
+		const s = await seed(db, ids);
 		for (let i = 0; i < 75; i++) {
-			await insertArtifact(db, `art_${i}`, s.taskId);
+			await insertArtifact(db, ids(`art_${i}`), s.taskId);
 		}
 		const res = await app.request(`/api/artifacts?axis=task&taskId=${s.taskId}`, {
 			headers: authHeaders(),
@@ -234,13 +242,17 @@ describe("L3 GET /api/artifacts (axis discriminated union)", () => {
 	test("AE6: returns unrecognised kind as-is (open vocabulary) with preview:null", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		// @lore AE6: Artifact.kind is now a string (open vocabulary). Unrecognised kinds
 		// are preserved as-is at read time — no normalization to 'unknown_kind'.
 		// The old 'unknown_kind' sentinel is gone. Unregistered kinds are forwarded to
 		// the fallback renderer in the UI.
-		const s = await seed(db);
-		await insertArtifact(db, "art_unk", s.taskId, { kind: "internet_meme", previewJson: null });
+		const s = await seed(db, ids);
+		await insertArtifact(db, ids("art_unk"), s.taskId, {
+			kind: "internet_meme",
+			previewJson: null,
+		});
 		const res = await app.request(`/api/artifacts?axis=task&taskId=${s.taskId}`, {
 			headers: authHeaders(),
 		});
@@ -261,26 +273,30 @@ describe("L3 GET /api/artifacts/:id (permalink)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("returns the artifact when it exists", async ({ db, app }) => {
-		const s = await seed(db);
-		await insertArtifact(db, "art_one", s.taskId);
-		const res = await app.request("/api/artifacts/art_one", { headers: authHeaders() });
+	test("returns the artifact when it exists", async ({ db, app, ids }) => {
+		const s = await seed(db, ids);
+		const artOne = ids("art_one");
+		await insertArtifact(db, artOne, s.taskId);
+		const res = await app.request(`/api/artifacts/${artOne}`, { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { id: string };
-		expect(body.id).toBe("art_one");
+		expect(body.id).toBe(artOne);
 	});
 
-	test("returns 404 for unknown id", async ({ app }) => {
-		const res = await app.request("/api/artifacts/nope", { headers: authHeaders() });
+	test("returns 404 for unknown id", async ({ app, ids }) => {
+		const res = await app.request(`/api/artifacts/${ids("nope")}`, { headers: authHeaders() });
 		expect(res.status).toBe(404);
 	});
 
 	// Cross-tenant — surfaced as 404 (not 403) per §5.3 to avoid leaking existence
-	test("returns 404 for cross-tenant access (does not leak existence as 403)", async ({ app }) => {
+	test("returns 404 for cross-tenant access (does not leak existence as 403)", async ({
+		app,
+		ids,
+	}) => {
 		// Without multi-tenant test seam we can't truly cross tenants, but the
 		// route must NEVER return 403 for a missing-or-foreign id; assert the
 		// status set is exactly {200, 404} for any id lookup.
-		const res = await app.request("/api/artifacts/some-other-tenant-id", {
+		const res = await app.request(`/api/artifacts/${ids("other-tenant")}`, {
 			headers: authHeaders(),
 		});
 		expect([200, 404]).toContain(res.status);
@@ -300,8 +316,9 @@ describe("L3 POST /api/artifacts (writer endpoint, mutability rules)", () => {
 	test("rejects payload where data.kind !== preview.kind (KIND_MISMATCH 400)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		const s = await seed(db);
+		const s = await seed(db, ids);
 		const res = await app.request("/api/artifacts", {
 			method: "POST",
 			headers: authHeaders(),
@@ -314,8 +331,8 @@ describe("L3 POST /api/artifacts (writer endpoint, mutability rules)", () => {
 		expect(res.status).toBe(400);
 	});
 
-	test("rejects oversized preview body (>64KB) with 413", async ({ db, app }) => {
-		const s = await seed(db);
+	test("rejects oversized preview body (>64KB) with 413", async ({ db, app, ids }) => {
+		const s = await seed(db, ids);
 		const huge = "a".repeat(70_000);
 		const res = await app.request("/api/artifacts", {
 			method: "POST",
@@ -329,12 +346,12 @@ describe("L3 POST /api/artifacts (writer endpoint, mutability rules)", () => {
 		expect(res.status).toBe(413);
 	});
 
-	test("rejects FK-violating producingTaskId with 400 INVALID_TASK", async ({ app }) => {
+	test("rejects FK-violating producingTaskId with 400 INVALID_TASK", async ({ app, ids }) => {
 		const res = await app.request("/api/artifacts", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				producingTaskId: "missing",
+				producingTaskId: ids("missing"),
 				kind: "decision",
 				preview: { kind: "decision", claim: "c", rationale: "r" },
 			}),
@@ -342,8 +359,8 @@ describe("L3 POST /api/artifacts (writer endpoint, mutability rules)", () => {
 		expect(res.status).toBe(400);
 	});
 
-	test("rejects kind: 'unknown_kind' on create (closed-write rule)", async ({ db, app }) => {
-		const s = await seed(db);
+	test("rejects kind: 'unknown_kind' on create (closed-write rule)", async ({ db, app, ids }) => {
+		const s = await seed(db, ids);
 		const res = await app.request("/api/artifacts", {
 			method: "POST",
 			headers: authHeaders(),
@@ -366,16 +383,17 @@ describe("L3 PATCH immutability (preview, cost) — protected", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("second PATCH /preview returns 409 IMMUTABLE", async ({ db, app }) => {
+	test("second PATCH /preview returns 409 IMMUTABLE", async ({ db, app, ids }) => {
 		// @lore AE6: previewJson is seeded with a valid new-kind preview (text kind).
 		// Old-kind previews (kind: "decision") are no longer valid per patchPreviewSchema.
 		// The artifact kind in the DB is set to "text" to match the preview discriminant.
-		const s = await seed(db);
-		await insertArtifact(db, "art_imm", s.taskId, {
+		const s = await seed(db, ids);
+		const artImm = ids("art_imm");
+		await insertArtifact(db, artImm, s.taskId, {
 			kind: "text",
 			previewJson: JSON.stringify({ kind: "text", body: "original decision", format: "plain" }),
 		});
-		const res = await app.request("/api/artifacts/art_imm/preview", {
+		const res = await app.request(`/api/artifacts/${artImm}/preview`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -388,12 +406,14 @@ describe("L3 PATCH immutability (preview, cost) — protected", () => {
 	test("PATCH /cost returns 404 (O2: cost route removed — cost columns stripped from kernel table)", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		// @lore O2: PATCH /:id/cost route removed because cost columns were stripped
 		// from the kernel artifacts table. Cost settlement is now a strategy concern.
-		const s = await seed(db);
-		await insertArtifact(db, "art_costimm", s.taskId);
-		const res = await app.request("/api/artifacts/art_costimm/cost", {
+		const s = await seed(db, ids);
+		const artCostimm = ids("art_costimm");
+		await insertArtifact(db, artCostimm, s.taskId);
+		const res = await app.request(`/api/artifacts/${artCostimm}/cost`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ money_micros: 1000, tokens_input: 10, tokens_output: 10 }),
@@ -404,10 +424,11 @@ describe("L3 PATCH immutability (preview, cost) — protected", () => {
 	// L3 review fix Adv-B6 (O2 superseded): the PATCH /cost route was removed in O2.
 	// @lore O2: cost columns stripped from kernel artifacts table. PATCH /cost
 	// route removed. Cost settlement is now a strategy concern.
-	test("PATCH /cost returns 404 for any artifact (O2: route removed)", async ({ db, app }) => {
-		const s = await seed(db);
-		await insertArtifact(db, "art_partial", s.taskId);
-		const res = await app.request("/api/artifacts/art_partial/cost", {
+	test("PATCH /cost returns 404 for any artifact (O2: route removed)", async ({ db, app, ids }) => {
+		const s = await seed(db, ids);
+		const artPartial = ids("art_partial");
+		await insertArtifact(db, artPartial, s.taskId);
+		const res = await app.request(`/api/artifacts/${artPartial}/cost`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ money_micros: 1000, tokens_input: 10, tokens_output: 10 }),
@@ -418,10 +439,15 @@ describe("L3 PATCH immutability (preview, cost) — protected", () => {
 	// L3 review fix Sec-MED-3 (O2 superseded): PATCH /cost route removed in O2.
 	// @lore O2: validation for negative/fractional cost values no longer applies
 	// since the route is gone. These tests document the 404 behavior.
-	test("PATCH /cost with negative values returns 404 (O2: route removed)", async ({ db, app }) => {
-		const s = await seed(db);
-		await insertArtifact(db, "art_neg", s.taskId);
-		const res = await app.request("/api/artifacts/art_neg/cost", {
+	test("PATCH /cost with negative values returns 404 (O2: route removed)", async ({
+		db,
+		app,
+		ids,
+	}) => {
+		const s = await seed(db, ids);
+		const artNeg = ids("art_neg");
+		await insertArtifact(db, artNeg, s.taskId);
+		const res = await app.request(`/api/artifacts/${artNeg}/cost`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ money_micros: -1, tokens_input: 0, tokens_output: 0 }),
@@ -432,10 +458,12 @@ describe("L3 PATCH immutability (preview, cost) — protected", () => {
 	test("PATCH /cost with fractional values returns 404 (O2: route removed)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		const s = await seed(db);
-		await insertArtifact(db, "art_frac", s.taskId);
-		const res = await app.request("/api/artifacts/art_frac/cost", {
+		const s = await seed(db, ids);
+		const artFrac = ids("art_frac");
+		await insertArtifact(db, artFrac, s.taskId);
+		const res = await app.request(`/api/artifacts/${artFrac}/cost`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ money_micros: 1.5, tokens_input: 0, tokens_output: 0 }),
@@ -454,13 +482,17 @@ describe("L3 GET /api/artifacts pagination cursor", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("cursor roundtrip: page 2 yields non-overlapping older artifacts", async ({ db, app }) => {
-		const s = await seed(db);
+	test("cursor roundtrip: page 2 yields non-overlapping older artifacts", async ({
+		db,
+		app,
+		ids,
+	}) => {
+		const s = await seed(db, ids);
 		// Insert 5 artifacts with monotonically increasing createdAt.
 		// @lore O2: cost columns stripped from kernel artifacts table
 		for (let i = 0; i < 5; i++) {
 			await db.insert(artifacts).values({
-				id: `art_${i}`,
+				id: ids(`art_${i}`),
 				producingTaskId: s.taskId,
 				kind: "decision",
 				previewJson: null,
@@ -492,9 +524,9 @@ describe("L3 GET /api/artifacts pagination cursor", () => {
 		for (const id of ids2) expect(ids1).not.toContain(id);
 	});
 
-	test("rejects malformed cursor with 400", async ({ db, app }) => {
-		const s = await seed(db);
-		await insertArtifact(db, "art_x", s.taskId);
+	test("rejects malformed cursor with 400", async ({ db, app, ids }) => {
+		const s = await seed(db, ids);
+		await insertArtifact(db, ids("art_x"), s.taskId);
 		const res = await app.request(`/api/artifacts?axis=task&taskId=${s.taskId}&cursor=no-pipe`, {
 			headers: authHeaders(),
 		});

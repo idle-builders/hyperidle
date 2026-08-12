@@ -9,6 +9,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
@@ -18,17 +19,23 @@ function auth(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
-async function seedBase(db: HyperIdleDb): Promise<void> {
+async function seedBase(
+	db: HyperIdleDb,
+	ids: ScopedIds,
+): Promise<{ teamId: string; memberId: string; agentId: string }> {
+	const teamId = ids("prod-1");
+	const memberId = ids("team-1");
+	const agentId = ids("agent-1");
 	await db.insert(teams).values({
-		id: "prod-1",
+		id: teamId,
 		name: "E2E Product",
 		phase: "build",
 		createdAt: new Date().toISOString(),
 	});
 
 	await db.insert(teamMembers).values({
-		id: "team-1",
-		teamId: "prod-1",
+		id: memberId,
+		teamId: teamId,
 		capacity: 5,
 		activeBets: 0,
 		formedAt: new Date().toISOString(),
@@ -36,15 +43,15 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 
 	await db.insert(users).values([
 		{
-			id: "agent-1",
+			id: agentId,
 			// AF11: kind='human' so auth middleware resolves this user as the principal.
 			// GET /api/users/:id/inbox is self-only (AC5); the resolved principal must
-			// match the inbox owner. All seedBase tests resolve principal = "agent-1".
+			// match the inbox owner. All seedBase tests resolve principal = agentId.
 			kind: "human",
 			name: "Test Agent",
 			role: "builder",
 			status: "active",
-			teamId: "team-1",
+			teamId: memberId,
 			createdAt: new Date().toISOString(),
 		},
 		// L1a: synthetic sender for verdict-typed messages emitted by
@@ -52,88 +59,109 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		// repo path). The new `messages.sender_id` FK requires the
 		// row to exist.
 		{
-			id: "policy_engine",
+			id: ids("policy_engine"),
 			name: "Policy Engine",
 			role: "system",
 			status: "active",
 			createdAt: new Date().toISOString(),
 		},
 	]);
+	return { teamId, memberId, agentId };
 }
 
-async function seedTaskData(db: HyperIdleDb): Promise<void> {
+async function seedTaskData(
+	db: HyperIdleDb,
+	ids: ScopedIds,
+): Promise<{ betId: string; taskId: string }> {
 	// @lore U1: teamId references `teams` domain entity (not teamMembers).
+	const betId = ids("bet-1");
+	const taskId = ids("task-1");
 	await db.insert(bets).values({
-		id: "bet-1",
-		teamId: "prod-1",
+		id: betId,
+		teamId: ids("prod-1"),
 		description: "Test bet",
 		status: "active",
 		createdAt: new Date().toISOString(),
 	});
 
 	await db.insert(tasks).values({
-		id: "task-1",
-		betId: "bet-1",
-		teamId: "prod-1",
+		id: taskId,
+		betId: betId,
+		teamId: ids("prod-1"),
 		title: "Task A",
 		state: "proposed",
 		createdAt: new Date().toISOString(),
 		updatedAt: new Date().toISOString(),
 	});
+	return { betId, taskId };
 }
 
-async function seedConversationData(db: HyperIdleDb): Promise<void> {
+async function seedConversationData(
+	db: HyperIdleDb,
+	ids: ScopedIds,
+): Promise<{ threadId: string; itemId: string }> {
+	const threadId = ids("thread-1");
+	const itemId = ids("item-1");
 	await db.insert(threads).values({
-		id: "thread-1",
+		id: threadId,
 		hostKind: "task",
-		hostId: "task-1",
-		initiatorId: "agent-1",
-		participants: JSON.stringify(["agent-1"]),
+		hostId: ids("task-1"),
+		initiatorId: ids("agent-1"),
+		participants: JSON.stringify([ids("agent-1")]),
 		lastActiveAt: new Date().toISOString(),
 		createdAt: new Date().toISOString(),
 	});
 
 	await db.insert(items).values({
-		id: "item-1",
+		id: itemId,
 		title: "E2E item",
-		threadId: "thread-1",
+		threadId: threadId,
 		createdAt: new Date().toISOString(),
 	});
+	return { threadId, itemId };
 }
 
-async function seedSessionData(db: HyperIdleDb): Promise<void> {
+async function seedSessionData(
+	db: HyperIdleDb,
+	ids: ScopedIds,
+): Promise<{ betId: string; taskId: string }> {
 	// @lore U1: teamId references `teams` domain entity (not teamMembers).
+	const betId = ids("bet-s");
+	const taskId = ids("task-s");
 	await db.insert(bets).values({
-		id: "bet-s",
-		teamId: "prod-1",
+		id: betId,
+		teamId: ids("prod-1"),
 		description: "Session bet",
 		status: "active",
 		createdAt: new Date().toISOString(),
 	});
 
 	await db.insert(tasks).values({
-		id: "task-s",
-		betId: "bet-s",
-		teamId: "prod-1",
+		id: taskId,
+		betId: betId,
+		teamId: ids("prod-1"),
 		title: "Session task",
 		state: "in_progress",
 		createdAt: new Date().toISOString(),
 		updatedAt: new Date().toISOString(),
 	});
+	return { betId, taskId };
 }
 
-async function seedRoutineData(db: HyperIdleDb): Promise<void> {
+async function seedRoutineData(db: HyperIdleDb, ids: ScopedIds): Promise<{ routineId: string }> {
+	const routineId = ids("routine-1");
 	await db.insert(routines).values({
-		id: "routine-1",
+		id: routineId,
 		name: "Test routine",
-		teamId: "prod-1",
+		teamId: ids("prod-1"),
 		state: "active",
-		ownerAgentId: "agent-1",
+		ownerAgentId: ids("agent-1"),
 		triggerType: "heartbeat",
 		triggerConfig: JSON.stringify({ intervalMs: 60000 }),
 		autonomyLevel: 2,
 		active: true,
 	});
+	return { routineId };
 }
 
 describe("E2E API Integration (I5)", () => {
@@ -149,16 +177,16 @@ describe("E2E API Integration (I5)", () => {
 	// 1. Auth enforcement
 	// -------------------------------------------------------
 	describe("Auth enforcement", () => {
-		test("returns 401 when X-API-Key header is missing", async ({ db, app }) => {
-			await seedBase(db);
+		test("returns 401 when X-API-Key header is missing", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
 			const res = await app.request("/api/bets");
 			expect(res.status).toBe(401);
 			const body = (await res.json()) as { code: string };
 			expect(body.code).toBe("UNAUTHORIZED");
 		});
 
-		test("returns 401 when X-API-Key header is wrong", async ({ db, app }) => {
-			await seedBase(db);
+		test("returns 401 when X-API-Key header is wrong", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
 			const res = await app.request("/api/bets", {
 				headers: { "X-API-Key": "wrong-key" },
 			});
@@ -167,8 +195,8 @@ describe("E2E API Integration (I5)", () => {
 			expect(body.code).toBe("UNAUTHORIZED");
 		});
 
-		test("allows access with correct API key", async ({ db, app }) => {
-			await seedBase(db);
+		test("allows access with correct API key", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
 			const res = await app.request("/api/bets", { headers: auth() });
 			expect(res.status).toBe(200);
 		});
@@ -198,13 +226,17 @@ describe("E2E API Integration (I5)", () => {
 	// -------------------------------------------------------
 	describe("Bets", () => {
 		// @lore U1: teamId references `teams` domain entity; status "draft" replaces "shaped".
-		test("POST /api/bets creates a shaped bet and GET /api/bets lists it", async ({ db, app }) => {
-			await seedBase(db);
+		test("POST /api/bets creates a shaped bet and GET /api/bets lists it", async ({
+			db,
+			app,
+			ids,
+		}) => {
+			const scope = await seedBase(db, ids);
 			const createRes = await app.request("/api/bets", {
 				method: "POST",
 				headers: auth(),
 				body: JSON.stringify({
-					teamId: "prod-1",
+					teamId: scope.teamId,
 					description: "E2E integration bet",
 				}),
 			});
@@ -218,28 +250,28 @@ describe("E2E API Integration (I5)", () => {
 			expect(list.draft.some((b) => b.id === created.id)).toBe(true);
 		});
 
-		test("POST /api/bets returns 400 for missing required fields", async ({ db, app }) => {
-			await seedBase(db);
+		test("POST /api/bets returns 400 for missing required fields", async ({ db, app, ids }) => {
+			const scope = await seedBase(db, ids);
 			const res = await app.request("/api/bets", {
 				method: "POST",
 				headers: auth(),
-				body: JSON.stringify({ productId: "prod-1" }),
+				body: JSON.stringify({ productId: scope.teamId }),
 			});
 			expect(res.status).toBe(400);
 			const body = (await res.json()) as { code: string };
 			expect(body.code).toBe("VALIDATION_ERROR");
 		});
 
-		test("GET /api/bets/:id returns 404 for nonexistent bet", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/bets/nonexistent", { headers: auth() });
+		test("GET /api/bets/:id returns 404 for nonexistent bet", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
+			const res = await app.request(`/api/bets/${ids("nonexistent")}`, { headers: auth() });
 			expect(res.status).toBe(404);
 			const body = (await res.json()) as { code: string };
 			expect(body.code).toBe("NOT_FOUND");
 		});
 
-		test("GET /api/bets/canvas returns canvas data", async ({ db, app }) => {
-			await seedBase(db);
+		test("GET /api/bets/canvas returns canvas data", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
 			const res = await app.request("/api/bets/canvas", { headers: auth() });
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as {
@@ -251,14 +283,18 @@ describe("E2E API Integration (I5)", () => {
 		});
 
 		// @lore U1: commit transitions draft→active (formerly shaped→committed).
-		test("POST /api/bets/:id/commit transitions a shaped bet to committed", async ({ db, app }) => {
-			await seedBase(db);
+		test("POST /api/bets/:id/commit transitions a shaped bet to committed", async ({
+			db,
+			app,
+			ids,
+		}) => {
+			const scope = await seedBase(db, ids);
 			// Create a draft bet first
 			const createRes = await app.request("/api/bets", {
 				method: "POST",
 				headers: auth(),
 				body: JSON.stringify({
-					teamId: "prod-1",
+					teamId: scope.teamId,
 					description: "Bet to commit",
 				}),
 			});
@@ -283,28 +319,30 @@ describe("E2E API Integration (I5)", () => {
 	// 4. Tasks
 	// -------------------------------------------------------
 	describe("Tasks", () => {
-		test("GET /api/tasks lists all tasks", async ({ db, app }) => {
-			await seedBase(db);
-			await seedTaskData(db);
+		test("GET /api/tasks lists all tasks", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
+			await seedTaskData(db, ids);
 			const res = await app.request("/api/tasks", { headers: auth() });
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as Array<{ id: string }>;
 			expect(body.length).toBeGreaterThanOrEqual(1);
 		});
 
-		test("GET /api/tasks?bet_id=bet-1 filters by bet", async ({ db, app }) => {
-			await seedBase(db);
-			await seedTaskData(db);
-			const res = await app.request("/api/tasks?bet_id=bet-1", { headers: auth() });
+		test("GET /api/tasks?bet_id=bet-1 filters by bet", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
+			const taskScope = await seedTaskData(db, ids);
+			const res = await app.request(`/api/tasks?bet_id=${taskScope.betId}`, {
+				headers: auth(),
+			});
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as Array<{ betId: string }>;
-			expect(body.every((t) => t.betId === "bet-1")).toBe(true);
+			expect(body.every((t) => t.betId === taskScope.betId)).toBe(true);
 		});
 
-		test("PATCH /api/tasks/:id updates task fields", async ({ db, app }) => {
-			await seedBase(db);
-			await seedTaskData(db);
-			const res = await app.request("/api/tasks/task-1", {
+		test("PATCH /api/tasks/:id updates task fields", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
+			const taskScope = await seedTaskData(db, ids);
+			const res = await app.request(`/api/tasks/${taskScope.taskId}`, {
 				method: "PATCH",
 				headers: auth(),
 				body: JSON.stringify({ title: "Updated Title" }),
@@ -314,10 +352,10 @@ describe("E2E API Integration (I5)", () => {
 			expect(body.title).toBe("Updated Title");
 		});
 
-		test("PATCH /api/tasks/:id returns 404 for nonexistent task", async ({ db, app }) => {
-			await seedBase(db);
-			await seedTaskData(db);
-			const res = await app.request("/api/tasks/nonexistent", {
+		test("PATCH /api/tasks/:id returns 404 for nonexistent task", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
+			await seedTaskData(db, ids);
+			const res = await app.request(`/api/tasks/${ids("nonexistent")}`, {
 				method: "PATCH",
 				headers: auth(),
 				body: JSON.stringify({ title: "X" }),
@@ -327,11 +365,11 @@ describe("E2E API Integration (I5)", () => {
 			expect(body.code).toBe("NOT_FOUND");
 		});
 
-		test("POST /api/tasks/:id/transition transitions task state", async ({ db, app }) => {
-			await seedBase(db);
-			await seedTaskData(db);
+		test("POST /api/tasks/:id/transition transitions task state", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
+			const taskScope = await seedTaskData(db, ids);
 			// proposed -> accepted is a valid transition
-			const res = await app.request("/api/tasks/task-1/transition", {
+			const res = await app.request(`/api/tasks/${taskScope.taskId}/transition`, {
 				method: "POST",
 				headers: auth(),
 				body: JSON.stringify({ state: "accepted" }),
@@ -341,10 +379,14 @@ describe("E2E API Integration (I5)", () => {
 			expect(body.state).toBe("accepted");
 		});
 
-		test("POST /api/tasks/:id/transition returns 400 for invalid state", async ({ db, app }) => {
-			await seedBase(db);
-			await seedTaskData(db);
-			const res = await app.request("/api/tasks/task-1/transition", {
+		test("POST /api/tasks/:id/transition returns 400 for invalid state", async ({
+			db,
+			app,
+			ids,
+		}) => {
+			await seedBase(db, ids);
+			const taskScope = await seedTaskData(db, ids);
+			const res = await app.request(`/api/tasks/${taskScope.taskId}/transition`, {
 				method: "POST",
 				headers: auth(),
 				body: JSON.stringify({ state: "invalid_state" }),
@@ -359,35 +401,40 @@ describe("E2E API Integration (I5)", () => {
 	// 5. Conversations
 	// -------------------------------------------------------
 	describe("Conversations", () => {
-		test("GET /api/conversations lists threads", async ({ db, app }) => {
-			await seedBase(db);
-			await seedTaskData(db);
-			await seedConversationData(db);
+		test("GET /api/conversations lists threads", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
+			await seedTaskData(db, ids);
+			await seedConversationData(db, ids);
 			const res = await app.request("/api/conversations", { headers: auth() });
 			expect(res.status).toBe(200);
-			const body = (await res.json()) as { threads: unknown[]; pagination: { total: number } };
+			const body = (await res.json()) as {
+				threads: unknown[];
+				pagination: { total: number };
+			};
 			expect(body.pagination.total).toBeGreaterThanOrEqual(1);
 		});
 
-		test("GET /api/conversations/:threadId returns thread with items", async ({ db, app }) => {
-			await seedBase(db);
-			await seedTaskData(db);
-			await seedConversationData(db);
-			const res = await app.request("/api/conversations/thread-1", { headers: auth() });
+		test("GET /api/conversations/:threadId returns thread with items", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
+			await seedTaskData(db, ids);
+			const convScope = await seedConversationData(db, ids);
+			const res = await app.request(`/api/conversations/${convScope.threadId}`, {
+				headers: auth(),
+			});
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as { id: string; items: unknown[] };
-			expect(body.id).toBe("thread-1");
+			expect(body.id).toBe(convScope.threadId);
 			expect(body.items.length).toBeGreaterThanOrEqual(1);
 		});
 
-		test("POST /api/conversations/items creates an item", async ({ db, app }) => {
-			await seedBase(db);
-			await seedTaskData(db);
-			await seedConversationData(db);
+		test("POST /api/conversations/items creates an item", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
+			await seedTaskData(db, ids);
+			const convScope = await seedConversationData(db, ids);
 			const res = await app.request("/api/conversations/items", {
 				method: "POST",
 				headers: auth(),
-				body: JSON.stringify({ title: "New item", threadId: "thread-1" }),
+				body: JSON.stringify({ title: "New item", threadId: convScope.threadId }),
 			});
 			expect(res.status).toBe(201);
 		});
@@ -395,6 +442,7 @@ describe("E2E API Integration (I5)", () => {
 		test("POST /api/threads/:id/messages records a verdict (canonical L1 surface)", async ({
 			db,
 			app,
+			ids,
 		}) => {
 			// @lore AF11-IDOR: This test does NOT call seedBase because seedBase inserts
 			// agent-1 as kind='human' (role='builder') which would be the auth principal.
@@ -402,23 +450,29 @@ describe("E2E API Integration (I5)", () => {
 			// - founder-1: kind='human', role='founder' → auth principal for this test
 			// - agent-1-e2e: non-human agent who sends the review (via X-Identity on POST /threads)
 			const now = new Date().toISOString();
+			const teamId = ids("prod-1");
+			const memberId = ids("team-1");
+			const betId = ids("bet-1");
+			const taskId = ids("task-1");
+			const founderId = ids("founder-1");
+			const agentE2eId = ids("agent-1-e2e");
 			await db
 				.insert(teams)
-				.values({ id: "prod-1", name: "E2E Product", phase: "build", createdAt: now });
+				.values({ id: teamId, name: "E2E Product", phase: "build", createdAt: now });
 			await db
 				.insert(teamMembers)
-				.values({ id: "team-1", teamId: "prod-1", capacity: 5, activeBets: 0, formedAt: now });
+				.values({ id: memberId, teamId: teamId, capacity: 5, activeBets: 0, formedAt: now });
 			await db.insert(bets).values({
-				id: "bet-1",
-				teamId: "prod-1",
+				id: betId,
+				teamId: teamId,
 				description: "Test bet",
 				status: "active",
 				createdAt: now,
 			});
 			await db.insert(tasks).values({
-				id: "task-1",
-				betId: "bet-1",
-				teamId: "prod-1",
+				id: taskId,
+				betId: betId,
+				teamId: teamId,
 				title: "Task A",
 				state: "proposed",
 				createdAt: now,
@@ -427,7 +481,7 @@ describe("E2E API Integration (I5)", () => {
 
 			// founder-1 inserted first (kind='human') → becomes auth principal
 			await db.insert(users).values({
-				id: "founder-1",
+				id: founderId,
 				kind: "human",
 				name: "Founder",
 				role: "founder",
@@ -436,7 +490,7 @@ describe("E2E API Integration (I5)", () => {
 			});
 			// agent-1-e2e: non-human, will be attributed review via X-Identity
 			await db.insert(users).values({
-				id: "agent-1-e2e",
+				id: agentE2eId,
 				name: "Agent",
 				role: "builder",
 				status: "active",
@@ -445,18 +499,18 @@ describe("E2E API Integration (I5)", () => {
 
 			const create = await app.request("/api/threads", {
 				method: "POST",
-				headers: auth({ "X-Identity": "agent-1-e2e" }),
+				headers: auth({ "X-Identity": agentE2eId }),
 				body: JSON.stringify({
 					hostKind: "task",
-					hostId: "task-1",
-					participants: ["agent-1-e2e", "founder-1"],
+					hostId: taskId,
+					participants: [agentE2eId, founderId],
 					initialMessage: {
 						type: "review",
-						clientKey: "init-r-e2e",
+						clientKey: ids("init-r-e2e"),
 						payload: {
 							title: "E2E review",
 							reasoning: ["needs verdict"],
-							artifactRef: { id: "a-e2e", kind: "text_diff" },
+							artifactRef: { id: ids("a-e2e"), kind: "text_diff" },
 						},
 					},
 				}),
@@ -473,7 +527,7 @@ describe("E2E API Integration (I5)", () => {
 				headers: auth(), // senderId = founder-1 (auth principal)
 				body: JSON.stringify({
 					type: "verdict",
-					clientKey: "verdict-e2e",
+					clientKey: ids("verdict-e2e"),
 					payload: {
 						decision: "approve",
 						resolvesMessageId: created.messages[0]?.id ?? "",
@@ -491,8 +545,8 @@ describe("E2E API Integration (I5)", () => {
 	// New URL shape: POST /api/knowledge (create), GET /api/knowledge (list),
 	// GET /api/knowledge/:id (get), GET /api/knowledge/search?q=... (search).
 	describe("Knowledge", () => {
-		test("GET /api/knowledge returns items list", async ({ db, app }) => {
-			await seedBase(db);
+		test("GET /api/knowledge returns items list", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
 			const res = await app.request("/api/knowledge", { headers: auth() });
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as { items: unknown[] };
@@ -502,8 +556,9 @@ describe("E2E API Integration (I5)", () => {
 		test("POST /api/knowledge creates a knowledge item (O2: no layer prefix)", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			await seedBase(db);
+			const scope = await seedBase(db, ids);
 			const res = await app.request("/api/knowledge", {
 				method: "POST",
 				headers: auth(),
@@ -512,7 +567,7 @@ describe("E2E API Integration (I5)", () => {
 					body: "We decided X",
 					format: "markdown",
 					scopeKind: "factory",
-					updatedBy: "agent-1",
+					updatedBy: scope.agentId,
 				}),
 			});
 			expect(res.status).toBe(201);
@@ -521,8 +576,12 @@ describe("E2E API Integration (I5)", () => {
 			expect(body.version).toBe(1);
 		});
 
-		test("GET /api/knowledge/:id returns item by id (O2: no layer prefix)", async ({ db, app }) => {
-			await seedBase(db);
+		test("GET /api/knowledge/:id returns item by id (O2: no layer prefix)", async ({
+			db,
+			app,
+			ids,
+		}) => {
+			const scope = await seedBase(db, ids);
 			// Create an item first
 			const createRes = await app.request("/api/knowledge", {
 				method: "POST",
@@ -532,7 +591,7 @@ describe("E2E API Integration (I5)", () => {
 					body: "Content",
 					format: "markdown",
 					scopeKind: "factory",
-					updatedBy: "agent-1",
+					updatedBy: scope.agentId,
 				}),
 			});
 			const created = (await createRes.json()) as { id: string };
@@ -543,8 +602,8 @@ describe("E2E API Integration (I5)", () => {
 			expect(body.title).toBe("Get-by-id test");
 		});
 
-		test("GET /api/knowledge/search?q=test returns search results", async ({ db, app }) => {
-			await seedBase(db);
+		test("GET /api/knowledge/search?q=test returns search results", async ({ db, app, ids }) => {
+			const scope = await seedBase(db, ids);
 			// First create a knowledge item so search has something to find
 			await app.request("/api/knowledge", {
 				method: "POST",
@@ -554,11 +613,13 @@ describe("E2E API Integration (I5)", () => {
 					body: "This is a test item for search",
 					format: "markdown",
 					scopeKind: "factory",
-					updatedBy: "agent-1",
+					updatedBy: scope.agentId,
 				}),
 			});
 
-			const res = await app.request("/api/knowledge/search?q=Searchable", { headers: auth() });
+			const res = await app.request("/api/knowledge/search?q=Searchable", {
+				headers: auth(),
+			});
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as { results: Array<{ title: string }> };
 			expect(Array.isArray(body.results)).toBe(true);
@@ -566,8 +627,8 @@ describe("E2E API Integration (I5)", () => {
 			expect(body.results.some((r) => r.title === "Searchable decision")).toBe(true);
 		});
 
-		test("GET /api/knowledge/search requires query param q", async ({ db, app }) => {
-			await seedBase(db);
+		test("GET /api/knowledge/search requires query param q", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
 			const res = await app.request("/api/knowledge/search", { headers: auth() });
 			expect(res.status).toBe(400);
 			const body = (await res.json()) as { code: string };
@@ -581,53 +642,55 @@ describe("E2E API Integration (I5)", () => {
 	describe("Agents", () => {
 		// @lore AU26 J1: the per-user `activeSessions` count is gone — it was a raw
 		// `sessions` read and the list's one consumer is typed `{id,name,role,teamId}`.
-		test("GET /api/users lists agents", async ({ db, app }) => {
-			await seedBase(db);
+		test("GET /api/users lists agents", async ({ db, app, ids }) => {
+			const scope = await seedBase(db, ids);
 			const res = await app.request("/api/users", { headers: auth() });
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as Array<{ id: string; name: string }>;
 			expect(body.length).toBeGreaterThanOrEqual(1);
-			expect(body.some((u) => u.id === "agent-1")).toBe(true);
+			expect(body.some((u) => u.id === scope.agentId)).toBe(true);
 		});
 
-		test("GET /api/users/:id returns agent detail", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/users/agent-1", { headers: auth() });
+		test("GET /api/users/:id returns agent detail", async ({ db, app, ids }) => {
+			const scope = await seedBase(db, ids);
+			const res = await app.request(`/api/users/${scope.agentId}`, { headers: auth() });
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as { id: string };
-			expect(body.id).toBe("agent-1");
+			expect(body.id).toBe(scope.agentId);
 		});
 
-		test("GET /api/users/:id returns 404 for unknown agent", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/users/nonexistent", { headers: auth() });
+		test("GET /api/users/:id returns 404 for unknown agent", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
+			const res = await app.request(`/api/users/${ids("nonexistent")}`, { headers: auth() });
 			expect(res.status).toBe(404);
 			const body = (await res.json()) as { code: string };
 			expect(body.code).toBe("NOT_FOUND");
 		});
 
-		test("GET /api/users/:id/inbox returns empty inbox", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/users/agent-1/inbox", { headers: auth() });
+		test("GET /api/users/:id/inbox returns empty inbox", async ({ db, app, ids }) => {
+			const scope = await seedBase(db, ids);
+			const res = await app.request(`/api/users/${scope.agentId}/inbox`, {
+				headers: auth(),
+			});
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as { messages: unknown[]; total: number };
 			expect(body.messages).toEqual([]);
 			expect(body.total).toBe(0);
 		});
 
-		test("POST /api/users/:id/inbox sends message and returns 201", async ({ db, app }) => {
-			await seedBase(db);
+		test("POST /api/users/:id/inbox sends message and returns 201", async ({ db, app, ids }) => {
+			const scope = await seedBase(db, ids);
 			// L1 step9 (Adv-C2): sender is derived from X-Identity, not the body.
-			const res = await app.request("/api/users/agent-1/inbox", {
+			const res = await app.request(`/api/users/${scope.agentId}/inbox`, {
 				method: "POST",
-				headers: auth({ "X-Identity": "agent-1" }),
+				headers: auth({ "X-Identity": scope.agentId }),
 				body: JSON.stringify({ body: "Hello agent!" }),
 			});
 			expect(res.status).toBe(201);
 			// L1a: messages now carry payload (JSON), not body/recipientId.
 			// Recipient is derived from the thread.host_id (plan §5.3).
 			const body = (await res.json()) as { senderId: string; payload: string };
-			expect(body.senderId).toBe("agent-1");
+			expect(body.senderId).toBe(scope.agentId);
 			const payload = JSON.parse(body.payload) as { text?: string };
 			expect(payload.text).toBe("Hello agent!");
 		});
@@ -637,18 +700,23 @@ describe("E2E API Integration (I5)", () => {
 	// 8. Sessions
 	// -------------------------------------------------------
 	describe("Sessions", () => {
-		test("GET /api/sessions returns session list", async ({ db, app }) => {
-			await seedBase(db);
-			await seedSessionData(db);
+		test("GET /api/sessions returns session list", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
+			await seedSessionData(db, ids);
 			const res = await app.request("/api/sessions", { headers: auth() });
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as unknown[];
 			expect(Array.isArray(body)).toBe(true);
 		});
 
-		test("POST /api/sessions creates a session and emits event", async ({ db, app, eventBus }) => {
-			await seedBase(db);
-			await seedSessionData(db);
+		test("POST /api/sessions creates a session and emits event", async ({
+			db,
+			app,
+			eventBus,
+			ids,
+		}) => {
+			const scope = await seedBase(db, ids);
+			const sessionScope = await seedSessionData(db, ids);
 			const events: unknown[] = [];
 			eventBus.on("session_started", (e: unknown) => events.push(e));
 
@@ -656,8 +724,8 @@ describe("E2E API Integration (I5)", () => {
 				method: "POST",
 				headers: auth(),
 				body: JSON.stringify({
-					agentId: "agent-1",
-					taskId: "task-s",
+					agentId: scope.agentId,
+					taskId: sessionScope.taskId,
 					modelTier: "workhorse",
 				}),
 			});
@@ -667,16 +735,16 @@ describe("E2E API Integration (I5)", () => {
 			expect(events.length).toBe(1);
 		});
 
-		test("PATCH /api/sessions/:id ends a session", async ({ db, app }) => {
-			await seedBase(db);
-			await seedSessionData(db);
+		test("PATCH /api/sessions/:id ends a session", async ({ db, app, ids }) => {
+			const scope = await seedBase(db, ids);
+			const sessionScope = await seedSessionData(db, ids);
 			// Create a session first
 			const createRes = await app.request("/api/sessions", {
 				method: "POST",
 				headers: auth(),
 				body: JSON.stringify({
-					agentId: "agent-1",
-					taskId: "task-s",
+					agentId: scope.agentId,
+					taskId: sessionScope.taskId,
 					modelTier: "fast",
 				}),
 			});
@@ -693,10 +761,14 @@ describe("E2E API Integration (I5)", () => {
 			expect(body.endedAt).toBeTruthy();
 		});
 
-		test("PATCH /api/sessions/:id returns 404 for nonexistent session", async ({ db, app }) => {
-			await seedBase(db);
-			await seedSessionData(db);
-			const res = await app.request("/api/sessions/nonexistent", {
+		test("PATCH /api/sessions/:id returns 404 for nonexistent session", async ({
+			db,
+			app,
+			ids,
+		}) => {
+			await seedBase(db, ids);
+			await seedSessionData(db, ids);
+			const res = await app.request(`/api/sessions/${ids("nonexistent")}`, {
 				method: "PATCH",
 				headers: auth(),
 				body: JSON.stringify({ state: "done" }),
@@ -712,17 +784,20 @@ describe("E2E API Integration (I5)", () => {
 	// -------------------------------------------------------
 	describe("Status", () => {
 		// @lore AU26 J1: `activeSessions` is gone from this response.
-		test("GET /api/status returns factory-wide status", async ({ db, app }) => {
-			await seedBase(db);
+		test("GET /api/status returns factory-wide status", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
 			const res = await app.request("/api/status", { headers: auth() });
 			expect(res.status).toBe(200);
-			const body = (await res.json()) as { agentStates: Record<string, number>; uptime: string };
+			const body = (await res.json()) as {
+				agentStates: Record<string, number>;
+				uptime: string;
+			};
 			expect(typeof body.uptime).toBe("string");
 			expect(body.agentStates).toBeTypeOf("object");
 		});
 
-		test("GET /api/status/health returns authenticated health", async ({ db, app }) => {
-			await seedBase(db);
+		test("GET /api/status/health returns authenticated health", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
 			const res = await app.request("/api/status/health", { headers: auth() });
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as { status: string };
@@ -735,8 +810,8 @@ describe("E2E API Integration (I5)", () => {
 		// (notifications config has its own route tests). No web
 		// client depended on the raw-rows shape (confirmed via grep).
 
-		test("GET /api/status/digest returns digest data", async ({ db, app }) => {
-			await seedBase(db);
+		test("GET /api/status/digest returns digest data", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
 			const res = await app.request("/api/status/digest", { headers: auth() });
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as { items: unknown[]; generatedAt: string };
@@ -749,19 +824,19 @@ describe("E2E API Integration (I5)", () => {
 	// 11. Routines
 	// -------------------------------------------------------
 	describe("Routines", () => {
-		test("GET /api/routines lists routines", async ({ db, app }) => {
-			await seedBase(db);
-			await seedRoutineData(db);
+		test("GET /api/routines lists routines", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
+			await seedRoutineData(db, ids);
 			const res = await app.request("/api/routines", { headers: auth() });
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as Array<{ id: string }>;
 			expect(body.length).toBeGreaterThanOrEqual(1);
 		});
 
-		test("PATCH /api/routines/:id updates routine", async ({ db, app }) => {
-			await seedBase(db);
-			await seedRoutineData(db);
-			const res = await app.request("/api/routines/routine-1", {
+		test("PATCH /api/routines/:id updates routine", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
+			const routineScope = await seedRoutineData(db, ids);
+			const res = await app.request(`/api/routines/${routineScope.routineId}`, {
 				method: "PATCH",
 				headers: auth(),
 				body: JSON.stringify({ active: false }),
@@ -771,10 +846,10 @@ describe("E2E API Integration (I5)", () => {
 			expect(body.active).toBe(false);
 		});
 
-		test("POST /api/routines/:id/retire retires routine", async ({ db, app }) => {
-			await seedBase(db);
-			await seedRoutineData(db);
-			const res = await app.request("/api/routines/routine-1/retire", {
+		test("POST /api/routines/:id/retire retires routine", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
+			const routineScope = await seedRoutineData(db, ids);
+			const res = await app.request(`/api/routines/${routineScope.routineId}/retire`, {
 				method: "POST",
 				headers: auth(),
 			});
@@ -783,10 +858,14 @@ describe("E2E API Integration (I5)", () => {
 			expect(body.active).toBe(false);
 		});
 
-		test("POST /api/routines/:id/retire returns 404 for unknown routine", async ({ db, app }) => {
-			await seedBase(db);
-			await seedRoutineData(db);
-			const res = await app.request("/api/routines/nonexistent/retire", {
+		test("POST /api/routines/:id/retire returns 404 for unknown routine", async ({
+			db,
+			app,
+			ids,
+		}) => {
+			await seedBase(db, ids);
+			await seedRoutineData(db, ids);
+			const res = await app.request(`/api/routines/${ids("nonexistent")}/retire`, {
 				method: "POST",
 				headers: auth(),
 			});
@@ -800,8 +879,8 @@ describe("E2E API Integration (I5)", () => {
 	// 12. Notifications
 	// -------------------------------------------------------
 	describe("Notifications", () => {
-		test("GET /api/notifications returns resource descriptor", async ({ db, app }) => {
-			await seedBase(db);
+		test("GET /api/notifications returns resource descriptor", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
 			const res = await app.request("/api/notifications", { headers: auth() });
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as { ok: boolean; resource: string };
@@ -809,8 +888,8 @@ describe("E2E API Integration (I5)", () => {
 			expect(body.resource).toBe("notifications");
 		});
 
-		test("GET /api/notifications/config returns notification config", async ({ db, app }) => {
-			await seedBase(db);
+		test("GET /api/notifications/config returns notification config", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
 			const res = await app.request("/api/notifications/config", { headers: auth() });
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as { enabled: boolean; primaryChannel: string };
@@ -818,18 +897,24 @@ describe("E2E API Integration (I5)", () => {
 			expect(typeof body.primaryChannel).toBe("string");
 		});
 
-		test("GET /api/notifications/queue returns queued notifications", async ({ db, app }) => {
-			await seedBase(db);
+		test("GET /api/notifications/queue returns queued notifications", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
 			const res = await app.request("/api/notifications/queue", { headers: auth() });
 			expect(res.status).toBe(200);
-			const body = (await res.json()) as { status: string; count: number; rows: unknown[] };
+			const body = (await res.json()) as {
+				status: string;
+				count: number;
+				rows: unknown[];
+			};
 			expect(body.status).toBe("pending");
 			expect(Array.isArray(body.rows)).toBe(true);
 		});
 
-		test("GET /api/notifications/queue?status=invalid returns 400", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/notifications/queue?status=invalid", { headers: auth() });
+		test("GET /api/notifications/queue?status=invalid returns 400", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
+			const res = await app.request("/api/notifications/queue?status=invalid", {
+				headers: auth(),
+			});
 			expect(res.status).toBe(400);
 			const body = (await res.json()) as { code: string };
 			expect(body.code).toBe("VALIDATION_ERROR");
@@ -838,8 +923,9 @@ describe("E2E API Integration (I5)", () => {
 		test("POST /api/notifications/test sends a test notification via console adapter", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			await seedBase(db);
+			await seedBase(db, ids);
 			const res = await app.request("/api/notifications/test", {
 				method: "POST",
 				headers: auth(),
@@ -856,8 +942,8 @@ describe("E2E API Integration (I5)", () => {
 	// 14. 404 handling
 	// -------------------------------------------------------
 	describe("404 handling", () => {
-		test("returns 404 JSON for unknown /api routes", async ({ db, app }) => {
-			await seedBase(db);
+		test("returns 404 JSON for unknown /api routes", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
 			const res = await app.request("/api/nonexistent", { headers: auth() });
 			expect(res.status).toBe(404);
 			const body = (await res.json()) as { code: string };
@@ -874,14 +960,15 @@ describe("E2E API Integration (I5)", () => {
 	// 15. Validation
 	// -------------------------------------------------------
 	describe("Request validation", () => {
-		test("POST /api/sessions returns 400 for invalid modelTier", async ({ db, app }) => {
-			await seedBase(db);
+		test("POST /api/sessions returns 400 for invalid modelTier", async ({ db, app, ids }) => {
+			const scope = await seedBase(db, ids);
+			const taskScope = await seedTaskData(db, ids);
 			const res = await app.request("/api/sessions", {
 				method: "POST",
 				headers: auth(),
 				body: JSON.stringify({
-					agentId: "agent-1",
-					taskId: "task-1",
+					agentId: scope.agentId,
+					taskId: taskScope.taskId,
 					modelTier: "invalid",
 				}),
 			});
@@ -890,9 +977,13 @@ describe("E2E API Integration (I5)", () => {
 			expect(body.code).toBe("VALIDATION_ERROR");
 		});
 
-		test("PATCH /api/routines/:id returns 404 for nonexistent routine", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/routines/nonexistent", {
+		test("PATCH /api/routines/:id returns 404 for nonexistent routine", async ({
+			db,
+			app,
+			ids,
+		}) => {
+			await seedBase(db, ids);
+			const res = await app.request(`/api/routines/${ids("nonexistent")}`, {
 				method: "PATCH",
 				headers: auth(),
 				body: JSON.stringify({ active: true }),

@@ -21,6 +21,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import type { RuntimePorts } from "@hyperidle/run-orchestration";
 import { eq } from "drizzle-orm";
@@ -72,61 +73,68 @@ afterEach(() => {
 
 async function seedTaskRequest(
 	db: import("@hyperidle/db").HyperIdleDb,
-	id: string,
+	ids: ScopedIds,
+	prefix: string,
 	options: { claimed?: boolean; expired?: boolean } = {},
-): Promise<void> {
+): Promise<string> {
 	const now = new Date().toISOString();
-	await db.insert(teams).values({ id: `${id}-team`, name: id, phase: "build", createdAt: now });
+	const teamId = ids(`${prefix}-team`);
+	const memberId = ids(`${prefix}-member`);
+	const agentId = ids(`${prefix}-agent`);
+	const betId = ids(`${prefix}-bet`);
+	const taskId = ids(`${prefix}-task`);
+	const requestId = ids(prefix);
+	await db.insert(teams).values({ id: teamId, name: prefix, phase: "build", createdAt: now });
 	await db.insert(teamMembers).values({
-		id: `${id}-member`,
-		teamId: `${id}-team`,
+		id: memberId,
+		teamId: teamId,
 		capacity: 3,
 		activeBets: 0,
 		formedAt: now,
 	});
 	await db.insert(users).values({
-		id: `${id}-agent`,
+		id: agentId,
 		kind: "ai",
 		name: "Agent",
 		role: "builder",
 		status: "active",
-		teamId: `${id}-member`,
+		teamId: memberId,
 		createdAt: now,
 	});
 	await db.insert(bets).values({
-		id: `${id}-bet`,
-		teamId: `${id}-team`,
-		description: id,
+		id: betId,
+		teamId: teamId,
+		description: prefix,
 		status: "active",
 		createdAt: now,
 	});
 	await db.insert(tasks).values({
-		id: `${id}-task`,
-		betId: `${id}-bet`,
-		teamId: `${id}-team`,
-		title: id,
+		id: taskId,
+		betId: betId,
+		teamId: teamId,
+		title: prefix,
 		state: "accepted",
-		ownerAgentId: `${id}-agent`,
+		ownerAgentId: agentId,
 		createdAt: now,
 		updatedAt: now,
 	});
 	await db.insert(agentSessionRequests).values({
-		id,
+		id: requestId,
 		sourceKind: "task",
-		sourceId: `${id}-task`,
-		streamId: `task:${id}-task`,
-		taskId: `${id}-task`,
-		agentId: `${id}-agent`,
-		teamId: `${id}-team`,
+		sourceId: taskId,
+		streamId: `task:${taskId}`,
+		taskId: taskId,
+		agentId: agentId,
+		teamId: teamId,
 		promptMode: "task",
-		sourceCorrelationJson: JSON.stringify({ taskId: `${id}-task`, teamId: `${id}-team` }),
-		idempotencyKey: id,
+		sourceCorrelationJson: JSON.stringify({ taskId: taskId, teamId: teamId }),
+		idempotencyKey: prefix,
 		status: options.claimed ? "claimed" : "pending",
 		...(options.claimed
 			? {
 					claimedBy: "prior-worker",
 					claimedAt: now,
-					claimToken: "prior-token",
+					claimToken: ids(`${prefix}-token`),
 					claimExpiresAt: options.expired
 						? "2000-01-01T00:00:00.000Z"
 						: new Date(Date.now() + 30_000).toISOString(),
@@ -135,6 +143,7 @@ async function seedTaskRequest(
 		createdAt: now,
 		updatedAt: now,
 	});
+	return requestId;
 }
 
 /**
@@ -146,13 +155,15 @@ async function seedTaskRequest(
  */
 async function seedAssistantTurnRequest(
 	db: import("@hyperidle/db").HyperIdleDb,
-	id: string,
-): Promise<void> {
+	ids: ScopedIds,
+	prefix: string,
+): Promise<string> {
 	const now = new Date().toISOString();
-	const founderId = `${id}-founder`;
-	const assistantId = `ast-${founderId}`;
-	const threadId = `${id}-thread`;
-	const messageId = `${id}-msg`;
+	const founderId = ids(`${prefix}-founder`);
+	const assistantId = ids(`${prefix}-assistant`);
+	const threadId = ids(`${prefix}-thread`);
+	const messageId = ids(`${prefix}-msg`);
+	const requestId = ids(prefix);
 	await db.insert(users).values({
 		id: founderId,
 		kind: "human",
@@ -173,7 +184,7 @@ async function seedAssistantTurnRequest(
 	await db.insert(agentRunConfig).values({
 		agentUserId: assistantId,
 		harnessType: "builtin",
-		modelId: "deepseek/deepseek-v4-flash",
+		modelId: ids(`${prefix}-model`),
 		modelProvider: "openrouter",
 	});
 	await db.insert(threads).values({
@@ -191,11 +202,11 @@ async function seedAssistantTurnRequest(
 		senderId: founderId,
 		type: "plain",
 		payload: JSON.stringify({ text: "What is 1 + 1?" }),
-		clientKey: `ck-${id}`,
+		clientKey: ids(`${prefix}-ck`),
 		createdAt: now,
 	});
 	await db.insert(agentSessionRequests).values({
-		id,
+		id: requestId,
 		sourceKind: "assistant",
 		sourceId: messageId,
 		streamId: `assistant:${messageId}`,
@@ -209,22 +220,27 @@ async function seedAssistantTurnRequest(
 			userId: founderId,
 			assistantAgentId: assistantId,
 		}),
-		idempotencyKey: id,
+		idempotencyKey: prefix,
 		status: "pending",
 		createdAt: now,
 		updatedAt: now,
 	});
+	return requestId;
 }
 
 describe("request custody drives the real drain and runtime", () => {
-	test("two concurrent drains yield exactly one winner for a pending request", async ({ db }) => {
-		await seedTaskRequest(db, "pending-race");
+	test("two concurrent drains yield exactly one winner for a pending request", async ({
+		db,
+		ids,
+	}) => {
+		const requestId = await seedTaskRequest(db, ids, "pending-race");
 		await Promise.all([drain(db), drain(db)]);
-		expect(await db.select().from(sessions)).toHaveLength(1);
+		const mySessions = await db.select().from(sessions).where(eq(sessions.requestId, requestId));
+		expect(mySessions).toHaveLength(1);
 		const [request] = await db
 			.select()
 			.from(agentSessionRequests)
-			.where(eq(agentSessionRequests.id, "pending-race"));
+			.where(eq(agentSessionRequests.id, requestId));
 		// detachAfterAdmission's mocked runSession resolves near-instantly, so by
 		// the time the drain returns the request has already run its full
 		// admission→completion lifecycle through the single terminal writer.
@@ -233,63 +249,74 @@ describe("request custody drives the real drain and runtime", () => {
 
 	test("an expired claim is reclaimed once and the unique correlated session is adopted", async ({
 		db,
+		ids,
 	}) => {
-		await seedTaskRequest(db, "restart-request", { claimed: true, expired: true });
+		const requestId = await seedTaskRequest(db, ids, "restart-request", {
+			claimed: true,
+			expired: true,
+		});
 		await Promise.all([drain(db), drain(db)]);
-		expect(await db.select().from(sessions)).toHaveLength(1);
+		const mySessions = await db.select().from(sessions).where(eq(sessions.requestId, requestId));
+		expect(mySessions).toHaveLength(1);
 	});
 
 	test("process death immediately after a committed session insert is recovered on restart without a second session", async ({
 		db,
+		ids,
 	}) => {
 		// Legacy checkpoint: the session row was committed (a prior crashed attempt's
 		// reserve-or-adopt succeeded) but the request never reached "running" —
 		// it is still "claimed" with an expired lease.
-		await seedTaskRequest(db, "checkpoint-request", { claimed: true, expired: true });
+		const requestId = await seedTaskRequest(db, ids, "checkpoint-request", {
+			claimed: true,
+			expired: true,
+		});
 		const now = new Date().toISOString();
+		const checkpointSessionId = ids("checkpoint-session");
 		await db.insert(sessions).values({
-			id: "checkpoint-session",
-			requestId: "checkpoint-request",
-			taskId: "checkpoint-request-task",
-			agentId: "checkpoint-request-agent",
+			id: checkpointSessionId,
+			requestId: requestId,
+			taskId: ids("checkpoint-request-task"),
+			agentId: ids("checkpoint-request-agent"),
 			modelTier: "fast",
 			startedAt: now,
 			state: "active",
 			sourceKind: "task",
-			sourceId: "checkpoint-request-task",
+			sourceId: ids("checkpoint-request-task"),
 			sourceCorrelationJson: JSON.stringify({
-				taskId: "checkpoint-request-task",
-				teamId: "checkpoint-request-team",
+				taskId: ids("checkpoint-request-task"),
+				teamId: ids("checkpoint-request-team"),
 			}),
 		});
 		await drain(db);
 		const durableSessions = await db
 			.select()
 			.from(sessions)
-			.where(eq(sessions.requestId, "checkpoint-request"));
+			.where(eq(sessions.requestId, requestId));
 		expect(durableSessions).toHaveLength(1);
-		expect(durableSessions[0]?.id).toBe("checkpoint-session");
+		expect(durableSessions[0]?.id).toBe(checkpointSessionId);
 		const [request] = await db
 			.select()
 			.from(agentSessionRequests)
-			.where(eq(agentSessionRequests.id, "checkpoint-request"));
-		expect(request).toMatchObject({ status: "completed", sessionId: "checkpoint-session" });
+			.where(eq(agentSessionRequests.id, requestId));
+		expect(request).toMatchObject({ status: "completed", sessionId: checkpointSessionId });
 	});
 
 	test("a completed run has one CAS-won terminal transition and exactly one lifecycle fact", async ({
 		db,
+		ids,
 	}) => {
-		await seedTaskRequest(db, "terminal-request");
+		const requestId = await seedTaskRequest(db, ids, "terminal-request");
 		await drain(db);
 		const [request] = await db
 			.select()
 			.from(agentSessionRequests)
-			.where(eq(agentSessionRequests.id, "terminal-request"));
+			.where(eq(agentSessionRequests.id, requestId));
 		expect(request?.status).toBe("completed");
 		const inbox = await db
 			.select()
 			.from(agentLifecycleInbox)
-			.where(eq(agentLifecycleInbox.requestId, "terminal-request"));
+			.where(eq(agentLifecycleInbox.requestId, requestId));
 		expect(inbox).toHaveLength(1);
 		expect(inbox[0]).toMatchObject({ state: "completed" });
 	});
@@ -310,27 +337,25 @@ describe("request custody drives the real drain and runtime", () => {
 
 	test("an assistant_turn request reaches running then completed through the shared durable poller (AC-5)", async ({
 		db,
+		ids,
 	}) => {
-		await seedAssistantTurnRequest(db, "assistant-lifecycle-request");
+		const requestId = await seedAssistantTurnRequest(db, ids, "assistant-lifecycle-request");
 		await drain(db);
 
 		const [request] = await db
 			.select()
 			.from(agentSessionRequests)
-			.where(eq(agentSessionRequests.id, "assistant-lifecycle-request"));
+			.where(eq(agentSessionRequests.id, requestId));
 		expect(request?.status).toBe("completed");
 		expect(request?.sourceKind).toBe("assistant");
 
-		const [session] = await db
-			.select()
-			.from(sessions)
-			.where(eq(sessions.requestId, "assistant-lifecycle-request"));
+		const [session] = await db.select().from(sessions).where(eq(sessions.requestId, requestId));
 		expect(session?.sourceKind).toBe("assistant");
 
 		const inbox = await db
 			.select()
 			.from(agentLifecycleInbox)
-			.where(eq(agentLifecycleInbox.requestId, "assistant-lifecycle-request"));
+			.where(eq(agentLifecycleInbox.requestId, requestId));
 		expect(inbox).toHaveLength(1);
 		expect(inbox[0]).toMatchObject({ state: "completed" });
 	});

@@ -20,6 +20,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { transitionProposedCall } from "@hyperidle/review";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { requireRunnableAgent } from "@hyperidle/users";
@@ -40,22 +41,36 @@ const authHeaders = {
 	"X-API-Key": "test-api-key",
 };
 
-async function seedExplicitSessionAuthority(db: HyperIdleDb) {
+async function seedExplicitSessionAuthority(
+	db: HyperIdleDb,
+	ids: ScopedIds,
+): Promise<{
+	teamId: string;
+	memberId: string;
+	humanId: string;
+	agentId: string;
+	betId: string;
+	taskId: string;
+}> {
 	await db.execute(sql`drop trigger if exists au9_reject_intent_write on agent_work_intents`);
 	const now = new Date().toISOString();
-	await db
-		.insert(teams)
-		.values({ id: "au9-production-team", name: "AU9", phase: "build", createdAt: now });
+	const teamId = ids("au9-production-team");
+	const memberId = ids("au9-production-membership");
+	const humanId = ids("au9-production-human");
+	const agentId = ids("au9-production-agent");
+	const betId = ids("au9-production-bet");
+	const taskId = ids("au9-production-task");
+	await db.insert(teams).values({ id: teamId, name: "AU9", phase: "build", createdAt: now });
 	await db.insert(teamMembers).values({
-		id: "au9-production-membership",
-		teamId: "au9-production-team",
+		id: memberId,
+		teamId: teamId,
 		capacity: 2,
 		activeBets: 0,
 		formedAt: now,
 	});
 	await db.insert(users).values([
 		{
-			id: "au9-production-human",
+			id: humanId,
 			kind: "human",
 			name: "Founder",
 			role: "founder",
@@ -63,75 +78,80 @@ async function seedExplicitSessionAuthority(db: HyperIdleDb) {
 			createdAt: now,
 		},
 		{
-			id: "au9-production-agent",
+			id: agentId,
 			kind: "ai",
 			name: "Builder",
 			role: "builder",
 			status: "active",
-			teamId: "au9-production-membership",
+			teamId: memberId,
 			createdAt: now,
 		},
 	]);
 	await db.insert(bets).values({
-		id: "au9-production-bet",
-		teamId: "au9-production-team",
+		id: betId,
+		teamId: teamId,
 		description: "Atomic handoff",
 		appetite: "small",
 		status: "active",
 		createdAt: now,
 	});
 	await db.insert(tasks).values({
-		id: "au9-production-task",
-		betId: "au9-production-bet",
-		teamId: "au9-production-team",
+		id: taskId,
+		betId: betId,
+		teamId: teamId,
 		title: "Atomic handoff",
 		state: "in_progress",
 		createdAt: now,
 		updatedAt: now,
 	});
+	return { teamId, memberId, humanId, agentId, betId, taskId };
 }
 
-async function seedProposedCallWorld(db: HyperIdleDb) {
-	await seedExplicitSessionAuthority(db);
+async function seedProposedCallWorld(
+	db: HyperIdleDb,
+	ids: ScopedIds,
+): Promise<ReturnType<typeof seedExplicitSessionAuthority> extends Promise<infer R> ? R : never> {
+	const scope = await seedExplicitSessionAuthority(db, ids);
 	const now = new Date().toISOString();
 	await db.insert(artifacts).values({
-		id: "au9-production-artifact",
-		producingTaskId: "au9-production-task",
+		id: ids("au9-production-artifact"),
+		producingTaskId: scope.taskId,
 		kind: "action_operation",
 		createdAt: now,
 	});
 	await db.insert(threads).values({
-		id: "au9-production-thread",
+		id: ids("au9-production-thread"),
 		hostKind: "bet",
-		hostId: "au9-production-bet",
-		initiatorId: "au9-production-agent",
-		participants: JSON.stringify(["au9-production-agent"]),
+		hostId: scope.betId,
+		initiatorId: scope.agentId,
+		participants: JSON.stringify([scope.agentId]),
 		lastActiveAt: now,
 		createdAt: now,
 	});
 	await db.insert(messages).values({
-		id: "au9-production-review-message",
-		senderId: "au9-production-agent",
-		threadId: "au9-production-thread",
+		id: ids("au9-production-review-message"),
+		senderId: scope.agentId,
+		threadId: ids("au9-production-thread"),
 		type: "review",
 		payload: JSON.stringify({ title: "Approve", reasoning: ["needed"] }),
-		clientKey: "au9-production-review-message",
+		clientKey: ids("au9-production-review-message"),
 		createdAt: now,
 	});
 	await db.insert(proposedCalls).values({
-		id: "au9-production-call",
-		reviewMessageId: "au9-production-review-message",
-		subjectThreadId: "au9-production-thread",
-		artifactId: "au9-production-artifact",
-		originSessionId: "au9-production-origin",
-		toolId: "commit_file",
+		id: ids("au9-production-call"),
+		reviewMessageId: ids("au9-production-review-message"),
+		subjectThreadId: ids("au9-production-thread"),
+		artifactId: ids("au9-production-artifact"),
+		originSessionId: ids("au9-production-origin"),
+		toolId: ids("commit_file"),
 		args: JSON.stringify({ path: "result.txt" }),
-		identityHash: "au9-production-hash",
+		identityHash: ids("au9-production-hash"),
 		reversibility: "irreversible",
 		status: "captured",
-		stagedByAgentId: "au9-production-agent",
+		stagedByAgentId: scope.agentId,
 		createdAt: now,
 	});
+	return scope;
 }
 
 async function rejectIntentWrites(db: HyperIdleDb) {
@@ -148,11 +168,17 @@ async function rejectIntentWrites(db: HyperIdleDb) {
 	`);
 }
 
-async function seedAssistantThread(db: HyperIdleDb) {
+async function seedAssistantThread(
+	db: HyperIdleDb,
+	ids: ScopedIds,
+): Promise<{ humanId: string; assistantId: string; threadId: string }> {
 	const now = new Date().toISOString();
+	const humanId = ids("au9-assistant-human");
+	const assistantId = ids("ast-au9-assistant-human");
+	const threadId = ids("au9-assistant-thread");
 	await db.insert(users).values([
 		{
-			id: "au9-assistant-human",
+			id: humanId,
 			kind: "human",
 			name: "Founder",
 			role: "founder",
@@ -160,7 +186,7 @@ async function seedAssistantThread(db: HyperIdleDb) {
 			createdAt: now,
 		},
 		{
-			id: "ast-au9-assistant-human",
+			id: assistantId,
 			kind: "ai",
 			name: "Assistant",
 			role: "assistant",
@@ -170,30 +196,34 @@ async function seedAssistantThread(db: HyperIdleDb) {
 	]);
 	// AU26 G1: the run config lives in its own table now.
 	await db.insert(agentRunConfig).values({
-		agentUserId: "ast-au9-assistant-human",
+		agentUserId: assistantId,
 		harnessType: "builtin",
-		modelId: "deepseek/deepseek-v4-flash",
+		modelId: ids("au9-assistant-model"),
 		modelProvider: "openrouter",
 	});
 	await db.insert(threads).values({
-		id: "au9-assistant-thread",
+		id: threadId,
 		hostKind: "user",
-		hostId: "au9-assistant-human",
-		initiatorId: "au9-assistant-human",
-		participants: JSON.stringify(["au9-assistant-human", "ast-au9-assistant-human"]),
+		hostId: humanId,
+		initiatorId: humanId,
+		participants: JSON.stringify([humanId, assistantId]),
 		lastActiveAt: now,
 		createdAt: now,
 	});
+	return { humanId, assistantId, threadId };
 }
 
-async function seedRoutineAuthority(db: HyperIdleDb) {
-	await seedExplicitSessionAuthority(db);
+async function seedRoutineAuthority(
+	db: HyperIdleDb,
+	ids: ScopedIds,
+): Promise<ReturnType<typeof seedExplicitSessionAuthority> extends Promise<infer R> ? R : never> {
+	const scope = await seedExplicitSessionAuthority(db, ids);
 	const now = new Date().toISOString();
 	await db.insert(routines).values({
-		id: "au9-production-routine",
+		id: ids("au9-production-routine"),
 		name: "Production command",
-		teamId: "au9-production-team",
-		ownerAgentId: "au9-production-agent",
+		teamId: scope.teamId,
+		ownerAgentId: scope.agentId,
 		triggerType: "cron",
 		triggerConfig: "0 * * * *",
 		state: "active",
@@ -201,6 +231,7 @@ async function seedRoutineAuthority(db: HyperIdleDb) {
 		nextRunAt: new Date(Date.now() - 60_000).toISOString(),
 		createdAt: now,
 	});
+	return scope;
 }
 
 describe("atomic production handoffs", () => {
@@ -243,15 +274,17 @@ describe("atomic production handoffs", () => {
 	test("explicit session command commits one source and intent before any request and replays exactly", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedExplicitSessionAuthority(db);
+		const scope = await seedExplicitSessionAuthority(db, ids);
+		const idemKey = ids("au9-production-explicit");
 		const request = () =>
 			app.request("/api/sessions", {
 				method: "POST",
-				headers: { ...authHeaders, "Idempotency-Key": "au9-production-explicit" },
+				headers: { ...authHeaders, "Idempotency-Key": idemKey },
 				body: JSON.stringify({
-					agentId: "au9-production-agent",
-					taskId: "au9-production-task",
+					agentId: scope.agentId,
+					taskId: scope.taskId,
 					modelTier: "workhorse",
 				}),
 			});
@@ -260,7 +293,11 @@ describe("atomic production handoffs", () => {
 		expect(first.status).toBe(202);
 		const firstBody = (await first.json()) as { startId: string; status: string };
 		expect(firstBody.status).toBe("requested");
-		expect(await db.select().from(explicitSessionStarts)).toHaveLength(1);
+		const startsAfterFirst = await db
+			.select()
+			.from(explicitSessionStarts)
+			.where(eq(explicitSessionStarts.idempotencyKey, idemKey));
+		expect(startsAfterFirst).toHaveLength(1);
 		const [intent] = await db
 			.select()
 			.from(agentWorkIntents)
@@ -271,27 +308,45 @@ describe("atomic production handoffs", () => {
 			status: "pending",
 			requestId: null,
 		});
-		expect(await db.select().from(agentSessionRequests)).toHaveLength(0);
+		const requestsAfterFirst = await db
+			.select()
+			.from(agentSessionRequests)
+			.where(eq(agentSessionRequests.idempotencyKey, idemKey));
+		expect(requestsAfterFirst).toHaveLength(0);
 
 		const replay = await request();
 		expect(replay.status).toBe(202);
 		expect(await replay.json()).toEqual(firstBody);
-		expect(await db.select().from(explicitSessionStarts)).toHaveLength(1);
-		expect(await db.select().from(agentWorkIntents)).toHaveLength(1);
-		expect(await db.select().from(agentSessionRequests)).toHaveLength(0);
+		const startsAfterReplay = await db
+			.select()
+			.from(explicitSessionStarts)
+			.where(eq(explicitSessionStarts.idempotencyKey, idemKey));
+		expect(startsAfterReplay).toHaveLength(1);
+		const intentsAfterReplay = await db
+			.select()
+			.from(agentWorkIntents)
+			.where(eq(agentWorkIntents.sourceId, firstBody.startId));
+		expect(intentsAfterReplay).toHaveLength(1);
+		const requestsAfterReplay = await db
+			.select()
+			.from(agentSessionRequests)
+			.where(eq(agentSessionRequests.idempotencyKey, idemKey));
+		expect(requestsAfterReplay).toHaveLength(0);
 	});
 
 	test("intent drain checkpoints one exact request and never invokes a domain callback", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedExplicitSessionAuthority(db);
+		const scope = await seedExplicitSessionAuthority(db, ids);
+		const idemKey = ids("au9-single-consume");
 		const response = await app.request("/api/sessions", {
 			method: "POST",
-			headers: { ...authHeaders, "Idempotency-Key": "au9-single-consume" },
+			headers: { ...authHeaders, "Idempotency-Key": idemKey },
 			body: JSON.stringify({
-				agentId: "au9-production-agent",
-				taskId: "au9-production-task",
+				agentId: scope.agentId,
+				taskId: scope.taskId,
 				modelTier: "workhorse",
 			}),
 		});
@@ -306,8 +361,23 @@ describe("atomic production handoffs", () => {
 			} as object),
 		});
 		await drainIntents(queueDeps(db), { now: () => new Date(Date.now() + 2_000) });
-		const [intent] = await db.select().from(agentWorkIntents);
-		const requests = await db.select().from(agentSessionRequests);
+		const intents = await db
+			.select()
+			.from(agentWorkIntents)
+			.where(eq(agentWorkIntents.idempotencyKey, idemKey));
+		const intent = intents[0];
+		// The drain creates a request from the intent. Query by the intent's sourceId
+		// (the explicit_session_start id) to find the correlated request.
+		const [start] = await db
+			.select()
+			.from(explicitSessionStarts)
+			.where(eq(explicitSessionStarts.idempotencyKey, idemKey));
+		const requests = start
+			? await db
+					.select()
+					.from(agentSessionRequests)
+					.where(eq(agentSessionRequests.sourceId, start.id))
+			: [];
 		expect(callbacks, JSON.stringify(intent)).toBe(0);
 		expect(requests, JSON.stringify(intent)).toHaveLength(1);
 		expect(intent).toMatchObject({ status: "handed_off", requestId: requests[0]?.id });
@@ -316,14 +386,15 @@ describe("atomic production handoffs", () => {
 	test("task route acceptance atomically records its dispatch occasion before returning", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedExplicitSessionAuthority(db);
+		const scope = await seedExplicitSessionAuthority(db, ids);
 		await db
 			.update(tasks)
-			.set({ state: "proposed", ownerAgentId: "au9-production-agent" })
-			.where(eq(tasks.id, "au9-production-task"));
+			.set({ state: "proposed", ownerAgentId: scope.agentId })
+			.where(eq(tasks.id, scope.taskId));
 
-		const response = await app.request("/api/tasks/au9-production-task/transition", {
+		const response = await app.request(`/api/tasks/${scope.taskId}/transition`, {
 			method: "POST",
 			headers: authHeaders,
 			body: JSON.stringify({ state: "accepted" }),
@@ -333,7 +404,7 @@ describe("atomic production handoffs", () => {
 		const attempts = await db
 			.select()
 			.from(taskDispatchAttempts)
-			.where(eq(taskDispatchAttempts.taskId, "au9-production-task"));
+			.where(eq(taskDispatchAttempts.taskId, scope.taskId));
 		const intents = await db
 			.select()
 			.from(agentWorkIntents)
@@ -345,22 +416,27 @@ describe("atomic production handoffs", () => {
 			status: "pending",
 			requestId: null,
 		});
-		expect(await db.select().from(agentSessionRequests)).toHaveLength(0);
+		const requests = await db
+			.select()
+			.from(agentSessionRequests)
+			.where(eq(agentSessionRequests.sourceId, attempts[0]?.id ?? ""));
+		expect(requests).toHaveLength(0);
 	});
 
 	test("accepted-task event observes exactly one durable attempt and one intent", async ({
 		db,
 		app,
 		eventBus,
+		ids,
 	}) => {
-		await seedExplicitSessionAuthority(db);
+		const scope = await seedExplicitSessionAuthority(db, ids);
 		await db
 			.update(tasks)
-			.set({ state: "proposed", ownerAgentId: "au9-production-agent" })
-			.where(eq(tasks.id, "au9-production-task"));
+			.set({ state: "proposed", ownerAgentId: scope.agentId })
+			.where(eq(tasks.id, scope.taskId));
 		let observed: Promise<readonly [number, number]> | undefined;
 		const unsubscribe = eventBus.on("task_state_changed", (event) => {
-			if (event.taskId !== "au9-production-task" || event.toState !== "accepted") return;
+			if (event.taskId !== scope.taskId || event.toState !== "accepted") return;
 			observed = Promise.all([
 				db
 					.select()
@@ -375,7 +451,7 @@ describe("atomic production handoffs", () => {
 			]);
 		});
 
-		const response = await app.request("/api/tasks/au9-production-task/transition", {
+		const response = await app.request(`/api/tasks/${scope.taskId}/transition`, {
 			method: "POST",
 			headers: authHeaders,
 			body: JSON.stringify({ state: "accepted" }),
@@ -390,33 +466,32 @@ describe("atomic production handoffs", () => {
 	test("dependency watcher acceptance records a distinct dispatch occasion", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seedExplicitSessionAuthority(db);
+		const scope = await seedExplicitSessionAuthority(db, ids);
 		const now = new Date().toISOString();
+		const dependentId = ids("au9-production-dependent");
 		await db.insert(tasks).values({
-			id: "au9-production-dependent",
-			betId: "au9-production-bet",
-			teamId: "au9-production-team",
-			ownerAgentId: "au9-production-agent",
+			id: dependentId,
+			betId: scope.betId,
+			teamId: scope.teamId,
+			ownerAgentId: scope.agentId,
 			title: "Unblocked work",
 			state: "hold",
-			dependencies: JSON.stringify(["au9-production-task"]),
+			dependencies: JSON.stringify([scope.taskId]),
 			createdAt: now,
 			updatedAt: now,
 		});
-		await db.update(tasks).set({ state: "done" }).where(eq(tasks.id, "au9-production-task"));
+		await db.update(tasks).set({ state: "done" }).where(eq(tasks.id, scope.taskId));
 
-		await checkAndUnblockDependents(db, eventBus, "au9-production-task", depWatcherDeps);
+		await checkAndUnblockDependents(db, eventBus, scope.taskId, depWatcherDeps);
 
-		const [dependent] = await db
-			.select()
-			.from(tasks)
-			.where(eq(tasks.id, "au9-production-dependent"));
+		const [dependent] = await db.select().from(tasks).where(eq(tasks.id, dependentId));
 		expect(dependent?.state).toBe("accepted");
 		const attempts = await db
 			.select()
 			.from(taskDispatchAttempts)
-			.where(eq(taskDispatchAttempts.taskId, "au9-production-dependent"));
+			.where(eq(taskDispatchAttempts.taskId, dependentId));
 		const intents = await db
 			.select()
 			.from(agentWorkIntents)
@@ -436,25 +511,32 @@ describe("atomic production handoffs", () => {
 	test("real assistant message command: the message survives even when the intent write fails (AU31 §3.1 site 5)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedAssistantThread(db);
+		const { humanId, threadId } = await seedAssistantThread(db, ids);
 		await rejectIntentWrites(db);
 
-		const response = await app.request("/api/threads/au9-assistant-thread/messages", {
+		const clientKey = ids("au9-assistant-command");
+		const response = await app.request(`/api/threads/${threadId}/messages`, {
 			method: "POST",
-			headers: { ...authHeaders, "X-Identity": "au9-assistant-human" },
+			headers: { ...authHeaders, "X-Identity": humanId },
 			body: JSON.stringify({
 				type: "plain",
 				payload: { text: "Run the production assistant command" },
-				clientKey: "au9-assistant-command",
+				clientKey: clientKey,
 			}),
 		});
 
 		// The seam's intent submit fails (uncaught) — the route still 500s —
 		// but the message insert already committed before that call ran.
 		expect(response.status).toBe(500);
-		expect(await db.select().from(messages)).toHaveLength(1);
-		expect(await db.select().from(agentWorkIntents)).toHaveLength(0);
+		const myMessages = await db.select().from(messages).where(eq(messages.clientKey, clientKey));
+		expect(myMessages).toHaveLength(1);
+		const intentsAfter = await db
+			.select()
+			.from(agentWorkIntents)
+			.where(eq(agentWorkIntents.sourceKind, "thread_message"));
+		expect(intentsAfter).toHaveLength(0);
 	});
 
 	// AU31 §3.1 site 4 — INVERTED. The flag transition is no longer inside the
@@ -467,9 +549,11 @@ describe("atomic production handoffs", () => {
 	test("real knowledge flag command: the flag survives even when the intent write fails (AU31 §3.1 site 4)", async ({
 		db,
 		app,
+		ids,
 	}) => {
+		const knowledgeAgentId = ids("au9-knowledge-agent");
 		await db.insert(users).values({
-			id: "au9-knowledge-agent",
+			id: knowledgeAgentId,
 			kind: "ai",
 			name: "Knowledge reviewer",
 			role: "builder",
@@ -480,12 +564,12 @@ describe("atomic production handoffs", () => {
 			method: "POST",
 			headers: authHeaders,
 			body: JSON.stringify({
-				topic: "au9",
+				topic: ids("au9"),
 				title: "Atomic knowledge action",
 				body: "Must survive only with its intent",
 				format: "markdown",
 				scopeKind: "factory",
-				updatedBy: "au9-human",
+				updatedBy: ids("au9-human"),
 			}),
 		});
 		const item = (await created.json()) as { id: string; status: string };
@@ -494,13 +578,15 @@ describe("atomic production handoffs", () => {
 		// convergence — see plans/AU14/architecture.md §7/§9 D1). Capture the baseline
 		// count here (1 durable row from the create above) so the assertion below
 		// proves the flag transaction added exactly one new row.
-		const editLogCountBeforeFlag = (await db.select().from(knowledgeEditLog)).length;
+		const editLogCountBeforeFlag = (
+			await db.select().from(knowledgeEditLog).where(eq(knowledgeEditLog.itemId, item.id))
+		).length;
 		await rejectIntentWrites(db);
 
 		const response = await app.request(`/api/knowledge/${item.id}/flag`, {
 			method: "POST",
 			headers: authHeaders,
-			body: JSON.stringify({ reason: "needs agent review", agentId: "au9-knowledge-agent" }),
+			body: JSON.stringify({ reason: "needs agent review", agentId: knowledgeAgentId }),
 		});
 
 		// The seam's intent submit fails (uncaught) — the route still 500s —
@@ -511,8 +597,16 @@ describe("atomic production handoffs", () => {
 			.from(knowledgeItems)
 			.where(eq(knowledgeItems.id, item.id));
 		expect(persisted?.status).toBe("draft");
-		expect(await db.select().from(knowledgeEditLog)).toHaveLength(editLogCountBeforeFlag + 1);
-		expect(await db.select().from(agentWorkIntents)).toHaveLength(0);
+		const editLogAfterFlag = await db
+			.select()
+			.from(knowledgeEditLog)
+			.where(eq(knowledgeEditLog.itemId, item.id));
+		expect(editLogAfterFlag).toHaveLength(editLogCountBeforeFlag + 1);
+		const intentsAfter = await db
+			.select()
+			.from(agentWorkIntents)
+			.where(eq(agentWorkIntents.sourceKind, "knowledge_flag"));
+		expect(intentsAfter).toHaveLength(0);
 	});
 
 	// AU31 §3.1 site 8 — INVERTED. The routine_run row commits (outcome
@@ -524,32 +618,41 @@ describe("atomic production handoffs", () => {
 	test("real manual routine command: the run is marked error, not rolled back, when the intent write fails (AU31 §3.1 site 8)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seedRoutineAuthority(db);
+		await seedRoutineAuthority(db, ids);
 		await rejectIntentWrites(db);
 
-		const response = await app.request("/api/routines/au9-production-routine/trigger", {
+		const response = await app.request(`/api/routines/${ids("au9-production-routine")}/trigger`, {
 			method: "POST",
 			headers: authHeaders,
 		});
 
 		expect(response.status).toBe(500);
-		const runs = await db.select().from(routineRuns);
+		const runs = await db
+			.select()
+			.from(routineRuns)
+			.where(eq(routineRuns.routineId, ids("au9-production-routine")));
 		expect(runs).toHaveLength(1);
 		expect(runs[0]?.outcome).toBe("error");
-		expect(await db.select().from(agentWorkIntents)).toHaveLength(0);
+		const intentsAfter = await db
+			.select()
+			.from(agentWorkIntents)
+			.where(eq(agentWorkIntents.sourceKind, "routine_trigger"));
+		expect(intentsAfter).toHaveLength(0);
 	});
 
 	test("real scheduler routine command: the run is marked error, not rolled back, when the intent write fails (AU31 §3.1 site 8)", async ({
 		db,
 		eventBus,
 		agentOrchestration,
+		ids,
 	}) => {
-		await seedRoutineAuthority(db);
+		await seedRoutineAuthority(db, ids);
 		const [routine] = await db
 			.select()
 			.from(routines)
-			.where(eq(routines.id, "au9-production-routine"));
+			.where(eq(routines.id, ids("au9-production-routine")));
 		await rejectIntentWrites(db);
 
 		await expect(
@@ -559,58 +662,69 @@ describe("atomic production handoffs", () => {
 				sandboxBasePath: "/tmp/au9-production",
 			}),
 		).rejects.toThrow();
-		const runs = await db.select().from(routineRuns);
+		const runs = await db
+			.select()
+			.from(routineRuns)
+			.where(eq(routineRuns.routineId, ids("au9-production-routine")));
 		expect(runs).toHaveLength(1);
 		expect(runs[0]?.outcome).toBe("error");
-		expect(await db.select().from(agentWorkIntents)).toHaveLength(0);
+		const intentsAfter = await db
+			.select()
+			.from(agentWorkIntents)
+			.where(eq(agentWorkIntents.sourceKind, "routine_trigger"));
+		expect(intentsAfter).toHaveLength(0);
 	});
 
 	async function proveHandoffOccasion(
 		db: HyperIdleDb,
+		ids: ScopedIds,
 		request: (path: string, init: RequestInit) => Response | Promise<Response>,
 		target: { toAgent?: string; toRole?: string },
 	) {
-		await seedExplicitSessionAuthority(db);
+		const scope = await seedExplicitSessionAuthority(db, ids);
 		const now = new Date().toISOString();
+		const sourceAgentId = ids("au9-production-source-agent");
+		const taskThreadId = ids("au9-production-task-thread");
+		const sourceSessionId = ids("au9-production-source-session");
 		await db.insert(users).values({
-			id: "au9-production-source-agent",
+			id: sourceAgentId,
 			kind: "ai",
 			name: "Source",
 			role: "product_manager",
 			status: "active",
-			teamId: "au9-production-membership",
+			teamId: scope.memberId,
 			createdAt: now,
 		});
 		await db.insert(threads).values({
-			id: "au9-production-task-thread",
+			id: taskThreadId,
 			hostKind: "task",
-			hostId: "au9-production-task",
-			initiatorId: "au9-production-source-agent",
-			participants: JSON.stringify(["au9-production-source-agent"]),
+			hostId: scope.taskId,
+			initiatorId: sourceAgentId,
+			participants: JSON.stringify([sourceAgentId]),
 			lastActiveAt: now,
 			createdAt: now,
 		});
 		await db
 			.update(tasks)
 			.set({
-				ownerAgentId: "au9-production-source-agent",
-				threadId: "au9-production-task-thread",
+				ownerAgentId: sourceAgentId,
+				threadId: taskThreadId,
 			})
-			.where(eq(tasks.id, "au9-production-task"));
+			.where(eq(tasks.id, scope.taskId));
 		await db.insert(sessions).values({
-			id: "au9-production-source-session",
-			taskId: "au9-production-task",
-			agentId: "au9-production-source-agent",
+			id: sourceSessionId,
+			taskId: scope.taskId,
+			agentId: sourceAgentId,
 			modelTier: "workhorse",
 			startedAt: now,
 			state: "active",
 		});
 
-		const response = await request("/api/tasks/au9-production-task/handoff", {
+		const response = await request(`/api/tasks/${scope.taskId}/handoff`, {
 			method: "POST",
 			headers: authHeaders,
 			body: JSON.stringify({
-				sessionId: "au9-production-source-session",
+				sessionId: sourceSessionId,
 				...target,
 				reason: "Continue with builder",
 			}),
@@ -619,7 +733,7 @@ describe("atomic production handoffs", () => {
 		const attempts = await db
 			.select()
 			.from(taskDispatchAttempts)
-			.where(eq(taskDispatchAttempts.taskId, "au9-production-task"));
+			.where(eq(taskDispatchAttempts.taskId, scope.taskId));
 		const intents = await db
 			.select()
 			.from(agentWorkIntents)
@@ -627,35 +741,43 @@ describe("atomic production handoffs", () => {
 		expect(intents).toHaveLength(1);
 		expect(attempts[0]).toMatchObject({
 			occasion: "owner_handoff",
-			agentId: "au9-production-agent",
+			agentId: scope.agentId,
 		});
 		expect(intents[0]).toMatchObject({
 			kind: "task_run",
 			sourceKind: "task_dispatch_attempt",
-			requestedBy: "au9-production-agent",
+			requestedBy: scope.agentId,
 		});
-		expect(await db.select().from(agentSessionRequests)).toHaveLength(0);
+		const requests = await db
+			.select()
+			.from(agentSessionRequests)
+			.where(eq(agentSessionRequests.sourceId, attempts[0]?.id ?? ""));
+		expect(requests).toHaveLength(0);
 	}
 
-	test("task handoff toAgent records owner-change occasion atomically", async ({ db, app }) => {
-		await proveHandoffOccasion(db, (path, init) => Promise.resolve(app.request(path, init)), {
-			toAgent: "au9-production-agent",
+	test("task handoff toAgent records owner-change occasion atomically", async ({
+		db,
+		app,
+		ids,
+	}) => {
+		await proveHandoffOccasion(db, ids, (path, init) => Promise.resolve(app.request(path, init)), {
+			toAgent: ids("au9-production-agent"),
 		});
 	});
 
-	test("task handoff toRole records owner-change occasion atomically", async ({ db, app }) => {
-		await proveHandoffOccasion(db, (path, init) => Promise.resolve(app.request(path, init)), {
+	test("task handoff toRole records owner-change occasion atomically", async ({ db, app, ids }) => {
+		await proveHandoffOccasion(db, ids, (path, init) => Promise.resolve(app.request(path, init)), {
 			toRole: "builder",
 		});
 	});
 
-	test("hold to accepted retry records one durable dispatch occasion", async ({ db, app }) => {
-		await seedExplicitSessionAuthority(db);
+	test("hold to accepted retry records one durable dispatch occasion", async ({ db, app, ids }) => {
+		const scope = await seedExplicitSessionAuthority(db, ids);
 		await db
 			.update(tasks)
-			.set({ state: "hold", ownerAgentId: "au9-production-agent" })
-			.where(eq(tasks.id, "au9-production-task"));
-		const response = await app.request("/api/tasks/au9-production-task/transition", {
+			.set({ state: "hold", ownerAgentId: scope.agentId })
+			.where(eq(tasks.id, scope.taskId));
+		const response = await app.request(`/api/tasks/${scope.taskId}/transition`, {
 			method: "POST",
 			headers: authHeaders,
 			body: JSON.stringify({ state: "accepted" }),
@@ -664,7 +786,7 @@ describe("atomic production handoffs", () => {
 		const attempts = await db
 			.select()
 			.from(taskDispatchAttempts)
-			.where(eq(taskDispatchAttempts.taskId, "au9-production-task"));
+			.where(eq(taskDispatchAttempts.taskId, scope.taskId));
 		const intents = await db
 			.select()
 			.from(agentWorkIntents)
@@ -675,16 +797,17 @@ describe("atomic production handoffs", () => {
 
 	test("real proposed-call grant command records one replay-safe reengagement occasion", async ({
 		db,
+		ids,
 	}) => {
-		await seedProposedCallWorld(db);
+		await seedProposedCallWorld(db, ids);
 		await transitionProposedCall(
 			db,
 			{
 				to: "granted",
-				id: "au9-production-call",
-				taskScope: "au9-production-task",
-				agentScope: "au9-production-agent",
-				approvedToolId: "commit_file",
+				id: ids("au9-production-call"),
+				taskScope: ids("au9-production-task"),
+				agentScope: ids("au9-production-agent"),
+				approvedToolId: ids("commit_file"),
 				approvedArgs: { path: "result.txt" },
 			},
 			{ intentRecorder: { record: enqueueWorkIntent } },
@@ -692,7 +815,7 @@ describe("atomic production handoffs", () => {
 		const intents = await db
 			.select()
 			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.sourceId, "au9-production-call"));
+			.where(eq(agentWorkIntents.sourceId, ids("au9-production-call")));
 		expect(intents).toHaveLength(1);
 		expect(intents[0]).toMatchObject({ kind: "reengagement", status: "pending", requestId: null });
 	});
