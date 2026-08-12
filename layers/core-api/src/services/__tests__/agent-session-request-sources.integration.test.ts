@@ -85,12 +85,8 @@ async function seedWork(
 	const routineId = ids("routine-au3-agent");
 	const threadId = ids("thread-au3-agent");
 	const msgId = ids("msg-au3-agent");
-	await db
-		.insert(teams)
-		.values({ id: teamId, name: "AU3 Agent", phase: "build", createdAt: now });
-	await db
-		.insert(teamMembers)
-		.values({ id: tmId, teamId, capacity: 3, formedAt: now });
+	await db.insert(teams).values({ id: teamId, name: "AU3 Agent", phase: "build", createdAt: now });
+	await db.insert(teamMembers).values({ id: tmId, teamId, capacity: 3, formedAt: now });
 	await db.insert(users).values([
 		{
 			id: agentId,

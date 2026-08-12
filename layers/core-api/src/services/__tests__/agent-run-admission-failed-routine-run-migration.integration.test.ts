@@ -174,10 +174,7 @@ describe("agent_run_admission_failed — routine_run reaction fires for a REAL m
 			triggerType: "manual",
 			active: true,
 		});
-		const [routine] = await db
-			.select()
-			.from(routines)
-			.where(eq(routines.id, routineId));
+		const [routine] = await db.select().from(routines).where(eq(routines.id, routineId));
 
 		const fireResult = await fireGenericRoutine(db, eventBus, routine!, makePorts());
 		expect(fireResult.fired).toBe(true);

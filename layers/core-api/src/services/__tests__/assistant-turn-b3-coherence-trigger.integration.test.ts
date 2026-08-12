@@ -167,9 +167,7 @@ describe("assistant_turn B‴ coherence trigger — a thread reply re-bakes a pe
 		// injected filesystem — `rebakePendingSiblingsForThread`'s re-bake must
 		// carry it forward too (same class of gap as the granted-reengagement
 		// blocking finding, on this race-only rebake path).
-		await db
-			.insert(teams)
-			.values({ id: teamId, name: "Team", phase: "build", createdAt: NOW });
+		await db.insert(teams).values({ id: teamId, name: "Team", phase: "build", createdAt: NOW });
 		// The owner writes the membership row alongside the team.
 		await db.insert(teamMembers).values({
 			id: teamMembersId,

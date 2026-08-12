@@ -232,7 +232,9 @@ describe("held connections are read live at spawn, never carried on the request"
 
 		await emitAndDrain(db, eventBus, ids, agentId, humanId);
 
-		await db.delete(serviceConnections).where(eq(serviceConnections.id, ids("sc-au26-e3-removed-late")));
+		await db
+			.delete(serviceConnections)
+			.where(eq(serviceConnections.id, ids("sc-au26-e3-removed-late")));
 
 		const plan = await provisionConnections(db, humanId);
 

@@ -92,9 +92,7 @@ describe("agent_run_admission_failed — task_run reaction fires for a REAL migr
 		const agentId = ids("agent-au21-trun-mig");
 		const betId = ids("bet-au21-trun-mig");
 		const taskId = ids("task-au21-trun-mig");
-		await db
-			.insert(teams)
-			.values({ id: teamId, name: "Team", phase: "build", createdAt: now });
+		await db.insert(teams).values({ id: teamId, name: "Team", phase: "build", createdAt: now });
 		await db.insert(teamMembers).values({
 			id: teamMembersId,
 			teamId,
