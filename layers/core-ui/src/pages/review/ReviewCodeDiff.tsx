@@ -456,6 +456,11 @@ function FileDiff({
 				aria-label="Add inline comment"
 				title="Add inline comment"
 				onClick={() => setComposerBlockId(info.blockId)}
+				// A 16x16 hover-triggered gutter affordance positioned at a fixed
+				// offset inside a code line. Button size="icon" floors at 32px
+				// (44px touch) — more than double this affordance's footprint —
+				// and would collide with the line-number gutter. Not a Button fit.
+				// eslint-disable-next-line design/no-handrolled-control -- see comment above
 				className="absolute left-[68px] top-1/2 hidden h-[16px] w-[16px] -translate-y-1/2 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] text-[12px] leading-none group-hover/line:flex focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
 			>
 				+

@@ -17,6 +17,7 @@
 // Presentational isolation component: local useState for the desktop/mobile
 // toggle + flag-panel expand; verdict callbacks are no-ops in the story.
 
+import { Button } from "@hyperidle/design-system";
 import type { AnchorRef, Block } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
@@ -362,13 +363,9 @@ function ReviewRenderedInContextView({
 				<div className="flex items-center justify-between gap-[12px]">
 					<ChromeLabel>Opened render</ChromeLabel>
 					{!readOnly && anchor ? (
-						<button
-							type="button"
-							onClick={() => setComposerOpen((o) => !o)}
-							className="rounded-[var(--r-pill)] bg-[var(--accent-primary)] px-[10px] py-[5px] text-[12px] font-[500] text-[var(--text-on-accent)]"
-						>
+						<Button variant="primary" size="sm" onClick={() => setComposerOpen((o) => !o)}>
 							{composerOpen ? "Cancel" : "Comment on body"}
-						</button>
+						</Button>
 					) : null}
 					<ViewportToggle value={viewport} onChange={setViewport} />
 				</div>

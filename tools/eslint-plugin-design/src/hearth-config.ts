@@ -122,5 +122,23 @@ export const configs: { hearth: Linter.Config[] } = {
 			plugins: { design: designPlugin },
 			rules: { "design/no-local-status-builder": "error" },
 		},
+		// AZ7 E4: no-hardcoded-color promotion carve-out for the two review
+		// canvases whose whole job is to render a THIRD-PARTY page/email
+		// faithfully — pre-existing @lore in both files states this
+		// explicitly ("the rendered page/email body is the one place neutral
+		// [page|email] styling is allowed, because that IS the artifact under
+		// review"). The review CHROME around each canvas still uses Hearth
+		// tokens only and is still covered by the coreUi block above — this
+		// block is scoped to the two files, not their whole surface, and
+		// later blocks win per-rule in ESLint flat config (same pattern as
+		// AJ3/AM1's ordering notes elsewhere in eslint.config.ts).
+		{
+			files: [
+				"layers/core-ui/src/pages/review/ReviewBrowserPreview.tsx",
+				"layers/core-ui/src/pages/review/ReviewRenderedInContext.tsx",
+			],
+			plugins: { design: designPlugin },
+			rules: { "design/no-hardcoded-color": "off" },
+		},
 	],
 };

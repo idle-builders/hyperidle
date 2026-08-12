@@ -1,4 +1,4 @@
-import { Composer, PageScaffold, SplitView } from "@hyperidle/design-system";
+import { Button, Composer, PageScaffold, SplitView } from "@hyperidle/design-system";
 import {
 	type AnchorRef,
 	type VerdictDecision,
@@ -140,16 +140,16 @@ function Verdict({
 }: VerdictProps): JSX.Element {
 	return (
 		<div className="relative flex shrink-0 items-center gap-[6px]">
-			<button
-				type="button"
+			<Button
+				variant="primary"
+				size="sm"
 				disabled={resolved}
 				onClick={() => onSubmit("approve")}
 				aria-pressed={activeDecision === "approve"}
-				className="inline-flex items-center gap-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] px-[14px] py-[7px] text-[13px] font-[600] text-white transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
 			>
 				<CheckGlyph />
 				Approve
-			</button>
+			</Button>
 			<button
 				type="button"
 				disabled={resolved}
@@ -492,10 +492,16 @@ function ArtifactRow({ artifact, active, onOpen }: ArtifactRowProps): JSX.Elemen
 			type="button"
 			onClick={onOpen}
 			aria-current={active}
+			// This is functionally a Row (icon + title, clickable, selected-state
+			// accent tint) and belongs on <Row>, but Row's button-branch is
+			// missing w-full today (bug-list UI-060, unfixed). Migrating onto
+			// the broken branch would shrink-wrap this row narrower than its
+			// current w-full. Left as a hand-rolled row pending UI-060.
 			className={[
 				"group flex w-full items-center gap-[12px] rounded-[var(--r-subtle)] border bg-[var(--surface-elevated)] px-[12px] py-[9px] text-left transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
 				active
-					? "border-[var(--accent-deep)] bg-[var(--accent-primary-dim)]"
+					? // eslint-disable-next-line design/no-handrolled-control -- see comment above
+						"border-[var(--accent-deep)] bg-[var(--accent-primary-dim)]"
 					: "border-[var(--border-subtle)] hover:border-[var(--border-default)]",
 			].join(" ")}
 		>

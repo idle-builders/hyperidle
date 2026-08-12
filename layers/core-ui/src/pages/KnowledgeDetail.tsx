@@ -877,7 +877,7 @@ function KnowledgeDetailView({
 					{amendableBanner && (
 						<div
 							role="alert"
-							className="alert-info flex items-start gap-[9px] px-[12px] py-[9px] text-[13px] bg-[rgba(46,125,186,0.08)] text-[var(--status-info)] rounded-[var(--r-subtle)]"
+							className="alert-info flex items-start gap-[9px] px-[12px] py-[9px] text-[13px] bg-[var(--status-info-dim)] text-[var(--status-info)] rounded-[var(--r-subtle)]"
 							data-testid="factory-amendable-banner"
 						>
 							<span>Amendable under review — edits route through the review queue.</span>
