@@ -39,6 +39,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import type { EventBus } from "@hyperidle/event-bus";
 import { buildToolRegistry as buildToolRegistryFromDefinitions } from "@hyperidle/tool-handlers";
 import type { BuildToolRegistryOptions, ToolContext, ToolRegistry } from "@hyperidle/tool-protocol";
@@ -80,24 +81,28 @@ function makeAbortTracker(): { aborted: Set<string>; abort: (sessionId: string) 
 	return { aborted, abort: (sessionId: string) => aborted.add(sessionId) };
 }
 
-async function seedWorld(db: HyperIdleDb): Promise<{
+async function seedWorld(
+	db: HyperIdleDb,
+	ids: ScopedIds,
+): Promise<{
 	agentId: string;
 	taskId: string;
 	betId: string;
 	threadId: string;
 	reviewMessageId: string;
 	artifactId: string;
+	teamId: string;
 }> {
-	const teamId = `team-cap-${crypto.randomUUID()}`;
-	const agentId = `agent-cap-${crypto.randomUUID()}`;
-	const betId = `bet-cap-${crypto.randomUUID()}`;
-	const taskId = `task-cap-${crypto.randomUUID()}`;
-	const artifactId = `art-cap-${crypto.randomUUID()}`;
+	const teamId = ids("t1");
+	const agentId = ids("agent1");
+	const betId = ids("b1");
+	const taskId = ids("task1");
+	const artifactId = ids("art1");
 
 	await db.insert(teams).values({ id: teamId, name: "Cap Team", phase: "build", createdAt: NOW });
 	await db
 		.insert(teamMembers)
-		.values({ id: `tm-${teamId}`, teamId, capacity: 3, activeBets: 0, formedAt: NOW });
+		.values({ id: ids("tm1"), teamId, capacity: 3, activeBets: 0, formedAt: NOW });
 	await db.insert(users).values({
 		id: agentId,
 		kind: "ai",
@@ -130,7 +135,7 @@ async function seedWorld(db: HyperIdleDb): Promise<{
 		createdAt: NOW,
 	});
 
-	const threadId = `thread-cap-${crypto.randomUUID()}`;
+	const threadId = ids("thread1");
 	await db.insert(threads).values({
 		id: threadId,
 		hostKind: "bet",
@@ -141,7 +146,7 @@ async function seedWorld(db: HyperIdleDb): Promise<{
 		createdAt: NOW,
 	});
 
-	const reviewMessageId = `msg-cap-${crypto.randomUUID()}`;
+	const reviewMessageId = ids("msg1");
 	await db.insert(messages).values({
 		id: reviewMessageId,
 		senderId: agentId,
@@ -156,7 +161,7 @@ async function seedWorld(db: HyperIdleDb): Promise<{
 		createdAt: NOW,
 	});
 
-	return { agentId, taskId, betId, threadId, reviewMessageId, artifactId };
+	return { agentId, taskId, betId, threadId, reviewMessageId, artifactId, teamId };
 }
 
 function makeCtx(
@@ -165,6 +170,7 @@ function makeCtx(
 	agentId: string,
 	taskId: string,
 	sessionId: string,
+	teamId: string,
 	extraCtx?: Partial<ToolContext<HyperIdleDb>>,
 ): ToolContext<HyperIdleDb> {
 	return {
@@ -173,7 +179,7 @@ function makeCtx(
 		agentId,
 		sessionId,
 		taskId,
-		teamId: "team-cap",
+		teamId,
 		sandboxPath: path.join(os.tmpdir(), `hi-al7-cap-${sessionId}`),
 		ingestion: { dispose: (): void => {} },
 		...extraCtx,
@@ -189,11 +195,15 @@ describe("AC1: irreversible call is captured + session 1 aborted", () => {
 		db,
 		eventBus,
 		buildToolRegistry,
+		ids,
 	}) => {
-		const { agentId, taskId, threadId, reviewMessageId, artifactId } = await seedWorld(db);
-		const sessionId = `sess-s1-${crypto.randomUUID()}`;
+		const { agentId, taskId, threadId, reviewMessageId, artifactId, teamId } = await seedWorld(
+			db,
+			ids,
+		);
+		const sessionId = ids("sess1");
 
-		const ctx = makeCtx(db, eventBus, agentId, taskId, sessionId);
+		const ctx = makeCtx(db, eventBus, agentId, taskId, sessionId, teamId);
 		const registry = buildToolRegistry(ctx, {
 			role: "builder",
 			sessionWorkflow: {
@@ -235,12 +245,16 @@ describe("AC1: irreversible call is captured + session 1 aborted", () => {
 		db,
 		eventBus,
 		buildToolRegistry,
+		ids,
 	}) => {
-		const { agentId, taskId, threadId, reviewMessageId, artifactId } = await seedWorld(db);
-		const sessionId = `sess-abort-${crypto.randomUUID()}`;
+		const { agentId, taskId, threadId, reviewMessageId, artifactId, teamId } = await seedWorld(
+			db,
+			ids,
+		);
+		const sessionId = ids("sess-abort");
 		const abortTracker = makeAbortTracker();
 
-		const ctx = makeCtx(db, eventBus, agentId, taskId, sessionId, {
+		const ctx = makeCtx(db, eventBus, agentId, taskId, sessionId, teamId, {
 			onAbortSession: abortTracker.abort,
 		} as Partial<ToolContext<HyperIdleDb>>);
 
@@ -272,11 +286,15 @@ describe("AC1: capture idempotency — (origin_session_id, identity_hash) UNIQUE
 		db,
 		eventBus,
 		buildToolRegistry,
+		ids,
 	}) => {
-		const { agentId, taskId, threadId, reviewMessageId, artifactId } = await seedWorld(db);
-		const sessionId = `sess-idem-${crypto.randomUUID()}`;
+		const { agentId, taskId, threadId, reviewMessageId, artifactId, teamId } = await seedWorld(
+			db,
+			ids,
+		);
+		const sessionId = ids("sess-idem");
 
-		const ctx = makeCtx(db, eventBus, agentId, taskId, sessionId);
+		const ctx = makeCtx(db, eventBus, agentId, taskId, sessionId, teamId);
 		const registry = buildToolRegistry(ctx, {
 			role: "builder",
 			sessionWorkflow: {
@@ -307,13 +325,17 @@ describe("AC1: capture idempotency — (origin_session_id, identity_hash) UNIQUE
 		db,
 		eventBus,
 		buildToolRegistry,
+		ids,
 	}) => {
 		// This is INTENDED behavior (WARNING-5.1): each distinct consequential call the
 		// agent attempted deserves its own human decision. We do not short-circuit.
-		const { agentId, taskId, threadId, reviewMessageId, artifactId } = await seedWorld(db);
-		const sessionId = `sess-two-diff-${crypto.randomUUID()}`;
+		const { agentId, taskId, threadId, reviewMessageId, artifactId, teamId } = await seedWorld(
+			db,
+			ids,
+		);
+		const sessionId = ids("sess-two-diff");
 
-		const ctx = makeCtx(db, eventBus, agentId, taskId, sessionId);
+		const ctx = makeCtx(db, eventBus, agentId, taskId, sessionId, teamId);
 		const registry = buildToolRegistry(ctx, {
 			role: "builder",
 			sessionWorkflow: {
@@ -348,11 +370,15 @@ describe("AC2: reversible call flows with no capture", () => {
 		db,
 		eventBus,
 		buildToolRegistry,
+		ids,
 	}) => {
-		const { agentId, taskId, threadId, reviewMessageId, artifactId } = await seedWorld(db);
-		const sessionId = `sess-rev-${crypto.randomUUID()}`;
+		const { agentId, taskId, threadId, reviewMessageId, artifactId, teamId } = await seedWorld(
+			db,
+			ids,
+		);
+		const sessionId = ids("sess-rev");
 
-		const ctx = makeCtx(db, eventBus, agentId, taskId, sessionId);
+		const ctx = makeCtx(db, eventBus, agentId, taskId, sessionId, teamId);
 		const registry = buildToolRegistry(ctx, {
 			role: "builder",
 			sessionWorkflow: {
@@ -388,11 +414,12 @@ describe("AC9: descriptive artifact does not capture or execute on approve", () 
 	test("a review over a non-action_operation artifact produces no proposed_calls row", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		const { agentId, taskId, betId } = await seedWorld(db);
+		const { agentId, taskId, betId } = await seedWorld(db, ids);
 
 		// Descriptive artifact (code diff, not action_operation)
-		const descArtifactId = `art-desc-${crypto.randomUUID()}`;
+		const descArtifactId = ids("desc-art");
 		await db.insert(artifacts).values({
 			id: descArtifactId,
 			producingTaskId: taskId,
@@ -400,7 +427,7 @@ describe("AC9: descriptive artifact does not capture or execute on approve", () 
 			createdAt: NOW,
 		});
 
-		const threadId = `thread-desc-${crypto.randomUUID()}`;
+		const threadId = ids("desc-thread");
 		await db.insert(threads).values({
 			id: threadId,
 			hostKind: "bet",
@@ -411,7 +438,7 @@ describe("AC9: descriptive artifact does not capture or execute on approve", () 
 			createdAt: NOW,
 		});
 
-		const descReviewMsgId = `msg-desc-${crypto.randomUUID()}`;
+		const descReviewMsgId = ids("desc-msg");
 		await db.insert(messages).values({
 			id: descReviewMsgId,
 			senderId: agentId,
@@ -440,9 +467,12 @@ describe("AC9: descriptive artifact does not capture or execute on approve", () 
 			.select()
 			.from(proposedCalls)
 			.where(eq(proposedCalls.reviewMessageId, descReviewMsgId));
-		const tgRows = await db.select().from(tailoredGrants);
+		const tgRows = await db
+			.select()
+			.from(tailoredGrants)
+			.where(eq(tailoredGrants.taskScope, taskId));
 		expect(pcRows).toHaveLength(0);
 		// AC9: approve on a code review does not compose a tailored grant
-		expect(tgRows.filter((g) => g.taskScope === taskId)).toHaveLength(0);
+		expect(tgRows).toHaveLength(0);
 	});
 });

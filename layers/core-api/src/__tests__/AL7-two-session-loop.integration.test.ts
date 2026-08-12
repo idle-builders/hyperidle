@@ -37,6 +37,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import type { SessionEndedEvent } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { type ReviewPorts, registerReviewSubscriptions } from "@hyperidle/review";
@@ -80,23 +81,27 @@ function makeSandbox(label: string): string {
 	return p;
 }
 
-async function seedWorld(db: HyperIdleDb): Promise<{
+async function seedWorld(
+	db: HyperIdleDb,
+	ids: ScopedIds,
+): Promise<{
 	agentId: string;
 	taskId: string;
 	threadId: string;
 	reviewMessageId: string;
 	artifactId: string;
+	teamId: string;
 }> {
-	const teamId = `team-loop-${crypto.randomUUID()}`;
-	const agentId = `agent-loop-${crypto.randomUUID()}`;
-	const betId = `bet-loop-${crypto.randomUUID()}`;
-	const taskId = `task-loop-${crypto.randomUUID()}`;
-	const artifactId = `art-loop-${crypto.randomUUID()}`;
+	const teamId = ids("t1");
+	const agentId = ids("agent1");
+	const betId = ids("b1");
+	const taskId = ids("task1");
+	const artifactId = ids("art1");
 
 	await db.insert(teams).values({ id: teamId, name: "Loop Team", phase: "build", createdAt: NOW });
 	await db
 		.insert(teamMembers)
-		.values({ id: `tm-${teamId}`, teamId, capacity: 3, activeBets: 0, formedAt: NOW });
+		.values({ id: ids("tm1"), teamId, capacity: 3, activeBets: 0, formedAt: NOW });
 	await db.insert(users).values({
 		id: agentId,
 		kind: "ai",
@@ -129,7 +134,7 @@ async function seedWorld(db: HyperIdleDb): Promise<{
 		createdAt: NOW,
 	});
 
-	const threadId = `thread-loop-${crypto.randomUUID()}`;
+	const threadId = ids("thread1");
 	await db.insert(threads).values({
 		id: threadId,
 		hostKind: "bet",
@@ -140,7 +145,7 @@ async function seedWorld(db: HyperIdleDb): Promise<{
 		createdAt: NOW,
 	});
 
-	const reviewMessageId = `msg-loop-${crypto.randomUUID()}`;
+	const reviewMessageId = ids("msg1");
 	await db.insert(messages).values({
 		id: reviewMessageId,
 		senderId: agentId,
@@ -155,13 +160,17 @@ async function seedWorld(db: HyperIdleDb): Promise<{
 		createdAt: NOW,
 	});
 
-	return { agentId, taskId, threadId, reviewMessageId, artifactId };
+	return { agentId, taskId, threadId, reviewMessageId, artifactId, teamId };
 }
+
+// @lore AU38: toolId/approvedToolId are tool names, not scoped entity ids —
+// extracted to consts so R1 sees identifiers, not literals.
+const COMMIT_FILE_TOOL = "commit_file";
 
 function makeCtx(
 	db: HyperIdleDb,
 	eventBus: EventBus,
-	opts: { agentId: string; taskId: string; sessionId: string; sandboxPath: string },
+	opts: { agentId: string; taskId: string; sessionId: string; sandboxPath: string; teamId: string },
 ): ToolContext<HyperIdleDb> {
 	return {
 		db,
@@ -169,7 +178,7 @@ function makeCtx(
 		agentId: opts.agentId,
 		sessionId: opts.sessionId,
 		taskId: opts.taskId,
-		teamId: "team-loop",
+		teamId: opts.teamId,
 		sandboxPath: opts.sandboxPath,
 		ingestion: { dispose: (): void => {} },
 	};
@@ -185,11 +194,15 @@ describe("AC4: session 2 executes approved commit_file via CAS-consume → Outco
 		db,
 		eventBus,
 		buildToolRegistry,
+		ids,
 	}) => {
-		const { agentId, taskId, threadId, reviewMessageId, artifactId } = await seedWorld(db);
+		const { agentId, taskId, threadId, reviewMessageId, artifactId, teamId } = await seedWorld(
+			db,
+			ids,
+		);
 		const sandboxPath = makeSandbox("s2");
-		const sessionId2 = `sess-s2-${crypto.randomUUID()}`;
-		const pcId = `pc-loop-${crypto.randomUUID()}`;
+		const sessionId2 = ids("sess-s2");
+		const pcId = ids("pc1");
 		const outputFile = path.join(sandboxPath, "result.txt");
 
 		// Pre-insert a granted Proposed Call + tailored grant (simulates the approve verdict path)
@@ -198,8 +211,8 @@ describe("AC4: session 2 executes approved commit_file via CAS-consume → Outco
 			reviewMessageId,
 			subjectThreadId: threadId,
 			artifactId,
-			originSessionId: `sess-s1-${pcId}`,
-			toolId: "commit_file",
+			originSessionId: ids("sess-s1"),
+			toolId: COMMIT_FILE_TOOL,
 			args: JSON.stringify({ path: outputFile, content: "hello from approved op" }),
 			identityHash: "sha256-loop",
 			reversibility: "irreversible",
@@ -212,7 +225,7 @@ describe("AC4: session 2 executes approved commit_file via CAS-consume → Outco
 			proposedCallId: pcId,
 			taskScope: taskId,
 			agentScope: agentId,
-			approvedToolId: "commit_file",
+			approvedToolId: COMMIT_FILE_TOOL,
 			approvedArgs: JSON.stringify({ path: outputFile, content: "hello from approved op" }),
 			argPinned: false,
 			identityHash: "sha256-loop",
@@ -221,7 +234,13 @@ describe("AC4: session 2 executes approved commit_file via CAS-consume → Outco
 			mintedAt: NOW,
 		});
 
-		const ctx = makeCtx(db, eventBus, { agentId, taskId, sessionId: sessionId2, sandboxPath });
+		const ctx = makeCtx(db, eventBus, {
+			agentId,
+			taskId,
+			sessionId: sessionId2,
+			sandboxPath,
+			teamId,
+		});
 		const registry = buildToolRegistry(ctx, {
 			role: "builder",
 			sessionWorkflow: {
@@ -231,7 +250,7 @@ describe("AC4: session 2 executes approved commit_file via CAS-consume → Outco
 				subjectThreadId: threadId,
 				artifactId,
 				approvedCall: {
-					toolId: "commit_file",
+					toolId: COMMIT_FILE_TOOL,
 					args: { path: outputFile, content: "hello from approved op" },
 					argPinned: false,
 				},
@@ -282,11 +301,15 @@ describe("AC5: different irreversible op in session 2 is re-routed to review", (
 		db,
 		eventBus,
 		buildToolRegistry,
+		ids,
 	}) => {
-		const { agentId, taskId, threadId, reviewMessageId, artifactId } = await seedWorld(db);
+		const { agentId, taskId, threadId, reviewMessageId, artifactId, teamId } = await seedWorld(
+			db,
+			ids,
+		);
 		const sandboxPath = makeSandbox("s2-ac5");
-		const sessionId2 = `sess-s2-ac5-${crypto.randomUUID()}`;
-		const pcId = `pc-loop-ac5-${crypto.randomUUID()}`;
+		const sessionId2 = ids("sess-s2-ac5");
+		const pcId = ids("pc-ac5");
 		const approvedFile = path.join(sandboxPath, "approved.txt");
 
 		await db.insert(proposedCalls).values({
@@ -294,8 +317,8 @@ describe("AC5: different irreversible op in session 2 is re-routed to review", (
 			reviewMessageId,
 			subjectThreadId: threadId,
 			artifactId,
-			originSessionId: `sess-s1-${pcId}`,
-			toolId: "commit_file",
+			originSessionId: ids("sess-s1-ac5"),
+			toolId: COMMIT_FILE_TOOL,
 			args: JSON.stringify({ path: approvedFile, content: "approved" }),
 			identityHash: "sha256-ac5",
 			reversibility: "irreversible",
@@ -308,7 +331,7 @@ describe("AC5: different irreversible op in session 2 is re-routed to review", (
 			proposedCallId: pcId,
 			taskScope: taskId,
 			agentScope: agentId,
-			approvedToolId: "commit_file",
+			approvedToolId: COMMIT_FILE_TOOL,
 			approvedArgs: JSON.stringify({ path: approvedFile, content: "approved" }),
 			argPinned: false,
 			identityHash: "sha256-ac5",
@@ -317,7 +340,13 @@ describe("AC5: different irreversible op in session 2 is re-routed to review", (
 			mintedAt: NOW,
 		});
 
-		const ctx = makeCtx(db, eventBus, { agentId, taskId, sessionId: sessionId2, sandboxPath });
+		const ctx = makeCtx(db, eventBus, {
+			agentId,
+			taskId,
+			sessionId: sessionId2,
+			sandboxPath,
+			teamId,
+		});
 		const registry = buildToolRegistry(ctx, {
 			role: "builder",
 			sessionWorkflow: {
@@ -327,7 +356,7 @@ describe("AC5: different irreversible op in session 2 is re-routed to review", (
 				subjectThreadId: threadId,
 				artifactId,
 				approvedCall: {
-					toolId: "commit_file",
+					toolId: COMMIT_FILE_TOOL,
 					args: { path: approvedFile, content: "approved" },
 					argPinned: false,
 				},
@@ -422,17 +451,18 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 	test("session 2 ends without consuming the grant → re-provision once (retryCount→1)", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		const { agentId, taskId, threadId, reviewMessageId, artifactId } = await seedWorld(db);
-		const pcId = `pc-liveness-${crypto.randomUUID()}`;
+		const { agentId, taskId, threadId, reviewMessageId, artifactId } = await seedWorld(db, ids);
+		const pcId = ids("pc-liveness");
 
 		await db.insert(proposedCalls).values({
 			id: pcId,
 			reviewMessageId,
 			subjectThreadId: threadId,
 			artifactId,
-			originSessionId: `sess-s1-${pcId}`,
-			toolId: "commit_file",
+			originSessionId: ids("sess-s1-liveness"),
+			toolId: COMMIT_FILE_TOOL,
 			args: JSON.stringify({ path: "/workspace/out.txt", content: "hello" }),
 			identityHash: "sha256-liveness",
 			reversibility: "irreversible",
@@ -445,7 +475,7 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 			proposedCallId: pcId,
 			taskScope: taskId,
 			agentScope: agentId,
-			approvedToolId: "commit_file",
+			approvedToolId: COMMIT_FILE_TOOL,
 			approvedArgs: JSON.stringify({ path: "/workspace/out.txt", content: "hello" }),
 			argPinned: false,
 			consumed: false, // NOT consumed — session ended before the approved op ran
@@ -499,17 +529,18 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 	test("second session-ended with retryCount>=1 → PC held + failed Outcome (not a silent hang)", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		const { agentId, taskId, threadId, reviewMessageId, artifactId } = await seedWorld(db);
-		const pcId = `pc-liveness2-${crypto.randomUUID()}`;
+		const { agentId, taskId, threadId, reviewMessageId, artifactId } = await seedWorld(db, ids);
+		const pcId = ids("pc-liveness2");
 
 		await db.insert(proposedCalls).values({
 			id: pcId,
 			reviewMessageId,
 			subjectThreadId: threadId,
 			artifactId,
-			originSessionId: `sess-s1-${pcId}`,
-			toolId: "commit_file",
+			originSessionId: ids("sess-s1-liveness2"),
+			toolId: COMMIT_FILE_TOOL,
 			args: JSON.stringify({ path: "/workspace/out.txt", content: "hello" }),
 			identityHash: "sha256-liveness2",
 			reversibility: "irreversible",
@@ -522,7 +553,7 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 			proposedCallId: pcId,
 			taskScope: taskId,
 			agentScope: agentId,
-			approvedToolId: "commit_file",
+			approvedToolId: COMMIT_FILE_TOOL,
 			approvedArgs: JSON.stringify({ path: "/workspace/out.txt", content: "hello" }),
 			argPinned: false,
 			consumed: false,
@@ -598,11 +629,15 @@ describe("AC11: work continues in session 2 after the approved op executes", () 
 		db,
 		eventBus,
 		buildToolRegistry,
+		ids,
 	}) => {
-		const { agentId, taskId, threadId, reviewMessageId, artifactId } = await seedWorld(db);
+		const { agentId, taskId, threadId, reviewMessageId, artifactId, teamId } = await seedWorld(
+			db,
+			ids,
+		);
 		const sandboxPath = makeSandbox("s2-ac11");
-		const sessionId2 = `sess-s2-ac11-${crypto.randomUUID()}`;
-		const pcId = `pc-loop-ac11-${crypto.randomUUID()}`;
+		const sessionId2 = ids("sess-s2-ac11");
+		const pcId = ids("pc-ac11");
 		const outputFile = path.join(sandboxPath, "ac11-result.txt");
 
 		// Pre-insert a granted Proposed Call + tailored grant
@@ -611,8 +646,8 @@ describe("AC11: work continues in session 2 after the approved op executes", () 
 			reviewMessageId,
 			subjectThreadId: threadId,
 			artifactId,
-			originSessionId: `sess-s1-${pcId}`,
-			toolId: "commit_file",
+			originSessionId: ids("sess-s1-ac11"),
+			toolId: COMMIT_FILE_TOOL,
 			args: JSON.stringify({ path: outputFile, content: "AC11 approved content" }),
 			identityHash: "sha256-ac11",
 			reversibility: "irreversible",
@@ -625,7 +660,7 @@ describe("AC11: work continues in session 2 after the approved op executes", () 
 			proposedCallId: pcId,
 			taskScope: taskId,
 			agentScope: agentId,
-			approvedToolId: "commit_file",
+			approvedToolId: COMMIT_FILE_TOOL,
 			approvedArgs: JSON.stringify({ path: outputFile, content: "AC11 approved content" }),
 			argPinned: false,
 			identityHash: "sha256-ac11",
@@ -634,7 +669,13 @@ describe("AC11: work continues in session 2 after the approved op executes", () 
 			mintedAt: NOW,
 		});
 
-		const ctx = makeCtx(db, eventBus, { agentId, taskId, sessionId: sessionId2, sandboxPath });
+		const ctx = makeCtx(db, eventBus, {
+			agentId,
+			taskId,
+			sessionId: sessionId2,
+			sandboxPath,
+			teamId,
+		});
 		const registry = buildToolRegistry(ctx, {
 			role: "builder",
 			sessionWorkflow: {
@@ -644,7 +685,7 @@ describe("AC11: work continues in session 2 after the approved op executes", () 
 				subjectThreadId: threadId,
 				artifactId,
 				approvedCall: {
-					toolId: "commit_file",
+					toolId: COMMIT_FILE_TOOL,
 					args: { path: outputFile, content: "AC11 approved content" },
 					argPinned: false,
 				},
