@@ -14,7 +14,7 @@
  */
 
 // hearth-internal-padding
-import { Button, Dialog, KeyValue, Select } from "@hyperidle/design-system";
+import { Button, Dialog, Input, KeyValue, Select } from "@hyperidle/design-system";
 import { AGENT_ROLE_CATALOG, findRoleCatalogEntry, MODEL_TIERS } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
@@ -167,20 +167,14 @@ export function AgentAddDialog({
 
 			{/* Header — editable name + role select */}
 			<div className="flex flex-col gap-[12px]">
-				<div className="form-control">
-					<label className="label" htmlFor="add-dialog-name">
-						<span className="label-text text-[var(--text-secondary)]">Agent name</span>
-					</label>
-					<input
-						id="add-dialog-name"
-						type="text"
-						aria-label="Agent name"
-						className="input input-sm input-bordered w-full"
-						placeholder="Agent name"
-						value={formValues.name}
-						onChange={(e) => setFormValues((prev) => ({ ...prev, name: e.target.value }))}
-					/>
-				</div>
+				<Input
+					id="add-dialog-name"
+					label="Agent name"
+					type="text"
+					placeholder="Agent name"
+					value={formValues.name}
+					onChange={(e) => setFormValues((prev) => ({ ...prev, name: e.target.value }))}
+				/>
 				<div className="form-control">
 					<label className="label" htmlFor="add-dialog-role">
 						<span className="label-text text-[var(--text-secondary)]">Role</span>
@@ -208,9 +202,10 @@ export function AgentAddDialog({
 					Personality, style, and values. You define the system prompt; the harness provides tools,
 					context, and knowledge.
 				</p>
-				<textarea
+				<Input
+					textarea
 					aria-label="System prompt"
-					className="textarea textarea-bordered w-full mt-[6px]"
+					className="mt-[6px]"
 					rows={10}
 					value={formValues.systemPrompt}
 					onChange={(e) => setFormValues((prev) => ({ ...prev, systemPrompt: e.target.value }))}
@@ -225,15 +220,11 @@ export function AgentAddDialog({
 					CONFIGURATION
 				</h3>
 				<div className="flex flex-wrap gap-[12px]">
-					<div className="form-control min-w-[140px] flex-1">
-						<label className="label" htmlFor="add-dialog-harness">
-							<span className="label-text text-[var(--text-secondary)]">Harness</span>
-						</label>
-						<input
+					<div className="min-w-[140px] flex-1">
+						<Input
 							id="add-dialog-harness"
+							label="Harness"
 							type="text"
-							aria-label="Harness"
-							className="input input-sm input-bordered w-full"
 							value={formValues.harnessType}
 							onChange={(e) => setFormValues((prev) => ({ ...prev, harnessType: e.target.value }))}
 							placeholder="e.g. claude-code"
@@ -264,15 +255,11 @@ export function AgentAddDialog({
 						/>
 					</div>
 
-					<div className="form-control min-w-[100px] flex-1">
-						<label className="label" htmlFor="add-dialog-sessions">
-							<span className="label-text text-[var(--text-secondary)]">Max sessions</span>
-						</label>
-						<input
+					<div className="min-w-[100px] flex-1">
+						<Input
 							id="add-dialog-sessions"
+							label="Max sessions"
 							type="number"
-							aria-label="Max sessions"
-							className="input input-sm input-bordered w-full"
 							value={formValues.maxConcurrentSessions}
 							min={1}
 							max={20}

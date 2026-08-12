@@ -569,13 +569,14 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 									{hintReviewVerdict.copy}
 								</p>
 								<div className="flex gap-2">
-									<button
-										type="button"
-										className="btn btn-ghost btn-xs text-[var(--text-tertiary)] min-h-[44px]"
+									<Button
+										variant="ghost"
+										size="sm"
+										className="text-[var(--text-tertiary)]"
 										onClick={hintReviewVerdict.dismiss}
 									>
 										Got it
-									</button>
+									</Button>
 								</div>
 							</div>
 						)}

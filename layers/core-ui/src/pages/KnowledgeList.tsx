@@ -659,13 +659,14 @@ function KnowledgeListContent({
 										{hintKnowledgeEmpty.copy}
 									</p>
 									<div className="flex gap-[9px]">
-										<button
-											type="button"
-											className="btn btn-ghost btn-xs text-[var(--text-tertiary)] min-h-[44px]"
+										<Button
+											variant="ghost"
+											size="sm"
+											className="text-[var(--text-tertiary)]"
 											onClick={hintKnowledgeEmpty.dismiss}
 										>
 											Got it
-										</button>
+										</Button>
 									</div>
 								</div>
 							)}
