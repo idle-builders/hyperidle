@@ -21,9 +21,6 @@ increment 1 by running both rules over the whole lane.
 
 - `layers/core-api/src/__tests__/notifications/R8-signal-to-noise.integration.test.ts`
 - `layers/core-api/src/services/__tests__/agent-run-admission-failed-subscribers.integration.test.ts`
-- `layers/core-api/src/services/__tests__/agent-session-request-sources.integration.test.ts`
-- `layers/core-api/src/services/__tests__/assistant-turn-b3-coherence-trigger.integration.test.ts`
-- `layers/core-api/src/services/__tests__/connections-added-after-emit.integration.test.ts`
 - `layers/core-api/src/services/__tests__/context-bundle-sandbox-byte-parity.integration.test.ts`
 - `layers/core-api/src/services/__tests__/core-api-port-increment2-conversation.integration.test.ts`
 - `layers/core-api/src/services/__tests__/core-api-port-increment2-knowledge.integration.test.ts`
@@ -50,8 +47,6 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/__tests__/write-memory.integration.test.ts`
 - `layers/core-api/src/bootstrap/__tests__/factory-state.integration.test.ts`
 - `layers/core-api/src/services/__tests__/agent-run-admission-failed-subscribers.integration.test.ts`
-- `layers/core-api/src/services/__tests__/agent-session-request-sources.integration.test.ts`
-- `layers/core-api/src/services/__tests__/connections-added-after-emit.integration.test.ts`
 - `layers/core-api/src/services/__tests__/direct-thread.recipientKind.integration.test.ts`
 - `layers/core-api/src/services/__tests__/filesystems-added-after-emit.integration.test.ts`
 - `layers/core-api/src/services/__tests__/routine-scheduler-relocation.integration.test.ts`

@@ -124,12 +124,17 @@ describe("assistant_turn B‴ coherence trigger — a thread reply re-bakes a pe
 		db,
 		app,
 		eventBus,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", "inc11-b3-coherence-key");
 
-		const founderId = "founder-inc11-b3-coherence";
-		const threadId = "thread-inc11-b3-coherence";
+		const founderId = ids("founder-inc11-b3-coherence");
+		const threadId = ids("thread-inc11-b3-coherence");
 		const assistantAgentId = `ast-${founderId}`;
+		const teamId = ids("team-inc11-b3-coherence");
+		const teamMembersId = ids("team-inc11-b3-coherence-members");
+		const fsId = ids("fs-inc11-b3-coherence");
+		const scId = ids("sc-inc11-b3-coherence");
 
 		await db.insert(users).values({
 			id: founderId,
@@ -164,18 +169,18 @@ describe("assistant_turn B‴ coherence trigger — a thread reply re-bakes a pe
 		// blocking finding, on this race-only rebake path).
 		await db
 			.insert(teams)
-			.values({ id: "team-inc11-b3-coherence", name: "Team", phase: "build", createdAt: NOW });
+			.values({ id: teamId, name: "Team", phase: "build", createdAt: NOW });
 		// The owner writes the membership row alongside the team.
 		await db.insert(teamMembers).values({
-			id: "team-inc11-b3-coherence-members",
-			teamId: "team-inc11-b3-coherence",
+			id: teamMembersId,
+			teamId,
 			capacity: 5,
 			activeBets: 0,
 			formedAt: NOW,
 		});
 		await db.insert(filesystems).values({
-			id: "fs-inc11-b3-coherence",
-			teamId: "team-inc11-b3-coherence",
+			id: fsId,
+			teamId,
 			source: "local",
 			kind: "doc_set",
 			connectionId: null,
@@ -186,7 +191,7 @@ describe("assistant_turn B‴ coherence trigger — a thread reply re-bakes a pe
 		});
 		await db.insert(filesystemInjections).values({
 			agentUserId: assistantAgentId,
-			filesystemId: "fs-inc11-b3-coherence",
+			filesystemId: fsId,
 			createdAt: NOW,
 		});
 
@@ -196,7 +201,7 @@ describe("assistant_turn B‴ coherence trigger — a thread reply re-bakes a pe
 		// so the row now only proves the emit path is unaffected by one
 		// existing.
 		await db.insert(serviceConnections).values({
-			id: "sc-inc11-b3-coherence",
+			id: scId,
 			userId: founderId,
 			service: "github",
 			authSource: "token",

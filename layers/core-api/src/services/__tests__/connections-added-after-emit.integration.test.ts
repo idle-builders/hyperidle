@@ -29,6 +29,7 @@ import {
 } from "@hyperidle/connections";
 import { encryptCredentialValue } from "@hyperidle/credential-access";
 import { agentSessionRequests, type HyperIdleDb, serviceConnections, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { applyProvisioningPlan, buildProvisioningPlan } from "@hyperidle/run-orchestration";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
@@ -44,9 +45,6 @@ import {
 
 const NOW = "2026-08-04T00:00:00.000Z";
 const SERVER_SECRET = "au26-e3-add-after-emit-secret";
-const HUMAN_ID = "u-au26-e3-owner";
-const AGENT_ID = "agent-au26-e3-target";
-const OTHER_HUMAN_ID = "u-au26-e3-other";
 
 let sandboxPath: string;
 beforeEach(() => {
@@ -58,10 +56,16 @@ afterEach(() => {
 	vi.unstubAllEnvs();
 });
 
-async function seedPrincipals(db: HyperIdleDb): Promise<void> {
+async function seedPrincipals(
+	db: HyperIdleDb,
+	ids: ScopedIds,
+): Promise<{ humanId: string; agentId: string; otherHumanId: string }> {
+	const humanId = ids("u-au26-e3-owner");
+	const otherHumanId = ids("u-au26-e3-other");
+	const agentId = ids("agent-au26-e3-target");
 	await db.insert(users).values([
 		{
-			id: HUMAN_ID,
+			id: humanId,
 			kind: "human",
 			name: "AU26 Owner",
 			role: "founder",
@@ -69,7 +73,7 @@ async function seedPrincipals(db: HyperIdleDb): Promise<void> {
 			createdAt: NOW,
 		},
 		{
-			id: OTHER_HUMAN_ID,
+			id: otherHumanId,
 			kind: "human",
 			name: "AU26 Other",
 			role: "member",
@@ -77,7 +81,7 @@ async function seedPrincipals(db: HyperIdleDb): Promise<void> {
 			createdAt: NOW,
 		},
 		{
-			id: AGENT_ID,
+			id: agentId,
 			kind: "ai",
 			name: "AU26 Target Agent",
 			role: "builder",
@@ -85,6 +89,7 @@ async function seedPrincipals(db: HyperIdleDb): Promise<void> {
 			createdAt: NOW,
 		},
 	]);
+	return { humanId, agentId, otherHumanId };
 }
 
 /**
@@ -95,24 +100,28 @@ async function seedPrincipals(db: HyperIdleDb): Promise<void> {
 async function emitAndDrain(
 	db: HyperIdleDb,
 	eventBus: Parameters<typeof queueDeps>[0] extends never ? never : { emit: unknown },
-	idempotencyKey: string,
+	ids: ScopedIds,
+	agentId: string,
+	humanId: string,
 ): Promise<{ readonly payloadJson: string | null }> {
+	const messageId = ids("e2e-message");
+	const threadId = ids("e2e-thread");
 	await enqueueWorkIntent(db, {
 		kind: "assistant_turn",
 		sourceKind: "thread_message",
-		sourceId: `${idempotencyKey}-message`,
-		idempotencyKey,
+		sourceId: messageId,
+		idempotencyKey: ids("e2e-intent"),
 		bakedRequest: {
-			defaultAgentId: AGENT_ID,
+			defaultAgentId: agentId,
 			sourceKind: "assistant",
-			sourceId: `${idempotencyKey}-message`,
-			streamId: `thread:${idempotencyKey}-thread`,
-			userId: HUMAN_ID,
+			sourceId: messageId,
+			streamId: `thread:${threadId}`,
+			userId: humanId,
 			sourceCorrelation: {
-				threadId: `${idempotencyKey}-thread`,
-				messageId: `${idempotencyKey}-message`,
-				userId: HUMAN_ID,
-				assistantAgentId: AGENT_ID,
+				threadId,
+				messageId,
+				userId: humanId,
+				assistantAgentId: agentId,
 			},
 		},
 	});
@@ -123,7 +132,7 @@ async function emitAndDrain(
 	const [request] = await db
 		.select()
 		.from(agentSessionRequests)
-		.where(eq(agentSessionRequests.sourceId, `${idempotencyKey}-message`));
+		.where(eq(agentSessionRequests.sourceId, messageId));
 	if (!request) throw new Error("the drain did not hand off a request row");
 	return { payloadJson: request.payloadJson };
 }
@@ -160,11 +169,12 @@ describe("held connections are read live at spawn, never carried on the request"
 	test("a connection added AFTER the intent is emitted and drained is still provisioned at spawn", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seedPrincipals(db);
+		const { humanId, agentId } = await seedPrincipals(db, ids);
 
 		// 1. The emit is genuinely over before the connection exists.
-		const { payloadJson } = await emitAndDrain(db, eventBus, "au26-e3-add-after-emit");
+		const { payloadJson } = await emitAndDrain(db, eventBus, ids, agentId, humanId);
 		expect(await db.select().from(serviceConnections)).toEqual([]);
 
 		// The request carries NOTHING about connections — K1's bake is gone, so
@@ -173,8 +183,8 @@ describe("held connections are read live at spawn, never carried on the request"
 
 		// 2. NOW the user adds the connection.
 		await db.insert(serviceConnections).values({
-			id: "sc-au26-e3-added-late",
-			userId: HUMAN_ID,
+			id: ids("sc-au26-e3-added-late"),
+			userId: humanId,
 			service: "stripe",
 			authSource: "token",
 			encryptedToken: encryptCredentialValue("sk_au26_e3_added_late"),
@@ -186,7 +196,7 @@ describe("held connections are read live at spawn, never carried on the request"
 		});
 
 		// 3. The session spawns.
-		const plan = await provisionConnections(db, HUMAN_ID);
+		const plan = await provisionConnections(db, humanId);
 
 		// 4. The late-added connection is provisioned, token and all.
 		expect(plan.mcpServers).toEqual([
@@ -204,11 +214,12 @@ describe("held connections are read live at spawn, never carried on the request"
 	test("a connection REMOVED after the intent is emitted and drained is not provisioned at spawn", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seedPrincipals(db);
+		const { humanId, agentId } = await seedPrincipals(db, ids);
 		await db.insert(serviceConnections).values({
-			id: "sc-au26-e3-removed-late",
-			userId: HUMAN_ID,
+			id: ids("sc-au26-e3-removed-late"),
+			userId: humanId,
 			service: "stripe",
 			authSource: "token",
 			encryptedToken: encryptCredentialValue("sk_au26_e3_removed_late"),
@@ -219,11 +230,11 @@ describe("held connections are read live at spawn, never carried on the request"
 			updatedAt: NOW,
 		});
 
-		await emitAndDrain(db, eventBus, "au26-e3-remove-after-emit");
+		await emitAndDrain(db, eventBus, ids, agentId, humanId);
 
-		await db.delete(serviceConnections).where(eq(serviceConnections.id, "sc-au26-e3-removed-late"));
+		await db.delete(serviceConnections).where(eq(serviceConnections.id, ids("sc-au26-e3-removed-late")));
 
-		const plan = await provisionConnections(db, HUMAN_ID);
+		const plan = await provisionConnections(db, humanId);
 
 		expect(plan.mcpServers).toEqual([]);
 		expect(plan.envInjections).toEqual({});
@@ -232,12 +243,13 @@ describe("held connections are read live at spawn, never carried on the request"
 
 	test("a plan carries ONLY the owning human's held connections — another human's token never enters the sandbox", async ({
 		db,
+		ids,
 	}) => {
-		await seedPrincipals(db);
+		const { humanId, otherHumanId } = await seedPrincipals(db, ids);
 		await db.insert(serviceConnections).values([
 			{
-				id: "sc-au26-e3-owner-github",
-				userId: HUMAN_ID,
+				id: ids("sc-au26-e3-owner-github"),
+				userId: humanId,
 				service: "github",
 				authSource: "token",
 				encryptedToken: encryptCredentialValue("gh_owner_token"),
@@ -248,8 +260,8 @@ describe("held connections are read live at spawn, never carried on the request"
 				updatedAt: NOW,
 			},
 			{
-				id: "sc-au26-e3-other-stripe",
-				userId: OTHER_HUMAN_ID,
+				id: ids("sc-au26-e3-other-stripe"),
+				userId: otherHumanId,
 				service: "stripe",
 				authSource: "token",
 				encryptedToken: encryptCredentialValue("sk_other_token"),
@@ -261,7 +273,7 @@ describe("held connections are read live at spawn, never carried on the request"
 			},
 		]);
 
-		const ownerPlan = await provisionConnections(db, HUMAN_ID);
+		const ownerPlan = await provisionConnections(db, humanId);
 
 		// The owner's own connection is provisioned…
 		expect(ownerPlan.envInjections).toEqual({
@@ -279,7 +291,7 @@ describe("held connections are read live at spawn, never carried on the request"
 		// Symmetrically for the other human: their own row, resolved against
 		// THEIR id (a plan keyed to one shared owner would decrypt to null and
 		// drop this row entirely), and none of the owner's.
-		const otherPlan = await provisionConnections(db, OTHER_HUMAN_ID);
+		const otherPlan = await provisionConnections(db, otherHumanId);
 		expect(otherPlan.mcpServers).toEqual([
 			{ name: "stripe", url: "https://mcp.stripe.com", bearerToken: "sk_other_token" },
 		]);
@@ -292,11 +304,13 @@ describe("held connections are read live at spawn, never carried on the request"
 
 	test("a cross-owner resolve still returns null — per-user isolation is unchanged", async ({
 		db,
+		ids,
 	}) => {
-		await seedPrincipals(db);
+		const { humanId, otherHumanId } = await seedPrincipals(db, ids);
+		const scId = ids("sc-au26-e3-isolation");
 		await db.insert(serviceConnections).values({
-			id: "sc-au26-e3-isolation",
-			userId: HUMAN_ID,
+			id: scId,
+			userId: humanId,
 			service: "github",
 			authSource: "token",
 			encryptedToken: encryptCredentialValue("gh_isolation_token"),
@@ -308,7 +322,7 @@ describe("held connections are read live at spawn, never carried on the request"
 		});
 
 		const resolver = new ServiceConnectionResolver(db);
-		expect(await resolver.resolve(HUMAN_ID, "sc-au26-e3-isolation")).toBe("gh_isolation_token");
-		expect(await resolver.resolve(OTHER_HUMAN_ID, "sc-au26-e3-isolation")).toBeNull();
+		expect(await resolver.resolve(humanId, scId)).toBe("gh_isolation_token");
+		expect(await resolver.resolve(otherHumanId, scId)).toBeNull();
 	});
 });
