@@ -14,6 +14,7 @@
  */
 
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import type { DomainEvent } from "@hyperidle/domain-model";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { requireRunnableAgent } from "@hyperidle/users";
@@ -29,24 +30,30 @@ const testDeps: TaskStateMachineDeps = {
 	taskRunResolver: { requireRunnableAgent },
 };
 
-async function seed(db: HyperIdleDb, taskState = "accepted"): Promise<void> {
+async function seed(db: HyperIdleDb, ids: ScopedIds, taskState = "accepted"): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(teams).values({ id: "prod-1", name: "Test", phase: "build", createdAt: now });
 	await db
-		.insert(teamMembers)
-		.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 0, formedAt: now });
+		.insert(teams)
+		.values({ id: ids("prod-1"), name: "Test", phase: "build", createdAt: now });
+	await db.insert(teamMembers).values({
+		id: ids("team-1"),
+		teamId: ids("prod-1"),
+		capacity: 3,
+		activeBets: 0,
+		formedAt: now,
+	});
 	await db.insert(bets).values({
-		id: "bet-1",
-		teamId: "prod-1",
+		id: ids("bet-1"),
+		teamId: ids("prod-1"),
 		description: "Test",
 		appetite: "small",
 		status: "active",
 		createdAt: now,
 	});
 	await db.insert(tasks).values({
-		id: "task-1",
-		betId: "bet-1",
-		teamId: "prod-1",
+		id: ids("task-1"),
+		betId: ids("bet-1"),
+		teamId: ids("prod-1"),
 		title: "Test Task",
 		state: taskState,
 		createdAt: now,
@@ -58,13 +65,14 @@ describe("AF12 AC5 — task transition CAS", () => {
 	test("two concurrent transitions from the same state: exactly one wins, one throws InvalidTransitionError", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seed(db, "accepted");
+		await seed(db, ids, "accepted");
 
 		// accepted → in_progress and accepted → hold both valid from `accepted`.
 		const results = await Promise.allSettled([
-			transitionTask(db, eventBus, "task-1", "in_progress", testDeps),
-			transitionTask(db, eventBus, "task-1", "hold", testDeps),
+			transitionTask(db, eventBus, ids("task-1"), "in_progress", testDeps),
+			transitionTask(db, eventBus, ids("task-1"), "hold", testDeps),
 		]);
 
 		const fulfilled = results.filter((r) => r.status === "fulfilled");
@@ -75,22 +83,27 @@ describe("AF12 AC5 — task transition CAS", () => {
 		expect((rejected[0] as PromiseRejectedResult).reason).toBeInstanceOf(InvalidTransitionError);
 
 		// Final state is one of the two attempted targets, never corrupted/half-written.
-		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1")).limit(1);
+		const [task] = await db
+			.select()
+			.from(tasks)
+			.where(eq(tasks.id, ids("task-1")))
+			.limit(1);
 		expect(["in_progress", "hold"]).toContain(task?.state);
 	});
 
 	test("task_state_changed emitted exactly once under a concurrent race", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seed(db, "accepted");
+		await seed(db, ids, "accepted");
 
 		const emitted: DomainEvent[] = [];
 		eventBus.on("task_state_changed", (e) => emitted.push(e));
 
 		await Promise.allSettled([
-			transitionTask(db, eventBus, "task-1", "in_progress", testDeps),
-			transitionTask(db, eventBus, "task-1", "hold", testDeps),
+			transitionTask(db, eventBus, ids("task-1"), "in_progress", testDeps),
+			transitionTask(db, eventBus, ids("task-1"), "hold", testDeps),
 		]);
 
 		expect(emitted).toHaveLength(1);
@@ -99,16 +112,21 @@ describe("AF12 AC5 — task transition CAS", () => {
 	test("audit trail and committed state stay consistent under a race (no last-writer-wins clobber)", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seed(db, "accepted");
+		await seed(db, ids, "accepted");
 
 		const results = await Promise.allSettled([
-			transitionTask(db, eventBus, "task-1", "in_progress", testDeps),
-			transitionTask(db, eventBus, "task-1", "hold", testDeps),
+			transitionTask(db, eventBus, ids("task-1"), "in_progress", testDeps),
+			transitionTask(db, eventBus, ids("task-1"), "hold", testDeps),
 		]);
 		const committed = results.filter((r) => r.status === "fulfilled").length;
 
-		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1")).limit(1);
+		const [task] = await db
+			.select()
+			.from(tasks)
+			.where(eq(tasks.id, ids("task-1")))
+			.limit(1);
 		const audit = JSON.parse(task?.auditTrail ?? "[]") as Array<{ from: string; to: string }>;
 		const transitionEntries = audit.filter((e) => e.from === "accepted");
 

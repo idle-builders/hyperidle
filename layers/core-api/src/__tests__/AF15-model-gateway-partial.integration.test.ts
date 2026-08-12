@@ -16,6 +16,7 @@
  */
 
 import { type HyperIdleDb, serverConfig } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
@@ -29,7 +30,7 @@ describe("AF15 AC-2 — PATCH /api/model-gateway partial-tier merge", () => {
 	const NOW = new Date().toISOString();
 
 	// Helper: seed a config row with a known openai-compatible key on reasoning tier
-	async function seedWithOaiKey(db: HyperIdleDb): Promise<void> {
+	async function seedWithOaiKey(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 		// Store a full config with apiKey on reasoning tier (plaintext — test env has no secret)
 		const config = {
 			modelGateway: {
@@ -50,7 +51,7 @@ describe("AF15 AC-2 — PATCH /api/model-gateway partial-tier merge", () => {
 			},
 		};
 		await db.insert(serverConfig).values({
-			id: "default",
+			id: ids("default"),
 			config: JSON.stringify(config),
 			updatedAt: NOW,
 		});
@@ -100,6 +101,7 @@ describe("AF15 AC-2 — PATCH /api/model-gateway partial-tier merge", () => {
 	test("accepts { fast: { apiKey: 'newkey' } } — re-key on already-oai tier (provider omitted)", async ({
 		app,
 		db,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		// Seed fast tier as oai-compatible already
@@ -116,7 +118,7 @@ describe("AF15 AC-2 — PATCH /api/model-gateway partial-tier merge", () => {
 			},
 		};
 		await db.insert(serverConfig).values({
-			id: "default",
+			id: ids("default"),
 			config: JSON.stringify(config),
 			updatedAt: new Date().toISOString(),
 		});
@@ -145,9 +147,10 @@ describe("AF15 AC-2 — PATCH /api/model-gateway partial-tier merge", () => {
 	test("PATCH fast.model preserves reasoning tier config (AH1: hasApiKey always false — key in server_credentials)", async ({
 		app,
 		db,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedWithOaiKey(db);
+		await seedWithOaiKey(db, ids);
 
 		// AH1: hasApiKey is always false from model-gateway endpoint — key now lives in server_credentials
 		const getRes1 = await app.request("/api/model-gateway", { headers: authHeaders() });
@@ -179,9 +182,10 @@ describe("AF15 AC-2 — PATCH /api/model-gateway partial-tier merge", () => {
 	test("changing reasoning tier provider to anthropic switches provider (AH1: hasApiKey always false)", async ({
 		app,
 		db,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedWithOaiKey(db);
+		await seedWithOaiKey(db, ids);
 
 		// AH1: hasApiKey is always false from model-gateway — key in server_credentials
 		const before = (await (
@@ -207,7 +211,7 @@ describe("AF15 AC-2 — PATCH /api/model-gateway partial-tier merge", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("patching fast tier leaves workhorse unchanged", async ({ app, db }) => {
+	test("patching fast tier leaves workhorse unchanged", async ({ app, db, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		const config = {
 			modelGateway: {
@@ -217,7 +221,7 @@ describe("AF15 AC-2 — PATCH /api/model-gateway partial-tier merge", () => {
 			},
 		};
 		await db.insert(serverConfig).values({
-			id: "default",
+			id: ids("default"),
 			config: JSON.stringify(config),
 			updatedAt: new Date().toISOString(),
 		});
@@ -265,9 +269,10 @@ describe("AF15 AC-2 — PATCH /api/model-gateway partial-tier merge", () => {
 	test("GET /api/model-gateway returns hasApiKey boolean, never apiKey string (AH1: always false)", async ({
 		app,
 		db,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedWithOaiKey(db);
+		await seedWithOaiKey(db, ids);
 		const res = await app.request("/api/model-gateway", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as Record<string, unknown>;

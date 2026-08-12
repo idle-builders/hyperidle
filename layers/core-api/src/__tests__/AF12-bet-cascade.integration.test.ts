@@ -37,6 +37,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { enqueue } from "@hyperidle/notifications";
 import { getTeamMembers, updateTeam } from "@hyperidle/org";
 import { type PolicyDeps, recordPropagationHop, registerPolicy } from "@hyperidle/policy";
@@ -134,23 +135,29 @@ const teamCapacity: WorkDeps["teamCapacity"] = {
 	setActiveBets: (db, teamId, activeBets) => updateTeam(db, teamId, { activeBets }),
 };
 
-async function seed(db: HyperIdleDb): Promise<void> {
+async function seed(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(teams).values({ id: "prod-1", name: "Test", phase: "build", createdAt: now });
 	await db
-		.insert(teamMembers)
-		.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 1, formedAt: now });
+		.insert(teams)
+		.values({ id: ids("prod-1"), name: "Test", phase: "build", createdAt: now });
+	await db.insert(teamMembers).values({
+		id: ids("team-1"),
+		teamId: ids("prod-1"),
+		capacity: 3,
+		activeBets: 1,
+		formedAt: now,
+	});
 	await db.insert(users).values({
-		id: "agent-1",
+		id: ids("agent-1"),
 		name: "Builder Bot",
 		role: "builder",
 		status: "idle",
-		teamId: "team-1",
+		teamId: ids("team-1"),
 		createdAt: now,
 	});
 	await db.insert(bets).values({
-		id: "bet-1",
-		teamId: "prod-1",
+		id: ids("bet-1"),
+		teamId: ids("prod-1"),
 		description: "Test",
 		appetite: "small",
 		status: "active",
@@ -158,27 +165,27 @@ async function seed(db: HyperIdleDb): Promise<void> {
 	});
 	// In-progress task with an active session — should be cascaded.
 	await db.insert(tasks).values({
-		id: "task-live",
-		betId: "bet-1",
-		teamId: "prod-1",
+		id: ids("task-live"),
+		betId: ids("bet-1"),
+		teamId: ids("prod-1"),
 		title: "Live Task",
 		state: "in_progress",
 		createdAt: now,
 		updatedAt: now,
 	});
 	await db.insert(sessions).values({
-		id: "sess-active",
-		taskId: "task-live",
-		agentId: "agent-1",
+		id: ids("sess-active"),
+		taskId: ids("task-live"),
+		agentId: ids("agent-1"),
 		modelTier: "workhorse",
 		startedAt: now,
 		state: "active",
 	});
 	// Done task — must be left untouched (artifacts preserved).
 	await db.insert(tasks).values({
-		id: "task-done",
-		betId: "bet-1",
-		teamId: "prod-1",
+		id: ids("task-done"),
+		betId: ids("bet-1"),
+		teamId: ids("prod-1"),
 		title: "Done Task",
 		state: "done",
 		createdAt: now,
@@ -187,26 +194,39 @@ async function seed(db: HyperIdleDb): Promise<void> {
 }
 
 describe("AF12 AC3 — bet kill cascade (state truth)", () => {
-	test("non-terminal task on the bet is killed", async ({ db, eventBus }) => {
-		await seed(db);
-		await transitionBet(db, eventBus, teamCapacity, "bet-1", "killed", { reason: "Not viable" });
+	test("non-terminal task on the bet is killed", async ({ db, eventBus, ids }) => {
+		await seed(db, ids);
+		await transitionBet(db, eventBus, teamCapacity, ids("bet-1"), "killed", {
+			reason: "Not viable",
+		});
 
-		await cascadeBetKill(db, eventBus, "bet-1", testDeps);
+		await cascadeBetKill(db, eventBus, ids("bet-1"), testDeps);
 
-		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-live")).limit(1);
+		const [task] = await db
+			.select()
+			.from(tasks)
+			.where(eq(tasks.id, ids("task-live")))
+			.limit(1);
 		expect(task?.state).toBe("killed");
 	});
 
 	test("active session on a cascaded task is stopped (state terminal, outcome 'stopped')", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seed(db);
-		await transitionBet(db, eventBus, teamCapacity, "bet-1", "killed", { reason: "Not viable" });
+		await seed(db, ids);
+		await transitionBet(db, eventBus, teamCapacity, ids("bet-1"), "killed", {
+			reason: "Not viable",
+		});
 
-		await cascadeBetKill(db, eventBus, "bet-1", testDeps);
+		await cascadeBetKill(db, eventBus, ids("bet-1"), testDeps);
 
-		const [sess] = await db.select().from(sessions).where(eq(sessions.id, "sess-active")).limit(1);
+		const [sess] = await db
+			.select()
+			.from(sessions)
+			.where(eq(sessions.id, ids("sess-active")))
+			.limit(1);
 		expect(sess?.state).not.toBe("active");
 		expect(sess?.outcome).toBe("stopped");
 		expect(sess?.endedAt).toBeTruthy();
@@ -215,25 +235,34 @@ describe("AF12 AC3 — bet kill cascade (state truth)", () => {
 	test("already-done task is left done (artifacts preserved, not re-killed)", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seed(db);
-		await transitionBet(db, eventBus, teamCapacity, "bet-1", "killed", { reason: "Not viable" });
+		await seed(db, ids);
+		await transitionBet(db, eventBus, teamCapacity, ids("bet-1"), "killed", {
+			reason: "Not viable",
+		});
 
-		await cascadeBetKill(db, eventBus, "bet-1", testDeps);
+		await cascadeBetKill(db, eventBus, ids("bet-1"), testDeps);
 
-		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-done")).limit(1);
+		const [task] = await db
+			.select()
+			.from(tasks)
+			.where(eq(tasks.id, ids("task-done")))
+			.limit(1);
 		expect(task?.state).toBe("done");
 	});
 
-	test("returns the ids of cascaded tasks and sessions", async ({ db, eventBus }) => {
-		await seed(db);
-		await transitionBet(db, eventBus, teamCapacity, "bet-1", "killed", { reason: "Not viable" });
+	test("returns the ids of cascaded tasks and sessions", async ({ db, eventBus, ids }) => {
+		await seed(db, ids);
+		await transitionBet(db, eventBus, teamCapacity, ids("bet-1"), "killed", {
+			reason: "Not viable",
+		});
 
-		const result = await cascadeBetKill(db, eventBus, "bet-1", testDeps);
+		const result = await cascadeBetKill(db, eventBus, ids("bet-1"), testDeps);
 
-		expect(result.tasksKilled).toContain("task-live");
-		expect(result.tasksKilled).not.toContain("task-done");
-		expect(result.sessionsStopped).toContain("sess-active");
+		expect(result.tasksKilled).toContain(ids("task-live"));
+		expect(result.tasksKilled).not.toContain(ids("task-done"));
+		expect(result.sessionsStopped).toContain(ids("sess-active"));
 	});
 });
 
@@ -241,10 +270,13 @@ describe("AF12 AC6 — cascade propagation_log labels", () => {
 	test("task hop: sourceEvent 'bet_killed', status 'applied', labelled '<from> -> killed'", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seed(db);
-		await transitionBet(db, eventBus, teamCapacity, "bet-1", "killed", { reason: "Not viable" });
-		await cascadeBetKill(db, eventBus, "bet-1", testDeps);
+		await seed(db, ids);
+		await transitionBet(db, eventBus, teamCapacity, ids("bet-1"), "killed", {
+			reason: "Not viable",
+		});
+		await cascadeBetKill(db, eventBus, ids("bet-1"), testDeps);
 
 		const rows = await db
 			.select()
@@ -253,7 +285,7 @@ describe("AF12 AC6 — cascade propagation_log labels", () => {
 				and(eq(propagationLog.sourceEvent, "bet_killed"), eq(propagationLog.targetLevel, "task")),
 			);
 
-		const taskRow = rows.find((r) => r.targetId === "task-live");
+		const taskRow = rows.find((r) => r.targetId === ids("task-live"));
 		expect(taskRow).toBeDefined();
 		expect(taskRow?.status).toBe("applied");
 		expect(taskRow?.targetTransition).toBe("in_progress -> killed");
@@ -262,10 +294,13 @@ describe("AF12 AC6 — cascade propagation_log labels", () => {
 	test("session hop: sourceEvent 'bet_killed', status 'applied', labelled 'active -> stopped'", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seed(db);
-		await transitionBet(db, eventBus, teamCapacity, "bet-1", "killed", { reason: "Not viable" });
-		await cascadeBetKill(db, eventBus, "bet-1", testDeps);
+		await seed(db, ids);
+		await transitionBet(db, eventBus, teamCapacity, ids("bet-1"), "killed", {
+			reason: "Not viable",
+		});
+		await cascadeBetKill(db, eventBus, ids("bet-1"), testDeps);
 
 		const rows = await db
 			.select()
@@ -277,7 +312,7 @@ describe("AF12 AC6 — cascade propagation_log labels", () => {
 				),
 			);
 
-		const sessRow = rows.find((r) => r.targetId === "sess-active");
+		const sessRow = rows.find((r) => r.targetId === ids("sess-active"));
 		expect(sessRow).toBeDefined();
 		expect(sessRow?.status).toBe("applied");
 		expect(sessRow?.targetTransition).toBe("active -> stopped");
@@ -286,13 +321,16 @@ describe("AF12 AC6 — cascade propagation_log labels", () => {
 	test("re-killing / re-cascading is idempotent — no duplicate applied rows, no phantom row for an already-stopped session", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seed(db);
-		await transitionBet(db, eventBus, teamCapacity, "bet-1", "killed", { reason: "Not viable" });
+		await seed(db, ids);
+		await transitionBet(db, eventBus, teamCapacity, ids("bet-1"), "killed", {
+			reason: "Not viable",
+		});
 
-		await cascadeBetKill(db, eventBus, "bet-1", testDeps);
+		await cascadeBetKill(db, eventBus, ids("bet-1"), testDeps);
 		// Second cascade: the bet/tasks/sessions are all terminal — must be a clean no-op.
-		await cascadeBetKill(db, eventBus, "bet-1", testDeps);
+		await cascadeBetKill(db, eventBus, ids("bet-1"), testDeps);
 
 		// Build-time watch (reviewer): a 0-row CAS-stop on an already-stopped session
 		// must NOT emit a phantom 'applied' propagation_log row.
@@ -303,7 +341,7 @@ describe("AF12 AC6 — cascade propagation_log labels", () => {
 				and(
 					eq(propagationLog.sourceEvent, "bet_killed"),
 					eq(propagationLog.targetLevel, "session"),
-					eq(propagationLog.targetId, "sess-active"),
+					eq(propagationLog.targetId, ids("sess-active")),
 				),
 			);
 		expect(sessRows).toHaveLength(1);
@@ -315,7 +353,7 @@ describe("AF12 AC6 — cascade propagation_log labels", () => {
 				and(
 					eq(propagationLog.sourceEvent, "bet_killed"),
 					eq(propagationLog.targetLevel, "task"),
-					eq(propagationLog.targetId, "task-live"),
+					eq(propagationLog.targetId, ids("task-live")),
 				),
 			);
 		expect(taskRows).toHaveLength(1);
@@ -326,42 +364,49 @@ describe("AF12 AC6 — task->bet propagation label honesty (fix '-> review' bug)
 	test("task->bet applied row is labelled '<from> -> completed' (not '-> review')", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
 		// Seed a bet with a single in_progress task; moving it to done triggers the
 		// upward propagation that actually moves the bet to `completed`. The log row
 		// must label the real target — `completed` — not the dead `review` state.
 		const now = new Date().toISOString();
-		await db.insert(teams).values({ id: "prod-1", name: "Test", phase: "build", createdAt: now });
 		await db
-			.insert(teamMembers)
-			.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 1, formedAt: now });
+			.insert(teams)
+			.values({ id: ids("prod-1"), name: "Test", phase: "build", createdAt: now });
+		await db.insert(teamMembers).values({
+			id: ids("team-1"),
+			teamId: ids("prod-1"),
+			capacity: 3,
+			activeBets: 1,
+			formedAt: now,
+		});
 		await db.insert(users).values({
-			id: "agent-1",
+			id: ids("agent-1"),
 			name: "Builder Bot",
 			role: "builder",
 			status: "idle",
-			teamId: "team-1",
+			teamId: ids("team-1"),
 			createdAt: now,
 		});
 		// Seed the system propagation agent so the ship-confirmation thread can insert.
 		await db.insert(users).values({
-			id: "system:propagation",
+			id: ids("system:propagation"),
 			name: "Propagation System",
 			role: "system",
 			status: "active",
 			createdAt: now,
 		});
 		await db.insert(bets).values({
-			id: "bet-1",
-			teamId: "prod-1",
+			id: ids("bet-1"),
+			teamId: ids("prod-1"),
 			description: "Test",
 			status: "active",
 			createdAt: now,
 		});
 		await db.insert(tasks).values({
-			id: "task-1",
-			betId: "bet-1",
-			teamId: "prod-1",
+			id: ids("task-1"),
+			betId: ids("bet-1"),
+			teamId: ids("prod-1"),
 			title: "Only Task",
 			state: "done",
 			createdAt: now,
@@ -372,8 +417,8 @@ describe("AF12 AC6 — task->bet propagation label honesty (fix '-> review' bug)
 		try {
 			eventBus.emit({
 				type: "task_state_changed",
-				streamId: "task-1",
-				taskId: "task-1",
+				streamId: ids("task-1"),
+				taskId: ids("task-1"),
 				fromState: "review",
 				toState: "done",
 				timestamp: Date.now(),

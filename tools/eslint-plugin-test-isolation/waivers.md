@@ -12,12 +12,6 @@ Shape: one `## <rule-name>` heading per rule; entries are
 increment 1 by running both rules over the whole lane.
 
 ## no-literal-entity-ids
-- `layers/core-api/src/__tests__/AF12-bet-cascade.integration.test.ts`
-- `layers/core-api/src/__tests__/AF12-task-cas.integration.test.ts`
-- `layers/core-api/src/__tests__/AF15-model-gateway-partial.integration.test.ts`
-- `layers/core-api/src/__tests__/AF15-org-teams.integration.test.ts`
-- `layers/core-api/src/__tests__/AF15-teams-idempotency.integration.test.ts`
-- `layers/core-api/src/__tests__/AF17-propagation-bootstrap.integration.test.ts`
 - `layers/core-api/src/__tests__/AL7-proposed-call-capture.integration.test.ts`
 - `layers/core-api/src/__tests__/AL7-reviews-loader-redo.integration.test.ts`
 - `layers/core-api/src/__tests__/AL7-two-session-loop.integration.test.ts`
@@ -120,7 +114,6 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/users/src/__tests__/runnable-agent.integration.test.ts`
 
 ## no-unscoped-table-read
-- `layers/core-api/src/__tests__/AF15-teams-idempotency.integration.test.ts`
 - `layers/core-api/src/__tests__/AL7-proposed-call-capture.integration.test.ts`
 - `layers/core-api/src/__tests__/AO1-filesystems.integration.test.ts`
 - `layers/core-api/src/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts`

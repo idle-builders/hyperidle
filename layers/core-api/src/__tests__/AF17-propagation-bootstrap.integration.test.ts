@@ -12,6 +12,7 @@
  */
 
 import { bets, type HyperIdleDb, teamMembers, teams, threads, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -27,13 +28,14 @@ function authHeaders(): Record<string, string> {
 /** Minimal world to drive a bet to review without any demo data. */
 async function seedMinimalWorld(
 	db: HyperIdleDb,
+	ids: ScopedIds,
 ): Promise<{ teamId: string; betId: string; sessionId: string; founderId: string }> {
-	const teamId = "team-ac5-test";
-	const tmId = "tm-ac5-test";
-	const founderId = "user-ac5-founder";
-	const betId = "bet-ac5-test";
-	const sessionId = "session-ac5-test";
-	const agentId = "agent-ac5-builder";
+	const teamId = ids("team-ac5-test");
+	const tmId = ids("tm-ac5-test");
+	const founderId = ids("user-ac5-founder");
+	const betId = ids("bet-ac5-test");
+	const sessionId = ids("session-ac5-test");
+	const agentId = ids("agent-ac5-builder");
 
 	await db.insert(teams).values({ id: teamId, name: "Acme Test", phase: "build", createdAt: NOW });
 	await db
@@ -88,20 +90,21 @@ describe("AF17 AC5: system:propagation is present after bootstrap; review thread
 
 	test("can create a review thread authored by system:propagation without FK error", async ({
 		db,
+		ids,
 	}) => {
 		await applyFactoryCoreState(db);
-		await seedMinimalWorld(db);
+		await seedMinimalWorld(db, ids);
 
 		// Directly insert a review thread attributed to system:propagation to prove the FK holds.
 		// This simulates what the lifecycle propagation engine does when a bet enters review.
-		const threadId = "thread-ac5-review";
+		const threadId = ids("thread-ac5-review");
 		const isoNow = new Date().toISOString();
 
 		await expect(
 			db.insert(threads).values({
 				id: threadId,
 				hostKind: "bet",
-				hostId: "bet-ac5-test",
+				hostId: ids("bet-ac5-test"),
 				initiatorId: "system:propagation",
 				participants: JSON.stringify(["system:propagation"]),
 				lastActiveAt: isoNow,
@@ -121,16 +124,17 @@ describe("AF17 AC5: system:propagation is present after bootstrap; review thread
 	test("PATCH /api/bets/:id to review state succeeds when system:propagation was bootstrapped", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		// Bootstrap factory layer (plants system:propagation)
 		await applyFactoryCoreState(db);
-		await seedMinimalWorld(db);
+		await seedMinimalWorld(db, ids);
 
 		// Transition bet to review — this should trigger review thread creation via
 		// lifecycle propagation, which needs system:propagation.
-		const res = await app.request("/api/bets/bet-ac5-test", {
+		const res = await app.request(`/api/bets/${ids("bet-ac5-test")}`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({ status: "review" }),

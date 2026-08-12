@@ -26,21 +26,24 @@ function authHeaders(): Record<string, string> {
 describe("AF15 AC-6 — GET /api/org includes teams list", () => {
 	const NOW = new Date().toISOString();
 
-	test("GET /api/org returns teams array alongside edges and users", async ({ app, db }) => {
+	test("GET /api/org returns teams array alongside edges and users", async ({ app, db, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		// Seed team + teamMembers
-		await db
-			.insert(teams)
-			.values({ id: "team-af15-1", name: "Alpha Team", phase: "build", createdAt: NOW });
+		await db.insert(teams).values({
+			id: ids("team-af15-1"),
+			name: "Alpha Team",
+			phase: "build",
+			createdAt: NOW,
+		});
 		await db.insert(teamMembers).values({
-			id: "tm-af15-1",
-			teamId: "team-af15-1",
+			id: ids("tm-af15-1"),
+			teamId: ids("team-af15-1"),
 			capacity: 5,
 			activeBets: 0,
 			formedAt: NOW,
 		});
 		await db.insert(users).values({
-			id: "u-human-af15",
+			id: ids("u-human-af15"),
 			kind: "human",
 			name: "Founder",
 			role: "founder",
@@ -59,30 +62,36 @@ describe("AF15 AC-6 — GET /api/org includes teams list", () => {
 		expect(Array.isArray(body.teams)).toBe(true);
 		expect(body.teams).toHaveLength(1);
 		// id is teamMembers.id (what the edge target needs)
-		expect(body.teams[0]).toMatchObject({ id: "tm-af15-1", name: "Alpha Team" });
+		expect(body.teams[0]).toMatchObject({ id: ids("tm-af15-1"), name: "Alpha Team" });
 		vi.unstubAllEnvs();
 	});
 
-	test("GET /api/org teams array excludes dissolved teamMembers rows", async ({ app, db }) => {
+	test("GET /api/org teams array excludes dissolved teamMembers rows", async ({ app, db, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		const now = new Date().toISOString();
 		const past = new Date(Date.now() - 1000).toISOString();
-		await db
-			.insert(teams)
-			.values({ id: "team-active", name: "Active Team", phase: "build", createdAt: now });
+		await db.insert(teams).values({
+			id: ids("team-active"),
+			name: "Active Team",
+			phase: "build",
+			createdAt: now,
+		});
 		await db.insert(teamMembers).values({
-			id: "tm-active",
-			teamId: "team-active",
+			id: ids("tm-active"),
+			teamId: ids("team-active"),
 			capacity: 5,
 			activeBets: 0,
 			formedAt: now,
 		});
-		await db
-			.insert(teams)
-			.values({ id: "team-dissolved", name: "Old Team", phase: "archived", createdAt: past });
+		await db.insert(teams).values({
+			id: ids("team-dissolved"),
+			name: "Old Team",
+			phase: "archived",
+			createdAt: past,
+		});
 		await db.insert(teamMembers).values({
-			id: "tm-dissolved",
-			teamId: "team-dissolved",
+			id: ids("tm-dissolved"),
+			teamId: ids("team-dissolved"),
 			capacity: 1,
 			activeBets: 0,
 			formedAt: past,
@@ -93,18 +102,19 @@ describe("AF15 AC-6 — GET /api/org includes teams list", () => {
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { teams: { id: string }[] };
 		const teamIds = body.teams.map((t) => t.id);
-		expect(teamIds).toContain("tm-active");
-		expect(teamIds).not.toContain("tm-dissolved");
+		expect(teamIds).toContain(ids("tm-active"));
+		expect(teamIds).not.toContain(ids("tm-dissolved"));
 		vi.unstubAllEnvs();
 	});
 
 	test("GET /api/org returns empty teams array when no teamMembers exist", async ({
 		app,
-		db
+		db,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		await db.insert(users).values({
-			id: "u-human-notm",
+			id: ids("u-human-notm"),
 			kind: "human",
 			name: "Solo",
 			role: "founder",
@@ -123,20 +133,24 @@ describe("AF15 AC-6 — GET /api/org includes teams list", () => {
 	test("PUT /api/org/edges mechanism=team with teamMembers.id target returns 201", async ({
 		app,
 		db,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await db
-			.insert(teams)
-			.values({ id: "team-af15-2", name: "Beta Team", phase: "build", createdAt: NOW });
+		await db.insert(teams).values({
+			id: ids("team-af15-2"),
+			name: "Beta Team",
+			phase: "build",
+			createdAt: NOW,
+		});
 		await db.insert(teamMembers).values({
-			id: "tm-af15-2",
-			teamId: "team-af15-2",
+			id: ids("tm-af15-2"),
+			teamId: ids("team-af15-2"),
 			capacity: 5,
 			activeBets: 0,
 			formedAt: NOW,
 		});
 		await db.insert(users).values({
-			id: "u-human-af15b",
+			id: ids("u-human-af15b"),
 			kind: "human",
 			name: "Founder",
 			role: "founder",
@@ -149,25 +163,26 @@ describe("AF15 AC-6 — GET /api/org includes teams list", () => {
 			method: "PUT",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				fromUserId: "u-human-af15b",
+				fromUserId: ids("u-human-af15b"),
 				mechanism: "team",
-				target: "tm-af15-2", // teamMembers.id
+				target: ids("tm-af15-2"), // teamMembers.id
 			}),
 		});
 		expect(res.status).toBe(201);
 		const body = (await res.json()) as { mechanism: string; target: string };
 		expect(body.mechanism).toBe("team");
-		expect(body.target).toBe("tm-af15-2");
+		expect(body.target).toBe(ids("tm-af15-2"));
 		vi.unstubAllEnvs();
 	});
 
 	test("PUT /api/org/edges mechanism=function with free-text target returns 201 (solo path)", async ({
 		app,
 		db,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		await db.insert(users).values({
-			id: "u-solo-af15",
+			id: ids("u-solo-af15"),
 			kind: "human",
 			name: "Solo Founder",
 			role: "founder",
@@ -180,7 +195,7 @@ describe("AF15 AC-6 — GET /api/org includes teams list", () => {
 			method: "PUT",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				fromUserId: "u-solo-af15",
+				fromUserId: ids("u-solo-af15"),
 				mechanism: "function",
 				target: "Engineering",
 			}),
@@ -194,11 +209,12 @@ describe("AF15 AC-6 — GET /api/org includes teams list", () => {
 
 	test("function edge round-trips: appears in GET /api/org after creation", async ({
 		app,
-		db
+		db,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		await db.insert(users).values({
-			id: "u-solo-rt",
+			id: ids("u-solo-rt"),
 			kind: "human",
 			name: "Solo Founder RT",
 			role: "founder",
@@ -211,7 +227,7 @@ describe("AF15 AC-6 — GET /api/org includes teams list", () => {
 			method: "PUT",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				fromUserId: "u-solo-rt",
+				fromUserId: ids("u-solo-rt"),
 				mechanism: "function",
 				target: "Design",
 			}),

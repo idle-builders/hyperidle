@@ -24,25 +24,29 @@ function authHeaders(): Record<string, string> {
 }
 
 describe("AF15 AC-4 — POST /api/teams idempotency guard", () => {
-	const teamBody = {
-		name: "My Team",
-		functions: ["development", "product"],
-	};
+	// @lore AU38 P9: the team name is the idempotency key — scope it per test
+	// so two tests in one file don't collide on the same literal name.
+	function teamBody(ids: (label: string) => string) {
+		return {
+			name: `My Team ${ids("team-suffix")}`,
+			functions: ["development", "product"],
+		};
+	}
 
-	test("second POST returns 200 with the existing first team", async ({ app }) => {
+	test("second POST returns 200 with the existing first team", async ({ app, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		const res1 = await app.request("/api/teams", {
 			method: "POST",
 			headers: authHeaders(),
-			body: JSON.stringify(teamBody),
+			body: JSON.stringify(teamBody(ids)),
 		});
 		expect(res1.status).toBe(201);
 
 		const res2 = await app.request("/api/teams", {
 			method: "POST",
 			headers: authHeaders(),
-			body: JSON.stringify(teamBody),
+			body: JSON.stringify(teamBody(ids)),
 		});
 		expect(res2.status).toBe(200);
 		const body2 = (await res2.json()) as { team?: { id: string } };
@@ -53,18 +57,18 @@ describe("AF15 AC-4 — POST /api/teams idempotency guard", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("no duplicate teams created after two POST calls", async ({ app, db }) => {
+	test("no duplicate teams created after two POST calls", async ({ app, db, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		await app.request("/api/teams", {
 			method: "POST",
 			headers: authHeaders(),
-			body: JSON.stringify(teamBody),
+			body: JSON.stringify(teamBody(ids)),
 		});
 		await app.request("/api/teams", {
 			method: "POST",
 			headers: authHeaders(),
-			body: JSON.stringify(teamBody),
+			body: JSON.stringify(teamBody(ids)),
 		});
 
 		const [teamCount] = await db.select({ count: count() }).from(teams);
@@ -72,18 +76,18 @@ describe("AF15 AC-4 — POST /api/teams idempotency guard", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("no duplicate teamMembers rows after two POST calls", async ({ app, db }) => {
+	test("no duplicate teamMembers rows after two POST calls", async ({ app, db, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		await app.request("/api/teams", {
 			method: "POST",
 			headers: authHeaders(),
-			body: JSON.stringify(teamBody),
+			body: JSON.stringify(teamBody(ids)),
 		});
 		await app.request("/api/teams", {
 			method: "POST",
 			headers: authHeaders(),
-			body: JSON.stringify(teamBody),
+			body: JSON.stringify(teamBody(ids)),
 		});
 
 		const [tmCount] = await db.select({ count: count() }).from(teamMembers);
@@ -91,13 +95,13 @@ describe("AF15 AC-4 — POST /api/teams idempotency guard", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("no duplicate AI agent users after two POST calls", async ({ app, db }) => {
+	test("no duplicate AI agent users after two POST calls", async ({ app, db, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		const res1 = await app.request("/api/teams", {
 			method: "POST",
 			headers: authHeaders(),
-			body: JSON.stringify(teamBody),
+			body: JSON.stringify(teamBody(ids)),
 		});
 		expect(res1.status).toBe(201);
 
@@ -107,7 +111,7 @@ describe("AF15 AC-4 — POST /api/teams idempotency guard", () => {
 		await app.request("/api/teams", {
 			method: "POST",
 			headers: authHeaders(),
-			body: JSON.stringify(teamBody),
+			body: JSON.stringify(teamBody(ids)),
 		});
 
 		const agentCountAfterSecond =
@@ -118,12 +122,12 @@ describe("AF15 AC-4 — POST /api/teams idempotency guard", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("first POST still returns 201 on a fresh DB", async ({ app }) => {
+	test("first POST still returns 201 on a fresh DB", async ({ app, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		const res = await app.request("/api/teams", {
 			method: "POST",
 			headers: authHeaders(),
-			body: JSON.stringify(teamBody),
+			body: JSON.stringify(teamBody(ids)),
 		});
 		expect(res.status).toBe(201);
 		vi.unstubAllEnvs();
