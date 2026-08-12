@@ -234,3 +234,98 @@ Scenario 2 PASS · **Scenario 3 PASS** · Scenario 1 radius now fails too.
 - **NB-7** `plans/AI4/proof/*.png` are rewritten by `AI4-status-language.spec.ts` and now differ because
   AZ7 changed button heights. Restored by the reviewer; someone should decide whether to refresh them or
   stop the spec writing into tracked files.
+
+---
+
+# AZ7 review — evaluation 3
+
+**Fresh independent reviewer, read-only. Verdict: NOT-DONE** — one blocking finding, a side effect of the
+round-2 fix rather than a repeat.
+
+## Round-2 fix verified
+
+- **Live defect gone.** 8 routes measured in a real browser incl. the sidebar assistant: **0 elements**
+  compute a radius > 10000px (18 before). `CommentRow` avatars render 36×36 at 9999px, human branch on
+  `--surface-elevated`. `bg-[var(--surface-page)]` gone from the file.
+- **The new enforcement code is correct.** The reviewer planted violations in shapes the builder never
+  tested. Caught: const chain (`const B = A`), ternary whose branches are identifiers, `ARR.join(" ")`
+  both via a const and inline, const inside a nested function. Correctly NOT flagged (no false positives):
+  three shadowing cases and a `.map()` arrow param sharing a module const's name. Not followed, matching
+  the documented boundary: `let` (even when never reassigned), imported, runtime-computed.
+  **Zero false positives tree-wide** — 4 errors total, all pre-existing and all already carrying a
+  documented disable. Zero `radius-token-only` errors anywhere.
+- **NB-2 fixed**: RecipientPicker message box computes `min-height: 80px`; single-line inputs unchanged at
+  36/44px. **NB-3 fixed**: `Composer` and `RoleCombobox` both on `--surface-elevated`.
+- **No regressions**: `npm run verify` exit 0, `npm run test` 265 files / 2571 tests, icon-button e2e 2/2
+  (32×32 desktop, 44×44 below `lg`), WorkTeam chip/tile still distinct. Round-2 diff adds **zero**
+  suppressions.
+
+## BLOCKING — R3-1: the AC6 backlog no longer matches its own generator
+
+`.pipeline/work/AZ7/migration-backlog.md` · `measurement/scan.mjs:67` · `predicates.mjs:43` ·
+`progress.json:56` · `.pipeline/AZ.md:37`
+
+Round 2 changed both scanners (identifier following + template-literal span resolution) and never
+regenerated the outputs. On the same code tree, with no code change between runs:
+
+| Generator | Items | Matches committed file? |
+|---|---|---|
+| `predicates.mjs` @ `d9495141` (pre round-2) | 44 | byte-identical |
+| `predicates.mjs` @ HEAD | 46 | no — 23 insertions / 21 deletions |
+
+Chip axis 39 → 44 sites across 20 → 22 files. All five newly-visible sites are genuine, each read:
+`PartList.tsx:80` (GroupAvatar), `AgentProfile.tsx:482` (CapabilityBadge) and `:499` (VerdictDot),
+`ConversationSurface.tsx:136`, `SessionView.tsx:101`. **`PartList.tsx` and `AgentProfile.tsx` appear in no
+backlog item at all.**
+
+Two tracked statements are false:
+- `progress.json:56` claims the scanners' populations "match the ESLint rule's". They do not — the
+  scanners key their const map by **name per file**, not by scope. Demonstrated both directions on one
+  synthetic file: a module const plus a same-named function parameter makes the scanner report a violation
+  that does not exist; the same name declared as a const in two function scopes makes the scanner miss one
+  ESLint correctly reports. The gate is fine (ESLint is the scope-aware one); the equivalence claim is not.
+- `.pipeline/AZ.md:37` says "~39 hand-rolled chip sites" — 44 by the project's own current instrument.
+
+`combined-round.md` §4.2 states the invariant outright: "Re-running the scanner after the migration
+regenerates it, so the list cannot drift from the code." It has drifted.
+
+**Failure scenario.** A builder works all 44 items to done and `PartList.tsx`'s avatar plus
+`AgentProfile.tsx`'s capability badge and verdict dot are still hand-rolled chips, with nothing in the list
+saying so. A reviewer who re-runs the scanner to check currency gets a different file and cannot tell
+whether the code moved or the tool did.
+
+## Non-blocking (round 3)
+- **NB3-1** `util.ts:319` — `unknown | null` collapses to `unknown`; the `| null` says nothing.
+- **NB3-2** `util.ts:331-337` — try/catch around `getScope()` swallows and returns null;
+  `.claude/rules/typescript.md` says let unexpected errors propagate.
+- **NB3-3** The cycle guard defends a state the author documents as impossible.
+- **NB3-4** `DESIGN.md`'s boundary names three exclusions; a fourth exists (`const X = OBJ.a`) plus
+  mid-token concatenation. Neither new, but the paragraph reads as exhaustive.
+- **NB3-5** Three bare `AZ7` refs added to rule test files (dev world, but round 1's N8 was this rule).
+
+## AC status
+AC1 PASS · AC2 PARTIAL per the approved scope line · **AC3 PASS** (0 elements > 10000px across 8 routes) ·
+AC4 founder-deferred; its last two named inputs now on `--surface-elevated` · **AC5 PASS** (8 evasion
+shapes caught, 3 correctly rejected, 0 false positives, type arm red) · **AC6 FAIL** (R3-1) ·
+Scenario 2 PASS · Scenario 3 PASS.
+
+## Reviewer's note
+"The enforcement work is the best part of this change… the builder chose to close the hole rather than
+write it down, the resolver is correct on every shadowing case I could construct, it produces no false
+positives across the whole tree, and its documented boundary matches what the code actually does. That is
+the opposite of the pattern that failed in rounds 1 and 2. The single remaining problem is that the same
+commit moved a measuring instrument and left the artifact it measures behind."
+
+---
+
+# Orchestrator adjudication — after evaluation 3
+
+All three rounds failed the same way: **a tracked file asserting something the code no longer supports**
+(round 1: DESIGN.md's type-error claim and "28 migrated"; round 2: AC3 evidence invalidated by the glob
+fix; round 3: a backlog stale against its own generator). The defects themselves were fixed well and the
+enforcement is now genuinely strong. The recurring failure is that the *claims* are hand-maintained while
+the code moves.
+
+**Decision: keep building, with a changed strategy.** Not another manual correction — make the drift
+mechanically checkable, so a stale backlog fails verification the way an off-scale radius now does.
+Evaluation count resets.
