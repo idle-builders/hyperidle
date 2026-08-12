@@ -329,3 +329,74 @@ the code moves.
 **Decision: keep building, with a changed strategy.** Not another manual correction — make the drift
 mechanically checkable, so a stale backlog fails verification the way an off-scale radius now does.
 Evaluation count resets.
+
+---
+
+# AZ7 review — evaluation 4 (post-adjudication)
+
+**Fresh independent reviewer, read-only. VERDICT: DONE. No blocking findings.**
+
+## The drift guard, assessed as code
+
+`tools/repo-gates/src/design-backlog-drift.ts` — 11 perturbations, none of them the builder's shape:
+
+| Perturbation | Result | Named the right thing? |
+|---|---|---|
+| Deleted the single UI-205 line | red | yes — `+ [chip] PartList.tsx line(s) 80` |
+| Changed one line number 482 → 483 | red | yes — printed both directions |
+| Swapped two adjacent chip items (order only) | red | counts only, no detail lines |
+| Added a fabricated site | red | yes |
+| Prose-only: totals footer 44 → 39 | red | counts only |
+| Added a **real** hand-rolled chip to `BlockRefEmbed.tsx` | red | yes — named the new site |
+| Changed the **generator** (`pill && fill` → `pill \|\| fill`) | red | yes — 46 → 77, listed new sites |
+| Changed the other generator (`render-backlog.mjs`) | red | counts only |
+| Deleted `migration-backlog.md` | red | yes — "does not exist" |
+| Removed `predicates.mjs` | red | yes — "generator script missing" |
+| Pointed the scan at a root with zero `.tsx` | red | yes — `HARD FAIL: zero tsx` propagates uncaught |
+
+Three further generator perturbations came back green — an independent confirmation of AC3, not a weakness:
+no production core-ui site uses those spellings, so removing them from the scanner changes nothing.
+`rg 'rounded-full'` over production `.tsx` returns exactly one hit, a `@lore` comment.
+
+Cheat-resistance: check mode never writes into the real tree (clean after ~15 runs); cannot pass by
+matching zero files (two independent nets); fails when the *generator* changes, not only the file;
+deletion of artifact or generator is named. Deterministic across three runs, Node 22/24/26, and two cwds —
+always 46 items, 1.3s. Pass/fail is a raw byte comparison, so no class of change escapes the verdict;
+the `(axis, file, line-list)` key is used only for the explanation. Correctly a build/verify script,
+not a vitest test. knip entry-point wiring matches its three siblings — the truth, not a suppression.
+
+## Acceptance criteria
+
+AC1 **PASS** — DESIGN.md §Closed Sets tables match code exactly (`Button.tsx:31`, `:37`; all six Input
+members and both status members exported from `index.ts`).
+AC2 PARTIAL per the founder-approved scope line — settled, remainder enumerated.
+AC3 **PASS** — zero production `rounded-full`; `radius-token-only` at severity 2 in the config
+`npm run lint` really uses (verified via `eslint --print-config`); 0 design errors across **442** `.tsx`
+files; browser scan of 8 page loads — **0 elements** over 10000px radius.
+AC4 founder-deferred to "meanings partly" — `Composer`, `RoleCombobox`, `SearchField` confirmed on
+`--surface-elevated`, measured live.
+AC5 **PASS** — five variable-held evasion shapes the builder never used, all caught (const chain, local
+const template literal, ternary branch, inline interpolation, `ARR.join(" ")`). `const c = R.pill` not
+caught — exactly the fourth exclusion DESIGN.md now documents, so code and doc agree. Zero false positives.
+AC6 **PASS** — 46 items; 59 control sites / 24 files + 44 chip sites / 22 files; all five round-3 sites
+present; **a fresh generator run reproduces the committed file byte-identically** (md5 unchanged).
+Scenario 1 PARTIAL per the approved scope line · Scenario 2 **PASS** · Scenario 3 PASS (settled round 3;
+this round's diff touches no app-rendering code).
+
+Regression sweep: `npm run verify` exit 0 with `design:backlog:check: … up to date (46 items)` in the log;
+`npm run test` 265 files / 2571 tests; icon-button e2e 2/2 (32×32 at 1440px, 44px at 768px); NB3-1/NB3-2
+sound — both rules run over all 442 `.tsx` files with no exception after the try/catch removal.
+
+## Non-blocking (round 4) — items 1-3 corrected before ship
+1. `AZ.md:37` named `npm run design:backlog-check`; the real script is `design:backlog:check`. **Fixed.**
+2. `AZ.md:37` said "two review rounds"; there were four. **Fixed.**
+3. `design-backlog-drift.ts:7` carried a bare WP id in prose. **Fixed** (`@lore`-tagged).
+4. The guard's message goes quiet when the difference is not site-level (ordering, prose, render-script
+   changes give counts without diff lines). Fail-closed, so it costs nothing today.
+5. `npm run verify` now hard-depends on scripts inside a per-work-package folder
+   (`.pipeline/work/AZ7/measurement/`). Loud and fail-closed if that folder is tidied, but an unusual home
+   for a permanent gate's generator — contrast `mock-inventory.ts` under `tools/`. Worth a later decision.
+6. The gate's reach is `layers/core-ui/` only, matching the backlog's declared scope — the honest boundary
+   of what it proves, not a defect.
+7. `no-local-status-builder` is a name-matching heuristic (pre-existing from AI4); AZ7's contribution was
+   wiring it at `error`. Noted so scenario 2's pass is not read as broader than it is.
